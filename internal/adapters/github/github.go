@@ -8,9 +8,9 @@ import (
 	"sync"
 	"time"
 
+	"github.com/S-Corkum/mcp-server/internal/adapters"
+	"github.com/S-Corkum/mcp-server/pkg/models"
 	"github.com/google/go-github/v45/github"
-	"github.com/username/mcp-server/internal/adapters"
-	"github.com/username/mcp-server/pkg/models"
 	"golang.org/x/oauth2"
 )
 

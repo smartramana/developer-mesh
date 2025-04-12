@@ -15,6 +15,29 @@ services:
       - MCP_DATABASE_DATABASE=mcp
       - MCP_CACHE_TYPE=redis
       - MCP_CACHE_ADDRESS=redis:6379
+      # GitHub configuration
+      - MCP_ENGINE_GITHUB_API_TOKEN=${GITHUB_API_TOKEN:-}
+      - MCP_ENGINE_GITHUB_WEBHOOK_SECRET=${GITHUB_WEBHOOK_SECRET:-}
+      # Harness configuration
+      - MCP_ENGINE_HARNESS_API_TOKEN=${HARNESS_API_TOKEN:-}
+      - MCP_ENGINE_HARNESS_ACCOUNT_ID=${HARNESS_ACCOUNT_ID:-}
+      - MCP_ENGINE_HARNESS_WEBHOOK_SECRET=${HARNESS_WEBHOOK_SECRET:-}
+      # SonarQube configuration
+      - MCP_ENGINE_SONARQUBE_BASE_URL=${SONARQUBE_URL:-}
+      - MCP_ENGINE_SONARQUBE_TOKEN=${SONARQUBE_TOKEN:-}
+      - MCP_ENGINE_SONARQUBE_WEBHOOK_SECRET=${SONARQUBE_WEBHOOK_SECRET:-}
+      # Artifactory configuration
+      - MCP_ENGINE_ARTIFACTORY_BASE_URL=${ARTIFACTORY_URL:-}
+      - MCP_ENGINE_ARTIFACTORY_USERNAME=${ARTIFACTORY_USERNAME:-}
+      - MCP_ENGINE_ARTIFACTORY_PASSWORD=${ARTIFACTORY_PASSWORD:-}
+      - MCP_ENGINE_ARTIFACTORY_API_KEY=${ARTIFACTORY_API_KEY:-}
+      - MCP_ENGINE_ARTIFACTORY_WEBHOOK_SECRET=${ARTIFACTORY_WEBHOOK_SECRET:-}
+      # Xray configuration
+      - MCP_ENGINE_XRAY_BASE_URL=${XRAY_URL:-}
+      - MCP_ENGINE_XRAY_USERNAME=${XRAY_USERNAME:-}
+      - MCP_ENGINE_XRAY_PASSWORD=${XRAY_PASSWORD:-}
+      - MCP_ENGINE_XRAY_API_KEY=${XRAY_API_KEY:-}
+      - MCP_ENGINE_XRAY_WEBHOOK_SECRET=${XRAY_WEBHOOK_SECRET:-}
     volumes:
       - ./configs:/app/configs
     depends_on:
@@ -27,6 +50,8 @@ services:
       timeout: 5s
       retries: 3
       start_period: 10s
+    networks:
+      - mcp-network
 
   postgres:
     image: postgres:15-alpine
@@ -38,9 +63,66 @@ services:
       - POSTGRES_DB=mcp
     volumes:
       - postgres-data:/var/lib/postgresql/data
+      - ./scripts/db/init.sql:/docker-entrypoint-initdb.d/init.sql
     restart: unless-stopped
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U postgres"]
       interval: 10s
       timeout: 5s
-      retries
+      retries: 3
+    networks:
+      - mcp-network
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis-data:/data
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+    networks:
+      - mcp-network
+
+  prometheus:
+    image: prom/prometheus:v2.44.0
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./configs/prometheus.yml:/etc/prometheus/prometheus.yml
+      - prometheus-data:/prometheus
+    restart: unless-stopped
+    networks:
+      - mcp-network
+
+  grafana:
+    image: grafana/grafana:10.0.0
+    ports:
+      - "3000:3000"
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=admin
+      - GF_USERS_ALLOW_SIGN_UP=false
+    volumes:
+      - grafana-data:/var/lib/grafana
+      - ./configs/grafana/provisioning:/etc/grafana/provisioning
+      - ./configs/grafana/dashboards:/var/lib/grafana/dashboards
+    restart: unless-stopped
+    depends_on:
+      - prometheus
+    networks:
+      - mcp-network
+
+volumes:
+  postgres-data:
+  redis-data:
+  prometheus-data:
+  grafana-data:
+
+networks:
+  mcp-network:
+    driver: bridge
+    

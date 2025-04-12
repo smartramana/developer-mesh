@@ -8,12 +8,12 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/username/mcp-server/internal/api"
-	"github.com/username/mcp-server/internal/cache"
-	"github.com/username/mcp-server/internal/config"
-	"github.com/username/mcp-server/internal/core"
-	"github.com/username/mcp-server/internal/database"
-	"github.com/username/mcp-server/internal/metrics"
+	"github.com/S-Corkum/mcp-server/internal/api"
+	"github.com/S-Corkum/mcp-server/internal/cache"
+	"github.com/S-Corkum/mcp-server/internal/config"
+	"github.com/S-Corkum/mcp-server/internal/core"
+	"github.com/S-Corkum/mcp-server/internal/database"
+	"github.com/S-Corkum/mcp-server/internal/metrics"
 )
 
 func main() {

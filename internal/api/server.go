@@ -4,8 +4,8 @@ import (
 	"context"
 	"net/http"
 
+	"github.com/S-Corkum/mcp-server/internal/core"
 	"github.com/gin-gonic/gin"
-	"github.com/username/mcp-server/internal/core"
 )
 
 // Server represents the API server
@@ -27,6 +27,11 @@ func NewServer(engine *core.Engine, cfg Config) *Server {
 
 	if cfg.RateLimit.Enabled {
 		router.Use(RateLimiter(cfg.RateLimit))
+	}
+
+	// Enable CORS if configured
+	if cfg.EnableCORS {
+		router.Use(CORSMiddleware())
 	}
 
 	server := &Server{
@@ -68,9 +73,50 @@ func (s *Server) setupRoutes() {
 		// Webhook endpoints
 		webhook := v1.Group("/webhook")
 		{
-			webhook.POST("/github", s.githubWebhookHandler)
-			webhook.POST("/harness", s.harnessWebhookHandler)
-			// More webhook endpoints...
+			// Setup GitHub webhook endpoint if enabled
+			if s.config.Webhooks.GitHub.Enabled {
+				path := "/github"
+				if s.config.Webhooks.GitHub.Path != "" {
+					path = s.config.Webhooks.GitHub.Path
+				}
+				webhook.POST(path, s.githubWebhookHandler)
+			}
+
+			// Setup Harness webhook endpoint if enabled
+			if s.config.Webhooks.Harness.Enabled {
+				path := "/harness"
+				if s.config.Webhooks.Harness.Path != "" {
+					path = s.config.Webhooks.Harness.Path
+				}
+				webhook.POST(path, s.harnessWebhookHandler)
+			}
+
+			// Setup SonarQube webhook endpoint if enabled
+			if s.config.Webhooks.SonarQube.Enabled {
+				path := "/sonarqube"
+				if s.config.Webhooks.SonarQube.Path != "" {
+					path = s.config.Webhooks.SonarQube.Path
+				}
+				webhook.POST(path, s.sonarqubeWebhookHandler)
+			}
+
+			// Setup Artifactory webhook endpoint if enabled
+			if s.config.Webhooks.Artifactory.Enabled {
+				path := "/artifactory"
+				if s.config.Webhooks.Artifactory.Path != "" {
+					path = s.config.Webhooks.Artifactory.Path
+				}
+				webhook.POST(path, s.artifactoryWebhookHandler)
+			}
+
+			// Setup Xray webhook endpoint if enabled
+			if s.config.Webhooks.Xray.Enabled {
+				path := "/xray"
+				if s.config.Webhooks.Xray.Path != "" {
+					path = s.config.Webhooks.Xray.Path
+				}
+				webhook.POST(path, s.xrayWebhookHandler)
+			}
 		}
 	}
 }
@@ -104,4 +150,23 @@ func (s *Server) healthHandler(c *gin.Context) {
 		"status":     "healthy",
 		"components": health,
 	})
+}
+
+// metricsHandler returns metrics for Prometheus
+func (s *Server) metricsHandler(c *gin.Context) {
+	// Implementation depends on metrics client
+	c.String(http.StatusOK, "# metrics data will be here")
+}
+
+// contextHandler creates a new MCP context
+func (s *Server) contextHandler(c *gin.Context) {
+	// To be implemented
+	c.JSON(http.StatusOK, gin.H{"message": "context created"})
+}
+
+// getContextHandler gets an MCP context by ID
+func (s *Server) getContextHandler(c *gin.Context) {
+	id := c.Param("id")
+	// To be implemented
+	c.JSON(http.StatusOK, gin.H{"id": id, "message": "context retrieved"})
 }
