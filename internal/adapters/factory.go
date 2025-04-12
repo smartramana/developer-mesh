@@ -1,9 +1,10 @@
-package adapters
+package factory
 
 import (
 	"context"
 	"fmt"
 
+	"github.com/S-Corkum/mcp-server/internal/adapters"
 	"github.com/S-Corkum/mcp-server/internal/adapters/artifactory"
 	"github.com/S-Corkum/mcp-server/internal/adapters/github"
 	"github.com/S-Corkum/mcp-server/internal/adapters/harness"
@@ -24,8 +25,8 @@ func NewFactory(configs map[string]interface{}) *Factory {
 }
 
 // CreateAdapter creates an adapter by type
-func (f *Factory) CreateAdapter(ctx context.Context, adapterType string) (Adapter, error) {
-	var adapter Adapter
+func (f *Factory) CreateAdapter(ctx context.Context, adapterType string) (adapters.Adapter, error) {
+	var adapter adapters.Adapter
 	var err error
 
 	// Get configuration for the adapter type
