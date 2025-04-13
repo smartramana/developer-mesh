@@ -10,13 +10,19 @@ type Config struct {
 	IdleTimeout   time.Duration `mapstructure:"idle_timeout"`
 	BasePath      string        `mapstructure:"base_path"`
 	EnableCORS    bool          `mapstructure:"enable_cors"`
+	CORSOrigins   []string      `mapstructure:"cors_origins"`  // List of allowed origins for CORS
 	LogRequests   bool          `mapstructure:"log_requests"`
+	TLSCertFile   string        `mapstructure:"tls_cert_file"` // Path to TLS certificate file
+	TLSKeyFile    string        `mapstructure:"tls_key_file"`  // Path to TLS key file
 
 	// Rate limiting configuration
 	RateLimit RateLimitConfig `mapstructure:"rate_limit"`
 
 	// Webhook configuration
 	Webhooks WebhookConfig `mapstructure:"webhooks"`
+	
+	// Authentication configuration
+	Auth AuthConfig `mapstructure:"auth"`
 }
 
 // RateLimitConfig holds rate limiting configuration
@@ -41,4 +47,14 @@ type WebhookProviderConfig struct {
 	Enabled bool   `mapstructure:"enabled"`
 	Secret  string `mapstructure:"secret"`
 	Path    string `mapstructure:"path"`
+}
+
+// AuthConfig holds authentication configuration
+type AuthConfig struct {
+	JWTSecret             string        `mapstructure:"jwt_secret"`
+	JWTExpiration         time.Duration `mapstructure:"jwt_expiration"`
+	APIKeys               []string      `mapstructure:"api_keys"`
+	RequireAuth           bool          `mapstructure:"require_auth"`
+	AllowedUserRoles      []string      `mapstructure:"allowed_user_roles"`
+	TokenRenewalThreshold time.Duration `mapstructure:"token_renewal_threshold"`
 }

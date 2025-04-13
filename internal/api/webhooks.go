@@ -2,12 +2,15 @@ package api
 
 import (
 	"bytes"
+	"context"
 	"crypto/hmac"
 	"crypto/sha256"
 	"encoding/hex"
 	"fmt"
 	"io"
+	"math/rand"
 	"net/http"
+	"time"
 
 	"github.com/S-Corkum/mcp-server/internal/adapters/artifactory"
 	"github.com/S-Corkum/mcp-server/internal/adapters/github"
@@ -209,11 +212,47 @@ func (s *Server) xrayWebhookHandler(c *gin.Context) {
 
 // readAndValidateWebhookPayload reads the request body and validates the webhook signature
 func (s *Server) readAndValidateWebhookPayload(c *gin.Context, signatureHeader, secret string) ([]byte, error) {
+	// Check for proper content type
+	contentType := c.GetHeader("Content-Type")
+	if contentType != "application/json" && contentType != "application/json; charset=utf-8" {
+		return nil, fmt.Errorf("invalid Content-Type: expected application/json, got %s", contentType)
+	}
+
 	// Limit the size of the request body
 	c.Request.Body = http.MaxBytesReader(c.Writer, c.Request.Body, webhookPayloadSizeLimit)
 
-	// Read the request body
-	payload, err := io.ReadAll(c.Request.Body)
+	// Read the request body with a timeout
+	bodyReader := io.LimitReader(c.Request.Body, webhookPayloadSizeLimit)
+	
+	// Create a context with timeout for reading
+	readCtx, cancel := context.WithTimeout(c.Request.Context(), 5*time.Second)
+	defer cancel()
+	
+	// Use a channel to handle the read operation with timeout
+	readCh := make(chan struct {
+		payload []byte
+		err     error
+	})
+	
+	go func() {
+		payload, err := io.ReadAll(bodyReader)
+		readCh <- struct {
+			payload []byte
+			err     error
+		}{payload, err}
+	}()
+	
+	// Wait for read completion or timeout
+	var payload []byte
+	var err error
+	select {
+	case <-readCtx.Done():
+		return nil, fmt.Errorf("request body read timed out")
+	case result := <-readCh:
+		payload = result.payload
+		err = result.err
+	}
+	
 	if err != nil {
 		return nil, fmt.Errorf("failed to read request body: %w", err)
 	}
@@ -221,9 +260,9 @@ func (s *Server) readAndValidateWebhookPayload(c *gin.Context, signatureHeader, 
 	// Reset the request body for potential future middleware
 	c.Request.Body = io.NopCloser(bytes.NewBuffer(payload))
 
-	// Skip signature validation if no secret is configured
+	// Require signature validation for all webhook endpoints
 	if secret == "" {
-		return payload, nil
+		return nil, fmt.Errorf("webhook secret not configured")
 	}
 
 	// Get the signature from the header
@@ -234,6 +273,8 @@ func (s *Server) readAndValidateWebhookPayload(c *gin.Context, signatureHeader, 
 
 	// Validate the signature
 	if err := validateSignature(payload, signature, secret, signatureHeader); err != nil {
+		// Delay response on invalid signature to prevent timing attacks
+		time.Sleep(time.Duration(50+rand.Intn(150)) * time.Millisecond)
 		return nil, fmt.Errorf("invalid signature: %w", err)
 	}
 
@@ -242,6 +283,10 @@ func (s *Server) readAndValidateWebhookPayload(c *gin.Context, signatureHeader, 
 
 // validateSignature validates the webhook signature
 func validateSignature(payload []byte, signature, secret, signatureHeader string) error {
+	if secret == "" {
+		return fmt.Errorf("webhook secret is not configured")
+	}
+
 	// Different signature formats based on the service
 	switch signatureHeader {
 	case "X-Hub-Signature-256":
@@ -256,19 +301,41 @@ func validateSignature(payload []byte, signature, secret, signatureHeader string
 		mac.Write(payload)
 		expectedSignature := hex.EncodeToString(mac.Sum(nil))
 
-		// Compare signatures
+		// Use constant-time comparison to prevent timing attacks
 		if !hmac.Equal([]byte(signature), []byte(expectedSignature)) {
 			return fmt.Errorf("signature mismatch")
 		}
 
-	case "X-Harness-Signature", "X-SonarQube-Signature", "X-JFrog-Signature":
-		// Assume they use similar format to GitHub
+	case "X-Harness-Signature":
+		// Harness-specific signature validation
 		// Calculate expected signature
 		mac := hmac.New(sha256.New, []byte(secret))
 		mac.Write(payload)
 		expectedSignature := hex.EncodeToString(mac.Sum(nil))
 
-		// Compare signatures
+		// Use constant-time comparison to prevent timing attacks
+		if !hmac.Equal([]byte(signature), []byte(expectedSignature)) {
+			return fmt.Errorf("signature mismatch")
+		}
+
+	case "X-SonarQube-Signature":
+		// SonarQube-specific signature validation 
+		mac := hmac.New(sha256.New, []byte(secret))
+		mac.Write(payload)
+		expectedSignature := hex.EncodeToString(mac.Sum(nil))
+
+		// Use constant-time comparison to prevent timing attacks
+		if !hmac.Equal([]byte(signature), []byte(expectedSignature)) {
+			return fmt.Errorf("signature mismatch")
+		}
+
+	case "X-JFrog-Signature":
+		// JFrog-specific signature validation
+		mac := hmac.New(sha256.New, []byte(secret))
+		mac.Write(payload)
+		expectedSignature := hex.EncodeToString(mac.Sum(nil))
+
+		// Use constant-time comparison to prevent timing attacks
 		if !hmac.Equal([]byte(signature), []byte(expectedSignature)) {
 			return fmt.Errorf("signature mismatch")
 		}

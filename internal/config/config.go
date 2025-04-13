@@ -70,13 +70,23 @@ func setDefaults(v *viper.Viper) {
 	v.SetDefault("api.idle_timeout", 90*time.Second)
 	v.SetDefault("api.base_path", "/api/v1")
 	v.SetDefault("api.enable_cors", true)
+	v.SetDefault("api.cors_origins", []string{"http://localhost:3000"})
 	v.SetDefault("api.log_requests", true)
+	
+	// TLS defaults (empty means no TLS)
+	v.SetDefault("api.tls_cert_file", "")
+	v.SetDefault("api.tls_key_file", "")
 
 	// API rate limiting defaults
 	v.SetDefault("api.rate_limit.enabled", true)
 	v.SetDefault("api.rate_limit.limit", 100)
 	v.SetDefault("api.rate_limit.burst", 150)
 	v.SetDefault("api.rate_limit.expiration", 1*time.Hour)
+	
+	// Auth defaults
+	v.SetDefault("api.auth.require_auth", true)
+	v.SetDefault("api.auth.jwt_expiration", 24*time.Hour)
+	v.SetDefault("api.auth.token_renewal_threshold", 1*time.Hour)
 
 	// Database defaults
 	v.SetDefault("database.driver", "postgres")

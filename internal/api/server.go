@@ -31,8 +31,16 @@ func NewServer(engine *core.Engine, cfg Config) *Server {
 
 	// Enable CORS if configured
 	if cfg.EnableCORS {
-		router.Use(CORSMiddleware())
+		router.Use(CORSMiddleware(&cfg))
 	}
+	
+	// Initialize API keys from configuration
+	if cfg.Auth.APIKeys != nil {
+		InitAPIKeys(cfg.Auth.APIKeys)
+	}
+	
+	// Initialize JWT with secret from configuration
+	InitJWT(cfg.Auth.JWTSecret)
 
 	server := &Server{
 		router: router,
@@ -55,12 +63,16 @@ func NewServer(engine *core.Engine, cfg Config) *Server {
 
 // setupRoutes initializes all API routes
 func (s *Server) setupRoutes() {
-	// Health and metrics endpoints
+	// Public endpoints
 	s.router.GET("/health", s.healthHandler)
-	s.router.GET("/metrics", s.metricsHandler)
+	
+	// Metrics endpoints - add authentication
+	s.router.GET("/metrics", AuthMiddleware("api_key"), s.metricsHandler)
 
-	// API v1 routes
+	// API v1 routes - require authentication
 	v1 := s.router.Group("/api/v1")
+	v1.Use(AuthMiddleware("jwt")) // Require JWT auth for all API endpoints
+	
 	{
 		// MCP protocol endpoints
 		mcp := v1.Group("/mcp")
@@ -69,65 +81,77 @@ func (s *Server) setupRoutes() {
 			mcp.GET("/context/:id", s.getContextHandler)
 			// More MCP endpoints...
 		}
-
-		// Webhook endpoints
-		webhook := v1.Group("/webhook")
-		{
-			// Setup GitHub webhook endpoint if enabled
-			if s.config.Webhooks.GitHub.Enabled {
-				path := "/github"
-				if s.config.Webhooks.GitHub.Path != "" {
-					path = s.config.Webhooks.GitHub.Path
-				}
-				webhook.POST(path, s.githubWebhookHandler)
+	}
+	
+	// Webhook endpoints - each has its own authentication via secret validation
+	// These are kept separate from the main API endpoints
+	webhook := s.router.Group("/webhook")
+	{
+		// Setup GitHub webhook endpoint if enabled
+		if s.config.Webhooks.GitHub.Enabled {
+			path := "/github"
+			if s.config.Webhooks.GitHub.Path != "" {
+				path = s.config.Webhooks.GitHub.Path
 			}
+			webhook.POST(path, s.githubWebhookHandler)
+		}
 
-			// Setup Harness webhook endpoint if enabled
-			if s.config.Webhooks.Harness.Enabled {
-				path := "/harness"
-				if s.config.Webhooks.Harness.Path != "" {
-					path = s.config.Webhooks.Harness.Path
-				}
-				webhook.POST(path, s.harnessWebhookHandler)
+		// Setup Harness webhook endpoint if enabled
+		if s.config.Webhooks.Harness.Enabled {
+			path := "/harness"
+			if s.config.Webhooks.Harness.Path != "" {
+				path = s.config.Webhooks.Harness.Path
 			}
+			webhook.POST(path, s.harnessWebhookHandler)
+		}
 
-			// Setup SonarQube webhook endpoint if enabled
-			if s.config.Webhooks.SonarQube.Enabled {
-				path := "/sonarqube"
-				if s.config.Webhooks.SonarQube.Path != "" {
-					path = s.config.Webhooks.SonarQube.Path
-				}
-				webhook.POST(path, s.sonarqubeWebhookHandler)
+		// Setup SonarQube webhook endpoint if enabled
+		if s.config.Webhooks.SonarQube.Enabled {
+			path := "/sonarqube"
+			if s.config.Webhooks.SonarQube.Path != "" {
+				path = s.config.Webhooks.SonarQube.Path
 			}
+			webhook.POST(path, s.sonarqubeWebhookHandler)
+		}
 
-			// Setup Artifactory webhook endpoint if enabled
-			if s.config.Webhooks.Artifactory.Enabled {
-				path := "/artifactory"
-				if s.config.Webhooks.Artifactory.Path != "" {
-					path = s.config.Webhooks.Artifactory.Path
-				}
-				webhook.POST(path, s.artifactoryWebhookHandler)
+		// Setup Artifactory webhook endpoint if enabled
+		if s.config.Webhooks.Artifactory.Enabled {
+			path := "/artifactory"
+			if s.config.Webhooks.Artifactory.Path != "" {
+				path = s.config.Webhooks.Artifactory.Path
 			}
+			webhook.POST(path, s.artifactoryWebhookHandler)
+		}
 
-			// Setup Xray webhook endpoint if enabled
-			if s.config.Webhooks.Xray.Enabled {
-				path := "/xray"
-				if s.config.Webhooks.Xray.Path != "" {
-					path = s.config.Webhooks.Xray.Path
-				}
-				webhook.POST(path, s.xrayWebhookHandler)
+		// Setup Xray webhook endpoint if enabled
+		if s.config.Webhooks.Xray.Enabled {
+			path := "/xray"
+			if s.config.Webhooks.Xray.Path != "" {
+				path = s.config.Webhooks.Xray.Path
 			}
+			webhook.POST(path, s.xrayWebhookHandler)
 		}
 	}
 }
 
-// Start starts the API server
+// Start starts the API server, using TLS if configured
 func (s *Server) Start() error {
+	// Start with TLS if cert and key files are provided
+	if s.config.TLSCertFile != "" && s.config.TLSKeyFile != "" {
+		return s.server.ListenAndServeTLS(s.config.TLSCertFile, s.config.TLSKeyFile)
+	}
+	
+	// Otherwise start without TLS
 	return s.server.ListenAndServe()
 }
 
 // Shutdown gracefully shuts down the API server
 func (s *Server) Shutdown(ctx context.Context) error {
+	// Execute all registered shutdown hooks
+	for _, hook := range shutdownHooks {
+		hook()
+	}
+	
 	return s.server.Shutdown(ctx)
 }
 

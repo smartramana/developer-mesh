@@ -2,7 +2,11 @@ package main
 
 import (
 	"context"
+	"crypto/rand"
+	"fmt"
 	"log"
+	"math/big"
+	mathrand "math/rand"
 	"os"
 	"os/signal"
 	"syscall"
@@ -20,6 +24,9 @@ import (
 )
 
 func main() {
+	// Initialize secure random seed
+	initSecureRandom()
+	
 	// Setup context with cancellation
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
@@ -28,6 +35,11 @@ func main() {
 	cfg, err := config.Load()
 	if err != nil {
 		log.Fatalf("Failed to load configuration: %v", err)
+	}
+	
+	// Validate critical configuration
+	if err := validateConfiguration(cfg); err != nil {
+		log.Fatalf("Invalid configuration: %v", err)
 	}
 
 	// Initialize metrics
@@ -82,4 +94,57 @@ func main() {
 	}
 
 	log.Println("Server stopped gracefully")
+}
+
+// initSecureRandom initializes the math/rand package with a secure seed
+func initSecureRandom() {
+	// Generate a secure random seed using crypto/rand
+	max := big.NewInt(int64(1) << 62)
+	val, err := rand.Int(rand.Reader, max)
+	if err != nil {
+		// If we can't get a secure seed, use time as a fallback
+		log.Printf("Warning: unable to generate secure random seed: %v", err)
+		mathrand.Seed(time.Now().UnixNano())
+		return
+	}
+	
+	// Seed math/rand with the secure value
+	mathrand.Seed(val.Int64())
+	log.Println("Initialized secure random generator")
+}
+
+// validateConfiguration validates critical configuration settings
+func validateConfiguration(cfg *config.Config) error {
+	// Check database configuration
+	if cfg.Database.DSN == "" && (cfg.Database.Host == "" || cfg.Database.Port == 0 || cfg.Database.Database == "") {
+		return fmt.Errorf("invalid database configuration: DSN or host/port/database must be provided")
+	}
+	
+	// Validate API configuration
+	if cfg.API.ReadTimeout == 0 || cfg.API.WriteTimeout == 0 || cfg.API.IdleTimeout == 0 {
+		return fmt.Errorf("invalid API timeouts: must be greater than 0")
+	}
+	
+	// Check webhook secrets if webhooks are enabled
+	if cfg.API.Webhooks.GitHub.Enabled && cfg.API.Webhooks.GitHub.Secret == "" {
+		log.Println("Warning: GitHub webhooks enabled without a secret - consider adding a secret for security")
+	}
+	
+	if cfg.API.Webhooks.Harness.Enabled && cfg.API.Webhooks.Harness.Secret == "" {
+		log.Println("Warning: Harness webhooks enabled without a secret - consider adding a secret for security")
+	}
+	
+	if cfg.API.Webhooks.SonarQube.Enabled && cfg.API.Webhooks.SonarQube.Secret == "" {
+		log.Println("Warning: SonarQube webhooks enabled without a secret - consider adding a secret for security")
+	}
+	
+	if cfg.API.Webhooks.Artifactory.Enabled && cfg.API.Webhooks.Artifactory.Secret == "" {
+		log.Println("Warning: Artifactory webhooks enabled without a secret - consider adding a secret for security")
+	}
+	
+	if cfg.API.Webhooks.Xray.Enabled && cfg.API.Webhooks.Xray.Secret == "" {
+		log.Println("Warning: Xray webhooks enabled without a secret - consider adding a secret for security")
+	}
+	
+	return nil
 }
