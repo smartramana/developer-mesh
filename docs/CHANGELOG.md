@@ -1,5 +1,12 @@
 # Changelog
 
+## 2025-04-13: Update Go version to 1.24.2
+
+### Updates
+- Updated Go version from 1.22 to 1.24.2 in Dockerfile and Dockerfile.mockserver
+- Updated go.mod file to specify Go 1.24 and toolchain 1.24.2
+- Successfully built and tested the application with the new Go version
+
 ## 2025-04-13: Fix health check functionality and update quick start guide
 
 ### Bug Fixes
