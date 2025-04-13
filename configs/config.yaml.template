@@ -84,6 +84,11 @@ engine:
   concurrency_limit: 10
   event_timeout: 30s
   
+  # Security Settings
+  security:
+    safe_mode: true  # Enable safety checks for all operations
+    audit_logging: true  # Log all adapter operations for audit purposes
+  
   # Context Management
   context:
     default_max_tokens: 100000

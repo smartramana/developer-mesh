@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"strings"
 	"testing"
 	"time"
 
@@ -112,10 +113,79 @@ func TestAgentWithToolAndContext(t *testing.T) {
 		} else {
 			t.Logf("GitHub action result: %v", result)
 		}
+		
+		// Test safety restrictions - try to delete a repository (should be blocked)
+		t.Log("Testing safety restrictions - trying to delete a repository...")
+		deleteParams := map[string]interface{}{
+			"owner": "test-owner",
+			"repo":  "test-repo",
+		}
+		
+		_, err = mcpClient.ExecuteToolAction(ctx, contextID, "github", "delete_repository", deleteParams)
+		// This should fail with a safety restriction error
+		if err != nil {
+			t.Logf("Expected error when trying to delete repository: %v", err)
+			if !strings.Contains(err.Error(), "safety") && !strings.Contains(err.Error(), "restricted") {
+				t.Errorf("Expected safety restriction error, got: %v", err)
+			}
+		} else {
+			t.Errorf("Repository deletion should have been blocked by safety restrictions")
+		}
+		
+		// Test allowed operation - try to archive a repository (should be allowed)
+		t.Log("Testing allowed operation - trying to archive a repository...")
+		archiveParams := map[string]interface{}{
+			"owner": "test-owner",
+			"repo":  "test-repo",
+			"archived": true,
+		}
+		
+		_, err = mcpClient.ExecuteToolAction(ctx, contextID, "github", "archive_repository", archiveParams)
+		// The action might fail if GitHub isn't properly configured, but we should not get a safety restriction error
+		if err != nil && (strings.Contains(err.Error(), "safety") || strings.Contains(err.Error(), "restricted")) {
+			t.Errorf("Archive operation should be allowed but got safety restriction: %v", err)
+		} else {
+			t.Log("Archive operation was correctly allowed (actual GitHub error may be expected)")
+		}
 	} else {
 		t.Log("GitHub tool not available, skipping tool action test")
 	}
 
+	// Test Artifactory restrictions
+	t.Log("Testing Artifactory safety restrictions (read-only access)...")
+	
+	// Test allowed read operation
+	readParams := map[string]interface{}{
+		"repo": "test-repo",
+		"path": "test/artifact.jar",
+	}
+	
+	_, err = mcpClient.ExecuteToolAction(ctx, contextID, "artifactory", "get_artifact", readParams)
+	// The action might fail if Artifactory isn't properly configured, but we should not get a safety restriction error
+	if err != nil && (strings.Contains(err.Error(), "safety") || strings.Contains(err.Error(), "restricted")) {
+		t.Errorf("Read operation should be allowed but got safety restriction: %v", err)
+	} else {
+		t.Log("Read operation was correctly allowed (actual Artifactory error may be expected)")
+	}
+	
+	// Test restricted write operation
+	writeParams := map[string]interface{}{
+		"repo": "test-repo",
+		"path": "test/artifact.jar",
+		"content": "test content",
+	}
+	
+	_, err = mcpClient.ExecuteToolAction(ctx, contextID, "artifactory", "upload_artifact", writeParams)
+	// This should fail with a safety restriction error
+	if err != nil {
+		t.Logf("Expected error when trying to upload artifact: %v", err)
+		if !strings.Contains(err.Error(), "safety") && !strings.Contains(err.Error(), "restricted") {
+			t.Errorf("Expected safety restriction error, got: %v", err)
+		}
+	} else {
+		t.Errorf("Artifact upload should have been blocked by safety restrictions")
+	}
+	
 	// Step 5: Send an event
 	t.Log("Sending event...")
 	event := &mcp.Event{

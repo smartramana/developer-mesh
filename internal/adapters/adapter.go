@@ -2,7 +2,10 @@ package adapters
 
 import (
 	"context"
+	"strings"
 	"time"
+	
+	"github.com/S-Corkum/mcp-server/internal/safety"
 )
 
 // Adapter defines the interface for all external service adapters
@@ -21,6 +24,9 @@ type Adapter interface {
 	
 	// Subscribe registers a callback for a specific event type
 	Subscribe(eventType string, callback func(interface{})) error
+	
+	// IsSafeOperation determines if an operation is safe to perform
+	IsSafeOperation(operation string, params map[string]interface{}) (bool, error)
 
 	// Health returns the health status of the adapter
 	Health() string
@@ -33,6 +39,7 @@ type Adapter interface {
 type BaseAdapter struct {
 	RetryMax   int
 	RetryDelay time.Duration
+	SafeMode   bool // When true, enforces safety checks on all operations
 }
 
 // CallWithRetry executes a function with retry logic
@@ -64,4 +71,16 @@ func (b *BaseAdapter) isRetryable(err error) bool {
 	// This could check for network errors, rate limits, etc.
 	// In a production system, this would have more sophisticated logic
 	return true
+}
+
+// IsSafeOperation determines if an operation is safe to perform
+// This is a default implementation that can be overridden by specific adapters
+func (b *BaseAdapter) IsSafeOperation(operation string, params map[string]interface{}) (bool, error) {
+	// If safe mode is disabled, all operations are considered safe
+	if !b.SafeMode {
+		return true, nil
+	}
+	
+	// Use the default safety check
+	return safety.DefaultCheck(operation, params)
 }

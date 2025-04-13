@@ -136,7 +136,14 @@ The MCP Server implements a comprehensive security model:
    - Role-based access control for API endpoints
    - Tool-specific permissions
 
-3. **Data Protection**:
+3. **Safety Restrictions**:
+   - GitHub: Can archive repositories but cannot delete them
+   - Artifactory: Read-only access (no upload or delete capabilities)
+   - Harness: Cannot delete production feature flags or other critical resources
+   - Safety checks automatically block dangerous operations
+   - All operations are audited and logged
+
+4. **Data Protection**:
    - TLS encryption for all communications
    - Secure storage of credentials and secrets
 

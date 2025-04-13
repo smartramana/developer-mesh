@@ -381,8 +381,11 @@ All configuration options can be set using environment variables with the `MCP_`
 ### Tool API Endpoints
 
 - Execute Tool Action: `POST /api/v1/tools/:tool/actions/:action?context_id=:context_id`
+  (Note: Safety restrictions prevent dangerous operations like deleting repositories)
 - Query Tool Data: `POST /api/v1/tools/:tool/query?context_id=:context_id`
+  (Note: Read-only access for tools like Artifactory)
 - List Available Tools: `GET /api/v1/tools`
+- List Allowed Actions: `GET /api/v1/tools/:tool/actions`
 
 ### Webhook Endpoints
 

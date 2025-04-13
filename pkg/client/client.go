@@ -412,6 +412,9 @@ func (c *Client) SendEvent(ctx context.Context, event *mcp.Event) error {
 }
 
 // ExecuteToolAction executes an action on a tool adapter
+// Note: Safety restrictions apply - certain operations like repository deletion are blocked.
+// Artifactory operations are limited to read-only access.
+// Use ListTools() to see what operations are available for each tool.
 func (c *Client) ExecuteToolAction(ctx context.Context, contextID string, adapterName string, action string, params map[string]interface{}) (map[string]interface{}, error) {
 	url := fmt.Sprintf("%s/api/v1/devops/adapters/%s/action", c.baseURL, adapterName)
 	

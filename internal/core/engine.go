@@ -16,6 +16,7 @@ import (
 	"github.com/S-Corkum/mcp-server/internal/cache"
 	"github.com/S-Corkum/mcp-server/internal/database"
 	"github.com/S-Corkum/mcp-server/internal/metrics"
+	"github.com/S-Corkum/mcp-server/internal/safety"
 	"github.com/S-Corkum/mcp-server/pkg/mcp"
 )
 
@@ -510,12 +511,35 @@ func (e *Engine) GetAdapter(name string) (adapters.Adapter, error) {
 	return adapter, nil
 }
 
-// ExecuteAdapterAction executes an action on an adapter with context tracking
+// ExecuteAdapterAction executes an action on an adapter with context tracking and safety checks
 func (e *Engine) ExecuteAdapterAction(ctx context.Context, adapterName string, contextID string, action string, params map[string]interface{}) (interface{}, error) {
 	// Get the adapter
 	adapter, err := e.GetAdapter(adapterName)
 	if err != nil {
 		return nil, err
+	}
+	
+	// Get the appropriate safety checker for this adapter
+	safetyChecker := safety.GetCheckerForAdapter(adapterName)
+	
+	// Safety check - verify the operation is allowed
+	isSafe, err := safetyChecker.IsSafeOperation(action, params)
+	if err != nil {
+		return nil, fmt.Errorf("safety check failed: %w", err)
+	}
+	
+	if !isSafe {
+		return nil, fmt.Errorf("operation '%s' on adapter '%s' is restricted for safety reasons", action, adapterName)
+	}
+	
+	// Also run the adapter's internal safety check
+	isSafe, err = adapter.IsSafeOperation(action, params)
+	if err != nil {
+		return nil, fmt.Errorf("adapter safety check failed: %w", err)
+	}
+	
+	if !isSafe {
+		return nil, fmt.Errorf("operation '%s' on adapter '%s' is restricted by adapter safety policy", action, adapterName)
 	}
 	
 	// Execute the action
@@ -532,6 +556,9 @@ func (e *Engine) ExecuteAdapterAction(ctx context.Context, adapterName string, c
 			log.Printf("Warning: Failed to record operation in context: %v", err)
 		}
 	}
+	
+	// Log the successful execution of the action for audit purposes
+	log.Printf("Executed action '%s' on adapter '%s'", action, adapterName)
 	
 	return result, nil
 }
