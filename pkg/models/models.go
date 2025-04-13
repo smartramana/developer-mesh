@@ -202,24 +202,3 @@ type XrayWebhookEvent struct {
 	Timestamp string                 `json:"timestamp"`
 	Data      map[string]interface{} `json:"data"`
 }
-
-// SlackQuery defines parameters for querying Slack
-type SlackQuery struct {
-	Type      string `json:"type"`
-	ChannelID string `json:"channel_id"`
-	MessageTS string `json:"message_ts"`
-	UserID    string `json:"user_id"`
-}
-
-// Slack query types
-const (
-	SlackQueryTypeChannel = "channel"
-	SlackQueryTypeMessage = "message"
-	SlackQueryTypeUser    = "user"
-)
-
-// SlackMessage represents a message to be sent to Slack
-type SlackMessage struct {
-	Text   string        `json:"text"`
-	Blocks []interface{} `json:"blocks,omitempty"`
-}

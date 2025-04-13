@@ -31,12 +31,12 @@ func NewRedisCache(cfg RedisConfig) (*RedisCache, error) {
 		Password:     cfg.Password,
 		DB:           cfg.Database,
 		MaxRetries:   cfg.MaxRetries,
-		DialTimeout:  cfg.DialTimeout,
-		ReadTimeout:  cfg.ReadTimeout,
-		WriteTimeout: cfg.WriteTimeout,
+		DialTimeout:  time.Duration(cfg.DialTimeout) * time.Second,
+		ReadTimeout:  time.Duration(cfg.ReadTimeout) * time.Second,
+		WriteTimeout: time.Duration(cfg.WriteTimeout) * time.Second,
 		PoolSize:     cfg.PoolSize,
 		MinIdleConns: cfg.MinIdleConns,
-		PoolTimeout:  cfg.PoolTimeout,
+		PoolTimeout:  time.Duration(cfg.PoolTimeout) * time.Second,
 	})
 
 	// Test connection
@@ -74,4 +74,28 @@ func (c *RedisCache) Set(ctx context.Context, key string, value interface{}, ttl
 	}
 
 	return c.client.Set(ctx, key, data, ttl).Err()
+}
+
+// Delete removes a value from cache
+func (c *RedisCache) Delete(ctx context.Context, key string) error {
+	return c.client.Del(ctx, key).Err()
+}
+
+// Exists checks if a key exists in cache
+func (c *RedisCache) Exists(ctx context.Context, key string) (bool, error) {
+	result, err := c.client.Exists(ctx, key).Result()
+	if err != nil {
+		return false, err
+	}
+	return result > 0, nil
+}
+
+// Flush clears all values in cache
+func (c *RedisCache) Flush(ctx context.Context) error {
+	return c.client.FlushAll(ctx).Err()
+}
+
+// Close closes the Redis connection
+func (c *RedisCache) Close() error {
+	return c.client.Close()
 }
