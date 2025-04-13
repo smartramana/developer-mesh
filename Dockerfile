@@ -27,7 +27,7 @@ RUN CGO_ENABLED=0 GOOS=linux go build -v -a -installsuffix cgo -o mcp-server ./c
 FROM alpine:3.18
 
 # Install runtime dependencies
-RUN apk add --no-cache ca-certificates tzdata
+RUN apk add --no-cache ca-certificates tzdata curl bash
 
 # Set working directory
 WORKDIR /app
@@ -38,8 +38,11 @@ COPY --from=builder /app/mcp-server .
 # Copy config template
 COPY --from=builder /app/configs/config.yaml /app/configs/config.yaml
 
+# Copy scripts directory
+COPY scripts /app/scripts
+
 # Create config directory
-RUN mkdir -p /app/configs
+RUN mkdir -p /app/configs && chmod +x /app/scripts/health-check.sh
 
 # Expose port
 EXPOSE 8080

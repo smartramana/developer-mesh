@@ -82,6 +82,8 @@ engine:
     rate_limit_per_hour: 5000
     max_retries: 3
     retry_delay: 1s
+    mock_responses: ${GITHUB_MOCK_RESPONSES:-false}
+    mock_url: "${GITHUB_MOCK_URL:-http://mockserver:8081/mock-github}"
   
   # Harness Configuration
   harness:

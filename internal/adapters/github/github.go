@@ -307,8 +307,19 @@ func (a *Adapter) notifySubscribers(eventType string, event interface{}) {
 
 // Health returns the health status of the adapter
 func (a *Adapter) Health() string {
-	// If we're in mock mode, return healthy
+	// If we're in mock mode, return healthy without making API calls
 	if a.config.MockResponses {
+		// Make a test request to our mock server to confirm it's working
+		resp, err := a.httpClient.Get(a.config.MockURL + "/health")
+		if err != nil {
+			return fmt.Sprintf("unhealthy: mock server error: %v", err)
+		}
+		defer resp.Body.Close()
+		
+		if resp.StatusCode != http.StatusOK {
+			return fmt.Sprintf("unhealthy: mock server returned status %d", resp.StatusCode)
+		}
+		
 		return "healthy (mock)"
 	}
 	

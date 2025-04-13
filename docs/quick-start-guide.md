@@ -63,36 +63,45 @@ Log in with the default credentials:
 
 Navigate to the MCP Server dashboard to monitor the system.
 
-## Step 5: Test a Webhook
+## Step 5: Verify Webhook Endpoints
 
-You can simulate a webhook event using curl:
+The MCP Server provides webhook endpoints for various services. Currently, webhook requests require proper signature validation. To view the available webhook endpoints:
 
 ```bash
-# GitHub webhook example
-curl -X POST \
-  -H "Content-Type: application/json" \
-  -H "X-GitHub-Event: push" \
-  -H "X-Hub-Signature-256: sha256=mock-signature" \
-  -d '{"repository":{"full_name":"test/repo"},"ref":"refs/heads/main"}' \
-  http://localhost:8080/webhook/github
+# List the server's registered routes
+docker-compose exec mcp-server wget -qO- http://localhost:8080/health
 ```
 
-Check the MCP Server logs to see the event being processed:
+You should see that the following components are available:
+- GitHub
+- Harness
+- SonarQube
+- Artifactory
+- Xray
+
+To view the logs when webhooks are received:
 
 ```bash
 docker-compose logs mcp-server
 ```
+
+Note: When configuring actual webhooks from external services, make sure to use the correct webhook secrets as defined in your configuration.
 
 ## Step 6: Use the API
 
 You can interact with the MCP Server API:
 
 ```bash
-# Get a list of GitHub repositories (using mock data)
-curl -X GET \
-  -H "Authorization: ApiKey mock-api-key" \
-  http://localhost:8080/api/v1/github/repos
+# Check the server health status
+curl http://localhost:8080/health
+
+# Create an MCP context (requires JWT authentication)
+curl -X POST \
+  -H "Authorization: Bearer YOUR_JWT_TOKEN" \
+  http://localhost:8080/api/v1/mcp/context
 ```
+
+Note: The API endpoints require proper authentication with JWT tokens. For testing purposes, you can use the health endpoint to verify the server is running properly.
 
 ## Next Steps
 
@@ -115,7 +124,7 @@ make mockserver-build
 make local-dev-setup
 ```
 
-Before running `local-dev-setup`, ensure that your `configs/config.yaml` is properly configured with `localhost` as the host for database and cache connections:
+Before running `local-dev-setup`, ensure that your `configs/config.yaml` is properly configured:
 
 ```yaml
 # Database Configuration
@@ -128,6 +137,21 @@ database:
 cache:
   address: "localhost:6379"
   # ...
+
+# GitHub Configuration (ensure mock mode is enabled for local development)
+github:
+  api_token: "${GITHUB_API_TOKEN}"
+  webhook_secret: "${GITHUB_WEBHOOK_SECRET}"
+  # ... other settings ...
+  mock_responses: ${GITHUB_MOCK_RESPONSES:-false}
+  mock_url: "${GITHUB_MOCK_URL:-http://mockserver:8081/mock-github}"
+```
+
+Make sure to set the appropriate environment variables or update the config file directly:
+
+```bash
+export GITHUB_MOCK_RESPONSES=true
+export GITHUB_MOCK_URL=http://localhost:8081/mock-github
 ```
 
 ## Troubleshooting
