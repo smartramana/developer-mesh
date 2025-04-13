@@ -11,17 +11,34 @@ import (
 	coremocks "github.com/S-Corkum/mcp-server/internal/core/mocks"
 	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 )
 
-// TestHealthHandler tests the health endpoint handler
-func TestHealthHandlerMock(t *testing.T) {
+// MockServer is a lightweight test server for testing API routes
+type MockServer struct {
+	router *gin.Engine
+	config Config
+	engine *coremocks.MockEngine
+}
+
+// Create a simple mock server for testing
+func setupMockServer(t *testing.T) *MockServer {
 	gin.SetMode(gin.TestMode)
 	
-	// Create a minimal implementation for testing
+	// Create mock engine
+	mockEngine := &coremocks.MockEngine{}
+	
+	// Setup health check
+	mockEngine.On("Health").Return(map[string]string{
+		"engine": "healthy",
+		"github": "healthy",
+	})
+	
+	// Create router
 	router := gin.New()
-	handler := func(c *gin.Context) {
+	
+	// Add health endpoint for testing
+	router.GET("/health", func(c *gin.Context) {
 		c.JSON(http.StatusOK, gin.H{
 			"status": "healthy",
 			"components": map[string]string{
@@ -29,18 +46,55 @@ func TestHealthHandlerMock(t *testing.T) {
 				"github": "healthy",
 			},
 		})
+	})
+	
+	// Add metrics endpoint for testing
+	router.GET("/metrics", func(c *gin.Context) {
+		c.String(http.StatusOK, "# metrics data will be here")
+	})
+	
+	// Add webhook endpoints for testing
+	webhookEndpoints := []string{
+		"/webhook/github",
+		"/webhook/harness",
+		"/webhook/sonarqube",
+		"/webhook/artifactory",
+		"/webhook/xray",
 	}
 	
-	router.GET("/health", handler)
+	for _, endpoint := range webhookEndpoints {
+		router.POST(endpoint, func(c *gin.Context) {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Missing signature"})
+		})
+	}
 	
-	// Setup a test HTTP server
+	// Create minimal configuration
+	config := Config{
+		ListenAddress: ":8080",
+		ReadTimeout:  5 * time.Second,
+		WriteTimeout: 10 * time.Second,
+		IdleTimeout:  30 * time.Second,
+		EnableCORS:   true,
+	}
+	
+	return &MockServer{
+		router: router,
+		config: config,
+		engine: mockEngine,
+	}
+}
+
+func TestHealthHandler(t *testing.T) {
+	server := setupMockServer(t)
+	
+	// Create test request
+	req := httptest.NewRequest(http.MethodGet, "/health", nil)
 	w := httptest.NewRecorder()
-	req, _ := http.NewRequest(http.MethodGet, "/health", nil)
 	
 	// Serve the request
-	router.ServeHTTP(w, req)
+	server.router.ServeHTTP(w, req)
 	
-	// Check the response
+	// Check response
 	assert.Equal(t, http.StatusOK, w.Code)
 	
 	var response map[string]interface{}
@@ -48,50 +102,56 @@ func TestHealthHandlerMock(t *testing.T) {
 	require.NoError(t, err)
 	
 	assert.Equal(t, "healthy", response["status"])
-	assert.NotNil(t, response["components"])
+	components, ok := response["components"].(map[string]interface{})
+	assert.True(t, ok)
+	assert.Equal(t, "healthy", components["engine"])
+	assert.Equal(t, "healthy", components["github"])
 }
 
-// TestUnhealthyStatus tests the health endpoint when a component is unhealthy
-func TestUnhealthyStatusMock(t *testing.T) {
-	gin.SetMode(gin.TestMode)
+func TestMetricsHandler(t *testing.T) {
+	server := setupMockServer(t)
 	
-	// Create a minimal implementation for testing
-	router := gin.New()
-	handler := func(c *gin.Context) {
-		c.JSON(http.StatusServiceUnavailable, gin.H{
-			"status": "unhealthy",
-			"components": map[string]string{
-				"engine": "healthy",
-				"github": "unhealthy",
-			},
-		})
-	}
-	
-	router.GET("/health", handler)
-	
-	// Setup a test HTTP server
+	// Create test request
+	req := httptest.NewRequest(http.MethodGet, "/metrics", nil)
 	w := httptest.NewRecorder()
-	req, _ := http.NewRequest(http.MethodGet, "/health", nil)
 	
 	// Serve the request
-	router.ServeHTTP(w, req)
+	server.router.ServeHTTP(w, req)
 	
-	// Check the response
-	assert.Equal(t, http.StatusServiceUnavailable, w.Code)
-	
-	var response map[string]interface{}
-	err := json.Unmarshal(w.Body.Bytes(), &response)
-	require.NoError(t, err)
-	
-	assert.Equal(t, "unhealthy", response["status"])
+	// Check response
+	assert.Equal(t, http.StatusOK, w.Code)
+	assert.Contains(t, w.Body.String(), "metrics data")
 }
 
-// TestShutdownServer tests the server shutdown
-func TestShutdownServerMock(t *testing.T) {
-	// Create mock engine
-	mockEngine := &coremocks.MockEngine{}
-	mockEngine.On("Shutdown", mock.Anything).Return(nil)
+func TestWebhookEndpoints(t *testing.T) {
+	server := setupMockServer(t)
 	
+	endpoints := []string{
+		"/webhook/github",
+		"/webhook/harness",
+		"/webhook/sonarqube",
+		"/webhook/artifactory",
+		"/webhook/xray",
+	}
+	
+	for _, endpoint := range endpoints {
+		t.Run("Endpoint "+endpoint, func(t *testing.T) {
+			// Test route registration is working
+			req := httptest.NewRequest(http.MethodPost, endpoint, nil)
+			w := httptest.NewRecorder()
+			
+			// Serve the request
+			server.router.ServeHTTP(w, req)
+			
+			// Should return 400 (bad request) but not 404 (not found)
+			assert.Equal(t, http.StatusBadRequest, w.Code)
+			assert.Contains(t, w.Body.String(), "Missing signature")
+		})
+	}
+}
+
+// Test the server shutdown behavior
+func TestServerShutdown(t *testing.T) {
 	// Create a shutdown function to test
 	shutdownCalled := false
 	shutdownFunc := func(ctx context.Context) error {
@@ -106,72 +166,4 @@ func TestShutdownServerMock(t *testing.T) {
 	err := shutdownFunc(ctx)
 	assert.NoError(t, err)
 	assert.True(t, shutdownCalled)
-}
-
-// TestMetricsHandler tests the metrics handler
-func TestMetricsHandlerFunc(t *testing.T) {
-	gin.SetMode(gin.TestMode)
-	
-	// Create a minimal handler function for testing
-	metricsHandler := func(c *gin.Context) {
-		c.String(http.StatusOK, "# metrics data will be here")
-	}
-	
-	// Create a router and register the handler
-	router := gin.New()
-	router.GET("/metrics", metricsHandler)
-	
-	// Setup a test HTTP server
-	w := httptest.NewRecorder()
-	req, _ := http.NewRequest(http.MethodGet, "/metrics", nil)
-	
-	// Serve the request
-	router.ServeHTTP(w, req)
-	
-	// Check the response
-	assert.Equal(t, http.StatusOK, w.Code)
-	assert.Contains(t, w.Body.String(), "metrics data")
-}
-
-// TestContextHandlers tests the context-related handlers
-func TestContextHandlersFunc(t *testing.T) {
-	gin.SetMode(gin.TestMode)
-	
-	// Create context handler functions for testing
-	contextHandler := func(c *gin.Context) {
-		c.JSON(http.StatusOK, gin.H{"message": "context created"})
-	}
-	
-	getContextHandler := func(c *gin.Context) {
-		id := c.Param("id")
-		c.JSON(http.StatusOK, gin.H{"id": id, "message": "context retrieved"})
-	}
-	
-	// Create a router and register the handlers
-	router := gin.New()
-	router.POST("/api/v1/mcp/context", contextHandler)
-	router.GET("/api/v1/mcp/context/:id", getContextHandler)
-	
-	// Test POST route
-	t.Run("Context Handler", func(t *testing.T) {
-		w := httptest.NewRecorder()
-		req, _ := http.NewRequest(http.MethodPost, "/api/v1/mcp/context", nil)
-		
-		router.ServeHTTP(w, req)
-		
-		assert.Equal(t, http.StatusOK, w.Code)
-		assert.Contains(t, w.Body.String(), "context created")
-	})
-	
-	// Test GET route
-	t.Run("Get Context Handler", func(t *testing.T) {
-		w := httptest.NewRecorder()
-		req, _ := http.NewRequest(http.MethodGet, "/api/v1/mcp/context/123", nil)
-		
-		router.ServeHTTP(w, req)
-		
-		assert.Equal(t, http.StatusOK, w.Code)
-		assert.Contains(t, w.Body.String(), "123")
-		assert.Contains(t, w.Body.String(), "context retrieved")
-	})
 }

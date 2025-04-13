@@ -1,143 +1,159 @@
 package database
 
 import (
+	"context"
+	"errors"
 	"testing"
 
+	"github.com/DATA-DOG/go-sqlmock"
+	"github.com/jmoiron/sqlx"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
-func TestConfigToDSN(t *testing.T) {
-	// Test with DSN already provided
-	t.Run("DSN Provided", func(t *testing.T) {
-		cfg := Config{
-			DSN: "postgres://user:pass@host:5432/dbname?sslmode=disable",
-		}
-		
-		dsn, err := configToDSN(cfg)
-		require.NoError(t, err)
-		assert.Equal(t, cfg.DSN, dsn)
-	})
-	
-	// Skip the component parts test as it's causing issues with string conversion
-	t.Run("Missing Components", func(t *testing.T) {
-		cfg := Config{
-			Driver: "postgres",
-			Host:   "localhost",
-			// Missing port, username, password, database
-		}
-		
-		_, err := configToDSN(cfg)
-		require.Error(t, err)
-	})
-	
-	// Test with unsupported driver
-	t.Run("Unsupported Driver", func(t *testing.T) {
-		cfg := Config{
-			Driver:   "unsupported",
-			Host:     "localhost",
-			Port:     5432,
-			Username: "testuser",
-			Password: "testpass",
-			Database: "testdb",
-		}
-		
-		_, err := configToDSN(cfg)
-		require.Error(t, err)
-	})
+func setupMockDB(t *testing.T) (*Database, sqlmock.Sqlmock) {
+	// Create a new SQL mock
+	mockDB, mock, err := sqlmock.New(sqlmock.MonitorPingsOption(true))
+	require.NoError(t, err)
+
+	// Create a sqlx DB
+	sqlxDB := sqlx.NewDb(mockDB, "sqlmock")
+
+	// Create a database instance with the mock
+	db := &Database{
+		db:         sqlxDB,
+		config:     Config{},
+		statements: make(map[string]*sqlx.Stmt),
+	}
+
+	return db, mock
 }
 
-func TestConfigValidation(t *testing.T) {
-	t.Run("Valid Config", func(t *testing.T) {
-		cfg := Config{
-			Driver:   "postgres",
-			Host:     "localhost",
-			Port:     5432,
-			Username: "testuser",
-			Password: "testpass",
-			Database: "testdb",
-		}
-		
-		err := validateConfig(cfg)
-		assert.NoError(t, err)
-	})
-	
-	t.Run("Valid Config with DSN", func(t *testing.T) {
-		cfg := Config{
-			DSN: "postgres://user:pass@host:5432/dbname",
-		}
-		
-		err := validateConfig(cfg)
-		assert.NoError(t, err)
-	})
-	
+func TestNewDatabase(t *testing.T) {
 	t.Run("Invalid Driver", func(t *testing.T) {
-		cfg := Config{
-			Driver:   "",
-			Host:     "localhost",
-			Port:     5432,
-			Username: "testuser",
-			Password: "testpass",
-			Database: "testdb",
+		ctx := context.Background()
+		config := Config{
+			Driver: "invalid-driver",
+			DSN:    "invalid-dsn",
 		}
-		
-		err := validateConfig(cfg)
+
+		db, err := NewDatabase(ctx, config)
 		assert.Error(t, err)
-	})
-	
-	t.Run("Missing Host", func(t *testing.T) {
-		cfg := Config{
-			Driver:   "postgres",
-			Port:     5432,
-			Username: "testuser",
-			Password: "testpass",
-			Database: "testdb",
-		}
-		
-		err := validateConfig(cfg)
-		assert.Error(t, err)
+		assert.Nil(t, db)
 	})
 }
 
-// Mock implementation of configToDSN and validateConfig functions if they don't exist in the actual code
-func configToDSN(cfg Config) (string, error) {
-	// If DSN is provided, use it directly
-	if cfg.DSN != "" {
-		return cfg.DSN, nil
-	}
-	
-	// Validate required fields
-	if cfg.Host == "" || cfg.Port == 0 || cfg.Database == "" {
-		return "", assert.AnError
-	}
-	
-	// Generate DSN based on driver
-	switch cfg.Driver {
-	case "postgres":
-		sslMode := cfg.SSLMode
-		if sslMode == "" {
-			sslMode = "disable"
-		}
-		return "postgres://" + cfg.Username + ":" + cfg.Password + "@" + cfg.Host + ":5432/" + cfg.Database + "?sslmode=" + sslMode, nil
-	default:
-		return "", assert.AnError
-	}
+func TestTransaction(t *testing.T) {
+	db, mock := setupMockDB(t)
+	defer db.Close()
+
+	t.Run("Successful Transaction", func(t *testing.T) {
+		mock.ExpectBegin()
+		mock.ExpectExec("UPDATE mcp\\.events").WillReturnResult(sqlmock.NewResult(1, 1))
+		mock.ExpectCommit()
+
+		err := db.Transaction(context.Background(), func(tx *sqlx.Tx) error {
+			_, err := tx.Exec("UPDATE mcp.events SET processed = true WHERE id = 1")
+			return err
+		})
+		assert.NoError(t, err)
+	})
+
+	t.Run("Transaction Error", func(t *testing.T) {
+		mock.ExpectBegin()
+		mock.ExpectExec("UPDATE mcp\\.events").WillReturnError(errors.New("database error"))
+		mock.ExpectRollback()
+
+		err := db.Transaction(context.Background(), func(tx *sqlx.Tx) error {
+			_, err := tx.Exec("UPDATE mcp.events SET processed = true WHERE id = 1")
+			return err
+		})
+		assert.Error(t, err)
+		assert.Equal(t, "database error", err.Error())
+	})
+
+	t.Run("Begin Transaction Error", func(t *testing.T) {
+		mock.ExpectBegin().WillReturnError(errors.New("begin transaction error"))
+
+		err := db.Transaction(context.Background(), func(tx *sqlx.Tx) error {
+			return nil
+		})
+		assert.Error(t, err)
+		assert.Equal(t, "begin transaction error", err.Error())
+	})
+
+	t.Run("Transaction Panic", func(t *testing.T) {
+		mock.ExpectBegin()
+		mock.ExpectRollback()
+
+		assert.Panics(t, func() {
+			_ = db.Transaction(context.Background(), func(tx *sqlx.Tx) error {
+				panic("transaction panic")
+			})
+		})
+	})
 }
 
-func validateConfig(cfg Config) error {
-	// If DSN is provided, we don't need other fields
-	if cfg.DSN != "" {
-		return nil
+func TestPrepareErrorHandling(t *testing.T) {
+	// Create a new SQL mock
+	mockDB, mock, err := sqlmock.New()
+	require.NoError(t, err)
+
+	// Create a sqlx DB
+	sqlxDB := sqlx.NewDb(mockDB, "sqlmock")
+
+	// Set up with an intentionally mismatched statement
+	mock.ExpectPrepare("NOT-MATCHING-SQL")
+
+	// Create a database instance with the mock
+	db := &Database{
+		db:         sqlxDB,
+		config:     Config{},
+		statements: make(map[string]*sqlx.Stmt),
 	}
+
+	// This should fail with a regexp mismatch error
+	err = db.prepareStatements(context.Background())
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "could not match")
+}
+
+func TestClose(t *testing.T) {
+	db, mock := setupMockDB(t)
 	
-	// Otherwise, check required fields
-	if cfg.Driver == "" {
-		return assert.AnError
+	// Expect close
+	mock.ExpectClose()
+	
+	err := db.Close()
+	assert.NoError(t, err)
+}
+
+func TestPing(t *testing.T) {
+	// Create a custom mock for ping test
+	mockDB, mock, err := sqlmock.New(sqlmock.MonitorPingsOption(true))
+	require.NoError(t, err)
+	sqlxDB := sqlx.NewDb(mockDB, "sqlmock")
+	
+	db := &Database{
+		db:         sqlxDB,
+		config:     Config{},
+		statements: make(map[string]*sqlx.Stmt),
 	}
-	
-	if cfg.Host == "" {
-		return assert.AnError
-	}
-	
-	return nil
+	defer db.Close()
+
+	t.Run("Successful Ping", func(t *testing.T) {
+		mock.ExpectPing()
+		
+		err := db.Ping()
+		assert.NoError(t, err)
+	})
+
+	t.Run("Ping Error", func(t *testing.T) {
+		pingErr := errors.New("ping error")
+		mock.ExpectPing().WillReturnError(pingErr)
+		
+		err := db.Ping()
+		assert.Error(t, err)
+		assert.Equal(t, "ping error", err.Error())
+	})
 }

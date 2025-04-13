@@ -11,99 +11,113 @@ import (
 
 func TestRequestLogger(t *testing.T) {
 	gin.SetMode(gin.TestMode)
-	
-	// Setup router with middleware
+
 	router := gin.New()
 	router.Use(RequestLogger())
 	router.GET("/test", func(c *gin.Context) {
-		c.Status(http.StatusOK)
+		c.String(http.StatusOK, "test")
 	})
-	
-	// Create test request
+
+	// Create a test request
 	req := httptest.NewRequest(http.MethodGet, "/test", nil)
 	w := httptest.NewRecorder()
-	
-	// Process request
+
+	// Send the request
 	router.ServeHTTP(w, req)
-	
-	// Verify response
+
+	// Verify the response
 	assert.Equal(t, http.StatusOK, w.Code)
+	assert.Equal(t, "test", w.Body.String())
 }
 
 func TestMetricsMiddleware(t *testing.T) {
 	gin.SetMode(gin.TestMode)
-	
-	// Setup router with middleware
+
 	router := gin.New()
 	router.Use(MetricsMiddleware())
 	router.GET("/test", func(c *gin.Context) {
-		c.Status(http.StatusOK)
+		c.String(http.StatusOK, "test")
 	})
-	
-	// Create test request
+
+	// Create a test request
 	req := httptest.NewRequest(http.MethodGet, "/test", nil)
 	w := httptest.NewRecorder()
-	
-	// Process request
+
+	// Send the request
 	router.ServeHTTP(w, req)
-	
-	// Verify response
+
+	// Verify the response
 	assert.Equal(t, http.StatusOK, w.Code)
+	assert.Equal(t, "test", w.Body.String())
 }
 
-// This test might need adjusting based on the actual CORS implementation
 func TestCORSMiddleware(t *testing.T) {
-	// Skip this test as it needs specific CORS middleware implementation details
-	t.Skip("Skipping CORS test due to implementation differences")
+	gin.SetMode(gin.TestMode)
+
+	cfg := &Config{
+		CORSOrigins: []string{"http://example.com"},
+	}
+
+	router := gin.New()
+	router.Use(CORSMiddleware(cfg))
+	router.GET("/test", func(c *gin.Context) {
+		c.String(http.StatusOK, "test")
+	})
+
+	// Test preflight request
+	t.Run("Preflight Request", func(t *testing.T) {
+		req := httptest.NewRequest(http.MethodOptions, "/test", nil)
+		req.Header.Set("Origin", "http://example.com")
+		req.Header.Set("Access-Control-Request-Method", "GET")
+		w := httptest.NewRecorder()
+
+		router.ServeHTTP(w, req)
+
+		assert.Equal(t, http.StatusNoContent, w.Code)
+		assert.Equal(t, "http://example.com", w.Header().Get("Access-Control-Allow-Origin"))
+		assert.Contains(t, w.Header().Get("Access-Control-Allow-Methods"), "GET")
+	})
+
+	// Test normal request with CORS
+	t.Run("Normal Request", func(t *testing.T) {
+		req := httptest.NewRequest(http.MethodGet, "/test", nil)
+		req.Header.Set("Origin", "http://example.com")
+		w := httptest.NewRecorder()
+
+		router.ServeHTTP(w, req)
+
+		assert.Equal(t, http.StatusOK, w.Code)
+		assert.Equal(t, "http://example.com", w.Header().Get("Access-Control-Allow-Origin"))
+	})
+
+	// Test request with disallowed origin
+	t.Run("Disallowed Origin", func(t *testing.T) {
+		req := httptest.NewRequest(http.MethodGet, "/test", nil)
+		req.Header.Set("Origin", "http://evil.com")
+		w := httptest.NewRecorder()
+
+		router.ServeHTTP(w, req)
+
+		assert.Equal(t, http.StatusOK, w.Code)
+		assert.Empty(t, w.Header().Get("Access-Control-Allow-Origin"))
+	})
 }
 
-// Simplified rate limiter test with reduced scope
-func TestRateLimiterSimple(t *testing.T) {
+func TestBasicRouting(t *testing.T) {
 	gin.SetMode(gin.TestMode)
-	
-	// Setup router with middleware - using a simple handler without the actual rate limiting
-	router := gin.New()
-	router.Use(func(c *gin.Context) {
-		// Simple pass-through middleware for testing
-		c.Next()
-	})
-	router.GET("/test", func(c *gin.Context) {
-		c.Status(http.StatusOK)
-	})
-	
-	// Create a single test request
-	req := httptest.NewRequest(http.MethodGet, "/test", nil)
-	req.Header.Set("X-Real-IP", "192.168.1.1")
-	w := httptest.NewRecorder()
-	
-	// Process request
-	router.ServeHTTP(w, req)
-	
-	// Verify response
-	assert.Equal(t, http.StatusOK, w.Code)
-}
 
-// Simple test for auth middleware - simplified without actual auth logic
-func TestBasicAuthMiddlewareSimple(t *testing.T) {
-	gin.SetMode(gin.TestMode)
-	
-	// Setup router with a simple test middleware
+	// Create auth middleware test route
 	router := gin.New()
-	router.Use(func(c *gin.Context) {
-		// Simple middleware that doesn't perform auth checks
-		c.Next()
-	})
 	router.GET("/test", func(c *gin.Context) {
-		c.Status(http.StatusOK)
+		// Test route that would normally be protected by auth
+		c.String(http.StatusOK, "success")
 	})
-	
-	// Create test request
+
+	// Make a request
 	req := httptest.NewRequest(http.MethodGet, "/test", nil)
 	w := httptest.NewRecorder()
-	
-	// Process request
 	router.ServeHTTP(w, req)
 	
-	// Verify response
+	// This isn't testing auth, just that the route works
 	assert.Equal(t, http.StatusOK, w.Code)
 }
