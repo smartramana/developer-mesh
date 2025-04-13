@@ -31,6 +31,8 @@ This will start:
 - Prometheus for metrics
 - Grafana for dashboards
 
+**Note**: The default configuration uses container hostnames like "postgres" and "redis" for database and cache connections. If you plan to run the server locally outside of Docker, you'll need to update these in `configs/config.yaml` to use "localhost" instead.
+
 ## Step 3: Verify Installation
 
 Check if all services are running:
@@ -109,8 +111,23 @@ If you want to develop with the MCP Server:
 make build
 make mockserver-build
 
-# Run both servers for local development
-make local-dev
+# Set up PostgreSQL and Redis in Docker, then run both servers for local development
+make local-dev-setup
+```
+
+Before running `local-dev-setup`, ensure that your `configs/config.yaml` is properly configured with `localhost` as the host for database and cache connections:
+
+```yaml
+# Database Configuration
+database:
+  host: "localhost"
+  # ...
+  dsn: "postgres://postgres:postgres@localhost:5432/mcp?sslmode=disable"
+
+# Cache Configuration
+cache:
+  address: "localhost:6379"
+  # ...
 ```
 
 ## Troubleshooting
