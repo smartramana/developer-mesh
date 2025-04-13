@@ -1,39 +1,14 @@
 package adapters
 
 import (
-	"context"
-	"strings"
 	"time"
 	
+	"github.com/S-Corkum/mcp-server/internal/interfaces"
 	"github.com/S-Corkum/mcp-server/internal/safety"
 )
 
-// Adapter defines the interface for all external service adapters
-type Adapter interface {
-	// Initialize sets up the adapter with configuration
-	Initialize(ctx context.Context, config interface{}) error
-
-	// GetData retrieves data from the external service
-	GetData(ctx context.Context, query interface{}) (interface{}, error)
-	
-	// ExecuteAction executes an action with context awareness
-	ExecuteAction(ctx context.Context, contextID string, action string, params map[string]interface{}) (interface{}, error)
-	
-	// HandleWebhook processes webhook events from the external service
-	HandleWebhook(ctx context.Context, eventType string, payload []byte) error
-	
-	// Subscribe registers a callback for a specific event type
-	Subscribe(eventType string, callback func(interface{})) error
-	
-	// IsSafeOperation determines if an operation is safe to perform
-	IsSafeOperation(operation string, params map[string]interface{}) (bool, error)
-
-	// Health returns the health status of the adapter
-	Health() string
-
-	// Close gracefully shuts down the adapter
-	Close() error
-}
+// Ensure we're compatible with the interfaces package definition
+type Adapter = interfaces.Adapter
 
 // BaseAdapter provides common functionality for adapters
 type BaseAdapter struct {

@@ -6,18 +6,18 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/S-Corkum/mcp-server/internal/adapters"
+	"github.com/S-Corkum/mcp-server/internal/interfaces"
 	"github.com/S-Corkum/mcp-server/pkg/mcp"
 )
 
 // AdapterContextBridge connects adapters with the context management system
 type AdapterContextBridge struct {
-	contextManager *ContextManager
-	adapters       map[string]adapters.Adapter
+	contextManager interfaces.ContextManager
+	adapters       map[string]interfaces.Adapter
 }
 
 // NewAdapterContextBridge creates a new bridge
-func NewAdapterContextBridge(contextManager *ContextManager, adapters map[string]adapters.Adapter) *AdapterContextBridge {
+func NewAdapterContextBridge(contextManager interfaces.ContextManager, adapters map[string]interfaces.Adapter) *AdapterContextBridge {
 	return &AdapterContextBridge{
 		contextManager: contextManager,
 		adapters:       adapters,
@@ -226,8 +226,12 @@ func (b *AdapterContextBridge) HandleToolWebhook(ctx context.Context, tool strin
 	}
 
 	// Forward the webhook to the adapter
-	if err := adapter.(webhookHandler).HandleWebhook(ctx, eventType, payload); err != nil {
-		return fmt.Errorf("failed to handle webhook: %w", err)
+	if handler, ok := adapter.(interfaces.WebhookHandler); ok {
+		if err := handler.HandleWebhook(ctx, eventType, payload); err != nil {
+			return fmt.Errorf("failed to handle webhook: %w", err)
+		}
+	} else {
+		return fmt.Errorf("adapter does not support webhook handling")
 	}
 
 	// Record the webhook in relevant contexts
@@ -262,7 +266,4 @@ func (b *AdapterContextBridge) HandleToolWebhook(ctx context.Context, tool strin
 	return nil
 }
 
-// webhookHandler is an interface for adapters that can handle webhooks
-type webhookHandler interface {
-	HandleWebhook(ctx context.Context, eventType string, payload []byte) error
-}
+

@@ -5,14 +5,19 @@ import (
 	"errors"
 	"fmt"
 	"log"
+	"strings"
 	"sync"
 	"time"
 
 	"github.com/S-Corkum/mcp-server/internal/cache"
 	"github.com/S-Corkum/mcp-server/internal/database"
+	"github.com/S-Corkum/mcp-server/internal/interfaces"
 	"github.com/S-Corkum/mcp-server/pkg/mcp"
 	"github.com/google/uuid"
 )
+
+// Ensure ContextManager implements the interfaces.ContextManager interface
+var _ interfaces.ContextManager = (*ContextManager)(nil)
 
 // TruncationStrategy defines how to truncate contexts when they exceed max tokens
 type TruncationStrategy string

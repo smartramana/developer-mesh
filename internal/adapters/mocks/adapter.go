@@ -23,6 +23,18 @@ func (m *MockAdapter) GetData(ctx context.Context, query interface{}) (interface
 	return args.Get(0), args.Error(1)
 }
 
+// ExecuteAction mocks the ExecuteAction method
+func (m *MockAdapter) ExecuteAction(ctx context.Context, contextID string, action string, params map[string]interface{}) (interface{}, error) {
+	args := m.Called(ctx, contextID, action, params)
+	return args.Get(0), args.Error(1)
+}
+
+// IsSafeOperation mocks the IsSafeOperation method
+func (m *MockAdapter) IsSafeOperation(operation string, params map[string]interface{}) (bool, error) {
+	args := m.Called(operation, params)
+	return args.Bool(0), args.Error(1)
+}
+
 // Subscribe mocks the Subscribe method
 func (m *MockAdapter) Subscribe(eventType string, callback func(interface{})) error {
 	args := m.Called(eventType, callback)

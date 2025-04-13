@@ -6,18 +6,18 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/S-Corkum/mcp-server/internal/core"
+	"github.com/S-Corkum/mcp-server/internal/interfaces"
 	"github.com/S-Corkum/mcp-server/pkg/mcp"
 )
 
 // ContextAwareAdapter adds context management capabilities to adapters
 type ContextAwareAdapter struct {
-	contextManager *core.ContextManager
+	contextManager interfaces.ContextManager
 	adapterName    string
 }
 
 // NewContextAwareAdapter creates a new context-aware adapter wrapper
-func NewContextAwareAdapter(contextManager *core.ContextManager, adapterName string) *ContextAwareAdapter {
+func NewContextAwareAdapter(contextManager interfaces.ContextManager, adapterName string) *ContextAwareAdapter {
 	return &ContextAwareAdapter{
 		contextManager: contextManager,
 		adapterName:    adapterName,

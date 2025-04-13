@@ -364,3 +364,118 @@ func (a *Adapter) Close() error {
 	// Nothing specific to clean up for this adapter
 	return nil
 }
+
+// IsSafeOperation determines if an operation is safe to perform
+func (a *Adapter) IsSafeOperation(operation string, params map[string]interface{}) (bool, error) {
+	// Artifactory read operations are safe
+	safeOperations := map[string]bool{
+		"get_artifact":        true,
+		"get_repository_info": true,
+		"list_repositories":   true,
+		"search_artifacts":    true,
+	}
+	
+	// Check if operation is in the list of safe operations
+	if isSafe, exists := safeOperations[operation]; exists && isSafe {
+		return true, nil
+	}
+	
+	// By default, write operations are not safe
+	return false, nil
+}
+
+// ExecuteAction executes an action with context awareness
+func (a *Adapter) ExecuteAction(ctx context.Context, contextID string, action string, params map[string]interface{}) (interface{}, error) {
+	switch action {
+	case "get_artifact":
+		return a.getArtifact(ctx, params)
+	case "get_repository_info":
+		return a.getRepositoryInfo(ctx, params)
+	case "list_repositories":
+		return a.listRepositories(ctx, params)
+	case "search_artifacts":
+		return a.searchArtifacts(ctx, params)
+	default:
+		return nil, fmt.Errorf("unsupported action: %s", action)
+	}
+}
+
+// getArtifact gets an artifact from a repository
+func (a *Adapter) getArtifact(ctx context.Context, params map[string]interface{}) (interface{}, error) {
+	repoKey, ok := params["repo"].(string)
+	if !ok {
+		return nil, fmt.Errorf("missing repo parameter")
+	}
+	
+	path, ok := params["path"].(string)
+	if !ok {
+		return nil, fmt.Errorf("missing path parameter")
+	}
+	
+	data, err := a.DownloadArtifact(ctx, repoKey, path)
+	if err != nil {
+		return nil, err
+	}
+	
+	return map[string]interface{}{
+		"data": data,
+		"size": len(data),
+	}, nil
+}
+
+// getRepositoryInfo gets information about a repository
+func (a *Adapter) getRepositoryInfo(ctx context.Context, params map[string]interface{}) (interface{}, error) {
+	repoKey, ok := params["repo"].(string)
+	if !ok {
+		return nil, fmt.Errorf("missing repo parameter")
+	}
+	
+	query := models.ArtifactoryQuery{
+		Type:    models.ArtifactoryQueryTypeRepository,
+		RepoKey: repoKey,
+	}
+	
+	return a.GetData(ctx, query)
+}
+
+// listRepositories lists repositories
+func (a *Adapter) listRepositories(ctx context.Context, params map[string]interface{}) (interface{}, error) {
+	repoType := ""
+	if typeParam, ok := params["type"].(string); ok {
+		repoType = typeParam
+	}
+	
+	packageType := ""
+	if pkgTypeParam, ok := params["package_type"].(string); ok {
+		packageType = pkgTypeParam
+	}
+	
+	query := models.ArtifactoryQuery{
+		Type:        models.ArtifactoryQueryTypeRepository,
+		RepoType:    repoType,
+		PackageType: packageType,
+	}
+	
+	return a.GetData(ctx, query)
+}
+
+// searchArtifacts searches for artifacts
+func (a *Adapter) searchArtifacts(ctx context.Context, params map[string]interface{}) (interface{}, error) {
+	repoKey, ok := params["repo"].(string)
+	if !ok {
+		return nil, fmt.Errorf("missing repo parameter")
+	}
+	
+	path := ""
+	if pathParam, ok := params["path"].(string); ok {
+		path = pathParam
+	}
+	
+	query := models.ArtifactoryQuery{
+		Type:    models.ArtifactoryQueryTypeArtifact,
+		RepoKey: repoKey,
+		Path:    path,
+	}
+	
+	return a.GetData(ctx, query)
+}
