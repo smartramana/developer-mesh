@@ -1,0 +1,138 @@
+# MCP Server Configuration
+
+# API Server Configuration
+api:
+  listen_address: ":8080"
+  read_timeout: 30s
+  write_timeout: 30s
+  idle_timeout: 90s
+  base_path: "/api/v1"
+  enable_cors: true
+  log_requests: true
+  
+  # API rate limiting
+  rate_limit:
+    enabled: true
+    limit: 100
+    burst: 150
+    expiration: 1h
+  
+  # Webhook configuration
+  webhooks:
+    github:
+      enabled: true
+      secret: "mock-github-secret"
+      path: "/github"
+    harness:
+      enabled: true
+      secret: "mock-harness-secret"
+      path: "/harness"
+    sonarqube:
+      enabled: true
+      secret: "mock-sonarqube-secret"
+      path: "/sonarqube"
+    artifactory:
+      enabled: true
+      secret: "mock-artifactory-secret"
+      path: "/artifactory"
+    xray:
+      enabled: true
+      secret: "mock-xray-secret"
+      path: "/xray"
+
+# Database Configuration
+database:
+  driver: "postgres"
+  host: "localhost"
+  port: 5432
+  username: "postgres"
+  password: "postgres"
+  database: "mcp"
+  ssl_mode: "disable"
+  dsn: "postgres://postgres:postgres@localhost:5432/mcp?sslmode=disable"
+  max_open_conns: 25
+  max_idle_conns: 5
+  conn_max_lifetime: 5m
+
+# Cache Configuration
+cache:
+  type: "redis"
+  address: "localhost:6379"
+  password: ""
+  database: 0
+  max_retries: 3
+  dial_timeout: 5
+  read_timeout: 3
+  write_timeout: 3
+  pool_size: 10
+  min_idle_conns: 2
+  pool_timeout: 4
+
+# Core Engine Configuration
+engine:
+  event_buffer_size: 1000
+  concurrency_limit: 5
+  event_timeout: 30s
+  
+  # GitHub Configuration - Use mock settings for local development
+  github:
+    api_token: "mock-github-token"
+    webhook_secret: "mock-github-secret"
+    request_timeout: 10s
+    rate_limit_per_hour: 5000
+    max_retries: 3
+    retry_delay: 1s
+    mock_responses: true
+  
+  # Harness Configuration - Use mock settings for local development
+  harness:
+    api_token: "mock-harness-token"
+    account_id: "mock-harness-account"
+    webhook_secret: "mock-harness-secret"
+    base_url: "http://localhost:8081/mock-harness"
+    request_timeout: 10s
+    max_retries: 3
+    retry_delay: 1s
+    mock_responses: true
+  
+  # SonarQube Configuration - Use mock settings for local development
+  sonarqube:
+    base_url: "http://localhost:8081/mock-sonarqube"
+    token: "mock-sonarqube-token"
+    webhook_secret: "mock-sonarqube-secret"
+    request_timeout: 10s
+    max_retries: 3
+    retry_delay: 1s
+    mock_responses: true
+  
+  # Artifactory Configuration - Use mock settings for local development
+  artifactory:
+    base_url: "http://localhost:8081/mock-artifactory"
+    username: "mock-artifactory-user"
+    password: "mock-artifactory-password"
+    api_key: "mock-artifactory-api-key"
+    webhook_secret: "mock-artifactory-secret"
+    request_timeout: 10s
+    max_retries: 3
+    retry_delay: 1s
+    mock_responses: true
+  
+  # Xray Configuration - Use mock settings for local development
+  xray:
+    base_url: "http://localhost:8081/mock-xray"
+    username: "mock-xray-user"
+    password: "mock-xray-password"
+    api_key: "mock-xray-api-key"
+    webhook_secret: "mock-xray-secret"
+    request_timeout: 10s
+    max_retries: 3
+    retry_delay: 1s
+    mock_responses: true
+
+# Metrics Configuration
+metrics:
+  enabled: true
+  type: "prometheus"
+  endpoint: "localhost:9090"
+  push_gateway: ""
+  push_interval: 10s

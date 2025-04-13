@@ -22,6 +22,8 @@ type Config struct {
 	RateLimitPerHour int           `mapstructure:"rate_limit_per_hour"`
 	MaxRetries       int           `mapstructure:"max_retries"`
 	RetryDelay       time.Duration `mapstructure:"retry_delay"`
+	MockResponses    bool          `mapstructure:"mock_responses"`
+	MockURL          string        `mapstructure:"mock_url"`
 }
 
 // Adapter implements the GitHub integration
@@ -36,18 +38,37 @@ type Adapter struct {
 
 // NewAdapter creates a new GitHub adapter
 func NewAdapter(cfg Config) (*Adapter, error) {
-	// Create OAuth2 client for GitHub authentication
-	ctx := context.Background()
-	ts := oauth2.StaticTokenSource(
-		&oauth2.Token{AccessToken: cfg.APIToken},
-	)
-	httpClient := oauth2.NewClient(ctx, ts)
+	var client *github.Client
+	var httpClient *http.Client
+	
+	if cfg.MockResponses {
+		// Use a standard HTTP client for mock mode
+		httpClient = &http.Client{
+			Timeout: cfg.RequestTimeout,
+		}
+		// If mock URL is not specified, use a default localhost URL
+		if cfg.MockURL == "" {
+			cfg.MockURL = "http://localhost:8081/mock-github"
+		}
+		// Create a client with a custom base URL for mocking
+		client = github.NewClient(httpClient)
+		
+		// Log that we're using mock mode
+		fmt.Println("GitHub adapter running in mock mode with URL:", cfg.MockURL)
+	} else {
+		// Create OAuth2 client for GitHub authentication
+		ctx := context.Background()
+		ts := oauth2.StaticTokenSource(
+			&oauth2.Token{AccessToken: cfg.APIToken},
+		)
+		httpClient = oauth2.NewClient(ctx, ts)
 
-	// Configure timeouts and rate limiting
-	httpClient.Timeout = cfg.RequestTimeout
+		// Configure timeouts and rate limiting
+		httpClient.Timeout = cfg.RequestTimeout
 
-	// Create GitHub client
-	client := github.NewClient(httpClient)
+		// Create GitHub client
+		client = github.NewClient(httpClient)
+	}
 
 	adapter := &Adapter{
 		client:      client,
@@ -78,6 +99,11 @@ func (a *Adapter) GetData(ctx context.Context, query interface{}) (interface{}, 
 
 	var result interface{}
 	var err error
+
+	// If we're in mock mode, return mock data
+	if a.config.MockResponses {
+		return a.getMockData(ctx, queryParams)
+	}
 
 	// Execute the query with retry logic
 	err = a.baseAdapter.CallWithRetry(func() error {
@@ -116,6 +142,72 @@ func (a *Adapter) GetData(ctx context.Context, query interface{}) (interface{}, 
 	}
 
 	return result, nil
+}
+
+// getMockData returns mock data for testing
+func (a *Adapter) getMockData(ctx context.Context, queryParams models.GitHubQuery) (interface{}, error) {
+	// Create mock data based on the query type
+	switch queryParams.Type {
+	case models.GitHubQueryTypeRepository:
+		// Create a mock repository
+		mockRepo := &github.Repository{
+			ID:            github.Int64(12345),
+			Name:          github.String(queryParams.Repo),
+			FullName:      github.String(fmt.Sprintf("%s/%s", queryParams.Owner, queryParams.Repo)),
+			Owner:         &github.User{Login: github.String(queryParams.Owner)},
+			HTMLURL:       github.String(fmt.Sprintf("https://github.com/%s/%s", queryParams.Owner, queryParams.Repo)),
+			Description:   github.String("This is a mock repository for testing"),
+			DefaultBranch: github.String("main"),
+			CreatedAt:     &github.Timestamp{Time: time.Now().Add(-24 * time.Hour)},
+			UpdatedAt:     &github.Timestamp{Time: time.Now()},
+		}
+		return mockRepo, nil
+
+	case models.GitHubQueryTypePullRequests:
+		// Create mock pull requests
+		mockPRs := []*github.PullRequest{
+			{
+				ID:     github.Int64(1001),
+				Number: github.Int(101),
+				Title:  github.String("Mock PR 1"),
+				State:  github.String(queryParams.State),
+				User:   &github.User{Login: github.String("mock-user")},
+				Body:   github.String("This is a mock pull request"),
+				Base: &github.PullRequestBranch{
+					Ref:  github.String("main"),
+					Repo: &github.Repository{Name: github.String(queryParams.Repo)},
+				},
+				Head: &github.PullRequestBranch{
+					Ref:  github.String("feature-branch"),
+					Repo: &github.Repository{Name: github.String(queryParams.Repo)},
+				},
+				CreatedAt: &github.Timestamp{Time: time.Now().Add(-48 * time.Hour)},
+				UpdatedAt: &github.Timestamp{Time: time.Now().Add(-24 * time.Hour)},
+			},
+			{
+				ID:     github.Int64(1002),
+				Number: github.Int(102),
+				Title:  github.String("Mock PR 2"),
+				State:  github.String(queryParams.State),
+				User:   &github.User{Login: github.String("another-user")},
+				Body:   github.String("Another mock pull request"),
+				Base: &github.PullRequestBranch{
+					Ref:  github.String("main"),
+					Repo: &github.Repository{Name: github.String(queryParams.Repo)},
+				},
+				Head: &github.PullRequestBranch{
+					Ref:  github.String("bug-fix"),
+					Repo: &github.Repository{Name: github.String(queryParams.Repo)},
+				},
+				CreatedAt: &github.Timestamp{Time: time.Now().Add(-24 * time.Hour)},
+				UpdatedAt: &github.Timestamp{Time: time.Now().Add(-2 * time.Hour)},
+			},
+		}
+		return mockPRs, nil
+
+	default:
+		return nil, fmt.Errorf("unsupported query type for mock data: %s", queryParams.Type)
+	}
 }
 
 // HandleWebhook processes GitHub webhook events
@@ -185,6 +277,11 @@ func (a *Adapter) notifySubscribers(eventType string, event interface{}) {
 
 // Health returns the health status of the adapter
 func (a *Adapter) Health() string {
+	// If we're in mock mode, return healthy
+	if a.config.MockResponses {
+		return "healthy (mock)"
+	}
+	
 	// Check GitHub API status by making a simple request
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()

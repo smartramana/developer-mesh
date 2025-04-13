@@ -15,37 +15,61 @@ services:
       - MCP_DATABASE_DATABASE=mcp
       - MCP_CACHE_TYPE=redis
       - MCP_CACHE_ADDRESS=redis:6379
-      # GitHub configuration
-      - MCP_ENGINE_GITHUB_API_TOKEN=${GITHUB_API_TOKEN:-}
-      - MCP_ENGINE_GITHUB_WEBHOOK_SECRET=${GITHUB_WEBHOOK_SECRET:-}
-      # Harness configuration
-      - MCP_ENGINE_HARNESS_API_TOKEN=${HARNESS_API_TOKEN:-}
-      - MCP_ENGINE_HARNESS_ACCOUNT_ID=${HARNESS_ACCOUNT_ID:-}
-      - MCP_ENGINE_HARNESS_WEBHOOK_SECRET=${HARNESS_WEBHOOK_SECRET:-}
-      # SonarQube configuration
-      - MCP_ENGINE_SONARQUBE_BASE_URL=${SONARQUBE_URL:-}
-      - MCP_ENGINE_SONARQUBE_TOKEN=${SONARQUBE_TOKEN:-}
-      - MCP_ENGINE_SONARQUBE_WEBHOOK_SECRET=${SONARQUBE_WEBHOOK_SECRET:-}
-      # Artifactory configuration
-      - MCP_ENGINE_ARTIFACTORY_BASE_URL=${ARTIFACTORY_URL:-}
-      - MCP_ENGINE_ARTIFACTORY_USERNAME=${ARTIFACTORY_USERNAME:-}
-      - MCP_ENGINE_ARTIFACTORY_PASSWORD=${ARTIFACTORY_PASSWORD:-}
-      - MCP_ENGINE_ARTIFACTORY_API_KEY=${ARTIFACTORY_API_KEY:-}
-      - MCP_ENGINE_ARTIFACTORY_WEBHOOK_SECRET=${ARTIFACTORY_WEBHOOK_SECRET:-}
-      # Xray configuration
-      - MCP_ENGINE_XRAY_BASE_URL=${XRAY_URL:-}
-      - MCP_ENGINE_XRAY_USERNAME=${XRAY_USERNAME:-}
-      - MCP_ENGINE_XRAY_PASSWORD=${XRAY_PASSWORD:-}
-      - MCP_ENGINE_XRAY_API_KEY=${XRAY_API_KEY:-}
-      - MCP_ENGINE_XRAY_WEBHOOK_SECRET=${XRAY_WEBHOOK_SECRET:-}
+      # GitHub configuration with mock mode enabled
+      - MCP_ENGINE_GITHUB_API_TOKEN=mock-github-token
+      - MCP_ENGINE_GITHUB_WEBHOOK_SECRET=mock-github-secret
+      - MCP_ENGINE_GITHUB_MOCK_RESPONSES=true
+      - MCP_ENGINE_GITHUB_MOCK_URL=http://mockserver:8081/mock-github
+      # Harness configuration with mock mode enabled
+      - MCP_ENGINE_HARNESS_API_TOKEN=mock-harness-token
+      - MCP_ENGINE_HARNESS_ACCOUNT_ID=mock-harness-account
+      - MCP_ENGINE_HARNESS_WEBHOOK_SECRET=mock-harness-secret
+      - MCP_ENGINE_HARNESS_MOCK_RESPONSES=true
+      - MCP_ENGINE_HARNESS_BASE_URL=http://mockserver:8081/mock-harness
+      # SonarQube configuration with mock mode enabled
+      - MCP_ENGINE_SONARQUBE_BASE_URL=http://mockserver:8081/mock-sonarqube
+      - MCP_ENGINE_SONARQUBE_TOKEN=mock-sonarqube-token
+      - MCP_ENGINE_SONARQUBE_WEBHOOK_SECRET=mock-sonarqube-secret
+      - MCP_ENGINE_SONARQUBE_MOCK_RESPONSES=true
+      # Artifactory configuration with mock mode enabled
+      - MCP_ENGINE_ARTIFACTORY_BASE_URL=http://mockserver:8081/mock-artifactory
+      - MCP_ENGINE_ARTIFACTORY_USERNAME=mock-artifactory-user
+      - MCP_ENGINE_ARTIFACTORY_PASSWORD=mock-artifactory-password
+      - MCP_ENGINE_ARTIFACTORY_API_KEY=mock-artifactory-api-key
+      - MCP_ENGINE_ARTIFACTORY_WEBHOOK_SECRET=mock-artifactory-secret
+      - MCP_ENGINE_ARTIFACTORY_MOCK_RESPONSES=true
+      # Xray configuration with mock mode enabled
+      - MCP_ENGINE_XRAY_BASE_URL=http://mockserver:8081/mock-xray
+      - MCP_ENGINE_XRAY_USERNAME=mock-xray-user
+      - MCP_ENGINE_XRAY_PASSWORD=mock-xray-password
+      - MCP_ENGINE_XRAY_API_KEY=mock-xray-api-key
+      - MCP_ENGINE_XRAY_WEBHOOK_SECRET=mock-xray-secret
+      - MCP_ENGINE_XRAY_MOCK_RESPONSES=true
     volumes:
       - ./configs:/app/configs
     depends_on:
       - postgres
       - redis
+      - mockserver
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "wget", "-qO-", "http://localhost:8080/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+    networks:
+      - mcp-network
+
+  mockserver:
+    build:
+      context: .
+      dockerfile: Dockerfile.mockserver
+    ports:
+      - "8081:8081"
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:8081/health"]
       interval: 30s
       timeout: 5s
       retries: 3

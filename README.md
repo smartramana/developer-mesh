@@ -90,6 +90,33 @@ This will start the MCP Server along with its dependencies (PostgreSQL, Redis, P
 
 ### Building and Running Locally
 
+#### Option 1: With Mock Services (Recommended for Local Development)
+
+The MCP Server can be run locally with mock services that simulate the external APIs:
+
+1. Run the setup script to build applications and start dependencies:
+
+```bash
+./scripts/local/setup.sh
+```
+
+2. Start the mock server and MCP server:
+
+```bash
+# Using make command
+make local-dev
+
+# Or manually
+./mockserver &  # Run in background
+./mcp-server    # Run in foreground
+```
+
+This setup uses mock implementations of all external services, so you don't need real API credentials.
+
+#### Option 2: With Real External Services
+
+If you want to connect to real external services:
+
 1. Install Go dependencies:
 
 ```bash
@@ -102,7 +129,9 @@ go mod download
 go build -o mcp-server ./cmd/server
 ```
 
-3. Run the server:
+3. Update your `.env` file with real credentials.
+
+4. Run the server:
 
 ```bash
 ./mcp-server
@@ -157,6 +186,25 @@ The MCP Server is built with a modular architecture:
 - **API Server**: Provides REST API and webhook endpoints
 - **Database**: Persists configuration and state
 - **Cache**: Improves performance for frequently accessed data
+- **Mock Server**: Simulates external services for local development
+
+### Mock Server
+
+For local development, a mock server is provided that simulates the following services:
+
+- **GitHub API**: Simulates repository, pull request, and other GitHub API endpoints
+- **Harness API**: Provides mock responses for CI/CD operations
+- **SonarQube API**: Simulates code quality analysis responses
+- **Artifactory API**: Simulates artifact repository operations
+- **Xray API**: Simulates security scanning responses
+
+The mock server runs on port 8081 and provides endpoints that match the real services but return predefined responses. This allows you to develop and test the MCP Server without requiring actual credentials or connections to external services.
+
+To use the mock server:
+
+1. Build it: `go build -o mockserver ./cmd/mockserver`
+2. Run it: `./mockserver`
+3. Configure the MCP Server to use mock mode in `configs/config.yaml`
 
 ### Performance Optimizations
 
