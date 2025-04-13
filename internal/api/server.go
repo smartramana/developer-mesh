@@ -158,22 +158,28 @@ func (s *Server) Shutdown(ctx context.Context) error {
 // healthHandler returns the health status of all components
 func (s *Server) healthHandler(c *gin.Context) {
 	health := s.engine.Health()
-
-	// If any component is unhealthy, return 503
+	
+	// Check if any component is unhealthy
+	allHealthy := true
 	for _, status := range health {
-		if status != "healthy" {
-			c.JSON(http.StatusServiceUnavailable, gin.H{
-				"status":     "unhealthy",
-				"components": health,
-			})
-			return
+		// Consider "healthy" or any status starting with "healthy" (like "healthy (mock)") as healthy
+		if status != "healthy" && len(status) < 7 || (len(status) >= 7 && status[:7] != "healthy") {
+			allHealthy = false
+			break
 		}
 	}
-
-	c.JSON(http.StatusOK, gin.H{
-		"status":     "healthy",
-		"components": health,
-	})
+	
+	if allHealthy {
+		c.JSON(http.StatusOK, gin.H{
+			"status":     "healthy",
+			"components": health,
+		})
+	} else {
+		c.JSON(http.StatusServiceUnavailable, gin.H{
+			"status":     "unhealthy",
+			"components": health,
+		})
+	}
 }
 
 // metricsHandler returns metrics for Prometheus
