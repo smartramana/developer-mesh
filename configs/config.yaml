@@ -1,4 +1,4 @@
-# MCP Server Configuration
+# MCP Server Configuration Template
 
 # API Server Configuration
 api:
@@ -21,23 +21,23 @@ api:
   webhooks:
     github:
       enabled: true
-      secret: "mock-github-secret"
+      secret: "${GITHUB_WEBHOOK_SECRET}"
       path: "/github"
     harness:
       enabled: true
-      secret: "mock-harness-secret"
+      secret: "${HARNESS_WEBHOOK_SECRET}"
       path: "/harness"
     sonarqube:
       enabled: true
-      secret: "mock-sonarqube-secret"
+      secret: "${SONARQUBE_WEBHOOK_SECRET}"
       path: "/sonarqube"
     artifactory:
       enabled: true
-      secret: "mock-artifactory-secret"
+      secret: "${ARTIFACTORY_WEBHOOK_SECRET}"
       path: "/artifactory"
     xray:
       enabled: true
-      secret: "mock-xray-secret"
+      secret: "${XRAY_WEBHOOK_SECRET}"
       path: "/xray"
 
 # Database Configuration
@@ -74,65 +74,60 @@ engine:
   concurrency_limit: 5
   event_timeout: 30s
   
-  # GitHub Configuration - Use mock settings for local development
+  # GitHub Configuration
   github:
-    api_token: "mock-github-token"
-    webhook_secret: "mock-github-secret"
+    api_token: "${GITHUB_API_TOKEN}"
+    webhook_secret: "${GITHUB_WEBHOOK_SECRET}"
     request_timeout: 10s
     rate_limit_per_hour: 5000
     max_retries: 3
     retry_delay: 1s
-    mock_responses: true
   
-  # Harness Configuration - Use mock settings for local development
+  # Harness Configuration
   harness:
-    api_token: "mock-harness-token"
-    account_id: "mock-harness-account"
-    webhook_secret: "mock-harness-secret"
-    base_url: "http://localhost:8081/mock-harness"
+    api_token: "${HARNESS_API_TOKEN}"
+    account_id: "${HARNESS_ACCOUNT_ID}"
+    webhook_secret: "${HARNESS_WEBHOOK_SECRET}"
+    base_url: "https://app.harness.io/gateway"
     request_timeout: 10s
     max_retries: 3
     retry_delay: 1s
-    mock_responses: true
   
-  # SonarQube Configuration - Use mock settings for local development
+  # SonarQube Configuration
   sonarqube:
-    base_url: "http://localhost:8081/mock-sonarqube"
-    token: "mock-sonarqube-token"
-    webhook_secret: "mock-sonarqube-secret"
+    base_url: "${SONARQUBE_URL}"
+    token: "${SONARQUBE_TOKEN}"
+    webhook_secret: "${SONARQUBE_WEBHOOK_SECRET}"
     request_timeout: 10s
     max_retries: 3
     retry_delay: 1s
-    mock_responses: true
   
-  # Artifactory Configuration - Use mock settings for local development
+  # Artifactory Configuration
   artifactory:
-    base_url: "http://localhost:8081/mock-artifactory"
-    username: "mock-artifactory-user"
-    password: "mock-artifactory-password"
-    api_key: "mock-artifactory-api-key"
-    webhook_secret: "mock-artifactory-secret"
+    base_url: "${ARTIFACTORY_URL}"
+    username: "${ARTIFACTORY_USERNAME}"
+    password: "${ARTIFACTORY_PASSWORD}"
+    api_key: "${ARTIFACTORY_API_KEY}"
+    webhook_secret: "${ARTIFACTORY_WEBHOOK_SECRET}"
     request_timeout: 10s
     max_retries: 3
     retry_delay: 1s
-    mock_responses: true
   
-  # Xray Configuration - Use mock settings for local development
+  # Xray Configuration
   xray:
-    base_url: "http://localhost:8081/mock-xray"
-    username: "mock-xray-user"
-    password: "mock-xray-password"
-    api_key: "mock-xray-api-key"
-    webhook_secret: "mock-xray-secret"
+    base_url: "${XRAY_URL}"
+    username: "${XRAY_USERNAME}"
+    password: "${XRAY_PASSWORD}"
+    api_key: "${XRAY_API_KEY}"
+    webhook_secret: "${XRAY_WEBHOOK_SECRET}"
     request_timeout: 10s
     max_retries: 3
     retry_delay: 1s
-    mock_responses: true
 
 # Metrics Configuration
 metrics:
   enabled: true
   type: "prometheus"
-  endpoint: "localhost:9090"
+  endpoint: "prometheus:9090"
   push_gateway: ""
   push_interval: 10s

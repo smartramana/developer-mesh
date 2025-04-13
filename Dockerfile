@@ -1,5 +1,5 @@
 # Build stage
-FROM golang:1.20-alpine AS builder
+FROM golang:1.22-alpine AS builder
 
 # Set working directory
 WORKDIR /app
@@ -36,7 +36,7 @@ WORKDIR /app
 COPY --from=builder /app/mcp-server .
 
 # Copy config template
-COPY --from=builder /app/configs/config.yaml.template /app/configs/config.yaml
+COPY --from=builder /app/configs/config.yaml /app/configs/config.yaml
 
 # Create config directory
 RUN mkdir -p /app/configs
