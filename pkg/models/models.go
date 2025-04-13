@@ -2,6 +2,85 @@ package models
 
 import "time"
 
+// Missing types used by adapters
+// Artifactory types
+type ArtifactoryRepositories struct {
+	Repositories []interface{} `json:"repositories"`
+}
+
+type ArtifactoryArtifact struct {
+	Path string `json:"path"`
+	Size int64  `json:"size"`
+	SHA1 string `json:"sha1"`
+}
+
+type ArtifactoryBuild struct {
+	Name   string `json:"name"`
+	Number string `json:"number"`
+	Status string `json:"status"`
+}
+
+type ArtifactoryStorage struct {
+	BinariesCount  int64 `json:"binariesCount"`
+	ArtifactsSize  int64 `json:"artifactsSize"`
+	Optimization   int64 `json:"optimization"`
+	ItemsCount     int64 `json:"itemsCount"`
+	StorageType    string `json:"storageType"`
+	RepositoryName string `json:"repositoryName"`
+}
+
+// SonarQube types
+type SonarQubeProject struct {
+	Key         string `json:"key"`
+	Name        string `json:"name"`
+	Description string `json:"description"`
+}
+
+type SonarQubeQualityGate struct {
+	ID     string `json:"id"`
+	Name   string `json:"name"`
+	Status string `json:"status"`
+}
+
+type SonarQubeIssues struct {
+	Issues []interface{} `json:"issues"`
+	Total  int           `json:"total"`
+}
+
+type SonarQubeMetrics struct {
+	Metrics []interface{} `json:"metrics"`
+}
+
+// Xray types
+type XraySummary struct {
+	Artifacts      int `json:"artifacts"`
+	Vulnerabilities int `json:"vulnerabilities"`
+	Licenses       int `json:"licenses"`
+}
+
+type XrayVulnerabilities struct {
+	Vulnerabilities []interface{} `json:"vulnerabilities"`
+	Total           int           `json:"total"`
+}
+
+type XrayLicenses struct {
+	Licenses []interface{} `json:"licenses"`
+	Total    int           `json:"total"`
+}
+
+type XrayScans struct {
+	Scans []interface{} `json:"scans"`
+	Total int           `json:"total"`
+}
+
+// Database query options
+type QueryOptions struct {
+	Limit  int    `json:"limit"`
+	Offset int    `json:"offset"`
+	SortBy string `json:"sortBy"`
+	Order  string `json:"order"`
+}
+
 // GitHubQuery defines parameters for querying GitHub
 type GitHubQuery struct {
 	Type  string `json:"type"`

@@ -53,7 +53,7 @@ func MetricsMiddleware() gin.HandlerFunc {
 		c.Next()
 
 		// Calculate latency
-		latency := time.Since(start)
+		_ = time.Since(start) // Using _ to ignore unused latency for now
 
 		// Record metrics (to be implemented based on metrics client)
 		// Example: metricsClient.RecordAPIRequest(c.Request.Method, c.Request.URL.Path, c.Writer.Status(), latency)

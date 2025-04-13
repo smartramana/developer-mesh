@@ -14,6 +14,9 @@ import (
 	"github.com/S-Corkum/mcp-server/internal/core"
 	"github.com/S-Corkum/mcp-server/internal/database"
 	"github.com/S-Corkum/mcp-server/internal/metrics"
+	
+	// Import PostgreSQL driver
+	_ "github.com/lib/pq"
 )
 
 func main() {

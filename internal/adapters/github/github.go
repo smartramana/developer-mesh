@@ -185,11 +185,12 @@ func (a *Adapter) notifySubscribers(eventType string, event interface{}) {
 
 // Health returns the health status of the adapter
 func (a *Adapter) Health() string {
-	// Check GitHub API status
+	// Check GitHub API status by making a simple request
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
-	_, _, err := a.client.Zen.Get(ctx)
+	// Just try to get rate limit info as a simple API test
+	_, _, err := a.client.RateLimits(ctx)
 	if err != nil {
 		return fmt.Sprintf("unhealthy: %v", err)
 	}
