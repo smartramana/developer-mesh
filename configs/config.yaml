@@ -43,13 +43,13 @@ api:
 # Database Configuration
 database:
   driver: "postgres"
-  host: "localhost"
+  host: "postgres"
   port: 5432
   username: "postgres"
   password: "postgres"
   database: "mcp"
   ssl_mode: "disable"
-  dsn: "postgres://postgres:postgres@localhost:5432/mcp?sslmode=disable"
+  dsn: "postgres://postgres:postgres@postgres:5432/mcp?sslmode=disable"
   max_open_conns: 25
   max_idle_conns: 5
   conn_max_lifetime: 5m
@@ -57,7 +57,7 @@ database:
 # Cache Configuration
 cache:
   type: "redis"
-  address: "localhost:6379"
+  address: "redis:6379"
   password: ""
   database: 0
   max_retries: 3
