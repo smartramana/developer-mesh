@@ -262,6 +262,104 @@ func (a *Adapter) createScansRequest(ctx context.Context, query models.XrayQuery
 	return http.NewRequestWithContext(ctx, "POST", url, strings.NewReader(string(bodyBytes)))
 }
 
+// ExecuteAction executes an action with context awareness
+func (a *Adapter) ExecuteAction(ctx context.Context, contextID string, action string, params map[string]interface{}) (interface{}, error) {
+	// JFrog Xray adapter supports various actions
+	switch action {
+	case "scan_artifact":
+		return a.scanArtifact(ctx, params)
+	case "get_vulnerabilities":
+		return a.getVulnerabilities(ctx, params)
+	case "get_license_violations":
+		return a.getLicenseViolations(ctx, params)
+	default:
+		return nil, fmt.Errorf("unsupported action: %s", action)
+	}
+}
+
+// scanArtifact initiates a scan of an artifact
+func (a *Adapter) scanArtifact(ctx context.Context, params map[string]interface{}) (interface{}, error) {
+	// Extract required parameters
+	artifactPath, ok := params["artifact_path"].(string)
+	if !ok {
+		return nil, fmt.Errorf("missing artifact_path parameter")
+	}
+	
+	// Create a query to reuse the existing GetData method
+	query := models.XrayQuery{
+		Type: models.XrayQueryTypeScans,
+		ArtifactPath: artifactPath,
+	}
+	
+	// Add optional parameters if present
+	if buildName, ok := params["build_name"].(string); ok {
+		query.BuildName = buildName
+	}
+	
+	if buildNumber, ok := params["build_number"].(string); ok {
+		query.BuildNumber = buildNumber
+	}
+	
+	// Use the existing GetData method to fetch scan results
+	return a.GetData(ctx, query)
+}
+
+// getVulnerabilities gets vulnerability information for an artifact
+func (a *Adapter) getVulnerabilities(ctx context.Context, params map[string]interface{}) (interface{}, error) {
+	// Extract parameters
+	var query models.XrayQuery
+	query.Type = models.XrayQueryTypeVulnerabilities
+	
+	// Check for CVE parameter
+	if cve, ok := params["cve"].(string); ok {
+		query.CVE = cve
+	}
+	
+	// Check for artifact_path parameter (for summary query)
+	if artifactPath, ok := params["artifact_path"].(string); ok {
+		// If artifact path is provided, use summary query instead
+		query.Type = models.XrayQueryTypeSummary
+		query.ArtifactPath = artifactPath
+	}
+	
+	// Use the existing GetData method to fetch vulnerability results
+	return a.GetData(ctx, query)
+}
+
+// getLicenseViolations gets license violation information
+func (a *Adapter) getLicenseViolations(ctx context.Context, params map[string]interface{}) (interface{}, error) {
+	// Extract parameters
+	var query models.XrayQuery
+	query.Type = models.XrayQueryTypeLicenses
+	
+	// Check for license_id parameter
+	if licenseID, ok := params["license_id"].(string); ok {
+		query.LicenseID = licenseID
+	}
+	
+	// Check for artifact_path parameter (for summary query)
+	if artifactPath, ok := params["artifact_path"].(string); ok {
+		// If artifact path is provided, use summary query instead
+		query.Type = models.XrayQueryTypeSummary
+		query.ArtifactPath = artifactPath
+	}
+	
+	// Use the existing GetData method to fetch license results
+	return a.GetData(ctx, query)
+}
+
+// IsSafeOperation determines if an operation is safe to perform
+func (a *Adapter) IsSafeOperation(operation string, params map[string]interface{}) (bool, error) {
+	// Xray operations are typically read-only and safe
+	safeOperations := map[string]bool{
+		"scan_artifact": true,
+		"get_vulnerabilities": true,
+		"get_license_violations": true,
+	}
+	
+	return safeOperations[operation], nil
+}
+
 // HandleWebhook processes JFrog Xray webhook events
 func (a *Adapter) HandleWebhook(ctx context.Context, eventType string, payload []byte) error {
 	// Verify webhook signature if secret is configured

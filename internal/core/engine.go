@@ -540,6 +540,23 @@ func (e *Engine) GetAdapter(name string) (interfaces.Adapter, error) {
 	return adapter, nil
 }
 
+// ProcessEvent adds an event to the engine's event queue
+func (e *Engine) ProcessEvent(event mcp.Event) {
+	// Set timestamp if not provided
+	if event.Timestamp.IsZero() {
+		event.Timestamp = time.Now()
+	}
+	
+	// Send to event queue
+	select {
+	case e.events <- event:
+		// Event successfully sent
+	default:
+		// Queue is full, log a warning
+		log.Printf("Warning: Event queue is full, dropping event: %s %s", event.Source, event.Type)
+	}
+}
+
 // ExecuteAdapterAction executes an action on an adapter with context tracking and safety checks
 func (e *Engine) ExecuteAdapterAction(ctx context.Context, adapterName string, contextID string, action string, params map[string]interface{}) (interface{}, error) {
 	// Get the adapter

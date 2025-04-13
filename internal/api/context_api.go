@@ -4,18 +4,18 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/S-Corkum/mcp-server/internal/core"
+	"github.com/S-Corkum/mcp-server/internal/interfaces"
 	"github.com/S-Corkum/mcp-server/pkg/mcp"
 	"github.com/gin-gonic/gin"
 )
 
 // ContextAPI handles the context management API endpoints
 type ContextAPI struct {
-	contextManager *core.ContextManager
+	contextManager interfaces.ContextManager
 }
 
 // NewContextAPI creates a new context API handler
-func NewContextAPI(contextManager *core.ContextManager) *ContextAPI {
+func NewContextAPI(contextManager interfaces.ContextManager) *ContextAPI {
 	return &ContextAPI{
 		contextManager: contextManager,
 	}

@@ -26,12 +26,16 @@ func NewServer(engine *core.Engine, cfg Config) *Server {
 	router.Use(MetricsMiddleware())
 
 	if cfg.RateLimit.Enabled {
-		router.Use(RateLimiter(cfg.RateLimit))
+		limiterConfig := NewRateLimiterConfigFromConfig(cfg.RateLimit)
+		router.Use(RateLimiter(limiterConfig))
 	}
 
 	// Enable CORS if configured
 	if cfg.EnableCORS {
-		router.Use(CORSMiddleware(&cfg))
+		corsConfig := CORSConfig{
+			AllowedOrigins: []string{"*"}, // Default to allow all origins in development
+		}
+		router.Use(CORSMiddleware(corsConfig))
 	}
 	
 	// Initialize API keys from configuration
@@ -78,8 +82,7 @@ func (s *Server) setupRoutes() {
 	contextAPI.RegisterRoutes(v1)
 	
 	// Tool integration API
-	toolAPI := NewToolAPI(nil)
-	toolAPI.SetServer(s)
+	toolAPI := NewToolAPI(s.engine.AdapterBridge)
 	toolAPI.RegisterRoutes(v1)
 	
 	// Webhook endpoints - each has its own authentication via secret validation

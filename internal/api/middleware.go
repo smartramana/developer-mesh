@@ -61,17 +61,33 @@ func MetricsMiddleware() gin.HandlerFunc {
 	}
 }
 
+// RateLimiterConfig defines configuration for rate limiting used by the middleware
+type RateLimiterConfig struct {
+	Limit      float64       // Number of requests allowed per second
+	Burst      int           // Number of requests that can be made in a burst
+	Expiration time.Duration // How long to keep track of rate limits for a user
+}
+
+// NewRateLimiterConfigFromConfig creates a middleware rate limiter config from the API config
+func NewRateLimiterConfigFromConfig(cfg RateLimitConfig) RateLimiterConfig {
+	return RateLimiterConfig{
+		Limit:      float64(cfg.Limit),
+		Burst:      cfg.Limit * cfg.BurstFactor,
+		Expiration: 1 * time.Hour, // Default expiration
+	}
+}
+
 // RateLimiterStorage provides storage for rate limiting
 type RateLimiterStorage struct {
 	limiters map[string]*rate.Limiter
 	expiry   map[string]time.Time
-	config   RateLimitConfig
+	config   RateLimiterConfig
 	mu       sync.RWMutex // Protect map access with mutex
 	done     chan struct{}
 }
 
 // NewRateLimiterStorage creates a new rate limiter storage
-func NewRateLimiterStorage(config RateLimitConfig) *RateLimiterStorage {
+func NewRateLimiterStorage(config RateLimiterConfig) *RateLimiterStorage {
 	storage := &RateLimiterStorage{
 		limiters: make(map[string]*rate.Limiter),
 		expiry:   make(map[string]time.Time),
@@ -154,7 +170,7 @@ func (s *RateLimiterStorage) Close() {
 }
 
 // RateLimiter middleware implements rate limiting
-func RateLimiter(config RateLimitConfig) gin.HandlerFunc {
+func RateLimiter(config RateLimiterConfig) gin.HandlerFunc {
 	storage := NewRateLimiterStorage(config)
 	
 	// Add to server shutdown hooks to properly close storage
@@ -198,14 +214,19 @@ func RateLimiter(config RateLimitConfig) gin.HandlerFunc {
 // List of functions to call during shutdown
 var shutdownHooks []func()
 
+// CORSConfig defines configuration for CORS middleware
+type CORSConfig struct {
+	AllowedOrigins []string `mapstructure:"allowed_origins"`
+}
+
 // CORSMiddleware enables Cross-Origin Resource Sharing
-func CORSMiddleware(corsConfig *Config) gin.HandlerFunc {
+func CORSMiddleware(corsConfig CORSConfig) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		// Get origin from request
 		origin := c.Request.Header.Get("Origin")
 		
 		// Use configuration if available, otherwise default to more restrictive list
-		allowedOrigins := corsConfig.CORSOrigins
+		allowedOrigins := corsConfig.AllowedOrigins
 		if len(allowedOrigins) == 0 {
 			// Fallback to default if not configured
 			allowedOrigins = []string{
@@ -304,9 +325,15 @@ var apiKeyStorage struct {
 }
 
 // InitAPIKeys initializes the API key storage
-func InitAPIKeys(keys []string) {
+func InitAPIKeys(keyMap map[string]string) {
 	apiKeyStorage.mu.Lock()
 	defer apiKeyStorage.mu.Unlock()
+	
+	// Extract keys from the map, ignoring the roles/descriptions
+	keys := make([]string, 0, len(keyMap))
+	for key := range keyMap {
+		keys = append(keys, key)
+	}
 	
 	apiKeyStorage.keys = make([]string, len(keys))
 	copy(apiKeyStorage.keys, keys)

@@ -6,17 +6,15 @@ import (
 	"crypto/hmac"
 	"crypto/sha256"
 	"encoding/hex"
+	"encoding/json"
 	"fmt"
 	"io"
+	"log"
 	"math/rand"
 	"net/http"
 	"time"
 
-	"github.com/S-Corkum/mcp-server/internal/adapters/artifactory"
-	"github.com/S-Corkum/mcp-server/internal/adapters/github"
-	"github.com/S-Corkum/mcp-server/internal/adapters/harness"
-	"github.com/S-Corkum/mcp-server/internal/adapters/sonarqube"
-	"github.com/S-Corkum/mcp-server/internal/adapters/xray"
+	"github.com/S-Corkum/mcp-server/internal/adapters"
 	"github.com/gin-gonic/gin"
 )
 
@@ -121,13 +119,7 @@ func (s *Server) harnessWebhookHandler(c *gin.Context) {
 	}
 
 	// Forward to adapter for processing
-	harnessAdapter, ok := adapter.(*harness.Adapter)
-	if !ok {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Invalid Harness adapter type"})
-		return
-	}
-
-	if err := harnessAdapter.HandleWebhook(c.Request.Context(), eventType, payload); err != nil {
+	if err := adapter.HandleWebhook(c.Request.Context(), eventType, payload); err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": fmt.Sprintf("Failed to process webhook: %v", err)})
 		return
 	}
@@ -155,13 +147,7 @@ func (s *Server) sonarqubeWebhookHandler(c *gin.Context) {
 	}
 
 	// Forward to adapter for processing
-	sonarqubeAdapter, ok := adapter.(*sonarqube.Adapter)
-	if !ok {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Invalid SonarQube adapter type"})
-		return
-	}
-
-	if err := sonarqubeAdapter.HandleWebhook(c.Request.Context(), "", payload); err != nil {
+	if err := adapter.HandleWebhook(c.Request.Context(), "", payload); err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": fmt.Sprintf("Failed to process webhook: %v", err)})
 		return
 	}
@@ -192,13 +178,7 @@ func (s *Server) artifactoryWebhookHandler(c *gin.Context) {
 	}
 
 	// Forward to adapter for processing
-	artifactoryAdapter, ok := adapter.(*artifactory.Adapter)
-	if !ok {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Invalid Artifactory adapter type"})
-		return
-	}
-
-	if err := artifactoryAdapter.HandleWebhook(c.Request.Context(), eventType, payload); err != nil {
+	if err := adapter.HandleWebhook(c.Request.Context(), eventType, payload); err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": fmt.Sprintf("Failed to process webhook: %v", err)})
 		return
 	}
@@ -229,13 +209,7 @@ func (s *Server) xrayWebhookHandler(c *gin.Context) {
 	}
 
 	// Forward to adapter for processing
-	xrayAdapter, ok := adapter.(*xray.Adapter)
-	if !ok {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Invalid Xray adapter type"})
-		return
-	}
-
-	if err := xrayAdapter.HandleWebhook(c.Request.Context(), eventType, payload); err != nil {
+	if err := adapter.HandleWebhook(c.Request.Context(), eventType, payload); err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": fmt.Sprintf("Failed to process webhook: %v", err)})
 		return
 	}

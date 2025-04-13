@@ -54,8 +54,8 @@ func TestMetricsMiddleware(t *testing.T) {
 func TestCORSMiddleware(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 
-	cfg := &Config{
-		CORSOrigins: []string{"http://example.com"},
+	cfg := CORSConfig{
+		AllowedOrigins: []string{"http://example.com"},
 	}
 
 	router := gin.New()

@@ -84,6 +84,108 @@ func (a *Adapter) testConnection(ctx context.Context) error {
 	return nil
 }
 
+// ExecuteAction executes an action with context awareness
+func (a *Adapter) ExecuteAction(ctx context.Context, contextID string, action string, params map[string]interface{}) (interface{}, error) {
+	// Handle different Harness actions
+	switch action {
+	case "get_pipeline_status":
+		return a.getPipelineStatus(ctx, params)
+	case "trigger_pipeline":
+		return a.triggerPipeline(ctx, params)
+	case "get_deployment_status":
+		return a.getDeploymentStatus(ctx, params)
+	default:
+		return nil, fmt.Errorf("unsupported action: %s", action)
+	}
+}
+
+// getPipelineStatus gets the status of a pipeline
+func (a *Adapter) getPipelineStatus(ctx context.Context, params map[string]interface{}) (interface{}, error) {
+	// Extract required parameters
+	pipelineID, ok := params["pipeline_id"].(string)
+	if !ok {
+		return nil, fmt.Errorf("missing pipeline_id parameter")
+	}
+	
+	// Implementation would call Harness API
+	// For now, we'll return a simple status
+	return map[string]interface{}{
+		"pipeline_id": pipelineID,
+		"status": "running",
+		"started_at": time.Now().Add(-10 * time.Minute).Unix(),
+	}, nil
+}
+
+// triggerPipeline triggers a pipeline execution
+func (a *Adapter) triggerPipeline(ctx context.Context, params map[string]interface{}) (interface{}, error) {
+	// Extract required parameters
+	pipelineID, ok := params["pipeline_id"].(string)
+	if !ok {
+		return nil, fmt.Errorf("missing pipeline_id parameter")
+	}
+	
+	// Extract optional parameters
+	variables := make(map[string]string)
+	if vars, ok := params["variables"].(map[string]interface{}); ok {
+		for k, v := range vars {
+			if strVal, ok := v.(string); ok {
+				variables[k] = strVal
+			}
+		}
+	}
+	
+	// Implementation would call Harness API
+	// For now, we'll return a simple execution ID
+	return map[string]interface{}{
+		"pipeline_id": pipelineID,
+		"execution_id": fmt.Sprintf("exec-%d", time.Now().UnixNano()),
+		"status": "started",
+		"started_at": time.Now().Unix(),
+	}, nil
+}
+
+// getDeploymentStatus gets the status of a deployment
+func (a *Adapter) getDeploymentStatus(ctx context.Context, params map[string]interface{}) (interface{}, error) {
+	// Extract required parameters
+	deploymentID, ok := params["deployment_id"].(string)
+	if !ok {
+		return nil, fmt.Errorf("missing deployment_id parameter")
+	}
+	
+	// Implementation would call Harness API
+	// For now, we'll return a simple status
+	return map[string]interface{}{
+		"deployment_id": deploymentID,
+		"status": "successful",
+		"completed_at": time.Now().Unix(),
+		"environment": "production",
+	}, nil
+}
+
+// IsSafeOperation determines if an operation is safe to perform
+func (a *Adapter) IsSafeOperation(operation string, params map[string]interface{}) (bool, error) {
+	// Define safety rules for Harness operations
+	switch operation {
+	case "get_pipeline_status", "get_deployment_status":
+		// Read-only operations are always safe
+		return true, nil
+	case "trigger_pipeline":
+		// Check if this is a production pipeline
+		if env, ok := params["environment"].(string); ok && env == "production" {
+			// Require additional confirmation for production deployments
+			if confirmed, ok := params["confirmed"].(bool); ok && confirmed {
+				return true, nil
+			}
+			return false, fmt.Errorf("production deployment requires confirmation")
+		}
+		// Non-production deployments are considered safe
+		return true, nil
+	default:
+		// Unknown operations are considered unsafe
+		return false, fmt.Errorf("unknown operation: %s", operation)
+	}
+}
+
 // GetData retrieves data from Harness
 func (a *Adapter) GetData(ctx context.Context, query interface{}) (interface{}, error) {
 	// Implementation would go here - simplified for brevity

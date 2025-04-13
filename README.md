@@ -40,6 +40,8 @@ The MCP Server provides a context management system that AI agents can leverage 
 
 This architecture allows agents to leverage Amazon Bedrock's wide variety of models while maintaining sophisticated context management capabilities and interacting with real-world tools.
 
+For a comprehensive list of everything an AI Agent can do with the MCP Server, see [AI Agent Capabilities](docs/agent-capabilities.md).
+
 ## Supported Model Providers via Amazon Bedrock
 
 When used with Amazon Bedrock, the MCP Server can help agents work with models from:

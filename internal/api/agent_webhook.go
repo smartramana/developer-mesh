@@ -75,7 +75,8 @@ func (s *Server) agentWebhookHandler(c *gin.Context) {
 		err = s.handleConversationCompleteEvent(c, event)
 	default:
 		// For unknown events, just log them
-		s.engine.events <- event
+		// Forward to engine's event handler
+		s.engine.ProcessEvent(event)
 		err = nil
 	}
 
@@ -150,8 +151,8 @@ func (s *Server) handleContextUpdateEvent(c *gin.Context, event mcp.Event) error
 
 // handleAgentStatusEvent processes an agent status event
 func (s *Server) handleAgentStatusEvent(c *gin.Context, event mcp.Event) error {
-	// Log agent status
-	s.engine.events <- event
+	// Process the agent status event through the engine
+	s.engine.ProcessEvent(event)
 	return nil
 }
 

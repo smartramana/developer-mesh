@@ -2,7 +2,7 @@
 
 ## Overview
 
-The MCP (Multi-Cloud Platform) Server is a centralized platform for integrating, monitoring, and managing DevOps tools across your organization. It provides a unified API and event system for various development tools and platforms, enabling you to connect different services and respond to events in real-time.
+MCP (Model Context Protocol) Server provides AI agents with both advanced context management capabilities and DevOps tool integrations. It serves two primary functions:
 
 ## Documentation Index
 

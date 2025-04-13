@@ -233,6 +233,97 @@ func (a *Adapter) buildQueryParams(query models.SonarQubeQuery) (string, string)
 	return apiPath, params.Encode()
 }
 
+// ExecuteAction executes an action with context awareness
+func (a *Adapter) ExecuteAction(ctx context.Context, contextID string, action string, params map[string]interface{}) (interface{}, error) {
+	// SonarQube typically provides read-only access through its API
+	// Most common actions are querying data rather than modifying it
+	switch action {
+	case "analyze_project":
+		return a.analyzeProject(ctx, params)
+	case "get_quality_gate":
+		return a.getQualityGate(ctx, params)
+	case "get_issues":
+		return a.getIssues(ctx, params)
+	default:
+		return nil, fmt.Errorf("unsupported action: %s", action)
+	}
+}
+
+// analyzeProject triggers or retrieves analysis for a project
+func (a *Adapter) analyzeProject(ctx context.Context, params map[string]interface{}) (interface{}, error) {
+	// Extract parameters
+	projectKey, ok := params["project_key"].(string)
+	if !ok {
+		return nil, fmt.Errorf("missing project_key parameter")
+	}
+	
+	// This would typically start an analysis via SonarQube API or check status
+	// For now, we'll just return mock data since SonarQube doesn't have a direct API for this
+	return map[string]interface{}{
+		"project_key": projectKey,
+		"status": "analysis_scheduled",
+		"timestamp": time.Now().Unix(),
+	}, nil
+}
+
+// getQualityGate gets quality gate status for a project
+func (a *Adapter) getQualityGate(ctx context.Context, params map[string]interface{}) (interface{}, error) {
+	// Extract parameters
+	projectKey, ok := params["project_key"].(string)
+	if !ok {
+		return nil, fmt.Errorf("missing project_key parameter")
+	}
+	
+	// Create the query for the existing GetData method
+	query := models.SonarQubeQuery{
+		Type: models.SonarQubeQueryTypeQualityGate,
+		ProjectKey: projectKey,
+	}
+	
+	// Reuse the GetData method
+	return a.GetData(ctx, query)
+}
+
+// getIssues gets issues for a project
+func (a *Adapter) getIssues(ctx context.Context, params map[string]interface{}) (interface{}, error) {
+	// Extract parameters
+	projectKey, ok := params["project_key"].(string)
+	if !ok {
+		return nil, fmt.Errorf("missing project_key parameter")
+	}
+	
+	// Create the query for the existing GetData method
+	query := models.SonarQubeQuery{
+		Type: models.SonarQubeQueryTypeIssues,
+		ProjectKey: projectKey,
+	}
+	
+	// Add optional parameters
+	if severity, ok := params["severity"].(string); ok {
+		query.Severity = severity
+	}
+	
+	if status, ok := params["status"].(string); ok {
+		query.Status = status
+	}
+	
+	// Reuse the GetData method
+	return a.GetData(ctx, query)
+}
+
+// IsSafeOperation determines if an operation is safe to perform
+func (a *Adapter) IsSafeOperation(operation string, params map[string]interface{}) (bool, error) {
+	// SonarQube operations are typically read-only and safe
+	// We'll allow these basic operations
+	safeOperations := map[string]bool{
+		"analyze_project": true,
+		"get_quality_gate": true,
+		"get_issues": true,
+	}
+	
+	return safeOperations[operation], nil
+}
+
 // HandleWebhook processes SonarQube webhook events
 func (a *Adapter) HandleWebhook(ctx context.Context, eventType string, payload []byte) error {
 	// Verify webhook signature if secret is configured
