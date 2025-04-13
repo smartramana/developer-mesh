@@ -36,15 +36,17 @@ type Config struct {
 
 // Engine is the core MCP engine
 type Engine struct {
-	config        Config
-	adapters      map[string]adapters.Adapter
-	events        chan mcp.Event
-	wg            sync.WaitGroup
-	ctx           context.Context
-	cancel        context.CancelFunc
-	db            *database.Database
-	cacheClient   cache.Cache
-	metricsClient metrics.Client
+	config         Config
+	adapters       map[string]adapters.Adapter
+	events         chan mcp.Event
+	wg             sync.WaitGroup
+	ctx            context.Context
+	cancel         context.CancelFunc
+	db             *database.Database
+	cacheClient    cache.Cache
+	metricsClient  metrics.Client
+	ContextManager *ContextManager
+	AdapterBridge  *AdapterContextBridge
 }
 
 // NewEngine creates a new MCP engine
@@ -62,11 +64,17 @@ func NewEngine(ctx context.Context, cfg Config, db *database.Database, cacheClie
 		metricsClient: metricsClient,
 	}
 
+	// Initialize Context Manager
+	engine.ContextManager = NewContextManager(db, cacheClient)
+
 	// Initialize adapters
 	if err := engine.initializeAdapters(); err != nil {
 		cancel()
 		return nil, err
 	}
+
+	// Initialize Adapter Bridge after both adapters and context manager are ready
+	engine.AdapterBridge = NewAdapterContextBridge(engine.ContextManager, engine.adapters)
 
 	// Start event processing
 	engine.startEventProcessors(cfg.ConcurrencyLimit)
@@ -500,4 +508,39 @@ func (e *Engine) GetAdapter(name string) (adapters.Adapter, error) {
 		return nil, fmt.Errorf("adapter not found: %s", name)
 	}
 	return adapter, nil
+}
+
+// ExecuteAdapterAction executes an action on an adapter with context tracking
+func (e *Engine) ExecuteAdapterAction(ctx context.Context, adapterName string, contextID string, action string, params map[string]interface{}) (interface{}, error) {
+	// Get the adapter
+	adapter, err := e.GetAdapter(adapterName)
+	if err != nil {
+		return nil, err
+	}
+	
+	// Execute the action
+	result, err := adapter.ExecuteAction(ctx, contextID, action, params)
+	if err != nil {
+		return nil, err
+	}
+	
+	// Record the operation in the context if a contextID is provided
+	if contextID != "" {
+		contextHelper := adapters.NewContextAwareAdapter(e.ContextManager, adapterName)
+		if err := contextHelper.RecordOperationInContext(ctx, contextID, action, params, result); err != nil {
+			// Log the error but don't fail the operation
+			log.Printf("Warning: Failed to record operation in context: %v", err)
+		}
+	}
+	
+	return result, nil
+}
+
+// ListAdapters returns a list of all available adapters
+func (e *Engine) ListAdapters() []string {
+	var adapterNames []string
+	for name := range e.adapters {
+		adapterNames = append(adapterNames, name)
+	}
+	return adapterNames
 }

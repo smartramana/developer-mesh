@@ -1,177 +1,200 @@
-# MCP Server System Architecture
+# MCP Server Architecture
 
-This document describes the overall architecture of the MCP Server system.
+This document describes the architecture of the Model Context Protocol (MCP) Server, which provides both context management for AI agents and DevOps tool integrations.
 
-## Architecture Overview
+## High-Level Architecture
 
-The MCP Server is designed with a modular, event-driven architecture that enables integration with multiple DevOps tools and platforms. The system is built with Go and follows modern design principles for scalability, resilience, and extensibility.
+The MCP Server is designed around a modular architecture that supports two primary functions:
 
-![MCP Server Architecture](architecture-diagram.png)
+1. **Context Management**: Storing, retrieving, and manipulating conversation contexts for AI agents
+2. **DevOps Integration**: Providing a unified API for AI agents to interact with DevOps tools
 
-## Key Components
+![High-Level Architecture](../docs/images/mcp-architecture.png)
 
-The MCP Server is composed of the following major components:
+## Core Components
 
-### 1. API Server
+### 1. Core Engine
 
-The API Server provides HTTP endpoints for interacting with the MCP platform, including:
-- REST API endpoints for MCP protocol operations
-- Webhook endpoints for receiving events from integrated systems
-- Health and metrics endpoints for monitoring
+The Core Engine is the central processing unit of the MCP Server, responsible for:
 
-The API Server is built using the Gin framework and includes:
-- Request validation and authentication
-- Rate limiting and CORS support
-- Middleware for logging and metrics collection
-- TLS support for secure communication
+- Coordinating between context management and DevOps tool adapters
+- Managing events from various sources
+- Providing a unified interface for the API server
 
-### 2. Core Engine
+The Engine maintains references to all adapters and the context manager, allowing it to route requests and ensure operations are properly recorded in contexts.
 
-The Core Engine is the central component that processes events and orchestrates workflows. It:
-- Receives events from adapters and external webhooks
-- Processes events using a configurable number of worker goroutines
-- Manages the lifecycle of events and ensures proper error handling
-- Communicates with adapters to interact with external systems
+### 2. Context Manager
+
+The Context Manager handles all aspects of context storage, retrieval, and manipulation:
+
+- **Context Storage**: Persists contexts in the database and cache
+- **Context Windowing**: Intelligently manages context size with various truncation strategies
+- **Context Search**: Provides capabilities to search within contexts
+- **Context Summarization**: Can generate summaries of contexts
+
+The Context Manager is designed to be highly efficient, using a combination of database storage and in-memory caching to provide fast access to contexts.
 
 ### 3. Adapters
 
-Adapters provide the interface between the MCP Server and external systems. Each adapter:
-- Implements a common interface defined in the adapters package
-- Handles communication with a specific external system (GitHub, Harness, etc.)
-- Translates between the external system's API and the MCP's internal models
-- Provides health checks and graceful shutdown capabilities
+Adapters provide interfaces to external DevOps tools and services:
 
-Current adapters include:
-- GitHub Adapter
-- Harness Adapter
-- SonarQube Adapter
-- Artifactory Adapter
-- Xray Adapter
+- **GitHub Adapter**: Integrates with GitHub's API and webhook system
+- **Harness Adapter**: Integrates with Harness CI/CD and feature flags
+- **SonarQube Adapter**: Integrates with SonarQube for code quality
+- **Artifactory Adapter**: Integrates with JFrog Artifactory
+- **Xray Adapter**: Integrates with JFrog Xray security scanning
 
-### 4. Database
+Each adapter implements a common interface that includes:
+- Getting data from the external service
+- Executing actions with context awareness
+- Handling webhooks from the external service
+- Subscribing to specific event types
 
-The Database component handles persistent storage of:
-- Configuration data
-- Event history and audit logs
-- State information for long-running operations
+### 4. Adapter Context Integration
 
-The PostgreSQL database is used as the primary storage backend, with connection pooling and prepared statements for performance optimization.
+The Adapter Context Integration component bridges the gap between adapter operations and context management:
 
-### 5. Cache
+- Records all adapter operations in the relevant context
+- Records webhook events in contexts
+- Provides a unified interface for context-aware operations
 
-The Cache component provides fast access to frequently needed data:
-- Redis is used as the distributed cache implementation
-- Multi-level caching with memory and distributed caches
-- Configurable TTLs for different data types
-- Intelligent cache invalidation based on events
+This integration ensures that all interactions with external tools are properly recorded in the context, allowing AI agents to maintain a complete history of their actions.
 
-### 6. Metrics
+### 5. API Server
 
-The Metrics component collects and exposes system performance metrics:
-- Prometheus integration for metrics collection
-- Grafana dashboards for visualization
-- Custom metrics for MCP-specific operations
-- Health checks for system components
+The API Server provides HTTP endpoints for interacting with the MCP platform:
+
+- **Context API**: Endpoints for managing contexts
+- **Tool API**: Endpoints for interacting with DevOps tools
+- **Webhook Handlers**: Process incoming webhooks from both agents and DevOps tools
+- **Authentication**: JWT and API key-based authentication
+
+The API Server uses the Gin framework for routing and middleware, with a structured approach to handling requests.
+
+### 6. Database
+
+The Database component handles persistent storage for the MCP Server:
+
+- **Contexts**: Stores contexts and their content
+- **System Configuration**: Stores system-wide configuration
+- **Metrics**: Stores historical metrics for monitoring
+
+The current implementation uses PostgreSQL for relational data storage, with appropriate indexes and optimizations.
+
+### 7. Cache
+
+The Cache component provides fast access to frequently accessed data:
+
+- **Context Caching**: Caches contexts to reduce database load
+- **Tool Response Caching**: Caches responses from external tools
+- **Rate Limiting**: Supports rate limiting for API endpoints
+
+The current implementation uses Redis for distributed caching, with configurable TTLs and eviction policies.
 
 ## Data Flow
 
-### Event Processing Flow
+### Context Management Flow
 
-1. External events enter the system through:
-   - Webhook endpoints in the API Server
-   - Polling via adapters (for systems without webhook support)
-   
-2. The API Server validates webhook signatures and formats the event data
+1. An AI agent requests to create a new context via the Context API
+2. The API Server routes the request to the Context Manager
+3. The Context Manager creates the context in the database
+4. The context is cached for fast access
+5. The context ID is returned to the agent
 
-3. Events are passed to the Core Engine for processing
+For subsequent operations:
+1. The agent sends messages or other content to add to the context
+2. The Context Manager updates the context in the database and cache
+3. If the context exceeds its maximum token limit, the Context Manager applies the configured truncation strategy
 
-4. The Core Engine:
-   - Logs the event
-   - Records metrics
-   - Processes the event based on its source and type
-   - May trigger further actions via adapters
-   
-5. Results are stored in the database and cached as needed
+### Tool Integration Flow
 
-### API Request Flow
+1. An AI agent requests to execute an action on a DevOps tool via the Tool API
+2. The API Server routes the request to the Core Engine
+3. The Core Engine identifies the appropriate adapter and calls the ExecuteAdapterAction method
+4. The adapter executes the action on the external service
+5. The Adapter Context Integration component records the operation in the context
+6. The result is returned to the agent
 
-1. Clients make HTTP requests to the API Server endpoints
+### Webhook Flow
 
-2. The API Server:
-   - Authenticates the request
-   - Validates the request parameters
-   - Rate limits if configured
-   
-3. The request is routed to the appropriate handler
+1. A DevOps tool sends a webhook to the MCP Server
+2. The appropriate webhook handler validates the webhook signature
+3. The handler routes the webhook to the corresponding adapter
+4. The adapter processes the webhook and generates events
+5. If an agent ID is available, the webhook is recorded in the relevant context
 
-4. The handler calls the Core Engine to process the request
+## Security Model
 
-5. The Core Engine may interact with adapters or the database
+The MCP Server implements a comprehensive security model:
 
-6. Results are returned to the client as a JSON response
+1. **Authentication**:
+   - JWT-based authentication for API endpoints
+   - API key authentication for monitoring endpoints
+   - Webhook signature verification
 
-## Resilience Patterns
+2. **Authorization**:
+   - Role-based access control for API endpoints
+   - Tool-specific permissions
 
-The MCP Server implements several resilience patterns:
+3. **Data Protection**:
+   - TLS encryption for all communications
+   - Secure storage of credentials and secrets
 
-### Circuit Breakers
+## Deployment Architecture
 
-Circuit breakers are used to prevent cascading failures when communicating with external systems:
-- Each adapter implements circuit breaking for API calls
-- Failed calls are tracked and circuit is opened after threshold is reached
-- Periodic health checks are used to determine when to close the circuit
+The MCP Server is designed to be deployed in various configurations:
 
-### Retry Mechanisms
+1. **Single-Node Deployment**:
+   - All components running on a single server
+   - Suitable for development and small-scale deployments
 
-Retries with exponential backoff are used for transient failures:
-- Configurable retry counts and delays for each adapter
-- Only retryable errors trigger retry logic
-- Context timeouts ensure retries don't continue indefinitely
+2. **Distributed Deployment**:
+   - API Server, Database, and Cache running on separate servers
+   - Horizontal scaling for high availability
+   - Load balancing for the API Server
 
-### Rate Limiting
+3. **Containerized Deployment**:
+   - Docker Compose for development
+   - Kubernetes for production deployments
+   - Helm charts for easy deployment
 
-Rate limiting is implemented at multiple levels:
-- Client-facing API endpoints to prevent abuse
-- External API calls to stay within service limits
-- Event processing to manage system load
+## Performance Considerations
 
-### Graceful Degradation
+The MCP Server is designed for high performance:
 
-The system is designed to degrade gracefully when components fail:
-- Non-critical features can be disabled when dependencies are unavailable
-- Fallback mechanisms for critical operations
-- Comprehensive error handling throughout the codebase
+1. **Caching Strategy**:
+   - Multi-level caching (memory, Redis)
+   - Intelligent cache invalidation
+   - Configurable TTLs
 
-## Scalability
+2. **Database Optimization**:
+   - Connection pooling
+   - Prepared statements
+   - Appropriate indexing
 
-The MCP Server is designed to scale horizontally:
-- Stateless API servers can run in multiple instances
-- Event processing is distributed across worker pools
-- Database and cache components can be scaled independently
-- Kubernetes deployment enables auto-scaling based on load
+3. **Concurrency Management**:
+   - Worker pools with configurable limits
+   - Non-blocking I/O where possible
+   - Efficient context windowing algorithms
 
-## Security Considerations
+## Monitoring and Observability
 
-Security is a core consideration in the architecture:
-- TLS encryption for all communication
-- JWT and API key authentication for API endpoints
-- Webhook signature verification to prevent spoofing
-- Secure storage of credentials and secrets
-- Rate limiting to prevent abuse
-- Input validation to prevent injection attacks
+The MCP Server provides comprehensive monitoring and observability:
 
-## Development Architecture
+1. **Metrics**:
+   - Request counts, latencies, and error rates
+   - Context operations and sizes
+   - Tool interactions
 
-For local development, the MCP Server includes:
-- Mock server for simulating external systems
-- Docker Compose setup for local dependencies
-- Configuration templates for common scenarios
-- Test utilities for unit and integration testing
+2. **Logging**:
+   - Structured JSON logging
+   - Configurable log levels
+   - Request ID tracking
 
-## Future Architecture Evolution
+3. **Tracing**:
+   - Distributed tracing with OpenTelemetry
+   - Span propagation across components
 
-The MCP Server architecture is designed for future expansion:
-- New adapters can be added without changing the core
-- The event system can be extended for new event types
-- Additional storage backends can be supported
-- Cloud-native features can be enhanced for different environments
+4. **Health Checks**:
+   - Component-level health checks
+   - Dependency health monitoring

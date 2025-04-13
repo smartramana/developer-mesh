@@ -46,16 +46,49 @@ func (s *Server) githubWebhookHandler(c *gin.Context) {
 		return
 	}
 
+	// Extract agent ID from the payload, headers, or query parameters
+	agentID := c.Query("agent_id")
+	if agentID == "" {
+		// If not in query, try to get from custom header
+		agentID = c.GetHeader("X-Agent-ID")
+		
+		// If still not found, use a default or extract from payload if possible
+		if agentID == "" {
+			// Try to extract repository name as a fallback
+			var payloadMap map[string]interface{}
+			if err := json.Unmarshal(payload, &payloadMap); err == nil {
+				if repo, ok := payloadMap["repository"].(map[string]interface{}); ok {
+					if fullName, ok := repo["full_name"].(string); ok {
+						agentID = "github-" + fullName
+					}
+				}
+			}
+			
+			// Final fallback
+			if agentID == "" {
+				agentID = "github-default"
+			}
+		}
+	}
+
 	// Forward to adapter for processing
-	githubAdapter, ok := adapter.(*github.Adapter)
-	if !ok {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Invalid GitHub adapter type"})
+	if err := adapter.HandleWebhook(c.Request.Context(), eventType, payload); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": fmt.Sprintf("Failed to process webhook: %v", err)})
 		return
 	}
 
-	if err := githubAdapter.HandleWebhook(c.Request.Context(), eventType, payload); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": fmt.Sprintf("Failed to process webhook: %v", err)})
-		return
+	// Record in context if agent ID is provided
+	if agentID != "" {
+		contextHelper := adapters.NewContextAwareAdapter(s.engine.ContextManager, "github")
+		contextID, err := contextHelper.RecordWebhookInContext(c.Request.Context(), agentID, eventType, payload)
+		if err != nil {
+			// Log the error but don't fail the request
+			log.Printf("Warning: Failed to record GitHub webhook in context: %v", err)
+		} else {
+			// Return the context ID in the response
+			c.JSON(http.StatusOK, gin.H{"status": "ok", "context_id": contextID})
+			return
+		}
 	}
 
 	c.JSON(http.StatusOK, gin.H{"status": "ok"})

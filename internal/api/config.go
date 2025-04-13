@@ -1,6 +1,8 @@
 package api
 
-import "time"
+import (
+	"time"
+)
 
 // Config holds configuration for the API server
 type Config struct {
@@ -8,53 +10,41 @@ type Config struct {
 	ReadTimeout   time.Duration `mapstructure:"read_timeout"`
 	WriteTimeout  time.Duration `mapstructure:"write_timeout"`
 	IdleTimeout   time.Duration `mapstructure:"idle_timeout"`
-	BasePath      string        `mapstructure:"base_path"`
 	EnableCORS    bool          `mapstructure:"enable_cors"`
-	CORSOrigins   []string      `mapstructure:"cors_origins"`  // List of allowed origins for CORS
-	LogRequests   bool          `mapstructure:"log_requests"`
-	TLSCertFile   string        `mapstructure:"tls_cert_file"` // Path to TLS certificate file
-	TLSKeyFile    string        `mapstructure:"tls_key_file"`  // Path to TLS key file
-
-	// Rate limiting configuration
-	RateLimit RateLimitConfig `mapstructure:"rate_limit"`
-
-	// Webhook configuration
-	Webhooks WebhookConfig `mapstructure:"webhooks"`
-	
-	// Authentication configuration
-	Auth AuthConfig `mapstructure:"auth"`
+	TLSCertFile   string        `mapstructure:"tls_cert_file"`
+	TLSKeyFile    string        `mapstructure:"tls_key_file"`
+	Auth          AuthConfig    `mapstructure:"auth"`
+	RateLimit     RateLimitConfig `mapstructure:"rate_limit"`
+	AgentWebhook  AgentWebhookConfig `mapstructure:"agent_webhook"`
+	Webhooks      WebhookConfig `mapstructure:"webhooks"`
 }
 
-// RateLimitConfig holds rate limiting configuration
-type RateLimitConfig struct {
-	Enabled    bool          `mapstructure:"enabled"`
-	Limit      int           `mapstructure:"limit"`
-	Burst      int           `mapstructure:"burst"`
-	Expiration time.Duration `mapstructure:"expiration"`
-}
-
-// WebhookConfig holds webhook configuration
+// WebhookConfig holds configuration for all webhooks
 type WebhookConfig struct {
-	GitHub      WebhookProviderConfig `mapstructure:"github"`
-	Harness     WebhookProviderConfig `mapstructure:"harness"`
-	SonarQube   WebhookProviderConfig `mapstructure:"sonarqube"`
-	Artifactory WebhookProviderConfig `mapstructure:"artifactory"`
-	Xray        WebhookProviderConfig `mapstructure:"xray"`
+	GitHub      WebhookEndpointConfig `mapstructure:"github"`
+	Harness     WebhookEndpointConfig `mapstructure:"harness"`
+	SonarQube   WebhookEndpointConfig `mapstructure:"sonarqube"`
+	Artifactory WebhookEndpointConfig `mapstructure:"artifactory"`
+	Xray        WebhookEndpointConfig `mapstructure:"xray"`
 }
 
-// WebhookProviderConfig holds configuration for a webhook provider
-type WebhookProviderConfig struct {
+// WebhookEndpointConfig holds configuration for a webhook endpoint
+type WebhookEndpointConfig struct {
 	Enabled bool   `mapstructure:"enabled"`
-	Secret  string `mapstructure:"secret"`
 	Path    string `mapstructure:"path"`
+	Secret  string `mapstructure:"secret"`
 }
 
 // AuthConfig holds authentication configuration
 type AuthConfig struct {
-	JWTSecret             string        `mapstructure:"jwt_secret"`
-	JWTExpiration         time.Duration `mapstructure:"jwt_expiration"`
-	APIKeys               []string      `mapstructure:"api_keys"`
-	RequireAuth           bool          `mapstructure:"require_auth"`
-	AllowedUserRoles      []string      `mapstructure:"allowed_user_roles"`
-	TokenRenewalThreshold time.Duration `mapstructure:"token_renewal_threshold"`
+	JWTSecret string            `mapstructure:"jwt_secret"`
+	APIKeys   map[string]string `mapstructure:"api_keys"`
+}
+
+// RateLimitConfig holds rate limiting configuration
+type RateLimitConfig struct {
+	Enabled     bool          `mapstructure:"enabled"`
+	Limit       int           `mapstructure:"limit"`
+	Period      time.Duration `mapstructure:"period"`
+	BurstFactor int           `mapstructure:"burst_factor"`
 }

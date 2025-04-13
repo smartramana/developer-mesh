@@ -12,6 +12,15 @@ type Adapter interface {
 
 	// GetData retrieves data from the external service
 	GetData(ctx context.Context, query interface{}) (interface{}, error)
+	
+	// ExecuteAction executes an action with context awareness
+	ExecuteAction(ctx context.Context, contextID string, action string, params map[string]interface{}) (interface{}, error)
+	
+	// HandleWebhook processes webhook events from the external service
+	HandleWebhook(ctx context.Context, eventType string, payload []byte) error
+	
+	// Subscribe registers a callback for a specific event type
+	Subscribe(eventType string, callback func(interface{})) error
 
 	// Health returns the health status of the adapter
 	Health() string

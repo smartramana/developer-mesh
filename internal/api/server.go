@@ -73,21 +73,22 @@ func (s *Server) setupRoutes() {
 	v1 := s.router.Group("/api/v1")
 	v1.Use(AuthMiddleware("jwt")) // Require JWT auth for all API endpoints
 	
-	{
-		// MCP protocol endpoints
-		mcp := v1.Group("/mcp")
-		{
-			mcp.POST("/context", s.contextHandler)
-			mcp.GET("/context/:id", s.getContextHandler)
-			// More MCP endpoints...
-		}
-	}
+	// Context management API
+	contextAPI := NewContextAPI(s.engine.ContextManager)
+	contextAPI.RegisterRoutes(v1)
+	
+	// Tool integration API
+	toolAPI := NewToolAPI(nil)
+	toolAPI.SetServer(s)
+	toolAPI.RegisterRoutes(v1)
 	
 	// Webhook endpoints - each has its own authentication via secret validation
-	// These are kept separate from the main API endpoints
 	webhook := s.router.Group("/webhook")
 	{
-		// Setup GitHub webhook endpoint if enabled
+		// AI agent event webhook
+		webhook.POST("/agent", s.agentWebhookHandler)
+		
+		// DevOps tool webhooks
 		if s.config.Webhooks.GitHub.Enabled {
 			path := "/github"
 			if s.config.Webhooks.GitHub.Path != "" {
@@ -96,7 +97,6 @@ func (s *Server) setupRoutes() {
 			webhook.POST(path, s.githubWebhookHandler)
 		}
 
-		// Setup Harness webhook endpoint if enabled
 		if s.config.Webhooks.Harness.Enabled {
 			path := "/harness"
 			if s.config.Webhooks.Harness.Path != "" {
@@ -105,7 +105,6 @@ func (s *Server) setupRoutes() {
 			webhook.POST(path, s.harnessWebhookHandler)
 		}
 
-		// Setup SonarQube webhook endpoint if enabled
 		if s.config.Webhooks.SonarQube.Enabled {
 			path := "/sonarqube"
 			if s.config.Webhooks.SonarQube.Path != "" {
@@ -114,7 +113,6 @@ func (s *Server) setupRoutes() {
 			webhook.POST(path, s.sonarqubeWebhookHandler)
 		}
 
-		// Setup Artifactory webhook endpoint if enabled
 		if s.config.Webhooks.Artifactory.Enabled {
 			path := "/artifactory"
 			if s.config.Webhooks.Artifactory.Path != "" {
@@ -123,7 +121,6 @@ func (s *Server) setupRoutes() {
 			webhook.POST(path, s.artifactoryWebhookHandler)
 		}
 
-		// Setup Xray webhook endpoint if enabled
 		if s.config.Webhooks.Xray.Enabled {
 			path := "/xray"
 			if s.config.Webhooks.Xray.Path != "" {
