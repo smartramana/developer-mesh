@@ -19,6 +19,7 @@ type Config struct {
 	RequestTimeout  time.Duration `mapstructure:"request_timeout"`
 	RetryMax        int           `mapstructure:"retry_max"`
 	RetryDelay      time.Duration `mapstructure:"retry_delay"`
+	MockResponses   bool          `mapstructure:"mock_responses"`
 }
 
 // Adapter implements the adapter interface for GitHub

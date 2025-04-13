@@ -89,10 +89,11 @@ func TestCreateAdapterTypes(t *testing.T) {
 	// Set up a factory with mock configurations for testing
 	configs := map[string]interface{}{
 		"github": github.Config{
-			MockResponses:  true,
+			APIToken:       "fake-token",
 			RequestTimeout: 5 * time.Second,
-			MaxRetries:     3,
+			RetryMax:       3,
 			RetryDelay:     1 * time.Second,
+			MockResponses:  true,
 		},
 		"harness": harness.Config{
 			APIToken:       "test-token",

@@ -10,7 +10,7 @@ import (
 	"github.com/S-Corkum/mcp-server/internal/adapters"
 	"github.com/S-Corkum/mcp-server/pkg/mcp"
 	"github.com/aws/aws-sdk-go-v2/aws"
-	"github.com/aws/aws-sdk-go-v2/config"
+	sdkconfig "github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/service/bedrockruntime"
 )
 
@@ -19,13 +19,13 @@ type ModelProvider string
 
 const (
 	// Supported model providers
-	Anthropic      ModelProvider = "anthropic"
-	AI21          ModelProvider = "ai21"
-	Cohere        ModelProvider = "cohere"
-	Meta          ModelProvider = "meta"
-	Mistral       ModelProvider = "mistral"
-	Stability     ModelProvider = "stability"
-	Amazon        ModelProvider = "amazon"
+	Anthropic   ModelProvider = "anthropic"
+	AI21        ModelProvider = "ai21"
+	Cohere      ModelProvider = "cohere"
+	Meta        ModelProvider = "meta"
+	Mistral     ModelProvider = "mistral"
+	Stability   ModelProvider = "stability"
+	Amazon      ModelProvider = "amazon"
 )
 
 // Config holds configuration for the Amazon Bedrock adapter
@@ -235,14 +235,14 @@ func (a *Adapter) Initialize(ctx context.Context, config interface{}) error {
 	
 	if a.config.Profile != "" {
 		// Load config with specific profile
-		awsConfig, err = config.LoadDefaultConfig(ctx,
-			config.WithRegion(a.config.Region),
-			config.WithSharedConfigProfile(a.config.Profile),
+		awsConfig, err = sdkconfig.LoadDefaultConfig(ctx,
+			sdkconfig.WithRegion(a.config.Region),
+			sdkconfig.WithSharedConfigProfile(a.config.Profile),
 		)
 	} else {
 		// Load default config
-		awsConfig, err = config.LoadDefaultConfig(ctx,
-			config.WithRegion(a.config.Region),
+		awsConfig, err = sdkconfig.LoadDefaultConfig(ctx,
+			sdkconfig.WithRegion(a.config.Region),
 		)
 	}
 	
@@ -373,6 +373,9 @@ func (a *Adapter) GetData(ctx context.Context, query interface{}) (interface{}, 
 	case "generate_completion":
 		return a.generateCompletion(ctx, queryMap)
 	case "generate_embeddings":
+		if !a.config.EnableEmbeddings {
+			return nil, fmt.Errorf("embeddings are not enabled for this adapter")
+		}
 		return a.generateEmbeddings(ctx, queryMap)
 	default:
 		return nil, fmt.Errorf("unsupported operation: %s", operation)
@@ -503,6 +506,316 @@ func (a *Adapter) generateCompletion(ctx context.Context, params map[string]inte
 	mcpResponse := a.convertToMCPResponse(modelID, result)
 	
 	return mcpResponse, nil
+}
+
+// parseAnthropicResponse parses the response from Anthropic models
+func (a *Adapter) parseAnthropicResponse(response *bedrockruntime.InvokeModelOutput) (interface{}, error) {
+	var anthropicResponse map[string]interface{}
+	if err := json.Unmarshal(response.Body, &anthropicResponse); err != nil {
+		return nil, err
+	}
+	
+	// Extract the generated text
+	content, ok := anthropicResponse["content"].([]interface{})
+	if !ok || len(content) == 0 {
+		return nil, fmt.Errorf("invalid or empty content in Anthropic response")
+	}
+	
+	// Extract the first content block
+	contentBlock, ok := content[0].(map[string]interface{})
+	if !ok {
+		return nil, fmt.Errorf("invalid content block in Anthropic response")
+	}
+	
+	// Get the text
+	text, ok := contentBlock["text"].(string)
+	if !ok {
+		return nil, fmt.Errorf("invalid text in Anthropic response")
+	}
+	
+	// Get usage information if available
+	usage := map[string]interface{}{}
+	if usageInfo, ok := anthropicResponse["usage"].(map[string]interface{}); ok {
+		usage = usageInfo
+	}
+	
+	return map[string]interface{}{
+		"completion": text,
+		"usage": usage,
+		"raw_response": anthropicResponse,
+	}, nil
+}
+
+// parseAI21Response parses the response from AI21 models
+func (a *Adapter) parseAI21Response(response *bedrockruntime.InvokeModelOutput) (interface{}, error) {
+	var ai21Response map[string]interface{}
+	if err := json.Unmarshal(response.Body, &ai21Response); err != nil {
+		return nil, err
+	}
+	
+	// Extract the generated text
+	completions, ok := ai21Response["completions"].([]interface{})
+	if !ok || len(completions) == 0 {
+		return nil, fmt.Errorf("invalid or empty completions in AI21 response")
+	}
+	
+	// Get the first completion
+	completion, ok := completions[0].(map[string]interface{})
+	if !ok {
+		return nil, fmt.Errorf("invalid completion in AI21 response")
+	}
+	
+	// Get the text
+	data, ok := completion["data"].(map[string]interface{})
+	if !ok {
+		return nil, fmt.Errorf("invalid data in AI21 completion")
+	}
+	
+	text, ok := data["text"].(string)
+	if !ok {
+		return nil, fmt.Errorf("invalid text in AI21 completion")
+	}
+	
+	return map[string]interface{}{
+		"completion": text,
+		"raw_response": ai21Response,
+	}, nil
+}
+
+// parseCohereResponse parses the response from Cohere models
+func (a *Adapter) parseCohereResponse(response *bedrockruntime.InvokeModelOutput) (interface{}, error) {
+	var cohereResponse map[string]interface{}
+	if err := json.Unmarshal(response.Body, &cohereResponse); err != nil {
+		return nil, err
+	}
+	
+	// Extract the generated text
+	generations, ok := cohereResponse["generations"].([]interface{})
+	if !ok || len(generations) == 0 {
+		return nil, fmt.Errorf("invalid or empty generations in Cohere response")
+	}
+	
+	// Get the first generation
+	generation, ok := generations[0].(map[string]interface{})
+	if !ok {
+		return nil, fmt.Errorf("invalid generation in Cohere response")
+	}
+	
+	// Get the text
+	text, ok := generation["text"].(string)
+	if !ok {
+		return nil, fmt.Errorf("invalid text in Cohere generation")
+	}
+	
+	return map[string]interface{}{
+		"completion": text,
+		"raw_response": cohereResponse,
+	}, nil
+}
+
+// parseMetaResponse parses the response from Meta models
+func (a *Adapter) parseMetaResponse(response *bedrockruntime.InvokeModelOutput) (interface{}, error) {
+	var metaResponse map[string]interface{}
+	if err := json.Unmarshal(response.Body, &metaResponse); err != nil {
+		return nil, err
+	}
+	
+	// Extract the generated text
+	generation, ok := metaResponse["generation"].(string)
+	if !ok {
+		return nil, fmt.Errorf("invalid generation in Meta response")
+	}
+	
+	return map[string]interface{}{
+		"completion": generation,
+		"raw_response": metaResponse,
+	}, nil
+}
+
+// parseMistralResponse parses the response from Mistral models
+func (a *Adapter) parseMistralResponse(response *bedrockruntime.InvokeModelOutput) (interface{}, error) {
+	var mistralResponse map[string]interface{}
+	if err := json.Unmarshal(response.Body, &mistralResponse); err != nil {
+		return nil, err
+	}
+	
+	// Extract the generated text
+	outputs, ok := mistralResponse["outputs"].([]interface{})
+	if !ok || len(outputs) == 0 {
+		return nil, fmt.Errorf("invalid or empty outputs in Mistral response")
+	}
+	
+	// Get the first output
+	output, ok := outputs[0].(map[string]interface{})
+	if !ok {
+		return nil, fmt.Errorf("invalid output in Mistral response")
+	}
+	
+	// Get the text
+	text, ok := output["text"].(string)
+	if !ok {
+		return nil, fmt.Errorf("invalid text in Mistral output")
+	}
+	
+	return map[string]interface{}{
+		"completion": text,
+		"raw_response": mistralResponse,
+	}, nil
+}
+
+// parseAmazonResponse parses the response from Amazon models
+func (a *Adapter) parseAmazonResponse(response *bedrockruntime.InvokeModelOutput) (interface{}, error) {
+	var amazonResponse map[string]interface{}
+	if err := json.Unmarshal(response.Body, &amazonResponse); err != nil {
+		return nil, err
+	}
+	
+	// Extract the generated text
+	results, ok := amazonResponse["results"].([]interface{})
+	if !ok || len(results) == 0 {
+		// Try alternative response format
+		if outputText, ok := amazonResponse["outputText"].(string); ok {
+			return map[string]interface{}{
+				"completion": outputText,
+				"raw_response": amazonResponse,
+			}, nil
+		}
+		return nil, fmt.Errorf("invalid or empty results in Amazon response")
+	}
+	
+	// Get the first result
+	result, ok := results[0].(map[string]interface{})
+	if !ok {
+		return nil, fmt.Errorf("invalid result in Amazon response")
+	}
+	
+	// Get the text
+	outputText, ok := result["outputText"].(string)
+	if !ok {
+		return nil, fmt.Errorf("invalid outputText in Amazon result")
+	}
+	
+	return map[string]interface{}{
+		"completion": outputText,
+		"raw_response": amazonResponse,
+	}, nil
+}
+
+// convertToMCPResponse converts the provider-specific response to the MCP format
+func (a *Adapter) convertToMCPResponse(modelID string, result interface{}) interface{} {
+	resultMap, ok := result.(map[string]interface{})
+	if !ok {
+		return result
+	}
+	
+	// Create an MCP-formatted response
+	mcpResponse := map[string]interface{}{
+		"model": modelID,
+	}
+	
+	// Copy relevant fields
+	if completion, ok := resultMap["completion"].(string); ok {
+		mcpResponse["completion"] = completion
+	}
+	
+	if usage, ok := resultMap["usage"].(map[string]interface{}); ok {
+		mcpResponse["usage"] = usage
+	}
+	
+	// Add raw response if available
+	if rawResponse, ok := resultMap["raw_response"].(map[string]interface{}); ok {
+		mcpResponse["provider_response"] = rawResponse
+	}
+	
+	return mcpResponse
+}
+
+// generateEmbeddings generates embeddings for the provided text
+func (a *Adapter) generateEmbeddings(ctx context.Context, params map[string]interface{}) (interface{}, error) {
+	// Get the text to embed
+	var text string
+	if textParam, ok := params["text"].(string); ok {
+		text = textParam
+	} else if inputParam, ok := params["input"].(string); ok {
+		text = inputParam
+	} else {
+		return nil, fmt.Errorf("missing text parameter for embedding generation")
+	}
+	
+	// Get model ID, default to a suitable embedding model if not specified
+	modelID, ok := params["model"].(string)
+	if !ok {
+		modelID = "amazon.titan-embed-text-v1" // Default embedding model
+	}
+	
+	// Prepare the request
+	requestBody := map[string]interface{}{
+		"inputText": text,
+	}
+	
+	jsonBody, err := json.Marshal(requestBody)
+	if err != nil {
+		return nil, err
+	}
+	
+	// Set up the request
+	input := &bedrockruntime.InvokeModelInput{
+		ModelId:     aws.String(modelID),
+		Body:        jsonBody,
+		ContentType: aws.String("application/json"),
+	}
+	
+	// Send the request with retry logic
+	var response *bedrockruntime.InvokeModelOutput
+	err = a.CallWithRetry(func() error {
+		// Create context with timeout
+		timeoutCtx, cancel := context.WithTimeout(ctx, a.config.RequestTimeout)
+		defer cancel()
+		
+		var err error
+		response, err = a.client.InvokeModel(timeoutCtx, input)
+		return err
+	})
+	
+	if err != nil {
+		return nil, err
+	}
+	
+	// Parse the response
+	var embedResponse map[string]interface{}
+	if err := json.Unmarshal(response.Body, &embedResponse); err != nil {
+		return nil, err
+	}
+	
+	// Extract embedding vector (the structure varies by model)
+	var embedding []float64
+	if amazonResponse, ok := embedResponse["embedding"].([]interface{}); ok {
+		// Amazon Titan embeddings
+		embedding = make([]float64, len(amazonResponse))
+		for i, v := range amazonResponse {
+			if f, ok := v.(float64); ok {
+				embedding[i] = f
+			}
+		}
+	} else if cohereResponse, ok := embedResponse["embeddings"].([]interface{}); ok && len(cohereResponse) > 0 {
+		// Cohere embeddings
+		if cohereVector, ok := cohereResponse[0].([]interface{}); ok {
+			embedding = make([]float64, len(cohereVector))
+			for i, v := range cohereVector {
+				if f, ok := v.(float64); ok {
+					embedding[i] = f
+				}
+			}
+		}
+	} else {
+		return nil, fmt.Errorf("could not parse embedding from response")
+	}
+	
+	return map[string]interface{}{
+		"model": modelID,
+		"embedding": embedding,
+		"dimensions": len(embedding),
+	}, nil
 }
 
 // prepareAnthropicRequest prepares a request for Anthropic models
@@ -798,9 +1111,9 @@ func (a *Adapter) prepareMetaRequest(params map[string]interface{}, config Model
 		
 		for _, item := range contextItems {
 			if item.Role == "system" {
-				promptBuilder.WriteString("<system>\n")
+				promptBuilder.WriteString("<s>\n")
 				promptBuilder.WriteString(item.Content)
-				promptBuilder.WriteString("\n</system>\n")
+				promptBuilder.WriteString("\n</s>\n")
 			} else if item.Role == "user" {
 				promptBuilder.WriteString("<human>: ")
 				promptBuilder.WriteString(item.Content)
@@ -827,9 +1140,9 @@ func (a *Adapter) prepareMetaRequest(params map[string]interface{}, config Model
 				content, _ := msgMap["content"].(string)
 				
 				if role == "system" {
-					promptBuilder.WriteString("<system>\n")
+					promptBuilder.WriteString("<s>\n")
 					promptBuilder.WriteString(content)
-					promptBuilder.WriteString("\n</system>\n")
+					promptBuilder.WriteString("\n</s>\n")
 				} else if role == "user" {
 					promptBuilder.WriteString("<human>: ")
 					promptBuilder.WriteString(content)
@@ -872,6 +1185,99 @@ func (a *Adapter) prepareMetaRequest(params map[string]interface{}, config Model
 	}
 	
 	return json.Marshal(llamaRequest)
+}
+
+// prepareAmazonRequest prepares a request for Amazon models
+func (a *Adapter) prepareAmazonRequest(params map[string]interface{}, config ModelConfig) ([]byte, error) {
+	// Convert to Amazon Titan format
+	amazonRequest := map[string]interface{}{}
+	
+	// Handle messages or prompt
+	var inputText string
+	
+	if contextItems, ok := params["messages"].([]mcp.ContextItem); ok {
+		// Convert chat messages to text
+		var promptBuilder strings.Builder
+		
+		for _, item := range contextItems {
+			if item.Role == "system" {
+				promptBuilder.WriteString("System: ")
+				promptBuilder.WriteString(item.Content)
+				promptBuilder.WriteString("\n\n")
+			} else if item.Role == "user" {
+				promptBuilder.WriteString("Human: ")
+				promptBuilder.WriteString(item.Content)
+				promptBuilder.WriteString("\n\n")
+			} else if item.Role == "assistant" {
+				promptBuilder.WriteString("Assistant: ")
+				promptBuilder.WriteString(item.Content)
+				promptBuilder.WriteString("\n\n")
+			}
+		}
+		
+		promptBuilder.WriteString("Assistant: ")
+		inputText = promptBuilder.String()
+	} else if rawPrompt, ok := params["prompt"].(string); ok {
+		inputText = rawPrompt
+	} else if rawMessages, ok := params["messages"].([]interface{}); ok {
+		// Convert interface messages
+		var promptBuilder strings.Builder
+		
+		for _, msg := range rawMessages {
+			if msgMap, ok := msg.(map[string]interface{}); ok {
+				role, _ := msgMap["role"].(string)
+				content, _ := msgMap["content"].(string)
+				
+				if role == "system" {
+					promptBuilder.WriteString("System: ")
+					promptBuilder.WriteString(content)
+					promptBuilder.WriteString("\n\n")
+				} else if role == "user" {
+					promptBuilder.WriteString("Human: ")
+					promptBuilder.WriteString(content)
+					promptBuilder.WriteString("\n\n")
+				} else if role == "assistant" {
+					promptBuilder.WriteString("Assistant: ")
+					promptBuilder.WriteString(content)
+					promptBuilder.WriteString("\n\n")
+				}
+			}
+		}
+		
+		promptBuilder.WriteString("Assistant: ")
+		inputText = promptBuilder.String()
+	} else {
+		return nil, fmt.Errorf("missing prompt or messages parameter")
+	}
+	
+	amazonRequest["inputText"] = inputText
+	
+	// Set up text generation config
+	textGenConfig := map[string]interface{}{}
+	
+	// Add parameters
+	if temperature, ok := params["temperature"].(float64); ok {
+		textGenConfig["temperature"] = temperature
+	} else if temp, ok := config.DefaultParams["temperature"].(float64); ok {
+		textGenConfig["temperature"] = temp
+	}
+	
+	if topP, ok := params["top_p"].(float64); ok {
+		textGenConfig["topP"] = topP
+	} else if tp, ok := config.DefaultParams["top_p"].(float64); ok {
+		textGenConfig["topP"] = tp
+	}
+	
+	// Set max tokens
+	if maxTokens, ok := params["max_tokens"].(int); ok {
+		textGenConfig["maxTokenCount"] = maxTokens
+	} else {
+		textGenConfig["maxTokenCount"] = a.config.DefaultMaxTokens
+	}
+	
+	amazonRequest["textGenerationConfig"] = textGenConfig
+	
+	return json.Marshal(amazonRequest)
 }
 
 // prepareMistralRequest prepares a request for Mistral models
@@ -925,4 +1331,40 @@ func (a *Adapter) prepareMistralRequest(params map[string]interface{}, config Mo
 				} else if role == "assistant" {
 					role = "assistant"
 				} else if role == "system" {
-					role = "system
+					role = "system"
+				}
+				
+				messages = append(messages, map[string]string{
+					"role":    role,
+					"content": content,
+				})
+			}
+		}
+		
+		mistralRequest["messages"] = messages
+	} else {
+		return nil, fmt.Errorf("missing prompt or messages parameter")
+	}
+	
+	// Add parameters
+	if temperature, ok := params["temperature"].(float64); ok {
+		mistralRequest["temperature"] = temperature
+	} else if temp, ok := config.DefaultParams["temperature"].(float64); ok {
+		mistralRequest["temperature"] = temp
+	}
+	
+	if topP, ok := params["top_p"].(float64); ok {
+		mistralRequest["top_p"] = topP
+	} else if tp, ok := config.DefaultParams["top_p"].(float64); ok {
+		mistralRequest["top_p"] = tp
+	}
+	
+	// Set max tokens
+	if maxTokens, ok := params["max_tokens"].(int); ok {
+		mistralRequest["max_tokens"] = maxTokens
+	} else {
+		mistralRequest["max_tokens"] = a.config.DefaultMaxTokens
+	}
+	
+	return json.Marshal(mistralRequest)
+}
