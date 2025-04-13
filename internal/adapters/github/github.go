@@ -149,58 +149,88 @@ func (a *Adapter) getMockData(ctx context.Context, queryParams models.GitHubQuer
 	// Create mock data based on the query type
 	switch queryParams.Type {
 	case models.GitHubQueryTypeRepository:
-		// Create a mock repository
-		mockRepo := &github.Repository{
-			ID:            github.Int64(12345),
-			Name:          github.String(queryParams.Repo),
-			FullName:      github.String(fmt.Sprintf("%s/%s", queryParams.Owner, queryParams.Repo)),
-			Owner:         &github.User{Login: github.String(queryParams.Owner)},
-			HTMLURL:       github.String(fmt.Sprintf("https://github.com/%s/%s", queryParams.Owner, queryParams.Repo)),
-			Description:   github.String("This is a mock repository for testing"),
-			DefaultBranch: github.String("main"),
-			CreatedAt:     &github.Timestamp{Time: time.Now().Add(-24 * time.Hour)},
-			UpdatedAt:     &github.Timestamp{Time: time.Now()},
+		// Create a simplified mock repository without using github.Repository
+		type MockRepository struct {
+			ID            int64  `json:"id"`
+			Name          string `json:"name"`
+			FullName      string `json:"full_name"`
+			OwnerLogin    string `json:"owner_login"`
+			HTMLURL       string `json:"html_url"`
+			Description   string `json:"description"`
+			DefaultBranch string `json:"default_branch"`
+			CreatedAt     string `json:"created_at"`
+			UpdatedAt     string `json:"updated_at"`
+		}
+		
+		mockRepo := &MockRepository{
+			ID:            12345,
+			Name:          string(queryParams.Repo),
+			FullName:      fmt.Sprintf("%s/%s", queryParams.Owner, queryParams.Repo),
+			OwnerLogin:    string(queryParams.Owner),
+			HTMLURL:       fmt.Sprintf("https://github.com/%s/%s", queryParams.Owner, queryParams.Repo),
+			Description:   "This is a mock repository for testing",
+			DefaultBranch: "main",
+			CreatedAt:     time.Now().Add(-24 * time.Hour).Format(time.RFC3339),
+			UpdatedAt:     time.Now().Format(time.RFC3339),
 		}
 		return mockRepo, nil
 
 	case models.GitHubQueryTypePullRequests:
-		// Create mock pull requests
-		mockPRs := []*github.PullRequest{
+		// Create simplified mock pull requests without using github.PullRequest
+		type MockPullRequestBranch struct {
+			Ref      string `json:"ref"`
+			RepoName string `json:"repo_name"`
+		}
+		
+		type MockPullRequest struct {
+			ID        int64  `json:"id"`
+			Number    int    `json:"number"`
+			Title     string `json:"title"`
+			State     string `json:"state"`
+			UserLogin string `json:"user_login"`
+			Body      string `json:"body"`
+			Base      MockPullRequestBranch `json:"base"`
+			Head      MockPullRequestBranch `json:"head"`
+			CreatedAt string `json:"created_at"`
+			UpdatedAt string `json:"updated_at"`
+		}
+		
+		mockPRs := []MockPullRequest{
 			{
-				ID:     github.Int64(1001),
-				Number: github.Int(101),
-				Title:  github.String("Mock PR 1"),
-				State:  github.String(queryParams.State),
-				User:   &github.User{Login: github.String("mock-user")},
-				Body:   github.String("This is a mock pull request"),
-				Base: &github.PullRequestBranch{
-					Ref:  github.String("main"),
-					Repo: &github.Repository{Name: github.String(queryParams.Repo)},
+				ID:        1001,
+				Number:    101,
+				Title:     "Mock PR 1",
+				State:     string(queryParams.State),
+				UserLogin: "mock-user",
+				Body:      "This is a mock pull request",
+				Base: MockPullRequestBranch{
+					Ref:      "main",
+					RepoName: string(queryParams.Repo),
 				},
-				Head: &github.PullRequestBranch{
-					Ref:  github.String("feature-branch"),
-					Repo: &github.Repository{Name: github.String(queryParams.Repo)},
+				Head: MockPullRequestBranch{
+					Ref:      "feature-branch",
+					RepoName: string(queryParams.Repo),
 				},
-				CreatedAt: &github.Timestamp{Time: time.Now().Add(-48 * time.Hour)},
-				UpdatedAt: &github.Timestamp{Time: time.Now().Add(-24 * time.Hour)},
+				CreatedAt: time.Now().Add(-48 * time.Hour).Format(time.RFC3339),
+				UpdatedAt: time.Now().Add(-24 * time.Hour).Format(time.RFC3339),
 			},
 			{
-				ID:     github.Int64(1002),
-				Number: github.Int(102),
-				Title:  github.String("Mock PR 2"),
-				State:  github.String(queryParams.State),
-				User:   &github.User{Login: github.String("another-user")},
-				Body:   github.String("Another mock pull request"),
-				Base: &github.PullRequestBranch{
-					Ref:  github.String("main"),
-					Repo: &github.Repository{Name: github.String(queryParams.Repo)},
+				ID:        1002,
+				Number:    102,
+				Title:     "Mock PR 2",
+				State:     string(queryParams.State),
+				UserLogin: "another-user",
+				Body:      "Another mock pull request",
+				Base: MockPullRequestBranch{
+					Ref:      "main",
+					RepoName: string(queryParams.Repo),
 				},
-				Head: &github.PullRequestBranch{
-					Ref:  github.String("bug-fix"),
-					Repo: &github.Repository{Name: github.String(queryParams.Repo)},
+				Head: MockPullRequestBranch{
+					Ref:      "bug-fix",
+					RepoName: string(queryParams.Repo),
 				},
-				CreatedAt: &github.Timestamp{Time: time.Now().Add(-24 * time.Hour)},
-				UpdatedAt: &github.Timestamp{Time: time.Now().Add(-2 * time.Hour)},
+				CreatedAt: time.Now().Add(-24 * time.Hour).Format(time.RFC3339),
+				UpdatedAt: time.Now().Add(-2 * time.Hour).Format(time.RFC3339),
 			},
 		}
 		return mockPRs, nil

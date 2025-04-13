@@ -81,19 +81,7 @@ type QueryOptions struct {
 	Order  string `json:"order"`
 }
 
-// GitHubQuery defines parameters for querying GitHub
-type GitHubQuery struct {
-	Type  string `json:"type"`
-	Owner string `json:"owner"`
-	Repo  string `json:"repo"`
-	State string `json:"state"`
-}
-
-// GitHub query types
-const (
-	GitHubQueryTypeRepository   = "repository"
-	GitHubQueryTypePullRequests = "pull_requests"
-)
+// GitHub query types are defined in github.go
 
 // HarnessQuery defines parameters for querying Harness
 type HarnessQuery struct {
