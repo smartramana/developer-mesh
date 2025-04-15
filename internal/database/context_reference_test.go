@@ -216,6 +216,14 @@ func TestContextReference(t *testing.T) {
 			WillReturnResult(sqlmock.NewResult(0, 0))
 		mock.ExpectExec("CREATE TABLE IF NOT EXISTS mcp.context_references").
 			WillReturnResult(sqlmock.NewResult(0, 0))
+		mock.ExpectExec("CREATE INDEX IF NOT EXISTS idx_context_agent_id").
+			WillReturnResult(sqlmock.NewResult(0, 0))
+		mock.ExpectExec("CREATE INDEX IF NOT EXISTS idx_context_session_id").
+			WillReturnResult(sqlmock.NewResult(0, 0))
+		mock.ExpectExec("CREATE INDEX IF NOT EXISTS idx_context_created_at").
+			WillReturnResult(sqlmock.NewResult(0, 0))
+		mock.ExpectExec("CREATE INDEX IF NOT EXISTS idx_context_expires_at").
+			WillReturnResult(sqlmock.NewResult(0, 0))
 
 		// Call the function
 		err := db.CreateContextReferenceTable(ctx)

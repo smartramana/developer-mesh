@@ -7,7 +7,6 @@ import (
 	"time"
 
 	"github.com/S-Corkum/mcp-server/pkg/mcp"
-	"github.com/jmoiron/sqlx"
 )
 
 // ContextReference is a lightweight reference to a full context stored in S3
