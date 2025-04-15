@@ -1,6 +1,29 @@
 version: '3.8'
 
 services:
+  localstack:
+    image: localstack/localstack:latest
+    ports:
+      - "4566:4566"  # LocalStack edge port
+    environment:
+      - SERVICES=s3
+      - DEBUG=1
+      - DATA_DIR=/tmp/localstack/data
+      - DEFAULT_REGION=us-west-2
+      - AWS_DEFAULT_REGION=us-west-2
+      - AWS_ACCESS_KEY_ID=test
+      - AWS_SECRET_ACCESS_KEY=test
+    volumes:
+      - ./scripts/localstack:/docker-entrypoint-initaws.d
+      - localstack-data:/tmp/localstack
+    networks:
+      - mcp-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:4566/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+
   mcp-server:
     build:
       context: .
@@ -15,6 +38,16 @@ services:
       - MCP_DATABASE_DATABASE=mcp
       - MCP_CACHE_TYPE=redis
       - MCP_CACHE_ADDRESS=redis:6379
+      # S3 Storage configuration
+      - MCP_STORAGE_TYPE=s3
+      - MCP_STORAGE_S3_REGION=us-west-2
+      - MCP_STORAGE_S3_BUCKET=mcp-contexts
+      - MCP_STORAGE_S3_ENDPOINT=http://localstack:4566
+      - MCP_STORAGE_S3_FORCE_PATH_STYLE=true
+      - AWS_ACCESS_KEY_ID=test
+      - AWS_SECRET_ACCESS_KEY=test
+      - MCP_STORAGE_CONTEXT_STORAGE_PROVIDER=s3
+      - MCP_STORAGE_CONTEXT_STORAGE_S3_PATH_PREFIX=contexts
       # GitHub configuration with mock mode enabled
       - MCP_ENGINE_GITHUB_API_TOKEN=mock-github-token
       - MCP_ENGINE_GITHUB_WEBHOOK_SECRET=mock-github-secret
@@ -51,6 +84,7 @@ services:
       - postgres
       - redis
       - mockserver
+      - localstack
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "/app/scripts/health-check.sh"]
@@ -145,6 +179,7 @@ volumes:
   redis-data:
   prometheus-data:
   grafana-data:
+  localstack-data:
 
 networks:
   mcp-network:

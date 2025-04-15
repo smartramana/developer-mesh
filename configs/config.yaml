@@ -1,5 +1,25 @@
 # MCP Server Configuration Template
 
+# Storage Configuration
+storage:
+  # Storage provider type: "local" or "s3"
+  type: "s3"
+  
+  # S3 Storage Configuration
+  s3:
+    region: "${MCP_STORAGE_S3_REGION:-us-west-2}"
+    bucket: "${MCP_STORAGE_S3_BUCKET:-mcp-contexts}"
+    upload_part_size: 5242880  # 5MB
+    download_part_size: 5242880  # 5MB
+    concurrency: 5
+    request_timeout: 30s
+  
+  # Context Storage Configuration
+  context_storage:
+    # Provider: "database" or "s3"
+    provider: "${MCP_STORAGE_CONTEXT_STORAGE_PROVIDER:-s3}"
+    s3_path_prefix: "${MCP_STORAGE_CONTEXT_STORAGE_S3_PATH_PREFIX:-contexts}"
+
 # API Server Configuration
 api:
   listen_address: ":8080"

@@ -11,6 +11,7 @@ import (
 	"github.com/S-Corkum/mcp-server/internal/core"
 	"github.com/S-Corkum/mcp-server/internal/database"
 	"github.com/S-Corkum/mcp-server/internal/metrics"
+	"github.com/S-Corkum/mcp-server/internal/storage"
 	"github.com/spf13/viper"
 )
 
@@ -21,6 +22,20 @@ type Config struct {
 	Database database.Config   `mapstructure:"database"`
 	Engine   core.Config       `mapstructure:"engine"`
 	Metrics  metrics.Config    `mapstructure:"metrics"`
+	Storage  StorageConfig     `mapstructure:"storage"`
+}
+
+// StorageConfig holds configuration for different storage providers
+type StorageConfig struct {
+	Type             string           `mapstructure:"type"`
+	S3               aws.S3Config     `mapstructure:"s3"`
+	ContextStorage   ContextStorage   `mapstructure:"context_storage"`
+}
+
+// ContextStorage configuration for context storage
+type ContextStorage struct {
+	Provider         string           `mapstructure:"provider"` // "s3", "database", "filesystem"
+	S3PathPrefix     string           `mapstructure:"s3_path_prefix"`
 }
 
 // Load loads configuration from file and environment variables
@@ -114,4 +129,18 @@ func setDefaults(v *viper.Viper) {
 	v.SetDefault("metrics.enabled", true)
 	v.SetDefault("metrics.type", "prometheus")
 	v.SetDefault("metrics.push_interval", 10*time.Second)
+	
+	// Storage defaults
+	v.SetDefault("storage.type", "local")
+	
+	// S3 defaults
+	v.SetDefault("storage.s3.region", "us-west-2")
+	v.SetDefault("storage.s3.upload_part_size", 5*1024*1024) // 5MB
+	v.SetDefault("storage.s3.download_part_size", 5*1024*1024) // 5MB
+	v.SetDefault("storage.s3.concurrency", 5)
+	v.SetDefault("storage.s3.request_timeout", 30*time.Second)
+	
+	// Context storage defaults
+	v.SetDefault("storage.context_storage.provider", "database") // Default to database
+	v.SetDefault("storage.context_storage.s3_path_prefix", "contexts")
 }

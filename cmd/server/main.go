@@ -18,6 +18,8 @@ import (
 	"github.com/S-Corkum/mcp-server/internal/core"
 	"github.com/S-Corkum/mcp-server/internal/database"
 	"github.com/S-Corkum/mcp-server/internal/metrics"
+	"github.com/S-Corkum/mcp-server/internal/storage"
+	"github.com/S-Corkum/mcp-server/internal/storage/providers"
 	
 	// Import PostgreSQL driver
 	_ "github.com/lib/pq"
@@ -60,8 +62,38 @@ func main() {
 	}
 	defer cacheClient.Close()
 
-	// Initialize core engine
-	engine, err := core.NewEngine(ctx, cfg.Engine, db, cacheClient, metricsClient)
+	// Initialize storage if S3 is configured
+	var s3Client *aws.S3Client
+	var contextStorage providers.ContextStorage
+	var contextManager interfaces.ContextManager
+	
+	if cfg.Storage.Type == "s3" && cfg.Storage.ContextStorage.Provider == "s3" {
+		log.Println("Initializing S3 storage for contexts")
+		s3Client, err = aws.NewS3Client(ctx, cfg.Storage.S3)
+		if err != nil {
+			log.Fatalf("Failed to initialize S3 client: %v", err)
+		}
+		
+		// Initialize context storage provider
+		contextStorage = providers.NewS3ContextStorage(s3Client, cfg.Storage.ContextStorage.S3PathPrefix)
+		
+		// Create context reference table if it doesn't exist
+		err = db.CreateContextReferenceTable(ctx)
+		if err != nil {
+			log.Fatalf("Failed to create context reference table: %v", err)
+		}
+		
+		// Initialize S3-backed context manager
+		contextManager = core.NewS3ContextManager(db, cacheClient, contextStorage)
+		log.Println("S3 context storage initialized successfully")
+	} else {
+		// Use standard database-backed context manager
+		contextManager = core.NewContextManager(db, cacheClient)
+		log.Println("Database context storage initialized")
+	}
+	
+	// Initialize core engine with the appropriate context manager
+	engine, err := core.NewEngine(ctx, cfg.Engine, db, cacheClient, metricsClient, contextManager)
 	if err != nil {
 		log.Fatalf("Failed to initialize core engine: %v", err)
 	}

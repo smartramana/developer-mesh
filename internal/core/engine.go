@@ -52,12 +52,12 @@ type Engine struct {
 }
 
 // NewEngine creates a new MCP engine
-func NewEngine(ctx context.Context, cfg Config, db *database.Database, cacheClient cache.Cache, metricsClient metrics.Client) (*Engine, error) {
+func NewEngine(ctx context.Context, cfg Config, db *database.Database, cacheClient cache.Cache, metricsClient metrics.Client, contextManager interfaces.ContextManager) (*Engine, error) {
 	engineCtx, cancel := context.WithCancel(ctx)
 
 	engine := &Engine{
 		config:        cfg,
-		adapters:      make(map[string]adapters.Adapter),
+		adapters:      make(map[string]interfaces.Adapter),
 		events:        make(chan mcp.Event, cfg.EventBufferSize),
 		ctx:           engineCtx,
 		cancel:        cancel,
@@ -66,8 +66,13 @@ func NewEngine(ctx context.Context, cfg Config, db *database.Database, cacheClie
 		metricsClient: metricsClient,
 	}
 
-	// Initialize Context Manager
-	engine.ContextManager = NewContextManager(db, cacheClient)
+	// Use provided context manager or create a new one
+	if contextManager != nil {
+		engine.ContextManager = contextManager
+	} else {
+		// Fall back to default context manager
+		engine.ContextManager = NewContextManager(db, cacheClient)
+	}
 
 	// Initialize adapters
 	if err := engine.initializeAdapters(); err != nil {

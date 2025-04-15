@@ -8,6 +8,30 @@
 # 1. Make sure PostgreSQL and Redis are running (e.g., via `docker-compose up -d postgres redis`)
 # 2. Use this configuration with the server: `MCP_CONFIG_FILE=configs/config.local.yaml ./mcp-server`
 
+# Storage Configuration
+storage:
+  # For local development, you can use "local" instead of "s3" to avoid S3 dependency
+  # Or use "s3" with localstack for local S3-compatible storage
+  type: "s3"
+  
+  # S3 Storage Configuration - for local development with localstack
+  s3:
+    region: "us-west-2"
+    bucket: "mcp-contexts"
+    # LocalStack typically runs on localhost:4566
+    endpoint: "http://localhost:4566"
+    force_path_style: true  # Required for LocalStack
+    upload_part_size: 5242880  # 5MB
+    download_part_size: 5242880  # 5MB
+    concurrency: 5
+    request_timeout: 30s
+  
+  # Context Storage Configuration
+  context_storage:
+    # Use "database" for simpler local development, or "s3" with localstack
+    provider: "s3"
+    s3_path_prefix: "contexts"
+
 # API Server Configuration
 api:
   listen_address: ":8080"
