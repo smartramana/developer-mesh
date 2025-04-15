@@ -38,9 +38,9 @@ api:
   enable_cors: true                # Enable CORS support
   log_requests: true               # Log all HTTP requests
   
-  # TLS configuration
-  tls_cert_file: ""                # Path to TLS certificate file
-  tls_key_file: ""                 # Path to TLS key file
+  # TLS configuration (strongly recommended for production)
+  tls_cert_file: "/path/to/cert.pem"  # Path to TLS certificate file
+  tls_key_file: "/path/to/key.pem"    # Path to TLS key file
   
   # API rate limiting
   rate_limit:
@@ -251,9 +251,32 @@ Configuration values are loaded in the following order, with later values overri
 
 Sensitive information (like API tokens and passwords) should be stored securely and not committed to version control. You can:
 
-1. Use environment variables for sensitive values
-2. Use a secret management system (like HashiCorp Vault)
+1. Use environment variables for sensitive values (recommended approach)
+2. Use a secret management system (like HashiCorp Vault or AWS Secrets Manager)
 3. Use Kubernetes secrets when deploying on Kubernetes
+
+### Environment Variable Placeholders
+
+The configuration files use environment variable placeholders like `${VARIABLE_NAME:-default}` which will:
+- Use the value of the environment variable if it exists
+- Fall back to the default value after the `:-` if the environment variable is not set
+
+Example:
+```yaml
+database:
+  password: "${MCP_DATABASE_PASSWORD:-postgres}"
+```
+
+This will use the value of `MCP_DATABASE_PASSWORD` if it's set, or fall back to "postgres" if it's not.
+
+### Security Best Practices for Configuration
+
+1. **Never commit secrets to version control** - Use the template files as a guide but keep your actual configuration with real secrets outside of version control
+2. **Use environment variables** - Set sensitive values as environment variables rather than hardcoding them in configuration files
+3. **Encrypt sensitive data at rest** - Enable S3 server-side encryption for stored context data
+4. **Enable TLS for production** - Always use TLS certificates for production deployments
+5. **Regularly rotate secrets** - Change API keys, passwords, and other secrets regularly
+6. **Use least privilege principle** - Give services and users only the permissions they need
 
 ## Testing Configuration
 
@@ -262,6 +285,44 @@ To validate your configuration without starting the server:
 ```bash
 ./mcp-server --validate-config --config /path/to/config.yaml
 ```
+
+## S3 Storage Configuration
+
+The MCP Server now supports storing context data in Amazon S3 or S3-compatible storage services.
+
+```yaml
+storage:
+  # Storage provider type: "local" or "s3"
+  type: "s3"
+  
+  # S3 Storage Configuration
+  s3:
+    region: "us-west-2"                          # AWS region
+    bucket: "mcp-contexts"                        # S3 bucket name
+    endpoint: "http://localhost:4566"             # Optional: custom endpoint for S3-compatible services
+    force_path_style: true                        # Optional: required for some S3-compatible services
+    server_side_encryption: "AES256"              # Optional: enable server-side encryption
+    kms_key_id: ""                                # Optional: KMS key ID for aws:kms encryption
+    upload_part_size: 5242880                     # Upload multipart size (5MB)
+    download_part_size: 5242880                   # Download multipart size (5MB)
+    concurrency: 5                                # Number of concurrent upload/download parts
+    request_timeout: 30s                          # Timeout for S3 operations
+  
+  # Context Storage Configuration
+  context_storage:
+    # Provider: "database" or "s3"
+    provider: "s3"                                # Use S3 for context storage
+    s3_path_prefix: "contexts"                    # Prefix for S3 keys
+```
+
+### S3 Security Best Practices
+
+1. **Bucket Policy**: Configure your S3 bucket with appropriate policies that follow the principle of least privilege
+2. **Encryption**: Enable server-side encryption for data at rest (AES256 or aws:kms)
+3. **IAM Roles**: Use IAM roles instead of hardcoded access keys when possible
+4. **Access Logging**: Enable S3 access logging for audit purposes
+5. **Versioning**: Consider enabling bucket versioning to protect against accidental deletions
+6. **Lifecycle Policies**: Implement lifecycle policies to manage context data retention
 
 ## Mock Mode
 

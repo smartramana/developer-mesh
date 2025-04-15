@@ -78,10 +78,10 @@ database:
   host: "localhost"
   port: 5432
   username: "postgres"
-  password: "postgres"
+  password: "${MCP_DATABASE_PASSWORD:-postgres}"
   database: "mcp"
   ssl_mode: "disable"
-  dsn: "postgres://postgres:postgres@localhost:5432/mcp?sslmode=disable"
+  dsn: "postgres://postgres:${MCP_DATABASE_PASSWORD:-postgres}@localhost:5432/mcp?sslmode=disable"
   max_open_conns: 25
   max_idle_conns: 5
   conn_max_lifetime: 5m
@@ -90,7 +90,7 @@ database:
 cache:
   type: "redis"
   address: "localhost:6379"
-  password: ""
+  password: "${MCP_CACHE_PASSWORD:-}"
   database: 0
   max_retries: 3
   dial_timeout: 5

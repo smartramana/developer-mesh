@@ -9,6 +9,14 @@ storage:
   s3:
     region: "${MCP_STORAGE_S3_REGION:-us-west-2}"
     bucket: "${MCP_STORAGE_S3_BUCKET:-mcp-contexts}"
+    # Endpoint for S3-compatible services (Localstack, Minio, etc.)
+    endpoint: "${MCP_STORAGE_S3_ENDPOINT:-}"
+    # Force path style needed for some S3-compatible services
+    force_path_style: ${MCP_STORAGE_S3_FORCE_PATH_STYLE:-false}
+    # Server-side encryption (AES256 or aws:kms)
+    # server_side_encryption: "${MCP_STORAGE_S3_SERVER_SIDE_ENCRYPTION:-AES256}"
+    # KMS key ID for aws:kms encryption
+    # kms_key_id: "${MCP_STORAGE_S3_KMS_KEY_ID:-}"
     upload_part_size: 5242880  # 5MB
     download_part_size: 5242880  # 5MB
     concurrency: 5
@@ -29,6 +37,10 @@ api:
   base_path: "/api/v1"
   enable_cors: true
   log_requests: true
+  
+  # TLS Configuration (commented out but included for production deployment)
+  # tls_cert_file: "${MCP_API_TLS_CERT_FILE:-}"
+  # tls_key_file: "${MCP_API_TLS_KEY_FILE:-}"
   
   # API rate limiting
   rate_limit:
@@ -66,10 +78,10 @@ database:
   host: "postgres"
   port: 5432
   username: "postgres"
-  password: "postgres"
+  password: "${MCP_DATABASE_PASSWORD:-postgres}"
   database: "mcp"
   ssl_mode: "disable"
-  dsn: "postgres://postgres:postgres@postgres:5432/mcp?sslmode=disable"
+  dsn: "postgres://postgres:${MCP_DATABASE_PASSWORD:-postgres}@postgres:5432/mcp?sslmode=disable"
   max_open_conns: 25
   max_idle_conns: 5
   conn_max_lifetime: 5m
@@ -78,7 +90,7 @@ database:
 cache:
   type: "redis"
   address: "redis:6379"
-  password: ""
+  password: "${MCP_CACHE_PASSWORD:-}"
   database: 0
   max_retries: 3
   dial_timeout: 5

@@ -13,12 +13,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - S3 Context Manager for efficiently storing large context windows
 - LocalStack integration for local S3 development
 - Comprehensive test suite for all S3-related components
+- Security enhancements for configuration management
 
 ### Changed
 - Extended S3 client with additional methods (DeleteFile, ListFiles)
 - Updated engine to work with the new storage backend
 - Modified configuration to support S3 as context storage
 - Enhanced docker-compose.yml to include LocalStack container
+- Improved security in configuration files by using environment variables for sensitive data
+- Added S3 server-side encryption configuration options
+- Enhanced Prometheus configuration with security options
 
 ### Fixed
 - N/A
