@@ -11,11 +11,17 @@ import (
 
 // Server represents the API server
 type Server struct {
-	router       *gin.Engine
-	server       *http.Server
-	engine       *core.Engine
-	config       Config
-	embeddingRepo *repository.EmbeddingRepository
+	router               *gin.Engine
+	server               *http.Server
+	engine               *core.Engine
+	config               Config
+	embeddingRepo        *repository.EmbeddingRepository
+	
+	// Handler functions (for testing overrides)
+	storeEmbedding       func(c *gin.Context)
+	searchEmbeddings     func(c *gin.Context)
+	getContextEmbeddings func(c *gin.Context)
+	deleteContextEmbeddings func(c *gin.Context)
 }
 
 // NewServer creates a new API server
@@ -61,6 +67,12 @@ func NewServer(engine *core.Engine, embeddingRepo *repository.EmbeddingRepositor
 			IdleTimeout:  cfg.IdleTimeout,
 		},
 	}
+	
+	// Initialize default handler functions
+	server.storeEmbedding = server.handleStoreEmbedding
+	server.searchEmbeddings = server.handleSearchEmbeddings
+	server.getContextEmbeddings = server.handleGetContextEmbeddings
+	server.deleteContextEmbeddings = server.handleDeleteContextEmbeddings
 
 	// Initialize routes
 	server.setupRoutes()
@@ -211,4 +223,73 @@ func (s *Server) getContextHandler(c *gin.Context) {
 	id := c.Param("id")
 	// To be implemented
 	c.JSON(http.StatusOK, gin.H{"id": id, "message": "context retrieved"})
+}
+
+// Vector operations handler functions
+// These are the actual implementations that will be used by default
+
+func (s *Server) handleStoreEmbedding(c *gin.Context) {
+	var req StoreEmbeddingRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	
+	embedding := &repository.Embedding{
+		ContextID:    req.ContextID,
+		ContentIndex: req.ContentIndex,
+		Text:         req.Text,
+		Embedding:    req.Embedding,
+		ModelID:      req.ModelID,
+	}
+	
+	err := s.embeddingRepo.StoreEmbedding(c.Request.Context(), embedding)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	
+	c.JSON(http.StatusOK, embedding)
+}
+
+func (s *Server) handleSearchEmbeddings(c *gin.Context) {
+	var req SearchEmbeddingsRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	
+	if req.Limit <= 0 {
+		req.Limit = 10 // Default limit
+	}
+	
+	embeddings, err := s.embeddingRepo.SearchEmbeddings(c.Request.Context(), req.QueryEmbedding, req.ContextID, req.Limit)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	
+	c.JSON(http.StatusOK, gin.H{"embeddings": embeddings})
+}
+
+func (s *Server) handleGetContextEmbeddings(c *gin.Context) {
+	contextID := c.Param("context_id")
+	embeddings, err := s.embeddingRepo.GetContextEmbeddings(c.Request.Context(), contextID)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	
+	c.JSON(http.StatusOK, gin.H{"embeddings": embeddings})
+}
+
+func (s *Server) handleDeleteContextEmbeddings(c *gin.Context) {
+	contextID := c.Param("context_id")
+	err := s.embeddingRepo.DeleteContextEmbeddings(c.Request.Context(), contextID)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	
+	c.JSON(http.StatusOK, gin.H{"status": "deleted"})
 }

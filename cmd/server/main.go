@@ -19,8 +19,10 @@ import (
 	"github.com/S-Corkum/mcp-server/internal/database"
 	"github.com/S-Corkum/mcp-server/internal/interfaces"
 	"github.com/S-Corkum/mcp-server/internal/metrics"
+	"github.com/S-Corkum/mcp-server/internal/repository"
 	"github.com/S-Corkum/mcp-server/internal/storage"
 	"github.com/S-Corkum/mcp-server/internal/storage/providers"
+	"github.com/jmoiron/sqlx"
 	
 	// Import PostgreSQL driver
 	_ "github.com/lib/pq"
@@ -55,6 +57,14 @@ func main() {
 		log.Fatalf("Failed to initialize database: %v", err)
 	}
 	defer db.Close()
+
+	// Get the underlying sqlx.DB connection for the repository
+	// Since we can't access db.db directly (private field), we'll create a new connection
+	sqlxDB, err := sqlx.ConnectContext(ctx, cfg.Database.Driver, cfg.Database.DSN)
+	if err != nil {
+		log.Fatalf("Failed to create database connection for repository: %v", err)
+	}
+	defer sqlxDB.Close()
 
 	// Initialize cache
 	cacheClient, err := cache.NewCache(ctx, cfg.Cache)
@@ -100,8 +110,11 @@ func main() {
 	}
 	defer engine.Shutdown(ctx)
 
+	// Initialize embedding repository for vector operations
+	embeddingRepo := repository.NewEmbeddingRepository(sqlxDB)
+	
 	// Initialize API server
-	server := api.NewServer(engine, cfg.API)
+	server := api.NewServer(engine, embeddingRepo, cfg.API)
 
 	// Start server in a goroutine
 	go func() {

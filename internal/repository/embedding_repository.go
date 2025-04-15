@@ -3,6 +3,7 @@ package repository
 import (
 	"context"
 	"fmt"
+	"strconv"
 	"strings"
 	"time"
 	
@@ -68,7 +69,7 @@ func (r *EmbeddingRepository) SearchEmbeddings(
 	limit int,
 ) ([]Embedding, error) {
 	query := `
-		SELECT id, context_id, content_index, text, embedding, model_id, created_at
+		SELECT id, context_id, content_index, text, embedding::text as embedding, model_id, created_at
 		FROM mcp.embeddings
 		WHERE context_id = $1
 		ORDER BY embedding <-> $2
@@ -78,10 +79,116 @@ func (r *EmbeddingRepository) SearchEmbeddings(
 	// Convert the query vector to a PostgreSQL vector
 	vectorStr := fmt.Sprintf("[%s]", strings.Join(floatSliceToStrings(queryVector), ","))
 	
-	var embeddings []Embedding
-	err := r.db.SelectContext(ctx, &embeddings, query, contextID, vectorStr, limit)
+	rows, err := r.db.QueryxContext(ctx, query, contextID, vectorStr, limit)
 	if err != nil {
 		return nil, fmt.Errorf("failed to search embeddings: %w", err)
+	}
+	defer rows.Close()
+	
+	var embeddings []Embedding
+	for rows.Next() {
+		var emb Embedding
+		var embStr string
+		
+		// Create a map to hold the raw data
+		data := make(map[string]interface{})
+		
+		if err := rows.MapScan(data); err != nil {
+			return nil, fmt.Errorf("failed to scan embedding: %w", err)
+		}
+		
+		// Manually convert each field with careful type checking
+		if v, ok := data["id"]; ok {
+			switch val := v.(type) {
+			case []byte:
+				emb.ID = string(val)
+			case string:
+				emb.ID = val
+			}
+		}
+		
+		if v, ok := data["context_id"]; ok {
+			switch val := v.(type) {
+			case []byte:
+				emb.ContextID = string(val)
+			case string:
+				emb.ContextID = val
+			}
+		}
+		
+		if v, ok := data["content_index"]; ok {
+			switch val := v.(type) {
+			case int64:
+				emb.ContentIndex = int(val)
+			case []byte:
+				num, _ := strconv.Atoi(string(val))
+				emb.ContentIndex = num
+			case string:
+				num, _ := strconv.Atoi(val)
+				emb.ContentIndex = num
+			case int:
+				emb.ContentIndex = val
+			}
+		}
+		
+		if v, ok := data["text"]; ok {
+			switch val := v.(type) {
+			case []byte:
+				emb.Text = string(val)
+			case string:
+				emb.Text = val
+			}
+		}
+		
+		if v, ok := data["embedding"]; ok {
+			switch val := v.(type) {
+			case []byte:
+				embStr = string(val)
+			case string:
+				embStr = val
+			default:
+				// Skip embedding if type is unexpected
+				continue
+			}
+			
+			// Parse the embedding string - remove brackets and split by commas
+			embStr = strings.TrimPrefix(embStr, "{")
+			embStr = strings.TrimSuffix(embStr, "}")
+			components := strings.Split(embStr, ",")
+			
+			// Convert strings to float32
+			embedding := make([]float32, len(components))
+			for i, comp := range components {
+				val, err := strconv.ParseFloat(strings.TrimSpace(comp), 32)
+				if err != nil {
+					continue // Skip invalid floats
+				}
+				embedding[i] = float32(val)
+			}
+			emb.Embedding = embedding
+		}
+		
+		if v, ok := data["model_id"]; ok {
+			switch val := v.(type) {
+			case []byte:
+				emb.ModelID = string(val)
+			case string:
+				emb.ModelID = val
+			}
+		}
+		
+		if v, ok := data["created_at"]; ok {
+			switch val := v.(type) {
+			case time.Time:
+				emb.CreatedAt = val
+			}
+		}
+		
+		embeddings = append(embeddings, emb)
+	}
+	
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("error iterating rows: %w", err)
 	}
 	
 	return embeddings, nil
@@ -90,15 +197,121 @@ func (r *EmbeddingRepository) SearchEmbeddings(
 // GetContextEmbeddings retrieves all embeddings for a context
 func (r *EmbeddingRepository) GetContextEmbeddings(ctx context.Context, contextID string) ([]Embedding, error) {
 	query := `
-		SELECT id, context_id, content_index, text, embedding, model_id, created_at
+		SELECT id, context_id, content_index, text, embedding::text as embedding, model_id, created_at
 		FROM mcp.embeddings
 		WHERE context_id = $1
 	`
 	
-	var embeddings []Embedding
-	err := r.db.SelectContext(ctx, &embeddings, query, contextID)
+	rows, err := r.db.QueryxContext(ctx, query, contextID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get context embeddings: %w", err)
+	}
+	defer rows.Close()
+	
+	var embeddings []Embedding
+	for rows.Next() {
+		var emb Embedding
+		var embStr string
+		
+		// Create a map to hold the raw data
+		data := make(map[string]interface{})
+		
+		if err := rows.MapScan(data); err != nil {
+			return nil, fmt.Errorf("failed to scan embedding: %w", err)
+		}
+		
+		// Manually convert each field
+		if v, ok := data["id"]; ok {
+			switch val := v.(type) {
+			case []byte:
+				emb.ID = string(val)
+			case string:
+				emb.ID = val
+			}
+		}
+		
+		if v, ok := data["context_id"]; ok {
+			switch val := v.(type) {
+			case []byte:
+				emb.ContextID = string(val)
+			case string:
+				emb.ContextID = val
+			}
+		}
+		
+		if v, ok := data["content_index"]; ok {
+			switch val := v.(type) {
+			case int64:
+				emb.ContentIndex = int(val)
+			case []byte:
+				num, _ := strconv.Atoi(string(val))
+				emb.ContentIndex = num
+			case string:
+				num, _ := strconv.Atoi(val)
+				emb.ContentIndex = num
+			case int:
+				emb.ContentIndex = val
+			}
+		}
+		
+		if v, ok := data["text"]; ok {
+			switch val := v.(type) {
+			case []byte:
+				emb.Text = string(val)
+			case string:
+				emb.Text = val
+			}
+		}
+		
+		if v, ok := data["embedding"]; ok {
+			switch val := v.(type) {
+			case []byte:
+				embStr = string(val)
+			case string:
+				embStr = val
+			default:
+				// Skip embedding if type is unexpected
+				continue
+			}
+			
+			// Parse the embedding string - remove brackets and split by commas
+			embStr = strings.TrimPrefix(embStr, "{")
+			embStr = strings.TrimSuffix(embStr, "}")
+			components := strings.Split(embStr, ",")
+			
+			// Convert strings to float32
+			embedding := make([]float32, len(components))
+			for i, comp := range components {
+				val, err := strconv.ParseFloat(strings.TrimSpace(comp), 32)
+				if err != nil {
+					continue // Skip invalid floats
+				}
+				embedding[i] = float32(val)
+			}
+			emb.Embedding = embedding
+		}
+		
+		if v, ok := data["model_id"]; ok {
+			switch val := v.(type) {
+			case []byte:
+				emb.ModelID = string(val)
+			case string:
+				emb.ModelID = val
+			}
+		}
+		
+		if v, ok := data["created_at"]; ok {
+			switch val := v.(type) {
+			case time.Time:
+				emb.CreatedAt = val
+			}
+		}
+		
+		embeddings = append(embeddings, emb)
+	}
+	
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("error iterating rows: %w", err)
 	}
 	
 	return embeddings, nil
