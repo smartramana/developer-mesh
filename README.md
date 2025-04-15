@@ -14,6 +14,7 @@ MCP (Model Context Protocol) Server provides AI agents with both advanced contex
 - **Memory Management**: Efficiently manage long-term and short-term agent memory
 - **Event-Driven Architecture**: React to agent interactions and context changes in real-time
 - **Context Search**: Search within contexts for relevant information
+- **Vector Search**: Semantic search for contexts using vector embeddings and similarity matching
 
 ### DevOps Integration
 - **Unified API**: Interact with multiple DevOps tools through a consistent API
@@ -380,6 +381,13 @@ All configuration options can be set using environment variables with the `MCP_`
 - Search Context: `POST /api/v1/contexts/:id/search`
 - Summarize Context: `GET /api/v1/contexts/:id/summary`
 
+### Vector API Endpoints
+
+- Store Embedding: `POST /api/v1/vectors/store`
+- Search Embeddings: `POST /api/v1/vectors/search`
+- Get Context Embeddings: `GET /api/v1/vectors/context/:context_id`
+- Delete Context Embeddings: `DELETE /api/v1/vectors/context/:context_id`
+
 ### Tool API Endpoints
 
 - Execute Tool Action: `POST /api/v1/tools/:tool/actions/:action?context_id=:context_id`
@@ -410,6 +418,38 @@ The MCP Server integrates with Prometheus and Grafana for monitoring and observa
 - Prometheus: http://localhost:9090
 - Grafana: http://localhost:3000 (admin/admin)
 
+## Vector Search Functionality
+
+The MCP Server supports vector-based semantic search for context management via the PostgreSQL `pg_vector` extension. This enables AI agents to find semantically similar contexts based on meaning rather than just keywords.
+
+### Hybrid Approach
+
+The MCP implements a hybrid approach to vector functionality:
+
+- **MCP Server Responsibilities**:
+  - Storing vector embeddings in the database
+  - Providing efficient vector similarity search
+  - Maintaining the relationship between embeddings and contexts
+  - Handling vector indexing for performance
+
+- **Agent Responsibilities**:
+  - Generating embeddings using appropriate models
+  - Deciding which context items to embed
+  - Interpreting vector search results
+  - Determining how to use the retrieved similar contexts
+
+### Example Usage
+
+For code examples of how an agent can use the vector functionality, see `examples/vector_search.go`. The typical workflow is:
+
+1. Agent creates a context in MCP server
+2. Agent communicates with an LLM service (like Amazon Bedrock)
+3. Agent generates embeddings for context items using an embedding model
+4. Agent stores these embeddings in the MCP server
+5. When a new query arrives, agent generates an embedding for the query
+6. Agent uses MCP's vector search to find semantically similar context items
+7. Agent retrieves the most relevant context items to enhance its response
+
 ## Architecture
 
 The MCP Server is built with a modular architecture:
@@ -422,6 +462,7 @@ The MCP Server is built with a modular architecture:
 - **Database**: Persists contexts and system state
 - **Cache**: Improves performance for frequently accessed contexts
 - **Event System**: Handles events from agents and tools
+- **Vector Repository**: Manages vector embeddings for semantic search
 
 ### Performance Optimizations
 

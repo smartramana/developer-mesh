@@ -68,3 +68,20 @@ CREATE TABLE IF NOT EXISTS mcp.metrics (
 -- Create index on metrics
 CREATE INDEX IF NOT EXISTS idx_metrics_name ON mcp.metrics(name);
 CREATE INDEX IF NOT EXISTS idx_metrics_timestamp ON mcp.metrics(timestamp);
+
+-- Enable vector extension for embedding storage
+CREATE EXTENSION IF NOT EXISTS "vector";
+
+-- Embeddings table for vector search
+CREATE TABLE IF NOT EXISTS mcp.embeddings (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    context_id UUID NOT NULL REFERENCES mcp.contexts(id) ON DELETE CASCADE,
+    content_index INTEGER NOT NULL, -- Index into the context content array
+    text TEXT NOT NULL,             -- The text that was embedded
+    embedding vector(1536),         -- Default to 1536 dimensions (common for many models)
+    model_id VARCHAR(100) NOT NULL, -- Model used to generate the embedding
+    created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW()
+);
+
+-- Create index for vector similarity search
+CREATE INDEX IF NOT EXISTS idx_embeddings_vector ON mcp.embeddings USING ivfflat (embedding vector_cosine_ops);

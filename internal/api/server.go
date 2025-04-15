@@ -5,19 +5,21 @@ import (
 	"net/http"
 
 	"github.com/S-Corkum/mcp-server/internal/core"
+	"github.com/S-Corkum/mcp-server/internal/repository"
 	"github.com/gin-gonic/gin"
 )
 
 // Server represents the API server
 type Server struct {
-	router *gin.Engine
-	server *http.Server
-	engine *core.Engine
-	config Config
+	router       *gin.Engine
+	server       *http.Server
+	engine       *core.Engine
+	config       Config
+	embeddingRepo *repository.EmbeddingRepository
 }
 
 // NewServer creates a new API server
-func NewServer(engine *core.Engine, cfg Config) *Server {
+func NewServer(engine *core.Engine, embeddingRepo *repository.EmbeddingRepository, cfg Config) *Server {
 	router := gin.New()
 
 	// Add middleware
@@ -47,10 +49,11 @@ func NewServer(engine *core.Engine, cfg Config) *Server {
 	InitJWT(cfg.Auth.JWTSecret)
 
 	server := &Server{
-		router: router,
-		engine: engine,
-		config: cfg,
-		server: &http.Server{
+		router:       router,
+		engine:       engine,
+		embeddingRepo: embeddingRepo,
+		config:       cfg,
+		server:       &http.Server{
 			Addr:         cfg.ListenAddress,
 			Handler:      router,
 			ReadTimeout:  cfg.ReadTimeout,
@@ -84,6 +87,15 @@ func (s *Server) setupRoutes() {
 	// Tool integration API
 	toolAPI := NewToolAPI(s.engine.AdapterBridge)
 	toolAPI.RegisterRoutes(v1)
+	
+	// Vector API endpoints
+	vectorRoutes := v1.Group("/vectors")
+	{
+		vectorRoutes.POST("/store", s.storeEmbedding)
+		vectorRoutes.POST("/search", s.searchEmbeddings)
+		vectorRoutes.GET("/context/:context_id", s.getContextEmbeddings)
+		vectorRoutes.DELETE("/context/:context_id", s.deleteContextEmbeddings)
+	}
 	
 	// Webhook endpoints - each has its own authentication via secret validation
 	webhook := s.router.Group("/webhook")

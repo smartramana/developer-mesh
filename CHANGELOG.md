@@ -14,6 +14,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - LocalStack integration for local S3 development
 - Comprehensive test suite for all S3-related components
 - Security enhancements for configuration management
+- Vector search functionality using PostgreSQL pg_vector extension
+- API endpoints for storing and retrieving vector embeddings
+- Efficient similarity search for context items
+- Hybrid approach where MCP manages vector storage while agents control embedding generation
+- Example code demonstrating agent integration with vector search
 
 ### Changed
 - Extended S3 client with additional methods (DeleteFile, ListFiles)

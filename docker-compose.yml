@@ -122,6 +122,10 @@ services:
     volumes:
       - postgres-data:/var/lib/postgresql/data
       - ./scripts/db/init.sql:/docker-entrypoint-initdb.d/init.sql
+    command: [
+      "postgres", 
+      "-c", "shared_preload_libraries=vector"
+    ]
     restart: unless-stopped
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U postgres"]
