@@ -215,15 +215,34 @@ func (d *Database) CreateContextReferenceTable(ctx context.Context) error {
 			expires_at TIMESTAMP WITH TIME ZONE,
 			token_count INTEGER NOT NULL DEFAULT 0,
 			message_count INTEGER NOT NULL DEFAULT 0,
-			storage_path TEXT NOT NULL,
-			
-			-- Indexes for common queries
-			INDEX idx_context_agent_id (agent_id),
-			INDEX idx_context_session_id (session_id),
-			INDEX idx_context_created_at (created_at),
-			INDEX idx_context_expires_at (expires_at)
+			storage_path TEXT NOT NULL
 		)
 	`
+	
+	// Execute the CREATE TABLE query
+	_, err = d.db.ExecContext(ctx, query)
+	if err != nil {
+		return fmt.Errorf("failed to create context_references table: %w", err)
+	}
+	
+	// Create indexes in separate statements (PostgreSQL style)
+	indexes := []string{
+		`CREATE INDEX IF NOT EXISTS idx_context_agent_id ON mcp.context_references (agent_id)`,
+		`CREATE INDEX IF NOT EXISTS idx_context_session_id ON mcp.context_references (session_id)`,
+		`CREATE INDEX IF NOT EXISTS idx_context_created_at ON mcp.context_references (created_at)`,
+		`CREATE INDEX IF NOT EXISTS idx_context_expires_at ON mcp.context_references (expires_at)`,
+	}
+	
+	// Execute each CREATE INDEX query
+	for _, indexQuery := range indexes {
+		_, err = d.db.ExecContext(ctx, indexQuery)
+		if err != nil {
+			return fmt.Errorf("failed to create index: %w", err)
+		}
+	}
+	
+	return nil
+}
 	
 	_, err = d.db.ExecContext(ctx, query)
 	if err != nil {

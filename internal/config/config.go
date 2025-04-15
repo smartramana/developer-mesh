@@ -28,7 +28,7 @@ type Config struct {
 // StorageConfig holds configuration for different storage providers
 type StorageConfig struct {
 	Type             string           `mapstructure:"type"`
-	S3               aws.S3Config     `mapstructure:"s3"`
+	S3               storage.S3Config `mapstructure:"s3"`
 	ContextStorage   ContextStorage   `mapstructure:"context_storage"`
 }
 
