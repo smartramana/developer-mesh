@@ -94,6 +94,14 @@ func NewS3Client(ctx context.Context, cfg S3Config) (*S3Client, error) {
 
 // UploadFile uploads a file to S3
 func (c *S3Client) UploadFile(ctx context.Context, key string, data []byte, contentType string) error {
+	if key == "" {
+		return fmt.Errorf("key cannot be empty")
+	}
+	
+	if len(data) == 0 {
+		return fmt.Errorf("data cannot be empty")
+	}
+
 	// Create upload input
 	input := &s3.PutObjectInput{
 		Bucket:      aws.String(c.config.Bucket),
@@ -112,6 +120,10 @@ func (c *S3Client) UploadFile(ctx context.Context, key string, data []byte, cont
 
 // DownloadFile downloads a file from S3
 func (c *S3Client) DownloadFile(ctx context.Context, key string) ([]byte, error) {
+	if key == "" {
+		return nil, fmt.Errorf("key cannot be empty")
+	}
+
 	// Create buffer to write the file to
 	buf := manager.NewWriteAtBuffer([]byte{})
 
@@ -135,6 +147,10 @@ func (c *S3Client) DownloadFile(ctx context.Context, key string) ([]byte, error)
 
 // DeleteFile deletes a file from S3
 func (c *S3Client) DeleteFile(ctx context.Context, key string) error {
+	if key == "" {
+		return fmt.Errorf("key cannot be empty")
+	}
+
 	// Create delete input
 	input := &s3.DeleteObjectInput{
 		Bucket: aws.String(c.config.Bucket),
@@ -151,6 +167,8 @@ func (c *S3Client) DeleteFile(ctx context.Context, key string) error {
 
 // ListFiles lists files in S3 with a given prefix
 func (c *S3Client) ListFiles(ctx context.Context, prefix string) ([]string, error) {
+	// prefix can be empty - it would list all objects in the bucket
+
 	// Create list input
 	input := &s3.ListObjectsV2Input{
 		Bucket: aws.String(c.config.Bucket),
@@ -171,7 +189,9 @@ func (c *S3Client) ListFiles(ctx context.Context, prefix string) ([]string, erro
 		}
 
 		for _, obj := range page.Contents {
-			keys = append(keys, *obj.Key)
+			if obj.Key != nil {
+				keys = append(keys, *obj.Key)
+			}
 		}
 	}
 

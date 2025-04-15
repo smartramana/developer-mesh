@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
+	"strings"
 	"time"
 
 	s3client "github.com/S-Corkum/mcp-server/internal/storage"
@@ -134,10 +135,16 @@ func (s *S3ContextStorage) extractContextID(key string) string {
 	// For simplicity, we'll assume the key format is prefix/contextID.json
 	// In a real implementation, we'd use proper path handling
 	
-	// This is a simplified example
+	// First check if the key starts with the prefix
+	if !strings.HasPrefix(key, s.prefix) || len(key) <= len(s.prefix)+1 {
+		return ""
+	}
+	
+	// Extract the filename part
 	filename := key[len(s.prefix)+1:]
-	if len(filename) > 5 && filename[len(filename)-5:] == ".json" {
+	if len(filename) > 5 && strings.HasSuffix(filename, ".json") {
 		return filename[:len(filename)-5]
 	}
+	
 	return ""
 }

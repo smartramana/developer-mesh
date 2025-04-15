@@ -173,6 +173,26 @@ func TestDeleteContext(t *testing.T) {
 	mockClient.AssertExpectations(t)
 }
 
+func TestExtractContextID(t *testing.T) {
+	mockClient := new(MockS3Client)
+	mockClient.On("GetBucketName").Return("test-bucket")
+	
+	storage := NewS3ContextStorage(mockClient, "test-prefix")
+	
+	// Test valid cases
+	assert.Equal(t, "context1", storage.extractContextID("test-prefix/context1.json"))
+	assert.Equal(t, "nested/context2", storage.extractContextID("test-prefix/nested/context2.json"))
+	
+	// Test edge cases
+	assert.Equal(t, "", storage.extractContextID("different-prefix/context.json")) // Different prefix
+	assert.Equal(t, "", storage.extractContextID("test-prefix")) // No trailing slash
+	assert.Equal(t, "", storage.extractContextID("test-prefix/")) // Empty filename
+	assert.Equal(t, "", storage.extractContextID("test-prefix/file.txt")) // Not a .json file
+	assert.Equal(t, "", storage.extractContextID("")) // Empty string
+	
+	mockClient.AssertExpectations(t)
+}
+
 func TestListContexts(t *testing.T) {
 	mockClient := new(MockS3Client)
 	mockClient.On("GetBucketName").Return("test-bucket")

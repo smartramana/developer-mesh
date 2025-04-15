@@ -101,6 +101,11 @@ func TestDeleteFile(t *testing.T) {
 	assert.Error(t, err)
 	assert.Equal(t, "delete error", err.Error())
 	mockClient.AssertExpectations(t)
+	
+	// Test empty key
+	err = s3Client.DeleteFile(ctx, "")
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "key cannot be empty")
 }
 
 func TestListFiles(t *testing.T) {

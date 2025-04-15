@@ -3,6 +3,7 @@ package core
 import (
 	"context"
 	"errors"
+	"strings"
 	"testing"
 	"time"
 
@@ -144,7 +145,9 @@ func TestS3ContextManager_CreateContext(t *testing.T) {
 		return c.ID == contextData.ID && c.AgentID == contextData.AgentID && c.ModelID == contextData.ModelID
 	})).Return(nil).Once()
 
-	mockCache.On("Set", mock.Anything, mock.StringContains("context:test-id"), mock.Anything, mock.Anything).Return(nil).Once()
+	mockCache.On("Set", mock.Anything, mock.MatchedBy(func(s string) bool {
+		return strings.Contains(s, "context:test-id")
+	}), mock.Anything, mock.Anything).Return(nil).Once()
 
 	result, err := manager.CreateContext(ctx, contextData)
 
