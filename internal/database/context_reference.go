@@ -243,11 +243,3 @@ func (d *Database) CreateContextReferenceTable(ctx context.Context) error {
 	
 	return nil
 }
-	
-	_, err = d.db.ExecContext(ctx, query)
-	if err != nil {
-		return fmt.Errorf("failed to create context_references table: %w", err)
-	}
-	
-	return nil
-}

@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/S-Corkum/mcp-server/internal/database"
+	"github.com/S-Corkum/mcp-server/internal/storage/providers"
 	"github.com/S-Corkum/mcp-server/pkg/mcp"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
@@ -16,6 +17,9 @@ import (
 type MockContextStorage struct {
 	mock.Mock
 }
+
+// Ensure MockContextStorage implements providers.ContextStorage
+var _ providers.ContextStorage = (*MockContextStorage)(nil)
 
 func (m *MockContextStorage) StoreContext(ctx context.Context, contextData *mcp.Context) error {
 	args := m.Called(ctx, contextData)
