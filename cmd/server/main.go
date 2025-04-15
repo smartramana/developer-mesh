@@ -20,7 +20,6 @@ import (
 	"github.com/S-Corkum/mcp-server/internal/interfaces"
 	"github.com/S-Corkum/mcp-server/internal/metrics"
 	"github.com/S-Corkum/mcp-server/internal/storage"
-	aws "github.com/S-Corkum/mcp-server/internal/storage"
 	"github.com/S-Corkum/mcp-server/internal/storage/providers"
 	
 	// Import PostgreSQL driver
@@ -65,13 +64,13 @@ func main() {
 	defer cacheClient.Close()
 
 	// Initialize storage if S3 is configured
-	var s3Client *aws.S3Client
+	var s3Client *storage.S3Client
 	var contextStorage providers.ContextStorage
 	var contextManager interfaces.ContextManager
 	
 	if cfg.Storage.Type == "s3" && cfg.Storage.ContextStorage.Provider == "s3" {
 		log.Println("Initializing S3 storage for contexts")
-		s3Client, err = aws.NewS3Client(ctx, cfg.Storage.S3)
+		s3Client, err = storage.NewS3Client(ctx, cfg.Storage.S3)
 		if err != nil {
 			log.Fatalf("Failed to initialize S3 client: %v", err)
 		}
