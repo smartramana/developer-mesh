@@ -1,0 +1,34 @@
+# Changelog
+
+All notable changes to this project will be documented in this file.
+
+The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
+and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+
+## [Unreleased]
+
+### Added
+- S3 storage implementation for context data
+- Context reference storage in database for indexing and querying
+- S3 Context Manager for efficiently storing large context windows
+- LocalStack integration for local S3 development
+- Comprehensive test suite for all S3-related components
+
+### Changed
+- Extended S3 client with additional methods (DeleteFile, ListFiles)
+- Updated engine to work with the new storage backend
+- Modified configuration to support S3 as context storage
+- Enhanced docker-compose.yml to include LocalStack container
+
+### Fixed
+- N/A
+
+## [0.1.0] - 2025-04-14
+
+### Added
+- Initial implementation of MCP server
+- Basic adapters for DevOps tools (GitHub, Artifactory, etc.)
+- Core engine for event processing
+- In-memory context management
+- PostgreSQL database integration
+- Redis cache implementation
