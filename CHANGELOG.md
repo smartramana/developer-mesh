@@ -8,6 +8,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- Advanced example demonstrating combined S3 storage and vector search functionality
+
+### Changed
+- N/A
+
+### Fixed
+- N/A
+
+## [0.2.0] - 2025-04-15
+
+### Added
 - S3 storage implementation for context data
 - Context reference storage in database for indexing and querying
 - S3 Context Manager for efficiently storing large context windows
@@ -19,6 +30,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Efficient similarity search for context items
 - Hybrid approach where MCP manages vector storage while agents control embedding generation
 - Example code demonstrating agent integration with vector search
+- Detailed documentation for S3 storage and vector search functionality
 
 ### Changed
 - Extended S3 client with additional methods (DeleteFile, ListFiles)
@@ -28,6 +40,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Improved security in configuration files by using environment variables for sensitive data
 - Added S3 server-side encryption configuration options
 - Enhanced Prometheus configuration with security options
+- Updated README.md with latest features and improved example code
+- Enhanced system architecture documentation to include new components
 
 ### Fixed
 - N/A

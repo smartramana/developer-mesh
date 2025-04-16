@@ -71,15 +71,31 @@ The API Server provides HTTP endpoints for interacting with the MCP platform:
 
 The API Server uses the Gin framework for routing and middleware, with a structured approach to handling requests.
 
-### 6. Database
+### 6. Database and Storage
 
-The Database component handles persistent storage for the MCP Server:
+The MCP Server uses a combination of database and object storage for optimal performance:
 
-- **Contexts**: Stores contexts and their content
+#### Database (PostgreSQL)
+
+The Database component handles persistent storage for:
+
+- **Context References**: Metadata and references to context data
+- **Vector Embeddings**: Stores vector embeddings for semantic search
 - **System Configuration**: Stores system-wide configuration
 - **Metrics**: Stores historical metrics for monitoring
 
-The current implementation uses PostgreSQL for relational data storage, with appropriate indexes and optimizations.
+The implementation uses PostgreSQL with the pg_vector extension for vector operations, with appropriate indexes and optimizations.
+
+#### Object Storage (S3)
+
+The S3 Storage component provides:
+
+- **Large Context Storage**: Efficiently stores large context data
+- **Scalable Storage**: Handles growing context data without database constraints
+- **Cost-Efficient Storage**: Reduces database storage costs
+- **Flexible Implementation**: Works with AWS S3 or any S3-compatible service
+
+The S3 implementation supports multipart uploads/downloads, server-side encryption, and optimized concurrent operations.
 
 ### 7. Cache
 

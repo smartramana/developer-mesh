@@ -155,36 +155,54 @@ The Xray adapter integrates with JFrog Xray security scanning:
 - **API Interactions**: Vulnerability data, license information, scan results, etc.
 - **Mock Mode**: Simulated Xray responses for testing
 
-## 4. Database Components
+## 4. Storage Components
 
-The Database components handle persistent storage for the MCP Server.
+The Storage components handle persistent storage for the MCP Server, using a combination of relational database and object storage.
 
-### Database Interface
+### Storage Interface
 
-The database interface provides abstract operations for data storage and retrieval:
+The storage interface provides abstract operations for data storage and retrieval:
 
 - CRUD operations for various entity types
 - Query building and execution
 - Transaction support
 - Migration handling
+- Large object storage and retrieval
 
-### PostgreSQL Implementation
+### PostgreSQL Database
 
-The current implementation uses PostgreSQL as the primary database:
+The PostgreSQL database stores:
 
-- Connection pooling for performance
-- Prepared statements to prevent SQL injection
-- Schema migrations for versioning
-- Transaction support for atomic operations
-
-### Entity Types
-
-The database stores various entity types:
-
+- **Context References**: Metadata and references to context data
+- **Vector Embeddings**: Vector data for semantic search (using pg_vector extension)
 - **Event Records**: Historical record of processed events
 - **Adapter Configurations**: Stored configuration for adapters
 - **Integration Mappings**: Mappings between entities in different systems
 - **User Data**: User accounts and authorization information
+
+Key features include:
+- Connection pooling for performance
+- Prepared statements to prevent SQL injection
+- Schema migrations for versioning
+- Transaction support for atomic operations
+- Vector operations for semantic search
+
+### S3 Object Storage
+
+The S3 storage component provides efficient storage for large context data:
+
+- **Multi-part Upload/Download**: Efficient transfer of large context data
+- **Concurrent Operations**: Parallel processing for better performance
+- **Server-side Encryption**: Data protection at rest
+- **Compatibility**: Works with AWS S3 or any S3-compatible service
+- **Scalability**: Virtually unlimited storage capacity
+
+Implementation details:
+- AWS SDK for Go v2 for S3 operations
+- Configurable part sizes for multipart operations
+- Configurable concurrency for parallel processing
+- Automatic retry mechanisms for resilience
+- Support for various S3 security features
 
 ## 5. Cache Components
 
@@ -217,7 +235,38 @@ Different caching strategies are used for different data types:
 - **Entity Caching**: Caching frequently accessed entities
 - **Rate Limit Storage**: Using cache for distributed rate limiting
 
-## 6. Metrics Components
+## 6. Vector Search Components
+
+The Vector Search components provide semantic search capabilities using vector embeddings.
+
+### Vector Repository
+
+The Vector Repository manages the storage and retrieval of vector embeddings:
+
+- Storage of vector embeddings in PostgreSQL
+- Efficient similarity search using cosine distance
+- Indexing for fast retrieval
+- Batch operations for efficiency
+
+### Vector API
+
+The Vector API provides endpoints for vector operations:
+
+- Store embeddings for context items
+- Search for similar embeddings based on vector similarity
+- Retrieve embeddings for a context
+- Delete embeddings when contexts are removed
+
+### Implementation Details
+
+The vector search functionality is implemented using:
+
+- PostgreSQL pg_vector extension for vector operations
+- Efficient indexing methods (IVF, HNSW)
+- Optimized query patterns for similarity search
+- Hybrid approach where agents generate embeddings and MCP Server handles storage and search
+
+## 7. Metrics Components
 
 The Metrics components collect and expose system performance metrics.
 

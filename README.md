@@ -15,6 +15,7 @@ MCP (Model Context Protocol) Server provides AI agents with both advanced contex
 - **Event-Driven Architecture**: React to agent interactions and context changes in real-time
 - **Context Search**: Search within contexts for relevant information
 - **Vector Search**: Semantic search for contexts using vector embeddings and similarity matching
+- **S3 Storage**: Efficiently store and retrieve large context data in Amazon S3 or S3-compatible services
 
 ### DevOps Integration
 - **Unified API**: Interact with multiple DevOps tools through a consistent API
@@ -92,6 +93,12 @@ MCP_AGENT_WEBHOOK_SECRET=your-webhook-secret
 # AWS configuration (if using Bedrock)
 AWS_REGION=us-east-1
 AWS_PROFILE=default
+
+# S3 configuration (if using S3 storage)
+MCP_STORAGE_TYPE=s3
+MCP_STORAGE_S3_REGION=us-west-2
+MCP_STORAGE_S3_BUCKET=mcp-contexts
+MCP_STORAGE_CONTEXT_STORAGE_PROVIDER=s3
 ```
 
 ### Running with Docker Compose
@@ -264,8 +271,7 @@ func main() {
 		log.Fatalf("Failed to unmarshal response: %v", err)
 	}
 	
-	// Extract assistant response (e.g. "I'll create a GitHub issue for the login button bug. 
-	// What repository should I create it in, and what details would you like to include?")
+	// Extract assistant response
 	assistantContent := ""
 	if content, ok := bedrockResponse["content"].([]interface{}); ok && len(content) > 0 {
 		if contentItem, ok := content[0].(map[string]interface{}); ok {
@@ -338,6 +344,12 @@ func main() {
 			"issue_number": issueResult["issue_number"],
 		},
 	})
+	
+	// Example of using vector search functionality
+	// Generate embeddings for your context items using a model like Amazon Titan Embeddings
+	// Store the embeddings in the MCP server
+	// Later, search for semantically similar context items based on meaning rather than keywords
+	// See examples/vector_search.go for a detailed example
 }
 ```
 
@@ -368,6 +380,8 @@ All configuration options can be set using environment variables with the `MCP_`
 - `MCP_API_LISTEN_ADDRESS=:8080`
 - `MCP_DATABASE_DSN=postgres://user:password@localhost:5432/mcp`
 - `MCP_ENGINE_GITHUB_API_TOKEN=your_token`
+- `MCP_STORAGE_TYPE=s3` (for using S3 storage)
+- `MCP_STORAGE_S3_BUCKET=mcp-contexts` (S3 bucket name)
 
 ## API Documentation
 
@@ -450,6 +464,30 @@ For code examples of how an agent can use the vector functionality, see `example
 6. Agent uses MCP's vector search to find semantically similar context items
 7. Agent retrieves the most relevant context items to enhance its response
 
+## S3 Storage Functionality
+
+The MCP Server now supports storing context data in Amazon S3 or S3-compatible storage services, enabling efficient storage and retrieval of large context windows.
+
+### S3 Storage Configuration
+
+To enable S3 storage, update your configuration:
+
+```yaml
+storage:
+  type: "s3"
+  s3:
+    region: "us-west-2"
+    bucket: "mcp-contexts"
+    endpoint: "http://localhost:4566"  # Optional: For S3-compatible services
+    force_path_style: true            # Optional: For S3-compatible services
+    server_side_encryption: "AES256"  # Optional: Enable server-side encryption
+  context_storage:
+    provider: "s3"                    # Use S3 for context storage
+    s3_path_prefix: "contexts"        # Prefix for S3 keys
+```
+
+For local development and testing, the Docker Compose setup includes LocalStack to emulate S3 functionality.
+
 ## Architecture
 
 The MCP Server is built with a modular architecture:
@@ -463,6 +501,7 @@ The MCP Server is built with a modular architecture:
 - **Cache**: Improves performance for frequently accessed contexts
 - **Event System**: Handles events from agents and tools
 - **Vector Repository**: Manages vector embeddings for semantic search
+- **S3 Storage**: Efficiently stores large context data
 
 ### Performance Optimizations
 
