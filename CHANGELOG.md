@@ -10,9 +10,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 - Advanced example demonstrating combined S3 storage and vector search functionality
 - Document outlining innovative ways to leverage the MCP server functionality
+- Production deployment security guide with emphasis on using port 443 instead of 8080
 
 ### Changed
-- N/A
+- Updated README to include security note for production deployments
 
 ### Fixed
 - N/A

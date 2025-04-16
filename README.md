@@ -111,6 +111,8 @@ docker-compose up -d
 
 This will start the MCP Server along with its dependencies (PostgreSQL, Redis, Prometheus, and Grafana).
 
+> **Note for Production Deployments**: The default configuration uses port 8080, which is suitable for development but not recommended for production. For production environments, you should configure HTTPS with TLS certificates on port 443. See the [Production Deployment Security Guide](docs/security/production-deployment-security.md) for details.
+
 ### Building and Running Locally
 
 1. Install Go dependencies:
