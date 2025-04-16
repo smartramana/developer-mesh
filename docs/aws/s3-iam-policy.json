@@ -1,0 +1,43 @@
+{
+    "Version": "2012-10-17",
+    "Statement": [
+        {
+            "Sid": "S3BucketAccess",
+            "Effect": "Allow",
+            "Action": [
+                "s3:ListBucket"
+            ],
+            "Resource": [
+                "arn:aws:s3:::${BUCKET_NAME}"
+            ]
+        },
+        {
+            "Sid": "S3ObjectAccess",
+            "Effect": "Allow",
+            "Action": [
+                "s3:GetObject",
+                "s3:PutObject",
+                "s3:DeleteObject"
+            ],
+            "Resource": [
+                "arn:aws:s3:::${BUCKET_NAME}/*"
+            ]
+        },
+        {
+            "Sid": "S3KMSEncryption",
+            "Effect": "Allow",
+            "Action": [
+                "kms:Decrypt",
+                "kms:GenerateDataKey"
+            ],
+            "Resource": [
+                "arn:aws:kms:${AWS_REGION}:${ACCOUNT_ID}:key/${KMS_KEY_ID}"
+            ],
+            "Condition": {
+                "StringEquals": {
+                    "kms:ViaService": "s3.${AWS_REGION}.amazonaws.com"
+                }
+            }
+        }
+    ]
+}

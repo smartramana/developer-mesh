@@ -158,15 +158,26 @@ func (s *Server) setupRoutes() {
 	}
 }
 
-// Start starts the API server, using TLS if configured
+// Start starts the API server without TLS
 func (s *Server) Start() error {
-	// Start with TLS if cert and key files are provided
+	// Start without TLS
+	return s.server.ListenAndServe()
+}
+
+// StartTLS starts the API server with TLS
+func (s *Server) StartTLS(certFile, keyFile string) error {
+	// If specific files are provided, use those
+	if certFile != "" && keyFile != "" {
+		return s.server.ListenAndServeTLS(certFile, keyFile)
+	}
+	
+	// Otherwise use the ones from config
 	if s.config.TLSCertFile != "" && s.config.TLSKeyFile != "" {
 		return s.server.ListenAndServeTLS(s.config.TLSCertFile, s.config.TLSKeyFile)
 	}
 	
-	// Otherwise start without TLS
-	return s.server.ListenAndServe()
+	// If no TLS files are available, return an error
+	return nil
 }
 
 // Shutdown gracefully shuts down the API server

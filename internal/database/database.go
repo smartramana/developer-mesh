@@ -2,8 +2,10 @@ package database
 
 import (
 	"context"
+	"fmt"
 	"time"
 
+	"github.com/S-Corkum/mcp-server/internal/aws"
 	"github.com/S-Corkum/mcp-server/pkg/models"
 	"github.com/jmoiron/sqlx"
 )
@@ -23,6 +25,11 @@ type Config struct {
 	Password string `mapstructure:"password"`
 	Database string `mapstructure:"database"`
 	SSLMode  string `mapstructure:"ssl_mode"`
+	
+	// AWS RDS specific configuration
+	UseAWS   bool          `mapstructure:"use_aws"`
+	UseIAM   bool          `mapstructure:"use_iam"`
+	RDSConfig *aws.RDSConfig `mapstructure:"rds"`
 }
 
 // Database represents the database access layer
@@ -30,11 +37,44 @@ type Database struct {
 	db         *sqlx.DB
 	config     Config
 	statements map[string]*sqlx.Stmt
+	rdsClient  *aws.RDSClient
 }
 
 // NewDatabase creates a new database connection
 func NewDatabase(ctx context.Context, cfg Config) (*Database, error) {
-	db, err := sqlx.ConnectContext(ctx, cfg.Driver, cfg.DSN)
+	var dsn string
+	var err error
+	var rdsClient *aws.RDSClient
+	
+	// If we're using AWS RDS with IAM authentication
+	if cfg.UseAWS && cfg.UseIAM && cfg.RDSConfig != nil {
+		// Initialize the RDS client
+		rdsClient, err = aws.NewRDSClient(ctx, *cfg.RDSConfig)
+		if err != nil {
+			return nil, fmt.Errorf("failed to initialize RDS client: %w", err)
+		}
+		
+		// Get DSN with IAM authentication
+		dsn, err = rdsClient.BuildPostgresConnectionString(ctx)
+		if err != nil {
+			return nil, fmt.Errorf("failed to build PostgreSQL connection string: %w", err)
+		}
+	} else if cfg.DSN != "" {
+		// Use provided DSN
+		dsn = cfg.DSN
+	} else {
+		// Build DSN from individual components
+		sslMode := cfg.SSLMode
+		if sslMode == "" {
+			sslMode = "disable"
+		}
+		
+		dsn = fmt.Sprintf("host=%s port=%d user=%s password=%s dbname=%s sslmode=%s",
+			cfg.Host, cfg.Port, cfg.Username, cfg.Password, cfg.Database, sslMode)
+	}
+	
+	// Connect to the database
+	db, err := sqlx.ConnectContext(ctx, cfg.Driver, dsn)
 	if err != nil {
 		return nil, err
 	}
@@ -49,6 +89,7 @@ func NewDatabase(ctx context.Context, cfg Config) (*Database, error) {
 		db:         db,
 		config:     cfg,
 		statements: make(map[string]*sqlx.Stmt),
+		rdsClient:  rdsClient,
 	}
 
 	// Prepare statements
@@ -114,12 +155,54 @@ func (d *Database) Transaction(ctx context.Context, fn func(*sqlx.Tx) error) err
 	return tx.Commit()
 }
 
+// RefreshConnection refreshes the database connection (especially for IAM auth)
+func (d *Database) RefreshConnection(ctx context.Context) error {
+	// If we're using AWS RDS with IAM authentication, we need to refresh the token
+	if d.config.UseAWS && d.config.UseIAM && d.rdsClient != nil {
+		// Get fresh DSN with a new IAM authentication token
+		dsn, err := d.rdsClient.BuildPostgresConnectionString(ctx)
+		if err != nil {
+			return fmt.Errorf("failed to build PostgreSQL connection string: %w", err)
+		}
+		
+		// Close existing connection
+		if err := d.Close(); err != nil {
+			return fmt.Errorf("failed to close existing database connection: %w", err)
+		}
+		
+		// Create new connection
+		db, err := sqlx.ConnectContext(ctx, d.config.Driver, dsn)
+		if err != nil {
+			return fmt.Errorf("failed to create new database connection: %w", err)
+		}
+		
+		// Configure connection pool
+		db.SetMaxOpenConns(d.config.MaxOpenConns)
+		db.SetMaxIdleConns(d.config.MaxIdleConns)
+		db.SetConnMaxLifetime(d.config.ConnMaxLifetime)
+		
+		// Update database instance
+		d.db = db
+		
+		// Prepare statements
+		if err := d.prepareStatements(ctx); err != nil {
+			db.Close()
+			return fmt.Errorf("failed to prepare statements: %w", err)
+		}
+	}
+	
+	return nil
+}
+
 // Close closes the database connection
 func (d *Database) Close() error {
 	// Close all prepared statements
 	for _, stmt := range d.statements {
 		stmt.Close()
 	}
+
+	// Clear statements map
+	d.statements = make(map[string]*sqlx.Stmt)
 
 	// Close database connection
 	return d.db.Close()
@@ -128,4 +211,26 @@ func (d *Database) Close() error {
 // Ping checks if the database connection is alive
 func (d *Database) Ping() error {
 	return d.db.Ping()
+}
+
+// CreateContextReferenceTable creates the context reference table for S3 storage
+func (d *Database) CreateContextReferenceTable(ctx context.Context) error {
+	// Create the context_references table if it doesn't exist
+	query := `
+	CREATE TABLE IF NOT EXISTS mcp.context_references (
+		id UUID PRIMARY KEY,
+		s3_key TEXT NOT NULL,
+		created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
+		updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW()
+	);
+	CREATE INDEX IF NOT EXISTS idx_context_references_s3_key ON mcp.context_references(s3_key);
+	`
+	
+	_, err := d.db.ExecContext(ctx, query)
+	return err
+}
+
+// GetDB returns the underlying sqlx.DB instance
+func (d *Database) GetDB() *sqlx.DB {
+	return d.db
 }

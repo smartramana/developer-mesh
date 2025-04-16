@@ -1,0 +1,175 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: mcp-server
+  namespace: mcp
+  labels:
+    app: mcp-server
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: mcp-server
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
+  template:
+    metadata:
+      labels:
+        app: mcp-server
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "8080"
+        prometheus.io/path: "/metrics"
+    spec:
+      serviceAccountName: mcp-server
+      containers:
+        - name: mcp-server
+          image: ${ECR_REPOSITORY_URI}:${IMAGE_TAG}
+          imagePullPolicy: Always
+          ports:
+            - containerPort: 8080
+              name: http
+            - containerPort: 443
+              name: https
+          env:
+            # Environment configuration
+            - name: MCP_ENVIRONMENT
+              value: "production"
+              
+            # API configuration
+            - name: MCP_API_LISTEN_ADDRESS
+              value: ":443"
+            - name: MCP_API_READ_TIMEOUT
+              value: "30s"
+            - name: MCP_API_WRITE_TIMEOUT
+              value: "30s"
+            - name: MCP_API_IDLE_TIMEOUT
+              value: "90s"
+            - name: MCP_API_TLS_CERT_FILE
+              value: "/certs/tls.crt"
+            - name: MCP_API_TLS_KEY_FILE
+              value: "/certs/tls.key"
+              
+            # AWS service configurations
+            # These values will be replaced by the appropriate Kubernetes secrets or config maps
+            
+            # RDS Aurora with IAM auth
+            - name: MCP_AWS_RDS_USE_IAM_AUTH
+              value: "true"
+            - name: MCP_AWS_RDS_AUTH_REGION
+              value: "${AWS_REGION}"
+            - name: MCP_AWS_RDS_HOST
+              valueFrom:
+                secretKeyRef:
+                  name: mcp-db-credentials
+                  key: host
+            - name: MCP_AWS_RDS_PORT
+              valueFrom:
+                secretKeyRef:
+                  name: mcp-db-credentials
+                  key: port
+            - name: MCP_AWS_RDS_DATABASE
+              valueFrom:
+                secretKeyRef:
+                  name: mcp-db-credentials
+                  key: dbname
+            - name: MCP_AWS_RDS_USERNAME
+              valueFrom:
+                secretKeyRef:
+                  name: mcp-db-credentials
+                  key: username
+                  
+            # ElastiCache Redis with IAM auth
+            - name: MCP_AWS_ELASTICACHE_USE_IAM_AUTH
+              value: "true"
+            - name: MCP_AWS_ELASTICACHE_AUTH_REGION
+              value: "${AWS_REGION}"
+            - name: MCP_AWS_ELASTICACHE_CLUSTER_MODE
+              value: "true"
+            - name: MCP_AWS_ELASTICACHE_CLUSTER_NAME
+              valueFrom:
+                secretKeyRef:
+                  name: mcp-cache-credentials
+                  key: cluster_name
+            - name: MCP_AWS_ELASTICACHE_USERNAME
+              valueFrom:
+                secretKeyRef:
+                  name: mcp-cache-credentials
+                  key: username
+            - name: MCP_AWS_ELASTICACHE_CLUSTER_DISCOVERY
+              value: "true"
+            - name: MCP_AWS_ELASTICACHE_USE_TLS
+              value: "true"
+              
+            # S3 with IAM auth
+            - name: MCP_AWS_S3_USE_IAM_AUTH
+              value: "true"
+            - name: MCP_AWS_S3_AUTH_REGION
+              value: "${AWS_REGION}"
+            - name: MCP_AWS_S3_BUCKET
+              valueFrom:
+                secretKeyRef:
+                  name: mcp-s3-credentials
+                  key: bucket
+            - name: MCP_STORAGE_TYPE
+              value: "s3"
+            - name: MCP_STORAGE_CONTEXT_STORAGE_PROVIDER
+              value: "s3"
+            - name: MCP_STORAGE_CONTEXT_STORAGE_S3_PATH_PREFIX
+              value: "contexts"
+              
+            # Authentication secrets
+            - name: MCP_API_AUTH_JWT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: mcp-api-credentials
+                  key: jwt_secret
+            - name: MCP_API_AUTH_API_KEYS_ADMIN
+              valueFrom:
+                secretKeyRef:
+                  name: mcp-api-credentials
+                  key: admin_api_key
+                  
+          resources:
+            requests:
+              cpu: 500m
+              memory: 512Mi
+            limits:
+              cpu: 1000m
+              memory: 1Gi
+              
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 8080
+            initialDelaySeconds: 15
+            periodSeconds: 10
+            timeoutSeconds: 5
+            
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 8080
+            initialDelaySeconds: 30
+            periodSeconds: 20
+            timeoutSeconds: 5
+            
+          volumeMounts:
+            - name: tls-certs
+              mountPath: /certs
+              readOnly: true
+              
+      volumes:
+        - name: tls-certs
+          secret:
+            secretName: mcp-tls-cert
+            
+      securityContext:
+        runAsUser: 1000
+        runAsGroup: 1000
+        fsGroup: 1000
+        
+      terminationGracePeriodSeconds: 60

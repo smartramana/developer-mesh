@@ -1,0 +1,35 @@
+{
+    "Version": "2012-10-17",
+    "Statement": [
+        {
+            "Sid": "RDSIAMAuthentication",
+            "Effect": "Allow",
+            "Action": [
+                "rds-db:connect"
+            ],
+            "Resource": [
+                "arn:aws:rds-db:${AWS_REGION}:${ACCOUNT_ID}:dbuser:${DB_RESOURCE_ID}/${DB_USERNAME}"
+            ]
+        },
+        {
+            "Sid": "RDSDescribeInstances",
+            "Effect": "Allow",
+            "Action": [
+                "rds:DescribeDBInstances",
+                "rds:DescribeDBClusters"
+            ],
+            "Resource": "*"
+        },
+        {
+            "Sid": "GenerateAuthToken",
+            "Effect": "Allow",
+            "Action": [
+                "rds:GenerateAuthenticationToken"
+            ],
+            "Resource": [
+                "arn:aws:rds:${AWS_REGION}:${ACCOUNT_ID}:db:${DB_INSTANCE_IDENTIFIER}",
+                "arn:aws:rds:${AWS_REGION}:${ACCOUNT_ID}:cluster:${DB_CLUSTER_IDENTIFIER}"
+            ]
+        }
+    ]
+}

@@ -7,28 +7,37 @@ import (
 	"time"
 
 	"github.com/S-Corkum/mcp-server/internal/api"
+	"github.com/S-Corkum/mcp-server/internal/aws"
 	"github.com/S-Corkum/mcp-server/internal/cache"
 	"github.com/S-Corkum/mcp-server/internal/core"
 	"github.com/S-Corkum/mcp-server/internal/database"
 	"github.com/S-Corkum/mcp-server/internal/metrics"
-	"github.com/S-Corkum/mcp-server/internal/storage"
 	"github.com/spf13/viper"
 )
 
 // Config holds the complete application configuration
 type Config struct {
-	API      api.Config        `mapstructure:"api"`
-	Cache    cache.RedisConfig `mapstructure:"cache"`
-	Database database.Config   `mapstructure:"database"`
-	Engine   core.Config       `mapstructure:"engine"`
-	Metrics  metrics.Config    `mapstructure:"metrics"`
-	Storage  StorageConfig     `mapstructure:"storage"`
+	API        api.Config        `mapstructure:"api"`
+	Cache      cache.RedisConfig `mapstructure:"cache"`
+	Database   database.Config   `mapstructure:"database"`
+	Engine     core.Config       `mapstructure:"engine"`
+	Metrics    metrics.Config    `mapstructure:"metrics"`
+	Storage    StorageConfig     `mapstructure:"storage"`
+	AWS        AWSConfig         `mapstructure:"aws"`
+	Environment string           `mapstructure:"environment"`
+}
+
+// AWSConfig holds configuration for AWS services
+type AWSConfig struct {
+	RDS         aws.RDSConfig        `mapstructure:"rds"`
+	ElastiCache aws.ElastiCacheConfig `mapstructure:"elasticache"`
+	S3          aws.S3Config         `mapstructure:"s3"`
 }
 
 // StorageConfig holds configuration for different storage providers
 type StorageConfig struct {
 	Type             string           `mapstructure:"type"`
-	S3               storage.S3Config `mapstructure:"s3"`
+	S3               aws.S3Config     `mapstructure:"s3"`
 	ContextStorage   ContextStorage   `mapstructure:"context_storage"`
 }
 
@@ -78,6 +87,9 @@ func Load() (*Config, error) {
 
 // setDefaults sets default configuration values
 func setDefaults(v *viper.Viper) {
+	// Environment (dev, staging, prod)
+	v.SetDefault("environment", "dev")
+	
 	// API defaults
 	v.SetDefault("api.listen_address", ":8080")
 	v.SetDefault("api.read_timeout", 30*time.Second)
@@ -133,14 +145,84 @@ func setDefaults(v *viper.Viper) {
 	// Storage defaults
 	v.SetDefault("storage.type", "local")
 	
+	// AWS defaults
+	
 	// S3 defaults
-	v.SetDefault("storage.s3.region", "us-west-2")
-	v.SetDefault("storage.s3.upload_part_size", 5*1024*1024) // 5MB
-	v.SetDefault("storage.s3.download_part_size", 5*1024*1024) // 5MB
-	v.SetDefault("storage.s3.concurrency", 5)
-	v.SetDefault("storage.s3.request_timeout", 30*time.Second)
+	v.SetDefault("aws.s3.auth.region", "us-west-2")
+	v.SetDefault("aws.s3.bucket", "mcp-contexts")
+	v.SetDefault("aws.s3.upload_part_size", 5*1024*1024) // 5MB
+	v.SetDefault("aws.s3.download_part_size", 5*1024*1024) // 5MB
+	v.SetDefault("aws.s3.concurrency", 5)
+	v.SetDefault("aws.s3.request_timeout", 30*time.Second)
+	v.SetDefault("aws.s3.server_side_encryption", "AES256")
+	v.SetDefault("aws.s3.use_iam_auth", true)
+	
+	// RDS defaults
+	v.SetDefault("aws.rds.auth.region", "us-west-2")
+	v.SetDefault("aws.rds.port", 5432)
+	v.SetDefault("aws.rds.database", "mcp")
+	v.SetDefault("aws.rds.use_iam_auth", true)
+	v.SetDefault("aws.rds.token_expiration", 15*60) // 15 minutes in seconds
+	v.SetDefault("aws.rds.max_open_conns", 25)
+	v.SetDefault("aws.rds.max_idle_conns", 5)
+	v.SetDefault("aws.rds.conn_max_lifetime", 5*time.Minute)
+	v.SetDefault("aws.rds.enable_pooling", true)
+	v.SetDefault("aws.rds.min_pool_size", 2)
+	v.SetDefault("aws.rds.max_pool_size", 10)
+	v.SetDefault("aws.rds.connection_timeout", 30)
+	
+	// ElastiCache defaults
+	v.SetDefault("aws.elasticache.auth.region", "us-west-2")
+	v.SetDefault("aws.elasticache.port", 6379)
+	v.SetDefault("aws.elasticache.use_iam_auth", true)
+	v.SetDefault("aws.elasticache.cluster_mode", true)
+	v.SetDefault("aws.elasticache.cluster_discovery", true)
+	v.SetDefault("aws.elasticache.use_tls", true)
+	v.SetDefault("aws.elasticache.insecure_skip_verify", false)
+	v.SetDefault("aws.elasticache.max_retries", 3)
+	v.SetDefault("aws.elasticache.min_idle_connections", 2)
+	v.SetDefault("aws.elasticache.pool_size", 10)
+	v.SetDefault("aws.elasticache.dial_timeout", 5)
+	v.SetDefault("aws.elasticache.read_timeout", 3)
+	v.SetDefault("aws.elasticache.write_timeout", 3)
+	v.SetDefault("aws.elasticache.pool_timeout", 4)
+	v.SetDefault("aws.elasticache.token_expiration", 15*60) // 15 minutes in seconds
 	
 	// Context storage defaults
 	v.SetDefault("storage.context_storage.provider", "database") // Default to database
 	v.SetDefault("storage.context_storage.s3_path_prefix", "contexts")
+}
+
+// IsProduction returns true if the environment is production
+func (c *Config) IsProduction() bool {
+	return c.Environment == "prod" || c.Environment == "production"
+}
+
+// IsDevelopment returns true if the environment is development
+func (c *Config) IsDevelopment() bool {
+	return c.Environment == "dev" || c.Environment == "development"
+}
+
+// IsStaging returns true if the environment is staging
+func (c *Config) IsStaging() bool {
+	return c.Environment == "staging" || c.Environment == "stage"
+}
+
+// GetListenPort returns the port number the API should listen on
+func (c *Config) GetListenPort() int {
+	// Parse port from listen address (format ":8080")
+	addr := c.API.ListenAddress
+	
+	// If in production, use port 443 for HTTPS
+	if c.IsProduction() && c.API.TLSCertFile != "" && c.API.TLSKeyFile != "" {
+		return 443
+	}
+	
+	// Otherwise parse from listen address or use 8080 as default
+	port := 8080
+	if addr != "" && strings.HasPrefix(addr, ":") {
+		fmt.Sscanf(addr[1:], "%d", &port)
+	}
+	
+	return port
 }

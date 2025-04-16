@@ -1,0 +1,21 @@
+feat: Add AWS integrations with IAM Roles for Service Accounts (IRSA)
+
+This commit implements AWS service integrations using IAM Roles for Service Accounts (IRSA)
+for secure, credential-less authentication in EKS deployments:
+
+- Implement RDS Aurora PostgreSQL with IAM-based authentication
+- Implement Redis ElastiCache with cluster mode and IAM authentication
+- Enhance S3 integration with IAM-based authentication
+- Create Kubernetes manifests with IRSA annotations for EKS deployment
+- Update port configuration to support both development (8080) and production (443)
+- Add comprehensive documentation for AWS service configuration
+- Provide IAM policy templates for all AWS services
+- Add local development setup for Redis cluster mode testing
+- Update application configuration to support the new AWS integrations
+- Implement shared AWS authentication module
+
+The implementation follows best practices for AWS service integration in EKS:
+- Use IRSA to eliminate the need for static credentials
+- Implement connection pooling for all services
+- Ensure proper error handling and failover capabilities
+- Support both production (IRSA) and local development environments

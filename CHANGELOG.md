@@ -8,12 +8,30 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- AWS service integrations using IAM Roles for Service Accounts (IRSA)
+- RDS Aurora PostgreSQL integration with IAM-based authentication
+- Redis ElastiCache integration with IAM-based authentication and cluster mode support
+- Enhanced S3 integration with IAM-based authentication and comprehensive error handling
+- Kubernetes manifest files with IRSA annotations for EKS deployment
+- Port configuration to support both local development (8080) and EKS deployment (443)
+- Detailed documentation for AWS service integrations and IRSA setup
+- IAM policy templates for each AWS service
+- Comprehensive guide for local development with AWS service integrations
+- Fallback authentication methods for local development
+- Connection pooling best practices for all AWS services
 - Advanced example demonstrating combined S3 storage and vector search functionality
 - Document outlining innovative ways to leverage the MCP server functionality
 - Production deployment security guide with emphasis on using port 443 instead of 8080
 
 ### Changed
-- Updated README to include security note for production deployments
+- Updated configuration management to support AWS IAM authentication
+- Modified S3 client to use IRSA when available
+- Enhanced Redis integration with cluster mode support
+- Restructured database connection handling to support IAM authentication
+- Improved security in configuration files by using environment variables for sensitive data
+- Updated README to include AWS integration instructions and security notes for production deployments
+- Enhanced system architecture documentation to include AWS service integrations
+- Streamlined authentication flow with automatic detection of available auth methods
 
 ### Fixed
 - N/A

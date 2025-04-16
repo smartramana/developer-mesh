@@ -28,6 +28,7 @@ MCP (Model Context Protocol) Server provides AI agents with both advanced contex
 - **Resilient Processing**: Built-in retry mechanisms, circuit breakers, and error handling
 - **Performance Optimized**: Connection pooling, caching, and concurrency management
 - **Comprehensive Authentication**: Secure API access and webhook verification
+- **AWS Integration**: Seamless integration with AWS services using IAM Roles for Service Accounts (IRSA)
 
 ## How It Works with AI Agents
 
@@ -103,7 +104,7 @@ MCP_STORAGE_CONTEXT_STORAGE_PROVIDER=s3
 
 ### Running with Docker Compose
 
-The easiest way to run the MCP Server is using Docker Compose:
+The easiest way to run the MCP Server locally is using Docker Compose:
 
 ```bash
 docker-compose up -d
@@ -112,6 +113,31 @@ docker-compose up -d
 This will start the MCP Server along with its dependencies (PostgreSQL, Redis, Prometheus, and Grafana).
 
 > **Note for Production Deployments**: The default configuration uses port 8080, which is suitable for development but not recommended for production. For production environments, you should configure HTTPS with TLS certificates on port 443. See the [Production Deployment Security Guide](docs/security/production-deployment-security.md) for details.
+
+### Deploying to EKS
+
+For production deployment on Amazon EKS, MCP Server includes Kubernetes manifests in the `kubernetes/` directory:
+
+```bash
+# Create the namespace
+kubectl apply -f kubernetes/namespace.yaml
+
+# Create the service account with IRSA annotations
+kubectl apply -f kubernetes/serviceaccount.yaml
+
+# Apply other resources
+kubectl apply -f kubernetes/deployment.yaml
+kubectl apply -f kubernetes/service.yaml
+```
+
+The deployment is configured to:
+- Use IAM Roles for Service Accounts (IRSA) for secure AWS authentication
+- Run on port 443 with TLS in production environments
+- Set appropriate resource requests and limits
+- Configure health checks and readiness probes
+- Specify security contexts for least privilege
+
+See the [AWS IRSA Setup Guide](docs/aws/aws-irsa-setup.md) for detailed configuration instructions for EKS deployments.
 
 ### Building and Running Locally
 
@@ -466,29 +492,111 @@ For code examples of how an agent can use the vector functionality, see `example
 6. Agent uses MCP's vector search to find semantically similar context items
 7. Agent retrieves the most relevant context items to enhance its response
 
-## S3 Storage Functionality
+## AWS Service Integrations
 
-The MCP Server now supports storing context data in Amazon S3 or S3-compatible storage services, enabling efficient storage and retrieval of large context windows.
+MCP Server supports integration with AWS services using IAM Roles for Service Accounts (IRSA), providing secure, credential-less authentication for production deployments on EKS.
 
-### S3 Storage Configuration
+### IAM Roles for Service Accounts (IRSA)
 
-To enable S3 storage, update your configuration:
+Instead of managing static AWS credentials, MCP Server can use IRSA to assume IAM roles directly. This provides:
+
+- No hardcoded access keys in configuration files or environment variables
+- Temporary, automatically-rotated credentials
+- Fine-grained access control using IAM policies
+- Simplified security auditing and compliance
+
+For detailed setup instructions, see the [AWS IRSA Setup Guide](docs/aws/aws-irsa-setup.md).
+
+### RDS Aurora PostgreSQL Integration
+
+MCP Server integrates with Amazon RDS Aurora PostgreSQL using IAM authentication:
+
+- Connection pooling optimized for Aurora PostgreSQL
+- Automatic token refresh for IAM authentication
+- Fallback to standard authentication for local development
+- Configurable timeouts and connection parameters
+
+Configuration example:
 
 ```yaml
-storage:
-  type: "s3"
-  s3:
-    region: "us-west-2"
-    bucket: "mcp-contexts"
-    endpoint: "http://localhost:4566"  # Optional: For S3-compatible services
-    force_path_style: true            # Optional: For S3-compatible services
-    server_side_encryption: "AES256"  # Optional: Enable server-side encryption
-  context_storage:
-    provider: "s3"                    # Use S3 for context storage
-    s3_path_prefix: "contexts"        # Prefix for S3 keys
+aws:
+  rds:
+    auth:
+      region: "us-west-2"
+    host: "your-aurora-cluster.cluster-xxxxxxxxx.us-west-2.rds.amazonaws.com"
+    port: 5432
+    database: "mcp"
+    username: "mcp_admin"
+    use_iam_auth: true
+    token_expiration: 900 # 15 minutes in seconds
+    max_open_conns: 25
+    max_idle_conns: 5
+    conn_max_lifetime: 5m
+    enable_pooling: true
+    min_pool_size: 2
+    max_pool_size: 10
+    connection_timeout: 30
 ```
 
-For local development and testing, the Docker Compose setup includes LocalStack to emulate S3 functionality.
+### ElastiCache Redis Integration
+
+MCP Server supports Amazon ElastiCache for Redis with advanced features:
+
+- Support for Redis Cluster Mode with node discovery
+- IAM-based authentication for enhanced security
+- Automatic connection management and failover handling
+- TLS encryption for secure communication
+- Optimized connection pooling
+
+Configuration example:
+
+```yaml
+aws:
+  elasticache:
+    auth:
+      region: "us-west-2"
+    cluster_mode: true
+    cluster_name: "mcp-cache"
+    username: "mcp_cache_user"
+    use_iam_auth: true
+    cluster_discovery: true
+    use_tls: true
+    max_retries: 3
+    min_idle_connections: 2
+    pool_size: 10
+    dial_timeout: 5
+    read_timeout: 3
+    write_timeout: 3
+    pool_timeout: 4
+    token_expiration: 900 # 15 minutes in seconds
+```
+
+### S3 Storage Functionality
+
+The MCP Server supports storing context data in Amazon S3 with enhanced IAM authentication:
+
+```yaml
+aws:
+  s3:
+    auth:
+      region: "us-west-2"
+    bucket: "mcp-contexts"
+    use_iam_auth: true
+    server_side_encryption: "AES256"
+    upload_part_size: 5242880 # 5MB
+    download_part_size: 5242880 # 5MB
+    concurrency: 5
+    request_timeout: 30s
+```
+
+storage:
+  type: "s3"
+  context_storage:
+    provider: "s3"
+    s3_path_prefix: "contexts"
+```
+
+For local development and testing, the Docker Compose setup includes LocalStack to emulate S3 functionality. See the [Local AWS Development Guide](docs/development/local-aws-auth.md) for more details.
 
 ## Architecture
 
