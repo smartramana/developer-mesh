@@ -226,12 +226,15 @@ func initSecureRandom() {
 	if err != nil {
 		// If we can't get a secure seed, use time as a fallback
 		log.Printf("Warning: unable to generate secure random seed: %v", err)
-		mathrand.Seed(time.Now().UnixNano())
+		// In Go 1.20+, there's no global seed function, but we can replace the global
+		// random source by setting the default global random instance using a SeedSource
+		// This works in Go 1.24:
+		mathrand.Default().Seed(time.Now().UnixNano())
 		return
 	}
 	
-	// Seed math/rand with the secure value
-	mathrand.Seed(val.Int64())
+	// In Go 1.20+, seed the default global random instance
+	mathrand.Default().Seed(val.Int64())
 	log.Println("Initialized secure random generator")
 }
 
