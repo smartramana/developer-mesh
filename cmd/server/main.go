@@ -64,10 +64,12 @@ func main() {
 	var dbConfig database.Config
 	if cfg.AWS.RDS.UseIAMAuth && aws.IsIRSAEnabled() {
 		log.Println("Using IAM authentication for RDS")
+		useAWS := true
+		useIAM := true
 		dbConfig = database.Config{
 			Driver:         "postgres",
-			UseAWS:         true,
-			UseIAM:         true,
+			UseAWS:         &useAWS,
+			UseIAM:         &useIAM,
 			RDSConfig:      &cfg.AWS.RDS,
 			MaxOpenConns:   cfg.AWS.RDS.MaxOpenConns,
 			MaxIdleConns:   cfg.AWS.RDS.MaxIdleConns,
@@ -115,51 +117,34 @@ func main() {
 	}
 	defer cacheClient.Close()
 
-	// Initialize storage if S3 is configured
-	var s3Client *storage.S3Client
-	var contextStorage providers.ContextStorage
+	// Initialize storage and context manager
 	var contextManager interfaces.ContextManager
 	
+	// Create context table if it doesn't exist
+	if err := ensureContextTables(ctx, db, cfg); err != nil {
+		log.Fatalf("Failed to create context tables: %v", err)
+	}
+	
+	// Choose which context manager to use based on configuration
 	if cfg.Storage.Type == "s3" && cfg.Storage.ContextStorage.Provider == "s3" {
 		log.Println("Initializing S3 storage for contexts")
 		
-		// Create storage.S3Client with proper AWS authentication configuration
-		s3Config := storage.S3Config{
-			Region:           cfg.Storage.S3.Region,
-			Bucket:           cfg.Storage.S3.Bucket,
-			Endpoint:         cfg.Storage.S3.Endpoint,
-			ForcePathStyle:   cfg.Storage.S3.ForcePathStyle,
-			UploadPartSize:   cfg.Storage.S3.UploadPartSize,
-			DownloadPartSize: cfg.Storage.S3.DownloadPartSize,
-			Concurrency:      cfg.Storage.S3.Concurrency,
-			RequestTimeout:   cfg.Storage.S3.RequestTimeout,
-			AWSConfig: storage.AWSConfig{
-				UseIAMAuth: cfg.AWS.S3.UseIAMAuth,
-				Region:     cfg.AWS.S3.AuthConfig.Region,
-				Endpoint:   cfg.AWS.S3.AuthConfig.Endpoint,
-				AssumeRole: cfg.AWS.S3.AuthConfig.AssumeRole,
-			},
-		}
+		// Build S3 client configuration
+		s3Config := buildS3ClientConfig(cfg)
 		
 		// Log if we'll be using IAM authentication for S3
 		if cfg.AWS.S3.UseIAMAuth && aws.IsIRSAEnabled() {
 			log.Println("Using IAM authentication for S3")
 		}
 		
-		// Create the S3Client directly using the storage package
-		s3Client, err = storage.NewS3Client(ctx, s3Config)
+		// Create the S3Client
+		s3Client, err := storage.NewS3Client(ctx, s3Config)
 		if err != nil {
 			log.Fatalf("Failed to initialize S3 client: %v", err)
 		}
 		
 		// Initialize context storage provider
-		contextStorage = providers.NewS3ContextStorage(s3Client, cfg.Storage.ContextStorage.S3PathPrefix)
-		
-		// Create context reference table if it doesn't exist
-		err = db.CreateContextReferenceTable(ctx)
-		if err != nil {
-			log.Fatalf("Failed to create context reference table: %v", err)
-		}
+		contextStorage := providers.NewS3ContextStorage(s3Client, cfg.Storage.ContextStorage.S3PathPrefix)
 		
 		// Initialize S3-backed context manager
 		contextManager = core.NewS3ContextManager(db, cacheClient, contextStorage)
@@ -275,6 +260,85 @@ func validateConfiguration(cfg *config.Config) error {
 	
 	if cfg.API.Webhooks.Xray.Enabled && cfg.API.Webhooks.Xray.Secret == "" {
 		log.Println("Warning: Xray webhooks enabled without a secret - consider adding a secret for security")
+	}
+	
+	return nil
+}
+
+// buildS3ClientConfig creates a storage.S3Config from the application config
+func buildS3ClientConfig(cfg *config.Config) storage.S3Config {
+	return storage.S3Config{
+		Region:           cfg.Storage.S3.Region,
+		Bucket:           cfg.Storage.S3.Bucket,
+		Endpoint:         cfg.Storage.S3.Endpoint,
+		ForcePathStyle:   cfg.Storage.S3.ForcePathStyle,
+		UploadPartSize:   cfg.Storage.S3.UploadPartSize,
+		DownloadPartSize: cfg.Storage.S3.DownloadPartSize,
+		Concurrency:      cfg.Storage.S3.Concurrency,
+		RequestTimeout:   cfg.Storage.S3.RequestTimeout,
+		AWSConfig: storage.AWSConfig{
+			UseIAMAuth: cfg.AWS.S3.UseIAMAuth,
+			Region:     cfg.AWS.S3.AuthConfig.Region,
+			Endpoint:   cfg.AWS.S3.AuthConfig.Endpoint,
+			AssumeRole: cfg.AWS.S3.AuthConfig.AssumeRole,
+		},
+	}
+}
+
+// ensureContextTables creates the necessary database tables for contexts
+func ensureContextTables(ctx context.Context, db *database.Database, cfg *config.Config) error {
+	// Create MCP schema if needed
+	_, err := db.GetDB().ExecContext(ctx, "CREATE SCHEMA IF NOT EXISTS mcp")
+	if err != nil {
+		return fmt.Errorf("failed to create mcp schema: %w", err)
+	}
+	
+	// Create the context reference table for S3 storage if needed
+	if cfg.Storage.Type == "s3" && cfg.Storage.ContextStorage.Provider == "s3" {
+		if err := db.CreateContextReferenceTable(ctx); err != nil {
+			return fmt.Errorf("failed to create context reference table: %w", err)
+		}
+		log.Println("Context reference table created/verified for S3 storage")
+	} else {
+		// Create the full context table for database storage
+		// This would be used by the standard ContextManager
+		createContextTableSQL := `
+			CREATE TABLE IF NOT EXISTS mcp.contexts (
+				id TEXT PRIMARY KEY,
+				agent_id TEXT NOT NULL,
+				model_id TEXT NOT NULL,
+				session_id TEXT,
+				content JSONB NOT NULL,
+				metadata JSONB,
+				current_tokens INTEGER NOT NULL DEFAULT 0,
+				max_tokens INTEGER NOT NULL DEFAULT 0,
+				created_at TIMESTAMP WITH TIME ZONE NOT NULL,
+				updated_at TIMESTAMP WITH TIME ZONE NOT NULL,
+				expires_at TIMESTAMP WITH TIME ZONE
+			)
+		`
+		
+		_, err := db.GetDB().ExecContext(ctx, createContextTableSQL)
+		if err != nil {
+			return fmt.Errorf("failed to create contexts table: %w", err)
+		}
+		
+		// Create necessary indexes
+		contextIndexes := []string{
+			`CREATE INDEX IF NOT EXISTS idx_contexts_agent_id ON mcp.contexts (agent_id)`,
+			`CREATE INDEX IF NOT EXISTS idx_contexts_session_id ON mcp.contexts (session_id)`,
+			`CREATE INDEX IF NOT EXISTS idx_contexts_created_at ON mcp.contexts (created_at)`,
+			`CREATE INDEX IF NOT EXISTS idx_contexts_expires_at ON mcp.contexts (expires_at)`,
+		}
+		
+		for _, indexSQL := range contextIndexes {
+			_, err := db.GetDB().ExecContext(ctx, indexSQL)
+			if err != nil {
+				return fmt.Errorf("failed to create index: %w", err)
+			}
+		}
+		
+		log.Println("Context table created/verified for database storage")
 	}
 	
 	return nil
