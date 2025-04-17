@@ -362,6 +362,25 @@ func TestListContexts(t *testing.T) {
 	assert.Equal(t, "test-context-123", results[0].ID)
 }
 
+// TestListContextsWithOptions tests the ListContexts method with additional options
+func TestListContextsWithOptions(t *testing.T) {
+	server := setupMockServer()
+	defer server.Close()
+
+	client := NewClient(server.URL, WithAPIKey("test-api-key"))
+
+	ctx := context.Background()
+	options := map[string]string{
+		"limit": "10",
+		"sort":  "created_at",
+		"order": "desc",
+	}
+	results, err := client.ListContexts(ctx, "test-agent", "test-session", options)
+	assert.NoError(t, err)
+	assert.Equal(t, 1, len(results))
+	assert.Equal(t, "test-context-123", results[0].ID)
+}
+
 // TestSearchContext tests the SearchContext method
 func TestSearchContext(t *testing.T) {
 	server := setupMockServer()
@@ -422,6 +441,46 @@ func TestSendEvent(t *testing.T) {
 		assert.Equal(t, "/webhook/agent", r.URL.Path)
 		assert.Equal(t, "POST", r.Method)
 		assert.Equal(t, expectedSignature, r.Header.Get("X-MCP-Signature"))
+		assert.Equal(t, "application/json", r.Header.Get("Content-Type"))
+
+		w.WriteHeader(http.StatusOK)
+		w.Write([]byte(`{"status":"ok"}`))
+	}))
+	defer customServer.Close()
+
+	// Use the custom server URL for this test
+	client.baseURL = customServer.URL
+
+	err := client.SendEvent(ctx, event)
+	assert.NoError(t, err)
+}
+
+// TestSendEventWithoutWebhookSecret tests the SendEvent method without a webhook secret
+func TestSendEventWithoutWebhookSecret(t *testing.T) {
+	server := setupMockServer()
+	defer server.Close()
+
+	// Create a client without a webhook secret
+	client := NewClient(server.URL)
+
+	ctx := context.Background()
+	event := &mcp.Event{
+		Source:    "agent",
+		Type:      "task_complete",
+		AgentID:   "test-agent",
+		SessionID: "test-session",
+		Timestamp: time.Now(),
+		Data: map[string]interface{}{
+			"task_id": "123",
+			"status":  "completed",
+		},
+	}
+
+	// Set up a custom handler to verify no signature is sent
+	customServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		assert.Equal(t, "/webhook/agent", r.URL.Path)
+		assert.Equal(t, "POST", r.Method)
+		assert.Empty(t, r.Header.Get("X-MCP-Signature"))
 		assert.Equal(t, "application/json", r.Header.Get("Content-Type"))
 
 		w.WriteHeader(http.StatusOK)
@@ -535,5 +594,115 @@ func TestErrorHandling(t *testing.T) {
 		assert.Contains(t, err.Error(), "Test error message")
 	})
 
-	// Add similar error tests for other methods as needed
+	t.Run("UpdateContext Error", func(t *testing.T) {
+		contextData := &mcp.Context{
+			ID:       "test-id",
+			AgentID:  "test-agent",
+			ModelID:  "test-model",
+			Content:  []mcp.ContextItem{},
+			Metadata: map[string]interface{}{},
+		}
+		_, err := client.UpdateContext(ctx, "test-id", contextData, nil)
+		assert.Error(t, err)
+		assert.Contains(t, err.Error(), "Test error message")
+	})
+
+	t.Run("DeleteContext Error", func(t *testing.T) {
+		err := client.DeleteContext(ctx, "test-id")
+		assert.Error(t, err)
+		assert.Contains(t, err.Error(), "Test error message")
+	})
+
+	t.Run("ListContexts Error", func(t *testing.T) {
+		_, err := client.ListContexts(ctx, "test-agent", "", nil)
+		assert.Error(t, err)
+		assert.Contains(t, err.Error(), "Test error message")
+	})
+
+	t.Run("SearchContext Error", func(t *testing.T) {
+		_, err := client.SearchContext(ctx, "test-id", "query")
+		assert.Error(t, err)
+		assert.Contains(t, err.Error(), "Test error message")
+	})
+
+	t.Run("SummarizeContext Error", func(t *testing.T) {
+		_, err := client.SummarizeContext(ctx, "test-id")
+		assert.Error(t, err)
+		assert.Contains(t, err.Error(), "Test error message")
+	})
+
+	t.Run("SendEvent Error", func(t *testing.T) {
+		event := &mcp.Event{
+			Source:    "agent",
+			Type:      "test",
+			AgentID:   "test-agent",
+			SessionID: "test-session",
+			Timestamp: time.Now(),
+			Data:      map[string]interface{}{},
+		}
+		err := client.SendEvent(ctx, event)
+		assert.Error(t, err)
+		assert.Contains(t, err.Error(), "Test error message")
+	})
+
+	t.Run("ExecuteToolAction Error", func(t *testing.T) {
+		params := map[string]interface{}{}
+		_, err := client.ExecuteToolAction(ctx, "context-id", "github", "action", params)
+		assert.Error(t, err)
+		assert.Contains(t, err.Error(), "Test error message")
+	})
+
+	t.Run("QueryToolData Error", func(t *testing.T) {
+		query := map[string]interface{}{}
+		_, err := client.QueryToolData(ctx, "github", query)
+		assert.Error(t, err)
+		assert.Contains(t, err.Error(), "Test error message")
+	})
+
+	t.Run("ListTools Error", func(t *testing.T) {
+		_, err := client.ListTools(ctx)
+		assert.Error(t, err)
+		assert.Contains(t, err.Error(), "Test error message")
+	})
+}
+
+// TestInvalidJSONResponse tests handling of invalid JSON in responses
+func TestInvalidJSONResponse(t *testing.T) {
+	// Setup a server that returns invalid JSON
+	invalidJSONServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		w.Write([]byte(`{"invalid json`)) // Intentionally invalid JSON
+	}))
+	defer invalidJSONServer.Close()
+
+	client := NewClient(invalidJSONServer.URL)
+	ctx := context.Background()
+
+	// Test error handling for invalid JSON responses
+	t.Run("CreateContext with Invalid JSON", func(t *testing.T) {
+		contextData := &mcp.Context{
+			AgentID:   "test-agent",
+			ModelID:   "test-model",
+			MaxTokens: 1000,
+		}
+		_, err := client.CreateContext(ctx, contextData)
+		assert.Error(t, err)
+		assert.Contains(t, err.Error(), "unexpected end of JSON input")
+	})
+}
+
+// TestNetworkError tests handling of network errors
+func TestNetworkError(t *testing.T) {
+	// Create a client with an invalid URL to simulate network errors
+	client := NewClient("http://invalid-url-that-doesnt-exist.example")
+	ctx := context.Background()
+
+	// Test error handling for network errors
+	t.Run("Network Error", func(t *testing.T) {
+		_, err := client.GetContext(ctx, "test-id")
+		assert.Error(t, err)
+		// Different systems might return different network error messages,
+		// so we just check that there is an error
+	})
 }

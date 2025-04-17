@@ -113,6 +113,28 @@ func TestValidateConfiguration(t *testing.T) {
 	}
 	err = validateConfiguration(awsAuthCfg)
 	assert.NoError(t, err, "Validation should pass with AWS RDS IAM auth enabled")
+
+	// Test with enabled webhook without a secret (should pass but log a warning)
+	webhookNoSecretCfg := &config.Config{
+		Database: cfg.Database,
+		API: api.Config{
+			ListenAddress: ":8080",
+			ReadTimeout:  30 * time.Second,
+			WriteTimeout: 30 * time.Second,
+			IdleTimeout:  60 * time.Second,
+			Auth: cfg.API.Auth,
+			Webhooks: api.WebhookConfig{
+				GitHub: api.WebhookEndpointConfig{
+					Enabled: true,
+					Path:    "/github",
+					Secret:  "", // Empty secret
+				},
+			},
+		},
+		AWS: cfg.AWS,
+	}
+	err = validateConfiguration(webhookNoSecretCfg)
+	assert.NoError(t, err, "Validation should pass with webhook enabled without a secret")
 }
 
 // TestInitSecureRandom tests the secure random initialization function
@@ -169,4 +191,55 @@ func TestBuildS3ClientConfig(t *testing.T) {
 	assert.Equal(t, 30*time.Second, s3Config.RequestTimeout)
 	assert.True(t, s3Config.AWSConfig.UseIAMAuth)
 	assert.Equal(t, "us-west-2", s3Config.AWSConfig.Region)
+}
+
+// Test with additional AWS configurations
+func TestBuildS3ClientConfigWithDifferentAWSSettings(t *testing.T) {
+	// Create test configuration with different AWS settings
+	cfg := &config.Config{
+		Storage: config.StorageConfig{
+			Type: "s3",
+			S3: aws.S3Config{
+				Region:         "us-east-1",
+				Bucket:         "prod-bucket",
+				Endpoint:       "",
+				ForcePathStyle: false,
+				UploadPartSize: 10485760,
+				DownloadPartSize: 10485760,
+				Concurrency:    10,
+				RequestTimeout: 60 * time.Second,
+			},
+			ContextStorage: config.ContextStorage{
+				Provider:    "s3",
+				S3PathPrefix: "prod-contexts",
+			},
+		},
+		AWS: config.AWSConfig{
+			S3: aws.S3Config{
+				AuthConfig: aws.AuthConfig{
+					Region:   "us-east-1",
+					Endpoint: "",
+					AssumeRole: "arn:aws:iam::123456789012:role/s3-access-role",
+				},
+				Bucket:     "prod-bucket",
+				UseIAMAuth: true,
+			},
+		},
+	}
+
+	// Test building S3 client configuration
+	s3Config := buildS3ClientConfig(cfg)
+	
+	// Assert that the configuration was built correctly
+	assert.Equal(t, "us-east-1", s3Config.Region)
+	assert.Equal(t, "prod-bucket", s3Config.Bucket)
+	assert.Equal(t, "", s3Config.Endpoint)
+	assert.False(t, s3Config.ForcePathStyle)
+	assert.Equal(t, int64(10485760), s3Config.UploadPartSize)
+	assert.Equal(t, int64(10485760), s3Config.DownloadPartSize)
+	assert.Equal(t, 10, s3Config.Concurrency)
+	assert.Equal(t, 60*time.Second, s3Config.RequestTimeout)
+	assert.True(t, s3Config.AWSConfig.UseIAMAuth)
+	assert.Equal(t, "us-east-1", s3Config.AWSConfig.Region)
+	assert.Equal(t, "arn:aws:iam::123456789012:role/s3-access-role", s3Config.AWSConfig.AssumeRole)
 }

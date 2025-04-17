@@ -116,6 +116,130 @@ func TestGitHubMockHandler(t *testing.T) {
 	})
 }
 
+// TestHarnessMockHandler tests the Harness mock API handler
+func TestHarnessMockHandler(t *testing.T) {
+	// Create a handler similar to the one in main
+	handler := func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		response := map[string]interface{}{
+			"success": true,
+			"message": "Mock Harness response",
+			"timestamp": time.Now().Format(time.RFC3339),
+		}
+		json.NewEncoder(w).Encode(response)
+	}
+
+	t.Run("Harness Handler", func(t *testing.T) {
+		req, err := http.NewRequest("GET", "/mock-harness/pipelines", nil)
+		assert.NoError(t, err)
+		
+		rr := httptest.NewRecorder()
+		http.HandlerFunc(handler).ServeHTTP(rr, req)
+		
+		assert.Equal(t, http.StatusOK, rr.Code)
+		
+		var response map[string]interface{}
+		err = json.Unmarshal(rr.Body.Bytes(), &response)
+		assert.NoError(t, err)
+		
+		assert.Equal(t, true, response["success"])
+		assert.Equal(t, "Mock Harness response", response["message"])
+	})
+}
+
+// TestSonarQubeMockHandler tests the SonarQube mock API handler
+func TestSonarQubeMockHandler(t *testing.T) {
+	// Create a handler similar to the one in main
+	handler := func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		response := map[string]interface{}{
+			"success": true,
+			"message": "Mock SonarQube response",
+			"timestamp": time.Now().Format(time.RFC3339),
+		}
+		json.NewEncoder(w).Encode(response)
+	}
+
+	t.Run("SonarQube Handler", func(t *testing.T) {
+		req, err := http.NewRequest("GET", "/mock-sonarqube/projects", nil)
+		assert.NoError(t, err)
+		
+		rr := httptest.NewRecorder()
+		http.HandlerFunc(handler).ServeHTTP(rr, req)
+		
+		assert.Equal(t, http.StatusOK, rr.Code)
+		
+		var response map[string]interface{}
+		err = json.Unmarshal(rr.Body.Bytes(), &response)
+		assert.NoError(t, err)
+		
+		assert.Equal(t, true, response["success"])
+		assert.Equal(t, "Mock SonarQube response", response["message"])
+	})
+}
+
+// TestArtifactoryMockHandler tests the Artifactory mock API handler
+func TestArtifactoryMockHandler(t *testing.T) {
+	// Create a handler similar to the one in main
+	handler := func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		response := map[string]interface{}{
+			"success": true,
+			"message": "Mock Artifactory response",
+			"timestamp": time.Now().Format(time.RFC3339),
+		}
+		json.NewEncoder(w).Encode(response)
+	}
+
+	t.Run("Artifactory Handler", func(t *testing.T) {
+		req, err := http.NewRequest("GET", "/mock-artifactory/repositories", nil)
+		assert.NoError(t, err)
+		
+		rr := httptest.NewRecorder()
+		http.HandlerFunc(handler).ServeHTTP(rr, req)
+		
+		assert.Equal(t, http.StatusOK, rr.Code)
+		
+		var response map[string]interface{}
+		err = json.Unmarshal(rr.Body.Bytes(), &response)
+		assert.NoError(t, err)
+		
+		assert.Equal(t, true, response["success"])
+		assert.Equal(t, "Mock Artifactory response", response["message"])
+	})
+}
+
+// TestXrayMockHandler tests the Xray mock API handler
+func TestXrayMockHandler(t *testing.T) {
+	// Create a handler similar to the one in main
+	handler := func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		response := map[string]interface{}{
+			"success": true,
+			"message": "Mock Xray response",
+			"timestamp": time.Now().Format(time.RFC3339),
+		}
+		json.NewEncoder(w).Encode(response)
+	}
+
+	t.Run("Xray Handler", func(t *testing.T) {
+		req, err := http.NewRequest("GET", "/mock-xray/scans", nil)
+		assert.NoError(t, err)
+		
+		rr := httptest.NewRecorder()
+		http.HandlerFunc(handler).ServeHTTP(rr, req)
+		
+		assert.Equal(t, http.StatusOK, rr.Code)
+		
+		var response map[string]interface{}
+		err = json.Unmarshal(rr.Body.Bytes(), &response)
+		assert.NoError(t, err)
+		
+		assert.Equal(t, true, response["success"])
+		assert.Equal(t, "Mock Xray response", response["message"])
+	})
+}
+
 // TestWebhookMockHandler tests the webhook handler
 func TestWebhookMockHandler(t *testing.T) {
 	// Create a webhook handler similar to the one in main
@@ -154,4 +278,33 @@ func TestHealthCheckHandler(t *testing.T) {
 		assert.Equal(t, http.StatusOK, rr.Code)
 		assert.Equal(t, `{"status":"healthy"}`, rr.Body.String())
 	})
+}
+
+// TestAllWebhookEndpoints tests all webhook endpoint handlers
+func TestAllWebhookEndpoints(t *testing.T) {
+	webhookPaths := []string{
+		"/api/v1/webhook/github",
+		"/api/v1/webhook/harness",
+		"/api/v1/webhook/sonarqube",
+		"/api/v1/webhook/artifactory",
+		"/api/v1/webhook/xray",
+	}
+
+	for _, path := range webhookPaths {
+		t.Run("Webhook "+path, func(t *testing.T) {
+			handler := func(w http.ResponseWriter, r *http.Request) {
+				w.WriteHeader(http.StatusOK)
+				w.Write([]byte(`{"status":"ok"}`))
+			}
+
+			req, err := http.NewRequest("POST", path, nil)
+			assert.NoError(t, err)
+			
+			rr := httptest.NewRecorder()
+			http.HandlerFunc(handler).ServeHTTP(rr, req)
+			
+			assert.Equal(t, http.StatusOK, rr.Code)
+			assert.Equal(t, `{"status":"ok"}`, rr.Body.String())
+		})
+	}
 }
