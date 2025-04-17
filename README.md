@@ -4,7 +4,7 @@ MCP (Model Context Protocol) Server provides AI agents with both advanced contex
 
 1. **Context Management**: A centralized platform for storing, retrieving, and manipulating conversation contexts, enabling agents to maintain coherent conversations and manage memory efficiently while directly interacting with model providers like Amazon Bedrock.
 
-2. **DevOps Integration**: A unified API for AI agents to interact with popular DevOps tools like GitHub, Harness, SonarQube, and JFrog products, with automatic context tracking of all operations.
+2. **DevOps Integration**: A unified API for AI agents to interact with GitHub, with automatic context tracking of all operations. (Note: Previous support for Harness, SonarQube, and JFrog products has been removed.)
 
 ## Features
 
@@ -443,10 +443,7 @@ All configuration options can be set using environment variables with the `MCP_`
 
 - Agent Events: `POST /webhook/agent`
 - GitHub: `POST /webhook/github`
-- Harness: `POST /webhook/harness`
-- SonarQube: `POST /webhook/sonarqube`
-- Artifactory: `POST /webhook/artifactory`
-- Xray: `POST /webhook/xray`
+- Note: Harness, SonarQube, Artifactory, and JFrog Xray webhook support has been removed
 
 ### Health and Metrics
 

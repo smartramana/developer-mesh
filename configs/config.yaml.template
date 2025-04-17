@@ -110,25 +110,7 @@ api:
       path: "/github"
       secret: "change-this-to-a-secure-webhook-secret"
     
-    harness:
-      enabled: true
-      path: "/harness"
-      secret: "change-this-to-a-secure-webhook-secret"
-    
-    sonarqube:
-      enabled: true
-      path: "/sonarqube"
-      secret: "change-this-to-a-secure-webhook-secret"
-    
-    artifactory:
-      enabled: true
-      path: "/artifactory"
-      secret: "change-this-to-a-secure-webhook-secret"
-    
-    xray:
-      enabled: true
-      path: "/xray"
-      secret: "change-this-to-a-secure-webhook-secret"
+    # Note: Harness, SonarQube, Artifactory, and JFrog Xray webhook support has been removed
 
 # Database Configuration
 database:
@@ -179,41 +161,7 @@ adapters:
     retry_max: 3
     retry_delay: 1s
   
-  harness:
-    api_token: "your-harness-api-token"
-    account_id: "your-harness-account-id"
-    webhook_secret: "your-harness-webhook-secret"
-    request_timeout: 30s
-    retry_max: 3
-    retry_delay: 1s
-  
-  sonarqube:
-    base_url: "https://your-sonarqube-instance"
-    api_token: "your-sonarqube-api-token"
-    webhook_secret: "your-sonarqube-webhook-secret"
-    request_timeout: 30s
-    retry_max: 3
-    retry_delay: 1s
-  
-  artifactory:
-    base_url: "https://your-artifactory-instance"
-    api_key: "your-artifactory-api-key"
-    # username: "your-username" # Alternative to API key
-    # password: "your-password" # Alternative to API key
-    webhook_secret: "your-artifactory-webhook-secret"
-    request_timeout: 30s
-    retry_max: 3
-    retry_delay: 1s
-  
-  xray:
-    base_url: "https://your-xray-instance"
-    api_key: "your-xray-api-key"
-    # username: "your-username" # Alternative to API key
-    # password: "your-password" # Alternative to API key
-    webhook_secret: "your-xray-webhook-secret"
-    request_timeout: 30s
-    retry_max: 3
-    retry_delay: 1s
+  # Note: Harness, SonarQube, Artifactory, and JFrog Xray adapter support has been removed
 
 # Monitoring Configuration
 monitoring:

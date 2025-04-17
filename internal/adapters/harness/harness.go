@@ -30,7 +30,6 @@ type Adapter struct {
 	subscribers  map[string][]func(interface{})
 	subscriberMu sync.RWMutex
 	baseAdapter  adapters.BaseAdapter
-	webhookUrl   string
 }
 
 // NewAdapter creates a new Harness adapter
@@ -48,12 +47,6 @@ func NewAdapter(cfg Config) (*Adapter, error) {
 			RetryMax:   cfg.MaxRetries,
 			RetryDelay: cfg.RetryDelay,
 		},
-		webhookUrl:  "",
-	}
-
-	// Generate webhook URL if base URL and account ID are provided
-	if cfg.BaseURL != "" && cfg.AccountID != "" {
-		adapter.GenerateWebhookURL(cfg.BaseURL, "", cfg.AccountID, "devopsmcp")
 	}
 
 	return adapter, nil
@@ -381,56 +374,7 @@ func (a *Adapter) Health() string {
 	return "healthy"
 }
 
-// GetWebhookURL returns the webhook URL to be used for Harness configuration
-func (a *Adapter) GetWebhookURL() string {
-	if a.webhookUrl != "" {
-		return a.webhookUrl
-	}
-	return ""
-}
-
-// SetWebhookURL sets the webhook URL for this adapter
-func (a *Adapter) SetWebhookURL(url string) {
-	a.webhookUrl = url
-}
-
-// GenerateWebhookURL generates a webhook URL for Harness based on the configuration
-func (a *Adapter) GenerateWebhookURL(baseURL, path, accountID, webhookID string) string {
-	// Format: https://harness.io/ng/api/webhook?accountIdentifier=12345abcd&webhookIdentifier=devopsmcp
-	webhookURL := baseURL
-	if !strings.HasSuffix(webhookURL, "/") {
-		webhookURL += "/"
-	}
-	
-	// Append path if provided
-	if path != "" {
-		// Ensure path doesn't start with / if we already added one
-		if strings.HasPrefix(path, "/") {
-			path = path[1:]
-		}
-		webhookURL += path
-	} else {
-		webhookURL += "ng/api/webhook"
-	}
-	
-	// Add query parameters
-	params := make([]string, 0)
-	if accountID != "" {
-		params = append(params, fmt.Sprintf("accountIdentifier=%s", accountID))
-	}
-	
-	if webhookID != "" {
-		params = append(params, fmt.Sprintf("webhookIdentifier=%s", webhookID))
-	}
-	
-	// Append parameters as query string
-	if len(params) > 0 {
-		webhookURL += "?" + strings.Join(params, "&")
-	}
-	
-	a.webhookUrl = webhookURL
-	return webhookURL
-}
+// No webhook URL methods needed since Harness.io generates the URLs
 
 // Close gracefully shuts down the adapter
 func (a *Adapter) Close() error {

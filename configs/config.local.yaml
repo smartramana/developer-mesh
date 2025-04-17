@@ -62,22 +62,7 @@ api:
       enabled: true
       secret: "${GITHUB_WEBHOOK_SECRET:-}"
       path: "/github"
-    harness:
-      enabled: true
-      secret: "${HARNESS_WEBHOOK_SECRET:-}"
-      path: "/harness"
-    sonarqube:
-      enabled: true
-      secret: "${SONARQUBE_WEBHOOK_SECRET:-}"
-      path: "/sonarqube"
-    artifactory:
-      enabled: true
-      secret: "${ARTIFACTORY_WEBHOOK_SECRET:-}"
-      path: "/artifactory"
-    xray:
-      enabled: true
-      secret: "${XRAY_WEBHOOK_SECRET:-}"
-      path: "/xray"
+    # Note: Harness, SonarQube, Artifactory, and JFrog Xray webhook support has been removed
 
 # AWS Configuration for local development
 aws:
@@ -158,46 +143,7 @@ engine:
     max_retries: 3
     retry_delay: 1s
   
-  # Harness Configuration
-  harness:
-    api_token: "${HARNESS_API_TOKEN}"
-    account_id: "${HARNESS_ACCOUNT_ID}"
-    webhook_secret: "${HARNESS_WEBHOOK_SECRET}"
-    base_url: "https://app.harness.io/gateway"
-    request_timeout: 10s
-    max_retries: 3
-    retry_delay: 1s
-  
-  # SonarQube Configuration
-  sonarqube:
-    base_url: "${SONARQUBE_URL}"
-    token: "${SONARQUBE_TOKEN}"
-    webhook_secret: "${SONARQUBE_WEBHOOK_SECRET}"
-    request_timeout: 10s
-    max_retries: 3
-    retry_delay: 1s
-  
-  # Artifactory Configuration
-  artifactory:
-    base_url: "${ARTIFACTORY_URL}"
-    username: "${ARTIFACTORY_USERNAME}"
-    password: "${ARTIFACTORY_PASSWORD}"
-    api_key: "${ARTIFACTORY_API_KEY}"
-    webhook_secret: "${ARTIFACTORY_WEBHOOK_SECRET}"
-    request_timeout: 10s
-    max_retries: 3
-    retry_delay: 1s
-  
-  # Xray Configuration
-  xray:
-    base_url: "${XRAY_URL}"
-    username: "${XRAY_USERNAME}"
-    password: "${XRAY_PASSWORD}"
-    api_key: "${XRAY_API_KEY}"
-    webhook_secret: "${XRAY_WEBHOOK_SECRET}"
-    request_timeout: 10s
-    max_retries: 3
-    retry_delay: 1s
+  # Note: Harness, SonarQube, Artifactory, and JFrog Xray adapter support has been removed
 
 # Metrics Configuration
 metrics:

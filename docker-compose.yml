@@ -48,31 +48,7 @@ services:
       - MCP_ENGINE_GITHUB_WEBHOOK_SECRET=mock-github-secret
       - MCP_ENGINE_GITHUB_MOCK_RESPONSES=true
       - MCP_ENGINE_GITHUB_MOCK_URL=http://mockserver:8081/mock-github
-      # Harness configuration with mock mode enabled
-      - MCP_ENGINE_HARNESS_API_TOKEN=mock-harness-token
-      - MCP_ENGINE_HARNESS_ACCOUNT_ID=mock-harness-account
-      - MCP_ENGINE_HARNESS_WEBHOOK_SECRET=mock-harness-secret
-      - MCP_ENGINE_HARNESS_MOCK_RESPONSES=true
-      - MCP_ENGINE_HARNESS_BASE_URL=http://mockserver:8081/mock-harness
-      # SonarQube configuration with mock mode enabled
-      - MCP_ENGINE_SONARQUBE_BASE_URL=http://mockserver:8081/mock-sonarqube
-      - MCP_ENGINE_SONARQUBE_TOKEN=mock-sonarqube-token
-      - MCP_ENGINE_SONARQUBE_WEBHOOK_SECRET=mock-sonarqube-secret
-      - MCP_ENGINE_SONARQUBE_MOCK_RESPONSES=true
-      # Artifactory configuration with mock mode enabled
-      - MCP_ENGINE_ARTIFACTORY_BASE_URL=http://mockserver:8081/mock-artifactory
-      - MCP_ENGINE_ARTIFACTORY_USERNAME=mock-artifactory-user
-      - MCP_ENGINE_ARTIFACTORY_PASSWORD=mock-artifactory-password
-      - MCP_ENGINE_ARTIFACTORY_API_KEY=mock-artifactory-api-key
-      - MCP_ENGINE_ARTIFACTORY_WEBHOOK_SECRET=mock-artifactory-secret
-      - MCP_ENGINE_ARTIFACTORY_MOCK_RESPONSES=true
-      # Xray configuration with mock mode enabled
-      - MCP_ENGINE_XRAY_BASE_URL=http://mockserver:8081/mock-xray
-      - MCP_ENGINE_XRAY_USERNAME=mock-xray-user
-      - MCP_ENGINE_XRAY_PASSWORD=mock-xray-password
-      - MCP_ENGINE_XRAY_API_KEY=mock-xray-api-key
-      - MCP_ENGINE_XRAY_WEBHOOK_SECRET=mock-xray-secret
-      - MCP_ENGINE_XRAY_MOCK_RESPONSES=true
+      # Note: Harness, SonarQube, Artifactory, and JFrog Xray support has been removed
     volumes:
       - ./configs:/app/configs
     depends_on:

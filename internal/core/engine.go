@@ -8,11 +8,7 @@ import (
 	"time"
 
 	"github.com/S-Corkum/mcp-server/internal/adapters"
-	"github.com/S-Corkum/mcp-server/internal/adapters/artifactory"
 	"github.com/S-Corkum/mcp-server/internal/adapters/github"
-	"github.com/S-Corkum/mcp-server/internal/adapters/harness"
-	"github.com/S-Corkum/mcp-server/internal/adapters/sonarqube"
-	"github.com/S-Corkum/mcp-server/internal/adapters/xray"
 	"github.com/S-Corkum/mcp-server/internal/cache"
 	"github.com/S-Corkum/mcp-server/internal/database"
 	"github.com/S-Corkum/mcp-server/internal/interfaces"
@@ -30,10 +26,6 @@ type Config struct {
 
 	// Adapter configurations
 	GithubConfig      github.Config      `mapstructure:"github"`
-	HarnessConfig     harness.Config     `mapstructure:"harness"`
-	SonarQubeConfig   sonarqube.Config   `mapstructure:"sonarqube"`
-	ArtifactoryConfig artifactory.Config `mapstructure:"artifactory"`
-	XrayConfig        xray.Config        `mapstructure:"xray"`
 }
 
 // Engine is the core MCP engine
@@ -107,69 +99,7 @@ func (e *Engine) initializeAdapters() error {
 		}
 	}
 
-	// Initialize Artifactory adapter if configured
-	if e.config.ArtifactoryConfig.BaseURL != "" {
-		artifactoryAdapter, err := artifactory.NewAdapter(e.config.ArtifactoryConfig)
-		if err != nil {
-			return err
-		}
-		
-		e.adapters["artifactory"] = artifactoryAdapter
-		
-		// Set up event handlers if the adapter implements the necessary methods
-		if err = e.setupArtifactoryEventHandlers(artifactoryAdapter); err != nil {
-			return err
-		}
-	}
-
-	// Additional adapters would be initialized here following the same pattern
-	// We've commented them out for now to fix the import cycle
-	/*
-	// Initialize Harness adapter if configured
-	if e.config.HarnessConfig.APIToken != "" {
-		harnessAdapter, err := harness.NewAdapter(e.config.HarnessConfig)
-		if err != nil {
-			return err
-		}
-		
-		e.adapters["harness"] = harnessAdapter
-		
-		// Set up event handlers
-		if err = e.setupHarnessEventHandlers(harnessAdapter); err != nil {
-			return err
-		}
-	}
-
-	// Initialize SonarQube adapter if configured 
-	if e.config.SonarQubeConfig.BaseURL != "" {
-		sonarqubeAdapter, err := sonarqube.NewAdapter(e.config.SonarQubeConfig)
-		if err != nil {
-			return err
-		}
-		
-		e.adapters["sonarqube"] = sonarqubeAdapter
-		
-		// Set up event handlers
-		if err = e.setupSonarQubeEventHandlers(sonarqubeAdapter); err != nil {
-			return err
-		}
-	}
-
-	// Initialize Xray adapter if configured
-	if e.config.XrayConfig.BaseURL != "" {
-		xrayAdapter, err := xray.NewAdapter(e.config.XrayConfig)
-		if err != nil {
-			return err
-		}
-		
-		e.adapters["xray"] = xrayAdapter
-		
-		// Set up event handlers
-		if err = e.setupXrayEventHandlers(xrayAdapter); err != nil {
-			return err
-		}
-	}
-	*/
+	// No additional adapter initialization needed
 
 	return nil
 }
@@ -203,169 +133,7 @@ func (e *Engine) setupGithubEventHandlers(adapter interfaces.Adapter) error {
 	return nil
 }
 
-// setupHarnessEventHandlers sets up event handlers for Harness events
-func (e *Engine) setupHarnessEventHandlers(adapter *harness.Adapter) error {
-	// Subscribe to CI build events
-	if err := adapter.Subscribe("ci.build", func(event interface{}) {
-		e.events <- mcp.Event{
-			Source:    "harness",
-			Type:      "ci.build",
-			Timestamp: time.Now(),
-			Data:      event,
-		}
-	}); err != nil {
-		return err
-	}
 
-	// Subscribe to CD deployment events
-	if err := adapter.Subscribe("cd.deployment", func(event interface{}) {
-		e.events <- mcp.Event{
-			Source:    "harness",
-			Type:      "cd.deployment",
-			Timestamp: time.Now(),
-			Data:      event,
-		}
-	}); err != nil {
-		return err
-	}
-
-	// Subscribe to STO experiment events
-	if err := adapter.Subscribe("sto.experiment", func(event interface{}) {
-		e.events <- mcp.Event{
-			Source:    "harness",
-			Type:      "sto.experiment",
-			Timestamp: time.Now(),
-			Data:      event,
-		}
-	}); err != nil {
-		return err
-	}
-
-	// Subscribe to feature flag events
-	if err := adapter.Subscribe("ff.change", func(event interface{}) {
-		e.events <- mcp.Event{
-			Source:    "harness",
-			Type:      "ff.change",
-			Timestamp: time.Now(),
-			Data:      event,
-		}
-	}); err != nil {
-		return err
-	}
-
-	return nil
-}
-
-// setupSonarQubeEventHandlers sets up event handlers for SonarQube events
-func (e *Engine) setupSonarQubeEventHandlers(adapter *sonarqube.Adapter) error {
-	// Subscribe to quality gate events
-	if err := adapter.Subscribe("quality_gate", func(event interface{}) {
-		e.events <- mcp.Event{
-			Source:    "sonarqube",
-			Type:      "quality_gate",
-			Timestamp: time.Now(),
-			Data:      event,
-		}
-	}); err != nil {
-		return err
-	}
-
-	// Subscribe to task completed events
-	if err := adapter.Subscribe("task_completed", func(event interface{}) {
-		e.events <- mcp.Event{
-			Source:    "sonarqube",
-			Type:      "task_completed",
-			Timestamp: time.Now(),
-			Data:      event,
-		}
-	}); err != nil {
-		return err
-	}
-
-	return nil
-}
-
-// setupArtifactoryEventHandlers sets up event handlers for Artifactory events
-func (e *Engine) setupArtifactoryEventHandlers(adapter interfaces.Adapter) error {
-	// Subscribe to artifact created events
-	if err := adapter.Subscribe("artifact_created", func(event interface{}) {
-		e.events <- mcp.Event{
-			Source:    "artifactory",
-			Type:      "artifact_created",
-			Timestamp: time.Now(),
-			Data:      event,
-		}
-	}); err != nil {
-		return err
-	}
-
-	// Subscribe to artifact deleted events
-	if err := adapter.Subscribe("artifact_deleted", func(event interface{}) {
-		e.events <- mcp.Event{
-			Source:    "artifactory",
-			Type:      "artifact_deleted",
-			Timestamp: time.Now(),
-			Data:      event,
-		}
-	}); err != nil {
-		return err
-	}
-
-	// Subscribe to artifact property changed events
-	if err := adapter.Subscribe("artifact_property_changed", func(event interface{}) {
-		e.events <- mcp.Event{
-			Source:    "artifactory",
-			Type:      "artifact_property_changed",
-			Timestamp: time.Now(),
-			Data:      event,
-		}
-	}); err != nil {
-		return err
-	}
-
-	return nil
-}
-
-// setupXrayEventHandlers sets up event handlers for JFrog Xray events
-func (e *Engine) setupXrayEventHandlers(adapter *xray.Adapter) error {
-	// Subscribe to security violation events
-	if err := adapter.Subscribe("security_violation", func(event interface{}) {
-		e.events <- mcp.Event{
-			Source:    "xray",
-			Type:      "security_violation",
-			Timestamp: time.Now(),
-			Data:      event,
-		}
-	}); err != nil {
-		return err
-	}
-
-	// Subscribe to license violation events
-	if err := adapter.Subscribe("license_violation", func(event interface{}) {
-		e.events <- mcp.Event{
-			Source:    "xray",
-			Type:      "license_violation",
-			Timestamp: time.Now(),
-			Data:      event,
-		}
-	}); err != nil {
-		return err
-	}
-
-	// Subscribe to scan completed events
-	if err := adapter.Subscribe("scan_completed", func(event interface{}) {
-		e.events <- mcp.Event{
-			Source:    "xray",
-			Type:      "scan_completed",
-			Timestamp: time.Now(),
-			Data:      event,
-		}
-	}); err != nil {
-		return err
-	}
-
-	return nil
-}
 
 // startEventProcessors starts multiple goroutines for event processing
 func (e *Engine) startEventProcessors(count int) {

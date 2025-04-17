@@ -246,22 +246,6 @@ func validateConfiguration(cfg *config.Config) error {
 		log.Println("Warning: GitHub webhooks enabled without a secret - consider adding a secret for security")
 	}
 	
-	if cfg.API.Webhooks.Harness.Enabled && cfg.API.Webhooks.Harness.Secret == "" {
-		log.Println("Warning: Harness webhooks enabled without a secret - consider adding a secret for security")
-	}
-	
-	if cfg.API.Webhooks.SonarQube.Enabled && cfg.API.Webhooks.SonarQube.Secret == "" {
-		log.Println("Warning: SonarQube webhooks enabled without a secret - consider adding a secret for security")
-	}
-	
-	if cfg.API.Webhooks.Artifactory.Enabled && cfg.API.Webhooks.Artifactory.Secret == "" {
-		log.Println("Warning: Artifactory webhooks enabled without a secret - consider adding a secret for security")
-	}
-	
-	if cfg.API.Webhooks.Xray.Enabled && cfg.API.Webhooks.Xray.Secret == "" {
-		log.Println("Warning: Xray webhooks enabled without a secret - consider adding a secret for security")
-	}
-	
 	return nil
 }
 

@@ -22,20 +22,13 @@ type Config struct {
 // WebhookConfig holds configuration for all webhooks
 type WebhookConfig struct {
 	GitHub      WebhookEndpointConfig `mapstructure:"github"`
-	Harness     WebhookEndpointConfig `mapstructure:"harness"`
-	SonarQube   WebhookEndpointConfig `mapstructure:"sonarqube"`
-	Artifactory WebhookEndpointConfig `mapstructure:"artifactory"`
-	Xray        WebhookEndpointConfig `mapstructure:"xray"`
 }
 
 // WebhookEndpointConfig holds configuration for a webhook endpoint
 type WebhookEndpointConfig struct {
-	Enabled      bool   `mapstructure:"enabled"`
-	Path         string `mapstructure:"path"`
-	Secret       string `mapstructure:"secret"`
-	BaseURL      string `mapstructure:"base_url"`      // Base URL for webhook integration
-	WebhookPath  string `mapstructure:"webhook_path"`  // Path component for webhook URL
-	AccountID    string `mapstructure:"account_id"`    // Default account ID for webhook
+	Enabled bool   `mapstructure:"enabled"`
+	Path    string `mapstructure:"path"`
+	Secret  string `mapstructure:"secret"`
 }
 
 // AuthConfig holds authentication configuration

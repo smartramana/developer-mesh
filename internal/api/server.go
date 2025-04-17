@@ -115,51 +115,13 @@ func (s *Server) setupRoutes() {
 		// AI agent event webhook
 		webhook.POST("/agent", s.agentWebhookHandler)
 		
-		// DevOps tool webhooks
+		// DevOps tool webhooks - only GitHub is supported
 		if s.config.Webhooks.GitHub.Enabled {
 			path := "/github"
 			if s.config.Webhooks.GitHub.Path != "" {
 				path = s.config.Webhooks.GitHub.Path
 			}
 			webhook.POST(path, s.githubWebhookHandler)
-		}
-
-		if s.config.Webhooks.Harness.Enabled {
-			path := "/harness"
-			if s.config.Webhooks.Harness.Path != "" {
-				path = s.config.Webhooks.Harness.Path
-			}
-			webhook.POST(path, s.harnessWebhookHandler)
-			
-			// Add configuration endpoint for Harness webhook URL
-			// This endpoint is authenticated with API key
-			webhookConfig := s.router.Group("/api/v1/webhooks/harness")
-			webhookConfig.Use(AuthMiddleware("api_key"))
-			webhookConfig.GET("/url", s.getHarnessWebhookURLHandler)
-		}
-
-		if s.config.Webhooks.SonarQube.Enabled {
-			path := "/sonarqube"
-			if s.config.Webhooks.SonarQube.Path != "" {
-				path = s.config.Webhooks.SonarQube.Path
-			}
-			webhook.POST(path, s.sonarqubeWebhookHandler)
-		}
-
-		if s.config.Webhooks.Artifactory.Enabled {
-			path := "/artifactory"
-			if s.config.Webhooks.Artifactory.Path != "" {
-				path = s.config.Webhooks.Artifactory.Path
-			}
-			webhook.POST(path, s.artifactoryWebhookHandler)
-		}
-
-		if s.config.Webhooks.Xray.Enabled {
-			path := "/xray"
-			if s.config.Webhooks.Xray.Path != "" {
-				path = s.config.Webhooks.Xray.Path
-			}
-			webhook.POST(path, s.xrayWebhookHandler)
 		}
 	}
 }

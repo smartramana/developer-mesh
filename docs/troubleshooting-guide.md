@@ -14,8 +14,7 @@ If the `/health` endpoint returns an unhealthy status:
      "status": "unhealthy",
      "components": {
        "engine": "healthy",
-       "github": "unhealthy",
-       "harness": "healthy"
+       "github": "unhealthy"
      }
    }
    ```
@@ -255,58 +254,7 @@ If the MCP Server's memory usage keeps increasing:
    - Use conditional requests with If-None-Match
    - Adjust polling frequency if applicable
 
-### Harness Adapter Issues
-
-1. **Authentication errors**:
-   - Verify Harness API token and account ID
-   - Check API token permissions
-   - Ensure the Harness instance is accessible
-
-2. **Webhook processing errors**:
-   - Check Harness webhook configuration
-   - Verify webhook payload format
-   - Ensure the webhook endpoint is accessible by Harness
-
-3. **API response parsing errors**:
-   - Check if the Harness API has changed
-   - Update adapter to handle API changes
-   - Look for specific parsing error messages
-
-### SonarQube Adapter Issues
-
-1. **Authentication errors**:
-   - Verify SonarQube token is valid
-   - Check token permissions
-   - Ensure SonarQube instance is accessible
-
-2. **Webhook processing errors**:
-   - Check SonarQube webhook configuration
-   - Verify webhook payload format
-   - Test webhook delivery with SonarQube's test button
-
-### Artifactory Adapter Issues
-
-1. **Authentication errors**:
-   - Try API key instead of username/password
-   - Verify credentials and permissions
-   - Check Artifactory access logs for failed attempts
-
-2. **Repository access issues**:
-   - Verify permissions for accessing repositories
-   - Check for repository name changes
-   - Ensure repositories exist
-
-### Xray Adapter Issues
-
-1. **Authentication errors**:
-   - Verify Xray credentials
-   - Check if Xray is licensed and active
-   - Ensure Xray API endpoints are accessible
-
-2. **Scan result issues**:
-   - Check if scans are completing successfully
-   - Verify webhook configuration for scan completion events
-   - Ensure correct component paths are being monitored
+> **Note:** Support for Harness, SonarQube, Artifactory, and JFrog Xray adapters has been removed from this version.
 
 ## Mock Server Issues
 
