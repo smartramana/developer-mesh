@@ -393,9 +393,13 @@ The MCP server acts as both a context manager and a tool integration hub, giving
 
 ### Running Tests
 
+You can run the Go unit tests with:
+
 ```bash
 go test ./...
 ```
+
+For testing AI Agent interactions with the MCP server, we've created a Python-based test suite. See the [Testing Guide](docs/testing-guide.md) for detailed instructions on how to run these tests.
 
 ## Configuration
 

@@ -1,36 +1,17 @@
 # MCP Server Configuration for Local Development
-# 
-# This configuration file is intended for use when running the MCP Server locally,
-# outside of Docker. It uses "localhost" for database and cache connections instead
-# of Docker container names.
-#
-# Usage:
-# 1. Make sure PostgreSQL and Redis are running (e.g., via `docker-compose up -d postgres redis`)
-# 2. Use this configuration with the server: `MCP_CONFIG_FILE=configs/config.local.yaml ./mcp-server`
+
+# Environment (dev, staging, prod)
+environment: "dev"
 
 # Storage Configuration
 storage:
-  # For local development, you can use "local" instead of "s3" to avoid S3 dependency
-  # Or use "s3" with localstack for local S3-compatible storage
-  type: "s3"
-  
-  # S3 Storage Configuration - for local development with localstack
-  s3:
-    region: "us-west-2"
-    bucket: "mcp-contexts"
-    # LocalStack typically runs on localhost:4566
-    endpoint: "http://localhost:4566"
-    force_path_style: true  # Required for LocalStack
-    upload_part_size: 5242880  # 5MB
-    download_part_size: 5242880  # 5MB
-    concurrency: 5
-    request_timeout: 30s
+  # Storage provider type: "local" or "s3"
+  type: "local"
   
   # Context Storage Configuration
   context_storage:
-    # Use "database" for simpler local development, or "s3" with localstack
-    provider: "s3"
-    s3_path_prefix: "contexts"
+    # Provider: "database" or "s3"
+    provider: "database"
 
 # API Server Configuration
 api:
@@ -42,16 +23,16 @@ api:
   enable_cors: true
   log_requests: true
   
-  # Authentication settings - use environment variables for secrets
+  # Authentication settings
   auth:
-    api_keys_admin: "${API_KEY_ADMIN:-}"
-    api_keys_test: "${API_KEY_TEST:-}"
-    jwt_secret: "${JWT_SECRET:-}"
+    api_keys_admin: "admin-api-key"
+    api_keys_test: "test-api-key"
+    jwt_secret: "test-jwt-secret"
     jwt_expiration: 24h
   
   # API rate limiting
   rate_limit:
-    enabled: true
+    enabled: false
     limit: 100
     burst: 150
     expiration: 1h
@@ -60,55 +41,19 @@ api:
   webhooks:
     github:
       enabled: true
-      secret: "${GITHUB_WEBHOOK_SECRET:-}"
+      secret: "mock-github-secret"
       path: "/github"
-    # Note: Harness, SonarQube, Artifactory, and JFrog Xray webhook support has been removed
-
-# AWS Configuration for local development
-aws:
-  # For local development, use IAM auth but with fallback methods
-  rds:
-    auth:
-      region: "${AWS_REGION:-us-west-2}"
-    host: "localhost"
-    port: 5432
-    database: "mcp"
-    username: "postgres"
-    password: "${MCP_DATABASE_PASSWORD:-}" # For local development without IAM auth
-    use_iam_auth: false # Disable for local development
-    # Other settings inherited from default config
-  
-  # ElastiCache Config for local development
-  elasticache:
-    auth:
-      region: "${AWS_REGION:-us-west-2}"
-    primary_endpoint: "localhost"
-    port: 6379
-    username: ""
-    password: "${MCP_CACHE_PASSWORD:-}"
-    use_iam_auth: false # Disable for local development
-    # Other settings inherited from default config
-  
-  # S3 Config for local development (using LocalStack)
-  s3:
-    auth:
-      region: "${AWS_REGION:-us-west-2}"
-    endpoint: "http://localhost:4566"
-    bucket: "mcp-contexts"
-    force_path_style: true # Required for LocalStack
-    use_iam_auth: false # Disable for local development
 
 # Database Configuration
 database:
   driver: "postgres"
-  host: "localhost"
+  host: "postgres"
   port: 5432
   username: "postgres"
-  password: "${MCP_DATABASE_PASSWORD:-}" # Don't hardcode passwords
+  password: "postgres"
   database: "mcp"
   ssl_mode: "disable"
-  # Use environment variable for connection string
-  dsn: "postgres://postgres:${MCP_DATABASE_PASSWORD:-}@localhost:5432/mcp?sslmode=disable"
+  dsn: "postgres://postgres:postgres@postgres:5432/mcp?sslmode=disable"
   max_open_conns: 25
   max_idle_conns: 5
   conn_max_lifetime: 5m
@@ -116,10 +61,10 @@ database:
 # Cache Configuration
 cache:
   type: "redis"
-  address: "localhost:6379"
-  password: "${MCP_CACHE_PASSWORD:-}"
+  address: "redis:6379"
+  password: ""
   database: 0
-  use_iam_auth: false # No IAM auth for local Redis
+  use_iam_auth: false
   max_retries: 3
   dial_timeout: 5
   read_timeout: 3
@@ -136,19 +81,19 @@ engine:
   
   # GitHub Configuration
   github:
-    api_token: "${GITHUB_API_TOKEN}"
-    webhook_secret: "${GITHUB_WEBHOOK_SECRET}"
+    api_token: "mock-github-token"
+    webhook_secret: "mock-github-secret"
     request_timeout: 10s
     rate_limit_per_hour: 5000
     max_retries: 3
     retry_delay: 1s
-  
-  # Note: Harness, SonarQube, Artifactory, and JFrog Xray adapter support has been removed
+    mock_responses: true
+    mock_url: "http://mockserver:8081/mock-github"
 
 # Metrics Configuration
 metrics:
-  enabled: true
+  enabled: false
   type: "prometheus"
-  endpoint: "prometheus:9090"
+  endpoint: ""
   push_gateway: ""
   push_interval: 10s
