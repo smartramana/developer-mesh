@@ -243,3 +243,5 @@ func TestBuildS3ClientConfigWithDifferentAWSSettings(t *testing.T) {
 	assert.Equal(t, "us-east-1", s3Config.AWSConfig.Region)
 	assert.Equal(t, "arn:aws:iam::123456789012:role/s3-access-role", s3Config.AWSConfig.AssumeRole)
 }
+
+

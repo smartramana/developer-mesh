@@ -115,7 +115,23 @@ func TestModelRequest(t *testing.T) {
 	assert.Equal(t, "test-model", request.ModelID)
 	assert.Equal(t, "test-context", request.ContextID)
 	assert.Equal(t, 0.7, request.Parameters["temperature"])
-	assert.Equal(t, float64(100), request.Parameters["max_tokens"])
+	
+	// Handle max_tokens parameter which could be either int or float64
+	maxTokens, ok := request.Parameters["max_tokens"]
+	assert.True(t, ok)
+	
+	// Type assertion with type switch to handle both possible types
+	var maxTokensValue int
+	switch v := maxTokens.(type) {
+	case int:
+		maxTokensValue = v
+	case float64:
+		maxTokensValue = int(v)
+	default:
+		t.Fatalf("max_tokens has unexpected type: %T", maxTokens)
+	}
+	
+	assert.Equal(t, 100, maxTokensValue)
 }
 
 // TestModelResponse tests the ModelResponse structure

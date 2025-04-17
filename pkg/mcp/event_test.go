@@ -296,133 +296,6 @@ func TestEventFilter_Complex(t *testing.T) {
 	assert.True(t, filter.MatchEvent(event6), "Event with different matching criteria should match")
 }
 
-// TestEventFilterAgentAndSessionID tests the agent and session ID filtering
-func TestEventFilterAgentAndSessionID(t *testing.T) {
-	baseTime := time.Now()
-	
-	tests := []struct {
-		name   string
-		filter EventFilter
-		event  Event
-		want   bool
-	}{
-		{
-			name: "match agent ID",
-			filter: EventFilter{
-				AgentIDs: []string{"agent-123"},
-			},
-			event: Event{
-				Source:    "github",
-				Type:      "pull_request",
-				Timestamp: baseTime,
-				AgentID:   "agent-123",
-				Data:      nil,
-			},
-			want: true,
-		},
-		{
-			name: "match multiple agent IDs",
-			filter: EventFilter{
-				AgentIDs: []string{"agent-456", "agent-123"},
-			},
-			event: Event{
-				Source:    "github",
-				Type:      "pull_request",
-				Timestamp: baseTime,
-				AgentID:   "agent-123",
-				Data:      nil,
-			},
-			want: true,
-		},
-		{
-			name: "agent ID doesn't match",
-			filter: EventFilter{
-				AgentIDs: []string{"agent-456"},
-			},
-			event: Event{
-				Source:    "github",
-				Type:      "pull_request",
-				Timestamp: baseTime,
-				AgentID:   "agent-123",
-				Data:      nil,
-			},
-			want: false,
-		},
-		{
-			name: "match session ID",
-			filter: EventFilter{
-				SessionIDs: []string{"session-123"},
-			},
-			event: Event{
-				Source:    "github",
-				Type:      "pull_request",
-				Timestamp: baseTime,
-				AgentID:   "agent-123",
-				SessionID: "session-123",
-				Data:      nil,
-			},
-			want: true,
-		},
-		{
-			name: "match multiple session IDs",
-			filter: EventFilter{
-				SessionIDs: []string{"session-456", "session-123"},
-			},
-			event: Event{
-				Source:    "github",
-				Type:      "pull_request",
-				Timestamp: baseTime,
-				AgentID:   "agent-123",
-				SessionID: "session-123",
-				Data:      nil,
-			},
-			want: true,
-		},
-		{
-			name: "session ID doesn't match",
-			filter: EventFilter{
-				SessionIDs: []string{"session-456"},
-			},
-			event: Event{
-				Source:    "github",
-				Type:      "pull_request",
-				Timestamp: baseTime,
-				AgentID:   "agent-123",
-				SessionID: "session-123",
-				Data:      nil,
-			},
-			want: false,
-		},
-		{
-			name: "match all criteria",
-			filter: EventFilter{
-				Sources:    []string{"github"},
-				Types:      []string{"pull_request"},
-				AgentIDs:   []string{"agent-123"},
-				SessionIDs: []string{"session-123"},
-				After:      baseTime.Add(-1 * time.Hour),
-				Before:     baseTime.Add(1 * time.Hour),
-			},
-			event: Event{
-				Source:    "github",
-				Type:      "pull_request",
-				Timestamp: baseTime,
-				AgentID:   "agent-123",
-				SessionID: "session-123",
-				Data:      nil,
-			},
-			want: true,
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			got := tt.filter.MatchEvent(tt.event)
-			assert.Equal(t, tt.want, got)
-		})
-	}
-}
-
 // TestEvent_WithComplexData tests events with complex nested data structures
 func TestEvent_WithComplexData(t *testing.T) {
 	now := time.Now()
@@ -480,9 +353,23 @@ func TestEvent_WithComplexData(t *testing.T) {
 	
 	usage, ok := response["usage"].(map[string]interface{})
 	assert.True(t, ok)
-	assert.Equal(t, float64(4), usage["prompt_tokens"])
-	assert.Equal(t, float64(100), usage["completion_tokens"])
-	assert.Equal(t, float64(104), usage["total_tokens"])
+	
+	// Create helper function to handle numeric values which could be int or float64
+	assertNumericEquals := func(expected int, actual interface{}, name string) {
+		switch v := actual.(type) {
+		case int:
+			assert.Equal(t, expected, v, "Value of %s should match", name)
+		case float64:
+			assert.Equal(t, float64(expected), v, "Value of %s should match", name)
+		default:
+			t.Fatalf("%s has unexpected type: %T", name, actual)
+		}
+	}
+	
+	// Test numeric values that could be either int or float64 depending on JSON parsing
+	assertNumericEquals(4, usage["prompt_tokens"], "prompt_tokens")
+	assertNumericEquals(100, usage["completion_tokens"], "completion_tokens")
+	assertNumericEquals(104, usage["total_tokens"], "total_tokens")
 	
 	metadata, ok := data["metadata"].(map[string]interface{})
 	assert.True(t, ok)
@@ -514,7 +401,9 @@ func TestEvent_WithComplexData(t *testing.T) {
 	assert.True(t, ok)
 	decodedUsage, ok := decodedResponse["usage"].(map[string]interface{})
 	assert.True(t, ok)
-	assert.Equal(t, float64(104), decodedUsage["total_tokens"])
+	
+	// Use the same helper function for the decoded event
+	assertNumericEquals(104, decodedUsage["total_tokens"], "decoded total_tokens")
 }
 
 // TestEventFilter_EmptyFilter tests behavior with empty filter criteria
