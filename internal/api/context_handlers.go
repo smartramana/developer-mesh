@@ -3,6 +3,7 @@ package api
 import (
 	"net/http"
 
+	"github.com/S-Corkum/mcp-server/internal/core"
 	"github.com/S-Corkum/mcp-server/pkg/mcp"
 	"github.com/gin-gonic/gin"
 )
@@ -43,7 +44,9 @@ func (s *Server) UpdateContextHandler(c *gin.Context) {
 		c.Request.Context(),
 		contextID,
 		currentContext,
-		nil, // Using default options
+		&core.UpdateOptions{
+			TruncationStrategy: "oldest_first", // Default truncation strategy
+		},
 	)
 
 	if err != nil {
