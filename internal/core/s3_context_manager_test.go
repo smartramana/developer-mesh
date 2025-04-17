@@ -1,33 +1,21 @@
-//go:build exclude_storage_tests
-// +build exclude_storage_tests
-
-// Package core provides the core functionality for the MCP server
 package core
 
 import (
 	"context"
-	"errors"
-	"fmt"
-	"strings"
-	"sync"
 	"testing"
 	"time"
 
-	"github.com/S-Corkum/mcp-server/internal/cache"
-	"github.com/S-Corkum/mcp-server/internal/database"
-	"github.com/S-Corkum/mcp-server/internal/storage/providers"
+	"github.com/S-Corkum/mcp-server/internal/cache/mocks"
 	"github.com/S-Corkum/mcp-server/pkg/mcp"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
+	"github.com/stretchr/testify/require"
 )
 
-// MockContextStorage mocks the ContextStorage interface
+// MockContextStorage mocks the S3 storage provider
 type MockContextStorage struct {
 	mock.Mock
 }
-
-// Ensure MockContextStorage implements providers.ContextStorage
-var _ providers.ContextStorage = (*MockContextStorage)(nil)
 
 func (m *MockContextStorage) StoreContext(ctx context.Context, contextData *mcp.Context) error {
 	args := m.Called(ctx, contextData)
@@ -47,884 +35,1098 @@ func (m *MockContextStorage) DeleteContext(ctx context.Context, contextID string
 	return args.Error(0)
 }
 
-func (m *MockContextStorage) ListContexts(ctx context.Context, agentID string, sessionID string) ([]*mcp.Context, error) {
-	args := m.Called(ctx, agentID, sessionID)
+func (m *MockContextStorage) ListContexts(ctx context.Context, prefix string) ([]string, error) {
+	args := m.Called(ctx, prefix)
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
-	return args.Get(0).([]*mcp.Context), args.Error(1)
-}
-
-// MockDB mocks the database
-type MockDB struct {
-	mock.Mock
-}
-
-func (m *MockDB) CreateContextReference(ctx context.Context, contextData *mcp.Context) error {
-	args := m.Called(ctx, contextData)
-	return args.Error(0)
-}
-
-func (m *MockDB) GetContextReference(ctx context.Context, contextID string) (*database.ContextReference, error) {
-	args := m.Called(ctx, contextID)
-	if args.Get(0) == nil {
-		return nil, args.Error(1)
-	}
-	return args.Get(0).(*database.ContextReference), args.Error(1)
-}
-
-func (m *MockDB) UpdateContextReference(ctx context.Context, contextData *mcp.Context) error {
-	args := m.Called(ctx, contextData)
-	return args.Error(0)
-}
-
-func (m *MockDB) DeleteContextReference(ctx context.Context, contextID string) error {
-	args := m.Called(ctx, contextID)
-	return args.Error(0)
-}
-
-func (m *MockDB) ListContextReferences(ctx context.Context, agentID string, sessionID string, options map[string]interface{}) ([]*database.ContextReference, error) {
-	args := m.Called(ctx, agentID, sessionID, options)
-	if args.Get(0) == nil {
-		return nil, args.Error(1)
-	}
-	return args.Get(0).([]*database.ContextReference), args.Error(1)
-}
-
-func (m *MockDB) CreateContextReferenceTable(ctx context.Context) error {
-	args := m.Called(ctx)
-	return args.Error(0)
-}
-
-// Add methods needed to satisfy database.Database interface for tests
-func (m *MockDB) CreateContext(ctx context.Context, contextData *mcp.Context) error {
-	args := m.Called(ctx, contextData)
-	return args.Error(0)
-}
-
-func (m *MockDB) GetContext(ctx context.Context, contextID string) (*mcp.Context, error) {
-	args := m.Called(ctx, contextID)
-	if args.Get(0) == nil {
-		return nil, args.Error(1)
-	}
-	return args.Get(0).(*mcp.Context), args.Error(1)
-}
-
-func (m *MockDB) UpdateContext(ctx context.Context, contextData *mcp.Context) error {
-	args := m.Called(ctx, contextData)
-	return args.Error(0)
-}
-
-func (m *MockDB) DeleteContext(ctx context.Context, contextID string) error {
-	args := m.Called(ctx, contextID)
-	return args.Error(0)
-}
-
-func (m *MockDB) ListContexts(ctx context.Context, agentID string, sessionID string, options map[string]interface{}) ([]*mcp.Context, error) {
-	args := m.Called(ctx, agentID, sessionID, options)
-	if args.Get(0) == nil {
-		return nil, args.Error(1)
-	}
-	return args.Get(0).([]*mcp.Context), args.Error(1)
-}
-
-func (m *MockDB) CreateContextTable(ctx context.Context) error {
-	args := m.Called(ctx)
-	return args.Error(0)
-}
-
-// MockCache mocks the cache
-type MockCache struct {
-	mock.Mock
-}
-
-func (m *MockCache) Get(ctx context.Context, key string, value interface{}) error {
-	args := m.Called(ctx, key, value)
-	return args.Error(0)
-}
-
-func (m *MockCache) Set(ctx context.Context, key string, value interface{}, expiration time.Duration) error {
-	args := m.Called(ctx, key, value, expiration)
-	return args.Error(0)
-}
-
-func (m *MockCache) Delete(ctx context.Context, key string) error {
-	args := m.Called(ctx, key)
-	return args.Error(0)
-}
-
-func (m *MockCache) Close() error {
-	args := m.Called()
-	return args.Error(0)
-}
-
-func (m *MockCache) Exists(ctx context.Context, key string) (bool, error) {
-	args := m.Called(ctx, key)
-	return args.Bool(0), args.Error(1)
-}
-
-func (m *MockCache) Flush(ctx context.Context) error {
-	args := m.Called(ctx)
-	return args.Error(0)
-}
-
-// S3ContextManager for testing
-type S3ContextManager struct {
-	db          interface{}
-	cache       cache.Cache
-	s3Storage   providers.ContextStorage
-	mu          sync.RWMutex
-	subscribers map[string][]func(mcp.Event)
-	SearchInContext   func(ctx context.Context, contextID string, query string) ([]mcp.ContextItem, error)
-}
-
-// NewS3ContextManager creates a new test instance
-func NewS3ContextManager(db interface{}, cache cache.Cache, storage providers.ContextStorage) *S3ContextManager {
-	cm := &S3ContextManager{
-		db:          db,
-		cache:       cache,
-		s3Storage:   storage,
-		subscribers: make(map[string][]func(mcp.Event)),
-	}
-	
-	// Initialize SearchInContext
-	cm.SearchInContext = func(ctx context.Context, contextID string, query string) ([]mcp.ContextItem, error) {
-		// Get the context directly from storage
-		contextData, err := cm.s3Storage.GetContext(ctx, contextID)
-		if err != nil {
-			return nil, fmt.Errorf("failed to get context from S3: %w", err)
-		}
-		
-		// Special case for the test - only return user role items with "search" in them
-		if query == "search" {
-			for _, item := range contextData.Content {
-				if item.Role == "user" && strings.Contains(strings.ToLower(item.Content), strings.ToLower(query)) {
-					return []mcp.ContextItem{item}, nil
-				}
-			}
-			return []mcp.ContextItem{}, nil
-		}
-		
-		// Regular search behavior for other queries
-		var results []mcp.ContextItem
-		for _, item := range contextData.Content {
-			if strings.Contains(strings.ToLower(item.Content), strings.ToLower(query)) {
-				results = append(results, item)
-			}
-		}
-		
-		return results, nil
-	}
-	
-	return cm
-}
-
-// CreateContext creates a new context
-func (cm *S3ContextManager) CreateContext(ctx context.Context, request *mcp.Context) (*mcp.Context, error) {
-	if request.AgentID == "" {
-		return nil, fmt.Errorf("agent_id is required")
-	}
-	
-	if request.ModelID == "" {
-		return nil, fmt.Errorf("model_id is required")
-	}
-	
-	// Set timestamps
-	now := time.Now()
-	request.CreatedAt = now
-	request.UpdatedAt = now
-	
-	// Initialize metadata if not present
-	if request.Metadata == nil {
-		request.Metadata = make(map[string]interface{})
-	}
-	
-	// Create a reference entry in the database
-	if db, ok := cm.db.(*MockDB); ok {
-		err := db.CreateContextReference(ctx, request)
-		if err != nil {
-			return nil, fmt.Errorf("failed to create context reference: %w", err)
-		}
-	}
-	
-	// Store in S3
-	err := cm.s3Storage.StoreContext(ctx, request)
-	if err != nil {
-		return nil, fmt.Errorf("failed to store context in S3: %w", err)
-	}
-	
-	// Cache the context
-	cacheKey := fmt.Sprintf("context:%s", request.ID)
-	err = cm.cache.Set(ctx, cacheKey, request, time.Hour)
-	if err != nil {
-		// Just log it in a real implementation
-	}
-	
-	return request, nil
-}
-
-// GetContext retrieves a context directly from the mocks
-// Let's simplify to match the test expectations
-func (cm *S3ContextManager) GetContext(ctx context.Context, contextID string) (*mcp.Context, error) {
-	// Try to get from cache first
-	cacheKey := fmt.Sprintf("context:%s", contextID)
-	var cachedContext mcp.Context
-	err := cm.cache.Get(ctx, cacheKey, &cachedContext)
-	if err == nil {
-		return &cachedContext, nil
-	}
-	
-	// Get from S3
-	contextData, err := cm.s3Storage.GetContext(ctx, contextID)
-	if err != nil {
-		return nil, fmt.Errorf("failed to get context from S3: %w", err)
-	}
-	
-	// Skip caching here to avoid extra cache calls
-	// The test expects specific behavior, and we're just mocking what it needs
-	
-	return contextData, nil
-}
-
-// UpdateContext implementation for tests
-func (cm *S3ContextManager) UpdateContext(ctx context.Context, contextID string, updateRequest *mcp.Context, options *mcp.ContextUpdateOptions) (*mcp.Context, error) {
-	// Get the current context, but ONLY from S3 to avoid extra cache calls
-	var currentContext *mcp.Context
-	var err error
-
-	// Get directly from s3Storage to avoid extra cache calls
-	currentContext, err = cm.s3Storage.GetContext(ctx, contextID)
-	if err != nil {
-		return nil, fmt.Errorf("failed to get context from S3: %w", err)
-	}
-	
-	// Update fields
-	if updateRequest.AgentID != "" {
-		currentContext.AgentID = updateRequest.AgentID
-	}
-	
-	if updateRequest.ModelID != "" {
-		currentContext.ModelID = updateRequest.ModelID
-	}
-	
-	if updateRequest.SessionID != "" {
-		currentContext.SessionID = updateRequest.SessionID
-	}
-	
-	// Merge metadata
-	if updateRequest.Metadata != nil {
-		if currentContext.Metadata == nil {
-			currentContext.Metadata = make(map[string]interface{})
-		}
-		
-		for k, v := range updateRequest.Metadata {
-			currentContext.Metadata[k] = v
-		}
-	}
-	
-	// Update content
-	if updateRequest.Content != nil {
-		// Append new items
-		currentContext.Content = append(currentContext.Content, updateRequest.Content...)
-		
-		// Update token count
-		for _, item := range updateRequest.Content {
-			currentContext.CurrentTokens += item.Tokens
-		}
-		
-		// Handle truncation if needed
-		if options != nil && options.Truncate && currentContext.MaxTokens > 0 && currentContext.CurrentTokens > currentContext.MaxTokens {
-			// Simple truncation for tests
-			for len(currentContext.Content) > 0 && currentContext.CurrentTokens > currentContext.MaxTokens {
-				removedItem := currentContext.Content[0]
-				currentContext.Content = currentContext.Content[1:]
-				currentContext.CurrentTokens -= removedItem.Tokens
-			}
-		}
-	}
-	
-	// Update timestamps
-	currentContext.UpdatedAt = time.Now()
-	if !updateRequest.ExpiresAt.IsZero() {
-		currentContext.ExpiresAt = updateRequest.ExpiresAt
-	}
-	
-	// Update reference in the database
-	if db, ok := cm.db.(*MockDB); ok {
-		err = db.UpdateContextReference(ctx, currentContext)
-		if err != nil {
-			return nil, fmt.Errorf("failed to update context reference: %w", err)
-		}
-	}
-	
-	// Store in S3
-	err = cm.s3Storage.StoreContext(ctx, currentContext)
-	if err != nil {
-		return nil, fmt.Errorf("failed to update context in S3: %w", err)
-	}
-	
-	// Skip caching to avoid extra cache calls
-	
-	return currentContext, nil
-}
-
-// DeleteContext implementation for tests
-func (cm *S3ContextManager) DeleteContext(ctx context.Context, contextID string) error {
-	// Get directly from s3Storage to avoid extra cache calls
-	_, err := cm.s3Storage.GetContext(ctx, contextID)
-	if err != nil {
-		return fmt.Errorf("failed to get context from S3: %w", err)
-	}
-	
-	// Delete from S3
-	err = cm.s3Storage.DeleteContext(ctx, contextID)
-	if err != nil {
-		return fmt.Errorf("failed to delete context from S3: %w", err)
-	}
-	
-	// Delete reference from database
-	if db, ok := cm.db.(*MockDB); ok {
-		err = db.DeleteContextReference(ctx, contextID)
-		if err != nil {
-			// Just log it in a real implementation
-		}
-	}
-	
-	// Remove from cache
-	cacheKey := fmt.Sprintf("context:%s", contextID)
-	err = cm.cache.Delete(ctx, cacheKey)
-	if err != nil {
-		// Just log it in a real implementation
-	}
-	
-	return nil
-}
-
-// ListContexts simplified implementation for tests
-func (cm *S3ContextManager) ListContexts(ctx context.Context, agentID string, sessionID string, options map[string]interface{}) ([]*mcp.Context, error) {
-	// Use database for initial filtering and listing
-	var contextReferences []*database.ContextReference
-	var err error
-	
-	if db, ok := cm.db.(*MockDB); ok {
-		contextReferences, err = db.ListContextReferences(ctx, agentID, sessionID, options)
-		if err != nil {
-			return nil, fmt.Errorf("failed to list context references: %w", err)
-		}
-	}
-	
-	// Get full context data directly from S3 for each reference to avoid extra cache calls
-	var contexts []*mcp.Context
-	for _, ref := range contextReferences {
-		contextData, err := cm.s3Storage.GetContext(ctx, ref.ID)
-		if err != nil {
-			// Just log warning and continue in a real implementation
-			continue
-		}
-		
-		contexts = append(contexts, contextData)
-	}
-	
-	return contexts, nil
-}
-
-// SearchInContext is now a field in the S3ContextManager struct
-
-// SummarizeContext summarizes a context
-func (cm *S3ContextManager) SummarizeContext(ctx context.Context, contextID string) (string, error) {
-	contextData, err := cm.GetContext(ctx, contextID)
-	if err != nil {
-		return "", err
-	}
-	
-	return fmt.Sprintf("Context with %d messages and %d tokens", len(contextData.Content), contextData.CurrentTokens), nil
-}
-
-// Subscribe registers a callback for events
-func (cm *S3ContextManager) Subscribe(eventType string, callback func(mcp.Event)) {
-	cm.mu.Lock()
-	defer cm.mu.Unlock()
-	
-	cm.subscribers[eventType] = append(cm.subscribers[eventType], callback)
+	return args.Get(0).([]string), args.Error(1)
 }
 
 func TestNewS3ContextManager(t *testing.T) {
-	mockDB := new(MockDB)
-	mockCache := new(MockCache)
-	mockStorage := new(MockContextStorage)
-
-	manager := NewS3ContextManager(mockDB, mockCache, mockStorage)
-
-	assert.NotNil(t, manager)
-	assert.Equal(t, mockDB, manager.db)
-	assert.Equal(t, mockCache, manager.cache)
-	assert.Equal(t, mockStorage, manager.s3Storage)
-}
-
-func TestS3ContextManager_CreateContext(t *testing.T) {
-	mockDB := new(MockDB)
-	mockCache := new(MockCache)
+	mockDB := new(MockDatabase)
+	mockCache := new(mocks.MockCache)
 	mockStorage := new(MockContextStorage)
 	
-	manager := NewS3ContextManager(mockDB, mockCache, mockStorage)
-	ctx := context.Background()
+	cm := NewS3ContextManager(mockDB, mockCache, mockStorage)
+	assert.NotNil(t, cm)
+	assert.Equal(t, mockDB, cm.db)
+	assert.Equal(t, mockCache, cm.cache)
+	assert.Equal(t, mockStorage, cm.s3Storage)
+	assert.NotNil(t, cm.subscribers)
+}
 
-	// Test successful create
-	contextData := &mcp.Context{
-		ID:      "test-id",
-		AgentID: "test-agent",
-		ModelID: "test-model",
+func TestS3ContextManagerCreateContext(t *testing.T) {
+	mockDB := new(MockDatabase)
+	mockCache := new(mocks.MockCache)
+	mockStorage := new(MockContextStorage)
+	
+	cm := &S3ContextManager{
+		db:          mockDB,
+		cache:       mockCache,
+		s3Storage:   mockStorage,
+		subscribers: make(map[string][]func(mcp.Event)),
 	}
-
-	mockDB.On("CreateContextReference", ctx, mock.MatchedBy(func(c *mcp.Context) bool {
-		return c.ID == contextData.ID && c.AgentID == contextData.AgentID && c.ModelID == contextData.ModelID
-	})).Return(nil).Once()
-
-	mockStorage.On("StoreContext", ctx, mock.MatchedBy(func(c *mcp.Context) bool {
-		return c.ID == contextData.ID && c.AgentID == contextData.AgentID && c.ModelID == contextData.ModelID
-	})).Return(nil).Once()
-
-	mockCache.On("Set", mock.Anything, mock.MatchedBy(func(s string) bool {
-		return strings.Contains(s, "context:test-id")
-	}), mock.Anything, mock.Anything).Return(nil).Once()
-
-	result, err := manager.CreateContext(ctx, contextData)
-
+	
+	ctx := context.Background()
+	
+	// Test with valid input
+	contextRequest := &mcp.Context{
+		AgentID: "agent-123",
+		ModelID: "model-123",
+	}
+	
+	mockDB.On("CreateContextReference", ctx, mock.AnythingOfType("*mcp.Context")).Return(nil)
+	mockStorage.On("StoreContext", ctx, mock.AnythingOfType("*mcp.Context")).Return(nil)
+	mockCache.On("Set", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil)
+	
+	result, err := cm.CreateContext(ctx, contextRequest)
+	
 	assert.NoError(t, err)
-	assert.Equal(t, contextData.ID, result.ID)
-	assert.Equal(t, contextData.AgentID, result.AgentID)
-	assert.Equal(t, contextData.ModelID, result.ModelID)
+	assert.NotNil(t, result)
+	assert.NotEmpty(t, result.ID)
+	assert.Equal(t, "agent-123", result.AgentID)
+	assert.Equal(t, "model-123", result.ModelID)
 	assert.False(t, result.CreatedAt.IsZero())
 	assert.False(t, result.UpdatedAt.IsZero())
+	
 	mockDB.AssertExpectations(t)
 	mockStorage.AssertExpectations(t)
 	mockCache.AssertExpectations(t)
-
-	// Test missing required fields
-	contextData = &mcp.Context{
-		ID: "test-id",
+	
+	// Test with missing required fields
+	missingAgentID := &mcp.Context{
+		ModelID: "model-123",
 	}
-
-	result, err = manager.CreateContext(ctx, contextData)
+	
+	result, err = cm.CreateContext(ctx, missingAgentID)
 	assert.Error(t, err)
 	assert.Nil(t, result)
 	assert.Contains(t, err.Error(), "agent_id is required")
-
-	contextData = &mcp.Context{
-		ID:      "test-id",
-		AgentID: "test-agent",
+	
+	missingModelID := &mcp.Context{
+		AgentID: "agent-123",
 	}
-
-	result, err = manager.CreateContext(ctx, contextData)
+	
+	result, err = cm.CreateContext(ctx, missingModelID)
 	assert.Error(t, err)
 	assert.Nil(t, result)
 	assert.Contains(t, err.Error(), "model_id is required")
-
-	// Test database error
-	contextData = &mcp.Context{
-		ID:      "test-id",
-		AgentID: "test-agent",
-		ModelID: "test-model",
+	
+	// Test with database error
+	dbErrorContext := &mcp.Context{
+		AgentID: "agent-err",
+		ModelID: "model-err",
 	}
-
-	mockDB.On("CreateContextReference", ctx, mock.Anything).Return(errors.New("db error")).Once()
-
-	result, err = manager.CreateContext(ctx, contextData)
+	
+	mockDB.On("CreateContextReference", ctx, mock.AnythingOfType("*mcp.Context")).Return(assert.AnError)
+	
+	result, err = cm.CreateContext(ctx, dbErrorContext)
 	assert.Error(t, err)
 	assert.Nil(t, result)
 	assert.Contains(t, err.Error(), "failed to create context reference")
-	mockDB.AssertExpectations(t)
-
-	// Test storage error
-	mockDB.On("CreateContextReference", ctx, mock.Anything).Return(nil).Once()
-	mockStorage.On("StoreContext", ctx, mock.Anything).Return(errors.New("storage error")).Once()
-
-	result, err = manager.CreateContext(ctx, contextData)
+	
+	// Test with storage error
+	storageErrorContext := &mcp.Context{
+		AgentID: "agent-storage-err",
+		ModelID: "model-storage-err",
+	}
+	
+	mockDB.On("CreateContextReference", ctx, mock.AnythingOfType("*mcp.Context")).Return(nil)
+	mockStorage.On("StoreContext", ctx, mock.AnythingOfType("*mcp.Context")).Return(assert.AnError)
+	
+	result, err = cm.CreateContext(ctx, storageErrorContext)
 	assert.Error(t, err)
 	assert.Nil(t, result)
 	assert.Contains(t, err.Error(), "failed to store context in S3")
+	
 	mockDB.AssertExpectations(t)
 	mockStorage.AssertExpectations(t)
 }
 
-func TestS3ContextManager_GetContext(t *testing.T) {
-	mockDB := new(MockDB)
-	mockCache := new(MockCache)
+func TestS3ContextManagerGetContext(t *testing.T) {
+	mockDB := new(MockDatabase)
+	mockCache := new(mocks.MockCache)
 	mockStorage := new(MockContextStorage)
 	
-	manager := NewS3ContextManager(mockDB, mockCache, mockStorage)
-	ctx := context.Background()
-
-	// Test get from cache
-	contextData := &mcp.Context{
-		ID:      "test-id",
-		AgentID: "test-agent",
-		ModelID: "test-model",
+	cm := &S3ContextManager{
+		db:          mockDB,
+		cache:       mockCache,
+		s3Storage:   mockStorage,
+		subscribers: make(map[string][]func(mcp.Event)),
 	}
-
-	mockCache.On("Get", mock.Anything, "context:test-id", mock.Anything).Run(func(args mock.Arguments) {
-		// Set the context data in the provided pointer
-		val := args.Get(2).(*mcp.Context)
-		*val = *contextData
-	}).Return(nil).Once()
-
-	result, err := manager.GetContext(ctx, "test-id")
-
+	
+	ctx := context.Background()
+	contextID := "context-123"
+	
+	// Test cache hit
+	expectedContext := &mcp.Context{
+		ID:        contextID,
+		AgentID:   "agent-123",
+		ModelID:   "model-123",
+		CreatedAt: time.Now(),
+		UpdatedAt: time.Now(),
+	}
+	
+	mockCache.On("Get", mock.Anything, "context:"+contextID, mock.AnythingOfType("*mcp.Context")).
+		Run(func(args mock.Arguments) {
+			arg := args.Get(2).(*mcp.Context)
+			*arg = *expectedContext
+		}).
+		Return(nil)
+	
+	result, err := cm.GetContext(ctx, contextID)
+	
 	assert.NoError(t, err)
-	assert.Equal(t, contextData.ID, result.ID)
-	assert.Equal(t, contextData.AgentID, result.AgentID)
-	assert.Equal(t, contextData.ModelID, result.ModelID)
+	assert.Equal(t, expectedContext, result)
+	
 	mockCache.AssertExpectations(t)
-
-	// Test get from storage when cache misses
-	mockCache.On("Get", mock.Anything, "context:test-id", mock.Anything).Return(errors.New("cache miss")).Once()
-	mockStorage.On("GetContext", ctx, "test-id").Return(contextData, nil).Once()
-	mockCache.On("Set", mock.Anything, "context:test-id", mock.Anything, mock.Anything).Return(nil).Times(100)
-
-	result, err = manager.GetContext(ctx, "test-id")
-
+	
+	// Test cache miss, S3 hit
+	mockCache.On("Get", mock.Anything, "context:context-456", mock.AnythingOfType("*mcp.Context")).
+		Return(assert.AnError)
+	
+	s3Context := &mcp.Context{
+		ID:        "context-456",
+		AgentID:   "agent-456",
+		ModelID:   "model-456",
+		CreatedAt: time.Now(),
+		UpdatedAt: time.Now(),
+	}
+	
+	mockStorage.On("GetContext", ctx, "context-456").Return(s3Context, nil)
+	mockCache.On("Set", mock.Anything, "context:context-456", s3Context, mock.Anything).Return(nil)
+	
+	result, err = cm.GetContext(ctx, "context-456")
+	
 	assert.NoError(t, err)
-	assert.Equal(t, contextData.ID, result.ID)
-	assert.Equal(t, contextData.AgentID, result.AgentID)
-	assert.Equal(t, contextData.ModelID, result.ModelID)
-	mockCache.AssertExpectations(t)
+	assert.Equal(t, s3Context, result)
+	
 	mockStorage.AssertExpectations(t)
-
-	// Test storage error
-	mockCache.On("Get", mock.Anything, "context:test-id", mock.Anything).Return(errors.New("cache miss")).Once()
-	mockStorage.On("GetContext", ctx, "test-id").Return(nil, errors.New("storage error")).Once()
-
-	result, err = manager.GetContext(ctx, "test-id")
+	mockCache.AssertExpectations(t)
+	
+	// Test not found
+	mockCache.On("Get", mock.Anything, "context:not-found", mock.AnythingOfType("*mcp.Context")).
+		Return(assert.AnError)
+	mockStorage.On("GetContext", ctx, "not-found").Return(nil, assert.AnError)
+	
+	result, err = cm.GetContext(ctx, "not-found")
+	
 	assert.Error(t, err)
 	assert.Nil(t, result)
-	assert.Contains(t, err.Error(), "failed to get context from S3")
-	mockCache.AssertExpectations(t)
+	
 	mockStorage.AssertExpectations(t)
+	mockCache.AssertExpectations(t)
 }
 
-func TestS3ContextManager_UpdateContext(t *testing.T) {
-	mockDB := new(MockDB)
-	mockCache := new(MockCache)
+func TestS3ContextManagerUpdateContext(t *testing.T) {
+	mockDB := new(MockDatabase)
+	mockCache := new(mocks.MockCache)
 	mockStorage := new(MockContextStorage)
 	
-	manager := NewS3ContextManager(mockDB, mockCache, mockStorage)
+	cm := &S3ContextManager{
+		db:          mockDB,
+		cache:       mockCache,
+		s3Storage:   mockStorage,
+		subscribers: make(map[string][]func(mcp.Event)),
+	}
+	
 	ctx := context.Background()
-
-	// Create existing context
+	contextID := "context-123"
+	
+	// Mock the GetContext call
 	existingContext := &mcp.Context{
-		ID:            "test-id",
-		AgentID:       "test-agent",
-		ModelID:       "test-model",
-		CurrentTokens: 10,
-		MaxTokens:     100,
+		ID:            contextID,
+		AgentID:       "agent-123",
+		ModelID:       "model-123",
+		Content:       []mcp.ContextItem{},
+		CurrentTokens: 0,
+		MaxTokens:     4000,
+		Metadata:      map[string]interface{}{"existing": "value"},
+		CreatedAt:     time.Now().Add(-1 * time.Hour),
+		UpdatedAt:     time.Now().Add(-1 * time.Hour),
+	}
+	
+	mockCache.On("Get", mock.Anything, "context:"+contextID, mock.AnythingOfType("*mcp.Context")).
+		Return(assert.AnError)
+	mockStorage.On("GetContext", ctx, contextID).Return(existingContext, nil)
+	mockCache.On("Set", mock.Anything, "context:"+contextID, mock.AnythingOfType("*mcp.Context"), mock.Anything).
+		Return(nil).Times(2)
+	
+	// Update request
+	updateRequest := &mcp.Context{
+		AgentID:  "agent-456",
+		Metadata: map[string]interface{}{"new": "data"},
 		Content: []mcp.ContextItem{
 			{
-				Role:    "system",
-				Content: "Test content",
-				Tokens:  10,
+				ID:        "item-1",
+				Role:      "user",
+				Content:   "Hello",
+				Tokens:    1,
+				Timestamp: time.Now(),
 			},
 		},
-		Metadata: map[string]interface{}{
-			"key1": "value1",
-		},
-		CreatedAt: time.Now().Add(-1 * time.Hour),
-		UpdatedAt: time.Now().Add(-1 * time.Hour),
 	}
-
-	// Test successful update
-	updateContext := &mcp.Context{
-		ID:      "test-id",
-		AgentID: "new-agent",
-		Content: []mcp.ContextItem{
-			{
-				Role:    "user",
-				Content: "New content",
-				Tokens:  5,
-			},
-		},
-		Metadata: map[string]interface{}{
-			"key2": "value2",
-		},
-	}
-
-	mockCache.On("Get", mock.Anything, "context:test-id", mock.Anything).Return(errors.New("cache miss")).Once()
-	mockStorage.On("GetContext", ctx, "test-id").Return(existingContext, nil).Once()
-	mockDB.On("UpdateContextReference", ctx, mock.Anything).Return(nil).Once()
-	mockStorage.On("StoreContext", ctx, mock.Anything).Return(nil).Once()
-	mockCache.On("Set", mock.Anything, "context:test-id", mock.Anything, mock.Anything).Return(nil).Times(3)
-
-	result, err := manager.UpdateContext(ctx, "test-id", updateContext, nil)
-
+	
+	// Mock the database and storage update calls
+	mockDB.On("UpdateContextReference", ctx, mock.AnythingOfType("*mcp.Context")).Return(nil)
+	mockStorage.On("StoreContext", ctx, mock.AnythingOfType("*mcp.Context")).Return(nil)
+	
+	// Call the method
+	result, err := cm.UpdateContext(ctx, contextID, updateRequest, nil)
+	
+	// Assertions
 	assert.NoError(t, err)
-	assert.Equal(t, "test-id", result.ID)
-	assert.Equal(t, "new-agent", result.AgentID)
-	assert.Equal(t, "test-model", result.ModelID)
-	assert.Equal(t, 15, result.CurrentTokens) // 10 + 5
-	assert.Equal(t, 2, len(result.Content))
-	assert.Equal(t, "value1", result.Metadata["key1"])
-	assert.Equal(t, "value2", result.Metadata["key2"])
-	mockCache.AssertExpectations(t)
-	mockStorage.AssertExpectations(t)
+	assert.NotNil(t, result)
+	assert.Equal(t, contextID, result.ID)
+	assert.Equal(t, "agent-456", result.AgentID)
+	assert.Equal(t, "model-123", result.ModelID)
+	assert.Len(t, result.Content, 1)
+	assert.Equal(t, 1, result.CurrentTokens)
+	assert.Equal(t, "value", result.Metadata["existing"])
+	assert.Equal(t, "data", result.Metadata["new"])
+	assert.False(t, result.UpdatedAt.Equal(existingContext.UpdatedAt))
+	
 	mockDB.AssertExpectations(t)
-
-	// Test context not found
-	mockCache.On("Get", mock.Anything, "context:test-id", mock.Anything).Return(errors.New("cache miss")).Once()
-	mockStorage.On("GetContext", ctx, "test-id").Return(nil, errors.New("not found")).Once()
-
-	result, err = manager.UpdateContext(ctx, "test-id", updateContext, nil)
+	mockStorage.AssertExpectations(t)
+	mockCache.AssertExpectations(t)
+	
+	// Test error cases
+	
+	// GetContext error
+	mockCache.On("Get", mock.Anything, "context:not-found", mock.AnythingOfType("*mcp.Context")).
+		Return(assert.AnError)
+	mockStorage.On("GetContext", ctx, "not-found").Return(nil, assert.AnError)
+	
+	result, err = cm.UpdateContext(ctx, "not-found", updateRequest, nil)
 	assert.Error(t, err)
 	assert.Nil(t, result)
-	mockCache.AssertExpectations(t)
-	mockStorage.AssertExpectations(t)
-
-	// Test database update error
-	mockCache.On("Get", mock.Anything, "context:test-id", mock.Anything).Return(errors.New("cache miss")).Once()
-	mockStorage.On("GetContext", ctx, "test-id").Return(existingContext, nil).Once()
-	mockDB.On("UpdateContextReference", ctx, mock.Anything).Return(errors.New("db error")).Once()
-
-	result, err = manager.UpdateContext(ctx, "test-id", updateContext, nil)
+	
+	// Database update error
+	mockCache.On("Get", mock.Anything, "context:db-err", mock.AnythingOfType("*mcp.Context")).
+		Return(assert.AnError)
+	mockStorage.On("GetContext", ctx, "db-err").Return(existingContext, nil)
+	mockDB.On("UpdateContextReference", ctx, mock.AnythingOfType("*mcp.Context")).Return(assert.AnError)
+	
+	result, err = cm.UpdateContext(ctx, "db-err", updateRequest, nil)
 	assert.Error(t, err)
 	assert.Nil(t, result)
 	assert.Contains(t, err.Error(), "failed to update context reference")
-	mockCache.AssertExpectations(t)
-	mockStorage.AssertExpectations(t)
-	mockDB.AssertExpectations(t)
-
-	// Test storage update error
-	mockCache.On("Get", mock.Anything, "context:test-id", mock.Anything).Return(errors.New("cache miss")).Once()
-	mockStorage.On("GetContext", ctx, "test-id").Return(existingContext, nil).Once()
-	mockDB.On("UpdateContextReference", ctx, mock.Anything).Return(nil).Once()
-	mockStorage.On("StoreContext", ctx, mock.Anything).Return(errors.New("storage error")).Once()
-
-	result, err = manager.UpdateContext(ctx, "test-id", updateContext, nil)
+	
+	// Storage update error
+	mockCache.On("Get", mock.Anything, "context:storage-err", mock.AnythingOfType("*mcp.Context")).
+		Return(assert.AnError)
+	mockStorage.On("GetContext", ctx, "storage-err").Return(existingContext, nil)
+	mockDB.On("UpdateContextReference", ctx, mock.AnythingOfType("*mcp.Context")).Return(nil)
+	mockStorage.On("StoreContext", ctx, mock.AnythingOfType("*mcp.Context")).Return(assert.AnError)
+	
+	result, err = cm.UpdateContext(ctx, "storage-err", updateRequest, nil)
 	assert.Error(t, err)
 	assert.Nil(t, result)
 	assert.Contains(t, err.Error(), "failed to update context in S3")
-	mockCache.AssertExpectations(t)
-	mockStorage.AssertExpectations(t)
+	
 	mockDB.AssertExpectations(t)
-
-	// Test truncation
-	existingContext.CurrentTokens = 80
-	updateContext.Content = []mcp.ContextItem{
-		{
-			Role:    "user",
-			Content: "Content that exceeds max tokens",
-			Tokens:  30, // This will push the total to 110, exceeding the 100 max
-		},
-	}
-	options := &mcp.ContextUpdateOptions{
-		Truncate:         true,
-		TruncateStrategy: "oldest_first",
-	}
-
-	mockCache.On("Get", mock.Anything, "context:test-id", mock.Anything).Return(errors.New("cache miss")).Once()
-	mockStorage.On("GetContext", ctx, "test-id").Return(existingContext, nil).Once()
-	mockDB.On("UpdateContextReference", ctx, mock.Anything).Return(nil).Once()
-	mockStorage.On("StoreContext", ctx, mock.Anything).Return(nil).Once()
-	mockCache.On("Set", mock.Anything, "context:test-id", mock.Anything, mock.Anything).Return(nil).Once()
-
-	result, err = manager.UpdateContext(ctx, "test-id", updateContext, options)
-
-	assert.NoError(t, err)
-	assert.LessOrEqual(t, result.CurrentTokens, result.MaxTokens) // Should be truncated
-	mockCache.AssertExpectations(t)
 	mockStorage.AssertExpectations(t)
-	mockDB.AssertExpectations(t)
+	mockCache.AssertExpectations(t)
 }
 
-func TestS3ContextManager_DeleteContext(t *testing.T) {
-	mockDB := new(MockDB)
-	mockCache := new(MockCache)
+func TestS3ContextManagerDeleteContext(t *testing.T) {
+	mockDB := new(MockDatabase)
+	mockCache := new(mocks.MockCache)
 	mockStorage := new(MockContextStorage)
 	
-	manager := NewS3ContextManager(mockDB, mockCache, mockStorage)
-	ctx := context.Background()
-
-	// Test successful delete
-	contextData := &mcp.Context{
-		ID:      "test-id",
-		AgentID: "test-agent",
-		ModelID: "test-model",
+	cm := &S3ContextManager{
+		db:          mockDB,
+		cache:       mockCache,
+		s3Storage:   mockStorage,
+		subscribers: make(map[string][]func(mcp.Event)),
 	}
-
-	mockCache.On("Get", mock.Anything, "context:test-id", mock.Anything).Return(errors.New("cache miss")).Once()
-	mockStorage.On("GetContext", ctx, "test-id").Return(contextData, nil).Once()
-	mockStorage.On("DeleteContext", ctx, "test-id").Return(nil).Once()
-	mockDB.On("DeleteContextReference", ctx, "test-id").Return(nil).Once()
-	mockCache.On("Delete", ctx, "context:test-id").Return(nil).Once()
-
-	err := manager.DeleteContext(ctx, "test-id")
-
+	
+	ctx := context.Background()
+	contextID := "context-123"
+	
+	// Setup GetContext mock
+	existingContext := &mcp.Context{
+		ID:        contextID,
+		AgentID:   "agent-123",
+		ModelID:   "model-123",
+		CreatedAt: time.Now(),
+		UpdatedAt: time.Now(),
+	}
+	
+	mockCache.On("Get", mock.Anything, "context:"+contextID, mock.AnythingOfType("*mcp.Context")).
+		Return(assert.AnError)
+	mockStorage.On("GetContext", ctx, contextID).Return(existingContext, nil)
+	mockCache.On("Set", mock.Anything, "context:"+contextID, existingContext, mock.Anything).Return(nil)
+	
+	// Setup delete mocks
+	mockStorage.On("DeleteContext", ctx, contextID).Return(nil)
+	mockDB.On("DeleteContextReference", ctx, contextID).Return(nil)
+	mockCache.On("Delete", mock.Anything, "context:"+contextID).Return(nil)
+	
+	// Call the method
+	err := cm.DeleteContext(ctx, contextID)
+	
+	// Assertions
 	assert.NoError(t, err)
-	mockCache.AssertExpectations(t)
-	mockStorage.AssertExpectations(t)
+	
 	mockDB.AssertExpectations(t)
-
-	// Test context not found
-	mockCache.On("Get", mock.Anything, "context:test-id", mock.Anything).Return(errors.New("cache miss")).Once()
-	mockStorage.On("GetContext", ctx, "test-id").Return(nil, errors.New("not found")).Once()
-
-	err = manager.DeleteContext(ctx, "test-id")
-	assert.Error(t, err)
-	mockCache.AssertExpectations(t)
 	mockStorage.AssertExpectations(t)
-
-	// Test storage delete error
-	mockCache.On("Get", mock.Anything, "context:test-id", mock.Anything).Return(errors.New("cache miss")).Once()
-	mockStorage.On("GetContext", ctx, "test-id").Return(contextData, nil).Once()
-	mockStorage.On("DeleteContext", ctx, "test-id").Return(errors.New("storage error")).Once()
-
-	err = manager.DeleteContext(ctx, "test-id")
+	mockCache.AssertExpectations(t)
+	
+	// Test error cases
+	
+	// GetContext error
+	mockCache.On("Get", mock.Anything, "context:not-found", mock.AnythingOfType("*mcp.Context")).
+		Return(assert.AnError)
+	mockStorage.On("GetContext", ctx, "not-found").Return(nil, assert.AnError)
+	
+	err = cm.DeleteContext(ctx, "not-found")
+	assert.Error(t, err)
+	
+	// S3 delete error
+	contextID2 := "context-s3-err"
+	mockCache.On("Get", mock.Anything, "context:"+contextID2, mock.AnythingOfType("*mcp.Context")).
+		Return(assert.AnError)
+	mockStorage.On("GetContext", ctx, contextID2).Return(existingContext, nil)
+	mockCache.On("Set", mock.Anything, "context:"+contextID2, existingContext, mock.Anything).Return(nil)
+	mockStorage.On("DeleteContext", ctx, contextID2).Return(assert.AnError)
+	
+	err = cm.DeleteContext(ctx, contextID2)
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "failed to delete context from S3")
-	mockCache.AssertExpectations(t)
+	
+	mockDB.AssertExpectations(t)
 	mockStorage.AssertExpectations(t)
+	mockCache.AssertExpectations(t)
 }
 
-func TestS3ContextManager_ListContexts(t *testing.T) {
-	mockDB := new(MockDB)
-	mockCache := new(MockCache)
+func TestS3ContextManagerListContexts(t *testing.T) {
+	mockDB := new(MockDatabase)
+	mockCache := new(mocks.MockCache)
 	mockStorage := new(MockContextStorage)
 	
-	manager := NewS3ContextManager(mockDB, mockCache, mockStorage)
-	ctx := context.Background()
-
-	// Test successful list
-	refs := []*database.ContextReference{
-		{ID: "context1", AgentID: "agent1"},
-		{ID: "context2", AgentID: "agent1"},
+	cm := &S3ContextManager{
+		db:          mockDB,
+		cache:       mockCache,
+		s3Storage:   mockStorage,
+		subscribers: make(map[string][]func(mcp.Event)),
 	}
-
-	contextData1 := &mcp.Context{
-		ID:      "context1",
-		AgentID: "agent1",
-		ModelID: "model1",
-	}
-
-	contextData2 := &mcp.Context{
-		ID:      "context2",
-		AgentID: "agent1",
-		ModelID: "model1",
-	}
-
-	options := map[string]interface{}{"limit": 10}
-
-	mockDB.On("ListContextReferences", ctx, "agent1", "session1", options).Return(refs, nil).Once()
-	mockCache.On("Get", mock.Anything, "context:context1", mock.Anything).Return(errors.New("cache miss")).Once()
-	mockStorage.On("GetContext", ctx, "context1").Return(contextData1, nil).Once()
-	mockCache.On("Set", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil).Once()
-	mockCache.On("Get", mock.Anything, "context:context2", mock.Anything).Return(errors.New("cache miss")).Once()
-	mockStorage.On("GetContext", ctx, "context2").Return(contextData2, nil).Once()
-	mockCache.On("Set", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil).Once()
-
-	results, err := manager.ListContexts(ctx, "agent1", "session1", options)
-
-	assert.NoError(t, err)
-	assert.Len(t, results, 2)
-	assert.Equal(t, "context1", results[0].ID)
-	assert.Equal(t, "context2", results[1].ID)
-	mockDB.AssertExpectations(t)
-	mockCache.AssertExpectations(t)
-	mockStorage.AssertExpectations(t)
-
-	// Test database error
-	mockDB.On("ListContextReferences", ctx, "agent1", "session1", options).Return(nil, errors.New("db error")).Once()
-
-	results, err = manager.ListContexts(ctx, "agent1", "session1", options)
-	assert.Error(t, err)
-	assert.Nil(t, results)
-	assert.Contains(t, err.Error(), "failed to list context references")
-	mockDB.AssertExpectations(t)
-
-	// Test context retrieval error
-	refs = []*database.ContextReference{
-		{ID: "context1", AgentID: "agent1"},
-	}
-
-	mockDB.On("ListContextReferences", ctx, "agent1", "session1", options).Return(refs, nil).Once()
-	mockCache.On("Get", mock.Anything, "context:context1", mock.Anything).Return(errors.New("cache miss")).Once()
-	mockStorage.On("GetContext", ctx, "context1").Return(nil, errors.New("storage error")).Once()
-
-	results, err = manager.ListContexts(ctx, "agent1", "session1", options)
-	assert.NoError(t, err) // Should not error, just log warning and continue
-	assert.Len(t, results, 0) // No results due to error
-	mockDB.AssertExpectations(t)
-	mockCache.AssertExpectations(t)
-	mockStorage.AssertExpectations(t)
-}
-
-func TestS3ContextManager_SearchInContext(t *testing.T) {
-	mockDB := new(MockDB)
-	mockCache := new(MockCache)
-	mockStorage := new(MockContextStorage)
 	
-	manager := NewS3ContextManager(mockDB, mockCache, mockStorage)
 	ctx := context.Background()
-
-	// Create test context with content
-	contextData := &mcp.Context{
-		ID:      "test-id",
-		AgentID: "test-agent",
-		ModelID: "test-model",
-		Content: []mcp.ContextItem{
-			{Role: "system", Content: "System instruction"},
-			{Role: "user", Content: "Search for this text"},
-			{Role: "assistant", Content: "Response without search term"},
+	agentID := "agent-123"
+	sessionID := "session-123"
+	options := map[string]interface{}{
+		"limit": 10,
+	}
+	
+	// Reference objects from the database
+	references := []mcp.ContextReference{
+		{
+			ID:        "context-1",
+			AgentID:   agentID,
+			SessionID: sessionID,
+		},
+		{
+			ID:        "context-2",
+			AgentID:   agentID,
+			SessionID: sessionID,
 		},
 	}
-
-	// Test successful search with results
-	mockCache.On("Get", mock.Anything, "context:test-id", mock.Anything).Return(errors.New("cache miss")).Once()
-	mockStorage.On("GetContext", ctx, "test-id").Return(contextData, nil).Once()
-	mockCache.On("Set", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil).Once()
-
-	// Create a patched version of SearchInContext just for this test
-	origSearchInContext := manager.SearchInContext
-	manager.SearchInContext = func(ctx context.Context, contextID string, query string) ([]mcp.ContextItem, error) {
-		if query == "search" {
-			// Return exactly what the test expects
-			for _, item := range contextData.Content {
-				if item.Role == "user" && strings.Contains(strings.ToLower(item.Content), strings.ToLower(query)) {
-					return []mcp.ContextItem{item}, nil
-				}
-			}
-		}
-		// Fall back to original implementation
-		return origSearchInContext(ctx, contextID, query)
-	}
-
-	results, err := manager.SearchInContext(ctx, "test-id", "search")
-
-	assert.NoError(t, err)
-	assert.Len(t, results, 1)
-	assert.Equal(t, "user", results[0].Role)
-	assert.Equal(t, "Search for this text", results[0].Content)
-	mockCache.AssertExpectations(t)
-	mockStorage.AssertExpectations(t)
 	
-	// Restore original implementation
-	manager.SearchInContext = origSearchInContext
+	// Full context objects from S3
+	context1 := &mcp.Context{
+		ID:        "context-1",
+		AgentID:   agentID,
+		SessionID: sessionID,
+		Content:   []mcp.ContextItem{},
+	}
+	
+	context2 := &mcp.Context{
+		ID:        "context-2",
+		AgentID:   agentID,
+		SessionID: sessionID,
+		Content:   []mcp.ContextItem{},
+	}
+	
+	mockDB.On("ListContextReferences", ctx, agentID, sessionID, options).Return(references, nil)
+	
+	// Setup GetContext mocks
+	mockCache.On("Get", mock.Anything, "context:context-1", mock.AnythingOfType("*mcp.Context")).
+		Return(assert.AnError)
+	mockStorage.On("GetContext", ctx, "context-1").Return(context1, nil)
+	mockCache.On("Set", mock.Anything, "context:context-1", context1, mock.Anything).Return(nil)
+	
+	mockCache.On("Get", mock.Anything, "context:context-2", mock.AnythingOfType("*mcp.Context")).
+		Return(assert.AnError)
+	mockStorage.On("GetContext", ctx, "context-2").Return(context2, nil)
+	mockCache.On("Set", mock.Anything, "context:context-2", context2, mock.Anything).Return(nil)
+	
+	// Call the method
+	result, err := cm.ListContexts(ctx, agentID, sessionID, options)
+	
+	// Assertions
+	assert.NoError(t, err)
+	assert.Len(t, result, 2)
+	assert.Equal(t, "context-1", result[0].ID)
+	assert.Equal(t, "context-2", result[1].ID)
+	
+	mockDB.AssertExpectations(t)
+	mockStorage.AssertExpectations(t)
+	mockCache.AssertExpectations(t)
+	
+	// Test database error
+	mockDB.On("ListContextReferences", ctx, "not-found", "", nil).Return(nil, assert.AnError)
+	
+	result, err = cm.ListContexts(ctx, "not-found", "", nil)
+	assert.Error(t, err)
+	assert.Nil(t, result)
+	assert.Contains(t, err.Error(), "failed to list context references")
+	
+	mockDB.AssertExpectations(t)
+}
 
-	// Test search with no matches
-	mockCache.On("Get", mock.Anything, "context:test-id", mock.Anything).Return(errors.New("cache miss")).Once()
-	mockStorage.On("GetContext", ctx, "test-id").Return(contextData, nil).Once()
-	mockCache.On("Set", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil).Once()
+func TestS3ContextManagerSummarizeContext(t *testing.T) {
+	mockDB := new(MockDatabase)
+	mockCache := new(mocks.MockCache)
+	mockStorage := new(MockContextStorage)
+	
+	cm := &S3ContextManager{
+		db:          mockDB,
+		cache:       mockCache,
+		s3Storage:   mockStorage,
+		subscribers: make(map[string][]func(mcp.Event)),
+	}
+	
+	ctx := context.Background()
+	contextID := "context-123"
+	
+	// Mock the GetContext call
+	existingContext := &mcp.Context{
+		ID:            contextID,
+		AgentID:       "agent-123",
+		ModelID:       "model-123",
+		CurrentTokens: 100,
+		Content: []mcp.ContextItem{
+			{
+				ID:        "item-1",
+				Role:      "user",
+				Content:   "Hello",
+				Tokens:    1,
+				Timestamp: time.Now(),
+			},
+			{
+				ID:        "item-2",
+				Role:      "assistant",
+				Content:   "Hi there",
+				Tokens:    2,
+				Timestamp: time.Now(),
+			},
+		},
+	}
+	
+	mockCache.On("Get", mock.Anything, "context:"+contextID, mock.AnythingOfType("*mcp.Context")).
+		Return(assert.AnError)
+	mockStorage.On("GetContext", ctx, contextID).Return(existingContext, nil)
+	mockCache.On("Set", mock.Anything, "context:"+contextID, existingContext, mock.Anything).Return(nil)
+	
+	// Call the method
+	summary, err := cm.SummarizeContext(ctx, contextID)
+	
+	// Assertions
+	assert.NoError(t, err)
+	assert.Contains(t, summary, "2 messages")
+	assert.Contains(t, summary, "100 tokens")
+	
+	mockStorage.AssertExpectations(t)
+	mockCache.AssertExpectations(t)
+	
+	// Test error case
+	mockCache.On("Get", mock.Anything, "context:not-found", mock.AnythingOfType("*mcp.Context")).
+		Return(assert.AnError)
+	mockStorage.On("GetContext", ctx, "not-found").Return(nil, assert.AnError)
+	
+	summary, err = cm.SummarizeContext(ctx, "not-found")
+	
+	assert.Error(t, err)
+	assert.Empty(t, summary)
+	
+	mockStorage.AssertExpectations(t)
+}
 
-	results, err = manager.SearchInContext(ctx, "test-id", "no match")
-
+func TestS3ContextManagerSearchInContext(t *testing.T) {
+	mockDB := new(MockDatabase)
+	mockCache := new(mocks.MockCache)
+	mockStorage := new(MockContextStorage)
+	
+	cm := &S3ContextManager{
+		db:          mockDB,
+		cache:       mockCache,
+		s3Storage:   mockStorage,
+		subscribers: make(map[string][]func(mcp.Event)),
+	}
+	
+	ctx := context.Background()
+	contextID := "context-123"
+	
+	// Mock the GetContext call
+	existingContext := &mcp.Context{
+		ID:      contextID,
+		AgentID: "agent-123",
+		ModelID: "model-123",
+		Content: []mcp.ContextItem{
+			{
+				ID:        "item-1",
+				Role:      "user",
+				Content:   "Hello world",
+				Tokens:    2,
+				Timestamp: time.Now(),
+			},
+			{
+				ID:        "item-2",
+				Role:      "assistant",
+				Content:   "Hi there, how can I help you?",
+				Tokens:    7,
+				Timestamp: time.Now(),
+			},
+			{
+				ID:        "item-3",
+				Role:      "user",
+				Content:   "I need information about the world",
+				Tokens:    7,
+				Timestamp: time.Now(),
+			},
+		},
+	}
+	
+	mockCache.On("Get", mock.Anything, "context:"+contextID, mock.AnythingOfType("*mcp.Context")).
+		Return(assert.AnError)
+	mockStorage.On("GetContext", ctx, contextID).Return(existingContext, nil)
+	mockCache.On("Set", mock.Anything, "context:"+contextID, existingContext, mock.Anything).Return(nil)
+	
+	// Test search with results
+	results, err := cm.SearchInContext(ctx, contextID, "world")
+	
+	assert.NoError(t, err)
+	assert.Len(t, results, 2)
+	assert.Equal(t, "Hello world", results[0].Content)
+	assert.Equal(t, "I need information about the world", results[1].Content)
+	
+	// Test search with no results
+	results, err = cm.SearchInContext(ctx, contextID, "nonexistent")
+	
 	assert.NoError(t, err)
 	assert.Len(t, results, 0)
-	mockCache.AssertExpectations(t)
+	
 	mockStorage.AssertExpectations(t)
-
-	// Test context not found
-	mockCache.On("Get", mock.Anything, "context:test-id", mock.Anything).Return(errors.New("cache miss")).Once()
-	mockStorage.On("GetContext", ctx, "test-id").Return(nil, errors.New("not found")).Once()
-
-	results, err = manager.SearchInContext(ctx, "test-id", "search")
+	mockCache.AssertExpectations(t)
+	
+	// Test error case
+	mockCache.On("Get", mock.Anything, "context:not-found", mock.AnythingOfType("*mcp.Context")).
+		Return(assert.AnError)
+	mockStorage.On("GetContext", ctx, "not-found").Return(nil, assert.AnError)
+	
+	results, err = cm.SearchInContext(ctx, "not-found", "world")
+	
 	assert.Error(t, err)
 	assert.Nil(t, results)
-	mockCache.AssertExpectations(t)
+	
 	mockStorage.AssertExpectations(t)
+}
+
+func TestS3ContextManagerContainsTextCaseInsensitive(t *testing.T) {
+	// Test with matching text
+	assert.True(t, containsTextCaseInsensitive("Hello World", "world"))
+	assert.True(t, containsTextCaseInsensitive("HELLO WORLD", "world"))
+	assert.True(t, containsTextCaseInsensitive("hello world", "WORLD"))
+	
+	// Test with non-matching text
+	assert.False(t, containsTextCaseInsensitive("Hello", "world"))
+	assert.False(t, containsTextCaseInsensitive("", "world"))
+}
+
+func TestS3ContextManagerSubscribe(t *testing.T) {
+	mockDB := new(MockDatabase)
+	mockCache := new(mocks.MockCache)
+	mockStorage := new(MockContextStorage)
+	
+	cm := &S3ContextManager{
+		db:          mockDB,
+		cache:       mockCache,
+		s3Storage:   mockStorage,
+		subscribers: make(map[string][]func(mcp.Event)),
+	}
+	
+	// Add a subscriber
+	var receivedEvent mcp.Event
+	cm.Subscribe("context_created", func(event mcp.Event) {
+		receivedEvent = event
+	})
+	
+	// Check that the subscriber was added
+	assert.Len(t, cm.subscribers["context_created"], 1)
+	
+	// Add another subscriber for a different event type
+	cm.Subscribe("context_updated", func(event mcp.Event) {
+		// Do nothing
+	})
+	
+	// Check that both subscribers exist
+	assert.Len(t, cm.subscribers["context_created"], 1)
+	assert.Len(t, cm.subscribers["context_updated"], 1)
+	
+	// Add a subscriber for all events
+	cm.Subscribe("all", func(event mcp.Event) {
+		// Do nothing
+	})
+	
+	assert.Len(t, cm.subscribers["all"], 1)
+}
+
+func TestS3ContextManagerPublishEvent(t *testing.T) {
+	mockDB := new(MockDatabase)
+	mockCache := new(mocks.MockCache)
+	mockStorage := new(MockContextStorage)
+	
+	cm := &S3ContextManager{
+		db:          mockDB,
+		cache:       mockCache,
+		s3Storage:   mockStorage,
+		subscribers: make(map[string][]func(mcp.Event)),
+	}
+	
+	// Add a subscriber for a specific event type
+	specificCalled := false
+	cm.subscribers["context_created"] = []func(mcp.Event){
+		func(event mcp.Event) {
+			specificCalled = true
+			assert.Equal(t, "context_created", event.Type)
+		},
+	}
+	
+	// Add a subscriber for all events
+	allCalled := false
+	cm.subscribers["all"] = []func(mcp.Event){
+		func(event mcp.Event) {
+			allCalled = true
+			assert.Equal(t, "context_created", event.Type)
+		},
+	}
+	
+	// Create an event
+	event := mcp.Event{
+		Source:    "test",
+		Type:      "context_created",
+		AgentID:   "agent-123",
+		Timestamp: time.Now(),
+	}
+	
+	// Publish the event
+	cm.publishEvent(event)
+	
+	// Allow time for goroutines to execute
+	time.Sleep(100 * time.Millisecond)
+	
+	// Both subscribers should have been called
+	assert.True(t, specificCalled)
+	assert.True(t, allCalled)
+	
+	// Test with no subscribers
+	cm = &S3ContextManager{
+		db:          mockDB,
+		cache:       mockCache,
+		s3Storage:   mockStorage,
+		subscribers: make(map[string][]func(mcp.Event)),
+	}
+	
+	// This should not panic
+	cm.publishEvent(event)
+}
+
+func TestS3ContextManagerTruncateContext(t *testing.T) {
+	mockDB := new(MockDatabase)
+	mockCache := new(mocks.MockCache)
+	mockStorage := new(MockContextStorage)
+	
+	cm := &S3ContextManager{
+		db:          mockDB,
+		cache:       mockCache,
+		s3Storage:   mockStorage,
+		subscribers: make(map[string][]func(mcp.Event)),
+	}
+	
+	// Test different truncation strategies
+	contextData := &mcp.Context{
+		MaxTokens:     10,
+		CurrentTokens: 15,
+		Content: []mcp.ContextItem{
+			{
+				ID:        "item-1",
+				Role:      "user",
+				Content:   "First message",
+				Tokens:    5,
+				Timestamp: time.Now().Add(-2 * time.Hour),
+			},
+			{
+				ID:        "item-2",
+				Role:      "assistant",
+				Content:   "Second message",
+				Tokens:    5,
+				Timestamp: time.Now().Add(-1 * time.Hour),
+			},
+			{
+				ID:        "item-3",
+				Role:      "user",
+				Content:   "Third message",
+				Tokens:    5,
+				Timestamp: time.Now(),
+			},
+		},
+	}
+	
+	// Test oldest first strategy
+	err := cm.truncateContext(contextData, string(TruncateOldestFirst))
+	assert.NoError(t, err)
+	assert.Len(t, contextData.Content, 2)
+	assert.Equal(t, "Second message", contextData.Content[0].Content)
+	assert.Equal(t, "Third message", contextData.Content[1].Content)
+	assert.Equal(t, 10, contextData.CurrentTokens)
+	
+	// Reset context
+	contextData = &mcp.Context{
+		MaxTokens:     10,
+		CurrentTokens: 15,
+		Content: []mcp.ContextItem{
+			{
+				ID:        "item-1",
+				Role:      "user",
+				Content:   "First message",
+				Tokens:    5,
+				Timestamp: time.Now().Add(-2 * time.Hour),
+			},
+			{
+				ID:        "item-2",
+				Role:      "assistant",
+				Content:   "Second message",
+				Tokens:    5,
+				Timestamp: time.Now().Add(-1 * time.Hour),
+			},
+			{
+				ID:        "item-3",
+				Role:      "user",
+				Content:   "Third message",
+				Tokens:    5,
+				Timestamp: time.Now(),
+			},
+		},
+	}
+	
+	// Test relevance based strategy (should fallback to oldest first)
+	err = cm.truncateContext(contextData, string(TruncateRelevanceBased))
+	assert.NoError(t, err)
+	assert.Len(t, contextData.Content, 2)
+	assert.Equal(t, "Second message", contextData.Content[0].Content)
+	assert.Equal(t, "Third message", contextData.Content[1].Content)
+	
+	// Reset context
+	contextData = &mcp.Context{
+		MaxTokens:     10,
+		CurrentTokens: 15,
+		Content: []mcp.ContextItem{
+			{
+				ID:        "item-1",
+				Role:      "user",
+				Content:   "First message",
+				Tokens:    5,
+				Timestamp: time.Now().Add(-2 * time.Hour),
+			},
+			{
+				ID:        "item-2",
+				Role:      "assistant",
+				Content:   "Second message",
+				Tokens:    5,
+				Timestamp: time.Now().Add(-1 * time.Hour),
+			},
+			{
+				ID:        "item-3",
+				Role:      "user",
+				Content:   "Third message",
+				Tokens:    5,
+				Timestamp: time.Now(),
+			},
+		},
+	}
+	
+	// Test compression strategy (should fallback to oldest first)
+	err = cm.truncateContext(contextData, string(TruncateCompression))
+	assert.NoError(t, err)
+	assert.Len(t, contextData.Content, 2)
+	assert.Equal(t, "Second message", contextData.Content[0].Content)
+	assert.Equal(t, "Third message", contextData.Content[1].Content)
+	
+	// Reset context
+	contextData = &mcp.Context{
+		MaxTokens:     10,
+		CurrentTokens: 15,
+		Content: []mcp.ContextItem{
+			{
+				ID:        "item-1",
+				Role:      "user",
+				Content:   "First message",
+				Tokens:    5,
+				Timestamp: time.Now().Add(-2 * time.Hour),
+			},
+			{
+				ID:        "item-2",
+				Role:      "assistant",
+				Content:   "Second message",
+				Tokens:    5,
+				Timestamp: time.Now().Add(-1 * time.Hour),
+			},
+			{
+				ID:        "item-3",
+				Role:      "user",
+				Content:   "Third message",
+				Tokens:    5,
+				Timestamp: time.Now(),
+			},
+		},
+	}
+	
+	// Test invalid strategy (should fallback to oldest first)
+	err = cm.truncateContext(contextData, "invalid_strategy")
+	assert.NoError(t, err)
+	assert.Len(t, contextData.Content, 2)
+	assert.Equal(t, "Second message", contextData.Content[0].Content)
+	assert.Equal(t, "Third message", contextData.Content[1].Content)
+}
+
+func TestS3ContextManagerTruncatePreservingUser(t *testing.T) {
+	mockDB := new(MockDatabase)
+	mockCache := new(mocks.MockCache)
+	mockStorage := new(MockContextStorage)
+	
+	cm := &S3ContextManager{
+		db:          mockDB,
+		cache:       mockCache,
+		s3Storage:   mockStorage,
+		subscribers: make(map[string][]func(mcp.Event)),
+	}
+	
+	// Test with a complex context with different message types
+	contextData := &mcp.Context{
+		MaxTokens:     15,
+		CurrentTokens: 25,
+		Content: []mcp.ContextItem{
+			{
+				ID:        "item-1",
+				Role:      "system",
+				Content:   "System message",
+				Tokens:    5,
+				Timestamp: time.Now().Add(-3 * time.Hour),
+			},
+			{
+				ID:        "item-2",
+				Role:      "user",
+				Content:   "User message 1",
+				Tokens:    5,
+				Timestamp: time.Now().Add(-2 * time.Hour),
+			},
+			{
+				ID:        "item-3",
+				Role:      "assistant",
+				Content:   "Assistant message 1",
+				Tokens:    5,
+				Timestamp: time.Now().Add(-1 * time.Hour),
+			},
+			{
+				ID:        "item-4",
+				Role:      "user",
+				Content:   "User message 2",
+				Tokens:    5,
+				Timestamp: time.Now().Add(-30 * time.Minute),
+			},
+			{
+				ID:        "item-5",
+				Role:      "assistant",
+				Content:   "Assistant message 2",
+				Tokens:    5,
+				Timestamp: time.Now(),
+			},
+		},
+	}
+	
+	err := cm.truncatePreservingUser(contextData)
+	
+	assert.NoError(t, err)
+	// Check that token count is below max
+	assert.LessOrEqual(t, contextData.CurrentTokens, contextData.MaxTokens)
+	
+	// Test with a small context (not exceeding minRecentMessages)
+	smallContext := &mcp.Context{
+		MaxTokens:     10,
+		CurrentTokens: 15,
+		Content: []mcp.ContextItem{
+			{
+				ID:        "item-1",
+				Role:      "user",
+				Content:   "User message",
+				Tokens:    5,
+				Timestamp: time.Now().Add(-1 * time.Hour),
+			},
+			{
+				ID:        "item-2",
+				Role:      "assistant",
+				Content:   "Assistant message",
+				Tokens:    5,
+				Timestamp: time.Now().Add(-30 * time.Minute),
+			},
+			{
+				ID:        "item-3",
+				Role:      "user",
+				Content:   "Another user message",
+				Tokens:    5,
+				Timestamp: time.Now(),
+			},
+		},
+	}
+	
+	err = cm.truncatePreservingUser(smallContext)
+	
+	assert.NoError(t, err)
+	// Small context should not be modified since it's <= minRecentMessages
+	assert.Len(t, smallContext.Content, 3)
+	
+	// Test a case that would still be over the limit and need fallback to oldest first
+	overLimitContext := &mcp.Context{
+		MaxTokens:     5,
+		CurrentTokens: 20,
+		Content: []mcp.ContextItem{
+			{
+				ID:        "item-1",
+				Role:      "system",
+				Content:   "System message",
+				Tokens:    5,
+				Timestamp: time.Now().Add(-3 * time.Hour),
+			},
+			{
+				ID:        "item-2",
+				Role:      "user",
+				Content:   "User message 1",
+				Tokens:    5,
+				Timestamp: time.Now().Add(-2 * time.Hour),
+			},
+			{
+				ID:        "item-3",
+				Role:      "user",
+				Content:   "User message 2",
+				Tokens:    5,
+				Timestamp: time.Now().Add(-1 * time.Hour),
+			},
+			{
+				ID:        "item-4",
+				Role:      "user",
+				Content:   "User message 3",
+				Tokens:    5,
+				Timestamp: time.Now(),
+			},
+		},
+	}
+	
+	// This should fall back to truncateOldestFirst since all messages are user/system
+	err = cm.truncatePreservingUser(overLimitContext)
+	
+	assert.NoError(t, err)
+	assert.LessOrEqual(t, overLimitContext.CurrentTokens, overLimitContext.MaxTokens)
+}
+
+func TestS3ContextManagerCacheContext(t *testing.T) {
+	mockCache := new(mocks.MockCache)
+	mockStorage := new(MockContextStorage)
+	
+	cm := &S3ContextManager{
+		cache:     mockCache,
+		s3Storage: mockStorage,
+	}
+	
+	// Test with no expiration
+	contextData := &mcp.Context{
+		ID: "context-123",
+	}
+	
+	mockCache.On("Set", mock.Anything, "context:context-123", contextData, mock.AnythingOfType("time.Duration")).Return(nil)
+	
+	err := cm.cacheContext(contextData)
+	
+	assert.NoError(t, err)
+	mockCache.AssertExpectations(t)
+	
+	// Test with expiration
+	tomorrow := time.Now().Add(24 * time.Hour)
+	expiringContext := &mcp.Context{
+		ID:        "context-expire",
+		ExpiresAt: tomorrow,
+	}
+	
+	mockCache.On("Set", mock.Anything, "context:context-expire", expiringContext, mock.AnythingOfType("time.Duration")).Return(nil)
+	
+	err = cm.cacheContext(expiringContext)
+	
+	assert.NoError(t, err)
+	mockCache.AssertExpectations(t)
+	
+	// Test with already expired
+	yesterday := time.Now().Add(-24 * time.Hour)
+	expiredContext := &mcp.Context{
+		ID:        "context-expired",
+		ExpiresAt: yesterday,
+	}
+	
+	// Should not call Set for expired contexts
+	err = cm.cacheContext(expiredContext)
+	
+	assert.NoError(t, err)
+	mockCache.AssertExpectations(t)
+}
+
+func TestS3ContextManagerGetCachedContext(t *testing.T) {
+	mockCache := new(mocks.MockCache)
+	mockStorage := new(MockContextStorage)
+	
+	cm := &S3ContextManager{
+		cache:     mockCache,
+		s3Storage: mockStorage,
+	}
+	
+	contextID := "context-123"
+	expectedContext := &mcp.Context{
+		ID:      contextID,
+		AgentID: "agent-123",
+	}
+	
+	// Test successful cache get
+	mockCache.On("Get", mock.Anything, "context:"+contextID, mock.AnythingOfType("*mcp.Context")).
+		Run(func(args mock.Arguments) {
+			arg := args.Get(2).(*mcp.Context)
+			*arg = *expectedContext
+		}).
+		Return(nil)
+	
+	result, err := cm.getCachedContext(contextID)
+	
+	assert.NoError(t, err)
+	assert.Equal(t, expectedContext, result)
+	
+	mockCache.AssertExpectations(t)
+	
+	// Test cache miss
+	mockCache.On("Get", mock.Anything, "context:cache-miss", mock.AnythingOfType("*mcp.Context")).
+		Return(assert.AnError)
+	
+	result, err = cm.getCachedContext("cache-miss")
+	
+	assert.Error(t, err)
+	assert.Nil(t, result)
+	
+	mockCache.AssertExpectations(t)
 }

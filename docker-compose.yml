@@ -68,7 +68,7 @@ services:
       - mcp-network
 
   postgres:
-    image: postgres:15-alpine
+    image: ankane/pgvector
     ports:
       - "5432:5432"
     environment:

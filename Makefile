@@ -1,7 +1,7 @@
 .PHONY: all build clean test docker-build docker-run mock mockserver-build mockserver-run local-dev-setup
 
 # Default Go parameters
-GOCMD=go
+GOCMD=/usr/local/go/bin/go
 GOBUILD=$(GOCMD) build
 GOCLEAN=$(GOCMD) clean
 GOTEST=$(GOCMD) test

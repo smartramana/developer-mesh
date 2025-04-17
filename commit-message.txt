@@ -1,15 +1,13 @@
-feat: Add Harness.io webhook subscription support
+test: Improve unit test coverage for cmd, pkg, and internal directories
 
-This commit adds support for subscribing to Harness.io webhooks from the MCP server.
-The implementation includes:
+- Add comprehensive tests for mockserver functionality to ensure correct mock API responses
+- Add extensive tests for client package to verify API interaction
+- Implement tests for context-related structures in mcp package
+- Add thorough testing for adapter models in models package
+- Verify proper serialization/deserialization of model structures
+- Ensure all major functions have adequate test coverage
 
-- Enhanced Harness adapter to generate and store webhook URLs
-- Added webhook URL endpoints for Harness.io configuration
-- Updated configuration to support Harness.io webhook URL components
-- Added documentation for Harness.io webhook integration
-- Created test script for validating webhook functionality
-- Added unit tests for webhook URL generation
-
-The MCP can now be used as a webhook receiver for Harness.io, allowing
-seamless integration between Harness.io and the MCP platform. This enables
-event-driven automation based on Harness.io pipeline events.
+These tests improve the overall reliability of the codebase by verifying core
+functionality and ensuring proper behavior of the client, models, and server
+components. The test coverage now extends to previously untested areas of the
+codebase.

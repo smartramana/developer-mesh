@@ -10,13 +10,27 @@ import (
 // ToolAPI handles API endpoints for tool operations
 type ToolAPI struct {
 	adapterBridge *core.AdapterContextBridge
+	
+	// Handler functions for testing
+	executeToolAction   func(c *gin.Context)
+	queryToolData       func(c *gin.Context)
+	listAvailableTools  func(c *gin.Context)
+	listAllowedActions  func(c *gin.Context)
 }
 
 // NewToolAPI creates a new tool API handler
 func NewToolAPI(adapterBridge *core.AdapterContextBridge) *ToolAPI {
-	return &ToolAPI{
+	api := &ToolAPI{
 		adapterBridge: adapterBridge,
 	}
+	
+	// Initialize handler functions
+	api.executeToolAction = api.handleExecuteToolAction
+	api.queryToolData = api.handleQueryToolData
+	api.listAvailableTools = api.handleListAvailableTools
+	api.listAllowedActions = api.handleListAllowedActions
+	
+	return api
 }
 
 // RegisterRoutes registers all tool API routes
@@ -27,8 +41,8 @@ func (api *ToolAPI) RegisterRoutes(router *gin.RouterGroup) {
 	router.GET("/tools/:tool/actions", api.listAllowedActions)
 }
 
-// executeToolAction executes an action on a tool
-func (api *ToolAPI) executeToolAction(c *gin.Context) {
+// handleExecuteToolAction executes an action on a tool
+func (api *ToolAPI) handleExecuteToolAction(c *gin.Context) {
 	toolName := c.Param("tool")
 	actionName := c.Param("action")
 	contextID := c.Query("context_id")
@@ -53,8 +67,8 @@ func (api *ToolAPI) executeToolAction(c *gin.Context) {
 	c.JSON(http.StatusOK, result)
 }
 
-// queryToolData retrieves data from a tool
-func (api *ToolAPI) queryToolData(c *gin.Context) {
+// handleQueryToolData retrieves data from a tool
+func (api *ToolAPI) handleQueryToolData(c *gin.Context) {
 	toolName := c.Param("tool")
 	contextID := c.Query("context_id")
 
@@ -78,8 +92,8 @@ func (api *ToolAPI) queryToolData(c *gin.Context) {
 	c.JSON(http.StatusOK, result)
 }
 
-// listAvailableTools lists all available tools
-func (api *ToolAPI) listAvailableTools(c *gin.Context) {
+// handleListAvailableTools lists all available tools
+func (api *ToolAPI) handleListAvailableTools(c *gin.Context) {
 	// In a real implementation, this would retrieve the list of available tools
 	// and their capabilities from the engine
 	// For now, we'll return a simple list based on the adapter types
@@ -141,8 +155,8 @@ func (api *ToolAPI) listAvailableTools(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"tools": tools})
 }
 
-// listAllowedActions lists all allowed actions for a specific tool
-func (api *ToolAPI) listAllowedActions(c *gin.Context) {
+// handleListAllowedActions lists all allowed actions for a specific tool
+func (api *ToolAPI) handleListAllowedActions(c *gin.Context) {
 	toolName := c.Param("tool")
 
 	// In a real implementation, this would retrieve the list of allowed actions
