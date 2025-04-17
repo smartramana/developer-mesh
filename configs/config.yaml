@@ -97,7 +97,7 @@ api:
   
   # API rate limiting
   rate_limit:
-    enabled: true
+    enabled: false # Disable for local testing
     limit: 100
     burst: 150
     expiration: 1h
@@ -116,7 +116,7 @@ database:
   host: "${DATABASE_HOST:-localhost}"
   port: ${DATABASE_PORT:-5432}
   username: "${DATABASE_USER:-postgres}"
-  password: "${DATABASE_PASSWORD:-}" # Do not hardcode default password
+  password: "${DATABASE_PASSWORD:-postgres}" # Default password for development
   database: "${DATABASE_NAME:-mcp}"
   ssl_mode: "${DATABASE_SSL_MODE:-disable}"
   dsn: "${DATABASE_DSN:-}" # Do not hardcode default DSN with credentials
@@ -203,7 +203,7 @@ engine:
 
 # Metrics Configuration
 metrics:
-  enabled: true
+  enabled: false
   type: "prometheus"
   endpoint: ""
   push_gateway: ""

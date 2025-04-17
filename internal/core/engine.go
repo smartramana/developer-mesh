@@ -172,14 +172,6 @@ func (e *Engine) processEvent(event mcp.Event) {
 	switch event.Source {
 	case "github":
 		e.processGithubEvent(ctx, event)
-	case "harness":
-		e.processHarnessEvent(ctx, event)
-	case "sonarqube":
-		e.processSonarQubeEvent(ctx, event)
-	case "artifactory":
-		e.processArtifactoryEvent(ctx, event)
-	case "xray":
-		e.processXrayEvent(ctx, event)
 	default:
 		log.Printf("Unknown event source: %s", event.Source)
 	}
@@ -198,65 +190,7 @@ func (e *Engine) processGithubEvent(ctx context.Context, event mcp.Event) {
 	}
 }
 
-// processHarnessEvent processes Harness events
-func (e *Engine) processHarnessEvent(ctx context.Context, event mcp.Event) {
-	// Implementation specific to Harness events
-	switch event.Type {
-	case "ci.build":
-		// Process CI build event
-	case "cd.deployment":
-		// Process CD deployment event
-	case "sto.experiment":
-		// Process STO experiment event
-	case "ff.change":
-		// Process feature flag change event
-	default:
-		log.Printf("Unknown Harness event type: %s", event.Type)
-	}
-}
-
-// processSonarQubeEvent processes SonarQube events
-func (e *Engine) processSonarQubeEvent(ctx context.Context, event mcp.Event) {
-	// Implementation specific to SonarQube events
-	switch event.Type {
-	case "quality_gate":
-		// Process quality gate event
-	case "task_completed":
-		// Process task completed event
-	default:
-		log.Printf("Unknown SonarQube event type: %s", event.Type)
-	}
-}
-
-// processArtifactoryEvent processes Artifactory events
-func (e *Engine) processArtifactoryEvent(ctx context.Context, event mcp.Event) {
-	// Implementation specific to Artifactory events
-	switch event.Type {
-	case "artifact_created":
-		// Process artifact created event
-	case "artifact_deleted":
-		// Process artifact deleted event
-	case "artifact_property_changed":
-		// Process artifact property changed event
-	default:
-		log.Printf("Unknown Artifactory event type: %s", event.Type)
-	}
-}
-
-// processXrayEvent processes JFrog Xray events
-func (e *Engine) processXrayEvent(ctx context.Context, event mcp.Event) {
-	// Implementation specific to JFrog Xray events
-	switch event.Type {
-	case "security_violation":
-		// Process security violation event
-	case "license_violation":
-		// Process license violation event
-	case "scan_completed":
-		// Process scan completed event
-	default:
-		log.Printf("Unknown Xray event type: %s", event.Type)
-	}
-}
+// No additional event processors needed
 
 // Health checks the health of the engine and all adapters
 func (e *Engine) Health() map[string]string {
