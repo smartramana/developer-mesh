@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"strings"
 	"sync"
 	"time"
 
@@ -29,6 +30,7 @@ type Adapter struct {
 	subscribers  map[string][]func(interface{})
 	subscriberMu sync.RWMutex
 	baseAdapter  adapters.BaseAdapter
+	webhookUrl   string
 }
 
 // NewAdapter creates a new Harness adapter
@@ -46,6 +48,12 @@ func NewAdapter(cfg Config) (*Adapter, error) {
 			RetryMax:   cfg.MaxRetries,
 			RetryDelay: cfg.RetryDelay,
 		},
+		webhookUrl:  "",
+	}
+
+	// Generate webhook URL if base URL and account ID are provided
+	if cfg.BaseURL != "" && cfg.AccountID != "" {
+		adapter.GenerateWebhookURL(cfg.BaseURL, "", cfg.AccountID, "devopsmcp")
 	}
 
 	return adapter, nil
@@ -200,18 +208,123 @@ func (a *Adapter) HandleWebhook(ctx context.Context, eventType string, payload [
 		return err
 	}
 
+	// Log the received event for debugging
+	fmt.Printf("Received Harness webhook event of type %s: %+v\n", eventType, event)
+
+	// Determine if this is a generic webhook based on presence of certain fields
+	isGenericEvent := a.isGenericEvent(event)
+	
+	// Use a specific event type for generic events
+	if isGenericEvent {
+		// Override the event type for generic webhooks
+		eventType = "generic_webhook"
+		
+		// Extract custom event type if available
+		if eventMap, ok := event.(map[string]interface{}); ok {
+			if customType, exists := eventMap["event_type"]; exists && customType != nil {
+				if customTypeStr, ok := customType.(string); ok && customTypeStr != "" {
+					eventType = customTypeStr
+				}
+			}
+		}
+	}
+
 	// Notify subscribers
 	a.notifySubscribers(eventType, event)
 
 	return nil
 }
 
+// isGenericEvent determines if an event is from the Generic Event Relay webhook
+func (a *Adapter) isGenericEvent(event interface{}) bool {
+	// Generic events typically have certain identifying characteristics
+	// such as specific fields in the payload
+	eventMap, ok := event.(map[string]interface{})
+	if !ok {
+		return false
+	}
+
+	// Check for fields that indicate this is a generic event relay webhook
+	// from the Event Relay feature
+	_, hasPayload := eventMap["payload"]
+	_, hasHeaders := eventMap["headers"]
+	_, hasEventSource := eventMap["event_source"]
+	_, hasEventType := eventMap["event_type"]
+	_, hasTimestamp := eventMap["timestamp"]
+	
+	// Primary check for Event Relay format
+	if hasPayload && hasHeaders {
+		return true
+	}
+	
+	// Also check for typical Harness event relay fields
+	if hasEventSource {
+		return true
+	}
+	
+	// Look for event_type which is often present in generic webhooks
+	if hasEventType && hasTimestamp {
+		return true
+	}
+	
+	// Check for typical generic webhook artifact format
+	if artifacts, hasArtifacts := eventMap["artifacts"]; hasArtifacts && artifacts != nil {
+		if artifactsArr, ok := artifacts.([]interface{}); ok && len(artifactsArr) > 0 {
+			// If there's an artifacts array with content, this is likely a generic artifact webhook
+			return true
+		}
+	}
+	
+	// Additional checks based on specific formats from Event Relay
+	if _, hasWebhook := eventMap["webhook"]; hasWebhook {
+		return true
+	}
+	
+	// Check for custom_data field which is often used in generic webhooks
+	if _, hasCustomData := eventMap["custom_data"]; hasCustomData {
+		return true
+	}
+	
+	return false
+}
+
 // parseWebhookEvent parses a Harness webhook event
 func (a *Adapter) parseWebhookEvent(eventType string, payload []byte) (interface{}, error) {
 	var event map[string]interface{}
 	if err := json.Unmarshal(payload, &event); err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to parse Harness webhook payload: %w", err)
 	}
+
+	// Extract nested payload if this is a generic webhook event from Event Relay
+	// This helps handle the Event Relay formatted payloads
+	if payloadData, exists := event["payload"]; exists && payloadData != nil {
+		if payloadStr, ok := payloadData.(string); ok && payloadStr != "" {
+			// If payload is a string, it might be a JSON string - try to parse it
+			var nestedPayload interface{}
+			if err := json.Unmarshal([]byte(payloadStr), &nestedPayload); err == nil {
+				// Successfully parsed the nested payload
+				event["parsed_payload"] = nestedPayload
+			}
+		} else if payloadMap, ok := payloadData.(map[string]interface{}); ok {
+			// Payload is already a map, we can use it directly
+			event["parsed_payload"] = payloadMap
+		}
+	}
+
+	// Add metadata about the event type for easier processing
+	if eventType != "" {
+		event["event_type"] = eventType
+	}
+
+	// Check for artifacts section and ensure it's properly formatted
+	if artifacts, exists := event["artifacts"]; exists && artifacts != nil {
+		// Ensure artifacts are properly captured for downstream processing
+		if artifactsArr, ok := artifacts.([]interface{}); ok && len(artifactsArr) > 0 {
+			// Format is correct, we can use it directly
+			fmt.Printf("Detected %d artifacts in Harness webhook\n", len(artifactsArr))
+		}
+	}
+
 	return event, nil
 }
 
@@ -229,7 +342,13 @@ func (a *Adapter) notifySubscribers(eventType string, event interface{}) {
 	a.subscriberMu.RLock()
 	defer a.subscriberMu.RUnlock()
 
+	// Notify subscribers for the specific event type
 	for _, callback := range a.subscribers[eventType] {
+		go callback(event)
+	}
+	
+	// Also notify subscribers for "all" events
+	for _, callback := range a.subscribers["all"] {
 		go callback(event)
 	}
 }
@@ -260,6 +379,57 @@ func (a *Adapter) Health() string {
 	}
 
 	return "healthy"
+}
+
+// GetWebhookURL returns the webhook URL to be used for Harness configuration
+func (a *Adapter) GetWebhookURL() string {
+	if a.webhookUrl != "" {
+		return a.webhookUrl
+	}
+	return ""
+}
+
+// SetWebhookURL sets the webhook URL for this adapter
+func (a *Adapter) SetWebhookURL(url string) {
+	a.webhookUrl = url
+}
+
+// GenerateWebhookURL generates a webhook URL for Harness based on the configuration
+func (a *Adapter) GenerateWebhookURL(baseURL, path, accountID, webhookID string) string {
+	// Format: https://harness.io/ng/api/webhook?accountIdentifier=12345abcd&webhookIdentifier=devopsmcp
+	webhookURL := baseURL
+	if !strings.HasSuffix(webhookURL, "/") {
+		webhookURL += "/"
+	}
+	
+	// Append path if provided
+	if path != "" {
+		// Ensure path doesn't start with / if we already added one
+		if strings.HasPrefix(path, "/") {
+			path = path[1:]
+		}
+		webhookURL += path
+	} else {
+		webhookURL += "ng/api/webhook"
+	}
+	
+	// Add query parameters
+	params := make([]string, 0)
+	if accountID != "" {
+		params = append(params, fmt.Sprintf("accountIdentifier=%s", accountID))
+	}
+	
+	if webhookID != "" {
+		params = append(params, fmt.Sprintf("webhookIdentifier=%s", webhookID))
+	}
+	
+	// Append parameters as query string
+	if len(params) > 0 {
+		webhookURL += "?" + strings.Join(params, "&")
+	}
+	
+	a.webhookUrl = webhookURL
+	return webhookURL
 }
 
 // Close gracefully shuts down the adapter

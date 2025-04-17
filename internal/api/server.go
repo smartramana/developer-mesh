@@ -130,6 +130,12 @@ func (s *Server) setupRoutes() {
 				path = s.config.Webhooks.Harness.Path
 			}
 			webhook.POST(path, s.harnessWebhookHandler)
+			
+			// Add configuration endpoint for Harness webhook URL
+			// This endpoint is authenticated with API key
+			webhookConfig := s.router.Group("/api/v1/webhooks/harness")
+			webhookConfig.Use(AuthMiddleware("api_key"))
+			webhookConfig.GET("/url", s.getHarnessWebhookURLHandler)
 		}
 
 		if s.config.Webhooks.SonarQube.Enabled {

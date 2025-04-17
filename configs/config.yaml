@@ -112,6 +112,9 @@ api:
       enabled: ${HARNESS_WEBHOOK_ENABLED:-true}
       secret: "${HARNESS_WEBHOOK_SECRET:-}" # Never use a mock secret in production 
       path: "/harness"
+      base_url: "${HARNESS_BASE_URL:-https://harness.io}"
+      webhook_path: "${HARNESS_WEBHOOK_PATH:-ng/api/webhook}"
+      account_id: "${HARNESS_ACCOUNT_ID:-}"
     sonarqube:
       enabled: ${SONARQUBE_WEBHOOK_ENABLED:-true}
       secret: "${SONARQUBE_WEBHOOK_SECRET:-}" # Never use a mock secret in production

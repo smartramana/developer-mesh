@@ -30,9 +30,12 @@ type WebhookConfig struct {
 
 // WebhookEndpointConfig holds configuration for a webhook endpoint
 type WebhookEndpointConfig struct {
-	Enabled bool   `mapstructure:"enabled"`
-	Path    string `mapstructure:"path"`
-	Secret  string `mapstructure:"secret"`
+	Enabled      bool   `mapstructure:"enabled"`
+	Path         string `mapstructure:"path"`
+	Secret       string `mapstructure:"secret"`
+	BaseURL      string `mapstructure:"base_url"`      // Base URL for webhook integration
+	WebhookPath  string `mapstructure:"webhook_path"`  // Path component for webhook URL
+	AccountID    string `mapstructure:"account_id"`    // Default account ID for webhook
 }
 
 // AuthConfig holds authentication configuration
