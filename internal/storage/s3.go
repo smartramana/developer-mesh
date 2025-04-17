@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"os"
 	"time"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
@@ -25,6 +26,14 @@ func (c *S3Client) GetBucketName() string {
 	return c.config.Bucket
 }
 
+// AWSConfig holds AWS-specific configuration for authentication
+type AWSConfig struct {
+	UseIAMAuth bool   `mapstructure:"use_iam_auth"`
+	Region     string `mapstructure:"region"`
+	Endpoint   string `mapstructure:"endpoint"`
+	AssumeRole string `mapstructure:"assume_role"`
+}
+
 // S3Config holds configuration for the S3 client
 type S3Config struct {
 	Region           string        `mapstructure:"region"`
@@ -35,30 +44,56 @@ type S3Config struct {
 	DownloadPartSize int64         `mapstructure:"download_part_size"`
 	Concurrency      int           `mapstructure:"concurrency"`
 	RequestTimeout   time.Duration `mapstructure:"request_timeout"`
+	AWSConfig        AWSConfig     `mapstructure:"aws_config"`
 }
 
-// NewS3Client creates a new S3 client
+// NewS3Client creates a new S3 client with IRSA support
 func NewS3Client(ctx context.Context, cfg S3Config) (*S3Client, error) {
 	// Create config options
 	var options []func(*config.LoadOptions) error
-	options = append(options, config.WithRegion(cfg.Region))
+	
+	// Use region from AWS config if specified, otherwise use the S3 config region
+	region := cfg.Region
+	if cfg.AWSConfig.Region != "" {
+		region = cfg.AWSConfig.Region
+	}
+	options = append(options, config.WithRegion(region))
 	
 	// Add custom endpoint if specified (for LocalStack or other S3 compatible services)
-	if cfg.Endpoint != "" {
+	endpoint := cfg.Endpoint
+	if cfg.AWSConfig.Endpoint != "" {
+		endpoint = cfg.AWSConfig.Endpoint
+	}
+	
+	if endpoint != "" {
 		customResolver := aws.EndpointResolverWithOptionsFunc(func(service, region string, options ...interface{}) (aws.Endpoint, error) {
 			return aws.Endpoint{
-				URL:               cfg.Endpoint,
+				URL:               endpoint,
 				HostnameImmutable: true,
-				SigningRegion:     cfg.Region,
+				SigningRegion:     region,
 			}, nil
 		})
 		options = append(options, config.WithEndpointResolverWithOptions(customResolver))
 	}
 	
-	// Load AWS configuration
+	// Load AWS configuration - IRSA will be automatically detected if AWS_WEB_IDENTITY_TOKEN_FILE 
+	// and AWS_ROLE_ARN environment variables are set by the EKS Pod Identity Agent
 	awsCfg, err := config.LoadDefaultConfig(ctx, options...)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to load AWS config: %w", err)
+	}
+	
+	// Log IRSA detection if enabled
+	if cfg.AWSConfig.UseIAMAuth {
+		// Check if IRSA environment variables are set
+		_, hasWebIdentityTokenFile := os.LookupEnv("AWS_WEB_IDENTITY_TOKEN_FILE")
+		_, hasRoleArn := os.LookupEnv("AWS_ROLE_ARN")
+		
+		if hasWebIdentityTokenFile && hasRoleArn {
+			fmt.Println("Using IRSA (IAM Roles for Service Accounts) authentication for S3")
+		} else {
+			fmt.Println("Warning: IAM authentication is enabled but IRSA environment variables are not set")
+		}
 	}
 	
 	// Create S3 client options

@@ -119,7 +119,7 @@ func main() {
 	if cfg.Storage.Type == "s3" && cfg.Storage.ContextStorage.Provider == "s3" {
 		log.Println("Initializing S3 storage for contexts")
 		
-		// Create storage.S3Client directly - this is the type expected by providers.NewS3ContextStorage
+		// Create storage.S3Client with proper AWS authentication configuration
 		s3Config := storage.S3Config{
 			Region:           cfg.Storage.S3.Region,
 			Bucket:           cfg.Storage.S3.Bucket,
@@ -129,12 +129,17 @@ func main() {
 			DownloadPartSize: cfg.Storage.S3.DownloadPartSize,
 			Concurrency:      cfg.Storage.S3.Concurrency,
 			RequestTimeout:   cfg.Storage.S3.RequestTimeout,
+			AWSConfig: storage.AWSConfig{
+				UseIAMAuth: cfg.AWS.S3.UseIAMAuth,
+				Region:     cfg.AWS.S3.AuthConfig.Region,
+				Endpoint:   cfg.AWS.S3.AuthConfig.Endpoint,
+				AssumeRole: cfg.AWS.S3.AuthConfig.AssumeRole,
+			},
 		}
 		
-		// If IRSA is enabled, we use IAM authentication but still create the storage.S3Client directly
-		if aws.IsIRSAEnabled() {
+		// Log if we'll be using IAM authentication for S3
+		if cfg.AWS.S3.UseIAMAuth && aws.IsIRSAEnabled() {
 			log.Println("Using IAM authentication for S3")
-			// We could add IAM auth settings here if the storage.S3Client supported it
 		}
 		
 		// Create the S3Client directly using the storage package
