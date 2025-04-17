@@ -21,8 +21,8 @@ import (
 	"github.com/S-Corkum/mcp-server/internal/interfaces"
 	"github.com/S-Corkum/mcp-server/internal/metrics"
 	"github.com/S-Corkum/mcp-server/internal/repository"
+	"github.com/S-Corkum/mcp-server/internal/storage"
 	"github.com/S-Corkum/mcp-server/internal/storage/providers"
-	"github.com/jmoiron/sqlx"
 	
 	// Import PostgreSQL driver
 	_ "github.com/lib/pq"
@@ -112,7 +112,8 @@ func main() {
 	defer cacheClient.Close()
 
 	// Initialize storage if S3 is configured
-	var s3Client *aws.S3Client
+	var awsS3Client *aws.S3Client
+	var s3Client *storage.S3Client
 	var contextStorage providers.ContextStorage
 	var contextManager interfaces.ContextManager
 	
@@ -122,10 +123,10 @@ func main() {
 		// If IRSA is enabled, use IAM authentication for S3
 		if aws.IsIRSAEnabled() {
 			log.Println("Using IAM authentication for S3")
-			s3Client, err = aws.NewS3Client(ctx, cfg.AWS.S3)
+			awsS3Client, err = aws.NewS3Client(ctx, cfg.AWS.S3)
 		} else {
 			// Use configuration from storage section (legacy)
-			s3Client, err = aws.NewS3Client(ctx, aws.S3Config{
+			awsS3Client, err = aws.NewS3Client(ctx, aws.S3Config{
 				Bucket:            cfg.Storage.S3.Bucket,
 				Region:            cfg.Storage.S3.Region,
 				Endpoint:          cfg.Storage.S3.Endpoint,
@@ -145,6 +146,22 @@ func main() {
 		
 		if err != nil {
 			log.Fatalf("Failed to initialize S3 client: %v", err)
+		}
+		
+		// Create storage.S3Client with just the bucket information
+		// We adapt from aws.S3Client using only the public methods
+		s3Client, err = storage.NewS3Client(ctx, storage.S3Config{
+			Region:           cfg.Storage.S3.Region,
+			Bucket:           awsS3Client.GetBucketName(),
+			Endpoint:         cfg.Storage.S3.Endpoint,
+			ForcePathStyle:   cfg.Storage.S3.ForcePathStyle,
+			UploadPartSize:   cfg.Storage.S3.UploadPartSize,
+			DownloadPartSize: cfg.Storage.S3.DownloadPartSize,
+			Concurrency:      cfg.Storage.S3.Concurrency,
+			RequestTimeout:   cfg.Storage.S3.RequestTimeout,
+		})
+		if err != nil {
+			log.Fatalf("Failed to initialize storage S3 client: %v", err)
 		}
 		
 		// Initialize context storage provider
@@ -226,15 +243,13 @@ func initSecureRandom() {
 	if err != nil {
 		// If we can't get a secure seed, use time as a fallback
 		log.Printf("Warning: unable to generate secure random seed: %v", err)
-		// In Go 1.20+, there's no global seed function, but we can replace the global
-		// random source by setting the default global random instance using a SeedSource
-		// This works in Go 1.24:
-		mathrand.Default().Seed(time.Now().UnixNano())
+		// Use the global Seed function which works across all supported Go versions
+		mathrand.Seed(time.Now().UnixNano())
 		return
 	}
 	
-	// In Go 1.20+, seed the default global random instance
-	mathrand.Default().Seed(val.Int64())
+	// Seed the global random generator with our secure random value
+	mathrand.Seed(val.Int64())
 	log.Println("Initialized secure random generator")
 }
 
