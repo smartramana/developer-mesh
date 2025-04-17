@@ -213,23 +213,6 @@ func (d *Database) Ping() error {
 	return d.db.Ping()
 }
 
-// CreateContextReferenceTable creates the context reference table for S3 storage
-func (d *Database) CreateContextReferenceTable(ctx context.Context) error {
-	// Create the context_references table if it doesn't exist
-	query := `
-	CREATE TABLE IF NOT EXISTS mcp.context_references (
-		id UUID PRIMARY KEY,
-		s3_key TEXT NOT NULL,
-		created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
-		updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW()
-	);
-	CREATE INDEX IF NOT EXISTS idx_context_references_s3_key ON mcp.context_references(s3_key);
-	`
-	
-	_, err := d.db.ExecContext(ctx, query)
-	return err
-}
-
 // GetDB returns the underlying sqlx.DB instance
 func (d *Database) GetDB() *sqlx.DB {
 	return d.db

@@ -4,8 +4,6 @@ import (
 	"context"
 	"fmt"
 	"time"
-
-	"github.com/aws/aws-sdk-go-v2/aws"
 )
 
 // RDSConfig holds configuration for RDS
