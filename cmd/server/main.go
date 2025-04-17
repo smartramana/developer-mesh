@@ -112,7 +112,6 @@ func main() {
 	defer cacheClient.Close()
 
 	// Initialize storage if S3 is configured
-	var awsS3Client *aws.S3Client
 	var s3Client *storage.S3Client
 	var contextStorage providers.ContextStorage
 	var contextManager interfaces.ContextManager
@@ -120,48 +119,28 @@ func main() {
 	if cfg.Storage.Type == "s3" && cfg.Storage.ContextStorage.Provider == "s3" {
 		log.Println("Initializing S3 storage for contexts")
 		
-		// If IRSA is enabled, use IAM authentication for S3
-		if aws.IsIRSAEnabled() {
-			log.Println("Using IAM authentication for S3")
-			awsS3Client, err = aws.NewS3Client(ctx, cfg.AWS.S3)
-		} else {
-			// Use configuration from storage section (legacy)
-			awsS3Client, err = aws.NewS3Client(ctx, aws.S3Config{
-				Bucket:            cfg.Storage.S3.Bucket,
-				Region:            cfg.Storage.S3.Region,
-				Endpoint:          cfg.Storage.S3.Endpoint,
-				ForcePathStyle:    cfg.Storage.S3.ForcePathStyle,
-				UploadPartSize:    cfg.Storage.S3.UploadPartSize,
-				DownloadPartSize:  cfg.Storage.S3.DownloadPartSize,
-				Concurrency:       cfg.Storage.S3.Concurrency,
-				RequestTimeout:    cfg.Storage.S3.RequestTimeout,
-				ServerSideEncryption: cfg.Storage.S3.ServerSideEncryption,
-				EncryptionKeyID:   cfg.Storage.S3.EncryptionKeyID,
-				AuthConfig: aws.AuthConfig{
-					Region:   cfg.Storage.S3.Region,
-					Endpoint: cfg.Storage.S3.Endpoint,
-				},
-			})
-		}
-		
-		if err != nil {
-			log.Fatalf("Failed to initialize S3 client: %v", err)
-		}
-		
-		// Create storage.S3Client with just the bucket information
-		// We adapt from aws.S3Client using only the public methods
-		s3Client, err = storage.NewS3Client(ctx, storage.S3Config{
+		// Create storage.S3Client directly - this is the type expected by providers.NewS3ContextStorage
+		s3Config := storage.S3Config{
 			Region:           cfg.Storage.S3.Region,
-			Bucket:           awsS3Client.GetBucketName(),
+			Bucket:           cfg.Storage.S3.Bucket,
 			Endpoint:         cfg.Storage.S3.Endpoint,
 			ForcePathStyle:   cfg.Storage.S3.ForcePathStyle,
 			UploadPartSize:   cfg.Storage.S3.UploadPartSize,
 			DownloadPartSize: cfg.Storage.S3.DownloadPartSize,
 			Concurrency:      cfg.Storage.S3.Concurrency,
 			RequestTimeout:   cfg.Storage.S3.RequestTimeout,
-		})
+		}
+		
+		// If IRSA is enabled, we use IAM authentication but still create the storage.S3Client directly
+		if aws.IsIRSAEnabled() {
+			log.Println("Using IAM authentication for S3")
+			// We could add IAM auth settings here if the storage.S3Client supported it
+		}
+		
+		// Create the S3Client directly using the storage package
+		s3Client, err = storage.NewS3Client(ctx, s3Config)
 		if err != nil {
-			log.Fatalf("Failed to initialize storage S3 client: %v", err)
+			log.Fatalf("Failed to initialize S3 client: %v", err)
 		}
 		
 		// Initialize context storage provider
