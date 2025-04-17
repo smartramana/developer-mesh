@@ -61,7 +61,7 @@ func setupTestServerWithHarness(t *testing.T) (*Server, *httptest.Server, *core.
 		},
 	}
 	
-	server := NewServer(mockEngine, repository.NewMockEmbeddingRepository(), config)
+	server := NewServer(mockEngine, &repository.MockEmbeddingRepository{}, config)
 	
 	// Start the test server
 	ts := httptest.NewServer(server.router)
