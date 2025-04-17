@@ -46,6 +46,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Fixed type mismatch between aws.S3Client and storage.S3Client in server implementation
 - Updated math/rand usage for better compatibility across Go versions
 - Fixed compilation issues in cmd/server/main.go
+- Fixed security vulnerability (CVE-2023-39325) in golang.org/x/net by upgrading to v0.35.0
+- Fixed security vulnerabilities in github.com/gin-gonic/gin (CVE-2023-26125, CVE-2020-28483)
+- Fixed security vulnerability (CVE-2024-24786) in google.golang.org/protobuf by upgrading to v1.36.3
 
 ## [0.2.0] - 2025-04-15
 
