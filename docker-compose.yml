@@ -68,7 +68,7 @@ services:
       - mcp-network
 
   postgres:
-    image: ankane/pgvector
+    image: pgvector/pgvector:pg17
     ports:
       - "5432:5432"
     environment:
