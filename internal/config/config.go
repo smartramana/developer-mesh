@@ -191,7 +191,7 @@ func setDefaults(v *viper.Viper) {
 	v.SetDefault("api.rate_limit.burst", 150)
 	v.SetDefault("api.rate_limit.expiration", 1*time.Hour)
 	
-	// Auth defaults
+	// Auth defaults - No default values for secrets
 	v.SetDefault("api.auth.require_auth", true)
 	v.SetDefault("api.auth.jwt_expiration", 24*time.Hour)
 	v.SetDefault("api.auth.token_renewal_threshold", 1*time.Hour)
@@ -201,10 +201,11 @@ func setDefaults(v *viper.Viper) {
 	v.SetDefault("database.max_open_conns", 25)
 	v.SetDefault("database.max_idle_conns", 5)
 	v.SetDefault("database.conn_max_lifetime", 5*time.Minute)
+	v.SetDefault("database.use_aws", true) // Default to using AWS RDS
+	v.SetDefault("database.use_iam", true) // Default to using IAM authentication
 
 	// Cache defaults
 	v.SetDefault("cache.type", "redis")
-	v.SetDefault("cache.address", "localhost:6379")
 	v.SetDefault("cache.max_retries", 3)
 	v.SetDefault("cache.dial_timeout", 5)
 	v.SetDefault("cache.read_timeout", 3)
@@ -212,6 +213,7 @@ func setDefaults(v *viper.Viper) {
 	v.SetDefault("cache.pool_size", 10)
 	v.SetDefault("cache.min_idle_conns", 2)
 	v.SetDefault("cache.pool_timeout", 4)
+	v.SetDefault("cache.use_iam_auth", true) // Default to using IAM authentication for Redis
 
 	// Engine defaults
 	v.SetDefault("engine.event_buffer_size", 1000)
@@ -223,9 +225,6 @@ func setDefaults(v *viper.Viper) {
 	v.SetDefault("metrics.type", "prometheus")
 	v.SetDefault("metrics.push_interval", 10*time.Second)
 	
-	// Storage defaults
-	v.SetDefault("storage.type", "local")
-	
 	// AWS defaults
 	// Get AWS region from environment variable or use default
 	awsRegion := os.Getenv("AWS_REGION")
@@ -233,8 +232,10 @@ func setDefaults(v *viper.Viper) {
 		awsRegion = "us-west-2"
 	}
 	
+	// Storage defaults - prefer S3
+	v.SetDefault("storage.type", "s3") 
+	
 	// S3 defaults
-	v.SetDefault("storage.type", "s3") // Default to S3 storage
 	v.SetDefault("aws.s3.auth.region", awsRegion)
 	v.SetDefault("aws.s3.bucket", "mcp-contexts")
 	v.SetDefault("aws.s3.upload_part_size", 5*1024*1024) // 5MB
@@ -244,17 +245,19 @@ func setDefaults(v *viper.Viper) {
 	v.SetDefault("aws.s3.server_side_encryption", "AES256")
 	v.SetDefault("aws.s3.use_iam_auth", true) // Default to IAM authentication
 	
-	// Context storage - default to S3 in non-local environments
-	if os.Getenv("MCP_ENV") != "local" && (os.Getenv("MCP_STORAGE_CONTEXT_STORAGE_PROVIDER") == "" || 
-	   os.Getenv("MCP_STORAGE_CONTEXT_STORAGE_PROVIDER") == "s3") {
-		v.SetDefault("storage.context_storage.provider", "s3") // Default to S3 storage
+	// Context storage - default to S3 for production environments
+	isLocalEnv := os.Getenv("MCP_ENV") == "local" || os.Getenv("MCP_ENVIRONMENT") == "local"
+	if !isLocalEnv {
+		v.SetDefault("storage.context_storage.provider", "s3") 
+	} else {
+		v.SetDefault("storage.context_storage.provider", "database") // For local dev only
 	}
 	
 	// RDS defaults
 	v.SetDefault("aws.rds.auth.region", awsRegion)
 	v.SetDefault("aws.rds.port", 5432)
 	v.SetDefault("aws.rds.database", "mcp")
-	v.SetDefault("aws.rds.use_iam_auth", true) // Default to IAM authentication
+	v.SetDefault("aws.rds.use_iam_auth", true) // Always use IAM authentication by default
 	v.SetDefault("aws.rds.token_expiration", 15*60) // 15 minutes in seconds
 	v.SetDefault("aws.rds.max_open_conns", 25)
 	v.SetDefault("aws.rds.max_idle_conns", 5)
@@ -267,7 +270,7 @@ func setDefaults(v *viper.Viper) {
 	// ElastiCache defaults
 	v.SetDefault("aws.elasticache.auth.region", awsRegion)
 	v.SetDefault("aws.elasticache.port", 6379)
-	v.SetDefault("aws.elasticache.use_iam_auth", true) // Default to IAM authentication
+	v.SetDefault("aws.elasticache.use_iam_auth", true) // Always use IAM authentication by default
 	v.SetDefault("aws.elasticache.cluster_mode", true)
 	v.SetDefault("aws.elasticache.cluster_discovery", true)
 	v.SetDefault("aws.elasticache.use_tls", true)
@@ -282,7 +285,6 @@ func setDefaults(v *viper.Viper) {
 	v.SetDefault("aws.elasticache.token_expiration", 15*60) // 15 minutes in seconds
 	
 	// Context storage defaults
-	v.SetDefault("storage.context_storage.provider", "database") // Default to database
 	v.SetDefault("storage.context_storage.s3_path_prefix", "contexts")
 }
 

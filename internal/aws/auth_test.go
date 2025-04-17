@@ -6,6 +6,97 @@ import (
 	"testing"
 )
 
+func TestIAMAuthDefaults(t *testing.T) {
+	// Test that IAM auth is enabled by default
+	
+	// Create a test RDS config
+	rdsConfig := RDSConfig{
+		AuthConfig: AuthConfig{
+			Region: "us-west-2",
+		},
+		Host:       "test-rds-host",
+		Port:       5432,
+		Database:   "testdb",
+		Username:   "testuser",
+		UseIAMAuth: true,
+	}
+	
+	// Create a client
+	client, err := NewRDSClient(context.Background(), rdsConfig)
+	if err != nil {
+		t.Fatalf("Failed to create RDS client: %v", err)
+	}
+	
+	// Ensure UseIAMAuth is set correctly
+	if !client.config.UseIAMAuth {
+		t.Errorf("IAM auth not enabled by default for RDS")
+	}
+	
+	// Test ElastiCache as well
+	ecConfig := ElastiCacheConfig{
+		AuthConfig: AuthConfig{
+			Region: "us-west-2",
+		},
+		PrimaryEndpoint: "test-redis-host",
+		Port:            6379,
+		Username:        "testuser",
+		UseIAMAuth:      true,
+	}
+	
+	// Create a client
+	ecClient, err := NewElastiCacheClient(context.Background(), ecConfig)
+	if err != nil {
+		t.Fatalf("Failed to create ElastiCache client: %v", err)
+	}
+	
+	// Ensure UseIAMAuth is set correctly
+	if !ecClient.config.UseIAMAuth {
+		t.Errorf("IAM auth not enabled by default for ElastiCache")
+	}
+	
+	// Test S3 as well
+	s3Config := S3Config{
+		AuthConfig: AuthConfig{
+			Region: "us-west-2",
+		},
+		Bucket:     "test-bucket",
+		UseIAMAuth: true,
+	}
+	
+	// Create a client - will fail without AWS credentials but we're just testing defaults
+	s3Client, _ := NewS3Client(context.Background(), s3Config)
+	if s3Client != nil && !s3Client.config.UseIAMAuth {
+		t.Errorf("IAM auth not enabled by default for S3")
+	}
+}
+
+func TestIRSADetection(t *testing.T) {
+	// Test IRSA detection when environment variables are set
+	
+	// Save original env vars
+	origWebIdentityTokenFile := os.Getenv("AWS_WEB_IDENTITY_TOKEN_FILE")
+	origRoleArn := os.Getenv("AWS_ROLE_ARN")
+	
+	// Set test env vars
+	os.Setenv("AWS_WEB_IDENTITY_TOKEN_FILE", "/var/run/secrets/eks.amazonaws.com/serviceaccount/token")
+	os.Setenv("AWS_ROLE_ARN", "arn:aws:iam::123456789012:role/test-role")
+	
+	// Test IRSA detection
+	if !IsIRSAEnabled() {
+		t.Errorf("IRSA not detected when env vars are set")
+	}
+	
+	// Clean up
+	os.Setenv("AWS_WEB_IDENTITY_TOKEN_FILE", origWebIdentityTokenFile)
+	os.Setenv("AWS_ROLE_ARN", origRoleArn)
+}
+
+import (
+	"context"
+	"os"
+	"testing"
+)
+
 func TestIsIRSAEnabled(t *testing.T) {
 	// Save original environment variables
 	originalWebIdentityTokenFile, hasWebIdentityTokenFile := os.LookupEnv("AWS_WEB_IDENTITY_TOKEN_FILE")

@@ -27,8 +27,8 @@ type Config struct {
 	SSLMode  string `mapstructure:"ssl_mode"`
 	
 	// AWS RDS specific configuration
-	UseAWS   bool          `mapstructure:"use_aws"`
-	UseIAM   bool          `mapstructure:"use_iam"`
+	UseAWS   *bool          `mapstructure:"use_aws"` // Pointer to allow nil (unspecified) value
+	UseIAM   *bool          `mapstructure:"use_iam"` // Pointer to allow nil (unspecified) value
 	RDSConfig *aws.RDSConfig `mapstructure:"rds"`
 }
 
@@ -46,8 +46,20 @@ func NewDatabase(ctx context.Context, cfg Config) (*Database, error) {
 	var err error
 	var rdsClient *aws.RDSClient
 	
-	// If we're using AWS RDS with IAM authentication
-	if cfg.UseAWS && cfg.UseIAM && cfg.RDSConfig != nil {
+	// Default to AWS RDS with IAM authentication unless explicitly disabled
+	useAWS := true
+	useIAM := true
+	
+	if cfg.UseAWS != nil {
+		useAWS = *cfg.UseAWS
+	}
+	
+	if cfg.UseIAM != nil {
+		useIAM = *cfg.UseIAM
+	}
+	
+	// If we're using AWS RDS with IAM authentication (the default and recommended approach)
+	if useAWS && useIAM && cfg.RDSConfig != nil {
 		// Initialize the RDS client
 		rdsClient, err = aws.NewRDSClient(ctx, *cfg.RDSConfig)
 		if err != nil {
@@ -57,16 +69,24 @@ func NewDatabase(ctx context.Context, cfg Config) (*Database, error) {
 		// Get DSN with IAM authentication
 		dsn, err = rdsClient.BuildPostgresConnectionString(ctx)
 		if err != nil {
-			return nil, fmt.Errorf("failed to build PostgreSQL connection string: %w", err)
+			return nil, fmt.Errorf("failed to build PostgreSQL connection string with IAM auth: %w", err)
 		}
 	} else if cfg.DSN != "" {
-		// Use provided DSN
+		// Use provided DSN (fallback method)
+		log.Println("Warning: Using explicit DSN for database connection instead of IAM authentication")
 		dsn = cfg.DSN
 	} else {
-		// Build DSN from individual components
+		// Build DSN from individual components (least recommended option)
+		log.Println("Warning: Building database connection string from components instead of using IAM authentication")
+		
 		sslMode := cfg.SSLMode
 		if sslMode == "" {
 			sslMode = "disable"
+		}
+		
+		// Check that password is not empty when not using IAM auth
+		if !useIAM && cfg.Password == "" {
+			return nil, fmt.Errorf("password is required when not using IAM authentication")
 		}
 		
 		dsn = fmt.Sprintf("host=%s port=%d user=%s password=%s dbname=%s sslmode=%s",

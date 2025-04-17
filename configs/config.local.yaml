@@ -42,6 +42,13 @@ api:
   enable_cors: true
   log_requests: true
   
+  # Authentication settings - use environment variables for secrets
+  auth:
+    api_keys_admin: "${API_KEY_ADMIN:-}"
+    api_keys_test: "${API_KEY_TEST:-}"
+    jwt_secret: "${JWT_SECRET:-}"
+    jwt_expiration: 24h
+  
   # API rate limiting
   rate_limit:
     enabled: true
@@ -53,24 +60,58 @@ api:
   webhooks:
     github:
       enabled: true
-      secret: "${GITHUB_WEBHOOK_SECRET}"
+      secret: "${GITHUB_WEBHOOK_SECRET:-}"
       path: "/github"
     harness:
       enabled: true
-      secret: "${HARNESS_WEBHOOK_SECRET}"
+      secret: "${HARNESS_WEBHOOK_SECRET:-}"
       path: "/harness"
     sonarqube:
       enabled: true
-      secret: "${SONARQUBE_WEBHOOK_SECRET}"
+      secret: "${SONARQUBE_WEBHOOK_SECRET:-}"
       path: "/sonarqube"
     artifactory:
       enabled: true
-      secret: "${ARTIFACTORY_WEBHOOK_SECRET}"
+      secret: "${ARTIFACTORY_WEBHOOK_SECRET:-}"
       path: "/artifactory"
     xray:
       enabled: true
-      secret: "${XRAY_WEBHOOK_SECRET}"
+      secret: "${XRAY_WEBHOOK_SECRET:-}"
       path: "/xray"
+
+# AWS Configuration for local development
+aws:
+  # For local development, use IAM auth but with fallback methods
+  rds:
+    auth:
+      region: "${AWS_REGION:-us-west-2}"
+    host: "localhost"
+    port: 5432
+    database: "mcp"
+    username: "postgres"
+    password: "${MCP_DATABASE_PASSWORD:-}" # For local development without IAM auth
+    use_iam_auth: false # Disable for local development
+    # Other settings inherited from default config
+  
+  # ElastiCache Config for local development
+  elasticache:
+    auth:
+      region: "${AWS_REGION:-us-west-2}"
+    primary_endpoint: "localhost"
+    port: 6379
+    username: ""
+    password: "${MCP_CACHE_PASSWORD:-}"
+    use_iam_auth: false # Disable for local development
+    # Other settings inherited from default config
+  
+  # S3 Config for local development (using LocalStack)
+  s3:
+    auth:
+      region: "${AWS_REGION:-us-west-2}"
+    endpoint: "http://localhost:4566"
+    bucket: "mcp-contexts"
+    force_path_style: true # Required for LocalStack
+    use_iam_auth: false # Disable for local development
 
 # Database Configuration
 database:
@@ -78,10 +119,10 @@ database:
   host: "localhost"
   port: 5432
   username: "postgres"
-  password: "${MCP_DATABASE_PASSWORD:-}" # Don't hardcode passwords, even in local config
+  password: "${MCP_DATABASE_PASSWORD:-}" # Don't hardcode passwords
   database: "mcp"
   ssl_mode: "disable"
-  # Use a parameterized DSN without hardcoded credentials
+  # Use environment variable for connection string
   dsn: "postgres://postgres:${MCP_DATABASE_PASSWORD:-}@localhost:5432/mcp?sslmode=disable"
   max_open_conns: 25
   max_idle_conns: 5
@@ -93,6 +134,7 @@ cache:
   address: "localhost:6379"
   password: "${MCP_CACHE_PASSWORD:-}"
   database: 0
+  use_iam_auth: false # No IAM auth for local Redis
   max_retries: 3
   dial_timeout: 5
   read_timeout: 3

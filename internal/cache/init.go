@@ -39,14 +39,29 @@ type RedisConfig struct {
 func NewCache(ctx context.Context, cfg interface{}) (Cache, error) {
 	switch config := cfg.(type) {
 	case RedisConfig:
-		// Check if we should use AWS ElastiCache
-		if config.UseAWS && config.ElastiCacheConfig != nil {
+		// Default to AWS ElastiCache with IAM auth in production environments
+		isLocalEnv := os.Getenv("MCP_ENV") == "local" || os.Getenv("MCP_ENVIRONMENT") == "local"
+		
+		// Determine if we should use AWS ElastiCache
+		useAWS := config.UseAWS
+		if !isLocalEnv && config.ElastiCacheConfig != nil {
+			// In non-local environments, prefer AWS ElastiCache unless explicitly disabled
+			useAWS = true
+		}
+		
+		// If we should use AWS ElastiCache
+		if useAWS && config.ElastiCacheConfig != nil {
 			return newAWSElastiCacheClient(ctx, config)
 		}
 		
-		// Otherwise, check if we should use cluster mode
+		// Check if we should use cluster mode
 		if config.Type == "redis_cluster" || (config.Addresses != nil && len(config.Addresses) > 0) {
 			return newRedisClusterClient(config)
+		}
+		
+		// Log warning if not using IAM auth in production
+		if !isLocalEnv && !config.UseIAMAuth {
+			log.Println("Warning: Using Redis without IAM authentication in a production environment")
 		}
 		
 		// Standard Redis client

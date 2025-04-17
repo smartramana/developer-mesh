@@ -49,31 +49,42 @@ func (c *RDSClient) GetAuthToken(ctx context.Context) (string, error) {
 		return "mock-auth-token-local", nil
 	}
 	
-	// In production environments, we should use the AWS SDK to generate an RDS auth token
-	if IsIRSAEnabled() {
-		log.Println("Using IRSA for RDS authentication with role:", os.Getenv("AWS_ROLE_ARN"))
-		// TODO: Implement the actual AWS SDK call - this is currently a placeholder
-		// For example, using the rdsutils package:
-		//
-		// signer := rdsutils.NewSigner()
-		// authToken, err := signer.GetAuthToken(
-		//     rdsutils.GetAuthTokenInput{
-		//         Region:      c.config.AuthConfig.Region,
-		//         HostName:    c.config.Host,
-		//         Port:        c.config.Port,
-		//         UserName:    c.config.Username,
-		//         ExpiryTime:  time.Duration(c.config.TokenExpiration) * time.Second,
-		//     })
-		// if err != nil {
-		//     return "", fmt.Errorf("error generating RDS auth token: %w", err)
-		// }
-		// return authToken, nil
+	// Get AWS configuration
+	awsCfg, err := GetAWSConfig(ctx, c.config.AuthConfig)
+	if err != nil {
+		return "", fmt.Errorf("failed to get AWS config: %w", err)
 	}
 	
-	// For now, we're using a mock implementation
-	// This should be replaced with actual AWS SDK implementation in production
-	log.Println("WARNING: Using mock RDS auth token - real implementation needed for production")
-	return "mock-auth-token", nil
+	// Import AWS RDS auth package
+	// This requires adding github.com/aws/aws-sdk-go-v2/feature/rds/auth to go.mod
+	// and will be used to generate a valid IAM auth token for RDS
+	tokenExpiryTime := time.Duration(c.config.TokenExpiration) * time.Second
+	if tokenExpiryTime == 0 {
+		tokenExpiryTime = 15 * time.Minute
+	}
+	
+	// Generate auth token
+	authToken, err := rdsAuth.BuildAuthToken(
+		ctx,
+		c.config.Host,
+		c.config.AuthConfig.Region,
+		c.config.Username,
+		awsCfg.Credentials)
+	
+	if err != nil {
+		log.Printf("Warning: Failed to generate RDS IAM auth token: %v", err)
+		
+		// If IAM auth fails and no password is configured, return an error
+		if c.config.Password == "" {
+			return "", fmt.Errorf("IAM authentication failed and no password fallback is configured: %w", err)
+		}
+		
+		// Otherwise return a mock token but log a warning
+		log.Println("Falling back to mock RDS auth token due to IAM auth failure")
+		return "mock-auth-token-error-fallback", nil
+	}
+	
+	return authToken, nil
 }
 
 // BuildPostgresConnectionString builds a PostgreSQL connection string with IAM auth if enabled
