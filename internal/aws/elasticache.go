@@ -5,7 +5,6 @@ import (
 	"crypto/tls"
 	"fmt"
 	"log"
-	"os"
 	"strings"
 	"time"
 )
@@ -48,6 +47,9 @@ func NewElastiCacheClient(ctx context.Context, cfg ElastiCacheConfig) (*ElastiCa
 }
 
 // GetAuthToken generates a temporary IAM auth token for ElastiCache
+// To implement IAM auth for ElastiCache in production, you'll need to:
+// 1. Import the AWS SDK ElastiCache package: github.com/aws/aws-sdk-go-v2/service/elasticache
+// 2. Use the API to generate or authenticate with IAM
 func (c *ElastiCacheClient) GetAuthToken(ctx context.Context) (string, error) {
 	// For testing in local development environments
 	if c.config.PrimaryEndpoint == "localhost" || c.config.PrimaryEndpoint == "127.0.0.1" || 
@@ -57,60 +59,28 @@ func (c *ElastiCacheClient) GetAuthToken(ctx context.Context) (string, error) {
 		return "mock-auth-token-local", nil
 	}
 	
-	// Get AWS configuration
-	awsCfg, err := GetAWSConfig(ctx, c.config.AuthConfig)
+	// Get AWS configuration - just validate it works
+	_, err := GetAWSConfig(ctx, c.config.AuthConfig)
 	if err != nil {
 		return "", fmt.Errorf("failed to get AWS config: %w", err)
 	}
 	
-	// Create ElastiCache client
-	// This requires adding github.com/aws/aws-sdk-go-v2/service/elasticache to go.mod
-	ecClient := elasticache.NewFromConfig(awsCfg)
+	// For now, this is a placeholder implementation
+	// In a production environment, this would make AWS SDK calls
+	log.Println("Using mock ElastiCache auth token for IAM authentication")
 	
-	// Verify the cluster name is provided
-	if c.config.ClusterName == "" {
-		return "", fmt.Errorf("cluster name is required for ElastiCache IAM authentication")
+	// If IAM auth fails and no password is configured, return an error
+	if c.config.Password == "" && !c.config.UseIAMAuth {
+		return "", fmt.Errorf("no authentication method available: IAM auth disabled and no password configured")
 	}
 	
-	// Set token expiration
-	tokenExpiration := c.config.TokenExpiration
-	if tokenExpiration == 0 {
-		tokenExpiration = 900 // Default 15 minutes in seconds
-	}
-	
-	// Create auth token request
-	input := &elasticache.ModifyUserInput{
-		UserId: aws.String(c.config.Username),
-		Authentication: &types.Authentication{
-			Type:  types.AuthenticationTypeIam,
-			// For IAM Auth, the password is not needed
-			// but we need to set it to satisfy the API
-			PasswordCount: aws.Int32(0),
-		},
-	}
-	
-	// Generate auth token
-	result, err := ecClient.ModifyUser(ctx, input)
-	if err != nil {
-		log.Printf("Warning: Failed to generate ElastiCache IAM auth token: %v", err)
-		
-		// If IAM auth fails and no password is configured, return an error
-		if c.config.Password == "" {
-			return "", fmt.Errorf("IAM authentication failed and no password fallback is configured: %w", err)
-		}
-		
-		// Otherwise return a mock token but log a warning
-		log.Println("Falling back to standard authentication for ElastiCache due to IAM auth failure")
+	if !c.config.UseIAMAuth {
+		// If IAM auth is disabled, use the password
 		return c.config.Password, nil
 	}
 	
-	// Extract auth token from result
-	if result.User == nil || result.User.Authentication == nil || 
-	   result.User.Authentication.Type != types.AuthenticationTypeIam {
-		return "", fmt.Errorf("unexpected response from ElastiCache IAM auth")
-	}
-	
-	return "iam-auth-token", nil // In reality, this would be extracted from the response
+	// Return a mock token (in production, this would be a real IAM token)
+	return "iam-auth-token", nil
 }
 
 // DiscoverClusterNodes discovers all nodes in a Redis cluster

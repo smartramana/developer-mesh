@@ -5,6 +5,7 @@ import (
 	"crypto/tls"
 	"errors"
 	"fmt"
+	"os"
 	"time"
 
 	"github.com/S-Corkum/mcp-server/internal/aws"
@@ -28,6 +29,7 @@ type RedisConfig struct {
 	PoolSize     int           `mapstructure:"pool_size"`    // Connection pool size
 	MinIdleConns int           `mapstructure:"min_idle_conns"` // Min idle connections
 	PoolTimeout  int           `mapstructure:"pool_timeout"` // Pool timeout in seconds
+	UseIAMAuth   bool          `mapstructure:"use_iam_auth"` // Use IAM authentication for Redis
 	
 	// AWS ElastiCache specific configuration
 	UseAWS            bool          `mapstructure:"use_aws"`             // Use AWS ElastiCache
@@ -57,11 +59,6 @@ func NewCache(ctx context.Context, cfg interface{}) (Cache, error) {
 		// Check if we should use cluster mode
 		if config.Type == "redis_cluster" || (config.Addresses != nil && len(config.Addresses) > 0) {
 			return newRedisClusterClient(config)
-		}
-		
-		// Log warning if not using IAM auth in production
-		if !isLocalEnv && !config.UseIAMAuth {
-			log.Println("Warning: Using Redis without IAM authentication in a production environment")
 		}
 		
 		// Standard Redis client

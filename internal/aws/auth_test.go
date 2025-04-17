@@ -91,12 +91,6 @@ func TestIRSADetection(t *testing.T) {
 	os.Setenv("AWS_ROLE_ARN", origRoleArn)
 }
 
-import (
-	"context"
-	"os"
-	"testing"
-)
-
 func TestIsIRSAEnabled(t *testing.T) {
 	// Save original environment variables
 	originalWebIdentityTokenFile, hasWebIdentityTokenFile := os.LookupEnv("AWS_WEB_IDENTITY_TOKEN_FILE")

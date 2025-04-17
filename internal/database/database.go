@@ -3,6 +3,7 @@ package database
 import (
 	"context"
 	"fmt"
+	"log"
 	"time"
 
 	"github.com/S-Corkum/mcp-server/internal/aws"
@@ -178,7 +179,18 @@ func (d *Database) Transaction(ctx context.Context, fn func(*sqlx.Tx) error) err
 // RefreshConnection refreshes the database connection (especially for IAM auth)
 func (d *Database) RefreshConnection(ctx context.Context) error {
 	// If we're using AWS RDS with IAM authentication, we need to refresh the token
-	if d.config.UseAWS && d.config.UseIAM && d.rdsClient != nil {
+	useAWS := true
+	useIAM := true
+	
+	if d.config.UseAWS != nil {
+		useAWS = *d.config.UseAWS
+	}
+	
+	if d.config.UseIAM != nil {
+		useIAM = *d.config.UseIAM
+	}
+	
+	if useAWS && useIAM && d.rdsClient != nil {
 		// Get fresh DSN with a new IAM authentication token
 		dsn, err := d.rdsClient.BuildPostgresConnectionString(ctx)
 		if err != nil {
