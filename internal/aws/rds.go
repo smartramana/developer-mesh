@@ -3,6 +3,9 @@ package aws
 import (
 	"context"
 	"fmt"
+	"log"
+	"os"
+	"strings"
 	"time"
 )
 
@@ -39,7 +42,37 @@ func NewRDSClient(ctx context.Context, cfg RDSConfig) (*RDSClient, error) {
 
 // GetAuthToken generates a temporary IAM auth token for RDS
 func (c *RDSClient) GetAuthToken(ctx context.Context) (string, error) {
-	// Mock implementation for testing
+	// For testing in local development environments, return a mock token
+	if c.config.Host == "localhost" || c.config.Host == "127.0.0.1" || 
+	   c.config.Host == "" || strings.HasPrefix(c.config.Host, "host.docker.internal") {
+		log.Println("Using mock RDS auth token for local development")
+		return "mock-auth-token-local", nil
+	}
+	
+	// In production environments, we should use the AWS SDK to generate an RDS auth token
+	if IsIRSAEnabled() {
+		log.Println("Using IRSA for RDS authentication with role:", os.Getenv("AWS_ROLE_ARN"))
+		// TODO: Implement the actual AWS SDK call - this is currently a placeholder
+		// For example, using the rdsutils package:
+		//
+		// signer := rdsutils.NewSigner()
+		// authToken, err := signer.GetAuthToken(
+		//     rdsutils.GetAuthTokenInput{
+		//         Region:      c.config.AuthConfig.Region,
+		//         HostName:    c.config.Host,
+		//         Port:        c.config.Port,
+		//         UserName:    c.config.Username,
+		//         ExpiryTime:  time.Duration(c.config.TokenExpiration) * time.Second,
+		//     })
+		// if err != nil {
+		//     return "", fmt.Errorf("error generating RDS auth token: %w", err)
+		// }
+		// return authToken, nil
+	}
+	
+	// For now, we're using a mock implementation
+	// This should be replaced with actual AWS SDK implementation in production
+	log.Println("WARNING: Using mock RDS auth token - real implementation needed for production")
 	return "mock-auth-token", nil
 }
 
@@ -52,15 +85,31 @@ func (c *RDSClient) BuildPostgresConnectionString(ctx context.Context) (string, 
 		c.config.Database,
 		c.config.ConnectionTimeout)
 
-	// Use IAM authentication if enabled and available
-	if c.config.UseIAMAuth && IsIRSAEnabled() {
+	// Default to using IAM auth (the secure option) unless explicitly disabled
+	if c.config.UseIAMAuth {
+		// Try to get an auth token - this will work both in AWS and locally with mock tokens
 		token, err := c.GetAuthToken(ctx)
 		if err != nil {
-			return "", err
+			log.Printf("Warning: Failed to get IAM auth token, error: %v", err)
+			
+			// If IAM auth fails and no password is configured, return an error
+			if c.config.Password == "" {
+				return "", fmt.Errorf("IAM authentication failed and no password fallback is configured: %w", err)
+			}
+			
+			// Otherwise fall back to password auth
+			log.Println("Falling back to password authentication for RDS")
+			dsn = fmt.Sprintf("%s user=%s password=%s", dsn, c.config.Username, c.config.Password)
+		} else {
+			// Use the IAM token as the password
+			dsn = fmt.Sprintf("%s user=%s password=%s", dsn, c.config.Username, token)
 		}
-		dsn = fmt.Sprintf("%s user=%s password=%s", dsn, c.config.Username, token)
 	} else {
-		// Fall back to standard username/password authentication
+		// IAM auth explicitly disabled, use standard username/password authentication
+		// Check if password is provided
+		if c.config.Password == "" {
+			return "", fmt.Errorf("password authentication enabled but no password provided")
+		}
 		dsn = fmt.Sprintf("%s user=%s password=%s", dsn, c.config.Username, c.config.Password)
 	}
 

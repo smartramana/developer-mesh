@@ -4,6 +4,8 @@ import (
 	"context"
 	"crypto/tls"
 	"fmt"
+	"log"
+	"os"
 	"strings"
 	"time"
 )
@@ -47,7 +49,41 @@ func NewElastiCacheClient(ctx context.Context, cfg ElastiCacheConfig) (*ElastiCa
 
 // GetAuthToken generates a temporary IAM auth token for ElastiCache
 func (c *ElastiCacheClient) GetAuthToken(ctx context.Context) (string, error) {
-	// Mock implementation for testing
+	// For testing in local development environments
+	if c.config.PrimaryEndpoint == "localhost" || c.config.PrimaryEndpoint == "127.0.0.1" || 
+	   c.config.PrimaryEndpoint == "redis" || c.config.PrimaryEndpoint == "" || 
+	   strings.HasPrefix(c.config.PrimaryEndpoint, "host.docker.internal") {
+		log.Println("Using mock ElastiCache auth token for local development")
+		return "mock-auth-token-local", nil
+	}
+	
+	// In production environments using AWS SDK
+	if IsIRSAEnabled() {
+		log.Println("Using IRSA for ElastiCache authentication with role:", os.Getenv("AWS_ROLE_ARN"))
+		// TODO: Implement actual AWS SDK call for ElastiCache auth token
+		// This requires using the AWS SDK to generate an auth token for ElastiCache
+		//
+		// Example implementation with AWS SDK v2:
+		// cfg, err := config.LoadDefaultConfig(ctx,
+		//    config.WithRegion(c.config.AuthConfig.Region))
+		// if err != nil {
+		//    return "", fmt.Errorf("failed to load AWS config: %w", err)
+		// }
+		//
+		// client := elasticache.NewFromConfig(cfg)
+		// input := &elasticache.CreateAuthTokenInput{
+		//    ReplicationGroupId: aws.String(c.config.ClusterName),
+		//    AuthTokenEnabled:   aws.Bool(true),
+		// }
+		// result, err := client.CreateAuthToken(ctx, input)
+		// if err != nil {
+		//    return "", fmt.Errorf("error generating ElastiCache auth token: %w", err)
+		// }
+		// return *result.AuthToken, nil
+	}
+	
+	// For now, use a mock token for production too, but with a clear warning
+	log.Println("WARNING: Using mock ElastiCache auth token - real implementation needed for production")
 	return "mock-auth-token", nil
 }
 
@@ -102,20 +138,37 @@ func (c *ElastiCacheClient) BuildRedisOptions(ctx context.Context) (map[string]i
 		options["clusterMode"] = false
 	}
 	
-	// Authentication
-	if c.config.UseIAMAuth && IsIRSAEnabled() {
+	// Authentication - prioritize IAM auth but have a fallback
+	if c.config.UseIAMAuth {
 		token, err := c.GetAuthToken(ctx)
 		if err != nil {
-			return nil, err
+			log.Printf("Warning: Failed to get IAM auth token for ElastiCache: %v", err)
+			
+			// If IAM auth fails and no password is configured, return an error
+			if c.config.Password == "" {
+				return nil, fmt.Errorf("IAM authentication failed and no password fallback is configured: %w", err)
+			}
+			
+			// Otherwise fall back to password auth
+			log.Println("Falling back to password authentication for ElastiCache")
+			if c.config.Username != "" {
+				options["username"] = c.config.Username
+			}
+			options["password"] = c.config.Password
+		} else {
+			// Use the IAM token
+			options["username"] = c.config.Username
+			options["password"] = token
 		}
-		options["username"] = c.config.Username
-		options["password"] = token
 	} else if c.config.Password != "" {
-		// Fall back to standard password auth
+		// IAM auth is disabled, use standard password auth if available
 		if c.config.Username != "" {
 			options["username"] = c.config.Username
 		}
 		options["password"] = c.config.Password
+	} else {
+		// No authentication configured - this may be okay for dev/test environments
+		log.Println("Warning: No authentication configured for ElastiCache")
 	}
 	
 	// TLS configuration

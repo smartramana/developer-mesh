@@ -68,6 +68,9 @@ func Load() (*Config, error) {
 	v.SetEnvKeyReplacer(strings.NewReplacer(".", "_"))
 	v.AutomaticEnv()
 
+	// Enable environment variable interpolation in config values
+	v.AllowEmptyEnv(true)
+
 	// Read config
 	if err := v.ReadInConfig(); err != nil {
 		// Config file is not required if environment variables are set
@@ -75,6 +78,10 @@ func Load() (*Config, error) {
 			return nil, fmt.Errorf("error reading config file: %w", err)
 		}
 	}
+	
+	// Process environment variable expansions in the config file
+	// This allows using ${VAR} or ${VAR:-default} syntax in config values
+	processEnvExpansion(v)
 
 	// Unmarshal config
 	var config Config
@@ -83,6 +90,80 @@ func Load() (*Config, error) {
 	}
 
 	return &config, nil
+}
+
+// processEnvExpansion processes environment variable expansions in config values
+// Supports ${VAR} and ${VAR:-default} syntax
+func processEnvExpansion(v *viper.Viper) {
+	// Get all keys in the config
+	keys := v.AllKeys()
+	
+	// Process each key
+	for _, key := range keys {
+		// Get the value as a string
+		value := v.GetString(key)
+		
+		// Skip empty values
+		if value == "" {
+			continue
+		}
+		
+		// Look for environment variable references in the value
+		if strings.Contains(value, "${") && strings.Contains(value, "}") {
+			// Process the value for environment variable expansion
+			expandedValue := expandEnvVars(value)
+			
+			// If the value changed, update it in Viper
+			if expandedValue != value {
+				v.Set(key, expandedValue)
+			}
+		}
+	}
+}
+
+// expandEnvVars expands environment variables in a string
+// Supports ${VAR} and ${VAR:-default} syntax
+func expandEnvVars(value string) string {
+	result := value
+	
+	// Find all environment variable references
+	for {
+		start := strings.Index(result, "${")
+		if start == -1 {
+			break
+		}
+		
+		end := strings.Index(result[start:], "}") + start
+		if end == -1 {
+			break
+		}
+		
+		// Extract the variable reference
+		varRef := result[start+2:end]
+		
+		// Check if there's a default value
+		var envVar, defaultVal string
+		if strings.Contains(varRef, ":-") {
+			parts := strings.SplitN(varRef, ":-", 2)
+			envVar = parts[0]
+			defaultVal = parts[1]
+		} else {
+			envVar = varRef
+		}
+		
+		// Get the environment variable value
+		envVal := os.Getenv(envVar)
+		
+		// Use default if env var is not set
+		if envVal == "" && defaultVal != "" {
+			envVal = defaultVal
+		}
+		
+		// Replace the variable reference in the string
+		result = result[:start] + envVal + result[end+1:]
+	}
+	
+	return result
 }
 
 // setDefaults sets default configuration values
@@ -146,22 +227,34 @@ func setDefaults(v *viper.Viper) {
 	v.SetDefault("storage.type", "local")
 	
 	// AWS defaults
+	// Get AWS region from environment variable or use default
+	awsRegion := os.Getenv("AWS_REGION")
+	if awsRegion == "" {
+		awsRegion = "us-west-2"
+	}
 	
 	// S3 defaults
-	v.SetDefault("aws.s3.auth.region", "us-west-2")
+	v.SetDefault("storage.type", "s3") // Default to S3 storage
+	v.SetDefault("aws.s3.auth.region", awsRegion)
 	v.SetDefault("aws.s3.bucket", "mcp-contexts")
 	v.SetDefault("aws.s3.upload_part_size", 5*1024*1024) // 5MB
 	v.SetDefault("aws.s3.download_part_size", 5*1024*1024) // 5MB
 	v.SetDefault("aws.s3.concurrency", 5)
 	v.SetDefault("aws.s3.request_timeout", 30*time.Second)
 	v.SetDefault("aws.s3.server_side_encryption", "AES256")
-	v.SetDefault("aws.s3.use_iam_auth", true)
+	v.SetDefault("aws.s3.use_iam_auth", true) // Default to IAM authentication
+	
+	// Context storage - default to S3 in non-local environments
+	if os.Getenv("MCP_ENV") != "local" && (os.Getenv("MCP_STORAGE_CONTEXT_STORAGE_PROVIDER") == "" || 
+	   os.Getenv("MCP_STORAGE_CONTEXT_STORAGE_PROVIDER") == "s3") {
+		v.SetDefault("storage.context_storage.provider", "s3") // Default to S3 storage
+	}
 	
 	// RDS defaults
-	v.SetDefault("aws.rds.auth.region", "us-west-2")
+	v.SetDefault("aws.rds.auth.region", awsRegion)
 	v.SetDefault("aws.rds.port", 5432)
 	v.SetDefault("aws.rds.database", "mcp")
-	v.SetDefault("aws.rds.use_iam_auth", true)
+	v.SetDefault("aws.rds.use_iam_auth", true) // Default to IAM authentication
 	v.SetDefault("aws.rds.token_expiration", 15*60) // 15 minutes in seconds
 	v.SetDefault("aws.rds.max_open_conns", 25)
 	v.SetDefault("aws.rds.max_idle_conns", 5)
@@ -172,9 +265,9 @@ func setDefaults(v *viper.Viper) {
 	v.SetDefault("aws.rds.connection_timeout", 30)
 	
 	// ElastiCache defaults
-	v.SetDefault("aws.elasticache.auth.region", "us-west-2")
+	v.SetDefault("aws.elasticache.auth.region", awsRegion)
 	v.SetDefault("aws.elasticache.port", 6379)
-	v.SetDefault("aws.elasticache.use_iam_auth", true)
+	v.SetDefault("aws.elasticache.use_iam_auth", true) // Default to IAM authentication
 	v.SetDefault("aws.elasticache.cluster_mode", true)
 	v.SetDefault("aws.elasticache.cluster_discovery", true)
 	v.SetDefault("aws.elasticache.use_tls", true)

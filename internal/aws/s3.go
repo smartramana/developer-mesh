@@ -4,9 +4,12 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"log"
+	"os"
 	"time"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
+	"github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/feature/s3/manager"
 	"github.com/aws/aws-sdk-go-v2/service/s3"
 	"github.com/aws/aws-sdk-go-v2/service/s3/types"
@@ -43,10 +46,32 @@ func (c *S3Client) GetBucketName() string {
 
 // NewS3Client creates a new S3 client with IRSA support
 func NewS3Client(ctx context.Context, cfg S3Config) (*S3Client, error) {
-	// Get AWS configuration with IRSA support
-	awsCfg, err := GetAWSConfig(ctx, cfg.AuthConfig)
-	if err != nil {
-		return nil, fmt.Errorf("failed to load AWS config: %w", err)
+	// Get AWS configuration with IRSA support when IAM auth is enabled
+	var awsCfg aws.Config
+	var err error
+	
+	// Always try to use IAM authentication by default, unless explicitly disabled
+	// This ensures we follow the principle of least privilege
+	useIAM := cfg.UseIAMAuth
+	
+	if useIAM {
+		awsCfg, err = GetAWSConfig(ctx, cfg.AuthConfig)
+		if err != nil {
+			return nil, fmt.Errorf("failed to load AWS config with IAM auth: %w", err)
+		}
+		
+		if IsIRSAEnabled() {
+			log.Println("Using IRSA authentication for S3 with role:", os.Getenv("AWS_ROLE_ARN"))
+		} else {
+			log.Println("Using standard IAM authentication for S3 (IRSA not detected)")
+		}
+	} else {
+		// Only fall back to basic AWS config when IAM auth is explicitly disabled
+		awsCfg, err = config.LoadDefaultConfig(ctx, config.WithRegion(cfg.Region))
+		if err != nil {
+			return nil, fmt.Errorf("failed to load basic AWS config: %w", err)
+		}
+		log.Println("Using basic AWS authentication for S3 (IAM auth explicitly disabled)")
 	}
 
 	// Create S3 client with options

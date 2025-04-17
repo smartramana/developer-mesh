@@ -54,6 +54,10 @@ func main() {
 	// Check if IRSA is enabled (IAM Roles for Service Accounts)
 	if aws.IsIRSAEnabled() {
 		log.Println("IRSA (IAM Roles for Service Accounts) is enabled for AWS services")
+		log.Println("AWS Role ARN:", os.Getenv("AWS_ROLE_ARN"))
+		log.Println("AWS Web Identity Token File:", os.Getenv("AWS_WEB_IDENTITY_TOKEN_FILE"))
+	} else {
+		log.Println("IRSA not detected, will use standard AWS credential provider chain if IAM auth is enabled")
 	}
 
 	// Prepare database config with AWS integration if needed

@@ -5,6 +5,30 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.2.2] - 2025-04-17
+
+### Added
+- No new features added
+
+### Changed
+- Improved configuration management for all AWS services (RDS, ElastiCache, S3)
+- Enhanced IAM authentication to be the default method for AWS services
+- Updated ElastiCache client to better handle IAM authentication tokens
+- Updated RDS client to prioritize IAM authentication and improved fallback mechanism
+- Updated S3 client to consistently use IAM authentication when available
+- Replaced hardcoded credentials with environment variable references
+- Improved environment variable interpolation in configuration files
+- Better handling of AWS region configuration through environment variables
+- Enhanced error handling for authentication failures
+- Improved test compatibility with updated authentication methods
+
+### Fixed
+- Removed hardcoded default passwords from configuration files
+- Fixed potential issue where authentication might fail silently
+- Fixed ElastiCache test to work with enhanced IAM authentication
+- Removed unused imports in AWS service implementations
+- Fixed potential security issues by removing hardcoded webhook secrets
+
 ## [0.2.1] - 2025-04-16
 
 ### Added

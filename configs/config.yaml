@@ -1,9 +1,65 @@
 # MCP Server Configuration Template
 
+# AWS Service Configurations
+aws:
+  # RDS Aurora PostgreSQL Configuration
+  rds:
+    auth:
+      region: "${AWS_REGION:-us-west-2}"
+    host: "${RDS_HOST:-}"
+    port: ${RDS_PORT:-5432}
+    database: "${RDS_DATABASE:-mcp}"
+    username: "${RDS_USERNAME:-mcp_admin}"
+    password: "${RDS_PASSWORD:-}" # Leave empty when using IAM authentication
+    use_iam_auth: ${RDS_USE_IAM_AUTH:-true} # Default to IAM authentication
+    token_expiration: 900 # 15 minutes in seconds
+    max_open_conns: 25
+    max_idle_conns: 5
+    conn_max_lifetime: 5m
+    enable_pooling: true
+    min_pool_size: 2
+    max_pool_size: 10
+    connection_timeout: 30
+  
+  # ElastiCache Redis Configuration
+  elasticache:
+    auth:
+      region: "${AWS_REGION:-us-west-2}"
+    primary_endpoint: "${ELASTICACHE_ENDPOINT:-}"
+    port: ${ELASTICACHE_PORT:-6379}
+    username: "${ELASTICACHE_USERNAME:-mcp_cache_user}"
+    password: "${ELASTICACHE_PASSWORD:-}" # Leave empty when using IAM authentication
+    use_iam_auth: ${ELASTICACHE_USE_IAM_AUTH:-true} # Default to IAM authentication
+    cluster_mode: true
+    cluster_name: "mcp-cache"
+    cluster_discovery: true
+    use_tls: true
+    insecure_skip_verify: false
+    max_retries: 3
+    min_idle_connections: 2
+    pool_size: 10
+    dial_timeout: 5
+    read_timeout: 3
+    write_timeout: 3
+    pool_timeout: 4
+    token_expiration: 900
+  
+  # S3 Configuration
+  s3:
+    auth:
+      region: "${AWS_REGION:-us-west-2}"
+    bucket: "${S3_BUCKET:-mcp-contexts}"
+    use_iam_auth: ${S3_USE_IAM_AUTH:-true} # Default to IAM authentication
+    server_side_encryption: "${S3_ENCRYPTION:-AES256}"
+    upload_part_size: 5242880
+    download_part_size: 5242880
+    concurrency: 5
+    request_timeout: 30s
+
 # Storage Configuration
 storage:
   # Storage provider type: "local" or "s3"
-  type: "local"
+  type: "s3"
   
   # S3 Storage Configuration
   s3:
@@ -36,9 +92,9 @@ api:
   
   # Authentication settings
   auth:
-    api_keys_admin: "admin-api-key"
-    api_keys_test: "test-api-key"
-    jwt_secret: "test-jwt-secret"
+    api_keys_admin: "${API_KEY_ADMIN:-admin-api-key}"
+    api_keys_test: "${API_KEY_TEST:-test-api-key}"
+    jwt_secret: "${JWT_SECRET:-test-jwt-secret}"
     jwt_expiration: 24h
   
   # API rate limiting
@@ -51,36 +107,36 @@ api:
   # Webhook configuration
   webhooks:
     github:
-      enabled: true
-      secret: "mock-github-secret"
+      enabled: ${GITHUB_WEBHOOK_ENABLED:-true}
+      secret: "${GITHUB_WEBHOOK_SECRET:-}" # Never use a mock secret in production
       path: "/github"
     harness:
-      enabled: true
-      secret: "mock-harness-secret"
+      enabled: ${HARNESS_WEBHOOK_ENABLED:-true}
+      secret: "${HARNESS_WEBHOOK_SECRET:-}" # Never use a mock secret in production 
       path: "/harness"
     sonarqube:
-      enabled: true
-      secret: "mock-sonarqube-secret"
+      enabled: ${SONARQUBE_WEBHOOK_ENABLED:-true}
+      secret: "${SONARQUBE_WEBHOOK_SECRET:-}" # Never use a mock secret in production
       path: "/sonarqube"
     artifactory:
-      enabled: true
-      secret: "mock-artifactory-secret"
+      enabled: ${ARTIFACTORY_WEBHOOK_ENABLED:-true}
+      secret: "${ARTIFACTORY_WEBHOOK_SECRET:-}" # Never use a mock secret in production
       path: "/artifactory"
     xray:
-      enabled: true
-      secret: "mock-xray-secret"
+      enabled: ${XRAY_WEBHOOK_ENABLED:-true}
+      secret: "${XRAY_WEBHOOK_SECRET:-}" # Never use a mock secret in production
       path: "/xray"
 
 # Database Configuration
 database:
   driver: "postgres"
-  host: "localhost"
-  port: 5432
-  username: "postgres"
-  password: "postgres"
-  database: "mcp"
-  ssl_mode: "disable"
-  dsn: "postgres://postgres:postgres@postgres:5432/mcp?sslmode=disable"
+  host: "${DATABASE_HOST:-localhost}"
+  port: ${DATABASE_PORT:-5432}
+  username: "${DATABASE_USER:-postgres}"
+  password: "${DATABASE_PASSWORD:-}" # Do not hardcode default password
+  database: "${DATABASE_NAME:-mcp}"
+  ssl_mode: "${DATABASE_SSL_MODE:-disable}"
+  dsn: "${DATABASE_DSN:-}" # Do not hardcode default DSN with credentials
   max_open_conns: 25
   max_idle_conns: 5
   conn_max_lifetime: 5m
@@ -88,9 +144,10 @@ database:
 # Cache Configuration
 cache:
   type: "redis"
-  address: "redis:6379"
-  password: ""
-  database: 0
+  address: "${REDIS_ADDRESS:-localhost:6379}"
+  password: "${REDIS_PASSWORD:-}"
+  database: ${REDIS_DATABASE:-0}
+  use_iam_auth: ${REDIS_USE_IAM_AUTH:-false} # For compatibility with ElastiCache IAM auth
   max_retries: 3
   dial_timeout: 5
   read_timeout: 3
@@ -107,59 +164,59 @@ engine:
   
   # GitHub Configuration
   github:
-    api_token: "mock-github-token"
-    webhook_secret: "mock-github-secret"
+    api_token: "${GITHUB_API_TOKEN:-mock-github-token}"
+    webhook_secret: "${GITHUB_WEBHOOK_SECRET:-mock-github-secret}"
     request_timeout: 10s
     rate_limit_per_hour: 5000
     max_retries: 3
     retry_delay: 1s
-    mock_responses: true
-    mock_url: "http://localhost:8081/mock-github"
+    mock_responses: ${MOCK_RESPONSES:-true}
+    mock_url: "${MOCK_GITHUB_URL:-http://localhost:8081/mock-github}"
   
   # Harness Configuration
   harness:
-    api_token: "mock-harness-token"
-    account_id: "mock-harness-account"
-    webhook_secret: "mock-harness-secret"
-    base_url: "http://localhost:8081/mock-harness"
+    api_token: "${HARNESS_API_TOKEN:-mock-harness-token}"
+    account_id: "${HARNESS_ACCOUNT_ID:-mock-harness-account}"
+    webhook_secret: "${HARNESS_WEBHOOK_SECRET:-mock-harness-secret}"
+    base_url: "${HARNESS_URL:-http://localhost:8081/mock-harness}"
     request_timeout: 10s
     max_retries: 3
     retry_delay: 1s
-    mock_responses: true
+    mock_responses: ${MOCK_RESPONSES:-true}
   
   # SonarQube Configuration
   sonarqube:
-    base_url: "http://localhost:8081/mock-sonarqube"
-    token: "mock-sonarqube-token"
-    webhook_secret: "mock-sonarqube-secret"
+    base_url: "${SONARQUBE_URL:-http://localhost:8081/mock-sonarqube}"
+    token: "${SONARQUBE_TOKEN:-mock-sonarqube-token}"
+    webhook_secret: "${SONARQUBE_WEBHOOK_SECRET:-mock-sonarqube-secret}"
     request_timeout: 10s
     max_retries: 3
     retry_delay: 1s
-    mock_responses: true
+    mock_responses: ${MOCK_RESPONSES:-true}
   
   # Artifactory Configuration
   artifactory:
-    base_url: "http://localhost:8081/mock-artifactory"
-    username: "mock-artifactory-user"
-    password: "mock-artifactory-password"
-    api_key: "mock-artifactory-api-key"
-    webhook_secret: "mock-artifactory-secret"
+    base_url: "${ARTIFACTORY_URL:-http://localhost:8081/mock-artifactory}"
+    username: "${ARTIFACTORY_USERNAME:-mock-artifactory-user}"
+    password: "${ARTIFACTORY_PASSWORD:-mock-artifactory-password}"
+    api_key: "${ARTIFACTORY_API_KEY:-mock-artifactory-api-key}"
+    webhook_secret: "${ARTIFACTORY_WEBHOOK_SECRET:-mock-artifactory-secret}"
     request_timeout: 10s
     max_retries: 3
     retry_delay: 1s
-    mock_responses: true
+    mock_responses: ${MOCK_RESPONSES:-true}
   
   # Xray Configuration
   xray:
-    base_url: "http://localhost:8081/mock-xray"
-    username: "mock-xray-user"
-    password: "mock-xray-password"
-    api_key: "mock-xray-api-key"
-    webhook_secret: "mock-xray-secret"
+    base_url: "${XRAY_URL:-http://localhost:8081/mock-xray}"
+    username: "${XRAY_USERNAME:-mock-xray-user}"
+    password: "${XRAY_PASSWORD:-mock-xray-password}"
+    api_key: "${XRAY_API_KEY:-mock-xray-api-key}"
+    webhook_secret: "${XRAY_WEBHOOK_SECRET:-mock-xray-secret}"
     request_timeout: 10s
     max_retries: 3
     retry_delay: 1s
-    mock_responses: true
+    mock_responses: ${MOCK_RESPONSES:-true}
 
 # Metrics Configuration
 metrics:

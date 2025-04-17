@@ -14,7 +14,7 @@ aws:
     database: "mcp"
     username: "mcp_admin"
     password: "" # Leave empty when using IAM authentication
-    use_iam_auth: true
+    use_iam_auth: true # IAM authentication is the default and recommended method
     token_expiration: 900 # 15 minutes in seconds
     max_open_conns: 25
     max_idle_conns: 5
@@ -32,7 +32,7 @@ aws:
     port: 6379
     username: "mcp_cache_user"
     password: "" # Leave empty when using IAM authentication
-    use_iam_auth: true
+    use_iam_auth: true # IAM authentication is the default and recommended method
     cluster_mode: true
     cluster_name: "mcp-cache"
     cluster_discovery: true
@@ -52,7 +52,7 @@ aws:
     auth:
       region: "us-west-2"
     bucket: "mcp-contexts"
-    use_iam_auth: true
+    use_iam_auth: true # IAM authentication is the default and recommended method
     # endpoint: "http://localhost:4566" # Uncomment for LocalStack or other S3-compatible services
     # force_path_style: true # Uncomment for LocalStack or other S3-compatible services
     server_side_encryption: "AES256"
