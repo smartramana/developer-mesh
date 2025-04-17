@@ -11,10 +11,7 @@ import (
 	"github.com/stretchr/testify/mock"
 )
 
-// MockDatabase mocks the database interface
-type MockDatabase struct {
-	mock.Mock
-}
+
 
 // MockCache mocks the cache interface
 type MockCache struct {

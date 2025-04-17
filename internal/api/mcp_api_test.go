@@ -26,11 +26,17 @@ func (m *MockContextManager) CreateContext(ctx context.Context, context *mcp.Con
 
 func (m *MockContextManager) GetContext(ctx context.Context, contextID string) (*mcp.Context, error) {
 	args := m.Called(ctx, contextID)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
 	return args.Get(0).(*mcp.Context), args.Error(1)
 }
 
 func (m *MockContextManager) UpdateContext(ctx context.Context, contextID string, context *mcp.Context, options *mcp.ContextUpdateOptions) (*mcp.Context, error) {
 	args := m.Called(ctx, contextID, context, options)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
 	return args.Get(0).(*mcp.Context), args.Error(1)
 }
 

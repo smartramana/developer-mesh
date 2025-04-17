@@ -8,59 +8,32 @@ import (
 	"github.com/S-Corkum/mcp-server/internal/cache/mocks"
 	"github.com/S-Corkum/mcp-server/internal/database"
 	"github.com/S-Corkum/mcp-server/pkg/mcp"
+	"github.com/jmoiron/sqlx"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 )
 
-// MockDatabase is a mock for the database.Database struct
-type MockDatabase struct {
-	mock.Mock
-}
 
-func (m *MockDatabase) CreateContext(ctx context.Context, contextData *mcp.Context) error {
-	args := m.Called(ctx, contextData)
-	return args.Error(0)
-}
-
-func (m *MockDatabase) GetContext(ctx context.Context, contextID string) (*mcp.Context, error) {
-	args := m.Called(ctx, contextID)
-	if args.Get(0) == nil {
-		return nil, args.Error(1)
-	}
-	return args.Get(0).(*mcp.Context), args.Error(1)
-}
-
-func (m *MockDatabase) UpdateContext(ctx context.Context, contextData *mcp.Context) error {
-	args := m.Called(ctx, contextData)
-	return args.Error(0)
-}
-
-func (m *MockDatabase) DeleteContext(ctx context.Context, contextID string) error {
-	args := m.Called(ctx, contextID)
-	return args.Error(0)
-}
-
-func (m *MockDatabase) ListContexts(ctx context.Context, agentID string, sessionID string, options map[string]interface{}) ([]*mcp.Context, error) {
-	args := m.Called(ctx, agentID, sessionID, options)
-	if args.Get(0) == nil {
-		return nil, args.Error(1)
-	}
-	return args.Get(0).([]*mcp.Context), args.Error(1)
-}
 
 func TestNewContextManager(t *testing.T) {
 	mockDB := new(MockDatabase)
 	mockCache := new(mocks.MockCache)
 	
-	cm := NewContextManager(nil, mockCache)
+	// Mock necessary functions
+	mockDB.On("GetDB").Return(&sqlx.DB{})
+	
+	cm := NewContextManager(mockDB, mockCache)
 	assert.NotNil(t, cm)
 	assert.NotNil(t, cm.subscribers)
 }
 
 func TestCreateContext(t *testing.T) {
-	mockDB := new(MockDatabase)
+	mockDB := new(MockDB)
 	mockCache := new(mocks.MockCache)
+	
+	// Add necessary mock DB functions
+	mockDB.On("GetDB").Return(&sqlx.DB{})
 	
 	cm := &ContextManager{
 		db:          mockDB,
@@ -115,6 +88,9 @@ func TestCreateContext(t *testing.T) {
 func TestGetContext(t *testing.T) {
 	mockDB := new(MockDatabase)
 	mockCache := new(mocks.MockCache)
+	
+	// Add necessary mock DB functions
+	mockDB.On("GetDB").Return(&sqlx.DB{})
 	
 	cm := &ContextManager{
 		db:          mockDB,
@@ -189,6 +165,9 @@ func TestUpdateContext(t *testing.T) {
 	mockDB := new(MockDatabase)
 	mockCache := new(mocks.MockCache)
 	
+	// Add necessary mock DB functions
+	mockDB.On("GetDB").Return(&sqlx.DB{})
+	
 	cm := &ContextManager{
 		db:          mockDB,
 		cache:       mockCache,
@@ -223,7 +202,6 @@ func TestUpdateContext(t *testing.T) {
 		Metadata: map[string]interface{}{"new": "data"},
 		Content: []mcp.ContextItem{
 			{
-				ID:        "item-1",
 				Role:      "user",
 				Content:   "Hello",
 				Tokens:    1,
@@ -303,6 +281,9 @@ func TestDeleteContext(t *testing.T) {
 	mockDB := new(MockDatabase)
 	mockCache := new(mocks.MockCache)
 	
+	// Add necessary mock DB functions
+	mockDB.On("GetDB").Return(&sqlx.DB{})
+	
 	cm := &ContextManager{
 		db:          mockDB,
 		cache:       mockCache,
@@ -352,6 +333,9 @@ func TestDeleteContext(t *testing.T) {
 func TestListContexts(t *testing.T) {
 	mockDB := new(MockDatabase)
 	mockCache := new(mocks.MockCache)
+	
+	// Add necessary mock DB functions
+	mockDB.On("GetDB").Return(&sqlx.DB{})
 	
 	cm := &ContextManager{
 		db:          mockDB,
@@ -405,6 +389,9 @@ func TestListContexts(t *testing.T) {
 func TestSummarizeContext(t *testing.T) {
 	mockDB := new(MockDatabase)
 	mockCache := new(mocks.MockCache)
+	
+	// Add necessary mock DB functions
+	mockDB.On("GetDB").Return(&sqlx.DB{})
 	
 	cm := &ContextManager{
 		db:          mockDB,
@@ -470,6 +457,9 @@ func TestSearchInContext(t *testing.T) {
 	mockDB := new(MockDatabase)
 	mockCache := new(mocks.MockCache)
 	
+	// Add necessary mock DB functions
+	mockDB.On("GetDB").Return(&sqlx.DB{})
+	
 	cm := &ContextManager{
 		db:          mockDB,
 		cache:       mockCache,
@@ -486,21 +476,18 @@ func TestSearchInContext(t *testing.T) {
 		ModelID: "model-123",
 		Content: []mcp.ContextItem{
 			{
-				ID:        "item-1",
 				Role:      "user",
 				Content:   "Hello world",
 				Tokens:    2,
 				Timestamp: time.Now(),
 			},
 			{
-				ID:        "item-2",
 				Role:      "assistant",
 				Content:   "Hi there, how can I help you?",
 				Tokens:    7,
 				Timestamp: time.Now(),
 			},
 			{
-				ID:        "item-3",
 				Role:      "user",
 				Content:   "I need information about the world",
 				Tokens:    7,
@@ -585,21 +572,18 @@ func TestTruncateContext(t *testing.T) {
 		CurrentTokens: 15,
 		Content: []mcp.ContextItem{
 			{
-				ID:        "item-1",
 				Role:      "user",
 				Content:   "First message",
 				Tokens:    5,
 				Timestamp: time.Now().Add(-2 * time.Hour),
 			},
 			{
-				ID:        "item-2",
 				Role:      "assistant",
 				Content:   "Second message",
 				Tokens:    5,
 				Timestamp: time.Now().Add(-1 * time.Hour),
 			},
 			{
-				ID:        "item-3",
 				Role:      "user",
 				Content:   "Third message",
 				Tokens:    5,
@@ -623,35 +607,30 @@ func TestTruncateContext(t *testing.T) {
 		CurrentTokens: 25,
 		Content: []mcp.ContextItem{
 			{
-				ID:        "item-1",
 				Role:      "system",
 				Content:   "System message",
 				Tokens:    5,
 				Timestamp: time.Now().Add(-3 * time.Hour),
 			},
 			{
-				ID:        "item-2",
 				Role:      "user",
 				Content:   "User message 1",
 				Tokens:    5,
 				Timestamp: time.Now().Add(-2 * time.Hour),
 			},
 			{
-				ID:        "item-3",
 				Role:      "assistant",
 				Content:   "Assistant message 1",
 				Tokens:    5,
 				Timestamp: time.Now().Add(-1 * time.Hour),
 			},
 			{
-				ID:        "item-4",
 				Role:      "user",
 				Content:   "User message 2",
 				Tokens:    5,
 				Timestamp: time.Now().Add(-30 * time.Minute),
 			},
 			{
-				ID:        "item-5",
 				Role:      "assistant",
 				Content:   "Assistant message 2",
 				Tokens:    5,

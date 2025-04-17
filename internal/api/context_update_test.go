@@ -126,7 +126,12 @@ func TestUpdateContextHandlerErrors(t *testing.T) {
 			requestBody: map[string]string{
 				"invalid": "this is not a valid request",
 			},
-			setupMocks: func() {},
+			setupMocks: func() {
+				// Mock GetContext to return error for invalid request body test
+				mockManager.On("GetContext", mock.Anything, contextID).Return(existingContext, nil).Once()
+				// Also mock UpdateContext since it will be called even with invalid request body
+				mockManager.On("UpdateContext", mock.Anything, contextID, mock.Anything, mock.Anything).Return(existingContext, nil).Once()
+			},
 			expectedStatusCode: http.StatusBadRequest,
 			expectedMessage:    "error",
 		},
@@ -141,7 +146,8 @@ func TestUpdateContextHandlerErrors(t *testing.T) {
 				},
 			},
 			setupMocks: func() {
-				mockManager.On("GetContext", mock.Anything, contextID).Return(nil, assert.AnError).Once()
+				var nilContext *mcp.Context = nil
+				mockManager.On("GetContext", mock.Anything, contextID).Return(nilContext, assert.AnError).Once()
 			},
 			expectedStatusCode: http.StatusNotFound,
 			expectedMessage:    "context not found",
@@ -158,7 +164,8 @@ func TestUpdateContextHandlerErrors(t *testing.T) {
 			},
 			setupMocks: func() {
 				mockManager.On("GetContext", mock.Anything, contextID).Return(existingContext, nil).Once()
-				mockManager.On("UpdateContext", mock.Anything, contextID, mock.Anything, mock.Anything).Return(nil, assert.AnError).Once()
+				var nilContext *mcp.Context = nil
+				mockManager.On("UpdateContext", mock.Anything, contextID, mock.Anything, mock.Anything).Return(nilContext, assert.AnError).Once()
 			},
 			expectedStatusCode: http.StatusInternalServerError,
 			expectedMessage:    "error",
