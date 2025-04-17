@@ -13,6 +13,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Introduced temporary stubs for AWS service clients during testing
 - Improved error handling in AWS service client initialization
 - AWS service integrations using IAM Roles for Service Accounts (IRSA)
+- Validated IRSA implementation for S3, RDS, and ElastiCache in EKS deployments
 - RDS Aurora PostgreSQL integration with IAM-based authentication
 - Redis ElastiCache integration with IAM-based authentication and cluster mode support
 - Enhanced S3 integration with IAM-based authentication and comprehensive error handling
@@ -33,6 +34,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Enhanced Redis integration with cluster mode support
 - Restructured database connection handling to support IAM authentication
 - Improved security in configuration files by using environment variables for sensitive data
+- Verified and tested IRSA configuration to ensure proper authentication with AWS services in EKS
+- Added IRSA detection logic to automatically use IAM authentication when available
 - Updated README to include AWS integration instructions and security notes for production deployments
 - Enhanced system architecture documentation to include AWS service integrations
 - Streamlined authentication flow with automatic detection of available auth methods
