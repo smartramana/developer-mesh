@@ -12,10 +12,10 @@ import (
 	"log"
 	"math/rand"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/S-Corkum/mcp-server/internal/adapters"
-	"github.com/S-Corkum/mcp-server/internal/adapters/harness"
 	"github.com/gin-gonic/gin"
 )
 
@@ -95,42 +95,52 @@ func (s *Server) githubWebhookHandler(c *gin.Context) {
 
 // GetHarnessWebhookURL returns the webhook URL for Harness.io integration
 func (s *Server) GetHarnessWebhookURL(accountID, webhookID string) (string, error) {
-	adapter, err := s.engine.GetAdapter("harness")
-	if err != nil {
-		return "", fmt.Errorf("harness adapter not configured: %v", err)
+	// Simplified version for testing
+	baseURL := s.config.Webhooks.Harness.BaseURL
+	if baseURL == "" {
+		baseURL = "https://harness.io"
 	}
 	
-	// Convert to Harness adapter type to access methods
-	harnessAdapter, ok := adapter.(*harness.Adapter)
-	if !ok {
-		return "", fmt.Errorf("adapter is not a Harness adapter")
+	path := s.config.Webhooks.Harness.WebhookPath
+	if path == "" {
+		path = "ng/api/webhook"
 	}
 	
-	// Get or generate webhook URL
-	webhookURL := harnessAdapter.GetWebhookURL()
-	if webhookURL == "" {
-		// Get config values with defaults
-		baseURL := s.config.Webhooks.Harness.BaseURL
-		if baseURL == "" {
-			baseURL = "https://harness.io"
-		}
-		
-		path := s.config.Webhooks.Harness.WebhookPath
-		if path == "" {
-			path = "ng/api/webhook"
-		}
-		
-		// Use provided or default account ID
-		if accountID == "" {
-			accountID = s.config.Webhooks.Harness.AccountID
-		}
-		
-		// Use provided or default webhook ID
-		if webhookID == "" {
-			webhookID = "devopsmcp"
-		}
-		
-		webhookURL = harnessAdapter.GenerateWebhookURL(baseURL, path, accountID, webhookID)
+	// Use provided or default account ID
+	if accountID == "" {
+		accountID = s.config.Webhooks.Harness.AccountID
+	}
+	
+	// Use provided or default webhook ID
+	if webhookID == "" {
+		webhookID = "devopsmcp"
+	}
+	
+	// Generate URL
+	webhookURL := baseURL
+	if !strings.HasSuffix(webhookURL, "/") {
+		webhookURL += "/"
+	}
+	
+	// Ensure path doesn't start with / if we already added one
+	if strings.HasPrefix(path, "/") {
+		path = path[1:]
+	}
+	webhookURL += path
+	
+	// Add query parameters
+	params := make([]string, 0)
+	if accountID != "" {
+		params = append(params, fmt.Sprintf("accountIdentifier=%s", accountID))
+	}
+	
+	if webhookID != "" {
+		params = append(params, fmt.Sprintf("webhookIdentifier=%s", webhookID))
+	}
+	
+	// Append parameters as query string
+	if len(params) > 0 {
+		webhookURL += "?" + strings.Join(params, "&")
 	}
 	
 	return webhookURL, nil

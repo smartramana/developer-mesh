@@ -5,19 +5,21 @@ import (
 )
 
 // NewMockEmbeddingRepository creates a mock embedding repository for testing
-func NewMockEmbeddingRepository() *EmbeddingRepository {
-	return &EmbeddingRepository{}
+func NewMockEmbeddingRepository() *MockEmbeddingRepository {
+	return &MockEmbeddingRepository{
+		embeddings: make(map[string][]*TestEmbedding),
+	}
 }
 
 // MockEmbeddingRepository is a mock implementation of the EmbeddingRepository
 type MockEmbeddingRepository struct {
-	embeddings map[string][]*Embedding
+	embeddings map[string][]*TestEmbedding
 }
 
 // StoreEmbedding stores an embedding
-func (m *MockEmbeddingRepository) StoreEmbedding(ctx context.Context, embedding *Embedding) error {
+func (m *MockEmbeddingRepository) StoreEmbedding(ctx context.Context, embedding *TestEmbedding) error {
 	if m.embeddings == nil {
-		m.embeddings = make(map[string][]*Embedding)
+		m.embeddings = make(map[string][]*TestEmbedding)
 	}
 	
 	m.embeddings[embedding.ContextID] = append(m.embeddings[embedding.ContextID], embedding)
@@ -25,12 +27,12 @@ func (m *MockEmbeddingRepository) StoreEmbedding(ctx context.Context, embedding 
 }
 
 // SearchEmbeddings searches for embeddings
-func (m *MockEmbeddingRepository) SearchEmbeddings(ctx context.Context, queryEmbedding []float32, contextID string, limit int) ([]*EmbeddingSearchResult, error) {
+func (m *MockEmbeddingRepository) SearchEmbeddings(ctx context.Context, queryEmbedding []float32, contextID string, limit int) ([]*TestEmbeddingSearchResult, error) {
 	return nil, nil
 }
 
 // GetContextEmbeddings gets all embeddings for a context
-func (m *MockEmbeddingRepository) GetContextEmbeddings(ctx context.Context, contextID string) ([]*Embedding, error) {
+func (m *MockEmbeddingRepository) GetContextEmbeddings(ctx context.Context, contextID string) ([]*TestEmbedding, error) {
 	return m.embeddings[contextID], nil
 }
 

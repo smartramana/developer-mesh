@@ -26,9 +26,9 @@ func createHMAC(payload []byte, secret string) string {
 }
 
 // setupTestServerWithHarness creates a test server with a mocked Harness adapter
-func setupTestServerWithHarness(t *testing.T) (*Server, *httptest.Server, *core.MockEngine) {
+func setupTestServerWithHarness(t *testing.T) (*Server, *httptest.Server, *core.TestMockEngine) {
 	// Create a mock engine and register a Harness adapter
-	mockEngine := core.NewMockEngine()
+	mockEngine := core.NewTestMockEngine()
 	
 	// Create Harness adapter
 	harnessAdapter, err := harness.NewAdapter(harness.Config{
@@ -61,7 +61,8 @@ func setupTestServerWithHarness(t *testing.T) (*Server, *httptest.Server, *core.
 		},
 	}
 	
-	server := NewServer(mockEngine, &repository.MockEmbeddingRepository{}, config)
+	embeddingRepo := repository.NewMockEmbeddingRepository()
+	server := NewServer(mockEngine, embeddingRepo, config)
 	
 	// Start the test server
 	ts := httptest.NewServer(server.router)
