@@ -38,7 +38,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Streamlined authentication flow with automatic detection of available auth methods
 
 ### Fixed
-- N/A
+- Fixed unused imports in AWS package (elasticache.go and rds.go)
+- Resolved method duplication in database package (CreateContextReferenceTable)
+- Fixed type mismatch between aws.S3Client and storage.S3Client in server implementation
+- Updated math/rand usage for better compatibility across Go versions
+- Fixed compilation issues in cmd/server/main.go
 
 ## [0.2.0] - 2025-04-15
 
