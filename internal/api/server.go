@@ -3,9 +3,11 @@ package api
 import (
 	"context"
 	"net/http"
+	"time"
 
 	"github.com/S-Corkum/mcp-server/internal/core"
 	"github.com/S-Corkum/mcp-server/internal/repository"
+	"github.com/S-Corkum/mcp-server/pkg/mcp"
 	"github.com/gin-gonic/gin"
 )
 
@@ -92,22 +94,27 @@ func (s *Server) setupRoutes() {
 	v1 := s.router.Group("/api/v1")
 	v1.Use(AuthMiddleware("jwt")) // Require JWT auth for all API endpoints
 	
-	// Context management API
+	// Legacy Context management API
 	contextAPI := NewContextAPI(s.engine.ContextManager)
 	contextAPI.RegisterRoutes(v1)
+	
+	// MCP-specific API endpoints (new implementation)
+	mcpAPI := NewMCPAPI(s.engine.ContextManager)
+	mcpAPI.RegisterRoutes(v1)
 	
 	// Tool integration API
 	toolAPI := NewToolAPI(s.engine.AdapterBridge)
 	toolAPI.RegisterRoutes(v1)
 	
 	// Vector API endpoints
-	vectorRoutes := v1.Group("/vectors")
-	{
-		vectorRoutes.POST("/store", s.storeEmbedding)
-		vectorRoutes.POST("/search", s.searchEmbeddings)
-		vectorRoutes.GET("/context/:context_id", s.getContextEmbeddings)
-		vectorRoutes.DELETE("/context/:context_id", s.deleteContextEmbeddings)
-	}
+	vectorAPI := NewVectorAPI(s.embeddingRepo)
+	vectorAPI.RegisterRoutes(v1)
+	
+	// Add compatibility routes for old path format
+	v1.POST("/embeddings", vectorAPI.storeEmbedding)
+	v1.POST("/embeddings/search", vectorAPI.searchEmbeddings)
+	v1.GET("/embeddings/context/:context_id", vectorAPI.getContextEmbeddings)
+	v1.DELETE("/embeddings/context/:context_id", vectorAPI.deleteContextEmbeddings)
 	
 	// Webhook endpoints - each has its own authentication via secret validation
 	webhook := s.router.Group("/webhook")
@@ -271,4 +278,70 @@ func (s *Server) handleDeleteContextEmbeddings(c *gin.Context) {
 	}
 	
 	c.JSON(http.StatusOK, gin.H{"status": "deleted"})
+}
+
+// updateContextHandler updates a context with new content
+func (s *Server) updateContextHandler(c *gin.Context) {
+	contextID := c.Param("id")
+	if contextID == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "context ID is required"})
+		return
+	}
+
+	var request struct {
+		Content []map[string]interface{} `json:"content"`
+		Options map[string]interface{}   `json:"options,omitempty"`
+	}
+
+	if err := c.ShouldBindJSON(&request); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	
+	// Get the existing context first
+	existingContext, err := s.engine.ContextManager.GetContext(c.Request.Context(), contextID)
+	if err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "context not found"})
+		return
+	}
+	
+	// Update the content if provided
+	if len(request.Content) > 0 {
+		// Convert the generic map to ContextItem array
+		contentItems := make([]mcp.ContextItem, 0, len(request.Content))
+		for _, item := range request.Content {
+			role, roleOk := item["role"].(string)
+			content, contentOk := item["content"].(string)
+			
+			if roleOk && contentOk {
+				contextItem := mcp.ContextItem{
+					Role:    role,
+					Content: content,
+				}
+				
+				// Try to parse timestamp if present
+				if timestamp, ok := item["timestamp"]; ok {
+					if timestampStr, ok := timestamp.(string); ok {
+						t, err := time.Parse(time.RFC3339, timestampStr)
+						if err == nil {
+							contextItem.Timestamp = t
+						}
+					}
+				}
+				
+				contentItems = append(contentItems, contextItem)
+			}
+		}
+		
+		existingContext.Content = contentItems
+	}
+	
+	// Call the context manager to update
+	result, err := s.engine.ContextManager.UpdateContext(c.Request.Context(), contextID, existingContext, nil)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, result)
 }

@@ -340,3 +340,28 @@ func floatSliceToStrings(floats []float32) []string {
 	}
 	return strings
 }
+
+// Helper function to convert PG vector string to float32 slice
+func parseVectorString(vectorStr string) []float32 {
+	// Remove brackets and split by commas
+	vectorStr = strings.TrimPrefix(vectorStr, "{")
+	vectorStr = strings.TrimSuffix(vectorStr, "}")
+	components := strings.Split(vectorStr, ",")
+	
+	// Convert strings to float32
+	result := make([]float32, 0, len(components))
+	for _, comp := range components {
+		comp = strings.TrimSpace(comp)
+		if comp == "" {
+			continue
+		}
+		
+		val, err := strconv.ParseFloat(comp, 32)
+		if err != nil {
+			continue // Skip invalid floats
+		}
+		result = append(result, float32(val))
+	}
+	
+	return result
+}
