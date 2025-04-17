@@ -51,26 +51,6 @@ func TestValidateConfiguration(t *testing.T) {
 					Path:    "/github",
 					Secret:  "github-secret",
 				},
-				Harness: api.WebhookEndpointConfig{
-					Enabled: true,
-					Path:    "/harness",
-					Secret:  "harness-secret",
-				},
-				SonarQube: api.WebhookEndpointConfig{
-					Enabled: true,
-					Path:    "/sonarqube",
-					Secret:  "sonarqube-secret",
-				},
-				Artifactory: api.WebhookEndpointConfig{
-					Enabled: true,
-					Path:    "/artifactory",
-					Secret:  "artifactory-secret",
-				},
-				Xray: api.WebhookEndpointConfig{
-					Enabled: true,
-					Path:    "/xray",
-					Secret:  "xray-secret",
-				},
 			},
 		},
 		AWS: config.AWSConfig{

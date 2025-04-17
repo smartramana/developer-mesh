@@ -206,6 +206,7 @@ func setDefaults(v *viper.Viper) {
 
 	// Cache defaults
 	v.SetDefault("cache.type", "redis")
+	v.SetDefault("cache.address", "localhost:6379")
 	v.SetDefault("cache.max_retries", 3)
 	v.SetDefault("cache.dial_timeout", 5)
 	v.SetDefault("cache.read_timeout", 3)
