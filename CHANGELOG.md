@@ -5,6 +5,28 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.2.4] - 2025-04-17
+
+### Added
+- Enhanced Harness adapter with Cloud Cost Management (CCM) integration
+- Added CCM model structures for costs, recommendations, budgets, and anomalies
+- Implemented methods to retrieve CCM cost data using GraphQL API
+- Added functionality to get and manage cost optimization recommendations
+- Implemented budget information retrieval from CCM
+- Added cost anomaly detection and management capabilities
+- Created CCM-specific actions: apply/ignore recommendations, acknowledge/ignore anomalies
+- Enhanced configuration with configurable CCM API URLs
+
+### Changed
+- Updated Harness adapter configuration to support more configurable URL options
+- Made base URLs for all API endpoints configurable through the config file
+- Improved testConnection method to properly test connectivity to the Harness API
+- Enhanced API endpoint implementations to use correct REST and GraphQL endpoints
+- Updated IsSafeOperation method to include CCM-related actions
+
+### Fixed
+- N/A
+
 ## [0.2.3] - 2025-04-17
 
 ### Added

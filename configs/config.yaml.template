@@ -166,10 +166,19 @@ adapters:
   harness:
     api_token: "your-harness-api-token"
     account_id: "your-harness-account-id"
-    base_url: "https://app.harness.io/gateway/api/graphql"
+    org_identifier: "default"
+    project_identifier: "your-project-id"
+    base_url: "https://app.harness.io"
+    api_url: "https://app.harness.io/ng/api"
+    graphql_url: "https://app.harness.io/gateway/api/graphql"
+    # CCM specific configurations
+    ccm_api_url: "https://app.harness.io/ccm/api"
+    ccm_graphql_url: "https://app.harness.io/ccm/graphql"
+    # Request configuration
     request_timeout: 30s
     retry_max: 3
     retry_delay: 1s
+    # Mock server settings for testing
     mock_responses: true
     mock_url: "http://mockserver:8081/mock-harness"
   
