@@ -91,6 +91,13 @@ func NewEngine(ctx context.Context, cfg Config, db *database.Database, cacheClie
 
 // initializeAdapters initializes all configured adapters
 func (e *Engine) initializeAdapters() error {
+	// Debug logging for configuration
+	log.Printf("Adapter Configs: GitHub token: %s, Harness token: %s, SonarQube token: %s, Artifactory token: %s, Xray token: %s",
+		e.config.GithubConfig.APIToken,
+		e.config.HarnessConfig.APIToken,
+		e.config.SonarQubeConfig.Token,
+		e.config.ArtifactoryConfig.Token,
+		e.config.XrayConfig.Token)
 
 	// Initialize GitHub adapter if configured
 	if e.config.GithubConfig.APIToken != "" {
@@ -116,8 +123,10 @@ func (e *Engine) initializeAdapters() error {
 
 	// Initialize Harness adapter if configured
 	if e.config.HarnessConfig.APIToken != "" {
+		log.Println("Initializing Harness adapter with token:", e.config.HarnessConfig.APIToken)
 		harnessAdapter, err := harness.NewAdapter(e.config.HarnessConfig)
 		if err != nil {
+			log.Printf("Error creating Harness adapter: %v", err)
 			return err
 		}
 		
@@ -129,12 +138,16 @@ func (e *Engine) initializeAdapters() error {
 		
 		e.adapters["harness"] = harnessAdapter
 		log.Println("Harness adapter initialized successfully")
+	} else {
+		log.Println("Skipping Harness adapter initialization: No API token provided")
 	}
 
 	// Initialize SonarQube adapter if configured
 	if e.config.SonarQubeConfig.Token != "" || (e.config.SonarQubeConfig.Username != "" && e.config.SonarQubeConfig.Password != "") {
+		log.Println("Initializing SonarQube adapter with token:", e.config.SonarQubeConfig.Token)
 		sonarQubeAdapter, err := sonarqube.NewAdapter(e.config.SonarQubeConfig)
 		if err != nil {
+			log.Printf("Error creating SonarQube adapter: %v", err)
 			return err
 		}
 		
@@ -146,12 +159,16 @@ func (e *Engine) initializeAdapters() error {
 		
 		e.adapters["sonarqube"] = sonarQubeAdapter
 		log.Println("SonarQube adapter initialized successfully")
+	} else {
+		log.Println("Skipping SonarQube adapter initialization: No credentials provided")
 	}
 
 	// Initialize Artifactory adapter if configured
 	if e.config.ArtifactoryConfig.Token != "" || (e.config.ArtifactoryConfig.Username != "" && e.config.ArtifactoryConfig.Password != "") {
+		log.Println("Initializing Artifactory adapter with token:", e.config.ArtifactoryConfig.Token)
 		artifactoryAdapter, err := artifactory.NewAdapter(e.config.ArtifactoryConfig)
 		if err != nil {
+			log.Printf("Error creating Artifactory adapter: %v", err)
 			return err
 		}
 		
@@ -163,12 +180,16 @@ func (e *Engine) initializeAdapters() error {
 		
 		e.adapters["artifactory"] = artifactoryAdapter
 		log.Println("Artifactory adapter initialized successfully")
+	} else {
+		log.Println("Skipping Artifactory adapter initialization: No credentials provided")
 	}
 
 	// Initialize JFrog Xray adapter if configured
 	if e.config.XrayConfig.Token != "" || (e.config.XrayConfig.Username != "" && e.config.XrayConfig.Password != "") {
+		log.Println("Initializing JFrog Xray adapter with token:", e.config.XrayConfig.Token)
 		xrayAdapter, err := xray.NewAdapter(e.config.XrayConfig)
 		if err != nil {
+			log.Printf("Error creating JFrog Xray adapter: %v", err)
 			return err
 		}
 		
@@ -180,6 +201,8 @@ func (e *Engine) initializeAdapters() error {
 		
 		e.adapters["xray"] = xrayAdapter
 		log.Println("JFrog Xray adapter initialized successfully")
+	} else {
+		log.Println("Skipping JFrog Xray adapter initialization: No credentials provided")
 	}
 
 	return nil

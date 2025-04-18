@@ -266,4 +266,12 @@ func (b *AdapterContextBridge) HandleToolWebhook(ctx context.Context, tool strin
 	return nil
 }
 
+// GetAvailableAdapters returns a list of initialized adapters
+func (b *AdapterContextBridge) GetAvailableAdapters() []string {
+	adapterNames := make([]string, 0, len(b.adapters))
+	for name := range b.adapters {
+		adapterNames = append(adapterNames, name)
+	}
+	return adapterNames
+}
 
