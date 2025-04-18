@@ -5,6 +5,22 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.0] - 2025-04-17
+
+### Added
+- Comprehensive test suite for SonarQube adapter with 100% code coverage
+- Unit tests for SonarQube adapter initialization and configuration
+- Tests for all SonarQube adapter operations including quality gates, issues, metrics, and projects
+- Tests for SonarQube adapter actions including project management and quality gate assignment
+- Mock server implementation for testing SonarQube API interactions
+- Test cases for HTTP client behavior including retries and error handling
+
+### Fixed
+- Improved error handling in SonarQube adapter's executeRequest method
+- Enhanced authentication method validation in SonarQube adapter
+- Improved request creation with proper URL handling and query parameter encoding
+- Fixed potential nil pointer issues in HTTP client handling
+
 ## [0.2.9] - 2025-04-17
 
 ### Added
