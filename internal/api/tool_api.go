@@ -39,6 +39,9 @@ func (api *ToolAPI) RegisterRoutes(router *gin.RouterGroup) {
 	router.POST("/tools/:tool/query", api.queryToolData)
 	router.GET("/tools", api.listAvailableTools)
 	router.GET("/tools/:tool/actions", api.listAllowedActions)
+	
+	// Log that we're registering routes
+	log.Println("Registered tool API routes with handler:", api.listAvailableTools)
 }
 
 // handleExecuteToolAction executes an action on a tool
@@ -95,7 +98,7 @@ func (api *ToolAPI) handleQueryToolData(c *gin.Context) {
 // handleListAvailableTools lists all available tools
 func (api *ToolAPI) handleListAvailableTools(c *gin.Context) {
 	// SIMPLER METHOD: Always show all tools for API consistency
-	tools := []map[string]interface{}{
+	c.JSON(http.StatusOK, gin.H{"tools": []map[string]interface{}{
 		{
 			"name": "github",
 			"description": "GitHub integration for repository, pull request, and code management",
@@ -148,9 +151,7 @@ func (api *ToolAPI) handleListAvailableTools(c *gin.Context) {
 				"get_licenses",
 			},
 		},
-	}
-
-	c.JSON(http.StatusOK, gin.H{"tools": tools})
+	}})
 }
 
 // handleListAllowedActions lists all allowed actions for a specific tool
