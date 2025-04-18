@@ -8,7 +8,11 @@ import (
 	"time"
 
 	"github.com/S-Corkum/mcp-server/internal/adapters"
+	"github.com/S-Corkum/mcp-server/internal/adapters/artifactory"
 	"github.com/S-Corkum/mcp-server/internal/adapters/github"
+	"github.com/S-Corkum/mcp-server/internal/adapters/harness"
+	"github.com/S-Corkum/mcp-server/internal/adapters/sonarqube"
+	"github.com/S-Corkum/mcp-server/internal/adapters/xray"
 	"github.com/S-Corkum/mcp-server/internal/cache"
 	"github.com/S-Corkum/mcp-server/internal/database"
 	"github.com/S-Corkum/mcp-server/internal/interfaces"
@@ -26,6 +30,10 @@ type Config struct {
 
 	// Adapter configurations
 	GithubConfig      github.Config      `mapstructure:"github"`
+	HarnessConfig     harness.Config     `mapstructure:"harness"`
+	SonarQubeConfig   sonarqube.Config   `mapstructure:"sonarqube"`
+	ArtifactoryConfig artifactory.Config `mapstructure:"artifactory"`
+	XrayConfig        xray.Config        `mapstructure:"xray"`
 }
 
 // Engine is the core MCP engine
@@ -106,7 +114,73 @@ func (e *Engine) initializeAdapters() error {
 		log.Println("GitHub adapter initialized successfully")
 	}
 
-	// No additional adapter initialization needed
+	// Initialize Harness adapter if configured
+	if e.config.HarnessConfig.APIToken != "" {
+		harnessAdapter, err := harness.NewAdapter(e.config.HarnessConfig)
+		if err != nil {
+			return err
+		}
+		
+		// Initialize the adapter with the configuration
+		if err := harnessAdapter.Initialize(e.ctx, e.config.HarnessConfig); err != nil {
+			log.Printf("Warning: Harness adapter initialization warning: %v", err)
+			// Don't fail completely if there's an issue
+		}
+		
+		e.adapters["harness"] = harnessAdapter
+		log.Println("Harness adapter initialized successfully")
+	}
+
+	// Initialize SonarQube adapter if configured
+	if e.config.SonarQubeConfig.Token != "" || (e.config.SonarQubeConfig.Username != "" && e.config.SonarQubeConfig.Password != "") {
+		sonarQubeAdapter, err := sonarqube.NewAdapter(e.config.SonarQubeConfig)
+		if err != nil {
+			return err
+		}
+		
+		// Initialize the adapter with the configuration
+		if err := sonarQubeAdapter.Initialize(e.ctx, e.config.SonarQubeConfig); err != nil {
+			log.Printf("Warning: SonarQube adapter initialization warning: %v", err)
+			// Don't fail completely if there's an issue
+		}
+		
+		e.adapters["sonarqube"] = sonarQubeAdapter
+		log.Println("SonarQube adapter initialized successfully")
+	}
+
+	// Initialize Artifactory adapter if configured
+	if e.config.ArtifactoryConfig.Token != "" || (e.config.ArtifactoryConfig.Username != "" && e.config.ArtifactoryConfig.Password != "") {
+		artifactoryAdapter, err := artifactory.NewAdapter(e.config.ArtifactoryConfig)
+		if err != nil {
+			return err
+		}
+		
+		// Initialize the adapter with the configuration
+		if err := artifactoryAdapter.Initialize(e.ctx, e.config.ArtifactoryConfig); err != nil {
+			log.Printf("Warning: Artifactory adapter initialization warning: %v", err)
+			// Don't fail completely if there's an issue
+		}
+		
+		e.adapters["artifactory"] = artifactoryAdapter
+		log.Println("Artifactory adapter initialized successfully")
+	}
+
+	// Initialize JFrog Xray adapter if configured
+	if e.config.XrayConfig.Token != "" || (e.config.XrayConfig.Username != "" && e.config.XrayConfig.Password != "") {
+		xrayAdapter, err := xray.NewAdapter(e.config.XrayConfig)
+		if err != nil {
+			return err
+		}
+		
+		// Initialize the adapter with the configuration
+		if err := xrayAdapter.Initialize(e.ctx, e.config.XrayConfig); err != nil {
+			log.Printf("Warning: JFrog Xray adapter initialization warning: %v", err)
+			// Don't fail completely if there's an issue
+		}
+		
+		e.adapters["xray"] = xrayAdapter
+		log.Println("JFrog Xray adapter initialized successfully")
+	}
 
 	return nil
 }

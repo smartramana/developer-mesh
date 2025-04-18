@@ -90,6 +90,43 @@ engine:
     mock_responses: true
     mock_url: "http://mockserver:8081/mock-github"
 
+  # Harness Configuration
+  harness:
+    api_token: "mock-harness-token"
+    account_id: "mock-account-id"
+    request_timeout: 10s
+    max_retries: 3
+    retry_delay: 1s
+    mock_responses: true
+    mock_url: "http://mockserver:8081/mock-harness"
+    
+  # SonarQube Configuration
+  sonarqube:
+    token: "mock-sonarqube-token"
+    request_timeout: 10s
+    max_retries: 3
+    retry_delay: 1s
+    mock_responses: true
+    mock_url: "http://mockserver:8081/mock-sonarqube"
+    
+  # Artifactory Configuration
+  artifactory:
+    token: "mock-artifactory-token"
+    request_timeout: 10s
+    max_retries: 3
+    retry_delay: 1s
+    mock_responses: true
+    mock_url: "http://mockserver:8081/mock-artifactory"
+    
+  # Xray Configuration
+  xray:
+    token: "mock-xray-token"
+    request_timeout: 10s
+    max_retries: 3
+    retry_delay: 1s
+    mock_responses: true
+    mock_url: "http://mockserver:8081/mock-xray"
+
 # Metrics Configuration
 metrics:
   enabled: false

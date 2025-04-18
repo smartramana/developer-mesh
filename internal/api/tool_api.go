@@ -111,6 +111,45 @@ func (api *ToolAPI) handleListAvailableTools(c *gin.Context) {
 			},
 			"safety_notes": "Cannot delete repositories for safety reasons",
 		},
+		{
+			"name": "harness",
+			"description": "Harness CI/CD integration for builds and deployments",
+			"actions": []string{
+				"trigger_pipeline",
+				"get_pipeline_status",
+				"stop_pipeline",
+				"rollback_deployment",
+			},
+			"safety_notes": "Cannot delete production feature flags for safety reasons",
+		},
+		{
+			"name": "sonarqube",
+			"description": "SonarQube integration for code quality analysis",
+			"actions": []string{
+				"trigger_analysis",
+				"get_quality_gate_status",
+				"get_issues",
+			},
+		},
+		{
+			"name": "artifactory",
+			"description": "JFrog Artifactory integration for artifact management (read-only)",
+			"actions": []string{
+				"download_artifact",
+				"get_artifact_info",
+				"search_artifacts",
+			},
+			"safety_notes": "Read-only access for safety reasons (no upload or delete capabilities)",
+		},
+		{
+			"name": "xray",
+			"description": "JFrog Xray integration for security scanning",
+			"actions": []string{
+				"scan_artifact",
+				"get_vulnerabilities",
+				"get_licenses",
+			},
+		},
 	}
 
 	c.JSON(http.StatusOK, gin.H{"tools": tools})
@@ -148,6 +187,66 @@ func (api *ToolAPI) handleListAllowedActions(c *gin.Context) {
 			"delete_organization",
 		}
 		safetyNotes = "Repository deletion is restricted for safety reasons, but archiving is allowed."
+		
+	case "harness":
+		allowedActions = []string{
+			"trigger_pipeline",
+			"get_pipeline_status",
+			"stop_pipeline",
+			"rollback_deployment",
+			"get_pipelines",
+		}
+		disallowedActions = []string{
+			"delete_pipeline",
+			"delete_application",
+			"delete_environment",
+			"delete_service",
+		}
+		safetyNotes = "Pipeline and resource deletion operations are restricted for safety reasons."
+		
+	case "sonarqube":
+		allowedActions = []string{
+			"trigger_analysis",
+			"get_quality_gate_status",
+			"get_issues",
+			"get_metrics",
+			"get_projects",
+		}
+		disallowedActions = []string{
+			"delete_project",
+			"reset_quality_gate",
+		}
+		safetyNotes = "Project deletion and quality gate reset operations are restricted."
+		
+	case "artifactory":
+		allowedActions = []string{
+			"download_artifact",
+			"get_artifact_info",
+			"search_artifacts",
+			"get_build_info",
+			"get_repositories",
+		}
+		disallowedActions = []string{
+			"upload_artifact",
+			"delete_artifact",
+			"move_artifact",
+			"delete_repository",
+		}
+		safetyNotes = "Read-only access for safety reasons (no upload, delete, or modify operations allowed)."
+		
+	case "xray":
+		allowedActions = []string{
+			"scan_artifact",
+			"get_vulnerabilities",
+			"get_licenses",
+			"get_component_summary",
+		}
+		disallowedActions = []string{
+			"ignore_vulnerability",
+			"delete_scan",
+		}
+		safetyNotes = "Only scanning and information retrieval operations are supported."
+		
 	default:
 		c.JSON(http.StatusNotFound, gin.H{"error": "Tool not found"})
 		return

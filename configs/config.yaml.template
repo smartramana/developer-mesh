@@ -160,8 +160,54 @@ adapters:
     request_timeout: 30s
     retry_max: 3
     retry_delay: 1s
+    mock_responses: true
+    mock_url: "http://mockserver:8081/mock-github"
   
-  # Note: Harness, SonarQube, Artifactory, and JFrog Xray adapter support has been removed
+  harness:
+    api_token: "your-harness-api-token"
+    account_id: "your-harness-account-id"
+    base_url: "https://app.harness.io/gateway/api/graphql"
+    request_timeout: 30s
+    retry_max: 3
+    retry_delay: 1s
+    mock_responses: true
+    mock_url: "http://mockserver:8081/mock-harness"
+  
+  sonarqube:
+    base_url: "https://sonarqube.example.com/api"
+    token: "your-sonarqube-token"
+    # Or use username/password authentication
+    # username: "your-sonarqube-username"
+    # password: "your-sonarqube-password"
+    request_timeout: 30s
+    retry_max: 3
+    retry_delay: 1s
+    mock_responses: true
+    mock_url: "http://mockserver:8081/mock-sonarqube"
+  
+  artifactory:
+    base_url: "https://artifactory.example.com/artifactory/api"
+    token: "your-artifactory-token"
+    # Or use username/password authentication
+    # username: "your-artifactory-username"
+    # password: "your-artifactory-password"
+    request_timeout: 30s
+    retry_max: 3
+    retry_delay: 1s
+    mock_responses: true
+    mock_url: "http://mockserver:8081/mock-artifactory"
+  
+  xray:
+    base_url: "https://xray.example.com/api/v1"
+    token: "your-xray-token"
+    # Or use username/password authentication
+    # username: "your-xray-username"
+    # password: "your-xray-password"
+    request_timeout: 30s
+    retry_max: 3
+    retry_delay: 1s
+    mock_responses: true
+    mock_url: "http://mockserver:8081/mock-xray"
 
 # Monitoring Configuration
 monitoring:
