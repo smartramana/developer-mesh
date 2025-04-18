@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"strconv"
 	"time"
 
 	"github.com/S-Corkum/mcp-server/internal/adapters"
@@ -85,6 +86,16 @@ func (a *Adapter) Initialize(ctx context.Context, cfg interface{}) error {
 	tc := oauth2.NewClient(ctx, ts)
 	tc.Timeout = a.config.RequestTimeout
 
+	// Wrap the transport to add API version header
+	if transport, ok := tc.Transport.(*oauth2.Transport); ok {
+		transport.Base = &headerTransport{
+			base:       transport.Base,
+			token:      a.config.APIToken,
+			apiVersion: "2022-11-28",
+		}
+		tc.Transport = transport
+	}
+
 	// Create GitHub client
 	if a.config.EnterpriseURL != "" {
 		client, err := github.NewEnterpriseClient(a.config.EnterpriseURL, a.config.EnterpriseURL, tc)
@@ -96,9 +107,6 @@ func (a *Adapter) Initialize(ctx context.Context, cfg interface{}) error {
 	} else {
 		a.client = github.NewClient(tc)
 	}
-
-	// Add API version header to all requests
-	a.client.WithAuthToken(a.config.APIToken)
 	
 	// Test the connection
 	if err := a.testConnection(ctx); err != nil {
@@ -108,31 +116,6 @@ func (a *Adapter) Initialize(ctx context.Context, cfg interface{}) error {
 
 	a.healthStatus = "healthy"
 	return nil
-}
-
-// WithAuthToken sets the authorization token for all requests
-func (c *github.Client) WithAuthToken(token string) {
-	c.WithAuthTokenAndApiVersion(token, "2022-11-28")
-}
-
-// WithAuthTokenAndApiVersion sets the authorization token and API version for all requests
-func (c *github.Client) WithAuthTokenAndApiVersion(token, apiVersion string) {
-	c.BaseURL = c.BaseURL // This is just to access the Client internals
-	
-	// Add the transport to automatically include headers
-	if c.Client.Transport != nil {
-		c.Client.Transport = &headerTransport{
-			base:       c.Client.Transport,
-			token:      token,
-			apiVersion: apiVersion,
-		}
-	} else {
-		c.Client.Transport = &headerTransport{
-			base:       http.DefaultTransport,
-			token:      token,
-			apiVersion: apiVersion,
-		}
-	}
 }
 
 // headerTransport is a custom transport that adds headers to all requests
@@ -845,11 +828,53 @@ func (a *Adapter) triggerWorkflow(ctx context.Context, params map[string]interfa
 		return nil, fmt.Errorf("missing repo parameter")
 	}
 
-	workflowID, ok := params["workflow_id"].(string)
+	workflowIDStr, ok := params["workflow_id"].(string)
 	if !ok {
 		return nil, fmt.Errorf("missing workflow_id parameter")
 	}
 
+	// Convert workflow ID to int64 if it's numeric, otherwise use the file name directly
+	var workflowID int64
+	var err error
+	if workflowID, err = strconv.ParseInt(workflowIDStr, 10, 64); err != nil {
+		// If it's not a numeric ID, use the workflow file name API
+		ref, refOk := params["ref"].(string)
+		if !refOk {
+			// If no ref provided, use the default branch
+			repoInfo, _, err := a.client.Repositories.Get(ctx, owner, repo)
+			if err != nil {
+				return nil, fmt.Errorf("failed to get repository: %w", err)
+			}
+			
+			ref = repoInfo.GetDefaultBranch()
+		}
+
+		// Get inputs if provided
+		inputs := make(map[string]interface{})
+		if inputsParam, ok := params["inputs"].(map[string]interface{}); ok {
+			inputs = inputsParam
+		}
+
+		// Create workflow dispatch event
+		event := github.CreateWorkflowDispatchEventRequest{
+			Ref:    ref,
+			Inputs: inputs,
+		}
+
+		// Trigger the workflow by file name
+		_, err = a.client.Actions.CreateWorkflowDispatchEvent(ctx, owner, repo, workflowIDStr, event)
+		if err != nil {
+			return nil, fmt.Errorf("failed to trigger workflow: %w", err)
+		}
+
+		return map[string]interface{}{
+			"success":     true,
+			"workflow_id": workflowIDStr,
+			"ref":         ref,
+		}, nil
+	}
+
+	// If we get here, we have a numeric workflow ID
 	ref, ok := params["ref"].(string)
 	if !ok {
 		// If no ref provided, use the default branch
@@ -873,8 +898,8 @@ func (a *Adapter) triggerWorkflow(ctx context.Context, params map[string]interfa
 		Inputs: inputs,
 	}
 
-	// Trigger the workflow
-	_, err := a.client.Actions.CreateWorkflowDispatchEventByID(ctx, owner, repo, int64(workflowID), event)
+	// Trigger the workflow by ID
+	_, err = a.client.Actions.CreateWorkflowDispatchEventByID(ctx, owner, repo, workflowID, event)
 	if err != nil {
 		return nil, fmt.Errorf("failed to trigger workflow: %w", err)
 	}
@@ -1110,8 +1135,16 @@ func (a *Adapter) getRepository(ctx context.Context, params map[string]interface
 		"has_projects":   repository.GetHasProjects(),
 		"archived":       repository.GetArchived(),
 		"disabled":       repository.GetDisabled(),
-		"license":        repository.GetLicense().GetSPDXID(),
-		"topics":         repository.Topics,
+	}
+
+	// Add license info if available
+	if repository.License != nil {
+		result["license"] = repository.License.GetSPDXID()
+	}
+
+	// Add topics if available
+	if repository.Topics != nil {
+		result["topics"] = repository.Topics
 	}
 
 	return result, nil
@@ -1406,9 +1439,8 @@ func (a *Adapter) getTeams(ctx context.Context, params map[string]interface{}) (
 			"html_url":    team.GetHTMLURL(),
 			"members_count": team.GetMembersCount(),
 			"repos_count": team.GetReposCount(),
-			"created_at":  team.GetCreatedAt(),
-			"updated_at":  team.GetUpdatedAt(),
 		}
+		
 		result = append(result, teamMap)
 	}
 
@@ -1496,7 +1528,7 @@ func (a *Adapter) getWorkflowRuns(ctx context.Context, params map[string]interfa
 
 	return map[string]interface{}{
 		"workflow_runs": result,
-		"total_count":   runs.GetTotalCount(),
+		"total_count":   runs.GetTotal(),
 	}, nil
 }
 
