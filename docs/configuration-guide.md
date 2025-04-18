@@ -55,22 +55,6 @@ api:
       enabled: true                # Enable GitHub webhooks
       secret: "${GITHUB_WEBHOOK_SECRET}"  # Secret for verifying webhook signatures
       path: "/github"              # Custom path for the webhook endpoint
-    harness:
-      enabled: true
-      secret: "${HARNESS_WEBHOOK_SECRET}"
-      path: "/harness"
-    sonarqube:
-      enabled: true
-      secret: "${SONARQUBE_WEBHOOK_SECRET}"
-      path: "/sonarqube"
-    artifactory:
-      enabled: true
-      secret: "${ARTIFACTORY_WEBHOOK_SECRET}"
-      path: "/artifactory"
-    xray:
-      enabled: true
-      secret: "${XRAY_WEBHOOK_SECRET}"
-      path: "/xray"
     
   # Authentication configuration
   auth:
@@ -146,55 +130,6 @@ engine:
     retry_delay: 1s                        # Delay between retries
     mock_responses: false                  # Use mock responses instead of real API
     mock_url: "http://localhost:8081/mock-github"  # URL for mock server
-  
-  # Harness Configuration
-  harness:
-    api_token: "${HARNESS_API_TOKEN}"      # Harness API token
-    account_id: "${HARNESS_ACCOUNT_ID}"    # Harness account ID
-    webhook_secret: "${HARNESS_WEBHOOK_SECRET}"  # Harness webhook secret
-    base_url: "https://app.harness.io/gateway"  # Harness API base URL
-    request_timeout: 10s                   # Timeout for API requests
-    max_retries: 3                         # Maximum number of retries for API requests
-    retry_delay: 1s                        # Delay between retries
-    mock_responses: false                  # Use mock responses instead of real API
-    mock_url: "http://localhost:8081/mock-harness"  # URL for mock server
-  
-  # SonarQube Configuration
-  sonarqube:
-    base_url: "${SONARQUBE_URL}"          # SonarQube URL
-    token: "${SONARQUBE_TOKEN}"           # SonarQube API token
-    webhook_secret: "${SONARQUBE_WEBHOOK_SECRET}"  # SonarQube webhook secret
-    request_timeout: 10s                   # Timeout for API requests
-    max_retries: 3                         # Maximum number of retries for API requests
-    retry_delay: 1s                        # Delay between retries
-    mock_responses: false                  # Use mock responses instead of real API
-    mock_url: "http://localhost:8081/mock-sonarqube"  # URL for mock server
-  
-  # Artifactory Configuration
-  artifactory:
-    base_url: "${ARTIFACTORY_URL}"        # Artifactory URL
-    username: "${ARTIFACTORY_USERNAME}"   # Artifactory username
-    password: "${ARTIFACTORY_PASSWORD}"   # Artifactory password
-    api_key: "${ARTIFACTORY_API_KEY}"     # Artifactory API key
-    webhook_secret: "${ARTIFACTORY_WEBHOOK_SECRET}"  # Artifactory webhook secret
-    request_timeout: 10s                   # Timeout for API requests
-    max_retries: 3                         # Maximum number of retries for API requests
-    retry_delay: 1s                        # Delay between retries
-    mock_responses: false                  # Use mock responses instead of real API
-    mock_url: "http://localhost:8081/mock-artifactory"  # URL for mock server
-  
-  # Xray Configuration
-  xray:
-    base_url: "${XRAY_URL}"               # Xray URL
-    username: "${XRAY_USERNAME}"          # Xray username
-    password: "${XRAY_PASSWORD}"          # Xray password
-    api_key: "${XRAY_API_KEY}"            # Xray API key
-    webhook_secret: "${XRAY_WEBHOOK_SECRET}"  # Xray webhook secret
-    request_timeout: 10s                   # Timeout for API requests
-    max_retries: 3                         # Maximum number of retries for API requests
-    retry_delay: 1s                        # Delay between retries
-    mock_responses: false                  # Use mock responses instead of real API
-    mock_url: "http://localhost:8081/mock-xray"  # URL for mock server
 ```
 
 #### Metrics Configuration
@@ -326,14 +261,13 @@ storage:
 
 ## Mock Mode
 
-For development and testing, you can configure the adapters to use mock responses instead of connecting to real services:
+For development and testing, you can configure the GitHub adapter to use mock responses instead of connecting to the real GitHub API:
 
 ```yaml
 engine:
   github:
     mock_responses: true
     mock_url: "http://localhost:8081/mock-github"
-  # Similarly for other adapters
 ```
 
-When running with Docker Compose, mock mode is enabled by default for all adapters.
+When running with Docker Compose, mock mode is enabled by default for the GitHub adapter.

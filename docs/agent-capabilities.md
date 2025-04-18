@@ -35,38 +35,7 @@ This document provides a comprehensive overview of what AI agents can accomplish
 - Search code and issues
 - Receive and process GitHub webhooks
 
-### Harness CI/CD Operations
-- Trigger pipeline executions
-- Monitor build and deployment statuses
-- Stop running pipelines
-- Perform rollbacks of failed deployments
-- Toggle non-production feature flags
-- View pipeline configuration
-- **Cannot modify production feature flags** (safety restricted)
-- **Cannot delete pipelines or services** (safety restricted)
-
-### Artifactory Operations (Read-Only)
-- View and download artifacts
-- Search for artifacts across repositories
-- Get artifact metadata and properties
-- View repository information
-- Check storage statistics
-- **Cannot upload, modify, or delete artifacts** (safety restricted)
-
-### SonarQube Operations
-- Trigger code analysis
-- View quality gate status
-- List code issues and violations
-- Review code quality metrics
-- Monitor project status
-- **Cannot delete projects** (safety restricted)
-
-### Xray Security Operations
-- Scan artifacts for vulnerabilities
-- View security vulnerability reports
-- Check license compliance
-- Monitor policy violations
-- **Cannot modify security policies** (safety restricted)
+Note: Previous support for Harness CI/CD, SonarQube, Artifactory, and JFrog Xray has been removed. Only GitHub integration is currently supported.
 
 ## Advanced Agent Capabilities
 
@@ -116,10 +85,6 @@ AI agents can interact with the MCP server through a RESTful API:
 ### Webhook Endpoints
 - Agent Events: `POST /webhook/agent`
 - GitHub: `POST /webhook/github`
-- Harness: `POST /webhook/harness`
-- SonarQube: `POST /webhook/sonarqube`
-- Artifactory: `POST /webhook/artifactory`
-- Xray: `POST /webhook/xray`
 
 ## Client Library
 
@@ -130,9 +95,5 @@ The MCP server provides a Go client library (`pkg/client`) that AI agents can us
 Our safety implementation ensures that AI agents cannot accidentally:
 
 1. Delete GitHub repositories (but they can archive them)
-2. Upload or delete artifacts in Artifactory (read-only access)
-3. Delete or modify production feature flags in Harness
-4. Delete projects in SonarQube
-5. Modify security policies in Xray
 
-These safety guarantees protect against potentially destructive operations while still allowing agents to perform useful tasks.
+This safety guarantee protects against potentially destructive operations while still allowing agents to perform useful tasks.
