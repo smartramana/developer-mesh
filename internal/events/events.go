@@ -184,8 +184,8 @@ func (bus *EventBus) processEvents() {
 			err := handler(ctx, item.event)
 			
 			// Record metrics
-			duration := time.Since(startTime)
-			// You would record event processing metrics here
+			_ = time.Since(startTime)
+			// NOTE: Metrics recording is currently disabled
 			
 			// Handle error
 			if err != nil {

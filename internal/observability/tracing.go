@@ -167,23 +167,29 @@ const ToolActionAttributeKey = attribute.Key("tool.action")
 
 // TraceContext wraps span operations for a specific context
 func TraceContext(ctx context.Context, operation string, modelID string) (context.Context, trace.Span) {
-	return StartSpan(ctx, "context."+operation,
+	ctx, span := StartSpan(ctx, "context."+operation)
+	span.SetAttributes(
 		ContextOperationAttributeKey.String(operation),
 		ContextModelAttributeKey.String(modelID),
 	)
+	return ctx, span
 }
 
 // TraceVector wraps span operations for vector operations
 func TraceVector(ctx context.Context, operation string) (context.Context, trace.Span) {
-	return StartSpan(ctx, "vector."+operation,
+	ctx, span := StartSpan(ctx, "vector."+operation)
+	span.SetAttributes(
 		VectorOperationAttributeKey.String(operation),
 	)
+	return ctx, span
 }
 
 // TraceTool wraps span operations for tool operations
 func TraceTool(ctx context.Context, tool string, action string) (context.Context, trace.Span) {
-	return StartSpan(ctx, "tool."+action,
+	ctx, span := StartSpan(ctx, "tool."+action)
+	span.SetAttributes(
 		ToolNameAttributeKey.String(tool),
 		ToolActionAttributeKey.String(action),
 	)
+	return ctx, span
 }

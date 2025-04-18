@@ -158,11 +158,16 @@ func (c *MultiLevelCache) Get(ctx context.Context, key string, value interface{}
 	
 	// Try L2 cache
 	var data []byte
-	found, err := c.l2Cache.Get(ctx, key, &data)
-	if err != nil || !found {
+	err := c.l2Cache.Get(ctx, key, &data)
+	if err != nil {
 		// Record metrics
 		duration := time.Since(startTime)
 		c.metricsClient.RecordCacheOperation("get", false, duration.Seconds())
+		
+		// If it's a not found error, return false with no error
+		if err == ErrNotFound {
+			return false, nil
+		}
 		
 		return false, err
 	}
