@@ -5,6 +5,19 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.2.9] - 2025-04-17
+
+### Added
+- Comprehensive test suite for Harness adapter
+- Tests for Harness adapter's safety functions
+- Improved code safety with properly defined stubs for unimplemented methods
+
+### Fixed
+- Fixed compilation errors in Harness adapter implementation
+- Fixed missing byte import in ignoreCCMRecommendation and similar methods
+- Fixed proper error handling in request/response processing
+- Resolved unstructured error handling in adapter methods
+
 ## [0.2.8] - 2025-04-17
 
 ### Added
