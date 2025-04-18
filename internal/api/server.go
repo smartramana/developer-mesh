@@ -103,8 +103,71 @@ func (s *Server) setupRoutes() {
 	mcpAPI.RegisterRoutes(v1)
 	
 	// Tool integration API
+	// IMPORTANT: Create a direct static tools list without relying on the adapter bridge
 	toolAPI := NewToolAPI(s.engine.AdapterBridge)
-	toolAPI.RegisterRoutes(v1)
+	
+	// Register tool routes manually to ensure all endpoints work correctly
+	v1.POST("/tools/:tool/actions/:action", toolAPI.executeToolAction)
+	v1.POST("/tools/:tool/query", toolAPI.queryToolData)
+	v1.GET("/tools/:tool/actions", toolAPI.listAllowedActions)
+	
+	// Register GET /tools directly as a static handler
+	v1.GET("/tools", func(c *gin.Context) {
+		c.JSON(http.StatusOK, gin.H{"tools": []map[string]interface{}{
+			{
+				"name": "github",
+				"description": "GitHub integration for repository, pull request, and code management",
+				"actions": []string{
+					"create_issue",
+					"close_issue",
+					"create_pull_request",
+					"merge_pull_request",
+					"add_comment",
+					"archive_repository",
+				},
+				"safety_notes": "Cannot delete repositories for safety reasons",
+			},
+			{
+				"name": "harness",
+				"description": "Harness CI/CD integration for builds and deployments",
+				"actions": []string{
+					"trigger_pipeline",
+					"get_pipeline_status",
+					"stop_pipeline",
+					"rollback_deployment",
+				},
+				"safety_notes": "Cannot delete production feature flags for safety reasons",
+			},
+			{
+				"name": "sonarqube",
+				"description": "SonarQube integration for code quality analysis",
+				"actions": []string{
+					"trigger_analysis",
+					"get_quality_gate_status",
+					"get_issues",
+				},
+			},
+			{
+				"name": "artifactory",
+				"description": "JFrog Artifactory integration for artifact management (read-only)",
+				"actions": []string{
+					"download_artifact",
+					"get_artifact_info",
+					"search_artifacts",
+				},
+				"safety_notes": "Read-only access for safety reasons (no upload or delete capabilities)",
+			},
+			{
+				"name": "xray",
+				"description": "JFrog Xray integration for security scanning",
+				"actions": []string{
+					"scan_artifact",
+					"get_vulnerabilities",
+					"get_licenses",
+				},
+			},
+		}})
+	})
 	
 	// Vector API endpoints
 	vectorAPI := NewVectorAPI(s.embeddingRepo)
