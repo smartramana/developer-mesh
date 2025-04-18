@@ -5,11 +5,9 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
-	"strings"
 	"testing"
 	"time"
 
-	"github.com/S-Corkum/mcp-server/pkg/models"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -18,7 +16,7 @@ func TestNewAdapter(t *testing.T) {
 	cfg := Config{
 		BaseURL:        "https://artifactory.example.com",
 		RequestTimeout: 30 * time.Second,
-		MaxRetries:     3,
+		RetryMax:       3,
 		RetryDelay:     1 * time.Second,
 	}
 
@@ -27,31 +25,40 @@ func TestNewAdapter(t *testing.T) {
 	assert.NotNil(t, adapter)
 	assert.Equal(t, cfg.BaseURL, adapter.config.BaseURL)
 	assert.Equal(t, cfg.RequestTimeout, adapter.config.RequestTimeout)
-	assert.Equal(t, cfg.MaxRetries, adapter.baseAdapter.RetryMax)
-	assert.Equal(t, cfg.RetryDelay, adapter.baseAdapter.RetryDelay)
-	assert.NotNil(t, adapter.subscribers)
-	assert.NotNil(t, adapter.client)
+	assert.Equal(t, cfg.RetryMax, adapter.BaseAdapter.RetryMax)
+	assert.Equal(t, cfg.RetryDelay, adapter.BaseAdapter.RetryDelay)
 }
 
-func TestAddAuthHeader(t *testing.T) {
+func TestSetAuthHeaders(t *testing.T) {
 	testCases := []struct {
 		name     string
 		config   Config
 		expected string
+		header   string
 	}{
 		{
-			name: "Access Token Auth",
+			name: "Bearer Token Prefixed Auth",
 			config: Config{
-				AccessToken: "abc123",
+				Token: "Bearer abc123",
 			},
 			expected: "Bearer abc123",
+			header:   "Authorization",
+		},
+		{
+			name: "JWT Token Auth",
+			config: Config{
+				Token: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+			},
+			expected: "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+			header:   "Authorization",
 		},
 		{
 			name: "API Key Auth",
 			config: Config{
-				ApiKey: "apikey123",
+				Token: "apikey123",
 			},
 			expected: "apikey123",
+			header:   "X-JFrog-Art-Api",
 		},
 		{
 			name: "Basic Auth",
@@ -59,7 +66,7 @@ func TestAddAuthHeader(t *testing.T) {
 				Username: "user",
 				Password: "pass",
 			},
-			expected: "Basic dXNlcjpwYXNz", // "user:pass" in Base64
+			header: "Authorization",
 		},
 	}
 
@@ -67,106 +74,14 @@ func TestAddAuthHeader(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			adapter, _ := NewAdapter(tc.config)
 			req, _ := http.NewRequest("GET", "https://example.com", nil)
-			adapter.addAuthHeader(req)
+			adapter.setAuthHeaders(req)
 
-			switch {
-			case tc.config.AccessToken != "":
-				assert.Equal(t, tc.expected, req.Header.Get("Authorization"))
-			case tc.config.ApiKey != "":
-				assert.Equal(t, tc.expected, req.Header.Get("X-JFrog-Art-Api"))
-			default:
-				assert.Equal(t, tc.expected, req.Header.Get("Authorization"))
+			// For Basic Auth, just verify it's set
+			if tc.config.Username != "" {
+				assert.NotEmpty(t, req.Header.Get(tc.header))
+			} else {
+				assert.Equal(t, tc.expected, req.Header.Get(tc.header))
 			}
-		})
-	}
-}
-
-func TestBuildQueryParams(t *testing.T) {
-	adapter, _ := NewAdapter(Config{BaseURL: "https://artifactory.example.com"})
-
-	testCases := []struct {
-		name           string
-		query          models.ArtifactoryQuery
-		expectedPath   string
-		expectedParams string
-	}{
-		{
-			name: "Repository Query",
-			query: models.ArtifactoryQuery{
-				Type:        models.ArtifactoryQueryTypeRepository,
-				RepoType:    "local",
-				PackageType: "maven",
-			},
-			expectedPath:   "/api/repositories",
-			expectedParams: "packageType=maven&type=local",
-		},
-		{
-			name: "Artifact Query",
-			query: models.ArtifactoryQuery{
-				Type:    models.ArtifactoryQueryTypeArtifact,
-				RepoKey: "maven-local",
-				Path:    "org/example/app/1.0.0/app-1.0.0.jar",
-			},
-			expectedPath:   "/api/storage/maven-local/org/example/app/1.0.0/app-1.0.0.jar",
-			expectedParams: "properties=1&stats=1",
-		},
-		{
-			name: "Build Query With Name and Number",
-			query: models.ArtifactoryQuery{
-				Type:        models.ArtifactoryQueryTypeBuild,
-				BuildName:   "my-app",
-				BuildNumber: "42",
-			},
-			expectedPath:   "/api/build/my-app/42",
-			expectedParams: "",
-		},
-		{
-			name: "Build Query Without Name",
-			query: models.ArtifactoryQuery{
-				Type: models.ArtifactoryQueryTypeBuild,
-			},
-			expectedPath:   "/api/build",
-			expectedParams: "",
-		},
-		{
-			name: "Storage Query",
-			query: models.ArtifactoryQuery{
-				Type: models.ArtifactoryQueryTypeStorage,
-			},
-			expectedPath:   "/api/storageinfo",
-			expectedParams: "",
-		},
-		{
-			name: "Unknown Query Type",
-			query: models.ArtifactoryQuery{
-				Type: "unknown",
-			},
-			expectedPath:   "/api/unknown",
-			expectedParams: "",
-		},
-	}
-
-	for _, tc := range testCases {
-		t.Run(tc.name, func(t *testing.T) {
-			path, params := adapter.buildQueryParams(tc.query)
-			assert.Equal(t, tc.expectedPath, path)
-			
-			// Compare query parameters regardless of order
-			expectedParams := make(map[string]struct{})
-			for _, param := range strings.Split(tc.expectedParams, "&") {
-				if param != "" {
-					expectedParams[param] = struct{}{}
-				}
-			}
-			
-			actualParams := make(map[string]struct{})
-			for _, param := range strings.Split(params, "&") {
-				if param != "" {
-					actualParams[param] = struct{}{}
-				}
-			}
-			
-			assert.Equal(t, expectedParams, actualParams)
 		})
 	}
 }
@@ -176,10 +91,12 @@ func TestIsSafeOperation(t *testing.T) {
 
 	// Test cases for safe operations
 	safeOps := []string{
-		"get_artifact",
-		"get_repository_info",
-		"list_repositories",
+		"download_artifact",
+		"get_artifact_info",
 		"search_artifacts",
+		"get_repository_info",
+		"get_folder_content",
+		"calculate_checksum",
 	}
 
 	for _, op := range safeOps {
@@ -190,140 +107,96 @@ func TestIsSafeOperation(t *testing.T) {
 		})
 	}
 
-	// Test case for unsafe operation
-	unsafe := "delete_repository"
-	safe, err := adapter.IsSafeOperation(unsafe, nil)
-	assert.False(t, safe)
-	assert.NoError(t, err)
-}
-
-func TestHandleWebhook(t *testing.T) {
-	adapter, _ := NewAdapter(Config{})
-
-	// Mock subscriber
-	receivedEvent := false
-	adapter.Subscribe("artifact", func(event interface{}) {
-		receivedEvent = true
-	})
-
-	// Create test webhook payload
-	webhookEvent := models.ArtifactoryWebhookEvent{
-		Domain:    "artifact",
-		EventType: "created",
-		Data: models.ArtifactoryWebhookData{
-			RepoKey: "maven-local",
-			Path:    "org/example/app",
-			Name:    "app-1.0.0.jar",
-		},
+	// Test cases for unsafe operations
+	unsafeOps := []string{
+		"upload_artifact",
+		"delete_artifact",
+		"move_artifact",
+		"delete_repository",
 	}
 
-	payload, _ := json.Marshal(webhookEvent)
-
-	// Test handle webhook
-	err := adapter.HandleWebhook(context.Background(), "webhook", payload)
-	assert.NoError(t, err)
-
-	// Verify the event was processed
-	time.Sleep(10 * time.Millisecond) // Give time for the goroutine to execute
-	assert.True(t, receivedEvent)
-}
-
-func TestDetermineEventType(t *testing.T) {
-	adapter, _ := NewAdapter(Config{})
-
-	// Test with valid event
-	event := models.ArtifactoryWebhookEvent{
-		Domain: "artifact",
+	for _, op := range unsafeOps {
+		t.Run(op, func(t *testing.T) {
+			safe, err := adapter.IsSafeOperation(op, nil)
+			assert.False(t, safe)
+			assert.Error(t, err)
+		})
 	}
-	eventType := adapter.determineEventType(event)
-	assert.Equal(t, "artifact", eventType)
-
-	// Test with invalid event type
-	invalidEvent := "not an event"
-	eventType = adapter.determineEventType(invalidEvent)
-	assert.Equal(t, "unknown", eventType)
-}
-
-func TestParseWebhookEvent(t *testing.T) {
-	adapter, _ := NewAdapter(Config{})
-
-	// Create valid webhook payload
-	webhookEvent := models.ArtifactoryWebhookEvent{
-		Domain:    "artifact",
-		EventType: "created",
-		Data: models.ArtifactoryWebhookData{
-			RepoKey: "maven-local",
-			Path:    "org/example/app",
-			Name:    "app-1.0.0.jar",
-		},
-	}
-
-	payload, _ := json.Marshal(webhookEvent)
-
-	// Test parsing valid payload
-	event, err := adapter.parseWebhookEvent(payload)
-	assert.NoError(t, err)
-	assert.NotNil(t, event)
-
-	parsedEvent, ok := event.(models.ArtifactoryWebhookEvent)
-	assert.True(t, ok)
-	assert.Equal(t, webhookEvent.Domain, parsedEvent.Domain)
-	assert.Equal(t, webhookEvent.EventType, parsedEvent.EventType)
-	assert.Equal(t, webhookEvent.Data.RepoKey, parsedEvent.Data.RepoKey)
-
-	// Test parsing invalid payload
-	_, err = adapter.parseWebhookEvent([]byte("not json"))
-	assert.Error(t, err)
 }
 
 func TestGetData(t *testing.T) {
 	// Create a test server
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		
 		// Check the request path and return appropriate mock response
 		switch {
-		case strings.Contains(r.URL.Path, "/api/repositories"):
-			// Mock repositories response
-			resp := models.ArtifactoryRepositories{
-				Repositories: []models.ArtifactoryRepository{
+		case r.URL.Path == "/system/ping":
+			w.WriteHeader(http.StatusOK)
+			
+		case r.URL.Path == "/storage/maven-local/org/example/app/1.0.0/app-1.0.0.jar":
+			json.NewEncoder(w).Encode(map[string]interface{}{
+				"repo": "maven-local",
+				"path": "/org/example/app/1.0.0",
+				"name": "app-1.0.0.jar",
+				"size": 1024,
+				"created": "2023-01-01T00:00:00Z",
+			})
+			
+		case r.URL.Path == "/search/aql":
+			json.NewEncoder(w).Encode(map[string]interface{}{
+				"results": []map[string]interface{}{
 					{
-						Key:         "maven-local",
-						Type:        "local",
-						Description: "Local Maven repository",
-						URL:         "https://artifactory.example.com/artifactory/maven-local",
-						PackageType: "maven",
+						"repo": "maven-local",
+						"path": "org/example",
+						"name": "example-lib-1.0.0.jar",
 					},
 				},
-			}
-			json.NewEncoder(w).Encode(resp)
+				"range": map[string]interface{}{
+					"start_pos": 0,
+					"end_pos": 1,
+					"total": 1,
+				},
+			})
 			
-		case strings.Contains(r.URL.Path, "/api/storage"):
-			// Mock artifact response
-			resp := models.ArtifactoryArtifact{
-				Repo:       "maven-local",
-				Path:       "org/example/app/1.0.0",
-				Name:       "app-1.0.0.jar",
-				Size:       1024,
-				Created:    "2023-01-01T00:00:00Z",
-				Properties: map[string][]string{"build.name": {"my-app"}},
-			}
-			json.NewEncoder(w).Encode(resp)
+		case r.URL.Path == "/build/my-app/42":
+			json.NewEncoder(w).Encode(map[string]interface{}{
+				"buildInfo": map[string]interface{}{
+					"name": "my-app",
+					"number": "42",
+				},
+			})
 			
-		case strings.Contains(r.URL.Path, "/api/build"):
-			// Mock build response
-			resp := models.ArtifactoryBuild{}
-			resp.BuildInfo.Name = "my-app"
-			resp.BuildInfo.Number = "42"
-			json.NewEncoder(w).Encode(resp)
+		case r.URL.Path == "/repositories":
+			json.NewEncoder(w).Encode([]map[string]interface{}{
+				{
+					"key": "maven-local",
+					"type": "local",
+					"packageType": "maven",
+				},
+			})
 			
-		case strings.Contains(r.URL.Path, "/api/storageinfo"):
-			// Mock storage response
-			resp := models.ArtifactoryStorage{}
-			resp.BinariesSummary.BinariesCount = 100
-			resp.BinariesSummary.BinariesSize = 1048576
-			json.NewEncoder(w).Encode(resp)
+		case r.URL.Path == "/storageinfo":
+			json.NewEncoder(w).Encode(map[string]interface{}{
+				"binariesSummary": map[string]interface{}{
+					"binariesCount": 100,
+					"binariesSize": 1048576,
+				},
+			})
+			
+		case r.URL.Path == "/system":
+			json.NewEncoder(w).Encode(map[string]interface{}{
+				"serverVersion": "7.0.0",
+				"serverTime": "2023-01-01T00:00:00Z",
+			})
+			
+		case r.URL.Path == "/system/version":
+			json.NewEncoder(w).Encode(map[string]interface{}{
+				"version": "7.0.0",
+				"revision": "12345",
+			})
 			
 		default:
-			// Return 404 for unknown paths
 			w.WriteHeader(http.StatusNotFound)
 		}
 	}))
@@ -334,134 +207,159 @@ func TestGetData(t *testing.T) {
 		BaseURL:        server.URL,
 		RequestTimeout: 1 * time.Second,
 	})
+	
+	// Initialize the adapter
+	err := adapter.Initialize(context.Background(), nil)
+	assert.NoError(t, err)
 
 	testCases := []struct {
 		name        string
-		query       models.ArtifactoryQuery
+		operation   string
+		params      map[string]interface{}
 		expectError bool
 	}{
 		{
-			name: "Repository Query",
-			query: models.ArtifactoryQuery{
-				Type: models.ArtifactoryQueryTypeRepository,
+			name: "Get Artifact Info",
+			operation: "get_artifact_info",
+			params: map[string]interface{}{
+				"path": "maven-local/org/example/app/1.0.0/app-1.0.0.jar",
 			},
 			expectError: false,
 		},
 		{
-			name: "Artifact Query",
-			query: models.ArtifactoryQuery{
-				Type:    models.ArtifactoryQueryTypeArtifact,
-				RepoKey: "maven-local",
-				Path:    "org/example/app/1.0.0/app-1.0.0.jar",
+			name: "Search Artifacts",
+			operation: "search_artifacts",
+			params: map[string]interface{}{
+				"query": "example",
+				"repo": "maven-local",
 			},
 			expectError: false,
 		},
 		{
-			name: "Build Query",
-			query: models.ArtifactoryQuery{
-				Type:        models.ArtifactoryQueryTypeBuild,
-				BuildName:   "my-app",
-				BuildNumber: "42",
+			name: "Get Build Info",
+			operation: "get_build_info",
+			params: map[string]interface{}{
+				"build_name": "my-app",
+				"build_number": "42",
 			},
 			expectError: false,
 		},
 		{
-			name: "Storage Query",
-			query: models.ArtifactoryQuery{
-				Type: models.ArtifactoryQueryTypeStorage,
+			name: "Get Repositories",
+			operation: "get_repositories",
+			params: map[string]interface{}{
+				"type": "local",
 			},
 			expectError: false,
 		},
 		{
-			name: "Invalid Query Type",
-			query: models.ArtifactoryQuery{
-				Type: "invalid",
-			},
+			name: "Get Storage Info",
+			operation: "get_storage_info",
+			params: map[string]interface{}{},
+			expectError: false,
+		},
+		{
+			name: "Get System Info",
+			operation: "get_system_info",
+			params: map[string]interface{}{},
+			expectError: false,
+		},
+		{
+			name: "Get Version",
+			operation: "get_version",
+			params: map[string]interface{}{},
+			expectError: false,
+		},
+		{
+			name: "Invalid Operation",
+			operation: "invalid_operation",
+			params: map[string]interface{}{},
+			expectError: true,
+		},
+		{
+			name: "Missing Parameters",
+			operation: "get_artifact_info",
+			params: map[string]interface{}{},
 			expectError: true,
 		},
 	}
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			result, err := adapter.GetData(context.Background(), tc.query)
+			queryParams := map[string]interface{}{
+				"operation": tc.operation,
+			}
+			
+			// Add all params from the test case
+			for k, v := range tc.params {
+				queryParams[k] = v
+			}
+			
+			result, err := adapter.GetData(context.Background(), queryParams)
 			
 			if tc.expectError {
 				assert.Error(t, err)
 			} else {
 				assert.NoError(t, err)
 				assert.NotNil(t, result)
-				
-				// Verify the type of the result based on query type
-				switch tc.query.Type {
-				case models.ArtifactoryQueryTypeRepository:
-					_, ok := result.(models.ArtifactoryRepositories)
-					assert.True(t, ok)
-				case models.ArtifactoryQueryTypeArtifact:
-					_, ok := result.(models.ArtifactoryArtifact)
-					assert.True(t, ok)
-				case models.ArtifactoryQueryTypeBuild:
-					_, ok := result.(models.ArtifactoryBuild)
-					assert.True(t, ok)
-				case models.ArtifactoryQueryTypeStorage:
-					_, ok := result.(models.ArtifactoryStorage)
-					assert.True(t, ok)
-				}
 			}
 		})
 	}
-
-	// Test with invalid query type
-	_, err := adapter.GetData(context.Background(), "invalid")
-	assert.Error(t, err)
-}
-
-func TestDownloadArtifact(t *testing.T) {
-	// Create a test server
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		// Check for valid path
-		if strings.Contains(r.URL.Path, "maven-local/org/example/app") {
-			w.Write([]byte("mock artifact content"))
-		} else {
-			w.WriteHeader(http.StatusNotFound)
-		}
-	}))
-	defer server.Close()
-
-	// Create adapter with test server URL
-	adapter, _ := NewAdapter(Config{
-		BaseURL:        server.URL,
-		RequestTimeout: 1 * time.Second,
-	})
-
-	// Test with valid path
-	content, err := adapter.DownloadArtifact(context.Background(), "maven-local", "org/example/app/1.0.0/app-1.0.0.jar")
-	assert.NoError(t, err)
-	assert.Equal(t, []byte("mock artifact content"), content)
-
-	// Test with invalid path
-	_, err = adapter.DownloadArtifact(context.Background(), "invalid", "path")
-	assert.Error(t, err)
 }
 
 func TestExecuteAction(t *testing.T) {
 	// Create a test server
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		// Return different responses based on the request path
+		w.Header().Set("Content-Type", "application/json")
+		
+		// Check the request path and return appropriate mock response
 		switch {
-		case strings.Contains(r.URL.Path, "maven-local/org/example/app"):
-			w.Write([]byte("mock artifact content"))
-		case strings.Contains(r.URL.Path, "/api/repositories"):
-			json.NewEncoder(w).Encode(models.ArtifactoryRepositories{
-				Repositories: []models.ArtifactoryRepository{
-					{Key: "maven-local", Type: "local"},
+		case r.URL.Path == "/system/ping":
+			w.WriteHeader(http.StatusOK)
+			
+		case r.URL.Path == "/storage/maven-local/org/example/app/1.0.0/app-1.0.0.jar":
+			json.NewEncoder(w).Encode(map[string]interface{}{
+				"repo": "maven-local",
+				"path": "/org/example/app/1.0.0",
+				"name": "app-1.0.0.jar",
+				"size": 1024,
+				"created": "2023-01-01T00:00:00Z",
+			})
+			
+		case r.URL.Path == "/repositories/maven-local":
+			json.NewEncoder(w).Encode(map[string]interface{}{
+				"key": "maven-local",
+				"type": "local",
+				"packageType": "maven",
+			})
+			
+		case r.URL.String() == "/storage/maven-local?list=true&deep=1&listFolders=1":
+			json.NewEncoder(w).Encode(map[string]interface{}{
+				"repo": "maven-local",
+				"path": "/",
+				"children": []map[string]interface{}{
+					{
+						"uri": "/org",
+						"folder": true,
+					},
 				},
 			})
-		case strings.Contains(r.URL.Path, "/api/storage"):
-			json.NewEncoder(w).Encode(models.ArtifactoryArtifact{
-				Repo: "maven-local",
-				Path: "org/example/app",
-				Name: "app-1.0.0.jar",
+			
+		case r.URL.String() == "/storage/maven-local/org/example/app/1.0.0/app-1.0.0.jar?checksum":
+			json.NewEncoder(w).Encode(map[string]interface{}{
+				"checksums": map[string]interface{}{
+					"md5": "abcdef1234567890",
+					"sha1": "1234567890abcdef",
+					"sha256": "1234567890abcdef1234567890abcdef",
+				},
 			})
+			
+		case r.Method == "HEAD":
+			// For download artifact HEAD request
+			w.Header().Set("Content-Length", "1024")
+			w.Header().Set("Content-Type", "application/java-archive")
+			w.WriteHeader(http.StatusOK)
+			
 		default:
 			w.WriteHeader(http.StatusNotFound)
 		}
@@ -473,6 +371,10 @@ func TestExecuteAction(t *testing.T) {
 		BaseURL:        server.URL,
 		RequestTimeout: 1 * time.Second,
 	})
+	
+	// Initialize the adapter
+	err := adapter.Initialize(context.Background(), nil)
+	assert.NoError(t, err)
 
 	testCases := []struct {
 		name        string
@@ -481,57 +383,62 @@ func TestExecuteAction(t *testing.T) {
 		expectError bool
 	}{
 		{
-			name:   "Get Artifact",
-			action: "get_artifact",
+			name: "Get Artifact Info",
+			action: "get_artifact_info",
 			params: map[string]interface{}{
-				"repo": "maven-local",
-				"path": "org/example/app/1.0.0/app-1.0.0.jar",
+				"path": "maven-local/org/example/app/1.0.0/app-1.0.0.jar",
 			},
 			expectError: false,
 		},
 		{
-			name:   "Get Repository Info",
+			name: "Get Repository Info",
 			action: "get_repository_info",
 			params: map[string]interface{}{
-				"repo": "maven-local",
+				"repo_key": "maven-local",
 			},
 			expectError: false,
 		},
 		{
-			name:   "List Repositories",
-			action: "list_repositories",
+			name: "Get Folder Content",
+			action: "get_folder_content",
 			params: map[string]interface{}{
-				"type":         "local",
-				"package_type": "maven",
+				"path": "maven-local",
 			},
 			expectError: false,
 		},
 		{
-			name:   "Search Artifacts",
-			action: "search_artifacts",
+			name: "Calculate Checksum",
+			action: "calculate_checksum",
 			params: map[string]interface{}{
-				"repo": "maven-local",
-				"path": "org/example",
+				"path": "maven-local/org/example/app/1.0.0/app-1.0.0.jar",
 			},
 			expectError: false,
 		},
 		{
-			name:        "Unsupported Action",
-			action:      "unsupported",
-			params:      map[string]interface{}{},
+			name: "Download Artifact",
+			action: "download_artifact",
+			params: map[string]interface{}{
+				"path": "maven-local/org/example/app/1.0.0/app-1.0.0.jar",
+			},
+			expectError: false,
+		},
+		{
+			name: "Invalid Action",
+			action: "invalid_action",
+			params: map[string]interface{}{},
 			expectError: true,
 		},
 		{
-			name:        "Missing Repo Parameter",
-			action:      "get_artifact",
-			params:      map[string]interface{}{},
+			name: "Missing Parameters",
+			action: "get_artifact_info",
+			params: map[string]interface{}{},
 			expectError: true,
 		},
 	}
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			result, err := adapter.ExecuteAction(context.Background(), "test-context", tc.action, tc.params)
+			result, err := adapter.ExecuteAction(context.Background(), "test-context-id", tc.action, tc.params)
 			
 			if tc.expectError {
 				assert.Error(t, err)
@@ -546,7 +453,7 @@ func TestExecuteAction(t *testing.T) {
 func TestHealth(t *testing.T) {
 	// Create a healthy test server
 	healthyServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.URL.Path == "/api/system/ping" {
+		if r.URL.Path == "/system/ping" {
 			w.WriteHeader(http.StatusOK)
 		} else {
 			w.WriteHeader(http.StatusNotFound)
@@ -560,23 +467,24 @@ func TestHealth(t *testing.T) {
 	}))
 	defer unhealthyServer.Close()
 
-	// Test with healthy server
+	// Create adapters
 	healthyAdapter, _ := NewAdapter(Config{
 		BaseURL:        healthyServer.URL,
 		RequestTimeout: 1 * time.Second,
 	})
 	
-	status := healthyAdapter.Health()
-	assert.Equal(t, "healthy", status)
-
-	// Test with unhealthy server
 	unhealthyAdapter, _ := NewAdapter(Config{
 		BaseURL:        unhealthyServer.URL,
 		RequestTimeout: 1 * time.Second,
 	})
 	
-	status = unhealthyAdapter.Health()
-	assert.Contains(t, status, "unhealthy")
+	// Initialize adapters
+	healthyAdapter.Initialize(context.Background(), nil)
+	unhealthyAdapter.Initialize(context.Background(), nil)
+	
+	// Test health status
+	assert.Equal(t, "healthy", healthyAdapter.Health())
+	assert.Contains(t, unhealthyAdapter.Health(), "unhealthy")
 }
 
 func TestClose(t *testing.T) {

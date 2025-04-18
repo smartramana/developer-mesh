@@ -5,6 +5,15 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.1] - 2025-04-17
+
+### Fixed
+- Updated JFrog Artifactory adapter tests to align with the current implementation
+- Updated JFrog Xray adapter tests to align with the current implementation
+- Fixed test structure to properly validate auth headers, safe operations, API endpoints, and health checks
+- Enhanced test coverage for both adapters, including common operations such as GetData and ExecuteAction
+- Added test for extractVersionFromComponentID utility function in Xray adapter
+
 ## [0.3.0] - 2025-04-17
 
 ### Added
