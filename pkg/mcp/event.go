@@ -87,6 +87,9 @@ type ContextUpdateOptions struct {
 	// TruncateStrategy specifies the strategy for truncation (e.g., "oldest_first", "relevance")
 	TruncateStrategy string `json:"truncate_strategy,omitempty"`
 
+	// ReplaceContent indicates whether to replace the entire content instead of appending
+	ReplaceContent bool `json:"replace_content,omitempty"`
+
 	// RelevanceParameters contains parameters for relevance-based operations
 	RelevanceParameters map[string]interface{} `json:"relevance_parameters,omitempty"`
 }

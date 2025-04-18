@@ -150,12 +150,23 @@ func (cm *S3ContextManager) UpdateContext(ctx context.Context, contextID string,
 	
 	// Update content
 	if updateRequest.Content != nil {
-		// Append new items
-		currentContext.Content = append(currentContext.Content, updateRequest.Content...)
-		
-		// Update token count
-		for _, item := range updateRequest.Content {
-			currentContext.CurrentTokens += item.Tokens
+		if options != nil && options.ReplaceContent {
+			// Replace content entirely
+			currentContext.Content = updateRequest.Content
+			
+			// Reset and recalculate token count
+			currentContext.CurrentTokens = 0
+			for _, item := range updateRequest.Content {
+				currentContext.CurrentTokens += item.Tokens
+			}
+		} else {
+			// Append new items (default behavior)
+			currentContext.Content = append(currentContext.Content, updateRequest.Content...)
+			
+			// Update token count
+			for _, item := range updateRequest.Content {
+				currentContext.CurrentTokens += item.Tokens
+			}
 		}
 		
 		// Handle truncation if needed

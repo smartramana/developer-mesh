@@ -427,6 +427,58 @@ All configuration options can be set using environment variables with the `MCP_`
 - Search Context: `POST /api/v1/contexts/:id/search`
 - Summarize Context: `GET /api/v1/contexts/:id/summary`
 
+## Context Updates
+
+The MCP Server provides two modes for updating context content:
+
+### Append Mode (Default)
+
+By default, new content is appended to the existing content. This preserves the conversation history and is suitable for chat-based applications:
+
+```json
+{
+  "context": {
+    "agent_id": "test-agent",
+    "model_id": "test-model",
+    "content": [
+      {
+        "role": "user",
+        "content": "New message to append",
+        "timestamp": "2025-04-18T10:12:00Z",
+        "tokens": 5
+      }
+    ]
+  },
+  "options": {}
+}
+```
+
+### Replace Mode
+
+To replace the entire content instead of appending, set the `replace_content` option to `true`:
+
+```json
+{
+  "context": {
+    "agent_id": "test-agent",
+    "model_id": "test-model",
+    "content": [
+      {
+        "role": "user",
+        "content": "This will replace all existing content",
+        "timestamp": "2025-04-18T10:12:00Z",
+        "tokens": 7
+      }
+    ]
+  },
+  "options": {
+    "replace_content": true
+  }
+}
+```
+
+When using the MCP API endpoint (`/api/v1/mcp/context/:id`), content is replaced by default for backward compatibility.
+
 ### Vector API Endpoints
 
 - Store Embedding: `POST /api/v1/vectors/store`
