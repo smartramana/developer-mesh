@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"net/http"
+	"sync"
 	"time"
 	
 	"github.com/google/go-github/v53/github"
@@ -19,7 +20,9 @@ import (
 // Ensure GitHubAdapter implements core.Adapter interface
 var _ core.Adapter = (*GitHubAdapter)(nil)
 
-// GitHubAdapter is an adapter for GitHub
+// GitHubAdapter is an adapter for GitHub API interactions.
+// It implements the core.Adapter interface to provide standardized
+// access to GitHub functionality.
 type GitHubAdapter struct {
 	core.BaseAdapter
 	client           *github.Client
@@ -34,28 +37,50 @@ type GitHubAdapter struct {
 	// Optional default repository settings
 	defaultOwner    string
 	defaultRepo     string
+	
+	// Mutex for thread safety
+	mu              sync.RWMutex
 }
 
-// NewAdapter creates a new GitHub adapter
+// NewAdapter creates a new GitHub adapter.
+// It validates the configuration and initializes the adapter with the provided dependencies.
+//
+// Parameters:
+//   - config: GitHub adapter configuration
+//   - eventBus: Event bus for events
+//   - metricsClient: Metrics client for telemetry
+//   - logger: Logger for diagnostic information
+//
+// Returns:
+//   - Initialized GitHub adapter
+//   - Error if adapter creation fails
 func NewAdapter(config Config, eventBus *events.EventBus, metricsClient *observability.MetricsClient, logger *observability.Logger) (*GitHubAdapter, error) {
+	// Validate logger dependency
+	if logger == nil {
+		return nil, fmt.Errorf("logger cannot be nil")
+	}
+	
 	// Validate configuration
 	valid, errors := ValidateConfig(config)
 	if !valid {
 		return nil, fmt.Errorf("invalid GitHub adapter configuration: %v", errors)
 	}
 	
+	// Clone the config to prevent external modifications
+	configCopy := config.Clone()
+	
 	// Create the base adapter
 	baseAdapter := core.BaseAdapter{
-		AdapterType:    "github",
+		AdapterType:    adapterType,
 		AdapterVersion: "1.0.0",
 		Features:       make(map[string]bool),
-		Timeout:        config.Timeout,
+		Timeout:        configCopy.GetTimeout(),
 		SafeMode:       true,
 	}
 	
 	// Enable features based on configuration
 	featuresEnabled := make(map[string]bool)
-	for _, feature := range config.EnabledFeatures {
+	for _, feature := range configCopy.EnabledFeatures {
 		featuresEnabled[feature] = true
 		baseAdapter.Features[feature] = true
 	}
@@ -63,27 +88,51 @@ func NewAdapter(config Config, eventBus *events.EventBus, metricsClient *observa
 	// Create the adapter
 	adapter := &GitHubAdapter{
 		BaseAdapter:     baseAdapter,
-		config:          config,
+		config:          configCopy,
 		eventBus:        eventBus,
 		metricsClient:   metricsClient,
 		logger:          logger,
 		featuresEnabled: featuresEnabled,
-		defaultOwner:    config.DefaultOwner,
-		defaultRepo:     config.DefaultRepo,
+		defaultOwner:    configCopy.DefaultOwner,
+		defaultRepo:     configCopy.DefaultRepo,
 	}
+	
+	// Log adapter creation
+	logger.Info("GitHub adapter created", map[string]interface{}{
+		"version":   baseAdapter.AdapterVersion,
+		"features":  configCopy.EnabledFeatures,
+		"safe_mode": baseAdapter.SafeMode,
+	})
 	
 	return adapter, nil
 }
 
-// Initialize sets up the adapter with configuration
+// Initialize sets up the adapter with configuration.
+// It creates the GitHub client and configures resilience patterns.
+//
+// Parameters:
+//   - ctx: Context for the operation
+//   - rawConfig: Configuration of type Config
+//
+// Returns:
+//   - Error if initialization fails
 func (a *GitHubAdapter) Initialize(ctx context.Context, rawConfig interface{}) error {
+	// Validate context
+	if ctx == nil {
+		ctx = context.Background()
+	}
+	
 	// Convert raw config to GitHub config if necessary
 	var config Config
 	var ok bool
 	
 	if config, ok = rawConfig.(Config); !ok {
-		return fmt.Errorf("invalid configuration type for GitHub adapter")
+		return fmt.Errorf("invalid configuration type for GitHub adapter: %T", rawConfig)
 	}
+	
+	// Acquire write lock for thread safety
+	a.mu.Lock()
+	defer a.mu.Unlock()
 	
 	// Create OAuth2 client for authentication
 	var tc *http.Client
@@ -116,44 +165,96 @@ func (a *GitHubAdapter) Initialize(ctx context.Context, rawConfig interface{}) e
 	
 	// Update adapter with client and config
 	a.client = client
-	a.config = config
+	a.config = config.Clone() // Clone to prevent external modifications
 	
 	// Initialize resilience patterns
 	if config.Resilience.CircuitBreaker.Enabled {
-		circuitBreakerConfig := config.Resilience.CircuitBreaker.GetCircuitBreakerConfig("github")
+		circuitBreakerConfig := config.Resilience.CircuitBreaker.GetCircuitBreakerConfig(adapterType)
 		a.CircuitBreaker = resilience.NewCircuitBreaker(circuitBreakerConfig)
 	}
 	
 	if config.Resilience.RateLimiter.Enabled {
-		rateLimiterConfig := config.Resilience.RateLimiter.GetRateLimiterConfig("github")
+		rateLimiterConfig := config.Resilience.RateLimiter.GetRateLimiterConfig(adapterType)
 		a.RateLimiter = resilience.NewRateLimiter(rateLimiterConfig)
 	}
 	
+	// Update feature flags based on configuration
+	a.featuresEnabled = make(map[string]bool)
+	for _, feature := range config.EnabledFeatures {
+		a.featuresEnabled[feature] = true
+	}
+	
+	// Update default repository settings
+	a.defaultOwner = config.DefaultOwner
+	a.defaultRepo = config.DefaultRepo
+	
 	// Emit initialization event
 	if a.eventBus != nil {
-		event := events.NewAdapterEvent("github", events.EventTypeAdapterInitialized, nil)
+		event := events.NewAdapterEvent(adapterType, events.EventTypeAdapterInitialized, nil)
 		a.eventBus.Emit(ctx, event)
 	}
+	
+	a.logger.Info("GitHub adapter initialized", map[string]interface{}{
+		"features":      config.EnabledFeatures,
+		"default_owner": config.DefaultOwner,
+		"default_repo":  config.DefaultRepo,
+		"base_url":      config.BaseURL,
+	})
 	
 	return nil
 }
 
-// GetData retrieves data from GitHub
+// GetData retrieves data from GitHub based on the query parameters.
+// It supports different resource types such as issues, repositories, and pull requests.
+//
+// Parameters:
+//   - ctx: Context for the operation
+//   - query: Query parameters of type GitHubDataQuery
+//
+// Returns:
+//   - Data retrieved from GitHub
+//   - Error if the operation fails
 func (a *GitHubAdapter) GetData(ctx context.Context, query interface{}) (interface{}, error) {
+	// Validate context
+	if ctx == nil {
+		ctx = context.Background()
+	}
+	
 	// Convert query to specific data query type
 	queryParams, ok := query.(GitHubDataQuery)
 	if !ok {
-		return nil, fmt.Errorf("invalid query type for GitHub adapter")
+		return nil, fmt.Errorf("invalid query type for GitHub adapter: %T", query)
+	}
+	
+	// Use read lock to protect concurrent access to adapter state
+	a.mu.RLock()
+	defer a.mu.RUnlock()
+	
+	// Check if adapter is initialized
+	if a.client == nil {
+		return nil, fmt.Errorf("GitHub adapter is not initialized")
 	}
 	
 	// Execute query based on the resource type
 	switch queryParams.ResourceType {
-	case "issues":
+	case FeatureIssues:
+		if !a.config.IsFeatureEnabled(FeatureIssues) {
+			return nil, fmt.Errorf("issues feature is not enabled")
+		}
 		return a.getIssues(ctx, queryParams)
-	case "repositories":
+		
+	case FeatureRepositories:
+		if !a.config.IsFeatureEnabled(FeatureRepositories) {
+			return nil, fmt.Errorf("repositories feature is not enabled")
+		}
 		return a.getRepositories(ctx, queryParams)
-	case "pull_requests":
+		
+	case FeaturePullRequests:
+		if !a.config.IsFeatureEnabled(FeaturePullRequests) {
+			return nil, fmt.Errorf("pull requests feature is not enabled")
+		}
 		return a.getPullRequests(ctx, queryParams)
+		
 	default:
 		return nil, fmt.Errorf("unsupported resource type: %s", queryParams.ResourceType)
 	}
@@ -384,14 +485,44 @@ func (a *GitHubAdapter) IsSafeOperation(operation string, params map[string]inte
 	return true, nil
 }
 
-// Close gracefully shuts down the adapter
+// Close gracefully shuts down the adapter.
+// It releases all resources and emits a close event.
+//
+// Returns:
+//   - Error if cleanup fails
 func (a *GitHubAdapter) Close() error {
-	// Clean up any resources
+	// Acquire write lock for thread safety
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	
+	// Clear client
+	a.client = nil
+	
+	// Clean up resilience patterns
+	if a.CircuitBreaker != nil {
+		a.CircuitBreaker.Close()
+		a.CircuitBreaker = nil
+	}
+	
+	if a.RateLimiter != nil {
+		a.RateLimiter.Close()
+		a.RateLimiter = nil
+	}
+	
+	// Log adapter closure
+	if a.logger != nil {
+		a.logger.Info("GitHub adapter closed", map[string]interface{}{
+			"adapter_type": adapterType,
+		})
+	}
 	
 	// Emit close event
 	if a.eventBus != nil {
-		event := events.NewAdapterEvent("github", events.EventTypeAdapterClosed, nil)
-		a.eventBus.Emit(context.Background(), event)
+		event := events.NewAdapterEvent(adapterType, events.EventTypeAdapterClosed, nil)
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		
+		a.eventBus.Emit(ctx, event)
 	}
 	
 	return nil
@@ -399,12 +530,44 @@ func (a *GitHubAdapter) Close() error {
 
 // Operations
 
-// GitHubDataQuery represents a query for GitHub data
+// GitHubDataQuery represents a query for GitHub data.
+// It defines the parameters for retrieving different types of GitHub resources.
 type GitHubDataQuery struct {
-	ResourceType string                 `json:"resource_type"`
-	Owner        string                 `json:"owner"`
-	Repo         string                 `json:"repo"`
-	Filters      map[string]interface{} `json:"filters"`
+	ResourceType string                 `json:"resource_type"` // Type of resource to query (issues, repositories, pull_requests)
+	Owner        string                 `json:"owner"`         // Repository owner (optional if DefaultOwner is set)
+	Repo         string                 `json:"repo"`          // Repository name (optional if DefaultRepo is set)
+	Filters      map[string]interface{} `json:"filters"`       // Additional filters for the query
+}
+
+// NewGitHubDataQuery creates a new query for GitHub data with the specified resource type.
+// It provides a type-safe way to create queries for different GitHub resources.
+func NewGitHubDataQuery(resourceType string) GitHubDataQuery {
+	return GitHubDataQuery{
+		ResourceType: resourceType,
+		Filters:      make(map[string]interface{}),
+	}
+}
+
+// WithOwner sets the owner for the query.
+func (q GitHubDataQuery) WithOwner(owner string) GitHubDataQuery {
+	q.Owner = owner
+	return q
+}
+
+// WithRepo sets the repository for the query.
+func (q GitHubDataQuery) WithRepo(owner, repo string) GitHubDataQuery {
+	q.Owner = owner
+	q.Repo = repo
+	return q
+}
+
+// WithFilter adds a filter to the query.
+func (q GitHubDataQuery) WithFilter(key string, value interface{}) GitHubDataQuery {
+	if q.Filters == nil {
+		q.Filters = make(map[string]interface{})
+	}
+	q.Filters[key] = value
+	return q
 }
 
 // getIssues retrieves issues from GitHub
