@@ -1,11 +1,14 @@
 package xray
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
 	"log"
 	"net/http"
+	"net/url"
+	"strings"
 	"time"
 
 	"github.com/S-Corkum/mcp-server/internal/adapters"
@@ -22,6 +25,7 @@ type Config struct {
 	RetryDelay      time.Duration `mapstructure:"retry_delay"`
 	MockResponses   bool          `mapstructure:"mock_responses"`
 	MockURL         string        `mapstructure:"mock_url"`
+	APIVersion      string        `mapstructure:"api_version"`
 }
 
 // Adapter implements the adapter interface for JFrog Xray
@@ -46,6 +50,9 @@ func NewAdapter(config Config) (*Adapter, error) {
 	}
 	if config.BaseURL == "" {
 		config.BaseURL = "https://xray.example.com/api/v1"
+	}
+	if config.APIVersion == "" {
+		config.APIVersion = "v1"
 	}
 
 	adapter := &Adapter{
@@ -129,11 +136,51 @@ func (a *Adapter) testConnection(ctx context.Context) error {
 		return nil
 	}
 	
-	// Simple ping to the JFrog Xray API
-	// In a real implementation, this would verify with a system status endpoint
-	// But for now we'll just return healthy status
+	// Test connectivity to real Xray API using system/ping endpoint
+	pingURL := fmt.Sprintf("%s/system/ping", a.config.BaseURL)
+	req, err := http.NewRequestWithContext(ctx, "GET", pingURL, nil)
+	if err != nil {
+		return fmt.Errorf("failed to create ping request: %w", err)
+	}
+	
+	// Set auth headers
+	a.setAuthHeaders(req)
+	
+	resp, err := a.client.Do(req)
+	if err != nil {
+		a.healthStatus = fmt.Sprintf("unhealthy: failed to connect to JFrog Xray API: %v", err)
+		return fmt.Errorf("failed to connect to JFrog Xray API: %w", err)
+	}
+	defer resp.Body.Close()
+	
+	if resp.StatusCode != http.StatusOK {
+		a.healthStatus = fmt.Sprintf("unhealthy: JFrog Xray API returned status code: %d", resp.StatusCode)
+		return fmt.Errorf("JFrog Xray API returned unexpected status code: %d", resp.StatusCode)
+	}
+	
+	// Successfully connected
 	a.healthStatus = "healthy"
 	return nil
+}
+
+// setAuthHeaders sets the appropriate authentication headers for the request
+func (a *Adapter) setAuthHeaders(req *http.Request) {
+	if a.config.Token != "" {
+		// Use auth token if available
+		if strings.HasPrefix(a.config.Token, "Bearer ") {
+			// Bearer token format
+			req.Header.Set("Authorization", a.config.Token)
+		} else if strings.HasPrefix(a.config.Token, "eyJ") {
+			// Looks like a JWT token - use Bearer format
+			req.Header.Set("Authorization", "Bearer "+a.config.Token)
+		} else {
+			// Use API key header format
+			req.Header.Set("X-JFrog-Art-Api", a.config.Token)
+		}
+	} else {
+		// Use basic auth
+		req.SetBasicAuth(a.config.Username, a.config.Password)
+	}
 }
 
 // GetData retrieves data from JFrog Xray
@@ -158,6 +205,16 @@ func (a *Adapter) GetData(ctx context.Context, query interface{}) (interface{}, 
 		return a.getLicenses(ctx, queryMap)
 	case "get_component_summary":
 		return a.getComponentSummary(ctx, queryMap)
+	case "get_system_info":
+		return a.getSystemInfo(ctx, queryMap)
+	case "get_system_version":
+		return a.getSystemVersion(ctx, queryMap)
+	case "get_watches":
+		return a.getWatches(ctx, queryMap)
+	case "get_policies":
+		return a.getPolicies(ctx, queryMap)
+	case "get_summary":
+		return a.getSummary(ctx, queryMap)
 	default:
 		return nil, fmt.Errorf("unsupported operation: %s", operation)
 	}
@@ -169,10 +226,18 @@ func (a *Adapter) ExecuteAction(ctx context.Context, contextID string, action st
 	switch action {
 	case "scan_artifact":
 		return a.scanArtifact(ctx, params)
+	case "scan_build":
+		return a.scanBuild(ctx, params)
 	case "get_vulnerabilities":
 		return a.getVulnerabilities(ctx, params)
 	case "get_licenses":
 		return a.getLicenses(ctx, params)
+	case "generate_vulnerabilities_report":
+		return a.generateVulnerabilitiesReport(ctx, params)
+	case "get_component_details":
+		return a.getComponentDetails(ctx, params)
+	case "get_scan_status":
+		return a.getScanStatus(ctx, params)
 	default:
 		return nil, fmt.Errorf("unsupported action: %s", action)
 	}
@@ -182,9 +247,13 @@ func (a *Adapter) ExecuteAction(ctx context.Context, contextID string, action st
 func (a *Adapter) IsSafeOperation(action string, params map[string]interface{}) (bool, error) {
 	// All JFrog Xray operations are considered safe (read-only or scan requests)
 	safeActions := map[string]bool{
-		"scan_artifact":       true,
-		"get_vulnerabilities": true,
-		"get_licenses":        true,
+		"scan_artifact":                true,
+		"scan_build":                   true,
+		"get_vulnerabilities":          true,
+		"get_licenses":                 true,
+		"generate_vulnerabilities_report": true,
+		"get_component_details":        true,
+		"get_scan_status":              true,
 	}
 
 	// Check if the action is in the safe list
@@ -212,14 +281,11 @@ func (a *Adapter) getVulnerabilities(ctx context.Context, params map[string]inte
 		severity = sevParam
 	}
 
-	// In a real implementation, this would call the JFrog Xray API
-	// For now, we'll return mock data
-
-	// If using mock server and mock responses are enabled
+	// Check if using mock server
 	if a.config.MockResponses && a.config.MockURL != "" {
-		url := fmt.Sprintf("%s/vulnerabilities?path=%s", a.config.MockURL, path)
+		url := fmt.Sprintf("%s/vulnerabilities?path=%s", a.config.MockURL, url.QueryEscape(path))
 		if severity != "" {
-			url += "&severity=" + severity
+			url += "&severity=" + url.QueryEscape(severity)
 		}
 		
 		req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
@@ -228,11 +294,7 @@ func (a *Adapter) getVulnerabilities(ctx context.Context, params map[string]inte
 		}
 		
 		// Set auth headers
-		if a.config.Token != "" {
-			req.Header.Set("X-JFrog-Art-Api", a.config.Token)
-		} else {
-			req.SetBasicAuth(a.config.Username, a.config.Password)
-		}
+		a.setAuthHeaders(req)
 		
 		resp, err := a.client.Do(req)
 		if err != nil {
@@ -248,72 +310,109 @@ func (a *Adapter) getVulnerabilities(ctx context.Context, params map[string]inte
 		return result, nil
 	}
 
-	// Mock response for testing
-	// Simulate filtering by severity
-	var vulnerabilities []map[string]interface{}
-	
-	// High severity vulnerability
-	if severity == "" || severity == "high" {
-		vulnerabilities = append(vulnerabilities, map[string]interface{}{
-			"id":          "CVE-2023-1234",
-			"summary":     "Remote code execution vulnerability in library X",
-			"description": "A remote code execution vulnerability in library X allows attackers to execute arbitrary code...",
-			"severity":    "high",
-			"cvss_score":  8.5,
-			"published":   time.Now().AddDate(0, -2, 0).Format(time.RFC3339),
-			"fixed_versions": []string{"1.2.3", "2.0.1"},
-			"components": []map[string]interface{}{
-				{
-					"name":    "org.example:library-x",
-					"version": "1.1.0",
-				},
-			},
-		})
+	// Real API implementation
+	// We need to use the /summary/artifact endpoint with a POST request
+	apiURL := fmt.Sprintf("%s/summary/artifact", a.config.BaseURL)
+	requestData := map[string]interface{}{
+		"paths": []string{path},
 	}
 	
-	// Medium severity vulnerability
-	if severity == "" || severity == "medium" {
-		vulnerabilities = append(vulnerabilities, map[string]interface{}{
-			"id":          "CVE-2023-5678",
-			"summary":     "Information disclosure in library Y",
-			"description": "An information disclosure vulnerability in library Y allows attackers to access sensitive data...",
-			"severity":    "medium",
-			"cvss_score":  5.6,
-			"published":   time.Now().AddDate(0, -1, 0).Format(time.RFC3339),
-			"fixed_versions": []string{"3.4.2"},
-			"components": []map[string]interface{}{
-				{
-					"name":    "org.example:library-y",
-					"version": "3.2.1",
-				},
-			},
-		})
+	// Add filter for severity if specified
+	if severity != "" {
+		requestData["severity"] = []string{severity}
 	}
 	
-	// Low severity vulnerability
-	if severity == "" || severity == "low" {
-		vulnerabilities = append(vulnerabilities, map[string]interface{}{
-			"id":          "CVE-2023-9012",
-			"summary":     "Denial of service in library Z",
-			"description": "A denial of service vulnerability in library Z allows attackers to crash the service...",
-			"severity":    "low",
-			"cvss_score":  3.1,
-			"published":   time.Now().AddDate(0, 0, -15).Format(time.RFC3339),
-			"fixed_versions": []string{"0.9.5"},
-			"components": []map[string]interface{}{
-				{
-					"name":    "org.example:library-z",
-					"version": "0.9.0",
-				},
-			},
-		})
+	// Marshal the request data
+	requestBody, err := json.Marshal(requestData)
+	if err != nil {
+		return nil, fmt.Errorf("failed to marshal request data: %w", err)
 	}
-
+	
+	req, err := http.NewRequestWithContext(ctx, "POST", apiURL, bytes.NewReader(requestBody))
+	if err != nil {
+		return nil, fmt.Errorf("failed to create request: %w", err)
+	}
+	
+	req.Header.Set("Content-Type", "application/json")
+	a.setAuthHeaders(req)
+	
+	resp, err := a.client.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get vulnerabilities: %w", err)
+	}
+	defer resp.Body.Close()
+	
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("API returned status code: %d", resp.StatusCode)
+	}
+	
+	var result struct {
+		Artifacts []struct {
+			General struct {
+				Path string `json:"path"`
+			} `json:"general"`
+			Issues []struct {
+				IssueID      string `json:"issue_id"`
+				Summary      string `json:"summary"`
+				Description  string `json:"description"`
+				Severity     string `json:"severity"`
+				VulnerableComponents []struct {
+					ComponentID  string `json:"component_id"`
+					FixedVersions []string `json:"fixed_versions"`
+				} `json:"vulnerable_components"`
+			} `json:"issues"`
+		} `json:"artifacts"`
+	}
+	
+	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+		return nil, fmt.Errorf("failed to decode response: %w", err)
+	}
+	
+	// Transform the result to match the expected format
+	if len(result.Artifacts) == 0 {
+		return map[string]interface{}{
+			"path":           path,
+			"total":          0,
+			"vulnerabilities": []interface{}{},
+		}, nil
+	}
+	
+	// Extract vulnerabilities
+	vulnerabilities := []map[string]interface{}{}
+	for _, artifact := range result.Artifacts {
+		for _, issue := range artifact.Issues {
+			vulnComponents := []map[string]interface{}{}
+			for _, comp := range issue.VulnerableComponents {
+				vulnComponents = append(vulnComponents, map[string]interface{}{
+					"name":    comp.ComponentID,
+					"version": extractVersionFromComponentID(comp.ComponentID),
+				})
+			}
+			
+			vulnerabilities = append(vulnerabilities, map[string]interface{}{
+				"id":          issue.IssueID,
+				"summary":     issue.Summary,
+				"description": issue.Description,
+				"severity":    issue.Severity,
+				"components":  vulnComponents,
+			})
+		}
+	}
+	
 	return map[string]interface{}{
 		"path":           path,
 		"total":          len(vulnerabilities),
 		"vulnerabilities": vulnerabilities,
 	}, nil
+}
+
+// extractVersionFromComponentID extracts the version from a component ID
+func extractVersionFromComponentID(componentID string) string {
+	parts := strings.Split(componentID, ":")
+	if len(parts) > 1 {
+		return parts[len(parts)-1]
+	}
+	return ""
 }
 
 // getLicenses gets license information for an artifact
@@ -326,12 +425,9 @@ func (a *Adapter) getLicenses(ctx context.Context, params map[string]interface{}
 		return nil, fmt.Errorf("missing path parameter")
 	}
 
-	// In a real implementation, this would call the JFrog Xray API
-	// For now, we'll return mock data
-
-	// If using mock server and mock responses are enabled
+	// Check if using mock server
 	if a.config.MockResponses && a.config.MockURL != "" {
-		url := fmt.Sprintf("%s/licenses?path=%s", a.config.MockURL, path)
+		url := fmt.Sprintf("%s/licenses?path=%s", a.config.MockURL, url.QueryEscape(path))
 		
 		req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
 		if err != nil {
@@ -339,11 +435,7 @@ func (a *Adapter) getLicenses(ctx context.Context, params map[string]interface{}
 		}
 		
 		// Set auth headers
-		if a.config.Token != "" {
-			req.Header.Set("X-JFrog-Art-Api", a.config.Token)
-		} else {
-			req.SetBasicAuth(a.config.Username, a.config.Password)
-		}
+		a.setAuthHeaders(req)
 		
 		resp, err := a.client.Do(req)
 		if err != nil {
@@ -359,48 +451,105 @@ func (a *Adapter) getLicenses(ctx context.Context, params map[string]interface{}
 		return result, nil
 	}
 
-	// Mock response for testing
+	// Real API implementation
+	// Similar to vulnerabilities, we'll use the /summary/artifact endpoint
+	apiURL := fmt.Sprintf("%s/summary/artifact", a.config.BaseURL)
+	requestData := map[string]interface{}{
+		"paths": []string{path},
+	}
+	
+	// Marshal the request data
+	requestBody, err := json.Marshal(requestData)
+	if err != nil {
+		return nil, fmt.Errorf("failed to marshal request data: %w", err)
+	}
+	
+	req, err := http.NewRequestWithContext(ctx, "POST", apiURL, bytes.NewReader(requestBody))
+	if err != nil {
+		return nil, fmt.Errorf("failed to create request: %w", err)
+	}
+	
+	req.Header.Set("Content-Type", "application/json")
+	a.setAuthHeaders(req)
+	
+	resp, err := a.client.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get licenses: %w", err)
+	}
+	defer resp.Body.Close()
+	
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("API returned status code: %d", resp.StatusCode)
+	}
+	
+	var result struct {
+		Artifacts []struct {
+			General struct {
+				Path string `json:"path"`
+			} `json:"general"`
+			Licenses []struct {
+				LicenseKey  string `json:"license_key"`
+				FullName    string `json:"full_name"`
+				MoreInfoURL string `json:"more_info_url"`
+				Components  []struct {
+					ComponentID string `json:"component_id"`
+				} `json:"components"`
+			} `json:"licenses"`
+		} `json:"artifacts"`
+	}
+	
+	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+		return nil, fmt.Errorf("failed to decode response: %w", err)
+	}
+	
+	// Transform the result to match the expected format
+	if len(result.Artifacts) == 0 {
+		return map[string]interface{}{
+			"path":     path,
+			"licenses": []interface{}{},
+		}, nil
+	}
+	
+	// Extract licenses
+	licenseMap := make(map[string]map[string]interface{})
+	for _, artifact := range result.Artifacts {
+		for _, license := range artifact.Licenses {
+			if _, exists := licenseMap[license.LicenseKey]; !exists {
+				licenseMap[license.LicenseKey] = map[string]interface{}{
+					"name":      license.LicenseKey,
+					"full_name": license.FullName,
+					"url":       license.MoreInfoURL,
+					"components": []map[string]interface{}{},
+				}
+			}
+			
+			licenseEntry := licenseMap[license.LicenseKey]
+			components := licenseEntry["components"].([]map[string]interface{})
+			
+			for _, comp := range license.Components {
+				componentName := comp.ComponentID
+				componentVersion := extractVersionFromComponentID(comp.ComponentID)
+				
+				components = append(components, map[string]interface{}{
+					"name":    componentName,
+					"version": componentVersion,
+				})
+			}
+			
+			licenseEntry["components"] = components
+			licenseMap[license.LicenseKey] = licenseEntry
+		}
+	}
+	
+	// Convert map to array
+	licenses := []map[string]interface{}{}
+	for _, license := range licenseMap {
+		licenses = append(licenses, license)
+	}
+	
 	return map[string]interface{}{
-		"path": path,
-		"licenses": []map[string]interface{}{
-			{
-				"name":         "Apache 2.0",
-				"full_name":    "Apache License 2.0",
-				"url":          "https://www.apache.org/licenses/LICENSE-2.0",
-				"components": []map[string]interface{}{
-					{
-						"name":    "org.apache.commons:commons-lang3",
-						"version": "3.12.0",
-					},
-					{
-						"name":    "org.apache.logging.log4j:log4j-core",
-						"version": "2.14.1",
-					},
-				},
-			},
-			{
-				"name":         "MIT",
-				"full_name":    "MIT License",
-				"url":          "https://opensource.org/licenses/MIT",
-				"components": []map[string]interface{}{
-					{
-						"name":    "org.example:library-a",
-						"version": "1.0.0",
-					},
-				},
-			},
-			{
-				"name":         "GPL-3.0",
-				"full_name":    "GNU General Public License v3.0",
-				"url":          "https://www.gnu.org/licenses/gpl-3.0.en.html",
-				"components": []map[string]interface{}{
-					{
-						"name":    "org.example:library-b",
-						"version": "2.1.0",
-					},
-				},
-			},
-		},
+		"path":     path,
+		"licenses": licenses,
 	}, nil
 }
 
@@ -414,12 +563,9 @@ func (a *Adapter) getComponentSummary(ctx context.Context, params map[string]int
 		return nil, fmt.Errorf("missing path parameter")
 	}
 
-	// In a real implementation, this would call the JFrog Xray API
-	// For now, we'll return mock data
-
-	// If using mock server and mock responses are enabled
+	// Check if using mock server
 	if a.config.MockResponses && a.config.MockURL != "" {
-		url := fmt.Sprintf("%s/components/summary?path=%s", a.config.MockURL, path)
+		url := fmt.Sprintf("%s/components/summary?path=%s", a.config.MockURL, url.QueryEscape(path))
 		
 		req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
 		if err != nil {
@@ -427,11 +573,7 @@ func (a *Adapter) getComponentSummary(ctx context.Context, params map[string]int
 		}
 		
 		// Set auth headers
-		if a.config.Token != "" {
-			req.Header.Set("X-JFrog-Art-Api", a.config.Token)
-		} else {
-			req.SetBasicAuth(a.config.Username, a.config.Password)
-		}
+		a.setAuthHeaders(req)
 		
 		resp, err := a.client.Do(req)
 		if err != nil {
@@ -447,58 +589,369 @@ func (a *Adapter) getComponentSummary(ctx context.Context, params map[string]int
 		return result, nil
 	}
 
-	// Mock response for testing
+	// Real API implementation
+	// Use the /component_summary endpoint
+	apiURL := fmt.Sprintf("%s/component_summary", a.config.BaseURL)
+	requestData := map[string]interface{}{
+		"artifacts": []map[string]string{
+			{"path": path},
+		},
+	}
+	
+	// Marshal the request data
+	requestBody, err := json.Marshal(requestData)
+	if err != nil {
+		return nil, fmt.Errorf("failed to marshal request data: %w", err)
+	}
+	
+	req, err := http.NewRequestWithContext(ctx, "POST", apiURL, bytes.NewReader(requestBody))
+	if err != nil {
+		return nil, fmt.Errorf("failed to create request: %w", err)
+	}
+	
+	req.Header.Set("Content-Type", "application/json")
+	a.setAuthHeaders(req)
+	
+	resp, err := a.client.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get component summary: %w", err)
+	}
+	defer resp.Body.Close()
+	
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("API returned status code: %d", resp.StatusCode)
+	}
+	
+	var result struct {
+		Components int `json:"components"`
+		VulnerableComponents int `json:"vulnerable_components"`
+		Vulnerabilities struct {
+			High    int `json:"high"`
+			Medium  int `json:"medium"`
+			Low     int `json:"low"`
+			Unknown int `json:"unknown"`
+		} `json:"vulnerabilities"`
+		Licenses map[string]int `json:"licenses"`
+		TopVulnerableComponents []struct {
+			ComponentID string `json:"component_id"`
+			Vulnerabilities struct {
+				High    int `json:"high"`
+				Medium  int `json:"medium"`
+				Low     int `json:"low"`
+				Unknown int `json:"unknown"`
+			} `json:"vulnerabilities"`
+		} `json:"top_vulnerable_components"`
+	}
+	
+	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+		return nil, fmt.Errorf("failed to decode response: %w", err)
+	}
+	
+	// Format the top vulnerable components
+	topVulnComponents := []map[string]interface{}{}
+	for _, comp := range result.TopVulnerableComponents {
+		topVulnComponents = append(topVulnComponents, map[string]interface{}{
+			"name":    comp.ComponentID,
+			"version": extractVersionFromComponentID(comp.ComponentID),
+			"vulnerabilities": map[string]interface{}{
+				"high":    comp.Vulnerabilities.High,
+				"medium":  comp.Vulnerabilities.Medium,
+				"low":     comp.Vulnerabilities.Low,
+				"unknown": comp.Vulnerabilities.Unknown,
+			},
+		})
+	}
+	
 	return map[string]interface{}{
 		"path": path,
 		"summary": map[string]interface{}{
-			"component_count": 42,
-			"vulnerable_components": 3,
+			"component_count": result.Components,
+			"vulnerable_components": result.VulnerableComponents,
 			"vulnerability_summary": map[string]interface{}{
-				"high":    1,
-				"medium":  1,
-				"low":     1,
-				"unknown": 0,
+				"high":    result.Vulnerabilities.High,
+				"medium":  result.Vulnerabilities.Medium,
+				"low":     result.Vulnerabilities.Low,
+				"unknown": result.Vulnerabilities.Unknown,
 			},
-			"license_summary": map[string]interface{}{
-				"Apache 2.0": 15,
-				"MIT":        20,
-				"GPL-3.0":    2,
-				"BSD-3":      5,
-			},
+			"license_summary": result.Licenses,
 		},
-		"top_vulnerable_components": []map[string]interface{}{
-			{
-				"name":    "org.example:library-x",
-				"version": "1.1.0",
-				"vulnerabilities": map[string]interface{}{
-					"high":    1,
-					"medium":  0,
-					"low":     0,
-					"unknown": 0,
-				},
-			},
-			{
-				"name":    "org.example:library-y",
-				"version": "3.2.1",
-				"vulnerabilities": map[string]interface{}{
-					"high":    0,
-					"medium":  1,
-					"low":     0,
-					"unknown": 0,
-				},
-			},
-			{
-				"name":    "org.example:library-z",
-				"version": "0.9.0",
-				"vulnerabilities": map[string]interface{}{
-					"high":    0,
-					"medium":  0,
-					"low":     1,
-					"unknown": 0,
-				},
-			},
-		},
+		"top_vulnerable_components": topVulnComponents,
 	}, nil
+}
+
+// getSystemInfo gets system information from Xray
+func (a *Adapter) getSystemInfo(ctx context.Context, params map[string]interface{}) (interface{}, error) {
+	// Check if using mock server
+	if a.config.MockResponses && a.config.MockURL != "" {
+		url := fmt.Sprintf("%s/system/info", a.config.MockURL)
+		
+		req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
+		if err != nil {
+			return nil, fmt.Errorf("failed to create request: %w", err)
+		}
+		
+		a.setAuthHeaders(req)
+		
+		resp, err := a.client.Do(req)
+		if err != nil {
+			return nil, fmt.Errorf("failed to get system info from mock server: %w", err)
+		}
+		defer resp.Body.Close()
+
+		var result map[string]interface{}
+		if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+			return nil, fmt.Errorf("failed to decode response: %w", err)
+		}
+
+		return result, nil
+	}
+
+	// Real API implementation
+	apiURL := fmt.Sprintf("%s/system/info", a.config.BaseURL)
+	
+	req, err := http.NewRequestWithContext(ctx, "GET", apiURL, nil)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create request: %w", err)
+	}
+	
+	a.setAuthHeaders(req)
+	
+	resp, err := a.client.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get system info: %w", err)
+	}
+	defer resp.Body.Close()
+	
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("API returned status code: %d", resp.StatusCode)
+	}
+	
+	var result map[string]interface{}
+	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+		return nil, fmt.Errorf("failed to decode response: %w", err)
+	}
+	
+	return result, nil
+}
+
+// getSystemVersion gets Xray version info
+func (a *Adapter) getSystemVersion(ctx context.Context, params map[string]interface{}) (interface{}, error) {
+	// Check if using mock server
+	if a.config.MockResponses && a.config.MockURL != "" {
+		url := fmt.Sprintf("%s/system/version", a.config.MockURL)
+		
+		req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
+		if err != nil {
+			return nil, fmt.Errorf("failed to create request: %w", err)
+		}
+		
+		a.setAuthHeaders(req)
+		
+		resp, err := a.client.Do(req)
+		if err != nil {
+			return nil, fmt.Errorf("failed to get version from mock server: %w", err)
+		}
+		defer resp.Body.Close()
+
+		var result map[string]interface{}
+		if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+			return nil, fmt.Errorf("failed to decode response: %w", err)
+		}
+
+		return result, nil
+	}
+
+	// Real API implementation
+	apiURL := fmt.Sprintf("%s/system/version", a.config.BaseURL)
+	
+	req, err := http.NewRequestWithContext(ctx, "GET", apiURL, nil)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create request: %w", err)
+	}
+	
+	a.setAuthHeaders(req)
+	
+	resp, err := a.client.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get version: %w", err)
+	}
+	defer resp.Body.Close()
+	
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("API returned status code: %d", resp.StatusCode)
+	}
+	
+	var result map[string]interface{}
+	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+		return nil, fmt.Errorf("failed to decode response: %w", err)
+	}
+	
+	return result, nil
+}
+
+// getWatches gets list of watches
+func (a *Adapter) getWatches(ctx context.Context, params map[string]interface{}) (interface{}, error) {
+	// Check if using mock server
+	if a.config.MockResponses && a.config.MockURL != "" {
+		url := fmt.Sprintf("%s/watches", a.config.MockURL)
+		
+		req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
+		if err != nil {
+			return nil, fmt.Errorf("failed to create request: %w", err)
+		}
+		
+		a.setAuthHeaders(req)
+		
+		resp, err := a.client.Do(req)
+		if err != nil {
+			return nil, fmt.Errorf("failed to get watches from mock server: %w", err)
+		}
+		defer resp.Body.Close()
+
+		var result map[string]interface{}
+		if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+			return nil, fmt.Errorf("failed to decode response: %w", err)
+		}
+
+		return result, nil
+	}
+
+	// Real API implementation
+	apiURL := fmt.Sprintf("%s/watches", a.config.BaseURL)
+	
+	req, err := http.NewRequestWithContext(ctx, "GET", apiURL, nil)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create request: %w", err)
+	}
+	
+	a.setAuthHeaders(req)
+	
+	resp, err := a.client.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get watches: %w", err)
+	}
+	defer resp.Body.Close()
+	
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("API returned status code: %d", resp.StatusCode)
+	}
+	
+	var result map[string]interface{}
+	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+		return nil, fmt.Errorf("failed to decode response: %w", err)
+	}
+	
+	return result, nil
+}
+
+// getPolicies gets list of policies
+func (a *Adapter) getPolicies(ctx context.Context, params map[string]interface{}) (interface{}, error) {
+	// Check if using mock server
+	if a.config.MockResponses && a.config.MockURL != "" {
+		url := fmt.Sprintf("%s/policies", a.config.MockURL)
+		
+		req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
+		if err != nil {
+			return nil, fmt.Errorf("failed to create request: %w", err)
+		}
+		
+		a.setAuthHeaders(req)
+		
+		resp, err := a.client.Do(req)
+		if err != nil {
+			return nil, fmt.Errorf("failed to get policies from mock server: %w", err)
+		}
+		defer resp.Body.Close()
+
+		var result map[string]interface{}
+		if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+			return nil, fmt.Errorf("failed to decode response: %w", err)
+		}
+
+		return result, nil
+	}
+
+	// Real API implementation
+	apiURL := fmt.Sprintf("%s/policies", a.config.BaseURL)
+	
+	req, err := http.NewRequestWithContext(ctx, "GET", apiURL, nil)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create request: %w", err)
+	}
+	
+	a.setAuthHeaders(req)
+	
+	resp, err := a.client.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get policies: %w", err)
+	}
+	defer resp.Body.Close()
+	
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("API returned status code: %d", resp.StatusCode)
+	}
+	
+	var result map[string]interface{}
+	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+		return nil, fmt.Errorf("failed to decode response: %w", err)
+	}
+	
+	return result, nil
+}
+
+// getSummary gets a summary of Xray statistics and configuration
+func (a *Adapter) getSummary(ctx context.Context, params map[string]interface{}) (interface{}, error) {
+	// Check if using mock server
+	if a.config.MockResponses && a.config.MockURL != "" {
+		url := fmt.Sprintf("%s/summary/common", a.config.MockURL)
+		
+		req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
+		if err != nil {
+			return nil, fmt.Errorf("failed to create request: %w", err)
+		}
+		
+		a.setAuthHeaders(req)
+		
+		resp, err := a.client.Do(req)
+		if err != nil {
+			return nil, fmt.Errorf("failed to get summary from mock server: %w", err)
+		}
+		defer resp.Body.Close()
+
+		var result map[string]interface{}
+		if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+			return nil, fmt.Errorf("failed to decode response: %w", err)
+		}
+
+		return result, nil
+	}
+
+	// Real API implementation
+	apiURL := fmt.Sprintf("%s/summary/common", a.config.BaseURL)
+	
+	req, err := http.NewRequestWithContext(ctx, "GET", apiURL, nil)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create request: %w", err)
+	}
+	
+	a.setAuthHeaders(req)
+	
+	resp, err := a.client.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get summary: %w", err)
+	}
+	defer resp.Body.Close()
+	
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("API returned status code: %d", resp.StatusCode)
+	}
+	
+	var result map[string]interface{}
+	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+		return nil, fmt.Errorf("failed to decode response: %w", err)
+	}
+	
+	return result, nil
 }
 
 // scanArtifact initiates a security scan on an artifact
@@ -511,10 +964,7 @@ func (a *Adapter) scanArtifact(ctx context.Context, params map[string]interface{
 		return nil, fmt.Errorf("missing path parameter")
 	}
 
-	// In a real implementation, this would call the JFrog Xray API
-	// For now, we'll return mock data
-
-	// If using mock server and mock responses are enabled
+	// Check if using mock server
 	if a.config.MockResponses && a.config.MockURL != "" {
 		url := fmt.Sprintf("%s/scan", a.config.MockURL)
 		
@@ -527,18 +977,14 @@ func (a *Adapter) scanArtifact(ctx context.Context, params map[string]interface{
 		}
 		
 		// Create POST request
-		req, err := http.NewRequestWithContext(ctx, "POST", url, nil)
+		req, err := http.NewRequestWithContext(ctx, "POST", url, bytes.NewReader(requestBody))
 		if err != nil {
 			return nil, fmt.Errorf("failed to create request: %w", err)
 		}
 		
 		// Set headers
 		req.Header.Set("Content-Type", "application/json")
-		if a.config.Token != "" {
-			req.Header.Set("X-JFrog-Art-Api", a.config.Token)
-		} else {
-			req.SetBasicAuth(a.config.Username, a.config.Password)
-		}
+		a.setAuthHeaders(req)
 		
 		// Send request
 		resp, err := a.client.Do(req)
@@ -555,18 +1001,432 @@ func (a *Adapter) scanArtifact(ctx context.Context, params map[string]interface{
 		return result, nil
 	}
 
-	// Generate a fake scan ID
-	scanID := fmt.Sprintf("scan-%d", time.Now().Unix())
+	// Real API implementation
+	// For scanning an artifact in Xray, we use the /component/scan endpoint
+	apiURL := fmt.Sprintf("%s/component/scan", a.config.BaseURL)
+	requestData := map[string]interface{}{
+		"component_id": path,
+	}
+	
+	// Marshal the request data
+	requestBody, err := json.Marshal(requestData)
+	if err != nil {
+		return nil, fmt.Errorf("failed to marshal request data: %w", err)
+	}
+	
+	req, err := http.NewRequestWithContext(ctx, "POST", apiURL, bytes.NewReader(requestBody))
+	if err != nil {
+		return nil, fmt.Errorf("failed to create request: %w", err)
+	}
+	
+	req.Header.Set("Content-Type", "application/json")
+	a.setAuthHeaders(req)
+	
+	resp, err := a.client.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("failed to scan artifact: %w", err)
+	}
+	defer resp.Body.Close()
+	
+	if resp.StatusCode != http.StatusOK && resp.StatusCode != http.StatusAccepted {
+		return nil, fmt.Errorf("API returned status code: %d", resp.StatusCode)
+	}
+	
+	var result map[string]interface{}
+	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+		return nil, fmt.Errorf("failed to decode response: %w", err)
+	}
+	
+	// Generate a scan ID if not returned by the API
+	scanID, ok := result["scan_id"].(string)
+	if !ok || scanID == "" {
+		scanID = fmt.Sprintf("scan-%d", time.Now().Unix())
+		result["scan_id"] = scanID
+	}
+	
+	// Add path if not present
+	if _, ok := result["path"]; !ok {
+		result["path"] = path
+	}
+	
+	// Add status if not present
+	if _, ok := result["status"]; !ok {
+		result["status"] = "in_progress"
+	}
+	
+	// Add timestamps if not present
+	if _, ok := result["started_at"]; !ok {
+		result["started_at"] = time.Now().Format(time.RFC3339)
+	}
+	
+	return result, nil
+}
 
-	// Mock response for testing
-	return map[string]interface{}{
-		"scan_id":     scanID,
-		"path":        path,
-		"status":      "in_progress",
-		"started_at":  time.Now().Format(time.RFC3339),
-		"estimated_completion_time": time.Now().Add(5 * time.Minute).Format(time.RFC3339),
-		"message":     "Scan initiated successfully",
-	}, nil
+// scanBuild initiates a scan on a build
+func (a *Adapter) scanBuild(ctx context.Context, params map[string]interface{}) (interface{}, error) {
+	// Extract required parameters
+	buildName, ok := params["build_name"].(string)
+	if !ok {
+		return nil, fmt.Errorf("missing build_name parameter")
+	}
+
+	buildNumber, ok := params["build_number"].(string)
+	if !ok {
+		return nil, fmt.Errorf("missing build_number parameter")
+	}
+
+	// Get API version
+	apiVersion := a.config.APIVersion
+	if versionParam, ok := params["api_version"].(string); ok {
+		apiVersion = versionParam
+	}
+
+	// Check if using mock server
+	if a.config.MockResponses && a.config.MockURL != "" {
+		scanURL := fmt.Sprintf("%s/scanBuild", a.config.MockURL)
+		if apiVersion == "v2" {
+			scanURL = fmt.Sprintf("%s/scanBuild/v2", a.config.MockURL)
+		}
+		
+		// Create request body
+		requestBody, err := json.Marshal(map[string]string{
+			"buildName":   buildName,
+			"buildNumber": buildNumber,
+		})
+		if err != nil {
+			return nil, fmt.Errorf("failed to marshal request body: %w", err)
+		}
+		
+		// Create POST request
+		req, err := http.NewRequestWithContext(ctx, "POST", scanURL, bytes.NewReader(requestBody))
+		if err != nil {
+			return nil, fmt.Errorf("failed to create request: %w", err)
+		}
+		
+		// Set headers
+		req.Header.Set("Content-Type", "application/json")
+		a.setAuthHeaders(req)
+		
+		// Send request
+		resp, err := a.client.Do(req)
+		if err != nil {
+			return nil, fmt.Errorf("failed to scan build on mock server: %w", err)
+		}
+		defer resp.Body.Close()
+
+		var result map[string]interface{}
+		if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+			return nil, fmt.Errorf("failed to decode response: %w", err)
+		}
+
+		return result, nil
+	}
+
+	// Real API implementation
+	scanURL := fmt.Sprintf("%s/scanBuild", a.config.BaseURL)
+	if apiVersion == "v2" {
+		scanURL = fmt.Sprintf("%s/scanBuild/v2", a.config.BaseURL)
+	}
+	
+	// Create request body
+	requestBody, err := json.Marshal(map[string]string{
+		"buildName":   buildName,
+		"buildNumber": buildNumber,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("failed to marshal request body: %w", err)
+	}
+	
+	// Create POST request
+	req, err := http.NewRequestWithContext(ctx, "POST", scanURL, bytes.NewReader(requestBody))
+	if err != nil {
+		return nil, fmt.Errorf("failed to create request: %w", err)
+	}
+	
+	// Set headers
+	req.Header.Set("Content-Type", "application/json")
+	a.setAuthHeaders(req)
+	
+	// Send request
+	resp, err := a.client.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("failed to scan build: %w", err)
+	}
+	defer resp.Body.Close()
+	
+	if resp.StatusCode != http.StatusOK && resp.StatusCode != http.StatusAccepted {
+		return nil, fmt.Errorf("API returned status code: %d", resp.StatusCode)
+	}
+	
+	var result map[string]interface{}
+	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+		return nil, fmt.Errorf("failed to decode response: %w", err)
+	}
+	
+	return result, nil
+}
+
+// generateVulnerabilitiesReport generates a vulnerabilities report
+func (a *Adapter) generateVulnerabilitiesReport(ctx context.Context, params map[string]interface{}) (interface{}, error) {
+	// Extract required parameters
+	name, ok := params["name"].(string)
+	if !ok {
+		name = fmt.Sprintf("report-%d", time.Now().Unix())
+	}
+
+	// Extract resources
+	resources := make(map[string]interface{})
+	
+	// Add repositories if provided
+	if repos, ok := params["repositories"].([]interface{}); ok && len(repos) > 0 {
+		reposList := make([]map[string]string, 0, len(repos))
+		for _, repo := range repos {
+			if repoStr, ok := repo.(string); ok {
+				reposList = append(reposList, map[string]string{"name": repoStr})
+			}
+		}
+		if len(reposList) > 0 {
+			resources["repositories"] = reposList
+		}
+	}
+	
+	// Add builds if provided
+	if builds, ok := params["builds"].([]interface{}); ok && len(builds) > 0 {
+		buildNames := make([]string, 0, len(builds))
+		for _, build := range builds {
+			if buildStr, ok := build.(string); ok {
+				buildNames = append(buildNames, buildStr)
+			}
+		}
+		if len(buildNames) > 0 {
+			resources["builds"] = map[string]interface{}{
+				"names": buildNames,
+			}
+		}
+	}
+
+	// Check if resources is empty
+	if len(resources) == 0 {
+		return nil, fmt.Errorf("at least one repository or build must be specified")
+	}
+
+	// Extract filters if provided
+	filters := make(map[string]interface{})
+	if filtersMap, ok := params["filters"].(map[string]interface{}); ok {
+		for k, v := range filtersMap {
+			filters[k] = v
+		}
+	}
+
+	// Check if using mock server
+	if a.config.MockResponses && a.config.MockURL != "" {
+		reportURL := fmt.Sprintf("%s/reports/vulnerabilities", a.config.MockURL)
+		
+		// Create request body
+		requestData := map[string]interface{}{
+			"name":      name,
+			"resources": resources,
+		}
+		if len(filters) > 0 {
+			requestData["filters"] = filters
+		}
+		
+		requestBody, err := json.Marshal(requestData)
+		if err != nil {
+			return nil, fmt.Errorf("failed to marshal request body: %w", err)
+		}
+		
+		// Create POST request
+		req, err := http.NewRequestWithContext(ctx, "POST", reportURL, bytes.NewReader(requestBody))
+		if err != nil {
+			return nil, fmt.Errorf("failed to create request: %w", err)
+		}
+		
+		// Set headers
+		req.Header.Set("Content-Type", "application/json")
+		a.setAuthHeaders(req)
+		
+		// Send request
+		resp, err := a.client.Do(req)
+		if err != nil {
+			return nil, fmt.Errorf("failed to generate report on mock server: %w", err)
+		}
+		defer resp.Body.Close()
+
+		var result map[string]interface{}
+		if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+			return nil, fmt.Errorf("failed to decode response: %w", err)
+		}
+
+		return result, nil
+	}
+
+	// Real API implementation
+	reportURL := fmt.Sprintf("%s/reports/vulnerabilities", a.config.BaseURL)
+	
+	// Create request body
+	requestData := map[string]interface{}{
+		"name":      name,
+		"resources": resources,
+	}
+	if len(filters) > 0 {
+		requestData["filters"] = filters
+	}
+	
+	requestBody, err := json.Marshal(requestData)
+	if err != nil {
+		return nil, fmt.Errorf("failed to marshal request body: %w", err)
+	}
+	
+	// Create POST request
+	req, err := http.NewRequestWithContext(ctx, "POST", reportURL, bytes.NewReader(requestBody))
+	if err != nil {
+		return nil, fmt.Errorf("failed to create request: %w", err)
+	}
+	
+	// Set headers
+	req.Header.Set("Content-Type", "application/json")
+	a.setAuthHeaders(req)
+	
+	// Send request
+	resp, err := a.client.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("failed to generate report: %w", err)
+	}
+	defer resp.Body.Close()
+	
+	if resp.StatusCode != http.StatusOK && resp.StatusCode != http.StatusAccepted && resp.StatusCode != http.StatusCreated {
+		return nil, fmt.Errorf("API returned status code: %d", resp.StatusCode)
+	}
+	
+	var result map[string]interface{}
+	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+		return nil, fmt.Errorf("failed to decode response: %w", err)
+	}
+	
+	return result, nil
+}
+
+// getComponentDetails gets detailed information about a component
+func (a *Adapter) getComponentDetails(ctx context.Context, params map[string]interface{}) (interface{}, error) {
+	// Extract required parameters
+	componentID, ok := params["component_id"].(string)
+	if !ok {
+		return nil, fmt.Errorf("missing component_id parameter")
+	}
+
+	// Check if using mock server
+	if a.config.MockResponses && a.config.MockURL != "" {
+		url := fmt.Sprintf("%s/component/%s", a.config.MockURL, url.PathEscape(componentID))
+		
+		req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
+		if err != nil {
+			return nil, fmt.Errorf("failed to create request: %w", err)
+		}
+		
+		a.setAuthHeaders(req)
+		
+		resp, err := a.client.Do(req)
+		if err != nil {
+			return nil, fmt.Errorf("failed to get component details from mock server: %w", err)
+		}
+		defer resp.Body.Close()
+
+		var result map[string]interface{}
+		if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+			return nil, fmt.Errorf("failed to decode response: %w", err)
+		}
+
+		return result, nil
+	}
+
+	// Real API implementation
+	apiURL := fmt.Sprintf("%s/component/%s", a.config.BaseURL, url.PathEscape(componentID))
+	
+	req, err := http.NewRequestWithContext(ctx, "GET", apiURL, nil)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create request: %w", err)
+	}
+	
+	a.setAuthHeaders(req)
+	
+	resp, err := a.client.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get component details: %w", err)
+	}
+	defer resp.Body.Close()
+	
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("API returned status code: %d", resp.StatusCode)
+	}
+	
+	var result map[string]interface{}
+	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+		return nil, fmt.Errorf("failed to decode response: %w", err)
+	}
+	
+	return result, nil
+}
+
+// getScanStatus gets the status of a scan
+func (a *Adapter) getScanStatus(ctx context.Context, params map[string]interface{}) (interface{}, error) {
+	// Extract required parameters
+	scanID, ok := params["scan_id"].(string)
+	if !ok {
+		return nil, fmt.Errorf("missing scan_id parameter")
+	}
+
+	// Check if using mock server
+	if a.config.MockResponses && a.config.MockURL != "" {
+		url := fmt.Sprintf("%s/scan/%s", a.config.MockURL, url.PathEscape(scanID))
+		
+		req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
+		if err != nil {
+			return nil, fmt.Errorf("failed to create request: %w", err)
+		}
+		
+		a.setAuthHeaders(req)
+		
+		resp, err := a.client.Do(req)
+		if err != nil {
+			return nil, fmt.Errorf("failed to get scan status from mock server: %w", err)
+		}
+		defer resp.Body.Close()
+
+		var result map[string]interface{}
+		if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+			return nil, fmt.Errorf("failed to decode response: %w", err)
+		}
+
+		return result, nil
+	}
+
+	// Real API implementation
+	apiURL := fmt.Sprintf("%s/scan/%s", a.config.BaseURL, url.PathEscape(scanID))
+	
+	req, err := http.NewRequestWithContext(ctx, "GET", apiURL, nil)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create request: %w", err)
+	}
+	
+	a.setAuthHeaders(req)
+	
+	resp, err := a.client.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get scan status: %w", err)
+	}
+	defer resp.Body.Close()
+	
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("API returned status code: %d", resp.StatusCode)
+	}
+	
+	var result map[string]interface{}
+	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+		return nil, fmt.Errorf("failed to decode response: %w", err)
+	}
+	
+	return result, nil
 }
 
 // Subscribe is a no-op since we're not using webhooks

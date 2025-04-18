@@ -6,6 +6,8 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"net/url"
+	"strings"
 	"time"
 
 	"github.com/S-Corkum/mcp-server/internal/adapters"
@@ -22,6 +24,7 @@ type Config struct {
 	RetryDelay      time.Duration `mapstructure:"retry_delay"`
 	MockResponses   bool          `mapstructure:"mock_responses"`
 	MockURL         string        `mapstructure:"mock_url"`
+	APIVersion      string        `mapstructure:"api_version"`
 }
 
 // Adapter implements the adapter interface for Artifactory
@@ -46,6 +49,9 @@ func NewAdapter(config Config) (*Adapter, error) {
 	}
 	if config.BaseURL == "" {
 		config.BaseURL = "https://artifactory.example.com/artifactory/api"
+	}
+	if config.APIVersion == "" {
+		config.APIVersion = "v1"
 	}
 
 	adapter := &Adapter{
@@ -129,11 +135,51 @@ func (a *Adapter) testConnection(ctx context.Context) error {
 		return nil
 	}
 	
-	// Simple ping to the Artifactory API
-	// In a real implementation, this would verify with the system/ping endpoint
-	// But for now we'll just return healthy status
+	// Test connectivity to real Artifactory API using system/ping endpoint
+	pingURL := fmt.Sprintf("%s/system/ping", a.config.BaseURL)
+	req, err := http.NewRequestWithContext(ctx, "GET", pingURL, nil)
+	if err != nil {
+		return fmt.Errorf("failed to create ping request: %w", err)
+	}
+	
+	// Set auth headers
+	a.setAuthHeaders(req)
+	
+	resp, err := a.client.Do(req)
+	if err != nil {
+		a.healthStatus = fmt.Sprintf("unhealthy: failed to connect to Artifactory API: %v", err)
+		return fmt.Errorf("failed to connect to Artifactory API: %w", err)
+	}
+	defer resp.Body.Close()
+	
+	if resp.StatusCode != http.StatusOK {
+		a.healthStatus = fmt.Sprintf("unhealthy: Artifactory API returned status code: %d", resp.StatusCode)
+		return fmt.Errorf("Artifactory API returned unexpected status code: %d", resp.StatusCode)
+	}
+	
+	// Successfully connected
 	a.healthStatus = "healthy"
 	return nil
+}
+
+// setAuthHeaders sets the appropriate authentication headers for the request
+func (a *Adapter) setAuthHeaders(req *http.Request) {
+	if a.config.Token != "" {
+		// Use auth token if available
+		if strings.HasPrefix(a.config.Token, "Bearer ") {
+			// Bearer token format
+			req.Header.Set("Authorization", a.config.Token)
+		} else if strings.HasPrefix(a.config.Token, "eyJ") {
+			// Looks like a JWT token - use Bearer format
+			req.Header.Set("Authorization", "Bearer "+a.config.Token)
+		} else {
+			// Use API key header format
+			req.Header.Set("X-JFrog-Art-Api", a.config.Token)
+		}
+	} else {
+		// Use basic auth
+		req.SetBasicAuth(a.config.Username, a.config.Password)
+	}
 }
 
 // GetData retrieves data from Artifactory
@@ -160,6 +206,14 @@ func (a *Adapter) GetData(ctx context.Context, query interface{}) (interface{}, 
 		return a.getBuildInfo(ctx, queryMap)
 	case "get_repositories":
 		return a.getRepositories(ctx, queryMap)
+	case "get_storage_info":
+		return a.getStorageInfo(ctx, queryMap)
+	case "get_folder_info":
+		return a.getFolderInfo(ctx, queryMap)
+	case "get_system_info":
+		return a.getSystemInfo(ctx, queryMap)
+	case "get_version":
+		return a.getVersion(ctx, queryMap)
 	default:
 		return nil, fmt.Errorf("unsupported operation: %s", operation)
 	}
@@ -175,6 +229,12 @@ func (a *Adapter) ExecuteAction(ctx context.Context, contextID string, action st
 		return a.getArtifactInfo(ctx, params)
 	case "search_artifacts":
 		return a.searchArtifacts(ctx, params)
+	case "get_repository_info":
+		return a.getRepositoryInfo(ctx, params)
+	case "get_folder_content":
+		return a.getFolderContent(ctx, params)
+	case "calculate_checksum":
+		return a.calculateChecksum(ctx, params)
 	default:
 		return nil, fmt.Errorf("unsupported action: %s", action)
 	}
@@ -185,9 +245,12 @@ func (a *Adapter) IsSafeOperation(action string, params map[string]interface{}) 
 	// Only read operations are considered safe for Artifactory
 	// (we're implementing as a read-only adapter per requirements)
 	safeActions := map[string]bool{
-		"download_artifact": true,
-		"get_artifact_info": true,
-		"search_artifacts":  true,
+		"download_artifact":   true,
+		"get_artifact_info":   true,
+		"search_artifacts":    true,
+		"get_repository_info": true,
+		"get_folder_content":  true,
+		"calculate_checksum":  true,
 	}
 
 	// Check if the action is in the safe list
@@ -220,9 +283,7 @@ func (a *Adapter) getArtifactInfo(ctx context.Context, params map[string]interfa
 	}
 
 	// In a real implementation, this would call the Artifactory API
-	// For now, we'll return mock data
-
-	// If using mock server and mock responses are enabled
+	// For now, we'll check if using mock server, otherwise return mock data
 	if a.config.MockResponses && a.config.MockURL != "" {
 		url := fmt.Sprintf("%s/storage/%s", a.config.MockURL, path)
 		
@@ -232,11 +293,7 @@ func (a *Adapter) getArtifactInfo(ctx context.Context, params map[string]interfa
 		}
 		
 		// Set auth headers
-		if a.config.Token != "" {
-			req.Header.Set("X-JFrog-Art-Api", a.config.Token)
-		} else {
-			req.SetBasicAuth(a.config.Username, a.config.Password)
-		}
+		a.setAuthHeaders(req)
 		
 		resp, err := a.client.Do(req)
 		if err != nil {
@@ -252,27 +309,33 @@ func (a *Adapter) getArtifactInfo(ctx context.Context, params map[string]interfa
 		return result, nil
 	}
 
-	// Mock response for testing
-	return map[string]interface{}{
-		"uri":         path,
-		"downloadUri": fmt.Sprintf("https://artifactory.example.com/artifactory/%s", path),
-		"repo":        "libs-release",
-		"path":        path,
-		"created":     time.Now().AddDate(0, -1, 0).Format(time.RFC3339),
-		"createdBy":   "user",
-		"size":        "15281024",
-		"mimeType":    "application/java-archive",
-		"checksums": map[string]interface{}{
-			"md5":    "abcdef1234567890abcdef1234567890",
-			"sha1":   "abcdef1234567890abcdef1234567890abcdef12",
-			"sha256": "abcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890",
-		},
-		"originalChecksums": map[string]interface{}{
-			"md5":    "abcdef1234567890abcdef1234567890",
-			"sha1":   "abcdef1234567890abcdef1234567890abcdef12",
-			"sha256": "abcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890",
-		},
-	}, nil
+	// Real API implementation
+	apiURL := fmt.Sprintf("%s/storage/%s", a.config.BaseURL, path)
+	
+	req, err := http.NewRequestWithContext(ctx, "GET", apiURL, nil)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create request: %w", err)
+	}
+	
+	// Set auth headers
+	a.setAuthHeaders(req)
+	
+	resp, err := a.client.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get artifact info: %w", err)
+	}
+	defer resp.Body.Close()
+	
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("API returned status code: %d", resp.StatusCode)
+	}
+	
+	var result map[string]interface{}
+	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+		return nil, fmt.Errorf("failed to decode response: %w", err)
+	}
+	
+	return result, nil
 }
 
 // searchArtifacts searches for artifacts
@@ -291,15 +354,12 @@ func (a *Adapter) searchArtifacts(ctx context.Context, params map[string]interfa
 	if repoParam, ok := params["repo"].(string); ok {
 		repo = repoParam
 	}
-
-	// In a real implementation, this would call the Artifactory API search
-	// For now, we'll return mock data
-
-	// If using mock server and mock responses are enabled
+	
+	// Check if using mock server
 	if a.config.MockResponses && a.config.MockURL != "" {
-		url := fmt.Sprintf("%s/search/artifact?name=%s", a.config.MockURL, query)
+		url := fmt.Sprintf("%s/search/artifact?name=%s", a.config.MockURL, url.QueryEscape(query))
 		if repo != "" {
-			url += "&repos=" + repo
+			url += "&repos=" + url.QueryEscape(repo)
 		}
 		
 		req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
@@ -308,11 +368,7 @@ func (a *Adapter) searchArtifacts(ctx context.Context, params map[string]interfa
 		}
 		
 		// Set auth headers
-		if a.config.Token != "" {
-			req.Header.Set("X-JFrog-Art-Api", a.config.Token)
-		} else {
-			req.SetBasicAuth(a.config.Username, a.config.Password)
-		}
+		a.setAuthHeaders(req)
 		
 		resp, err := a.client.Do(req)
 		if err != nil {
@@ -328,40 +384,91 @@ func (a *Adapter) searchArtifacts(ctx context.Context, params map[string]interfa
 		return result, nil
 	}
 
-	// Mock response for testing
-	return map[string]interface{}{
-		"results": []map[string]interface{}{
-			{
-				"uri":         "libs-release/org/example/app/1.0.0/app-1.0.0.jar",
-				"downloadUri": "https://artifactory.example.com/artifactory/libs-release/org/example/app/1.0.0/app-1.0.0.jar",
-				"repo":        "libs-release",
-				"path":        "org/example/app/1.0.0/app-1.0.0.jar",
-				"created":     time.Now().AddDate(0, -1, 0).Format(time.RFC3339),
-				"size":        "15281024",
-			},
-			{
-				"uri":         "libs-release/org/example/app/1.0.1/app-1.0.1.jar",
-				"downloadUri": "https://artifactory.example.com/artifactory/libs-release/org/example/app/1.0.1/app-1.0.1.jar",
-				"repo":        "libs-release",
-				"path":        "org/example/app/1.0.1/app-1.0.1.jar",
-				"created":     time.Now().AddDate(0, 0, -15).Format(time.RFC3339),
-				"size":        "15348224",
-			},
-			{
-				"uri":         "libs-release-local/org/example/app/1.1.0/app-1.1.0.jar",
-				"downloadUri": "https://artifactory.example.com/artifactory/libs-release-local/org/example/app/1.1.0/app-1.1.0.jar",
-				"repo":        "libs-release-local",
-				"path":        "org/example/app/1.1.0/app-1.1.0.jar",
-				"created":     time.Now().AddDate(0, 0, -2).Format(time.RFC3339),
-				"size":        "15782912",
-			},
-		},
-		"range": map[string]interface{}{
-			"start_pos": 0,
-			"end_pos":   3,
-			"total":     3,
-		},
-	}, nil
+	// Real API implementation
+	// Determine which search endpoint to use based on parameters
+	var apiURL string
+	if query != "" {
+		// Use AQL (Artifactory Query Language) for more advanced searches
+		apiURL = fmt.Sprintf("%s/search/aql", a.config.BaseURL)
+		
+		// Build AQL query
+		aqlQuery := "items.find({"
+		if repo != "" {
+			aqlQuery += fmt.Sprintf("\"repo\":\"%s\",", repo)
+		}
+		aqlQuery += fmt.Sprintf("\"name\":{\"$match\":\"%s\"}", query)
+		aqlQuery += "}).include(\"name\", \"repo\", \"path\", \"created\", \"modified\", \"updated\", \"size\")"
+		
+		req, err := http.NewRequestWithContext(ctx, "POST", apiURL, strings.NewReader(aqlQuery))
+		if err != nil {
+			return nil, fmt.Errorf("failed to create request: %w", err)
+		}
+		
+		req.Header.Set("Content-Type", "text/plain")
+		a.setAuthHeaders(req)
+		
+		resp, err := a.client.Do(req)
+		if err != nil {
+			return nil, fmt.Errorf("failed to search artifacts: %w", err)
+		}
+		defer resp.Body.Close()
+		
+		if resp.StatusCode != http.StatusOK {
+			return nil, fmt.Errorf("API returned status code: %d", resp.StatusCode)
+		}
+		
+		var aqlResult struct {
+			Results []map[string]interface{} `json:"results"`
+			Range   map[string]interface{}  `json:"range"`
+		}
+		
+		if err := json.NewDecoder(resp.Body).Decode(&aqlResult); err != nil {
+			return nil, fmt.Errorf("failed to decode response: %w", err)
+		}
+		
+		// Transform AQL result to standard format
+		return map[string]interface{}{
+			"results": aqlResult.Results,
+			"range": aqlResult.Range,
+		}, nil
+	} else {
+		// Use simple artifact search endpoint for basic queries
+		apiURL = fmt.Sprintf("%s/search/artifact", a.config.BaseURL)
+		
+		// Add query parameters
+		urlParams := url.Values{}
+		if repo != "" {
+			urlParams.Add("repos", repo)
+		}
+		
+		if len(urlParams) > 0 {
+			apiURL += "?" + urlParams.Encode()
+		}
+		
+		req, err := http.NewRequestWithContext(ctx, "GET", apiURL, nil)
+		if err != nil {
+			return nil, fmt.Errorf("failed to create request: %w", err)
+		}
+		
+		a.setAuthHeaders(req)
+		
+		resp, err := a.client.Do(req)
+		if err != nil {
+			return nil, fmt.Errorf("failed to search artifacts: %w", err)
+		}
+		defer resp.Body.Close()
+		
+		if resp.StatusCode != http.StatusOK {
+			return nil, fmt.Errorf("API returned status code: %d", resp.StatusCode)
+		}
+		
+		var result map[string]interface{}
+		if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+			return nil, fmt.Errorf("failed to decode response: %w", err)
+		}
+		
+		return result, nil
+	}
 }
 
 // getBuildInfo gets build information
@@ -377,10 +484,7 @@ func (a *Adapter) getBuildInfo(ctx context.Context, params map[string]interface{
 		return nil, fmt.Errorf("missing build_number parameter")
 	}
 
-	// In a real implementation, this would call the Artifactory API
-	// For now, we'll return mock data
-
-	// If using mock server and mock responses are enabled
+	// Check if using mock server
 	if a.config.MockResponses && a.config.MockURL != "" {
 		url := fmt.Sprintf("%s/build/%s/%s", a.config.MockURL, buildName, buildNumber)
 		
@@ -390,11 +494,7 @@ func (a *Adapter) getBuildInfo(ctx context.Context, params map[string]interface{
 		}
 		
 		// Set auth headers
-		if a.config.Token != "" {
-			req.Header.Set("X-JFrog-Art-Api", a.config.Token)
-		} else {
-			req.SetBasicAuth(a.config.Username, a.config.Password)
-		}
+		a.setAuthHeaders(req)
 		
 		resp, err := a.client.Do(req)
 		if err != nil {
@@ -410,56 +510,32 @@ func (a *Adapter) getBuildInfo(ctx context.Context, params map[string]interface{
 		return result, nil
 	}
 
-	// Mock response for testing
-	buildStartDate := time.Now().AddDate(0, 0, -1).Format(time.RFC3339)
-	return map[string]interface{}{
-		"buildInfo": map[string]interface{}{
-			"version":    "1.0.1",
-			"name":       buildName,
-			"number":     buildNumber,
-			"started":    buildStartDate,
-			"url":        fmt.Sprintf("https://ci.example.com/build/%s/%s", buildName, buildNumber),
-			"vcsRevision": "abcdef1234567890",
-			"modules": []map[string]interface{}{
-				{
-					"id":      "org.example:app:1.0.1",
-					"type":    "maven",
-					"artifacts": []map[string]interface{}{
-						{
-							"name":     "app-1.0.1.jar",
-							"type":     "jar",
-							"sha1":     "abcdef1234567890abcdef1234567890abcdef12",
-							"md5":      "abcdef1234567890abcdef1234567890",
-							"size":     15348224,
-						},
-						{
-							"name":     "app-1.0.1-sources.jar",
-							"type":     "java-source-jar",
-							"sha1":     "abcdef1234567890abcdef1234567890abcdef12",
-							"md5":      "abcdef1234567890abcdef1234567890",
-							"size":     5243392,
-						},
-					},
-					"dependencies": []map[string]interface{}{
-						{
-							"id":       "com.example:common:1.2.3",
-							"type":     "jar",
-							"scopes":   []string{"compile"},
-							"sha1":     "abcdef1234567890abcdef1234567890abcdef12",
-							"md5":      "abcdef1234567890abcdef1234567890",
-						},
-						{
-							"id":       "org.springframework:spring-core:5.3.9",
-							"type":     "jar",
-							"scopes":   []string{"compile"},
-							"sha1":     "abcdef1234567890abcdef1234567890abcdef12",
-							"md5":      "abcdef1234567890abcdef1234567890",
-						},
-					},
-				},
-			},
-		},
-	}, nil
+	// Real API implementation
+	apiURL := fmt.Sprintf("%s/build/%s/%s", a.config.BaseURL, url.PathEscape(buildName), url.PathEscape(buildNumber))
+	
+	req, err := http.NewRequestWithContext(ctx, "GET", apiURL, nil)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create request: %w", err)
+	}
+	
+	a.setAuthHeaders(req)
+	
+	resp, err := a.client.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get build info: %w", err)
+	}
+	defer resp.Body.Close()
+	
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("API returned status code: %d", resp.StatusCode)
+	}
+	
+	var result map[string]interface{}
+	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+		return nil, fmt.Errorf("failed to decode response: %w", err)
+	}
+	
+	return result, nil
 }
 
 // getRepositories gets a list of repositories
@@ -470,14 +546,11 @@ func (a *Adapter) getRepositories(ctx context.Context, params map[string]interfa
 		type_ = typeParam
 	}
 
-	// In a real implementation, this would call the Artifactory API
-	// For now, we'll return mock data
-
-	// If using mock server and mock responses are enabled
+	// Check if using mock server
 	if a.config.MockResponses && a.config.MockURL != "" {
 		url := fmt.Sprintf("%s/repositories", a.config.MockURL)
 		if type_ != "" {
-			url += "?type=" + type_
+			url += "?type=" + url.QueryEscape(type_)
 		}
 		
 		req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
@@ -486,11 +559,7 @@ func (a *Adapter) getRepositories(ctx context.Context, params map[string]interfa
 		}
 		
 		// Set auth headers
-		if a.config.Token != "" {
-			req.Header.Set("X-JFrog-Art-Api", a.config.Token)
-		} else {
-			req.SetBasicAuth(a.config.Username, a.config.Password)
-		}
+		a.setAuthHeaders(req)
 		
 		resp, err := a.client.Do(req)
 		if err != nil {
@@ -508,88 +577,472 @@ func (a *Adapter) getRepositories(ctx context.Context, params map[string]interfa
 		}, nil
 	}
 
-	// Mock response for testing with different repo types
-	var repos []map[string]interface{}
+	// Real API implementation
+	apiURL := fmt.Sprintf("%s/repositories", a.config.BaseURL)
 	
-	// Always include local repos
-	if type_ == "" || type_ == "local" {
-		repos = append(repos, []map[string]interface{}{
-			{
-				"key":         "libs-release-local",
-				"type":        "local",
-				"description": "Local repository for release artifacts",
-				"url":         "https://artifactory.example.com/artifactory/libs-release-local",
-				"packageType": "maven",
-			},
-			{
-				"key":         "libs-snapshot-local",
-				"type":        "local",
-				"description": "Local repository for snapshot artifacts",
-				"url":         "https://artifactory.example.com/artifactory/libs-snapshot-local",
-				"packageType": "maven",
-			},
-			{
-				"key":         "docker-local",
-				"type":        "local",
-				"description": "Local Docker registry",
-				"url":         "https://artifactory.example.com/artifactory/docker-local",
-				"packageType": "docker",
-			},
-		}...)
+	// Add query parameters
+	urlParams := url.Values{}
+	if type_ != "" {
+		urlParams.Add("type", type_)
 	}
 	
-	// Include remote repos if requested
-	if type_ == "" || type_ == "remote" {
-		repos = append(repos, []map[string]interface{}{
-			{
-				"key":         "maven-central",
-				"type":        "remote",
-				"description": "Maven Central",
-				"url":         "https://artifactory.example.com/artifactory/maven-central",
-				"packageType": "maven",
-				"remoteUrl":   "https://repo.maven.apache.org/maven2/",
-			},
-			{
-				"key":         "npm-remote",
-				"type":        "remote",
-				"description": "NPM Registry",
-				"url":         "https://artifactory.example.com/artifactory/npm-remote",
-				"packageType": "npm",
-				"remoteUrl":   "https://registry.npmjs.org/",
-			},
-		}...)
+	if len(urlParams) > 0 {
+		apiURL += "?" + urlParams.Encode()
 	}
 	
-	// Include virtual repos if requested
-	if type_ == "" || type_ == "virtual" {
-		repos = append(repos, []map[string]interface{}{
-			{
-				"key":         "libs-release",
-				"type":        "virtual",
-				"description": "Virtual repository for release artifacts",
-				"url":         "https://artifactory.example.com/artifactory/libs-release",
-				"packageType": "maven",
-				"repositories": []string{
-					"libs-release-local",
-					"maven-central",
-				},
-			},
-			{
-				"key":         "libs-snapshot",
-				"type":        "virtual",
-				"description": "Virtual repository for snapshot artifacts",
-				"url":         "https://artifactory.example.com/artifactory/libs-snapshot",
-				"packageType": "maven",
-				"repositories": []string{
-					"libs-snapshot-local",
-				},
-			},
-		}...)
+	req, err := http.NewRequestWithContext(ctx, "GET", apiURL, nil)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create request: %w", err)
+	}
+	
+	a.setAuthHeaders(req)
+	
+	resp, err := a.client.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get repositories: %w", err)
+	}
+	defer resp.Body.Close()
+	
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("API returned status code: %d", resp.StatusCode)
+	}
+	
+	var result []map[string]interface{}
+	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+		return nil, fmt.Errorf("failed to decode response: %w", err)
+	}
+	
+	return map[string]interface{}{
+		"repositories": result,
+	}, nil
+}
+
+// getStorageInfo gets storage information from Artifactory
+func (a *Adapter) getStorageInfo(ctx context.Context, params map[string]interface{}) (interface{}, error) {
+	// Optional parameter for repository
+	repoKey := ""
+	if repo, ok := params["repo"].(string); ok && repo != "" {
+		repoKey = "/" + repo
 	}
 
-	return map[string]interface{}{
-		"repositories": repos,
-	}, nil
+	// Check if using mock server
+	if a.config.MockResponses && a.config.MockURL != "" {
+		url := fmt.Sprintf("%s/storageinfo%s", a.config.MockURL, repoKey)
+		
+		req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
+		if err != nil {
+			return nil, fmt.Errorf("failed to create request: %w", err)
+		}
+		
+		a.setAuthHeaders(req)
+		
+		resp, err := a.client.Do(req)
+		if err != nil {
+			return nil, fmt.Errorf("failed to get storage info from mock server: %w", err)
+		}
+		defer resp.Body.Close()
+
+		var result map[string]interface{}
+		if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+			return nil, fmt.Errorf("failed to decode response: %w", err)
+		}
+
+		return result, nil
+	}
+
+	// Real API implementation
+	apiURL := fmt.Sprintf("%s/storageinfo%s", a.config.BaseURL, repoKey)
+	
+	req, err := http.NewRequestWithContext(ctx, "GET", apiURL, nil)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create request: %w", err)
+	}
+	
+	a.setAuthHeaders(req)
+	
+	resp, err := a.client.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get storage info: %w", err)
+	}
+	defer resp.Body.Close()
+	
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("API returned status code: %d", resp.StatusCode)
+	}
+	
+	var result map[string]interface{}
+	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+		return nil, fmt.Errorf("failed to decode response: %w", err)
+	}
+	
+	return result, nil
+}
+
+// getFolderInfo gets information about a folder
+func (a *Adapter) getFolderInfo(ctx context.Context, params map[string]interface{}) (interface{}, error) {
+	// Extract required parameters
+	path, ok := params["path"].(string)
+	if !ok {
+		return nil, fmt.Errorf("missing path parameter")
+	}
+
+	// Check if using mock server
+	if a.config.MockResponses && a.config.MockURL != "" {
+		url := fmt.Sprintf("%s/storage/%s?list=true&deep=1&listFolders=1", a.config.MockURL, path)
+		
+		req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
+		if err != nil {
+			return nil, fmt.Errorf("failed to create request: %w", err)
+		}
+		
+		a.setAuthHeaders(req)
+		
+		resp, err := a.client.Do(req)
+		if err != nil {
+			return nil, fmt.Errorf("failed to get folder info from mock server: %w", err)
+		}
+		defer resp.Body.Close()
+
+		var result map[string]interface{}
+		if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+			return nil, fmt.Errorf("failed to decode response: %w", err)
+		}
+
+		return result, nil
+	}
+
+	// Real API implementation
+	apiURL := fmt.Sprintf("%s/storage/%s?list=true&deep=1&listFolders=1", a.config.BaseURL, path)
+	
+	req, err := http.NewRequestWithContext(ctx, "GET", apiURL, nil)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create request: %w", err)
+	}
+	
+	a.setAuthHeaders(req)
+	
+	resp, err := a.client.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get folder info: %w", err)
+	}
+	defer resp.Body.Close()
+	
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("API returned status code: %d", resp.StatusCode)
+	}
+	
+	var result map[string]interface{}
+	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+		return nil, fmt.Errorf("failed to decode response: %w", err)
+	}
+	
+	return result, nil
+}
+
+// getSystemInfo gets system information from Artifactory
+func (a *Adapter) getSystemInfo(ctx context.Context, params map[string]interface{}) (interface{}, error) {
+	// Check if using mock server
+	if a.config.MockResponses && a.config.MockURL != "" {
+		url := fmt.Sprintf("%s/system", a.config.MockURL)
+		
+		req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
+		if err != nil {
+			return nil, fmt.Errorf("failed to create request: %w", err)
+		}
+		
+		a.setAuthHeaders(req)
+		
+		resp, err := a.client.Do(req)
+		if err != nil {
+			return nil, fmt.Errorf("failed to get system info from mock server: %w", err)
+		}
+		defer resp.Body.Close()
+
+		var result map[string]interface{}
+		if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+			return nil, fmt.Errorf("failed to decode response: %w", err)
+		}
+
+		return result, nil
+	}
+
+	// Real API implementation
+	apiURL := fmt.Sprintf("%s/system", a.config.BaseURL)
+	
+	req, err := http.NewRequestWithContext(ctx, "GET", apiURL, nil)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create request: %w", err)
+	}
+	
+	a.setAuthHeaders(req)
+	
+	resp, err := a.client.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get system info: %w", err)
+	}
+	defer resp.Body.Close()
+	
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("API returned status code: %d", resp.StatusCode)
+	}
+	
+	var result map[string]interface{}
+	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+		return nil, fmt.Errorf("failed to decode response: %w", err)
+	}
+	
+	return result, nil
+}
+
+// getVersion gets Artifactory version info
+func (a *Adapter) getVersion(ctx context.Context, params map[string]interface{}) (interface{}, error) {
+	// Check if using mock server
+	if a.config.MockResponses && a.config.MockURL != "" {
+		url := fmt.Sprintf("%s/system/version", a.config.MockURL)
+		
+		req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
+		if err != nil {
+			return nil, fmt.Errorf("failed to create request: %w", err)
+		}
+		
+		a.setAuthHeaders(req)
+		
+		resp, err := a.client.Do(req)
+		if err != nil {
+			return nil, fmt.Errorf("failed to get version from mock server: %w", err)
+		}
+		defer resp.Body.Close()
+
+		var result map[string]interface{}
+		if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+			return nil, fmt.Errorf("failed to decode response: %w", err)
+		}
+
+		return result, nil
+	}
+
+	// Real API implementation
+	apiURL := fmt.Sprintf("%s/system/version", a.config.BaseURL)
+	
+	req, err := http.NewRequestWithContext(ctx, "GET", apiURL, nil)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create request: %w", err)
+	}
+	
+	a.setAuthHeaders(req)
+	
+	resp, err := a.client.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get version: %w", err)
+	}
+	defer resp.Body.Close()
+	
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("API returned status code: %d", resp.StatusCode)
+	}
+	
+	var result map[string]interface{}
+	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+		return nil, fmt.Errorf("failed to decode response: %w", err)
+	}
+	
+	return result, nil
+}
+
+// getRepositoryInfo gets detailed information about a repository
+func (a *Adapter) getRepositoryInfo(ctx context.Context, params map[string]interface{}) (interface{}, error) {
+	// Extract required parameters
+	repoKey, ok := params["repo_key"].(string)
+	if !ok {
+		return nil, fmt.Errorf("missing repo_key parameter")
+	}
+
+	// Check if using mock server
+	if a.config.MockResponses && a.config.MockURL != "" {
+		url := fmt.Sprintf("%s/repositories/%s", a.config.MockURL, repoKey)
+		
+		req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
+		if err != nil {
+			return nil, fmt.Errorf("failed to create request: %w", err)
+		}
+		
+		a.setAuthHeaders(req)
+		
+		resp, err := a.client.Do(req)
+		if err != nil {
+			return nil, fmt.Errorf("failed to get repository info from mock server: %w", err)
+		}
+		defer resp.Body.Close()
+
+		var result map[string]interface{}
+		if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+			return nil, fmt.Errorf("failed to decode response: %w", err)
+		}
+
+		return result, nil
+	}
+
+	// Real API implementation
+	apiURL := fmt.Sprintf("%s/repositories/%s", a.config.BaseURL, url.PathEscape(repoKey))
+	
+	req, err := http.NewRequestWithContext(ctx, "GET", apiURL, nil)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create request: %w", err)
+	}
+	
+	a.setAuthHeaders(req)
+	
+	resp, err := a.client.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get repository info: %w", err)
+	}
+	defer resp.Body.Close()
+	
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("API returned status code: %d", resp.StatusCode)
+	}
+	
+	var result map[string]interface{}
+	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+		return nil, fmt.Errorf("failed to decode response: %w", err)
+	}
+	
+	return result, nil
+}
+
+// getFolderContent retrieves contents of a folder in Artifactory
+func (a *Adapter) getFolderContent(ctx context.Context, params map[string]interface{}) (interface{}, error) {
+	// Extract required parameters
+	path, ok := params["path"].(string)
+	if !ok {
+		return nil, fmt.Errorf("missing path parameter")
+	}
+
+	// Get optional parameters with defaults
+	deep := "1"
+	if deepParam, ok := params["deep"].(string); ok {
+		deep = deepParam
+	}
+	
+	listFolders := "1"
+	if listFoldersParam, ok := params["list_folders"].(string); ok {
+		listFolders = listFoldersParam
+	}
+
+	// Check if using mock server
+	if a.config.MockResponses && a.config.MockURL != "" {
+		url := fmt.Sprintf("%s/storage/%s?list=true&deep=%s&listFolders=%s", 
+			a.config.MockURL, path, deep, listFolders)
+		
+		req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
+		if err != nil {
+			return nil, fmt.Errorf("failed to create request: %w", err)
+		}
+		
+		a.setAuthHeaders(req)
+		
+		resp, err := a.client.Do(req)
+		if err != nil {
+			return nil, fmt.Errorf("failed to get folder content from mock server: %w", err)
+		}
+		defer resp.Body.Close()
+
+		var result map[string]interface{}
+		if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+			return nil, fmt.Errorf("failed to decode response: %w", err)
+		}
+
+		return result, nil
+	}
+
+	// Real API implementation
+	apiURL := fmt.Sprintf("%s/storage/%s?list=true&deep=%s&listFolders=%s", 
+		a.config.BaseURL, path, deep, listFolders)
+	
+	req, err := http.NewRequestWithContext(ctx, "GET", apiURL, nil)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create request: %w", err)
+	}
+	
+	a.setAuthHeaders(req)
+	
+	resp, err := a.client.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get folder content: %w", err)
+	}
+	defer resp.Body.Close()
+	
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("API returned status code: %d", resp.StatusCode)
+	}
+	
+	var result map[string]interface{}
+	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+		return nil, fmt.Errorf("failed to decode response: %w", err)
+	}
+	
+	return result, nil
+}
+
+// calculateChecksum calculates checksums for an artifact
+func (a *Adapter) calculateChecksum(ctx context.Context, params map[string]interface{}) (interface{}, error) {
+	// Extract required parameters
+	path, ok := params["path"].(string)
+	if !ok {
+		return nil, fmt.Errorf("missing path parameter")
+	}
+
+	// Check if using mock server
+	if a.config.MockResponses && a.config.MockURL != "" {
+		url := fmt.Sprintf("%s/storage/%s?checksum", a.config.MockURL, path)
+		
+		req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
+		if err != nil {
+			return nil, fmt.Errorf("failed to create request: %w", err)
+		}
+		
+		a.setAuthHeaders(req)
+		
+		resp, err := a.client.Do(req)
+		if err != nil {
+			return nil, fmt.Errorf("failed to calculate checksum from mock server: %w", err)
+		}
+		defer resp.Body.Close()
+
+		var result map[string]interface{}
+		if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+			return nil, fmt.Errorf("failed to decode response: %w", err)
+		}
+
+		return result, nil
+	}
+
+	// Real API implementation
+	apiURL := fmt.Sprintf("%s/storage/%s?checksum", a.config.BaseURL, path)
+	
+	req, err := http.NewRequestWithContext(ctx, "GET", apiURL, nil)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create request: %w", err)
+	}
+	
+	a.setAuthHeaders(req)
+	
+	resp, err := a.client.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("failed to calculate checksum: %w", err)
+	}
+	defer resp.Body.Close()
+	
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("API returned status code: %d", resp.StatusCode)
+	}
+	
+	var result map[string]interface{}
+	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+		return nil, fmt.Errorf("failed to decode response: %w", err)
+	}
+	
+	return result, nil
 }
 
 // downloadArtifact downloads an artifact (returns the download URL in this implementation)
@@ -600,10 +1053,7 @@ func (a *Adapter) downloadArtifact(ctx context.Context, params map[string]interf
 		return nil, fmt.Errorf("missing path parameter")
 	}
 
-	// In a real implementation, this would download the artifact or return a pre-signed URL
-	// For now, we'll return a mock download URL
-
-	// If using mock server and mock responses are enabled
+	// Check if using mock server
 	if a.config.MockResponses && a.config.MockURL != "" {
 		url := fmt.Sprintf("%s/artifact/%s", a.config.MockURL, path)
 		
@@ -614,10 +1064,41 @@ func (a *Adapter) downloadArtifact(ctx context.Context, params map[string]interf
 		}, nil
 	}
 
-	// Mock response for testing
+	// Real API implementation
+	apiURL := fmt.Sprintf("%s/../%s", a.config.BaseURL, path)
+	
+	req, err := http.NewRequestWithContext(ctx, "GET", apiURL, nil)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create request: %w", err)
+	}
+	
+	a.setAuthHeaders(req)
+	
+	// Create a HEAD request to check if the file exists and get metadata
+	headReq, err := http.NewRequestWithContext(ctx, "HEAD", apiURL, nil)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create HEAD request: %w", err)
+	}
+	
+	a.setAuthHeaders(headReq)
+	
+	headResp, err := a.client.Do(headReq)
+	if err != nil {
+		return nil, fmt.Errorf("failed to check artifact: %w", err)
+	}
+	defer headResp.Body.Close()
+	
+	if headResp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("Artifact not found, status code: %d", headResp.StatusCode)
+	}
+	
+	// In a real implementation, we might actually download the file here
+	// For this adapter, we'll just return the direct download URL
 	return map[string]interface{}{
-		"downloadUrl": fmt.Sprintf("https://artifactory.example.com/artifactory/%s", path),
+		"downloadUrl": apiURL,
 		"path":        path,
+		"size":        headResp.Header.Get("Content-Length"),
+		"contentType": headResp.Header.Get("Content-Type"),
 	}, nil
 }
 

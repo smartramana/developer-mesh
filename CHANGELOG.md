@@ -5,6 +5,33 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.2.6] - 2025-04-17
+
+### Added
+- Enhanced JFrog Artifactory adapter with comprehensive REST API integration
+- Enhanced JFrog Xray adapter with comprehensive REST API integration
+- Added support for multiple authentication methods in both adapters (Bearer token, JWT, API key, Basic auth)
+- Implemented connectivity testing using system/ping endpoints
+- Added new Artifactory operations: getStorageInfo, getFolderInfo, getSystemInfo, getVersion, getRepositoryInfo
+- Added new Artifactory actions: getFolderContent, calculateChecksum
+- Added new Xray operations: getSystemInfo, getSystemVersion, getWatches, getPolicies, getSummary
+- Added new Xray actions: scanBuild (with v1/v2 API support), generateVulnerabilitiesReport, getComponentDetails, getScanStatus
+- Implemented advanced search capability using Artifactory Query Language (AQL)
+
+### Changed
+- Updated authentication method to use centralized setAuthHeaders function
+- Enhanced request handling with proper HTTP status code checking
+- Improved parameter validation for all API operations
+- Modified response processing to transform API responses to expected formats
+- Improved error handling with detailed error messages
+- Added API version support for backward compatibility
+- Updated request construction to follow JFrog API best practices
+
+### Fixed
+- Fixed mock server connectivity testing to properly verify server health
+- Enhanced testConnection method to properly test connectivity to the JFrog APIs
+- Improved implementation of scan operations to properly handle API responses
+
 ## [0.2.5] - 2025-04-17
 
 ### Added
