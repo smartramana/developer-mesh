@@ -8,8 +8,8 @@ import (
 
 // @title MCP Server API
 // @version 1.0
-// @description Model Context Protocol (MCP) Server API for AI agents with context management and DevOps tool integrations
-// @termsOfService http://swagger.io/terms/
+// @description Model Context Protocol (MCP) Server API for AI agents with advanced context management and DevOps tool integrations. Provides a RESTful interface for storing, retrieving, and manipulating conversation contexts, as well as interacting with DevOps tools such as GitHub.
+// @termsOfService https://github.com/S-Corkum/mcp-server/blob/main/LICENSE
 
 // @contact.name API Support
 // @contact.url https://github.com/S-Corkum/mcp-server/issues
@@ -25,11 +25,24 @@ import (
 // @securityDefinitions.apikey ApiKeyAuth
 // @in header
 // @name X-API-Key
+// @description API key authentication for programmatic access
 
 // @securityDefinitions.apikey BearerAuth
 // @in header
 // @name Authorization
-// @description Type "Bearer" followed by a space and the JWT token
+// @description Type "Bearer" followed by a space and the JWT token for authenticated sessions
+
+// @tag.name contexts
+// @tag.description Context management endpoints for storing, retrieving, and manipulating AI agent conversation contexts
+
+// @tag.name tools
+// @tag.description DevOps tool integration endpoints for interacting with GitHub and other tools
+
+// @tag.name vectors
+// @tag.description Vector embedding endpoints for semantic search and similarity matching
+
+// @tag.name webhooks
+// @tag.description Webhook endpoints for receiving events from external systems
 
 // SetupSwaggerDocs configures the swagger documentation
 func SetupSwaggerDocs(router *gin.Engine) {

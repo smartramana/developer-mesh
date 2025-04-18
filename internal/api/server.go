@@ -35,6 +35,16 @@ func NewServer(engine *core.Engine, embeddingRepo *repository.EmbeddingRepositor
 	// Add middleware
 	router.Use(gin.Recovery())
 	router.Use(RequestLogger())
+	
+	// Apply performance optimizations based on configuration
+	if cfg.Performance.EnableCompression {
+		router.Use(CompressionMiddleware())  // Add response compression
+	}
+	
+	if cfg.Performance.EnableETagCaching {
+		router.Use(CachingMiddleware())      // Add HTTP caching
+	}
+	
 	router.Use(MetricsMiddleware())
 	router.Use(ErrorHandlerMiddleware()) // Add centralized error handling
 	router.Use(TracingMiddleware())      // Add request tracing
@@ -63,6 +73,25 @@ func NewServer(engine *core.Engine, embeddingRepo *repository.EmbeddingRepositor
 	// Initialize JWT with secret from configuration
 	InitJWT(cfg.Auth.JWTSecret)
 
+	// Configure HTTP client transport for external service calls
+	httpTransport := &http.Transport{
+		MaxIdleConns:        cfg.Performance.HTTPMaxIdleConns,
+		MaxConnsPerHost:     cfg.Performance.HTTPMaxConnsPerHost,
+		IdleConnTimeout:     cfg.Performance.HTTPIdleConnTimeout,
+		ResponseHeaderTimeout: 30 * time.Second,
+		DisableCompression:  false,
+		ForceAttemptHTTP2:   true,
+	}
+	
+	// Create custom HTTP client with the optimized transport
+	httpClient := &http.Client{
+		Transport: httpTransport,
+		Timeout:   60 * time.Second,
+	}
+	
+	// Use the custom HTTP client for external service calls
+	http.DefaultClient = httpClient
+	
 	server := &Server{
 		router:       router,
 		engine:       engine,
@@ -106,6 +135,22 @@ func (s *Server) setupRoutes() {
 	v1 := s.router.Group("/api/v1")
 	v1.Use(AuthMiddleware("jwt")) // Require JWT auth for all API endpoints
 	
+	// Root endpoint to provide API entry points (HATEOAS)
+	v1.GET("/", func(c *gin.Context) {
+		baseURL := s.getBaseURL(c)
+		c.JSON(http.StatusOK, gin.H{
+			"api_version": "1.0",
+			"description": "MCP Server API for AI agents context management and DevOps tool integration",
+			"links": map[string]string{
+				"contexts": baseURL + "/api/v1/contexts",
+				"tools": baseURL + "/api/v1/tools",
+				"vectors": baseURL + "/api/v1/vectors",
+				"health": baseURL + "/health",
+				"documentation": baseURL + "/swagger/index.html",
+			},
+		})
+	})
+	
 	// Versioned Context management API
 	versionedContextAPI := NewVersionedContextAPI(s.engine.ContextManager)
 	versionedContextAPI.RegisterRoutes(v1)
@@ -114,18 +159,15 @@ func (s *Server) setupRoutes() {
 	mcpAPI := NewMCPAPI(s.engine.ContextManager)
 	mcpAPI.RegisterRoutes(v1)
 	
-	// Tool integration API
-	// IMPORTANT: Create a direct static tools list without relying on the adapter bridge
+	// Tool integration API - using resource-based approach
 	toolAPI := NewToolAPI(s.engine.AdapterBridge)
+	toolAPI.RegisterRoutes(v1)
 	
-	// Register tool routes manually to ensure all endpoints work correctly
-	v1.POST("/tools/:tool/actions/:action", toolAPI.executeToolAction)
-	v1.POST("/tools/:tool/query", toolAPI.queryToolData)
-	v1.GET("/tools/:tool/actions", toolAPI.listAllowedActions)
-	
-	// Register GET /tools directly as a static handler
+	// Register GET /tools directly as a static handler (for backward compatibility)
 	v1.GET("/tools", func(c *gin.Context) {
-		c.JSON(http.StatusOK, gin.H{"tools": []map[string]interface{}{
+		baseURL := s.getBaseURL(c)
+		c.JSON(http.StatusOK, gin.H{
+			"tools": []map[string]interface{}{
 			{
 				"name": "github",
 				"description": "GitHub integration for repository, pull request, and code management",
@@ -273,18 +315,22 @@ func (s *Server) metricsHandler(c *gin.Context) {
 	c.String(http.StatusOK, "# metrics data will be here")
 }
 
-// contextHandler creates a new MCP context
-func (s *Server) contextHandler(c *gin.Context) {
-	// To be implemented
-	c.JSON(http.StatusOK, gin.H{"message": "context created"})
+// getBaseURL extracts the base URL from the request for HATEOAS links
+func (s *Server) getBaseURL(c *gin.Context) string {
+	scheme := "http"
+	if c.Request.TLS != nil || c.GetHeader("X-Forwarded-Proto") == "https" {
+		scheme = "https"
+	}
+	
+	host := c.Request.Host
+	if forwardedHost := c.GetHeader("X-Forwarded-Host"); forwardedHost != "" {
+		host = forwardedHost
+	}
+	
+	return scheme + "://" + host
 }
 
-// getContextHandler gets an MCP context by ID
-func (s *Server) getContextHandler(c *gin.Context) {
-	id := c.Param("id")
-	// To be implemented
-	c.JSON(http.StatusOK, gin.H{"id": id, "message": "context retrieved"})
-}
+// This section intentionally left empty after removing unused context handlers
 
 // Vector operations handler functions
 // These are the actual implementations that will be used by default
@@ -355,68 +401,4 @@ func (s *Server) handleDeleteContextEmbeddings(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"status": "deleted"})
 }
 
-// updateContextHandler updates a context with new content
-func (s *Server) updateContextHandler(c *gin.Context) {
-	contextID := c.Param("id")
-	if contextID == "" {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "context ID is required"})
-		return
-	}
-
-	var request struct {
-		Content []map[string]interface{} `json:"content"`
-		Options map[string]interface{}   `json:"options,omitempty"`
-	}
-
-	if err := c.ShouldBindJSON(&request); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
-		return
-	}
-	
-	// Get the existing context first
-	existingContext, err := s.engine.ContextManager.GetContext(c.Request.Context(), contextID)
-	if err != nil {
-		c.JSON(http.StatusNotFound, gin.H{"error": "context not found"})
-		return
-	}
-	
-	// Update the content if provided
-	if len(request.Content) > 0 {
-		// Convert the generic map to ContextItem array
-		contentItems := make([]mcp.ContextItem, 0, len(request.Content))
-		for _, item := range request.Content {
-			role, roleOk := item["role"].(string)
-			content, contentOk := item["content"].(string)
-			
-			if roleOk && contentOk {
-				contextItem := mcp.ContextItem{
-					Role:    role,
-					Content: content,
-				}
-				
-				// Try to parse timestamp if present
-				if timestamp, ok := item["timestamp"]; ok {
-					if timestampStr, ok := timestamp.(string); ok {
-						t, err := time.Parse(time.RFC3339, timestampStr)
-						if err == nil {
-							contextItem.Timestamp = t
-						}
-					}
-				}
-				
-				contentItems = append(contentItems, contextItem)
-			}
-		}
-		
-		existingContext.Content = contentItems
-	}
-	
-	// Call the context manager to update
-	result, err := s.engine.ContextManager.UpdateContext(c.Request.Context(), contextID, existingContext, nil)
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-		return
-	}
-
-	c.JSON(http.StatusOK, result)
-}
+// This section intentionally left empty after removing updateContextHandler

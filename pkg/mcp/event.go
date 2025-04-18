@@ -59,6 +59,9 @@ type Context struct {
 
 	// CurrentTokens is the current token count for this context
 	CurrentTokens int `json:"current_tokens,omitempty"`
+	
+	// Links contains HATEOAS links for RESTful navigation
+	Links map[string]string `json:"_links,omitempty"`
 }
 
 // ContextItem represents a single item in a context

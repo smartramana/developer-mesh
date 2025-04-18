@@ -1,9 +1,11 @@
 package api
 
 import (
+	"compress/gzip"
 	"fmt"
 	"log"
 	"net/http"
+	"strings"
 	"sync"
 	"time"
 
@@ -214,9 +216,107 @@ func RateLimiter(config RateLimiterConfig) gin.HandlerFunc {
 // List of functions to call during shutdown
 var shutdownHooks []func()
 
+// CompressionMiddleware compresses HTTP responses
+func CompressionMiddleware() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		// Check if client accepts gzip encoding
+		if !strings.Contains(c.Request.Header.Get("Accept-Encoding"), "gzip") {
+			// Client doesn't accept gzip encoding, skip compression
+			c.Next()
+			return
+		}
+
+		// Create gzip writer
+		gz, err := gzip.NewWriterLevel(c.Writer, gzip.BestCompression)
+		if err != nil {
+			// If gzip writer creation fails, skip compression
+			c.Next()
+			return
+		}
+		defer gz.Close()
+
+		// Create a gzipped response writer
+		gzWriter := &gzipResponseWriter{
+			ResponseWriter: c.Writer,
+			Writer:         gz,
+		}
+
+		// Replace writer with gzip writer
+		c.Writer = gzWriter
+
+		// Add gzip content encoding header
+		c.Header("Content-Encoding", "gzip")
+		c.Header("Vary", "Accept-Encoding")
+
+		// Continue with the request
+		c.Next()
+	}
+}
+
+// gzipResponseWriter wraps the original response writer with gzip
+type gzipResponseWriter struct {
+	gin.ResponseWriter
+	Writer *gzip.Writer
+}
+
+// Write implements the io.Writer interface
+func (g *gzipResponseWriter) Write(data []byte) (int, error) {
+	// Write the data through the gzip writer
+	return g.Writer.Write(data)
+}
+
+// WriteString implements the io.StringWriter interface
+func (g *gzipResponseWriter) WriteString(s string) (int, error) {
+	// Write the string through the gzip writer
+	return g.Writer.Write([]byte(s))
+}
+
 // CORSConfig defines configuration for CORS middleware
 type CORSConfig struct {
 	AllowedOrigins []string `mapstructure:"allowed_origins"`
+}
+
+// CachingMiddleware adds HTTP caching headers
+func CachingMiddleware() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		// Skip non-GET requests
+		if c.Request.Method != "GET" {
+			c.Next()
+			return
+		}
+
+		// Process the request
+		c.Next()
+
+		// After the request is processed, add caching headers if status is successful
+		if c.Writer.Status() >= 200 && c.Writer.Status() < 300 {
+			// Check if Cache-Control is already set
+			if c.Writer.Header().Get("Cache-Control") == "" {
+				// Default cache policy for GET requests
+				// Define different cache policies based on path
+				path := c.Request.URL.Path
+				
+				// Schema and documentation can be cached longer
+				if strings.Contains(path, "/swagger") {
+					c.Header("Cache-Control", "public, max-age=86400") // 1 day
+				} else if strings.HasPrefix(path, "/api/v1/tools") && !strings.Contains(path, "/actions/") {
+					// Tool metadata can be cached but not tool actions
+					c.Header("Cache-Control", "public, max-age=3600") // 1 hour
+				} else {
+					// Default for other GET requests - short cache with revalidation
+					c.Header("Cache-Control", "private, max-age=60, must-revalidate") // 1 minute
+				}
+
+				// Add ETag based on response size and last modified time
+				// In a real implementation, this would be a hash of the response content
+				etag := fmt.Sprintf("W/\"%d-%s\"", c.Writer.Size(), time.Now().UTC().Format(http.TimeFormat))
+				c.Header("ETag", etag)
+				
+				// Add Last-Modified header - in a real implementation this would come from the resource
+				c.Header("Last-Modified", time.Now().UTC().Format(http.TimeFormat))
+			}
+		}
+	}
 }
 
 // CORSMiddleware enables Cross-Origin Resource Sharing
