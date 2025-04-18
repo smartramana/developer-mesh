@@ -1,66 +1,200 @@
 # MCP Server Testing Guide
 
-This guide describes how to test the MCP (Managing Contexts Platform) server, including simulating AI Agent interactions with the platform.
+This guide describes how to test the MCP (Managing Contexts Platform) server, including both unit testing and integration testing approaches.
+
+## Table of Contents
+
+1. [Prerequisites](#prerequisites)
+2. [Unit Testing](#unit-testing)
+   - [Running Unit Tests](#running-unit-tests)
+   - [Test Coverage](#test-coverage)
+   - [Table-Driven Tests](#table-driven-tests)
+   - [Mocking Dependencies](#mocking-dependencies)
+   - [Property-Based Testing](#property-based-testing)
+3. [Integration Testing](#integration-testing)
+   - [Setting Up the Test Environment](#setting-up-the-test-environment)
+   - [Running Integration Tests](#running-integration-tests)
+   - [AI Agent Simulation Tests](#ai-agent-simulation-tests)
+4. [Key Components Being Tested](#key-components-being-tested)
+5. [Troubleshooting](#troubleshooting)
+6. [Further Testing](#further-testing)
 
 ## Prerequisites
 
-- Docker and Docker Compose
-- Python 3.8+
-- Basic knowledge of HTTP requests and RESTful APIs
+- Go 1.24+
+- Docker and Docker Compose (for integration tests)
+- Python 3.8+ (for agent simulation tests)
+- Basic knowledge of Go testing and HTTP APIs
 
-## Setting Up the Application Locally
+## Unit Testing
 
-1. **Clone the Repository**
+The MCP Server uses Go's built-in testing package along with testify for assertions and mocking. Our unit testing approach follows these key principles:
 
-   ```bash
-   git clone https://github.com/yourusername/devops-mcp.git
-   cd devops-mcp
-   ```
+### Running Unit Tests
 
-2. **Start the Services**
+To run all unit tests:
+
+```bash
+go test ./...
+```
+
+To run tests in a specific package:
+
+```bash
+go test ./internal/api
+```
+
+To run a specific test:
+
+```bash
+go test ./internal/api -run TestCreateContext
+```
+
+### Test Coverage
+
+We aim for a minimum of 80% test coverage across the codebase. To check test coverage:
+
+```bash
+# Get overall coverage
+go test -cover ./...
+
+# Generate a coverage report
+go test -coverprofile=coverage.out ./...
+go tool cover -func=coverage.out
+
+# Generate HTML coverage report
+go tool cover -html=coverage.out
+```
+
+The HTML report highlights covered and uncovered code sections, making it easy to identify areas that need additional testing.
+
+### Table-Driven Tests
+
+We use table-driven tests for testing multiple scenarios with the same test logic. This approach makes tests more maintainable and easier to extend. Example:
+
+```go
+func TestSummarizeContext(t *testing.T) {
+    testCases := []struct {
+        name           string
+        contextID      string
+        mockSetup      func()
+        expectedResult string
+        expectedError  bool
+    }{
+        {
+            name:           "valid context",
+            contextID:      "context-123",
+            mockSetup:      func() { /* Set up mocks */ },
+            expectedResult: "2 messages, 100 tokens",
+            expectedError:  false,
+        },
+        {
+            name:           "context not found",
+            contextID:      "nonexistent",
+            mockSetup:      func() { /* Set up mocks */ },
+            expectedResult: "",
+            expectedError:  true,
+        },
+    }
+    
+    for _, tc := range testCases {
+        t.Run(tc.name, func(t *testing.T) {
+            // Test implementation
+        })
+    }
+}
+```
+
+Benefits of this approach:
+- Eliminates code duplication
+- Makes adding new test cases easier
+- Improves test readability and maintenance
+- Clearly documents the expected behavior for each scenario
+
+### Mocking Dependencies
+
+We use the `testify/mock` package to create mocks for dependencies. For consistent mocking:
+
+1. Define interfaces for all dependencies to enable mocking
+2. Create mock implementations of these interfaces using testify's `mock.Mock`
+3. Set up expectations using `On()` and `Return()` methods
+
+Example:
+
+```go
+// Mock setup
+mockDB := new(mocks.DatabaseInterface)
+mockDB.On("GetContext", mock.Anything, "context-123").Return(expectedContext, nil)
+
+// Call the method being tested
+sut := NewContextManager(mockDB)
+result, err := sut.GetContext(context.Background(), "context-123")
+
+// Verify expectations
+mockDB.AssertExpectations(t)
+```
+
+For database interactions, we use `DATA-DOG/go-sqlmock` to mock SQL queries and results.
+
+### Property-Based Testing
+
+For complex functions with many possible inputs, we use property-based testing to discover edge cases automatically:
+
+```go
+func FuzzProcessContext(f *testing.F) {
+    // Seed corpus
+    f.Add("sample text", 10)
+    
+    // Define the fuzz test
+    f.Fuzz(func(t *testing.T, input string, maxTokens int) {
+        // Test that invariants hold for all inputs
+    })
+}
+```
+
+To run fuzz tests:
+
+```bash
+go test -fuzz=FuzzProcessContext -fuzztime=30s ./...
+```
+
+## Integration Testing
+
+Integration tests verify that components work together correctly. These tests interact with actual dependencies and external services.
+
+### Setting Up the Test Environment
+
+1. Start the integration test environment:
 
    ```bash
    docker-compose up -d
    ```
 
-   This will start the following services:
-   - PostgreSQL with pg_vector extension (for vector embeddings)
-   - Redis (for caching)
-   - MCP Server (the main application)
-   - Mock Server (for testing integrations)
-   - Prometheus (for metrics)
-   - Grafana (for dashboards)
+   This starts PostgreSQL, Redis, and other required services.
 
-3. **Verify Services are Running**
+2. Verify that services are running:
 
    ```bash
    docker-compose ps
    ```
 
-   All services should show as "Up".
+### Running Integration Tests
 
-4. **Verify the Server is Healthy**
+Integration tests are tagged with `//go:build integration` and can be run separately:
 
-   ```bash
-   curl http://localhost:8080/health
-   ```
+```bash
+go test -tags=integration ./...
+```
 
-   You should see a response indicating that the server is healthy:
-   ```json
-   {"components":{"engine":"healthy","github":"healthy (mock)"},"status":"healthy"}
-   ```
+For specific integration tests:
 
-## AI Agent Simulation Tests
+```bash
+go test -tags=integration ./test/integration
+```
 
-We've created a Python script to simulate an AI Agent interacting with the MCP server. This script tests:
+### AI Agent Simulation Tests
 
-1. Health check endpoint
-2. Context creation
-3. Context retrieval
-4. Context updates
-5. Vector embedding operations
-
-### Running the Tests
+We provide Python-based tests that simulate AI Agent interactions with the MCP server:
 
 1. Navigate to the test directory:
 
@@ -68,112 +202,73 @@ We've created a Python script to simulate an AI Agent interacting with the MCP s
    cd test
    ```
 
-2. Run the test script:
+2. Run the agent simulation tests:
 
    ```bash
    ./run_agent_tests.sh
    ```
 
-   This script will:
-   - Set up a Python virtual environment
-   - Install the required dependencies (requests, numpy)
-   - Run the AI Agent simulation tests
-
-3. Check the test results:
-
-   The script will output the results of each test, indicating whether it passed or failed.
-
-### Understanding Test Output
-
-The test output provides detailed information about each HTTP request made to the server, including:
-
-- Request URL
-- Request headers
-- Request body
-- Response status code
-- Response body
-
-This information is valuable for debugging and understanding how the server works.
-
-### Adapting the Tests
-
-If the server API changes or you need to test different functionality, you can modify the `ai_agent_simulation.py` script. The main classes and functions are:
-
-- `MCPClient`: A client for interacting with the MCP server
-- `test_health_check`: Tests the health endpoint
-- `test_context_creation`: Tests creating contexts
-- `test_context_retrieval`: Tests retrieving contexts
-- `test_context_update`: Tests updating contexts
-- `test_embedding_operations`: Tests vector embedding operations
+   This script tests the end-to-end workflow including context management and tool integration.
 
 ## Key Components Being Tested
 
-### 1. PostgreSQL with pg_vector
+### 1. Core Components
 
-The PostgreSQL database with the pg_vector extension is used for:
+- **Context Manager**: Handles creation, retrieval, and updating of conversation contexts
+- **Embedding Repository**: Manages vector embeddings for semantic search
+- **Tool Integration**: Handles interactions with external tools like GitHub, AWS, etc.
 
-- Storing context references and metadata
-- Storing vector embeddings for semantic search
-- Enabling efficient similarity searches using the vector cosine distance
+### 2. API Layer
 
-### 2. S3 Storage (or Local Storage in Development)
+- **RESTful API Endpoints**: Expose context management and tool integration capabilities
+- **Middleware**: Handling authentication, logging, error handling, etc.
 
-The storage component is used for:
+### 3. External Integrations
 
-- Storing large context data efficiently
-- Providing scalable storage that can handle growing context volumes
-- Maintaining separation between metadata (in PostgreSQL) and the actual context data
-
-### 3. API Endpoints
-
-The API endpoints being tested include:
-
-- `/health`: Checks if the server is healthy
-- `/api/v1/mcp/context`: Creates and manages contexts
-- `/api/v1/embeddings`: Stores and retrieves vector embeddings (simulated in our tests)
-- `/api/v1/embeddings/search`: Searches for similar embeddings (simulated in our tests)
+- **PostgreSQL Database**: For structured data and vector storage
+- **Redis Cache**: For temporary data and performance optimization
+- **S3 Storage**: For large context data storage
 
 ## Troubleshooting
 
 ### Common Issues
 
-1. **Services Not Starting**
+1. **Test Failures Due to Changed Dependencies**
 
-   Check the Docker logs:
+   If mocked dependencies change, update the mock expectations accordingly.
+
+2. **Flaky Tests**
+
+   Use `-count=N` to run tests multiple times and detect flakiness:
+   
    ```bash
-   docker-compose logs mcp-server
+   go test -count=10 ./...
    ```
 
-2. **Database Connection Issues**
+3. **Database Connection Issues in Integration Tests**
 
-   Ensure PostgreSQL is running and that the MCP server has the correct connection details:
+   Check Docker Compose logs and ensure database migrations are applied:
+   
    ```bash
    docker-compose logs postgres
    ```
 
-3. **API Endpoint Errors**
-
-   Check that you're using the correct API endpoints and request formats. The server logs may provide more information:
-   ```bash
-   docker-compose logs mcp-server
-   ```
-
 ### Debugging Tips
 
-1. Add `print()` statements to the test script to see more details about what's happening
-2. Use the `-v` flag with curl to see detailed request and response information
-3. Check the server logs for error messages
-4. Use the Prometheus and Grafana dashboards to monitor server performance
+1. Use `t.Logf()` for debugging output (only visible when tests fail or with `-v` flag)
+2. For mock debugging, add `mockObj.On(...).Run(func(args mock.Arguments) { fmt.Printf("%+v\n", args) }).Return(...)`
+3. Use the `-v` flag for verbose test output: `go test -v ./...`
+4. Enable race detection with `-race` to find concurrency issues
 
 ## Further Testing
 
-Beyond the basic API tests, consider testing:
+Beyond unit and integration tests, consider:
 
-1. **Load Testing**: Use tools like `wrk` or `ab` to test how the server performs under load
-2. **Concurrency Testing**: Test multiple agents interacting with the server simultaneously
-3. **Failure Recovery**: Test how the system recovers from component failures
-4. **Persistence**: Test if contexts are properly persisted and can be recovered after a restart
+1. **Load Testing**: Evaluate system performance under high load using tools like `wrk` or `k6`
+2. **Chaos Testing**: Introduce failures to test resilience and recovery
+3. **Security Testing**: Scan for vulnerabilities and test authentication/authorization
+4. **End-to-End Testing**: Test complete workflows from user perspective
 
 ## Conclusion
 
-This testing guide provides a starting point for validating the MCP server functionality. As the platform evolves, the tests can be expanded to cover new features and integration points.
+This testing guide provides comprehensive practices for testing the MCP server. By following these guidelines, we ensure that the platform remains reliable and maintainable as it evolves.

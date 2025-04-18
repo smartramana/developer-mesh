@@ -1,4 +1,4 @@
-.PHONY: all build clean test docker-build docker-run mock mockserver-build mockserver-run local-dev-setup
+.PHONY: all build clean test test-coverage test-coverage-html test-integration test-fuzz docker-build docker-run mock mockserver-build mockserver-run local-dev-setup
 
 # Default Go parameters
 GOCMD=/usr/local/go/bin/go
@@ -26,6 +26,19 @@ clean:
 
 test:
 	$(GOTEST) -v ./...
+
+test-coverage:
+	$(GOTEST) -coverprofile=coverage.out ./...
+	$(GOCMD) tool cover -func=coverage.out
+
+test-coverage-html: test-coverage
+	$(GOCMD) tool cover -html=coverage.out
+
+test-integration:
+	ENABLE_INTEGRATION_TESTS=true $(GOTEST) -tags=integration -v ./test/integration
+
+test-fuzz:
+	$(GOTEST) -fuzz=FuzzTruncateOldestFirst -fuzztime=30s ./internal/core
 
 deps:
 	$(GOMOD) download

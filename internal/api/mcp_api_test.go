@@ -61,68 +61,146 @@ func (m *MockContextManager) SummarizeContext(ctx context.Context, contextID str
 }
 
 func TestUpdateContext(t *testing.T) {
-	// Setup
+	// Set Gin to test mode
 	gin.SetMode(gin.TestMode)
-	mockContextManager := new(MockContextManager)
-	api := NewMCPAPI(mockContextManager)
-	router := gin.Default()
 	
-	// Register routes
-	group := router.Group("/api/v1/mcp")
-	{
-		group.PUT("/context/:id", api.updateContext)
-	}
-	
-	// Test data
-	contextID := "test-id-1"
-	existingContext := &mcp.Context{
-		ID:        contextID,
-		AgentID:   "test-agent",
-		ModelID:   "gpt-4",
-		Content:   []mcp.ContextItem{},
-		CreatedAt: time.Now(),
-		UpdatedAt: time.Now(),
-	}
-	
-	newContent := []mcp.ContextItem{
+	// Define test cases
+	testCases := []struct {
+		name               string
+		contextID          string
+		requestBody        string
+		setupMocks         func(mockContextManager *MockContextManager)
+		expectedStatusCode int
+		expectedResponse   string
+	}{
 		{
-			Role:    "user",
-			Content: "Hello, how are you?",
-			Tokens:  5,
+			name:      "successful update with new content",
+			contextID: "test-id-1",
+			requestBody: `{"content": [
+				{"role": "user", "content": "Hello, how are you?", "tokens": 5},
+				{"role": "assistant", "content": "I'm doing well, thank you!", "tokens": 6}
+			]}`,
+			setupMocks: func(mockContextManager *MockContextManager) {
+				existingContext := &mcp.Context{
+					ID:        "test-id-1",
+					AgentID:   "test-agent",
+					ModelID:   "gpt-4",
+					Content:   []mcp.ContextItem{},
+					CreatedAt: time.Now(),
+					UpdatedAt: time.Now(),
+				}
+				
+				newContent := []mcp.ContextItem{
+					{
+						Role:    "user",
+						Content: "Hello, how are you?",
+						Tokens:  5,
+					},
+					{
+						Role:    "assistant",
+						Content: "I'm doing well, thank you!",
+						Tokens:  6,
+					},
+				}
+				
+				updatedContext := &mcp.Context{
+					ID:        "test-id-1",
+					AgentID:   "test-agent",
+					ModelID:   "gpt-4",
+					Content:   newContent,
+					CreatedAt: existingContext.CreatedAt,
+					UpdatedAt: existingContext.UpdatedAt,
+				}
+				
+				mockContextManager.On("GetContext", mock.Anything, "test-id-1").Return(existingContext, nil)
+				mockContextManager.On("UpdateContext", mock.Anything, "test-id-1", mock.Anything, mock.Anything).Return(updatedContext, nil)
+			},
+			expectedStatusCode: http.StatusOK,
+			expectedResponse:   "",
 		},
 		{
-			Role:    "assistant",
-			Content: "I'm doing well, thank you!",
-			Tokens:  6,
+			name:      "context not found",
+			contextID: "nonexistent-id",
+			requestBody: `{"content": [
+				{"role": "user", "content": "Hello", "tokens": 1}
+			]}`,
+			setupMocks: func(mockContextManager *MockContextManager) {
+				mockContextManager.On("GetContext", mock.Anything, "nonexistent-id").Return(nil, assert.AnError)
+			},
+			expectedStatusCode: http.StatusNotFound,
+			expectedResponse:   "Context not found",
+		},
+		{
+			name:      "invalid request body",
+			contextID: "test-id-1",
+			requestBody: `{"invalid json`,
+			setupMocks: func(mockContextManager *MockContextManager) {
+				// No mocks needed as request parsing will fail
+			},
+			expectedStatusCode: http.StatusBadRequest,
+			expectedResponse:   "Invalid request",
+		},
+		{
+			name:      "update failure",
+			contextID: "error-id",
+			requestBody: `{"content": [
+				{"role": "user", "content": "Content that causes error", "tokens": 5}
+			]}`,
+			setupMocks: func(mockContextManager *MockContextManager) {
+				existingContext := &mcp.Context{
+					ID:        "error-id",
+					AgentID:   "test-agent",
+					ModelID:   "gpt-4",
+					Content:   []mcp.ContextItem{},
+					CreatedAt: time.Now(),
+					UpdatedAt: time.Now(),
+				}
+				
+				mockContextManager.On("GetContext", mock.Anything, "error-id").Return(existingContext, nil)
+				mockContextManager.On("UpdateContext", mock.Anything, "error-id", mock.Anything, mock.Anything).Return(nil, assert.AnError)
+			},
+			expectedStatusCode: http.StatusInternalServerError,
+			expectedResponse:   "Failed to update context",
 		},
 	}
 	
-	updatedContext := &mcp.Context{
-		ID:        contextID,
-		AgentID:   "test-agent",
-		ModelID:   "gpt-4",
-		Content:   newContent,
-		CreatedAt: existingContext.CreatedAt,
-		UpdatedAt: existingContext.UpdatedAt,
+	// Execute test cases
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			// Create a new mock context manager for each test
+			mockContextManager := new(MockContextManager)
+			
+			// Setup mocks for this test
+			tc.setupMocks(mockContextManager)
+			
+			// Create API and router
+			api := NewMCPAPI(mockContextManager)
+			router := gin.Default()
+			
+			// Register routes
+			group := router.Group("/api/v1/mcp")
+			{
+				group.PUT("/context/:id", api.updateContext)
+			}
+			
+			// Create request
+			req, _ := http.NewRequest("PUT", "/api/v1/mcp/context/"+tc.contextID, strings.NewReader(tc.requestBody))
+			req.Header.Set("Content-Type", "application/json")
+			
+			// Perform request
+			resp := httptest.NewRecorder()
+			router.ServeHTTP(resp, req)
+			
+			// Assert status code
+			assert.Equal(t, tc.expectedStatusCode, resp.Code)
+			
+			// Assert response content if expected
+			if tc.expectedResponse != "" {
+				assert.Contains(t, resp.Body.String(), tc.expectedResponse)
+			}
+			
+			// Verify that all expected mock calls were made
+			mockContextManager.AssertExpectations(t)
+		})
 	}
-	
-	// Set expectations
-	mockContextManager.On("GetContext", mock.Anything, contextID).Return(existingContext, nil)
-	mockContextManager.On("UpdateContext", mock.Anything, contextID, mock.Anything, mock.Anything).Return(updatedContext, nil)
-	
-	// Create request
-	requestBody := `{"content": [
-		{"role": "user", "content": "Hello, how are you?", "tokens": 5},
-		{"role": "assistant", "content": "I'm doing well, thank you!", "tokens": 6}
-	]}`
-	req, _ := http.NewRequest("PUT", "/api/v1/mcp/context/"+contextID, strings.NewReader(requestBody))
-	req.Header.Set("Content-Type", "application/json")
-	
-	// Perform request
-	resp := httptest.NewRecorder()
-	router.ServeHTTP(resp, req)
-	
-	// Assert
-	assert.Equal(t, http.StatusOK, resp.Code)
-	mockContextManager.AssertExpectations(t)
 }
