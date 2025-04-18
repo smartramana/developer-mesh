@@ -283,12 +283,12 @@ func (a *Adapter) getVulnerabilities(ctx context.Context, params map[string]inte
 
 	// Check if using mock server
 	if a.config.MockResponses && a.config.MockURL != "" {
-		url := fmt.Sprintf("%s/vulnerabilities?path=%s", a.config.MockURL, url.QueryEscape(path))
+		apiURL := fmt.Sprintf("%s/vulnerabilities?path=%s", a.config.MockURL, url.QueryEscape(path))
 		if severity != "" {
-			url += "&severity=" + url.QueryEscape(severity)
+			apiURL += "&severity=" + url.QueryEscape(severity)
 		}
 		
-		req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
+		req, err := http.NewRequestWithContext(ctx, "GET", apiURL, nil)
 		if err != nil {
 			return nil, fmt.Errorf("failed to create request: %w", err)
 		}
@@ -427,9 +427,9 @@ func (a *Adapter) getLicenses(ctx context.Context, params map[string]interface{}
 
 	// Check if using mock server
 	if a.config.MockResponses && a.config.MockURL != "" {
-		url := fmt.Sprintf("%s/licenses?path=%s", a.config.MockURL, url.QueryEscape(path))
+		apiURL := fmt.Sprintf("%s/licenses?path=%s", a.config.MockURL, url.QueryEscape(path))
 		
-		req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
+		req, err := http.NewRequestWithContext(ctx, "GET", apiURL, nil)
 		if err != nil {
 			return nil, fmt.Errorf("failed to create request: %w", err)
 		}
@@ -565,9 +565,9 @@ func (a *Adapter) getComponentSummary(ctx context.Context, params map[string]int
 
 	// Check if using mock server
 	if a.config.MockResponses && a.config.MockURL != "" {
-		url := fmt.Sprintf("%s/components/summary?path=%s", a.config.MockURL, url.QueryEscape(path))
+		apiURL := fmt.Sprintf("%s/components/summary?path=%s", a.config.MockURL, url.QueryEscape(path))
 		
-		req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
+		req, err := http.NewRequestWithContext(ctx, "GET", apiURL, nil)
 		if err != nil {
 			return nil, fmt.Errorf("failed to create request: %w", err)
 		}

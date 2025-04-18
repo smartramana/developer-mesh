@@ -285,9 +285,9 @@ func (a *Adapter) getArtifactInfo(ctx context.Context, params map[string]interfa
 	// In a real implementation, this would call the Artifactory API
 	// For now, we'll check if using mock server, otherwise return mock data
 	if a.config.MockResponses && a.config.MockURL != "" {
-		url := fmt.Sprintf("%s/storage/%s", a.config.MockURL, path)
+		apiURL := fmt.Sprintf("%s/storage/%s", a.config.MockURL, path)
 		
-		req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
+		req, err := http.NewRequestWithContext(ctx, "GET", apiURL, nil)
 		if err != nil {
 			return nil, fmt.Errorf("failed to create request: %w", err)
 		}
@@ -357,12 +357,12 @@ func (a *Adapter) searchArtifacts(ctx context.Context, params map[string]interfa
 	
 	// Check if using mock server
 	if a.config.MockResponses && a.config.MockURL != "" {
-		url := fmt.Sprintf("%s/search/artifact?name=%s", a.config.MockURL, url.QueryEscape(query))
+		apiURL := fmt.Sprintf("%s/search/artifact?name=%s", a.config.MockURL, url.QueryEscape(query))
 		if repo != "" {
-			url += "&repos=" + url.QueryEscape(repo)
+			apiURL += "&repos=" + url.QueryEscape(repo)
 		}
 		
-		req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
+		req, err := http.NewRequestWithContext(ctx, "GET", apiURL, nil)
 		if err != nil {
 			return nil, fmt.Errorf("failed to create request: %w", err)
 		}
@@ -486,9 +486,9 @@ func (a *Adapter) getBuildInfo(ctx context.Context, params map[string]interface{
 
 	// Check if using mock server
 	if a.config.MockResponses && a.config.MockURL != "" {
-		url := fmt.Sprintf("%s/build/%s/%s", a.config.MockURL, buildName, buildNumber)
+		apiURL := fmt.Sprintf("%s/build/%s/%s", a.config.MockURL, buildName, buildNumber)
 		
-		req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
+		req, err := http.NewRequestWithContext(ctx, "GET", apiURL, nil)
 		if err != nil {
 			return nil, fmt.Errorf("failed to create request: %w", err)
 		}
@@ -548,12 +548,12 @@ func (a *Adapter) getRepositories(ctx context.Context, params map[string]interfa
 
 	// Check if using mock server
 	if a.config.MockResponses && a.config.MockURL != "" {
-		url := fmt.Sprintf("%s/repositories", a.config.MockURL)
+		apiURL := fmt.Sprintf("%s/repositories", a.config.MockURL)
 		if type_ != "" {
-			url += "?type=" + url.QueryEscape(type_)
+			apiURL += "?type=" + url.QueryEscape(type_)
 		}
 		
-		req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
+		req, err := http.NewRequestWithContext(ctx, "GET", apiURL, nil)
 		if err != nil {
 			return nil, fmt.Errorf("failed to create request: %w", err)
 		}
@@ -627,9 +627,9 @@ func (a *Adapter) getStorageInfo(ctx context.Context, params map[string]interfac
 
 	// Check if using mock server
 	if a.config.MockResponses && a.config.MockURL != "" {
-		url := fmt.Sprintf("%s/storageinfo%s", a.config.MockURL, repoKey)
+		apiURL := fmt.Sprintf("%s/storageinfo%s", a.config.MockURL, repoKey)
 		
-		req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
+		req, err := http.NewRequestWithContext(ctx, "GET", apiURL, nil)
 		if err != nil {
 			return nil, fmt.Errorf("failed to create request: %w", err)
 		}
@@ -688,9 +688,9 @@ func (a *Adapter) getFolderInfo(ctx context.Context, params map[string]interface
 
 	// Check if using mock server
 	if a.config.MockResponses && a.config.MockURL != "" {
-		url := fmt.Sprintf("%s/storage/%s?list=true&deep=1&listFolders=1", a.config.MockURL, path)
+		apiURL := fmt.Sprintf("%s/storage/%s?list=true&deep=1&listFolders=1", a.config.MockURL, path)
 		
-		req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
+		req, err := http.NewRequestWithContext(ctx, "GET", apiURL, nil)
 		if err != nil {
 			return nil, fmt.Errorf("failed to create request: %w", err)
 		}
@@ -743,9 +743,9 @@ func (a *Adapter) getFolderInfo(ctx context.Context, params map[string]interface
 func (a *Adapter) getSystemInfo(ctx context.Context, params map[string]interface{}) (interface{}, error) {
 	// Check if using mock server
 	if a.config.MockResponses && a.config.MockURL != "" {
-		url := fmt.Sprintf("%s/system", a.config.MockURL)
+		apiURL := fmt.Sprintf("%s/system", a.config.MockURL)
 		
-		req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
+		req, err := http.NewRequestWithContext(ctx, "GET", apiURL, nil)
 		if err != nil {
 			return nil, fmt.Errorf("failed to create request: %w", err)
 		}
@@ -798,9 +798,9 @@ func (a *Adapter) getSystemInfo(ctx context.Context, params map[string]interface
 func (a *Adapter) getVersion(ctx context.Context, params map[string]interface{}) (interface{}, error) {
 	// Check if using mock server
 	if a.config.MockResponses && a.config.MockURL != "" {
-		url := fmt.Sprintf("%s/system/version", a.config.MockURL)
+		apiURL := fmt.Sprintf("%s/system/version", a.config.MockURL)
 		
-		req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
+		req, err := http.NewRequestWithContext(ctx, "GET", apiURL, nil)
 		if err != nil {
 			return nil, fmt.Errorf("failed to create request: %w", err)
 		}
@@ -859,9 +859,9 @@ func (a *Adapter) getRepositoryInfo(ctx context.Context, params map[string]inter
 
 	// Check if using mock server
 	if a.config.MockResponses && a.config.MockURL != "" {
-		url := fmt.Sprintf("%s/repositories/%s", a.config.MockURL, repoKey)
+		apiURL := fmt.Sprintf("%s/repositories/%s", a.config.MockURL, repoKey)
 		
-		req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
+		req, err := http.NewRequestWithContext(ctx, "GET", apiURL, nil)
 		if err != nil {
 			return nil, fmt.Errorf("failed to create request: %w", err)
 		}
@@ -931,10 +931,10 @@ func (a *Adapter) getFolderContent(ctx context.Context, params map[string]interf
 
 	// Check if using mock server
 	if a.config.MockResponses && a.config.MockURL != "" {
-		url := fmt.Sprintf("%s/storage/%s?list=true&deep=%s&listFolders=%s", 
+		apiURL := fmt.Sprintf("%s/storage/%s?list=true&deep=%s&listFolders=%s", 
 			a.config.MockURL, path, deep, listFolders)
 		
-		req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
+		req, err := http.NewRequestWithContext(ctx, "GET", apiURL, nil)
 		if err != nil {
 			return nil, fmt.Errorf("failed to create request: %w", err)
 		}
@@ -994,9 +994,9 @@ func (a *Adapter) calculateChecksum(ctx context.Context, params map[string]inter
 
 	// Check if using mock server
 	if a.config.MockResponses && a.config.MockURL != "" {
-		url := fmt.Sprintf("%s/storage/%s?checksum", a.config.MockURL, path)
+		apiURL := fmt.Sprintf("%s/storage/%s?checksum", a.config.MockURL, path)
 		
-		req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
+		req, err := http.NewRequestWithContext(ctx, "GET", apiURL, nil)
 		if err != nil {
 			return nil, fmt.Errorf("failed to create request: %w", err)
 		}
@@ -1055,11 +1055,11 @@ func (a *Adapter) downloadArtifact(ctx context.Context, params map[string]interf
 
 	// Check if using mock server
 	if a.config.MockResponses && a.config.MockURL != "" {
-		url := fmt.Sprintf("%s/artifact/%s", a.config.MockURL, path)
+		apiURL := fmt.Sprintf("%s/artifact/%s", a.config.MockURL, path)
 		
 		// Just return the URL (in a real implementation, we might follow redirects and download)
 		return map[string]interface{}{
-			"downloadUrl": url,
+			"downloadUrl": apiURL,
 			"path":        path,
 		}, nil
 	}

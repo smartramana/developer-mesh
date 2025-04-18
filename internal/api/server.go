@@ -9,6 +9,8 @@ import (
 	"github.com/S-Corkum/mcp-server/internal/repository"
 	"github.com/S-Corkum/mcp-server/pkg/mcp"
 	"github.com/gin-gonic/gin"
+	swaggerFiles "github.com/swaggo/files"
+	ginSwagger "github.com/swaggo/gin-swagger"
 )
 
 // Server represents the API server
@@ -34,6 +36,11 @@ func NewServer(engine *core.Engine, embeddingRepo *repository.EmbeddingRepositor
 	router.Use(gin.Recovery())
 	router.Use(RequestLogger())
 	router.Use(MetricsMiddleware())
+	router.Use(ErrorHandlerMiddleware()) // Add centralized error handling
+	router.Use(TracingMiddleware())      // Add request tracing
+	
+	// Apply API versioning
+	router.Use(VersioningMiddleware(cfg.Versioning))
 
 	if cfg.RateLimit.Enabled {
 		limiterConfig := NewRateLimiterConfigFromConfig(cfg.RateLimit)
@@ -87,6 +94,11 @@ func (s *Server) setupRoutes() {
 	// Public endpoints
 	s.router.GET("/health", s.healthHandler)
 	
+	// Swagger API documentation
+	if s.config.EnableSwagger {
+		s.router.GET("/swagger/*any", ginSwagger.WrapHandler(swaggerFiles.Handler))
+	}
+	
 	// Metrics endpoints - add authentication
 	s.router.GET("/metrics", AuthMiddleware("api_key"), s.metricsHandler)
 
@@ -94,9 +106,9 @@ func (s *Server) setupRoutes() {
 	v1 := s.router.Group("/api/v1")
 	v1.Use(AuthMiddleware("jwt")) // Require JWT auth for all API endpoints
 	
-	// Legacy Context management API
-	contextAPI := NewContextAPI(s.engine.ContextManager)
-	contextAPI.RegisterRoutes(v1)
+	// Versioned Context management API
+	versionedContextAPI := NewVersionedContextAPI(s.engine.ContextManager)
+	versionedContextAPI.RegisterRoutes(v1)
 	
 	// MCP-specific API endpoints (new implementation)
 	mcpAPI := NewMCPAPI(s.engine.ContextManager)

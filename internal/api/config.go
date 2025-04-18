@@ -11,12 +11,14 @@ type Config struct {
 	WriteTimeout  time.Duration `mapstructure:"write_timeout"`
 	IdleTimeout   time.Duration `mapstructure:"idle_timeout"`
 	EnableCORS    bool          `mapstructure:"enable_cors"`
+	EnableSwagger bool          `mapstructure:"enable_swagger"`
 	TLSCertFile   string        `mapstructure:"tls_cert_file"`
 	TLSKeyFile    string        `mapstructure:"tls_key_file"`
 	Auth          AuthConfig    `mapstructure:"auth"`
 	RateLimit     RateLimitConfig `mapstructure:"rate_limit"`
 	AgentWebhook  AgentWebhookConfig `mapstructure:"agent_webhook"`
 	Webhooks      WebhookConfig `mapstructure:"webhooks"`
+	Versioning    VersioningConfig `mapstructure:"versioning"`
 }
 
 // WebhookConfig holds configuration for all webhooks

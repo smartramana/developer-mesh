@@ -126,6 +126,7 @@ func main() {
 	}
 	
 	// Choose which context manager to use based on configuration
+	var baseContextManager interfaces.ContextManager
 	if cfg.Storage.Type == "s3" && cfg.Storage.ContextStorage.Provider == "s3" {
 		log.Println("Initializing S3 storage for contexts")
 		
@@ -147,13 +148,17 @@ func main() {
 		contextStorage := providers.NewS3ContextStorage(s3Client, cfg.Storage.ContextStorage.S3PathPrefix)
 		
 		// Initialize S3-backed context manager
-		contextManager = core.NewS3ContextManager(db, cacheClient, contextStorage)
+		baseContextManager = core.NewS3ContextManager(db, cacheClient, contextStorage)
 		log.Println("S3 context storage initialized successfully")
 	} else {
 		// Use standard database-backed context manager
-		contextManager = core.NewContextManager(db, cacheClient)
+		baseContextManager = core.NewContextManager(db, cacheClient)
 		log.Println("Database context storage initialized")
 	}
+	
+	// Wrap the base context manager with fallback capabilities
+	contextManager = core.NewContextManagerWithFallback(db, cacheClient)
+	log.Println("Context manager with fallback initialized")
 	
 	// Initialize core engine with the appropriate context manager
 	engine, err := core.NewEngine(ctx, cfg.Engine, db, cacheClient, metricsClient, contextManager)

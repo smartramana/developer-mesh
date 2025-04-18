@@ -53,13 +53,20 @@ func (api *ContextAPI) createContext(c *gin.Context) {
 func (api *ContextAPI) getContext(c *gin.Context) {
 	contextID := c.Param("id")
 	if contextID == "" {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "context ID is required"})
+		err := NewBadRequestError("context ID is required", nil)
+		c.Error(err)
 		return
 	}
 
 	result, err := api.contextManager.GetContext(c.Request.Context(), contextID)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		// Check for not found error first
+		if strings.Contains(err.Error(), "not found") {
+			c.Error(NewContextNotFoundError(contextID, err))
+			return
+		}
+		// Generic server error
+		c.Error(NewInternalServerError("Failed to retrieve context", err))
 		return
 	}
 
@@ -70,7 +77,7 @@ func (api *ContextAPI) getContext(c *gin.Context) {
 func (api *ContextAPI) updateContext(c *gin.Context) {
 	contextID := c.Param("id")
 	if contextID == "" {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "context ID is required"})
+		c.Error(NewBadRequestError("context ID is required", nil))
 		return
 	}
 
@@ -80,13 +87,36 @@ func (api *ContextAPI) updateContext(c *gin.Context) {
 	}
 
 	if err := c.ShouldBindJSON(&request); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		c.Error(HandleValidationErrors(err))
 		return
+	}
+
+	// Validate context content if provided
+	if len(request.Context.Content) > 0 {
+		for i, item := range request.Context.Content {
+			if item.Role == "" {
+				c.Error(NewValidationError("Invalid context content", 
+					map[string]string{
+						fmt.Sprintf("content[%d].role", i): "role is required",
+					}))
+				return
+			}
+		}
 	}
 
 	result, err := api.contextManager.UpdateContext(c.Request.Context(), contextID, &request.Context, &request.Options)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		// Check for common errors
+		if strings.Contains(err.Error(), "not found") {
+			c.Error(NewContextNotFoundError(contextID, err))
+			return
+		}
+		if strings.Contains(err.Error(), "too large") {
+			c.Error(NewAPIError(ErrContextTooLarge, "Context exceeds maximum allowed size", http.StatusBadRequest, err))
+			return
+		}
+		// Generic server error
+		c.Error(NewInternalServerError("Failed to update context", err))
 		return
 	}
 

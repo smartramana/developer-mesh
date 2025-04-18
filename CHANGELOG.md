@@ -5,6 +5,33 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.3] - 2025-04-18
+
+### Added
+- Consolidated GitHub adapter into unified implementation:
+  - Combined multiple files into github.go, github_test.go, and safety.go
+  - Enhanced safety.go with additional safety checks for repositories, teams, and permissions
+  - Added new operation: searchRepositories for more targeted repository search
+  - Extended workflow support with approval and rejection capabilities
+  - Added detailed statistics tracking for operation-level metrics
+  - Implemented average response time tracking for performance monitoring
+  - Enhanced health monitoring with more comprehensive diagnostics
+  
+### Changed
+- Improved GitHub adapter organization with better separation of concerns
+- Enhanced error handling with more descriptive error messages
+- Added contextual information to all error messages
+- Improved rate limit handling with optional automatic retry when limits are reached
+- Updated safety checks to handle more edge cases
+- Enhanced test coverage for all GitHub operations
+
+### Fixed
+- Fixed response handling for workflow operations
+- Improved webhook URL safety validation with more robust domain checking
+- Enhanced branch operation safety with comprehensive checks against protected branches
+- Streamlined pagination handling for all list operations
+- Resolved edge cases in error handling for rate limiting
+
 ## [0.3.2] - 2025-04-18
 
 ### Added
