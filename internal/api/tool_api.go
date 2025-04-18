@@ -94,13 +94,9 @@ func (api *ToolAPI) handleQueryToolData(c *gin.Context) {
 
 // handleListAvailableTools lists all available tools
 func (api *ToolAPI) handleListAvailableTools(c *gin.Context) {
-	// First check what adapters are actually initialized in the engine
-	availableAdapters := api.adapterBridge.GetAvailableAdapters()
-	
-	// Define tool descriptions - these will be available regardless of adapter initialization
-	// to maintain API consistency
-	toolDescriptions := map[string]map[string]interface{}{
-		"github": {
+	// SIMPLER METHOD: Always show all tools for API consistency
+	tools := []map[string]interface{}{
+		{
 			"name": "github",
 			"description": "GitHub integration for repository, pull request, and code management",
 			"actions": []string{
@@ -113,7 +109,7 @@ func (api *ToolAPI) handleListAvailableTools(c *gin.Context) {
 			},
 			"safety_notes": "Cannot delete repositories for safety reasons",
 		},
-		"harness": {
+		{
 			"name": "harness",
 			"description": "Harness CI/CD integration for builds and deployments",
 			"actions": []string{
@@ -124,7 +120,7 @@ func (api *ToolAPI) handleListAvailableTools(c *gin.Context) {
 			},
 			"safety_notes": "Cannot delete production feature flags for safety reasons",
 		},
-		"sonarqube": {
+		{
 			"name": "sonarqube",
 			"description": "SonarQube integration for code quality analysis",
 			"actions": []string{
@@ -133,7 +129,7 @@ func (api *ToolAPI) handleListAvailableTools(c *gin.Context) {
 				"get_issues",
 			},
 		},
-		"artifactory": {
+		{
 			"name": "artifactory",
 			"description": "JFrog Artifactory integration for artifact management (read-only)",
 			"actions": []string{
@@ -143,7 +139,7 @@ func (api *ToolAPI) handleListAvailableTools(c *gin.Context) {
 			},
 			"safety_notes": "Read-only access for safety reasons (no upload or delete capabilities)",
 		},
-		"xray": {
+		{
 			"name": "xray",
 			"description": "JFrog Xray integration for security scanning",
 			"actions": []string{
@@ -152,15 +148,6 @@ func (api *ToolAPI) handleListAvailableTools(c *gin.Context) {
 				"get_licenses",
 			},
 		},
-	}
-	
-	// Always report all tools for API consistency, regardless of whether the adapters are initialized
-	tools := []map[string]interface{}{
-		toolDescriptions["github"],
-		toolDescriptions["harness"],
-		toolDescriptions["sonarqube"],
-		toolDescriptions["artifactory"],
-		toolDescriptions["xray"],
 	}
 
 	c.JSON(http.StatusOK, gin.H{"tools": tools})
