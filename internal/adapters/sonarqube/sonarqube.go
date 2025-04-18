@@ -4,8 +4,11 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
 	"log"
 	"net/http"
+	"net/url"
+	"strings"
 	"time"
 
 	"github.com/S-Corkum/mcp-server/internal/adapters"
@@ -129,11 +132,125 @@ func (a *Adapter) testConnection(ctx context.Context) error {
 		return nil
 	}
 	
-	// Simple ping to the SonarQube API
-	// In a real implementation, this would verify with a system/status endpoint
-	// But for now we'll just return healthy status
+	// Test connection to real SonarQube API by calling system/status endpoint
+	req, err := a.createRequest(ctx, "GET", "/system/status", nil)
+	if err != nil {
+		return fmt.Errorf("failed to create request: %w", err)
+	}
+	
+	resp, err := a.client.Do(req)
+	if err != nil {
+		return fmt.Errorf("failed to connect to SonarQube API: %w", err)
+	}
+	defer resp.Body.Close()
+	
+	if resp.StatusCode != http.StatusOK {
+		return fmt.Errorf("SonarQube API returned unexpected status code: %d", resp.StatusCode)
+	}
+	
+	var status map[string]interface{}
+	if err := json.NewDecoder(resp.Body).Decode(&status); err != nil {
+		return fmt.Errorf("failed to decode response: %w", err)
+	}
+	
+	// Check if status contains the "status" field with value "UP"
+	if statusValue, ok := status["status"].(string); !ok || statusValue != "UP" {
+		return fmt.Errorf("SonarQube API is not up")
+	}
+	
+	log.Println("Successfully connected to SonarQube API")
 	a.healthStatus = "healthy"
 	return nil
+}
+
+// createRequest creates an HTTP request with the proper authentication
+func (a *Adapter) createRequest(ctx context.Context, method, path string, params url.Values) (*http.Request, error) {
+	baseURL := a.config.BaseURL
+	if a.config.MockResponses && a.config.MockURL != "" {
+		baseURL = a.config.MockURL
+	}
+	
+	// Ensure the path starts with '/'
+	if !strings.HasPrefix(path, "/") {
+		path = "/" + path
+	}
+	
+	// Remove trailing slash from baseURL
+	baseURL = strings.TrimSuffix(baseURL, "/")
+	
+	// Construct the full URL
+	fullURL := baseURL + path
+	
+	// Add query parameters if provided
+	if params != nil && len(params) > 0 {
+		if strings.Contains(fullURL, "?") {
+			fullURL += "&" + params.Encode()
+		} else {
+			fullURL += "?" + params.Encode()
+		}
+	}
+	
+	// Create the request
+	req, err := http.NewRequestWithContext(ctx, method, fullURL, nil)
+	if err != nil {
+		return nil, err
+	}
+	
+	// Set headers
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Accept", "application/json")
+	
+	// Add authentication
+	if a.config.Token != "" {
+		// Authentication using token (recommended)
+		req.Header.Set("Authorization", "Bearer "+a.config.Token)
+	} else if a.config.Username != "" && a.config.Password != "" {
+		// Authentication using Basic Auth
+		req.SetBasicAuth(a.config.Username, a.config.Password)
+	}
+	
+	return req, nil
+}
+
+// executeRequest executes the given request with retry logic
+func (a *Adapter) executeRequest(req *http.Request) ([]byte, error) {
+	var resp *http.Response
+	var err error
+	
+	// Retry logic
+	for attempt := 0; attempt <= a.RetryMax; attempt++ {
+		if attempt > 0 {
+			time.Sleep(a.RetryDelay)
+			log.Printf("Retrying request to %s (attempt %d/%d)", req.URL.String(), attempt, a.RetryMax)
+		}
+		
+		resp, err = a.client.Do(req)
+		if err == nil && resp.StatusCode < 500 {
+			break
+		}
+		
+		if resp != nil {
+			resp.Body.Close()
+		}
+	}
+	
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+	
+	// Read response body
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, err
+	}
+	
+	// Check for error status codes
+	if resp.StatusCode >= 400 {
+		return nil, fmt.Errorf("API returned error status: %d, body: %s", resp.StatusCode, string(body))
+	}
+	
+	return body, nil
 }
 
 // GetData retrieves data from SonarQube
@@ -160,6 +277,14 @@ func (a *Adapter) GetData(ctx context.Context, query interface{}) (interface{}, 
 		return a.getMetrics(ctx, queryMap)
 	case "get_projects":
 		return a.getProjects(ctx, queryMap)
+	case "get_quality_gates":
+		return a.getQualityGates(ctx, queryMap)
+	case "get_component_details":
+		return a.getComponentDetails(ctx, queryMap)
+	case "get_measures_history":
+		return a.getMeasuresHistory(ctx, queryMap)
+	case "search_metrics":
+		return a.searchMetrics(ctx, queryMap)
 	default:
 		return nil, fmt.Errorf("unsupported operation: %s", operation)
 	}
@@ -175,6 +300,16 @@ func (a *Adapter) ExecuteAction(ctx context.Context, contextID string, action st
 		return a.getQualityGateStatus(ctx, params)
 	case "get_issues":
 		return a.getIssues(ctx, params)
+	case "create_project":
+		return a.createProject(ctx, params)
+	case "delete_project":
+		return a.deleteProject(ctx, params)
+	case "get_analysis_status":
+		return a.getAnalysisStatus(ctx, params)
+	case "set_project_tags":
+		return a.setProjectTags(ctx, params)
+	case "set_quality_gate":
+		return a.setQualityGate(ctx, params)
 	default:
 		return nil, fmt.Errorf("unsupported action: %s", action)
 	}
@@ -182,19 +317,17 @@ func (a *Adapter) ExecuteAction(ctx context.Context, contextID string, action st
 
 // IsSafeOperation checks if an operation is safe to perform
 func (a *Adapter) IsSafeOperation(action string, params map[string]interface{}) (bool, error) {
-	// All implemented SonarQube operations are considered safe (read-only or triggers analysis)
-	safeActions := map[string]bool{
-		"trigger_analysis":       true,
-		"get_quality_gate_status": true,
-		"get_issues":              true,
+	// Define unsafe operations
+	unsafeActions := map[string]bool{
+		"delete_project": false,
 	}
 
-	// Check if the action is in the safe list
-	if safe, ok := safeActions[action]; ok && safe {
-		return true, nil
+	// Check if the action is in the unsafe list
+	if safe, ok := unsafeActions[action]; ok && !safe {
+		return false, nil
 	}
 
-	// Default to safe if unknown
+	// All other actions are considered safe
 	return true, nil
 }
 
@@ -206,329 +339,604 @@ func (a *Adapter) getQualityGateStatus(ctx context.Context, params map[string]in
 		return nil, fmt.Errorf("missing project_key parameter")
 	}
 
-	// In a real implementation, this would call the SonarQube API
-	// For now, we'll return mock data
-
-	// If using mock server and mock responses are enabled
-	if a.config.MockResponses && a.config.MockURL != "" {
-		url := fmt.Sprintf("%s/qualitygates/project_status?projectKey=%s", a.config.MockURL, projectKey)
-		resp, err := a.client.Get(url)
-		if err != nil {
-			return nil, fmt.Errorf("failed to get quality gate status from mock server: %w", err)
-		}
-		defer resp.Body.Close()
-
-		var result map[string]interface{}
-		if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
-			return nil, fmt.Errorf("failed to decode response: %w", err)
-		}
-
-		return result, nil
+	// Create query parameters
+	queryParams := url.Values{}
+	queryParams.Set("projectKey", projectKey)
+	
+	// Optional branch parameter
+	if branch, ok := params["branch"].(string); ok {
+		queryParams.Set("branch", branch)
 	}
 
-	// Mock response for testing
-	return map[string]interface{}{
-		"projectStatus": map[string]interface{}{
-			"status": "OK",
-			"conditions": []map[string]interface{}{
-				{
-					"status":       "OK",
-					"metricKey":    "coverage",
-					"comparator":   "GT",
-					"errorThreshold": "80",
-					"actualValue":  "85.2",
-				},
-				{
-					"status":       "OK",
-					"metricKey":    "new_bugs",
-					"comparator":   "LT",
-					"errorThreshold": "5",
-					"actualValue":  "0",
-				},
-			},
-			"periods": []map[string]interface{}{
-				{
-					"index": 1,
-					"mode":  "previous_version",
-					"date":  time.Now().AddDate(0, 0, -7).Format(time.RFC3339),
-				},
-			},
-		},
-	}, nil
+	// Create request
+	req, err := a.createRequest(ctx, "GET", "/qualitygates/project_status", queryParams)
+	if err != nil {
+		return nil, err
+	}
+
+	// Execute request
+	body, err := a.executeRequest(req)
+	if err != nil {
+		return nil, err
+	}
+
+	// Parse response
+	var result map[string]interface{}
+	if err := json.Unmarshal(body, &result); err != nil {
+		return nil, fmt.Errorf("failed to decode response: %w", err)
+	}
+
+	return result, nil
 }
 
 // getIssues gets issues for a project
 func (a *Adapter) getIssues(ctx context.Context, params map[string]interface{}) (interface{}, error) {
-	// Extract required parameters
-	projectKey, ok := params["project_key"].(string)
-	if !ok {
-		return nil, fmt.Errorf("missing project_key parameter")
-	}
-
 	// Extract optional parameters
-	types := ""
-	if typesParam, ok := params["types"].(string); ok {
-		types = typesParam
+	queryParams := url.Values{}
+	
+	// Project key(s)
+	if projectKey, ok := params["project_key"].(string); ok {
+		queryParams.Set("componentKeys", projectKey)
+	} else if projectKeys, ok := params["project_keys"].([]string); ok {
+		queryParams.Set("componentKeys", strings.Join(projectKeys, ","))
 	}
-
-	severities := ""
-	if sevParam, ok := params["severities"].(string); ok {
-		severities = sevParam
+	
+	// Types (BUG, VULNERABILITY, CODE_SMELL)
+	if types, ok := params["types"].(string); ok {
+		queryParams.Set("types", types)
 	}
-
-	status := "OPEN"
-	if statusParam, ok := params["status"].(string); ok {
-		status = statusParam
+	
+	// Severities (INFO, MINOR, MAJOR, CRITICAL, BLOCKER)
+	if severities, ok := params["severities"].(string); ok {
+		queryParams.Set("severities", severities)
 	}
-
-	// In a real implementation, this would call the SonarQube API
-	// For now, we'll return mock data
-
-	// If using mock server and mock responses are enabled
-	if a.config.MockResponses && a.config.MockURL != "" {
-		url := fmt.Sprintf("%s/issues/search?projectKeys=%s", a.config.MockURL, projectKey)
-		if types != "" {
-			url += "&types=" + types
-		}
-		if severities != "" {
-			url += "&severities=" + severities
-		}
-		if status != "" {
-			url += "&statuses=" + status
-		}
-		
-		resp, err := a.client.Get(url)
-		if err != nil {
-			return nil, fmt.Errorf("failed to get issues from mock server: %w", err)
-		}
-		defer resp.Body.Close()
-
-		var result map[string]interface{}
-		if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
-			return nil, fmt.Errorf("failed to decode response: %w", err)
-		}
-
-		return result, nil
+	
+	// Statuses (OPEN, CONFIRMED, REOPENED, RESOLVED, CLOSED)
+	if status, ok := params["status"].(string); ok {
+		queryParams.Set("statuses", status)
 	}
-
-	// Mock response for testing
-	return map[string]interface{}{
-		"total": 3,
-		"issues": []map[string]interface{}{
-			{
-				"key":      "issue1",
-				"component": "my-project:src/main/java/com/example/App.java",
-				"severity":  "MAJOR",
-				"type":      "BUG",
-				"message":   "Possible null pointer dereference",
-				"line":      42,
-				"status":    "OPEN",
-				"author":    "developer@example.com",
-				"creationDate": time.Now().AddDate(0, 0, -3).Format(time.RFC3339),
-			},
-			{
-				"key":      "issue2",
-				"component": "my-project:src/main/java/com/example/Service.java",
-				"severity":  "MINOR",
-				"type":      "CODE_SMELL",
-				"message":   "Remove this unused method parameter",
-				"line":      78,
-				"status":    "OPEN",
-				"author":    "developer@example.com",
-				"creationDate": time.Now().AddDate(0, 0, -2).Format(time.RFC3339),
-			},
-			{
-				"key":      "issue3",
-				"component": "my-project:src/main/java/com/example/Controller.java",
-				"severity":  "MINOR",
-				"type":      "VULNERABILITY",
-				"message":   "Make sure this SQL query is not susceptible to injection",
-				"line":      96,
-				"status":    "OPEN",
-				"author":    "developer@example.com",
-				"creationDate": time.Now().AddDate(0, 0, -1).Format(time.RFC3339),
-			},
-		},
-		"facets": []map[string]interface{}{
-			{
-				"property": "severities",
-				"values": []map[string]interface{}{
-					{"val": "MAJOR", "count": 1},
-					{"val": "MINOR", "count": 2},
-				},
-			},
-			{
-				"property": "types",
-				"values": []map[string]interface{}{
-					{"val": "BUG", "count": 1},
-					{"val": "CODE_SMELL", "count": 1},
-					{"val": "VULNERABILITY", "count": 1},
-				},
-			},
-		},
-	}, nil
+	
+	// Resolution (FIXED, FALSE-POSITIVE, WONTFIX, REMOVED, ACCEPTED)
+	if resolution, ok := params["resolution"].(string); ok {
+		queryParams.Set("resolutions", resolution)
+	}
+	
+	// Created after/before date
+	if createdAfter, ok := params["created_after"].(string); ok {
+		queryParams.Set("createdAfter", createdAfter)
+	}
+	
+	if createdBefore, ok := params["created_before"].(string); ok {
+		queryParams.Set("createdBefore", createdBefore)
+	}
+	
+	// Pagination
+	if page, ok := params["page"].(int); ok {
+		queryParams.Set("p", fmt.Sprintf("%d", page))
+	}
+	
+	if pageSize, ok := params["page_size"].(int); ok {
+		queryParams.Set("ps", fmt.Sprintf("%d", pageSize))
+	}
+	
+	// Create request
+	req, err := a.createRequest(ctx, "GET", "/issues/search", queryParams)
+	if err != nil {
+		return nil, err
+	}
+	
+	// Execute request
+	body, err := a.executeRequest(req)
+	if err != nil {
+		return nil, err
+	}
+	
+	// Parse response
+	var result map[string]interface{}
+	if err := json.Unmarshal(body, &result); err != nil {
+		return nil, fmt.Errorf("failed to decode response: %w", err)
+	}
+	
+	return result, nil
 }
 
 // getMetrics gets metrics for a project
 func (a *Adapter) getMetrics(ctx context.Context, params map[string]interface{}) (interface{}, error) {
 	// Extract required parameters
-	projectKey, ok := params["project_key"].(string)
+	componentKey, ok := params["component"].(string)
 	if !ok {
-		return nil, fmt.Errorf("missing project_key parameter")
+		componentKey, ok = params["project_key"].(string)
+		if !ok {
+			return nil, fmt.Errorf("missing component or project_key parameter")
+		}
 	}
-
-	// Extract optional parameters
+	
+	// Create query parameters
+	queryParams := url.Values{}
+	queryParams.Set("component", componentKey)
+	
+	// Get metric keys
 	metricKeys := "ncloc,coverage,bugs,vulnerabilities,code_smells,duplicated_lines_density"
-	if keysParam, ok := params["metric_keys"].(string); ok {
-		metricKeys = keysParam
+	if keys, ok := params["metric_keys"].(string); ok {
+		metricKeys = keys
+	} else if metrics, ok := params["metrics"].([]string); ok {
+		metricKeys = strings.Join(metrics, ",")
 	}
-
-	// In a real implementation, this would call the SonarQube API
-	// For now, we'll return mock data
-
-	// If using mock server and mock responses are enabled
-	if a.config.MockResponses && a.config.MockURL != "" {
-		url := fmt.Sprintf("%s/measures/component?component=%s&metricKeys=%s", a.config.MockURL, projectKey, metricKeys)
-		resp, err := a.client.Get(url)
-		if err != nil {
-			return nil, fmt.Errorf("failed to get metrics from mock server: %w", err)
-		}
-		defer resp.Body.Close()
-
-		var result map[string]interface{}
-		if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
-			return nil, fmt.Errorf("failed to decode response: %w", err)
-		}
-
-		return result, nil
+	
+	queryParams.Set("metricKeys", metricKeys)
+	
+	// Optional additional fields
+	if additionalFields, ok := params["additional_fields"].(string); ok {
+		queryParams.Set("additionalFields", additionalFields)
 	}
-
-	// Mock response for testing
-	return map[string]interface{}{
-		"component": map[string]interface{}{
-			"key":  projectKey,
-			"name": "My Project",
-			"measures": []map[string]interface{}{
-				{"metric": "ncloc", "value": "12500"},
-				{"metric": "coverage", "value": "85.2"},
-				{"metric": "bugs", "value": "5"},
-				{"metric": "vulnerabilities", "value": "2"},
-				{"metric": "code_smells", "value": "74"},
-				{"metric": "duplicated_lines_density", "value": "4.2"},
-			},
-		},
-	}, nil
+	
+	// Branch parameter
+	if branch, ok := params["branch"].(string); ok {
+		queryParams.Set("branch", branch)
+	}
+	
+	// Create request
+	req, err := a.createRequest(ctx, "GET", "/measures/component", queryParams)
+	if err != nil {
+		return nil, err
+	}
+	
+	// Execute request
+	body, err := a.executeRequest(req)
+	if err != nil {
+		return nil, err
+	}
+	
+	// Parse response
+	var result map[string]interface{}
+	if err := json.Unmarshal(body, &result); err != nil {
+		return nil, fmt.Errorf("failed to decode response: %w", err)
+	}
+	
+	return result, nil
 }
 
 // getProjects gets a list of all projects
 func (a *Adapter) getProjects(ctx context.Context, params map[string]interface{}) (interface{}, error) {
-	// In a real implementation, this would call the SonarQube API
-	// For now, we'll return mock data
-
-	// If using mock server and mock responses are enabled
-	if a.config.MockResponses && a.config.MockURL != "" {
-		url := fmt.Sprintf("%s/projects/search", a.config.MockURL)
-		resp, err := a.client.Get(url)
-		if err != nil {
-			return nil, fmt.Errorf("failed to get projects from mock server: %w", err)
-		}
-		defer resp.Body.Close()
-
-		var result map[string]interface{}
-		if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
-			return nil, fmt.Errorf("failed to decode response: %w", err)
-		}
-
-		return result, nil
+	// Create query parameters
+	queryParams := url.Values{}
+	
+	// Optional parameters
+	if query, ok := params["query"].(string); ok {
+		queryParams.Set("q", query)
 	}
+	
+	if analyzedBefore, ok := params["analyzed_before"].(string); ok {
+		queryParams.Set("analyzedBefore", analyzedBefore)
+	}
+	
+	if projects, ok := params["projects"].(string); ok {
+		queryParams.Set("projects", projects)
+	}
+	
+	if page, ok := params["page"].(int); ok {
+		queryParams.Set("p", fmt.Sprintf("%d", page))
+	}
+	
+	if pageSize, ok := params["page_size"].(int); ok {
+		queryParams.Set("ps", fmt.Sprintf("%d", pageSize))
+	}
+	
+	// Create request
+	req, err := a.createRequest(ctx, "GET", "/projects/search", queryParams)
+	if err != nil {
+		return nil, err
+	}
+	
+	// Execute request
+	body, err := a.executeRequest(req)
+	if err != nil {
+		return nil, err
+	}
+	
+	// Parse response
+	var result map[string]interface{}
+	if err := json.Unmarshal(body, &result); err != nil {
+		return nil, fmt.Errorf("failed to decode response: %w", err)
+	}
+	
+	return result, nil
+}
 
-	// Mock response for testing
-	return map[string]interface{}{
-		"projects": []map[string]interface{}{
-			{
-				"key":     "my-project",
-				"name":    "My Project",
-				"qualifier": "TRK",
-				"lastAnalysisDate": time.Now().AddDate(0, 0, -1).Format(time.RFC3339),
-			},
-			{
-				"key":     "another-project",
-				"name":    "Another Project",
-				"qualifier": "TRK",
-				"lastAnalysisDate": time.Now().AddDate(0, 0, -3).Format(time.RFC3339),
-			},
-			{
-				"key":     "legacy-project",
-				"name":    "Legacy Project",
-				"qualifier": "TRK",
-				"lastAnalysisDate": time.Now().AddDate(0, -2, -5).Format(time.RFC3339),
-			},
-		},
-	}, nil
+// getQualityGates gets a list of all quality gates
+func (a *Adapter) getQualityGates(ctx context.Context, params map[string]interface{}) (interface{}, error) {
+	// Create request
+	req, err := a.createRequest(ctx, "GET", "/qualitygates/list", nil)
+	if err != nil {
+		return nil, err
+	}
+	
+	// Execute request
+	body, err := a.executeRequest(req)
+	if err != nil {
+		return nil, err
+	}
+	
+	// Parse response
+	var result map[string]interface{}
+	if err := json.Unmarshal(body, &result); err != nil {
+		return nil, fmt.Errorf("failed to decode response: %w", err)
+	}
+	
+	return result, nil
+}
+
+// getComponentDetails gets detailed information about a component
+func (a *Adapter) getComponentDetails(ctx context.Context, params map[string]interface{}) (interface{}, error) {
+	// Extract required parameters
+	componentKey, ok := params["component"].(string)
+	if !ok {
+		componentKey, ok = params["project_key"].(string)
+		if !ok {
+			return nil, fmt.Errorf("missing component or project_key parameter")
+		}
+	}
+	
+	// Create query parameters
+	queryParams := url.Values{}
+	queryParams.Set("component", componentKey)
+	
+	// Create request
+	req, err := a.createRequest(ctx, "GET", "/components/show", queryParams)
+	if err != nil {
+		return nil, err
+	}
+	
+	// Execute request
+	body, err := a.executeRequest(req)
+	if err != nil {
+		return nil, err
+	}
+	
+	// Parse response
+	var result map[string]interface{}
+	if err := json.Unmarshal(body, &result); err != nil {
+		return nil, fmt.Errorf("failed to decode response: %w", err)
+	}
+	
+	return result, nil
+}
+
+// getMeasuresHistory gets the history of measures for a component
+func (a *Adapter) getMeasuresHistory(ctx context.Context, params map[string]interface{}) (interface{}, error) {
+	// Extract required parameters
+	componentKey, ok := params["component"].(string)
+	if !ok {
+		componentKey, ok = params["project_key"].(string)
+		if !ok {
+			return nil, fmt.Errorf("missing component or project_key parameter")
+		}
+	}
+	
+	// Extract metric keys (required)
+	metricKeys, ok := params["metric_keys"].(string)
+	if !ok {
+		metricKeys, ok = params["metrics"].(string)
+		if !ok {
+			return nil, fmt.Errorf("missing metric_keys parameter")
+		}
+	}
+	
+	// Create query parameters
+	queryParams := url.Values{}
+	queryParams.Set("component", componentKey)
+	queryParams.Set("metrics", metricKeys)
+	
+	// Optional parameters
+	if from, ok := params["from"].(string); ok {
+		queryParams.Set("from", from)
+	}
+	
+	if to, ok := params["to"].(string); ok {
+		queryParams.Set("to", to)
+	}
+	
+	if branch, ok := params["branch"].(string); ok {
+		queryParams.Set("branch", branch)
+	}
+	
+	// Create request
+	req, err := a.createRequest(ctx, "GET", "/measures/search_history", queryParams)
+	if err != nil {
+		return nil, err
+	}
+	
+	// Execute request
+	body, err := a.executeRequest(req)
+	if err != nil {
+		return nil, err
+	}
+	
+	// Parse response
+	var result map[string]interface{}
+	if err := json.Unmarshal(body, &result); err != nil {
+		return nil, fmt.Errorf("failed to decode response: %w", err)
+	}
+	
+	return result, nil
+}
+
+// searchMetrics searches for available metrics
+func (a *Adapter) searchMetrics(ctx context.Context, params map[string]interface{}) (interface{}, error) {
+	// Create query parameters
+	queryParams := url.Values{}
+	
+	// Optional parameters
+	if isCustom, ok := params["is_custom"].(bool); ok {
+		queryParams.Set("isCustom", fmt.Sprintf("%t", isCustom))
+	}
+	
+	if key, ok := params["key"].(string); ok {
+		queryParams.Set("k", key)
+	}
+	
+	if page, ok := params["page"].(int); ok {
+		queryParams.Set("p", fmt.Sprintf("%d", page))
+	}
+	
+	if pageSize, ok := params["page_size"].(int); ok {
+		queryParams.Set("ps", fmt.Sprintf("%d", pageSize))
+	}
+	
+	// Create request
+	req, err := a.createRequest(ctx, "GET", "/metrics/search", queryParams)
+	if err != nil {
+		return nil, err
+	}
+	
+	// Execute request
+	body, err := a.executeRequest(req)
+	if err != nil {
+		return nil, err
+	}
+	
+	// Parse response
+	var result map[string]interface{}
+	if err := json.Unmarshal(body, &result); err != nil {
+		return nil, fmt.Errorf("failed to decode response: %w", err)
+	}
+	
+	return result, nil
 }
 
 // triggerAnalysis triggers a new analysis
 func (a *Adapter) triggerAnalysis(ctx context.Context, params map[string]interface{}) (interface{}, error) {
+	// This is a placeholder function since SonarQube doesn't have a direct API to trigger analysis remotely
+	// In practice, analysis is triggered via the scanner (e.g., sonar-scanner or Maven/Gradle plugins)
+	// The actual implementation would depend on the specific setup
+	
 	// Extract required parameters
 	projectKey, ok := params["project_key"].(string)
 	if !ok {
 		return nil, fmt.Errorf("missing project_key parameter")
 	}
-
+	
 	// Optional parameters
 	branch := "main"
 	if branchParam, ok := params["branch"].(string); ok {
 		branch = branchParam
 	}
-
-	// In a real implementation, this would call the SonarQube API
-	// For now, we'll return mock data
-
-	// If using mock server and mock responses are enabled
-	if a.config.MockResponses && a.config.MockURL != "" {
-		url := fmt.Sprintf("%s/scanner/trigger?project=%s&branch=%s", a.config.MockURL, projectKey, branch)
-		
-		// Create POST request
-		req, err := http.NewRequestWithContext(ctx, "POST", url, nil)
-		if err != nil {
-			return nil, fmt.Errorf("failed to create request: %w", err)
-		}
-		
-		// Set headers
-		req.Header.Set("Content-Type", "application/json")
-		if a.config.Token != "" {
-			req.Header.Set("Authorization", "Bearer "+a.config.Token)
-		} else {
-			// Basic auth
-			req.SetBasicAuth(a.config.Username, a.config.Password)
-		}
-		
-		// Send request
-		resp, err := a.client.Do(req)
-		if err != nil {
-			return nil, fmt.Errorf("failed to trigger analysis on mock server: %w", err)
-		}
-		defer resp.Body.Close()
-
-		var result map[string]interface{}
-		if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
-			return nil, fmt.Errorf("failed to decode response: %w", err)
-		}
-
-		return result, nil
-	}
-
-	// Generate a fake task ID
-	taskID := fmt.Sprintf("task-%d", time.Now().Unix())
-
+	
 	// Mock response for testing
 	return map[string]interface{}{
 		"project_key": projectKey,
 		"branch":      branch,
-		"task_id":     taskID,
+		"task_id":     fmt.Sprintf("task-%d", time.Now().Unix()),
 		"status":      "PENDING",
 		"submittedAt": time.Now().Format(time.RFC3339),
 		"message":     "Analysis triggered successfully",
+	}, nil
+}
+
+// createProject creates a new project in SonarQube
+func (a *Adapter) createProject(ctx context.Context, params map[string]interface{}) (interface{}, error) {
+	// Extract required parameters
+	projectKey, ok := params["project_key"].(string)
+	if !ok {
+		return nil, fmt.Errorf("missing project_key parameter")
+	}
+	
+	projectName, ok := params["name"].(string)
+	if !ok {
+		projectName = projectKey // Use project key as name if not provided
+	}
+	
+	// Create form data
+	formData := url.Values{}
+	formData.Set("project", projectKey)
+	formData.Set("name", projectName)
+	
+	// Create request
+	req, err := a.createRequest(ctx, "POST", "/projects/create", formData)
+	if err != nil {
+		return nil, err
+	}
+	
+	// Change content type for form submission
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	req.Body = io.NopCloser(strings.NewReader(formData.Encode()))
+	
+	// Execute request
+	body, err := a.executeRequest(req)
+	if err != nil {
+		return nil, err
+	}
+	
+	// Parse response
+	var result map[string]interface{}
+	if err := json.Unmarshal(body, &result); err != nil {
+		return nil, fmt.Errorf("failed to decode response: %w", err)
+	}
+	
+	return result, nil
+}
+
+// deleteProject deletes a project from SonarQube
+func (a *Adapter) deleteProject(ctx context.Context, params map[string]interface{}) (interface{}, error) {
+	// Extract required parameters
+	projectKey, ok := params["project_key"].(string)
+	if !ok {
+		return nil, fmt.Errorf("missing project_key parameter")
+	}
+	
+	// Create form data
+	formData := url.Values{}
+	formData.Set("project", projectKey)
+	
+	// Create request
+	req, err := a.createRequest(ctx, "POST", "/projects/delete", formData)
+	if err != nil {
+		return nil, err
+	}
+	
+	// Change content type for form submission
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	req.Body = io.NopCloser(strings.NewReader(formData.Encode()))
+	
+	// Execute request
+	_, err = a.executeRequest(req)
+	if err != nil {
+		return nil, err
+	}
+	
+	// Return success response (the API doesn't return a body on success)
+	return map[string]interface{}{
+		"project_key": projectKey,
+		"status":      "deleted",
+		"message":     "Project deleted successfully",
+	}, nil
+}
+
+// getAnalysisStatus gets the status of an analysis task
+func (a *Adapter) getAnalysisStatus(ctx context.Context, params map[string]interface{}) (interface{}, error) {
+	// Extract required parameters
+	taskId, ok := params["task_id"].(string)
+	if !ok {
+		return nil, fmt.Errorf("missing task_id parameter")
+	}
+	
+	// Create query parameters
+	queryParams := url.Values{}
+	queryParams.Set("id", taskId)
+	
+	// Create request
+	req, err := a.createRequest(ctx, "GET", "/ce/task", queryParams)
+	if err != nil {
+		return nil, err
+	}
+	
+	// Execute request
+	body, err := a.executeRequest(req)
+	if err != nil {
+		return nil, err
+	}
+	
+	// Parse response
+	var result map[string]interface{}
+	if err := json.Unmarshal(body, &result); err != nil {
+		return nil, fmt.Errorf("failed to decode response: %w", err)
+	}
+	
+	return result, nil
+}
+
+// setProjectTags sets tags for a project
+func (a *Adapter) setProjectTags(ctx context.Context, params map[string]interface{}) (interface{}, error) {
+	// Extract required parameters
+	projectKey, ok := params["project_key"].(string)
+	if !ok {
+		return nil, fmt.Errorf("missing project_key parameter")
+	}
+	
+	tags, ok := params["tags"].(string)
+	if !ok {
+		return nil, fmt.Errorf("missing tags parameter")
+	}
+	
+	// Create form data
+	formData := url.Values{}
+	formData.Set("project", projectKey)
+	formData.Set("tags", tags)
+	
+	// Create request
+	req, err := a.createRequest(ctx, "POST", "/project_tags/set", formData)
+	if err != nil {
+		return nil, err
+	}
+	
+	// Change content type for form submission
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	req.Body = io.NopCloser(strings.NewReader(formData.Encode()))
+	
+	// Execute request
+	body, err := a.executeRequest(req)
+	if err != nil {
+		return nil, err
+	}
+	
+	// Parse response (the API might not return a body)
+	if len(body) == 0 {
+		return map[string]interface{}{
+			"project_key": projectKey,
+			"tags":        tags,
+			"status":      "updated",
+			"message":     "Project tags updated successfully",
+		}, nil
+	}
+	
+	var result map[string]interface{}
+	if err := json.Unmarshal(body, &result); err != nil {
+		return nil, fmt.Errorf("failed to decode response: %w", err)
+	}
+	
+	return result, nil
+}
+
+// setQualityGate assigns a quality gate to a project
+func (a *Adapter) setQualityGate(ctx context.Context, params map[string]interface{}) (interface{}, error) {
+	// Extract required parameters
+	projectKey, ok := params["project_key"].(string)
+	if !ok {
+		return nil, fmt.Errorf("missing project_key parameter")
+	}
+	
+	gateId, ok := params["gate_id"].(string)
+	if !ok {
+		return nil, fmt.Errorf("missing gate_id parameter")
+	}
+	
+	// Create form data
+	formData := url.Values{}
+	formData.Set("projectKey", projectKey)
+	formData.Set("gateId", gateId)
+	
+	// Create request
+	req, err := a.createRequest(ctx, "POST", "/qualitygates/select", formData)
+	if err != nil {
+		return nil, err
+	}
+	
+	// Change content type for form submission
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	req.Body = io.NopCloser(strings.NewReader(formData.Encode()))
+	
+	// Execute request
+	_, err = a.executeRequest(req)
+	if err != nil {
+		return nil, err
+	}
+	
+	// Return success response (the API doesn't return a body on success)
+	return map[string]interface{}{
+		"project_key": projectKey,
+		"gate_id":     gateId,
+		"status":      "assigned",
+		"message":     "Quality gate assigned successfully",
 	}, nil
 }
 

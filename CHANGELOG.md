@@ -5,6 +5,33 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.2.5] - 2025-04-17
+
+### Added
+- Enhanced SonarQube adapter with comprehensive API integration
+- Added proper API authentication support including Bearer token and Basic auth methods
+- Implemented connectivity testing using the system/status endpoint
+- Added support for quality gates management (get status, assign to projects, list gates)
+- Implemented project management functionality (create, delete, set tags)
+- Added metrics and measures endpoints with support for filtering and historical data
+- Implemented issues management with comprehensive filtering options
+- Added component details retrieval functionality
+- Created new operations: search_metrics, get_measures_history, get_component_details, get_quality_gates
+- Added new actions: create_project, delete_project, get_analysis_status, set_project_tags, set_quality_gate
+
+### Changed
+- Improved request handling with centralized request creation and execution
+- Enhanced error handling with proper HTTP status code checking
+- Implemented retry logic for API requests
+- Updated request authentication to follow SonarQube best practices
+- Improved form data submission for POST requests
+- Enhanced parameter validation for all API operations
+
+### Fixed
+- Fixed mock server connectivity testing to properly verify server health
+- Improved error reporting with more detailed error messages
+- Enhanced testConnection method to properly test connectivity to the SonarQube API
+
 ## [0.2.4] - 2025-04-17
 
 ### Added
