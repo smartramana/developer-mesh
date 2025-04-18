@@ -1,6 +1,7 @@
 package api
 
 import (
+	"fmt"
 	"net/http"
 
 	"github.com/S-Corkum/mcp-server/internal/repository"
@@ -12,6 +13,16 @@ func (s *Server) StoreEmbeddingHandler(c *gin.Context) {
 	var req StoreEmbeddingRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid request: " + err.Error()})
+		return
+	}
+
+	// Check the embedding dimension - must be 1536 as defined in the database schema
+	const expectedDimension = 1536
+	if len(req.Embedding) != expectedDimension {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error": fmt.Sprintf("invalid embedding dimension: expected %d dimensions, got %d. The database schema requires exactly %d dimensions for compatibility with models like Amazon Titan Embeddings.", 
+				expectedDimension, len(req.Embedding), expectedDimension),
+		})
 		return
 	}
 

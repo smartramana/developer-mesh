@@ -4,6 +4,8 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"log"
+	"net/http"
 	"time"
 
 	"github.com/S-Corkum/mcp-server/internal/adapters"
@@ -20,6 +22,7 @@ type Config struct {
 	RetryMax        int           `mapstructure:"retry_max"`
 	RetryDelay      time.Duration `mapstructure:"retry_delay"`
 	MockResponses   bool          `mapstructure:"mock_responses"`
+	MockURL         string        `mapstructure:"mock_url"`
 }
 
 // Adapter implements the adapter interface for GitHub
@@ -104,11 +107,55 @@ func (a *Adapter) Initialize(ctx context.Context, cfg interface{}) error {
 
 // testConnection verifies connectivity to GitHub
 func (a *Adapter) testConnection(ctx context.Context) error {
-	// Get rate limit to verify connectivity
+	// If mock_responses is enabled, try connecting to the mock server instead
+	if a.config.MockResponses && a.config.MockURL != "" {
+		// Create a custom HTTP client for testing the mock connection
+		httpClient := &http.Client{Timeout: a.config.RequestTimeout}
+		
+		// First try health endpoint which should be more reliable
+		healthURL := a.config.MockURL + "/health"
+		resp, err := httpClient.Get(healthURL)
+		if err == nil && resp.StatusCode == http.StatusOK {
+			defer resp.Body.Close()
+			log.Println("Successfully connected to mock GitHub API health endpoint")
+			// Set health status to healthy
+			a.healthStatus = "healthy"
+			return nil
+		}
+		
+		// Fall back to rate_limit endpoint
+		resp, err = httpClient.Get(a.config.MockURL + "/rate_limit")
+		if err != nil {
+			a.healthStatus = fmt.Sprintf("unhealthy: failed to connect to mock GitHub API: %v", err)
+			// Don't return error, just make the adapter usable in degraded mode
+			log.Printf("Warning: Failed to connect to mock GitHub API: %v", err)
+			return nil
+		}
+		defer resp.Body.Close()
+		
+		if resp.StatusCode != http.StatusOK {
+			a.healthStatus = fmt.Sprintf("unhealthy: mock GitHub API returned status code: %d", resp.StatusCode)
+			// Don't return error, just make the adapter usable in degraded mode
+			log.Printf("Warning: Mock GitHub API returned unexpected status code: %d", resp.StatusCode)
+			return nil
+		}
+		
+		// Successfully connected to mock server
+		log.Println("Successfully connected to mock GitHub API")
+		a.healthStatus = "healthy"
+		return nil
+	}
+	
+	// Use the actual GitHub API for verification if not in mock mode
 	_, _, err := a.client.RateLimits(ctx)
 	if err != nil {
-		return fmt.Errorf("failed to connect to GitHub API: %w", err)
+		a.healthStatus = fmt.Sprintf("unhealthy: %v", err)
+		// Don't return error, just make the adapter usable in degraded mode
+		log.Printf("Warning: Failed to connect to GitHub API: %v", err)
+		return nil
 	}
+	
+	a.healthStatus = "healthy"
 	return nil
 }
 

@@ -91,12 +91,19 @@ func (e *Engine) initializeAdapters() error {
 			return err
 		}
 		
+		// Initialize the adapter with the configuration
+		if err := githubAdapter.Initialize(e.ctx, e.config.GithubConfig); err != nil {
+			return fmt.Errorf("failed to initialize GitHub adapter: %w", err)
+		}
+		
 		e.adapters["github"] = githubAdapter
 		
 		// Set up event handlers if the adapter implements the necessary methods
 		if err = e.setupGithubEventHandlers(githubAdapter); err != nil {
 			return err
 		}
+		
+		log.Println("GitHub adapter initialized successfully")
 	}
 
 	// No additional adapter initialization needed

@@ -130,7 +130,7 @@ func (d *Database) prepareStatements(ctx context.Context) error {
 		"get_event":       "SELECT * FROM mcp.events WHERE id = $1",
 		"insert_event":    "INSERT INTO mcp.events (source, type, data, timestamp) VALUES ($1, $2, $3, $4) RETURNING id",
 		"get_context":     "SELECT * FROM mcp.contexts WHERE id = $1",
-		"insert_context":  "INSERT INTO mcp.contexts (name, description, data) VALUES ($1, $2, $3) RETURNING id",
+		"insert_context":  "INSERT INTO mcp.contexts (id, agent_id, model_id, session_id, content, metadata, current_tokens, max_tokens, created_at, updated_at) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)",
 		"get_integration": "SELECT * FROM mcp.integrations WHERE id = $1",
 	}
 
