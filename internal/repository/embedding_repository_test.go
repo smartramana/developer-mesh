@@ -38,7 +38,7 @@ func TestStoreEmbedding(t *testing.T) {
 	
 	// Set up the expected SQL query and result
 	mock.ExpectQuery(`INSERT INTO mcp.embeddings`).
-		WithArgs(testEmbedding.ContextID, testEmbedding.ContentIndex, testEmbedding.Text, vectorStr, testEmbedding.ModelID).
+		WithArgs(testEmbedding.ContextID, testEmbedding.ContentIndex, testEmbedding.Text, vectorStr, 5, testEmbedding.ModelID).
 		WillReturnRows(sqlmock.NewRows([]string{"id"}).AddRow("embedding-456"))
 	
 	// Call the method being tested
@@ -76,16 +76,16 @@ func TestSearchEmbeddings(t *testing.T) {
 	now := time.Now()
 	
 	// Create columns to match our custom query in the implementation
-	columns := []string{"id", "context_id", "content_index", "text", "embedding", "model_id", "created_at"}
+	columns := []string{"id", "context_id", "content_index", "text", "embedding", "vector_dimensions", "model_id", "created_at"}
 	
 	// Create mock rows
 	rows := sqlmock.NewRows(columns).
-		AddRow("embedding-1", "context-123", 1, "Text 1", "{0.1,0.2,0.3,0.4,0.5}", "model-1", now).
-		AddRow("embedding-2", "context-123", 2, "Text 2", "{0.5,0.4,0.3,0.2,0.1}", "model-1", now)
+		AddRow("embedding-1", "context-123", 1, "Text 1", "{0.1,0.2,0.3,0.4,0.5}", 5, "model-1", now).
+		AddRow("embedding-2", "context-123", 2, "Text 2", "{0.5,0.4,0.3,0.2,0.1}", 5, "model-1", now)
 	
 	// Use QueryxContext for the updated implementation
-	mock.ExpectQuery(`SELECT id, context_id, content_index, text, embedding::text as embedding, model_id, created_at FROM mcp.embeddings WHERE context_id = (.*) ORDER BY embedding <-> (.*) LIMIT (.*)`).
-		WithArgs(contextID, vectorStr, limit).
+	mock.ExpectQuery(`SELECT id, context_id, content_index, text, embedding::text as embedding, vector_dimensions, model_id, created_at FROM mcp.embeddings WHERE context_id = \$1 AND vector_dimensions = \$2 ORDER BY embedding <-> \$3 LIMIT \$4`).
+		WithArgs(contextID, 5, vectorStr, limit).
 		WillReturnRows(rows)
 	
 	// Call the method being tested
@@ -129,15 +129,15 @@ func TestGetContextEmbeddings(t *testing.T) {
 	now := time.Now()
 	
 	// Create columns to match our custom query in the implementation
-	columns := []string{"id", "context_id", "content_index", "text", "embedding", "model_id", "created_at"}
+	columns := []string{"id", "context_id", "content_index", "text", "embedding", "vector_dimensions", "model_id", "created_at"}
 	
 	// Create mock rows with properly formatted embeddings
 	rows := sqlmock.NewRows(columns).
-		AddRow("embedding-1", contextID, 1, "Text 1", "{0.1,0.2,0.3,0.4,0.5}", "model-1", now).
-		AddRow("embedding-2", contextID, 2, "Text 2", "{0.5,0.4,0.3,0.2,0.1}", "model-1", now)
+		AddRow("embedding-1", contextID, 1, "Text 1", "{0.1,0.2,0.3,0.4,0.5}", 5, "model-1", now).
+		AddRow("embedding-2", contextID, 2, "Text 2", "{0.5,0.4,0.3,0.2,0.1}", 5, "model-1", now)
 	
 	// Set up the expected SQL query and result
-	mock.ExpectQuery(`SELECT id, context_id, content_index, text, embedding::text as embedding, model_id, created_at FROM mcp.embeddings WHERE context_id = (.*)`).
+	mock.ExpectQuery(`SELECT id, context_id, content_index, text, embedding::text as embedding, vector_dimensions, model_id, created_at FROM mcp.embeddings WHERE context_id = \$1`).
 		WithArgs(contextID).
 		WillReturnRows(rows)
 	

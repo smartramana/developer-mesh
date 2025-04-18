@@ -100,25 +100,25 @@ func TestCreateAdapterTypes(t *testing.T) {
 			AccountID:      "test-account",
 			BaseURL:        "http://localhost:9999", // Non-existent for testing
 			RequestTimeout: 5 * time.Second,
-			MaxRetries:     0, // Don't retry in tests
+			RetryMax:       0, // Don't retry in tests
 			RetryDelay:     1 * time.Second,
 		},
 		"sonarqube": sonarqube.Config{
 			BaseURL:        "http://localhost:9999", // Non-existent for testing
 			RequestTimeout: 5 * time.Second,
-			MaxRetries:     0, // Don't retry in tests
+			RetryMax:       0, // Don't retry in tests
 			RetryDelay:     1 * time.Second,
 		},
 		"artifactory": artifactory.Config{
 			BaseURL:        "http://localhost:9999", // Non-existent for testing
 			RequestTimeout: 5 * time.Second,
-			MaxRetries:     0, // Don't retry in tests
+			RetryMax:       0, // Don't retry in tests
 			RetryDelay:     1 * time.Second,
 		},
 		"xray": xray.Config{
 			BaseURL:        "http://localhost:9999", // Non-existent for testing
 			RequestTimeout: 5 * time.Second,
-			MaxRetries:     0, // Don't retry in tests
+			RetryMax:       0, // Don't retry in tests
 			RetryDelay:     1 * time.Second,
 		},
 	}

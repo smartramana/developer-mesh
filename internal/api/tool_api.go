@@ -1,6 +1,7 @@
 package api
 
 import (
+	"log"
 	"net/http"
 
 	"github.com/S-Corkum/mcp-server/internal/core"
@@ -41,7 +42,7 @@ func (api *ToolAPI) RegisterRoutes(router *gin.RouterGroup) {
 	router.GET("/tools/:tool/actions", api.listAllowedActions)
 	
 	// Log that we're registering routes
-	log.Println("Registered tool API routes with handler:", api.listAvailableTools)
+	log.Println("Registered tool API routes")
 }
 
 // handleExecuteToolAction executes an action on a tool
