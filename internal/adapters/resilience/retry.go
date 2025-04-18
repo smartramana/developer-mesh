@@ -2,9 +2,8 @@ package resilience
 
 import (
 	"context"
-	"time"
-	"math"
 	"errors"
+	"time"
 
 	"github.com/cenkalti/backoff/v4"
 )

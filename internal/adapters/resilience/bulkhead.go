@@ -2,9 +2,9 @@ package resilience
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"sync"
+	"time"
 )
 
 // BulkheadConfig defines configuration for a bulkhead

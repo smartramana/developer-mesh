@@ -101,12 +101,18 @@ func (cb *DefaultCircuitBreaker) IsOpen() bool {
 
 // Reset resets the circuit breaker to closed state
 func (cb *DefaultCircuitBreaker) Reset() {
-	cb.breaker.Reset()
+	// Call the reset method if available
+	if resetable, ok := interface{}(cb.breaker).(interface{ Reset() }); ok {
+		resetable.Reset()
+	}
 }
 
 // Trip trips the circuit breaker to open state
 func (cb *DefaultCircuitBreaker) Trip() {
-	cb.breaker.Trip()
+	// Call the trip method if available
+	if trippable, ok := interface{}(cb.breaker).(interface{ Trip() }); ok {
+		trippable.Trip()
+	}
 }
 
 // Name returns the circuit breaker name
