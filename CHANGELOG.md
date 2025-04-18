@@ -5,6 +5,33 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.2] - 2025-04-18
+
+### Added
+- Enhanced GitHub adapter with numerous improvements:
+  - Added pagination support for all list methods with configurable page sizes
+  - Added rate limiting awareness with automatic detection and handling
+  - Implemented workflow management features (enable/disable workflows)
+  - Added support for workflow run approvals and rejections
+  - Added advanced search capabilities for repositories, users, and code
+  - Implemented detailed statistics tracking for monitoring adapter health
+  - Added robust error handling with improved retry logic and exponential backoff
+  - Enhanced GitHub adapter health reporting with detailed diagnostics
+  - Added GetHealthDetails method for comprehensive health monitoring
+
+### Changed
+- Updated GitHub API integration to consistently use API version 2022-11-28
+- Improved HTTP transport to include proper headers for all requests
+- Enhanced error handling with more descriptive error messages
+- Updated configuration with more customization options
+- Implemented safer parameter validation across all operations
+
+### Fixed
+- Fixed potential race conditions in rate limit handling
+- Enhanced safety checks to prevent operations on protected branches
+- Fixed error handling to properly distinguish between various error types
+- Improved webhook handling with better payload validation
+
 ## [0.3.1] - 2025-04-17
 
 ### Fixed
