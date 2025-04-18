@@ -5,6 +5,34 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.2.7] - 2025-04-17
+
+### Added
+- Enhanced GitHub adapter with comprehensive REST API v2022-11-28 integration
+- Added API version header support with `X-GitHub-Api-Version: 2022-11-28` for all requests
+- Implemented GitHub Actions workflow management (trigger, check status)
+- Added branch management operations (create, list)
+- Added team and member management functionality
+- Implemented webhook management capabilities (create, delete, list)
+- Added code search functionality
+- Added support for commit history retrieval and analysis
+- Enhanced pull request management with support for reviewers and labels
+- Added custom HTTP transport for consistent header management
+- Improved webhook event handling with support for more event types
+
+### Changed
+- Updated GitHub API client to use the latest API version
+- Enhanced safety checks for potentially dangerous operations
+- Improved parameter validation and error handling
+- Restructured code for better maintainability
+- Enhanced test coverage with more comprehensive test cases
+- Updated GitHub event parsing with better type safety
+
+### Fixed
+- Fixed webhook payload handling to properly parse all supported event types
+- Improved error messages for better debugging
+- Enhanced security checks to prevent unsafe operations
+
 ## [0.2.6] - 2025-04-17
 
 ### Added
