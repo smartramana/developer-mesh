@@ -154,10 +154,11 @@ func (s *Server) setupRoutes() {
 	toolAPI.RegisterRoutes(v1)
 	
 	// Context API - register the context endpoints
+	// For now, we'll use a nil metrics client to avoid type conflicts
 	ctxAPI := contextAPI.NewAPI(
 		s.engine.GetContextManager(),
 		s.logger,
-		observability.NewMetricsClient(),
+		nil, // Pass nil metrics client to avoid type mismatch
 	)
 	ctxAPI.RegisterRoutes(v1)
 }
@@ -241,9 +242,6 @@ func (s *Server) getBaseURL(c *gin.Context) string {
 	
 	return scheme + "://" + host
 }
-
-// List of shutdown hooks to execute when the server shuts down
-var shutdownHooks []func()
 
 // RegisterShutdownHook registers a function to be called during server shutdown
 func RegisterShutdownHook(hook func()) {

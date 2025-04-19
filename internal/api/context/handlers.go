@@ -5,6 +5,7 @@ import (
 	"strconv"
 
 	"github.com/S-Corkum/mcp-server/internal/interfaces"
+	"github.com/S-Corkum/mcp-server/internal/metrics"
 	"github.com/S-Corkum/mcp-server/internal/observability"
 	"github.com/S-Corkum/mcp-server/pkg/mcp"
 	"github.com/gin-gonic/gin"
@@ -14,14 +15,14 @@ import (
 type API struct {
 	contextManager interfaces.ContextManager
 	logger         *observability.Logger
-	metricsClient  observability.MetricsClient
+	metricsClient  metrics.Client
 }
 
 // NewAPI creates a new context API handler
 func NewAPI(
 	contextManager interfaces.ContextManager,
 	logger *observability.Logger,
-	metricsClient observability.MetricsClient,
+	metricsClient metrics.Client,
 ) *API {
 	if logger == nil {
 		logger = observability.NewLogger("context_api")
@@ -71,7 +72,7 @@ func (api *API) CreateContext(c *gin.Context) {
 	
 	// Record metric
 	if api.metricsClient != nil {
-		api.metricsClient.IncrementCounter("context_api_requests", map[string]string{
+		api.metricsClient.RecordCounter("context_api_requests", 1, map[string]string{
 			"operation": "create_context",
 			"status":    "success",
 		})
@@ -120,7 +121,7 @@ func (api *API) GetContext(c *gin.Context) {
 	
 	// Record metric
 	if api.metricsClient != nil {
-		api.metricsClient.IncrementCounter("context_api_requests", map[string]string{
+		api.metricsClient.RecordCounter("context_api_requests", 1, map[string]string{
 			"operation": "get_context",
 			"status":    "success",
 		})
@@ -171,7 +172,7 @@ func (api *API) UpdateContext(c *gin.Context) {
 	
 	// Record metric
 	if api.metricsClient != nil {
-		api.metricsClient.IncrementCounter("context_api_requests", map[string]string{
+		api.metricsClient.RecordCounter("context_api_requests", 1, map[string]string{
 			"operation": "update_context",
 			"status":    "success",
 		})
@@ -204,7 +205,7 @@ func (api *API) DeleteContext(c *gin.Context) {
 	
 	// Record metric
 	if api.metricsClient != nil {
-		api.metricsClient.IncrementCounter("context_api_requests", map[string]string{
+		api.metricsClient.RecordCounter("context_api_requests", 1, map[string]string{
 			"operation": "delete_context",
 			"status":    "success",
 		})
@@ -251,7 +252,7 @@ func (api *API) ListContexts(c *gin.Context) {
 	
 	// Record metric
 	if api.metricsClient != nil {
-		api.metricsClient.IncrementCounter("context_api_requests", map[string]string{
+		api.metricsClient.RecordCounter("context_api_requests", 1, map[string]string{
 			"operation": "list_contexts",
 			"status":    "success",
 		})
@@ -286,7 +287,7 @@ func (api *API) SummarizeContext(c *gin.Context) {
 	
 	// Record metric
 	if api.metricsClient != nil {
-		api.metricsClient.IncrementCounter("context_api_requests", map[string]string{
+		api.metricsClient.RecordCounter("context_api_requests", 1, map[string]string{
 			"operation": "summarize_context",
 			"status":    "success",
 		})
@@ -330,7 +331,7 @@ func (api *API) SearchInContext(c *gin.Context) {
 	
 	// Record metric
 	if api.metricsClient != nil {
-		api.metricsClient.IncrementCounter("context_api_requests", map[string]string{
+		api.metricsClient.RecordCounter("context_api_requests", 1, map[string]string{
 			"operation": "search_in_context",
 			"status":    "success",
 		})

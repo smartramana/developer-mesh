@@ -18,7 +18,8 @@ type Tx struct {
 
 // CreateContext creates a new context in the database
 func (db *Database) CreateContext(ctx context.Context, contextData *mcp.Context) error {
-	return db.Transaction(ctx, func(tx *Tx) error {
+	return db.Transaction(ctx, func(sqlxTx *sqlx.Tx) error {
+		tx := &Tx{tx: sqlxTx}
 		return db.createContext(ctx, tx, contextData)
 	})
 }
@@ -109,7 +110,8 @@ func (db *Database) createContextItem(ctx context.Context, tx *Tx, contextID str
 func (db *Database) GetContext(ctx context.Context, contextID string) (*mcp.Context, error) {
 	var contextData *mcp.Context
 	
-	err := db.Transaction(ctx, func(tx *Tx) error {
+	err := db.Transaction(ctx, func(sqlxTx *sqlx.Tx) error {
+		tx := &Tx{tx: sqlxTx}
 		var err error
 		contextData, err = db.getContext(ctx, tx, contextID)
 		return err
@@ -241,7 +243,8 @@ func (db *Database) getContext(ctx context.Context, tx *Tx, contextID string) (*
 
 // UpdateContext updates a context in the database
 func (db *Database) UpdateContext(ctx context.Context, contextData *mcp.Context) error {
-	return db.Transaction(ctx, func(tx *Tx) error {
+	return db.Transaction(ctx, func(sqlxTx *sqlx.Tx) error {
+		tx := &Tx{tx: sqlxTx}
 		return db.updateContext(ctx, tx, contextData)
 	})
 }
@@ -298,7 +301,8 @@ func (db *Database) updateContext(ctx context.Context, tx *Tx, contextData *mcp.
 
 // DeleteContext deletes a context from the database
 func (db *Database) DeleteContext(ctx context.Context, contextID string) error {
-	return db.Transaction(ctx, func(tx *Tx) error {
+	return db.Transaction(ctx, func(sqlxTx *sqlx.Tx) error {
+		tx := &Tx{tx: sqlxTx}
 		return db.deleteContext(ctx, tx, contextID)
 	})
 }
@@ -322,7 +326,8 @@ func (db *Database) deleteContext(ctx context.Context, tx *Tx, contextID string)
 func (db *Database) ListContexts(ctx context.Context, agentID string, sessionID string, options map[string]interface{}) ([]*mcp.Context, error) {
 	var contexts []*mcp.Context
 	
-	err := db.Transaction(ctx, func(tx *Tx) error {
+	err := db.Transaction(ctx, func(sqlxTx *sqlx.Tx) error {
+		tx := &Tx{tx: sqlxTx}
 		var err error
 		contexts, err = db.listContexts(ctx, tx, agentID, sessionID, options)
 		return err
@@ -443,7 +448,8 @@ func (db *Database) listContexts(ctx context.Context, tx *Tx, agentID string, se
 func (db *Database) SearchContexts(ctx context.Context, agentID string, query string, limit int) ([]*mcp.Context, error) {
 	var contexts []*mcp.Context
 	
-	err := db.Transaction(ctx, func(tx *Tx) error {
+	err := db.Transaction(ctx, func(sqlxTx *sqlx.Tx) error {
+		tx := &Tx{tx: sqlxTx}
 		var err error
 		contexts, err = db.searchContexts(ctx, tx, agentID, query, limit)
 		return err

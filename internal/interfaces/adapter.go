@@ -10,7 +10,7 @@ type AdapterManager interface {
 	Initialize(ctx context.Context) error
 	
 	// GetAdapter gets an adapter by type
-	GetAdapter(ctx context.Context, adapterType string) (interface{}, error)
+	GetAdapter(adapterType string) (interface{}, error)
 	
 	// ExecuteAction executes an action with an adapter
 	ExecuteAction(ctx context.Context, contextID string, adapterType string, action string, params map[string]interface{}) (interface{}, error)
@@ -19,4 +19,9 @@ type AdapterManager interface {
 	Shutdown(ctx context.Context) error
 }
 
+// WebhookHandler defines the interface for handling webhooks
+type WebhookHandler interface {
+	// HandleWebhook handles a webhook event
+	HandleWebhook(ctx context.Context, eventType string, payload []byte) error
+}
 

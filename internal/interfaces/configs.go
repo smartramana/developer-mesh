@@ -12,6 +12,23 @@ type CoreConfig struct {
 	MaxToolDuration  time.Duration `mapstructure:"max_tool_duration"`
 	DefaultModelID   string        `mapstructure:"default_model_id"`
 	LogEvents        bool          `mapstructure:"log_events"`
+	AWS              *AWSConfig    `mapstructure:"aws"`
+}
+
+// AWSConfig holds configuration for AWS services in the Core Engine
+type AWSConfig struct {
+	S3 *S3Config `mapstructure:"s3"`
+}
+
+// S3Config holds configuration for S3
+type S3Config struct {
+	Bucket           string        `mapstructure:"bucket"`
+	UseIAMAuth       bool          `mapstructure:"use_iam_auth"`
+	UploadPartSize   int           `mapstructure:"upload_part_size"`
+	DownloadPartSize int           `mapstructure:"download_part_size"`
+	Concurrency      int           `mapstructure:"concurrency"`
+	RequestTimeout   time.Duration `mapstructure:"request_timeout"`
+	Encryption       string        `mapstructure:"server_side_encryption"`
 }
 
 // APIConfig holds configuration for the API server
