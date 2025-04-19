@@ -1,136 +1,140 @@
-# MCP Server Configuration for Local Development
+# MCP Server Configuration
 
 # Environment (dev, staging, prod)
 environment: "dev"
 
-# Storage Configuration
-storage:
-  # Storage provider type: "local" or "s3"
-  type: "local"
+# AWS Service Configurations disabled for local testing
+# aws:
+#   # RDS Aurora PostgreSQL Configuration
+#   rds:
+#     auth:
+#       region: "us-west-2"
+#     host: "your-aurora-cluster.cluster-xxxxxxxxx.us-west-2.rds.amazonaws.com"
+#     port: 5432
+#     database: "mcp"
+#     username: "mcp_admin"
+#     password: "" # Leave empty when using IAM authentication
+#     use_iam_auth: true # IAM authentication is the default and recommended method
+#     token_expiration: 900 # 15 minutes in seconds
+#     max_open_conns: 25
+#     max_idle_conns: 5
+#     conn_max_lifetime: 5m
+#     enable_pooling: true
+#     min_pool_size: 2
+#     max_pool_size: 10
+#     connection_timeout: 30
+#   
+#   # ElastiCache Redis Configuration
+#   elasticache:
+#     auth:
+#       region: "us-west-2"
+#     primary_endpoint: "your-redis-cluster.xxxxxx.clustercfg.usw2.cache.amazonaws.com"
+#     port: 6379
+#     username: "mcp_cache_user"
+#     password: "" # Leave empty when using IAM authentication
+#     use_iam_auth: true # IAM authentication is the default and recommended method
+#     cluster_mode: true
+#     cluster_name: "mcp-cache"
+#     cluster_discovery: true
+#     use_tls: true
+#     insecure_skip_verify: false # Set to true only for testing
+#     max_retries: 3
+#     min_idle_connections: 2
+#     pool_size: 10
+#     dial_timeout: 5
+#     read_timeout: 3
+#     write_timeout: 3
+#     pool_timeout: 4
+#     token_expiration: 900 # 15 minutes in seconds
   
-  # Context Storage Configuration
-  context_storage:
-    # Provider: "database" or "s3"
-    provider: "database"
+  # Note: S3 Configuration for context storage has been removed as it is no longer supported
+
+# Storage Configuration
+# Note: Context storage configurations have been removed as they are no longer supported
 
 # API Server Configuration
 api:
   listen_address: ":8080"
   read_timeout: 30s
   write_timeout: 30s
-  idle_timeout: 90s
-  base_path: "/api/v1"
+  idle_timeout: 60s
   enable_cors: true
-  log_requests: true
   
-  # Authentication settings
+  # Authentication
   auth:
-    api_keys_admin: "admin-api-key"
-    api_keys_test: "test-api-key"
-    jwt_secret: "test-jwt-secret"
-    jwt_expiration: 24h
+    jwt_secret: "local-test-jwt-secret"
+    api_keys:
+      admin: "local-admin-api-key"
+      reader: "local-reader-api-key"
   
-  # API rate limiting
+  # Rate Limiting
   rate_limit:
-    enabled: false
+    enabled: true
     limit: 100
-    burst: 150
-    expiration: 1h
+    period: 1m
+    burst_factor: 3
   
-  # Webhook configuration
+  # Note: Agent Webhook has been removed as it is no longer supported
+  
+  # DevOps Tool Webhooks
   webhooks:
     github:
       enabled: true
-      secret: "mock-github-secret"
       path: "/github"
+      secret: "change-this-to-a-secure-webhook-secret"
+    
+    # Note: Harness, SonarQube, Artifactory, and JFrog Xray webhook support has been removed
 
 # Database Configuration
 database:
   driver: "postgres"
-  host: "postgres"
-  port: 5432
-  username: "postgres"
-  password: "postgres"
-  database: "mcp"
-  ssl_mode: "disable"
-  dsn: "postgres://postgres:postgres@postgres:5432/mcp?sslmode=disable"
+  dsn: "postgres://postgres:postgres@localhost:5432/mcp?sslmode=disable" # Local PostgreSQL instance
   max_open_conns: 25
   max_idle_conns: 5
-  conn_max_lifetime: 5m
+  conn_max_lifetime: 30m
 
 # Cache Configuration
 cache:
   type: "redis"
-  address: "redis:6379"
+  address: "localhost:6379" # Local Redis instance
   password: ""
-  database: 0
-  use_iam_auth: false
-  max_retries: 3
-  dial_timeout: 5
-  read_timeout: 3
-  write_timeout: 3
+  db: 0
   pool_size: 10
   min_idle_conns: 2
-  pool_timeout: 4
+  dial_timeout: 5s
+  read_timeout: 3s
+  write_timeout: 3s
 
 # Core Engine Configuration
 engine:
-  event_buffer_size: 1000
-  concurrency_limit: 5
+  event_buffer_size: 10000
+  concurrency_limit: 10
   event_timeout: 30s
   
-  # GitHub Configuration
+  # Security Settings
+  security:
+    safe_mode: true  # Enable safety checks for all operations
+    audit_logging: true  # Log all adapter operations for audit purposes
+
+# DevOps Tool Adapters - All configured to use mock responses for testing
+adapters:
   github:
-    api_token: "mock-github-token"
-    webhook_secret: "mock-github-secret"
-    request_timeout: 10s
-    rate_limit_per_hour: 5000
-    max_retries: 3
+    api_token: "test-github-token"
+    webhook_secret: "test-github-webhook-secret"
+    request_timeout: 30s
+    retry_max: 3
     retry_delay: 1s
     mock_responses: true
-    mock_url: "http://mockserver:8081/mock-github"
+    mock_url: "http://localhost:8081/mock-github"
 
-  # Harness Configuration
-  harness:
-    api_token: "mock-harness-token"
-    account_id: "mock-account-id"
-    request_timeout: 10s
-    max_retries: 3
-    retry_delay: 1s
-    mock_responses: true
-    mock_url: "http://mockserver:8081/mock-harness"
-    
-  # SonarQube Configuration
-  sonarqube:
-    token: "mock-sonarqube-token"
-    request_timeout: 10s
-    max_retries: 3
-    retry_delay: 1s
-    mock_responses: true
-    mock_url: "http://mockserver:8081/mock-sonarqube"
-    
-  # Artifactory Configuration
-  artifactory:
-    token: "mock-artifactory-token"
-    request_timeout: 10s
-    max_retries: 3
-    retry_delay: 1s
-    mock_responses: true
-    mock_url: "http://mockserver:8081/mock-artifactory"
-    
-  # Xray Configuration
-  xray:
-    token: "mock-xray-token"
-    request_timeout: 10s
-    max_retries: 3
-    retry_delay: 1s
-    mock_responses: true
-    mock_url: "http://mockserver:8081/mock-xray"
-
-# Metrics Configuration
-metrics:
-  enabled: false
-  type: "prometheus"
-  endpoint: ""
-  push_gateway: ""
-  push_interval: 10s
+# Monitoring Configuration
+monitoring:
+  prometheus:
+    enabled: true
+    path: "/metrics"
+  
+  logging:
+    level: "info"
+    format: "json"
+    output: "stdout"
+    file_path: ""
