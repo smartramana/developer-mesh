@@ -6,25 +6,24 @@ import (
 	"strings"
 	"time"
 
-	"github.com/S-Corkum/mcp-server/internal/api"
 	"github.com/S-Corkum/mcp-server/internal/aws"
 	"github.com/S-Corkum/mcp-server/internal/cache"
-	"github.com/S-Corkum/mcp-server/internal/core"
 	"github.com/S-Corkum/mcp-server/internal/database"
+	"github.com/S-Corkum/mcp-server/internal/interfaces"
 	"github.com/S-Corkum/mcp-server/internal/metrics"
 	"github.com/spf13/viper"
 )
 
 // Config holds the complete application configuration
 type Config struct {
-	API        api.Config        `mapstructure:"api"`
-	Cache      cache.RedisConfig `mapstructure:"cache"`
-	Database   database.Config   `mapstructure:"database"`
-	Engine     core.Config       `mapstructure:"engine"`
-	Metrics    metrics.Config    `mapstructure:"metrics"`
-	Storage    StorageConfig     `mapstructure:"storage"`
-	AWS        AWSConfig         `mapstructure:"aws"`
-	Environment string           `mapstructure:"environment"`
+	API        interfaces.APIConfig `mapstructure:"api"`
+	Cache      cache.RedisConfig    `mapstructure:"cache"`
+	Database   database.Config      `mapstructure:"database"`
+	Engine     interfaces.CoreConfig `mapstructure:"engine"`
+	Metrics    metrics.Config       `mapstructure:"metrics"`
+	AWS        AWSConfig            `mapstructure:"aws"`
+	Environment string              `mapstructure:"environment"`
+	Adapters   map[string]interface{} `mapstructure:"adapters"`
 }
 
 // AWSConfig holds configuration for AWS services
@@ -34,18 +33,7 @@ type AWSConfig struct {
 	S3          aws.S3Config         `mapstructure:"s3"`
 }
 
-// StorageConfig holds configuration for different storage providers
-type StorageConfig struct {
-	Type             string           `mapstructure:"type"`
-	S3               aws.S3Config     `mapstructure:"s3"`
-	ContextStorage   ContextStorage   `mapstructure:"context_storage"`
-}
 
-// ContextStorage configuration for context storage
-type ContextStorage struct {
-	Provider         string           `mapstructure:"provider"` // "s3", "database", "filesystem"
-	S3PathPrefix     string           `mapstructure:"s3_path_prefix"`
-}
 
 // Load loads configuration from file and environment variables
 func Load() (*Config, error) {
@@ -233,26 +221,14 @@ func setDefaults(v *viper.Viper) {
 		awsRegion = "us-west-2"
 	}
 	
-	// Storage defaults - prefer S3
-	v.SetDefault("storage.type", "s3") 
-	
 	// S3 defaults
 	v.SetDefault("aws.s3.auth.region", awsRegion)
-	v.SetDefault("aws.s3.bucket", "mcp-contexts")
 	v.SetDefault("aws.s3.upload_part_size", 5*1024*1024) // 5MB
 	v.SetDefault("aws.s3.download_part_size", 5*1024*1024) // 5MB
 	v.SetDefault("aws.s3.concurrency", 5)
 	v.SetDefault("aws.s3.request_timeout", 30*time.Second)
 	v.SetDefault("aws.s3.server_side_encryption", "AES256")
 	v.SetDefault("aws.s3.use_iam_auth", true) // Default to IAM authentication
-	
-	// Context storage - default to S3 for production environments
-	isLocalEnv := os.Getenv("MCP_ENV") == "local" || os.Getenv("MCP_ENVIRONMENT") == "local"
-	if !isLocalEnv {
-		v.SetDefault("storage.context_storage.provider", "s3") 
-	} else {
-		v.SetDefault("storage.context_storage.provider", "database") // For local dev only
-	}
 	
 	// RDS defaults
 	v.SetDefault("aws.rds.auth.region", awsRegion)
