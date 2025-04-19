@@ -104,22 +104,7 @@ spec:
             - name: MCP_AWS_ELASTICACHE_USE_TLS
               value: "true"
               
-            # S3 with IAM auth
-            - name: MCP_AWS_S3_USE_IAM_AUTH
-              value: "true"
-            - name: MCP_AWS_S3_AUTH_REGION
-              value: "${AWS_REGION}"
-            - name: MCP_AWS_S3_BUCKET
-              valueFrom:
-                secretKeyRef:
-                  name: mcp-s3-credentials
-                  key: bucket
-            - name: MCP_STORAGE_TYPE
-              value: "s3"
-            - name: MCP_STORAGE_CONTEXT_STORAGE_PROVIDER
-              value: "s3"
-            - name: MCP_STORAGE_CONTEXT_STORAGE_S3_PATH_PREFIX
-              value: "contexts"
+            # S3 configuration has been removed as context storage is no longer supported
               
             # Authentication secrets
             - name: MCP_API_AUTH_JWT_SECRET

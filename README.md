@@ -2,18 +2,18 @@
 
 MCP (Model Context Protocol) Server provides AI agents with a unified API for DevOps tool integrations. It serves as a dedicated Model Context Protocol server for:
 
-**DevOps Integration**: A unified API for AI agents to interact with GitHub through the Model Context Protocol. (Note: Previous support for Harness, SonarQube, and JFrog products has been removed.)
+**DevOps Integration**: A unified API for AI agents to interact with GitHub through the Model Context Protocol.
 
 ## Features
 
 ### DevOps Integration
-- **Unified API**: Interact with multiple DevOps tools through a consistent API
-- **Contextual Operations**: All tool operations are automatically tracked in conversation context
-- **Event Handling**: Process webhooks from DevOps tools and update relevant contexts
+- **Unified API**: Interact with GitHub through a consistent API
+- **Tool Operations**: Execute GitHub operations through a standardized interface
+- **Event Handling**: Process webhooks from GitHub
 - **Tool Discovery**: Dynamically discover available tools and their capabilities
 
 ### Platform Capabilities
-- **Extensible Design**: Easily add new tool integrations or context management strategies
+- **Extensible Design**: Easily add new tool integrations
 - **Resilient Processing**: Built-in retry mechanisms, circuit breakers, and error handling
 - **Performance Optimized**: Connection pooling, caching, and concurrency management
 - **Comprehensive Authentication**: Secure API access and webhook verification
@@ -25,10 +25,10 @@ The MCP Server provides a standardized interface for AI agents to interact with 
 
 1. **Agent Initialization**: The AI agent connects to the MCP Server
 2. **Tool Discovery**: The agent discovers available DevOps tools and their capabilities
-3. **Tool Interaction**: The agent uses the MCP Server to interact with DevOps tools like GitHub
-4. **Event Handling**: The MCP Server processes webhooks from DevOps tools and notifies the agent
+3. **Tool Interaction**: The agent uses the MCP Server to interact with GitHub
+4. **Event Handling**: The MCP Server processes webhooks from GitHub and notifies the agent
 
-This architecture allows agents to interact with DevOps tools through a standardized protocol, eliminating the need for custom integrations for each tool.
+This architecture allows agents to interact with GitHub through a standardized protocol, eliminating the need for custom integrations.
 
 For a comprehensive list of everything an AI Agent can do with the MCP Server, see [AI Agent Capabilities](docs/agent-capabilities.md).
 
@@ -73,7 +73,6 @@ MCP_API_LISTEN_ADDRESS=:8080
 MCP_DATABASE_DSN=postgres://user:password@postgres:5432/mcp?sslmode=disable
 MCP_AUTH_JWT_SECRET=your-jwt-secret
 MCP_AUTH_API_KEYS_ADMIN=your-admin-api-key
-MCP_AGENT_WEBHOOK_SECRET=your-webhook-secret
 ```
 
 ### Running with Docker Compose
@@ -137,7 +136,7 @@ go build -o mcp-server ./cmd/server
 
 ## Example Usage with AI Agent following the Model Context Protocol
 
-Here's an example of how an AI agent would use the MCP Server to interact with DevOps tools:
+Here's an example of how an AI agent would use the MCP Server to interact with GitHub:
 
 ```go
 package main
@@ -155,7 +154,6 @@ func main() {
 	mcpClient := client.NewClient(
 		"http://localhost:8080",
 		client.WithAPIKey("your-api-key"),
-		client.WithWebhookSecret("your-webhook-secret"),
 	)
 	
 	ctx := context.Background()
@@ -215,7 +213,7 @@ This example demonstrates how an AI agent can:
 3. Query tool data to get information
 4. Handle tool operations using the Model Context Protocol
 
-The MCP server acts as a tool integration hub, giving the agent a standardized interface for interacting with DevOps tools.
+The MCP server acts as a tool integration hub, giving the agent a standardized interface for interacting with GitHub.
 
 ### Running Tests
 
@@ -238,25 +236,21 @@ All configuration options can be set using environment variables with the `MCP_`
 - `MCP_API_LISTEN_ADDRESS=:8080`
 - `MCP_DATABASE_DSN=postgres://user:password@localhost:5432/mcp`
 - `MCP_ENGINE_GITHUB_API_TOKEN=your_token`
-- `MCP_STORAGE_TYPE=s3` (for using S3 storage)
-- `MCP_STORAGE_S3_BUCKET=mcp-contexts` (S3 bucket name)
 
 ## API Documentation
 
 ### Tool API Endpoints
 
-- Execute Tool Action: `POST /api/v1/tools/:tool/actions/:action?context_id=:context_id`
+- Execute Tool Action: `POST /api/v1/tools/:tool/actions/:action`
   (Note: Safety restrictions prevent dangerous operations like deleting repositories)
-- Query Tool Data: `POST /api/v1/tools/:tool/query?context_id=:context_id`
-  (Note: Read-only access for tools like Artifactory)
+- Query Tool Data: `POST /api/v1/tools/:tool/query`
+  (Note: Read-only access by default)
 - List Available Tools: `GET /api/v1/tools`
 - List Allowed Actions: `GET /api/v1/tools/:tool/actions`
 
 ### Webhook Endpoints
 
-- Agent Events: `POST /webhook/agent`
 - GitHub: `POST /webhook/github`
-- Note: Harness, SonarQube, Artifactory, and JFrog Xray webhook support has been removed
 
 ### Health and Metrics
 
@@ -351,49 +345,28 @@ aws:
     token_expiration: 900 # 15 minutes in seconds
 ```
 
-### S3 Storage Functionality
+### AWS Integration
 
-The MCP Server supports storing context data in Amazon S3 with enhanced IAM authentication:
+The MCP Server is designed to work well with AWS services through IAM Roles for Service Accounts (IRSA). This provides secure, credential-less authentication for production deployments.
 
-```yaml
-aws:
-  s3:
-    auth:
-      region: "us-west-2"
-    bucket: "mcp-contexts"
-    use_iam_auth: true
-    server_side_encryption: "AES256"
-    upload_part_size: 5242880 # 5MB
-    download_part_size: 5242880 # 5MB
-    concurrency: 5
-    request_timeout: 30s
-```
-
-storage:
-  type: "s3"
-  context_storage:
-    provider: "s3"
-    s3_path_prefix: "contexts"
-```
-
-For local development and testing, the Docker Compose setup includes LocalStack to emulate S3 functionality. See the [Local AWS Development Guide](docs/development/local-aws-auth.md) for more details.
+For detailed setup instructions, see the [AWS IRSA Setup Guide](docs/aws/aws-irsa-setup.md).
 
 ## Architecture
 
 The MCP Server is built with a modular architecture following the Model Context Protocol specification:
 
-- **Adapters**: Interface with external systems (GitHub)
-- **Tool API**: Exposes DevOps tool capabilities through the MCP protocol
-- **Core Engine**: Orchestrates the overall system and manages events
+- **Adapters**: Interface with GitHub API
+- **Tool API**: Exposes GitHub capabilities through the MCP protocol
+- **Core Engine**: Orchestrates tool operations and manages events
 - **API Server**: Provides REST API endpoints following the MCP specification
 - **Database**: Persists system state and tool configurations
-- **Event System**: Handles events from agents and tools
-- **Webhook Handlers**: Processes webhook events from integrated tools
+- **Event System**: Handles events from GitHub
+- **Webhook Handlers**: Processes webhook events from GitHub
 
 ### Performance Optimizations
 
 - **Concurrency Management**: Worker pools with configurable limits
-- **Caching Strategy**: Caching for frequently accessed tool data
+- **Caching Strategy**: Caching for frequently accessed GitHub data
 - **Database Optimizations**: Connection pooling and prepared statements
 - **Resilience Patterns**: Circuit breakers and retry mechanisms
 

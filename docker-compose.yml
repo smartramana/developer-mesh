@@ -1,30 +1,7 @@
 version: '3.8'
 
 services:
-  # Commenting out LocalStack for now to avoid startup issues
-  # localstack:
-  #   image: localstack/localstack:latest
-  #   ports:
-  #     - "4566:4566"  # LocalStack edge port
-  #   environment:
-  #     - SERVICES=s3
-  #     - DEBUG=1
-  #     - DATA_DIR=/tmp/localstack/data
-  #     - DEFAULT_REGION=us-west-2
-  #     - AWS_DEFAULT_REGION=us-west-2
-  #     - AWS_ACCESS_KEY_ID=test
-  #     - AWS_SECRET_ACCESS_KEY=test
-  #   volumes:
-  #     - ./scripts/localstack:/docker-entrypoint-initaws.d
-  #     - type: tmpfs
-  #       target: /tmp/localstack
-  #   networks:
-  #     - mcp-network
-  #   healthcheck:
-  #     test: ["CMD", "curl", "-f", "http://localhost:4566/health"]
-  #     interval: 10s
-  #     timeout: 5s
-  #     retries: 3
+  # LocalStack has been removed as S3 storage for contexts is no longer needed
 
   mcp-server:
     build:
@@ -68,7 +45,7 @@ services:
       - mcp-network
 
   postgres:
-    image: pgvector/pgvector:pg17
+    image: postgres:17-alpine
     ports:
       - "5432:5432"
     environment:

@@ -47,30 +47,10 @@ aws:
     pool_timeout: 4
     token_expiration: 900 # 15 minutes in seconds
   
-  # S3 Configuration
-  s3:
-    auth:
-      region: "us-west-2"
-    bucket: "mcp-contexts"
-    use_iam_auth: true # IAM authentication is the default and recommended method
-    # endpoint: "http://localhost:4566" # Uncomment for LocalStack or other S3-compatible services
-    # force_path_style: true # Uncomment for LocalStack or other S3-compatible services
-    server_side_encryption: "AES256"
-    upload_part_size: 5242880 # 5MB
-    download_part_size: 5242880 # 5MB
-    concurrency: 5
-    request_timeout: 30s
+  # Note: S3 Configuration for context storage has been removed as it is no longer supported
 
 # Storage Configuration
-storage:
-  # Storage provider type: "local" or "s3"
-  type: "s3"
-  
-  # Context Storage Configuration
-  context_storage:
-    # Provider: "database" or "s3"
-    provider: "s3"
-    s3_path_prefix: "contexts"
+# Note: Context storage configurations have been removed as they are no longer supported
 
 # API Server Configuration
 api:
@@ -98,10 +78,7 @@ api:
     period: 1m
     burst_factor: 3
   
-  # Agent Webhook
-  agent_webhook:
-    enabled: true
-    secret: "change-this-to-a-secure-webhook-secret"
+  # Note: Agent Webhook has been removed as it is no longer supported
   
   # DevOps Tool Webhooks
   webhooks:
@@ -142,14 +119,6 @@ engine:
   security:
     safe_mode: true  # Enable safety checks for all operations
     audit_logging: true  # Log all adapter operations for audit purposes
-  
-  # Context Management
-  context:
-    default_max_tokens: 100000
-    default_ttl: 24h
-    default_truncation_strategy: "oldest_first"
-    enable_summarization: true
-    enable_search: true
 
 # DevOps Tool Adapters
 adapters:
