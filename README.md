@@ -12,6 +12,13 @@ MCP (Model Context Protocol) Server provides AI agents with a unified API for De
 - **Event Handling**: Process webhooks from GitHub
 - **Tool Discovery**: Dynamically discover available tools and their capabilities
 
+### Context Management
+- **Conversation History**: Maintain and manage conversation histories for AI agents
+- **Multi-tiered Storage**: Store contexts in Redis, PostgreSQL, and S3 for optimal performance and durability
+- **Context Window Management**: Handle token counting, truncation, and optimization
+- **Vector Search**: Find semantically similar context items using PostgreSQL's pgvector extension
+- **Session Management**: Track conversations across multiple interactions
+
 ### Platform Capabilities
 - **Extensible Design**: Easily add new tool integrations
 - **Resilient Processing**: Built-in retry mechanisms, circuit breakers, and error handling
@@ -24,9 +31,11 @@ MCP (Model Context Protocol) Server provides AI agents with a unified API for De
 The MCP Server provides a standardized interface for AI agents to interact with DevOps tools following the Model Context Protocol standard. The typical workflow is:
 
 1. **Agent Initialization**: The AI agent connects to the MCP Server
-2. **Tool Discovery**: The agent discovers available DevOps tools and their capabilities
-3. **Tool Interaction**: The agent uses the MCP Server to interact with GitHub
-4. **Event Handling**: The MCP Server processes webhooks from GitHub and notifies the agent
+2. **Context Creation**: The agent creates or retrieves a conversation context
+3. **Tool Discovery**: The agent discovers available DevOps tools and their capabilities
+4. **Tool Interaction**: The agent uses the MCP Server to interact with GitHub
+5. **Context Updates**: Tool operations and results are recorded in the context
+6. **Event Handling**: The MCP Server processes webhooks from GitHub and notifies the agent
 
 This architecture allows agents to interact with GitHub through a standardized protocol, eliminating the need for custom integrations.
 
@@ -158,6 +167,27 @@ func main() {
 	
 	ctx := context.Background()
 	
+	// Create a context for the conversation
+	contextData := &mcp.Context{
+		AgentID: "test-agent",
+		ModelID: "claude-3-haiku",
+		MaxTokens: 4000,
+		Content: []mcp.ContextItem{
+			{
+				Role: "system",
+				Content: "You are a DevOps assistant that helps with GitHub operations.",
+				Tokens: 12,
+			},
+		},
+	}
+	
+	createdContext, err := mcpClient.CreateContext(ctx, contextData)
+	if err != nil {
+		log.Fatalf("Failed to create context: %v", err)
+	}
+	
+	log.Printf("Created context with ID: %s", createdContext.ID)
+	
 	// List available tools
 	tools, err := mcpClient.ListTools(ctx)
 	if err != nil {
@@ -183,13 +213,21 @@ func main() {
 		"labels": []string{"bug", "frontend", "priority-high"},
 	}
 	
-	// Execute the action
-	issueResult, err := mcpClient.ExecuteToolAction(ctx, "github", "create_issue", issueParams)
+	// Execute the action with context
+	issueResult, err := mcpClient.ExecuteToolAction(ctx, createdContext.ID, "github", "create_issue", issueParams)
 	if err != nil {
 		log.Fatalf("Failed to execute GitHub action: %v", err)
 	}
 	
 	log.Printf("Created GitHub issue: %v", issueResult)
+	
+	// Get the updated context
+	updatedContext, err := mcpClient.GetContext(ctx, createdContext.ID)
+	if err != nil {
+		log.Fatalf("Failed to get updated context: %v", err)
+	}
+	
+	log.Printf("Context now has %d items and %d tokens", len(updatedContext.Content), updatedContext.CurrentTokens)
 	
 	// Query GitHub repositories
 	queryParams := map[string]interface{}{
@@ -208,12 +246,13 @@ func main() {
 
 This example demonstrates how an AI agent can:
 
-1. Discover available tools and their capabilities
-2. Execute tool actions to perform real-world tasks
-3. Query tool data to get information
-4. Handle tool operations using the Model Context Protocol
+1. Create and manage conversation contexts
+2. Discover available tools and their capabilities
+3. Execute tool actions to perform real-world tasks with context tracking
+4. Query tool data to get information
+5. Handle tool operations using the Model Context Protocol
 
-The MCP server acts as a tool integration hub, giving the agent a standardized interface for interacting with GitHub.
+The MCP server acts as a tool integration hub, giving the agent a standardized interface for interacting with GitHub and managing conversation contexts.
 
 ### Running Tests
 
@@ -238,6 +277,16 @@ All configuration options can be set using environment variables with the `MCP_`
 - `MCP_ENGINE_GITHUB_API_TOKEN=your_token`
 
 ## API Documentation
+
+### Context API Endpoints
+
+- Create Context: `POST /api/v1/contexts`
+- Get Context: `GET /api/v1/contexts/:contextID`
+- Update Context: `PUT /api/v1/contexts/:contextID`
+- Delete Context: `DELETE /api/v1/contexts/:contextID`
+- List Contexts: `GET /api/v1/contexts?agent_id=:agentID&session_id=:sessionID`
+- Summarize Context: `GET /api/v1/contexts/:contextID/summary`
+- Search in Context: `POST /api/v1/contexts/:contextID/search`
 
 ### Tool API Endpoints
 
@@ -312,6 +361,38 @@ aws:
     connection_timeout: 30
 ```
 
+### S3 for Context Storage
+
+MCP Server uses Amazon S3 for storing large context data:
+
+- Efficient storage of large conversation histories
+- Optimized multipart uploads and downloads
+- Server-side encryption for data protection
+- Fine-grained access control
+- Cost-effective storage for high-volume deployments
+
+Configuration example:
+
+```yaml
+aws:
+  s3:
+    auth:
+      region: "us-west-2"
+    bucket: "mcp-contexts"
+    key_prefix: "contexts/"
+    use_iam_auth: true
+    encryption:
+      enabled: true
+      type: "AES256"
+    multipart:
+      threshold: 8388608 # 8MB
+      part_size: 8388608 # 8MB
+    retries:
+      max_attempts: 3
+      min_delay: 1s
+      max_delay: 30s
+```
+
 ### ElastiCache Redis Integration
 
 MCP Server supports Amazon ElastiCache for Redis with advanced features:
@@ -355,20 +436,26 @@ For detailed setup instructions, see the [AWS IRSA Setup Guide](docs/aws/aws-irs
 
 The MCP Server is built with a modular architecture following the Model Context Protocol specification:
 
+- **Context Manager**: Handles conversation context storage and management
 - **Adapters**: Interface with GitHub API
 - **Tool API**: Exposes GitHub capabilities through the MCP protocol
 - **Core Engine**: Orchestrates tool operations and manages events
 - **API Server**: Provides REST API endpoints following the MCP specification
 - **Database**: Persists system state and tool configurations
+- **Vector Storage**: Enables semantic search within contexts
+- **Multi-tiered Cache**: Optimizes performance for context operations
 - **Event System**: Handles events from GitHub
 - **Webhook Handlers**: Processes webhook events from GitHub
+
+For detailed information on the context management architecture, see the [Context Management Architecture Diagram](docs/diagrams/context-management-architecture.md).
 
 ### Performance Optimizations
 
 - **Concurrency Management**: Worker pools with configurable limits
-- **Caching Strategy**: Caching for frequently accessed GitHub data
+- **Caching Strategy**: Multi-tiered caching for context data
 - **Database Optimizations**: Connection pooling and prepared statements
 - **Resilience Patterns**: Circuit breakers and retry mechanisms
+- **S3 Optimizations**: Multipart uploads/downloads for large contexts
 
 ## License
 

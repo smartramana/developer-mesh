@@ -10,6 +10,7 @@ The Core Engine is the central processing unit of the MCP Server, responsible fo
 
 - Event reception and processing
 - Adapter management and initialization
+- Context management coordination
 - Event subscription and notification
 - Health monitoring of integrated systems
 
@@ -24,7 +25,7 @@ The Core Engine is the central processing unit of the MCP Server, responsible fo
 
 The Core Engine is implemented in `internal/core/engine.go` and consists of:
 
-- **Engine struct**: Main structure holding configuration, adapters, and runtime state
+- **Engine struct**: Main structure holding configuration, adapters, context manager, and runtime state
 - **Event Channel**: Buffered channel for receiving events from adapters
 - **Worker Pool**: Goroutine pool for processing events concurrently
 - **Adapter Registry**: Map of initialized adapters by name
@@ -36,9 +37,10 @@ The Engine is initialized by the `NewEngine` function, which:
 
 1. Creates a new context for the engine
 2. Initializes all configured adapters
-3. Sets up event handlers for each adapter
-4. Starts the event processing goroutines
-5. Returns the initialized engine
+3. Sets up the context manager
+4. Sets up event handlers for each adapter
+5. Starts the event processing goroutines
+6. Returns the initialized engine
 
 ### Event Flow
 
@@ -46,9 +48,66 @@ The Engine is initialized by the `NewEngine` function, which:
 2. Events are placed in the buffered channel
 3. Worker goroutines pick up events for processing
 4. Events are processed based on their source and type
-5. Results are stored or forwarded as needed
+5. Relevant context is updated to reflect the event
+6. Results are stored or forwarded as needed
 
-## 2. API Server
+## 2. Context Manager
+
+The Context Manager handles the storage, retrieval, and manipulation of conversation contexts for AI agents.
+
+### Responsibilities
+
+- Creating, retrieving, updating, and deleting contexts
+- Managing context content (messages, events, tool operations)
+- Handling token counting and context window management
+- Implementing truncation strategies for large contexts
+- Publishing events for context changes
+
+### Key Features
+
+- **Multi-Tiered Storage**: Uses Redis, PostgreSQL, and S3 for optimal performance and durability
+- **Token Management**: Tracks token usage within contexts to prevent exceeding limits
+- **Truncation Strategies**: Supports multiple strategies for handling contexts that exceed maximum token limits
+- **Vector Search**: Semantic search capability for finding relevant context items
+- **Event Publishing**: Publishes events when contexts are created, updated, or deleted
+
+### Implementation Details
+
+The Context Manager is implemented in `internal/core/context/manager.go` and consists of:
+
+- **Manager struct**: Main structure handling context operations
+- **Context Models**: Data structures for representing contexts and their items
+- **Storage Interface**: Abstraction over different storage backends
+- **Search Capabilities**: Text-based and vector-based search within contexts
+- **Event System**: Integration with the engine's event system
+
+### Storage Strategy
+
+The Context Manager uses a tiered storage approach:
+
+1. **Redis Cache**: For fast access to frequently used contexts
+   - TTL-based caching to optimize memory usage
+   - Used for context metadata and recent content
+
+2. **PostgreSQL Database**: For structured storage of context metadata
+   - Stores context metadata and references
+   - Uses pgvector extension for semantic search capabilities
+   - Enables efficient querying by agent ID, session ID, etc.
+
+3. **S3 Storage**: For large context data
+   - Stores complete conversation histories
+   - Used for contexts that exceed a certain size threshold
+   - Provides durability for long-term storage
+
+### Truncation Strategies
+
+The Context Manager implements multiple truncation strategies:
+
+1. **Oldest First**: Removes the oldest context items first
+2. **Preserving User**: Prioritizes removing assistant responses while preserving user messages
+3. **Relevance Based**: Uses vector embeddings to remove less relevant context items (planned for future)
+
+## 3. API Server
 
 The API Server provides HTTP endpoints for interacting with the MCP platform, including webhook endpoints, REST API, and monitoring endpoints.
 
@@ -78,12 +137,13 @@ The API Server is implemented in `internal/api/server.go` and related files:
 
 ### Endpoints
 
-- **API Endpoints**: `/api/v1/...` for MCP protocol operations
+- **Context API Endpoints**: `/api/v1/contexts/...` for context management
+- **Tool API Endpoints**: `/api/v1/tools/...` for MCP protocol operations
 - **Webhook Endpoints**: `/webhook/...` for receiving events from integrated systems
 - **Health Endpoint**: `/health` for system health checks
 - **Metrics Endpoint**: `/metrics` for Prometheus metrics
 
-## 3. Adapters
+## 4. Adapters
 
 Adapters provide the interface between the MCP Server and external systems, handling communication and translation between different APIs.
 
@@ -155,7 +215,7 @@ The Xray adapter integrates with JFrog Xray security scanning:
 - **API Interactions**: Vulnerability data, license information, scan results, etc.
 - **Mock Mode**: Simulated Xray responses for testing
 
-## 4. Storage Components
+## 5. Storage Components
 
 The Storage components handle persistent storage for the MCP Server, using a combination of relational database and object storage.
 
@@ -174,6 +234,7 @@ The storage interface provides abstract operations for data storage and retrieva
 The PostgreSQL database stores:
 
 - **Context References**: Metadata and references to context data
+- **Context Items**: Individual messages, events, and tool operations
 - **Vector Embeddings**: Vector data for semantic search (using pg_vector extension)
 - **Event Records**: Historical record of processed events
 - **Adapter Configurations**: Stored configuration for adapters
@@ -204,7 +265,7 @@ Implementation details:
 - Automatic retry mechanisms for resilience
 - Support for various S3 security features
 
-## 5. Cache Components
+## 6. Cache Components
 
 The Cache components provide fast access to frequently accessed data.
 
@@ -230,12 +291,13 @@ The current implementation uses Redis as the distributed cache:
 
 Different caching strategies are used for different data types:
 
+- **Context Caching**: Caching frequently accessed contexts
 - **API Response Caching**: Caching responses from external APIs
 - **Configuration Caching**: Caching configuration data for quick access
 - **Entity Caching**: Caching frequently accessed entities
 - **Rate Limit Storage**: Using cache for distributed rate limiting
 
-## 6. Vector Search Components
+## 7. Vector Search Components
 
 The Vector Search components provide semantic search capabilities using vector embeddings.
 
@@ -266,7 +328,7 @@ The vector search functionality is implemented using:
 - Optimized query patterns for similarity search
 - Hybrid approach where agents generate embeddings and MCP Server handles storage and search
 
-## 7. Metrics Components
+## 8. Metrics Components
 
 The Metrics components collect and expose system performance metrics.
 
@@ -292,6 +354,7 @@ The current implementation uses Prometheus for metrics collection:
 
 The system collects various metrics:
 
+- **Context Metrics**: Context operations, token counts, truncation events
 - **API Metrics**: Request counts, response times, error rates
 - **Adapter Metrics**: API call counts, response times, error rates
 - **Event Metrics**: Event counts by source and type, processing times
