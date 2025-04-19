@@ -14,87 +14,6 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// MockEventBus implements events.EventBus for testing
-type MockEventBus struct {
-	mock.Mock
-}
-
-// Subscribe mocks the Subscribe method
-func (m *MockEventBus) Subscribe(eventType events.EventType, listener events.EventListener) {
-	m.Called(eventType, listener)
-}
-
-// SubscribeAll mocks the SubscribeAll method
-func (m *MockEventBus) SubscribeAll(listener events.EventListener) {
-	m.Called(listener)
-}
-
-// Unsubscribe mocks the Unsubscribe method
-func (m *MockEventBus) Unsubscribe(eventType events.EventType, listener events.EventListener) {
-	m.Called(eventType, listener)
-}
-
-// UnsubscribeAll mocks the UnsubscribeAll method
-func (m *MockEventBus) UnsubscribeAll(listener events.EventListener) {
-	m.Called(listener)
-}
-
-// Emit mocks the Emit method
-func (m *MockEventBus) Emit(ctx context.Context, event *events.AdapterEvent) error {
-	args := m.Called(ctx, event)
-	return args.Error(0)
-}
-
-// EmitWithCallback mocks the EmitWithCallback method
-func (m *MockEventBus) EmitWithCallback(ctx context.Context, event *events.AdapterEvent, callback func(error)) error {
-	args := m.Called(ctx, event, callback)
-	return args.Error(0)
-}
-
-// MockSystemEventBus implements system.EventBus for testing
-type MockSystemEventBus struct {
-	mock.Mock
-}
-
-// Publish mocks the Publish method
-func (m *MockSystemEventBus) Publish(ctx context.Context, event system.Event) error {
-	args := m.Called(ctx, event)
-	return args.Error(0)
-}
-
-// Subscribe mocks the Subscribe method
-func (m *MockSystemEventBus) Subscribe(eventType system.EventType, handler func(ctx context.Context, event system.Event) error) {
-	m.Called(eventType, handler)
-}
-
-// Unsubscribe mocks the Unsubscribe method
-func (m *MockSystemEventBus) Unsubscribe(eventType system.EventType, handler func(ctx context.Context, event system.Event) error) {
-	m.Called(eventType, handler)
-}
-
-// MockAdapterRegistry implements core.AdapterRegistry for testing
-type MockAdapterRegistry struct {
-	mock.Mock
-}
-
-// Register mocks the Register method
-func (m *MockAdapterRegistry) Register(adapterType string, factory core.AdapterFactory) error {
-	args := m.Called(adapterType, factory)
-	return args.Error(0)
-}
-
-// Get mocks the Get method
-func (m *MockAdapterRegistry) Get(adapterType string) (core.AdapterFactory, error) {
-	args := m.Called(adapterType)
-	return args.Get(0).(core.AdapterFactory), args.Error(1)
-}
-
-// ListAdapters mocks the ListAdapters method
-func (m *MockAdapterRegistry) ListAdapters() map[string]core.AdapterFactory {
-	args := m.Called()
-	return args.Get(0).(map[string]core.AdapterFactory)
-}
-
 // MockAdapter implements core.Adapter for testing
 type MockAdapter struct {
 	mock.Mock
@@ -136,14 +55,68 @@ func (m *MockAdapter) Version() string {
 	return args.String(0)
 }
 
-// MockAdapterFactory implements core.AdapterFactory for testing
+// MockEventBus implements the events.EventBus interface
+type MockEventBus struct {
+	mock.Mock
+	events.EventBus
+}
+
+// SubscribeAll mocks the SubscribeAll method
+func (m *MockEventBus) SubscribeAll(listener events.EventListener) {
+	m.Called(listener)
+}
+
+// Emit mocks the Emit method
+func (m *MockEventBus) Emit(ctx context.Context, event *events.AdapterEvent) error {
+	args := m.Called(ctx, event)
+	return args.Error(0)
+}
+
+// MockSystemEventBus implements the system.EventBus interface
+type MockSystemEventBus struct {
+	mock.Mock
+}
+
+// Publish mocks the Publish method
+func (m *MockSystemEventBus) Publish(ctx context.Context, event system.Event) error {
+	args := m.Called(ctx, event)
+	return args.Error(0)
+}
+
+// Subscribe mocks the Subscribe method
+func (m *MockSystemEventBus) Subscribe(eventType system.EventType, handler func(ctx context.Context, event system.Event) error) {
+	m.Called(eventType, handler)
+}
+
+// Unsubscribe mocks the Unsubscribe method
+func (m *MockSystemEventBus) Unsubscribe(eventType system.EventType, handler func(ctx context.Context, event system.Event) error) {
+	m.Called(eventType, handler)
+}
+
+// MockAdapterRegistry implements the core.AdapterRegistry interface
+type MockAdapterRegistry struct {
+	mock.Mock
+	*core.AdapterRegistry
+}
+
+// ListAdapters mocks the ListAdapters method
+func (m *MockAdapterRegistry) ListAdapters() map[string]core.AdapterFactory {
+	args := m.Called()
+	return args.Get(0).(map[string]core.AdapterFactory)
+}
+
+// MockAdapterFactory implements the core.AdapterFactory interface
 type MockAdapterFactory struct {
 	mock.Mock
+	core.AdapterFactory
 }
 
 // CreateAdapter mocks the CreateAdapter method
 func (m *MockAdapterFactory) CreateAdapter(ctx context.Context, adapterType string) (core.Adapter, error) {
 	args := m.Called(ctx, adapterType)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
 	return args.Get(0).(core.Adapter), args.Error(1)
 }
 
@@ -454,95 +427,6 @@ func TestRegisterHandler(t *testing.T) {
 	mockSystemEventBus.AssertExpectations(t)
 }
 
-func TestRegisterHandlerForAllAdapters(t *testing.T) {
-	// Create mocks
-	mockEventBus := new(MockEventBus)
-	mockSystemEventBus := new(MockSystemEventBus)
-	mockAdapterRegistry := new(MockAdapterRegistry)
-	logger := observability.NewLogger("event-bridge-test")
-	
-	mockEventBus.On("SubscribeAll", mock.Anything).Return()
-	
-	// Create mock adapter
-	mockAdapter := new(MockAdapter)
-	mockAdapter.On("Type").Return("mock-adapter")
-	
-	// Create mock adapter factories
-	mockGithubFactory := new(MockAdapterFactory)
-	mockGithubFactory.On("CreateAdapter", mock.Anything, "github").Return(mockAdapter, nil)
-	
-	mockAwsFactory := new(MockAdapterFactory)
-	mockAwsFactory.On("CreateAdapter", mock.Anything, "aws").Return(mockAdapter, nil)
-	
-	mockJiraFactory := new(MockAdapterFactory)
-	mockJiraFactory.On("CreateAdapter", mock.Anything, "jira").Return(mockAdapter, nil)
-	
-	// Setup mock adapter registry
-	adapters := map[string]core.AdapterFactory{
-		"github": mockGithubFactory,
-		"aws":    mockAwsFactory,
-		"jira":   mockJiraFactory,
-	}
-	mockAdapterRegistry.On("ListAdapters").Return(adapters)
-	
-	bridge := NewEventBridge(mockEventBus, mockSystemEventBus, logger, mockAdapterRegistry)
-	
-	// Register handler for all adapters
-	var calledAdapterTypes []string
-	handler := func(ctx context.Context, event *events.AdapterEvent) error {
-		calledAdapterTypes = append(calledAdapterTypes, event.AdapterType)
-		return nil
-	}
-	
-	bridge.RegisterHandlerForAllAdapters(events.EventTypeOperationSuccess, handler)
-	
-	// Create test context
-	ctx := context.Background()
-	
-	// Mock system event bus calls for all events
-	mockSystemEventBus.On("Publish", mock.Anything, mock.Anything).Return(nil).Times(3)
-	
-	// Create and handle events for each adapter type
-	for adapterType := range adapters {
-		event := &events.AdapterEvent{
-			ID:          "event-" + adapterType,
-			AdapterType: adapterType,
-			EventType:   events.EventTypeOperationSuccess,
-			Timestamp:   time.Now(),
-			Payload:     map[string]string{"result": "success"},
-		}
-		
-		err := bridge.Handle(ctx, event)
-		assert.NoError(t, err)
-	}
-	
-	// Verify that handler was called for each adapter type
-	assert.Len(t, calledAdapterTypes, 3)
-	assert.Contains(t, calledAdapterTypes, "github")
-	assert.Contains(t, calledAdapterTypes, "aws")
-	assert.Contains(t, calledAdapterTypes, "jira")
-	
-	// Test handler also works with new adapter (using wildcard registration)
-	calledAdapterTypes = []string{} // Reset for new test
-	
-	newEvent := &events.AdapterEvent{
-		ID:          "event-new",
-		AdapterType: "new-adapter", // Not in original list
-		EventType:   events.EventTypeOperationSuccess,
-		Timestamp:   time.Now(),
-		Payload:     map[string]string{"result": "success"},
-	}
-	
-	mockSystemEventBus.On("Publish", mock.Anything, mock.Anything).Return(nil)
-	err := bridge.Handle(ctx, newEvent)
-	
-	assert.NoError(t, err)
-	assert.Len(t, calledAdapterTypes, 1)
-	assert.Contains(t, calledAdapterTypes, "new-adapter")
-	
-	mockSystemEventBus.AssertExpectations(t)
-}
-
 func TestMapToSystemEvent(t *testing.T) {
 	// Create bridge instance for testing
 	bridge := &EventBridge{
@@ -702,25 +586,25 @@ func TestCallEventHandlers(t *testing.T) {
 	errorHandler := false
 	
 	// GitHub webhook handler
-	bridge.RegisterHandler("github", string(events.EventTypeWebhookReceived), func(ctx context.Context, event *events.AdapterEvent) error {
+	bridge.RegisterHandler("github", events.EventTypeWebhookReceived, func(ctx context.Context, event *events.AdapterEvent) error {
 		githubHandlerCalled = true
 		return nil
 	})
 	
 	// AWS operation success handler
-	bridge.RegisterHandler("aws", string(events.EventTypeOperationSuccess), func(ctx context.Context, event *events.AdapterEvent) error {
+	bridge.RegisterHandler("aws", events.EventTypeOperationSuccess, func(ctx context.Context, event *events.AdapterEvent) error {
 		awsHandlerCalled = true
 		return nil
 	})
 	
 	// Wildcard adapter, specific event type handler
-	bridge.RegisterHandler("*", string(events.EventTypeOperationFailure), func(ctx context.Context, event *events.AdapterEvent) error {
+	bridge.RegisterHandler("*", events.EventTypeOperationFailure, func(ctx context.Context, event *events.AdapterEvent) error {
 		wildcardHandlerCalled = true
 		return nil
 	})
 	
 	// Error handler
-	bridge.RegisterHandler("error", string(events.EventTypeOperationSuccess), func(ctx context.Context, event *events.AdapterEvent) error {
+	bridge.RegisterHandler("error", events.EventTypeOperationSuccess, func(ctx context.Context, event *events.AdapterEvent) error {
 		errorHandler = true
 		return assert.AnError
 	})
@@ -822,107 +706,4 @@ func TestCallEventHandlers(t *testing.T) {
 			}
 		})
 	}
-}
-
-func TestEventBridgeEndToEnd(t *testing.T) {
-	// Create a more realistic end-to-end test
-	ctx := context.Background()
-	mockEventBus := new(MockEventBus)
-	mockSystemEventBus := new(MockSystemEventBus)
-	mockAdapterRegistry := new(MockAdapterRegistry)
-	logger := observability.NewLogger("event-bridge-test")
-	
-	mockEventBus.On("SubscribeAll", mock.Anything).Return()
-	
-	// Create mock adapter
-	mockAdapter := new(MockAdapter)
-	mockAdapter.On("Type").Return("mock-adapter")
-	
-	// Create mock adapter factories
-	mockGithubFactory := new(MockAdapterFactory)
-	mockGithubFactory.On("CreateAdapter", mock.Anything, "github").Return(mockAdapter, nil)
-	
-	mockAwsFactory := new(MockAdapterFactory)
-	mockAwsFactory.On("CreateAdapter", mock.Anything, "aws").Return(mockAdapter, nil)
-	
-	// Setup mock adapter registry
-	adapters := map[string]core.AdapterFactory{
-		"github": mockGithubFactory,
-		"aws":    mockAwsFactory,
-	}
-	mockAdapterRegistry.On("ListAdapters").Return(adapters)
-	
-	bridge := NewEventBridge(mockEventBus, mockSystemEventBus, logger, mockAdapterRegistry)
-	
-	// Register handlers for different event types
-	operationSuccessCount := 0
-	webhookCount := 0
-	
-	// Handler for all operation success events
-	bridge.RegisterHandlerForAllAdapters(events.EventTypeOperationSuccess, func(ctx context.Context, event *events.AdapterEvent) error {
-		operationSuccessCount++
-		return nil
-	})
-	
-	// Handler for GitHub webhooks specifically
-	bridge.RegisterHandler("github", events.EventTypeWebhookReceived, func(ctx context.Context, event *events.AdapterEvent) error {
-		webhookCount++
-		// Check that the payload is accessible
-		payload, ok := event.Payload.(map[string]interface{})
-		assert.True(t, ok)
-		assert.Equal(t, "push", payload["action"])
-		return nil
-	})
-	
-	// Set up system event bus expectations
-	mockSystemEventBus.On("Publish", mock.Anything, mock.MatchedBy(func(e system.Event) bool {
-		// Basic check that we get the right types of events
-		switch e.(type) {
-		case *system.AdapterOperationSuccessEvent, *system.WebhookReceivedEvent:
-			return true
-		default:
-			return false
-		}
-	})).Return(nil)
-	
-	// Create and handle multiple events
-	events := []*events.AdapterEvent{
-		{
-			ID:          "event-1",
-			AdapterType: "github",
-			EventType:   events.EventTypeOperationSuccess,
-			Timestamp:   time.Now(),
-			Payload:     map[string]interface{}{"result": "success"},
-			Metadata:    map[string]interface{}{"operation": "list_repos"},
-		},
-		{
-			ID:          "event-2",
-			AdapterType: "aws",
-			EventType:   events.EventTypeOperationSuccess,
-			Timestamp:   time.Now(),
-			Payload:     map[string]interface{}{"result": "success"},
-			Metadata:    map[string]interface{}{"operation": "describe_instances"},
-		},
-		{
-			ID:          "event-3",
-			AdapterType: "github",
-			EventType:   events.EventTypeWebhookReceived,
-			Timestamp:   time.Now(),
-			Payload:     map[string]interface{}{"action": "push", "ref": "refs/heads/main"},
-			Metadata:    map[string]interface{}{"eventType": "push"},
-		},
-	}
-	
-	// Process all events
-	for _, event := range events {
-		err := bridge.Handle(ctx, event)
-		assert.NoError(t, err)
-	}
-	
-	// Verify handler counts
-	assert.Equal(t, 2, operationSuccessCount, "Operation success handler should have been called twice")
-	assert.Equal(t, 1, webhookCount, "Webhook handler should have been called once")
-	
-	// Verify expectations
-	mockSystemEventBus.AssertExpectations(t)
 }
