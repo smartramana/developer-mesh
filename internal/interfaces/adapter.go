@@ -12,14 +12,8 @@ type AdapterManager interface {
 	// GetAdapter gets an adapter by type
 	GetAdapter(ctx context.Context, adapterType string) (interface{}, error)
 	
-	// ExecuteAction executes an action with an adapter and records it in context
+	// ExecuteAction executes an action with an adapter
 	ExecuteAction(ctx context.Context, contextID string, adapterType string, action string, params map[string]interface{}) (interface{}, error)
-	
-	// HandleWebhook handles a webhook event
-	HandleWebhook(ctx context.Context, adapterType string, eventType string, payload []byte) error
-	
-	// RecordWebhookInContext records a webhook event in a context
-	RecordWebhookInContext(ctx context.Context, agentID string, adapterType string, eventType string, payload interface{}) (string, error)
 	
 	// Shutdown gracefully shuts down all adapters
 	Shutdown(ctx context.Context) error

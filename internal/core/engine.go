@@ -57,15 +57,7 @@ func (e *Engine) GetAdapter(adapterType string) (interface{}, error) {
 	return e.adapterManager.GetAdapter(adapterType)
 }
 
-// HandleAdapterWebhook handles a webhook event using the appropriate adapter
-func (e *Engine) HandleAdapterWebhook(ctx context.Context, adapterType string, eventType string, payload []byte) error {
-	return e.adapterManager.HandleAdapterWebhook(ctx, adapterType, eventType, payload)
-}
 
-// RecordWebhookInContext records a webhook event in a context
-func (e *Engine) RecordWebhookInContext(ctx context.Context, agentID string, adapterType string, eventType string, payload interface{}) (string, error) {
-	return e.adapterManager.RecordWebhookInContext(ctx, agentID, adapterType, eventType, payload)
-}
 
 // ExecuteAdapterAction executes an action using the appropriate adapter
 func (e *Engine) ExecuteAdapterAction(ctx context.Context, contextID string, adapterType string, action string, params map[string]interface{}) (interface{}, error) {

@@ -16,8 +16,6 @@ type Config struct {
 	TLSKeyFile    string        `mapstructure:"tls_key_file"`
 	Auth          AuthConfig    `mapstructure:"auth"`
 	RateLimit     RateLimitConfig `mapstructure:"rate_limit"`
-	AgentWebhook  AgentWebhookConfig `mapstructure:"agent_webhook"`
-	Webhooks      WebhookConfig `mapstructure:"webhooks"`
 	Versioning    VersioningConfig `mapstructure:"versioning"`
 	Performance   PerformanceConfig `mapstructure:"performance"`
 }
@@ -29,10 +27,7 @@ type VersioningConfig struct {
 	SupportedVersions []string `mapstructure:"supported_versions"`
 }
 
-// AgentWebhookConfig holds configuration for agent webhooks
-type AgentWebhookConfig struct {
-	Secret string `mapstructure:"secret"`
-}
+
 
 // PerformanceConfig holds configuration for performance optimization
 type PerformanceConfig struct {
@@ -61,17 +56,7 @@ type PerformanceConfig struct {
 	RetryBackoff          time.Duration `mapstructure:"retry_backoff"`
 }
 
-// WebhookConfig holds configuration for all webhooks
-type WebhookConfig struct {
-	GitHub      WebhookEndpointConfig `mapstructure:"github"`
-}
 
-// WebhookEndpointConfig holds configuration for a webhook endpoint
-type WebhookEndpointConfig struct {
-	Enabled bool   `mapstructure:"enabled"`
-	Path    string `mapstructure:"path"`
-	Secret  string `mapstructure:"secret"`
-}
 
 // AuthConfig holds authentication configuration
 type AuthConfig struct {

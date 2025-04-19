@@ -219,21 +219,7 @@ func (s *Server) setupRoutes() {
 	
 
 	
-	// Webhook endpoints - each has its own authentication via secret validation
-	webhook := s.router.Group("/webhook")
-	{
-		// AI agent event webhook
-		webhook.POST("/agent", s.agentWebhookHandler)
-		
-		// DevOps tool webhooks - only GitHub is supported
-		if s.config.Webhooks.GitHub.Enabled {
-			path := "/github"
-			if s.config.Webhooks.GitHub.Path != "" {
-				path = s.config.Webhooks.GitHub.Path
-			}
-			webhook.POST(path, s.githubWebhookHandler)
-		}
-	}
+
 }
 
 // Start starts the API server without TLS
