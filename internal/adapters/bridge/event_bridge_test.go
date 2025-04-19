@@ -95,21 +95,56 @@ func (m *MockAdapterRegistry) ListAdapters() map[string]core.AdapterFactory {
 	return args.Get(0).(map[string]core.AdapterFactory)
 }
 
+// MockAdapter implements core.Adapter for testing
+type MockAdapter struct {
+	mock.Mock
+}
+
+// Type mocks the Type method
+func (m *MockAdapter) Type() string {
+	args := m.Called()
+	return args.String(0)
+}
+
+// ExecuteAction mocks the ExecuteAction method
+func (m *MockAdapter) ExecuteAction(ctx context.Context, contextID string, action string, params map[string]interface{}) (interface{}, error) {
+	args := m.Called(ctx, contextID, action, params)
+	return args.Get(0), args.Error(1)
+}
+
+// HandleWebhook mocks the HandleWebhook method
+func (m *MockAdapter) HandleWebhook(ctx context.Context, eventType string, payload []byte) error {
+	args := m.Called(ctx, eventType, payload)
+	return args.Error(0)
+}
+
+// Health mocks the Health method
+func (m *MockAdapter) Health() string {
+	args := m.Called()
+	return args.String(0)
+}
+
+// Close mocks the Close method
+func (m *MockAdapter) Close() error {
+	args := m.Called()
+	return args.Error(0)
+}
+
+// Version mocks the Version method
+func (m *MockAdapter) Version() string {
+	args := m.Called()
+	return args.String(0)
+}
+
 // MockAdapterFactory implements core.AdapterFactory for testing
 type MockAdapterFactory struct {
 	mock.Mock
 }
 
-// New mocks the New method
-func (m *MockAdapterFactory) New() core.Adapter {
-	args := m.Called()
-	return args.Get(0).(core.Adapter)
-}
-
-// Config mocks the Config method
-func (m *MockAdapterFactory) Config() interface{} {
-	args := m.Called()
-	return args.Get(0)
+// CreateAdapter mocks the CreateAdapter method
+func (m *MockAdapterFactory) CreateAdapter(ctx context.Context, adapterType string) (core.Adapter, error) {
+	args := m.Called(ctx, adapterType)
+	return args.Get(0).(core.Adapter), args.Error(1)
 }
 
 func TestNewEventBridge(t *testing.T) {
@@ -428,11 +463,25 @@ func TestRegisterHandlerForAllAdapters(t *testing.T) {
 	
 	mockEventBus.On("SubscribeAll", mock.Anything).Return()
 	
+	// Create mock adapter
+	mockAdapter := new(MockAdapter)
+	mockAdapter.On("Type").Return("mock-adapter")
+	
+	// Create mock adapter factories
+	mockGithubFactory := new(MockAdapterFactory)
+	mockGithubFactory.On("CreateAdapter", mock.Anything, "github").Return(mockAdapter, nil)
+	
+	mockAwsFactory := new(MockAdapterFactory)
+	mockAwsFactory.On("CreateAdapter", mock.Anything, "aws").Return(mockAdapter, nil)
+	
+	mockJiraFactory := new(MockAdapterFactory)
+	mockJiraFactory.On("CreateAdapter", mock.Anything, "jira").Return(mockAdapter, nil)
+	
 	// Setup mock adapter registry
 	adapters := map[string]core.AdapterFactory{
-		"github": &MockAdapterFactory{},
-		"aws":    &MockAdapterFactory{},
-		"jira":   &MockAdapterFactory{},
+		"github": mockGithubFactory,
+		"aws":    mockAwsFactory,
+		"jira":   mockJiraFactory,
 	}
 	mockAdapterRegistry.On("ListAdapters").Return(adapters)
 	
@@ -785,10 +834,21 @@ func TestEventBridgeEndToEnd(t *testing.T) {
 	
 	mockEventBus.On("SubscribeAll", mock.Anything).Return()
 	
-	// Set up adapter registry with some adapters
+	// Create mock adapter
+	mockAdapter := new(MockAdapter)
+	mockAdapter.On("Type").Return("mock-adapter")
+	
+	// Create mock adapter factories
+	mockGithubFactory := new(MockAdapterFactory)
+	mockGithubFactory.On("CreateAdapter", mock.Anything, "github").Return(mockAdapter, nil)
+	
+	mockAwsFactory := new(MockAdapterFactory)
+	mockAwsFactory.On("CreateAdapter", mock.Anything, "aws").Return(mockAdapter, nil)
+	
+	// Setup mock adapter registry
 	adapters := map[string]core.AdapterFactory{
-		"github": &MockAdapterFactory{},
-		"aws":    &MockAdapterFactory{},
+		"github": mockGithubFactory,
+		"aws":    mockAwsFactory,
 	}
 	mockAdapterRegistry.On("ListAdapters").Return(adapters)
 	
