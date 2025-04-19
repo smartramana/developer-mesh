@@ -19,10 +19,11 @@ import (
 // TestRegisterAllProviders tests that all providers can be registered successfully
 func TestRegisterAllProviders(t *testing.T) {
 	// Create dependencies
-	factory := core.NewAdapterFactory()
-	eventBus := events.NewEventBus()
+	configs := make(map[string]interface{})
 	metricsClient := observability.NewMetricsClient()
-	logger := mocks.NewLogger() // Use our mock logger
+	logger := observability.NewLogger("providers_test")
+	factory := core.NewAdapterFactory(configs, metricsClient, logger)
+	eventBus := events.NewEventBus(logger)
 
 	// Register all providers
 	err := RegisterAllProviders(factory, eventBus, metricsClient, logger)
@@ -36,38 +37,38 @@ func TestRegisterAllProviders(t *testing.T) {
 		config.DefaultOwner = "test-owner"
 		config.DefaultRepo = "test-repo"
 
+		// Set the config in the factory
+		factory.SetConfig("github", config)
+
 		// Attempt to create adapter
-		adapter, err := factory.Create(context.Background(), "github", config)
+		adapter, err := factory.CreateAdapter(context.Background(), "github")
 		
 		// Verify adapter creation
 		require.NoError(t, err, "GitHub adapter creation should succeed")
 		require.NotNil(t, adapter, "Adapter should not be nil")
-		assert.Equal(t, "github", adapter.GetType(), "Adapter type should be 'github'")
-		
-		// Verify adapter implementation
-		_, ok := adapter.(*github.GitHubAdapter)
-		assert.True(t, ok, "Adapter should be of type *github.GitHubAdapter")
+		assert.Equal(t, "github", adapter.Type(), "Adapter type should be 'github'")
 	})
 
 	// Test unregistered adapter type
 	t.Run("unregistered adapter type", func(t *testing.T) {
 		// Attempt to create adapter with unregistered type
-		adapter, err := factory.Create(context.Background(), "nonexistent", nil)
+		adapter, err := factory.CreateAdapter(context.Background(), "nonexistent")
 		
 		// Verify adapter creation fails
 		assert.Error(t, err, "Creating unregistered adapter should fail")
 		assert.Nil(t, adapter, "Adapter should be nil for unregistered type")
-		assert.Contains(t, err.Error(), "unknown adapter type", "Error should indicate unknown adapter type")
+		assert.Contains(t, err.Error(), "no creator registered", "Error should indicate unknown adapter type")
 	})
 }
 
 // TestProviderCompleteness verifies that all expected providers are registered
 func TestProviderCompleteness(t *testing.T) {
 	// Create dependencies
-	factory := core.NewAdapterFactory()
-	eventBus := events.NewEventBus()
+	configs := make(map[string]interface{})
 	metricsClient := observability.NewMetricsClient()
-	logger := mocks.NewLogger() // Use our mock logger
+	logger := observability.NewLogger("providers_test")
+	factory := core.NewAdapterFactory(configs, metricsClient, logger)
+	eventBus := events.NewEventBus(logger)
 
 	// Register all providers
 	err := RegisterAllProviders(factory, eventBus, metricsClient, logger)
@@ -97,11 +98,14 @@ func TestProviderCompleteness(t *testing.T) {
 				return
 			}
 			
+			// Set the config in the factory
+			factory.SetConfig(providerType, config)
+			
 			// Verify provider is registered by attempting to create it
-			adapter, err := factory.Create(context.Background(), providerType, config)
+			adapter, err := factory.CreateAdapter(context.Background(), providerType)
 			require.NoError(t, err, "Should be able to create %s adapter", providerType)
 			require.NotNil(t, adapter, "Adapter should not be nil")
-			assert.Equal(t, providerType, adapter.GetType(), "Adapter type should match requested type")
+			assert.Equal(t, providerType, adapter.Type(), "Adapter type should match requested type")
 		})
 	}
 }

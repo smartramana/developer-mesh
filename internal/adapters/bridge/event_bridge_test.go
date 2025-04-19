@@ -14,6 +14,43 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+// MockEventBus implements events.EventBus for testing
+type MockEventBus struct {
+	mock.Mock
+}
+
+// Subscribe mocks the Subscribe method
+func (m *MockEventBus) Subscribe(eventType events.EventType, listener events.EventListener) {
+	m.Called(eventType, listener)
+}
+
+// SubscribeAll mocks the SubscribeAll method
+func (m *MockEventBus) SubscribeAll(listener events.EventListener) {
+	m.Called(listener)
+}
+
+// Unsubscribe mocks the Unsubscribe method
+func (m *MockEventBus) Unsubscribe(eventType events.EventType, listener events.EventListener) {
+	m.Called(eventType, listener)
+}
+
+// UnsubscribeAll mocks the UnsubscribeAll method
+func (m *MockEventBus) UnsubscribeAll(listener events.EventListener) {
+	m.Called(listener)
+}
+
+// Emit mocks the Emit method
+func (m *MockEventBus) Emit(ctx context.Context, event *events.AdapterEvent) error {
+	args := m.Called(ctx, event)
+	return args.Error(0)
+}
+
+// EmitWithCallback mocks the EmitWithCallback method
+func (m *MockEventBus) EmitWithCallback(ctx context.Context, event *events.AdapterEvent, callback func(error)) error {
+	args := m.Called(ctx, event, callback)
+	return args.Error(0)
+}
+
 // MockSystemEventBus implements system.EventBus for testing
 type MockSystemEventBus struct {
 	mock.Mock
@@ -26,9 +63,13 @@ func (m *MockSystemEventBus) Publish(ctx context.Context, event system.Event) er
 }
 
 // Subscribe mocks the Subscribe method
-func (m *MockSystemEventBus) Subscribe(eventType string, handler system.EventHandler) error {
-	args := m.Called(eventType, handler)
-	return args.Error(0)
+func (m *MockSystemEventBus) Subscribe(eventType system.EventType, handler func(ctx context.Context, event system.Event) error) {
+	m.Called(eventType, handler)
+}
+
+// Unsubscribe mocks the Unsubscribe method
+func (m *MockSystemEventBus) Unsubscribe(eventType system.EventType, handler func(ctx context.Context, event system.Event) error) {
+	m.Called(eventType, handler)
 }
 
 // MockAdapterRegistry implements core.AdapterRegistry for testing
@@ -76,7 +117,7 @@ func TestNewEventBridge(t *testing.T) {
 	mockEventBus := new(MockEventBus)
 	mockSystemEventBus := new(MockSystemEventBus)
 	mockAdapterRegistry := new(MockAdapterRegistry)
-	logger := observability.NewLogger()
+	logger := observability.NewLogger("event-bridge-test")
 	
 	// Expect SubscribeAll to be called when creating a bridge with an event bus
 	mockEventBus.On("SubscribeAll", mock.Anything).Return()
@@ -108,7 +149,7 @@ func TestHandle(t *testing.T) {
 	mockEventBus := new(MockEventBus)
 	mockSystemEventBus := new(MockSystemEventBus)
 	mockAdapterRegistry := new(MockAdapterRegistry)
-	logger := observability.NewLogger()
+	logger := observability.NewLogger("event-bridge-test")
 	
 	mockEventBus.On("SubscribeAll", mock.Anything).Return()
 	
@@ -319,7 +360,7 @@ func TestRegisterHandler(t *testing.T) {
 	mockEventBus := new(MockEventBus)
 	mockSystemEventBus := new(MockSystemEventBus)
 	mockAdapterRegistry := new(MockAdapterRegistry)
-	logger := observability.NewLogger()
+	logger := observability.NewLogger("event-bridge-test")
 	
 	mockEventBus.On("SubscribeAll", mock.Anything).Return()
 	
@@ -383,7 +424,7 @@ func TestRegisterHandlerForAllAdapters(t *testing.T) {
 	mockEventBus := new(MockEventBus)
 	mockSystemEventBus := new(MockSystemEventBus)
 	mockAdapterRegistry := new(MockAdapterRegistry)
-	logger := observability.NewLogger()
+	logger := observability.NewLogger("event-bridge-test")
 	
 	mockEventBus.On("SubscribeAll", mock.Anything).Return()
 	
@@ -456,7 +497,7 @@ func TestRegisterHandlerForAllAdapters(t *testing.T) {
 func TestMapToSystemEvent(t *testing.T) {
 	// Create bridge instance for testing
 	bridge := &EventBridge{
-		logger: observability.NewLogger(),
+		logger: observability.NewLogger("event-bridge-test"),
 	}
 	
 	// Test cases for different event mappings
@@ -598,7 +639,7 @@ func TestMapToSystemEvent(t *testing.T) {
 func TestCallEventHandlers(t *testing.T) {
 	// Create bridge instance
 	bridge := &EventBridge{
-		logger:          observability.NewLogger(),
+		logger:          observability.NewLogger("event-bridge-test"),
 		adapterHandlers: make(map[string]map[string][]func(context.Context, *events.AdapterEvent) error),
 	}
 	
@@ -740,7 +781,7 @@ func TestEventBridgeEndToEnd(t *testing.T) {
 	mockEventBus := new(MockEventBus)
 	mockSystemEventBus := new(MockSystemEventBus)
 	mockAdapterRegistry := new(MockAdapterRegistry)
-	logger := observability.NewLogger()
+	logger := observability.NewLogger("event-bridge-test")
 	
 	mockEventBus.On("SubscribeAll", mock.Anything).Return()
 	

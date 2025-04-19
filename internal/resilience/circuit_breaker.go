@@ -24,19 +24,6 @@ type CircuitBreakerConfig struct {
 	MaxRequestsHalfOpen int           // Max requests in half-open state
 }
 
-// Counts holds metrics used by the circuit breaker
-type Counts struct {
-	Successes            int       // Successful requests
-	Failures             int       // Failed requests
-	ConsecutiveSuccesses int       // Consecutive successful requests
-	ConsecutiveFailures  int       // Consecutive failed requests
-	Timeout              int       // Timed out requests
-	ShortCircuited       int       // Requests that were short-circuited
-	LastSuccess          time.Time // Time of last successful request
-	LastFailure          time.Time // Time of last failed request
-	LastTimeout          time.Time // Time of last timeout
-}
-
 // CircuitBreaker implements the circuit breaker pattern
 type CircuitBreaker struct {
 	name          string
