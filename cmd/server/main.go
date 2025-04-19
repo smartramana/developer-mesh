@@ -22,7 +22,6 @@ import (
 	"github.com/S-Corkum/mcp-server/internal/metrics"
 	"github.com/S-Corkum/mcp-server/internal/repository"
 	"github.com/S-Corkum/mcp-server/internal/storage"
-	"github.com/S-Corkum/mcp-server/internal/storage/providers"
 	
 	// Import PostgreSQL driver
 	_ "github.com/lib/pq"
@@ -117,61 +116,52 @@ func main() {
 	}
 	defer cacheClient.Close()
 
-	// Initialize storage and context manager
-	var contextManager interfaces.ContextManager
-	
-	// Create context table if it doesn't exist
-	if err := ensureContextTables(ctx, db, cfg); err != nil {
-		log.Fatalf("Failed to create context tables: %v", err)
-	}
-	
-	// Choose which context manager to use based on configuration
-	var baseContextManager interfaces.ContextManager
-	if cfg.Storage.Type == "s3" && cfg.Storage.ContextStorage.Provider == "s3" {
-		log.Println("Initializing S3 storage for contexts")
-		
-		// Build S3 client configuration
-		s3Config := buildS3ClientConfig(cfg)
-		
-		// Log if we'll be using IAM authentication for S3
-		if cfg.AWS.S3.UseIAMAuth && aws.IsIRSAEnabled() {
-			log.Println("Using IAM authentication for S3")
-		}
-		
-		// Create the S3Client
-		s3Client, err := storage.NewS3Client(ctx, s3Config)
-		if err != nil {
-			log.Fatalf("Failed to initialize S3 client: %v", err)
-		}
-		
-		// Initialize context storage provider
-		contextStorage := providers.NewS3ContextStorage(s3Client, cfg.Storage.ContextStorage.S3PathPrefix)
-		
-		// Initialize S3-backed context manager
-		baseContextManager = core.NewS3ContextManager(db, cacheClient, contextStorage)
-		log.Println("S3 context storage initialized successfully")
-	} else {
-		// Use standard database-backed context manager
-		baseContextManager = core.NewContextManager(db, cacheClient)
-		log.Println("Database context storage initialized")
-	}
-	
-	// Wrap the base context manager with fallback capabilities
-	contextManager = core.NewContextManagerWithFallback(db, cacheClient)
-	log.Println("Context manager with fallback initialized")
-	
-	// Initialize core engine with the appropriate context manager
-	engine, err := core.NewEngine(ctx, cfg.Engine, db, cacheClient, metricsClient, contextManager)
+	// Create a metrics client
+	engine, err := core.NewEngine(ctx, cfg.Engine, db, cacheClient, metricsClient, nil)
+=======
 	if err != nil {
 		log.Fatalf("Failed to initialize core engine: %v", err)
 	}
 	defer engine.Shutdown(ctx)
 
-	// Initialize embedding repository for vector operations
-	embeddingRepo := repository.NewEmbeddingRepository(sqlxDB)
+	// Convert interfaces.APIConfig to api.Config
+	apiConfig := api.Config{
+		ListenAddress: cfg.API.ListenAddress,
+		ReadTimeout:   cfg.API.ReadTimeout,
+		WriteTimeout:  cfg.API.WriteTimeout,
+		IdleTimeout:   cfg.API.IdleTimeout,
+		EnableCORS:    cfg.API.EnableCORS,
+		EnableSwagger: cfg.API.EnableSwagger,
+		TLSCertFile:   cfg.API.TLSCertFile,
+		TLSKeyFile:    cfg.API.TLSKeyFile,
+		Auth: api.AuthConfig{
+			JWTSecret: cfg.API.Auth.JWTSecret,
+			APIKeys:   cfg.API.Auth.APIKeys,
+		},
+		RateLimit: api.RateLimitConfig{
+			Enabled:     cfg.API.RateLimit.Enabled,
+			Limit:       cfg.API.RateLimit.Limit,
+			Period:      time.Minute, // Default value
+			BurstFactor: 3,           // Default value
+		},
+		Webhooks: api.WebhookConfig{
+			GitHub: api.WebhookEndpointConfig{
+				Enabled: cfg.API.Webhooks.GitHub.Enabled,
+				Path:    cfg.API.Webhooks.GitHub.Path,
+				Secret:  cfg.API.Webhooks.GitHub.Secret,
+			},
+		},
+		// Default values for other fields
+		Versioning: api.VersioningConfig{
+			Enabled:           true,
+			DefaultVersion:    "1.0",
+			SupportedVersions: []string{"1.0"},
+		},
+		Performance: api.DefaultConfig().Performance,
+	}
 	
 	// Initialize API server
-	server := api.NewServer(engine, embeddingRepo, cfg.API)
+	server := api.NewServer(engine, apiConfig)
 
 	// Determine the correct port based on environment
 	port := cfg.GetListenPort()
@@ -274,61 +264,4 @@ func buildS3ClientConfig(cfg *config.Config) storage.S3Config {
 	}
 }
 
-// ensureContextTables creates the necessary database tables for contexts
-func ensureContextTables(ctx context.Context, db *database.Database, cfg *config.Config) error {
-	// Create MCP schema if needed
-	_, err := db.GetDB().ExecContext(ctx, "CREATE SCHEMA IF NOT EXISTS mcp")
-	if err != nil {
-		return fmt.Errorf("failed to create mcp schema: %w", err)
-	}
-	
-	// Create the context reference table for S3 storage if needed
-	if cfg.Storage.Type == "s3" && cfg.Storage.ContextStorage.Provider == "s3" {
-		if err := db.CreateContextReferenceTable(ctx); err != nil {
-			return fmt.Errorf("failed to create context reference table: %w", err)
-		}
-		log.Println("Context reference table created/verified for S3 storage")
-	} else {
-		// Create the full context table for database storage
-		// This would be used by the standard ContextManager
-		createContextTableSQL := `
-			CREATE TABLE IF NOT EXISTS mcp.contexts (
-				id TEXT PRIMARY KEY,
-				agent_id TEXT NOT NULL,
-				model_id TEXT NOT NULL,
-				session_id TEXT,
-				content JSONB NOT NULL,
-				metadata JSONB,
-				current_tokens INTEGER NOT NULL DEFAULT 0,
-				max_tokens INTEGER NOT NULL DEFAULT 0,
-				created_at TIMESTAMP WITH TIME ZONE NOT NULL,
-				updated_at TIMESTAMP WITH TIME ZONE NOT NULL,
-				expires_at TIMESTAMP WITH TIME ZONE
-			)
-		`
-		
-		_, err := db.GetDB().ExecContext(ctx, createContextTableSQL)
-		if err != nil {
-			return fmt.Errorf("failed to create contexts table: %w", err)
-		}
-		
-		// Create necessary indexes
-		contextIndexes := []string{
-			`CREATE INDEX IF NOT EXISTS idx_contexts_agent_id ON mcp.contexts (agent_id)`,
-			`CREATE INDEX IF NOT EXISTS idx_contexts_session_id ON mcp.contexts (session_id)`,
-			`CREATE INDEX IF NOT EXISTS idx_contexts_created_at ON mcp.contexts (created_at)`,
-			`CREATE INDEX IF NOT EXISTS idx_contexts_expires_at ON mcp.contexts (expires_at)`,
-		}
-		
-		for _, indexSQL := range contextIndexes {
-			_, err := db.GetDB().ExecContext(ctx, indexSQL)
-			if err != nil {
-				return fmt.Errorf("failed to create index: %w", err)
-			}
-		}
-		
-		log.Println("Context table created/verified for database storage")
-	}
-	
-	return nil
-}
+
