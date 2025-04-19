@@ -7,8 +7,8 @@ import (
 	"github.com/S-Corkum/mcp-server/internal/adapters/core"
 	"github.com/S-Corkum/mcp-server/internal/adapters/events"
 	"github.com/S-Corkum/mcp-server/internal/adapters/providers"
-	"github.com/S-Corkum/mcp-server/internal/adapters/resilience"
 	"github.com/S-Corkum/mcp-server/internal/config"
+	"github.com/S-Corkum/mcp-server/internal/events/system"
 	"github.com/S-Corkum/mcp-server/internal/interfaces"
 	"github.com/S-Corkum/mcp-server/internal/observability"
 )
@@ -27,31 +27,33 @@ type AdapterManager struct {
 // NewAdapterManager creates a new adapter manager
 func NewAdapterManager(
 	cfg *config.Config,
-	contextManager interfaces.ContextManager,
-	systemEventBus interfaces.EventBus,
+	_ interface{}, // Formerly contextManager, kept for backward compatibility
+	systemEventBus system.EventBus,
 	logger *observability.Logger,
 	metricsClient *observability.MetricsClient,
 ) *AdapterManager {
-	// Create resilience patterns
-	circuitBreakers := resilience.NewCircuitBreakerManager(map[string]resilience.CircuitBreakerConfig{})
-	rateLimiters := resilience.NewRateLimiterManager(map[string]resilience.RateLimiterConfig{})
-	
 	// Create events bus for adapters
 	eventBus := events.NewEventBus(logger)
 	
-	// Create adapter factory
+	// Create adapter factory with empty map if config is nil
+	var adapterConfigs map[string]interface{}
+	if cfg != nil && cfg.Adapters != nil {
+		adapterConfigs = cfg.Adapters
+	} else {
+		adapterConfigs = make(map[string]interface{})
+	}
+	
 	factory := core.NewAdapterFactory(
-		cfg.Adapters,
+		adapterConfigs,
 		metricsClient,
-		circuitBreakers,
-		rateLimiters,
+		logger,
 	)
 	
 	// Create adapter registry
 	registry := core.NewAdapterRegistry(factory, logger)
 	
 	// Create bridges
-	contextBridge := bridge.NewContextBridge(contextManager, logger, eventBus)
+	contextBridge := bridge.NewContextBridge(nil, logger, eventBus)
 	eventBridge := bridge.NewEventBridge(eventBus, systemEventBus, logger, registry)
 	
 	// Register adapter providers
@@ -94,8 +96,12 @@ func (m *AdapterManager) Initialize(ctx context.Context) error {
 }
 
 // GetAdapter gets an adapter by type
-func (m *AdapterManager) GetAdapter(ctx context.Context, adapterType string) (core.Adapter, error) {
-	return m.registry.GetAdapter(ctx, adapterType)
+func (m *AdapterManager) GetAdapter(adapterType string) (interface{}, error) {
+	adapter, err := m.registry.GetAdapter(context.Background(), adapterType)
+	if err != nil {
+		return nil, err
+	}
+	return adapter, nil
 }
 
 // ExecuteAction executes an action with an adapter and records it in context
@@ -124,8 +130,8 @@ func (m *AdapterManager) ExecuteAction(ctx context.Context, contextID string, ad
 	return result, err
 }
 
-// HandleWebhook handles a webhook event
-func (m *AdapterManager) HandleWebhook(ctx context.Context, adapterType string, eventType string, payload []byte) error {
+// HandleAdapterWebhook handles a webhook event using the appropriate adapter
+func (m *AdapterManager) HandleAdapterWebhook(ctx context.Context, adapterType string, eventType string, payload []byte) error {
 	// Get adapter
 	adapter, err := m.registry.GetAdapter(ctx, adapterType)
 	if err != nil {
