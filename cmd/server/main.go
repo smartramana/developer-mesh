@@ -18,10 +18,7 @@ import (
 	"github.com/S-Corkum/mcp-server/internal/config"
 	"github.com/S-Corkum/mcp-server/internal/core"
 	"github.com/S-Corkum/mcp-server/internal/database"
-	"github.com/S-Corkum/mcp-server/internal/interfaces"
 	"github.com/S-Corkum/mcp-server/internal/metrics"
-	"github.com/S-Corkum/mcp-server/internal/repository"
-	"github.com/S-Corkum/mcp-server/internal/storage"
 	
 	// Import PostgreSQL driver
 	_ "github.com/lib/pq"
@@ -34,6 +31,8 @@ func main() {
 	// Setup context with cancellation
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
+
+	var err error
 
 	// Initialize configuration
 	cfg, err := config.Load()
@@ -60,6 +59,7 @@ func main() {
 	}
 
 	// Prepare database config with AWS integration if needed
+	var db *database.Database
 	var dbConfig database.Config
 	if cfg.AWS.RDS.UseIAMAuth && aws.IsIRSAEnabled() {
 		log.Println("Using IAM authentication for RDS")
@@ -79,16 +79,14 @@ func main() {
 	}
 
 	// Initialize database
-	db, err := database.NewDatabase(ctx, dbConfig)
+	db, err = database.NewDatabase(ctx, dbConfig)
 	if err != nil {
 		log.Fatalf("Failed to initialize database: %v", err)
 	}
 	defer db.Close()
 
-	// Get the underlying sqlx.DB connection for the repository
-	sqlxDB := db.GetDB()
-
 	// Prepare cache config with AWS integration if needed
+	var cacheClient cache.Cache
 	var cacheConfig cache.RedisConfig
 	if cfg.AWS.ElastiCache.UseIAMAuth && aws.IsIRSAEnabled() {
 		log.Println("Using IAM authentication for ElastiCache")
@@ -110,15 +108,15 @@ func main() {
 	}
 
 	// Initialize cache
-	cacheClient, err := cache.NewCache(ctx, cacheConfig)
+	cacheClient, err = cache.NewCache(ctx, cacheConfig)
 	if err != nil {
 		log.Fatalf("Failed to initialize cache: %v", err)
 	}
 	defer cacheClient.Close()
 
-	// Create a metrics client
-	engine, err := core.NewEngine(ctx, cfg.Engine, db, cacheClient, metricsClient, nil)
-=======
+	// Initialize engine
+	var engine *core.Engine
+	engine, err = core.NewEngine(ctx, cfg.Engine, db, cacheClient, metricsClient)
 	if err != nil {
 		log.Fatalf("Failed to initialize core engine: %v", err)
 	}
@@ -143,13 +141,6 @@ func main() {
 			Limit:       cfg.API.RateLimit.Limit,
 			Period:      time.Minute, // Default value
 			BurstFactor: 3,           // Default value
-		},
-		Webhooks: api.WebhookConfig{
-			GitHub: api.WebhookEndpointConfig{
-				Enabled: cfg.API.Webhooks.GitHub.Enabled,
-				Path:    cfg.API.Webhooks.GitHub.Path,
-				Secret:  cfg.API.Webhooks.GitHub.Secret,
-			},
 		},
 		// Default values for other fields
 		Versioning: api.VersioningConfig{
@@ -244,24 +235,4 @@ func validateConfiguration(cfg *config.Config) error {
 	return nil
 }
 
-// buildS3ClientConfig creates a storage.S3Config from the application config
-func buildS3ClientConfig(cfg *config.Config) storage.S3Config {
-	return storage.S3Config{
-		Region:           cfg.Storage.S3.Region,
-		Bucket:           cfg.Storage.S3.Bucket,
-		Endpoint:         cfg.Storage.S3.Endpoint,
-		ForcePathStyle:   cfg.Storage.S3.ForcePathStyle,
-		UploadPartSize:   cfg.Storage.S3.UploadPartSize,
-		DownloadPartSize: cfg.Storage.S3.DownloadPartSize,
-		Concurrency:      cfg.Storage.S3.Concurrency,
-		RequestTimeout:   cfg.Storage.S3.RequestTimeout,
-		AWSConfig: storage.AWSConfig{
-			UseIAMAuth: cfg.AWS.S3.UseIAMAuth,
-			Region:     cfg.AWS.S3.AuthConfig.Region,
-			Endpoint:   cfg.AWS.S3.AuthConfig.Endpoint,
-			AssumeRole: cfg.AWS.S3.AuthConfig.AssumeRole,
-		},
-	}
-}
-
-
+// S3 functionality has been removed in this version

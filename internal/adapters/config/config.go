@@ -2,8 +2,6 @@ package config
 
 import (
 	"time"
-	
-	"github.com/S-Corkum/mcp-server/internal/adapters/resilience"
 )
 
 // AdapterConfig represents the configuration for an adapter
@@ -129,75 +127,41 @@ type LoggingConfig struct {
 	SampleRate       float64       `yaml:"sample_rate" json:"sample_rate"`
 }
 
-// GetRetryConfig converts the configuration to a resilience.RetryConfig
-func (c *RetryConfig) GetRetryConfig() resilience.RetryConfig {
+// ReadyToTripFunc is a function that decides if the circuit breaker should trip
+type ReadyToTripFunc func(totalRequests uint32, totalSuccesses uint32, totalFailures uint32) bool
+
+// GetCircuitBreakerConfig converts the configuration to adapter resilience configuration
+func (c *CircuitBreakerConfig) GetCircuitBreakerConfig(name string) map[string]interface{} {
 	if !c.Enabled {
-		return resilience.RetryConfig{MaxRetries: 0}
+		return map[string]interface{}{
+			"name":         name,
+			"max_requests": 0,
+		}
 	}
 	
-	return resilience.RetryConfig{
-		MaxRetries:      c.MaxRetries,
-		InitialInterval: c.InitialInterval,
-		MaxInterval:     c.MaxInterval,
-		Multiplier:      c.Multiplier,
-		MaxElapsedTime:  c.MaxElapsedTime,
+	return map[string]interface{}{
+		"name":         name,
+		"max_requests": c.MaxRequests,
+		"interval":     c.Interval,
+		"timeout":      c.Timeout,
+		"failure_ratio": c.FailureRatio,
 	}
 }
 
-// GetCircuitBreakerConfig converts the configuration to a resilience.CircuitBreakerConfig
-func (c *CircuitBreakerConfig) GetCircuitBreakerConfig(name string) resilience.CircuitBreakerConfig {
+// GetRateLimiterConfig converts the configuration to adapter resilience configuration
+func (c *RateLimiterConfig) GetRateLimiterConfig(name string) map[string]interface{} {
 	if !c.Enabled {
-		return resilience.CircuitBreakerConfig{Name: name, MaxRequests: 0}
+		return map[string]interface{}{
+			"name": name,
+			"rate": 0,
+		}
 	}
 	
-	return resilience.CircuitBreakerConfig{
-		Name:         name,
-		MaxRequests:  c.MaxRequests,
-		Interval:     c.Interval,
-		Timeout:      c.Timeout,
-		ReadyToTrip: func(counts resilience.Counts) bool {
-			failureRatio := float64(counts.TotalFailures) / float64(counts.Requests)
-			return counts.Requests >= 5 && failureRatio >= c.FailureRatio
-		},
-	}
-}
-
-// GetRateLimiterConfig converts the configuration to a resilience.RateLimiterConfig
-func (c *RateLimiterConfig) GetRateLimiterConfig(name string) resilience.RateLimiterConfig {
-	if !c.Enabled {
-		return resilience.RateLimiterConfig{Name: name, Rate: 0}
-	}
-	
-	return resilience.RateLimiterConfig{
-		Name:      name,
-		Rate:      c.Rate,
-		Burst:     c.Burst,
-		WaitLimit: c.WaitLimit,
-	}
-}
-
-// GetTimeoutConfig converts the configuration to a resilience.TimeoutConfig
-func (c *TimeoutConfig) GetTimeoutConfig() resilience.TimeoutConfig {
-	if !c.Enabled {
-		return resilience.TimeoutConfig{Timeout: 0}
-	}
-	
-	return resilience.TimeoutConfig{
-		Timeout:     c.Timeout,
-		GracePeriod: c.GracePeriod,
-	}
-}
-
-// GetBulkheadConfig converts the configuration to a resilience.BulkheadConfig
-func (c *BulkheadConfig) GetBulkheadConfig(name string) resilience.BulkheadConfig {
-	if !c.Enabled {
-		return resilience.BulkheadConfig{Name: name, MaxConcurrent: 0}
-	}
-	
-	return resilience.BulkheadConfig{
-		Name:           name,
-		MaxConcurrent:  c.MaxConcurrent,
-		MaxWaitingTime: c.MaxWaitingTime,
+	return map[string]interface{}{
+		"name":      name,
+		"rate":      c.Rate,
+		"burst":     c.Burst,
+		"wait_limit": c.WaitLimit,
 	}
 }
 

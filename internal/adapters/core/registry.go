@@ -7,7 +7,6 @@ import (
 	"time"
 
 	"github.com/S-Corkum/mcp-server/internal/observability"
-	"github.com/S-Corkum/mcp-server/internal/resilience"
 )
 
 // HealthStatus represents an adapter's health status

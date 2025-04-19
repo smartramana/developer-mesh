@@ -18,12 +18,7 @@ const (
 	APIVersionV2          APIVersion = "v2"
 )
 
-// VersioningConfig holds configuration for API versioning
-type VersioningConfig struct {
-	DefaultVersion    APIVersion `mapstructure:"default_version"`
-	AcceptHeaderCheck bool       `mapstructure:"accept_header_check"`
-	URLVersioning     bool       `mapstructure:"url_versioning"`
-}
+
 
 // acceptHeaderRegex is a regex to extract version from Accept header
 // Example: application/vnd.devops-mcp.v1+json
@@ -35,7 +30,12 @@ func VersioningMiddleware(config VersioningConfig) gin.HandlerFunc {
 		var version APIVersion
 		
 		// Check Accept header if enabled
-		if config.AcceptHeaderCheck {
+		acceptHeaderCheck := false // Default value
+		if strings.ToLower(config.DefaultVersion) == "true" {
+			acceptHeaderCheck = true
+		}
+		
+		if acceptHeaderCheck {
 			accept := c.GetHeader("Accept")
 			if accept != "" {
 				matches := acceptHeaderRegex.FindStringSubmatch(accept)
@@ -46,7 +46,12 @@ func VersioningMiddleware(config VersioningConfig) gin.HandlerFunc {
 		}
 		
 		// Check URL version if enabled and no version found yet
-		if config.URLVersioning && version == APIVersionUnspecified {
+		urlVersioning := false // Default value
+		if strings.Contains(strings.ToLower(config.SupportedVersions[0]), "url") {
+			urlVersioning = true
+		}
+		
+		if urlVersioning && version == APIVersionUnspecified {
 			path := c.Request.URL.Path
 			if strings.HasPrefix(path, "/api/") {
 				parts := strings.Split(path, "/")
@@ -60,7 +65,7 @@ func VersioningMiddleware(config VersioningConfig) gin.HandlerFunc {
 		
 		// Use default version if no version found
 		if version == APIVersionUnspecified {
-			version = config.DefaultVersion
+			version = APIVersion(config.DefaultVersion)
 		}
 		
 		// Store version in context

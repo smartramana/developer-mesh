@@ -4,7 +4,6 @@
 package providers
 
 import (
-	"context"
 	"fmt"
 
 	"github.com/S-Corkum/mcp-server/internal/adapters/core"

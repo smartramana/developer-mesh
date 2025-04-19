@@ -4,35 +4,40 @@ import (
 	"context"
 )
 
+// MockEmbeddingRepository is a mock implementation of the EmbeddingRepository
+type MockEmbeddingRepository struct {
+	// Using empty maps for basic implementation
+	embeddings map[string][]interface{}
+}
+
 // NewMockEmbeddingRepository creates a mock embedding repository for testing
 func NewMockEmbeddingRepository() *MockEmbeddingRepository {
 	return &MockEmbeddingRepository{
-		embeddings: make(map[string][]*TestEmbedding),
+		embeddings: make(map[string][]interface{}),
 	}
-}
-
-// MockEmbeddingRepository is a mock implementation of the EmbeddingRepository
-type MockEmbeddingRepository struct {
-	embeddings map[string][]*TestEmbedding
 }
 
 // StoreEmbedding stores an embedding
-func (m *MockEmbeddingRepository) StoreEmbedding(ctx context.Context, embedding *TestEmbedding) error {
+func (m *MockEmbeddingRepository) StoreEmbedding(ctx context.Context, embedding interface{}) error {
+	// Extract contextID from the embedding if needed
+	// For now, just using a default contextID for demonstration
+	contextID := "default"
+	
 	if m.embeddings == nil {
-		m.embeddings = make(map[string][]*TestEmbedding)
+		m.embeddings = make(map[string][]interface{})
 	}
 	
-	m.embeddings[embedding.ContextID] = append(m.embeddings[embedding.ContextID], embedding)
+	m.embeddings[contextID] = append(m.embeddings[contextID], embedding)
 	return nil
 }
 
 // SearchEmbeddings searches for embeddings
-func (m *MockEmbeddingRepository) SearchEmbeddings(ctx context.Context, queryEmbedding []float32, contextID string, limit int) ([]*TestEmbeddingSearchResult, error) {
+func (m *MockEmbeddingRepository) SearchEmbeddings(ctx context.Context, queryEmbedding []float32, contextID string, limit int) ([]interface{}, error) {
 	return nil, nil
 }
 
 // GetContextEmbeddings gets all embeddings for a context
-func (m *MockEmbeddingRepository) GetContextEmbeddings(ctx context.Context, contextID string) ([]*TestEmbedding, error) {
+func (m *MockEmbeddingRepository) GetContextEmbeddings(ctx context.Context, contextID string) ([]interface{}, error) {
 	return m.embeddings[contextID], nil
 }
 

@@ -9,7 +9,6 @@ import (
 	"github.com/S-Corkum/mcp-server/internal/adapters/providers"
 	"github.com/S-Corkum/mcp-server/internal/config"
 	"github.com/S-Corkum/mcp-server/internal/events/system"
-	"github.com/S-Corkum/mcp-server/internal/interfaces"
 	"github.com/S-Corkum/mcp-server/internal/observability"
 )
 
@@ -18,7 +17,6 @@ type AdapterManager struct {
 	factory        *core.DefaultAdapterFactory
 	registry       *core.AdapterRegistry
 	eventBus       *events.EventBus
-	contextBridge  *bridge.ContextBridge
 	eventBridge    *bridge.EventBridge
 	logger         *observability.Logger
 	metricsClient  *observability.MetricsClient
@@ -52,8 +50,7 @@ func NewAdapterManager(
 	// Create adapter registry
 	registry := core.NewAdapterRegistry(factory, logger)
 	
-	// Create bridges
-	contextBridge := bridge.NewContextBridge(nil, logger, eventBus)
+	// Create event bridge
 	eventBridge := bridge.NewEventBridge(eventBus, systemEventBus, logger, registry)
 	
 	// Register adapter providers
@@ -64,7 +61,6 @@ func NewAdapterManager(
 		factory:       factory,
 		registry:      registry,
 		eventBus:      eventBus,
-		contextBridge: contextBridge,
 		eventBridge:   eventBridge,
 		logger:        logger,
 		metricsClient: metricsClient,
@@ -104,7 +100,7 @@ func (m *AdapterManager) GetAdapter(adapterType string) (interface{}, error) {
 	return adapter, nil
 }
 
-// ExecuteAction executes an action with an adapter and records it in context
+// ExecuteAction executes an action with an adapter
 func (m *AdapterManager) ExecuteAction(ctx context.Context, contextID string, adapterType string, action string, params map[string]interface{}) (interface{}, error) {
 	// Get adapter
 	adapter, err := m.registry.GetAdapter(ctx, adapterType)
@@ -112,40 +108,20 @@ func (m *AdapterManager) ExecuteAction(ctx context.Context, contextID string, ad
 		return nil, err
 	}
 	
+	// Log the operation
+	m.logger.Info("Executing adapter action", map[string]interface{}{
+		"adapterType": adapterType,
+		"action":      action,
+		"contextID":   contextID,
+	})
+	
 	// Execute action
 	result, err := adapter.ExecuteAction(ctx, contextID, action, params)
-	
-	// Record in context
-	if contextID != "" {
-		if recordErr := m.contextBridge.RecordOperationInContext(ctx, contextID, adapterType, action, params, result, err); recordErr != nil {
-			m.logger.Warn("Failed to record operation in context", map[string]interface{}{
-				"contextID":   contextID,
-				"adapterType": adapterType,
-				"action":      action,
-				"error":       recordErr.Error(),
-			})
-		}
-	}
 	
 	return result, err
 }
 
-// HandleAdapterWebhook handles a webhook event using the appropriate adapter
-func (m *AdapterManager) HandleAdapterWebhook(ctx context.Context, adapterType string, eventType string, payload []byte) error {
-	// Get adapter
-	adapter, err := m.registry.GetAdapter(ctx, adapterType)
-	if err != nil {
-		return err
-	}
-	
-	// Handle webhook
-	return adapter.HandleWebhook(ctx, eventType, payload)
-}
 
-// RecordWebhookInContext records a webhook event in a context
-func (m *AdapterManager) RecordWebhookInContext(ctx context.Context, agentID string, adapterType string, eventType string, payload interface{}) (string, error) {
-	return m.contextBridge.RecordWebhookInContext(ctx, agentID, adapterType, eventType, payload)
-}
 
 // Shutdown gracefully shuts down all adapters
 func (m *AdapterManager) Shutdown(ctx context.Context) error {

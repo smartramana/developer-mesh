@@ -1,154 +1,113 @@
 package resilience
 
 import (
-	"context"
-	"log"
 	"sync"
 	"time"
-
-	"github.com/sony/gobreaker"
 )
 
-// CircuitBreakerConfig holds configuration for circuit breakers
+// CircuitBreakerState represents the state of a circuit breaker
+type CircuitBreakerState int
+
+// Circuit breaker states
+const (
+	CircuitBreakerClosed CircuitBreakerState = iota // Normal operation, requests allowed
+	CircuitBreakerOpen                              // Tripped, requests blocked
+	CircuitBreakerHalfOpen                          // Testing if service is healthy
+)
+
+// CircuitBreakerConfig holds configuration for a circuit breaker
 type CircuitBreakerConfig struct {
-	Name         string        `mapstructure:"name"`
-	MaxRequests  uint32        `mapstructure:"max_requests"`
-	Interval     time.Duration `mapstructure:"interval"`
-	Timeout      time.Duration `mapstructure:"timeout"`
-	FailureRatio float64       `mapstructure:"failure_ratio"`
+	FailureThreshold   int           // Number of failures before tripping
+	ResetTimeout       time.Duration // Time before attempting retry
+	SuccessThreshold   int           // Number of successes needed to close circuit
+	TimeoutThreshold   time.Duration // Request timeout threshold
+	MaxRequestsHalfOpen int           // Max requests in half-open state
 }
 
-var (
-	circuitBreakers     = make(map[string]*gobreaker.CircuitBreaker)
-	circuitBreakerMutex sync.RWMutex
-)
-
-// GetCircuitBreaker returns a circuit breaker with the given name, creating it if it doesn't exist
-func GetCircuitBreaker(name string, config CircuitBreakerConfig) *gobreaker.CircuitBreaker {
-	circuitBreakerMutex.RLock()
-	cb, ok := circuitBreakers[name]
-	circuitBreakerMutex.RUnlock()
-
-	if ok {
-		return cb
-	}
-
-	// Not found, create a new one
-	circuitBreakerMutex.Lock()
-	defer circuitBreakerMutex.Unlock()
-
-	// Check again in case it was created while we were waiting for the lock
-	if cb, ok := circuitBreakers[name]; ok {
-		return cb
-	}
-
-	// Apply defaults if needed
-	if config.Name == "" {
-		config.Name = name
-	}
-	if config.MaxRequests == 0 {
-		config.MaxRequests = 5
-	}
-	if config.Interval == 0 {
-		config.Interval = 30 * time.Second
-	}
-	if config.Timeout == 0 {
-		config.Timeout = 60 * time.Second
-	}
-	if config.FailureRatio == 0 {
-		config.FailureRatio = 0.5
-	}
-
-	settings := gobreaker.Settings{
-		Name:        config.Name,
-		MaxRequests: config.MaxRequests,
-		Interval:    config.Interval,
-		Timeout:     config.Timeout,
-		ReadyToTrip: func(counts gobreaker.Counts) bool {
-			failureRatio := float64(counts.TotalFailures) / float64(counts.Requests)
-			return counts.Requests >= 5 && failureRatio >= config.FailureRatio
-		},
-		OnStateChange: func(name string, from gobreaker.State, to gobreaker.State) {
-			log.Printf("Circuit breaker %s state change: %s -> %s", name, from, to)
-		},
-	}
-
-	cb = gobreaker.NewCircuitBreaker(settings)
-	circuitBreakers[name] = cb
-	return cb
+// Counts holds metrics used by the circuit breaker
+type Counts struct {
+	Successes            int       // Successful requests
+	Failures             int       // Failed requests
+	ConsecutiveSuccesses int       // Consecutive successful requests
+	ConsecutiveFailures  int       // Consecutive failed requests
+	Timeout              int       // Timed out requests
+	ShortCircuited       int       // Requests that were short-circuited
+	LastSuccess          time.Time // Time of last successful request
+	LastFailure          time.Time // Time of last failed request
+	LastTimeout          time.Time // Time of last timeout
 }
 
-// ExecuteWithCircuitBreaker executes a function with a circuit breaker
-func ExecuteWithCircuitBreaker(ctx context.Context, cbName string, config CircuitBreakerConfig, fn func() (interface{}, error)) (interface{}, error) {
-	cb := GetCircuitBreaker(cbName, config)
+// CircuitBreaker implements the circuit breaker pattern
+type CircuitBreaker struct {
+	name          string
+	config        CircuitBreakerConfig
+	state         CircuitBreakerState
+	counts        Counts
+	lastStateChange time.Time
+	mutex         sync.RWMutex
+}
 
-	// Create a channel to collect the result
-	resultCh := make(chan struct {
-		result interface{}
-		err    error
-	}, 1)
-
-	// Execute the function with the circuit breaker in a goroutine
-	go func() {
-		result, err := cb.Execute(fn)
-		resultCh <- struct {
-			result interface{}
-			err    error
-		}{result, err}
-	}()
-
-	// Wait for the result or context cancellation
-	select {
-	case <-ctx.Done():
-		return nil, ctx.Err()
-	case res := <-resultCh:
-		return res.result, res.err
+// NewCircuitBreaker creates a new circuit breaker with the given configuration
+func NewCircuitBreaker(name string, config CircuitBreakerConfig) *CircuitBreaker {
+	return &CircuitBreaker{
+		name:          name,
+		config:        config,
+		state:         CircuitBreakerClosed,
+		lastStateChange: time.Now(),
 	}
 }
 
-// CircuitBreakerManager manages a set of circuit breakers
+// CircuitBreakerManager manages multiple circuit breakers
 type CircuitBreakerManager struct {
-	configs map[string]CircuitBreakerConfig
+	breakers map[string]*CircuitBreaker
+	mutex    sync.RWMutex
 }
 
 // NewCircuitBreakerManager creates a new circuit breaker manager
-func NewCircuitBreakerManager(configs map[string]CircuitBreakerConfig) *CircuitBreakerManager {
-	return &CircuitBreakerManager{
-		configs: configs,
-	}
-}
-
-// Execute executes a function with a circuit breaker
-func (m *CircuitBreakerManager) Execute(ctx context.Context, name string, fn func() (interface{}, error)) (interface{}, error) {
-	config, ok := m.configs[name]
-	if !ok {
-		// Use default config if no config is found
-		config = CircuitBreakerConfig{
-			Name:         name,
-			MaxRequests:  5,
-			Interval:     30 * time.Second,
-			Timeout:      60 * time.Second,
-			FailureRatio: 0.5,
-		}
+func NewCircuitBreakerManager(defaultConfigs map[string]CircuitBreakerConfig) *CircuitBreakerManager {
+	manager := &CircuitBreakerManager{
+		breakers: make(map[string]*CircuitBreaker),
 	}
 
-	return ExecuteWithCircuitBreaker(ctx, name, config, fn)
+	// Create circuit breakers from default configs
+	for name, config := range defaultConfigs {
+		manager.breakers[name] = NewCircuitBreaker(name, config)
+	}
+
+	return manager
 }
 
-// Common circuit breaker names
-const (
-	GitHubCircuitBreaker   = "github"
-	S3CircuitBreaker       = "s3"
-	DatabaseCircuitBreaker = "database"
-	RedisCircuitBreaker    = "redis"
-	VectorCircuitBreaker   = "vector"
-)
+// GetCircuitBreaker gets a circuit breaker by name, creating it if it doesn't exist
+func (m *CircuitBreakerManager) GetCircuitBreaker(name string) *CircuitBreaker {
+	m.mutex.RLock()
+	breaker, exists := m.breakers[name]
+	m.mutex.RUnlock()
 
-// ShutdownCircuitBreakers closes all circuit breakers
-func ShutdownCircuitBreakers() {
-	circuitBreakerMutex.Lock()
-	defer circuitBreakerMutex.Unlock()
+	if exists {
+		return breaker
+	}
 
-	circuitBreakers = make(map[string]*gobreaker.CircuitBreaker)
-	log.Println("Circuit breakers shut down")
+	// Use a default configuration if the circuit breaker doesn't exist
+	defaultConfig := CircuitBreakerConfig{
+		FailureThreshold:   5,
+		ResetTimeout:       30 * time.Second,
+		SuccessThreshold:   2,
+		TimeoutThreshold:   5 * time.Second,
+		MaxRequestsHalfOpen: 1,
+	}
+
+	m.mutex.Lock()
+	defer m.mutex.Unlock()
+
+	// Check again in case it was created while we were waiting for the lock
+	breaker, exists = m.breakers[name]
+	if exists {
+		return breaker
+	}
+
+	// Create a new circuit breaker
+	breaker = NewCircuitBreaker(name, defaultConfig)
+	m.breakers[name] = breaker
+
+	return breaker
 }

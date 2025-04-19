@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"sync"
-	"time"
 
 	"github.com/S-Corkum/mcp-server/internal/adapters/core"
 	"github.com/S-Corkum/mcp-server/internal/adapters/events"
@@ -143,11 +142,16 @@ func (b *EventBridge) callEventHandlers(ctx context.Context, event *events.Adapt
 
 // mapToSystemEvent maps an adapter event to a system event
 func (b *EventBridge) mapToSystemEvent(adapterEvent *events.AdapterEvent) system.Event {
+	baseEvent := system.BaseEvent{
+		Type:      getSystemEventType(adapterEvent.EventType),
+		Timestamp: adapterEvent.Timestamp,
+	}
+
 	// Map adapter events to system events based on their type
 	switch adapterEvent.EventType {
 	case events.EventTypeOperationSuccess:
 		return &system.AdapterOperationSuccessEvent{
-			Timestamp:   adapterEvent.Timestamp,
+			BaseEvent:   baseEvent,
 			AdapterType: adapterEvent.AdapterType,
 			Operation:   fmt.Sprintf("%v", adapterEvent.Metadata["operation"]),
 			Result:      adapterEvent.Payload,
@@ -156,7 +160,7 @@ func (b *EventBridge) mapToSystemEvent(adapterEvent *events.AdapterEvent) system
 		
 	case events.EventTypeOperationFailure:
 		return &system.AdapterOperationFailureEvent{
-			Timestamp:   adapterEvent.Timestamp,
+			BaseEvent:   baseEvent,
 			AdapterType: adapterEvent.AdapterType,
 			Operation:   fmt.Sprintf("%v", adapterEvent.Metadata["operation"]),
 			Error:       fmt.Sprintf("%v", adapterEvent.Metadata["error"]),
@@ -165,7 +169,7 @@ func (b *EventBridge) mapToSystemEvent(adapterEvent *events.AdapterEvent) system
 		
 	case events.EventTypeWebhookReceived:
 		return &system.WebhookReceivedEvent{
-			Timestamp:   adapterEvent.Timestamp,
+			BaseEvent:   baseEvent,
 			AdapterType: adapterEvent.AdapterType,
 			EventType:   fmt.Sprintf("%v", adapterEvent.Metadata["eventType"]),
 			Payload:     adapterEvent.Payload,
@@ -174,7 +178,7 @@ func (b *EventBridge) mapToSystemEvent(adapterEvent *events.AdapterEvent) system
 		
 	case events.EventTypeAdapterHealthChanged:
 		return &system.AdapterHealthChangedEvent{
-			Timestamp:   adapterEvent.Timestamp,
+			BaseEvent:   baseEvent,
 			AdapterType: adapterEvent.AdapterType,
 			OldStatus:   fmt.Sprintf("%v", adapterEvent.Metadata["oldStatus"]),
 			NewStatus:   fmt.Sprintf("%v", adapterEvent.Metadata["newStatus"]),
@@ -183,11 +187,27 @@ func (b *EventBridge) mapToSystemEvent(adapterEvent *events.AdapterEvent) system
 	default:
 		// Generic adapter event
 		return &system.AdapterGenericEvent{
-			Timestamp:   adapterEvent.Timestamp,
+			BaseEvent:   baseEvent,
 			AdapterType: adapterEvent.AdapterType,
 			EventType:   string(adapterEvent.EventType),
 			Payload:     adapterEvent.Payload,
 			Metadata:    adapterEvent.Metadata,
 		}
+	}
+}
+
+// getSystemEventType maps adapter event types to system event types
+func getSystemEventType(eventType events.EventType) system.EventType {
+	switch eventType {
+	case events.EventTypeOperationSuccess:
+		return system.EventTypeAdapterOperationSuccess
+	case events.EventTypeOperationFailure:
+		return system.EventTypeAdapterOperationFailure
+	case events.EventTypeWebhookReceived:
+		return system.EventTypeWebhookReceived
+	case events.EventTypeAdapterHealthChanged:
+		return system.EventTypeAdapterHealthChanged
+	default:
+		return system.EventTypeAdapterGeneric
 	}
 }

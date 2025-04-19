@@ -4,84 +4,91 @@ import (
 	"context"
 	"fmt"
 	"sync"
-
-	"github.com/S-Corkum/mcp-server/internal/adapters/resilience"
+	
 	"github.com/S-Corkum/mcp-server/internal/observability"
 )
 
 // AdapterCreator is a function that creates an adapter
 type AdapterCreator func(ctx context.Context, config interface{}) (Adapter, error)
 
-// AdapterFactory defines the interface for creating adapters
-type AdapterFactory interface {
-	// CreateAdapter creates an adapter by type
-	CreateAdapter(ctx context.Context, adapterType string) (Adapter, error)
-	
-	// RegisterAdapterCreator registers a function to create adapters of a specific type
-	RegisterAdapterCreator(adapterType string, creator AdapterCreator)
-}
-
 // DefaultAdapterFactory is the default implementation of AdapterFactory
 type DefaultAdapterFactory struct {
-	configs          map[string]interface{}
-	adapterCreators  map[string]AdapterCreator
-	metricsClient    *observability.MetricsClient
-	circuitBreakers  *resilience.CircuitBreakerManager
-	rateLimiters     *resilience.RateLimiterManager
-	mu               sync.RWMutex
+	creators      map[string]AdapterCreator
+	configs       map[string]interface{}
+	metricsClient *observability.MetricsClient
+	logger        *observability.Logger
+	mu            sync.RWMutex
 }
 
 // NewAdapterFactory creates a new adapter factory
 func NewAdapterFactory(
 	configs map[string]interface{},
 	metricsClient *observability.MetricsClient,
-	circuitBreakers *resilience.CircuitBreakerManager,
-	rateLimiters *resilience.RateLimiterManager,
+	logger *observability.Logger,
 ) *DefaultAdapterFactory {
-	factory := &DefaultAdapterFactory{
-		configs:         configs,
-		adapterCreators: make(map[string]AdapterCreator),
-		metricsClient:   metricsClient,
-		circuitBreakers: circuitBreakers,
-		rateLimiters:    rateLimiters,
+	if logger == nil {
+		logger = observability.NewLogger("adapter_factory")
 	}
 	
-	// Default creators will be registered by specific provider packages
-	
-	return factory
+	return &DefaultAdapterFactory{
+		creators:      make(map[string]AdapterCreator),
+		configs:       configs,
+		metricsClient: metricsClient,
+		logger:        logger,
+	}
 }
 
-// RegisterAdapterCreator registers an adapter creator
+// RegisterAdapterCreator registers a creator function for an adapter type
 func (f *DefaultAdapterFactory) RegisterAdapterCreator(adapterType string, creator AdapterCreator) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	
-	f.adapterCreators[adapterType] = creator
+	f.creators[adapterType] = creator
+	f.logger.Info("Registered adapter creator", map[string]interface{}{
+		"adapterType": adapterType,
+	})
 }
 
-// CreateAdapter creates an adapter by type
+// CreateAdapter creates an adapter for the given type and configuration
 func (f *DefaultAdapterFactory) CreateAdapter(ctx context.Context, adapterType string) (Adapter, error) {
-	// Get configuration for the adapter type
 	f.mu.RLock()
-	config, ok := f.configs[adapterType]
-	if !ok {
-		f.mu.RUnlock()
-		return nil, fmt.Errorf("configuration not found for adapter type: %s", adapterType)
-	}
-	
-	// Get creator for the adapter type
-	creator, ok := f.adapterCreators[adapterType]
+	creator, exists := f.creators[adapterType]
+	config := f.configs[adapterType]
 	f.mu.RUnlock()
 	
-	if !ok {
-		return nil, fmt.Errorf("unsupported adapter type: %s", adapterType)
+	if !exists {
+		return nil, fmt.Errorf("no creator registered for adapter type: %s", adapterType)
 	}
 	
-	// Create the adapter
-	adapter, err := creator(ctx, config)
-	if err != nil {
-		return nil, fmt.Errorf("failed to create adapter %s: %v", adapterType, err)
+	return creator(ctx, config)
+}
+
+// ListRegisteredAdapterTypes returns a list of registered adapter types
+func (f *DefaultAdapterFactory) ListRegisteredAdapterTypes() []string {
+	f.mu.RLock()
+	defer f.mu.RUnlock()
+	
+	types := make([]string, 0, len(f.creators))
+	for adapterType := range f.creators {
+		types = append(types, adapterType)
 	}
 	
-	return adapter, nil
+	return types
+}
+
+// SetConfig sets the configuration for an adapter type
+func (f *DefaultAdapterFactory) SetConfig(adapterType string, config interface{}) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	
+	f.configs[adapterType] = config
+}
+
+// GetConfig gets the configuration for an adapter type
+func (f *DefaultAdapterFactory) GetConfig(adapterType string) (interface{}, bool) {
+	f.mu.RLock()
+	defer f.mu.RUnlock()
+	
+	config, exists := f.configs[adapterType]
+	return config, exists
 }

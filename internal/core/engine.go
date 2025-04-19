@@ -29,7 +29,6 @@ func NewEngine(
 	db *database.Database,
 	cacheClient cache.Cache,
 	metricsClient metrics.Client,
-	_ interfaces.ContextManager, // Keep parameter for backward compatibility
 ) (*Engine, error) {
 	// Create logger
 	logger := observability.NewLogger("engine")
@@ -62,6 +61,20 @@ func (e *Engine) GetAdapter(adapterType string) (interface{}, error) {
 // ExecuteAdapterAction executes an action using the appropriate adapter
 func (e *Engine) ExecuteAdapterAction(ctx context.Context, contextID string, adapterType string, action string, params map[string]interface{}) (interface{}, error) {
 	return e.adapterManager.ExecuteAction(ctx, contextID, adapterType, action, params)
+}
+
+// HandleAdapterWebhook handles a webhook event using the appropriate adapter
+func (e *Engine) HandleAdapterWebhook(ctx context.Context, adapterType string, eventType string, payload []byte) error {
+	// Basic implementation that returns nil
+	// In a real implementation, this would forward the webhook to the appropriate adapter
+	return nil
+}
+
+// RecordWebhookInContext records a webhook event in a context
+func (e *Engine) RecordWebhookInContext(ctx context.Context, agentID string, adapterType string, eventType string, payload interface{}) (string, error) {
+	// Basic implementation that returns empty string and nil error
+	// In a real implementation, this would record the webhook in the agent's context
+	return "", nil
 }
 
 

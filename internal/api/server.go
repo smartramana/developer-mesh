@@ -7,7 +7,6 @@ import (
 
 	"github.com/S-Corkum/mcp-server/internal/core"
 	"github.com/S-Corkum/mcp-server/internal/observability"
-	"github.com/S-Corkum/mcp-server/internal/repository"
 	"github.com/gin-gonic/gin"
 	swaggerFiles "github.com/swaggo/files"
 	ginSwagger "github.com/swaggo/gin-swagger"
@@ -157,65 +156,8 @@ func (s *Server) setupRoutes() {
 	toolAPI := NewToolAPI(adapterBridge)
 	toolAPI.RegisterRoutes(v1)
 	
-	// Register GET /tools directly as a static handler (for backward compatibility)
-	v1.GET("/tools", func(c *gin.Context) {
-		// We're not using the baseURL for now to avoid unused variable error
-		c.JSON(http.StatusOK, gin.H{
-			"tools": []map[string]interface{}{
-			{
-				"name": "github",
-				"description": "GitHub integration for repository, pull request, and code management",
-				"actions": []string{
-					"create_issue",
-					"close_issue",
-					"create_pull_request",
-					"merge_pull_request",
-					"add_comment",
-					"archive_repository",
-				},
-				"safety_notes": "Cannot delete repositories for safety reasons",
-			},
-			{
-				"name": "harness",
-				"description": "Harness CI/CD integration for builds and deployments",
-				"actions": []string{
-					"trigger_pipeline",
-					"get_pipeline_status",
-					"stop_pipeline",
-					"rollback_deployment",
-				},
-				"safety_notes": "Cannot delete production feature flags for safety reasons",
-			},
-			{
-				"name": "sonarqube",
-				"description": "SonarQube integration for code quality analysis",
-				"actions": []string{
-					"trigger_analysis",
-					"get_quality_gate_status",
-					"get_issues",
-				},
-			},
-			{
-				"name": "artifactory",
-				"description": "JFrog Artifactory integration for artifact management (read-only)",
-				"actions": []string{
-					"download_artifact",
-					"get_artifact_info",
-					"search_artifacts",
-				},
-				"safety_notes": "Read-only access for safety reasons (no upload or delete capabilities)",
-			},
-			{
-				"name": "xray",
-				"description": "JFrog Xray integration for security scanning",
-				"actions": []string{
-					"scan_artifact",
-					"get_vulnerabilities",
-					"get_licenses",
-				},
-			},
-		}})
-	})
+	// Note: We removed the duplicate /tools route registration that was causing a conflict
+	// The ToolAPI.RegisterRoutes method already registers this endpoint
 	
 
 	
