@@ -6,12 +6,12 @@ import (
 
 // Simple test that passes immediately
 func TestPass(t *testing.T) {
-	// This test will always pass, just to make sure the build succeeds
+	// This test always passes; in a real implementation, we would test the context manager
+	t.Log("Test infrastructure is working")
 }
 
-// Our real tests are commented out temporarily until we fix the mocking issues
-/*
-func TestCreateContext(t *testing.T) {
-	// Test will be implemented here
+// Testing the actual context manager would require properly mocking dependencies
+// Here's a placeholder for the actual implementation
+func TestContextManager(t *testing.T) {
+	t.Skip("Skipping test until mocking issues are resolved")
 }
-*/
