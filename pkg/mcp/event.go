@@ -66,6 +66,9 @@ type Context struct {
 
 // ContextItem represents a single item in a context
 type ContextItem struct {
+	// ID is the unique identifier for this context item
+	ID string `json:"id,omitempty"`
+
 	// Role is the role of this context item (e.g., user, assistant, system)
 	Role string `json:"role"`
 
