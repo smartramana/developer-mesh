@@ -6,7 +6,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/S-Corkum/mcp-server/internal/interfaces"
+	"github.com/S-Corkum/mcp-server/internal/adapters/core"
 	"github.com/S-Corkum/mcp-server/pkg/mcp"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
@@ -52,14 +52,14 @@ func (m *MockContextManager) SearchInContext(ctx context.Context, contextID stri
 	return args.Get(0).([]mcp.ContextItem), args.Error(1)
 }
 
-// MockAdapter mocks the Adapter interface
+// MockAdapter mocks the core.Adapter interface
 type MockAdapter struct {
 	mock.Mock
 }
 
-func (m *MockAdapter) Initialize(ctx context.Context, config interface{}) error {
-	args := m.Called(ctx, config)
-	return args.Error(0)
+func (m *MockAdapter) Type() string {
+	args := m.Called()
+	return args.String(0)
 }
 
 func (m *MockAdapter) Health() string {
@@ -72,29 +72,25 @@ func (m *MockAdapter) ExecuteAction(ctx context.Context, contextID string, actio
 	return args.Get(0), args.Error(1)
 }
 
-func (m *MockAdapter) GetData(ctx context.Context, query interface{}) (interface{}, error) {
-	args := m.Called(ctx, query)
-	return args.Get(0), args.Error(1)
-}
-
 func (m *MockAdapter) HandleWebhook(ctx context.Context, eventType string, payload []byte) error {
 	args := m.Called(ctx, eventType, payload)
 	return args.Error(0)
 }
 
-func (m *MockAdapter) Subscribe(eventType string, callback func(interface{})) error {
-	args := m.Called(eventType, callback)
-	return args.Error(0)
-}
-
-func (m *MockAdapter) IsSafeOperation(operation string, params map[string]interface{}) (bool, error) {
-	args := m.Called(operation, params)
-	return args.Bool(0), args.Error(1)
-}
-
 func (m *MockAdapter) Close() error {
 	args := m.Called()
 	return args.Error(0)
+}
+
+func (m *MockAdapter) Version() string {
+	args := m.Called()
+	return args.String(0)
+}
+
+// Additional methods needed for tests but not in core.Adapter interface
+func (m *MockAdapter) GetData(ctx context.Context, query interface{}) (interface{}, error) {
+	args := m.Called(ctx, query)
+	return args.Get(0), args.Error(1)
 }
 
 func TestExecuteToolAction(t *testing.T) {
@@ -103,7 +99,7 @@ func TestExecuteToolAction(t *testing.T) {
 	mockAdapter := new(MockAdapter)
 	
 	// Create the bridge
-	adapters := map[string]interfaces.Adapter{
+	adapters := map[string]core.Adapter{
 		"test-tool": mockAdapter,
 	}
 	
@@ -140,6 +136,7 @@ func TestExecuteToolAction(t *testing.T) {
 	mockContextManager.On("UpdateContext", ctx, contextID, mock.Anything, mock.Anything).Return(testContext, nil).Times(2)
 	
 	// Set up expectations for adapter
+	mockAdapter.On("Type").Return("test-tool")
 	mockAdapter.On("ExecuteAction", ctx, contextID, action, params).Return(expectedResult, nil)
 	
 	// Execute the action
@@ -160,7 +157,7 @@ func TestGetToolData(t *testing.T) {
 	mockAdapter := new(MockAdapter)
 	
 	// Create the bridge
-	adapters := map[string]interfaces.Adapter{
+	adapters := map[string]core.Adapter{
 		"test-tool": mockAdapter,
 	}
 	
@@ -198,6 +195,7 @@ func TestGetToolData(t *testing.T) {
 	mockContextManager.On("UpdateContext", ctx, contextID, mock.Anything, mock.Anything).Return(testContext, nil).Times(2)
 	
 	// Set up expectations for adapter
+	mockAdapter.On("Type").Return("test-tool")
 	mockAdapter.On("GetData", ctx, query).Return(expectedResult, nil)
 	
 	// Get the data
@@ -218,7 +216,7 @@ func TestHandleToolWebhook(t *testing.T) {
 	mockAdapter := new(MockAdapter)
 	
 	// Create the bridge
-	adapters := map[string]interfaces.Adapter{
+	adapters := map[string]core.Adapter{
 		"test-tool": mockAdapter,
 	}
 	
@@ -268,6 +266,7 @@ func TestHandleToolWebhook(t *testing.T) {
 	mockContextManager.On("UpdateContext", ctx, "context-2", mock.Anything, nil).Return(testContext2, nil)
 	
 	// Set up expectations for adapter
+	mockAdapter.On("Type").Return("test-tool")
 	mockAdapter.On("HandleWebhook", ctx, eventType, jsonPayload).Return(nil)
 	
 	// Handle the webhook
@@ -287,7 +286,7 @@ func TestExecuteToolAction_Error(t *testing.T) {
 	mockAdapter := new(MockAdapter)
 	
 	// Create the bridge
-	adapters := map[string]interfaces.Adapter{
+	adapters := map[string]core.Adapter{
 		"test-tool": mockAdapter,
 	}
 	
@@ -318,6 +317,7 @@ func TestExecuteToolAction_Error(t *testing.T) {
 	mockContextManager.On("UpdateContext", ctx, contextID, mock.Anything, mock.Anything).Return(testContext, nil).Times(2)
 	
 	// Set up expectations for adapter to return an error
+	mockAdapter.On("Type").Return("test-tool")
 	mockAdapter.On("ExecuteAction", ctx, contextID, action, params).
 		Return(nil, assert.AnError)
 	
@@ -339,7 +339,7 @@ func TestGetToolData_Error(t *testing.T) {
 	mockAdapter := new(MockAdapter)
 	
 	// Create the bridge
-	adapters := map[string]interfaces.Adapter{
+	adapters := map[string]core.Adapter{
 		"test-tool": mockAdapter,
 	}
 	
@@ -369,6 +369,7 @@ func TestGetToolData_Error(t *testing.T) {
 	mockContextManager.On("UpdateContext", ctx, contextID, mock.Anything, mock.Anything).Return(testContext, nil).Times(2)
 	
 	// Set up expectations for adapter to return an error
+	mockAdapter.On("Type").Return("test-tool")
 	mockAdapter.On("GetData", ctx, query).Return(nil, assert.AnError)
 	
 	// Get the data

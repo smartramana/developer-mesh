@@ -5,7 +5,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/S-Corkum/mcp-server/internal/interfaces"
+	"github.com/S-Corkum/mcp-server/internal/adapters/core"
 	"github.com/S-Corkum/mcp-server/pkg/mcp"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
@@ -13,46 +13,9 @@ import (
 
 
 
-// MockCache mocks the cache interface
-type MockCache struct {
-	mock.Mock
-}
+// Using the MockCache defined in mock_database.go
 
-func (m *MockCache) Get(ctx context.Context, key string, value interface{}) error {
-	args := m.Called(ctx, key, value)
-	return args.Error(0)
-}
-
-func (m *MockCache) Set(ctx context.Context, key string, value interface{}, expiration time.Duration) error {
-	args := m.Called(ctx, key, value, expiration)
-	return args.Error(0)
-}
-
-func (m *MockCache) Delete(ctx context.Context, key string) error {
-	args := m.Called(ctx, key)
-	return args.Error(0)
-}
-
-// MockMetricsClient mocks the metrics interface
-type MockMetricsClient struct {
-	mock.Mock
-}
-
-func (m *MockMetricsClient) RecordEvent(source, eventType string) {
-	m.Called(source, eventType)
-}
-
-func (m *MockMetricsClient) RecordMetric(name string, value float64, labels map[string]string) {
-	m.Called(name, value, labels)
-}
-
-func (m *MockMetricsClient) IncrementCounter(name string, labels map[string]string) {
-	m.Called(name, labels)
-}
-
-func (m *MockMetricsClient) ObserveHistogram(name string, value float64, labels map[string]string) {
-	m.Called(name, value, labels)
-}
+// Using the MockMetricsClient defined in engine.go
 
 // MockAdapterTest mocks the adapter interface
 type MockAdapterTest struct {
@@ -135,7 +98,7 @@ func TestEngineHealth(t *testing.T) {
 	
 	// Create an engine with the mock adapter
 	engine := &Engine{
-		adapters: map[string]interfaces.Adapter{
+		adapters: map[string]core.Adapter{
 			"test-adapter": mockAdapter,
 		},
 	}
@@ -178,7 +141,7 @@ func TestListAdapters(t *testing.T) {
 	
 	// Create an engine with the mock adapters
 	engine := &Engine{
-		adapters: map[string]interfaces.Adapter{
+		adapters: map[string]core.Adapter{
 			"adapter1": mockAdapter1,
 			"adapter2": mockAdapter2,
 		},
@@ -233,7 +196,7 @@ func TestEngineShutdown(t *testing.T) {
 	engine := &Engine{
 		ctx:     engineCtx,
 		cancel:  cancel,
-		adapters: map[string]interfaces.Adapter{
+		adapters: map[string]core.Adapter{
 			"test-adapter": mockAdapter,
 		},
 		events:  make(chan mcp.Event, 10),
@@ -274,7 +237,7 @@ func TestExecuteAdapterAction(t *testing.T) {
 	
 	// Create an engine with the mock adapter
 	engine := &Engine{
-		adapters: map[string]interfaces.Adapter{
+		adapters: map[string]core.Adapter{
 			"test-adapter": mockAdapter,
 		},
 		ContextManager: mockContextManager,
