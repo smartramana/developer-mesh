@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"time"
 
+	contextAPI "github.com/S-Corkum/mcp-server/internal/api/context"
 	"github.com/S-Corkum/mcp-server/internal/core"
 	"github.com/S-Corkum/mcp-server/internal/observability"
 	"github.com/gin-gonic/gin"
@@ -133,16 +134,12 @@ func (s *Server) setupRoutes() {
 			"description": "MCP Server API for DevOps tool integration following Model Context Protocol",
 			"links": map[string]string{
 				"tools": baseURL + "/api/v1/tools",
+				"contexts": baseURL + "/api/v1/contexts",
 				"health": baseURL + "/health",
 				"documentation": baseURL + "/swagger/index.html",
 			},
 		})
 	})
-	
-
-	
-	// Skip MCPAPI initialization for now since the interface doesn't match
-	// This would need proper interface adaptation or an implementation with the expected methods
 	
 	// Tool integration API - using resource-based approach
 	adapterBridge, err := s.engine.GetAdapter("adapter_bridge")
@@ -156,12 +153,13 @@ func (s *Server) setupRoutes() {
 	toolAPI := NewToolAPI(adapterBridge)
 	toolAPI.RegisterRoutes(v1)
 	
-	// Note: We removed the duplicate /tools route registration that was causing a conflict
-	// The ToolAPI.RegisterRoutes method already registers this endpoint
-	
-
-	
-
+	// Context API - register the context endpoints
+	ctxAPI := contextAPI.NewAPI(
+		s.engine.GetContextManager(),
+		s.logger,
+		observability.NewMetricsClient(),
+	)
+	ctxAPI.RegisterRoutes(v1)
 }
 
 // Start starts the API server without TLS
@@ -244,8 +242,10 @@ func (s *Server) getBaseURL(c *gin.Context) string {
 	return scheme + "://" + host
 }
 
-// This section intentionally left empty after removing unused context handlers
+// List of shutdown hooks to execute when the server shuts down
+var shutdownHooks []func()
 
-
-
-// This section intentionally left empty after removing updateContextHandler
+// RegisterShutdownHook registers a function to be called during server shutdown
+func RegisterShutdownHook(hook func()) {
+	shutdownHooks = append(shutdownHooks, hook)
+}
