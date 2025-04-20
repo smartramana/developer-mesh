@@ -1,4 +1,4 @@
-.PHONY: all build clean test test-coverage test-coverage-html test-integration test-fuzz docker-build docker-run mock mockserver-build mockserver-run local-dev-setup
+.PHONY: all build clean test test-coverage test-coverage-html test-integration test-fuzz docker-build docker-run mock mockserver-build mockserver-run local-dev-setup test-github
 
 # Default Go parameters
 GOCMD=/usr/local/go/bin/go
@@ -36,6 +36,9 @@ test-coverage-html: test-coverage
 
 test-integration:
 	ENABLE_INTEGRATION_TESTS=true $(GOTEST) -tags=integration -v ./test/integration
+
+test-github:
+	$(GOTEST) -v ./test/github_integration_test.go
 
 test-fuzz:
 	$(GOTEST) -fuzz=FuzzTruncateOldestFirst -fuzztime=30s ./internal/core
@@ -97,3 +100,23 @@ check-imports:
 	@echo "Checking for import cycles..."
 	$(GOCMD) mod graph | grep -v '@' | sort | uniq > imports.txt
 	@echo "Import check complete. See imports.txt for details."
+
+# GitHub API integration
+build-github-only:
+	$(GOBUILD) -o $(BINARY_NAME) -v ./cmd/server
+	@echo "Building GitHub components"
+	$(GOCMD) get github.com/xeipuuv/gojsonschema
+	$(GOCMD) get github.com/golang-jwt/jwt/v4
+	$(GOMOD) tidy
+
+# Create a sample GitHub app for testing
+create-github-app:
+	@echo "Generating GitHub App private key..."
+	openssl genrsa -out configs/github-app-private-key.pem 2048
+	@echo "Private key generated. Use this for your GitHub App."
+	@echo "Follow the GitHub App setup guide in docs/github-integration-guide.md"
+
+# Setup GitHub integration
+setup-github: build-github-only test-github
+	@echo "GitHub integration setup complete."
+	@echo "See docs/github-integration-guide.md for usage instructions."
