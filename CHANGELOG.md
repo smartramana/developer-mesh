@@ -5,6 +5,29 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.4] - 2025-04-20
+
+### Added
+- Enhanced GitHub API client implementation:
+  - Improved rate limiting with adaptive retry strategies
+  - Added ETag support for more efficient API calls
+  - Enhanced GraphQL client implementation for complex queries
+  - Comprehensive webhook security and processing improvements
+
+### Changed
+- Reimplemented context management functionality with improved design
+- Updated documentation for context management features
+- Enhanced testing suite with comprehensive unit tests for context truncation
+- Optimized GitHub API integration for better performance and reliability
+
+### Fixed
+- Resolved compilation issues after major code refactoring
+- Fixed interface errors in internal/core package
+- Fixed nil pointer dereference in adapter registry initialization
+- Resolved type compatibility issues in adapter registry and event bridge
+- Fixed MetricsClient field naming and initialization in AdapterManager
+- Improved error handling in GitHub adapter with better exception management
+
 ## [0.3.3] - 2025-04-18
 
 ### Added
