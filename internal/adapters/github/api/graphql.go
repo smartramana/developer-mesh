@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -12,16 +11,9 @@ import (
 	"sync"
 	"time"
 
+	"github.com/S-Corkum/mcp-server/internal/adapters/github"
 	"github.com/S-Corkum/mcp-server/internal/adapters/resilience"
 	"github.com/S-Corkum/mcp-server/internal/observability"
-)
-
-// Common GraphQL errors
-var (
-	ErrGraphQLRequestFailed = errors.New("graphql request failed")
-	ErrGraphQLNoData        = errors.New("graphql response contained no data")
-	ErrGraphQLRateLimited   = errors.New("graphql request rate limited")
-	ErrGraphQLUnauthorized  = errors.New("graphql request unauthorized")
 )
 
 // GraphQLRequest represents a GitHub GraphQL API request
@@ -299,7 +291,11 @@ func DefaultPaginationOptions() *PaginationOptions {
 func (c *GraphQLClient) Query(ctx context.Context, query string, variables map[string]interface{}, result interface{}) error {
 	// Check rate limits before sending request
 	if !c.rateLimiter.Allow() {
-		return ErrGraphQLRateLimited
+		return github.NewGitHubError(
+			github.ErrRateLimitExceeded,
+			0,
+			"rate limit exceeded for GitHub GraphQL API",
+		)
 	}
 
 	// Create request
@@ -317,19 +313,35 @@ func (c *GraphQLClient) Query(ctx context.Context, query string, variables map[s
 	// If the response has no data, that's an error
 	if resp.Data == nil || len(resp.Data) == 0 {
 		if len(resp.Errors) > 0 {
-			return fmt.Errorf("GraphQL error: %s", resp.Errors[0].Message)
+			return github.NewGitHubError(
+				github.ErrGraphQLResponse,
+				0,
+				resp.Errors[0].Message,
+			).WithResource("graphql", "")
 		}
-		return ErrGraphQLNoData
+		return github.NewGitHubError(
+			github.ErrGraphQLResponse,
+			0,
+			"GraphQL response contained no data",
+		).WithResource("graphql", "")
 	}
 
 	// Decode response data into result
 	data, err := json.Marshal(resp.Data)
 	if err != nil {
-		return fmt.Errorf("failed to marshal GraphQL response data: %w", err)
+		return github.NewGitHubError(
+			github.ErrGraphQLResponse,
+			0,
+			"failed to marshal GraphQL response data",
+		).WithContext("error", err.Error())
 	}
 
 	if err := json.Unmarshal(data, result); err != nil {
-		return fmt.Errorf("failed to unmarshal GraphQL response data: %w", err)
+		return github.NewGitHubError(
+			github.ErrGraphQLResponse,
+			0,
+			"failed to unmarshal GraphQL response data",
+		).WithContext("error", err.Error())
 	}
 
 	return nil
@@ -359,13 +371,21 @@ func (c *GraphQLClient) QueryPaginated(ctx context.Context, query string, variab
 		// Execute query
 		var resp map[string]interface{}
 		if err := c.Query(ctx, query, variables, &resp); err != nil {
-			return fmt.Errorf("failed to fetch page %d: %w", page, err)
+			return github.NewGitHubError(
+				github.ErrGraphQLResponse,
+				0,
+				fmt.Sprintf("failed to fetch page %d", page),
+			).WithContext("error", err.Error())
 		}
 		
 		// Handle page results
 		if options.ResultHandler != nil {
 			if err := options.ResultHandler(page, resp); err != nil {
-				return fmt.Errorf("error handling page %d: %w", page, err)
+				return github.NewGitHubError(
+					github.ErrGraphQLResponse,
+					0,
+					fmt.Sprintf("error handling page %d", page),
+				).WithContext("error", err.Error())
 			}
 		}
 		
@@ -513,7 +533,11 @@ const (
 func (c *GraphQLClient) execute(ctx context.Context, req GraphQLRequest, resp *GraphQLResponse) error {
 	// Check rate limits before sending request
 	if !c.rateLimiter.Allow() {
-		return ErrGraphQLRateLimited
+		return github.NewGitHubError(
+			github.ErrRateLimitExceeded,
+			0,
+			"rate limit exceeded for GitHub GraphQL API",
+		)
 	}
 	
 	// Start metrics timing
@@ -554,7 +578,11 @@ func (c *GraphQLClient) execute(ctx context.Context, req GraphQLRequest, resp *G
 	httpResp, err := c.client.Do(httpReq)
 	if err != nil {
 		c.metricsClient.IncrementCounter("github.graphql.error", 1)
-		return fmt.Errorf("%w: %v", ErrGraphQLRequestFailed, err)
+		return github.NewGitHubError(
+			github.ErrGraphQLRequest,
+			0,
+			"failed to execute GraphQL request",
+		).WithContext("error", err.Error())
 	}
 	defer httpResp.Body.Close()
 
@@ -562,30 +590,73 @@ func (c *GraphQLClient) execute(ctx context.Context, req GraphQLRequest, resp *G
 	if httpResp.StatusCode != http.StatusOK {
 		c.metricsClient.IncrementCounter("github.graphql.error", 1)
 		
-		// Handle specific HTTP status codes
-		switch httpResp.StatusCode {
-		case http.StatusUnauthorized:
-			return ErrGraphQLUnauthorized
-		case http.StatusForbidden:
-			// Check if this is a rate limit error
-			if strings.Contains(httpResp.Header.Get("X-RateLimit-Remaining"), "0") {
-				return ErrGraphQLRateLimited
-			}
-			return fmt.Errorf("forbidden: %w", ErrGraphQLRequestFailed)
-		default:
-			return fmt.Errorf("HTTP %d: %w", httpResp.StatusCode, ErrGraphQLRequestFailed)
+		// Read error body if available
+		errorBody, _ := io.ReadAll(httpResp.Body)
+		
+		// Try to parse error body as JSON
+		var errorResponse struct {
+			Message string `json:"message"`
+			Documentation string `json:"documentation_url"`
 		}
+		json.Unmarshal(errorBody, &errorResponse) // Ignore error, we'll use raw body if this fails
+		
+		// Create appropriate error
+		var message string
+		if errorResponse.Message != "" {
+			message = errorResponse.Message
+		} else {
+			message = string(errorBody)
+		}
+		
+		// Create structured error based on status code
+		githubErr := github.FromHTTPError(
+			httpResp.StatusCode,
+			message,
+			errorResponse.Documentation,
+		)
+		
+		// Add GraphQL context
+		githubErr.WithResource("graphql", "")
+		githubErr.WithOperation("POST", c.config.URL)
+		
+		// Add rate limit info if available
+		if rateLimit := httpResp.Header.Get("X-RateLimit-Limit"); rateLimit != "" {
+			githubErr.WithContext("rate_limit", rateLimit)
+			githubErr.WithContext("rate_limit_remaining", httpResp.Header.Get("X-RateLimit-Remaining"))
+			githubErr.WithContext("rate_limit_reset", httpResp.Header.Get("X-RateLimit-Reset"))
+		}
+		
+		// Log appropriate error level
+		if httpResp.StatusCode >= 500 {
+			c.logger.Error("GitHub GraphQL server error", 
+				"status", httpResp.StatusCode,
+				"message", message)
+		} else {
+			c.logger.Warn("GitHub GraphQL client error", 
+				"status", httpResp.StatusCode,
+				"message", message)
+		}
+		
+		return githubErr
 	}
 
 	// Read response body
 	body, err := io.ReadAll(httpResp.Body)
 	if err != nil {
-		return fmt.Errorf("failed to read GraphQL response: %w", err)
+		return github.NewGitHubError(
+			github.ErrGraphQLResponse,
+			httpResp.StatusCode,
+			"failed to read GraphQL response",
+		).WithContext("error", err.Error())
 	}
 
 	// Unmarshal response
 	if err := json.Unmarshal(body, resp); err != nil {
-		return fmt.Errorf("failed to unmarshal GraphQL response: %w", err)
+		return github.NewGitHubError(
+			github.ErrGraphQLResponse,
+			httpResp.StatusCode,
+			"failed to unmarshal GraphQL response",
+		).WithContext("error", err.Error())
 	}
 
 	// Check for GraphQL errors
@@ -599,7 +670,29 @@ func (c *GraphQLClient) execute(ctx context.Context, req GraphQLRequest, resp *G
 		
 		// If response has no data, return error
 		if resp.Data == nil || len(resp.Data) == 0 {
-			return fmt.Errorf("%w: %s", ErrGraphQLNoData, resp.Errors[0].Message)
+			// Create structured error
+			githubErr := github.NewGitHubError(
+				github.ErrGraphQLResponse,
+				0,
+				resp.Errors[0].Message,
+			)
+			
+			// Add GraphQL context
+			githubErr.WithResource("graphql", "")
+			githubErr.WithOperation("POST", c.config.URL)
+			
+			// Add error details
+			if resp.Errors[0].Type != "" {
+				githubErr.WithContext("error_type", resp.Errors[0].Type)
+			}
+			
+			// Add location if available
+			if len(resp.Errors[0].Locations) > 0 {
+				loc := resp.Errors[0].Locations[0]
+				githubErr.WithContext("error_location", fmt.Sprintf("line %d, column %d", loc.Line, loc.Column))
+			}
+			
+			return githubErr
 		}
 		
 		// If response has some data, just log the errors and continue

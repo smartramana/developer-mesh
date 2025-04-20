@@ -13,6 +13,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/S-Corkum/mcp-server/internal/adapters/github"
 	"github.com/xeipuuv/gojsonschema"
 )
 
@@ -141,7 +142,11 @@ func (v *Validator) ValidateSourceIP(sourceIP string) error {
 	// Parse source IP
 	ip := net.ParseIP(sourceIP)
 	if ip == nil {
-		return fmt.Errorf("invalid source IP: %s", sourceIP)
+		return github.NewGitHubError(
+			github.ErrInvalidWebhook,
+			0,
+			fmt.Sprintf("invalid source IP: %s", sourceIP),
+		).WithContext("validation", "ip_format")
 	}
 	
 	// Check if IP is in any of the GitHub IP ranges
@@ -151,7 +156,24 @@ func (v *Validator) ValidateSourceIP(sourceIP string) error {
 		}
 	}
 	
-	return fmt.Errorf("source IP %s is not in GitHub's IP ranges", sourceIP)
+	// Create a detailed error with context
+	err := github.NewGitHubError(
+		github.ErrInvalidWebhook,
+		0,
+		fmt.Sprintf("source IP %s is not in GitHub's IP ranges", sourceIP),
+	)
+	err.WithContext("validation", "ip_not_allowed")
+	
+	// Add the allowed IP ranges for context
+	if len(v.ipRanges) > 0 {
+		var allowedRanges []string
+		for _, ipRange := range v.ipRanges {
+			allowedRanges = append(allowedRanges, ipRange.CIDR)
+		}
+		err.WithContext("allowed_ip_ranges", strings.Join(allowedRanges[:3], ", ") + "...")
+	}
+	
+	return err
 }
 
 // SetSecret sets the webhook secret
@@ -194,12 +216,16 @@ func (v *Validator) ValidateSignature(payload []byte, signature string) error {
 	// Decode the provided signature
 	providedMAC, err := hex.DecodeString(signature)
 	if err != nil {
-		return fmt.Errorf("invalid signature format: %w", err)
+		return github.NewGitHubError(
+			github.ErrInvalidSignature,
+			0,
+			"invalid signature format",
+		).WithContext("error", err.Error())
 	}
 	
 	// Constant-time comparison to prevent timing attacks
 	if !hmac.Equal(providedMAC, expectedMAC) {
-		return fmt.Errorf("invalid webhook signature")
+		return github.ErrInvalidSignature
 	}
 	
 	return nil
@@ -214,12 +240,20 @@ func (v *Validator) ValidateDeliveryID(deliveryID string) error {
 	
 	// Check if delivery ID has been seen before
 	if v.deliveryCache.Has(deliveryID) {
-		return fmt.Errorf("duplicate delivery ID: %s", deliveryID)
+		return github.NewGitHubError(
+			github.ErrDuplicateDelivery,
+			0,
+			fmt.Sprintf("duplicate delivery ID: %s", deliveryID),
+		)
 	}
 	
 	// Add delivery ID to cache
 	if err := v.deliveryCache.Add(deliveryID, time.Now()); err != nil {
-		return fmt.Errorf("failed to add delivery ID to cache: %w", err)
+		return github.NewGitHubError(
+			github.ErrInvalidWebhook,
+			0,
+			"failed to add delivery ID to cache",
+		).WithContext("error", err.Error())
 	}
 	
 	return nil
@@ -236,7 +270,11 @@ func (v *Validator) ValidateHeaders(headers http.Header) error {
 	
 	for _, header := range requiredHeaders {
 		if headers.Get(header) == "" {
-			return fmt.Errorf("missing header: %s", header)
+			return github.NewGitHubError(
+				github.ErrInvalidWebhook,
+				0,
+				fmt.Sprintf("missing required header: %s", header),
+			)
 		}
 	}
 	
@@ -256,7 +294,11 @@ func (v *Validator) ValidatePayload(eventType string, payload []byte) error {
 	documentLoader := gojsonschema.NewBytesLoader(payload)
 	result, err := schema.Validate(documentLoader)
 	if err != nil {
-		return fmt.Errorf("failed to validate payload: %w", err)
+		return github.NewGitHubError(
+			github.ErrInvalidPayload,
+			0,
+			"failed to validate payload",
+		).WithContext("error", err.Error())
 	}
 	
 	// Check for validation errors
@@ -267,7 +309,13 @@ func (v *Validator) ValidatePayload(eventType string, payload []byte) error {
 			errMsgs = append(errMsgs, err.String())
 		}
 		
-		return fmt.Errorf("payload validation failed: %s", strings.Join(errMsgs, "; "))
+		errorMsg := strings.Join(errMsgs, "; ")
+		
+		return github.NewGitHubError(
+			github.ErrInvalidPayload,
+			0,
+			"payload validation failed",
+		).WithContext("validation_errors", errorMsg)
 	}
 	
 	return nil
@@ -275,26 +323,38 @@ func (v *Validator) ValidatePayload(eventType string, payload []byte) error {
 
 // Validate validates a webhook request
 func (v *Validator) Validate(eventType string, payload []byte, headers http.Header, remoteAddr string) error {
+	// Track the first error we encounter
+	var validationErr error
+	
 	// Validate headers
 	if err := v.ValidateHeaders(headers); err != nil {
-		return err
+		validationErr = github.FromWebhookError(err, eventType)
+		validationErr.WithContext("stage", "headers")
+		return validationErr
 	}
 	
 	// Validate signature
 	signature := headers.Get("X-Hub-Signature-256")
 	if err := v.ValidateSignature(payload, signature); err != nil {
-		return err
+		validationErr = github.FromWebhookError(err, eventType)
+		validationErr.WithContext("stage", "signature")
+		return validationErr
 	}
 	
 	// Validate delivery ID
 	deliveryID := headers.Get("X-GitHub-Delivery")
 	if err := v.ValidateDeliveryID(deliveryID); err != nil {
-		return err
+		validationErr = github.FromWebhookError(err, eventType)
+		validationErr.WithContext("stage", "delivery_id")
+		validationErr.WithContext("delivery_id", deliveryID)
+		return validationErr
 	}
 	
 	// Validate payload schema
 	if err := v.ValidatePayload(eventType, payload); err != nil {
-		return err
+		validationErr = github.FromWebhookError(err, eventType)
+		validationErr.WithContext("stage", "payload")
+		return validationErr
 	}
 	
 	// Validate source IP if enabled
@@ -304,7 +364,10 @@ func (v *Validator) Validate(eventType string, payload []byte, headers http.Head
 		sourceIP := ipParts[0]
 		
 		if err := v.ValidateSourceIP(sourceIP); err != nil {
-			return err
+			validationErr = github.FromWebhookError(err, eventType)
+			validationErr.WithContext("stage", "source_ip")
+			validationErr.WithContext("ip", sourceIP)
+			return validationErr
 		}
 	}
 	
