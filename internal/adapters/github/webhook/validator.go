@@ -4,13 +4,23 @@ import (
 	"crypto/hmac"
 	"crypto/sha256"
 	"encoding/hex"
+	"encoding/json"
 	"fmt"
+	"io"
+	"net"
 	"net/http"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/xeipuuv/gojsonschema"
 )
+
+// IPRange represents an IP address range
+type IPRange struct {
+	CIDR   string
+	IPNet  *net.IPNet
+}
 
 // Validator validates webhook requests
 type Validator struct {
@@ -18,6 +28,9 @@ type Validator struct {
 	schemaCatalog  map[string]*gojsonschema.Schema
 	schemaLoader   gojsonschema.JSONLoader
 	deliveryCache  DeliveryCache
+	ipRanges       []IPRange
+	validateIPs    bool
+	ipRangesLastUpdated time.Time
 }
 
 // DeliveryCache defines the interface for caching delivery IDs
@@ -34,11 +47,111 @@ type DeliveryCache interface {
 
 // NewValidator creates a new webhook validator
 func NewValidator(secret string, deliveryCache DeliveryCache) *Validator {
-	return &Validator{
+	validator := &Validator{
 		secret:        secret,
 		schemaCatalog: make(map[string]*gojsonschema.Schema),
 		deliveryCache: deliveryCache,
+		ipRanges:      []IPRange{},
+		validateIPs:   false,
 	}
+	
+	return validator
+}
+
+// EnableIPValidation enables IP validation and fetches GitHub's IP ranges
+func (v *Validator) EnableIPValidation() error {
+	v.validateIPs = true
+	return v.updateGitHubIPRanges()
+}
+
+// DisableIPValidation disables IP validation
+func (v *Validator) DisableIPValidation() {
+	v.validateIPs = false
+}
+
+// updateGitHubIPRanges fetches and updates GitHub's published IP ranges
+func (v *Validator) updateGitHubIPRanges() error {
+	// Check if we updated recently (within the last hour)
+	if time.Since(v.ipRangesLastUpdated) < time.Hour {
+		return nil
+	}
+	
+	// Fetch GitHub's Meta API
+	resp, err := http.Get("https://api.github.com/meta")
+	if err != nil {
+		return fmt.Errorf("failed to fetch GitHub IP ranges: %w", err)
+	}
+	defer resp.Body.Close()
+	
+	if resp.StatusCode != http.StatusOK {
+		return fmt.Errorf("failed to fetch GitHub IP ranges: HTTP %d", resp.StatusCode)
+	}
+	
+	// Parse the response
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return fmt.Errorf("failed to read GitHub IP ranges response: %w", err)
+	}
+	
+	var meta struct {
+		Hooks []string `json:"hooks"`
+	}
+	
+	if err := json.Unmarshal(body, &meta); err != nil {
+		return fmt.Errorf("failed to parse GitHub IP ranges: %w", err)
+	}
+	
+	// Parse IP ranges
+	var ipRanges []IPRange
+	for _, cidr := range meta.Hooks {
+		_, ipNet, err := net.ParseCIDR(cidr)
+		if err != nil {
+			return fmt.Errorf("failed to parse GitHub IP range %s: %w", cidr, err)
+		}
+		
+		ipRanges = append(ipRanges, IPRange{
+			CIDR:  cidr,
+			IPNet: ipNet,
+		})
+	}
+	
+	// Update IP ranges
+	v.ipRanges = ipRanges
+	v.ipRangesLastUpdated = time.Now()
+	
+	return nil
+}
+
+// ValidateSourceIP validates the source IP of a webhook request
+func (v *Validator) ValidateSourceIP(sourceIP string) error {
+	// Skip validation if disabled
+	if !v.validateIPs {
+		return nil
+	}
+	
+	// Update IP ranges if needed
+	if time.Since(v.ipRangesLastUpdated) > time.Hour {
+		if err := v.updateGitHubIPRanges(); err != nil {
+			// Log error but don't fail the request if we can't update IP ranges
+			// This prevents valid webhooks from being rejected due to temporary issues
+			return nil
+		}
+	}
+	
+	// Parse source IP
+	ip := net.ParseIP(sourceIP)
+	if ip == nil {
+		return fmt.Errorf("invalid source IP: %s", sourceIP)
+	}
+	
+	// Check if IP is in any of the GitHub IP ranges
+	for _, ipRange := range v.ipRanges {
+		if ipRange.IPNet.Contains(ip) {
+			return nil
+		}
+	}
+	
+	return fmt.Errorf("source IP %s is not in GitHub's IP ranges", sourceIP)
 }
 
 // SetSecret sets the webhook secret
@@ -76,10 +189,16 @@ func (v *Validator) ValidateSignature(payload []byte, signature string) error {
 	// Calculate expected HMAC signature
 	mac := hmac.New(sha256.New, []byte(v.secret))
 	mac.Write(payload)
-	expectedMAC := hex.EncodeToString(mac.Sum(nil))
+	expectedMAC := mac.Sum(nil)
+	
+	// Decode the provided signature
+	providedMAC, err := hex.DecodeString(signature)
+	if err != nil {
+		return fmt.Errorf("invalid signature format: %w", err)
+	}
 	
 	// Constant-time comparison to prevent timing attacks
-	if !hmac.Equal([]byte(signature), []byte(expectedMAC)) {
+	if !hmac.Equal(providedMAC, expectedMAC) {
 		return fmt.Errorf("invalid webhook signature")
 	}
 	
@@ -155,7 +274,7 @@ func (v *Validator) ValidatePayload(eventType string, payload []byte) error {
 }
 
 // Validate validates a webhook request
-func (v *Validator) Validate(eventType string, payload []byte, headers http.Header) error {
+func (v *Validator) Validate(eventType string, payload []byte, headers http.Header, remoteAddr string) error {
 	// Validate headers
 	if err := v.ValidateHeaders(headers); err != nil {
 		return err
@@ -176,6 +295,17 @@ func (v *Validator) Validate(eventType string, payload []byte, headers http.Head
 	// Validate payload schema
 	if err := v.ValidatePayload(eventType, payload); err != nil {
 		return err
+	}
+	
+	// Validate source IP if enabled
+	if v.validateIPs {
+		// Extract IP from remote address (remove port if present)
+		ipParts := strings.Split(remoteAddr, ":")
+		sourceIP := ipParts[0]
+		
+		if err := v.ValidateSourceIP(sourceIP); err != nil {
+			return err
+		}
 	}
 	
 	return nil
