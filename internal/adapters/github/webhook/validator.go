@@ -13,7 +13,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/S-Corkum/mcp-server/internal/adapters/github"
+	"github.com/S-Corkum/mcp-server/internal/common/errors"
 	"github.com/xeipuuv/gojsonschema"
 )
 
@@ -142,8 +142,8 @@ func (v *Validator) ValidateSourceIP(sourceIP string) error {
 	// Parse source IP
 	ip := net.ParseIP(sourceIP)
 	if ip == nil {
-		return github.NewGitHubError(
-			github.ErrInvalidWebhook,
+		return errors.NewGitHubError(
+			errors.ErrInvalidWebhook,
 			0,
 			fmt.Sprintf("invalid source IP: %s", sourceIP),
 		).WithContext("validation", "ip_format")
@@ -157,8 +157,8 @@ func (v *Validator) ValidateSourceIP(sourceIP string) error {
 	}
 	
 	// Create a detailed error with context
-	err := github.NewGitHubError(
-		github.ErrInvalidWebhook,
+	err := errors.NewGitHubError(
+		errors.ErrInvalidWebhook,
 		0,
 		fmt.Sprintf("source IP %s is not in GitHub's IP ranges", sourceIP),
 	)
@@ -216,16 +216,24 @@ func (v *Validator) ValidateSignature(payload []byte, signature string) error {
 	// Decode the provided signature
 	providedMAC, err := hex.DecodeString(signature)
 	if err != nil {
-		return github.NewGitHubError(
-			github.ErrInvalidSignature,
+		return errors.NewGitHubError(
+			errors.ErrInvalidSignature,
 			0,
 			"invalid signature format",
-		).WithContext("error", err.Error())
+		).WithContext("error", err.Error()).
+			WithContext("signature_length", fmt.Sprintf("%d", len(signature))).
+			WithResource("webhook", "signature")
 	}
 	
 	// Constant-time comparison to prevent timing attacks
 	if !hmac.Equal(providedMAC, expectedMAC) {
-		return github.ErrInvalidSignature
+		return errors.NewGitHubError(
+			errors.ErrInvalidSignature,
+			0,
+			"webhook signature verification failed",
+		).WithContext("signature_length", fmt.Sprintf("%d", len(signature))).
+			WithContext("expected_length", fmt.Sprintf("%d", len(expectedMAC))).
+			WithResource("webhook", "signature")
 	}
 	
 	return nil
@@ -240,8 +248,8 @@ func (v *Validator) ValidateDeliveryID(deliveryID string) error {
 	
 	// Check if delivery ID has been seen before
 	if v.deliveryCache.Has(deliveryID) {
-		return github.NewGitHubError(
-			github.ErrDuplicateDelivery,
+		return errors.NewGitHubError(
+			errors.ErrDuplicateDelivery,
 			0,
 			fmt.Sprintf("duplicate delivery ID: %s", deliveryID),
 		)
@@ -249,8 +257,8 @@ func (v *Validator) ValidateDeliveryID(deliveryID string) error {
 	
 	// Add delivery ID to cache
 	if err := v.deliveryCache.Add(deliveryID, time.Now()); err != nil {
-		return github.NewGitHubError(
-			github.ErrInvalidWebhook,
+		return errors.NewGitHubError(
+			errors.ErrInvalidWebhook,
 			0,
 			"failed to add delivery ID to cache",
 		).WithContext("error", err.Error())
@@ -270,8 +278,8 @@ func (v *Validator) ValidateHeaders(headers http.Header) error {
 	
 	for _, header := range requiredHeaders {
 		if headers.Get(header) == "" {
-			return github.NewGitHubError(
-				github.ErrInvalidWebhook,
+			return errors.NewGitHubError(
+				errors.ErrInvalidWebhook,
 				0,
 				fmt.Sprintf("missing required header: %s", header),
 			)
@@ -294,8 +302,8 @@ func (v *Validator) ValidatePayload(eventType string, payload []byte) error {
 	documentLoader := gojsonschema.NewBytesLoader(payload)
 	result, err := schema.Validate(documentLoader)
 	if err != nil {
-		return github.NewGitHubError(
-			github.ErrInvalidPayload,
+		return errors.NewGitHubError(
+			errors.ErrInvalidPayload,
 			0,
 			"failed to validate payload",
 		).WithContext("error", err.Error())
@@ -311,8 +319,8 @@ func (v *Validator) ValidatePayload(eventType string, payload []byte) error {
 		
 		errorMsg := strings.Join(errMsgs, "; ")
 		
-		return github.NewGitHubError(
-			github.ErrInvalidPayload,
+		return errors.NewGitHubError(
+			errors.ErrInvalidPayload,
 			0,
 			"payload validation failed",
 		).WithContext("validation_errors", errorMsg)
@@ -322,13 +330,19 @@ func (v *Validator) ValidatePayload(eventType string, payload []byte) error {
 }
 
 // Validate validates a webhook request
-func (v *Validator) Validate(eventType string, payload []byte, headers http.Header, remoteAddr string) error {
+func (v *Validator) Validate(eventType string, payload []byte, headers http.Header) error {
+	// Default empty remote address
+	return v.ValidateWithIP(eventType, payload, headers, "")
+}
+
+// ValidateWithIP validates a webhook request with a remote IP address
+func (v *Validator) ValidateWithIP(eventType string, payload []byte, headers http.Header, remoteAddr string) error {
 	// Track the first error we encounter
 	var validationErr error
 	
 	// Validate headers
 	if err := v.ValidateHeaders(headers); err != nil {
-		validationErr = github.FromWebhookError(err, eventType)
+		validationErr = errors.FromWebhookError(err, eventType)
 		validationErr.WithContext("stage", "headers")
 		return validationErr
 	}
@@ -336,7 +350,7 @@ func (v *Validator) Validate(eventType string, payload []byte, headers http.Head
 	// Validate signature
 	signature := headers.Get("X-Hub-Signature-256")
 	if err := v.ValidateSignature(payload, signature); err != nil {
-		validationErr = github.FromWebhookError(err, eventType)
+		validationErr = errors.FromWebhookError(err, eventType)
 		validationErr.WithContext("stage", "signature")
 		return validationErr
 	}
@@ -344,7 +358,7 @@ func (v *Validator) Validate(eventType string, payload []byte, headers http.Head
 	// Validate delivery ID
 	deliveryID := headers.Get("X-GitHub-Delivery")
 	if err := v.ValidateDeliveryID(deliveryID); err != nil {
-		validationErr = github.FromWebhookError(err, eventType)
+		validationErr = errors.FromWebhookError(err, eventType)
 		validationErr.WithContext("stage", "delivery_id")
 		validationErr.WithContext("delivery_id", deliveryID)
 		return validationErr
@@ -352,19 +366,19 @@ func (v *Validator) Validate(eventType string, payload []byte, headers http.Head
 	
 	// Validate payload schema
 	if err := v.ValidatePayload(eventType, payload); err != nil {
-		validationErr = github.FromWebhookError(err, eventType)
+		validationErr = errors.FromWebhookError(err, eventType)
 		validationErr.WithContext("stage", "payload")
 		return validationErr
 	}
 	
 	// Validate source IP if enabled
-	if v.validateIPs {
+	if v.validateIPs && remoteAddr != "" {
 		// Extract IP from remote address (remove port if present)
 		ipParts := strings.Split(remoteAddr, ":")
 		sourceIP := ipParts[0]
 		
 		if err := v.ValidateSourceIP(sourceIP); err != nil {
-			validationErr = github.FromWebhookError(err, eventType)
+			validationErr = errors.FromWebhookError(err, eventType)
 			validationErr.WithContext("stage", "source_ip")
 			validationErr.WithContext("ip", sourceIP)
 			return validationErr

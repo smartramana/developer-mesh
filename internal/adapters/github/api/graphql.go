@@ -11,9 +11,10 @@ import (
 	"sync"
 	"time"
 
-	"github.com/S-Corkum/mcp-server/internal/adapters/github"
+	"github.com/S-Corkum/mcp-server/internal/common/errors"
 	"github.com/S-Corkum/mcp-server/internal/adapters/resilience"
 	"github.com/S-Corkum/mcp-server/internal/observability"
+	"github.com/golang-jwt/jwt/v4"
 )
 
 // GraphQLRequest represents a GitHub GraphQL API request
@@ -291,8 +292,8 @@ func DefaultPaginationOptions() *PaginationOptions {
 func (c *GraphQLClient) Query(ctx context.Context, query string, variables map[string]interface{}, result interface{}) error {
 	// Check rate limits before sending request
 	if !c.rateLimiter.Allow() {
-		return github.NewGitHubError(
-			github.ErrRateLimitExceeded,
+		return errors.NewGitHubError(
+			errors.ErrRateLimitExceeded,
 			0,
 			"rate limit exceeded for GitHub GraphQL API",
 		)
@@ -313,35 +314,52 @@ func (c *GraphQLClient) Query(ctx context.Context, query string, variables map[s
 	// If the response has no data, that's an error
 	if resp.Data == nil || len(resp.Data) == 0 {
 		if len(resp.Errors) > 0 {
-			return github.NewGitHubError(
-				github.ErrGraphQLResponse,
+			return errors.NewGitHubError(
+				errors.ErrGraphQLResponse,
 				0,
 				resp.Errors[0].Message,
 			).WithResource("graphql", "")
 		}
-		return github.NewGitHubError(
-			github.ErrGraphQLResponse,
+		return errors.NewGitHubError(
+			errors.ErrGraphQLResponse,
 			0,
 			"GraphQL response contained no data",
 		).WithResource("graphql", "")
 	}
 
 	// Decode response data into result
-	data, err := json.Marshal(resp.Data)
-	if err != nil {
-		return github.NewGitHubError(
-			github.ErrGraphQLResponse,
-			0,
-			"failed to marshal GraphQL response data",
-		).WithContext("error", err.Error())
+	// First check if result is nil
+	if result == nil {
+		return nil
 	}
+	
+	// Handle different result types
+	switch v := result.(type) {
+	case *map[string]interface{}:
+		// Direct assignment for map
+		*v = resp.Data
+	case *interface{}:
+		// Direct assignment for interface
+		*v = resp.Data
+	default:
+		// For other types, marshal and unmarshal
+		data, err := json.Marshal(resp.Data)
+		if err != nil {
+			return errors.NewGitHubError(
+				errors.ErrGraphQLResponse,
+				0,
+				"failed to marshal GraphQL response data",
+			).WithContext("error", err.Error())
+		}
 
-	if err := json.Unmarshal(data, result); err != nil {
-		return github.NewGitHubError(
-			github.ErrGraphQLResponse,
-			0,
-			"failed to unmarshal GraphQL response data",
-		).WithContext("error", err.Error())
+		if err := json.Unmarshal(data, result); err != nil {
+			return errors.NewGitHubError(
+				errors.ErrGraphQLResponse,
+				0,
+				"failed to unmarshal GraphQL response data",
+			).WithContext("error", err.Error()).
+				WithContext("result_type", fmt.Sprintf("%T", result))
+		}
 	}
 
 	return nil
@@ -371,8 +389,8 @@ func (c *GraphQLClient) QueryPaginated(ctx context.Context, query string, variab
 		// Execute query
 		var resp map[string]interface{}
 		if err := c.Query(ctx, query, variables, &resp); err != nil {
-			return github.NewGitHubError(
-				github.ErrGraphQLResponse,
+			return errors.NewGitHubError(
+				errors.ErrGraphQLResponse,
 				0,
 				fmt.Sprintf("failed to fetch page %d", page),
 			).WithContext("error", err.Error())
@@ -381,8 +399,8 @@ func (c *GraphQLClient) QueryPaginated(ctx context.Context, query string, variab
 		// Handle page results
 		if options.ResultHandler != nil {
 			if err := options.ResultHandler(page, resp); err != nil {
-				return github.NewGitHubError(
-					github.ErrGraphQLResponse,
+				return errors.NewGitHubError(
+					errors.ErrGraphQLResponse,
 					0,
 					fmt.Sprintf("error handling page %d", page),
 				).WithContext("error", err.Error())
@@ -409,17 +427,150 @@ func (c *GraphQLClient) QueryPaginated(ctx context.Context, query string, variab
 
 // extractPageInfo extracts pagination info from a GraphQL response
 func (c *GraphQLClient) extractPageInfo(data map[string]interface{}, itemsField string) (bool, string) {
+	// First try looking for the specified itemsField directly
+	if itemsField != "" {
+		// Try to find the field that contains the connection (e.g., "repositories", "issues", etc.)
+		for key, value := range data {
+			// Look for the connection in the top level
+			connectionData, ok := c.findConnection(value, itemsField)
+			if ok {
+				return c.extractPageInfoFromConnection(connectionData)
+			}
+			
+			// If not at top level, try one level down
+			if subObj, ok := value.(map[string]interface{}); ok {
+				for _, subValue := range subObj {
+					connectionData, ok := c.findConnection(subValue, itemsField)
+					if ok {
+						return c.extractPageInfoFromConnection(connectionData)
+					}
+				}
+			}
+		}
+	}
+	
+	// Fallback to searching the entire structure recursively
+	return c.recursiveExtractPageInfo(data)
+}
+
+// findConnection tries to find the connection object containing pageInfo
+func (c *GraphQLClient) findConnection(value interface{}, itemsField string) (map[string]interface{}, bool) {
+	// Check if the value is a map
+	connectionData, ok := value.(map[string]interface{})
+	if !ok {
+		return nil, false
+	}
+	
+	// Check if it has pageInfo
+	if _, hasPageInfo := connectionData["pageInfo"]; hasPageInfo {
+		// This is likely the connection we're looking for
+		return connectionData, true
+	}
+	
+	// Check if it has the items field we're looking for
+	if _, hasItems := connectionData[itemsField]; hasItems {
+		return connectionData, true
+	}
+	
+	return nil, false
+}
+
+// extractPageInfoFromConnection extracts pagination info from a connection object
+func (c *GraphQLClient) extractPageInfoFromConnection(connection map[string]interface{}) (bool, string) {
+	// Look for pageInfo in the connection
+	pageInfoVal, exists := connection["pageInfo"]
+	if !exists {
+		return false, ""
+	}
+	
+	// Type assertion with validation
+	pageInfo, ok := pageInfoVal.(map[string]interface{})
+	if !ok {
+		c.logger.Warn("Invalid pageInfo type", map[string]interface{}{
+			"expected": "map[string]interface{}",
+			"actual":   fmt.Sprintf("%T", pageInfoVal),
+		})
+		return false, ""
+	}
+	
+	// Extract hasNextPage with validation
+	hasNextPageVal, exists := pageInfo["hasNextPage"]
+	if !exists {
+		return false, ""
+	}
+	
+	// Handle different types for hasNextPage (some APIs might return string "true"/"false")
+	var hasNextPage bool
+	
+	switch v := hasNextPageVal.(type) {
+	case bool:
+		hasNextPage = v
+	case string:
+		hasNextPage = (v == "true")
+	case int:
+		hasNextPage = (v != 0)
+	case float64:
+		hasNextPage = (v != 0)
+	default:
+		c.logger.Warn("Invalid hasNextPage type", map[string]interface{}{
+			"expected": "bool/string/number",
+			"actual":   fmt.Sprintf("%T", hasNextPageVal),
+			"value":    fmt.Sprintf("%v", hasNextPageVal),
+		})
+		return false, ""
+	}
+	
+	// If there's no next page, no need to extract the cursor
+	if !hasNextPage {
+		return false, ""
+	}
+	
+	// Extract endCursor with validation
+	endCursorVal, exists := pageInfo["endCursor"]
+	if !exists {
+		// If no cursor but hasNextPage is true, log a warning
+		c.logger.Warn("No endCursor found but hasNextPage is true", nil)
+		return false, ""
+	}
+	
+	// Handle null cursor (end of pagination)
+	if endCursorVal == nil {
+		return false, ""
+	}
+	
+	// Handle different types for endCursor
+	var endCursor string
+	
+	switch v := endCursorVal.(type) {
+	case string:
+		endCursor = v
+	case int, int64, float64:
+		endCursor = fmt.Sprintf("%v", v)
+	default:
+		c.logger.Warn("Invalid endCursor type", map[string]interface{}{
+			"expected": "string",
+			"actual":   fmt.Sprintf("%T", endCursorVal),
+		})
+		return false, ""
+	}
+	
+	return hasNextPage, endCursor
+}
+
+// recursiveExtractPageInfo recursively searches for pagination info
+func (c *GraphQLClient) recursiveExtractPageInfo(data map[string]interface{}) (bool, string) {
 	// Navigate into the data structure to find the pageInfo
-	for key, value := range data {
+	for _, value := range data {
 		if subObj, ok := value.(map[string]interface{}); ok {
-			if pageInfo, ok := subObj["pageInfo"].(map[string]interface{}); ok {
-				hasNextPage, _ := pageInfo["hasNextPage"].(bool)
-				endCursor, _ := pageInfo["endCursor"].(string)
-				return hasNextPage, endCursor
+			// Check if this object has pageInfo
+			if pageInfoVal, exists := subObj["pageInfo"]; exists {
+				// Get pagination info from this connection
+				connection, _ := c.findConnection(subObj, "")
+				return c.extractPageInfoFromConnection(connection)
 			}
 			
 			// Recursively search for pageInfo
-			hasNextPage, endCursor := c.extractPageInfo(subObj, itemsField)
+			hasNextPage, endCursor := c.recursiveExtractPageInfo(subObj)
 			if hasNextPage {
 				return hasNextPage, endCursor
 			}
@@ -533,8 +684,8 @@ const (
 func (c *GraphQLClient) execute(ctx context.Context, req GraphQLRequest, resp *GraphQLResponse) error {
 	// Check rate limits before sending request
 	if !c.rateLimiter.Allow() {
-		return github.NewGitHubError(
-			github.ErrRateLimitExceeded,
+		return errors.NewGitHubError(
+			errors.ErrRateLimitExceeded,
 			0,
 			"rate limit exceeded for GitHub GraphQL API",
 		)
@@ -563,13 +714,21 @@ func (c *GraphQLClient) execute(ctx context.Context, req GraphQLRequest, resp *G
 
 	// Set headers
 	httpReq.Header.Set("Content-Type", "application/json")
+	httpReq.Header.Set("Accept", "application/vnd.github.v3+json")
+	
+	// Set authentication headers
 	if c.config.Token != "" {
+		// Simple token authentication
 		httpReq.Header.Set("Authorization", "bearer "+c.config.Token)
 	} else if c.config.UseApp && c.config.AppID != "" && c.config.AppPrivateKey != "" {
-		// Implement JWT auth for GitHub Apps
+		// GitHub App authentication using JWT
 		token, err := c.getJWTToken()
 		if err != nil {
-			return fmt.Errorf("failed to generate GitHub App JWT token: %w", err)
+			return errors.NewGitHubError(
+				errors.ErrGraphQLRequest,
+				0,
+				"failed to generate GitHub App JWT token",
+			).WithContext("error", err.Error())
 		}
 		httpReq.Header.Set("Authorization", "bearer "+token)
 	}
@@ -578,11 +737,33 @@ func (c *GraphQLClient) execute(ctx context.Context, req GraphQLRequest, resp *G
 	httpResp, err := c.client.Do(httpReq)
 	if err != nil {
 		c.metricsClient.IncrementCounter("github.graphql.error", 1)
-		return github.NewGitHubError(
-			github.ErrGraphQLRequest,
+		
+		// Create a detailed error with context
+		githubErr := errors.NewGitHubError(
+			errors.ErrGraphQLRequest,
 			0,
 			"failed to execute GraphQL request",
-		).WithContext("error", err.Error())
+		)
+		
+		// Add context information
+		githubErr.WithContext("error", err.Error())
+		githubErr.WithResource("graphql", c.config.URL)
+		githubErr.WithOperation("POST", c.config.URL)
+		
+		// Add query preview
+		if len(req.Query) > 20 {
+			githubErr.WithContext("query_preview", req.Query[:20]+"...")
+		} else {
+			githubErr.WithContext("query_preview", req.Query)
+		}
+		
+		// Log the error
+		c.logger.Error("GraphQL request failed", map[string]interface{}{
+			"error": err.Error(),
+			"url":   c.config.URL,
+		})
+		
+		return githubErr
 	}
 	defer httpResp.Body.Close()
 
@@ -609,7 +790,7 @@ func (c *GraphQLClient) execute(ctx context.Context, req GraphQLRequest, resp *G
 		}
 		
 		// Create structured error based on status code
-		githubErr := github.FromHTTPError(
+		githubErr := errors.FromHTTPError(
 			httpResp.StatusCode,
 			message,
 			errorResponse.Documentation,
@@ -643,8 +824,8 @@ func (c *GraphQLClient) execute(ctx context.Context, req GraphQLRequest, resp *G
 	// Read response body
 	body, err := io.ReadAll(httpResp.Body)
 	if err != nil {
-		return github.NewGitHubError(
-			github.ErrGraphQLResponse,
+		return errors.NewGitHubError(
+			errors.ErrGraphQLResponse,
 			httpResp.StatusCode,
 			"failed to read GraphQL response",
 		).WithContext("error", err.Error())
@@ -652,8 +833,8 @@ func (c *GraphQLClient) execute(ctx context.Context, req GraphQLRequest, resp *G
 
 	// Unmarshal response
 	if err := json.Unmarshal(body, resp); err != nil {
-		return github.NewGitHubError(
-			github.ErrGraphQLResponse,
+		return errors.NewGitHubError(
+			errors.ErrGraphQLResponse,
 			httpResp.StatusCode,
 			"failed to unmarshal GraphQL response",
 		).WithContext("error", err.Error())
@@ -665,14 +846,18 @@ func (c *GraphQLClient) execute(ctx context.Context, req GraphQLRequest, resp *G
 		
 		// Log errors
 		for _, e := range resp.Errors {
-			c.logger.Warn("GraphQL error", "message", e.Message, "type", e.Type)
+			c.logger.Warn("GraphQL error", map[string]interface{}{
+				"message": e.Message,
+				"type":    e.Type,
+				"query":   strings.Split(query, "\n")[0] + "...", // Log first line of query
+			})
 		}
 		
 		// If response has no data, return error
 		if resp.Data == nil || len(resp.Data) == 0 {
 			// Create structured error
-			githubErr := github.NewGitHubError(
-				github.ErrGraphQLResponse,
+			githubErr := errors.NewGitHubError(
+				errors.ErrGraphQLResponse,
 				0,
 				resp.Errors[0].Message,
 			)
@@ -692,10 +877,23 @@ func (c *GraphQLClient) execute(ctx context.Context, req GraphQLRequest, resp *G
 				githubErr.WithContext("error_location", fmt.Sprintf("line %d, column %d", loc.Line, loc.Column))
 			}
 			
+			// Add query info (first 100 chars only)
+			if len(query) > 0 {
+				queryPreview := query
+				if len(queryPreview) > 100 {
+					queryPreview = queryPreview[:97] + "..."
+				}
+				githubErr.WithContext("query_preview", queryPreview)
+			}
+			
 			return githubErr
 		}
 		
 		// If response has some data, just log the errors and continue
+		c.logger.Info("GraphQL query returned partial data with errors", map[string]interface{}{
+			"error_count": len(resp.Errors),
+			"data_fields": len(resp.Data),
+		})
 	}
 
 	// Log metrics
@@ -705,15 +903,65 @@ func (c *GraphQLClient) execute(ctx context.Context, req GraphQLRequest, resp *G
 }
 
 // getJWTToken generates a JWT token for GitHub App authentication
-// This is a stub - implementation would vary based on how you handle GitHub App authentication
 func (c *GraphQLClient) getJWTToken() (string, error) {
-	// In a real implementation, this would:
-	// 1. Load the private key
-	// 2. Generate a JWT token with the required claims
-	// 3. Return the signed token
+	// Check if App ID and private key are provided
+	if c.config.AppID == "" {
+		return "", errors.NewGitHubError(
+			errors.ErrInvalidAuthentication,
+			0,
+			"GitHub App ID is required for JWT generation",
+		)
+	}
 	
-	// For now, return an error
-	return "", fmt.Errorf("GitHub App JWT authentication not implemented")
+	if c.config.AppPrivateKey == "" {
+		return "", errors.NewGitHubError(
+			errors.ErrInvalidAuthentication,
+			0, 
+			"GitHub App private key is required for JWT generation",
+		)
+	}
+	
+	// Parse the private key
+	privateKey, err := jwt.ParseRSAPrivateKeyFromPEM([]byte(c.config.AppPrivateKey))
+	if err != nil {
+		return "", errors.NewGitHubError(
+			errors.ErrInvalidAuthentication,
+			0,
+			"failed to parse private key for JWT generation",
+		).WithContext("error", err.Error())
+	}
+	
+	// Create the token with required claims
+	now := time.Now()
+	expirationTime := now.Add(10 * time.Minute) // GitHub tokens are valid for 10 minutes
+	
+	claims := &jwt.RegisteredClaims{
+		IssuedAt:  jwt.NewNumericDate(now),
+		ExpiresAt: jwt.NewNumericDate(expirationTime),
+		Issuer:    c.config.AppID,
+	}
+	
+	token := jwt.NewWithClaims(jwt.SigningMethodRS256, claims)
+	
+	// Sign the token with the private key
+	tokenString, err := token.SignedString(privateKey)
+	if err != nil {
+		return "", errors.NewGitHubError(
+			errors.ErrInvalidAuthentication,
+			0,
+			"failed to sign JWT token",
+		).WithContext("error", err.Error())
+	}
+	
+	if c.logger != nil {
+		c.logger.Debug("Generated GitHub App JWT token", map[string]interface{}{
+			"app_id":      c.config.AppID,
+			"expires_at":  expirationTime.Format(time.RFC3339),
+			"token_type": "jwt",
+		})
+	}
+	
+	return tokenString, nil
 }
 
 // BatchQuery executes multiple GraphQL queries in a single request

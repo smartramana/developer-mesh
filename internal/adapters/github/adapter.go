@@ -1751,8 +1751,14 @@ func (a *GitHubAdapter) HandleWebhook(ctx context.Context, eventType string, pay
 		"eventType": eventType,
 	})
 
+	// Extract remote address if available in headers
+	remoteAddr := headers.Get("X-Forwarded-For")
+	if remoteAddr == "" {
+		remoteAddr = headers.Get("X-Real-IP")
+	}
+	
 	// Validate webhook
-	if err := a.webhookValidator.Validate(eventType, payload, headers); err != nil {
+	if err := a.webhookValidator.ValidateWithIP(eventType, payload, headers, remoteAddr); err != nil {
 		a.logger.Error("Webhook validation failed", map[string]interface{}{
 			"eventType": eventType,
 			"error":     err.Error(),

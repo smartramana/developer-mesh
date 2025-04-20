@@ -3,16 +3,16 @@ package auth
 import (
 	"context"
 	"crypto/rsa"
-	"crypto/x509"
-	"encoding/base64"
 	"encoding/json"
 	"encoding/pem"
 	"fmt"
+	"io"
 	"net/http"
 	"strings"
 	"sync"
 	"time"
 
+	"github.com/S-Corkum/mcp-server/internal/common/errors"
 	"github.com/S-Corkum/mcp-server/internal/observability"
 	"github.com/golang-jwt/jwt/v4"
 )
@@ -193,15 +193,49 @@ type AppProvider struct {
 
 // NewAppProvider creates a new provider with GitHub App authentication
 func NewAppProvider(appID, privateKeyPEM, installationID string, logger *observability.Logger) (*AppProvider, error) {
-	// Parse the private key
-	block, _ := pem.Decode([]byte(privateKeyPEM))
-	if block == nil {
-		return nil, fmt.Errorf("failed to parse PEM block containing private key")
+	// Validate required inputs
+	if appID == "" {
+		return nil, errors.NewGitHubError(
+			errors.ErrInvalidAuthentication,
+			0,
+			"GitHub App ID is required",
+		)
 	}
 	
-	privateKey, err := x509.ParsePKCS1PrivateKey(block.Bytes)
+	if privateKeyPEM == "" {
+		return nil, errors.NewGitHubError(
+			errors.ErrInvalidAuthentication,
+			0,
+			"GitHub App private key is required",
+		)
+	}
+	
+	if installationID == "" {
+		logger.Warn("GitHub App installation ID not provided; only JWT authentication will be available")
+	}
+	
+	// Parse the private key from PEM format
+	block, _ := pem.Decode([]byte(privateKeyPEM))
+	if block == nil {
+		return nil, errors.NewGitHubError(
+			errors.ErrInvalidAuthentication,
+			0,
+			"failed to parse PEM block containing private key",
+		)
+	}
+	
+	// Try to parse the key using PKCS1 format
+	var privateKey *rsa.PrivateKey
+	var err error
+	
+	// Try multiple formats for better compatibility
+	privateKey, err = jwt.ParseRSAPrivateKeyFromPEM([]byte(privateKeyPEM))
 	if err != nil {
-		return nil, fmt.Errorf("failed to parse private key: %w", err)
+		return nil, errors.NewGitHubError(
+			errors.ErrInvalidAuthentication,
+			0,
+			"failed to parse private key",
+		).WithContext("error", err.Error())
 	}
 	
 	return &AppProvider{
@@ -212,6 +246,7 @@ func NewAppProvider(appID, privateKeyPEM, installationID string, logger *observa
 		appID:          appID,
 		privateKey:     privateKey,
 		installationID: installationID,
+		mutex:          sync.RWMutex{},
 	}, nil
 }
 
@@ -252,56 +287,149 @@ func (p *AppProvider) SetAuthHeaders(req *http.Request) error {
 
 // RefreshToken obtains a new installation token
 func (p *AppProvider) RefreshToken(ctx context.Context) error {
+	// Check if installation ID is provided
+	if p.installationID == "" {
+		return errors.NewGitHubError(
+			errors.ErrInvalidAuthentication,
+			0,
+			"installation ID is required to refresh token",
+		)
+	}
+	
 	// Generate JWT for app authentication
 	jwt, err := p.generateJWT()
 	if err != nil {
-		return fmt.Errorf("failed to generate JWT: %w", err)
+		return errors.NewGitHubError(
+			errors.ErrInvalidAuthentication,
+			0,
+			"failed to generate JWT",
+		).WithContext("error", err.Error())
 	}
 	
-	// Create HTTP client
-	client := &http.Client{Timeout: 10 * time.Second}
+	// Create HTTP client with appropriate timeouts
+	client := &http.Client{
+		Timeout: 10 * time.Second,
+		Transport: &http.Transport{
+			TLSHandshakeTimeout: 5 * time.Second,
+			IdleConnTimeout:     90 * time.Second,
+			MaxIdleConns:        10,
+			MaxIdleConnsPerHost: 5,
+		},
+	}
 	
 	// Get installation token
 	url := fmt.Sprintf("https://api.github.com/app/installations/%s/access_tokens", p.installationID)
 	req, err := http.NewRequestWithContext(ctx, "POST", url, nil)
 	if err != nil {
-		return fmt.Errorf("failed to create request: %w", err)
+		return errors.NewGitHubError(
+			errors.ErrInvalidAuthentication,
+			0,
+			"failed to create request for installation token",
+		).WithContext("error", err.Error())
 	}
 	
+	// Set required headers
 	req.Header.Set("Authorization", "Bearer "+jwt)
 	req.Header.Set("Accept", "application/vnd.github.v3+json")
+	req.Header.Set("Content-Type", "application/json")
 	
+	// Make the request
 	resp, err := client.Do(req)
 	if err != nil {
-		return fmt.Errorf("failed to get installation token: %w", err)
+		return errors.NewGitHubError(
+			errors.ErrInvalidAuthentication,
+			0,
+			"failed to get installation token",
+		).WithContext("error", err.Error())
 	}
 	defer resp.Body.Close()
 	
-	if resp.StatusCode != http.StatusCreated {
-		return fmt.Errorf("failed to get installation token: status code %d", resp.StatusCode)
+	// Read response body
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return errors.NewGitHubError(
+			errors.ErrInvalidAuthentication,
+			0,
+			"failed to read installation token response",
+		).WithContext("error", err.Error())
 	}
 	
-	// Parse response
+	// Check response status
+	if resp.StatusCode != http.StatusCreated {
+		// Try to parse error message
+		var errorResp struct {
+			Message string `json:"message"`
+			DocumentationURL string `json:"documentation_url"`
+		}
+		
+		_ = json.Unmarshal(body, &errorResp) // Ignore unmarshaling errors
+		
+		return errors.NewGitHubError(
+			errors.ErrInvalidAuthentication,
+			resp.StatusCode,
+			fmt.Sprintf("failed to get installation token: %s", errorResp.Message),
+		).WithDocumentation(errorResp.DocumentationURL)
+	}
+	
+	// Parse successful response
 	var tokenResp struct {
 		Token     string    `json:"token"`
 		ExpiresAt time.Time `json:"expires_at"`
 	}
 	
-	if err := json.NewDecoder(resp.Body).Decode(&tokenResp); err != nil {
-		return fmt.Errorf("failed to parse token response: %w", err)
+	if err := json.Unmarshal(body, &tokenResp); err != nil {
+		return errors.NewGitHubError(
+			errors.ErrInvalidAuthentication,
+			0,
+			"failed to parse token response",
+		).WithContext("error", err.Error())
 	}
 	
-	// Update token and expiry
+	// Verify token was returned
+	if tokenResp.Token == "" {
+		return errors.NewGitHubError(
+			errors.ErrInvalidAuthentication,
+			0,
+			"no token returned in response",
+		)
+	}
+	
+	// Update token and expiry with thread safety
 	p.mutex.Lock()
 	p.token = tokenResp.Token
 	p.tokenExpiry = tokenResp.ExpiresAt
 	p.mutex.Unlock()
+	
+	// Log success (without exposing the token)
+	p.logger.Info("Successfully refreshed GitHub installation token", 
+		map[string]interface{}{
+			"app_id": p.appID,
+			"installation_id": p.installationID,
+			"expires_at": tokenResp.ExpiresAt.Format(time.RFC3339),
+		})
 	
 	return nil
 }
 
 // generateJWT generates a JWT for GitHub App authentication
 func (p *AppProvider) generateJWT() (string, error) {
+	// Validate that we have the necessary components
+	if p.privateKey == nil {
+		return "", errors.NewGitHubError(
+			errors.ErrInvalidAuthentication,
+			0,
+			"missing private key for JWT generation",
+		)
+	}
+	
+	if p.appID == "" {
+		return "", errors.NewGitHubError(
+			errors.ErrInvalidAuthentication,
+			0,
+			"missing app ID for JWT generation",
+		)
+	}
+	
 	// Create token with claims
 	now := time.Now()
 	claims := jwt.RegisteredClaims{
@@ -310,10 +438,15 @@ func (p *AppProvider) generateJWT() (string, error) {
 		Issuer:    p.appID,
 	}
 	
+	// Create and sign token
 	token := jwt.NewWithClaims(jwt.SigningMethodRS256, claims)
 	signedToken, err := token.SignedString(p.privateKey)
 	if err != nil {
-		return "", fmt.Errorf("failed to sign JWT: %w", err)
+		return "", errors.NewGitHubError(
+			errors.ErrInvalidAuthentication,
+			0,
+			"failed to sign JWT",
+		).WithContext("error", err.Error())
 	}
 	
 	return signedToken, nil

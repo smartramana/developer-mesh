@@ -10,8 +10,10 @@ import (
 	"net/url"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
+	"github.com/S-Corkum/mcp-server/internal/adapters/errors"
 	"github.com/S-Corkum/mcp-server/internal/adapters/github/auth"
 	"github.com/S-Corkum/mcp-server/internal/adapters/resilience"
 	"github.com/S-Corkum/mcp-server/internal/observability"
@@ -241,26 +243,75 @@ func (c *RESTClient) doRequest(ctx context.Context, opts requestOptions, result 
 		var errorResp struct {
 			Message          string `json:"message"`
 			DocumentationURL string `json:"documentation_url"`
-		}
-		if err := json.Unmarshal(body, &errorResp); err != nil {
-			return fmt.Errorf("HTTP error %d: %s", resp.StatusCode, string(body))
+			Errors           []struct {
+				Resource string `json:"resource"`
+				Field    string `json:"field"`
+				Code     string `json:"code"`
+			} `json:"errors"`
 		}
 		
-		// Handle specific error types
-		switch resp.StatusCode {
-		case http.StatusUnauthorized:
-			return fmt.Errorf("unauthorized: %s", errorResp.Message)
-		case http.StatusForbidden:
-			// Check for rate limit exceeded
-			if strings.Contains(errorResp.Message, "rate limit") {
-				return fmt.Errorf("rate limit exceeded: %s", errorResp.Message)
-			}
-			return fmt.Errorf("forbidden: %s", errorResp.Message)
-		case http.StatusNotFound:
-			return fmt.Errorf("not found: %s", errorResp.Message)
-		default:
-			return fmt.Errorf("HTTP error %d: %s", resp.StatusCode, errorResp.Message)
+		if err := json.Unmarshal(body, &errorResp); err != nil {
+			// If we can't parse the error response, create a generic error
+			return errors.NewGitHubError(
+				errors.ErrRESTResponse,
+				resp.StatusCode,
+				string(body),
+			).WithOperation(opts.Method, opts.Path)
 		}
+		
+		// Create structured error
+		githubErr := errors.FromHTTPError(
+			resp.StatusCode,
+			errorResp.Message,
+			errorResp.DocumentationURL,
+		)
+		
+		// Add operation info
+		githubErr.WithOperation(opts.Method, opts.Path)
+		
+		// Add resource info if available
+		if len(errorResp.Errors) > 0 {
+			githubErr.WithResource(errorResp.Errors[0].Resource, "")
+			
+			// Add first error details to context
+			githubErr.WithContext("error_code", errorResp.Errors[0].Code)
+			if errorResp.Errors[0].Field != "" {
+				githubErr.WithContext("error_field", errorResp.Errors[0].Field)
+			}
+		}
+		
+		// Extract resource ID from path if possible
+		pathParts := strings.Split(opts.Path, "/")
+		if len(pathParts) >= 3 && len(pathParts) % 2 == 1 {
+			// Typical REST path: repos/owner/repo or repos/owner/repo/issues/123
+			if githubErr.Resource == "" && pathParts[0] != "" {
+				githubErr.WithResource(pathParts[0], strings.Join(pathParts[1:], "/"))
+			}
+		}
+		
+		// Add rate limit info if available
+		if rateLimit := resp.Header.Get("X-RateLimit-Limit"); rateLimit != "" {
+			githubErr.WithContext("rate_limit", rateLimit)
+			githubErr.WithContext("rate_limit_remaining", resp.Header.Get("X-RateLimit-Remaining"))
+			githubErr.WithContext("rate_limit_reset", resp.Header.Get("X-RateLimit-Reset"))
+		}
+		
+		// Log the error with appropriate level
+		if resp.StatusCode >= 500 {
+			c.logger.Error("GitHub API server error", 
+				"status", resp.StatusCode,
+				"message", errorResp.Message,
+				"path", opts.Path,
+				"method", opts.Method)
+		} else {
+			c.logger.Warn("GitHub API client error", 
+				"status", resp.StatusCode,
+				"message", errorResp.Message,
+				"path", opts.Path,
+				"method", opts.Method)
+		}
+		
+		return githubErr
 	}
 	
 	// Handle empty response
@@ -290,18 +341,89 @@ func (c *RESTClient) GetPaginated(ctx context.Context, path string, options *Pag
 	query.Set("page", strconv.Itoa(options.Page))
 	query.Set("per_page", strconv.Itoa(options.PerPage))
 	
-	// Make first request
-	sliceVal, ok := result.(interface{ Slice() []interface{} })
-	if !ok {
-		// If result doesn't support appending, just make a single request
+	// Check result type
+	switch typedResult := result.(type) {
+	case *[]map[string]interface{}:
+		// Handle map slice result type (most common)
+		return c.getPaginatedMapSlice(ctx, path, query, options, typedResult)
+	case *[]interface{}:
+		// Handle generic interface slice
+		return c.getPaginatedInterfaceSlice(ctx, path, query, options, typedResult)
+	case *interface{}:
+		// Single request, store directly in result
+		return c.doRequest(ctx, requestOptions{
+			Method: "GET",
+			Path:   path,
+			Query:  query,
+		}, result)
+	default:
+		// For other types, just make a single request
+		c.logger.Warn("Unsupported result type for pagination", map[string]interface{}{
+			"type": fmt.Sprintf("%T", result),
+			"path": path,
+		})
 		return c.doRequest(ctx, requestOptions{
 			Method: "GET",
 			Path:   path,
 			Query:  query,
 		}, result)
 	}
+}
+
+// getPaginatedMapSlice handles pagination for []map[string]interface{} result type
+func (c *RESTClient) getPaginatedMapSlice(ctx context.Context, path string, query url.Values, options *PaginationOptions, result *[]map[string]interface{}) error {
+	var allItems []map[string]interface{}
 	
-	// Handle paginated responses
+	// Track current page
+	currentPage := options.Page
+	maxPages := options.MaxPages
+	
+	for currentPage <= maxPages {
+		// Update page parameter
+		query.Set("page", strconv.Itoa(currentPage))
+		
+		// Make request
+		var items []map[string]interface{}
+		err := c.doRequest(ctx, requestOptions{
+			Method: "GET",
+			Path:   path,
+			Query:  query,
+		}, &items)
+		
+		if err != nil {
+			return err
+		}
+		
+		// Break if no items returned
+		if len(items) == 0 {
+			break
+		}
+		
+		// Append items to result
+		allItems = append(allItems, items...)
+		
+		// Check if we've reached the last page
+		if len(items) < options.PerPage {
+			break
+		}
+		
+		// Increment page
+		currentPage++
+		
+		// Add slight delay between requests to avoid rate limiting
+		if currentPage <= maxPages {
+			time.Sleep(100 * time.Millisecond)
+		}
+	}
+	
+	// Set result
+	*result = allItems
+	
+	return nil
+}
+
+// getPaginatedInterfaceSlice handles pagination for []interface{} result type
+func (c *RESTClient) getPaginatedInterfaceSlice(ctx context.Context, path string, query url.Values, options *PaginationOptions, result *[]interface{}) error {
 	var allItems []interface{}
 	
 	// Track current page
@@ -339,18 +461,15 @@ func (c *RESTClient) GetPaginated(ctx context.Context, path string, options *Pag
 		
 		// Increment page
 		currentPage++
-	}
-	
-	// Copy to result
-	for i, item := range allItems {
-		if i < len(sliceVal.Slice()) {
-			sliceVal.Slice()[i] = item
-		} else {
-			// Append to slice
-			// This is simplistic, in real code you'd use reflection or type assertions
-			fmt.Println("Need to append item")
+		
+		// Add slight delay between requests to avoid rate limiting
+		if currentPage <= maxPages {
+			time.Sleep(100 * time.Millisecond)
 		}
 	}
+	
+	// Set result
+	*result = allItems
 	
 	return nil
 }
