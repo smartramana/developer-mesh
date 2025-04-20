@@ -7,8 +7,8 @@ import (
 	"fmt"
 	
 	"github.com/S-Corkum/mcp-server/internal/adapters/core"
-	"github.com/S-Corkum/mcp-server/internal/adapters/events"
 	githubAdapter "github.com/S-Corkum/mcp-server/internal/adapters/github"
+	"github.com/S-Corkum/mcp-server/internal/events"
 	"github.com/S-Corkum/mcp-server/internal/observability"
 )
 

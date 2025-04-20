@@ -1,9 +1,6 @@
 package github
 
 import (
-	"errors"
-	
-	adapterrors "github.com/S-Corkum/mcp-server/internal/adapters/errors"
 	commonerrors "github.com/S-Corkum/mcp-server/internal/common/errors"
 )
 

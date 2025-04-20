@@ -2,13 +2,9 @@ package github
 
 import (
 	"context"
-	"crypto/hmac"
-	"crypto/sha256"
-	"encoding/hex"
 	"fmt"
 	"net/http"
 	"net/url"
-	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -19,7 +15,7 @@ import (
 	wh "github.com/S-Corkum/mcp-server/internal/adapters/github/webhook"
 	"github.com/S-Corkum/mcp-server/internal/adapters/resilience"
 	"github.com/S-Corkum/mcp-server/internal/observability"
-	"github.com/S-Corkum/mcp-server/pkg/models"
+	"github.com/S-Corkum/mcp-server/pkg/mcp"
 )
 
 // SimpleRateLimiter implements a simple rate limiter with the RateLimiter interface
@@ -679,7 +675,6 @@ func (a *GitHubAdapter) listIssues(ctx context.Context, contextID string, params
 	// Extract optional parameters
 	page, _ := params["page"].(float64)
 	perPage, _ := params["per_page"].(float64)
-	state, _ := params["state"].(string)
 
 	// Set default pagination
 	options := &api.RestPaginationOptions{
@@ -700,10 +695,13 @@ func (a *GitHubAdapter) listIssues(ctx context.Context, contextID string, params
 	if a.config.PreferGraphQLForReads && a.config.EnableGraphQLBuilder {
 		// Map state to GraphQL enum values
 		states := []string{"OPEN"}
-		if state == "closed" {
-			states = []string{"CLOSED"}
-		} else if state == "all" {
-			states = []string{"OPEN", "CLOSED"}
+		stateParam, hasState := params["state"].(string)
+		if hasState {
+			if stateParam == "closed" {
+				states = []string{"CLOSED"}
+			} else if stateParam == "all" {
+				states = []string{"OPEN", "CLOSED"}
+			}
 		}
 
 		builder := api.BuildIssuesQuery(owner, repo, options.PerPage, states)
@@ -726,8 +724,9 @@ func (a *GitHubAdapter) listIssues(ctx context.Context, contextID string, params
 	// Fall back to REST API
 	// Build query parameters
 	query := url.Values{}
-	if state != "" {
-		query.Set("state", state)
+	stateParam, hasState := params["state"].(string)
+	if hasState && stateParam != "" {
+		query.Set("state", stateParam)
 	}
 
 	path := fmt.Sprintf("repos/%s/%s/issues?%s", owner, repo, query.Encode())
@@ -894,7 +893,6 @@ func (a *GitHubAdapter) listPullRequests(ctx context.Context, contextID string, 
 	// Extract optional parameters
 	page, _ := params["page"].(float64)
 	perPage, _ := params["per_page"].(float64)
-	state, _ := params["state"].(string)
 
 	// Set default pagination
 	options := &api.RestPaginationOptions{
@@ -1093,7 +1091,7 @@ func (a *GitHubAdapter) listIssueComments(ctx context.Context, contextID string,
 	perPage, _ := params["per_page"].(float64)
 
 	// Set default pagination
-	options := &api.PaginationOptions{
+	options := &api.RestPaginationOptions{
 		Page:     int(page),
 		PerPage:  int(perPage),
 		MaxPages: a.config.MaxPages,
@@ -1174,7 +1172,7 @@ func (a *GitHubAdapter) listWorkflowRuns(ctx context.Context, contextID string, 
 	perPage, _ := params["per_page"].(float64)
 
 	// Set default pagination
-	options := &api.PaginationOptions{
+	options := &api.RestPaginationOptions{
 		Page:     int(page),
 		PerPage:  int(perPage),
 		MaxPages: a.config.MaxPages,
@@ -1355,7 +1353,7 @@ func (a *GitHubAdapter) listReleases(ctx context.Context, contextID string, para
 	perPage, _ := params["per_page"].(float64)
 
 	// Set default pagination
-	options := &api.PaginationOptions{
+	options := &api.RestPaginationOptions{
 		Page:     int(page),
 		PerPage:  int(perPage),
 		MaxPages: a.config.MaxPages,
@@ -1433,7 +1431,7 @@ func (a *GitHubAdapter) listBranches(ctx context.Context, contextID string, para
 	perPage, _ := params["per_page"].(float64)
 
 	// Set default pagination
-	options := &api.PaginationOptions{
+	options := &api.RestPaginationOptions{
 		Page:     int(page),
 		PerPage:  int(perPage),
 		MaxPages: a.config.MaxPages,
@@ -1677,13 +1675,15 @@ func (a *GitHubAdapter) registerWebhookHandler(ctx context.Context, contextID st
 		}
 
 		// Create event
-		eventBusEvent := events.Event{
+		eventBusEvent := &mcp.Event{
 			Type: "github.webhook." + event.Type,
 			Data: eventData,
+			Source: "github-adapter",
+			Timestamp: time.Now(),
 		}
 
 		// Publish event
-		a.eventBus.Publish(eventBusEvent)
+		a.eventBus.Publish(ctx, eventBusEvent)
 
 		return nil
 	}
@@ -1745,7 +1745,9 @@ func (a *GitHubAdapter) listWebhookHandlers(ctx context.Context, contextID strin
 // ==============================
 
 // HandleWebhook handles a GitHub webhook
-func (a *GitHubAdapter) HandleWebhook(ctx context.Context, eventType string, payload []byte, headers http.Header) error {
+func (a *GitHubAdapter) HandleWebhook(ctx context.Context, eventType string, payload []byte) error {
+	// Create empty headers since the core.Adapter interface doesn't include them
+	headers := http.Header{}
 	// Check if webhooks are disabled
 	if a.config.DisableWebhooks {
 		return ErrWebhookDisabled

@@ -5,9 +5,10 @@ import (
 	
 	"github.com/S-Corkum/mcp-server/internal/adapters/bridge"
 	"github.com/S-Corkum/mcp-server/internal/adapters/core"
-	"github.com/S-Corkum/mcp-server/internal/adapters/events"
+	adapterEvents "github.com/S-Corkum/mcp-server/internal/adapters/events"
 	"github.com/S-Corkum/mcp-server/internal/adapters/providers"
 	"github.com/S-Corkum/mcp-server/internal/config"
+	"github.com/S-Corkum/mcp-server/internal/events"
 	"github.com/S-Corkum/mcp-server/internal/events/system"
 	"github.com/S-Corkum/mcp-server/internal/observability"
 )
@@ -16,7 +17,8 @@ import (
 type AdapterManager struct {
 	factory        *core.DefaultAdapterFactory
 	registry       *core.AdapterRegistry
-	eventBus       *events.EventBus
+	adapterEventBus *adapterEvents.EventBus
+	systemEventBus  *events.EventBus
 	eventBridge    *bridge.EventBridge
 	logger         *observability.Logger
 	metricsClient  *observability.MetricsClient
@@ -31,7 +33,10 @@ func NewAdapterManager(
 	metricsClient *observability.MetricsClient,
 ) *AdapterManager {
 	// Create events bus for adapters
-	eventBus := events.NewEventBus(logger)
+	adapterEventBus := adapterEvents.NewEventBus(logger)
+	
+	// Create system event bus adapter that implements events.EventBus
+	systemEventBusAdapter := events.NewEventBus(5) // Use 5 workers like default
 	
 	// Create adapter factory with empty map if config is nil
 	var adapterConfigs map[string]interface{}
@@ -51,19 +56,20 @@ func NewAdapterManager(
 	registry := core.NewAdapterRegistry(factory, logger)
 	
 	// Create event bridge
-	eventBridge := bridge.NewEventBridge(eventBus, systemEventBus, logger, registry)
+	eventBridge := bridge.NewEventBridge(adapterEventBus, systemEventBus, logger, registry)
 	
 	// Register adapter providers
-	providers.RegisterAllProviders(factory, eventBus, metricsClient, logger)
+	providers.RegisterAllProviders(factory, systemEventBusAdapter, metricsClient, logger)
 	
 	// Create manager
 	manager := &AdapterManager{
-		factory:       factory,
-		registry:      registry,
-		eventBus:      eventBus,
-		eventBridge:   eventBridge,
-		logger:        logger,
-		metricsClient: metricsClient,
+		factory:        factory,
+		registry:       registry,
+		adapterEventBus: adapterEventBus,
+		systemEventBus:  systemEventBusAdapter,
+		eventBridge:    eventBridge,
+		logger:         logger,
+		metricsClient:  metricsClient,
 	}
 	
 	return manager
