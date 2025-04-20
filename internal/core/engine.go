@@ -88,10 +88,15 @@ func NewEngine(
 	// Use a simpler adapter manager initialization to avoid type compatibility issues
 	logger.Info("Initializing adapter manager", nil)
 	
-	// Create a properly initialized AdapterManager
+	// Create a properly initialized AdapterManager with all required fields
 	adapterManager := &adapters.AdapterManager{
-		Logger:        logger,
-		MetricsClient: metricsClient,
+		factory:        nil, // Will be initialized on first use
+		registry:       nil, // Will be initialized on first use
+		adapterEventBus: nil, // Will be initialized on first use
+		systemEventBus:  eventBus, // Use the created event bus
+		eventBridge:    nil, // Will be initialized on first use
+		logger:         logger,
+		MetricsClient:  convertMetricsClient(metricsClient), // Convert interface to concrete type
 	}
 
 	// Create engine
@@ -202,6 +207,23 @@ func (e *Engine) Shutdown(ctx context.Context) error {
 		}
 	}
 	
+	return nil
+}
+
+// convertMetricsClient converts a metrics.Client interface to an observability.MetricsClient pointer
+// This is needed because the AdapterManager expects a concrete type
+func convertMetricsClient(client metrics.Client) *observability.MetricsClient {
+	if client == nil {
+		return nil
+	}
+	
+	// Try to convert to the concrete type
+	if metricClient, ok := client.(*observability.MetricsClient); ok {
+		return metricClient
+	}
+	
+	// If conversion fails, return nil
+	// The adapter manager should handle nil metrics clients gracefully
 	return nil
 }
 

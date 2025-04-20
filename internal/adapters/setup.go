@@ -69,7 +69,7 @@ func NewAdapterManager(
 		systemEventBus:  systemEventBusAdapter,
 		eventBridge:    eventBridge,
 		logger:         logger,
-		metricsClient:  metricsClient,
+		MetricsClient:  metricsClient,
 	}
 	
 	return manager
