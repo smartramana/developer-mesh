@@ -8,6 +8,8 @@ toolchain go1.24.2
 require (
 	github.com/DATA-DOG/go-sqlmock v1.5.2
 	github.com/alicebob/miniredis/v2 v2.34.0
+	github.com/onsi/ginkgo/v2 v2.17.1
+	github.com/onsi/gomega v1.32.0
 	github.com/aws/aws-sdk-go-v2 v1.36.3
 	github.com/aws/aws-sdk-go-v2/config v1.29.14
 	github.com/aws/aws-sdk-go-v2/feature/s3/manager v1.17.72
