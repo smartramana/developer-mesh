@@ -21,7 +21,7 @@ type AdapterManager struct {
 	systemEventBus  *events.EventBus
 	eventBridge    *bridge.EventBridge
 	logger         *observability.Logger
-	metricsClient  *observability.MetricsClient
+	MetricsClient  *observability.MetricsClient
 }
 
 // NewAdapterManager creates a new adapter manager
