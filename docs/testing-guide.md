@@ -1,6 +1,6 @@
 # MCP Server Testing Guide
 
-This guide describes how to test the MCP (Managing Contexts Platform) server, including both unit testing and integration testing approaches.
+This guide describes how to test the MCP (Managing Contexts Platform) server, including unit testing, integration testing, and functional testing approaches.
 
 ## Table of Contents
 
@@ -15,16 +15,23 @@ This guide describes how to test the MCP (Managing Contexts Platform) server, in
    - [Setting Up the Test Environment](#setting-up-the-test-environment)
    - [Running Integration Tests](#running-integration-tests)
    - [AI Agent Simulation Tests](#ai-agent-simulation-tests)
-4. [Key Components Being Tested](#key-components-being-tested)
-5. [Troubleshooting](#troubleshooting)
-6. [Further Testing](#further-testing)
+4. [Functional Testing](#functional-testing)
+   - [Test Environment Overview](#test-environment-overview)
+   - [Running Functional Tests](#running-functional-tests)
+   - [Test Structure](#test-structure)
+   - [Extending Functional Tests](#extending-functional-tests)
+   - [Troubleshooting Functional Tests](#troubleshooting-functional-tests)
+5. [Key Components Being Tested](#key-components-being-tested)
+6. [Troubleshooting](#troubleshooting)
+7. [Further Testing](#further-testing)
 
 ## Prerequisites
 
 - Go 1.24+
-- Docker and Docker Compose (for integration tests)
+- Docker and Docker Compose (for integration and functional tests)
 - Python 3.8+ (for agent simulation tests)
 - Basic knowledge of Go testing and HTTP APIs
+- Ginkgo and Gomega (for functional tests)
 
 ## Unit Testing
 
@@ -210,6 +217,124 @@ We provide Python-based tests that simulate AI Agent interactions with the MCP s
 
    This script tests the end-to-end workflow including context management and tool integration.
 
+## Functional Testing
+
+Functional tests verify that the system works correctly from an external perspective, testing entire features and workflows as a user would experience them. We use Ginkgo and Gomega for our functional testing framework.
+
+### Test Environment Overview
+
+The functional testing environment is defined in `docker-compose.test.yml` and includes:
+
+- **PostgreSQL with pgvector extension**: For database operations and vector search
+- **Redis**: For caching and temporary data storage
+- **Mockserver**: For simulating external services
+- **MCP Server**: Configured to use these dependencies
+
+### Running Functional Tests
+
+To run the functional tests:
+
+```bash
+# Make the script executable (if needed)
+chmod +x run_functional_tests.sh
+
+# Run all functional tests
+./run_functional_tests.sh
+
+# Run with verbose output
+./run_functional_tests.sh --verbose
+
+# Run specific tests by focus
+./run_functional_tests.sh --focus "API"
+
+# Keep containers running after tests for debugging
+./run_functional_tests.sh --keep-up
+```
+
+The script handles:
+1. Starting the test environment with Docker Compose
+2. Waiting for all services to be healthy
+3. Running the Ginkgo tests
+4. Cleaning up resources when done
+
+### Test Structure
+
+The functional tests are organized in the `test/functional` directory:
+
+1. **API Tests** (`api/api_test.go`): 
+   - Verify API contracts (endpoints, responses)
+   - Test authentication and authorization
+   - Check error handling
+
+2. **Tool Integration Tests** (`integrations/tool_integrations_test.go`):
+   - Test GitHub integration
+   - Test MockServer integration
+   - Verify tool actions work correctly
+
+3. **End-to-End Workflow Tests** (`workflows/workflows_test.go`):
+   - Context management workflows
+   - Tool integration workflows
+   - Vector search workflows
+
+4. **Client** (`client/client.go`):
+   - Provides a client for interacting with the MCP server
+   - Handles HTTP requests and response parsing
+
+### Extending Functional Tests
+
+To add new functional tests:
+
+1. Identify which category your test belongs to (API, Integration, Workflow)
+2. Add a new test function using Ginkgo's BDD-style syntax
+3. Run the tests to verify they work correctly
+
+Example of adding a new test:
+
+```go
+Describe("New Feature", func() {
+    It("should work correctly", func() {
+        // Test code here
+        result, err := someOperation()
+        Expect(err).NotTo(HaveOccurred())
+        Expect(result).To(Equal(expectedValue))
+    })
+})
+```
+
+### Troubleshooting Functional Tests
+
+If you encounter issues with functional tests:
+
+1. **Verify all services are running**:
+   ```bash
+   docker-compose -f docker-compose.test.yml ps
+   ```
+
+2. **Check service logs**:
+   ```bash
+   docker-compose -f docker-compose.test.yml logs mcp-server
+   ```
+
+3. **Verify PostgreSQL pgvector extension**:
+   ```bash
+   docker-compose -f docker-compose.test.yml exec postgres psql -U postgres -c "SELECT * FROM pg_extension WHERE extname = 'vector';"
+   ```
+
+4. **Inspect container health**:
+   ```bash
+   docker-compose -f docker-compose.test.yml ps
+   ```
+
+5. **Run tests in verbose mode**:
+   ```bash
+   ./run_functional_tests.sh --verbose
+   ```
+
+6. **Focus on specific tests**:
+   ```bash
+   ./run_functional_tests.sh --focus "specific test description"
+   ```
+
 ## Key Components Being Tested
 
 ### 1. Core Components
@@ -262,13 +387,13 @@ We provide Python-based tests that simulate AI Agent interactions with the MCP s
 
 ## Further Testing
 
-Beyond unit and integration tests, consider:
+Beyond unit, integration, and functional tests, consider:
 
 1. **Load Testing**: Evaluate system performance under high load using tools like `wrk` or `k6`
 2. **Chaos Testing**: Introduce failures to test resilience and recovery
 3. **Security Testing**: Scan for vulnerabilities and test authentication/authorization
-4. **End-to-End Testing**: Test complete workflows from user perspective
+4. **Continuous Integration**: Automate testing in CI/CD pipelines
 
 ## Conclusion
 
-This testing guide provides comprehensive practices for testing the MCP server. By following these guidelines, we ensure that the platform remains reliable and maintainable as it evolves.
+This testing guide provides comprehensive practices for testing the MCP server. By implementing a combination of unit, integration, and functional testing, we ensure that the platform remains reliable and maintainable as it evolves.

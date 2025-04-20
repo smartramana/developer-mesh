@@ -1,0 +1,94 @@
+version: '3.8'
+
+services:
+  postgres:
+    image: pgvector/pgvector:pg17
+    ports:
+      - "5432:5432"
+    environment:
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=postgres
+      - POSTGRES_DB=mcp_test
+    volumes:
+      - ./scripts/db/init.sql:/docker-entrypoint-initdb.d/001-init.sql
+      - ./test/functional/db/setup.sql:/docker-entrypoint-initdb.d/002-setup.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    networks:
+      - mcp-test-network
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    command: ["redis-server", "--requirepass", "", "--protected-mode", "no"]
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+      start_period: 5s
+    networks:
+      - mcp-test-network
+
+  mockserver:
+    build:
+      context: .
+      dockerfile: Dockerfile.mockserver
+    ports:
+      - "8081:8081"
+    environment:
+      - DEBUG=true
+      - LOG_LEVEL=INFO
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:8081/health"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+      start_period: 5s
+    networks:
+      - mcp-test-network
+
+  mcp-server:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "8080:8080"
+    environment:
+      - MCP_CONFIG_FILE=/app/configs/config.test.yaml
+      - POSTGRES_HOST=postgres
+      - POSTGRES_PORT=5432
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=postgres
+      - POSTGRES_DB=mcp_test
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - MOCKSERVER_URL=http://mockserver:8081
+      - API_KEY=test-admin-api-key
+      - LOG_LEVEL=debug
+    volumes:
+      - ./configs:/app/configs
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      mockserver:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:8080/health"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    networks:
+      - mcp-test-network
+
+networks:
+  mcp-test-network:
+    driver: bridge

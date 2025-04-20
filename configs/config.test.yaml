@@ -1,0 +1,72 @@
+# Test configuration for MCP Server
+
+server:
+  listenAddress: "0.0.0.0:8080"
+  readTimeout: 30s
+  writeTimeout: 30s
+  idleTimeout: 60s
+  enableSwagger: true
+  enableCORS: true
+
+database:
+  host: "${POSTGRES_HOST}"
+  port: "${POSTGRES_PORT}"
+  user: "${POSTGRES_USER}"
+  password: "${POSTGRES_PASSWORD}"
+  dbName: "${POSTGRES_DB}"
+  sslMode: "disable"
+  maxOpenConns: 10
+  maxIdleConns: 5
+  connMaxLifetime: 1h
+
+redis:
+  host: "${REDIS_HOST}"
+  port: "${REDIS_PORT}"
+  password: ""
+  db: 0
+  maxRetries: 3
+  minRetryBackoff: 8ms
+  maxRetryBackoff: 512ms
+  dialTimeout: 5s
+  readTimeout: 3s
+  writeTimeout: 3s
+  poolSize: 10
+  minIdleConns: 5
+
+auth:
+  apiKeys:
+    - key: "${API_KEY}"
+      name: "Test Admin API Key"
+      role: "admin"
+  jwtSecret: "test-jwt-secret-for-functional-tests"
+  jwtExpiration: 24h
+
+logging:
+  level: "${LOG_LEVEL}"
+  format: "json"
+  outputPaths:
+    - "stdout"
+  errorOutputPaths:
+    - "stderr"
+
+tools:
+  mockserver:
+    baseURL: "${MOCKSERVER_URL}"
+    apiKey: "test-mockserver-key"
+
+performance:
+  enableCompression: true
+  enableETagCaching: false
+  httpMaxIdleConns: 100
+  httpMaxConnsPerHost: 100
+  httpIdleConnTimeout: 90s
+
+versioning:
+  defaultVersion: "v1"
+  supportedVersions:
+    - "v1"
+
+rateLimit:
+  enabled: false
+  requestsPerSecond: 100
+  burst: 50
