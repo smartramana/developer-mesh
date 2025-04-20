@@ -19,7 +19,8 @@ import (
 	"github.com/S-Corkum/mcp-server/internal/core"
 	"github.com/S-Corkum/mcp-server/internal/database"
 	"github.com/S-Corkum/mcp-server/internal/metrics"
-	
+	"github.com/S-Corkum/mcp-server/internal/observability"
+
 	// Import PostgreSQL driver
 	_ "github.com/lib/pq"
 )
@@ -27,7 +28,7 @@ import (
 func main() {
 	// Initialize secure random seed
 	initSecureRandom()
-	
+
 	// Setup context with cancellation
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
@@ -39,11 +40,14 @@ func main() {
 	if err != nil {
 		log.Fatalf("Failed to load configuration: %v", err)
 	}
-	
+
 	// Validate critical configuration
 	if err := validateConfiguration(cfg); err != nil {
 		log.Fatalf("Invalid configuration: %v", err)
 	}
+
+	// Initialize logging
+	logger := observability.NewLogger("server")
 
 	// Initialize metrics
 	metricsClient := metrics.NewClient(cfg.Metrics)
@@ -51,27 +55,28 @@ func main() {
 
 	// Check if IRSA is enabled (IAM Roles for Service Accounts)
 	if aws.IsIRSAEnabled() {
-		log.Println("IRSA (IAM Roles for Service Accounts) is enabled for AWS services")
-		log.Println("AWS Role ARN:", os.Getenv("AWS_ROLE_ARN"))
-		log.Println("AWS Web Identity Token File:", os.Getenv("AWS_WEB_IDENTITY_TOKEN_FILE"))
+		logger.Info("IRSA (IAM Roles for Service Accounts) is enabled for AWS services", map[string]interface{}{
+			"aws_role_arn":                os.Getenv("AWS_ROLE_ARN"),
+			"aws_web_identity_token_file": os.Getenv("AWS_WEB_IDENTITY_TOKEN_FILE"),
+		})
 	} else {
-		log.Println("IRSA not detected, will use standard AWS credential provider chain if IAM auth is enabled")
+		logger.Info("IRSA not detected, will use standard AWS credential provider chain if IAM auth is enabled", nil)
 	}
 
 	// Prepare database config with AWS integration if needed
 	var db *database.Database
 	var dbConfig database.Config
 	if cfg.AWS.RDS.UseIAMAuth && aws.IsIRSAEnabled() {
-		log.Println("Using IAM authentication for RDS")
+		logger.Info("Using IAM authentication for RDS", nil)
 		useAWS := true
 		useIAM := true
 		dbConfig = database.Config{
-			Driver:         "postgres",
-			UseAWS:         &useAWS,
-			UseIAM:         &useIAM,
-			RDSConfig:      &cfg.AWS.RDS,
-			MaxOpenConns:   cfg.AWS.RDS.MaxOpenConns,
-			MaxIdleConns:   cfg.AWS.RDS.MaxIdleConns,
+			Driver:          "postgres",
+			UseAWS:          &useAWS,
+			UseIAM:          &useIAM,
+			RDSConfig:       &cfg.AWS.RDS,
+			MaxOpenConns:    cfg.AWS.RDS.MaxOpenConns,
+			MaxIdleConns:    cfg.AWS.RDS.MaxIdleConns,
 			ConnMaxLifetime: cfg.AWS.RDS.ConnMaxLifetime,
 		}
 	} else {
@@ -89,7 +94,7 @@ func main() {
 	var cacheClient cache.Cache
 	var cacheConfig cache.RedisConfig
 	if cfg.AWS.ElastiCache.UseIAMAuth && aws.IsIRSAEnabled() {
-		log.Println("Using IAM authentication for ElastiCache")
+		logger.Info("Using IAM authentication for ElastiCache", nil)
 		cacheConfig = cache.RedisConfig{
 			Type:              "redis_cluster",
 			UseAWS:            true,
@@ -150,21 +155,32 @@ func main() {
 		},
 		Performance: api.DefaultConfig().Performance,
 	}
-	
+
 	// Initialize API server
-	server := api.NewServer(engine, apiConfig)
+	server := api.NewServer(engine, apiConfig, db.DB, metricsClient, cfg)
+
+	// Initialize server components
+	if err := server.Initialize(ctx); err != nil {
+		log.Fatalf("Failed to initialize server components: %v", err)
+	}
 
 	// Determine the correct port based on environment
 	port := cfg.GetListenPort()
-	log.Printf("Configured to listen on port %d", port)
+	logger.Info("Server configuration", map[string]interface{}{
+		"port":      port,
+		"env":       cfg.Environment,
+		"vector_db": cfg.Database.Vector.Enabled,
+	})
 
 	// Start server in a goroutine
 	go func() {
-		log.Printf("Starting server on %s", cfg.API.ListenAddress)
-		
+		logger.Info("Starting server", map[string]interface{}{
+			"address": cfg.API.ListenAddress,
+		})
+
 		// If we're in production and TLS is configured, use HTTPS
 		if cfg.IsProduction() && cfg.API.TLSCertFile != "" && cfg.API.TLSKeyFile != "" {
-			log.Println("Starting server with TLS (HTTPS)")
+			logger.Info("Starting server with TLS (HTTPS)", nil)
 			if err := server.StartTLS(cfg.API.TLSCertFile, cfg.API.TLSKeyFile); err != nil {
 				log.Fatalf("Failed to start server with TLS: %v", err)
 			}
@@ -180,7 +196,7 @@ func main() {
 	sigChan := make(chan os.Signal, 1)
 	signal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM)
 	<-sigChan
-	log.Println("Received shutdown signal")
+	logger.Info("Received shutdown signal", nil)
 
 	// Graceful shutdown
 	shutdownCtx, shutdownCancel := context.WithTimeout(ctx, 30*time.Second)
@@ -188,10 +204,12 @@ func main() {
 
 	// Shutdown API server first
 	if err := server.Shutdown(shutdownCtx); err != nil {
-		log.Printf("API server shutdown error: %v", err)
+		logger.Error("API server shutdown error", map[string]interface{}{
+			"error": err.Error(),
+		})
 	}
 
-	log.Println("Server stopped gracefully")
+	logger.Info("Server stopped gracefully", nil)
 }
 
 // initSecureRandom initializes the math/rand package with a secure seed
@@ -206,7 +224,7 @@ func initSecureRandom() {
 		mathrand.Seed(time.Now().UnixNano())
 		return
 	}
-	
+
 	// Seed the global random generator with our secure random value
 	mathrand.Seed(val.Int64())
 	log.Println("Initialized secure random generator")
@@ -221,18 +239,16 @@ func validateConfiguration(cfg *config.Config) error {
 			return fmt.Errorf("invalid database configuration: DSN or host/port/database must be provided")
 		}
 	}
-	
+
 	// Validate API configuration
 	if cfg.API.ReadTimeout == 0 || cfg.API.WriteTimeout == 0 || cfg.API.IdleTimeout == 0 {
 		return fmt.Errorf("invalid API timeouts: must be greater than 0")
 	}
-	
+
 	// Check webhook secrets if webhooks are enabled
 	if cfg.API.Webhooks.GitHub.Enabled && cfg.API.Webhooks.GitHub.Secret == "" {
 		log.Println("Warning: GitHub webhooks enabled without a secret - consider adding a secret for security")
 	}
-	
+
 	return nil
 }
-
-// S3 functionality has been removed in this version

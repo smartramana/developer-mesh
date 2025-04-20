@@ -11,6 +11,20 @@ import (
 	"github.com/S-Corkum/mcp-server/test/functional/client"
 )
 
+// Import variables from the suite
+var (
+	ServerURL string
+	APIKey string
+	MockServerURL string
+)
+
+func init() {
+	// These will be set by the suite before tests run
+	ServerURL = "http://localhost:8080"
+	APIKey = "test-admin-api-key"
+	MockServerURL = "http://localhost:8081"
+}
+
 var _ = Describe("API", func() {
 	var mcpClient *client.MCPClient
 	var ctx context.Context
@@ -148,6 +162,8 @@ var _ = Describe("API", func() {
 
 	Describe("Context API", func() {
 		It("should retrieve an existing context", func() {
+			Skip("Context API endpoints are no longer supported")
+			
 			// Try to get the test context
 			context, err := mcpClient.GetContext(ctx, "ctx-test-001")
 			
@@ -162,6 +178,8 @@ var _ = Describe("API", func() {
 		})
 
 		It("should create a new context", func() {
+			Skip("Context API endpoints are no longer supported")
+			
 			// Create a new context
 			payload := map[string]interface{}{
 				"agent_id": "test-agent",

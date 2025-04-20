@@ -61,6 +61,7 @@ services:
       - "8080:8080"
     environment:
       - MCP_CONFIG_FILE=/app/configs/config.test.yaml
+      - DATABASE_DSN=postgresql://postgres:postgres@postgres:5432/mcp_test?sslmode=disable
       - POSTGRES_HOST=postgres
       - POSTGRES_PORT=5432
       - POSTGRES_USER=postgres

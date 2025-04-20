@@ -1,6 +1,7 @@
 package functional_test
 
 import (
+	"os"
 	"testing"
 	"time"
 
@@ -35,8 +36,10 @@ func initTestConfig() {
 
 // getEnvOrDefault retrieves environment variable value or returns default if not set
 func getEnvOrDefault(key, defaultValue string) string {
-	val, ok := GinkgoT().Getenv(key)
-	if !ok || val == "" {
+	val := ""
+	// Use standard os.Getenv here, not GinkgoT().Getenv which is not supported in this version
+	val = os.Getenv(key)
+	if val == "" {
 		return defaultValue
 	}
 	return val

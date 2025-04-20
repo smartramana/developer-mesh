@@ -9,17 +9,20 @@ server:
   enableCORS: true
 
 database:
+  driver: "postgres"
+  dsn: "${DATABASE_DSN}"
   host: "${POSTGRES_HOST}"
   port: "${POSTGRES_PORT}"
   user: "${POSTGRES_USER}"
   password: "${POSTGRES_PASSWORD}"
-  dbName: "${POSTGRES_DB}"
+  database: "${POSTGRES_DB}"
   sslMode: "disable"
   maxOpenConns: 10
   maxIdleConns: 5
   connMaxLifetime: 1h
 
-redis:
+cache:
+  type: "redis"
   host: "${REDIS_HOST}"
   port: "${REDIS_PORT}"
   password: ""
