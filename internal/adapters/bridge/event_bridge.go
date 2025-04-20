@@ -11,12 +11,14 @@ import (
 	"github.com/S-Corkum/mcp-server/internal/observability"
 )
 
-// EventBridge bridges adapter events to the system event bus
+// EventBridge bridges adapter events to the system event bus.
+// It handles the communication between adapter-specific events and the system-wide
+// event bus, translating events between different formats and contexts.
 type EventBridge struct {
 	eventBus         *events.EventBus
 	systemEventBus   system.EventBus
 	logger           *observability.Logger
-	adapterRegistry  *core.AdapterRegistry
+	adapterRegistry  *core.AdapterRegistry  // May be nil in some contexts - added nil checks to avoid dereference
 	adapterHandlers  map[string]map[string][]func(context.Context, *events.AdapterEvent) error
 	mu               sync.RWMutex
 }
@@ -85,12 +87,14 @@ func (b *EventBridge) RegisterHandler(adapterType string, eventType events.Event
 
 // RegisterHandlerForAllAdapters registers a handler for all adapters with the specified event type
 func (b *EventBridge) RegisterHandlerForAllAdapters(eventType events.EventType, handler func(context.Context, *events.AdapterEvent) error) {
-	// Get all registered adapters
-	adapters := b.adapterRegistry.ListAdapters()
-	
-	// Register handler for each adapter
-	for adapterType := range adapters {
-		b.RegisterHandler(adapterType, eventType, handler)
+	// Get all registered adapters, with nil check
+	if b.adapterRegistry != nil {
+		adapters := b.adapterRegistry.ListAdapters()
+		
+		// Register handler for each adapter
+		for adapterType := range adapters {
+			b.RegisterHandler(adapterType, eventType, handler)
+		}
 	}
 	
 	// Also register a special handler for future adapters

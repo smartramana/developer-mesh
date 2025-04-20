@@ -85,11 +85,18 @@ func NewEngine(
 	// For now, pass the config directly to the adapter manager
 	// We'll refactor the adapter manager later to handle interfaces.CoreConfig
 
-	// For this refactored version, we'll skip using the adapter manager
-	// We'll implement proper adapter integration later
+	// Initialize required components - properly create the adapter manager
+	// This ensures the AdapterRegistry is properly initialized to avoid nil pointer dereference
+	logger.Info("Initializing adapter manager", nil)
+	adapterManager := adapters.NewAdapterManager(config, nil, eventBus, logger, metricsClient)
 	
-	// Create a basic adapter manager
-	adapterManager := &adapters.AdapterManager{}
+	// Initialize adapters
+	if err := adapterManager.Initialize(ctx); err != nil {
+		logger.Error("Failed to initialize adapters", map[string]interface{}{
+			"error": err.Error(),
+		})
+		return nil, fmt.Errorf("failed to initialize adapters: %w", err)
+	}
 
 	// Create engine
 	engine := &Engine{
