@@ -10,7 +10,6 @@ import (
 	"net"
 	"net/http"
 	"strings"
-	"sync"
 	"time"
 
 	"github.com/S-Corkum/mcp-server/internal/common/errors"
@@ -343,7 +342,9 @@ func (v *Validator) ValidateWithIP(eventType string, payload []byte, headers htt
 	// Validate headers
 	if err := v.ValidateHeaders(headers); err != nil {
 		validationErr = errors.FromWebhookError(err, eventType)
-		validationErr.WithContext("stage", "headers")
+		if githubErr, ok := validationErr.(*errors.GitHubError); ok {
+			githubErr.WithContext("stage", "headers")
+		}
 		return validationErr
 	}
 	
@@ -351,7 +352,9 @@ func (v *Validator) ValidateWithIP(eventType string, payload []byte, headers htt
 	signature := headers.Get("X-Hub-Signature-256")
 	if err := v.ValidateSignature(payload, signature); err != nil {
 		validationErr = errors.FromWebhookError(err, eventType)
-		validationErr.WithContext("stage", "signature")
+		if githubErr, ok := validationErr.(*errors.GitHubError); ok {
+			githubErr.WithContext("stage", "signature")
+		}
 		return validationErr
 	}
 	
@@ -359,15 +362,19 @@ func (v *Validator) ValidateWithIP(eventType string, payload []byte, headers htt
 	deliveryID := headers.Get("X-GitHub-Delivery")
 	if err := v.ValidateDeliveryID(deliveryID); err != nil {
 		validationErr = errors.FromWebhookError(err, eventType)
-		validationErr.WithContext("stage", "delivery_id")
-		validationErr.WithContext("delivery_id", deliveryID)
+		if githubErr, ok := validationErr.(*errors.GitHubError); ok {
+			githubErr.WithContext("stage", "delivery_id")
+			githubErr.WithContext("delivery_id", deliveryID)
+		}
 		return validationErr
 	}
 	
 	// Validate payload schema
 	if err := v.ValidatePayload(eventType, payload); err != nil {
 		validationErr = errors.FromWebhookError(err, eventType)
-		validationErr.WithContext("stage", "payload")
+		if githubErr, ok := validationErr.(*errors.GitHubError); ok {
+			githubErr.WithContext("stage", "payload")
+		}
 		return validationErr
 	}
 	
@@ -379,8 +386,10 @@ func (v *Validator) ValidateWithIP(eventType string, payload []byte, headers htt
 		
 		if err := v.ValidateSourceIP(sourceIP); err != nil {
 			validationErr = errors.FromWebhookError(err, eventType)
-			validationErr.WithContext("stage", "source_ip")
-			validationErr.WithContext("ip", sourceIP)
+			if githubErr, ok := validationErr.(*errors.GitHubError); ok {
+				githubErr.WithContext("stage", "source_ip")
+				githubErr.WithContext("ip", sourceIP)
+			}
 			return validationErr
 		}
 	}

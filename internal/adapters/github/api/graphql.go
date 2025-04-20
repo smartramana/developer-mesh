@@ -222,7 +222,7 @@ func (c *GraphQLClient) GetCurrentUser(ctx context.Context) (map[string]interfac
 type GraphQLClient struct {
 	config        *Config
 	client        *http.Client
-	rateLimiter   *resilience.RateLimiter
+	rateLimiter   resilience.RateLimiter
 	logger        *observability.Logger
 	metricsClient *observability.MetricsClient
 	queryCache    map[string]interface{}
@@ -240,7 +240,7 @@ type Config struct {
 }
 
 // NewGraphQLClient creates a new GitHub GraphQL client
-func NewGraphQLClient(config *Config, client *http.Client, rateLimiter *resilience.RateLimiter, logger *observability.Logger, metricsClient *observability.MetricsClient) *GraphQLClient {
+func NewGraphQLClient(config *Config, client *http.Client, rateLimiter resilience.RateLimiter, logger *observability.Logger, metricsClient *observability.MetricsClient) *GraphQLClient {
 	// Set default URL if not provided
 	if config.URL == "" {
 		config.URL = "https://api.github.com/graphql"
@@ -291,7 +291,7 @@ func DefaultPaginationOptions() *PaginationOptions {
 // Query executes a GraphQL query
 func (c *GraphQLClient) Query(ctx context.Context, query string, variables map[string]interface{}, result interface{}) error {
 	// Check rate limits before sending request
-	if !c.rateLimiter.Allow() {
+	if c.rateLimiter != nil && !c.rateLimiter.Allow() {
 		return errors.NewGitHubError(
 			errors.ErrRateLimitExceeded,
 			0,
@@ -430,7 +430,7 @@ func (c *GraphQLClient) extractPageInfo(data map[string]interface{}, itemsField 
 	// First try looking for the specified itemsField directly
 	if itemsField != "" {
 		// Try to find the field that contains the connection (e.g., "repositories", "issues", etc.)
-		for key, value := range data {
+		for _, value := range data {
 			// Look for the connection in the top level
 			connectionData, ok := c.findConnection(value, itemsField)
 			if ok {
@@ -478,17 +478,17 @@ func (c *GraphQLClient) findConnection(value interface{}, itemsField string) (ma
 // extractPageInfoFromConnection extracts pagination info from a connection object
 func (c *GraphQLClient) extractPageInfoFromConnection(connection map[string]interface{}) (bool, string) {
 	// Look for pageInfo in the connection
-	pageInfoVal, exists := connection["pageInfo"]
+	pageInfoRaw, exists := connection["pageInfo"]
 	if !exists {
 		return false, ""
 	}
 	
 	// Type assertion with validation
-	pageInfo, ok := pageInfoVal.(map[string]interface{})
-	if !ok {
+	pageInfo, ok := pageInfoRaw.(map[string]interface{})
+	if !ok && c.logger != nil {
 		c.logger.Warn("Invalid pageInfo type", map[string]interface{}{
 			"expected": "map[string]interface{}",
-			"actual":   fmt.Sprintf("%T", pageInfoVal),
+			"actual":   fmt.Sprintf("%T", pageInfoRaw),
 		})
 		return false, ""
 	}
@@ -563,7 +563,7 @@ func (c *GraphQLClient) recursiveExtractPageInfo(data map[string]interface{}) (b
 	for _, value := range data {
 		if subObj, ok := value.(map[string]interface{}); ok {
 			// Check if this object has pageInfo
-			if pageInfoVal, exists := subObj["pageInfo"]; exists {
+			if _, exists := subObj["pageInfo"]; exists {
 				// Get pagination info from this connection
 				connection, _ := c.findConnection(subObj, "")
 				return c.extractPageInfoFromConnection(connection)
@@ -683,7 +683,7 @@ const (
 // execute executes a GraphQL request
 func (c *GraphQLClient) execute(ctx context.Context, req GraphQLRequest, resp *GraphQLResponse) error {
 	// Check rate limits before sending request
-	if !c.rateLimiter.Allow() {
+	if c.rateLimiter != nil && !c.rateLimiter.Allow() {
 		return errors.NewGitHubError(
 			errors.ErrRateLimitExceeded,
 			0,
@@ -694,7 +694,9 @@ func (c *GraphQLClient) execute(ctx context.Context, req GraphQLRequest, resp *G
 	// Start metrics timing
 	start := time.Now()
 	defer func() {
-		c.metricsClient.RecordDuration("github.graphql.request", time.Since(start))
+		if c.metricsClient != nil {
+			c.metricsClient.RecordHistogram("github.graphql.request_duration", time.Since(start).Seconds(), map[string]string{})
+		}
 	}()
 
 	// Marshal request
@@ -736,7 +738,9 @@ func (c *GraphQLClient) execute(ctx context.Context, req GraphQLRequest, resp *G
 	// Execute HTTP request
 	httpResp, err := c.client.Do(httpReq)
 	if err != nil {
-		c.metricsClient.IncrementCounter("github.graphql.error", 1)
+		if c.metricsClient != nil {
+			c.metricsClient.RecordCounter("github.graphql.error", 1, map[string]string{"type": "request_error"})
+		}
 		
 		// Create a detailed error with context
 		githubErr := errors.NewGitHubError(
@@ -769,7 +773,9 @@ func (c *GraphQLClient) execute(ctx context.Context, req GraphQLRequest, resp *G
 
 	// Check response status
 	if httpResp.StatusCode != http.StatusOK {
-		c.metricsClient.IncrementCounter("github.graphql.error", 1)
+		if c.metricsClient != nil {
+			c.metricsClient.RecordCounter("github.graphql.error", 1, map[string]string{"status": fmt.Sprintf("%d", httpResp.StatusCode)})
+		}
 		
 		// Read error body if available
 		errorBody, _ := io.ReadAll(httpResp.Body)
@@ -808,14 +814,18 @@ func (c *GraphQLClient) execute(ctx context.Context, req GraphQLRequest, resp *G
 		}
 		
 		// Log appropriate error level
-		if httpResp.StatusCode >= 500 {
-			c.logger.Error("GitHub GraphQL server error", 
-				"status", httpResp.StatusCode,
-				"message", message)
-		} else {
-			c.logger.Warn("GitHub GraphQL client error", 
-				"status", httpResp.StatusCode,
-				"message", message)
+		if c.logger != nil {
+			if httpResp.StatusCode >= 500 {
+				c.logger.Error("GitHub GraphQL server error", map[string]interface{}{
+					"status": httpResp.StatusCode,
+					"message": message,
+				})
+			} else {
+				c.logger.Warn("GitHub GraphQL client error", map[string]interface{}{
+					"status": httpResp.StatusCode,
+					"message": message,
+				})
+			}
 		}
 		
 		return githubErr
@@ -842,15 +852,19 @@ func (c *GraphQLClient) execute(ctx context.Context, req GraphQLRequest, resp *G
 
 	// Check for GraphQL errors
 	if len(resp.Errors) > 0 {
-		c.metricsClient.IncrementCounter("github.graphql.error", 1)
+		if c.metricsClient != nil {
+			c.metricsClient.RecordCounter("github.graphql.error", 1, map[string]string{"type": "graphql_error"})
+		}
 		
 		// Log errors
 		for _, e := range resp.Errors {
-			c.logger.Warn("GraphQL error", map[string]interface{}{
-				"message": e.Message,
-				"type":    e.Type,
-				"query":   strings.Split(query, "\n")[0] + "...", // Log first line of query
-			})
+			if c.logger != nil {
+				c.logger.Warn("GraphQL error", map[string]interface{}{
+					"message": e.Message,
+					"type":    e.Type,
+					"query":   strings.Split(req.Query, "\n")[0] + "...", // Log first line of query
+				})
+			}
 		}
 		
 		// If response has no data, return error
@@ -878,8 +892,8 @@ func (c *GraphQLClient) execute(ctx context.Context, req GraphQLRequest, resp *G
 			}
 			
 			// Add query info (first 100 chars only)
-			if len(query) > 0 {
-				queryPreview := query
+			if len(req.Query) > 0 {
+				queryPreview := req.Query
 				if len(queryPreview) > 100 {
 					queryPreview = queryPreview[:97] + "..."
 				}
@@ -897,7 +911,9 @@ func (c *GraphQLClient) execute(ctx context.Context, req GraphQLRequest, resp *G
 	}
 
 	// Log metrics
-	c.metricsClient.IncrementCounter("github.graphql.request", 1)
+	if c.metricsClient != nil {
+		c.metricsClient.RecordCounter("github.graphql.request", 1, map[string]string{"status": "success"})
+	}
 
 	return nil
 }

@@ -5,6 +5,9 @@ import (
 	"time"
 )
 
+// DefaultPeriod defines the default period for rate limiters
+var DefaultPeriod = time.Minute
+
 // RateLimiterConfig holds configuration for a rate limiter
 type RateLimiterConfig struct {
 	Limit       int           // Maximum requests per period

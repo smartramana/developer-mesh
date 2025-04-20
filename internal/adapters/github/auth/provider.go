@@ -211,7 +211,10 @@ func NewAppProvider(appID, privateKeyPEM, installationID string, logger *observa
 	}
 	
 	if installationID == "" {
-		logger.Warn("GitHub App installation ID not provided; only JWT authentication will be available")
+		logger.Warn("GitHub App installation ID not provided; only JWT authentication will be available", 
+			map[string]interface{}{
+				"app_id": appID,
+			})
 	}
 	
 	// Parse the private key from PEM format

@@ -33,21 +33,7 @@ type RESTClient struct {
 	cacheMutex    sync.RWMutex
 }
 
-// PaginationOptions provides options for paginated requests
-type PaginationOptions struct {
-	Page     int
-	PerPage  int
-	MaxPages int
-}
-
-// DefaultPaginationOptions returns default pagination options
-func DefaultPaginationOptions() *PaginationOptions {
-	return &PaginationOptions{
-		Page:     1,
-		PerPage:  100,
-		MaxPages: 10,
-	}
-}
+// Using RestPaginationOptions from pagination.go file
 
 // RESTConfig holds configuration for the REST client
 type RESTConfig struct {
@@ -200,16 +186,17 @@ func (c *RESTClient) doRequest(ctx context.Context, opts requestOptions, result 
 		}
 		
 		// Log rate limit information
-		c.logger.Info("GitHub API rate limit",
-			"remaining", rateLimitInfo.Remaining,
-			"limit", rateLimitInfo.Limit,
-			"reset", rateLimitInfo.Reset,
-			"used", rateLimitInfo.Used)
+		c.logger.Info("GitHub API rate limit", map[string]interface{}{
+			"remaining": rateLimitInfo.Remaining,
+			"limit": rateLimitInfo.Limit,
+			"reset": rateLimitInfo.Reset,
+			"used": rateLimitInfo.Used,
+		})
 		
 		// Record rate limit metrics
-		c.metricsClient.RecordGauge("github.rest.rate_limit.remaining", float64(rateLimitInfo.Remaining))
-		c.metricsClient.RecordGauge("github.rest.rate_limit.limit", float64(rateLimitInfo.Limit))
-		c.metricsClient.RecordGauge("github.rest.rate_limit.used", float64(rateLimitInfo.Used))
+		c.metricsClient.RecordGauge("github.rest.rate_limit.remaining", float64(rateLimitInfo.Remaining), map[string]string{})
+		c.metricsClient.RecordGauge("github.rest.rate_limit.limit", float64(rateLimitInfo.Limit), map[string]string{})
+		c.metricsClient.RecordGauge("github.rest.rate_limit.used", float64(rateLimitInfo.Used), map[string]string{})
 	}
 	
 	// Extract ETag for future conditional requests
@@ -231,7 +218,15 @@ func (c *RESTClient) doRequest(ctx context.Context, opts requestOptions, result 
 		cachedResp := c.loadCachedResponse(opts.Path)
 		if cachedResp != nil && result != nil {
 			// Copy cached response to result
-			*result.(*interface{}) = *cachedResp
+			if resultPtr, ok := result.(*interface{}); ok {
+				*resultPtr = cachedResp
+			} else {
+				// Try to marshal and unmarshal the cached response into the result
+				data, err := json.Marshal(cachedResp)
+				if err == nil {
+					json.Unmarshal(data, result)
+				}
+			}
 			return nil
 		}
 		// If no cached response is found, return empty result
@@ -298,17 +293,19 @@ func (c *RESTClient) doRequest(ctx context.Context, opts requestOptions, result 
 		
 		// Log the error with appropriate level
 		if resp.StatusCode >= 500 {
-			c.logger.Error("GitHub API server error", 
-				"status", resp.StatusCode,
-				"message", errorResp.Message,
-				"path", opts.Path,
-				"method", opts.Method)
+			c.logger.Error("GitHub API server error", map[string]interface{}{
+				"status": resp.StatusCode,
+				"message": errorResp.Message,
+				"path": opts.Path,
+				"method": opts.Method,
+			})
 		} else {
-			c.logger.Warn("GitHub API client error", 
-				"status", resp.StatusCode,
-				"message", errorResp.Message,
-				"path", opts.Path,
-				"method", opts.Method)
+			c.logger.Warn("GitHub API client error", map[string]interface{}{
+				"status": resp.StatusCode,
+				"message": errorResp.Message,
+				"path": opts.Path,
+				"method": opts.Method,
+			})
 		}
 		
 		return githubErr
@@ -330,10 +327,10 @@ func (c *RESTClient) doRequest(ctx context.Context, opts requestOptions, result 
 }
 
 // GetPaginated makes a paginated GET request
-func (c *RESTClient) GetPaginated(ctx context.Context, path string, options *PaginationOptions, result interface{}) error {
+func (c *RESTClient) GetPaginated(ctx context.Context, path string, options *RestPaginationOptions, result interface{}) error {
 	// Set default options if not provided
 	if options == nil {
-		options = DefaultPaginationOptions()
+		options = DefaultRestPaginationOptions()
 	}
 	
 	// Create query parameters
@@ -371,7 +368,7 @@ func (c *RESTClient) GetPaginated(ctx context.Context, path string, options *Pag
 }
 
 // getPaginatedMapSlice handles pagination for []map[string]interface{} result type
-func (c *RESTClient) getPaginatedMapSlice(ctx context.Context, path string, query url.Values, options *PaginationOptions, result *[]map[string]interface{}) error {
+func (c *RESTClient) getPaginatedMapSlice(ctx context.Context, path string, query url.Values, options *RestPaginationOptions, result *[]map[string]interface{}) error {
 	var allItems []map[string]interface{}
 	
 	// Track current page
@@ -423,7 +420,7 @@ func (c *RESTClient) getPaginatedMapSlice(ctx context.Context, path string, quer
 }
 
 // getPaginatedInterfaceSlice handles pagination for []interface{} result type
-func (c *RESTClient) getPaginatedInterfaceSlice(ctx context.Context, path string, query url.Values, options *PaginationOptions, result *[]interface{}) error {
+func (c *RESTClient) getPaginatedInterfaceSlice(ctx context.Context, path string, query url.Values, options *RestPaginationOptions, result *[]interface{}) error {
 	var allItems []interface{}
 	
 	// Track current page
@@ -555,7 +552,7 @@ func (c *RESTClient) GetRepository(ctx context.Context, owner, repo string) (map
 }
 
 // ListRepositories lists repositories for the authenticated user
-func (c *RESTClient) ListRepositories(ctx context.Context, options *PaginationOptions) ([]map[string]interface{}, error) {
+func (c *RESTClient) ListRepositories(ctx context.Context, options *RestPaginationOptions) ([]map[string]interface{}, error) {
 	path := "user/repos"
 	var result []map[string]interface{}
 	err := c.GetPaginated(ctx, path, options, &result)
@@ -573,7 +570,7 @@ func (c *RESTClient) GetIssue(ctx context.Context, owner, repo string, number in
 }
 
 // ListIssues lists issues for a repository
-func (c *RESTClient) ListIssues(ctx context.Context, owner, repo string, options *PaginationOptions) ([]map[string]interface{}, error) {
+func (c *RESTClient) ListIssues(ctx context.Context, owner, repo string, options *RestPaginationOptions) ([]map[string]interface{}, error) {
 	path := fmt.Sprintf("repos/%s/%s/issues", owner, repo)
 	var result []map[string]interface{}
 	err := c.GetPaginated(ctx, path, options, &result)
@@ -607,7 +604,7 @@ func (c *RESTClient) GetPullRequest(ctx context.Context, owner, repo string, num
 }
 
 // ListPullRequests lists pull requests for a repository
-func (c *RESTClient) ListPullRequests(ctx context.Context, owner, repo string, options *PaginationOptions) ([]map[string]interface{}, error) {
+func (c *RESTClient) ListPullRequests(ctx context.Context, owner, repo string, options *RestPaginationOptions) ([]map[string]interface{}, error) {
 	path := fmt.Sprintf("repos/%s/%s/pulls", owner, repo)
 	var result []map[string]interface{}
 	err := c.GetPaginated(ctx, path, options, &result)
@@ -636,7 +633,7 @@ func (c *RESTClient) MergePullRequest(ctx context.Context, owner, repo string, n
 // Common Workflow Operations
 
 // ListWorkflowRuns lists workflow runs for a repository
-func (c *RESTClient) ListWorkflowRuns(ctx context.Context, owner, repo string, options *PaginationOptions) ([]map[string]interface{}, error) {
+func (c *RESTClient) ListWorkflowRuns(ctx context.Context, owner, repo string, options *RestPaginationOptions) ([]map[string]interface{}, error) {
 	path := fmt.Sprintf("repos/%s/%s/actions/runs", owner, repo)
 	var result map[string]interface{}
 	var runs []map[string]interface{}
@@ -700,7 +697,7 @@ func (c *RESTClient) CreatePullRequestReview(ctx context.Context, owner, repo st
 // Common Release Operations
 
 // ListReleases lists releases for a repository
-func (c *RESTClient) ListReleases(ctx context.Context, owner, repo string, options *PaginationOptions) ([]map[string]interface{}, error) {
+func (c *RESTClient) ListReleases(ctx context.Context, owner, repo string, options *RestPaginationOptions) ([]map[string]interface{}, error) {
 	path := fmt.Sprintf("repos/%s/%s/releases", owner, repo)
 	var result []map[string]interface{}
 	err := c.GetPaginated(ctx, path, options, &result)
@@ -726,7 +723,7 @@ func (c *RESTClient) UploadReleaseAsset(ctx context.Context, owner, repo string,
 // Common Branch Operations
 
 // ListBranches lists branches for a repository
-func (c *RESTClient) ListBranches(ctx context.Context, owner, repo string, options *PaginationOptions) ([]map[string]interface{}, error) {
+func (c *RESTClient) ListBranches(ctx context.Context, owner, repo string, options *RestPaginationOptions) ([]map[string]interface{}, error) {
 	path := fmt.Sprintf("repos/%s/%s/branches", owner, repo)
 	var result []map[string]interface{}
 	err := c.GetPaginated(ctx, path, options, &result)
@@ -758,7 +755,9 @@ func (c *RESTClient) extractRateLimitInfo(headers http.Header) *RateLimitInfo {
 	// Parse reset timestamp
 	resetTimestamp, err := strconv.ParseInt(resetStr, 10, 64)
 	if err != nil {
-		c.logger.Warn("Failed to parse rate limit reset timestamp", "error", err)
+		c.logger.Warn("Failed to parse rate limit reset timestamp", map[string]interface{}{
+			"error": err.Error(),
+		})
 		return nil
 	}
 	
@@ -819,7 +818,7 @@ func (c *RESTClient) GetCommit(ctx context.Context, owner, repo, sha string) (ma
 }
 
 // ListCommits lists commits for a repository
-func (c *RESTClient) ListCommits(ctx context.Context, owner, repo string, options *PaginationOptions) ([]map[string]interface{}, error) {
+func (c *RESTClient) ListCommits(ctx context.Context, owner, repo string, options *RestPaginationOptions) ([]map[string]interface{}, error) {
 	path := fmt.Sprintf("repos/%s/%s/commits", owner, repo)
 	var result []map[string]interface{}
 	err := c.GetPaginated(ctx, path, options, &result)

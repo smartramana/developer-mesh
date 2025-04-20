@@ -1,48 +1,54 @@
 package github
 
 import (
-	"github.com/S-Corkum/mcp-server/internal/adapters/errors"
-)
-
-// Re-export error variables from the common errors package
-var (
-	// General GitHub errors
-	ErrGitHubAPI          = errors.ErrGitHubAPI
-	ErrInvalidCredentials = errors.ErrInvalidCredentials
-	ErrPermissionDenied   = errors.ErrPermissionDenied
-	ErrResourceNotFound   = errors.ErrResourceNotFound
-	ErrRateLimitExceeded  = errors.ErrRateLimitExceeded
-	ErrServerError        = errors.ErrServerError
-	ErrValidationFailed   = errors.ErrValidationFailed
-	ErrServiceUnavailable = errors.ErrServiceUnavailable
-
-	// REST API specific errors
-	ErrRESTRequest  = errors.ErrRESTRequest
-	ErrRESTResponse = errors.ErrRESTResponse
+	"errors"
 	
-	// GraphQL specific errors
-	ErrGraphQLRequest  = errors.ErrGraphQLRequest
-	ErrGraphQLResponse = errors.ErrGraphQLResponse
-	
-	// Webhook specific errors
-	ErrInvalidWebhook    = errors.ErrInvalidWebhook
-	ErrInvalidSignature  = errors.ErrInvalidSignature
-	ErrInvalidPayload    = errors.ErrInvalidPayload
-	ErrDuplicateDelivery = errors.ErrDuplicateDelivery
+	adapterrors "github.com/S-Corkum/mcp-server/internal/adapters/errors"
+	commonerrors "github.com/S-Corkum/mcp-server/internal/common/errors"
 )
 
-// GitHubError is an alias for errors.GitHubError
-type GitHubError = errors.GitHubError
-
-// Re-export functions from the common errors package
+// Re-export functions from the commonerrors package
 var (
-	NewGitHubError    = errors.NewGitHubError
-	FromHTTPError     = errors.FromHTTPError
-	FromWebhookError  = errors.FromWebhookError
-	IsRateLimitError  = errors.IsGitHubRateLimitError
-	IsNotFoundError   = errors.IsGitHubNotFoundError
-	IsAuthenticationError = errors.IsGitHubAuthenticationError
-	IsPermissionError = errors.IsGitHubPermissionError
-	IsValidationError = errors.IsGitHubValidationError
-	IsServerError     = errors.IsGitHubServerError
+	NewGitHubError            = commonerrors.NewGitHubError
+	FromHTTPError             = commonerrors.FromHTTPError
+	FromWebhookError          = commonerrors.FromWebhookError
+	IsGitHubRateLimitError    = commonerrors.IsGitHubRateLimitError
+	IsGitHubNotFoundError     = commonerrors.IsGitHubNotFoundError
+	IsGitHubAuthenticationError = commonerrors.IsGitHubAuthenticationError
+	IsGitHubPermissionError   = commonerrors.IsGitHubPermissionError
+	IsGitHubValidationError   = commonerrors.IsGitHubValidationError
+	IsGitHubServerError       = commonerrors.IsGitHubServerError
 )
+
+// GitHubError is an alias for commonerrors.GitHubError
+type GitHubError = commonerrors.GitHubError
+
+// GitHubErrorProvider interface defines methods for providing GitHub errors
+type GitHubErrorProvider interface {
+	NewError(err error, statusCode int, message string) *GitHubError
+	FromHTTPError(statusCode int, message, documentationURL string) *GitHubError
+	FromWebhookError(err error, eventType string) *GitHubError
+}
+
+// errorProvider implements GitHubErrorProvider
+type errorProvider struct{}
+
+// NewGitHubErrorProvider returns a new GitHub error provider
+func NewGitHubErrorProvider() GitHubErrorProvider {
+	return &errorProvider{}
+}
+
+// NewError creates a new GitHub error
+func (p *errorProvider) NewError(err error, statusCode int, message string) *GitHubError {
+	return NewGitHubError(err, statusCode, message)
+}
+
+// FromHTTPError creates a GitHub error from an HTTP error
+func (p *errorProvider) FromHTTPError(statusCode int, message, documentationURL string) *GitHubError {
+	return FromHTTPError(statusCode, message, documentationURL)
+}
+
+// FromWebhookError creates a GitHub error from a webhook error
+func (p *errorProvider) FromWebhookError(err error, eventType string) *GitHubError {
+	return FromWebhookError(err, eventType)
+}

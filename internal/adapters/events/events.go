@@ -71,10 +71,10 @@ type EventListener interface {
 
 // EventBus is a simple event bus for adapter events
 type EventBus struct {
-	listeners     map[EventType][]EventListener
+	listeners       map[EventType][]EventListener
 	globalListeners []EventListener
-	mu            sync.RWMutex
-	logger        *observability.Logger
+	mu              sync.RWMutex
+	logger          *observability.Logger
 }
 
 // NewEventBus creates a new event bus

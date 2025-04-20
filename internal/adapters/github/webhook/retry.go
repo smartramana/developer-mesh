@@ -4,10 +4,10 @@ import (
 	"context"
 	"fmt"
 	"math"
+	"math/rand"
 	"sync"
 	"time"
 
-	"github.com/S-Corkum/mcp-server/internal/adapters/resilience"
 	"github.com/S-Corkum/mcp-server/internal/observability"
 )
 
@@ -340,6 +340,22 @@ func (m *RetryManager) List(ctx context.Context, filter RetryFilter) ([]*RetryIn
 	return m.storage.List(ctx, filter)
 }
 
+// addJitter adds jitter to a duration to avoid thundering herd problems
+func addJitter(duration time.Duration, jitter float64) time.Duration {
+	if jitter <= 0 {
+		return duration
+	}
+	
+	// Calculate jitter range (duration * jitter)
+	jitterRange := float64(duration) * jitter
+	
+	// Generate random jitter within range [-jitterRange/2, jitterRange/2]
+	randomJitter := (rand.Float64()-0.5) * jitterRange
+	
+	// Apply jitter
+	return time.Duration(float64(duration) + randomJitter)
+}
+
 // calculateBackoff calculates the backoff duration for a retry
 func (m *RetryManager) calculateBackoff(retryCount int) time.Duration {
 	// Calculate base backoff
@@ -347,7 +363,7 @@ func (m *RetryManager) calculateBackoff(retryCount int) time.Duration {
 	
 	// Apply jitter
 	if m.config.Jitter > 0 {
-		backoff = resilience.AddJitter(backoff, m.config.Jitter)
+		backoff = addJitter(backoff, m.config.Jitter)
 	}
 	
 	// Cap at max backoff

@@ -6,9 +6,11 @@ import (
 	"fmt"
 	"net/http"
 	"sync"
+	"time"
 
-	"github.com/S-Corkum/mcp-server/internal/adapters/events"
+	"github.com/S-Corkum/mcp-server/internal/events"
 	"github.com/S-Corkum/mcp-server/internal/observability"
+	"github.com/S-Corkum/mcp-server/pkg/mcp"
 )
 
 // HandlerFunc is a function that handles a webhook event
@@ -208,8 +210,10 @@ func (m *Manager) ProcessEvent(ctx context.Context, event Event) error {
 			})
 			
 			// Publish error event
-			errEvent := events.Event{
+			errEvent := &mcp.Event{
 				Type: "github.webhook.error",
+				Source: "github",
+				Timestamp: time.Now(),
 				Data: map[string]interface{}{
 					"eventType":  event.Type,
 					"deliveryID": event.DeliveryID,
@@ -217,20 +221,22 @@ func (m *Manager) ProcessEvent(ctx context.Context, event Event) error {
 					"error":      err.Error(),
 				},
 			}
-			m.eventBus.Publish(errEvent)
+			m.eventBus.Publish(context.Background(), errEvent)
 			
 			// Continue processing with other handlers
 		} else {
 			// Publish success event
-			successEvent := events.Event{
+			successEvent := &mcp.Event{
 				Type: "github.webhook.success",
+				Source: "github",
+				Timestamp: time.Now(),
 				Data: map[string]interface{}{
 					"eventType":  event.Type,
 					"deliveryID": event.DeliveryID,
 					"handlerID":  handler.ID,
 				},
 			}
-			m.eventBus.Publish(successEvent)
+			m.eventBus.Publish(context.Background(), successEvent)
 		}
 	}
 	
