@@ -26,6 +26,9 @@ type RESTClient struct {
 	authProvider  auth.AuthProvider
 	logger        *observability.Logger
 	metricsClient *observability.MetricsClient
+	etagCache     map[string]string
+	responseCache map[string]interface{}
+	cacheMutex    sync.RWMutex
 }
 
 // PaginationOptions provides options for paginated requests
@@ -81,6 +84,8 @@ func NewRESTClient(config *RESTConfig, client *http.Client, rateLimiter resilien
 		authProvider:  config.AuthProvider,
 		logger:        logger,
 		metricsClient: metricsClient,
+		etagCache:     make(map[string]string),
+		responseCache: make(map[string]interface{}),
 	}
 }
 
@@ -92,6 +97,14 @@ type requestOptions struct {
 	Query    url.Values
 	Headers  map[string]string
 	IsUpload bool
+}
+
+// RateLimitInfo stores GitHub rate limit information
+type RateLimitInfo struct {
+	Limit     int
+	Remaining int
+	Reset     time.Time
+	Used      int
 }
 
 // doRequest executes an API request with the given options
@@ -174,10 +187,53 @@ func (c *RESTClient) doRequest(ctx context.Context, opts requestOptions, result 
 	// Log metrics
 	c.metricsClient.IncrementCounter("github.rest.request", 1)
 	
+	// Extract and store rate limit information
+	rateLimitInfo := c.extractRateLimitInfo(resp.Header)
+	if rateLimitInfo != nil {
+		// Update rate limiter with the latest information
+		if c.rateLimiter != nil {
+			if adjuster, ok := c.rateLimiter.(interface{ AdjustRateLimit(RateLimitInfo) }); ok {
+				adjuster.AdjustRateLimit(*rateLimitInfo)
+			}
+		}
+		
+		// Log rate limit information
+		c.logger.Info("GitHub API rate limit",
+			"remaining", rateLimitInfo.Remaining,
+			"limit", rateLimitInfo.Limit,
+			"reset", rateLimitInfo.Reset,
+			"used", rateLimitInfo.Used)
+		
+		// Record rate limit metrics
+		c.metricsClient.RecordGauge("github.rest.rate_limit.remaining", float64(rateLimitInfo.Remaining))
+		c.metricsClient.RecordGauge("github.rest.rate_limit.limit", float64(rateLimitInfo.Limit))
+		c.metricsClient.RecordGauge("github.rest.rate_limit.used", float64(rateLimitInfo.Used))
+	}
+	
+	// Extract ETag for future conditional requests
+	etag := resp.Header.Get("ETag")
+	if etag != "" && opts.Method == "GET" {
+		// Store ETag for the requested path
+		c.storeETag(opts.Path, etag)
+	}
+	
 	// Read response body
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
 		return fmt.Errorf("failed to read response body: %w", err)
+	}
+	
+	// Handle 304 Not Modified response
+	if resp.StatusCode == http.StatusNotModified {
+		// Try to load cached response from previous request
+		cachedResp := c.loadCachedResponse(opts.Path)
+		if cachedResp != nil && result != nil {
+			// Copy cached response to result
+			*result.(*interface{}) = *cachedResp
+			return nil
+		}
+		// If no cached response is found, return empty result
+		return nil
 	}
 	
 	// Check for error response
@@ -301,10 +357,19 @@ func (c *RESTClient) GetPaginated(ctx context.Context, path string, options *Pag
 
 // Get makes a GET request
 func (c *RESTClient) Get(ctx context.Context, path string, query url.Values, result interface{}) error {
+	// Set up headers
+	headers := make(map[string]string)
+	
+	// Add ETag header for conditional request if we have a cached ETag
+	if etag := c.getETag(path); etag != "" {
+		headers["If-None-Match"] = etag
+	}
+	
 	return c.doRequest(ctx, requestOptions{
-		Method: "GET",
-		Path:   path,
-		Query:  query,
+		Method:  "GET",
+		Path:    path,
+		Query:   query,
+		Headers: headers,
 	}, result)
 }
 
@@ -555,6 +620,73 @@ func (c *RESTClient) GetBranch(ctx context.Context, owner, repo, branch string) 
 	var result map[string]interface{}
 	err := c.Get(ctx, path, nil, &result)
 	return result, err
+}
+
+// Helper methods for ETag and rate limit handling
+
+// extractRateLimitInfo extracts rate limit information from response headers
+func (c *RESTClient) extractRateLimitInfo(headers http.Header) *RateLimitInfo {
+	limit, _ := strconv.Atoi(headers.Get("X-RateLimit-Limit"))
+	remaining, _ := strconv.Atoi(headers.Get("X-RateLimit-Remaining"))
+	resetStr := headers.Get("X-RateLimit-Reset")
+	used, _ := strconv.Atoi(headers.Get("X-RateLimit-Used"))
+	
+	// If any of the required headers are missing, return nil
+	if limit == 0 && remaining == 0 && resetStr == "" {
+		return nil
+	}
+	
+	// Parse reset timestamp
+	resetTimestamp, err := strconv.ParseInt(resetStr, 10, 64)
+	if err != nil {
+		c.logger.Warn("Failed to parse rate limit reset timestamp", "error", err)
+		return nil
+	}
+	
+	reset := time.Unix(resetTimestamp, 0)
+	
+	return &RateLimitInfo{
+		Limit:     limit,
+		Remaining: remaining,
+		Reset:     reset,
+		Used:      used,
+	}
+}
+
+// storeETag stores an ETag for a specific path
+func (c *RESTClient) storeETag(path string, etag string) {
+	c.cacheMutex.Lock()
+	defer c.cacheMutex.Unlock()
+	c.etagCache[path] = etag
+}
+
+// getETag retrieves an ETag for a specific path
+func (c *RESTClient) getETag(path string) string {
+	c.cacheMutex.RLock()
+	defer c.cacheMutex.RUnlock()
+	return c.etagCache[path]
+}
+
+// storeCachedResponse stores a response for a specific path
+func (c *RESTClient) storeCachedResponse(path string, response interface{}) {
+	c.cacheMutex.Lock()
+	defer c.cacheMutex.Unlock()
+	c.responseCache[path] = response
+}
+
+// loadCachedResponse loads a cached response for a specific path
+func (c *RESTClient) loadCachedResponse(path string) interface{} {
+	c.cacheMutex.RLock()
+	defer c.cacheMutex.RUnlock()
+	return c.responseCache[path]
+}
+
+// clearCachedResponses clears all cached responses
+func (c *RESTClient) clearCachedResponses() {
+	c.cacheMutex.Lock()
+	defer c.cacheMutex.Unlock()
+	c.responseCache = make(map[string]interface{})
+	c.etagCache = make(map[string]string)
 }
 
 // Common Commit Operations
