@@ -152,7 +152,7 @@ func TestNewEventBridge(t *testing.T) {
 	logger := observability.NewLogger("event-bridge-test")
 	
 	// Expect SubscribeAll to be called when creating a bridge with an event bus
-	mockEventBus.On("SubscribeAll", mock.Anything).Return()
+	mockEventBus.On("SubscribeAll", mock.AnythingOfType("*bridge.EventBridge")).Return()
 	
 	bridge := NewEventBridge(mockEventBus, mockSystemEventBus, logger, mockAdapterRegistry)
 	

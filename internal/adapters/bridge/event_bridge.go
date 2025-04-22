@@ -8,6 +8,7 @@ import (
 
 	"github.com/S-Corkum/mcp-server/internal/adapters/core"
 	"github.com/S-Corkum/mcp-server/internal/adapters/events"
+	eventsmocks "github.com/S-Corkum/mcp-server/internal/adapters/events/mocks"
 	"github.com/S-Corkum/mcp-server/internal/events/system"
 	"github.com/S-Corkum/mcp-server/internal/observability"
 )
@@ -73,13 +74,24 @@ func (b *EventBridge) subscribeToEvents() {
 		}
 	}()
 	
+	// Check if the eventBus is nil before trying to use it
+	if b.eventBus == nil {
+		return
+	}
+	
 	// Check if the eventBus implements the right interface
 	if eventBus, ok := b.eventBus.(*events.EventBus); ok && eventBus != nil {
 		eventBus.SubscribeAll(b)
 	} else if eventBus, ok := b.eventBus.(events.EventBus); ok {
 		eventBus.SubscribeAll(b)
-	} else if eventBus, ok := b.eventBus.(*MockEventBus); ok && eventBus != nil {
+	} else if eventBus, ok := b.eventBus.(*eventsmocks.MockEventBus); ok && eventBus != nil {
 		eventBus.SubscribeAll(b)
+	} else {
+		// Try to use a type assertion to call SubscribeAll directly
+		// This is needed for tests where we use mock.Mock based mocks
+		if mockBus, ok := b.eventBus.(interface{ SubscribeAll(events.EventListener) }); ok {
+			mockBus.SubscribeAll(b)
+		}
 	}
 }
 

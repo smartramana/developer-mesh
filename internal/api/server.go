@@ -10,6 +10,7 @@ import (
 	"github.com/S-Corkum/mcp-server/internal/core"
 	"github.com/S-Corkum/mcp-server/internal/database"
 	"github.com/S-Corkum/mcp-server/internal/observability"
+	"github.com/S-Corkum/mcp-server/internal/repository"
 	"github.com/gin-gonic/gin"
 	"github.com/jmoiron/sqlx"
 	swaggerFiles "github.com/swaggo/files"
