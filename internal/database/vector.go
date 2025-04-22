@@ -7,6 +7,7 @@ import (
 	
 	"github.com/S-Corkum/mcp-server/internal/common"
 	commonConfig "github.com/S-Corkum/mcp-server/internal/common/config"
+	"github.com/S-Corkum/mcp-server/internal/config"
 	"github.com/S-Corkum/mcp-server/internal/observability"
 	"github.com/jmoiron/sqlx"
 )
@@ -27,17 +28,26 @@ func NewVectorDatabase(db *sqlx.DB, cfg interface{}, logger *observability.Logge
 		logger = observability.NewLogger("vector_database")
 	}
 	
-	// Create a dedicated connection pool for vector operations if enabled
-	var vectorDB *sqlx.DB
-	
 	// Use the main database connection pool by default
-	vectorDB = db
+	vectorDB := db
 	
-	// Create a default config if none provided
-	vectorConfig := &commonConfig.DatabaseVectorConfig{
-		Enabled:         true,
-		Dimensions:      1536,
-		SimilarityMetric: "cosine",
+	// Try to extract vector config from the provided config
+	var vectorConfig *commonConfig.DatabaseVectorConfig
+	
+	// If the config is a Config type from config package
+	if config, ok := cfg.(*config.Config); ok && config != nil {
+		vectorConfig = &config.Database.Vector
+	} else if dbConfig, ok := cfg.(*commonConfig.DatabaseConfig); ok && dbConfig != nil {
+		vectorConfig = &dbConfig.Vector
+	} else if vConfig, ok := cfg.(*commonConfig.DatabaseVectorConfig); ok && vConfig != nil {
+		vectorConfig = vConfig
+	} else {
+		// Create a default config if none provided
+		vectorConfig = &commonConfig.DatabaseVectorConfig{
+			Enabled:         true,
+			Dimensions:      1536,
+			SimilarityMetric: "cosine",
+		}
 	}
 	
 	return &VectorDatabase{
@@ -90,7 +100,101 @@ func (vdb *VectorDatabase) Initialize(ctx context.Context) error {
 	
 	if !tableExists {
 		vdb.logger.Warn("Embeddings table does not exist; migrations may need to be run", nil)
-		return fmt.Errorf("embeddings table does not exist")
+		
+		// Try to create the table
+		tx, err := vdb.vectorDB.BeginTxx(ctx, nil)
+		if err != nil {
+			return fmt.Errorf("failed to begin transaction: %w", err)
+		}
+		
+		// Define the SQL to create the schema and table
+		createSchemaSQL := `
+			CREATE SCHEMA IF NOT EXISTS mcp;
+		`
+		
+		// Execute the create schema SQL
+		_, err = tx.ExecContext(ctx, createSchemaSQL)
+		if err != nil {
+			tx.Rollback()
+			return fmt.Errorf("failed to create schema: %w", err)
+		}
+		
+		// Define SQL to create the embeddings table
+		createTableSQL := `
+			CREATE TABLE IF NOT EXISTS mcp.embeddings (
+				id VARCHAR(36) PRIMARY KEY DEFAULT gen_random_uuid()::text,
+				context_id VARCHAR(36) NOT NULL,
+				content_index INTEGER NOT NULL,
+				text TEXT NOT NULL,
+				embedding vector,
+				vector_dimensions INTEGER NOT NULL,
+				model_id VARCHAR(255) NOT NULL,
+				created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP
+			);
+			
+			CREATE INDEX IF NOT EXISTS idx_embeddings_context_id
+			ON mcp.embeddings(context_id);
+			
+			CREATE INDEX IF NOT EXISTS idx_embeddings_model_id
+			ON mcp.embeddings(model_id);
+		`
+		
+		// Execute the create table SQL
+		_, err = tx.ExecContext(ctx, createTableSQL)
+		if err != nil {
+			tx.Rollback()
+			return fmt.Errorf("failed to create embeddings table: %w", err)
+		}
+		
+		// Define SQL to create indices for common dimension sizes
+		createIndicesSQL := `
+			DO $$
+			BEGIN
+				IF NOT EXISTS (
+					SELECT 1 FROM pg_indexes 
+					WHERE indexname = 'idx_embeddings_384'
+				) THEN
+					CREATE INDEX idx_embeddings_384
+					ON mcp.embeddings USING ivfflat (embedding vector_cosine_ops)
+					WITH (lists = 100)
+					WHERE vector_dimensions = 384;
+				END IF;
+				
+				IF NOT EXISTS (
+					SELECT 1 FROM pg_indexes 
+					WHERE indexname = 'idx_embeddings_768'
+				) THEN
+					CREATE INDEX idx_embeddings_768
+					ON mcp.embeddings USING ivfflat (embedding vector_cosine_ops)
+					WITH (lists = 100)
+					WHERE vector_dimensions = 768;
+				END IF;
+				
+				IF NOT EXISTS (
+					SELECT 1 FROM pg_indexes 
+					WHERE indexname = 'idx_embeddings_1536'
+				) THEN
+					CREATE INDEX idx_embeddings_1536
+					ON mcp.embeddings USING ivfflat (embedding vector_cosine_ops)
+					WITH (lists = 100)
+					WHERE vector_dimensions = 1536;
+				END IF;
+			END $$;
+		`
+		
+		// Execute the create indices SQL
+		_, err = tx.ExecContext(ctx, createIndicesSQL)
+		if err != nil {
+			tx.Rollback()
+			return fmt.Errorf("failed to create embeddings indices: %w", err)
+		}
+		
+		// Commit the transaction
+		if err := tx.Commit(); err != nil {
+			return fmt.Errorf("failed to commit transaction: %w", err)
+		}
+		
+		vdb.logger.Info("Created embeddings table and indices", nil)
 	}
 	
 	vdb.initialized = true
@@ -202,4 +306,77 @@ func NormalizeVector(vector []float32, method string) ([]float32, error) {
 	default:
 		return nil, fmt.Errorf("unsupported normalization method: %s", method)
 	}
+}
+
+// CreateVector creates a new vector from float32 array
+func (vdb *VectorDatabase) CreateVector(ctx context.Context, vector []float32) (string, error) {
+	if err := vdb.Initialize(ctx); err != nil {
+		return "", err
+	}
+	
+	// Convert vector to pgvector format
+	var vectorStr string
+	err := vdb.vectorDB.QueryRowContext(ctx, `
+		SELECT $1::float4[]::vector::text
+	`, vector).Scan(&vectorStr)
+	
+	if err != nil {
+		return "", fmt.Errorf("failed to create vector: %w", err)
+	}
+	
+	return vectorStr, nil
+}
+
+// CalculateSimilarity calculates the similarity between two vectors
+func (vdb *VectorDatabase) CalculateSimilarity(ctx context.Context, vector1, vector2 []float32, method string) (float64, error) {
+	if err := vdb.Initialize(ctx); err != nil {
+		return 0, err
+	}
+	
+	// Convert vectors to pgvector format
+	var v1Str, v2Str string
+	err := vdb.vectorDB.QueryRowContext(ctx, `
+		SELECT $1::float4[]::vector::text
+	`, vector1).Scan(&v1Str)
+	
+	if err != nil {
+		return 0, fmt.Errorf("failed to create vector1: %w", err)
+	}
+	
+	err = vdb.vectorDB.QueryRowContext(ctx, `
+		SELECT $1::float4[]::vector::text
+	`, vector2).Scan(&v2Str)
+	
+	if err != nil {
+		return 0, fmt.Errorf("failed to create vector2: %w", err)
+	}
+	
+	// Calculate similarity based on method
+	var similarity float64
+	
+	switch method {
+	case "cosine":
+		// 1 - cosine distance = cosine similarity
+		err = vdb.vectorDB.QueryRowContext(ctx, `
+			SELECT 1 - ($1::vector <=> $2::vector)
+		`, v1Str, v2Str).Scan(&similarity)
+	case "dot":
+		// Dot product
+		err = vdb.vectorDB.QueryRowContext(ctx, `
+			SELECT $1::vector <#> $2::vector
+		`, v1Str, v2Str).Scan(&similarity)
+	case "euclidean":
+		// Negative euclidean distance (higher is more similar)
+		err = vdb.vectorDB.QueryRowContext(ctx, `
+			SELECT -($1::vector <-> $2::vector)
+		`, v1Str, v2Str).Scan(&similarity)
+	default:
+		return 0, fmt.Errorf("unsupported similarity method: %s", method)
+	}
+	
+	if err != nil {
+		return 0, fmt.Errorf("failed to calculate similarity: %w", err)
+	}
+	
+	return similarity, nil
 }

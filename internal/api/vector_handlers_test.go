@@ -2,6 +2,7 @@ package api
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
@@ -18,23 +19,23 @@ type MockEmbeddingRepository struct {
 	mock.Mock
 }
 
-func (m *MockEmbeddingRepository) StoreEmbedding(ctx interface{}, embedding *repository.Embedding) error {
+func (m *MockEmbeddingRepository) StoreEmbedding(ctx context.Context, embedding *repository.Embedding) error {
 	args := m.Called(ctx, embedding)
 	embedding.ID = "embedding-test-id" // Set a test ID
 	return args.Error(0)
 }
 
-func (m *MockEmbeddingRepository) SearchEmbeddings(ctx interface{}, queryVector []float32, contextID string, limit int) ([]repository.Embedding, error) {
+func (m *MockEmbeddingRepository) SearchEmbeddings(ctx context.Context, queryVector []float32, contextID string, limit int) ([]*repository.Embedding, error) {
 	args := m.Called(ctx, queryVector, contextID, limit)
-	return args.Get(0).([]repository.Embedding), args.Error(1)
+	return args.Get(0).([]*repository.Embedding), args.Error(1)
 }
 
-func (m *MockEmbeddingRepository) GetContextEmbeddings(ctx interface{}, contextID string) ([]repository.Embedding, error) {
+func (m *MockEmbeddingRepository) GetContextEmbeddings(ctx context.Context, contextID string) ([]*repository.Embedding, error) {
 	args := m.Called(ctx, contextID)
-	return args.Get(0).([]repository.Embedding), args.Error(1)
+	return args.Get(0).([]*repository.Embedding), args.Error(1)
 }
 
-func (m *MockEmbeddingRepository) DeleteContextEmbeddings(ctx interface{}, contextID string) error {
+func (m *MockEmbeddingRepository) DeleteContextEmbeddings(ctx context.Context, contextID string) error {
 	args := m.Called(ctx, contextID)
 	return args.Error(0)
 }
@@ -43,88 +44,17 @@ func (m *MockEmbeddingRepository) DeleteContextEmbeddings(ctx interface{}, conte
 func setupVectorTestServer(mockRepo *MockEmbeddingRepository) *Server {
 	gin.SetMode(gin.TestMode)
 	
-	// Create a wrapper that implements repository.EmbeddingRepository interface
-	// This wrapper adapts our mock to satisfy the required type
-	embeddingRepo := &repository.EmbeddingRepository{} 
-	
+	// Create a server with the mock repository
 	server := &Server{
 		router:        gin.New(),
-		embeddingRepo: embeddingRepo,
+		embeddingRepo: mockRepo,
 	}
 	
-	// Inject our mock implementation into the server's methods by
-	// monkey patching the embeddingRepo methods at runtime
-	// This approach avoids the type mismatch while still allowing us to use mocks
-	server.storeEmbedding = func(c *gin.Context) {
-		var req StoreEmbeddingRequest
-		if err := c.ShouldBindJSON(&req); err != nil {
-			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
-			return
-		}
-		
-		embedding := &repository.Embedding{
-			ContextID:    req.ContextID,
-			ContentIndex: req.ContentIndex,
-			Text:         req.Text,
-			Embedding:    req.Embedding,
-			ModelID:      req.ModelID,
-		}
-		
-		err := mockRepo.StoreEmbedding(c.Request.Context(), embedding)
-		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-			return
-		}
-		
-		c.JSON(http.StatusOK, embedding)
-	}
-	
-	server.searchEmbeddings = func(c *gin.Context) {
-		var req SearchEmbeddingsRequest
-		if err := c.ShouldBindJSON(&req); err != nil {
-			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
-			return
-		}
-		
-		embeddings, err := mockRepo.SearchEmbeddings(c.Request.Context(), req.QueryEmbedding, req.ContextID, req.Limit)
-		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-			return
-		}
-		
-		c.JSON(http.StatusOK, gin.H{"embeddings": embeddings})
-	}
-	
-	server.getContextEmbeddings = func(c *gin.Context) {
-		contextID := c.Param("context_id")
-		embeddings, err := mockRepo.GetContextEmbeddings(c.Request.Context(), contextID)
-		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-			return
-		}
-		
-		c.JSON(http.StatusOK, gin.H{"embeddings": embeddings})
-	}
-	
-	server.deleteContextEmbeddings = func(c *gin.Context) {
-		contextID := c.Param("context_id")
-		err := mockRepo.DeleteContextEmbeddings(c.Request.Context(), contextID)
-		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-			return
-		}
-		
-		c.JSON(http.StatusOK, gin.H{"status": "deleted"})
-	}
+	// Create VectorAPI handler
+	vectorAPI := NewVectorAPI(mockRepo, nil)
 	
 	// Setup routes
-	vectorRoutes := server.router.Group("/api/v1/vectors")
-	{
-		vectorRoutes.POST("/store", server.storeEmbedding)
-		vectorRoutes.POST("/search", server.searchEmbeddings)
-		vectorRoutes.GET("/context/:context_id", server.getContextEmbeddings)
-		vectorRoutes.DELETE("/context/:context_id", server.deleteContextEmbeddings)
-	}
+	vectorAPI.RegisterRoutes(server.router.Group("/api/v1"))
 	
 	return server
 }
@@ -177,7 +107,7 @@ func TestSearchEmbeddingsHandler(t *testing.T) {
 	queryVector := []float32{0.1, 0.2, 0.3}
 	
 	// Mock results
-	mockResults := []repository.Embedding{
+	mockResults := []*repository.Embedding{
 		{
 			ID:          "emb-1",
 			ContextID:   contextID,
@@ -218,7 +148,7 @@ func TestSearchEmbeddingsHandler(t *testing.T) {
 	
 	// Verify response body
 	var resp struct {
-		Embeddings []repository.Embedding `json:"embeddings"`
+		Embeddings []*repository.Embedding `json:"embeddings"`
 	}
 	err := json.Unmarshal(w.Body.Bytes(), &resp)
 	assert.NoError(t, err)
@@ -235,7 +165,7 @@ func TestGetContextEmbeddingsHandler(t *testing.T) {
 	contextID := "context-123"
 	
 	// Mock results
-	mockResults := []repository.Embedding{
+	mockResults := []*repository.Embedding{
 		{
 			ID:          "emb-1",
 			ContextID:   contextID,
@@ -268,7 +198,7 @@ func TestGetContextEmbeddingsHandler(t *testing.T) {
 	
 	// Verify response body
 	var resp struct {
-		Embeddings []repository.Embedding `json:"embeddings"`
+		Embeddings []*repository.Embedding `json:"embeddings"`
 	}
 	err := json.Unmarshal(w.Body.Bytes(), &resp)
 	assert.NoError(t, err)

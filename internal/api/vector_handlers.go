@@ -1,10 +1,10 @@
 package api
 
 import (
-	"github.com/S-Corkum/mcp-server/internal/observability"
+	"net/http"
+
 	"github.com/S-Corkum/mcp-server/internal/repository"
 	"github.com/gin-gonic/gin"
-	"net/http"
 )
 
 // StoreEmbeddingRequest represents a request to store an embedding
@@ -23,36 +23,20 @@ type SearchEmbeddingsRequest struct {
 	Limit          int       `json:"limit" binding:"required"`
 }
 
-// VectorAPI handles the vector operations API endpoints
-type VectorAPI struct {
-	embedRepo *repository.EmbeddingRepository
-	logger    *observability.Logger
+// Routes for working with vector embeddings
+func (s *Server) setupVectorRoutes(group *gin.RouterGroup) {
+	vectorsGroup := group.Group("/vectors")
+	vectorsGroup.POST("/store", s.storeEmbedding)
+	vectorsGroup.POST("/search", s.searchEmbeddings)
+	vectorsGroup.GET("/context/:context_id", s.getContextEmbeddings)
+	vectorsGroup.DELETE("/context/:context_id", s.deleteContextEmbeddings)
 }
 
-// NewVectorAPI creates a new vector API handler
-func NewVectorAPI(embedRepo *repository.EmbeddingRepository, logger *observability.Logger) *VectorAPI {
-	return &VectorAPI{
-		embedRepo: embedRepo,
-		logger:    logger,
-	}
-}
-
-// RegisterRoutes registers the vector API routes with the given router group
-func (v *VectorAPI) RegisterRoutes(group *gin.RouterGroup) {
-	vectors := group.Group("/vectors")
-	vectors.POST("/store", v.storeEmbedding)
-	vectors.POST("/search", v.searchEmbeddings)
-	vectors.GET("/context/:context_id", v.getContextEmbeddings)
-	vectors.DELETE("/context/:context_id", v.deleteContextEmbeddings)
-}
-
-// Handler implementations for the vector endpoints
-
-// storeEmbedding handles storing an embedding
-func (v *VectorAPI) storeEmbedding(c *gin.Context) {
+// storeEmbedding handles storing a vector embedding
+func (s *Server) storeEmbedding(c *gin.Context) {
 	var req StoreEmbeddingRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		v.logger.Error("Failed to bind store embedding request", map[string]interface{}{
+		s.logger.Error("Failed to bind store embedding request", map[string]interface{}{
 			"error": err.Error(),
 		})
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
@@ -69,9 +53,9 @@ func (v *VectorAPI) storeEmbedding(c *gin.Context) {
 	}
 
 	// Store embedding using repository
-	err := v.embedRepo.StoreEmbedding(c.Request.Context(), embedding)
+	err := s.embeddingRepo.StoreEmbedding(c.Request.Context(), embedding)
 	if err != nil {
-		v.logger.Error("Failed to store embedding", map[string]interface{}{
+		s.logger.Error("Failed to store embedding", map[string]interface{}{
 			"error":      err.Error(),
 			"context_id": req.ContextID,
 		})
@@ -82,11 +66,11 @@ func (v *VectorAPI) storeEmbedding(c *gin.Context) {
 	c.JSON(http.StatusOK, embedding)
 }
 
-// searchEmbeddings handles searching for embeddings
-func (v *VectorAPI) searchEmbeddings(c *gin.Context) {
+// searchEmbeddings handles searching for similar embeddings
+func (s *Server) searchEmbeddings(c *gin.Context) {
 	var req SearchEmbeddingsRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		v.logger.Error("Failed to bind search embeddings request", map[string]interface{}{
+		s.logger.Error("Failed to bind search embeddings request", map[string]interface{}{
 			"error": err.Error(),
 		})
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
@@ -101,9 +85,9 @@ func (v *VectorAPI) searchEmbeddings(c *gin.Context) {
 	}
 
 	// Search embeddings using repository
-	embeddings, err := v.embedRepo.SearchEmbeddings(c.Request.Context(), req.QueryEmbedding, req.ContextID, req.Limit)
+	embeddings, err := s.embeddingRepo.SearchEmbeddings(c.Request.Context(), req.QueryEmbedding, req.ContextID, req.Limit)
 	if err != nil {
-		v.logger.Error("Failed to search embeddings", map[string]interface{}{
+		s.logger.Error("Failed to search embeddings", map[string]interface{}{
 			"error":      err.Error(),
 			"context_id": req.ContextID,
 		})
@@ -114,8 +98,8 @@ func (v *VectorAPI) searchEmbeddings(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"embeddings": embeddings})
 }
 
-// getContextEmbeddings handles getting embeddings for a context
-func (v *VectorAPI) getContextEmbeddings(c *gin.Context) {
+// getContextEmbeddings handles retrieving all embeddings for a context
+func (s *Server) getContextEmbeddings(c *gin.Context) {
 	contextID := c.Param("context_id")
 	if contextID == "" {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "context_id is required"})
@@ -123,9 +107,9 @@ func (v *VectorAPI) getContextEmbeddings(c *gin.Context) {
 	}
 
 	// Get embeddings using repository
-	embeddings, err := v.embedRepo.GetContextEmbeddings(c.Request.Context(), contextID)
+	embeddings, err := s.embeddingRepo.GetContextEmbeddings(c.Request.Context(), contextID)
 	if err != nil {
-		v.logger.Error("Failed to get context embeddings", map[string]interface{}{
+		s.logger.Error("Failed to get context embeddings", map[string]interface{}{
 			"error":      err.Error(),
 			"context_id": contextID,
 		})
@@ -136,8 +120,8 @@ func (v *VectorAPI) getContextEmbeddings(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"embeddings": embeddings})
 }
 
-// deleteContextEmbeddings handles deleting embeddings for a context
-func (v *VectorAPI) deleteContextEmbeddings(c *gin.Context) {
+// deleteContextEmbeddings handles deleting all embeddings for a context
+func (s *Server) deleteContextEmbeddings(c *gin.Context) {
 	contextID := c.Param("context_id")
 	if contextID == "" {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "context_id is required"})
@@ -145,9 +129,9 @@ func (v *VectorAPI) deleteContextEmbeddings(c *gin.Context) {
 	}
 
 	// Delete embeddings using repository
-	err := v.embedRepo.DeleteContextEmbeddings(c.Request.Context(), contextID)
+	err := s.embeddingRepo.DeleteContextEmbeddings(c.Request.Context(), contextID)
 	if err != nil {
-		v.logger.Error("Failed to delete context embeddings", map[string]interface{}{
+		s.logger.Error("Failed to delete context embeddings", map[string]interface{}{
 			"error":      err.Error(),
 			"context_id": contextID,
 		})

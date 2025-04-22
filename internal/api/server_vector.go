@@ -21,58 +21,69 @@ func (s *Server) setupVectorAPI(ctx context.Context) error {
 	}
 	
 	// Initialize vector database
-	vectorDB, err := database.NewVectorDatabase(s.db, s.cfg, logger)
-	if err != nil {
-		return fmt.Errorf("failed to create vector database: %w", err)
+	var err error
+	if s.vectorDB == nil {
+		s.vectorDB, err = database.NewVectorDatabase(s.db, s.cfg, logger)
+		if err != nil {
+			return fmt.Errorf("failed to create vector database: %w", err)
+		}
 	}
 	
 	// Initialize vector database
-	if err := vectorDB.Initialize(ctx); err != nil {
-		logger.Warn("Vector database initialization failed; vector search will be disabled", map[string]interface{}{
+	if err := s.vectorDB.Initialize(ctx); err != nil {
+		logger.Warn("Vector database initialization failed", map[string]interface{}{
 			"error": err.Error(),
 		})
-		return nil
+		return fmt.Errorf("vector database initialization failed: %w", err)
 	}
 	
 	// Create repository
 	embedRepo := repository.NewEmbeddingRepository(s.db)
 	
-	// Create API handler
-	vectorAPI := NewVectorAPI(embedRepo, logger)
+	// Store repository in server for use in other components
+	s.embeddingRepo = embedRepo
 	
-	// Register routes
+	// Setup vector routes directly on the server
 	apiV1 := s.router.Group("/api/v1")
-	vectorAPI.RegisterRoutes(apiV1)
+	s.setupVectorRoutes(apiV1)
 	
 	logger.Info("Vector API routes registered", map[string]interface{}{
 		"path": "/api/v1/vectors",
 	})
 	
-	// Add metrics collecting middleware for vector operations
-	vectorMetricsMiddleware := createVectorMetricsMiddleware(s.metrics)
-	apiV1.Use(vectorMetricsMiddleware)
+	// Add metrics middleware
+	vectorRoutes := apiV1.Group("/vectors")
+	vectorRoutes.Use(createVectorMetricsMiddleware(s.metrics))
 	
 	logger.Info("Vector metrics middleware added", nil)
 	
 	return nil
 }
 
-// createVectorMetricsMiddleware creates a middleware that collects metrics for vector operations
+// createVectorMetricsMiddleware creates a middleware for vector metrics
 func createVectorMetricsMiddleware(metrics *observability.MetricsClient) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		// Process the request
 		c.Next()
 		
-		// Check if this is a vector operation
-		if c.Request.URL.Path == "/api/v1/vectors/search" {
-			// Record the request count
-			metrics.RecordCounter("vector_search_requests_total", 1, map[string]string{
-				"status": fmt.Sprintf("%d", c.Writer.Status()),
-			})
-		} else if c.Request.URL.Path == "/api/v1/vectors/store" {
-			// Record the request count
-			metrics.RecordCounter("vector_store_requests_total", 1, map[string]string{
-				"status": fmt.Sprintf("%d", c.Writer.Status()),
+		// Record metrics
+		if metrics != nil {
+			operation := "unknown"
+			path := c.Request.URL.Path
+			
+			if c.Request.Method == "POST" && path == "/api/v1/vectors/store" {
+				operation = "store"
+			} else if c.Request.Method == "POST" && path == "/api/v1/vectors/search" {
+				operation = "search"
+			} else if c.Request.Method == "GET" {
+				operation = "get"
+			} else if c.Request.Method == "DELETE" {
+				operation = "delete"
+			}
+			
+			metrics.RecordCounter("vector_operations_total", 1, map[string]string{
+				"operation": operation,
+				"status":    fmt.Sprintf("%d", c.Writer.Status()),
 			})
 		}
 	}

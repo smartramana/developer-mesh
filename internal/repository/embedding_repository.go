@@ -3,9 +3,9 @@ package repository
 import (
 	"context"
 	"fmt"
-	"strings"
 	"time"
 
+	"github.com/S-Corkum/mcp-server/internal/common"
 	"github.com/jmoiron/sqlx"
 )
 
@@ -37,16 +37,7 @@ func NewEmbeddingRepository(db *sqlx.DB) *EmbeddingRepository {
 // StoreEmbedding stores a vector embedding for a piece of text
 func (r *EmbeddingRepository) StoreEmbedding(ctx context.Context, embedding *Embedding) error {
 	// Convert the embedding to a pgvector string format
-	// Format: [0.1,0.2,0.3,...,0.n]
-	var vectorStr strings.Builder
-	vectorStr.WriteString("[")
-	for i, v := range embedding.Embedding {
-		if i > 0 {
-			vectorStr.WriteString(",")
-		}
-		vectorStr.WriteString(fmt.Sprintf("%f", v))
-	}
-	vectorStr.WriteString("]")
+	vectorStr := common.FormatVectorForPgVector(embedding.Embedding)
 
 	// Set the vector dimensions
 	dimensions := len(embedding.Embedding)
@@ -67,7 +58,7 @@ func (r *EmbeddingRepository) StoreEmbedding(ctx context.Context, embedding *Emb
 		embedding.ContextID,
 		embedding.ContentIndex,
 		embedding.Text,
-		vectorStr.String(),
+		vectorStr,
 		dimensions,
 		embedding.ModelID,
 	).Scan(&id)
@@ -85,15 +76,7 @@ func (r *EmbeddingRepository) StoreEmbedding(ctx context.Context, embedding *Emb
 // SearchEmbeddings searches for embeddings similar to the query vector
 func (r *EmbeddingRepository) SearchEmbeddings(ctx context.Context, queryVector []float32, contextID string, limit int) ([]*Embedding, error) {
 	// Convert query vector to pgvector string format
-	var vectorStr strings.Builder
-	vectorStr.WriteString("[")
-	for i, v := range queryVector {
-		if i > 0 {
-			vectorStr.WriteString(",")
-		}
-		vectorStr.WriteString(fmt.Sprintf("%f", v))
-	}
-	vectorStr.WriteString("]")
+	vectorStr := common.FormatVectorForPgVector(queryVector)
 
 	// Get the vector dimensions
 	dimensions := len(queryVector)
@@ -110,7 +93,7 @@ func (r *EmbeddingRepository) SearchEmbeddings(ctx context.Context, queryVector 
     `
 
 	// Execute the query
-	rows, err := r.db.QueryContext(ctx, query, contextID, dimensions, vectorStr.String(), limit)
+	rows, err := r.db.QueryContext(ctx, query, contextID, dimensions, vectorStr, limit)
 	if err != nil {
 		return nil, fmt.Errorf("failed to search embeddings: %w", err)
 	}
@@ -134,24 +117,11 @@ func (r *EmbeddingRepository) SearchEmbeddings(ctx context.Context, queryVector 
 		}
 
 		// Convert embedding string back to float32 array
-		// Format from database is typically {0.1,0.2,0.3}
-		// Remove the curly braces and parse
-		embStr := embedding.EmbeddingString
-		embStr = strings.TrimPrefix(embStr, "{")
-		embStr = strings.TrimSuffix(embStr, "}")
-
-		// Split by comma and convert to float32
-		if embStr != "" {
-			parts := strings.Split(embStr, ",")
-			embedding.Embedding = make([]float32, len(parts))
-			for i, p := range parts {
-				var f float32
-				if _, err := fmt.Sscanf(p, "%f", &f); err != nil {
-					return nil, fmt.Errorf("failed to parse embedding value '%s': %w", p, err)
-				}
-				embedding.Embedding[i] = f
-			}
+		embeddingArray, err := common.ParseVectorFromPgVector(embedding.EmbeddingString)
+		if err != nil {
+			return nil, fmt.Errorf("failed to parse embedding vector: %w", err)
 		}
+		embedding.Embedding = embeddingArray
 
 		embeddings = append(embeddings, embedding)
 	}
@@ -199,24 +169,11 @@ func (r *EmbeddingRepository) GetContextEmbeddings(ctx context.Context, contextI
 		}
 
 		// Convert embedding string back to float32 array
-		// Format from database is typically {0.1,0.2,0.3}
-		// Remove the curly braces and parse
-		embStr := embedding.EmbeddingString
-		embStr = strings.TrimPrefix(embStr, "{")
-		embStr = strings.TrimSuffix(embStr, "}")
-
-		// Split by comma and convert to float32
-		if embStr != "" {
-			parts := strings.Split(embStr, ",")
-			embedding.Embedding = make([]float32, len(parts))
-			for i, p := range parts {
-				var f float32
-				if _, err := fmt.Sscanf(p, "%f", &f); err != nil {
-					return nil, fmt.Errorf("failed to parse embedding value '%s': %w", p, err)
-				}
-				embedding.Embedding[i] = f
-			}
+		embeddingArray, err := common.ParseVectorFromPgVector(embedding.EmbeddingString)
+		if err != nil {
+			return nil, fmt.Errorf("failed to parse embedding vector: %w", err)
 		}
+		embedding.Embedding = embeddingArray
 
 		embeddings = append(embeddings, embedding)
 	}

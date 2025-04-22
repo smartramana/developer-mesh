@@ -144,30 +144,12 @@ func (m *MockAdapterRegistry) DeregisterAdapter(adapterType string) error {
 	return args.Error(0)
 }
 
-// MockAdapterFactory implements the core.AdapterFactory interface
-type MockAdapterFactory struct {
-	mock.Mock
-	core.AdapterFactory
-}
-
-// CreateAdapter mocks the CreateAdapter method
-func (m *MockAdapterFactory) CreateAdapter(ctx context.Context, adapterType string) (core.Adapter, error) {
-	args := m.Called(ctx, adapterType)
-	if args.Get(0) == nil {
-		return nil, args.Error(1)
-	}
-	return args.Get(0).(core.Adapter), args.Error(1)
-}
-
 func TestNewEventBridge(t *testing.T) {
-	// Test creating a new event bridge
-	mockEventBus := new(MockEventBus)
+	// Test creating a new event bridge with mocked event bus
+	mockEventBus := &MockEventBus{}
 	mockSystemEventBus := new(MockSystemEventBus)
 	mockAdapterRegistry := new(MockAdapterRegistry)
 	logger := observability.NewLogger("event-bridge-test")
-	
-	// Mock ListAdapters to return an empty map
-	mockAdapterRegistry.On("ListAdapters").Return(map[string]core.Adapter{}).Maybe()
 	
 	// Expect SubscribeAll to be called when creating a bridge with an event bus
 	mockEventBus.On("SubscribeAll", mock.Anything).Return()
@@ -187,12 +169,10 @@ func TestNewEventBridge(t *testing.T) {
 	bridge = NewEventBridge(nil, mockSystemEventBus, logger, mockAdapterRegistry)
 	
 	assert.NotNil(t, bridge)
-	assert.Nil(t, bridge.eventBus)
+	assert.Nil(t, bridge.eventBus) // using interface{} so nil will work correctly
 	assert.Equal(t, mockSystemEventBus, bridge.systemEventBus)
 	assert.Equal(t, logger, bridge.logger)
 	assert.Equal(t, mockAdapterRegistry, bridge.adapterRegistry)
-	
-	mockAdapterRegistry.AssertExpectations(t)
 }
 
 func TestHandle(t *testing.T) {
@@ -202,9 +182,6 @@ func TestHandle(t *testing.T) {
 	mockSystemEventBus := new(MockSystemEventBus)
 	mockAdapterRegistry := new(MockAdapterRegistry)
 	logger := observability.NewLogger("event-bridge-test")
-	
-	// Mock ListAdapters to return an empty map
-	mockAdapterRegistry.On("ListAdapters").Return(map[string]core.Adapter{}).Maybe()
 	
 	mockEventBus.On("SubscribeAll", mock.Anything).Return()
 	
@@ -416,9 +393,6 @@ func TestRegisterHandler(t *testing.T) {
 	mockSystemEventBus := new(MockSystemEventBus)
 	mockAdapterRegistry := new(MockAdapterRegistry)
 	logger := observability.NewLogger("event-bridge-test")
-	
-	// Mock ListAdapters to return an empty map
-	mockAdapterRegistry.On("ListAdapters").Return(map[string]core.Adapter{}).Maybe()
 	
 	mockEventBus.On("SubscribeAll", mock.Anything).Return()
 	
