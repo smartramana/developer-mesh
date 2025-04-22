@@ -47,10 +47,32 @@ aws:
     pool_timeout: 4
     token_expiration: 900 # 15 minutes in seconds
   
-  # Note: S3 Configuration for context storage has been removed as it is no longer supported
+  # S3 Configuration for context storage
+  s3:
+    auth:
+      region: "us-west-2"
+    bucket: "mcp-contexts"
+    key_prefix: "contexts/"
+    use_iam_auth: true
+    encryption:
+      enabled: true
+      type: "AES256"
+    multipart:
+      threshold: 8388608 # 8MB
+      part_size: 8388608 # 8MB
+    retries:
+      max_attempts: 3
+      min_delay: 1s
+      max_delay: 30s
 
 # Storage Configuration
-# Note: Context storage configurations have been removed as they are no longer supported
+storage:
+  # Context Storage Configuration
+  context:
+    primary: "database"      # Primary storage for contexts (database, s3)
+    cache_ttl: 24h           # Time-to-live for cached contexts
+    large_context_threshold: 1048576  # Threshold for large contexts (1MB)
+    large_context_storage: "s3"       # Storage for large contexts (s3)
 
 # API Server Configuration
 api:
@@ -115,6 +137,25 @@ engine:
   concurrency_limit: 10
   event_timeout: 30s
   
+  # Context Management Configuration
+  context_management:
+    enabled: true                  # Enable context management functionality
+    default_max_tokens: 4000       # Default token limit per context
+    default_expiration: 168h       # Default context expiration (7 days)
+    token_calculation_method: "character_based"  # "character_based" or "model_based"
+    
+    # Truncation Settings
+    truncation:
+      default_strategy: "oldest_first"  # Default truncation strategy (oldest_first, preserving_user, relevance_based)
+      relevance_threshold: 0.6         # Minimum relevance score for relevance-based truncation
+      safety_buffer: 100               # Safety buffer for token limit (stops at max_tokens - safety_buffer)
+    
+    # Vector Search Settings (for relevance-based truncation)
+    vector_search:
+      enabled: true                    # Enable vector search for context
+      embedding_model: "all-MiniLM-L6-v2"  # Default embedding model
+      vector_dimensions: 384           # Dimensions for vector embeddings
+      
   # Security Settings
   security:
     safe_mode: true  # Enable safety checks for all operations

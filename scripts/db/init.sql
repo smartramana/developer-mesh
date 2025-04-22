@@ -26,7 +26,40 @@ CREATE INDEX IF NOT EXISTS idx_events_source_type ON mcp.events(source, type);
 CREATE INDEX IF NOT EXISTS idx_events_processed ON mcp.events(processed);
 CREATE INDEX IF NOT EXISTS idx_events_timestamp ON mcp.events(timestamp);
 
--- Note: Context tables have been removed as they are no longer supported
+-- Context tables
+-- Create contexts table
+CREATE TABLE IF NOT EXISTS mcp.contexts (
+    id VARCHAR(36) PRIMARY KEY,
+    agent_id VARCHAR(255) NOT NULL,
+    model_id VARCHAR(255) NOT NULL,
+    session_id VARCHAR(255),
+    current_tokens INTEGER NOT NULL DEFAULT 0,
+    max_tokens INTEGER NOT NULL DEFAULT 4000,
+    metadata JSONB,
+    created_at TIMESTAMP WITH TIME ZONE NOT NULL,
+    updated_at TIMESTAMP WITH TIME ZONE NOT NULL,
+    expires_at TIMESTAMP WITH TIME ZONE
+);
+
+-- Create context_items table
+CREATE TABLE IF NOT EXISTS mcp.context_items (
+    id VARCHAR(36) PRIMARY KEY,
+    context_id VARCHAR(36) NOT NULL,
+    role VARCHAR(50) NOT NULL,
+    content TEXT NOT NULL,
+    tokens INTEGER NOT NULL,
+    timestamp TIMESTAMP WITH TIME ZONE NOT NULL,
+    metadata JSONB,
+    FOREIGN KEY (context_id) REFERENCES mcp.contexts(id) ON DELETE CASCADE
+);
+
+-- Create indexes for efficient querying
+CREATE INDEX IF NOT EXISTS idx_contexts_agent_id ON mcp.contexts(agent_id);
+CREATE INDEX IF NOT EXISTS idx_contexts_session_id ON mcp.contexts(session_id);
+CREATE INDEX IF NOT EXISTS idx_contexts_updated_at ON mcp.contexts(updated_at);
+CREATE INDEX IF NOT EXISTS idx_context_items_context_id ON mcp.context_items(context_id);
+CREATE INDEX IF NOT EXISTS idx_context_items_role ON mcp.context_items(role);
+CREATE INDEX IF NOT EXISTS idx_context_items_timestamp ON mcp.context_items(timestamp);
 
 -- Integrations table
 CREATE TABLE IF NOT EXISTS mcp.integrations (
@@ -56,4 +89,98 @@ CREATE TABLE IF NOT EXISTS mcp.metrics (
 CREATE INDEX IF NOT EXISTS idx_metrics_name ON mcp.metrics(name);
 CREATE INDEX IF NOT EXISTS idx_metrics_timestamp ON mcp.metrics(timestamp);
 
--- Note: Vector extension and embeddings table have been removed as they are no longer supported
+-- Vector extension and embeddings table for semantic search
+DO $$
+BEGIN
+    IF EXISTS (
+        SELECT 1 
+        FROM pg_available_extensions 
+        WHERE name = 'vector'
+    ) THEN
+        -- Create vector extension for semantic search
+        CREATE EXTENSION IF NOT EXISTS vector;
+        
+        -- Create vector table for context items
+        CREATE TABLE IF NOT EXISTS mcp.context_item_vectors (
+            id VARCHAR(36) PRIMARY KEY,
+            context_id VARCHAR(36) NOT NULL,
+            item_id VARCHAR(36) NOT NULL,
+            embedding vector(1536),
+            FOREIGN KEY (context_id) REFERENCES mcp.contexts(id) ON DELETE CASCADE,
+            FOREIGN KEY (item_id) REFERENCES mcp.context_items(id) ON DELETE CASCADE
+        );
+        
+        -- Create index for vector similarity search
+        CREATE INDEX IF NOT EXISTS idx_context_item_vectors_embedding
+        ON mcp.context_item_vectors
+        USING ivfflat (embedding vector_l2_ops)
+        WITH (lists = 100);
+        
+        -- Create flexible embeddings table that tracks model and dimensions
+        CREATE TABLE IF NOT EXISTS mcp.embeddings (
+            id VARCHAR(36) PRIMARY KEY,
+            context_id VARCHAR(36) NOT NULL,
+            content_index INTEGER NOT NULL,
+            text TEXT NOT NULL,
+            embedding vector,  -- Dynamic dimensions
+            vector_dimensions INTEGER NOT NULL,  -- Track dimensions
+            model_id VARCHAR(255) NOT NULL,  -- Track model used
+            created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (context_id) REFERENCES mcp.contexts(id) ON DELETE CASCADE
+        );
+
+        -- Create index on context_id for fast retrieval
+        CREATE INDEX IF NOT EXISTS idx_embeddings_context_id
+        ON mcp.embeddings(context_id);
+        
+        -- Create index on model_id for filtering
+        CREATE INDEX IF NOT EXISTS idx_embeddings_model_id
+        ON mcp.embeddings(model_id);
+        
+        -- Create indices for common dimension sizes
+        -- 384 dimensions (e.g., MiniLM, some Sentence Transformers)
+        DO $$
+        BEGIN
+            IF NOT EXISTS (
+                SELECT 1 FROM pg_indexes 
+                WHERE indexname = 'idx_embeddings_384'
+            ) THEN
+                CREATE INDEX idx_embeddings_384
+                ON mcp.embeddings USING ivfflat (embedding vector_cosine_ops)
+                WITH (lists = 100)
+                WHERE vector_dimensions = 384;
+            END IF;
+        END $$;
+        
+        -- 768 dimensions (e.g., BERT based models)
+        DO $$
+        BEGIN
+            IF NOT EXISTS (
+                SELECT 1 FROM pg_indexes 
+                WHERE indexname = 'idx_embeddings_768'
+            ) THEN
+                CREATE INDEX idx_embeddings_768
+                ON mcp.embeddings USING ivfflat (embedding vector_cosine_ops)
+                WITH (lists = 100)
+                WHERE vector_dimensions = 768;
+            END IF;
+        END $$;
+        
+        -- 1536 dimensions (e.g., OpenAI text-embedding-ada-002)
+        DO $$
+        BEGIN
+            IF NOT EXISTS (
+                SELECT 1 FROM pg_indexes 
+                WHERE indexname = 'idx_embeddings_1536'
+            ) THEN
+                CREATE INDEX idx_embeddings_1536
+                ON mcp.embeddings USING ivfflat (embedding vector_cosine_ops)
+                WITH (lists = 100)
+                WHERE vector_dimensions = 1536;
+            END IF;
+        END $$;
+    ELSE
+        -- Warn that pgvector is not available
+        RAISE NOTICE 'pgvector extension is not available. Vector search capabilities will not be enabled.';
+    END IF;
+END $$;
