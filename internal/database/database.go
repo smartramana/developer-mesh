@@ -134,7 +134,13 @@ func (d *Database) prepareStatements(ctx context.Context) error {
 		"get_event":       "SELECT * FROM mcp.events WHERE id = $1",
 		"insert_event":    "INSERT INTO mcp.events (source, type, data, timestamp) VALUES ($1, $2, $3, $4) RETURNING id",
 		"get_context":     "SELECT * FROM mcp.contexts WHERE id = $1",
-		"insert_context":  "INSERT INTO mcp.contexts (id, agent_id, model_id, session_id, content, metadata, current_tokens, max_tokens, created_at, updated_at) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)",
+		"insert_context":  "INSERT INTO mcp.contexts (id, agent_id, model_id, session_id, current_tokens, max_tokens, metadata, created_at, updated_at, expires_at) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)",
+		"update_context":  "UPDATE mcp.contexts SET agent_id = $1, model_id = $2, session_id = $3, current_tokens = $4, max_tokens = $5, metadata = $6, updated_at = $7, expires_at = $8 WHERE id = $9",
+		"delete_context":  "DELETE FROM mcp.contexts WHERE id = $1",
+		"list_contexts":   "SELECT * FROM mcp.contexts WHERE agent_id = $1 ORDER BY updated_at DESC",
+		"get_context_items": "SELECT * FROM mcp.context_items WHERE context_id = $1 ORDER BY timestamp",
+		"insert_context_item": "INSERT INTO mcp.context_items (id, context_id, role, content, tokens, timestamp, metadata) VALUES ($1, $2, $3, $4, $5, $6, $7)",
+		"check_context_item_exists": "SELECT EXISTS(SELECT 1 FROM mcp.context_items WHERE id = $1)",
 		"get_integration": "SELECT * FROM mcp.integrations WHERE id = $1",
 	}
 

@@ -2,6 +2,7 @@ package api_test
 
 import (
 	"context"
+	"fmt"
 	"net/http"
 	"time"
 
@@ -161,34 +162,28 @@ var _ = Describe("API", func() {
 	})
 
 	Describe("Context API", func() {
-		It("should retrieve an existing context", func() {
-			Skip("Context API endpoints are no longer supported")
-			
-			// Try to get the test context
-			context, err := mcpClient.GetContext(ctx, "ctx-test-001")
-			
-			// We might get a 404 if the context doesn't exist, which is OK for this test
-			if err != nil {
-				Skip("Test context not found, skipping test")
-			}
-			
-			// Verify context data
-			Expect(context).To(HaveKey("id"))
-			Expect(context["id"]).To(Equal("ctx-test-001"))
-		})
+		var createdContextID string
 
 		It("should create a new context", func() {
-			Skip("Context API endpoints are no longer supported")
-			
 			// Create a new context
 			payload := map[string]interface{}{
 				"agent_id": "test-agent",
 				"model_id": "gpt-4",
 				"max_tokens": 4000,
+				"content": []map[string]interface{}{
+					{
+						"role": "system",
+						"content": "You are a DevOps assistant.",
+						"tokens": 6,
+					},
+				},
 			}
 			
 			context, err := mcpClient.CreateContext(ctx, payload)
 			Expect(err).NotTo(HaveOccurred())
+			
+			// Store the created context ID for later tests
+			createdContextID = context["id"].(string)
 			
 			// Verify context data
 			Expect(context).To(HaveKey("id"))
@@ -196,6 +191,145 @@ var _ = Describe("API", func() {
 			Expect(context["agent_id"]).To(Equal("test-agent"))
 			Expect(context).To(HaveKey("model_id"))
 			Expect(context["model_id"]).To(Equal("gpt-4"))
+			Expect(context).To(HaveKey("current_tokens"))
+			Expect(context["current_tokens"]).To(BeNumerically("==", 6))
+		})
+
+		It("should retrieve an existing context", func() {
+			// Skip if no context was created in the previous test
+			if createdContextID == "" {
+				Skip("No context was created in the previous test")
+			}
+			
+			// Get the context
+			context, err := mcpClient.GetContext(ctx, createdContextID)
+			Expect(err).NotTo(HaveOccurred())
+			
+			// Verify context data
+			Expect(context).To(HaveKey("id"))
+			Expect(context["id"]).To(Equal(createdContextID))
+			Expect(context).To(HaveKey("agent_id"))
+			Expect(context["agent_id"]).To(Equal("test-agent"))
+		})
+
+		It("should update an existing context", func() {
+			// Skip if no context was created in the previous test
+			if createdContextID == "" {
+				Skip("No context was created in the previous test")
+			}
+			
+			// Update the context
+			updatePayload := map[string]interface{}{
+				"context": map[string]interface{}{
+					"content": []map[string]interface{}{
+						{
+							"role": "user",
+							"content": "Show me the open pull requests.",
+							"tokens": 6,
+						},
+					},
+				},
+				"options": map[string]interface{}{
+					"truncate": true,
+					"truncate_strategy": "oldest_first",
+				},
+			}
+			
+			path := fmt.Sprintf("/api/v1/contexts/%s", createdContextID)
+			resp, err := mcpClient.Put(ctx, path, updatePayload)
+			Expect(err).NotTo(HaveOccurred())
+			defer resp.Body.Close()
+			
+			// Verify response status
+			Expect(resp.StatusCode).To(Equal(http.StatusOK))
+			
+			// Parse response
+			var updatedContext map[string]interface{}
+			err = client.ParseResponse(resp, &updatedContext)
+			Expect(err).NotTo(HaveOccurred())
+			
+			// Verify updated context
+			Expect(updatedContext).To(HaveKey("current_tokens"))
+			Expect(updatedContext["current_tokens"]).To(BeNumerically("==", 12)) // 6 + 6 tokens
+		})
+
+		It("should search within a context", func() {
+			// Skip if no context was created in the previous test
+			if createdContextID == "" {
+				Skip("No context was created in the previous test")
+			}
+			
+			// Search in the context
+			searchPayload := map[string]interface{}{
+				"query": "pull request",
+			}
+			
+			path := fmt.Sprintf("/api/v1/contexts/%s/search", createdContextID)
+			resp, err := mcpClient.Post(ctx, path, searchPayload)
+			Expect(err).NotTo(HaveOccurred())
+			defer resp.Body.Close()
+			
+			// Verify response status
+			Expect(resp.StatusCode).To(Equal(http.StatusOK))
+			
+			// Parse response
+			var searchResults map[string]interface{}
+			err = client.ParseResponse(resp, &searchResults)
+			Expect(err).NotTo(HaveOccurred())
+			
+			// Verify search results
+			Expect(searchResults).To(HaveKey("results"))
+			results := searchResults["results"].([]interface{})
+			Expect(len(results)).To(BeNumerically(">", 0))
+		})
+
+		It("should get a context summary", func() {
+			// Skip if no context was created in the previous test
+			if createdContextID == "" {
+				Skip("No context was created in the previous test")
+			}
+			
+			// Get context summary
+			path := fmt.Sprintf("/api/v1/contexts/%s/summary", createdContextID)
+			resp, err := mcpClient.Get(ctx, path)
+			Expect(err).NotTo(HaveOccurred())
+			defer resp.Body.Close()
+			
+			// Verify response status
+			Expect(resp.StatusCode).To(Equal(http.StatusOK))
+			
+			// Parse response
+			var summary map[string]interface{}
+			err = client.ParseResponse(resp, &summary)
+			Expect(err).NotTo(HaveOccurred())
+			
+			// Verify summary
+			Expect(summary).To(HaveKey("summary"))
+			Expect(summary["context_id"]).To(Equal(createdContextID))
+		})
+
+		It("should delete a context", func() {
+			// Skip if no context was created in the previous test
+			if createdContextID == "" {
+				Skip("No context was created in the previous test")
+			}
+			
+			// Delete the context
+			path := fmt.Sprintf("/api/v1/contexts/%s", createdContextID)
+			resp, err := mcpClient.Delete(ctx, path)
+			Expect(err).NotTo(HaveOccurred())
+			defer resp.Body.Close()
+			
+			// Verify response status
+			Expect(resp.StatusCode).To(Equal(http.StatusOK))
+			
+			// Verify the context is deleted
+			resp2, err := mcpClient.Get(ctx, path)
+			Expect(err).NotTo(HaveOccurred())
+			defer resp2.Body.Close()
+			
+			// Should return 404 Not Found
+			Expect(resp2.StatusCode).To(Equal(http.StatusNotFound))
 		})
 	})
 })
