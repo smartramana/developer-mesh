@@ -14,6 +14,11 @@ func (s *Server) setupVectorRoutes(group *gin.RouterGroup) {
 	vectorsGroup.POST("/search", s.searchEmbeddings)
 	vectorsGroup.GET("/context/:context_id", s.getContextEmbeddings)
 	vectorsGroup.DELETE("/context/:context_id", s.deleteContextEmbeddings)
+	
+	// New multi-model endpoints
+	vectorsGroup.GET("/models", s.getSupportedModels)
+	vectorsGroup.GET("/context/:context_id/model/:model_id", s.getModelEmbeddings)
+	vectorsGroup.DELETE("/context/:context_id/model/:model_id", s.deleteModelEmbeddings)
 }
 
 // storeEmbedding handles storing a vector embedding
@@ -68,12 +73,41 @@ func (s *Server) searchEmbeddings(c *gin.Context) {
 		req.Limit = 100 // Maximum limit
 	}
 
-	// Search embeddings using repository
-	embeddings, err := s.embeddingRepo.SearchEmbeddings(c.Request.Context(), req.QueryEmbedding, req.ContextID, req.Limit)
+	var embeddings []*repository.Embedding
+	var err error
+
+	// Check if model ID is provided (new multi-model support)
+	if req.ModelID != "" {
+		// Default similarity threshold if not provided
+		similarityThreshold := 0.5
+		if req.SimilarityThreshold > 0 {
+			similarityThreshold = req.SimilarityThreshold
+		}
+
+		// Use the new multi-model search method
+		embeddings, err = s.embeddingRepo.SearchEmbeddings(
+			c.Request.Context(),
+			req.QueryEmbedding,
+			req.ContextID,
+			req.ModelID,
+			req.Limit,
+			similarityThreshold,
+		)
+	} else {
+		// For backward compatibility, use the legacy method without model filtering
+		embeddings, err = s.embeddingRepo.SearchEmbeddings_Legacy(
+			c.Request.Context(),
+			req.QueryEmbedding,
+			req.ContextID,
+			req.Limit,
+		)
+	}
+
 	if err != nil {
 		s.logger.Error("Failed to search embeddings", map[string]interface{}{
 			"error":      err.Error(),
 			"context_id": req.ContextID,
+			"model_id":   req.ModelID,
 		})
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
@@ -118,6 +152,81 @@ func (s *Server) deleteContextEmbeddings(c *gin.Context) {
 		s.logger.Error("Failed to delete context embeddings", map[string]interface{}{
 			"error":      err.Error(),
 			"context_id": contextID,
+		})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"status": "deleted"})
+}
+
+// getSupportedModels handles getting a list of all model IDs with embeddings
+func (s *Server) getSupportedModels(c *gin.Context) {
+	// Get supported models from repository
+	models, err := s.embeddingRepo.GetSupportedModels(c.Request.Context())
+	if err != nil {
+		s.logger.Error("Failed to get supported models", map[string]interface{}{
+			"error": err.Error(),
+		})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"models": models})
+}
+
+// getModelEmbeddings handles getting embeddings for a specific model in a context
+func (s *Server) getModelEmbeddings(c *gin.Context) {
+	contextID := c.Param("context_id")
+	modelID := c.Param("model_id")
+	
+	if contextID == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "context_id is required"})
+		return
+	}
+	
+	if modelID == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "model_id is required"})
+		return
+	}
+
+	// Get embeddings using repository
+	embeddings, err := s.embeddingRepo.GetEmbeddingsByModel(c.Request.Context(), contextID, modelID)
+	if err != nil {
+		s.logger.Error("Failed to get model embeddings", map[string]interface{}{
+			"error":      err.Error(),
+			"context_id": contextID,
+			"model_id":   modelID,
+		})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"embeddings": embeddings})
+}
+
+// deleteModelEmbeddings handles deleting embeddings for a specific model in a context
+func (s *Server) deleteModelEmbeddings(c *gin.Context) {
+	contextID := c.Param("context_id")
+	modelID := c.Param("model_id")
+	
+	if contextID == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "context_id is required"})
+		return
+	}
+	
+	if modelID == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "model_id is required"})
+		return
+	}
+
+	// Delete embeddings using repository
+	err := s.embeddingRepo.DeleteModelEmbeddings(c.Request.Context(), contextID, modelID)
+	if err != nil {
+		s.logger.Error("Failed to delete model embeddings", map[string]interface{}{
+			"error":      err.Error(),
+			"context_id": contextID,
+			"model_id":   modelID,
 		})
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return

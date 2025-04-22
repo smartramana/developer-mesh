@@ -1,20 +1,20 @@
-# MCP Server Configuration Template
+# MCP Server Configuration
 
 # Environment (dev, staging, prod)
-environment: "${MCP_ENVIRONMENT:-dev}"
+environment: "dev"
 
 # AWS Service Configurations
 aws:
   # RDS Aurora PostgreSQL Configuration
   rds:
     auth:
-      region: "${AWS_REGION:-us-west-2}"
-    host: "${RDS_HOST:-}"
-    port: ${RDS_PORT:-5432}
-    database: "${RDS_DATABASE:-mcp}"
-    username: "${RDS_USERNAME:-mcp_admin}"
-    password: "${RDS_PASSWORD:-}" # Leave empty for IAM authentication
-    use_iam_auth: ${RDS_USE_IAM_AUTH:-true} # Default to IAM authentication
+      region: "us-west-2"
+    host: "your-aurora-cluster.cluster-xxxxxxxxx.us-west-2.rds.amazonaws.com"
+    port: 5432
+    database: "mcp"
+    username: "mcp_admin"
+    password: "" # Leave empty when using IAM authentication
+    use_iam_auth: true # IAM authentication is the default and recommended method
     token_expiration: 900 # 15 minutes in seconds
     max_open_conns: 25
     max_idle_conns: 5
@@ -27,17 +27,17 @@ aws:
   # ElastiCache Redis Configuration
   elasticache:
     auth:
-      region: "${AWS_REGION:-us-west-2}"
-    primary_endpoint: "${ELASTICACHE_ENDPOINT:-}"
-    port: ${ELASTICACHE_PORT:-6379}
-    username: "${ELASTICACHE_USERNAME:-mcp_cache_user}"
-    password: "${ELASTICACHE_PASSWORD:-}" # Leave empty for IAM authentication
-    use_iam_auth: ${ELASTICACHE_USE_IAM_AUTH:-true} # Default to IAM authentication
+      region: "us-west-2"
+    primary_endpoint: "your-redis-cluster.xxxxxx.clustercfg.usw2.cache.amazonaws.com"
+    port: 6379
+    username: "mcp_cache_user"
+    password: "" # Leave empty when using IAM authentication
+    use_iam_auth: true # IAM authentication is the default and recommended method
     cluster_mode: true
-    cluster_name: "${ELASTICACHE_CLUSTER_NAME:-mcp-cache}"
+    cluster_name: "mcp-cache"
     cluster_discovery: true
     use_tls: true
-    insecure_skip_verify: false
+    insecure_skip_verify: false # Set to true only for testing
     max_retries: 3
     min_idle_connections: 2
     pool_size: 10
@@ -45,166 +45,156 @@ aws:
     read_timeout: 3
     write_timeout: 3
     pool_timeout: 4
-    token_expiration: 900
+    token_expiration: 900 # 15 minutes in seconds
   
-  # S3 Configuration
-  s3:
-    auth:
-      region: "${AWS_REGION:-us-west-2}"
-    bucket: "${S3_BUCKET:-mcp-contexts}"
-    use_iam_auth: ${S3_USE_IAM_AUTH:-true} # Default to IAM authentication
-    server_side_encryption: "${S3_ENCRYPTION:-AES256}"
-    upload_part_size: 5242880  # 5MB
-    download_part_size: 5242880  # 5MB
-    concurrency: 5
-    request_timeout: 30s
+  # Note: S3 Configuration for context storage has been removed as it is no longer supported
 
 # Storage Configuration
-storage:
-  # Storage provider type: "local" or "s3"
-  type: "${STORAGE_TYPE:-s3}"
-  
-  # S3 Storage Configuration - inherits from aws.s3 config above
-  # The following settings are used only when not using AWS S3
-  s3:
-    region: "${AWS_REGION:-us-west-2}"
-    bucket: "${S3_BUCKET:-mcp-contexts}"
-    endpoint: "${S3_ENDPOINT:-}" # For S3-compatible services
-    force_path_style: ${S3_FORCE_PATH_STYLE:-false}
-  
-  # Context Storage Configuration
-  context_storage:
-    # Provider: "database" or "s3"
-    provider: "${CONTEXT_STORAGE_PROVIDER:-s3}" # Default to S3 for production
-    s3_path_prefix: "${CONTEXT_STORAGE_PREFIX:-contexts}"
+# Note: Context storage configurations have been removed as they are no longer supported
 
 # API Server Configuration
 api:
-  listen_address: ":8080"
+  listen_address: ":8080" # For development; use ":443" for production
   read_timeout: 30s
   write_timeout: 30s
-  idle_timeout: 90s
-  base_path: "/api/v1"
+  idle_timeout: 60s
   enable_cors: true
-  log_requests: true
   
-  # Authentication settings
+  # TLS Configuration (required for production)
+  # tls_cert_file: "/certs/tls.crt"
+  # tls_key_file: "/certs/tls.key"
+  
+  # Authentication
   auth:
-    api_keys_admin: "${API_KEY_ADMIN:-admin-api-key}"
-    api_keys_test: "${API_KEY_TEST:-test-api-key}"
-    jwt_secret: "${JWT_SECRET:-test-jwt-secret}"
-    jwt_expiration: 24h
+    jwt_secret: "change-this-to-a-secure-secret"
+    api_keys:
+      admin: "change-this-to-a-secure-api-key"
+      reader: "change-this-to-a-different-secure-api-key"
   
-  # API rate limiting
+  # Rate Limiting
   rate_limit:
-    enabled: false # Disable for local testing
+    enabled: true
     limit: 100
-    burst: 150
-    expiration: 1h
+    period: 1m
+    burst_factor: 3
   
-  # Webhook configuration
+  # Note: Agent Webhook has been removed as it is no longer supported
+  
+  # DevOps Tool Webhooks
   webhooks:
     github:
-      enabled: ${GITHUB_WEBHOOK_ENABLED:-true}
-      secret: "${GITHUB_WEBHOOK_SECRET:-}" # Never use a mock secret in production
+      enabled: true
       path: "/github"
+      secret: "change-this-to-a-secure-webhook-secret"
+    
     # Note: Harness, SonarQube, Artifactory, and JFrog Xray webhook support has been removed
 
 # Database Configuration
 database:
   driver: "postgres"
-  host: "${DATABASE_HOST:-localhost}"
-  port: ${DATABASE_PORT:-5432}
-  username: "${DATABASE_USER:-postgres}"
-  password: "${DATABASE_PASSWORD:-postgres}" # Default password for development
-  database: "${DATABASE_NAME:-mcp}"
-  ssl_mode: "${DATABASE_SSL_MODE:-disable}"
-  dsn: "${DATABASE_DSN:-}" # Do not hardcode default DSN with credentials
+  dsn: "postgres://user:password@localhost:5432/mcp?sslmode=disable" # Used only if not using AWS RDS with IAM auth
   max_open_conns: 25
   max_idle_conns: 5
-  conn_max_lifetime: 5m
+  conn_max_lifetime: 30m
 
 # Cache Configuration
 cache:
   type: "redis"
-  address: "${REDIS_ADDRESS:-localhost:6379}"
-  password: "${REDIS_PASSWORD:-}"
-  database: ${REDIS_DATABASE:-0}
-  use_iam_auth: ${REDIS_USE_IAM_AUTH:-false} # For compatibility with ElastiCache IAM auth
-  max_retries: 3
-  dial_timeout: 5
-  read_timeout: 3
-  write_timeout: 3
+  address: "localhost:6379" # Used only if not using AWS ElastiCache
+  password: ""
+  db: 0
   pool_size: 10
   min_idle_conns: 2
-  pool_timeout: 4
+  dial_timeout: 5s
+  read_timeout: 3s
+  write_timeout: 3s
 
 # Core Engine Configuration
 engine:
-  event_buffer_size: 1000
-  concurrency_limit: 5
+  event_buffer_size: 10000
+  concurrency_limit: 10
   event_timeout: 30s
   
-  # GitHub Configuration
-  github:
-    api_token: "${GITHUB_API_TOKEN:-mock-github-token}"
-    webhook_secret: "${GITHUB_WEBHOOK_SECRET:-mock-github-secret}"
-    request_timeout: 10s
-    rate_limit_per_hour: 5000
-    max_retries: 3
-    retry_delay: 1s
-    mock_responses: ${MOCK_RESPONSES:-true}
-    mock_url: "${MOCK_GITHUB_URL:-http://localhost:8081/mock-github}"
-  
-  # Harness Configuration
-  harness:
-    api_token: "${HARNESS_API_TOKEN:-mock-harness-token}"
-    account_id: "${HARNESS_ACCOUNT_ID:-mock-harness-account}"
-    webhook_secret: "${HARNESS_WEBHOOK_SECRET:-mock-harness-secret}"
-    base_url: "${HARNESS_URL:-http://localhost:8081/mock-harness}"
-    request_timeout: 10s
-    max_retries: 3
-    retry_delay: 1s
-    mock_responses: ${MOCK_RESPONSES:-true}
-  
-  # SonarQube Configuration
-  sonarqube:
-    base_url: "${SONARQUBE_URL:-http://localhost:8081/mock-sonarqube}"
-    token: "${SONARQUBE_TOKEN:-mock-sonarqube-token}"
-    webhook_secret: "${SONARQUBE_WEBHOOK_SECRET:-mock-sonarqube-secret}"
-    request_timeout: 10s
-    max_retries: 3
-    retry_delay: 1s
-    mock_responses: ${MOCK_RESPONSES:-true}
-  
-  # Artifactory Configuration
-  artifactory:
-    base_url: "${ARTIFACTORY_URL:-http://localhost:8081/mock-artifactory}"
-    username: "${ARTIFACTORY_USERNAME:-mock-artifactory-user}"
-    password: "${ARTIFACTORY_PASSWORD:-mock-artifactory-password}"
-    api_key: "${ARTIFACTORY_API_KEY:-mock-artifactory-api-key}"
-    webhook_secret: "${ARTIFACTORY_WEBHOOK_SECRET:-mock-artifactory-secret}"
-    request_timeout: 10s
-    max_retries: 3
-    retry_delay: 1s
-    mock_responses: ${MOCK_RESPONSES:-true}
-  
-  # Xray Configuration
-  xray:
-    base_url: "${XRAY_URL:-http://localhost:8081/mock-xray}"
-    username: "${XRAY_USERNAME:-mock-xray-user}"
-    password: "${XRAY_PASSWORD:-mock-xray-password}"
-    api_key: "${XRAY_API_KEY:-mock-xray-api-key}"
-    webhook_secret: "${XRAY_WEBHOOK_SECRET:-mock-xray-secret}"
-    request_timeout: 10s
-    max_retries: 3
-    retry_delay: 1s
-    mock_responses: ${MOCK_RESPONSES:-true}
+  # Security Settings
+  security:
+    safe_mode: true  # Enable safety checks for all operations
+    audit_logging: true  # Log all adapter operations for audit purposes
 
-# Metrics Configuration
-metrics:
-  enabled: false
-  type: "prometheus"
-  endpoint: ""
-  push_gateway: ""
-  push_interval: 10s
+# DevOps Tool Adapters
+adapters:
+  github:
+    api_token: "your-github-api-token"
+    webhook_secret: "your-github-webhook-secret"
+    # enterprise_url: "https://github.yourdomain.com/api/v3" # For GitHub Enterprise
+    request_timeout: 30s
+    retry_max: 3
+    retry_delay: 1s
+    mock_responses: true
+    mock_url: "http://mockserver:8081/mock-github"
+  
+  harness:
+    api_token: "your-harness-api-token"
+    account_id: "your-harness-account-id"
+    org_identifier: "default"
+    project_identifier: "your-project-id"
+    base_url: "https://app.harness.io"
+    api_url: "https://app.harness.io/ng/api"
+    graphql_url: "https://app.harness.io/gateway/api/graphql"
+    # CCM specific configurations
+    ccm_api_url: "https://app.harness.io/ccm/api"
+    ccm_graphql_url: "https://app.harness.io/ccm/graphql"
+    # Request configuration
+    request_timeout: 30s
+    retry_max: 3
+    retry_delay: 1s
+    # Mock server settings for testing
+    mock_responses: true
+    mock_url: "http://mockserver:8081/mock-harness"
+  
+  sonarqube:
+    base_url: "https://sonarqube.example.com/api"
+    token: "your-sonarqube-token"
+    # Or use username/password authentication
+    # username: "your-sonarqube-username"
+    # password: "your-sonarqube-password"
+    request_timeout: 30s
+    retry_max: 3
+    retry_delay: 1s
+    mock_responses: true
+    mock_url: "http://mockserver:8081/mock-sonarqube"
+  
+  artifactory:
+    base_url: "https://artifactory.example.com/artifactory/api"
+    token: "your-artifactory-token"
+    # Or use username/password authentication
+    # username: "your-artifactory-username"
+    # password: "your-artifactory-password"
+    request_timeout: 30s
+    retry_max: 3
+    retry_delay: 1s
+    mock_responses: true
+    mock_url: "http://mockserver:8081/mock-artifactory"
+  
+  xray:
+    base_url: "https://xray.example.com/api/v1"
+    token: "your-xray-token"
+    # Or use username/password authentication
+    # username: "your-xray-username"
+    # password: "your-xray-password"
+    request_timeout: 30s
+    retry_max: 3
+    retry_delay: 1s
+    mock_responses: true
+    mock_url: "http://mockserver:8081/mock-xray"
+
+# Monitoring Configuration
+monitoring:
+  prometheus:
+    enabled: true
+    path: "/metrics"
+  
+  logging:
+    level: "info"
+    format: "json"
+    output: "stdout"
+    file_path: ""

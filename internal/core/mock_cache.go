@@ -35,3 +35,15 @@ func (m *MockCache) Close() error {
 	args := m.Called()
 	return args.Error(0)
 }
+
+// Exists mocks the cache.Cache.Exists method
+func (m *MockCache) Exists(ctx context.Context, key string) (bool, error) {
+	args := m.Called(ctx, key)
+	return args.Bool(0), args.Error(1)
+}
+
+// Flush mocks the cache.Cache.Flush method
+func (m *MockCache) Flush(ctx context.Context) error {
+	args := m.Called(ctx)
+	return args.Error(0)
+}

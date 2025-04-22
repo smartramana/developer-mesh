@@ -5,6 +5,32 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.5] - 2025-04-22
+
+### Added
+- Enhanced vector search functionality with multi-model support
+- Added similarity score calculation in vector search results
+- Implemented model-specific embedding endpoints for better organization
+- Added new API endpoints for managing model-specific embeddings
+  - GET /api/v1/vectors/models - List all models with embeddings
+  - GET /api/v1/vectors/context/:context_id/model/:model_id - Get embeddings for a specific model
+  - DELETE /api/v1/vectors/context/:context_id/model/:model_id - Delete embeddings for a specific model
+
+### Changed
+- Improved vector embedding repository with model-specific methods
+- Updated vector search to respect similarity thresholds
+- Enhanced vector API to support multi-model operations
+- Updated search API to include similarity scores in results
+- Refactored vector handlers for better testability
+- Modified test infrastructure to support multi-model testing
+
+### Fixed
+- Fixed interface compatibility issues in vector handlers
+- Enhanced type safety in embedding repository
+- Resolved embedding parsing issues in multi-model scenarios
+- Fixed vector storage to properly handle embeddings from different models
+- Improved error handling in vector search operations
+
 ## [0.3.4] - 2025-04-20
 
 ### Added
