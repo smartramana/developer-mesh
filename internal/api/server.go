@@ -21,15 +21,16 @@ var shutdownHooks []func()
 
 // Server represents the API server
 type Server struct {
-	router   *gin.Engine
-	server   *http.Server
-	engine   *core.Engine
-	config   Config
-	logger   *observability.Logger
-	db       *sqlx.DB
-	metrics  *observability.MetricsClient
-	vectorDB *database.VectorDatabase
-	cfg      *config.Config
+	router        *gin.Engine
+	server        *http.Server
+	engine        *core.Engine
+	config        Config
+	logger        *observability.Logger
+	db            *sqlx.DB
+	metrics       *observability.MetricsClient
+	vectorDB      *database.VectorDatabase
+	embeddingRepo *repository.EmbeddingRepository
+	cfg           *config.Config
 }
 
 // NewServer creates a new API server
