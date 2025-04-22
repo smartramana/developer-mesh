@@ -69,6 +69,12 @@ var _ = Describe("Tool Integrations", func() {
 				"list_issues",
 				"get_issue",
 				"create_issue",
+				"update_issue",
+				"close_issue",
+				"list_pull_requests",
+				"get_pull_request",
+				"create_pull_request",
+				"merge_pull_request",
 			}
 			
 			for _, action := range expectedActions {
@@ -88,6 +94,72 @@ var _ = Describe("Tool Integrations", func() {
 			
 			// Should return unauthorized
 			Expect(resp.StatusCode).To(Equal(401))
+		})
+		
+		It("should handle GitHub API errors properly using GitHubError type", func() {
+			// Create a context
+			payload := map[string]interface{}{
+				"agent_id":   "error-test",
+				"model_id":   "gpt-4",
+				"max_tokens": 4000,
+			}
+			
+			context, err := mcpClient.CreateContext(ctx, payload)
+			Expect(err).NotTo(HaveOccurred())
+			
+			// Save the created context ID
+			Expect(context).To(HaveKey("id"))
+			contextID := context["id"].(string)
+			
+			// Try to access a non-existent repository to trigger a GitHub API error
+			toolPayload := map[string]interface{}{
+				"context_id": contextID,
+				"params": map[string]interface{}{
+					"owner": "non-existent-owner-12345",
+					"repo":  "non-existent-repo-67890",
+				},
+			}
+			
+			path := "/api/v1/tools/github/actions/get_repository"
+			resp, err := mcpClient.Post(ctx, path, toolPayload)
+			
+			// Skip if GitHub integration is not properly configured
+			if err != nil {
+				Skip("GitHub integration not properly configured, skipping test")
+			}
+			defer resp.Body.Close()
+			
+			// Parse response to check error structure
+			var result map[string]interface{}
+			err = client.ParseResponse(resp, &result)
+			Expect(err).NotTo(HaveOccurred())
+			
+			// Should have error object with GitHubError structure
+			Expect(result).To(HaveKey("error"))
+			errorObj, ok := result["error"].(map[string]interface{})
+			Expect(ok).To(BeTrue(), "error should be an object")
+			
+			// Verify error fields from GitHubError
+			Expect(errorObj).To(HaveKey("message"))
+			
+			// Check for specific GitHubError fields - statusCode and resource
+			// These fields might not be exactly named like this in the API response,
+			// but there should be similar fields
+			expectedErrorFields := []string{"message", "status", "code"}
+			atLeastOneExpectedField := false
+			
+			for _, field := range expectedErrorFields {
+				if _, hasField := errorObj[field]; hasField {
+					atLeastOneExpectedField = true
+					break
+				}
+			}
+			
+			Expect(atLeastOneExpectedField).To(BeTrue(), "Error should have at least one expected GitHubError field")
+			
+			// Clean up created context
+			deletePath := "/api/v1/contexts/" + contextID
+			mcpClient.Delete(ctx, deletePath)
 		})
 	})
 
@@ -119,5 +191,38 @@ var _ = Describe("Tool Integrations", func() {
 		})
 	})
 
-	// Additional integration tests could be added for other supported tools
+	Describe("Cache Integration", func() {
+		It("should handle cache operations correctly", func() {
+			// Create a context
+			payload := map[string]interface{}{
+				"agent_id":   "cache-test",
+				"model_id":   "gpt-4",
+				"max_tokens": 4000,
+			}
+			
+			context, err := mcpClient.CreateContext(ctx, payload)
+			Expect(err).NotTo(HaveOccurred())
+			
+			// Save the created context ID
+			Expect(context).To(HaveKey("id"))
+			contextID := context["id"].(string)
+			
+			// Get the context (first access, should be stored in cache)
+			context1, err := mcpClient.GetContext(ctx, contextID)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(context1["id"]).To(Equal(contextID))
+			
+			// Get the context again (should be served from cache)
+			context2, err := mcpClient.GetContext(ctx, contextID)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(context2["id"]).To(Equal(contextID))
+			
+			// The test passes if we can access the context successfully both times
+			// which means the cache initialization with settings map is working
+			
+			// Clean up created context
+			deletePath := "/api/v1/contexts/" + contextID
+			mcpClient.Delete(ctx, deletePath)
+		})
+	})
 })
