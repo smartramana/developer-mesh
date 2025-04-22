@@ -80,3 +80,45 @@ func (p *Provider) CreateAdapter(ctx context.Context, config map[string]interfac
 func (p *Provider) Type() string {
 	return "github"
 }
+
+// Register registers the provider with a factory
+func (p *Provider) Register(factory interface{}) error {
+	if factory == nil {
+		return ErrNilFactory
+	}
+	
+	// Check if the factory implements the RegisterAdapterCreator method
+	adapterFactory, ok := factory.(interface {
+		RegisterAdapterCreator(string, func(context.Context, interface{}) (interface{}, error))
+	})
+	if !ok {
+		return ErrInvalidFactory
+	}
+	
+	// Register our adapter creator function
+	adapterFactory.RegisterAdapterCreator("github", func(ctx context.Context, config interface{}) (interface{}, error) {
+		// Convert config to map if necessary
+		configMap, ok := config.(map[string]interface{})
+		if !ok {
+			configMap = make(map[string]interface{})
+		}
+		
+		return p.CreateAdapter(ctx, configMap)
+	})
+	
+	return nil
+}
+
+// Error constants
+var (
+	ErrNilFactory = GithubError("factory cannot be nil")
+	ErrInvalidFactory = GithubError("factory does not implement required interface")
+)
+
+// GithubError is a simple error type for GitHub adapter errors
+type GithubError string
+
+// Error returns the error string
+func (e GithubError) Error() string {
+	return string(e)
+}

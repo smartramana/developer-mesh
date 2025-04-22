@@ -57,8 +57,8 @@ func NewManager(db *sqlx.DB, config Config, driverName string) (*Manager, error)
 		config.MigrationTimeout = 1 * time.Minute
 	}
 
-	// Resolve the absolute path to migrations
-	absPath, err := filepath.Abs(config.MigrationsPath)
+	// Resolve the absolute path to migrations to validate it exists
+	_, err := filepath.Abs(config.MigrationsPath)
 	if err != nil {
 		return nil, fmt.Errorf("failed to resolve migrations path: %w", err)
 	}

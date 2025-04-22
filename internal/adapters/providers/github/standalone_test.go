@@ -15,7 +15,9 @@ import (
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 	
+	"github.com/S-Corkum/mcp-server/internal/adapters/events/mocks"
 	"github.com/S-Corkum/mcp-server/internal/adapters/providers/github/testdata"
+	"github.com/S-Corkum/mcp-server/internal/observability"
 )
 
 // Test constant values
@@ -26,8 +28,11 @@ const (
 	standaloneToken     = "standalone-token"
 )
 
-// MockLogger is a simplified logger for integration testing
-type MockLogger struct{
+// Use the mock event bus from the mocks package
+type StandaloneEventBus = mocks.MockEventBus
+
+// StandaloneLogger is a test logger that implements observability.Logger interface
+type StandaloneLogger struct {
 	// Collect logs for verification
 	InfoLogs  []string
 	ErrorLogs []string
@@ -35,77 +40,43 @@ type MockLogger struct{
 	DebugLogs []string
 }
 
-func (l *MockLogger) Info(msg string, metadata map[string]interface{})  {
+// Creates a new standalone logger for tests
+func NewStandaloneLogger() *observability.Logger {
+	return observability.NewLogger("standalone-test")
+}
+
+// Info logs an info message
+func (l *StandaloneLogger) Info(msg string, metadata map[string]interface{})  {
 	l.InfoLogs = append(l.InfoLogs, msg)
 	fmt.Printf("[INFO] %s %v\n", msg, metadata)
 }
 
-func (l *MockLogger) Error(msg string, metadata map[string]interface{}) {
+// Error logs an error message
+func (l *StandaloneLogger) Error(msg string, metadata map[string]interface{}) {
 	l.ErrorLogs = append(l.ErrorLogs, msg)
 	fmt.Printf("[ERROR] %s %v\n", msg, metadata)
 }
 
-func (l *MockLogger) Debug(msg string, metadata map[string]interface{}) {
+// Debug logs a debug message
+func (l *StandaloneLogger) Debug(msg string, metadata map[string]interface{}) {
 	l.DebugLogs = append(l.DebugLogs, msg)
 	fmt.Printf("[DEBUG] %s %v\n", msg, metadata)
 }
 
-func (l *MockLogger) Warn(msg string, metadata map[string]interface{})  {
+// Warn logs a warning message
+func (l *StandaloneLogger) Warn(msg string, metadata map[string]interface{})  {
 	l.WarnLogs = append(l.WarnLogs, msg)
 	fmt.Printf("[WARN] %s %v\n", msg, metadata)
 }
 
-// MockMetricsClient is a simplified metrics client for integration testing
-type MockMetricsClient struct {
-	// Track recorded operations
-	Operations []string
+// WithPrefix creates a new logger with the specified prefix
+func (l *StandaloneLogger) WithPrefix(prefix string) *observability.Logger {
+	return observability.NewLogger(prefix)
 }
 
-func (m *MockMetricsClient) RecordContextOperation(operation, modelID string, durationSeconds float64, tokenCount int) {
-	m.Operations = append(m.Operations, fmt.Sprintf("context:%s", operation))
-}
-
-func (m *MockMetricsClient) RecordVectorOperation(operation string, durationSeconds float64) {
-	m.Operations = append(m.Operations, fmt.Sprintf("vector:%s", operation))
-}
-
-func (m *MockMetricsClient) RecordToolOperation(tool, action string, durationSeconds float64, err error) {
-	status := "success"
-	if err != nil {
-		status = "error"
-	}
-	m.Operations = append(m.Operations, fmt.Sprintf("tool:%s:%s:%s", tool, action, status))
-}
-
-func (m *MockMetricsClient) RecordAPIRequest(endpoint, method, status string, durationSeconds float64) {
-	m.Operations = append(m.Operations, fmt.Sprintf("api:%s:%s:%s", endpoint, method, status))
-}
-
-func (m *MockMetricsClient) RecordCacheOperation(operation string, hit bool, durationSeconds float64) {
-	hitStatus := "miss"
-	if hit {
-		hitStatus = "hit"
-	}
-	m.Operations = append(m.Operations, fmt.Sprintf("cache:%s:%s", operation, hitStatus))
-}
-
-// MockEventBus is a simplified event bus for integration testing
-type MockEventBus struct {
-	// Track emitted events
-	Events []interface{}
-}
-
-func (e *MockEventBus) Emit(ctx context.Context, event interface{}) error {
-	e.Events = append(e.Events, event)
-	return nil
-}
-
-func (e *MockEventBus) EmitWithCallback(ctx context.Context, event interface{}, callback func(error)) error {
-	e.Events = append(e.Events, event)
-	if callback != nil {
-		callback(nil)
-	}
-	return nil
+// Create a metrics client for testing
+func NewStandaloneMetricsClient() *observability.MetricsClient {
+	return observability.NewMetricsClient()
 }
 
 // standaloneIssuesService mocks the GitHub Issues service for standalone tests
@@ -154,9 +125,9 @@ func TestGitHubAdapterStandalone(t *testing.T) {
 			},
 		}
 
-		logger := &MockLogger{}
-		metrics := &MockMetricsClient{}
-		eventBus := &MockEventBus{}
+		logger := NewStandaloneLogger()
+		metrics := NewStandaloneMetricsClient()
+		eventBus := mocks.NewMockEventBus()
 
 		// Create adapter
 		adapter, err := NewAdapter(config, eventBus, metrics, logger)
@@ -191,9 +162,9 @@ func TestGitHubAdapterStandalone(t *testing.T) {
 			},
 		}
 
-		logger := &MockLogger{}
-		metrics := &MockMetricsClient{}
-		eventBus := &MockEventBus{}
+		logger := NewStandaloneLogger()
+		metrics := NewStandaloneMetricsClient()
+		eventBus := mocks.NewMockEventBus()
 
 		// Create adapter (should fail)
 		adapter, err := NewAdapter(config, eventBus, metrics, logger)
@@ -220,9 +191,9 @@ func TestGitHubAdapterStandalone(t *testing.T) {
 			},
 		}
 
-		logger := &MockLogger{}
-		metrics := &MockMetricsClient{}
-		eventBus := &MockEventBus{}
+		logger := NewStandaloneLogger()
+		metrics := NewStandaloneMetricsClient()
+		eventBus := mocks.NewMockEventBus()
 
 		// Create and initialize adapter
 		adapter, err := NewAdapter(config, eventBus, metrics, logger)
@@ -288,9 +259,9 @@ func TestGetIssuesStandalone(t *testing.T) {
 	}
 
 	// Create dependencies
-	logger := &MockLogger{}
-	metrics := &MockMetricsClient{}
-	eventBus := &MockEventBus{}
+	logger := NewStandaloneLogger()
+	metrics := NewStandaloneMetricsClient()
+	eventBus := mocks.NewMockEventBus()
 
 	// Create the adapter
 	adapter, err := NewAdapter(config, eventBus, metrics, logger)
@@ -404,9 +375,9 @@ func TestIsSafeOperationStandalone(t *testing.T) {
 	}
 
 	// Create dependencies
-	logger := &MockLogger{}
-	metrics := &MockMetricsClient{}
-	eventBus := &MockEventBus{}
+	logger := NewStandaloneLogger()
+	metrics := NewStandaloneMetricsClient()
+	eventBus := mocks.NewMockEventBus()
 
 	// Create the adapter
 	adapter, err := NewAdapter(config, eventBus, metrics, logger)

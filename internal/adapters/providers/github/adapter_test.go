@@ -15,6 +15,7 @@ import (
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
+	"github.com/S-Corkum/mcp-server/internal/adapters/events/mocks"
 	"github.com/S-Corkum/mcp-server/internal/common/errors"
 	"github.com/S-Corkum/mcp-server/internal/events"
 	"github.com/S-Corkum/mcp-server/internal/observability"
@@ -30,46 +31,12 @@ const (
 	testContext = "test-context"
 )
 
-// MockEventBus is a mock implementation of the EventBus interface
-type MockEventBus struct {
-	mock.Mock
-	handlers map[events.EventType][]events.Handler
-}
+// Create an alias to simplify code
+type TestEventBus = mocks.MockEventBus
 
-// NewMockEventBus creates a new mock event bus
-func NewMockEventBus() *MockEventBus {
-	return &MockEventBus{
-		handlers: make(map[events.EventType][]events.Handler),
-	}
-}
-
-// Publish mocks the Publish method of the EventBus interface
-func (m *MockEventBus) Publish(ctx context.Context, event *mcp.Event) {
-	m.Called(ctx, event)
-}
-
-// Subscribe mocks the Subscribe method of the EventBus interface
-func (m *MockEventBus) Subscribe(eventType events.EventType, handler events.Handler) {
-	m.Called(eventType, handler)
-	m.handlers[eventType] = append(m.handlers[eventType], handler)
-}
-
-// SubscribeMultiple mocks the SubscribeMultiple method of the EventBus interface
-func (m *MockEventBus) SubscribeMultiple(eventTypes []events.EventType, handler events.Handler) {
-	m.Called(eventTypes, handler)
-	for _, eventType := range eventTypes {
-		m.handlers[eventType] = append(m.handlers[eventType], handler)
-	}
-}
-
-// Unsubscribe mocks the Unsubscribe method of the EventBus interface
-func (m *MockEventBus) Unsubscribe(eventType events.EventType, handler events.Handler) {
-	m.Called(eventType, handler)
-}
-
-// Close mocks the Close method of the EventBus interface
-func (m *MockEventBus) Close() {
-	m.Called()
+// NewTestEventBus creates a new mock event bus for tests
+func NewTestEventBus() *TestEventBus {
+	return mocks.NewMockEventBus()
 }
 
 // Helper functions for test setup and utilities
@@ -189,7 +156,7 @@ func TestNewAdapter(t *testing.T) {
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			// Create dependencies for adapter
-			eventBus := NewMockEventBus()
+			eventBus := NewTestEventBus()
 			eventBus.On("Publish", mock.Anything, mock.Anything).Return()
 			eventBus.On("Subscribe", mock.Anything, mock.Anything).Return()
 			eventBus.On("Close").Return()
@@ -231,7 +198,7 @@ func TestNewAdapterWithNilDependencies(t *testing.T) {
 	config.DefaultRepo = testRepo
 	
 	// Create valid dependencies
-	eventBus := NewMockEventBus()
+	eventBus := NewTestEventBus()
 	eventBus.On("Publish", mock.Anything, mock.Anything).Return()
 	eventBus.On("Subscribe", mock.Anything, mock.Anything).Return()
 	
@@ -254,7 +221,7 @@ func TestHandleWebhook(t *testing.T) {
 	config.DefaultOwner = testOwner
 	config.DefaultRepo = testRepo
 	
-	eventBus := NewMockEventBus()
+	eventBus := NewTestEventBus()
 	eventBus.On("Publish", mock.Anything, mock.Anything).Return()
 	eventBus.On("Subscribe", mock.Anything, mock.Anything).Return()
 	
@@ -319,7 +286,7 @@ func TestClose(t *testing.T) {
 	config.DefaultOwner = testOwner
 	config.DefaultRepo = testRepo
 	
-	eventBus := NewMockEventBus()
+	eventBus := NewTestEventBus()
 	eventBus.On("Publish", mock.Anything, mock.Anything).Return()
 	eventBus.On("Subscribe", mock.Anything, mock.Anything).Return()
 	eventBus.On("Close").Return()
@@ -374,7 +341,7 @@ func TestExecuteAction(t *testing.T) {
 	config.BaseURL = server.URL + "/"
 	config.EnabledFeatures = []string{FeatureRepositories}
 	
-	eventBus := NewMockEventBus()
+	eventBus := NewTestEventBus()
 	eventBus.On("Publish", mock.Anything, mock.Anything).Return()
 	eventBus.On("Subscribe", mock.Anything, mock.Anything).Return()
 	

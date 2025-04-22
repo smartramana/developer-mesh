@@ -52,10 +52,25 @@ func (m *DataMigrator) RunMigration(ctx context.Context, version uint) error {
 			startTime := time.Now()
 			m.logger.Printf("Running data migration %s (version %d)...", migration.Name, migration.Version)
 			
-			// Execute migration in a transaction
-			err := m.db.RunTxContext(ctx, func(ctx context.Context, tx *sqlx.Tx) error {
-				return migration.Execute(ctx, tx)
-			})
+			// Begin a transaction
+			tx, err := m.db.BeginTxx(ctx, nil)
+			if err != nil {
+				return fmt.Errorf("failed to begin transaction: %w", err)
+			}
+			
+			// Execute the migration function
+			if err := migration.Execute(ctx, tx); err != nil {
+				// Rollback on error
+				if rbErr := tx.Rollback(); rbErr != nil {
+					return fmt.Errorf("migration failed: %v, rollback error: %w", err, rbErr)
+				}
+				return fmt.Errorf("migration failed: %w", err)
+			}
+			
+			// Commit the transaction
+			if err := tx.Commit(); err != nil {
+				return fmt.Errorf("failed to commit transaction: %w", err)
+			}
 			
 			if err != nil {
 				return fmt.Errorf("data migration %s failed: %w", migration.Name, err)
@@ -80,10 +95,25 @@ func (m *DataMigrator) RollbackMigration(ctx context.Context, version uint) erro
 			startTime := time.Now()
 			m.logger.Printf("Rolling back data migration %s (version %d)...", migration.Name, migration.Version)
 			
-			// Execute rollback in a transaction
-			err := m.db.RunTxContext(ctx, func(ctx context.Context, tx *sqlx.Tx) error {
-				return migration.Rollback(ctx, tx)
-			})
+			// Begin a transaction
+			tx, err := m.db.BeginTxx(ctx, nil)
+			if err != nil {
+				return fmt.Errorf("failed to begin transaction: %w", err)
+			}
+			
+			// Execute the rollback function
+			if err := migration.Rollback(ctx, tx); err != nil {
+				// Rollback on error
+				if rbErr := tx.Rollback(); rbErr != nil {
+					return fmt.Errorf("rollback failed: %v, transaction rollback error: %w", err, rbErr)
+				}
+				return fmt.Errorf("rollback failed: %w", err)
+			}
+			
+			// Commit the transaction
+			if err := tx.Commit(); err != nil {
+				return fmt.Errorf("failed to commit transaction: %w", err)
+			}
 			
 			if err != nil {
 				return fmt.Errorf("data migration %s rollback failed: %w", migration.Name, err)
