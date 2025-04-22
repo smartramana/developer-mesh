@@ -7,6 +7,7 @@ import (
 
 	"github.com/S-Corkum/mcp-server/internal/aws"
 	"github.com/S-Corkum/mcp-server/internal/common/config"
+	"github.com/S-Corkum/mcp-server/internal/database/migration"
 	"github.com/S-Corkum/mcp-server/pkg/models"
 	"github.com/jmoiron/sqlx"
 )
@@ -121,6 +122,24 @@ func NewDatabase(ctx context.Context, cfg Config) (*Database, error) {
 	if err := database.prepareStatements(ctx); err != nil {
 		db.Close()
 		return nil, err
+	}
+
+	// Run migrations if enabled
+	if cfg.AutoMigrate != nil && *cfg.AutoMigrate {
+		log.Println("Running automatic database migrations...")
+		migrationOpts := migration.DefaultOptions()
+		migrationOpts.Path = cfg.MigrationsPath
+		migrationOpts.FailOnError = cfg.FailOnMigrationError != nil && *cfg.FailOnMigrationError
+		
+		if err := migration.AutoMigrate(ctx, db, cfg.Driver, migrationOpts); err != nil {
+			if migrationOpts.FailOnError {
+				db.Close()
+				return nil, fmt.Errorf("database migration failed: %w", err)
+			}
+			log.Printf("Warning: Database migration had errors but continuing: %v", err)
+		} else {
+			log.Println("Database migrations completed successfully")
+		}
 	}
 
 	return database, nil

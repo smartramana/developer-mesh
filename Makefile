@@ -1,4 +1,4 @@
-.PHONY: all build clean test test-coverage test-coverage-html test-integration test-fuzz docker-build docker-run mock mockserver-build mockserver-run local-dev-setup test-github
+.PHONY: all build clean test test-coverage test-coverage-html test-integration test-fuzz docker-build docker-run mock mockserver-build mockserver-run local-dev-setup test-github migrate migrate-up migrate-down migrate-create migrate-version migrate-force
 
 # Default Go parameters
 GOCMD=/usr/local/go/bin/go
@@ -120,3 +120,51 @@ create-github-app:
 setup-github: build-github-only test-github
 	@echo "GitHub integration setup complete."
 	@echo "See docs/github-integration-guide.md for usage instructions."
+
+# Database migration commands
+migrate-tool:
+	$(GOBUILD) -o migrate -v ./cmd/migrate
+
+# Create a new migration file with the given name
+# Usage: make migrate-create name=add_new_table
+migrate-create: migrate-tool
+	./migrate -create -name $(name)
+
+# Run all pending migrations
+# Usage: make migrate-up dsn="postgres://user:pass@localhost:5432/mcp_db?sslmode=disable"
+migrate-up: migrate-tool
+	./migrate -up -dsn "$(dsn)"
+
+# Run all pending migrations (steps limited)
+# Usage: make migrate-up-steps dsn="postgres://user:pass@localhost:5432/mcp_db?sslmode=disable" steps=1
+migrate-up-steps: migrate-tool
+	./migrate -up -steps $(steps) -dsn "$(dsn)"
+
+# Roll back the most recent migration
+# Usage: make migrate-down dsn="postgres://user:pass@localhost:5432/mcp_db?sslmode=disable"
+migrate-down: migrate-tool
+	./migrate -down -dsn "$(dsn)"
+
+# Roll back all migrations
+# Usage: make migrate-reset dsn="postgres://user:pass@localhost:5432/mcp_db?sslmode=disable"
+migrate-reset: migrate-tool
+	./migrate -reset -dsn "$(dsn)"
+
+# Check the current migration version
+# Usage: make migrate-version dsn="postgres://user:pass@localhost:5432/mcp_db?sslmode=disable"
+migrate-version: migrate-tool
+	./migrate -version -dsn "$(dsn)"
+
+# Force the database to a specific version
+# Usage: make migrate-force dsn="postgres://user:pass@localhost:5432/mcp_db?sslmode=disable" version=5
+migrate-force: migrate-tool
+	./migrate -force $(version) -dsn "$(dsn)"
+
+# Validate migrations without applying them
+# Usage: make migrate-validate dsn="postgres://user:pass@localhost:5432/mcp_db?sslmode=disable"
+migrate-validate: migrate-tool
+	./migrate -validate -dsn "$(dsn)"
+
+# Run migrations for local development
+migrate-local: migrate-tool
+	./migrate -up -dsn "postgres://postgres:postgres@localhost:5432/mcp_db?sslmode=disable"

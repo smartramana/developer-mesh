@@ -16,6 +16,7 @@ require (
 	github.com/gin-gonic/gin v1.9.1
 	github.com/go-redis/redis/v8 v8.11.5
 	github.com/golang-jwt/jwt/v4 v4.5.2
+	github.com/golang-migrate/migrate/v4 v4.17.0
 	github.com/google/go-github/v53 v53.2.0
 	github.com/google/uuid v1.6.0
 	github.com/hashicorp/golang-lru/v2 v2.0.7

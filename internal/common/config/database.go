@@ -50,6 +50,12 @@ type DatabaseConfig struct {
 	
 	// Vector database configuration
 	Vector DatabaseVectorConfig `mapstructure:"vector"`
+	
+	// Migration configuration
+	AutoMigrate         *bool         `mapstructure:"auto_migrate"`           // Whether to run migrations on startup
+	MigrationsPath      string        `mapstructure:"migrations_path"`        // Path to migration files
+	MigrationTimeout    time.Duration `mapstructure:"migration_timeout"`      // Timeout for migration operations
+	FailOnMigrationError *bool        `mapstructure:"fail_on_migration_error"` // Whether to fail on migration errors
 }
 
 // DatabaseVectorConfig defines the configuration for vector database operations
@@ -81,14 +87,21 @@ type DatabaseVectorConfig struct {
 
 // GetDefaultDatabaseConfig returns the default database configuration
 func GetDefaultDatabaseConfig() DatabaseConfig {
+	autoMigrate := true
+	failOnMigrationError := true
+	
 	return DatabaseConfig{
-		Driver:          "postgres",
-		MaxOpenConns:    25,
-		MaxIdleConns:    5,
-		ConnMaxLifetime: 5 * time.Minute,
+		Driver:               "postgres",
+		MaxOpenConns:         25,
+		MaxIdleConns:         5,
+		ConnMaxLifetime:      5 * time.Minute,
+		AutoMigrate:          &autoMigrate,
+		MigrationsPath:       "migrations/sql",
+		MigrationTimeout:     1 * time.Minute,
+		FailOnMigrationError: &failOnMigrationError,
 		Vector: DatabaseVectorConfig{
-			Enabled:         true,
-			Dimensions:      1536,
+			Enabled:          true,
+			Dimensions:       1536,
 			SimilarityMetric: "cosine",
 		},
 	}
