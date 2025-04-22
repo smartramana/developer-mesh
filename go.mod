@@ -1,9 +1,9 @@
 module github.com/S-Corkum/mcp-server
 
-go 1.24
+go 1.23
 
-// Using Go 1.24.2 toolchain
-toolchain go1.24.2
+// Using Go 1.23.6 toolchain
+toolchain go1.23.6
 
 require (
 	github.com/DATA-DOG/go-sqlmock v1.5.2
