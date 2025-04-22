@@ -23,9 +23,9 @@ type RedisConfig struct {
 	Password     string        `mapstructure:"password"`     // Redis password
 	Database     int           `mapstructure:"database"`     // Redis database number (single mode only)
 	MaxRetries   int           `mapstructure:"max_retries"`  // Max retries on failure
-	DialTimeout  int           `mapstructure:"dial_timeout"` // Dial timeout in seconds
-	ReadTimeout  int           `mapstructure:"read_timeout"` // Read timeout in seconds
-	WriteTimeout int           `mapstructure:"write_timeout"` // Write timeout in seconds
+	DialTimeout  time.Duration `mapstructure:"dial_timeout"` // Dial timeout
+	ReadTimeout  time.Duration `mapstructure:"read_timeout"` // Read timeout
+	WriteTimeout time.Duration `mapstructure:"write_timeout"` // Write timeout
 	PoolSize     int           `mapstructure:"pool_size"`    // Connection pool size
 	MinIdleConns int           `mapstructure:"min_idle_conns"` // Min idle connections
 	PoolTimeout  int           `mapstructure:"pool_timeout"` // Pool timeout in seconds
@@ -90,9 +90,9 @@ func newRedisClusterClient(config RedisConfig) (Cache, error) {
 		MaxRetries:     config.MaxRetries,
 		MinIdleConns:   config.MinIdleConns,
 		PoolSize:       config.PoolSize,
-		DialTimeout:    time.Duration(config.DialTimeout) * time.Second,
-		ReadTimeout:    time.Duration(config.ReadTimeout) * time.Second,
-		WriteTimeout:   time.Duration(config.WriteTimeout) * time.Second,
+		DialTimeout:    config.DialTimeout,
+		ReadTimeout:    config.ReadTimeout,
+		WriteTimeout:   config.WriteTimeout,
 		PoolTimeout:    time.Duration(config.PoolTimeout) * time.Second,
 		RouteRandomly:  true,
 		RouteByLatency: true,
@@ -129,9 +129,9 @@ func newAWSElastiCacheClient(ctx context.Context, config RedisConfig) (Cache, er
 			MaxRetries:     config.MaxRetries,
 			MinIdleConns:   config.MinIdleConns,
 			PoolSize:       config.PoolSize,
-			DialTimeout:    time.Duration(config.DialTimeout) * time.Second,
-			ReadTimeout:    time.Duration(config.ReadTimeout) * time.Second,
-			WriteTimeout:   time.Duration(config.WriteTimeout) * time.Second,
+			DialTimeout:    config.DialTimeout,
+			ReadTimeout:    config.ReadTimeout,
+			WriteTimeout:   config.WriteTimeout,
 			PoolTimeout:    time.Duration(config.PoolTimeout) * time.Second,
 			RouteRandomly:  true,
 			RouteByLatency: true,

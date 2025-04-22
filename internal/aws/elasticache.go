@@ -24,13 +24,13 @@ type ElastiCacheConfig struct {
 	ClusterName         string     `mapstructure:"cluster_name"`
 	UseTLS              bool       `mapstructure:"use_tls"`
 	InsecureSkipVerify  bool       `mapstructure:"insecure_skip_verify"`
-	MaxRetries          int        `mapstructure:"max_retries"`
-	MinIdleConnections  int        `mapstructure:"min_idle_connections"`
-	PoolSize            int        `mapstructure:"pool_size"`
-	DialTimeout         int        `mapstructure:"dial_timeout"`
-	ReadTimeout         int        `mapstructure:"read_timeout"`
-	WriteTimeout        int        `mapstructure:"write_timeout"`
-	PoolTimeout         int        `mapstructure:"pool_timeout"`
+	MaxRetries          int           `mapstructure:"max_retries"`
+	MinIdleConnections  int           `mapstructure:"min_idle_connections"`
+	PoolSize            int           `mapstructure:"pool_size"`
+	DialTimeout         time.Duration `mapstructure:"dial_timeout"`
+	ReadTimeout         time.Duration `mapstructure:"read_timeout"`
+	WriteTimeout        time.Duration `mapstructure:"write_timeout"`
+	PoolTimeout         int           `mapstructure:"pool_timeout"`
 	TokenExpiration     int        `mapstructure:"token_expiration"`
 }
 
@@ -178,9 +178,9 @@ func (c *ElastiCacheClient) BuildRedisOptions(ctx context.Context) (map[string]i
 	options["poolSize"] = c.config.PoolSize
 	options["minIdleConns"] = c.config.MinIdleConnections
 	options["maxRetries"] = c.config.MaxRetries
-	options["dialTimeout"] = time.Duration(c.config.DialTimeout) * time.Second
-	options["readTimeout"] = time.Duration(c.config.ReadTimeout) * time.Second
-	options["writeTimeout"] = time.Duration(c.config.WriteTimeout) * time.Second
+	options["dialTimeout"] = c.config.DialTimeout
+	options["readTimeout"] = c.config.ReadTimeout
+	options["writeTimeout"] = c.config.WriteTimeout
 	options["poolTimeout"] = time.Duration(c.config.PoolTimeout) * time.Second
 	
 	return options, nil

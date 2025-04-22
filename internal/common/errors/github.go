@@ -10,6 +10,7 @@ import (
 var (
 	// General GitHub errors
 	ErrGitHubAPI          = errors.New("github api error")
+	ErrNilLogger          = errors.New("nil logger")
 	ErrInvalidCredentials = errors.New("invalid github credentials")
 	ErrPermissionDenied   = errors.New("permission denied")
 	ErrResourceNotFound   = errors.New("resource not found")
