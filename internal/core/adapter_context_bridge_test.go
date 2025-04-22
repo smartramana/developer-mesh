@@ -12,36 +12,9 @@ import (
 	"github.com/stretchr/testify/mock"
 )
 
-// MockContextManager mocks the ContextManager interface
-type MockContextManager struct {
-	mock.Mock
-}
+// Using MockContextManager defined in merged_mocks.go
 
-func (m *MockContextManager) CreateContext(ctx context.Context, request *mcp.Context) (*mcp.Context, error) {
-	args := m.Called(ctx, request)
-	return args.Get(0).(*mcp.Context), args.Error(1)
-}
-
-func (m *MockContextManager) GetContext(ctx context.Context, contextID string) (*mcp.Context, error) {
-	args := m.Called(ctx, contextID)
-	return args.Get(0).(*mcp.Context), args.Error(1)
-}
-
-func (m *MockContextManager) UpdateContext(ctx context.Context, contextID string, updateRequest *mcp.Context, options *mcp.ContextUpdateOptions) (*mcp.Context, error) {
-	args := m.Called(ctx, contextID, mock.Anything, mock.Anything)
-	return args.Get(0).(*mcp.Context), args.Error(1)
-}
-
-func (m *MockContextManager) DeleteContext(ctx context.Context, contextID string) error {
-	args := m.Called(ctx, contextID)
-	return args.Error(0)
-}
-
-func (m *MockContextManager) ListContexts(ctx context.Context, agentID string, sessionID string, options map[string]interface{}) ([]*mcp.Context, error) {
-	args := m.Called(ctx, agentID, sessionID, options)
-	return args.Get(0).([]*mcp.Context), args.Error(1)
-}
-
+// Add SummarizeContext and SearchInContext methods to MockContextManager
 func (m *MockContextManager) SummarizeContext(ctx context.Context, contextID string) (string, error) {
 	args := m.Called(ctx, contextID)
 	return args.String(0), args.Error(1)

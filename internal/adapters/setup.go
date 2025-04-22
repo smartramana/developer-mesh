@@ -55,10 +55,12 @@ func NewAdapterManager(
 	// Create adapter registry
 	registry := core.NewAdapterRegistry(factory, logger)
 	
-	// Create event bridge
+	// Create event bridge using the adapter event bus directly
+	// NOTE: We pass the event bus as an interface{} and handle the type conversion inside NewEventBridge
 	eventBridge := bridge.NewEventBridge(adapterEventBus, systemEventBus, logger, registry)
 	
-	// Register adapter providers
+	// Register providers with the factory
+	// NOTE: We pass the systemEventBusAdapter directly as interface{}
 	providers.RegisterAllProviders(factory, systemEventBusAdapter, metricsClient, logger)
 	
 	// Create manager

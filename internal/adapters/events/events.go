@@ -86,6 +86,11 @@ func NewEventBus(logger *observability.Logger) *EventBus {
 	}
 }
 
+// IsInitialized checks if the event bus is properly initialized
+func (b *EventBus) IsInitialized() bool {
+	return b != nil && b.listeners != nil
+}
+
 // Subscribe subscribes to events of a specific type
 func (b *EventBus) Subscribe(eventType EventType, listener EventListener) {
 	b.mu.Lock()

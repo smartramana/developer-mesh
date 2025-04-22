@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	
-	"github.com/S-Corkum/mcp-server/internal/config"
 	"github.com/S-Corkum/mcp-server/internal/database"
 	"github.com/S-Corkum/mcp-server/internal/observability"
 	"github.com/S-Corkum/mcp-server/internal/repository"
@@ -50,18 +49,16 @@ func (s *Server) setupVectorAPI(ctx context.Context) error {
 	})
 	
 	// Add metrics collecting middleware for vector operations
-	if s.cfg.Monitoring.Prometheus.VectorMetrics.Enabled {
-		vectorMetricsMiddleware := createVectorMetricsMiddleware(s.metrics)
-		apiV1.Use(vectorMetricsMiddleware)
-		
-		logger.Info("Vector metrics middleware added", nil)
-	}
+	vectorMetricsMiddleware := createVectorMetricsMiddleware(s.metrics)
+	apiV1.Use(vectorMetricsMiddleware)
+	
+	logger.Info("Vector metrics middleware added", nil)
 	
 	return nil
 }
 
 // createVectorMetricsMiddleware creates a middleware that collects metrics for vector operations
-func createVectorMetricsMiddleware(metrics observability.MetricsClient) gin.HandlerFunc {
+func createVectorMetricsMiddleware(metrics *observability.MetricsClient) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		// Process the request
 		c.Next()

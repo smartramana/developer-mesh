@@ -213,8 +213,7 @@ func RateLimiter(config RateLimiterConfig) gin.HandlerFunc {
 	}
 }
 
-// List of functions to call during shutdown
-var shutdownHooks []func()
+// Avoid duplicate declaration - shutdownHooks is already defined in server.go
 
 // CompressionMiddleware compresses HTTP responses
 func CompressionMiddleware() gin.HandlerFunc {

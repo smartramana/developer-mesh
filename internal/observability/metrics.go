@@ -10,6 +10,27 @@ type MetricsClient struct {
 	enabled bool
 }
 
+// RecordEvent records an event metric
+func (m *MetricsClient) RecordEvent(source, eventType string) {
+	if !m.enabled {
+		return
+	}
+	
+	// Placeholder for recording an event metric
+}
+
+// RecordLatency records a latency metric
+func (m *MetricsClient) RecordLatency(operation string, duration time.Duration) {
+	if !m.enabled {
+		return
+	}
+	
+	// Placeholder for recording a latency metric
+	m.RecordTimer(operation+"_latency", duration, map[string]string{
+		"operation": operation,
+	})
+}
+
 // NewMetricsClient creates a new metrics client
 func NewMetricsClient() *MetricsClient {
 	return &MetricsClient{
@@ -92,7 +113,8 @@ func (m *MetricsClient) StartTimer(name string, labels map[string]string) func()
 	}
 }
 
-// Close closes the metrics client
-func (m *MetricsClient) Close() {
+// Close closes the metrics client and returns any error
+func (m *MetricsClient) Close() error {
 	// Placeholder for cleanup
+	return nil
 }

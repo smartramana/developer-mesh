@@ -1,0 +1,37 @@
+package core
+
+import (
+	"context"
+	"time"
+
+	"github.com/stretchr/testify/mock"
+)
+
+// MockCache is a mock implementation of the cache.Cache for testing
+type MockCache struct {
+	mock.Mock
+}
+
+// Get mocks the cache.Cache.Get method
+func (m *MockCache) Get(ctx context.Context, key string, value interface{}) error {
+	args := m.Called(ctx, key, value)
+	return args.Error(0)
+}
+
+// Set mocks the cache.Cache.Set method
+func (m *MockCache) Set(ctx context.Context, key string, value interface{}, ttl time.Duration) error {
+	args := m.Called(ctx, key, value, ttl)
+	return args.Error(0)
+}
+
+// Delete mocks the cache.Cache.Delete method
+func (m *MockCache) Delete(ctx context.Context, key string) error {
+	args := m.Called(ctx, key)
+	return args.Error(0)
+}
+
+// Close mocks the cache.Cache.Close method
+func (m *MockCache) Close() error {
+	args := m.Called()
+	return args.Error(0)
+}

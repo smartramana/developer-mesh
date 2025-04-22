@@ -255,12 +255,10 @@ func createMockAdapter(t *testing.T, customConfig *Config) (*GitHubAdapter, *Moc
 	adapter, err := NewAdapter(config, eventBus, metricsClient, logger)
 	require.NoError(t, err, "Failed to create adapter")
 
-	// Replace the GitHub client with mocks
-	adapter.client = &github.Client{
-		Issues:       mockIssuesService,
-		Repositories: mockRepositoriesService,
-		PullRequests: mockPullRequestsService,
-	}
+	// Replace the GitHub client with mocks - using composition
+	adapter.client.Issues = mockIssuesService
+	adapter.client.Repositories = mockRepositoriesService
+	adapter.client.PullRequests = mockPullRequestsService
 
 	return adapter, mockIssuesService, mockRepositoriesService, mockPullRequestsService
 }

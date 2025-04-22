@@ -8,7 +8,6 @@ import (
 
 	"github.com/S-Corkum/mcp-server/internal/adapters/core"
 	"github.com/S-Corkum/mcp-server/internal/adapters/providers/github"
-	"github.com/S-Corkum/mcp-server/internal/events"
 	"github.com/S-Corkum/mcp-server/internal/observability"
 )
 
@@ -25,7 +24,7 @@ import (
 //
 // Returns:
 //   - error: If any provider registration fails
-func RegisterAllProviders(factory *core.DefaultAdapterFactory, eventBus *events.EventBus, 
+func RegisterAllProviders(factory *core.DefaultAdapterFactory, eventBus interface{}, 
 	metricsClient *observability.MetricsClient, logger *observability.Logger) error {
 	
 	// Register GitHub adapter

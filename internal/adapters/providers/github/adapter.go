@@ -13,14 +13,14 @@ import (
 type Provider struct {
 	logger        *observability.Logger
 	metricsClient *observability.MetricsClient
-	eventBus      *events.EventBus
+	eventBus      events.EventBus
 }
 
 // NewProvider creates a new GitHub provider
 func NewProvider(
 	logger *observability.Logger,
 	metricsClient *observability.MetricsClient,
-	eventBus *events.EventBus,
+	eventBus events.EventBus,
 ) *Provider {
 	return &Provider{
 		logger:        logger,

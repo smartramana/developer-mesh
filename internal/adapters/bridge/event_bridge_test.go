@@ -58,7 +58,6 @@ func (m *MockAdapter) Version() string {
 // MockEventBus implements the events.EventBus interface
 type MockEventBus struct {
 	mock.Mock
-	events.EventBus
 }
 
 // SubscribeAll mocks the SubscribeAll method
@@ -70,6 +69,27 @@ func (m *MockEventBus) SubscribeAll(listener events.EventListener) {
 func (m *MockEventBus) Emit(ctx context.Context, event *events.AdapterEvent) error {
 	args := m.Called(ctx, event)
 	return args.Error(0)
+}
+
+// EmitWithCallback mocks the EmitWithCallback method
+func (m *MockEventBus) EmitWithCallback(ctx context.Context, event *events.AdapterEvent, callback func(error)) error {
+	args := m.Called(ctx, event, callback)
+	return args.Error(0)
+}
+
+// Subscribe mocks the Subscribe method
+func (m *MockEventBus) Subscribe(eventType events.EventType, listener events.EventListener) {
+	m.Called(eventType, listener)
+}
+
+// Unsubscribe mocks the Unsubscribe method
+func (m *MockEventBus) Unsubscribe(eventType events.EventType, listener events.EventListener) {
+	m.Called(eventType, listener)
+}
+
+// UnsubscribeAll mocks the UnsubscribeAll method
+func (m *MockEventBus) UnsubscribeAll(listener events.EventListener) {
+	m.Called(listener)
 }
 
 // MockSystemEventBus implements the system.EventBus interface

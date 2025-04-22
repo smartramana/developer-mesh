@@ -43,16 +43,19 @@ PROJECT_ROOT=$(pwd)
 
 echo "Starting functional tests from $PROJECT_ROOT"
 
+# Set specific path to Go
+GO_PATH="/usr/local/go/bin/go"
+
 # Check if Go is installed
-if ! command -v go &> /dev/null; then
-    echo "Error: Go is not installed or not in PATH"
+if ! command -v $GO_PATH &> /dev/null; then
+    echo "Error: Go is not installed at $GO_PATH"
     exit 1
 fi
 
 # Check if Ginkgo is installed
 if ! command -v ginkgo &> /dev/null; then
     echo "Installing Ginkgo..."
-    go install github.com/onsi/ginkgo/v2/ginkgo@latest
+    $GO_PATH install github.com/onsi/ginkgo/v2/ginkgo@latest
     export PATH=$PATH:$HOME/go/bin
     if ! command -v ginkgo &> /dev/null; then
         echo "Error: Failed to install Ginkgo. Please install it manually:"

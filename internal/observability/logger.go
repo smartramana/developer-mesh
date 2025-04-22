@@ -80,6 +80,11 @@ func (l *Logger) Error(message string, data map[string]interface{}) {
 	}
 }
 
+// WithPrefix creates a new logger with a combined service name
+func (l *Logger) WithPrefix(prefix string) *Logger {
+	return NewLogger(l.serviceName + "." + prefix)
+}
+
 // log handles the actual logging
 func (l *Logger) log(level LogLevel, message string, data map[string]interface{}) {
 	timestamp := time.Now().UTC().Format(time.RFC3339)

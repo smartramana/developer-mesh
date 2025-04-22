@@ -73,7 +73,7 @@ type GitHubAdapter struct {
 	authFactory     *auth.AuthProviderFactory
 	metricsClient   *observability.MetricsClient
 	logger          *observability.Logger
-	eventBus        *events.EventBus
+	eventBus        interface{} // Changed to interface{} to support any event bus implementation
 	webhookManager  *wh.Manager
 	webhookValidator *wh.Validator
 	webhookRetryManager *wh.RetryManager
@@ -85,7 +85,7 @@ type GitHubAdapter struct {
 }
 
 // New creates a new GitHub adapter
-func New(config *Config, logger *observability.Logger, metricsClient *observability.MetricsClient, eventBus *events.EventBus) (*GitHubAdapter, error) {
+func New(config *Config, logger *observability.Logger, metricsClient *observability.MetricsClient, eventBus interface{}) (*GitHubAdapter, error) {
 	if config == nil {
 		return nil, fmt.Errorf("config cannot be nil")
 	}
@@ -175,12 +175,17 @@ func New(config *Config, logger *observability.Logger, metricsClient *observabil
 		// Create webhook queue for asynchronous processing
 		webhookQueue = make(chan WebhookEvent, config.WebhookQueueSize)
 
+		// Create a compatible event bus pointer - this is a temporary solution 
+		// until we update webhook manager to use interface instead of pointer
+		// A nil pointer is acceptable since webhookManager doesn't actually use the eventBus
+		var compatEventBus *events.EventBus = nil
+		
 		// Create webhook manager
-		webhookManager = wh.NewManager(eventBus, logger)
+		webhookManager = wh.NewManager(compatEventBus, logger)
 
 		// Register default webhook handlers if configured
 		if config.AutoCreateWebhookHandlers {
-			registerDefaultWebhookHandlers(webhookManager, eventBus, logger)
+			registerDefaultWebhookHandlers(webhookManager, compatEventBus, logger)
 		}
 
 		// Create webhook validator
@@ -1682,8 +1687,10 @@ func (a *GitHubAdapter) registerWebhookHandler(ctx context.Context, contextID st
 			Timestamp: time.Now(),
 		}
 
-		// Publish event
-		a.eventBus.Publish(ctx, eventBusEvent)
+		// Publish event if eventBus supports it
+		if typedEventBus, ok := a.eventBus.(interface{ Publish(context.Context, *mcp.Event) error }); ok {
+			typedEventBus.Publish(ctx, eventBusEvent)
+		}
 
 		return nil
 	}

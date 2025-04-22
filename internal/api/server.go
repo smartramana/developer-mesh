@@ -27,13 +27,13 @@ type Server struct {
 	config   Config
 	logger   *observability.Logger
 	db       *sqlx.DB
-	metrics  observability.MetricsClient
+	metrics  *observability.MetricsClient
 	vectorDB *database.VectorDatabase
 	cfg      *config.Config
 }
 
 // NewServer creates a new API server
-func NewServer(engine *core.Engine, cfg Config, db *sqlx.DB, metrics observability.MetricsClient, config *config.Config) *Server {
+func NewServer(engine *core.Engine, cfg Config, db *sqlx.DB, metrics *observability.MetricsClient, config *config.Config) *Server {
 	router := gin.New()
 
 	// Add middleware
