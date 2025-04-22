@@ -88,7 +88,7 @@ var _ = Describe("End-to-End Workflows", func() {
 			Expect(ok).To(BeTrue(), "items should be an array")
 			
 			// Should have at least 2 items
-			Expect(items).To(HaveLen(BeNumerically(">=", 2)))
+			Expect(len(items)).To(BeNumerically(">=", 2))
 			
 			// 4. Search for contexts
 			By("Searching for contexts")
@@ -177,7 +177,7 @@ var _ = Describe("End-to-End Workflows", func() {
 			Expect(ok).To(BeTrue(), "items should be an array")
 			
 			// Should have at least one item
-			Expect(items).To(HaveLen(BeNumerically(">=", 1)))
+			Expect(len(items)).To(BeNumerically(">=", 1))
 		})
 	})
 

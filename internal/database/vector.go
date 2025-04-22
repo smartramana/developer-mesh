@@ -314,11 +314,20 @@ func (vdb *VectorDatabase) CreateVector(ctx context.Context, vector []float32) (
 		return "", err
 	}
 	
+	// Convert []float32 to []float64 as the database driver doesn't handle float32 arrays directly
+	floatArray := make([]float64, len(vector))
+	for i, v := range vector {
+		floatArray[i] = float64(v)
+	}
+	
+	// Convert to array format that PostgreSQL can understand: '{a,b,c}'
+	pgArray := fmt.Sprintf("'{%s}'", formatFloatArray(floatArray))
+	
 	// Convert vector to pgvector format
 	var vectorStr string
 	err := vdb.vectorDB.QueryRowContext(ctx, `
 		SELECT $1::float4[]::vector::text
-	`, vector).Scan(&vectorStr)
+	`, pgArray).Scan(&vectorStr)
 	
 	if err != nil {
 		return "", fmt.Errorf("failed to create vector: %w", err)
@@ -327,17 +336,46 @@ func (vdb *VectorDatabase) CreateVector(ctx context.Context, vector []float32) (
 	return vectorStr, nil
 }
 
+// formatFloatArray formats a float slice as a comma-separated string
+func formatFloatArray(arr []float64) string {
+	if len(arr) == 0 {
+		return ""
+	}
+	
+	result := fmt.Sprintf("%f", arr[0])
+	for i := 1; i < len(arr); i++ {
+		result += fmt.Sprintf(",%f", arr[i])
+	}
+	
+	return result
+}
+
 // CalculateSimilarity calculates the similarity between two vectors
 func (vdb *VectorDatabase) CalculateSimilarity(ctx context.Context, vector1, vector2 []float32, method string) (float64, error) {
 	if err := vdb.Initialize(ctx); err != nil {
 		return 0, err
 	}
 	
+	// Convert []float32 to []float64 as the database driver doesn't handle float32 arrays directly
+	floatArray1 := make([]float64, len(vector1))
+	for i, v := range vector1 {
+		floatArray1[i] = float64(v)
+	}
+	
+	floatArray2 := make([]float64, len(vector2))
+	for i, v := range vector2 {
+		floatArray2[i] = float64(v)
+	}
+	
+	// Convert to array format that PostgreSQL can understand: '{a,b,c}'
+	pgArray1 := fmt.Sprintf("'{%s}'", formatFloatArray(floatArray1))
+	pgArray2 := fmt.Sprintf("'{%s}'", formatFloatArray(floatArray2))
+	
 	// Convert vectors to pgvector format
 	var v1Str, v2Str string
 	err := vdb.vectorDB.QueryRowContext(ctx, `
 		SELECT $1::float4[]::vector::text
-	`, vector1).Scan(&v1Str)
+	`, pgArray1).Scan(&v1Str)
 	
 	if err != nil {
 		return 0, fmt.Errorf("failed to create vector1: %w", err)
@@ -345,7 +383,7 @@ func (vdb *VectorDatabase) CalculateSimilarity(ctx context.Context, vector1, vec
 	
 	err = vdb.vectorDB.QueryRowContext(ctx, `
 		SELECT $1::float4[]::vector::text
-	`, vector2).Scan(&v2Str)
+	`, pgArray2).Scan(&v2Str)
 	
 	if err != nil {
 		return 0, fmt.Errorf("failed to create vector2: %w", err)

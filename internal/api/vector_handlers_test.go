@@ -1,4 +1,4 @@
-package api
+package api_test
 
 import (
 	"bytes"
@@ -17,10 +17,17 @@ import (
 	"github.com/stretchr/testify/mock"
 )
 
-// Importing the interface from vector_api.go
-type EmbeddingRepositoryInterface = api.EmbeddingRepositoryInterface
-
-
+// Defining the EmbeddingRepositoryInterface for tests
+type EmbeddingRepositoryInterface interface {
+	StoreEmbedding(ctx context.Context, embedding *repository.Embedding) error
+	SearchEmbeddings(ctx context.Context, queryVector []float32, contextID string, modelID string, limit int, similarityThreshold float64) ([]*repository.Embedding, error)
+	SearchEmbeddings_Legacy(ctx context.Context, queryVector []float32, contextID string, limit int) ([]*repository.Embedding, error)
+	GetContextEmbeddings(ctx context.Context, contextID string) ([]*repository.Embedding, error)
+	DeleteContextEmbeddings(ctx context.Context, contextID string) error
+	GetEmbeddingsByModel(ctx context.Context, contextID string, modelID string) ([]*repository.Embedding, error)
+	GetSupportedModels(ctx context.Context) ([]string, error)
+	DeleteModelEmbeddings(ctx context.Context, contextID string, modelID string) error
+}
 
 // Mock EmbeddingRepository for testing
 type MockEmbeddingRepository struct {
@@ -70,183 +77,9 @@ func (m *MockEmbeddingRepository) DeleteModelEmbeddings(ctx context.Context, con
 
 // TestServer is a simplified version of Server for testing
 type TestServer struct {
-	router        *gin.Engine
-	embeddingRepo EmbeddingRepositoryInterface
-	logger        *observability.Logger
-}
-
-// setupVectorRoutes defines the routes for vector API in the test server
-func (s *TestServer) setupVectorRoutes(group *gin.RouterGroup) {
-	vectorsGroup := group.Group("/vectors")
-	vectorsGroup.POST("/store", s.storeEmbedding)
-	vectorsGroup.POST("/search", s.searchEmbeddings)
-	vectorsGroup.GET("/context/:context_id", s.getContextEmbeddings)
-	vectorsGroup.DELETE("/context/:context_id", s.deleteContextEmbeddings)
-	
-	// New multi-model endpoints
-	vectorsGroup.GET("/models", s.getSupportedModels)
-	vectorsGroup.GET("/context/:context_id/model/:model_id", s.getModelEmbeddings)
-	vectorsGroup.DELETE("/context/:context_id/model/:model_id", s.deleteModelEmbeddings)
-}
-
-// Pass-through handlers for the test server
-func (s *TestServer) storeEmbedding(c *gin.Context) {
-	var req api.StoreEmbeddingRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
-		return
-	}
-
-	embedding := &repository.Embedding{
-		ContextID:    req.ContextID,
-		ContentIndex: req.ContentIndex,
-		Text:         req.Text,
-		Embedding:    req.Embedding,
-		ModelID:      req.ModelID,
-	}
-
-	err := s.embeddingRepo.StoreEmbedding(c.Request.Context(), embedding)
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-		return
-	}
-
-	c.JSON(http.StatusOK, embedding)
-}
-
-func (s *TestServer) searchEmbeddings(c *gin.Context) {
-	var req api.SearchEmbeddingsRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
-		return
-	}
-
-	if req.Limit <= 0 {
-		req.Limit = 10
-	} else if req.Limit > 100 {
-		req.Limit = 100
-	}
-
-	var embeddings []*repository.Embedding
-	var err error
-
-	if req.ModelID != "" {
-		similarityThreshold := 0.5
-		if req.SimilarityThreshold > 0 {
-			similarityThreshold = req.SimilarityThreshold
-		}
-
-		embeddings, err = s.embeddingRepo.SearchEmbeddings(
-			c.Request.Context(),
-			req.QueryEmbedding,
-			req.ContextID,
-			req.ModelID,
-			req.Limit,
-			similarityThreshold,
-		)
-	} else {
-		embeddings, err = s.embeddingRepo.SearchEmbeddings_Legacy(
-			c.Request.Context(),
-			req.QueryEmbedding,
-			req.ContextID,
-			req.Limit,
-		)
-	}
-
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-		return
-	}
-
-	c.JSON(http.StatusOK, gin.H{"embeddings": embeddings})
-}
-
-func (s *TestServer) getContextEmbeddings(c *gin.Context) {
-	contextID := c.Param("context_id")
-	if contextID == "" {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "context_id is required"})
-		return
-	}
-
-	embeddings, err := s.embeddingRepo.GetContextEmbeddings(c.Request.Context(), contextID)
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-		return
-	}
-
-	c.JSON(http.StatusOK, gin.H{"embeddings": embeddings})
-}
-
-func (s *TestServer) deleteContextEmbeddings(c *gin.Context) {
-	contextID := c.Param("context_id")
-	if contextID == "" {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "context_id is required"})
-		return
-	}
-
-	err := s.embeddingRepo.DeleteContextEmbeddings(c.Request.Context(), contextID)
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-		return
-	}
-
-	c.JSON(http.StatusOK, gin.H{"status": "deleted"})
-}
-
-func (s *TestServer) getSupportedModels(c *gin.Context) {
-	models, err := s.embeddingRepo.GetSupportedModels(c.Request.Context())
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-		return
-	}
-
-	c.JSON(http.StatusOK, gin.H{"models": models})
-}
-
-func (s *TestServer) getModelEmbeddings(c *gin.Context) {
-	contextID := c.Param("context_id")
-	modelID := c.Param("model_id")
-	
-	if contextID == "" {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "context_id is required"})
-		return
-	}
-	
-	if modelID == "" {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "model_id is required"})
-		return
-	}
-
-	embeddings, err := s.embeddingRepo.GetEmbeddingsByModel(c.Request.Context(), contextID, modelID)
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-		return
-	}
-
-	c.JSON(http.StatusOK, gin.H{"embeddings": embeddings})
-}
-
-func (s *TestServer) deleteModelEmbeddings(c *gin.Context) {
-	contextID := c.Param("context_id")
-	modelID := c.Param("model_id")
-	
-	if contextID == "" {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "context_id is required"})
-		return
-	}
-	
-	if modelID == "" {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "model_id is required"})
-		return
-	}
-
-	err := s.embeddingRepo.DeleteModelEmbeddings(c.Request.Context(), contextID, modelID)
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-		return
-	}
-
-	c.JSON(http.StatusOK, gin.H{"status": "deleted"})
+	router  *gin.Engine
+	logger  *observability.Logger
+	api     *api.VectorAPI
 }
 
 // Set up a test server with the mock repository
@@ -254,22 +87,23 @@ func setupVectorTestServer(mockRepo *MockEmbeddingRepository) *TestServer {
 	gin.SetMode(gin.TestMode)
 	
 	// Create a logger for testing
-	logger := &observability.Logger{}
+	logger := observability.NewLogger("vector-test")
 	
 	// Create a server with the mock repository
-	server := &TestServer{
-		router:        gin.New(),
-		embeddingRepo: mockRepo,
-		logger:        logger,
-	}
+	router := gin.New()
 	
 	// Create VectorAPI handler
 	vectorAPI := api.NewVectorAPI(mockRepo, logger)
 	
 	// Setup routes
-	vectorAPI.RegisterRoutes(server.router.Group("/api/v1"))
+	vectorAPI.RegisterRoutes(router.Group("/api/v1"))
 	
-	return server
+	// Return the test server
+	return &TestServer{
+		router:  router,
+		logger:  logger,
+		api:     vectorAPI,
+	}
 }
 
 func TestStoreEmbeddingHandler(t *testing.T) {
@@ -281,7 +115,13 @@ func TestStoreEmbeddingHandler(t *testing.T) {
 	mockRepo.On("StoreEmbedding", mock.Anything, mock.AnythingOfType("*repository.Embedding")).Return(nil)
 	
 	// Create test request
-	reqBody := api.StoreEmbeddingRequest{
+	reqBody := struct {
+		ContextID    string    `json:"context_id"`
+		ContentIndex int       `json:"content_index"`
+		Text         string    `json:"text"`
+		Embedding    []float32 `json:"embedding"`
+		ModelID      string    `json:"model_id"`
+	}{
 		ContextID:    "context-123",
 		ContentIndex: 1,
 		Text:         "Test text",
@@ -341,7 +181,11 @@ func TestSearchEmbeddingsHandler(t *testing.T) {
 		mockRepo.On("SearchEmbeddings_Legacy", mock.Anything, queryVector, contextID, 10).Return(mockResults, nil)
 		
 		// Create test request
-		reqBody := api.SearchEmbeddingsRequest{
+		reqBody := struct {
+			ContextID      string    `json:"context_id"`
+			QueryEmbedding []float32 `json:"query_embedding"`
+			Limit          int       `json:"limit"`
+		}{
 			ContextID:      contextID,
 			QueryEmbedding: queryVector,
 			Limit:          10,
@@ -403,7 +247,13 @@ func TestSearchEmbeddingsHandler(t *testing.T) {
 		mockRepo.On("SearchEmbeddings", mock.Anything, queryVector, contextID, modelID, 5, similarityThreshold).Return(mockResults, nil)
 		
 		// Create test request
-		reqBody := api.SearchEmbeddingsRequest{
+		reqBody := struct {
+			ContextID           string    `json:"context_id"`
+			ModelID             string    `json:"model_id"`
+			QueryEmbedding      []float32 `json:"query_embedding"`
+			Limit               int       `json:"limit"`
+			SimilarityThreshold float64   `json:"similarity_threshold"`
+		}{
 			ContextID:           contextID,
 			ModelID:             modelID,
 			QueryEmbedding:      queryVector,

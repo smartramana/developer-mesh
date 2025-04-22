@@ -78,10 +78,7 @@ func main() {
 			queryEmbedding := retrievedEmbeddings[0].Embedding
 
 			// Normalize the query vector for better search results
-			normalizedQuery, err := common.NormalizeVectorL2(queryEmbedding), nil
-			if err != nil {
-				log.Fatalf("Failed to normalize query vector: %v", err)
-			}
+			normalizedQuery := common.NormalizeVectorL2(queryEmbedding)
 
 			// Search for similar embeddings
 			searchResults, err := repo.SearchEmbeddings(

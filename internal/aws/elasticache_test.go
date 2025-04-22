@@ -4,6 +4,7 @@ import (
 	"context"
 	"os"
 	"testing"
+	"time"
 )
 
 func TestNewElastiCacheClient(t *testing.T) {
@@ -24,9 +25,9 @@ func TestNewElastiCacheClient(t *testing.T) {
 		MaxRetries:         3,
 		MinIdleConnections: 5,
 		PoolSize:           10,
-		DialTimeout:        5,
-		ReadTimeout:        3,
-		WriteTimeout:       3,
+		DialTimeout:        5 * time.Second,
+		ReadTimeout:        3 * time.Second,
+		WriteTimeout:       3 * time.Second,
 		PoolTimeout:        4,
 		TokenExpiration:    15, // 15 minutes
 	}
@@ -168,9 +169,9 @@ func TestElastiCacheClusterMode(t *testing.T) {
 		MaxRetries:         3,
 		MinIdleConnections: 5,
 		PoolSize:           10,
-		DialTimeout:        5,
-		ReadTimeout:        3,
-		WriteTimeout:       3,
+		DialTimeout:        5 * time.Second,
+		ReadTimeout:        3 * time.Second,
+		WriteTimeout:       3 * time.Second,
 		PoolTimeout:        4,
 		TokenExpiration:    15, // 15 minutes
 	}

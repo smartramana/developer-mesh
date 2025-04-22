@@ -3,6 +3,7 @@ package cache
 import (
 	"context"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -14,9 +15,12 @@ func TestNewCache(t *testing.T) {
 
 	t.Run("Redis Cache", func(t *testing.T) {
 		redisConfig := RedisConfig{
-			Address:  addr,
-			Password: "",
-			Database: 0,
+			Address:       addr,
+			Password:      "",
+			Database:      0,
+			DialTimeout:   5 * time.Second,
+			ReadTimeout:   3 * time.Second,
+			WriteTimeout:  3 * time.Second,
 		}
 		
 		ctx := context.Background()

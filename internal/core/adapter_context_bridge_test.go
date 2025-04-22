@@ -169,7 +169,7 @@ func TestGetToolData(t *testing.T) {
 	
 	// Set up expectations for adapter
 	mockAdapter.On("Type").Return("test-tool")
-	mockAdapter.On("GetData", ctx, query).Return(expectedResult, nil)
+	mockAdapter.On("ExecuteAction", ctx, contextID, "getData", query).Return(expectedResult, nil)
 	
 	// Get the data
 	result, err := bridge.GetToolData(ctx, contextID, tool, query)
@@ -343,7 +343,7 @@ func TestGetToolData_Error(t *testing.T) {
 	
 	// Set up expectations for adapter to return an error
 	mockAdapter.On("Type").Return("test-tool")
-	mockAdapter.On("GetData", ctx, query).Return(nil, assert.AnError)
+	mockAdapter.On("ExecuteAction", ctx, contextID, "getData", query).Return(nil, assert.AnError)
 	
 	// Get the data
 	result, err := bridge.GetToolData(ctx, contextID, tool, query)

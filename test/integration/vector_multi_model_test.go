@@ -13,6 +13,9 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+//go:build integration
+// +build integration
+
 // TestMultiModelEmbeddings tests the storage and retrieval of embeddings from multiple models
 // with different vector dimensions
 //
@@ -21,9 +24,6 @@ import (
 //
 // Example:
 //   MCP_DATABASE_DSN=postgres://postgres:postgres@localhost:5432/mcp_test?sslmode=disable go test -tags=integration ./test/integration
-//
-//go:build integration
-//+build integration
 
 func TestMultiModelEmbeddings(t *testing.T) {
 	// Skip if not running integration tests
