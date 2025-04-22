@@ -6,7 +6,7 @@ import (
 	"time"
 	
 	"github.com/DATA-DOG/go-sqlmock"
-	"github.com/S-Corkum/mcp-server/internal/config"
+	commonConfig "github.com/S-Corkum/mcp-server/internal/common/config"
 	"github.com/S-Corkum/mcp-server/internal/observability"
 	"github.com/jmoiron/sqlx"
 	"github.com/stretchr/testify/assert"
@@ -26,8 +26,16 @@ func TestVectorDatabase_Initialize(t *testing.T) {
 	logger := observability.NewLogger("test")
 	
 	// Create config
-	cfg := &config.Config{
-		Database: config.GetDefaultDatabaseConfig(),
+	cfg := &commonConfig.DatabaseConfig{
+		Driver:          "postgres",
+		MaxOpenConns:    25,
+		MaxIdleConns:    5,
+		ConnMaxLifetime: 5 * time.Minute,
+		Vector: commonConfig.DatabaseVectorConfig{
+			Enabled:         true,
+			Dimensions:      1536,
+			SimilarityMetric: "cosine",
+		},
 	}
 	
 	// Create vector database
@@ -66,8 +74,16 @@ func TestVectorDatabase_CheckVectorDimensions(t *testing.T) {
 	logger := observability.NewLogger("test")
 	
 	// Create config
-	cfg := &config.Config{
-		Database: config.GetDefaultDatabaseConfig(),
+	cfg := &commonConfig.DatabaseConfig{
+		Driver:          "postgres",
+		MaxOpenConns:    25,
+		MaxIdleConns:    5,
+		ConnMaxLifetime: 5 * time.Minute,
+		Vector: commonConfig.DatabaseVectorConfig{
+			Enabled:         true,
+			Dimensions:      1536,
+			SimilarityMetric: "cosine",
+		},
 	}
 	
 	// Create vector database
@@ -115,8 +131,16 @@ func TestVectorDatabase_Transaction(t *testing.T) {
 	logger := observability.NewLogger("test")
 	
 	// Create config
-	cfg := &config.Config{
-		Database: config.GetDefaultDatabaseConfig(),
+	cfg := &commonConfig.DatabaseConfig{
+		Driver:          "postgres",
+		MaxOpenConns:    25,
+		MaxIdleConns:    5,
+		ConnMaxLifetime: 5 * time.Minute,
+		Vector: commonConfig.DatabaseVectorConfig{
+			Enabled:         true,
+			Dimensions:      1536,
+			SimilarityMetric: "cosine",
+		},
 	}
 	
 	// Create vector database

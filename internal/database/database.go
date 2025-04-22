@@ -4,34 +4,15 @@ import (
 	"context"
 	"fmt"
 	"log"
-	"time"
 
 	"github.com/S-Corkum/mcp-server/internal/aws"
+	"github.com/S-Corkum/mcp-server/internal/common/config"
 	"github.com/S-Corkum/mcp-server/pkg/models"
 	"github.com/jmoiron/sqlx"
 )
 
-// Config holds database configuration
-type Config struct {
-	Driver          string        `mapstructure:"driver"`
-	DSN             string        `mapstructure:"dsn"`
-	MaxOpenConns    int           `mapstructure:"max_open_conns"`
-	MaxIdleConns    int           `mapstructure:"max_idle_conns"`
-	ConnMaxLifetime time.Duration `mapstructure:"conn_max_lifetime"`
-
-	// Additional configuration for different database types
-	Host     string `mapstructure:"host"`
-	Port     int    `mapstructure:"port"`
-	Username string `mapstructure:"username"`
-	Password string `mapstructure:"password"`
-	Database string `mapstructure:"database"`
-	SSLMode  string `mapstructure:"ssl_mode"`
-	
-	// AWS RDS specific configuration
-	UseAWS   *bool          `mapstructure:"use_aws"` // Pointer to allow nil (unspecified) value
-	UseIAM   *bool          `mapstructure:"use_iam"` // Pointer to allow nil (unspecified) value
-	RDSConfig *aws.RDSConfig `mapstructure:"rds"`
-}
+// Config is an alias for config.DatabaseConfig for backward compatibility
+type Config = config.DatabaseConfig
 
 // Database represents the database access layer
 type Database struct {
@@ -61,8 +42,31 @@ func NewDatabase(ctx context.Context, cfg Config) (*Database, error) {
 	
 	// If we're using AWS RDS with IAM authentication (the default and recommended approach)
 	if useAWS && useIAM && cfg.RDSConfig != nil {
+		// Convert our placeholder RDSConfig to aws.RDSConfig
+		awsRDSConfig := aws.RDSConfig{
+			Host:              cfg.RDSConfig.Host,
+			Port:              cfg.RDSConfig.Port,
+			Database:          cfg.RDSConfig.Database,
+			Username:          cfg.RDSConfig.Username,
+			Password:          cfg.RDSConfig.Password,
+			UseIAMAuth:        cfg.RDSConfig.UseIAMAuth,
+			TokenExpiration:   cfg.RDSConfig.TokenExpiration,
+			MaxOpenConns:      cfg.RDSConfig.MaxOpenConns,
+			MaxIdleConns:      cfg.RDSConfig.MaxIdleConns,
+			ConnMaxLifetime:   cfg.RDSConfig.ConnMaxLifetime,
+			EnablePooling:     cfg.RDSConfig.EnablePooling,
+			MinPoolSize:       cfg.RDSConfig.MinPoolSize,
+			MaxPoolSize:       cfg.RDSConfig.MaxPoolSize,
+			ConnectionTimeout: cfg.RDSConfig.ConnectionTimeout,
+			AuthConfig: aws.AuthConfig{
+				Region:    cfg.RDSConfig.AuthConfig.Region,
+				Endpoint:  cfg.RDSConfig.AuthConfig.Endpoint,
+				AssumeRole: cfg.RDSConfig.AuthConfig.AssumeRole,
+			},
+		}
+		
 		// Initialize the RDS client
-		rdsClient, err = aws.NewRDSClient(ctx, *cfg.RDSConfig)
+		rdsClient, err = aws.NewRDSClient(ctx, awsRDSConfig)
 		if err != nil {
 			return nil, fmt.Errorf("failed to initialize RDS client: %w", err)
 		}
@@ -243,6 +247,11 @@ func (d *Database) Close() error {
 // Ping checks if the database connection is alive
 func (d *Database) Ping() error {
 	return d.db.Ping()
+}
+
+// DB returns the underlying sqlx.DB instance (compatible with the field name used in the API)
+func (d *Database) DB() *sqlx.DB {
+	return d.db
 }
 
 // GetDB returns the underlying sqlx.DB instance

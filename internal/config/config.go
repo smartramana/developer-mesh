@@ -8,7 +8,7 @@ import (
 
 	"github.com/S-Corkum/mcp-server/internal/aws"
 	"github.com/S-Corkum/mcp-server/internal/cache"
-	"github.com/S-Corkum/mcp-server/internal/database"
+	commonConfig "github.com/S-Corkum/mcp-server/internal/common/config"
 	"github.com/S-Corkum/mcp-server/internal/interfaces"
 	"github.com/S-Corkum/mcp-server/internal/metrics"
 	"github.com/spf13/viper"
@@ -16,14 +16,14 @@ import (
 
 // Config holds the complete application configuration
 type Config struct {
-	API        interfaces.APIConfig `mapstructure:"api"`
-	Cache      cache.RedisConfig    `mapstructure:"cache"`
-	Database   database.Config      `mapstructure:"database"`
-	Engine     interfaces.CoreConfig `mapstructure:"engine"`
-	Metrics    metrics.Config       `mapstructure:"metrics"`
-	AWS        AWSConfig            `mapstructure:"aws"`
-	Environment string              `mapstructure:"environment"`
-	Adapters   map[string]interface{} `mapstructure:"adapters"`
+	API        interfaces.APIConfig        `mapstructure:"api"`
+	Cache      cache.RedisConfig           `mapstructure:"cache"`
+	Database   commonConfig.DatabaseConfig `mapstructure:"database"`
+	Engine     interfaces.CoreConfig       `mapstructure:"engine"`
+	Metrics    metrics.Config              `mapstructure:"metrics"`
+	AWS        AWSConfig                   `mapstructure:"aws"`
+	Environment string                     `mapstructure:"environment"`
+	Adapters   map[string]interface{}      `mapstructure:"adapters"`
 }
 
 // AWSConfig holds configuration for AWS services

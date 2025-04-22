@@ -15,6 +15,7 @@ import (
 	"github.com/S-Corkum/mcp-server/internal/api"
 	"github.com/S-Corkum/mcp-server/internal/aws"
 	"github.com/S-Corkum/mcp-server/internal/cache"
+	commonConfig "github.com/S-Corkum/mcp-server/internal/common/config"
 	"github.com/S-Corkum/mcp-server/internal/config"
 	"github.com/S-Corkum/mcp-server/internal/core"
 	"github.com/S-Corkum/mcp-server/internal/database"
@@ -70,11 +71,39 @@ func main() {
 		logger.Info("Using IAM authentication for RDS", nil)
 		useAWS := true
 		useIAM := true
+		
+		// Convert AWS RDSConfig to common config RDSConfig
+		commonRDSConfig := &commonConfig.RDSConfig{
+			Host:              cfg.AWS.RDS.Host,
+			Port:              cfg.AWS.RDS.Port,
+			Database:          cfg.AWS.RDS.Database,
+			Username:          cfg.AWS.RDS.Username,
+			Password:          cfg.AWS.RDS.Password,
+			UseIAMAuth:        cfg.AWS.RDS.UseIAMAuth,
+			TokenExpiration:   cfg.AWS.RDS.TokenExpiration,
+			MaxOpenConns:      cfg.AWS.RDS.MaxOpenConns,
+			MaxIdleConns:      cfg.AWS.RDS.MaxIdleConns,
+			ConnMaxLifetime:   cfg.AWS.RDS.ConnMaxLifetime,
+			EnablePooling:     cfg.AWS.RDS.EnablePooling,
+			MinPoolSize:       cfg.AWS.RDS.MinPoolSize,
+			MaxPoolSize:       cfg.AWS.RDS.MaxPoolSize,
+			ConnectionTimeout: cfg.AWS.RDS.ConnectionTimeout,
+			AuthConfig: struct {
+				Region    string `mapstructure:"region"`
+				Endpoint  string `mapstructure:"endpoint"`
+				AssumeRole string `mapstructure:"assume_role"`
+			}{
+				Region:    cfg.AWS.RDS.AuthConfig.Region,
+				Endpoint:  cfg.AWS.RDS.AuthConfig.Endpoint,
+				AssumeRole: cfg.AWS.RDS.AuthConfig.AssumeRole,
+			},
+		}
+		
 		dbConfig = database.Config{
 			Driver:          "postgres",
 			UseAWS:          &useAWS,
 			UseIAM:          &useIAM,
-			RDSConfig:       &cfg.AWS.RDS,
+			RDSConfig:       commonRDSConfig,
 			MaxOpenConns:    cfg.AWS.RDS.MaxOpenConns,
 			MaxIdleConns:    cfg.AWS.RDS.MaxIdleConns,
 			ConnMaxLifetime: cfg.AWS.RDS.ConnMaxLifetime,
@@ -156,8 +185,11 @@ func main() {
 		Performance: api.DefaultConfig().Performance,
 	}
 
+	// Create a MetricsClient instance
+	obsMetricsClient := observability.NewMetricsClient()
+	
 	// Initialize API server
-	server := api.NewServer(engine, apiConfig, db.DB, metricsClient, cfg)
+	server := api.NewServer(engine, apiConfig, db.GetDB(), obsMetricsClient, cfg)
 
 	// Initialize server components
 	if err := server.Initialize(ctx); err != nil {

@@ -4,10 +4,9 @@ import (
 	"context"
 	"fmt"
 	"sync"
-	"time"
 	
 	"github.com/S-Corkum/mcp-server/internal/common"
-	"github.com/S-Corkum/mcp-server/internal/config"
+	commonConfig "github.com/S-Corkum/mcp-server/internal/common/config"
 	"github.com/S-Corkum/mcp-server/internal/observability"
 	"github.com/jmoiron/sqlx"
 )
@@ -17,13 +16,13 @@ type VectorDatabase struct {
 	db          *sqlx.DB
 	vectorDB    *sqlx.DB
 	logger      *observability.Logger
-	config      *config.DatabaseVectorConfig
+	config      *commonConfig.DatabaseVectorConfig
 	initialized bool
 	lock        sync.RWMutex
 }
 
 // NewVectorDatabase creates a new vector database
-func NewVectorDatabase(db *sqlx.DB, cfg *config.Config, logger *observability.Logger) (*VectorDatabase, error) {
+func NewVectorDatabase(db *sqlx.DB, cfg interface{}, logger *observability.Logger) (*VectorDatabase, error) {
 	if logger == nil {
 		logger = observability.NewLogger("vector_database")
 	}
@@ -31,34 +30,21 @@ func NewVectorDatabase(db *sqlx.DB, cfg *config.Config, logger *observability.Lo
 	// Create a dedicated connection pool for vector operations if enabled
 	var vectorDB *sqlx.DB
 	
-	if cfg.Database.Vector.Pool.Enabled {
-		// Connect using the same DSN but with a separate connection pool
-		var err error
-		vectorDB, err = sqlx.Connect(cfg.Database.Driver, cfg.Database.DSN)
-		if err != nil {
-			return nil, fmt.Errorf("failed to connect to vector database: %w", err)
-		}
-		
-		// Configure vector-specific connection pool
-		vectorDB.SetMaxOpenConns(cfg.Database.Vector.Pool.MaxOpenConns)
-		vectorDB.SetMaxIdleConns(cfg.Database.Vector.Pool.MaxIdleConns)
-		vectorDB.SetConnMaxLifetime(cfg.Database.Vector.Pool.ConnMaxLifetime)
-		
-		logger.Info("Created dedicated connection pool for vector operations", map[string]interface{}{
-			"max_open_conns":    cfg.Database.Vector.Pool.MaxOpenConns,
-			"max_idle_conns":    cfg.Database.Vector.Pool.MaxIdleConns,
-			"conn_max_lifetime": cfg.Database.Vector.Pool.ConnMaxLifetime,
-		})
-	} else {
-		// Use the main database connection pool
-		vectorDB = db
+	// Use the main database connection pool by default
+	vectorDB = db
+	
+	// Create a default config if none provided
+	vectorConfig := &commonConfig.DatabaseVectorConfig{
+		Enabled:         true,
+		Dimensions:      1536,
+		SimilarityMetric: "cosine",
 	}
 	
 	return &VectorDatabase{
 		db:          db,
 		vectorDB:    vectorDB,
 		logger:      logger,
-		config:      &cfg.Database.Vector,
+		config:      vectorConfig,
 		initialized: false,
 	}, nil
 }
@@ -154,7 +140,7 @@ func (vdb *VectorDatabase) Close() error {
 }
 
 // GetVectorSearchConfig returns the current vector search configuration
-func (vdb *VectorDatabase) GetVectorSearchConfig() *config.DatabaseVectorConfig {
+func (vdb *VectorDatabase) GetVectorSearchConfig() *commonConfig.DatabaseVectorConfig {
 	vdb.lock.RLock()
 	defer vdb.lock.RUnlock()
 	
