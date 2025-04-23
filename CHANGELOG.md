@@ -5,6 +5,39 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.6] - 2025-04-22
+
+### Added
+- Comprehensive documentation overhaul with improved project structure
+- New CONTRIBUTING guide for new contributors
+- Detailed index for better documentation navigation
+- Upgrading guide for version migrations
+- Best practices documentation
+- API documentation best practices guide
+- Enhanced OpenAPI 3.0 specification with best practices implementation
+- Comprehensive API reference markdown document
+- Automatic database migration system with proper versioning
+- Database migration utilities for data transformation
+
+### Changed
+- Completely restructured the OpenAPI/Swagger documentation
+- Added detailed descriptions for all API endpoints and parameters
+- Introduced tags for better API organization and categorization
+- Added complete examples for request and response objects
+- Implemented consistent response patterns and HATEOAS links
+- Added proper security schemes documentation
+- Enhanced the main README with comprehensive project information
+- Improved documentation structure for better usability
+
+### Fixed
+- Resolved build and compatibility issues in database migration code
+- Fixed missing RunTxContext method in database package
+- Fixed unused variable in migration manager
+- Added Register method to Provider struct
+- Fixed test compatibility issues with TestEventBus and StandaloneEventBus
+- Updated imports to resolve conflicts
+- Improved transaction handling with BeginTxx
+
 ## [0.3.5] - 2025-04-22
 
 ### Added
