@@ -39,7 +39,7 @@ func TestRegisterProvider(t *testing.T) {
 	t.Run("successful registration", func(t *testing.T) {
 		// Create mock factory and dependencies
 		mockFactory := new(MockAdapterFactory)
-		eventBus := NewMockEventBus()
+		eventBus := NewTestEventBus()
 		eventBus.On("Subscribe", mock.Anything, mock.Anything).Return()
 		
 		metricsClient := observability.NewMetricsClient()
@@ -63,7 +63,7 @@ func TestRegisterProvider(t *testing.T) {
 	
 	t.Run("nil factory", func(t *testing.T) {
 		// Create dependencies except factory
-		eventBus := NewMockEventBus()
+		eventBus := NewTestEventBus()
 		metricsClient := observability.NewMetricsClient()
 		logger := observability.NewLogger("test-factory")
 		
