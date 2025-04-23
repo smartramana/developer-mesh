@@ -1,529 +1,158 @@
-# MCP Server Best Practices Guide
+# DevOps MCP Server Best Practices
 
-This document outlines architectural, design, and development best practices for working with the MCP (Model Context Protocol) Server codebase. It's intended to be a reference for both new and experienced developers contributing to the project.
+This document outlines best practices for using DevOps MCP Server effectively. Following these recommendations will help you get the most out of the platform.
 
 ## Table of Contents
 
-1. [Architecture Best Practices](#architecture-best-practices)
-2. [API Design Best Practices](#api-design-best-practices)
-3. [Go Development Best Practices](#go-development-best-practices)
-4. [Security Best Practices](#security-best-practices)
-5. [Performance Best Practices](#performance-best-practices)
-6. [Testing Best Practices](#testing-best-practices)
-7. [Documentation Best Practices](#documentation-best-practices)
-8. [Code Organization](#code-organization)
-9. [AI Agent and Context Management Best Practices](#ai-agent-and-context-management-best-practices)
-
----
-
-## Architecture Best Practices
-
-### Microservices Principles
-
-1. **Single Responsibility Principle**: Each service should have a well-defined, bounded context and responsibility.
-   - The Context Management service handles conversation contexts
-   - The DevOps Tool Integration service manages interactions with external tools
-   - The Vector Search service handles embedding storage and retrieval
-
-2. **Design for Resilience**: Always assume that components may fail and design for graceful degradation.
-   - Implement circuit breakers for external service calls
-   - Use timeouts appropriately for all external APIs
-   - Provide fallback mechanisms when dependent services are unavailable
-
-3. **Stateless Services**: Services should be stateless whenever possible to enable scaling.
-   - Externalize state to appropriate data stores
-   - Use Redis for caching and ephemeral data
-   - Store durable state in the database
-   - Treat each request as independent
-
-4. **Asynchronous Communication**: For non-time-critical operations, use message queues.
-   - Consider RabbitMQ or Amazon SQS for reliable messaging
-   - Implement retry logic with exponential backoff
-   - Design idempotent operations to handle repeated messages
-
-5. **Domain-Driven Design**: Organize code around business capabilities.
-   - Align service boundaries with business domains
-   - Use a ubiquitous language throughout the code and documentation
-   - Model the domain independently from any persistence or delivery mechanisms
-
-### System Boundaries
-
-1. **Clearly Define API Contracts**: Establish clear contracts between components.
-   - Use interface definitions to define component boundaries
-   - Provide detailed API documentation
-   - Consider using API-first development
-
-2. **Versioning Strategy**: Plan for evolution of the system.
-   - Version APIs explicitly
-   - Maintain backward compatibility whenever possible
-   - Deprecate features before removing them
-
-### Monitoring and Observability
-
-1. **Comprehensive Logging**: Implement structured logging.
-   - Use consistent log levels
-   - Include correlation IDs in logs
-   - Log important business events
-
-2. **Metrics Collection**: Track system health and performance.
-   - Record request rates, error rates, and latencies
-   - Monitor resource utilization
-   - Set up alerting for anomalies
-
-3. **Distributed Tracing**: Implement trace context propagation.
-   - Use OpenTelemetry for distributed tracing
-   - Ensure trace IDs flow through the entire system
-   - Analyze traces to identify bottlenecks
-
----
-
-## API Design Best Practices
-
-### RESTful Design
-
-1. **Resource-Based Endpoints**: Organize APIs around resources.
-   - Use noun-based resource names (e.g., `/contexts`, `/tools`)
-   - Use plural nouns for collections
-   - Use hierarchical resources for related data (e.g., `/contexts/{id}/items`)
-
-2. **HTTP Methods**: Use HTTP methods appropriately.
-   - `GET` for retrieving data (read-only)
-   - `POST` for creating resources
-   - `PUT` for full updates
-   - `PATCH` for partial updates
-   - `DELETE` for removing resources
-
-3. **Status Codes**: Use appropriate HTTP status codes.
-   - `2xx` for success
-   - `4xx` for client errors
-   - `5xx` for server errors
-   - Use specific codes like `400`, `401`, `403`, `404`, `409`, etc.
-
-4. **Consistent Error Format**: Use a standard error response format.
-   - Include an error code, message, and details
-   - Provide a correlation ID for troubleshooting
-   - Be consistent across all endpoints
-
-5. **HATEOAS**: Implement hypermedia links where appropriate.
-   - Include links to related resources
-   - Provide self-links for resources
-   - Include pagination links for collections
+- [Context Management](#context-management)
+- [Tool Integration](#tool-integration)
+- [Vector Search](#vector-search)
+- [Performance Optimization](#performance-optimization)
+- [Security Considerations](#security-considerations)
+- [Development Practices](#development-practices)
+- [Monitoring and Observability](#monitoring-and-observability)
+- [Deployment Best Practices](#deployment-best-practices)
 
-### API Versioning
+## Context Management
 
-1. **Explicit Versioning**: Version APIs explicitly.
-   - Use URL path versioning (e.g., `/api/v1/...`)
-   - Support multiple versions simultaneously during transitions
-   - Document version sunset policies
+### Context Creation
 
-2. **Backwards Compatibility**: Maintain compatibility within a version.
-   - Add fields without breaking existing clients
-   - Don't remove or rename fields within a version
-   - Use optional parameters for new functionality
+- **Use Unique Agent IDs**: Create unique agent IDs for different purposes or workflows to avoid context contamination.
+- **Set Appropriate Max Tokens**: Set `max_tokens` based on the expected conversation length and complexity.
+- **Include System Prompts**: Always include system prompts in initial contexts to guide AI agent behavior.
 
-### Request/Response Handling
+### Context Updates
 
-1. **Content Negotiation**: Support appropriate content types.
-   - Use `application/json` as the default
-   - Set appropriate `Content-Type` headers
-   - Handle `Accept` headers properly
+- **Use Appropriate Truncation Strategies**:
+  - `oldest_first` - Simple and effective for most use cases
+  - `preserving_user` - Better for maintaining user message history 
+  - `relevance_based` - Best for complex, long-running conversations
 
-2. **Pagination**: Implement standard pagination for collections.
-   - Use `limit` and `offset` parameters
-   - Include pagination metadata in responses
-   - Provide links to next/previous pages
+- **Batch Updates When Possible**: When adding multiple items to a context, batch them in a single update request.
+- **Track Token Counts**: Keep track of approximate token counts client-side to predict truncation.
 
-3. **Filtering and Sorting**: Support filtering and sorting via query parameters.
-   - Use consistent parameter names
-   - Document all supported parameters
-   - Validate and sanitize parameters
+### Context Storage
 
----
+- **Use Context Expiration**: Set `expires_at` for contexts that are no longer needed to aid in cleanup.
+- **Implement Context Archiving**: Archive important contexts to S3 for long-term storage rather than keeping them active.
+- **Use Sessions for Related Conversations**: Group related conversations using the same `session_id`.
 
-## Go Development Best Practices
+## Tool Integration
 
-### Code Style
+### GitHub Integration
 
-1. **Follow Go Conventions**: Adhere to Go's idioms and conventions.
-   - Use Go's standard formatting with `gofmt`
-   - Follow the [Effective Go](https://golang.org/doc/effective_go.html) guidelines
-   - Use `golint` and `go vet` to catch common issues
+- **Use Targeted Queries**: When querying GitHub data, use specific parameters to narrow results and improve performance.
+- **Implement Proper Error Handling**: Handle GitHub API errors gracefully, including rate limiting and authentication errors.
+- **Process Webhooks Efficiently**: Set up webhooks to receive GitHub events and update contexts in real-time.
 
-2. **Naming Conventions**: Use clear, descriptive names.
-   - Use MixedCaps for exported names
-   - Use mixedCaps for non-exported names
-   - Choose descriptive, unambiguous names
+### Safety Practices
 
-3. **Package Organization**: Organize code in coherent packages.
-   - Package by feature, not by layer
-   - Keep packages focused on a single responsibility
-   - Avoid circular dependencies between packages
+- **Avoid Destructive Operations**: Prefer non-destructive operations (e.g., archiving vs. deleting).
+- **Implement Confirmation Steps**: Add confirmation steps for potentially risky operations.
+- **Use Read-Only Access When Possible**: Limit write access to only necessary operations.
 
-### Error Handling
+## Vector Search
 
-1. **Explicit Error Handling**: Check and handle all errors.
-   - Never ignore errors
-   - Return errors rather than logging and continuing
-   - Consider using error wrapping for context
+### Storage and Retrieval
 
-2. **Centralized Error Types**: Define clear error types.
-   - Use custom error types for domain-specific errors
-   - Include context in error messages
-   - Make errors easy to check programmatically
+- **Use Consistent Models**: Stick to the same embedding model for a given context to ensure consistency.
+- **Store Embeddings for Key Messages**: Not every message needs a vector embedding; focus on important content.
+- **Set Appropriate Similarity Thresholds**: Start with 0.7 and adjust based on testing.
 
-### Concurrency
+### Multi-Model Support
 
-1. **Goroutines Management**: Manage goroutines carefully.
-   - Always handle goroutine termination
-   - Use context for cancellation
-   - Consider using worker pools for limiting concurrency
+- **Use Specific Models for Specific Tasks**: Different embedding models excel at different tasks.
+- **Clearly Mark Model Type**: Always include the `model_id` when storing and searching embeddings.
+- **Consider Dimensionality**: Be aware of the different vector dimensions when using multiple models.
 
-2. **Synchronization**: Use appropriate synchronization primitives.
-   - Use mutex for simple shared state
-   - Use channels for communication between goroutines
-   - Prefer `sync.RWMutex` for read-heavy workloads
+## Performance Optimization
 
-3. **Resource Management**: Manage resources properly.
-   - Close all resources (files, connections, etc.)
-   - Use `defer` for cleanup
-   - Consider implementing graceful shutdown
+### Caching Strategy
 
-### Dependency Injection
-
-1. **Constructor Injection**: Use constructor injection for dependencies.
-   - Pass dependencies to constructors rather than creating them inside
-   - Use interfaces to define dependencies
-   - Make dependencies explicit
-
-2. **Configuration Management**: Handle configuration cleanly.
-   - Use a centralized configuration system
-   - Support different environments (dev, test, prod)
-   - Validate configuration at startup
-
----
-
-## Security Best Practices
-
-### Authentication and Authorization
-
-1. **Authentication**: Implement robust authentication.
-   - Use industry-standard authentication methods (JWT, OAuth)
-   - Store tokens securely
-   - Implement token expiration and refresh
-
-2. **Authorization**: Implement fine-grained authorization.
-   - Follow the principle of least privilege
-   - Check authorization for every action
-   - Implement role-based access control where appropriate
-
-3. **API Security**: Secure all API endpoints.
-   - Require HTTPS for all communication
-   - Implement appropriate rate limiting
-   - Use API keys for service-to-service communication
-
-### Input Validation
-
-1. **Validate All Input**: Never trust input from external sources.
-   - Validate request parameters, headers, and body
-   - Use strict validation rules for all inputs
-   - Sanitize input to prevent injection attacks
-
-2. **Parameter Binding**: Be careful with parameter binding.
-   - Explicitly define what fields can be bound
-   - Don't automatically bind to sensitive fields
-   - Validate bound data
-
-### Secrets Management
-
-1. **Secure Secrets Storage**: Never hardcode secrets.
-   - Use environment variables or a secrets manager
-   - Implement secrets rotation
-   - Use different secrets for different environments
-
-2. **Secure Communication**: Encrypt sensitive data in transit.
-   - Use TLS for all HTTP communication
-   - Use secure connections for database access
-   - Consider encrypting sensitive data at rest
-
----
-
-## Performance Best Practices
-
-### Efficient Resource Usage
-
-1. **Connection Pooling**: Use connection pools for external services.
-   - Pool database connections
-   - Pool HTTP client connections
-   - Configure pool sizes based on workload
-
-2. **Resource Limits**: Set appropriate resource limits.
-   - Limit concurrent requests
-   - Set timeouts for all operations
-   - Implement backpressure mechanisms
-
-### Caching
-
-1. **Response Caching**: Cache responses where appropriate.
-   - Use HTTP caching headers
-   - Implement a caching layer (Redis, in-memory)
-   - Set appropriate TTL for cached data
-
-2. **Data Access Caching**: Cache database queries where appropriate.
-   - Cache frequently accessed data
-   - Implement cache invalidation strategies
-   - Be careful with mutable data
+- **Use Redis for Hot Data**: Keep frequently accessed contexts in Redis for optimal performance.
+- **Implement Client-Side Caching**: Cache common tool responses client-side when appropriate.
+- **Set Appropriate TTLs**: Use shorter TTLs for frequently changing data.
 
 ### Database Optimization
 
-1. **Query Optimization**: Optimize database queries.
-   - Use indexes appropriately
-   - Avoid N+1 query problems
-   - Use pagination for large result sets
+- **Use Connection Pooling**: Configure appropriate connection pool settings for your workload.
+- **Implement Query Optimization**: Use indexed fields for filtering and searching.
+- **Batch Database Operations**: Group related database operations when possible.
 
-2. **Transaction Management**: Use transactions appropriately.
-   - Keep transactions short
-   - Avoid distributed transactions when possible
-   - Handle transaction failures gracefully
+### API Utilization
 
----
+- **Use Pagination**: When retrieving large sets of data, use pagination to improve performance.
+- **Implement Conditional Requests**: Use conditional requests with ETags to reduce bandwidth.
+- **Optimize Request Frequency**: Avoid making unnecessary API calls.
 
-## Testing Best Practices
+## Security Considerations
 
-### Test Types
+### Authentication
 
-1. **Unit Testing**: Test individual components in isolation.
-   - Aim for high code coverage
-   - Use table-driven tests
-   - Mock dependencies
+- **Rotate API Keys Regularly**: Implement a regular rotation schedule for API keys.
+- **Use Short-Lived JWT Tokens**: Generate JWT tokens with short expiration times.
+- **Implement Proper Authorization**: Ensure proper access control for different operations.
 
-2. **Integration Testing**: Test component interactions.
-   - Test API endpoints
-   - Test database interactions
-   - Use test containers for dependencies
+### Data Protection
 
-3. **Performance Testing**: Test system performance.
-   - Benchmark critical paths
-   - Test with realistic load
-   - Profile for bottlenecks
+- **Encrypt Sensitive Data**: Enable encryption for data at rest and in transit.
+- **Implement Data Minimization**: Only store the minimum necessary data for your use case.
+- **Regular Security Audits**: Conduct regular security audits of your deployment.
 
-### Test Organization
+### Webhook Security
 
-1. **Test Structure**: Organize tests clearly.
-   - Use descriptive test names
-   - Follow the AAA pattern (Arrange, Act, Assert)
-   - Keep tests independent of each other
+- **Verify Webhook Signatures**: Always verify webhook signatures to prevent tampering.
+- **Use TLS for Webhook Endpoints**: Ensure webhook endpoints use HTTPS in production.
+- **Rate Limit Webhook Processing**: Implement rate limiting for webhook endpoints.
 
-2. **Test Data**: Manage test data carefully.
-   - Use test fixtures or factories
-   - Clean up after tests
-   - Don't rely on external state
+## Development Practices
 
----
+### API Integration
 
-## Documentation Best Practices
+- **Use Client Libraries**: Utilize the provided client libraries for easier integration.
+- **Implement Retry Logic**: Add retry logic for transient failures.
+- **Use Proper Error Handling**: Handle all error cases appropriately.
 
-### Code Documentation
+### Testing
 
-1. **Package Documentation**: Document package purpose and usage.
-   - Include a package comment at the top of one file
-   - Explain the package's role in the system
-   - Document any package-level variables or constants
+- **Test with Mock Responses**: Use mock mode for testing without real GitHub integration.
+- **Implement Integration Tests**: Create comprehensive integration tests for your integration.
+- **Test Edge Cases**: Ensure your code handles rate limits, errors, and edge cases.
 
-2. **Function Documentation**: Document non-obvious functions.
-   - Explain what the function does
-   - Document parameters and return values
-   - Include usage examples for complex functions
+## Monitoring and Observability
 
-3. **API Documentation**: Document all public APIs.
-   - Use OpenAPI/Swagger for REST APIs
-   - Include example requests and responses
-   - Document error conditions and status codes
+### Metrics Collection
 
-### System Documentation
+- **Track Key Metrics**: Monitor API call rates, error rates, and response times.
+- **Set Up Alerts**: Implement alerts for abnormal patterns or errors.
+- **Use the Built-in Metrics**: Leverage the Prometheus metrics exposed by the server.
 
-1. **Architecture Documentation**: Document system architecture.
-   - Include component diagrams
-   - Document system boundaries
-   - Explain design decisions
+### Logging
 
-2. **Operational Documentation**: Document operational aspects.
-   - Include deployment instructions
-   - Document configuration options
-   - Include troubleshooting information
+- **Implement Structured Logging**: Use structured logging formats for easier analysis.
+- **Set Appropriate Log Levels**: Configure log levels based on environment.
+- **Centralize Log Collection**: Aggregate logs for easier troubleshooting.
 
----
+## Deployment Best Practices
 
-## Code Organization
+### Production Readiness
 
-The MCP Server codebase is organized into several key packages:
+- **Use TLS in Production**: Always enable TLS for production deployments.
+- **Implement High Availability**: Deploy multiple instances behind a load balancer.
+- **Configure Resource Limits**: Set appropriate CPU and memory limits for containers.
 
-### Core Packages
+### AWS Integration
 
-- `cmd`: Entry points for executables
-- `internal`: Internal code not meant to be imported
-  - `api`: API server and handlers
-  - `core`: Core business logic
-  - `adapters`: Adapters for external systems
-  - `repository`: Data access layer
-  - `config`: Configuration management
-- `pkg`: Public packages that can be imported by other projects
-  - `client`: Client library for MCP Server
-  - `mcp`: MCP domain models and interfaces
+- **Use IAM Roles**: Leverage IAM Roles for Service Accounts for AWS integration.
+- **Implement Least Privilege**: Grant only necessary permissions to services.
+- **Enable Cross-Region Replication**: For critical data, enable cross-region replication.
 
-### Package Design Principles
+### Backup and Recovery
 
-1. **Clear Boundaries**: Each package should have a clear responsibility.
-2. **Minimal Dependencies**: Minimize dependencies between packages.
-3. **Stable API**: Public packages should have stable APIs.
-4. **Internal Implementation**: Hide implementation details in internal packages.
-
-### Directory Structure
-
-The repository is organized as follows:
-
-```
-mcp-server/
-├── cmd/
-│   ├── server/        # MCP Server entry point
-│   └── mockserver/    # Mock server for testing
-├── configs/           # Configuration files
-├── docs/              # Documentation
-├── internal/          # Internal packages
-│   ├── api/           # API server
-│   ├── core/          # Core business logic
-│   ├── adapters/      # External system adapters
-│   ├── repository/    # Data access
-│   └── config/        # Configuration
-├── pkg/               # Public packages
-│   ├── client/        # Client library
-│   └── mcp/           # MCP domain models
-├── scripts/           # Helper scripts
-└── test/              # Test resources
-```
-
-By following these principles and organization, we maintain a clean, maintainable, and extensible codebase that can evolve with changing requirements.
+- **Regular Database Backups**: Implement automated database backups.
+- **Test Recovery Procedures**: Regularly test data recovery procedures.
+- **Document Disaster Recovery Plans**: Create detailed disaster recovery documentation.
 
 ---
 
-## AI Agent and Context Management Best Practices
-
-The MCP Server is designed to work with AI agents and manage their conversation contexts efficiently. This section outlines best practices for context management and AI agent integration.
-
-### Context Architecture
-
-1. **Multi-Tiered Memory System**: Implement a multi-tiered memory architecture for AI agents.
-   - **Short-Term Memory**: Store immediate conversation history using a rolling buffer or context window
-   - **Long-Term Memory**: Store persistent information in databases with vector embeddings
-   - **Functional Memory**: Store operational data needed for tool interactions
-
-2. **Context Persistence Strategy**: Choose appropriate persistence approaches based on data types.
-   - Use PostgreSQL for structured metadata and references
-   - Use S3 storage for large context data and conversation histories
-   - Use Redis for caching frequently accessed contexts
-
-3. **Context Retrieval Efficiency**: Optimize retrieval of context data.
-   - Implement vector search for semantic relevance
-   - Use hybrid approaches combining keyword and semantic search
-   - Support context filtering by metadata (timestamps, session IDs, etc.)
-
-### Agent Interaction Design
-
-1. **Clear Conversation Boundaries**: Maintain isolation between different conversation contexts.
-   - Generate stable, unique identifiers for each context
-   - Use thread-based isolation to prevent context leakage
-   - Implement security measures to ensure contexts are only accessible to authorized agents
-
-2. **Stateful Interaction Management**: Design APIs for stateful agent interactions.
-   - Provide context tracking across multiple requests
-   - Implement session management with appropriate timeouts
-   - Support context references in tool operations
-
-3. **Tool Integration Patterns**: Standardize how agents interact with tools.
-   - Use consistent parameter formats across all tool integrations
-   - Provide detailed error information for failed operations
-   - Track tool usage history within the context
-
-### Context Optimization 
-
-1. **Context Window Management**: Implement strategies for managing context size.
-   - Support multiple truncation strategies (oldest-first, relevance-based, etc.)
-   - Provide APIs for context summarization
-   - Implement dynamic context pruning based on token limits
-
-2. **Relevance-Based Filtering**: Prioritize the most relevant information.
-   - Use vector similarity to retain the most relevant context items
-   - Implement importance scoring for context items
-   - Support filtering by recency, relevance, or custom criteria
-
-3. **Embedding Management**: Optimize vector embeddings for context search.
-   - Use appropriate embedding models based on content type
-   - Implement batched embedding generation for efficiency
-   - Support incremental updates to embeddings when contexts change
-
-### MCP Protocol Implementation
-
-1. **Protocol Compliance**: Adhere to the Model Context Protocol standard.
-   - Follow MCP specifications for message formats
-   - Implement the full set of required MCP endpoints
-   - Version MCP protocol implementations appropriately
-
-2. **Client Compatibility**: Ensure compatibility with MCP clients.
-   - Test with multiple MCP client implementations
-   - Support the required authentication methods
-   - Implement graceful error handling for protocol violations
-
-3. **Tool Registration**: Properly expose tools via the MCP protocol.
-   - Provide clear, concise tool descriptions
-   - Define reasonable parameter constraints
-   - Support dynamic tool discovery and updates
-
-### Multi-Agent Coordination
-
-1. **Agent Orchestration**: Support coordination between multiple agents.
-   - Implement event-based communication between agents
-   - Support context sharing between trusted agents
-   - Provide mechanisms for agent handoff and delegation
-
-2. **Role-Based Access**: Implement appropriate access controls.
-   - Define agent roles with specific capabilities
-   - Enforce permission checks for sensitive operations
-   - Log all cross-agent interactions for audit purposes
-
-3. **Collaborative Workflows**: Support multi-step, multi-agent workflows.
-   - Implement workflow state tracking
-   - Support asynchronous task execution
-   - Provide mechanisms for result aggregation
-
-### Security and Privacy
-
-1. **Context Isolation**: Ensure strict isolation between contexts.
-   - Implement tenant isolation for multi-tenant deployments
-   - Prevent unauthorized access to context data
-   - Audit all context access attempts
-
-2. **Data Minimization**: Apply data minimization principles.
-   - Store only necessary information in contexts
-   - Implement automatic context expiration policies
-   - Support selective context deletion
-
-3. **Audit Trails**: Maintain comprehensive audit logs.
-   - Log all context operations with timestamps
-   - Track all agent interactions with tools
-   - Support compliance requirements for data handling
-
-### Performance Optimization
-
-1. **Caching Strategy**: Implement intelligent caching for contexts.
-   - Cache frequently accessed contexts in Redis
-   - Implement tiered caching (memory, redis, database)
-   - Use smart invalidation strategies to maintain consistency
-
-2. **Parallel Processing**: Leverage parallelism where appropriate.
-   - Process multiple context operations concurrently
-   - Implement worker pools for embedding generation
-   - Support batch operations for efficiency
-
-3. **Resource Management**: Manage system resources effectively.
-   - Set appropriate timeouts for all operations
-   - Implement rate limiting to prevent overload
-   - Monitor and optimize memory usage for large contexts
+By following these best practices, you'll ensure optimal performance, security, and reliability for your DevOps MCP Server deployment.
