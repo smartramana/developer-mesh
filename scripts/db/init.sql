@@ -137,48 +137,9 @@ BEGIN
         CREATE INDEX IF NOT EXISTS idx_embeddings_model_id
         ON mcp.embeddings(model_id);
         
-        -- Create indices for common dimension sizes
-        -- 384 dimensions (e.g., MiniLM, some Sentence Transformers)
-        DO $$
-        BEGIN
-            IF NOT EXISTS (
-                SELECT 1 FROM pg_indexes 
-                WHERE indexname = 'idx_embeddings_384'
-            ) THEN
-                CREATE INDEX idx_embeddings_384
-                ON mcp.embeddings USING ivfflat (embedding vector_cosine_ops)
-                WITH (lists = 100)
-                WHERE vector_dimensions = 384;
-            END IF;
-        END $$;
-        
-        -- 768 dimensions (e.g., BERT based models)
-        DO $$
-        BEGIN
-            IF NOT EXISTS (
-                SELECT 1 FROM pg_indexes 
-                WHERE indexname = 'idx_embeddings_768'
-            ) THEN
-                CREATE INDEX idx_embeddings_768
-                ON mcp.embeddings USING ivfflat (embedding vector_cosine_ops)
-                WITH (lists = 100)
-                WHERE vector_dimensions = 768;
-            END IF;
-        END $$;
-        
-        -- 1536 dimensions (e.g., OpenAI text-embedding-ada-002)
-        DO $$
-        BEGIN
-            IF NOT EXISTS (
-                SELECT 1 FROM pg_indexes 
-                WHERE indexname = 'idx_embeddings_1536'
-            ) THEN
-                CREATE INDEX idx_embeddings_1536
-                ON mcp.embeddings USING ivfflat (embedding vector_cosine_ops)
-                WITH (lists = 100)
-                WHERE vector_dimensions = 1536;
-            END IF;
-        END $$;
+        -- We'll create indices dynamically when needed since we can't create them now
+        -- without knowing the dimensions of the vector column
+        RAISE NOTICE 'Vector indices will be created when data is inserted';
     ELSE
         -- Warn that pgvector is not available
         RAISE NOTICE 'pgvector extension is not available. Vector search capabilities will not be enabled.';
