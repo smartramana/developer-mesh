@@ -1,465 +1,579 @@
 # MCP Server API Reference
 
-This document provides a comprehensive reference for the MCP Server API endpoints, including request and response formats, authentication requirements, and examples.
+This document provides a comprehensive reference for the MCP Server API. The API is organized into three main sections:
 
-## API Overview
+1. **Context API** - Manage conversation contexts and their content
+2. **Tools API** - Integrate with DevOps tools and execute actions
+3. **Vector API** - Store and search vector embeddings
 
-The MCP Server provides a REST API for interacting with the platform and integrated systems. All API endpoints are prefixed with `/api/v1`.
+## Base URL
 
-### Authentication
+All API endpoints are relative to the base URL:
+
+```
+/api/v1
+```
+
+## Authentication
 
 The API supports two authentication methods:
 
-1. **JWT Authentication** (preferred for user interactions)
-2. **API Key Authentication** (preferred for system integrations)
+1. **Bearer Authentication** - Using JWT tokens
+   ```
+   Authorization: Bearer <token>
+   ```
 
-#### JWT Authentication
+2. **API Key Authentication** - Using API keys in the header
+   ```
+   X-API-Key: <api-key>
+   ```
 
-To authenticate with JWT:
+## Context API
 
-1. Obtain a JWT token by calling the authentication endpoint
-2. Include the token in all API requests in the `Authorization` header:
+The Context API allows you to manage conversation contexts for AI agents.
 
+### Endpoints
+
+| Method | Endpoint                        | Description                                |
+|--------|----------------------------------|--------------------------------------------|
+| GET    | `/contexts`                     | List contexts for an agent                 |
+| POST   | `/contexts`                     | Create a new context                       |
+| GET    | `/contexts/{contextID}`         | Get a context by ID                        |
+| PUT    | `/contexts/{contextID}`         | Update a context                           |
+| DELETE | `/contexts/{contextID}`         | Delete a context                           |
+| GET    | `/contexts/{contextID}/summary` | Get a summary of a context                 |
+| POST   | `/contexts/{contextID}/search`  | Search within a context                    |
+
+### List Contexts
+
+```http
+GET /api/v1/contexts?agent_id={agentID}&session_id={sessionID}&limit={limit}
 ```
-Authorization: Bearer your-jwt-token
-```
 
-#### API Key Authentication
+Query Parameters:
+- `agent_id` (required) - The agent ID
+- `session_id` (optional) - Session ID filter
+- `limit` (optional) - Maximum number of contexts to return (default: 20)
 
-To authenticate with an API key:
-
-1. Configure API keys in the server configuration
-2. Include the API key in all API requests in the `Authorization` header:
-
-```
-Authorization: ApiKey your-api-key
-```
-
-### Response Format
-
-API responses follow a consistent JSON format:
-
+Response:
 ```json
 {
-  "status": "success",           // "success" or "error"
-  "data": { ... },               // Response data (if successful)
-  "error": "Error message",      // Error message (if failed)
-  "code": "ERROR_CODE"           // Error code (if failed)
-}
-```
-
-### Rate Limiting
-
-API endpoints are rate-limited based on the server configuration. When a rate limit is exceeded, the server returns a `429 Too Many Requests` response with headers indicating the limit and reset time:
-
-```
-X-RateLimit-Limit: 100
-X-RateLimit-Remaining: 0
-X-RateLimit-Reset: 1619712000
-```
-
-## API Endpoints
-
-### Health and Metrics Endpoints
-
-#### Check API Health
-
-```
-GET /health
-```
-
-Returns the health status of the API server and all components.
-
-**Example Response:**
-
-```json
-{
-  "status": "healthy",
-  "components": {
-    "engine": "healthy",
-    "github": "healthy"
-  }
-}
-```
-
-#### Get Metrics
-
-```
-GET /metrics
-```
-
-Returns metrics data in Prometheus format. Requires API key authentication.
-
-### Webhook Endpoints
-
-The following webhook endpoints are available for receiving events from external systems:
-
-#### GitHub Webhook
-
-```
-POST /webhook/github
-```
-
-Processes webhooks from GitHub. The webhook must include the appropriate headers and a valid signature.
-
-**Required Headers:**
-- `X-GitHub-Event`: Type of GitHub event
-- `X-Hub-Signature-256`: HMAC SHA-256 signature for payload verification
-
-> **Note:** Support for Harness, SonarQube, Artifactory, and JFrog Xray webhooks has been removed.
-
-### MCP Protocol Endpoints
-
-#### Create MCP Context
-
-```
-POST /api/v1/mcp/context
-```
-
-Creates a new MCP context for tracking related events and operations.
-
-**Request Body:**
-
-```json
-{
-  "name": "my-context",
-  "description": "My MCP context",
-  "tags": ["tag1", "tag2"],
-  "metadata": {
-    "key1": "value1",
-    "key2": "value2"
-  }
-}
-```
-
-**Response:**
-
-```json
-{
-  "status": "success",
-  "data": {
-    "id": "ctx-123456",
-    "name": "my-context",
-    "description": "My MCP context",
-    "created_at": "2023-04-29T12:34:56Z",
-    "tags": ["tag1", "tag2"],
-    "metadata": {
-      "key1": "value1",
-      "key2": "value2"
+  "contexts": [
+    {
+      "id": "ctx_123",
+      "agent_id": "agent_456",
+      "model_id": "gpt-4",
+      "session_id": "session_789",
+      "current_tokens": 150,
+      "max_tokens": 2000,
+      "created_at": "2025-04-22T12:00:00Z",
+      "updated_at": "2025-04-22T12:30:00Z"
     }
+  ],
+  "_links": {
+    "self": "/api/v1/contexts?agent_id=agent_456"
   }
 }
 ```
 
-#### Get MCP Context
+### Create Context
 
+```http
+POST /api/v1/contexts
 ```
-GET /api/v1/mcp/context/:id
+
+Request Body:
+```json
+{
+  "agent_id": "agent_456",
+  "model_id": "gpt-4",
+  "session_id": "session_789",
+  "max_tokens": 2000,
+  "content": []
+}
 ```
 
-Retrieves an MCP context by ID.
+Response:
+```json
+{
+  "message": "context created",
+  "id": "ctx_123"
+}
+```
 
-**Parameters:**
-- `id`: ID of the MCP context
+### Get Context
 
-**Response:**
+```http
+GET /api/v1/contexts/{contextID}?include_content={boolean}
+```
 
+Query Parameters:
+- `include_content` (optional) - Whether to include content items (default: true)
+
+Response:
+```json
+{
+  "id": "ctx_123",
+  "message": "context retrieved"
+}
+```
+
+### Update Context
+
+```http
+PUT /api/v1/contexts/{contextID}
+```
+
+Request Body:
+```json
+{
+  "content": [
+    {
+      "role": "user",
+      "content": "Hello AI assistant!"
+    }
+  ],
+  "options": {
+    "truncate": false,
+    "replace_content": true
+  }
+}
+```
+
+Response: Returns the updated context object.
+
+### Delete Context
+
+```http
+DELETE /api/v1/contexts/{contextID}
+```
+
+Response:
+```json
+{
+  "status": "deleted"
+}
+```
+
+### Get Context Summary
+
+```http
+GET /api/v1/contexts/{contextID}/summary
+```
+
+Response:
+```json
+{
+  "summary": "Conversation about AI capabilities and limitations."
+}
+```
+
+### Search Context
+
+```http
+POST /api/v1/contexts/{contextID}/search
+```
+
+Request Body:
+```json
+{
+  "query": "machine learning"
+}
+```
+
+Response:
+```json
+{
+  "results": [
+    {
+      "id": "item_123",
+      "role": "assistant",
+      "content": "Machine learning is a subset of artificial intelligence.",
+      "tokens": 12,
+      "timestamp": "2025-04-22T12:05:00Z"
+    }
+  ]
+}
+```
+
+## Tools API
+
+The Tools API allows you to integrate with various DevOps tools and execute actions.
+
+### Endpoints
+
+| Method | Endpoint                            | Description                              |
+|--------|-------------------------------------|------------------------------------------|
+| GET    | `/tools`                           | List all available tools                 |
+| GET    | `/tools/{tool}`                    | Get tool details                         |
+| GET    | `/tools/{tool}/actions`            | List allowed actions for a tool          |
+| GET    | `/tools/{tool}/actions/{action}`   | Get action details                       |
+| POST   | `/tools/{tool}/actions/{action}`   | Execute tool action                      |
+| POST   | `/tools/{tool}/queries`            | Query tool data                          |
+
+### List Tools
+
+```http
+GET /api/v1/tools
+```
+
+Response:
+```json
+{
+  "tools": [
+    {
+      "name": "github",
+      "description": "GitHub integration for repository, PR, and code management",
+      "actions": ["create_issue", "close_issue", "create_pull_request"],
+      "safety_notes": "Cannot delete repositories for safety reasons"
+    }
+  ],
+  "_links": {
+    "self": "/api/v1/tools"
+  }
+}
+```
+
+### Get Tool Details
+
+```http
+GET /api/v1/tools/{tool}
+```
+
+Response:
+```json
+{
+  "name": "github",
+  "description": "GitHub integration for repository, PR, and code management",
+  "actions": ["create_issue", "close_issue", "create_pull_request"],
+  "safety_notes": "Cannot delete repositories for safety reasons",
+  "_links": {
+    "self": "/api/v1/tools/github",
+    "actions": "/api/v1/tools/github/actions"
+  }
+}
+```
+
+### List Tool Actions
+
+```http
+GET /api/v1/tools/{tool}/actions
+```
+
+Response:
+```json
+{
+  "tool": "github",
+  "allowed_actions": [
+    "create_issue",
+    "close_issue",
+    "create_pull_request"
+  ],
+  "disallowed_actions": [
+    "delete_repository",
+    "delete_branch"
+  ],
+  "safety_notes": "Repository deletion is restricted for safety reasons"
+}
+```
+
+### Get Action Details
+
+```http
+GET /api/v1/tools/{tool}/actions/{action}
+```
+
+Response:
+```json
+{
+  "name": "create_issue",
+  "description": "Creates a new issue in a GitHub repository",
+  "parameters": {
+    "owner": "Repository owner (organization or user)",
+    "repo": "Repository name",
+    "title": "Issue title",
+    "body": "Issue description"
+  },
+  "required_parameters": ["owner", "repo", "title"],
+  "_links": {
+    "self": "/api/v1/tools/github/actions/create_issue",
+    "tool": "/api/v1/tools/github"
+  }
+}
+```
+
+### Execute Tool Action
+
+```http
+POST /api/v1/tools/{tool}/actions/{action}?context_id={contextID}
+```
+
+Query Parameters:
+- `context_id` (required) - Context ID for tracking the operation
+
+Request Body:
+```json
+{
+  "owner": "octocat",
+  "repo": "hello-world",
+  "title": "Bug in login form",
+  "body": "The login form doesn't submit when using Safari",
+  "labels": ["bug", "frontend"]
+}
+```
+
+Response:
 ```json
 {
   "status": "success",
-  "data": {
-    "id": "ctx-123456",
-    "name": "my-context",
-    "description": "My MCP context",
-    "created_at": "2023-04-29T12:34:56Z",
-    "updated_at": "2023-04-29T12:34:56Z",
-    "tags": ["tag1", "tag2"],
-    "metadata": {
-      "key1": "value1",
-      "key2": "value2"
+  "message": "Executed create_issue action on github tool",
+  "tool": "github",
+  "action": "create_issue",
+  "params": {
+    "owner": "octocat",
+    "repo": "hello-world",
+    "title": "Bug in login form"
+  },
+  "_links": {
+    "self": "/api/v1/tools/github/actions/create_issue",
+    "tool": "/api/v1/tools/github"
+  }
+}
+```
+
+### Query Tool Data
+
+```http
+POST /api/v1/tools/{tool}/queries?context_id={contextID}
+```
+
+Query Parameters:
+- `context_id` (required) - Context ID for tracking the operation
+
+Request Body:
+```json
+{
+  "repo": "octocat/hello-world",
+  "state": "open",
+  "sort": "created",
+  "direction": "desc"
+}
+```
+
+Response:
+```json
+{
+  "status": "success",
+  "message": "Queried data from github tool",
+  "tool": "github",
+  "query_params": {
+    "repo": "octocat/hello-world",
+    "state": "open"
+  },
+  "data": [
+    {
+      "id": "1",
+      "name": "Example data item 1"
     },
-    "events": [
-      {
-        "id": "evt-123456",
-        "source": "github",
-        "type": "pull_request",
-        "timestamp": "2023-04-29T12:35:00Z"
-      }
-    ]
-  }
-}
-```
-
-#### Update MCP Context
-
-```
-PUT /api/v1/mcp/context/:id
-```
-
-Updates an MCP context.
-
-**Parameters:**
-- `id`: ID of the MCP context
-
-**Request Body:**
-
-```json
-{
-  "name": "updated-context",
-  "description": "Updated MCP context",
-  "tags": ["tag1", "tag3"],
-  "metadata": {
-    "key1": "new-value",
-    "key3": "value3"
-  }
-}
-```
-
-**Response:**
-
-```json
-{
-  "status": "success",
-  "data": {
-    "id": "ctx-123456",
-    "name": "updated-context",
-    "description": "Updated MCP context",
-    "created_at": "2023-04-29T12:34:56Z",
-    "updated_at": "2023-04-29T12:36:00Z",
-    "tags": ["tag1", "tag3"],
-    "metadata": {
-      "key1": "new-value",
-      "key3": "value3"
+    {
+      "id": "2",
+      "name": "Example data item 2"
     }
-  }
+  ]
 }
 ```
 
-#### Delete MCP Context
+## Vector API
 
+The Vector API allows you to store and search vector embeddings for AI models.
+
+### Endpoints
+
+| Method | Endpoint                                       | Description                                 |
+|--------|------------------------------------------------|---------------------------------------------|
+| POST   | `/vectors/store`                              | Store an embedding                          |
+| POST   | `/vectors/search`                             | Search embeddings                           |
+| GET    | `/vectors/context/{context_id}`               | Get all embeddings for a context            |
+| DELETE | `/vectors/context/{context_id}`               | Delete all embeddings for a context         |
+| GET    | `/vectors/models`                             | Get supported models                        |
+| GET    | `/vectors/context/{context_id}/model/{model_id}` | Get embeddings for a specific model      |
+| DELETE | `/vectors/context/{context_id}/model/{model_id}` | Delete embeddings for a specific model   |
+
+### Store Embedding
+
+```http
+POST /api/v1/vectors/store
 ```
-DELETE /api/v1/mcp/context/:id
-```
 
-Deletes an MCP context.
-
-**Parameters:**
-- `id`: ID of the MCP context
-
-**Response:**
-
+Request Body:
 ```json
 {
-  "status": "success",
-  "data": {
-    "message": "Context deleted successfully"
-  }
+  "context_id": "ctx_123",
+  "content_index": 0,
+  "text": "Hello AI assistant!",
+  "embedding": [0.1, 0.2, 0.3],
+  "model_id": "text-embedding-ada-002"
 }
 ```
 
-### GitHub Integration Endpoints
+Response: Returns the stored embedding object.
 
-#### List GitHub Repositories
+### Search Embeddings
 
+```http
+POST /api/v1/vectors/search
 ```
-GET /api/v1/github/repos
-```
 
-Lists GitHub repositories accessible to the configured GitHub token.
-
-**Query Parameters:**
-- `owner`: Filter by repository owner (optional)
-- `type`: Repository type (public, private, all) (optional)
-- `sort`: Sort field (created, updated, pushed, full_name) (optional)
-- `direction`: Sort direction (asc, desc) (optional)
-- `page`: Page number (optional)
-- `per_page`: Items per page (optional)
-
-**Response:**
-
+Request Body:
 ```json
 {
-  "status": "success",
-  "data": {
-    "repositories": [
-      {
-        "id": 12345678,
-        "name": "repo-name",
-        "full_name": "owner/repo-name",
-        "html_url": "https://github.com/owner/repo-name",
-        "description": "Repository description",
-        "private": false,
-        "owner": {
-          "login": "owner",
-          "id": 1234567,
-          "avatar_url": "https://avatars.githubusercontent.com/u/1234567"
-        },
-        "created_at": "2023-01-01T00:00:00Z",
-        "updated_at": "2023-04-01T00:00:00Z"
-      }
-    ],
-    "pagination": {
-      "page": 1,
-      "per_page": 30,
-      "total": 45
+  "context_id": "ctx_123",
+  "query_embedding": [0.1, 0.2, 0.3],
+  "limit": 5,
+  "model_id": "text-embedding-ada-002",
+  "similarity_threshold": 0.7
+}
+```
+
+Response:
+```json
+{
+  "embeddings": [
+    {
+      "context_id": "ctx_123",
+      "content_index": 0,
+      "text": "Hello AI assistant!",
+      "embedding": [0.1, 0.2, 0.3],
+      "model_id": "text-embedding-ada-002",
+      "created_at": "2025-04-22T12:00:00Z"
     }
-  }
+  ]
 }
 ```
 
-#### Get GitHub Repository
+### Get Context Embeddings
 
+```http
+GET /api/v1/vectors/context/{context_id}
 ```
-GET /api/v1/github/repos/:owner/:repo
+
+Response:
+```json
+{
+  "embeddings": [
+    {
+      "context_id": "ctx_123",
+      "content_index": 0,
+      "text": "Hello AI assistant!",
+      "embedding": [0.1, 0.2, 0.3],
+      "model_id": "text-embedding-ada-002",
+      "created_at": "2025-04-22T12:00:00Z"
+    }
+  ]
+}
 ```
 
-Retrieves information about a specific GitHub repository.
+### Delete Context Embeddings
 
-**Parameters:**
-- `owner`: Repository owner
-- `repo`: Repository name
+```http
+DELETE /api/v1/vectors/context/{context_id}
+```
 
-**Response:**
+Response:
+```json
+{
+  "status": "deleted"
+}
+```
+
+### Get Supported Models
+
+```http
+GET /api/v1/vectors/models
+```
+
+Response:
+```json
+{
+  "models": [
+    "text-embedding-ada-002",
+    "text-embedding-3-small"
+  ]
+}
+```
+
+### Get Model Embeddings
+
+```http
+GET /api/v1/vectors/context/{context_id}/model/{model_id}
+```
+
+Response:
+```json
+{
+  "embeddings": [
+    {
+      "context_id": "ctx_123",
+      "content_index": 0,
+      "text": "Hello AI assistant!",
+      "embedding": [0.1, 0.2, 0.3],
+      "model_id": "text-embedding-ada-002",
+      "created_at": "2025-04-22T12:00:00Z"
+    }
+  ]
+}
+```
+
+### Delete Model Embeddings
+
+```http
+DELETE /api/v1/vectors/context/{context_id}/model/{model_id}
+```
+
+Response:
+```json
+{
+  "status": "deleted"
+}
+```
+
+## Error Handling
+
+All API endpoints follow a consistent error response format:
 
 ```json
 {
-  "status": "success",
-  "data": {
-    "id": 12345678,
-    "name": "repo-name",
-    "full_name": "owner/repo-name",
-    "html_url": "https://github.com/owner/repo-name",
-    "description": "Repository description",
-    "private": false,
-    "owner": {
-      "login": "owner",
-      "id": 1234567,
-      "avatar_url": "https://avatars.githubusercontent.com/u/1234567"
-    },
-    "default_branch": "main",
-    "created_at": "2023-01-01T00:00:00Z",
-    "updated_at": "2023-04-01T00:00:00Z",
-    "pushed_at": "2023-04-15T00:00:00Z",
-    "size": 1024,
-    "language": "Go",
-    "license": {
-      "key": "mit",
-      "name": "MIT License",
-      "spdx_id": "MIT"
-    }
-  }
+  "error": "Error message"
 }
 ```
 
-#### List GitHub Pull Requests
+Common HTTP status codes:
 
-```
-GET /api/v1/github/repos/:owner/:repo/pulls
-```
+| Status Code | Description                                            |
+|-------------|--------------------------------------------------------|
+| 200         | Request succeeded                                     |
+| 201         | Resource created successfully                         |
+| 400         | Bad request (invalid parameters or request body)      |
+| 401         | Unauthorized (authentication required)                |
+| 404         | Resource not found                                    |
+| 500         | Internal server error                                 |
 
-Lists pull requests for a specific GitHub repository.
+## Pagination
 
-**Parameters:**
-- `owner`: Repository owner
-- `repo`: Repository name
+For endpoints that return multiple items, pagination is supported through the following query parameters:
 
-**Query Parameters:**
-- `state`: Pull request state (open, closed, all) (optional)
-- `sort`: Sort field (created, updated, popularity, long-running) (optional)
-- `direction`: Sort direction (asc, desc) (optional)
-- `page`: Page number (optional)
-- `per_page`: Items per page (optional)
+- `limit` - Maximum number of items to return (default: 20, max: 100)
+- `offset` - Number of items to skip (default: 0)
 
-**Response:**
+## HATEOAS Links
 
+API responses include hypermedia links (_links) that provide URLs to related resources and actions. This follows the HATEOAS (Hypermedia as the Engine of Application State) pattern, allowing clients to discover available actions dynamically.
+
+Example:
 ```json
-{
-  "status": "success",
-  "data": {
-    "pull_requests": [
-      {
-        "id": 1234567890,
-        "number": 123,
-        "title": "Pull request title",
-        "state": "open",
-        "html_url": "https://github.com/owner/repo-name/pull/123",
-        "user": {
-          "login": "username",
-          "id": 1234567,
-          "avatar_url": "https://avatars.githubusercontent.com/u/1234567"
-        },
-        "created_at": "2023-04-01T00:00:00Z",
-        "updated_at": "2023-04-15T00:00:00Z",
-        "closed_at": null,
-        "merged_at": null,
-        "base": {
-          "ref": "main",
-          "label": "owner:main"
-        },
-        "head": {
-          "ref": "feature-branch",
-          "label": "contributor:feature-branch"
-        }
-      }
-    ],
-    "pagination": {
-      "page": 1,
-      "per_page": 30,
-      "total": 45
-    }
-  }
+"_links": {
+  "self": "/api/v1/contexts/ctx_123",
+  "update": "/api/v1/contexts/ctx_123",
+  "delete": "/api/v1/contexts/ctx_123"
 }
 ```
-
-> **Note:** Integration endpoints for Harness, SonarQube, Artifactory, and JFrog Xray have been removed.
-
-## Error Codes
-
-The API uses the following error codes:
-
-| Code | Description |
-|------|-------------|
-| `AUTHENTICATION_ERROR` | Authentication failed |
-| `AUTHORIZATION_ERROR` | User is not authorized to perform the action |
-| `VALIDATION_ERROR` | Request validation failed |
-| `RESOURCE_NOT_FOUND` | Requested resource not found |
-| `RATE_LIMIT_EXCEEDED` | Rate limit exceeded |
-| `INTERNAL_ERROR` | Internal server error |
-| `SERVICE_UNAVAILABLE` | External service is unavailable |
-| `ADAPTER_ERROR` | Error in adapter communication |
-| `WEBHOOK_VALIDATION_ERROR` | Webhook signature validation failed |
-
-## API Versioning
-
-The MCP Server API is versioned in the URL path. The current version is `v1`:
-
-```
-/api/v1/...
-```
-
-Future versions will use different version prefixes:
-
-```
-/api/v2/...
-```
-
-## API Pagination
-
-All list endpoints support pagination using the following query parameters:
-
-- `page`: Page number (default: 1)
-- `per_page`: Items per page (default: 30, max: 100)
-
-Pagination information is included in the response:
-
-```json
-"pagination": {
-  "page": 1,
-  "per_page": 30,
-  "total": 45
-}
-```
-
-## Cross-Origin Resource Sharing (CORS)
-
-The API supports CORS for JavaScript clients. The CORS configuration can be customized in the server configuration.
