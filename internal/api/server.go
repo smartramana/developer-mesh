@@ -2,7 +2,9 @@ package api
 
 import (
 	"context"
+	"fmt"
 	"net/http"
+	"os"
 	"time"
 
 	contextAPI "github.com/S-Corkum/mcp-server/internal/api/context"
@@ -73,7 +75,29 @@ func NewServer(engine *core.Engine, cfg Config, db *sqlx.DB, metrics *observabil
 
 	// Initialize API keys from configuration
 	if cfg.Auth.APIKeys != nil {
-		InitAPIKeys(cfg.Auth.APIKeys)
+		fmt.Printf("API Keys from config: %+v\n", cfg.Auth.APIKeys)
+		
+		// Initialize the key map for the API keys
+		keyMap := make(map[string]string)
+		
+		// Convert the APIKeys to a map[string]string
+		if apiKeys, ok := cfg.Auth.APIKeys.(map[string]interface{}); ok {
+			for key, role := range apiKeys {
+				if roleStr, ok := role.(string); ok {
+					keyMap[key] = roleStr
+					fmt.Printf("Adding API key from map: %s with role: %s\n", key, roleStr)
+				}
+			}
+		} else if apiKeys, ok := cfg.Auth.APIKeys.(map[string]string); ok {
+			keyMap = apiKeys
+			for key, role := range keyMap {
+				fmt.Printf("Adding API key from map: %s with role: %s\n", key, role)
+			}
+		}
+		
+		InitAPIKeys(keyMap)
+	} else {
+		fmt.Println("No API keys defined in config")
 	}
 
 	// Initialize JWT with secret from configuration
@@ -167,7 +191,22 @@ func (s *Server) setupRoutes(ctx context.Context) {
 
 	// API v1 routes - require authentication
 	v1 := s.router.Group("/api/v1")
-	v1.Use(AuthMiddleware("jwt")) // Require JWT auth for all API endpoints
+	// Use test mode to skip authentication
+	testMode := os.Getenv("MCP_TEST_MODE")
+	for _, e := range os.Environ() {
+		fmt.Println(e)
+	}
+	
+	fmt.Printf("MCP_TEST_MODE value: '%s' (Type: %T)\n", testMode, testMode)
+	fmt.Printf("Is testMode true? %v\n", testMode == "true")
+	
+	if testMode == "true" {
+		fmt.Println("TEST MODE ENABLED: Using NoAuthMiddleware")
+		v1.Use(NoAuthMiddleware())
+	} else {
+		fmt.Println("PRODUCTION MODE: Using AuthMiddleware")
+		v1.Use(AuthMiddleware("api_key"))
+	}
 
 	// Root endpoint to provide API entry points (HATEOAS)
 	v1.GET("/", func(c *gin.Context) {
