@@ -1,12 +1,12 @@
 # MCP Server Quick Start Guide
 
-This guide will help you get started with MCP Server quickly, using the mock server for local development.
+This guide will help you get the MCP Server up and running quickly with Docker Compose for local development or testing.
 
 ## Prerequisites
 
-- Docker and Docker Compose installed
-- Git installed
-- Basic familiarity with DevOps tools (GitHub, Harness, SonarQube, Artifactory, Xray)
+- [Docker](https://docs.docker.com/get-docker/) and [Docker Compose](https://docs.docker.com/compose/install/) installed
+- [Git](https://git-scm.com/downloads) installed
+- GitHub account and personal access token (for GitHub integration)
 
 ## Step 1: Clone the Repository
 
@@ -15,151 +15,206 @@ git clone https://github.com/S-Corkum/mcp-server.git
 cd mcp-server
 ```
 
-## Step 2: Start with Docker Compose
+## Step 2: Configure the Environment
 
-The quickest way to get started is using Docker Compose, which will set up all required components:
+Create a `.env` file with your credentials:
+
+```bash
+# Copy example environment file
+cp .env.example .env
+
+# Edit the .env file with your credentials
+nano .env
+```
+
+At minimum, set these variables in your `.env` file:
+
+```
+# GitHub Configuration
+GITHUB_API_TOKEN=your_github_personal_access_token
+GITHUB_WEBHOOK_SECRET=your_webhook_secret
+
+# JWT Secret for API Authentication
+MCP_AUTH_JWT_SECRET=your_jwt_secret
+
+# API Keys (comma-separated list)
+MCP_AUTH_API_KEYS=key1,key2,key3
+```
+
+## Step 3: Start the Server
+
+Start all services using Docker Compose:
 
 ```bash
 docker-compose up -d
 ```
 
-This will start:
+This command will start:
 - MCP Server on port 8080
-- Mock server on port 8081 (for simulating external services)
 - PostgreSQL database
 - Redis cache
-- Prometheus for metrics
-- Grafana for dashboards
+- Prometheus (metrics)
+- Grafana (dashboards)
 
-**Note**: The default configuration uses container hostnames like "postgres" and "redis" for database and cache connections. If you plan to run the server locally outside of Docker, you'll need to update these in `configs/config.yaml` to use "localhost" instead.
-
-## Step 3: Verify Installation
-
-Check if all services are running:
+To check if all services are running:
 
 ```bash
 docker-compose ps
 ```
 
-Verify that the MCP Server is healthy:
+You should see all services with the "Up" status.
+
+## Step 4: Verify Installation
+
+Check if the MCP Server is running properly:
 
 ```bash
 curl http://localhost:8080/health
 ```
 
-You should see a response indicating that all components are healthy.
+You should receive a JSON response with the health status of all components:
 
-## Step 4: Access the Dashboard
+```json
+{
+  "status": "healthy",
+  "components": {
+    "engine": "healthy",
+    "database": "healthy",
+    "cache": "healthy",
+    "github": "healthy"
+  }
+}
+```
 
-Open Grafana in your browser:
+## Step 5: Access the API Documentation
+
+MCP Server includes Swagger UI for API documentation and testing. Open your browser and navigate to:
 
 ```
-http://localhost:3000
+http://localhost:8080/swagger/index.html
 ```
 
-Log in with the default credentials:
-- Username: admin
-- Password: admin
+You can explore the available API endpoints and test them directly from the UI.
 
-Navigate to the MCP Server dashboard to monitor the system.
+## Step 6: Create Your First Context
 
-## Step 5: Verify Webhook Endpoints
-
-The MCP Server provides webhook endpoints for various services. Currently, webhook requests require proper signature validation. To view the available webhook endpoints:
+Let's create a simple conversation context using the API:
 
 ```bash
-# List the server's registered routes
-docker-compose exec mcp-server wget -qO- http://localhost:8080/health
-```
-
-You should see that the following components are available:
-- GitHub
-- Harness
-- SonarQube
-- Artifactory
-- Xray
-
-To view the logs when webhooks are received:
-
-```bash
-docker-compose logs mcp-server
-```
-
-Note: When configuring actual webhooks from external services, make sure to use the correct webhook secrets as defined in your configuration.
-
-## Step 6: Use the API
-
-You can interact with the MCP Server API:
-
-```bash
-# Check the server health status
-curl http://localhost:8080/health
-
-# Create an MCP context (requires JWT authentication)
 curl -X POST \
-  -H "Authorization: Bearer YOUR_JWT_TOKEN" \
-  http://localhost:8080/api/v1/mcp/context
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer key1" \
+  -d '{
+    "agent_id": "test-agent",
+    "model_id": "gpt-4",
+    "max_tokens": 4000,
+    "content": [
+      {
+        "role": "system",
+        "content": "You are a DevOps assistant.",
+        "tokens": 6
+      }
+    ]
+  }' \
+  http://localhost:8080/api/v1/contexts
 ```
 
-Note: The API endpoints require proper authentication with JWT tokens. For testing purposes, you can use the health endpoint to verify the server is running properly.
+If successful, you'll receive a response with the created context:
+
+```json
+{
+  "id": "ctx_123456",
+  "message": "context created"
+}
+```
+
+Note the context ID (e.g., `ctx_123456`) for use in subsequent API calls.
+
+## Step 7: Execute a GitHub Action
+
+Now, let's execute a GitHub action using the MCP Server:
+
+```bash
+curl -X POST \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer key1" \
+  -d '{
+    "owner": "your-username",
+    "repo": "your-repo",
+    "title": "Test Issue",
+    "body": "This is a test issue created via MCP Server"
+  }' \
+  "http://localhost:8080/api/v1/tools/github/actions/create_issue?context_id=ctx_123456"
+```
+
+Replace `ctx_123456` with your actual context ID, and `your-username` and `your-repo` with your GitHub username and repository name.
+
+If successful, you'll receive a response with the result of the action.
 
 ## Next Steps
 
-1. Configure real external services in `configs/config.yaml`
-2. Set up webhook endpoints in your external services to point to your MCP Server
-3. Develop custom integrations or workflows
-4. Explore the [API Reference](api-reference.md) for all available endpoints
-5. Read the [Configuration Guide](configuration-guide.md) for detailed configuration options
+Congratulations! You've set up and tested the MCP Server. Here's what to explore next:
 
-## Development Setup
+### Integration with AI Agents
 
-If you want to develop with the MCP Server:
+For integrating with AI agents, check out:
+- [AI Agent Integration Guide](guides/ai-agent-integration-guide.md)
+- [Complete AI Agent Example](examples/complete-ai-agent-example.md)
 
-```bash
-# Build the server and mock server
-make build
-make mockserver-build
+### Production Setup
 
-# Set up PostgreSQL and Redis in Docker, then run both servers for local development
-make local-dev-setup
-```
+For production deployment, see:
+- [Deployment Guide](deployment-guide.md)
+- [AWS Integration](aws/aws-irsa-setup.md)
+- [Kubernetes Deployment](kubernetes-deployment.md)
 
-Before running `local-dev-setup`, ensure that your `configs/config.yaml` is properly configured:
+### Development and Contribution
 
-```yaml
-# Database Configuration
-database:
-  host: "localhost"
-  # ...
-  dsn: "postgres://postgres:postgres@localhost:5432/mcp?sslmode=disable"
-
-# Cache Configuration
-cache:
-  address: "localhost:6379"
-  # ...
-
-# GitHub Configuration (ensure mock mode is enabled for local development)
-github:
-  api_token: "${GITHUB_API_TOKEN}"
-  webhook_secret: "${GITHUB_WEBHOOK_SECRET}"
-  # ... other settings ...
-  mock_responses: ${GITHUB_MOCK_RESPONSES:-false}
-  mock_url: "${GITHUB_MOCK_URL:-http://mockserver:8081/mock-github}"
-```
-
-Make sure to set the appropriate environment variables or update the config file directly:
-
-```bash
-export GITHUB_MOCK_RESPONSES=true
-export GITHUB_MOCK_URL=http://localhost:8081/mock-github
-```
+To contribute to the project:
+- [Development Guide](development-guide.md)
+- [System Architecture](system-architecture.md)
+- [Contributing Guide](contributing-guide.md)
 
 ## Troubleshooting
 
-If you encounter issues:
+If you encounter any issues:
 
-1. Check the logs: `docker-compose logs mcp-server`
-2. Verify all services are running: `docker-compose ps`
-3. Check the health endpoint: `curl http://localhost:8080/health`
-4. Restart the services: `docker-compose restart`
-5. Refer to the [Troubleshooting Guide](troubleshooting-guide.md) for more help
+1. **Check logs**:
+   ```bash
+   docker-compose logs mcp-server
+   ```
+
+2. **Verify services are running**:
+   ```bash
+   docker-compose ps
+   ```
+
+3. **Restart services**:
+   ```bash
+   docker-compose restart
+   ```
+
+4. **Clean up and restart**:
+   ```bash
+   docker-compose down
+   docker-compose up -d
+   ```
+
+5. **Reference the comprehensive [Troubleshooting Guide](troubleshooting-guide.md)**
+
+## Development Mode with Mock Responses
+
+For development without real GitHub integration:
+
+1. Edit your `.env` file to enable mock mode:
+   ```
+   GITHUB_MOCK_RESPONSES=true
+   GITHUB_MOCK_URL=http://mockserver:8081/mock-github
+   ```
+
+2. Start both the MCP Server and the mock server:
+   ```bash
+   docker-compose up -d
+   ```
+
+This setup allows you to test the API without making real GitHub API calls.

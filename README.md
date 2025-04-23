@@ -68,7 +68,7 @@ For detailed documentation, please see the [Documentation Index](docs/README.md)
 - [Quick Start Guide](docs/quick-start-guide.md) - Get up and running quickly
 - [Installation Guide](docs/installation-guide.md) - Detailed installation instructions
 - [Configuration Guide](docs/configuration-guide.md) - Configure the server for your environment
-- [AI Agent Integration](docs/guides/ai-agent-integration.md) - Integrate AI agents with the MCP Server
+- [AI Agent Integration](docs/guides/ai-agent-integration-guide.md) - Integrate AI agents with the MCP Server
 - [API Reference](docs/api-reference.md) - Full API reference documentation
 - [System Architecture](docs/system-architecture.md) - Understand the system architecture
 
