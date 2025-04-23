@@ -8,7 +8,7 @@ import (
 	. "github.com/onsi/gomega"
 
 	"github.com/S-Corkum/mcp-server/test/functional/client"
-	"github.com/S-Corkum/mcp-server/internal/adapters/errors"
+	functional_test "github.com/S-Corkum/mcp-server/test/functional"
 )
 
 var _ = Describe("GitHub Adapter", func() {
@@ -19,7 +19,7 @@ var _ = Describe("GitHub Adapter", func() {
 
 	BeforeEach(func() {
 		// Create a new MCP client for each test
-		mcpClient = client.NewMCPClient(ServerURL, APIKey)
+		mcpClient = client.NewMCPClient(functional_test.ServerURL, functional_test.APIKey)
 		
 		// Create a context with timeout for requests
 		ctx, cancel = context.WithTimeout(context.Background(), 10*time.Second)

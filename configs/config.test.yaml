@@ -37,7 +37,7 @@ cache:
 
 auth:
   apiKeys:
-    - key: "${API_KEY}"
+    - key: "test-admin-api-key"
       name: "Test Admin API Key"
       role: "admin"
   jwtSecret: "test-jwt-secret-for-functional-tests"

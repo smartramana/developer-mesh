@@ -2,12 +2,14 @@ package adapters_test
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
 	"github.com/S-Corkum/mcp-server/test/functional/client"
+	functional_test "github.com/S-Corkum/mcp-server/test/functional"
 )
 
 var _ = Describe("Cache Integration", func() {
@@ -18,7 +20,7 @@ var _ = Describe("Cache Integration", func() {
 
 	BeforeEach(func() {
 		// Create a new MCP client for each test
-		mcpClient = client.NewMCPClient(ServerURL, APIKey)
+		mcpClient = client.NewMCPClient(functional_test.ServerURL, functional_test.APIKey)
 		
 		// Create a context with timeout for requests
 		ctx, cancel = context.WithTimeout(context.Background(), 10*time.Second)
@@ -183,7 +185,7 @@ var _ = Describe("Cache Integration", func() {
 				path := "/api/v1/contexts/" + createdContextID + "/items"
 				payload := map[string]interface{}{
 					"role":    "user",
-					"content": "Concurrent operation test message " + string(i+1),
+					"content": "Concurrent operation test message " + fmt.Sprint(i+1),
 				}
 				
 				resp, err := mcpClient.Post(ctx, path, payload)

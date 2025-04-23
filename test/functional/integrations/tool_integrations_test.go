@@ -8,6 +8,7 @@ import (
 	. "github.com/onsi/gomega"
 
 	"github.com/S-Corkum/mcp-server/test/functional/client"
+	functional_test "github.com/S-Corkum/mcp-server/test/functional"
 )
 
 var _ = Describe("Tool Integrations", func() {
@@ -17,7 +18,7 @@ var _ = Describe("Tool Integrations", func() {
 
 	BeforeEach(func() {
 		// Create a new MCP client for each test
-		mcpClient = client.NewMCPClient(ServerURL, APIKey)
+		mcpClient = client.NewMCPClient(functional_test.ServerURL, functional_test.APIKey)
 		
 		// Create a context with timeout for requests
 		ctx, cancel = context.WithTimeout(context.Background(), 10*time.Second)
@@ -84,7 +85,7 @@ var _ = Describe("Tool Integrations", func() {
 
 		It("should handle authentication errors gracefully", func() {
 			// Create client with invalid API key
-			invalidClient := client.NewMCPClient(ServerURL, "invalid-api-key")
+			invalidClient := client.NewMCPClient(functional_test.ServerURL, "invalid-api-key")
 			
 			// Try to access GitHub actions
 			path := "/api/v1/tools/github/actions"

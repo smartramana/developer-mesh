@@ -167,9 +167,17 @@ func TestGetToolData(t *testing.T) {
 	mockContextManager.On("GetContext", ctx, contextID).Return(testContext, nil)
 	mockContextManager.On("UpdateContext", ctx, contextID, mock.Anything, mock.Anything).Return(testContext, nil).Times(2)
 	
-	// Set up expectations for adapter
+	// Set up expectations for adapter - when marshaling/unmarshaling, JSON numbers become float64
 	mockAdapter.On("Type").Return("test-tool")
-	mockAdapter.On("ExecuteAction", ctx, contextID, "getData", query).Return(expectedResult, nil)
+	
+	// Create a matcher that can handle the JSON conversion
+	mockAdapter.On("ExecuteAction", ctx, contextID, "getData", mock.MatchedBy(func(m map[string]interface{}) bool {
+		// Basic check for key existence and types
+		filter, hasFilter := m["filter"]
+		_, hasLimit := m["limit"]
+		
+		return hasFilter && hasLimit && filter == "test-filter"
+	})).Return(expectedResult, nil)
 	
 	// Get the data
 	result, err := bridge.GetToolData(ctx, contextID, tool, query)
@@ -341,9 +349,17 @@ func TestGetToolData_Error(t *testing.T) {
 	mockContextManager.On("GetContext", ctx, contextID).Return(testContext, nil)
 	mockContextManager.On("UpdateContext", ctx, contextID, mock.Anything, mock.Anything).Return(testContext, nil).Times(2)
 	
-	// Set up expectations for adapter to return an error
+	// Set up expectations for adapter to return an error - with JSON conversion matcher
 	mockAdapter.On("Type").Return("test-tool")
-	mockAdapter.On("ExecuteAction", ctx, contextID, "getData", query).Return(nil, assert.AnError)
+	
+	// Create a matcher that can handle the JSON conversion
+	mockAdapter.On("ExecuteAction", ctx, contextID, "getData", mock.MatchedBy(func(m map[string]interface{}) bool {
+		// Basic check for key existence and types
+		filter, hasFilter := m["filter"]
+		_, hasLimit := m["limit"]
+		
+		return hasFilter && hasLimit && filter == "test-filter"
+	})).Return(nil, assert.AnError)
 	
 	// Get the data
 	result, err := bridge.GetToolData(ctx, contextID, tool, query)

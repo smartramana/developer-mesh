@@ -3,7 +3,6 @@ package adapters_test
 import (
 	"context"
 	"encoding/json"
-	"fmt"
 	"io"
 	"net/http"
 	"time"
@@ -12,6 +11,7 @@ import (
 	. "github.com/onsi/gomega"
 
 	"github.com/S-Corkum/mcp-server/test/functional/client"
+	functional_test "github.com/S-Corkum/mcp-server/test/functional"
 )
 
 var _ = Describe("ElastiCache Integration", func() {
@@ -21,7 +21,7 @@ var _ = Describe("ElastiCache Integration", func() {
 
 	BeforeEach(func() {
 		// Create a new MCP client for each test
-		mcpClient = client.NewMCPClient(ServerURL, APIKey)
+		mcpClient = client.NewMCPClient(functional_test.ServerURL, functional_test.APIKey)
 		
 		// Create a context with timeout for requests
 		ctx, cancel = context.WithTimeout(context.Background(), 10*time.Second)

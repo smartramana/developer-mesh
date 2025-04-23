@@ -20,6 +20,7 @@ import (
 	"github.com/S-Corkum/mcp-server/internal/events"
 	"github.com/S-Corkum/mcp-server/internal/observability"
 	"github.com/S-Corkum/mcp-server/pkg/mcp"
+	localmocks "github.com/S-Corkum/mcp-server/internal/adapters/providers/github/mocks"
 )
 
 // Test constant values
@@ -32,11 +33,11 @@ const (
 )
 
 // Create an alias to simplify code
-type TestEventBus = mocks.MockEventBus
+type TestEventBus = localmocks.MockEventBus
 
 // NewTestEventBus creates a new mock event bus for tests
 func NewTestEventBus() *TestEventBus {
-	return mocks.NewMockEventBus()
+	return localmocks.NewMockEventBus()
 }
 
 // Helper functions for test setup and utilities
