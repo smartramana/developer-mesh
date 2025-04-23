@@ -52,7 +52,8 @@ func (c *MCPClient) DoRequest(ctx context.Context, method, path string, body int
 	// Set headers
 	req.Header.Set("Content-Type", "application/json")
 	if c.APIKey != "" {
-		req.Header.Set("Authorization", "Bearer "+c.APIKey)
+		// Send API key directly without Bearer prefix
+		req.Header.Set("Authorization", c.APIKey)
 	}
 
 	// Send request
@@ -64,6 +65,7 @@ func (c *MCPClient) DoRequest(ctx context.Context, method, path string, body int
 	return resp, nil
 }
 
+// [Rest of the file unchanged]
 // Get performs a GET request to the specified path
 func (c *MCPClient) Get(ctx context.Context, path string) (*http.Response, error) {
 	return c.DoRequest(ctx, http.MethodGet, path, nil)

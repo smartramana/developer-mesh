@@ -37,8 +37,11 @@ while [[ $# -gt 0 ]]; do
   esac
 done
 
-# Set current directory to project root
-cd "$(dirname "$0")"
+# Get the script directory
+SCRIPT_DIR="$(dirname "$0")"
+
+# Navigate to project root (two directories up from script location)
+cd "$SCRIPT_DIR/../.."
 PROJECT_ROOT=$(pwd)
 
 echo "Starting functional tests from $PROJECT_ROOT"
@@ -66,7 +69,7 @@ echo "Using Ginkgo at: $GINKGO_PATH"
 cleanup() {
     if [ $KEEP_UP -eq 0 ]; then
         echo "Cleaning up test environment..."
-        docker-compose -f docker-compose.test.yml down -v
+        docker-compose -f $PROJECT_ROOT/docker-compose.test.yml down -v
     else
         echo "Keeping containers up as requested. Use the following command to stop them:"
         echo "    docker-compose -f docker-compose.test.yml down -v"
@@ -78,9 +81,9 @@ trap cleanup EXIT
 
 # Start the test environment
 echo "Starting test environment with Docker Compose..."
-docker-compose -f docker-compose.test.yml down -v --remove-orphans
-docker-compose -f docker-compose.test.yml build
-docker-compose -f docker-compose.test.yml up -d
+docker-compose -f $PROJECT_ROOT/docker-compose.test.yml down -v --remove-orphans
+docker-compose -f $PROJECT_ROOT/docker-compose.test.yml build
+docker-compose -f $PROJECT_ROOT/docker-compose.test.yml up -d
 
 # Wait for all services to be healthy
 echo "Waiting for all services to be healthy..."
@@ -91,7 +94,7 @@ echo "Checking PostgreSQL..."
 max_attempts=20
 attempt=1
 while [ $attempt -le $max_attempts ]; do
-    if docker-compose -f docker-compose.test.yml exec postgres pg_isready -U postgres > /dev/null 2>&1; then
+    if docker-compose -f $PROJECT_ROOT/docker-compose.test.yml exec postgres pg_isready -U postgres > /dev/null 2>&1; then
         echo "PostgreSQL is ready!"
         break
     fi
@@ -110,7 +113,7 @@ echo "Checking MCP Server..."
 max_attempts=20
 attempt=1
 while [ $attempt -le $max_attempts ]; do
-    if docker-compose -f docker-compose.test.yml exec -T mcp-server wget -q -O- http://localhost:8080/health > /dev/null 2>&1; then
+    if docker-compose -f $PROJECT_ROOT/docker-compose.test.yml exec -T mcp-server wget -q -O- http://localhost:8080/health > /dev/null 2>&1; then
         echo "MCP Server is ready!"
         break
     fi

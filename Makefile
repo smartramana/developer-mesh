@@ -1,4 +1,4 @@
-.PHONY: all build clean test test-coverage test-coverage-html test-integration test-fuzz docker-build docker-run mock mockserver-build mockserver-run local-dev-setup test-github migrate migrate-up migrate-down migrate-create migrate-version migrate-force
+.PHONY: all build clean test test-coverage test-coverage-html test-integration test-fuzz test-functional docker-build docker-run mock mockserver-build mockserver-run local-dev-setup test-github migrate migrate-up migrate-down migrate-create migrate-version migrate-force
 
 # Default Go parameters
 GOCMD=/usr/local/go/bin/go
@@ -42,6 +42,18 @@ test-github:
 
 test-fuzz:
 	$(GOTEST) -fuzz=FuzzTruncateOldestFirst -fuzztime=30s ./internal/core
+
+test-functional:
+	cd $(shell pwd) && export MCP_TEST_MODE=true && ./test/scripts/run_functional_tests_fixed.sh
+
+# Run only specific functional tests
+# Usage: make test-functional-focus FOCUS="Health Endpoint"
+test-functional-focus:
+	cd $(shell pwd) && export MCP_TEST_MODE=true && ./test/scripts/run_functional_tests_fixed.sh --focus "$(FOCUS)"
+
+# Run functional tests with verbose output
+test-functional-verbose:
+	cd $(shell pwd) && export MCP_TEST_MODE=true && ./test/scripts/run_functional_tests_fixed.sh --verbose
 
 deps:
 	$(GOMOD) download
