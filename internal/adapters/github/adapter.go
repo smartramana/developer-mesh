@@ -16,6 +16,7 @@ import (
 	"github.com/S-Corkum/mcp-server/internal/adapters/resilience"
 	"github.com/S-Corkum/mcp-server/internal/observability"
 	"github.com/S-Corkum/mcp-server/pkg/mcp"
+
 )
 
 // SimpleRateLimiter implements a simple rate limiter with the RateLimiter interface
@@ -1675,7 +1676,13 @@ func (a *GitHubAdapter) registerWebhookHandler(ctx context.Context, contextID st
 		}
 
 		// Publish event to the event bus using the standard interface
-		a.eventBus.Publish(ctx, "github.webhook."+event.Type, eventData)
+		e := &mcp.Event{
+			Type:      "github.webhook." + event.Type,
+			Timestamp: time.Now(),
+			Data:      eventData,
+			Source:    "github-adapter",
+		}
+		a.eventBus.Publish(ctx, e)
 
 		return nil
 	}

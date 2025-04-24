@@ -5,10 +5,11 @@ package github
 import (
 	"context"
 	"fmt"
-	
+
 	"github.com/S-Corkum/mcp-server/internal/adapters/core"
 	githubAdapter "github.com/S-Corkum/mcp-server/internal/adapters/github"
 	"github.com/S-Corkum/mcp-server/internal/observability"
+	"github.com/S-Corkum/mcp-server/internal/events"
 )
 
 // Use a type alias for interface{} to make it clear this is a dummy bus
@@ -61,9 +62,12 @@ func RegisterAdapter(factory *core.DefaultAdapterFactory, eventBus interface{},
 			}
 		}
 		
-		// Create adapter
-		// Pass the eventBus directly as an interface{} and let the adapter handle it
-		adapter, err := githubAdapter.New(githubConfig, logger, metricsClient, eventBus)
+		// Assert eventBus to events.EventBus
+		typedEventBus, ok := eventBus.(events.EventBus)
+		if !ok {
+			return nil, fmt.Errorf("eventBus does not implement events.EventBus")
+		}
+		adapter, err := githubAdapter.New(githubConfig, logger, metricsClient, typedEventBus)
 		if err != nil {
 			return nil, fmt.Errorf("failed to create GitHub adapter: %w", err)
 		}
