@@ -200,13 +200,8 @@ func (s *Server) setupRoutes(ctx context.Context) {
 	fmt.Printf("MCP_TEST_MODE value: '%s' (Type: %T)\n", testMode, testMode)
 	fmt.Printf("Is testMode true? %v\n", testMode == "true")
 	
-	if testMode == "true" {
-		fmt.Println("TEST MODE ENABLED: Using NoAuthMiddleware")
-		v1.Use(NoAuthMiddleware())
-	} else {
-		fmt.Println("PRODUCTION MODE: Using AuthMiddleware")
-		v1.Use(AuthMiddleware("api_key"))
-	}
+	fmt.Println("Using AuthMiddleware for /api/v1 routes (test mode does not bypass auth in functional tests)")
+	v1.Use(AuthMiddleware("api_key"))
 
 	// Root endpoint to provide API entry points (HATEOAS)
 	v1.GET("/", func(c *gin.Context) {
