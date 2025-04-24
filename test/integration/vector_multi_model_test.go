@@ -1,3 +1,6 @@
+//go:build integration
+// +build integration
+
 package integration
 
 import (
@@ -12,9 +15,6 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
-
-//go:build integration
-// +build integration
 
 // TestMultiModelEmbeddings tests the storage and retrieval of embeddings from multiple models
 // with different vector dimensions

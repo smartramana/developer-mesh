@@ -97,10 +97,10 @@ func NewRateLimiterStorage(config RateLimiterConfig) *RateLimiterStorage {
 		config:   config,
 		done:     make(chan struct{}),
 	}
-	
+
 	// Start a background cleanup job
 	go storage.cleanupTask()
-	
+
 	return storage
 }
 
@@ -115,11 +115,11 @@ func (s *RateLimiterStorage) GetLimiter(key string) *rate.Limiter {
 		}
 	}
 	s.mu.RUnlock()
-	
+
 	// Need to create or update limiter
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	
+
 	// Check again in case it was created between locks
 	if limiter, exists := s.limiters[key]; exists {
 		if time.Now().Before(s.expiry[key]) {
@@ -142,7 +142,7 @@ func (s *RateLimiterStorage) GetLimiter(key string) *rate.Limiter {
 func (s *RateLimiterStorage) cleanupTask() {
 	ticker := time.NewTicker(5 * time.Minute)
 	defer ticker.Stop()
-	
+
 	for {
 		select {
 		case <-ticker.C:
@@ -157,7 +157,7 @@ func (s *RateLimiterStorage) cleanupTask() {
 func (s *RateLimiterStorage) cleanup() {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	
+
 	now := time.Now()
 	for key, exp := range s.expiry {
 		if now.After(exp) {
@@ -175,7 +175,7 @@ func (s *RateLimiterStorage) Close() {
 // RateLimiter middleware implements rate limiting
 func RateLimiter(config RateLimiterConfig) gin.HandlerFunc {
 	storage := NewRateLimiterStorage(config)
-	
+
 	// Add to server shutdown hooks to properly close storage
 	// This is a placeholder - in a real app, this should be added to shutdown logic
 	shutdownHooks = append(shutdownHooks, func() {
@@ -184,7 +184,7 @@ func RateLimiter(config RateLimiterConfig) gin.HandlerFunc {
 
 	return func(c *gin.Context) {
 		var clientID string
-		
+
 		// Get client identifier - prefer authenticated user ID if available
 		if userID, exists := c.Get("user_id"); exists && userID != nil {
 			// Use authenticated user ID if available
@@ -203,7 +203,7 @@ func RateLimiter(config RateLimiterConfig) gin.HandlerFunc {
 		// Check if request allowed
 		if !limiter.Allow() {
 			c.AbortWithStatusJSON(http.StatusTooManyRequests, gin.H{
-				"error": "Rate limit exceeded",
+				"error":       "Rate limit exceeded",
 				"retry_after": "60", // Add retry information
 			})
 			return
@@ -295,7 +295,7 @@ func CachingMiddleware() gin.HandlerFunc {
 				// Default cache policy for GET requests
 				// Define different cache policies based on path
 				path := c.Request.URL.Path
-				
+
 				// Schema and documentation can be cached longer
 				if strings.Contains(path, "/swagger") {
 					c.Header("Cache-Control", "public, max-age=86400") // 1 day
@@ -311,7 +311,7 @@ func CachingMiddleware() gin.HandlerFunc {
 				// In a real implementation, this would be a hash of the response content
 				etag := fmt.Sprintf("W/\"%d-%s\"", c.Writer.Size(), time.Now().UTC().Format(http.TimeFormat))
 				c.Header("ETag", etag)
-				
+
 				// Add Last-Modified header - in a real implementation this would come from the resource
 				c.Header("Last-Modified", time.Now().UTC().Format(http.TimeFormat))
 			}
@@ -324,7 +324,7 @@ func CORSMiddleware(corsConfig CORSConfig) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		// Get origin from request
 		origin := c.Request.Header.Get("Origin")
-		
+
 		// Use configuration if available, otherwise default to more restrictive list
 		allowedOrigins := corsConfig.AllowedOrigins
 		if len(allowedOrigins) == 0 {
@@ -333,7 +333,7 @@ func CORSMiddleware(corsConfig CORSConfig) gin.HandlerFunc {
 				"http://localhost:3000", // For development
 			}
 		}
-		
+
 		// Check if origin is allowed
 		allowed := false
 		for _, allowedOrigin := range allowedOrigins {
@@ -350,7 +350,7 @@ func CORSMiddleware(corsConfig CORSConfig) gin.HandlerFunc {
 				break
 			}
 		}
-		
+
 		// Only set additional CORS headers if origin is allowed
 		if allowed {
 			// Set more restrictive CORS headers
@@ -385,13 +385,14 @@ func NoAuthMiddleware() gin.HandlerFunc {
 // AuthMiddleware authenticates API requests
 func AuthMiddleware(authType string) gin.HandlerFunc {
 	return func(c *gin.Context) {
-		// Check if we're in test mode
-		if os.Getenv("MCP_TEST_MODE") == "true" {
-			fmt.Println("Test mode active in AuthMiddleware, allowing request")
+		// Check if we're in test mode with proper flag
+		testMode := os.Getenv("MCP_TEST_MODE")
+		if testMode == "true" && c.Request.Header.Get("X-Test-Bypass-Auth") == "true" {
+			fmt.Println("Test mode with bypass header active, allowing request")
 			c.Next()
 			return
 		}
-		
+
 		// Get authentication token from header
 		authHeader := c.GetHeader("Authorization")
 		fmt.Printf("Auth header: %s\n", authHeader)
@@ -410,7 +411,7 @@ func AuthMiddleware(authType string) gin.HandlerFunc {
 				authHeader = authHeader[7:]
 				fmt.Printf("Stripped Bearer prefix, now using: %s\n", authHeader)
 			}
-			
+
 			// Validate API key
 			if !validateAPIKey(authHeader) {
 				c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "Invalid API key"})
@@ -424,10 +425,10 @@ func AuthMiddleware(authType string) gin.HandlerFunc {
 				c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "Invalid authorization format"})
 				return
 			}
-			
+
 			// Extract the JWT token
 			tokenString := authHeader[7:]
-			
+
 			// Validate JWT token
 			if !validateJWT(tokenString) {
 				c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "Invalid or expired JWT token"})
@@ -453,17 +454,17 @@ var apiKeyStorage struct {
 func InitAPIKeys(keyMap map[string]string) {
 	apiKeyStorage.mu.Lock()
 	defer apiKeyStorage.mu.Unlock()
-	
+
 	// Extract keys from the map, ignoring the roles/descriptions
 	keys := make([]string, 0, len(keyMap))
 	for key, role := range keyMap {
 		keys = append(keys, key)
 		fmt.Printf("Initializing API key: %s with role: %s\n", key, role)
 	}
-	
+
 	apiKeyStorage.keys = make([]string, len(keys))
 	copy(apiKeyStorage.keys, keys)
-	
+
 	fmt.Printf("Initialized %d API keys\n", len(keys))
 }
 
@@ -473,22 +474,22 @@ func validateAPIKey(key string) bool {
 		fmt.Println("API key is empty")
 		return false
 	}
-	
+
 	// In test mode, just accept the test-admin-api-key directly
 	// This is a temporary fix for the functional tests
 	if key == "test-admin-api-key" {
 		fmt.Println("Test API key matched directly")
 		return true
 	}
-	
+
 	fmt.Printf("Validating API key: %s\n", key)
-	
+
 	// Use read lock to protect concurrent access
 	apiKeyStorage.mu.RLock()
 	defer apiKeyStorage.mu.RUnlock()
-	
+
 	fmt.Printf("Stored API keys: %v\n", apiKeyStorage.keys)
-	
+
 	// Check if the API key exists in the authorized keys
 	for _, validKey := range apiKeyStorage.keys {
 		if key == validKey {
@@ -496,7 +497,7 @@ func validateAPIKey(key string) bool {
 			return true
 		}
 	}
-	
+
 	fmt.Println("No matching API key found")
 	return false
 }
@@ -516,46 +517,46 @@ func validateJWT(tokenString string) bool {
 	if tokenString == "" || len(jwtSecret) == 0 {
 		return false
 	}
-	
+
 	// Parse and validate the token
 	// This is a placeholder - in a real implementation, you would:
 	// 1. Parse the JWT token (using a library like github.com/golang-jwt/jwt)
 	// 2. Validate the signature using the secret
 	// 3. Check if the token has expired
 	// 4. Verify any required claims (issuer, audience, etc.)
-	
+
 	// Example JWT validation code (commented to avoid adding dependencies):
 	/*
-	token, err := jwt.Parse(tokenString, func(token *jwt.Token) (interface{}, error) {
-		// Validate the signing method
-		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
-			return nil, fmt.Errorf("unexpected signing method: %v", token.Header["alg"])
-		}
-		return jwtSecret, nil
-	})
-	
-	if err != nil {
-		return false
-	}
-	
-	// Check if token is valid
-	if claims, ok := token.Claims.(jwt.MapClaims); ok && token.Valid {
-		// Verify expiration
-		exp, ok := claims["exp"].(float64)
-		if !ok {
+		token, err := jwt.Parse(tokenString, func(token *jwt.Token) (interface{}, error) {
+			// Validate the signing method
+			if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
+				return nil, fmt.Errorf("unexpected signing method: %v", token.Header["alg"])
+			}
+			return jwtSecret, nil
+		})
+
+		if err != nil {
 			return false
 		}
-		
-		if time.Now().Unix() > int64(exp) {
-			return false
+
+		// Check if token is valid
+		if claims, ok := token.Claims.(jwt.MapClaims); ok && token.Valid {
+			// Verify expiration
+			exp, ok := claims["exp"].(float64)
+			if !ok {
+				return false
+			}
+
+			if time.Now().Unix() > int64(exp) {
+				return false
+			}
+
+			// Additional claims validation can be added here
+
+			return true
 		}
-		
-		// Additional claims validation can be added here
-		
-		return true
-	}
 	*/
-	
+
 	// Placeholder return - replace with actual implementation
 	return true
 }

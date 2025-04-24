@@ -73,7 +73,7 @@ type GitHubAdapter struct {
 	authFactory     *auth.AuthProviderFactory
 	metricsClient   *observability.MetricsClient
 	logger          *observability.Logger
-	eventBus        interface{} // Changed to interface{} to support any event bus implementation
+	eventBus        events.EventBus // Use the proper EventBus interface
 	webhookManager  *wh.Manager
 	webhookValidator *wh.Validator
 	webhookRetryManager *wh.RetryManager
@@ -85,7 +85,7 @@ type GitHubAdapter struct {
 }
 
 // New creates a new GitHub adapter
-func New(config *Config, logger *observability.Logger, metricsClient *observability.MetricsClient, eventBus interface{}) (*GitHubAdapter, error) {
+func New(config *Config, logger *observability.Logger, metricsClient *observability.MetricsClient, eventBus events.EventBus) (*GitHubAdapter, error) {
 	if config == nil {
 		return nil, fmt.Errorf("config cannot be nil")
 	}
@@ -175,17 +175,12 @@ func New(config *Config, logger *observability.Logger, metricsClient *observabil
 		// Create webhook queue for asynchronous processing
 		webhookQueue = make(chan WebhookEvent, config.WebhookQueueSize)
 
-		// Create a compatible event bus pointer - this is a temporary solution 
-		// until we update webhook manager to use interface instead of pointer
-		// A nil pointer is acceptable since webhookManager doesn't actually use the eventBus
-		var compatEventBus *events.EventBus = nil
-		
-		// Create webhook manager
-		webhookManager = wh.NewManager(compatEventBus, logger)
+		// Create webhook manager with an interface wrapper
+		webhookManager = wh.NewManager(eventBus, logger)
 
 		// Register default webhook handlers if configured
 		if config.AutoCreateWebhookHandlers {
-			registerDefaultWebhookHandlers(webhookManager, compatEventBus, logger)
+			registerDefaultWebhookHandlers(webhookManager, nil, logger)
 		}
 
 		// Create webhook validator
@@ -251,7 +246,7 @@ func New(config *Config, logger *observability.Logger, metricsClient *observabil
 
 
 // registerDefaultWebhookHandlers registers default webhook handlers
-func registerDefaultWebhookHandlers(manager *wh.Manager, eventBus *events.EventBus, logger *observability.Logger) {
+func registerDefaultWebhookHandlers(manager *wh.Manager, eventBus interface{}, logger *observability.Logger) {
 	handlers := wh.DefaultEventHandlers()
 
 	for eventType, handler := range handlers {
@@ -1679,18 +1674,8 @@ func (a *GitHubAdapter) registerWebhookHandler(ctx context.Context, contextID st
 			eventData["payload"] = string(event.RawPayload)
 		}
 
-		// Create event
-		eventBusEvent := &mcp.Event{
-			Type: "github.webhook." + event.Type,
-			Data: eventData,
-			Source: "github-adapter",
-			Timestamp: time.Now(),
-		}
-
-		// Publish event if eventBus supports it
-		if typedEventBus, ok := a.eventBus.(interface{ Publish(context.Context, *mcp.Event) error }); ok {
-			typedEventBus.Publish(ctx, eventBusEvent)
-		}
+		// Publish event to the event bus using the standard interface
+		a.eventBus.Publish(ctx, "github.webhook."+event.Type, eventData)
 
 		return nil
 	}

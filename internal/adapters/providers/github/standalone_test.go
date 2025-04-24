@@ -133,7 +133,7 @@ func TestGitHubAdapterStandalone(t *testing.T) {
 		adapter, err := NewAdapter(config, eventBus, metrics, logger)
 		assert.NoError(t, err, "Adapter creation should succeed")
 		require.NotNil(t, adapter, "Adapter should not be nil")
-		assert.Equal(t, adapterType, adapter.AdapterType, "Adapter type should be correct")
+		assert.Equal(t, "github", adapter.Type(), "Adapter type should be correct")
 		
 		// Verify log messages
 		assert.Contains(t, logger.InfoLogs, "GitHub adapter created", 

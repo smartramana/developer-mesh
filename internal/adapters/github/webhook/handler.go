@@ -101,13 +101,13 @@ type Handler struct {
 // Manager manages webhook event handlers
 type Manager struct {
 	handlers     map[string]*Handler
-	eventBus     *events.EventBus
+	eventBus     interface{} // Changed to generic interface
 	logger       *observability.Logger
 	mu           sync.RWMutex
 }
 
 // NewManager creates a new webhook handler manager
-func NewManager(eventBus *events.EventBus, logger *observability.Logger) *Manager {
+func NewManager(eventBus interface{}, logger *observability.Logger) *Manager {
 	return &Manager{
 		handlers: make(map[string]*Handler),
 		eventBus: eventBus,
@@ -209,34 +209,30 @@ func (m *Manager) ProcessEvent(ctx context.Context, event Event) error {
 				"error":      err.Error(),
 			})
 			
-			// Publish error event
-			errEvent := &mcp.Event{
-				Type: "github.webhook.error",
-				Source: "github",
-				Timestamp: time.Now(),
-				Data: map[string]interface{}{
+			// Publish error event if eventBus supports the interface
+			if typedEventBus, ok := m.eventBus.(interface{ Publish(context.Context, string, map[string]interface{}) error }); ok {
+				typedEventBus.Publish(context.Background(), "github.webhook.error", map[string]interface{}{
 					"eventType":  event.Type,
 					"deliveryID": event.DeliveryID,
 					"handlerID":  handler.ID,
 					"error":      err.Error(),
-				},
+					"source":     "github",
+					"timestamp":  time.Now().Format(time.RFC3339),
+				})
 			}
-			m.eventBus.Publish(context.Background(), errEvent)
 			
 			// Continue processing with other handlers
 		} else {
-			// Publish success event
-			successEvent := &mcp.Event{
-				Type: "github.webhook.success",
-				Source: "github",
-				Timestamp: time.Now(),
-				Data: map[string]interface{}{
+			// Publish success event if eventBus supports the interface
+			if typedEventBus, ok := m.eventBus.(interface{ Publish(context.Context, string, map[string]interface{}) error }); ok {
+				typedEventBus.Publish(context.Background(), "github.webhook.success", map[string]interface{}{
 					"eventType":  event.Type,
 					"deliveryID": event.DeliveryID,
 					"handlerID":  handler.ID,
-				},
+					"source":     "github",
+					"timestamp":  time.Now().Format(time.RFC3339),
+				})
 			}
-			m.eventBus.Publish(context.Background(), successEvent)
 		}
 	}
 	

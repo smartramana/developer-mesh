@@ -1,15 +1,29 @@
-package api
+package testMiddleware
 
 import (
 	"fmt"
 	"net/http"
+	"testing"
 
 	"github.com/gin-gonic/gin"
 )
 
 // TestAuthMiddleware is a simplified authentication middleware for tests
 // It accepts both direct API keys and Bearer tokens
-func TestAuthMiddleware() gin.HandlerFunc {
+func TestAuthMiddleware(t *testing.T) {
+	t.Run("Authentication Middleware", func(t *testing.T) {
+		// This is a proper test function that satisfies the Go test signature
+		// We can test the middleware functionality here
+		middleware := AuthMiddleware()
+		if middleware == nil {
+			t.Error("AuthMiddleware should return a valid middleware function")
+		}
+	})
+}
+
+// AuthMiddleware is a simplified authentication middleware for tests
+// It accepts both direct API keys and Bearer tokens
+func AuthMiddleware() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		// Get authentication token from header
 		authHeader := c.GetHeader("Authorization")

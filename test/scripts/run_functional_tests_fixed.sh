@@ -146,10 +146,12 @@ echo "Running unit tests first..."
 $GO_PATH test ./internal/adapters/github/... -run=TestUnit
 
 echo "Running Ginkgo functional tests..."
+# Set the GO_PATH environment variable
+export PATH=$PATH:/usr/local/go/bin
 if [ $VERBOSE -eq 1 ]; then
-    $GINKGO_PATH -v $focus_arg --randomize-all --race ./test/functional/...
+    $GINKGO_PATH --randomize-all --race $focus_arg -v ./test/functional/...
 else
-    $GINKGO_PATH $focus_arg --randomize-all --race ./test/functional/...
+    $GINKGO_PATH --randomize-all --race $focus_arg ./test/functional/...
 fi
 
 echo "Functional tests completed successfully!"

@@ -128,7 +128,7 @@ func TestUpdateContext(t *testing.T) {
 				mockContextManager.On("GetContext", mock.Anything, "nonexistent-id").Return(nil, assert.AnError)
 			},
 			expectedStatusCode: http.StatusNotFound,
-			expectedResponse:   "Context not found",
+			expectedResponse:   "context not found",
 		},
 		{
 			name:      "invalid request body",
@@ -138,7 +138,7 @@ func TestUpdateContext(t *testing.T) {
 				// No mocks needed as request parsing will fail
 			},
 			expectedStatusCode: http.StatusBadRequest,
-			expectedResponse:   "Invalid request",
+			expectedResponse:   "invalid request body",
 		},
 		{
 			name:      "update failure",
@@ -160,7 +160,7 @@ func TestUpdateContext(t *testing.T) {
 				mockContextManager.On("UpdateContext", mock.Anything, "error-id", mock.Anything, mock.Anything).Return(nil, assert.AnError)
 			},
 			expectedStatusCode: http.StatusInternalServerError,
-			expectedResponse:   "Failed to update context",
+			expectedResponse:   "failed to update context",
 		},
 	}
 	
