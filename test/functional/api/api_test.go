@@ -66,17 +66,19 @@ var _ = Describe("API", func() {
 	})
 
 	Describe("API Versioning", func() {
-		It("should support API versioning", func() {
-			// Call the root API endpoint
-			resp, err := mcpClient.Get(ctx, "/api/v1")
+		It("should require authentication for API versioning endpoint", func() {
+			// Create a client without an API key
+			unauthClient := client.NewMCPClient(ServerURL, "")
+
+			// Call the root API endpoint without authentication
+			resp, err := unauthClient.Get(ctx, "/api/v1")
 			Expect(err).NotTo(HaveOccurred())
 			defer resp.Body.Close()
 
-			// With the current authentication behavior, expect StatusOK
-			Expect(resp.StatusCode).To(Equal(http.StatusOK))
+			// Expect Unauthorized status
+			Expect(resp.StatusCode).To(Equal(http.StatusUnauthorized))
 
-			// For unauthorized responses, we won't verify version information
-			// as we expect an error message instead of API version data
+			// Parse the error response
 			var result map[string]interface{}
 			err = client.ParseResponse(resp, &result)
 			Expect(err).NotTo(HaveOccurred())

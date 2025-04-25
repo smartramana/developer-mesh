@@ -36,12 +36,10 @@ cache:
   minIdleConns: 5
 
 auth:
-  apiKeys:
-    - key: "test-admin-api-key"
-      name: "Test Admin API Key"
-      role: "admin"
-  jwtSecret: "test-jwt-secret-for-functional-tests"
-  jwtExpiration: 24h
+  jwt_secret: "test-jwt-secret"
+  api_keys:
+    admin: "test-admin-api-key"
+    reader: "test-reader-api-key"
 
 logging:
   level: "${LOG_LEVEL}"

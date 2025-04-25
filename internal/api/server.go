@@ -205,6 +205,13 @@ func (s *Server) setupRoutes(ctx context.Context) {
 
 	// Root endpoint to provide API entry points (HATEOAS)
 	v1.GET("/", func(c *gin.Context) {
+		// Check for authentication result set by AuthMiddleware
+		user, exists := c.Get("user")
+		if !exists || user == nil {
+			c.JSON(http.StatusUnauthorized, gin.H{"error": "authentication required"})
+			return
+		}
+
 		baseURL := s.getBaseURL(c)
 		c.JSON(http.StatusOK, gin.H{
 			"api_version": "1.0",

@@ -156,6 +156,7 @@ fi
 export MCP_SERVER_URL="http://localhost:8080"
 export MCP_API_KEY="test-admin-api-key"
 export MOCKSERVER_URL="http://localhost:8081"
+export MCP_CONFIG_FILE="configs/config.test.yaml"
 
 # Run the functional tests
 echo "Running functional tests..."
