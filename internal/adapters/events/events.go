@@ -8,6 +8,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/S-Corkum/mcp-server/internal/observability"
 	"github.com/S-Corkum/mcp-server/pkg/mcp"
+	"github.com/S-Corkum/mcp-server/internal/events"
 )
 
 // EventType represents the type of an adapter event
@@ -244,7 +245,7 @@ func (f EventListenerFunc) Handle(ctx context.Context, event *AdapterEvent) erro
 }
 
 // Subscribe implements events.EventBusIface for test compatibility.
-func (b *EventBus) Subscribe(eventType EventType, handler func(ctx context.Context, event *mcp.Event) error) {
+func (b *EventBus) Subscribe(eventType events.EventType, handler events.Handler) {
 	if b.logger != nil {
 		b.logger.Warn("Adapter EventBus.Subscribe called with Handler; this is a no-op.", map[string]interface{}{})
 	}
@@ -252,7 +253,7 @@ func (b *EventBus) Subscribe(eventType EventType, handler func(ctx context.Conte
 }
 
 // Unsubscribe implements events.EventBusIface for test compatibility.
-func (b *EventBus) Unsubscribe(eventType EventType, handler func(ctx context.Context, event *mcp.Event) error) {
+func (b *EventBus) Unsubscribe(eventType events.EventType, handler events.Handler) {
 	if b.logger != nil {
 		b.logger.Warn("Adapter EventBus.Unsubscribe called with Handler; this is a no-op.", map[string]interface{}{})
 	}

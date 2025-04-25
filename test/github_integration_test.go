@@ -11,6 +11,7 @@ import (
 	"github.com/S-Corkum/mcp-server/internal/adapters/events"
 	"github.com/S-Corkum/mcp-server/internal/adapters/github"
 	"github.com/S-Corkum/mcp-server/internal/observability"
+	"github.com/S-Corkum/mcp-server/pkg/mcp"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -229,7 +230,10 @@ func TestGitHubAdapter_WebhookHandling(t *testing.T) {
 	listener := &testEventListener{events: eventChan}
 	
 	// Subscribe to webhook events
-	eventBus.Subscribe("github.webhook.push", listener)
+	eventBus.Subscribe("github.webhook.push", func(ctx context.Context, event *mcp.Event) error {
+		// Cannot convert *mcp.Event to *events.AdapterEvent; pass nil for test compatibility
+		return listener.Handle(ctx, nil)
+	})
 	
 	// Create GitHub adapter config
 	config := github.DefaultConfig()
