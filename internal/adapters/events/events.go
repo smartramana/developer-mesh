@@ -4,9 +4,10 @@ import (
 	"context"
 	"sync"
 	"time"
-	
+
 	"github.com/google/uuid"
 	"github.com/S-Corkum/mcp-server/internal/observability"
+	"github.com/S-Corkum/mcp-server/pkg/mcp"
 )
 
 // EventType represents the type of an adapter event
@@ -91,16 +92,16 @@ func (b *EventBus) IsInitialized() bool {
 	return b != nil && b.listeners != nil
 }
 
-// Subscribe subscribes to events of a specific type
-func (b *EventBus) Subscribe(eventType EventType, listener EventListener) {
+// SubscribeListener subscribes to events of a specific type
+func (b *EventBus) SubscribeListener(eventType EventType, listener EventListener) {
 	b.mu.Lock()
 	defer b.mu.Unlock()
-	
+
 	listeners, exists := b.listeners[eventType]
 	if !exists {
 		listeners = []EventListener{}
 	}
-	
+
 	b.listeners[eventType] = append(listeners, listener)
 }
 
@@ -112,16 +113,16 @@ func (b *EventBus) SubscribeAll(listener EventListener) {
 	b.globalListeners = append(b.globalListeners, listener)
 }
 
-// Unsubscribe unsubscribes from events of a specific type
-func (b *EventBus) Unsubscribe(eventType EventType, listener EventListener) {
+// UnsubscribeListener unsubscribes from events of a specific type
+func (b *EventBus) UnsubscribeListener(eventType EventType, listener EventListener) {
 	b.mu.Lock()
 	defer b.mu.Unlock()
-	
+
 	listeners, exists := b.listeners[eventType]
 	if !exists {
 		return
 	}
-	
+
 	// Filter out the listener
 	filteredListeners := make([]EventListener, 0, len(listeners))
 	for _, l := range listeners {
@@ -129,7 +130,7 @@ func (b *EventBus) Unsubscribe(eventType EventType, listener EventListener) {
 			filteredListeners = append(filteredListeners, l)
 		}
 	}
-	
+
 	b.listeners[eventType] = filteredListeners
 }
 
@@ -220,3 +221,41 @@ func (b *EventBus) EmitWithCallback(ctx context.Context, event *AdapterEvent, ca
 	}
 	return err
 }
+
+// Close implements the events.EventBusIface interface. No-op for adapter EventBus.
+func (b *EventBus) Close() {
+	// No resources to clean up
+}
+
+// Publish implements the events.EventBusIface interface for test compatibility. Not intended for use.
+func (b *EventBus) Publish(ctx context.Context, event *mcp.Event) {
+	if b.logger != nil {
+		b.logger.Warn("Adapter EventBus.Publish called with mcp.Event; this is a no-op.", map[string]interface{}{})
+	}
+	// No-op: Adapter EventBus does not handle mcp.Event
+}
+
+// EventListenerFunc adapts a Handler to an EventListener for interface compatibility (no-op).
+type EventListenerFunc func(ctx context.Context, event *mcp.Event) error
+
+func (f EventListenerFunc) Handle(ctx context.Context, event *AdapterEvent) error {
+	// No-op: cannot convert AdapterEvent to *mcp.Event
+	return nil
+}
+
+// Subscribe implements events.EventBusIface for test compatibility.
+func (b *EventBus) Subscribe(eventType EventType, handler func(ctx context.Context, event *mcp.Event) error) {
+	if b.logger != nil {
+		b.logger.Warn("Adapter EventBus.Subscribe called with Handler; this is a no-op.", map[string]interface{}{})
+	}
+	// No-op: types are incompatible
+}
+
+// Unsubscribe implements events.EventBusIface for test compatibility.
+func (b *EventBus) Unsubscribe(eventType EventType, handler func(ctx context.Context, event *mcp.Event) error) {
+	if b.logger != nil {
+		b.logger.Warn("Adapter EventBus.Unsubscribe called with Handler; this is a no-op.", map[string]interface{}{})
+	}
+	// No-op: types are incompatible
+}
+
