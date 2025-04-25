@@ -55,6 +55,14 @@ const (
 // Handler is a function that handles an event
 type Handler func(ctx context.Context, event *mcp.Event) error
 
+// EventBusIface is an interface for the event bus, for testability.
+type EventBusIface interface {
+	Subscribe(eventType EventType, handler Handler)
+	Unsubscribe(eventType EventType, handler Handler)
+	Publish(ctx context.Context, event *mcp.Event)
+	Close()
+}
+
 // EventBus is a central event hub that distributes events to registered handlers
 type EventBus struct {
 	handlers     map[EventType][]Handler

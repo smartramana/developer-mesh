@@ -3,7 +3,7 @@ package mocks
 
 import (
 	"context"
-	
+
 	"github.com/stretchr/testify/mock"
 	"github.com/S-Corkum/mcp-server/internal/events"
 	"github.com/S-Corkum/mcp-server/pkg/mcp"
@@ -19,19 +19,18 @@ func NewMockEventBus() *MockEventBus {
 	return &MockEventBus{}
 }
 
-// Publish implements the EventBus.Publish method
-func (m *MockEventBus) Publish(ctx context.Context, eventType string, data map[string]interface{}) error {
-	args := m.Called(ctx, eventType, data)
-	return args.Error(0)
+// Publish implements the EventBusIface.Publish method
+func (m *MockEventBus) Publish(ctx context.Context, event *mcp.Event) {
+	m.Called(ctx, event)
 }
 
-// Subscribe implements the EventBus.Subscribe method
-func (m *MockEventBus) Subscribe(eventType string, handler func(ctx context.Context, eventType string, data map[string]interface{}) error) {
+// Subscribe implements the EventBusIface.Subscribe method
+func (m *MockEventBus) Subscribe(eventType events.EventType, handler events.Handler) {
 	m.Called(eventType, handler)
 }
 
-// Unsubscribe implements the EventBus.Unsubscribe method
-func (m *MockEventBus) Unsubscribe(eventType string, handler func(ctx context.Context, eventType string, data map[string]interface{}) error) {
+// Unsubscribe implements the EventBusIface.Unsubscribe method
+func (m *MockEventBus) Unsubscribe(eventType events.EventType, handler events.Handler) {
 	m.Called(eventType, handler)
 }
 
@@ -45,5 +44,3 @@ func (m *MockEventBus) On(method string, args ...interface{}) *mock.Call {
 	return m.Mock.On(method, args...)
 }
 
-// Make sure MockEventBus implements the events.EventBus interface
-var _ events.EventBus = (*MockEventBus)(nil)

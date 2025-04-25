@@ -7,7 +7,7 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
+
 	
 	adapterConfig "github.com/S-Corkum/mcp-server/internal/adapters/config"
 )

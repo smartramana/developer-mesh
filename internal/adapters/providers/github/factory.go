@@ -62,10 +62,10 @@ func RegisterAdapter(factory *core.DefaultAdapterFactory, eventBus interface{},
 			}
 		}
 		
-		// Assert eventBus to events.EventBus
-		typedEventBus, ok := eventBus.(events.EventBus)
+		// Assert eventBus to events.EventBusIface
+		typedEventBus, ok := eventBus.(events.EventBusIface)
 		if !ok {
-			return nil, fmt.Errorf("eventBus does not implement events.EventBus")
+			return nil, fmt.Errorf("eventBus does not implement events.EventBusIface")
 		}
 		adapter, err := githubAdapter.New(githubConfig, logger, metricsClient, typedEventBus)
 		if err != nil {

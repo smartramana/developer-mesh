@@ -37,19 +37,22 @@ type Config struct {
 	AppID        string `yaml:"app_id" json:"app_id"`             // GitHub App ID
 	InstallID    string `yaml:"install_id" json:"install_id"`     // GitHub App Installation ID
 	PrivateKey   string `yaml:"private_key" json:"private_key"`   // GitHub App private key (PEM format)
-	
+
 	// API settings
 	BaseURL      string        `yaml:"base_url" json:"base_url"`         // GitHub API base URL (for Enterprise)
 	UploadURL    string        `yaml:"upload_url" json:"upload_url"`     // GitHub upload URL (for Enterprise)
 	Timeout      time.Duration `yaml:"timeout" json:"timeout"`           // Timeout for API requests
-	
+
 	// Features
 	EnabledFeatures []string `yaml:"enabled_features" json:"enabled_features"` // Enabled adapter features
-	
+
+	// Webhook control
+	DisableWebhooks bool `yaml:"disable_webhooks" json:"disable_webhooks"` // Disable webhook processing if true
+
 	// Default repository settings
 	DefaultOwner string `yaml:"default_owner" json:"default_owner"` // Default repository owner/org
 	DefaultRepo  string `yaml:"default_repo" json:"default_repo"`   // Default repository name
-	
+
 	// Common adapter configuration
 	Resilience    adapterConfig.ResilienceConfig    `yaml:"resilience" json:"resilience"`       // Resilience settings
 	Security      adapterConfig.SecurityConfig      `yaml:"security" json:"security"`           // Security settings

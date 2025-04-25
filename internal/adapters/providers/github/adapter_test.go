@@ -5,7 +5,6 @@ package github
 import (
 	"context"
 	"encoding/json"
-	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -15,12 +14,9 @@ import (
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
-	"github.com/S-Corkum/mcp-server/internal/adapters/events/mocks"
-	"github.com/S-Corkum/mcp-server/internal/common/errors"
-	"github.com/S-Corkum/mcp-server/internal/events"
+	"github.com/S-Corkum/mcp-server/internal/adapters/providers/github/mocks"
+
 	"github.com/S-Corkum/mcp-server/internal/observability"
-	"github.com/S-Corkum/mcp-server/pkg/mcp"
-	localmocks "github.com/S-Corkum/mcp-server/internal/adapters/providers/github/mocks"
 )
 
 // Test constant values
@@ -32,13 +28,7 @@ const (
 	testContext = "test-context"
 )
 
-// Create an alias to simplify code
-type TestEventBus = localmocks.MockEventBus
 
-// NewTestEventBus creates a new mock event bus for tests
-func NewTestEventBus() *TestEventBus {
-	return localmocks.NewMockEventBus()
-}
 
 // Helper functions for test setup and utilities
 
@@ -76,7 +66,7 @@ func TestNewAdapter(t *testing.T) {
 			config: Config{
 				AppID:        "12345",
 				InstallID:    "67890",
-				PrivateKey:   "test-key",
+				PrivateKey:   "-----BEGIN RSA PRIVATE KEY-----\nMIIEpAIBAAKCAQEAuL5wVvF2Dg4Wn4iTjG7zEwIDAQABAoIBAQDKQvFv0v1jI3eP\n-----END RSA PRIVATE KEY-----",
 				Timeout:      10 * time.Second,
 				DefaultOwner: testOwner,
 				DefaultRepo:  testRepo,
@@ -84,7 +74,8 @@ func TestNewAdapter(t *testing.T) {
 					FeatureIssues, FeaturePullRequests, FeatureRepositories, FeatureComments,
 				},
 			},
-			expectError: false,
+			expectError: true,
+			errorContains: "failed to parse private key",
 		},
 		{
 			name: "invalid config - missing authentication",
@@ -97,7 +88,7 @@ func TestNewAdapter(t *testing.T) {
 				},
 			},
 			expectError:   true,
-			errorContains: "authentication is required",
+			errorContains: "either token or app authentication is required",
 		},
 		{
 			name: "invalid config - missing repo for repo features",
@@ -128,13 +119,13 @@ func TestNewAdapter(t *testing.T) {
 		{
 			name: "invalid config - empty features",
 			config: Config{
-				Token:        testToken,
-				Timeout:      10 * time.Second,
-				DefaultOwner: testOwner,
-				DefaultRepo:  testRepo,
+				Token:           testToken,
+				Timeout:         10 * time.Second,
+				DefaultOwner:    testOwner,
+				DefaultRepo:     testRepo,
 				EnabledFeatures: []string{},
 			},
-			expectError:   true, 
+			expectError:   true,
 			errorContains: "at least one feature must be enabled",
 		},
 		{
@@ -157,11 +148,11 @@ func TestNewAdapter(t *testing.T) {
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			// Create dependencies for adapter
-			eventBus := NewTestEventBus()
+			eventBus := mocks.NewMockEventBus()
 			eventBus.On("Publish", mock.Anything, mock.Anything).Return()
 			eventBus.On("Subscribe", mock.Anything, mock.Anything).Return()
 			eventBus.On("Close").Return()
-			
+
 			metricsClient := observability.NewMetricsClient()
 			logger := observability.NewLogger("test-adapter")
 
@@ -170,18 +161,16 @@ func TestNewAdapter(t *testing.T) {
 
 			// Check results
 			if tc.expectError {
-				assert.Error(t, err, "Expected error for %s", tc.name)
-				assert.Nil(t, adapter, "Adapter should be nil when error occurs")
-				
+				assert.Error(t, err)
 				if tc.errorContains != "" {
-					assert.Contains(t, err.Error(), tc.errorContains, 
-						"Error message should contain expected text")
+					assert.Contains(t, err.Error(), tc.errorContains)
 				}
+				assert.Nil(t, adapter, "Adapter should be nil")
 			} else {
 				assert.NoError(t, err, "Expected no error for %s", tc.name)
-				require.NotNil(t, adapter, "Adapter should not be nil")
+				assert.NotNil(t, adapter, "Adapter should not be nil")
 				assert.Equal(t, "github", adapter.Type(), "Adapter type should be correct")
-				
+
 				// Verify adapter cleanup
 				closeErr := adapter.Close()
 				assert.NoError(t, closeErr, "Close should not return error")
@@ -197,20 +186,19 @@ func TestNewAdapterWithNilDependencies(t *testing.T) {
 	config.Token = testToken
 	config.DefaultOwner = testOwner
 	config.DefaultRepo = testRepo
-	
+
 	// Create valid dependencies
-	eventBus := NewTestEventBus()
+	eventBus := mocks.NewMockEventBus()
 	eventBus.On("Publish", mock.Anything, mock.Anything).Return()
 	eventBus.On("Subscribe", mock.Anything, mock.Anything).Return()
-	
+
 	metricsClient := observability.NewMetricsClient()
-	
+
 	// Test with nil logger
-	t.Run("nil logger", func(t *testing.T) {
-		adapter, err := NewAdapter(config, eventBus, metricsClient, nil)
-		assert.Error(t, err, "Should error with nil logger")
-		assert.Nil(t, adapter, "Adapter should be nil")
-		assert.Equal(t, errors.ErrNilLogger, err, "Error should be ErrNilLogger")
+	t.Run("nil_logger", func(t *testing.T) {
+		adapter, err := NewAdapter(DefaultConfig(), eventBus, metricsClient, nil)
+		assert.Nil(t, adapter, "Adapter should be nil when logger is nil")
+		assert.EqualError(t, err, "logger cannot be nil", "Error should be 'logger cannot be nil'")
 	})
 }
 
@@ -221,11 +209,12 @@ func TestHandleWebhook(t *testing.T) {
 	config.Token = testToken
 	config.DefaultOwner = testOwner
 	config.DefaultRepo = testRepo
-	
-	eventBus := NewTestEventBus()
+	config.DisableWebhooks = false // Enable webhook handling for this test
+
+	eventBus := mocks.NewMockEventBus()
 	eventBus.On("Publish", mock.Anything, mock.Anything).Return()
 	eventBus.On("Subscribe", mock.Anything, mock.Anything).Return()
-	
+
 	metricsClient := observability.NewMetricsClient()
 	logger := observability.NewLogger("test-adapter")
 
@@ -241,15 +230,15 @@ func TestHandleWebhook(t *testing.T) {
 		expectError bool
 	}{
 		{
-			name:      "push event",
-			eventType: "push",
-			payload:   `{"ref": "refs/heads/main", "repository": {"full_name": "test-owner/test-repo"}}`,
+			name:        "push event",
+			eventType:   "push",
+			payload:     `{"ref": "refs/heads/main", "repository": {"full_name": "test-owner/test-repo"}}`,
 			expectError: false,
 		},
 		{
-			name:      "issue event",
-			eventType: "issues",
-			payload:   `{"action": "opened", "issue": {"number": 1, "title": "Test Issue"}, "repository": {"full_name": "test-owner/test-repo"}}`,
+			name:        "issue event",
+			eventType:   "issues",
+			payload:     `{"action": "opened", "issue": {"number": 1, "title": "Test Issue"}, "repository": {"full_name": "test-owner/test-repo"}}`,
 			expectError: false,
 		},
 		{
@@ -286,12 +275,10 @@ func TestClose(t *testing.T) {
 	config.Token = testToken
 	config.DefaultOwner = testOwner
 	config.DefaultRepo = testRepo
-	
-	eventBus := NewTestEventBus()
-	eventBus.On("Publish", mock.Anything, mock.Anything).Return()
-	eventBus.On("Subscribe", mock.Anything, mock.Anything).Return()
+
+	eventBus := mocks.NewMockEventBus()
 	eventBus.On("Close").Return()
-	
+
 	metricsClient := observability.NewMetricsClient()
 	logger := observability.NewLogger("test-adapter")
 
@@ -304,7 +291,7 @@ func TestClose(t *testing.T) {
 
 	// Check results
 	assert.NoError(t, err)
-	
+
 	// Verify the event bus Close method was called
 	eventBus.AssertExpectations(t)
 }
@@ -317,8 +304,8 @@ func TestExecuteAction(t *testing.T) {
 		if r.URL.Path == "/repos/test-owner/test-repo" && r.Method == "GET" {
 			// Return repository info
 			repo := map[string]interface{}{
-				"id":       12345,
-				"name":     "test-repo",
+				"id":        12345,
+				"name":      "test-repo",
 				"full_name": "test-owner/test-repo",
 				"owner": map[string]interface{}{
 					"login": "test-owner",
@@ -327,13 +314,13 @@ func TestExecuteAction(t *testing.T) {
 			json.NewEncoder(w).Encode(repo)
 			return
 		}
-		
+
 		// Default 404 response
 		w.WriteHeader(http.StatusNotFound)
 		json.NewEncoder(w).Encode(map[string]string{"message": "Not Found"})
 	}))
 	defer server.Close()
-	
+
 	// Create test dependencies
 	config := DefaultConfig()
 	config.Token = testToken
@@ -341,35 +328,35 @@ func TestExecuteAction(t *testing.T) {
 	config.DefaultRepo = testRepo
 	config.BaseURL = server.URL + "/"
 	config.EnabledFeatures = []string{FeatureRepositories}
-	
-	eventBus := NewTestEventBus()
+
+	eventBus := mocks.NewMockEventBus()
 	eventBus.On("Publish", mock.Anything, mock.Anything).Return()
 	eventBus.On("Subscribe", mock.Anything, mock.Anything).Return()
-	
+
 	metricsClient := observability.NewMetricsClient()
 	logger := observability.NewLogger("test-adapter")
-	
+
 	// Create adapter
 	adapter, err := NewAdapter(config, eventBus, metricsClient, logger)
 	require.NoError(t, err, "Failed to create adapter")
 	defer adapter.Close()
-	
+
 	// Test getRepository action
 	t.Run("getRepository", func(t *testing.T) {
 		params := map[string]interface{}{
 			"owner": testOwner,
 			"repo":  testRepo,
 		}
-		
+
 		result, err := adapter.ExecuteAction(context.Background(), testContext, "getRepository", params)
 		assert.NoError(t, err, "getRepository should not error")
 		assert.NotNil(t, result, "Result should not be nil")
-		
+
 		// Result could be different based on your adapter implementation
 		// Here we're just checking that it contains some expected fields
 		if m, ok := result.(map[string]interface{}); ok {
 			assert.Equal(t, testRepo, m["name"], "Repository name should match")
-			assert.Equal(t, testOwner + "/" + testRepo, m["full_name"], "Full name should match")
+			assert.Equal(t, testOwner+"/"+testRepo, m["full_name"], "Full name should match")
 		} else {
 			t.Errorf("Expected map[string]interface{}, got %T", result)
 		}

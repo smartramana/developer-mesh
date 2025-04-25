@@ -4,9 +4,10 @@ package github
 
 import (
 	"context"
+	"errors"
 
 	githubAdapter "github.com/S-Corkum/mcp-server/internal/adapters/github"
-	"github.com/S-Corkum/mcp-server/internal/common/errors"
+
 	"github.com/S-Corkum/mcp-server/internal/events"
 	"github.com/S-Corkum/mcp-server/internal/observability"
 )
@@ -17,19 +18,27 @@ type GitHubAdapter struct {
 	config        Config
 	logger        *observability.Logger
 	metricsClient *observability.MetricsClient
-	eventBus      events.EventBus
+	eventBus      events.EventBusIface
 }
 
 // NewAdapter creates a new GitHub adapter instance
 func NewAdapter(
 	config Config,
-	eventBus events.EventBus,
+	eventBus events.EventBusIface,
 	metricsClient *observability.MetricsClient,
 	logger *observability.Logger,
 ) (*GitHubAdapter, error) {
-	// Validate inputs
+	// Validate logger first for test compatibility
 	if logger == nil {
-		return nil, errors.ErrNilLogger
+		return nil, errors.New("logger cannot be nil")
+	}
+	// Validate config before proceeding
+	if valid, errs := ValidateConfig(config); !valid {
+		errMsg := "invalid authentication configuration"
+		if len(errs) > 0 {
+			errMsg += ": " + errs[0]
+		}
+		return nil, errors.New(errMsg)
 	}
 
 	// Convert config to the underlying adapter config
@@ -42,7 +51,7 @@ func NewAdapter(
 	adapterConfig.AppPrivateKey = config.PrivateKey
 	adapterConfig.AppInstallationID = config.InstallID
 	adapterConfig.UseApp = (config.AppID != "" && config.PrivateKey != "")
-	adapterConfig.DisableWebhooks = true
+	adapterConfig.DisableWebhooks = config.DisableWebhooks
 
 	// Create underlying adapter
 	adapter, err := githubAdapter.New(adapterConfig, logger, metricsClient, eventBus)

@@ -5,9 +5,10 @@ import (
 	"sync"
 
 	"github.com/S-Corkum/mcp-server/internal/adapters/events"
+	"github.com/S-Corkum/mcp-server/pkg/mcp"
 )
 
-// MockEventBus is a mock implementation of the EventBus for testing
+// MockEventBus is a mock implementation of the EventBusIface for testing
 type MockEventBus struct {
 	listeners       map[events.EventType][]events.EventListener
 	globalListeners []events.EventListener
@@ -25,17 +26,27 @@ func NewMockEventBus() *MockEventBus {
 }
 
 // Subscribe subscribes to events of a specific type
-func (b *MockEventBus) Subscribe(eventType events.EventType, listener events.EventListener) {
-	b.mu.Lock()
-	defer b.mu.Unlock()
-	
-	listeners, exists := b.listeners[eventType]
-	if !exists {
-		listeners = []events.EventListener{}
-	}
-	
-	b.listeners[eventType] = append(listeners, listener)
+// Satisfies EventBusIface by adapting to Handler signature
+func (b *MockEventBus) Subscribe(eventType events.EventType, handler func(ctx context.Context, event *mcp.Event) error) {
+	// This is a stub for the interface; implement as needed for your tests.
 }
+
+// Unsubscribe unsubscribes from events of a specific type
+func (b *MockEventBus) Unsubscribe(eventType events.EventType, handler func(ctx context.Context, event *mcp.Event) error) {
+	// This is a stub for the interface; implement as needed for your tests.
+}
+
+// Publish publishes an event to all subscribers
+func (b *MockEventBus) Publish(ctx context.Context, event *mcp.Event) {
+	// This is a stub for the interface; implement as needed for your tests.
+}
+
+// Close closes the mock event bus
+func (b *MockEventBus) Close() {
+	// No-op for mock
+}
+
+
 
 // SubscribeAll subscribes to all events
 func (b *MockEventBus) SubscribeAll(listener events.EventListener) {
@@ -45,26 +56,7 @@ func (b *MockEventBus) SubscribeAll(listener events.EventListener) {
 	b.globalListeners = append(b.globalListeners, listener)
 }
 
-// Unsubscribe unsubscribes from events of a specific type
-func (b *MockEventBus) Unsubscribe(eventType events.EventType, listener events.EventListener) {
-	b.mu.Lock()
-	defer b.mu.Unlock()
-	
-	listeners, exists := b.listeners[eventType]
-	if !exists {
-		return
-	}
-	
-	// Filter out the listener
-	filteredListeners := make([]events.EventListener, 0, len(listeners))
-	for _, l := range listeners {
-		if l != listener {
-			filteredListeners = append(filteredListeners, l)
-		}
-	}
-	
-	b.listeners[eventType] = filteredListeners
-}
+
 
 // UnsubscribeAll unsubscribes from all events
 func (b *MockEventBus) UnsubscribeAll(listener events.EventListener) {

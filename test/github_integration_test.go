@@ -129,7 +129,7 @@ func TestGitHubAdapter_ExecuteAction(t *testing.T) {
 	metricsClient := observability.NewMetricsClient()
 	
 	// Create event bus
-	eventBus := events.NewEventBus(logger)
+	eventBus := &events.EventBus{}
 	
 	// Create GitHub adapter config
 	config := github.DefaultConfig()
@@ -142,6 +142,7 @@ func TestGitHubAdapter_ExecuteAction(t *testing.T) {
 	adapter, err := github.New(config, logger, metricsClient, eventBus)
 	require.NoError(t, err)
 	defer adapter.Close()
+	defer eventBus.Close()
 	
 	// Test getRepository
 	t.Run("GetRepository", func(t *testing.T) {
