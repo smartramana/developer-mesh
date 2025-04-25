@@ -114,25 +114,151 @@ var _ = Describe("API", func() {
 	})
 
 	Describe("Tools API", func() {
-		It("should list available tools", func() {
-			// Call the endpoint directly instead of using ListTools
+		It("should list available tools (200)", func() {
 			resp, err := mcpClient.Get(ctx, "/api/v1/tools")
 			Expect(err).NotTo(HaveOccurred())
 			defer resp.Body.Close()
-
-			// With the current authentication behavior, expect StatusOK
+			Expect(resp.StatusCode).To(Equal(http.StatusOK))
+			var result map[string]interface{}
+			err = client.ParseResponse(resp, &result)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(result).To(HaveKey("tools"))
+		})
+		It("should require authentication for /tools (401)", func() {
+			unauthClient := client.NewMCPClient(ServerURL, "")
+			resp, err := unauthClient.Get(ctx, "/api/v1/tools")
+			Expect(err).NotTo(HaveOccurred())
+			defer resp.Body.Close()
+			Expect(resp.StatusCode).To(Equal(http.StatusUnauthorized))
+		})
+		It("should get tool details (200)", func() {
+			resp, err := mcpClient.Get(ctx, "/api/v1/tools/github")
+			Expect(err).NotTo(HaveOccurred())
+			defer resp.Body.Close()
+			Expect(resp.StatusCode).To(Equal(http.StatusOK))
+			var result map[string]interface{}
+			err = client.ParseResponse(resp, &result)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(result["name"]).To(Equal("github"))
+		})
+		It("should return 404 for unknown tool", func() {
+			resp, err := mcpClient.Get(ctx, "/api/v1/tools/unknown-tool")
+			Expect(err).NotTo(HaveOccurred())
+			defer resp.Body.Close()
+			Expect(resp.StatusCode).To(Equal(http.StatusNotFound))
+		})
+		It("should get tool actions (200)", func() {
+			resp, err := mcpClient.Get(ctx, "/api/v1/tools/github/actions")
+			Expect(err).NotTo(HaveOccurred())
+			defer resp.Body.Close()
 			Expect(resp.StatusCode).To(Equal(http.StatusOK))
 		})
+		It("should return 401 for actions endpoint without auth", func() {
+			unauthClient := client.NewMCPClient(ServerURL, "")
+			resp, err := unauthClient.Get(ctx, "/api/v1/tools/github/actions")
+			Expect(err).NotTo(HaveOccurred())
+			defer resp.Body.Close()
+			Expect(resp.StatusCode).To(Equal(http.StatusUnauthorized))
+		})
+		// Add more tests for /tools/{tool}/actions/{action}, /tools/{tool}/queries as needed
+	})
 
-		It("should get tool actions", func() {
-			// Call a tools endpoint directly
-			path := "/api/v1/tools/github/actions"
+	Describe("Vectors API", func() {
+		var contextID string = "ctx_123"
+		var modelID string = "text-embedding-ada-002"
+		It("should store an embedding (200)", func() {
+			payload := map[string]interface{}{
+				"context_id": contextID,
+				"content_index": 0,
+				"text": "Hello AI assistant!",
+				"embedding": []float64{0.1, 0.2, 0.3},
+				"model_id": modelID,
+			}
+			resp, err := mcpClient.Post(ctx, "/api/v1/vectors/store", payload)
+			Expect(err).NotTo(HaveOccurred())
+			defer resp.Body.Close()
+			Expect(resp.StatusCode).To(Equal(http.StatusOK))
+			var result map[string]interface{}
+			err = client.ParseResponse(resp, &result)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(result).To(HaveKey("embedding"))
+		})
+		It("should return 400 for invalid embedding payload", func() {
+			payload := map[string]interface{}{"context_id": contextID} // missing required fields
+			resp, err := mcpClient.Post(ctx, "/api/v1/vectors/store", payload)
+			Expect(err).NotTo(HaveOccurred())
+			defer resp.Body.Close()
+			Expect(resp.StatusCode).To(Equal(http.StatusBadRequest))
+		})
+		It("should search embeddings (200)", func() {
+			payload := map[string]interface{}{
+				"context_id": contextID,
+				"query_embedding": []float64{0.1, 0.2, 0.3},
+				"limit": 5,
+				"model_id": modelID,
+				"similarity_threshold": 0.7,
+			}
+			resp, err := mcpClient.Post(ctx, "/api/v1/vectors/search", payload)
+			Expect(err).NotTo(HaveOccurred())
+			defer resp.Body.Close()
+			Expect(resp.StatusCode).To(Equal(http.StatusOK))
+			var result map[string]interface{}
+			err = client.ParseResponse(resp, &result)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(result).To(HaveKey("embeddings"))
+		})
+		It("should return 400 for invalid search payload", func() {
+			payload := map[string]interface{}{"context_id": contextID} // missing required fields
+			resp, err := mcpClient.Post(ctx, "/api/v1/vectors/search", payload)
+			Expect(err).NotTo(HaveOccurred())
+			defer resp.Body.Close()
+			Expect(resp.StatusCode).To(Equal(http.StatusBadRequest))
+		})
+		It("should get context embeddings (200)", func() {
+			path := "/api/v1/vectors/context/" + contextID
 			resp, err := mcpClient.Get(ctx, path)
 			Expect(err).NotTo(HaveOccurred())
 			defer resp.Body.Close()
-
-			// With the current authentication behavior, expect StatusOK
 			Expect(resp.StatusCode).To(Equal(http.StatusOK))
+			var result map[string]interface{}
+			err = client.ParseResponse(resp, &result)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(result).To(HaveKey("embeddings"))
+		})
+		It("should delete context embeddings (200)", func() {
+			path := "/api/v1/vectors/context/" + contextID
+			resp, err := mcpClient.Delete(ctx, path)
+			Expect(err).NotTo(HaveOccurred())
+			defer resp.Body.Close()
+			Expect(resp.StatusCode).To(Equal(http.StatusOK))
+		})
+		It("should get supported models (200)", func() {
+			resp, err := mcpClient.Get(ctx, "/api/v1/vectors/models")
+			Expect(err).NotTo(HaveOccurred())
+			defer resp.Body.Close()
+			Expect(resp.StatusCode).To(Equal(http.StatusOK))
+			var result map[string]interface{}
+			err = client.ParseResponse(resp, &result)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(result).To(HaveKey("models"))
+		})
+		It("should get model embeddings (200)", func() {
+			path := "/api/v1/vectors/context/" + contextID + "/model/" + modelID
+			resp, err := mcpClient.Get(ctx, path)
+			Expect(err).NotTo(HaveOccurred())
+			defer resp.Body.Close()
+			Expect(resp.StatusCode).To(Equal(http.StatusOK))
+			var result map[string]interface{}
+			err = client.ParseResponse(resp, &result)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(result).To(HaveKey("embeddings"))
+		})
+		It("should return 400 for invalid model embeddings request", func() {
+			path := "/api/v1/vectors/context/invalid/model/invalid"
+			resp, err := mcpClient.Get(ctx, path)
+			Expect(err).NotTo(HaveOccurred())
+			defer resp.Body.Close()
+			Expect(resp.StatusCode).To(Equal(http.StatusBadRequest))
 		})
 	})
 

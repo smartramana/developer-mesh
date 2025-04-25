@@ -363,6 +363,8 @@ paths:
           $ref: '#/components/responses/InternalServerError'
 
   # Tool API Paths
+  # NOTE: Detailed GitHub action schemas and endpoints are defined in github_actions.yaml
+  # See that file for detailed parameter and response documentation for each action.
   /tools:
     get:
       summary: List all available tools
@@ -497,6 +499,16 @@ paths:
           $ref: '#/components/responses/NotFound'
         '500':
           $ref: '#/components/responses/InternalServerError'
+
+  # GitHub Action Endpoints (detailed in github_actions.yaml)
+  /tools/github/actions/create_issue:
+    $ref: './github_actions.yaml#/paths/~1tools~1github~1actions~1create_issue'
+  /tools/github/actions/close_issue:
+    $ref: './github_actions.yaml#/paths/~1tools~1github~1actions~1close_issue'
+  /tools/github/actions/create_pull_request:
+    $ref: './github_actions.yaml#/paths/~1tools~1github~1actions~1create_pull_request'
+  /tools/github/actions/merge_pull_request:
+    $ref: './github_actions.yaml#/paths/~1tools~1github~1actions~1merge_pull_request'
 
   /tools/{tool}/actions/{action}:
     parameters:
