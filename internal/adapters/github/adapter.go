@@ -83,6 +83,7 @@ type GitHubAdapter struct {
 	rateLimiter     *resilience.RateLimiterManager
 	mu              sync.RWMutex
 	closed          bool
+	wg              sync.WaitGroup // WaitGroup for webhook workers
 }
 
 // New creates a new GitHub adapter
@@ -1789,12 +1790,14 @@ func (a *GitHubAdapter) HandleWebhook(ctx context.Context, eventType string, pay
 // startWebhookWorkers starts a pool of workers to process webhooks
 func (a *GitHubAdapter) startWebhookWorkers(count int) {
 	for i := 0; i < count; i++ {
+		a.wg.Add(1)
 		go func(workerID int) {
 			a.logger.Info("Starting GitHub webhook worker", map[string]interface{}{
 				"workerID": workerID,
 			})
 			
 			for {
+				defer a.wg.Done()
 				// Check if adapter is closed
 				a.mu.RLock()
 				closed := a.closed
@@ -1867,7 +1870,9 @@ func (a *GitHubAdapter) Close() error {
 		a.webhookRetryManager.Close()
 	}
 	
-	a.logger.Info("GitHub adapter closed", nil)
-	
-	return nil
+	a.wg.Wait() // Wait for all webhook workers to exit
+
+a.logger.Info("GitHub adapter closed", nil)
+
+return nil
 }

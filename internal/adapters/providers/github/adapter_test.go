@@ -28,14 +28,7 @@ const (
 	testContext = "test-context"
 )
 
-
-
 // Helper functions for test setup and utilities
-
-// createTestContext creates a context with timeout for testing
-func createTestContext() (context.Context, context.CancelFunc) {
-	return context.WithTimeout(context.Background(), testTimeout)
-}
 
 // TestNewAdapter tests the adapter creation with various configurations.
 // It verifies that the adapter is properly initialized with different configurations
@@ -74,7 +67,7 @@ func TestNewAdapter(t *testing.T) {
 					FeatureIssues, FeaturePullRequests, FeatureRepositories, FeatureComments,
 				},
 			},
-			expectError: true,
+			expectError:   true,
 			errorContains: "failed to parse private key",
 		},
 		{
@@ -196,7 +189,7 @@ func TestNewAdapterWithNilDependencies(t *testing.T) {
 
 	// Test with nil logger
 	t.Run("nil_logger", func(t *testing.T) {
-		adapter, err := NewAdapter(DefaultConfig(), eventBus, metricsClient, nil)
+		adapter, err := NewAdapter(config, eventBus, metricsClient, nil)
 		assert.Nil(t, adapter, "Adapter should be nil when logger is nil")
 		assert.EqualError(t, err, "logger cannot be nil", "Error should be 'logger cannot be nil'")
 	})

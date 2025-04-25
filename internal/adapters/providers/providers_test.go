@@ -6,6 +6,7 @@ import (
 	"context"
 	"testing"
 
+	"go.uber.org/goleak"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
@@ -17,12 +18,14 @@ import (
 
 // TestRegisterAllProviders tests that all providers can be registered successfully
 func TestRegisterAllProviders(t *testing.T) {
+	defer goleak.VerifyNone(t)
 	// Create dependencies
 	configs := make(map[string]interface{})
 	metricsClient := observability.NewMetricsClient()
 	logger := observability.NewLogger("providers_test")
 	factory := core.NewAdapterFactory(configs, metricsClient, logger)
 	eventBus := events.NewEventBus(logger)
+defer eventBus.Close()
 
 	// Register all providers
 	err := RegisterAllProviders(factory, eventBus, metricsClient, logger)
@@ -45,6 +48,7 @@ func TestRegisterAllProviders(t *testing.T) {
 		// Verify adapter creation
 		require.NoError(t, err, "GitHub adapter creation should succeed")
 		require.NotNil(t, adapter, "Adapter should not be nil")
+		defer adapter.Close() // Ensure all background workers are shut down
 		assert.Equal(t, "github", adapter.Type(), "Adapter type should be 'github'")
 	})
 
@@ -62,12 +66,14 @@ func TestRegisterAllProviders(t *testing.T) {
 
 // TestProviderCompleteness verifies that all expected providers are registered
 func TestProviderCompleteness(t *testing.T) {
+	defer goleak.VerifyNone(t)
 	// Create dependencies
 	configs := make(map[string]interface{})
 	metricsClient := observability.NewMetricsClient()
 	logger := observability.NewLogger("providers_test")
 	factory := core.NewAdapterFactory(configs, metricsClient, logger)
 	eventBus := events.NewEventBus(logger)
+defer eventBus.Close()
 
 	// Register all providers
 	err := RegisterAllProviders(factory, eventBus, metricsClient, logger)
@@ -104,6 +110,7 @@ func TestProviderCompleteness(t *testing.T) {
 			adapter, err := factory.CreateAdapter(context.Background(), providerType)
 			require.NoError(t, err, "Should be able to create %s adapter", providerType)
 			require.NotNil(t, adapter, "Adapter should not be nil")
+			defer adapter.Close() // Ensure all background workers are shut down
 			assert.Equal(t, providerType, adapter.Type(), "Adapter type should match requested type")
 		})
 	}
@@ -112,6 +119,7 @@ func TestProviderCompleteness(t *testing.T) {
 // TestGetSupportedProviders verifies that the GetSupportedProviders function
 // returns all expected provider types
 func TestGetSupportedProviders(t *testing.T) {
+	defer goleak.VerifyNone(t)
 	providers := GetSupportedProviders()
 	
 	// Should at least contain GitHub

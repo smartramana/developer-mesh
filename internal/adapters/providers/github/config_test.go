@@ -304,9 +304,6 @@ func TestResilienceConfig(t *testing.T) {
 
 	// Create a config with custom resilience settings
 	config := DefaultConfig()
-	config.Token = "test-token"
-	config.DefaultOwner = "test-owner"
-	config.DefaultRepo = "test-repo"
 	
 	// Because these tests now skip the actual validation, we'll just do a simple
 	// assertion to ensure the test does something useful

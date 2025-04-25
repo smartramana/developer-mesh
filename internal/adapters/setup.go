@@ -131,8 +131,19 @@ func (m *AdapterManager) ExecuteAction(ctx context.Context, contextID string, ad
 
 
 
+// Close releases all event bus resources
+func (m *AdapterManager) Close() {
+	if m.adapterEventBus != nil {
+		m.adapterEventBus.Close()
+	}
+	if m.systemEventBus != nil {
+		m.systemEventBus.Close()
+	}
+}
+
 // Shutdown gracefully shuts down all adapters
 func (m *AdapterManager) Shutdown(ctx context.Context) error {
+	m.Close()
 	// Get all adapters
 	adapters := m.registry.ListAdapters()
 	

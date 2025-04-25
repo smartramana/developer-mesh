@@ -8,14 +8,10 @@ import (
 
 	"github.com/S-Corkum/mcp-server/internal/adapters/core"
 	githubAdapter "github.com/S-Corkum/mcp-server/internal/adapters/github"
-	"github.com/S-Corkum/mcp-server/internal/observability"
 	"github.com/S-Corkum/mcp-server/internal/events"
+	"github.com/S-Corkum/mcp-server/internal/observability"
 )
 
-// Use a type alias for interface{} to make it clear this is a dummy bus
-type dummyEventBus interface{}
-
-// adapterType is the unique identifier for the GitHub adapter
 const adapterType = "github"
 
 // RegisterAdapter registers the GitHub adapter with the factory.
@@ -30,38 +26,35 @@ const adapterType = "github"
 //
 // Returns:
 //   - error: If registration fails
-func RegisterAdapter(factory *core.DefaultAdapterFactory, eventBus interface{}, 
+func RegisterAdapter(factory *core.DefaultAdapterFactory, eventBus interface{},
 	metricsClient *observability.MetricsClient, logger *observability.Logger) error {
-	
+
 	if factory == nil {
 		return fmt.Errorf("factory cannot be nil")
 	}
-	
+
 	if logger == nil {
 		return fmt.Errorf("logger cannot be nil")
 	}
-	
+
 	factory.RegisterAdapterCreator(adapterType, func(ctx context.Context, config interface{}) (core.Adapter, error) {
-		// Validate context
-		if ctx == nil {
-			ctx = context.Background()
-		}
-		
+
+
 		// Get default config
 		githubConfig := githubAdapter.DefaultConfig()
-		
+
 		// Convert config map to GitHub config
 		if configMap, ok := config.(map[string]interface{}); ok {
 			// Apply config values if available
 			if token, ok := configMap["token"].(string); ok {
 				githubConfig.Token = token
 			}
-			
+
 			if baseURL, ok := configMap["base_url"].(string); ok {
 				githubConfig.BaseURL = baseURL
 			}
 		}
-		
+
 		// Assert eventBus to events.EventBusIface
 		typedEventBus, ok := eventBus.(events.EventBusIface)
 		if !ok {
@@ -71,13 +64,13 @@ func RegisterAdapter(factory *core.DefaultAdapterFactory, eventBus interface{},
 		if err != nil {
 			return nil, fmt.Errorf("failed to create GitHub adapter: %w", err)
 		}
-		
+
 		logger.Info("GitHub adapter registered successfully", map[string]interface{}{
 			"adapter_type": adapterType,
 		})
-		
+
 		return adapter, nil
 	})
-	
+
 	return nil
 }

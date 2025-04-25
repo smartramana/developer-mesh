@@ -5,15 +5,13 @@ package github
 import (
 	"context"
 	"testing"
-	"time"
 
+	"github.com/S-Corkum/mcp-server/internal/adapters/core"
+	"github.com/S-Corkum/mcp-server/internal/adapters/providers/github/mocks"
+	"github.com/S-Corkum/mcp-server/internal/observability"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
-
-	"github.com/S-Corkum/mcp-server/internal/adapters/core"
-	"github.com/S-Corkum/mcp-server/internal/observability"
-	"github.com/S-Corkum/mcp-server/internal/adapters/providers/github/mocks"
 )
 
 // MockAdapterFactory is a mock implementation of the AdapterFactory interface
@@ -80,5 +78,4 @@ func TestRegisterProvider(t *testing.T) {
 	})
 }
 
-// Default timeout for tests
-var defaultTestTimeout = 5 * time.Second
+//

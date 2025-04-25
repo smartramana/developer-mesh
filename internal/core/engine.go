@@ -217,6 +217,14 @@ func (e *Engine) RecordWebhookInContext(ctx context.Context, agentID string, ada
 	return contextID, nil
 }
 
+// Close releases all engine resources
+func (e *Engine) Close() {
+	if e.eventBus != nil {
+		e.eventBus.Close()
+	}
+	e.Shutdown(context.Background())
+}
+
 // Shutdown performs a graceful shutdown of the engine
 func (e *Engine) Shutdown(ctx context.Context) error {
 	// Shutdown adapter manager
