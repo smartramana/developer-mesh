@@ -1,9 +1,81 @@
 # MCP Server Configuration
 
 # Environment (dev, staging, prod)
-environment: "dev"
+environment: "prod"
 
-# AWS Service Configurations
+# API Server Configuration
+api:
+  listen_address: ":8080"
+  read_timeout: 30s
+  write_timeout: 30s
+  idle_timeout: 60s
+  enable_cors: true
+  auth:
+    jwt_secret: "REPLACE_WITH_PROD_SECRET"
+    api_keys:
+      admin: "REPLACE_WITH_ADMIN_API_KEY"
+      reader: "REPLACE_WITH_READER_API_KEY"
+  rate_limit:
+    enabled: true
+    limit: 1000
+    period: 1m
+    burst_factor: 5
+  webhooks:
+    github:
+      enabled: true
+      path: "/github"
+      secret: "REPLACE_WITH_WEBHOOK_SECRET"
+
+# Database Configuration
+database:
+  driver: "postgres"
+  dsn: "REPLACE_WITH_PROD_DSN"
+  max_open_conns: 50
+  max_idle_conns: 10
+  conn_max_lifetime: 60m
+
+# Cache Configuration
+cache:
+  type: "redis"
+  address: "REPLACE_WITH_PROD_REDIS_HOST:6379"
+  password: ""
+  db: 0
+  pool_size: 20
+  min_idle_conns: 4
+  dial_timeout: 5s
+  read_timeout: 3s
+  write_timeout: 3s
+
+# Monitoring Configuration
+monitoring:
+  prometheus:
+    enabled: true
+    path: "/metrics"
+  logging:
+    level: "info"
+    format: "json"
+    output: "stdout"
+    file_path: ""
+
+# Core Engine Configuration
+engine:
+  event_buffer_size: 10000
+  concurrency_limit: 20
+  event_timeout: 30s
+  security:
+    safe_mode: true
+    audit_logging: true
+
+# DevOps Tool Adapters
+adapters:
+  github:
+    api_token: "REPLACE_WITH_GITHUB_TOKEN"
+    webhook_secret: "REPLACE_WITH_GITHUB_WEBHOOK_SECRET"
+    request_timeout: 30s
+    retry_max: 3
+    retry_delay: 1s
+    mock_responses: false
+    mock_url: ""
 aws:
   # RDS Aurora PostgreSQL Configuration
   rds:

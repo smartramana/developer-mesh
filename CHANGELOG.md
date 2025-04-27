@@ -5,6 +5,27 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.8] - 2025-04-27
+
+### Added
+- Support for S3-based context storage with automatic failover to in-memory storage if S3 is not configured.
+- Example S3 configuration file (`config.example.yaml`) for easier setup.
+
+### Changed
+- Refactored S3 and storage code for improved modularity and maintainability.
+- Updated interface method signatures for consistency and correctness.
+- **Major documentation restructure:**
+    - All documentation files reorganized into logical subdirectories by audience and purpose (getting started, user, admin, developer, integrations, examples, API, features, security, diagrams, use-cases).
+    - All README files updated for correct navigation, purpose clarity, and to reflect new file locations.
+    - Internal links and section descriptions improved for usability and maintainability.
+
+### Fixed
+- All core tests now pass or are intentionally skipped, ensuring better test reliability.
+- Resolved test visibility and build issues.
+
+### Internal
+- Refactored and moved mock implementations to `_test.go` files to keep them out of production binaries.
+
 ## [0.3.7] - 2025-04-26
 
 ### Changed

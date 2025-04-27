@@ -97,7 +97,7 @@ func (cm *ContextManager) GetContext(ctx context.Context, contextID string) (*mc
 	}
 
 	// For tests that don't provide mock implementations, return a dummy context
-	if mockDatabase, ok := cm.db.(*MockDatabase); ok {
+	if mockDatabase, ok := cm.db.(*MockDB); ok {
 		return mockDatabase.GetContext(ctx, contextID)
 	}
 
@@ -111,7 +111,7 @@ func (cm *ContextManager) UpdateContext(ctx context.Context, contextID string, u
 	if err != nil {
 		return nil, err
 	}
-	
+
 	// Update fields
 	if updateData.AgentID != "" {
 		existingContext.AgentID = updateData.AgentID

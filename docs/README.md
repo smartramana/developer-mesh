@@ -1,43 +1,33 @@
 # DevOps MCP Server Documentation
 
-## Overview
+Welcome! This documentation is organized for maximum usability by admins, users, developers, and integrators.
 
-DevOps MCP (Model Context Protocol) Server serves as a bridge between AI agents and DevOps tools, providing:
+## 📚 Main Sections
 
-1. **Unified API for DevOps Tools**: A standardized protocol for AI agents to interact with GitHub and other DevOps platforms
-2. **Context Management**: Sophisticated conversation context handling with token management and vector search
-3. **Vector Embedding Storage**: Semantic search capabilities using pgvector for enhanced AI memory
+- **[Getting Started](getting-started/README.md):**
+  - Quick start, installation, configuration, deployment, upgrading, troubleshooting
+- **[User Guides](user/README.md):**
+  - Context management, agent capabilities, use cases
+- **[Admin Guides](admin/README.md):**
+  - Administration, monitoring, security, database migrations
+- **[Developer Docs](developer/README.md):**
+  - Development, contributing, API docs, testing, architecture, diagrams
+- **[Integrations](integrations/README.md):**
+  - Adding integrations, GitHub, features (S3, vector search, etc.)
+- **[Examples](examples/README.md):**
+  - Complete AI agent, integration guides, vector search
+- **[API Reference](api/README.md):**
+  - REST API, OpenAPI/Swagger
+- **[Best Practices](BEST_PRACTICES.md):**
+  - Security and operational best practices
 
-## Getting Started
+## 🧭 Navigation
+- Each section contains a README with links to all relevant guides and resources.
+- Use the sidebar or search to quickly find what you need.
 
-* [Quick Start Guide](quick-start-guide.md) - Get up and running in minutes
-* [Installation Guide](installation-guide.md) - Detailed installation instructions
-* [Configuration Guide](configuration-guide.md) - Configuration options and examples
+---
 
-## User Guides
-
-* [AI Agent Integration Guide](guides/ai-agent-integration-guide.md) - Complete guide to integrating AI agents
-* [GitHub Integration Guide](github-integration-guide.md) - Working with the GitHub adapter
-* [Context Management Guide](context-management-guide.md) - Managing conversation contexts effectively
-* [Vector Search Guide](guides/vector-search-guide.md) - Using vector embeddings for semantic search
-
-## API Reference
-
-* [API Overview](api-reference.md) - Complete API documentation
-* [OpenAPI Specification](swagger/context_api.yaml) - OpenAPI/Swagger specification
-
-## Deployment & Operations
-
-* [Deployment Guide](deployment-guide.md) - Production deployment recommendations
-* [AWS Integration](aws/aws-irsa-setup.md) - Working with AWS services
-* [Kubernetes Deployment](kubernetes-deployment.md) - Deploying on Kubernetes
-* [Monitoring Guide](monitoring-guide.md) - Monitoring and alerting
-* [Upgrading Guide](upgrading-guide.md) - How to safely upgrade
-
-## Maintenance & Troubleshooting
-
-* [Database Migrations](database-migrations.md) - Managing database schema changes
-* [Troubleshooting Guide](troubleshooting-guide.md) - Common issues and solutions
+For any questions, see the appropriate guide or contact the maintainers.
 
 ## Developer Documentation
 
