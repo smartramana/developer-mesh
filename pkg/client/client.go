@@ -16,10 +16,11 @@ import (
 
 // Client is the MCP client
 type Client struct {
-	baseURL     string
-	apiKey      string
+	baseURL      string
+	apiKey       string
 	webhookSecret string
-	httpClient  *http.Client
+	httpClient   *http.Client
+	tenantID     string // NEW: Tenant ID for multi-tenant scenarios
 }
 
 // ClientOption is a function that configures a Client
@@ -43,6 +44,13 @@ func WithWebhookSecret(secret string) ClientOption {
 func WithHTTPClient(httpClient *http.Client) ClientOption {
 	return func(c *Client) {
 		c.httpClient = httpClient
+	}
+}
+
+// WithTenantID sets the tenant ID for multi-tenant authentication
+func WithTenantID(tenantID string) ClientOption {
+	return func(c *Client) {
+		c.tenantID = tenantID
 	}
 }
 
@@ -80,6 +88,9 @@ func (c *Client) CreateContext(ctx context.Context, contextData *mcp.Context) (*
 	if c.apiKey != "" {
 		req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", c.apiKey))
 	}
+	if c.tenantID != "" {
+		req.Header.Set("X-Tenant-ID", c.tenantID)
+	}
 	
 	resp, err := c.httpClient.Do(req)
 	if err != nil {
@@ -116,6 +127,9 @@ func (c *Client) GetContext(ctx context.Context, contextID string) (*mcp.Context
 	
 	if c.apiKey != "" {
 		req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", c.apiKey))
+	}
+	if c.tenantID != "" {
+		req.Header.Set("X-Tenant-ID", c.tenantID)
 	}
 	
 	resp, err := c.httpClient.Do(req)
@@ -169,6 +183,9 @@ func (c *Client) UpdateContext(ctx context.Context, contextID string, contextDat
 	if c.apiKey != "" {
 		req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", c.apiKey))
 	}
+	if c.tenantID != "" {
+		req.Header.Set("X-Tenant-ID", c.tenantID)
+	}
 	
 	resp, err := c.httpClient.Do(req)
 	if err != nil {
@@ -205,6 +222,9 @@ func (c *Client) DeleteContext(ctx context.Context, contextID string) error {
 	
 	if c.apiKey != "" {
 		req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", c.apiKey))
+	}
+	if c.tenantID != "" {
+		req.Header.Set("X-Tenant-ID", c.tenantID)
 	}
 	
 	resp, err := c.httpClient.Do(req)
@@ -247,6 +267,9 @@ func (c *Client) ListContexts(ctx context.Context, agentID string, sessionID str
 	
 	if c.apiKey != "" {
 		req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", c.apiKey))
+	}
+	if c.tenantID != "" {
+		req.Header.Set("X-Tenant-ID", c.tenantID)
 	}
 	
 	resp, err := c.httpClient.Do(req)
@@ -297,6 +320,9 @@ func (c *Client) SearchContext(ctx context.Context, contextID string, query stri
 	if c.apiKey != "" {
 		req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", c.apiKey))
 	}
+	if c.tenantID != "" {
+		req.Header.Set("X-Tenant-ID", c.tenantID)
+	}
 	
 	resp, err := c.httpClient.Do(req)
 	if err != nil {
@@ -335,6 +361,9 @@ func (c *Client) SummarizeContext(ctx context.Context, contextID string) (string
 	
 	if c.apiKey != "" {
 		req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", c.apiKey))
+	}
+	if c.tenantID != "" {
+		req.Header.Set("X-Tenant-ID", c.tenantID)
 	}
 	
 	resp, err := c.httpClient.Do(req)
@@ -438,6 +467,9 @@ func (c *Client) ExecuteToolAction(ctx context.Context, contextID string, adapte
 	if c.apiKey != "" {
 		req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", c.apiKey))
 	}
+	if c.tenantID != "" {
+		req.Header.Set("X-Tenant-ID", c.tenantID)
+	}
 	
 	resp, err := c.httpClient.Do(req)
 	if err != nil {
@@ -485,6 +517,9 @@ func (c *Client) QueryToolData(ctx context.Context, adapterName string, query ma
 	if c.apiKey != "" {
 		req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", c.apiKey))
 	}
+	if c.tenantID != "" {
+		req.Header.Set("X-Tenant-ID", c.tenantID)
+	}
 	
 	resp, err := c.httpClient.Do(req)
 	if err != nil {
@@ -521,6 +556,9 @@ func (c *Client) ListTools(ctx context.Context) ([]string, error) {
 	
 	if c.apiKey != "" {
 		req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", c.apiKey))
+	}
+	if c.tenantID != "" {
+		req.Header.Set("X-Tenant-ID", c.tenantID)
 	}
 	
 	resp, err := c.httpClient.Do(req)

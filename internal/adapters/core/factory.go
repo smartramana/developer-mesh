@@ -15,7 +15,7 @@ type AdapterCreator func(ctx context.Context, config interface{}) (Adapter, erro
 type DefaultAdapterFactory struct {
 	creators      map[string]AdapterCreator
 	configs       map[string]interface{}
-	metricsClient *observability.MetricsClient
+	metricsClient observability.MetricsClient
 	logger        *observability.Logger
 	mu            sync.RWMutex
 }
@@ -23,7 +23,7 @@ type DefaultAdapterFactory struct {
 // NewAdapterFactory creates a new adapter factory
 func NewAdapterFactory(
 	configs map[string]interface{},
-	metricsClient *observability.MetricsClient,
+	metricsClient observability.MetricsClient,
 	logger *observability.Logger,
 ) *DefaultAdapterFactory {
 	if logger == nil {

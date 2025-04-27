@@ -15,6 +15,7 @@ import (
 	"github.com/S-Corkum/mcp-server/internal/interfaces"
 	"github.com/S-Corkum/mcp-server/internal/metrics"
 	"github.com/S-Corkum/mcp-server/internal/observability"
+	"github.com/S-Corkum/mcp-server/internal/storage/providers"
 	"github.com/S-Corkum/mcp-server/pkg/mcp"
 )
 
@@ -100,9 +101,25 @@ func NewEngine(
 		logger.Info("S3 configuration detected, but using simplified initialization for now", nil)
 	}
 
-	// Use a simpler context manager constructor since we're experiencing type issues with the original
-	// This will be a temporary solution until we can properly reconcile the types
-	ctxManager := &contextManager.Manager{}
+	// Properly initialize the context manager with all dependencies
+	// For now, use in-memory context storage unless a different provider is configured
+	var storage providers.ContextStorage
+	// NOTE: config is of type interfaces.CoreConfig, check for context storage provider in config (not config.Storage)
+	// If you add S3 support, implement detection here
+	storage = providers.NewInMemoryContextStorage()
+
+	// Use the correct event bus and metrics types
+	// system.NewSimpleEventBus returns *system.SimpleEventBus, which implements the required interface
+	// Use a new observability.MetricsClient for the context manager (not metrics.Client)
+	// Pass observability.NewMetricsClient() as observability.MetricsClient interface
+	ctxManager := contextManager.NewManager(
+		db,
+		cacheClient,
+		storage,
+		nil, // Event bus (set to nil for now, or use a real one if available)
+		logger.WithPrefix("context_manager"),
+		observability.NewMetricsClient(),
+	)
 
 	// For now, pass the config directly to the adapter manager
 	// We'll refactor the adapter manager later to handle interfaces.CoreConfig

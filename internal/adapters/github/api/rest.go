@@ -27,7 +27,7 @@ type RESTClient struct {
 	rateLimiter   resilience.RateLimiter
 	authProvider  auth.AuthProvider
 	logger        *observability.Logger
-	metricsClient *observability.MetricsClient
+	metricsClient observability.MetricsClient
 	etagCache     map[string]string
 	responseCache map[string]interface{}
 	cacheMutex    sync.RWMutex
@@ -43,7 +43,7 @@ type RESTConfig struct {
 }
 
 // NewRESTClient creates a new GitHub REST client
-func NewRESTClient(config *RESTConfig, client *http.Client, rateLimiter resilience.RateLimiter, logger *observability.Logger, metricsClient *observability.MetricsClient) *RESTClient {
+func NewRESTClient(config *RESTConfig, client *http.Client, rateLimiter resilience.RateLimiter, logger *observability.Logger, metricsClient observability.MetricsClient) *RESTClient {
 	// Set default base URL if not provided
 	baseURL := config.BaseURL
 	if baseURL == "" {

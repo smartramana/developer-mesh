@@ -25,7 +25,7 @@ import (
 // Returns:
 //   - error: If any provider registration fails
 func RegisterAllProviders(factory *core.DefaultAdapterFactory, eventBus interface{}, 
-	metricsClient *observability.MetricsClient, logger *observability.Logger) error {
+	metricsClient observability.MetricsClient, logger *observability.Logger) error {
 	
 	// Register GitHub adapter
 	if err := github.RegisterAdapter(factory, eventBus, metricsClient, logger); err != nil {

@@ -72,7 +72,7 @@ type GitHubAdapter struct {
 	graphQLClient   *api.GraphQLClient
 	authProvider    auth.AuthProvider
 	authFactory     *auth.AuthProviderFactory
-	metricsClient   *observability.MetricsClient
+	metricsClient   observability.MetricsClient
 	logger          *observability.Logger
 	eventBus        events.EventBusIface // Use the proper EventBus interface
 	webhookManager  *wh.Manager
@@ -87,7 +87,7 @@ type GitHubAdapter struct {
 }
 
 // New creates a new GitHub adapter
-func New(config *Config, logger *observability.Logger, metricsClient *observability.MetricsClient, eventBus events.EventBusIface) (*GitHubAdapter, error) {
+func New(config *Config, logger *observability.Logger, metricsClient observability.MetricsClient, eventBus events.EventBusIface) (*GitHubAdapter, error) {
 	if config == nil {
 		return nil, fmt.Errorf("config cannot be nil")
 	}

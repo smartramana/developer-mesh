@@ -61,7 +61,7 @@ func (s *Server) setupVectorAPI(ctx context.Context) error {
 }
 
 // createVectorMetricsMiddleware creates a middleware for vector metrics
-func createVectorMetricsMiddleware(metrics *observability.MetricsClient) gin.HandlerFunc {
+func createVectorMetricsMiddleware(metrics observability.MetricsClient) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		// Process the request
 		c.Next()

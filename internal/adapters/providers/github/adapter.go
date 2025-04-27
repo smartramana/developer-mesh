@@ -12,14 +12,14 @@ import (
 // Provider is a factory for GitHub adapters
 type Provider struct {
 	logger        *observability.Logger
-	metricsClient *observability.MetricsClient
+	metricsClient observability.MetricsClient
 	eventBus      events.EventBusIface
 }
 
 // NewProvider creates a new GitHub provider
 func NewProvider(
 	logger *observability.Logger,
-	metricsClient *observability.MetricsClient,
+	metricsClient observability.MetricsClient,
 	eventBus events.EventBusIface,
 ) *Provider {
 	return &Provider{

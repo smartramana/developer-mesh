@@ -5,13 +5,44 @@ import (
 )
 
 // MetricsClient provides an interface for recording metrics
-type MetricsClient struct {
-	// Metrics configuration
+type MetricsClient interface {
+	RecordEvent(source, eventType string)
+	RecordLatency(operation string, duration time.Duration)
+	RecordCounter(name string, value float64, labels map[string]string)
+	RecordGauge(name string, value float64, labels map[string]string)
+	RecordHistogram(name string, value float64, labels map[string]string)
+	RecordTimer(name string, duration time.Duration, labels map[string]string)
+	RecordCacheOperation(operation string, success bool, durationSeconds float64)
+	RecordOperation(component string, operation string, success bool, durationSeconds float64, labels map[string]string)
+	StartTimer(name string, labels map[string]string) func()
+	IncrementCounter(name string, value float64)
+	RecordDuration(name string, duration time.Duration)
+	Close() error
+}
+
+type metricsClient struct {
 	enabled bool
 }
 
+// IncrementCounter increments a counter metric by a given value
+func (m *metricsClient) IncrementCounter(name string, value float64) {
+	if !m.enabled {
+		return
+	}
+	m.RecordCounter(name, value, map[string]string{})
+}
+
+// RecordDuration records a duration metric
+func (m *metricsClient) RecordDuration(name string, duration time.Duration) {
+	if !m.enabled {
+		return
+	}
+	durationSeconds := duration.Seconds()
+	m.RecordHistogram(name, durationSeconds, map[string]string{})
+}
+
 // RecordEvent records an event metric
-func (m *MetricsClient) RecordEvent(source, eventType string) {
+func (m *metricsClient) RecordEvent(source, eventType string) {
 	if !m.enabled {
 		return
 	}
@@ -20,7 +51,7 @@ func (m *MetricsClient) RecordEvent(source, eventType string) {
 }
 
 // RecordLatency records a latency metric
-func (m *MetricsClient) RecordLatency(operation string, duration time.Duration) {
+func (m *metricsClient) RecordLatency(operation string, duration time.Duration) {
 	if !m.enabled {
 		return
 	}
@@ -32,14 +63,16 @@ func (m *MetricsClient) RecordLatency(operation string, duration time.Duration) 
 }
 
 // NewMetricsClient creates a new metrics client
-func NewMetricsClient() *MetricsClient {
-	return &MetricsClient{
+func NewMetricsClient() MetricsClient {
+	return &metricsClient{
 		enabled: true,
 	}
 }
 
+
+
 // RecordCounter increments a counter metric
-func (m *MetricsClient) RecordCounter(name string, value float64, labels map[string]string) {
+func (m *metricsClient) RecordCounter(name string, value float64, labels map[string]string) {
 	if !m.enabled {
 		return
 	}
@@ -48,7 +81,7 @@ func (m *MetricsClient) RecordCounter(name string, value float64, labels map[str
 }
 
 // RecordGauge records a gauge metric
-func (m *MetricsClient) RecordGauge(name string, value float64, labels map[string]string) {
+func (m *metricsClient) RecordGauge(name string, value float64, labels map[string]string) {
 	if !m.enabled {
 		return
 	}
@@ -57,7 +90,7 @@ func (m *MetricsClient) RecordGauge(name string, value float64, labels map[strin
 }
 
 // RecordHistogram records a histogram metric
-func (m *MetricsClient) RecordHistogram(name string, value float64, labels map[string]string) {
+func (m *metricsClient) RecordHistogram(name string, value float64, labels map[string]string) {
 	if !m.enabled {
 		return
 	}
@@ -66,7 +99,7 @@ func (m *MetricsClient) RecordHistogram(name string, value float64, labels map[s
 }
 
 // RecordTimer records a timer metric
-func (m *MetricsClient) RecordTimer(name string, duration time.Duration, labels map[string]string) {
+func (m *metricsClient) RecordTimer(name string, duration time.Duration, labels map[string]string) {
 	if !m.enabled {
 		return
 	}
@@ -75,7 +108,7 @@ func (m *MetricsClient) RecordTimer(name string, duration time.Duration, labels 
 }
 
 // RecordCacheOperation records cache operation metrics
-func (m *MetricsClient) RecordCacheOperation(operation string, success bool, durationSeconds float64) {
+func (m *metricsClient) RecordCacheOperation(operation string, success bool, durationSeconds float64) {
 	if !m.enabled {
 		return
 	}
@@ -88,7 +121,7 @@ func (m *MetricsClient) RecordCacheOperation(operation string, success bool, dur
 }
 
 // RecordOperation records operation metrics for adapters and other components
-func (m *MetricsClient) RecordOperation(component string, operation string, success bool, durationSeconds float64, labels map[string]string) {
+func (m *metricsClient) RecordOperation(component string, operation string, success bool, durationSeconds float64, labels map[string]string) {
 	if !m.enabled {
 		return
 	}
@@ -101,7 +134,7 @@ func (m *MetricsClient) RecordOperation(component string, operation string, succ
 }
 
 // StartTimer starts a timer metric
-func (m *MetricsClient) StartTimer(name string, labels map[string]string) func() {
+func (m *metricsClient) StartTimer(name string, labels map[string]string) func() {
 	if !m.enabled {
 		return func() {}
 	}
@@ -114,7 +147,7 @@ func (m *MetricsClient) StartTimer(name string, labels map[string]string) func()
 }
 
 // Close closes the metrics client and returns any error
-func (m *MetricsClient) Close() error {
+func (m *metricsClient) Close() error {
 	// Placeholder for cleanup
 	return nil
 }

@@ -34,7 +34,7 @@ type Processor struct {
 	ctx         context.Context
 	cancel      context.CancelFunc
 	logger      *observability.Logger
-	metrics     *observability.MetricsClient
+	metrics     observability.MetricsClient
 }
 
 // ProcessorConfig holds configuration for the webhook processor
@@ -42,7 +42,7 @@ type ProcessorConfig struct {
 	QueueSize   int
 	WorkerCount int
 	Logger      *observability.Logger
-	Metrics     *observability.MetricsClient
+	Metrics     observability.MetricsClient
 }
 
 // NewProcessor creates a new webhook processor
@@ -245,11 +245,11 @@ func (p *Processor) handleEvent(event *WebhookEvent) {
 // DefaultEventHandler implements a simple webhook handler
 type DefaultEventHandler struct {
 	logger  *observability.Logger
-	metrics *observability.MetricsClient
+	metrics observability.MetricsClient
 }
 
 // NewDefaultEventHandler creates a new default webhook handler
-func NewDefaultEventHandler(logger *observability.Logger, metrics *observability.MetricsClient) *DefaultEventHandler {
+func NewDefaultEventHandler(logger *observability.Logger, metrics observability.MetricsClient) *DefaultEventHandler {
 	return &DefaultEventHandler{
 		logger:  logger,
 		metrics: metrics,

@@ -11,7 +11,7 @@ import (
 
 // FallbackService provides degraded service when primary services fail
 type FallbackService struct {
-	metricsClient *observability.MetricsClient
+	metricsClient observability.MetricsClient
 }
 
 // NewFallbackService creates a new fallback service

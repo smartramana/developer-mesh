@@ -26,10 +26,10 @@ type TruncateStrategy string
 const (
 	// TruncateOldestFirst truncates the oldest items first
 	TruncateOldestFirst TruncateStrategy = "oldest_first"
-	
+
 	// TruncatePreservingUser truncates by removing assistant responses while preserving user messages
 	TruncatePreservingUser TruncateStrategy = "preserving_user"
-	
+
 	// TruncateRelevanceBased truncates based on relevance to the current conversation
 	TruncateRelevanceBased TruncateStrategy = "relevance_based"
 )
@@ -48,8 +48,8 @@ type Manager struct {
 
 // NewManager creates a new context manager
 func NewManager(
-	db *database.Database, 
-	cache cache.Cache, 
+	db *database.Database,
+	cache cache.Cache,
 	storage providers.ContextStorage,
 	eventBus *system.EventBus,
 	logger *observability.Logger,
@@ -81,45 +81,45 @@ func (m *Manager) CreateContext(ctx context.Context, contextData *mcp.Context) (
 	if contextData.AgentID == "" {
 		return nil, fmt.Errorf("agent_id is required")
 	}
-	
+
 	if contextData.ModelID == "" {
 		return nil, fmt.Errorf("model_id is required")
 	}
-	
+
 	// Generate ID if not provided
 	if contextData.ID == "" {
 		contextData.ID = uuid.New().String()
 	}
-	
+
 	// Set timestamps
 	now := time.Now()
 	contextData.CreatedAt = now
 	contextData.UpdatedAt = now
-	
+
 	// Set max tokens if not provided
 	if contextData.MaxTokens == 0 {
 		contextData.MaxTokens = 4000 // Default value
 	}
-	
+
 	// Initialize content if nil
 	if contextData.Content == nil {
 		contextData.Content = []mcp.ContextItem{}
 	}
-	
+
 	// Calculate current tokens if not set
 	if contextData.CurrentTokens == 0 && len(contextData.Content) > 0 {
 		for _, item := range contextData.Content {
 			contextData.CurrentTokens += item.Tokens
 		}
 	}
-	
+
 	// Save to database
 	if err := m.db.Transaction(ctx, func(tx *sqlx.Tx) error {
 		return m.createContextInDB(ctx, tx, contextData)
 	}); err != nil {
 		return nil, fmt.Errorf("failed to create context in database: %w", err)
 	}
-	
+
 	// Save to storage if we have large content
 	if len(contextData.Content) > 0 {
 		if err := m.storage.StoreContext(ctx, contextData); err != nil {
@@ -130,7 +130,7 @@ func (m *Manager) CreateContext(ctx context.Context, contextData *mcp.Context) (
 			// Don't fail the operation if storage fails
 		}
 	}
-	
+
 	// Cache the context
 	if err := m.cacheContext(contextData); err != nil {
 		m.logger.Warn("Failed to cache context", map[string]interface{}{
@@ -139,7 +139,7 @@ func (m *Manager) CreateContext(ctx context.Context, contextData *mcp.Context) (
 		})
 		// Don't fail the operation if caching fails
 	}
-	
+
 	// Publish event
 	m.publishEvent(mcp.Event{
 		Source:    "context_manager",
@@ -149,7 +149,7 @@ func (m *Manager) CreateContext(ctx context.Context, contextData *mcp.Context) (
 		Timestamp: time.Now(),
 		Data:      map[string]interface{}{"context_id": contextData.ID},
 	})
-	
+
 	return contextData, nil
 }
 
@@ -165,10 +165,10 @@ func (m *Manager) GetContext(ctx context.Context, contextID string) (*mcp.Contex
 	if err == nil {
 		return cachedContext, nil
 	}
-	
+
 	// If not in cache, get from database
 	var contextData *mcp.Context
-	
+
 	if err := m.db.Transaction(ctx, func(tx *sqlx.Tx) error {
 		var err error
 		contextData, err = m.getContextFromDB(ctx, tx, contextID)
@@ -179,10 +179,10 @@ func (m *Manager) GetContext(ctx context.Context, contextID string) (*mcp.Contex
 		if storageErr != nil {
 			return nil, fmt.Errorf("failed to get context: %w", err)
 		}
-		
+
 		contextData = storageContext
 	}
-	
+
 	// Cache the context for future use
 	if contextData != nil {
 		if err := m.cacheContext(contextData); err != nil {
@@ -193,7 +193,7 @@ func (m *Manager) GetContext(ctx context.Context, contextID string) (*mcp.Contex
 			// Don't fail the operation if caching fails
 		}
 	}
-	
+
 	return contextData, nil
 }
 
@@ -209,33 +209,44 @@ func (m *Manager) UpdateContext(ctx context.Context, contextID string, updateDat
 	if err != nil {
 		return nil, err
 	}
-	
+
 	// Update fields that can be updated
+	if updateData.Name != "" {
+		existingContext.Name = updateData.Name
+	}
+	if updateData.Description != "" {
+		existingContext.Description = updateData.Description
+	}
+	// Only update metadata if provided (not nil)
+	// This preserves existing metadata if updateData.Metadata is omitted
+	if updateData.Metadata != nil {
+		existingContext.Metadata = updateData.Metadata
+	}
 	if updateData.AgentID != "" {
 		existingContext.AgentID = updateData.AgentID
 	}
-	
+
 	if updateData.SessionID != "" {
 		existingContext.SessionID = updateData.SessionID
 	}
-	
+
 	// Update metadata
 	if updateData.Metadata != nil {
 		if existingContext.Metadata == nil {
 			existingContext.Metadata = make(map[string]interface{})
 		}
-		
+
 		for k, v := range updateData.Metadata {
 			existingContext.Metadata[k] = v
 		}
 	}
-	
+
 	// Handle content updates
 	if updateData.Content != nil {
 		// If ReplaceContent is true, replace the entire content
 		if options != nil && options.ReplaceContent {
 			existingContext.Content = updateData.Content
-			
+
 			// Recalculate token count
 			existingContext.CurrentTokens = 0
 			for _, item := range existingContext.Content {
@@ -248,21 +259,21 @@ func (m *Manager) UpdateContext(ctx context.Context, contextID string, updateDat
 				if item.ID == "" {
 					item.ID = uuid.New().String()
 				}
-				
+
 				// Set timestamp if not provided
 				if item.Timestamp.IsZero() {
 					item.Timestamp = time.Now()
 				}
-				
+
 				existingContext.Content = append(existingContext.Content, item)
 				existingContext.CurrentTokens += item.Tokens
 			}
 		}
 	}
-	
+
 	// Update timestamp
 	existingContext.UpdatedAt = time.Now()
-	
+
 	// Check if context needs truncation
 	if options != nil && options.Truncate && existingContext.CurrentTokens > existingContext.MaxTokens {
 		// Truncate context based on strategy
@@ -270,14 +281,14 @@ func (m *Manager) UpdateContext(ctx context.Context, contextID string, updateDat
 			return nil, fmt.Errorf("failed to truncate context: %w", err)
 		}
 	}
-	
+
 	// Save to database
 	if err := m.db.Transaction(ctx, func(tx *sqlx.Tx) error {
 		return m.updateContextInDB(ctx, tx, existingContext)
 	}); err != nil {
 		return nil, fmt.Errorf("failed to update context in database: %w", err)
 	}
-	
+
 	// Save to storage if we have large content
 	if len(existingContext.Content) > 0 {
 		if err := m.storage.StoreContext(ctx, existingContext); err != nil {
@@ -288,7 +299,7 @@ func (m *Manager) UpdateContext(ctx context.Context, contextID string, updateDat
 			// Don't fail the operation if storage fails
 		}
 	}
-	
+
 	// Cache the updated context
 	if err := m.cacheContext(existingContext); err != nil {
 		m.logger.Warn("Failed to cache context", map[string]interface{}{
@@ -297,7 +308,7 @@ func (m *Manager) UpdateContext(ctx context.Context, contextID string, updateDat
 		})
 		// Don't fail the operation if caching fails
 	}
-	
+
 	// Publish event
 	m.publishEvent(mcp.Event{
 		Source:    "context_manager",
@@ -307,7 +318,7 @@ func (m *Manager) UpdateContext(ctx context.Context, contextID string, updateDat
 		Timestamp: time.Now(),
 		Data:      map[string]interface{}{"context_id": existingContext.ID},
 	})
-	
+
 	return existingContext, nil
 }
 
@@ -323,14 +334,14 @@ func (m *Manager) DeleteContext(ctx context.Context, contextID string) error {
 	if err != nil {
 		return err
 	}
-	
+
 	// Delete from database
 	if err := m.db.Transaction(ctx, func(tx *sqlx.Tx) error {
 		return m.deleteContextFromDB(ctx, tx, contextID)
 	}); err != nil {
 		return fmt.Errorf("failed to delete context from database: %w", err)
 	}
-	
+
 	// Delete from storage
 	if err := m.storage.DeleteContext(ctx, contextID); err != nil {
 		m.logger.Warn("Failed to delete context from storage", map[string]interface{}{
@@ -339,7 +350,7 @@ func (m *Manager) DeleteContext(ctx context.Context, contextID string) error {
 		})
 		// Don't fail the operation if storage deletion fails
 	}
-	
+
 	// Delete from cache
 	if err := m.cache.Delete(ctx, fmt.Sprintf("context:%s", contextID)); err != nil {
 		m.logger.Warn("Failed to delete context from cache", map[string]interface{}{
@@ -348,7 +359,7 @@ func (m *Manager) DeleteContext(ctx context.Context, contextID string) error {
 		})
 		// Don't fail the operation if cache deletion fails
 	}
-	
+
 	// Publish event
 	m.publishEvent(mcp.Event{
 		Source:    "context_manager",
@@ -358,7 +369,7 @@ func (m *Manager) DeleteContext(ctx context.Context, contextID string) error {
 		Timestamp: time.Now(),
 		Data:      map[string]interface{}{"context_id": contextID},
 	})
-	
+
 	return nil
 }
 
@@ -370,7 +381,7 @@ func (m *Manager) ListContexts(ctx context.Context, agentID string, sessionID st
 	}()
 
 	var contexts []*mcp.Context
-	
+
 	// Get from database
 	if err := m.db.Transaction(ctx, func(tx *sqlx.Tx) error {
 		var err error
@@ -382,10 +393,10 @@ func (m *Manager) ListContexts(ctx context.Context, agentID string, sessionID st
 		if storageErr != nil {
 			return nil, fmt.Errorf("failed to list contexts: %w", err)
 		}
-		
+
 		contexts = storageContexts
 	}
-	
+
 	return contexts, nil
 }
 
@@ -401,10 +412,10 @@ func (m *Manager) SummarizeContext(ctx context.Context, contextID string) (strin
 	if err != nil {
 		return "", fmt.Errorf("failed to get context: %w", err)
 	}
-	
+
 	// Simple summary implementation
 	var userMessages, assistantMessages, systemMessages, otherMessages int
-	
+
 	for _, item := range contextData.Content {
 		switch item.Role {
 		case "user":
@@ -417,7 +428,7 @@ func (m *Manager) SummarizeContext(ctx context.Context, contextID string) (strin
 			otherMessages++
 		}
 	}
-	
+
 	summary := fmt.Sprintf(
 		"%d messages (%d user, %d assistant, %d system, %d other), %d/%d tokens",
 		len(contextData.Content),
@@ -428,7 +439,7 @@ func (m *Manager) SummarizeContext(ctx context.Context, contextID string) (strin
 		contextData.CurrentTokens,
 		contextData.MaxTokens,
 	)
-	
+
 	return summary, nil
 }
 
@@ -442,13 +453,13 @@ func (m *Manager) SearchInContext(ctx context.Context, contextID string, query s
 	if query == "" {
 		return []mcp.ContextItem{}, nil
 	}
-	
+
 	// Get context
 	contextData, err := m.GetContext(ctx, contextID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get context: %w", err)
 	}
-	
+
 	// Simple text search implementation
 	var results []mcp.ContextItem
 	for _, item := range contextData.Content {
@@ -456,7 +467,7 @@ func (m *Manager) SearchInContext(ctx context.Context, contextID string, query s
 			results = append(results, item)
 		}
 	}
-	
+
 	return results, nil
 }
 
@@ -464,11 +475,11 @@ func (m *Manager) SearchInContext(ctx context.Context, contextID string, query s
 func (m *Manager) Subscribe(eventType string, handler func(mcp.Event)) {
 	m.lock.Lock()
 	defer m.lock.Unlock()
-	
+
 	if m.subscribers[eventType] == nil {
 		m.subscribers[eventType] = make([]func(mcp.Event), 0)
 	}
-	
+
 	m.subscribers[eventType] = append(m.subscribers[eventType], handler)
 }
 
@@ -486,14 +497,14 @@ func (m *Manager) publishEvent(event mcp.Event) {
 	// Notify subscribers
 	m.lock.RLock()
 	defer m.lock.RUnlock()
-	
+
 	// Notify specific event type subscribers
 	if handlers, ok := m.subscribers[event.Type]; ok {
 		for _, handler := range handlers {
 			go handler(event)
 		}
 	}
-	
+
 	// Notify "all" event subscribers
 	if handlers, ok := m.subscribers["all"]; ok {
 		for _, handler := range handlers {
@@ -522,28 +533,28 @@ func (m *Manager) truncateOldestFirst(contextData *mcp.Context) error {
 	if contextData.CurrentTokens <= contextData.MaxTokens {
 		return nil
 	}
-	
+
 	// Sort content by timestamp (oldest first)
 	sort.Slice(contextData.Content, func(i, j int) bool {
 		return contextData.Content[i].Timestamp.Before(contextData.Content[j].Timestamp)
 	})
-	
+
 	// Remove oldest items until under max tokens
 	tokensToRemove := contextData.CurrentTokens - contextData.MaxTokens
 	removed := 0
 	removeCount := 0
-	
+
 	for i := 0; i < len(contextData.Content) && removed < tokensToRemove; i++ {
 		removed += contextData.Content[i].Tokens
 		removeCount++
 	}
-	
+
 	// Update content and token count
 	if removeCount > 0 {
 		contextData.Content = contextData.Content[removeCount:]
 		contextData.CurrentTokens -= removed
 	}
-	
+
 	return nil
 }
 
@@ -552,13 +563,13 @@ func (m *Manager) truncatePreservingUser(contextData *mcp.Context) error {
 	if contextData.CurrentTokens <= contextData.MaxTokens {
 		return nil
 	}
-	
+
 	// Group content items by role
 	userItems := make([]mcp.ContextItem, 0)
 	assistantItems := make([]mcp.ContextItem, 0)
 	systemItems := make([]mcp.ContextItem, 0)
 	otherItems := make([]mcp.ContextItem, 0)
-	
+
 	for _, item := range contextData.Content {
 		switch item.Role {
 		case "user":
@@ -571,93 +582,93 @@ func (m *Manager) truncatePreservingUser(contextData *mcp.Context) error {
 			otherItems = append(otherItems, item)
 		}
 	}
-	
+
 	// Sort assistant items by timestamp (oldest first)
 	sort.Slice(assistantItems, func(i, j int) bool {
 		return assistantItems[i].Timestamp.Before(assistantItems[j].Timestamp)
 	})
-	
+
 	// Calculate tokens by role
 	userTokens := 0
 	for _, item := range userItems {
 		userTokens += item.Tokens
 	}
-	
+
 	assistantTokens := 0
 	for _, item := range assistantItems {
 		assistantTokens += item.Tokens
 	}
-	
+
 	systemTokens := 0
 	for _, item := range systemItems {
 		systemTokens += item.Tokens
 	}
-	
+
 	otherTokens := 0
 	for _, item := range otherItems {
 		otherTokens += item.Tokens
 	}
-	
+
 	// Tokens to remove
 	tokensToRemove := contextData.CurrentTokens - contextData.MaxTokens
-	
+
 	// Remove assistant messages first (oldest first)
 	removedAssistantTokens := 0
 	removedAssistantCount := 0
-	
+
 	for i := 0; i < len(assistantItems) && removedAssistantTokens < tokensToRemove; i++ {
 		removedAssistantTokens += assistantItems[i].Tokens
 		removedAssistantCount++
 	}
-	
+
 	// Remove removed assistant items
 	if removedAssistantCount > 0 {
 		assistantItems = assistantItems[removedAssistantCount:]
 	}
-	
+
 	// If still over max tokens, remove oldest user messages
 	tokensToRemove -= removedAssistantTokens
-	
+
 	if tokensToRemove > 0 {
 		// Sort user items by timestamp (oldest first)
 		sort.Slice(userItems, func(i, j int) bool {
 			return userItems[i].Timestamp.Before(userItems[j].Timestamp)
 		})
-		
+
 		removedUserTokens := 0
 		removedUserCount := 0
-		
+
 		for i := 0; i < len(userItems) && removedUserTokens < tokensToRemove; i++ {
 			removedUserTokens += userItems[i].Tokens
 			removedUserCount++
 		}
-		
+
 		// Remove removed user items
 		if removedUserCount > 0 {
 			userItems = userItems[removedUserCount:]
 		}
-		
+
 		tokensToRemove -= removedUserTokens
 		userTokens -= removedUserTokens
 	}
-	
+
 	// Reconstruct content
 	newContent := make([]mcp.ContextItem, 0)
 	newContent = append(newContent, systemItems...)
-	
+
 	// Interleave user and assistant messages by timestamp
 	allItems := append(userItems, assistantItems...)
 	sort.Slice(allItems, func(i, j int) bool {
 		return allItems[i].Timestamp.Before(allItems[j].Timestamp)
 	})
-	
+
 	newContent = append(newContent, allItems...)
 	newContent = append(newContent, otherItems...)
-	
+
 	// Update context
 	contextData.Content = newContent
 	contextData.CurrentTokens = systemTokens + (userTokens) + (assistantTokens - removedAssistantTokens) + otherTokens
-	
+
 	return nil
 }
 
@@ -667,49 +678,49 @@ func (m *Manager) cacheContext(contextData *mcp.Context) error {
 	if !contextData.ExpiresAt.IsZero() && contextData.ExpiresAt.Before(time.Now()) {
 		return nil
 	}
-	
+
 	// Determine cache expiration
 	expiration := 24 * time.Hour // Default expiration
-	
+
 	if !contextData.ExpiresAt.IsZero() {
 		// If context has explicit expiration, use time until expiration
 		expiration = time.Until(contextData.ExpiresAt)
 	}
-	
+
 	// Cache the context
 	cacheKey := fmt.Sprintf("context:%s", contextData.ID)
 	err := m.cache.Set(context.Background(), cacheKey, contextData, expiration)
 	if err != nil {
 		return fmt.Errorf("failed to cache context: %w", err)
 	}
-	
+
 	return nil
 }
 
 // getCachedContext gets a context from cache
 func (m *Manager) getCachedContext(contextID string) (*mcp.Context, error) {
 	var contextData mcp.Context
-	
+
 	cacheKey := fmt.Sprintf("context:%s", contextID)
 	err := m.cache.Get(context.Background(), cacheKey, &contextData)
 	if err != nil {
 		return nil, err
 	}
-	
+
 	return &contextData, nil
 }
 
 // recordMetrics records metrics for the operation
 func (m *Manager) recordMetrics(operation string, startTime time.Time) {
 	duration := time.Since(startTime)
-	
+
 	// Use the metrics client directly
 	m.metricsClient.RecordHistogram(
 		"context_manager_operation_duration_ms",
 		float64(duration.Milliseconds()),
 		map[string]string{"operation": operation},
 	)
-	
+
 	m.metricsClient.RecordCounter(
 		"context_manager_operations_total",
 		1.0,
@@ -724,18 +735,41 @@ func (m *Manager) createContextInDB(ctx context.Context, tx *sqlx.Tx, contextDat
 	// Convert metadata to JSON if not nil
 	var metadataJSON []byte
 	var err error
+	// Treat empty string or non-object metadata as nil (same as updateContextInDB)
+	if contextData.Metadata != nil {
+		switch meta := interface{}(contextData.Metadata).(type) {
+		case string:
+			if strings.TrimSpace(meta) == "" {
+				contextData.Metadata = nil
+			} else {
+				// invalid string, treat as nil
+				contextData.Metadata = nil
+			}
+		case map[string]interface{}:
+			// valid, do nothing
+		case nil:
+			// valid, do nothing
+		default:
+			// any other type, treat as nil
+			contextData.Metadata = nil
+		}
+	}
 	if contextData.Metadata != nil {
 		metadataJSON, err = json.Marshal(contextData.Metadata)
 		if err != nil {
 			return fmt.Errorf("failed to marshal metadata: %w", err)
 		}
 	}
-
-	// Insert into contexts table
+	// Ensure metadataJSON is always valid JSON (never empty string)
+	if metadataJSON == nil || len(metadataJSON) == 0 || string(metadataJSON) == "" {
+		metadataJSON = []byte("{}")
+	}
 	_, err = tx.ExecContext(
 		ctx,
-		"INSERT INTO mcp.contexts (id, agent_id, model_id, session_id, current_tokens, max_tokens, metadata, created_at, updated_at, expires_at) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)",
+		"INSERT INTO mcp.contexts (id, name, description, agent_id, model_id, session_id, current_tokens, max_tokens, metadata, created_at, updated_at, expires_at) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)",
 		contextData.ID,
+		contextData.Name,
+		contextData.Description,
 		contextData.AgentID,
 		contextData.ModelID,
 		contextData.SessionID,
@@ -797,16 +831,18 @@ func (m *Manager) createContextInDB(ctx context.Context, tx *sqlx.Tx, contextDat
 func (m *Manager) getContextFromDB(ctx context.Context, tx *sqlx.Tx, contextID string) (*mcp.Context, error) {
 	// Get context from contexts table
 	var contextRow struct {
-		ID           string         `db:"id"`
-		AgentID      string         `db:"agent_id"`
-		ModelID      string         `db:"model_id"`
-		SessionID    sql.NullString `db:"session_id"`
-		CurrentTokens int           `db:"current_tokens"`
-		MaxTokens    int           `db:"max_tokens"`
-		Metadata     []byte         `db:"metadata"`
-		CreatedAt    time.Time      `db:"created_at"`
-		UpdatedAt    time.Time      `db:"updated_at"`
-		ExpiresAt    sql.NullTime   `db:"expires_at"`
+		ID            string         `db:"id"`
+		Name          string         `db:"name"`
+		Description   string         `db:"description"`
+		AgentID       string         `db:"agent_id"`
+		ModelID       string         `db:"model_id"`
+		SessionID     sql.NullString `db:"session_id"`
+		CurrentTokens int            `db:"current_tokens"`
+		MaxTokens     int            `db:"max_tokens"`
+		Metadata      []byte         `db:"metadata"`
+		CreatedAt     time.Time      `db:"created_at"`
+		UpdatedAt     time.Time      `db:"updated_at"`
+		ExpiresAt     sql.NullTime   `db:"expires_at"`
 	}
 
 	err := tx.GetContext(ctx, &contextRow, "SELECT * FROM mcp.contexts WHERE id = $1", contextID)
@@ -828,6 +864,8 @@ func (m *Manager) getContextFromDB(ctx context.Context, tx *sqlx.Tx, contextID s
 	// Create context object
 	contextData := &mcp.Context{
 		ID:            contextRow.ID,
+		Name:          contextRow.Name,
+		Description:   contextRow.Description,
 		AgentID:       contextRow.AgentID,
 		ModelID:       contextRow.ModelID,
 		CurrentTokens: contextRow.CurrentTokens,
@@ -857,13 +895,13 @@ func (m *Manager) getContextFromDB(ctx context.Context, tx *sqlx.Tx, contextID s
 	// Parse context items
 	for rows.Next() {
 		var itemRow struct {
-			ID        string         `db:"id"`
-			ContextID string         `db:"context_id"`
-			Role      string         `db:"role"`
-			Content   string         `db:"content"`
-			Tokens    int            `db:"tokens"`
-			Timestamp time.Time      `db:"timestamp"`
-			Metadata  []byte         `db:"metadata"`
+			ID        string    `db:"id"`
+			ContextID string    `db:"context_id"`
+			Role      string    `db:"role"`
+			Content   string    `db:"content"`
+			Tokens    int       `db:"tokens"`
+			Timestamp time.Time `db:"timestamp"`
+			Metadata  []byte    `db:"metadata"`
 		}
 
 		if err := rows.StructScan(&itemRow); err != nil {
@@ -905,17 +943,49 @@ func (m *Manager) updateContextInDB(ctx context.Context, tx *sqlx.Tx, contextDat
 	// Convert metadata to JSON if not nil
 	var metadataJSON []byte
 	var err error
+	// Treat empty string or non-object metadata as nil
+	// Always treat empty string as nil for metadata
+	if contextData.Metadata != nil {
+		switch meta := interface{}(contextData.Metadata).(type) {
+		case string:
+			if strings.TrimSpace(meta) == "" {
+				contextData.Metadata = nil
+			} else {
+				// invalid string, treat as nil
+				contextData.Metadata = nil
+			}
+		case map[string]interface{}:
+			// valid, do nothing
+		case nil:
+			// valid, do nothing
+		default:
+			// any other type, treat as nil
+			contextData.Metadata = nil
+		}
+	}
+	// Guarantee: if Metadata is nil, metadataJSON will be '{}', never ''
 	if contextData.Metadata != nil {
 		metadataJSON, err = json.Marshal(contextData.Metadata)
 		if err != nil {
 			return fmt.Errorf("failed to marshal metadata: %w", err)
 		}
 	}
+	// Ensure metadataJSON is always valid JSON (never empty string)
+	if metadataJSON == nil || len(metadataJSON) == 0 || string(metadataJSON) == "" {
+		metadataJSON = []byte("{}")
+	}
+
+	m.logger.Debug("updateContextInDB: metadataJSON", map[string]interface{}{
+		"metadataJSON": string(metadataJSON),
+		"type":         fmt.Sprintf("%T", metadataJSON),
+	})
 
 	// Update contexts table
 	_, err = tx.ExecContext(
 		ctx,
-		"UPDATE mcp.contexts SET agent_id = $1, model_id = $2, session_id = $3, current_tokens = $4, max_tokens = $5, metadata = $6, updated_at = $7, expires_at = $8 WHERE id = $9",
+		"UPDATE mcp.contexts SET name = $1, description = $2, agent_id = $3, model_id = $4, session_id = $5, current_tokens = $6, max_tokens = $7, metadata = $8, updated_at = $9, expires_at = $10 WHERE id = $11",
+		contextData.Name,
+		contextData.Description,
 		contextData.AgentID,
 		contextData.ModelID,
 		contextData.SessionID,
@@ -927,6 +997,23 @@ func (m *Manager) updateContextInDB(ctx context.Context, tx *sqlx.Tx, contextDat
 		contextData.ID,
 	)
 	if err != nil {
+		m.logger.Error("updateContextInDB: failed SQL update", map[string]interface{}{
+			"error": err.Error(),
+			"sql": "UPDATE mcp.contexts SET name = $1, description = $2, agent_id = $3, model_id = $4, session_id = $5, current_tokens = $6, max_tokens = $7, metadata = $8, updated_at = $9, expires_at = $10 WHERE id = $11",
+			"params": map[string]interface{}{
+				"name": contextData.Name,
+				"description": contextData.Description,
+				"agent_id": contextData.AgentID,
+				"model_id": contextData.ModelID,
+				"session_id": contextData.SessionID,
+				"current_tokens": contextData.CurrentTokens,
+				"max_tokens": contextData.MaxTokens,
+				"metadata": string(metadataJSON),
+				"updated_at": contextData.UpdatedAt,
+				"expires_at": contextData.ExpiresAt,
+				"id": contextData.ID,
+			},
+		})
 		return fmt.Errorf("failed to update context: %w", err)
 	}
 
@@ -1031,16 +1118,16 @@ func (m *Manager) listContextsFromDB(ctx context.Context, tx *sqlx.Tx, agentID s
 	var contexts []*mcp.Context
 	for rows.Next() {
 		var contextRow struct {
-			ID           string         `db:"id"`
-			AgentID      string         `db:"agent_id"`
-			ModelID      string         `db:"model_id"`
-			SessionID    sql.NullString `db:"session_id"`
-			CurrentTokens int           `db:"current_tokens"`
-			MaxTokens    int           `db:"max_tokens"`
-			Metadata     []byte         `db:"metadata"`
-			CreatedAt    time.Time      `db:"created_at"`
-			UpdatedAt    time.Time      `db:"updated_at"`
-			ExpiresAt    sql.NullTime   `db:"expires_at"`
+			ID            string         `db:"id"`
+			AgentID       string         `db:"agent_id"`
+			ModelID       string         `db:"model_id"`
+			SessionID     sql.NullString `db:"session_id"`
+			CurrentTokens int            `db:"current_tokens"`
+			MaxTokens     int            `db:"max_tokens"`
+			Metadata      []byte         `db:"metadata"`
+			CreatedAt     time.Time      `db:"created_at"`
+			UpdatedAt     time.Time      `db:"updated_at"`
+			ExpiresAt     sql.NullTime   `db:"expires_at"`
 		}
 
 		if err := rows.StructScan(&contextRow); err != nil {

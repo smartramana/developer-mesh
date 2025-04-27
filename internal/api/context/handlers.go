@@ -147,12 +147,17 @@ func (api *API) UpdateContext(c *gin.Context) {
 		Options *mcp.ContextUpdateOptions  `json:"options"`
 	}
 	
+	// Bind the request body once into the typed struct
 	if err := c.ShouldBindJSON(&request); err != nil {
 		api.logger.Warn("Invalid request body for update context", map[string]interface{}{
 			"error": err.Error(),
 		})
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
+	}
+	// If context is present and metadata is nil, set to empty map to ensure valid JSON object downstream
+	if request.Context != nil && request.Context.Metadata == nil {
+		request.Context.Metadata = map[string]interface{}{}
 	}
 	
 	if request.Context == nil {

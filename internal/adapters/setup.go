@@ -2,7 +2,7 @@ package adapters
 
 import (
 	"context"
-	
+
 	"github.com/S-Corkum/mcp-server/internal/adapters/bridge"
 	"github.com/S-Corkum/mcp-server/internal/adapters/core"
 	adapterEvents "github.com/S-Corkum/mcp-server/internal/adapters/events"
@@ -15,13 +15,13 @@ import (
 
 // AdapterManager manages the lifecycle of adapters
 type AdapterManager struct {
-	factory        *core.DefaultAdapterFactory
-	registry       *core.AdapterRegistry
+	factory         *core.DefaultAdapterFactory
+	registry        *core.AdapterRegistry
 	adapterEventBus *adapterEvents.EventBus
 	systemEventBus  *events.EventBus
-	eventBridge    *bridge.EventBridge
-	logger         *observability.Logger
-	MetricsClient  *observability.MetricsClient
+	eventBridge     *bridge.EventBridge
+	logger          *observability.Logger
+	MetricsClient   observability.MetricsClient
 }
 
 // NewAdapterManager creates a new adapter manager
@@ -30,14 +30,14 @@ func NewAdapterManager(
 	_ interface{}, // Formerly contextManager, kept for backward compatibility
 	systemEventBus system.EventBus,
 	logger *observability.Logger,
-	metricsClient *observability.MetricsClient,
+	metricsClient observability.MetricsClient,
 ) *AdapterManager {
 	// Create events bus for adapters
 	adapterEventBus := adapterEvents.NewEventBus(logger)
-	
+
 	// Create system event bus adapter that implements events.EventBus
 	systemEventBusAdapter := events.NewEventBus(5) // Use 5 workers like default
-	
+
 	// Create adapter factory with empty map if config is nil
 	var adapterConfigs map[string]interface{}
 	if cfg != nil && cfg.Adapters != nil {
@@ -45,35 +45,35 @@ func NewAdapterManager(
 	} else {
 		adapterConfigs = make(map[string]interface{})
 	}
-	
+
 	factory := core.NewAdapterFactory(
 		adapterConfigs,
 		metricsClient,
 		logger,
 	)
-	
+
 	// Create adapter registry
 	registry := core.NewAdapterRegistry(factory, logger)
-	
+
 	// Create event bridge using the adapter event bus directly
 	// NOTE: We pass the event bus as an interface{} and handle the type conversion inside NewEventBridge
 	eventBridge := bridge.NewEventBridge(adapterEventBus, systemEventBus, logger, registry)
-	
+
 	// Register providers with the factory
 	// NOTE: We pass the systemEventBusAdapter directly as interface{}
 	providers.RegisterAllProviders(factory, systemEventBusAdapter, metricsClient, logger)
-	
+
 	// Create manager
 	manager := &AdapterManager{
-		factory:        factory,
-		registry:       registry,
+		factory:         factory,
+		registry:        registry,
 		adapterEventBus: adapterEventBus,
 		systemEventBus:  systemEventBusAdapter,
-		eventBridge:    eventBridge,
-		logger:         logger,
-		MetricsClient:  metricsClient,
+		eventBridge:     eventBridge,
+		logger:          logger,
+		MetricsClient:   metricsClient,
 	}
-	
+
 	return manager
 }
 
@@ -83,7 +83,7 @@ func (m *AdapterManager) Initialize(ctx context.Context) error {
 	requiredAdapters := []string{
 		"github",
 	}
-	
+
 	// Initialize required adapters
 	for _, adapterType := range requiredAdapters {
 		_, err := m.registry.GetAdapter(ctx, adapterType)
@@ -95,7 +95,7 @@ func (m *AdapterManager) Initialize(ctx context.Context) error {
 			return err
 		}
 	}
-	
+
 	return nil
 }
 
@@ -115,21 +115,19 @@ func (m *AdapterManager) ExecuteAction(ctx context.Context, contextID string, ad
 	if err != nil {
 		return nil, err
 	}
-	
+
 	// Log the operation
 	m.logger.Info("Executing adapter action", map[string]interface{}{
 		"adapterType": adapterType,
 		"action":      action,
 		"contextID":   contextID,
 	})
-	
+
 	// Execute action
 	result, err := adapter.ExecuteAction(ctx, contextID, action, params)
-	
+
 	return result, err
 }
-
-
 
 // Close releases all event bus resources
 func (m *AdapterManager) Close() {
@@ -146,7 +144,7 @@ func (m *AdapterManager) Shutdown(ctx context.Context) error {
 	m.Close()
 	// Get all adapters
 	adapters := m.registry.ListAdapters()
-	
+
 	// Close all adapters
 	for adapterType, adapter := range adapters {
 		if err := adapter.Close(); err != nil {
@@ -156,6 +154,6 @@ func (m *AdapterManager) Shutdown(ctx context.Context) error {
 			})
 		}
 	}
-	
+
 	return nil
 }

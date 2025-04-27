@@ -1,7 +1,0 @@
-version: '3.8'
-
-services:
-  mcp-server:
-    environment:
-      - MCP_TEST_MODE=true
-    command: ["sh", "-c", "echo 'Running in test mode with MCP_TEST_MODE=true' && ./mcp-server"]

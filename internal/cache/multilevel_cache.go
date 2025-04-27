@@ -22,7 +22,7 @@ type MultiLevelCache struct {
 	
 	// Configuration
 	ttl        time.Duration
-	metricsClient *observability.MetricsClient
+	metricsClient observability.MetricsClient
 	
 	// Prefetch queue
 	prefetchQueue   chan prefetchRequest

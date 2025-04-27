@@ -224,7 +224,7 @@ type GraphQLClient struct {
 	client        *http.Client
 	rateLimiter   resilience.RateLimiter
 	logger        *observability.Logger
-	metricsClient *observability.MetricsClient
+	metricsClient observability.MetricsClient
 	queryCache    map[string]interface{}
 	cacheMutex    sync.RWMutex
 }
@@ -240,7 +240,7 @@ type Config struct {
 }
 
 // NewGraphQLClient creates a new GitHub GraphQL client
-func NewGraphQLClient(config *Config, client *http.Client, rateLimiter resilience.RateLimiter, logger *observability.Logger, metricsClient *observability.MetricsClient) *GraphQLClient {
+func NewGraphQLClient(config *Config, client *http.Client, rateLimiter resilience.RateLimiter, logger *observability.Logger, metricsClient observability.MetricsClient) *GraphQLClient {
 	// Set default URL if not provided
 	if config.URL == "" {
 		config.URL = "https://api.github.com/graphql"

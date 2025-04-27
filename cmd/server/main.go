@@ -117,6 +117,14 @@ func main() {
 	if err != nil {
 		log.Fatalf("Failed to initialize database: %v", err)
 	}
+	if db == nil || db.GetDB() == nil {
+		log.Fatalf("Database pointer or underlying *sqlx.DB is nil after initialization!")
+	}
+	// Ping the DB to verify connection is alive
+	if err := db.GetDB().Ping(); err != nil {
+		log.Fatalf("Database connection is not alive (ping failed): %v", err)
+	}
+	log.Printf("Database initialized successfully: db=%p, sqlx.DB=%p", db, db.GetDB())
 	defer db.Close()
 
 	// Prepare cache config with AWS integration if needed

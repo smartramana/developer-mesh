@@ -60,7 +60,7 @@ deps:
 	$(GOMOD) tidy
 
 run:
-	./$(BINARY_NAME)
+	MCP_CONFIG_FILE=configs/config.local.yaml ./$(BINARY_NAME)
 
 mockserver-run:
 	./$(MOCKSERVER_NAME)
@@ -70,10 +70,11 @@ local-dev:
 	@echo "Starting mock server in background..."
 	@./$(MOCKSERVER_NAME) > mockserver.log 2>&1 &
 	@echo "Starting MCP server..."
-	@./$(BINARY_NAME)
+	MCP_CONFIG_FILE=configs/config.local.yaml ./$(BINARY_NAME)
 
 # Build and start everything needed for local development
-local-dev-setup: build mockserver-build local-dev-dependencies local-dev
+local-dev-setup: build mockserver-build local-dev-dependencies
+	MCP_CONFIG_FILE=configs/config.local.yaml $(MAKE) local-dev
 
 # One command to set up dependencies for local development
 local-dev-dependencies:

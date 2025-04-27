@@ -374,6 +374,22 @@ func CORSMiddleware(corsConfig CORSConfig) gin.HandlerFunc {
 	}
 }
 
+// TenantMiddleware extracts the X-Tenant-ID header and sets it in the Gin context as "user".
+// This should be registered before any handler that requires tenant scoping.
+// Usage (in server.go):
+// router.Use(api.TenantMiddleware())
+func TenantMiddleware() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		tenantID := c.Request.Header.Get("X-Tenant-ID")
+		if tenantID == "" {
+			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "missing tenant id"})
+			return
+		}
+		c.Set("user", map[string]interface{}{"tenant_id": tenantID})
+		c.Next()
+	}
+}
+
 // NoAuthMiddleware is a middleware that allows all requests through without authentication
 func NoAuthMiddleware() gin.HandlerFunc {
 	return func(c *gin.Context) {

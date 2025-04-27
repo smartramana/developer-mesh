@@ -27,7 +27,7 @@ const adapterType = "github"
 // Returns:
 //   - error: If registration fails
 func RegisterAdapter(factory *core.DefaultAdapterFactory, eventBus interface{},
-	metricsClient *observability.MetricsClient, logger *observability.Logger) error {
+	metricsClient observability.MetricsClient, logger *observability.Logger) error {
 
 	if factory == nil {
 		return fmt.Errorf("factory cannot be nil")

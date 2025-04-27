@@ -30,6 +30,12 @@ type Context struct {
 	// ID is the unique identifier for this context
 	ID string `json:"id"`
 
+	// Name is the display name of this context
+	Name string `json:"name"`
+
+	// Description is a human-readable description of the context
+	Description string `json:"description,omitempty"`
+
 	// AgentID is the identifier for the AI agent that owns this context
 	AgentID string `json:"agent_id"`
 

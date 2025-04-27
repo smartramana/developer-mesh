@@ -89,6 +89,72 @@ func (api *ToolAPI) handleExecuteToolAction(c *gin.Context) {
 		return
 	}
 
+	// Validate action exists for tool (copy logic from getActionDetails)
+	var allowedActions []string
+	switch toolName {
+	case "github":
+		allowedActions = []string{
+			"create_issue",
+			"close_issue",
+			"create_pull_request",
+			"merge_pull_request",
+			"add_comment",
+			"get_repository",
+			"list_repositories",
+			"get_pull_request",
+			"list_pull_requests",
+			"get_issue",
+			"list_issues",
+			"archive_repository",
+		}
+	case "harness":
+		allowedActions = []string{
+			"trigger_pipeline",
+			"get_pipeline_status",
+			"stop_pipeline",
+			"rollback_deployment",
+			"get_pipelines",
+		}
+	case "sonarqube":
+		allowedActions = []string{
+			"trigger_analysis",
+			"get_quality_gate_status",
+			"get_issues",
+			"get_metrics",
+			"get_projects",
+		}
+	case "artifactory":
+		allowedActions = []string{
+			"download_artifact",
+			"get_artifact_info",
+			"search_artifacts",
+			"get_build_info",
+			"get_repositories",
+		}
+	case "xray":
+		allowedActions = []string{
+			"scan_artifact",
+			"get_vulnerabilities",
+			"get_licenses",
+			"get_component_summary",
+		}
+	default:
+		c.JSON(http.StatusNotFound, gin.H{"error": "Tool not found"})
+		return
+	}
+
+	actionExists := false
+	for _, action := range allowedActions {
+		if action == actionName {
+			actionExists = true
+			break
+		}
+	}
+	if !actionExists {
+		c.JSON(http.StatusNotFound, gin.H{"error": "Action not found for this tool"})
+		return
+	}
+
 	var params map[string]interface{}
 	if err := c.ShouldBindJSON(&params); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
@@ -96,8 +162,6 @@ func (api *ToolAPI) handleExecuteToolAction(c *gin.Context) {
 	}
 
 	// Mock implementation since adapterBridge is now an interface
-	// In a real implementation, we would use type assertions or call through an interface
-	// For now, we'll just return a mock result
 	result := map[string]interface{}{
 		"status": "success",
 		"message": fmt.Sprintf("Executed %s action on %s tool", actionName, toolName),

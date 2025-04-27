@@ -185,6 +185,11 @@ type Repository interface {
 
 // Transaction executes a function within a database transaction
 func (d *Database) Transaction(ctx context.Context, fn func(*sqlx.Tx) error) error {
+	// Defensive: panic early if the database connection is nil
+	if d == nil || d.db == nil {
+		panic("[database.Transaction] FATAL: Database or underlying *sqlx.DB is nil. Check initialization and connection setup.")
+	}
+
 	tx, err := d.db.BeginTxx(ctx, nil)
 	if err != nil {
 		return err

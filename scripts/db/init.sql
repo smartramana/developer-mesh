@@ -1,4 +1,5 @@
--- Initialize database tables for MCP Server
+-- MCP Server Database Initialization Script (Consolidated)
+-- This script creates all schemas, tables, extensions, and indices for a clean start.
 
 -- Create schema
 CREATE SCHEMA IF NOT EXISTS mcp;
@@ -30,6 +31,8 @@ CREATE INDEX IF NOT EXISTS idx_events_timestamp ON mcp.events(timestamp);
 -- Create contexts table
 CREATE TABLE IF NOT EXISTS mcp.contexts (
     id VARCHAR(36) PRIMARY KEY,
+    name VARCHAR(255),
+    description TEXT,
     agent_id VARCHAR(255) NOT NULL,
     model_id VARCHAR(255) NOT NULL,
     session_id VARCHAR(255),
@@ -75,6 +78,34 @@ CREATE TABLE IF NOT EXISTS mcp.integrations (
 -- Create index on integrations
 CREATE INDEX IF NOT EXISTS idx_integrations_type ON mcp.integrations(type);
 CREATE INDEX IF NOT EXISTS idx_integrations_active ON mcp.integrations(active);
+
+-- Models table
+CREATE TABLE IF NOT EXISTS mcp.models (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    tenant_id VARCHAR(64) NOT NULL,
+    name VARCHAR(255) NOT NULL,
+    description TEXT,
+    provider VARCHAR(255),
+    model_type VARCHAR(100),
+    created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS idx_models_tenant_id ON mcp.models(tenant_id);
+
+-- Agents table
+CREATE TABLE IF NOT EXISTS mcp.agents (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    tenant_id VARCHAR(64) NOT NULL,
+    name VARCHAR(255) NOT NULL,
+    description TEXT,
+    model_id UUID NOT NULL,
+    created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
+    FOREIGN KEY (model_id) REFERENCES mcp.models(id) ON DELETE RESTRICT
+);
+CREATE INDEX IF NOT EXISTS idx_agents_tenant_id ON mcp.agents(tenant_id);
+CREATE INDEX IF NOT EXISTS idx_agents_model_id ON mcp.agents(model_id);
+
 
 -- Metrics table
 CREATE TABLE IF NOT EXISTS mcp.metrics (

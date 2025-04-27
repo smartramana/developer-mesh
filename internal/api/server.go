@@ -30,14 +30,19 @@ type Server struct {
 	config        Config
 	logger        *observability.Logger
 	db            *sqlx.DB
-	metrics       *observability.MetricsClient
+	metrics       observability.MetricsClient
 	vectorDB      *database.VectorDatabase
 	embeddingRepo *repository.EmbeddingRepository
 	cfg           *config.Config
 }
 
 // NewServer creates a new API server
-func NewServer(engine *core.Engine, cfg Config, db *sqlx.DB, metrics *observability.MetricsClient, config *config.Config) *Server {
+func NewServer(engine *core.Engine, cfg Config, db *sqlx.DB, metrics observability.MetricsClient, config *config.Config) *Server {
+	// Defensive: fail fast if db is nil
+	if db == nil {
+		panic("[api.NewServer] FATAL: received nil *sqlx.DB. Check database initialization before calling NewServer.")
+	}
+
 	router := gin.New()
 
 	// Add middleware
@@ -191,6 +196,8 @@ func (s *Server) setupRoutes(ctx context.Context) {
 
 	// API v1 routes - require authentication
 	v1 := s.router.Group("/api/v1")
+	// Add TenantMiddleware to ensure tenant ID is extracted and set in Gin context
+	v1.Use(TenantMiddleware())
 	// Use test mode to skip authentication
 	testMode := os.Getenv("MCP_TEST_MODE")
 	for _, e := range os.Environ() {
@@ -245,6 +252,14 @@ func (s *Server) setupRoutes(ctx context.Context) {
 		s.metrics,
 	)
 	ctxAPI.RegisterRoutes(v1)
+
+	// Agent and Model APIs
+	agentRepo := repository.NewAgentRepository(s.db.DB)
+	agentAPI := NewAgentAPI(agentRepo)
+	agentAPI.RegisterRoutes(v1)
+	modelRepo := repository.NewModelRepository(s.db.DB)
+	modelAPI := NewModelAPI(modelRepo)
+	modelAPI.RegisterRoutes(v1)
 
 	// Setup Vector API if enabled
 	if s.vectorDB != nil {

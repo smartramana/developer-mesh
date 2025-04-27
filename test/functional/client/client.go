@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"os"
 	"time"
 )
 
@@ -14,18 +15,30 @@ import (
 type MCPClient struct {
 	BaseURL    string
 	APIKey     string
+	TenantID   string
 	HTTPClient *http.Client
-}
+} // TenantID is used for multi-tenant API scenarios
 
 // NewMCPClient creates a new MCP client
-func NewMCPClient(baseURL, apiKey string) *MCPClient {
-	return &MCPClient{
+// WithTenantID sets the tenant ID for the client
+func WithTenantID(tenantID string) func(*MCPClient) {
+	return func(c *MCPClient) {
+		c.TenantID = tenantID
+	}
+}
+
+func NewMCPClient(baseURL, apiKey string, opts ...func(*MCPClient)) *MCPClient {
+	client := &MCPClient{
 		BaseURL: baseURL,
 		APIKey:  apiKey,
 		HTTPClient: &http.Client{
 			Timeout: 10 * time.Second,
 		},
 	}
+	for _, opt := range opts {
+		opt(client)
+	}
+	return client
 }
 
 // DoRequest performs an HTTP request to the MCP server
@@ -40,7 +53,13 @@ func (c *MCPClient) DoRequest(ctx context.Context, method, path string, body int
 		if err != nil {
 			return nil, fmt.Errorf("error marshaling request body: %w", err)
 		}
+		if method == http.MethodPut || method == http.MethodPost {
+			fmt.Fprintf(os.Stderr, "DEBUG: Outgoing %s %s body: %s\n", method, url, string(jsonData))
+		}
 		reqBody = bytes.NewBuffer(jsonData)
+	} else if method == http.MethodPut || method == http.MethodPost {
+		fmt.Fprintf(os.Stderr, "DEBUG: Outgoing %s %s body: {}\n", method, url)
+		reqBody = bytes.NewBuffer([]byte("{}"))
 	}
 
 	// Create request
@@ -54,6 +73,9 @@ func (c *MCPClient) DoRequest(ctx context.Context, method, path string, body int
 	if c.APIKey != "" {
 		// Send API key directly without Bearer prefix
 		req.Header.Set("Authorization", c.APIKey)
+	}
+	if c.TenantID != "" {
+		req.Header.Set("X-Tenant-ID", c.TenantID)
 	}
 
 	// Send request

@@ -70,7 +70,7 @@ type EventBus struct {
 	
 	// Asynchronous processing
 	eventQueue    chan eventQueueItem
-	metricsClient *observability.MetricsClient
+	metricsClient observability.MetricsClient
 	workers       int
 }
 

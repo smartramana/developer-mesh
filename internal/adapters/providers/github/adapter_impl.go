@@ -17,7 +17,7 @@ type GitHubAdapter struct {
 	adapter       *githubAdapter.GitHubAdapter
 	config        Config
 	logger        *observability.Logger
-	metricsClient *observability.MetricsClient
+	metricsClient observability.MetricsClient
 	eventBus      events.EventBusIface
 }
 
@@ -25,7 +25,7 @@ type GitHubAdapter struct {
 func NewAdapter(
 	config Config,
 	eventBus events.EventBusIface,
-	metricsClient *observability.MetricsClient,
+	metricsClient observability.MetricsClient,
 	logger *observability.Logger,
 ) (*GitHubAdapter, error) {
 	// Validate logger first for test compatibility
