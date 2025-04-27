@@ -55,19 +55,10 @@ func TestIAMAuthDefaults(t *testing.T) {
 	}
 	
 	// Test S3 as well
-	s3Config := S3Config{
-		AuthConfig: AuthConfig{
-			Region: "us-west-2",
-		},
-		Bucket:     "test-bucket",
-		UseIAMAuth: true,
-	}
+
 	
 	// Create a client - will fail without AWS credentials but we're just testing defaults
-	s3Client, _ := NewS3Client(context.Background(), s3Config)
-	if s3Client != nil && !s3Client.config.UseIAMAuth {
-		t.Errorf("IAM auth not enabled by default for S3")
-	}
+
 }
 
 func TestIRSADetection(t *testing.T) {

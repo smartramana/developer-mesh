@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/S-Corkum/mcp-server/internal/adapters"
+	"github.com/S-Corkum/mcp-server/internal/aws"
 	"github.com/S-Corkum/mcp-server/internal/cache"
 	contextManager "github.com/S-Corkum/mcp-server/internal/core/context"
 	"github.com/S-Corkum/mcp-server/internal/database"
@@ -16,6 +17,7 @@ import (
 	"github.com/S-Corkum/mcp-server/internal/metrics"
 	"github.com/S-Corkum/mcp-server/internal/observability"
 	"github.com/S-Corkum/mcp-server/internal/storage/providers"
+
 	"github.com/S-Corkum/mcp-server/pkg/mcp"
 )
 
@@ -32,7 +34,8 @@ func (m *MockMetricsClient) RecordGauge(name string, value float64, labels map[s
 func (m *MockMetricsClient) RecordHistogram(name string, value float64, labels map[string]string) {}
 
 // RecordTimer is a no-op implementation
-func (m *MockMetricsClient) RecordTimer(name string, duration time.Duration, labels map[string]string) {}
+func (m *MockMetricsClient) RecordTimer(name string, duration time.Duration, labels map[string]string) {
+}
 
 // StartTimer is a no-op implementation
 func (m *MockMetricsClient) StartTimer(name string, labels map[string]string) func() {
@@ -40,10 +43,12 @@ func (m *MockMetricsClient) StartTimer(name string, labels map[string]string) fu
 }
 
 // RecordCacheOperation is a no-op implementation
-func (m *MockMetricsClient) RecordCacheOperation(operation string, success bool, durationSeconds float64) {}
+func (m *MockMetricsClient) RecordCacheOperation(operation string, success bool, durationSeconds float64) {
+}
 
 // RecordOperation is a no-op implementation
-func (m *MockMetricsClient) RecordOperation(component string, operation string, success bool, durationSeconds float64, labels map[string]string) {}
+func (m *MockMetricsClient) RecordOperation(component string, operation string, success bool, durationSeconds float64, labels map[string]string) {
+}
 
 // Close is a no-op implementation
 func (m *MockMetricsClient) Close() error { return nil }
@@ -94,19 +99,44 @@ func NewEngine(
 	// Create a mock system event bus to fix compile issues
 	systemEventBus := &MockSystemEventBus{}
 
-	// We'll initialize the S3 storage later when we fix the context manager initialization
-	// For now, we're using a simpler approach to get the compilation working
-	
-	if config.AWS != nil && config.AWS.S3 != nil {
-		logger.Info("S3 configuration detected, but using simplified initialization for now", nil)
-	}
-
-	// Properly initialize the context manager with all dependencies
-	// For now, use in-memory context storage unless a different provider is configured
+	// Initialize context storage provider: prefer S3 if configured, otherwise use in-memory
 	var storage providers.ContextStorage
-	// NOTE: config is of type interfaces.CoreConfig, check for context storage provider in config (not config.Storage)
-	// If you add S3 support, implement detection here
-	storage = providers.NewInMemoryContextStorage()
+	useS3 := config.AWS != nil && config.AWS.S3 != nil && config.AWS.S3.Bucket != ""
+	if useS3 {
+		s3Prefix := "contexts"
+		if v, ok := any(config).(interface{ GetString(string) string }); ok {
+			if p := v.GetString("storage.context_storage.s3_path_prefix"); p != "" {
+				s3Prefix = p
+			}
+		}
+		s3Config := aws.S3Config{
+	AWSConfig: aws.AWSConfig{
+		UseIAMAuth: config.AWS.S3.UseIAMAuth,
+		Region:     config.AWS.S3.Region,
+		Endpoint:   config.AWS.S3.Endpoint,
+		AssumeRole: config.AWS.S3.AssumeRole,
+	},
+	Bucket:           config.AWS.S3.Bucket,
+	Region:           config.AWS.S3.Region,
+	Endpoint:         config.AWS.S3.Endpoint,
+	ForcePathStyle:   config.AWS.S3.ForcePathStyle,
+			UploadPartSize:   int64(config.AWS.S3.UploadPartSize),
+			DownloadPartSize: int64(config.AWS.S3.DownloadPartSize),
+			Concurrency:      config.AWS.S3.Concurrency,
+			RequestTimeout:   config.AWS.S3.RequestTimeout,
+		}
+		s3Client, err := aws.NewS3Client(ctx, s3Config)
+		if err != nil {
+			logger.Warn("Failed to initialize S3 client, falling back to in-memory context storage", map[string]interface{}{"error": err.Error()})
+			storage = providers.NewInMemoryContextStorage()
+		} else {
+			logger.Info("Using S3 context storage", map[string]interface{}{"bucket": config.AWS.S3.Bucket, "prefix": s3Prefix})
+			storage = providers.NewS3ContextStorage(s3Client, s3Prefix)
+		}
+	} else {
+		logger.Info("Using in-memory context storage", nil)
+		storage = providers.NewInMemoryContextStorage()
+	}
 
 	// Use the correct event bus and metrics types
 	// system.NewSimpleEventBus returns *system.SimpleEventBus, which implements the required interface
@@ -126,15 +156,15 @@ func NewEngine(
 
 	// Use a simpler adapter manager initialization to avoid type compatibility issues
 	logger.Info("Initializing adapter manager", nil)
-	
+
 	// Create a new adapter manager using the constructor function instead of direct struct initialization
 	// This avoids accessing unexported fields and uses the correct event bus type
 	adapterManager := adapters.NewAdapterManager(
-		nil, // Config - we'll use nil for now
-		nil, // Context manager - we'll use nil for now
+		nil,            // Config - we'll use nil for now
+		nil,            // Context manager - we'll use nil for now
 		systemEventBus, // System event bus - using the system.SimpleEventBus
-		logger, // Logger
-		nil, // Metrics client - we'll use nil for simplicity while fixing issues
+		logger,         // Logger
+		nil,            // Metrics client - we'll use nil for simplicity while fixing issues
 	)
 
 	// Create engine
@@ -172,12 +202,12 @@ func (e *Engine) HandleAdapterWebhook(ctx context.Context, adapterType string, e
 	if err != nil {
 		return fmt.Errorf("adapter not found: %w", err)
 	}
-	
+
 	// Check if the adapter implements webhook handling
 	if webhookHandler, ok := adapter.(interfaces.WebhookHandler); ok {
 		return webhookHandler.HandleWebhook(ctx, eventType, payload)
 	}
-	
+
 	return fmt.Errorf("adapter does not support webhooks")
 }
 
@@ -192,17 +222,17 @@ func (e *Engine) RecordWebhookInContext(ctx context.Context, agentID string, ada
 			ModelID:   "unknown", // Set appropriate default
 			MaxTokens: 4000,      // Default value
 		}
-		
+
 		newContext, err := e.contextManager.CreateContext(ctx, contextData)
 		if err != nil {
 			return "", err
 		}
-		
+
 		contexts = []*mcp.Context{newContext}
 	}
-	
+
 	contextID := contexts[0].ID
-	
+
 	// Format webhook event as context item
 	webhookItem := mcp.ContextItem{
 		Role:    "webhook",
@@ -215,22 +245,22 @@ func (e *Engine) RecordWebhookInContext(ctx context.Context, agentID string, ada
 		},
 		Timestamp: time.Now(),
 	}
-	
+
 	// Update context with webhook event
 	updateData := &mcp.Context{
 		Content: []mcp.ContextItem{webhookItem},
 	}
-	
+
 	options := &mcp.ContextUpdateOptions{
 		Truncate:         true,
 		TruncateStrategy: "oldest_first",
 	}
-	
+
 	_, err = e.contextManager.UpdateContext(ctx, contextID, updateData, options)
 	if err != nil {
 		return "", err
 	}
-	
+
 	return contextID, nil
 }
 
@@ -252,7 +282,7 @@ func (e *Engine) Shutdown(ctx context.Context) error {
 			})
 		}
 	}
-	
+
 	return nil
 }
 
@@ -262,23 +292,23 @@ func (e *Engine) Shutdown(ctx context.Context) error {
 func (e *Engine) Health() map[string]string {
 	// Create a map to store component health statuses
 	health := make(map[string]string)
-	
+
 	// Add adapter manager health status if available
 	if e.adapterManager != nil {
 		health["adapter_manager"] = "healthy"
 	} else {
 		health["adapter_manager"] = "not available"
 	}
-	
+
 	// Add context manager health status
 	if e.contextManager != nil {
 		health["context_manager"] = "healthy"
 	} else {
 		health["context_manager"] = "not available"
 	}
-	
+
 	// Add overall engine status
 	health["engine"] = "healthy"
-	
+
 	return health
 }

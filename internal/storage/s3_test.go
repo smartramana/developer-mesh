@@ -1,6 +1,3 @@
-//go:build exclude_storage_tests
-// +build exclude_storage_tests
-
 package storage
 
 import (
@@ -8,8 +5,8 @@ import (
 	"errors"
 	"testing"
 	"time"
+	"io"
 
-	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/feature/s3/manager"
 	"github.com/aws/aws-sdk-go-v2/service/s3"
 	"github.com/stretchr/testify/assert"
@@ -29,7 +26,6 @@ func (m *MockS3Client) DeleteObject(ctx context.Context, params *s3.DeleteObject
 	return args.Get(0).(*s3.DeleteObjectOutput), args.Error(1)
 }
 
-// Mock for ListObjectsV2
 func (m *MockS3Client) ListObjectsV2(ctx context.Context, params *s3.ListObjectsV2Input, optFns ...func(*s3.Options)) (*s3.ListObjectsV2Output, error) {
 	args := m.Called(ctx, params)
 	if args.Get(0) == nil {
@@ -56,7 +52,7 @@ type MockDownloader struct {
 	mock.Mock
 }
 
-func (m *MockDownloader) Download(ctx context.Context, w manager.WriterAt, params *s3.GetObjectInput, optFns ...func(*manager.Downloader)) (int64, error) {
+func (m *MockDownloader) Download(ctx context.Context, w io.WriterAt, params *s3.GetObjectInput, optFns ...func(*manager.Downloader)) (int64, error) {
 	args := m.Called(ctx, w, params)
 	return args.Get(0).(int64), args.Error(1)
 }
@@ -95,7 +91,6 @@ func TestGetBucketName(t *testing.T) {
 
 func TestUploadFile(t *testing.T) {
 	ctx := context.Background()
-	mockClient := &s3.Client{}
 	mockUploader := new(MockUploader)
 	
 	config := S3Config{
@@ -104,8 +99,8 @@ func TestUploadFile(t *testing.T) {
 	}
 	
 	s3Client := &S3Client{
-		client:   mockClient,
-		uploader: mockUploader,
+		client:   nil, // Not used in this test
+		uploader: mockUploader, // Use the mockUploader so UploadFile does not panic
 		config:   config,
 	}
 	
@@ -138,7 +133,6 @@ func TestUploadFile(t *testing.T) {
 
 func TestDownloadFile(t *testing.T) {
 	ctx := context.Background()
-	mockClient := &s3.Client{}
 	mockDownloader := new(MockDownloader)
 	
 	config := S3Config{
@@ -147,16 +141,16 @@ func TestDownloadFile(t *testing.T) {
 	}
 	
 	s3Client := &S3Client{
-		client:     mockClient,
-		downloader: mockDownloader,
+		client:     nil, // Not used in this test
+		downloader: mockDownloader, // Use the mockDownloader so DownloadFile does not panic
 		config:     config,
 	}
 	
 	// Test successful download - the downloader writes the test data to whatever buffer is passed
 	mockDownloader.On("Download", mock.Anything, mock.AnythingOfType("*manager.WriteAtBuffer"), mock.AnythingOfType("*s3.GetObjectInput")).
 		Run(func(args mock.Arguments) {
-			buffer := args.Get(1).(*manager.WriteAtBuffer)
-			copy(buffer.Bytes(), []byte("test-data"))
+			w := args.Get(1).(io.WriterAt)
+			w.WriteAt([]byte("test-data"), 0)
 		}).Return(int64(9), nil).Once()
 	
 	data, err := s3Client.DownloadFile(ctx, "test-key")
@@ -190,7 +184,7 @@ func TestDeleteFile(t *testing.T) {
 	}
 	
 	s3Client := &S3Client{
-		client: mockClient,
+		client: mockClient, // Use the mockClient so DeleteFile does not panic
 		config: config,
 	}
 	

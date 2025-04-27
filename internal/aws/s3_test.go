@@ -31,14 +31,11 @@ func TestNewS3Client(t *testing.T) {
 	os.Unsetenv("AWS_ROLE_ARN")
 	
 	cfg := S3Config{
-		AuthConfig: AuthConfig{
-			Region:   "us-west-2",
-			Endpoint: "http://localhost:4566", // LocalStack endpoint
-		},
+		Region:          "us-west-2",
+		Endpoint:        "http://localhost:4566", // LocalStack endpoint
 		Bucket:          "test-bucket",
 		ForcePathStyle:  true,
 		RequestTimeout:  5 * time.Second,
-		UseIAMAuth:      false,
 		UploadPartSize:  5 * 1024 * 1024, // 5MB
 		DownloadPartSize: 5 * 1024 * 1024, // 5MB
 		Concurrency:     5,
@@ -57,8 +54,6 @@ func TestNewS3Client(t *testing.T) {
 	// Test with IRSA enabled
 	os.Setenv("AWS_WEB_IDENTITY_TOKEN_FILE", "/var/run/secrets/token")
 	os.Setenv("AWS_ROLE_ARN", "arn:aws:iam::123456789012:role/test-role")
-	
-	cfg.UseIAMAuth = true
 	
 	client, err = NewS3Client(context.Background(), cfg)
 	if err != nil {
@@ -93,21 +88,17 @@ func TestS3ClientWithIRSA(t *testing.T) {
 	os.Setenv("AWS_WEB_IDENTITY_TOKEN_FILE", "/var/run/secrets/token")
 	os.Setenv("AWS_ROLE_ARN", "arn:aws:iam::123456789012:role/test-role")
 	
-	// Create config with IAM auth enabled
+	// Create config
 	cfg := S3Config{
-		AuthConfig: AuthConfig{
-			Region:   "us-west-2",
-			Endpoint: "http://localhost:4566", // LocalStack endpoint
-		},
+		Region:          "us-west-2",
+		Endpoint:        "http://localhost:4566", // LocalStack endpoint
 		Bucket:          "test-bucket",
 		ForcePathStyle:  true,
 		RequestTimeout:  5 * time.Second,
-		UseIAMAuth:      true,
 		UploadPartSize:  5 * 1024 * 1024, // 5MB
 		DownloadPartSize: 5 * 1024 * 1024, // 5MB
 		Concurrency:     5,
 	}
-	
 	// Verify that IRSA is enabled
 	if !IsIRSAEnabled() {
 		t.Fatal("IRSA should be enabled")

@@ -1,0 +1,14 @@
+# Example configuration for S3 storage
+aws:
+  s3:
+    bucket: "my-app-bucket"
+    use_iam_auth: true
+    region: "us-west-2"
+    endpoint: "https://s3.us-west-2.amazonaws.com" # Optional: custom endpoint for S3-compatible services
+    assume_role: "arn:aws:iam::123456789012:role/MyS3AccessRole" # Optional
+    force_path_style: false # Set true for LocalStack or custom endpoints
+    upload_part_size: 5242880 # 5MB
+    download_part_size: 5242880 # 5MB
+    concurrency: 5
+    request_timeout: 30s
+    server_side_encryption: "AES256" # Optional

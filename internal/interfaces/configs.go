@@ -21,14 +21,24 @@ type AWSConfig struct {
 }
 
 // S3Config holds configuration for S3
+// S3Config holds configuration for S3
+//
+// Region: AWS region for S3 buckets (e.g., "us-west-2").
+// Endpoint: Custom S3-compatible endpoint (for local testing or alternative providers).
+// AssumeRole: IAM role ARN to assume for S3 access (optional).
+// ForcePathStyle: Use path-style URLs for S3 (required for LocalStack or custom endpoints).
 type S3Config struct {
-	Bucket           string        `mapstructure:"bucket"`
-	UseIAMAuth       bool          `mapstructure:"use_iam_auth"`
-	UploadPartSize   int           `mapstructure:"upload_part_size"`
-	DownloadPartSize int           `mapstructure:"download_part_size"`
-	Concurrency      int           `mapstructure:"concurrency"`
-	RequestTimeout   time.Duration `mapstructure:"request_timeout"`
-	Encryption       string        `mapstructure:"server_side_encryption"`
+	Bucket           string        `mapstructure:"bucket"` // Name of the S3 bucket to use for storage
+	UseIAMAuth       bool          `mapstructure:"use_iam_auth"` // Enable IAM-based authentication (IRSA, EC2 roles, etc.)
+	Region           string        `mapstructure:"region"` // AWS region for S3 buckets (e.g., "us-west-2")
+	Endpoint         string        `mapstructure:"endpoint"` // Custom S3-compatible endpoint URL (optional)
+	AssumeRole       string        `mapstructure:"assume_role"` // IAM role ARN to assume for S3 access (optional)
+	ForcePathStyle   bool          `mapstructure:"force_path_style"` // Use path-style URLs for S3 (required for LocalStack or custom endpoints)
+	UploadPartSize   int           `mapstructure:"upload_part_size"` // Part size (in bytes) for multipart uploads
+	DownloadPartSize int           `mapstructure:"download_part_size"` // Part size (in bytes) for multipart downloads
+	Concurrency      int           `mapstructure:"concurrency"` // Number of concurrent upload/download workers
+	RequestTimeout   time.Duration `mapstructure:"request_timeout"` // Timeout for S3 requests
+	Encryption       string        `mapstructure:"server_side_encryption"` // Server-side encryption method (e.g., "AES256")
 }
 
 // APIConfig holds configuration for the API server

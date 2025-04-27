@@ -36,27 +36,27 @@ func NewContextManager(db interface{}, cache cache.Cache) *ContextManager {
 func (cm *ContextManager) CreateContext(ctx context.Context, contextData *mcp.Context) (*mcp.Context, error) {
 	// Use the real context manager if available, otherwise just return the context data
 	// with some minimal processing for tests
-	
+
 	// For test purposes, ensure ID exists
 	if contextData.ID == "" {
 		contextData.ID = "test-id"
 	}
-	
+
 	// Set timestamps
 	now := time.Now()
 	contextData.CreatedAt = now
 	contextData.UpdatedAt = now
-	
+
 	// Set default values if needed
 	if contextData.MaxTokens == 0 {
 		contextData.MaxTokens = 4000
 	}
-	
+
 	// Initialize content if nil
 	if contextData.Content == nil {
 		contextData.Content = []mcp.ContextItem{}
 	}
-	
+
 	// Calculate tokens
 	if contextData.CurrentTokens == 0 && len(contextData.Content) > 0 {
 		for _, item := range contextData.Content {
@@ -71,12 +71,12 @@ func (cm *ContextManager) CreateContext(ctx context.Context, contextData *mcp.Co
 			return nil, err
 		}
 	}
-	
+
 	// Cache the context
 	if cm.cache != nil {
 		cm.cache.Set(ctx, "context:"+contextData.ID, contextData, 24*time.Hour)
 	}
-	
+
 	return contextData, nil
 }
 
@@ -90,17 +90,17 @@ func (cm *ContextManager) GetContext(ctx context.Context, contextID string) (*mc
 			return &contextData, nil
 		}
 	}
-	
+
 	// If mockDB is provided, get from database
 	if mockDB, ok := cm.db.(*MockDB); ok {
 		return mockDB.GetContext(ctx, contextID)
 	}
-	
+
 	// For tests that don't provide mock implementations, return a dummy context
 	if mockDatabase, ok := cm.db.(*MockDatabase); ok {
 		return mockDatabase.GetContext(ctx, contextID)
 	}
-	
+
 	return nil, ErrContextNotFound
 }
 
@@ -116,28 +116,33 @@ func (cm *ContextManager) UpdateContext(ctx context.Context, contextID string, u
 	if updateData.AgentID != "" {
 		existingContext.AgentID = updateData.AgentID
 	}
-	
+
 	if updateData.SessionID != "" {
 		existingContext.SessionID = updateData.SessionID
 	}
-	
+
 	// Update metadata
 	if updateData.Metadata != nil {
 		if existingContext.Metadata == nil {
 			existingContext.Metadata = make(map[string]interface{})
 		}
-		
+
 		for k, v := range updateData.Metadata {
 			existingContext.Metadata[k] = v
 		}
 	}
-	
+
 	// Handle content updates
 	if updateData.Content != nil {
+		// DEBUG: Print content before update
+		println("[DEBUG] existingContext.Content before update:", len(existingContext.Content))
+		for i, item := range existingContext.Content {
+			println("[DEBUG]  ", i, item.Role, item.Content)
+		}
 		// If ReplaceContent is true, replace the entire content
 		if options != nil && options.ReplaceContent {
 			existingContext.Content = updateData.Content
-			
+
 			// Recalculate token count
 			existingContext.CurrentTokens = 0
 			for _, item := range existingContext.Content {
@@ -151,10 +156,15 @@ func (cm *ContextManager) UpdateContext(ctx context.Context, contextID string, u
 			}
 		}
 	}
-	
+
+	// DEBUG: Print content after update
+	println("[DEBUG] existingContext.Content after update:", len(existingContext.Content))
+	for i, item := range existingContext.Content {
+		println("[DEBUG]  ", i, item.Role, item.Content)
+	}
 	// Update timestamp
 	existingContext.UpdatedAt = time.Now()
-	
+
 	// Check if context needs truncation
 	if options != nil && options.Truncate && existingContext.CurrentTokens > existingContext.MaxTokens {
 		// For tests, simulate truncation by removing oldest items
@@ -162,19 +172,19 @@ func (cm *ContextManager) UpdateContext(ctx context.Context, contextID string, u
 			tokensToRemove := existingContext.CurrentTokens - existingContext.MaxTokens
 			removed := 0
 			removeCount := 0
-			
+
 			for i := 0; i < len(existingContext.Content) && removed < tokensToRemove; i++ {
 				removed += existingContext.Content[i].Tokens
 				removeCount++
 			}
-			
+
 			if removeCount > 0 {
 				existingContext.Content = existingContext.Content[removeCount:]
 				existingContext.CurrentTokens -= removed
 			}
 		}
 	}
-	
+
 	// If mockDB is provided, update in database
 	if mockDB, ok := cm.db.(*MockDB); ok {
 		err := mockDB.UpdateContext(ctx, existingContext)
@@ -182,12 +192,12 @@ func (cm *ContextManager) UpdateContext(ctx context.Context, contextID string, u
 			return nil, err
 		}
 	}
-	
+
 	// Cache the updated context
 	if cm.cache != nil {
 		cm.cache.Set(ctx, "context:"+contextID, existingContext, 24*time.Hour)
 	}
-	
+
 	return existingContext, nil
 }
 
@@ -198,7 +208,7 @@ func (cm *ContextManager) DeleteContext(ctx context.Context, contextID string) e
 	if err != nil {
 		return err
 	}
-	
+
 	// If mockDB is provided, delete from database
 	if mockDB, ok := cm.db.(*MockDB); ok {
 		err := mockDB.DeleteContext(ctx, contextID)
@@ -206,12 +216,12 @@ func (cm *ContextManager) DeleteContext(ctx context.Context, contextID string) e
 			return err
 		}
 	}
-	
+
 	// Delete from cache
 	if cm.cache != nil {
 		cm.cache.Delete(ctx, "context:"+contextID)
 	}
-	
+
 	return nil
 }
 
@@ -221,7 +231,7 @@ func (cm *ContextManager) ListContexts(ctx context.Context, agentID string, sess
 	if mockDB, ok := cm.db.(*MockDB); ok {
 		return mockDB.ListContexts(ctx, agentID, sessionID, options)
 	}
-	
+
 	// For tests that don't provide mock implementations, return an empty list
 	return []*mcp.Context{}, nil
 }
@@ -233,7 +243,7 @@ func (cm *ContextManager) SummarizeContext(ctx context.Context, contextID string
 	if err != nil {
 		return "", err
 	}
-	
+
 	// Simple summary implementation for tests
 	return "This is a context summary", nil
 }
@@ -245,13 +255,13 @@ func (cm *ContextManager) SearchInContext(ctx context.Context, contextID string,
 	if err != nil {
 		return nil, err
 	}
-	
+
 	// Simple search implementation for tests
 	var results []mcp.ContextItem
 	for _, item := range contextData.Content {
 		results = append(results, item)
 	}
-	
+
 	return results, nil
 }
 
@@ -260,7 +270,7 @@ func (cm *ContextManager) Subscribe(eventType string, handler func(mcp.Event)) {
 	if cm.subscribers[eventType] == nil {
 		cm.subscribers[eventType] = make([]func(mcp.Event), 0)
 	}
-	
+
 	cm.subscribers[eventType] = append(cm.subscribers[eventType], handler)
 }
 
@@ -268,10 +278,10 @@ func (cm *ContextManager) Subscribe(eventType string, handler func(mcp.Event)) {
 const (
 	// TruncateOldestFirst truncates the oldest items first
 	TruncateOldestFirst = "oldest_first"
-	
+
 	// TruncatePreservingUser truncates by removing assistant responses while preserving user messages
 	TruncatePreservingUser = "preserving_user"
-	
+
 	// TruncateRelevanceBased truncates based on relevance to the current conversation
 	TruncateRelevanceBased = "relevance_based"
 )

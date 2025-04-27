@@ -11,13 +11,27 @@ import (
 	"github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/feature/s3/manager"
 	"github.com/aws/aws-sdk-go-v2/service/s3"
+	"io"
 )
 
 // S3Client is a client for AWS S3
+type Uploader interface {
+	Upload(ctx context.Context, params *s3.PutObjectInput, optFns ...func(*manager.Uploader)) (*manager.UploadOutput, error)
+}
+
+type Downloader interface {
+	Download(ctx context.Context, w io.WriterAt, params *s3.GetObjectInput, optFns ...func(*manager.Downloader)) (int64, error)
+}
+
+type S3API interface {
+	DeleteObject(ctx context.Context, params *s3.DeleteObjectInput, optFns ...func(*s3.Options)) (*s3.DeleteObjectOutput, error)
+	ListObjectsV2(ctx context.Context, params *s3.ListObjectsV2Input, optFns ...func(*s3.Options)) (*s3.ListObjectsV2Output, error)
+}
+
 type S3Client struct {
-	client     *s3.Client
-	uploader   *manager.Uploader
-	downloader *manager.Downloader
+	client     S3API
+	uploader   Uploader
+	downloader Downloader
 	config     S3Config
 }
 
@@ -121,9 +135,9 @@ func NewS3Client(ctx context.Context, cfg S3Config) (*S3Client, error) {
 	})
 
 	return &S3Client{
-		client:     client,
-		uploader:   uploader,
-		downloader: downloader,
+		client:     client, // *s3.Client implements S3API
+		uploader:   uploader, // manager.Uploader implements Uploader
+		downloader: downloader, // manager.Downloader implements Downloader
 		config:     cfg,
 	}, nil
 }
