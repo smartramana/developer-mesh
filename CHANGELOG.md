@@ -5,7 +5,33 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [0.3.6] - 2025-04-22
+## [0.3.7] - 2025-04-26
+
+### Changed
+- Refactored project structure for Go best practices (moved/reorganized script files)
+- Updated Makefile and project files for improved development workflow
+- Reorganized and fixed event listener logic
+- Improved and fixed functional test suite; all functional tests now pass
+- Updated and expanded Swagger/OpenAPI documentation to reflect full capabilities
+- Dropped authentication requirement for GET /metrics endpoint (metrics are now public)
+- Updated API documentation and README to clarify /metrics endpoint is public
+- Updated API reference and Swagger docs to include /metrics and monitoring endpoints
+
+### Fixed
+- Fixed build failures and test issues related to recent refactors
+- Resolved type mismatch in APIKeys handling in the API
+- Improved error handling and test reliability in event and adapter logic
+- Addressed issues with functional test reliability (especially for GitHub and metrics endpoints)
+- Fixed various minor bugs in event and test logic
+
+### Documentation
+- Major documentation updates:
+  - API reference and OpenAPI/Swagger docs reflect all current endpoints and security models
+  - Monitoring and metrics documentation clarified
+  - Auth requirements and endpoint access clarified for all users
+  - Changelog and project files updated for transparency
+
+
 
 ### Added
 - Comprehensive documentation overhaul with improved project structure
