@@ -1,10 +1,11 @@
 # MCP Server API Reference
 
-This document provides a comprehensive reference for the MCP Server API. The API is organized into three main sections:
+This document provides a comprehensive reference for the MCP Server API. The API is organized into four main sections:
 
 1. **Context API** - Manage conversation contexts and their content
 2. **Tools API** - Integrate with DevOps tools and execute actions
 3. **Vector API** - Store and search vector embeddings
+4. **Metrics API** - Expose Prometheus-compatible metrics
 
 ## Base URL
 
@@ -16,17 +17,19 @@ All API endpoints are relative to the base URL:
 
 ## Authentication
 
-The API supports two authentication methods:
+The API supports two authentication methods for most endpoints:
 
 1. **Bearer Authentication** - Using JWT tokens
    ```
    Authorization: Bearer <token>
    ```
 
-2. **API Key Authentication** - Using API keys in the header
+2. **API Key Authentication** - Using an API key in the header
    ```
-   X-API-Key: <api-key>
+   X-API-Key: <api_key>
    ```
+
+**Note:** The `/metrics` endpoint is public and does **not** require authentication for GET requests. All other API endpoints require authentication as described above.
 
 ## Context API
 
@@ -557,6 +560,23 @@ Common HTTP status codes:
 | 401         | Unauthorized (authentication required)                |
 | 404         | Resource not found                                    |
 | 500         | Internal server error                                 |
+
+## Metrics API
+
+### GET /metrics
+
+Exposes Prometheus-compatible metrics for monitoring the MCP server.
+
+- **Endpoint:** `/metrics`
+- **Method:** `GET`
+- **Authentication:** _Not required_
+- **Description:** Returns metrics in a format suitable for Prometheus scraping. This endpoint is public and does not require authentication.
+
+Example response:
+```
+mcp_server_requests_total{method="GET",endpoint="/api/v1/contexts"} 42
+mcp_server_requests_total{method="POST",endpoint="/api/v1/contexts"} 17
+```
 
 ## Pagination
 

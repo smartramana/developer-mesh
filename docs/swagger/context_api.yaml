@@ -37,8 +37,29 @@ tags:
     description: DevOps tools integration
   - name: vector
     description: Vector embedding operations
+  - name: monitoring
+    description: Monitoring and metrics operations
 
 paths:
+  /metrics:
+    get:
+      summary: Expose Prometheus metrics
+      description: Returns Prometheus-compatible metrics for monitoring the MCP server. **No authentication required.**
+      tags:
+        - monitoring
+      responses:
+        '200':
+          description: Metrics in Prometheus exposition format
+          content:
+            text/plain:
+              schema:
+                type: string
+              examples:
+                sample:
+                  value: |
+                    mcp_server_requests_total{method="GET",endpoint="/api/v1/contexts"} 42
+                    mcp_server_requests_total{method="POST",endpoint="/api/v1/contexts"} 17
+
   # Context API Paths
   /contexts:
     get:

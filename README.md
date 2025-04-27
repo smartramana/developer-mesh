@@ -115,7 +115,7 @@ Encountering issues? Check our [Troubleshooting Guide](docs/troubleshooting-guid
 
 MCP Server includes built-in monitoring capabilities:
 
-- Prometheus metrics exposed at `/metrics`
+- Prometheus metrics exposed at `/metrics` (public, no authentication required for GET)
 - Grafana dashboards for visualizing performance and usage
 - Health check endpoint at `/health`
 
