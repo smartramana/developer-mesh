@@ -191,8 +191,8 @@ func (s *Server) setupRoutes(ctx context.Context) {
 		s.router.GET("/swagger/*any", ginSwagger.WrapHandler(swaggerFiles.Handler))
 	}
 
-	// Metrics endpoints - add authentication
-	s.router.GET("/metrics", AuthMiddleware("api_key"), s.metricsHandler)
+	// Metrics endpoint - public (no authentication required)
+	s.router.GET("/metrics", s.metricsHandler)
 
 	// API v1 routes - require authentication
 	v1 := s.router.Group("/api/v1")
