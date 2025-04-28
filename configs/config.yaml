@@ -3,311 +3,165 @@
 # Environment (dev, staging, prod)
 environment: "prod"
 
-# API Server Configuration
 api:
   listen_address: ":8080"
   read_timeout: 30s
   write_timeout: 30s
-  idle_timeout: 60s
+  idle_timeout: 90s
   enable_cors: true
-  auth:
-    jwt_secret: "REPLACE_WITH_PROD_SECRET"
-    api_keys:
-      admin: "REPLACE_WITH_ADMIN_API_KEY"
-      reader: "REPLACE_WITH_READER_API_KEY"
+  enable_swagger: false
+  tls_cert_file: ""
+  tls_key_file: ""
+  base_path: "/api/v1"
+  log_requests: true
+  cors_origins:
+    - "http://localhost:3000"
   rate_limit:
     enabled: true
     limit: 1000
-    period: 1m
-    burst_factor: 5
+    burst: 5
+    expiration: 1m
+  auth:
+    require_auth: true
+    jwt_secret: "${JWT_SECRET}"
+    jwt_expiration: 60m
+    token_renewal_threshold: 10m
+    api_keys:
+      admin: "${ADMIN_API_KEY}"
+      reader: "${READER_API_KEY}"
   webhooks:
     github:
       enabled: true
       path: "/github"
-      secret: "REPLACE_WITH_WEBHOOK_SECRET"
+      secret: "${GITHUB_WEBHOOK_SECRET}"
 
-# Database Configuration
-database:
-  driver: "postgres"
-  dsn: "REPLACE_WITH_PROD_DSN"
-  max_open_conns: 50
-  max_idle_conns: 10
-  conn_max_lifetime: 60m
-
-# Cache Configuration
 cache:
   type: "redis"
-  address: "REPLACE_WITH_PROD_REDIS_HOST:6379"
-  password: ""
+  address: "${REDIS_HOST}:6379"
+  password: "${REDIS_PASSWORD}"
   db: 0
-  pool_size: 20
-  min_idle_conns: 4
+  pool_size: 10
+  min_idle_conns: 2
   dial_timeout: 5s
   read_timeout: 3s
   write_timeout: 3s
 
-# Monitoring Configuration
 monitoring:
   prometheus:
     enabled: true
     path: "/metrics"
+    vector_metrics:
+      enabled: true
+      collect_histograms: true
+      percentiles: [0.5, 0.9, 0.95, 0.99]
   logging:
     level: "info"
     format: "json"
     output: "stdout"
     file_path: ""
 
-# Core Engine Configuration
 engine:
   event_buffer_size: 10000
   concurrency_limit: 20
   event_timeout: 30s
-  security:
-    safe_mode: true
-    audit_logging: true
-
-# DevOps Tool Adapters
-adapters:
-  github:
-    api_token: "REPLACE_WITH_GITHUB_TOKEN"
-    webhook_secret: "REPLACE_WITH_GITHUB_WEBHOOK_SECRET"
-    request_timeout: 30s
-    retry_max: 3
-    retry_delay: 1s
-    mock_responses: false
-    mock_url: ""
-aws:
-  # RDS Aurora PostgreSQL Configuration
-  rds:
-    auth:
+  max_tool_duration: 10m
+  default_model_id: "gpt-3.5-turbo"
+  log_events: true
+  aws:
+    rds:
+      auth:
+        region: "us-west-2"
+      host: "${RDS_HOST}"
+      port: 5432
+      username: "${RDS_USERNAME}"
+      password: "${RDS_PASSWORD}"
+      database: "${RDS_DATABASE}"
+      ssl_mode: "require"
+      max_open_conns: 25
+      max_idle_conns: 5
+      conn_max_lifetime: 30m
+    elasticache:
+      auth:
+        region: "us-west-2"
+      primary_endpoint: "${ELASTICACHE_ENDPOINT}"
+      port: 6379
+      username: "${ELASTICACHE_USERNAME}"
+      password: "${ELASTICACHE_PASSWORD}"
+      use_iam_auth: true
+      cluster_mode: true
+      cluster_name: "mcp-cache"
+      cluster_discovery: true
+      use_tls: true
+      insecure_skip_verify: false
+      max_retries: 3
+      min_idle_connections: 2
+      pool_size: 10
+      dial_timeout: 5
+      read_timeout: 3
+      write_timeout: 3
+      pool_timeout: 4
+      token_expiration: 900
+    s3:
+      bucket: "mcp-contexts"
+      use_iam_auth: true
       region: "us-west-2"
-    host: "your-aurora-cluster.cluster-xxxxxxxxx.us-west-2.rds.amazonaws.com"
-    port: 5432
-    database: "mcp"
-    username: "mcp_admin"
-    password: "" # Leave empty when using IAM authentication
-    use_iam_auth: true # IAM authentication is the default and recommended method
-    token_expiration: 900 # 15 minutes in seconds
-    max_open_conns: 25
-    max_idle_conns: 5
-    conn_max_lifetime: 5m
-    enable_pooling: true
-    min_pool_size: 2
-    max_pool_size: 10
-    connection_timeout: 30
-  
-  # ElastiCache Redis Configuration
-  elasticache:
-    auth:
-      region: "us-west-2"
-    primary_endpoint: "your-redis-cluster.xxxxxx.clustercfg.usw2.cache.amazonaws.com"
-    port: 6379
-    username: "mcp_cache_user"
-    password: "" # Leave empty when using IAM authentication
-    use_iam_auth: true # IAM authentication is the default and recommended method
-    cluster_mode: true
-    cluster_name: "mcp-cache"
-    cluster_discovery: true
-    use_tls: true
-    insecure_skip_verify: false # Set to true only for testing
-    max_retries: 3
-    min_idle_connections: 2
-    pool_size: 10
-    dial_timeout: 5
-    read_timeout: 3
-    write_timeout: 3
-    pool_timeout: 4
-    token_expiration: 900 # 15 minutes in seconds
-  
-  # S3 Configuration for context storage
-  s3:
-    auth:
-      region: "us-west-2"
-    bucket: "mcp-contexts"
-    key_prefix: "contexts/"
-    use_iam_auth: true
-    encryption:
-      enabled: true
-      type: "AES256"
-    multipart:
-      threshold: 8388608 # 8MB
-      part_size: 8388608 # 8MB
-    retries:
-      max_attempts: 3
-      min_delay: 1s
-      max_delay: 30s
+      endpoint: ""
+      assume_role: ""
+      force_path_style: false
+      upload_part_size: 10485760
+      download_part_size: 10485760
+      concurrency: 10
+      request_timeout: 60s
+      server_side_encryption: "AES256"
 
-# Storage Configuration
-storage:
-  # Context Storage Configuration
-  context:
-    primary: "database"      # Primary storage for contexts (database, s3)
-    cache_ttl: 24h           # Time-to-live for cached contexts
-    large_context_threshold: 1048576  # Threshold for large contexts (1MB)
-    large_context_storage: "s3"       # Storage for large contexts (s3)
-
-# API Server Configuration
-api:
-  listen_address: ":8082" # For development; use ":443" for production
-  read_timeout: 30s
-  write_timeout: 30s
-  idle_timeout: 60s
-  enable_cors: true
-  
-  # TLS Configuration (required for production)
-  # tls_cert_file: "/certs/tls.crt"
-  # tls_key_file: "/certs/tls.key"
-  
-  # Authentication
-  auth:
-    jwt_secret: "change-this-to-a-secure-secret"
-    api_keys:
-      admin: "change-this-to-a-secure-api-key"
-      reader: "change-this-to-a-different-secure-api-key"
-  
-  # Rate Limiting
-  rate_limit:
-    enabled: true
-    limit: 100
-    period: 1m
-    burst_factor: 3
-  
-  # Note: Agent Webhook has been removed as it is no longer supported
-  
-  # DevOps Tool Webhooks
-  webhooks:
-    github:
-      enabled: true
-      path: "/github"
-      secret: "change-this-to-a-secure-webhook-secret"
-    
-    # Note: Harness, SonarQube, Artifactory, and JFrog Xray webhook support has been removed
-
-# Database Configuration
 database:
   driver: "postgres"
-  dsn: "postgres://postgres:postgres@localhost:5432/mcp?sslmode=disable" # Used only if not using AWS RDS with IAM auth
+  dsn: "${DB_DSN}"
+  host: "${DB_HOST}"
+  port: 5432
+  username: "${DB_USER}"
+  password: "${DB_PASSWORD}"
+  database: "${DB_NAME}"
+  ssl_mode: "require"
   max_open_conns: 25
   max_idle_conns: 5
   conn_max_lifetime: 30m
+  vector:
+    enabled: true
+    index_type: "ivfflat"
+    lists: 100
+    probes: 10
+    pool:
+      enabled: false
+      max_open_conns: 25
+      max_idle_conns: 5
+      conn_max_lifetime: 10m
 
-# Cache Configuration
-cache:
-  type: "redis"
-  address: "localhost:6379" # Used only if not using AWS ElastiCache
-  password: ""
-  db: 0
-  pool_size: 10
-  min_idle_conns: 2
-  dial_timeout: 5
-  read_timeout: 3
-  write_timeout: 3
-
-# Core Engine Configuration
-engine:
-  event_buffer_size: 10000
-  concurrency_limit: 10
-  event_timeout: 30s
-  
-  # Context Management Configuration
-  context_management:
-    enabled: true                  # Enable context management functionality
-    default_max_tokens: 4000       # Default token limit per context
-    default_expiration: 168h       # Default context expiration (7 days)
-    token_calculation_method: "character_based"  # "character_based" or "model_based"
-    
-    # Truncation Settings
-    truncation:
-      default_strategy: "oldest_first"  # Default truncation strategy (oldest_first, preserving_user, relevance_based)
-      relevance_threshold: 0.6         # Minimum relevance score for relevance-based truncation
-      safety_buffer: 100               # Safety buffer for token limit (stops at max_tokens - safety_buffer)
-    
-    # Vector Search Settings (for relevance-based truncation)
-    vector_search:
-      enabled: true                    # Enable vector search for context
-      embedding_model: "all-MiniLM-L6-v2"  # Default embedding model
-      vector_dimensions: 384           # Dimensions for vector embeddings
-      
-  # Security Settings
-  security:
-    safe_mode: true  # Enable safety checks for all operations
-    audit_logging: true  # Log all adapter operations for audit purposes
-
-# DevOps Tool Adapters
 adapters:
   github:
-    api_token: "your-github-api-token"
-    webhook_secret: "your-github-webhook-secret"
-    # enterprise_url: "https://github.yourdomain.com/api/v3" # For GitHub Enterprise
+    token: "${GITHUB_TOKEN}"
+    webhook_secret: "${GITHUB_WEBHOOK_SECRET}"
+    base_url: "https://api.github.com/"
     request_timeout: 30s
-    retry_max: 3
-    retry_delay: 1s
-    mock_responses: true
-    mock_url: "http://mockserver:8081/mock-github"
-  
-  harness:
-    api_token: "your-harness-api-token"
-    account_id: "your-harness-account-id"
-    org_identifier: "default"
-    project_identifier: "your-project-id"
-    base_url: "https://app.harness.io"
-    api_url: "https://app.harness.io/ng/api"
-    graphql_url: "https://app.harness.io/gateway/api/graphql"
-    # CCM specific configurations
-    ccm_api_url: "https://app.harness.io/ccm/api"
-    ccm_graphql_url: "https://app.harness.io/ccm/graphql"
-    # Request configuration
-    request_timeout: 30s
-    retry_max: 3
-    retry_delay: 1s
-    # Mock server settings for testing
-    mock_responses: true
-    mock_url: "http://mockserver:8081/mock-harness"
-  
-  sonarqube:
-    base_url: "https://sonarqube.example.com/api"
-    token: "your-sonarqube-token"
-    # Or use username/password authentication
-    # username: "your-sonarqube-username"
-    # password: "your-sonarqube-password"
-    request_timeout: 30s
-    retry_max: 3
-    retry_delay: 1s
-    mock_responses: true
-    mock_url: "http://mockserver:8081/mock-sonarqube"
-  
-  artifactory:
-    base_url: "https://artifactory.example.com/artifactory/api"
-    token: "your-artifactory-token"
-    # Or use username/password authentication
-    # username: "your-artifactory-username"
-    # password: "your-artifactory-password"
-    request_timeout: 30s
-    retry_max: 3
-    retry_delay: 1s
-    mock_responses: true
-    mock_url: "http://mockserver:8081/mock-artifactory"
-  
-  xray:
-    base_url: "https://xray.example.com/api/v1"
-    token: "your-xray-token"
-    # Or use username/password authentication
-    # username: "your-xray-username"
-    # password: "your-xray-password"
-    request_timeout: 30s
-    retry_max: 3
-    retry_delay: 1s
-    mock_responses: true
-    mock_url: "http://mockserver:8081/mock-xray"
+    max_idle_conns: 10
+    max_conns_per_host: 10
+    max_idle_conns_per_host: 10
+    idle_conn_timeout: 90s
+    keep_alive: 30s
+    tls_handshake_timeout: 10s
+    enable_graphql_builder: true
+    enable_resilient_retry: true
+    enable_distributed_cache: false
+    cache_type: "memory"
+    cache_redis_url: "${GITHUB_CACHE_REDIS_URL}"
+    cache_key_prefix: "github:"
+    cache_default_ttl: 1h
 
-# Monitoring Configuration
-monitoring:
-  prometheus:
-    enabled: true
-    path: "/metrics"
-  
-  logging:
-    level: "info"
-    format: "json"
-    output: "stdout"
-    file_path: ""
+storage:
+  context_storage:
+    provider: "s3"
+    s3_path_prefix: "contexts"
+    embedding_storage:
+      enable_preprocessing: true
+      enable_caching: true
+      default_similarity_threshold: 0.75
