@@ -7,6 +7,7 @@ environment: "dev"
 aws:
   # RDS Aurora PostgreSQL Configuration
   rds:
+    role_arn: ""
     auth:
       region: "us-west-2"
     host: "your-aurora-cluster.cluster-xxxxxxxxx.us-west-2.rds.amazonaws.com"
@@ -26,6 +27,7 @@ aws:
   
   # ElastiCache Redis Configuration
   elasticache:
+    role_arn: ""
     auth:
       region: "us-west-2"
     primary_endpoint: "your-redis-cluster.xxxxxx.clustercfg.usw2.cache.amazonaws.com"
@@ -47,6 +49,19 @@ aws:
     pool_timeout: 4
     token_expiration: 900 # 15 minutes in seconds
   
+  s3:
+    role_arn: ""
+    bucket: "mcp-contexts"
+    use_iam_auth: true
+    region: "us-west-2"
+    endpoint: ""
+    force_path_style: false
+    upload_part_size: 10485760
+    download_part_size: 10485760
+    concurrency: 10
+    request_timeout: 60s
+    server_side_encryption: "AES256"
+
   # Note: S3 Configuration for context storage has been removed as it is no longer supported
 
 # Storage Configuration

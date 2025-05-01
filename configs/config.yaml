@@ -69,6 +69,7 @@ engine:
   log_events: true
   aws:
     rds:
+      role_arn: ""
       auth:
         region: "us-west-2"
       host: "${RDS_HOST}"
@@ -81,6 +82,7 @@ engine:
       max_idle_conns: 5
       conn_max_lifetime: 30m
     elasticache:
+      role_arn: ""
       auth:
         region: "us-west-2"
       primary_endpoint: "${ELASTICACHE_ENDPOINT}"
@@ -102,6 +104,7 @@ engine:
       pool_timeout: 4
       token_expiration: 900
     s3:
+      role_arn: ""
       bucket: "mcp-contexts"
       use_iam_auth: true
       region: "us-west-2"

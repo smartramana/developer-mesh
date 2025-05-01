@@ -7,6 +7,8 @@ import (
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/config"
+	"github.com/aws/aws-sdk-go-v2/service/sts"
+	stscreds "github.com/aws/aws-sdk-go-v2/credentials/stscreds"
 )
 
 // AuthConfig holds the AWS authentication configuration options
@@ -17,6 +19,7 @@ type AuthConfig struct {
 }
 
 // GetAWSConfig creates an AWS SDK configuration with IRSA support
+// If AssumeRole is set, it will use STS to assume the specified role and return a config with temporary credentials
 func GetAWSConfig(ctx context.Context, cfg AuthConfig) (aws.Config, error) {
 	// Create the AWS config options
 	options := []func(*config.LoadOptions) error{
@@ -47,8 +50,26 @@ func GetAWSConfig(ctx context.Context, cfg AuthConfig) (aws.Config, error) {
 		log.Println("Using standard AWS credential provider chain")
 	}
 
-	// Load the AWS configuration
+	// If AssumeRole is set, use STS to assume the role and inject credentials
+	if cfg.AssumeRole != "" {
+		log.Printf("Assuming IAM role: %s", cfg.AssumeRole)
+		awsCfg, err := config.LoadDefaultConfig(ctx, options...)
+		if err != nil {
+			return aws.Config{}, err
+		}
+		stsClient := sts.NewFromConfig(awsCfg)
+		creds := stscreds.NewAssumeRoleProvider(stsClient, cfg.AssumeRole)
+		awsCfg.Credentials = aws.NewCredentialsCache(creds)
+		return awsCfg, nil
+	}
+	// Load the AWS configuration (default provider chain, no assume role)
 	return config.LoadDefaultConfig(ctx, options...)
+}
+
+// AssumeRoleProvider uses STS to assume the specified IAM role and returns a credentials provider
+func AssumeRoleProvider(ctx context.Context, awsCfg aws.Config, roleArn string) aws.CredentialsProvider {
+	stsClient := sts.NewFromConfig(awsCfg)
+	return aws.NewCredentialsCache(stscreds.NewAssumeRoleProvider(stsClient, roleArn))
 }
 
 // IsIRSAEnabled checks if IRSA is configured and available
