@@ -6,10 +6,10 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/S-Corkum/mcp-server/internal/adapters/core"
-	githubAdapter "github.com/S-Corkum/mcp-server/internal/adapters/github"
-	"github.com/S-Corkum/mcp-server/internal/events"
-	"github.com/S-Corkum/mcp-server/internal/observability"
+	"github.com/S-Corkum/devops-mcp/internal/adapters/core"
+	githubAdapter "github.com/S-Corkum/devops-mcp/internal/adapters/github"
+	"github.com/S-Corkum/devops-mcp/internal/events"
+	"github.com/S-Corkum/devops-mcp/internal/observability"
 )
 
 const adapterType = "github"

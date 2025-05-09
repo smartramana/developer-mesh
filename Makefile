@@ -24,8 +24,26 @@ clean:
 	$(GOCLEAN)
 	rm -f $(BINARY_NAME) $(MOCKSERVER_NAME)
 
+# Run only unit tests (does not require server)
 test:
+	$(GOTEST) -v -short ./...
+
+# Run all tests, including integration and functional (requires server)
+test-all:
 	$(GOTEST) -v ./...
+
+# Run only functional tests (starts/stops server automatically)
+test-functional:
+	@echo "Building server binary..."
+	$(GOBUILD) -o $(BINARY_NAME) -v ./cmd/server
+	@echo "Starting server in background..."
+	MCP_CONFIG_FILE=configs/config.local.yaml ./$(BINARY_NAME) > test-server.log 2>&1 &
+	SERVER_PID=$$!; \
+	sleep 2; \
+	echo "Running functional tests..."; \
+	cd $(shell pwd) && export MCP_TEST_MODE=true && ./test/scripts/run_functional_tests_fixed.sh; \
+	kill $$SERVER_PID; \
+	echo "Server stopped."
 
 test-coverage:
 	$(GOTEST) -coverprofile=coverage.out ./...
@@ -70,11 +88,11 @@ local-dev:
 	@echo "Starting mock server in background..."
 	@./$(MOCKSERVER_NAME) > mockserver.log 2>&1 &
 	@echo "Starting MCP server..."
-	MCP_CONFIG_FILE=configs/config.local.yaml ./$(BINARY_NAME)
+	MCP_CONFIG_FILE=configs/config.local.host.yaml ./$(BINARY_NAME)
 
 # Build and start everything needed for local development
 local-dev-setup: build mockserver-build local-dev-dependencies
-	MCP_CONFIG_FILE=configs/config.local.yaml $(MAKE) local-dev
+	MCP_CONFIG_FILE=configs/config.local.host.yaml $(MAKE) local-dev
 
 # One command to set up dependencies for local development
 local-dev-dependencies:

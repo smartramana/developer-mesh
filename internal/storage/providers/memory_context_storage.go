@@ -6,7 +6,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/S-Corkum/mcp-server/pkg/mcp"
+	"github.com/S-Corkum/devops-mcp/pkg/mcp"
 )
 
 // InMemoryContextStorage implements context storage using in-memory map

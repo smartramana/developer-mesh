@@ -5,8 +5,8 @@ import (
 	"context"
 
 	"github.com/stretchr/testify/mock"
-	"github.com/S-Corkum/mcp-server/internal/events"
-	"github.com/S-Corkum/mcp-server/pkg/mcp"
+	"github.com/S-Corkum/devops-mcp/internal/events"
+	"github.com/S-Corkum/devops-mcp/pkg/mcp"
 )
 
 // MockEventBus is a mock implementation of the EventBus interface for testing

@@ -5,10 +5,10 @@ import (
 	"fmt"
 	"log"
 
-	"github.com/S-Corkum/mcp-server/internal/aws"
-	"github.com/S-Corkum/mcp-server/internal/common/config"
-	"github.com/S-Corkum/mcp-server/internal/database/migration"
-	"github.com/S-Corkum/mcp-server/pkg/models"
+	"github.com/S-Corkum/devops-mcp/internal/aws"
+	"github.com/S-Corkum/devops-mcp/internal/common/config"
+	"github.com/S-Corkum/devops-mcp/internal/database/migration"
+	"github.com/S-Corkum/devops-mcp/pkg/models"
 	"github.com/jmoiron/sqlx"
 )
 

@@ -9,8 +9,8 @@ import (
 	"os"
 	"time"
 
-	"github.com/S-Corkum/mcp-server/internal/common"
-	"github.com/S-Corkum/mcp-server/internal/repository"
+	"github.com/S-Corkum/devops-mcp/internal/common"
+	"github.com/S-Corkum/devops-mcp/internal/repository"
 	"github.com/jmoiron/sqlx"
 	_ "github.com/lib/pq"
 )

@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/S-Corkum/mcp-server/internal/observability"
+	"github.com/S-Corkum/devops-mcp/internal/observability"
 	"github.com/google/uuid"
 )
 

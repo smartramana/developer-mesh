@@ -7,8 +7,8 @@ import (
 	"log"
 	"time"
 
-	"github.com/S-Corkum/mcp-server/internal/interfaces"
-	"github.com/S-Corkum/mcp-server/pkg/mcp"
+	"github.com/S-Corkum/devops-mcp/internal/interfaces"
+	"github.com/S-Corkum/devops-mcp/pkg/mcp"
 )
 
 // ContextEventHandler handles context-related events

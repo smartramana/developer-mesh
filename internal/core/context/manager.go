@@ -10,12 +10,12 @@ import (
 	"sync"
 	"time"
 
-	"github.com/S-Corkum/mcp-server/internal/cache"
-	"github.com/S-Corkum/mcp-server/internal/database"
-	"github.com/S-Corkum/mcp-server/internal/events/system"
-	"github.com/S-Corkum/mcp-server/internal/observability"
-	"github.com/S-Corkum/mcp-server/internal/storage/providers"
-	"github.com/S-Corkum/mcp-server/pkg/mcp"
+	"github.com/S-Corkum/devops-mcp/internal/cache"
+	"github.com/S-Corkum/devops-mcp/internal/database"
+	"github.com/S-Corkum/devops-mcp/internal/events/system"
+	"github.com/S-Corkum/devops-mcp/internal/observability"
+	"github.com/S-Corkum/devops-mcp/internal/storage/providers"
+	"github.com/S-Corkum/devops-mcp/pkg/mcp"
 	"github.com/google/uuid"
 	"github.com/jmoiron/sqlx"
 )

@@ -1,0 +1,130 @@
+package webhooks
+
+import (
+	"bytes"
+	"crypto/hmac"
+	"crypto/sha256"
+	"encoding/hex"
+	"encoding/json"
+	"net/http"
+	"net/http/httptest"
+	"testing"
+
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/mock"
+	"github.com/S-Corkum/devops-mcp/internal/observability"
+)
+
+// --- Mock Config ---
+type mockConfig struct{
+	mock.Mock
+}
+
+func (m *mockConfig) Enabled() bool {
+	args := m.Called()
+	return args.Bool(0)
+}
+func (m *mockConfig) GitHubAllowedEvents() []string {
+	args := m.Called()
+	return args.Get(0).([]string)
+}
+func (m *mockConfig) GitHubSecret() string {
+	args := m.Called()
+	return args.String(0)
+}
+func (m *mockConfig) GitHubEndpoint() string {
+	args := m.Called()
+	return args.String(0)
+}
+func (m *mockConfig) GitHubIPValidationEnabled() bool {
+	args := m.Called()
+	return args.Bool(0)
+}
+
+
+func TestGitHubWebhookHandler_MissingEventHeader(t *testing.T) {
+	config := new(mockConfig)
+	logger := observability.NewLogger("test-webhooks")
+	handler := GitHubWebhookHandler(config, logger)
+
+	req := httptest.NewRequest("POST", "/", nil)
+	w := httptest.NewRecorder()
+
+	handler(w, req)
+	resp := w.Result()
+	assert.Equal(t, http.StatusBadRequest, resp.StatusCode)
+}
+
+func TestGitHubWebhookHandler_DisallowedEvent(t *testing.T) {
+	config := new(mockConfig)
+	config.On("GitHubAllowedEvents").Return([]string{"push"})
+	logger := observability.NewLogger("test-webhooks")
+	handler := GitHubWebhookHandler(config, logger)
+
+	req := httptest.NewRequest("POST", "/", nil)
+	req.Header.Set("X-GitHub-Event", "pull_request")
+	w := httptest.NewRecorder()
+
+	handler(w, req)
+	resp := w.Result()
+	assert.Equal(t, http.StatusForbidden, resp.StatusCode)
+}
+
+func TestGitHubWebhookHandler_MissingSignature(t *testing.T) {
+	config := new(mockConfig)
+	config.On("GitHubAllowedEvents").Return([]string{"push"})
+	logger := observability.NewLogger("test-webhooks")
+	handler := GitHubWebhookHandler(config, logger)
+
+	req := httptest.NewRequest("POST", "/", bytes.NewBuffer([]byte(`{"repository":{"full_name":"repo"},"sender":{"login":"user"}}`)))
+	req.Header.Set("X-GitHub-Event", "push")
+	w := httptest.NewRecorder()
+
+	handler(w, req)
+	resp := w.Result()
+	assert.Equal(t, http.StatusUnauthorized, resp.StatusCode)
+}
+
+func TestGitHubWebhookHandler_InvalidSignature(t *testing.T) {
+	config := new(mockConfig)
+	config.On("GitHubAllowedEvents").Return([]string{"push"})
+	config.On("GitHubSecret").Return("testsecret")
+	logger := observability.NewLogger("test-webhooks")
+	handler := GitHubWebhookHandler(config, logger)
+
+	body := []byte(`{"repository":{"full_name":"repo"},"sender":{"login":"user"}}`)
+	req := httptest.NewRequest("POST", "/", bytes.NewBuffer(body))
+	req.Header.Set("X-GitHub-Event", "push")
+	req.Header.Set("X-Hub-Signature-256", "sha256=invalidsig")
+	w := httptest.NewRecorder()
+
+	handler(w, req)
+	resp := w.Result()
+	assert.Equal(t, http.StatusUnauthorized, resp.StatusCode)
+}
+
+func TestGitHubWebhookHandler_ValidEventAndSignature(t *testing.T) {
+	config := new(mockConfig)
+	config.On("GitHubAllowedEvents").Return([]string{"push"})
+	config.On("GitHubSecret").Return("testsecret")
+	logger := observability.NewLogger("test-webhooks")
+	handler := GitHubWebhookHandler(config, logger)
+
+	payload := map[string]interface{}{
+		"repository": map[string]interface{}{ "full_name": "repo" },
+		"sender": map[string]interface{}{ "login": "user" },
+	}
+	body, _ := json.Marshal(payload)
+	mac := hmac.New(sha256.New, []byte("testsecret"))
+	mac.Write(body)
+	sig := "sha256=" + hex.EncodeToString(mac.Sum(nil))
+
+	req := httptest.NewRequest("POST", "/", bytes.NewBuffer(body))
+	req.Header.Set("X-GitHub-Event", "push")
+	req.Header.Set("X-Hub-Signature-256", sig)
+	w := httptest.NewRecorder()
+
+	handler(w, req)
+	resp := w.Result()
+	assert.Equal(t, http.StatusOK, resp.StatusCode)
+}

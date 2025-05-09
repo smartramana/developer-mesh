@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"sync"
 	
-	"github.com/S-Corkum/mcp-server/internal/observability"
+	"github.com/S-Corkum/devops-mcp/internal/observability"
 )
 
 // AdapterCreator is a function that creates an adapter

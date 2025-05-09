@@ -6,9 +6,9 @@ import (
 	"context"
 	"testing"
 
-	"github.com/S-Corkum/mcp-server/internal/adapters/core"
-	"github.com/S-Corkum/mcp-server/internal/adapters/providers/github/mocks"
-	"github.com/S-Corkum/mcp-server/internal/observability"
+	"github.com/S-Corkum/devops-mcp/internal/adapters/core"
+	"github.com/S-Corkum/devops-mcp/internal/adapters/providers/github/mocks"
+	"github.com/S-Corkum/devops-mcp/internal/observability"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"

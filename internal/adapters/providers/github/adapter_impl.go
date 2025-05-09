@@ -6,10 +6,10 @@ import (
 	"context"
 	"errors"
 
-	githubAdapter "github.com/S-Corkum/mcp-server/internal/adapters/github"
+	githubAdapter "github.com/S-Corkum/devops-mcp/internal/adapters/github"
 
-	"github.com/S-Corkum/mcp-server/internal/events"
-	"github.com/S-Corkum/mcp-server/internal/observability"
+	"github.com/S-Corkum/devops-mcp/internal/events"
+	"github.com/S-Corkum/devops-mcp/internal/observability"
 )
 
 // GitHubAdapter provides a convenient wrapper around the underlying GitHub adapter

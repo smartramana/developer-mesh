@@ -18,7 +18,41 @@ type Config struct {
 	RateLimit     RateLimitConfig `mapstructure:"rate_limit"`
 	Versioning    VersioningConfig `mapstructure:"versioning"`
 	Performance   PerformanceConfig `mapstructure:"performance"`
+	Webhook       WebhookConfig    `mapstructure:"webhook"`
 }
+
+// WebhookConfig holds configuration for webhooks
+type WebhookConfig struct {
+	EnabledField                 bool     `mapstructure:"enabled"`
+	GitHubEndpointField          string   `mapstructure:"github_endpoint"`
+	GitHubSecretField            string   `mapstructure:"github_secret"`
+	GitHubIPValidationField      bool     `mapstructure:"github_ip_validation"`
+	GitHubAllowedEventsField     []string `mapstructure:"github_allowed_events"`
+}
+
+// Enabled returns whether webhooks are enabled
+func (w *WebhookConfig) Enabled() bool {
+	return w.EnabledField
+}
+
+func (w *WebhookConfig) GitHubSecret() string {
+	return w.GitHubSecretField
+}
+
+func (w *WebhookConfig) GitHubEndpoint() string {
+	return w.GitHubEndpointField
+}
+
+func (w *WebhookConfig) GitHubIPValidationEnabled() bool {
+	return w.GitHubIPValidationField
+}
+
+func (w *WebhookConfig) GitHubAllowedEvents() []string {
+	return w.GitHubAllowedEventsField
+}
+
+
+
 
 // VersioningConfig holds API versioning configuration
 type VersioningConfig struct {
@@ -120,6 +154,13 @@ func DefaultConfig() Config {
 			CircuitBreakerTimeout: 30 * time.Second,
 			MaxRetries:            3,
 			RetryBackoff:          500 * time.Millisecond,
+		},
+		Webhook: WebhookConfig{
+			EnabledField:             false,
+			GitHubEndpointField:      "/api/webhooks/github",
+			GitHubSecretField:        "",
+			GitHubIPValidationField:  true,
+			GitHubAllowedEventsField: []string{"push", "pull_request", "issues", "issue_comment", "release"},
 		},
 	}
 }

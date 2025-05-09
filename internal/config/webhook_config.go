@@ -4,7 +4,7 @@ import (
 	"os"
 	"strings"
 
-	"github.com/rs/zerolog/log"
+	"github.com/S-Corkum/devops-mcp/internal/observability"
 )
 
 // WebhookConfig implements the WebhookConfigInterface
@@ -76,7 +76,7 @@ func NewWebhookConfig() *WebhookConfig {
 
 	// Validate configuration
 	if config.enabled && config.githubSecret == "" {
-		log.Warn().Msg("GitHub webhook is enabled but no secret is configured, webhook will be disabled")
+		observability.DefaultLogger.Warn("GitHub webhook is enabled but no secret is configured, webhook will be disabled", nil)
 		config.enabled = false
 	}
 

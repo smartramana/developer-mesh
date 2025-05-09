@@ -5,10 +5,10 @@ import (
 	"fmt"
 	"sync"
 	
-	"github.com/S-Corkum/mcp-server/internal/common"
-	commonConfig "github.com/S-Corkum/mcp-server/internal/common/config"
-	"github.com/S-Corkum/mcp-server/internal/config"
-	"github.com/S-Corkum/mcp-server/internal/observability"
+	"github.com/S-Corkum/devops-mcp/internal/common"
+	commonConfig "github.com/S-Corkum/devops-mcp/internal/common/config"
+	"github.com/S-Corkum/devops-mcp/internal/config"
+	"github.com/S-Corkum/devops-mcp/internal/observability"
 	"github.com/jmoiron/sqlx"
 )
 

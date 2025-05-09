@@ -3,9 +3,9 @@ package api
 import (
 	"net/http"
 	"github.com/gin-gonic/gin"
-	"github.com/S-Corkum/mcp-server/pkg/models"
-	"github.com/S-Corkum/mcp-server/internal/repository"
-	"github.com/S-Corkum/mcp-server/internal/util"
+	"github.com/S-Corkum/devops-mcp/pkg/models"
+	"github.com/S-Corkum/devops-mcp/internal/repository"
+	"github.com/S-Corkum/devops-mcp/internal/util"
 )
 
 // getTenantIDFromContext extracts the tenant ID from the Gin context (from AuthMiddleware)
@@ -98,6 +98,10 @@ func (m *ModelAPI) updateModel(c *gin.Context) {
 	}
 	existing, err := m.repo.GetModelByID(c.Request.Context(), tenantID, id)
 	if err != nil {
+		if err.Error() == "not found" {
+			c.JSON(http.StatusNotFound, gin.H{"error": "model not found"})
+			return
+		}
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}

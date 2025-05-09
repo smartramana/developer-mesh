@@ -5,8 +5,8 @@ import (
 	"errors"
 	"time"
 
-	"github.com/S-Corkum/mcp-server/internal/cache"
-	"github.com/S-Corkum/mcp-server/pkg/mcp"
+	"github.com/S-Corkum/devops-mcp/internal/cache"
+	"github.com/S-Corkum/devops-mcp/pkg/mcp"
 )
 
 // ErrContextNotFound is returned when a context is not found

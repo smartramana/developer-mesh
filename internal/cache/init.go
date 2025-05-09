@@ -8,7 +8,7 @@ import (
 	"os"
 	"time"
 
-	"github.com/S-Corkum/mcp-server/internal/aws"
+	"github.com/S-Corkum/devops-mcp/internal/aws"
 )
 
 // ErrNotFound is returned when a key is not found in the cache

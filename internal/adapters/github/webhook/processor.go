@@ -7,7 +7,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/S-Corkum/mcp-server/internal/observability"
+	"github.com/S-Corkum/devops-mcp/internal/observability"
 )
 
 // WebhookEvent represents a GitHub webhook event

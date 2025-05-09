@@ -4,8 +4,8 @@ import (
 	"context"
 	"net/http"
 	
-	"github.com/S-Corkum/mcp-server/internal/observability"
-	"github.com/S-Corkum/mcp-server/internal/repository"
+	"github.com/S-Corkum/devops-mcp/internal/observability"
+	"github.com/S-Corkum/devops-mcp/internal/repository"
 	"github.com/gin-gonic/gin"
 )
 

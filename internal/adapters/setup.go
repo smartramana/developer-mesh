@@ -3,14 +3,14 @@ package adapters
 import (
 	"context"
 
-	"github.com/S-Corkum/mcp-server/internal/adapters/bridge"
-	"github.com/S-Corkum/mcp-server/internal/adapters/core"
-	adapterEvents "github.com/S-Corkum/mcp-server/internal/adapters/events"
-	"github.com/S-Corkum/mcp-server/internal/adapters/providers"
-	"github.com/S-Corkum/mcp-server/internal/config"
-	"github.com/S-Corkum/mcp-server/internal/events"
-	"github.com/S-Corkum/mcp-server/internal/events/system"
-	"github.com/S-Corkum/mcp-server/internal/observability"
+	"github.com/S-Corkum/devops-mcp/internal/adapters/bridge"
+	"github.com/S-Corkum/devops-mcp/internal/adapters/core"
+	adapterEvents "github.com/S-Corkum/devops-mcp/internal/adapters/events"
+	"github.com/S-Corkum/devops-mcp/internal/adapters/providers"
+	"github.com/S-Corkum/devops-mcp/internal/config"
+	"github.com/S-Corkum/devops-mcp/internal/events"
+	"github.com/S-Corkum/devops-mcp/internal/events/system"
+	"github.com/S-Corkum/devops-mcp/internal/observability"
 )
 
 // AdapterManager manages the lifecycle of adapters

@@ -13,7 +13,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
-	"github.com/S-Corkum/mcp-server/test/functional/client"
+	"github.com/S-Corkum/devops-mcp/test/functional/client"
 )
 
 // Import variables from the suite

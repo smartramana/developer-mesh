@@ -3,9 +3,9 @@ package api
 import (
 	"net/http"
 	"github.com/gin-gonic/gin"
-	"github.com/S-Corkum/mcp-server/pkg/models"
-	"github.com/S-Corkum/mcp-server/internal/repository"
-	"github.com/S-Corkum/mcp-server/internal/util"
+	"github.com/S-Corkum/devops-mcp/pkg/models"
+	"github.com/S-Corkum/devops-mcp/internal/repository"
+	"github.com/S-Corkum/devops-mcp/internal/util"
 )
 
 
@@ -86,6 +86,11 @@ func (a *AgentAPI) updateAgent(c *gin.Context) {
 	}
 	existing, err := a.repo.GetAgentByID(c.Request.Context(), tenantID, id)
 	if err != nil {
+		// If it's a not found error, return 404
+		if err.Error() == "not found" {
+			c.JSON(http.StatusNotFound, gin.H{"error": "agent not found"})
+			return
+		}
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}

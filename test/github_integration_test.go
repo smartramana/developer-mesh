@@ -9,10 +9,10 @@ import (
 	"time"
 
 	"go.uber.org/goleak"
-	"github.com/S-Corkum/mcp-server/internal/adapters/events"
-	"github.com/S-Corkum/mcp-server/internal/adapters/github"
-	"github.com/S-Corkum/mcp-server/internal/observability"
-	"github.com/S-Corkum/mcp-server/pkg/mcp"
+	"github.com/S-Corkum/devops-mcp/internal/adapters/events"
+	"github.com/S-Corkum/devops-mcp/internal/adapters/github"
+	"github.com/S-Corkum/devops-mcp/internal/observability"
+	"github.com/S-Corkum/devops-mcp/pkg/mcp"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
