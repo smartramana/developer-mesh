@@ -3,7 +3,7 @@ package repository
 import (
 	"context"
 	"database/sql"
-	"github.com/S-Corkum/mcp-server/pkg/models"
+	"github.com/S-Corkum/devops-mcp/pkg/models"
 )
 
 type ModelRepository interface {

@@ -6,9 +6,9 @@ package providers
 import (
 	"fmt"
 
-	"github.com/S-Corkum/mcp-server/internal/adapters/core"
-	"github.com/S-Corkum/mcp-server/internal/adapters/providers/github"
-	"github.com/S-Corkum/mcp-server/internal/observability"
+	"github.com/S-Corkum/devops-mcp/internal/adapters/core"
+	"github.com/S-Corkum/devops-mcp/internal/adapters/providers/github"
+	"github.com/S-Corkum/devops-mcp/internal/observability"
 )
 
 // RegisterAllProviders registers all adapter providers with the factory.

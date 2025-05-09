@@ -6,19 +6,19 @@ import (
 	"sync"
 	"time"
 
-	"github.com/S-Corkum/mcp-server/internal/adapters"
-	"github.com/S-Corkum/mcp-server/internal/aws"
-	"github.com/S-Corkum/mcp-server/internal/cache"
-	contextManager "github.com/S-Corkum/mcp-server/internal/core/context"
-	"github.com/S-Corkum/mcp-server/internal/database"
-	"github.com/S-Corkum/mcp-server/internal/events"
-	"github.com/S-Corkum/mcp-server/internal/events/system"
-	"github.com/S-Corkum/mcp-server/internal/interfaces"
-	"github.com/S-Corkum/mcp-server/internal/metrics"
-	"github.com/S-Corkum/mcp-server/internal/observability"
-	"github.com/S-Corkum/mcp-server/internal/storage/providers"
+	"github.com/S-Corkum/devops-mcp/internal/adapters"
+	"github.com/S-Corkum/devops-mcp/internal/aws"
+	"github.com/S-Corkum/devops-mcp/internal/cache"
+	contextManager "github.com/S-Corkum/devops-mcp/internal/core/context"
+	"github.com/S-Corkum/devops-mcp/internal/database"
+	"github.com/S-Corkum/devops-mcp/internal/events"
+	"github.com/S-Corkum/devops-mcp/internal/events/system"
+	"github.com/S-Corkum/devops-mcp/internal/interfaces"
+	"github.com/S-Corkum/devops-mcp/internal/metrics"
+	"github.com/S-Corkum/devops-mcp/internal/observability"
+	"github.com/S-Corkum/devops-mcp/internal/storage/providers"
 
-	"github.com/S-Corkum/mcp-server/pkg/mcp"
+	"github.com/S-Corkum/devops-mcp/pkg/mcp"
 )
 
 // MockMetricsClient is a mock implementation of observability.MetricsClient

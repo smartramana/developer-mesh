@@ -4,8 +4,8 @@ import (
 	"context"
 	"sync"
 
-	"github.com/S-Corkum/mcp-server/internal/adapters/events"
-	"github.com/S-Corkum/mcp-server/pkg/mcp"
+	"github.com/S-Corkum/devops-mcp/internal/adapters/events"
+	"github.com/S-Corkum/devops-mcp/pkg/mcp"
 )
 
 // MockEventBus is a mock implementation of the EventBusIface for testing

@@ -2,7 +2,7 @@ package interfaces
 
 import (
 	"context"
-	"github.com/S-Corkum/mcp-server/pkg/mcp"
+	"github.com/S-Corkum/devops-mcp/pkg/mcp"
 )
 
 // ContextManager defines the interface for managing contexts

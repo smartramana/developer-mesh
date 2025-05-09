@@ -6,9 +6,9 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/S-Corkum/mcp-server/internal/adapters/core"
-	"github.com/S-Corkum/mcp-server/internal/interfaces"
-	"github.com/S-Corkum/mcp-server/pkg/mcp"
+	"github.com/S-Corkum/devops-mcp/internal/adapters/core"
+	"github.com/S-Corkum/devops-mcp/internal/interfaces"
+	"github.com/S-Corkum/devops-mcp/pkg/mcp"
 )
 
 // AdapterContextBridge connects adapters with the context manager for managing context-aware tool interactions

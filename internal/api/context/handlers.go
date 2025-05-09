@@ -4,10 +4,10 @@ import (
 	"net/http"
 	"strconv"
 
-	"github.com/S-Corkum/mcp-server/internal/interfaces"
-	"github.com/S-Corkum/mcp-server/internal/metrics"
-	"github.com/S-Corkum/mcp-server/internal/observability"
-	"github.com/S-Corkum/mcp-server/pkg/mcp"
+	"github.com/S-Corkum/devops-mcp/internal/interfaces"
+	"github.com/S-Corkum/devops-mcp/internal/metrics"
+	"github.com/S-Corkum/devops-mcp/internal/observability"
+	"github.com/S-Corkum/devops-mcp/pkg/mcp"
 	"github.com/gin-gonic/gin"
 )
 

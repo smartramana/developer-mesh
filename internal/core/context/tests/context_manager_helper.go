@@ -6,7 +6,7 @@ import (
 	"sort"
 	"time"
 
-	"github.com/S-Corkum/mcp-server/pkg/mcp"
+	"github.com/S-Corkum/devops-mcp/pkg/mcp"
 )
 
 // TruncationStrategy defines the strategy for truncating a context

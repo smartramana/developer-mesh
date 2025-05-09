@@ -6,9 +6,9 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/S-Corkum/mcp-server/internal/observability"
-	"github.com/S-Corkum/mcp-server/pkg/mcp"
-	"github.com/S-Corkum/mcp-server/internal/events"
+	"github.com/S-Corkum/devops-mcp/internal/observability"
+	"github.com/S-Corkum/devops-mcp/pkg/mcp"
+	"github.com/S-Corkum/devops-mcp/internal/events"
 )
 
 // EventType represents the type of an adapter event

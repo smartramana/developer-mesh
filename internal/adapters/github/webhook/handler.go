@@ -8,7 +8,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/S-Corkum/mcp-server/internal/observability"
+	"github.com/S-Corkum/devops-mcp/internal/observability"
 )
 
 // HandlerFunc is a function that handles a webhook event

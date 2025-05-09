@@ -9,7 +9,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/S-Corkum/mcp-server/test/integration/testutils"
+	"github.com/S-Corkum/devops-mcp/test/integration/testutils"
 )
 
 // TestListTools verifies that the list tools endpoint returns available tools

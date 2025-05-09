@@ -7,8 +7,8 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
-	"github.com/S-Corkum/mcp-server/test/functional/client"
-	functional_test "github.com/S-Corkum/mcp-server/test/functional"
+	"github.com/S-Corkum/devops-mcp/test/functional/client"
+	functional_test "github.com/S-Corkum/devops-mcp/test/functional"
 )
 
 var _ = Describe("GitHub Adapter", func() {

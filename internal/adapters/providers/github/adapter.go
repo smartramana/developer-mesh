@@ -4,9 +4,9 @@ import (
 	"context"
 	"time"
 
-	githubAdapter "github.com/S-Corkum/mcp-server/internal/adapters/github"
-	"github.com/S-Corkum/mcp-server/internal/events"
-	"github.com/S-Corkum/mcp-server/internal/observability"
+	githubAdapter "github.com/S-Corkum/devops-mcp/internal/adapters/github"
+	"github.com/S-Corkum/devops-mcp/internal/events"
+	"github.com/S-Corkum/devops-mcp/internal/observability"
 )
 
 // Provider is a factory for GitHub adapters

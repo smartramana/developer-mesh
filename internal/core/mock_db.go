@@ -3,7 +3,7 @@ package core
 import (
 	"context"
 
-	"github.com/S-Corkum/mcp-server/pkg/mcp"
+	"github.com/S-Corkum/devops-mcp/pkg/mcp"
 	"github.com/stretchr/testify/mock"
 )
 

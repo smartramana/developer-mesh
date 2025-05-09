@@ -11,7 +11,7 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/S-Corkum/mcp-server/internal/database/migration"
+	"github.com/S-Corkum/devops-mcp/internal/database/migration"
 	_ "github.com/lib/pq"
 	"github.com/jmoiron/sqlx"
 )

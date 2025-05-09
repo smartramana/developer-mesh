@@ -9,13 +9,13 @@ import (
 	"sync"
 	"time"
 
-	"github.com/S-Corkum/mcp-server/internal/events"
-	"github.com/S-Corkum/mcp-server/internal/adapters/github/api"
-	"github.com/S-Corkum/mcp-server/internal/adapters/github/auth"
-	wh "github.com/S-Corkum/mcp-server/internal/adapters/github/webhook"
-	"github.com/S-Corkum/mcp-server/internal/adapters/resilience"
-	"github.com/S-Corkum/mcp-server/internal/observability"
-	"github.com/S-Corkum/mcp-server/pkg/mcp"
+	"github.com/S-Corkum/devops-mcp/internal/events"
+	"github.com/S-Corkum/devops-mcp/internal/adapters/github/api"
+	"github.com/S-Corkum/devops-mcp/internal/adapters/github/auth"
+	wh "github.com/S-Corkum/devops-mcp/internal/adapters/github/webhook"
+	"github.com/S-Corkum/devops-mcp/internal/adapters/resilience"
+	"github.com/S-Corkum/devops-mcp/internal/observability"
+	"github.com/S-Corkum/devops-mcp/pkg/mcp"
 
 )
 

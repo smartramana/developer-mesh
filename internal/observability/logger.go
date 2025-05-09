@@ -6,6 +6,8 @@ import (
 	"time"
 )
 
+var DefaultLogger = NewLogger("devops-mcp")
+
 // LogLevel defines log message severity
 type LogLevel string
 

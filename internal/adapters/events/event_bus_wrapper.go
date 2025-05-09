@@ -3,9 +3,9 @@ package events
 import (
 	"context"
 	
-	"github.com/S-Corkum/mcp-server/internal/events"
-	"github.com/S-Corkum/mcp-server/internal/events/system"
-	"github.com/S-Corkum/mcp-server/pkg/mcp"
+	"github.com/S-Corkum/devops-mcp/internal/events"
+	"github.com/S-Corkum/devops-mcp/internal/events/system"
+	"github.com/S-Corkum/devops-mcp/pkg/mcp"
 )
 
 // SystemEventBusWrapper provides a wrapper to adapt system.EventBus to events.EventBus

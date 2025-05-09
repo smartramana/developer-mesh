@@ -11,9 +11,9 @@ import (
 	"sync"
 	"time"
 
-	"github.com/S-Corkum/mcp-server/internal/common/errors"
-	"github.com/S-Corkum/mcp-server/internal/adapters/resilience"
-	"github.com/S-Corkum/mcp-server/internal/observability"
+	"github.com/S-Corkum/devops-mcp/internal/common/errors"
+	"github.com/S-Corkum/devops-mcp/internal/adapters/resilience"
+	"github.com/S-Corkum/devops-mcp/internal/observability"
 	"github.com/golang-jwt/jwt/v4"
 )
 

@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 
-	storage "github.com/S-Corkum/mcp-server/internal/storage"
+	storage "github.com/S-Corkum/devops-mcp/internal/storage"
 	"github.com/aws/aws-sdk-go-v2/service/s3"
 )
 
