@@ -11,12 +11,14 @@ import (
 	"io"
 	"net"
 	"net/http"
+	"os"
 	"strings"
 	"sync"
 	"time"
 
 	"github.com/S-Corkum/devops-mcp/internal/interfaces"
 	"github.com/S-Corkum/devops-mcp/internal/observability"
+	"github.com/S-Corkum/devops-mcp/internal/queue"
 )
 
 // GitHubWebhookHandler creates an HTTP handler for GitHub webhook events
@@ -101,10 +103,37 @@ func GitHubWebhookHandler(config interfaces.WebhookConfigInterface, logger *obse
 		// Log the event
 		logger.Info("GitHub webhook received", map[string]interface{}{"eventType": eventType, "repository": repoName, "sender": senderName})
 
-		// TODO: Process the event based on type
-		// This can be extended to handle different event types with custom handlers
+		// Enqueue event to SQS for asynchronous processing
+		sqsURL := os.Getenv("SQS_QUEUE_URL")
+		if sqsURL == "" {
+			http.Error(w, "SQS_QUEUE_URL not configured", http.StatusInternalServerError)
+			logger.Error("SQS_QUEUE_URL not configured", nil)
+			return
+		}
 
-		// Return success response
+		event := queue.SQSEvent{
+			DeliveryID: r.Header.Get("X-GitHub-Delivery"),
+			EventType:  eventType,
+			RepoName:   repoName,
+			SenderName: senderName,
+			Payload:    json.RawMessage(bodyBytes),
+		}
+
+		ctx := r.Context()
+		sqsClient, err := queue.NewSQSClient(ctx)
+		if err != nil {
+			http.Error(w, "Failed to create SQS client", http.StatusInternalServerError)
+			logger.Error("Failed to create SQS client", map[string]interface{}{"error": err.Error()})
+			return
+		}
+		err = sqsClient.EnqueueEvent(ctx, event)
+		if err != nil {
+			http.Error(w, "Failed to enqueue event", http.StatusInternalServerError)
+			logger.Error("Failed to enqueue event to SQS", map[string]interface{}{"error": err.Error()})
+			return
+		}
+
+		// Return success response immediately
 		w.WriteHeader(http.StatusOK)
 		w.Write([]byte("Webhook received successfully"))
 	}
