@@ -26,6 +26,45 @@ MCP (Model Context Protocol) Server provides AI agents with a unified API for De
 - **Comprehensive Authentication**: Secure API access and webhook verification
 - **AWS Integration**: Seamless integration with AWS services using IAM Roles for Service Accounts (IRSA)
 
+---
+
+## Queue & Worker Architecture
+
+### Purpose
+The queue (AWS SQS or LocalStack SQS) decouples event ingestion (webhooks, API calls) from event processing. This allows the system to:
+- Scale event processing independently
+- Improve reliability and resilience
+- Ensure events are processed asynchronously and idempotently
+
+### How It Works
+- The main server enqueues events to SQS when a webhook or API call is received.
+- The dedicated `worker` service polls SQS for new messages, processes each event, and updates Redis for idempotency.
+- LocalStack is used in development and CI to emulate AWS SQS, enabling full integration testing without real AWS resources.
+
+### Configuration & Environment Variables
+- `SQS_QUEUE_URL`: URL of the SQS queue (e.g., `http://localstack:4566/000000000000/test-queue` for LocalStack)
+- `REDIS_HOST`, `REDIS_PORT`: Redis connection details
+- Both the server and worker must be configured with the same queue and Redis settings for correct operation.
+
+### Message Flow
+1. **Webhook/API Event** → Main server receives event
+2. **Enqueue** → Server serializes event and sends to SQS
+3. **Poll** → Worker polls SQS for new messages
+4. **Process** → Worker processes event, performs business logic, and sets idempotency key in Redis
+5. **Ack/Delete** → Worker deletes the message from SQS after successful processing
+
+### Inspecting & Debugging the Queue
+- **LocalStack UI**: LocalStack provides a web UI (if enabled) to inspect SQS queues and messages
+- **AWS CLI (LocalStack endpoint)**: Use the AWS CLI with `--endpoint-url` to list, send, or receive messages for debugging:
+  ```bash
+  aws --endpoint-url=http://localhost:4566 sqs list-queues
+  aws --endpoint-url=http://localhost:4566 sqs receive-message --queue-url http://localhost:4566/000000000000/test-queue
+  ```
+- **Logs**: Both server and worker log SQS operations for traceability
+- **Functional Tests**: The test suite exercises the full flow, verifying that events are enqueued, processed, and idempotency is enforced
+
+---
+
 ## 📋 Quick Start
 
 ### Prerequisites
@@ -45,9 +84,26 @@ cd mcp-server
 cp .env.example .env
 # Edit .env with your GitHub token and other settings
 
-# Start the services
+# Start the services (main stack)
 docker-compose up -d
+
+# For full end-to-end testing (including SQS, worker, and Redis idempotency), use the test compose file:
+docker-compose -f docker-compose.test.yml up --build
 ```
+
+#### Worker & Queue Integration
+- The system now includes a dedicated `worker` service (see `Dockerfile.worker`), which polls SQS (via LocalStack) and processes queued events.
+- LocalStack is used to emulate AWS SQS for local and CI testing.
+- Both the main server and the worker connect to the same Redis and SQS instances for realistic integration testing.
+
+#### Functional & Integration Tests
+- Functional tests now exercise the full webhook → SQS → worker → Redis flow.
+- To run all functional tests with the complete stack:
+
+```bash
+make test-functional-verbose
+```
+- This ensures both the server and worker are running, SQS is emulated, and Redis idempotency is verified.
 
 ### Verify Installation
 

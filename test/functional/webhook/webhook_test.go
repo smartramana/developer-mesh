@@ -2,6 +2,7 @@ package webhook_test
 
 import (
 	"bytes"
+	"context"
 	"crypto/hmac"
 	"crypto/sha256"
 	"encoding/hex"
@@ -10,6 +11,7 @@ import (
 	"os"
 	"time"
 
+	"github.com/go-redis/redis/v8"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 )
@@ -65,5 +67,101 @@ var _ = Describe("GitHub Webhook Endpoint", func() {
 		Expect(err).NotTo(HaveOccurred())
 		defer resp.Body.Close()
 		Expect(resp.StatusCode).To(Equal(http.StatusOK))
+	})
+
+	It("should enqueue and process the event end-to-end (idempotency key set in Redis)", func() {
+		redisAddr := os.Getenv("REDIS_ADDR")
+		if redisAddr == "" {
+			redisAddr = "localhost:6379"
+		}
+		redisClient := redis.NewClient(&redis.Options{Addr: redisAddr})
+		deliveryID := "test-e2e-" + time.Now().Format("20060102150405")
+		payload := map[string]interface{}{
+			"action": "opened",
+			"issue": map[string]interface{}{"number": 2, "title": "E2E Test"},
+			"repository": map[string]interface{}{"full_name": "S-Corkum/devops-mcp"},
+			"sender": map[string]interface{}{"login": "testuser"},
+		}
+		body, _ := json.Marshal(payload)
+		h := hmac.New(sha256.New, []byte(secret))
+		h.Write(body)
+		signature := "sha256=" + hex.EncodeToString(h.Sum(nil))
+		req, _ := http.NewRequest("POST", serverURL+"/api/webhooks/github", bytes.NewReader(body))
+		req.Header.Set("Content-Type", "application/json")
+		req.Header.Set("X-Hub-Signature-256", signature)
+		client := &http.Client{Timeout: 5 * time.Second}
+		resp, err := client.Do(req)
+		Expect(err).NotTo(HaveOccurred())
+		defer resp.Body.Close()
+		Expect(resp.StatusCode).To(Equal(http.StatusOK))
+		Eventually(func() int64 {
+			val, _ := redisClient.Exists(context.Background(), "github:webhook:processed:"+deliveryID).Result()
+			return val
+		}, 10*time.Second, 500*time.Millisecond).Should(Equal(int64(1)))
+	})
+
+	It("should not set idempotency key for error event (push event)", func() {
+		redisAddr := os.Getenv("REDIS_ADDR")
+		if redisAddr == "" {
+			redisAddr = "localhost:6379"
+		}
+		redisClient := redis.NewClient(&redis.Options{Addr: redisAddr})
+		deliveryID := "test-push-" + time.Now().Format("20060102150405")
+		payload := map[string]interface{}{
+			"action": "opened",
+			"event_type": "push",
+			"issue": map[string]interface{}{"number": 3, "title": "Push Test"},
+			"repository": map[string]interface{}{"full_name": "S-Corkum/devops-mcp"},
+			"sender": map[string]interface{}{"login": "testuser"},
+		}
+		body, _ := json.Marshal(payload)
+		h := hmac.New(sha256.New, []byte(secret))
+		h.Write(body)
+		signature := "sha256=" + hex.EncodeToString(h.Sum(nil))
+		req, _ := http.NewRequest("POST", serverURL+"/api/webhooks/github", bytes.NewReader(body))
+		req.Header.Set("Content-Type", "application/json")
+		req.Header.Set("X-Hub-Signature-256", signature)
+		client := &http.Client{Timeout: 5 * time.Second}
+		resp, err := client.Do(req)
+		Expect(err).NotTo(HaveOccurred())
+		defer resp.Body.Close()
+		Expect(resp.StatusCode).To(Equal(http.StatusOK))
+		Consistently(func() int64 {
+			val, _ := redisClient.Exists(context.Background(), "github:webhook:processed:"+deliveryID).Result()
+			return val
+		}, 5*time.Second, 500*time.Millisecond).Should(Equal(int64(0)))
+	})
+
+	It("should only process an event once (idempotency)", func() {
+		redisAddr := os.Getenv("REDIS_ADDR")
+		if redisAddr == "" {
+			redisAddr = "localhost:6379"
+		}
+		redisClient := redis.NewClient(&redis.Options{Addr: redisAddr})
+		deliveryID := "test-idem-" + time.Now().Format("20060102150405")
+		payload := map[string]interface{}{
+			"action": "opened",
+			"issue": map[string]interface{}{"number": 4, "title": "Idempotency Test"},
+			"repository": map[string]interface{}{"full_name": "S-Corkum/devops-mcp"},
+			"sender": map[string]interface{}{"login": "testuser"},
+		}
+		body, _ := json.Marshal(payload)
+		h := hmac.New(sha256.New, []byte(secret))
+		h.Write(body)
+		signature := "sha256=" + hex.EncodeToString(h.Sum(nil))
+		req, _ := http.NewRequest("POST", serverURL+"/api/webhooks/github", bytes.NewReader(body))
+		req.Header.Set("Content-Type", "application/json")
+		req.Header.Set("X-Hub-Signature-256", signature)
+		client := &http.Client{Timeout: 5 * time.Second}
+		for i := 0; i < 2; i++ {
+			resp, err := client.Do(req)
+			Expect(err).NotTo(HaveOccurred())
+			defer resp.Body.Close()
+			Expect(resp.StatusCode).To(Equal(http.StatusOK))
+		}
+		Eventually(func() int64 {
+			val, _ := redisClient.Exists(context.Background(), "github:webhook:processed:"+deliveryID).Result()
+			return val
+		}, 10*time.Second, 500*time.Millisecond).Should(Equal(int64(1)))
 	})
 })
