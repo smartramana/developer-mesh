@@ -26,10 +26,20 @@ func (db *Database) CreateContext(ctx context.Context, contextData *mcp.Context)
 
 // createContext is the internal implementation to create a context within a transaction
 func (db *Database) createContext(ctx context.Context, tx *Tx, contextData *mcp.Context) error {
-	// Serialize metadata to JSON
-	metadataJSON, err := json.Marshal(contextData.Metadata)
-	if err != nil {
-		return fmt.Errorf("failed to marshal metadata: %w", err)
+	// Serialize metadata to JSON, handling nil/empty cases
+	var metadataJSON []byte
+	var err error
+	if contextData.Metadata == nil || len(contextData.Metadata) == 0 {
+		metadataJSON = []byte("{}")
+	} else {
+		metadataJSON, err = json.Marshal(contextData.Metadata)
+		if err != nil {
+			return fmt.Errorf("failed to marshal metadata: %w", err)
+		}
+		// Final check to avoid empty string being sent to PostgreSQL
+		if string(metadataJSON) == "" || string(metadataJSON) == "null" {
+			metadataJSON = []byte("{}")
+		}
 	}
 	
 	// Insert context record
@@ -76,10 +86,20 @@ func (db *Database) createContextItem(ctx context.Context, tx *Tx, contextID str
 		item.ID = itemID
 	}
 	
-	// Serialize metadata to JSON
-	metadataJSON, err := json.Marshal(item.Metadata)
-	if err != nil {
-		return fmt.Errorf("failed to marshal item metadata: %w", err)
+	// Serialize item metadata to JSON, handling nil/empty cases
+	var metadataJSON []byte
+	var err error
+	if item.Metadata == nil || len(item.Metadata) == 0 {
+		metadataJSON = []byte("{}")
+	} else {
+		metadataJSON, err = json.Marshal(item.Metadata)
+		if err != nil {
+			return fmt.Errorf("failed to marshal item metadata: %w", err)
+		}
+		// Final check to avoid empty string being sent to PostgreSQL
+		if string(metadataJSON) == "" || string(metadataJSON) == "null" {
+			metadataJSON = []byte("{}")
+		}
 	}
 	
 	// Insert context item
@@ -251,10 +271,20 @@ func (db *Database) UpdateContext(ctx context.Context, contextData *mcp.Context)
 
 // updateContext is the internal implementation to update a context within a transaction
 func (db *Database) updateContext(ctx context.Context, tx *Tx, contextData *mcp.Context) error {
-	// Serialize metadata to JSON
-	metadataJSON, err := json.Marshal(contextData.Metadata)
-	if err != nil {
-		return fmt.Errorf("failed to marshal metadata: %w", err)
+	// Serialize metadata to JSON, handling nil/empty cases
+	var metadataJSON []byte
+	var err error
+	if contextData.Metadata == nil || len(contextData.Metadata) == 0 {
+		metadataJSON = []byte("{}")
+	} else {
+		metadataJSON, err = json.Marshal(contextData.Metadata)
+		if err != nil {
+			return fmt.Errorf("failed to marshal metadata: %w", err)
+		}
+		// Final check to avoid empty string being sent to PostgreSQL
+		if string(metadataJSON) == "" || string(metadataJSON) == "null" {
+			metadataJSON = []byte("{}")
+		}
 	}
 	
 	// Update context record
