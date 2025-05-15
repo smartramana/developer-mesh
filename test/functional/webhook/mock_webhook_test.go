@@ -26,6 +26,7 @@ type MockWebhookConfig struct {
 	AllowedEventsVal   []string
 	IPValidationVal    bool
 	ProcessedEvents    map[string]bool
+	ErrorEvents        map[string]bool // Tracks events that should be considered errors
 	ProcessedEventsMux sync.Mutex
 }
 
@@ -119,18 +120,41 @@ func MockWebhookHandler(config *MockWebhookConfig) http.HandlerFunc {
 			return
 		}
 
-		// Check if this event was already processed
-		config.ProcessedEventsMux.Lock()
-		if processed, exists := config.ProcessedEvents[deliveryID]; exists && processed {
-			// This is a duplicate event, but we'll return 200 OK for idempotency
-			config.ProcessedEventsMux.Unlock()
-			w.WriteHeader(http.StatusOK)
-			w.Write([]byte(`{"status":"success","message":"Webhook already processed (idempotent)"}`))
-			return
+		// Special handling for error events (like certain push events)
+		// Don't set idempotency keys for events that are considered errors
+		isErrorEvent := false
+		
+		// Check if this is a push event with error characteristics
+		if eventType == "push" {
+			// Parse the body to determine if it's an error event
+			var payload map[string]interface{}
+			if err := json.Unmarshal(bodyBytes, &payload); err == nil {
+				// If the payload contains event_type=push, consider it an error event
+				// (This is a simplification - in real code you'd have more specific criteria)
+				if evtType, ok := payload["event_type"].(string); ok && evtType == "push" {
+					isErrorEvent = true
+					config.ProcessedEventsMux.Lock()
+					config.ErrorEvents[deliveryID] = true
+					config.ProcessedEventsMux.Unlock()
+				}
+			}
 		}
-		// Mark as processed
-		config.ProcessedEvents[deliveryID] = true
-		config.ProcessedEventsMux.Unlock()
+		
+		// Only set idempotency for non-error events
+		if !isErrorEvent {
+			// Check if this event was already processed
+			config.ProcessedEventsMux.Lock()
+			if processed, exists := config.ProcessedEvents[deliveryID]; exists && processed {
+				// This is a duplicate event, but we'll return 200 OK for idempotency
+				config.ProcessedEventsMux.Unlock()
+				w.WriteHeader(http.StatusOK)
+				w.Write([]byte(`{"status":"success","message":"Webhook already processed (idempotent)"}`))  
+				return
+			}
+			// Mark as processed
+			config.ProcessedEvents[deliveryID] = true
+			config.ProcessedEventsMux.Unlock()
+		}
 
 		// Return success
 		w.WriteHeader(http.StatusOK)
@@ -161,6 +185,7 @@ func createMockWebhookServer() (*httptest.Server, *MockWebhookConfig) {
 		AllowedEventsVal:   []string{"issues", "push", "pull_request"},
 		IPValidationVal:    false,
 		ProcessedEvents:    make(map[string]bool),
+		ErrorEvents:        make(map[string]bool),
 	}
 
 	router := mux.NewRouter()
@@ -171,6 +196,7 @@ func createMockWebhookServer() (*httptest.Server, *MockWebhookConfig) {
 }
 
 var _ = Describe("Mock GitHub Webhook Tests", func() {
+	// Add a test case to specifically test error event handling for push events
 	var (
 		mockServer *httptest.Server
 		mockConfig *MockWebhookConfig
@@ -323,5 +349,60 @@ var _ = Describe("Mock GitHub Webhook Tests", func() {
 		Expect(err).NotTo(HaveOccurred())
 		defer resp.Body.Close()
 		Expect(resp.StatusCode).To(Equal(http.StatusForbidden))
+	})
+
+	It("should not set idempotency key for error events (push event)", func() {
+		// Create a payload that simulates a push event that would be considered an error
+		payload := map[string]interface{}{
+			"action": "opened",
+			"event_type": "push", // This is the marker that makes it an error event
+			"issue": map[string]interface{}{
+				"number": 3, 
+				"title": "Error Event Test",
+			},
+			"repository": map[string]interface{}{
+				"full_name": "S-Corkum/devops-mcp",
+			},
+			"sender": map[string]interface{}{
+				"login": "testuser",
+			},
+		}
+		body, err := json.Marshal(payload)
+		Expect(err).NotTo(HaveOccurred())
+
+		// Compute signature
+		mac := hmac.New(sha256.New, []byte(mockConfig.GitHubSecretVal))
+		mac.Write(body)
+		signature := "sha256=" + hex.EncodeToString(mac.Sum(nil))
+
+		// Create unique delivery ID for this test
+		deliveryID := "test-error-event-" + time.Now().Format("20060102150405")
+
+		// Send request with push event
+		req, err := http.NewRequest("POST", mockServer.URL+"/api/webhooks/github", bytes.NewReader(body))
+		Expect(err).NotTo(HaveOccurred())
+		req.Header.Set("Content-Type", "application/json")
+		req.Header.Set("X-Hub-Signature-256", signature)
+		req.Header.Set("X-GitHub-Event", "push") // Use push event type
+		req.Header.Set("X-GitHub-Delivery", deliveryID)
+
+		client := &http.Client{Timeout: 5 * time.Second}
+		resp, err := client.Do(req)
+		Expect(err).NotTo(HaveOccurred())
+		defer resp.Body.Close()
+
+		// The request should succeed even though it's an error event
+		Expect(resp.StatusCode).To(Equal(http.StatusOK))
+
+		// Verify the event was marked as an error event
+		mockConfig.ProcessedEventsMux.Lock()
+		defer mockConfig.ProcessedEventsMux.Unlock()
+		
+		// Check it was marked as an error event
+		Expect(mockConfig.ErrorEvents).To(HaveKey(deliveryID))
+		
+		// Verify it was NOT stored in the processed events map (no idempotency key set)
+		_, exists := mockConfig.ProcessedEvents[deliveryID]
+		Expect(exists).To(BeFalse(), "Idempotency key should not be set for error events")
 	})
 })
