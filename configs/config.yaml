@@ -29,11 +29,13 @@ api:
     api_keys:
       admin: "${ADMIN_API_KEY}"
       reader: "${READER_API_KEY}"
-  webhooks:
-    github:
-      enabled: true
-      path: "/github"
-      secret: "${GITHUB_WEBHOOK_SECRET}"
+    webhook:
+    enabled: true
+    github_endpoint: "/api/webhooks/github"
+    github_secret: "${GITHUB_WEBHOOK_SECRET}"
+    github_allowed_events:
+      - issues
+      - push
 
 cache:
   type: "redis"

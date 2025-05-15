@@ -7,6 +7,8 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+
+	"github.com/joho/godotenv"
 )
 
 // Global test configuration
@@ -17,6 +19,9 @@ var (
 )
 
 func TestFunctional(t *testing.T) {
+	// Load .env file if present (best practice for local/test environments)
+	_ = godotenv.Load()
+
 	// Register Gomega fail handler
 	RegisterFailHandler(Fail)
 

@@ -12,6 +12,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/S-Corkum/devops-mcp/internal/interfaces"
 	"github.com/S-Corkum/devops-mcp/internal/api"
 	"github.com/S-Corkum/devops-mcp/internal/aws"
 	"github.com/S-Corkum/devops-mcp/internal/cache"
@@ -41,6 +42,9 @@ func main() {
 	if err != nil {
 		log.Fatalf("Failed to load configuration: %v", err)
 	}
+
+	// DEBUG: Print loaded webhook config
+	fmt.Printf("[DEBUG] Loaded webhook config: %+v\n", cfg.API.Webhook)
 
 	// Validate critical configuration
 	if err := validateConfiguration(cfg); err != nil {
@@ -184,6 +188,14 @@ func main() {
 			Period:      time.Minute, // Default value
 			BurstFactor: 3,           // Default value
 		},
+		// Copy the webhook configuration to ensure webhook routes are registered correctly
+		Webhook: interfaces.WebhookConfig{
+			EnabledField:             cfg.API.Webhook.Enabled(),
+			GitHubEndpointField:      cfg.API.Webhook.GitHubEndpoint(),
+			GitHubSecretField:        cfg.API.Webhook.GitHubSecret(),
+			GitHubIPValidationField:  cfg.API.Webhook.GitHubIPValidationEnabled(),
+			GitHubAllowedEventsField: cfg.API.Webhook.GitHubAllowedEvents(),
+		},
 		// Default values for other fields
 		Versioning: api.VersioningConfig{
 			Enabled:           true,
@@ -285,8 +297,16 @@ func validateConfiguration(cfg *config.Config) error {
 		return fmt.Errorf("invalid API timeouts: must be greater than 0")
 	}
 
+	// Print webhook configuration for debugging
+	log.Printf("Webhook Config Loaded: enabled=%v, endpoint=%s, secret_len=%d, ip_validation=%v, allowed_events=%v",
+		cfg.API.Webhook.Enabled(),
+		cfg.API.Webhook.GitHubEndpoint(),
+		len(cfg.API.Webhook.GitHubSecret()),
+		cfg.API.Webhook.GitHubIPValidationEnabled(),
+		cfg.API.Webhook.GitHubAllowedEvents())
+
 	// Check webhook secrets if webhooks are enabled
-	if cfg.API.Webhooks.GitHub.Enabled && cfg.API.Webhooks.GitHub.Secret == "" {
+	if cfg.API.Webhook.Enabled() && cfg.API.Webhook.GitHubSecret() == "" {
 		log.Println("Warning: GitHub webhooks enabled without a secret - consider adding a secret for security")
 	}
 

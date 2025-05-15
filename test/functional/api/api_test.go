@@ -58,7 +58,7 @@ var _ = BeforeSuite(func() {
 
 	// Create a test agent with a valid model_id
 	agentPayload := map[string]interface{}{
-		"name": "Test Agent",
+		"name":     "Test Agent",
 		"model_id": testModelIDs[0],
 	}
 	resp, err := tempClient.Post(context.Background(), "/api/v1/agents", agentPayload)
@@ -76,7 +76,7 @@ var _ = BeforeSuite(func() {
 	}
 	Expect(ok && id != "").To(BeTrue(), "Agent creation failed, status=%d, body=%s, parsed=%#v", resp.StatusCode, string(body), agentResult)
 	testAgentID = id
-});
+})
 
 var _ = Describe("API", func() {
 	var mcpClient *client.MCPClient
@@ -214,10 +214,10 @@ var _ = Describe("API", func() {
 		})
 		It("should execute add_comment action (200)", func() {
 			payload := map[string]interface{}{
-				"owner": "octocat",
-				"repo": "hello-world",
+				"owner":        "octocat",
+				"repo":         "hello-world",
 				"issue_number": 42,
-				"body": "This is a comment.",
+				"body":         "This is a comment.",
 			}
 			resp, err := mcpClient.Post(ctx, "/api/v1/tools/github/actions/add_comment?context_id=test-context", payload)
 			Expect(err).NotTo(HaveOccurred())
@@ -304,11 +304,11 @@ var _ = Describe("API", func() {
 		// These endpoints require the context/model to exist; expect 404 for mock/unimplemented
 		It("should store an embedding (404 for missing context)", func() {
 			payload := map[string]interface{}{
-				"context_id": contextID,
+				"context_id":    contextID,
 				"content_index": 0,
-				"text": "Hello AI assistant!",
-				"embedding": []float64{0.1, 0.2, 0.3},
-				"model_id": modelID,
+				"text":          "Hello AI assistant!",
+				"embedding":     []float64{0.1, 0.2, 0.3},
+				"model_id":      modelID,
 			}
 			resp, err := mcpClient.Post(ctx, "/api/v1/vectors/store", payload)
 			Expect(err).NotTo(HaveOccurred())
@@ -324,10 +324,10 @@ var _ = Describe("API", func() {
 		})
 		It("should search embeddings (404 for missing context)", func() {
 			payload := map[string]interface{}{
-				"context_id": contextID,
-				"query_embedding": []float64{0.1, 0.2, 0.3},
-				"limit": 5,
-				"model_id": modelID,
+				"context_id":           contextID,
+				"query_embedding":      []float64{0.1, 0.2, 0.3},
+				"limit":                5,
+				"model_id":             modelID,
 				"similarity_threshold": 0.7,
 			}
 			resp, err := mcpClient.Post(ctx, "/api/v1/vectors/search", payload)

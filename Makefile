@@ -62,15 +62,18 @@ test-fuzz:
 	$(GOTEST) -fuzz=FuzzTruncateOldestFirst -fuzztime=30s ./internal/core
 
 test-functional:
+	@bash ./test/functional/check_test_env.sh || (echo "\nEnvironment check failed. Please set all required environment variables before running functional tests." && exit 1)
 	cd $(shell pwd) && export MCP_TEST_MODE=true && ./test/scripts/run_functional_tests_fixed.sh
 
 # Run only specific functional tests
 # Usage: make test-functional-focus FOCUS="Health Endpoint"
 test-functional-focus:
+	@bash ./test/functional/check_test_env.sh || (echo "\nEnvironment check failed. Please set all required environment variables before running functional tests." && exit 1)
 	cd $(shell pwd) && export MCP_TEST_MODE=true && ./test/scripts/run_functional_tests_fixed.sh --focus "$(FOCUS)"
 
 # Run functional tests with verbose output
 test-functional-verbose:
+	@bash ./test/functional/check_test_env.sh || (echo "\nEnvironment check failed. Please set all required environment variables before running functional tests." && exit 1)
 	cd $(shell pwd) && export MCP_TEST_MODE=true && ./test/scripts/run_functional_tests_fixed.sh --verbose
 
 deps:
