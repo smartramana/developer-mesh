@@ -10,14 +10,14 @@ services:
       - POSTGRES_PASSWORD=postgres
       - POSTGRES_DB=mcp_test
     volumes:
-      - ./scripts/db/init.sql:/docker-entrypoint-initdb.d/001-init.sql
-      - ./test/functional/db/setup.sql:/docker-entrypoint-initdb.d/002-setup.sql
+      - ./scripts/db/init.sql:/docker-entrypoint-initdb.d/init.sql
+    command: ["postgres"]
+    restart: unless-stopped
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U postgres"]
-      interval: 5s
+      interval: 10s
       timeout: 5s
-      retries: 5
-      start_period: 10s
+      retries: 3
     networks:
       - mcp-test-network
 
@@ -70,11 +70,13 @@ services:
       REDIS_HOST: redis
       REDIS_PORT: 6379
       MOCKSERVER_URL: http://mockserver:8081
-      API_KEY: "test-admin-api-key"
+      MCP_API_KEY: "test-admin-api-key"
       LOG_LEVEL: debug
       MCP_TEST_MODE: "true" # Always use test mode for tests
       GIN_MODE: debug
       SQS_QUEUE_URL: http://localstack:4566/000000000000/test-queue
+      # Explicitly set the auth admin API key to ensure it's properly registered by the server
+      AUTH_API_KEYS_ADMIN: "test-admin-api-key"
     command: ["sh", "-c", "export MCP_TEST_MODE=true && echo 'Starting with MCP_TEST_MODE=${MCP_TEST_MODE}' && ./mcp-server"]
     volumes:
       - ./configs:/app/configs
@@ -107,6 +109,9 @@ services:
       SQS_QUEUE_URL: http://localstack:4566/000000000000/test-queue
       LOG_LEVEL: debug
       MCP_TEST_MODE: "true"
+      AWS_ACCESS_KEY_ID: test
+      AWS_SECRET_ACCESS_KEY: test
+      AWS_DEFAULT_REGION: us-east-1
     depends_on:
       - redis
       - localstack

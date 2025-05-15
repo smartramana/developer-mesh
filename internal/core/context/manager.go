@@ -799,11 +799,35 @@ func (m *Manager) createContextInDB(ctx context.Context, tx *sqlx.Tx, contextDat
 
 			// Convert item metadata to JSON if not nil
 			var itemMetadataJSON []byte
+			// Handle item metadata the same way as context metadata
+			if item.Metadata != nil {
+				switch meta := interface{}(item.Metadata).(type) {
+				case string:
+					if strings.TrimSpace(meta) == "" {
+						item.Metadata = nil
+					} else {
+						// Try to parse as JSON, if fails treat as nil
+						item.Metadata = nil
+					}
+				case map[string]interface{}:
+					// valid, do nothing
+				case nil:
+					// valid, do nothing
+				default:
+					// any other type, treat as nil
+					item.Metadata = nil
+				}
+			}
+			
 			if item.Metadata != nil {
 				itemMetadataJSON, err = json.Marshal(item.Metadata)
 				if err != nil {
 					return fmt.Errorf("failed to marshal item metadata: %w", err)
 				}
+			}
+			// Ensure itemMetadataJSON is always valid JSON (never empty string)
+			if itemMetadataJSON == nil || len(itemMetadataJSON) == 0 || string(itemMetadataJSON) == "" {
+				itemMetadataJSON = []byte("{}")
 			}
 
 			// Insert into context_items table
@@ -1043,11 +1067,35 @@ func (m *Manager) updateContextInDB(ctx context.Context, tx *sqlx.Tx, contextDat
 
 		// Convert item metadata to JSON if not nil
 		var itemMetadataJSON []byte
+		// Handle item metadata the same way as context metadata
+		if item.Metadata != nil {
+			switch meta := interface{}(item.Metadata).(type) {
+			case string:
+				if strings.TrimSpace(meta) == "" {
+					item.Metadata = nil
+				} else {
+					// Try to parse as JSON, if fails treat as nil
+					item.Metadata = nil
+				}
+			case map[string]interface{}:
+				// valid, do nothing
+			case nil:
+				// valid, do nothing
+			default:
+				// any other type, treat as nil
+				item.Metadata = nil
+			}
+		}
+		
 		if item.Metadata != nil {
 			itemMetadataJSON, err = json.Marshal(item.Metadata)
 			if err != nil {
 				return fmt.Errorf("failed to marshal item metadata: %w", err)
 			}
+		}
+		// Ensure itemMetadataJSON is always valid JSON (never empty string)
+		if itemMetadataJSON == nil || len(itemMetadataJSON) == 0 || string(itemMetadataJSON) == "" {
+			itemMetadataJSON = []byte("{}")
 		}
 
 		// Insert into context_items table

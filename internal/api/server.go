@@ -17,6 +17,7 @@ import (
 	"github.com/jmoiron/sqlx"
 	swaggerFiles "github.com/swaggo/files"
 	ginSwagger "github.com/swaggo/gin-swagger"
+	"github.com/gorilla/mux"
 )
 
 // Global shutdown hooks
@@ -232,6 +233,16 @@ func (s *Server) setupRoutes(ctx context.Context) {
 			},
 		})
 	})
+
+	// --- Webhook Integration: Mount Gorilla Mux for webhook endpoints ---
+	// Create a Gorilla Mux router and register webhook routes
+	muxRouter := mux.NewRouter()
+	s.RegisterWebhookRoutes(muxRouter)
+
+	// Mount the mux router for all /api/webhooks/* paths
+	// This allows the /api/webhooks/github endpoint to be handled by the correct handler
+	s.router.Any("/api/webhooks/github", gin.WrapH(muxRouter))
+	s.router.Any("/api/webhooks/github/", gin.WrapH(muxRouter))
 
 	// Tool integration API - using resource-based approach
 	adapterBridge, err := s.engine.GetAdapter("adapter_bridge")

@@ -18,11 +18,13 @@ api:
     limit: 100
     period: 1m
     burst_factor: 3
-  webhooks:
-    github:
-      enabled: true
-      path: "/github"
-      secret: "change-this-to-a-secure-webhook-secret"
+    webhook:
+    enabled: true
+    github_endpoint: "/api/webhooks/github"
+    github_secret: "test-github-webhook-secret"
+    github_allowed_events:
+      - issues
+      - push
 
 database:
   driver: "postgres"

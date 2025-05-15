@@ -41,6 +41,335 @@ tags:
     description: Monitoring and metrics operations
 
 paths:
+  # Agent API Paths
+  /agents:
+    get:
+      summary: List all agents
+      description: Returns a list of all registered agents.
+      operationId: listAgents
+      tags:
+        - agent
+      responses:
+        '200':
+          description: Successful operation
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  agents:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Agent'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+    post:
+      summary: Create a new agent
+      description: Registers a new agent.
+      operationId: createAgent
+      tags:
+        - agent
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AgentCreateRequest'
+      responses:
+        '201':
+          description: Agent created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Agent'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /agents/{id}:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        description: Agent ID
+        schema:
+          type: string
+    put:
+      summary: Update an agent
+      description: Updates agent details.
+      operationId: updateAgent
+      tags:
+        - agent
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AgentUpdateRequest'
+      responses:
+        '200':
+          description: Agent updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Agent'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  # Model API Paths
+  /models:
+    get:
+      summary: List all models
+      description: Returns a list of all available models.
+      operationId: listModels
+      tags:
+        - model
+      responses:
+        '200':
+          description: Successful operation
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  models:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Model'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+    post:
+      summary: Create a new model
+      description: Registers a new model.
+      operationId: createModel
+      tags:
+        - model
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ModelCreateRequest'
+      responses:
+        '201':
+          description: Model created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Model'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /models/{id}:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        description: Model ID
+        schema:
+          type: string
+    put:
+      summary: Update a model
+      description: Updates model details.
+      operationId: updateModel
+      tags:
+        - model
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ModelUpdateRequest'
+      responses:
+        '200':
+          description: Model updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Model'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  # Tool API Paths (ensure all are present)
+  /tools:
+    get:
+      summary: List all tools
+      description: Returns a list of all available DevOps tools.
+      operationId: listTools
+      tags:
+        - tools
+      responses:
+        '200':
+          description: Successful operation
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  tools:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Tool'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /tools/{tool}:
+    parameters:
+      - name: tool
+        in: path
+        required: true
+        description: Tool name
+        schema:
+          type: string
+    get:
+      summary: Get tool details
+      description: Get detailed information about a specific DevOps tool
+      operationId: getToolDetails
+      tags:
+        - tools
+      responses:
+        '200':
+          description: Tool details retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Tool'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /tools/{tool}/actions:
+    parameters:
+      - name: tool
+        in: path
+        required: true
+        description: Tool name
+        schema:
+          type: string
+    get:
+      summary: List tool actions
+      description: List all available actions for a DevOps tool
+      operationId: listToolActions
+      tags:
+        - tools
+      responses:
+        '200':
+          description: Actions listed successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  actions:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Action'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /tools/{tool}/actions/{action}:
+    parameters:
+      - name: tool
+        in: path
+        required: true
+        description: Tool name
+        schema:
+          type: string
+      - name: action
+        in: path
+        required: true
+        description: Action name
+        schema:
+          type: string
+    get:
+      summary: Get action details
+      description: Get detailed information about a specific action for a DevOps tool
+      operationId: getActionDetails
+      tags:
+        - tools
+      responses:
+        '200':
+          description: Action details retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Action'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /tools/{tool}/queries:
+    parameters:
+      - name: tool
+        in: path
+        required: true
+        description: Tool name
+        schema:
+          type: string
+    post:
+      summary: Query tool data
+      description: Retrieve data from a DevOps tool using a custom query
+      operationId: queryToolData
+      tags:
+        - tools
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: true
+      responses:
+        '200':
+          description: Query executed successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
   /metrics:
     get:
       summary: Expose Prometheus metrics
@@ -955,6 +1284,160 @@ paths:
 components:
   schemas:
     Context:
+      type: object
+      properties:
+        id:
+          type: string
+          description: Unique identifier for the context
+          example: "ctx_123"
+        agent_id:
+          type: string
+          description: Identifier for the AI agent
+          example: "agent_456"
+        model_id:
+          type: string
+          description: Identifier for the AI model
+          example: "gpt-4"
+        session_id:
+          type: string
+          description: Optional identifier for the user session
+          example: "session_789"
+        content:
+          type: array
+          description: Array of context items
+          items:
+            $ref: '#/components/schemas/ContextItem'
+        metadata:
+          type: object
+          description: Additional metadata
+          additionalProperties: true
+          example:
+            source: "chat"
+            user_timezone: "America/New_York"
+        current_tokens:
+          type: integer
+          description: Current token count
+          example: 150
+        max_tokens:
+          type: integer
+          description: Maximum token limit
+          example: 2000
+        created_at:
+          type: string
+          format: date-time
+          description: Creation timestamp
+          example: "2025-04-22T12:00:00Z"
+        updated_at:
+          type: string
+          format: date-time
+          description: Last update timestamp
+          example: "2025-04-22T12:30:00Z"
+        expires_at:
+          type: string
+          format: date-time
+          description: Optional expiration timestamp
+          example: "2025-05-22T12:00:00Z"
+        _links:
+          $ref: '#/components/schemas/Links'
+      required:
+        - agent_id
+        - model_id
+
+    Agent:
+      type: object
+      properties:
+        id:
+          type: string
+          description: Unique identifier for the agent
+          example: "agent_123"
+        tenant_id:
+          type: string
+          description: Tenant ID
+          example: "tenant_abc"
+        name:
+          type: string
+          description: Agent name
+          example: "My Agent"
+        model_id:
+          type: string
+          description: Associated model ID
+          example: "model_456"
+      required:
+        - id
+        - tenant_id
+        - name
+        - model_id
+
+    AgentCreateRequest:
+      type: object
+      properties:
+        name:
+          type: string
+          description: Agent name
+          example: "My Agent"
+        model_id:
+          type: string
+          description: Associated model ID
+          example: "model_456"
+      required:
+        - name
+        - model_id
+
+    AgentUpdateRequest:
+      type: object
+      properties:
+        name:
+          type: string
+          description: Agent name
+          example: "Updated Agent Name"
+        model_id:
+          type: string
+          description: Associated model ID
+          example: "model_789"
+      required:
+        - name
+        - model_id
+
+    Model:
+      type: object
+      properties:
+        id:
+          type: string
+          description: Unique identifier for the model
+          example: "model_123"
+        tenant_id:
+          type: string
+          description: Tenant ID
+          example: "tenant_abc"
+        name:
+          type: string
+          description: Model name
+          example: "gpt-4"
+      required:
+        - id
+        - tenant_id
+        - name
+
+    ModelCreateRequest:
+      type: object
+      properties:
+        name:
+          type: string
+          description: Model name
+          example: "gpt-4"
+      required:
+        - name
+
+    ModelUpdateRequest:
+      type: object
+      properties:
+        name:
+          type: string
+          description: Model name
+          example: "gpt-4"
+      required:
+        - name
+
       type: object
       properties:
         id:
