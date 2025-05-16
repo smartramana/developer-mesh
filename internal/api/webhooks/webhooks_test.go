@@ -44,6 +44,10 @@ func (m *mockConfig) GitHubIPValidationEnabled() bool {
 
 func TestGitHubWebhookHandler_MissingEventHeader(t *testing.T) {
 	config := new(mockConfig)
+	// Set up all the mock expectations that might be called
+	config.On("GitHubSecret").Return("testsecret")
+	config.On("GitHubAllowedEvents").Return([]string{"push"})
+	config.On("GitHubIPValidationEnabled").Return(false)
 	logger := observability.NewLogger("test-webhooks")
 	handler := GitHubWebhookHandler(config, logger)
 
@@ -58,6 +62,8 @@ func TestGitHubWebhookHandler_MissingEventHeader(t *testing.T) {
 func TestGitHubWebhookHandler_DisallowedEvent(t *testing.T) {
 	config := new(mockConfig)
 	config.On("GitHubAllowedEvents").Return([]string{"push"})
+	config.On("GitHubSecret").Return("testsecret")
+	config.On("GitHubIPValidationEnabled").Return(false)
 	logger := observability.NewLogger("test-webhooks")
 	handler := GitHubWebhookHandler(config, logger)
 
@@ -73,6 +79,8 @@ func TestGitHubWebhookHandler_DisallowedEvent(t *testing.T) {
 func TestGitHubWebhookHandler_MissingSignature(t *testing.T) {
 	config := new(mockConfig)
 	config.On("GitHubAllowedEvents").Return([]string{"push"})
+	config.On("GitHubSecret").Return("testsecret")
+	config.On("GitHubIPValidationEnabled").Return(false)
 	logger := observability.NewLogger("test-webhooks")
 	handler := GitHubWebhookHandler(config, logger)
 
@@ -89,6 +97,7 @@ func TestGitHubWebhookHandler_InvalidSignature(t *testing.T) {
 	config := new(mockConfig)
 	config.On("GitHubAllowedEvents").Return([]string{"push"})
 	config.On("GitHubSecret").Return("testsecret")
+	config.On("GitHubIPValidationEnabled").Return(false)
 	logger := observability.NewLogger("test-webhooks")
 	handler := GitHubWebhookHandler(config, logger)
 
@@ -107,6 +116,8 @@ func TestGitHubWebhookHandler_ValidEventAndSignature(t *testing.T) {
 	config := new(mockConfig)
 	config.On("GitHubAllowedEvents").Return([]string{"push"})
 	config.On("GitHubSecret").Return("testsecret")
+	config.On("GitHubIPValidationEnabled").Return(false)
+	config.On("GitHubEndpoint").Return("/api/webhook/github")
 	logger := observability.NewLogger("test-webhooks")
 	handler := GitHubWebhookHandler(config, logger)
 
