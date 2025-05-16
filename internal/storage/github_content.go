@@ -41,7 +41,7 @@ type ContentMetadata struct {
 	Size        int64                  `json:"size"`
 	Checksum    string                 `json:"checksum"`
 	URI         string                 `json:"uri"`
-	Metadata    map[string]interface{} `json:"metadata,omitempty"`
+	Metadata    map[string]interface{} `json:"metadata"`
 }
 
 // GetMetadata returns the metadata map, ensuring it is never nil
@@ -58,13 +58,17 @@ func (c *ContentMetadata) MarshalJSON() ([]byte, error) {
 	// Create a copy of the struct so we don't modify the original
 	copy := *c
 	
-	// Ensure metadata is initialized
+	// Always ensure metadata is initialized with an empty map if nil
+	// This is critical for the PostgreSQL "invalid input syntax for type json" error
 	if copy.Metadata == nil {
 		copy.Metadata = map[string]interface{}{}
 	}
 	
 	// Use a type alias to avoid infinite recursion
 	type Alias ContentMetadata
+	
+	// Remove the omitempty tag from the metadata field to ensure it's always included
+	// even if empty - this forces it to be {} instead of omitted or null
 	return json.Marshal((*Alias)(&copy))
 }
 
@@ -120,6 +124,10 @@ func (s *GitHubContentStorage) StoreContent(
 	data []byte,
 	metadata map[string]interface{},
 ) (*ContentMetadata, error) {
+	// Ensure metadata is never nil - fix for PostgreSQL "invalid input syntax for type json" error
+	if metadata == nil {
+		metadata = map[string]interface{}{}
+	}
 	if len(data) == 0 {
 		return nil, fmt.Errorf("content data cannot be empty")
 	}
