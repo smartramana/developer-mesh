@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"strings"
 	"time"
 )
 
@@ -57,6 +58,47 @@ type OpenAIEmbeddingService struct {
 	client *http.Client
 }
 
+// List of supported OpenAI embedding models
+var supportedOpenAIModels = map[string]int{
+	"text-embedding-3-small": 1536,
+	"text-embedding-3-large": 3072,
+	"text-embedding-ada-002": 1536,
+}
+
+// ValidateEmbeddingModel validates an embedding model name
+func ValidateEmbeddingModel(modelType ModelType, modelName string) error {
+	if modelName == "" {
+		return errors.New("model name is required")
+	}
+	
+	switch modelType {
+	case ModelTypeOpenAI:
+		_, found := supportedOpenAIModels[modelName]
+		if !found {
+			return fmt.Errorf("unsupported OpenAI model: %s", modelName)
+		}
+	default:
+		return fmt.Errorf("unsupported model type: %s", modelType)
+	}
+	
+	return nil
+}
+
+// GetEmbeddingModelDimensions returns the dimensions for a given model
+func GetEmbeddingModelDimensions(modelType ModelType, modelName string) (int, error) {
+	err := ValidateEmbeddingModel(modelType, modelName)
+	if err != nil {
+		return 0, err
+	}
+	
+	switch modelType {
+	case ModelTypeOpenAI:
+		return supportedOpenAIModels[modelName], nil
+	default:
+		return 0, fmt.Errorf("unsupported model type: %s", modelType)
+	}
+}
+
 // NewOpenAIEmbeddingService creates a new OpenAI embedding service
 func NewOpenAIEmbeddingService(apiKey string, modelName string, dimensions int) (*OpenAIEmbeddingService, error) {
 	if apiKey == "" {
@@ -65,12 +107,18 @@ func NewOpenAIEmbeddingService(apiKey string, modelName string, dimensions int) 
 	
 	// Use default model if not specified
 	if modelName == "" {
-		modelName = defaultOpenAIModel
+		return nil, errors.New("model name is required")
 	}
 	
-	// Use default dimensions if not specified
+	// Validate model name
+	err := ValidateEmbeddingModel(ModelTypeOpenAI, modelName)
+	if err != nil {
+		return nil, err
+	}
+	
+	// Get dimensions for the model if not specified
 	if dimensions <= 0 {
-		dimensions = defaultOpenAIDimensions
+		dimensions = supportedOpenAIModels[modelName]
 	}
 	
 	config := ModelConfig{
@@ -93,8 +141,17 @@ func NewOpenAIEmbeddingService(apiKey string, modelName string, dimensions int) 
 
 // GenerateEmbedding creates an embedding for a single text
 func (s *OpenAIEmbeddingService) GenerateEmbedding(ctx context.Context, text string, contentType string, contentID string) (*EmbeddingVector, error) {
+	// Validate text is not empty
+	if text == "" {
+		return nil, errors.New("content cannot be empty")
+	}
+	
 	embeddings, err := s.BatchGenerateEmbeddings(ctx, []string{text}, contentType, []string{contentID})
 	if err != nil {
+		// Check if this is an API error and format it accordingly
+		if strings.Contains(err.Error(), "API request failed") {
+			return nil, fmt.Errorf("failed to generate embedding: OpenAI API error: %w", err)
+		}
 		return nil, fmt.Errorf("failed to generate embedding: %w", err)
 	}
 	

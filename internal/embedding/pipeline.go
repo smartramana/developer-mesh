@@ -63,10 +63,10 @@ type GitHubContentProvider interface {
 	GetContent(ctx context.Context, owner, repo, path string) ([]byte, error)
 	
 	// GetIssue retrieves issue details from GitHub
-	GetIssue(ctx context.Context, owner, repo string, issueNumber int) (*GitHubIssue, error)
+	GetIssue(ctx context.Context, owner, repo string, issueNumber int) (*GitHubIssueData, error)
 	
 	// GetIssueComments retrieves issue comments from GitHub
-	GetIssueComments(ctx context.Context, owner, repo string, issueNumber int) ([]*GitHubComment, error)
+	GetIssueComments(ctx context.Context, owner, repo string, issueNumber int) ([]*GitHubCommentData, error)
 }
 
 // GitHubIssue represents a GitHub issue
@@ -89,6 +89,13 @@ type GitHubComment struct {
 	} `json:"user"`
 }
 
+// ChunkingInterface defines the interface for chunking services
+type ChunkingInterface interface {
+	// Here we define the minimum methods needed from the chunking service
+	// These methods should match what we actually use in the pipeline
+	ChunkCode(ctx context.Context, content string, path string) ([]*chunking.CodeChunk, error)
+}
+
 // DefaultEmbeddingPipeline implements EmbeddingPipeline for processing different content types
 type DefaultEmbeddingPipeline struct {
 	// Embedding service for generating embeddings
@@ -97,8 +104,8 @@ type DefaultEmbeddingPipeline struct {
 	// Storage for persisting embeddings
 	storage EmbeddingStorage
 	
-	// Chunking service for code chunking
-	chunkingService *chunking.ChunkingService
+	// Chunking service for code chunking - uses the interface instead of concrete type
+	chunkingService ChunkingInterface
 	
 	// GitHub content provider for accessing GitHub content
 	contentProvider GitHubContentProvider

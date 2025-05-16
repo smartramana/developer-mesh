@@ -35,6 +35,42 @@ func NewEmbeddingFactory(config *EmbeddingFactoryConfig) (*EmbeddingFactory, err
 		return nil, errors.New("configuration is required")
 	}
 	
+	// Validate required configuration parameters
+	if config.ModelType == "" {
+		return nil, errors.New("model type is required")
+	}
+	
+	// Check if the model type is supported
+	if config.ModelType != ModelTypeOpenAI && config.ModelType != ModelTypeHuggingFace && config.ModelType != ModelTypeCustom {
+		return nil, fmt.Errorf("unsupported model type: %s", config.ModelType)
+	}
+	
+	if config.ModelName == "" {
+		return nil, errors.New("model name is required")
+	}
+	
+	// Check for required API key for certain model types
+	if config.ModelType == ModelTypeOpenAI && config.ModelAPIKey == "" {
+		return nil, errors.New("model API key is required for OpenAI models")
+	}
+	
+	if config.DatabaseConnection == nil {
+		return nil, errors.New("database connection is required")
+	}
+	
+	if config.DatabaseSchema == "" {
+		return nil, errors.New("database schema is required")
+	}
+	
+	// Set default values for optional parameters
+	if config.Concurrency <= 0 {
+		config.Concurrency = 4 // Default concurrency
+	}
+	
+	if config.BatchSize <= 0 {
+		config.BatchSize = 10 // Default batch size
+	}
+	
 	return &EmbeddingFactory{
 		config: config,
 	}, nil
@@ -79,6 +115,15 @@ func (f *EmbeddingFactory) CreateEmbeddingPipeline(
 	chunkingService *chunking.ChunkingService,
 	contentProvider GitHubContentProvider,
 ) (*DefaultEmbeddingPipeline, error) {
+	// Validate required parameters
+	if chunkingService == nil {
+		return nil, errors.New("chunking service is required")
+	}
+	
+	if contentProvider == nil {
+		return nil, errors.New("content provider is required")
+	}
+	
 	// Create the embedding service
 	embeddingService, err := f.CreateEmbeddingService()
 	if err != nil {
