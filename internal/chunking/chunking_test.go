@@ -27,6 +27,8 @@ func TestChunkingService_DetectLanguage(t *testing.T) {
 		{"test.cs", "class Test {}", LanguageCSharp},
 		{"test.cpp", "int main() {}", LanguageCPP},
 		{"test.c", "int main() {}", LanguageC},
+		{"test.kt", "class Test {}", LanguageKotlin},
+		{"test.kts", "fun main() {}", LanguageKotlin},
 		{"test.unknown", "unknown language", LanguageUnknown},
 	}
 

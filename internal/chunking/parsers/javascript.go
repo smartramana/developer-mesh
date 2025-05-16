@@ -632,18 +632,12 @@ func (p *JavaScriptParser) processDependencies(chunks []*chunking.CodeChunk) {
 		
 		// Add parent dependency if it exists
 		if chunk.ParentID != "" && chunk.ParentID != chunk.ID {
-			if chunk.Dependencies == nil {
-				chunk.Dependencies = []string{}
-			}
 			chunk.Dependencies = append(chunk.Dependencies, chunk.ParentID)
 		}
 	}
 }
 
-// Helper functions
-func getLineNumberFromPos(code string, pos int) int {
-	return strings.Count(code[:pos], "\n")
-}
+
 
 // generateJSChunkID generates a unique ID for a JavaScript chunk
 func generateJSChunkID(chunk *chunking.CodeChunk) string {

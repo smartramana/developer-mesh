@@ -16,7 +16,29 @@ func NewParserFactory() map[chunking.Language]chunking.LanguageParser {
 	jsParser := NewJavaScriptParser()
 	parsers[jsParser.GetLanguage()] = jsParser
 	
-	// Add more parsers here as they are implemented
+	// Register Python parser
+	pyParser := NewPythonParser()
+	parsers[pyParser.GetLanguage()] = pyParser
+	
+	// Register HCL (Terraform) parser
+	hclParser := NewHCLParser()
+	parsers[hclParser.GetLanguage()] = hclParser
+	
+	// Register TypeScript parser
+	tsParser := NewTypeScriptParser()
+	parsers[tsParser.GetLanguage()] = tsParser
+	
+	// Register Shell parser
+	shellParser := NewShellParser()
+	parsers[shellParser.GetLanguage()] = shellParser
+	
+	// Register Rust parser
+	rustParser := NewRustParser()
+	parsers[rustParser.GetLanguage()] = rustParser
+	
+	// Register Kotlin parser
+	kotlinParser := NewKotlinParser()
+	parsers[kotlinParser.GetLanguage()] = kotlinParser
 	
 	return parsers
 }

@@ -593,10 +593,7 @@ func (p *GoParser) fallbackParse(code string, filename string) []*chunking.CodeC
 	return []*chunking.CodeChunk{chunk}
 }
 
-// countLines counts the number of lines in a string
-func countLines(s string) int {
-	return len(strings.Split(s, "\n"))
-}
+
 
 // generateChunkID generates a unique ID for a chunk based on its content and metadata
 func generateChunkID(chunk *chunking.CodeChunk) string {

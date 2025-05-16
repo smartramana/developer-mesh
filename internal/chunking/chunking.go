@@ -37,6 +37,9 @@ const (
 	LanguageCSharp     Language = "csharp"
 	LanguageCPP        Language = "cpp"
 	LanguageC          Language = "c"
+	LanguageHCL        Language = "hcl"        // HashiCorp Configuration Language (Terraform)
+	LanguageShell      Language = "shell"      // Shell scripts (bash, sh, zsh)
+	LanguageKotlin     Language = "kotlin"     // Kotlin programming language
 	LanguageUnknown    Language = "unknown"
 )
 
@@ -112,9 +115,9 @@ func (s *ChunkingService) DetectLanguage(filename string, content string) Langua
 		return LanguageGo
 	case ".js":
 		return LanguageJavaScript
-	case ".ts":
+	case ".ts", ".tsx":
 		return LanguageTypeScript
-	case ".py":
+	case ".py", ".pyw":
 		return LanguagePython
 	case ".java":
 		return LanguageJava
@@ -128,6 +131,12 @@ func (s *ChunkingService) DetectLanguage(filename string, content string) Langua
 		return LanguageCPP
 	case ".c":
 		return LanguageC
+	case ".tf", ".hcl":
+		return LanguageHCL
+	case ".sh", ".bash", ".zsh", ".ksh":
+		return LanguageShell
+	case ".kt", ".kts":
+		return LanguageKotlin
 	}
 	
 	// TODO: Add more sophisticated language detection based on content
