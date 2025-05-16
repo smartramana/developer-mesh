@@ -45,7 +45,8 @@ func NewEmbeddingFactory(config *EmbeddingFactoryConfig) (*EmbeddingFactory, err
 	
 	// Check if the model type is supported
 	if config.ModelType != ModelTypeOpenAI && config.ModelType != ModelTypeBedrock && 
-	   config.ModelType != ModelTypeHuggingFace && config.ModelType != ModelTypeCustom {
+	   config.ModelType != ModelTypeHuggingFace && config.ModelType != ModelTypeAnthropic &&
+	   config.ModelType != ModelTypeCustom {
 		return nil, fmt.Errorf("unsupported model type: %s", config.ModelType)
 	}
 	
@@ -88,6 +89,47 @@ type EmbeddingFactory struct {
 // CreateEmbeddingService creates an embedding service based on the factory configuration
 func (f *EmbeddingFactory) CreateEmbeddingService() (EmbeddingService, error) {
 	switch f.config.ModelType {
+	case ModelTypeAnthropic:
+		// Extract Anthropic configuration
+		endpoint := ""
+		useMock := false
+		
+		// Check for endpoint in ModelEndpoint field
+		if f.config.ModelEndpoint != "" {
+			endpoint = f.config.ModelEndpoint
+		}
+		
+		// Check for parameters
+		if f.config.Parameters != nil {
+			// Check for endpoint parameter
+			if e, ok := f.config.Parameters["endpoint"].(string); ok && e != "" {
+				endpoint = e
+			}
+			
+			// Check for mock mode configuration
+			if mockVal, ok := f.config.Parameters["use_mock_embeddings"].(bool); ok {
+				useMock = mockVal
+			} else if mockVal, ok := f.config.Parameters["use_mock"].(bool); ok {
+				// Alternate naming for backward compatibility
+				useMock = mockVal
+			}
+		}
+		
+		// Create Anthropic configuration
+		config := &AnthropicConfig{
+			APIKey:           f.config.ModelAPIKey,
+			Endpoint:         endpoint,
+			Model:            f.config.ModelName,
+			UseMockEmbeddings: useMock,
+		}
+		
+		// If use_mock is explicitly true, use the mock constructor directly
+		if useMock {
+			return NewMockAnthropicEmbeddingService(f.config.ModelName)
+		}
+		
+		return NewAnthropicEmbeddingService(config)
+		
 	case ModelTypeOpenAI:
 		return NewOpenAIEmbeddingService(
 			f.config.ModelAPIKey,

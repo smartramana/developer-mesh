@@ -152,6 +152,50 @@ func TestBedrockEmbeddingService_BatchProcessing(t *testing.T) {
 	}
 }
 
+func TestNewLatestAnthropicModels(t *testing.T) {
+	// Test Claude 3.5 Haiku
+	service, err := NewMockBedrockEmbeddingService("anthropic.claude-3-5-haiku-20250531-v1:0")
+	assert.NoError(t, err)
+	assert.NotNil(t, service)
+	
+	// Check that model config is set properly
+	config := service.GetModelConfig()
+	assert.Equal(t, ModelTypeBedrock, config.Type)
+	assert.Equal(t, "anthropic.claude-3-5-haiku-20250531-v1:0", config.Name)
+	assert.Equal(t, 4096, service.GetModelDimensions())
+	
+	// Test embedding generation
+	embedding, err := service.GenerateEmbedding(context.Background(), "Test content for Claude 3.5", "text", "claude-3-5-test")
+	assert.NoError(t, err)
+	assert.NotNil(t, embedding)
+	assert.Equal(t, "claude-3-5-test", embedding.ContentID)
+	assert.Equal(t, "text", embedding.ContentType)
+	assert.Equal(t, "anthropic.claude-3-5-haiku-20250531-v1:0", embedding.ModelID)
+	assert.Equal(t, 4096, embedding.Dimensions)
+	assert.Len(t, embedding.Vector, 4096)
+	
+	// Test Claude 3.7 Sonnet
+	service, err = NewMockBedrockEmbeddingService("anthropic.claude-3-7-sonnet-20250531-v1:0")
+	assert.NoError(t, err)
+	assert.NotNil(t, service)
+	
+	// Check that model config is set properly
+	config = service.GetModelConfig()
+	assert.Equal(t, ModelTypeBedrock, config.Type)
+	assert.Equal(t, "anthropic.claude-3-7-sonnet-20250531-v1:0", config.Name)
+	assert.Equal(t, 8192, service.GetModelDimensions())
+	
+	// Test embedding generation
+	embedding, err = service.GenerateEmbedding(context.Background(), "Test content for Claude 3.7", "text", "claude-3-7-test")
+	assert.NoError(t, err)
+	assert.NotNil(t, embedding)
+	assert.Equal(t, "claude-3-7-test", embedding.ContentID)
+	assert.Equal(t, "text", embedding.ContentType)
+	assert.Equal(t, "anthropic.claude-3-7-sonnet-20250531-v1:0", embedding.ModelID)
+	assert.Equal(t, 8192, embedding.Dimensions)
+	assert.Len(t, embedding.Vector, 8192)
+}
+
 func TestNewMockBedrockEmbeddingService(t *testing.T) {
 	// Test with valid model ID
 	service, err := NewMockBedrockEmbeddingService("amazon.titan-embed-text-v1")

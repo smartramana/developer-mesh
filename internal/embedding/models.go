@@ -26,9 +26,14 @@ var supportedBedrockModels = map[string]int{
 	"cohere.embed-multilingual-v3:0": 1024, // Versioned format
 	
 	// Anthropic models
+	// Claude 3.0 Family
 	"anthropic.claude-3-haiku-20240307-v1:0":   3072,
 	"anthropic.claude-3-sonnet-20240229-v1:0":  4096,
 	"anthropic.claude-3-opus-20240229-v1:0":    4096,
+	// Claude 3.5 Family
+	"anthropic.claude-3-5-haiku-20250531-v1:0":   4096,
+	// Claude 3.7 Family
+	"anthropic.claude-3-7-sonnet-20250531-v1:0":  8192,
 	
 	// Meta models
 	"meta.llama3-8b-embedding-v1:0":           4096,
@@ -38,6 +43,18 @@ var supportedBedrockModels = map[string]int{
 	// These will be uncommented when the models become available
 	// "amazon.nova-embed-text-v1:0":          4096, // Placeholder based on expected dimensions
 	// "amazon.nova-embed-multilingual-v1:0":  4096, // Placeholder based on expected dimensions
+}
+
+// List of supported Anthropic API embedding models
+var supportedAnthropicModels = map[string]int{
+	// Claude 3 Models
+	"claude-3-haiku-20240307":   3072,
+	"claude-3-sonnet-20240229":  4096,
+	"claude-3-opus-20240229":    4096,
+	// Claude 3.5 Family
+	"claude-3-5-haiku-20250531":   4096,
+	// Claude 3.7 Family 
+	"claude-3-7-sonnet-20250531":  8192,
 }
 
 // ValidateEmbeddingModel validates an embedding model name
@@ -56,6 +73,11 @@ func ValidateEmbeddingModel(modelType ModelType, modelName string) error {
 		_, found := supportedBedrockModels[modelName]
 		if !found {
 			return fmt.Errorf("unsupported AWS Bedrock model: %s", modelName)
+		}
+	case ModelTypeAnthropic:
+		_, found := supportedAnthropicModels[modelName]
+		if !found {
+			return fmt.Errorf("unsupported Anthropic model: %s", modelName)
 		}
 	case ModelTypeHuggingFace, ModelTypeCustom:
 		// For now, we don't validate these models specifically
@@ -80,6 +102,8 @@ func GetEmbeddingModelDimensions(modelType ModelType, modelName string) (int, er
 		return supportedOpenAIModels[modelName], nil
 	case ModelTypeBedrock:
 		return supportedBedrockModels[modelName], nil
+	case ModelTypeAnthropic:
+		return supportedAnthropicModels[modelName], nil
 	case ModelTypeHuggingFace, ModelTypeCustom:
 		// For custom models, we don't know the dimensions in advance
 		// The caller must specify them

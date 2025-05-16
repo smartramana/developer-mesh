@@ -14,6 +14,8 @@ const (
 	ModelTypeHuggingFace ModelType = "huggingface"
 	// ModelTypeBedrock represents AWS Bedrock embedding models
 	ModelTypeBedrock ModelType = "bedrock"
+	// ModelTypeAnthropic represents direct Anthropic API embedding models
+	ModelTypeAnthropic ModelType = "anthropic"
 	// ModelTypeCustom represents custom embedding models
 	ModelTypeCustom ModelType = "custom"
 )
