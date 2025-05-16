@@ -12,6 +12,8 @@ const (
 	ModelTypeOpenAI ModelType = "openai"
 	// ModelTypeHuggingFace represents HuggingFace embedding models
 	ModelTypeHuggingFace ModelType = "huggingface"
+	// ModelTypeBedrock represents AWS Bedrock embedding models
+	ModelTypeBedrock ModelType = "bedrock"
 	// ModelTypeCustom represents custom embedding models
 	ModelTypeCustom ModelType = "custom"
 )

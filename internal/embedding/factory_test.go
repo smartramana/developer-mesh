@@ -147,6 +147,34 @@ func TestEmbeddingFactory_CreateEmbeddingService(t *testing.T) {
 	assert.Equal(t, "text-embedding-3-small", modelConfig.Name)
 	assert.Equal(t, 1536, service.GetModelDimensions())
 
+	// Test creating AWS Bedrock embedding service
+	// Create a new factory with Bedrock config
+	bedrockConfig := &EmbeddingFactoryConfig{
+		ModelType:          ModelTypeBedrock,
+		ModelName:          "amazon.titan-embed-text-v1",
+		ModelDimensions:    1536,
+		DatabaseConnection: db,
+		DatabaseSchema:     "mcp",
+		Parameters: map[string]interface{}{
+			"region": "us-west-2",
+		},
+	}
+
+	bedrockFactory, err := NewEmbeddingFactory(bedrockConfig)
+	assert.NoError(t, err)
+	assert.NotNil(t, bedrockFactory)
+
+	// Create and verify the Bedrock service
+	bedrockService, err := bedrockFactory.CreateEmbeddingService()
+	assert.NoError(t, err)
+	assert.NotNil(t, bedrockService)
+
+	// Verify the model type and dimensions
+	bedrockModelConfig := bedrockService.GetModelConfig()
+	assert.Equal(t, ModelTypeBedrock, bedrockModelConfig.Type)
+	assert.Equal(t, "amazon.titan-embed-text-v1", bedrockModelConfig.Name)
+	assert.Equal(t, 1536, bedrockService.GetModelDimensions())
+
 	// Modify factory to use unsupported model type
 	factory.config.ModelType = "unsupported"
 	service, err = factory.CreateEmbeddingService()

@@ -58,46 +58,7 @@ type OpenAIEmbeddingService struct {
 	client *http.Client
 }
 
-// List of supported OpenAI embedding models
-var supportedOpenAIModels = map[string]int{
-	"text-embedding-3-small": 1536,
-	"text-embedding-3-large": 3072,
-	"text-embedding-ada-002": 1536,
-}
-
-// ValidateEmbeddingModel validates an embedding model name
-func ValidateEmbeddingModel(modelType ModelType, modelName string) error {
-	if modelName == "" {
-		return errors.New("model name is required")
-	}
-	
-	switch modelType {
-	case ModelTypeOpenAI:
-		_, found := supportedOpenAIModels[modelName]
-		if !found {
-			return fmt.Errorf("unsupported OpenAI model: %s", modelName)
-		}
-	default:
-		return fmt.Errorf("unsupported model type: %s", modelType)
-	}
-	
-	return nil
-}
-
-// GetEmbeddingModelDimensions returns the dimensions for a given model
-func GetEmbeddingModelDimensions(modelType ModelType, modelName string) (int, error) {
-	err := ValidateEmbeddingModel(modelType, modelName)
-	if err != nil {
-		return 0, err
-	}
-	
-	switch modelType {
-	case ModelTypeOpenAI:
-		return supportedOpenAIModels[modelName], nil
-	default:
-		return 0, fmt.Errorf("unsupported model type: %s", modelType)
-	}
-}
+// The validation functions and model dimensions have been moved to models.go
 
 // NewOpenAIEmbeddingService creates a new OpenAI embedding service
 func NewOpenAIEmbeddingService(apiKey string, modelName string, dimensions int) (*OpenAIEmbeddingService, error) {

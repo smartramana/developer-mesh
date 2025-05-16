@@ -18,6 +18,9 @@ type EmbeddingFactoryConfig struct {
 	ModelEndpoint  string    `json:"model_endpoint,omitempty"`
 	ModelDimensions int       `json:"model_dimensions"`
 	
+	// Additional model parameters (used for provider-specific configurations)
+	Parameters map[string]interface{} `json:"parameters,omitempty"`
+	
 	// Storage configuration
 	DatabaseConnection *sql.DB `json:"-"`
 	DatabaseSchema     string  `json:"database_schema"`
@@ -41,7 +44,8 @@ func NewEmbeddingFactory(config *EmbeddingFactoryConfig) (*EmbeddingFactory, err
 	}
 	
 	// Check if the model type is supported
-	if config.ModelType != ModelTypeOpenAI && config.ModelType != ModelTypeHuggingFace && config.ModelType != ModelTypeCustom {
+	if config.ModelType != ModelTypeOpenAI && config.ModelType != ModelTypeBedrock && 
+	   config.ModelType != ModelTypeHuggingFace && config.ModelType != ModelTypeCustom {
 		return nil, fmt.Errorf("unsupported model type: %s", config.ModelType)
 	}
 	
@@ -90,6 +94,70 @@ func (f *EmbeddingFactory) CreateEmbeddingService() (EmbeddingService, error) {
 			f.config.ModelName,
 			f.config.ModelDimensions,
 		)
+	case ModelTypeBedrock:
+		// Get AWS configuration parameters
+		region := "us-west-2" // Default region
+		accessKey := ""
+		secretKey := ""
+		sessionToken := ""
+		useMock := false
+		
+		if f.config.ModelEndpoint != "" {
+			region = f.config.ModelEndpoint // Using ModelEndpoint for region as a temporary solution
+		}
+		
+		if f.config.Parameters != nil {
+			// Check for region parameter
+			if r, ok := f.config.Parameters["region"].(string); ok && r != "" {
+				region = r
+			}
+			
+			// Check for credentials with both naming conventions
+			// 1. First check for the standard AWS SDK names
+			if ak, ok := f.config.Parameters["access_key_id"].(string); ok {
+				accessKey = ak
+			} else if ak, ok := f.config.Parameters["access_key"].(string); ok {
+				// Backward compatibility
+				accessKey = ak
+			}
+			
+			if sk, ok := f.config.Parameters["secret_access_key"].(string); ok {
+				secretKey = sk
+			} else if sk, ok := f.config.Parameters["secret_key"].(string); ok {
+				// Backward compatibility
+				secretKey = sk
+			}
+			
+			if st, ok := f.config.Parameters["session_token"].(string); ok {
+				sessionToken = st
+			}
+			
+			// Check for mock mode configuration
+			if mockVal, ok := f.config.Parameters["use_mock_embeddings"].(bool); ok {
+				useMock = mockVal
+			} else if mockVal, ok := f.config.Parameters["use_mock"].(bool); ok {
+				// Alternate naming for backward compatibility
+				useMock = mockVal
+			}
+		}
+		
+		// Create Bedrock configuration
+		config := &BedrockConfig{
+			Region:           region,
+			AccessKeyID:      accessKey,
+			SecretAccessKey:  secretKey,
+			SessionToken:     sessionToken,
+			ModelID:          f.config.ModelName,
+			UseMockEmbeddings: useMock,
+		}
+		
+		// If use_mock is explicitly true, use the mock constructor directly
+		if useMock {
+			return NewMockBedrockEmbeddingService(f.config.ModelName)
+		}
+		
+		// Otherwise use standard constructor which will still fall back to mock if needed
+		return NewBedrockEmbeddingService(config)
 	case ModelTypeHuggingFace:
 		// Not implemented yet
 		return nil, errors.New("HuggingFace embedding service not implemented yet")
