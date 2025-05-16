@@ -215,6 +215,9 @@ func TestHandleWebhook(t *testing.T) {
 	// Set lower expectations since we're testing with webhooks disabled
 	eventBus.On("Publish", mock.Anything, mock.Anything).Maybe().Return()
 	eventBus.On("Subscribe", mock.Anything, mock.Anything).Maybe().Return()
+	// Add an expectation for Close being called during cleanup
+	// Use Maybe() to make it optional as it may not be called in all test paths
+	eventBus.On("Close").Maybe().Return()
 
 	metricsClient := observability.NewMetricsClient()
 	logger := observability.NewLogger("test-adapter")

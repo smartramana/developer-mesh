@@ -95,5 +95,13 @@ func (a *GitHubAdapter) HandleWebhook(ctx context.Context, eventType string, pay
 
 // Close closes the adapter and releases resources
 func (a *GitHubAdapter) Close() error {
-	return a.adapter.Close()
+	// First close the underlying adapter
+	err := a.adapter.Close()
+	
+	// Then close the event bus if it implements a Close method
+	if closer, ok := a.eventBus.(interface{ Close() }); ok {
+		closer.Close()
+	}
+	
+	return err
 }
