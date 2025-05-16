@@ -51,6 +51,18 @@ func (s *Server) setupVectorAPI(ctx context.Context) error {
 		"path": "/api/v1/vectors",
 	})
 	
+	// Setup advanced vector search routes
+	if err := s.setupSearchRoutes(apiV1); err != nil {
+		logger.Warn("Failed to setup vector search API", map[string]interface{}{
+			"error": err.Error(),
+		})
+		// Non-fatal, continue with other routes
+	} else {
+		logger.Info("Vector search API routes registered", map[string]interface{}{
+			"path": "/api/v1/search",
+		})
+	}
+	
 	// Add metrics middleware
 	vectorRoutes := apiV1.Group("/vectors")
 	vectorRoutes.Use(createVectorMetricsMiddleware(s.metrics))
