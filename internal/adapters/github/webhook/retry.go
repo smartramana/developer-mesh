@@ -192,6 +192,10 @@ func (m *RetryManager) Close() error {
 	m.closed = true
 	close(m.queue)
 	
+	// Use a context with timeout for shutdown instead of just a timer
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	defer cancel()
+	
 	// Create a channel for waiting with timeout
 	done := make(chan struct{})
 	go func() {
@@ -203,8 +207,10 @@ func (m *RetryManager) Close() error {
 	select {
 	case <-done:
 		// All workers exited successfully
-	case <-time.After(3 * time.Second):
-		m.logger.Warn("Timed out waiting for retry workers to exit", nil)
+		m.logger.Info("All webhook retry workers exited gracefully", map[string]interface{}{})
+	case <-ctx.Done():
+		// Timeout occurred
+		m.logger.Warn("Timed out waiting for retry workers to exit", map[string]interface{}{})
 	}
 	
 	return nil
