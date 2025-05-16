@@ -196,7 +196,7 @@ func NewEngine(
 			obsMetricsClient := observability.NewMetricsClient()
 			
 			// Create the GitHub content manager
-			githubContentManager, err = NewGitHubContentManager(db, s3ClientForGithub, obsMetricsClient)
+			githubContentManager, err = NewGitHubContentManager(db, s3ClientForGithub, obsMetricsClient, nil)
 			if err != nil {
 				logger.Warn("Failed to create GitHub content manager, continuing without it", map[string]interface{}{
 					"error": err.Error(),

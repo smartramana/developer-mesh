@@ -333,7 +333,7 @@ func TestNewGitHubContentManager(t *testing.T) {
 	mockStorage.On("GetS3Client").Return(mockS3Client).Once()
 
 	// Create manager
-	manager, err := NewGitHubContentManager(mockDB, mockS3Client, mockMetrics)
+	manager, err := NewGitHubContentManager(mockDB, mockS3Client, mockMetrics, nil)
 
 	// Verify
 	assert.NoError(t, err)
