@@ -141,6 +141,14 @@ func NewDatabase(ctx context.Context, cfg Config) (*Database, error) {
 			log.Println("Database migrations completed successfully")
 		}
 	}
+	
+
+	
+	// Initialize database tables
+	if err := database.InitializeTables(ctx); err != nil {
+		db.Close()
+		return nil, fmt.Errorf("failed to initialize database tables: %w", err)
+	}
 
 	return database, nil
 }

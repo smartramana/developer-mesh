@@ -14,7 +14,17 @@ import (
 	"io"
 )
 
+// S3ClientInterface abstracts S3 operations for real and mock clients
+//go:generate mockery --name=S3ClientInterface
 // S3Client is a client for AWS S3
+type S3ClientInterface interface {
+	UploadFile(ctx context.Context, key string, data []byte, contentType string) error
+	DownloadFile(ctx context.Context, key string) ([]byte, error)
+	DeleteFile(ctx context.Context, key string) error
+	ListFiles(ctx context.Context, prefix string) ([]string, error)
+	GetBucketName() string
+}
+
 type Uploader interface {
 	Upload(ctx context.Context, params *s3.PutObjectInput, optFns ...func(*manager.Uploader)) (*manager.UploadOutput, error)
 }

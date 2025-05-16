@@ -73,13 +73,14 @@ func (b *MockSystemEventBus) Unsubscribe(eventType system.EventType, handler fun
 
 // Engine is the core engine of the MCP server
 type Engine struct {
-	adapterManager *adapters.AdapterManager
-	contextManager *contextManager.Manager
-	config         interfaces.CoreConfig
-	metricsClient  metrics.Client
-	logger         *observability.Logger
-	eventBus       *events.EventBus
-	lock           sync.RWMutex
+	adapterManager      *adapters.AdapterManager
+	contextManager      *contextManager.Manager
+	githubContentManager *GitHubContentManager
+	config              interfaces.CoreConfig
+	metricsClient       metrics.Client
+	logger              *observability.Logger
+	eventBus            *events.EventBus
+	lock                sync.RWMutex
 }
 
 // NewEngine creates a new engine
@@ -167,14 +168,58 @@ func NewEngine(
 		nil,            // Metrics client - we'll use nil for simplicity while fixing issues
 	)
 
+	// Create GitHub content manager
+	var githubContentManager *GitHubContentManager
+	
+	// If S3 storage is configured, use the same client for GitHub content
+	if useS3 {
+		// Create an S3Client for GitHub content storage
+		s3ClientForGithub, err := aws.NewS3Client(ctx, aws.S3Config{
+			Region:           config.AWS.S3.Region,
+			Bucket:           config.AWS.S3.Bucket,
+			Endpoint:         config.AWS.S3.Endpoint,
+			ForcePathStyle:   config.AWS.S3.ForcePathStyle,
+			UploadPartSize:   int64(config.AWS.S3.UploadPartSize),
+			DownloadPartSize: int64(config.AWS.S3.DownloadPartSize),
+			Concurrency:      config.AWS.S3.Concurrency,
+			RequestTimeout:   config.AWS.S3.RequestTimeout,
+			AWSConfig: aws.AWSConfig{
+				UseIAMAuth: config.AWS.S3.UseIAMAuth,
+				Region:     config.AWS.S3.Region,
+				Endpoint:   config.AWS.S3.Endpoint,
+				AssumeRole: config.AWS.S3.AssumeRole,
+			},
+		})
+		
+		if err == nil {
+			// Create a dummy MetricsClient that matches the observability.MetricsClient interface
+			obsMetricsClient := observability.NewMetricsClient()
+			
+			// Create the GitHub content manager
+			githubContentManager, err = NewGitHubContentManager(db, s3ClientForGithub, obsMetricsClient)
+			if err != nil {
+				logger.Warn("Failed to create GitHub content manager, continuing without it", map[string]interface{}{
+					"error": err.Error(),
+				})
+			}
+		} else {
+			logger.Warn("Failed to create S3 client for GitHub content, continuing without it", map[string]interface{}{
+				"error": err.Error(),
+			})
+		}
+	} else {
+		logger.Info("S3 storage not configured, GitHub content manager not created", nil)
+	}
+	
 	// Create engine
 	engine := &Engine{
-		adapterManager: adapterManager,
-		contextManager: ctxManager,
-		config:         config,
-		metricsClient:  metricsClient,
-		logger:         logger,
-		eventBus:       eventBus,
+		adapterManager:      adapterManager,
+		contextManager:      ctxManager,
+		githubContentManager: githubContentManager,
+		config:              config,
+		metricsClient:       metricsClient,
+		logger:              logger,
+		eventBus:            eventBus,
 	}
 
 	return engine, nil
@@ -188,6 +233,11 @@ func (e *Engine) GetAdapter(adapterType string) (interface{}, error) {
 // GetContextManager returns the context manager
 func (e *Engine) GetContextManager() interfaces.ContextManager {
 	return e.contextManager
+}
+
+// GetGitHubContentManager returns the GitHub content manager
+func (e *Engine) GetGitHubContentManager() *GitHubContentManager {
+	return e.githubContentManager
 }
 
 // ExecuteAdapterAction executes an action using the appropriate adapter
