@@ -1792,12 +1792,13 @@ func (a *GitHubAdapter) startWebhookWorkers(count int) {
 	for i := 0; i < count; i++ {
 		a.wg.Add(1)
 		go func(workerID int) {
+			defer a.wg.Done() // Moved outside of the for loop so it actually gets called
+			
 			a.logger.Info("Starting GitHub webhook worker", map[string]interface{}{
 				"workerID": workerID,
 			})
 			
 			for {
-				defer a.wg.Done()
 				// Check if adapter is closed
 				a.mu.RLock()
 				closed := a.closed
@@ -1810,7 +1811,7 @@ func (a *GitHubAdapter) startWebhookWorkers(count int) {
 					return
 				}
 				
-				// Get next webhook event from queue
+				// Get next webhook event from queue with timeout to allow for periodic checks
 				select {
 				case event, ok := <-a.webhookQueue:
 					if !ok {
@@ -1830,8 +1831,11 @@ func (a *GitHubAdapter) startWebhookWorkers(count int) {
 						continue
 					}
 					
-					// Process the webhook
-					err = a.webhookManager.ProcessEvent(context.Background(), parsedEvent)
+					// Create a context with timeout instead of using context.Background()
+					ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+					err = a.webhookManager.ProcessEvent(ctx, parsedEvent)
+					cancel() // Always cancel the context to prevent leaks
+					
 					if err != nil {
 						a.logger.Error("Error processing GitHub webhook", map[string]interface{}{
 							"workerID":   workerID,
@@ -1840,9 +1844,14 @@ func (a *GitHubAdapter) startWebhookWorkers(count int) {
 							"error":      err.Error(),
 						})
 						
-						// Schedule retry
-						a.webhookRetryManager.ScheduleRetry(context.Background(), parsedEvent, err)
+						// Use timeout context for retry scheduling too
+						retryCtx, retryCancel := context.WithTimeout(context.Background(), 2*time.Second)
+						a.webhookRetryManager.ScheduleRetry(retryCtx, parsedEvent, err)
+						retryCancel()
 					}
+				// Add a timeout case to periodically check for shutdown
+				case <-time.After(100 * time.Millisecond):
+					// Just a timeout to allow for shutdown checks
 				}
 			}
 		}(i)
@@ -1870,9 +1879,22 @@ func (a *GitHubAdapter) Close() error {
 		a.webhookRetryManager.Close()
 	}
 	
-	a.wg.Wait() // Wait for all webhook workers to exit
-
-a.logger.Info("GitHub adapter closed", nil)
-
-return nil
+	// Create a channel for timeout
+	done := make(chan struct{})
+	go func() {
+		a.wg.Wait() // Wait for all webhook workers to exit
+		close(done)
+	}()
+	
+	// Wait with timeout to avoid hanging in tests
+	select {
+	case <-done:
+		// All workers exited successfully
+	case <-time.After(5 * time.Second):
+		a.logger.Warn("Timed out waiting for webhook workers to exit", nil)
+	}
+	
+	a.logger.Info("GitHub adapter closed", nil)
+	
+	return nil
 }

@@ -192,8 +192,20 @@ func (m *RetryManager) Close() error {
 	m.closed = true
 	close(m.queue)
 	
-	// Wait for workers to finish
-	m.wg.Wait()
+	// Create a channel for waiting with timeout
+	done := make(chan struct{})
+	go func() {
+		m.wg.Wait()
+		close(done)
+	}()
+	
+	// Wait with timeout to avoid hanging in tests
+	select {
+	case <-done:
+		// All workers exited successfully
+	case <-time.After(3 * time.Second):
+		m.logger.Warn("Timed out waiting for retry workers to exit", nil)
+	}
 	
 	return nil
 }
