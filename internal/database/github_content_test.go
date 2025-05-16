@@ -367,9 +367,12 @@ func TestListGitHubContent(t *testing.T) {
 
 	// Test listing with limit
 	mock.ExpectBegin()
+	// Create a new row with only one item for the limit test
+	limitedRows := sqlmock.NewRows([]string{"id", "owner", "repo", "content_type", "content_id", "checksum", "uri", "size", "created_at", "updated_at", "expires_at", "metadata"}).
+		AddRow("gh-owner-repo-issue-123", "owner", "repo", "issue", "123", "hash1", "s3://test-bucket/content/hash1", int64(100), now, now, expires, []byte(`{"test":"value1"}`)) 
 	mock.ExpectQuery("SELECT (.+) FROM mcp.github_content_metadata WHERE owner = (.+) AND repo = (.+) AND content_type = (.+) ORDER BY updated_at DESC LIMIT (.+)").
 		WithArgs("owner", "repo", "issue", 1).
-		WillReturnRows(rows.RowCount(1))
+		WillReturnRows(limitedRows)
 	mock.ExpectCommit()
 
 	// Call the method
@@ -382,6 +385,11 @@ func TestListGitHubContent(t *testing.T) {
 	assert.NoError(t, mock.ExpectationsWereMet())
 
 	// Test listing without content type
+	// We need to recreate the rows since the previous query consumed them
+	rows = sqlmock.NewRows([]string{"id", "owner", "repo", "content_type", "content_id", "checksum", "uri", "size", "created_at", "updated_at", "expires_at", "metadata"})
+	rows.AddRow("gh-owner-repo-issue-123", "owner", "repo", "issue", "123", "hash1", "s3://test-bucket/content/hash1", int64(100), now, now, expires, []byte(`{"test":"value1"}`)) 
+	rows.AddRow("gh-owner-repo-issue-456", "owner", "repo", "issue", "456", "hash2", "s3://test-bucket/content/hash2", int64(200), now, now, expires, []byte(`{"test":"value2"}`))
+
 	mock.ExpectBegin()
 	mock.ExpectQuery("SELECT (.+) FROM mcp.github_content_metadata WHERE owner = (.+) AND repo = (.+) ORDER BY updated_at DESC").
 		WithArgs("owner", "repo").

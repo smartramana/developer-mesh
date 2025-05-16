@@ -44,14 +44,60 @@ type ContentMetadata struct {
 	Metadata    map[string]interface{} `json:"metadata,omitempty"`
 }
 
+// GetMetadata returns the metadata map, ensuring it is never nil
+// This is crucial for fixing the PostgreSQL empty string issue
+func (c *ContentMetadata) GetMetadata() map[string]interface{} {
+	if c.Metadata == nil {
+		c.Metadata = map[string]interface{}{}
+	}
+	return c.Metadata
+}
+
+// MarshalJSON is a custom JSON marshaler to ensure metadata is never nil
+func (c *ContentMetadata) MarshalJSON() ([]byte, error) {
+	// Create a copy of the struct so we don't modify the original
+	copy := *c
+	
+	// Ensure metadata is initialized
+	if copy.Metadata == nil {
+		copy.Metadata = map[string]interface{}{}
+	}
+	
+	// Use a type alias to avoid infinite recursion
+	type Alias ContentMetadata
+	return json.Marshal((*Alias)(&copy))
+}
+
+// NewContentMetadata creates a new ContentMetadata struct with properly initialized fields
+func NewContentMetadata(owner, repo string, contentType ContentType, contentID string, size int64, checksum, uri string, metadata map[string]interface{}) *ContentMetadata {
+	// Ensure metadata is never nil
+	if metadata == nil {
+		metadata = map[string]interface{}{}
+	}
+	
+	now := time.Now()
+	return &ContentMetadata{
+		Owner:       owner,
+		Repo:        repo,
+		ContentType: contentType,
+		ContentID:   contentID,
+		CreatedAt:   now,
+		UpdatedAt:   now,
+		Size:        size,
+		Checksum:    checksum,
+		URI:         uri,
+		Metadata:    metadata,
+	}
+}
+
 // GitHubContentStorage manages storage of GitHub content in S3
 type GitHubContentStorage struct {
-	s3Client   *S3Client
+	s3Client   S3ClientInterface
 	bucketName string
 }
 
 // NewGitHubContentStorage creates a new GitHub content storage manager
-func NewGitHubContentStorage(s3Client *S3Client) *GitHubContentStorage {
+func NewGitHubContentStorage(s3Client S3ClientInterface) *GitHubContentStorage {
 	return &GitHubContentStorage{
 		s3Client:   s3Client,
 		bucketName: s3Client.GetBucketName(),
@@ -59,7 +105,7 @@ func NewGitHubContentStorage(s3Client *S3Client) *GitHubContentStorage {
 }
 
 // GetS3Client returns the underlying S3 client
-func (s *GitHubContentStorage) GetS3Client() *S3Client {
+func (s *GitHubContentStorage) GetS3Client() S3ClientInterface {
 	return s.s3Client
 }
 
@@ -89,20 +135,18 @@ func (s *GitHubContentStorage) StoreContent(
 	repoKey := fmt.Sprintf("%s/%s/%s/%s/%s", 
 		repoPathPrefix, owner, repo, contentType, contentID)
 	
-	// Create metadata
-	now := time.Now()
-	contentMetadata := &ContentMetadata{
-		Owner:       owner,
-		Repo:        repo,
-		ContentType: contentType,
-		ContentID:   contentID,
-		CreatedAt:   now,
-		UpdatedAt:   now,
-		Size:        int64(len(data)),
-		Checksum:    checksum,
-		URI:         fmt.Sprintf("s3://%s/%s", s.bucketName, contentKey),
-		Metadata:    metadata,
-	}
+	// Create metadata using the constructor which ensures metadata is never nil
+	// This fixes the PostgreSQL "invalid input syntax for type json" error
+	contentMetadata := NewContentMetadata(
+		owner,
+		repo,
+		contentType,
+		contentID,
+		int64(len(data)),
+		checksum,
+		fmt.Sprintf("s3://%s/%s", s.bucketName, contentKey),
+		metadata,
+	)
 
 	// Convert metadata to JSON
 	metadataJSON, err := json.Marshal(contentMetadata)
@@ -137,6 +181,10 @@ func (s *GitHubContentStorage) StoreContent(
 		return nil, fmt.Errorf("failed to upload reference to S3: %w", err)
 	}
 
+	// Return the content metadata, ensuring metadata is never nil
+	if contentMetadata.Metadata == nil {
+		contentMetadata.Metadata = map[string]interface{}{}
+	}
 	return contentMetadata, nil
 }
 
