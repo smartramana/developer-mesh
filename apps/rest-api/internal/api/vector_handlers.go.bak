@@ -1,0 +1,102 @@
+package api
+
+import (
+	"github.com/S-Corkum/mcp-server/internal/repository"
+	"github.com/gin-gonic/gin"
+)
+
+// StoreEmbeddingRequest represents a request to store an embedding
+type StoreEmbeddingRequest struct {
+	ContextID    string    `json:"context_id" binding:"required"`
+	ContentIndex int       `json:"content_index" binding:"required"`
+	Text         string    `json:"text" binding:"required"`
+	Embedding    []float32 `json:"embedding" binding:"required"`
+	ModelID      string    `json:"model_id" binding:"required"`
+}
+
+// SearchEmbeddingsRequest represents a request to search embeddings
+type SearchEmbeddingsRequest struct {
+	ContextID      string    `json:"context_id" binding:"required"`
+	QueryEmbedding []float32 `json:"query_embedding" binding:"required"`
+	Limit          int       `json:"limit" binding:"required"`
+}
+
+// Routes for working with vector embeddings
+func (s *Server) setupVectorRoutes(group *gin.RouterGroup) {
+	group.POST("/store", s.storeEmbedding)
+	group.POST("/search", s.searchEmbeddings)
+	group.GET("/context/:context_id", s.getContextEmbeddings)
+	group.DELETE("/context/:context_id", s.deleteContextEmbeddings)
+}
+
+// Handler stubs for the vector endpoints
+// These will be dynamically replaced in tests
+
+func (s *Server) storeEmbedding(c *gin.Context) {
+	var req StoreEmbeddingRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(400, gin.H{"error": err.Error()})
+		return
+	}
+
+	// Create embedding object
+	embedding := &repository.Embedding{
+		ContextID:    req.ContextID,
+		ContentIndex: req.ContentIndex,
+		Text:         req.Text,
+		Embedding:    req.Embedding,
+		ModelID:      req.ModelID,
+	}
+
+	// Store embedding using repository
+	err := s.embeddingRepo.StoreEmbedding(c, embedding)
+	if err != nil {
+		c.JSON(500, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(200, embedding)
+}
+
+func (s *Server) searchEmbeddings(c *gin.Context) {
+	var req SearchEmbeddingsRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(400, gin.H{"error": err.Error()})
+		return
+	}
+
+	// Search embeddings using repository
+	embeddings, err := s.embeddingRepo.SearchEmbeddings(c, req.QueryEmbedding, req.ContextID, req.Limit)
+	if err != nil {
+		c.JSON(500, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(200, gin.H{"embeddings": embeddings})
+}
+
+func (s *Server) getContextEmbeddings(c *gin.Context) {
+	contextID := c.Param("context_id")
+
+	// Get embeddings using repository
+	embeddings, err := s.embeddingRepo.GetContextEmbeddings(c, contextID)
+	if err != nil {
+		c.JSON(500, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(200, gin.H{"embeddings": embeddings})
+}
+
+func (s *Server) deleteContextEmbeddings(c *gin.Context) {
+	contextID := c.Param("context_id")
+
+	// Delete embeddings using repository
+	err := s.embeddingRepo.DeleteContextEmbeddings(c, contextID)
+	if err != nil {
+		c.JSON(500, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(200, gin.H{"status": "deleted"})
+}

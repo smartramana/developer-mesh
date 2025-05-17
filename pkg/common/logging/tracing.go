@@ -12,6 +12,7 @@ import (
 	"go.opentelemetry.io/otel/propagation"
 	"go.opentelemetry.io/otel/sdk/resource"
 	sdktrace "go.opentelemetry.io/otel/sdk/trace"
+	semconv "go.opentelemetry.io/otel/semconv/v1.10.0"
 	"go.opentelemetry.io/otel/trace"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
@@ -70,7 +71,7 @@ func InitTracing(cfg TracingConfig) (func(), error) {
 	// Create resource with service information
 	res, err := resource.New(ctx,
 		resource.WithAttributes(
-			attribute.String("service.name", cfg.ServiceName),
+			semconv.ServiceNameKey.String(cfg.ServiceName),
 			attribute.String("environment", cfg.Environment),
 		),
 	)
