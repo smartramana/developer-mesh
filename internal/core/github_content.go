@@ -8,16 +8,18 @@ import (
 
 	"github.com/S-Corkum/devops-mcp/internal/database"
 	"github.com/S-Corkum/devops-mcp/internal/observability"
+	"github.com/S-Corkum/devops-mcp/internal/relationship"
 	"github.com/S-Corkum/devops-mcp/internal/storage"
 )
 
 // GitHubContentManager manages GitHub content storage and retrieval
 type GitHubContentManager struct {
-	db              *database.Database
-	storageManager  *storage.GitHubContentStorage
-	logger          *observability.Logger
-	lock            sync.RWMutex
-	metricsClient   observability.MetricsClient
+	db                  *database.Database
+	storageManager      *storage.GitHubContentStorage
+	logger              *observability.Logger
+	lock                sync.RWMutex
+	metricsClient       observability.MetricsClient
+	relationshipManager *GitHubRelationshipManager
 }
 
 // NewGitHubContentManager creates a new GitHub content manager
@@ -25,19 +27,28 @@ func NewGitHubContentManager(
 	db *database.Database,
 	s3Client *storage.S3Client,
 	metricsClient observability.MetricsClient,
+	relationshipService relationship.Service,
 ) (*GitHubContentManager, error) {
 	// Create storage manager
 	storageManager := storage.NewGitHubContentStorage(s3Client)
 
 	// Create logger
 	logger := observability.NewLogger("github-content-manager")
-
-	return &GitHubContentManager{
+	
+	// Create content manager instance
+	manager := &GitHubContentManager{
 		db:             db,
 		storageManager: storageManager,
 		logger:         logger,
 		metricsClient:  metricsClient,
-	}, nil
+	}
+	
+	// Create relationship manager if service is provided
+	if relationshipService != nil {
+		manager.relationshipManager = NewGitHubRelationshipManager(relationshipService, manager)
+	}
+
+	return manager, nil
 }
 
 // StoreContent stores GitHub content in S3 and indexes it in the database
@@ -95,6 +106,21 @@ func (m *GitHubContentManager) StoreContent(
 		})
 		return nil, fmt.Errorf("failed to store content metadata in database: %w", err)
 	}
+	
+	// Process relationships if relationship manager is available
+	if m.relationshipManager != nil {
+		err = m.relationshipManager.ProcessContentRelationships(ctx, contentMetadata, data)
+		if err != nil {
+			// Log but don't fail the operation
+			m.logger.Warn("Failed to process content relationships", map[string]interface{}{
+				"error":        err.Error(),
+				"owner":        owner,
+				"repo":         repo,
+				"content_type": contentType,
+				"content_id":   contentID,
+			})
+		}
+	}
 
 	m.logger.Info("Stored GitHub content", map[string]interface{}{
 		"owner":        owner,
@@ -147,6 +173,21 @@ func (m *GitHubContentManager) GetContent(
 				"uri":   metadata.URI,
 			})
 			return nil, metadata, fmt.Errorf("failed to get content from S3: %w", err)
+		}
+		
+		// Process relationships if relationship manager is available and content was retrieved
+		if m.relationshipManager != nil && len(content) > 0 {
+			err = m.relationshipManager.ProcessContentRelationships(ctx, metadata, content)
+			if err != nil {
+				// Log but don't fail the operation
+				m.logger.Warn("Failed to process content relationships during retrieval", map[string]interface{}{
+					"error":        err.Error(),
+					"owner":        metadata.Owner,
+					"repo":         metadata.Repo,
+					"content_type": metadata.ContentType,
+					"content_id":   metadata.ContentID,
+				})
+			}
 		}
 
 		m.logger.Info("Retrieved GitHub content from database reference", map[string]interface{}{

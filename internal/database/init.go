@@ -20,6 +20,11 @@ func (db *Database) InitializeTables(ctx context.Context) error {
 		return fmt.Errorf("failed to initialize GitHub content tables: %w", err)
 	}
 	
+	// Ensure entity relationship tables
+	if err := db.EnsureRelationshipTables(ctx); err != nil {
+		return fmt.Errorf("failed to initialize entity relationship tables: %w", err)
+	}
+	
 	log.Println("Database tables initialized successfully")
 	return nil
 }

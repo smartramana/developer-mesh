@@ -23,6 +23,7 @@ const (
 	ContentTypeReference   ContentType = "reference"
 	ContentTypeRelease     ContentType = "release"
 	ContentTypeWebhook     ContentType = "webhook"
+	ContentTypeComment     ContentType = "comment"
 	
 	// Storage paths
 	repoPathPrefix   = "repositories"

@@ -296,3 +296,11 @@ func (d *Database) DB() *sqlx.DB {
 func (d *Database) GetDB() *sqlx.DB {
 	return d.db
 }
+
+// NewDatabaseWithConnection creates a new Database instance with an existing connection
+func NewDatabaseWithConnection(db *sqlx.DB) *Database {
+	return &Database{
+		db:         db,
+		statements: make(map[string]*sqlx.Stmt),
+	}
+}
