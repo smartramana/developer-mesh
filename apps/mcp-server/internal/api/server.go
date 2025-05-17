@@ -7,12 +7,14 @@ import (
 	"os"
 	"time"
 
-	contextAPI "github.com/S-Corkum/devops-mcp/internal/api/context"
-	"github.com/S-Corkum/devops-mcp/internal/config"
-	"github.com/S-Corkum/devops-mcp/internal/core"
-	"github.com/S-Corkum/devops-mcp/internal/database"
-	"github.com/S-Corkum/devops-mcp/internal/observability"
-	"github.com/S-Corkum/devops-mcp/internal/repository"
+	contextAPI "github.com/S-Corkum/devops-mcp/apps/mcp-server/internal/api/context"
+	"github.com/S-Corkum/devops-mcp/pkg/common/config"
+	commonLogging "github.com/S-Corkum/devops-mcp/pkg/common/logging"
+	commonMetrics "github.com/S-Corkum/devops-mcp/pkg/common/metrics"
+	"github.com/S-Corkum/devops-mcp/apps/mcp-server/internal/core"
+	"github.com/S-Corkum/devops-mcp/pkg/database"
+	"github.com/S-Corkum/devops-mcp/pkg/observability"
+	"github.com/S-Corkum/devops-mcp/pkg/repository"
 	"github.com/gin-gonic/gin"
 	"github.com/jmoiron/sqlx"
 	swaggerFiles "github.com/swaggo/files"
@@ -29,16 +31,25 @@ type Server struct {
 	server        *http.Server
 	engine        *core.Engine
 	config        Config
-	logger        *observability.Logger
+	logger        observability.Logger
+	loggerAdapter *commonLogging.Logger // For compatibility with old code
+	loggerObsAdapter observability.Logger // Adapter that wraps commonLogging.Logger as observability.Logger
 	db            *sqlx.DB
 	metrics       observability.MetricsClient
+	metricsAdapter commonMetrics.Client // For compatibility with old code
 	vectorDB      *database.VectorDatabase
-	embeddingRepo *repository.EmbeddingRepository
+	embeddingRepo repository.VectorAPIRepository
+	embeddingAdapter *ServerEmbeddingAdapter // Adapter for type compatibility
 	cfg           *config.Config
 }
 
 // NewServer creates a new API server
 func NewServer(engine *core.Engine, cfg Config, db *sqlx.DB, metrics observability.MetricsClient, config *config.Config) *Server {
+	// Create adapter objects for compatibility with existing code
+	loggerAdapter := observability.NewLoggerAdapter(observability.DefaultLogger)
+	// Create an adapter that wraps commonLogging.Logger as observability.Logger
+	loggerObsAdapter := observability.NewCommonLoggerAdapter(loggerAdapter)
+	metricsAdapter := observability.NewMetricsAdapter(metrics)
 	// Defensive: fail fast if db is nil
 	if db == nil {
 		panic("[api.NewServer] FATAL: received nil *sqlx.DB. Check database initialization before calling NewServer.")
@@ -143,22 +154,26 @@ func NewServer(engine *core.Engine, cfg Config, db *sqlx.DB, metrics observabili
 		}
 	}
 
+	// Build server
 	server := &Server{
-		router:   router,
-		engine:   engine,
-		config:   cfg,
-		logger:   logger,
-		db:       db,
-		metrics:  metrics,
-		vectorDB: vectorDB,
-		cfg:      config,
-		server: &http.Server{
+		router:        router,
+		server:        &http.Server{
 			Addr:         cfg.ListenAddress,
 			Handler:      router,
 			ReadTimeout:  cfg.ReadTimeout,
 			WriteTimeout: cfg.WriteTimeout,
 			IdleTimeout:  cfg.IdleTimeout,
 		},
+		engine:        engine,
+		config:        cfg,
+		logger:        observability.DefaultLogger,
+		loggerAdapter: loggerAdapter,  // Store the adapter for old code compatibility
+		loggerObsAdapter: loggerObsAdapter, // Store the adapter that wraps commonLogging.Logger as observability.Logger
+		db:            db,
+		metrics:       metrics,
+		metricsAdapter: metricsAdapter, // Store the adapter for old code compatibility
+		vectorDB:      vectorDB,
+		cfg:           config,
 	}
 
 	return server
@@ -259,8 +274,8 @@ func (s *Server) setupRoutes(ctx context.Context) {
 	// Context API - register the context endpoints
 	ctxAPI := contextAPI.NewAPI(
 		s.engine.GetContextManager(),
-		s.logger,
-		s.metrics,
+		s.loggerObsAdapter,  // Use the observability adapter that wraps common/logging.Logger
+		s.metricsAdapter,    // Use the metrics adapter for compatibility with common/metrics.Client
 	)
 	ctxAPI.RegisterRoutes(v1)
 

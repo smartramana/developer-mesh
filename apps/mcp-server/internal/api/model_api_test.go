@@ -12,8 +12,8 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/S-Corkum/devops-mcp/pkg/models"
-	"github.com/S-Corkum/devops-mcp/internal/repository"
-	api "github.com/S-Corkum/devops-mcp/internal/api"
+	"github.com/S-Corkum/devops-mcp/pkg/storage"
+	api "github.com/S-Corkum/devops-mcp/apps/mcp-server/internal/api"
 )
 
 

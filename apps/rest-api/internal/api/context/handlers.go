@@ -4,9 +4,9 @@ import (
 	"net/http"
 	"strconv"
 
-	"github.com/S-Corkum/devops-mcp/internal/interfaces"
-	"github.com/S-Corkum/devops-mcp/internal/metrics"
-	"github.com/S-Corkum/devops-mcp/internal/observability"
+	"github.com/S-Corkum/devops-mcp/pkg/mcp/interfaces"
+	"github.com/S-Corkum/devops-mcp/pkg/common/metrics"
+	"github.com/S-Corkum/devops-mcp/pkg/observability"
 	"github.com/S-Corkum/devops-mcp/pkg/mcp"
 	"github.com/gin-gonic/gin"
 )
@@ -14,14 +14,14 @@ import (
 // API handles context-related API endpoints
 type API struct {
 	contextManager interfaces.ContextManager
-	logger         *observability.Logger
+	logger         observability.Logger
 	metricsClient  metrics.Client
 }
 
 // NewAPI creates a new context API handler
 func NewAPI(
 	contextManager interfaces.ContextManager,
-	logger *observability.Logger,
+	logger observability.Logger,
 	metricsClient metrics.Client,
 ) *API {
 	if logger == nil {

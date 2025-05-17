@@ -5,7 +5,7 @@ import (
 	"database/sql"
 	"net/http"
 
-	"github.com/S-Corkum/devops-mcp/internal/embedding"
+	"github.com/S-Corkum/devops-mcp/pkg/embedding"
 	"github.com/gin-gonic/gin"
 )
 

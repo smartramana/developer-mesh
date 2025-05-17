@@ -3,10 +3,29 @@ module github.com/S-Corkum/devops-mcp/apps/worker
 go 1.24
 
 require (
-	github.com/aws/aws-sdk-go-v2 v1.20.0
-	github.com/aws/aws-sdk-go-v2/config v1.18.29
-	github.com/aws/aws-sdk-go-v2/service/sqs v1.24.0
+	github.com/aws/aws-sdk-go-v2 v1.36.3
+	github.com/aws/aws-sdk-go-v2/config v1.29.14
+	github.com/aws/aws-sdk-go-v2/service/sqs v1.38.5
 	github.com/go-redis/redis/v8 v8.11.5
+)
+
+require (
+	github.com/aws/aws-sdk-go-v2/credentials v1.17.67 // indirect
+	github.com/aws/aws-sdk-go-v2/feature/ec2/imds v1.16.30 // indirect
+	github.com/aws/aws-sdk-go-v2/internal/configsources v1.3.34 // indirect
+	github.com/aws/aws-sdk-go-v2/internal/endpoints/v2 v2.6.34 // indirect
+	github.com/aws/aws-sdk-go-v2/internal/ini v1.8.3 // indirect
+	github.com/aws/aws-sdk-go-v2/service/internal/accept-encoding v1.12.3 // indirect
+	github.com/aws/aws-sdk-go-v2/service/internal/presigned-url v1.12.15 // indirect
+	github.com/aws/aws-sdk-go-v2/service/sso v1.25.3 // indirect
+	github.com/aws/aws-sdk-go-v2/service/ssooidc v1.30.1 // indirect
+	github.com/aws/aws-sdk-go-v2/service/sts v1.33.19 // indirect
+	github.com/aws/smithy-go v1.22.2 // indirect
+	github.com/cespare/xxhash/v2 v2.3.0 // indirect
+	github.com/dgryski/go-rendezvous v0.0.0-20200823014737-9f7001d12a5f // indirect
+	github.com/fsnotify/fsnotify v1.8.0 // indirect
+	github.com/onsi/gomega v1.36.3 // indirect
+	golang.org/x/sys v0.32.0 // indirect
 )
 
 // Replace directives for local development

@@ -6,7 +6,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/S-Corkum/devops-mcp/internal/observability"
+	"github.com/S-Corkum/devops-mcp/pkg/observability"
 )
 
 // HealthStatus represents an adapter's health status
@@ -24,11 +24,11 @@ type AdapterRegistry struct {
 	healthStatuses map[string]HealthStatus
 	callbacks      map[string][]func(Adapter, HealthStatus)
 	mu             sync.RWMutex
-	logger         *observability.Logger
+	logger         observability.Logger
 }
 
 // NewAdapterRegistry creates a new adapter registry
-func NewAdapterRegistry(factory AdapterFactory, logger *observability.Logger) *AdapterRegistry {
+func NewAdapterRegistry(factory AdapterFactory, logger observability.Logger) *AdapterRegistry {
 	registry := &AdapterRegistry{
 		adapters:       make(map[string]Adapter),
 		factory:        factory,

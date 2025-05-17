@@ -1,3 +1,3 @@
-package observability
+package logging
 
 

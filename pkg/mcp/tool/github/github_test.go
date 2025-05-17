@@ -5,7 +5,7 @@ import (
 	"errors"
 	"testing"
 
-	"github.com/S-Corkum/devops-mcp/internal/adapters/github"
+	"github.com/S-Corkum/devops-mcp/pkg/adapters/github"
 	"github.com/S-Corkum/devops-mcp/pkg/mcp/tool"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"

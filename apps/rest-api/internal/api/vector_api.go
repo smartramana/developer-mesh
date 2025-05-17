@@ -4,8 +4,8 @@ import (
 	"context"
 	"net/http"
 	
-	"github.com/S-Corkum/devops-mcp/internal/observability"
-	"github.com/S-Corkum/devops-mcp/internal/repository"
+	"github.com/S-Corkum/devops-mcp/pkg/observability"
+	"github.com/S-Corkum/devops-mcp/pkg/storage"
 	"github.com/gin-gonic/gin"
 )
 
@@ -30,11 +30,11 @@ type SearchEmbeddingsRequest struct {
 // VectorAPI handles the vector operations API endpoints
 type VectorAPI struct {
 	embedRepo EmbeddingRepositoryInterface
-	logger    *observability.Logger
+	logger    observability.Logger
 }
 
 // NewVectorAPI creates a new vector API handler
-func NewVectorAPI(embedRepo EmbeddingRepositoryInterface, logger *observability.Logger) *VectorAPI {
+func NewVectorAPI(embedRepo EmbeddingRepositoryInterface, logger observability.Logger) *VectorAPI {
 	return &VectorAPI{
 		embedRepo: embedRepo,
 		logger:    logger,

@@ -6,9 +6,9 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/S-Corkum/devops-mcp/internal/observability"
+	"github.com/S-Corkum/devops-mcp/pkg/observability"
 	"github.com/S-Corkum/devops-mcp/pkg/mcp"
-	"github.com/S-Corkum/devops-mcp/internal/events"
+	"github.com/S-Corkum/devops-mcp/pkg/common/events"
 )
 
 // EventType represents the type of an adapter event
@@ -76,11 +76,11 @@ type EventBus struct {
 	listeners       map[EventType][]EventListener
 	globalListeners []EventListener
 	mu              sync.RWMutex
-	logger          *observability.Logger
+	logger          observability.Logger
 }
 
 // NewEventBus creates a new event bus
-func NewEventBus(logger *observability.Logger) *EventBus {
+func NewEventBus(logger observability.Logger) *EventBus {
 	return &EventBus{
 		listeners:       make(map[EventType][]EventListener),
 		globalListeners: []EventListener{},

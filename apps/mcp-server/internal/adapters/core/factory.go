@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"sync"
 	
-	"github.com/S-Corkum/devops-mcp/internal/observability"
+	"github.com/S-Corkum/devops-mcp/pkg/observability"
 )
 
 // AdapterCreator is a function that creates an adapter
@@ -16,7 +16,7 @@ type DefaultAdapterFactory struct {
 	creators      map[string]AdapterCreator
 	configs       map[string]interface{}
 	metricsClient observability.MetricsClient
-	logger        *observability.Logger
+	logger        observability.Logger
 	mu            sync.RWMutex
 }
 
@@ -24,7 +24,7 @@ type DefaultAdapterFactory struct {
 func NewAdapterFactory(
 	configs map[string]interface{},
 	metricsClient observability.MetricsClient,
-	logger *observability.Logger,
+	logger observability.Logger,
 ) *DefaultAdapterFactory {
 	if logger == nil {
 		logger = observability.NewLogger("adapter_factory")

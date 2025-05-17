@@ -5,7 +5,7 @@ import (
 	"context"
 
 	"github.com/stretchr/testify/mock"
-	"github.com/S-Corkum/devops-mcp/internal/events"
+	"github.com/S-Corkum/devops-mcp/pkg/common/events"
 	"github.com/S-Corkum/devops-mcp/pkg/mcp"
 )
 

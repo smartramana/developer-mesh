@@ -7,7 +7,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/S-Corkum/devops-mcp/internal/observability"
+	"github.com/S-Corkum/devops-mcp/pkg/observability"
 )
 
 // WebhookEvent represents a GitHub webhook event
@@ -33,7 +33,7 @@ type Processor struct {
 	wg          sync.WaitGroup
 	ctx         context.Context
 	cancel      context.CancelFunc
-	logger      *observability.Logger
+	logger      observability.Logger
 	metrics     observability.MetricsClient
 }
 
@@ -41,7 +41,7 @@ type Processor struct {
 type ProcessorConfig struct {
 	QueueSize   int
 	WorkerCount int
-	Logger      *observability.Logger
+	Logger      observability.Logger
 	Metrics     observability.MetricsClient
 }
 
@@ -244,12 +244,12 @@ func (p *Processor) handleEvent(event *WebhookEvent) {
 
 // DefaultEventHandler implements a simple webhook handler
 type DefaultEventHandler struct {
-	logger  *observability.Logger
+	logger  observability.Logger
 	metrics observability.MetricsClient
 }
 
 // NewDefaultEventHandler creates a new default webhook handler
-func NewDefaultEventHandler(logger *observability.Logger, metrics observability.MetricsClient) *DefaultEventHandler {
+func NewDefaultEventHandler(logger observability.Logger, metrics observability.MetricsClient) *DefaultEventHandler {
 	return &DefaultEventHandler{
 		logger:  logger,
 		metrics: metrics,

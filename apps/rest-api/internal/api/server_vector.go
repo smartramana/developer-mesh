@@ -4,9 +4,9 @@ import (
 	"context"
 	"fmt"
 	
-	"github.com/S-Corkum/devops-mcp/internal/database"
-	"github.com/S-Corkum/devops-mcp/internal/observability"
-	"github.com/S-Corkum/devops-mcp/internal/repository"
+	"github.com/S-Corkum/devops-mcp/pkg/database"
+	"github.com/S-Corkum/devops-mcp/pkg/observability"
+	"github.com/S-Corkum/devops-mcp/pkg/storage"
 	"github.com/gin-gonic/gin"
 )
 

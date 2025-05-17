@@ -12,8 +12,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/S-Corkum/devops-mcp/internal/common/errors"
-	"github.com/S-Corkum/devops-mcp/internal/observability"
+	"github.com/S-Corkum/devops-mcp/pkg/common/errors"
+	"github.com/S-Corkum/devops-mcp/pkg/observability"
 	"github.com/golang-jwt/jwt/v4"
 )
 
@@ -55,7 +55,7 @@ type AuthProvider interface {
 // BaseAuthProvider provides base functionality for authentication providers
 type BaseAuthProvider struct {
 	authType AuthType
-	logger   *observability.Logger
+	logger   observability.Logger
 }
 
 // Type returns the authentication type
@@ -64,7 +64,7 @@ func (p *BaseAuthProvider) Type() AuthType {
 }
 
 // NewAuthProvider creates a new authentication provider based on configuration
-func NewAuthProvider(config *Config, logger *observability.Logger) (AuthProvider, error) {
+func NewAuthProvider(config *Config, logger observability.Logger) (AuthProvider, error) {
 	if config == nil {
 		return nil, fmt.Errorf("auth config cannot be nil")
 	}
@@ -105,7 +105,7 @@ type NoAuthProvider struct {
 }
 
 // NewNoAuthProvider creates a new provider with no authentication
-func NewNoAuthProvider(logger *observability.Logger) *NoAuthProvider {
+func NewNoAuthProvider(logger observability.Logger) *NoAuthProvider {
 	return &NoAuthProvider{
 		BaseAuthProvider: BaseAuthProvider{
 			authType: AuthTypeNone,
@@ -142,7 +142,7 @@ type TokenProvider struct {
 }
 
 // NewTokenProvider creates a new provider with token authentication
-func NewTokenProvider(token string, logger *observability.Logger) *TokenProvider {
+func NewTokenProvider(token string, logger observability.Logger) *TokenProvider {
 	return &TokenProvider{
 		BaseAuthProvider: BaseAuthProvider{
 			authType: AuthTypeToken,
@@ -192,7 +192,7 @@ type AppProvider struct {
 }
 
 // NewAppProvider creates a new provider with GitHub App authentication
-func NewAppProvider(appID, privateKeyPEM, installationID string, logger *observability.Logger) (*AppProvider, error) {
+func NewAppProvider(appID, privateKeyPEM, installationID string, logger observability.Logger) (*AppProvider, error) {
 	// Validate required inputs
 	if appID == "" {
 		return nil, errors.NewGitHubError(
@@ -471,7 +471,7 @@ type OAuthProvider struct {
 }
 
 // NewOAuthProvider creates a new provider with OAuth authentication
-func NewOAuthProvider(token, clientID, clientSecret string, logger *observability.Logger) *OAuthProvider {
+func NewOAuthProvider(token, clientID, clientSecret string, logger observability.Logger) *OAuthProvider {
 	return &OAuthProvider{
 		BaseAuthProvider: BaseAuthProvider{
 			authType: AuthTypeOAuth,
@@ -597,13 +597,13 @@ func (p *OAuthProvider) IsValid() bool {
 // AuthProviderFactory creates authentication providers
 type AuthProviderFactory struct {
 	configs map[string]*Config
-	logger  *observability.Logger
+	logger  observability.Logger
 	cache   map[string]AuthProvider
 	mutex   sync.RWMutex
 }
 
 // NewAuthProviderFactory creates a new authentication provider factory
-func NewAuthProviderFactory(configs map[string]*Config, logger *observability.Logger) *AuthProviderFactory {
+func NewAuthProviderFactory(configs map[string]*Config, logger observability.Logger) *AuthProviderFactory {
 	return &AuthProviderFactory{
 		configs: configs,
 		logger:  logger,

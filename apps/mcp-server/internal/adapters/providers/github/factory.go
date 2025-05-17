@@ -6,10 +6,10 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/S-Corkum/devops-mcp/internal/adapters/core"
-	githubAdapter "github.com/S-Corkum/devops-mcp/internal/adapters/github"
-	"github.com/S-Corkum/devops-mcp/internal/events"
-	"github.com/S-Corkum/devops-mcp/internal/observability"
+	"github.com/S-Corkum/devops-mcp/apps/mcp-server/internal/adapters/core"
+	githubAdapter "github.com/S-Corkum/devops-mcp/apps/mcp-server/internal/adapters/github"
+	"github.com/S-Corkum/devops-mcp/pkg/common/events"
+	"github.com/S-Corkum/devops-mcp/pkg/observability"
 )
 
 const adapterType = "github"
@@ -27,7 +27,7 @@ const adapterType = "github"
 // Returns:
 //   - error: If registration fails
 func RegisterAdapter(factory *core.DefaultAdapterFactory, eventBus interface{},
-	metricsClient observability.MetricsClient, logger *observability.Logger) error {
+	metricsClient observability.MetricsClient, logger observability.Logger) error {
 
 	if factory == nil {
 		return fmt.Errorf("factory cannot be nil")

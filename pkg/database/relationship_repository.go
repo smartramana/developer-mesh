@@ -9,8 +9,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/S-Corkum/devops-mcp/internal/models"
-	"github.com/S-Corkum/devops-mcp/internal/relationship"
+	"github.com/S-Corkum/devops-mcp/pkg/models"
+	"github.com/S-Corkum/devops-mcp/pkg/relationship"
 	"github.com/jmoiron/sqlx"
 )
 
@@ -501,6 +501,16 @@ func (r *RelationshipRepository) recordToRelationship(record *EntityRelationship
 		metadata = make(map[string]interface{})
 	}
 
+	// Parse context if available
+	contextMap := make(map[string]any)
+	if record.Context != "" {
+		// Try to parse as JSON first
+		if err := json.Unmarshal([]byte(record.Context), &contextMap); err != nil {
+			// If it's not valid JSON, just store it as a single value
+			contextMap["value"] = record.Context
+		}
+	}
+
 	// Create relationship
 	relationship := &models.EntityRelationship{
 		ID:        record.ID,
@@ -509,7 +519,7 @@ func (r *RelationshipRepository) recordToRelationship(record *EntityRelationship
 		Source:    source,
 		Target:    target,
 		Strength:  record.Strength,
-		Context:   record.Context,
+		Context:   contextMap,
 		Metadata:  metadata,
 		CreatedAt: record.CreatedAt,
 		UpdatedAt: record.UpdatedAt,

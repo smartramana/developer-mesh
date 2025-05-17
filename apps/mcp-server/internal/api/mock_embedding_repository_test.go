@@ -2,7 +2,7 @@ package api_test
 
 import (
 	"context"
-	"github.com/S-Corkum/devops-mcp/internal/repository"
+	"github.com/S-Corkum/devops-mcp/pkg/storage"
 	"github.com/stretchr/testify/mock"
 )
 

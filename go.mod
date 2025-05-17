@@ -40,6 +40,8 @@ require (
 	google.golang.org/grpc v1.71.1
 )
 
+require github.com/pkg/errors v0.9.1 // indirect
+
 require (
 	github.com/alicebob/gopher-json v0.0.0-20230218143504-906a9b012302 // indirect
 	github.com/aws/aws-sdk-go-v2/aws/protocol/eventstream v1.6.10 // indirect
@@ -138,3 +140,5 @@ require (
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20250218202821-56aae31c358a // indirect
 	gopkg.in/yaml.v2 v2.4.0 // indirect
 )
+
+replace github.com/pkg/errors => github.com/pkg/errors v0.9.1

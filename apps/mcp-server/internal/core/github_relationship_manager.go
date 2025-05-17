@@ -6,9 +6,9 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/S-Corkum/devops-mcp/internal/models"
-	"github.com/S-Corkum/devops-mcp/internal/relationship"
-	"github.com/S-Corkum/devops-mcp/internal/storage"
+	"github.com/S-Corkum/devops-mcp/pkg/models"
+	"github.com/S-Corkum/devops-mcp/pkg/models/relationship"
+	"github.com/S-Corkum/devops-mcp/pkg/storage"
 )
 
 // GitHubRelationshipManager manages relationships between GitHub entities

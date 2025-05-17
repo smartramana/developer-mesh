@@ -6,17 +6,17 @@ import (
 	"sync"
 	"time"
 
-	"github.com/S-Corkum/devops-mcp/internal/adapters"
-	"github.com/S-Corkum/devops-mcp/internal/aws"
-	"github.com/S-Corkum/devops-mcp/internal/cache"
-	contextManager "github.com/S-Corkum/devops-mcp/internal/core/context"
-	"github.com/S-Corkum/devops-mcp/internal/database"
-	"github.com/S-Corkum/devops-mcp/internal/events"
-	"github.com/S-Corkum/devops-mcp/internal/events/system"
-	"github.com/S-Corkum/devops-mcp/internal/interfaces"
-	"github.com/S-Corkum/devops-mcp/internal/metrics"
-	"github.com/S-Corkum/devops-mcp/internal/observability"
-	"github.com/S-Corkum/devops-mcp/internal/storage/providers"
+	"github.com/S-Corkum/devops-mcp/apps/mcp-server/internal/adapters"
+	"github.com/S-Corkum/devops-mcp/pkg/common/aws"
+	"github.com/S-Corkum/devops-mcp/pkg/common/cache"
+	contextManager "github.com/S-Corkum/devops-mcp/apps/mcp-server/internal/core/context"
+	"github.com/S-Corkum/devops-mcp/pkg/database"
+	"github.com/S-Corkum/devops-mcp/pkg/common/events"
+	"github.com/S-Corkum/devops-mcp/pkg/common/events/system"
+	"github.com/S-Corkum/devops-mcp/pkg/mcp/interfaces"
+	"github.com/S-Corkum/devops-mcp/pkg/common/metrics"
+	"github.com/S-Corkum/devops-mcp/pkg/observability"
+	"github.com/S-Corkum/devops-mcp/pkg/storage/providers"
 
 	"github.com/S-Corkum/devops-mcp/pkg/mcp"
 )
@@ -78,7 +78,7 @@ type Engine struct {
 	githubContentManager *GitHubContentManager
 	config              interfaces.CoreConfig
 	metricsClient       metrics.Client
-	logger              *observability.Logger
+	logger              observability.Logger
 	eventBus            *events.EventBus
 	lock                sync.RWMutex
 }

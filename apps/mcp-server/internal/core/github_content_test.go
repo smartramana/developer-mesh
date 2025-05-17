@@ -7,9 +7,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/S-Corkum/devops-mcp/internal/database"
-	"github.com/S-Corkum/devops-mcp/internal/observability"
-	"github.com/S-Corkum/devops-mcp/internal/storage"
+	"github.com/S-Corkum/devops-mcp/pkg/database"
+	"github.com/S-Corkum/devops-mcp/pkg/observability"
+	"github.com/S-Corkum/devops-mcp/pkg/storage"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 )
@@ -19,7 +19,7 @@ type testGitHubContentManager struct {
 	mockStorage *MockGitHubContentStorage
 	mockDB      *MockGitHubContentDB
 	metrics     observability.MetricsClient
-	logger      *observability.Logger
+	logger      observability.Logger
 }
 
 // Implement the same methods as GitHubContentManager but use our mocks directly

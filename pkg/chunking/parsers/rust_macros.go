@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/S-Corkum/devops-mcp/internal/chunking"
+	"github.com/S-Corkum/devops-mcp/pkg/chunking"
 )
 
 // extractMacros extracts macro declarations from Rust code

@@ -8,7 +8,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/S-Corkum/devops-mcp/internal/observability"
+	"github.com/S-Corkum/devops-mcp/pkg/observability"
 )
 
 // HandlerFunc is a function that handles a webhook event
@@ -100,12 +100,12 @@ type Handler struct {
 type Manager struct {
 	handlers     map[string]*Handler
 	eventBus     interface{} // Changed to generic interface
-	logger       *observability.Logger
+	logger       observability.Logger
 	mu           sync.RWMutex
 }
 
 // NewManager creates a new webhook handler manager
-func NewManager(eventBus interface{}, logger *observability.Logger) *Manager {
+func NewManager(eventBus interface{}, logger observability.Logger) *Manager {
 	return &Manager{
 		handlers: make(map[string]*Handler),
 		eventBus: eventBus,

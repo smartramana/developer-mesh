@@ -10,7 +10,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/S-Corkum/devops-mcp/internal/chunking"
+	"github.com/S-Corkum/devops-mcp/pkg/chunking"
 )
 
 // EmbeddingModelType represents the type of embedding model

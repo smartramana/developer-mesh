@@ -6,11 +6,11 @@ import (
 	"reflect"
 	"sync"
 
-	"github.com/S-Corkum/devops-mcp/internal/adapters/core"
-	"github.com/S-Corkum/devops-mcp/internal/adapters/events"
-	eventsmocks "github.com/S-Corkum/devops-mcp/internal/adapters/events/mocks"
-	"github.com/S-Corkum/devops-mcp/internal/events/system"
-	"github.com/S-Corkum/devops-mcp/internal/observability"
+	"github.com/S-Corkum/devops-mcp/apps/mcp-server/internal/adapters/core"
+	"github.com/S-Corkum/devops-mcp/apps/mcp-server/internal/adapters/events"
+	eventsmocks "github.com/S-Corkum/devops-mcp/apps/mcp-server/internal/adapters/events/mocks"
+	"github.com/S-Corkum/devops-mcp/pkg/common/events/system"
+	"github.com/S-Corkum/devops-mcp/pkg/observability"
 )
 
 // isInterfaceNil checks if an interface value is nil or contains nil
@@ -36,7 +36,7 @@ func isInterfaceNil(i interface{}) bool {
 type EventBridge struct {
 	eventBus         interface{} // Could be events.EventBus
 	systemEventBus   system.EventBus
-	logger           *observability.Logger
+	logger           observability.Logger
 	adapterRegistry  interface{} // Using interface{} to support different adapter registry implementations
 	adapterHandlers  map[string]map[string][]func(context.Context, *events.AdapterEvent) error
 	mu               sync.RWMutex
@@ -46,7 +46,7 @@ type EventBridge struct {
 func NewEventBridge(
 	eventBus interface{},
 	systemEventBus system.EventBus,
-	logger *observability.Logger,
+	logger observability.Logger,
 	adapterRegistry interface{},
 ) *EventBridge {
 	bridge := &EventBridge{

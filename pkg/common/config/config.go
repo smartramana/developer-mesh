@@ -6,24 +6,23 @@ import (
 	"strings"
 	"time"
 
-	"github.com/S-Corkum/devops-mcp/internal/aws"
-	"github.com/S-Corkum/devops-mcp/internal/cache"
-	commonConfig "github.com/S-Corkum/devops-mcp/internal/common/config"
-	"github.com/S-Corkum/devops-mcp/internal/interfaces"
-	"github.com/S-Corkum/devops-mcp/internal/metrics"
+	"github.com/S-Corkum/devops-mcp/pkg/common/aws"
+	"github.com/S-Corkum/devops-mcp/pkg/common/cache"
+	"github.com/S-Corkum/devops-mcp/pkg/mcp/interfaces"
+	"github.com/S-Corkum/devops-mcp/pkg/common/metrics"
 	"github.com/spf13/viper"
 )
 
 // Config holds the complete application configuration
 type Config struct {
-	API        interfaces.APIConfig        `mapstructure:"api"`
-	Cache      cache.RedisConfig           `mapstructure:"cache"`
-	Database   commonConfig.DatabaseConfig `mapstructure:"database"`
-	Engine     interfaces.CoreConfig       `mapstructure:"engine"`
-	Metrics    metrics.Config              `mapstructure:"metrics"`
-	AWS        AWSConfig                   `mapstructure:"aws"`
-	Environment string                     `mapstructure:"environment"`
-	Adapters   map[string]interface{}      `mapstructure:"adapters"`
+	API        interfaces.APIConfig   `mapstructure:"api"`
+	Cache      cache.RedisConfig      `mapstructure:"cache"`
+	Database   DatabaseConfig         `mapstructure:"database"`
+	Engine     interfaces.CoreConfig  `mapstructure:"engine"`
+	Metrics    metrics.Config         `mapstructure:"metrics"`
+	AWS        AWSConfig              `mapstructure:"aws"`
+	Environment string                `mapstructure:"environment"`
+	Adapters   map[string]interface{} `mapstructure:"adapters"`
 }
 
 // AWSConfig holds configuration for AWS services

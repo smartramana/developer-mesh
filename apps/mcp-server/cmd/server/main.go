@@ -17,12 +17,14 @@ import (
 	"github.com/S-Corkum/devops-mcp/apps/mcp-server/internal/core"
 
 	// Shared package imports
+	"github.com/S-Corkum/devops-mcp/pkg/aws"
+	"github.com/S-Corkum/devops-mcp/pkg/cache"
 	"github.com/S-Corkum/devops-mcp/pkg/common/config"
 	commonConfig "github.com/S-Corkum/devops-mcp/pkg/common/config"
-	"github.com/S-Corkum/devops-mcp/pkg/common/logging"
-	"github.com/S-Corkum/devops-mcp/pkg/common/metrics"
 	"github.com/S-Corkum/devops-mcp/pkg/database"
-	"github.com/S-Corkum/devops-mcp/pkg/migrations"
+	mcpinterfaces "github.com/S-Corkum/devops-mcp/pkg/mcp/interfaces"
+	"github.com/S-Corkum/devops-mcp/pkg/observability"
+	"github.com/S-Corkum/devops-mcp/pkg/common/metrics"
 
 	// Import PostgreSQL driver
 	_ "github.com/lib/pq"
@@ -114,7 +116,8 @@ func main() {
 			ConnMaxLifetime: cfg.AWS.RDS.ConnMaxLifetime,
 		}
 	} else {
-		dbConfig = cfg.Database
+		// Convert common config to database config using the helper function
+		dbConfig = database.FromDatabaseConfig(cfg.Database)
 	}
 
 	// Initialize database
@@ -148,10 +151,11 @@ func main() {
 			WriteTimeout:      cfg.AWS.ElastiCache.WriteTimeout,
 			PoolSize:          cfg.AWS.ElastiCache.PoolSize,
 			MinIdleConns:      cfg.AWS.ElastiCache.MinIdleConnections,
-			PoolTimeout:       cfg.AWS.ElastiCache.PoolTimeout,
+			PoolTimeout:       time.Duration(cfg.AWS.ElastiCache.PoolTimeout) * time.Second, // Convert int to time.Duration
 		}
 	} else {
-		cacheConfig = cfg.Cache
+		// Convert from common/cache.RedisConfig to cache.RedisConfig
+		cacheConfig = cache.ConvertFromCommonRedisConfig(cfg.Cache)
 	}
 
 	// Initialize cache
@@ -190,7 +194,7 @@ func main() {
 			BurstFactor: 3,           // Default value
 		},
 		// Copy the webhook configuration to ensure webhook routes are registered correctly
-		Webhook: interfaces.WebhookConfig{
+		Webhook: mcpinterfaces.WebhookConfig{
 			EnabledField:             cfg.API.Webhook.Enabled(),
 			GitHubEndpointField:      cfg.API.Webhook.GitHubEndpoint(),
 			GitHubSecretField:        cfg.API.Webhook.GitHubSecret(),

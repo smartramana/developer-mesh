@@ -2,8 +2,9 @@ package api
 
 import (
 	"net/http"
+	"time"
 
-	"github.com/S-Corkum/devops-mcp/internal/repository"
+	"github.com/S-Corkum/devops-mcp/pkg/models"
 	"github.com/gin-gonic/gin"
 )
 
@@ -32,17 +33,24 @@ func (s *Server) storeEmbedding(c *gin.Context) {
 		return
 	}
 
-	// Create embedding object
-	embedding := &repository.Embedding{
-		ContextID:    req.ContextID,
-		ContentIndex: req.ContentIndex,
-		Text:         req.Text,
-		Embedding:    req.Embedding,
-		ModelID:      req.ModelID,
+	// Create metadata for content_index and model_id
+	metadata := map[string]interface{}{
+		"content_index": req.ContentIndex,
+		"model_id":      req.ModelID,
 	}
 
-	// Store embedding using repository
-	err := s.embeddingRepo.StoreEmbedding(c.Request.Context(), embedding)
+	// Create vector object as expected by the repository
+	vector := &models.Vector{
+		TenantID:  req.ContextID, // Map ContextID to TenantID
+		Content:   req.Text,      // Map Text to Content
+		Embedding: req.Embedding,
+		Metadata:  metadata,
+		CreatedAt: time.Now(),
+		UpdatedAt: time.Now(),
+	}
+
+	// Store embedding using adapter
+	err := s.embeddingAdapter.StoreEmbedding(c.Request.Context(), vector)
 	if err != nil {
 		s.logger.Error("Failed to store embedding", map[string]interface{}{
 			"error":      err.Error(),
@@ -52,7 +60,7 @@ func (s *Server) storeEmbedding(c *gin.Context) {
 		return
 	}
 
-	c.JSON(http.StatusOK, embedding)
+	c.JSON(http.StatusOK, vector)
 }
 
 // searchEmbeddings handles searching for similar embeddings
@@ -73,7 +81,7 @@ func (s *Server) searchEmbeddings(c *gin.Context) {
 		req.Limit = 100 // Maximum limit
 	}
 
-	var embeddings []*repository.Embedding
+	var vectors []*models.Vector
 	var err error
 
 	// Check if model ID is provided (new multi-model support)
@@ -85,7 +93,7 @@ func (s *Server) searchEmbeddings(c *gin.Context) {
 		}
 
 		// Use the new multi-model search method
-		embeddings, err = s.embeddingRepo.SearchEmbeddings(
+		vectors, err = s.embeddingAdapter.SearchEmbeddings(
 			c.Request.Context(),
 			req.QueryEmbedding,
 			req.ContextID,
@@ -95,7 +103,7 @@ func (s *Server) searchEmbeddings(c *gin.Context) {
 		)
 	} else {
 		// For backward compatibility, use the legacy method without model filtering
-		embeddings, err = s.embeddingRepo.SearchEmbeddings_Legacy(
+		vectors, err = s.embeddingAdapter.SearchEmbeddings_Legacy(
 			c.Request.Context(),
 			req.QueryEmbedding,
 			req.ContextID,
@@ -113,7 +121,7 @@ func (s *Server) searchEmbeddings(c *gin.Context) {
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{"embeddings": embeddings})
+	c.JSON(http.StatusOK, gin.H{"embeddings": vectors})
 }
 
 // getContextEmbeddings handles retrieving all embeddings for a context
@@ -124,8 +132,8 @@ func (s *Server) getContextEmbeddings(c *gin.Context) {
 		return
 	}
 
-	// Get embeddings using repository
-	embeddings, err := s.embeddingRepo.GetContextEmbeddings(c.Request.Context(), contextID)
+	// Get embeddings using adapter
+	vectors, err := s.embeddingAdapter.GetContextEmbeddings(c.Request.Context(), contextID)
 	if err != nil {
 		s.logger.Error("Failed to get context embeddings", map[string]interface{}{
 			"error":      err.Error(),
@@ -135,7 +143,7 @@ func (s *Server) getContextEmbeddings(c *gin.Context) {
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{"embeddings": embeddings})
+	c.JSON(http.StatusOK, gin.H{"embeddings": vectors})
 }
 
 // deleteContextEmbeddings handles deleting all embeddings for a context
@@ -146,8 +154,8 @@ func (s *Server) deleteContextEmbeddings(c *gin.Context) {
 		return
 	}
 
-	// Delete embeddings using repository
-	err := s.embeddingRepo.DeleteContextEmbeddings(c.Request.Context(), contextID)
+	// Delete embeddings using adapter
+	err := s.embeddingAdapter.DeleteContextEmbeddings(c.Request.Context(), contextID)
 	if err != nil {
 		s.logger.Error("Failed to delete context embeddings", map[string]interface{}{
 			"error":      err.Error(),
@@ -190,8 +198,8 @@ func (s *Server) getModelEmbeddings(c *gin.Context) {
 		return
 	}
 
-	// Get embeddings using repository
-	embeddings, err := s.embeddingRepo.GetEmbeddingsByModel(c.Request.Context(), contextID, modelID)
+	// Get embeddings using adapter
+	vectors, err := s.embeddingAdapter.GetEmbeddingsByModel(c.Request.Context(), contextID, modelID)
 	if err != nil {
 		s.logger.Error("Failed to get model embeddings", map[string]interface{}{
 			"error":      err.Error(),
@@ -202,7 +210,7 @@ func (s *Server) getModelEmbeddings(c *gin.Context) {
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{"embeddings": embeddings})
+	c.JSON(http.StatusOK, gin.H{"embeddings": vectors})
 }
 
 // deleteModelEmbeddings handles deleting embeddings for a specific model in a context
@@ -220,8 +228,8 @@ func (s *Server) deleteModelEmbeddings(c *gin.Context) {
 		return
 	}
 
-	// Delete embeddings using repository
-	err := s.embeddingRepo.DeleteModelEmbeddings(c.Request.Context(), contextID, modelID)
+	// Delete embeddings using adapter
+	err := s.embeddingAdapter.DeleteModelEmbeddings(c.Request.Context(), contextID, modelID)
 	if err != nil {
 		s.logger.Error("Failed to delete model embeddings", map[string]interface{}{
 			"error":      err.Error(),

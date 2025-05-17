@@ -10,11 +10,11 @@ import (
 	"sync"
 	"time"
 
-	"github.com/S-Corkum/devops-mcp/internal/cache"
-	"github.com/S-Corkum/devops-mcp/internal/database"
-	"github.com/S-Corkum/devops-mcp/internal/events/system"
-	"github.com/S-Corkum/devops-mcp/internal/observability"
-	"github.com/S-Corkum/devops-mcp/internal/storage/providers"
+	"github.com/S-Corkum/devops-mcp/pkg/common/cache"
+	"github.com/S-Corkum/devops-mcp/pkg/database"
+	"github.com/S-Corkum/devops-mcp/pkg/common/events/system"
+	"github.com/S-Corkum/devops-mcp/pkg/observability"
+	"github.com/S-Corkum/devops-mcp/pkg/storage/providers"
 	"github.com/S-Corkum/devops-mcp/pkg/mcp"
 	"github.com/google/uuid"
 	"github.com/jmoiron/sqlx"
@@ -40,7 +40,7 @@ type Manager struct {
 	cache         cache.Cache
 	storage       providers.ContextStorage
 	eventBus      *system.EventBus
-	logger        *observability.Logger
+	logger        observability.Logger
 	subscribers   map[string][]func(mcp.Event)
 	lock          sync.RWMutex
 	metricsClient observability.MetricsClient
@@ -52,7 +52,7 @@ func NewManager(
 	cache cache.Cache,
 	storage providers.ContextStorage,
 	eventBus *system.EventBus,
-	logger *observability.Logger,
+	logger observability.Logger,
 	metricsClient observability.MetricsClient,
 ) *Manager {
 	if logger == nil {

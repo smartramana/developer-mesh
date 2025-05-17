@@ -5,15 +5,13 @@ import (
 	"fmt"
 	"log"
 
-	"github.com/S-Corkum/devops-mcp/internal/aws"
-	"github.com/S-Corkum/devops-mcp/internal/common/config"
-	"github.com/S-Corkum/devops-mcp/internal/database/migration"
+	"github.com/S-Corkum/devops-mcp/pkg/aws"
+	"github.com/S-Corkum/devops-mcp/pkg/database/migration"
 	"github.com/S-Corkum/devops-mcp/pkg/models"
 	"github.com/jmoiron/sqlx"
 )
 
-// Config is an alias for config.DatabaseConfig for backward compatibility
-type Config = config.DatabaseConfig
+// Config is defined in config.go
 
 // Database represents the database access layer
 type Database struct {

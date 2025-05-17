@@ -7,12 +7,12 @@ import (
 	"os"
 	"time"
 
-	contextAPI "github.com/S-Corkum/devops-mcp/internal/api/context"
-	"github.com/S-Corkum/devops-mcp/internal/config"
-	"github.com/S-Corkum/devops-mcp/internal/core"
-	"github.com/S-Corkum/devops-mcp/internal/database"
-	"github.com/S-Corkum/devops-mcp/internal/observability"
-	"github.com/S-Corkum/devops-mcp/internal/repository"
+	contextAPI "github.com/S-Corkum/devops-mcp/apps/rest-api/internal/api/context"
+	"github.com/S-Corkum/devops-mcp/pkg/common/config"
+	"github.com/S-Corkum/devops-mcp/apps/rest-api/internal/core"
+	"github.com/S-Corkum/devops-mcp/pkg/database"
+	"github.com/S-Corkum/devops-mcp/pkg/observability"
+	"github.com/S-Corkum/devops-mcp/pkg/storage"
 	"github.com/gin-gonic/gin"
 	"github.com/jmoiron/sqlx"
 	swaggerFiles "github.com/swaggo/files"
@@ -29,7 +29,7 @@ type Server struct {
 	server        *http.Server
 	engine        *core.Engine
 	config        Config
-	logger        *observability.Logger
+	logger        observability.Logger
 	db            *sqlx.DB
 	metrics       observability.MetricsClient
 	vectorDB      *database.VectorDatabase

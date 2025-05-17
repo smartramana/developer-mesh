@@ -5,7 +5,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/S-Corkum/devops-mcp/internal/chunking"
+	"github.com/S-Corkum/devops-mcp/pkg/chunking"
 	"github.com/stretchr/testify/assert"
 )
 

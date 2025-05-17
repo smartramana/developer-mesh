@@ -5,9 +5,9 @@ import (
 	"net/http"
 	"testing"
 
-	"github.com/S-Corkum/devops-mcp/internal/adapters/github/auth"
-	"github.com/S-Corkum/devops-mcp/internal/adapters/resilience"
-	"github.com/S-Corkum/devops-mcp/internal/observability"
+	"github.com/S-Corkum/devops-mcp/apps/mcp-server/internal/adapters/github/auth"
+	"github.com/S-Corkum/devops-mcp/apps/mcp-server/internal/adapters/resilience"
+	"github.com/S-Corkum/devops-mcp/pkg/observability"
 )
 
 func TestRESTClient_RateLimitHandling(t *testing.T) {

@@ -4,9 +4,9 @@ import (
 	"context"
 	"fmt"
 	
-	"github.com/S-Corkum/devops-mcp/internal/database"
-	"github.com/S-Corkum/devops-mcp/internal/observability"
-	"github.com/S-Corkum/devops-mcp/internal/repository"
+	"github.com/S-Corkum/devops-mcp/pkg/database"
+	commonMetrics "github.com/S-Corkum/devops-mcp/pkg/common/metrics"
+	"github.com/S-Corkum/devops-mcp/pkg/repository"
 	"github.com/gin-gonic/gin"
 )
 
@@ -38,14 +38,23 @@ func (s *Server) setupVectorAPI(ctx context.Context) error {
 	}
 	
 	// Create repository
-	embedRepo := repository.NewEmbeddingRepository(s.db)
+	repoImpl := repository.NewEmbeddingRepository(s.vectorDB)
 	
-	// Store repository in server for use in other components
-	s.embeddingRepo = embedRepo
+	// Create server adapter to handle type conversions
+	adapter := NewServerEmbeddingAdapter(repoImpl)
+	
+	// Store both the repository and adapter in the server
+	s.embeddingRepo = repoImpl
+	s.embeddingAdapter = adapter
+	
+	// Create vector API with the adapter
+	vectorAPI := NewVectorAPI(adapter, s.logger)
 	
 	// Setup vector routes directly on the server
 	apiV1 := s.router.Group("/api/v1")
-	s.setupVectorRoutes(apiV1)
+	
+	// Register vector API routes
+	vectorAPI.RegisterRoutes(apiV1)
 	
 	logger.Info("Vector API routes registered", map[string]interface{}{
 		"path": "/api/v1/vectors",
@@ -65,7 +74,7 @@ func (s *Server) setupVectorAPI(ctx context.Context) error {
 	
 	// Add metrics middleware
 	vectorRoutes := apiV1.Group("/vectors")
-	vectorRoutes.Use(createVectorMetricsMiddleware(s.metrics))
+	vectorRoutes.Use(createVectorMetricsMiddleware(s.metricsAdapter))
 	
 	logger.Info("Vector metrics middleware added", nil)
 	
@@ -73,7 +82,7 @@ func (s *Server) setupVectorAPI(ctx context.Context) error {
 }
 
 // createVectorMetricsMiddleware creates a middleware for vector metrics
-func createVectorMetricsMiddleware(metrics observability.MetricsClient) gin.HandlerFunc {
+func createVectorMetricsMiddleware(metrics commonMetrics.Client) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		// Process the request
 		c.Next()

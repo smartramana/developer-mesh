@@ -11,9 +11,9 @@ import (
 	"sync"
 	"time"
 
-	"github.com/S-Corkum/devops-mcp/internal/common/errors"
-	"github.com/S-Corkum/devops-mcp/internal/adapters/resilience"
-	"github.com/S-Corkum/devops-mcp/internal/observability"
+	cerrors "github.com/S-Corkum/devops-mcp/pkg/common/errors"
+	"github.com/S-Corkum/devops-mcp/apps/mcp-server/internal/adapters/resilience"
+	"github.com/S-Corkum/devops-mcp/pkg/observability"
 	"github.com/golang-jwt/jwt/v4"
 )
 
@@ -223,7 +223,7 @@ type GraphQLClient struct {
 	config        *Config
 	client        *http.Client
 	rateLimiter   resilience.RateLimiter
-	logger        *observability.Logger
+	logger        observability.Logger
 	metricsClient observability.MetricsClient
 	queryCache    map[string]interface{}
 	cacheMutex    sync.RWMutex
@@ -240,7 +240,7 @@ type Config struct {
 }
 
 // NewGraphQLClient creates a new GitHub GraphQL client
-func NewGraphQLClient(config *Config, client *http.Client, rateLimiter resilience.RateLimiter, logger *observability.Logger, metricsClient observability.MetricsClient) *GraphQLClient {
+func NewGraphQLClient(config *Config, client *http.Client, rateLimiter resilience.RateLimiter, logger observability.Logger, metricsClient observability.MetricsClient) *GraphQLClient {
 	// Set default URL if not provided
 	if config.URL == "" {
 		config.URL = "https://api.github.com/graphql"
@@ -292,8 +292,8 @@ func DefaultPaginationOptions() *PaginationOptions {
 func (c *GraphQLClient) Query(ctx context.Context, query string, variables map[string]interface{}, result interface{}) error {
 	// Check rate limits before sending request
 	if c.rateLimiter != nil && !c.rateLimiter.Allow() {
-		return errors.NewGitHubError(
-			errors.ErrRateLimitExceeded,
+		return cerrors.NewGitHubError(
+			cerrors.ErrRateLimitExceeded,
 			0,
 			"rate limit exceeded for GitHub GraphQL API",
 		)
@@ -314,14 +314,14 @@ func (c *GraphQLClient) Query(ctx context.Context, query string, variables map[s
 	// If the response has no data, that's an error
 	if resp.Data == nil || len(resp.Data) == 0 {
 		if len(resp.Errors) > 0 {
-			return errors.NewGitHubError(
-				errors.ErrGraphQLResponse,
+			return cerrors.NewGitHubError(
+				cerrors.ErrGraphQLResponse,
 				0,
 				resp.Errors[0].Message,
 			).WithResource("graphql", "")
 		}
-		return errors.NewGitHubError(
-			errors.ErrGraphQLResponse,
+		return cerrors.NewGitHubError(
+			cerrors.ErrGraphQLResponse,
 			0,
 			"GraphQL response contained no data",
 		).WithResource("graphql", "")
@@ -345,16 +345,16 @@ func (c *GraphQLClient) Query(ctx context.Context, query string, variables map[s
 		// For other types, marshal and unmarshal
 		data, err := json.Marshal(resp.Data)
 		if err != nil {
-			return errors.NewGitHubError(
-				errors.ErrGraphQLResponse,
+			return cerrors.NewGitHubError(
+				cerrors.ErrGraphQLResponse,
 				0,
 				"failed to marshal GraphQL response data",
 			).WithContext("error", err.Error())
 		}
 
 		if err := json.Unmarshal(data, result); err != nil {
-			return errors.NewGitHubError(
-				errors.ErrGraphQLResponse,
+			return cerrors.NewGitHubError(
+				cerrors.ErrGraphQLResponse,
 				0,
 				"failed to unmarshal GraphQL response data",
 			).WithContext("error", err.Error()).
@@ -389,8 +389,8 @@ func (c *GraphQLClient) QueryPaginated(ctx context.Context, query string, variab
 		// Execute query
 		var resp map[string]interface{}
 		if err := c.Query(ctx, query, variables, &resp); err != nil {
-			return errors.NewGitHubError(
-				errors.ErrGraphQLResponse,
+			return cerrors.NewGitHubError(
+				cerrors.ErrGraphQLResponse,
 				0,
 				fmt.Sprintf("failed to fetch page %d", page),
 			).WithContext("error", err.Error())
@@ -399,8 +399,8 @@ func (c *GraphQLClient) QueryPaginated(ctx context.Context, query string, variab
 		// Handle page results
 		if options.ResultHandler != nil {
 			if err := options.ResultHandler(page, resp); err != nil {
-				return errors.NewGitHubError(
-					errors.ErrGraphQLResponse,
+				return cerrors.NewGitHubError(
+					cerrors.ErrGraphQLResponse,
 					0,
 					fmt.Sprintf("error handling page %d", page),
 				).WithContext("error", err.Error())
@@ -684,8 +684,8 @@ const (
 func (c *GraphQLClient) execute(ctx context.Context, req GraphQLRequest, resp *GraphQLResponse) error {
 	// Check rate limits before sending request
 	if c.rateLimiter != nil && !c.rateLimiter.Allow() {
-		return errors.NewGitHubError(
-			errors.ErrRateLimitExceeded,
+		return cerrors.NewGitHubError(
+			cerrors.ErrRateLimitExceeded,
 			0,
 			"rate limit exceeded for GitHub GraphQL API",
 		)
@@ -726,8 +726,8 @@ func (c *GraphQLClient) execute(ctx context.Context, req GraphQLRequest, resp *G
 		// GitHub App authentication using JWT
 		token, err := c.getJWTToken()
 		if err != nil {
-			return errors.NewGitHubError(
-				errors.ErrGraphQLRequest,
+			return cerrors.NewGitHubError(
+				cerrors.ErrGraphQLRequest,
 				0,
 				"failed to generate GitHub App JWT token",
 			).WithContext("error", err.Error())
@@ -743,8 +743,8 @@ func (c *GraphQLClient) execute(ctx context.Context, req GraphQLRequest, resp *G
 		}
 		
 		// Create a detailed error with context
-		githubErr := errors.NewGitHubError(
-			errors.ErrGraphQLRequest,
+		githubErr := cerrors.NewGitHubError(
+			cerrors.ErrGraphQLRequest,
 			0,
 			"failed to execute GraphQL request",
 		)
@@ -796,7 +796,7 @@ func (c *GraphQLClient) execute(ctx context.Context, req GraphQLRequest, resp *G
 		}
 		
 		// Create structured error based on status code
-		githubErr := errors.FromHTTPError(
+		githubErr := cerrors.FromHTTPError(
 			httpResp.StatusCode,
 			message,
 			errorResponse.Documentation,
@@ -834,8 +834,8 @@ func (c *GraphQLClient) execute(ctx context.Context, req GraphQLRequest, resp *G
 	// Read response body
 	body, err := io.ReadAll(httpResp.Body)
 	if err != nil {
-		return errors.NewGitHubError(
-			errors.ErrGraphQLResponse,
+		return cerrors.NewGitHubError(
+			cerrors.ErrGraphQLResponse,
 			httpResp.StatusCode,
 			"failed to read GraphQL response",
 		).WithContext("error", err.Error())
@@ -843,8 +843,8 @@ func (c *GraphQLClient) execute(ctx context.Context, req GraphQLRequest, resp *G
 
 	// Unmarshal response
 	if err := json.Unmarshal(body, resp); err != nil {
-		return errors.NewGitHubError(
-			errors.ErrGraphQLResponse,
+		return cerrors.NewGitHubError(
+			cerrors.ErrGraphQLResponse,
 			httpResp.StatusCode,
 			"failed to unmarshal GraphQL response",
 		).WithContext("error", err.Error())
@@ -870,8 +870,8 @@ func (c *GraphQLClient) execute(ctx context.Context, req GraphQLRequest, resp *G
 		// If response has no data, return error
 		if resp.Data == nil || len(resp.Data) == 0 {
 			// Create structured error
-			githubErr := errors.NewGitHubError(
-				errors.ErrGraphQLResponse,
+			githubErr := cerrors.NewGitHubError(
+				cerrors.ErrGraphQLResponse,
 				0,
 				resp.Errors[0].Message,
 			)
@@ -922,16 +922,16 @@ func (c *GraphQLClient) execute(ctx context.Context, req GraphQLRequest, resp *G
 func (c *GraphQLClient) getJWTToken() (string, error) {
 	// Check if App ID and private key are provided
 	if c.config.AppID == "" {
-		return "", errors.NewGitHubError(
-			errors.ErrInvalidAuthentication,
+		return "", cerrors.NewGitHubError(
+			cerrors.ErrInvalidAuthentication,
 			0,
 			"GitHub App ID is required for JWT generation",
 		)
 	}
 	
 	if c.config.AppPrivateKey == "" {
-		return "", errors.NewGitHubError(
-			errors.ErrInvalidAuthentication,
+		return "", cerrors.NewGitHubError(
+			cerrors.ErrInvalidAuthentication,
 			0, 
 			"GitHub App private key is required for JWT generation",
 		)
@@ -940,8 +940,8 @@ func (c *GraphQLClient) getJWTToken() (string, error) {
 	// Parse the private key
 	privateKey, err := jwt.ParseRSAPrivateKeyFromPEM([]byte(c.config.AppPrivateKey))
 	if err != nil {
-		return "", errors.NewGitHubError(
-			errors.ErrInvalidAuthentication,
+		return "", cerrors.NewGitHubError(
+			cerrors.ErrInvalidAuthentication,
 			0,
 			"failed to parse private key for JWT generation",
 		).WithContext("error", err.Error())
@@ -962,8 +962,8 @@ func (c *GraphQLClient) getJWTToken() (string, error) {
 	// Sign the token with the private key
 	tokenString, err := token.SignedString(privateKey)
 	if err != nil {
-		return "", errors.NewGitHubError(
-			errors.ErrInvalidAuthentication,
+		return "", cerrors.NewGitHubError(
+			cerrors.ErrInvalidAuthentication,
 			0,
 			"failed to sign JWT token",
 		).WithContext("error", err.Error())

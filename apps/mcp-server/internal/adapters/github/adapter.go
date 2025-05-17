@@ -9,12 +9,12 @@ import (
 	"sync"
 	"time"
 
-	"github.com/S-Corkum/devops-mcp/internal/events"
-	"github.com/S-Corkum/devops-mcp/internal/adapters/github/api"
-	"github.com/S-Corkum/devops-mcp/internal/adapters/github/auth"
-	wh "github.com/S-Corkum/devops-mcp/internal/adapters/github/webhook"
-	"github.com/S-Corkum/devops-mcp/internal/adapters/resilience"
-	"github.com/S-Corkum/devops-mcp/internal/observability"
+	"github.com/S-Corkum/devops-mcp/pkg/common/events"
+	"github.com/S-Corkum/devops-mcp/apps/mcp-server/internal/adapters/github/api"
+	"github.com/S-Corkum/devops-mcp/apps/mcp-server/internal/adapters/github/auth"
+	wh "github.com/S-Corkum/devops-mcp/apps/mcp-server/internal/adapters/github/webhook"
+	"github.com/S-Corkum/devops-mcp/apps/mcp-server/internal/adapters/resilience"
+	"github.com/S-Corkum/devops-mcp/pkg/observability"
 	"github.com/S-Corkum/devops-mcp/pkg/mcp"
 
 )
@@ -73,7 +73,7 @@ type GitHubAdapter struct {
 	authProvider    auth.AuthProvider
 	authFactory     *auth.AuthProviderFactory
 	metricsClient   observability.MetricsClient
-	logger          *observability.Logger
+	logger          observability.Logger
 	eventBus        events.EventBusIface // Use the proper EventBus interface
 	webhookManager  *wh.Manager
 	webhookValidator *wh.Validator
@@ -87,7 +87,7 @@ type GitHubAdapter struct {
 }
 
 // New creates a new GitHub adapter
-func New(config *Config, logger *observability.Logger, metricsClient observability.MetricsClient, eventBus events.EventBusIface) (*GitHubAdapter, error) {
+func New(config *Config, logger observability.Logger, metricsClient observability.MetricsClient, eventBus events.EventBusIface) (*GitHubAdapter, error) {
 	if config == nil {
 		return nil, fmt.Errorf("config cannot be nil")
 	}
@@ -253,7 +253,7 @@ func New(config *Config, logger *observability.Logger, metricsClient observabili
 
 
 // registerDefaultWebhookHandlers registers default webhook handlers
-func registerDefaultWebhookHandlers(manager *wh.Manager, eventBus interface{}, logger *observability.Logger) {
+func registerDefaultWebhookHandlers(manager *wh.Manager, eventBus interface{}, logger observability.Logger) {
 	handlers := wh.DefaultEventHandlers()
 
 	for eventType, handler := range handlers {
@@ -286,7 +286,7 @@ func registerWebhookSchemas(validator *wh.Validator) {
 }
 
 // processWebhookEvent processes a webhook event with the webhook manager
-func processWebhookEvent(ctx context.Context, event wh.Event, manager *wh.Manager, logger *observability.Logger) error {
+func processWebhookEvent(ctx context.Context, event wh.Event, manager *wh.Manager, logger observability.Logger) error {
 	logger.Info("Processing webhook event", map[string]interface{}{
 		"eventType":  event.Type,
 		"deliveryID": event.DeliveryID,

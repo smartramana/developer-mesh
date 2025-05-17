@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/S-Corkum/devops-mcp/internal/adapters/github"
+	"github.com/S-Corkum/devops-mcp/pkg/adapters/github"
 	"github.com/S-Corkum/devops-mcp/pkg/mcp/tool"
 )
 

@@ -5,7 +5,7 @@ import (
 	"errors"
 	"time"
 
-	"github.com/S-Corkum/devops-mcp/internal/cache"
+	"github.com/S-Corkum/devops-mcp/pkg/common/cache"
 	"github.com/S-Corkum/devops-mcp/pkg/mcp"
 )
 

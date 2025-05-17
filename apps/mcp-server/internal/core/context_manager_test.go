@@ -3,7 +3,7 @@ package core
 import (
 	"testing"
 
-	"github.com/S-Corkum/devops-mcp/internal/cache/mocks"
+	"github.com/S-Corkum/devops-mcp/pkg/common/cache/mocks"
 	"github.com/S-Corkum/devops-mcp/pkg/mcp"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"

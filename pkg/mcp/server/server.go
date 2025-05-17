@@ -1,15 +1,15 @@
 package server
 
 import (
-	"github.com/S-Corkum/devops-mcp/internal/adapters/github"
-	"github.com/S-Corkum/devops-mcp/internal/observability"
+	"github.com/S-Corkum/devops-mcp/pkg/adapters/github"
+	"github.com/S-Corkum/devops-mcp/pkg/observability"
 	"github.com/gin-gonic/gin"
 )
 
 // MCPServer represents a Model Context Protocol server
 type MCPServer struct {
 	router        *gin.Engine
-	logger        *observability.Logger
+	logger        observability.Logger
 	githubAdapter *github.GitHubAdapter
 }
 
@@ -21,7 +21,7 @@ type Config struct {
 
 // NewMCPServer creates a new MCP server
 func NewMCPServer(
-	logger *observability.Logger,
+	logger observability.Logger,
 	githubAdapter *github.GitHubAdapter,
 	config *Config,
 ) *MCPServer {

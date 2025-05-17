@@ -5,7 +5,7 @@ import (
 	"net/http"
 
 	"github.com/gorilla/mux"
-	"github.com/S-Corkum/devops-mcp/internal/api/webhooks"
+	"github.com/S-Corkum/devops-mcp/apps/rest-api/internal/api/webhooks"
 )
 
 // WebhookProvider represents a webhook provider's registration logic

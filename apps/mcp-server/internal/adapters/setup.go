@@ -3,14 +3,14 @@ package adapters
 import (
 	"context"
 
-	"github.com/S-Corkum/devops-mcp/internal/adapters/bridge"
-	"github.com/S-Corkum/devops-mcp/internal/adapters/core"
-	adapterEvents "github.com/S-Corkum/devops-mcp/internal/adapters/events"
-	"github.com/S-Corkum/devops-mcp/internal/adapters/providers"
-	"github.com/S-Corkum/devops-mcp/internal/config"
-	"github.com/S-Corkum/devops-mcp/internal/events"
-	"github.com/S-Corkum/devops-mcp/internal/events/system"
-	"github.com/S-Corkum/devops-mcp/internal/observability"
+	"github.com/S-Corkum/devops-mcp/apps/mcp-server/internal/adapters/bridge"
+	"github.com/S-Corkum/devops-mcp/apps/mcp-server/internal/adapters/core"
+	adapterEvents "github.com/S-Corkum/devops-mcp/apps/mcp-server/internal/adapters/events"
+	"github.com/S-Corkum/devops-mcp/apps/mcp-server/internal/adapters/providers"
+	"github.com/S-Corkum/devops-mcp/pkg/common/config"
+	"github.com/S-Corkum/devops-mcp/pkg/common/events"
+	"github.com/S-Corkum/devops-mcp/pkg/common/events/system"
+	"github.com/S-Corkum/devops-mcp/pkg/observability"
 )
 
 // AdapterManager manages the lifecycle of adapters
@@ -20,7 +20,7 @@ type AdapterManager struct {
 	adapterEventBus *adapterEvents.EventBus
 	systemEventBus  *events.EventBus
 	eventBridge     *bridge.EventBridge
-	logger          *observability.Logger
+	logger          observability.Logger
 	MetricsClient   observability.MetricsClient
 }
 
@@ -29,7 +29,7 @@ func NewAdapterManager(
 	cfg *config.Config,
 	_ interface{}, // Formerly contextManager, kept for backward compatibility
 	systemEventBus system.EventBus,
-	logger *observability.Logger,
+	logger observability.Logger,
 	metricsClient observability.MetricsClient,
 ) *AdapterManager {
 	// Create events bus for adapters

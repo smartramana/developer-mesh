@@ -6,9 +6,9 @@ package providers
 import (
 	"fmt"
 
-	"github.com/S-Corkum/devops-mcp/internal/adapters/core"
-	"github.com/S-Corkum/devops-mcp/internal/adapters/providers/github"
-	"github.com/S-Corkum/devops-mcp/internal/observability"
+	"github.com/S-Corkum/devops-mcp/apps/mcp-server/internal/adapters/core"
+	"github.com/S-Corkum/devops-mcp/apps/mcp-server/internal/adapters/providers/github"
+	"github.com/S-Corkum/devops-mcp/pkg/observability"
 )
 
 // RegisterAllProviders registers all adapter providers with the factory.
@@ -25,7 +25,7 @@ import (
 // Returns:
 //   - error: If any provider registration fails
 func RegisterAllProviders(factory *core.DefaultAdapterFactory, eventBus interface{}, 
-	metricsClient observability.MetricsClient, logger *observability.Logger) error {
+	metricsClient observability.MetricsClient, logger observability.Logger) error {
 	
 	// Register GitHub adapter
 	if err := github.RegisterAdapter(factory, eventBus, metricsClient, logger); err != nil {

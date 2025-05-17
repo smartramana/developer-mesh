@@ -6,7 +6,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/S-Corkum/devops-mcp/internal/adapters/core"
+	"github.com/S-Corkum/devops-mcp/apps/mcp-server/internal/adapters/core"
 	"github.com/S-Corkum/devops-mcp/pkg/mcp"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"

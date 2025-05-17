@@ -3,7 +3,7 @@ package embedding
 import (
 	"testing"
 
-	"github.com/S-Corkum/devops-mcp/internal/chunking"
+	"github.com/S-Corkum/devops-mcp/pkg/chunking"
 	"github.com/DATA-DOG/go-sqlmock"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"

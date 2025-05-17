@@ -3,9 +3,11 @@ package api
 import (
 	"context"
 	"net/http"
+	"time"
 	
-	"github.com/S-Corkum/devops-mcp/internal/observability"
-	"github.com/S-Corkum/devops-mcp/internal/repository"
+	"github.com/S-Corkum/devops-mcp/pkg/models"
+	"github.com/S-Corkum/devops-mcp/pkg/observability"
+	"github.com/S-Corkum/devops-mcp/pkg/repository"
 	"github.com/gin-gonic/gin"
 )
 
@@ -30,11 +32,185 @@ type SearchEmbeddingsRequest struct {
 // VectorAPI handles the vector operations API endpoints
 type VectorAPI struct {
 	embedRepo EmbeddingRepositoryInterface
-	logger    *observability.Logger
+	logger    observability.Logger
+}
+
+// VectorRepositoryAdapter adapts between repository.VectorAPIRepository and EmbeddingRepositoryInterface
+type VectorRepositoryAdapter struct {
+	repo repository.VectorAPIRepository
+}
+
+// Ensure the adapter implements the interface
+var _ EmbeddingRepositoryInterface = (*VectorRepositoryAdapter)(nil)
+
+// StoreEmbedding adapts between models.Vector and repository.Embedding
+func (a *VectorRepositoryAdapter) StoreEmbedding(ctx context.Context, vector *models.Vector) error {
+	// Get content_index and model_id from metadata if present
+	var contentIndex int
+	var modelID string
+	if vector.Metadata != nil {
+		if ci, ok := vector.Metadata["content_index"]; ok {
+			if ciInt, ok := ci.(int); ok {
+				contentIndex = ciInt
+			}
+		}
+		if mi, ok := vector.Metadata["model_id"]; ok {
+			if miStr, ok := mi.(string); ok {
+				modelID = miStr
+			}
+		}
+	}
+
+	// Convert from models.Vector to repository.Embedding
+	repoEmbedding := &repository.Embedding{
+		ID:           vector.ID,
+		ContextID:    vector.TenantID, // Map TenantID to ContextID
+		ContentIndex: contentIndex,    // From metadata
+		Text:         vector.Content,  // Map Content to Text
+		Embedding:    vector.Embedding,
+		ModelID:      modelID,         // From metadata
+	}
+	return a.repo.StoreEmbedding(ctx, repoEmbedding)
+}
+
+// SearchEmbeddings adapts between the API and repository
+func (a *VectorRepositoryAdapter) SearchEmbeddings(ctx context.Context, queryVector []float32, contextID string, modelID string, limit int, similarityThreshold float64) ([]*models.Vector, error) {
+	results, err := a.repo.SearchEmbeddings(ctx, queryVector, contextID, modelID, limit, similarityThreshold)
+	if err != nil {
+		return nil, err
+	}
+	
+	// Convert from repository.Embedding to models.Vector
+	vectors := make([]*models.Vector, 0, len(results))
+	for _, e := range results {
+		// Create metadata map for content_index and model_id
+		metadata := map[string]interface{}{
+			"content_index": e.ContentIndex,
+			"model_id":      e.ModelID,
+		}
+
+		vectors = append(vectors, &models.Vector{
+			ID:        e.ID,
+			TenantID:  e.ContextID, // Map ContextID to TenantID
+			Content:   e.Text,      // Map Text to Content
+			Embedding: e.Embedding,
+			Metadata:  metadata,
+			CreatedAt: time.Now(), // We don't have this from repository.Embedding
+			UpdatedAt: time.Now(), // We don't have this from repository.Embedding
+		})
+	}
+	return vectors, nil
+}
+
+// SearchEmbeddings_Legacy adapts for legacy search
+func (a *VectorRepositoryAdapter) SearchEmbeddings_Legacy(ctx context.Context, queryVector []float32, contextID string, limit int) ([]*models.Vector, error) {
+	results, err := a.repo.SearchEmbeddings_Legacy(ctx, queryVector, contextID, limit)
+	if err != nil {
+		return nil, err
+	}
+	
+	// Convert from repository.Embedding to models.Vector
+	vectors := make([]*models.Vector, 0, len(results))
+	for _, e := range results {
+		// Create metadata map for content_index and model_id
+		metadata := map[string]interface{}{
+			"content_index": e.ContentIndex,
+			"model_id":      e.ModelID,
+		}
+
+		vectors = append(vectors, &models.Vector{
+			ID:        e.ID,
+			TenantID:  e.ContextID, // Map ContextID to TenantID
+			Content:   e.Text,      // Map Text to Content
+			Embedding: e.Embedding,
+			Metadata:  metadata,
+			CreatedAt: time.Now(), // We don't have this from repository.Embedding
+			UpdatedAt: time.Now(), // We don't have this from repository.Embedding
+		})
+	}
+	return vectors, nil
+}
+
+// GetContextEmbeddings adapts between the API and repository
+func (a *VectorRepositoryAdapter) GetContextEmbeddings(ctx context.Context, contextID string) ([]*models.Vector, error) {
+	results, err := a.repo.GetContextEmbeddings(ctx, contextID)
+	if err != nil {
+		return nil, err
+	}
+	
+	// Convert from repository.Embedding to models.Vector
+	vectors := make([]*models.Vector, 0, len(results))
+	for _, e := range results {
+		// Create metadata map for content_index and model_id
+		metadata := map[string]interface{}{
+			"content_index": e.ContentIndex,
+			"model_id":      e.ModelID,
+		}
+
+		vectors = append(vectors, &models.Vector{
+			ID:        e.ID,
+			TenantID:  e.ContextID, // Map ContextID to TenantID
+			Content:   e.Text,      // Map Text to Content
+			Embedding: e.Embedding,
+			Metadata:  metadata,
+			CreatedAt: time.Now(), // We don't have this from repository.Embedding
+			UpdatedAt: time.Now(), // We don't have this from repository.Embedding
+		})
+	}
+	return vectors, nil
+}
+
+// DeleteContextEmbeddings adapts between the API and repository
+func (a *VectorRepositoryAdapter) DeleteContextEmbeddings(ctx context.Context, contextID string) error {
+	return a.repo.DeleteContextEmbeddings(ctx, contextID)
+}
+
+// GetEmbeddingsByModel adapts between the API and repository
+func (a *VectorRepositoryAdapter) GetEmbeddingsByModel(ctx context.Context, contextID string, modelID string) ([]*models.Vector, error) {
+	results, err := a.repo.GetEmbeddingsByModel(ctx, contextID, modelID)
+	if err != nil {
+		return nil, err
+	}
+	
+	// Convert from repository.Embedding to models.Vector
+	vectors := make([]*models.Vector, 0, len(results))
+	for _, e := range results {
+		// Create metadata map for content_index and model_id
+		metadata := map[string]interface{}{
+			"content_index": e.ContentIndex,
+			"model_id":      e.ModelID,
+		}
+
+		vectors = append(vectors, &models.Vector{
+			ID:        e.ID,
+			TenantID:  e.ContextID, // Map ContextID to TenantID
+			Content:   e.Text,      // Map Text to Content
+			Embedding: e.Embedding,
+			Metadata:  metadata,
+			CreatedAt: time.Now(), // We don't have this from repository.Embedding
+			UpdatedAt: time.Now(), // We don't have this from repository.Embedding
+		})
+	}
+	return vectors, nil
+}
+
+// GetSupportedModels adapts between the API and repository
+func (a *VectorRepositoryAdapter) GetSupportedModels(ctx context.Context) ([]string, error) {
+	return a.repo.GetSupportedModels(ctx)
+}
+
+// DeleteModelEmbeddings adapts between the API and repository
+func (a *VectorRepositoryAdapter) DeleteModelEmbeddings(ctx context.Context, contextID string, modelID string) error {
+	return a.repo.DeleteModelEmbeddings(ctx, contextID, modelID)
+}
+
+// NewVectorRepositoryAdapter creates a new adapter
+func NewVectorRepositoryAdapter(repo repository.VectorAPIRepository) EmbeddingRepositoryInterface {
+	return &VectorRepositoryAdapter{repo: repo}
 }
 
 // NewVectorAPI creates a new vector API handler
-func NewVectorAPI(embedRepo EmbeddingRepositoryInterface, logger *observability.Logger) *VectorAPI {
+func NewVectorAPI(embedRepo EmbeddingRepositoryInterface, logger observability.Logger) *VectorAPI {
 	return &VectorAPI{
 		embedRepo: embedRepo,
 		logger:    logger,
@@ -43,12 +219,12 @@ func NewVectorAPI(embedRepo EmbeddingRepositoryInterface, logger *observability.
 
 // EmbeddingRepositoryInterface defines the interface for embedding repository operations
 type EmbeddingRepositoryInterface interface {
-	StoreEmbedding(ctx context.Context, embedding *repository.Embedding) error
-	SearchEmbeddings(ctx context.Context, queryVector []float32, contextID string, modelID string, limit int, similarityThreshold float64) ([]*repository.Embedding, error)
-	SearchEmbeddings_Legacy(ctx context.Context, queryVector []float32, contextID string, limit int) ([]*repository.Embedding, error)
-	GetContextEmbeddings(ctx context.Context, contextID string) ([]*repository.Embedding, error)
+	StoreEmbedding(ctx context.Context, embedding *models.Vector) error
+	SearchEmbeddings(ctx context.Context, queryVector []float32, contextID string, modelID string, limit int, similarityThreshold float64) ([]*models.Vector, error)
+	SearchEmbeddings_Legacy(ctx context.Context, queryVector []float32, contextID string, limit int) ([]*models.Vector, error)
+	GetContextEmbeddings(ctx context.Context, contextID string) ([]*models.Vector, error)
 	DeleteContextEmbeddings(ctx context.Context, contextID string) error
-	GetEmbeddingsByModel(ctx context.Context, contextID string, modelID string) ([]*repository.Embedding, error)
+	GetEmbeddingsByModel(ctx context.Context, contextID string, modelID string) ([]*models.Vector, error)
 	GetSupportedModels(ctx context.Context) ([]string, error)
 	DeleteModelEmbeddings(ctx context.Context, contextID string, modelID string) error
 }
@@ -80,17 +256,24 @@ func (v *VectorAPI) storeEmbedding(c *gin.Context) {
 		return
 	}
 
-	// Create embedding object
-	embedding := &repository.Embedding{
-		ContextID:    req.ContextID,
-		ContentIndex: req.ContentIndex,
-		Text:         req.Text,
-		Embedding:    req.Embedding,
-		ModelID:      req.ModelID,
+	// Create metadata for content_index and model_id
+	metadata := map[string]interface{}{
+		"content_index": req.ContentIndex,
+		"model_id":      req.ModelID,
+	}
+
+	// Create Vector object as expected by the repository interface
+	vector := &models.Vector{
+		TenantID:  req.ContextID, // Map ContextID to TenantID
+		Content:   req.Text,      // Map Text to Content
+		Embedding: req.Embedding,
+		Metadata:  metadata,
+		CreatedAt: time.Now(),
+		UpdatedAt: time.Now(),
 	}
 
 	// Store embedding using repository
-	err := v.embedRepo.StoreEmbedding(c.Request.Context(), embedding)
+	err := v.embedRepo.StoreEmbedding(c.Request.Context(), vector)
 	if err != nil {
 		v.logger.Error("Failed to store embedding", map[string]interface{}{
 			"error":      err.Error(),
@@ -100,7 +283,7 @@ func (v *VectorAPI) storeEmbedding(c *gin.Context) {
 		return
 	}
 
-	c.JSON(http.StatusOK, embedding)
+	c.JSON(http.StatusOK, vector)
 }
 
 // searchEmbeddings handles searching for embeddings
@@ -121,7 +304,7 @@ func (v *VectorAPI) searchEmbeddings(c *gin.Context) {
 		req.Limit = 100 // Maximum limit
 	}
 
-	var embeddings []*repository.Embedding
+	var vectors []*models.Vector
 	var err error
 
 	// Check if model ID is provided (new multi-model support)
@@ -133,7 +316,7 @@ func (v *VectorAPI) searchEmbeddings(c *gin.Context) {
 		}
 
 		// Use the new multi-model search method
-		embeddings, err = v.embedRepo.SearchEmbeddings(
+		vectors, err = v.embedRepo.SearchEmbeddings(
 			c.Request.Context(),
 			req.QueryEmbedding,
 			req.ContextID,
@@ -143,12 +326,42 @@ func (v *VectorAPI) searchEmbeddings(c *gin.Context) {
 		)
 	} else {
 		// For backward compatibility, use the legacy method without model filtering
-		embeddings, err = v.embedRepo.SearchEmbeddings_Legacy(
+		vectors, err = v.embedRepo.SearchEmbeddings_Legacy(
 			c.Request.Context(),
 			req.QueryEmbedding,
 			req.ContextID,
 			req.Limit,
 		)
+	}
+
+	// Convert vectors to embeddings for API response
+	embeddings := make([]*models.Embedding, 0, len(vectors))
+	for _, v := range vectors {
+		// Extract content_index and model_id from metadata
+		contentIndex := 0
+		modelID := ""
+		if v.Metadata != nil {
+			if ci, ok := v.Metadata["content_index"]; ok {
+				if ciInt, ok := ci.(int); ok {
+					contentIndex = ciInt
+				}
+			}
+			if mi, ok := v.Metadata["model_id"]; ok {
+				if miStr, ok := mi.(string); ok {
+					modelID = miStr
+				}
+			}
+		}
+
+		// Convert to Embedding for API response
+		embeddings = append(embeddings, &models.Embedding{
+			ID:           v.ID,
+			ContextID:    v.TenantID,  // Map TenantID back to ContextID
+			ContentIndex: contentIndex,
+			Text:         v.Content,   // Map Content back to Text
+			Embedding:    v.Embedding,
+			ModelID:      modelID,
+		})
 	}
 
 	if err != nil {

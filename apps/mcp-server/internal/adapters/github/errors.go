@@ -1,7 +1,9 @@
 package github
 
 import (
-	commonerrors "github.com/S-Corkum/devops-mcp/internal/common/errors"
+	"fmt"
+
+	commonerrors "github.com/S-Corkum/devops-mcp/pkg/common/errors"
 )
 
 // Re-export functions from the commonerrors package
@@ -37,15 +39,36 @@ func NewGitHubErrorProvider() GitHubErrorProvider {
 
 // NewError creates a new GitHub error
 func (p *errorProvider) NewError(err error, statusCode int, message string) *GitHubError {
-	return NewGitHubError(err, statusCode, message)
+	// Create a new GitHubError directly instead of using the common adapter error
+	return &GitHubError{
+		Message: message,
+		Status:  statusCode,
+	}
 }
 
 // FromHTTPError creates a GitHub error from an HTTP error
 func (p *errorProvider) FromHTTPError(statusCode int, message, documentationURL string) *GitHubError {
-	return FromHTTPError(statusCode, message, documentationURL)
+	// Create a new GitHubError directly
+	return &GitHubError{
+		Message:          message,
+		DocumentationURL: documentationURL,
+		Status:           statusCode,
+	}
 }
 
 // FromWebhookError creates a GitHub error from a webhook error
 func (p *errorProvider) FromWebhookError(err error, eventType string) *GitHubError {
-	return FromWebhookError(err, eventType)
+	if err == nil {
+		return nil
+	}
+	
+	message := err.Error()
+	if eventType != "" {
+		message = fmt.Sprintf("[Event: %s] %s", eventType, message)
+	}
+	
+	return &GitHubError{
+		Message: message,
+		Status:  400, // Bad request is the default for webhook errors
+	}
 }

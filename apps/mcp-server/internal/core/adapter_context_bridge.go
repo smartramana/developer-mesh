@@ -6,8 +6,8 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/S-Corkum/devops-mcp/internal/adapters/core"
-	"github.com/S-Corkum/devops-mcp/internal/interfaces"
+	"github.com/S-Corkum/devops-mcp/apps/mcp-server/internal/adapters/core"
+	"github.com/S-Corkum/devops-mcp/pkg/mcp/interfaces"
 	"github.com/S-Corkum/devops-mcp/pkg/mcp"
 )
 

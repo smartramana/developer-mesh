@@ -9,7 +9,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/S-Corkum/devops-mcp/internal/chunking"
+	"github.com/S-Corkum/devops-mcp/pkg/chunking"
 )
 
 const (

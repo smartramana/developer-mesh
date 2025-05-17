@@ -6,7 +6,7 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/S-Corkum/devops-mcp/internal/chunking"
+	"github.com/S-Corkum/devops-mcp/pkg/chunking"
 )
 
 // EmbeddingFactoryConfig contains configuration for the embedding factory

@@ -10,7 +10,7 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/S-Corkum/devops-mcp/internal/chunking"
+	"github.com/S-Corkum/devops-mcp/pkg/chunking"
 )
 
 // Regex patterns for shell script elements

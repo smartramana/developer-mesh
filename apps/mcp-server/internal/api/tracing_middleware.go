@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/S-Corkum/devops-mcp/internal/observability"
+	"github.com/S-Corkum/devops-mcp/pkg/observability"
 	"github.com/gin-gonic/gin"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/propagation"

@@ -1,4 +1,4 @@
-package observability
+package logging
 
 import (
 	"fmt"
@@ -80,6 +80,28 @@ func (l *Logger) Error(message string, data map[string]interface{}) {
 	if l.shouldLog(LogLevelError) {
 		l.log(LogLevelError, message, data)
 	}
+}
+
+// Fatal logs a fatal error message with structured data and then exits the application
+func (l *Logger) Fatal(message string, data map[string]interface{}) {
+	// Always log fatal errors regardless of log level
+	timestamp := time.Now().UTC().Format(time.RFC3339)
+	
+	// Format structured data as key=value pairs
+	structuredData := ""
+	for k, v := range data {
+		structuredData += fmt.Sprintf(" %s=%v", k, v)
+	}
+	
+	// Format and output log message
+	logMsg := fmt.Sprintf("[%s] %s [FATAL] %s%s\n", 
+		timestamp, l.serviceName, message, structuredData)
+	
+	// Write to stderr for fatal errors
+	fmt.Fprint(os.Stderr, logMsg)
+	
+	// Exit with non-zero status code
+	os.Exit(1)
 }
 
 // WithPrefix creates a new logger with a combined service name

@@ -6,17 +6,17 @@ import (
 	"sync"
 	"time"
 
-	"github.com/S-Corkum/devops-mcp/internal/database"
-	"github.com/S-Corkum/devops-mcp/internal/observability"
-	"github.com/S-Corkum/devops-mcp/internal/relationship"
-	"github.com/S-Corkum/devops-mcp/internal/storage"
+	"github.com/S-Corkum/devops-mcp/pkg/database"
+	"github.com/S-Corkum/devops-mcp/pkg/observability"
+	"github.com/S-Corkum/devops-mcp/pkg/models/relationship"
+	"github.com/S-Corkum/devops-mcp/pkg/storage"
 )
 
 // GitHubContentManager manages GitHub content storage and retrieval
 type GitHubContentManager struct {
 	db                  *database.Database
 	storageManager      *storage.GitHubContentStorage
-	logger              *observability.Logger
+	logger              observability.Logger
 	lock                sync.RWMutex
 	metricsClient       observability.MetricsClient
 	relationshipManager *GitHubRelationshipManager

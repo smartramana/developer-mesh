@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/S-Corkum/devops-mcp/internal/chunking"
+	"github.com/S-Corkum/devops-mcp/pkg/chunking"
 )
 
 // extractObjects extracts object declarations from Kotlin code

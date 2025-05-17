@@ -5,10 +5,10 @@ import (
 	"fmt"
 	"sync"
 	
-	"github.com/S-Corkum/devops-mcp/internal/common"
-	commonConfig "github.com/S-Corkum/devops-mcp/internal/common/config"
-	"github.com/S-Corkum/devops-mcp/internal/config"
-	"github.com/S-Corkum/devops-mcp/internal/observability"
+	"github.com/S-Corkum/devops-mcp/pkg/common"
+	commonConfig "github.com/S-Corkum/devops-mcp/pkg/common/config"
+	"github.com/S-Corkum/devops-mcp/pkg/config"
+	"github.com/S-Corkum/devops-mcp/pkg/observability"
 	"github.com/jmoiron/sqlx"
 )
 
@@ -16,14 +16,14 @@ import (
 type VectorDatabase struct {
 	db          *sqlx.DB
 	vectorDB    *sqlx.DB
-	logger      *observability.Logger
+	logger      observability.Logger
 	config      *commonConfig.DatabaseVectorConfig
 	initialized bool
 	lock        sync.RWMutex
 }
 
 // NewVectorDatabase creates a new vector database
-func NewVectorDatabase(db *sqlx.DB, cfg interface{}, logger *observability.Logger) (*VectorDatabase, error) {
+func NewVectorDatabase(db *sqlx.DB, cfg interface{}, logger observability.Logger) (*VectorDatabase, error) {
 	if logger == nil {
 		logger = observability.NewLogger("vector_database")
 	}

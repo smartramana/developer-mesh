@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/S-Corkum/devops-mcp/internal/core"
-	"github.com/S-Corkum/devops-mcp/internal/storage"
+	"github.com/S-Corkum/devops-mcp/pkg/core"
+	"github.com/S-Corkum/devops-mcp/pkg/storage"
 )
 
 // Define local versions of these types for the adapter

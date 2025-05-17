@@ -1,7 +1,7 @@
 package parsers
 
 import (
-	"github.com/S-Corkum/devops-mcp/internal/chunking"
+	"github.com/S-Corkum/devops-mcp/pkg/chunking"
 )
 
 // NewParserFactory creates a new parser factory that registers all supported language parsers

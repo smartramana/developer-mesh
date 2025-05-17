@@ -8,7 +8,7 @@ import (
 	"net/http/httptest"
 	"testing"
 	
-	"github.com/S-Corkum/devops-mcp/internal/observability"
+	"github.com/S-Corkum/devops-mcp/pkg/observability"
 	"github.com/S-Corkum/devops-mcp/pkg/mcp/tool"
 	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/assert"
@@ -51,7 +51,7 @@ func (m *MockGitHubAdapter) Close() error {
 }
 
 // Trick for testing - create a test-only constructor
-func newTestGitHubToolsHandler(mockAdapter *MockGitHubAdapter, logger *observability.Logger) *GitHubToolsHandler {
+func newTestGitHubToolsHandler(mockAdapter *MockGitHubAdapter, logger observability.Logger) *GitHubToolsHandler {
 	registry := tool.NewToolRegistry()
 	
 	// Add some test tools to the registry
@@ -82,9 +82,8 @@ func TestGitHubToolsHandler_ListTools(t *testing.T) {
 	// Setup
 	gin.SetMode(gin.TestMode)
 	mockAdapter := new(MockGitHubAdapter)
+	// Create an observability logger directly
 	logger := observability.NewLogger("test")
-	// Set minimum log level to debug for tests
-	logger.SetMinLevel(observability.LogLevelDebug)
 	
 	// Create handler using our test constructor
 	handler := newTestGitHubToolsHandler(mockAdapter, logger)
@@ -124,8 +123,6 @@ func TestGitHubToolsHandler_GetToolSchema(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	mockAdapter := new(MockGitHubAdapter)
 	logger := observability.NewLogger("test")
-	// Set minimum log level to debug for tests
-	logger.SetMinLevel(observability.LogLevelDebug)
 	
 	// Create handler using our test constructor
 	handler := newTestGitHubToolsHandler(mockAdapter, logger)
@@ -165,8 +162,6 @@ func TestGitHubToolsHandler_ExecuteTool(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	mockAdapter := new(MockGitHubAdapter)
 	logger := observability.NewLogger("test")
-	// Set minimum log level to debug for tests
-	logger.SetMinLevel(observability.LogLevelDebug)
 	
 	// Setup mock expectations
 	mockAdapter.On("ExecuteAction", mock.Anything, "default", "getRepository", 

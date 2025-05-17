@@ -4,7 +4,7 @@ import (
 	"context"
 	"sync"
 
-	"github.com/S-Corkum/devops-mcp/internal/adapters/events"
+	"github.com/S-Corkum/devops-mcp/apps/mcp-server/internal/adapters/events"
 	"github.com/S-Corkum/devops-mcp/pkg/mcp"
 )
 

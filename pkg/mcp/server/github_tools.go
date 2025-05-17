@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"net/http"
 
-	"github.com/S-Corkum/devops-mcp/internal/adapters/github"
-	"github.com/S-Corkum/devops-mcp/internal/observability"
+	"github.com/S-Corkum/devops-mcp/pkg/adapters/github"
+	"github.com/S-Corkum/devops-mcp/pkg/observability"
 	"github.com/S-Corkum/devops-mcp/pkg/mcp/tool"
 	githubtools "github.com/S-Corkum/devops-mcp/pkg/mcp/tool/github"
 	"github.com/gin-gonic/gin"
@@ -15,14 +15,14 @@ import (
 // GitHubToolsHandler handles GitHub tool endpoints
 type GitHubToolsHandler struct {
 	registry     *tool.ToolRegistry
-	logger       *observability.Logger
+	logger       observability.Logger
 	githubConfig *github.Config
 }
 
 // NewGitHubToolsHandler creates a new GitHub tools handler
 func NewGitHubToolsHandler(
 	githubAdapter *github.GitHubAdapter,
-	logger *observability.Logger,
+	logger observability.Logger,
 ) *GitHubToolsHandler {
 	registry := tool.NewToolRegistry()
 	
@@ -162,7 +162,7 @@ func (h *GitHubToolsHandler) executeTool(c *gin.Context) {
 func RegisterGitHubTools(
 	router *gin.Engine,
 	githubAdapter *github.GitHubAdapter,
-	logger *observability.Logger,
+	logger observability.Logger,
 ) {
 	handler := NewGitHubToolsHandler(githubAdapter, logger)
 	

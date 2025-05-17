@@ -8,7 +8,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/S-Corkum/devops-mcp/internal/observability"
+	"github.com/S-Corkum/devops-mcp/pkg/observability"
 )
 
 // RetryConfig holds configuration for the retry manager
@@ -140,7 +140,7 @@ type RetryManager struct {
 	config   *RetryConfig
 	storage  RetryStorage
 	handler  RetryHandler
-	logger   *observability.Logger
+	logger   observability.Logger
 	queue    chan *RetryInfo
 	mutex    sync.RWMutex
 	closed   bool
@@ -151,7 +151,7 @@ type RetryManager struct {
 }
 
 // NewRetryManager creates a new retry manager
-func NewRetryManager(config *RetryConfig, storage RetryStorage, handler RetryHandler, logger *observability.Logger) *RetryManager {
+func NewRetryManager(config *RetryConfig, storage RetryStorage, handler RetryHandler, logger observability.Logger) *RetryManager {
 	if config == nil {
 		config = DefaultRetryConfig()
 	}

@@ -13,10 +13,10 @@ import (
 	"sync"
 	"time"
 
-	"github.com/S-Corkum/devops-mcp/internal/adapters/errors"
-	"github.com/S-Corkum/devops-mcp/internal/adapters/github/auth"
-	"github.com/S-Corkum/devops-mcp/internal/adapters/resilience"
-	"github.com/S-Corkum/devops-mcp/internal/observability"
+	"github.com/S-Corkum/devops-mcp/apps/mcp-server/internal/adapters/errors"
+	"github.com/S-Corkum/devops-mcp/apps/mcp-server/internal/adapters/github/auth"
+	"github.com/S-Corkum/devops-mcp/apps/mcp-server/internal/adapters/resilience"
+	"github.com/S-Corkum/devops-mcp/pkg/observability"
 )
 
 // RESTClient provides a client for the GitHub REST API
@@ -26,7 +26,7 @@ type RESTClient struct {
 	client        *http.Client
 	rateLimiter   resilience.RateLimiter
 	authProvider  auth.AuthProvider
-	logger        *observability.Logger
+	logger        observability.Logger
 	metricsClient observability.MetricsClient
 	etagCache     map[string]string
 	responseCache map[string]interface{}
@@ -43,7 +43,7 @@ type RESTConfig struct {
 }
 
 // NewRESTClient creates a new GitHub REST client
-func NewRESTClient(config *RESTConfig, client *http.Client, rateLimiter resilience.RateLimiter, logger *observability.Logger, metricsClient observability.MetricsClient) *RESTClient {
+func NewRESTClient(config *RESTConfig, client *http.Client, rateLimiter resilience.RateLimiter, logger observability.Logger, metricsClient observability.MetricsClient) *RESTClient {
 	// Set default base URL if not provided
 	baseURL := config.BaseURL
 	if baseURL == "" {
@@ -167,13 +167,13 @@ func (c *RESTClient) doRequest(ctx context.Context, opts requestOptions, result 
 	// Execute HTTP request
 	resp, err := c.client.Do(req)
 	if err != nil {
-		c.metricsClient.IncrementCounter("github.rest.error", 1)
+		c.metricsClient.IncrementCounter("github.rest.error", 1, nil)
 		return fmt.Errorf("failed to execute HTTP request: %w", err)
 	}
 	defer resp.Body.Close()
 	
 	// Log metrics
-	c.metricsClient.IncrementCounter("github.rest.request", 1)
+	c.metricsClient.IncrementCounter("github.rest.request", 1, nil)
 	
 	// Extract and store rate limit information
 	rateLimitInfo := c.extractRateLimitInfo(resp.Header)

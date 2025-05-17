@@ -3,8 +3,8 @@ package events
 import (
 	"context"
 	
-	"github.com/S-Corkum/devops-mcp/internal/events"
-	"github.com/S-Corkum/devops-mcp/internal/events/system"
+	"github.com/S-Corkum/devops-mcp/pkg/common/events"
+	"github.com/S-Corkum/devops-mcp/pkg/common/events/system"
 	"github.com/S-Corkum/devops-mcp/pkg/mcp"
 )
 

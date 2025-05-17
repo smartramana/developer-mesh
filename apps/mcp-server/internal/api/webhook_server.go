@@ -5,7 +5,7 @@ import (
 	"net/http"
 
 	"github.com/gorilla/mux"
-	"github.com/S-Corkum/devops-mcp/internal/api/webhooks"
+	"github.com/S-Corkum/devops-mcp/apps/mcp-server/internal/api/webhooks"
 )
 
 // WebhookProvider represents a webhook provider's registration logic
@@ -55,10 +55,10 @@ func (s *Server) RegisterWebhookRoutes(router *mux.Router) {
 			Name:     "github",
 			Enabled:  func() bool { return s.config.Webhook.GitHubEndpoint() != "" },
 			Endpoint: func() string { return s.config.Webhook.GitHubEndpoint() },
-			Handler:  func() http.HandlerFunc { return webhooks.GitHubWebhookHandler(&s.config.Webhook, s.logger) },
+			Handler:  func() http.HandlerFunc { return webhooks.GitHubWebhookHandler(&s.config.Webhook, s.loggerObsAdapter) },
 			Middleware: func() mux.MiddlewareFunc {
-				ipValidator := webhooks.NewGitHubIPValidator(s.logger)
-				return webhooks.GitHubIPValidationMiddleware(ipValidator, &s.config.Webhook, s.logger)
+				ipValidator := webhooks.NewGitHubIPValidator(s.loggerObsAdapter)
+				return webhooks.GitHubIPValidationMiddleware(ipValidator, &s.config.Webhook, s.loggerObsAdapter)
 			},
 		},
 		// Add more providers here as needed

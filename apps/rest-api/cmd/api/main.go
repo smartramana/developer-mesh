@@ -12,16 +12,16 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/S-Corkum/devops-mcp/internal/interfaces"
-	"github.com/S-Corkum/devops-mcp/internal/api"
-	"github.com/S-Corkum/devops-mcp/internal/aws"
-	"github.com/S-Corkum/devops-mcp/internal/cache"
-	commonConfig "github.com/S-Corkum/devops-mcp/internal/common/config"
-	"github.com/S-Corkum/devops-mcp/internal/config"
-	"github.com/S-Corkum/devops-mcp/internal/core"
-	"github.com/S-Corkum/devops-mcp/internal/database"
-	"github.com/S-Corkum/devops-mcp/internal/metrics"
-	"github.com/S-Corkum/devops-mcp/internal/observability"
+	"github.com/S-Corkum/devops-mcp/pkg/mcp/interfaces"
+	"github.com/S-Corkum/devops-mcp/apps/rest-api/internal/api"
+	"github.com/S-Corkum/devops-mcp/pkg/common/aws"
+	"github.com/S-Corkum/devops-mcp/pkg/common/cache"
+	commonConfig "github.com/S-Corkum/devops-mcp/pkg/common/config"
+	"github.com/S-Corkum/devops-mcp/pkg/common/config"
+	"github.com/S-Corkum/devops-mcp/apps/rest-api/internal/core"
+	"github.com/S-Corkum/devops-mcp/pkg/database"
+	"github.com/S-Corkum/devops-mcp/pkg/common/metrics"
+	"github.com/S-Corkum/devops-mcp/pkg/observability"
 
 	// Import PostgreSQL driver
 	_ "github.com/lib/pq"
@@ -113,7 +113,8 @@ func main() {
 			ConnMaxLifetime: cfg.AWS.RDS.ConnMaxLifetime,
 		}
 	} else {
-		dbConfig = cfg.Database
+		// Convert common config to database config using the helper function
+		dbConfig = database.FromDatabaseConfig(cfg.Database)
 	}
 
 	// Initialize database

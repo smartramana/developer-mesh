@@ -6,17 +6,17 @@ import (
 	"context"
 	"errors"
 
-	githubAdapter "github.com/S-Corkum/devops-mcp/internal/adapters/github"
+	githubAdapter "github.com/S-Corkum/devops-mcp/apps/mcp-server/internal/adapters/github"
 
-	"github.com/S-Corkum/devops-mcp/internal/events"
-	"github.com/S-Corkum/devops-mcp/internal/observability"
+	"github.com/S-Corkum/devops-mcp/pkg/common/events"
+	"github.com/S-Corkum/devops-mcp/pkg/observability"
 )
 
 // GitHubAdapter provides a convenient wrapper around the underlying GitHub adapter
 type GitHubAdapter struct {
 	adapter       *githubAdapter.GitHubAdapter
 	config        Config
-	logger        *observability.Logger
+	logger        observability.Logger
 	metricsClient observability.MetricsClient
 	eventBus      events.EventBusIface
 }
@@ -26,7 +26,7 @@ func NewAdapter(
 	config Config,
 	eventBus events.EventBusIface,
 	metricsClient observability.MetricsClient,
-	logger *observability.Logger,
+	logger observability.Logger,
 ) (*GitHubAdapter, error) {
 	// Validate logger first for test compatibility
 	if logger == nil {
