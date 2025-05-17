@@ -188,6 +188,11 @@ func New(config *Config, logger *observability.Logger, metricsClient observabili
 		// Create webhook validator
 		deliveryCache := wh.NewInMemoryDeliveryCache(config.WebhookDeliveryCache)
 		webhookValidator = wh.NewValidator(config.WebhookSecret, deliveryCache)
+		
+		// Disable signature validation if configured
+		if config.DisableSignatureValidation {
+			webhookValidator.DisableSignatureValidation()
+		}
 
 		// Register JSON schemas if payload validation is enabled
 		if config.WebhookValidatePayload {
@@ -1755,10 +1760,9 @@ func (a *GitHubAdapter) HandleWebhook(ctx context.Context, eventType string, pay
 	
 	// For test environments, we need to add a signature header
 	// In production, this would be calculated by GitHub using the webhook secret
-	// Since this is just for testing, we'll add a placeholder signature
-	// In the adapters/github/webhook/validator.go implementation, if the secret is empty,
-	// signature validation is skipped entirely
-	headers.Set("X-Hub-Signature-256", "sha256=test-signature")
+	// Since this is just for testing, we'll add a properly formatted dummy signature
+	// Signature format must be sha256=<hex-encoded-hmac>
+	headers.Set("X-Hub-Signature-256", "sha256=0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef")
 	// Check if webhooks are disabled
 	if a.config.DisableWebhooks {
 		return ErrWebhookDisabled

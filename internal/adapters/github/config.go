@@ -41,10 +41,11 @@ type Config struct {
 	
 	// Webhook settings
 	WebhookSecret        string        `mapstructure:"webhook_secret"`
+	WebhookDeliveryCache time.Duration `mapstructure:"webhook_delivery_cache"`
 	WebhookWorkers       int           `mapstructure:"webhook_workers"`
 	WebhookQueueSize     int           `mapstructure:"webhook_queue_size"`
 	WebhookMaxRetries    int           `mapstructure:"webhook_max_retries"`
-	WebhookDeliveryCache time.Duration `mapstructure:"webhook_delivery_cache"`
+	DisableSignatureValidation bool    `mapstructure:"disable_signature_validation"`
 	WebhookRetryInitialBackoff time.Duration `mapstructure:"webhook_retry_initial_backoff"`
 	WebhookRetryMaxBackoff time.Duration `mapstructure:"webhook_retry_max_backoff"`
 	WebhookRetryBackoffFactor float64   `mapstructure:"webhook_retry_backoff_factor"`

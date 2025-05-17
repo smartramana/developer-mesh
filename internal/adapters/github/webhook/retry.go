@@ -146,6 +146,8 @@ type RetryManager struct {
 	closed   bool
 	timer    *time.Timer
 	wg       sync.WaitGroup
+	ctx      context.Context    // Managed context for goroutines
+	cancel   context.CancelFunc // Cancel function to terminate all goroutines
 }
 
 // NewRetryManager creates a new retry manager
@@ -172,10 +174,14 @@ func (m *RetryManager) Start(ctx context.Context) error {
 		return fmt.Errorf("retry manager is closed")
 	}
 	
+	// Create a cancelable context that's controlled by the RetryManager
+	// This will allow us to cancel all goroutines when Close is called
+	m.ctx, m.cancel = context.WithCancel(context.Background())
+	
 	// Start workers
 	m.wg.Add(2)
-	go m.processQueue(ctx)
-	go m.schedulePendingRetries(ctx)
+	go m.processQueue(m.ctx)
+	go m.schedulePendingRetries(m.ctx)
 	
 	return nil
 }
@@ -190,11 +196,18 @@ func (m *RetryManager) Close() error {
 	}
 	
 	m.closed = true
+	
+	// Cancel the context to signal all goroutines to exit
+	if m.cancel != nil {
+		m.cancel()
+	}
+
+	// Close the queue channel to stop the processor
 	close(m.queue)
 	
-	// Use a context with timeout for shutdown instead of just a timer
-	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
-	defer cancel()
+	// Use a context with timeout for clean shutdown
+	shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), 2*time.Second)
+	defer shutdownCancel()
 	
 	// Create a channel for waiting with timeout
 	done := make(chan struct{})
@@ -208,9 +221,14 @@ func (m *RetryManager) Close() error {
 	case <-done:
 		// All workers exited successfully
 		m.logger.Info("All webhook retry workers exited gracefully", map[string]interface{}{})
-	case <-ctx.Done():
+	case <-shutdownCtx.Done():
 		// Timeout occurred
 		m.logger.Warn("Timed out waiting for retry workers to exit", map[string]interface{}{})
+	}
+	
+	// Stop the timer if it exists
+	if m.timer != nil {
+		m.timer.Stop()
 	}
 	
 	return nil

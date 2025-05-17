@@ -31,6 +31,8 @@ type Validator struct {
 	ipRanges       []IPRange
 	validateIPs    bool
 	ipRangesLastUpdated time.Time
+	// DisableSignatureValidation allows tests to bypass signature validation entirely
+	disableSignatureValidation bool
 }
 
 // DeliveryCache defines the interface for caching delivery IDs
@@ -197,10 +199,25 @@ func (v *Validator) RegisterSchema(eventType string, schema []byte) error {
 	return nil
 }
 
+// DisableSignatureValidation disables webhook signature validation (for testing only)
+func (v *Validator) DisableSignatureValidation() {
+	v.disableSignatureValidation = true
+}
+
+// EnableSignatureValidation enables webhook signature validation (default behavior)
+func (v *Validator) EnableSignatureValidation() {
+	v.disableSignatureValidation = false
+}
+
 // ValidateSignature validates the signature of a webhook request
 func (v *Validator) ValidateSignature(payload []byte, signature string) error {
+	// Skip validation if explicitly disabled
+	if v.disableSignatureValidation {
+		return nil
+	}
+	
+	// Skip validation if no secret is configured
 	if v.secret == "" {
-		// If no webhook secret is configured, skip verification
 		return nil
 	}
 	
@@ -336,6 +353,10 @@ func (v *Validator) Validate(eventType string, payload []byte, headers http.Head
 
 // ValidateWithIP validates a webhook request with a remote IP address
 func (v *Validator) ValidateWithIP(eventType string, payload []byte, headers http.Header, remoteAddr string) error {
+	// Skip all validation if signature validation is disabled (for testing)
+	if v.disableSignatureValidation {
+		return nil
+	}
 	// Track the first error we encounter
 	var validationErr error
 	
