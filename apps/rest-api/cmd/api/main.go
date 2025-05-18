@@ -161,12 +161,8 @@ func main() {
 	}
 	defer cacheClient.Close()
 
-	// Initialize engine
-	var engine *core.Engine
-	engine, err = core.NewEngine(ctx, cfg.Engine, db, cacheClient, metricsClient)
-	if err != nil {
-		log.Fatalf("Failed to initialize core engine: %v", err)
-	}
+	// Initialize core engine with logger
+	engine := core.NewEngine(logger)
 	defer engine.Shutdown(ctx)
 
 	// Convert interfaces.APIConfig to api.Config

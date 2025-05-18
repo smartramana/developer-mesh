@@ -4,8 +4,8 @@ import (
 	"net/http"
 	"github.com/gin-gonic/gin"
 	"github.com/S-Corkum/devops-mcp/pkg/models"
-	"github.com/S-Corkum/devops-mcp/pkg/storage"
 	"github.com/S-Corkum/devops-mcp/pkg/common/util"
+	"github.com/S-Corkum/devops-mcp/apps/rest-api/internal/repository"
 )
 
 // getTenantIDFromContext extracts the tenant ID from the Gin context (from AuthMiddleware)

@@ -1,0 +1,140 @@
+package adapters
+
+import (
+	"context"
+	
+	internalRepo "github.com/S-Corkum/devops-mcp/apps/rest-api/internal/repository"
+	pkgRepo "github.com/S-Corkum/devops-mcp/pkg/repository"
+)
+
+// This file contains bridge code to make our adapters package compatible with
+// code that expects imports from the pkg/repository package.
+
+// Convert internal embedding to pkg repository embedding
+func convertToPkgEmbedding(internal *internalRepo.Embedding) *pkgRepo.Embedding {
+	if internal == nil {
+		return nil
+	}
+	return &pkgRepo.Embedding{
+		ID:           internal.ID,
+		ContextID:    internal.ContextID,
+		ContentIndex: internal.ContentIndex,
+		Text:         internal.Text,
+		Embedding:    internal.Embedding,
+		ModelID:      internal.ModelID,
+		// Metadata field not used in pkg.Embedding
+	}
+}
+
+// Convert pkg repository embedding to internal one
+func convertToInternalEmbedding(pkgEmb *pkgRepo.Embedding) *internalRepo.Embedding {
+	if pkgEmb == nil {
+		return nil
+	}
+	return &internalRepo.Embedding{
+		ID:           pkgEmb.ID,
+		ContextID:    pkgEmb.ContextID,
+		ContentIndex: pkgEmb.ContentIndex,
+		Text:         pkgEmb.Text,
+		Embedding:    pkgEmb.Embedding,
+		ModelID:      pkgEmb.ModelID,
+		// No Metadata mapping
+	}
+}
+
+// Convert slice of internal embeddings to pkg repository embeddings
+func convertToPkgEmbeddings(internalEmbs []*internalRepo.Embedding) []*pkgRepo.Embedding {
+	if internalEmbs == nil {
+		return nil
+	}
+	result := make([]*pkgRepo.Embedding, len(internalEmbs))
+	for i, emb := range internalEmbs {
+		result[i] = convertToPkgEmbedding(emb)
+	}
+	return result
+}
+
+// Convert slice of pkg repository embeddings to internal ones
+func convertToInternalEmbeddings(pkgEmbs []*pkgRepo.Embedding) []*internalRepo.Embedding {
+	if pkgEmbs == nil {
+		return nil
+	}
+	result := make([]*internalRepo.Embedding, len(pkgEmbs))
+	for i, emb := range pkgEmbs {
+		result[i] = convertToInternalEmbedding(emb)
+	}
+	return result
+}
+
+// PkgVectorAPIAdapter implements the pkg repository VectorAPIRepository interface
+// by delegating to our internal repository
+type PkgVectorAPIAdapter struct {
+	internal internalRepo.VectorAPIRepository
+}
+
+// NewPkgVectorAPIAdapter creates a new adapter for the pkg VectorAPIRepository interface
+func NewPkgVectorAPIAdapter(repo internalRepo.VectorAPIRepository) pkgRepo.VectorAPIRepository {
+	return &PkgVectorAPIAdapter{internal: repo}
+}
+
+// StoreEmbedding implements the pkg repository interface by delegating to internal implementation
+func (a *PkgVectorAPIAdapter) StoreEmbedding(ctx context.Context, embedding *pkgRepo.Embedding) error {
+	return a.internal.StoreEmbedding(ctx, convertToInternalEmbedding(embedding))
+}
+
+// SearchEmbeddings implements the pkg repository interface by delegating to internal implementation
+func (a *PkgVectorAPIAdapter) SearchEmbeddings(ctx context.Context, queryVector []float32, contextID string, modelID string, limit int, similarityThreshold float64) ([]*pkgRepo.Embedding, error) {
+	internalResults, err := a.internal.SearchEmbeddings(ctx, queryVector, contextID, modelID, limit, similarityThreshold)
+	if err != nil {
+		return nil, err
+	}
+	return convertToPkgEmbeddings(internalResults), nil
+}
+
+// SearchEmbeddings_Legacy implements the pkg repository interface by delegating to internal implementation
+func (a *PkgVectorAPIAdapter) SearchEmbeddings_Legacy(ctx context.Context, queryVector []float32, contextID string, limit int) ([]*pkgRepo.Embedding, error) {
+	internalResults, err := a.internal.SearchEmbeddings_Legacy(ctx, queryVector, contextID, limit)
+	if err != nil {
+		return nil, err
+	}
+	return convertToPkgEmbeddings(internalResults), nil
+}
+
+// GetContextEmbeddings implements the pkg repository interface by delegating to internal implementation
+func (a *PkgVectorAPIAdapter) GetContextEmbeddings(ctx context.Context, contextID string) ([]*pkgRepo.Embedding, error) {
+	internalResults, err := a.internal.GetContextEmbeddings(ctx, contextID)
+	if err != nil {
+		return nil, err
+	}
+	return convertToPkgEmbeddings(internalResults), nil
+}
+
+// DeleteContextEmbeddings implements the pkg repository interface by delegating to internal implementation
+func (a *PkgVectorAPIAdapter) DeleteContextEmbeddings(ctx context.Context, contextID string) error {
+	return a.internal.DeleteContextEmbeddings(ctx, contextID)
+}
+
+// GetEmbeddingsByModel implements the pkg repository interface by delegating to internal implementation
+func (a *PkgVectorAPIAdapter) GetEmbeddingsByModel(ctx context.Context, contextID string, modelID string) ([]*pkgRepo.Embedding, error) {
+	internalResults, err := a.internal.GetEmbeddingsByModel(ctx, contextID, modelID)
+	if err != nil {
+		return nil, err
+	}
+	return convertToPkgEmbeddings(internalResults), nil
+}
+
+// GetSupportedModels implements the pkg repository interface by delegating to internal implementation
+func (a *PkgVectorAPIAdapter) GetSupportedModels(ctx context.Context) ([]string, error) {
+	return a.internal.GetSupportedModels(ctx)
+}
+
+// DeleteModelEmbeddings implements the pkg repository interface by delegating to internal implementation
+func (a *PkgVectorAPIAdapter) DeleteModelEmbeddings(ctx context.Context, contextID string, modelID string) error {
+	return a.internal.DeleteModelEmbeddings(ctx, contextID, modelID)
+}
+
+// Make sure the type compatibility is verified at compile time
+func init() {
+	// Verify that the adapters implement the pkg repository interfaces
+	var _ pkgRepo.VectorAPIRepository = (*PkgVectorAPIAdapter)(nil)
+}

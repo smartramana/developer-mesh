@@ -4,9 +4,9 @@ import (
 	"context"
 	"fmt"
 	
+	"github.com/S-Corkum/devops-mcp/apps/rest-api/internal/adapters"
 	"github.com/S-Corkum/devops-mcp/pkg/database"
 	"github.com/S-Corkum/devops-mcp/pkg/observability"
-	"github.com/S-Corkum/devops-mcp/pkg/storage"
 	"github.com/gin-gonic/gin"
 )
 
@@ -37,11 +37,12 @@ func (s *Server) setupVectorAPI(ctx context.Context) error {
 		return fmt.Errorf("vector database initialization failed: %w", err)
 	}
 	
-	// Create repository
-	embedRepo := repository.NewEmbeddingRepository(s.db)
+	// Create repository adapter using the vector database
+	// This implements our internal VectorAPIRepository interface
+	vectorRepo := adapters.NewVectorAPIAdapter(s.vectorDB)
 	
 	// Store repository in server for use in other components
-	s.embeddingRepo = embedRepo
+	s.vectorRepo = vectorRepo
 	
 	// Setup vector routes directly on the server
 	apiV1 := s.router.Group("/api/v1")

@@ -8,11 +8,11 @@ import (
 	"net/http/httptest"
 	"testing"
 
+	"github.com/S-Corkum/devops-mcp/apps/rest-api/internal/repository"
 	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/S-Corkum/devops-mcp/pkg/models"
-	"github.com/S-Corkum/devops-mcp/pkg/storage"
 )
 
 // MockAgentRepository mocks repository.AgentRepository
@@ -34,6 +34,11 @@ func (m *MockAgentRepository) GetAgentByID(ctx context.Context, tenantID, id str
 }
 func (m *MockAgentRepository) UpdateAgent(ctx context.Context, agent *models.Agent) error {
 	args := m.Called(ctx, agent)
+	return args.Error(0)
+}
+
+func (m *MockAgentRepository) DeleteAgent(ctx context.Context, id string) error {
+	args := m.Called(ctx, id)
 	return args.Error(0)
 }
 

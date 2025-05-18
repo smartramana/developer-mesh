@@ -8,11 +8,11 @@ import (
 	"time"
 
 	contextAPI "github.com/S-Corkum/devops-mcp/apps/rest-api/internal/api/context"
-	"github.com/S-Corkum/devops-mcp/pkg/common/config"
 	"github.com/S-Corkum/devops-mcp/apps/rest-api/internal/core"
+	"github.com/S-Corkum/devops-mcp/apps/rest-api/internal/repository"
+	"github.com/S-Corkum/devops-mcp/pkg/common/config"
 	"github.com/S-Corkum/devops-mcp/pkg/database"
 	"github.com/S-Corkum/devops-mcp/pkg/observability"
-	"github.com/S-Corkum/devops-mcp/pkg/storage"
 	"github.com/gin-gonic/gin"
 	"github.com/jmoiron/sqlx"
 	swaggerFiles "github.com/swaggo/files"
@@ -33,7 +33,7 @@ type Server struct {
 	db            *sqlx.DB
 	metrics       observability.MetricsClient
 	vectorDB      *database.VectorDatabase
-	embeddingRepo *repository.EmbeddingRepository
+	vectorRepo    repository.VectorAPIRepository
 	cfg           *config.Config
 }
 

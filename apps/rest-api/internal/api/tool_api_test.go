@@ -7,7 +7,6 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"github.com/S-Corkum/devops-mcp/apps/rest-api/internal/core"
 	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
@@ -65,12 +64,9 @@ func setupToolTestServer() (*gin.Engine, *MockAdapterBridge) {
 	router := gin.New()
 	router.Use(gin.Recovery())
 	
-	// Create an adapter that implements the expected interface
-	adapterBridge := &core.AdapterContextBridge{}
-	
-	// Register tool routes
+	// Register tool routes without an actual adapter bridge
 	toolAPI := &ToolAPI{
-		adapterBridge: adapterBridge,
+		adapterBridge: nil,
 	}
 	
 	// Override the adapterBridge methods to use our mock

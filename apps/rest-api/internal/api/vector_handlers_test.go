@@ -10,14 +10,15 @@ import (
 	"testing"
 	
 	"github.com/S-Corkum/devops-mcp/apps/rest-api/internal/api"
+	"github.com/S-Corkum/devops-mcp/apps/rest-api/internal/repository"
 	"github.com/S-Corkum/devops-mcp/pkg/observability"
-	"github.com/S-Corkum/devops-mcp/pkg/storage"
 	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 )
 
 // Defining the EmbeddingRepositoryInterface for tests
+// Defining the EmbeddingRepositoryInterface for tests to match the actual API interface
 type EmbeddingRepositoryInterface interface {
 	StoreEmbedding(ctx context.Context, embedding *repository.Embedding) error
 	SearchEmbeddings(ctx context.Context, queryVector []float32, contextID string, modelID string, limit int, similarityThreshold float64) ([]*repository.Embedding, error)
@@ -67,8 +68,8 @@ func TestStoreEmbeddingHandler(t *testing.T) {
 	mockRepo := new(MockEmbeddingRepository)
 	server := setupVectorTestServer(mockRepo)
 	
-	// Set expectations
-	mockRepo.On("StoreEmbedding", mock.Anything, mock.AnythingOfType("*repository.Embedding")).Return(nil)
+	// Set expectations - use mock.Anything for flexibility with type aliases
+	mockRepo.On("StoreEmbedding", mock.Anything, mock.Anything).Return(nil)
 	
 	// Create test request
 	reqBody := struct {
@@ -124,12 +125,14 @@ func TestSearchEmbeddingsHandler(t *testing.T) {
 				ContextID:   contextID,
 				ContentIndex: 1,
 				Text:        "Test text 1",
+				Metadata: map[string]interface{}{"similarity": 0.95},
 			},
 			{
 				ID:          "emb-2",
 				ContextID:   contextID,
 				ContentIndex: 2,
 				Text:        "Test text 2",
+				Metadata: map[string]interface{}{"similarity": 0.85},
 			},
 		}
 		
@@ -161,14 +164,23 @@ func TestSearchEmbeddingsHandler(t *testing.T) {
 		// Verify that our expectations were met
 		mockRepo.AssertExpectations(t)
 		
-		// Verify response body
+		// Verify response body - Go JSON struct field names must match capitalization in actual JSON
 		var resp struct {
-			Embeddings []*repository.Embedding `json:"embeddings"`
+			Embeddings []struct {
+				ID string `json:"ID"`
+				ContextID string `json:"ContextID"`
+				Metadata map[string]interface{} `json:"Metadata"`
+			} `json:"embeddings"`
 		}
 		err := json.Unmarshal(w.Body.Bytes(), &resp)
 		assert.NoError(t, err)
 		assert.Len(t, resp.Embeddings, 2)
 		assert.Equal(t, "emb-1", resp.Embeddings[0].ID)
+		
+		// Check similarity in metadata
+		sim, ok := resp.Embeddings[0].Metadata["similarity"]
+		assert.True(t, ok, "Similarity not found in metadata")
+		assert.Equal(t, float64(0.95), sim)
 	})
 	
 	// Test case 2: Model-specific search
@@ -180,24 +192,26 @@ func TestSearchEmbeddingsHandler(t *testing.T) {
 		similarityThreshold := 0.7
 		
 		// Mock results
-		mockResults := []*repository.Embedding{
-			{
-				ID:          "emb-1",
-				ContextID:   contextID,
-				ModelID:     modelID,
-				ContentIndex: 1,
-				Text:        "Test text 1",
-				Similarity:  0.95,
-			},
-			{
-				ID:          "emb-2",
-				ContextID:   contextID,
-				ModelID:     modelID,
-				ContentIndex: 2,
-				Text:        "Test text 2",
-				Similarity:  0.85,
-			},
+		// Create embeddings with metadata containing similarity scores
+		emb1 := &repository.Embedding{
+			ID:          "emb-1",
+			ContextID:   contextID,
+			ModelID:     modelID,
+			ContentIndex: 1,
+			Text:        "Test text 1",
+			Metadata:    map[string]interface{}{"similarity": 0.95},
 		}
+		
+		emb2 := &repository.Embedding{
+			ID:          "emb-2",
+			ContextID:   contextID,
+			ModelID:     modelID,
+			ContentIndex: 2,
+			Text:        "Test text 2",
+			Metadata:    map[string]interface{}{"similarity": 0.85},
+		}
+		
+		mockResults := []*repository.Embedding{emb1, emb2}
 		
 		// Set expectations
 		mockRepo.On("SearchEmbeddings", mock.Anything, queryVector, contextID, modelID, 5, similarityThreshold).Return(mockResults, nil)
@@ -231,16 +245,27 @@ func TestSearchEmbeddingsHandler(t *testing.T) {
 		// Verify that our expectations were met
 		mockRepo.AssertExpectations(t)
 		
-		// Verify response body
+		// Verify response body with proper JSON field names
 		var resp struct {
-			Embeddings []*repository.Embedding `json:"embeddings"`
+			Embeddings []struct {
+				ID string `json:"ID"`
+				ContextID string `json:"ContextID"`
+				ModelID string `json:"ModelID"`
+				Metadata map[string]interface{} `json:"Metadata"`
+			} `json:"embeddings"`
 		}
 		err := json.Unmarshal(w.Body.Bytes(), &resp)
 		assert.NoError(t, err)
 		assert.Len(t, resp.Embeddings, 2)
+		
+		// Check basic fields
 		assert.Equal(t, "emb-1", resp.Embeddings[0].ID)
 		assert.Equal(t, modelID, resp.Embeddings[0].ModelID)
-		assert.Equal(t, 0.95, resp.Embeddings[0].Similarity)
+		
+		// Check similarity in metadata
+		sim, ok := resp.Embeddings[0].Metadata["similarity"]
+		assert.True(t, ok, "Similarity not found in metadata")
+		assert.Equal(t, float64(0.95), sim)
 	})
 }
 

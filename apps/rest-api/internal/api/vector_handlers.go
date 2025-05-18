@@ -3,7 +3,7 @@ package api
 import (
 	"net/http"
 
-	"github.com/S-Corkum/devops-mcp/pkg/storage"
+	"github.com/S-Corkum/devops-mcp/apps/rest-api/internal/repository"
 	"github.com/gin-gonic/gin"
 )
 
@@ -42,7 +42,7 @@ func (s *Server) storeEmbedding(c *gin.Context) {
 	}
 
 	// Store embedding using repository
-	err := s.embeddingRepo.StoreEmbedding(c.Request.Context(), embedding)
+	err := s.vectorRepo.StoreEmbedding(c.Request.Context(), embedding)
 	if err != nil {
 		s.logger.Error("Failed to store embedding", map[string]interface{}{
 			"error":      err.Error(),
@@ -78,29 +78,11 @@ func (s *Server) searchEmbeddings(c *gin.Context) {
 
 	// Check if model ID is provided (new multi-model support)
 	if req.ModelID != "" {
-		// Default similarity threshold if not provided
-		similarityThreshold := 0.5
-		if req.SimilarityThreshold > 0 {
-			similarityThreshold = req.SimilarityThreshold
-		}
-
 		// Use the new multi-model search method
-		embeddings, err = s.embeddingRepo.SearchEmbeddings(
-			c.Request.Context(),
-			req.QueryEmbedding,
-			req.ContextID,
-			req.ModelID,
-			req.Limit,
-			similarityThreshold,
-		)
+		embeddings, err = s.vectorRepo.SearchEmbeddings(c.Request.Context(), req.QueryEmbedding, req.ContextID, req.ModelID, req.Limit, req.SimilarityThreshold)
 	} else {
 		// For backward compatibility, use the legacy method without model filtering
-		embeddings, err = s.embeddingRepo.SearchEmbeddings_Legacy(
-			c.Request.Context(),
-			req.QueryEmbedding,
-			req.ContextID,
-			req.Limit,
-		)
+		embeddings, err = s.vectorRepo.SearchEmbeddings_Legacy(c.Request.Context(), req.QueryEmbedding, req.ContextID, req.Limit)
 	}
 
 	if err != nil {
@@ -125,7 +107,7 @@ func (s *Server) getContextEmbeddings(c *gin.Context) {
 	}
 
 	// Get embeddings using repository
-	embeddings, err := s.embeddingRepo.GetContextEmbeddings(c.Request.Context(), contextID)
+	embeddings, err := s.vectorRepo.GetContextEmbeddings(c.Request.Context(), contextID)
 	if err != nil {
 		s.logger.Error("Failed to get context embeddings", map[string]interface{}{
 			"error":      err.Error(),
@@ -147,7 +129,7 @@ func (s *Server) deleteContextEmbeddings(c *gin.Context) {
 	}
 
 	// Delete embeddings using repository
-	err := s.embeddingRepo.DeleteContextEmbeddings(c.Request.Context(), contextID)
+	err := s.vectorRepo.DeleteContextEmbeddings(c.Request.Context(), contextID)
 	if err != nil {
 		s.logger.Error("Failed to delete context embeddings", map[string]interface{}{
 			"error":      err.Error(),
@@ -163,7 +145,7 @@ func (s *Server) deleteContextEmbeddings(c *gin.Context) {
 // getSupportedModels handles getting a list of all model IDs with embeddings
 func (s *Server) getSupportedModels(c *gin.Context) {
 	// Get supported models from repository
-	models, err := s.embeddingRepo.GetSupportedModels(c.Request.Context())
+	models, err := s.vectorRepo.GetSupportedModels(c.Request.Context())
 	if err != nil {
 		s.logger.Error("Failed to get supported models", map[string]interface{}{
 			"error": err.Error(),
@@ -191,7 +173,7 @@ func (s *Server) getModelEmbeddings(c *gin.Context) {
 	}
 
 	// Get embeddings using repository
-	embeddings, err := s.embeddingRepo.GetEmbeddingsByModel(c.Request.Context(), contextID, modelID)
+	embeddings, err := s.vectorRepo.GetEmbeddingsByModel(c.Request.Context(), contextID, modelID)
 	if err != nil {
 		s.logger.Error("Failed to get model embeddings", map[string]interface{}{
 			"error":      err.Error(),
@@ -221,7 +203,7 @@ func (s *Server) deleteModelEmbeddings(c *gin.Context) {
 	}
 
 	// Delete embeddings using repository
-	err := s.embeddingRepo.DeleteModelEmbeddings(c.Request.Context(), contextID, modelID)
+	err := s.vectorRepo.DeleteModelEmbeddings(c.Request.Context(), contextID, modelID)
 	if err != nil {
 		s.logger.Error("Failed to delete model embeddings", map[string]interface{}{
 			"error":      err.Error(),

@@ -12,7 +12,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/S-Corkum/devops-mcp/pkg/models"
-	"github.com/S-Corkum/devops-mcp/pkg/storage"
+	"github.com/S-Corkum/devops-mcp/apps/rest-api/internal/repository"
 	api "github.com/S-Corkum/devops-mcp/apps/rest-api/internal/api"
 )
 
@@ -41,6 +41,11 @@ func (m *MockModelRepository) UpdateModel(ctx context.Context, model *models.Mod
 func (m *MockModelRepository) GetModelByID(ctx context.Context, tenantID, modelID string) (*models.Model, error) {
 	args := m.Called(ctx, tenantID, modelID)
 	return args.Get(0).(*models.Model), args.Error(1)
+}
+
+func (m *MockModelRepository) DeleteModel(ctx context.Context, id string) error {
+	args := m.Called(ctx, id)
+	return args.Error(0)
 }
 
 // Helper to set up Gin and handler
