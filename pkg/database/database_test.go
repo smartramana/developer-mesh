@@ -9,6 +9,8 @@ import (
 	"github.com/jmoiron/sqlx"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	
+	"github.com/S-Corkum/devops-mcp/pkg/common/config"
 )
 
 func setupMockDB(t *testing.T) (*Database, sqlmock.Sqlmock) {
@@ -34,7 +36,9 @@ func TestNewDatabase(t *testing.T) {
 		ctx := context.Background()
 		config := Config{
 			Driver: "invalid-driver",
-			DSN:    "invalid-dsn",
+			DatabaseConfig: config.DatabaseConfig{
+				DSN: "invalid-dsn",
+			},
 		}
 
 		db, err := NewDatabase(ctx, config)
