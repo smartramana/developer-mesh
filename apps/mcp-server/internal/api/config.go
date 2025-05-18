@@ -21,6 +21,7 @@ type Config struct {
 	Versioning    VersioningConfig         `mapstructure:"versioning"`
 	Performance   PerformanceConfig        `mapstructure:"performance"`
 	Webhook       interfaces.WebhookConfig `mapstructure:"webhook"`
+	RestAPI       RestAPIConfig            `mapstructure:"rest_api"`
 }
 
 // VersioningConfig holds API versioning configuration
@@ -69,6 +70,15 @@ type RateLimitConfig struct {
 	Limit       int           `mapstructure:"limit"`
 	Period      time.Duration `mapstructure:"period"`
 	BurstFactor int           `mapstructure:"burst_factor"`
+}
+
+// RestAPIConfig holds configuration for the REST API client
+type RestAPIConfig struct {
+	Enabled    bool          `mapstructure:"enabled"`
+	BaseURL    string        `mapstructure:"base_url"`
+	APIKey     string        `mapstructure:"api_key"`
+	Timeout    time.Duration `mapstructure:"timeout"`
+	RetryCount int           `mapstructure:"retry_count"`
 }
 
 // DefaultConfig returns a Config with sensible defaults
@@ -126,6 +136,13 @@ func DefaultConfig() Config {
 			GitHubSecretField:        "",
 			GitHubIPValidationField:  true,
 			GitHubAllowedEventsField: []string{"push", "pull_request", "issues", "issue_comment", "release"},
+		},
+		RestAPI: RestAPIConfig{
+			Enabled:    true,
+			BaseURL:    "http://localhost:8081",
+			APIKey:     "",
+			Timeout:    30 * time.Second,
+			RetryCount: 3,
 		},
 	}
 }
