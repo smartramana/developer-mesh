@@ -43,6 +43,7 @@ type Server struct {
 	modelAPIProxy    repository.ModelRepository     // Proxy for model operations
 	contextAPIProxy  repository.ContextRepository   // Proxy for context operations
 	searchAPIProxy   repository.SearchRepository    // Proxy for search operations
+	webhookAPIProxy  proxies.WebhookRepository      // Proxy for webhook operations
 }
 
 // NewServer creates a new API server
@@ -220,6 +221,13 @@ func (s *Server) Initialize(ctx context.Context) error {
 			// Using mock implementation until import issues are resolved
 			s.searchAPIProxy = proxies.NewMockSearchRepository(s.logger)
 			s.logger.Info("Initialized Mock Search Repository for temporary use", nil)
+		}
+		
+		// Webhook repository initialization
+		if s.webhookAPIProxy == nil {
+			// Using mock implementation until rest client is fully integrated
+			s.webhookAPIProxy = proxies.NewMockWebhookRepository(s.logger)
+			s.logger.Info("Initialized Mock Webhook Repository for temporary use", nil)
 		}
 	}
 

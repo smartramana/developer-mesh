@@ -280,12 +280,17 @@ func (m *MockMetrics) RecordOperation(system, operation string, success bool, du
 	m.Called(system, operation, success, duration, tags)
 }
 
-func (m *MockMetrics) IncrementCounter(metric string, value float64) {
-	m.Called(metric, value)
+func (m *MockMetrics) IncrementCounter(metric string, value float64, tags map[string]string) {
+	m.Called(metric, value, tags)
 }
 
 func (m *MockMetrics) RecordCacheOperation(operation string, hit bool, duration float64) {
 	m.Called(operation, hit, duration)
+}
+
+func (m *MockMetrics) RecordOperationWithContext(ctx context.Context, operation string, f func() error) error {
+	args := m.Called(ctx, operation, f)
+	return args.Error(0)
 }
 
 func (m *MockMetrics) RecordCounter(metric string, value float64, tags map[string]string) {
