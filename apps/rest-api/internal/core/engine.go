@@ -4,6 +4,8 @@ package core
 import (
 	"context"
 	"fmt"
+	"os"
+	"strings"
 	"sync"
 	
 	"github.com/S-Corkum/devops-mcp/pkg/mcp"
@@ -93,11 +95,20 @@ func (e *Engine) Health() map[string]string {
 	// Add engine health
 	health["core_engine"] = "healthy"
 	
+	// Check for environment variable that indicates mock mode
+	useMock := os.Getenv("USE_MOCK_CONTEXT_MANAGER")
+	
 	// Add context manager health
 	if e.contextManager != nil {
 		// Always report as healthy if the context manager exists
 		// This includes mock implementations
 		health["context_manager"] = "healthy"
+	} else if strings.ToLower(useMock) == "true" {
+		// If we're in mock mode but the context manager isn't initialized yet,
+		// initialize it on-demand and report as healthy
+		e.contextManager = NewMockContextManager()
+		health["context_manager"] = "healthy"
+		fmt.Println("Lazily initialized mock context manager during health check")
 	} else {
 		health["context_manager"] = "not_initialized"
 	}

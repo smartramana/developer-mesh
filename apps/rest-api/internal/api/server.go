@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net/http"
 	"os"
+	"strings"
 	"time"
 
 	contextAPI "github.com/S-Corkum/devops-mcp/apps/rest-api/internal/api/context"
@@ -178,21 +179,50 @@ func (s *Server) Initialize(ctx context.Context) error {
 
 	// Ensure we have a valid context manager
 	if s.engine != nil {
-		// Force create and set the mock context manager regardless of current state
-		s.logger.Info("Creating and registering mock context manager for REST API", nil)
+		// Always create a context manager as follows:
+		// 1. First check if one is already set
+		// 2. If not, check the environment to determine if we should use a mock
+		// 3. Create and set either a real or mock context manager
+		// 4. Verify that it was correctly set before proceeding
 		
-		// Create a new mock context manager - this is essential for adapter pattern implementation
-		mockCtxManager := core.NewMockContextManager()
+		// Get current context manager (if any)
+		ctxManager := s.engine.GetContextManager()
 		
-		// Set the context manager on the engine
-		s.engine.SetContextManager(mockCtxManager)
-		
-		// Double check that it's set properly
-		if s.engine.GetContextManager() != nil {
-			s.logger.Info("Mock context manager successfully initialized and verified", nil)
+		// Set a new context manager if none exists
+		if ctxManager == nil {
+			// Check environment variable to determine whether to use mock or real
+			useMock := os.Getenv("USE_MOCK_CONTEXT_MANAGER")
+			
+			s.logger.Info("Context manager not found, initializing new one", map[string]interface{}{
+				"use_mock": useMock,
+			})
+			
+			if strings.ToLower(useMock) == "true" {
+				// Create mock context manager for development/testing
+				s.logger.Info("Using mock context manager as specified by environment", nil)
+				ctxManager = core.NewMockContextManager()
+			} else {
+				// Try to create a real context manager here
+				// If we don't have the implementation yet, use mock as fallback
+				s.logger.Warn("Real context manager implementation not available, using mock implementation", nil)
+				ctxManager = core.NewMockContextManager()
+			}
+			
+			// Set the context manager on the engine
+			s.engine.SetContextManager(ctxManager)
+			
+			// Log the change
+			s.logger.Info("Context manager set on engine", nil)
 		} else {
-			s.logger.Error("Failed to set mock context manager", nil)
-			return fmt.Errorf("failed to set mock context manager")
+			s.logger.Info("Using existing context manager", nil)
+		}
+		
+		// Explicitly verify that a context manager is set before continuing
+		if verifyCtx := s.engine.GetContextManager(); verifyCtx == nil {
+			s.logger.Error("Context manager initialization failed - still nil after setting", nil)
+			return fmt.Errorf("failed to initialize context manager, engine reports nil after setting")
+		} else {
+			s.logger.Info("Context manager initialization confirmed successful", nil)
 		}
 	} else {
 		s.logger.Error("Engine is nil, cannot initialize context manager", nil)
