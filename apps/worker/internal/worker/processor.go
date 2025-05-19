@@ -11,9 +11,9 @@ import (
 )
 
 var (
-	logger            = log.New(log.Writer(), "worker.processor: ", log.Ldate|log.Ltime|log.Lshortfile)
-	successCount int64 = 0
-	failureCount int64 = 0
+	logger              = log.New(log.Writer(), "worker.processor: ", log.Ldate|log.Ltime|log.Lshortfile)
+	successCount  int64 = 0
+	failureCount  int64 = 0
 	totalDuration int64 = 0 // nanoseconds
 )
 
@@ -28,7 +28,7 @@ func ProcessSQSEvent(event queue.SQSEvent) error {
 	var payload map[string]interface{}
 	if err := json.Unmarshal(event.Payload, &payload); err != nil {
 		atomic.AddInt64(&failureCount, 1)
-		logger.Printf("ERROR: Failed to unmarshal payload: delivery_id=%s error=%s", 
+		logger.Printf("ERROR: Failed to unmarshal payload: delivery_id=%s error=%s",
 			event.DeliveryID, err.Error())
 		return fmt.Errorf("failed to unmarshal payload: %w", err)
 	}
@@ -42,9 +42,6 @@ func ProcessSQSEvent(event queue.SQSEvent) error {
 			event.DeliveryID)
 		return fmt.Errorf("simulated failure for push event")
 	}
-
-	// Simulate processing time
-	time.Sleep(200 * time.Millisecond)
 
 	atomic.AddInt64(&successCount, 1)
 	dur := time.Since(start).Nanoseconds()

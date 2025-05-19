@@ -1,5 +1,5 @@
 -- Check if pgvector extension exists
-DO $$
+DO $OUTER$
 BEGIN
     IF EXISTS (
         SELECT 1 
@@ -35,7 +35,7 @@ BEGIN
             item_id VARCHAR(36),
             distance FLOAT
         )
-        AS $$
+        AS $INNER$
         BEGIN
             RETURN QUERY
             SELECT 
@@ -49,7 +49,7 @@ BEGIN
                 distance
             LIMIT p_limit;
         END;
-        $$ LANGUAGE plpgsql;
+        $INNER$ LANGUAGE plpgsql;
         
         -- Add comment to vector tables
         COMMENT ON TABLE mcp.context_item_vectors IS 'Stores vector embeddings for context items to enable semantic search';
@@ -58,4 +58,4 @@ BEGIN
         -- Warn that pgvector is not available
         RAISE NOTICE 'pgvector extension is not available. Vector search capabilities will not be enabled.';
     END IF;
-END $$;
+END $OUTER$;

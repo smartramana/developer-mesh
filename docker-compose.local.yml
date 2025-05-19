@@ -12,13 +12,15 @@ services:
       - DATABASE_DSN=postgresql://dev:dev@database:5432/dev?sslmode=disable
       - REDIS_HOST=redis
       - REDIS_PORT=6379
+    volumes:
+      - ./apps/mcp-server/configs:/app/configs
+      - ./migrations/sql:/app/migrations
     depends_on:
       database:
         condition: service_healthy
       redis:
         condition: service_healthy
-    volumes:
-      - ./apps/mcp-server/configs:/app/configs
+
     healthcheck:
       test: ["CMD", "wget", "-qO-", "http://localhost:8080/health"]
       interval: 10s
@@ -46,6 +48,7 @@ services:
         condition: service_healthy
     volumes:
       - ./apps/rest-api/configs:/app/configs
+      - ./migrations/sql:/app/migrations
     healthcheck:
       test: ["CMD", "wget", "-qO-", "http://localhost:8080/health"]
       interval: 10s
@@ -64,12 +67,25 @@ services:
       - DATABASE_DSN=postgresql://dev:dev@database:5432/dev?sslmode=disable
       - REDIS_HOST=redis
       - REDIS_PORT=6379
+      # Standard AWS SDK environment variables for LocalStack
+      - AWS_REGION=us-east-1
+      - AWS_ACCESS_KEY_ID=test
+      - AWS_SECRET_ACCESS_KEY=test
+      - AWS_SESSION_TOKEN=
+      # LocalStack specific settings 
+      - AWS_ENDPOINT_URL=http://localstack:4566
+      - LOCALSTACK_HOSTNAME=localstack
+      - AWS_CBOR_DISABLE=1
+      - AWS_EC2_METADATA_DISABLED=true
+      - AWS_S3_FORCE_PATH_STYLE=true
     depends_on:
       database:
         condition: service_healthy
       redis:
         condition: service_healthy
       mcp-server:
+        condition: service_healthy
+      localstack:
         condition: service_healthy
     volumes:
       - ./apps/worker/configs:/app/configs
@@ -84,8 +100,8 @@ services:
       - POSTGRES_DB=dev
     volumes:
       - postgres-data:/var/lib/postgresql/data
-      # Uncomment if you have initialization scripts
-      # - ./scripts/db/init.sql:/docker-entrypoint-initdb.d/init.sql
+      # Database initialization script for direct schema setup
+      - ./scripts/db/init.sql:/docker-entrypoint-initdb.d/init.sql
     ports:
       - "5432:5432"
     healthcheck:
@@ -124,6 +140,23 @@ services:
       timeout: 5s
       retries: 5
       start_period: 5s
+    networks:
+      - mcp-network
+      
+  # LocalStack initialization service to create required resources
+  localstack-init:
+    image: amazon/aws-cli:latest
+    depends_on:
+      localstack:
+        condition: service_healthy
+    environment:
+      - AWS_ACCESS_KEY_ID=test
+      - AWS_SECRET_ACCESS_KEY=test
+      - AWS_DEFAULT_REGION=us-east-1
+    entrypoint: >
+      /bin/sh -c "
+        aws --endpoint-url=http://localstack:4566 sqs create-queue --queue-name tasks &&
+        echo 'LocalStack SQS queues initialized successfully'"
     networks:
       - mcp-network
 

@@ -7,31 +7,20 @@ WORKDIR /app
 # Install build dependencies
 RUN apk add --no-cache git gcc musl-dev
 
-# Copy workspace settings
-COPY go.work go.work.sum* ./
+# Copy the full source code for proper dependency resolution
+COPY . .
 
-# Create module directory structure
-RUN mkdir -p apps/rest-api pkg/common pkg/models pkg/database pkg/embedding pkg/chunking pkg/storage pkg/migrations
-
-# Copy go mod files for all modules
-COPY apps/rest-api/go.mod apps/rest-api/go.sum* ./apps/rest-api/
-COPY pkg/common/go.mod pkg/common/go.sum* ./pkg/common/
-COPY pkg/models/go.mod pkg/models/go.sum* ./pkg/models/
-COPY pkg/database/go.mod pkg/database/go.sum* ./pkg/database/
-COPY pkg/embedding/go.mod pkg/embedding/go.sum* ./pkg/embedding/
-COPY pkg/chunking/go.mod pkg/chunking/go.sum* ./pkg/chunking/
-COPY pkg/storage/go.mod pkg/storage/go.sum* ./pkg/storage/
-COPY pkg/migrations/go.mod pkg/migrations/go.sum* ./pkg/migrations/
-
-# Copy source code for all modules
-COPY apps/rest-api/ ./apps/rest-api/
-COPY pkg/common/ ./pkg/common/
-COPY pkg/models/ ./pkg/models/
-COPY pkg/database/ ./pkg/database/
-COPY pkg/embedding/ ./pkg/embedding/
-COPY pkg/chunking/ ./pkg/chunking/
-COPY pkg/storage/ ./pkg/storage/
-COPY pkg/migrations/ ./pkg/migrations/
+# We'll use the existing go.work file which should have all the right modules defined
+# If it doesn't exist or has issues, uncomment the following block and configure as needed
+#RUN if [ ! -f go.work ]; then \
+#    echo "go 1.24.3" > go.work && \
+#    echo "use (" >> go.work && \
+#    echo "    ./apps/rest-api" >> go.work && \
+#    echo "    ./pkg/common" >> go.work && \
+#    echo "    ./pkg/database" >> go.work && \
+#    echo "    ./pkg/models" >> go.work && \
+#    echo ")" >> go.work; \
+#fi
 
 # Build the application
 WORKDIR /app/apps/rest-api
@@ -61,5 +50,22 @@ EXPOSE 8080
 # Set environment variables
 ENV API_CONFIG_FILE=/app/configs/config.yaml
 
-# Run the application
-CMD ["./rest-api"]
+# Create a startup wrapper script to ensure Redis connectivity
+RUN echo '#!/bin/sh
+
+# Force Redis connection variables
+export REDIS_ADDR="redis:6379"
+export REDIS_ADDRESS="redis:6379"
+export REDIS_HOST="redis"
+export REDIS_PORT="6379"
+export REDIS_URL="redis://redis:6379"
+
+# Print Redis connection info
+echo "Using Redis at: $REDIS_ADDR"
+
+# Start the application
+exec ./rest-api "$@"
+' > /app/start.sh && chmod +x /app/start.sh
+
+# Run the application through the wrapper script
+CMD ["/app/start.sh"]

@@ -30,10 +30,16 @@ func run(ctx context.Context, sqsClient worker.SQSReceiverDeleter, redisClient w
 func main() {
 	ctx := context.Background()
 
-	// Initialize SQS client
-	sqsClient, err := queue.NewSQSClient(ctx)
+	// Load SQS adapter configuration from environment variables
+	sqsConfig := queue.LoadSQSConfigFromEnv()
+	log.Printf("SQS Configuration: mockMode=%v, useLocalStack=%v, endpoint=%s", 
+		sqsConfig.MockMode, sqsConfig.UseLocalStack, sqsConfig.Endpoint)
+
+	// Initialize SQS client with the adapter pattern
+	// The adapter handles production, LocalStack, and mock environments transparently
+	sqsAdapter, err := queue.NewSQSClientAdapter(ctx, sqsConfig)
 	if err != nil {
-		log.Fatalf("Failed to initialize SQS client: %v", err)
+		log.Fatalf("Failed to initialize SQS client adapter: %v", err)
 	}
 
 	// Initialize Redis client
@@ -41,6 +47,7 @@ func main() {
 	if redisAddr == "" {
 		redisAddr = "localhost:6379"
 	}
+	log.Printf("Connecting to Redis at %s", redisAddr)
 	redisClient := redis.NewClient(&redis.Options{
 		Addr: redisAddr,
 	})
@@ -49,7 +56,7 @@ func main() {
 	// Use the real event processing function
 	processFunc := worker.ProcessSQSEvent
 
-	err = run(ctx, sqsClient, redisAdapter, processFunc)
+	err = run(ctx, sqsAdapter, redisAdapter, processFunc)
 	if err != nil {
 		log.Fatalf("Worker exited with error: %v", err)
 	}

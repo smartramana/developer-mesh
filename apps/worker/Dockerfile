@@ -51,5 +51,22 @@ COPY apps/worker/configs ./configs
 # Expose any required ports (if needed)
 # EXPOSE 8080
 
-# Run the application
-ENTRYPOINT ["/app/worker"]
+# Create a startup wrapper script to ensure Redis connectivity
+RUN echo '#!/bin/sh
+
+# Force Redis connection variables
+export REDIS_ADDR="redis:6379"
+export REDIS_ADDRESS="redis:6379"
+export REDIS_HOST="redis"
+export REDIS_PORT="6379"
+export REDIS_URL="redis://redis:6379"
+
+# Print Redis connection info
+echo "Using Redis at: $REDIS_ADDR"
+
+# Start the application
+exec /app/worker "$@"
+' > /app/start.sh && chmod +x /app/start.sh
+
+# Run the application through the wrapper script
+ENTRYPOINT ["/app/start.sh"]

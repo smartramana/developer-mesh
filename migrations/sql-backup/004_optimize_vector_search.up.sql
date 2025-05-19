@@ -15,6 +15,9 @@ WITH (m = 16, ef_construction = 64);
 -- ef_construction: controls the quality of the index (higher = better recall but slower to build)
 
 -- Additional indices for hybrid filtering and sorting
+-- First add the content_type column if it doesn't exist
+ALTER TABLE mcp.embeddings ADD COLUMN IF NOT EXISTS content_type VARCHAR(50);
+
 -- Index for content_type filtering (used in almost all queries)
 CREATE INDEX IF NOT EXISTS idx_embeddings_content_type ON mcp.embeddings (content_type);
 
@@ -29,12 +32,12 @@ ADD COLUMN IF NOT EXISTS last_searched_at TIMESTAMP WITH TIME ZONE;
 
 -- Function to update the updated_at timestamp on row updates
 CREATE OR REPLACE FUNCTION mcp.update_updated_at()
-RETURNS TRIGGER AS $$
+RETURNS TRIGGER AS $UPDATED_AT$
 BEGIN
     NEW.updated_at = NOW();
     RETURN NEW;
 END;
-$$ LANGUAGE plpgsql;
+$UPDATED_AT$ LANGUAGE plpgsql;
 
 -- Trigger to automatically update the updated_at timestamp
 DROP TRIGGER IF EXISTS embeddings_updated_at ON mcp.embeddings;
@@ -45,14 +48,14 @@ EXECUTE FUNCTION mcp.update_updated_at();
 
 -- Function to update the last_searched_at timestamp when conducting similarity searches
 CREATE OR REPLACE FUNCTION mcp.update_last_searched_at()
-RETURNS TRIGGER AS $$
+RETURNS TRIGGER AS $LAST_SEARCHED$
 BEGIN
     UPDATE mcp.embeddings
     SET last_searched_at = NOW()
     WHERE id = NEW.id;
     RETURN NEW;
 END;
-$$ LANGUAGE plpgsql;
+$LAST_SEARCHED$ LANGUAGE plpgsql;
 
 -- Statistics for query optimizations
 ANALYZE mcp.embeddings;

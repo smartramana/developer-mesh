@@ -2,7 +2,7 @@
 -- This migration enhances the vector storage to support multiple models
 
 -- Check if pgvector extension exists
-DO $$
+DO $OUTER$
 BEGIN
     IF EXISTS (
         SELECT 1 
@@ -15,7 +15,7 @@ BEGIN
             context_id VARCHAR(36) NOT NULL,
             content_index INTEGER NOT NULL,
             text TEXT NOT NULL,
-            embedding vector,  -- Dynamic dimensions
+            embedding vector(1536),  -- Default to standard OpenAI dimension, will store metadata for actual dimensions
             vector_dimensions INTEGER NOT NULL,  -- Track dimensions
             model_id VARCHAR(255) NOT NULL,  -- Track model used
             created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -32,7 +32,7 @@ BEGIN
         
         -- Create indices for common dimension sizes
         -- 384 dimensions (e.g., MiniLM, some Sentence Transformers)
-        DO $$
+        DO $DIM384$
         BEGIN
             IF NOT EXISTS (
                 SELECT 1 FROM pg_indexes 
@@ -43,10 +43,10 @@ BEGIN
                 WITH (lists = 100)
                 WHERE vector_dimensions = 384;
             END IF;
-        END $$;
+        END $DIM384$;
         
         -- 768 dimensions (e.g., BERT based models)
-        DO $$
+        DO $DIM768$
         BEGIN
             IF NOT EXISTS (
                 SELECT 1 FROM pg_indexes 
@@ -57,10 +57,10 @@ BEGIN
                 WITH (lists = 100)
                 WHERE vector_dimensions = 768;
             END IF;
-        END $$;
+        END $DIM768$;
         
         -- 1536 dimensions (e.g., OpenAI text-embedding-ada-002)
-        DO $$
+        DO $DIM1536$
         BEGIN
             IF NOT EXISTS (
                 SELECT 1 FROM pg_indexes 
@@ -71,7 +71,7 @@ BEGIN
                 WITH (lists = 100)
                 WHERE vector_dimensions = 1536;
             END IF;
-        END $$;
+        END $DIM1536$;
         
         -- Create flexible similarity search function that respects model and dimensions
         CREATE OR REPLACE FUNCTION mcp.search_similar_embeddings(
@@ -90,7 +90,7 @@ BEGIN
             model_id VARCHAR(255),
             similarity FLOAT
         )
-        AS $$
+        AS $FUNC$
         BEGIN
             RETURN QUERY
             SELECT 
@@ -111,7 +111,7 @@ BEGIN
                 similarity DESC
             LIMIT p_limit;
         END;
-        $$ LANGUAGE plpgsql;
+        $FUNC$ LANGUAGE plpgsql;
         
         -- Add comments for documentation
         COMMENT ON TABLE mcp.embeddings IS 'Stores vector embeddings for multiple LLM models with different dimensions';
@@ -120,4 +120,4 @@ BEGIN
         -- Warn that pgvector is not available
         RAISE NOTICE 'pgvector extension is not available. Multi-model vector search capabilities will not be enabled.';
     END IF;
-END $$;
+END $OUTER$;

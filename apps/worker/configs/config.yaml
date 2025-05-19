@@ -1,0 +1,68 @@
+# Worker Configuration File
+database:
+  # Simplified database config for development
+  driver: "postgres"
+  dsn: "postgresql://dev:dev@database:5432/dev?sslmode=disable&connect_timeout=10"
+  ssl_mode: "disable"
+  max_open_conns: 10
+  max_idle_conns: 5
+  conn_max_lifetime: 5m
+  auto_migrate: false
+  use_aws: false
+  use_iam: false
+
+# Cache configuration
+cache:
+  type: "redis"
+  address: "${REDIS_HOST}:${REDIS_PORT}"
+  password: ""
+  db: 0
+  maxRetries: 3
+  minRetryBackoff: 8ms
+  maxRetryBackoff: 512ms
+  dialTimeout: 5s
+  readTimeout: 3s
+  writeTimeout: 3s
+  poolSize: 10
+  minIdleConns: 5
+
+logging:
+  level: "info"
+  format: "json"
+  output: "stdout"
+
+# Worker-specific settings
+worker:
+  queue_name: "tasks"
+  concurrency: 5
+  polling_interval: 5s
+
+# Worker configuration for message processing
+worker:
+  # For local development, using mock mode to avoid SQS connectivity issues
+  # This allows development to proceed while SQS integration is finalized
+  mock_mode: true
+  queue_name: "tasks"
+  concurrency: 5
+  polling_interval: 5s
+  # Mock settings for local development
+  mock:
+    enabled: true
+    in_memory: true
+
+# AWS configuration for when mock_mode is disabled
+aws:
+  region: "us-east-1"
+  # LocalStack config
+  use_localstack: true
+  localstack:
+    endpoint: "http://localstack:4566"
+    region: "us-east-1"
+    credentials:
+      access_key_id: "test"
+      secret_access_key: "test"
+  # SQS specific settings
+  sqs:
+    queue_name: "tasks"
+    # For local-dev with LocalStack
+    endpoint: "http://localstack:4566"
