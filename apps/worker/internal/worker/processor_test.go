@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"errors"
 	"testing"
-	"time"
 
 	"github.com/S-Corkum/devops-mcp/apps/worker/internal/queue"
 )
@@ -15,15 +14,11 @@ func TestProcessSQSEvent_Success(t *testing.T) {
 		EventType:  "pull_request",
 		RepoName:   "repo",
 		SenderName: "sender",
-		Payload:    json.RawMessage(`{"foo": "bar"}`),
+		Payload:    json.RawMessage(`{"action": "opened", "pull_request": {"number": 42, "title": "Test PR", "state": "open", "user": {"login": "test-user"}}}`),
 	}
-	start := time.Now()
 	err := ProcessSQSEvent(event)
 	if err != nil {
 		t.Errorf("Expected success, got error: %v", err)
-	}
-	if time.Since(start) < 200*time.Millisecond {
-		t.Error("Expected simulated processing delay of at least 200ms")
 	}
 }
 
@@ -47,11 +42,11 @@ func TestProcessSQSEvent_PushEvent(t *testing.T) {
 		EventType:  "push",
 		RepoName:   "repo",
 		SenderName: "sender",
-		Payload:    json.RawMessage(`{"foo": "bar"}`),
+		Payload:    json.RawMessage(`{"ref": "refs/heads/main", "head_commit": {"id": "abc123", "message": "test commit", "author": {"name": "test author"}}}`),
 	}
 	err := ProcessSQSEvent(event)
-	if err == nil || err.Error() != "simulated failure for push event" {
-		t.Errorf("Expected simulated push failure, got: %v", err)
+	if err != nil {
+		t.Errorf("Expected success for valid push event, got error: %v", err)
 	}
 }
 
