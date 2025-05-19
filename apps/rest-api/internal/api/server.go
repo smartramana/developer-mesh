@@ -202,10 +202,16 @@ func (s *Server) Initialize(ctx context.Context) error {
 				s.logger.Info("Using mock context manager as specified by environment", nil)
 				ctxManager = core.NewMockContextManager()
 			} else {
-				// Try to create a real context manager here
-				// If we don't have the implementation yet, use mock as fallback
-				s.logger.Warn("Real context manager implementation not available, using mock implementation", nil)
-				ctxManager = core.NewMockContextManager()
+				// Use our production-ready context manager implementation
+				s.logger.Info("Initializing production-ready context manager", nil)
+				
+				// Pass existing components to the context manager
+				s.logger.Info("Creating production context manager", nil)
+				
+				// Create the production context manager with available components
+				// We're using an updated version of NewContextManager that accepts *sqlx.DB directly
+				ctxManager = core.NewContextManager(s.db, s.logger, s.metrics)
+				s.logger.Info("Production context manager initialized", nil)
 			}
 			
 			// Set the context manager on the engine
