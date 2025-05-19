@@ -27,6 +27,23 @@ func run(ctx context.Context, sqsClient worker.SQSReceiverDeleter, redisClient w
 	return worker.RunWorker(ctx, sqsClient, redisClient, processFunc)
 }
 
+// workerSQSAdapter is an adapter that makes our SQSClientAdapter compatible with worker.SQSReceiverDeleter
+type workerSQSAdapter struct {
+	adapter queue.SQSAdapter
+}
+
+// ReceiveEvents implements the worker.SQSReceiverDeleter interface
+func (w *workerSQSAdapter) ReceiveEvents(ctx context.Context, maxMessages int32, waitSeconds int32) ([]queue.SQSEvent, []string, error) {
+	log.Printf("workerSQSAdapter: Receiving events (max: %d, wait: %ds)", maxMessages, waitSeconds)
+	return w.adapter.ReceiveEvents(ctx, maxMessages, waitSeconds)
+}
+
+// DeleteMessage implements the worker.SQSReceiverDeleter interface
+func (w *workerSQSAdapter) DeleteMessage(ctx context.Context, receiptHandle string) error {
+	log.Printf("workerSQSAdapter: Deleting message")
+	return w.adapter.DeleteMessage(ctx, receiptHandle)
+}
+
 func main() {
 	ctx := context.Background()
 
@@ -42,6 +59,9 @@ func main() {
 		log.Fatalf("Failed to initialize SQS client adapter: %v", err)
 	}
 
+	// Wrap our SQS adapter in the worker-compatible adapter
+	workerAdapter := &workerSQSAdapter{adapter: sqsAdapter}
+
 	// Initialize Redis client
 	redisAddr := os.Getenv("REDIS_ADDR")
 	if redisAddr == "" {
@@ -56,7 +76,8 @@ func main() {
 	// Use the real event processing function
 	processFunc := worker.ProcessSQSEvent
 
-	err = run(ctx, sqsAdapter, redisAdapter, processFunc)
+	log.Println("Starting worker with SQS adapter...")
+	err = run(ctx, workerAdapter, redisAdapter, processFunc)
 	if err != nil {
 		log.Fatalf("Worker exited with error: %v", err)
 	}

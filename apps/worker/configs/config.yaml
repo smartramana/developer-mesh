@@ -31,23 +31,16 @@ logging:
   format: "json"
   output: "stdout"
 
-# Worker-specific settings
-worker:
-  queue_name: "tasks"
-  concurrency: 5
-  polling_interval: 5s
-
 # Worker configuration for message processing
 worker:
-  # For local development, using mock mode to avoid SQS connectivity issues
-  # This allows development to proceed while SQS integration is finalized
-  mock_mode: true
+  # Set to false to use a real SQS connection (LocalStack or AWS)
+  mock_mode: false
   queue_name: "tasks"
   concurrency: 5
   polling_interval: 5s
-  # Mock settings for local development
+  # Mock settings for development without LocalStack or AWS
   mock:
-    enabled: true
+    enabled: false
     in_memory: true
 
 # AWS configuration for when mock_mode is disabled

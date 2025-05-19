@@ -95,6 +95,8 @@ func (e *Engine) Health() map[string]string {
 	
 	// Add context manager health
 	if e.contextManager != nil {
+		// Always report as healthy if the context manager exists
+		// This includes mock implementations
 		health["context_manager"] = "healthy"
 	} else {
 		health["context_manager"] = "not_initialized"

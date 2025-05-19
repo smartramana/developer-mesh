@@ -174,27 +174,36 @@ func createProductionSQSClient(ctx context.Context, config *SQSAdapterConfig) (*
 
 // constructLocalStackQueueURL constructs a queue URL for LocalStack based on configuration
 func constructLocalStackQueueURL(config *SQSAdapterConfig) string {
-	// Try all possible LocalStack formats
-	formats := []string{
-		// Format 1: Direct LocalStack format
-		"%s/000000000000/%s",
-		// Format 2: SQS-specific LocalStack format
-		"http://sqs.%s.localhost.localstack.cloud:4566/000000000000/%s",
-	}
-
+	// Log the parameters we're using to construct the URL
+	log.Printf("Constructing LocalStack queue URL with endpoint: %s, region: %s, queue name: %s", 
+		config.Endpoint, config.Region, config.QueueName)
+	
+	// Check if we're using the localstack:4566 format
 	endpoint := strings.TrimRight(config.Endpoint, "/")
-	for _, format := range formats {
-		if strings.Contains(format, ".%s.") {
-			// This is a format that includes the region
-			return fmt.Sprintf(format, config.Region, config.QueueName)
-		} else {
-			// This is a direct format
-			return fmt.Sprintf(format, endpoint, config.QueueName)
+	var queueURL string
+	
+	// Use the new LocalStack URL format which includes the service and region
+	// Format: http://sqs.{region}.localhost.localstack.cloud:4566/000000000000/queue_name
+	if strings.Contains(endpoint, "localstack:4566") {
+		// Extract just the protocol and port
+		protocol := "http"
+		port := "4566"
+		if strings.HasPrefix(endpoint, "https") {
+			protocol = "https"
 		}
+		
+		// Construct the proper SQS endpoint URL with region
+		queueURL = fmt.Sprintf("%s://sqs.%s.localhost.localstack.cloud:%s/000000000000/%s", 
+			protocol, config.Region, port, config.QueueName)
+	} else {
+		// Fall back to the traditional format if not using standard localstack:4566
+		queueURL = fmt.Sprintf("%s/000000000000/%s", endpoint, config.QueueName)
 	}
-
-	// Default fallback
-	return fmt.Sprintf("%s/000000000000/%s", endpoint, config.QueueName)
+	
+	// Log the constructed URL
+	log.Printf("Constructed LocalStack queue URL: %s", queueURL)
+	
+	return queueURL
 }
 
 // MockSQSClient is a mock implementation of the SQS client for development

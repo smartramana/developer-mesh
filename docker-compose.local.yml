@@ -67,26 +67,27 @@ services:
       - DATABASE_DSN=postgresql://dev:dev@database:5432/dev?sslmode=disable
       - REDIS_HOST=redis
       - REDIS_PORT=6379
-      # Standard AWS SDK environment variables for LocalStack
+      # LocalStack configuration
+      - USE_LOCALSTACK=true
+      - AWS_ENDPOINT_URL=http://localstack:4566
       - AWS_REGION=us-east-1
+      - SQS_QUEUE_NAME=tasks
+      # Explicitly set the queue URL to match LocalStack's format
+      - SQS_QUEUE_URL=http://sqs.us-east-1.localhost.localstack.cloud:4566/000000000000/tasks
       - AWS_ACCESS_KEY_ID=test
       - AWS_SECRET_ACCESS_KEY=test
-      - AWS_SESSION_TOKEN=
-      # LocalStack specific settings 
-      - AWS_ENDPOINT_URL=http://localstack:4566
-      - LOCALSTACK_HOSTNAME=localstack
-      - AWS_CBOR_DISABLE=1
-      - AWS_EC2_METADATA_DISABLED=true
-      - AWS_S3_FORCE_PATH_STYLE=true
+      - REDIS_ADDR=redis:6379
+      # Optional: Enable mock mode if LocalStack isn't available
+      # - WORKER_MOCK_MODE=true
     depends_on:
-      database:
-        condition: service_healthy
       redis:
         condition: service_healthy
-      mcp-server:
+      database:
         condition: service_healthy
       localstack:
         condition: service_healthy
+      localstack-init:
+        condition: service_completed_successfully
     volumes:
       - ./apps/worker/configs:/app/configs
     networks:
@@ -155,8 +156,12 @@ services:
       - AWS_DEFAULT_REGION=us-east-1
     entrypoint: >
       /bin/sh -c "
+        echo 'Creating SQS queue...' &&
         aws --endpoint-url=http://localstack:4566 sqs create-queue --queue-name tasks &&
-        echo 'LocalStack SQS queues initialized successfully'"
+        echo 'SQS queue created successfully' &&
+        # Print the queue URL for debugging
+        aws --endpoint-url=http://localstack:4566 sqs get-queue-url --queue-name tasks
+      "
     networks:
       - mcp-network
 

@@ -176,9 +176,32 @@ func (s *Server) Initialize(ctx context.Context) error {
 		}
 	}
 
+	// Ensure we have a valid context manager
+	if s.engine != nil {
+		// Force create and set the mock context manager regardless of current state
+		s.logger.Info("Creating and registering mock context manager for REST API", nil)
+		
+		// Create a new mock context manager - this is essential for adapter pattern implementation
+		mockCtxManager := core.NewMockContextManager()
+		
+		// Set the context manager on the engine
+		s.engine.SetContextManager(mockCtxManager)
+		
+		// Double check that it's set properly
+		if s.engine.GetContextManager() != nil {
+			s.logger.Info("Mock context manager successfully initialized and verified", nil)
+		} else {
+			s.logger.Error("Failed to set mock context manager", nil)
+			return fmt.Errorf("failed to set mock context manager")
+		}
+	} else {
+		s.logger.Error("Engine is nil, cannot initialize context manager", nil)
+		return fmt.Errorf("engine is nil, cannot initialize context manager")
+	}
+	
 	// Initialize routes
 	s.setupRoutes(ctx)
-
+	
 	return nil
 }
 

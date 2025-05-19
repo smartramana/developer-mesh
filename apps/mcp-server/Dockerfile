@@ -54,22 +54,12 @@ EXPOSE 8080
 # Set environment variables
 ENV MCP_CONFIG_FILE=/app/configs/config.yaml
 
-# Create a startup wrapper script to ensure Redis connectivity
-RUN echo '#!/bin/sh
+# Set environment variables for Redis
+ENV REDIS_ADDR="redis:6379"
+ENV REDIS_ADDRESS="redis:6379"
+ENV REDIS_HOST="redis"
+ENV REDIS_PORT="6379"
+ENV REDIS_URL="redis://redis:6379"
 
-# Force Redis connection variables
-export REDIS_ADDR="redis:6379"
-export REDIS_ADDRESS="redis:6379"
-export REDIS_HOST="redis"
-export REDIS_PORT="6379"
-export REDIS_URL="redis://redis:6379"
-
-# Print Redis connection info
-echo "Using Redis at: $REDIS_ADDR"
-
-# Start the application
-exec ./mcp-server "$@"
-' > /app/start.sh && chmod +x /app/start.sh
-
-# Run the application through the wrapper script
-CMD ["/app/start.sh"]
+# Run the application
+CMD ["./mcp-server"]
