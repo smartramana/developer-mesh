@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/S-Corkum/devops-mcp/internal/models"
-	"github.com/S-Corkum/devops-mcp/internal/relationship"
+	"github.com/S-Corkum/devops-mcp/pkg/models"
+	"github.com/S-Corkum/devops-mcp/pkg/models/relationship"
 )
 
 // RelationshipContextEnricher enhances embedding vectors with relationship context

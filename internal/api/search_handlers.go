@@ -7,7 +7,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/S-Corkum/devops-mcp/internal/embedding"
+	"github.com/S-Corkum/devops-mcp/pkg/embedding"
 )
 
 // SearchHandler manages vector search API endpoints

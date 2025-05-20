@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"log"
 
-	"github.com/S-Corkum/devops-mcp/pkg/aws"
+	"github.com/S-Corkum/devops-mcp/pkg/common/aws"
 	"github.com/S-Corkum/devops-mcp/pkg/database/migration"
 	"github.com/S-Corkum/devops-mcp/pkg/models"
 	"github.com/jmoiron/sqlx"
@@ -18,14 +18,14 @@ type Database struct {
 	db         *sqlx.DB
 	config     Config
 	statements map[string]*sqlx.Stmt
-	rdsClient  *aws.RDSClient
+	rdsClient  *aws.ExtendedRDSClient
 }
 
 // NewDatabase creates a new database connection
 func NewDatabase(ctx context.Context, cfg Config) (*Database, error) {
 	var dsn string
 	var err error
-	var rdsClient *aws.RDSClient
+	var rdsClient *aws.ExtendedRDSClient
 	
 	// Default to AWS RDS with IAM authentication unless explicitly disabled
 	useAWS := true
@@ -41,8 +41,8 @@ func NewDatabase(ctx context.Context, cfg Config) (*Database, error) {
 	
 	// If we're using AWS RDS with IAM authentication (the default and recommended approach)
 	if useAWS && useIAM && cfg.RDSConfig != nil {
-		// Convert our placeholder RDSConfig to aws.RDSConfig
-		awsRDSConfig := aws.RDSConfig{
+		// Convert our placeholder RDSConfig to aws.RDSConnectionConfig
+		awsRDSConfig := aws.RDSConnectionConfig{
 			Host:              cfg.RDSConfig.Host,
 			Port:              cfg.RDSConfig.Port,
 			Database:          cfg.RDSConfig.Database,
@@ -57,7 +57,7 @@ func NewDatabase(ctx context.Context, cfg Config) (*Database, error) {
 			MinPoolSize:       cfg.RDSConfig.MinPoolSize,
 			MaxPoolSize:       cfg.RDSConfig.MaxPoolSize,
 			ConnectionTimeout: cfg.RDSConfig.ConnectionTimeout,
-			AuthConfig: aws.AuthConfig{
+			Auth: aws.AuthConfig{
 				Region:    cfg.RDSConfig.AuthConfig.Region,
 				Endpoint:  cfg.RDSConfig.AuthConfig.Endpoint,
 				AssumeRole: cfg.RDSConfig.AuthConfig.AssumeRole,
@@ -65,7 +65,7 @@ func NewDatabase(ctx context.Context, cfg Config) (*Database, error) {
 		}
 		
 		// Initialize the RDS client
-		rdsClient, err = aws.NewRDSClient(ctx, awsRDSConfig)
+		rdsClient, err = aws.NewExtendedRDSClient(ctx, awsRDSConfig)
 		if err != nil {
 			return nil, fmt.Errorf("failed to initialize RDS client: %w", err)
 		}

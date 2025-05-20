@@ -5,7 +5,7 @@ import (
 	"strconv"
 
 	"github.com/S-Corkum/devops-mcp/pkg/mcp/interfaces"
-	"github.com/S-Corkum/devops-mcp/pkg/common/metrics"
+	"github.com/S-Corkum/devops-mcp/pkg/observability"
 	"github.com/S-Corkum/devops-mcp/pkg/observability"
 	"github.com/S-Corkum/devops-mcp/pkg/mcp"
 	"github.com/gin-gonic/gin"

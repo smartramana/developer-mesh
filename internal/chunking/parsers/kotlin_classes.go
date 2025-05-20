@@ -5,7 +5,7 @@ import (
 	"strings"
 	"regexp"
 
-	"github.com/S-Corkum/devops-mcp/internal/chunking"
+	"github.com/S-Corkum/devops-mcp/pkg/chunking"
 )
 
 // extractClasses extracts class declarations from Kotlin code

@@ -7,7 +7,7 @@ import (
 	"github.com/S-Corkum/devops-mcp/apps/mcp-server/internal/adapters/core"
 	adapterEvents "github.com/S-Corkum/devops-mcp/apps/mcp-server/internal/adapters/events"
 	"github.com/S-Corkum/devops-mcp/apps/mcp-server/internal/adapters/providers"
-	"github.com/S-Corkum/devops-mcp/pkg/common/config"
+	"github.com/S-Corkum/devops-mcp/pkg/config"
 	"github.com/S-Corkum/devops-mcp/pkg/common/events"
 	"github.com/S-Corkum/devops-mcp/pkg/common/events/system"
 	"github.com/S-Corkum/devops-mcp/pkg/observability"

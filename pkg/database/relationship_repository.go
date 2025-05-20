@@ -10,7 +10,7 @@ import (
 	"time"
 
 	"github.com/S-Corkum/devops-mcp/pkg/models"
-	"github.com/S-Corkum/devops-mcp/pkg/relationship"
+	"github.com/S-Corkum/devops-mcp/pkg/models/relationship"
 	"github.com/jmoiron/sqlx"
 )
 
@@ -511,6 +511,12 @@ func (r *RelationshipRepository) recordToRelationship(record *EntityRelationship
 		}
 	}
 
+	// Convert contextMap to JSON string
+	contextJSON, err := json.Marshal(contextMap)
+	if err != nil {
+		return nil, fmt.Errorf("failed to marshal context: %w", err)
+	}
+
 	// Create relationship
 	relationship := &models.EntityRelationship{
 		ID:        record.ID,
@@ -519,7 +525,7 @@ func (r *RelationshipRepository) recordToRelationship(record *EntityRelationship
 		Source:    source,
 		Target:    target,
 		Strength:  record.Strength,
-		Context:   contextMap,
+		Context:   string(contextJSON),
 		Metadata:  metadata,
 		CreatedAt: record.CreatedAt,
 		UpdatedAt: record.UpdatedAt,

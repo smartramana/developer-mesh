@@ -9,12 +9,12 @@ import (
 	"sync"
 	"time"
 
-	"github.com/S-Corkum/devops-mcp/internal/events"
-	"github.com/S-Corkum/devops-mcp/internal/adapters/github/api"
-	"github.com/S-Corkum/devops-mcp/internal/adapters/github/auth"
-	wh "github.com/S-Corkum/devops-mcp/internal/adapters/github/webhook"
-	"github.com/S-Corkum/devops-mcp/internal/adapters/resilience"
-	"github.com/S-Corkum/devops-mcp/internal/observability"
+	"github.com/S-Corkum/devops-mcp/pkg/events"
+	"github.com/S-Corkum/devops-mcp/pkg/adapters/github/api"
+	"github.com/S-Corkum/devops-mcp/pkg/adapters/github/auth"
+	wh "github.com/S-Corkum/devops-mcp/pkg/adapters/github/webhook"
+	"github.com/S-Corkum/devops-mcp/pkg/adapters/resilience"
+	"github.com/S-Corkum/devops-mcp/pkg/observability"
 	"github.com/S-Corkum/devops-mcp/pkg/mcp"
 
 )

@@ -6,11 +6,11 @@ import (
 	"strings"
 	"time"
 
-	"github.com/S-Corkum/devops-mcp/internal/aws"
-	"github.com/S-Corkum/devops-mcp/internal/cache"
-	commonConfig "github.com/S-Corkum/devops-mcp/internal/common/config"
-	"github.com/S-Corkum/devops-mcp/internal/interfaces"
-	"github.com/S-Corkum/devops-mcp/internal/metrics"
+	"github.com/S-Corkum/devops-mcp/pkg/common/aws"
+	"github.com/S-Corkum/devops-mcp/pkg/cache"
+	commonConfig "github.com/S-Corkum/devops-mcp/pkg/config"
+	"github.com/S-Corkum/devops-mcp/pkg/interfaces"
+	"github.com/S-Corkum/devops-mcp/pkg/observability"
 	"github.com/spf13/viper"
 )
 

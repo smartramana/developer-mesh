@@ -23,7 +23,7 @@ func TestVectorDatabase_Initialize(t *testing.T) {
 	db := sqlx.NewDb(mockDB, "sqlmock")
 	
 	// Create logger
-	logger := observability.NewLogger("test")
+	logger := observability.NewStandardLogger("test")
 	
 	// Create config
 	cfg := &commonConfig.DatabaseConfig{
@@ -72,7 +72,7 @@ func TestVectorDatabase_Initialize_CreateTable(t *testing.T) {
 	db := sqlx.NewDb(mockDB, "sqlmock")
 	
 	// Create logger
-	logger := observability.NewLogger("test")
+	logger := observability.NewStandardLogger("test")
 	
 	// Create config
 	cfg := &commonConfig.DatabaseConfig{
@@ -130,7 +130,7 @@ func TestVectorDatabase_CheckVectorDimensions(t *testing.T) {
 	db := sqlx.NewDb(mockDB, "sqlmock")
 	
 	// Create logger
-	logger := observability.NewLogger("test")
+	logger := observability.NewStandardLogger("test")
 	
 	// Create config
 	cfg := &commonConfig.DatabaseConfig{
@@ -187,7 +187,7 @@ func TestVectorDatabase_Transaction(t *testing.T) {
 	db := sqlx.NewDb(mockDB, "sqlmock")
 	
 	// Create logger
-	logger := observability.NewLogger("test")
+	logger := observability.NewStandardLogger("test")
 	
 	// Create config
 	cfg := &commonConfig.DatabaseConfig{
@@ -236,7 +236,7 @@ func TestVectorDatabase_Transaction_Error(t *testing.T) {
 	db := sqlx.NewDb(mockDB, "sqlmock")
 	
 	// Create logger
-	logger := observability.NewLogger("test")
+	logger := observability.NewStandardLogger("test")
 	
 	// Create config
 	cfg := &commonConfig.DatabaseVectorConfig{
@@ -275,7 +275,7 @@ func TestVectorDatabase_CreateVector(t *testing.T) {
 	db := sqlx.NewDb(mockDB, "sqlmock")
 	
 	// Create logger
-	logger := observability.NewLogger("test")
+	logger := observability.NewStandardLogger("test")
 	
 	// Create config
 	cfg := &commonConfig.DatabaseVectorConfig{
@@ -324,7 +324,7 @@ func TestVectorDatabase_CalculateSimilarity(t *testing.T) {
 	db := sqlx.NewDb(mockDB, "sqlmock")
 	
 	// Create logger
-	logger := observability.NewLogger("test")
+	logger := observability.NewStandardLogger("test")
 	
 	// Create config
 	cfg := &commonConfig.DatabaseVectorConfig{
@@ -410,7 +410,7 @@ func TestVectorDatabase_CalculateSimilarity_Methods(t *testing.T) {
 			db := sqlx.NewDb(mockDB, "sqlmock")
 			
 			// Create logger
-			logger := observability.NewLogger("test")
+			logger := observability.NewStandardLogger("test")
 			
 			// Create config
 			cfg := &commonConfig.DatabaseVectorConfig{

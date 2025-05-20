@@ -1,7 +1,7 @@
 package github
 
 import (
-	commonerrors "github.com/S-Corkum/devops-mcp/internal/common/errors"
+	commonerrors "github.com/S-Corkum/devops-mcp/pkg/common/errors"
 )
 
 // Re-export functions from the commonerrors package

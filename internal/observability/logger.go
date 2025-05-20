@@ -1,3 +1,8 @@
+// Package observability provides backward compatibility for code that still imports
+// from github.com/S-Corkum/devops-mcp/internal/observability.
+//
+// Deprecated: This package is being migrated to github.com/S-Corkum/devops-mcp/pkg/observability
+// as part of the Go workspace migration. Please update your imports to use the new path.
 package observability
 
 import (

@@ -1,6 +1,10 @@
 // Package aws provides a compatibility layer for code that imports
 // github.com/S-Corkum/devops-mcp/pkg/aws. This package re-exports all
 // types and functions from github.com/S-Corkum/devops-mcp/pkg/common/aws.
+//
+// Deprecated: This package will be removed in a future version.
+// Import github.com/S-Corkum/devops-mcp/pkg/common/aws directly instead.
+// See the migration guide at docs/migration_guide.md for more information.
 package aws
 
 import (
@@ -28,15 +32,15 @@ type (
 	AuthConfig = commonaws.AuthConfig
 	
 	// RDSConfig holds configuration for RDS
-	RDSConfig = commonaws.RDSConfig
+	RDSConfig = commonaws.RDSConnectionConfig
 	
 	// RDSClient is a client for AWS RDS
-	RDSClient = commonaws.RDSClient
+	RDSClient = commonaws.ExtendedRDSClient
 )
 
 // NewRDSClient creates a new RDS client
 func NewRDSClient(ctx context.Context, cfg RDSConfig) (*RDSClient, error) {
-	return commonaws.NewRDSClient(ctx, cfg)
+	return commonaws.NewExtendedRDSClient(ctx, cfg)
 }
 
 // GetAWSConfig gets AWS configuration

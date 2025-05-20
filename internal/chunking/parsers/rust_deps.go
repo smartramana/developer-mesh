@@ -3,7 +3,7 @@ package parsers
 import (
 	"strings"
 
-	"github.com/S-Corkum/devops-mcp/internal/chunking"
+	"github.com/S-Corkum/devops-mcp/pkg/chunking"
 )
 
 // processDependencies analyzes relationships between chunks and adds dependency information

@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/S-Corkum/devops-mcp/internal/common"
+	"github.com/S-Corkum/devops-mcp/pkg/common"
 	"github.com/jmoiron/sqlx"
 )
 

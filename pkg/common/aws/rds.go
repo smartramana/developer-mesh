@@ -6,11 +6,13 @@ import (
 	"log"
 	"strings"
 	"time"
+
+	"github.com/aws/aws-sdk-go-v2/aws"
+	"github.com/aws/aws-sdk-go-v2/service/rds"
 )
 
-// RDSConfig holds configuration for RDS
-type RDSConfig struct {
-	AuthConfig        AuthConfig    `mapstructure:"auth"`
+// RDSConnectionConfig holds connection configuration for RDS
+type RDSConnectionConfig struct {
 	Host              string        `mapstructure:"host"`
 	Port              int           `mapstructure:"port"`
 	Database          string        `mapstructure:"database"`
@@ -25,45 +27,72 @@ type RDSConfig struct {
 	MinPoolSize       int           `mapstructure:"min_pool_size"`
 	MaxPoolSize       int           `mapstructure:"max_pool_size"`
 	ConnectionTimeout int           `mapstructure:"connection_timeout"`
+	Auth              AuthConfig    `mapstructure:"auth"`
 }
 
-// RDSClient is a client for AWS RDS
-type RDSClient struct {
-	config RDSConfig
+// RDSClientInterface defines the interface for RDS operations
+type RDSClientInterface interface {
+	GetAuthToken(ctx context.Context) (string, error)
+	BuildPostgresConnectionString(ctx context.Context) (string, error)
+	DescribeDBInstances(ctx context.Context, instanceIdentifier string) (*rds.DescribeDBInstancesOutput, error)
 }
 
-// NewRDSClient creates a new RDS client
-func NewRDSClient(ctx context.Context, cfg RDSConfig) (*RDSClient, error) {
-	// Always use IAM authentication if enabled, and pass AssumeRole if set
-	if cfg.UseIAMAuth {
-		_, err := GetAWSConfig(ctx, cfg.AuthConfig)
+// ExtendedRDSClient extends the basic RDSClient with additional methods
+type ExtendedRDSClient struct {
+	awsConfig  aws.Config
+	connConfig RDSConnectionConfig
+	rdsClient  *rds.Client
+}
+
+// NewExtendedRDSClient creates a new extended RDS client with both connection and AWS config
+func NewExtendedRDSClient(ctx context.Context, connCfg RDSConnectionConfig) (*ExtendedRDSClient, error) {
+	// Get AWS config
+	var awsConfig aws.Config
+	
+	// Always use IAM authentication if enabled
+	if connCfg.UseIAMAuth {
+		var err error
+		awsConfig, err = GetAWSConfig(ctx, connCfg.Auth)
 		if err != nil {
 			return nil, fmt.Errorf("failed to load AWS config with IAM auth: %w", err)
 		}
 	}
-	return &RDSClient{config: cfg}, nil
+	
+	// Create RDS client
+	// For IAM auth we already have the AWS config, for non-IAM we'll set up a default client later
+	var rdsClient *rds.Client
+	if connCfg.UseIAMAuth {
+		rdsClient = rds.NewFromConfig(awsConfig)
+	}
+	
+	// Return client with connection config
+	return &ExtendedRDSClient{
+		awsConfig:  awsConfig,
+		connConfig: connCfg,
+		rdsClient:  rdsClient,
+	}, nil
 }
 
 // GetAuthToken generates a temporary IAM auth token for RDS
 // To implement IAM auth for RDS in production, you'll need to:
 // 1. Import the AWS SDK RDS auth package: github.com/aws/aws-sdk-go-v2/feature/rds/auth
 // 2. Use rdsAuth.BuildAuthToken to generate an IAM auth token
-func (c *RDSClient) GetAuthToken(ctx context.Context) (string, error) {
+func (c *ExtendedRDSClient) GetAuthToken(ctx context.Context) (string, error) {
 	// For testing in local development environments, return a mock token
-	if c.config.Host == "localhost" || c.config.Host == "127.0.0.1" ||
-		c.config.Host == "" || strings.HasPrefix(c.config.Host, "host.docker.internal") {
+	if c.connConfig.Host == "localhost" || c.connConfig.Host == "127.0.0.1" ||
+		c.connConfig.Host == "" || strings.HasPrefix(c.connConfig.Host, "host.docker.internal") {
 		log.Println("Using mock RDS auth token for local development")
 		return "mock-auth-token-local", nil
 	}
 
 	// Get AWS configuration
-	_, err := GetAWSConfig(ctx, c.config.AuthConfig)
+	_, err := GetAWSConfig(ctx, c.connConfig.Auth)
 	if err != nil {
 		return "", fmt.Errorf("failed to get AWS config: %w", err)
 	}
 
 	// Set token expiration
-	tokenExpiryTime := time.Duration(c.config.TokenExpiration) * time.Second
+	tokenExpiryTime := time.Duration(c.connConfig.TokenExpiration) * time.Second
 	if tokenExpiryTime == 0 {
 		tokenExpiryTime = 15 * time.Minute
 	}
@@ -73,72 +102,119 @@ func (c *RDSClient) GetAuthToken(ctx context.Context) (string, error) {
 	log.Println("Using mock RDS auth token for IAM authentication")
 
 	// If IAM auth is disabled, check for password
-	if !c.config.UseIAMAuth {
-		if c.config.Password == "" {
+	if !c.connConfig.UseIAMAuth {
+		if c.connConfig.Password == "" {
 			return "", fmt.Errorf("password is required when IAM authentication is disabled")
 		}
-		return c.config.Password, nil
+		return c.connConfig.Password, nil
 	}
 
 	// In production, this would use the AWS SDK to generate a token:
 	// authToken, err := rdsAuth.BuildAuthToken(
-	//    ctx, c.config.Host, c.config.AuthConfig.Region, c.config.Username, awsCfg.Credentials)
+	//    ctx, c.connConfig.Host, c.connConfig.Auth.Region, c.connConfig.Username, c.awsConfig.Credentials)
 	return "iam-auth-token", nil
 }
 
 // BuildPostgresConnectionString builds a PostgreSQL connection string with IAM auth if enabled
-func (c *RDSClient) BuildPostgresConnectionString(ctx context.Context) (string, error) {
+func (c *ExtendedRDSClient) BuildPostgresConnectionString(ctx context.Context) (string, error) {
 	// Base DSN with connection timeout and SSL mode
 	dsn := fmt.Sprintf("host=%s port=%d dbname=%s connect_timeout=%d",
-		c.config.Host,
-		c.config.Port,
-		c.config.Database,
-		c.config.ConnectionTimeout)
+		c.connConfig.Host,
+		c.connConfig.Port,
+		c.connConfig.Database,
+		c.connConfig.ConnectionTimeout)
 
 	// Default to using IAM auth (the secure option) unless explicitly disabled
-	if c.config.UseIAMAuth {
+	if c.connConfig.UseIAMAuth {
 		// Try to get an auth token - this will work both in AWS and locally with mock tokens
 		token, err := c.GetAuthToken(ctx)
 		if err != nil {
 			log.Printf("Warning: Failed to get IAM auth token, error: %v", err)
 
 			// If IAM auth fails and no password is configured, return an error
-			if c.config.Password == "" {
+			if c.connConfig.Password == "" {
 				return "", fmt.Errorf("IAM authentication failed and no password fallback is configured: %w", err)
 			}
 
 			// Otherwise fall back to password auth
 			log.Println("Falling back to password authentication for RDS")
-			dsn = fmt.Sprintf("%s user=%s password=%s", dsn, c.config.Username, c.config.Password)
+			dsn = fmt.Sprintf("%s user=%s password=%s", dsn, c.connConfig.Username, c.connConfig.Password)
 		} else {
 			// Use the IAM token as the password
-			dsn = fmt.Sprintf("%s user=%s password=%s", dsn, c.config.Username, token)
+			dsn = fmt.Sprintf("%s user=%s password=%s", dsn, c.connConfig.Username, token)
 		}
 	} else {
 		// IAM auth explicitly disabled, use standard username/password authentication
 		// Check if password is provided
-		if c.config.Password == "" {
+		if c.connConfig.Password == "" {
 			return "", fmt.Errorf("password authentication enabled but no password provided")
 		}
-		dsn = fmt.Sprintf("%s user=%s password=%s", dsn, c.config.Username, c.config.Password)
+		dsn = fmt.Sprintf("%s user=%s password=%s", dsn, c.connConfig.Username, c.connConfig.Password)
 	}
 
 	// Always use SSL with RDS
 	dsn = fmt.Sprintf("%s sslmode=require", dsn)
 
 	// Add connection pooling parameters if enabled
-	if c.config.EnablePooling {
+	if c.connConfig.EnablePooling {
 		dsn = fmt.Sprintf("%s pool=true min_pool_size=%d max_pool_size=%d",
 			dsn,
-			c.config.MinPoolSize,
-			c.config.MaxPoolSize)
+			c.connConfig.MinPoolSize,
+			c.connConfig.MaxPoolSize)
 	}
 
 	return dsn, nil
 }
 
 // DescribeDBInstances describes RDS DB instances
-func (c *RDSClient) DescribeDBInstances(ctx context.Context, instanceIdentifier string) (interface{}, error) {
-	// Mock implementation for testing
-	return nil, nil
+func (c *ExtendedRDSClient) DescribeDBInstances(ctx context.Context, instanceIdentifier string) (*rds.DescribeDBInstancesOutput, error) {
+	// Ensure we have an RDS client
+	if c.rdsClient == nil {
+		return nil, fmt.Errorf("RDS client not initialized, make sure AWS config is provided")
+	}
+	
+	// Create the input parameters
+	input := &rds.DescribeDBInstancesInput{}
+	
+	// If instance identifier provided, set it
+	if instanceIdentifier != "" {
+		input.DBInstanceIdentifier = &instanceIdentifier
+	}
+	
+	// Call the AWS API
+	return c.rdsClient.DescribeDBInstances(ctx, input)
+}
+
+// CreateDBInstance creates a new RDS DB instance
+func (c *ExtendedRDSClient) CreateDBInstance(ctx context.Context, input *rds.CreateDBInstanceInput) (*rds.CreateDBInstanceOutput, error) {
+	// Ensure we have an RDS client
+	if c.rdsClient == nil {
+		return nil, fmt.Errorf("RDS client not initialized, make sure AWS config is provided")
+	}
+	
+	// Call the AWS API
+	return c.rdsClient.CreateDBInstance(ctx, input)
+}
+
+// DeleteDBInstance deletes an RDS DB instance
+func (c *ExtendedRDSClient) DeleteDBInstance(ctx context.Context, instanceIdentifier string, skipFinalSnapshot bool) (*rds.DeleteDBInstanceOutput, error) {
+	// Ensure we have an RDS client
+	if c.rdsClient == nil {
+		return nil, fmt.Errorf("RDS client not initialized, make sure AWS config is provided")
+	}
+	
+	// Create the input parameters
+	input := &rds.DeleteDBInstanceInput{
+		DBInstanceIdentifier: &instanceIdentifier,
+		SkipFinalSnapshot:   aws.Bool(skipFinalSnapshot),
+	}
+	
+	// If we need a final snapshot and skipFinalSnapshot is false, set a name
+	if !skipFinalSnapshot {
+		snapshotID := fmt.Sprintf("%s-final-%d", instanceIdentifier, time.Now().Unix())
+		input.FinalDBSnapshotIdentifier = &snapshotID
+	}
+	
+	// Call the AWS API
+	return c.rdsClient.DeleteDBInstance(ctx, input)
 }

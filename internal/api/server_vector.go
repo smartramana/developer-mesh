@@ -4,11 +4,35 @@ import (
 	"context"
 	"fmt"
 	
-	"github.com/S-Corkum/devops-mcp/internal/database"
-	"github.com/S-Corkum/devops-mcp/internal/observability"
-	"github.com/S-Corkum/devops-mcp/internal/repository"
+	// Use pkg/database/adapters for compatibility with legacy code
+	"github.com/S-Corkum/devops-mcp/pkg/database" // Still needed for type compatibility during migration
+	"github.com/S-Corkum/devops-mcp/pkg/observability"
+	"github.com/S-Corkum/devops-mcp/pkg/database/adapters"
+	"github.com/S-Corkum/devops-mcp/pkg/repository"
 	"github.com/gin-gonic/gin"
 )
+
+// loggerAdapter adapts the internal/observability.Logger to the simplified
+// adapter.Logger interface used in our migration adapter.
+// This follows the adapter pattern we've used throughout the migration.
+type loggerAdapter struct {
+	logger observability.Logger
+}
+
+// Info implements the adapter.Logger interface
+func (l *loggerAdapter) Info(msg string, fields map[string]interface{}) {
+	l.logger.Info(msg, fields)
+}
+
+// Warn implements the adapter.Logger interface
+func (l *loggerAdapter) Warn(msg string, fields map[string]interface{}) {
+	l.logger.Warn(msg, fields)
+}
+
+// Error implements the adapter.Logger interface
+func (l *loggerAdapter) Error(msg string, fields map[string]interface{}) {
+	l.logger.Error(msg, fields)
+}
 
 // setupVectorAPI initializes and registers the vector API routes
 func (s *Server) setupVectorAPI(ctx context.Context) error {
@@ -20,13 +44,27 @@ func (s *Server) setupVectorAPI(ctx context.Context) error {
 		return nil
 	}
 	
-	// Initialize vector database
-	var err error
+	// Initialize vector database using our simplified adapter during the migration phase
 	if s.vectorDB == nil {
-		s.vectorDB, err = database.NewVectorDatabase(s.db, s.cfg, logger)
-		if err != nil {
-			return fmt.Errorf("failed to create vector database: %w", err)
+		// First, create an adapter wrapper for the observability.Logger to work with our simplified adapter
+		adapterLogger := &loggerAdapter{logger: logger}
+
+		// Create the LegacyVectorAdapter which conforms to our requirements
+		// This is a temporary migration shim that implements the VectorDatabase interface
+		// but doesn't have complex dependencies
+		adapter, adapterErr := adapters.NewLegacyVectorAdapter(s.db, s.cfg, adapterLogger)
+		if adapterErr != nil {
+			return fmt.Errorf("failed to create vector database adapter: %w", adapterErr)
 		}
+
+		// Since our adapter implements the same interface as the internal VectorDatabase,
+		// we can use it directly during the transition phase
+		s.vectorDB = adapter
+		
+		// Log that we're using the simplified adapter pattern for migration
+		logger.Info("Using simplified LegacyVectorAdapter for database migration", map[string]interface{}{
+			"phase": "transition",
+		})
 	}
 	
 	// Initialize vector database
@@ -37,7 +75,7 @@ func (s *Server) setupVectorAPI(ctx context.Context) error {
 		return fmt.Errorf("vector database initialization failed: %w", err)
 	}
 	
-	// Create repository
+	// Create repository using pkg/repository
 	embedRepo := repository.NewEmbeddingRepository(s.db)
 	
 	// Store repository in server for use in other components

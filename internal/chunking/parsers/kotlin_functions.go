@@ -5,7 +5,7 @@ import (
 	"strings"
 	"regexp"
 
-	"github.com/S-Corkum/devops-mcp/internal/chunking"
+	"github.com/S-Corkum/devops-mcp/pkg/chunking"
 )
 
 // extractFunctions extracts function declarations from Kotlin code

@@ -9,8 +9,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/S-Corkum/devops-mcp/internal/models"
-	"github.com/S-Corkum/devops-mcp/internal/relationship"
+	"github.com/S-Corkum/devops-mcp/pkg/models"
+	"github.com/S-Corkum/devops-mcp/pkg/models/relationship"
 	"github.com/jmoiron/sqlx"
 )
 

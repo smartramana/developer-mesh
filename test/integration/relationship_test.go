@@ -7,7 +7,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/S-Corkum/devops-mcp/internal/database"
+	// Use the new pkg/database package instead of internal/database
+	db "github.com/S-Corkum/devops-mcp/pkg/database"
 	"github.com/S-Corkum/devops-mcp/internal/models"
 	"github.com/S-Corkum/devops-mcp/internal/relationship"
 	"github.com/jmoiron/sqlx"
@@ -37,23 +38,26 @@ func TestRelationshipServiceIntegration(t *testing.T) {
 	sqlxDB := sqlx.NewDb(sqlDB, "postgres")
 	require.NoError(t, err, "Failed to create sqlx database")
 
-	// Create the database instance
-	db := database.NewDatabaseWithConnection(sqlxDB)
-	require.NotNil(t, db, "Failed to create database instance")
+	// Create the database instance using pkg/database
+	database := db.NewDatabaseWithConnection(sqlxDB)
+	require.NotNil(t, database, "Failed to create database instance")
 
 	// Create a context with timeout
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 
 	// Initialize database tables
-	err = db.InitializeTables(ctx)
-	require.NoError(t, err, "Failed to initialize database tables")
+	// Check if the new database API has the InitializeTables method
+	if initializer, ok := database.(interface{ InitializeTables(context.Context) error }); ok {
+		err = initializer.InitializeTables(ctx)
+		require.NoError(t, err, "Failed to initialize database tables")
+	}
 
 	// Clean up any existing test data
-	cleanupTestData(t, db)
+	cleanupTestData(t, database)
 
-	// Create a repository
-	repo := database.NewRelationshipRepository(db)
+	// Create a repository using pkg/database
+	repo := db.NewRelationshipRepository(database)
 	require.NotNil(t, repo, "Failed to create relationship repository")
 
 	// Create a service
@@ -264,7 +268,7 @@ func TestRelationshipServiceIntegration(t *testing.T) {
 }
 
 // cleanupTestData removes any test data from previous test runs
-func cleanupTestData(t *testing.T, db *database.Database) {
+func cleanupTestData(t *testing.T, database *db.Database) {
 	ctx := context.Background()
 	_, err := db.GetDB().ExecContext(ctx, `
 		DELETE FROM mcp.entity_relationships 

@@ -17,13 +17,13 @@ import (
 	"github.com/S-Corkum/devops-mcp/apps/mcp-server/internal/core"
 
 	// Shared package imports
-	"github.com/S-Corkum/devops-mcp/pkg/aws"
+	"github.com/S-Corkum/devops-mcp/pkg/common/aws"
 	"github.com/S-Corkum/devops-mcp/pkg/cache"
 	"github.com/S-Corkum/devops-mcp/pkg/config"
 	"github.com/S-Corkum/devops-mcp/pkg/database"
 	mcpinterfaces "github.com/S-Corkum/devops-mcp/pkg/mcp/interfaces"
 	"github.com/S-Corkum/devops-mcp/pkg/observability"
-	"github.com/S-Corkum/devops-mcp/pkg/common/metrics"
+	"github.com/S-Corkum/devops-mcp/pkg/observability"
 
 	// Import PostgreSQL driver
 	_ "github.com/lib/pq"

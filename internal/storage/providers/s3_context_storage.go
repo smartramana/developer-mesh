@@ -7,7 +7,7 @@ import (
 	"log"
 	"strings"
 
-	s3client "github.com/S-Corkum/devops-mcp/internal/storage"
+	s3client "github.com/S-Corkum/devops-mcp/pkg/storage"
 	"github.com/S-Corkum/devops-mcp/pkg/mcp"
 )
 

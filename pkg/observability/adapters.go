@@ -1,11 +1,10 @@
 package observability
 
 import (
-	"context"
 	"time"
 
 	commonLogging "github.com/S-Corkum/devops-mcp/pkg/common/logging"
-	commonMetrics "github.com/S-Corkum/devops-mcp/pkg/common/metrics"
+	commonMetrics "github.com/S-Corkum/devops-mcp/pkg/observability"
 )
 
 // LoggingAdapter adapts from common/logging.Logger to observability.Logger
@@ -97,8 +96,8 @@ func NewCommonLoggerAdapter(logger *commonLogging.Logger) Logger {
 
 // NewLoggerAdapter creates a new adapter from observability.Logger to common/logging.Logger
 func NewLoggerAdapter(obs Logger) *commonLogging.Logger {
-	// Since we can't directly implement the common/logging.Logger interface in our adapter,
-	// we'll create a real logger and proxy the calls through it
+	// In a real implementation, we would create a type that implements commonLogging.Logger
+	// and forwards calls to our observer logger, but for now we return a new logger
 	return commonLogging.NewLogger("adapter")
 }
 
@@ -132,172 +131,384 @@ func (a *obsToCommonLogger) Fatal(msg string, fields map[string]interface{}) {
 	a.obs.Fatal(msg, fields)
 }
 
+// WithPrefix implements common/logging.Logger WithPrefix method
+func (a *obsToCommonLogger) WithPrefix(prefix string) *commonLogging.Logger {
+	// Get a new logger with the prefix
+	prefixedLogger := a.obs.WithPrefix(prefix)
+	
+	// Create a new adapter
+	return NewLoggerAdapter(prefixedLogger)
+}
+
 // SetMinLevel is a stub implementation since observability.Logger doesn't have this method
 func (a *obsToCommonLogger) SetMinLevel(level commonLogging.LogLevel) {
-	// No-op - this is a compatibility method
+	// This is a no-op as the observability.Logger interface doesn't have a SetMinLevel method
 }
 
-// WithPrefix creates a new logger with the combined prefix
-func (a *obsToCommonLogger) WithPrefix(prefix string) *commonLogging.Logger {
-	// Create a new common logger with the prefix
-	return commonLogging.NewLogger("adapter-with-prefix")
-}
-
-
-
-// MetricsAdapter adapts between observability.MetricsClient and common metrics interfaces
+// MetricsAdapter is an adapter from observability.MetricsClient to commonMetrics.Client
 type MetricsAdapter struct {
 	metrics MetricsClient
 }
 
-// NewMetricsAdapter creates a new metrics adapter
+// NewMetricsAdapter creates a new adapter from observability.MetricsClient to commonMetrics.Client
 func NewMetricsAdapter(metrics MetricsClient) commonMetrics.Client {
 	return &MetricsAdapter{metrics: metrics}
 }
 
-// RecordCounter implements the metrics.Client interface
-func (a *MetricsAdapter) RecordCounter(name string, value float64, tags map[string]string) {
+// IncrementCounter implements the commonMetrics.Client interface
+func (a *MetricsAdapter) IncrementCounter(name string, value float64, tags map[string]string) {
 	a.metrics.IncrementCounter(name, value, tags)
 }
 
-// RecordEvent implements the metrics.Client interface
-func (a *MetricsAdapter) RecordEvent(name string, eventType string) {
-	// Forward to appropriate metrics method based on the event type
-	a.metrics.IncrementCounter(name, 1.0, map[string]string{"event_type": eventType})
+// RecordCounter implements the commonMetrics.Client interface
+func (a *MetricsAdapter) RecordCounter(name string, value float64, tags map[string]string) {
+	a.metrics.RecordCounter(name, value, tags)
 }
 
-// RecordGauge implements the metrics.Client interface
+// RecordEvent implements the commonMetrics.Client interface
+func (a *MetricsAdapter) RecordEvent(source, eventType string) {
+	a.metrics.RecordEvent(source, eventType)
+}
+
+// RecordGauge implements the commonMetrics.Client interface
 func (a *MetricsAdapter) RecordGauge(name string, value float64, tags map[string]string) {
 	a.metrics.RecordGauge(name, value, tags)
 }
 
-// RecordLatency implements the metrics.Client interface
-func (a *MetricsAdapter) RecordLatency(name string, value time.Duration) {
-	// Forward to histogram which is typically used for latency measurements
-	a.metrics.RecordHistogram(name, float64(value/time.Millisecond), map[string]string{"unit": "ms"})
+// RecordHistogram implements the commonMetrics.Client interface
+func (a *MetricsAdapter) RecordHistogram(name string, value float64, tags map[string]string) {
+	a.metrics.RecordHistogram(name, value, tags)
 }
 
-// Close implements the metrics.Client interface
+// RecordLatency implements the commonMetrics.Client interface
+func (a *MetricsAdapter) RecordLatency(operation string, duration time.Duration) {
+	a.metrics.RecordLatency(operation, duration)
+}
+
+// RecordTimer implements the commonMetrics.Client interface
+func (a *MetricsAdapter) RecordTimer(name string, duration time.Duration, tags map[string]string) {
+	a.metrics.RecordTimer(name, duration, tags)
+}
+
+// RecordDuration implements the commonMetrics.Client interface
+func (a *MetricsAdapter) RecordDuration(name string, d time.Duration) {
+	a.metrics.RecordDuration(name, d)
+}
+
+// RecordOperation implements the commonMetrics.Client interface
+func (a *MetricsAdapter) RecordOperation(operation string, success bool, d time.Duration) {
+	// Convert to what our metrics client expects
+	durationSeconds := d.Seconds()
+	component := "common" // Use a default component name
+	
+	// Use empty labels as default
+	labels := map[string]string{}
+	
+	a.metrics.RecordOperation(component, operation, success, durationSeconds, labels)
+}
+
+// Close implements the commonMetrics.Client interface
 func (a *MetricsAdapter) Close() error {
 	return a.metrics.Close()
 }
 
-// LoggingMetricsAdapter adapts between commonLogging.MetricsClient and observability.MetricsClient
+// LoggingMetricsAdapter is an adapter that uses the Logger interface to log metrics
 type LoggingMetricsAdapter struct {
-	metrics commonLogging.MetricsClient
+	logger  Logger
+	metrics interface{} // Could be Logger or another MetricsClient
 }
 
-// NewLoggingMetricsAdapter creates a new adapter from commonLogging.MetricsClient to observability.MetricsClient
-func NewLoggingMetricsAdapter(metrics commonLogging.MetricsClient) MetricsClient {
-	return &LoggingMetricsAdapter{metrics: metrics}
+// NewLoggingMetricsAdapter creates a new adapter
+func NewLoggingMetricsAdapter(logger Logger) MetricsClient {
+	return &LoggingMetricsAdapter{logger: logger, metrics: logger}
 }
 
-// IncrementCounter implements the observability.MetricsClient interface
-func (a *LoggingMetricsAdapter) IncrementCounter(name string, value float64, tags map[string]string) {
-	// Forward call to the logging metrics client, ignoring tags if not supported
-	a.metrics.IncrementCounter(name, value)
+// NewLoggingMetricsAdapterWithMetrics creates a new adapter with both logger and metrics client
+func NewLoggingMetricsAdapterWithMetrics(logger Logger, metrics interface{}) MetricsClient {
+	return &LoggingMetricsAdapter{logger: logger, metrics: metrics}
 }
 
-// RecordHistogram implements the observability.MetricsClient interface
-func (a *LoggingMetricsAdapter) RecordHistogram(name string, value float64, tags map[string]string) {
-	// No-op implementation since the underlying metrics client doesn't have an equivalent method
-	// In a real implementation, this would map to appropriate metrics reporting
-}
-
-// RecordGauge implements the observability.MetricsClient interface
-func (a *LoggingMetricsAdapter) RecordGauge(name string, value float64, tags map[string]string) {
-	// No-op implementation since the underlying metrics client doesn't have an equivalent method
-	// In a real implementation, this would map to appropriate metrics reporting
-}
-
-// RecordCounter implements the observability.MetricsClient interface
-func (a *LoggingMetricsAdapter) RecordCounter(name string, value float64, tags map[string]string) {
-	// Forward to appropriate method if available in the underlying metrics client
-	if recordCounter, ok := a.metrics.(interface{ RecordCounter(string, float64, map[string]string) }); ok {
-		recordCounter.RecordCounter(name, value, tags)
-	} else {
-		// Fall back to IncrementCounter if RecordCounter is not available
-		a.IncrementCounter(name, value, tags)
-	}
-}
-
-// RecordEvent implements the observability.MetricsClient interface
-func (a *LoggingMetricsAdapter) RecordEvent(source, eventType string) {
-	// Forward to appropriate method if available in the underlying metrics client
-	if recordEvent, ok := a.metrics.(interface{ RecordEvent(string, string) }); ok {
-		recordEvent.RecordEvent(source, eventType)
-	}
-}
-
-// RecordLatency implements the observability.MetricsClient interface
-func (a *LoggingMetricsAdapter) RecordLatency(operation string, duration time.Duration) {
-	// Forward to appropriate method if available in the underlying metrics client
-	if recordLatency, ok := a.metrics.(interface{ RecordLatency(string, time.Duration) }); ok {
-		recordLatency.RecordLatency(operation, duration)
-	}
-}
-
-// RecordDuration implements the observability.MetricsClient interface (alias for RecordLatency)
-func (a *LoggingMetricsAdapter) RecordDuration(operation string, duration time.Duration) {
-	// Forward to RecordLatency for compatibility
-	a.RecordLatency(operation, duration)
-}
-
-// RecordOperation implements the observability.MetricsClient interface
-func (a *LoggingMetricsAdapter) RecordOperation(operationName string, actionName string, success bool, duration float64, tags map[string]string) {
-	// Log the operation details
-	logTags := map[string]interface{}{
-		"operation": operationName,
-		"action":    actionName,
-		"success":   success,
-		"duration":  duration,
+// IncrementCounter increments a counter metric by a given value
+func (a *LoggingMetricsAdapter) IncrementCounter(name string, value float64, labels map[string]string) {
+	// If the underlying metrics client supports this operation, use it
+	if counter, ok := a.metrics.(interface{ IncrementCounter(string, float64, map[string]string) }); ok {
+		counter.IncrementCounter(name, value, labels)
+		return
 	}
 	
-	// Add any provided tags
-	for k, v := range tags {
+	// Otherwise, log the operation
+	logTags := map[string]interface{}{
+		"metric": name,
+		"value":  value,
+	}
+	
+	// Add all labels to log tags
+	for k, v := range labels {
 		logTags[k] = v
 	}
 	
+	a.logger.Debug("Incrementing counter", logTags)
+}
+
+// RecordDuration records a duration metric
+func (a *LoggingMetricsAdapter) RecordDuration(name string, duration time.Duration) {
 	// If the underlying metrics client supports this operation, use it
-	if recordOp, ok := a.metrics.(interface{ RecordOperation(string, string, bool, float64, map[string]string) }); ok {
-		recordOp.RecordOperation(operationName, actionName, success, duration, tags)
+	if recorder, ok := a.metrics.(interface{ RecordDuration(string, time.Duration) }); ok {
+		recorder.RecordDuration(name, duration)
+		return
+	}
+	
+	// Otherwise, log the operation
+	logTags := map[string]interface{}{
+		"metric":   name,
+		"duration": duration.String(),
+	}
+	
+	a.logger.Debug("Recording duration", logTags)
+}
+
+// RecordEvent records an event metric
+func (a *LoggingMetricsAdapter) RecordEvent(source, eventType string) {
+	// If the underlying metrics client supports this operation, use it
+	if recorder, ok := a.metrics.(interface{ RecordEvent(string, string) }); ok {
+		recorder.RecordEvent(source, eventType)
+		return
+	}
+	
+	// Otherwise, log the operation
+	logTags := map[string]interface{}{
+		"source":     source,
+		"event_type": eventType,
+	}
+	
+	a.logger.Debug("Recording event", logTags)
+}
+
+// RecordLatency records a latency metric
+func (a *LoggingMetricsAdapter) RecordLatency(operation string, duration time.Duration) {
+	// If the underlying metrics client supports this operation, use it
+	if recorder, ok := a.metrics.(interface{ RecordLatency(string, time.Duration) }); ok {
+		recorder.RecordLatency(operation, duration)
+		return
+	}
+	
+	// Otherwise, log the operation
+	logTags := map[string]interface{}{
+		"operation": operation,
+		"latency":   duration.String(),
+	}
+	
+	a.logger.Debug("Recording latency", logTags)
+}
+
+// RecordCounter records a counter metric
+func (a *LoggingMetricsAdapter) RecordCounter(name string, value float64, labels map[string]string) {
+	// If the underlying metrics client supports this operation, use it
+	if recorder, ok := a.metrics.(interface{ RecordCounter(string, float64, map[string]string) }); ok {
+		recorder.RecordCounter(name, value, labels)
+		return
+	}
+	
+	// Otherwise, log the operation
+	logTags := map[string]interface{}{
+		"metric": name,
+		"value":  value,
+	}
+	
+	// Add all labels to log tags
+	for k, v := range labels {
+		logTags[k] = v
+	}
+	
+	a.logger.Debug("Recording counter", logTags)
+}
+
+// RecordGauge records a gauge metric
+func (a *LoggingMetricsAdapter) RecordGauge(name string, value float64, labels map[string]string) {
+	// If the underlying metrics client supports this operation, use it
+	if recorder, ok := a.metrics.(interface{ RecordGauge(string, float64, map[string]string) }); ok {
+		recorder.RecordGauge(name, value, labels)
+		return
+	}
+	
+	// Otherwise, log the operation
+	logTags := map[string]interface{}{
+		"metric": name,
+		"value":  value,
+	}
+	
+	// Add all labels to log tags
+	for k, v := range labels {
+		logTags[k] = v
+	}
+	
+	a.logger.Debug("Recording gauge", logTags)
+}
+
+// RecordHistogram records a histogram metric
+func (a *LoggingMetricsAdapter) RecordHistogram(name string, value float64, labels map[string]string) {
+	// If the underlying metrics client supports this operation, use it
+	if recorder, ok := a.metrics.(interface{ RecordHistogram(string, float64, map[string]string) }); ok {
+		recorder.RecordHistogram(name, value, labels)
+		return
+	}
+	
+	// Otherwise, log the operation
+	logTags := map[string]interface{}{
+		"metric": name,
+		"value":  value,
+	}
+	
+	// Add all labels to log tags
+	for k, v := range labels {
+		logTags[k] = v
+	}
+	
+	a.logger.Debug("Recording histogram", logTags)
+}
+
+// RecordTimer records a timer metric
+func (a *LoggingMetricsAdapter) RecordTimer(name string, duration time.Duration, labels map[string]string) {
+	// If the underlying metrics client supports this operation, use it
+	if recorder, ok := a.metrics.(interface{ RecordTimer(string, time.Duration, map[string]string) }); ok {
+		recorder.RecordTimer(name, duration, labels)
+		return
+	}
+	
+	// Otherwise, log the operation
+	logTags := map[string]interface{}{
+		"metric":   name,
+		"duration": duration.String(),
+	}
+	
+	// Add all labels to log tags
+	for k, v := range labels {
+		logTags[k] = v
+	}
+	
+	a.logger.Debug("Recording timer", logTags)
+}
+
+// RecordOperation records operation metrics for adapters and other components
+func (a *LoggingMetricsAdapter) RecordOperation(component string, operation string, success bool, durationSeconds float64, labels map[string]string) {
+	// If the underlying metrics client supports this operation, use it
+	if recorder, ok := a.metrics.(interface {
+		RecordOperation(string, string, bool, float64, map[string]string)
+	}); ok {
+		recorder.RecordOperation(component, operation, success, durationSeconds, labels)
+		return
+	}
+	
+	// Otherwise, log the operation
+	logTags := map[string]interface{}{
+		"component": component,
+		"operation": operation,
+		"success":   success,
+		"duration":  durationSeconds,
+	}
+	
+	// Copy labels to log tags, but convert to interface{}
+	for k, v := range labels {
+		logTags[k] = v
+	}
+	
+	// Log the operation
+	if success {
+		a.logger.Info(component+"."+operation+" completed", logTags)
 	} else {
-		// Add success/error status to logs
-		logTags["result"] = "success"
-		if !success {
-			logTags["result"] = "error"
-		}
-		
-		// Convert tags to string interface map
-		tagsInterface := make(map[string]interface{}, len(tags))
-		for k, v := range tags {
-			tagsInterface[k] = v
-		}
-		
-		// Log the operation
-		if logger, ok := a.metrics.(interface{ Debug(string, map[string]interface{}) }); ok {
-			logger.Debug("Operation metrics recorded", logTags)
-		}
+		a.logger.Error(component+"."+operation+" failed", logTags)
 	}
 }
 
-// RecordOperationWithContext implements the observability.MetricsClient interface
-func (a *LoggingMetricsAdapter) RecordOperationWithContext(ctx context.Context, operation string, f func() error) error {
-	// Record the start time
-	start := time.Now()
+// StartTimer starts a timer metric and returns a function to stop it
+func (a *LoggingMetricsAdapter) StartTimer(name string, labels map[string]string) func() {
+	// If the underlying metrics client supports this operation, use it
+	if starter, ok := a.metrics.(interface{ StartTimer(string, map[string]string) func() }); ok {
+		return starter.StartTimer(name, labels)
+	}
 	
-	// Execute the provided function
-	err := f()
+	// Otherwise, implement it directly
+	startTime := time.Now()
+	return func() {
+		duration := time.Since(startTime)
+		a.RecordTimer(name, duration, labels)
+	}
+}
+
+// RecordAPIOperation implements the observability.MetricsClient interface
+func (a *LoggingMetricsAdapter) RecordAPIOperation(api string, operation string, success bool, durationSeconds float64) {
+	// If the underlying metrics client supports this operation, use it
+	if recorder, ok := a.metrics.(interface {
+		RecordAPIOperation(string, string, bool, float64)
+	}); ok {
+		recorder.RecordAPIOperation(api, operation, success, durationSeconds)
+		return
+	}
 	
-	// Record the duration regardless of whether there was an error
-	duration := time.Since(start)
-	a.RecordDuration(operation, duration)
+	// Otherwise, log the operation
+	logTags := map[string]interface{}{
+		"api":       api,
+		"operation": operation,
+		"success":   success,
+		"duration":  durationSeconds,
+	}
 	
-	// Record operation metrics
-	success := err == nil
-	a.RecordOperation(operation, "execute", success, duration.Seconds(), nil)
+	// Log the operation
+	if success {
+		a.logger.Info("API operation completed: "+api+"."+operation, logTags)
+	} else {
+		a.logger.Error("API operation failed: "+api+"."+operation, logTags)
+	}
+}
+
+// RecordCacheOperation implements the observability.MetricsClient interface
+func (a *LoggingMetricsAdapter) RecordCacheOperation(operation string, success bool, durationSeconds float64) {
+	// If the underlying metrics client supports this operation, use it
+	if recorder, ok := a.metrics.(interface {
+		RecordCacheOperation(string, bool, float64)
+	}); ok {
+		recorder.RecordCacheOperation(operation, success, durationSeconds)
+		return
+	}
 	
-	return err
+	// Otherwise, log the operation
+	logTags := map[string]interface{}{
+		"operation": operation,
+		"success":   success,
+		"duration":  durationSeconds,
+	}
+	
+	// Log the operation
+	if success {
+		a.logger.Info("Cache operation completed: "+operation, logTags)
+	} else {
+		a.logger.Error("Cache operation failed: "+operation, logTags)
+	}
+}
+
+// RecordDatabaseOperation implements the observability.MetricsClient interface
+func (a *LoggingMetricsAdapter) RecordDatabaseOperation(operation string, success bool, durationSeconds float64) {
+	// If the underlying metrics client supports this operation, use it
+	if recorder, ok := a.metrics.(interface {
+		RecordDatabaseOperation(string, bool, float64)
+	}); ok {
+		recorder.RecordDatabaseOperation(operation, success, durationSeconds)
+		return
+	}
+	
+	// Otherwise, log the operation
+	logTags := map[string]interface{}{
+		"operation": operation,
+		"success":   success,
+		"duration":  durationSeconds,
+	}
+	
+	// Log the operation
+	if success {
+		a.logger.Info("Database operation completed: "+operation, logTags)
+	} else {
+		a.logger.Error("Database operation failed: "+operation, logTags)
+	}
 }
 
 // Close implements the observability.MetricsClient interface

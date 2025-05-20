@@ -4,7 +4,7 @@ package database
 import (
 	"time"
 
-	"github.com/S-Corkum/devops-mcp/pkg/common/config"
+	"github.com/S-Corkum/devops-mcp/pkg/config"
 )
 
 // Config is an alias for the common DatabaseConfig, extended with RDS-specific fields

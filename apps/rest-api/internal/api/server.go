@@ -11,7 +11,7 @@ import (
 	contextAPI "github.com/S-Corkum/devops-mcp/apps/rest-api/internal/api/context"
 	"github.com/S-Corkum/devops-mcp/apps/rest-api/internal/core"
 	"github.com/S-Corkum/devops-mcp/apps/rest-api/internal/repository"
-	"github.com/S-Corkum/devops-mcp/pkg/common/config"
+	"github.com/S-Corkum/devops-mcp/pkg/config"
 	"github.com/S-Corkum/devops-mcp/pkg/database"
 	"github.com/S-Corkum/devops-mcp/pkg/observability"
 	"github.com/gin-gonic/gin"

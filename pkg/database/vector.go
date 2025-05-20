@@ -6,7 +6,7 @@ import (
 	"sync"
 	
 	"github.com/S-Corkum/devops-mcp/pkg/common"
-	commonConfig "github.com/S-Corkum/devops-mcp/pkg/common/config"
+	commonConfig "github.com/S-Corkum/devops-mcp/pkg/config"
 	"github.com/S-Corkum/devops-mcp/pkg/config"
 	"github.com/S-Corkum/devops-mcp/pkg/observability"
 	"github.com/jmoiron/sqlx"
@@ -25,7 +25,7 @@ type VectorDatabase struct {
 // NewVectorDatabase creates a new vector database
 func NewVectorDatabase(db *sqlx.DB, cfg interface{}, logger observability.Logger) (*VectorDatabase, error) {
 	if logger == nil {
-		logger = observability.NewLogger("vector_database")
+		logger = observability.NewStandardLogger("vector_database")
 	}
 	
 	// Use the main database connection pool by default

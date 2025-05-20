@@ -4,7 +4,7 @@
 package config
 
 import (
-	commonconfig "github.com/S-Corkum/devops-mcp/pkg/common/config"
+	commonconfig "github.com/S-Corkum/devops-mcp/pkg/config"
 )
 
 // Re-export all types from common/config
@@ -15,8 +15,20 @@ type (
 	// DatabaseConfig contains database connection settings
 	DatabaseConfig = commonconfig.DatabaseConfig
 	
+	// DatabaseVectorConfig contains vector database settings
+	DatabaseVectorConfig = commonconfig.DatabaseVectorConfig
+	
+	// DatabaseVectorPoolConfig contains vector database connection pool settings
+	DatabaseVectorPoolConfig = commonconfig.DatabaseVectorPoolConfig
+	
 	// AWSConfig contains AWS configuration settings
 	AWSConfig = commonconfig.AWSConfig
+	
+	// WebhookConfig contains webhook configuration settings
+	WebhookConfig = commonconfig.WebhookConfig
+	
+	// MonitoringConfig contains monitoring configuration settings
+	MonitoringConfig = commonconfig.MonitoringConfig
 )
 
 // Load loads the configuration from file and environment variables

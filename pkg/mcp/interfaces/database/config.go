@@ -1,7 +1,7 @@
 package database
 
 import (
-	"github.com/S-Corkum/devops-mcp/pkg/common/config"
+	"github.com/S-Corkum/devops-mcp/pkg/config"
 )
 
 // Alias type for compatibility

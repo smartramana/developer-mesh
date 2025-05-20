@@ -8,9 +8,9 @@ import (
 
 	"github.com/S-Corkum/devops-mcp/apps/mcp-server/internal/api/proxies"
 	"github.com/S-Corkum/devops-mcp/pkg/client/rest"
-	"github.com/S-Corkum/devops-mcp/pkg/common/config"
+	"github.com/S-Corkum/devops-mcp/pkg/config"
 	commonLogging "github.com/S-Corkum/devops-mcp/pkg/common/logging"
-	commonMetrics "github.com/S-Corkum/devops-mcp/pkg/common/metrics"
+	commonMetrics "github.com/S-Corkum/devops-mcp/pkg/observability"
 	"github.com/S-Corkum/devops-mcp/apps/mcp-server/internal/core"
 	"github.com/S-Corkum/devops-mcp/pkg/observability"
 	"github.com/S-Corkum/devops-mcp/pkg/repository"

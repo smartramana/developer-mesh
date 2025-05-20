@@ -6,11 +6,11 @@ import (
 	"reflect"
 	"sync"
 
-	"github.com/S-Corkum/devops-mcp/internal/adapters/core"
-	"github.com/S-Corkum/devops-mcp/internal/adapters/events"
-	eventsmocks "github.com/S-Corkum/devops-mcp/internal/adapters/events/mocks"
-	"github.com/S-Corkum/devops-mcp/internal/events/system"
-	"github.com/S-Corkum/devops-mcp/internal/observability"
+	"github.com/S-Corkum/devops-mcp/pkg/adapters/core"
+	"github.com/S-Corkum/devops-mcp/pkg/adapters/events"
+	eventsmocks "github.com/S-Corkum/devops-mcp/pkg/adapters/events/mocks"
+	"github.com/S-Corkum/devops-mcp/pkg/events/system"
+	"github.com/S-Corkum/devops-mcp/pkg/observability"
 )
 
 // isInterfaceNil checks if an interface value is nil or contains nil

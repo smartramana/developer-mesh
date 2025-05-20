@@ -5,6 +5,33 @@ go 1.24
 // Using Go 1.24.2 toolchain
 toolchain go1.24.2
 
+// Internal pkg modules required for the migration
+require (
+	github.com/S-Corkum/devops-mcp/pkg/common v0.0.0
+	github.com/S-Corkum/devops-mcp/pkg/database v0.0.0
+	github.com/S-Corkum/devops-mcp/pkg/database/adapters v0.0.0
+	github.com/S-Corkum/devops-mcp/pkg/models v0.0.0
+	github.com/S-Corkum/devops-mcp/pkg/observability v0.0.0
+	github.com/S-Corkum/devops-mcp/pkg/repository v0.0.0
+	github.com/S-Corkum/devops-mcp/pkg/repository/vector v0.0.0
+	github.com/S-Corkum/devops-mcp/pkg/mcp v0.0.0
+)
+
+// Replace directives to use local directories during migration
+replace (
+	github.com/S-Corkum/devops-mcp/pkg/common => ./pkg/common
+	github.com/S-Corkum/devops-mcp/pkg/database => ./pkg/database
+	github.com/S-Corkum/devops-mcp/pkg/database/adapters => ./pkg/database/adapters
+	github.com/S-Corkum/devops-mcp/pkg/models => ./pkg/models
+	github.com/S-Corkum/devops-mcp/pkg/observability => ./pkg/observability
+	github.com/S-Corkum/devops-mcp/pkg/repository => ./pkg/repository
+	github.com/S-Corkum/devops-mcp/pkg/repository/vector => ./pkg/repository/vector
+	github.com/S-Corkum/devops-mcp/pkg/mcp => ./pkg/mcp
+
+	// Also add replace directive for internal packages to ensure backwards compatibility
+	github.com/S-Corkum/devops-mcp/internal/observability => ./internal/observability
+)
+
 require (
 	github.com/DATA-DOG/go-sqlmock v1.5.2
 	github.com/alicebob/miniredis/v2 v2.34.0
