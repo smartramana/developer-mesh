@@ -4,7 +4,7 @@ import (
 	"context"
 	"testing"
 
-	"github.com/S-Corkum/devops-mcp/internal/observability"
+	"github.com/S-Corkum/devops-mcp/pkg/observability"
 )
 
 func TestTokenProvider_GetToken(t *testing.T) {

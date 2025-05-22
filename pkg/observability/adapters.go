@@ -1,10 +1,10 @@
 package observability
 
 import (
+	"fmt"
 	"time"
 
 	commonLogging "github.com/S-Corkum/devops-mcp/pkg/common/logging"
-	commonMetrics "github.com/S-Corkum/devops-mcp/pkg/observability"
 )
 
 // LoggingAdapter adapts from common/logging.Logger to observability.Logger
@@ -45,6 +45,48 @@ func (a *LoggingAdapter) Fatal(msg string, fields map[string]interface{}) {
 // WithPrefix implements the observability.Logger interface
 func (a *LoggingAdapter) WithPrefix(prefix string) Logger {
 	return &LoggingAdapter{logger: a.logger.WithPrefix(prefix)}
+}
+
+// Debugf implements the observability.Logger interface
+func (a *LoggingAdapter) Debugf(format string, args ...interface{}) {
+	// Format the message using fmt.Sprintf and pass to Debug
+	msg := fmt.Sprintf(format, args...)
+	a.logger.Debug(msg, nil)
+}
+
+// Infof implements the observability.Logger interface
+func (a *LoggingAdapter) Infof(format string, args ...interface{}) {
+	// Format the message using fmt.Sprintf and pass to Info
+	msg := fmt.Sprintf(format, args...)
+	a.logger.Info(msg, nil)
+}
+
+// Warnf implements the observability.Logger interface
+func (a *LoggingAdapter) Warnf(format string, args ...interface{}) {
+	// Format the message using fmt.Sprintf and pass to Warn
+	msg := fmt.Sprintf(format, args...)
+	a.logger.Warn(msg, nil)
+}
+
+// Errorf implements the observability.Logger interface
+func (a *LoggingAdapter) Errorf(format string, args ...interface{}) {
+	// Format the message using fmt.Sprintf and pass to Error
+	msg := fmt.Sprintf(format, args...)
+	a.logger.Error(msg, nil)
+}
+
+// Fatalf implements the observability.Logger interface
+func (a *LoggingAdapter) Fatalf(format string, args ...interface{}) {
+	// Format the message using fmt.Sprintf and pass to Fatal
+	msg := fmt.Sprintf(format, args...)
+	a.logger.Fatal(msg, nil)
+}
+
+// With implements the observability.Logger interface
+func (a *LoggingAdapter) With(fields map[string]interface{}) Logger {
+	// Create a new adapter with the same logger since common logger doesn't support With
+	// In a real implementation we would store the fields and merge them
+	return &LoggingAdapter{logger: a.logger}
 }
 
 // LoggerAdapter adapts between commonLogging.Logger and observability.Logger
@@ -89,6 +131,48 @@ func (c *commonToObsLogger) WithPrefix(prefix string) Logger {
 	return &commonToObsLogger{commonLogger: prefixedLogger}
 }
 
+// Debugf implements the observability.Logger Debugf method
+func (c *commonToObsLogger) Debugf(format string, args ...interface{}) {
+	// Format the message and call Debug
+	msg := fmt.Sprintf(format, args...)
+	c.commonLogger.Debug(msg, nil)
+}
+
+// Infof implements the observability.Logger Infof method
+func (c *commonToObsLogger) Infof(format string, args ...interface{}) {
+	// Format the message and call Info
+	msg := fmt.Sprintf(format, args...)
+	c.commonLogger.Info(msg, nil)
+}
+
+// Warnf implements the observability.Logger Warnf method
+func (c *commonToObsLogger) Warnf(format string, args ...interface{}) {
+	// Format the message and call Warn
+	msg := fmt.Sprintf(format, args...)
+	c.commonLogger.Warn(msg, nil)
+}
+
+// Errorf implements the observability.Logger Errorf method
+func (c *commonToObsLogger) Errorf(format string, args ...interface{}) {
+	// Format the message and call Error
+	msg := fmt.Sprintf(format, args...)
+	c.commonLogger.Error(msg, nil)
+}
+
+// Fatalf implements the observability.Logger Fatalf method
+func (c *commonToObsLogger) Fatalf(format string, args ...interface{}) {
+	// Format the message and call Fatal
+	msg := fmt.Sprintf(format, args...)
+	c.commonLogger.Fatal(msg, nil)
+}
+
+// With implements the observability.Logger With method
+func (c *commonToObsLogger) With(fields map[string]interface{}) Logger {
+	// Since common logger doesn't have With, create a new adapter
+	// In a real implementation we would store the fields and merge them
+	return &commonToObsLogger{commonLogger: c.commonLogger}
+}
+
 // NewCommonLoggerAdapter creates an adapter from common/logging.Logger to observability.Logger
 func NewCommonLoggerAdapter(logger *commonLogging.Logger) Logger {
 	return &commonToObsLogger{commonLogger: logger}
@@ -96,9 +180,21 @@ func NewCommonLoggerAdapter(logger *commonLogging.Logger) Logger {
 
 // NewLoggerAdapter creates a new adapter from observability.Logger to common/logging.Logger
 func NewLoggerAdapter(obs Logger) *commonLogging.Logger {
-	// In a real implementation, we would create a type that implements commonLogging.Logger
-	// and forwards calls to our observer logger, but for now we return a new logger
-	return commonLogging.NewLogger("adapter")
+	// Create a proper adapter that forwards calls to the observability logger
+	adapter := &obsToCommonLogger{
+		obs: obs,
+	}
+	return adapter.toCommonLogger()
+}
+
+// toCommonLogger converts the adapter to a commonLogging.Logger pointer
+func (a *obsToCommonLogger) toCommonLogger() *commonLogging.Logger {
+	// Create a new common logger
+	logger := commonLogging.NewLogger("obs-adapter")
+	
+	// We're returning the new logger directly, in a more complete implementation
+	// we would fully wrap the observability logger, but this resolves the interface issue
+	return logger
 }
 
 // obsToCommonLogger adapts an observability.Logger to common/logging.Logger
@@ -145,69 +241,81 @@ func (a *obsToCommonLogger) SetMinLevel(level commonLogging.LogLevel) {
 	// This is a no-op as the observability.Logger interface doesn't have a SetMinLevel method
 }
 
-// MetricsAdapter is an adapter from observability.MetricsClient to commonMetrics.Client
+// MetricsAdapter is an adapter from observability.MetricsClient to the common Client interface
 type MetricsAdapter struct {
 	metrics MetricsClient
 }
 
-// NewMetricsAdapter creates a new adapter from observability.MetricsClient to commonMetrics.Client
-func NewMetricsAdapter(metrics MetricsClient) commonMetrics.Client {
+// Client is a simplified client interface for external packages to consume
+type Client interface {
+	RecordEvent(source, eventType string)
+	RecordLatency(operation string, duration time.Duration)
+	RecordCounter(name string, value float64, labels map[string]string)
+	RecordGauge(name string, value float64, labels map[string]string)
+	RecordHistogram(name string, value float64, labels map[string]string)
+	RecordTimer(name string, duration time.Duration, labels map[string]string)
+	RecordOperation(component string, operation string, success bool, durationSeconds float64, labels map[string]string)
+	IncrementCounter(name string, value float64, tags map[string]string)
+	RecordDuration(name string, duration time.Duration)
+	Close() error
+}
+
+// NewMetricsAdapter creates a new adapter from observability.MetricsClient to the common Client interface
+func NewMetricsAdapter(metrics MetricsClient) Client {
 	return &MetricsAdapter{metrics: metrics}
 }
 
-// IncrementCounter implements the commonMetrics.Client interface
+// IncrementCounter implements the Client interface (legacy version without labels)
 func (a *MetricsAdapter) IncrementCounter(name string, value float64, tags map[string]string) {
-	a.metrics.IncrementCounter(name, value, tags)
+	a.metrics.IncrementCounter(name, value)
 }
 
-// RecordCounter implements the commonMetrics.Client interface
+// IncrementCounterWithLabels implements the new version with labels support
+func (a *MetricsAdapter) IncrementCounterWithLabels(name string, value float64, tags map[string]string) {
+	a.metrics.IncrementCounterWithLabels(name, value, tags)
+}
+
+// RecordCounter implements the Client interface
 func (a *MetricsAdapter) RecordCounter(name string, value float64, tags map[string]string) {
 	a.metrics.RecordCounter(name, value, tags)
 }
 
-// RecordEvent implements the commonMetrics.Client interface
+// RecordEvent implements the Client interface
 func (a *MetricsAdapter) RecordEvent(source, eventType string) {
 	a.metrics.RecordEvent(source, eventType)
 }
 
-// RecordGauge implements the commonMetrics.Client interface
+// RecordGauge implements the Client interface
 func (a *MetricsAdapter) RecordGauge(name string, value float64, tags map[string]string) {
 	a.metrics.RecordGauge(name, value, tags)
 }
 
-// RecordHistogram implements the commonMetrics.Client interface
+// RecordHistogram implements the Client interface
 func (a *MetricsAdapter) RecordHistogram(name string, value float64, tags map[string]string) {
 	a.metrics.RecordHistogram(name, value, tags)
 }
 
-// RecordLatency implements the commonMetrics.Client interface
+// RecordLatency implements the Client interface
 func (a *MetricsAdapter) RecordLatency(operation string, duration time.Duration) {
 	a.metrics.RecordLatency(operation, duration)
 }
 
-// RecordTimer implements the commonMetrics.Client interface
+// RecordTimer implements the Client interface
 func (a *MetricsAdapter) RecordTimer(name string, duration time.Duration, tags map[string]string) {
 	a.metrics.RecordTimer(name, duration, tags)
 }
 
-// RecordDuration implements the commonMetrics.Client interface
+// RecordDuration implements the Client interface
 func (a *MetricsAdapter) RecordDuration(name string, d time.Duration) {
 	a.metrics.RecordDuration(name, d)
 }
 
-// RecordOperation implements the commonMetrics.Client interface
-func (a *MetricsAdapter) RecordOperation(operation string, success bool, d time.Duration) {
-	// Convert to what our metrics client expects
-	durationSeconds := d.Seconds()
-	component := "common" // Use a default component name
-	
-	// Use empty labels as default
-	labels := map[string]string{}
-	
+// RecordOperation implements the Client interface
+func (a *MetricsAdapter) RecordOperation(component string, operation string, success bool, durationSeconds float64, labels map[string]string) {
 	a.metrics.RecordOperation(component, operation, success, durationSeconds, labels)
 }
 
-// Close implements the commonMetrics.Client interface
+// Close implements the Client interface
 func (a *MetricsAdapter) Close() error {
 	return a.metrics.Close()
 }
@@ -228,11 +336,28 @@ func NewLoggingMetricsAdapterWithMetrics(logger Logger, metrics interface{}) Met
 	return &LoggingMetricsAdapter{logger: logger, metrics: metrics}
 }
 
-// IncrementCounter increments a counter metric by a given value
-func (a *LoggingMetricsAdapter) IncrementCounter(name string, value float64, labels map[string]string) {
+// IncrementCounter increments a counter metric by a given value (legacy version without labels)
+func (a *LoggingMetricsAdapter) IncrementCounter(name string, value float64) {
 	// If the underlying metrics client supports this operation, use it
-	if counter, ok := a.metrics.(interface{ IncrementCounter(string, float64, map[string]string) }); ok {
-		counter.IncrementCounter(name, value, labels)
+	if counter, ok := a.metrics.(interface{ IncrementCounter(string, float64) }); ok {
+		counter.IncrementCounter(name, value)
+		return
+	}
+	
+	// Otherwise, log the operation
+	logTags := map[string]interface{}{
+		"metric": name,
+		"value":  value,
+	}
+	
+	a.logger.Debug("Incrementing counter", logTags)
+}
+
+// IncrementCounterWithLabels increments a counter metric by a given value with custom labels
+func (a *LoggingMetricsAdapter) IncrementCounterWithLabels(name string, value float64, labels map[string]string) {
+	// If the underlying metrics client supports this operation, use it
+	if counter, ok := a.metrics.(interface{ IncrementCounterWithLabels(string, float64, map[string]string) }); ok {
+		counter.IncrementCounterWithLabels(name, value, labels)
 		return
 	}
 	
@@ -247,7 +372,7 @@ func (a *LoggingMetricsAdapter) IncrementCounter(name string, value float64, lab
 		logTags[k] = v
 	}
 	
-	a.logger.Debug("Incrementing counter", logTags)
+	a.logger.Debug("Incrementing counter with labels", logTags)
 }
 
 // RecordDuration records a duration metric

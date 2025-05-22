@@ -8,6 +8,8 @@ import (
 	"log"
 	"os"
 	"time"
+
+	commonLogging "github.com/S-Corkum/devops-mcp/pkg/common/logging"
 )
 
 // StandardLogger is a logger implementation that uses the standard log package
@@ -68,6 +70,17 @@ func (l *StandardLogger) Fatal(msg string, fields map[string]interface{}) {
 func (l *StandardLogger) WithPrefix(prefix string) Logger {
 	return &StandardLogger{
 		prefix: prefix,
+		level:  l.level,
+	}
+}
+
+// With returns a new logger with the given fields
+func (l *StandardLogger) With(fields map[string]interface{}) Logger {
+	// Create a new logger with the same prefix and level
+	// In a more complete implementation, we would store the fields
+	// and merge them with any fields passed to the logging methods
+	return &StandardLogger{
+		prefix: l.prefix,
 		level:  l.level,
 	}
 }
@@ -171,12 +184,55 @@ func (l *NoopLogger) Error(msg string, fields map[string]interface{}) {}
 // Fatal implements Logger.Fatal
 func (l *NoopLogger) Fatal(msg string, fields map[string]interface{}) {}
 
+// Debugf implements Logger.Debugf
+func (l *NoopLogger) Debugf(format string, args ...interface{}) {}
+
+// Infof implements Logger.Infof
+func (l *NoopLogger) Infof(format string, args ...interface{}) {}
+
+// Warnf implements Logger.Warnf
+func (l *NoopLogger) Warnf(format string, args ...interface{}) {}
+
+// Errorf implements Logger.Errorf
+func (l *NoopLogger) Errorf(format string, args ...interface{}) {}
+
+// Fatalf implements Logger.Fatalf
+func (l *NoopLogger) Fatalf(format string, args ...interface{}) {}
+
 // WithPrefix implements Logger.WithPrefix
 func (l *NoopLogger) WithPrefix(prefix string) Logger {
+	return l
+}
+
+// With implements Logger.With
+func (l *NoopLogger) With(fields map[string]interface{}) Logger {
 	return l
 }
 
 // NewNoopLogger creates a new NoopLogger
 func NewNoopLogger() Logger {
 	return &NoopLogger{}
+}
+
+// NewLogger creates a new logger with the given prefix
+// This is the primary logger factory function used throughout the codebase
+// It returns the standard Logger interface type (not a pointer to an implementation)
+func NewLogger(prefix string) Logger {
+	if prefix == "" {
+		prefix = "default"
+	}
+	return NewStandardLogger(prefix)
+}
+
+// NewLoggerFromCommon converts a pkg/common/logging.Logger to the observability.Logger interface
+// This handles the pointer vs. interface compatibility issue
+func NewLoggerFromCommon(commonLogger *commonLogging.Logger) Logger {
+	// If common logger is nil, return a noop logger
+	if commonLogger == nil {
+		return NewNoopLogger()
+	}
+	
+	// Create a standard logger with the same prefix
+	// This is a simplification - in a real implementation we might want to delegate
+	return NewStandardLogger("common-adapter")
 }

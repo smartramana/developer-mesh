@@ -21,6 +21,81 @@ func NewMockRepository() Repository {
 	}
 }
 
+// Create stores a new search result (standardized Repository method)
+func (m *MockRepository) Create(ctx context.Context, result *SearchResult) error {
+	// Store the result in our mock storage
+	m.documents[result.ID] = result
+	return nil
+}
+
+// Get retrieves a search result by its ID (standardized Repository method)
+func (m *MockRepository) Get(ctx context.Context, id string) (*SearchResult, error) {
+	result, exists := m.documents[id]
+	if !exists {
+		return nil, nil // Not found
+	}
+	
+	// Return a copy to avoid modifying the stored version
+	copy := *result
+	return &copy, nil
+}
+
+// List retrieves search results matching the provided filter (standardized Repository method)
+func (m *MockRepository) List(ctx context.Context, filter Filter) ([]*SearchResult, error) {
+	var results []*SearchResult
+	
+	for _, doc := range m.documents {
+		match := true
+		
+		if filter != nil {
+			for k, v := range filter {
+				switch k {
+				case "type":
+					if doc.Type != v.(string) {
+						match = false
+					}
+				case "content_hash":
+					if doc.ContentHash != v.(string) {
+						match = false
+					}
+				// Additional filter fields can be added here
+				}
+			}
+		}
+		
+		if match {
+			// Clone the doc to avoid modifying the stored version
+			copy := *doc
+			results = append(results, &copy)
+		}
+	}
+	
+	return results, nil
+}
+
+// Update modifies an existing search result (standardized Repository method)
+func (m *MockRepository) Update(ctx context.Context, result *SearchResult) error {
+	_, exists := m.documents[result.ID]
+	if !exists {
+		return fmt.Errorf("search result with id %s not found", result.ID)
+	}
+	
+	// Store the updated result
+	m.documents[result.ID] = result
+	return nil
+}
+
+// Delete removes a search result by its ID (standardized Repository method)
+func (m *MockRepository) Delete(ctx context.Context, id string) error {
+	_, exists := m.documents[id]
+	if !exists {
+		return fmt.Errorf("search result with id %s not found", id)
+	}
+	
+	delete(m.documents, id)
+	return nil
+}
+
 // AddDocument adds a document to the mock repository
 func (m *MockRepository) AddDocument(id string, content string, docType string, metadata map[string]interface{}) {
 	m.documents[id] = &SearchResult{

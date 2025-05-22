@@ -6,6 +6,23 @@ import (
 	"time"
 )
 
+// Filter defines a filter map for repository operations
+// This avoids importing pkg/repository to prevent import cycles
+type Filter map[string]interface{}
+
+// FilterFromContextID creates a filter for context ID
+func FilterFromContextID(contextID string) Filter {
+	return Filter{"context_id": contextID}
+}
+
+// FilterFromModelAndContext creates a filter for model ID and context ID
+func FilterFromModelAndContext(contextID, modelID string) Filter {
+	return Filter{
+		"context_id": contextID,
+		"model_id":   modelID,
+	}
+}
+
 // Embedding represents a vector embedding with its metadata
 type Embedding struct {
 	ID           string                 `json:"id" db:"id"`
@@ -19,8 +36,22 @@ type Embedding struct {
 }
 
 // Repository defines the interface for vector embedding operations
+// It follows the generic repository pattern while preserving vector-specific operations
 type Repository interface {
-	// StoreEmbedding stores a vector embedding
+	// Core repository methods - aligned with generic Repository[T] interface
+	// Create stores a new embedding
+	Create(ctx context.Context, embedding *Embedding) error
+	// Get retrieves an embedding by its ID
+	Get(ctx context.Context, id string) (*Embedding, error)
+	// List retrieves embeddings matching the provided filter
+	List(ctx context.Context, filter Filter) ([]*Embedding, error)
+	// Update modifies an existing embedding
+	Update(ctx context.Context, embedding *Embedding) error
+	// Delete removes an embedding by its ID
+	Delete(ctx context.Context, id string) error
+
+	// Vector-specific methods
+	// StoreEmbedding stores a vector embedding (alias for Create method)
 	StoreEmbedding(ctx context.Context, embedding *Embedding) error
 
 	// SearchEmbeddings performs a vector search with various filter options

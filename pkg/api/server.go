@@ -30,7 +30,7 @@ type Server struct {
 	server        *http.Server
 	engine        *core.Engine
 	config        Config
-	logger        *observability.Logger
+	logger        observability.Logger // Changed from pointer to interface type
 	db            *sqlx.DB
 	metrics       observability.MetricsClient
 	// TODO: Currently still using internal/database.VectorDatabase

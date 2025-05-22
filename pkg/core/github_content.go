@@ -22,7 +22,7 @@ type GitHubContentManager struct {
 	dbAdapter           *DatabaseAdapter     // New adapter to pkg/database
 	pkgDB               *pkgdb.Database      // Direct access to pkg/database
 	storageManager      *storage.GitHubContentStorage
-	logger              *observability.Logger
+	logger              observability.Logger // Changed from pointer to interface type
 	lock                sync.RWMutex
 	metricsClient       observability.MetricsClient
 	relationshipManager *GitHubRelationshipManager
@@ -39,7 +39,7 @@ func NewGitHubContentManager(
 	storageManager := storage.NewGitHubContentStorage(s3Client)
 
 	// Create logger
-	logger := observability.NewLogger("github-content-manager")
+	logger := observability.NewLogger("github-content-manager") // Already returns interface type
 	
 	// Create content manager instance with original db for compatibility
 	manager := &GitHubContentManager{

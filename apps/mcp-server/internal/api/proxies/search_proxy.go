@@ -9,6 +9,7 @@ import (
 	"github.com/S-Corkum/devops-mcp/pkg/embedding"
 	"github.com/S-Corkum/devops-mcp/pkg/observability"
 	"github.com/S-Corkum/devops-mcp/pkg/repository"
+	"github.com/S-Corkum/devops-mcp/pkg/repository/search"
 )
 
 // SearchAPIProxy implements the SearchRepository interface by delegating to a REST API client
@@ -321,4 +322,103 @@ func (p *SearchAPIProxy) GetSearchStats(ctx context.Context) (map[string]interfa
 	}
 
 	return stats, nil
+}
+
+// The following methods implement the standard Repository[SearchResult] interface
+
+// Create implements Repository[SearchResult].Create
+func (p *SearchAPIProxy) Create(ctx context.Context, result *repository.SearchResult) error {
+	p.logger.Debug("Create operation not supported in search API proxy", map[string]interface{}{
+		"id": result.ID,
+	})
+	
+	// The search API doesn't directly support creating search results
+	// This would typically be handled by the embedding/vector repository
+	return fmt.Errorf("create operation not supported in search API proxy")
+}
+
+// Get implements Repository[SearchResult].Get
+func (p *SearchAPIProxy) Get(ctx context.Context, id string) (*repository.SearchResult, error) {
+	p.logger.Debug("Get operation not directly supported in search API proxy", map[string]interface{}{
+		"id": id,
+	})
+	
+	// Try to search by content ID with a limit of 1 to simulate Get
+	options := &repository.SearchOptions{
+		Limit: 1,
+		Filters: []repository.SearchFilter{
+			{
+				Field:    "id", 
+				Operator: "eq",
+				Value:    id,
+			},
+		},
+	}
+	
+	// Search for the specific ID
+	results, err := p.SearchByContentID(ctx, id, options)
+	if err != nil {
+		return nil, err
+	}
+	
+	if results == nil || len(results.Results) == 0 {
+		return nil, nil // Not found
+	}
+	
+	return results.Results[0], nil
+}
+
+// List implements Repository[SearchResult].List
+func (p *SearchAPIProxy) List(ctx context.Context, filter search.Filter) ([]*repository.SearchResult, error) {
+	p.logger.Debug("Listing search results via API proxy", map[string]interface{}{
+		"filter": filter,
+	})
+	
+	// Convert the generic filter to search options
+	options := &repository.SearchOptions{
+		Limit: 100, // Default limit
+	}
+	
+	// Extract filters from the generic filter
+	if filter != nil {
+		for field, value := range filter {
+			options.Filters = append(options.Filters, repository.SearchFilter{
+				Field:    field,
+				Operator: "eq",
+				Value:    value,
+			})
+		}
+	}
+	
+	// Use search by text with empty query to get all results
+	results, err := p.SearchByText(ctx, "", options)
+	if err != nil {
+		return nil, err
+	}
+	
+	if results == nil {
+		return []*repository.SearchResult{}, nil
+	}
+	
+	return results.Results, nil
+}
+
+// Update implements Repository[SearchResult].Update
+func (p *SearchAPIProxy) Update(ctx context.Context, result *repository.SearchResult) error {
+	p.logger.Debug("Update operation not supported in search API proxy", map[string]interface{}{
+		"id": result.ID,
+	})
+	
+	// The search API doesn't directly support updating search results
+	return fmt.Errorf("update operation not supported in search API proxy")
+}
+
+// Delete implements Repository[SearchResult].Delete
+func (p *SearchAPIProxy) Delete(ctx context.Context, id string) error {
+	p.logger.Debug("Delete operation not supported in search API proxy", map[string]interface{}{
+		"id": id,
+	})
+	
+	// The search API doesn't directly support deleting search results
+	return fmt.Errorf("delete operation not supported in search API proxy")
 }

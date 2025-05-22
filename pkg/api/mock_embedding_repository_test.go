@@ -2,7 +2,7 @@ package api_test
 
 import (
 	"context"
-	"github.com/S-Corkum/devops-mcp/internal/repository"
+	"github.com/S-Corkum/devops-mcp/pkg/repository/vector"
 	"github.com/stretchr/testify/mock"
 )
 
@@ -10,25 +10,25 @@ type MockEmbeddingRepository struct {
 	mock.Mock
 }
 
-func (m *MockEmbeddingRepository) StoreEmbedding(ctx context.Context, embedding *repository.Embedding) error {
+func (m *MockEmbeddingRepository) StoreEmbedding(ctx context.Context, embedding *vector.Embedding) error {
 	args := m.Called(ctx, embedding)
 	embedding.ID = "embedding-test-id"
 	return args.Error(0)
 }
 
-func (m *MockEmbeddingRepository) SearchEmbeddings(ctx context.Context, queryVector []float32, contextID string, modelID string, limit int, similarityThreshold float64) ([]*repository.Embedding, error) {
+func (m *MockEmbeddingRepository) SearchEmbeddings(ctx context.Context, queryVector []float32, contextID string, modelID string, limit int, similarityThreshold float64) ([]*vector.Embedding, error) {
 	args := m.Called(ctx, queryVector, contextID, modelID, limit, similarityThreshold)
-	return args.Get(0).([]*repository.Embedding), args.Error(1)
+	return args.Get(0).([]*vector.Embedding), args.Error(1)
 }
 
-func (m *MockEmbeddingRepository) SearchEmbeddings_Legacy(ctx context.Context, queryVector []float32, contextID string, limit int) ([]*repository.Embedding, error) {
+func (m *MockEmbeddingRepository) SearchEmbeddings_Legacy(ctx context.Context, queryVector []float32, contextID string, limit int) ([]*vector.Embedding, error) {
 	args := m.Called(ctx, queryVector, contextID, limit)
-	return args.Get(0).([]*repository.Embedding), args.Error(1)
+	return args.Get(0).([]*vector.Embedding), args.Error(1)
 }
 
-func (m *MockEmbeddingRepository) GetContextEmbeddings(ctx context.Context, contextID string) ([]*repository.Embedding, error) {
+func (m *MockEmbeddingRepository) GetContextEmbeddings(ctx context.Context, contextID string) ([]*vector.Embedding, error) {
 	args := m.Called(ctx, contextID)
-	return args.Get(0).([]*repository.Embedding), args.Error(1)
+	return args.Get(0).([]*vector.Embedding), args.Error(1)
 }
 
 func (m *MockEmbeddingRepository) DeleteContextEmbeddings(ctx context.Context, contextID string) error {
@@ -36,9 +36,9 @@ func (m *MockEmbeddingRepository) DeleteContextEmbeddings(ctx context.Context, c
 	return args.Error(0)
 }
 
-func (m *MockEmbeddingRepository) GetEmbeddingsByModel(ctx context.Context, contextID string, modelID string) ([]*repository.Embedding, error) {
+func (m *MockEmbeddingRepository) GetEmbeddingsByModel(ctx context.Context, contextID string, modelID string) ([]*vector.Embedding, error) {
 	args := m.Called(ctx, contextID, modelID)
-	return args.Get(0).([]*repository.Embedding), args.Error(1)
+	return args.Get(0).([]*vector.Embedding), args.Error(1)
 }
 
 func (m *MockEmbeddingRepository) GetSupportedModels(ctx context.Context) ([]string, error) {

@@ -4,6 +4,7 @@ package database
 import (
 	"time"
 
+	commonconfig "github.com/S-Corkum/devops-mcp/pkg/common/config"
 	"github.com/S-Corkum/devops-mcp/pkg/config"
 )
 
@@ -24,7 +25,7 @@ type Config struct {
 	UseIAM *bool `yaml:"use_iam" mapstructure:"use_iam"`
 
 	// RDSConfig contains RDS-specific configuration
-	RDSConfig *config.RDSConfig `yaml:"rds_config" mapstructure:"rds_config"`
+	RDSConfig *commonconfig.RDSConfig `yaml:"rds_config" mapstructure:"rds_config"`
 
 	// AutoMigrate determines whether to automatically run database migrations
 	AutoMigrate *bool `yaml:"auto_migrate" mapstructure:"auto_migrate"`
@@ -37,7 +38,7 @@ type Config struct {
 }
 
 // RDSConfig contains AWS RDS configuration
-type RDSConfig = config.RDSConfig
+type RDSConfig = commonconfig.RDSConfig
 
 // GetDefaultConfig returns a default database configuration
 func GetDefaultConfig() Config {
@@ -58,7 +59,7 @@ func GetDefaultConfig() Config {
 		UseIAM:         &useIAM,
 		AutoMigrate:    &autoMigrate,
 		MigrationsPath: "migrations",
-		RDSConfig:      &config.RDSConfig{},
+		RDSConfig:      &commonconfig.RDSConfig{},
 	}
 }
 

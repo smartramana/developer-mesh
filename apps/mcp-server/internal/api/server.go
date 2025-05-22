@@ -14,6 +14,7 @@ import (
 	"github.com/S-Corkum/devops-mcp/apps/mcp-server/internal/core"
 	"github.com/S-Corkum/devops-mcp/pkg/observability"
 	"github.com/S-Corkum/devops-mcp/pkg/repository"
+	"github.com/S-Corkum/devops-mcp/pkg/repository/agent"
 	"github.com/gin-gonic/gin"
 	"github.com/jmoiron/sqlx"
 	swaggerFiles "github.com/swaggo/files"
@@ -39,7 +40,7 @@ type Server struct {
 	restClientFactory *rest.Factory // REST API client factory for communication with REST API
 	// API proxies that delegate to REST API
 	vectorAPIProxy   repository.VectorAPIRepository // Proxy for vector operations
-	agentAPIProxy    repository.AgentRepository     // Proxy for agent operations
+	agentAPIProxy    agent.Repository     // Proxy for agent operations
 	modelAPIProxy    repository.ModelRepository     // Proxy for model operations
 	contextAPIProxy  repository.ContextRepository   // Proxy for context operations
 	searchAPIProxy   repository.SearchRepository    // Proxy for search operations
@@ -147,7 +148,7 @@ func NewServer(engine *core.Engine, cfg Config, db *sqlx.DB, metrics observabili
 	// Vector operations are now handled by the REST API client
 	var restClientFactory *rest.Factory
 	var vectorProxy repository.VectorAPIRepository
-	var agentProxy repository.AgentRepository
+	var agentProxy agent.Repository
 	var modelProxy repository.ModelRepository
 	
 	if cfg.RestAPI.Enabled {

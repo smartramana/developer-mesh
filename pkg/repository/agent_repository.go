@@ -7,6 +7,7 @@ import (
 	"fmt"
 
 	"github.com/S-Corkum/devops-mcp/pkg/models"
+	"github.com/S-Corkum/devops-mcp/pkg/repository/agent"
 	"github.com/jmoiron/sqlx"
 )
 
@@ -50,9 +51,7 @@ func (r *AgentRepositoryImpl) GetAgentByID(ctx context.Context, id string, tenan
 // ListAgents implements AgentRepository.ListAgents
 func (r *AgentRepositoryImpl) ListAgents(ctx context.Context, tenantID string) ([]*models.Agent, error) {
 	// Create filter based on tenantID
-	filter := map[string]interface{}{
-		"tenant_id": tenantID,
-	}
+	filter := agent.FilterFromTenantID(tenantID)
 	
 	// Delegate to the core List method
 	return r.List(ctx, filter)
@@ -115,7 +114,7 @@ func (r *AgentRepositoryImpl) Get(ctx context.Context, id string) (*models.Agent
 }
 
 // List implements AgentRepository.List
-func (r *AgentRepositoryImpl) List(ctx context.Context, filter map[string]interface{}) ([]*models.Agent, error) {
+func (r *AgentRepositoryImpl) List(ctx context.Context, filter agent.Filter) ([]*models.Agent, error) {
 	query := `SELECT id, name, tenant_id, model_id, created_at, updated_at FROM agents`
 	
 	// Apply filters

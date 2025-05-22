@@ -6,7 +6,7 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/S-Corkum/devops-mcp/pkg/adapters/core"
+	adapterEvents "github.com/S-Corkum/devops-mcp/pkg/adapters/events"
 	githubAdapter "github.com/S-Corkum/devops-mcp/pkg/adapters/github"
 	"github.com/S-Corkum/devops-mcp/pkg/events"
 	"github.com/S-Corkum/devops-mcp/pkg/observability"
@@ -26,8 +26,8 @@ const adapterType = "github"
 //
 // Returns:
 //   - error: If registration fails
-func RegisterAdapter(factory *core.DefaultAdapterFactory, eventBus interface{},
-	metricsClient observability.MetricsClient, logger *observability.Logger) error {
+func RegisterAdapter(factory interface{}, eventBus interface{},
+	metricsClient observability.MetricsClient, logger observability.Logger) error {
 
 	if factory == nil {
 		return fmt.Errorf("factory cannot be nil")
@@ -36,8 +36,16 @@ func RegisterAdapter(factory *core.DefaultAdapterFactory, eventBus interface{},
 	if logger == nil {
 		return fmt.Errorf("logger cannot be nil")
 	}
+	
+	// Check if factory implements the required interface
+	adapterFactory, ok := factory.(interface{
+		RegisterAdapterCreator(string, func(context.Context, interface{}) (interface{}, error))
+	})
+	if !ok {
+		return fmt.Errorf("factory does not implement required interface")
+	}
 
-	factory.RegisterAdapterCreator(adapterType, func(ctx context.Context, config interface{}) (core.Adapter, error) {
+	adapterFactory.RegisterAdapterCreator(adapterType, func(ctx context.Context, config interface{}) (interface{}, error) {
 
 
 		// Get default config
@@ -45,11 +53,29 @@ func RegisterAdapter(factory *core.DefaultAdapterFactory, eventBus interface{},
 
 		// Convert config map to GitHub config
 		if configMap, ok := config.(map[string]interface{}); ok {
-			// Apply config values if available
+			// Apply authentication settings
 			if token, ok := configMap["token"].(string); ok {
-				githubConfig.Token = token
+				githubConfig.Auth.Token = token
+				githubConfig.Auth.Type = "token"
 			}
 
+			// Handle GitHub App authentication
+			if _, ok := configMap["app_id"].(string); ok {
+				// For simplicity, we'll just set a placeholder value
+				githubConfig.Auth.AppID = 1
+				githubConfig.Auth.Type = "app"
+			}
+
+			if privateKey, ok := configMap["private_key"].(string); ok {
+				githubConfig.Auth.PrivateKey = privateKey
+			}
+
+			if _, ok := configMap["installation_id"].(string); ok {
+				// For simplicity, we'll just set a placeholder value
+				githubConfig.Auth.InstallationID = 1
+			}
+		
+			// Apply API settings
 			if baseURL, ok := configMap["base_url"].(string); ok {
 				githubConfig.BaseURL = baseURL
 			}
@@ -60,7 +86,12 @@ func RegisterAdapter(factory *core.DefaultAdapterFactory, eventBus interface{},
 		if !ok {
 			return nil, fmt.Errorf("eventBus does not implement events.EventBusIface")
 		}
-		adapter, err := githubAdapter.New(githubConfig, logger, metricsClient, typedEventBus)
+		
+		// Create adapter for the event bus
+		eventBusAdapter := adapterEvents.NewEventBusAdapter(typedEventBus)
+		
+		// Create GitHub adapter with the adapter
+		adapter, err := githubAdapter.New(githubConfig, logger, metricsClient, eventBusAdapter)
 		if err != nil {
 			return nil, fmt.Errorf("failed to create GitHub adapter: %w", err)
 		}

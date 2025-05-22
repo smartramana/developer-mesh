@@ -1,3 +1,7 @@
+// Package interfaces provides adapter interfaces
+//
+// DEPRECATED: This package is being migrated to apps/mcp-server/internal/adapters/interfaces
+// as part of the Go workspace migration. New code should import from the new location.
 package interfaces
 
 import (

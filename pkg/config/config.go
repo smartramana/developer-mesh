@@ -4,7 +4,7 @@
 package config
 
 import (
-	commonconfig "github.com/S-Corkum/devops-mcp/pkg/config"
+	commonconfig "github.com/S-Corkum/devops-mcp/pkg/common/config"
 )
 
 // Re-export all types from common/config

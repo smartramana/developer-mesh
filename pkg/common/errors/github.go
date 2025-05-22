@@ -3,36 +3,34 @@ package errors
 import (
 	"errors"
 	"fmt"
-	"net/http"
 )
 
 // Common GitHub API error types - defined here to avoid circular dependencies
 var (
-	// General GitHub errors
+	// General GitHub errors - not already defined in errors.go
 	ErrGitHubAPI          = errors.New("github api error")
 	ErrNilLogger          = errors.New("nil logger")
 	ErrInvalidCredentials = errors.New("invalid github credentials")
 	ErrPermissionDenied   = errors.New("permission denied")
 	ErrResourceNotFound   = errors.New("resource not found")
-	ErrRateLimitExceeded  = errors.New("rate limit exceeded")
 	ErrServerError        = errors.New("github server error")
 	ErrValidationFailed   = errors.New("validation failed")
 	ErrServiceUnavailable = errors.New("github service unavailable")
-	ErrInvalidAuthentication = errors.New("invalid authentication configuration")
 
 	// REST API specific errors
 	ErrRESTRequest  = errors.New("rest request failed")
 	ErrRESTResponse = errors.New("invalid rest response")
 	
-	// GraphQL specific errors
-	ErrGraphQLRequest  = errors.New("graphql request failed")
-	ErrGraphQLResponse = errors.New("invalid graphql response")
-	
-	// Webhook specific errors
-	ErrInvalidWebhook    = errors.New("invalid webhook")
-	ErrInvalidSignature  = errors.New("invalid webhook signature")
-	ErrInvalidPayload    = errors.New("invalid webhook payload")
-	ErrDuplicateDelivery = errors.New("duplicate webhook delivery")
+	// Note: The following errors are already defined in errors.go,
+	// so we don't redefine them here:
+	// - ErrRateLimitExceeded
+	// - ErrInvalidAuthentication
+	// - ErrGraphQLRequest
+	// - ErrGraphQLResponse
+	// - ErrInvalidWebhook
+	// - ErrInvalidSignature
+	// - ErrInvalidPayload
+	// - ErrDuplicateDelivery
 )
 
 // GitHubError represents a GitHub API error with context
@@ -90,8 +88,10 @@ func (e *GitHubError) Is(target error) bool {
 	return errors.Is(e.Err, target)
 }
 
-// NewGitHubError creates a new GitHub error
-func NewGitHubError(err error, statusCode int, message string) *GitHubError {
+// NewLegacyGitHubError creates a new legacy GitHub error based on the struct in this file
+// This function is kept for backward compatibility with code that uses the legacy GitHubError struct
+// New code should use the NewGitHubError function defined in errors.go
+func NewLegacyGitHubError(err error, statusCode int, message string) *GitHubError {
 	return &GitHubError{
 		Err:        err,
 		StatusCode: statusCode,
@@ -126,68 +126,14 @@ func (e *GitHubError) WithDocumentation(url string) *GitHubError {
 	return e
 }
 
+// Note: The following functions are already defined in errors.go, 
+// so we're commenting them out here to prevent redeclaration errors
+//
 // FromHTTPError creates a GitHubError from an HTTP status code and message
-func FromHTTPError(statusCode int, message, documentationURL string) *GitHubError {
-	var baseErr error
-	
-	switch statusCode {
-	case http.StatusUnauthorized:
-		baseErr = ErrInvalidCredentials
-	case http.StatusForbidden:
-		if message != "" && (
-			message == "API rate limit exceeded" || 
-			message == "You have exceeded a secondary rate limit" ||
-			message == "You have triggered an abuse detection mechanism") {
-			baseErr = ErrRateLimitExceeded
-		} else {
-			baseErr = ErrPermissionDenied
-		}
-	case http.StatusNotFound:
-		baseErr = ErrResourceNotFound
-	case http.StatusUnprocessableEntity:
-		baseErr = ErrValidationFailed
-	case http.StatusInternalServerError:
-		baseErr = ErrServerError
-	case http.StatusServiceUnavailable:
-		baseErr = ErrServiceUnavailable
-	default:
-		if statusCode >= 400 && statusCode < 500 {
-			baseErr = ErrGitHubAPI
-		} else if statusCode >= 500 {
-			baseErr = ErrServerError
-		} else {
-			baseErr = ErrGitHubAPI
-		}
-	}
-	
-	err := NewGitHubError(baseErr, statusCode, message)
-	if documentationURL != "" {
-		err.WithDocumentation(documentationURL)
-	}
-	
-	return err
-}
-
+// func FromHTTPError(statusCode int, message, documentationURL string) *GitHubError { ... }
+//
 // FromWebhookError creates a GitHubError from a webhook validation error
-func FromWebhookError(err error, eventType string) *GitHubError {
-	var baseErr error
-	
-	switch {
-	case errors.Is(err, ErrInvalidSignature) || 
-		 errors.Is(err, ErrInvalidWebhook) ||
-		 errors.Is(err, ErrInvalidPayload):
-		baseErr = err
-	case errors.Is(err, ErrDuplicateDelivery):
-		baseErr = ErrDuplicateDelivery
-	default:
-		baseErr = ErrInvalidWebhook
-	}
-	
-	githubErr := NewGitHubError(baseErr, 0, err.Error())
-	githubErr.WithResource("webhook", eventType)
-	
-	return githubErr
-}
+// func FromWebhookError(err error, eventType string) *GitHubError { ... }
 
 // IsGitHubRateLimitError checks if the error is a GitHub rate limit error
 func IsGitHubRateLimitError(err error) bool {

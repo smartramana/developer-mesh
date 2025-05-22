@@ -7,6 +7,7 @@ import (
 	"github.com/S-Corkum/devops-mcp/pkg/models"
 	"github.com/S-Corkum/devops-mcp/pkg/observability"
 	"github.com/S-Corkum/devops-mcp/pkg/repository"
+	"github.com/S-Corkum/devops-mcp/pkg/repository/vector"
 )
 
 // VectorAPIProxy implements the embedding repository interface but delegates to the REST API
@@ -257,3 +258,68 @@ func getModelIDFromMetadata(metadata map[string]interface{}) string {
 
 // Ensure that VectorAPIProxy implements repository.VectorAPIRepository
 var _ repository.VectorAPIRepository = (*VectorAPIProxy)(nil)
+
+// The following methods implement the standard Repository[Embedding] interface
+
+// Create implements Repository[Embedding].Create
+func (p *VectorAPIProxy) Create(ctx context.Context, embedding *repository.Embedding) error {
+	// Delegate to StoreEmbedding for backward compatibility
+	return p.StoreEmbedding(ctx, embedding)
+}
+
+// Get implements Repository[Embedding].Get
+func (p *VectorAPIProxy) Get(ctx context.Context, id string) (*repository.Embedding, error) {
+	// Delegate to GetEmbedding for backward compatibility
+	return p.GetEmbedding(ctx, id)
+}
+
+// List implements Repository[Embedding].List
+func (p *VectorAPIProxy) List(ctx context.Context, filter vector.Filter) ([]*repository.Embedding, error) {
+	p.logger.Debug("Listing embeddings via REST API proxy", map[string]interface{}{
+		"filter": filter,
+	})
+	
+	// Extract common filter parameters
+	var contextID string
+	if contextIDVal, ok := filter["context_id"]; ok {
+		if contextIDStr, ok := contextIDVal.(string); ok {
+			contextID = contextIDStr
+		}
+	}
+	
+	// If we have a context ID but no other filters, use GetContextEmbeddings
+	if contextID != "" {
+		var modelID string
+		if modelIDVal, ok := filter["model_id"]; ok {
+			if modelIDStr, ok := modelIDVal.(string); ok {
+				modelID = modelIDStr
+			}
+		}
+		
+		if modelID != "" {
+			// If we have both context and model ID, use GetEmbeddingsByModel
+			return p.GetEmbeddingsByModel(ctx, contextID, modelID)
+		}
+		
+		// Otherwise just get all embeddings for the context
+		return p.GetContextEmbeddings(ctx, contextID)
+	}
+	
+	// If no context ID, we can't list all (not supported in REST API)
+	// Return empty list for now
+	p.logger.Warn("List without context_id not supported in REST API", nil)
+	return []*repository.Embedding{}, nil
+}
+
+// Update implements Repository[Embedding].Update
+func (p *VectorAPIProxy) Update(ctx context.Context, embedding *repository.Embedding) error {
+	// Delegate to StoreEmbedding for backward compatibility
+	// The REST API uses upsert semantics for StoreEmbedding
+	return p.StoreEmbedding(ctx, embedding)
+}
+
+// Delete implements Repository[Embedding].Delete
+func (p *VectorAPIProxy) Delete(ctx context.Context, id string) error {
+	// Delegate to DeleteEmbedding for backward compatibility
+	return p.DeleteEmbedding(ctx, id)
+}

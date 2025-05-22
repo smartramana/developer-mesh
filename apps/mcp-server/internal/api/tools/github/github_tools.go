@@ -1,4 +1,4 @@
-package server
+package github
 
 import (
 	"encoding/json"
@@ -7,8 +7,7 @@ import (
 
 	"github.com/S-Corkum/devops-mcp/pkg/adapters/github"
 	"github.com/S-Corkum/devops-mcp/pkg/observability"
-	"github.com/S-Corkum/devops-mcp/pkg/mcp/tool"
-	githubtools "github.com/S-Corkum/devops-mcp/pkg/mcp/tool/github"
+	"github.com/S-Corkum/devops-mcp/apps/mcp-server/internal/core/tool"
 	"github.com/gin-gonic/gin"
 )
 
@@ -17,6 +16,7 @@ type GitHubToolsHandler struct {
 	registry     *tool.ToolRegistry
 	logger       observability.Logger
 	githubConfig *github.Config
+	provider     *GitHubToolProvider
 }
 
 // NewGitHubToolsHandler creates a new GitHub tools handler
@@ -27,8 +27,8 @@ func NewGitHubToolsHandler(
 	registry := tool.NewToolRegistry()
 	
 	// Create and register GitHub tools
-	toolProvider := githubtools.NewGitHubToolProvider(githubAdapter)
-	err := toolProvider.RegisterTools(registry)
+	provider := NewGitHubToolProvider(githubAdapter)
+	err := provider.RegisterTools(registry)
 	if err != nil {
 		logger.Error("Failed to register GitHub tools", map[string]interface{}{
 			"error": err.Error(),
@@ -38,6 +38,7 @@ func NewGitHubToolsHandler(
 	return &GitHubToolsHandler{
 		registry: registry,
 		logger:   logger,
+		provider: provider,
 	}
 }
 
@@ -158,7 +159,7 @@ func (h *GitHubToolsHandler) executeTool(c *gin.Context) {
 	})
 }
 
-// RegisterGitHubTools registers GitHub tools with an MCP server
+// RegisterGitHubTools registers GitHub tools with the MCP server
 func RegisterGitHubTools(
 	router *gin.Engine,
 	githubAdapter *github.GitHubAdapter,

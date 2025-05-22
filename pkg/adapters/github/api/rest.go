@@ -24,7 +24,7 @@ type RESTClient struct {
 	baseURL           *url.URL
 	client            *http.Client
 	authProvider      auth.AuthProvider
-	logger            *observability.Logger
+	logger            observability.Logger
 	rateLimitCallback func(info resilience.GitHubRateLimitInfo)
 	etagCache         map[string]string
 	responseCache     map[string]interface{}
@@ -37,7 +37,7 @@ func NewRESTClient(
 	client *http.Client,
 	authProvider auth.AuthProvider,
 	rateLimitCallback func(info resilience.GitHubRateLimitInfo),
-	logger *observability.Logger,
+	logger observability.Logger,
 ) *RESTClient {
 	return &RESTClient{
 		baseURL:           baseURL,

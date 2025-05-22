@@ -54,7 +54,7 @@ func (m *mockAgentRepository) Get(ctx context.Context, id string) (*models.Agent
 }
 
 // List implements the List method for mockAgentRepository
-func (m *mockAgentRepository) List(ctx context.Context, filter map[string]interface{}) ([]*models.Agent, error) {
+func (m *mockAgentRepository) List(ctx context.Context, filter agent.Filter) ([]*models.Agent, error) {
 	var result []*models.Agent
 	
 	if m.agents == nil {

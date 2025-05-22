@@ -12,6 +12,7 @@ import (
 type AdapterCreator func(ctx context.Context, config interface{}) (Adapter, error)
 
 // AdapterFactory is the implementation of the AdapterFactory interface
+// This is the core implementation that should be used going forward
 type AdapterFactory struct {
 	creators      map[string]AdapterCreator
 	configs       map[string]interface{}
@@ -91,4 +92,33 @@ func (f *AdapterFactory) GetConfig(adapterType string) (interface{}, bool) {
 	
 	config, exists := f.configs[adapterType]
 	return config, exists
+}
+
+// DefaultAdapterFactory is an alias for AdapterFactory to maintain backwards compatibility
+// DEPRECATED: Use AdapterFactory directly in new code
+type DefaultAdapterFactory struct {
+	*AdapterFactory
+}
+
+// NewDefaultAdapterFactory creates a new adapter factory using the DefaultAdapterFactory type for backward compatibility
+// DEPRECATED: Use NewAdapterFactory in new code
+func NewDefaultAdapterFactory(
+	configs map[string]interface{},
+	metricsClient observability.MetricsClient,
+	logger interface{}, // Accept both *observability.Logger and observability.Logger
+) *DefaultAdapterFactory {
+	// Handle different logger types
+	var loggerInterface observability.Logger
+	
+	// Use type assertions instead of type switch to handle interface values
+	if l, ok := logger.(observability.Logger); ok {
+		loggerInterface = l
+	} else {
+		// If no valid Logger provided, use the default logger
+		loggerInterface = observability.DefaultLogger
+	}
+	
+	return &DefaultAdapterFactory{
+		AdapterFactory: NewAdapterFactory(configs, metricsClient, loggerInterface),
+	}
 }

@@ -14,14 +14,14 @@ import (
 // API handles context-related API endpoints
 type API struct {
 	contextManager interfaces.ContextManager
-	logger         *observability.Logger
+	logger         observability.Logger // Changed from pointer to interface type
 	metricsClient  metrics.Client
 }
 
 // NewAPI creates a new context API handler
 func NewAPI(
 	contextManager interfaces.ContextManager,
-	logger *observability.Logger,
+	logger observability.Logger, // Changed from pointer to interface type
 	metricsClient metrics.Client,
 ) *API {
 	if logger == nil {

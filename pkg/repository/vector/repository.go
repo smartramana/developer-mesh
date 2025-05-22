@@ -20,6 +20,83 @@ func NewRepository(db *sqlx.DB) Repository {
 	return &RepositoryImpl{db: db}
 }
 
+// Create stores a new embedding (standardized Repository method)
+func (r *RepositoryImpl) Create(ctx context.Context, embedding *Embedding) error {
+	return r.StoreEmbedding(ctx, embedding)
+}
+
+// Get retrieves an embedding by its ID (standardized Repository method)
+func (r *RepositoryImpl) Get(ctx context.Context, id string) (*Embedding, error) {
+	if id == "" {
+		return nil, errors.New("id cannot be empty")
+	}
+
+	query := `SELECT id, context_id, content_index, text, embedding, model_id, created_at, metadata
+              FROM embeddings WHERE id = $1`
+
+	var embedding Embedding
+	err := r.db.GetContext(ctx, &embedding, query, id)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get embedding: %w", err)
+	}
+
+	return &embedding, nil
+}
+
+// List retrieves embeddings matching the provided filter (standardized Repository method)
+func (r *RepositoryImpl) List(ctx context.Context, filter Filter) ([]*Embedding, error) {
+	query := `SELECT id, context_id, content_index, text, embedding, model_id, created_at, metadata FROM embeddings`
+	
+	// Apply filters
+	var whereClause string
+	var args []interface{}
+	argIndex := 1
+
+	if filter != nil {
+		for k, v := range filter {
+			if whereClause == "" {
+				whereClause = " WHERE "
+			} else {
+				whereClause += " AND "
+			}
+			whereClause += fmt.Sprintf("%s = $%d", k, argIndex)
+			args = append(args, v)
+			argIndex++
+		}
+	}
+
+	query += whereClause + " ORDER BY content_index"
+
+	var embeddings []*Embedding
+	err := r.db.SelectContext(ctx, &embeddings, query, args...)
+	if err != nil {
+		return nil, fmt.Errorf("failed to list embeddings: %w", err)
+	}
+
+	return embeddings, nil
+}
+
+// Update modifies an existing embedding (standardized Repository method)
+func (r *RepositoryImpl) Update(ctx context.Context, embedding *Embedding) error {
+	return r.StoreEmbedding(ctx, embedding) // Uses upsert functionality
+}
+
+// Delete removes an embedding by its ID (standardized Repository method)
+func (r *RepositoryImpl) Delete(ctx context.Context, id string) error {
+	if id == "" {
+		return errors.New("id cannot be empty")
+	}
+
+	query := `DELETE FROM embeddings WHERE id = $1`
+
+	_, err := r.db.ExecContext(ctx, query, id)
+	if err != nil {
+		return fmt.Errorf("failed to delete embedding: %w", err)
+	}
+
+	return nil
+}
+
 // StoreEmbedding stores a vector embedding
 func (r *RepositoryImpl) StoreEmbedding(ctx context.Context, embedding *Embedding) error {
 	if embedding == nil {

@@ -6,6 +6,7 @@ import (
 	"fmt"
 
 	"github.com/jmoiron/sqlx"
+	"github.com/S-Corkum/devops-mcp/pkg/repository/search"
 )
 
 // SearchRepositoryImpl implements the SearchRepository interface
@@ -248,4 +249,84 @@ func (r *SearchRepositoryImpl) GetSearchStats(ctx context.Context) (map[string]i
 		"total_contexts":   0,
 		"status":           "healthy",
 	}, nil
+}
+
+// The following methods implement the standard Repository[SearchResult] interface
+
+// Create stores a new search result
+func (r *SearchRepositoryImpl) Create(ctx context.Context, result *SearchResult) error {
+	// Currently not implemented since search results are derived from embeddings
+	// In a real implementation, we would store the search result in the database
+	return fmt.Errorf("create operation not supported by SearchRepositoryImpl")
+}
+
+// Get retrieves a search result by its ID
+func (r *SearchRepositoryImpl) Get(ctx context.Context, id string) (*SearchResult, error) {
+	// For now, let's simulate getting a search result by using a query with the ID
+	// In a real implementation, we would query the database directly
+	options := &SearchOptions{
+		Limit: 1,
+		Filters: []SearchFilter{
+			{
+				Field:    "id",
+				Operator: "eq",
+				Value:    id,
+			},
+		},
+	}
+	
+	// Try using the content ID search as a workaround for direct get
+	results, err := r.SearchByContentID(ctx, id, options)
+	if err != nil {
+		return nil, err
+	}
+	
+	if results == nil || len(results.Results) == 0 {
+		return nil, nil // Not found
+	}
+	
+	return results.Results[0], nil
+}
+
+// List retrieves search results matching the provided filter
+func (r *SearchRepositoryImpl) List(ctx context.Context, filter search.Filter) ([]*SearchResult, error) {
+	// Convert the generic filter to SearchOptions
+	options := &SearchOptions{
+		Limit: 100, // Default limit
+	}
+	
+	// Extract filters from the map
+	if filter != nil {
+		for field, value := range filter {
+			options.Filters = append(options.Filters, SearchFilter{
+				Field:    field,
+				Operator: "eq",
+				Value:    value,
+			})
+		}
+	}
+	
+	// Use empty text search to get all results
+	results, err := r.SearchByText(ctx, "", options)
+	if err != nil {
+		return nil, err
+	}
+	
+	if results == nil {
+		return []*SearchResult{}, nil
+	}
+	
+	return results.Results, nil
+}
+
+// Update modifies an existing search result
+func (r *SearchRepositoryImpl) Update(ctx context.Context, result *SearchResult) error {
+	// Currently not implemented since search results are derived from embeddings
+	return fmt.Errorf("update operation not supported by SearchRepositoryImpl")
+}
+
+// Delete removes a search result by its ID
+func (r *SearchRepositoryImpl) Delete(ctx context.Context, id string) error {
+	// Currently not implemented since search results are derived from embeddings
+	return fmt.Errorf("delete operation not supported by SearchRepositoryImpl")
 }

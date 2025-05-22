@@ -81,7 +81,7 @@ type Engine struct {
 	githubContentManager *GitHubContentManager
 	config              interfaces.CoreConfig
 	metricsClient       metrics.Client
-	logger              *observability.Logger
+	logger              observability.Logger // Changed from pointer to interface type
 	eventBus            *events.EventBus
 	lock                sync.RWMutex
 }

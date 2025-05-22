@@ -32,26 +32,7 @@ func (e Error) Error() string {
 	return e.Message
 }
 
-// RedisConfig holds configuration for Redis connections
-type RedisConfig struct {
-	// Basic Redis config
-	Type          string
-	Address       string
-	Password      string
-	DB            int
-	ReadTimeout   time.Duration
-	WriteTimeout  time.Duration
-	DialTimeout   time.Duration
-	PoolSize      int
-	MinIdleConns  int
-	PoolTimeout   time.Duration
-	MaxRetries    int
-	ClusterMode   bool
-	
-	// AWS specific
-	UseAWS            bool
-	ElastiCacheConfig interface{}
-}
+// Note: RedisConfig is now fully defined in init.go to prevent redeclaration errors
 
 // stubCache is a simple stub implementation of the Cache interface
 type stubCache struct {}
@@ -80,16 +61,12 @@ func (s *stubCache) Flush(ctx context.Context) error {
 	return nil // Stub implementation
 }
 
-// NewCache creates a new cache client with the given configuration
-func NewCache(ctx context.Context, config RedisConfig) (Cache, error) {
-	// Return a stub implementation for now
-	return &stubCache{}, nil
-}
+// Note: NewCache is now fully implemented in init.go to prevent redeclaration errors
 
 // ConvertFromCommonRedisConfig converts a common/cache.RedisConfig to our RedisConfig
+// Kept for compatibility with external packages that might use this function
 func ConvertFromCommonRedisConfig(commonConfig interface{}) RedisConfig {
-	// This is a simple conversion that just creates a new config
-	// In a real implementation, we would properly copy all fields
+	// Create a default config with sensible values
 	return RedisConfig{
 		Type:         "redis",
 		Address:      "localhost:6379", // Default
@@ -98,7 +75,7 @@ func ConvertFromCommonRedisConfig(commonConfig interface{}) RedisConfig {
 		WriteTimeout: time.Second * 3,
 		PoolSize:     10,
 		MinIdleConns: 2,
-		PoolTimeout:  time.Second * 3,
+		PoolTimeout:  3, // seconds
 		MaxRetries:   3,
 	}
 }

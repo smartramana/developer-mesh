@@ -41,8 +41,9 @@ func NewGitHubErrorProvider() GitHubErrorProvider {
 func (p *errorProvider) NewError(err error, statusCode int, message string) *GitHubError {
 	// Create a new GitHubError directly instead of using the common adapter error
 	return &GitHubError{
-		Message: message,
-		Status:  statusCode,
+		Err:        err,
+		Message:    message,
+		StatusCode: statusCode,
 	}
 }
 
@@ -52,7 +53,7 @@ func (p *errorProvider) FromHTTPError(statusCode int, message, documentationURL 
 	return &GitHubError{
 		Message:          message,
 		DocumentationURL: documentationURL,
-		Status:           statusCode,
+		StatusCode:       statusCode,
 	}
 }
 
@@ -68,7 +69,8 @@ func (p *errorProvider) FromWebhookError(err error, eventType string) *GitHubErr
 	}
 	
 	return &GitHubError{
-		Message: message,
-		Status:  400, // Bad request is the default for webhook errors
+		Err:        err,
+		Message:    message,
+		StatusCode: 400, // Bad request is the default for webhook errors
 	}
 }

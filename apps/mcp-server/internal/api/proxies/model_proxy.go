@@ -7,6 +7,7 @@ import (
 	"github.com/S-Corkum/devops-mcp/pkg/models"
 	"github.com/S-Corkum/devops-mcp/pkg/observability"
 	"github.com/S-Corkum/devops-mcp/pkg/repository"
+	"github.com/S-Corkum/devops-mcp/pkg/repository/model"
 )
 
 // ModelAPIProxy implements the model repository interface but delegates to the REST API
@@ -89,7 +90,7 @@ func (p *ModelAPIProxy) Get(ctx context.Context, id string) (*models.Model, erro
 
 // List implements the List method of the repository.ModelRepository interface
 // It delegates to ListModels for API compatibility
-func (p *ModelAPIProxy) List(ctx context.Context, filters map[string]interface{}) ([]*models.Model, error) {
+func (p *ModelAPIProxy) List(ctx context.Context, filters model.Filter) ([]*models.Model, error) {
 	// Extract tenantID from filters if present
 	var tenantID string
 	if tenantIDVal, ok := filters["tenant_id"]; ok {

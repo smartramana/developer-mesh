@@ -68,7 +68,7 @@ func (r *RepositoryImpl) Get(ctx context.Context, id string) (*models.Model, err
 }
 
 // List retrieves models based on filter criteria
-func (r *RepositoryImpl) List(ctx context.Context, filter map[string]interface{}) ([]*models.Model, error) {
+func (r *RepositoryImpl) List(ctx context.Context, filter Filter) ([]*models.Model, error) {
 	baseQuery := `SELECT id, name, tenant_id FROM models`
 	
 	// Build the WHERE clause based on filters

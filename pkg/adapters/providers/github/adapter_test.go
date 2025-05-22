@@ -10,7 +10,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/S-Corkum/devops-mcp/internal/observability"
+	"github.com/S-Corkum/devops-mcp/pkg/observability"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"

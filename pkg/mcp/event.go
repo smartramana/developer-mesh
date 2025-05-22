@@ -1,3 +1,7 @@
+// Package mcp provides MCP functionality
+//
+// DEPRECATED: This package is being migrated to apps/mcp-server/internal/core/models
+// as part of the Go workspace migration. New code should import from the new location.
 package mcp
 
 import (

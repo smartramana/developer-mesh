@@ -13,7 +13,7 @@ import (
 	"github.com/S-Corkum/devops-mcp/internal/adapters/core"
 	"github.com/S-Corkum/devops-mcp/internal/adapters/events"
 	"github.com/S-Corkum/devops-mcp/internal/adapters/providers/github"
-	"github.com/S-Corkum/devops-mcp/internal/observability"
+	"github.com/S-Corkum/devops-mcp/pkg/observability"
 )
 
 // TestRegisterAllProviders tests that all providers can be registered successfully

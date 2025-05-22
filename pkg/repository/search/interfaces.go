@@ -5,6 +5,20 @@ import (
 	"context"
 )
 
+// Filter defines a filter map for repository operations
+// This avoids importing pkg/repository to prevent import cycles
+type Filter map[string]interface{}
+
+// FilterFromContentType creates a filter for content type
+func FilterFromContentType(contentType string) Filter {
+	return Filter{"type": contentType}
+}
+
+// FilterFromContentHash creates a filter for content hash
+func FilterFromContentHash(contentHash string) Filter {
+	return Filter{"content_hash": contentHash}
+}
+
 // SearchOptions defines options for search operations
 type SearchOptions struct {
 	Limit         int
@@ -49,6 +63,19 @@ type SearchResult struct {
 
 // Repository defines the interface for search operations
 type Repository interface {
+	// Core repository methods - aligned with generic Repository[T] interface
+	// Create stores a new search result
+	Create(ctx context.Context, result *SearchResult) error
+	// Get retrieves a search result by its ID
+	Get(ctx context.Context, id string) (*SearchResult, error)
+	// List retrieves search results matching the provided filter
+	List(ctx context.Context, filter Filter) ([]*SearchResult, error)
+	// Update modifies an existing search result
+	Update(ctx context.Context, result *SearchResult) error
+	// Delete removes a search result by its ID
+	Delete(ctx context.Context, id string) error
+
+	// Search-specific methods
 	// SearchByText performs a vector search using text
 	SearchByText(ctx context.Context, query string, options *SearchOptions) (*SearchResults, error)
 	

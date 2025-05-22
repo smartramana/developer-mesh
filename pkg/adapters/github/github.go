@@ -6,29 +6,20 @@ import (
 	"errors"
 )
 
-// Config represents the configuration for the GitHub adapter
-type Config struct {
-	// API token for authentication with GitHub
-	Token string
-	// Base URL for GitHub API (optional, defaults to public GitHub API)
-	BaseURL string
-	// User agent to use for API requests
-	UserAgent string
-}
-
-// GitHubAdapter provides an interface to GitHub's API
-type GitHubAdapter struct {
-	config Config
-}
+// This file contains legacy functions and will be phased out after migration
+// Config and GitHubAdapter have been migrated to config.go and adapter.go
 
 // NewGitHubAdapter creates a new GitHub adapter with the given configuration
+// This is a legacy function, use New() from adapter.go instead
 func NewGitHubAdapter(config Config) (*GitHubAdapter, error) {
-	if config.Token == "" {
-		return nil, errors.New("GitHub token is required")
+	if config.Auth.Type == "" || (config.Auth.Type == "token" && config.Auth.Token == "") {
+		return nil, errors.New("GitHub authentication is required")
 	}
 
+	// Create a pointer to the config to satisfy the adapter's requirements
+	cfg := &config
 	return &GitHubAdapter{
-		config: config,
+		config: cfg,
 	}, nil
 }
 
@@ -39,22 +30,9 @@ func (g *GitHubAdapter) ExecuteAction(ctx context.Context, contextID string, act
 	return nil, errors.New("not implemented")
 }
 
-// Type returns the type of this adapter
-func (g *GitHubAdapter) Type() string {
-	return "github"
-}
-
-// Version returns the version of this adapter
-func (g *GitHubAdapter) Version() string {
-	return "0.1.0"
-}
-
-// Health returns the health status of this adapter
-func (g *GitHubAdapter) Health() string {
-	return "ok"
-}
-
-// Close closes any resources used by the adapter
-func (g *GitHubAdapter) Close() error {
-	return nil
-}
+// Note: The following methods are implemented in adapter.go:
+// - Type() string
+// - Version() string
+// - Health() string
+// - HandleWebhook(ctx context.Context, eventType string, payload []byte) error
+// - Close() error

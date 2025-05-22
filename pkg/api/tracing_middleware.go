@@ -1,3 +1,6 @@
+// DEPRECATED: This file has been moved to apps/mcp-server/internal/api/tracing_middleware.go
+// New code should import from the apps/mcp-server/internal/api package instead.
+// This file is maintained for backward compatibility only and will be removed in a future release.
 package api
 
 import (

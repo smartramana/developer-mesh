@@ -43,8 +43,8 @@ func (a *LegacyAgentAdapter) GetAgentByID(ctx context.Context, id string, tenant
 }
 
 func (a *LegacyAgentAdapter) ListAgents(ctx context.Context, tenantID string) ([]*models.Agent, error) {
-	// Convert tenantID to a filter map for the underlying implementation
-	filter := map[string]interface{}{"tenant_id": tenantID}
+	// Convert tenantID to a filter for the underlying implementation
+	filter := agent.FilterFromTenantID(tenantID)
 	return a.List(ctx, filter)
 }
 
@@ -65,7 +65,7 @@ func (a *LegacyAgentAdapter) Get(ctx context.Context, id string) (*models.Agent,
 	return a.repo.Get(ctx, id)
 }
 
-func (a *LegacyAgentAdapter) List(ctx context.Context, filter map[string]interface{}) ([]*models.Agent, error) {
+func (a *LegacyAgentAdapter) List(ctx context.Context, filter agent.Filter) ([]*models.Agent, error) {
 	return a.repo.List(ctx, filter)
 }
 
@@ -110,8 +110,8 @@ func (m *LegacyModelAdapter) GetModelByID(ctx context.Context, id string, tenant
 }
 
 func (m *LegacyModelAdapter) ListModels(ctx context.Context, tenantID string) ([]*models.Model, error) {
-	// Convert tenantID to a filter map for the underlying implementation
-	filter := map[string]interface{}{"tenant_id": tenantID}
+	// Convert tenantID to a filter for the underlying implementation
+	filter := model.FilterFromTenantID(tenantID)
 	return m.List(ctx, filter)
 }
 
@@ -132,7 +132,7 @@ func (m *LegacyModelAdapter) Get(ctx context.Context, id string) (*models.Model,
 	return m.repo.Get(ctx, id)
 }
 
-func (m *LegacyModelAdapter) List(ctx context.Context, filter map[string]interface{}) ([]*models.Model, error) {
+func (m *LegacyModelAdapter) List(ctx context.Context, filter model.Filter) ([]*models.Model, error) {
 	return m.repo.List(ctx, filter)
 }
 

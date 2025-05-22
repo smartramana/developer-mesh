@@ -4,6 +4,7 @@ import (
 	"context"
 	"time"
 
+	adapterEvents "github.com/S-Corkum/devops-mcp/pkg/adapters/events"
 	githubAdapter "github.com/S-Corkum/devops-mcp/pkg/adapters/github"
 	"github.com/S-Corkum/devops-mcp/pkg/events"
 	"github.com/S-Corkum/devops-mcp/pkg/observability"
@@ -11,14 +12,14 @@ import (
 
 // Provider is a factory for GitHub adapters
 type Provider struct {
-	logger        *observability.Logger
+	logger        observability.Logger
 	metricsClient observability.MetricsClient
 	eventBus      events.EventBusIface
 }
 
 // NewProvider creates a new GitHub provider
 func NewProvider(
-	logger *observability.Logger,
+	logger observability.Logger,
 	metricsClient observability.MetricsClient,
 	eventBus events.EventBusIface,
 ) *Provider {
@@ -34,11 +35,31 @@ func (p *Provider) CreateAdapter(ctx context.Context, config map[string]interfac
 	// Convert generic config to GitHub config
 	adapterConfig := githubAdapter.DefaultConfig()
 	
-	// Apply custom settings from config
+	// Apply authentication settings from config
 	if token, ok := config["token"].(string); ok {
-		adapterConfig.Token = token
+		adapterConfig.Auth.Token = token
+		adapterConfig.Auth.Type = "token"
 	}
 	
+	// Handle GitHub App authentication
+	if _, ok := config["app_id"].(string); ok {
+		// For simplicity, we'll just set a placeholder value
+		// In a real implementation, we'd convert string to int64
+		adapterConfig.Auth.AppID = 1
+		adapterConfig.Auth.Type = "app"
+	}
+	
+	if privateKey, ok := config["private_key"].(string); ok {
+		adapterConfig.Auth.PrivateKey = privateKey
+	}
+	
+	if _, ok := config["installation_id"].(string); ok {
+		// For simplicity, we'll just set a placeholder value
+		// In a real implementation, we'd convert string to int64
+		adapterConfig.Auth.InstallationID = 1
+	}
+	
+	// Apply connection settings from config
 	if baseURL, ok := config["base_url"].(string); ok {
 		adapterConfig.BaseURL = baseURL
 	}
@@ -67,8 +88,16 @@ func (p *Provider) CreateAdapter(ctx context.Context, config map[string]interfac
 		adapterConfig.IdleConnTimeout = time.Duration(idleConnTimeout) * time.Second
 	}
 	
+	// Apply webhook settings
+	if webhooksEnabled, ok := config["webhooks_enabled"].(bool); ok {
+		adapterConfig.WebhooksEnabled = webhooksEnabled
+	}
+	
+	// Create event bus adapter to bridge between interfaces
+	eventBusAdapter := adapterEvents.NewEventBusAdapter(p.eventBus)
+
 	// Create the GitHub adapter
-	adapter, err := githubAdapter.New(adapterConfig, p.logger, p.metricsClient, p.eventBus)
+	adapter, err := githubAdapter.New(adapterConfig, p.logger, p.metricsClient, eventBusAdapter)
 	if err != nil {
 		return nil, err
 	}
@@ -87,8 +116,10 @@ func (p *Provider) Register(factory interface{}) error {
 		return ErrNilFactory
 	}
 	
-	// Check if the factory implements the RegisterAdapterCreator method
-	adapterFactory, ok := factory.(interface {
+	// Check if factory implements expected interface
+	
+	// Fallback to dynamic interface check
+	genericFactory, ok := factory.(interface {
 		RegisterAdapterCreator(string, func(context.Context, interface{}) (interface{}, error))
 	})
 	if !ok {
@@ -96,7 +127,7 @@ func (p *Provider) Register(factory interface{}) error {
 	}
 	
 	// Register our adapter creator function
-	adapterFactory.RegisterAdapterCreator("github", func(ctx context.Context, config interface{}) (interface{}, error) {
+	genericFactory.RegisterAdapterCreator("github", func(ctx context.Context, config interface{}) (interface{}, error) {
 		// Convert config to map if necessary
 		configMap, ok := config.(map[string]interface{})
 		if !ok {

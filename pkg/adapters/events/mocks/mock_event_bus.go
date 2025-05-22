@@ -8,100 +8,91 @@ import (
 	"github.com/S-Corkum/devops-mcp/pkg/mcp"
 )
 
-// MockEventBus is a mock implementation of the EventBusIface for testing
+// MockEventBus is a mock implementation of the events.EventBus interface for testing
 type MockEventBus struct {
-	listeners       map[events.EventType][]events.EventListener
-	globalListeners []events.EventListener
-	mu              sync.RWMutex
-	emittedEvents   []*events.AdapterEvent
+	handlers       map[string][]events.EventHandler
+	globalHandlers []events.EventHandler
+	mu             sync.RWMutex
+	emittedEvents  []*events.AdapterEvent
 }
 
 // NewMockEventBus creates a new mock event bus
 func NewMockEventBus() *MockEventBus {
 	return &MockEventBus{
-		listeners:       make(map[events.EventType][]events.EventListener),
-		globalListeners: []events.EventListener{},
-		emittedEvents:   []*events.AdapterEvent{},
+		handlers:       make(map[string][]events.EventHandler),
+		globalHandlers: []events.EventHandler{},
+		emittedEvents:  []*events.AdapterEvent{},
 	}
 }
 
 // Subscribe subscribes to events of a specific type
-// Satisfies EventBusIface by adapting to Handler signature
-func (b *MockEventBus) Subscribe(eventType events.EventType, handler func(ctx context.Context, event *mcp.Event) error) {
-	// This is a stub for the interface; implement as needed for your tests.
-}
-
-// Unsubscribe unsubscribes from events of a specific type
-func (b *MockEventBus) Unsubscribe(eventType events.EventType, handler func(ctx context.Context, event *mcp.Event) error) {
-	// This is a stub for the interface; implement as needed for your tests.
-}
-
-// Publish publishes an event to all subscribers
-func (b *MockEventBus) Publish(ctx context.Context, event *mcp.Event) {
-	// This is a stub for the interface; implement as needed for your tests.
-}
-
-// Close closes the mock event bus
-func (b *MockEventBus) Close() {
-	// No-op for mock
-}
-
-// SubscribeListener subscribes to events of a specific type
-func (b *MockEventBus) SubscribeListener(eventType events.EventType, listener events.EventListener) {
+func (b *MockEventBus) Subscribe(eventType events.AdapterEventType, handler events.EventHandler) {
 	b.mu.Lock()
 	defer b.mu.Unlock()
 
-	listeners, exists := b.listeners[eventType]
+	handlers, exists := b.handlers[string(eventType)]
 	if !exists {
-		listeners = []events.EventListener{}
+		handlers = []events.EventHandler{}
 	}
 
-	b.listeners[eventType] = append(listeners, listener)
+	b.handlers[string(eventType)] = append(handlers, handler)
 }
 
 // SubscribeAll subscribes to all events
-func (b *MockEventBus) SubscribeAll(listener events.EventListener) {
+func (b *MockEventBus) SubscribeAll(handler events.EventHandler) {
 	b.mu.Lock()
 	defer b.mu.Unlock()
 	
-	b.globalListeners = append(b.globalListeners, listener)
+	b.globalHandlers = append(b.globalHandlers, handler)
 }
 
-// UnsubscribeListener unsubscribes from events of a specific type
-func (b *MockEventBus) UnsubscribeListener(eventType events.EventType, listener events.EventListener) {
+// Unsubscribe unsubscribes from events of a specific type
+func (b *MockEventBus) Unsubscribe(eventType events.AdapterEventType, handler events.EventHandler) {
 	b.mu.Lock()
 	defer b.mu.Unlock()
 
-	listeners, exists := b.listeners[eventType]
+	handlers, exists := b.handlers[string(eventType)]
 	if !exists {
 		return
 	}
 
-	// Filter out the listener
-	filteredListeners := make([]events.EventListener, 0, len(listeners))
-	for _, l := range listeners {
-		if l != listener {
-			filteredListeners = append(filteredListeners, l)
+	// Filter out the handler
+	filteredHandlers := make([]events.EventHandler, 0, len(handlers))
+	for _, h := range handlers {
+		if &h != &handler {
+			filteredHandlers = append(filteredHandlers, h)
 		}
 	}
 
-	b.listeners[eventType] = filteredListeners
+	b.handlers[string(eventType)] = filteredHandlers
 }
 
 // UnsubscribeAll unsubscribes from all events
-func (b *MockEventBus) UnsubscribeAll(listener events.EventListener) {
+func (b *MockEventBus) UnsubscribeAll(handler events.EventHandler) {
 	b.mu.Lock()
 	defer b.mu.Unlock()
 	
-	// Filter out the listener from global listeners
-	filteredGlobalListeners := make([]events.EventListener, 0, len(b.globalListeners))
-	for _, l := range b.globalListeners {
-		if l != listener {
-			filteredGlobalListeners = append(filteredGlobalListeners, l)
+	// Filter out the handler from global handlers
+	filteredGlobalHandlers := make([]events.EventHandler, 0, len(b.globalHandlers))
+	for _, h := range b.globalHandlers {
+		if &h != &handler {
+			filteredGlobalHandlers = append(filteredGlobalHandlers, h)
 		}
 	}
 	
-	b.globalListeners = filteredGlobalListeners
+	b.globalHandlers = filteredGlobalHandlers
+	
+	// Also remove from specific event types
+	for eventType, handlers := range b.handlers {
+		filteredHandlers := make([]events.EventHandler, 0, len(handlers))
+		for _, h := range handlers {
+			if &h != &handler {
+				filteredHandlers = append(filteredHandlers, h)
+			}
+		}
+		
+		b.handlers[eventType] = filteredHandlers
+	}
 }
 
 // Emit emits an event to all subscribers
@@ -113,37 +104,38 @@ func (b *MockEventBus) Emit(ctx context.Context, event *events.AdapterEvent) err
 	b.mu.RLock()
 	defer b.mu.RUnlock()
 	
-	// Copy listeners to avoid holding lock during processing
-	listeners, exists := b.listeners[event.EventType]
-	listenersCopy := make([]events.EventListener, len(listeners))
-	copy(listenersCopy, listeners)
+	// Copy handlers to avoid holding lock during processing
+	handlers, exists := b.handlers[string(event.EventType)]
+	handlersCopy := make([]events.EventHandler, len(handlers))
+	copy(handlersCopy, handlers)
 	
-	globalListenersCopy := make([]events.EventListener, len(b.globalListeners))
-	copy(globalListenersCopy, b.globalListeners)
+	globalHandlersCopy := make([]events.EventHandler, len(b.globalHandlers))
+	copy(globalHandlersCopy, b.globalHandlers)
 	
 	// Process event (simple pass through for test)
-	// Notify type-specific listeners
+	// Notify type-specific handlers
 	if exists {
-		for _, listener := range listenersCopy {
-			listener.Handle(ctx, event)
+		for _, handler := range handlersCopy {
+			handler(ctx, event)
 		}
 	}
 	
-	// Notify global listeners
-	for _, listener := range globalListenersCopy {
-		listener.Handle(ctx, event)
+	// Notify global handlers
+	for _, handler := range globalHandlersCopy {
+		handler(ctx, event)
 	}
 	
 	return nil
 }
 
-// EmitWithCallback emits an event and calls a callback when the event is processed
-func (b *MockEventBus) EmitWithCallback(ctx context.Context, event *events.AdapterEvent, callback func(error)) error {
-	err := b.Emit(ctx, event)
-	if callback != nil {
-		callback(err)
-	}
-	return err
+// Publish publishes an MCP event to the system bus (required for EventBus interface)
+func (b *MockEventBus) Publish(ctx context.Context, event *mcp.Event) {
+	// This is a stub for the interface; implement as needed for your tests.
+}
+
+// Close closes the mock event bus
+func (b *MockEventBus) Close() {
+	// No-op for mock
 }
 
 // GetEmittedEvents returns all events that have been emitted

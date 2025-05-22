@@ -14,19 +14,16 @@ type SystemEventBusWrapper struct {
 }
 
 // NewSystemEventBusWrapper creates a new wrapper for system event bus
-func NewSystemEventBusWrapper(systemBus system.EventBus) *events.EventBus {
-	// Create a standard EventBus
-	evtBus := events.NewEventBus(5)
-	
-	// Return it as a pointer to satisfy the interface requirements
-	return evtBus
+func NewSystemEventBusWrapper(systemBus system.EventBus) events.EventBus {
+	return &SystemEventBusWrapper{
+		systemBus: systemBus,
+	}
 }
 
 // Publish implements events.EventBus.Publish
-func (w *SystemEventBusWrapper) Publish(ctx context.Context, event *mcp.Event) error {
-	// For now, just log and return success
+func (w *SystemEventBusWrapper) Publish(ctx context.Context, event *mcp.Event) {
+	// For now, just log and return
 	// In a real implementation, we would convert mcp.Event to system.Event
-	return nil
 }
 
 // Subscribe implements events.EventBus.Subscribe

@@ -62,12 +62,23 @@ const (
 
 // Logger defines the interface for logging
 type Logger interface {
+	// Core logging methods with fields
 	Debug(msg string, fields map[string]interface{})
 	Info(msg string, fields map[string]interface{})
 	Warn(msg string, fields map[string]interface{})
 	Error(msg string, fields map[string]interface{})
 	Fatal(msg string, fields map[string]interface{})
+	
+	// Formatted logging methods
+	Debugf(format string, args ...interface{})
+	Infof(format string, args ...interface{})
+	Warnf(format string, args ...interface{})
+	Errorf(format string, args ...interface{})
+	Fatalf(format string, args ...interface{})
+	
+	// Context methods
 	WithPrefix(prefix string) Logger
+	With(fields map[string]interface{}) Logger
 }
 
 // MetricsClient defines the interface for metrics collection
@@ -88,7 +99,11 @@ type MetricsClient interface {
 	
 	// Convenience methods
 	StartTimer(name string, labels map[string]string) func()
-	IncrementCounter(name string, value float64, labels map[string]string)
+	// IncrementCounter is the standard method for incrementing counters
+	// For backward compatibility with internal/observability, this version doesn't require labels
+	IncrementCounter(name string, value float64)
+	// IncrementCounterWithLabels is the preferred method with labels support
+	IncrementCounterWithLabels(name string, value float64, labels map[string]string)
 	RecordDuration(name string, duration time.Duration)
 	
 	// Lifecycle management

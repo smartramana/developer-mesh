@@ -10,6 +10,13 @@ import (
 )
 
 //-------------------------------------------------------
+// Base Repository Interface
+//-------------------------------------------------------
+
+// The generic Repository[T] interface is defined in types.go
+// This file provides type aliases for backward compatibility
+
+//-------------------------------------------------------
 // Vector Embedding Type and Interface
 //-------------------------------------------------------
 

@@ -3,16 +3,33 @@ package observability
 
 import (
 	"time"
-
-	commonMetrics "github.com/S-Corkum/devops-mcp/pkg/observability"
-	internalMetrics "github.com/S-Corkum/devops-mcp/pkg/observability"
 )
 
-// LegacyMetricsAdapter adapts the observability.MetricsClient to the legacy metrics.Client interface
+// LegacyMetricsAdapter adapts the observability.MetricsClient to legacy metrics interfaces
 // This allows existing code using either internal/metrics or pkg/common/metrics to work with
 // the new observability package without modifications.
 type LegacyMetricsAdapter struct {
 	metrics MetricsClient
+}
+
+// Define local interface types to avoid circular imports
+
+// LegacyClient represents the common metrics client interface used by both internal and pkg clients
+type LegacyClient interface {
+	RecordEvent(source, eventType string)
+	RecordLatency(operation string, duration time.Duration)
+	RecordCounter(name string, value float64, labels map[string]string)
+	RecordGauge(name string, value float64, labels map[string]string)
+	Close() error
+}
+
+// LegacyConfig represents the legacy metrics configuration format
+type LegacyConfig struct {
+	Enabled      bool
+	Type         string
+	Endpoint     string
+	PushGateway  string
+	PushInterval time.Duration
 }
 
 // NewLegacyMetricsAdapter creates a new adapter for the MetricsClient
@@ -21,13 +38,13 @@ func NewLegacyMetricsAdapter(metrics MetricsClient) *LegacyMetricsAdapter {
 	return &LegacyMetricsAdapter{metrics: metrics}
 }
 
-// NewInternalMetricsClient creates an adapter that implements internal/metrics.Client
-func NewInternalMetricsClient(metrics MetricsClient) internalMetrics.Client {
+// NewInternalMetricsClient creates an adapter that implements the legacy metrics Client interface
+func NewInternalMetricsClient(metrics MetricsClient) LegacyClient {
 	return &LegacyMetricsAdapter{metrics: metrics}
 }
 
-// NewCommonMetricsClient creates an adapter that implements pkg/common/metrics.Client
-func NewCommonMetricsClient(metrics MetricsClient) commonMetrics.Client {
+// NewCommonMetricsClient creates an adapter that implements the legacy metrics Client interface
+func NewCommonMetricsClient(metrics MetricsClient) LegacyClient {
 	return &LegacyMetricsAdapter{metrics: metrics}
 }
 
@@ -56,10 +73,9 @@ func (a *LegacyMetricsAdapter) Close() error {
 	return a.metrics.Close()
 }
 
-// CreateConfigAdapter creates a Config object from the observability.MetricsConfig
-// for backward compatibility with internal/metrics
-func CreateConfigAdapter(cfg MetricsConfig) internalMetrics.Config {
-	return internalMetrics.Config{
+// CreateLegacyConfig creates a legacy Config object from the observability.MetricsConfig
+func CreateLegacyConfig(cfg MetricsConfig) LegacyConfig {
+	return LegacyConfig{
 		Enabled:      cfg.Enabled,
 		Type:         cfg.Type,
 		Endpoint:     cfg.Endpoint,
@@ -68,20 +84,8 @@ func CreateConfigAdapter(cfg MetricsConfig) internalMetrics.Config {
 	}
 }
 
-// CreateCommonConfigAdapter creates a metrics.Config object from the observability.MetricsConfig
-// for backward compatibility with pkg/common/metrics
-func CreateCommonConfigAdapter(cfg MetricsConfig) commonMetrics.Config {
-	return commonMetrics.Config{
-		Enabled:      cfg.Enabled,
-		Type:         cfg.Type,
-		Endpoint:     cfg.Endpoint,
-		PushGateway:  cfg.PushGateway,
-		PushInterval: cfg.PushInterval,
-	}
-}
-
-// ConvertFromInternalConfig converts an internal/metrics.Config to observability.MetricsConfig
-func ConvertFromInternalConfig(cfg internalMetrics.Config) MetricsConfig {
+// ConvertFromLegacyConfig converts a legacy config to observability.MetricsConfig
+func ConvertFromLegacyConfig(cfg LegacyConfig) MetricsConfig {
 	return MetricsConfig{
 		Enabled:      cfg.Enabled,
 		Type:         cfg.Type,
@@ -91,33 +95,12 @@ func ConvertFromInternalConfig(cfg internalMetrics.Config) MetricsConfig {
 	}
 }
 
-// ConvertFromCommonConfig converts a pkg/common/metrics.Config to observability.MetricsConfig
-func ConvertFromCommonConfig(cfg commonMetrics.Config) MetricsConfig {
-	return MetricsConfig{
-		Enabled:      cfg.Enabled,
-		Type:         cfg.Type,
-		Endpoint:     cfg.Endpoint,
-		PushGateway:  cfg.PushGateway,
-		PushInterval: cfg.PushInterval,
-	}
-}
-
-// Factory functions that mimic the original constructors
-
-// NewClientFromInternal creates a new observability.MetricsClient from an internal/metrics.Config
-func NewClientFromInternal(cfg internalMetrics.Config) MetricsClient {
-	obsConfig := ConvertFromInternalConfig(cfg)
+// NewClientFromLegacyConfig creates a new observability.MetricsClient from a legacy config
+func NewClientFromLegacyConfig(cfg LegacyConfig) MetricsClient {
+	obsConfig := ConvertFromLegacyConfig(cfg)
 	return NewMetricsClientWithOptions(MetricsOptions{
 		Enabled: obsConfig.Enabled,
 		Labels:  map[string]string{},
 	})
 }
 
-// NewClientFromCommon creates a new observability.MetricsClient from a pkg/common/metrics.Config
-func NewClientFromCommon(cfg commonMetrics.Config) MetricsClient {
-	obsConfig := ConvertFromCommonConfig(cfg)
-	return NewMetricsClientWithOptions(MetricsOptions{
-		Enabled: obsConfig.Enabled,
-		Labels:  map[string]string{},
-	})
-}

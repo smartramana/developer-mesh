@@ -85,7 +85,7 @@ func (c *GraphQLClient) GetRepository(ctx context.Context, owner, name string) (
 }
 
 // ListRepositories lists repositories for the authenticated user
-func (c *GraphQLClient) ListRepositories(ctx context.Context, options *PaginationOptions) ([]map[string]interface{}, error) {
+func (c *GraphQLClient) ListRepositories(ctx context.Context, options *GraphQLPaginationOptions) ([]map[string]interface{}, error) {
 	query := `
 	query ListRepositories($first: Int!, $after: String) {
 		viewer {
@@ -120,7 +120,7 @@ func (c *GraphQLClient) ListRepositories(ctx context.Context, options *Paginatio
 	}
 	
 	if options == nil {
-		options = DefaultPaginationOptions()
+		options = DefaultGraphQLPaginationOptions()
 	}
 	options.ResultHandler = resultHandler
 	
@@ -223,7 +223,7 @@ type GraphQLClient struct {
 	config        *Config
 	client        *http.Client
 	rateLimiter   resilience.RateLimiter
-	logger        *observability.Logger
+	logger        observability.Logger
 	metricsClient observability.MetricsClient
 	queryCache    map[string]interface{}
 	cacheMutex    sync.RWMutex
@@ -240,7 +240,7 @@ type Config struct {
 }
 
 // NewGraphQLClient creates a new GitHub GraphQL client
-func NewGraphQLClient(config *Config, client *http.Client, rateLimiter resilience.RateLimiter, logger *observability.Logger, metricsClient observability.MetricsClient) *GraphQLClient {
+func NewGraphQLClient(config *Config, client *http.Client, rateLimiter resilience.RateLimiter, logger observability.Logger, metricsClient observability.MetricsClient) *GraphQLClient {
 	// Set default URL if not provided
 	if config.URL == "" {
 		config.URL = "https://api.github.com/graphql"
@@ -261,8 +261,8 @@ func NewGraphQLClient(config *Config, client *http.Client, rateLimiter resilienc
 	}
 }
 
-// PaginationOptions defines options for paginated GraphQL queries
-type PaginationOptions struct {
+// GraphQLPaginationOptions defines options for paginated GraphQL queries
+type GraphQLPaginationOptions struct {
 	// PerPage is the number of items per page
 	PerPage int
 	// MaxPages is the maximum number of pages to fetch
@@ -275,9 +275,9 @@ type PaginationOptions struct {
 	ResultHandler func(page int, data map[string]interface{}) error
 }
 
-// DefaultPaginationOptions returns default pagination options
-func DefaultPaginationOptions() *PaginationOptions {
-	return &PaginationOptions{
+// DefaultGraphQLPaginationOptions returns default pagination options
+func DefaultGraphQLPaginationOptions() *GraphQLPaginationOptions {
+	return &GraphQLPaginationOptions{
 		PerPage:  100,
 		MaxPages: 10,
 		PageInfo: `pageInfo {
@@ -366,9 +366,9 @@ func (c *GraphQLClient) Query(ctx context.Context, query string, variables map[s
 }
 
 // QueryPaginated executes a paginated GraphQL query
-func (c *GraphQLClient) QueryPaginated(ctx context.Context, query string, variables map[string]interface{}, options *PaginationOptions) error {
+func (c *GraphQLClient) QueryPaginated(ctx context.Context, query string, variables map[string]interface{}, options *GraphQLPaginationOptions) error {
 	if options == nil {
-		options = DefaultPaginationOptions()
+		options = DefaultGraphQLPaginationOptions()
 	}
 	
 	// Add pagination variables if not already present

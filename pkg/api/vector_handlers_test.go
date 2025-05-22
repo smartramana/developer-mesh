@@ -9,22 +9,68 @@ import (
 	"net/http/httptest"
 	"testing"
 	
-	"github.com/S-Corkum/devops-mcp/internal/api"
-	"github.com/S-Corkum/devops-mcp/internal/observability"
-	"github.com/S-Corkum/devops-mcp/internal/repository"
+	"github.com/S-Corkum/devops-mcp/pkg/api"
+	"github.com/S-Corkum/devops-mcp/pkg/observability"
+	"github.com/S-Corkum/devops-mcp/pkg/repository/vector"
 	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 )
 
+// MockEmbeddingRepository implements a mock for the EmbeddingRepositoryInterface
+type MockEmbeddingRepository struct {
+	mock.Mock
+}
+
+func (m *MockEmbeddingRepository) StoreEmbedding(ctx context.Context, embedding *vector.Embedding) error {
+	args := m.Called(ctx, embedding)
+	embedding.ID = "embedding-test-id"
+	return args.Error(0)
+}
+
+func (m *MockEmbeddingRepository) SearchEmbeddings(ctx context.Context, queryVector []float32, contextID string, modelID string, limit int, similarityThreshold float64) ([]*vector.Embedding, error) {
+	args := m.Called(ctx, queryVector, contextID, modelID, limit, similarityThreshold)
+	return args.Get(0).([]*vector.Embedding), args.Error(1)
+}
+
+func (m *MockEmbeddingRepository) SearchEmbeddings_Legacy(ctx context.Context, queryVector []float32, contextID string, limit int) ([]*vector.Embedding, error) {
+	args := m.Called(ctx, queryVector, contextID, limit)
+	return args.Get(0).([]*vector.Embedding), args.Error(1)
+}
+
+func (m *MockEmbeddingRepository) GetContextEmbeddings(ctx context.Context, contextID string) ([]*vector.Embedding, error) {
+	args := m.Called(ctx, contextID)
+	return args.Get(0).([]*vector.Embedding), args.Error(1)
+}
+
+func (m *MockEmbeddingRepository) DeleteContextEmbeddings(ctx context.Context, contextID string) error {
+	args := m.Called(ctx, contextID)
+	return args.Error(0)
+}
+
+func (m *MockEmbeddingRepository) GetEmbeddingsByModel(ctx context.Context, contextID string, modelID string) ([]*vector.Embedding, error) {
+	args := m.Called(ctx, contextID, modelID)
+	return args.Get(0).([]*vector.Embedding), args.Error(1)
+}
+
+func (m *MockEmbeddingRepository) GetSupportedModels(ctx context.Context) ([]string, error) {
+	args := m.Called(ctx)
+	return args.Get(0).([]string), args.Error(1)
+}
+
+func (m *MockEmbeddingRepository) DeleteModelEmbeddings(ctx context.Context, contextID string, modelID string) error {
+	args := m.Called(ctx, contextID, modelID)
+	return args.Error(0)
+}
+
 // Defining the EmbeddingRepositoryInterface for tests
 type EmbeddingRepositoryInterface interface {
-	StoreEmbedding(ctx context.Context, embedding *repository.Embedding) error
-	SearchEmbeddings(ctx context.Context, queryVector []float32, contextID string, modelID string, limit int, similarityThreshold float64) ([]*repository.Embedding, error)
-	SearchEmbeddings_Legacy(ctx context.Context, queryVector []float32, contextID string, limit int) ([]*repository.Embedding, error)
-	GetContextEmbeddings(ctx context.Context, contextID string) ([]*repository.Embedding, error)
+	StoreEmbedding(ctx context.Context, embedding *vector.Embedding) error
+	SearchEmbeddings(ctx context.Context, queryVector []float32, contextID string, modelID string, limit int, similarityThreshold float64) ([]*vector.Embedding, error)
+	SearchEmbeddings_Legacy(ctx context.Context, queryVector []float32, contextID string, limit int) ([]*vector.Embedding, error)
+	GetContextEmbeddings(ctx context.Context, contextID string) ([]*vector.Embedding, error)
 	DeleteContextEmbeddings(ctx context.Context, contextID string) error
-	GetEmbeddingsByModel(ctx context.Context, contextID string, modelID string) ([]*repository.Embedding, error)
+	GetEmbeddingsByModel(ctx context.Context, contextID string, modelID string) ([]*vector.Embedding, error)
 	GetSupportedModels(ctx context.Context) ([]string, error)
 	DeleteModelEmbeddings(ctx context.Context, contextID string, modelID string) error
 }
@@ -68,7 +114,7 @@ func TestStoreEmbeddingHandler(t *testing.T) {
 	server := setupVectorTestServer(mockRepo)
 	
 	// Set expectations
-	mockRepo.On("StoreEmbedding", mock.Anything, mock.AnythingOfType("*repository.Embedding")).Return(nil)
+	mockRepo.On("StoreEmbedding", mock.Anything, mock.AnythingOfType("*vector.Embedding")).Return(nil)
 	
 	// Create test request
 	reqBody := struct {
@@ -100,7 +146,7 @@ func TestStoreEmbeddingHandler(t *testing.T) {
 	mockRepo.AssertExpectations(t)
 	
 	// Verify response body
-	var resp repository.Embedding
+	var resp vector.Embedding
 	err := json.Unmarshal(w.Body.Bytes(), &resp)
 	assert.NoError(t, err)
 	assert.Equal(t, "embedding-test-id", resp.ID)
@@ -118,7 +164,7 @@ func TestSearchEmbeddingsHandler(t *testing.T) {
 		queryVector := []float32{0.1, 0.2, 0.3}
 		
 		// Mock results
-		mockResults := []*repository.Embedding{
+		mockResults := []*vector.Embedding{
 			{
 				ID:          "emb-1",
 				ContextID:   contextID,
@@ -163,7 +209,7 @@ func TestSearchEmbeddingsHandler(t *testing.T) {
 		
 		// Verify response body
 		var resp struct {
-			Embeddings []*repository.Embedding `json:"embeddings"`
+			Embeddings []*vector.Embedding `json:"embeddings"`
 		}
 		err := json.Unmarshal(w.Body.Bytes(), &resp)
 		assert.NoError(t, err)
@@ -180,7 +226,7 @@ func TestSearchEmbeddingsHandler(t *testing.T) {
 		similarityThreshold := 0.7
 		
 		// Mock results
-		mockResults := []*repository.Embedding{
+		mockResults := []*vector.Embedding{
 			{
 				ID:          "emb-1",
 				ContextID:   contextID,
@@ -233,7 +279,7 @@ func TestSearchEmbeddingsHandler(t *testing.T) {
 		
 		// Verify response body
 		var resp struct {
-			Embeddings []*repository.Embedding `json:"embeddings"`
+			Embeddings []*vector.Embedding `json:"embeddings"`
 		}
 		err := json.Unmarshal(w.Body.Bytes(), &resp)
 		assert.NoError(t, err)
@@ -253,7 +299,7 @@ func TestGetContextEmbeddingsHandler(t *testing.T) {
 	contextID := "context-123"
 	
 	// Mock results
-	mockResults := []*repository.Embedding{
+	mockResults := []*vector.Embedding{
 		{
 			ID:          "emb-1",
 			ContextID:   contextID,
@@ -286,7 +332,7 @@ func TestGetContextEmbeddingsHandler(t *testing.T) {
 	
 	// Verify response body
 	var resp struct {
-		Embeddings []*repository.Embedding `json:"embeddings"`
+		Embeddings []*vector.Embedding `json:"embeddings"`
 	}
 	err := json.Unmarshal(w.Body.Bytes(), &resp)
 	assert.NoError(t, err)
@@ -374,7 +420,7 @@ func TestGetModelEmbeddingsHandler(t *testing.T) {
 	modelID := "test.openai.ada-002"
 	
 	// Mock results
-	mockResults := []*repository.Embedding{
+	mockResults := []*vector.Embedding{
 		{
 			ID:          "emb-1",
 			ContextID:   contextID,
@@ -409,7 +455,7 @@ func TestGetModelEmbeddingsHandler(t *testing.T) {
 	
 	// Verify response body
 	var resp struct {
-		Embeddings []*repository.Embedding `json:"embeddings"`
+		Embeddings []*vector.Embedding `json:"embeddings"`
 	}
 	err := json.Unmarshal(w.Body.Bytes(), &resp)
 	assert.NoError(t, err)

@@ -1,3 +1,7 @@
+// Package github provides GitHub tools for the MCP
+//
+// DEPRECATED: This package is being migrated to apps/mcp-server/internal/api/tools/github
+// as part of the Go workspace migration. New code should import from the new location.
 package github
 
 import (

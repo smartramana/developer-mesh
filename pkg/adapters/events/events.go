@@ -3,194 +3,129 @@ package events
 import (
 	"context"
 	"sync"
-	"time"
 
-	"github.com/google/uuid"
-	"github.com/S-Corkum/devops-mcp/pkg/observability"
-	"github.com/S-Corkum/devops-mcp/pkg/mcp"
 	"github.com/S-Corkum/devops-mcp/pkg/events"
+	"github.com/S-Corkum/devops-mcp/pkg/mcp"
+	"github.com/S-Corkum/devops-mcp/pkg/observability"
 )
 
-// EventType represents the type of an adapter event
-type EventType string
+// EventHandler is already defined in adapter.go
 
-// Common event types
-const (
-	EventTypeOperationStarting  EventType = "operation.starting"
-	EventTypeOperationSuccess   EventType = "operation.success"
-	EventTypeOperationFailure   EventType = "operation.failure"
-	EventTypeAdapterInitialized EventType = "adapter.initialized"
-	EventTypeAdapterClosed      EventType = "adapter.closed"
-	EventTypeAdapterHealthChanged EventType = "adapter.health_changed"
-	EventTypeWebhookReceived    EventType = "webhook.received"
-)
-
-// AdapterEvent represents an event from an adapter
-type AdapterEvent struct {
-	ID          string                 // Unique event ID
-	AdapterType string                 // Type of adapter that emitted the event
-	EventType   EventType              // Type of event
-	Payload     interface{}            // Event payload
-	Timestamp   time.Time              // Time when the event occurred
-	Metadata    map[string]interface{} // Additional metadata
-}
-
-// NewAdapterEvent creates a new adapter event
-func NewAdapterEvent(adapterType string, eventType EventType, payload interface{}) *AdapterEvent {
-	return &AdapterEvent{
-		ID:          uuid.New().String(),
-		AdapterType: adapterType,
-		EventType:   eventType,
-		Payload:     payload,
-		Timestamp:   time.Now(),
-		Metadata:    make(map[string]interface{}),
-	}
-}
-
-// WithMetadata adds metadata to an event
-func (e *AdapterEvent) WithMetadata(key string, value interface{}) *AdapterEvent {
-	if e.Metadata == nil {
-		e.Metadata = make(map[string]interface{})
-	}
-	e.Metadata[key] = value
-	return e
-}
-
-// EventEmitter allows adapters to emit events
-type EventEmitter interface {
-	// Emit emits an event
-	Emit(ctx context.Context, event *AdapterEvent) error
-	
-	// EmitWithCallback emits an event and calls a callback when the event is processed
-	EmitWithCallback(ctx context.Context, event *AdapterEvent, callback func(error)) error
-}
-
-// EventListener listens for adapter events
-type EventListener interface {
-	// Handle handles an event
-	Handle(ctx context.Context, event *AdapterEvent) error
-}
-
-// EventBus is a simple event bus for adapter events
-type EventBus struct {
-	listeners       map[EventType][]EventListener
-	globalListeners []EventListener
-	mu              sync.RWMutex
+// EventBusImpl is the implementation of EventBus for adapters
+type EventBusImpl struct {
+	systemBus       events.EventBus
 	logger          observability.Logger
+	mu              sync.RWMutex
+	handlers        map[string][]EventHandler  // eventType -> handlers
+	globalHandlers  []EventHandler
 }
 
-// NewEventBus creates a new event bus
-func NewEventBus(logger observability.Logger) *EventBus {
-	return &EventBus{
-		listeners:       make(map[EventType][]EventListener),
-		globalListeners: []EventListener{},
-		logger:          logger,
+// NewEventBusImpl creates a new event bus implementation
+func NewEventBusImpl(systemBus events.EventBus, logger observability.Logger) *EventBusImpl {
+	return &EventBusImpl{
+		systemBus:      systemBus,
+		logger:         logger,
+		handlers:       make(map[string][]EventHandler),
+		globalHandlers: make([]EventHandler, 0),
 	}
 }
 
-// IsInitialized checks if the event bus is properly initialized
-func (b *EventBus) IsInitialized() bool {
-	return b != nil && b.listeners != nil
-}
-
-// SubscribeListener subscribes to events of a specific type
-func (b *EventBus) SubscribeListener(eventType EventType, listener EventListener) {
+// Subscribe subscribes to events of a specific type
+func (b *EventBusImpl) Subscribe(eventType AdapterEventType, handler EventHandler) {
 	b.mu.Lock()
 	defer b.mu.Unlock()
 
-	listeners, exists := b.listeners[eventType]
+	handlers, exists := b.handlers[string(eventType)]
 	if !exists {
-		listeners = []EventListener{}
+		handlers = []EventHandler{}
 	}
 
-	b.listeners[eventType] = append(listeners, listener)
+	b.handlers[string(eventType)] = append(handlers, handler)
 }
 
 // SubscribeAll subscribes to all events
-func (b *EventBus) SubscribeAll(listener EventListener) {
+func (b *EventBusImpl) SubscribeAll(handler EventHandler) {
 	b.mu.Lock()
 	defer b.mu.Unlock()
 	
-	b.globalListeners = append(b.globalListeners, listener)
+	b.globalHandlers = append(b.globalHandlers, handler)
 }
 
-// UnsubscribeListener unsubscribes from events of a specific type
-func (b *EventBus) UnsubscribeListener(eventType EventType, listener EventListener) {
+// Unsubscribe unsubscribes from events of a specific type
+func (b *EventBusImpl) Unsubscribe(eventType AdapterEventType, handler EventHandler) {
 	b.mu.Lock()
 	defer b.mu.Unlock()
 
-	listeners, exists := b.listeners[eventType]
+	handlers, exists := b.handlers[string(eventType)]
 	if !exists {
 		return
 	}
 
-	// Filter out the listener
-	filteredListeners := make([]EventListener, 0, len(listeners))
-	for _, l := range listeners {
-		if l != listener {
-			filteredListeners = append(filteredListeners, l)
+	// Filter out the handler
+	filteredHandlers := make([]EventHandler, 0, len(handlers))
+	for _, h := range handlers {
+		if &h != &handler {
+			filteredHandlers = append(filteredHandlers, h)
 		}
 	}
 
-	b.listeners[eventType] = filteredListeners
+	b.handlers[string(eventType)] = filteredHandlers
 }
 
 // UnsubscribeAll unsubscribes from all events
-func (b *EventBus) UnsubscribeAll(listener EventListener) {
+func (b *EventBusImpl) UnsubscribeAll(handler EventHandler) {
 	b.mu.Lock()
 	defer b.mu.Unlock()
 	
-	// Filter out the listener from global listeners
-	filteredGlobalListeners := make([]EventListener, 0, len(b.globalListeners))
-	for _, l := range b.globalListeners {
-		if l != listener {
-			filteredGlobalListeners = append(filteredGlobalListeners, l)
+	// Filter out the handler from global handlers
+	filteredGlobalHandlers := make([]EventHandler, 0, len(b.globalHandlers))
+	for _, h := range b.globalHandlers {
+		if &h != &handler {
+			filteredGlobalHandlers = append(filteredGlobalHandlers, h)
 		}
 	}
 	
-	b.globalListeners = filteredGlobalListeners
+	b.globalHandlers = filteredGlobalHandlers
 	
 	// Also remove from specific event types
-	for eventType, listeners := range b.listeners {
-		filteredListeners := make([]EventListener, 0, len(listeners))
-		for _, l := range listeners {
-			if l != listener {
-				filteredListeners = append(filteredListeners, l)
+	for eventType, handlers := range b.handlers {
+		filteredHandlers := make([]EventHandler, 0, len(handlers))
+		for _, h := range handlers {
+			if &h != &handler {
+				filteredHandlers = append(filteredHandlers, h)
 			}
 		}
 		
-		b.listeners[eventType] = filteredListeners
+		b.handlers[eventType] = filteredHandlers
 	}
 }
 
 // Emit emits an event to all subscribers
-func (b *EventBus) Emit(ctx context.Context, event *AdapterEvent) error {
+func (b *EventBusImpl) Emit(ctx context.Context, event *AdapterEvent) error {
 	b.mu.RLock()
 	
-	// Copy listeners to avoid holding lock during processing
-	listeners, exists := b.listeners[event.EventType]
-	listenersCopy := make([]EventListener, len(listeners))
-	copy(listenersCopy, listeners)
+	// Copy handlers to avoid holding lock during processing
+	handlers, exists := b.handlers[string(event.EventType)]
+	handlersCopy := make([]EventHandler, len(handlers))
+	copy(handlersCopy, handlers)
 	
-	globalListenersCopy := make([]EventListener, len(b.globalListeners))
-	copy(globalListenersCopy, b.globalListeners)
+	globalHandlersCopy := make([]EventHandler, len(b.globalHandlers))
+	copy(globalHandlersCopy, b.globalHandlers)
 	
 	b.mu.RUnlock()
 	
 	// Process event
 	b.logger.Debug("Emitting event", map[string]interface{}{
-		"eventId":     event.ID,
 		"adapterType": event.AdapterType,
 		"eventType":   string(event.EventType),
-		"listenersCount": len(listenersCopy) + len(globalListenersCopy),
+		"handlersCount": len(handlersCopy) + len(globalHandlersCopy),
 	})
 	
-	// Notify type-specific listeners
+	// Notify type-specific handlers
 	if exists {
-		for _, listener := range listenersCopy {
-			if err := listener.Handle(ctx, event); err != nil {
+		for _, handler := range handlersCopy {
+			if err := handler(ctx, event); err != nil {
 				b.logger.Warn("Error handling event", map[string]interface{}{
-					"eventId":     event.ID,
 					"adapterType": event.AdapterType,
 					"eventType":   string(event.EventType),
 					"error":       err.Error(),
@@ -199,23 +134,28 @@ func (b *EventBus) Emit(ctx context.Context, event *AdapterEvent) error {
 		}
 	}
 	
-	// Notify global listeners
-	for _, listener := range globalListenersCopy {
-		if err := listener.Handle(ctx, event); err != nil {
+	// Notify global handlers
+	for _, handler := range globalHandlersCopy {
+		if err := handler(ctx, event); err != nil {
 			b.logger.Warn("Error handling event", map[string]interface{}{
-				"eventId":     event.ID,
 				"adapterType": event.AdapterType,
 				"eventType":   string(event.EventType),
 				"error":       err.Error(),
 			})
 		}
 	}
+
+	// Forward to system event bus if available
+	if b.systemBus != nil {
+		mcpEvent := event.ToMCPEvent()
+		b.systemBus.Publish(ctx, mcpEvent)
+	}
 	
 	return nil
 }
 
 // EmitWithCallback emits an event and calls a callback when the event is processed
-func (b *EventBus) EmitWithCallback(ctx context.Context, event *AdapterEvent, callback func(error)) error {
+func (b *EventBusImpl) EmitWithCallback(ctx context.Context, event *AdapterEvent, callback func(error)) error {
 	err := b.Emit(ctx, event)
 	if callback != nil {
 		callback(err)
@@ -223,39 +163,18 @@ func (b *EventBus) EmitWithCallback(ctx context.Context, event *AdapterEvent, ca
 	return err
 }
 
-// Close implements the events.EventBusIface interface
-func (b *EventBus) Close() {
-	// No resources to clean up
+// Close closes the event bus
+func (b *EventBusImpl) Close() {
+	// Clear handlers
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	b.handlers = make(map[string][]EventHandler)
+	b.globalHandlers = make([]EventHandler, 0)
 }
 
-// Publish implements the events.EventBusIface interface for compatibility
-func (b *EventBus) Publish(ctx context.Context, event *mcp.Event) {
-	if b.logger != nil {
-		b.logger.Warn("Adapter EventBus.Publish called with mcp.Event; this is a no-op.", map[string]interface{}{})
+// ForwardToMainBus implements the events.EventBus interface for compatibility
+func (b *EventBusImpl) Publish(ctx context.Context, event *mcp.Event) {
+	if b.systemBus != nil {
+		b.systemBus.Publish(ctx, event)
 	}
-	// No-op
-}
-
-// EventListenerFunc adapts a Handler to an EventListener for interface compatibility
-type EventListenerFunc func(ctx context.Context, event *mcp.Event) error
-
-func (f EventListenerFunc) Handle(ctx context.Context, event *AdapterEvent) error {
-	// No-op: cannot convert AdapterEvent to *mcp.Event
-	return nil
-}
-
-// Subscribe implements events.EventBusIface for compatibility
-func (b *EventBus) Subscribe(eventType events.EventType, handler events.Handler) {
-	if b.logger != nil {
-		b.logger.Warn("Adapter EventBus.Subscribe called with Handler; this is a no-op.", map[string]interface{}{})
-	}
-	// No-op
-}
-
-// Unsubscribe implements events.EventBusIface for compatibility
-func (b *EventBus) Unsubscribe(eventType events.EventType, handler events.Handler) {
-	if b.logger != nil {
-		b.logger.Warn("Adapter EventBus.Unsubscribe called with Handler; this is a no-op.", map[string]interface{}{})
-	}
-	// No-op
 }

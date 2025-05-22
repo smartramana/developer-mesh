@@ -2,9 +2,9 @@ package bridge
 
 import (
 	"context"
-	"fmt"
 	"reflect"
 	"sync"
+	"time"
 
 	"github.com/S-Corkum/devops-mcp/pkg/adapters/core"
 	"github.com/S-Corkum/devops-mcp/pkg/adapters/events"
@@ -37,7 +37,7 @@ type EventBridge struct {
 	systemEventBus   system.EventBus
 	logger           observability.Logger
 	adapterRegistry  interface{} // Using interface{} to support different adapter registry implementations
-	adapterHandlers  map[string]map[string][]func(context.Context, *events.AdapterEvent) error
+	adapterHandlers  map[string]map[string][]func(context.Context, *events.LegacyAdapterEvent) error
 	mu               sync.RWMutex
 }
 
@@ -53,7 +53,7 @@ func NewEventBridge(
 		systemEventBus:  systemEventBus,
 		logger:          logger,
 		adapterRegistry: adapterRegistry,
-		adapterHandlers: make(map[string]map[string][]func(context.Context, *events.AdapterEvent) error),
+		adapterHandlers: make(map[string]map[string][]func(context.Context, *events.LegacyAdapterEvent) error),
 	}
 	
 	// Subscribe to events if event bus is available
@@ -79,20 +79,23 @@ func (b *EventBridge) subscribeToEvents() {
 	}
 	
 	// Check if the eventBus implements the right interface
-	if eventBus, ok := b.eventBus.(*events.EventBus); ok && eventBus != nil {
-		eventBus.SubscribeAll(b)
-	} else if eventBus, ok := b.eventBus.(events.EventBus); ok {
+	if eventBus, ok := b.eventBus.(events.LegacyEventBus); ok {
 		eventBus.SubscribeAll(b)
 	} else {
 		// Try to use a type assertion to call SubscribeAll directly
-		if mockBus, ok := b.eventBus.(interface{ SubscribeAll(events.EventListener) }); ok {
+		if mockBus, ok := b.eventBus.(interface{ SubscribeAll(events.LegacyEventListener) }); ok {
 			mockBus.SubscribeAll(b)
 		}
 	}
 }
 
-// Handle handles adapter events and maps them to system events
-func (b *EventBridge) Handle(ctx context.Context, event *events.AdapterEvent) error {
+// Handle processes events from the adapter bus and forwards them to the system bus
+func (b *EventBridge) Handle(ctx context.Context, event *events.LegacyAdapterEvent) error {
+	return b.dispatchAdapterEvent(ctx, event)
+}
+
+// dispatchAdapterEvent dispatches an adapter event to the system event bus and calls registered handlers
+func (b *EventBridge) dispatchAdapterEvent(ctx context.Context, event *events.LegacyAdapterEvent) error {
 	// Forward event to system event bus
 	systemEvent := b.mapToSystemEvent(event)
 	if systemEvent != nil {
@@ -110,28 +113,28 @@ func (b *EventBridge) Handle(ctx context.Context, event *events.AdapterEvent) er
 }
 
 // RegisterHandler registers a handler for a specific adapter and event type
-func (b *EventBridge) RegisterHandler(adapterType string, eventType events.EventType, handler func(context.Context, *events.AdapterEvent) error) {
+func (b *EventBridge) RegisterHandler(adapterType string, eventType events.LegacyEventType, handler func(context.Context, *events.LegacyAdapterEvent) error) {
 	b.mu.Lock()
 	defer b.mu.Unlock()
 	
 	// Initialize maps if they don't exist
 	handlers, ok := b.adapterHandlers[adapterType]
 	if !ok {
-		handlers = make(map[string][]func(context.Context, *events.AdapterEvent) error)
+		handlers = make(map[string][]func(context.Context, *events.LegacyAdapterEvent) error)
 		b.adapterHandlers[adapterType] = handlers
 	}
 	
 	// Append handler
 	typeHandlers, ok := handlers[string(eventType)]
 	if !ok {
-		typeHandlers = []func(context.Context, *events.AdapterEvent) error{}
+		typeHandlers = []func(context.Context, *events.LegacyAdapterEvent) error{}
 	}
 	
 	handlers[string(eventType)] = append(typeHandlers, handler)
 }
 
 // RegisterHandlerForAllAdapters registers a handler for all adapters with the specified event type
-func (b *EventBridge) RegisterHandlerForAllAdapters(eventType events.EventType, handler func(context.Context, *events.AdapterEvent) error) {
+func (b *EventBridge) RegisterHandlerForAllAdapters(eventType events.LegacyEventType, handler func(context.Context, *events.LegacyAdapterEvent) error) {
 	// Register a wildcard handler for this event type
 	b.RegisterHandler("*", eventType, handler)
 	
@@ -145,14 +148,15 @@ func (b *EventBridge) RegisterHandlerForAllAdapters(eventType events.EventType, 
 }
 
 // callEventHandlers calls registered handlers for an event
-func (b *EventBridge) callEventHandlers(ctx context.Context, event *events.AdapterEvent) error {
+func (b *EventBridge) callEventHandlers(ctx context.Context, event *events.LegacyAdapterEvent) error {
 	b.mu.RLock()
 	defer b.mu.RUnlock()
-	
+
 	var lastErr error
-	
-	// First try specific adapter + event type handlers
+
+	// First try to find handlers for this specific adapter + event type
 	if adapterHandlers, ok := b.adapterHandlers[event.AdapterType]; ok {
+		// Try specific event type handlers
 		if typeHandlers, ok := adapterHandlers[string(event.EventType)]; ok {
 			for _, handler := range typeHandlers {
 				if err := handler(ctx, event); err != nil {
@@ -164,162 +168,63 @@ func (b *EventBridge) callEventHandlers(ctx context.Context, event *events.Adapt
 					lastErr = err
 				}
 			}
-			// If we found handlers for this specific combination, return
 			return lastErr
 		}
-	}
-	
-	// Try wildcard handlers for this adapter + any event type
-	if adapterHandlers, ok := b.adapterHandlers[event.AdapterType]; ok {
+
+		// Try wildcard handlers for this adapter
 		if typeHandlers, ok := adapterHandlers["*"]; ok {
 			for _, handler := range typeHandlers {
 				if err := handler(ctx, event); err != nil {
+					b.logger.Warn("Error in wildcard event handler", map[string]interface{}{
+						"adapterType": event.AdapterType,
+						"eventType":   string(event.EventType),
+						"error":       err.Error(),
+					})
 					lastErr = err
 				}
 			}
-			return lastErr
 		}
 	}
-	
+
 	// Try wildcard handlers for any adapter + this event type
 	if adapterHandlers, ok := b.adapterHandlers["*"]; ok {
 		if typeHandlers, ok := adapterHandlers[string(event.EventType)]; ok {
 			for _, handler := range typeHandlers {
 				if err := handler(ctx, event); err != nil {
+					b.logger.Warn("Error in global event handler", map[string]interface{}{
+						"adapterType": event.AdapterType,
+						"eventType":   string(event.EventType),
+						"error":       err.Error(),
+					})
 					lastErr = err
 				}
 			}
-			return lastErr
 		}
 	}
 	
-	// Try wildcard handlers for any adapter + any event type
-	if adapterHandlers, ok := b.adapterHandlers["*"]; ok {
-		if typeHandlers, ok := adapterHandlers["*"]; ok {
-			for _, handler := range typeHandlers {
-				if err := handler(ctx, event); err != nil {
-					lastErr = err
-				}
-			}
-			return lastErr
-		}
-	}
-	
-	// No handlers found
-	return nil
+	return lastErr
 }
 
 // mapToSystemEvent maps an adapter event to a system event
-func (b *EventBridge) mapToSystemEvent(adapterEvent *events.AdapterEvent) system.Event {
+func (b *EventBridge) mapToSystemEvent(event *events.LegacyAdapterEvent) system.Event {
+	// Create base event with current time since original timestamp might be incompatible
 	baseEvent := system.BaseEvent{
-		Type:      getSystemEventType(adapterEvent.EventType),
-		Timestamp: adapterEvent.Timestamp,
+		Type:      system.EventTypeAdapterGeneric, // Default type
+		Timestamp: time.Now(),
 	}
 
-	// Map adapter events to system events based on their type
-	switch adapterEvent.EventType {
-	case events.EventTypeOperationSuccess:
-		// Extract contextId or default to empty string if not present
-		contextID := ""
-		if id, ok := adapterEvent.Metadata["contextId"]; ok {
-			contextID = fmt.Sprintf("%v", id)
-		}
-		
-		// Extract operation or default to empty string if not present
-		operation := ""
-		if op, ok := adapterEvent.Metadata["operation"]; ok {
-			operation = fmt.Sprintf("%v", op)
-		}
-		
-		return &system.AdapterOperationSuccessEvent{
-			BaseEvent:   baseEvent,
-			AdapterType: adapterEvent.AdapterType,
-			Operation:   operation,
-			Result:      adapterEvent.Payload,
-			ContextID:   contextID,
-		}
-		
-	case events.EventTypeOperationFailure:
-		// Extract contextId or default to empty string if not present
-		contextID := ""
-		if id, ok := adapterEvent.Metadata["contextId"]; ok {
-			contextID = fmt.Sprintf("%v", id)
-		}
-		
-		// Extract operation or default to empty string if not present
-		operation := ""
-		if op, ok := adapterEvent.Metadata["operation"]; ok {
-			operation = fmt.Sprintf("%v", op)
-		}
-		
-		// Extract error message or default to empty string if not present
-		errorMsg := ""
-		if err, ok := adapterEvent.Metadata["error"]; ok {
-			errorMsg = fmt.Sprintf("%v", err)
-		}
-		
-		return &system.AdapterOperationFailureEvent{
-			BaseEvent:   baseEvent,
-			AdapterType: adapterEvent.AdapterType,
-			Operation:   operation,
-			Error:       errorMsg,
-			ContextID:   contextID,
-		}
-		
-	case events.EventTypeWebhookReceived:
-		// Extract contextId or default to empty string if not present
-		contextID := ""
-		if id, ok := adapterEvent.Metadata["contextId"]; ok {
-			contextID = fmt.Sprintf("%v", id)
-		}
-		
-		// Extract eventType or default to empty string if not present
-		eventType := ""
-		if et, ok := adapterEvent.Metadata["eventType"]; ok {
-			eventType = fmt.Sprintf("%v", et)
-		}
-		
-		return &system.WebhookReceivedEvent{
-			BaseEvent:   baseEvent,
-			AdapterType: adapterEvent.AdapterType,
-			EventType:   eventType,
-			Payload:     adapterEvent.Payload,
-			ContextID:   contextID,
-		}
-		
-	case events.EventTypeAdapterHealthChanged:
-		// Extract status information
-		oldStatus := ""
-		if os, ok := adapterEvent.Metadata["oldStatus"]; ok {
-			oldStatus = fmt.Sprintf("%v", os)
-		}
-		
-		newStatus := ""
-		if ns, ok := adapterEvent.Metadata["newStatus"]; ok {
-			newStatus = fmt.Sprintf("%v", ns)
-		}
-		
-		return &system.AdapterHealthChangedEvent{
-			BaseEvent:   baseEvent,
-			AdapterType: adapterEvent.AdapterType,
-			OldStatus:   oldStatus,
-			NewStatus:   newStatus,
-		}
-		
-	default:
-		// Generic adapter event
-		return &system.AdapterGenericEvent{
-			BaseEvent:   baseEvent,
-			AdapterType: adapterEvent.AdapterType,
-			EventType:   string(adapterEvent.EventType),
-			Payload:     adapterEvent.Payload,
-			Metadata:    adapterEvent.Metadata,
-		}
+	// For simplicity during migration, convert all events to generic system events
+	return &system.AdapterGenericEvent{
+		BaseEvent:  baseEvent,
+		AdapterType: event.AdapterType,
+		EventType:  string(event.EventType),
+		Payload:    event.Payload,
+		Metadata:   event.Metadata,
 	}
 }
 
-// getSystemEventType maps adapter event types to system event types
-func getSystemEventType(eventType events.EventType) system.EventType {
+// getSystemEventType returns the system event type for a given adapter event type
+func getSystemEventType(eventType events.LegacyEventType) system.EventType {
 	switch eventType {
 	case events.EventTypeOperationSuccess:
 		return system.EventTypeAdapterOperationSuccess

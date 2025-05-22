@@ -333,23 +333,7 @@ var ErrRateLimitExceeded = &AdapterError{
 	Context:       map[string]interface{}{"retry_after": "60s"},
 }
 
-// GitHubError represents a GitHub API error response
-type GitHubError struct {
-	Code            string `json:"code"`
-	Message         string `json:"message"`
-	DocumentationURL string `json:"documentation_url,omitempty"`
-	Status          int    `json:"status,omitempty"`
-	Resource        string `json:"-"`
-	ResourceID      string `json:"-"`
-}
-
-// Error returns the error message to implement the error interface
-func (e *GitHubError) Error() string {
-	if e.DocumentationURL != "" {
-		return fmt.Sprintf("%s (docs: %s)", e.Message, e.DocumentationURL)
-	}
-	return e.Message
-}
+// Note: GitHubError struct is now defined only in github.go to avoid redeclaration
 
 // FromWebhookError converts a webhook error to an AdapterError
 func FromWebhookError(err error, statusCode int) *AdapterError {
@@ -357,14 +341,14 @@ func FromWebhookError(err error, statusCode int) *AdapterError {
 		return nil
 	}
 	
-	ghErr := &GitHubError{}
+	// Import individual errors from github.go
 	if e, ok := err.(*AdapterError); ok {
 		return e
 	}
-	
-	// Check if it's already a GitHub error from JSON
-	if jsonErr := json.Unmarshal([]byte(err.Error()), ghErr); jsonErr == nil && ghErr.Message != "" {
-		return NewGitHubError(ErrInvalidWebhook, statusCode, ghErr.Message)
+
+	// Check if this is a GitHub error
+	if githubErr, ok := err.(*GitHubError); ok {
+		return NewGitHubError(ErrInvalidWebhook, statusCode, githubErr.Error())
 	}
 	
 	return NewGitHubError(ErrInvalidWebhook, statusCode, err.Error())
@@ -379,13 +363,22 @@ func FromHTTPError(respOrStatus interface{}, errOrMessage interface{}, docURL ..
 		if err != nil {
 			return NewGitHubError("http_error", resp.StatusCode, err.Error())
 		}
-		
-		ghErr := &GitHubError{}
-		if err := json.NewDecoder(resp.Body).Decode(ghErr); err != nil {
-			return NewGitHubError("http_error", resp.StatusCode, fmt.Sprintf("Error decoding response: %s", err.Error()))
+
+		// Create blank error and extract message
+		var message string
+		if resp.Body != nil {
+			// Try to decode JSON response
+			var respData map[string]interface{}
+			if err := json.NewDecoder(resp.Body).Decode(&respData); err == nil {
+				if msg, ok := respData["message"].(string); ok {
+					message = msg
+				}
+			} else {
+				message = fmt.Sprintf("Error decoding response: %s", err.Error())
+			}
 		}
 		
-		return NewGitHubError("github_api_error", resp.StatusCode, ghErr.Message)
+		return NewGitHubError("github_api_error", resp.StatusCode, message)
 	}
 	
 	// Case 2: Called with (statusCode, message, docURL)
@@ -408,12 +401,5 @@ func FromHTTPError(respOrStatus interface{}, errOrMessage interface{}, docURL ..
 // WithDocumentation adds documentation URL to the error
 func (e *AdapterError) WithDocumentation(docURL string) *AdapterError {
 	e.Documentation = docURL
-	return e
-}
-
-// WithResource adds resource information to the error
-func (e *GitHubError) WithResource(resourceType, resourceID string) *GitHubError {
-	e.Resource = resourceType
-	e.ResourceID = resourceID
 	return e
 }

@@ -7,6 +7,7 @@ import (
 	"github.com/S-Corkum/devops-mcp/pkg/models"
 	"github.com/S-Corkum/devops-mcp/pkg/observability"
 	"github.com/S-Corkum/devops-mcp/pkg/repository"
+	"github.com/S-Corkum/devops-mcp/pkg/repository/agent"
 )
 
 // AgentAPIProxy implements the agent repository interface but delegates to the REST API
@@ -87,8 +88,8 @@ func (p *AgentAPIProxy) Get(ctx context.Context, id string) (*models.Agent, erro
 }
 
 // List implements the List method of the repository.AgentRepository interface
-// It expects a filter map but extracts the tenantID if present and delegates to ListAgents
-func (p *AgentAPIProxy) List(ctx context.Context, filter map[string]interface{}) ([]*models.Agent, error) {
+// It expects a filter but extracts the tenantID if present and delegates to ListAgents
+func (p *AgentAPIProxy) List(ctx context.Context, filter agent.Filter) ([]*models.Agent, error) {
 	// Extract tenantID from filter if available
 	tenantID := ""
 	if val, ok := filter["tenant_id"]; ok {

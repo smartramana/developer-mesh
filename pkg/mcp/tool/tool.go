@@ -1,3 +1,7 @@
+// Package tool provides tools for the MCP
+//
+// DEPRECATED: This package is being migrated to apps/mcp-server/internal/core/tool
+// as part of the Go workspace migration. New code should import from the new location.
 package tool
 
 import (

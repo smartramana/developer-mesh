@@ -23,7 +23,7 @@ import (
 
 // GitHubWebhookHandler creates an HTTP handler for GitHub webhook events
 // It validates the webhook signature and processes the payload
-func GitHubWebhookHandler(config interfaces.WebhookConfigInterface, logger *observability.Logger) http.HandlerFunc {
+func GitHubWebhookHandler(config interfaces.WebhookConfigInterface, logger observability.Logger) http.HandlerFunc {
 	if logger == nil {
 		logger = observability.NewLogger("webhooks")
 	}
@@ -245,7 +245,7 @@ type GitHubIPValidator struct {
 	lastUpdated  time.Time
 	cacheTTL     time.Duration
 	mutex        sync.RWMutex
-	logger       *observability.Logger
+	logger       observability.Logger // Changed from pointer to interface type
 }
 
 // GitHubMeta represents the GitHub meta API response
@@ -264,7 +264,7 @@ type GitHubMeta struct {
 }
 
 // NewGitHubIPValidator creates a new GitHub IP validator
-func NewGitHubIPValidator(logger *observability.Logger) *GitHubIPValidator {
+func NewGitHubIPValidator(logger observability.Logger) *GitHubIPValidator {
 	if logger == nil {
 		logger = observability.NewLogger("webhooks")
 	}
@@ -368,7 +368,7 @@ func (v *GitHubIPValidator) IsGitHubIP(ipStr string) bool {
 }
 
 // GitHubIPValidationMiddleware creates middleware that validates if requests come from GitHub IP ranges
-func GitHubIPValidationMiddleware(validator *GitHubIPValidator, config interfaces.WebhookConfigInterface, logger *observability.Logger) func(http.Handler) http.Handler {
+func GitHubIPValidationMiddleware(validator *GitHubIPValidator, config interfaces.WebhookConfigInterface, logger observability.Logger) func(http.Handler) http.Handler {
 	if logger == nil && validator != nil {
 		logger = validator.logger
 	}

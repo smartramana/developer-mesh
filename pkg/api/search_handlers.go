@@ -149,7 +149,7 @@ func (h *SearchHandler) HandleSearch(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Perform the search
-	results, err := h.searchService.SearchByText(r.Context(), searchReq.Query, options)
+	results, err := h.searchService.Search(r.Context(), searchReq.Query, options)
 	if err != nil {
 		http.Error(w, fmt.Sprintf("Search error: %v", err), http.StatusInternalServerError)
 		return

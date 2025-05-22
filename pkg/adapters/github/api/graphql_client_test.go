@@ -6,7 +6,7 @@ import (
 	"testing"
 
 	"github.com/S-Corkum/devops-mcp/internal/adapters/resilience"
-	"github.com/S-Corkum/devops-mcp/internal/observability"
+	"github.com/S-Corkum/devops-mcp/pkg/observability"
 )
 
 func TestGraphQLClient_RateLimitHandling(t *testing.T) {

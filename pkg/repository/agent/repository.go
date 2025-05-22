@@ -69,7 +69,7 @@ func (r *RepositoryImpl) Get(ctx context.Context, id string) (*models.Agent, err
 }
 
 // List retrieves agents based on filter criteria
-func (r *RepositoryImpl) List(ctx context.Context, filter map[string]interface{}) ([]*models.Agent, error) {
+func (r *RepositoryImpl) List(ctx context.Context, filter Filter) ([]*models.Agent, error) {
 	baseQuery := `SELECT id, name, tenant_id, model_id FROM agents`
 	
 	// Build the WHERE clause based on filters

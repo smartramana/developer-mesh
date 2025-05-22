@@ -362,7 +362,7 @@ func (v *Validator) ValidateWithIP(eventType string, payload []byte, headers htt
 	
 	// Validate headers
 	if err := v.ValidateHeaders(headers); err != nil {
-		validationErr = errors.FromWebhookError(err, eventType)
+		validationErr = errors.FromWebhookError(err, http.StatusBadRequest)
 		if githubErr, ok := validationErr.(*errors.GitHubError); ok {
 			githubErr.WithContext("stage", "headers")
 		}
@@ -372,7 +372,7 @@ func (v *Validator) ValidateWithIP(eventType string, payload []byte, headers htt
 	// Validate signature
 	signature := headers.Get("X-Hub-Signature-256")
 	if err := v.ValidateSignature(payload, signature); err != nil {
-		validationErr = errors.FromWebhookError(err, eventType)
+		validationErr = errors.FromWebhookError(err, http.StatusBadRequest)
 		if githubErr, ok := validationErr.(*errors.GitHubError); ok {
 			githubErr.WithContext("stage", "signature")
 		}
@@ -382,7 +382,7 @@ func (v *Validator) ValidateWithIP(eventType string, payload []byte, headers htt
 	// Validate delivery ID
 	deliveryID := headers.Get("X-GitHub-Delivery")
 	if err := v.ValidateDeliveryID(deliveryID); err != nil {
-		validationErr = errors.FromWebhookError(err, eventType)
+		validationErr = errors.FromWebhookError(err, http.StatusBadRequest)
 		if githubErr, ok := validationErr.(*errors.GitHubError); ok {
 			githubErr.WithContext("stage", "delivery_id")
 			githubErr.WithContext("delivery_id", deliveryID)
@@ -392,7 +392,7 @@ func (v *Validator) ValidateWithIP(eventType string, payload []byte, headers htt
 	
 	// Validate payload schema
 	if err := v.ValidatePayload(eventType, payload); err != nil {
-		validationErr = errors.FromWebhookError(err, eventType)
+		validationErr = errors.FromWebhookError(err, http.StatusBadRequest)
 		if githubErr, ok := validationErr.(*errors.GitHubError); ok {
 			githubErr.WithContext("stage", "payload")
 		}
@@ -406,7 +406,7 @@ func (v *Validator) ValidateWithIP(eventType string, payload []byte, headers htt
 		sourceIP := ipParts[0]
 		
 		if err := v.ValidateSourceIP(sourceIP); err != nil {
-			validationErr = errors.FromWebhookError(err, eventType)
+			validationErr = errors.FromWebhookError(err, http.StatusBadRequest)
 			if githubErr, ok := validationErr.(*errors.GitHubError); ok {
 				githubErr.WithContext("stage", "source_ip")
 				githubErr.WithContext("ip", sourceIP)

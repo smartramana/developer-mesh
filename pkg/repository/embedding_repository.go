@@ -12,6 +12,7 @@ import (
 
 	"github.com/S-Corkum/devops-mcp/pkg/database"
 	"github.com/S-Corkum/devops-mcp/pkg/observability"
+	"github.com/S-Corkum/devops-mcp/pkg/repository/vector"
 )
 
 // EmbeddingRepositoryImpl implements VectorAPIRepository
@@ -24,7 +25,7 @@ type EmbeddingRepositoryImpl struct {
 // NewEmbeddingRepository creates a new EmbeddingRepository instance
 func NewEmbeddingRepository(db *sqlx.DB) VectorAPIRepository {
 	// Create a logger that implements the observability.Logger interface
-	logger := observability.NewLogger("embedding_repository")
+	logger := observability.NewStandardLogger("embedding_repository")
 	
 	// Initialize the vector database
 	vectorDB, err := database.NewVectorDatabase(db, nil, logger)
@@ -666,4 +667,65 @@ func (r *EmbeddingRepositoryImpl) BatchDeleteEmbeddings(ctx context.Context, ids
 	}
 
 	return nil
+}
+
+// The following methods implement the standard Repository[Embedding] interface
+
+// Create implements Repository[Embedding].Create
+func (r *EmbeddingRepositoryImpl) Create(ctx context.Context, embedding *vector.Embedding) error {
+	// Delegate to StoreEmbedding for backward compatibility
+	return r.StoreEmbedding(ctx, embedding)
+}
+
+// Get implements Repository[Embedding].Get
+func (r *EmbeddingRepositoryImpl) Get(ctx context.Context, id string) (*vector.Embedding, error) {
+	// Delegate to GetEmbeddingByID for backward compatibility
+	return r.GetEmbeddingByID(ctx, id)
+}
+
+// List implements Repository[Embedding].List
+func (r *EmbeddingRepositoryImpl) List(ctx context.Context, filter vector.Filter) ([]*vector.Embedding, error) {
+	// Extract filters from the map
+	var contextID, modelID string
+	
+	if filter != nil {
+		if contextIDVal, ok := filter["context_id"]; ok {
+			if contextIDStr, ok := contextIDVal.(string); ok {
+				contextID = contextIDStr
+			}
+		}
+		
+		if modelIDVal, ok := filter["model_id"]; ok {
+			if modelIDStr, ok := modelIDVal.(string); ok {
+				modelID = modelIDStr
+			}
+		}
+	}
+	
+	// Use specific retrieval methods based on filter contents
+	if contextID != "" {
+		if modelID != "" {
+			// If we have both context and model ID
+			return r.GetEmbeddingsByModel(ctx, contextID, modelID)
+		}
+		// If we only have context ID
+		return r.GetContextEmbeddings(ctx, contextID)
+	}
+	
+	// If no specific filters, return empty result for now
+	// A complete implementation would retrieve all embeddings
+	r.logger.Warn("List without context_id not implemented", nil)
+	return []*vector.Embedding{}, nil
+}
+
+// Update implements Repository[Embedding].Update
+func (r *EmbeddingRepositoryImpl) Update(ctx context.Context, embedding *vector.Embedding) error {
+	// Delegate to StoreEmbedding for backward compatibility
+	return r.StoreEmbedding(ctx, embedding)
+}
+
+// Delete implements Repository[Embedding].Delete
+func (r *EmbeddingRepositoryImpl) Delete(ctx context.Context, id string) error {
+	// Delegate to DeleteEmbedding for backward compatibility
+	return r.DeleteEmbedding(ctx, id)
 }

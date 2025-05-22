@@ -9,41 +9,66 @@ package aws
 
 import (
 	"context"
-	"os"
-
+	"github.com/aws/aws-sdk-go-v2/aws"
+	
 	commonaws "github.com/S-Corkum/devops-mcp/pkg/common/aws"
 )
 
-// IsIRSAEnabled returns true if IAM Roles for Service Accounts is enabled
-func IsIRSAEnabled() bool {
-	// Check if both required env vars for IRSA exist
-	return os.Getenv("AWS_ROLE_ARN") != "" && os.Getenv("AWS_WEB_IDENTITY_TOKEN_FILE") != ""
-}
-
-// GetSession returns an AWS session
-func GetSession(config AuthConfig) (interface{}, error) {
-	// This is a stub implementation until the common package has this function
-	return nil, nil
-}
-
-// Re-export types from common/aws
+// Type aliases for compatibility
 type (
 	// AuthConfig wraps AWS authentication configuration
 	AuthConfig = commonaws.AuthConfig
 	
-	// RDSConfig holds configuration for RDS
+	// RDSConnectionConfig holds configuration for RDS
+	RDSConnectionConfig = commonaws.RDSConnectionConfig
+	
+	// RDSConfig is an alias for RDSConnectionConfig for backward compatibility
 	RDSConfig = commonaws.RDSConnectionConfig
 	
 	// RDSClient is a client for AWS RDS
 	RDSClient = commonaws.ExtendedRDSClient
+	
+	// RDSClientInterface defines the interface for RDS operations
+	RDSClientInterface = commonaws.RDSClientInterface
 )
 
-// NewRDSClient creates a new RDS client
-func NewRDSClient(ctx context.Context, cfg RDSConfig) (*RDSClient, error) {
-	return commonaws.NewExtendedRDSClient(ctx, cfg)
+// IsIRSAEnabled returns true if IAM Roles for Service Accounts is enabled
+func IsIRSAEnabled() bool {
+	return commonaws.IsIRSAEnabled()
 }
 
 // GetAWSConfig gets AWS configuration
-func GetAWSConfig(ctx context.Context, cfg AuthConfig) (interface{}, error) {
+func GetAWSConfig(ctx context.Context, cfg AuthConfig) (aws.Config, error) {
 	return commonaws.GetAWSConfig(ctx, cfg)
+}
+
+// GetSession returns an AWS session (stub for backward compatibility)
+func GetSession(config AuthConfig) (interface{}, error) {
+	// This is a stub implementation for backward compatibility
+	// Modern code should use GetAWSConfig instead
+	_, err := commonaws.GetAWSConfig(context.Background(), config)
+	if err != nil {
+		return nil, err
+	}
+	return nil, nil
+}
+
+// NewRDSClient creates a new RDS client
+func NewRDSClient(ctx context.Context, cfg RDSConnectionConfig) (*RDSClient, error) {
+	return commonaws.NewExtendedRDSClient(ctx, cfg)
+}
+
+// Function to get AWS region from AuthConfig
+func GetRegion(config AuthConfig) string {
+	return commonaws.GetRegion(config)
+}
+
+// Function to create AWS config with standard options
+func CreateConfig(region string) aws.Config {
+	return commonaws.CreateConfig(region)
+}
+
+// Function to extract error code from AWS error
+func GetAWSErrorCode(err error) string {
+	return commonaws.GetAWSErrorCode(err)
 }

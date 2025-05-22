@@ -55,7 +55,7 @@ func (s *Server) RegisterWebhookRoutes(router *mux.Router) {
 			Name:     "github",
 			Enabled:  func() bool { return s.config.Webhook.GitHubEndpoint() != "" },
 			Endpoint: func() string { return s.config.Webhook.GitHubEndpoint() },
-			Handler:  func() http.HandlerFunc { return webhooks.GitHubWebhookHandler(&s.config.Webhook, s.logger) },
+			Handler:  func() http.HandlerFunc { return webhooks.GitHubWebhookHandler(&s.config.Webhook, s.logger) }, // Using logger as interface type
 			Middleware: func() mux.MiddlewareFunc {
 				ipValidator := webhooks.NewGitHubIPValidator(s.logger)
 				return webhooks.GitHubIPValidationMiddleware(ipValidator, &s.config.Webhook, s.logger)

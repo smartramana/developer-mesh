@@ -20,6 +20,60 @@ func NewMockRepository() Repository {
 	}
 }
 
+// Create implements the standardized Repository method
+func (m *MockRepository) Create(ctx context.Context, embedding *Embedding) error {
+	return m.StoreEmbedding(ctx, embedding)
+}
+
+// Get implements the standardized Repository method
+func (m *MockRepository) Get(ctx context.Context, id string) (*Embedding, error) {
+	// Return the embedding directly from the map
+	embedding, exists := m.embeddings[id]
+	if !exists {
+		return nil, nil
+	}
+	return embedding, nil
+}
+
+// List implements the standardized Repository method
+func (m *MockRepository) List(ctx context.Context, filter Filter) ([]*Embedding, error) {
+	var results []*Embedding
+	
+	for _, e := range m.embeddings {
+		match := true
+		
+		for k, v := range filter {
+			switch k {
+			case "context_id":
+				if e.ContextID != v.(string) {
+					match = false
+				}
+			case "model_id":
+				if e.ModelID != v.(string) {
+					match = false
+				}
+			}
+		}
+		
+		if match {
+			results = append(results, e)
+		}
+	}
+	
+	return results, nil
+}
+
+// Update implements the standardized Repository method
+func (m *MockRepository) Update(ctx context.Context, embedding *Embedding) error {
+	return m.StoreEmbedding(ctx, embedding)
+}
+
+// Delete implements the standardized Repository method
+func (m *MockRepository) Delete(ctx context.Context, id string) error {
+	delete(m.embeddings, id)
+	return nil
+}
+
 // StoreEmbedding implements Repository.StoreEmbedding
 func (m *MockRepository) StoreEmbedding(ctx context.Context, embedding *Embedding) error {
 	// Ensure embedding has a creation time

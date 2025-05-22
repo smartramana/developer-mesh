@@ -327,6 +327,93 @@ func (db *Database) listGitHubContent(ctx context.Context, tx *Tx, owner, repo, 
 	return results, nil
 }
 
+// GetGitHubContentByChecksum retrieves GitHub content metadata from the database using checksum
+func (db *Database) GetGitHubContentByChecksum(ctx context.Context, checksum string) (*storage.ContentMetadata, error) {
+	var metadata *storage.ContentMetadata
+
+	err := db.Transaction(ctx, func(tx *sqlx.Tx) error {
+		var err error
+		metadata, err = db.getGitHubContentByChecksum(ctx, &Tx{tx: tx}, checksum)
+		return err
+	})
+
+	return metadata, err
+}
+
+// getGitHubContentByChecksum is the internal implementation to retrieve GitHub content metadata by checksum within a transaction
+func (db *Database) getGitHubContentByChecksum(ctx context.Context, tx *Tx, checksum string) (*storage.ContentMetadata, error) {
+	var (
+		id          string
+		ownerVal    string
+		repoVal     string
+		typeVal     string
+		idVal       string
+		checksumVal string
+		uri         string
+		size        int64
+		createdAt   time.Time
+		updatedAt   time.Time
+		expiresAt   sql.NullTime
+		metadataRaw []byte
+	)
+
+	err := tx.tx.QueryRowContext(ctx, `
+		SELECT id, owner, repo, content_type, content_id, checksum, uri, 
+		       size, created_at, updated_at, expires_at, metadata
+		FROM mcp.github_content_metadata
+		WHERE checksum = $1
+		LIMIT 1
+	`, checksum).Scan(
+		&id,
+		&ownerVal,
+		&repoVal,
+		&typeVal,
+		&idVal,
+		&checksumVal,
+		&uri,
+		&size,
+		&createdAt,
+		&updatedAt,
+		&expiresAt,
+		&metadataRaw,
+	)
+
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return nil, nil // Return nil without error when no content is found
+		}
+		return nil, fmt.Errorf("failed to get GitHub content metadata by checksum: %w", err)
+	}
+
+	// Parse metadata
+	var metadataMap map[string]interface{}
+	if len(metadataRaw) > 0 {
+		if err := json.Unmarshal(metadataRaw, &metadataMap); err != nil {
+			return nil, fmt.Errorf("failed to unmarshal metadata: %w", err)
+		}
+	}
+
+	// Create metadata object
+	metadata := &storage.ContentMetadata{
+		Owner:       ownerVal,
+		Repo:        repoVal,
+		ContentType: storage.ContentType(typeVal),
+		ContentID:   idVal,
+		Checksum:    checksumVal,
+		URI:         uri,
+		Size:        size,
+		CreatedAt:   createdAt,
+		UpdatedAt:   updatedAt,
+		Metadata:    metadataMap,
+	}
+
+	if expiresAt.Valid {
+		metadata.ExpiresAt = &expiresAt.Time
+	}
+
+	return metadata, nil
+}
+
 // Initialize database tables for GitHub content metadata
 func (db *Database) ensureGitHubContentTables(ctx context.Context) error {
 	// Create GitHub content metadata table if it doesn't exist

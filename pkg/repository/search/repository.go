@@ -19,6 +19,131 @@ func NewRepository(db *sqlx.DB) Repository {
 	return &SQLRepository{db: db}
 }
 
+// Create stores a new search result (standardized Repository method)
+func (r *SQLRepository) Create(ctx context.Context, result *SearchResult) error {
+	if r.db == nil {
+		return fmt.Errorf("database connection not initialized")
+	}
+
+	query := `INSERT INTO search_results (id, score, distance, content, type, metadata, content_hash) 
+	          VALUES ($1, $2, $3, $4, $5, $6, $7)`
+
+	_, err := r.db.ExecContext(ctx, query, 
+		result.ID,
+		result.Score,
+		result.Distance,
+		result.Content,
+		result.Type,
+		result.Metadata,
+		result.ContentHash)
+
+	if err != nil {
+		return fmt.Errorf("failed to create search result: %w", err)
+	}
+
+	return nil
+}
+
+// Get retrieves a search result by its ID (standardized Repository method)
+func (r *SQLRepository) Get(ctx context.Context, id string) (*SearchResult, error) {
+	if r.db == nil {
+		return nil, fmt.Errorf("database connection not initialized")
+	}
+
+	query := `SELECT id, score, distance, content, type, metadata, content_hash
+	          FROM search_results WHERE id = $1`
+
+	var result SearchResult
+	err := r.db.GetContext(ctx, &result, query, id)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return nil, nil // Not found
+		}
+		return nil, fmt.Errorf("failed to get search result: %w", err)
+	}
+
+	return &result, nil
+}
+
+// List retrieves search results matching the provided filter (standardized Repository method)
+func (r *SQLRepository) List(ctx context.Context, filter Filter) ([]*SearchResult, error) {
+	if r.db == nil {
+		return nil, fmt.Errorf("database connection not initialized")
+	}
+
+	query := `SELECT id, score, distance, content, type, metadata, content_hash FROM search_results`
+	
+	// Apply filters
+	var whereClause string
+	var args []interface{}
+	argIndex := 1
+
+	if filter != nil {
+		for k, v := range filter {
+			if whereClause == "" {
+				whereClause = " WHERE "
+			} else {
+				whereClause += " AND "
+			}
+			whereClause += fmt.Sprintf("%s = $%d", k, argIndex)
+			args = append(args, v)
+			argIndex++
+		}
+	}
+
+	query += whereClause + " ORDER BY score DESC"
+
+	var results []*SearchResult
+	err := r.db.SelectContext(ctx, &results, query, args...)
+	if err != nil {
+		return nil, fmt.Errorf("failed to list search results: %w", err)
+	}
+
+	return results, nil
+}
+
+// Update modifies an existing search result (standardized Repository method)
+func (r *SQLRepository) Update(ctx context.Context, result *SearchResult) error {
+	if r.db == nil {
+		return fmt.Errorf("database connection not initialized")
+	}
+
+	query := `UPDATE search_results SET 
+	          score = $2, distance = $3, content = $4, type = $5, metadata = $6, content_hash = $7
+	          WHERE id = $1`
+
+	_, err := r.db.ExecContext(ctx, query, 
+		result.ID,
+		result.Score,
+		result.Distance,
+		result.Content,
+		result.Type,
+		result.Metadata,
+		result.ContentHash)
+
+	if err != nil {
+		return fmt.Errorf("failed to update search result: %w", err)
+	}
+
+	return nil
+}
+
+// Delete removes a search result by its ID (standardized Repository method)
+func (r *SQLRepository) Delete(ctx context.Context, id string) error {
+	if r.db == nil {
+		return fmt.Errorf("database connection not initialized")
+	}
+
+	query := `DELETE FROM search_results WHERE id = $1`
+
+	_, err := r.db.ExecContext(ctx, query, id)
+	if err != nil {
+		return fmt.Errorf("failed to delete search result: %w", err)
+	}
+
+	return nil
+}
+
 // SearchByText performs a vector search using text
 func (r *SQLRepository) SearchByText(ctx context.Context, query string, options *SearchOptions) (*SearchResults, error) {
 	// In a real implementation, this would:

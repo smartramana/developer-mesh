@@ -7,16 +7,35 @@ import (
 	"github.com/S-Corkum/devops-mcp/pkg/models"
 )
 
+// Filter defines a filter map for repository operations
+// This avoids importing pkg/repository to prevent import cycles
+type Filter map[string]interface{}
+
+// FilterFromTenantID creates a filter for tenant ID
+func FilterFromTenantID(tenantID string) Filter {
+	return Filter{"tenant_id": tenantID}
+}
+
+// FilterFromIDs creates a filter for tenant ID and agent ID
+func FilterFromIDs(tenantID, id string) Filter {
+	return Filter{
+		"tenant_id": tenantID,
+		"id":        id,
+	}
+}
+
 // Repository defines operations for managing agent entities
+// It follows the generic repository pattern while preserving API-specific methods
 type Repository interface {
-	// Core repository methods
+	// Core repository methods - aligned with generic Repository[T] interface
 	Create(ctx context.Context, agent *models.Agent) error
 	Get(ctx context.Context, id string) (*models.Agent, error)
-	List(ctx context.Context, filter map[string]interface{}) ([]*models.Agent, error)
+	List(ctx context.Context, filter Filter) ([]*models.Agent, error)
 	Update(ctx context.Context, agent *models.Agent) error
 	Delete(ctx context.Context, id string) error
 	
-	// API-specific methods
+	// API-specific methods - preserved for backward compatibility
+	// These methods delegate to the core methods in the implementation
 	CreateAgent(ctx context.Context, agent *models.Agent) error
 	GetAgentByID(ctx context.Context, id string, tenantID string) (*models.Agent, error)
 	ListAgents(ctx context.Context, tenantID string) ([]*models.Agent, error)
@@ -24,17 +43,4 @@ type Repository interface {
 	DeleteAgent(ctx context.Context, id string) error
 }
 
-// FilterFromTenantID creates a filter map from a tenant ID
-func FilterFromTenantID(tenantID string) map[string]interface{} {
-	return map[string]interface{}{
-		"tenant_id": tenantID,
-	}
-}
-
-// FilterFromIDs creates a filter map from tenant ID and agent ID
-func FilterFromIDs(tenantID, id string) map[string]interface{} {
-	return map[string]interface{}{
-		"tenant_id": tenantID,
-		"id":        id,
-	}
-}
+// These functions are now defined above with the Filter type

@@ -24,7 +24,7 @@ func NewContextEventHandler(contextManager interfaces.ContextManager) *ContextEv
 }
 
 // RegisterWithEventBus registers this handler with the event bus
-func (h *ContextEventHandler) RegisterWithEventBus(bus *EventBus) {
+func (h *ContextEventHandler) RegisterWithEventBus(bus EventBus) {
 	// Register for context events
 	contextEvents := []EventType{
 		EventContextCreated,
@@ -215,7 +215,7 @@ func NewAgentEventHandler() *AgentEventHandler {
 }
 
 // RegisterWithEventBus registers this handler with the event bus
-func (h *AgentEventHandler) RegisterWithEventBus(bus *EventBus) {
+func (h *AgentEventHandler) RegisterWithEventBus(bus EventBus) {
 	// Register for agent events
 	agentEvents := []EventType{
 		EventAgentConnected,
@@ -262,7 +262,7 @@ func NewSystemEventHandler() *SystemEventHandler {
 }
 
 // RegisterWithEventBus registers this handler with the event bus
-func (h *SystemEventHandler) RegisterWithEventBus(bus *EventBus) {
+func (h *SystemEventHandler) RegisterWithEventBus(bus EventBus) {
 	// Register for system events
 	systemEvents := []EventType{
 		EventSystemStartup,

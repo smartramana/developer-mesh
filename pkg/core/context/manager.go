@@ -43,7 +43,7 @@ type Manager struct {
 	cache         cache.Cache
 	storage       providers.ContextStorage
 	eventBus      *system.EventBus
-	logger        *observability.Logger
+	logger        observability.Logger // Changed from pointer to interface type
 	subscribers   map[string][]func(mcp.Event)
 	lock          sync.RWMutex
 	metricsClient observability.MetricsClient
@@ -55,7 +55,7 @@ func NewManager(
 	cache cache.Cache,
 	storage providers.ContextStorage,
 	eventBus *system.EventBus,
-	logger *observability.Logger,
+	logger observability.Logger, // Changed from pointer to interface type
 	metricsClient observability.MetricsClient,
 ) *Manager {
 	if logger == nil {
@@ -81,7 +81,7 @@ func NewManagerWithPkgDb(
 	cache cache.Cache,
 	storage providers.ContextStorage,
 	eventBus *system.EventBus,
-	logger *observability.Logger,
+	logger observability.Logger, // Changed from pointer to interface type
 	metricsClient observability.MetricsClient,
 ) *Manager {
 	if logger == nil {
@@ -778,8 +778,6 @@ func (m *Manager) createContextInDB(ctx context.Context, tx *sqlx.Tx, contextDat
 			}
 		case map[string]interface{}:
 			// valid, do nothing
-		case nil:
-			// valid, do nothing
 		default:
 			// any other type, treat as nil
 			contextData.Metadata = nil
@@ -832,17 +830,19 @@ func (m *Manager) createContextInDB(ctx context.Context, tx *sqlx.Tx, contextDat
 			var itemMetadataJSON []byte
 			// Handle item metadata the same way as context metadata
 			if item.Metadata != nil {
-				switch meta := interface{}(item.Metadata).(type) {
+				// First convert to interface{} to enable type switching
+				metaInterface := interface{}(item.Metadata)
+				switch metaVal := metaInterface.(type) {
 				case string:
-					if strings.TrimSpace(meta) == "" {
-						item.Metadata = nil
+					// Try to unmarshal
+					var metadata map[string]interface{}
+					if err := json.Unmarshal([]byte(metaVal), &metadata); err == nil {
+						item.Metadata = metadata
 					} else {
-						// Try to parse as JSON, if fails treat as nil
+						// invalid string, treat as nil
 						item.Metadata = nil
 					}
 				case map[string]interface{}:
-					// valid, do nothing
-				case nil:
 					// valid, do nothing
 				default:
 					// any other type, treat as nil
@@ -1011,8 +1011,6 @@ func (m *Manager) updateContextInDB(ctx context.Context, tx *sqlx.Tx, contextDat
 			}
 		case map[string]interface{}:
 			// valid, do nothing
-		case nil:
-			// valid, do nothing
 		default:
 			// any other type, treat as nil
 			contextData.Metadata = nil
@@ -1100,17 +1098,19 @@ func (m *Manager) updateContextInDB(ctx context.Context, tx *sqlx.Tx, contextDat
 		var itemMetadataJSON []byte
 		// Handle item metadata the same way as context metadata
 		if item.Metadata != nil {
-			switch meta := interface{}(item.Metadata).(type) {
+			// First convert to interface{} to enable type switching
+			metaInterface := interface{}(item.Metadata)
+			switch metaVal := metaInterface.(type) {
 			case string:
-				if strings.TrimSpace(meta) == "" {
-					item.Metadata = nil
+				// Try to unmarshal
+				var metadata map[string]interface{}
+				if err := json.Unmarshal([]byte(metaVal), &metadata); err == nil {
+					item.Metadata = metadata
 				} else {
-					// Try to parse as JSON, if fails treat as nil
+					// invalid string, treat as nil
 					item.Metadata = nil
 				}
 			case map[string]interface{}:
-				// valid, do nothing
-			case nil:
 				// valid, do nothing
 			default:
 				// any other type, treat as nil

@@ -35,8 +35,16 @@ func NewMetricsClientWithOptions(options MetricsOptions) MetricsClient {
 	}
 }
 
-// IncrementCounter increments a counter metric by a given value
-func (m *metricsClient) IncrementCounter(name string, value float64, labels map[string]string) {
+// IncrementCounter increments a counter metric by a given value (legacy version without labels)
+func (m *metricsClient) IncrementCounter(name string, value float64) {
+	if !m.enabled {
+		return
+	}
+	m.RecordCounter(name, value, m.labels)
+}
+
+// IncrementCounterWithLabels increments a counter metric by a given value with custom labels
+func (m *metricsClient) IncrementCounterWithLabels(name string, value float64, labels map[string]string) {
 	if !m.enabled {
 		return
 	}

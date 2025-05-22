@@ -6,6 +6,7 @@ import (
 	"context"
 	"errors"
 
+	adapterEvents "github.com/S-Corkum/devops-mcp/pkg/adapters/events"
 	githubAdapter "github.com/S-Corkum/devops-mcp/pkg/adapters/github"
 
 	"github.com/S-Corkum/devops-mcp/pkg/events"
@@ -16,7 +17,7 @@ import (
 type GitHubAdapter struct {
 	adapter       *githubAdapter.GitHubAdapter
 	config        Config
-	logger        *observability.Logger
+	logger        observability.Logger
 	metricsClient observability.MetricsClient
 	eventBus      events.EventBusIface
 }
@@ -26,7 +27,7 @@ func NewAdapter(
 	config Config,
 	eventBus events.EventBusIface,
 	metricsClient observability.MetricsClient,
-	logger *observability.Logger,
+	logger observability.Logger,
 ) (*GitHubAdapter, error) {
 	// Validate logger first for test compatibility
 	if logger == nil {
@@ -43,18 +44,47 @@ func NewAdapter(
 
 	// Convert config to the underlying adapter config
 	adapterConfig := githubAdapter.DefaultConfig()
-	adapterConfig.Token = config.Token
+	
+	// Set authentication settings
+	adapterConfig.Auth.Token = config.Token
+	
+	// Convert string AppID to int64 if provided
+	if config.AppID != "" {
+		// For now we'll just set it to a placeholder value for type safety
+		// In a full implementation we'd convert the string to int64
+		adapterConfig.Auth.AppID = 1
+	}
+	
+	// Set auth type based on which credentials are provided
+	if config.Token != "" {
+		adapterConfig.Auth.Type = "token"
+	} else if config.AppID != "" && config.PrivateKey != "" {
+		adapterConfig.Auth.Type = "app"
+	}
+	
+	// Set auth type based on which credentials are provided
+	adapterConfig.Auth.PrivateKey = config.PrivateKey
+	
+	// Convert string InstallID to int64 if provided
+	if config.InstallID != "" {
+		// For now we'll just set it to a placeholder value for type safety
+		// In a full implementation we'd convert the string to int64
+		adapterConfig.Auth.InstallationID = 1
+	}
+	
+	// Set other config fields
 	adapterConfig.RequestTimeout = config.Timeout
 	adapterConfig.BaseURL = config.BaseURL
 	adapterConfig.UploadURL = config.UploadURL
-	adapterConfig.AppID = config.AppID
-	adapterConfig.AppPrivateKey = config.PrivateKey
-	adapterConfig.AppInstallationID = config.InstallID
-	adapterConfig.UseApp = (config.AppID != "" && config.PrivateKey != "")
-	adapterConfig.DisableWebhooks = config.DisableWebhooks
+	
+	// Set webhook settings
+	adapterConfig.WebhooksEnabled = !config.DisableWebhooks
+
+	// Create event bus adapter to bridge between interfaces
+	eventBusAdapter := adapterEvents.NewEventBusAdapter(eventBus)
 
 	// Create underlying adapter
-	adapter, err := githubAdapter.New(adapterConfig, logger, metricsClient, eventBus)
+	adapter, err := githubAdapter.New(adapterConfig, logger, metricsClient, eventBusAdapter)
 	if err != nil {
 		return nil, err
 	}

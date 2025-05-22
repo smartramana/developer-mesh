@@ -17,7 +17,7 @@ import (
 type AdapterManager struct {
 	factory         *core.AdapterFactory
 	registry        *core.AdapterRegistry
-	adapterEventBus *adapterEvents.EventBus
+	adapterEventBus *adapterEvents.EventBusImpl
 	systemEventBus  *events.EventBus
 	eventBridge     *bridge.EventBridge
 	logger          observability.Logger

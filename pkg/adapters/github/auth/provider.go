@@ -45,6 +45,9 @@ type AuthProvider interface {
 	// SetAuthHeaders sets the authentication headers on an HTTP request
 	SetAuthHeaders(req *http.Request) error
 	
+	// AuthenticateRequest authenticates an HTTP request with the appropriate credentials
+	AuthenticateRequest(req *http.Request) error
+	
 	// RefreshToken refreshes the authentication token if needed
 	RefreshToken(ctx context.Context) error
 	
@@ -55,7 +58,7 @@ type AuthProvider interface {
 // BaseAuthProvider provides base functionality for authentication providers
 type BaseAuthProvider struct {
 	authType AuthType
-	logger   *observability.Logger
+	logger   observability.Logger // Changed from pointer to interface type
 }
 
 // Type returns the authentication type
@@ -64,7 +67,7 @@ func (p *BaseAuthProvider) Type() AuthType {
 }
 
 // NewAuthProvider creates a new authentication provider based on configuration
-func NewAuthProvider(config *Config, logger *observability.Logger) (AuthProvider, error) {
+func NewAuthProvider(config *Config, logger observability.Logger) (AuthProvider, error) {
 	if config == nil {
 		return nil, fmt.Errorf("auth config cannot be nil")
 	}
@@ -105,7 +108,7 @@ type NoAuthProvider struct {
 }
 
 // NewNoAuthProvider creates a new provider with no authentication
-func NewNoAuthProvider(logger *observability.Logger) *NoAuthProvider {
+func NewNoAuthProvider(logger observability.Logger) *NoAuthProvider {
 	return &NoAuthProvider{
 		BaseAuthProvider: BaseAuthProvider{
 			authType: AuthTypeNone,
@@ -122,6 +125,12 @@ func (p *NoAuthProvider) GetToken(ctx context.Context) (string, error) {
 // SetAuthHeaders does nothing for no authentication
 func (p *NoAuthProvider) SetAuthHeaders(req *http.Request) error {
 	// No authentication headers to set
+	return nil
+}
+
+// AuthenticateRequest does nothing for no authentication
+func (p *NoAuthProvider) AuthenticateRequest(req *http.Request) error {
+	// No authentication needed
 	return nil
 }
 
@@ -142,7 +151,7 @@ type TokenProvider struct {
 }
 
 // NewTokenProvider creates a new provider with token authentication
-func NewTokenProvider(token string, logger *observability.Logger) *TokenProvider {
+func NewTokenProvider(token string, logger observability.Logger) *TokenProvider {
 	return &TokenProvider{
 		BaseAuthProvider: BaseAuthProvider{
 			authType: AuthTypeToken,
@@ -165,8 +174,14 @@ func (p *TokenProvider) SetAuthHeaders(req *http.Request) error {
 	if p.token == "" {
 		return fmt.Errorf("token is empty")
 	}
-	req.Header.Set("Authorization", "token "+p.token)
+	req.Header.Set("Authorization", fmt.Sprintf("token %s", p.token))
 	return nil
+}
+
+// AuthenticateRequest authenticates an HTTP request with the token
+func (p *TokenProvider) AuthenticateRequest(req *http.Request) error {
+	// Similar to SetAuthHeaders, this sets the token in the request headers
+	return p.SetAuthHeaders(req)
 }
 
 // RefreshToken does nothing for token authentication
@@ -192,7 +207,7 @@ type AppProvider struct {
 }
 
 // NewAppProvider creates a new provider with GitHub App authentication
-func NewAppProvider(appID, privateKeyPEM, installationID string, logger *observability.Logger) (*AppProvider, error) {
+func NewAppProvider(appID, privateKeyPEM, installationID string, logger observability.Logger) (*AppProvider, error) {
 	// Validate required inputs
 	if appID == "" {
 		return nil, errors.NewGitHubError(
@@ -277,15 +292,21 @@ func (p *AppProvider) GetToken(ctx context.Context) (string, error) {
 	return token, nil
 }
 
-// SetAuthHeaders sets the installation token authentication header
+// SetAuthHeaders sets the app authentication headers
 func (p *AppProvider) SetAuthHeaders(req *http.Request) error {
 	token, err := p.GetToken(req.Context())
 	if err != nil {
 		return err
 	}
 	
-	req.Header.Set("Authorization", "token "+token)
+	req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", token))
 	return nil
+}
+
+// AuthenticateRequest authenticates an HTTP request with the app token
+func (p *AppProvider) AuthenticateRequest(req *http.Request) error {
+	// Similar to SetAuthHeaders, gets token and sets it in the request headers
+	return p.SetAuthHeaders(req)
 }
 
 // RefreshToken obtains a new installation token
@@ -471,7 +492,7 @@ type OAuthProvider struct {
 }
 
 // NewOAuthProvider creates a new provider with OAuth authentication
-func NewOAuthProvider(token, clientID, clientSecret string, logger *observability.Logger) *OAuthProvider {
+func NewOAuthProvider(token, clientID, clientSecret string, logger observability.Logger) *OAuthProvider {
 	return &OAuthProvider{
 		BaseAuthProvider: BaseAuthProvider{
 			authType: AuthTypeOAuth,
@@ -523,8 +544,14 @@ func (p *OAuthProvider) SetAuthHeaders(req *http.Request) error {
 		return err
 	}
 	
-	req.Header.Set("Authorization", "token "+token)
+	req.Header.Set("Authorization", fmt.Sprintf("token %s", token))
 	return nil
+}
+
+// AuthenticateRequest authenticates an HTTP request with the OAuth token
+func (p *OAuthProvider) AuthenticateRequest(req *http.Request) error {
+	// Similar to SetAuthHeaders, gets token and sets it in the request headers
+	return p.SetAuthHeaders(req)
 }
 
 // RefreshToken refreshes the OAuth token if possible
@@ -597,13 +624,13 @@ func (p *OAuthProvider) IsValid() bool {
 // AuthProviderFactory creates authentication providers
 type AuthProviderFactory struct {
 	configs map[string]*Config
-	logger  *observability.Logger
+	logger  observability.Logger // Changed from pointer to interface type
 	cache   map[string]AuthProvider
 	mutex   sync.RWMutex
 }
 
 // NewAuthProviderFactory creates a new authentication provider factory
-func NewAuthProviderFactory(configs map[string]*Config, logger *observability.Logger) *AuthProviderFactory {
+func NewAuthProviderFactory(configs map[string]*Config, logger observability.Logger) *AuthProviderFactory {
 	return &AuthProviderFactory{
 		configs: configs,
 		logger:  logger,

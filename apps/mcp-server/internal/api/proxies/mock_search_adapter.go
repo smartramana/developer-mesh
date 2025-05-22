@@ -5,6 +5,7 @@ import (
 
 	"github.com/S-Corkum/devops-mcp/pkg/observability"
 	"github.com/S-Corkum/devops-mcp/pkg/repository"
+	"github.com/S-Corkum/devops-mcp/pkg/repository/search"
 )
 
 // MockSearchRepository provides a temporary implementation of the SearchRepository
@@ -84,4 +85,54 @@ func (m *MockSearchRepository) GetSearchStats(ctx context.Context) (map[string]i
 		"total_models":     0,
 		"status":           "transitioning to REST API",
 	}, nil
+}
+
+// The following methods implement the standard Repository[SearchResult] interface
+
+// Create stores a new search result (standardized Repository method)
+func (m *MockSearchRepository) Create(ctx context.Context, result *repository.SearchResult) error {
+	m.logger.Debug("Mock create search result", map[string]interface{}{
+		"id": result.ID,
+	})
+	return nil
+}
+
+// Get retrieves a search result by its ID (standardized Repository method)
+func (m *MockSearchRepository) Get(ctx context.Context, id string) (*repository.SearchResult, error) {
+	m.logger.Debug("Mock get search result", map[string]interface{}{
+		"id": id,
+	})
+	
+	// Return a mock result
+	return &repository.SearchResult{
+		ID:     id,
+		Score:  1.0,
+		Content: "Mock content for " + id,
+	}, nil
+}
+
+// List retrieves search results matching the provided filter (standardized Repository method)
+func (m *MockSearchRepository) List(ctx context.Context, filter search.Filter) ([]*repository.SearchResult, error) {
+	m.logger.Debug("Mock list search results", map[string]interface{}{
+		"filter": filter,
+	})
+	
+	// Return empty list for now
+	return []*repository.SearchResult{}, nil
+}
+
+// Update modifies an existing search result (standardized Repository method)
+func (m *MockSearchRepository) Update(ctx context.Context, result *repository.SearchResult) error {
+	m.logger.Debug("Mock update search result", map[string]interface{}{
+		"id": result.ID,
+	})
+	return nil
+}
+
+// Delete removes a search result by its ID (standardized Repository method)
+func (m *MockSearchRepository) Delete(ctx context.Context, id string) error {
+	m.logger.Debug("Mock delete search result", map[string]interface{}{
+		"id": id,
+	})
+	return nil
 }

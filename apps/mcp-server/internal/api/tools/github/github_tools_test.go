@@ -1,4 +1,4 @@
-package server
+package github
 
 import (
 	"bytes"
@@ -50,7 +50,7 @@ func (m *MockGitHubAdapter) Close() error {
 	return args.Error(0)
 }
 
-// Trick for testing - create a test-only constructor
+// newTestGitHubToolsHandler creates a test-only constructor
 func newTestGitHubToolsHandler(mockAdapter *MockGitHubAdapter, logger observability.Logger) *GitHubToolsHandler {
 	registry := tool.NewToolRegistry()
 	

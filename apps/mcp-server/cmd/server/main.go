@@ -139,7 +139,7 @@ func main() {
 			WriteTimeout:      cfg.AWS.ElastiCache.WriteTimeout,
 			PoolSize:          cfg.AWS.ElastiCache.PoolSize,
 			MinIdleConns:      cfg.AWS.ElastiCache.MinIdleConnections,
-			PoolTimeout:       time.Duration(cfg.AWS.ElastiCache.PoolTimeout) * time.Second, // Convert int to time.Duration
+			PoolTimeout:       cfg.AWS.ElastiCache.PoolTimeout, // Using int value directly as expected by RedisConfig
 		}
 	} else {
 		// Convert from common/cache.RedisConfig to cache.RedisConfig

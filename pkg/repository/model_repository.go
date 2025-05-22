@@ -7,6 +7,7 @@ import (
 	"fmt"
 
 	"github.com/S-Corkum/devops-mcp/pkg/models"
+	"github.com/S-Corkum/devops-mcp/pkg/repository/model"
 	"github.com/jmoiron/sqlx"
 )
 
@@ -49,9 +50,7 @@ func (r *ModelRepositoryImpl) GetModelByID(ctx context.Context, id string, tenan
 // ListModels implements ModelRepository.ListModels
 func (r *ModelRepositoryImpl) ListModels(ctx context.Context, tenantID string) ([]*models.Model, error) {
 	// Create filter based on tenantID
-	filter := map[string]interface{}{
-		"tenant_id": tenantID,
-	}
+	filter := model.FilterFromTenantID(tenantID)
 	
 	// Delegate to the core List method
 	return r.List(ctx, filter)
@@ -113,7 +112,7 @@ func (r *ModelRepositoryImpl) Get(ctx context.Context, id string) (*models.Model
 }
 
 // List implements ModelRepository.List
-func (r *ModelRepositoryImpl) List(ctx context.Context, filter map[string]interface{}) ([]*models.Model, error) {
+func (r *ModelRepositoryImpl) List(ctx context.Context, filter model.Filter) ([]*models.Model, error) {
 	query := `SELECT id, name, tenant_id, created_at, updated_at FROM models`
 	
 	// Apply filters

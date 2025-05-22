@@ -298,6 +298,105 @@ func TestDeleteGitHubContent(t *testing.T) {
 	assert.NoError(t, mock.ExpectationsWereMet())
 }
 
+func TestGetGitHubContentByChecksum(t *testing.T) {
+	// Create a mock DB and rows
+	mockDB, mock, err := sqlmock.New()
+	if err != nil {
+		t.Fatalf("Failed to create mock database: %v", err)
+	}
+	defer mockDB.Close()
+
+	// Create sqlx DB with the mock
+	sqlxDB := sqlx.NewDb(mockDB, "sqlmock")
+
+	// Create database instance
+	db := &Database{
+		db:         sqlxDB,
+		statements: make(map[string]*sqlx.Stmt),
+	}
+
+	// Set up expected query and response
+	checksum := "abc123"
+	expiresTime := time.Now().Add(24 * time.Hour)
+	mock.ExpectBegin()
+	mock.ExpectQuery("^SELECT id, owner, repo, content_type, content_id, checksum, uri, .*").WithArgs(checksum).WillReturnRows(
+		sqlmock.NewRows([]string{
+			"id", "owner", "repo", "content_type", "content_id", "checksum", "uri",
+			"size", "created_at", "updated_at", "expires_at", "metadata",
+		}).
+			AddRow(
+				"gh-test-org-test-repo-file-123",
+				"test-org",
+				"test-repo",
+				"file",
+				"123",
+				checksum,
+				"https://example.com/test-file",
+				1024,
+				time.Now().Add(-1*time.Hour),
+				time.Now(),
+				expiresTime,
+				[]byte(`{"example":"metadata"}`),
+			),
+	)
+	mock.ExpectCommit()
+
+	// Test the GetGitHubContentByChecksum method
+	ctx := context.Background()
+	metadata, err := db.GetGitHubContentByChecksum(ctx, checksum)
+	if err != nil {
+		t.Fatalf("GetGitHubContentByChecksum failed: %v", err)
+	}
+
+	// Verify the result
+	if metadata == nil {
+		t.Fatal("Expected metadata, got nil")
+	}
+	if metadata.Checksum != checksum {
+		t.Errorf("Expected checksum %s, got %s", checksum, metadata.Checksum)
+	}
+	if metadata.Owner != "test-org" {
+		t.Errorf("Expected owner 'test-org', got %s", metadata.Owner)
+	}
+	if metadata.Repo != "test-repo" {
+		t.Errorf("Expected repo 'test-repo', got %s", metadata.Repo)
+	}
+	if string(metadata.ContentType) != "file" {
+		t.Errorf("Expected content type 'file', got %s", metadata.ContentType)
+	}
+	if metadata.ContentID != "123" {
+		t.Errorf("Expected content ID '123', got %s", metadata.ContentID)
+	}
+
+	// Verify metadata parsed correctly
+	if val, ok := metadata.Metadata["example"].(string); !ok || val != "metadata" {
+		t.Errorf("Expected metadata[\"example\"] = \"metadata\", got %v", metadata.Metadata)
+	}
+
+	// Verify all expectations were met
+	if err := mock.ExpectationsWereMet(); err != nil {
+		t.Errorf("Unfulfilled expectations: %v", err)
+	}
+
+	// Test the case where no content is found
+	mock.ExpectBegin()
+	mock.ExpectQuery("^SELECT id, owner, repo, content_type, content_id, checksum, uri, .*").WithArgs("not-found").WillReturnError(sql.ErrNoRows)
+	mock.ExpectCommit()
+
+	metadata, err = db.GetGitHubContentByChecksum(ctx, "not-found")
+	if err != nil {
+		t.Fatalf("GetGitHubContentByChecksum with non-existent checksum should not error: %v", err)
+	}
+	if metadata != nil {
+		t.Errorf("Expected nil metadata for non-existent checksum, got %v", metadata)
+	}
+
+	// Verify all expectations were met
+	if err := mock.ExpectationsWereMet(); err != nil {
+		t.Errorf("Unfulfilled expectations: %v", err)
+	}
+}
+
 func TestListGitHubContent(t *testing.T) {
 	// Create mock DB
 	mockDB, mock, err := sqlmock.New()

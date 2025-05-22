@@ -40,7 +40,7 @@ func (m *mockModelRepository) Get(ctx context.Context, id string) (*models.Model
 }
 
 // List implements the List method for mockModelRepository
-func (m *mockModelRepository) List(ctx context.Context, filter map[string]interface{}) ([]*models.Model, error) {
+func (m *mockModelRepository) List(ctx context.Context, filter model.Filter) ([]*models.Model, error) {
 	var result []*models.Model
 	
 	if m.models == nil {

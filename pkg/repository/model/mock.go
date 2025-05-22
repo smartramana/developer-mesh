@@ -32,7 +32,7 @@ func (m *MockRepository) Get(ctx context.Context, id string) (*models.Model, err
 }
 
 // List implements the Repository interface
-func (m *MockRepository) List(ctx context.Context, filter map[string]interface{}) ([]*models.Model, error) {
+func (m *MockRepository) List(ctx context.Context, filter Filter) ([]*models.Model, error) {
 	// Mock implementation that returns an empty list
 	return []*models.Model{}, nil
 }
@@ -71,7 +71,7 @@ func (m *MockRepository) GetModelByID(ctx context.Context, id string, tenantID s
 
 // ListModels implements the API-specific method
 func (m *MockRepository) ListModels(ctx context.Context, tenantID string) ([]*models.Model, error) {
-	filter := map[string]interface{}{"tenant_id": tenantID}
+	filter := FilterFromTenantID(tenantID)
 	return m.List(ctx, filter)
 }
 

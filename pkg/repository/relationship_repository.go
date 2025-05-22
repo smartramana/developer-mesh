@@ -26,7 +26,7 @@ type RelationshipRepository struct {
 // NewRelationshipRepository creates a new repository for entity relationships
 func NewRelationshipRepository(db *sqlx.DB) RelationshipRepositoryInterface {
 	// Create a logger that implements the observability.Logger interface
-	logger := observability.NewLogger("relationship_repository")
+	logger := observability.NewStandardLogger("relationship_repository")
 
 	// Initialize the vector database for any vector operations
 	vectorDB, err := database.NewVectorDatabase(db, nil, logger)
