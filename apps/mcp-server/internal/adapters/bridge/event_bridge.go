@@ -6,9 +6,9 @@ import (
 	"reflect"
 	"sync"
 
-	"github.com/S-Corkum/devops-mcp/apps/mcp-server/internal/adapters/core"
-	"github.com/S-Corkum/devops-mcp/apps/mcp-server/internal/adapters/events"
-	eventsmocks "github.com/S-Corkum/devops-mcp/apps/mcp-server/internal/adapters/events/mocks"
+	"mcp-server/internal/adapters/core"
+	"mcp-server/internal/adapters/events"
+	eventsmocks "mcp-server/internal/adapters/events/mocks"
 	"github.com/S-Corkum/devops-mcp/pkg/common/events/system"
 	"github.com/S-Corkum/devops-mcp/pkg/observability"
 )

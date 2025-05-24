@@ -3,7 +3,7 @@ package api
 import (
 	"net/http"
 
-	"github.com/S-Corkum/devops-mcp/apps/rest-api/internal/repository"
+	"rest-api/internal/repository"
 	"github.com/gin-gonic/gin"
 )
 

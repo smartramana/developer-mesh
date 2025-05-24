@@ -7,7 +7,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/S-Corkum/devops-mcp/pkg/observability"
-	"github.com/S-Corkum/devops-mcp/pkg/mcp"
+	"github.com/S-Corkum/devops-mcp/pkg/models"
 	"github.com/S-Corkum/devops-mcp/pkg/common/events"
 )
 
@@ -229,18 +229,18 @@ func (b *EventBus) Close() {
 }
 
 // Publish implements the events.EventBusIface interface for test compatibility. Not intended for use.
-func (b *EventBus) Publish(ctx context.Context, event *mcp.Event) {
+func (b *EventBus) Publish(ctx context.Context, event *models.Event) {
 	if b.logger != nil {
-		b.logger.Warn("Adapter EventBus.Publish called with mcp.Event; this is a no-op.", map[string]interface{}{})
+		b.logger.Warn("Adapter EventBus.Publish called with models.Event; this is a no-op.", map[string]interface{}{})
 	}
-	// No-op: Adapter EventBus does not handle mcp.Event
+	// No-op: Adapter EventBus does not handle models.Event
 }
 
 // EventListenerFunc adapts a Handler to an EventListener for interface compatibility (no-op).
-type EventListenerFunc func(ctx context.Context, event *mcp.Event) error
+type EventListenerFunc func(ctx context.Context, event *models.Event) error
 
 func (f EventListenerFunc) Handle(ctx context.Context, event *AdapterEvent) error {
-	// No-op: cannot convert AdapterEvent to *mcp.Event
+	// No-op: cannot convert AdapterEvent to *models.Event
 	return nil
 }
 

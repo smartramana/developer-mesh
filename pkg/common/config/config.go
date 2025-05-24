@@ -8,17 +8,41 @@ import (
 
 	"github.com/S-Corkum/devops-mcp/pkg/common/aws"
 	"github.com/S-Corkum/devops-mcp/pkg/common/cache"
-	"github.com/S-Corkum/devops-mcp/pkg/mcp/interfaces"
 	"github.com/S-Corkum/devops-mcp/pkg/metrics"
 	"github.com/spf13/viper"
 )
 
+// APIConfig defines the API server configuration
+type APIConfig struct {
+	ListenAddress string                 `mapstructure:"listen_address"`
+	BaseURL       string                 `mapstructure:"base_url"`
+	TLSCertFile   string                 `mapstructure:"tls_cert_file"`
+	TLSKeyFile    string                 `mapstructure:"tls_key_file"`
+	CORSAllowed   string                 `mapstructure:"cors_allowed"`
+	RateLimit     int                    `mapstructure:"rate_limit"`
+	RequestTimeout int                   `mapstructure:"request_timeout"`
+	ReadTimeout   time.Duration          `mapstructure:"read_timeout"`
+	WriteTimeout  time.Duration          `mapstructure:"write_timeout"`
+	IdleTimeout   time.Duration          `mapstructure:"idle_timeout"`
+	EnableCORS    bool                   `mapstructure:"enable_cors"`
+	EnableSwagger bool                   `mapstructure:"enable_swagger"`
+	Auth          map[string]interface{} `mapstructure:"auth"`
+	Webhook       map[string]interface{} `mapstructure:"webhook"`
+}
+
+// CoreConfig defines the engine core configuration
+type CoreConfig struct {
+	EventBufferSize  int           `mapstructure:"event_buffer_size"`
+	ConcurrencyLimit int           `mapstructure:"concurrency_limit"`
+	EventTimeout     time.Duration `mapstructure:"event_timeout"`
+}
+
 // Config holds the complete application configuration
 type Config struct {
-	API        interfaces.APIConfig   `mapstructure:"api"`
+	API        APIConfig              `mapstructure:"api"`
 	Cache      cache.RedisConfig      `mapstructure:"cache"`
 	Database   DatabaseConfig         `mapstructure:"database"`
-	Engine     interfaces.CoreConfig  `mapstructure:"engine"`
+	Engine     CoreConfig             `mapstructure:"engine"`
 	Metrics    metrics.Config         `mapstructure:"metrics"`
 	AWS        AWSConfig              `mapstructure:"aws"`
 	Environment string                `mapstructure:"environment"`

@@ -10,9 +10,9 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/S-Corkum/devops-mcp/apps/mcp-server/internal/adapters/core"
-	"github.com/S-Corkum/devops-mcp/apps/mcp-server/internal/adapters/events"
-	"github.com/S-Corkum/devops-mcp/apps/mcp-server/internal/adapters/providers/github"
+	"mcp-server/internal/adapters/core"
+	"mcp-server/internal/adapters/events"
+	"mcp-server/internal/adapters/providers/github"
 	"github.com/S-Corkum/devops-mcp/pkg/observability"
 )
 

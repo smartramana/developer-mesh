@@ -8,9 +8,9 @@ import (
 	"strings"
 	"time"
 
-	contextAPI "github.com/S-Corkum/devops-mcp/apps/rest-api/internal/api/context"
-	"github.com/S-Corkum/devops-mcp/apps/rest-api/internal/core"
-	"github.com/S-Corkum/devops-mcp/apps/rest-api/internal/repository"
+	contextAPI "rest-api/internal/api/context"
+	"rest-api/internal/core"
+	"rest-api/internal/repository"
 	"github.com/S-Corkum/devops-mcp/pkg/config"
 	"github.com/S-Corkum/devops-mcp/pkg/database"
 	"github.com/S-Corkum/devops-mcp/pkg/observability"
@@ -134,7 +134,16 @@ func NewServer(engine *core.Engine, cfg Config, db *sqlx.DB, metrics observabili
 
 	// Initialize vector database if enabled
 	var vectorDB *database.VectorDatabase
-	if config != nil && config.Database.Vector.Enabled {
+	isVectorEnabled := false
+	if config != nil {
+		if vectorConfig, ok := config.Database.Vector.(map[string]interface{}); ok {
+			if enabled, ok := vectorConfig["enabled"].(bool); ok {
+				isVectorEnabled = enabled
+			}
+		}
+	}
+	
+	if isVectorEnabled {
 		var err error
 		vectorDB, err = database.NewVectorDatabase(db, config, logger.WithPrefix("vector_db"))
 		if err != nil {

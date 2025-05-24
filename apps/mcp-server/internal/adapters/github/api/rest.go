@@ -13,9 +13,9 @@ import (
 	"sync"
 	"time"
 
-	"github.com/S-Corkum/devops-mcp/apps/mcp-server/internal/adapters/errors"
-	"github.com/S-Corkum/devops-mcp/apps/mcp-server/internal/adapters/github/auth"
-	"github.com/S-Corkum/devops-mcp/apps/mcp-server/internal/adapters/resilience"
+	"mcp-server/internal/adapters/errors"
+	"mcp-server/internal/adapters/github/auth"
+	"mcp-server/internal/adapters/resilience"
 	"github.com/S-Corkum/devops-mcp/pkg/observability"
 )
 
@@ -167,13 +167,13 @@ func (c *RESTClient) doRequest(ctx context.Context, opts requestOptions, result 
 	// Execute HTTP request
 	resp, err := c.client.Do(req)
 	if err != nil {
-		c.metricsClient.IncrementCounter("github.rest.error", 1, nil)
+		c.metricsClient.IncrementCounter("github.rest.error", 1)
 		return fmt.Errorf("failed to execute HTTP request: %w", err)
 	}
 	defer resp.Body.Close()
 	
 	// Log metrics
-	c.metricsClient.IncrementCounter("github.rest.request", 1, nil)
+	c.metricsClient.IncrementCounter("github.rest.request", 1)
 	
 	// Extract and store rate limit information
 	rateLimitInfo := c.extractRateLimitInfo(resp.Header)

@@ -9,7 +9,7 @@ import (
 	"github.com/stretchr/testify/assert"
 
 	
-	adapterConfig "github.com/S-Corkum/devops-mcp/apps/mcp-server/internal/adapters/config"
+	adapterConfig "mcp-server/internal/adapters/config"
 )
 
 // TestDefaultConfig tests the default config generation

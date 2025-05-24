@@ -7,10 +7,11 @@ import (
 	"github.com/gin-gonic/gin"
 
 	"github.com/S-Corkum/devops-mcp/pkg/database"
+	"github.com/S-Corkum/devops-mcp/pkg/embedding"
 	"github.com/S-Corkum/devops-mcp/pkg/observability"
 	"github.com/S-Corkum/devops-mcp/pkg/repository"
-	"github.com/S-Corkum/devops-mcp/apps/mcp-server/internal/api/proxies"
-	"github.com/S-Corkum/devops-mcp/apps/mcp-server/internal/api/handlers"
+	"mcp-server/internal/api/proxies"
+	"mcp-server/internal/api/handlers"
 )
 
 // SetupVectorAPI initializes and registers the vector API routes
@@ -22,8 +23,12 @@ func (s *Server) SetupVectorAPI(ctx context.Context) error {
 
 	// Access configuration fields directly since s.cfg is a *config.Config
 	if s.cfg != nil {
-		// Direct access to the concrete config struct fields
-		isEnabled = s.cfg.Database.Vector.Enabled
+		// Type assert Vector field to access Enabled property
+		if vectorConfig, ok := s.cfg.Database.Vector.(map[string]interface{}); ok {
+			if enabled, ok := vectorConfig["enabled"].(bool); ok {
+				isEnabled = enabled
+			}
+		}
 		logger.Info(fmt.Sprintf("Vector operations enabled: %v", isEnabled), nil)
 	}
 	
@@ -64,15 +69,38 @@ func (s *Server) SetupVectorAPI(ctx context.Context) error {
 		"path": "/api/v1/vectors",
 	})
 	
-	// Setup advanced vector search routes using handlers package
-	if err := handlers.SetupSearchRoutes(apiV1, s.db.DB, s.cfg, logger); err != nil {
-		logger.Warn("Failed to setup vector search API", map[string]interface{}{
+	// Setup advanced vector search routes using the new SearchHandler pattern
+	// Create embedding service - in a real environment this would use the appropriate service
+	// This implementation keeps the same mock embedding service that was in the deprecated code
+	dimensions := 1536 // Hardcoded for the example, normally would be from embedding.GetEmbeddingModelDimensions
+	
+	// Create embedding service for search
+	embeddingService := embedding.NewMockEmbeddingService(dimensions)
+	
+	// Create a search service
+	searchConfig := &embedding.PgSearchConfig{
+		DB:                 s.db.DB,
+		Schema:             "mcp", // Default schema, should match what's used elsewhere
+		EmbeddingService:   embeddingService,
+		DefaultLimit:       50,     // Higher default limit for search results
+		DefaultMinSimilarity: 0.65, // Lower threshold for better recall
+	}
+	
+	// Create the search service
+	searchService, err := embedding.NewPgSearchService(searchConfig)
+	if err != nil {
+		logger.Warn("Failed to create search service", map[string]interface{}{
 			"error": err.Error(),
 		})
 		// Non-fatal, continue with other routes
 	} else {
-		logger.Info("Vector search API routes registered", map[string]interface{}{
+		// Create the search handler and register routes
+		searchHandler := handlers.NewSearchHandler(searchService)
+		searchHandler.RegisterRoutes(apiV1)
+		
+		logger.Info("Vector search API routes registered using modern pattern", map[string]interface{}{
 			"path": "/api/v1/search",
+			"pattern": "SearchHandler",
 		})
 	}
 	

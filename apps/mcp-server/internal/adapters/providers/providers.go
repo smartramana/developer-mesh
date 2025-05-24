@@ -6,8 +6,8 @@ package providers
 import (
 	"fmt"
 
-	"github.com/S-Corkum/devops-mcp/apps/mcp-server/internal/adapters/core"
-	"github.com/S-Corkum/devops-mcp/apps/mcp-server/internal/adapters/providers/github"
+	"mcp-server/internal/adapters/core"
+	"mcp-server/internal/adapters/providers/github"
 	"github.com/S-Corkum/devops-mcp/pkg/observability"
 )
 

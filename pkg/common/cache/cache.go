@@ -3,10 +3,14 @@ package cache
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"time"
 
 	"github.com/go-redis/redis/v8"
 )
+
+// ErrNotFound is returned when a key is not found in the cache
+var ErrNotFound = errors.New("key not found in cache")
 
 // Cache interface defines caching operations
 type Cache interface {
@@ -98,4 +102,52 @@ func (c *RedisCache) Flush(ctx context.Context) error {
 // Close closes the Redis connection
 func (c *RedisCache) Close() error {
 	return c.client.Close()
+}
+
+// MetricsRecorder interface for optional metrics
+type MetricsRecorder interface {
+	RecordCacheHit(key string)
+	RecordCacheMiss(key string)
+	RecordCacheError(key string, err error)
+}
+
+// CacheWarmer interface for cache warming strategies
+type CacheWarmer interface {
+	// WarmCache pre-populates the cache with frequently accessed data
+	WarmCache(ctx context.Context) error
+	// GetWarmupKeys returns keys that should be warmed
+	GetWarmupKeys() []string
+}
+
+// WarmableCacheImpl adds warming capabilities to any cache
+type WarmableCacheImpl struct {
+	Cache
+	warmer CacheWarmer
+	logger interface{ // Simple logger interface to avoid import
+		Info(msg string, fields map[string]interface{})
+		Error(msg string, fields map[string]interface{})
+	}
+}
+
+// NewWarmableCache wraps a cache with warming capabilities
+func NewWarmableCache(cache Cache, warmer CacheWarmer, logger interface{
+	Info(msg string, fields map[string]interface{})
+	Error(msg string, fields map[string]interface{})
+}) *WarmableCacheImpl {
+	return &WarmableCacheImpl{
+		Cache:  cache,
+		warmer: warmer,
+		logger: logger,
+	}
+}
+
+// StartWarmup initiates cache warming in the background
+func (w *WarmableCacheImpl) StartWarmup(ctx context.Context) {
+	go func() {
+		if err := w.warmer.WarmCache(ctx); err != nil {
+			w.logger.Error("cache warmup failed", map[string]interface{}{"error": err.Error()})
+		} else {
+			w.logger.Info("cache warmup completed", map[string]interface{}{"keys": len(w.warmer.GetWarmupKeys())})
+		}
+	}()
 }

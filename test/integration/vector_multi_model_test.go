@@ -9,7 +9,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/S-Corkum/devops-mcp/internal/repository"
+	"github.com/S-Corkum/devops-mcp/pkg/repository"
 	"github.com/jmoiron/sqlx"
 	_ "github.com/lib/pq"
 	"github.com/stretchr/testify/assert"
@@ -27,22 +27,12 @@ import (
 
 func TestMultiModelEmbeddings(t *testing.T) {
 	// Skip if not running integration tests
-	if testing.Short() {
-		t.Skip("Skipping integration test")
-	}
+	SkipIfNoDatabase(t)
 
-	// Get database DSN from environment
-	dsn := getTestDatabaseDSN()
-	
-	// Connect to the database
-	db, err := sqlx.Connect("postgres", dsn)
-	require.NoError(t, err, "Failed to connect to database")
-	defer db.Close()
-	
-	// Set connection pool parameters
-	db.SetMaxOpenConns(5)
-	db.SetMaxIdleConns(2)
-	db.SetConnMaxLifetime(5 * time.Minute)
+	// Use standardized database connection function
+	db := CreateTestDatabaseConnection(t)
+	// Connection pool parameters are set in CreateTestDatabaseConnection
+	// db.Close() will be handled by CleanupTestDatabase
 	
 	// Create embedding repository
 	repo := repository.NewEmbeddingRepository(db)
@@ -61,11 +51,8 @@ func TestMultiModelEmbeddings(t *testing.T) {
 		{ID: "test.mcp.small", Dimension: 384, Count: 3},
 	}
 	
-	// Clean up test data after the test
-	defer func() {
-		err := repo.DeleteContextEmbeddings(context.Background(), contextID)
-		assert.NoError(t, err, "Failed to clean up test data")
-	}()
+	// Clean up test data after the test using our standardized function
+	defer CleanupTestDatabase(t, db, contextID)
 	
 	// Store embeddings for each model
 	for _, model := range testModels {

@@ -6,7 +6,7 @@ import (
 	"time"
 
 	corevents "github.com/S-Corkum/devops-mcp/pkg/events"
-	"github.com/S-Corkum/devops-mcp/pkg/mcp"
+	"github.com/S-Corkum/devops-mcp/pkg/models"
 )
 
 // LegacyEventType represents the type of legacy adapter event
@@ -39,7 +39,7 @@ type LegacyEventListener interface {
 // LegacyEventBus is the interface for legacy event bus implementations
 type LegacyEventBus interface {
 	// Publish publishes an event
-	Publish(ctx context.Context, event *mcp.Event)
+	Publish(ctx context.Context, event *models.Event)
 	// Subscribe subscribes to events of a specific type
 	Subscribe(eventType LegacyEventType, listener LegacyEventListener)
 	// SubscribeAll subscribes to all events
@@ -61,7 +61,7 @@ func NewLegacyEventBusAdapter(bus corevents.EventBusIface) LegacyEventBus {
 }
 
 // Publish implements the LegacyEventBus.Publish method
-func (a *LegacyEventBusAdapter) Publish(ctx context.Context, event *mcp.Event) {
+func (a *LegacyEventBusAdapter) Publish(ctx context.Context, event *models.Event) {
 	if a.underlying != nil {
 		a.underlying.Publish(ctx, event)
 	}
@@ -74,7 +74,7 @@ func (a *LegacyEventBusAdapter) Subscribe(eventType LegacyEventType, listener Le
 	}
 	
 	// Create a handler function that adapts the legacy listener to a core handler
-	handler := corevents.Handler(func(ctx context.Context, event *mcp.Event) error {
+	handler := corevents.Handler(func(ctx context.Context, event *models.Event) error {
 		// Create a legacy adapter event with the event data
 		legacyEvent := &LegacyAdapterEvent{
 			AdapterType: "system",
@@ -100,7 +100,7 @@ func (a *LegacyEventBusAdapter) SubscribeAll(listener LegacyEventListener) {
 	}
 	
 	// Create a handler for all events
-	handler := corevents.Handler(func(ctx context.Context, event *mcp.Event) error {
+	handler := corevents.Handler(func(ctx context.Context, event *models.Event) error {
 		// Create a generic legacy adapter event
 		legacyEvent := &LegacyAdapterEvent{
 			AdapterType: "system",

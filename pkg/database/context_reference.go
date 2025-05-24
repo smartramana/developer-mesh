@@ -6,7 +6,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/S-Corkum/devops-mcp/pkg/mcp"
+	"github.com/S-Corkum/devops-mcp/pkg/models"
 	"github.com/jmoiron/sqlx"
 )
 
@@ -86,7 +86,7 @@ func (d *Database) CreateContextReferenceTable(ctx context.Context) error {
 }
 
 // CreateContextReference creates a new context reference
-func (d *Database) CreateContextReference(ctx context.Context, context *mcp.Context) error {
+func (d *Database) CreateContextReference(ctx context.Context, context *models.Context) error {
 	// Generate storage path
 	storagePath := fmt.Sprintf("contexts/%s.json", context.ID)
 
@@ -137,7 +137,7 @@ func (d *Database) GetContextReference(ctx context.Context, id string) (*Context
 }
 
 // UpdateContextReference updates an existing context reference
-func (d *Database) UpdateContextReference(ctx context.Context, context *mcp.Context) error {
+func (d *Database) UpdateContextReference(ctx context.Context, context *models.Context) error {
 	_, err := d.db.ExecContext(ctx, `
 		UPDATE mcp.context_references SET
 			agent_id = $2,

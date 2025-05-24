@@ -10,10 +10,10 @@ import (
 	"testing"
 	"time"
 
-	"github.com/S-Corkum/devops-mcp/internal/adapters/events"
-	"github.com/S-Corkum/devops-mcp/internal/adapters/github"
-	"github.com/S-Corkum/devops-mcp/internal/observability"
-	"github.com/S-Corkum/devops-mcp/pkg/mcp"
+	"github.com/S-Corkum/devops-mcp/pkg/adapters/events"
+	"github.com/S-Corkum/devops-mcp/pkg/adapters/github"
+	"github.com/S-Corkum/devops-mcp/pkg/observability"
+	"github.com/S-Corkum/devops-mcp/pkg/models"
 	"go.uber.org/goleak"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -486,8 +486,8 @@ func TestGitHubAdapter_WebhookHandling(t *testing.T) {
 	listener := &testEventListener{events: eventChan}
 	
 	// Subscribe to webhook events
-	eventBus.Subscribe("github.webhook.push", func(ctx context.Context, event *mcp.Event) error {
-		// Cannot convert *mcp.Event to *events.AdapterEvent; pass nil for test compatibility
+	eventBus.Subscribe("github.webhook.push", func(ctx context.Context, event *models.Event) error {
+		// Cannot convert *models.Event to *events.AdapterEvent; pass nil for test compatibility
 		return listener.Handle(ctx, nil)
 	})
 	

@@ -3,26 +3,32 @@ package context
 import (
 	"net/http"
 	"strconv"
+	"time"
 
-	"github.com/S-Corkum/devops-mcp/pkg/mcp/interfaces"
+	"rest-api/internal/core"
+	"github.com/S-Corkum/devops-mcp/pkg/models"
 	"github.com/S-Corkum/devops-mcp/pkg/observability"
-	"github.com/S-Corkum/devops-mcp/pkg/observability"
-	"github.com/S-Corkum/devops-mcp/pkg/mcp"
 	"github.com/gin-gonic/gin"
 )
 
+// contextResponse wraps a context with HATEOAS links for API responses
+type contextResponse struct {
+	*models.Context
+	Links map[string]string `json:"_links,omitempty"`
+}
+
 // API handles context-related API endpoints
 type API struct {
-	contextManager interfaces.ContextManager
+	contextManager core.ContextManagerInterface
 	logger         observability.Logger
-	metricsClient  metrics.Client
+	metricsClient  observability.MetricsClient
 }
 
 // NewAPI creates a new context API handler
 func NewAPI(
-	contextManager interfaces.ContextManager,
+	contextManager core.ContextManagerInterface,
 	logger observability.Logger,
-	metricsClient metrics.Client,
+	metricsClient observability.MetricsClient,
 ) *API {
 	if logger == nil {
 		logger = observability.NewLogger("context_api")
@@ -51,7 +57,7 @@ func (api *API) RegisterRoutes(router *gin.RouterGroup) {
 
 // CreateContext creates a new context
 func (api *API) CreateContext(c *gin.Context) {
-	var contextData mcp.Context
+	var contextData models.Context
 	
 	if err := c.ShouldBindJSON(&contextData); err != nil {
 		api.logger.Warn("Invalid request body for create context", map[string]interface{}{
@@ -78,15 +84,22 @@ func (api *API) CreateContext(c *gin.Context) {
 		})
 	}
 	
-	// Add HATEOAS links
-	if result.Links == nil {
-		result.Links = make(map[string]string)
+	// Create response with HATEOAS links and request tracing
+	response := &contextResponse{
+		Context: result,
+		Links: map[string]string{
+			"self":    "/api/v1/contexts/" + result.ID,
+			"summary": "/api/v1/contexts/" + result.ID + "/summary",
+			"search":  "/api/v1/contexts/" + result.ID + "/search",
+		},
 	}
-	result.Links["self"] = "/api/v1/contexts/" + result.ID
-	result.Links["summary"] = "/api/v1/contexts/" + result.ID + "/summary"
-	result.Links["search"] = "/api/v1/contexts/" + result.ID + "/search"
 	
-	c.JSON(http.StatusCreated, result)
+	// Include request ID for distributed tracing
+	c.JSON(http.StatusCreated, gin.H{
+		"data":       response,
+		"request_id": c.GetString("RequestID"), // Set by middleware
+		"timestamp":  time.Now().UTC(),
+	})
 }
 
 // GetContext retrieves a context by ID
@@ -116,7 +129,7 @@ func (api *API) GetContext(c *gin.Context) {
 	
 	// Optionally remove content for lighter responses
 	if !includeContent {
-		result.Content = []mcp.ContextItem{}
+		result.Content = []models.ContextItem{}
 	}
 	
 	// Record metric
@@ -128,44 +141,46 @@ func (api *API) GetContext(c *gin.Context) {
 	}
 	
 	// Add HATEOAS links
-	if result.Links == nil {
-		result.Links = make(map[string]string)
+	response := &contextResponse{
+		Context: result,
+		Links: map[string]string{
+			"self":    "/api/v1/contexts/" + result.ID,
+			"summary": "/api/v1/contexts/" + result.ID + "/summary",
+			"search":  "/api/v1/contexts/" + result.ID + "/search",
+		},
 	}
-	result.Links["self"] = "/api/v1/contexts/" + result.ID
-	result.Links["summary"] = "/api/v1/contexts/" + result.ID + "/summary"
-	result.Links["search"] = "/api/v1/contexts/" + result.ID + "/search"
 	
-	c.JSON(http.StatusOK, result)
+	c.JSON(http.StatusOK, gin.H{
+		"data":       response,
+		"request_id": c.GetString("RequestID"),
+		"timestamp":  time.Now().UTC(),
+	})
 }
 
 // UpdateContext updates an existing context
 func (api *API) UpdateContext(c *gin.Context) {
 	contextID := c.Param("contextID")
 	
-	var request struct {
-		Context *mcp.Context               `json:"context"`
-		Options *mcp.ContextUpdateOptions  `json:"options"`
+	var updateRequest struct {
+		Content []models.ContextItem          `json:"content"`
+		Options *models.ContextUpdateOptions  `json:"options,omitempty"`
 	}
 	
 	// Bind the request body once into the typed struct
-	if err := c.ShouldBindJSON(&request); err != nil {
+	if err := c.ShouldBindJSON(&updateRequest); err != nil {
 		api.logger.Warn("Invalid request body for update context", map[string]interface{}{
 			"error": err.Error(),
 		})
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
-	// If context is present and metadata is nil, set to empty map to ensure valid JSON object downstream
-	if request.Context != nil && request.Context.Metadata == nil {
-		request.Context.Metadata = map[string]interface{}{}
-	}
 	
-	if request.Context == nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "context is required"})
+	if updateRequest.Content == nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "content is required"})
 		return
 	}
 	
-	result, err := api.contextManager.UpdateContext(c.Request.Context(), contextID, request.Context, request.Options)
+	result, err := api.contextManager.UpdateContext(c.Request.Context(), contextID, &models.Context{Content: updateRequest.Content}, updateRequest.Options)
 	if err != nil {
 		api.logger.Error("Failed to update context", map[string]interface{}{
 			"error":      err.Error(),
@@ -184,14 +199,20 @@ func (api *API) UpdateContext(c *gin.Context) {
 	}
 	
 	// Add HATEOAS links
-	if result.Links == nil {
-		result.Links = make(map[string]string)
+	response := &contextResponse{
+		Context: result,
+		Links: map[string]string{
+			"self":    "/api/v1/contexts/" + result.ID,
+			"summary": "/api/v1/contexts/" + result.ID + "/summary",
+			"search":  "/api/v1/contexts/" + result.ID + "/search",
+		},
 	}
-	result.Links["self"] = "/api/v1/contexts/" + result.ID
-	result.Links["summary"] = "/api/v1/contexts/" + result.ID + "/summary"
-	result.Links["search"] = "/api/v1/contexts/" + result.ID + "/search"
 	
-	c.JSON(http.StatusOK, result)
+	c.JSON(http.StatusOK, gin.H{
+		"data":       response,
+		"request_id": c.GetString("RequestID"),
+		"timestamp":  time.Now().UTC(),
+	})
 }
 
 // DeleteContext deletes a context
@@ -263,17 +284,21 @@ func (api *API) ListContexts(c *gin.Context) {
 		})
 	}
 	
-	// Add HATEOAS links to each context
-	for _, ctx := range result {
-		if ctx.Links == nil {
-			ctx.Links = make(map[string]string)
+	// Create response with contexts and their links
+	response := make([]map[string]interface{}, len(result))
+	for i, ctx := range result {
+		links := map[string]string{
+			"self":    "/api/v1/contexts/" + ctx.ID,
+			"summary": "/api/v1/contexts/" + ctx.ID + "/summary",
+			"search":  "/api/v1/contexts/" + ctx.ID + "/search",
 		}
-		ctx.Links["self"] = "/api/v1/contexts/" + ctx.ID
-		ctx.Links["summary"] = "/api/v1/contexts/" + ctx.ID + "/summary"
-		ctx.Links["search"] = "/api/v1/contexts/" + ctx.ID + "/search"
+		response[i] = map[string]interface{}{
+			"context": ctx,
+			"_links":  links,
+		}
 	}
 	
-	c.JSON(http.StatusOK, result)
+	c.JSON(http.StatusOK, response)
 }
 
 // SummarizeContext generates a summary of a context

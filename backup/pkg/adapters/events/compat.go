@@ -8,7 +8,7 @@ import (
 	"time"
 
 	corevents "github.com/S-Corkum/devops-mcp/pkg/events"
-	"github.com/S-Corkum/devops-mcp/pkg/mcp"
+	"github.com/S-Corkum/devops-mcp/pkg/models"
 	"github.com/S-Corkum/devops-mcp/pkg/observability"
 )
 
@@ -52,7 +52,7 @@ func NewEventBusBridge(core CoreEventBus, logger observability.Logger) *EventBus
 }
 
 // Publish implements the EventBus.Publish method
-func (b *EventBusBridge) Publish(ctx context.Context, event *mcp.Event) {
+func (b *EventBusBridge) Publish(ctx context.Context, event *models.Event) {
 	if b.core != nil {
 		b.core.Publish(ctx, event)
 	}
@@ -65,7 +65,7 @@ func (b *EventBusBridge) Subscribe(eventType LegacyEventType, listener LegacyEve
 	}
 
 	// Create a handler function that adapts between the core and adapter interfaces
-	handler := CoreHandler(func(ctx context.Context, event *mcp.Event) error {
+	handler := CoreHandler(func(ctx context.Context, event *models.Event) error {
 		legacyEvent := &LegacyAdapterEvent{
 			AdapterType: "bridge",
 			EventType:   eventType,
@@ -90,7 +90,7 @@ func (b *EventBusBridge) SubscribeAll(listener LegacyEventListener) {
 	}
 
 	// Create a handler function that adapts between the core and adapter interfaces
-	handler := CoreHandler(func(ctx context.Context, event *mcp.Event) error {
+	handler := CoreHandler(func(ctx context.Context, event *models.Event) error {
 		legacyEvent := &LegacyAdapterEvent{
 			AdapterType: "bridge",
 			EventType:   "unknown", // We don't know the specific type for wildcard handlers
@@ -141,9 +141,9 @@ func UnixTimestampToTime(ts int64) time.Time {
 
 // ----- Core Event Conversion Functions -----
 
-// ConvertLegacyToCoreEvent converts a LegacyAdapterEvent to an mcp.Event
-func ConvertLegacyToCoreEvent(event *LegacyAdapterEvent) *mcp.Event {
-	return &mcp.Event{
+// ConvertLegacyToCoreEvent converts a LegacyAdapterEvent to an models.Event
+func ConvertLegacyToCoreEvent(event *LegacyAdapterEvent) *models.Event {
+	return &models.Event{
 		Source:    event.AdapterType,
 		Type:      string(event.EventType),
 		Timestamp: UnixTimestampToTime(event.Timestamp),
@@ -153,8 +153,8 @@ func ConvertLegacyToCoreEvent(event *LegacyAdapterEvent) *mcp.Event {
 	}
 }
 
-// ConvertCoreToLegacyEvent converts an mcp.Event to a LegacyAdapterEvent
-func ConvertCoreToLegacyEvent(event *mcp.Event) *LegacyAdapterEvent {
+// ConvertCoreToLegacyEvent converts an models.Event to a LegacyAdapterEvent
+func ConvertCoreToLegacyEvent(event *models.Event) *LegacyAdapterEvent {
 	return &LegacyAdapterEvent{
 		AdapterType: event.Source,
 		EventType:   LegacyEventType(event.Type),

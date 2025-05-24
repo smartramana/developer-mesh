@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/S-Corkum/devops-mcp/apps/worker/internal/queue"
+	"github.com/S-Corkum/devops-mcp/pkg/queue"
 	"github.com/S-Corkum/devops-mcp/pkg/observability"
 )
 
@@ -48,7 +48,7 @@ func (p *PushProcessor) Process(ctx context.Context, event queue.SQSEvent, paylo
 	})
 
 	// Record metrics
-	p.Metrics.IncrementCounter("github_push_events_processed", 1, map[string]string{
+	p.Metrics.IncrementCounterWithLabels("github_push_events_processed", 1, map[string]string{
 		"repo": event.RepoName,
 		"ref":  ref,
 	})
@@ -60,7 +60,7 @@ func (p *PushProcessor) Process(ctx context.Context, event queue.SQSEvent, paylo
 		p.Logger.Info("Tag push detected", map[string]interface{}{
 			"tag": tag,
 		})
-		p.Metrics.IncrementCounter("github_tag_push_events", 1, map[string]string{
+		p.Metrics.IncrementCounterWithLabels("github_tag_push_events", 1, map[string]string{
 			"repo": event.RepoName,
 		})
 	} else {
@@ -68,7 +68,7 @@ func (p *PushProcessor) Process(ctx context.Context, event queue.SQSEvent, paylo
 		p.Logger.Info("Branch push detected", map[string]interface{}{
 			"branch": branch,
 		})
-		p.Metrics.IncrementCounter("github_branch_push_events", 1, map[string]string{
+		p.Metrics.IncrementCounterWithLabels("github_branch_push_events", 1, map[string]string{
 			"repo":   event.RepoName,
 			"branch": branch,
 		})
@@ -120,7 +120,7 @@ func (p *PullRequestProcessor) Process(ctx context.Context, event queue.SQSEvent
 	})
 
 	// Record metrics
-	p.Metrics.IncrementCounter("github_pull_request_events_processed", 1, map[string]string{
+	p.Metrics.IncrementCounterWithLabels("github_pull_request_events_processed", 1, map[string]string{
 		"repo":   event.RepoName,
 		"action": action,
 	})
@@ -285,7 +285,7 @@ func (p *IssuesProcessor) Process(ctx context.Context, event queue.SQSEvent, pay
 	})
 
 	// Record metrics
-	p.Metrics.IncrementCounter("github_issue_events_processed", 1, map[string]string{
+	p.Metrics.IncrementCounterWithLabels("github_issue_events_processed", 1, map[string]string{
 		"repo":   event.RepoName,
 		"action": action,
 	})
@@ -355,7 +355,7 @@ func (p *IssueCommentProcessor) Process(ctx context.Context, event queue.SQSEven
 	})
 
 	// Record metrics
-	p.Metrics.IncrementCounter("github_issue_comment_events_processed", 1, map[string]string{
+	p.Metrics.IncrementCounterWithLabels("github_issue_comment_events_processed", 1, map[string]string{
 		"repo":           event.RepoName,
 		"action":         action,
 		"is_pull_request": fmt.Sprintf("%t", isPullRequest),
@@ -413,7 +413,7 @@ func (p *RepositoryProcessor) Process(ctx context.Context, event queue.SQSEvent,
 	})
 
 	// Record metrics
-	p.Metrics.IncrementCounter("github_repository_events_processed", 1, map[string]string{
+	p.Metrics.IncrementCounterWithLabels("github_repository_events_processed", 1, map[string]string{
 		"repo":   repoName,
 		"action": action,
 	})
@@ -470,7 +470,7 @@ func (p *ReleaseProcessor) Process(ctx context.Context, event queue.SQSEvent, pa
 	})
 
 	// Record metrics
-	p.Metrics.IncrementCounter("github_release_events_processed", 1, map[string]string{
+	p.Metrics.IncrementCounterWithLabels("github_release_events_processed", 1, map[string]string{
 		"repo":   event.RepoName,
 		"action": action,
 	})
@@ -536,7 +536,7 @@ func (p *WorkflowRunProcessor) Process(ctx context.Context, event queue.SQSEvent
 	})
 
 	// Record metrics
-	p.Metrics.IncrementCounter("github_workflow_run_events_processed", 1, map[string]string{
+	p.Metrics.IncrementCounterWithLabels("github_workflow_run_events_processed", 1, map[string]string{
 		"repo":    event.RepoName,
 		"action":  action,
 		"status":  status,
@@ -581,7 +581,7 @@ func (p *WorkflowJobProcessor) Process(ctx context.Context, event queue.SQSEvent
 	})
 
 	// Record metrics
-	p.Metrics.IncrementCounter("github_workflow_job_events_processed", 1, map[string]string{
+	p.Metrics.IncrementCounterWithLabels("github_workflow_job_events_processed", 1, map[string]string{
 		"repo":    event.RepoName,
 		"action":  action,
 		"status":  status,
@@ -624,7 +624,7 @@ func (p *CheckRunProcessor) Process(ctx context.Context, event queue.SQSEvent, p
 	})
 
 	// Record metrics
-	p.Metrics.IncrementCounter("github_check_run_events_processed", 1, map[string]string{
+	p.Metrics.IncrementCounterWithLabels("github_check_run_events_processed", 1, map[string]string{
 		"repo":   event.RepoName,
 		"action": action,
 		"status": status,
@@ -661,7 +661,7 @@ func (p *DeploymentProcessor) Process(ctx context.Context, event queue.SQSEvent,
 	})
 
 	// Record metrics
-	p.Metrics.IncrementCounter("github_deployment_events_processed", 1, map[string]string{
+	p.Metrics.IncrementCounterWithLabels("github_deployment_events_processed", 1, map[string]string{
 		"repo":        event.RepoName,
 		"environment": environment,
 	})
@@ -701,7 +701,7 @@ func (p *DeploymentStatusProcessor) Process(ctx context.Context, event queue.SQS
 	})
 
 	// Record metrics
-	p.Metrics.IncrementCounter("github_deployment_status_events_processed", 1, map[string]string{
+	p.Metrics.IncrementCounterWithLabels("github_deployment_status_events_processed", 1, map[string]string{
 		"repo":        event.RepoName,
 		"environment": environment,
 		"state":       state,
@@ -743,7 +743,7 @@ func (p *DependabotAlertProcessor) Process(ctx context.Context, event queue.SQSE
 	})
 
 	// Record metrics
-	p.Metrics.IncrementCounter("github_dependabot_alert_events_processed", 1, map[string]string{
+	p.Metrics.IncrementCounterWithLabels("github_dependabot_alert_events_processed", 1, map[string]string{
 		"repo":     event.RepoName,
 		"action":   action,
 		"severity": severity,
@@ -766,7 +766,7 @@ func (p *DefaultProcessor) Process(ctx context.Context, event queue.SQSEvent, pa
 	})
 
 	// Log the event type for monitoring (helps identify which events might need dedicated processors)
-	p.Metrics.IncrementCounter("github_events_default_processor", 1, map[string]string{
+	p.Metrics.IncrementCounterWithLabels("github_events_default_processor", 1, map[string]string{
 		"event_type": event.EventType,
 	})
 

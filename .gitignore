@@ -23,6 +23,7 @@ go.work.sum
 
 # env file
 # .env
+CLAUDE.md
 
 # Built binaries
 /mcp-server

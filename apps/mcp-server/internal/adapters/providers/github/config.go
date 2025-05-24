@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"time"
 	
-	adapterConfig "github.com/S-Corkum/devops-mcp/apps/mcp-server/internal/adapters/config"
+	adapterConfig "mcp-server/internal/adapters/config"
 )
 
 // Default configuration values

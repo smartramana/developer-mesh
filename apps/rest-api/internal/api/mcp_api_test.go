@@ -8,7 +8,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/S-Corkum/devops-mcp/pkg/mcp"
+	"github.com/S-Corkum/devops-mcp/pkg/models"
 	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
@@ -19,25 +19,25 @@ type MockContextManager struct {
 	mock.Mock
 }
 
-func (m *MockContextManager) CreateContext(ctx context.Context, context *mcp.Context) (*mcp.Context, error) {
+func (m *MockContextManager) CreateContext(ctx context.Context, context *models.Context) (*models.Context, error) {
 	args := m.Called(ctx, context)
-	return args.Get(0).(*mcp.Context), args.Error(1)
+	return args.Get(0).(*models.Context), args.Error(1)
 }
 
-func (m *MockContextManager) GetContext(ctx context.Context, contextID string) (*mcp.Context, error) {
+func (m *MockContextManager) GetContext(ctx context.Context, contextID string) (*models.Context, error) {
 	args := m.Called(ctx, contextID)
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
-	return args.Get(0).(*mcp.Context), args.Error(1)
+	return args.Get(0).(*models.Context), args.Error(1)
 }
 
-func (m *MockContextManager) UpdateContext(ctx context.Context, contextID string, context *mcp.Context, options *mcp.ContextUpdateOptions) (*mcp.Context, error) {
+func (m *MockContextManager) UpdateContext(ctx context.Context, contextID string, context *models.Context, options *models.ContextUpdateOptions) (*models.Context, error) {
 	args := m.Called(ctx, contextID, context, options)
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
-	return args.Get(0).(*mcp.Context), args.Error(1)
+	return args.Get(0).(*models.Context), args.Error(1)
 }
 
 func (m *MockContextManager) DeleteContext(ctx context.Context, contextID string) error {
@@ -45,14 +45,14 @@ func (m *MockContextManager) DeleteContext(ctx context.Context, contextID string
 	return args.Error(0)
 }
 
-func (m *MockContextManager) ListContexts(ctx context.Context, agentID, sessionID string, options map[string]interface{}) ([]*mcp.Context, error) {
+func (m *MockContextManager) ListContexts(ctx context.Context, agentID, sessionID string, options map[string]interface{}) ([]*models.Context, error) {
 	args := m.Called(ctx, agentID, sessionID, options)
-	return args.Get(0).([]*mcp.Context), args.Error(1)
+	return args.Get(0).([]*models.Context), args.Error(1)
 }
 
-func (m *MockContextManager) SearchInContext(ctx context.Context, contextID, query string) ([]mcp.ContextItem, error) {
+func (m *MockContextManager) SearchInContext(ctx context.Context, contextID, query string) ([]models.ContextItem, error) {
 	args := m.Called(ctx, contextID, query)
-	return args.Get(0).([]mcp.ContextItem), args.Error(1)
+	return args.Get(0).([]models.ContextItem), args.Error(1)
 }
 
 func (m *MockContextManager) SummarizeContext(ctx context.Context, contextID string) (string, error) {
@@ -81,16 +81,16 @@ func TestUpdateContext(t *testing.T) {
 				{"role": "assistant", "content": "I'm doing well, thank you!", "tokens": 6}
 			]}`,
 			setupMocks: func(mockContextManager *MockContextManager) {
-				existingContext := &mcp.Context{
+				existingContext := &models.Context{
 					ID:        "test-id-1",
 					AgentID:   "test-agent",
 					ModelID:   "gpt-4",
-					Content:   []mcp.ContextItem{},
+					Content:   []models.ContextItem{},
 					CreatedAt: time.Now(),
 					UpdatedAt: time.Now(),
 				}
 				
-				newContent := []mcp.ContextItem{
+				newContent := []models.ContextItem{
 					{
 						Role:    "user",
 						Content: "Hello, how are you?",
@@ -103,7 +103,7 @@ func TestUpdateContext(t *testing.T) {
 					},
 				}
 				
-				updatedContext := &mcp.Context{
+				updatedContext := &models.Context{
 					ID:        "test-id-1",
 					AgentID:   "test-agent",
 					ModelID:   "gpt-4",
@@ -147,11 +147,11 @@ func TestUpdateContext(t *testing.T) {
 				{"role": "user", "content": "Content that causes error", "tokens": 5}
 			]}`,
 			setupMocks: func(mockContextManager *MockContextManager) {
-				existingContext := &mcp.Context{
+				existingContext := &models.Context{
 					ID:        "error-id",
 					AgentID:   "test-agent",
 					ModelID:   "gpt-4",
-					Content:   []mcp.ContextItem{},
+					Content:   []models.ContextItem{},
 					CreatedAt: time.Now(),
 					UpdatedAt: time.Now(),
 				}

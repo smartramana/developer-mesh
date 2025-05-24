@@ -13,7 +13,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/S-Corkum/devops-mcp/pkg/adapters/errors"
+	"github.com/S-Corkum/devops-mcp/pkg/common/errors"
 	"github.com/S-Corkum/devops-mcp/pkg/adapters/github/auth"
 	"github.com/S-Corkum/devops-mcp/pkg/adapters/resilience"
 	"github.com/S-Corkum/devops-mcp/pkg/observability"

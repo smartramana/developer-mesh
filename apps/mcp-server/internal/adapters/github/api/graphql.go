@@ -12,7 +12,7 @@ import (
 	"time"
 
 	cerrors "github.com/S-Corkum/devops-mcp/pkg/common/errors"
-	"github.com/S-Corkum/devops-mcp/apps/mcp-server/internal/adapters/resilience"
+	"mcp-server/internal/adapters/resilience"
 	"github.com/S-Corkum/devops-mcp/pkg/observability"
 	"github.com/golang-jwt/jwt/v4"
 )

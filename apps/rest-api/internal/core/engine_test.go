@@ -5,7 +5,7 @@ import (
 	"os"
 	"testing"
 
-	"github.com/S-Corkum/devops-mcp/pkg/mcp"
+	"github.com/S-Corkum/devops-mcp/pkg/models"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 )
@@ -112,7 +112,7 @@ func TestContextManagerOperations(t *testing.T) {
 		ctx := context.Background()
 		
 		// Create a context through the manager
-		testContext := &mcp.Context{
+		testContext := &models.Context{
 			ID:   "test-id",
 			Name: "Test Context",
 		}
@@ -294,7 +294,7 @@ func TestEngineIntegration(t *testing.T) {
 	
 	// Test the context lifecycle through the engine's context manager
 	ctx := context.Background()
-	testContext := &mcp.Context{
+	testContext := &models.Context{
 		ID:   "integration-test-id",
 		Name: "Integration Test Context",
 	}

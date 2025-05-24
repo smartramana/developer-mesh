@@ -6,19 +6,35 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/S-Corkum/devops-mcp/apps/mcp-server/internal/adapters/core"
-	"github.com/S-Corkum/devops-mcp/pkg/mcp/interfaces"
-	"github.com/S-Corkum/devops-mcp/pkg/mcp"
+	"github.com/S-Corkum/devops-mcp/pkg/models"
 )
+
+// IContextManager defines the interface for managing contexts
+type IContextManager interface {
+	// GetContext retrieves a context by ID
+	GetContext(ctx context.Context, contextID string) (*models.Context, error)
+	
+	// UpdateContext updates an existing context
+	UpdateContext(ctx context.Context, contextID string, updatedContext *models.Context, options *models.ContextUpdateOptions) (*models.Context, error)
+}
+
+// Adapter defines the interface for tool adapters
+type Adapter interface {
+	// ExecuteAction executes an action on the adapter
+	ExecuteAction(ctx context.Context, contextID string, action string, params map[string]interface{}) (interface{}, error)
+	
+	// HandleWebhook handles a webhook from the adapter
+	HandleWebhook(ctx context.Context, eventType string, payload []byte) error
+}
 
 // AdapterContextBridge connects adapters with the context manager for managing context-aware tool interactions
 type AdapterContextBridge struct {
-	contextManager interfaces.ContextManager
-	adapters       map[string]core.Adapter
+	contextManager IContextManager
+	adapters       map[string]Adapter
 }
 
 // NewAdapterContextBridge creates a new adapter-context bridge
-func NewAdapterContextBridge(contextManager interfaces.ContextManager, adapters map[string]core.Adapter) *AdapterContextBridge {
+func NewAdapterContextBridge(contextManager IContextManager, adapters map[string]Adapter) *AdapterContextBridge {
 	return &AdapterContextBridge{
 		contextManager: contextManager,
 		adapters:       adapters,
@@ -40,7 +56,7 @@ func (b *AdapterContextBridge) ExecuteToolAction(ctx context.Context, contextID 
 	}
 
 	// Record the tool request in the context
-	requestItem := mcp.ContextItem{
+	requestItem := models.ContextItem{
 		Role:    "tool_request",
 		Content: fmt.Sprintf("%s.%s(%+v)", tool, action, params),
 		Tokens:  1, // Will be calculated properly in production
@@ -53,8 +69,8 @@ func (b *AdapterContextBridge) ExecuteToolAction(ctx context.Context, contextID 
 	}
 
 	// Update the context with the request
-	updateData := &mcp.Context{
-		Content: []mcp.ContextItem{requestItem},
+	updateData := &models.Context{
+		Content: []models.ContextItem{requestItem},
 	}
 
 	_, err = b.contextManager.UpdateContext(ctx, contextID, updateData, nil)
@@ -72,7 +88,7 @@ func (b *AdapterContextBridge) ExecuteToolAction(ctx context.Context, contextID 
 		responseContent = string(responseBytes)
 	}
 
-	responseItem := mcp.ContextItem{
+	responseItem := models.ContextItem{
 		Role:    "tool_response",
 		Content: responseContent,
 		Tokens:  1, // Will be calculated properly in production
@@ -87,8 +103,8 @@ func (b *AdapterContextBridge) ExecuteToolAction(ctx context.Context, contextID 
 	}
 
 	// Update the context with the response
-	updateData = &mcp.Context{
-		Content: []mcp.ContextItem{responseItem},
+	updateData = &models.Context{
+		Content: []models.ContextItem{responseItem},
 	}
 
 	_, err2 := b.contextManager.UpdateContext(ctx, contextID, updateData, nil)
@@ -117,7 +133,7 @@ func (b *AdapterContextBridge) GetToolData(ctx context.Context, contextID string
 
 	// Record the data request in the context
 	queryBytes, _ := json.Marshal(query)
-	requestItem := mcp.ContextItem{
+	requestItem := models.ContextItem{
 		Role:    "data_request",
 		Content: fmt.Sprintf("%s.getData(%s)", tool, string(queryBytes)),
 		Tokens:  1, // Will be calculated properly in production
@@ -129,8 +145,8 @@ func (b *AdapterContextBridge) GetToolData(ctx context.Context, contextID string
 	}
 
 	// Update the context with the request
-	updateData := &mcp.Context{
-		Content: []mcp.ContextItem{requestItem},
+	updateData := &models.Context{
+		Content: []models.ContextItem{requestItem},
 	}
 
 	_, err = b.contextManager.UpdateContext(ctx, contextID, updateData, nil)
@@ -154,7 +170,7 @@ func (b *AdapterContextBridge) GetToolData(ctx context.Context, contextID string
 		responseContent = string(responseBytes)
 	}
 
-	responseItem := mcp.ContextItem{
+	responseItem := models.ContextItem{
 		Role:    "data_response",
 		Content: responseContent,
 		Tokens:  1, // Will be calculated properly in production
@@ -168,8 +184,8 @@ func (b *AdapterContextBridge) GetToolData(ctx context.Context, contextID string
 	}
 
 	// Update the context with the response
-	updateData = &mcp.Context{
-		Content: []mcp.ContextItem{responseItem},
+	updateData = &models.Context{
+		Content: []models.ContextItem{responseItem},
 	}
 
 	_, err2 := b.contextManager.UpdateContext(ctx, contextID, updateData, nil)
@@ -207,7 +223,7 @@ func (b *AdapterContextBridge) HandleToolWebhook(ctx context.Context, tool strin
 						}
 
 						// Record the webhook in the context
-						webhookItem := mcp.ContextItem{
+						webhookItem := models.ContextItem{
 							Role:    "webhook",
 							Content: fmt.Sprintf("Webhook from %s: %s", tool, eventType),
 							Tokens:  1, // Will be calculated properly in production
@@ -220,8 +236,8 @@ func (b *AdapterContextBridge) HandleToolWebhook(ctx context.Context, tool strin
 						}
 
 						// Update the context with the webhook
-						updateData := &mcp.Context{
-							Content: []mcp.ContextItem{webhookItem},
+						updateData := &models.Context{
+							Content: []models.ContextItem{webhookItem},
 						}
 
 						_, err = b.contextManager.UpdateContext(ctx, cid, updateData, nil)

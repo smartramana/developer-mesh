@@ -5,8 +5,8 @@ import (
 	"reflect"
 	"sync"
 
-	"github.com/S-Corkum/devops-mcp/pkg/adapters/core"
 	"github.com/S-Corkum/devops-mcp/pkg/events"
+	"github.com/S-Corkum/devops-mcp/pkg/interfaces"
 	"github.com/S-Corkum/devops-mcp/pkg/observability"
 )
 
@@ -54,11 +54,11 @@ func (b *AdapterEventBridge) EmitEvent(ctx context.Context, adapterType string, 
 		return err
 	}
 	
-	// Create a MCP event for the system event bus
-	mcpEvent := event.ToMCPEvent()
+	// Create a model event for the system event bus
+	modelEvent := event.ToModelEvent()
 	
 	// Publish to event bus
-	b.eventBus.Publish(ctx, mcpEvent)
+	b.eventBus.Publish(ctx, modelEvent)
 	
 	return nil
 }
@@ -91,7 +91,7 @@ func (b *AdapterEventBridge) RegisterHandlerForAllAdapters(eventType AdapterEven
 	b.RegisterHandler("*", eventType, handler)
 	
 	// If adapter registry is available, register for all adapter types
-	if reg, ok := b.adapterRegistry.(interface{ ListAdapters() map[string]core.Adapter }); ok {
+	if reg, ok := b.adapterRegistry.(interface{ ListAdapters() map[string]interfaces.Adapter }); ok {
 		adapters := reg.ListAdapters()
 		for adapterType := range adapters {
 			b.RegisterHandler(adapterType, eventType, handler)

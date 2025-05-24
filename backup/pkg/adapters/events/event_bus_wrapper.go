@@ -5,7 +5,7 @@ import (
 	
 	"github.com/S-Corkum/devops-mcp/pkg/events"
 	"github.com/S-Corkum/devops-mcp/pkg/events/system"
-	"github.com/S-Corkum/devops-mcp/pkg/mcp"
+	"github.com/S-Corkum/devops-mcp/pkg/models"
 )
 
 // SystemEventBusWrapper provides a wrapper to adapt system.EventBus to events.EventBus
@@ -21,9 +21,9 @@ func NewSystemEventBusWrapper(systemBus system.EventBus) events.EventBus {
 }
 
 // Publish implements events.EventBus.Publish
-func (w *SystemEventBusWrapper) Publish(ctx context.Context, event *mcp.Event) {
+func (w *SystemEventBusWrapper) Publish(ctx context.Context, event *models.Event) {
 	// For now, just log and return
-	// In a real implementation, we would convert mcp.Event to system.Event
+	// In a real implementation, we would convert models.Event to system.Event
 }
 
 // Subscribe implements events.EventBus.Subscribe

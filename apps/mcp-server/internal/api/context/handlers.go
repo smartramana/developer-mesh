@@ -4,10 +4,9 @@ import (
 	"net/http"
 	"strconv"
 
-	"github.com/S-Corkum/devops-mcp/pkg/mcp/interfaces"
+	"mcp-server/internal/core"
 	"github.com/S-Corkum/devops-mcp/pkg/observability"
-	"github.com/S-Corkum/devops-mcp/pkg/observability"
-	"github.com/S-Corkum/devops-mcp/pkg/mcp"
+	"github.com/S-Corkum/devops-mcp/pkg/models"
 	"github.com/gin-gonic/gin"
 )
 
@@ -15,14 +14,14 @@ import (
 type API struct {
 	contextManager interfaces.ContextManager
 	logger         observability.Logger
-	metricsClient  metrics.Client
+	metricsClient  observability.MetricsClient
 }
 
 // NewAPI creates a new context API handler
 func NewAPI(
 	contextManager interfaces.ContextManager,
 	logger observability.Logger,
-	metricsClient metrics.Client,
+	metricsClient observability.MetricsClient,
 ) *API {
 	if logger == nil {
 		logger = observability.NewLogger("context_api")
@@ -51,7 +50,7 @@ func (api *API) RegisterRoutes(router *gin.RouterGroup) {
 
 // CreateContext creates a new context
 func (api *API) CreateContext(c *gin.Context) {
-	var contextData mcp.Context
+	var contextData models.Context
 	
 	if err := c.ShouldBindJSON(&contextData); err != nil {
 		api.logger.Warn("Invalid request body for create context", map[string]interface{}{
@@ -116,7 +115,7 @@ func (api *API) GetContext(c *gin.Context) {
 	
 	// Optionally remove content for lighter responses
 	if !includeContent {
-		result.Content = []mcp.ContextItem{}
+		result.Content = []models.ContextItem{}
 	}
 	
 	// Record metric
@@ -143,8 +142,8 @@ func (api *API) UpdateContext(c *gin.Context) {
 	contextID := c.Param("contextID")
 	
 	var request struct {
-		Context *mcp.Context               `json:"context"`
-		Options *mcp.ContextUpdateOptions  `json:"options"`
+		Context *models.Context               `json:"context"`
+		Options *models.ContextUpdateOptions  `json:"options"`
 	}
 	
 	// Bind the request body once into the typed struct

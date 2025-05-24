@@ -116,6 +116,7 @@ type Span interface {
 	SetAttribute(key string, value interface{})
 	AddEvent(name string, attributes map[string]interface{})
 	RecordError(err error)
+	SetStatus(code int, description string)
 	SpanContext() trace.SpanContext
 	TracerProvider() trace.TracerProvider
 }

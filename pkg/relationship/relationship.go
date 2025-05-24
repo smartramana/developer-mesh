@@ -1,152 +1,141 @@
-// Package relationship provides a compatibility layer for code that imports
-// github.com/S-Corkum/devops-mcp/pkg/relationship. This package re-exports all
-// types and functions from github.com/S-Corkum/devops-mcp/pkg/models/relationship.
+// Package relationship provides a compatibility layer for the pkg/models/relationship package.
+// This package is part of the Go Workspace migration to ensure backward compatibility
+// with code still importing the old pkg/relationship package path.
 package relationship
 
 import (
-	"context"
-	"fmt"
-
-	"github.com/S-Corkum/devops-mcp/pkg/models"
-	modelsrel "github.com/S-Corkum/devops-mcp/pkg/models/relationship"
+	"time"
 )
 
-// Repository defines the interface for relationship data persistence
-type Repository = modelsrel.Repository
-
-// Service is a wrapper around a Repository that provides relationship management
-type Service struct {
-	repo Repository
+// Relationship represents a relationship between two entities
+type Relationship struct {
+	ID           string          `json:"id" db:"id"`
+	SourceID     string          `json:"source_id" db:"source_id"`
+	SourceType   EntityType      `json:"source_type" db:"source_type"`
+	TargetID     string          `json:"target_id" db:"target_id"`
+	TargetType   EntityType      `json:"target_type" db:"target_type"`
+	Type         RelationshipType `json:"type" db:"type"`
+	CreatedAt    int64           `json:"created_at" db:"created_at"`
+	CreatedBy    string          `json:"created_by" db:"created_by"`
+	TenantID     string          `json:"tenant_id" db:"tenant_id"`
+	Metadata     interface{}     `json:"metadata" db:"metadata"`
 }
 
-// NewService creates a new relationship service
-func NewService(repo Repository) *Service {
-	return &Service{repo: repo}
+// RelationshipType represents the type of a relationship
+type RelationshipType string
+
+// EntityType represents the type of an entity
+type EntityType string
+
+// Filter is used to filter relationships
+type Filter struct {
+	SourceID   string
+	TargetID   string
+	SourceType EntityType
+	TargetType EntityType
+	Type       RelationshipType
+	TenantID   string
 }
 
-// CreateRelationship creates a new entity relationship
-func (s *Service) CreateRelationship(ctx context.Context, relationship *models.EntityRelationship) error {
-	return s.repo.CreateRelationship(ctx, relationship)
-}
+// Constants
+const (
+	// Entity types
+	EntityTypeAgent   EntityType = "agent"
+	EntityTypeModel   EntityType = "model"
+	EntityTypeContext EntityType = "context"
+	EntityTypeMemory  EntityType = "memory"
+	EntityTypeUser    EntityType = "user"
+	EntityTypeUnknown EntityType = "unknown"
+	
+	// Relationship types
+	RelationshipTypeCreatedBy      RelationshipType = "created_by"
+	RelationshipTypeHas            RelationshipType = "has"
+	RelationshipTypeContains       RelationshipType = "contains"
+	RelationshipTypeAssociatedWith RelationshipType = "associated_with"
+	RelationshipTypeParentOf       RelationshipType = "parent_of"
+	RelationshipTypeChildOf        RelationshipType = "child_of"
+	RelationshipTypeUnknown        RelationshipType = "unknown"
+)
 
-// UpdateRelationship updates an existing relationship
-func (s *Service) UpdateRelationship(ctx context.Context, relationship *models.EntityRelationship) error {
-	return s.repo.UpdateRelationship(ctx, relationship)
-}
+// Function implementations for backward compatibility
 
-// DeleteRelationship removes a relationship by ID
-func (s *Service) DeleteRelationship(ctx context.Context, relationshipID string) error {
-	return s.repo.DeleteRelationship(ctx, relationshipID)
-}
-
-// DeleteRelationshipsBetween removes all relationships between two entities
-func (s *Service) DeleteRelationshipsBetween(ctx context.Context, source models.EntityID, target models.EntityID) error {
-	return s.repo.DeleteRelationshipsBetween(ctx, source, target)
-}
-
-// GetRelationship retrieves a relationship by ID
-func (s *Service) GetRelationship(ctx context.Context, relationshipID string) (*models.EntityRelationship, error) {
-	return s.repo.GetRelationship(ctx, relationshipID)
-}
-
-// GetDirectRelationships gets direct relationships for an entity
-func (s *Service) GetDirectRelationships(
-	ctx context.Context,
-	entityID models.EntityID,
-	direction string,
-	relTypes []models.RelationshipType,
-) ([]*models.EntityRelationship, error) {
-	return s.repo.GetDirectRelationships(ctx, entityID, direction, relTypes)
-}
-
-// GetRelationshipsByType gets relationships of a specific type
-func (s *Service) GetRelationshipsByType(
-	ctx context.Context,
-	relType models.RelationshipType,
-	limit int,
-	offset int,
-) ([]*models.EntityRelationship, error) {
-	return s.repo.GetRelationshipsByType(ctx, relType, limit, offset)
-}
-
-// GetRelationshipGraph gets the relationship graph for an entity up to a specified depth
-func (s *Service) GetRelationshipGraph(
-	ctx context.Context,
-	entityID models.EntityID,
-	maxDepth int,
-) ([]*models.EntityRelationship, error) {
-	// Limit max depth to prevent potential performance issues
-	if maxDepth > 5 {
-		maxDepth = 5
+// NewRelationship creates a new relationship
+func NewRelationship(sourceID string, sourceType EntityType, targetID string, targetType EntityType, relType RelationshipType, tenantID string, metadata interface{}) *Relationship {
+	return &Relationship{
+		SourceID:   sourceID,
+		SourceType: sourceType,
+		TargetID:   targetID,
+		TargetType: targetType,
+		Type:       relType,
+		TenantID:   tenantID,
+		Metadata:   metadata,
+		CreatedAt:  time.Now().Unix(),
 	}
-	
-	// Initialize results
-	var results []*models.EntityRelationship
-	
-	// Track visited entities to prevent cycles
-	visited := make(map[string]bool)
-	
-	// Start graph traversal from the entity
-	err := s.traverseRelationships(ctx, entityID, 0, maxDepth, visited, &results)
-	if err != nil {
-		return nil, err
-	}
-	
-	return results, nil
 }
 
-// traverseRelationships recursively traverses the relationship graph
-func (s *Service) traverseRelationships(
-	ctx context.Context,
-	entityID models.EntityID,
-	currentDepth int,
-	maxDepth int,
-	visited map[string]bool,
-	results *[]*models.EntityRelationship,
-) error {
-	// Check if we've reached the maximum depth
-	if currentDepth >= maxDepth {
-		return nil
+// FilterFromSourceID creates a filter for relationships with the given source ID
+func FilterFromSourceID(sourceID string) *Filter {
+	return &Filter{
+		SourceID: sourceID,
 	}
-	
-	// Generate a key for this entity to track visitation
-	entityKey := fmt.Sprintf("%s:%s/%s:%s", entityID.Type, entityID.Owner, entityID.Repo, entityID.ID)
-	
-	// Skip if already visited
-	if visited[entityKey] {
-		return nil
+}
+
+// FilterFromTargetID creates a filter for relationships with the given target ID
+func FilterFromTargetID(targetID string) *Filter {
+	return &Filter{
+		TargetID: targetID,
 	}
-	
-	// Mark as visited
-	visited[entityKey] = true
-	
-	// Get all relationships for this entity
-	relationships, err := s.GetDirectRelationships(ctx, entityID, models.DirectionBidirectional, nil)
-	if err != nil {
-		return err
+}
+
+// FilterFromEntityIDs creates a filter for relationships with the given source and target IDs
+func FilterFromEntityIDs(sourceID, targetID string) *Filter {
+	return &Filter{
+		SourceID: sourceID,
+		TargetID: targetID,
 	}
-	
-	// Add relationships to results
-	for _, rel := range relationships {
-		*results = append(*results, rel)
-		
-		// Determine the other entity (not the source)
-		var nextEntity models.EntityID
-		if rel.Source.String() == entityID.String() {
-			nextEntity = rel.Target
-		} else {
-			nextEntity = rel.Source
-		}
-		
-		// Recursively traverse the next entity
-		nextKey := fmt.Sprintf("%s:%s/%s:%s", nextEntity.Type, nextEntity.Owner, nextEntity.Repo, nextEntity.ID)
-		if !visited[nextKey] {
-			err := s.traverseRelationships(ctx, nextEntity, currentDepth+1, maxDepth, visited, results)
-			if err != nil {
-				return err
-			}
-		}
+}
+
+// FilterFromType creates a filter for relationships with the given type
+func FilterFromType(relType RelationshipType) *Filter {
+	return &Filter{
+		Type: relType,
 	}
-	
-	return nil
+}
+
+// ParseEntityType parses an entity type from a string
+func ParseEntityType(entityType string) EntityType {
+	switch entityType {
+	case string(EntityTypeAgent):
+		return EntityTypeAgent
+	case string(EntityTypeModel):
+		return EntityTypeModel
+	case string(EntityTypeContext):
+		return EntityTypeContext
+	case string(EntityTypeMemory):
+		return EntityTypeMemory
+	case string(EntityTypeUser):
+		return EntityTypeUser
+	default:
+		return EntityTypeUnknown
+	}
+}
+
+// ParseRelationshipType parses a relationship type from a string
+func ParseRelationshipType(relType string) RelationshipType {
+	switch relType {
+	case string(RelationshipTypeCreatedBy):
+		return RelationshipTypeCreatedBy
+	case string(RelationshipTypeHas):
+		return RelationshipTypeHas
+	case string(RelationshipTypeContains):
+		return RelationshipTypeContains
+	case string(RelationshipTypeAssociatedWith):
+		return RelationshipTypeAssociatedWith
+	case string(RelationshipTypeParentOf):
+		return RelationshipTypeParentOf
+	case string(RelationshipTypeChildOf):
+		return RelationshipTypeChildOf
+	default:
+		return RelationshipTypeUnknown
+	}
 }

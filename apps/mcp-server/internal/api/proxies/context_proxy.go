@@ -6,7 +6,7 @@ import (
 	"time"
 
 	"github.com/S-Corkum/devops-mcp/pkg/client/rest"
-	"github.com/S-Corkum/devops-mcp/pkg/mcp"
+	"github.com/S-Corkum/devops-mcp/pkg/models"
 	"github.com/S-Corkum/devops-mcp/pkg/observability"
 	"github.com/S-Corkum/devops-mcp/pkg/repository"
 )
@@ -35,8 +35,8 @@ func (p *ContextAPIProxy) Create(ctx context.Context, contextObj *repository.Con
 		"context_id": contextObj.ID,
 	})
 
-	// Convert from repository.Context to mcp.Context for the REST client
-	// Handle the metadata storage pattern for properties that don't exist in mcp.Context
+	// Convert from repository.Context to models.Context for the REST client
+	// Handle the metadata storage pattern for properties that don't exist in models.Context
 	metadata := make(map[string]interface{})
 	metadata["status"] = contextObj.Status
 	
@@ -47,7 +47,7 @@ func (p *ContextAPIProxy) Create(ctx context.Context, contextObj *repository.Con
 		}
 	}
 	
-	mcpContext := &mcp.Context{
+	mcpContext := &models.Context{
 		ID:        contextObj.ID,
 		Name:      contextObj.Name,
 		AgentID:   contextObj.AgentID,
@@ -81,7 +81,7 @@ func (p *ContextAPIProxy) Get(ctx context.Context, id string) (*repository.Conte
 		return nil, fmt.Errorf("failed to get context via REST API: %w", err)
 	}
 
-	// Convert from mcp.Context to repository.Context
+	// Convert from models.Context to repository.Context
 	// Extract status and other properties from metadata
 	status := ""
 	properties := make(map[string]interface{})
@@ -118,8 +118,8 @@ func (p *ContextAPIProxy) Update(ctx context.Context, contextObj *repository.Con
 		"context_id": contextObj.ID,
 	})
 
-	// Convert from repository.Context to mcp.Context for the REST client
-	// Handle the metadata storage pattern for properties that don't exist in mcp.Context
+	// Convert from repository.Context to models.Context for the REST client
+	// Handle the metadata storage pattern for properties that don't exist in models.Context
 	metadata := make(map[string]interface{})
 	metadata["status"] = contextObj.Status
 	
@@ -130,7 +130,7 @@ func (p *ContextAPIProxy) Update(ctx context.Context, contextObj *repository.Con
 		}
 	}
 	
-	mcpContext := &mcp.Context{
+	mcpContext := &models.Context{
 		ID:        contextObj.ID,
 		Name:      contextObj.Name,
 		AgentID:   contextObj.AgentID,
@@ -141,7 +141,7 @@ func (p *ContextAPIProxy) Update(ctx context.Context, contextObj *repository.Con
 	}
 
 	// Set update options if needed
-	options := &mcp.ContextUpdateOptions{
+	options := &models.ContextUpdateOptions{
 		// Use options that exist in the current mcp package
 		// This may need to be adjusted based on the actual fields available
 	}
@@ -190,7 +190,7 @@ func (p *ContextAPIProxy) List(ctx context.Context, filter map[string]interface{
 		return nil, fmt.Errorf("failed to list contexts via REST API: %w", err)
 	}
 
-	// Convert from mcp.Context to repository.Context
+	// Convert from models.Context to repository.Context
 	contexts := make([]*repository.Context, len(results))
 	for i, result := range results {
 		// Extract status and other properties from metadata
@@ -238,7 +238,7 @@ func (p *ContextAPIProxy) Search(ctx context.Context, contextID, query string) (
 		return nil, fmt.Errorf("failed to search in context via REST API: %w", err)
 	}
 
-	// Convert from mcp.ContextItem to repository.ContextItem
+	// Convert from models.ContextItem to repository.ContextItem
 	items := make([]repository.ContextItem, len(results))
 	for i, result := range results {
 		// Create a default type and score

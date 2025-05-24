@@ -6,8 +6,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/S-Corkum/devops-mcp/apps/mcp-server/internal/adapters/core"
-	"github.com/S-Corkum/devops-mcp/pkg/mcp"
+	"mcp-server/internal/adapters/core"
+	"github.com/S-Corkum/devops-mcp/pkg/models"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 )
@@ -20,9 +20,9 @@ func (m *MockContextManager) SummarizeContext(ctx context.Context, contextID str
 	return args.String(0), args.Error(1)
 }
 
-func (m *MockContextManager) SearchInContext(ctx context.Context, contextID string, query string) ([]mcp.ContextItem, error) {
+func (m *MockContextManager) SearchInContext(ctx context.Context, contextID string, query string) ([]models.ContextItem, error) {
 	args := m.Called(ctx, contextID, query)
-	return args.Get(0).([]mcp.ContextItem), args.Error(1)
+	return args.Get(0).([]models.ContextItem), args.Error(1)
 }
 
 // MockAdapter mocks the core.Adapter interface
@@ -105,20 +105,20 @@ func TestHandleToolWebhook(t *testing.T) {
 	jsonPayload, _ := json.Marshal(payload)
 	
 	// Test contexts
-	testContext1 := &mcp.Context{
+	testContext1 := &models.Context{
 		ID:        "context-1",
 		AgentID:   "test-agent",
 		ModelID:   "test-model",
-		Content:   []mcp.ContextItem{},
+		Content:   []models.ContextItem{},
 		CreatedAt: time.Now(),
 		UpdatedAt: time.Now(),
 	}
 	
-	testContext2 := &mcp.Context{
+	testContext2 := &models.Context{
 		ID:        "context-2",
 		AgentID:   "test-agent",
 		ModelID:   "test-model",
-		Content:   []mcp.ContextItem{},
+		Content:   []models.ContextItem{},
 		CreatedAt: time.Now(),
 		UpdatedAt: time.Now(),
 	}

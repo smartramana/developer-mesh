@@ -6,27 +6,27 @@ import (
 	"sync"
 	"time"
 
-	"github.com/S-Corkum/devops-mcp/pkg/mcp"
+	"github.com/S-Corkum/devops-mcp/pkg/models"
 	"github.com/google/uuid"
 )
 
 // MockContextManager implements a mock version of the ContextManagerInterface
 // for testing and development purposes
 type MockContextManager struct {
-	contexts map[string]*mcp.Context
+	contexts map[string]*models.Context
 	mutex    sync.RWMutex
 }
 
 // NewMockContextManager creates a new mock context manager
 func NewMockContextManager() ContextManagerInterface {
 	return &MockContextManager{
-		contexts: make(map[string]*mcp.Context),
+		contexts: make(map[string]*models.Context),
 		mutex:    sync.RWMutex{},
 	}
 }
 
 // CreateContext implements ContextManagerInterface.CreateContext
-func (m *MockContextManager) CreateContext(ctx context.Context, context *mcp.Context) (*mcp.Context, error) {
+func (m *MockContextManager) CreateContext(ctx context.Context, context *models.Context) (*models.Context, error) {
 	m.mutex.Lock()
 	defer m.mutex.Unlock()
 	
@@ -50,7 +50,7 @@ func (m *MockContextManager) CreateContext(ctx context.Context, context *mcp.Con
 }
 
 // GetContext implements ContextManagerInterface.GetContext
-func (m *MockContextManager) GetContext(ctx context.Context, contextID string) (*mcp.Context, error) {
+func (m *MockContextManager) GetContext(ctx context.Context, contextID string) (*models.Context, error) {
 	m.mutex.RLock()
 	defer m.mutex.RUnlock()
 	
@@ -63,7 +63,7 @@ func (m *MockContextManager) GetContext(ctx context.Context, contextID string) (
 }
 
 // UpdateContext implements ContextManagerInterface.UpdateContext
-func (m *MockContextManager) UpdateContext(ctx context.Context, contextID string, context *mcp.Context, options *mcp.ContextUpdateOptions) (*mcp.Context, error) {
+func (m *MockContextManager) UpdateContext(ctx context.Context, contextID string, context *models.Context, options *models.ContextUpdateOptions) (*models.Context, error) {
 	m.mutex.Lock()
 	defer m.mutex.Unlock()
 	
@@ -100,11 +100,11 @@ func (m *MockContextManager) DeleteContext(ctx context.Context, contextID string
 }
 
 // ListContexts implements ContextManagerInterface.ListContexts
-func (m *MockContextManager) ListContexts(ctx context.Context, agentID, sessionID string, options map[string]interface{}) ([]*mcp.Context, error) {
+func (m *MockContextManager) ListContexts(ctx context.Context, agentID, sessionID string, options map[string]interface{}) ([]*models.Context, error) {
 	m.mutex.RLock()
 	defer m.mutex.RUnlock()
 	
-	var results []*mcp.Context
+	var results []*models.Context
 	
 	// Filter contexts by agent ID and session ID if provided
 	for _, context := range m.contexts {
@@ -125,19 +125,19 @@ func (m *MockContextManager) ListContexts(ctx context.Context, agentID, sessionI
 }
 
 // SearchInContext implements ContextManagerInterface.SearchInContext
-func (m *MockContextManager) SearchInContext(ctx context.Context, contextID, query string) ([]mcp.ContextItem, error) {
+func (m *MockContextManager) SearchInContext(ctx context.Context, contextID, query string) ([]models.ContextItem, error) {
 	m.mutex.RLock()
 	defer m.mutex.RUnlock()
 	
 	// Check if context exists
-	context, ok := m.contexts[contextID]
+	contextObj, ok := m.contexts[contextID]
 	if !ok {
 		return nil, fmt.Errorf("context not found: %s", contextID)
 	}
 	
 	// Simple mock implementation: return any item that contains the query string
-	var results []mcp.ContextItem
-	for _, item := range context.Content {
+	var results []models.ContextItem
+	for _, item := range contextObj.Content {
 		if item.Content != "" && contains(item.Content, query) {
 			results = append(results, item)
 		}

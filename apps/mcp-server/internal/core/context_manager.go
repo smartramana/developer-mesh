@@ -6,7 +6,7 @@ import (
 	"time"
 
 	"github.com/S-Corkum/devops-mcp/pkg/common/cache"
-	"github.com/S-Corkum/devops-mcp/pkg/mcp"
+	"github.com/S-Corkum/devops-mcp/pkg/models"
 )
 
 // ErrContextNotFound is returned when a context is not found
@@ -17,7 +17,7 @@ var ErrContextNotFound = errors.New("context not found")
 type ContextManager struct {
 	db          interface{}
 	cache       cache.Cache
-	subscribers map[string][]func(mcp.Event)
+	subscribers map[string][]func(models.Event)
 }
 
 // TruncateStrategy defines the strategy for truncating a context
@@ -28,12 +28,12 @@ func NewContextManager(db interface{}, cache cache.Cache) *ContextManager {
 	return &ContextManager{
 		db:          db,
 		cache:       cache,
-		subscribers: make(map[string][]func(mcp.Event)),
+		subscribers: make(map[string][]func(models.Event)),
 	}
 }
 
 // CreateContext creates a new context
-func (cm *ContextManager) CreateContext(ctx context.Context, contextData *mcp.Context) (*mcp.Context, error) {
+func (cm *ContextManager) CreateContext(ctx context.Context, contextData *models.Context) (*models.Context, error) {
 	// Use the real context manager if available, otherwise just return the context data
 	// with some minimal processing for tests
 
@@ -54,7 +54,7 @@ func (cm *ContextManager) CreateContext(ctx context.Context, contextData *mcp.Co
 
 	// Initialize content if nil
 	if contextData.Content == nil {
-		contextData.Content = []mcp.ContextItem{}
+		contextData.Content = []models.ContextItem{}
 	}
 
 	// Calculate tokens
@@ -81,10 +81,10 @@ func (cm *ContextManager) CreateContext(ctx context.Context, contextData *mcp.Co
 }
 
 // GetContext retrieves a context by ID
-func (cm *ContextManager) GetContext(ctx context.Context, contextID string) (*mcp.Context, error) {
+func (cm *ContextManager) GetContext(ctx context.Context, contextID string) (*models.Context, error) {
 	// Try to get from cache first
 	if cm.cache != nil {
-		var contextData mcp.Context
+		var contextData models.Context
 		err := cm.cache.Get(ctx, "context:"+contextID, &contextData)
 		if err == nil {
 			return &contextData, nil
@@ -105,7 +105,7 @@ func (cm *ContextManager) GetContext(ctx context.Context, contextID string) (*mc
 }
 
 // UpdateContext updates an existing context
-func (cm *ContextManager) UpdateContext(ctx context.Context, contextID string, updateData *mcp.Context, options *mcp.ContextUpdateOptions) (*mcp.Context, error) {
+func (cm *ContextManager) UpdateContext(ctx context.Context, contextID string, updateData *models.Context, options *models.ContextUpdateOptions) (*models.Context, error) {
 	// Get existing context
 	existingContext, err := cm.GetContext(ctx, contextID)
 	if err != nil {
@@ -226,14 +226,14 @@ func (cm *ContextManager) DeleteContext(ctx context.Context, contextID string) e
 }
 
 // ListContexts lists contexts for an agent
-func (cm *ContextManager) ListContexts(ctx context.Context, agentID string, sessionID string, options map[string]interface{}) ([]*mcp.Context, error) {
+func (cm *ContextManager) ListContexts(ctx context.Context, agentID string, sessionID string, options map[string]interface{}) ([]*models.Context, error) {
 	// If mockDB is provided, list from database
 	if mockDB, ok := cm.db.(*MockDB); ok {
 		return mockDB.ListContexts(ctx, agentID, sessionID, options)
 	}
 
 	// For tests that don't provide mock implementations, return an empty list
-	return []*mcp.Context{}, nil
+	return []*models.Context{}, nil
 }
 
 // SummarizeContext generates a summary of a context
@@ -249,7 +249,7 @@ func (cm *ContextManager) SummarizeContext(ctx context.Context, contextID string
 }
 
 // SearchInContext searches for text within a context
-func (cm *ContextManager) SearchInContext(ctx context.Context, contextID string, query string) ([]mcp.ContextItem, error) {
+func (cm *ContextManager) SearchInContext(ctx context.Context, contextID string, query string) ([]models.ContextItem, error) {
 	// Get context
 	contextData, err := cm.GetContext(ctx, contextID)
 	if err != nil {
@@ -257,7 +257,7 @@ func (cm *ContextManager) SearchInContext(ctx context.Context, contextID string,
 	}
 
 	// Simple search implementation for tests
-	var results []mcp.ContextItem
+	var results []models.ContextItem
 	for _, item := range contextData.Content {
 		results = append(results, item)
 	}
@@ -266,9 +266,9 @@ func (cm *ContextManager) SearchInContext(ctx context.Context, contextID string,
 }
 
 // Subscribe subscribes to context events
-func (cm *ContextManager) Subscribe(eventType string, handler func(mcp.Event)) {
+func (cm *ContextManager) Subscribe(eventType string, handler func(models.Event)) {
 	if cm.subscribers[eventType] == nil {
-		cm.subscribers[eventType] = make([]func(mcp.Event), 0)
+		cm.subscribers[eventType] = make([]func(models.Event), 0)
 	}
 
 	cm.subscribers[eventType] = append(cm.subscribers[eventType], handler)

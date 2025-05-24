@@ -6,7 +6,7 @@ import (
 	"time"
 
 	"github.com/S-Corkum/devops-mcp/pkg/observability"
-	"github.com/S-Corkum/devops-mcp/pkg/mcp"
+	"github.com/S-Corkum/devops-mcp/pkg/models"
 	corevents "github.com/S-Corkum/devops-mcp/pkg/events"
 )
 
@@ -211,18 +211,18 @@ func (b *EventBusImpl) Close() {
 }
 
 // Publish implements the events.EventBusIface interface for compatibility
-func (b *EventBusImpl) Publish(ctx context.Context, event *mcp.Event) {
+func (b *EventBusImpl) Publish(ctx context.Context, event *models.Event) {
 	if b.logger != nil {
-		b.logger.Warn("Adapter EventBus.Publish called with mcp.Event; this is a no-op.", map[string]interface{}{})
+		b.logger.Warn("Adapter EventBus.Publish called with models.Event; this is a no-op.", map[string]interface{}{})
 	}
 	// No-op
 }
 
 // LegacyEventListenerFunc adapts a Handler to an LegacyEventListener for interface compatibility
-type LegacyEventListenerFunc func(ctx context.Context, event *mcp.Event) error
+type LegacyEventListenerFunc func(ctx context.Context, event *models.Event) error
 
 func (f LegacyEventListenerFunc) Handle(ctx context.Context, event *LegacyAdapterEvent) error {
-	// No-op: cannot convert AdapterEventV2 to *mcp.Event
+	// No-op: cannot convert AdapterEventV2 to *models.Event
 	return nil
 }
 

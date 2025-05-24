@@ -2,6 +2,7 @@ package database
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log"
 
@@ -9,6 +10,15 @@ import (
 	"github.com/S-Corkum/devops-mcp/pkg/database/migration"
 	"github.com/S-Corkum/devops-mcp/pkg/models"
 	"github.com/jmoiron/sqlx"
+)
+
+// Common errors
+var (
+	ErrMissingAWSRegion      = errors.New("AWS region is required when using IAM authentication")
+	ErrMissingRDSHost        = errors.New("RDS host is required when using AWS RDS")
+	ErrInvalidDatabaseConfig = errors.New("invalid database configuration: missing required fields")
+	ErrNotFound              = errors.New("record not found")
+	ErrDuplicateKey          = errors.New("duplicate key violation")
 )
 
 // Config is defined in config.go
@@ -27,40 +37,27 @@ func NewDatabase(ctx context.Context, cfg Config) (*Database, error) {
 	var err error
 	var rdsClient *aws.ExtendedRDSClient
 	
-	// Default to AWS RDS with IAM authentication unless explicitly disabled
-	useAWS := true
-	useIAM := true
-	
-	if cfg.UseAWS != nil {
-		useAWS = *cfg.UseAWS
-	}
-	
-	if cfg.UseIAM != nil {
-		useIAM = *cfg.UseIAM
-	}
-	
-	// If we're using AWS RDS with IAM authentication (the default and recommended approach)
-	if useAWS && useIAM && cfg.RDSConfig != nil {
-		// Convert our placeholder RDSConfig to aws.RDSConnectionConfig
+	// If we're using AWS RDS with IAM authentication
+	if cfg.UseAWS && cfg.UseIAM && cfg.RDSHost != "" {
+		// Create AWS RDS configuration
 		awsRDSConfig := aws.RDSConnectionConfig{
-			Host:              cfg.RDSConfig.Host,
-			Port:              cfg.RDSConfig.Port,
-			Database:          cfg.RDSConfig.Database,
-			Username:          cfg.RDSConfig.Username,
-			Password:          cfg.RDSConfig.Password,
-			UseIAMAuth:        cfg.RDSConfig.UseIAMAuth,
-			TokenExpiration:   cfg.RDSConfig.TokenExpiration,
-			MaxOpenConns:      cfg.RDSConfig.MaxOpenConns,
-			MaxIdleConns:      cfg.RDSConfig.MaxIdleConns,
-			ConnMaxLifetime:   cfg.RDSConfig.ConnMaxLifetime,
-			EnablePooling:     cfg.RDSConfig.EnablePooling,
-			MinPoolSize:       cfg.RDSConfig.MinPoolSize,
-			MaxPoolSize:       cfg.RDSConfig.MaxPoolSize,
-			ConnectionTimeout: cfg.RDSConfig.ConnectionTimeout,
+			Host:              cfg.RDSHost,
+			Port:              cfg.RDSPort,
+			Database:          cfg.RDSDatabase,
+			Username:          cfg.RDSUsername,
+			Password:          cfg.Password,
+			UseIAMAuth:        cfg.UseIAM,
+			TokenExpiration:   cfg.RDSTokenExpiration,
+			MaxOpenConns:      cfg.MaxOpenConns,
+			MaxIdleConns:      cfg.MaxIdleConns,
+			ConnMaxLifetime:   cfg.ConnMaxLifetime,
+			EnablePooling:     cfg.RDSEnablePooling,
+			MinPoolSize:       cfg.RDSMinPoolSize,
+			MaxPoolSize:       cfg.RDSMaxPoolSize,
+			ConnectionTimeout: cfg.RDSConnectionTimeout,
 			Auth: aws.AuthConfig{
-				Region:    cfg.RDSConfig.AuthConfig.Region,
-				Endpoint:  cfg.RDSConfig.AuthConfig.Endpoint,
-				AssumeRole: cfg.RDSConfig.AuthConfig.AssumeRole,
+				Region:     cfg.AWSRegion,
+				AssumeRole: cfg.AWSRoleARN,
 			},
 		}
 		
@@ -89,7 +86,7 @@ func NewDatabase(ctx context.Context, cfg Config) (*Database, error) {
 		}
 		
 		// Check that password is not empty when not using IAM auth
-		if !useIAM && cfg.Password == "" {
+		if !cfg.UseIAM && cfg.Password == "" {
 			return nil, fmt.Errorf("password is required when not using IAM authentication")
 		}
 		
@@ -123,11 +120,11 @@ func NewDatabase(ctx context.Context, cfg Config) (*Database, error) {
 	}
 
 	// Run migrations if enabled
-	if cfg.AutoMigrate != nil && *cfg.AutoMigrate {
+	if cfg.AutoMigrate {
 		log.Println("Running automatic database migrations...")
 		migrationOpts := migration.DefaultOptions()
 		migrationOpts.Path = cfg.MigrationsPath
-		migrationOpts.FailOnError = cfg.FailOnMigrationError != nil && *cfg.FailOnMigrationError
+		migrationOpts.FailOnError = cfg.FailOnMigrationError
 		
 		if err := migration.AutoMigrate(ctx, db, cfg.Driver, migrationOpts); err != nil {
 			if migrationOpts.FailOnError {
@@ -219,18 +216,7 @@ func (d *Database) Transaction(ctx context.Context, fn func(*sqlx.Tx) error) err
 // RefreshConnection refreshes the database connection (especially for IAM auth)
 func (d *Database) RefreshConnection(ctx context.Context) error {
 	// If we're using AWS RDS with IAM authentication, we need to refresh the token
-	useAWS := true
-	useIAM := true
-	
-	if d.config.UseAWS != nil {
-		useAWS = *d.config.UseAWS
-	}
-	
-	if d.config.UseIAM != nil {
-		useIAM = *d.config.UseIAM
-	}
-	
-	if useAWS && useIAM && d.rdsClient != nil {
+	if d.config.UseAWS && d.config.UseIAM && d.rdsClient != nil {
 		// Get fresh DSN with a new IAM authentication token
 		dsn, err := d.rdsClient.BuildPostgresConnectionString(ctx)
 		if err != nil {

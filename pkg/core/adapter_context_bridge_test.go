@@ -6,8 +6,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/S-Corkum/devops-mcp/internal/adapters/core"
-	"github.com/S-Corkum/devops-mcp/pkg/mcp"
+	"github.com/S-Corkum/devops-mcp/pkg/interfaces"
+	"github.com/S-Corkum/devops-mcp/pkg/models"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 )
@@ -20,17 +20,17 @@ func (m *MockContextManager) SummarizeContext(ctx context.Context, contextID str
 	return args.String(0), args.Error(1)
 }
 
-func (m *MockContextManager) SearchInContext(ctx context.Context, contextID string, query string) ([]mcp.ContextItem, error) {
+func (m *MockContextManager) SearchInContext(ctx context.Context, contextID string, query string) ([]models.ContextItem, error) {
 	args := m.Called(ctx, contextID, query)
-	return args.Get(0).([]mcp.ContextItem), args.Error(1)
+	return args.Get(0).([]models.ContextItem), args.Error(1)
 }
 
-// MockAdapter mocks the core.Adapter interface
+// MockAdapter mocks the interfaces.Adapter interface
 type MockAdapter struct {
 	mock.Mock
 }
 
-func (m *MockAdapter) Type() string {
+func (m *MockAdapter) Name() string {
 	args := m.Called()
 	return args.String(0)
 }
@@ -60,7 +60,7 @@ func (m *MockAdapter) Version() string {
 	return args.String(0)
 }
 
-// Additional methods needed for tests but not in core.Adapter interface
+// Additional methods needed for tests but not in interfaces.Adapter interface
 func (m *MockAdapter) GetData(ctx context.Context, query interface{}) (interface{}, error) {
 	args := m.Called(ctx, query)
 	return args.Get(0), args.Error(1)
@@ -80,7 +80,7 @@ func TestHandleToolWebhook(t *testing.T) {
 	mockAdapter := new(MockAdapter)
 	
 	// Create the bridge
-	adapters := map[string]core.Adapter{
+	adapters := map[string]interfaces.Adapter{
 		"test-tool": mockAdapter,
 	}
 	
@@ -105,20 +105,20 @@ func TestHandleToolWebhook(t *testing.T) {
 	jsonPayload, _ := json.Marshal(payload)
 	
 	// Test contexts
-	testContext1 := &mcp.Context{
+	testContext1 := &models.Context{
 		ID:        "context-1",
 		AgentID:   "test-agent",
 		ModelID:   "test-model",
-		Content:   []mcp.ContextItem{},
+		Content:   []models.ContextItem{},
 		CreatedAt: time.Now(),
 		UpdatedAt: time.Now(),
 	}
 	
-	testContext2 := &mcp.Context{
+	testContext2 := &models.Context{
 		ID:        "context-2",
 		AgentID:   "test-agent",
 		ModelID:   "test-model",
-		Content:   []mcp.ContextItem{},
+		Content:   []models.ContextItem{},
 		CreatedAt: time.Now(),
 		UpdatedAt: time.Now(),
 	}

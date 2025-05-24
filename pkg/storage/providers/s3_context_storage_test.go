@@ -10,8 +10,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/S-Corkum/devops-mcp/pkg/models"
 	"github.com/S-Corkum/devops-mcp/pkg/storage"
-	"github.com/S-Corkum/devops-mcp/pkg/mcp"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 )
@@ -64,11 +64,11 @@ func TestStoreContext(t *testing.T) {
 	mockClient.On("GetBucketName").Return("test-bucket")
 	
 	ctx := context.Background()
-	contextData := &mcp.Context{
+	contextData := &models.Context{
 		ID:      "test-id",
 		AgentID: "test-agent",
 		ModelID: "test-model",
-		Content: []mcp.ContextItem{
+		Content: []models.ContextItem{
 			{
 				Role:    "system",
 				Content: "Test content",
@@ -104,11 +104,11 @@ func TestGetContext(t *testing.T) {
 	mockClient.On("GetBucketName").Return("test-bucket")
 	
 	ctx := context.Background()
-	contextData := &mcp.Context{
+	contextData := &models.Context{
 		ID:      "test-id",
 		AgentID: "test-agent",
 		ModelID: "test-model",
-		Content: []mcp.ContextItem{
+		Content: []models.ContextItem{
 			{
 				Role:    "system",
 				Content: "Test content",
@@ -241,7 +241,7 @@ func TestListContexts(t *testing.T) {
 	}, nil).Once()
 
 	// Mock getting context3
-	contextData3 := &mcp.Context{
+	contextData3 := &models.Context{
 		ID:      "context3",
 		AgentID: "agent1",
 		ModelID: "model1",
@@ -273,7 +273,7 @@ func TestListContexts(t *testing.T) {
 	}, nil).Once()
 
 	// Mock contexts with different session IDs
-	contextData4 := &mcp.Context{
+	contextData4 := &models.Context{
 		ID:        "context4",
 		AgentID:   "agent1",
 		ModelID:   "model1",
@@ -282,7 +282,7 @@ func TestListContexts(t *testing.T) {
 	jsonData4, _ := json.Marshal(contextData4)
 	mockClient.On("DownloadFile", ctx, "test-prefix/context4.json").Return(jsonData4, nil).Once()
 
-	contextData5 := &mcp.Context{
+	contextData5 := &models.Context{
 		ID:        "context5",
 		AgentID:   "agent1",
 		ModelID:   "model1",

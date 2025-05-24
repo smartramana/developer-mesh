@@ -1,13 +1,13 @@
+// Package events contains integration tests for the event system
 package events
 
 import (
 	"context"
-	"sync"
 	"testing"
 	"time"
 
-	"github.com/S-Corkum/devops-mcp/pkg/events"
-	"github.com/S-Corkum/devops-mcp/pkg/mcp"
+	"github.com/S-Corkum/devops-mcp/pkg/common/events"
+	"github.com/S-Corkum/devops-mcp/pkg/models"
 	"github.com/S-Corkum/devops-mcp/pkg/observability"
 	"github.com/S-Corkum/devops-mcp/pkg/tests/integration"
 	"github.com/stretchr/testify/assert"
@@ -16,31 +16,31 @@ import (
 
 func TestEventSystemIntegration(t *testing.T) {
 	helper := integration.NewTestHelper(t)
+	_ = helper // Acknowledging helper for future use
 	
 	t.Run("EventBus publishes and subscribers receive events", func(t *testing.T) {
-		// Create event bus
+		// Create event bus with appropriate queue size
 		eventBus := events.NewEventBus(100)
 		require.NotNil(t, eventBus)
 		
-		// Set up event capture
-		var capturedEvents []*mcp.Event
-		var mu sync.Mutex
+		// Set up event capture using a channel to avoid race conditions
+		capturedEvents := make(chan *models.Event, 10)
 		
-		// Create subscriber
-		handler := func(ctx context.Context, event *mcp.Event) error {
-			mu.Lock()
-			defer mu.Unlock()
-			capturedEvents = append(capturedEvents, event)
+		// Create subscriber that captures events to our channel
+		handler := func(ctx context.Context, event *models.Event) error {
+			// Store the event for verification
+			capturedEvents <- event
 			return nil
 		}
 		
 		// Subscribe to test event
-		eventBus.Subscribe(events.EventType("test.event"), handler)
+		testEventType := events.EventType("test.event")
+		eventBus.Subscribe(testEventType, handler)
 		
 		// Create and publish test event
 		ctx := context.Background()
-		testEvent := &mcp.Event{
-			Type:      "test.event",
+		testEvent := &models.Event{
+			Type:      string(testEventType),
 			Timestamp: time.Now(),
 			Source:    "integration-test",
 			Data:      map[string]interface{}{"key": "value"},
@@ -49,43 +49,47 @@ func TestEventSystemIntegration(t *testing.T) {
 		// Publish the event
 		eventBus.Publish(ctx, testEvent)
 		
-		// Allow time for async processing
-		time.Sleep(100 * time.Millisecond)
+		// Wait for the event with timeout
+		var receivedEvent *models.Event
+		select {
+		case receivedEvent = <-capturedEvents:
+			// Event received successfully
+		case <-time.After(1 * time.Second):
+			require.Fail(t, "Timed out waiting for event")
+		}
 		
-		// Verify event was received
-		mu.Lock()
-		defer mu.Unlock()
-		require.Len(t, capturedEvents, 1)
-		assert.Equal(t, "test.event", capturedEvents[0].Type)
-		assert.Equal(t, "integration-test", capturedEvents[0].Source)
+		// Verify event properties
+		require.NotNil(t, receivedEvent)
+		assert.Equal(t, string(testEventType), receivedEvent.Type)
+		assert.Equal(t, "integration-test", receivedEvent.Source)
+		assert.Equal(t, "value", receivedEvent.Data.(map[string]interface{})["key"])
 		
 		// Close the event bus
 		eventBus.Close()
 	})
 	
-	t.Run("Cross-package integration with observability", func(t *testing.T) {
-		// Create logger
-		logger := observability.NewLogger()
+	t.Run("EventBus integrates with observability", func(t *testing.T) {
+		// Set up logger with test prefix
+		logger := observability.NewLogger("event-test")
+		require.NotNil(t, logger)
 		
 		// Create event bus with proper queue size
 		eventBus := events.NewEventBus(10)
 		require.NotNil(t, eventBus)
 		
-		// Create event receiver with observability
-		receivedEvents := make(map[string]bool)
-		var mu sync.Mutex
+		// Use channels to safely capture events and avoid race conditions
+		eventChan := make(chan *models.Event, 10)
 		
-		handler := func(ctx context.Context, event *mcp.Event) error {
+		// Create event handler that logs with observability
+		handler := func(ctx context.Context, event *models.Event) error {
 			// Log event using observability package
 			logger.Info("Received event", map[string]interface{}{
 				"type":   event.Type,
 				"source": event.Source,
 			})
 			
-			mu.Lock()
-			receivedEvents[event.Type] = true
-			mu.Unlock()
-			
+			// Send to channel for test verification
+			eventChan <- event
 			return nil
 		}
 		
@@ -93,28 +97,41 @@ func TestEventSystemIntegration(t *testing.T) {
 		eventBus.Subscribe(events.EventSystemStartup, handler)
 		eventBus.Subscribe(events.EventSystemShutdown, handler)
 		
-		// Publish system events
+		// Create test context
 		ctx := context.Background()
-		eventBus.Publish(ctx, &mcp.Event{
+		
+		// Publish system events
+		startupEvent := &models.Event{
 			Type:      string(events.EventSystemStartup),
 			Timestamp: time.Now(),
 			Source:    "system",
-		})
+		}
+		eventBus.Publish(ctx, startupEvent)
 		
-		eventBus.Publish(ctx, &mcp.Event{
+		shutdownEvent := &models.Event{
 			Type:      string(events.EventSystemShutdown),
 			Timestamp: time.Now(),
 			Source:    "system",
-		})
+		}
+		eventBus.Publish(ctx, shutdownEvent)
 		
-		// Allow time for async processing
-		time.Sleep(100 * time.Millisecond)
+		// Use a map to track received event types
+		receivedEvents := make(map[string]bool)
 		
-		// Verify events were received
-		mu.Lock()
+		// Wait for events with timeout
+		for i := 0; i < 2; i++ {
+			select {
+			case event := <-eventChan:
+				// Mark this event type as received
+				receivedEvents[event.Type] = true
+			case <-time.After(1 * time.Second):
+				require.Fail(t, "Timed out waiting for events")
+			}
+		}
+		
+		// Verify both event types were received
 		assert.True(t, receivedEvents[string(events.EventSystemStartup)])
 		assert.True(t, receivedEvents[string(events.EventSystemShutdown)])
-		mu.Unlock()
 		
 		// Close the event bus
 		eventBus.Close()

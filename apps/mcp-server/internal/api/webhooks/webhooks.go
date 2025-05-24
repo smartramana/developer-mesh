@@ -16,14 +16,20 @@ import (
 	"sync"
 	"time"
 
-	"github.com/S-Corkum/devops-mcp/pkg/mcp/interfaces"
 	"github.com/S-Corkum/devops-mcp/pkg/observability"
 	"github.com/S-Corkum/devops-mcp/pkg/queue"
 )
 
 // GitHubWebhookHandler creates an HTTP handler for GitHub webhook events
 // It validates the webhook signature and processes the payload
-func GitHubWebhookHandler(config interfaces.WebhookConfigInterface, logger observability.Logger) http.HandlerFunc {
+// WebhookConfig defines the minimal interface needed for webhook handling
+type WebhookConfig interface {
+	GitHubSecret() string
+	GitHubAllowedEvents() []string
+	GitHubIPValidationEnabled() bool
+}
+
+func GitHubWebhookHandler(config WebhookConfig, logger observability.Logger) http.HandlerFunc {
 	if logger == nil {
 		logger = observability.NewLogger("webhooks")
 	}
@@ -368,7 +374,7 @@ func (v *GitHubIPValidator) IsGitHubIP(ipStr string) bool {
 }
 
 // GitHubIPValidationMiddleware creates middleware that validates if requests come from GitHub IP ranges
-func GitHubIPValidationMiddleware(validator *GitHubIPValidator, config interfaces.WebhookConfigInterface, logger observability.Logger) func(http.Handler) http.Handler {
+func GitHubIPValidationMiddleware(validator *GitHubIPValidator, config WebhookConfig, logger observability.Logger) func(http.Handler) http.Handler {
 	if logger == nil && validator != nil {
 		logger = validator.logger
 	}

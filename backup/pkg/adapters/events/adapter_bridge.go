@@ -4,7 +4,7 @@ import (
 	"context"
 	
 	"github.com/S-Corkum/devops-mcp/pkg/events"
-	"github.com/S-Corkum/devops-mcp/pkg/mcp"
+	"github.com/S-Corkum/devops-mcp/pkg/models"
 	"github.com/S-Corkum/devops-mcp/pkg/observability"
 )
 
@@ -47,7 +47,7 @@ func (a *EventBusAdapter) Unsubscribe(eventType events.EventType, handler events
 }
 
 // Publish publishes an event to the event bus
-func (a *EventBusAdapter) Publish(ctx context.Context, event *mcp.Event) {
+func (a *EventBusAdapter) Publish(ctx context.Context, event *models.Event) {
 	// Convert system event to legacy event
 	legacyEvent := &LegacyAdapterEvent{
 		AdapterType: event.Source,
@@ -90,10 +90,10 @@ func mapSystemEventTypeToLegacy(eventType events.EventType) LegacyEventType {
 }
 
 // mapToSystemEvent maps a legacy adapter event to a system event
-func mapToSystemEvent(legacyEvent *LegacyAdapterEvent) *mcp.Event {
+func mapToSystemEvent(legacyEvent *LegacyAdapterEvent) *models.Event {
 	eventType := mapLegacyEventTypeToSystem(legacyEvent.EventType)
 	
-	return &mcp.Event{
+	return &models.Event{
 		Type:      eventType,
 		Source:    legacyEvent.AdapterType,
 		Payload:   legacyEvent.Payload,

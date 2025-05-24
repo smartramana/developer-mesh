@@ -5,25 +5,25 @@ import (
 	"context"
 	"fmt"
 	
-	"github.com/S-Corkum/devops-mcp/apps/rest-api/internal/core"
-	"github.com/S-Corkum/devops-mcp/pkg/mcp"
+	"rest-api/internal/core"
+	"github.com/S-Corkum/devops-mcp/pkg/models"
 )
 
 // MockContextManager is a mock implementation of the ContextManagerInterface
 type MockContextManager struct {
 	// ContextMap holds a map of context ID to context for testing
-	ContextMap map[string]*mcp.Context
+	ContextMap map[string]*models.Context
 }
 
 // NewMockContextManager creates a new MockContextManager
 func NewMockContextManager() *MockContextManager {
 	return &MockContextManager{
-		ContextMap: make(map[string]*mcp.Context),
+		ContextMap: make(map[string]*models.Context),
 	}
 }
 
 // CreateContext creates a new context
-func (m *MockContextManager) CreateContext(ctx context.Context, context *mcp.Context) (*mcp.Context, error) {
+func (m *MockContextManager) CreateContext(ctx context.Context, context *models.Context) (*models.Context, error) {
 	if context.ID == "" {
 		context.ID = "mock-context-id"
 	}
@@ -32,7 +32,7 @@ func (m *MockContextManager) CreateContext(ctx context.Context, context *mcp.Con
 }
 
 // GetContext retrieves a context by ID
-func (m *MockContextManager) GetContext(ctx context.Context, contextID string) (*mcp.Context, error) {
+func (m *MockContextManager) GetContext(ctx context.Context, contextID string) (*models.Context, error) {
 	if context, ok := m.ContextMap[contextID]; ok {
 		return context, nil
 	}
@@ -40,7 +40,7 @@ func (m *MockContextManager) GetContext(ctx context.Context, contextID string) (
 }
 
 // UpdateContext updates an existing context
-func (m *MockContextManager) UpdateContext(ctx context.Context, contextID string, context *mcp.Context, options *mcp.ContextUpdateOptions) (*mcp.Context, error) {
+func (m *MockContextManager) UpdateContext(ctx context.Context, contextID string, context *models.Context, options *models.ContextUpdateOptions) (*models.Context, error) {
 	if _, ok := m.ContextMap[contextID]; !ok {
 		return nil, fmt.Errorf("context not found: %s", contextID)
 	}
@@ -58,8 +58,8 @@ func (m *MockContextManager) DeleteContext(ctx context.Context, contextID string
 }
 
 // ListContexts lists all contexts with optional filtering
-func (m *MockContextManager) ListContexts(ctx context.Context, agentID, sessionID string, options map[string]interface{}) ([]*mcp.Context, error) {
-	var contexts []*mcp.Context
+func (m *MockContextManager) ListContexts(ctx context.Context, agentID, sessionID string, options map[string]interface{}) ([]*models.Context, error) {
+	var contexts []*models.Context
 	for _, context := range m.ContextMap {
 		contexts = append(contexts, context)
 	}
@@ -67,9 +67,9 @@ func (m *MockContextManager) ListContexts(ctx context.Context, agentID, sessionI
 }
 
 // SearchInContext searches for items within a context
-func (m *MockContextManager) SearchInContext(ctx context.Context, contextID, query string) ([]mcp.ContextItem, error) {
+func (m *MockContextManager) SearchInContext(ctx context.Context, contextID, query string) ([]models.ContextItem, error) {
 	// Mock implementation returns empty results
-	return []mcp.ContextItem{}, nil
+	return []models.ContextItem{}, nil
 }
 
 // SummarizeContext creates a summary of a context

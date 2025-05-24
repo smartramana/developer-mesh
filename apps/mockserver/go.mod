@@ -1,8 +1,7 @@
-module github.com/S-Corkum/devops-mcp/apps/mockserver
+module mockserver
 
-go 1.24
+go 1.24.2
 
-// External dependencies
 require github.com/stretchr/testify v1.10.0
 
 require (
@@ -14,10 +13,4 @@ require (
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 )
 
-// Replace directives for local development
-replace (
-	github.com/S-Corkum/devops-mcp/pkg/common => ../../pkg/common
-	github.com/S-Corkum/devops-mcp/pkg/models => ../../pkg/models
-)
-
-// Mock server for testing external service integrations
+replace github.com/S-Corkum/devops-mcp => ../..

@@ -35,7 +35,7 @@ build-mcp-server:
 	cd $(MCP_SERVER_DIR) && $(GOBUILD) -o $(MCP_SERVER_BINARY) -v ./cmd/server
 
 build-rest-api:
-	cd $(REST_API_DIR) && $(GOBUILD) -o $(REST_API_BINARY) -v ./cmd/server
+	cd $(REST_API_DIR) && $(GOBUILD) -o $(REST_API_BINARY) -v ./cmd/api
 
 build-worker:
 	cd $(WORKER_DIR) && $(GOBUILD) -o $(WORKER_BINARY) -v ./cmd/worker
@@ -78,13 +78,13 @@ test-coverage-html: test-coverage
 	$(GOCMD) tool cover -html=coverage.out
 
 test-integration:
-	ENABLE_INTEGRATION_TESTS=true $(GOTEST) -tags=integration -v ./test/integration
+	ENABLE_INTEGRATION_TESTS=true $(GOTEST) -tags=integration -v ./pkg/tests/integration
 
 test-github:
-	$(GOTEST) -v ./test/github_integration_test.go
+	$(GOTEST) -v ./pkg/tests/integration/github_integration_test.go
 
 test-fuzz:
-	$(GOTEST) -fuzz=FuzzTruncateOldestFirst -fuzztime=30s ./internal/core
+	$(GOTEST) -fuzz=FuzzTruncateOldestFirst -fuzztime=30s ./apps/mcp-server/internal/core
 
 test-functional:
 	@bash ./test/functional/check_test_env.sh || (echo "\nEnvironment check failed. Please set all required environment variables before running functional tests." && exit 1)

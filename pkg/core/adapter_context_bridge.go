@@ -6,19 +6,18 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/S-Corkum/devops-mcp/pkg/adapters/core"
 	"github.com/S-Corkum/devops-mcp/pkg/interfaces"
-	"github.com/S-Corkum/devops-mcp/pkg/mcp"
+	"github.com/S-Corkum/devops-mcp/pkg/models"
 )
 
 // AdapterContextBridge connects adapters with the context manager for managing context-aware tool interactions
 type AdapterContextBridge struct {
 	contextManager interfaces.ContextManager
-	adapters       map[string]core.Adapter
+	adapters       map[string]interfaces.Adapter
 }
 
 // NewAdapterContextBridge creates a new adapter-context bridge
-func NewAdapterContextBridge(contextManager interfaces.ContextManager, adapters map[string]core.Adapter) *AdapterContextBridge {
+func NewAdapterContextBridge(contextManager interfaces.ContextManager, adapters map[string]interfaces.Adapter) *AdapterContextBridge {
 	return &AdapterContextBridge{
 		contextManager: contextManager,
 		adapters:       adapters,
@@ -40,7 +39,7 @@ func (b *AdapterContextBridge) ExecuteToolAction(ctx context.Context, contextID 
 	}
 
 	// Record the tool request in the context
-	requestItem := mcp.ContextItem{
+	requestItem := models.ContextItem{
 		Role:    "tool_request",
 		Content: fmt.Sprintf("%s.%s(%+v)", tool, action, params),
 		Tokens:  1, // Will be calculated properly in production
@@ -53,17 +52,23 @@ func (b *AdapterContextBridge) ExecuteToolAction(ctx context.Context, contextID 
 	}
 
 	// Update the context with the request
-	updateData := &mcp.Context{
-		Content: []mcp.ContextItem{requestItem},
+	updateData := &models.Context{
+		Content: []models.ContextItem{requestItem},
 	}
 
-	_, err = b.contextManager.UpdateContext(ctx, contextID, updateData, nil)
+	err = b.contextManager.UpdateContext(ctx, contextID, updateData)
 	if err != nil {
 		return nil, fmt.Errorf("failed to update context with request: %w", err)
 	}
 
-	// Execute the action
-	result, err := adapter.ExecuteAction(ctx, contextID, action, params)
+	// Execute the action - type assert to ActionAdapter interface
+	actionAdapter, ok := adapter.(interface {
+		ExecuteAction(ctx context.Context, contextID string, action string, params map[string]interface{}) (interface{}, error)
+	})
+	if !ok {
+		return nil, fmt.Errorf("adapter %s does not support ExecuteAction", tool)
+	}
+	result, err := actionAdapter.ExecuteAction(ctx, contextID, action, params)
 	
 	// Record the tool response in the context
 	responseContent := "Error executing tool action"
@@ -72,7 +77,7 @@ func (b *AdapterContextBridge) ExecuteToolAction(ctx context.Context, contextID 
 		responseContent = string(responseBytes)
 	}
 
-	responseItem := mcp.ContextItem{
+	responseItem := models.ContextItem{
 		Role:    "tool_response",
 		Content: responseContent,
 		Tokens:  1, // Will be calculated properly in production
@@ -87,11 +92,11 @@ func (b *AdapterContextBridge) ExecuteToolAction(ctx context.Context, contextID 
 	}
 
 	// Update the context with the response
-	updateData = &mcp.Context{
-		Content: []mcp.ContextItem{responseItem},
+	updateData = &models.Context{
+		Content: []models.ContextItem{responseItem},
 	}
 
-	_, err2 := b.contextManager.UpdateContext(ctx, contextID, updateData, nil)
+	err2 := b.contextManager.UpdateContext(ctx, contextID, updateData)
 	if err2 != nil {
 		// Log but continue with original error if present
 		fmt.Printf("Failed to update context with response: %v\n", err2)
@@ -117,7 +122,7 @@ func (b *AdapterContextBridge) GetToolData(ctx context.Context, contextID string
 
 	// Record the data request in the context
 	queryBytes, _ := json.Marshal(query)
-	requestItem := mcp.ContextItem{
+	requestItem := models.ContextItem{
 		Role:    "data_request",
 		Content: fmt.Sprintf("%s.getData(%s)", tool, string(queryBytes)),
 		Tokens:  1, // Will be calculated properly in production
@@ -129,23 +134,30 @@ func (b *AdapterContextBridge) GetToolData(ctx context.Context, contextID string
 	}
 
 	// Update the context with the request
-	updateData := &mcp.Context{
-		Content: []mcp.ContextItem{requestItem},
+	updateData := &models.Context{
+		Content: []models.ContextItem{requestItem},
 	}
 
-	_, err = b.contextManager.UpdateContext(ctx, contextID, updateData, nil)
+	err = b.contextManager.UpdateContext(ctx, contextID, updateData)
 	if err != nil {
 		return nil, fmt.Errorf("failed to update context with request: %w", err)
 	}
 
-	// Convert query to map for ExecuteAction since GetData is not available in core.Adapter
+	// Convert query to map for ExecuteAction since GetData is not available in interfaces.Adapter
 	queryMap := make(map[string]interface{})
 	if queryBytes, err := json.Marshal(query); err == nil {
 		_ = json.Unmarshal(queryBytes, &queryMap)
 	}
 	
 	// Use ExecuteAction with a "getData" action as a workaround
-	result, err := adapter.ExecuteAction(ctx, contextID, "getData", queryMap)
+	// Type assert to ActionAdapter interface
+	actionAdapter, ok := adapter.(interface {
+		ExecuteAction(ctx context.Context, contextID string, action string, params map[string]interface{}) (interface{}, error)
+	})
+	if !ok {
+		return nil, fmt.Errorf("adapter %s does not support ExecuteAction", tool)
+	}
+	result, err := actionAdapter.ExecuteAction(ctx, contextID, "getData", queryMap)
 	
 	// Record the data response in the context
 	responseContent := "Error getting tool data"
@@ -154,7 +166,7 @@ func (b *AdapterContextBridge) GetToolData(ctx context.Context, contextID string
 		responseContent = string(responseBytes)
 	}
 
-	responseItem := mcp.ContextItem{
+	responseItem := models.ContextItem{
 		Role:    "data_response",
 		Content: responseContent,
 		Tokens:  1, // Will be calculated properly in production
@@ -168,11 +180,11 @@ func (b *AdapterContextBridge) GetToolData(ctx context.Context, contextID string
 	}
 
 	// Update the context with the response
-	updateData = &mcp.Context{
-		Content: []mcp.ContextItem{responseItem},
+	updateData = &models.Context{
+		Content: []models.ContextItem{responseItem},
 	}
 
-	_, err2 := b.contextManager.UpdateContext(ctx, contextID, updateData, nil)
+	err2 := b.contextManager.UpdateContext(ctx, contextID, updateData)
 	if err2 != nil {
 		// Log but continue with original error if present
 		fmt.Printf("Failed to update context with response: %v\n", err2)
@@ -207,7 +219,7 @@ func (b *AdapterContextBridge) HandleToolWebhook(ctx context.Context, tool strin
 						}
 
 						// Record the webhook in the context
-						webhookItem := mcp.ContextItem{
+						webhookItem := models.ContextItem{
 							Role:    "webhook",
 							Content: fmt.Sprintf("Webhook from %s: %s", tool, eventType),
 							Tokens:  1, // Will be calculated properly in production
@@ -220,11 +232,11 @@ func (b *AdapterContextBridge) HandleToolWebhook(ctx context.Context, tool strin
 						}
 
 						// Update the context with the webhook
-						updateData := &mcp.Context{
-							Content: []mcp.ContextItem{webhookItem},
+						updateData := &models.Context{
+							Content: []models.ContextItem{webhookItem},
 						}
 
-						_, err = b.contextManager.UpdateContext(ctx, cid, updateData, nil)
+						err = b.contextManager.UpdateContext(ctx, cid, updateData)
 						if err != nil {
 							fmt.Printf("Failed to update context %s with webhook: %v\n", cid, err)
 						}
@@ -235,5 +247,12 @@ func (b *AdapterContextBridge) HandleToolWebhook(ctx context.Context, tool strin
 	}
 
 	// Handle the webhook with the adapter
-	return adapter.HandleWebhook(ctx, eventType, payload)
+	// Type assert to WebhookAdapter interface
+	webhookAdapter, ok := adapter.(interface {
+		HandleWebhook(ctx context.Context, eventType string, payload []byte) error
+	})
+	if !ok {
+		return fmt.Errorf("adapter %s does not support HandleWebhook", tool)
+	}
+	return webhookAdapter.HandleWebhook(ctx, eventType, payload)
 }

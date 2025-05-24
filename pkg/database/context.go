@@ -6,9 +6,10 @@ import (
 	"encoding/json"
 	"fmt"
 	"time"
-	
-	"github.com/S-Corkum/devops-mcp/pkg/mcp"
+
 	"github.com/jmoiron/sqlx"
+
+	"github.com/S-Corkum/devops-mcp/pkg/models"
 )
 
 // Tx represents a database transaction
@@ -17,7 +18,7 @@ type Tx struct {
 }
 
 // CreateContext creates a new context in the database
-func (db *Database) CreateContext(ctx context.Context, contextData *mcp.Context) error {
+func (db *Database) CreateContext(ctx context.Context, contextData *models.Context) error {
 	return db.Transaction(ctx, func(sqlxTx *sqlx.Tx) error {
 		tx := &Tx{tx: sqlxTx}
 		return db.createContext(ctx, tx, contextData)
@@ -25,7 +26,7 @@ func (db *Database) CreateContext(ctx context.Context, contextData *mcp.Context)
 }
 
 // createContext is the internal implementation to create a context within a transaction
-func (db *Database) createContext(ctx context.Context, tx *Tx, contextData *mcp.Context) error {
+func (db *Database) createContext(ctx context.Context, tx *Tx, contextData *models.Context) error {
 	// Serialize metadata to JSON, handling nil/empty cases
 	var metadataJSON []byte
 	var err error
@@ -78,7 +79,7 @@ func (db *Database) createContext(ctx context.Context, tx *Tx, contextData *mcp.
 }
 
 // createContextItem creates a context item in the database
-func (db *Database) createContextItem(ctx context.Context, tx *Tx, contextID string, item *mcp.ContextItem) error {
+func (db *Database) createContextItem(ctx context.Context, tx *Tx, contextID string, item *models.ContextItem) error {
 	// Generate ID if not provided
 	itemID := item.ID
 	if itemID == "" {
@@ -127,8 +128,8 @@ func (db *Database) createContextItem(ctx context.Context, tx *Tx, contextID str
 }
 
 // GetContext retrieves a context from the database
-func (db *Database) GetContext(ctx context.Context, contextID string) (*mcp.Context, error) {
-	var contextData *mcp.Context
+func (db *Database) GetContext(ctx context.Context, contextID string) (*models.Context, error) {
+	var contextData *models.Context
 	
 	err := db.Transaction(ctx, func(sqlxTx *sqlx.Tx) error {
 		tx := &Tx{tx: sqlxTx}
@@ -141,7 +142,7 @@ func (db *Database) GetContext(ctx context.Context, contextID string) (*mcp.Cont
 }
 
 // getContext is the internal implementation to retrieve a context within a transaction
-func (db *Database) getContext(ctx context.Context, tx *Tx, contextID string) (*mcp.Context, error) {
+func (db *Database) getContext(ctx context.Context, tx *Tx, contextID string) (*models.Context, error) {
 	// Get context metadata
 	var (
 		agentID       string
@@ -188,7 +189,7 @@ func (db *Database) getContext(ctx context.Context, tx *Tx, contextID string) (*
 	}
 	
 	// Create context object
-	contextData := &mcp.Context{
+	contextData := &models.Context{
 		ID:            contextID,
 		AgentID:       agentID,
 		ModelID:       modelID,
@@ -197,7 +198,7 @@ func (db *Database) getContext(ctx context.Context, tx *Tx, contextID string) (*
 		Metadata:      metadataMap,
 		CreatedAt:     createdAt,
 		UpdatedAt:     updatedAt,
-		Content:       []mcp.ContextItem{},
+		Content:       []models.ContextItem{},
 	}
 	
 	if sessionID.Valid {
@@ -244,7 +245,7 @@ func (db *Database) getContext(ctx context.Context, tx *Tx, contextID string) (*
 		}
 		
 		// Add item to context
-		contextData.Content = append(contextData.Content, mcp.ContextItem{
+		contextData.Content = append(contextData.Content, models.ContextItem{
 			ID:        itemID,
 			Role:      role,
 			Content:   content,
@@ -262,7 +263,7 @@ func (db *Database) getContext(ctx context.Context, tx *Tx, contextID string) (*
 }
 
 // UpdateContext updates a context in the database
-func (db *Database) UpdateContext(ctx context.Context, contextData *mcp.Context) error {
+func (db *Database) UpdateContext(ctx context.Context, contextData *models.Context) error {
 	return db.Transaction(ctx, func(sqlxTx *sqlx.Tx) error {
 		tx := &Tx{tx: sqlxTx}
 		return db.updateContext(ctx, tx, contextData)
@@ -270,7 +271,7 @@ func (db *Database) UpdateContext(ctx context.Context, contextData *mcp.Context)
 }
 
 // updateContext is the internal implementation to update a context within a transaction
-func (db *Database) updateContext(ctx context.Context, tx *Tx, contextData *mcp.Context) error {
+func (db *Database) updateContext(ctx context.Context, tx *Tx, contextData *models.Context) error {
 	// Serialize metadata to JSON, handling nil/empty cases
 	var metadataJSON []byte
 	var err error
@@ -321,7 +322,9 @@ func (db *Database) updateContext(ctx context.Context, tx *Tx, contextData *mcp.
 	
 	// Insert updated context items
 	for _, item := range contextData.Content {
-		if err := db.createContextItem(ctx, tx, contextData.ID, &item); err != nil {
+		// Create a pointer to the item for the createContextItem method
+		itemPtr := &item
+		if err := db.createContextItem(ctx, tx, contextData.ID, itemPtr); err != nil {
 			return err
 		}
 	}
@@ -353,8 +356,8 @@ func (db *Database) deleteContext(ctx context.Context, tx *Tx, contextID string)
 }
 
 // ListContexts lists contexts for an agent
-func (db *Database) ListContexts(ctx context.Context, agentID string, sessionID string, options map[string]interface{}) ([]*mcp.Context, error) {
-	var contexts []*mcp.Context
+func (db *Database) ListContexts(ctx context.Context, agentID string, sessionID string, options map[string]interface{}) ([]*models.Context, error) {
+	var contexts []*models.Context
 	
 	err := db.Transaction(ctx, func(sqlxTx *sqlx.Tx) error {
 		tx := &Tx{tx: sqlxTx}
@@ -367,7 +370,7 @@ func (db *Database) ListContexts(ctx context.Context, agentID string, sessionID 
 }
 
 // listContexts is the internal implementation to list contexts within a transaction
-func (db *Database) listContexts(ctx context.Context, tx *Tx, agentID string, sessionID string, options map[string]interface{}) ([]*mcp.Context, error) {
+func (db *Database) listContexts(ctx context.Context, tx *Tx, agentID string, sessionID string, options map[string]interface{}) ([]*models.Context, error) {
 	query := `
 		SELECT id, agent_id, model_id, session_id, current_tokens, max_tokens,
 		       metadata, created_at, updated_at, expires_at
@@ -404,7 +407,7 @@ func (db *Database) listContexts(ctx context.Context, tx *Tx, agentID string, se
 	defer rows.Close()
 	
 	// Process results
-	var contexts []*mcp.Context
+	var contexts []*models.Context
 	
 	for rows.Next() {
 		var (
@@ -444,7 +447,7 @@ func (db *Database) listContexts(ctx context.Context, tx *Tx, agentID string, se
 		}
 		
 		// Create context object
-		contextData := &mcp.Context{
+		contextData := &models.Context{
 			ID:            id,
 			AgentID:       agentID,
 			ModelID:       modelID,
@@ -453,7 +456,7 @@ func (db *Database) listContexts(ctx context.Context, tx *Tx, agentID string, se
 			Metadata:      metadataMap,
 			CreatedAt:     createdAt,
 			UpdatedAt:     updatedAt,
-			Content:       []mcp.ContextItem{}, // Empty content for listing
+			Content:       []models.ContextItem{}, // Empty content for listing
 		}
 		
 		if sessionIDVal.Valid {
@@ -475,8 +478,8 @@ func (db *Database) listContexts(ctx context.Context, tx *Tx, agentID string, se
 }
 
 // SearchContexts searches for contexts based on a text query
-func (db *Database) SearchContexts(ctx context.Context, agentID string, query string, limit int) ([]*mcp.Context, error) {
-	var contexts []*mcp.Context
+func (db *Database) SearchContexts(ctx context.Context, agentID string, query string, limit int) ([]*models.Context, error) {
+	var contexts []*models.Context
 	
 	err := db.Transaction(ctx, func(sqlxTx *sqlx.Tx) error {
 		tx := &Tx{tx: sqlxTx}
@@ -489,7 +492,7 @@ func (db *Database) SearchContexts(ctx context.Context, agentID string, query st
 }
 
 // searchContexts is the internal implementation to search contexts within a transaction
-func (db *Database) searchContexts(ctx context.Context, tx *Tx, agentID string, query string, limit int) ([]*mcp.Context, error) {
+func (db *Database) searchContexts(ctx context.Context, tx *Tx, agentID string, query string, limit int) ([]*models.Context, error) {
 	// Simple text search implementation
 	// In a production environment, consider using PostgreSQL's full-text search capabilities
 	searchQuery := `
@@ -535,14 +538,15 @@ func (db *Database) searchContexts(ctx context.Context, tx *Tx, agentID string, 
 	}
 	
 	// Get context details for matching IDs
-	var contexts []*mcp.Context
+	var contexts []*models.Context
 	for _, id := range contextIDs {
 		contextData, err := db.getContext(ctx, tx, id)
 		if err != nil {
-			// Log error but continue
-			fmt.Printf("Error fetching context %s: %v\n", id, err)
+			// Log but continue with other IDs
+			fmt.Printf("Error getting context %s: %v\n", id, err)
 			continue
 		}
+		
 		contexts = append(contexts, contextData)
 	}
 	

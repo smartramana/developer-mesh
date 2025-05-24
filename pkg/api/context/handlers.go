@@ -5,9 +5,8 @@ import (
 	"strconv"
 
 	"github.com/S-Corkum/devops-mcp/pkg/interfaces"
+	"github.com/S-Corkum/devops-mcp/pkg/models"
 	"github.com/S-Corkum/devops-mcp/pkg/observability"
-	"github.com/S-Corkum/devops-mcp/pkg/observability"
-	"github.com/S-Corkum/devops-mcp/pkg/mcp"
 	"github.com/gin-gonic/gin"
 )
 
@@ -15,14 +14,14 @@ import (
 type API struct {
 	contextManager interfaces.ContextManager
 	logger         observability.Logger // Changed from pointer to interface type
-	metricsClient  metrics.Client
+	metricsClient  observability.MetricsClient
 }
 
 // NewAPI creates a new context API handler
 func NewAPI(
 	contextManager interfaces.ContextManager,
 	logger observability.Logger, // Changed from pointer to interface type
-	metricsClient metrics.Client,
+	metricsClient observability.MetricsClient,
 ) *API {
 	if logger == nil {
 		logger = observability.NewLogger("context_api")
@@ -51,7 +50,7 @@ func (api *API) RegisterRoutes(router *gin.RouterGroup) {
 
 // CreateContext creates a new context
 func (api *API) CreateContext(c *gin.Context) {
-	var contextData mcp.Context
+	var contextData models.Context
 	
 	if err := c.ShouldBindJSON(&contextData); err != nil {
 		api.logger.Warn("Invalid request body for create context", map[string]interface{}{
@@ -116,7 +115,7 @@ func (api *API) GetContext(c *gin.Context) {
 	
 	// Optionally remove content for lighter responses
 	if !includeContent {
-		result.Content = []mcp.ContextItem{}
+		result.Content = []models.ContextItem{}
 	}
 	
 	// Record metric
@@ -143,8 +142,8 @@ func (api *API) UpdateContext(c *gin.Context) {
 	contextID := c.Param("contextID")
 	
 	var request struct {
-		Context *mcp.Context               `json:"context"`
-		Options *mcp.ContextUpdateOptions  `json:"options"`
+		Context *models.Context               `json:"context"`
+		Options *models.ContextUpdateOptions  `json:"options"`
 	}
 	
 	// Bind the request body once into the typed struct
@@ -263,15 +262,16 @@ func (api *API) ListContexts(c *gin.Context) {
 		})
 	}
 	
-	// Add HATEOAS links to each context
-	for _, ctx := range result {
-		if ctx.Links == nil {
-			ctx.Links = make(map[string]string)
-		}
-		ctx.Links["self"] = "/api/v1/contexts/" + ctx.ID
-		ctx.Links["summary"] = "/api/v1/contexts/" + ctx.ID + "/summary"
-		ctx.Links["search"] = "/api/v1/contexts/" + ctx.ID + "/search"
-	}
+	// Note: The models.Context no longer has Links field in the new structure
+	// This section is preserved in comments for reference but is no longer applicable
+	// for _, ctx := range result {
+	// 	if ctx.Links == nil {
+	// 		ctx.Links = make(map[string]string)
+	// 	}
+	// 	ctx.Links["self"] = "/api/v1/contexts/" + ctx.ID
+	// 	ctx.Links["summary"] = "/api/v1/contexts/" + ctx.ID + "/summary"
+	// 	ctx.Links["search"] = "/api/v1/contexts/" + ctx.ID + "/search"
+	// }
 	
 	c.JSON(http.StatusOK, result)
 }

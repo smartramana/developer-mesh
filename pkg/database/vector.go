@@ -6,18 +6,26 @@ import (
 	"sync"
 	
 	"github.com/S-Corkum/devops-mcp/pkg/common"
-	commonConfig "github.com/S-Corkum/devops-mcp/pkg/config"
-	"github.com/S-Corkum/devops-mcp/pkg/config"
 	"github.com/S-Corkum/devops-mcp/pkg/observability"
 	"github.com/jmoiron/sqlx"
 )
+
+// VectorConfig contains vector-specific database configuration
+type VectorConfig struct {
+	Enabled           bool
+	ExtensionSchema   string
+	IndexType         string
+	DistanceMetric    string
+	MaxDimensions     int
+	DefaultDimensions int
+}
 
 // VectorDatabase provides specialized database operations for vector data
 type VectorDatabase struct {
 	db          *sqlx.DB
 	vectorDB    *sqlx.DB
 	logger      observability.Logger
-	config      *commonConfig.DatabaseVectorConfig
+	config      *VectorConfig
 	initialized bool
 	lock        sync.RWMutex
 }
@@ -32,21 +40,20 @@ func NewVectorDatabase(db *sqlx.DB, cfg interface{}, logger observability.Logger
 	vectorDB := db
 	
 	// Try to extract vector config from the provided config
-	var vectorConfig *commonConfig.DatabaseVectorConfig
+	var vectorConfig *VectorConfig
 	
-	// If the config is a Config type from config package
-	if config, ok := cfg.(*config.Config); ok && config != nil {
-		vectorConfig = &config.Database.Vector
-	} else if dbConfig, ok := cfg.(*commonConfig.DatabaseConfig); ok && dbConfig != nil {
-		vectorConfig = &dbConfig.Vector
-	} else if vConfig, ok := cfg.(*commonConfig.DatabaseVectorConfig); ok && vConfig != nil {
+	// If the config is already a VectorConfig
+	if vConfig, ok := cfg.(*VectorConfig); ok && vConfig != nil {
 		vectorConfig = vConfig
 	} else {
 		// Create a default config if none provided
-		vectorConfig = &commonConfig.DatabaseVectorConfig{
-			Enabled:         true,
-			Dimensions:      1536,
-			SimilarityMetric: "cosine",
+		vectorConfig = &VectorConfig{
+			Enabled:           true,
+			DefaultDimensions: 1536,
+			DistanceMetric:    "cosine",
+			IndexType:         "ivfflat",
+			ExtensionSchema:   "public",
+			MaxDimensions:     2000,
 		}
 	}
 	
@@ -244,7 +251,7 @@ func (vdb *VectorDatabase) Close() error {
 }
 
 // GetVectorSearchConfig returns the current vector search configuration
-func (vdb *VectorDatabase) GetVectorSearchConfig() *commonConfig.DatabaseVectorConfig {
+func (vdb *VectorDatabase) GetVectorSearchConfig() *VectorConfig {
 	vdb.lock.RLock()
 	defer vdb.lock.RUnlock()
 	

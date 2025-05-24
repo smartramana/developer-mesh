@@ -2,106 +2,58 @@ package adapters
 
 import (
 	"context"
-
-	"github.com/S-Corkum/devops-mcp/pkg/adapters/bridge"
-	"github.com/S-Corkum/devops-mcp/pkg/adapters/core"
-	adapterEvents "github.com/S-Corkum/devops-mcp/pkg/adapters/events"
-	"github.com/S-Corkum/devops-mcp/pkg/adapters/providers"
-	"github.com/S-Corkum/devops-mcp/pkg/config"
-	"github.com/S-Corkum/devops-mcp/pkg/events"
-	"github.com/S-Corkum/devops-mcp/pkg/events/system"
+	"fmt"
+	
 	"github.com/S-Corkum/devops-mcp/pkg/observability"
 )
 
-// AdapterManager manages the lifecycle of adapters
-type AdapterManager struct {
-	factory         *core.AdapterFactory
-	registry        *core.AdapterRegistry
-	adapterEventBus *adapterEvents.EventBusImpl
-	systemEventBus  *events.EventBus
-	eventBridge     *bridge.EventBridge
-	logger          observability.Logger
-	MetricsClient   observability.MetricsClient
+// Manager manages the lifecycle of adapters
+type Manager struct {
+	factory *Factory
+	logger  observability.Logger
 }
 
-// NewAdapterManager creates a new adapter manager
-func NewAdapterManager(
-	cfg *config.Config,
-	systemEventBus system.EventBus,
-	logger observability.Logger,
-	metricsClient observability.MetricsClient,
-) *AdapterManager {
-	// Create events bus for adapters
-	adapterEventBus := adapterEvents.NewEventBus(logger)
-
-	// Create system event bus adapter
-	systemEventBusAdapter := events.NewEventBus(5) // Use 5 workers like default
-
-	// Create adapter factory with empty map if config is nil
-	var adapterConfigs map[string]interface{}
-	if cfg != nil && cfg.Adapters != nil {
-		adapterConfigs = cfg.Adapters
-	} else {
-		adapterConfigs = make(map[string]interface{})
+// NewManager creates a new adapter manager
+func NewManager(logger observability.Logger) *Manager {
+	factory := NewFactory(logger)
+	
+	// Adapters should be registered externally to avoid import cycles
+	// Example usage:
+	// manager := adapters.NewManager(logger)
+	// github.Register(manager.GetFactory())
+	
+	return &Manager{
+		factory: factory,
+		logger:  logger,
 	}
-
-	factory := core.NewAdapterFactory(
-		adapterConfigs,
-		metricsClient,
-		logger,
-	)
-
-	// Create adapter registry
-	registry := core.NewAdapterRegistry(factory, logger)
-
-	// Create event bridge using the adapter event bus directly
-	eventBridge := bridge.NewEventBridge(adapterEventBus, systemEventBus, logger, registry)
-
-	// Register providers with the factory
-	providers.RegisterAllProviders(factory, systemEventBusAdapter, metricsClient, logger)
-
-	// Create manager
-	manager := &AdapterManager{
-		factory:         factory,
-		registry:        registry,
-		adapterEventBus: adapterEventBus,
-		systemEventBus:  systemEventBusAdapter,
-		eventBridge:     eventBridge,
-		logger:          logger,
-		MetricsClient:   metricsClient,
-	}
-
-	return manager
 }
 
-// Initialize initializes all required adapters
-func (m *AdapterManager) Initialize(ctx context.Context) error {
-	// List of required adapters (can be configured)
-	requiredAdapters := []string{
-		"github",
-	}
-
-	// Initialize required adapters
-	for _, adapterType := range requiredAdapters {
-		_, err := m.registry.GetAdapter(ctx, adapterType)
-		if err != nil {
-			m.logger.Error("Failed to initialize adapter", map[string]interface{}{
-				"adapterType": adapterType,
-				"error":       err.Error(),
-			})
-			return err
-		}
-	}
-
-	return nil
+// GetFactory returns the adapter factory for external registration
+func (m *Manager) GetFactory() *Factory {
+	return m.factory
 }
 
-// GetGitHubAdapter returns the GitHub adapter
-func (m *AdapterManager) GetGitHubAdapter(ctx context.Context) (interface{}, error) {
-	return m.registry.GetAdapter(ctx, "github")
+// SetConfig sets configuration for a specific adapter
+func (m *Manager) SetConfig(provider string, config Config) {
+	m.factory.SetConfig(provider, config)
 }
 
-// GetAdapter returns an adapter by type
-func (m *AdapterManager) GetAdapter(ctx context.Context, adapterType string) (interface{}, error) {
-	return m.registry.GetAdapter(ctx, adapterType)
+// GetAdapter returns an adapter for the specified provider
+func (m *Manager) GetAdapter(ctx context.Context, provider string) (SourceControlAdapter, error) {
+	adapter, err := m.factory.CreateAdapter(ctx, provider)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get adapter: %w", err)
+	}
+	
+	// Perform health check
+	if err := adapter.Health(ctx); err != nil {
+		return nil, fmt.Errorf("adapter health check failed: %w", err)
+	}
+	
+	return adapter, nil
+}
+
+// ListProviders returns a list of available providers
+func (m *Manager) ListProviders() []string {
+	return m.factory.ListProviders()
 }

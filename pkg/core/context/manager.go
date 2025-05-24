@@ -13,10 +13,10 @@ import (
 	"github.com/S-Corkum/devops-mcp/pkg/cache"
 	internalDb "github.com/S-Corkum/devops-mcp/pkg/database"
 	"github.com/S-Corkum/devops-mcp/pkg/events/system"
+	"github.com/S-Corkum/devops-mcp/pkg/models"
 	"github.com/S-Corkum/devops-mcp/pkg/observability"
 	"github.com/S-Corkum/devops-mcp/pkg/storage/providers"
 	pkgDb "github.com/S-Corkum/devops-mcp/pkg/database"
-	"github.com/S-Corkum/devops-mcp/pkg/mcp"
 	"github.com/google/uuid"
 	"github.com/jmoiron/sqlx"
 )
@@ -44,7 +44,7 @@ type Manager struct {
 	storage       providers.ContextStorage
 	eventBus      *system.EventBus
 	logger        observability.Logger // Changed from pointer to interface type
-	subscribers   map[string][]func(mcp.Event)
+	subscribers   map[string][]func(models.Event)
 	lock          sync.RWMutex
 	metricsClient observability.MetricsClient
 }
@@ -70,7 +70,7 @@ func NewManager(
 		storage:       storage,
 		eventBus:      eventBus,
 		logger:        logger,
-		subscribers:   make(map[string][]func(mcp.Event)),
+		subscribers:   make(map[string][]func(models.Event)),
 		metricsClient: metricsClient,
 	}
 }
@@ -96,13 +96,13 @@ func NewManagerWithPkgDb(
 		storage:       storage,
 		eventBus:      eventBus,
 		logger:        logger,
-		subscribers:   make(map[string][]func(mcp.Event)),
+		subscribers:   make(map[string][]func(models.Event)),
 		metricsClient: metricsClient,
 	}
 }
 
 // CreateContext creates a new context
-func (m *Manager) CreateContext(ctx context.Context, contextData *mcp.Context) (*mcp.Context, error) {
+func (m *Manager) CreateContext(ctx context.Context, contextData *models.Context) (*models.Context, error) {
 	startTime := time.Now()
 	defer func() {
 		m.recordMetrics("create_context", startTime)
@@ -134,7 +134,7 @@ func (m *Manager) CreateContext(ctx context.Context, contextData *mcp.Context) (
 
 	// Initialize content if nil
 	if contextData.Content == nil {
-		contextData.Content = []mcp.ContextItem{}
+		contextData.Content = []models.ContextItem{}
 	}
 
 	// Calculate current tokens if not set
@@ -172,7 +172,7 @@ func (m *Manager) CreateContext(ctx context.Context, contextData *mcp.Context) (
 	}
 
 	// Publish event
-	m.publishEvent(mcp.Event{
+	m.publishEvent(models.Event{
 		Source:    "context_manager",
 		Type:      "context_created",
 		AgentID:   contextData.AgentID,
@@ -185,7 +185,7 @@ func (m *Manager) CreateContext(ctx context.Context, contextData *mcp.Context) (
 }
 
 // GetContext retrieves a context by ID
-func (m *Manager) GetContext(ctx context.Context, contextID string) (*mcp.Context, error) {
+func (m *Manager) GetContext(ctx context.Context, contextID string) (*models.Context, error) {
 	startTime := time.Now()
 	defer func() {
 		m.recordMetrics("get_context", startTime)
@@ -198,7 +198,7 @@ func (m *Manager) GetContext(ctx context.Context, contextID string) (*mcp.Contex
 	}
 
 	// If not in cache, get from database
-	var contextData *mcp.Context
+	var contextData *models.Context
 
 	if err := m.db.Transaction(ctx, func(tx *sqlx.Tx) error {
 		var err error
@@ -229,7 +229,7 @@ func (m *Manager) GetContext(ctx context.Context, contextID string) (*mcp.Contex
 }
 
 // UpdateContext updates an existing context
-func (m *Manager) UpdateContext(ctx context.Context, contextID string, updateData *mcp.Context, options *mcp.ContextUpdateOptions) (*mcp.Context, error) {
+func (m *Manager) UpdateContext(ctx context.Context, contextID string, updateData *models.Context, options *models.ContextUpdateOptions) (*models.Context, error) {
 	startTime := time.Now()
 	defer func() {
 		m.recordMetrics("update_context", startTime)
@@ -341,7 +341,7 @@ func (m *Manager) UpdateContext(ctx context.Context, contextID string, updateDat
 	}
 
 	// Publish event
-	m.publishEvent(mcp.Event{
+	m.publishEvent(models.Event{
 		Source:    "context_manager",
 		Type:      "context_updated",
 		AgentID:   existingContext.AgentID,
@@ -392,7 +392,7 @@ func (m *Manager) DeleteContext(ctx context.Context, contextID string) error {
 	}
 
 	// Publish event
-	m.publishEvent(mcp.Event{
+	m.publishEvent(models.Event{
 		Source:    "context_manager",
 		Type:      "context_deleted",
 		AgentID:   contextData.AgentID,
@@ -405,13 +405,13 @@ func (m *Manager) DeleteContext(ctx context.Context, contextID string) error {
 }
 
 // ListContexts lists contexts for an agent
-func (m *Manager) ListContexts(ctx context.Context, agentID string, sessionID string, options map[string]interface{}) ([]*mcp.Context, error) {
+func (m *Manager) ListContexts(ctx context.Context, agentID string, sessionID string, options map[string]interface{}) ([]*models.Context, error) {
 	startTime := time.Now()
 	defer func() {
 		m.recordMetrics("list_contexts", startTime)
 	}()
 
-	var contexts []*mcp.Context
+	var contexts []*models.Context
 
 	// Get from database
 	if err := m.db.Transaction(ctx, func(tx *sqlx.Tx) error {
@@ -475,14 +475,14 @@ func (m *Manager) SummarizeContext(ctx context.Context, contextID string) (strin
 }
 
 // SearchInContext searches for text within a context
-func (m *Manager) SearchInContext(ctx context.Context, contextID string, query string) ([]mcp.ContextItem, error) {
+func (m *Manager) SearchInContext(ctx context.Context, contextID string, query string) ([]models.ContextItem, error) {
 	startTime := time.Now()
 	defer func() {
 		m.recordMetrics("search_in_context", startTime)
 	}()
 
 	if query == "" {
-		return []mcp.ContextItem{}, nil
+		return []models.ContextItem{}, nil
 	}
 
 	// Get context
@@ -492,7 +492,7 @@ func (m *Manager) SearchInContext(ctx context.Context, contextID string, query s
 	}
 
 	// Simple text search implementation
-	var results []mcp.ContextItem
+	var results []models.ContextItem
 	for _, item := range contextData.Content {
 		if strings.Contains(strings.ToLower(item.Content), strings.ToLower(query)) {
 			results = append(results, item)
@@ -503,19 +503,19 @@ func (m *Manager) SearchInContext(ctx context.Context, contextID string, query s
 }
 
 // Subscribe subscribes to context events
-func (m *Manager) Subscribe(eventType string, handler func(mcp.Event)) {
+func (m *Manager) Subscribe(eventType string, handler func(models.Event)) {
 	m.lock.Lock()
 	defer m.lock.Unlock()
 
 	if m.subscribers[eventType] == nil {
-		m.subscribers[eventType] = make([]func(mcp.Event), 0)
+		m.subscribers[eventType] = make([]func(models.Event), 0)
 	}
 
 	m.subscribers[eventType] = append(m.subscribers[eventType], handler)
 }
 
 // publishEvent publishes an event to subscribers
-func (m *Manager) publishEvent(event mcp.Event) {
+func (m *Manager) publishEvent(event models.Event) {
 	// In our test environment, just skip event bus publishing to fix the build
 	// In a real environment, this would properly handle EventBus interactions
 	if m.eventBus != nil && false {
@@ -545,7 +545,7 @@ func (m *Manager) publishEvent(event mcp.Event) {
 }
 
 // truncateContext truncates a context based on the specified strategy
-func (m *Manager) truncateContext(contextData *mcp.Context, strategy TruncateStrategy) error {
+func (m *Manager) truncateContext(contextData *models.Context, strategy TruncateStrategy) error {
 	switch strategy {
 	case TruncateOldestFirst:
 		return m.truncateOldestFirst(contextData)
@@ -560,7 +560,7 @@ func (m *Manager) truncateContext(contextData *mcp.Context, strategy TruncateStr
 }
 
 // truncateOldestFirst truncates a context by removing the oldest items first
-func (m *Manager) truncateOldestFirst(contextData *mcp.Context) error {
+func (m *Manager) truncateOldestFirst(contextData *models.Context) error {
 	if contextData.CurrentTokens <= contextData.MaxTokens {
 		return nil
 	}
@@ -590,16 +590,16 @@ func (m *Manager) truncateOldestFirst(contextData *mcp.Context) error {
 }
 
 // truncatePreservingUser truncates a context while preserving user messages
-func (m *Manager) truncatePreservingUser(contextData *mcp.Context) error {
+func (m *Manager) truncatePreservingUser(contextData *models.Context) error {
 	if contextData.CurrentTokens <= contextData.MaxTokens {
 		return nil
 	}
 
 	// Group content items by role
-	userItems := make([]mcp.ContextItem, 0)
-	assistantItems := make([]mcp.ContextItem, 0)
-	systemItems := make([]mcp.ContextItem, 0)
-	otherItems := make([]mcp.ContextItem, 0)
+	userItems := make([]models.ContextItem, 0)
+	assistantItems := make([]models.ContextItem, 0)
+	systemItems := make([]models.ContextItem, 0)
+	otherItems := make([]models.ContextItem, 0)
 
 	for _, item := range contextData.Content {
 		switch item.Role {
@@ -684,7 +684,7 @@ func (m *Manager) truncatePreservingUser(contextData *mcp.Context) error {
 	}
 
 	// Reconstruct content
-	newContent := make([]mcp.ContextItem, 0)
+	newContent := make([]models.ContextItem, 0)
 	newContent = append(newContent, systemItems...)
 
 	// Interleave user and assistant messages by timestamp
@@ -704,7 +704,7 @@ func (m *Manager) truncatePreservingUser(contextData *mcp.Context) error {
 }
 
 // cacheContext caches a context
-func (m *Manager) cacheContext(contextData *mcp.Context) error {
+func (m *Manager) cacheContext(contextData *models.Context) error {
 	// Skip caching if context is expired
 	if !contextData.ExpiresAt.IsZero() && contextData.ExpiresAt.Before(time.Now()) {
 		return nil
@@ -729,8 +729,8 @@ func (m *Manager) cacheContext(contextData *mcp.Context) error {
 }
 
 // getCachedContext gets a context from cache
-func (m *Manager) getCachedContext(contextID string) (*mcp.Context, error) {
-	var contextData mcp.Context
+func (m *Manager) getCachedContext(contextID string) (*models.Context, error) {
+	var contextData models.Context
 
 	cacheKey := fmt.Sprintf("context:%s", contextID)
 	err := m.cache.Get(context.Background(), cacheKey, &contextData)
@@ -762,7 +762,7 @@ func (m *Manager) recordMetrics(operation string, startTime time.Time) {
 // Database operations
 
 // createContextInDB creates a context in the database
-func (m *Manager) createContextInDB(ctx context.Context, tx *sqlx.Tx, contextData *mcp.Context) error {
+func (m *Manager) createContextInDB(ctx context.Context, tx *sqlx.Tx, contextData *models.Context) error {
 	// Convert metadata to JSON if not nil
 	var metadataJSON []byte
 	var err error
@@ -883,7 +883,7 @@ func (m *Manager) createContextInDB(ctx context.Context, tx *sqlx.Tx, contextDat
 }
 
 // getContextFromDB retrieves a context from the database
-func (m *Manager) getContextFromDB(ctx context.Context, tx *sqlx.Tx, contextID string) (*mcp.Context, error) {
+func (m *Manager) getContextFromDB(ctx context.Context, tx *sqlx.Tx, contextID string) (*models.Context, error) {
 	// Get context from contexts table
 	var contextRow struct {
 		ID            string         `db:"id"`
@@ -917,7 +917,7 @@ func (m *Manager) getContextFromDB(ctx context.Context, tx *sqlx.Tx, contextID s
 	}
 
 	// Create context object
-	contextData := &mcp.Context{
+	contextData := &models.Context{
 		ID:            contextRow.ID,
 		Name:          contextRow.Name,
 		Description:   contextRow.Description,
@@ -928,8 +928,7 @@ func (m *Manager) getContextFromDB(ctx context.Context, tx *sqlx.Tx, contextID s
 		Metadata:      metadata,
 		CreatedAt:     contextRow.CreatedAt,
 		UpdatedAt:     contextRow.UpdatedAt,
-		Content:       []mcp.ContextItem{},
-		Links:         make(map[string]string),
+		Content:       []models.ContextItem{},
 	}
 
 	// Set optional fields
@@ -972,7 +971,7 @@ func (m *Manager) getContextFromDB(ctx context.Context, tx *sqlx.Tx, contextID s
 		}
 
 		// Create context item
-		item := mcp.ContextItem{
+		item := models.ContextItem{
 			ID:        itemRow.ID,
 			Role:      itemRow.Role,
 			Content:   itemRow.Content,
@@ -994,7 +993,7 @@ func (m *Manager) getContextFromDB(ctx context.Context, tx *sqlx.Tx, contextID s
 }
 
 // updateContextInDB updates a context in the database
-func (m *Manager) updateContextInDB(ctx context.Context, tx *sqlx.Tx, contextData *mcp.Context) error {
+func (m *Manager) updateContextInDB(ctx context.Context, tx *sqlx.Tx, contextData *models.Context) error {
 	// Convert metadata to JSON if not nil
 	var metadataJSON []byte
 	var err error
@@ -1176,7 +1175,7 @@ func (m *Manager) transaction(ctx context.Context, fn func(*sqlx.Tx) error) erro
 }
 
 // listContextsFromDB lists contexts from the database
-func (m *Manager) listContextsFromDB(ctx context.Context, tx *sqlx.Tx, agentID string, sessionID string, options map[string]interface{}) ([]*mcp.Context, error) {
+func (m *Manager) listContextsFromDB(ctx context.Context, tx *sqlx.Tx, agentID string, sessionID string, options map[string]interface{}) ([]*models.Context, error) {
 	// Build query
 	query := "SELECT * FROM mcp.contexts WHERE agent_id = $1"
 	args := []interface{}{agentID}
@@ -1209,7 +1208,7 @@ func (m *Manager) listContextsFromDB(ctx context.Context, tx *sqlx.Tx, agentID s
 	defer rows.Close()
 
 	// Parse contexts
-	var contexts []*mcp.Context
+	var contexts []*models.Context
 	for rows.Next() {
 		var contextRow struct {
 			ID            string         `db:"id"`
@@ -1237,7 +1236,7 @@ func (m *Manager) listContextsFromDB(ctx context.Context, tx *sqlx.Tx, agentID s
 		}
 
 		// Create context object
-		contextData := &mcp.Context{
+		contextData := &models.Context{
 			ID:            contextRow.ID,
 			AgentID:       contextRow.AgentID,
 			ModelID:       contextRow.ModelID,
@@ -1246,8 +1245,7 @@ func (m *Manager) listContextsFromDB(ctx context.Context, tx *sqlx.Tx, agentID s
 			Metadata:      metadata,
 			CreatedAt:     contextRow.CreatedAt,
 			UpdatedAt:     contextRow.UpdatedAt,
-			Content:       []mcp.ContextItem{}, // Empty content for list operations
-			Links:         make(map[string]string),
+			Content:       []models.ContextItem{}, // Empty content for list operations
 		}
 
 		// Set optional fields

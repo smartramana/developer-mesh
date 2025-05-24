@@ -3,7 +3,7 @@ package api
 import (
 	"time"
 
-	"github.com/S-Corkum/devops-mcp/pkg/mcp/interfaces"
+	"mcp-server/internal/config"
 )
 
 // Config holds configuration for the API server
@@ -20,7 +20,7 @@ type Config struct {
 	RateLimit     RateLimitConfig          `mapstructure:"rate_limit"`
 	Versioning    VersioningConfig         `mapstructure:"versioning"`
 	Performance   PerformanceConfig        `mapstructure:"performance"`
-	Webhook       interfaces.WebhookConfig `mapstructure:"webhook"`
+	Webhook       config.WebhookConfig `mapstructure:"webhook"`
 	RestAPI       RestAPIConfig            `mapstructure:"rest_api"`
 }
 
@@ -130,7 +130,7 @@ func DefaultConfig() Config {
 			MaxRetries:            3,
 			RetryBackoff:          500 * time.Millisecond,
 		},
-		Webhook: interfaces.WebhookConfig{
+		Webhook: config.WebhookConfig{
 			EnabledField:             false,
 			GitHubEndpointField:      "/api/webhooks/github",
 			GitHubSecretField:        "",

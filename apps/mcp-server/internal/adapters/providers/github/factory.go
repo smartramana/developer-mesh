@@ -6,8 +6,8 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/S-Corkum/devops-mcp/apps/mcp-server/internal/adapters/core"
-	githubAdapter "github.com/S-Corkum/devops-mcp/apps/mcp-server/internal/adapters/github"
+	"mcp-server/internal/adapters/core"
+	githubAdapter "mcp-server/internal/adapters/github"
 	"github.com/S-Corkum/devops-mcp/pkg/common/events"
 	"github.com/S-Corkum/devops-mcp/pkg/observability"
 )

@@ -10,12 +10,12 @@ import (
 	"time"
 
 	"github.com/S-Corkum/devops-mcp/pkg/common/events"
-	"github.com/S-Corkum/devops-mcp/apps/mcp-server/internal/adapters/github/api"
-	"github.com/S-Corkum/devops-mcp/apps/mcp-server/internal/adapters/github/auth"
-	wh "github.com/S-Corkum/devops-mcp/apps/mcp-server/internal/adapters/github/webhook"
-	"github.com/S-Corkum/devops-mcp/apps/mcp-server/internal/adapters/resilience"
+	"mcp-server/internal/adapters/github/api"
+	"mcp-server/internal/adapters/github/auth"
+	wh "mcp-server/internal/adapters/github/webhook"
+	"mcp-server/internal/adapters/resilience"
 	"github.com/S-Corkum/devops-mcp/pkg/observability"
-	"github.com/S-Corkum/devops-mcp/pkg/mcp"
+	"github.com/S-Corkum/devops-mcp/pkg/models"
 
 )
 
@@ -1682,7 +1682,7 @@ func (a *GitHubAdapter) registerWebhookHandler(ctx context.Context, contextID st
 		}
 
 		// Publish event to the event bus using the standard interface
-		e := &mcp.Event{
+		e := &models.Event{
 			Type:      "github.webhook." + event.Type,
 			Timestamp: time.Now(),
 			Data:      eventData,

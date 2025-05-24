@@ -4,7 +4,7 @@ import (
 	"context"
 	"net/http"
 	
-	"github.com/S-Corkum/devops-mcp/apps/rest-api/internal/repository"
+	"rest-api/internal/repository"
 	"github.com/S-Corkum/devops-mcp/pkg/observability"
 	"github.com/gin-gonic/gin"
 )

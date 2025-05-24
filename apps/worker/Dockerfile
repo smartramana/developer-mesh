@@ -11,36 +11,52 @@ RUN apk add --no-cache git gcc musl-dev
 RUN echo 'go 1.24' > go.work && \
     echo 'use (' >> go.work && \
     echo '    ./apps/worker' >> go.work && \
+    echo '    ./pkg/adapters' >> go.work && \
     echo '    ./pkg/common' >> go.work && \
+    echo '    ./pkg/database' >> go.work && \
+    echo '    ./pkg/events' >> go.work && \
     echo '    ./pkg/models' >> go.work && \
     echo '    ./pkg/embedding' >> go.work && \
     echo '    ./pkg/chunking' >> go.work && \
     echo '    ./pkg/storage' >> go.work && \
-    echo '    ./pkg/mcp/interfaces' >> go.work && \
+    echo '    ./pkg/queue' >> go.work && \
     echo '    ./pkg/observability' >> go.work && \
+    echo '    ./pkg/repository' >> go.work && \
+    echo '    ./pkg/worker' >> go.work && \
     echo ')' >> go.work
 
 # Create module directory structure
-RUN mkdir -p apps/worker pkg/common pkg/models pkg/embedding pkg/chunking pkg/storage pkg/mcp/interfaces pkg/observability
+RUN mkdir -p apps/worker pkg/adapters pkg/common pkg/database pkg/events pkg/models pkg/embedding pkg/chunking pkg/storage pkg/queue pkg/observability pkg/repository pkg/worker
 
 # Copy go mod files for all modules
 COPY apps/worker/go.mod apps/worker/go.sum* ./apps/worker/
+COPY pkg/adapters/go.mod pkg/adapters/go.sum* ./pkg/adapters/
 COPY pkg/common/go.mod pkg/common/go.sum* ./pkg/common/
+COPY pkg/database/go.mod pkg/database/go.sum* ./pkg/database/
+COPY pkg/events/go.mod pkg/events/go.sum* ./pkg/events/
 COPY pkg/models/go.mod pkg/models/go.sum* ./pkg/models/
 COPY pkg/embedding/go.mod pkg/embedding/go.sum* ./pkg/embedding/
 COPY pkg/chunking/go.mod pkg/chunking/go.sum* ./pkg/chunking/
 COPY pkg/storage/go.mod pkg/storage/go.sum* ./pkg/storage/
-COPY pkg/mcp/interfaces/go.mod pkg/mcp/interfaces/go.sum* ./pkg/mcp/interfaces/
+COPY pkg/queue/go.mod pkg/queue/go.sum* ./pkg/queue/
 COPY pkg/observability/go.mod pkg/observability/go.sum* ./pkg/observability/
+COPY pkg/repository/go.mod pkg/repository/go.sum* ./pkg/repository/
+COPY pkg/worker/go.mod pkg/worker/go.sum* ./pkg/worker/
 
 # Copy source code for all modules
 COPY apps/worker/ ./apps/worker/
+COPY pkg/adapters/ ./pkg/adapters/
 COPY pkg/common/ ./pkg/common/
+COPY pkg/database/ ./pkg/database/
+COPY pkg/events/ ./pkg/events/
 COPY pkg/models/ ./pkg/models/
 COPY pkg/embedding/ ./pkg/embedding/
 COPY pkg/chunking/ ./pkg/chunking/
 COPY pkg/storage/ ./pkg/storage/
-COPY pkg/mcp/ ./pkg/mcp/
+COPY pkg/queue/ ./pkg/queue/
+COPY pkg/observability/ ./pkg/observability/
+COPY pkg/repository/ ./pkg/repository/
+COPY pkg/worker/ ./pkg/worker/
 
 # Build the application
 WORKDIR /app/apps/worker

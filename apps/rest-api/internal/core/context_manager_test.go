@@ -6,7 +6,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/S-Corkum/devops-mcp/pkg/mcp"
+	"github.com/S-Corkum/devops-mcp/pkg/models"
 	"github.com/S-Corkum/devops-mcp/pkg/observability"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
@@ -109,7 +109,7 @@ func setupTestContextManager() (*ContextManager, *MockLogger, *MockMetricsClient
 	// Initialize with in-memory storage
 	cm := &ContextManager{
 		db:      nil, // No DB for unit tests
-		cache:   make(map[string]*mcp.Context),
+		cache:   make(map[string]*models.Context),
 		mutex:   sync.RWMutex{},
 		logger:  logger,
 		metrics: metrics,
@@ -125,7 +125,7 @@ func TestCreateContext(t *testing.T) {
 	
 	t.Run("Create valid context", func(t *testing.T) {
 		// Arrange
-		mockContext := &mcp.Context{
+		mockContext := &models.Context{
 			ID:        "test-id",
 			Name:      "Test Context",
 			CreatedAt: time.Now(),
@@ -164,7 +164,7 @@ func TestCreateContext(t *testing.T) {
 	
 	t.Run("Empty ID", func(t *testing.T) {
 		// Arrange
-		mockContext := &mcp.Context{
+		mockContext := &models.Context{
 			ID:        "", // Empty ID
 			Name:      "Test Context",
 			CreatedAt: time.Now(),
@@ -191,7 +191,7 @@ func TestGetContext(t *testing.T) {
 	
 	t.Run("Get existing context from cache", func(t *testing.T) {
 		// Arrange
-		mockContext := &mcp.Context{
+		mockContext := &models.Context{
 			ID:        "test-id",
 			Name:      "Test Context",
 			CreatedAt: time.Now(),
@@ -247,13 +247,13 @@ func TestUpdateContext(t *testing.T) {
 	
 	t.Run("Update existing context", func(t *testing.T) {
 		// Arrange
-		origContext := &mcp.Context{
+		origContext := &models.Context{
 			ID:        "test-id",
 			Name:      "Original Context",
 			CreatedAt: time.Now().Add(-24 * time.Hour),
 		}
 		
-		updatedContext := &mcp.Context{
+		updatedContext := &models.Context{
 			ID:        "test-id",
 			Name:      "Updated Context",
 			CreatedAt: origContext.CreatedAt,
@@ -279,7 +279,7 @@ func TestUpdateContext(t *testing.T) {
 	
 	t.Run("Update non-existent context", func(t *testing.T) {
 		// Arrange
-		updatedContext := &mcp.Context{
+		updatedContext := &models.Context{
 			ID:        "nonexistent-id",
 			Name:      "Updated Context",
 			CreatedAt: time.Now(),
@@ -299,7 +299,7 @@ func TestUpdateContext(t *testing.T) {
 	
 	t.Run("Empty ID", func(t *testing.T) {
 		// Arrange
-		updatedContext := &mcp.Context{
+		updatedContext := &models.Context{
 			ID:        "",
 			Name:      "Updated Context",
 			CreatedAt: time.Now(),
@@ -325,7 +325,7 @@ func TestDeleteContext(t *testing.T) {
 	
 	t.Run("Delete existing context", func(t *testing.T) {
 		// Arrange
-		mockContext := &mcp.Context{
+		mockContext := &models.Context{
 			ID:        "test-id",
 			Name:      "Test Context",
 			CreatedAt: time.Now(),
@@ -370,7 +370,7 @@ func TestListContexts(t *testing.T) {
 	
 	t.Run("List contexts with no filter", func(t *testing.T) {
 		// Arrange
-		contexts := []*mcp.Context{
+		contexts := []*models.Context{
 			{
 				ID:        "ctx1",
 				Name:      "Context 1",
@@ -463,7 +463,7 @@ func TestSummarizeContext(t *testing.T) {
 	t.Run("Summarize existing context", func(t *testing.T) {
 		// Arrange
 		mockTime := time.Date(2025, 5, 19, 10, 0, 0, 0, time.UTC)
-		mockContext := &mcp.Context{
+		mockContext := &models.Context{
 			ID:        "test-id",
 			Name:      "Test Context",
 			CreatedAt: mockTime,

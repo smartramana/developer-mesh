@@ -7,7 +7,7 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"github.com/S-Corkum/devops-mcp/pkg/mcp"
+	"github.com/S-Corkum/devops-mcp/pkg/models"
 	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
@@ -24,20 +24,20 @@ func TestUpdateContextHandler(t *testing.T) {
 	
 	// Test data
 	contextID := "test-context-id"
-	existingContext := &mcp.Context{
+	existingContext := &models.Context{
 		ID:       contextID,
 		AgentID:  "test-agent",
 		ModelID:  "gpt-4",
-		Content:  []mcp.ContextItem{},
+		Content:  []models.ContextItem{},
 	}
 	
-	updatedContent := []mcp.ContextItem{
+	updatedContent := []models.ContextItem{
 		{Role: "system", Content: "You are a helpful assistant"},
 		{Role: "user", Content: "Hello, how are you?"},
 		{Role: "assistant", Content: "I'm doing well, thank you! How can I help you today?"},
 	}
 	
-	updatedContext := &mcp.Context{
+	updatedContext := &models.Context{
 		ID:       contextID,
 		AgentID:  "test-agent",
 		ModelID:  "gpt-4",
@@ -58,8 +58,8 @@ func TestUpdateContextHandler(t *testing.T) {
 	
 	// Create test request
 	reqBody := struct {
-		Content []mcp.ContextItem      `json:"content"`
-		Options mcp.ContextUpdateOptions `json:"options,omitempty"`
+		Content []models.ContextItem      `json:"content"`
+		Options models.ContextUpdateOptions `json:"options,omitempty"`
 	}{
 		Content: updatedContent,
 	}
@@ -75,7 +75,7 @@ func TestUpdateContextHandler(t *testing.T) {
 	// Check response
 	assert.Equal(t, http.StatusOK, w.Code)
 	
-	var response mcp.Context
+	var response models.Context
 	err := json.Unmarshal(w.Body.Bytes(), &response)
 	assert.NoError(t, err)
 	assert.Equal(t, contextID, response.ID)

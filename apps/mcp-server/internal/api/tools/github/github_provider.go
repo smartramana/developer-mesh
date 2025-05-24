@@ -6,7 +6,7 @@ import (
 	"fmt"
 
 	"github.com/S-Corkum/devops-mcp/pkg/adapters/github"
-	"github.com/S-Corkum/devops-mcp/apps/mcp-server/internal/core/tool"
+	"mcp-server/internal/core/tool"
 )
 
 // GitHubToolProvider provides GitHub tools for the MCP
@@ -146,4 +146,4 @@ func (p *GitHubToolProvider) executeAction(action string, params map[string]inte
 
 // The tool implementation methods (getRepositoryTool, listRepositoriesTool, etc.) would be implemented here.
 // For brevity, they're not included in this file, but would be part of the complete implementation.
-// They would have the same implementation as in the pkg/mcp/tool/github package.
+// They follow the same pattern as the original tool implementations.

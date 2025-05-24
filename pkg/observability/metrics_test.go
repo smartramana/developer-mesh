@@ -104,21 +104,5 @@ func TestMetricsClient_RecordOperations(t *testing.T) {
 	metrics.RecordOperation("custom-component", "custom-op", false, 0.5, customLabels)
 }
 
-func TestLegacyMetricsAdapter(t *testing.T) {
-	// Create a metrics client
-	metrics := NewMetricsClient()
-	
-	// Create an adapter for legacy clients
-	adapter := NewLegacyMetricsAdapter(metrics)
-	
-	// Test the adapter methods
-	adapter.RecordEvent("test", "event")
-	adapter.RecordLatency("operation", time.Second)
-	adapter.RecordCounter("counter", 1, map[string]string{"service": "test"})
-	adapter.RecordGauge("gauge", 2, map[string]string{"service": "test"})
-	
-	// Test close
-	if err := adapter.Close(); err != nil {
-		t.Errorf("Expected no error from adapter.Close(), got: %v", err)
-	}
-}
+// TestLegacyMetricsAdapter has been removed as part of the Go workspace migration
+// as backward compatibility is not required and the LegacyMetricsAdapter has been removed.

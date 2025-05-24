@@ -33,14 +33,12 @@ func TracingMiddleware() gin.HandlerFunc {
 		ctx, span := observability.StartSpan(ctx, spanName)
 		defer span.End()
 		
-		// Set span attributes
-		span.SetAttributes(
-			attribute.String("http.method", method),
-			attribute.String("http.path", path),
-			attribute.String("http.url", c.Request.URL.String()),
-			attribute.String("http.user_agent", c.Request.UserAgent()),
-			attribute.String("http.client_ip", c.ClientIP()),
-		)
+		// Set span attributes using the interface method
+		span.SetAttribute("http.method", method)
+		span.SetAttribute("http.path", path)
+		span.SetAttribute("http.url", c.Request.URL.String())
+		span.SetAttribute("http.user_agent", c.Request.UserAgent())
+		span.SetAttribute("http.client_ip", c.ClientIP())
 		
 		// Store span in the context
 		c.Request = c.Request.WithContext(ctx)
@@ -57,11 +55,9 @@ func TracingMiddleware() gin.HandlerFunc {
 		// Note: RecordAPIRequest is missing from the MetricsClient
 		
 		// Set additional span attributes
-		span.SetAttributes(
-			attribute.Int("http.status_code", c.Writer.Status()),
-			attribute.Int("http.response_size", c.Writer.Size()),
-			attribute.Float64("http.duration_ms", float64(duration.Milliseconds())),
-		)
+		span.SetAttribute("http.status_code", c.Writer.Status())
+		span.SetAttribute("http.response_size", c.Writer.Size())
+		span.SetAttribute("http.duration_ms", float64(duration.Milliseconds()))
 		
 		// Record errors - using Error and Ok from trace
 		if len(c.Errors) > 0 {

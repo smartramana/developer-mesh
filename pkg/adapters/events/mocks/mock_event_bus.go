@@ -5,7 +5,7 @@ import (
 	"sync"
 
 	"github.com/S-Corkum/devops-mcp/pkg/adapters/events"
-	"github.com/S-Corkum/devops-mcp/pkg/mcp"
+	"github.com/S-Corkum/devops-mcp/pkg/models"
 )
 
 // MockEventBus is a mock implementation of the events.EventBus interface for testing
@@ -128,8 +128,8 @@ func (b *MockEventBus) Emit(ctx context.Context, event *events.AdapterEvent) err
 	return nil
 }
 
-// Publish publishes an MCP event to the system bus (required for EventBus interface)
-func (b *MockEventBus) Publish(ctx context.Context, event *mcp.Event) {
+// Publish publishes a model event to the system bus (required for EventBus interface)
+func (b *MockEventBus) Publish(ctx context.Context, event *models.Event) {
 	// This is a stub for the interface; implement as needed for your tests.
 }
 

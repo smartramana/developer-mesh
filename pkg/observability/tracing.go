@@ -10,6 +10,7 @@ import (
 
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/codes"
 	"go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracegrpc"
 	"go.opentelemetry.io/otel/propagation"
 	"go.opentelemetry.io/otel/sdk/resource"
@@ -27,6 +28,21 @@ type otelSpanWrapper struct {
 // End implements Span.End
 func (o *otelSpanWrapper) End() {
 	o.span.End()
+}
+
+// SetStatus implements Span.SetStatus
+func (o *otelSpanWrapper) SetStatus(code int, description string) {
+	// Convert int code to codes.Code
+	var statusCode codes.Code
+	switch code {
+	case 1:
+		statusCode = codes.Ok
+	case 2:
+		statusCode = codes.Error
+	default:
+		statusCode = codes.Unset
+	}
+	o.span.SetStatus(statusCode, description)
 }
 
 // SetAttribute implements Span.SetAttribute

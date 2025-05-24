@@ -4,7 +4,7 @@ import (
 	"context"
 	"sync"
 
-	"github.com/S-Corkum/devops-mcp/pkg/mcp"
+	"github.com/S-Corkum/devops-mcp/pkg/models"
 )
 
 // EventBusImpl is the implementation of the EventBus interface
@@ -12,7 +12,7 @@ type EventBusImpl struct {
 	handlers     map[EventType][]Handler
 	mutex        sync.RWMutex
 	maxQueueSize int
-	queue        chan *mcp.Event
+	queue        chan *models.Event
 }
 
 // NewEventBus creates a new event bus
@@ -20,12 +20,12 @@ func NewEventBus(maxQueueSize int) *EventBusImpl {
 	return &EventBusImpl{
 		handlers:     make(map[EventType][]Handler),
 		maxQueueSize: maxQueueSize,
-		queue:        make(chan *mcp.Event, maxQueueSize),
+		queue:        make(chan *models.Event, maxQueueSize),
 	}
 }
 
 // Publish publishes an event
-func (b *EventBusImpl) Publish(ctx context.Context, event *mcp.Event) {
+func (b *EventBusImpl) Publish(ctx context.Context, event *models.Event) {
 	// Get handlers
 	b.mutex.RLock()
 	handlers := b.handlers[EventType(event.Type)]
@@ -33,7 +33,7 @@ func (b *EventBusImpl) Publish(ctx context.Context, event *mcp.Event) {
 
 	// Call handlers
 	for _, handler := range handlers {
-		go func(h Handler, e *mcp.Event) {
+		go func(h Handler, e *models.Event) {
 			err := h(ctx, e)
 			if err != nil {
 				// Log error but don't stop processing

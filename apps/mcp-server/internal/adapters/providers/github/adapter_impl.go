@@ -6,7 +6,7 @@ import (
 	"context"
 	"errors"
 
-	githubAdapter "github.com/S-Corkum/devops-mcp/apps/mcp-server/internal/adapters/github"
+	githubAdapter "mcp-server/internal/adapters/github"
 
 	"github.com/S-Corkum/devops-mcp/pkg/common/events"
 	"github.com/S-Corkum/devops-mcp/pkg/observability"

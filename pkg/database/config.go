@@ -3,85 +3,130 @@ package database
 
 import (
 	"time"
-
-	commonconfig "github.com/S-Corkum/devops-mcp/pkg/common/config"
-	"github.com/S-Corkum/devops-mcp/pkg/config"
 )
 
-// Config is an alias for the common DatabaseConfig, extended with RDS-specific fields
+// Config defines what the database package needs - no external imports!
 type Config struct {
-	config.DatabaseConfig
-
-	// Direct access to common fields needed by application code
-	Driver           string        `yaml:"driver" mapstructure:"driver"`
-	MaxOpenConns     int           `yaml:"max_open_conns" mapstructure:"max_open_conns"`
-	MaxIdleConns     int           `yaml:"max_idle_conns" mapstructure:"max_idle_conns"`
-	ConnMaxLifetime  time.Duration `yaml:"conn_max_lifetime" mapstructure:"conn_max_lifetime"`
-
-	// UseAWS determines whether to use AWS services for database connections
-	UseAWS *bool `yaml:"use_aws" mapstructure:"use_aws"`
-
-	// UseIAM determines whether to use IAM authentication for database connections
-	UseIAM *bool `yaml:"use_iam" mapstructure:"use_iam"`
-
-	// RDSConfig contains RDS-specific configuration
-	RDSConfig *commonconfig.RDSConfig `yaml:"rds_config" mapstructure:"rds_config"`
-
-	// AutoMigrate determines whether to automatically run database migrations
-	AutoMigrate *bool `yaml:"auto_migrate" mapstructure:"auto_migrate"`
-
-	// FailOnMigrationError determines whether to fail if migration errors occur
-	FailOnMigrationError *bool `yaml:"fail_on_migration_error" mapstructure:"fail_on_migration_error"`
-
-	// MigrationsPath specifies the path to the database migration files
-	MigrationsPath string `yaml:"migrations_path" mapstructure:"migrations_path"`
-}
-
-// RDSConfig contains AWS RDS configuration
-type RDSConfig = commonconfig.RDSConfig
-
-// GetDefaultConfig returns a default database configuration
-func GetDefaultConfig() Config {
-	defaultDbConfig := config.GetDefaultDatabaseConfig()
-	useAWS := true
-	useIAM := true
-	autoMigrate := true
-
-	return Config{
-		DatabaseConfig: defaultDbConfig,
-		// Direct access fields
-		Driver:          defaultDbConfig.Driver,
-		MaxOpenConns:    defaultDbConfig.MaxOpenConns,
-		MaxIdleConns:    defaultDbConfig.MaxIdleConns,
-		ConnMaxLifetime: defaultDbConfig.ConnMaxLifetime,
-		// Other fields
-		UseAWS:         &useAWS,
-		UseIAM:         &useIAM,
-		AutoMigrate:    &autoMigrate,
-		MigrationsPath: "migrations",
-		RDSConfig:      &commonconfig.RDSConfig{},
-	}
-}
-
-// FromDatabaseConfig converts a config.DatabaseConfig to a database.Config
-// This is needed when applications use the common config package but need to pass
-// values to functions expecting the database.Config type
-func FromDatabaseConfig(dbConfig config.DatabaseConfig) Config {
-	useAWS := false
-	useIAM := false
-	autoMigrate := false
+	// Core database settings
+	Driver          string
+	DSN             string
+	Host            string
+	Port            int
+	Database        string
+	Username        string
+	Password        string
+	SSLMode         string
+	MaxOpenConns    int
+	MaxIdleConns    int
+	ConnMaxLifetime time.Duration
 	
-	return Config{
-		DatabaseConfig: dbConfig,
-		// Copy all the fields directly for direct access
-		Driver:          dbConfig.Driver,
-		MaxOpenConns:    dbConfig.MaxOpenConns,
-		MaxIdleConns:    dbConfig.MaxIdleConns,
-		ConnMaxLifetime: dbConfig.ConnMaxLifetime,
-		// Set the pointer fields with default values
-		UseAWS:         &useAWS,
-		UseIAM:         &useIAM,
-		AutoMigrate:    &autoMigrate,
-		MigrationsPath: "migrations",
+	// Timeout configurations (best practice)
+	QueryTimeout   time.Duration // Default: 30s
+	ConnectTimeout time.Duration // Default: 10s
+	
+	// AWS RDS specific settings (optional)
+	UseAWS     bool
+	UseIAM     bool
+	AWSRegion  string
+	AWSRoleARN string
+	
+	// RDS-specific configuration
+	RDSHost                  string
+	RDSPort                  int
+	RDSDatabase              string
+	RDSUsername              string
+	RDSTokenExpiration       int    // seconds
+	RDSEnablePooling         bool
+	RDSMinPoolSize           int
+	RDSMaxPoolSize           int
+	RDSConnectionTimeout     int    // seconds
+	
+	// Migration settings
+	AutoMigrate          bool
+	MigrationsPath       string
+	FailOnMigrationError bool
+}
+
+// NewConfig creates config with sensible defaults
+func NewConfig() *Config {
+	return &Config{
+		Driver:          "postgres",
+		MaxOpenConns:    25,
+		MaxIdleConns:    5,
+		ConnMaxLifetime: 5 * time.Minute,
+		QueryTimeout:    30 * time.Second,
+		ConnectTimeout:  10 * time.Second,
+		MigrationsPath:  "migrations",
+		SSLMode:         "disable",
+		Port:            5432,
+		
+		// RDS defaults
+		RDSPort:              5432,
+		RDSTokenExpiration:   900, // 15 minutes
+		RDSEnablePooling:     true,
+		RDSMinPoolSize:       2,
+		RDSMaxPoolSize:       10,
+		RDSConnectionTimeout: 30,
 	}
+}
+
+// GetDSN returns the connection string for the database
+func (c *Config) GetDSN() string {
+	if c.DSN != "" {
+		return c.DSN
+	}
+	
+	// Build DSN from components if not explicitly set
+	if c.UseAWS && c.UseIAM {
+		// For AWS RDS with IAM, DSN will be built by the RDS client
+		return ""
+	}
+	
+	// Build standard PostgreSQL DSN
+	return buildPostgresDSN(c)
+}
+
+// buildPostgresDSN constructs a PostgreSQL connection string
+func buildPostgresDSN(c *Config) string {
+	// Simple DSN builder - in production, use a proper DSN builder
+	if c.Host == "" {
+		c.Host = "localhost"
+	}
+	
+	dsn := "postgres://"
+	if c.Username != "" {
+		dsn += c.Username
+		if c.Password != "" {
+			dsn += ":" + c.Password
+		}
+		dsn += "@"
+	}
+	dsn += c.Host + ":" + string(c.Port) + "/" + c.Database
+	dsn += "?sslmode=" + c.SSLMode
+	
+	return dsn
+}
+
+// Validate checks if the configuration is valid
+func (c *Config) Validate() error {
+	if c.Driver == "" {
+		c.Driver = "postgres"
+	}
+	
+	if c.UseAWS && c.UseIAM {
+		// Validate AWS-specific settings
+		if c.AWSRegion == "" {
+			return ErrMissingAWSRegion
+		}
+		if c.RDSHost == "" {
+			return ErrMissingRDSHost
+		}
+	} else {
+		// Validate standard database settings
+		if c.GetDSN() == "" && (c.Host == "" || c.Database == "") {
+			return ErrInvalidDatabaseConfig
+		}
+	}
+	
+	return nil
 }

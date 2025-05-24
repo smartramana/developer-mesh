@@ -5,7 +5,7 @@ import (
 	"net/http"
 	"testing"
 
-	"github.com/S-Corkum/devops-mcp/internal/adapters/resilience"
+	"github.com/S-Corkum/devops-mcp/pkg/adapters/resilience"
 	"github.com/S-Corkum/devops-mcp/pkg/observability"
 )
 

@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"net/url"
 
-	"github.com/S-Corkum/devops-mcp/pkg/mcp"
+	"github.com/S-Corkum/devops-mcp/pkg/models"
 	"github.com/S-Corkum/devops-mcp/pkg/observability"
 )
 
@@ -24,12 +24,12 @@ func NewContextClient(client *RESTClient, logger observability.Logger) *ContextC
 }
 
 // CreateContext creates a new context
-func (c *ContextClient) CreateContext(ctx context.Context, contextObj *mcp.Context) (*mcp.Context, error) {
+func (c *ContextClient) CreateContext(ctx context.Context, contextObj *models.Context) (*models.Context, error) {
 	c.logger.Debug("Creating context via REST API", map[string]interface{}{
 		"context_id": contextObj.ID,
 	})
 
-	var result mcp.Context
+	var result models.Context
 	if err := c.client.Post(ctx, "/api/v1/contexts", contextObj, &result); err != nil {
 		return nil, fmt.Errorf("failed to create context: %w", err)
 	}
@@ -38,12 +38,12 @@ func (c *ContextClient) CreateContext(ctx context.Context, contextObj *mcp.Conte
 }
 
 // GetContext retrieves a context by ID
-func (c *ContextClient) GetContext(ctx context.Context, contextID string) (*mcp.Context, error) {
+func (c *ContextClient) GetContext(ctx context.Context, contextID string) (*models.Context, error) {
 	c.logger.Debug("Getting context by ID via REST API", map[string]interface{}{
 		"context_id": contextID,
 	})
 
-	var result mcp.Context
+	var result models.Context
 	if err := c.client.Get(ctx, fmt.Sprintf("/api/v1/contexts/%s", contextID), &result); err != nil {
 		return nil, fmt.Errorf("failed to get context: %w", err)
 	}
@@ -52,21 +52,21 @@ func (c *ContextClient) GetContext(ctx context.Context, contextID string) (*mcp.
 }
 
 // UpdateContext updates an existing context
-func (c *ContextClient) UpdateContext(ctx context.Context, contextID string, contextObj *mcp.Context, options *mcp.ContextUpdateOptions) (*mcp.Context, error) {
+func (c *ContextClient) UpdateContext(ctx context.Context, contextID string, contextObj *models.Context, options *models.ContextUpdateOptions) (*models.Context, error) {
 	c.logger.Debug("Updating context via REST API", map[string]interface{}{
 		"context_id": contextID,
 	})
 
 	// Create the request body with both the context and options
 	requestBody := struct {
-		Context *mcp.Context             `json:"context"`
-		Options *mcp.ContextUpdateOptions `json:"options,omitempty"`
+		Context *models.Context             `json:"context"`
+		Options *models.ContextUpdateOptions `json:"options,omitempty"`
 	}{
 		Context: contextObj,
 		Options: options,
 	}
 
-	var result mcp.Context
+	var result models.Context
 	if err := c.client.Put(ctx, fmt.Sprintf("/api/v1/contexts/%s", contextID), requestBody, &result); err != nil {
 		return nil, fmt.Errorf("failed to update context: %w", err)
 	}
@@ -88,7 +88,7 @@ func (c *ContextClient) DeleteContext(ctx context.Context, contextID string) err
 }
 
 // ListContexts lists contexts with optional filtering
-func (c *ContextClient) ListContexts(ctx context.Context, agentID, sessionID string, options map[string]interface{}) ([]*mcp.Context, error) {
+func (c *ContextClient) ListContexts(ctx context.Context, agentID, sessionID string, options map[string]interface{}) ([]*models.Context, error) {
 	c.logger.Debug("Listing contexts via REST API", map[string]interface{}{
 		"agent_id":   agentID,
 		"session_id": sessionID,
@@ -118,7 +118,7 @@ func (c *ContextClient) ListContexts(ctx context.Context, agentID, sessionID str
 	}
 
 	var result struct {
-		Contexts []*mcp.Context `json:"contexts"`
+		Contexts []*models.Context `json:"contexts"`
 	}
 	if err := c.client.Get(ctx, endpoint, &result); err != nil {
 		return nil, fmt.Errorf("failed to list contexts: %w", err)
@@ -128,7 +128,7 @@ func (c *ContextClient) ListContexts(ctx context.Context, agentID, sessionID str
 }
 
 // SearchInContext searches for text within a context
-func (c *ContextClient) SearchInContext(ctx context.Context, contextID, query string) ([]mcp.ContextItem, error) {
+func (c *ContextClient) SearchInContext(ctx context.Context, contextID, query string) ([]models.ContextItem, error) {
 	c.logger.Debug("Searching in context via REST API", map[string]interface{}{
 		"context_id": contextID,
 		"query":      query,
@@ -141,7 +141,7 @@ func (c *ContextClient) SearchInContext(ctx context.Context, contextID, query st
 	}
 
 	var result struct {
-		Results []mcp.ContextItem `json:"results"`
+		Results []models.ContextItem `json:"results"`
 	}
 	if err := c.client.Post(ctx, fmt.Sprintf("/api/v1/contexts/%s/search", contextID), requestBody, &result); err != nil {
 		return nil, fmt.Errorf("failed to search in context: %w", err)

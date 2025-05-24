@@ -1,7 +1,7 @@
 package github
 
 import (
-	"github.com/S-Corkum/devops-mcp/pkg/adapters/errors"
+	"github.com/S-Corkum/devops-mcp/pkg/common/errors"
 )
 
 // GitHubErrorProvider interface defines methods for providing GitHub errors

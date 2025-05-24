@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 	
-	"github.com/S-Corkum/devops-mcp/apps/rest-api/internal/adapters"
+	"rest-api/internal/adapters"
 	"github.com/S-Corkum/devops-mcp/pkg/database"
 	"github.com/S-Corkum/devops-mcp/pkg/observability"
 	"github.com/gin-gonic/gin"
@@ -15,7 +15,14 @@ func (s *Server) setupVectorAPI(ctx context.Context) error {
 	logger := s.logger.WithPrefix("vector_api")
 	
 	// Check if vector operations are enabled
-	if !s.cfg.Database.Vector.Enabled {
+	isEnabled := false
+	if vectorConfig, ok := s.cfg.Database.Vector.(map[string]interface{}); ok {
+		if enabled, ok := vectorConfig["enabled"].(bool); ok {
+			isEnabled = enabled
+		}
+	}
+	
+	if !isEnabled {
 		logger.Info("Vector operations are disabled", nil)
 		return nil
 	}

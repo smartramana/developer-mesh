@@ -2,9 +2,11 @@ package adapters
 
 import (
 	"context"
+	"fmt"
 	
-	internalRepo "github.com/S-Corkum/devops-mcp/apps/rest-api/internal/repository"
+	internalRepo "rest-api/internal/repository"
 	pkgRepo "github.com/S-Corkum/devops-mcp/pkg/repository"
+	"github.com/S-Corkum/devops-mcp/pkg/repository/vector"
 )
 
 // This file contains bridge code to make our adapters package compatible with
@@ -131,6 +133,39 @@ func (a *PkgVectorAPIAdapter) GetSupportedModels(ctx context.Context) ([]string,
 // DeleteModelEmbeddings implements the pkg repository interface by delegating to internal implementation
 func (a *PkgVectorAPIAdapter) DeleteModelEmbeddings(ctx context.Context, contextID string, modelID string) error {
 	return a.internal.DeleteModelEmbeddings(ctx, contextID, modelID)
+}
+
+// Create stores a new embedding (required by vector.Repository interface)
+func (a *PkgVectorAPIAdapter) Create(ctx context.Context, embedding *pkgRepo.Embedding) error {
+	return a.StoreEmbedding(ctx, embedding)
+}
+
+// Get retrieves an embedding by its ID (required by vector.Repository interface)
+func (a *PkgVectorAPIAdapter) Get(ctx context.Context, id string) (*pkgRepo.Embedding, error) {
+	// This method is not implemented in the internal interface
+	// Return an error indicating this operation is not supported
+	return nil, fmt.Errorf("Get operation not supported")
+}
+
+// List retrieves embeddings matching the provided filter (required by vector.Repository interface)
+func (a *PkgVectorAPIAdapter) List(ctx context.Context, filter vector.Filter) ([]*pkgRepo.Embedding, error) {
+	// This method is not implemented in the internal interface
+	// Return an error indicating this operation is not supported
+	return nil, fmt.Errorf("List operation not supported")
+}
+
+// Update modifies an existing embedding (required by vector.Repository interface)
+func (a *PkgVectorAPIAdapter) Update(ctx context.Context, embedding *pkgRepo.Embedding) error {
+	// This method is not implemented in the internal interface
+	// Return an error indicating this operation is not supported
+	return fmt.Errorf("Update operation not supported")
+}
+
+// Delete removes an embedding by its ID (required by vector.Repository interface)
+func (a *PkgVectorAPIAdapter) Delete(ctx context.Context, id string) error {
+	// This method is not implemented in the internal interface
+	// Return an error indicating this operation is not supported
+	return fmt.Errorf("Delete operation not supported")
 }
 
 // Make sure the type compatibility is verified at compile time

@@ -1,7 +1,9 @@
 package common
 
 import (
+	"fmt"
 	"math"
+	"strings"
 )
 
 // NormalizeVectorL2 normalizes a vector using L2 normalization (Euclidean norm)
@@ -68,4 +70,57 @@ func EuclideanDistance(a, b []float32) float32 {
 	}
 	
 	return float32(math.Sqrt(float64(sum)))
+}
+
+// FormatVectorForPgVector formats a float32 array as a pgvector string
+// Format: [0.1,0.2,0.3,...,0.n]
+func FormatVectorForPgVector(vector []float32) string {
+	if len(vector) == 0 {
+		return "[]"
+	}
+	
+	var result strings.Builder
+	result.WriteString("[")
+	
+	for i, v := range vector {
+		if i > 0 {
+			result.WriteString(",")
+		}
+		result.WriteString(fmt.Sprintf("%f", v))
+	}
+	
+	result.WriteString("]")
+	return result.String()
+}
+
+// ParseVectorFromPgVector parses a pgvector string into a float32 array
+// Handles both array formats: {0.1,0.2,0.3} and [0.1,0.2,0.3]
+func ParseVectorFromPgVector(vectorStr string) ([]float32, error) {
+	// Remove opening/closing brackets or braces
+	vectorStr = strings.TrimPrefix(vectorStr, "[")
+	vectorStr = strings.TrimPrefix(vectorStr, "{")
+	vectorStr = strings.TrimSuffix(vectorStr, "]")
+	vectorStr = strings.TrimSuffix(vectorStr, "}")
+	
+	// Empty vector
+	if vectorStr == "" {
+		return []float32{}, nil
+	}
+	
+	// Split by comma
+	parts := strings.Split(vectorStr, ",")
+	result := make([]float32, len(parts))
+	
+	// Parse each part
+	for i, part := range parts {
+		part = strings.TrimSpace(part)
+		var f float64
+		_, err := fmt.Sscanf(part, "%f", &f)
+		if err != nil {
+			return nil, fmt.Errorf("failed to parse vector component '%s': %w", part, err)
+		}
+		result[i] = float32(f)
+	}
+	
+	return result, nil
 }

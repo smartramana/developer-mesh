@@ -7,17 +7,16 @@ import (
 	"log"
 	"time"
 
-	"github.com/S-Corkum/devops-mcp/pkg/interfaces"
-	"github.com/S-Corkum/devops-mcp/pkg/mcp"
+	"github.com/S-Corkum/devops-mcp/pkg/models"
 )
 
 // ContextEventHandler handles context-related events
 type ContextEventHandler struct {
-	contextManager interfaces.ContextManager
+	contextManager ContextManager
 }
 
 // NewContextEventHandler creates a new context event handler
-func NewContextEventHandler(contextManager interfaces.ContextManager) *ContextEventHandler {
+func NewContextEventHandler(contextManager ContextManager) *ContextEventHandler {
 	return &ContextEventHandler{
 		contextManager: contextManager,
 	}
@@ -43,7 +42,7 @@ func (h *ContextEventHandler) RegisterWithEventBus(bus EventBus) {
 }
 
 // HandleContextEvent handles context events
-func (h *ContextEventHandler) HandleContextEvent(ctx context.Context, event *mcp.Event) error {
+func (h *ContextEventHandler) HandleContextEvent(ctx context.Context, event *models.Event) error {
 	// Extract context ID from event data
 	var contextID string
 	if data, ok := event.Data.(map[string]interface{}); ok {
@@ -142,7 +141,7 @@ func (h *ContextEventHandler) HandleContextEvent(ctx context.Context, event *mcp
 }
 
 // HandleToolEvent handles tool events
-func (h *ContextEventHandler) HandleToolEvent(ctx context.Context, event *mcp.Event) error {
+func (h *ContextEventHandler) HandleToolEvent(ctx context.Context, event *models.Event) error {
 	// Extract context ID from event data
 	var contextID string
 	var tool string
@@ -181,7 +180,7 @@ func (h *ContextEventHandler) HandleToolEvent(ctx context.Context, event *mcp.Ev
 		resultJSON = []byte("{}")
 	}
 	
-	toolAction := mcp.ContextItem{
+	toolAction := models.ContextItem{
 		Role:      "tool",
 		Content:   fmt.Sprintf("Tool %s executed action %s with result: %s", tool, action, string(resultJSON)),
 		Timestamp: time.Now(),
@@ -229,7 +228,7 @@ func (h *AgentEventHandler) RegisterWithEventBus(bus EventBus) {
 }
 
 // HandleAgentEvent handles agent events
-func (h *AgentEventHandler) HandleAgentEvent(ctx context.Context, event *mcp.Event) error {
+func (h *AgentEventHandler) HandleAgentEvent(ctx context.Context, event *models.Event) error {
 	// Extract agent ID
 	agentID := event.AgentID
 	if agentID == "" {
@@ -276,7 +275,7 @@ func (h *SystemEventHandler) RegisterWithEventBus(bus EventBus) {
 }
 
 // HandleSystemEvent handles system events
-func (h *SystemEventHandler) HandleSystemEvent(ctx context.Context, event *mcp.Event) error {
+func (h *SystemEventHandler) HandleSystemEvent(ctx context.Context, event *models.Event) error {
 	// Handle based on event type
 	switch EventType(event.Type) {
 	case EventSystemStartup:

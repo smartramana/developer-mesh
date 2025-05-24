@@ -3,7 +3,7 @@ package events
 import (
 	"context"
 
-	"github.com/S-Corkum/devops-mcp/pkg/mcp"
+	"github.com/S-Corkum/devops-mcp/pkg/models"
 )
 
 // EventType defines the type of event
@@ -53,12 +53,12 @@ type Event interface {
 }
 
 // Handler is a function that processes an event
-type Handler func(ctx context.Context, event *mcp.Event) error
+type Handler func(ctx context.Context, event *models.Event) error
 
 // EventBusIface is the interface for event bus implementations
 type EventBus interface {
 	// Publish publishes an event
-	Publish(ctx context.Context, event *mcp.Event)
+	Publish(ctx context.Context, event *models.Event)
 
 	// Subscribe subscribes to events of a specific type
 	Subscribe(eventType EventType, handler Handler)

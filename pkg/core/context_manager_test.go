@@ -3,8 +3,8 @@ package core
 import (
 	"testing"
 
-	"github.com/S-Corkum/devops-mcp/internal/cache/mocks"
-	"github.com/S-Corkum/devops-mcp/pkg/mcp"
+	"github.com/S-Corkum/devops-mcp/pkg/cache/mocks"
+	"github.com/S-Corkum/devops-mcp/pkg/models"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 )
@@ -60,7 +60,7 @@ func TestSubscribe(t *testing.T) {
 	mockCache := new(mocks.MockCache)
 	cm := NewContextManager(mockDB, mockCache)
 	// Add a subscriber
-	cm.Subscribe("context_created", func(event mcp.Event) {
+	cm.Subscribe("context_created", func(event models.Event) {
 		// This is called when an event is published
 	})
 	
@@ -68,7 +68,7 @@ func TestSubscribe(t *testing.T) {
 	assert.Len(t, cm.subscribers["context_created"], 1)
 	
 	// Add another subscriber for a different event type
-	cm.Subscribe("context_updated", func(event mcp.Event) {
+	cm.Subscribe("context_updated", func(event models.Event) {
 		// Do nothing
 	})
 	
@@ -77,7 +77,7 @@ func TestSubscribe(t *testing.T) {
 	assert.Len(t, cm.subscribers["context_updated"], 1)
 	
 	// Add a subscriber for all events
-	cm.Subscribe("all", func(event mcp.Event) {
+	cm.Subscribe("all", func(event models.Event) {
 		// Do nothing
 	})
 	

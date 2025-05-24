@@ -8,7 +8,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/S-Corkum/devops-mcp/pkg/mcp"
+	"github.com/S-Corkum/devops-mcp/pkg/models"
 	"github.com/S-Corkum/devops-mcp/pkg/observability"
 	"github.com/jmoiron/sqlx"
 )
@@ -19,11 +19,22 @@ const (
 	MetricContextOperationsTotal = "context_operations_total"
 )
 
+// ContextManagerInterface defines the interface for context management
+type ContextManagerInterface interface {
+	CreateContext(ctx context.Context, context *models.Context) (*models.Context, error)
+	GetContext(ctx context.Context, contextID string) (*models.Context, error)
+	UpdateContext(ctx context.Context, contextID string, context *models.Context, options *models.ContextUpdateOptions) (*models.Context, error)
+	DeleteContext(ctx context.Context, contextID string) error
+	ListContexts(ctx context.Context, agentID, sessionID string, options map[string]interface{}) ([]*models.Context, error)
+	SearchInContext(ctx context.Context, contextID, query string) ([]models.ContextItem, error)
+	SummarizeContext(ctx context.Context, contextID string) (string, error)
+}
+
 // ContextManager provides a production-ready implementation of ContextManagerInterface
 // It handles persistence, caching, and error handling for context operations
 type ContextManager struct {
 	db      *sqlx.DB
-	cache   map[string]*mcp.Context
+	cache   map[string]*models.Context
 	mutex   sync.RWMutex
 	logger  observability.Logger
 	metrics observability.MetricsClient
@@ -38,14 +49,14 @@ func NewContextManager(db *sqlx.DB, logger observability.Logger, metrics observa
 	return &ContextManager{
 		db:      db,
 		logger:  logger,
-		cache:   make(map[string]*mcp.Context),
+		cache:   make(map[string]*models.Context),
 		mutex:   sync.RWMutex{},
 		metrics: metrics,
 	}
 }
 
 // CreateContext creates a new context with database persistence
-func (cm *ContextManager) CreateContext(ctx context.Context, context *mcp.Context) (*mcp.Context, error) {
+func (cm *ContextManager) CreateContext(ctx context.Context, context *models.Context) (*models.Context, error) {
 	startTime := time.Now()
 	defer func() {
 		cm.metrics.RecordHistogram(MetricContextCreationLatency, time.Since(startTime).Seconds(), nil)
@@ -53,7 +64,7 @@ func (cm *ContextManager) CreateContext(ctx context.Context, context *mcp.Contex
 	
 	if context == nil {
 		cm.logger.Error("Attempted to create nil context", nil)
-		cm.metrics.IncrementCounter(MetricContextOperationsTotal, 1, map[string]string{"operation": "create", "status": "error"})
+		cm.metrics.IncrementCounterWithLabels(MetricContextOperationsTotal, float64(1), map[string]string{"operation": "create", "status": "error"})
 		return nil, errors.New("cannot create nil context")
 	}
 	
@@ -81,7 +92,7 @@ func (cm *ContextManager) CreateContext(ctx context.Context, context *mcp.Contex
 				"error": err.Error(),
 				"context_id": context.ID,
 			})
-			cm.metrics.IncrementCounter(MetricContextOperationsTotal, 1, map[string]string{"operation": "create", "status": "error"})
+			cm.metrics.IncrementCounterWithLabels(MetricContextOperationsTotal, float64(1), map[string]string{"operation": "create", "status": "error"})
 			return nil, fmt.Errorf("failed to store context: %w", err)
 		}
 	} else {
@@ -95,15 +106,15 @@ func (cm *ContextManager) CreateContext(ctx context.Context, context *mcp.Contex
 	cm.cache[context.ID] = context
 	cm.mutex.Unlock()
 	
-	cm.metrics.IncrementCounter(MetricContextOperationsTotal, 1, map[string]string{"operation": "create", "status": "success"})
+	cm.metrics.IncrementCounterWithLabels(MetricContextOperationsTotal, float64(1), map[string]string{"operation": "create", "status": "success"})
 	return context, nil
 }
 
 // GetContext retrieves a context by ID
-func (cm *ContextManager) GetContext(ctx context.Context, contextID string) (*mcp.Context, error) {
+func (cm *ContextManager) GetContext(ctx context.Context, contextID string) (*models.Context, error) {
 	if contextID == "" {
 		cm.logger.Error("Attempted to get context with empty ID", nil)
-		cm.metrics.IncrementCounter(MetricContextOperationsTotal, 1, map[string]string{"operation": "get", "status": "error"})
+		cm.metrics.IncrementCounterWithLabels(MetricContextOperationsTotal, float64(1), map[string]string{"operation": "get", "status": "error"})
 		return nil, errors.New("context ID cannot be empty")
 	}
 	
@@ -113,13 +124,13 @@ func (cm *ContextManager) GetContext(ctx context.Context, contextID string) (*mc
 	cm.mutex.RUnlock()
 	
 	if found {
-		cm.metrics.IncrementCounter(MetricContextOperationsTotal, 1, map[string]string{"operation": "get", "status": "cache_hit"})
+		cm.metrics.IncrementCounterWithLabels(MetricContextOperationsTotal, float64(1), map[string]string{"operation": "get", "status": "cache_hit"})
 		return cachedContext, nil
 	}
 	
 	// Not in cache, try database
 	if cm.db != nil {
-		var context mcp.Context
+		var context models.Context
 		q := `SELECT * FROM contexts WHERE id = $1 LIMIT 1`
 		
 		// Use QueryRowxContext to fetch a single row
@@ -129,7 +140,7 @@ func (cm *ContextManager) GetContext(ctx context.Context, contextID string) (*mc
 				"error": err.Error(),
 				"context_id": contextID,
 			})
-			cm.metrics.IncrementCounter(MetricContextOperationsTotal, 1, map[string]string{"operation": "get", "status": "error"})
+			cm.metrics.IncrementCounterWithLabels(MetricContextOperationsTotal, float64(1), map[string]string{"operation": "get", "status": "error"})
 			return nil, fmt.Errorf("failed to retrieve context: %w", err)
 		}
 		
@@ -138,32 +149,32 @@ func (cm *ContextManager) GetContext(ctx context.Context, contextID string) (*mc
 		cm.cache[contextID] = &context
 		cm.mutex.Unlock()
 		
-		cm.metrics.IncrementCounter(MetricContextOperationsTotal, 1, map[string]string{"operation": "get", "status": "db_hit"})
+		cm.metrics.IncrementCounterWithLabels(MetricContextOperationsTotal, float64(1), map[string]string{"operation": "get", "status": "db_hit"})
 		return &context, nil
 	}
 	
 	cm.logger.Error("Context not found and database not available", map[string]interface{}{
 		"context_id": contextID,
 	})
-	cm.metrics.IncrementCounter(MetricContextOperationsTotal, 1, map[string]string{"operation": "get", "status": "not_found"})
+	cm.metrics.IncrementCounterWithLabels(MetricContextOperationsTotal, float64(1), map[string]string{"operation": "get", "status": "not_found"})
 	return nil, fmt.Errorf("context not found: %s", contextID)
 }
 
 // UpdateContext updates an existing context
-func (cm *ContextManager) UpdateContext(ctx context.Context, contextID string, updatedContext *mcp.Context, options *mcp.ContextUpdateOptions) (*mcp.Context, error) {
+func (cm *ContextManager) UpdateContext(ctx context.Context, contextID string, updatedContext *models.Context, options *models.ContextUpdateOptions) (*models.Context, error) {
 	if contextID == "" || updatedContext == nil {
 		cm.logger.Error("Invalid parameters for context update", map[string]interface{}{
 			"context_id": contextID,
 			"context_nil": updatedContext == nil,
 		})
-		cm.metrics.IncrementCounter(MetricContextOperationsTotal, 1, map[string]string{"operation": "update", "status": "error"})
+		cm.metrics.IncrementCounterWithLabels(MetricContextOperationsTotal, float64(1), map[string]string{"operation": "update", "status": "error"})
 		return nil, errors.New("invalid parameters for context update")
 	}
 	
 	// First get the existing context
 	existingContext, err := cm.GetContext(ctx, contextID)
 	if err != nil {
-		cm.metrics.IncrementCounter(MetricContextOperationsTotal, 1, map[string]string{"operation": "update", "status": "error"})
+		cm.metrics.IncrementCounterWithLabels(MetricContextOperationsTotal, float64(1), map[string]string{"operation": "update", "status": "error"})
 		return nil, fmt.Errorf("cannot update non-existent context: %w", err)
 	}
 	
@@ -190,7 +201,7 @@ func (cm *ContextManager) UpdateContext(ctx context.Context, contextID string, u
 				"error": err.Error(),
 				"context_id": contextID,
 			})
-			cm.metrics.IncrementCounter(MetricContextOperationsTotal, 1, map[string]string{"operation": "update", "status": "error"})
+			cm.metrics.IncrementCounterWithLabels(MetricContextOperationsTotal, float64(1), map[string]string{"operation": "update", "status": "error"})
 			return nil, fmt.Errorf("failed to update context: %w", err)
 		}
 	} else {
@@ -204,7 +215,7 @@ func (cm *ContextManager) UpdateContext(ctx context.Context, contextID string, u
 	cm.cache[contextID] = updatedContext
 	cm.mutex.Unlock()
 	
-	cm.metrics.IncrementCounter(MetricContextOperationsTotal, 1, map[string]string{"operation": "update", "status": "success"})
+	cm.metrics.IncrementCounterWithLabels(MetricContextOperationsTotal, float64(1), map[string]string{"operation": "update", "status": "success"})
 	return updatedContext, nil
 }
 
@@ -212,7 +223,7 @@ func (cm *ContextManager) UpdateContext(ctx context.Context, contextID string, u
 func (cm *ContextManager) DeleteContext(ctx context.Context, contextID string) error {
 	if contextID == "" {
 		cm.logger.Error("Attempted to delete context with empty ID", nil)
-		cm.metrics.IncrementCounter(MetricContextOperationsTotal, 1, map[string]string{"operation": "delete", "status": "error"})
+		cm.metrics.IncrementCounterWithLabels(MetricContextOperationsTotal, float64(1), map[string]string{"operation": "delete", "status": "error"})
 		return errors.New("context ID cannot be empty")
 	}
 	
@@ -228,7 +239,7 @@ func (cm *ContextManager) DeleteContext(ctx context.Context, contextID string) e
 				"error": err.Error(),
 				"context_id": contextID,
 			})
-			cm.metrics.IncrementCounter(MetricContextOperationsTotal, 1, map[string]string{"operation": "delete", "status": "error"})
+			cm.metrics.IncrementCounterWithLabels(MetricContextOperationsTotal, float64(1), map[string]string{"operation": "delete", "status": "error"})
 			return fmt.Errorf("failed to delete context: %w", err)
 		}
 	} else {
@@ -242,13 +253,14 @@ func (cm *ContextManager) DeleteContext(ctx context.Context, contextID string) e
 	delete(cm.cache, contextID)
 	cm.mutex.Unlock()
 	
-	cm.metrics.IncrementCounter(MetricContextOperationsTotal, 1, map[string]string{"operation": "delete", "status": "success"})
+	cm.metrics.IncrementCounterWithLabels(MetricContextOperationsTotal, float64(1), map[string]string{"operation": "delete", "status": "success"})
 	return nil
 }
 
 // ListContexts lists all contexts matching the filter criteria
-func (cm *ContextManager) ListContexts(ctx context.Context, agentID, sessionID string, options map[string]interface{}) ([]*mcp.Context, error) {
-	var results []*mcp.Context
+func (cm *ContextManager) ListContexts(ctx context.Context, agentID, sessionID string, options map[string]interface{}) ([]*models.Context, error) {
+	// Create an array to hold the results
+	var results []*models.Context
 	
 	// Build query conditions
 	conditions := make(map[string]interface{})
@@ -297,14 +309,14 @@ func (cm *ContextManager) ListContexts(ctx context.Context, agentID, sessionID s
 				"agent_id": agentID,
 				"session_id": sessionID,
 			})
-			cm.metrics.IncrementCounter(MetricContextOperationsTotal, 1, map[string]string{"operation": "list", "status": "error"})
+			cm.metrics.IncrementCounterWithLabels(MetricContextOperationsTotal, float64(1), map[string]string{"operation": "list", "status": "error"})
 			return nil, fmt.Errorf("failed to list contexts: %w", err)
 		}
 		defer rows.Close()
 		
 		// Iterate through results
 		for rows.Next() {
-			var context mcp.Context
+			var context models.Context
 			if err := rows.StructScan(&context); err != nil {
 				cm.logger.Error("Failed to scan context from database", map[string]interface{}{
 					"error": err.Error(),
@@ -319,7 +331,7 @@ func (cm *ContextManager) ListContexts(ctx context.Context, agentID, sessionID s
 			cm.logger.Error("Error during context rows iteration", map[string]interface{}{
 				"error": err.Error(),
 			})
-			cm.metrics.IncrementCounter(MetricContextOperationsTotal, 1, map[string]string{"operation": "list", "status": "error"})
+			cm.metrics.IncrementCounterWithLabels(MetricContextOperationsTotal, float64(1), map[string]string{"operation": "list", "status": "error"})
 			return results, fmt.Errorf("error during context iteration: %w", err)
 		}
 	} else {
@@ -346,29 +358,29 @@ func (cm *ContextManager) ListContexts(ctx context.Context, agentID, sessionID s
 		}
 	}
 	
-	cm.metrics.IncrementCounter(MetricContextOperationsTotal, 1, map[string]string{"operation": "list", "status": "success"})
+	cm.metrics.IncrementCounterWithLabels(MetricContextOperationsTotal, float64(1), map[string]string{"operation": "list", "status": "success"})
 	return results, nil
 }
 
 // SearchInContext searches for items within a context
-func (cm *ContextManager) SearchInContext(ctx context.Context, contextID, query string) ([]mcp.ContextItem, error) {
+func (cm *ContextManager) SearchInContext(ctx context.Context, contextID, query string) ([]models.ContextItem, error) {
 	if contextID == "" || query == "" {
 		cm.logger.Error("Invalid parameters for context search", map[string]interface{}{
 			"context_id": contextID,
 			"query_empty": query == "",
 		})
-		cm.metrics.IncrementCounter(MetricContextOperationsTotal, 1, map[string]string{"operation": "search", "status": "error"})
+		cm.metrics.IncrementCounterWithLabels(MetricContextOperationsTotal, float64(1), map[string]string{"operation": "search", "status": "error"})
 		return nil, errors.New("context ID and query cannot be empty")
 	}
 	
 	// First, ensure the context exists
 	_, err := cm.GetContext(ctx, contextID)
 	if err != nil {
-		cm.metrics.IncrementCounter(MetricContextOperationsTotal, 1, map[string]string{"operation": "search", "status": "error"})
+		cm.metrics.IncrementCounterWithLabels(MetricContextOperationsTotal, float64(1), map[string]string{"operation": "search", "status": "error"})
 		return nil, fmt.Errorf("cannot search in non-existent context: %w", err)
 	}
 	
-	var results []mcp.ContextItem
+	var results []models.ContextItem
 	
 	// Perform search in database if available
 	if cm.db != nil {
@@ -383,14 +395,14 @@ func (cm *ContextManager) SearchInContext(ctx context.Context, contextID, query 
 				"context_id": contextID,
 				"query": query,
 			})
-			cm.metrics.IncrementCounter(MetricContextOperationsTotal, 1, map[string]string{"operation": "search", "status": "error"})
+			cm.metrics.IncrementCounterWithLabels(MetricContextOperationsTotal, float64(1), map[string]string{"operation": "search", "status": "error"})
 			return nil, fmt.Errorf("failed to search in context: %w", err)
 		}
 		defer rows.Close()
 		
 		// Iterate through results
 		for rows.Next() {
-			var item mcp.ContextItem
+			var item models.ContextItem
 			if err := rows.StructScan(&item); err != nil {
 				cm.logger.Error("Failed to scan context item from database", map[string]interface{}{
 					"error": err.Error(),
@@ -405,7 +417,7 @@ func (cm *ContextManager) SearchInContext(ctx context.Context, contextID, query 
 			cm.logger.Error("Error during context item rows iteration", map[string]interface{}{
 				"error": err.Error(),
 			})
-			cm.metrics.IncrementCounter(MetricContextOperationsTotal, 1, map[string]string{"operation": "search", "status": "error"})
+			cm.metrics.IncrementCounterWithLabels(MetricContextOperationsTotal, float64(1), map[string]string{"operation": "search", "status": "error"})
 			// Return partial results with error
 			return results, fmt.Errorf("error during context item iteration: %w", err)
 		}
@@ -415,7 +427,7 @@ func (cm *ContextManager) SearchInContext(ctx context.Context, contextID, query 
 		})
 	}
 	
-	cm.metrics.IncrementCounter(MetricContextOperationsTotal, 1, map[string]string{"operation": "search", "status": "success"})
+	cm.metrics.IncrementCounterWithLabels(MetricContextOperationsTotal, float64(1), map[string]string{"operation": "search", "status": "success"})
 	return results, nil
 }
 
@@ -423,14 +435,14 @@ func (cm *ContextManager) SearchInContext(ctx context.Context, contextID, query 
 func (cm *ContextManager) SummarizeContext(ctx context.Context, contextID string) (string, error) {
 	if contextID == "" {
 		cm.logger.Error("Attempted to summarize context with empty ID", nil)
-		cm.metrics.IncrementCounter(MetricContextOperationsTotal, 1, map[string]string{"operation": "summarize", "status": "error"})
+		cm.metrics.IncrementCounterWithLabels(MetricContextOperationsTotal, float64(1), map[string]string{"operation": "summarize", "status": "error"})
 		return "", errors.New("context ID cannot be empty")
 	}
 	
 	// First, ensure the context exists
 	context, err := cm.GetContext(ctx, contextID)
 	if err != nil {
-		cm.metrics.IncrementCounter(MetricContextOperationsTotal, 1, map[string]string{"operation": "summarize", "status": "error"})
+		cm.metrics.IncrementCounterWithLabels(MetricContextOperationsTotal, float64(1), map[string]string{"operation": "summarize", "status": "error"})
 		return "", fmt.Errorf("cannot summarize non-existent context: %w", err)
 	}
 	
@@ -441,7 +453,7 @@ func (cm *ContextManager) SummarizeContext(ctx context.Context, contextID string
 		context.Name,
 		context.CreatedAt.Format(time.RFC3339))
 	
-	cm.metrics.IncrementCounter(MetricContextOperationsTotal, 1, map[string]string{"operation": "summarize", "status": "success"})
+	cm.metrics.IncrementCounterWithLabels(MetricContextOperationsTotal, float64(1), map[string]string{"operation": "summarize", "status": "success"})
 	return summary, nil
 }
 

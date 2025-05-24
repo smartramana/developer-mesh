@@ -6,7 +6,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/S-Corkum/devops-mcp/apps/worker/internal/queue"
+	"github.com/S-Corkum/devops-mcp/pkg/queue"
 	"github.com/S-Corkum/devops-mcp/pkg/observability"
 )
 
@@ -17,6 +17,11 @@ type MockLogger struct {
 	WarnCalls  int
 	DebugCalls int
 	FatalCalls int
+	InfofCalls int
+	ErrorfCalls int
+	WarnfCalls int
+	DebugfCalls int
+	FatalfCalls int
 }
 
 func (m *MockLogger) Info(msg string, fields map[string]interface{}) {
@@ -43,6 +48,30 @@ func (m *MockLogger) WithPrefix(prefix string) observability.Logger {
 	return m
 }
 
+func (m *MockLogger) With(fields map[string]interface{}) observability.Logger {
+	return m
+}
+
+func (m *MockLogger) Debugf(format string, args ...interface{}) {
+	m.DebugfCalls++
+}
+
+func (m *MockLogger) Infof(format string, args ...interface{}) {
+	m.InfofCalls++
+}
+
+func (m *MockLogger) Warnf(format string, args ...interface{}) {
+	m.WarnfCalls++
+}
+
+func (m *MockLogger) Errorf(format string, args ...interface{}) {
+	m.ErrorfCalls++
+}
+
+func (m *MockLogger) Fatalf(format string, args ...interface{}) {
+	m.FatalfCalls++
+}
+
 // MockMetricsClient is a simple mock for the MetricsClient interface
 type MockMetricsClient struct {
 	CounterCalls     int
@@ -53,10 +82,17 @@ type MockMetricsClient struct {
 	OperationCalls   int
 	LastCounterName  string
 	LastCounterValue float64
+	WithLabelsCalls  int
 }
 
-func (m *MockMetricsClient) IncrementCounter(name string, value float64, tags map[string]string) {
+func (m *MockMetricsClient) IncrementCounter(name string, value float64) {
 	m.CounterCalls++
+	m.LastCounterName = name
+	m.LastCounterValue = value
+}
+
+func (m *MockMetricsClient) IncrementCounterWithLabels(name string, value float64, tags map[string]string) {
+	m.WithLabelsCalls++
 	m.LastCounterName = name
 	m.LastCounterValue = value
 }
@@ -85,13 +121,28 @@ func (m *MockMetricsClient) RecordDuration(operation string, duration time.Durat
 	m.LatencyCalls++
 }
 
-func (m *MockMetricsClient) RecordOperation(operationName string, actionName string, success bool, duration float64, tags map[string]string) {
+func (m *MockMetricsClient) RecordTimer(name string, duration time.Duration, labels map[string]string) {
+	m.LatencyCalls++
+}
+
+func (m *MockMetricsClient) RecordOperation(component string, operation string, success bool, durationSeconds float64, labels map[string]string) {
 	m.OperationCalls++
 }
 
-func (m *MockMetricsClient) RecordOperationWithContext(ctx context.Context, operation string, f func() error) error {
+func (m *MockMetricsClient) RecordCacheOperation(operation string, success bool, durationSeconds float64) {
 	m.OperationCalls++
-	return f()
+}
+
+func (m *MockMetricsClient) RecordAPIOperation(api string, operation string, success bool, durationSeconds float64) {
+	m.OperationCalls++
+}
+
+func (m *MockMetricsClient) RecordDatabaseOperation(operation string, success bool, durationSeconds float64) {
+	m.OperationCalls++
+}
+
+func (m *MockMetricsClient) StartTimer(name string, labels map[string]string) func() {
+	return func() {}
 }
 
 func (m *MockMetricsClient) Close() error {
@@ -139,8 +190,8 @@ func TestPushProcessor_Process(t *testing.T) {
 	if mockLogger.InfoCalls == 0 {
 		t.Error("Expected logger.Info to be called")
 	}
-	if mockMetrics.CounterCalls == 0 {
-		t.Error("Expected metrics.IncrementCounter to be called")
+	if mockMetrics.WithLabelsCalls == 0 {
+		t.Error("Expected metrics.IncrementCounterWithLabels to be called")
 	}
 
 	// Invalid push event (missing required fields)
@@ -193,8 +244,8 @@ func TestPullRequestProcessor_Process(t *testing.T) {
 	if mockLogger.InfoCalls == 0 {
 		t.Error("Expected logger.Info to be called")
 	}
-	if mockMetrics.CounterCalls == 0 {
-		t.Error("Expected metrics.IncrementCounter to be called")
+	if mockMetrics.WithLabelsCalls == 0 {
+		t.Error("Expected metrics.IncrementCounterWithLabels to be called")
 	}
 
 	// Invalid PR event (missing required fields)
@@ -246,8 +297,8 @@ func TestIssuesProcessor_Process(t *testing.T) {
 	if mockLogger.InfoCalls == 0 {
 		t.Error("Expected logger.Info to be called")
 	}
-	if mockMetrics.CounterCalls == 0 {
-		t.Error("Expected metrics.IncrementCounter to be called")
+	if mockMetrics.WithLabelsCalls == 0 {
+		t.Error("Expected metrics.IncrementCounterWithLabels to be called")
 	}
 }
 

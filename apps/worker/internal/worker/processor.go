@@ -7,7 +7,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/S-Corkum/devops-mcp/apps/worker/internal/queue"
+	"github.com/S-Corkum/devops-mcp/pkg/queue"
 	"github.com/S-Corkum/devops-mcp/pkg/observability"
 )
 
@@ -77,7 +77,7 @@ func (p *EventProcessor) ProcessSQSEvent(ctx context.Context, event queue.SQSEve
 	})
 
 	// Record metrics for this event
-	p.metrics.IncrementCounter("webhook_events_received_total", 1, map[string]string{
+	p.metrics.IncrementCounterWithLabels("webhook_events_received_total", 1, map[string]string{
 		"event_type": event.EventType,
 		"repo":       event.RepoName,
 	})
@@ -90,7 +90,7 @@ func (p *EventProcessor) ProcessSQSEvent(ctx context.Context, event queue.SQSEve
 			"delivery_id": event.DeliveryID,
 			"error":       err.Error(),
 		})
-		p.metrics.IncrementCounter("webhook_events_failed_total", 1, map[string]string{
+		p.metrics.IncrementCounterWithLabels("webhook_events_failed_total", 1, map[string]string{
 			"event_type": event.EventType,
 			"reason":     "parse_failure",
 		})

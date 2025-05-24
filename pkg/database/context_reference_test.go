@@ -6,7 +6,7 @@ import (
 	"time"
 
 	"github.com/DATA-DOG/go-sqlmock"
-	"github.com/S-Corkum/devops-mcp/pkg/mcp"
+	"github.com/S-Corkum/devops-mcp/pkg/models"
 	"github.com/jmoiron/sqlx"
 	"github.com/stretchr/testify/assert"
 )
@@ -31,7 +31,7 @@ func TestContextReference(t *testing.T) {
 	// Create test data
 	ctx := context.Background()
 	now := time.Now()
-	testContext := &mcp.Context{
+	testContext := &models.Context{
 		ID:            "test-id",
 		AgentID:       "test-agent",
 		ModelID:       "test-model",
@@ -40,7 +40,7 @@ func TestContextReference(t *testing.T) {
 		UpdatedAt:     now,
 		ExpiresAt:     now.Add(24 * time.Hour),
 		CurrentTokens: 100,
-		Content:       make([]mcp.ContextItem, 5),
+		Content:       make([]models.ContextItem, 5),
 	}
 
 	t.Run("CreateContextReference", func(t *testing.T) {

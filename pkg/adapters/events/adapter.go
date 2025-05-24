@@ -5,7 +5,7 @@ import (
 	"context"
 	"time"
 
-	"github.com/S-Corkum/devops-mcp/pkg/mcp"
+	"github.com/S-Corkum/devops-mcp/pkg/models"
 )
 
 // AdapterEventType defines standard event types for adapters
@@ -51,9 +51,9 @@ func (e *AdapterEvent) WithMetadata(key string, value interface{}) *AdapterEvent
 	return e
 }
 
-// ToMCPEvent converts an adapter event to an MCP event for use with the standard event bus
-func (e *AdapterEvent) ToMCPEvent() *mcp.Event {
-	return &mcp.Event{
+// ToModelEvent converts an adapter event to a models.Event for use with the standard event bus
+func (e *AdapterEvent) ToModelEvent() *models.Event {
+	return &models.Event{
 		Type:      string(e.EventType),
 		Data:      e.Payload,
 		Timestamp: e.Timestamp,

@@ -4,8 +4,8 @@ import (
 	"context"
 	"sync"
 
-	"github.com/S-Corkum/devops-mcp/apps/mcp-server/internal/adapters/events"
-	"github.com/S-Corkum/devops-mcp/pkg/mcp"
+	"mcp-server/internal/adapters/events"
+	"github.com/S-Corkum/devops-mcp/pkg/models"
 )
 
 // MockEventBus is a mock implementation of the EventBusIface for testing
@@ -27,17 +27,17 @@ func NewMockEventBus() *MockEventBus {
 
 // Subscribe subscribes to events of a specific type
 // Satisfies EventBusIface by adapting to Handler signature
-func (b *MockEventBus) Subscribe(eventType events.EventType, handler func(ctx context.Context, event *mcp.Event) error) {
+func (b *MockEventBus) Subscribe(eventType events.EventType, handler func(ctx context.Context, event *models.Event) error) {
 	// This is a stub for the interface; implement as needed for your tests.
 }
 
 // Unsubscribe unsubscribes from events of a specific type
-func (b *MockEventBus) Unsubscribe(eventType events.EventType, handler func(ctx context.Context, event *mcp.Event) error) {
+func (b *MockEventBus) Unsubscribe(eventType events.EventType, handler func(ctx context.Context, event *models.Event) error) {
 	// This is a stub for the interface; implement as needed for your tests.
 }
 
 // Publish publishes an event to all subscribers
-func (b *MockEventBus) Publish(ctx context.Context, event *mcp.Event) {
+func (b *MockEventBus) Publish(ctx context.Context, event *models.Event) {
 	// This is a stub for the interface; implement as needed for your tests.
 }
 

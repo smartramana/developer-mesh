@@ -5,7 +5,7 @@ import (
 	"sync"
 
 	"github.com/S-Corkum/devops-mcp/pkg/events"
-	"github.com/S-Corkum/devops-mcp/pkg/mcp"
+	"github.com/S-Corkum/devops-mcp/pkg/models"
 	"github.com/S-Corkum/devops-mcp/pkg/observability"
 )
 
@@ -147,8 +147,8 @@ func (b *EventBusImpl) Emit(ctx context.Context, event *AdapterEvent) error {
 
 	// Forward to system event bus if available
 	if b.systemBus != nil {
-		mcpEvent := event.ToMCPEvent()
-		b.systemBus.Publish(ctx, mcpEvent)
+		modelEvent := event.ToModelEvent()
+		b.systemBus.Publish(ctx, modelEvent)
 	}
 	
 	return nil
@@ -173,7 +173,7 @@ func (b *EventBusImpl) Close() {
 }
 
 // ForwardToMainBus implements the events.EventBus interface for compatibility
-func (b *EventBusImpl) Publish(ctx context.Context, event *mcp.Event) {
+func (b *EventBusImpl) Publish(ctx context.Context, event *models.Event) {
 	if b.systemBus != nil {
 		b.systemBus.Publish(ctx, event)
 	}

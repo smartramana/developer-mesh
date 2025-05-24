@@ -3,16 +3,12 @@ package cache
 import (
 	"context"
 	"crypto/tls"
-	"errors"
 	"fmt"
 	"os"
 	"time"
 
 	"github.com/S-Corkum/devops-mcp/pkg/common/aws"
 )
-
-// ErrNotFound is returned when a key is not found in the cache
-var ErrNotFound = errors.New("key not found in cache")
 
 // RedisConfig holds configuration for Redis
 type RedisConfig struct {

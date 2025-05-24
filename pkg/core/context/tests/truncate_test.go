@@ -4,7 +4,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/S-Corkum/devops-mcp/pkg/mcp"
+	"github.com/S-Corkum/devops-mcp/pkg/models"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -13,16 +13,16 @@ func TestTruncateOldestFirst(t *testing.T) {
 	// Define test cases
 	testCases := []struct {
 		name           string
-		context        *mcp.Context
+		context        *models.Context
 		expectedItems  int
 		expectedTokens int
 	}{
 		{
 			name: "context under max tokens",
-			context: &mcp.Context{
+			context: &models.Context{
 				MaxTokens:     100,
 				CurrentTokens: 50,
-				Content: []mcp.ContextItem{
+				Content: []models.ContextItem{
 					{
 						Role:      "user",
 						Content:   "Message 1",
@@ -42,10 +42,10 @@ func TestTruncateOldestFirst(t *testing.T) {
 		},
 		{
 			name: "context over max tokens",
-			context: &mcp.Context{
+			context: &models.Context{
 				MaxTokens:     50,
 				CurrentTokens: 100,
-				Content: []mcp.ContextItem{
+				Content: []models.ContextItem{
 					{
 						Role:      "user",
 						Content:   "Message 1",
@@ -71,20 +71,20 @@ func TestTruncateOldestFirst(t *testing.T) {
 		},
 		{
 			name: "empty context",
-			context: &mcp.Context{
+			context: &models.Context{
 				MaxTokens:     100,
 				CurrentTokens: 0,
-				Content:       []mcp.ContextItem{},
+				Content:       []models.ContextItem{},
 			},
 			expectedItems:  0,
 			expectedTokens: 0,
 		},
 		{
 			name: "exact token match",
-			context: &mcp.Context{
+			context: &models.Context{
 				MaxTokens:     50,
 				CurrentTokens: 50,
-				Content: []mcp.ContextItem{
+				Content: []models.ContextItem{
 					{
 						Role:      "user",
 						Content:   "Message 1",
@@ -108,10 +108,10 @@ func TestTruncateOldestFirst(t *testing.T) {
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			// Make a copy of the context to avoid modifying the test case
-			contextCopy := &mcp.Context{
+			contextCopy := &models.Context{
 				MaxTokens:     tc.context.MaxTokens,
 				CurrentTokens: tc.context.CurrentTokens,
-				Content:       make([]mcp.ContextItem, len(tc.context.Content)),
+				Content:       make([]models.ContextItem, len(tc.context.Content)),
 			}
 			
 			// Copy content items
@@ -140,15 +140,15 @@ func TestTruncatePreservingUser(t *testing.T) {
 	// Define test cases
 	testCases := []struct {
 		name           string
-		context        *mcp.Context
+		context        *models.Context
 		expectedTokens int
 	}{
 		{
 			name: "context under max tokens",
-			context: &mcp.Context{
+			context: &models.Context{
 				MaxTokens:     100,
 				CurrentTokens: 50,
-				Content: []mcp.ContextItem{
+				Content: []models.ContextItem{
 					{
 						Role:      "user",
 						Content:   "User Message 1",
@@ -167,10 +167,10 @@ func TestTruncatePreservingUser(t *testing.T) {
 		},
 		{
 			name: "assistant messages only",
-			context: &mcp.Context{
+			context: &models.Context{
 				MaxTokens:     50,
 				CurrentTokens: 100,
-				Content: []mcp.ContextItem{
+				Content: []models.ContextItem{
 					{
 						Role:      "assistant",
 						Content:   "Assistant Message 1",
@@ -195,10 +195,10 @@ func TestTruncatePreservingUser(t *testing.T) {
 		},
 		{
 			name: "user messages only",
-			context: &mcp.Context{
+			context: &models.Context{
 				MaxTokens:     50,
 				CurrentTokens: 100,
-				Content: []mcp.ContextItem{
+				Content: []models.ContextItem{
 					{
 						Role:      "user",
 						Content:   "User Message 1",
@@ -223,10 +223,10 @@ func TestTruncatePreservingUser(t *testing.T) {
 		},
 		{
 			name: "mixed messages",
-			context: &mcp.Context{
+			context: &models.Context{
 				MaxTokens:     50,
 				CurrentTokens: 130,
-				Content: []mcp.ContextItem{
+				Content: []models.ContextItem{
 					{
 						Role:      "system",
 						Content:   "System Message",
@@ -267,10 +267,10 @@ func TestTruncatePreservingUser(t *testing.T) {
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			// Make a copy of the context to avoid modifying the test case
-			contextCopy := &mcp.Context{
+			contextCopy := &models.Context{
 				MaxTokens:     tc.context.MaxTokens,
 				CurrentTokens: tc.context.CurrentTokens,
-				Content:       make([]mcp.ContextItem, len(tc.context.Content)),
+				Content:       make([]models.ContextItem, len(tc.context.Content)),
 			}
 			
 			// Copy content items

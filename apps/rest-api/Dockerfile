@@ -16,9 +16,14 @@ COPY . .
 #    echo "go 1.24.3" > go.work && \
 #    echo "use (" >> go.work && \
 #    echo "    ./apps/rest-api" >> go.work && \
+#    echo "    ./pkg/adapters" >> go.work && \
+#    echo "    ./pkg/api" >> go.work && \
 #    echo "    ./pkg/common" >> go.work && \
 #    echo "    ./pkg/database" >> go.work && \
+#    echo "    ./pkg/events" >> go.work && \
 #    echo "    ./pkg/models" >> go.work && \
+#    echo "    ./pkg/observability" >> go.work && \
+#    echo "    ./pkg/repository" >> go.work && \
 #    echo ")" >> go.work; \
 #fi
 

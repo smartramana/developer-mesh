@@ -22,6 +22,9 @@ func (s *NoopSpan) AddEvent(name string, attributes map[string]interface{}) {}
 // RecordError is a no-op implementation
 func (s *NoopSpan) RecordError(err error) {}
 
+// SetStatus is a no-op implementation
+func (s *NoopSpan) SetStatus(code int, description string) {}
+
 // SpanContext is a no-op implementation
 func (s *NoopSpan) SpanContext() trace.SpanContext {
 	return trace.SpanContext{}

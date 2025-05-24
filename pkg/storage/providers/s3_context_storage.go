@@ -8,7 +8,7 @@ import (
 	"strings"
 
 	s3client "github.com/S-Corkum/devops-mcp/pkg/storage"
-	"github.com/S-Corkum/devops-mcp/pkg/mcp"
+	"github.com/S-Corkum/devops-mcp/pkg/models"
 )
 
 // S3ContextStorage implements context storage using AWS S3
@@ -28,7 +28,7 @@ func NewS3ContextStorage(s3Client *s3client.S3Client, prefix string) *S3ContextS
 }
 
 // StoreContext stores a context in S3
-func (s *S3ContextStorage) StoreContext(ctx context.Context, contextData *mcp.Context) error {
+func (s *S3ContextStorage) StoreContext(ctx context.Context, contextData *models.Context) error {
 	// Generate key for the context
 	key := s.generateContextKey(contextData.ID)
 	
@@ -48,7 +48,7 @@ func (s *S3ContextStorage) StoreContext(ctx context.Context, contextData *mcp.Co
 }
 
 // GetContext retrieves a context from S3
-func (s *S3ContextStorage) GetContext(ctx context.Context, contextID string) (*mcp.Context, error) {
+func (s *S3ContextStorage) GetContext(ctx context.Context, contextID string) (*models.Context, error) {
 	// Generate key for the context
 	key := s.generateContextKey(contextID)
 	
@@ -59,7 +59,7 @@ func (s *S3ContextStorage) GetContext(ctx context.Context, contextID string) (*m
 	}
 	
 	// Deserialize context data
-	var contextData mcp.Context
+	var contextData models.Context
 	err = json.Unmarshal(data, &contextData)
 	if err != nil {
 		return nil, fmt.Errorf("failed to deserialize context data: %w", err)
@@ -83,7 +83,7 @@ func (s *S3ContextStorage) DeleteContext(ctx context.Context, contextID string) 
 }
 
 // ListContexts lists contexts from S3
-func (s *S3ContextStorage) ListContexts(ctx context.Context, agentID string, sessionID string) ([]*mcp.Context, error) {
+func (s *S3ContextStorage) ListContexts(ctx context.Context, agentID string, sessionID string) ([]*models.Context, error) {
 	// Generate prefix for listing
 	listPrefix := s.prefix
 	if agentID != "" {
@@ -97,7 +97,7 @@ func (s *S3ContextStorage) ListContexts(ctx context.Context, agentID string, ses
 	}
 	
 	// Retrieve each context
-	var contexts []*mcp.Context
+	var contexts []*models.Context
 	for _, key := range keys {
 		// Extract context ID from key
 		contextID := s.extractContextID(key)

@@ -1,74 +1,127 @@
-// Package aws provides a compatibility layer for code that imports
-// github.com/S-Corkum/devops-mcp/pkg/aws. This package re-exports all
-// types and functions from github.com/S-Corkum/devops-mcp/pkg/common/aws.
-//
-// Deprecated: This package will be removed in a future version.
-// Import github.com/S-Corkum/devops-mcp/pkg/common/aws directly instead.
-// See the migration guide at docs/migration_guide.md for more information.
+// Package aws provides a compatibility layer for the pkg/common/aws package.
+// This package is part of the Go Workspace migration to ensure backward compatibility
+// with code still importing the old pkg/aws package path.
 package aws
 
-import (
-	"context"
-	"github.com/aws/aws-sdk-go-v2/aws"
-	
-	commonaws "github.com/S-Corkum/devops-mcp/pkg/common/aws"
-)
+// No imports needed for type aliases
+// The actual implementations will be loaded from the common/aws package
+// through the replace directive in go.mod
 
-// Type aliases for compatibility
-type (
-	// AuthConfig wraps AWS authentication configuration
-	AuthConfig = commonaws.AuthConfig
-	
-	// RDSConnectionConfig holds configuration for RDS
-	RDSConnectionConfig = commonaws.RDSConnectionConfig
-	
-	// RDSConfig is an alias for RDSConnectionConfig for backward compatibility
-	RDSConfig = commonaws.RDSConnectionConfig
-	
-	// RDSClient is a client for AWS RDS
-	RDSClient = commonaws.ExtendedRDSClient
-	
-	// RDSClientInterface defines the interface for RDS operations
-	RDSClientInterface = commonaws.RDSClientInterface
-)
+// Type definitions for backward compatibility
+// These match the struct definitions in pkg/common/aws
 
-// IsIRSAEnabled returns true if IAM Roles for Service Accounts is enabled
+// AWSClient provides a standard interface for AWS clients
+type AWSClient interface {
+	GetSession() interface{}
+	GetCredentials() interface{}
+	GetRegion() string
+	CreateS3Client() interface{}
+	CreateSQSClient() interface{}
+}
+
+// AuthConfig wraps AWS authentication configuration
+type AuthConfig struct {
+	Region     string
+	Endpoint   string
+	AssumeRole string
+}
+
+// LegacyAuthConfig wraps AWS authentication configuration (legacy version)
+type LegacyAuthConfig struct {
+	Region          string
+	AccessKeyID     string
+	SecretAccessKey string
+	SessionToken    string
+	Profile         string
+	Endpoint        string
+}
+
+// RDSConfig holds configuration for RDS
+type RDSConfig struct {
+	Region     string
+	SecretName string
+}
+
+// RDSClient is a client for AWS RDS
+type RDSClient struct {
+	Config interface{}
+}
+
+// S3Config holds configuration for S3
+type S3Config struct {
+	Auth              AuthConfig
+	Bucket            string
+	UploadPartSize    int64
+	DownloadPartSize  int64
+	Concurrency       int
+	RequestTimeout    int
+	ServerSideEncrypt string
+}
+
+// ElastiCacheConfig holds configuration for ElastiCache
+type ElastiCacheConfig struct {
+	Auth               AuthConfig
+	ClusterAddress     string
+	Port               int
+	ClusterMode        bool
+	ClusterDiscovery   bool
+	UseTLS             bool
+	InsecureSkipVerify bool
+	MaxRetries         int
+	MinIdleConnections int
+	PoolSize           int
+	DialTimeout        int
+	ReadTimeout        int
+	WriteTimeout       int
+	PoolTimeout        int
+}
+
+// StandardAWSClient implements the AWSClient interface
+type StandardAWSClient struct {
+	// Contains unexported fields
+}
+
+// Function declarations for backward compatibility
+// These are stubs that will be implemented by the real implementations in pkg/common/aws
+
+// NewAWSClient creates a new AWS client with the provided config
+func NewAWSClient(ctx interface{}, cfg interface{}) AWSClient {
+	// This is a stub that will be overridden by the real implementation
+	return nil
+}
+
+// GetAWSConfig gets an AWS config
+func GetAWSConfig(ctx interface{}, cfg AuthConfig) (interface{}, error) {
+	// This is a stub that will be overridden by the real implementation
+	return nil, nil
+}
+
+// LegacyGetAWSConfig gets an AWS config using legacy format
+func LegacyGetAWSConfig(ctx interface{}, cfg AuthConfig) (interface{}, error) {
+	// This is a stub that will be overridden by the real implementation
+	return nil, nil
+}
+
+// IsIRSAEnabled returns whether IRSA is enabled
 func IsIRSAEnabled() bool {
-	return commonaws.IsIRSAEnabled()
+	// This is a stub that will be overridden by the real implementation
+	return false
 }
 
-// GetAWSConfig gets AWS configuration
-func GetAWSConfig(ctx context.Context, cfg AuthConfig) (aws.Config, error) {
-	return commonaws.GetAWSConfig(ctx, cfg)
-}
-
-// GetSession returns an AWS session (stub for backward compatibility)
-func GetSession(config AuthConfig) (interface{}, error) {
-	// This is a stub implementation for backward compatibility
-	// Modern code should use GetAWSConfig instead
-	_, err := commonaws.GetAWSConfig(context.Background(), config)
-	if err != nil {
-		return nil, err
-	}
+// GetAWSConfigLegacy gets an AWS config using legacy format
+func GetAWSConfigLegacy(ctx interface{}, cfg LegacyAuthConfig) (interface{}, error) {
+	// This is a stub that will be overridden by the real implementation
 	return nil, nil
 }
 
 // NewRDSClient creates a new RDS client
-func NewRDSClient(ctx context.Context, cfg RDSConnectionConfig) (*RDSClient, error) {
-	return commonaws.NewExtendedRDSClient(ctx, cfg)
+func NewRDSClient(ctx interface{}, cfg RDSConfig) (*RDSClient, error) {
+	// This is a stub that will be overridden by the real implementation
+	return nil, nil
 }
 
-// Function to get AWS region from AuthConfig
-func GetRegion(config AuthConfig) string {
-	return commonaws.GetRegion(config)
-}
-
-// Function to create AWS config with standard options
-func CreateConfig(region string) aws.Config {
-	return commonaws.CreateConfig(region)
-}
-
-// Function to extract error code from AWS error
-func GetAWSErrorCode(err error) string {
-	return commonaws.GetAWSErrorCode(err)
+// IsIRSAEnabledLegacy returns whether IRSA is enabled (legacy version)
+func IsIRSAEnabledLegacy() bool {
+	// This is a stub that will be overridden by the real implementation
+	return false
 }

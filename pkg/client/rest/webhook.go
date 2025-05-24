@@ -20,13 +20,13 @@ type WebhookConfig struct {
 
 // WebhookClient handles webhook processing through the REST API
 type WebhookClient struct {
-	client *Client
+	client *RESTClient
 	logger observability.Logger
 	config WebhookConfig
 }
 
 // NewWebhookClient creates a new WebhookClient with the given configuration
-func NewWebhookClient(client *Client, config WebhookConfig, logger observability.Logger) *WebhookClient {
+func NewWebhookClient(client *RESTClient, config WebhookConfig, logger observability.Logger) *WebhookClient {
 	if logger == nil {
 		logger = observability.NewLogger("webhook-client")
 	}

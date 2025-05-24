@@ -2,45 +2,31 @@ package integration
 
 import (
 	"context"
-	"database/sql"
-	"os"
 	"testing"
 	"time"
 
-	// Use the new pkg/database package instead of internal/database
+	// Use pkg packages instead of internal packages
 	db "github.com/S-Corkum/devops-mcp/pkg/database"
-	"github.com/S-Corkum/devops-mcp/internal/models"
-	"github.com/S-Corkum/devops-mcp/internal/relationship"
-	"github.com/jmoiron/sqlx"
+	"github.com/S-Corkum/devops-mcp/pkg/models"
+	"github.com/S-Corkum/devops-mcp/pkg/relationship"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
 // TestRelationshipServiceIntegration tests the relationship service against a real database
 func TestRelationshipServiceIntegration(t *testing.T) {
-	// Skip if not running integration tests
-	if os.Getenv("INTEGRATION_TEST") != "true" {
-		t.Skip("Skipping integration test. Set INTEGRATION_TEST=true to run.")
-	}
+	// Skip if not running integration tests using our standardized function
+	SkipIfNoDatabase(t)
 
-	// Connect to test database
-	dbConnStr := os.Getenv("TEST_DB_CONNECTION")
-	if dbConnStr == "" {
-		dbConnStr = "postgres://postgres:postgres@localhost:5432/testdb?sslmode=disable"
-	}
-
-	// Create the database connection
-	sqlDB, err := sql.Open("postgres", dbConnStr)
-	require.NoError(t, err, "Failed to open database connection")
-	defer sqlDB.Close()
-
-	// Create the sqlx database
-	sqlxDB := sqlx.NewDb(sqlDB, "postgres")
-	require.NoError(t, err, "Failed to create sqlx database")
-
+	// Use standardized database connection function
+	sqlxDB := CreateTestDatabaseConnection(t)
+	
 	// Create the database instance using pkg/database
 	database := db.NewDatabaseWithConnection(sqlxDB)
 	require.NotNil(t, database, "Failed to create database instance")
+	
+	// Register cleanup to happen after test completion
+	defer CleanupTestDatabase(t, sqlxDB, "")
 
 	// Create a context with timeout
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
@@ -49,8 +35,8 @@ func TestRelationshipServiceIntegration(t *testing.T) {
 	// Initialize database tables
 	// Check if the new database API has the InitializeTables method
 	if initializer, ok := database.(interface{ InitializeTables(context.Context) error }); ok {
-		err = initializer.InitializeTables(ctx)
-		require.NoError(t, err, "Failed to initialize database tables")
+		initErr := initializer.InitializeTables(ctx)
+		require.NoError(t, initErr, "Failed to initialize database tables")
 	}
 
 	// Clean up any existing test data
@@ -270,13 +256,18 @@ func TestRelationshipServiceIntegration(t *testing.T) {
 // cleanupTestData removes any test data from previous test runs
 func cleanupTestData(t *testing.T, database *db.Database) {
 	ctx := context.Background()
-	_, err := db.GetDB().ExecContext(ctx, `
+	
+	// Access the underlying database through the standard pkg/database interface
+	dbConn := database.GetConnection()
+	
+	// Execute cleanup queries
+	_, err := dbConn.ExecContext(ctx, `
 		DELETE FROM mcp.entity_relationships 
 		WHERE source_owner = 'test-owner' AND source_repo = 'test-repo'
 	`)
 	assert.NoError(t, err, "Failed to cleanup test data")
 
-	_, err = db.GetDB().ExecContext(ctx, `
+	_, err = dbConn.ExecContext(ctx, `
 		DELETE FROM mcp.entity_relationships 
 		WHERE target_owner = 'test-owner' AND target_repo = 'test-repo'
 	`)

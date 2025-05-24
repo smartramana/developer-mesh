@@ -4,19 +4,19 @@ import (
 	"context"
 	"net/http"
 
-	"github.com/S-Corkum/devops-mcp/pkg/mcp"
+	"github.com/S-Corkum/devops-mcp/pkg/models"
 	"github.com/S-Corkum/devops-mcp/pkg/observability"
 	"github.com/gin-gonic/gin"
 )
 
 // ContextManagerInterface defines the interface for context management
 type ContextManagerInterface interface {
-	CreateContext(ctx context.Context, context *mcp.Context) (*mcp.Context, error)
-	GetContext(ctx context.Context, contextID string) (*mcp.Context, error)
-	UpdateContext(ctx context.Context, contextID string, context *mcp.Context, options *mcp.ContextUpdateOptions) (*mcp.Context, error)
+	CreateContext(ctx context.Context, context *models.Context) (*models.Context, error)
+	GetContext(ctx context.Context, contextID string) (*models.Context, error)
+	UpdateContext(ctx context.Context, contextID string, context *models.Context, options *models.ContextUpdateOptions) (*models.Context, error)
 	DeleteContext(ctx context.Context, contextID string) error
-	ListContexts(ctx context.Context, agentID, sessionID string, options map[string]interface{}) ([]*mcp.Context, error)
-	SearchInContext(ctx context.Context, contextID, query string) ([]mcp.ContextItem, error)
+	ListContexts(ctx context.Context, agentID, sessionID string, options map[string]interface{}) ([]*models.Context, error)
+	SearchInContext(ctx context.Context, contextID, query string) ([]models.ContextItem, error)
 	SummarizeContext(ctx context.Context, contextID string) (string, error)
 }
 
@@ -52,7 +52,7 @@ func (api *MCPAPI) RegisterRoutes(router *gin.RouterGroup) {
 
 // createContext creates a new context
 func (api *MCPAPI) createContext(c *gin.Context) {
-	var request mcp.Context
+	var request models.Context
 	if err := c.ShouldBindJSON(&request); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
@@ -103,8 +103,8 @@ func (api *MCPAPI) updateContext(c *gin.Context) {
 
 	// Parse request body
 	var updateRequest struct {
-		Content []mcp.ContextItem          `json:"content"`
-		Options *mcp.ContextUpdateOptions  `json:"options,omitempty"`
+		Content []models.ContextItem          `json:"content"`
+		Options *models.ContextUpdateOptions  `json:"options,omitempty"`
 	}
 
 	if err := c.ShouldBindJSON(&updateRequest); err != nil {
@@ -125,7 +125,7 @@ func (api *MCPAPI) updateContext(c *gin.Context) {
 
 	// Ensure we have options
 	if updateRequest.Options == nil {
-		updateRequest.Options = &mcp.ContextUpdateOptions{}
+		updateRequest.Options = &models.ContextUpdateOptions{}
 	}
 	
 	// When using MCPAPI, we want to replace content by default

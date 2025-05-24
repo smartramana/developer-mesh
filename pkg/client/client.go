@@ -11,7 +11,7 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/S-Corkum/devops-mcp/pkg/mcp"
+	"github.com/S-Corkum/devops-mcp/pkg/models"
 )
 
 // Client is the MCP client
@@ -71,7 +71,7 @@ func NewClient(baseURL string, options ...ClientOption) *Client {
 }
 
 // CreateContext creates a new context
-func (c *Client) CreateContext(ctx context.Context, contextData *mcp.Context) (*mcp.Context, error) {
+func (c *Client) CreateContext(ctx context.Context, contextData *models.Context) (*models.Context, error) {
 	url := fmt.Sprintf("%s/api/v1/contexts", c.baseURL)
 	
 	jsonData, err := json.Marshal(contextData)
@@ -108,7 +108,7 @@ func (c *Client) CreateContext(ctx context.Context, contextData *mcp.Context) (*
 		return nil, fmt.Errorf("failed to create context: status %d", resp.StatusCode)
 	}
 	
-	var result mcp.Context
+	var result models.Context
 	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
 		return nil, err
 	}
@@ -117,7 +117,7 @@ func (c *Client) CreateContext(ctx context.Context, contextData *mcp.Context) (*
 }
 
 // GetContext retrieves a context by ID
-func (c *Client) GetContext(ctx context.Context, contextID string) (*mcp.Context, error) {
+func (c *Client) GetContext(ctx context.Context, contextID string) (*models.Context, error) {
 	url := fmt.Sprintf("%s/api/v1/contexts/%s", c.baseURL, contextID)
 	
 	req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
@@ -148,7 +148,7 @@ func (c *Client) GetContext(ctx context.Context, contextID string) (*mcp.Context
 		return nil, fmt.Errorf("failed to get context: status %d", resp.StatusCode)
 	}
 	
-	var result mcp.Context
+	var result models.Context
 	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
 		return nil, err
 	}
@@ -157,7 +157,7 @@ func (c *Client) GetContext(ctx context.Context, contextID string) (*mcp.Context
 }
 
 // UpdateContext updates an existing context
-func (c *Client) UpdateContext(ctx context.Context, contextID string, contextData *mcp.Context, options *mcp.ContextUpdateOptions) (*mcp.Context, error) {
+func (c *Client) UpdateContext(ctx context.Context, contextID string, contextData *models.Context, options *models.ContextUpdateOptions) (*models.Context, error) {
 	url := fmt.Sprintf("%s/api/v1/contexts/%s", c.baseURL, contextID)
 	
 	// Create request body
@@ -203,7 +203,7 @@ func (c *Client) UpdateContext(ctx context.Context, contextID string, contextDat
 		return nil, fmt.Errorf("failed to update context: status %d", resp.StatusCode)
 	}
 	
-	var result mcp.Context
+	var result models.Context
 	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
 		return nil, err
 	}
@@ -247,7 +247,7 @@ func (c *Client) DeleteContext(ctx context.Context, contextID string) error {
 }
 
 // ListContexts lists contexts for an agent
-func (c *Client) ListContexts(ctx context.Context, agentID string, sessionID string, options map[string]string) ([]*mcp.Context, error) {
+func (c *Client) ListContexts(ctx context.Context, agentID string, sessionID string, options map[string]string) ([]*models.Context, error) {
 	// Build URL with query parameters
 	baseURL := fmt.Sprintf("%s/api/v1/contexts?agent_id=%s", c.baseURL, agentID)
 	
@@ -289,7 +289,7 @@ func (c *Client) ListContexts(ctx context.Context, agentID string, sessionID str
 	}
 	
 	var result struct {
-		Contexts []*mcp.Context `json:"contexts"`
+		Contexts []*models.Context `json:"contexts"`
 	}
 	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
 		return nil, err
@@ -299,7 +299,7 @@ func (c *Client) ListContexts(ctx context.Context, agentID string, sessionID str
 }
 
 // SearchContext searches for text within a context
-func (c *Client) SearchContext(ctx context.Context, contextID string, query string) ([]mcp.ContextItem, error) {
+func (c *Client) SearchContext(ctx context.Context, contextID string, query string) ([]models.ContextItem, error) {
 	url := fmt.Sprintf("%s/api/v1/contexts/%s/search", c.baseURL, contextID)
 	
 	requestBody := map[string]string{
@@ -341,7 +341,7 @@ func (c *Client) SearchContext(ctx context.Context, contextID string, query stri
 	}
 	
 	var result struct {
-		Results []mcp.ContextItem `json:"results"`
+		Results []models.ContextItem `json:"results"`
 	}
 	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
 		return nil, err
@@ -393,7 +393,7 @@ func (c *Client) SummarizeContext(ctx context.Context, contextID string) (string
 }
 
 // SendEvent sends an event to the MCP server
-func (c *Client) SendEvent(ctx context.Context, event *mcp.Event) error {
+func (c *Client) SendEvent(ctx context.Context, event *models.Event) error {
 	url := fmt.Sprintf("%s/webhook/agent", c.baseURL)
 	
 	// Set timestamp if not already set

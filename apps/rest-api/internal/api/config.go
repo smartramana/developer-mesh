@@ -3,7 +3,7 @@ package api
 import (
 	"time"
 
-	"github.com/S-Corkum/devops-mcp/pkg/mcp/interfaces"
+	"github.com/S-Corkum/devops-mcp/pkg/interfaces"
 )
 
 // Config holds configuration for the API server

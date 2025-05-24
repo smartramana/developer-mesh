@@ -8,7 +8,6 @@ import (
 	"strings"
 	"sync"
 	
-	"github.com/S-Corkum/devops-mcp/pkg/mcp"
 	"github.com/S-Corkum/devops-mcp/pkg/observability"
 )
 
@@ -20,16 +19,7 @@ type Engine struct {
 	mutex          sync.RWMutex
 }
 
-// ContextManagerInterface defines the interface for context management
-type ContextManagerInterface interface {
-	CreateContext(ctx context.Context, context *mcp.Context) (*mcp.Context, error)
-	GetContext(ctx context.Context, contextID string) (*mcp.Context, error)
-	UpdateContext(ctx context.Context, contextID string, context *mcp.Context, options *mcp.ContextUpdateOptions) (*mcp.Context, error)
-	DeleteContext(ctx context.Context, contextID string) error
-	ListContexts(ctx context.Context, agentID, sessionID string, options map[string]interface{}) ([]*mcp.Context, error)
-	SearchInContext(ctx context.Context, contextID, query string) ([]mcp.ContextItem, error)
-	SummarizeContext(ctx context.Context, contextID string) (string, error)
-}
+// ContextManagerInterface is defined in context_manager.go
 
 // NewEngine creates a new engine instance
 func NewEngine(logger observability.Logger) *Engine {

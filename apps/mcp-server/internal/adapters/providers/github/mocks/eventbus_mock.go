@@ -6,7 +6,7 @@ import (
 
 	"github.com/stretchr/testify/mock"
 	"github.com/S-Corkum/devops-mcp/pkg/common/events"
-	"github.com/S-Corkum/devops-mcp/pkg/mcp"
+	"github.com/S-Corkum/devops-mcp/pkg/models"
 )
 
 // MockEventBus is a mock implementation of the EventBus interface for testing
@@ -20,7 +20,7 @@ func NewMockEventBus() *MockEventBus {
 }
 
 // Publish implements the EventBusIface.Publish method
-func (m *MockEventBus) Publish(ctx context.Context, event *mcp.Event) {
+func (m *MockEventBus) Publish(ctx context.Context, event *models.Event) {
 	m.Called(ctx, event)
 }
 

@@ -6,7 +6,7 @@ import (
 	"time"
 
 	"github.com/S-Corkum/devops-mcp/pkg/client/rest"
-	"github.com/S-Corkum/devops-mcp/pkg/mcp"
+	"github.com/S-Corkum/devops-mcp/pkg/models"
 	"github.com/S-Corkum/devops-mcp/pkg/observability"
 	"github.com/S-Corkum/devops-mcp/pkg/repository"
 )
@@ -30,8 +30,8 @@ func NewContextAPIAdapter(client *rest.ContextClient, logger observability.Logge
 	}
 }
 
-// repoToMCPContext converts from repository.Context to mcp.Context
-func (a *ContextAPIAdapter) repoToMCPContext(repoContext *repository.Context) *mcp.Context {
+// repoToMCPContext converts from repository.Context to models.Context
+func (a *ContextAPIAdapter) repoToMCPContext(repoContext *repository.Context) *models.Context {
 	// Create metadata map from repository properties
 	metadata := make(map[string]interface{})
 	if repoContext.Properties != nil {
@@ -49,7 +49,7 @@ func (a *ContextAPIAdapter) repoToMCPContext(repoContext *repository.Context) *m
 	updatedAt := time.Unix(repoContext.UpdatedAt, 0)
 	
 	// Create MCP context
-	mcpContext := &mcp.Context{
+	mcpContext := &models.Context{
 		ID:        repoContext.ID,
 		Name:      repoContext.Name,
 		AgentID:   repoContext.AgentID,
@@ -57,14 +57,14 @@ func (a *ContextAPIAdapter) repoToMCPContext(repoContext *repository.Context) *m
 		Metadata:  metadata,
 		CreatedAt: createdAt,
 		UpdatedAt: updatedAt,
-		Content:   []mcp.ContextItem{}, // Initialize empty content array
+		Content:   []models.ContextItem{}, // Initialize empty content array
 	}
 	
 	return mcpContext
 }
 
-// mcpToRepoContext converts from mcp.Context to repository.Context
-func (a *ContextAPIAdapter) mcpToRepoContext(mcpContext *mcp.Context) *repository.Context {
+// mcpToRepoContext converts from models.Context to repository.Context
+func (a *ContextAPIAdapter) mcpToRepoContext(mcpContext *models.Context) *repository.Context {
 	// Create new repository context
 	repoContext := &repository.Context{
 		ID:         mcpContext.ID,
@@ -144,7 +144,7 @@ func (a *ContextAPIAdapter) Update(ctx context.Context, contextObj *repository.C
 	mcpContext := a.repoToMCPContext(contextObj)
 	
 	// Set update options
-	options := &mcp.ContextUpdateOptions{
+	options := &models.ContextUpdateOptions{
 		ReplaceContent: false,
 	}
 	
@@ -204,8 +204,8 @@ func (a *ContextAPIAdapter) List(ctx context.Context, filter map[string]interfac
 	return contexts, nil
 }
 
-// mcpItemToRepoItem converts from mcp.ContextItem to repository.ContextItem
-func (a *ContextAPIAdapter) mcpItemToRepoItem(mcpItem mcp.ContextItem, contextID string) repository.ContextItem {
+// mcpItemToRepoItem converts from models.ContextItem to repository.ContextItem
+func (a *ContextAPIAdapter) mcpItemToRepoItem(mcpItem models.ContextItem, contextID string) repository.ContextItem {
 	// Create new repository context item
 	repoItem := repository.ContextItem{
 		ID:        mcpItem.ID,

@@ -7,7 +7,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/S-Corkum/devops-mcp/pkg/mcp"
+	"github.com/S-Corkum/devops-mcp/pkg/models"
 	lru "github.com/hashicorp/golang-lru/v2"
 )
 
@@ -32,7 +32,7 @@ type MultiLevelCache struct {
 // prefetchRequest represents a request to prefetch related data
 type prefetchRequest struct {
 	key      string
-	context  *mcp.Context
+	context  *models.Context
 	metadata map[string]interface{}
 }
 
@@ -100,7 +100,7 @@ func (c *MultiLevelCache) prefetchWorker() {
 }
 
 // queuePrefetch adds a prefetch request to the queue
-func (c *MultiLevelCache) queuePrefetch(key string, context *mcp.Context, metadata map[string]interface{}) {
+func (c *MultiLevelCache) queuePrefetch(key string, context *models.Context, metadata map[string]interface{}) {
 	// Skip if prefetch queue is full
 	select {
 	case c.prefetchQueue <- prefetchRequest{key: key, context: context, metadata: metadata}:
@@ -214,15 +214,15 @@ func (c *MultiLevelCache) Close() error {
 }
 
 // SetContext stores a context in the cache
-func (c *MultiLevelCache) SetContext(ctx context.Context, contextID string, context *mcp.Context) error {
+func (c *MultiLevelCache) SetContext(ctx context.Context, contextID string, context *models.Context) error {
 	key := fmt.Sprintf("context:%s", contextID)
 	return c.Set(ctx, key, context, c.ttl)
 }
 
 // GetContext retrieves a context from the cache
-func (c *MultiLevelCache) GetContext(ctx context.Context, contextID string) (*mcp.Context, error) {
+func (c *MultiLevelCache) GetContext(ctx context.Context, contextID string) (*models.Context, error) {
 	key := fmt.Sprintf("context:%s", contextID)
-	var context mcp.Context
+	var context models.Context
 	found, err := c.Get(ctx, key, &context)
 	if err != nil {
 		return nil, err
@@ -244,7 +244,7 @@ func (c *MultiLevelCache) DeleteContext(ctx context.Context, contextID string) e
 }
 
 // prefetchRelatedContexts prefetches related contexts
-func (c *MultiLevelCache) prefetchRelatedContexts(context mcp.Context) {
+func (c *MultiLevelCache) prefetchRelatedContexts(context models.Context) {
 	// Prefetch contexts from the same agent
 	if context.AgentID != "" {
 		key := fmt.Sprintf("contexts:agent:%s", context.AgentID)

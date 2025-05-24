@@ -6,7 +6,7 @@ import (
 	"sort"
 	"time"
 
-	"github.com/S-Corkum/devops-mcp/pkg/mcp"
+	"github.com/S-Corkum/devops-mcp/pkg/models"
 )
 
 // TruncationStrategy defines the strategy for truncating a context
@@ -26,7 +26,7 @@ const (
 // Helper functions for truncation tests
 
 // DoTruncateContext truncates a context based on the specified strategy
-func DoTruncateContext(contextData *mcp.Context, strategy TruncationStrategy) error {
+func DoTruncateContext(contextData *models.Context, strategy TruncationStrategy) error {
 	switch strategy {
 	case StrategyOldestFirst:
 		return DoTruncateOldestFirst(contextData)
@@ -41,7 +41,7 @@ func DoTruncateContext(contextData *mcp.Context, strategy TruncationStrategy) er
 }
 
 // DoTruncateOldestFirst truncates a context by removing the oldest items first
-func DoTruncateOldestFirst(contextData *mcp.Context) error {
+func DoTruncateOldestFirst(contextData *models.Context) error {
 	if contextData.CurrentTokens <= contextData.MaxTokens {
 		return nil
 	}
@@ -71,16 +71,16 @@ func DoTruncateOldestFirst(contextData *mcp.Context) error {
 }
 
 // DoTruncatePreservingUser truncates a context while preserving user messages
-func DoTruncatePreservingUser(contextData *mcp.Context) error {
+func DoTruncatePreservingUser(contextData *models.Context) error {
 	if contextData.CurrentTokens <= contextData.MaxTokens {
 		return nil
 	}
 	
 	// Group content items by role
-	userItems := make([]mcp.ContextItem, 0)
-	assistantItems := make([]mcp.ContextItem, 0)
-	systemItems := make([]mcp.ContextItem, 0)
-	otherItems := make([]mcp.ContextItem, 0)
+	userItems := make([]models.ContextItem, 0)
+	assistantItems := make([]models.ContextItem, 0)
+	systemItems := make([]models.ContextItem, 0)
+	otherItems := make([]models.ContextItem, 0)
 	
 	for _, item := range contextData.Content {
 		switch item.Role {
@@ -165,7 +165,7 @@ func DoTruncatePreservingUser(contextData *mcp.Context) error {
 	}
 	
 	// Reconstruct content
-	newContent := make([]mcp.ContextItem, 0)
+	newContent := make([]models.ContextItem, 0)
 	newContent = append(newContent, systemItems...)
 	
 	// Interleave user and assistant messages by timestamp
@@ -194,7 +194,7 @@ func NewMockContextManager() *MockContextManager {
 }
 
 // CreateContext creates a new context
-func (m *MockContextManager) CreateContext(ctx context.Context, contextData *mcp.Context) (*mcp.Context, error) {
+func (m *MockContextManager) CreateContext(ctx context.Context, contextData *models.Context) (*models.Context, error) {
 	// Validate required fields
 	if contextData.AgentID == "" {
 		return nil, fmt.Errorf("agent_id is required")
@@ -221,7 +221,7 @@ func (m *MockContextManager) CreateContext(ctx context.Context, contextData *mcp
 	
 	// Initialize content if nil
 	if contextData.Content == nil {
-		contextData.Content = []mcp.ContextItem{}
+		contextData.Content = []models.ContextItem{}
 	}
 	
 	// Calculate current tokens if not set

@@ -6,25 +6,25 @@ import (
 	"sync"
 	"time"
 
-	"github.com/S-Corkum/devops-mcp/pkg/mcp"
+	"github.com/S-Corkum/devops-mcp/pkg/models"
 )
 
 // InMemoryContextStorage implements context storage using in-memory map
 // This is primarily for development and testing purposes
 type InMemoryContextStorage struct {
-	contexts map[string]*mcp.Context
+	contexts map[string]*models.Context
 	lock     sync.RWMutex
 }
 
 // NewInMemoryContextStorage creates a new in-memory context storage provider
 func NewInMemoryContextStorage() *InMemoryContextStorage {
 	return &InMemoryContextStorage{
-		contexts: make(map[string]*mcp.Context),
+		contexts: make(map[string]*models.Context),
 	}
 }
 
 // StoreContext stores a context in memory
-func (s *InMemoryContextStorage) StoreContext(ctx context.Context, contextData *mcp.Context) error {
+func (s *InMemoryContextStorage) StoreContext(ctx context.Context, contextData *models.Context) error {
 	s.lock.Lock()
 	defer s.lock.Unlock()
 	
@@ -38,7 +38,7 @@ func (s *InMemoryContextStorage) StoreContext(ctx context.Context, contextData *
 }
 
 // GetContext retrieves a context from memory
-func (s *InMemoryContextStorage) GetContext(ctx context.Context, contextID string) (*mcp.Context, error) {
+func (s *InMemoryContextStorage) GetContext(ctx context.Context, contextID string) (*models.Context, error) {
 	s.lock.RLock()
 	defer s.lock.RUnlock()
 	
@@ -69,11 +69,11 @@ func (s *InMemoryContextStorage) DeleteContext(ctx context.Context, contextID st
 }
 
 // ListContexts lists contexts from memory
-func (s *InMemoryContextStorage) ListContexts(ctx context.Context, agentID string, sessionID string) ([]*mcp.Context, error) {
+func (s *InMemoryContextStorage) ListContexts(ctx context.Context, agentID string, sessionID string) ([]*models.Context, error) {
 	s.lock.RLock()
 	defer s.lock.RUnlock()
 	
-	var result []*mcp.Context
+	var result []*models.Context
 	
 	// Filter contexts by agent ID and optionally by session ID
 	for _, contextData := range s.contexts {
@@ -93,13 +93,13 @@ func (s *InMemoryContextStorage) ListContexts(ctx context.Context, agentID strin
 }
 
 // deepCopyContext creates a deep copy of a context
-func (s *InMemoryContextStorage) deepCopyContext(src *mcp.Context) *mcp.Context {
+func (s *InMemoryContextStorage) deepCopyContext(src *models.Context) *models.Context {
 	if src == nil {
 		return nil
 	}
 	
 	// Copy context
-	dst := &mcp.Context{
+	dst := &models.Context{
 		ID:            src.ID,
 		AgentID:       src.AgentID,
 		ModelID:       src.ModelID,
@@ -109,7 +109,7 @@ func (s *InMemoryContextStorage) deepCopyContext(src *mcp.Context) *mcp.Context 
 		CreatedAt:     src.CreatedAt,
 		UpdatedAt:     src.UpdatedAt,
 		ExpiresAt:     src.ExpiresAt,
-		Content:       make([]mcp.ContextItem, len(src.Content)),
+		Content:       make([]models.ContextItem, len(src.Content)),
 	}
 	
 	// Copy metadata
@@ -120,17 +120,11 @@ func (s *InMemoryContextStorage) deepCopyContext(src *mcp.Context) *mcp.Context 
 		}
 	}
 	
-	// Copy links
-	if src.Links != nil {
-		dst.Links = make(map[string]string)
-		for k, v := range src.Links {
-			dst.Links[k] = v
-		}
-	}
+	// Note: Links field has been removed as part of migration from mcp.Context to models.Context
 	
 	// Copy content
 	for i, item := range src.Content {
-		dstItem := mcp.ContextItem{
+		dstItem := models.ContextItem{
 			ID:        item.ID,
 			Role:      item.Role,
 			Content:   item.Content,

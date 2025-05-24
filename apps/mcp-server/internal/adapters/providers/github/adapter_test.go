@@ -16,7 +16,7 @@ import (
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
-	"github.com/S-Corkum/devops-mcp/apps/mcp-server/internal/adapters/providers/github/mocks"
+	"mcp-server/internal/adapters/providers/github/mocks"
 )
 
 // Test constant values

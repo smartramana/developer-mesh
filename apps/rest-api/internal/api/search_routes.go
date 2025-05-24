@@ -12,7 +12,14 @@ import (
 // setupSearchRoutes registers the advanced vector search routes
 func (s *Server) setupSearchRoutes(group *gin.RouterGroup) error {
 	// Skip if vector operations are disabled
-	if !s.cfg.Database.Vector.Enabled {
+	isEnabled := false
+	if vectorConfig, ok := s.cfg.Database.Vector.(map[string]interface{}); ok {
+		if enabled, ok := vectorConfig["enabled"].(bool); ok {
+			isEnabled = enabled
+		}
+	}
+	
+	if !isEnabled {
 		s.logger.Info("Vector search API routes not registered (vector operations disabled)", nil)
 		return nil
 	}

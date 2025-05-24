@@ -4,7 +4,7 @@ import (
 	"context"
 	"time"
 
-	"github.com/S-Corkum/devops-mcp/apps/worker/internal/queue"
+	"github.com/S-Corkum/devops-mcp/pkg/queue"
 )
 
 var (

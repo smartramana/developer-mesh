@@ -6,7 +6,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/S-Corkum/devops-mcp/internal/queue"
+	"github.com/S-Corkum/devops-mcp/pkg/queue"
 )
 
 type mockSQSClient struct {

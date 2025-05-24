@@ -9,8 +9,8 @@ import (
 	"net/http/httptest"
 	"testing"
 	
-	"github.com/S-Corkum/devops-mcp/apps/rest-api/internal/api"
-	"github.com/S-Corkum/devops-mcp/apps/rest-api/internal/repository"
+	"rest-api/internal/api"
+	"rest-api/internal/repository"
 	"github.com/S-Corkum/devops-mcp/pkg/observability"
 	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/assert"

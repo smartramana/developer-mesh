@@ -9,6 +9,10 @@ import (
 	"net/http"
 	"os"
 	"time"
+	
+	// Legacy imports for backward compatibility during migration
+	legacymcp "github.com/S-Corkum/devops-mcp/pkg/models"
+	legacymodels "github.com/S-Corkum/devops-mcp/pkg/models"
 )
 
 // MCPClient provides methods to interact with the MCP server API
@@ -17,9 +21,9 @@ type MCPClient struct {
 	APIKey     string
 	TenantID   string
 	HTTPClient *http.Client
-} // TenantID is used for multi-tenant API scenarios
+	Logger     Logger
+}
 
-// NewMCPClient creates a new MCP client
 // WithTenantID sets the tenant ID for the client
 func WithTenantID(tenantID string) func(*MCPClient) {
 	return func(c *MCPClient) {
@@ -27,13 +31,23 @@ func WithTenantID(tenantID string) func(*MCPClient) {
 	}
 }
 
+// WithLogger sets a custom logger for the client
+func WithLogger(logger Logger) func(*MCPClient) {
+	return func(c *MCPClient) {
+		c.Logger = logger
+	}
+}
+
+// NewMCPClient creates a new MCP client
 func NewMCPClient(baseURL, apiKey string, opts ...func(*MCPClient)) *MCPClient {
+	// Create the client with nil logger initially
 	client := &MCPClient{
 		BaseURL: baseURL,
 		APIKey:  apiKey,
 		HTTPClient: &http.Client{
 			Timeout: 10 * time.Second,
 		},
+		Logger: nil, // Will be set by WithLogger option if provided
 	}
 	for _, opt := range opts {
 		opt(client)
@@ -59,11 +73,21 @@ func (c *MCPClient) DoRequestWithHeader(ctx context.Context, method, path string
 			return nil, fmt.Errorf("error marshaling request body: %w", err)
 		}
 		if method == http.MethodPut || method == http.MethodPost {
-			fmt.Fprintf(os.Stderr, "DEBUG: Outgoing %s %s body: %s\n", method, url, string(jsonData))
+			// Use Logger if available, otherwise fall back to os.Stderr
+			if c.Logger != nil {
+				c.Logger.Infof("Outgoing %s %s body: %s", method, url, string(jsonData))
+			} else {
+				fmt.Fprintf(os.Stderr, "DEBUG: Outgoing %s %s body: %s\n", method, url, string(jsonData))
+			}
 		}
 		reqBody = bytes.NewBuffer(jsonData)
 	} else if method == http.MethodPut || method == http.MethodPost {
-		fmt.Fprintf(os.Stderr, "DEBUG: Outgoing %s %s body: {}\n", method, url)
+		// Use Logger if available, otherwise fall back to os.Stderr
+		if c.Logger != nil {
+			c.Logger.Infof("Outgoing %s %s body: {}", method, url)
+		} else {
+			fmt.Fprintf(os.Stderr, "DEBUG: Outgoing %s %s body: {}\n", method, url)
+		}
 		reqBody = bytes.NewBuffer([]byte("{}"))
 	}
 
@@ -101,7 +125,6 @@ func (c *MCPClient) DoRequestWithHeader(ctx context.Context, method, path string
 	return resp, nil
 }
 
-// [Rest of the file unchanged]
 // Get performs a GET request to the specified path
 func (c *MCPClient) Get(ctx context.Context, path string) (*http.Response, error) {
 	return c.DoRequest(ctx, http.MethodGet, path, nil)
@@ -124,22 +147,17 @@ func (c *MCPClient) Delete(ctx context.Context, path string) (*http.Response, er
 
 // ParseResponse parses the JSON response body into the provided target struct
 func ParseResponse(resp *http.Response, target interface{}) error {
-	defer resp.Body.Close()
-
-	// Read response body
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
 		return fmt.Errorf("error reading response body: %w", err)
 	}
 
-	// Check if response body is empty
-	if len(body) == 0 {
-		return nil
-	}
+	// Reset the response body so it can be read again if needed
+	resp.Body = io.NopCloser(bytes.NewBuffer(body))
 
-	// Parse JSON response
+	// Parse the response
 	if err := json.Unmarshal(body, target); err != nil {
-		return fmt.Errorf("error parsing response: %w (body: %s)", err, string(body))
+		return fmt.Errorf("error parsing response body: %w", err)
 	}
 
 	return nil
@@ -147,10 +165,11 @@ func ParseResponse(resp *http.Response, target interface{}) error {
 
 // GetHealth checks the server health status
 func (c *MCPClient) GetHealth(ctx context.Context) (map[string]interface{}, error) {
-	resp, err := c.Get(ctx, "/health")
+	resp, err := c.Get(ctx, "/api/v1/health")
 	if err != nil {
 		return nil, err
 	}
+	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
 		return nil, fmt.Errorf("unexpected status code: %d", resp.StatusCode)
@@ -170,19 +189,18 @@ func (c *MCPClient) ListTools(ctx context.Context) ([]map[string]interface{}, er
 	if err != nil {
 		return nil, err
 	}
+	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
 		return nil, fmt.Errorf("unexpected status code: %d", resp.StatusCode)
 	}
 
-	var result struct {
-		Tools []map[string]interface{} `json:"tools"`
-	}
+	var result []map[string]interface{}
 	if err := ParseResponse(resp, &result); err != nil {
 		return nil, err
 	}
 
-	return result.Tools, nil
+	return result, nil
 }
 
 // GetContext retrieves a specific context by ID
@@ -192,6 +210,7 @@ func (c *MCPClient) GetContext(ctx context.Context, contextID string) (map[strin
 	if err != nil {
 		return nil, err
 	}
+	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
 		return nil, fmt.Errorf("unexpected status code: %d", resp.StatusCode)
@@ -203,6 +222,26 @@ func (c *MCPClient) GetContext(ctx context.Context, contextID string) (map[strin
 	}
 
 	return result, nil
+}
+
+// GetContextTyped retrieves a specific context by ID as a strongly typed model
+func (c *MCPClient) GetContextTyped(ctx context.Context, contextID string) (*legacymodels.Context, error) {
+	path := fmt.Sprintf("/api/v1/contexts/%s", contextID)
+	resp, err := c.Get(ctx, path)
+	if err != nil {
+		return nil, err
+	}
+
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("unexpected status code: %d", resp.StatusCode)
+	}
+
+	var result legacymodels.Context
+	if err := ParseResponse(resp, &result); err != nil {
+		return nil, err
+	}
+
+	return &result, nil
 }
 
 // CreateContext creates a new context
@@ -222,6 +261,103 @@ func (c *MCPClient) CreateContext(ctx context.Context, payload map[string]interf
 	}
 
 	return result, nil
+}
+
+// CreateContextTyped creates a new context using a strongly typed model
+func (c *MCPClient) CreateContextTyped(ctx context.Context, contextData *legacymodels.Context) (*legacymodels.Context, error) {
+	resp, err := c.Post(ctx, "/api/v1/contexts", contextData)
+	if err != nil {
+		return nil, err
+	}
+
+	if resp.StatusCode != http.StatusCreated && resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("unexpected status code: %d", resp.StatusCode)
+	}
+
+	var result legacymodels.Context
+	if err := ParseResponse(resp, &result); err != nil {
+		return nil, err
+	}
+
+	return &result, nil
+}
+
+// CreateModel creates a new model
+func (c *MCPClient) CreateModel(ctx context.Context, model *legacymodels.Model) (*legacymodels.Model, error) {
+	resp, err := c.Post(ctx, "/api/v1/models", model)
+	if err != nil {
+		return nil, err
+	}
+
+	if resp.StatusCode != http.StatusCreated && resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("unexpected status code: %d", resp.StatusCode)
+	}
+
+	var result legacymodels.Model
+	if err := ParseResponse(resp, &result); err != nil {
+		return nil, err
+	}
+
+	return &result, nil
+}
+
+// GetModel retrieves a specific model by ID
+func (c *MCPClient) GetModel(ctx context.Context, modelID string) (*legacymodels.Model, error) {
+	path := fmt.Sprintf("/api/v1/models/%s", modelID)
+	resp, err := c.Get(ctx, path)
+	if err != nil {
+		return nil, err
+	}
+
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("unexpected status code: %d", resp.StatusCode)
+	}
+
+	var result legacymodels.Model
+	if err := ParseResponse(resp, &result); err != nil {
+		return nil, err
+	}
+
+	return &result, nil
+}
+
+// CreateAgent creates a new agent
+func (c *MCPClient) CreateAgent(ctx context.Context, agent *legacymodels.Agent) (*legacymodels.Agent, error) {
+	resp, err := c.Post(ctx, "/api/v1/agents", agent)
+	if err != nil {
+		return nil, err
+	}
+
+	if resp.StatusCode != http.StatusCreated && resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("unexpected status code: %d", resp.StatusCode)
+	}
+
+	var result legacymodels.Agent
+	if err := ParseResponse(resp, &result); err != nil {
+		return nil, err
+	}
+
+	return &result, nil
+}
+
+// GetAgent retrieves a specific agent by ID
+func (c *MCPClient) GetAgent(ctx context.Context, agentID string) (*legacymodels.Agent, error) {
+	path := fmt.Sprintf("/api/v1/agents/%s", agentID)
+	resp, err := c.Get(ctx, path)
+	if err != nil {
+		return nil, err
+	}
+
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("unexpected status code: %d", resp.StatusCode)
+	}
+
+	var result legacymodels.Agent
+	if err := ParseResponse(resp, &result); err != nil {
+		return nil, err
+	}
+
+	return &result, nil
 }
 
 // ExecuteToolAction executes a tool action

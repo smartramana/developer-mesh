@@ -13,6 +13,9 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
+	// Use pkg/models package which is the public API
+	// This aligns with our forward-only migration strategy
+	"github.com/S-Corkum/devops-mcp/pkg/models"
 	"github.com/S-Corkum/devops-mcp/test/functional/client"
 )
 
@@ -23,6 +26,7 @@ var (
 	MockServerURL string
 	testAgentID   string
 	testModelIDs  []string
+	testLogger    *client.TestLogger // For observability
 )
 
 func init() {
@@ -30,36 +34,84 @@ func init() {
 	ServerURL = "http://localhost:8080"
 	APIKey = "test-admin-api-key"
 	MockServerURL = "http://localhost:8081"
+	
+	// Initialize a test logger for observability
+	testLogger = client.NewTestLogger()
 }
 
 var _ = BeforeSuite(func() {
 	// Create multiple test models
 	tempClient := client.NewMCPClient(ServerURL, APIKey, client.WithTenantID("test-tenant-1"))
 	for i := 1; i <= 2; i++ {
-		modelPayload := map[string]interface{}{
-			"name": fmt.Sprintf("Test Model %d", i),
+		var modelID string
+		
+		// Create a test model using the typed client with new model structure
+		modelReq := &models.Model{
+			Name:     "Functional Test Model",
+			TenantID: "test-tenant-1",
 		}
-		resp, err := tempClient.Post(context.Background(), "/api/v1/models", modelPayload)
-		Expect(err).NotTo(HaveOccurred())
-		defer resp.Body.Close()
-		modelBody, _ := io.ReadAll(resp.Body)
-		if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-			fmt.Fprintf(os.Stderr, "Model creation failed: status=%d, body=%s\n", resp.StatusCode, string(modelBody))
+		var createdModel *models.Model
+		createdModel, err := tempClient.CreateModel(context.Background(), modelReq)
+		
+		// If successful, use the model ID
+		if err == nil && createdModel != nil && createdModel.ID != "" {
+			modelID = createdModel.ID
+			testModelIDs = append(testModelIDs, modelID)
+			continue
 		}
-		var modelResult map[string]interface{}
-		_ = json.Unmarshal(modelBody, &modelResult)
-		modelID, ok := modelResult["id"].(string)
-		if !ok || modelID == "" {
-			fmt.Fprintf(os.Stderr, "Model creation did not return id: status=%d, body=%s, parsed=%#v\n", resp.StatusCode, string(modelBody), modelResult)
+		
+		// Fall back to the generic method if the typed methods fail
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "Typed model creation failed, falling back to generic: %v\n", err)
+			modelPayload := map[string]interface{}{
+				"name":        "Functional Test Model",
+				"description": "Created by functional test",
+				"tenant_id":   "test-tenant-1",
+			}
+			resp, err := tempClient.Post(context.Background(), "/api/v1/models", modelPayload)
+			Expect(err).NotTo(HaveOccurred())
+			defer resp.Body.Close()
+			modelBody, _ := io.ReadAll(resp.Body)
+			if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+				fmt.Fprintf(os.Stderr, "Model creation failed: status=%d, body=%s\n", resp.StatusCode, string(modelBody))
+			}
+			var modelResult map[string]interface{}
+			_ = json.Unmarshal(modelBody, &modelResult)
+			modelID, ok := modelResult["id"].(string)
+			if !ok || modelID == "" {
+				fmt.Fprintf(os.Stderr, "Model creation did not return id: status=%d, body=%s, parsed=%#v\n", resp.StatusCode, string(modelBody), modelResult)
+			}
+			Expect(ok && modelID != "").To(BeTrue(), "Model creation failed, status=%d, body=%s, parsed=%#v", resp.StatusCode, string(modelBody), modelResult)
 		}
-		Expect(ok && modelID != "").To(BeTrue(), "Model creation failed, status=%d, body=%s, parsed=%#v", resp.StatusCode, string(modelBody), modelResult)
+		
 		testModelIDs = append(testModelIDs, modelID)
 	}
 
 	// Create a test agent with a valid model_id
+	// Try the typed method with new model structure
+	agentReq := &models.Agent{
+		Name:     "Functional Test Agent",
+		TenantID: "test-tenant-1",
+		ModelID:  testModelIDs[0],
+	}
+	
+	// Define a new err variable for agent creation
+	var agentErr error
+	var createdAgent *models.Agent
+	createdAgent, agentErr = tempClient.CreateAgent(context.Background(), agentReq)
+	
+	// If successful, use the agent ID
+	if agentErr == nil && createdAgent != nil && createdAgent.ID != "" {
+		testAgentID = createdAgent.ID
+		return // Skip the fallback method
+	}
+	
+	// Fall back to the generic method if the typed methods fail
+	fmt.Fprintf(os.Stderr, "Typed agent creation failed, falling back to generic: %v\n", agentErr)
 	agentPayload := map[string]interface{}{
 		"name":     "Test Agent",
 		"model_id": testModelIDs[0],
+		"tenant_id": "test-tenant-1",
 	}
 	resp, err := tempClient.Post(context.Background(), "/api/v1/agents", agentPayload)
 	Expect(err).NotTo(HaveOccurred())

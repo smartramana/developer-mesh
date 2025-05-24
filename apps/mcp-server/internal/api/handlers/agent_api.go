@@ -63,9 +63,7 @@ func (a *AgentAPI) listAgents(c *gin.Context) {
 	}
 	
 	// Create a filter based on tenant ID
-	filter := agent.Filter{
-		TenantID: tenantID,
-	}
+	filter := agent.FilterFromTenantID(tenantID)
 	
 	agents, err := a.repo.List(c.Request.Context(), filter)
 	if err != nil {

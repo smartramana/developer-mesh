@@ -6,19 +6,16 @@ import (
 	"sync"
 	"time"
 
-	"github.com/S-Corkum/devops-mcp/apps/mcp-server/internal/adapters"
+	"mcp-server/internal/adapters"
+	contextManager "mcp-server/internal/core/context"
+	coreModels "mcp-server/internal/core/models"
 	"github.com/S-Corkum/devops-mcp/pkg/common/aws"
 	"github.com/S-Corkum/devops-mcp/pkg/common/cache"
-	contextManager "github.com/S-Corkum/devops-mcp/apps/mcp-server/internal/core/context"
 	"github.com/S-Corkum/devops-mcp/pkg/database"
 	"github.com/S-Corkum/devops-mcp/pkg/common/events"
 	"github.com/S-Corkum/devops-mcp/pkg/common/events/system"
-	"github.com/S-Corkum/devops-mcp/pkg/mcp/interfaces"
-	"github.com/S-Corkum/devops-mcp/pkg/observability"
 	"github.com/S-Corkum/devops-mcp/pkg/observability"
 	"github.com/S-Corkum/devops-mcp/pkg/storage/providers"
-
-	"github.com/S-Corkum/devops-mcp/pkg/mcp"
 )
 
 // MockMetricsClient is a mock implementation of observability.MetricsClient
@@ -71,13 +68,40 @@ func (b *MockSystemEventBus) Unsubscribe(eventType system.EventType, handler fun
 	// No-op
 }
 
+// CoreConfig defines the configuration for the core engine
+type CoreConfig interface {
+	// GetString gets a string value from the configuration
+	GetString(key string) string
+	// AWS returns the AWS configuration
+	AWS() *aws.AWSConfig
+	// S3 returns the S3 configuration if available
+	S3() *aws.S3Config
+	// GetConcurrencyLimit returns the concurrency limit
+	ConcurrencyLimit() int
+}
+
+// WebhookHandler defines the interface for handling webhooks
+type WebhookHandler interface {
+	// HandleWebhook handles a webhook event
+	HandleWebhook(ctx context.Context, eventType string, payload []byte) error
+}
+
+// ContextManagerInterface defines the interface for the context manager
+type ContextManagerInterface interface {
+	CreateContext(ctx context.Context, contextData *coreModels.Context) (*coreModels.Context, error)
+	GetContext(ctx context.Context, contextID string) (*coreModels.Context, error)
+	UpdateContext(ctx context.Context, contextID string, updatedContext *coreModels.Context, options *coreModels.ContextUpdateOptions) (*coreModels.Context, error)
+	DeleteContext(ctx context.Context, contextID string) error
+	ListContexts(ctx context.Context, agentID string, sessionID string, options map[string]interface{}) ([]*coreModels.Context, error)
+}
+
 // Engine is the core engine of the MCP server
 type Engine struct {
 	adapterManager      *adapters.AdapterManager
-	contextManager      *contextManager.Manager
+	contextManager      ContextManagerInterface
 	githubContentManager *GitHubContentManager
-	config              interfaces.CoreConfig
-	metricsClient       metrics.Client
+	config              CoreConfig
+	metricsClient       observability.MetricsClient
 	logger              observability.Logger
 	eventBus            *events.EventBus
 	lock                sync.RWMutex
@@ -86,52 +110,40 @@ type Engine struct {
 // NewEngine creates a new engine
 func NewEngine(
 	ctx context.Context,
-	config interfaces.CoreConfig,
+	config CoreConfig,
 	db *database.Database,
 	cacheClient cache.Cache,
-	metricsClient metrics.Client,
+	metricsClient observability.MetricsClient,
 ) (*Engine, error) {
 	// Create logger
 	logger := observability.NewLogger("engine")
 
 	// Create regular event bus for internal use
-	eventBus := events.NewEventBus(config.ConcurrencyLimit)
+	eventBus := events.NewEventBus(config.ConcurrencyLimit())
 
 	// Create a mock system event bus to fix compile issues
 	systemEventBus := &MockSystemEventBus{}
 
 	// Initialize context storage provider: prefer S3 if configured, otherwise use in-memory
 	var storage providers.ContextStorage
-	useS3 := config.AWS != nil && config.AWS.S3 != nil && config.AWS.S3.Bucket != ""
-	if useS3 {
+	s3Config := config.S3()
+	useS3 := s3Config != nil && s3Config.Bucket != ""
+	if useS3 && s3Config != nil {
 		s3Prefix := "contexts"
 		if v, ok := any(config).(interface{ GetString(string) string }); ok {
 			if p := v.GetString("storage.context_storage.s3_path_prefix"); p != "" {
 				s3Prefix = p
 			}
 		}
-		s3Config := aws.S3Config{
-	AWSConfig: aws.AWSConfig{
-		UseIAMAuth: config.AWS.S3.UseIAMAuth,
-		Region:     config.AWS.S3.Region,
-		Endpoint:   config.AWS.S3.Endpoint,
-		AssumeRole: config.AWS.S3.AssumeRole,
-	},
-	Bucket:           config.AWS.S3.Bucket,
-	Region:           config.AWS.S3.Region,
-	Endpoint:         config.AWS.S3.Endpoint,
-	ForcePathStyle:   config.AWS.S3.ForcePathStyle,
-			UploadPartSize:   int64(config.AWS.S3.UploadPartSize),
-			DownloadPartSize: int64(config.AWS.S3.DownloadPartSize),
-			Concurrency:      config.AWS.S3.Concurrency,
-			RequestTimeout:   config.AWS.S3.RequestTimeout,
-		}
-		s3Client, err := aws.NewS3Client(ctx, s3Config)
+		
+		// Create a new S3 client with the provided config
+		s3Client, err := aws.NewS3Client(ctx, *s3Config)
 		if err != nil {
 			logger.Warn("Failed to initialize S3 client, falling back to in-memory context storage", map[string]interface{}{"error": err.Error()})
 			storage = providers.NewInMemoryContextStorage()
 		} else {
-			logger.Info("Using S3 context storage", map[string]interface{}{"bucket": config.AWS.S3.Bucket, "prefix": s3Prefix})
+			// Use the bucket from s3Config which was already obtained from config.S3()
+			logger.Info("Using S3 context storage", map[string]interface{}{"bucket": s3Config.Bucket, "prefix": s3Prefix})
 			storage = providers.NewS3ContextStorage(s3Client, s3Prefix)
 		}
 	} else {
@@ -173,23 +185,8 @@ func NewEngine(
 	
 	// If S3 storage is configured, use the same client for GitHub content
 	if useS3 {
-		// Create an S3Client for GitHub content storage
-		s3ClientForGithub, err := aws.NewS3Client(ctx, aws.S3Config{
-			Region:           config.AWS.S3.Region,
-			Bucket:           config.AWS.S3.Bucket,
-			Endpoint:         config.AWS.S3.Endpoint,
-			ForcePathStyle:   config.AWS.S3.ForcePathStyle,
-			UploadPartSize:   int64(config.AWS.S3.UploadPartSize),
-			DownloadPartSize: int64(config.AWS.S3.DownloadPartSize),
-			Concurrency:      config.AWS.S3.Concurrency,
-			RequestTimeout:   config.AWS.S3.RequestTimeout,
-			AWSConfig: aws.AWSConfig{
-				UseIAMAuth: config.AWS.S3.UseIAMAuth,
-				Region:     config.AWS.S3.Region,
-				Endpoint:   config.AWS.S3.Endpoint,
-				AssumeRole: config.AWS.S3.AssumeRole,
-			},
-		})
+		// Use the existing s3Config that was already obtained
+		s3ClientForGithub, err := aws.NewS3Client(ctx, *s3Config)
 		
 		if err == nil {
 			// Create a dummy MetricsClient that matches the observability.MetricsClient interface
@@ -231,7 +228,7 @@ func (e *Engine) GetAdapter(adapterType string) (interface{}, error) {
 }
 
 // GetContextManager returns the context manager
-func (e *Engine) GetContextManager() interfaces.ContextManager {
+func (e *Engine) GetContextManager() ContextManagerInterface {
 	return e.contextManager
 }
 
@@ -254,7 +251,7 @@ func (e *Engine) HandleAdapterWebhook(ctx context.Context, adapterType string, e
 	}
 
 	// Check if the adapter implements webhook handling
-	if webhookHandler, ok := adapter.(interfaces.WebhookHandler); ok {
+	if webhookHandler, ok := adapter.(WebhookHandler); ok {
 		return webhookHandler.HandleWebhook(ctx, eventType, payload)
 	}
 
@@ -267,7 +264,7 @@ func (e *Engine) RecordWebhookInContext(ctx context.Context, agentID string, ada
 	contexts, err := e.contextManager.ListContexts(ctx, agentID, "", map[string]interface{}{"limit": 1})
 	if err != nil || len(contexts) == 0 {
 		// Create new context if none exists
-		contextData := &mcp.Context{
+		contextData := &coreModels.Context{
 			AgentID:   agentID,
 			ModelID:   "unknown", // Set appropriate default
 			MaxTokens: 4000,      // Default value
@@ -278,13 +275,13 @@ func (e *Engine) RecordWebhookInContext(ctx context.Context, agentID string, ada
 			return "", err
 		}
 
-		contexts = []*mcp.Context{newContext}
+		contexts = []*coreModels.Context{newContext}
 	}
 
 	contextID := contexts[0].ID
 
 	// Format webhook event as context item
-	webhookItem := mcp.ContextItem{
+	webhookItem := coreModels.ContextItem{
 		Role:    "webhook",
 		Content: fmt.Sprintf("Webhook event: %s from %s", eventType, adapterType),
 		Tokens:  1, // Set appropriate token count or calculate based on content
@@ -297,11 +294,12 @@ func (e *Engine) RecordWebhookInContext(ctx context.Context, agentID string, ada
 	}
 
 	// Update context with webhook event
-	updateData := &mcp.Context{
-		Content: []mcp.ContextItem{webhookItem},
+	updateData := &coreModels.Context{
+		Content: []coreModels.ContextItem{webhookItem},
 	}
 
-	options := &mcp.ContextUpdateOptions{
+	// Create core models version of the update options
+	options := &coreModels.ContextUpdateOptions{
 		Truncate:         true,
 		TruncateStrategy: "oldest_first",
 	}

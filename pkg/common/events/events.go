@@ -7,9 +7,8 @@ import (
 	"sync"
 	"time"
 
+	"github.com/S-Corkum/devops-mcp/pkg/models"
 	"github.com/S-Corkum/devops-mcp/pkg/observability"
-	"github.com/S-Corkum/devops-mcp/pkg/mcp"
-	"go.opentelemetry.io/otel/attribute"
 )
 
 // EventType defines the type of event
@@ -53,13 +52,13 @@ const (
 )
 
 // Handler is a function that handles an event
-type Handler func(ctx context.Context, event *mcp.Event) error
+type Handler func(ctx context.Context, event *models.Event) error
 
 // EventBusIface is an interface for the event bus, for testability.
 type EventBusIface interface {
 	Subscribe(eventType EventType, handler Handler)
 	Unsubscribe(eventType EventType, handler Handler)
-	Publish(ctx context.Context, event *mcp.Event)
+	Publish(ctx context.Context, event *models.Event)
 	Close()
 }
 
@@ -77,7 +76,7 @@ type EventBus struct {
 // eventQueueItem represents an item in the event queue
 type eventQueueItem struct {
 	ctx   context.Context
-	event *mcp.Event
+	event *models.Event
 }
 
 // NewEventBus creates a new event bus
@@ -134,7 +133,7 @@ func (bus *EventBus) Unsubscribe(eventType EventType, handler Handler) {
 }
 
 // Publish publishes an event to all registered handlers
-func (bus *EventBus) Publish(ctx context.Context, event *mcp.Event) {
+func (bus *EventBus) Publish(ctx context.Context, event *models.Event) {
 	// Initialize timestamp if not set
 	if event.Timestamp.IsZero() {
 		event.Timestamp = time.Now()
@@ -148,12 +147,10 @@ func (bus *EventBus) Publish(ctx context.Context, event *mcp.Event) {
 	
 	// Create trace span
 	ctx, span := observability.StartSpan(ctx, "event.publish")
-	span.SetAttributes(
-		attribute.String("event.type", string(event.Type)),
-		attribute.String("event.agent_id", event.AgentID),
-		attribute.String("event.session_id", event.SessionID),
-		attribute.String("event.source", event.Source),
-	)
+	span.SetAttribute("event.type", string(event.Type))
+	span.SetAttribute("event.agent_id", event.AgentID)
+	span.SetAttribute("event.session_id", event.SessionID)
+	span.SetAttribute("event.source", event.Source)
 	defer span.End()
 	
 	// Queue event for async processing
@@ -183,10 +180,8 @@ func (bus *EventBus) processEvents() {
 			
 			// Create trace span for handler
 			ctx, span := observability.StartSpan(item.ctx, "event.handle")
-			span.SetAttributes(
-				attribute.String("event.type", string(eventType)),
-				attribute.String("event.handler", fmt.Sprintf("%p", handler)),
-			)
+			span.SetAttribute("event.type", string(eventType))
+			span.SetAttribute("event.handler", fmt.Sprintf("%p", handler))
 			
 			// Call handler
 			err := handler(ctx, item.event)
@@ -221,7 +216,7 @@ func PublishContextEvent(bus *EventBus, ctx context.Context, eventType EventType
 	data["context_id"] = contextID
 	
 	// Create event
-	event := &mcp.Event{
+	event := &models.Event{
 		Type:      string(eventType),
 		AgentID:   agentID,
 		Timestamp: time.Now(),
@@ -245,7 +240,7 @@ func PublishToolEvent(bus *EventBus, ctx context.Context, eventType EventType, t
 	data["context_id"] = contextID
 	
 	// Create event
-	event := &mcp.Event{
+	event := &models.Event{
 		Type:      string(eventType),
 		Timestamp: time.Now(),
 		Data:      data,

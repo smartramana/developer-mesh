@@ -13,7 +13,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/S-Corkum/devops-mcp/pkg/mcp"
+	"github.com/S-Corkum/devops-mcp/pkg/models"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -267,12 +267,12 @@ func TestCreateContext(t *testing.T) {
 	client := NewClient(server.URL, WithAPIKey("test-api-key"))
 
 	ctx := context.Background()
-	contextData := &mcp.Context{
+	contextData := &models.Context{
 		AgentID:   "test-agent",
 		ModelID:   "test-model",
 		SessionID: "test-session",
 		MaxTokens: 1000,
-		Content:   []mcp.ContextItem{},
+		Content:   []models.ContextItem{},
 		Metadata:  map[string]interface{}{},
 	}
 
@@ -308,13 +308,13 @@ func TestUpdateContext(t *testing.T) {
 	client := NewClient(server.URL, WithAPIKey("test-api-key"))
 
 	ctx := context.Background()
-	contextData := &mcp.Context{
+	contextData := &models.Context{
 		ID:        "test-context-789",
 		AgentID:   "test-agent",
 		ModelID:   "test-model",
 		SessionID: "test-session",
 		MaxTokens: 1000,
-		Content: []mcp.ContextItem{
+		Content: []models.ContextItem{
 			{
 				Role:    "user",
 				Content: "Updated content",
@@ -324,7 +324,7 @@ func TestUpdateContext(t *testing.T) {
 		Metadata: map[string]interface{}{},
 	}
 
-	options := &mcp.ContextUpdateOptions{
+	options := &models.ContextUpdateOptions{
 		Truncate:         true,
 		TruncateStrategy: "oldest_first",
 	}
@@ -419,7 +419,7 @@ func TestSendEvent(t *testing.T) {
 	client := NewClient(server.URL, WithWebhookSecret(webhookSecret))
 
 	ctx := context.Background()
-	event := &mcp.Event{
+	event := &models.Event{
 		Source:    "agent",
 		Type:      "task_complete",
 		AgentID:   "test-agent",
@@ -465,7 +465,7 @@ func TestSendEventWithoutWebhookSecret(t *testing.T) {
 	client := NewClient(server.URL)
 
 	ctx := context.Background()
-	event := &mcp.Event{
+	event := &models.Event{
 		Source:    "agent",
 		Type:      "task_complete",
 		AgentID:   "test-agent",
@@ -579,7 +579,7 @@ func TestErrorHandling(t *testing.T) {
 
 	// Test error handling for various methods
 	t.Run("CreateContext Error", func(t *testing.T) {
-		contextData := &mcp.Context{
+		contextData := &models.Context{
 			AgentID:   "test-agent",
 			ModelID:   "test-model",
 			MaxTokens: 1000,
@@ -596,11 +596,11 @@ func TestErrorHandling(t *testing.T) {
 	})
 
 	t.Run("UpdateContext Error", func(t *testing.T) {
-		contextData := &mcp.Context{
+		contextData := &models.Context{
 			ID:       "test-id",
 			AgentID:  "test-agent",
 			ModelID:  "test-model",
-			Content:  []mcp.ContextItem{},
+			Content:  []models.ContextItem{},
 			Metadata: map[string]interface{}{},
 		}
 		_, err := client.UpdateContext(ctx, "test-id", contextData, nil)
@@ -633,7 +633,7 @@ func TestErrorHandling(t *testing.T) {
 	})
 
 	t.Run("SendEvent Error", func(t *testing.T) {
-		event := &mcp.Event{
+		event := &models.Event{
 			Source:    "agent",
 			Type:      "test",
 			AgentID:   "test-agent",
@@ -682,7 +682,7 @@ func TestInvalidJSONResponse(t *testing.T) {
 
 	// Test error handling for invalid JSON responses
 	t.Run("CreateContext with Invalid JSON", func(t *testing.T) {
-		contextData := &mcp.Context{
+		contextData := &models.Context{
 			AgentID:   "test-agent",
 			ModelID:   "test-model",
 			MaxTokens: 1000,
