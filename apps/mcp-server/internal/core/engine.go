@@ -6,9 +6,8 @@ import (
 	"sync"
 	"time"
 
-	"mcp-server/internal/adapters"
-	contextManager "mcp-server/internal/core/context"
-	coreModels "mcp-server/internal/core/models"
+	"github.com/S-Corkum/devops-mcp/pkg/adapters"
+	"github.com/S-Corkum/devops-mcp/pkg/models"
 	"github.com/S-Corkum/devops-mcp/pkg/common/aws"
 	"github.com/S-Corkum/devops-mcp/pkg/common/cache"
 	"github.com/S-Corkum/devops-mcp/pkg/database"
@@ -88,11 +87,13 @@ type WebhookHandler interface {
 
 // ContextManagerInterface defines the interface for the context manager
 type ContextManagerInterface interface {
-	CreateContext(ctx context.Context, contextData *coreModels.Context) (*coreModels.Context, error)
-	GetContext(ctx context.Context, contextID string) (*coreModels.Context, error)
-	UpdateContext(ctx context.Context, contextID string, updatedContext *coreModels.Context, options *coreModels.ContextUpdateOptions) (*coreModels.Context, error)
+	CreateContext(ctx context.Context, contextData *models.Context) (*models.Context, error)
+	GetContext(ctx context.Context, contextID string) (*models.Context, error)
+	UpdateContext(ctx context.Context, contextID string, updatedContext *models.Context, options *models.ContextUpdateOptions) (*models.Context, error)
 	DeleteContext(ctx context.Context, contextID string) error
-	ListContexts(ctx context.Context, agentID string, sessionID string, options map[string]interface{}) ([]*coreModels.Context, error)
+	ListContexts(ctx context.Context, agentID string, sessionID string, options map[string]interface{}) ([]*models.Context, error)
+	SummarizeContext(ctx context.Context, contextID string) (string, error)
+	SearchInContext(ctx context.Context, contextID string, query string) ([]models.ContextItem, error)
 }
 
 // Engine is the core engine of the MCP server
@@ -151,18 +152,28 @@ func NewEngine(
 		storage = providers.NewInMemoryContextStorage()
 	}
 
-	// Use the correct event bus and metrics types
-	// system.NewSimpleEventBus returns *system.SimpleEventBus, which implements the required interface
-	// Use a new observability.MetricsClient for the context manager (not metrics.Client)
-	// Pass observability.NewMetricsClient() as observability.MetricsClient interface
-	ctxManager := contextManager.NewManager(
+	// Create context manager with performance optimizations if configured
+	// Note: Performance config would be loaded from main config in production
+	// For now, we'll use the standard context manager
+	
+	// The context manager expects *system.EventBus but we have a mock
+	// In production, you would use the actual system event bus
+	// For now, we'll pass nil since the context manager can handle nil event bus
+	var eventBusForContext *system.EventBus = nil
+	
+	ctxManager, err := CreateContextManager(
+		ctx,
 		db,
 		cacheClient,
 		storage,
-		nil, // Event bus (set to nil for now, or use a real one if available)
+		eventBusForContext,
 		logger.WithPrefix("context_manager"),
 		observability.NewMetricsClient(),
+		nil, // Performance config - would be loaded from main config in production
 	)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create context manager: %w", err)
+	}
 
 	// For now, pass the config directly to the adapter manager
 	// We'll refactor the adapter manager later to handle interfaces.CoreConfig
@@ -264,7 +275,7 @@ func (e *Engine) RecordWebhookInContext(ctx context.Context, agentID string, ada
 	contexts, err := e.contextManager.ListContexts(ctx, agentID, "", map[string]interface{}{"limit": 1})
 	if err != nil || len(contexts) == 0 {
 		// Create new context if none exists
-		contextData := &coreModels.Context{
+		contextData := &models.Context{
 			AgentID:   agentID,
 			ModelID:   "unknown", // Set appropriate default
 			MaxTokens: 4000,      // Default value
@@ -275,13 +286,13 @@ func (e *Engine) RecordWebhookInContext(ctx context.Context, agentID string, ada
 			return "", err
 		}
 
-		contexts = []*coreModels.Context{newContext}
+		contexts = []*models.Context{newContext}
 	}
 
 	contextID := contexts[0].ID
 
 	// Format webhook event as context item
-	webhookItem := coreModels.ContextItem{
+	webhookItem := models.ContextItem{
 		Role:    "webhook",
 		Content: fmt.Sprintf("Webhook event: %s from %s", eventType, adapterType),
 		Tokens:  1, // Set appropriate token count or calculate based on content
@@ -294,12 +305,12 @@ func (e *Engine) RecordWebhookInContext(ctx context.Context, agentID string, ada
 	}
 
 	// Update context with webhook event
-	updateData := &coreModels.Context{
-		Content: []coreModels.ContextItem{webhookItem},
+	updateData := &models.Context{
+		Content: []models.ContextItem{webhookItem},
 	}
 
 	// Create core models version of the update options
-	options := &coreModels.ContextUpdateOptions{
+	options := &models.ContextUpdateOptions{
 		Truncate:         true,
 		TruncateStrategy: "oldest_first",
 	}

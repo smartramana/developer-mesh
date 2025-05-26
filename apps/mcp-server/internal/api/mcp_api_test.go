@@ -14,17 +14,17 @@ import (
 	"github.com/stretchr/testify/mock"
 )
 
-// MockContextManager is a mock implementation of ContextManagerInterface
-type MockContextManager struct {
+// MockAPIContextManager is a mock implementation of ContextManagerInterface for API tests
+type MockAPIContextManager struct {
 	mock.Mock
 }
 
-func (m *MockContextManager) CreateContext(ctx context.Context, context *models.Context) (*models.Context, error) {
+func (m *MockAPIContextManager) CreateContext(ctx context.Context, context *models.Context) (*models.Context, error) {
 	args := m.Called(ctx, context)
 	return args.Get(0).(*models.Context), args.Error(1)
 }
 
-func (m *MockContextManager) GetContext(ctx context.Context, contextID string) (*models.Context, error) {
+func (m *MockAPIContextManager) GetContext(ctx context.Context, contextID string) (*models.Context, error) {
 	args := m.Called(ctx, contextID)
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
@@ -32,7 +32,7 @@ func (m *MockContextManager) GetContext(ctx context.Context, contextID string) (
 	return args.Get(0).(*models.Context), args.Error(1)
 }
 
-func (m *MockContextManager) UpdateContext(ctx context.Context, contextID string, context *models.Context, options *models.ContextUpdateOptions) (*models.Context, error) {
+func (m *MockAPIContextManager) UpdateContext(ctx context.Context, contextID string, context *models.Context, options *models.ContextUpdateOptions) (*models.Context, error) {
 	args := m.Called(ctx, contextID, context, options)
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
@@ -40,22 +40,22 @@ func (m *MockContextManager) UpdateContext(ctx context.Context, contextID string
 	return args.Get(0).(*models.Context), args.Error(1)
 }
 
-func (m *MockContextManager) DeleteContext(ctx context.Context, contextID string) error {
+func (m *MockAPIContextManager) DeleteContext(ctx context.Context, contextID string) error {
 	args := m.Called(ctx, contextID)
 	return args.Error(0)
 }
 
-func (m *MockContextManager) ListContexts(ctx context.Context, agentID, sessionID string, options map[string]interface{}) ([]*models.Context, error) {
+func (m *MockAPIContextManager) ListContexts(ctx context.Context, agentID, sessionID string, options map[string]interface{}) ([]*models.Context, error) {
 	args := m.Called(ctx, agentID, sessionID, options)
 	return args.Get(0).([]*models.Context), args.Error(1)
 }
 
-func (m *MockContextManager) SearchInContext(ctx context.Context, contextID, query string) ([]models.ContextItem, error) {
+func (m *MockAPIContextManager) SearchInContext(ctx context.Context, contextID, query string) ([]models.ContextItem, error) {
 	args := m.Called(ctx, contextID, query)
 	return args.Get(0).([]models.ContextItem), args.Error(1)
 }
 
-func (m *MockContextManager) SummarizeContext(ctx context.Context, contextID string) (string, error) {
+func (m *MockAPIContextManager) SummarizeContext(ctx context.Context, contextID string) (string, error) {
 	args := m.Called(ctx, contextID)
 	return args.String(0), args.Error(1)
 }
@@ -69,7 +69,7 @@ func TestUpdateContext(t *testing.T) {
 		name               string
 		contextID          string
 		requestBody        string
-		setupMocks         func(mockContextManager *MockContextManager)
+		setupMocks         func(mockContextManager *MockAPIContextManager)
 		expectedStatusCode int
 		expectedResponse   string
 	}{
@@ -80,7 +80,7 @@ func TestUpdateContext(t *testing.T) {
 				{"role": "user", "content": "Hello, how are you?", "tokens": 5},
 				{"role": "assistant", "content": "I'm doing well, thank you!", "tokens": 6}
 			]}`,
-			setupMocks: func(mockContextManager *MockContextManager) {
+			setupMocks: func(mockContextManager *MockAPIContextManager) {
 				existingContext := &models.Context{
 					ID:        "test-id-1",
 					AgentID:   "test-agent",
@@ -124,7 +124,7 @@ func TestUpdateContext(t *testing.T) {
 			requestBody: `{"content": [
 				{"role": "user", "content": "Hello", "tokens": 1}
 			]}`,
-			setupMocks: func(mockContextManager *MockContextManager) {
+			setupMocks: func(mockContextManager *MockAPIContextManager) {
 				mockContextManager.On("GetContext", mock.Anything, "nonexistent-id").Return(nil, assert.AnError)
 			},
 			expectedStatusCode: http.StatusNotFound,
@@ -134,7 +134,7 @@ func TestUpdateContext(t *testing.T) {
 			name:      "invalid request body",
 			contextID: "test-id-1",
 			requestBody: `{"invalid json`,
-			setupMocks: func(mockContextManager *MockContextManager) {
+			setupMocks: func(mockContextManager *MockAPIContextManager) {
 				// No mocks needed as request parsing will fail
 			},
 			expectedStatusCode: http.StatusBadRequest,
@@ -146,7 +146,7 @@ func TestUpdateContext(t *testing.T) {
 			requestBody: `{"content": [
 				{"role": "user", "content": "Content that causes error", "tokens": 5}
 			]}`,
-			setupMocks: func(mockContextManager *MockContextManager) {
+			setupMocks: func(mockContextManager *MockAPIContextManager) {
 				existingContext := &models.Context{
 					ID:        "error-id",
 					AgentID:   "test-agent",
@@ -168,7 +168,7 @@ func TestUpdateContext(t *testing.T) {
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			// Create a new mock context manager for each test
-			mockContextManager := new(MockContextManager)
+			mockContextManager := new(MockAPIContextManager)
 			
 			// Setup mocks for this test
 			tc.setupMocks(mockContextManager)

@@ -264,62 +264,61 @@ type MockMetrics struct {
 	mock.Mock
 }
 
+func (m *MockMetrics) RecordEvent(source, eventType string) {
+	m.Called(source, eventType)
+}
+
 func (m *MockMetrics) RecordLatency(operation string, duration time.Duration) {
 	m.Called(operation, duration)
 }
 
-func (m *MockMetrics) IncrementCount(metric string) {
-	m.Called(metric)
+func (m *MockMetrics) RecordCounter(name string, value float64, labels map[string]string) {
+	m.Called(name, value, labels)
 }
 
-func (m *MockMetrics) IncrementCountBy(metric string, n int) {
-	m.Called(metric, n)
+func (m *MockMetrics) RecordGauge(name string, value float64, labels map[string]string) {
+	m.Called(name, value, labels)
 }
 
-func (m *MockMetrics) RecordOperation(system, operation string, success bool, duration float64, tags map[string]string) {
-	m.Called(system, operation, success, duration, tags)
+func (m *MockMetrics) RecordHistogram(name string, value float64, labels map[string]string) {
+	m.Called(name, value, labels)
 }
 
-func (m *MockMetrics) IncrementCounter(metric string, value float64, tags map[string]string) {
-	m.Called(metric, value, tags)
+func (m *MockMetrics) RecordTimer(name string, duration time.Duration, labels map[string]string) {
+	m.Called(name, duration, labels)
 }
 
-func (m *MockMetrics) RecordCacheOperation(operation string, hit bool, duration float64) {
-	m.Called(operation, hit, duration)
+func (m *MockMetrics) RecordCacheOperation(operation string, success bool, durationSeconds float64) {
+	m.Called(operation, success, durationSeconds)
 }
 
-func (m *MockMetrics) RecordOperationWithContext(ctx context.Context, operation string, f func() error) error {
-	args := m.Called(ctx, operation, f)
-	return args.Error(0)
+func (m *MockMetrics) RecordOperation(component string, operation string, success bool, durationSeconds float64, labels map[string]string) {
+	m.Called(component, operation, success, durationSeconds, labels)
 }
 
-func (m *MockMetrics) RecordCounter(metric string, value float64, tags map[string]string) {
-	m.Called(metric, value, tags)
+func (m *MockMetrics) RecordAPIOperation(api string, operation string, success bool, durationSeconds float64) {
+	m.Called(api, operation, success, durationSeconds)
 }
 
-func (m *MockMetrics) RecordDuration(metric string, duration time.Duration) {
-	m.Called(metric, duration)
+func (m *MockMetrics) RecordDatabaseOperation(operation string, success bool, durationSeconds float64) {
+	m.Called(operation, success, durationSeconds)
 }
 
-func (m *MockMetrics) RecordEvent(name string, result string) {
-	m.Called(name, result)
-}
-
-func (m *MockMetrics) RecordGauge(metric string, value float64, tags map[string]string) {
-	m.Called(metric, value, tags)
-}
-
-func (m *MockMetrics) RecordHistogram(metric string, value float64, tags map[string]string) {
-	m.Called(metric, value, tags)
-}
-
-func (m *MockMetrics) RecordTimer(metric string, duration time.Duration, tags map[string]string) {
-	m.Called(metric, duration, tags)
-}
-
-func (m *MockMetrics) StartTimer(metric string, tags map[string]string) func() {
-	args := m.Called(metric, tags)
+func (m *MockMetrics) StartTimer(name string, labels map[string]string) func() {
+	args := m.Called(name, labels)
 	return args.Get(0).(func())
+}
+
+func (m *MockMetrics) IncrementCounter(name string, value float64) {
+	m.Called(name, value)
+}
+
+func (m *MockMetrics) IncrementCounterWithLabels(name string, value float64, labels map[string]string) {
+	m.Called(name, value, labels)
+}
+
+func (m *MockMetrics) RecordDuration(name string, duration time.Duration) {
+	m.Called(name, duration)
 }
 
 func (m *MockMetrics) Close() error {

@@ -5,21 +5,21 @@ import (
 	"strconv"
 
 	"mcp-server/internal/core"
-	"github.com/S-Corkum/devops-mcp/pkg/observability"
 	"github.com/S-Corkum/devops-mcp/pkg/models"
+	"github.com/S-Corkum/devops-mcp/pkg/observability"
 	"github.com/gin-gonic/gin"
 )
 
 // API handles context-related API endpoints
 type API struct {
-	contextManager interfaces.ContextManager
+	contextManager core.ContextManagerInterface
 	logger         observability.Logger
 	metricsClient  observability.MetricsClient
 }
 
 // NewAPI creates a new context API handler
 func NewAPI(
-	contextManager interfaces.ContextManager,
+	contextManager core.ContextManagerInterface,
 	logger observability.Logger,
 	metricsClient observability.MetricsClient,
 ) *API {

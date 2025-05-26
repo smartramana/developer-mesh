@@ -20,7 +20,7 @@ func TestUpdateContextHandler(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	
 	// Create mock context manager
-	mockManager := new(MockContextManager)
+	mockManager := new(MockAPIContextManager)
 	
 	// Test data
 	contextID := "test-context-id"

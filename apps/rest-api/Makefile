@@ -26,6 +26,15 @@ clean:
 run:
 	go run ./cmd/api
 
-# Run database migrations
-migrate:
-	go run ./cmd/api --migrate-only
+# Database migration commands
+migrate-up:
+	go run ./cmd/migrate -up -dsn "$(DSN)"
+
+migrate-down:
+	go run ./cmd/migrate -down -dsn "$(DSN)"
+
+migrate-create:
+	go run ./cmd/migrate -create -name "$(NAME)"
+
+migrate-version:
+	go run ./cmd/migrate -version -dsn "$(DSN)"

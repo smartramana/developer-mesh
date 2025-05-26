@@ -2,8 +2,6 @@ package api
 
 import (
 	"time"
-
-	"mcp-server/internal/config"
 )
 
 // Config holds configuration for the API server
@@ -20,7 +18,7 @@ type Config struct {
 	RateLimit     RateLimitConfig          `mapstructure:"rate_limit"`
 	Versioning    VersioningConfig         `mapstructure:"versioning"`
 	Performance   PerformanceConfig        `mapstructure:"performance"`
-	Webhook       config.WebhookConfig `mapstructure:"webhook"`
+	Webhook       map[string]interface{} `mapstructure:"webhook"`
 	RestAPI       RestAPIConfig            `mapstructure:"rest_api"`
 }
 
@@ -130,13 +128,7 @@ func DefaultConfig() Config {
 			MaxRetries:            3,
 			RetryBackoff:          500 * time.Millisecond,
 		},
-		Webhook: config.WebhookConfig{
-			EnabledField:             false,
-			GitHubEndpointField:      "/api/webhooks/github",
-			GitHubSecretField:        "",
-			GitHubIPValidationField:  true,
-			GitHubAllowedEventsField: []string{"push", "pull_request", "issues", "issue_comment", "release"},
-		},
+		Webhook: nil, // Webhook config is set from main.go
 		RestAPI: RestAPIConfig{
 			Enabled:    true,
 			BaseURL:    "http://localhost:8081",

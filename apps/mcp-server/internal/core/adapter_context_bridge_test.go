@@ -6,24 +6,12 @@ import (
 	"testing"
 	"time"
 
-	"mcp-server/internal/adapters/core"
 	"github.com/S-Corkum/devops-mcp/pkg/models"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 )
 
-// Using MockContextManager defined in merged_mocks.go
-
-// Add SummarizeContext and SearchInContext methods to MockContextManager
-func (m *MockContextManager) SummarizeContext(ctx context.Context, contextID string) (string, error) {
-	args := m.Called(ctx, contextID)
-	return args.String(0), args.Error(1)
-}
-
-func (m *MockContextManager) SearchInContext(ctx context.Context, contextID string, query string) ([]models.ContextItem, error) {
-	args := m.Called(ctx, contextID, query)
-	return args.Get(0).([]models.ContextItem), args.Error(1)
-}
+// Using MockContextManager defined in mock_context_manager_test.go
 
 // MockAdapter mocks the core.Adapter interface
 type MockAdapter struct {
@@ -80,7 +68,7 @@ func TestHandleToolWebhook(t *testing.T) {
 	mockAdapter := new(MockAdapter)
 	
 	// Create the bridge
-	adapters := map[string]core.Adapter{
+	adapters := map[string]Adapter{
 		"test-tool": mockAdapter,
 	}
 	

@@ -215,7 +215,8 @@ docker-verify:
 
 # Database migration commands
 migrate-tool:
-	$(GOBUILD) -o migrate -v ./pkg/migrations/cmd
+	@echo "Note: Database migrations have been moved to apps/rest-api/migrations"
+	cd apps/rest-api && go build -o ../../migrate -v ./cmd/migrate
 
 # Create a new migration file with the given name
 # Usage: make migrate-create name=add_new_table

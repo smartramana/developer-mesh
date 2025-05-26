@@ -4,7 +4,7 @@ package context
 import (
 	"context"
 	
-	"mcp-server/internal/core/models"
+	"github.com/S-Corkum/devops-mcp/pkg/models"
 )
 
 // ContextManager defines the interface for managing contexts

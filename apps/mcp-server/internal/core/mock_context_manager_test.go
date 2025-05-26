@@ -47,3 +47,16 @@ func (m *MockContextManager) UpdateContext(ctx context.Context, contextID string
 	}
 	return args.Get(0).(*models.Context), args.Error(1)
 }
+
+func (m *MockContextManager) SummarizeContext(ctx context.Context, contextID string) (string, error) {
+	args := m.Called(ctx, contextID)
+	return args.String(0), args.Error(1)
+}
+
+func (m *MockContextManager) SearchInContext(ctx context.Context, contextID string, query string) ([]models.ContextItem, error) {
+	args := m.Called(ctx, contextID, query)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).([]models.ContextItem), args.Error(1)
+}
