@@ -9,33 +9,35 @@ import (
 )
 
 // SetupHandlers configures the HTTP handlers for the mock server
-func SetupHandlers() {
+func SetupHandlers(mux *http.ServeMux) {
+	// If no mux is provided, use the default one for backward compatibility
+	if mux == nil {
+		mux = http.DefaultServeMux
+	}
+
 	// GitHub API mock
-	http.HandleFunc("/mock-github/", GitHubHandler)
+	mux.HandleFunc("/mock-github/", GitHubHandler)
 
 	// Harness API mock
-	http.HandleFunc("/mock-harness/", HarnessHandler)
+	mux.HandleFunc("/mock-harness/", HarnessHandler)
 
 	// SonarQube API mock
-	http.HandleFunc("/mock-sonarqube/", SonarQubeHandler)
+	mux.HandleFunc("/mock-sonarqube/", SonarQubeHandler)
 
 	// Artifactory API mock
-	http.HandleFunc("/mock-artifactory/", ArtifactoryHandler)
+	mux.HandleFunc("/mock-artifactory/", ArtifactoryHandler)
 
 	// Xray API mock
-	http.HandleFunc("/mock-xray/", XrayHandler)
+	mux.HandleFunc("/mock-xray/", XrayHandler)
 
 	// Mock webhook endpoints
-	http.HandleFunc("/api/v1/webhook/github", func(w http.ResponseWriter, r *http.Request) {
+	mux.HandleFunc("/api/v1/webhook/github", func(w http.ResponseWriter, r *http.Request) {
 		log.Printf("Mock GitHub webhook received: %s", r.Method)
+		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)
-		w.Write([]byte(`{"status":"ok"}`))
-	})
-
-	// Add a health check endpoint
-	http.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {
-		w.WriteHeader(http.StatusOK)
-		w.Write([]byte(`{"status":"healthy"}`))
+		if _, err := w.Write([]byte(`{"status":"ok"}`)); err != nil {
+			log.Printf("Failed to write webhook response: %v", err)
+		}
 	})
 }
 
