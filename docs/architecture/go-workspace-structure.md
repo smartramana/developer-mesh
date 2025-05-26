@@ -2,133 +2,353 @@
 
 ## Overview
 
-The DevOps MCP project uses Go's workspace feature to organize the codebase into multiple modules. This structure enables better separation of concerns, cleaner dependencies, and improved maintainability while allowing shared code between components.
+DevOps MCP uses Go 1.24's workspace feature to organize the codebase as a monorepo with multiple modules. This architecture provides strong module boundaries while enabling code sharing, making it ideal for microservices development.
 
-## Workspace Organization
+## Why Go Workspaces?
 
-The project is structured as follows:
+Go workspaces solve several challenges in multi-module projects:
+
+- **Local Development**: Work on multiple modules simultaneously without replace directives
+- **Dependency Management**: Shared dependencies are managed consistently
+- **Code Sharing**: Common packages can be imported across modules
+- **Build Optimization**: Only affected modules need rebuilding
+- **Version Independence**: Modules can have different dependency versions when needed
+
+## Project Structure
 
 ```
 devops-mcp/
-├── go.work                # Workspace definition file
-├── apps/                  # Application modules
-│   ├── mcp-server/        # MCP server module
-│   │   ├── go.mod         # Module definition
-│   │   ├── cmd/           # Command entry points
-│   │   ├── internal/      # Internal implementation
-│   │   └── configs/       # Configuration files
-│   ├── rest-api/          # REST API service
-│   │   ├── go.mod
-│   │   ├── cmd/
-│   │   └── internal/
-│   └── worker/            # Asynchronous worker service
-│       ├── go.mod
-│       └── cmd/
-├── pkg/                   # Shared packages
-│   ├── go.mod             # Shared module definition
-│   ├── adapters/          # Interface adapters
-│   ├── config/            # Configuration management
-│   ├── repository/        # Data access layer
-│   └── ...
-└── docker-compose.local.yml # Local development setup
+├── go.work                    # Workspace definition
+├── go.work.sum               # Workspace checksums
+├── Makefile                  # Build automation
+├── apps/                     # Application modules
+│   ├── mcp-server/          # MCP protocol server
+│   │   ├── go.mod           # Module: mcp-server
+│   │   ├── cmd/server/      # Entry point
+│   │   └── internal/        # Private packages
+│   │       ├── adapters/    # External adapters
+│   │       ├── api/         # API handlers
+│   │       ├── config/      # Configuration
+│   │       └── core/        # Business logic
+│   ├── rest-api/            # REST API service
+│   │   ├── go.mod           # Module: rest-api
+│   │   ├── cmd/api/         # Entry point
+│   │   └── internal/        # Private packages
+│   └── worker/              # Event processor
+│       ├── go.mod           # Module: worker
+│       ├── cmd/worker/      # Entry point
+│       └── internal/        # Private packages
+└── pkg/                     # Shared packages
+    ├── adapters/            # Common adapters
+    ├── common/              # Utilities
+    ├── database/            # DB abstractions
+    ├── embedding/           # Vector operations
+    ├── models/              # Domain models
+    ├── observability/       # Logging/metrics
+    └── repository/          # Data patterns
 ```
 
-## Module Dependencies
+## Workspace Configuration
 
-The workspace is configured so that:
+### go.work File
 
-1. `apps/mcp-server`, `apps/rest-api`, and `apps/worker` can import packages from `pkg/`
-2. Each application module is independent and doesn't import from other applications
-3. The `pkg/` module contains shared interfaces, models, and utilities
+```go
+go 1.24
 
-## Managing the Workspace
-
-### Initializing the Workspace
-
-```bash
-go work init
-go work use ./apps/mcp-server ./apps/rest-api ./apps/worker ./pkg
+use (
+    ./apps/mcp-server
+    ./apps/rest-api
+    ./apps/worker
+    ./pkg
+)
 ```
 
-### Syncing Dependencies
+### Module Names
 
-To ensure all module dependencies are in sync:
+Post-refactor, modules use simple names instead of full GitHub paths:
+
+```go
+// apps/mcp-server/go.mod
+module mcp-server
+
+// apps/rest-api/go.mod
+module rest-api
+
+// apps/worker/go.mod
+module worker
+```
+
+This prevents module resolution conflicts in workspace mode.
+
+## Dependency Flow
+
+```
+┌─────────────┐     ┌─────────────┐     ┌─────────────┐
+│ mcp-server  │     │  rest-api   │     │   worker    │
+└──────┬──────┘     └──────┬──────┘     └──────┬──────┘
+       │                   │                     │
+       └───────────────────┴─────────────────────┘
+                           │
+                     ┌─────▼─────┐
+                     │    pkg    │
+                     └───────────┘
+```
+
+Rules:
+1. Applications (`apps/*`) can import from `pkg`
+2. Applications cannot import from each other
+3. `pkg` cannot import from applications
+4. External dependencies are managed per module
+
+## Working with the Workspace
+
+### Initial Setup
 
 ```bash
+# Clone repository
+git clone https://github.com/S-Corkum/devops-mcp.git
+cd devops-mcp
+
+# Sync workspace dependencies
 go work sync
-```
 
-Or use the Makefile shortcut:
-
-```bash
+# Or use Makefile
 make sync
 ```
 
-## Adapter Pattern in the Workspace
-
-The workspace structure is designed to work seamlessly with the adapter pattern:
-
-1. Core interfaces are defined in `pkg/repository/`
-2. Implementation-specific repositories are in their respective app modules
-3. Adapters bridge between different interface expectations:
-   - `apps/rest-api/internal/adapters/` contains adapters for REST API
-   - `apps/mcp-server/internal/adapters/` contains adapters for MCP Server
-
-For more details on the adapter pattern implementation, see [Adapter Pattern](adapter-pattern.md).
-
-## Benefits of the Workspace Structure
-
-1. **Modular Development**: Work on one component without affecting others
-2. **Clear Boundaries**: Each module has well-defined responsibilities
-3. **Independent Versioning**: Modules can evolve at different rates
-4. **Reduced Build Times**: Only rebuild affected modules
-5. **Simplified Testing**: Test modules in isolation
-6. **Easier Onboarding**: New developers can focus on specific modules
-
-## Common Operations
-
-### Building Specific Modules
+### Building Modules
 
 ```bash
-# Build MCP Server
-cd apps/mcp-server && go build ./cmd/server
+# Build all applications
+make build
 
-# Build REST API
-cd apps/rest-api && go build ./cmd/server
+# Build specific application
+make build-mcp-server
+make build-rest-api
+make build-worker
 
-# Build Worker
-cd apps/worker && go build ./cmd/worker
+# Build from module directory
+cd apps/mcp-server
+go build -o mcp-server ./cmd/server
 ```
 
-### Running Tests
+### Testing
 
 ```bash
-# Test a specific module
-cd apps/rest-api && go test ./...
-
-# Test all modules (from workspace root)
+# Test all modules
 make test
+
+# Test specific module
+make test-mcp-server
+
+# Test with coverage
+make test-coverage
+
+# Integration tests
+make test-integration
 ```
 
-### Adding a New Module
+### Adding Dependencies
 
-1. Create a new directory in `apps/` or `pkg/`
-2. Initialize a new module:
-   ```bash
-   cd apps/new-module
-   go mod init github.com/S-Corkum/devops-mcp/apps/new-module
-   ```
-3. Add it to the workspace:
-   ```bash
-   cd ../..
-   go work use ./apps/new-module
-   ```
+```bash
+# Add to specific module
+cd apps/rest-api
+go get github.com/some/package
+
+# Sync workspace
+cd ../..
+go work sync
+```
+
+## Module Organization
+
+### Application Modules (`apps/*`)
+
+Each application follows a consistent structure:
+
+```
+apps/service-name/
+├── go.mod              # Module definition
+├── cmd/                # Entry points
+│   └── server/         # Main binary
+│       └── main.go
+├── internal/           # Private packages
+│   ├── adapters/       # External integrations
+│   ├── api/            # API layer
+│   ├── config/         # Configuration
+│   └── core/           # Business logic
+└── tests/              # Integration tests
+```
+
+### Shared Packages (`pkg/*`)
+
+Shared packages are organized by functionality:
+
+```
+pkg/
+├── adapters/           # Interface adapters
+│   ├── github/        # GitHub integration
+│   ├── events/        # Event bus
+│   └── resilience/    # Circuit breakers
+├── common/            # Common utilities
+│   ├── config/        # Config structs
+│   ├── errors/        # Error types
+│   └── utils/         # Helpers
+├── models/            # Domain models
+│   ├── context.go     # Context entity
+│   ├── agent.go       # Agent entity
+│   └── ...
+└── repository/        # Data access
+    ├── interfaces.go  # Repository contracts
+    └── ...
+```
 
 ## Best Practices
 
-1. **Interface Definitions**: Define interfaces in `pkg/` to ensure consistency
-2. **Implementation Independence**: Keep application-specific implementations in their respective modules
-3. **Dependency Direction**: Prefer `apps/` modules depending on `pkg/`, not vice versa
-4. **Adapter Usage**: Use adapters to bridge interface differences between modules
-5. **Standardized Testing**: Follow consistent testing patterns across modules
-6. **Configuration Management**: Use similar configuration approaches in all modules
+### 1. Module Independence
+
+Keep modules loosely coupled:
+- Define interfaces in `pkg`
+- Implement in application modules
+- Use dependency injection
+
+### 2. Internal Packages
+
+Use `internal/` for private code:
+```go
+// Only accessible within the module
+apps/mcp-server/internal/core/engine.go
+
+// Cannot import from another module
+apps/rest-api/internal/adapters/
+```
+
+### 3. Shared Types
+
+Place shared types in `pkg/models`:
+```go
+// pkg/models/context.go
+type Context struct {
+    ID        string
+    Name      string
+    CreatedAt time.Time
+}
+```
+
+### 4. Interface Definitions
+
+Define interfaces where they're used:
+```go
+// pkg/repository/interfaces.go
+type Repository[T any] interface {
+    Create(ctx context.Context, entity T) (T, error)
+    Get(ctx context.Context, id string) (T, error)
+}
+```
+
+### 5. Configuration
+
+Standardize configuration across modules:
+```go
+// Use viper for consistent config loading
+cfg, err := config.Load()
+```
+
+## Common Patterns
+
+### Adapter Pattern
+
+Bridge interface differences:
+
+```go
+// pkg expects one interface
+type PkgRepository interface {
+    Store(ctx context.Context, item Item) error
+}
+
+// app has different interface
+type AppRepository interface {
+    Save(ctx context.Context, item Item) error
+}
+
+// Adapter bridges the gap
+type RepositoryAdapter struct {
+    app AppRepository
+}
+
+func (a *RepositoryAdapter) Store(ctx context.Context, item Item) error {
+    return a.app.Save(ctx, item)
+}
+```
+
+### Factory Pattern
+
+Create module-specific implementations:
+
+```go
+// pkg/adapters/factory.go
+func NewAdapter(cfg Config) (Adapter, error) {
+    switch cfg.Type {
+    case "github":
+        return github.NewAdapter(cfg)
+    case "gitlab":
+        return gitlab.NewAdapter(cfg)
+    default:
+        return nil, errors.New("unknown adapter type")
+    }
+}
+```
+
+## Migration Notes
+
+When migrating from a single module:
+
+1. **Create Module Structure**: Set up `apps/` directories
+2. **Move Code**: Relocate packages to appropriate modules
+3. **Update Imports**: Change import paths
+4. **Add go.mod**: Initialize modules with simple names
+5. **Update go.work**: Include all modules
+6. **Test Thoroughly**: Ensure no circular dependencies
+
+## Troubleshooting
+
+### Module Not Found
+
+```bash
+# Ensure module is in workspace
+go work use ./apps/new-module
+
+# Sync dependencies
+go work sync
+```
+
+### Import Conflicts
+
+```bash
+# Use simple module names
+module mcp-server  # Good
+module github.com/user/mcp-server  # Can cause conflicts
+```
+
+### Circular Dependencies
+
+```bash
+# Check dependency graph
+go mod graph | grep circular
+
+# Refactor to use interfaces
+```
+
+## Future Considerations
+
+1. **Module Versioning**: Consider semantic versioning for pkg
+2. **Module Publishing**: Potentially publish pkg as separate module
+3. **Workspace Tooling**: Leverage Go 1.24+ workspace improvements
+4. **Build Optimization**: Use module-aware build caching
+
+## References
+
+- [Go Workspaces Documentation](https://go.dev/doc/tutorial/workspaces)
+- [Go Modules Reference](https://go.dev/ref/mod)
+- [Adapter Pattern](adapter-pattern.md)
+- [System Architecture](system-overview.md)

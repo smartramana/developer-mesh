@@ -1,400 +1,951 @@
 # Vector Search Implementation
 
-This guide demonstrates how to implement semantic vector search capabilities using DevOps MCP. You'll learn how to store vector embeddings and perform similarity searches to find semantically relevant content.
+This guide demonstrates how to implement production-ready semantic vector search using DevOps MCP's multi-model embedding support and pgvector integration.
 
 ## Overview
 
-Vector search allows you to find content based on semantic meaning rather than exact keyword matches. DevOps MCP uses PostgreSQL with pgvector extension to provide efficient vector search capabilities.
+The DevOps MCP platform provides state-of-the-art vector search capabilities:
+
+- **🚀 Multi-Model Support**: OpenAI, Anthropic Claude, AWS Bedrock, and open-source models
+- **⚡ High Performance**: pgvector with optimized indexing (IVFFlat, HNSW)
+- **🎯 Smart Chunking**: Language-aware chunking for 15+ programming languages
+- **📊 Hybrid Search**: Combine vector similarity with metadata filtering
+- **🔄 Real-time Updates**: Automatic re-indexing on content changes
+
+## Architecture
+
+```mermaid
+graph TB
+    A[Content] --> B[Chunking Engine]
+    B --> C[Embedding Service]
+    C --> D[Vector Store]
+    D --> E[pgvector]
+    
+    F[Search Query] --> G[Query Embedding]
+    G --> H[Similarity Search]
+    H --> E
+    E --> I[Ranked Results]
+    
+    style A fill:#f9f,stroke:#333,stroke-width:2px
+    style F fill:#f9f,stroke:#333,stroke-width:2px
+    style E fill:#bbf,stroke:#333,stroke-width:4px
+```
 
 ## Use Cases
 
-- Searching documentation or knowledge bases
-- Finding similar issues or pull requests
-- Retrieving relevant conversation context for AI agents
-- Implementing semantic search in DevOps tools
+- **📚 Knowledge Base Search**: Semantic search across documentation
+- **🐛 Issue Deduplication**: Find similar bugs and feature requests
+- **💬 Conversation Context**: Retrieve relevant chat history for AI agents
+- **🔍 Code Search**: Find semantically similar code patterns
+- **📝 Content Recommendations**: Suggest related documents or resources
 
-## Example Implementation
+## Quick Start
 
-### 1. Setup Environment
+### 1. Initialize Vector Client
 
 ```python
-import requests
-import numpy as np
-import json
+from devops_mcp import VectorClient, EmbeddingModel
+from devops_mcp.chunking import SmartChunker
 import os
-import uuid
+
+# Initialize client with your preferred embedding model
+vector_client = VectorClient(
+    base_url=os.getenv("VECTOR_API_URL", "http://localhost:8081/api/v1"),
+    api_key=os.getenv("MCP_API_KEY"),
+    model=EmbeddingModel.OPENAI_3_SMALL  # or CLAUDE_3_HAIKU, VOYAGE_2, etc.
+)
+
+# Initialize smart chunker for code-aware chunking
+chunker = SmartChunker(
+    chunk_size=1000,
+    chunk_overlap=200,
+    language_aware=True  # Enables language-specific chunking
+)
+```
+
+### 2. Multi-Model Embedding Support
+
+```python
+from devops_mcp.embeddings import EmbeddingFactory, ModelConfig
+from typing import List, Dict, Any
+
+class MultiModelEmbedder:
+    """Support multiple embedding models for different use cases"""
+    
+    def __init__(self):
+        self.models = {
+            "fast": EmbeddingFactory.create(
+                ModelConfig(
+                    provider="openai",
+                    model="text-embedding-3-small",
+                    dimensions=1536
+                )
+            ),
+            "accurate": EmbeddingFactory.create(
+                ModelConfig(
+                    provider="anthropic",
+                    model="claude-3-haiku",
+                    dimensions=1024
+                )
+            ),
+            "multilingual": EmbeddingFactory.create(
+                ModelConfig(
+                    provider="voyage",
+                    model="voyage-2",
+                    dimensions=1024
+                )
+            )
+        }
+    
+    async def embed_with_model(self, text: str, model_type: str = "fast") -> List[float]:
+        """Generate embedding with specified model type"""
+        model = self.models.get(model_type, self.models["fast"])
+        return await model.embed(text)
+    
+    async def embed_batch(self, texts: List[str], model_type: str = "fast") -> List[List[float]]:
+        """Batch embed multiple texts for efficiency"""
+        model = self.models.get(model_type, self.models["fast"])
+        return await model.embed_batch(texts)
+```
+
+### 3. Smart Document Processing
+
+```python
 from datetime import datetime
+from typing import Optional
+import hashlib
 
-# Configuration
-API_KEY = os.environ.get("MCP_API_KEY", "your-api-key")
-VECTOR_API_URL = "http://localhost:8081/api/v1"
-
-headers = {
-    "Authorization": f"Bearer {API_KEY}",
-    "Content-Type": "application/json"
-}
-```
-
-### 2. Generate Embeddings
-
-You can use various models to generate embeddings. Here's an example using OpenAI's embedding model:
-
-```python
-import openai
-
-# Configure OpenAI API
-openai.api_key = os.environ.get("OPENAI_API_KEY")
-
-def generate_embedding(text, model="text-embedding-ada-002"):
-    """Generate a vector embedding for text"""
-    response = openai.Embedding.create(
-        model=model,
-        input=text
-    )
-    return response["data"][0]["embedding"]
-```
-
-### 3. Store Documents as Embeddings
-
-```python
-def store_document_embedding(context_id, document, model_id="text-embedding-ada-002"):
-    """Store a document as a vector embedding"""
-    # Generate a unique ID for the embedding
-    embedding_id = f"doc-{uuid.uuid4()}"
+class DocumentProcessor:
+    """Process and store documents with intelligent chunking"""
     
-    # Generate the embedding vector
-    embedding_vector = generate_embedding(document["text"], model_id)
+    def __init__(self, vector_client: VectorClient, chunker: SmartChunker):
+        self.vector_client = vector_client
+        self.chunker = chunker
+        self.embedder = MultiModelEmbedder()
     
-    # Prepare the request data
-    data = {
-        "id": embedding_id,
-        "context_id": context_id,
-        "content_index": document.get("index", 1),
-        "text": document["text"],
-        "embedding": embedding_vector,
-        "model_id": model_id,
-        "metadata": {
-            **document.get("metadata", {}),  # Include any additional metadata
-            "source": document.get("source", "unknown"),
-            "timestamp": datetime.now().isoformat()
-        }
-    }
-    
-    # Send request to store the embedding
-    response = requests.post(
-        f"{VECTOR_API_URL}/vectors",
-        headers=headers,
-        data=json.dumps(data)
-    )
-    
-    if response.status_code == 200:
-        print(f"Successfully stored embedding {embedding_id}")
-        return embedding_id
-    else:
-        print(f"Error storing embedding: {response.text}")
-        return None
-```
-
-### 4. Batch Process Documents
-
-For efficiency, you can process multiple documents in a batch:
-
-```python
-def batch_process_documents(context_id, documents, model_id="text-embedding-ada-002"):
-    """Process a batch of documents and store their embeddings"""
-    embedding_ids = []
-    
-    for index, document in enumerate(documents):
-        # Include the index in the document
-        document["index"] = index + 1
+    async def process_document(
+        self,
+        context_id: str,
+        content: str,
+        metadata: Dict[str, Any],
+        language: Optional[str] = None
+    ) -> List[str]:
+        """Process a document with smart chunking and embedding"""
         
-        # Store the embedding
-        embedding_id = store_document_embedding(
-            context_id,
-            document,
-            model_id
+        # Detect language if not provided
+        if not language and metadata.get("file_path"):
+            language = self._detect_language(metadata["file_path"])
+        
+        # Smart chunking based on content type
+        chunks = self.chunker.chunk(
+            content,
+            language=language,
+            preserve_structure=True
         )
         
-        if embedding_id:
-            embedding_ids.append(embedding_id)
-    
-    print(f"Processed {len(embedding_ids)} documents")
-    return embedding_ids
-```
-
-### 5. Perform Semantic Search
-
-```python
-def semantic_search(context_id, query_text, model_id="text-embedding-ada-002", limit=5, threshold=0.7):
-    """Search for semantically similar content"""
-    # Generate embedding for the query
-    query_embedding = generate_embedding(query_text, model_id)
-    
-    # Prepare search request
-    data = {
-        "context_id": context_id,
-        "model_id": model_id,
-        "query_embedding": query_embedding,
-        "limit": limit,
-        "similarity_threshold": threshold
-    }
-    
-    # Send search request
-    response = requests.post(
-        f"{VECTOR_API_URL}/vectors/search",
-        headers=headers,
-        data=json.dumps(data)
-    )
-    
-    if response.status_code == 200:
-        results = response.json()["embeddings"]
-        
-        # Process and format results
-        search_results = []
-        for item in results:
-            search_results.append({
-                "id": item["ID"],
-                "text": item["Text"],
-                "similarity": item["Metadata"].get("similarity", 0),
-                "source": item["Metadata"].get("source", "unknown"),
-                "content_index": item["ContentIndex"],
-                "model_id": item["ModelID"]
-            })
-        
-        return search_results
-    else:
-        print(f"Search error: {response.text}")
-        return []
-```
-
-### 6. Complete Working Example: Documentation Search System
-
-Here's a complete example implementing a documentation search system:
-
-```python
-class DocumentationSearchSystem:
-    def __init__(self, context_id=None):
-        self.context_id = context_id or f"docs-{uuid.uuid4()}"
-        self.embedding_model = "text-embedding-ada-002"
-    
-    def ingest_documentation(self, documents):
-        """Ingest multiple documentation files"""
-        return batch_process_documents(
-            self.context_id,
-            documents,
-            self.embedding_model
-        )
-    
-    def search_documentation(self, query, limit=5):
-        """Search through documentation"""
-        return semantic_search(
-            self.context_id,
-            query,
-            self.embedding_model,
-            limit,
-            0.7
-        )
-
-# Example usage
-if __name__ == "__main__":
-    # Sample documentation files
-    documents = [
-        {
-            "text": "The adapter pattern is a structural design pattern that allows objects with incompatible interfaces to collaborate. It wraps an instance of one class into an adapter that implements the interface another class expects.",
-            "source": "design_patterns.md",
-            "metadata": {"section": "Structural Patterns", "author": "Gamma et al."}
-        },
-        {
-            "text": "Go workspaces allow you to work with multiple modules in a single working directory. This is useful for developers who need to make coordinated changes across multiple modules.",
-            "source": "go_concepts.md",
-            "metadata": {"section": "Go Modules", "author": "Go Team"}
-        },
-        {
-            "text": "PostgreSQL with pgvector extension provides efficient vector similarity search capabilities. It supports multiple distance metrics including cosine distance, Euclidean distance, and dot product.",
-            "source": "databases.md",
-            "metadata": {"section": "Vector Databases", "author": "Database Team"}
-        }
-    ]
-    
-    # Initialize the search system
-    search_system = DocumentationSearchSystem()
-    
-    # Ingest documents
-    search_system.ingest_documentation(documents)
-    
-    # Perform a search
-    results = search_system.search_documentation("How do Go modules work together?")
-    
-    # Display results
-    for i, result in enumerate(results, 1):
-        print(f"{i}. {result['text']} (Similarity: {result['similarity']:.4f})")
-        print(f"   Source: {result['source']}")
-        print()
-```
-
-### 7. Real-world Example: Technical Knowledge Base
-
-Here's a more complex example of building a technical knowledge base search:
-
-```python
-import re
-import os
-
-class TechnicalKnowledgeBase:
-    def __init__(self, kb_id=None):
-        self.kb_id = kb_id or f"kb-{uuid.uuid4()}"
-        self.embedding_model = "text-embedding-ada-002"
-    
-    def chunk_document(self, doc_text, chunk_size=1000, overlap=200):
-        """Split document into overlapping chunks"""
-        chunks = []
-        
-        # Simple chunking strategy
-        doc_length = len(doc_text)
-        start = 0
-        
-        while start < doc_length:
-            end = min(start + chunk_size, doc_length)
-            
-            # Try to find a sentence boundary
-            if end < doc_length:
-                # Look for sentence end within 200 chars of the chunking point
-                search_end = min(end + 200, doc_length)
-                sentence_end = -1
-                
-                for match in re.finditer(r'[.!?]\s+', doc_text[end:search_end]):
-                    sentence_end = end + match.end()
-                    break
-                
-                if sentence_end > 0:
-                    end = sentence_end
-            
-            chunks.append(doc_text[start:end])
-            
-            # Move start position, with overlap
-            start = end - overlap if end < doc_length else doc_length
-        
-        return chunks
-    
-    def process_markdown_file(self, filepath, source_name=None):
-        """Process a Markdown file, chunking it and storing embeddings"""
-        if not os.path.exists(filepath):
-            print(f"File not found: {filepath}")
-            return []
-        
-        # Use filename as source if not provided
-        source = source_name or os.path.basename(filepath)
-        
-        with open(filepath, 'r') as f:
-            content = f.read()
-        
-        # Extract title from first heading
-        title_match = re.search(r'^# (.*?)$', content, re.MULTILINE)
-        title = title_match.group(1) if title_match else source
-        
-        # Chunk the document
-        chunks = self.chunk_document(content)
-        
-        # Prepare documents for embedding
-        documents = []
+        # Process each chunk
+        embedding_ids = []
         for idx, chunk in enumerate(chunks):
-            documents.append({
-                "text": chunk,
-                "source": source,
+            # Generate content hash for deduplication
+            content_hash = hashlib.sha256(chunk.text.encode()).hexdigest()[:16]
+            
+            # Check if already processed
+            existing = await self.vector_client.find_by_hash(content_hash)
+            if existing:
+                embedding_ids.append(existing.id)
+                continue
+            
+            # Generate embedding
+            embedding = await self.embedder.embed_with_model(
+                chunk.text,
+                model_type="accurate" if chunk.is_important else "fast"
+            )
+            
+            # Store embedding
+            result = await self.vector_client.create_embedding({
+                "context_id": context_id,
+                "content_index": idx,
+                "text": chunk.text,
+                "embedding": embedding,
                 "metadata": {
-                    "title": title,
-                    "chunk": idx + 1,
-                    "total_chunks": len(chunks)
+                    **metadata,
+                    "chunk_type": chunk.type,
+                    "chunk_metadata": chunk.metadata,
+                    "content_hash": content_hash,
+                    "language": language,
+                    "processed_at": datetime.utcnow().isoformat()
                 }
             })
+            
+            embedding_ids.append(result.id)
         
-        # Store embeddings
-        return batch_process_documents(self.kb_id, documents, self.embedding_model)
+        return embedding_ids
     
-    def bulk_process_directory(self, directory_path):
-        """Process all markdown files in a directory"""
-        if not os.path.isdir(directory_path):
-            print(f"Directory not found: {directory_path}")
-            return
+    def _detect_language(self, file_path: str) -> Optional[str]:
+        """Detect programming language from file extension"""
+        ext_map = {
+            ".py": "python",
+            ".js": "javascript",
+            ".ts": "typescript",
+            ".go": "go",
+            ".rs": "rust",
+            ".java": "java",
+            ".kt": "kotlin",
+            ".rb": "ruby",
+            ".cpp": "cpp",
+            ".c": "c",
+            ".cs": "csharp",
+            ".php": "php",
+            ".swift": "swift",
+            ".scala": "scala",
+            ".r": "r"
+        }
         
-        all_embeddings = []
+        ext = os.path.splitext(file_path)[1].lower()
+        return ext_map.get(ext)
+```
+
+### 4. Batch Processing with Progress Tracking
+
+```python
+import asyncio
+from concurrent.futures import ThreadPoolExecutor
+from tqdm.asyncio import tqdm
+
+class BatchProcessor:
+    """Efficient batch processing with concurrency control"""
+    
+    def __init__(self, vector_client: VectorClient, max_concurrent: int = 10):
+        self.vector_client = vector_client
+        self.processor = DocumentProcessor(vector_client, SmartChunker())
+        self.max_concurrent = max_concurrent
+    
+    async def process_directory(
+        self,
+        directory: str,
+        context_id: str,
+        file_patterns: List[str] = None
+    ) -> Dict[str, Any]:
+        """Process all files in a directory with pattern matching"""
         
-        for root, _, files in os.walk(directory_path):
-            for file in files:
-                if file.endswith('.md'):
-                    filepath = os.path.join(root, file)
-                    relative_path = os.path.relpath(filepath, directory_path)
+        # Default patterns for code files
+        if not file_patterns:
+            file_patterns = [
+                "**/*.py", "**/*.js", "**/*.ts", "**/*.go",
+                "**/*.java", "**/*.md", "**/*.yaml", "**/*.json"
+            ]
+        
+        # Collect files
+        files_to_process = []
+        for pattern in file_patterns:
+            files_to_process.extend(glob.glob(
+                os.path.join(directory, pattern),
+                recursive=True
+            ))
+        
+        # Remove duplicates and sort
+        files_to_process = sorted(set(files_to_process))
+        
+        # Process with concurrency control
+        semaphore = asyncio.Semaphore(self.max_concurrent)
+        results = {"success": [], "failed": [], "skipped": []}
+        
+        async def process_file(file_path: str):
+            async with semaphore:
+                try:
+                    # Skip if file too large
+                    if os.path.getsize(file_path) > 1_000_000:  # 1MB
+                        results["skipped"].append({
+                            "file": file_path,
+                            "reason": "File too large"
+                        })
+                        return
                     
-                    print(f"Processing {relative_path}...")
-                    embeddings = self.process_markdown_file(filepath, relative_path)
-                    all_embeddings.extend(embeddings)
+                    # Read file content
+                    with open(file_path, 'r', encoding='utf-8') as f:
+                        content = f.read()
+                    
+                    # Process document
+                    embedding_ids = await self.processor.process_document(
+                        context_id=context_id,
+                        content=content,
+                        metadata={
+                            "file_path": file_path,
+                            "file_size": os.path.getsize(file_path),
+                            "modified_at": datetime.fromtimestamp(
+                                os.path.getmtime(file_path)
+                            ).isoformat()
+                        }
+                    )
+                    
+                    results["success"].append({
+                        "file": file_path,
+                        "embeddings": len(embedding_ids)
+                    })
+                    
+                except Exception as e:
+                    results["failed"].append({
+                        "file": file_path,
+                        "error": str(e)
+                    })
         
-        print(f"Processed {len(all_embeddings)} embeddings from markdown files")
-        return all_embeddings
+        # Process all files with progress bar
+        tasks = [process_file(f) for f in files_to_process]
+        
+        with tqdm(total=len(tasks), desc="Processing files") as pbar:
+            for coro in asyncio.as_completed(tasks):
+                await coro
+                pbar.update(1)
+        
+        return {
+            "total_files": len(files_to_process),
+            "processed": len(results["success"]),
+            "failed": len(results["failed"]),
+            "skipped": len(results["skipped"]),
+            "details": results
+        }
+```
+
+### 5. Advanced Search Capabilities
+
+```python
+from enum import Enum
+from dataclasses import dataclass
+
+class SearchMode(Enum):
+    SEMANTIC = "semantic"
+    HYBRID = "hybrid"
+    FILTERED = "filtered"
+
+@dataclass
+class SearchFilters:
+    file_types: Optional[List[str]] = None
+    date_range: Optional[Tuple[datetime, datetime]] = None
+    languages: Optional[List[str]] = None
+    metadata: Optional[Dict[str, Any]] = None
+
+class AdvancedSearcher:
+    """Advanced search with multiple strategies"""
     
-    def search(self, query, limit=5):
-        """Search the knowledge base"""
-        results = semantic_search(
-            self.kb_id,
+    def __init__(self, vector_client: VectorClient):
+        self.vector_client = vector_client
+        self.embedder = MultiModelEmbedder()
+    
+    async def search(
+        self,
+        query: str,
+        context_ids: Optional[List[str]] = None,
+        mode: SearchMode = SearchMode.HYBRID,
+        filters: Optional[SearchFilters] = None,
+        limit: int = 10,
+        rerank: bool = True
+    ) -> List[Dict[str, Any]]:
+        """Perform advanced search with multiple strategies"""
+        
+        # Generate query embedding
+        query_embedding = await self.embedder.embed_with_model(
             query,
-            self.embedding_model,
-            limit,
-            0.7
+            model_type="accurate"  # Use accurate model for queries
         )
+        
+        # Build search request
+        search_params = {
+            "query": query,
+            "query_embedding": query_embedding,
+            "context_ids": context_ids,
+            "limit": limit * 2 if rerank else limit,  # Get more for reranking
+            "mode": mode.value
+        }
+        
+        # Apply filters
+        if filters:
+            search_params["filters"] = self._build_filters(filters)
+        
+        # Execute search
+        results = await self.vector_client.search(search_params)
+        
+        # Post-process results
+        processed_results = []
+        for result in results:
+            processed = {
+                "id": result["id"],
+                "text": result["text"],
+                "similarity_score": result["similarity"],
+                "metadata": result["metadata"],
+                "highlights": self._generate_highlights(query, result["text"]),
+                "explanation": self._explain_match(query, result)
+            }
+            processed_results.append(processed)
+        
+        # Rerank if requested
+        if rerank and len(processed_results) > limit:
+            processed_results = await self._rerank_results(
+                query,
+                processed_results,
+                limit
+            )
+        
+        return processed_results[:limit]
+    
+    def _build_filters(self, filters: SearchFilters) -> Dict[str, Any]:
+        """Build filter criteria for search"""
+        filter_dict = {}
+        
+        if filters.file_types:
+            filter_dict["file_extension"] = {"$in": filters.file_types}
+        
+        if filters.date_range:
+            filter_dict["modified_at"] = {
+                "$gte": filters.date_range[0].isoformat(),
+                "$lte": filters.date_range[1].isoformat()
+            }
+        
+        if filters.languages:
+            filter_dict["language"] = {"$in": filters.languages}
+        
+        if filters.metadata:
+            filter_dict.update(filters.metadata)
+        
+        return filter_dict
+    
+    def _generate_highlights(self, query: str, text: str, context_size: int = 50) -> List[str]:
+        """Generate highlighted snippets around query matches"""
+        highlights = []
+        query_terms = query.lower().split()
+        text_lower = text.lower()
+        
+        for term in query_terms:
+            if term in text_lower:
+                pos = text_lower.find(term)
+                start = max(0, pos - context_size)
+                end = min(len(text), pos + len(term) + context_size)
+                
+                highlight = text[start:end]
+                if start > 0:
+                    highlight = "..." + highlight
+                if end < len(text):
+                    highlight = highlight + "..."
+                
+                highlights.append(highlight)
+        
+        return highlights[:3]  # Return top 3 highlights
+    
+    def _explain_match(self, query: str, result: Dict[str, Any]) -> str:
+        """Generate explanation for why this result matches"""
+        similarity = result.get("similarity", 0)
+        
+        if similarity > 0.95:
+            return "Nearly exact semantic match"
+        elif similarity > 0.85:
+            return "Very strong topical alignment"
+        elif similarity > 0.75:
+            return "Good conceptual match"
+        else:
+            return "Related content"
+    
+    async def _rerank_results(
+        self,
+        query: str,
+        results: List[Dict[str, Any]],
+        limit: int
+    ) -> List[Dict[str, Any]]:
+        """Rerank results using cross-encoder or other techniques"""
+        # Simple reranking based on multiple factors
+        for result in results:
+            # Calculate composite score
+            semantic_score = result["similarity_score"]
+            
+            # Boost for exact matches
+            exact_match_boost = 0.1 if query.lower() in result["text"].lower() else 0
+            
+            # Boost for recent content
+            recency_boost = 0
+            if "modified_at" in result["metadata"]:
+                mod_date = datetime.fromisoformat(result["metadata"]["modified_at"])
+                days_old = (datetime.utcnow() - mod_date).days
+                recency_boost = max(0, 0.05 * (1 - days_old / 365))
+            
+            # Combine scores
+            result["composite_score"] = (
+                semantic_score * 0.7 +
+                exact_match_boost * 0.2 +
+                recency_boost * 0.1
+            )
+        
+        # Sort by composite score
+        results.sort(key=lambda x: x["composite_score"], reverse=True)
         
         return results
 ```
 
-### Example Usage
+### 6. Complete Example: Production Search System
 
 ```python
-# Initialize the knowledge base
-kb = TechnicalKnowledgeBase()
+import asyncio
+from typing import Optional, List, Dict, Any
+import logging
 
-# Process documentation directory
-kb.bulk_process_directory("/path/to/your/docs")
+class ProductionSearchSystem:
+    """Production-ready search system with caching and monitoring"""
+    
+    def __init__(self, config: Dict[str, Any]):
+        self.vector_client = VectorClient(
+            base_url=config["vector_api_url"],
+            api_key=config["api_key"],
+            timeout=config.get("timeout", 30)
+        )
+        
+        self.batch_processor = BatchProcessor(
+            self.vector_client,
+            max_concurrent=config.get("max_concurrent", 10)
+        )
+        
+        self.searcher = AdvancedSearcher(self.vector_client)
+        self.cache = RedisCache(config.get("redis_url"))
+        self.logger = logging.getLogger(__name__)
+    
+    async def initialize_knowledge_base(self, source_directory: str) -> str:
+        """Initialize a new knowledge base from a directory"""
+        
+        # Create context
+        context_id = f"kb-{datetime.utcnow().strftime('%Y%m%d-%H%M%S')}"
+        
+        self.logger.info(f"Initializing knowledge base: {context_id}")
+        
+        # Process all files
+        results = await self.batch_processor.process_directory(
+            directory=source_directory,
+            context_id=context_id,
+            file_patterns=[
+                "**/*.md",
+                "**/*.py",
+                "**/*.yaml",
+                "**/*.json",
+                "**/*.go",
+                "**/*.js",
+                "**/*.ts"
+            ]
+        )
+        
+        self.logger.info(
+            f"Processed {results['processed']} files, "
+            f"failed: {results['failed']}, "
+            f"skipped: {results['skipped']}"
+        )
+        
+        # Store metadata
+        await self.vector_client.update_context_metadata(context_id, {
+            "type": "knowledge_base",
+            "source_directory": source_directory,
+            "created_at": datetime.utcnow().isoformat(),
+            "statistics": results
+        })
+        
+        return context_id
+    
+    async def search(
+        self,
+        query: str,
+        context_id: Optional[str] = None,
+        filters: Optional[SearchFilters] = None,
+        use_cache: bool = True
+    ) -> List[Dict[str, Any]]:
+        """Search with caching and monitoring"""
+        
+        # Check cache
+        cache_key = f"search:{hashlib.md5(f'{query}:{context_id}:{filters}'.encode()).hexdigest()}"
+        
+        if use_cache:
+            cached = await self.cache.get(cache_key)
+            if cached:
+                self.logger.debug(f"Cache hit for query: {query}")
+                return cached
+        
+        # Perform search
+        start_time = time.time()
+        
+        try:
+            results = await self.searcher.search(
+                query=query,
+                context_ids=[context_id] if context_id else None,
+                mode=SearchMode.HYBRID,
+                filters=filters,
+                limit=10,
+                rerank=True
+            )
+            
+            # Log performance
+            search_time = time.time() - start_time
+            self.logger.info(
+                f"Search completed in {search_time:.2f}s: "
+                f"query='{query}', results={len(results)}"
+            )
+            
+            # Cache results
+            if use_cache and results:
+                await self.cache.set(cache_key, results, ttl=300)  # 5 min TTL
+            
+            return results
+            
+        except Exception as e:
+            self.logger.error(f"Search failed: {e}")
+            raise
+    
+    async def get_similar_documents(
+        self,
+        document_id: str,
+        limit: int = 5
+    ) -> List[Dict[str, Any]]:
+        """Find documents similar to a given document"""
+        
+        # Get the document
+        doc = await self.vector_client.get_embedding(document_id)
+        if not doc:
+            raise ValueError(f"Document {document_id} not found")
+        
+        # Search using its embedding
+        return await self.vector_client.search_by_embedding({
+            "embedding": doc["embedding"],
+            "model_id": doc["model_id"],
+            "exclude_ids": [document_id],
+            "limit": limit
+        })
 
-# Search the knowledge base
-results = kb.search("How do I implement the adapter pattern in Go?")
+# Example usage
+async def main():
+    # Configuration
+    config = {
+        "vector_api_url": "http://localhost:8081/api/v1",
+        "api_key": os.getenv("MCP_API_KEY"),
+        "redis_url": "redis://localhost:6379",
+        "max_concurrent": 20
+    }
+    
+    # Initialize system
+    search_system = ProductionSearchSystem(config)
+    
+    # Initialize knowledge base from documentation
+    context_id = await search_system.initialize_knowledge_base("./docs")
+    
+    # Example searches
+    queries = [
+        "How does the adapter pattern work in Go?",
+        "What are Go workspaces?",
+        "pgvector performance optimization",
+        "Vector search implementation"
+    ]
+    
+    for query in queries:
+        print(f"\n🔍 Searching: {query}")
+        results = await search_system.search(query, context_id)
+        
+        for i, result in enumerate(results[:3], 1):
+            print(f"\n{i}. Score: {result['similarity_score']:.3f}")
+            print(f"   File: {result['metadata'].get('file_path', 'Unknown')}")
+            print(f"   Preview: {result['text'][:150]}...")
+            print(f"   Match: {result['explanation']}")
 
-# Display results with highlighted matches
-for idx, result in enumerate(results, 1):
-    print(f"{idx}. [{result['source']}] (Similarity: {result['similarity']:.4f})")
-    print(f"   {result['text'][:200]}...")
-    print()
+# Run the example
+if __name__ == "__main__":
+    asyncio.run(main())
 ```
 
-## Performance Considerations
+### 7. Real-World Use Cases
 
-1. **Vector Dimensions**: The system supports various vector dimensions (typically 768-1536 dimensions), but all vectors for the same model ID should have consistent dimensions.
+#### Code Search System
+```python
+class CodeSearchSystem:
+    """Semantic code search across repositories"""
+    
+    async def index_repository(self, repo_path: str, repo_name: str):
+        """Index a Git repository for code search"""
+        
+        context_id = f"repo-{repo_name}-{datetime.utcnow().strftime('%Y%m%d')}"
+        
+        # Index with language-aware chunking
+        results = await self.batch_processor.process_directory(
+            directory=repo_path,
+            context_id=context_id,
+            file_patterns=[
+                "**/*.py", "**/*.go", "**/*.js", "**/*.ts",
+                "**/*.java", "**/*.cpp", "**/*.rs"
+            ]
+        )
+        
+        # Extract and index function signatures
+        await self._index_code_symbols(repo_path, context_id)
+        
+        return context_id
+    
+    async def search_code(
+        self,
+        query: str,
+        language: Optional[str] = None,
+        repo_name: Optional[str] = None
+    ):
+        """Search for code with language filtering"""
+        
+        filters = SearchFilters(
+            languages=[language] if language else None,
+            metadata={"repo_name": repo_name} if repo_name else None
+        )
+        
+        return await self.searcher.search(
+            query=query,
+            mode=SearchMode.HYBRID,
+            filters=filters,
+            limit=20
+        )
+```
 
-2. **Batch Processing**: For large document sets, process documents in batches to avoid overwhelming the API.
+#### Support Ticket Deduplication
+```python
+class TicketDeduplicationSystem:
+    """Find duplicate support tickets using semantic similarity"""
+    
+    async def check_duplicate_ticket(
+        self,
+        title: str,
+        description: str,
+        threshold: float = 0.85
+    ) -> List[Dict[str, Any]]:
+        """Check if a ticket is duplicate before creation"""
+        
+        # Combine title and description for better matching
+        query = f"{title}\n\n{description}"
+        
+        # Search existing tickets
+        results = await self.searcher.search(
+            query=query,
+            mode=SearchMode.SEMANTIC,
+            filters=SearchFilters(
+                metadata={
+                    "status": {"$in": ["open", "in_progress"]},
+                    "type": "support_ticket"
+                }
+            ),
+            limit=5
+        )
+        
+        # Filter by similarity threshold
+        duplicates = [
+            r for r in results
+            if r["similarity_score"] > threshold
+        ]
+        
+        return duplicates
+```
 
-3. **Chunking Strategy**: The chunking approach affects search quality. Consider:
-   - Semantic boundaries (paragraphs, sections)
-   - Overlap between chunks (typically 10-20%)
-   - Chunk size (typically 500-1000 tokens)
+#### Documentation Assistant
+```python
+class DocumentationAssistant:
+    """AI-powered documentation search and Q&A"""
+    
+    async def answer_question(
+        self,
+        question: str,
+        context_id: str
+    ) -> Dict[str, Any]:
+        """Answer questions using documentation context"""
+        
+        # Search relevant documentation
+        docs = await self.searcher.search(
+            query=question,
+            context_ids=[context_id],
+            mode=SearchMode.HYBRID,
+            limit=5
+        )
+        
+        # Build context for LLM
+        context = "\n\n".join([
+            f"Source: {d['metadata']['file_path']}\n{d['text']}"
+            for d in docs
+        ])
+        
+        # Generate answer using LLM
+        answer = await self.llm.generate(
+            prompt=f"""Based on the following documentation, answer this question: {question}
+            
+            Documentation:
+            {context}
+            
+            Answer:""",
+            max_tokens=500
+        )
+        
+        return {
+            "question": question,
+            "answer": answer,
+            "sources": [d['metadata']['file_path'] for d in docs],
+            "confidence": sum(d['similarity_score'] for d in docs) / len(docs)
+        }
+```
 
-4. **Metadata Usage**: Store relevant metadata with embeddings to improve filtering and result organization.
+## Performance Optimization
 
-5. **Model Selection**: Different embedding models have different characteristics:
-   - OpenAI text-embedding-ada-002 (1536 dimensions)
-   - Cohere embed-english-v3.0 (1024 dimensions)
-   - Open-source models like all-MiniLM-L6-v2 (384 dimensions)
+### 1. Indexing Strategies
+```yaml
+# pgvector index configuration
+indexes:
+  ivfflat:
+    lists: 100  # Number of clusters
+    probes: 10  # Clusters to search
+    
+  hnsw:
+    m: 16  # Number of connections per layer
+    ef_construction: 64  # Size of dynamic candidate list
+    ef_search: 40  # Size of dynamic candidate list for search
+```
 
-## Similarity Score Interpretation
+### 2. Embedding Model Selection
+| Model | Dimensions | Speed | Quality | Best For |
+|-------|------------|-------|---------|----------|
+| OpenAI text-embedding-3-small | 1536 | Fast | Good | General purpose |
+| OpenAI text-embedding-3-large | 3072 | Medium | Excellent | High accuracy |
+| Claude 3 Haiku | 1024 | Fast | Very Good | Conversations |
+| Voyage-2 | 1024 | Fast | Excellent | Multilingual |
+| BGE-large | 1024 | Medium | Good | Open source |
 
-The similarity score is included in the `Metadata` field of each embedding in search results:
+### 3. Chunking Best Practices
+```python
+# Optimal chunking configuration
+chunking_config = {
+    "chunk_size": 1000,  # Characters
+    "chunk_overlap": 200,  # 20% overlap
+    "min_chunk_size": 100,
+    "max_chunk_size": 2000,
+    "preserve_sentences": True,
+    "preserve_code_blocks": True,
+    "language_specific": True
+}
+```
 
-- 0.95-1.0: Nearly identical semantic meaning
-- 0.9-0.95: Very similar meaning
-- 0.8-0.9: Similar meaning/topic
-- 0.7-0.8: Related topics
-- Below 0.7: Generally unrelated
+### 4. Caching Strategy
+```python
+class VectorCacheStrategy:
+    def __init__(self):
+        self.embedding_cache = LRUCache(maxsize=10000)
+        self.search_cache = TTLCache(maxsize=1000, ttl=300)
+    
+    async def get_or_compute_embedding(self, text: str, model: str):
+        cache_key = hashlib.sha256(f"{text}:{model}".encode()).hexdigest()
+        
+        if cache_key in self.embedding_cache:
+            return self.embedding_cache[cache_key]
+        
+        embedding = await compute_embedding(text, model)
+        self.embedding_cache[cache_key] = embedding
+        
+        return embedding
+```
 
-## Example Applications
+## Understanding Similarity Scores
 
-1. **Documentation Search**: Build a semantic search system for technical documentation
-2. **Issue Similarity**: Find similar GitHub issues based on description
-3. **Knowledge Retrieval**: Implement RAG (Retrieval Augmented Generation) for AI assistants
-4. **Content Clustering**: Group related content based on semantic similarity
+### Score Interpretation
+| Score Range | Interpretation | Use Case |
+|------------|----------------|----------|
+| 0.95-1.0 | Nearly identical | Exact duplicates, quotes |
+| 0.90-0.95 | Very similar | Same topic, paraphrases |
+| 0.80-0.90 | Similar | Related concepts |
+| 0.70-0.80 | Related | Same domain |
+| < 0.70 | Weakly related | May not be useful |
+
+### Distance Metrics
+```python
+class DistanceMetric(Enum):
+    COSINE = "cosine"  # Default, normalized
+    EUCLIDEAN = "euclidean"  # Absolute distance
+    DOT_PRODUCT = "dot_product"  # For normalized vectors
+
+# Configure per use case
+search_config = {
+    "similarity_metric": DistanceMetric.COSINE,
+    "similarity_threshold": 0.75,
+    "normalize_embeddings": True
+}
+```
+
+## Production Deployment
+
+### Environment Setup
+```yaml
+# docker-compose.yml
+services:
+  postgres:
+    image: pgvector/pgvector:pg16
+    environment:
+      POSTGRES_DB: vectors
+      POSTGRES_USER: vector_user
+    command: |
+      postgres
+      -c shared_preload_libraries=pgvector
+      -c max_connections=200
+      -c shared_buffers=1GB
+      -c effective_cache_size=3GB
+      -c maintenance_work_mem=512MB
+      -c work_mem=32MB
+
+  vector-api:
+    image: devops-mcp/vector-api:latest
+    environment:
+      DATABASE_URL: postgresql://vector_user@postgres/vectors
+      EMBEDDING_CACHE_SIZE: 10000
+      SEARCH_CACHE_TTL: 300
+      MAX_BATCH_SIZE: 100
+```
+
+### Monitoring & Observability
+```python
+from prometheus_client import Counter, Histogram, Gauge
+
+# Metrics
+embedding_operations = Counter('vector_embeddings_total', 'Total embeddings created')
+search_operations = Counter('vector_searches_total', 'Total searches performed')
+search_latency = Histogram('vector_search_duration_seconds', 'Search latency')
+index_size = Gauge('vector_index_size', 'Number of vectors in index')
+
+# Health check endpoint
+@app.get("/health")
+async def health_check():
+    return {
+        "status": "healthy",
+        "index_size": await get_index_size(),
+        "cache_hit_rate": calculate_cache_hit_rate(),
+        "avg_search_latency": get_avg_search_latency()
+    }
+```
+
+### Security Best Practices
+1. **API Key Rotation**: Rotate embedding API keys regularly
+2. **Rate Limiting**: Implement per-user rate limits
+3. **Input Validation**: Sanitize text before embedding
+4. **Access Control**: Use context-based permissions
+
+```python
+class SecureVectorClient:
+    def __init__(self):
+        self.rate_limiter = RateLimiter(calls=100, period=60)
+        self.input_validator = InputValidator()
+    
+    async def create_embedding(self, text: str, user_id: str):
+        # Rate limiting
+        if not await self.rate_limiter.allow(user_id):
+            raise RateLimitExceeded()
+        
+        # Input validation
+        sanitized_text = self.input_validator.sanitize(text)
+        
+        # Process embedding
+        return await self._process_embedding(sanitized_text)
+```
+
+## Next Steps
+
+1. **Explore Examples**: Check out the AI agent integration guide
+2. **API Reference**: See detailed [Vector API documentation](../api-reference/vector-search-api.md)
+3. **Performance Tuning**: Read the operations guide for optimization tips
+4. **Contributing**: Help improve vector search capabilities
+
+---
+
+*For support, visit our [GitHub Discussions](https://github.com/S-Corkum/devops-mcp/discussions)*

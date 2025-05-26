@@ -51,6 +51,19 @@ func (api *MCPAPI) RegisterRoutes(router *gin.RouterGroup) {
 }
 
 // createContext creates a new context
+// @Summary Create a new context
+// @Description Creates a new conversation context for an AI agent
+// @Tags Contexts
+// @Accept json
+// @Produce json
+// @Param request body models.Context true "Context creation request"
+// @Success 201 {object} map[string]interface{} "Context created successfully"
+// @Failure 400 {object} map[string]string "Bad request"
+// @Failure 401 {object} map[string]string "Unauthorized"
+// @Failure 500 {object} map[string]string "Internal server error"
+// @Security ApiKeyAuth
+// @Security BearerAuth
+// @Router /mcp/context [post]
 func (api *MCPAPI) createContext(c *gin.Context) {
 	var request models.Context
 	if err := c.ShouldBindJSON(&request); err != nil {
@@ -73,6 +86,20 @@ func (api *MCPAPI) createContext(c *gin.Context) {
 }
 
 // getContext retrieves a context by ID
+// @Summary Get context by ID
+// @Description Retrieves a specific context including all conversation history and metadata
+// @Tags Contexts
+// @Accept json
+// @Produce json
+// @Param id path string true "Context ID"
+// @Success 200 {object} models.Context "Context details"
+// @Failure 400 {object} map[string]string "Bad request"
+// @Failure 401 {object} map[string]string "Unauthorized" 
+// @Failure 404 {object} map[string]string "Context not found"
+// @Failure 500 {object} map[string]string "Internal server error"
+// @Security ApiKeyAuth
+// @Security BearerAuth
+// @Router /mcp/context/{id} [get]
 func (api *MCPAPI) getContext(c *gin.Context) {
 	contextID := c.Param("id")
 	if contextID == "" {

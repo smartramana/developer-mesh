@@ -1,80 +1,168 @@
 # DevOps MCP (Model Context Protocol)
 
 ![Version](https://img.shields.io/badge/version-1.0.0-blue.svg)
-![Go](https://img.shields.io/badge/go-1.19+-00ADD8.svg)
+![Go](https://img.shields.io/badge/go-1.24+-00ADD8.svg)
 ![License](https://img.shields.io/badge/license-MIT-green.svg)
+[![Go Report Card](https://goreportcard.com/badge/github.com/S-Corkum/devops-mcp)](https://goreportcard.com/report/github.com/S-Corkum/devops-mcp)
 
-> Connect AI agents to DevOps tools through a unified, standardized API
+> A production-ready platform connecting AI agents to DevOps tools through a unified, standardized API
 
 ## Overview
 
-DevOps MCP (Model Context Protocol) provides a standardized interface for AI agents to interact with DevOps tools, manage context data, and perform vector-based semantic search. This platform bridges the gap between LLM-based AI systems and external tools like GitHub.
+DevOps MCP (Model Context Protocol) provides a standardized, secure interface for AI agents to interact with DevOps tools, manage conversation contexts, and perform vector-based semantic search. Built with Go workspaces for modular architecture, it bridges the gap between Large Language Models (LLMs) and external DevOps tools.
 
-![MCP Architecture Overview](docs/assets/images/architecture-overview.png)
+### 🚀 Key Capabilities
 
-## Key Features
+- **Multi-Tool Integration**: Unified API supporting GitHub, with extensible adapter pattern for additional tools
+- **Context Management**: Efficient storage and retrieval of conversation contexts with S3 support
+- **Vector Search**: Semantic search using pgvector with support for multiple embedding models
+- **Event-Driven Architecture**: Asynchronous processing with SQS integration
+- **Production-Ready**: Built-in observability, circuit breakers, and rate limiting
 
-- **Unified Tool API**: Standardized REST API for multiple DevOps tools
-- **Context Management**: Store and retrieve conversation contexts efficiently
-- **Vector Search**: Semantic search capabilities with pgvector integration
-- **Adapter Pattern**: Clean interface separation through Go workspace architecture
-- **Asynchronous Processing**: Worker-based event processing system
+## 🏗️ Architecture
 
-## Quick Start
+Built using Go workspaces for modularity and clean architecture:
+
+- **Three-Service Architecture**: MCP server, REST API, and Worker services
+- **Adapter Pattern**: Clean separation between business logic and external integrations
+- **Event-Driven**: Asynchronous processing with AWS SQS support
+- **Resilience Patterns**: Circuit breakers, retry logic, and bulkheads
+- **Observability**: OpenTelemetry tracing and Prometheus metrics
+
+## 🚀 Quick Start
+
+### Prerequisites
+
+- Go 1.24+
+- Docker & Docker Compose
+- PostgreSQL 14+ with pgvector extension
+- Redis 6.2+
+- AWS credentials (optional, for S3/SQS integration)
+
+### Local Development
 
 ```bash
 # Clone the repository
 git clone https://github.com/S-Corkum/devops-mcp.git
 cd devops-mcp
 
-# Start local development environment
-make dev-setup
+# Copy configuration template
+cp config.yaml.template config.yaml
 
-# Test the API
+# Start infrastructure services
+docker-compose -f docker-compose.local.yml up -d
+
+# Build all services
+make build
+
+# Run database migrations
+make migrate-local
+
+# Start services (in separate terminals)
+make run-mcp-server
+make run-rest-api
+make run-worker
+
+# Verify health
 curl http://localhost:8080/health
+curl http://localhost:8081/health
 ```
 
-## Documentation
+## 📚 Documentation
 
-For comprehensive documentation, please visit our [Documentation Index](docs/README.md):
+- [Quick Start Guide](docs/getting-started/quick-start-guide.md) - Get up and running quickly
+- [Architecture Overview](docs/architecture/system-overview.md) - System design and components
+- [API Reference](docs/api-reference/vector-search-api.md) - API endpoints and examples
+- [Development Environment](docs/developer/development-environment.md) - Setup for contributors
+- [Examples](docs/examples/README.md) - Integration examples and use cases
 
-- [Getting Started Guide](docs/getting-started/README.md) - Start here for new users
-- [Architecture Overview](docs/architecture/README.md) - System design and components
-- [Developer Guide](docs/developer/README.md) - For developers contributing to the project
-- [API Reference](docs/api-reference/README.md) - Detailed API endpoints and schemas
-- [Operations Guide](docs/operations/README.md) - Deployment and maintenance information
-- [Troubleshooting](docs/troubleshooting/README.md) - Solutions to common issues
+### Key Documentation
 
-## Repository Structure
+- **Architecture**: [System Overview](docs/architecture/system-overview.md) | [Adapter Pattern](docs/architecture/adapter-pattern.md) | [Go Workspace Structure](docs/architecture/go-workspace-structure.md)
+- **Integration Examples**: [GitHub](docs/examples/github-integration.md) | [AI Agent](docs/examples/ai-agent-integration.md) | [Vector Search](docs/examples/vector-search-implementation.md)
+- **Developer Resources**: [Development Environment](docs/developer/development-environment.md) | [Debugging Guide](docs/developer/debugging-guide.md)
 
-This project uses a Go workspace with multiple modules:
+## 📁 Project Structure
 
 ```
 devops-mcp/
-├── apps/                   # Application modules
-│   ├── mcp-server/         # Main MCP server module
-│   ├── rest-api/           # REST API service
-│   └── worker/             # Asynchronous worker service
-├── pkg/                    # Shared library code
-│   ├── adapters/           # Interface adapters
-│   ├── config/             # Configuration management
-│   ├── repository/         # Data access layer
-│   └── ...
-├── docs/                   # Documentation
-└── docker-compose.local.yml # Local development setup
+├── apps/                      # Go workspace applications
+│   ├── mcp-server/           # Main MCP protocol server
+│   │   ├── cmd/server/       # Server entrypoint
+│   │   └── internal/         # Internal packages
+│   ├── rest-api/             # REST API service
+│   │   ├── cmd/api/          # API entrypoint
+│   │   └── internal/         # Internal packages
+│   └── worker/               # Event processing worker
+│       ├── cmd/worker/       # Worker entrypoint
+│       └── internal/         # Internal packages
+├── pkg/                      # Shared packages (importable)
+│   ├── adapters/            # External service adapters
+│   ├── common/              # Common utilities
+│   ├── database/            # Database abstractions
+│   ├── embedding/           # Vector embedding services
+│   ├── models/              # Shared data models
+│   ├── observability/       # Logging, metrics, tracing
+│   └── repository/          # Data access patterns
+├── docs/                    # Documentation
+├── scripts/                 # Utility scripts
+├── migrations/              # Database migrations
+├── configs/                 # Configuration files
+├── go.work                  # Go workspace definition
+└── Makefile                 # Build automation
 ```
 
-## Requirements
+## 🛠️ Technology Stack
 
-- Go 1.19+
-- Docker and Docker Compose
-- PostgreSQL with pgvector extension
-- Redis
+- **Language**: Go 1.24+ with workspace support
+- **Databases**: PostgreSQL 14+ (with pgvector), Redis 6.2+
+- **Message Queue**: AWS SQS
+- **Storage**: AWS S3 (optional)
+- **Observability**: OpenTelemetry, Prometheus
+- **API Framework**: Gin (REST API)
+- **Testing**: Go testing package, testify, gomock
 
-## License
+## 🧪 Testing
+
+```bash
+# Run unit tests
+make test
+
+# Run integration tests (requires Docker)
+make test-integration
+
+# Run all tests with coverage
+make test-coverage
+
+# Generate coverage report
+make test-coverage-html
+```
+
+## 🚢 Deployment
+
+The services are containerized and can be deployed using:
+
+- **Docker Compose**: For local development and testing
+- **Kubernetes**: Production deployment with Helm charts (coming soon)
+- **AWS ECS**: Native AWS deployment option
+
+See [deployment documentation](docs/operations/) for detailed instructions.
+
+## 🤝 Contributing
+
+We welcome contributions! Please see our [Contributing Guide](CONTRIBUTING.md) for:
+
+- Code of Conduct
+- Development workflow
+- Coding standards
+- Pull request process
+
+## 📄 License
 
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
 
-## Contributing
+## 🙏 Acknowledgments
 
-Contributions are welcome! Please see our [Contributing Guide](docs/contributing/README.md) for details on how to get involved.
+- OpenTelemetry for observability standards
+- pgvector for vector similarity search
+- The Go community for excellent tooling

@@ -1,8 +1,8 @@
-# Contributing to DevOps MCP Server
+# Contributing to DevOps MCP
 
-Thank you for your interest in contributing to the DevOps MCP Server! This document provides guidelines and instructions for contributing to the project.
+Thank you for your interest in contributing to DevOps MCP! This document provides guidelines for contributing to the project.
 
-## Table of Contents
+## 📋 Table of Contents
 
 - [Code of Conduct](#code-of-conduct)
 - [Getting Started](#getting-started)
@@ -11,168 +11,370 @@ Thank you for your interest in contributing to the DevOps MCP Server! This docum
 - [Coding Standards](#coding-standards)
 - [Testing Guidelines](#testing-guidelines)
 - [Documentation](#documentation)
-- [Release Process](#release-process)
 - [Communication](#communication)
 
-## Code of Conduct
+## 🤝 Code of Conduct
 
-We expect all contributors to adhere to our Code of Conduct. Please be respectful and considerate of other contributors. Harassment or offensive behavior of any kind will not be tolerated.
+We are committed to providing a welcoming and inclusive environment. All participants are expected to:
 
-## Getting Started
+- Be respectful and considerate
+- Welcome newcomers and help them get started
+- Focus on what is best for the community
+- Show empathy towards other community members
+
+Harassment, offensive behavior, or discrimination of any kind will not be tolerated.
+
+## 🚀 Getting Started
 
 ### Prerequisites
 
-- Go 1.20 or higher
-- Docker and Docker Compose for local testing
-- Git and Make
-- An IDE with Go support (VSCode, GoLand, etc.)
+- Go 1.24 or higher
+- Docker and Docker Compose
+- PostgreSQL 14+ with pgvector extension
+- Redis 6.2+
+- Make
+- Git
 
-### Setup Development Environment
+### Development Environment Setup
 
-1. Fork the repository on GitHub
-2. Clone your fork locally:
+1. **Fork and Clone**
    ```bash
-   git clone https://github.com/YOUR-USERNAME/mcp-server.git
-   cd mcp-server
+   # Fork the repository on GitHub, then:
+   git clone https://github.com/YOUR-USERNAME/devops-mcp.git
+   cd devops-mcp
+   
+   # Add upstream remote
+   git remote add upstream https://github.com/S-Corkum/devops-mcp.git
    ```
 
-3. Add the upstream repository as a remote:
-   ```bash
-   git remote add upstream https://github.com/S-Corkum/mcp-server.git
-   ```
-
-4. Create a branch for your work:
+2. **Create a Feature Branch**
    ```bash
    git checkout -b feature/your-feature-name
+   # or
+   git checkout -b fix/your-bug-fix
    ```
 
-5. Set up local dependencies:
+3. **Set Up Local Environment**
    ```bash
-   # Install dependencies
-   go mod download
+   # Copy configuration template
+   cp config.yaml.template config.yaml
    
-   # Start required services (PostgreSQL, Redis) with Docker Compose
-   docker-compose up -d postgres redis
+   # Start infrastructure services
+   docker-compose -f docker-compose.local.yml up -d
    
-   # Copy and edit configuration
-   cp configs/config.yaml.template configs/config.yaml
-   # Edit config.yaml for your environment
+   # Install dependencies (handled by Go workspace)
+   go work sync
+   
+   # Run database migrations
+   make migrate-local
    ```
 
-## Development Workflow
+4. **Build and Run**
+   ```bash
+   # Build all services
+   make build
+   
+   # Run services (in separate terminals)
+   make run-mcp-server
+   make run-rest-api
+   make run-worker
+   ```
 
-1. Make your changes, following our coding standards
-2. Add tests for new functionality
-3. Run tests locally to ensure they pass
-4. Update documentation for any user-facing changes
-5. Commit your changes with a clear message
-6. Push to your fork and create a pull request
+## 💻 Development Workflow
 
-### Running the Server Locally
+### 1. Making Changes
 
-```bash
-# Build and run the server
-make build
-./mcp-server
+- Create a feature branch from `main`
+- Make your changes following our coding standards
+- Write/update tests for your changes
+- Update documentation as needed
+- Commit with clear, descriptive messages
 
-# Or use the convenience command for local development
-make local-dev
+### 2. Commit Messages
+
+Follow the [Conventional Commits](https://www.conventionalcommits.org/) specification:
+
+```
+<type>(<scope>): <subject>
+
+<body>
+
+<footer>
 ```
 
-### Using Mock Mode for Development
+Types:
+- `feat`: New feature
+- `fix`: Bug fix
+- `docs`: Documentation changes
+- `style`: Code style changes (formatting, etc.)
+- `refactor`: Code refactoring
+- `test`: Test additions or modifications
+- `chore`: Maintenance tasks
 
-For development without requiring actual GitHub integration:
+Example:
+```
+feat(api): add vector similarity search endpoint
 
-```bash
-# Set GITHUB_MOCK_RESPONSES=true in your .env file
-# Or use the mock server
-make mockserver-build
-make local-dev
+- Implement POST /api/v1/vectors/search
+- Add support for multiple embedding models
+- Include similarity threshold parameter
+
+Closes #123
 ```
 
-## Pull Request Process
+### 3. Testing Your Changes
 
-1. Ensure your code meets our coding standards and passes all tests
-2. Update documentation if necessary
-3. Include a descriptive PR title and detailed description
-4. Reference any related issues using GitHub's keywords (Fixes #123, Closes #456)
-5. Wait for CI checks to pass
-6. Address review feedback promptly
-7. Once approved, your PR will be merged by a maintainer
+```bash
+# Run unit tests
+make test
 
-## Coding Standards
+# Run specific package tests
+go test ./pkg/adapters/...
 
-We follow standard Go coding conventions:
+# Run integration tests
+make test-integration
 
-- Use `gofmt` or `goimports` to format your code
-- Follow the [Go Code Review Comments](https://github.com/golang/go/wiki/CodeReviewComments)
-- Add comments for exported functions, types, and packages
-- Write meaningful variable and function names
-- Keep functions focused and reasonably sized
-- Handle errors appropriately
+# Check test coverage
+make test-coverage
+```
+
+## 🔄 Pull Request Process
+
+1. **Before Submitting**
+   - Ensure all tests pass
+   - Run linters: `make lint`
+   - Update documentation if needed
+   - Rebase on latest `main` branch
+
+2. **PR Guidelines**
+   - Use a descriptive title following commit message conventions
+   - Fill out the PR template completely
+   - Link related issues using keywords (Fixes #123, Closes #456)
+   - Keep PRs focused - one feature/fix per PR
+   - Add screenshots/examples for UI changes
+
+3. **Review Process**
+   - Address reviewer feedback promptly
+   - Push additional commits (don't force-push during review)
+   - Re-request review after making changes
+   - Once approved, the PR will be squash-merged
+
+## 📝 Coding Standards
+
+### Go Code Style
+
+We follow standard Go conventions and use automated tooling:
+
+```bash
+# Format code
+gofmt -w .
+
+# Run linters
+make lint
+
+# Run with auto-fix
+golangci-lint run --fix
+```
+
+### Key Guidelines
+
+1. **Package Design**
+   - Keep packages focused and cohesive
+   - Minimize package dependencies
+   - Use interfaces for abstraction
+   - Follow SOLID principles
+
+2. **Error Handling**
+   ```go
+   // Good: Wrap errors with context
+   if err != nil {
+       return fmt.Errorf("failed to create context: %w", err)
+   }
+   
+   // Use custom error types for API responses
+   return &APIError{
+       Code:    "CONTEXT_NOT_FOUND",
+       Message: "Context not found",
+       Status:  http.StatusNotFound,
+   }
+   ```
+
+3. **Documentation**
+   ```go
+   // Package adapters provides implementations for external service integrations.
+   // It follows the adapter pattern to isolate external dependencies.
+   package adapters
+   
+   // GitHubAdapter provides GitHub API integration capabilities.
+   // It implements the ToolAdapter interface for GitHub-specific operations.
+   type GitHubAdapter struct {
+       client *github.Client
+       config GitHubConfig
+   }
+   ```
+
+4. **Testing**
+   - Write table-driven tests
+   - Use testify for assertions
+   - Mock external dependencies
+   - Aim for >80% coverage
 
 ### Project Structure
 
 ```
-mcp-server/
-├── cmd/                    # Command-line applications
-├── configs/                # Configuration files
+devops-mcp/
+├── apps/                    # Application modules (Go workspace)
+│   ├── mcp-server/         # MCP protocol server
+│   │   ├── cmd/            # Entry points
+│   │   └── internal/       # Private packages
+│   ├── rest-api/           # REST API service
+│   └── worker/             # Event processor
+├── pkg/                    # Shared packages (public API)
+│   ├── adapters/           # External adapters
+│   ├── models/             # Data models
+│   └── ...
 ├── docs/                   # Documentation
-├── internal/               # Internal packages (not importable)
-│   ├── adapters/           # External system adapters
-│   ├── api/                # API server
-│   ├── core/               # Core engine
-│   └── ...                 # Other internal packages
-├── pkg/                    # Public packages (importable)
-├── scripts/                # Build and deployment scripts
-└── test/                   # Test files and fixtures
+├── scripts/                # Utility scripts
+└── go.work                 # Go workspace file
 ```
 
-## Testing Guidelines
+## 🧪 Testing Guidelines
 
-- Write unit tests for all new functionality
-- Write integration tests for API endpoints and adapter functionality
-- Run tests before submitting a PR:
-  ```bash
-  # Run unit tests
-  go test ./...
-  
-  # Run integration tests
-  go test -tags=integration ./...
-  
-  # Run tests with coverage
-  go test -cover ./...
-  ```
+### Test Organization
 
-## Documentation
+```
+package_test.go          # Unit tests
+package_integration_test.go  # Integration tests
+package_benchmark_test.go    # Benchmarks
+testdata/                # Test fixtures
+mocks/                   # Generated mocks
+```
 
-Good documentation is crucial for the MCP Server. When making changes:
+### Writing Tests
 
-1. Update any affected documentation in the `/docs` directory
-2. Add godoc-style comments to exported types and functions
-3. Include examples for non-trivial functionality
-4. Update the API reference if you modify API endpoints
-5. Add new diagrams or update existing ones if needed
+```go
+func TestContextManager_CreateContext(t *testing.T) {
+    tests := []struct {
+        name    string
+        input   *models.Context
+        want    *models.Context
+        wantErr bool
+    }{
+        {
+            name: "valid context",
+            input: &models.Context{
+                Name: "test-context",
+                Type: "conversation",
+            },
+            want: &models.Context{
+                ID:   "generated-id",
+                Name: "test-context",
+                Type: "conversation",
+            },
+            wantErr: false,
+        },
+        // More test cases...
+    }
+    
+    for _, tt := range tests {
+        t.Run(tt.name, func(t *testing.T) {
+            // Test implementation
+        })
+    }
+}
+```
 
-## Release Process
+### Mock Generation
 
-Our release process follows these steps:
+```bash
+# Generate mocks for interfaces
+go generate ./...
 
-1. Create a release branch: `release/vX.Y.Z`
-2. Update version information
-3. Prepare release notes
-4. Create and push a tag: `git tag vX.Y.Z`
-5. Create a GitHub release with release notes
+# Or manually with mockgen
+mockgen -source=pkg/adapters/interfaces.go -destination=pkg/adapters/mocks/mock_adapter.go
+```
 
-## Communication
+## 📚 Documentation
 
-- GitHub Issues: For bug reports, feature requests, and discussions
-- Pull Requests: For code reviews and implementation discussions
+### Documentation Requirements
 
-## Adding New Integrations
+1. **Code Documentation**
+   - All exported types, functions, and packages must have godoc comments
+   - Include examples for complex functionality
+   - Document any non-obvious behavior
 
-If you want to add a new tool integration, see our [Adding New Integrations](docs/adding-new-integrations.md) guide for detailed instructions.
+2. **API Documentation**
+   - Update OpenAPI/Swagger specs for API changes
+   - Include request/response examples
+   - Document error responses
 
-## Thank You!
+3. **Architecture Documentation**
+   - Update diagrams for structural changes
+   - Document design decisions in ADRs (Architecture Decision Records)
+   - Keep README files current
 
-Thank you for contributing to the DevOps MCP Server! Your efforts help improve the project for everyone.
+### Writing Documentation
+
+```markdown
+# Feature Name
+
+## Overview
+Brief description of the feature.
+
+## Usage
+How to use the feature with examples.
+
+## Configuration
+Required configuration with examples.
+
+## API Reference
+Detailed API documentation if applicable.
+
+## Troubleshooting
+Common issues and solutions.
+```
+
+## 💬 Communication
+
+### Getting Help
+
+- **GitHub Issues**: Bug reports, feature requests, questions
+- **Pull Requests**: Code reviews and implementation discussions
+- **Discussions**: General discussions and ideas
+
+### Reporting Issues
+
+When reporting issues, please include:
+- Clear description of the problem
+- Steps to reproduce
+- Expected vs actual behavior
+- Environment details (OS, Go version, etc.)
+- Relevant logs or error messages
+
+## 🎯 Areas for Contribution
+
+### Good First Issues
+
+Look for issues labeled `good first issue` for beginner-friendly tasks:
+- Documentation improvements
+- Test coverage additions
+- Simple bug fixes
+- Code cleanup
+
+### Feature Requests
+
+Check issues labeled `enhancement` for feature ideas:
+- New tool integrations
+- API improvements
+- Performance optimizations
+- UI/UX enhancements
+
+### Current Priorities
+
+See our [project board](https://github.com/S-Corkum/devops-mcp/projects) for current priorities and roadmap.
+
+## 🙏 Thank You!
+
+Your contributions make DevOps MCP better for everyone. We appreciate your time and effort!
+
+For any questions not covered here, please open an issue or start a discussion.

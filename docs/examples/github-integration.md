@@ -1,500 +1,966 @@
-# GitHub Integration Example
+# GitHub Integration Guide
 
-This guide demonstrates how to use the DevOps MCP platform to interact with GitHub repositories, including performing operations like creating issues, managing pull requests, and responding to webhooks.
+This guide demonstrates how to leverage DevOps MCP's production-ready GitHub adapter for repository automation, webhook processing, and AI-powered workflows.
 
 ## Overview
 
-DevOps MCP provides a standardized interface to GitHub operations, allowing you to:
+The DevOps MCP GitHub integration provides:
 
-1. Perform GitHub operations through a consistent API
-2. Receive and process GitHub webhook events
-3. Track repository activities and changes
-4. Integrate GitHub operations with AI agent workflows
+- **🔧 Comprehensive API Coverage**: Issues, PRs, branches, commits, workflows, and more
+- **📡 Real-time Webhooks**: Process GitHub events with automatic retry and idempotency
+- **🤖 AI Integration**: Connect GitHub operations with LLM agents
+- **🔒 Enterprise Security**: OAuth, GitHub Apps, fine-grained permissions
+- **⚡ High Performance**: Connection pooling, caching, and batch operations
+
+## Architecture
+
+```mermaid
+graph TB
+    A[GitHub] -->|Webhooks| B[MCP Server]
+    A <-->|API| B
+    B --> C[Event Bus]
+    B --> D[Tool Executor]
+    C --> E[Worker Service]
+    D --> F[AI Agents]
+    
+    style A fill:#24292e,color:#fff
+    style B fill:#0366d6,color:#fff
+    style C fill:#28a745,color:#fff
+```
 
 ## Prerequisites
 
-- A GitHub account and personal access token (or GitHub App credentials)
-- DevOps MCP server running and configured
-- Basic familiarity with GitHub's API concepts
+- GitHub personal access token or GitHub App installation
+- DevOps MCP deployment (Docker or Kubernetes)
+- (Optional) AI service credentials for intelligent automation
 
-## Example Implementation
+## Quick Start
 
-### 1. Setup and Authentication
+### 1. Initialize GitHub Client
 
 ```python
-import requests
-import json
+from devops_mcp import MCPClient, GitHubAdapter
+from devops_mcp.github import GitHubConfig
 import os
 
-# Set up API key
-API_KEY = os.environ.get("MCP_API_KEY", "your-api-key")
-
-# Set MCP base URL
-MCP_BASE_URL = "http://localhost:8080/api/v1"
-
-# Create headers with authentication
-headers = {
-    "Authorization": f"Bearer {API_KEY}",
-    "Content-Type": "application/json"
-}
-```
-
-### 2. GitHub Repository Operations
-
-Here's a class to interact with GitHub repositories through MCP:
-
-```python
-class GitHubClient:
-    def __init__(self, base_url, headers):
-        self.base_url = base_url
-        self.headers = headers
-        self.tool_path = f"{self.base_url}/tools/github/actions"
-    
-    def create_issue(self, owner, repo, title, body, labels=None, assignees=None):
-        """Create a new issue in a GitHub repository"""
-        data = {
-            "owner": owner,
-            "repo": repo,
-            "title": title,
-            "body": body,
-            "labels": labels or [],
-            "assignees": assignees or []
-        }
-        
-        response = requests.post(
-            f"{self.tool_path}/create_issue",
-            headers=self.headers,
-            data=json.dumps(data)
-        )
-        
-        if response.status_code == 200:
-            return response.json()
-        else:
-            print(f"Error creating issue: {response.text}")
-            return None
-    
-    def list_issues(self, owner, repo, state="open", limit=10):
-        """List issues in a GitHub repository"""
-        data = {
-            "owner": owner,
-            "repo": repo,
-            "state": state,
-            "per_page": limit
-        }
-        
-        response = requests.post(
-            f"{self.tool_path}/list_issues",
-            headers=self.headers,
-            data=json.dumps(data)
-        )
-        
-        if response.status_code == 200:
-            return response.json()
-        else:
-            print(f"Error listing issues: {response.text}")
-            return []
-    
-    def create_pull_request(self, owner, repo, title, body, head, base):
-        """Create a new pull request"""
-        data = {
-            "owner": owner,
-            "repo": repo,
-            "title": title, 
-            "body": body,
-            "head": head,
-            "base": base
-        }
-        
-        response = requests.post(
-            f"{self.tool_path}/create_pull_request",
-            headers=self.headers,
-            data=json.dumps(data)
-        )
-        
-        if response.status_code == 200:
-            return response.json()
-        else:
-            print(f"Error creating pull request: {response.text}")
-            return None
-    
-    def get_pull_request(self, owner, repo, pull_number):
-        """Get details of a specific pull request"""
-        data = {
-            "owner": owner,
-            "repo": repo,
-            "pull_number": pull_number
-        }
-        
-        response = requests.post(
-            f"{self.tool_path}/get_pull_request",
-            headers=self.headers,
-            data=json.dumps(data)
-        )
-        
-        if response.status_code == 200:
-            return response.json()
-        else:
-            print(f"Error getting pull request: {response.text}")
-            return None
-    
-    def create_branch(self, owner, repo, branch, from_branch=None):
-        """Create a new branch in a repository"""
-        data = {
-            "owner": owner,
-            "repo": repo,
-            "branch": branch
-        }
-        
-        if from_branch:
-            data["from_branch"] = from_branch
-        
-        response = requests.post(
-            f"{self.tool_path}/create_branch",
-            headers=self.headers,
-            data=json.dumps(data)
-        )
-        
-        if response.status_code == 200:
-            return response.json()
-        else:
-            print(f"Error creating branch: {response.text}")
-            return None
-    
-    def create_or_update_file(self, owner, repo, path, content, message, branch, sha=None):
-        """Create or update a file in a repository"""
-        data = {
-            "owner": owner,
-            "repo": repo,
-            "path": path,
-            "content": content,
-            "message": message,
-            "branch": branch
-        }
-        
-        if sha:
-            data["sha"] = sha
-        
-        response = requests.post(
-            f"{self.tool_path}/create_or_update_file",
-            headers=self.headers,
-            data=json.dumps(data)
-        )
-        
-        if response.status_code == 200:
-            return response.json()
-        else:
-            print(f"Error creating/updating file: {response.text}")
-            return None
-```
-
-### 3. Example: Automated PR Creation Workflow
-
-This example shows how to automate creating a pull request with file changes:
-
-```python
-def automated_pr_workflow(github_client, owner, repo, feature_name, file_changes):
-    """
-    Automate a PR workflow:
-    1. Create a new branch
-    2. Make changes to files
-    3. Create a pull request
-    """
-    base_branch = "main"  # or master, depending on repository
-    feature_branch = f"feature/{feature_name}"
-    
-    # Create a new branch
-    branch_result = github_client.create_branch(
-        owner, 
-        repo, 
-        feature_branch, 
-        from_branch=base_branch
-    )
-    
-    if not branch_result:
-        return None
-    
-    print(f"Created branch: {feature_branch}")
-    
-    # Update files
-    for file_change in file_changes:
-        # Get current file content if it exists
-        file_sha = None
-        
-        # Update or create the file
-        file_result = github_client.create_or_update_file(
-            owner,
-            repo,
-            file_change["path"],
-            file_change["content"],
-            file_change["message"],
-            feature_branch,
-            sha=file_sha
-        )
-        
-        if not file_result:
-            print(f"Failed to update {file_change['path']}")
-            return None
-        
-        print(f"Updated file: {file_change['path']}")
-    
-    # Create a pull request
-    pr_result = github_client.create_pull_request(
-        owner,
-        repo,
-        f"Feature: {feature_name}",
-        f"This PR implements {feature_name}\n\nAutomatically generated by DevOps MCP",
-        feature_branch,
-        base_branch
-    )
-    
-    if pr_result:
-        print(f"Created PR #{pr_result['number']}: {pr_result['html_url']}")
-    
-    return pr_result
-```
-
-### 4. Example Usage: Bug Fix Workflow
-
-```python
-# Initialize the GitHub client
-github = GitHubClient(MCP_BASE_URL, headers)
-
-# Define bug fix changes
-bug_fix_changes = [
-    {
-        "path": "src/app.js",
-        "content": "// Fixed login bug\nfunction login(username, password) {\n  // Sanitize inputs\n  const cleanUsername = sanitizeInput(username);\n  return authService.authenticate(cleanUsername, password);\n}",
-        "message": "Fix login function to sanitize usernames"
-    },
-    {
-        "path": "src/utils.js",
-        "content": "function sanitizeInput(input) {\n  return input.replace(/[<>&\"']/g, '');\n}",
-        "message": "Add input sanitization utility function"
-    }
-]
-
-# Execute the workflow
-pr = automated_pr_workflow(
-    github,
-    "S-Corkum",
-    "my-project",
-    "fix-login-bug",
-    bug_fix_changes
+# Initialize MCP client
+mcp = MCPClient(
+    base_url=os.getenv("MCP_BASE_URL", "http://localhost:8080/api/v1"),
+    api_key=os.getenv("MCP_API_KEY")
 )
 
-# Check the result
-if pr:
-    print(f"Bug fix PR created: {pr['html_url']}")
-else:
-    print("Failed to create bug fix PR")
+# Configure GitHub adapter
+github_config = GitHubConfig(
+    token=os.getenv("GITHUB_TOKEN"),
+    app_id=os.getenv("GITHUB_APP_ID"),  # Optional: for GitHub App
+    private_key=os.getenv("GITHUB_PRIVATE_KEY"),
+    webhook_secret=os.getenv("GITHUB_WEBHOOK_SECRET")
+)
+
+# Initialize GitHub adapter
+github = GitHubAdapter(mcp, github_config)
 ```
 
-### 5. Integration with Issue Tracking
-
-Here's an example of how to track and manage issues:
+### 2. Core GitHub Operations
 
 ```python
-def track_and_update_issue(github_client, owner, repo, issue_number, update_message, status=None):
-    """Track an issue and add updates to it"""
-    # Get the issue details
-    issue = github_client.get_issue(owner, repo, issue_number)
-    if not issue:
-        return None
+from typing import List, Dict, Any, Optional
+from datetime import datetime
+
+class GitHubOperations:
+    """High-level GitHub operations with error handling and retries"""
     
-    # Add a comment with the update
-    comment_data = {
-        "owner": owner,
-        "repo": repo,
-        "issue_number": issue_number,
-        "body": update_message
-    }
+    def __init__(self, github_adapter: GitHubAdapter):
+        self.github = github_adapter
+        self.retry_policy = RetryPolicy(
+            max_attempts=3,
+            backoff_factor=2.0
+        )
     
-    response = requests.post(
-        f"{github_client.tool_path}/add_issue_comment",
-        headers=github_client.headers,
-        data=json.dumps(comment_data)
-    )
+    async def create_issue(
+        self,
+        repo: str,
+        title: str,
+        body: str,
+        labels: List[str] = None,
+        assignees: List[str] = None,
+        milestone: Optional[int] = None
+    ) -> Dict[str, Any]:
+        """Create an issue with rich metadata"""
+        
+        # Format body with metadata
+        enriched_body = f"{body}\n\n---\n_Created via DevOps MCP at {datetime.utcnow().isoformat()}_"
+        
+        result = await self.github.execute_tool("github.create_issue", {
+            "repository": repo,
+            "title": title,
+            "body": enriched_body,
+            "labels": labels or [],
+            "assignees": assignees or [],
+            "milestone": milestone
+        })
+        
+        # Store in context for future reference
+        await self.github.store_context({
+            "type": "github_issue",
+            "issue_number": result["number"],
+            "repository": repo,
+            "created_at": datetime.utcnow().isoformat()
+        })
+        
+        return result
     
-    # Update issue status if needed
-    if status:
-        update_data = {
-            "owner": owner,
-            "repo": repo,
-            "issue_number": issue_number,
-            "state": status
+    async def search_issues(
+        self,
+        query: str,
+        repo: Optional[str] = None,
+        labels: List[str] = None,
+        state: str = "open",
+        sort: str = "created",
+        limit: int = 100
+    ) -> List[Dict[str, Any]]:
+        """Advanced issue search with filtering"""
+        
+        # Build search query
+        search_parts = [query]
+        if repo:
+            search_parts.append(f"repo:{repo}")
+        if labels:
+            for label in labels:
+                search_parts.append(f'label:"{label}"')
+        search_parts.append(f"state:{state}")
+        
+        result = await self.github.execute_tool("github.search_issues", {
+            "q": " ".join(search_parts),
+            "sort": sort,
+            "per_page": min(limit, 100)
+        })
+        
+        return result["items"]
+    
+    async def create_pull_request(
+        self,
+        repo: str,
+        title: str,
+        body: str,
+        head: str,
+        base: str = "main",
+        draft: bool = False,
+        maintainer_can_modify: bool = True
+    ) -> Dict[str, Any]:
+        """Create a pull request with advanced options"""
+        
+        # Generate PR template if available
+        pr_body = await self._generate_pr_body(repo, title, body)
+        
+        result = await self.github.execute_tool("github.create_pull_request", {
+            "repository": repo,
+            "title": title,
+            "body": pr_body,
+            "head": head,
+            "base": base,
+            "draft": draft,
+            "maintainer_can_modify": maintainer_can_modify
+        })
+        
+        # Auto-assign reviewers based on CODEOWNERS
+        if result and not draft:
+            await self._assign_reviewers(repo, result["number"])
+        
+        return result
+    
+    async def _generate_pr_body(self, repo: str, title: str, description: str) -> str:
+        """Generate PR body with template and metadata"""
+        template = """
+## Description
+{description}
+
+## Type of Change
+- [ ] Bug fix (non-breaking change which fixes an issue)
+- [ ] New feature (non-breaking change which adds functionality)
+- [ ] Breaking change (fix or feature that would cause existing functionality to not work as expected)
+- [ ] Documentation update
+
+## Testing
+- [ ] Unit tests pass locally
+- [ ] Integration tests pass
+- [ ] Manual testing completed
+
+## Checklist
+- [ ] My code follows the style guidelines
+- [ ] I have performed a self-review
+- [ ] I have commented my code, particularly in hard-to-understand areas
+- [ ] I have made corresponding changes to the documentation
+
+---
+_Generated via DevOps MCP_
+"""
+        return template.format(description=description)
+    
+    async def manage_pull_request(
+        self,
+        repo: str,
+        pr_number: int,
+        action: str,
+        **kwargs
+    ) -> Dict[str, Any]:
+        """Manage PR lifecycle: review, merge, close, etc."""
+        
+        actions = {
+            "approve": self._approve_pr,
+            "request_changes": self._request_changes,
+            "merge": self._merge_pr,
+            "close": self._close_pr,
+            "reopen": self._reopen_pr
         }
         
-        requests.post(
-            f"{github_client.tool_path}/update_issue",
-            headers=github_client.headers,
-            data=json.dumps(update_data)
-        )
+        handler = actions.get(action)
+        if not handler:
+            raise ValueError(f"Unknown action: {action}")
+        
+        return await handler(repo, pr_number, **kwargs)
     
-    return response.json() if response.status_code == 200 else None
+    async def batch_file_operations(
+        self,
+        repo: str,
+        branch: str,
+        operations: List[Dict[str, Any]],
+        commit_message: str
+    ) -> Dict[str, Any]:
+        """Perform multiple file operations in a single commit"""
+        
+        # Get current tree
+        tree_sha = await self.github.execute_tool("github.get_branch", {
+            "repository": repo,
+            "branch": branch
+        })
+        
+        # Build new tree with all changes
+        tree_items = []
+        for op in operations:
+            if op["action"] == "create" or op["action"] == "update":
+                blob = await self.github.execute_tool("github.create_blob", {
+                    "repository": repo,
+                    "content": op["content"],
+                    "encoding": "utf-8"
+                })
+                
+                tree_items.append({
+                    "path": op["path"],
+                    "mode": "100644",
+                    "type": "blob",
+                    "sha": blob["sha"]
+                })
+            elif op["action"] == "delete":
+                tree_items.append({
+                    "path": op["path"],
+                    "mode": "100644",
+                    "type": "blob",
+                    "sha": None  # Deletion
+                })
+        
+        # Create new tree
+        new_tree = await self.github.execute_tool("github.create_tree", {
+            "repository": repo,
+            "tree": tree_items,
+            "base_tree": tree_sha["commit"]["tree"]["sha"]
+        })
+        
+        # Create commit
+        commit = await self.github.execute_tool("github.create_commit", {
+            "repository": repo,
+            "message": commit_message,
+            "tree": new_tree["sha"],
+            "parents": [tree_sha["commit"]["sha"]]
+        })
+        
+        # Update branch reference
+        await self.github.execute_tool("github.update_ref", {
+            "repository": repo,
+            "ref": f"refs/heads/{branch}",
+            "sha": commit["sha"]
+        })
+        
+        return commit
 ```
 
-### 6. Listening for GitHub Webhooks
+### 3. Automated Workflows
 
-DevOps MCP can receive GitHub webhooks. Here's how to process them:
-
+#### Intelligent PR Creation
 ```python
-from flask import Flask, request, jsonify
+class AutomatedWorkflows:
+    """Production-ready automated GitHub workflows"""
+    
+    def __init__(self, github_ops: GitHubOperations, ai_client=None):
+        self.github = github_ops
+        self.ai = ai_client  # Optional AI integration
+    
+    async def create_feature_branch_and_pr(
+        self,
+        repo: str,
+        feature_name: str,
+        changes: List[Dict[str, Any]],
+        use_ai: bool = True
+    ) -> Dict[str, Any]:
+        """Create feature branch with changes and open PR"""
+        
+        # Generate branch name
+        branch_name = self._sanitize_branch_name(f"feature/{feature_name}")
+        
+        # Create branch from main
+        await self.github.execute_tool("github.create_branch", {
+            "repository": repo,
+            "branch": branch_name,
+            "from_branch": "main"
+        })
+        
+        # Apply changes in single commit
+        commit = await self.github.batch_file_operations(
+            repo=repo,
+            branch=branch_name,
+            operations=changes,
+            commit_message=f"feat: implement {feature_name}"
+        )
+        
+        # Generate PR description
+        if use_ai and self.ai:
+            pr_description = await self._generate_ai_pr_description(
+                feature_name,
+                changes,
+                commit
+            )
+        else:
+            pr_description = self._generate_standard_pr_description(
+                feature_name,
+                changes
+            )
+        
+        # Create pull request
+        pr = await self.github.create_pull_request(
+            repo=repo,
+            title=f"feat: {feature_name}",
+            body=pr_description,
+            head=branch_name,
+            base="main"
+        )
+        
+        # Run automated checks
+        await self._run_pr_checks(repo, pr["number"])
+        
+        return {
+            "branch": branch_name,
+            "commit": commit["sha"],
+            "pr_number": pr["number"],
+            "pr_url": pr["html_url"]
+        }
+    
+    async def _generate_ai_pr_description(
+        self,
+        feature_name: str,
+        changes: List[Dict[str, Any]],
+        commit: Dict[str, Any]
+    ) -> str:
+        """Use AI to generate comprehensive PR description"""
+        
+        prompt = f"""
+        Generate a pull request description for the following feature:
+        Feature: {feature_name}
+        
+        Files changed:
+        {self._format_changes(changes)}
+        
+        Commit: {commit['message']}
+        
+        Include:
+        1. Summary of changes
+        2. Why these changes were made
+        3. Testing considerations
+        4. Potential impacts
+        """
+        
+        ai_response = await self.ai.generate(prompt)
+        
+        return f"{ai_response}\n\n---\n_Generated with AI assistance via DevOps MCP_"
+    
+    def _sanitize_branch_name(self, name: str) -> str:
+        """Sanitize branch name to be Git-compliant"""
+        import re
+        # Replace invalid characters
+        name = re.sub(r'[^a-zA-Z0-9/_-]', '-', name)
+        # Remove multiple consecutive dashes
+        name = re.sub(r'-+', '-', name)
+        # Trim to reasonable length
+        return name[:63].strip('-')
+```
 
-app = Flask(__name__)
+#### AI-Powered Bug Fix Workflow
+```python
+class IntelligentBugFixer:
+    """AI-powered bug fixing workflow"""
+    
+    async def fix_bug_from_issue(
+        self,
+        repo: str,
+        issue_number: int
+    ) -> Dict[str, Any]:
+        """Analyze issue and attempt automated fix"""
+        
+        # Get issue details
+        issue = await self.github.execute_tool("github.get_issue", {
+            "repository": repo,
+            "issue_number": issue_number
+        })
+        
+        # Analyze issue with AI
+        analysis = await self.ai.analyze({
+            "type": "bug_report",
+            "title": issue["title"],
+            "body": issue["body"],
+            "labels": [l["name"] for l in issue["labels"]]
+        })
+        
+        if not analysis["fixable"]:
+            return {
+                "success": False,
+                "reason": analysis["reason"]
+            }
+        
+        # Search for relevant code
+        code_results = await self._search_relevant_code(
+            repo,
+            analysis["search_terms"]
+        )
+        
+        # Generate fix
+        fix_proposal = await self.ai.generate_fix({
+            "issue": issue,
+            "analysis": analysis,
+            "code_context": code_results
+        })
+        
+        # Create fix branch and PR
+        result = await self.create_feature_branch_and_pr(
+            repo=repo,
+            feature_name=f"fix-issue-{issue_number}",
+            changes=fix_proposal["changes"],
+            use_ai=True
+        )
+        
+        # Link PR to issue
+        await self.github.execute_tool("github.create_issue_comment", {
+            "repository": repo,
+            "issue_number": issue_number,
+            "body": f"I've created PR #{result['pr_number']} to fix this issue: {result['pr_url']}\n\nProposed changes:\n{fix_proposal['summary']}"
+        })
+        
+        return {
+            "success": True,
+            "pr_number": result["pr_number"],
+            "pr_url": result["pr_url"],
+            "fix_summary": fix_proposal["summary"]
+        }
 
-@app.route('/webhook/github', methods=['POST'])
-def github_webhook():
-    # Get webhook payload
-    payload = request.json
+# Example usage
+async def main():
+    # Initialize components
+    mcp = MCPClient(base_url="http://localhost:8080/api/v1")
+    github_ops = GitHubOperations(GitHubAdapter(mcp, github_config))
+    ai_client = AIClient()  # Your AI service
     
-    # Check the event type
-    event_type = request.headers.get('X-GitHub-Event')
+    workflows = AutomatedWorkflows(github_ops, ai_client)
+    bug_fixer = IntelligentBugFixer(github_ops, ai_client)
     
-    if event_type == 'issues':
-        handle_issue_event(payload)
-    elif event_type == 'pull_request':
-        handle_pull_request_event(payload)
-    elif event_type == 'push':
-        handle_push_event(payload)
-    
-    return jsonify({'status': 'received'})
-
-def handle_issue_event(payload):
-    """Handle GitHub issue events"""
-    action = payload.get('action')
-    issue = payload.get('issue', {})
-    repo = payload.get('repository', {})
-    
-    print(f"Issue #{issue.get('number')} {action} in {repo.get('full_name')}")
-    
-    # Forward to DevOps MCP for processing
-    requests.post(
-        f"{MCP_BASE_URL}/webhooks/github",
-        headers=headers,
-        json=payload
+    # Fix a bug from issue
+    result = await bug_fixer.fix_bug_from_issue(
+        repo="S-Corkum/devops-mcp",
+        issue_number=42
     )
-
-# Similar handlers for pull_request and push events
-
-if __name__ == '__main__':
-    app.run(port=5000)
+    
+    if result["success"]:
+        print(f"Successfully created fix: {result['pr_url']}")
+    else:
+        print(f"Could not auto-fix: {result['reason']}")
 ```
 
-### 7. Complete GitHub Automation Example
-
-Here's a more complex example that monitors issues and automatically creates branches and PRs:
+### 4. Advanced Issue Management
 
 ```python
-class GitHubAutomation:
-    def __init__(self, github_client):
-        self.github = github_client
+class IssueManager:
+    """Comprehensive issue tracking and automation"""
     
-    def handle_new_issue(self, issue_event):
-        """Handle a new issue event"""
-        if issue_event['action'] != 'opened':
-            return
+    async def triage_new_issue(
+        self,
+        repo: str,
+        issue_number: int
+    ) -> Dict[str, Any]:
+        """Automatically triage and categorize new issues"""
         
-        issue = issue_event['issue']
-        repo = issue_event['repository']
+        issue = await self.github.execute_tool("github.get_issue", {
+            "repository": repo,
+            "issue_number": issue_number
+        })
         
-        # Check if the issue has an automation label
-        labels = [label['name'] for label in issue.get('labels', [])]
+        # Analyze issue content
+        analysis = await self._analyze_issue(issue)
         
-        if 'bug' in labels and 'auto-fix' in labels:
-            self.create_fix_branch(
-                repo['owner']['login'],
-                repo['name'],
-                issue['number'],
-                issue['title'],
-                issue['body']
-            )
+        # Apply labels
+        labels = self._determine_labels(analysis)
+        await self.github.execute_tool("github.add_issue_labels", {
+            "repository": repo,
+            "issue_number": issue_number,
+            "labels": labels
+        })
+        
+        # Assign to appropriate team member
+        assignee = await self._determine_assignee(analysis, labels)
+        if assignee:
+            await self.github.execute_tool("github.assign_issue", {
+                "repository": repo,
+                "issue_number": issue_number,
+                "assignees": [assignee]
+            })
+        
+        # Set priority and milestone
+        priority = self._determine_priority(analysis)
+        milestone = await self._get_appropriate_milestone(repo, priority)
+        
+        if milestone:
+            await self.github.execute_tool("github.update_issue", {
+                "repository": repo,
+                "issue_number": issue_number,
+                "milestone": milestone["number"]
+            })
+        
+        # Add triage comment
+        comment = self._generate_triage_comment(labels, assignee, priority)
+        await self.github.execute_tool("github.create_issue_comment", {
+            "repository": repo,
+            "issue_number": issue_number,
+            "body": comment
+        })
+        
+        return {
+            "labels": labels,
+            "assignee": assignee,
+            "priority": priority,
+            "milestone": milestone["title"] if milestone else None
+        }
     
-    def create_fix_branch(self, owner, repo, issue_number, title, description):
-        """Create a fix branch for an issue"""
-        # Clean up branch name
-        branch_name = f"fix/issue-{issue_number}-{title.replace(' ', '-').lower()}"
-        branch_name = re.sub(r'[^a-z0-9-]', '', branch_name)[:50]  # Keep it clean and short
+    async def link_duplicate_issues(
+        self,
+        repo: str,
+        issue_number: int
+    ) -> List[int]:
+        """Find and link duplicate issues"""
         
-        # Create the branch
-        branch_result = self.github.create_branch(owner, repo, branch_name)
-        if not branch_result:
-            return
+        issue = await self.github.execute_tool("github.get_issue", {
+            "repository": repo,
+            "issue_number": issue_number
+        })
         
-        # Add a comment to the issue
-        self.github.add_issue_comment(
-            owner,
-            repo,
-            issue_number,
-            f"I've created a branch `{branch_name}` for this issue. Working on an automated fix..."
+        # Search for similar issues
+        similar_issues = await self.github.search_issues(
+            query=issue["title"],
+            repo=repo,
+            state="all",
+            limit=20
         )
         
-        # Here you would typically:
-        # 1. Analyze the issue (perhaps with AI)
-        # 2. Generate code changes
-        # 3. Create the PR
+        duplicates = []
+        for similar in similar_issues:
+            if similar["number"] == issue_number:
+                continue
+            
+            similarity = await self._calculate_similarity(issue, similar)
+            if similarity > 0.85:
+                duplicates.append(similar["number"])
         
-        # For this example, we'll just create a simple PR with a placeholder file
-        file_changes = [{
-            "path": f"docs/issues/{issue_number}.md",
-            "content": f"# Issue #{issue_number}: {title}\n\n{description}\n\n## Fix Status\n\nIn progress\n",
-            "message": f"Create documentation for issue #{issue_number}"
-        }]
+        # Link duplicates
+        if duplicates:
+            comment = f"This issue appears to be related to: {', '.join([f'#{n}' for n in duplicates])}"
+            await self.github.execute_tool("github.create_issue_comment", {
+                "repository": repo,
+                "issue_number": issue_number,
+                "body": comment
+            })
         
-        # Create a PR
-        pr = automated_pr_workflow(
-            self.github,
-            owner,
-            repo,
-            f"issue-{issue_number}",
-            file_changes
-        )
-        
-        if pr:
-            # Link the PR to the issue
-            self.github.add_issue_comment(
-                owner,
-                repo,
-                issue_number,
-                f"Created PR #{pr['number']} to address this issue: {pr['html_url']}"
-            )
+        return duplicates
 ```
 
-## Best Practices for GitHub Integration
+### 5. Webhook Processing
 
-1. **Authentication Security**: Store API keys and tokens securely
-2. **Idempotent Operations**: Design operations to be safely retryable
-3. **Rate Limiting**: Implement backoff strategies to handle GitHub's rate limits
-4. **Webhook Verification**: Validate webhook signatures to prevent spoofing
-5. **Error Handling**: Properly handle and log GitHub API errors
+```python
+from typing import Callable, Dict, Any
+import hmac
+import hashlib
+
+class GitHubWebhookProcessor:
+    """Secure webhook processing with event routing"""
+    
+    def __init__(self, webhook_secret: str, event_bus):
+        self.webhook_secret = webhook_secret
+        self.event_bus = event_bus
+        self.handlers: Dict[str, List[Callable]] = {}
+    
+    def verify_signature(self, payload: bytes, signature: str) -> bool:
+        """Verify GitHub webhook signature"""
+        expected_signature = 'sha256=' + hmac.new(
+            self.webhook_secret.encode(),
+            payload,
+            hashlib.sha256
+        ).hexdigest()
+        
+        return hmac.compare_digest(expected_signature, signature)
+    
+    async def process_webhook(
+        self,
+        event_type: str,
+        payload: Dict[str, Any],
+        delivery_id: str
+    ) -> Dict[str, Any]:
+        """Process webhook with idempotency"""
+        
+        # Check if already processed
+        if await self._is_duplicate(delivery_id):
+            return {"status": "duplicate", "delivery_id": delivery_id}
+        
+        # Record delivery
+        await self._record_delivery(delivery_id)
+        
+        # Route to handlers
+        handlers = self.handlers.get(event_type, [])
+        results = []
+        
+        for handler in handlers:
+            try:
+                result = await handler(payload)
+                results.append({
+                    "handler": handler.__name__,
+                    "status": "success",
+                    "result": result
+                })
+            except Exception as e:
+                results.append({
+                    "handler": handler.__name__,
+                    "status": "error",
+                    "error": str(e)
+                })
+        
+        # Publish to event bus for async processing
+        await self.event_bus.publish({
+            "type": f"github.{event_type}",
+            "payload": payload,
+            "delivery_id": delivery_id,
+            "timestamp": datetime.utcnow().isoformat()
+        })
+        
+        return {
+            "status": "processed",
+            "delivery_id": delivery_id,
+            "handlers_executed": len(results),
+            "results": results
+        }
+    
+    def register_handler(self, event_type: str, handler: Callable):
+        """Register webhook event handler"""
+        if event_type not in self.handlers:
+            self.handlers[event_type] = []
+        self.handlers[event_type].append(handler)
+    
+    # Example handlers
+    async def handle_issue_opened(self, payload: Dict[str, Any]):
+        """Auto-triage new issues"""
+        issue = payload["issue"]
+        repo = payload["repository"]["full_name"]
+        
+        # Triage the issue
+        triage_result = await IssueManager().triage_new_issue(
+            repo=repo,
+            issue_number=issue["number"]
+        )
+        
+        return triage_result
+    
+    async def handle_pr_opened(self, payload: Dict[str, Any]):
+        """Auto-review new PRs"""
+        pr = payload["pull_request"]
+        repo = payload["repository"]["full_name"]
+        
+        # Run automated checks
+        checks = await self._run_pr_checks(repo, pr["number"])
+        
+        # Add size label
+        size_label = self._calculate_pr_size(pr)
+        await self.github.execute_tool("github.add_pr_labels", {
+            "repository": repo,
+            "pr_number": pr["number"],
+            "labels": [f"size/{size_label}"]
+        })
+        
+        return {"checks": checks, "size": size_label}
+```
+
+### 6. Complete Production Example
+
+```python
+import asyncio
+from fastapi import FastAPI, Request, HTTPException
+from fastapi.responses import JSONResponse
+
+app = FastAPI(title="DevOps MCP GitHub Integration")
+
+class GitHubIntegrationService:
+    """Production GitHub integration service"""
+    
+    def __init__(self, config: Dict[str, Any]):
+        # Initialize components
+        self.mcp = MCPClient(
+            base_url=config["mcp_base_url"],
+            api_key=config["mcp_api_key"]
+        )
+        
+        self.github_config = GitHubConfig(
+            token=config["github_token"],
+            app_id=config.get("github_app_id"),
+            private_key=config.get("github_private_key"),
+            webhook_secret=config["github_webhook_secret"]
+        )
+        
+        self.github_adapter = GitHubAdapter(self.mcp, self.github_config)
+        self.github_ops = GitHubOperations(self.github_adapter)
+        
+        # Initialize processors
+        self.webhook_processor = GitHubWebhookProcessor(
+            webhook_secret=config["github_webhook_secret"],
+            event_bus=self.mcp.event_bus
+        )
+        
+        self.issue_manager = IssueManager(self.github_ops)
+        self.workflows = AutomatedWorkflows(self.github_ops)
+        
+        # Register webhook handlers
+        self._register_handlers()
+    
+    def _register_handlers(self):
+        """Register all webhook handlers"""
+        self.webhook_processor.register_handler(
+            "issues",
+            self._handle_issue_event
+        )
+        self.webhook_processor.register_handler(
+            "pull_request",
+            self._handle_pr_event
+        )
+        self.webhook_processor.register_handler(
+            "issue_comment",
+            self._handle_comment_event
+        )
+    
+    async def _handle_issue_event(self, payload: Dict[str, Any]):
+        """Handle issue events with automation"""
+        action = payload["action"]
+        issue = payload["issue"]
+        repo = payload["repository"]["full_name"]
+        
+        if action == "opened":
+            # Auto-triage
+            await self.issue_manager.triage_new_issue(repo, issue["number"])
+            
+            # Check for duplicates
+            duplicates = await self.issue_manager.link_duplicate_issues(
+                repo,
+                issue["number"]
+            )
+            
+            # Check if auto-fixable
+            labels = [l["name"] for l in issue["labels"]]
+            if "bug" in labels and "auto-fix" in labels:
+                await self._attempt_auto_fix(repo, issue)
+        
+        elif action == "labeled":
+            # Handle new labels
+            label = payload["label"]["name"]
+            if label == "needs-reproduction":
+                await self._request_reproduction_steps(repo, issue["number"])
+    
+    async def _handle_pr_event(self, payload: Dict[str, Any]):
+        """Handle PR events with automation"""
+        action = payload["action"]
+        pr = payload["pull_request"]
+        repo = payload["repository"]["full_name"]
+        
+        if action == "opened" or action == "synchronize":
+            # Run automated checks
+            await self._run_pr_automation(repo, pr)
+        
+        elif action == "review_requested":
+            # Notify reviewers with context
+            await self._notify_reviewers_with_context(repo, pr)
+    
+    async def _run_pr_automation(self, repo: str, pr: Dict[str, Any]):
+        """Run comprehensive PR automation"""
+        tasks = [
+            self._check_pr_compliance(repo, pr),
+            self._run_security_scan(repo, pr),
+            self._check_test_coverage(repo, pr),
+            self._validate_documentation(repo, pr)
+        ]
+        
+        results = await asyncio.gather(*tasks, return_exceptions=True)
+        
+        # Post status comment
+        status_comment = self._generate_pr_status_comment(results)
+        await self.github_ops.execute_tool("github.create_pr_comment", {
+            "repository": repo,
+            "pr_number": pr["number"],
+            "body": status_comment
+        })
+
+# FastAPI webhook endpoint
+@app.post("/webhooks/github")
+async def github_webhook(
+    request: Request,
+    x_github_event: str = Header(None),
+    x_hub_signature_256: str = Header(None),
+    x_github_delivery: str = Header(None)
+):
+    # Get payload
+    payload = await request.body()
+    
+    # Verify signature
+    if not service.webhook_processor.verify_signature(payload, x_hub_signature_256):
+        raise HTTPException(status_code=401, detail="Invalid signature")
+    
+    # Process webhook
+    result = await service.webhook_processor.process_webhook(
+        event_type=x_github_event,
+        payload=await request.json(),
+        delivery_id=x_github_delivery
+    )
+    
+    return JSONResponse(content=result)
+
+# Initialize service
+service = GitHubIntegrationService({
+    "mcp_base_url": os.getenv("MCP_BASE_URL"),
+    "mcp_api_key": os.getenv("MCP_API_KEY"),
+    "github_token": os.getenv("GITHUB_TOKEN"),
+    "github_webhook_secret": os.getenv("GITHUB_WEBHOOK_SECRET")
+})
+
+if __name__ == "__main__":
+    import uvicorn
+    uvicorn.run(app, host="0.0.0.0", port=8000)
+```
+
+## Best Practices
+
+### 1. Security
+```yaml
+# security-config.yaml
+github:
+  auth:
+    method: app  # 'token' or 'app'
+    token_rotation_days: 30
+    permissions:
+      issues: write
+      pull_requests: write
+      contents: read
+      webhooks: admin
+  
+  webhook:
+    secret_rotation_days: 90
+    allowed_events:
+      - issues
+      - pull_request
+      - issue_comment
+      - push
+    ip_whitelist:
+      - 140.82.112.0/20  # GitHub webhook IPs
+```
+
+### 2. Rate Limiting & Caching
+```python
+from functools import lru_cache
+from datetime import datetime, timedelta
+
+class RateLimitedGitHub:
+    def __init__(self, github_ops: GitHubOperations):
+        self.github = github_ops
+        self.rate_limiter = RateLimiter(
+            calls_per_hour=5000,  # GitHub's limit
+            burst_size=100
+        )
+    
+    @lru_cache(maxsize=1000)
+    async def get_cached_issue(self, repo: str, issue_number: int):
+        """Cache issue data for 5 minutes"""
+        return await self.github.get_issue(repo, issue_number)
+```
+
+### 3. Error Handling
+```python
+class GitHubErrorHandler:
+    @staticmethod
+    async def with_retry(operation, max_retries=3):
+        """Retry with exponential backoff"""
+        for attempt in range(max_retries):
+            try:
+                return await operation()
+            except GitHubRateLimitError:
+                wait_time = 2 ** attempt * 60  # Exponential backoff
+                await asyncio.sleep(wait_time)
+            except GitHubAPIError as e:
+                if e.status_code >= 500:  # Server errors
+                    await asyncio.sleep(2 ** attempt)
+                else:
+                    raise  # Don't retry client errors
+        
+        raise MaxRetriesExceeded()
+```
+
+## Monitoring & Observability
+
+```python
+from prometheus_client import Counter, Histogram, Gauge
+
+# Metrics
+github_api_calls = Counter('github_api_calls_total', 'Total GitHub API calls', ['operation', 'status'])
+github_api_latency = Histogram('github_api_duration_seconds', 'GitHub API call latency', ['operation'])
+github_rate_limit = Gauge('github_rate_limit_remaining', 'Remaining GitHub API calls')
+webhook_events = Counter('github_webhook_events_total', 'Total webhook events', ['event_type', 'status'])
+
+# Health check
+@app.get("/health")
+async def health_check():
+    rate_limit = await github.get_rate_limit()
+    
+    return {
+        "status": "healthy",
+        "github_connected": True,
+        "rate_limit": {
+            "remaining": rate_limit["remaining"],
+            "reset_at": rate_limit["reset"]
+        },
+        "webhook_deliveries_24h": await get_webhook_delivery_count()
+    }
+```
 
 ## Common Use Cases
 
-1. **Automated Code Reviews**: Trigger automated reviews when PRs are created
-2. **Issue Triage**: Automatically categorize and assign incoming issues
-3. **Deployment Automation**: Trigger deployments when specific branches are updated
-4. **Documentation Generation**: Auto-update documentation when code changes
-5. **AI-Assisted Coding**: Generate code fixes based on issue descriptions
+1. **🤖 AI-Powered Development**: Automatically generate fixes for bugs
+2. **🔍 Code Quality Gates**: Enforce standards on every PR
+3. **📦 Dependency Management**: Auto-update and test dependencies
+4. **📊 Analytics & Insights**: Track development metrics
+5. **🚀 Continuous Deployment**: Deploy on merge to main
 
-## Advanced Configuration
+## Next Steps
 
-For more complex scenarios, you can configure GitHub Apps through the DevOps MCP platform:
+1. **Explore More Examples**: Check out the [AI Agent Integration](ai-agent-integration.md)
+2. **API Reference**: See [GitHub Tools API](../api-reference/github-tools.md)
+3. **Deploy to Production**: Follow the [deployment guide](../operations/deployment.md)
+4. **Contribute**: Add new GitHub tools to the platform
 
-```python
-def configure_github_app(name, webhook_url, permissions):
-    """Configure a GitHub App through MCP"""
-    data = {
-        "name": name,
-        "webhook_url": webhook_url,
-        "permissions": permissions
-    }
-    
-    response = requests.post(
-        f"{MCP_BASE_URL}/config/github/app",
-        headers=headers,
-        data=json.dumps(data)
-    )
-    
-    return response.json() if response.status_code == 200 else None
-```
+---
 
-With this foundational knowledge, you can now integrate GitHub operations into your workflows using the DevOps MCP platform.
+*For support, join our [Discord community](https://discord.gg/devops-mcp) or open an issue on [GitHub](https://github.com/S-Corkum/devops-mcp)*

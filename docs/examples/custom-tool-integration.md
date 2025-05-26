@@ -1,487 +1,1238 @@
-# Custom Tool Integration
+# Custom Tool Integration Guide
 
-This guide demonstrates how to extend the DevOps MCP platform by adding your own tool integrations beyond the built-in GitHub support.
+This guide demonstrates how to extend DevOps MCP with custom tool integrations using our production-ready adapter architecture.
 
 ## Overview
 
-DevOps MCP uses an extensible architecture that allows you to integrate additional tools through the adapter pattern. This guide will walk you through creating a custom integration for a hypothetical CI/CD tool called "BuildMaster".
+DevOps MCP's extensible architecture enables seamless integration of any DevOps tool through:
 
-## Integration Architecture
+- **🔌 Adapter Pattern**: Clean separation between tool logic and API layer
+- **🏗️ Go Workspace Structure**: Shared packages across multiple services
+- **🔄 Event-Driven Processing**: Asynchronous operations via event bus
+- **💪 Production Features**: Retries, circuit breakers, observability
+- **🧪 Comprehensive Testing**: Unit, integration, and E2E test support
 
-When adding a new tool integration, you'll implement several components:
+## Architecture Components
 
-1. **API Client**: Handles communication with the external API
-2. **Repository Interface**: Defines the contract for tool operations
-3. **Repository Implementation**: Implements the interface for the specific tool
-4. **Adapter**: Bridges between the API layer and repository implementation
-5. **API Handlers**: Exposes the tool operations via the REST API
+```mermaid
+graph TB
+    A[REST API] --> B[Adapter Layer]
+    B --> C[Tool Client]
+    C --> D[External Tool API]
+    B --> E[Event Bus]
+    E --> F[Worker Service]
+    B --> G[Context Store]
+    
+    style A fill:#0366d6,color:#fff
+    style B fill:#28a745,color:#fff
+    style D fill:#6f42c1,color:#fff
+```
 
-## Step-by-Step Implementation
+When implementing a new tool, you'll create:
 
-### 1. Define Repository Interface
+1. **Tool Adapter**: Implements the adapter interface
+2. **API Client**: Handles external API communication
+3. **Event Handlers**: Process tool-specific events
+4. **MCP Tools**: Expose operations to AI agents
+5. **Webhook Handlers**: React to tool webhooks
 
-First, define the interface for your tool operations in the shared package:
+## Implementation Guide
+
+### 1. Define the Adapter Interface
+
+Create your adapter interface following the established pattern:
 
 ```go
-// pkg/repository/ci_repository.go
-package repository
+// pkg/adapters/interfaces/ci.go
+package interfaces
 
-import "context"
+import (
+    "context"
+    "github.com/S-Corkum/devops-mcp/pkg/models"
+)
 
-// BuildStatus represents a CI build status
+// CIAdapter defines the interface for CI/CD tool integrations
+type CIAdapter interface {
+    Adapter // Embed base adapter interface
+    
+    // Build operations
+    TriggerBuild(ctx context.Context, req *models.BuildRequest) (*models.Build, error)
+    GetBuild(ctx context.Context, buildID string) (*models.Build, error)
+    ListBuilds(ctx context.Context, projectID string, opts *models.ListOptions) ([]*models.Build, error)
+    CancelBuild(ctx context.Context, buildID string) error
+    
+    // Pipeline operations
+    GetPipeline(ctx context.Context, pipelineID string) (*models.Pipeline, error)
+    TriggerPipeline(ctx context.Context, req *models.PipelineRequest) (*models.PipelineRun, error)
+    
+    // Artifact operations
+    GetArtifacts(ctx context.Context, buildID string) ([]*models.Artifact, error)
+    DownloadArtifact(ctx context.Context, artifactID string) ([]byte, error)
+}
+
+// Models
+type Build struct {
+    ID          string                 `json:"id"`
+    ProjectID   string                 `json:"project_id"`
+    PipelineID  string                 `json:"pipeline_id"`
+    Branch      string                 `json:"branch"`
+    Commit      string                 `json:"commit"`
+    Status      BuildStatus           `json:"status"`
+    StartedAt   time.Time             `json:"started_at"`
+    FinishedAt  *time.Time            `json:"finished_at,omitempty"`
+    Duration    *time.Duration        `json:"duration,omitempty"`
+    URL         string                `json:"url"`
+    Logs        string                `json:"logs,omitempty"`
+    Metadata    map[string]interface{} `json:"metadata"`
+}
+
 type BuildStatus string
 
 const (
-    BuildStatusPending   BuildStatus = "pending"
+    BuildStatusQueued    BuildStatus = "queued"
     BuildStatusRunning   BuildStatus = "running"
     BuildStatusSucceeded BuildStatus = "succeeded"
     BuildStatusFailed    BuildStatus = "failed"
+    BuildStatusCancelled BuildStatus = "cancelled"
+)
+```
+
+### 2. Implement the Adapter
+
+Create your tool adapter with production features:
+
+```go
+// pkg/adapters/gitlab/adapter.go
+package gitlab
+
+import (
+    "context"
+    "fmt"
+    "time"
+    
+    "github.com/S-Corkum/devops-mcp/pkg/adapters/interfaces"
+    "github.com/S-Corkum/devops-mcp/pkg/adapters/resilience"
+    "github.com/S-Corkum/devops-mcp/pkg/models"
+    "github.com/S-Corkum/devops-mcp/pkg/observability"
 )
 
-// CIBuild represents a CI build
-type CIBuild struct {
-    ID        string      `json:"id"`
-    ProjectID string      `json:"project_id"`
-    Branch    string      `json:"branch"`
-    Commit    string      `json:"commit"`
-    Status    BuildStatus `json:"status"`
-    URL       string      `json:"url"`
-    CreatedAt string      `json:"created_at"`
-    Metadata  map[string]interface{} `json:"metadata"`
+// Config holds GitLab adapter configuration
+type Config struct {
+    URL      string `yaml:"url" validate:"required,url"`
+    Username string `yaml:"username" validate:"required"`
+    Token    string `yaml:"token" validate:"required"`
+    
+    // Resilience settings
+    Timeout         time.Duration `yaml:"timeout" default:"30s"`
+    MaxRetries      int          `yaml:"max_retries" default:"3"`
+    CircuitBreaker  resilience.CircuitBreakerConfig `yaml:"circuit_breaker"`
+    RateLimit       resilience.RateLimitConfig      `yaml:"rate_limit"`
 }
 
-// CIRepository defines operations for CI tools
-type CIRepository interface {
-    // TriggerBuild starts a new build
-    TriggerBuild(ctx context.Context, projectID, branch, commit string) (*CIBuild, error)
+// GitLabAdapter implements the CIAdapter interface
+type GitLabAdapter struct {
+    client  *gitlabClient
+    config  *Config
+    logger  observability.Logger
+    metrics observability.Metrics
     
-    // GetBuildStatus retrieves the status of a build
-    GetBuildStatus(ctx context.Context, buildID string) (*CIBuild, error)
+    // Resilience components
+    circuitBreaker *resilience.CircuitBreaker
+    rateLimiter    *resilience.RateLimiter
+    retrier        *resilience.Retrier
+}
+
+// NewGitLabAdapter creates a new GitLab adapter
+func NewGitLabAdapter(config *Config, logger observability.Logger, metrics observability.Metrics) (*GitLabAdapter, error) {
+    // Validate configuration
+    if err := config.Validate(); err != nil {
+        return nil, fmt.Errorf("invalid config: %w", err)
+    }
     
-    // ListBuilds retrieves a list of builds for a project
-    ListBuilds(ctx context.Context, projectID, branch string, limit int) ([]*CIBuild, error)
+    // Create HTTP client with observability
+    httpClient := &http.Client{
+        Timeout: config.Timeout,
+        Transport: observability.NewHTTPTransport(
+            http.DefaultTransport,
+            logger,
+            metrics,
+        ),
+    }
     
-    // CancelBuild cancels an in-progress build
-    CancelBuild(ctx context.Context, buildID string) error
+    // Initialize GitLab client
+    client := newGitLabClient(config.URL, config.Username, config.Token, httpClient)
+    
+    // Setup resilience components
+    cb := resilience.NewCircuitBreaker(config.CircuitBreaker)
+    rl := resilience.NewRateLimiter(config.RateLimit)
+    rt := resilience.NewRetrier(resilience.RetrierConfig{
+        MaxAttempts: config.MaxRetries,
+        InitialDelay: 1 * time.Second,
+        MaxDelay: 30 * time.Second,
+        Multiplier: 2.0,
+    })
+    
+    return &GitLabAdapter{
+        client:         client,
+        config:         config,
+        logger:         logger,
+        metrics:        metrics,
+        circuitBreaker: cb,
+        rateLimiter:    rl,
+        retrier:        rt,
+    }, nil
+}
+
+// TriggerBuild implements CIAdapter.TriggerBuild with resilience
+func (a *GitLabAdapter) TriggerBuild(ctx context.Context, req *models.BuildRequest) (*models.Build, error) {
+    // Add tracing
+    ctx, span := a.startSpan(ctx, "TriggerBuild")
+    defer span.End()
+    
+    // Check rate limit
+    if err := a.rateLimiter.Wait(ctx); err != nil {
+        return nil, fmt.Errorf("rate limit exceeded: %w", err)
+    }
+    
+    // Execute with circuit breaker and retry
+    var build *models.Build
+    err := a.circuitBreaker.Execute(func() error {
+        return a.retrier.Do(ctx, func() error {
+            // Call GitLab API
+            gitlabJob, err := a.client.TriggerJob(ctx, req.ProjectID, map[string]string{
+                "BRANCH": req.Branch,
+                "COMMIT": req.Commit,
+            })
+            if err != nil {
+                return err
+            }
+            
+            // Convert to standard model
+            build = a.gitlabJobToBuild(gitlabJob)
+            return nil
+        })
+    })
+    
+    if err != nil {
+        a.recordError("trigger_build_failed", err)
+        return nil, err
+    }
+    
+    // Store in context for future reference
+    if err := a.storeContext(ctx, "build", build); err != nil {
+        a.logger.Warn("failed to store build context", "error", err)
+    }
+    
+    // Emit event
+    a.emitEvent("build.triggered", build)
+    
+    // Record metrics
+    a.metrics.Counter("gitlab_builds_triggered", 1, map[string]string{
+        "project": req.ProjectID,
+        "branch": req.Branch,
+    })
+    
+    return build, nil
+}
+
+// Helper methods
+func (a *GitLabAdapter) gitlabJobToBuild(job *gitlabJob) *models.Build {
+    return &models.Build{
+        ID:         fmt.Sprintf("%s-%d", job.Name, job.Number),
+        ProjectID:  job.Name,
+        Branch:     job.Parameters["BRANCH"],
+        Commit:     job.Parameters["COMMIT"],
+        Status:     a.mapBuildStatus(job.Result),
+        StartedAt:  time.Unix(job.Timestamp/1000, 0),
+        URL:        job.URL,
+        Metadata: map[string]interface{}{
+            "gitlab_number": job.Number,
+            "node": job.BuiltOn,
+        },
+    }
 }
 ```
 
-### 2. Create API Client
+### 3. Create the API Client
 
-Create a client for the external tool API:
+Implement a robust API client with proper error handling:
 
 ```go
-// pkg/client/buildmaster/client.go
-package buildmaster
+// pkg/adapters/gitlab/client.go
+package gitlab
 
 import (
     "context"
     "encoding/json"
     "fmt"
     "net/http"
+    "net/url"
     "time"
 )
 
-// Client provides methods to interact with BuildMaster API
-type Client struct {
+type gitlabClient struct {
     baseURL    string
-    apiKey     string
+    username   string
+    token      string
     httpClient *http.Client
 }
 
-// NewClient creates a new BuildMaster client
-func NewClient(baseURL, apiKey string) *Client {
-    return &Client{
-        baseURL: baseURL,
-        apiKey:  apiKey,
-        httpClient: &http.Client{
-            Timeout: 30 * time.Second,
+type gitlabJob struct {
+    Name       string            `json:"name"`
+    Number     int64             `json:"number"`
+    Result     string            `json:"result"`
+    Timestamp  int64             `json:"timestamp"`
+    Duration   int64             `json:"duration"`
+    URL        string            `json:"url"`
+    BuiltOn    string            `json:"builtOn"`
+    Parameters map[string]string `json:"parameters"`
+}
+
+func newGitLabClient(baseURL, username, token string, httpClient *http.Client) *gitlabClient {
+    return &gitlabClient{
+        baseURL:    baseURL,
+        username:   username,
+        token:      token,
+        httpClient: httpClient,
+    }
+}
+
+func (c *gitlabClient) TriggerJob(ctx context.Context, jobName string, params map[string]string) (*gitlabJob, error) {
+    // Build URL with parameters
+    u, err := url.Parse(fmt.Sprintf("%s/job/%s/buildWithParameters", c.baseURL, jobName))
+    if err != nil {
+        return nil, fmt.Errorf("invalid URL: %w", err)
+    }
+    
+    // Add parameters
+    q := u.Query()
+    for k, v := range params {
+        q.Set(k, v)
+    }
+    u.RawQuery = q.Encode()
+    
+    // Create request
+    req, err := http.NewRequestWithContext(ctx, "POST", u.String(), nil)
+    if err != nil {
+        return nil, fmt.Errorf("create request: %w", err)
+    }
+    
+    // Add authentication
+    req.SetBasicAuth(c.username, c.token)
+    req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+    
+    // Execute request
+    resp, err := c.httpClient.Do(req)
+    if err != nil {
+        return nil, fmt.Errorf("execute request: %w", err)
+    }
+    defer resp.Body.Close()
+    
+    // Check response
+    if resp.StatusCode != http.StatusCreated {
+        return nil, c.parseError(resp)
+    }
+    
+    // Get queue location from header
+    location := resp.Header.Get("Location")
+    if location == "" {
+        return nil, fmt.Errorf("no queue location in response")
+    }
+    
+    // Poll for build to start
+    return c.waitForBuildStart(ctx, location)
+}
+
+func (c *gitlabClient) waitForBuildStart(ctx context.Context, queueURL string) (*gitlabJob, error) {
+    ticker := time.NewTicker(2 * time.Second)
+    defer ticker.Stop()
+    
+    timeout := time.After(5 * time.Minute)
+    
+    for {
+        select {
+        case <-ctx.Done():
+            return nil, ctx.Err()
+        case <-timeout:
+            return nil, fmt.Errorf("timeout waiting for build to start")
+        case <-ticker.C:
+            // Check queue item
+            req, err := http.NewRequestWithContext(ctx, "GET", queueURL+"/api/json", nil)
+            if err != nil {
+                return nil, err
+            }
+            req.SetBasicAuth(c.username, c.token)
+            
+            resp, err := c.httpClient.Do(req)
+            if err != nil {
+                return nil, err
+            }
+            defer resp.Body.Close()
+            
+            var queueItem struct {
+                Executable *struct {
+                    URL string `json:"url"`
+                } `json:"executable"`
+            }
+            
+            if err := json.NewDecoder(resp.Body).Decode(&queueItem); err != nil {
+                return nil, err
+            }
+            
+            // If build has started, get details
+            if queueItem.Executable != nil {
+                return c.getBuild(ctx, queueItem.Executable.URL)
+            }
+        }
+    }
+}
+
+func (c *gitlabClient) parseError(resp *http.Response) error {
+    var errResp struct {
+        Message string `json:"message"`
+        Error   string `json:"error"`
+    }
+    
+    if err := json.NewDecoder(resp.Body).Decode(&errResp); err != nil {
+        return fmt.Errorf("status %d: failed to parse error", resp.StatusCode)
+    }
+    
+    if errResp.Message != "" {
+        return fmt.Errorf("status %d: %s", resp.StatusCode, errResp.Message)
+    }
+    
+    return fmt.Errorf("status %d: %s", resp.StatusCode, errResp.Error)
+}
+```
+
+### 4. Register the Adapter
+
+Register your adapter with the factory pattern:
+
+```go
+// pkg/adapters/factory.go
+package adapters
+
+import (
+    "fmt"
+    
+    "github.com/S-Corkum/devops-mcp/pkg/adapters/github"
+    "github.com/S-Corkum/devops-mcp/pkg/adapters/gitlab"
+    "github.com/S-Corkum/devops-mcp/pkg/adapters/interfaces"
+    "github.com/S-Corkum/devops-mcp/pkg/config"
+    "github.com/S-Corkum/devops-mcp/pkg/observability"
+)
+
+// Factory creates adapters based on configuration
+type Factory struct {
+    config  *config.Config
+    logger  observability.Logger
+    metrics observability.Metrics
+}
+
+// CreateCIAdapter creates a CI adapter based on provider
+func (f *Factory) CreateCIAdapter(provider string) (interfaces.CIAdapter, error) {
+    switch provider {
+    case "gitlab":
+        cfg := &gitlab.Config{}
+        if err := f.config.UnmarshalKey(fmt.Sprintf("adapters.ci.%s", provider), cfg); err != nil {
+            return nil, fmt.Errorf("load gitlab config: %w", err)
+        }
+        return gitlab.NewGitLabAdapter(cfg, f.logger, f.metrics)
+        
+    case "github":
+        cfg := &github.Config{}
+        if err := f.config.UnmarshalKey(fmt.Sprintf("adapters.ci.%s", provider), cfg); err != nil {
+            return nil, fmt.Errorf("load github config: %w", err)
+        }
+        return github.NewGitHubAdapter(cfg, f.logger, f.metrics)
+        
+    case "circleci":
+        cfg := &circleci.Config{}
+        if err := f.config.UnmarshalKey(fmt.Sprintf("adapters.ci.%s", provider), cfg); err != nil {
+            return nil, fmt.Errorf("load circleci config: %w", err)
+        }
+        return circleci.NewCircleCIAdapter(cfg, f.logger, f.metrics)
+        
+    default:
+        return nil, fmt.Errorf("unknown CI provider: %s", provider)
+    }
+}
+
+// RegisterAdapter allows external packages to register adapters
+func (f *Factory) RegisterAdapter(provider string, constructor AdapterConstructor) {
+    f.constructors[provider] = constructor
+}
+```
+
+### 5. Create MCP Tool Definitions
+
+Expose your tool to AI agents via MCP:
+
+```go
+// apps/mcp-server/internal/api/tools/gitlab/tools.go
+package gitlab
+
+import (
+    "context"
+    "encoding/json"
+    
+    "github.com/S-Corkum/devops-mcp/pkg/adapters/interfaces"
+    "github.com/S-Corkum/devops-mcp/pkg/models"
+)
+
+// ToolProvider implements MCP tool provider for GitLab
+type ToolProvider struct {
+    adapter interfaces.CIAdapter
+}
+
+// GetTools returns available GitLab tools
+func (p *ToolProvider) GetTools() []models.Tool {
+    return []models.Tool{
+        {
+            Name:        "gitlab.trigger_build",
+            Description: "Trigger a GitLab build for a project",
+            InputSchema: json.RawMessage(`{
+                "type": "object",
+                "properties": {
+                    "project": {"type": "string", "description": "GitLab job name"},
+                    "branch": {"type": "string", "description": "Git branch to build"},
+                    "commit": {"type": "string", "description": "Git commit SHA"},
+                    "parameters": {
+                        "type": "object",
+                        "description": "Additional build parameters"
+                    }
+                },
+                "required": ["project", "branch"]
+            }`),
+        },
+        {
+            Name:        "gitlab.get_build_status",
+            Description: "Get the status of a GitLab build",
+            InputSchema: json.RawMessage(`{
+                "type": "object",
+                "properties": {
+                    "build_id": {"type": "string", "description": "Build identifier"}
+                },
+                "required": ["build_id"]
+            }`),
+        },
+        {
+            Name:        "gitlab.get_build_logs",
+            Description: "Retrieve build logs from GitLab",
+            InputSchema: json.RawMessage(`{
+                "type": "object",
+                "properties": {
+                    "build_id": {"type": "string", "description": "Build identifier"},
+                    "lines": {"type": "integer", "description": "Number of log lines to retrieve", "default": 100}
+                },
+                "required": ["build_id"]
+            }`),
+        },
+        {
+            Name:        "gitlab.list_failed_builds",
+            Description: "List recent failed builds for investigation",
+            InputSchema: json.RawMessage(`{
+                "type": "object",
+                "properties": {
+                    "project": {"type": "string", "description": "GitLab job name"},
+                    "limit": {"type": "integer", "description": "Maximum number of builds", "default": 10}
+                },
+                "required": ["project"]
+            }`),
         },
     }
 }
 
-// TriggerBuild starts a new build in BuildMaster
-func (c *Client) TriggerBuild(ctx context.Context, projectID, branch, commit string) (map[string]interface{}, error) {
-    url := fmt.Sprintf("%s/api/builds", c.baseURL)
-    payload := map[string]string{
-        "project_id": projectID,
-        "branch":     branch,
-        "commit":     commit,
+// ExecuteTool executes a GitLab tool
+func (p *ToolProvider) ExecuteTool(ctx context.Context, tool string, input json.RawMessage) (interface{}, error) {
+    switch tool {
+    case "gitlab.trigger_build":
+        var params struct {
+            Project    string                 `json:"project"`
+            Branch     string                 `json:"branch"`
+            Commit     string                 `json:"commit"`
+            Parameters map[string]interface{} `json:"parameters"`
+        }
+        if err := json.Unmarshal(input, &params); err != nil {
+            return nil, err
+        }
+        
+        build, err := p.adapter.TriggerBuild(ctx, &models.BuildRequest{
+            ProjectID: params.Project,
+            Branch:    params.Branch,
+            Commit:    params.Commit,
+            Metadata:  params.Parameters,
+        })
+        if err != nil {
+            return nil, err
+        }
+        
+        return map[string]interface{}{
+            "build_id": build.ID,
+            "status":   build.Status,
+            "url":      build.URL,
+            "message":  fmt.Sprintf("Build %s triggered successfully", build.ID),
+        }, nil
+        
+    case "gitlab.get_build_status":
+        var params struct {
+            BuildID string `json:"build_id"`
+        }
+        if err := json.Unmarshal(input, &params); err != nil {
+            return nil, err
+        }
+        
+        build, err := p.adapter.GetBuild(ctx, params.BuildID)
+        if err != nil {
+            return nil, err
+        }
+        
+        return map[string]interface{}{
+            "build_id":    build.ID,
+            "status":      build.Status,
+            "started_at":  build.StartedAt,
+            "finished_at": build.FinishedAt,
+            "duration":    build.Duration,
+            "url":         build.URL,
+        }, nil
+        
+    default:
+        return nil, fmt.Errorf("unknown tool: %s", tool)
     }
-    
-    // Implement the HTTP request to the BuildMaster API
-    // Return the parsed response
-    
-    return buildResponse, nil
 }
-
-// Implement other API methods: GetBuildStatus, ListBuilds, CancelBuild
 ```
 
-### 3. Create Repository Implementation
+### 6. Add Event Handlers
 
-Implement the CIRepository interface for BuildMaster:
+Process tool events asynchronously:
 
 ```go
-// apps/mcp-server/internal/repository/buildmaster_repository.go
-package repository
+// apps/worker/internal/handlers/gitlab_handler.go
+package handlers
 
 import (
     "context"
-    "time"
+    "encoding/json"
     
-    "github.com/S-Corkum/devops-mcp/pkg/client/buildmaster"
-    "github.com/S-Corkum/devops-mcp/pkg/repository"
+    "github.com/S-Corkum/devops-mcp/pkg/events"
+    "github.com/S-Corkum/devops-mcp/pkg/models"
 )
 
-// BuildMasterRepository implements the CIRepository interface
-type BuildMasterRepository struct {
-    client *buildmaster.Client
+// GitLabEventHandler processes GitLab events
+type GitLabEventHandler struct {
+    adapter     interfaces.CIAdapter
+    contextMgr  interfaces.ContextManager
+    vectorStore interfaces.VectorStore
 }
 
-// NewBuildMasterRepository creates a new BuildMaster repository
-func NewBuildMasterRepository(baseURL, apiKey string) *BuildMasterRepository {
-    return &BuildMasterRepository{
-        client: buildmaster.NewClient(baseURL, apiKey),
+// HandleEvent processes GitLab events
+func (h *GitLabEventHandler) HandleEvent(ctx context.Context, event *events.Event) error {
+    switch event.Type {
+    case "gitlab.build.completed":
+        return h.handleBuildCompleted(ctx, event)
+        
+    case "gitlab.build.failed":
+        return h.handleBuildFailed(ctx, event)
+        
+    case "gitlab.pipeline.finished":
+        return h.handlePipelineFinished(ctx, event)
+        
+    default:
+        return nil // Ignore unknown events
     }
 }
 
-// TriggerBuild implements the CIRepository.TriggerBuild method
-func (r *BuildMasterRepository) TriggerBuild(ctx context.Context, projectID, branch, commit string) (*repository.CIBuild, error) {
-    // Call the BuildMaster API client
-    buildResponse, err := r.client.TriggerBuild(ctx, projectID, branch, commit)
+func (h *GitLabEventHandler) handleBuildCompleted(ctx context.Context, event *events.Event) error {
+    var build models.Build
+    if err := json.Unmarshal(event.Payload, &build); err != nil {
+        return fmt.Errorf("unmarshal build: %w", err)
+    }
+    
+    // Store build result in context
+    contextData := map[string]interface{}{
+        "type":       "gitlab_build",
+        "build_id":   build.ID,
+        "project":    build.ProjectID,
+        "status":     build.Status,
+        "duration":   build.Duration,
+        "timestamp":  build.FinishedAt,
+    }
+    
+    if err := h.contextMgr.StoreContext(ctx, fmt.Sprintf("build-%s", build.ID), contextData); err != nil {
+        return fmt.Errorf("store context: %w", err)
+    }
+    
+    // Index build logs for search
+    if build.Logs != "" {
+        embedding := map[string]interface{}{
+            "text":       build.Logs,
+            "type":       "build_log",
+            "build_id":   build.ID,
+            "project":    build.ProjectID,
+            "status":     build.Status,
+        }
+        
+        if err := h.vectorStore.CreateEmbedding(ctx, embedding); err != nil {
+            return fmt.Errorf("create embedding: %w", err)
+        }
+    }
+    
+    // Trigger notifications if needed
+    if build.Status == models.BuildStatusFailed {
+        h.notifyBuildFailure(ctx, &build)
+    }
+    
+    return nil
+}
+
+func (h *GitLabEventHandler) handleBuildFailed(ctx context.Context, event *events.Event) error {
+    var build models.Build
+    if err := json.Unmarshal(event.Payload, &build); err != nil {
+        return err
+    }
+    
+    // Analyze failure patterns
+    analysis, err := h.analyzeFailure(ctx, &build)
     if err != nil {
-        return nil, err
+        return fmt.Errorf("analyze failure: %w", err)
     }
     
-    // Convert the API response to a CIBuild struct
-    build := &repository.CIBuild{
-        ID:        buildResponse["id"].(string),
-        ProjectID: projectID,
-        Branch:    branch,
-        Commit:    commit,
-        Status:    repository.BuildStatusPending,
-        URL:       buildResponse["url"].(string),
-        CreatedAt: time.Now().Format(time.RFC3339),
-        Metadata:  buildResponse,
+    // Store analysis for AI agents
+    if err := h.contextMgr.StoreContext(ctx, fmt.Sprintf("failure-analysis-%s", build.ID), analysis); err != nil {
+        return err
     }
     
-    return build, nil
-}
-
-// Implement other repository methods: GetBuildStatus, ListBuilds, CancelBuild
-```
-
-### 4. Create the Adapter
-
-Following the adapter pattern established in the codebase:
-
-```go
-// apps/rest-api/internal/adapters/ci_adapter.go
-package adapters
-
-import (
-    "context"
-    
-    "github.com/S-Corkum/devops-mcp/pkg/repository"
-    "github.com/S-Corkum/devops-mcp/apps/rest-api/internal/models"
-)
-
-// CIAdapter adapts between API models and repository models
-type CIAdapter struct {
-    repo repository.CIRepository
-}
-
-// NewCIAdapter creates a new CIAdapter
-func NewCIAdapter(repo repository.CIRepository) *CIAdapter {
-    return &CIAdapter{
-        repo: repo,
-    }
-}
-
-// TriggerBuild adapts between API and repository models for triggering builds
-func (a *CIAdapter) TriggerBuild(ctx context.Context, request *models.BuildRequest) (*models.BuildResponse, error) {
-    // Call the repository
-    build, err := a.repo.TriggerBuild(ctx, request.ProjectID, request.Branch, request.Commit)
-    if err != nil {
-        return nil, err
+    // Check if auto-retry is enabled
+    if analysis["retriable"] == true && analysis["confidence"].(float64) > 0.8 {
+        return h.triggerRetry(ctx, &build)
     }
     
-    // Convert repository model to API model
-    response := &models.BuildResponse{
-        ID:        build.ID,
-        ProjectID: build.ProjectID,
-        Branch:    build.Branch,
-        Commit:    build.Commit,
-        Status:    string(build.Status),
-        URL:       build.URL,
-        CreatedAt: build.CreatedAt,
-    }
-    
-    return response, nil
-}
-
-// Implement other adapter methods: GetBuildStatus, ListBuilds, CancelBuild
-```
-
-### 5. Create API Handlers
-
-Create REST API handlers for the CI operations:
-
-```go
-// apps/rest-api/internal/api/ci_handlers.go
-package api
-
-import (
-    "net/http"
-    
-    "github.com/gin-gonic/gin"
-    
-    "github.com/S-Corkum/devops-mcp/apps/rest-api/internal/adapters"
-    "github.com/S-Corkum/devops-mcp/apps/rest-api/internal/models"
-)
-
-// CIAPI handles CI-related API endpoints
-type CIAPI struct {
-    adapter *adapters.CIAdapter
-}
-
-// NewCIAPI creates a new CIAPI
-func NewCIAPI(adapter *adapters.CIAdapter) *CIAPI {
-    return &CIAPI{
-        adapter: adapter,
-    }
-}
-
-// RegisterRoutes registers the CI API routes
-func (api *CIAPI) RegisterRoutes(router *gin.Engine) {
-    ciGroup := router.Group("/api/v1/ci")
-    
-    ciGroup.POST("/builds", api.triggerBuild)
-    ciGroup.GET("/builds/:id", api.getBuildStatus)
-    ciGroup.GET("/projects/:id/builds", api.listBuilds)
-    ciGroup.DELETE("/builds/:id", api.cancelBuild)
-}
-
-// triggerBuild handles the trigger build API endpoint
-func (api *CIAPI) triggerBuild(c *gin.Context) {
-    var request models.BuildRequest
-    if err := c.ShouldBindJSON(&request); err != nil {
-        c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
-        return
-    }
-    
-    response, err := api.adapter.TriggerBuild(c.Request.Context(), &request)
-    if err != nil {
-        c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-        return
-    }
-    
-    c.JSON(http.StatusOK, response)
-}
-
-// Implement other API handlers: getBuildStatus, listBuilds, cancelBuild
-```
-
-### 6. Register the Integration
-
-Register your CI integration in the server initialization:
-
-```go
-// apps/mcp-server/cmd/server/main.go
-func main() {
-    // Existing initialization code...
-    
-    // Initialize BuildMaster repository
-    buildMasterRepo := repository.NewBuildMasterRepository(
-        config.GetString("buildmaster.url"),
-        config.GetString("buildmaster.api_key"),
-    )
-    
-    // Register the repository with the server
-    server.RegisterCIRepository(buildMasterRepo)
-    
-    // Continue with server initialization...
+    return nil
 }
 ```
 
-### 7. Register API Routes
+### 7. Configure and Deploy
 
-Register the new API endpoints:
+Add configuration for your tool:
 
-```go
-// apps/rest-api/cmd/server/main.go
-func setupRouter(config *config.Config) *gin.Engine {
-    router := gin.Default()
-    
-    // Existing initialization code...
-    
-    // Initialize BuildMaster adapter
-    ciAdapter := adapters.NewCIAdapter(buildMasterRepo)
-    ciAPI := api.NewCIAPI(ciAdapter)
-    ciAPI.RegisterRoutes(router)
-    
-    // Continue with router setup...
-    return router
-}
+```yaml
+# configs/config.yaml
+adapters:
+  ci:
+    provider: gitlab  # or gitlab, circleci, etc.
+    gitlab:
+      url: ${GITLAB_URL}
+      username: ${GITLAB_USERNAME}
+      token: ${GITLAB_TOKEN}
+      
+      # Resilience settings
+      timeout: 30s
+      max_retries: 3
+      
+      circuit_breaker:
+        max_failures: 5
+        timeout: 60s
+        
+      rate_limit:
+        requests_per_second: 10
+        burst: 20
+        
+      # Webhook configuration
+      webhook:
+        secret: ${JENKINS_WEBHOOK_SECRET}
+        allowed_events:
+          - build.started
+          - build.completed
+          - build.failed
+          - pipeline.finished
+
+# Event processing
+events:
+  handlers:
+    gitlab:
+      enabled: true
+      workers: 5
+      retry_policy:
+        max_attempts: 3
+        backoff: exponential
 ```
 
-## Example Usage
+### 8. Docker Deployment
 
-Here's a Python example of using the custom CI integration:
+```dockerfile
+# Dockerfile.gitlab-adapter
+FROM golang:1.24-alpine AS builder
+
+WORKDIR /app
+COPY go.mod go.sum ./
+RUN go mod download
+
+COPY . .
+RUN go build -o gitlab-adapter ./cmd/adapters/gitlab
+
+FROM alpine:latest
+RUN apk --no-cache add ca-certificates
+
+COPY --from=builder /app/gitlab-adapter /gitlab-adapter
+COPY configs/config.yaml /config.yaml
+
+EXPOSE 8080
+CMD ["/gitlab-adapter", "--config", "/config.yaml"]
+```
+
+```yaml
+# docker-compose.yml
+services:
+  gitlab-adapter:
+    build:
+      context: .
+      dockerfile: Dockerfile.gitlab-adapter
+    environment:
+      GITLAB_URL: ${GITLAB_URL}
+      GITLAB_USERNAME: ${GITLAB_USERNAME}
+      GITLAB_TOKEN: ${GITLAB_TOKEN}
+      REDIS_URL: redis://redis:6379
+      DATABASE_URL: postgres://user:pass@postgres:5432/mcp
+    depends_on:
+      - redis
+      - postgres
+    ports:
+      - "8083:8080"
+```
+
+## Usage Examples
+
+### Python Client
 
 ```python
-import requests
-import json
+from devops_mcp import MCPClient
+import asyncio
 
-API_KEY = "your-api-key"
-MCP_BASE_URL = "http://localhost:8080/api/v1"
-
-headers = {
-    "Authorization": f"Bearer {API_KEY}",
-    "Content-Type": "application/json"
-}
-
-def trigger_build(project_id, branch, commit):
-    """Trigger a build using the BuildMaster integration"""
-    data = {
-        "project_id": project_id,
-        "branch": branch,
-        "commit": commit
-    }
+class GitLabIntegration:
+    def __init__(self, mcp_client: MCPClient):
+        self.mcp = mcp_client
     
-    response = requests.post(
-        f"{MCP_BASE_URL}/ci/builds",
-        headers=headers,
-        data=json.dumps(data)
+    async def trigger_and_monitor_build(self, project: str, branch: str):
+        """Trigger a build and monitor its progress"""
+        
+        # Trigger build via MCP tool
+        result = await self.mcp.execute_tool("gitlab.trigger_build", {
+            "project": project,
+            "branch": branch,
+            "parameters": {
+                "CLEAN_BUILD": "true",
+                "RUN_TESTS": "true"
+            }
+        })
+        
+        build_id = result["build_id"]
+        print(f"Build triggered: {build_id}")
+        print(f"URL: {result['url']}")
+        
+        # Monitor build status
+        while True:
+            status = await self.mcp.execute_tool("gitlab.get_build_status", {
+                "build_id": build_id
+            })
+            
+            print(f"Status: {status['status']}")
+            
+            if status["status"] in ["succeeded", "failed", "cancelled"]:
+                break
+            
+            await asyncio.sleep(30)
+        
+        # Get logs if failed
+        if status["status"] == "failed":
+            logs = await self.mcp.execute_tool("gitlab.get_build_logs", {
+                "build_id": build_id,
+                "lines": 500
+            })
+            
+            print("\nBuild failed. Last 500 lines of logs:")
+            print(logs["content"])
+            
+            # Search for similar failures
+            similar = await self.mcp.search_contexts({
+                "query": f"gitlab build failed {logs['error_pattern']}",
+                "type": "gitlab_build",
+                "limit": 5
+            })
+            
+            if similar:
+                print("\nSimilar failures found:")
+                for s in similar:
+                    print(f"- {s['build_id']}: {s['resolution']}")
+        
+        return status
+
+# Usage
+async def main():
+    mcp = MCPClient(base_url="http://localhost:8080/api/v1")
+    gitlab = GitLabIntegration(mcp)
+    
+    # Trigger build for feature branch
+    result = await gitlab.trigger_and_monitor_build(
+        project="my-app",
+        branch="feature/new-feature"
     )
     
-    if response.status_code == 200:
-        return response.json()
-    else:
-        print(f"Error triggering build: {response.text}")
-        return None
+    print(f"\nBuild completed with status: {result['status']}")
+    print(f"Duration: {result['duration']}")
 
-def get_build_status(build_id):
-    """Get the status of a build"""
-    response = requests.get(
-        f"{MCP_BASE_URL}/ci/builds/{build_id}",
-        headers=headers
-    )
-    
-    if response.status_code == 200:
-        return response.json()
-    else:
-        print(f"Error getting build status: {response.text}")
-        return None
-
-# Usage example
-build = trigger_build("my-project", "main", "abc123")
-if build:
-    print(f"Build triggered: {build['id']}")
-    print(f"Build URL: {build['url']}")
-    
-    # Check status after some time
-    status = get_build_status(build['id'])
-    print(f"Build status: {status['status']}")
+asyncio.run(main())
 ```
 
-## Integration with the Adapter Pattern
+### AI Agent Integration
 
-The adapter pattern used throughout DevOps MCP is particularly valuable for tool integrations:
-
-1. **Loose Coupling**: The API layer doesn't depend directly on tool-specific implementations
-2. **Consistent Interface**: All tools follow a similar pattern and interface
-3. **Easy Extension**: New tools can be added without changing existing code
-4. **Type Safety**: Explicit conversions between API and repository types
-
-As shown in the adapter implementation:
-
-```go
-// Converting API request to repository model
-build, err := a.repo.TriggerBuild(ctx, request.ProjectID, request.Branch, request.Commit)
-
-// Converting repository model to API response
-response := &models.BuildResponse{
-    ID:        build.ID,
-    ProjectID: build.ProjectID,
-    // Additional fields...
-}
+```python
+class DevOpsAssistant:
+    """AI assistant with GitLab integration"""
+    
+    async def handle_build_request(self, user_message: str):
+        """Process natural language build requests"""
+        
+        # Parse intent
+        if "deploy" in user_message.lower():
+            # Extract project and environment
+            project = self.extract_project(user_message)
+            env = self.extract_environment(user_message)
+            
+            # Trigger deployment pipeline
+            result = await self.mcp.execute_tool("gitlab.trigger_build", {
+                "project": f"{project}-deploy",
+                "branch": env,
+                "parameters": {
+                    "ENVIRONMENT": env,
+                    "VERSION": "latest"
+                }
+            })
+            
+            return f"Deployment started for {project} to {env}. Monitor at: {result['url']}"
+        
+        elif "failed builds" in user_message.lower():
+            # List recent failures
+            failures = await self.mcp.execute_tool("gitlab.list_failed_builds", {
+                "project": self.extract_project(user_message),
+                "limit": 5
+            })
+            
+            response = "Recent failed builds:\n"
+            for build in failures["builds"]:
+                response += f"\n- {build['id']}: {build['failure_reason']}"
+                response += f"\n  Failed at: {build['failed_stage']}"
+            
+            return response
 ```
 
 ## Testing Your Integration
 
-Create comprehensive tests for your implementation:
+### Unit Tests
 
 ```go
-// apps/mcp-server/internal/repository/buildmaster_repository_test.go
-package repository_test
+// pkg/adapters/gitlab/adapter_test.go
+package gitlab_test
 
 import (
     "context"
     "testing"
+    "time"
     
-    "github.com/stretchr/testify/mock"
     "github.com/stretchr/testify/assert"
+    "github.com/stretchr/testify/mock"
     
-    "github.com/S-Corkum/devops-mcp/pkg/repository"
+    "github.com/S-Corkum/devops-mcp/pkg/adapters/gitlab"
+    "github.com/S-Corkum/devops-mcp/pkg/models"
 )
 
-// MockBuildMasterClient is a mock of the BuildMaster client
-type MockBuildMasterClient struct {
+type mockGitLabClient struct {
     mock.Mock
 }
 
-// Implement the mock methods...
+func (m *mockGitLabClient) TriggerJob(ctx context.Context, name string, params map[string]string) (*gitlabJob, error) {
+    args := m.Called(ctx, name, params)
+    if args.Get(0) == nil {
+        return nil, args.Error(1)
+    }
+    return args.Get(0).(*gitlabJob), args.Error(1)
+}
 
-func TestBuildMasterRepository_TriggerBuild(t *testing.T) {
-    mockClient := new(MockBuildMasterClient)
-    repo := NewBuildMasterRepository("", "")
-    repo.client = mockClient
+func TestGitLabAdapter_TriggerBuild(t *testing.T) {
+    // Setup
+    mockClient := new(mockGitLabClient)
+    adapter := &gitlab.GitLabAdapter{
+        client: mockClient,
+        logger: testLogger,
+        metrics: testMetrics,
+    }
     
-    // Set expectations
-    mockClient.On("TriggerBuild", mock.Anything, "project-1", "main", "abc123").
-        Return(map[string]interface{}{
-            "id":  "build-123",
-            "url": "https://buildmaster.example.com/builds/123",
-        }, nil)
+    // Test data
+    req := &models.BuildRequest{
+        ProjectID: "my-app",
+        Branch:    "main",
+        Commit:    "abc123",
+    }
     
-    // Call the repository method
-    build, err := repo.TriggerBuild(context.Background(), "project-1", "main", "abc123")
+    expectedJob := &gitlabJob{
+        Name:      "my-app",
+        Number:    42,
+        Result:    "SUCCESS",
+        Timestamp: time.Now().Unix() * 1000,
+        URL:       "https://gitlab.example.com/job/my-app/42",
+    }
+    
+    // Expectations
+    mockClient.On("TriggerJob", mock.Anything, "my-app", map[string]string{
+        "BRANCH": "main",
+        "COMMIT": "abc123",
+    }).Return(expectedJob, nil)
+    
+    // Execute
+    build, err := adapter.TriggerBuild(context.Background(), req)
     
     // Assertions
     assert.NoError(t, err)
     assert.NotNil(t, build)
-    assert.Equal(t, "build-123", build.ID)
-    assert.Equal(t, "project-1", build.ProjectID)
-    assert.Equal(t, repository.BuildStatusPending, build.Status)
+    assert.Equal(t, "my-app-42", build.ID)
+    assert.Equal(t, models.BuildStatusSucceeded, build.Status)
+    assert.Equal(t, expectedJob.URL, build.URL)
     
-    // Verify expectations
     mockClient.AssertExpectations(t)
 }
 ```
 
-## Docker Configuration
+### Integration Tests
 
-When integrating a new tool, you might need to update your Docker configuration to include any new dependencies or settings. Use the `docker-compose.local.yml` file:
+```go
+// tests/integration/gitlab_test.go
+// +build integration
 
-```yaml
-# Update docker-compose.local.yml to include tool-specific configuration
-services:
-  mcp-server:
-    environment:
-      - BUILDMASTER_URL=https://buildmaster.example.com
-      - BUILDMASTER_API_KEY=${BUILDMASTER_API_KEY}
+package integration_test
+
+import (
+    "context"
+    "testing"
+    "time"
+    
+    "github.com/stretchr/testify/suite"
+    
+    "github.com/S-Corkum/devops-mcp/pkg/adapters/gitlab"
+    "github.com/S-Corkum/devops-mcp/pkg/models"
+)
+
+type GitLabIntegrationSuite struct {
+    suite.Suite
+    adapter *gitlab.GitLabAdapter
+    ctx     context.Context
+}
+
+func (s *GitLabIntegrationSuite) SetupSuite() {
+    // Initialize with test GitLab instance
+    config := &gitlab.Config{
+        URL:      getEnvOrSkip(s.T(), "TEST_GITLAB_URL"),
+        Username: getEnvOrSkip(s.T(), "TEST_GITLAB_USER"),
+        Token:    getEnvOrSkip(s.T(), "TEST_GITLAB_TOKEN"),
+    }
+    
+    adapter, err := gitlab.NewGitLabAdapter(config, testLogger, testMetrics)
+    s.Require().NoError(err)
+    
+    s.adapter = adapter
+    s.ctx = context.Background()
+}
+
+func (s *GitLabIntegrationSuite) TestFullBuildLifecycle() {
+    // Trigger build
+    req := &models.BuildRequest{
+        ProjectID: "test-project",
+        Branch:    "main",
+        Commit:    "HEAD",
+    }
+    
+    build, err := s.adapter.TriggerBuild(s.ctx, req)
+    s.Require().NoError(err)
+    s.Require().NotNil(build)
+    
+    // Wait for build to complete
+    timeout := time.After(5 * time.Minute)
+    ticker := time.NewTicker(10 * time.Second)
+    defer ticker.Stop()
+    
+    for {
+        select {
+        case <-timeout:
+            s.Fail("Build timed out")
+        case <-ticker.C:
+            status, err := s.adapter.GetBuild(s.ctx, build.ID)
+            s.Require().NoError(err)
+            
+            if status.Status != models.BuildStatusRunning {
+                s.Equal(models.BuildStatusSucceeded, status.Status)
+                s.NotNil(status.FinishedAt)
+                s.NotZero(status.Duration)
+                return
+            }
+        }
+    }
+}
+
+func TestGitLabIntegrationSuite(t *testing.T) {
+    suite.Run(t, new(GitLabIntegrationSuite))
+}
 ```
 
-## Best Practices for Tool Integration
+## Best Practices
 
-1. **Follow the Adapter Pattern**: Maintain consistency with the existing architecture
-2. **Use Standard Error Handling**: Implement proper error types and handling
-3. **Implement Comprehensive Tests**: Test both success and failure cases
-4. **Document API Endpoints**: Provide clear documentation for users
-5. **Add Configuration Options**: Make integration configurable
-6. **Handle Authentication Securely**: Follow secure practices for API keys
-7. **Implement Rate Limiting**: Add mechanisms to respect API rate limits
-8. **Ensure Type Safety**: Use explicit type conversions in adapters
-9. **Write Integration Tests**: Test the full integration path
+### 1. Error Handling
+```go
+// Define custom errors
+type GitLabError struct {
+    Code    string
+    Message string
+    Details map[string]interface{}
+}
+
+func (e *GitLabError) Error() string {
+    return fmt.Sprintf("gitlab error %s: %s", e.Code, e.Message)
+}
+
+// Use error wrapping
+if err != nil {
+    return nil, fmt.Errorf("trigger build: %w", &GitLabError{
+        Code:    "BUILD_TRIGGER_FAILED",
+        Message: "Failed to trigger GitLab build",
+        Details: map[string]interface{}{
+            "project": req.ProjectID,
+            "error":   err.Error(),
+        },
+    })
+}
+```
+
+### 2. Observability
+```go
+// Add comprehensive logging
+a.logger.Info("triggering build",
+    "project", req.ProjectID,
+    "branch", req.Branch,
+    "commit", req.Commit,
+    "trace_id", ctx.Value("trace_id"),
+)
+
+// Record metrics
+a.metrics.Histogram("gitlab_api_latency", latency, map[string]string{
+    "operation": "trigger_build",
+    "status":    "success",
+})
+
+// Add tracing
+ctx, span := a.tracer.Start(ctx, "gitlab.trigger_build",
+    trace.WithAttributes(
+        attribute.String("project", req.ProjectID),
+        attribute.String("branch", req.Branch),
+    ),
+)
+defer span.End()
+```
+
+### 3. Security
+```go
+// Validate inputs
+if err := validateProjectID(req.ProjectID); err != nil {
+    return nil, fmt.Errorf("invalid project ID: %w", err)
+}
+
+// Sanitize parameters
+params := make(map[string]string)
+for k, v := range req.Parameters {
+    params[sanitizeKey(k)] = sanitizeValue(v)
+}
+
+// Use secrets management
+token, err := a.secretManager.GetSecret(ctx, "gitlab-token")
+if err != nil {
+    return nil, fmt.Errorf("get token: %w", err)
+}
+```
+
+### 4. Performance
+```go
+// Use connection pooling
+var clientPool = &sync.Pool{
+    New: func() interface{} {
+        return &http.Client{
+            Timeout: 30 * time.Second,
+            Transport: &http.Transport{
+                MaxIdleConns:        100,
+                MaxIdleConnsPerHost: 10,
+            },
+        }
+    },
+}
+
+// Cache frequently accessed data
+type gitlabCache struct {
+    projects sync.Map
+    builds   *lru.Cache
+}
+
+// Batch operations when possible
+func (a *GitLabAdapter) BatchTriggerBuilds(ctx context.Context, requests []*models.BuildRequest) ([]*models.Build, error) {
+    // Process in parallel with concurrency limit
+    sem := make(chan struct{}, 10)
+    results := make([]*models.Build, len(requests))
+    
+    g, ctx := errgroup.WithContext(ctx)
+    for i, req := range requests {
+        i, req := i, req // Capture loop variables
+        
+        g.Go(func() error {
+            sem <- struct{}{}
+            defer func() { <-sem }()
+            
+            build, err := a.TriggerBuild(ctx, req)
+            if err != nil {
+                return err
+            }
+            results[i] = build
+            return nil
+        })
+    }
+    
+    if err := g.Wait(); err != nil {
+        return nil, err
+    }
+    
+    return results, nil
+}
+```
+
+## Production Checklist
+
+- [ ] Comprehensive unit test coverage (>80%)
+- [ ] Integration tests with real tool instance
+- [ ] Load testing for performance validation
+- [ ] Security review (authentication, authorization, input validation)
+- [ ] Observability (logging, metrics, tracing)
+- [ ] Error handling and recovery
+- [ ] Documentation (API reference, examples, troubleshooting)
+- [ ] Configuration validation and defaults
+- [ ] Graceful shutdown handling
+- [ ] Health check endpoints
+- [ ] Rate limiting and backpressure
+- [ ] Circuit breaker for external calls
+- [ ] Webhook signature verification
+- [ ] Idempotency for critical operations
+- [ ] Monitoring dashboards and alerts
+
+## Next Steps
+
+1. **Explore Examples**: Review the GitHub adapter implementation
+2. **API Documentation**: Document your tool's MCP interface
+3. **Share**: Contribute your adapter to the community
+4. **Support**: Join our Discord for help and discussions
+
+---
+
+*For more examples and support, visit [github.com/S-Corkum/devops-mcp](https://github.com/S-Corkum/devops-mcp)*

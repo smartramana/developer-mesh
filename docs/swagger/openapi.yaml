@@ -1,0 +1,161 @@
+openapi: 3.0.3
+info:
+  title: DevOps MCP Platform API
+  description: |
+    The DevOps MCP (Model Context Protocol) Platform provides a unified API for AI agents to interact with various DevOps tools.
+    
+    ## Overview
+    This API enables:
+    - **Context Management**: Store and retrieve conversation contexts for AI agents
+    - **Tool Integration**: Execute actions across multiple DevOps platforms
+    - **Vector Search**: Semantic search capabilities for documentation and code
+    - **Agent Management**: Configure and manage AI agents
+    
+    ## Authentication
+    All API requests require authentication using either:
+    - API Key: Pass in `Authorization` header
+    - JWT Bearer Token: Pass as `Bearer <token>` in `Authorization` header
+    
+    ## Rate Limiting
+    - Default: 1000 requests/hour per API key
+    - Tool execution: 100 requests/hour
+    - Burst: 50 requests/minute
+    
+  version: 1.0.0
+  contact:
+    name: DevOps MCP Support
+    email: support@devops-mcp.com
+    url: https://github.com/S-Corkum/devops-mcp
+  license:
+    name: MIT
+    url: https://opensource.org/licenses/MIT
+
+servers:
+  - url: https://api.mcp-server.example.com/api/v1
+    description: Production MCP Server
+  - url: https://api.rest.example.com/api/v1
+    description: Production REST API Server
+  - url: http://localhost:8080/api/v1
+    description: Local MCP Server
+  - url: http://localhost:8081/api/v1
+    description: Local REST API Server
+
+security:
+  - ApiKeyAuth: []
+  - BearerAuth: []
+
+components:
+  securitySchemes:
+    ApiKeyAuth:
+      type: apiKey
+      in: header
+      name: Authorization
+      description: API key authentication (with or without 'Bearer' prefix)
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: JWT bearer token authentication
+
+tags:
+  - name: Health
+    description: Health check and monitoring endpoints
+  - name: Contexts
+    description: MCP context management operations
+  - name: Tools
+    description: DevOps tool integration endpoints
+  - name: Agents
+    description: AI agent management
+  - name: Models
+    description: AI model configuration
+  - name: Vectors
+    description: Vector storage and search operations
+  - name: Search
+    description: Semantic search endpoints
+  - name: Webhooks
+    description: Webhook endpoints for external integrations
+  - name: GitHub
+    description: GitHub-specific tool operations
+
+paths:
+  # Health endpoints
+  /health:
+    $ref: './core/health.yaml#/paths/~1health'
+  
+  /:
+    $ref: './core/health.yaml#/paths/~1api-info'
+  
+  # Context Management
+  /mcp/context:
+    $ref: './core/contexts.yaml#/paths/~1mcp~1context'
+  
+  /mcp/context/{id}:
+    $ref: './core/contexts.yaml#/paths/~1mcp~1context~1{id}'
+  
+  /mcp/contexts:
+    $ref: './core/contexts.yaml#/paths/~1mcp~1contexts'
+  
+  /mcp/context/{id}/search:
+    $ref: './core/contexts.yaml#/paths/~1mcp~1context~1{id}~1search'
+  
+  /mcp/context/{id}/summary:
+    $ref: './core/contexts.yaml#/paths/~1mcp~1context~1{id}~1summary'
+  
+  # Tool Management
+  /tools:
+    $ref: './core/tools.yaml#/paths/~1tools'
+  
+  /tools/{tool}:
+    $ref: './core/tools.yaml#/paths/~1tools~1{tool}'
+  
+  /tools/{tool}/actions:
+    $ref: './core/tools.yaml#/paths/~1tools~1{tool}~1actions'
+  
+  /tools/{tool}/actions/{action}:
+    $ref: './core/tools.yaml#/paths/~1tools~1{tool}~1actions~1{action}'
+  
+  /tools/{tool}/queries:
+    $ref: './core/tools.yaml#/paths/~1tools~1{tool}~1queries'
+  
+  # GitHub Tool Operations
+  /tools/github:
+    $ref: './tools/github/api.yaml#/paths/~1tools~1github'
+  
+  /tools/github/{tool_name}:
+    $ref: './tools/github/api.yaml#/paths/~1tools~1github~1{tool_name}'
+  
+  
+  # Agent Management
+  /agents:
+    $ref: './core/agents.yaml#/paths/~1agents'
+  
+  /agents/{id}:
+    $ref: './core/agents.yaml#/paths/~1agents~1{id}'
+  
+  # Model Management
+  /models:
+    $ref: './core/models.yaml#/paths/~1models'
+  
+  /models/{id}:
+    $ref: './core/models.yaml#/paths/~1models~1{id}'
+  
+  # Vector Operations
+  /vectors/store:
+    $ref: './core/vectors.yaml#/paths/~1vectors~1store'
+  
+  /vectors/search:
+    $ref: './core/vectors.yaml#/paths/~1vectors~1search'
+  
+  /vectors/{id}:
+    $ref: './core/vectors.yaml#/paths/~1vectors~1{id}'
+  
+  # Search Operations
+  /search:
+    $ref: './core/search.yaml#/paths/~1search'
+  
+  /search/vector:
+    $ref: './core/search.yaml#/paths/~1search~1vector'
+  
+  /search/similar:
+    $ref: './core/search.yaml#/paths/~1search~1similar'
+  

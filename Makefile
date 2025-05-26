@@ -22,6 +22,9 @@ WORKER_BINARY=worker
 # Docker configuration
 DOCKER_COMPOSE=docker-compose -f docker-compose.local.yml
 
+# Swagger configuration
+SWAG_VERSION=v1.16.2
+
 all: clean sync test build
 
 # Sync Go workspace
@@ -168,6 +171,32 @@ check-imports:
 lint:
 	@echo "Running linters..."
 	golangci-lint run ./apps/mcp-server/... ./apps/rest-api/... ./apps/worker/... ./pkg/...
+
+# Swagger documentation commands
+swagger-install:
+	@echo "Installing swag CLI tool..."
+	go install github.com/swaggo/swag/cmd/swag@$(SWAG_VERSION)
+
+swagger-init: swagger-install
+	@echo "Initializing Swagger documentation..."
+	cd $(MCP_SERVER_DIR) && swag init -g ./cmd/server/main.go -o ./docs --parseDependency --parseInternal
+	cd $(REST_API_DIR) && swag init -g ./cmd/api/main.go -o ./docs --parseDependency --parseInternal
+
+swagger-fmt:
+	@echo "Formatting Swagger comments..."
+	cd $(MCP_SERVER_DIR) && swag fmt
+	cd $(REST_API_DIR) && swag fmt
+
+swagger: swagger-fmt swagger-init
+	@echo "Swagger documentation generated successfully"
+	@echo "MCP Server Swagger UI: http://localhost:8080/swagger/index.html"
+	@echo "REST API Swagger UI: http://localhost:8081/swagger/index.html"
+
+swagger-serve:
+	@echo "Serving OpenAPI documentation..."
+	python3 -m http.server 8082 --directory ./docs/swagger &
+	@echo "OpenAPI specs available at: http://localhost:8082/"
+	@echo "Main spec: http://localhost:8082/openapi.yaml"
 
 # Check adapter pattern implementation
 check-adapter-pattern:
