@@ -17,7 +17,7 @@ type AdapterConfig struct {
 // AdapterManager manages the lifecycle of adapters
 type AdapterManager struct {
 	adapters      map[string]Adapter
-	factory       Factory
+	factory       *Factory
 	logger        observability.Logger
 	MetricsClient observability.MetricsClient
 	mu            sync.RWMutex
@@ -37,7 +37,7 @@ func NewAdapterManager(
 
 	manager := &AdapterManager{
 		adapters:      make(map[string]Adapter),
-		factory:       NewFactory(),
+		factory:       NewFactory(logger),
 		logger:        logger,
 		MetricsClient: metricsClient,
 	}

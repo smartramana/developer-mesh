@@ -62,7 +62,7 @@ func (cb *CircuitBreaker) Execute(ctx context.Context, operation string, fn func
 
 	// Check if we can proceed
 	if err := cb.canExecute(); err != nil {
-		cb.metrics.IncrementCounter(ctx, "circuit_breaker_rejected", 1, "operation", operation)
+		cb.metrics.IncrementCounterWithLabels("circuit_breaker_rejected", 1, map[string]string{"operation": operation})
 		return err
 	}
 
@@ -79,11 +79,9 @@ func (cb *CircuitBreaker) Execute(ctx context.Context, operation string, fn func
 	cb.recordResult(err)
 
 	// Record metrics
-	cb.metrics.RecordLatency(ctx, "circuit_breaker_operation", duration.Milliseconds(), 
-		"operation", operation,
-		"state", cb.getStateName(),
-		"success", err == nil,
-	)
+	cb.metrics.RecordOperation("circuit_breaker", operation, err == nil, duration.Seconds(), map[string]string{
+		"state": cb.getStateName(),
+	})
 
 	return err
 }
@@ -97,10 +95,10 @@ func (cb *CircuitBreaker) ExecuteWithFallback(
 ) error {
 	err := cb.Execute(ctx, operation, fn)
 	if err == ErrCircuitOpen || err == ErrTooManyRequests {
-		cb.logger.Warn("Circuit breaker triggered, using fallback",
-			"operation", operation,
-			"error", err,
-		)
+		cb.logger.Warn("Circuit breaker triggered, using fallback", map[string]interface{}{
+			"operation": operation,
+			"error": err,
+		})
 		return fallback()
 	}
 	return err
@@ -121,7 +119,7 @@ func (cb *CircuitBreaker) Reset() {
 	cb.state = StateClosed
 	cb.failures = 0
 	cb.successes = 0
-	cb.logger.Info("Circuit breaker manually reset")
+	cb.logger.Info("Circuit breaker manually reset", map[string]interface{}{})
 }
 
 // Internal methods
@@ -142,7 +140,7 @@ func (cb *CircuitBreaker) canExecute() error {
 	case StateOpen:
 		// Check if timeout has passed
 		if time.Since(cb.lastFailTime) > cb.config.Timeout {
-			cb.logger.Info("Circuit breaker timeout expired, moving to half-open")
+			cb.logger.Info("Circuit breaker timeout expired, moving to half-open", map[string]interface{}{})
 			cb.state = StateHalfOpen
 			cb.successes = 0
 			return nil
@@ -166,10 +164,10 @@ func (cb *CircuitBreaker) recordResult(err error) {
 		if err != nil {
 			cb.failures++
 			if cb.failures >= cb.config.FailureThreshold {
-				cb.logger.Error("Circuit breaker opening due to failures",
-					"failures", cb.failures,
-					"threshold", cb.config.FailureThreshold,
-				)
+				cb.logger.Error("Circuit breaker opening due to failures", map[string]interface{}{
+					"failures": cb.failures,
+					"threshold": cb.config.FailureThreshold,
+				})
 				cb.state = StateOpen
 				cb.lastFailTime = time.Now()
 			}
@@ -179,15 +177,15 @@ func (cb *CircuitBreaker) recordResult(err error) {
 
 	case StateHalfOpen:
 		if err != nil {
-			cb.logger.Warn("Circuit breaker reopening from half-open state")
+			cb.logger.Warn("Circuit breaker reopening from half-open state", map[string]interface{}{})
 			cb.state = StateOpen
 			cb.lastFailTime = time.Now()
 		} else {
 			cb.successes++
 			if cb.successes >= cb.config.SuccessThreshold {
-				cb.logger.Info("Circuit breaker closing from half-open state",
-					"successes", cb.successes,
-				)
+				cb.logger.Info("Circuit breaker closing from half-open state", map[string]interface{}{
+					"successes": cb.successes,
+				})
 				cb.state = StateClosed
 				cb.failures = 0
 			}

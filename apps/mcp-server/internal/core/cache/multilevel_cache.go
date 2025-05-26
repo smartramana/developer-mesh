@@ -80,25 +80,25 @@ func NewMultiLevelCache(
 func (mlc *MultiLevelCache) Get(ctx context.Context, key string) (*models.Context, error) {
 	startTime := time.Now()
 	defer func() {
-		mlc.metrics.RecordLatency(ctx, "cache_get", time.Since(startTime).Milliseconds())
+		mlc.metrics.RecordLatency("cache_get", time.Since(startTime))
 	}()
 
 	// Try L1 cache first
 	if item := mlc.getFromL1(key); item != nil {
-		mlc.metrics.IncrementCounter(ctx, "cache_l1_hit", 1)
+		mlc.metrics.IncrementCounter("cache_l1_hit", 1)
 		return item.Data.(*models.Context), nil
 	}
 
 	// Try L2 cache
 	item, err := mlc.getFromL2(ctx, key)
 	if err == nil && item != nil {
-		mlc.metrics.IncrementCounter(ctx, "cache_l2_hit", 1)
+		mlc.metrics.IncrementCounter("cache_l2_hit", 1)
 		// Promote to L1
 		mlc.setInL1(key, item)
 		return item.Data.(*models.Context), nil
 	}
 
-	mlc.metrics.IncrementCounter(ctx, "cache_miss", 1)
+	mlc.metrics.IncrementCounter("cache_miss", 1)
 	return nil, nil
 }
 
@@ -106,7 +106,7 @@ func (mlc *MultiLevelCache) Get(ctx context.Context, key string) (*models.Contex
 func (mlc *MultiLevelCache) Set(ctx context.Context, key string, value *models.Context) error {
 	startTime := time.Now()
 	defer func() {
-		mlc.metrics.RecordLatency(ctx, "cache_set", time.Since(startTime).Milliseconds())
+		mlc.metrics.RecordLatency("cache_set", time.Since(startTime))
 	}()
 
 	item := &CacheItem{
@@ -122,7 +122,7 @@ func (mlc *MultiLevelCache) Set(ctx context.Context, key string, value *models.C
 	// Set in L2 (asynchronous for performance)
 	go func() {
 		if err := mlc.setInL2(context.Background(), key, item); err != nil {
-			mlc.logger.Error("Failed to set in L2 cache", "key", key, "error", err)
+			mlc.logger.Error("Failed to set in L2 cache", map[string]interface{}{"key": key, "error": err})
 		}
 	}()
 
@@ -138,7 +138,7 @@ func (mlc *MultiLevelCache) Delete(ctx context.Context, key string) error {
 
 	// Delete from L2
 	if err := mlc.l2Client.Del(ctx, mlc.l2Key(key)).Err(); err != nil {
-		mlc.logger.Error("Failed to delete from L2 cache", "key", key, "error", err)
+		mlc.logger.Error("Failed to delete from L2 cache", map[string]interface{}{"key": key, "error": err})
 		return err
 	}
 
@@ -156,7 +156,7 @@ func (mlc *MultiLevelCache) InvalidatePattern(ctx context.Context, pattern strin
 	iter := mlc.l2Client.Scan(ctx, 0, mlc.l2Key(pattern), 0).Iterator()
 	for iter.Next(ctx) {
 		if err := mlc.l2Client.Del(ctx, iter.Val()).Err(); err != nil {
-			mlc.logger.Error("Failed to delete key from L2", "key", iter.Val(), "error", err)
+			mlc.logger.Error("Failed to delete key from L2", map[string]interface{}{"key": iter.Val(), "error": err})
 		}
 	}
 
@@ -174,12 +174,12 @@ func (mlc *MultiLevelCache) WarmCache(ctx context.Context, contextIDs []string, 
 		// Load and cache
 		context, err := loader(id)
 		if err != nil {
-			mlc.logger.Warn("Failed to warm cache for context", "id", id, "error", err)
+			mlc.logger.Warn("Failed to warm cache for context", map[string]interface{}{"id": id, "error": err})
 			continue
 		}
 
 		if err := mlc.Set(ctx, id, context); err != nil {
-			mlc.logger.Warn("Failed to cache warmed context", "id", id, "error", err)
+			mlc.logger.Warn("Failed to cache warmed context", map[string]interface{}{"id": id, "error": err})
 		}
 	}
 
@@ -258,7 +258,7 @@ func (mlc *MultiLevelCache) startCacheWarming() {
 			select {
 			case <-mlc.warmupTicker.C:
 				// This would be implemented to warm cache with recent/popular contexts
-				mlc.logger.Debug("Cache warming triggered")
+				mlc.logger.Debug("Cache warming triggered", map[string]interface{}{})
 			case <-mlc.warmupStop:
 				return
 			}

@@ -77,15 +77,9 @@ func (api *API) CreateContext(c *gin.Context) {
 		})
 	}
 	
-	// Add HATEOAS links
-	if result.Links == nil {
-		result.Links = make(map[string]string)
-	}
-	result.Links["self"] = "/api/v1/contexts/" + result.ID
-	result.Links["summary"] = "/api/v1/contexts/" + result.ID + "/summary"
-	result.Links["search"] = "/api/v1/contexts/" + result.ID + "/search"
-	
-	c.JSON(http.StatusCreated, result)
+	// Create response with HATEOAS links
+	response := NewContextResponse(result, "")
+	c.JSON(http.StatusCreated, response)
 }
 
 // GetContext retrieves a context by ID
@@ -126,15 +120,9 @@ func (api *API) GetContext(c *gin.Context) {
 		})
 	}
 	
-	// Add HATEOAS links
-	if result.Links == nil {
-		result.Links = make(map[string]string)
-	}
-	result.Links["self"] = "/api/v1/contexts/" + result.ID
-	result.Links["summary"] = "/api/v1/contexts/" + result.ID + "/summary"
-	result.Links["search"] = "/api/v1/contexts/" + result.ID + "/search"
-	
-	c.JSON(http.StatusOK, result)
+	// Create response with HATEOAS links
+	response := NewContextResponse(result, "")
+	c.JSON(http.StatusOK, response)
 }
 
 // UpdateContext updates an existing context
@@ -182,15 +170,9 @@ func (api *API) UpdateContext(c *gin.Context) {
 		})
 	}
 	
-	// Add HATEOAS links
-	if result.Links == nil {
-		result.Links = make(map[string]string)
-	}
-	result.Links["self"] = "/api/v1/contexts/" + result.ID
-	result.Links["summary"] = "/api/v1/contexts/" + result.ID + "/summary"
-	result.Links["search"] = "/api/v1/contexts/" + result.ID + "/search"
-	
-	c.JSON(http.StatusOK, result)
+	// Create response with HATEOAS links
+	response := NewContextResponse(result, "")
+	c.JSON(http.StatusOK, response)
 }
 
 // DeleteContext deletes a context
@@ -262,17 +244,9 @@ func (api *API) ListContexts(c *gin.Context) {
 		})
 	}
 	
-	// Add HATEOAS links to each context
-	for _, ctx := range result {
-		if ctx.Links == nil {
-			ctx.Links = make(map[string]string)
-		}
-		ctx.Links["self"] = "/api/v1/contexts/" + ctx.ID
-		ctx.Links["summary"] = "/api/v1/contexts/" + ctx.ID + "/summary"
-		ctx.Links["search"] = "/api/v1/contexts/" + ctx.ID + "/search"
-	}
-	
-	c.JSON(http.StatusOK, result)
+	// Create response with HATEOAS links
+	response := NewContextListResponse(result, "", 1, limit, len(result))
+	c.JSON(http.StatusOK, response)
 }
 
 // SummarizeContext generates a summary of a context

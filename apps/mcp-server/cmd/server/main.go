@@ -16,6 +16,7 @@ import (
 
 	// Internal application-specific imports
 	"mcp-server/internal/api"
+	"mcp-server/internal/config"
 	"mcp-server/internal/core"
 
 	// Shared package imports
@@ -459,10 +460,80 @@ func buildAPIConfig(cfg *commonconfig.Config) api.Config {
 
 	// Configure webhook if available
 	if cfg.API.Webhook != nil {
-		apiConfig.Webhook = cfg.API.Webhook
+		webhookConfig := parseWebhookConfig(cfg.API.Webhook)
+		if webhookConfig != nil && webhookConfig.IsEnabled() {
+			apiConfig.Webhook = webhookConfig
+			// Log webhook configuration (without secrets)
+			log.Printf("Webhook configuration loaded: enabled=%v, github_enabled=%v, github_endpoint=%s",
+				webhookConfig.IsEnabled(),
+				webhookConfig.IsGitHubEnabled(),
+				webhookConfig.GitHubEndpoint())
+		}
 	}
 
 	return apiConfig
+}
+
+// parseWebhookConfig converts a map[string]interface{} to a WebhookConfig struct
+// This function safely parses the unstructured webhook configuration from YAML/JSON
+// into a strongly-typed WebhookConfig struct, with sensible defaults
+func parseWebhookConfig(webhookMap map[string]interface{}) *config.WebhookConfig {
+	if webhookMap == nil {
+		return nil
+	}
+
+	// Initialize with secure defaults
+	webhookConfig := &config.WebhookConfig{
+		Enabled: false,
+		GitHub: config.GitHubWebhookConfig{
+			Enabled:       false,
+			Endpoint:      "/api/webhooks/github",
+			Secret:        "",
+			IPValidation:  true, // Security best practice: validate source IPs by default
+			AllowedEvents: []string{},
+		},
+	}
+
+	// Parse enabled flag
+	if enabled, ok := webhookMap["enabled"].(bool); ok {
+		webhookConfig.Enabled = enabled
+	}
+
+	// Parse GitHub configuration
+	if githubMap, ok := webhookMap["github"].(map[string]interface{}); ok {
+		if enabled, ok := githubMap["enabled"].(bool); ok {
+			webhookConfig.GitHub.Enabled = enabled
+		}
+		if endpoint, ok := githubMap["endpoint"].(string); ok && endpoint != "" {
+			webhookConfig.GitHub.Endpoint = endpoint
+		}
+		if secret, ok := githubMap["secret"].(string); ok {
+			webhookConfig.GitHub.Secret = secret
+		}
+		// Check for environment variable override for security
+		if envSecret := os.Getenv("GITHUB_WEBHOOK_SECRET"); envSecret != "" {
+			webhookConfig.GitHub.Secret = envSecret
+		}
+		if ipValidation, ok := githubMap["ip_validation"].(bool); ok {
+			webhookConfig.GitHub.IPValidation = ipValidation
+		}
+		if events, ok := githubMap["allowed_events"].([]interface{}); ok {
+			allowedEvents := make([]string, 0, len(events))
+			for _, event := range events {
+				if eventStr, ok := event.(string); ok {
+					allowedEvents = append(allowedEvents, eventStr)
+				}
+			}
+			webhookConfig.GitHub.AllowedEvents = allowedEvents
+		}
+		
+		// Warn if webhook is enabled but secret is missing
+		if webhookConfig.GitHub.Enabled && webhookConfig.GitHub.Secret == "" {
+			log.Printf("WARNING: GitHub webhook is enabled but no secret is configured. This is insecure!")
+		}
+	}
+
+	return webhookConfig
 }
 
 // startServer starts the HTTP/HTTPS server
