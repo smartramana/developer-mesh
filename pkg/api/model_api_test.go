@@ -11,6 +11,7 @@ import (
 	api "github.com/S-Corkum/devops-mcp/pkg/api"
 	"github.com/S-Corkum/devops-mcp/pkg/models"
 	"github.com/S-Corkum/devops-mcp/pkg/repository"
+	"github.com/S-Corkum/devops-mcp/pkg/repository/model"
 	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
@@ -25,6 +26,39 @@ type MockModelRepository struct {
 	mock.Mock
 }
 
+// Core repository methods
+func (m *MockModelRepository) Create(ctx context.Context, model *models.Model) error {
+	args := m.Called(ctx, model)
+	return args.Error(0)
+}
+
+func (m *MockModelRepository) Get(ctx context.Context, id string) (*models.Model, error) {
+	args := m.Called(ctx, id)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*models.Model), args.Error(1)
+}
+
+func (m *MockModelRepository) List(ctx context.Context, filter model.Filter) ([]*models.Model, error) {
+	args := m.Called(ctx, filter)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).([]*models.Model), args.Error(1)
+}
+
+func (m *MockModelRepository) Update(ctx context.Context, model *models.Model) error {
+	args := m.Called(ctx, model)
+	return args.Error(0)
+}
+
+func (m *MockModelRepository) Delete(ctx context.Context, id string) error {
+	args := m.Called(ctx, id)
+	return args.Error(0)
+}
+
+// API-specific methods
 func (m *MockModelRepository) CreateModel(ctx context.Context, model *models.Model) error {
 	args := m.Called(ctx, model)
 	return args.Error(0)
@@ -39,7 +73,15 @@ func (m *MockModelRepository) UpdateModel(ctx context.Context, model *models.Mod
 }
 func (m *MockModelRepository) GetModelByID(ctx context.Context, tenantID, modelID string) (*models.Model, error) {
 	args := m.Called(ctx, tenantID, modelID)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
 	return args.Get(0).(*models.Model), args.Error(1)
+}
+
+func (m *MockModelRepository) DeleteModel(ctx context.Context, id string) error {
+	args := m.Called(ctx, id)
+	return args.Error(0)
 }
 
 // Helper to set up Gin and handler

@@ -5,46 +5,25 @@ import (
 	"fmt"
 
 	"github.com/gin-gonic/gin"
-	"github.com/jmoiron/sqlx"
 
 	"github.com/S-Corkum/devops-mcp/pkg/database"
 	"github.com/S-Corkum/devops-mcp/pkg/observability"
 	"github.com/S-Corkum/devops-mcp/pkg/repository"
 )
 
-// Server is the main API server implementation
-type Server struct {
-	db            *sqlx.DB
-	vectorDB      *database.VectorDatabase
-	embeddingRepo repository.VectorAPIRepository
-	cfg           interface{}
-	logger        observability.Logger
-	metrics       observability.MetricsClient
-	router        *gin.Engine
-}
 
 // SetupVectorAPI initializes and registers the vector API routes
 func (s *Server) SetupVectorAPI(ctx context.Context) error {
 	logger := s.logger.WithPrefix("vector_api")
 
 	// Check if vector operations are enabled
-	// This assumes your config struct has a compatible structure
-	// You might need to adjust this based on your actual config structure
-	isEnabled := true
+	isEnabled := false
 	if s.cfg != nil {
-		// Example of how to check if it's enabled in your config
-		// Adjust this based on your actual config structure
-		type VectorConfig struct {
-			Enabled bool
-		}
-		type DatabaseConfig struct {
-			Vector VectorConfig
-		}
-		type Config struct {
-			Database DatabaseConfig
-		}
-		if cfg, ok := s.cfg.(Config); ok {
-			isEnabled = cfg.Database.Vector.Enabled
+		// Check if Vector is enabled in the config
+		if vectorConfig, ok := s.cfg.Database.Vector.(map[string]interface{}); ok {
+			if enabled, ok := vectorConfig["enabled"].(bool); ok {
+				isEnabled = enabled
+			}
 		}
 	}
 

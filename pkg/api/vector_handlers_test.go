@@ -17,51 +17,6 @@ import (
 	"github.com/stretchr/testify/mock"
 )
 
-// MockEmbeddingRepository implements a mock for the EmbeddingRepositoryInterface
-type MockEmbeddingRepository struct {
-	mock.Mock
-}
-
-func (m *MockEmbeddingRepository) StoreEmbedding(ctx context.Context, embedding *vector.Embedding) error {
-	args := m.Called(ctx, embedding)
-	embedding.ID = "embedding-test-id"
-	return args.Error(0)
-}
-
-func (m *MockEmbeddingRepository) SearchEmbeddings(ctx context.Context, queryVector []float32, contextID string, modelID string, limit int, similarityThreshold float64) ([]*vector.Embedding, error) {
-	args := m.Called(ctx, queryVector, contextID, modelID, limit, similarityThreshold)
-	return args.Get(0).([]*vector.Embedding), args.Error(1)
-}
-
-func (m *MockEmbeddingRepository) SearchEmbeddings_Legacy(ctx context.Context, queryVector []float32, contextID string, limit int) ([]*vector.Embedding, error) {
-	args := m.Called(ctx, queryVector, contextID, limit)
-	return args.Get(0).([]*vector.Embedding), args.Error(1)
-}
-
-func (m *MockEmbeddingRepository) GetContextEmbeddings(ctx context.Context, contextID string) ([]*vector.Embedding, error) {
-	args := m.Called(ctx, contextID)
-	return args.Get(0).([]*vector.Embedding), args.Error(1)
-}
-
-func (m *MockEmbeddingRepository) DeleteContextEmbeddings(ctx context.Context, contextID string) error {
-	args := m.Called(ctx, contextID)
-	return args.Error(0)
-}
-
-func (m *MockEmbeddingRepository) GetEmbeddingsByModel(ctx context.Context, contextID string, modelID string) ([]*vector.Embedding, error) {
-	args := m.Called(ctx, contextID, modelID)
-	return args.Get(0).([]*vector.Embedding), args.Error(1)
-}
-
-func (m *MockEmbeddingRepository) GetSupportedModels(ctx context.Context) ([]string, error) {
-	args := m.Called(ctx)
-	return args.Get(0).([]string), args.Error(1)
-}
-
-func (m *MockEmbeddingRepository) DeleteModelEmbeddings(ctx context.Context, contextID string, modelID string) error {
-	args := m.Called(ctx, contextID, modelID)
-	return args.Error(0)
-}
 
 // Defining the EmbeddingRepositoryInterface for tests
 type EmbeddingRepositoryInterface interface {
@@ -80,7 +35,7 @@ type EmbeddingRepositoryInterface interface {
 // TestServer is a simplified version of Server for testing
 type TestServer struct {
 	router *gin.Engine
-	logger *observability.Logger
+	logger observability.Logger
 	api    *api.VectorAPI
 }
 
@@ -233,7 +188,6 @@ func TestSearchEmbeddingsHandler(t *testing.T) {
 				ModelID:      modelID,
 				ContentIndex: 1,
 				Text:         "Test text 1",
-				Similarity:   0.95,
 			},
 			{
 				ID:           "emb-2",
@@ -241,7 +195,6 @@ func TestSearchEmbeddingsHandler(t *testing.T) {
 				ModelID:      modelID,
 				ContentIndex: 2,
 				Text:         "Test text 2",
-				Similarity:   0.85,
 			},
 		}
 
@@ -286,7 +239,6 @@ func TestSearchEmbeddingsHandler(t *testing.T) {
 		assert.Len(t, resp.Embeddings, 2)
 		assert.Equal(t, "emb-1", resp.Embeddings[0].ID)
 		assert.Equal(t, modelID, resp.Embeddings[0].ModelID)
-		assert.Equal(t, 0.95, resp.Embeddings[0].Similarity)
 	})
 }
 

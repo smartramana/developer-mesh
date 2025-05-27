@@ -20,7 +20,7 @@ type testGitHubContentManager struct {
 	mockStorage *MockGitHubContentStorage
 	mockDB      *MockGitHubContentDB
 	metrics     observability.MetricsClient
-	logger      *observability.Logger
+	logger      observability.Logger
 }
 
 // Implement the same methods as GitHubContentManager but use our mocks directly
@@ -321,6 +321,18 @@ func (m *MockMetrics) StartTimer(metric string, tags map[string]string) func() {
 func (m *MockMetrics) Close() error {
 	args := m.Called()
 	return args.Error(0)
+}
+
+func (m *MockMetrics) IncrementCounterWithLabels(name string, value float64, labels map[string]string) {
+	m.Called(name, value, labels)
+}
+
+func (m *MockMetrics) RecordAPIOperation(api string, operation string, success bool, durationSeconds float64) {
+	m.Called(api, operation, success, durationSeconds)
+}
+
+func (m *MockMetrics) RecordDatabaseOperation(operation string, success bool, durationSeconds float64) {
+	m.Called(operation, success, durationSeconds)
 }
 
 func TestNewGitHubContentManager(t *testing.T) {

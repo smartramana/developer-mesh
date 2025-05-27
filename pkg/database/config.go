@@ -2,6 +2,7 @@
 package database
 
 import (
+	"fmt"
 	"time"
 )
 
@@ -101,7 +102,7 @@ func buildPostgresDSN(c *Config) string {
 		}
 		dsn += "@"
 	}
-	dsn += c.Host + ":" + string(c.Port) + "/" + c.Database
+	dsn += fmt.Sprintf("%s:%d/%s", c.Host, c.Port, c.Database)
 	dsn += "?sslmode=" + c.SSLMode
 
 	return dsn

@@ -36,7 +36,7 @@ type Server struct {
 	// TODO: Currently still using internal/database.VectorDatabase
 	// This will be updated to use the adapter in the next phase of migration
 	vectorDB      *database.VectorDatabase
-	embeddingRepo *repository.EmbeddingRepository
+	embeddingRepo repository.VectorAPIRepository
 	cfg           *config.Config
 }
 
@@ -65,7 +65,7 @@ func NewServer(engine *core.Engine, cfg Config, db *sqlx.DB, metrics observabili
 
 	router.Use(MetricsMiddleware())
 	router.Use(ErrorHandlerMiddleware()) // Add centralized error handling
-	router.Use(TracingMiddleware())      // Add request tracing
+	// router.Use(TracingMiddleware())      // TODO: Add request tracing middleware
 
 	// Apply API versioning
 	router.Use(VersioningMiddleware(cfg.Versioning))
@@ -137,13 +137,17 @@ func NewServer(engine *core.Engine, cfg Config, db *sqlx.DB, metrics observabili
 
 	// Initialize vector database if enabled
 	var vectorDB *database.VectorDatabase
-	if config != nil && config.Database.Vector.Enabled {
-		var err error
-		vectorDB, err = database.NewVectorDatabase(db, config, logger.WithPrefix("vector_db"))
-		if err != nil {
-			logger.Warn("Failed to initialize vector database", map[string]interface{}{
-				"error": err.Error(),
-			})
+	if config != nil && config.Database.Vector != nil {
+		// Type assert Vector to check if it's enabled
+		vectorConfig, ok := config.Database.Vector.(map[string]interface{})
+		if ok && vectorConfig["enabled"] == true {
+			var err error
+			vectorDB, err = database.NewVectorDatabase(db, config, logger.WithPrefix("vector_db"))
+			if err != nil {
+				logger.Warn("Failed to initialize vector database", map[string]interface{}{
+					"error": err.Error(),
+				})
+			}
 		}
 	}
 
@@ -270,7 +274,7 @@ func (s *Server) setupRoutes(ctx context.Context) {
 	ctxAPI.RegisterRoutes(v1)
 
 	// Agent and Model APIs
-	agentRepo := repository.NewAgentRepository(s.db.DB)
+	agentRepo := repository.NewAgentRepositoryLegacy(s.db.DB)
 	agentAPI := NewAgentAPI(agentRepo)
 	agentAPI.RegisterRoutes(v1)
 	modelRepo := repository.NewModelRepository(s.db.DB)
@@ -279,7 +283,7 @@ func (s *Server) setupRoutes(ctx context.Context) {
 
 	// Setup Vector API if enabled
 	if s.vectorDB != nil {
-		if err := s.setupVectorAPI(ctx); err != nil {
+		if err := s.SetupVectorAPI(ctx); err != nil {
 			s.logger.Warn("Failed to setup vector API", map[string]interface{}{
 				"error": err.Error(),
 			})

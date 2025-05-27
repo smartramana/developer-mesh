@@ -7,37 +7,6 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-// StoreEmbeddingRequest represents a request to store an embedding
-type StoreEmbeddingRequest struct {
-	ContextID    string    `json:"context_id" binding:"required"`
-	ContentIndex int       `json:"content_index" binding:"required"`
-	Text         string    `json:"text" binding:"required"`
-	Embedding    []float32 `json:"embedding" binding:"required"`
-	ModelID      string    `json:"model_id"`
-}
-
-// SearchEmbeddingsRequest represents a request to search for similar embeddings
-type SearchEmbeddingsRequest struct {
-	ContextID           string    `json:"context_id" binding:"required"`
-	QueryEmbedding      []float32 `json:"query_embedding" binding:"required"`
-	Limit               int       `json:"limit" binding:"required"`
-	ModelID             string    `json:"model_id"`
-	SimilarityThreshold float64   `json:"similarity_threshold"`
-}
-
-// Routes for working with vector embeddings
-func (s *Server) setupVectorRoutes(group *gin.RouterGroup) {
-	vectorsGroup := group.Group("/vectors")
-	vectorsGroup.POST("/store", s.storeEmbedding)
-	vectorsGroup.POST("/search", s.searchEmbeddings)
-	vectorsGroup.GET("/context/:context_id", s.getContextEmbeddings)
-	vectorsGroup.DELETE("/context/:context_id", s.deleteContextEmbeddings)
-
-	// Multi-model endpoints
-	vectorsGroup.GET("/models", s.getSupportedModels)
-	vectorsGroup.GET("/context/:context_id/model/:model_id", s.getModelEmbeddings)
-	vectorsGroup.DELETE("/context/:context_id/model/:model_id", s.deleteModelEmbeddings)
-}
 
 // storeEmbedding handles storing a vector embedding
 func (s *Server) storeEmbedding(c *gin.Context) {

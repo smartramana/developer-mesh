@@ -367,7 +367,7 @@ func (v *GitHubIPValidator) IsGitHubIP(ipStr string) bool {
 }
 
 // GitHubIPValidationMiddleware creates middleware that validates if requests come from GitHub IP ranges
-func GitHubIPValidationMiddleware(validator *GitHubIPValidator, config *config.WebhookConfig, logger observability.Logger) func(http.Handler) http.Handler {
+func GitHubIPValidationMiddleware(validator *GitHubIPValidator, config interfaces.WebhookConfigInterface, logger observability.Logger) func(http.Handler) http.Handler {
 	if logger == nil && validator != nil {
 		logger = validator.logger
 	}

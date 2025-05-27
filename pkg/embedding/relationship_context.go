@@ -274,17 +274,8 @@ func (e *RelationshipContextEnricher) generateRelationshipContextText(
 			}
 
 			// Add context if available
-			if len(rel.Context) > 0 {
-				// Convert context map to a string representation
-				var contextStr string
-				for k, v := range rel.Context {
-					contextStr += fmt.Sprintf("%s: %v, ", k, v)
-				}
-				// Trim trailing comma and space
-				if len(contextStr) > 0 {
-					contextStr = contextStr[:len(contextStr)-2]
-				}
-				contextBuilder.WriteString(fmt.Sprintf("  Context: %s\n", contextStr))
+			if rel.Context != "" {
+				contextBuilder.WriteString(fmt.Sprintf("  Context: %s\n", rel.Context))
 			}
 		}
 	}

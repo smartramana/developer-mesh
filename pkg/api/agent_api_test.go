@@ -10,6 +10,7 @@ import (
 
 	"github.com/S-Corkum/devops-mcp/pkg/models"
 	"github.com/S-Corkum/devops-mcp/pkg/repository"
+	"github.com/S-Corkum/devops-mcp/pkg/repository/agent"
 	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
@@ -20,20 +21,67 @@ type MockAgentRepository struct {
 	mock.Mock
 }
 
+// Core repository methods
+func (m *MockAgentRepository) Create(ctx context.Context, agent *models.Agent) error {
+	args := m.Called(ctx, agent)
+	return args.Error(0)
+}
+
+func (m *MockAgentRepository) Get(ctx context.Context, id string) (*models.Agent, error) {
+	args := m.Called(ctx, id)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*models.Agent), args.Error(1)
+}
+
+func (m *MockAgentRepository) List(ctx context.Context, filter agent.Filter) ([]*models.Agent, error) {
+	args := m.Called(ctx, filter)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).([]*models.Agent), args.Error(1)
+}
+
+func (m *MockAgentRepository) Update(ctx context.Context, agent *models.Agent) error {
+	args := m.Called(ctx, agent)
+	return args.Error(0)
+}
+
+func (m *MockAgentRepository) Delete(ctx context.Context, id string) error {
+	args := m.Called(ctx, id)
+	return args.Error(0)
+}
+
+// API-specific methods
 func (m *MockAgentRepository) CreateAgent(ctx context.Context, agent *models.Agent) error {
 	args := m.Called(ctx, agent)
 	return args.Error(0)
 }
+
 func (m *MockAgentRepository) ListAgents(ctx context.Context, tenantID string) ([]*models.Agent, error) {
 	args := m.Called(ctx, tenantID)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
 	return args.Get(0).([]*models.Agent), args.Error(1)
 }
-func (m *MockAgentRepository) GetAgentByID(ctx context.Context, tenantID, id string) (*models.Agent, error) {
-	args := m.Called(ctx, tenantID, id)
+
+func (m *MockAgentRepository) GetAgentByID(ctx context.Context, id, tenantID string) (*models.Agent, error) {
+	args := m.Called(ctx, id, tenantID)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
 	return args.Get(0).(*models.Agent), args.Error(1)
 }
+
 func (m *MockAgentRepository) UpdateAgent(ctx context.Context, agent *models.Agent) error {
 	args := m.Called(ctx, agent)
+	return args.Error(0)
+}
+
+func (m *MockAgentRepository) DeleteAgent(ctx context.Context, id string) error {
+	args := m.Called(ctx, id)
 	return args.Error(0)
 }
 
