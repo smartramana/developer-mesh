@@ -152,7 +152,7 @@ func runMigrations(db *sql.DB, direction string, limit int) {
 		}
 
 		if direction == "up" {
-			if _, err := tx.Exec("INSERT INTO schema_migrations (version) VALUES ($1)", fileVersion); err != nil {
+			if _, err := tx.Exec("INSERT INTO schema_migrations (version, dirty) VALUES ($1, $2)", fileVersion, false); err != nil {
 				tx.Rollback()
 				log.Fatal("Failed to record migration:", err)
 			}
@@ -271,7 +271,7 @@ func forceVersion(db *sql.DB, version int) {
 
 	// Set to specific version
 	if version > 0 {
-		if _, err := tx.Exec("INSERT INTO schema_migrations (version) VALUES ($1)", version); err != nil {
+		if _, err := tx.Exec("INSERT INTO schema_migrations (version, dirty) VALUES ($1, $2)", version, false); err != nil {
 			tx.Rollback()
 			log.Fatal("Failed to set version:", err)
 		}
