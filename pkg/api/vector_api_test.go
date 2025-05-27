@@ -27,7 +27,7 @@ func setupVectorAPI() (*gin.Engine, *MockEmbeddingRepository) {
 
 func TestStoreEmbedding_Success(t *testing.T) {
 	r, repo := setupVectorAPI()
-	repo.On("StoreEmbedding", mock.Anything, mock.AnythingOfType("*repository.Embedding")).Return(nil)
+	repo.On("StoreEmbedding", mock.Anything, mock.AnythingOfType("*vector.Embedding")).Return(nil)
 	body := map[string]interface{}{
 		"context_id":    "ctx1",
 		"content_index": 1,
@@ -41,7 +41,7 @@ func TestStoreEmbedding_Success(t *testing.T) {
 	w := httptest.NewRecorder()
 	r.ServeHTTP(w, req)
 	assert.Equal(t, http.StatusOK, w.Code)
-	repo.AssertCalled(t, "StoreEmbedding", mock.Anything, mock.AnythingOfType("*repository.Embedding"))
+	repo.AssertCalled(t, "StoreEmbedding", mock.Anything, mock.AnythingOfType("*vector.Embedding"))
 }
 
 func TestStoreEmbedding_BadRequest(t *testing.T) {
