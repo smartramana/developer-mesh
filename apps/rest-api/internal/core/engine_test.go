@@ -279,6 +279,7 @@ func TestEngineIntegration(t *testing.T) {
 
 	metrics := new(MockMetricsClient)
 	metrics.On("IncrementCounter", mock.Anything, mock.Anything, mock.Anything).Return()
+	metrics.On("IncrementCounterWithLabels", mock.Anything, mock.Anything, mock.Anything).Return()
 	metrics.On("RecordHistogram", mock.Anything, mock.Anything, mock.Anything).Return()
 	metrics.On("RecordOperation", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return()
 	metrics.On("RecordOperationWithContext", mock.Anything, mock.Anything, mock.Anything).Return(nil)

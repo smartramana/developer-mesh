@@ -86,10 +86,14 @@ func setupTestContext() (*gin.Context, *httptest.ResponseRecorder) {
 	w := httptest.NewRecorder()
 	c, _ := gin.CreateTestContext(w)
 	
-	// Setup a minimal HTTP request with tenant ID
+	// Setup a minimal HTTP request
 	req := httptest.NewRequest("GET", "/", nil)
-	req.Header.Set("X-Tenant-ID", "test-tenant-id")
 	c.Request = req
+	
+	// Set the user context with tenant ID as expected by GetTenantIDFromContext
+	c.Set("user", map[string]interface{}{
+		"tenant_id": "test-tenant-id",
+	})
 	
 	return c, w
 }
