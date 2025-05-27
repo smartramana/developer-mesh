@@ -9,10 +9,10 @@ import (
 var (
 	// ErrOperationNotAllowed indicates an operation is not allowed by the adapter
 	ErrOperationNotAllowed = errors.New("operation not allowed by security policy")
-	
+
 	// ErrMissingPermission indicates insufficient permissions for the operation
 	ErrMissingPermission = errors.New("insufficient permissions for this operation")
-	
+
 	// ErrRestrictedOperation indicates that an operation is restricted for safety reasons
 	ErrRestrictedOperation = errors.New("operation restricted for safety reasons")
 )
@@ -26,11 +26,11 @@ type Checker interface {
 // DefaultCheck provides a default implementation of safety checks
 func DefaultCheck(operation string, params map[string]interface{}) (bool, error) {
 	// Check for dangerous operations containing "delete" in the name
-	if strings.Contains(strings.ToLower(operation), "delete") || 
-	   strings.Contains(strings.ToLower(operation), "remove") {
+	if strings.Contains(strings.ToLower(operation), "delete") ||
+		strings.Contains(strings.ToLower(operation), "remove") {
 		return false, ErrOperationNotAllowed
 	}
-	
+
 	// By default, consider operations safe
 	return true, nil
 }
@@ -48,7 +48,7 @@ func (c *GitHubChecker) IsSafeOperation(operation string, params map[string]inte
 		"delete_branch_protection",
 		"delete_webhook",
 	}
-	
+
 	// List of explicitly allowed "dangerous" operations
 	allowedDangerousOps := []string{
 		"archive_repository",
@@ -56,14 +56,14 @@ func (c *GitHubChecker) IsSafeOperation(operation string, params map[string]inte
 		"close_issue",
 		"close_pull_request",
 	}
-	
+
 	// Check if operation is explicitly restricted
 	for _, restrictedOp := range restrictedOps {
 		if operation == restrictedOp {
 			return false, ErrRestrictedOperation
 		}
 	}
-	
+
 	// Check if operation contains "delete" but is not in allowed dangerous operations
 	if strings.Contains(operation, "delete") {
 		for _, allowedOp := range allowedDangerousOps {
@@ -73,7 +73,7 @@ func (c *GitHubChecker) IsSafeOperation(operation string, params map[string]inte
 		}
 		return false, ErrRestrictedOperation
 	}
-	
+
 	// All other operations are considered safe
 	return true, nil
 }
@@ -100,7 +100,7 @@ func (c *ArtifactoryChecker) IsSafeOperation(operation string, params map[string
 		"deploy_artifact",
 		"promote_build",
 	}
-	
+
 	// List of explicitly allowed operations (read-only)
 	readOnlyOps := []string{
 		"get_artifact",
@@ -112,26 +112,26 @@ func (c *ArtifactoryChecker) IsSafeOperation(operation string, params map[string
 		"get_build_info",
 		"get_storage_info",
 	}
-	
+
 	// Check if operation is explicitly restricted
 	for _, restrictedOp := range restrictedOps {
 		if operation == restrictedOp {
 			return false, ErrRestrictedOperation
 		}
 	}
-	
+
 	// Check if operation is a read operation (starts with "get_" or "search_")
 	if strings.HasPrefix(operation, "get_") || strings.HasPrefix(operation, "search_") {
 		return true, nil
 	}
-	
+
 	// Check if operation is explicitly allowed
 	for _, allowedOp := range readOnlyOps {
 		if operation == allowedOp {
 			return true, nil
 		}
 	}
-	
+
 	// Any other operations that aren't explicitly allowed are considered unsafe
 	return false, ErrRestrictedOperation
 }
@@ -156,40 +156,40 @@ func (c *HarnessChecker) IsSafeOperation(operation string, params map[string]int
 		"delete_secret",
 		"delete_template",
 	}
-	
+
 	// List of restricted operation prefixes
 	restrictedPrefixes := []string{
 		"delete_prod_",
 		"delete_production_",
 	}
-	
+
 	// Check if operation is explicitly restricted
 	for _, restrictedOp := range restrictedOps {
 		if operation == restrictedOp {
 			return false, ErrRestrictedOperation
 		}
 	}
-	
+
 	// Check restricted prefixes
 	for _, prefix := range restrictedPrefixes {
 		if strings.HasPrefix(operation, prefix) {
 			return false, ErrRestrictedOperation
 		}
 	}
-	
+
 	// Special case for feature flags - check if targeting production
-	if strings.Contains(operation, "feature_flag") && 
-	   (strings.Contains(operation, "delete") || 
-		strings.Contains(operation, "toggle") || 
-		strings.Contains(operation, "update")) {
-		
+	if strings.Contains(operation, "feature_flag") &&
+		(strings.Contains(operation, "delete") ||
+			strings.Contains(operation, "toggle") ||
+			strings.Contains(operation, "update")) {
+
 		// Check if environment is production
 		if env, ok := params["environment"].(string); ok {
 			if strings.ToLower(env) == "production" || strings.ToLower(env) == "prod" {
 				return false, errors.New("modifying production feature flags is restricted")
 			}
 		}
-		
+
 		// Check if environment_id matches production patterns
 		if envID, ok := params["environment_id"].(string); ok {
 			if strings.Contains(strings.ToLower(envID), "prod") {
@@ -197,7 +197,7 @@ func (c *HarnessChecker) IsSafeOperation(operation string, params map[string]int
 			}
 		}
 	}
-	
+
 	// All other operations are considered safe
 	return true, nil
 }

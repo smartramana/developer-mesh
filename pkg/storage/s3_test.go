@@ -3,9 +3,9 @@ package storage
 import (
 	"context"
 	"errors"
+	"io"
 	"testing"
 	"time"
-	"io"
 
 	"github.com/aws/aws-sdk-go-v2/feature/s3/manager"
 	"github.com/aws/aws-sdk-go-v2/service/s3"
@@ -81,50 +81,50 @@ func TestGetBucketName(t *testing.T) {
 	config := S3Config{
 		Bucket: "test-bucket",
 	}
-	
+
 	client := &S3Client{
 		config: config,
 	}
-	
+
 	assert.Equal(t, "test-bucket", client.GetBucketName())
 }
 
 func TestUploadFile(t *testing.T) {
 	ctx := context.Background()
 	mockUploader := new(MockUploader)
-	
+
 	config := S3Config{
 		Bucket:         "test-bucket",
 		RequestTimeout: 5 * time.Second,
 	}
-	
+
 	s3Client := &S3Client{
-		client:   nil, // Not used in this test
+		client:   nil,          // Not used in this test
 		uploader: mockUploader, // Use the mockUploader so UploadFile does not panic
 		config:   config,
 	}
-	
+
 	// Test successful upload
 	mockUploader.On("Upload", mock.Anything, mock.AnythingOfType("*s3.PutObjectInput")).
 		Return(&manager.UploadOutput{}, nil).Once()
-	
+
 	err := s3Client.UploadFile(ctx, "test-key", []byte("test-data"), "text/plain")
 	assert.NoError(t, err)
 	mockUploader.AssertExpectations(t)
-	
+
 	// Test upload error
 	mockUploader.On("Upload", mock.Anything, mock.AnythingOfType("*s3.PutObjectInput")).
 		Return(nil, errors.New("upload error")).Once()
-	
+
 	err = s3Client.UploadFile(ctx, "test-key", []byte("test-data"), "text/plain")
 	assert.Error(t, err)
 	mockUploader.AssertExpectations(t)
-	
+
 	// Test empty key
 	err = s3Client.UploadFile(ctx, "", []byte("test-data"), "text/plain")
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "key cannot be empty")
-	
+
 	// Test empty data
 	err = s3Client.UploadFile(ctx, "test-key", []byte{}, "text/plain")
 	assert.Error(t, err)
@@ -134,39 +134,39 @@ func TestUploadFile(t *testing.T) {
 func TestDownloadFile(t *testing.T) {
 	ctx := context.Background()
 	mockDownloader := new(MockDownloader)
-	
+
 	config := S3Config{
 		Bucket:         "test-bucket",
 		RequestTimeout: 5 * time.Second,
 	}
-	
+
 	s3Client := &S3Client{
-		client:     nil, // Not used in this test
+		client:     nil,            // Not used in this test
 		downloader: mockDownloader, // Use the mockDownloader so DownloadFile does not panic
 		config:     config,
 	}
-	
+
 	// Test successful download - the downloader writes the test data to whatever buffer is passed
 	mockDownloader.On("Download", mock.Anything, mock.AnythingOfType("*manager.WriteAtBuffer"), mock.AnythingOfType("*s3.GetObjectInput")).
 		Run(func(args mock.Arguments) {
 			w := args.Get(1).(io.WriterAt)
 			w.WriteAt([]byte("test-data"), 0)
 		}).Return(int64(9), nil).Once()
-	
+
 	data, err := s3Client.DownloadFile(ctx, "test-key")
 	assert.NoError(t, err)
 	assert.Equal(t, []byte("test-data"), data)
 	mockDownloader.AssertExpectations(t)
-	
+
 	// Test download error
 	mockDownloader.On("Download", mock.Anything, mock.AnythingOfType("*manager.WriteAtBuffer"), mock.AnythingOfType("*s3.GetObjectInput")).
 		Return(int64(0), errors.New("download error")).Once()
-	
+
 	data, err = s3Client.DownloadFile(ctx, "test-key")
 	assert.Error(t, err)
 	assert.Nil(t, data)
 	mockDownloader.AssertExpectations(t)
-	
+
 	// Test empty key
 	data, err = s3Client.DownloadFile(ctx, "")
 	assert.Error(t, err)
@@ -177,33 +177,33 @@ func TestDownloadFile(t *testing.T) {
 func TestDeleteFile(t *testing.T) {
 	ctx := context.Background()
 	mockClient := new(MockS3Client)
-	
+
 	config := S3Config{
 		Bucket:         "test-bucket",
 		RequestTimeout: 5 * time.Second,
 	}
-	
+
 	s3Client := &S3Client{
 		client: mockClient, // Use the mockClient so DeleteFile does not panic
 		config: config,
 	}
-	
+
 	// Test successful delete
 	mockClient.On("DeleteObject", mock.Anything, mock.AnythingOfType("*s3.DeleteObjectInput")).
 		Return(&s3.DeleteObjectOutput{}, nil).Once()
-	
+
 	err := s3Client.DeleteFile(ctx, "test-key")
 	assert.NoError(t, err)
 	mockClient.AssertExpectations(t)
-	
+
 	// Test delete error
 	mockClient.On("DeleteObject", mock.Anything, mock.AnythingOfType("*s3.DeleteObjectInput")).
 		Return(nil, errors.New("delete error")).Once()
-	
+
 	err = s3Client.DeleteFile(ctx, "test-key")
 	assert.Error(t, err)
 	mockClient.AssertExpectations(t)
-	
+
 	// Test empty key
 	err = s3Client.DeleteFile(ctx, "")
 	assert.Error(t, err)

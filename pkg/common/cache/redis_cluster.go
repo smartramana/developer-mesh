@@ -17,20 +17,20 @@ type RedisClusterCache struct {
 
 // RedisClusterConfig holds configuration for Redis in cluster mode
 type RedisClusterConfig struct {
-	Addrs           []string
-	Username        string
-	Password        string
-	MaxRetries      int
-	MinIdleConns    int
-	PoolSize        int
-	DialTimeout     time.Duration
-	ReadTimeout     time.Duration
-	WriteTimeout    time.Duration
-	PoolTimeout     time.Duration
-	UseTLS          bool
-	TLSConfig       *tls.Config
-	RouteRandomly   bool
-	RouteByLatency  bool
+	Addrs          []string
+	Username       string
+	Password       string
+	MaxRetries     int
+	MinIdleConns   int
+	PoolSize       int
+	DialTimeout    time.Duration
+	ReadTimeout    time.Duration
+	WriteTimeout   time.Duration
+	PoolTimeout    time.Duration
+	UseTLS         bool
+	TLSConfig      *tls.Config
+	RouteRandomly  bool
+	RouteByLatency bool
 }
 
 // NewRedisClusterCache creates a new Redis cluster cache
@@ -53,7 +53,7 @@ func NewRedisClusterCache(cfg RedisClusterConfig) (*RedisClusterCache, error) {
 	if cfg.Username != "" {
 		options.Username = cfg.Username
 	}
-	
+
 	if cfg.Password != "" {
 		options.Password = cfg.Password
 	}
@@ -81,7 +81,7 @@ func NewRedisClusterCache(cfg RedisClusterConfig) (*RedisClusterCache, error) {
 }
 
 // Get retrieves a value from cache
-func (c *RedisClusterCache) Get(ctx context.Context, key string, value interface{}) error {
+func (c *RedisClusterCache) Get(ctx context.Context, key string, value any) error {
 	data, err := c.client.Get(ctx, key).Bytes()
 	if err != nil {
 		if err == redis.Nil {
@@ -94,7 +94,7 @@ func (c *RedisClusterCache) Get(ctx context.Context, key string, value interface
 }
 
 // Set stores a value in cache with TTL
-func (c *RedisClusterCache) Set(ctx context.Context, key string, value interface{}, ttl time.Duration) error {
+func (c *RedisClusterCache) Set(ctx context.Context, key string, value any, ttl time.Duration) error {
 	data, err := json.Marshal(value)
 	if err != nil {
 		return err
@@ -123,7 +123,7 @@ func (c *RedisClusterCache) Flush(ctx context.Context) error {
 	err := c.client.ForEachShard(ctx, func(ctx context.Context, shard *redis.Client) error {
 		return shard.FlushAll(ctx).Err()
 	})
-	
+
 	return err
 }
 

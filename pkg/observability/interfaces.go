@@ -12,9 +12,9 @@ import (
 
 // Config holds the configuration for all observability components
 type Config struct {
-	Tracing  TracingConfig  `json:"tracing,omitempty"`
-	Metrics  MetricsConfig  `json:"metrics,omitempty"`
-	Logging  LoggingConfig  `json:"logging,omitempty"`
+	Tracing TracingConfig `json:"tracing,omitempty"`
+	Metrics MetricsConfig `json:"metrics,omitempty"`
+	Logging LoggingConfig `json:"logging,omitempty"`
 }
 
 // TracingConfig holds the configuration for tracing
@@ -68,14 +68,14 @@ type Logger interface {
 	Warn(msg string, fields map[string]interface{})
 	Error(msg string, fields map[string]interface{})
 	Fatal(msg string, fields map[string]interface{})
-	
+
 	// Formatted logging methods
 	Debugf(format string, args ...interface{})
 	Infof(format string, args ...interface{})
 	Warnf(format string, args ...interface{})
 	Errorf(format string, args ...interface{})
 	Fatalf(format string, args ...interface{})
-	
+
 	// Context methods
 	WithPrefix(prefix string) Logger
 	With(fields map[string]interface{}) Logger
@@ -90,13 +90,13 @@ type MetricsClient interface {
 	RecordGauge(name string, value float64, labels map[string]string)
 	RecordHistogram(name string, value float64, labels map[string]string)
 	RecordTimer(name string, duration time.Duration, labels map[string]string)
-	
+
 	// Operation-specific metrics
 	RecordCacheOperation(operation string, success bool, durationSeconds float64)
 	RecordOperation(component string, operation string, success bool, durationSeconds float64, labels map[string]string)
 	RecordAPIOperation(api string, operation string, success bool, durationSeconds float64)
 	RecordDatabaseOperation(operation string, success bool, durationSeconds float64)
-	
+
 	// Convenience methods
 	StartTimer(name string, labels map[string]string) func()
 	// IncrementCounter is the standard method for incrementing counters
@@ -105,7 +105,7 @@ type MetricsClient interface {
 	// IncrementCounterWithLabels is the preferred method with labels support
 	IncrementCounterWithLabels(name string, value float64, labels map[string]string)
 	RecordDuration(name string, duration time.Duration)
-	
+
 	// Lifecycle management
 	Close() error
 }
@@ -123,4 +123,3 @@ type Span interface {
 
 // StartSpanFunc is a function that creates and starts a new span
 type StartSpanFunc func(ctx context.Context, name string, attrs ...attribute.KeyValue) (context.Context, Span)
-

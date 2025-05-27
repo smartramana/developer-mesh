@@ -3,7 +3,7 @@ package api
 import (
 	"context"
 	"time"
-	
+
 	// Using pkg/database and adapting to the internal database models instead of importing them directly
 	pkgdb "github.com/S-Corkum/devops-mcp/pkg/database"
 	"github.com/S-Corkum/devops-mcp/pkg/observability"

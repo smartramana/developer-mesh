@@ -4,7 +4,7 @@ package events
 // This is kept for compatibility with older code
 type LegacyEvent struct {
 	Type string
-	Data map[string]interface{}
+	Data map[string]any
 }
 
 // LegacyEventBusImpl provides a simple event bus for publishing and subscribing to events

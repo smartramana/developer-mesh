@@ -13,22 +13,22 @@ func (e EntityID) String() string {
 
 // WithContext adds context to the relationship with more flexible parameters
 // It can be called with either a key-value pair or a complete map
-func (r *EntityRelationship) WithContextMap(keyOrMap interface{}, value ...interface{}) *EntityRelationship {
+func (r *EntityRelationship) WithContextMap(keyOrMap any, value ...any) *EntityRelationship {
 	// Convert Context from string to map if needed
-	ctxMap, ok := r.Metadata["context"].(map[string]interface{})
+	ctxMap, ok := r.Metadata["context"].(map[string]any)
 	if !ok {
-		ctxMap = make(map[string]interface{})
+		ctxMap = make(map[string]any)
 		r.Metadata["context"] = ctxMap
 	}
-	
+
 	// Check if we're adding a complete map
-	if m, ok := keyOrMap.(map[string]interface{}); ok && len(value) == 0 {
+	if m, ok := keyOrMap.(map[string]any); ok && len(value) == 0 {
 		for k, v := range m {
 			ctxMap[k] = v
 		}
 		return r
 	}
-	
+
 	// Otherwise treat it as a key-value pair
 	if key, ok := keyOrMap.(string); ok && len(value) > 0 {
 		ctxMap[key] = value[0]
@@ -38,19 +38,19 @@ func (r *EntityRelationship) WithContextMap(keyOrMap interface{}, value ...inter
 
 // WithMetadataMap adds metadata to the relationship with more flexible parameters
 // It can be called with either a key-value pair or a complete map
-func (r *EntityRelationship) WithMetadataMap(keyOrMap interface{}, value ...interface{}) *EntityRelationship {
+func (r *EntityRelationship) WithMetadataMap(keyOrMap any, value ...any) *EntityRelationship {
 	if r.Metadata == nil {
-		r.Metadata = make(map[string]interface{})
+		r.Metadata = make(map[string]any)
 	}
-	
+
 	// Check if we're adding a complete map
-	if m, ok := keyOrMap.(map[string]interface{}); ok && len(value) == 0 {
+	if m, ok := keyOrMap.(map[string]any); ok && len(value) == 0 {
 		for k, v := range m {
 			r.Metadata[k] = v
 		}
 		return r
 	}
-	
+
 	// Otherwise treat it as a key-value pair
 	if key, ok := keyOrMap.(string); ok && len(value) > 0 {
 		r.Metadata[key] = value[0]
@@ -61,7 +61,7 @@ func (r *EntityRelationship) WithMetadataMap(keyOrMap interface{}, value ...inte
 // LegacyGenerateRelationshipID generates a unique ID for a relationship
 // Takes either (source, target, relType) or (relType, source, target, direction) - the latter ignores direction
 // This is a legacy implementation for backward compatibility with existing code
-func LegacyGenerateRelationshipID(arg1 interface{}, arg2 interface{}, arg3 interface{}, arg4 ...interface{}) string {
+func LegacyGenerateRelationshipID(arg1 any, arg2 any, arg3 any, arg4 ...any) string {
 	var source EntityID
 	var target EntityID
 	var relType RelationshipType

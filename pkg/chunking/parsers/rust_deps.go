@@ -11,11 +11,11 @@ func (p *RustParser) processDependencies(chunks []*chunking.CodeChunk) {
 	// Create maps for quick lookups
 	chunksByID := make(map[string]*chunking.CodeChunk)
 	typesByName := make(map[string][]string) // map of type name -> list of chunk IDs
-	
+
 	// First pass: build lookup maps
 	for _, chunk := range chunks {
 		chunksByID[chunk.ID] = chunk
-		
+
 		// Index types (structs, enums, traits) by name for dependency lookups
 		switch chunk.Type {
 		case chunking.ChunkTypeStruct, chunking.ChunkTypeBlock, chunking.ChunkTypeInterface:
@@ -28,41 +28,41 @@ func (p *RustParser) processDependencies(chunks []*chunking.CodeChunk) {
 			}
 		}
 	}
-	
+
 	// Second pass: analyze dependencies
 	for _, chunk := range chunks {
 		// Initialize dependencies list if needed
 		if chunk.Dependencies == nil {
 			chunk.Dependencies = make([]string, 0)
 		}
-		
+
 		// Skip certain chunk types that don't usually have dependencies
 		if chunk.Type == chunking.ChunkTypeComment || chunk.Type == chunking.ChunkTypeFile {
 			continue
 		}
-		
+
 		// Check for dependencies based on the chunk's content
 		content := chunk.Content
-		
+
 		// Function dependencies
 		if chunk.Type == chunking.ChunkTypeFunction {
 			// Check function body for references to other functions or types
 			for otherChunk := range chunksByID {
 				other := chunksByID[otherChunk]
-				
+
 				// Skip self-references and non-callable items
-				if other.ID == chunk.ID || 
-				   other.Type == chunking.ChunkTypeComment ||
-				   other.Type == chunking.ChunkTypeFile ||
-				   other.Type == chunking.ChunkTypeImport {
+				if other.ID == chunk.ID ||
+					other.Type == chunking.ChunkTypeComment ||
+					other.Type == chunking.ChunkTypeFile ||
+					other.Type == chunking.ChunkTypeImport {
 					continue
 				}
-				
+
 				// Look for references to other function names
 				if other.Type == chunking.ChunkTypeFunction {
 					// Check for function calls like "other_func(..." or "other_func::<...>("
-					if strings.Contains(content, other.Name+"(") || 
-					   strings.Contains(content, other.Name+"::") {
+					if strings.Contains(content, other.Name+"(") ||
+						strings.Contains(content, other.Name+"::") {
 						// Add dependency if not already present
 						if !containsString(chunk.Dependencies, other.ID) {
 							chunk.Dependencies = append(chunk.Dependencies, other.ID)
@@ -70,14 +70,14 @@ func (p *RustParser) processDependencies(chunks []*chunking.CodeChunk) {
 					}
 				}
 			}
-			
+
 			// Check for type references in function body
 			for typeName, chunkIDs := range typesByName {
 				// Skip simple/common type names to avoid false positives
 				if len(typeName) <= 2 || typeName == "self" || typeName == "type" {
 					continue
 				}
-				
+
 				// Check for type references with word boundaries
 				if containsTypeReference(content, typeName) {
 					for _, typeChunkID := range chunkIDs {
@@ -89,17 +89,17 @@ func (p *RustParser) processDependencies(chunks []*chunking.CodeChunk) {
 				}
 			}
 		}
-		
+
 		// Struct and enum dependencies on other types
-		if chunk.Type == chunking.ChunkTypeStruct || 
-		   (chunk.Type == chunking.ChunkTypeBlock && isEnumOrTrait(chunk)) {
-			
+		if chunk.Type == chunking.ChunkTypeStruct ||
+			(chunk.Type == chunking.ChunkTypeBlock && isEnumOrTrait(chunk)) {
+
 			for typeName, chunkIDs := range typesByName {
 				// Skip self-reference
 				if typeName == chunk.Name || len(typeName) <= 2 {
 					continue
 				}
-				
+
 				// Check for type references with word boundaries
 				if containsTypeReference(content, typeName) {
 					for _, typeChunkID := range chunkIDs {
@@ -111,7 +111,7 @@ func (p *RustParser) processDependencies(chunks []*chunking.CodeChunk) {
 				}
 			}
 		}
-		
+
 		// Implementation blocks depend on the type they implement for
 		if chunk.Type == chunking.ChunkTypeBlock {
 			meta := chunk.Metadata
@@ -159,19 +159,19 @@ func containsTypeReference(content, typeName string) bool {
 		"<" + typeName,  // type in generic bounds
 		">" + typeName,  // type after generic closing
 		"(" + typeName,  // type in function args
-		")" + typeName,  // type after parenthesis  
+		")" + typeName,  // type after parenthesis
 		"[" + typeName,  // type in array
 		"]" + typeName,  // type after array
 		":" + typeName,  // type in type annotation
 		"&" + typeName,  // reference to type
 	}
-	
+
 	for _, pattern := range possiblePatterns {
 		if strings.Contains(content, pattern) {
 			return true
 		}
 	}
-	
+
 	return false
 }
 

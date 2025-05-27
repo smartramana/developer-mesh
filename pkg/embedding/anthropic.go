@@ -45,8 +45,8 @@ type AnthropicEmbeddingService struct {
 
 // AnthropicEmbeddingRequest represents a request to the Anthropic embeddings API
 type AnthropicEmbeddingRequest struct {
-	Model string   `json:"model"`
-	Text  string   `json:"text"`
+	Model string `json:"model"`
+	Text  string `json:"text"`
 }
 
 // AnthropicEmbeddingResponse represents a response from the Anthropic embeddings API
@@ -65,10 +65,10 @@ type AnthropicBatchEmbeddingRequest struct {
 
 // AnthropicBatchEmbeddingResponse represents a response from the Anthropic embeddings API for batch processing
 type AnthropicBatchEmbeddingResponse struct {
-	Object     string        `json:"object"`
-	Embeddings [][]float32   `json:"embeddings"`
-	Model      string        `json:"model"`
-	Error      interface{}   `json:"error,omitempty"`
+	Object     string      `json:"object"`
+	Embeddings [][]float32 `json:"embeddings"`
+	Model      string      `json:"model"`
+	Error      interface{} `json:"error,omitempty"`
 }
 
 // NewAnthropicEmbeddingService creates a new Anthropic embedding service
@@ -113,10 +113,10 @@ func NewAnthropicEmbeddingService(config *AnthropicConfig) (*AnthropicEmbeddingS
 	client := &http.Client{}
 
 	return &AnthropicEmbeddingService{
-		client:           client,
-		config:           modelConfig,
-		apiKey:           config.APIKey,
-		endpoint:         endpoint,
+		client:            client,
+		config:            modelConfig,
+		apiKey:            config.APIKey,
+		endpoint:          endpoint,
 		useMockEmbeddings: config.UseMockEmbeddings,
 	}, nil
 }
@@ -151,10 +151,10 @@ func NewMockAnthropicEmbeddingService(modelName string) (*AnthropicEmbeddingServ
 	client := &http.Client{}
 
 	return &AnthropicEmbeddingService{
-		client:           client,
-		config:           modelConfig,
-		apiKey:           "mock-api-key",
-		endpoint:         defaultAnthropicEndpoint,
+		client:            client,
+		config:            modelConfig,
+		apiKey:            "mock-api-key",
+		endpoint:          defaultAnthropicEndpoint,
 		useMockEmbeddings: true,
 	}, nil
 }

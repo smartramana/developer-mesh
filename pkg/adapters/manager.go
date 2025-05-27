@@ -11,7 +11,7 @@ import (
 
 // AdapterConfig holds configuration needed for adapter initialization
 type AdapterConfig struct {
-	Adapters map[string]interface{}
+	Adapters map[string]any
 }
 
 // AdapterManager manages the lifecycle of adapters
@@ -26,7 +26,7 @@ type AdapterManager struct {
 // NewAdapterManager creates a new adapter manager
 func NewAdapterManager(
 	cfg *AdapterConfig,
-	_ interface{}, // Formerly contextManager, kept for backward compatibility
+	_ any, // Formerly contextManager, kept for backward compatibility
 	systemEventBus system.EventBus,
 	logger observability.Logger,
 	metricsClient observability.MetricsClient,
@@ -53,7 +53,7 @@ func (m *AdapterManager) Initialize(ctx context.Context) error {
 }
 
 // GetAdapter gets an adapter by type
-func (m *AdapterManager) GetAdapter(adapterType string) (interface{}, error) {
+func (m *AdapterManager) GetAdapter(adapterType string) (any, error) {
 	ctx := context.Background()
 	m.mu.RLock()
 	adapter, exists := m.adapters[adapterType]
@@ -85,7 +85,7 @@ func (m *AdapterManager) GetAdapter(adapterType string) (interface{}, error) {
 }
 
 // ExecuteAction executes an action with an adapter
-func (m *AdapterManager) ExecuteAction(ctx context.Context, contextID string, adapterType string, action string, params map[string]interface{}) (interface{}, error) {
+func (m *AdapterManager) ExecuteAction(ctx context.Context, contextID string, adapterType string, action string, params map[string]any) (any, error) {
 	adapterInterface, err := m.GetAdapter(adapterType)
 	if err != nil {
 		return nil, err
@@ -106,7 +106,7 @@ func (m *AdapterManager) Close() {
 
 	for name, adapter := range m.adapters {
 		if err := adapter.Close(); err != nil {
-			m.logger.Error("Failed to close adapter", map[string]interface{}{
+			m.logger.Error("Failed to close adapter", map[string]any{
 				"adapter": name,
 				"error":   err.Error(),
 			})

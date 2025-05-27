@@ -13,9 +13,9 @@ import (
 	"sync"
 	"time"
 
-	"github.com/S-Corkum/devops-mcp/pkg/common/errors"
 	"github.com/S-Corkum/devops-mcp/pkg/adapters/github/auth"
 	"github.com/S-Corkum/devops-mcp/pkg/adapters/resilience"
+	"github.com/S-Corkum/devops-mcp/pkg/common/errors"
 	"github.com/S-Corkum/devops-mcp/pkg/observability"
 )
 
@@ -27,7 +27,7 @@ type RESTClient struct {
 	logger            observability.Logger
 	rateLimitCallback func(info resilience.GitHubRateLimitInfo)
 	etagCache         map[string]string
-	responseCache     map[string]interface{}
+	responseCache     map[string]any
 	cacheMutex        sync.RWMutex
 }
 
@@ -46,12 +46,12 @@ func NewRESTClient(
 		logger:            logger,
 		rateLimitCallback: rateLimitCallback,
 		etagCache:         make(map[string]string),
-		responseCache:     make(map[string]interface{}),
+		responseCache:     make(map[string]any),
 	}
 }
 
 // Request makes a request to the GitHub API
-func (c *RESTClient) Request(ctx context.Context, method, path string, body interface{}, result interface{}) error {
+func (c *RESTClient) Request(ctx context.Context, method, path string, body any, result any) error {
 	// Build the URL
 	u, err := c.buildURL(path)
 	if err != nil {
@@ -144,7 +144,7 @@ func (c *RESTClient) Request(ctx context.Context, method, path string, body inte
 		c.cacheMutex.Lock()
 		c.etagCache[cacheKey] = newEtag
 		if result != nil {
-			var resultCopy interface{}
+			var resultCopy any
 			resultBytes, err := json.Marshal(result)
 			if err == nil {
 				if err := json.Unmarshal(resultBytes, &resultCopy); err == nil {
@@ -166,22 +166,22 @@ func (c *RESTClient) Request(ctx context.Context, method, path string, body inte
 }
 
 // Get makes a GET request to the GitHub API
-func (c *RESTClient) Get(ctx context.Context, path string, result interface{}) error {
+func (c *RESTClient) Get(ctx context.Context, path string, result any) error {
 	return c.Request(ctx, http.MethodGet, path, nil, result)
 }
 
 // Post makes a POST request to the GitHub API
-func (c *RESTClient) Post(ctx context.Context, path string, body interface{}, result interface{}) error {
+func (c *RESTClient) Post(ctx context.Context, path string, body any, result any) error {
 	return c.Request(ctx, http.MethodPost, path, body, result)
 }
 
 // Put makes a PUT request to the GitHub API
-func (c *RESTClient) Put(ctx context.Context, path string, body interface{}, result interface{}) error {
+func (c *RESTClient) Put(ctx context.Context, path string, body any, result any) error {
 	return c.Request(ctx, http.MethodPut, path, body, result)
 }
 
 // Patch makes a PATCH request to the GitHub API
-func (c *RESTClient) Patch(ctx context.Context, path string, body interface{}, result interface{}) error {
+func (c *RESTClient) Patch(ctx context.Context, path string, body any, result any) error {
 	return c.Request(ctx, http.MethodPatch, path, body, result)
 }
 

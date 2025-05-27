@@ -53,7 +53,6 @@ func TestEnqueueEvent(t *testing.T) {
 	}
 }
 
-
 func TestReceiveEvents(t *testing.T) {
 	mock := &mockSQSAPI{
 		receiveMessageFunc: func(ctx context.Context, input *sqs.ReceiveMessageInput, optFns ...func(*sqs.Options)) (*sqs.ReceiveMessageOutput, error) {

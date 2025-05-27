@@ -11,13 +11,13 @@ import (
 
 func TestGraphQLClient_RateLimitHandling(t *testing.T) {
 	logger := observability.NewLogger("test.graphqlclient")
-metrics := observability.NewMetricsClient()
-rateLimiter := resilience.NewRateLimiter(resilience.RateLimiterConfig{
-	Name:  "test",
-	Rate:  1,
-	Burst: 1,
-})
-gqlClient := NewGraphQLClient(&Config{}, &http.Client{}, rateLimiter, logger, metrics)
+	metrics := observability.NewMetricsClient()
+	rateLimiter := resilience.NewRateLimiter(resilience.RateLimiterConfig{
+		Name:  "test",
+		Rate:  1,
+		Burst: 1,
+	})
+	gqlClient := NewGraphQLClient(&Config{}, &http.Client{}, rateLimiter, logger, metrics)
 
 	ctx := context.Background()
 	// Simulate rate limit exceeded

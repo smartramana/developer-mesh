@@ -8,15 +8,15 @@ type MonitoringConfig struct {
 
 // PrometheusConfig holds Prometheus configuration
 type PrometheusConfig struct {
-	Enabled      bool                   `yaml:"enabled"`
-	Path         string                 `yaml:"path"`
-	VectorMetrics VectorMetricsConfig   `yaml:"vector_metrics"`
+	Enabled       bool                `yaml:"enabled"`
+	Path          string              `yaml:"path"`
+	VectorMetrics VectorMetricsConfig `yaml:"vector_metrics"`
 }
 
 // VectorMetricsConfig holds configuration for vector-specific metrics
 type VectorMetricsConfig struct {
-	Enabled           bool     `yaml:"enabled"`
-	CollectHistograms bool     `yaml:"collect_histograms"`
+	Enabled           bool      `yaml:"enabled"`
+	CollectHistograms bool      `yaml:"collect_histograms"`
 	Percentiles       []float64 `yaml:"percentiles"`
 }
 

@@ -55,28 +55,28 @@ func (l *Logger) shouldLog(level LogLevel) bool {
 }
 
 // Debug logs a debug message with structured data
-func (l *Logger) Debug(message string, data map[string]interface{}) {
+func (l *Logger) Debug(message string, data map[string]any) {
 	if l.shouldLog(LogLevelDebug) {
 		l.log(LogLevelDebug, message, data)
 	}
 }
 
 // Info logs an informational message with structured data
-func (l *Logger) Info(message string, data map[string]interface{}) {
+func (l *Logger) Info(message string, data map[string]any) {
 	if l.shouldLog(LogLevelInfo) {
 		l.log(LogLevelInfo, message, data)
 	}
 }
 
 // Warn logs a warning message with structured data
-func (l *Logger) Warn(message string, data map[string]interface{}) {
+func (l *Logger) Warn(message string, data map[string]any) {
 	if l.shouldLog(LogLevelWarn) {
 		l.log(LogLevelWarn, message, data)
 	}
 }
 
 // Error logs an error message with structured data
-func (l *Logger) Error(message string, data map[string]interface{}) {
+func (l *Logger) Error(message string, data map[string]any) {
 	if l.shouldLog(LogLevelError) {
 		l.log(LogLevelError, message, data)
 	}
@@ -88,7 +88,7 @@ func (l *Logger) WithPrefix(prefix string) *Logger {
 }
 
 // log handles the actual logging
-func (l *Logger) log(level LogLevel, message string, data map[string]interface{}) {
+func (l *Logger) log(level LogLevel, message string, data map[string]any) {
 	timestamp := time.Now().UTC().Format(time.RFC3339)
 
 	// Format structured data as key=value pairs
@@ -98,11 +98,11 @@ func (l *Logger) log(level LogLevel, message string, data map[string]interface{}
 	}
 
 	// Format log message
-	logMsg := fmt.Sprintf("[%s] %s [%s] %s%s\n", 
-		timestamp, 
-		level, 
-		l.serviceName, 
-		message, 
+	logMsg := fmt.Sprintf("[%s] %s [%s] %s%s\n",
+		timestamp,
+		level,
+		l.serviceName,
+		message,
 		structuredData,
 	)
 

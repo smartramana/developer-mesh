@@ -19,16 +19,16 @@ import (
 type Config struct {
 	// Path to migration files directory
 	MigrationsPath string `json:"migrations_path" yaml:"migrations_path"`
-	
+
 	// Whether to automatically run migrations on startup
 	AutoMigrate bool `json:"auto_migrate" yaml:"auto_migrate"`
-	
+
 	// Timeout for migration operations
 	MigrationTimeout time.Duration `json:"migration_timeout" yaml:"migration_timeout"`
-	
+
 	// Whether to validate migrations without applying them
 	ValidateOnly bool `json:"validate_only" yaml:"validate_only"`
-	
+
 	// Use a specific number of steps for migration (0 means all)
 	Steps int `json:"steps" yaml:"steps"`
 }
@@ -80,7 +80,7 @@ func (m *Manager) Init(ctx context.Context) error {
 
 	// Create file source instance with migrations path
 	sourceURL := fmt.Sprintf("file://%s", m.config.MigrationsPath)
-	
+
 	// Create migrator instance
 	migrator, err := migrate.NewWithDatabaseInstance(
 		sourceURL,

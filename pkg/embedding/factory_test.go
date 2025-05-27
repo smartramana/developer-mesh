@@ -3,8 +3,8 @@ package embedding
 import (
 	"testing"
 
-	"github.com/S-Corkum/devops-mcp/pkg/chunking"
 	"github.com/DATA-DOG/go-sqlmock"
+	"github.com/S-Corkum/devops-mcp/pkg/chunking"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -188,7 +188,7 @@ func TestEmbeddingFactory_CreateEmbeddingStorage(t *testing.T) {
 	db, mock, err := sqlmock.New()
 	require.NoError(t, err)
 	defer db.Close()
-	
+
 	// Set up expectations for checking pgvector extension
 	rows := sqlmock.NewRows([]string{"exists"}).AddRow(true)
 	mock.ExpectQuery(`SELECT EXISTS\(SELECT 1 FROM pg_extension WHERE extname = 'vector'\)`).WillReturnRows(rows)
@@ -259,7 +259,7 @@ func TestRunIntegrationTests(t *testing.T) {
 	// These tests would connect to a real database and OpenAI API
 	// They are skipped by default but could be run in a CI/CD pipeline
 	// with proper environment setup.
-	
+
 	// This is just a placeholder - actual integration tests would
 	// be more extensive and require environment variables for
 	// database credentials and API keys.

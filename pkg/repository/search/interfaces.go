@@ -7,7 +7,7 @@ import (
 
 // Filter defines a filter map for repository operations
 // This avoids importing pkg/repository to prevent import cycles
-type Filter map[string]interface{}
+type Filter map[string]any
 
 // FilterFromContentType creates a filter for content type
 func FilterFromContentType(contentType string) Filter {
@@ -34,7 +34,7 @@ type SearchOptions struct {
 type SearchFilter struct {
 	Field    string
 	Operator string
-	Value    interface{}
+	Value    any
 }
 
 // SearchSort defines a sort order for search operations
@@ -57,7 +57,7 @@ type SearchResult struct {
 	Distance    float32
 	Content     string
 	Type        string
-	Metadata    map[string]interface{}
+	Metadata    map[string]any
 	ContentHash string
 }
 
@@ -78,16 +78,16 @@ type Repository interface {
 	// Search-specific methods
 	// SearchByText performs a vector search using text
 	SearchByText(ctx context.Context, query string, options *SearchOptions) (*SearchResults, error)
-	
+
 	// SearchByVector performs a vector search using a pre-computed vector
 	SearchByVector(ctx context.Context, vector []float32, options *SearchOptions) (*SearchResults, error)
-	
+
 	// SearchByContentID performs a "more like this" search
 	SearchByContentID(ctx context.Context, contentID string, options *SearchOptions) (*SearchResults, error)
-	
+
 	// GetSupportedModels returns a list of models with embeddings
 	GetSupportedModels(ctx context.Context) ([]string, error)
-	
+
 	// GetSearchStats retrieves statistics about the search index
-	GetSearchStats(ctx context.Context) (map[string]interface{}, error)
+	GetSearchStats(ctx context.Context) (map[string]any, error)
 }

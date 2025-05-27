@@ -6,8 +6,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/S-Corkum/devops-mcp/pkg/storage"
 	"github.com/DATA-DOG/go-sqlmock"
+	"github.com/S-Corkum/devops-mcp/pkg/storage"
 	"github.com/jmoiron/sqlx"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -53,13 +53,13 @@ func TestStoreGitHubContent(t *testing.T) {
 			"repo",                    // Repo
 			"issue",                   // ContentType
 			"123",                     // ContentID
-			"9801739daae44ec5293d4e1f53d3f4d2d426d91c2a7d6d0da6291a5f5e9f1d13", // Checksum
+			"9801739daae44ec5293d4e1f53d3f4d2d426d91c2a7d6d0da6291a5f5e9f1d13",                          // Checksum
 			"s3://test-bucket/content/9801739daae44ec5293d4e1f53d3f4d2d426d91c2a7d6d0da6291a5f5e9f1d13", // URI
-			int64(100),                // Size
-			now,                       // CreatedAt
-			now,                       // UpdatedAt
-			expires,                   // ExpiresAt
-			sqlmock.AnyArg(),          // Metadata JSON
+			int64(100),       // Size
+			now,              // CreatedAt
+			now,              // UpdatedAt
+			expires,          // ExpiresAt
+			sqlmock.AnyArg(), // Metadata JSON
 		).
 		WillReturnResult(sqlmock.NewResult(1, 1))
 	mock.ExpectCommit()
@@ -83,13 +83,13 @@ func TestStoreGitHubContent(t *testing.T) {
 			"repo",                    // Repo
 			"issue",                   // ContentType
 			"123",                     // ContentID
-			"9801739daae44ec5293d4e1f53d3f4d2d426d91c2a7d6d0da6291a5f5e9f1d13", // Checksum
+			"9801739daae44ec5293d4e1f53d3f4d2d426d91c2a7d6d0da6291a5f5e9f1d13",                          // Checksum
 			"s3://test-bucket/content/9801739daae44ec5293d4e1f53d3f4d2d426d91c2a7d6d0da6291a5f5e9f1d13", // URI
-			int64(100),                // Size
-			now,                       // CreatedAt
-			now,                       // UpdatedAt
-			expires,                   // ExpiresAt
-			[]byte("{}"),              // Empty JSON object
+			int64(100),   // Size
+			now,          // CreatedAt
+			now,          // UpdatedAt
+			expires,      // ExpiresAt
+			[]byte("{}"), // Empty JSON object
 		).
 		WillReturnResult(sqlmock.NewResult(1, 1))
 	mock.ExpectCommit()
@@ -113,13 +113,13 @@ func TestStoreGitHubContent(t *testing.T) {
 			"repo",                    // Repo
 			"issue",                   // ContentType
 			"123",                     // ContentID
-			"9801739daae44ec5293d4e1f53d3f4d2d426d91c2a7d6d0da6291a5f5e9f1d13", // Checksum
+			"9801739daae44ec5293d4e1f53d3f4d2d426d91c2a7d6d0da6291a5f5e9f1d13",                          // Checksum
 			"s3://test-bucket/content/9801739daae44ec5293d4e1f53d3f4d2d426d91c2a7d6d0da6291a5f5e9f1d13", // URI
-			int64(100),                // Size
-			now,                       // CreatedAt
-			now,                       // UpdatedAt
+			int64(100),                 // Size
+			now,                        // CreatedAt
+			now,                        // UpdatedAt
 			sql.NullTime{Valid: false}, // Nil ExpiresAt
-			[]byte("{}"),              // Empty JSON object
+			[]byte("{}"),               // Empty JSON object
 		).
 		WillReturnResult(sqlmock.NewResult(1, 1))
 	mock.ExpectCommit()
@@ -140,13 +140,13 @@ func TestStoreGitHubContent(t *testing.T) {
 			"repo",                    // Repo
 			"issue",                   // ContentType
 			"123",                     // ContentID
-			"9801739daae44ec5293d4e1f53d3f4d2d426d91c2a7d6d0da6291a5f5e9f1d13", // Checksum
+			"9801739daae44ec5293d4e1f53d3f4d2d426d91c2a7d6d0da6291a5f5e9f1d13",                          // Checksum
 			"s3://test-bucket/content/9801739daae44ec5293d4e1f53d3f4d2d426d91c2a7d6d0da6291a5f5e9f1d13", // URI
-			int64(100),                // Size
-			now,                       // CreatedAt
-			now,                       // UpdatedAt
+			int64(100),                 // Size
+			now,                        // CreatedAt
+			now,                        // UpdatedAt
 			sql.NullTime{Valid: false}, // Nil ExpiresAt
-			[]byte("{}"),              // Empty JSON object
+			[]byte("{}"),               // Empty JSON object
 		).
 		WillReturnError(sql.ErrTxDone)
 	mock.ExpectRollback()
@@ -178,7 +178,7 @@ func TestGetGitHubContent(t *testing.T) {
 	expires := now.Add(24 * time.Hour)
 
 	rows := sqlmock.NewRows([]string{
-		"id", "owner", "repo", "content_type", "content_id", "checksum", "uri", 
+		"id", "owner", "repo", "content_type", "content_id", "checksum", "uri",
 		"size", "created_at", "updated_at", "expires_at", "metadata"}).
 		AddRow(
 			"gh-owner-repo-issue-123", // ID
@@ -186,12 +186,12 @@ func TestGetGitHubContent(t *testing.T) {
 			"repo",                    // Repo
 			"issue",                   // ContentType
 			"123",                     // ContentID
-			"9801739daae44ec5293d4e1f53d3f4d2d426d91c2a7d6d0da6291a5f5e9f1d13", // Checksum
+			"9801739daae44ec5293d4e1f53d3f4d2d426d91c2a7d6d0da6291a5f5e9f1d13",                          // Checksum
 			"s3://test-bucket/content/9801739daae44ec5293d4e1f53d3f4d2d426d91c2a7d6d0da6291a5f5e9f1d13", // URI
-			int64(100),                // Size
-			now,                       // CreatedAt
-			now,                       // UpdatedAt
-			expires,                   // ExpiresAt
+			int64(100),                 // Size
+			now,                        // CreatedAt
+			now,                        // UpdatedAt
+			expires,                    // ExpiresAt
 			[]byte(`{"test":"value"}`), // Metadata
 		)
 
@@ -415,35 +415,35 @@ func TestListGitHubContent(t *testing.T) {
 	expires := now.Add(24 * time.Hour)
 
 	rows := sqlmock.NewRows([]string{
-		"id", "owner", "repo", "content_type", "content_id", "checksum", "uri", 
+		"id", "owner", "repo", "content_type", "content_id", "checksum", "uri",
 		"size", "created_at", "updated_at", "expires_at", "metadata"}).
 		AddRow(
-			"gh-owner-repo-issue-123", // ID
-			"owner",                   // Owner
-			"repo",                    // Repo
-			"issue",                   // ContentType
-			"123",                     // ContentID
-			"hash1",                   // Checksum
+			"gh-owner-repo-issue-123",        // ID
+			"owner",                          // Owner
+			"repo",                           // Repo
+			"issue",                          // ContentType
+			"123",                            // ContentID
+			"hash1",                          // Checksum
 			"s3://test-bucket/content/hash1", // URI
-			int64(100),                // Size
-			now,                       // CreatedAt
-			now,                       // UpdatedAt
-			expires,                   // ExpiresAt
-			[]byte(`{"test":"value1"}`), // Metadata
+			int64(100),                       // Size
+			now,                              // CreatedAt
+			now,                              // UpdatedAt
+			expires,                          // ExpiresAt
+			[]byte(`{"test":"value1"}`),      // Metadata
 		).
 		AddRow(
-			"gh-owner-repo-issue-456", // ID
-			"owner",                   // Owner
-			"repo",                    // Repo
-			"issue",                   // ContentType
-			"456",                     // ContentID
-			"hash2",                   // // Checksum
+			"gh-owner-repo-issue-456",        // ID
+			"owner",                          // Owner
+			"repo",                           // Repo
+			"issue",                          // ContentType
+			"456",                            // ContentID
+			"hash2",                          // // Checksum
 			"s3://test-bucket/content/hash2", // URI
-			int64(200),                // Size
-			now,                       // CreatedAt
-			now,                       // UpdatedAt
-			expires,                   // ExpiresAt
-			[]byte(`{"test":"value2"}`), // Metadata
+			int64(200),                       // Size
+			now,                              // CreatedAt
+			now,                              // UpdatedAt
+			expires,                          // ExpiresAt
+			[]byte(`{"test":"value2"}`),      // Metadata
 		)
 
 	// Set up expectations for listing with content type
@@ -468,7 +468,7 @@ func TestListGitHubContent(t *testing.T) {
 	mock.ExpectBegin()
 	// Create a new row with only one item for the limit test
 	limitedRows := sqlmock.NewRows([]string{"id", "owner", "repo", "content_type", "content_id", "checksum", "uri", "size", "created_at", "updated_at", "expires_at", "metadata"}).
-		AddRow("gh-owner-repo-issue-123", "owner", "repo", "issue", "123", "hash1", "s3://test-bucket/content/hash1", int64(100), now, now, expires, []byte(`{"test":"value1"}`)) 
+		AddRow("gh-owner-repo-issue-123", "owner", "repo", "issue", "123", "hash1", "s3://test-bucket/content/hash1", int64(100), now, now, expires, []byte(`{"test":"value1"}`))
 	mock.ExpectQuery("SELECT (.+) FROM mcp.github_content_metadata WHERE owner = (.+) AND repo = (.+) AND content_type = (.+) ORDER BY updated_at DESC LIMIT (.+)").
 		WithArgs("owner", "repo", "issue", 1).
 		WillReturnRows(limitedRows)
@@ -486,7 +486,7 @@ func TestListGitHubContent(t *testing.T) {
 	// Test listing without content type
 	// We need to recreate the rows since the previous query consumed them
 	rows = sqlmock.NewRows([]string{"id", "owner", "repo", "content_type", "content_id", "checksum", "uri", "size", "created_at", "updated_at", "expires_at", "metadata"})
-	rows.AddRow("gh-owner-repo-issue-123", "owner", "repo", "issue", "123", "hash1", "s3://test-bucket/content/hash1", int64(100), now, now, expires, []byte(`{"test":"value1"}`)) 
+	rows.AddRow("gh-owner-repo-issue-123", "owner", "repo", "issue", "123", "hash1", "s3://test-bucket/content/hash1", int64(100), now, now, expires, []byte(`{"test":"value1"}`))
 	rows.AddRow("gh-owner-repo-issue-456", "owner", "repo", "issue", "456", "hash2", "s3://test-bucket/content/hash2", int64(200), now, now, expires, []byte(`{"test":"value2"}`))
 
 	mock.ExpectBegin()

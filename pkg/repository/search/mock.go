@@ -34,7 +34,7 @@ func (m *MockRepository) Get(ctx context.Context, id string) (*SearchResult, err
 	if !exists {
 		return nil, nil // Not found
 	}
-	
+
 	// Return a copy to avoid modifying the stored version
 	copy := *result
 	return &copy, nil
@@ -43,10 +43,10 @@ func (m *MockRepository) Get(ctx context.Context, id string) (*SearchResult, err
 // List retrieves search results matching the provided filter (standardized Repository method)
 func (m *MockRepository) List(ctx context.Context, filter Filter) ([]*SearchResult, error) {
 	var results []*SearchResult
-	
+
 	for _, doc := range m.documents {
 		match := true
-		
+
 		if filter != nil {
 			for k, v := range filter {
 				switch k {
@@ -58,18 +58,18 @@ func (m *MockRepository) List(ctx context.Context, filter Filter) ([]*SearchResu
 					if doc.ContentHash != v.(string) {
 						match = false
 					}
-				// Additional filter fields can be added here
+					// Additional filter fields can be added here
 				}
 			}
 		}
-		
+
 		if match {
 			// Clone the doc to avoid modifying the stored version
 			copy := *doc
 			results = append(results, &copy)
 		}
 	}
-	
+
 	return results, nil
 }
 
@@ -79,7 +79,7 @@ func (m *MockRepository) Update(ctx context.Context, result *SearchResult) error
 	if !exists {
 		return fmt.Errorf("search result with id %s not found", result.ID)
 	}
-	
+
 	// Store the updated result
 	m.documents[result.ID] = result
 	return nil
@@ -91,7 +91,7 @@ func (m *MockRepository) Delete(ctx context.Context, id string) error {
 	if !exists {
 		return fmt.Errorf("search result with id %s not found", id)
 	}
-	
+
 	delete(m.documents, id)
 	return nil
 }
@@ -120,7 +120,7 @@ func (m *MockRepository) SearchByText(ctx context.Context, query string, options
 
 	var results []*SearchResult
 	query = strings.ToLower(query)
-	
+
 	// Simple mock implementation that looks for substrings
 	for _, doc := range m.documents {
 		if strings.Contains(strings.ToLower(doc.Content), query) {
@@ -129,12 +129,12 @@ func (m *MockRepository) SearchByText(ctx context.Context, query string, options
 			result.Score = 0.95 // Mock score
 			results = append(results, &result)
 		}
-		
+
 		if len(results) >= options.Limit {
 			break
 		}
 	}
-	
+
 	return &SearchResults{
 		Results: results,
 		Total:   len(results),
@@ -151,10 +151,10 @@ func (m *MockRepository) SearchByVector(ctx context.Context, vector []float32, o
 			Offset: 0,
 		}
 	}
-	
+
 	var results []*SearchResult
 	count := 0
-	
+
 	for _, doc := range m.documents {
 		if count >= options.Offset && len(results) < options.Limit {
 			// Clone the doc to avoid modifying the stored version
@@ -164,7 +164,7 @@ func (m *MockRepository) SearchByVector(ctx context.Context, vector []float32, o
 		}
 		count++
 	}
-	
+
 	return &SearchResults{
 		Results: results,
 		Total:   len(m.documents),
@@ -182,7 +182,7 @@ func (m *MockRepository) SearchByContentID(ctx context.Context, contentID string
 			HasMore: false,
 		}, nil
 	}
-	
+
 	// For mock, we'll just search by text using the content
 	return m.SearchByText(ctx, doc.Content, options)
 }

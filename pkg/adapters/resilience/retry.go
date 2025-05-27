@@ -26,26 +26,26 @@ func Retry(ctx context.Context, config RetryConfig, operation func() error) erro
 	b.MaxInterval = config.MaxInterval
 	b.Multiplier = config.Multiplier
 	b.MaxElapsedTime = config.MaxElapsedTime
-	
+
 	// If MaxRetries is set, limit the number of retries
 	var backoffWithRetries backoff.BackOff = b
 	if config.MaxRetries > 0 {
 		backoffWithRetries = backoff.WithMaxRetries(b, uint64(config.MaxRetries))
 	}
-	
+
 	// Create context-aware backoff
 	ctxBackoff := backoff.WithContext(backoffWithRetries, ctx)
-	
+
 	// Define operation to retry
 	return backoff.Retry(func() error {
 		err := operation()
-		
+
 		// Check if we should retry this error
 		if err != nil && config.RetryIfFn != nil && !config.RetryIfFn(err) {
 			// Return a special error to stop retries
 			return backoff.Permanent(err)
 		}
-		
+
 		return err
 	}, ctxBackoff)
 }
@@ -54,7 +54,7 @@ func Retry(ctx context.Context, config RetryConfig, operation func() error) erro
 func RetryWithResult[T any](ctx context.Context, config RetryConfig, operation func() (T, error)) (T, error) {
 	var result T
 	var resultErr error
-	
+
 	// Wrap the operation to use with Retry
 	operationWrapper := func() error {
 		var err error
@@ -62,18 +62,18 @@ func RetryWithResult[T any](ctx context.Context, config RetryConfig, operation f
 		if err != nil {
 			return err
 		}
-		
+
 		// Store the result and return nil error to indicate success
 		resultErr = nil
 		return nil
 	}
-	
+
 	// Execute the retry
 	err := Retry(ctx, config, operationWrapper)
 	if err != nil {
 		return result, err
 	}
-	
+
 	return result, resultErr
 }
 
@@ -97,15 +97,15 @@ func IsRetryableError(err error) bool {
 	if err == nil {
 		return false
 	}
-	
+
 	// Define your criteria for retryable errors
 	var retryableError RetryableError
 	if errors.As(err, &retryableError) {
 		return true
 	}
-	
+
 	// Add more criteria as needed, such as network errors, timeouts, etc.
-	
+
 	return false
 }
 

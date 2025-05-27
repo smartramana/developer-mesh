@@ -114,10 +114,10 @@ func TestChunkingManager_ChunkAndStoreFile(t *testing.T) {
 	// Create mocks
 	mockStorage := new(MockGitHubContentStorage)
 	mockChunkingService := NewChunkingService()
-	
+
 	// Create a test chunking manager
 	manager := NewChunkingManager(mockChunkingService, mockStorage)
-	
+
 	// Setup test data
 	ctx := context.Background()
 	owner := "test-owner"
@@ -128,7 +128,7 @@ func TestChunkingManager_ChunkAndStoreFile(t *testing.T) {
 		"commit_id": "abc123",
 		"path":      "/src/test.go",
 	}
-	
+
 	// Create a mock content metadata for the storage return
 	contentMetadata := &storage.ContentMetadata{
 		Owner:       owner,
@@ -139,22 +139,22 @@ func TestChunkingManager_ChunkAndStoreFile(t *testing.T) {
 		URI:         "test_uri",
 		Metadata:    map[string]interface{}{},
 	}
-	
+
 	// Setup storage mock expectations
 	// We'll use a MatchedBy function to match any content ID since it's dynamically generated
-	mockStorage.On("StoreContent", 
-		ctx, 
-		owner, 
-		repo, 
-		storage.ContentTypeFile, 
-		mock.MatchedBy(func(s string) bool { return true }), 
-		mock.MatchedBy(func(b []byte) bool { return true }), 
+	mockStorage.On("StoreContent",
+		ctx,
+		owner,
+		repo,
+		storage.ContentTypeFile,
+		mock.MatchedBy(func(s string) bool { return true }),
+		mock.MatchedBy(func(b []byte) bool { return true }),
 		mock.MatchedBy(func(m map[string]interface{}) bool { return true }),
 	).Return(contentMetadata, nil)
-	
+
 	// Call the method
 	chunks, err := manager.ChunkAndStoreFile(ctx, owner, repo, code, filename, fileMetadata)
-	
+
 	// Verify results
 	assert.NoError(t, err)
 	assert.NotNil(t, chunks)
@@ -166,15 +166,15 @@ func TestChunkingManager_ListChunks(t *testing.T) {
 	// Create mocks
 	mockStorage := new(MockGitHubContentStorage)
 	mockChunkingService := NewChunkingService()
-	
+
 	// Create a test chunking manager
 	manager := NewChunkingManager(mockChunkingService, mockStorage)
-	
+
 	// Setup test data
 	ctx := context.Background()
 	owner := "test-owner"
 	repo := "test-repo"
-	
+
 	// Create test content metadata
 	contentMetadata1 := &storage.ContentMetadata{
 		Owner:       owner,
@@ -189,7 +189,7 @@ func TestChunkingManager_ListChunks(t *testing.T) {
 			"language":   "go",
 		},
 	}
-	
+
 	contentMetadata2 := &storage.ContentMetadata{
 		Owner:       owner,
 		Repo:        repo,
@@ -203,24 +203,24 @@ func TestChunkingManager_ListChunks(t *testing.T) {
 			"language":   "go",
 		},
 	}
-	
+
 	// Create test chunk data
 	chunk1Data := []byte(`{"id":"123","type":"function","name":"func1","path":"test.go","content":"func func1() {}","language":"go","start_line":1,"end_line":3}`)
 	chunk2Data := []byte(`{"id":"456","type":"method","name":"method1","path":"test.go","content":"func (t *Test) method1() {}","language":"go","start_line":5,"end_line":7}`)
-	
+
 	// Setup mock expectations
 	mockStorage.On("ListContent", ctx, owner, repo, storage.ContentTypeFile).
 		Return([]*storage.ContentMetadata{contentMetadata1, contentMetadata2}, nil)
-	
+
 	mockStorage.On("GetContent", ctx, owner, repo, storage.ContentTypeFile, "chunk_1").
 		Return(chunk1Data, contentMetadata1, nil)
-	
+
 	mockStorage.On("GetContent", ctx, owner, repo, storage.ContentTypeFile, "chunk_2").
 		Return(chunk2Data, contentMetadata2, nil)
-	
+
 	// Call the method
 	chunks, err := manager.ListChunks(ctx, owner, repo)
-	
+
 	// Verify results
 	assert.NoError(t, err)
 	assert.NotNil(t, chunks)
@@ -236,16 +236,16 @@ func TestChunkingManager_GetChunk(t *testing.T) {
 	// Create mocks
 	mockStorage := new(MockGitHubContentStorage)
 	mockChunkingService := NewChunkingService()
-	
+
 	// Create a test chunking manager
 	manager := NewChunkingManager(mockChunkingService, mockStorage)
-	
+
 	// Setup test data
 	ctx := context.Background()
 	owner := "test-owner"
 	repo := "test-repo"
 	chunkID := "123"
-	
+
 	// Create test content metadata
 	contentMetadata := &storage.ContentMetadata{
 		Owner:       owner,
@@ -260,20 +260,20 @@ func TestChunkingManager_GetChunk(t *testing.T) {
 			"language":   "go",
 		},
 	}
-	
+
 	// Create test chunk data
 	chunkData := []byte(`{"id":"123","type":"function","name":"func1","path":"test.go","content":"func func1() {}","language":"go","start_line":1,"end_line":3}`)
-	
+
 	// Setup mock expectations
 	mockStorage.On("ListContent", ctx, owner, repo, storage.ContentTypeFile).
 		Return([]*storage.ContentMetadata{contentMetadata}, nil)
-	
+
 	mockStorage.On("GetContent", ctx, owner, repo, storage.ContentTypeFile, "chunk_1").
 		Return(chunkData, contentMetadata, nil)
-	
+
 	// Call the method
 	chunk, err := manager.GetChunk(ctx, owner, repo, chunkID)
-	
+
 	// Verify results
 	assert.NoError(t, err)
 	assert.NotNil(t, chunk)
@@ -287,15 +287,15 @@ func TestChunkingManager_GetChunksByType(t *testing.T) {
 	// Create mocks
 	mockStorage := new(MockGitHubContentStorage)
 	mockChunkingService := NewChunkingService()
-	
+
 	// Create a test chunking manager
 	manager := NewChunkingManager(mockChunkingService, mockStorage)
-	
+
 	// Setup test data
 	ctx := context.Background()
 	owner := "test-owner"
 	repo := "test-repo"
-	
+
 	// Create test content metadata
 	contentMetadata1 := &storage.ContentMetadata{
 		Owner:       owner,
@@ -310,7 +310,7 @@ func TestChunkingManager_GetChunksByType(t *testing.T) {
 			"language":   "go",
 		},
 	}
-	
+
 	contentMetadata2 := &storage.ContentMetadata{
 		Owner:       owner,
 		Repo:        repo,
@@ -324,40 +324,40 @@ func TestChunkingManager_GetChunksByType(t *testing.T) {
 			"language":   "go",
 		},
 	}
-	
+
 	// Create test chunk data
 	chunk1Data := []byte(`{"id":"123","type":"function","name":"func1","path":"test.go","content":"func func1() {}","language":"go","start_line":1,"end_line":3}`)
 	chunk2Data := []byte(`{"id":"456","type":"method","name":"method1","path":"test.go","content":"func (t *Test) method1() {}","language":"go","start_line":5,"end_line":7}`)
-	
+
 	// Setup mock expectations
 	mockStorage.On("ListContent", ctx, owner, repo, storage.ContentTypeFile).
 		Return([]*storage.ContentMetadata{contentMetadata1, contentMetadata2}, nil)
-	
+
 	mockStorage.On("GetContent", ctx, owner, repo, storage.ContentTypeFile, "chunk_1").
 		Return(chunk1Data, contentMetadata1, nil)
-	
+
 	mockStorage.On("GetContent", ctx, owner, repo, storage.ContentTypeFile, "chunk_2").
 		Return(chunk2Data, contentMetadata2, nil)
-	
+
 	// Call the method to get only function chunks
 	functionChunks, err := manager.GetChunksByType(ctx, owner, repo, ChunkTypeFunction)
-	
+
 	// Verify results
 	assert.NoError(t, err)
 	assert.NotNil(t, functionChunks)
 	assert.Equal(t, 1, len(functionChunks))
 	assert.Equal(t, "123", functionChunks[0].ID)
 	assert.Equal(t, ChunkTypeFunction, functionChunks[0].Type)
-	
+
 	// Call the method to get only method chunks
 	methodChunks, err := manager.GetChunksByType(ctx, owner, repo, ChunkTypeMethod)
-	
+
 	// Verify results
 	assert.NoError(t, err)
 	assert.NotNil(t, methodChunks)
 	assert.Equal(t, 1, len(methodChunks))
 	assert.Equal(t, "456", methodChunks[0].ID)
 	assert.Equal(t, ChunkTypeMethod, methodChunks[0].Type)
-	
+
 	mockStorage.AssertExpectations(t)
 }

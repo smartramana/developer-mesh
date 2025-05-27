@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 	"time"
-	
+
 	"github.com/S-Corkum/devops-mcp/pkg/adapters"
 )
 
@@ -115,26 +115,26 @@ func (r *ResilienceDecorator) Health(ctx context.Context) error {
 func withRetry[T any](ctx context.Context, maxRetries int, fn func() (T, error)) (T, error) {
 	var result T
 	var err error
-	
+
 	for i := 0; i <= maxRetries; i++ {
 		select {
 		case <-ctx.Done():
 			return result, ctx.Err()
 		default:
 		}
-		
+
 		result, err = fn()
 		if err == nil {
 			return result, nil
 		}
-		
+
 		if i < maxRetries {
 			// Exponential backoff
 			backoff := time.Duration(1<<uint(i)) * time.Second
 			if backoff > 30*time.Second {
 				backoff = 30 * time.Second
 			}
-			
+
 			timer := time.NewTimer(backoff)
 			select {
 			case <-ctx.Done():
@@ -144,7 +144,7 @@ func withRetry[T any](ctx context.Context, maxRetries int, fn func() (T, error))
 			}
 		}
 	}
-	
+
 	return result, fmt.Errorf("after %d retries: %w", maxRetries, err)
 }
 

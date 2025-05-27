@@ -2,7 +2,7 @@ package events
 
 import (
 	"context"
-	
+
 	"github.com/S-Corkum/devops-mcp/pkg/events"
 )
 
@@ -25,11 +25,11 @@ func (a *EventBusAdapter) Emit(ctx context.Context, event *AdapterEvent) error {
 		// The event bus expects events of a specific format
 		// Since we removed the direct ToMCPEvent method, we simulate the conversion
 		// In a real implementation, you'd convert the adapter event to the correct event type
-		
+
 		// Placeholder publish to satisfy the interface
 		// We're not actually publishing any events since this is a migration placeholder
 	}
-	
+
 	return nil
 }
 

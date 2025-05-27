@@ -27,7 +27,7 @@ func TestCoreModelConfig(t *testing.T) {
 			"param1": "value1",
 		},
 	}
-	
+
 	// Verify fields
 	assert.Equal(t, ModelTypeOpenAI, config.Type, "config.Type should match")
 	assert.Equal(t, "text-embedding-3-small", config.Name, "config.Name should match")
@@ -50,7 +50,7 @@ func TestCoreEmbeddingVector(t *testing.T) {
 			"key1": "value1",
 		},
 	}
-	
+
 	// Verify fields
 	assert.Len(t, vector.Vector, 3, "vector.Vector should have length 3")
 	assert.Equal(t, float32(0.1), vector.Vector[0], "vector.Vector[0] should be 0.1")
@@ -66,12 +66,12 @@ func TestCoreEmbeddingVector(t *testing.T) {
 // TestCoreInterfaceCompatibility ensures that interface implementations match requirements
 func TestCoreInterfaceCompatibility(t *testing.T) {
 	// These aren't functional tests, but they verify at compile time that the interfaces match
-	
+
 	// Create a variable of interface type and assign it nil to verify the interface
 	// is implemented by the type
 	var embeddingService EmbeddingService
 	embeddingService = (*OpenAIEmbeddingService)(nil)
-	
+
 	// This doesn't actually run as a test, it just verifies that the interfaces match
 	// at compile time
 	assert.Nil(t, embeddingService, "This should compile if OpenAIEmbeddingService implements EmbeddingService")
@@ -83,13 +83,13 @@ func TestEmbeddingServiceMethods(t *testing.T) {
 	mockService := &MockEmbeddingServiceForTests{
 		MockVectors: make(map[string]*EmbeddingVector),
 	}
-	
+
 	// Setup test data
 	ctx := context.Background()
 	testText := "This is a test text"
 	contentType := "test"
 	contentID := "test-123"
-	
+
 	// Set the mock to return a test vector
 	testVector := &EmbeddingVector{
 		Vector:      []float32{0.1, 0.2, 0.3},
@@ -100,16 +100,16 @@ func TestEmbeddingServiceMethods(t *testing.T) {
 		Metadata:    make(map[string]interface{}),
 	}
 	mockService.MockVectors[testText] = testVector
-	
+
 	// Test GenerateEmbedding
 	result, err := mockService.GenerateEmbedding(ctx, testText, contentType, contentID)
 	assert.NoError(t, err, "GenerateEmbedding should not return an error")
 	assert.Equal(t, testVector, result, "Generated embedding should match expected")
-	
+
 	// Test BatchGenerateEmbeddings
 	texts := []string{testText, "Another test"}
 	contentIDs := []string{contentID, "test-456"}
-	
+
 	// Add another mock vector
 	anotherVector := &EmbeddingVector{
 		Vector:      []float32{0.4, 0.5, 0.6},
@@ -120,20 +120,20 @@ func TestEmbeddingServiceMethods(t *testing.T) {
 		Metadata:    make(map[string]interface{}),
 	}
 	mockService.MockVectors["Another test"] = anotherVector
-	
+
 	// Test batch generation
 	batchResults, err := mockService.BatchGenerateEmbeddings(ctx, texts, contentType, contentIDs)
 	assert.NoError(t, err, "BatchGenerateEmbeddings should not return an error")
 	assert.Len(t, batchResults, 2, "Batch should return 2 embeddings")
 	assert.Equal(t, testVector, batchResults[0], "First embedding should match")
 	assert.Equal(t, anotherVector, batchResults[1], "Second embedding should match")
-	
+
 	// Test model configuration
 	config := mockService.GetModelConfig()
 	assert.Equal(t, ModelTypeOpenAI, config.Type, "Model type should match")
 	assert.Equal(t, "test-model", config.Name, "Model name should match")
 	assert.Equal(t, 3, config.Dimensions, "Dimensions should match")
-	
+
 	// Test dimensions method
 	dims := mockService.GetModelDimensions()
 	assert.Equal(t, 3, dims, "Dimensions should match")
@@ -149,7 +149,7 @@ func (m *MockEmbeddingServiceForTests) GenerateEmbedding(ctx context.Context, te
 	if vector, ok := m.MockVectors[text]; ok {
 		return vector, nil
 	}
-	
+
 	// Return a default vector if not found in mock data
 	return &EmbeddingVector{
 		Vector:      []float32{0.0, 0.0, 0.0},
@@ -164,7 +164,7 @@ func (m *MockEmbeddingServiceForTests) GenerateEmbedding(ctx context.Context, te
 // BatchGenerateEmbeddings for the mock service
 func (m *MockEmbeddingServiceForTests) BatchGenerateEmbeddings(ctx context.Context, texts []string, contentType string, contentIDs []string) ([]*EmbeddingVector, error) {
 	results := make([]*EmbeddingVector, len(texts))
-	
+
 	for i, text := range texts {
 		var contentID string
 		if i < len(contentIDs) {
@@ -172,11 +172,11 @@ func (m *MockEmbeddingServiceForTests) BatchGenerateEmbeddings(ctx context.Conte
 		} else {
 			contentID = "unknown"
 		}
-		
+
 		vector, _ := m.GenerateEmbedding(ctx, text, contentType, contentID)
 		results[i] = vector
 	}
-	
+
 	return results, nil
 }
 

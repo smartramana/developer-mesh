@@ -30,14 +30,14 @@ func (c *SearchClient) SearchByText(ctx context.Context, query string, options *
 
 	// Prepare the request body
 	requestBody := struct {
-		Query        string                  `json:"query"`
-		ContentTypes []string                `json:"content_types,omitempty"`
-		Filters      []embedding.SearchFilter `json:"filters,omitempty"`
-		Sorts        []embedding.SearchSort   `json:"sorts,omitempty"`
-		Limit        int                     `json:"limit,omitempty"`
-		Offset       int                     `json:"offset,omitempty"`
-		MinSimilarity float32                `json:"min_similarity,omitempty"`
-		WeightFactors map[string]float32     `json:"weight_factors,omitempty"`
+		Query         string                   `json:"query"`
+		ContentTypes  []string                 `json:"content_types,omitempty"`
+		Filters       []embedding.SearchFilter `json:"filters,omitempty"`
+		Sorts         []embedding.SearchSort   `json:"sorts,omitempty"`
+		Limit         int                      `json:"limit,omitempty"`
+		Offset        int                      `json:"offset,omitempty"`
+		MinSimilarity float32                  `json:"min_similarity,omitempty"`
+		WeightFactors map[string]float32       `json:"weight_factors,omitempty"`
 	}{
 		Query: query,
 	}
@@ -78,14 +78,14 @@ func (c *SearchClient) SearchByVector(ctx context.Context, vector []float32, opt
 
 	// Prepare the request body
 	requestBody := struct {
-		Vector       []float32               `json:"vector"`
-		ContentTypes []string                `json:"content_types,omitempty"`
-		Filters      []embedding.SearchFilter `json:"filters,omitempty"`
-		Sorts        []embedding.SearchSort   `json:"sorts,omitempty"`
-		Limit        int                     `json:"limit,omitempty"`
-		Offset       int                     `json:"offset,omitempty"`
-		MinSimilarity float32                `json:"min_similarity,omitempty"`
-		WeightFactors map[string]float32     `json:"weight_factors,omitempty"`
+		Vector        []float32                `json:"vector"`
+		ContentTypes  []string                 `json:"content_types,omitempty"`
+		Filters       []embedding.SearchFilter `json:"filters,omitempty"`
+		Sorts         []embedding.SearchSort   `json:"sorts,omitempty"`
+		Limit         int                      `json:"limit,omitempty"`
+		Offset        int                      `json:"offset,omitempty"`
+		MinSimilarity float32                  `json:"min_similarity,omitempty"`
+		WeightFactors map[string]float32       `json:"weight_factors,omitempty"`
 	}{
 		Vector: vector,
 	}
@@ -126,8 +126,8 @@ func (c *SearchClient) SearchByContentID(ctx context.Context, contentID string, 
 
 	// Prepare the request body
 	requestBody := struct {
-		ContentID    string                  `json:"content_id"`
-		Options      *embedding.SearchOptions `json:"options,omitempty"`
+		ContentID string                   `json:"content_id"`
+		Options   *embedding.SearchOptions `json:"options,omitempty"`
 	}{
 		ContentID: contentID,
 		Options:   options,

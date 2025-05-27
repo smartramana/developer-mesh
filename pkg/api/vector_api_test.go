@@ -7,15 +7,13 @@ import (
 	"net/http/httptest"
 	"testing"
 
+	api "github.com/S-Corkum/devops-mcp/pkg/api"
 	"github.com/S-Corkum/devops-mcp/pkg/observability"
 	"github.com/S-Corkum/devops-mcp/pkg/repository"
-	api "github.com/S-Corkum/devops-mcp/pkg/api"
 	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 )
-
-
 
 func setupVectorAPI() (*gin.Engine, *MockEmbeddingRepository) {
 	gin.SetMode(gin.TestMode)
@@ -31,11 +29,11 @@ func TestStoreEmbedding_Success(t *testing.T) {
 	r, repo := setupVectorAPI()
 	repo.On("StoreEmbedding", mock.Anything, mock.AnythingOfType("*repository.Embedding")).Return(nil)
 	body := map[string]interface{}{
-		"context_id": "ctx1",
+		"context_id":    "ctx1",
 		"content_index": 1,
-		"text": "sample",
-		"embedding": []float32{0.1, 0.2},
-		"model_id": "m1",
+		"text":          "sample",
+		"embedding":     []float32{0.1, 0.2},
+		"model_id":      "m1",
 	}
 	jsonBody, _ := json.Marshal(body)
 	req, _ := http.NewRequest("POST", "/api/v1/vectors/store", bytes.NewBuffer(jsonBody))
@@ -63,10 +61,10 @@ func TestSearchEmbeddings_Success(t *testing.T) {
 	embs := []*repository.Embedding{{ContextID: "ctx1", ContentIndex: 1, Text: "t", Embedding: []float32{0.1}, ModelID: "m1"}}
 	repo.On("SearchEmbeddings", mock.Anything, mock.Anything, "ctx1", "m1", 1, 0.5).Return(embs, nil)
 	body := map[string]interface{}{
-		"context_id": "ctx1",
+		"context_id":      "ctx1",
 		"query_embedding": []float32{0.1},
-		"limit": 1,
-		"model_id": "m1",
+		"limit":           1,
+		"model_id":        "m1",
 	}
 	jsonBody, _ := json.Marshal(body)
 	req, _ := http.NewRequest("POST", "/api/v1/vectors/search", bytes.NewBuffer(jsonBody))

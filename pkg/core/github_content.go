@@ -10,17 +10,17 @@ import (
 	"github.com/S-Corkum/devops-mcp/pkg/database"
 	// Add pkg/database which will be used through the adapter
 	pkgdb "github.com/S-Corkum/devops-mcp/pkg/database"
-	"github.com/S-Corkum/devops-mcp/pkg/observability"
 	"github.com/S-Corkum/devops-mcp/pkg/models/relationship"
+	"github.com/S-Corkum/devops-mcp/pkg/observability"
 	"github.com/S-Corkum/devops-mcp/pkg/storage"
 	"github.com/jmoiron/sqlx"
 )
 
 // GitHubContentManager manages GitHub content storage and retrieval
 type GitHubContentManager struct {
-	db                  *database.Database   // Kept for backward compatibility
-	dbAdapter           *DatabaseAdapter     // New adapter to pkg/database
-	pkgDB               *pkgdb.Database      // Direct access to pkg/database
+	db                  *database.Database // Kept for backward compatibility
+	dbAdapter           *DatabaseAdapter   // New adapter to pkg/database
+	pkgDB               *pkgdb.Database    // Direct access to pkg/database
 	storageManager      *storage.GitHubContentStorage
 	logger              observability.Logger // Changed from pointer to interface type
 	lock                sync.RWMutex
@@ -40,7 +40,7 @@ func NewGitHubContentManager(
 
 	// Create logger
 	logger := observability.NewLogger("github-content-manager") // Already returns interface type
-	
+
 	// Create content manager instance with original db for compatibility
 	manager := &GitHubContentManager{
 		db:             db,
@@ -48,14 +48,14 @@ func NewGitHubContentManager(
 		logger:         logger,
 		metricsClient:  metricsClient,
 	}
-	
+
 	// Try to extract the underlying sqlx.DB from the database.
 	// This assumes db.GetDB() returns *sqlx.DB
 	var sqlxDB *sqlx.DB
 	if db != nil {
 		sqlxDB = db.GetDB()
 	}
-	
+
 	// Create the database adapter if possible
 	if sqlxDB != nil {
 		dbAdapter, err := NewDatabaseAdapter(sqlxDB, logger)
@@ -69,7 +69,7 @@ func NewGitHubContentManager(
 			logger.Info("Using new pkg/database implementation via adapter", nil)
 		}
 	}
-	
+
 	// Create relationship manager if service is provided
 	if relationshipService != nil {
 		manager.relationshipManager = NewGitHubRelationshipManager(relationshipService, manager)
@@ -137,7 +137,7 @@ func (m *GitHubContentManager) StoreContent(
 		})
 		return nil, fmt.Errorf("failed to store content metadata in database: %w", err)
 	}
-	
+
 	// Process relationships if relationship manager is available
 	if m.relationshipManager != nil {
 		err = m.relationshipManager.ProcessContentRelationships(ctx, contentMetadata, data)
@@ -205,7 +205,7 @@ func (m *GitHubContentManager) GetContent(
 			})
 			return nil, metadata, fmt.Errorf("failed to get content from S3: %w", err)
 		}
-		
+
 		// Process relationships if relationship manager is available and content was retrieved
 		if m.relationshipManager != nil && len(content) > 0 {
 			err = m.relationshipManager.ProcessContentRelationships(ctx, metadata, content)

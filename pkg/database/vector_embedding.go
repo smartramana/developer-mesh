@@ -5,24 +5,24 @@ import (
 	"database/sql"
 	"fmt"
 	"time"
-	
+
 	"github.com/jmoiron/sqlx"
 )
 
 // Embedding represents a vector embedding in the database
 type Embedding struct {
-	ID          string                 `json:"id" db:"id"`
-	Vector      []float32              `json:"vector" db:"vector"`
-	Dimensions  int                    `json:"dimensions" db:"dimensions"`
-	ModelID     string                 `json:"model_id" db:"model_id"`
-	ContentType string                 `json:"content_type" db:"content_type"`
-	ContentID   string                 `json:"content_id" db:"content_id"`
-	Namespace   string                 `json:"namespace" db:"namespace"`
-	ContextID   string                 `json:"context_id" db:"context_id"`
-	CreatedAt   time.Time              `json:"created_at" db:"created_at"`
-	UpdatedAt   time.Time              `json:"updated_at" db:"updated_at"`
-	Metadata    map[string]interface{} `json:"metadata" db:"metadata"`
-	Similarity  float64                `json:"similarity" db:"similarity"`
+	ID          string         `json:"id" db:"id"`
+	Vector      []float32      `json:"vector" db:"vector"`
+	Dimensions  int            `json:"dimensions" db:"dimensions"`
+	ModelID     string         `json:"model_id" db:"model_id"`
+	ContentType string         `json:"content_type" db:"content_type"`
+	ContentID   string         `json:"content_id" db:"content_id"`
+	Namespace   string         `json:"namespace" db:"namespace"`
+	ContextID   string         `json:"context_id" db:"context_id"`
+	CreatedAt   time.Time      `json:"created_at" db:"created_at"`
+	UpdatedAt   time.Time      `json:"updated_at" db:"updated_at"`
+	Metadata    map[string]any `json:"metadata" db:"metadata"`
+	Similarity  float64        `json:"similarity" db:"similarity"`
 }
 
 // EnsureSchema ensures the vector database schema exists
@@ -36,11 +36,11 @@ func (vdb *VectorDatabase) StoreEmbedding(ctx context.Context, tx *sqlx.Tx, embe
 	if err := vdb.Initialize(ctx); err != nil {
 		return err
 	}
-	
+
 	if embedding == nil {
 		return fmt.Errorf("embedding cannot be nil")
 	}
-	
+
 	// Create a managed transaction if one wasn't provided
 	managedTx := tx == nil
 	if managedTx {
@@ -57,7 +57,7 @@ func (vdb *VectorDatabase) StoreEmbedding(ctx context.Context, tx *sqlx.Tx, embe
 			}
 		}()
 	}
-	
+
 	// Ensure we have a valid ID
 	if embedding.ID == "" {
 		// Generate a UUID for the embedding
@@ -68,7 +68,7 @@ func (vdb *VectorDatabase) StoreEmbedding(ctx context.Context, tx *sqlx.Tx, embe
 		}
 		embedding.ID = id
 	}
-	
+
 	// Set timestamps if not provided
 	now := time.Now().UTC()
 	if embedding.CreatedAt.IsZero() {
@@ -77,13 +77,13 @@ func (vdb *VectorDatabase) StoreEmbedding(ctx context.Context, tx *sqlx.Tx, embe
 	if embedding.UpdatedAt.IsZero() {
 		embedding.UpdatedAt = now
 	}
-	
+
 	// Convert the vector to a PostgreSQL vector format
 	vectorStr, err := vdb.CreateVector(ctx, embedding.Vector)
 	if err != nil {
 		return fmt.Errorf("failed to create vector: %w", err)
 	}
-	
+
 	// Store the embedding in the database
 	_, err = tx.ExecContext(ctx, `
 		INSERT INTO mcp.embeddings (
@@ -103,41 +103,41 @@ func (vdb *VectorDatabase) StoreEmbedding(ctx context.Context, tx *sqlx.Tx, embe
 			context_id = $8,
 			updated_at = $10,
 			metadata = $11
-	`, 
-		embedding.ID, 
-		vectorStr, 
-		embedding.Dimensions, 
-		embedding.ModelID, 
+	`,
+		embedding.ID,
+		vectorStr,
+		embedding.Dimensions,
+		embedding.ModelID,
 		embedding.ContentType,
-		embedding.ContentID, 
-		embedding.Namespace, 
-		embedding.ContextID, 
-		embedding.CreatedAt, 
-		embedding.UpdatedAt, 
+		embedding.ContentID,
+		embedding.Namespace,
+		embedding.ContextID,
+		embedding.CreatedAt,
+		embedding.UpdatedAt,
 		embedding.Metadata,
 	)
-	
+
 	if err != nil {
 		return fmt.Errorf("failed to store embedding: %w", err)
 	}
-	
+
 	return nil
 }
 
 // SearchEmbeddings searches for similar embeddings in the vector database
 func (vdb *VectorDatabase) SearchEmbeddings(
-	ctx context.Context, 
-	tx *sqlx.Tx, 
-	queryVector []float32, 
-	contextID string, 
-	modelID string, 
-	limit int, 
+	ctx context.Context,
+	tx *sqlx.Tx,
+	queryVector []float32,
+	contextID string,
+	modelID string,
+	limit int,
 	similarityThreshold float64,
 ) ([]*Embedding, error) {
 	if err := vdb.Initialize(ctx); err != nil {
 		return nil, err
 	}
-	
+
 	// Create a managed transaction if one wasn't provided
 	managedTx := tx == nil
 	if managedTx {
@@ -152,13 +152,13 @@ func (vdb *VectorDatabase) SearchEmbeddings(
 			}
 		}()
 	}
-	
+
 	// Create the vector string
 	vectorStr, err := vdb.CreateVector(ctx, queryVector)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create query vector: %w", err)
 	}
-	
+
 	// Build the query
 	query := `
 		SELECT 
@@ -179,39 +179,39 @@ func (vdb *VectorDatabase) SearchEmbeddings(
 		WHERE 
 			1 - (e.vector <=> $1::vector) >= $4
 	`
-	
-	params := []interface{}{vectorStr, similarityThreshold}
+
+	params := []any{vectorStr, similarityThreshold}
 	paramCount := 2
-	
+
 	// Add optional filters
 	if contextID != "" {
 		paramCount++
 		query += fmt.Sprintf(" AND e.context_id = $%d", paramCount)
 		params = append(params, contextID)
 	}
-	
+
 	if modelID != "" {
 		paramCount++
 		query += fmt.Sprintf(" AND e.model_id = $%d", paramCount)
 		params = append(params, modelID)
 	}
-	
+
 	// Add ordering and limit
 	query += " ORDER BY similarity DESC"
-	
+
 	if limit > 0 {
 		paramCount++
 		query += fmt.Sprintf(" LIMIT $%d", paramCount)
 		params = append(params, limit)
 	}
-	
+
 	// Execute the query
 	rows, err := tx.QueryxContext(ctx, query, params...)
 	if err != nil {
 		return nil, fmt.Errorf("failed to search embeddings: %w", err)
 	}
 	defer rows.Close()
-	
+
 	// Process results
 	var results []*Embedding
 	for rows.Next() {
@@ -221,18 +221,18 @@ func (vdb *VectorDatabase) SearchEmbeddings(
 		}
 		results = append(results, &emb)
 	}
-	
+
 	if err := rows.Err(); err != nil {
 		return nil, fmt.Errorf("error iterating over embeddings: %w", err)
 	}
-	
+
 	// If we created a transaction, commit it
 	if managedTx {
 		if err := tx.Commit(); err != nil {
 			return nil, fmt.Errorf("failed to commit transaction: %w", err)
 		}
 	}
-	
+
 	return results, nil
 }
 
@@ -241,7 +241,7 @@ func (vdb *VectorDatabase) GetEmbeddingByID(ctx context.Context, tx *sqlx.Tx, id
 	if err := vdb.Initialize(ctx); err != nil {
 		return nil, err
 	}
-	
+
 	// Create a managed transaction if one wasn't provided
 	managedTx := tx == nil
 	if managedTx {
@@ -256,7 +256,7 @@ func (vdb *VectorDatabase) GetEmbeddingByID(ctx context.Context, tx *sqlx.Tx, id
 			}
 		}()
 	}
-	
+
 	var emb Embedding
 	err := tx.QueryRowxContext(ctx, `
 		SELECT 
@@ -276,21 +276,21 @@ func (vdb *VectorDatabase) GetEmbeddingByID(ctx context.Context, tx *sqlx.Tx, id
 		WHERE 
 			id = $1
 	`, id).StructScan(&emb)
-	
+
 	if err != nil {
 		if err == sql.ErrNoRows {
 			return nil, fmt.Errorf("embedding not found: %s", id)
 		}
 		return nil, fmt.Errorf("failed to get embedding: %w", err)
 	}
-	
+
 	// If we created a transaction, commit it
 	if managedTx {
 		if err := tx.Commit(); err != nil {
 			return nil, fmt.Errorf("failed to commit transaction: %w", err)
 		}
 	}
-	
+
 	return &emb, nil
 }
 
@@ -299,7 +299,7 @@ func (vdb *VectorDatabase) DeleteEmbedding(ctx context.Context, tx *sqlx.Tx, id 
 	if err := vdb.Initialize(ctx); err != nil {
 		return err
 	}
-	
+
 	// Create a managed transaction if one wasn't provided
 	managedTx := tx == nil
 	if managedTx {
@@ -316,31 +316,31 @@ func (vdb *VectorDatabase) DeleteEmbedding(ctx context.Context, tx *sqlx.Tx, id 
 			}
 		}()
 	}
-	
+
 	_, err := tx.ExecContext(ctx, `
 		DELETE FROM mcp.embeddings
 		WHERE id = $1
 	`, id)
-	
+
 	if err != nil {
 		return fmt.Errorf("failed to delete embedding: %w", err)
 	}
-	
+
 	return nil
 }
 
 // BatchDeleteEmbeddings deletes multiple embeddings matching criteria
 func (vdb *VectorDatabase) BatchDeleteEmbeddings(
-	ctx context.Context, 
-	tx *sqlx.Tx, 
-	contentType string, 
-	contentID string, 
+	ctx context.Context,
+	tx *sqlx.Tx,
+	contentType string,
+	contentID string,
 	contextID string,
 ) (int, error) {
 	if err := vdb.Initialize(ctx); err != nil {
 		return 0, err
 	}
-	
+
 	// Create a managed transaction if one wasn't provided
 	managedTx := tx == nil
 	if managedTx {
@@ -357,42 +357,42 @@ func (vdb *VectorDatabase) BatchDeleteEmbeddings(
 			}
 		}()
 	}
-	
+
 	// Build the delete query
 	query := `DELETE FROM mcp.embeddings WHERE 1=1`
-	var params []interface{}
+	var params []any
 	paramCount := 0
-	
+
 	// Add filters
 	if contentType != "" {
 		paramCount++
 		query += fmt.Sprintf(" AND content_type = $%d", paramCount)
 		params = append(params, contentType)
 	}
-	
+
 	if contentID != "" {
 		paramCount++
 		query += fmt.Sprintf(" AND content_id = $%d", paramCount)
 		params = append(params, contentID)
 	}
-	
+
 	if contextID != "" {
 		paramCount++
 		query += fmt.Sprintf(" AND context_id = $%d", paramCount)
 		params = append(params, contextID)
 	}
-	
+
 	// Execute the delete
 	result, err := tx.ExecContext(ctx, query, params...)
 	if err != nil {
 		return 0, fmt.Errorf("failed to batch delete embeddings: %w", err)
 	}
-	
+
 	// Get the number of rows affected
 	rowsAffected, err := result.RowsAffected()
 	if err != nil {
 		return 0, fmt.Errorf("failed to get rows affected: %w", err)
 	}
-	
+
 	return int(rowsAffected), nil
 }

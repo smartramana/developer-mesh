@@ -9,12 +9,12 @@ import (
 	"github.com/stretchr/testify/mock"
 )
 
-// MockEmbeddingService is a mock implementation of the EmbeddingService interface
-type MockEmbeddingService struct {
+// MockEmbeddingServiceTestify is a mock implementation of the EmbeddingService interface using testify/mock
+type MockEmbeddingServiceTestify struct {
 	mock.Mock
 }
 
-func (m *MockEmbeddingService) GenerateEmbedding(ctx context.Context, text, contentType, contentID string) (*EmbeddingVector, error) {
+func (m *MockEmbeddingServiceTestify) GenerateEmbedding(ctx context.Context, text, contentType, contentID string) (*EmbeddingVector, error) {
 	args := m.Called(ctx, text, contentType, contentID)
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
@@ -23,18 +23,18 @@ func (m *MockEmbeddingService) GenerateEmbedding(ctx context.Context, text, cont
 }
 
 // GetModelConfig implements the EmbeddingService interface
-func (m *MockEmbeddingService) GetModelConfig() ModelConfig {
+func (m *MockEmbeddingServiceTestify) GetModelConfig() ModelConfig {
 	args := m.Called()
 	return args.Get(0).(ModelConfig)
 }
 
 // GetModelDimensions implements the EmbeddingService interface
-func (m *MockEmbeddingService) GetModelDimensions() int {
+func (m *MockEmbeddingServiceTestify) GetModelDimensions() int {
 	args := m.Called()
 	return args.Int(0)
 }
 
-func (m *MockEmbeddingService) BatchGenerateEmbeddings(ctx context.Context, texts []string, contentType string, contentIDs []string) ([]*EmbeddingVector, error) {
+func (m *MockEmbeddingServiceTestify) BatchGenerateEmbeddings(ctx context.Context, texts []string, contentType string, contentIDs []string) ([]*EmbeddingVector, error) {
 	args := m.Called(ctx, texts, contentType, contentIDs)
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
@@ -84,7 +84,7 @@ func (m *MockEmbeddingStorage) GetEmbeddingsByContentIDs(ctx context.Context, co
 
 // TestNewEmbeddingPipeline tests the creation of a new embedding pipeline
 func TestNewEmbeddingPipeline(t *testing.T) {
-	mockService := new(MockEmbeddingService)
+	mockService := new(MockEmbeddingServiceTestify)
 	mockStorage := new(MockEmbeddingStorage)
 	chunkingService := NewMockChunkingService()
 	mockContentProvider := NewTestMockGitHubContentProvider()
@@ -146,11 +146,11 @@ func TestDefaultPipelineConfig(t *testing.T) {
 // TestEmbeddingPipeline_ProcessContent tests the ProcessContent method
 func TestEmbeddingPipeline_ProcessContent(t *testing.T) {
 	// Create mocks
-	mockService := new(MockEmbeddingService)
+	mockService := new(MockEmbeddingServiceTestify)
 	mockStorage := new(MockEmbeddingStorage)
 	chunkingService := new(MockChunkingService)
 	mockContentProvider := NewTestMockGitHubContentProvider()
-	
+
 	// Create pipeline
 	pipeline, err := NewTestEmbeddingPipeline(
 		t,
@@ -159,20 +159,20 @@ func TestEmbeddingPipeline_ProcessContent(t *testing.T) {
 		chunkingService,
 		mockContentProvider,
 		&EmbeddingPipelineConfig{
-			Concurrency:     1,  // Use a single worker for deterministic testing
+			Concurrency:     1, // Use a single worker for deterministic testing
 			BatchSize:       10,
 			IncludeComments: true,
 			EnrichMetadata:  true,
 		},
 	)
 	assert.NoError(t, err)
-	
+
 	// Test data
 	ctx := context.Background()
 	contentType := "test-type"
 	contentID := "test-id"
 	text := "Test content"
-	
+
 	// Create a sample embedding vector
 	embedding := &EmbeddingVector{
 		ContentID:   contentID,
@@ -184,38 +184,38 @@ func TestEmbeddingPipeline_ProcessContent(t *testing.T) {
 			"key1": "value1",
 		},
 	}
-	
+
 	// Set expectations
 	mockService.On("GenerateEmbedding", ctx, text, contentType, contentID).
 		Return(embedding, nil).Once()
-		
+
 	mockStorage.On("StoreEmbedding", ctx, embedding).
 		Return(nil).Once()
-		
+
 	// Test successful processing
 	err = pipeline.ProcessContent(ctx, text, contentType, contentID)
 	assert.NoError(t, err)
 	mockService.AssertExpectations(t)
 	mockStorage.AssertExpectations(t)
-	
+
 	// Test error in generating embedding
 	expectedError := errors.New("embedding error")
 	mockService.On("GenerateEmbedding", ctx, text, contentType, contentID).
 		Return(nil, expectedError).Once()
-		
+
 	err = pipeline.ProcessContent(ctx, text, contentType, contentID)
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), expectedError.Error())
 	mockService.AssertExpectations(t)
-	
+
 	// Test error in storing embedding
 	mockService.On("GenerateEmbedding", ctx, text, contentType, contentID).
 		Return(embedding, nil).Once()
-		
+
 	expectedError = errors.New("storage error")
 	mockStorage.On("StoreEmbedding", ctx, embedding).
 		Return(expectedError).Once()
-		
+
 	err = pipeline.ProcessContent(ctx, text, contentType, contentID)
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), expectedError.Error())
@@ -226,11 +226,11 @@ func TestEmbeddingPipeline_ProcessContent(t *testing.T) {
 // TestEmbeddingPipeline_BatchProcessContent tests the batch processing
 func TestEmbeddingPipeline_BatchProcessContent(t *testing.T) {
 	// Create mocks
-	mockService := new(MockEmbeddingService)
+	mockService := new(MockEmbeddingServiceTestify)
 	mockStorage := new(MockEmbeddingStorage)
 	chunkingService := NewMockChunkingService()
 	mockContentProvider := NewTestMockGitHubContentProvider()
-	
+
 	// Create pipeline
 	pipeline, err := NewTestEmbeddingPipeline(
 		t,
@@ -239,14 +239,14 @@ func TestEmbeddingPipeline_BatchProcessContent(t *testing.T) {
 		chunkingService,
 		mockContentProvider,
 		&EmbeddingPipelineConfig{
-			Concurrency:     2,  // Use 2 workers for testing concurrency
-			BatchSize:       3,  // Use a small batch size for testing
+			Concurrency:     2, // Use 2 workers for testing concurrency
+			BatchSize:       3, // Use a small batch size for testing
 			IncludeComments: true,
 			EnrichMetadata:  true,
 		},
 	)
 	assert.NoError(t, err)
-	
+
 	// Test data
 	ctx := context.Background()
 	contentType := "test-type"
@@ -258,7 +258,7 @@ func TestEmbeddingPipeline_BatchProcessContent(t *testing.T) {
 		"Content 4",
 		"Content 5",
 	}
-	
+
 	// Create sample embeddings
 	embeddings1 := []*EmbeddingVector{
 		{
@@ -283,7 +283,7 @@ func TestEmbeddingPipeline_BatchProcessContent(t *testing.T) {
 			ContentType: contentType,
 		},
 	}
-	
+
 	embeddings2 := []*EmbeddingVector{
 		{
 			ContentID:   contentIDs[3],
@@ -300,49 +300,49 @@ func TestEmbeddingPipeline_BatchProcessContent(t *testing.T) {
 			ContentType: contentType,
 		},
 	}
-	
+
 	// Set expectations for first batch
 	mockService.On("BatchGenerateEmbeddings", ctx, contents[0:3], contentType, contentIDs[0:3]).
 		Return(embeddings1, nil).Once()
 	mockStorage.On("BatchStoreEmbeddings", ctx, embeddings1).
 		Return(nil).Once()
-	
+
 	// Set expectations for second batch
 	mockService.On("BatchGenerateEmbeddings", ctx, contents[3:5], contentType, contentIDs[3:5]).
 		Return(embeddings2, nil).Once()
 	mockStorage.On("BatchStoreEmbeddings", ctx, embeddings2).
 		Return(nil).Once()
-	
+
 	// Test batch processing
 	err = pipeline.BatchProcessContent(ctx, contents, contentType, contentIDs)
 	assert.NoError(t, err)
 	mockService.AssertExpectations(t)
 	mockStorage.AssertExpectations(t)
-	
+
 	// Test with empty batch
 	err = pipeline.BatchProcessContent(ctx, []string{}, contentType, []string{})
 	assert.NoError(t, err)
-	
+
 	// Test with mismatched content and ID lengths
 	err = pipeline.BatchProcessContent(ctx, []string{"content"}, contentType, []string{})
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "number of contents must match")
-	
+
 	// Test error in generating embeddings
 	mockService.On("BatchGenerateEmbeddings", ctx, contents[0:3], contentType, contentIDs[0:3]).
 		Return(nil, errors.New("batch generation error")).Once()
-	
+
 	err = pipeline.BatchProcessContent(ctx, contents, contentType, contentIDs)
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "batch generation error")
 	mockService.AssertExpectations(t)
-	
+
 	// Test error in storing embeddings
 	mockService.On("BatchGenerateEmbeddings", ctx, contents[0:3], contentType, contentIDs[0:3]).
 		Return(embeddings1, nil).Once()
 	mockStorage.On("BatchStoreEmbeddings", ctx, embeddings1).
 		Return(errors.New("batch storage error")).Once()
-	
+
 	err = pipeline.BatchProcessContent(ctx, contents, contentType, contentIDs)
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "batch storage error")

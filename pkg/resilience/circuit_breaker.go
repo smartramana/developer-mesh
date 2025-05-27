@@ -10,36 +10,36 @@ type CircuitBreakerState int
 
 // Circuit breaker states
 const (
-	CircuitBreakerClosed CircuitBreakerState = iota // Normal operation, requests allowed
-	CircuitBreakerOpen                              // Tripped, requests blocked
-	CircuitBreakerHalfOpen                          // Testing if service is healthy
+	CircuitBreakerClosed   CircuitBreakerState = iota // Normal operation, requests allowed
+	CircuitBreakerOpen                                // Tripped, requests blocked
+	CircuitBreakerHalfOpen                            // Testing if service is healthy
 )
 
 // CircuitBreakerConfig holds configuration for a circuit breaker
 type CircuitBreakerConfig struct {
-	FailureThreshold   int           // Number of failures before tripping
-	ResetTimeout       time.Duration // Time before attempting retry
-	SuccessThreshold   int           // Number of successes needed to close circuit
-	TimeoutThreshold   time.Duration // Request timeout threshold
+	FailureThreshold    int           // Number of failures before tripping
+	ResetTimeout        time.Duration // Time before attempting retry
+	SuccessThreshold    int           // Number of successes needed to close circuit
+	TimeoutThreshold    time.Duration // Request timeout threshold
 	MaxRequestsHalfOpen int           // Max requests in half-open state
 }
 
 // CircuitBreaker implements the circuit breaker pattern
 type CircuitBreaker struct {
-	name          string
-	config        CircuitBreakerConfig
-	state         CircuitBreakerState
-	counts        Counts
+	name            string
+	config          CircuitBreakerConfig
+	state           CircuitBreakerState
+	counts          Counts
 	lastStateChange time.Time
-	mutex         sync.RWMutex
+	mutex           sync.RWMutex
 }
 
 // NewCircuitBreaker creates a new circuit breaker with the given configuration
 func NewCircuitBreaker(name string, config CircuitBreakerConfig) *CircuitBreaker {
 	return &CircuitBreaker{
-		name:          name,
-		config:        config,
-		state:         CircuitBreakerClosed,
+		name:            name,
+		config:          config,
+		state:           CircuitBreakerClosed,
 		lastStateChange: time.Now(),
 	}
 }
@@ -76,10 +76,10 @@ func (m *CircuitBreakerManager) GetCircuitBreaker(name string) *CircuitBreaker {
 
 	// Use a default configuration if the circuit breaker doesn't exist
 	defaultConfig := CircuitBreakerConfig{
-		FailureThreshold:   5,
-		ResetTimeout:       30 * time.Second,
-		SuccessThreshold:   2,
-		TimeoutThreshold:   5 * time.Second,
+		FailureThreshold:    5,
+		ResetTimeout:        30 * time.Second,
+		SuccessThreshold:    2,
+		TimeoutThreshold:    5 * time.Second,
 		MaxRequestsHalfOpen: 1,
 	}
 

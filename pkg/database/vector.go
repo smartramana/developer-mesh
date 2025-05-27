@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 	"sync"
-	
+
 	"github.com/S-Corkum/devops-mcp/pkg/common"
 	"github.com/S-Corkum/devops-mcp/pkg/observability"
 	"github.com/jmoiron/sqlx"
@@ -31,17 +31,17 @@ type VectorDatabase struct {
 }
 
 // NewVectorDatabase creates a new vector database
-func NewVectorDatabase(db *sqlx.DB, cfg interface{}, logger observability.Logger) (*VectorDatabase, error) {
+func NewVectorDatabase(db *sqlx.DB, cfg any, logger observability.Logger) (*VectorDatabase, error) {
 	if logger == nil {
 		logger = observability.NewStandardLogger("vector_database")
 	}
-	
+
 	// Use the main database connection pool by default
 	vectorDB := db
-	
+
 	// Try to extract vector config from the provided config
 	var vectorConfig *VectorConfig
-	
+
 	// If the config is already a VectorConfig
 	if vConfig, ok := cfg.(*VectorConfig); ok && vConfig != nil {
 		vectorConfig = vConfig
@@ -56,7 +56,7 @@ func NewVectorDatabase(db *sqlx.DB, cfg interface{}, logger observability.Logger
 			MaxDimensions:     2000,
 		}
 	}
-	
+
 	return &VectorDatabase{
 		db:          db,
 		vectorDB:    vectorDB,
@@ -70,11 +70,11 @@ func NewVectorDatabase(db *sqlx.DB, cfg interface{}, logger observability.Logger
 func (vdb *VectorDatabase) Initialize(ctx context.Context) error {
 	vdb.lock.Lock()
 	defer vdb.lock.Unlock()
-	
+
 	if vdb.initialized {
 		return nil
 	}
-	
+
 	// Check if pgvector extension is installed
 	var extExists bool
 	err := vdb.vectorDB.QueryRowContext(ctx, `
@@ -82,15 +82,15 @@ func (vdb *VectorDatabase) Initialize(ctx context.Context) error {
 			SELECT 1 FROM pg_extension WHERE extname = 'vector'
 		)
 	`).Scan(&extExists)
-	
+
 	if err != nil {
 		return fmt.Errorf("failed to check if pgvector extension exists: %w", err)
 	}
-	
+
 	if !extExists {
 		return fmt.Errorf("pgvector extension is not installed")
 	}
-	
+
 	// Check if the embeddings table exists
 	var tableExists bool
 	err = vdb.vectorDB.QueryRowContext(ctx, `
@@ -100,32 +100,32 @@ func (vdb *VectorDatabase) Initialize(ctx context.Context) error {
 			WHERE table_schema = 'mcp' AND table_name = 'embeddings'
 		)
 	`).Scan(&tableExists)
-	
+
 	if err != nil {
 		return fmt.Errorf("failed to check if embeddings table exists: %w", err)
 	}
-	
+
 	if !tableExists {
 		vdb.logger.Warn("Embeddings table does not exist; migrations may need to be run", nil)
-		
+
 		// Try to create the table
 		tx, err := vdb.vectorDB.BeginTxx(ctx, nil)
 		if err != nil {
 			return fmt.Errorf("failed to begin transaction: %w", err)
 		}
-		
+
 		// Define the SQL to create the schema and table
 		createSchemaSQL := `
 			CREATE SCHEMA IF NOT EXISTS mcp;
 		`
-		
+
 		// Execute the create schema SQL
 		_, err = tx.ExecContext(ctx, createSchemaSQL)
 		if err != nil {
 			tx.Rollback()
 			return fmt.Errorf("failed to create schema: %w", err)
 		}
-		
+
 		// Define SQL to create the embeddings table
 		createTableSQL := `
 			CREATE TABLE IF NOT EXISTS mcp.embeddings (
@@ -145,14 +145,14 @@ func (vdb *VectorDatabase) Initialize(ctx context.Context) error {
 			CREATE INDEX IF NOT EXISTS idx_embeddings_model_id
 			ON mcp.embeddings(model_id);
 		`
-		
+
 		// Execute the create table SQL
 		_, err = tx.ExecContext(ctx, createTableSQL)
 		if err != nil {
 			tx.Rollback()
 			return fmt.Errorf("failed to create embeddings table: %w", err)
 		}
-		
+
 		// Define SQL to create indices for common dimension sizes
 		createIndicesSQL := `
 			DO $$
@@ -188,25 +188,25 @@ func (vdb *VectorDatabase) Initialize(ctx context.Context) error {
 				END IF;
 			END $$;
 		`
-		
+
 		// Execute the create indices SQL
 		_, err = tx.ExecContext(ctx, createIndicesSQL)
 		if err != nil {
 			tx.Rollback()
 			return fmt.Errorf("failed to create embeddings indices: %w", err)
 		}
-		
+
 		// Commit the transaction
 		if err := tx.Commit(); err != nil {
 			return fmt.Errorf("failed to commit transaction: %w", err)
 		}
-		
+
 		vdb.logger.Info("Created embeddings table and indices", nil)
 	}
-	
+
 	vdb.initialized = true
 	vdb.logger.Info("Vector database initialized successfully", nil)
-	
+
 	return nil
 }
 
@@ -217,23 +217,23 @@ func (vdb *VectorDatabase) Transaction(ctx context.Context, fn func(tx *sqlx.Tx)
 	if err != nil {
 		return fmt.Errorf("failed to begin transaction: %w", err)
 	}
-	
+
 	// Execute the operation
 	if err := fn(tx); err != nil {
 		// Roll back on error
 		if rbErr := tx.Rollback(); rbErr != nil {
-			vdb.logger.Error("Failed to roll back transaction", map[string]interface{}{
+			vdb.logger.Error("Failed to roll back transaction", map[string]any{
 				"error": rbErr.Error(),
 			})
 		}
 		return err
 	}
-	
+
 	// Commit the transaction
 	if err := tx.Commit(); err != nil {
 		return fmt.Errorf("failed to commit transaction: %w", err)
 	}
-	
+
 	return nil
 }
 
@@ -241,12 +241,12 @@ func (vdb *VectorDatabase) Transaction(ctx context.Context, fn func(tx *sqlx.Tx)
 func (vdb *VectorDatabase) Close() error {
 	vdb.lock.Lock()
 	defer vdb.lock.Unlock()
-	
+
 	// Only close the dedicated pool if it's different from the main pool
 	if vdb.vectorDB != vdb.db {
 		return vdb.vectorDB.Close()
 	}
-	
+
 	return nil
 }
 
@@ -254,7 +254,7 @@ func (vdb *VectorDatabase) Close() error {
 func (vdb *VectorDatabase) GetVectorSearchConfig() *VectorConfig {
 	vdb.lock.RLock()
 	defer vdb.lock.RUnlock()
-	
+
 	return vdb.config
 }
 
@@ -263,22 +263,22 @@ func (vdb *VectorDatabase) CheckVectorDimensions(ctx context.Context) ([]int, er
 	if err := vdb.Initialize(ctx); err != nil {
 		return nil, err
 	}
-	
+
 	// Query distinct dimensions
 	rows, err := vdb.vectorDB.QueryContext(ctx, `
 		SELECT DISTINCT vector_dimensions
 		FROM mcp.embeddings
 		ORDER BY vector_dimensions
 	`)
-	
+
 	if err != nil {
 		return nil, fmt.Errorf("failed to query vector dimensions: %w", err)
 	}
 	defer rows.Close()
-	
+
 	// Process results
 	var dimensions []int
-	
+
 	for rows.Next() {
 		var dim int
 		if err := rows.Scan(&dim); err != nil {
@@ -286,11 +286,11 @@ func (vdb *VectorDatabase) CheckVectorDimensions(ctx context.Context) ([]int, er
 		}
 		dimensions = append(dimensions, dim)
 	}
-	
+
 	if err := rows.Err(); err != nil {
 		return nil, fmt.Errorf("error iterating over dimensions: %w", err)
 	}
-	
+
 	return dimensions, nil
 }
 
@@ -299,7 +299,7 @@ func NormalizeVector(vector []float32, method string) ([]float32, error) {
 	if len(vector) == 0 {
 		return vector, nil
 	}
-	
+
 	switch method {
 	case "cosine":
 		// Cosine similarity requires L2 normalization
@@ -320,26 +320,26 @@ func (vdb *VectorDatabase) CreateVector(ctx context.Context, vector []float32) (
 	if err := vdb.Initialize(ctx); err != nil {
 		return "", err
 	}
-	
+
 	// Convert []float32 to []float64 as the database driver doesn't handle float32 arrays directly
 	floatArray := make([]float64, len(vector))
 	for i, v := range vector {
 		floatArray[i] = float64(v)
 	}
-	
+
 	// Convert to array format that PostgreSQL can understand: '{a,b,c}'
 	pgArray := fmt.Sprintf("'{%s}'", formatFloatArray(floatArray))
-	
+
 	// Convert vector to pgvector format
 	var vectorStr string
 	err := vdb.vectorDB.QueryRowContext(ctx, `
 		SELECT $1::float4[]::vector::text
 	`, pgArray).Scan(&vectorStr)
-	
+
 	if err != nil {
 		return "", fmt.Errorf("failed to create vector: %w", err)
 	}
-	
+
 	return vectorStr, nil
 }
 
@@ -348,12 +348,12 @@ func formatFloatArray(arr []float64) string {
 	if len(arr) == 0 {
 		return ""
 	}
-	
+
 	result := fmt.Sprintf("%f", arr[0])
 	for i := 1; i < len(arr); i++ {
 		result += fmt.Sprintf(",%f", arr[i])
 	}
-	
+
 	return result
 }
 
@@ -362,43 +362,43 @@ func (vdb *VectorDatabase) CalculateSimilarity(ctx context.Context, vector1, vec
 	if err := vdb.Initialize(ctx); err != nil {
 		return 0, err
 	}
-	
+
 	// Convert []float32 to []float64 as the database driver doesn't handle float32 arrays directly
 	floatArray1 := make([]float64, len(vector1))
 	for i, v := range vector1 {
 		floatArray1[i] = float64(v)
 	}
-	
+
 	floatArray2 := make([]float64, len(vector2))
 	for i, v := range vector2 {
 		floatArray2[i] = float64(v)
 	}
-	
+
 	// Convert to array format that PostgreSQL can understand: '{a,b,c}'
 	pgArray1 := fmt.Sprintf("'{%s}'", formatFloatArray(floatArray1))
 	pgArray2 := fmt.Sprintf("'{%s}'", formatFloatArray(floatArray2))
-	
+
 	// Convert vectors to pgvector format
 	var v1Str, v2Str string
 	err := vdb.vectorDB.QueryRowContext(ctx, `
 		SELECT $1::float4[]::vector::text
 	`, pgArray1).Scan(&v1Str)
-	
+
 	if err != nil {
 		return 0, fmt.Errorf("failed to create vector1: %w", err)
 	}
-	
+
 	err = vdb.vectorDB.QueryRowContext(ctx, `
 		SELECT $1::float4[]::vector::text
 	`, pgArray2).Scan(&v2Str)
-	
+
 	if err != nil {
 		return 0, fmt.Errorf("failed to create vector2: %w", err)
 	}
-	
+
 	// Calculate similarity based on method
 	var similarity float64
-	
+
 	switch method {
 	case "cosine":
 		// 1 - cosine distance = cosine similarity
@@ -418,10 +418,10 @@ func (vdb *VectorDatabase) CalculateSimilarity(ctx context.Context, vector1, vec
 	default:
 		return 0, fmt.Errorf("unsupported similarity method: %s", method)
 	}
-	
+
 	if err != nil {
 		return 0, fmt.Errorf("failed to calculate similarity: %w", err)
 	}
-	
+
 	return similarity, nil
 }

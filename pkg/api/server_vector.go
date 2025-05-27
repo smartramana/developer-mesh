@@ -3,7 +3,7 @@ package api
 import (
 	"context"
 	"fmt"
-	
+
 	"github.com/gin-gonic/gin"
 	"github.com/jmoiron/sqlx"
 
@@ -26,7 +26,7 @@ type Server struct {
 // SetupVectorAPI initializes and registers the vector API routes
 func (s *Server) SetupVectorAPI(ctx context.Context) error {
 	logger := s.logger.WithPrefix("vector_api")
-	
+
 	// Check if vector operations are enabled
 	// This assumes your config struct has a compatible structure
 	// You might need to adjust this based on your actual config structure
@@ -47,12 +47,12 @@ func (s *Server) SetupVectorAPI(ctx context.Context) error {
 			isEnabled = cfg.Database.Vector.Enabled
 		}
 	}
-	
+
 	if !isEnabled {
 		logger.Info("Vector operations are disabled", nil)
 		return nil
 	}
-	
+
 	// Initialize vector database
 	var err error
 	if s.vectorDB == nil {
@@ -61,7 +61,7 @@ func (s *Server) SetupVectorAPI(ctx context.Context) error {
 			return fmt.Errorf("failed to create vector database: %w", err)
 		}
 	}
-	
+
 	// Initialize vector database
 	if err := s.vectorDB.Initialize(ctx); err != nil {
 		logger.Warn("Vector database initialization failed", map[string]interface{}{
@@ -69,21 +69,21 @@ func (s *Server) SetupVectorAPI(ctx context.Context) error {
 		})
 		return fmt.Errorf("vector database initialization failed: %w", err)
 	}
-	
+
 	// Create repository
 	embedRepo := repository.NewEmbeddingRepository(s.db)
-	
+
 	// Store repository in server for use in other components
 	s.embeddingRepo = embedRepo
-	
+
 	// Setup vector routes directly on the server
 	apiV1 := s.router.Group("/api/v1")
 	s.setupVectorRoutes(apiV1)
-	
+
 	logger.Info("Vector API routes registered", map[string]interface{}{
 		"path": "/api/v1/vectors",
 	})
-	
+
 	// Setup advanced vector search routes
 	if err := s.setupSearchRoutes(apiV1); err != nil {
 		logger.Warn("Failed to setup vector search API", map[string]interface{}{
@@ -95,13 +95,13 @@ func (s *Server) SetupVectorAPI(ctx context.Context) error {
 			"path": "/api/v1/search",
 		})
 	}
-	
+
 	// Add metrics middleware
 	vectorRoutes := apiV1.Group("/vectors")
 	vectorRoutes.Use(createVectorMetricsMiddleware(s.metrics))
-	
+
 	logger.Info("Vector metrics middleware added", nil)
-	
+
 	return nil
 }
 
@@ -110,12 +110,12 @@ func createVectorMetricsMiddleware(metrics observability.MetricsClient) gin.Hand
 	return func(c *gin.Context) {
 		// Process the request
 		c.Next()
-		
+
 		// Record metrics
 		if metrics != nil {
 			operation := "unknown"
 			path := c.Request.URL.Path
-			
+
 			if c.Request.Method == "POST" && path == "/api/v1/vectors/store" {
 				operation = "store"
 			} else if c.Request.Method == "POST" && path == "/api/v1/vectors/search" {
@@ -125,7 +125,7 @@ func createVectorMetricsMiddleware(metrics observability.MetricsClient) gin.Hand
 			} else if c.Request.Method == "DELETE" {
 				operation = "delete"
 			}
-			
+
 			metrics.RecordCounter("vector_operations_total", 1, map[string]string{
 				"operation": operation,
 				"status":    fmt.Sprintf("%d", c.Writer.Status()),

@@ -48,7 +48,7 @@ type ExtendedRDSClient struct {
 func NewExtendedRDSClient(ctx context.Context, connCfg RDSConnectionConfig) (*ExtendedRDSClient, error) {
 	// Get AWS config
 	var awsConfig aws.Config
-	
+
 	// Always use IAM authentication if enabled
 	if connCfg.UseIAMAuth {
 		var err error
@@ -57,14 +57,14 @@ func NewExtendedRDSClient(ctx context.Context, connCfg RDSConnectionConfig) (*Ex
 			return nil, fmt.Errorf("failed to load AWS config with IAM auth: %w", err)
 		}
 	}
-	
+
 	// Create RDS client
 	// For IAM auth we already have the AWS config, for non-IAM we'll set up a default client later
 	var rdsClient *rds.Client
 	if connCfg.UseIAMAuth {
 		rdsClient = rds.NewFromConfig(awsConfig)
 	}
-	
+
 	// Return client with connection config
 	return &ExtendedRDSClient{
 		awsConfig:  awsConfig,
@@ -172,15 +172,15 @@ func (c *ExtendedRDSClient) DescribeDBInstances(ctx context.Context, instanceIde
 	if c.rdsClient == nil {
 		return nil, fmt.Errorf("RDS client not initialized, make sure AWS config is provided")
 	}
-	
+
 	// Create the input parameters
 	input := &rds.DescribeDBInstancesInput{}
-	
+
 	// If instance identifier provided, set it
 	if instanceIdentifier != "" {
 		input.DBInstanceIdentifier = &instanceIdentifier
 	}
-	
+
 	// Call the AWS API
 	return c.rdsClient.DescribeDBInstances(ctx, input)
 }
@@ -191,7 +191,7 @@ func (c *ExtendedRDSClient) CreateDBInstance(ctx context.Context, input *rds.Cre
 	if c.rdsClient == nil {
 		return nil, fmt.Errorf("RDS client not initialized, make sure AWS config is provided")
 	}
-	
+
 	// Call the AWS API
 	return c.rdsClient.CreateDBInstance(ctx, input)
 }
@@ -202,19 +202,19 @@ func (c *ExtendedRDSClient) DeleteDBInstance(ctx context.Context, instanceIdenti
 	if c.rdsClient == nil {
 		return nil, fmt.Errorf("RDS client not initialized, make sure AWS config is provided")
 	}
-	
+
 	// Create the input parameters
 	input := &rds.DeleteDBInstanceInput{
 		DBInstanceIdentifier: &instanceIdentifier,
-		SkipFinalSnapshot:   aws.Bool(skipFinalSnapshot),
+		SkipFinalSnapshot:    aws.Bool(skipFinalSnapshot),
 	}
-	
+
 	// If we need a final snapshot and skipFinalSnapshot is false, set a name
 	if !skipFinalSnapshot {
 		snapshotID := fmt.Sprintf("%s-final-%d", instanceIdentifier, time.Now().Unix())
 		input.FinalDBSnapshotIdentifier = &snapshotID
 	}
-	
+
 	// Call the AWS API
 	return c.rdsClient.DeleteDBInstance(ctx, input)
 }

@@ -48,7 +48,7 @@ func TestMetricsClient_Disabled(t *testing.T) {
 	metrics.RecordGauge("gauge", 2, nil)
 	metrics.RecordHistogram("histogram", 3, nil)
 	metrics.RecordTimer("timer", time.Second, nil)
-	metrics.IncrementCounter("counter", 1, nil) // Fix: Added missing labels parameter
+	metrics.IncrementCounter("counter", 1) // IncrementCounter only takes name and value
 	metrics.RecordDuration("duration", time.Second)
 	metrics.RecordCacheOperation("get", true, 0.1)
 	metrics.RecordAPIOperation("api", "get", true, 0.2)
@@ -63,10 +63,10 @@ func TestMetricsClient_StartTimer(t *testing.T) {
 
 	// Start a timer
 	stopTimer := metrics.StartTimer("test_timer", map[string]string{"label": "value"})
-	
+
 	// Sleep a bit
 	time.Sleep(10 * time.Millisecond)
-	
+
 	// Stop the timer - this should not cause any errors
 	stopTimer()
 }
@@ -76,7 +76,7 @@ func TestMetricsClient_DefaultInstance(t *testing.T) {
 	if DefaultMetricsClient == nil {
 		DefaultMetricsClient = NewMetricsClient()
 	}
-	
+
 	// Verify that the default metrics client is initialized
 	if DefaultMetricsClient == nil {
 		t.Error("Expected DefaultMetricsClient to be initialized")
@@ -90,12 +90,12 @@ func TestMetricsClient_DefaultInstance(t *testing.T) {
 func TestMetricsClient_RecordOperations(t *testing.T) {
 	// Create a metrics client
 	metrics := NewMetricsClient()
-	
+
 	// Record various operations - these should not cause any errors
 	metrics.RecordCacheOperation("get", true, 0.1)
 	metrics.RecordAPIOperation("api", "get", true, 0.2)
 	metrics.RecordDatabaseOperation("query", true, 0.3)
-	
+
 	// Test with custom labels
 	customLabels := map[string]string{
 		"custom": "value",

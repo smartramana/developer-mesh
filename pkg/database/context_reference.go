@@ -12,16 +12,16 @@ import (
 
 // ContextReference represents a reference to a context stored in S3 or another storage
 type ContextReference struct {
-	ID            string    `db:"id" json:"id"`
-	AgentID       string    `db:"agent_id" json:"agent_id"`
-	ModelID       string    `db:"model_id" json:"model_id"`
-	SessionID     string    `db:"session_id" json:"session_id"`
-	CreatedAt     time.Time `db:"created_at" json:"created_at"`
-	UpdatedAt     time.Time `db:"updated_at" json:"updated_at"`
-	ExpiresAt     time.Time `db:"expires_at" json:"expires_at"`
-	TokenCount    int       `db:"token_count" json:"token_count"`
-	MessageCount  int       `db:"message_count" json:"message_count"`
-	StoragePath   string    `db:"storage_path" json:"storage_path"`
+	ID           string    `db:"id" json:"id"`
+	AgentID      string    `db:"agent_id" json:"agent_id"`
+	ModelID      string    `db:"model_id" json:"model_id"`
+	SessionID    string    `db:"session_id" json:"session_id"`
+	CreatedAt    time.Time `db:"created_at" json:"created_at"`
+	UpdatedAt    time.Time `db:"updated_at" json:"updated_at"`
+	ExpiresAt    time.Time `db:"expires_at" json:"expires_at"`
+	TokenCount   int       `db:"token_count" json:"token_count"`
+	MessageCount int       `db:"message_count" json:"message_count"`
+	StoragePath  string    `db:"storage_path" json:"storage_path"`
 }
 
 // CreateContextReferenceTable creates the context_references table if it doesn't exist
@@ -181,7 +181,7 @@ func (d *Database) DeleteContextReference(ctx context.Context, id string) error 
 }
 
 // ListContextReferences lists context references filtered by the given criteria
-func (d *Database) ListContextReferences(ctx context.Context, agentID, sessionID string, options map[string]interface{}) ([]*ContextReference, error) {
+func (d *Database) ListContextReferences(ctx context.Context, agentID, sessionID string, options map[string]any) ([]*ContextReference, error) {
 	// Build the query dynamically
 	query := strings.Builder{}
 	query.WriteString(`
@@ -193,7 +193,7 @@ func (d *Database) ListContextReferences(ctx context.Context, agentID, sessionID
 	`)
 
 	// Create a slice to hold the query arguments
-	var args []interface{}
+	var args []any
 	var argIndex int = 0
 
 	// Add agentID filter if provided

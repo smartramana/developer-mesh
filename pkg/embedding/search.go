@@ -64,10 +64,10 @@ type SearchResults struct {
 type SearchService interface {
 	// Search performs a vector search with the given text
 	Search(ctx context.Context, text string, options *SearchOptions) (*SearchResults, error)
-	
+
 	// SearchByVector performs a vector search with a pre-computed vector
 	SearchByVector(ctx context.Context, vector []float32, options *SearchOptions) (*SearchResults, error)
-	
+
 	// SearchByContentID performs a "more like this" search based on an existing content ID
 	SearchByContentID(ctx context.Context, contentID string, options *SearchOptions) (*SearchResults, error)
 }

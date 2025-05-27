@@ -15,17 +15,17 @@ type TimeoutConfig struct {
 // ExecuteWithTimeout executes a function with a timeout
 func ExecuteWithTimeout[T any](ctx context.Context, config TimeoutConfig, operation func(context.Context) (T, error)) (T, error) {
 	var result T
-	
+
 	// Create a context with timeout
 	timeoutCtx, cancel := context.WithTimeout(ctx, config.Timeout)
 	defer cancel()
-	
+
 	// Create a channel for the result
 	resultCh := make(chan struct {
 		value T
 		err   error
 	}, 1)
-	
+
 	// Execute the operation in a goroutine
 	go func() {
 		value, err := operation(timeoutCtx)
@@ -34,7 +34,7 @@ func ExecuteWithTimeout[T any](ctx context.Context, config TimeoutConfig, operat
 			err   error
 		}{value, err}
 	}()
-	
+
 	// Wait for result or timeout
 	select {
 	case res := <-resultCh:
@@ -48,12 +48,12 @@ func ExecuteWithTimeout[T any](ctx context.Context, config TimeoutConfig, operat
 				return res.value, res.err
 			case <-graceCh:
 				// Grace period expired, return timeout error
-				return result, fmt.Errorf("operation timed out after %v (plus %v grace period): %w", 
+				return result, fmt.Errorf("operation timed out after %v (plus %v grace period): %w",
 					config.Timeout, config.GracePeriod, context.DeadlineExceeded)
 			}
 		}
-		
-		return result, fmt.Errorf("operation timed out after %v: %w", 
+
+		return result, fmt.Errorf("operation timed out after %v: %w",
 			config.Timeout, context.DeadlineExceeded)
 	}
 }

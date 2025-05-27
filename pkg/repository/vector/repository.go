@@ -46,10 +46,10 @@ func (r *RepositoryImpl) Get(ctx context.Context, id string) (*Embedding, error)
 // List retrieves embeddings matching the provided filter (standardized Repository method)
 func (r *RepositoryImpl) List(ctx context.Context, filter Filter) ([]*Embedding, error) {
 	query := `SELECT id, context_id, content_index, text, embedding, model_id, created_at, metadata FROM embeddings`
-	
+
 	// Apply filters
 	var whereClause string
-	var args []interface{}
+	var args []any
 	argIndex := 1
 
 	if filter != nil {
@@ -150,9 +150,9 @@ func (r *RepositoryImpl) SearchEmbeddings(
 
 	// Build query based on parameters
 	query := `SELECT id, context_id, content_index, text, embedding, model_id, created_at, metadata FROM embeddings`
-	
+
 	whereClause := ""
-	var args []interface{}
+	var args []any
 	argIndex := 1
 
 	// Add context filter if provided

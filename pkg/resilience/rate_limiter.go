@@ -17,11 +17,11 @@ type RateLimiterConfig struct {
 
 // RateLimiter implements a token bucket rate limiter
 type RateLimiter struct {
-	name          string
-	config        RateLimiterConfig
-	tokens        int
-	lastRefill    time.Time
-	mutex         sync.Mutex
+	name       string
+	config     RateLimiterConfig
+	tokens     int
+	lastRefill time.Time
+	mutex      sync.Mutex
 }
 
 // NewRateLimiter creates a new rate limiter with the given configuration

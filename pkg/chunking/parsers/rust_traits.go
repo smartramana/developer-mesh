@@ -10,26 +10,26 @@ import (
 // extractTraits extracts trait declarations from Rust code
 func (p *RustParser) extractTraits(code string, lines []string, parentID string) []*chunking.CodeChunk {
 	chunks := []*chunking.CodeChunk{}
-	
+
 	// Find all trait declarations
 	traitMatches := rustTraitRegex.FindAllStringSubmatchIndex(code, -1)
-	
+
 	for _, match := range traitMatches {
 		if len(match) < 4 {
 			continue
 		}
-		
+
 		// Get the trait name
 		traitName := code[match[2]:match[3]]
-		
+
 		// Find the trait content (including body)
 		startPos := match[0]
 		traitContent, endPos := p.findBlockContent(code, startPos)
-		
+
 		// Find the line numbers
 		startLine := getLineNumberFromPos(code, startPos) + 1
 		endLine := getLineNumberFromPos(code, endPos) + 1
-		
+
 		// Extract generics if present
 		generics := ""
 		if strings.Contains(traitName, "<") {
@@ -39,16 +39,16 @@ func (p *RustParser) extractTraits(code string, lines []string, parentID string)
 				traitName = traitName[:genericStart]
 			}
 		}
-		
+
 		// Check if the trait is public
 		isPublic := false
 		if strings.HasPrefix(strings.TrimSpace(code[match[0]:]), "pub") {
 			isPublic = true
 		}
-		
+
 		// Extract trait super-traits (traits this trait extends)
 		superTraits := []string{}
-		traitDeclLine := code[match[0]:match[0]+strings.Index(code[match[0]:], "{")]
+		traitDeclLine := code[match[0] : match[0]+strings.Index(code[match[0]:], "{")]
 		if strings.Contains(traitDeclLine, ":") {
 			superTraitPart := strings.Split(traitDeclLine, ":")[1]
 			superTraitPart = strings.TrimSpace(superTraitPart)
@@ -64,7 +64,7 @@ func (p *RustParser) extractTraits(code string, lines []string, parentID string)
 				}
 			}
 		}
-		
+
 		// Find all associated functions in the trait
 		associatedFuncs := []string{}
 		// Extract function signatures from trait body
@@ -74,25 +74,25 @@ func (p *RustParser) extractTraits(code string, lines []string, parentID string)
 				associatedFuncs = append(associatedFuncs, fnMatch[1])
 			}
 		}
-		
+
 		// Create trait metadata
 		traitMetadata := map[string]interface{}{
-			"type":      "trait",
-			"public":    isPublic,
+			"type":   "trait",
+			"public": isPublic,
 		}
-		
+
 		if generics != "" {
 			traitMetadata["generics"] = generics
 		}
-		
+
 		if len(superTraits) > 0 {
 			traitMetadata["super_traits"] = superTraits
 		}
-		
+
 		if len(associatedFuncs) > 0 {
 			traitMetadata["associated_functions"] = associatedFuncs
 		}
-		
+
 		// Create trait chunk
 		traitChunk := &chunking.CodeChunk{
 			Type:      chunking.ChunkTypeInterface, // Using Interface type as it's the closest match for a trait
@@ -108,6 +108,6 @@ func (p *RustParser) extractTraits(code string, lines []string, parentID string)
 		traitChunk.ID = generateRustChunkID(traitChunk)
 		chunks = append(chunks, traitChunk)
 	}
-	
+
 	return chunks
 }

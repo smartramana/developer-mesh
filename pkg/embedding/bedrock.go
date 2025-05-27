@@ -12,9 +12,9 @@ import (
 	"time"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
-	"github.com/aws/aws-sdk-go-v2/service/bedrockruntime"
 	"github.com/aws/aws-sdk-go-v2/credentials"
-	
+	"github.com/aws/aws-sdk-go-v2/service/bedrockruntime"
+
 	awsconfig "github.com/aws/aws-sdk-go-v2/config"
 )
 
@@ -74,8 +74,8 @@ func NewMockBedrockEmbeddingService(modelID string) (*BedrockEmbeddingService, e
 	}
 
 	return &BedrockEmbeddingService{
-		config:           modelConfig,
-		client:           client,
+		config:            modelConfig,
+		client:            client,
 		useMockEmbeddings: true, // Always use mock embeddings
 	}, nil
 }
@@ -170,13 +170,13 @@ func NewBedrockEmbeddingService(config *BedrockConfig) (*BedrockEmbeddingService
 
 	// Determine if we should use mock embeddings
 	useMock := config.UseMockEmbeddings
-	
+
 	// Also use mock embeddings if running in a test environment
 	// This is detected by checking if the AWS client is nil or if we're running in a testing environment
 	if client == nil {
 		useMock = true
 	}
-	
+
 	// If credentials are missing, fall back to mock embeddings
 	if !config.UseMockEmbeddings && config.AccessKeyID == "" && config.SecretAccessKey == "" {
 		// Check if we are running in a non-production environment that might have AWS instance credentials
@@ -184,10 +184,10 @@ func NewBedrockEmbeddingService(config *BedrockConfig) (*BedrockEmbeddingService
 		fmt.Printf("WARNING: No AWS credentials provided, using mock embeddings for Bedrock service\n")
 		useMock = true
 	}
-	
+
 	return &BedrockEmbeddingService{
-		config: modelConfig,
-		client: client,
+		config:            modelConfig,
+		client:            client,
 		useMockEmbeddings: useMock,
 	}, nil
 }
@@ -493,7 +493,7 @@ func parseNovaResponse(responseBody []byte) ([]float32, error) {
 func generateMockEmbedding(text string, dimensions int) ([]float32, error) {
 	// Create a vector of the correct dimension
 	vector := make([]float32, dimensions)
-	
+
 	// Generate some random data for the embedding
 	// In a real implementation, this would be replaced with the actual model response
 	randomBytes := make([]byte, dimensions*4) // 4 bytes per float32
@@ -501,7 +501,7 @@ func generateMockEmbedding(text string, dimensions int) ([]float32, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to generate random data: %w", err)
 	}
-	
+
 	// Convert to float32 and normalize
 	var sum float64
 	for i := 0; i < dimensions; i++ {
@@ -509,12 +509,12 @@ func generateMockEmbedding(text string, dimensions int) ([]float32, error) {
 		vector[i] = float32(val)
 		sum += float64(vector[i] * vector[i])
 	}
-	
+
 	// Normalize the vector
 	magnitude := math.Sqrt(sum)
 	for i := range vector {
 		vector[i] = float32(float64(vector[i]) / magnitude)
 	}
-	
+
 	return vector, nil
 }

@@ -25,7 +25,7 @@ func (m *MockEmbeddingService) GenerateEmbedding(ctx context.Context, text strin
 	if vector, ok := m.vectors[text]; ok {
 		return vector, nil
 	}
-	
+
 	// Generate a deterministic mock vector based on the text
 	vector := make([]float32, m.dimensions)
 	for i := 0; i < m.dimensions; i++ {
@@ -36,7 +36,7 @@ func (m *MockEmbeddingService) GenerateEmbedding(ctx context.Context, text strin
 		}
 		vector[i] = float32(hash+i) / float32(1000+m.dimensions)
 	}
-	
+
 	return &EmbeddingVector{
 		Vector:      vector,
 		Dimensions:  m.dimensions,
@@ -55,21 +55,21 @@ func (m *MockEmbeddingService) BatchGenerateEmbeddings(ctx context.Context, text
 	if len(texts) != len(contentIDs) && len(contentIDs) > 0 {
 		return nil, fmt.Errorf("texts and contentIDs must have the same length")
 	}
-	
+
 	results := make([]*EmbeddingVector, len(texts))
 	for i, text := range texts {
 		contentID := fmt.Sprintf("mock-%d", i)
 		if i < len(contentIDs) {
 			contentID = contentIDs[i]
 		}
-		
+
 		vector, err := m.GenerateEmbedding(ctx, text, contentType, contentID)
 		if err != nil {
 			return nil, err
 		}
 		results[i] = vector
 	}
-	
+
 	return results, nil
 }
 

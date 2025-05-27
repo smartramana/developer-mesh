@@ -7,14 +7,14 @@ import (
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/config"
-	"github.com/aws/aws-sdk-go-v2/service/sts"
 	stscreds "github.com/aws/aws-sdk-go-v2/credentials/stscreds"
+	"github.com/aws/aws-sdk-go-v2/service/sts"
 )
 
 // AuthConfig holds the AWS authentication configuration options
 type AuthConfig struct {
-	Region    string `mapstructure:"region"`
-	Endpoint  string `mapstructure:"endpoint"`
+	Region     string `mapstructure:"region"`
+	Endpoint   string `mapstructure:"endpoint"`
 	AssumeRole string `mapstructure:"assume_role"`
 }
 
@@ -28,7 +28,7 @@ func GetAWSConfig(ctx context.Context, cfg AuthConfig) (aws.Config, error) {
 
 	// Add custom endpoint if specified (for local development or testing)
 	if cfg.Endpoint != "" {
-		customResolver := aws.EndpointResolverWithOptionsFunc(func(service, region string, options ...interface{}) (aws.Endpoint, error) {
+		customResolver := aws.EndpointResolverWithOptionsFunc(func(service, region string, options ...any) (aws.Endpoint, error) {
 			return aws.Endpoint{
 				URL:               cfg.Endpoint,
 				HostnameImmutable: true,

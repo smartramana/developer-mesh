@@ -4,9 +4,9 @@ package repository
 import (
 	"context"
 	"errors"
-	
-	"github.com/jmoiron/sqlx"
+
 	"github.com/S-Corkum/devops-mcp/pkg/repository/vector"
+	"github.com/jmoiron/sqlx"
 )
 
 // This file provides compatibility during the migration from the old repository
@@ -16,10 +16,10 @@ import (
 
 // NewEmbeddingAdapter creates a new embedding adapter that implements VectorAPIRepository
 // This function replaces the previous NewEmbeddingRepository function
-func NewEmbeddingAdapter(db interface{}) VectorAPIRepository {
+func NewEmbeddingAdapter(db any) VectorAPIRepository {
 	// Handle different database types
 	var sqlxDB *sqlx.DB
-	
+
 	switch typedDB := db.(type) {
 	case *sqlx.DB:
 		sqlxDB = typedDB
@@ -37,10 +37,10 @@ func NewEmbeddingAdapter(db interface{}) VectorAPIRepository {
 	}
 }
 
-// embeddingRepositoryAdapter provides APIs for the vector database 
+// embeddingRepositoryAdapter provides APIs for the vector database
 // when we can't use the new vector package directly
 type embeddingRepositoryAdapter struct {
-	db interface{}
+	db         any
 	vectorRepo vector.Repository
 }
 
@@ -49,7 +49,7 @@ func (r *embeddingRepositoryAdapter) StoreEmbedding(ctx context.Context, embeddi
 	if r.vectorRepo != nil {
 		return r.vectorRepo.StoreEmbedding(ctx, embedding)
 	}
-	
+
 	// Fallback implementation when vectorRepo is not available
 	return errors.New("vector repository not initialized")
 }
@@ -66,7 +66,7 @@ func (r *embeddingRepositoryAdapter) SearchEmbeddings(
 	if r.vectorRepo != nil {
 		return r.vectorRepo.SearchEmbeddings(ctx, queryEmbedding, contextID, modelID, limit, threshold)
 	}
-	
+
 	// Fallback implementation when vectorRepo is not available
 	return []*Embedding{}, errors.New("vector repository not initialized")
 }
@@ -81,7 +81,7 @@ func (r *embeddingRepositoryAdapter) SearchEmbeddings_Legacy(
 	if r.vectorRepo != nil {
 		return r.vectorRepo.SearchEmbeddings_Legacy(ctx, queryEmbedding, contextID, limit)
 	}
-	
+
 	// Fallback implementation when vectorRepo is not available
 	return []*Embedding{}, errors.New("vector repository not initialized")
 }
@@ -91,7 +91,7 @@ func (r *embeddingRepositoryAdapter) GetContextEmbeddings(ctx context.Context, c
 	if r.vectorRepo != nil {
 		return r.vectorRepo.GetContextEmbeddings(ctx, contextID)
 	}
-	
+
 	// Fallback implementation when vectorRepo is not available
 	return []*Embedding{}, errors.New("vector repository not initialized")
 }
@@ -101,7 +101,7 @@ func (r *embeddingRepositoryAdapter) DeleteContextEmbeddings(ctx context.Context
 	if r.vectorRepo != nil {
 		return r.vectorRepo.DeleteContextEmbeddings(ctx, contextID)
 	}
-	
+
 	// Fallback implementation when vectorRepo is not available
 	return errors.New("vector repository not initialized")
 }
@@ -111,7 +111,7 @@ func (r *embeddingRepositoryAdapter) GetSupportedModels(ctx context.Context) ([]
 	if r.vectorRepo != nil {
 		return r.vectorRepo.GetSupportedModels(ctx)
 	}
-	
+
 	// Fallback implementation when vectorRepo is not available
 	return []string{}, errors.New("vector repository not initialized")
 }
@@ -121,7 +121,7 @@ func (r *embeddingRepositoryAdapter) GetEmbeddingsByModel(ctx context.Context, c
 	if r.vectorRepo != nil {
 		return r.vectorRepo.GetEmbeddingsByModel(ctx, contextID, modelID)
 	}
-	
+
 	// Fallback implementation when vectorRepo is not available
 	return []*Embedding{}, errors.New("vector repository not initialized")
 }
@@ -131,7 +131,7 @@ func (r *embeddingRepositoryAdapter) DeleteModelEmbeddings(ctx context.Context, 
 	if r.vectorRepo != nil {
 		return r.vectorRepo.DeleteModelEmbeddings(ctx, contextID, modelID)
 	}
-	
+
 	// Fallback implementation when vectorRepo is not available
 	return errors.New("vector repository not initialized")
 }
@@ -149,7 +149,7 @@ func (r *embeddingRepositoryAdapter) Get(ctx context.Context, id string) (*Embed
 	if r.vectorRepo != nil {
 		return r.vectorRepo.Get(ctx, id)
 	}
-	
+
 	// Fallback implementation
 	return nil, errors.New("vector repository not initialized")
 }
@@ -160,7 +160,7 @@ func (r *embeddingRepositoryAdapter) List(ctx context.Context, filter vector.Fil
 	if r.vectorRepo != nil {
 		return r.vectorRepo.List(ctx, filter)
 	}
-	
+
 	// Fallback implementation
 	return nil, errors.New("vector repository not initialized")
 }
@@ -176,7 +176,7 @@ func (r *embeddingRepositoryAdapter) Delete(ctx context.Context, id string) erro
 	if r.vectorRepo != nil {
 		return r.vectorRepo.Delete(ctx, id)
 	}
-	
+
 	// Fallback implementation
 	return errors.New("vector repository not initialized")
 }
@@ -184,7 +184,7 @@ func (r *embeddingRepositoryAdapter) Delete(ctx context.Context, id string) erro
 // newMockEmbeddingAdapter creates a mock adapter for testing
 func newMockEmbeddingAdapter() VectorAPIRepository {
 	return &embeddingRepositoryAdapter{
-		db:        nil,
+		db:         nil,
 		vectorRepo: nil,
 	}
 }

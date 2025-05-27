@@ -118,16 +118,16 @@ func (b *GraphQLBuilder) End() *GraphQLBuilder {
 // String returns the GraphQL query as a string
 func (b *GraphQLBuilder) String() string {
 	var sb strings.Builder
-	
+
 	// Start operation
 	sb.WriteString(b.operationType)
-	
+
 	// Add operation name
 	if b.operation != "" {
 		sb.WriteString(" ")
 		sb.WriteString(b.operation)
 	}
-	
+
 	// Add variables
 	if len(b.variables) > 0 {
 		sb.WriteString("(")
@@ -144,10 +144,10 @@ func (b *GraphQLBuilder) String() string {
 		}
 		sb.WriteString(")")
 	}
-	
+
 	// Start selection set
 	sb.WriteString(" {\n")
-	
+
 	// Add operation arguments
 	if len(b.arguments) > 0 && b.operation != "" {
 		sb.WriteString("  ")
@@ -166,52 +166,52 @@ func (b *GraphQLBuilder) String() string {
 		sb.WriteString(")")
 		sb.WriteString(" {\n")
 	}
-	
+
 	// Add fields
 	for _, field := range b.fields {
 		sb.WriteString("  ")
-		
+
 		// Add indentation if we have operation arguments
 		if len(b.arguments) > 0 && b.operation != "" {
 			sb.WriteString("  ")
 		}
-		
+
 		// Add alias if available
 		if alias, ok := b.aliases[field]; ok {
 			sb.WriteString(alias)
 			sb.WriteString(": ")
 		}
-		
+
 		sb.WriteString(field)
-		
+
 		// Add fragment includes
 		if includes, ok := b.includes[field]; ok && len(includes) > 0 {
 			sb.WriteString(" {\n    ...") // Extra indentation for fragment
 			sb.WriteString(strings.Join(includes, "\n    ..."))
 			sb.WriteString("\n  }")
 		}
-		
+
 		sb.WriteString("\n")
 	}
-	
+
 	// Add children
 	for field, child := range b.children {
 		sb.WriteString("  ")
-		
+
 		// Add indentation if we have operation arguments
 		if len(b.arguments) > 0 && b.operation != "" {
 			sb.WriteString("  ")
 		}
-		
+
 		// Add alias if available
 		if alias, ok := b.aliases[field]; ok {
 			sb.WriteString(alias)
 			sb.WriteString(": ")
 		}
-		
+
 		sb.WriteString(field)
 		sb.WriteString(" {\n")
-		
+
 		// Add child fields
 		childContent := strings.Replace(strings.TrimSuffix(strings.TrimPrefix(child.String(), child.operationType+" "+child.operation+" {\n"), "\n}"), "\n", "\n  ", -1)
 		sb.WriteString("  ")
@@ -219,15 +219,15 @@ func (b *GraphQLBuilder) String() string {
 		sb.WriteString("\n  }")
 		sb.WriteString("\n")
 	}
-	
+
 	// Close operation arguments block
 	if len(b.arguments) > 0 && b.operation != "" {
 		sb.WriteString("  }\n")
 	}
-	
+
 	// Close selection set
 	sb.WriteString("}")
-	
+
 	// Add fragments
 	if len(b.fragments) > 0 {
 		sb.WriteString("\n\n")
@@ -236,18 +236,18 @@ func (b *GraphQLBuilder) String() string {
 			sb.WriteString("\n")
 		}
 	}
-	
+
 	return sb.String()
 }
 
 // Build returns the GraphQL query and variables
-func (b *GraphQLBuilder) Build() (string, map[string]interface{}) {
+func (b *GraphQLBuilder) Build() (string, map[string]any) {
 	query := b.String()
-	variables := make(map[string]interface{})
-	
-	// Convert string variables to interface{} for the client
+	variables := make(map[string]any)
+
+	// Convert string variables to any for the client
 	// In real use, variables would be populated with actual values
-	
+
 	return query, variables
 }
 
@@ -258,11 +258,11 @@ func BuildRepositoryQuery(owner, name string, withIssues, withPullRequests bool)
 	builder := NewQuery("GetRepository")
 	builder.AddVariable("owner", "String!")
 	builder.AddVariable("name", "String!")
-	
+
 	repository := builder.AddChild("repository")
 	repository.AddArgument("owner", "$owner")
 	repository.AddArgument("name", "$name")
-	
+
 	repository.AddFields(
 		"id",
 		"name",
@@ -277,7 +277,7 @@ func BuildRepositoryQuery(owner, name string, withIssues, withPullRequests bool)
 		"createdAt",
 		"updatedAt",
 	)
-	
+
 	if withIssues {
 		issues := repository.AddChild("issues")
 		issues.AddArgument("first", "10")
@@ -287,7 +287,7 @@ func BuildRepositoryQuery(owner, name string, withIssues, withPullRequests bool)
 			"nodes { id, number, title, url, state, createdAt, author { login } }",
 		)
 	}
-	
+
 	if withPullRequests {
 		prs := repository.AddChild("pullRequests")
 		prs.AddArgument("first", "10")
@@ -297,7 +297,7 @@ func BuildRepositoryQuery(owner, name string, withIssues, withPullRequests bool)
 			"nodes { id, number, title, url, state, createdAt, author { login } }",
 		)
 	}
-	
+
 	return builder
 }
 
@@ -306,18 +306,18 @@ func BuildUserRepositoriesQuery(login string, first int) *GraphQLBuilder {
 	builder := NewQuery("GetUserRepositories")
 	builder.AddVariable("login", "String!")
 	builder.AddVariable("first", "Int!")
-	
+
 	user := builder.AddChild("user")
 	user.AddArgument("login", "$login")
-	
+
 	repositories := user.AddChild("repositories")
 	repositories.AddArgument("first", "$first")
 	repositories.AddArgument("orderBy", "{field: UPDATED_AT, direction: DESC}")
-	
+
 	repositories.AddFields(
 		"totalCount",
 	)
-	
+
 	nodes := repositories.AddChild("nodes")
 	nodes.AddFields(
 		"id",
@@ -331,7 +331,7 @@ func BuildUserRepositoriesQuery(login string, first int) *GraphQLBuilder {
 		"createdAt",
 		"updatedAt",
 	)
-	
+
 	return builder
 }
 
@@ -343,14 +343,14 @@ func BuildIssueQuery(owner, name string, number int) *GraphQLBuilder {
 	builder.AddVariable("owner", "String!")
 	builder.AddVariable("name", "String!")
 	builder.AddVariable("number", "Int!")
-	
+
 	repository := builder.AddChild("repository")
 	repository.AddArgument("owner", "$owner")
 	repository.AddArgument("name", "$name")
-	
+
 	issue := repository.AddChild("issue")
 	issue.AddArgument("number", "$number")
-	
+
 	issue.AddFields(
 		"id",
 		"number",
@@ -364,14 +364,14 @@ func BuildIssueQuery(owner, name string, number int) *GraphQLBuilder {
 		"assignees(first: 10) { nodes { login } }",
 		"labels(first: 10) { nodes { name } }",
 	)
-	
+
 	comments := issue.AddChild("comments")
 	comments.AddArgument("first", "10")
 	comments.AddFields(
 		"totalCount",
 		"nodes { id, author { login }, body, createdAt }",
 	)
-	
+
 	return builder
 }
 
@@ -382,20 +382,20 @@ func BuildIssuesQuery(owner, name string, first int, states []string) *GraphQLBu
 	builder.AddVariable("name", "String!")
 	builder.AddVariable("first", "Int!")
 	builder.AddVariable("states", "[IssueState!]")
-	
+
 	repository := builder.AddChild("repository")
 	repository.AddArgument("owner", "$owner")
 	repository.AddArgument("name", "$name")
-	
+
 	issues := repository.AddChild("issues")
 	issues.AddArgument("first", "$first")
 	issues.AddArgument("states", "$states")
 	issues.AddArgument("orderBy", "{field: CREATED_AT, direction: DESC}")
-	
+
 	issues.AddFields(
 		"totalCount",
 	)
-	
+
 	nodes := issues.AddChild("nodes")
 	nodes.AddFields(
 		"id",
@@ -409,14 +409,14 @@ func BuildIssuesQuery(owner, name string, first int, states []string) *GraphQLBu
 		"assignees(first: 3) { nodes { login } }",
 		"labels(first: 5) { nodes { name } }",
 	)
-	
+
 	// Add page info for pagination
 	pageInfo := issues.AddChild("pageInfo")
 	pageInfo.AddFields(
 		"hasNextPage",
 		"endCursor",
 	)
-	
+
 	return builder
 }
 
@@ -428,14 +428,14 @@ func BuildPullRequestQuery(owner, name string, number int) *GraphQLBuilder {
 	builder.AddVariable("owner", "String!")
 	builder.AddVariable("name", "String!")
 	builder.AddVariable("number", "Int!")
-	
+
 	repository := builder.AddChild("repository")
 	repository.AddArgument("owner", "$owner")
 	repository.AddArgument("name", "$name")
-	
+
 	pr := repository.AddChild("pullRequest")
 	pr.AddArgument("number", "$number")
-	
+
 	pr.AddFields(
 		"id",
 		"number",
@@ -456,19 +456,19 @@ func BuildPullRequestQuery(owner, name string, number int) *GraphQLBuilder {
 		"mergedBy { login }",
 		"isDraft",
 	)
-	
+
 	// Add commits
 	commits := pr.AddChild("commits")
 	commits.AddArgument("first", "10")
 	commits.AddFields(
 		"totalCount",
 	)
-	
+
 	commitNodes := commits.AddChild("nodes")
 	commitNodes.AddFields(
 		"commit { oid, message, committedDate, author { name, email } }",
 	)
-	
+
 	// Add reviews
 	reviews := pr.AddChild("reviews")
 	reviews.AddArgument("first", "10")
@@ -476,7 +476,7 @@ func BuildPullRequestQuery(owner, name string, number int) *GraphQLBuilder {
 		"totalCount",
 		"nodes { id, author { login }, state, body, submittedAt }",
 	)
-	
+
 	return builder
 }
 
@@ -488,20 +488,20 @@ func BuildWorkflowRunsQuery(owner, name string, first int) *GraphQLBuilder {
 	builder.AddVariable("owner", "String!")
 	builder.AddVariable("name", "String!")
 	builder.AddVariable("first", "Int!")
-	
+
 	repository := builder.AddChild("repository")
 	repository.AddArgument("owner", "$owner")
 	repository.AddArgument("name", "$name")
-	
-	// Note: This is a simplified example, the actual GitHub GraphQL schema 
+
+	// Note: This is a simplified example, the actual GitHub GraphQL schema
 	// for workflows and actions might differ
 	workflows := repository.AddChild("workflows")
 	workflows.AddArgument("first", "$first")
-	
+
 	workflows.AddFields(
 		"totalCount",
 	)
-	
+
 	nodes := workflows.AddChild("nodes")
 	nodes.AddFields(
 		"id",
@@ -510,10 +510,10 @@ func BuildWorkflowRunsQuery(owner, name string, first int) *GraphQLBuilder {
 		"createdAt",
 		"updatedAt",
 	)
-	
+
 	// In real usage, you would consult the GitHub GraphQL schema explorer
 	// to ensure your queries match the actual schema
-	
+
 	return builder
 }
 
@@ -523,10 +523,10 @@ func BuildWorkflowRunsQuery(owner, name string, first int) *GraphQLBuilder {
 func BuildUserQuery(login string) *GraphQLBuilder {
 	builder := NewQuery("GetUser")
 	builder.AddVariable("login", "String!")
-	
+
 	user := builder.AddChild("user")
 	user.AddArgument("login", "$login")
-	
+
 	user.AddFields(
 		"id",
 		"login",
@@ -540,7 +540,7 @@ func BuildUserQuery(login string) *GraphQLBuilder {
 		"createdAt",
 		"updatedAt",
 	)
-	
+
 	return builder
 }
 
@@ -552,10 +552,10 @@ func BuildCreateIssueMutation() *GraphQLBuilder {
 	builder.AddVariable("repositoryId", "ID!")
 	builder.AddVariable("title", "String!")
 	builder.AddVariable("body", "String!")
-	
+
 	createIssue := builder.AddChild("createIssue")
 	createIssue.AddArgument("input", "{repositoryId: $repositoryId, title: $title, body: $body}")
-	
+
 	issue := createIssue.AddChild("issue")
 	issue.AddFields(
 		"id",
@@ -563,7 +563,7 @@ func BuildCreateIssueMutation() *GraphQLBuilder {
 		"title",
 		"url",
 	)
-	
+
 	return builder
 }
 
@@ -574,10 +574,10 @@ func BuildUpdateIssueMutation() *GraphQLBuilder {
 	builder.AddVariable("title", "String")
 	builder.AddVariable("body", "String")
 	builder.AddVariable("state", "IssueState")
-	
+
 	updateIssue := builder.AddChild("updateIssue")
 	updateIssue.AddArgument("input", "{id: $id, title: $title, body: $body, state: $state}")
-	
+
 	issue := updateIssue.AddChild("issue")
 	issue.AddFields(
 		"id",
@@ -587,7 +587,7 @@ func BuildUpdateIssueMutation() *GraphQLBuilder {
 		"state",
 		"url",
 	)
-	
+
 	return builder
 }
 
@@ -596,14 +596,14 @@ func BuildAddCommentMutation() *GraphQLBuilder {
 	builder := NewMutation("AddComment")
 	builder.AddVariable("subjectId", "ID!")
 	builder.AddVariable("body", "String!")
-	
+
 	addComment := builder.AddChild("addComment")
 	addComment.AddArgument("input", "{subjectId: $subjectId, body: $body}")
-	
+
 	comment := addComment.AddChild("commentEdge")
 	comment.AddFields(
 		"node { id, body, url }",
 	)
-	
+
 	return builder
 }

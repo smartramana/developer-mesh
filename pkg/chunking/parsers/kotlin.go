@@ -73,60 +73,60 @@ func (p *KotlinParser) Parse(ctx context.Context, code string, filename string) 
 		Language:  chunking.LanguageKotlin,
 		StartLine: 1,
 		EndLine:   countLines(code),
-		Metadata:  map[string]interface{}{
+		Metadata: map[string]interface{}{
 			"chunking_method": "kotlin",
 		},
 	}
 	fileChunk.ID = generateKotlinChunkID(fileChunk)
-	
+
 	// Split code into lines for easier processing
 	lines := strings.Split(code, "\n")
-	
+
 	// Extract all code chunks
 	allChunks := []*chunking.CodeChunk{fileChunk}
-	
+
 	// Extract package declarations
 	packageChunks := p.extractPackages(code, lines, fileChunk.ID)
 	allChunks = append(allChunks, packageChunks...)
-	
+
 	// Extract imports
 	importChunks := p.extractImports(code, lines, fileChunk.ID)
 	allChunks = append(allChunks, importChunks...)
-	
+
 	// Extract KDoc comments
 	kdocChunks := p.extractKDocs(code, lines, fileChunk.ID)
 	allChunks = append(allChunks, kdocChunks...)
-	
+
 	// Extract regular comments
 	commentChunks := p.extractComments(code, lines, fileChunk.ID)
 	allChunks = append(allChunks, commentChunks...)
-	
+
 	// Extract classes and interfaces
 	classChunks := p.extractClasses(code, lines, fileChunk.ID)
 	allChunks = append(allChunks, classChunks...)
-	
+
 	interfaceChunks := p.extractInterfaces(code, lines, fileChunk.ID)
 	allChunks = append(allChunks, interfaceChunks...)
-	
+
 	// Extract objects
 	objectChunks := p.extractObjects(code, lines, fileChunk.ID)
 	allChunks = append(allChunks, objectChunks...)
-	
+
 	// Extract top-level functions
 	functionChunks := p.extractFunctions(code, lines, fileChunk.ID)
 	allChunks = append(allChunks, functionChunks...)
-	
+
 	// Extract top-level properties
 	propertyChunks := p.extractProperties(code, lines, fileChunk.ID)
 	allChunks = append(allChunks, propertyChunks...)
-	
+
 	// Extract extension functions
 	extensionChunks := p.extractExtensions(code, lines, fileChunk.ID)
 	allChunks = append(allChunks, extensionChunks...)
-	
+
 	// Process dependencies between chunks
 	p.processDependencies(allChunks)
-	
+
 	return allChunks, nil
 }
 
@@ -137,13 +137,13 @@ func (p *KotlinParser) findBlockContent(code string, startPos int) (string, int)
 	if bracePos == -1 {
 		return code[startPos:], len(code)
 	}
-	
+
 	bracePos += startPos
-	
+
 	// Track nested braces
 	braceCount := 1
 	pos := bracePos + 1
-	
+
 	// Find the matching closing brace
 	for pos < len(code) && braceCount > 0 {
 		if pos+1 < len(code) && code[pos:pos+2] == "//" {
@@ -170,7 +170,7 @@ func (p *KotlinParser) findBlockContent(code string, startPos int) (string, int)
 			pos++
 		}
 	}
-	
+
 	return code[startPos:pos], pos
 }
 

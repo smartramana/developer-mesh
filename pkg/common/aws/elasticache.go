@@ -97,8 +97,8 @@ func (c *ElastiCacheClient) DiscoverClusterNodes(ctx context.Context) ([]string,
 }
 
 // BuildRedisOptions builds options for connecting to Redis
-func (c *ElastiCacheClient) BuildRedisOptions(ctx context.Context) (map[string]interface{}, error) {
-	options := make(map[string]interface{})
+func (c *ElastiCacheClient) BuildRedisOptions(ctx context.Context) (map[string]any, error) {
+	options := make(map[string]any)
 
 	// Determine if we're using cluster mode
 	if c.config.ClusterMode {
@@ -194,9 +194,9 @@ func (c *ElastiCacheClient) BuildRedisOptions(ctx context.Context) (map[string]i
 }
 
 // GetClusters gets information about ElastiCache Redis clusters
-func (c *ElastiCacheClient) GetClusters(ctx context.Context) ([]interface{}, error) {
+func (c *ElastiCacheClient) GetClusters(ctx context.Context) ([]any, error) {
 	// Mock implementation for testing
-	return []interface{}{}, nil
+	return []any{}, nil
 }
 
 // ParseRedisURL parses a Redis URL into separate components

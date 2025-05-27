@@ -11,15 +11,15 @@ type ChunkType string
 
 const (
 	// Different types of code chunks
-	ChunkTypeFunction ChunkType = "function"
-	ChunkTypeMethod   ChunkType = "method"
-	ChunkTypeClass    ChunkType = "class"
-	ChunkTypeStruct   ChunkType = "struct"
+	ChunkTypeFunction  ChunkType = "function"
+	ChunkTypeMethod    ChunkType = "method"
+	ChunkTypeClass     ChunkType = "class"
+	ChunkTypeStruct    ChunkType = "struct"
 	ChunkTypeInterface ChunkType = "interface"
-	ChunkTypeBlock    ChunkType = "block"
-	ChunkTypeFile     ChunkType = "file"
-	ChunkTypeComment  ChunkType = "comment"
-	ChunkTypeImport   ChunkType = "import"
+	ChunkTypeBlock     ChunkType = "block"
+	ChunkTypeFile      ChunkType = "file"
+	ChunkTypeComment   ChunkType = "comment"
+	ChunkTypeImport    ChunkType = "import"
 )
 
 // Language represents the programming language of the code
@@ -37,9 +37,9 @@ const (
 	LanguageCSharp     Language = "csharp"
 	LanguageCPP        Language = "cpp"
 	LanguageC          Language = "c"
-	LanguageHCL        Language = "hcl"        // HashiCorp Configuration Language (Terraform)
-	LanguageShell      Language = "shell"      // Shell scripts (bash, sh, zsh)
-	LanguageKotlin     Language = "kotlin"     // Kotlin programming language
+	LanguageHCL        Language = "hcl"    // HashiCorp Configuration Language (Terraform)
+	LanguageShell      Language = "shell"  // Shell scripts (bash, sh, zsh)
+	LanguageKotlin     Language = "kotlin" // Kotlin programming language
 	LanguageUnknown    Language = "unknown"
 )
 
@@ -47,34 +47,34 @@ const (
 type CodeChunk struct {
 	// Unique identifier for the chunk
 	ID string `json:"id"`
-	
+
 	// Type of the chunk (function, class, etc.)
 	Type ChunkType `json:"type"`
-	
+
 	// Name of the chunk (function name, class name, etc.)
 	Name string `json:"name"`
-	
+
 	// Full path to the chunk (e.g., package.class.method)
 	Path string `json:"path"`
-	
+
 	// The source code of the chunk
 	Content string `json:"content"`
-	
+
 	// Programming language of the chunk
 	Language Language `json:"language"`
-	
+
 	// Start line number (1-based)
 	StartLine int `json:"start_line"`
-	
+
 	// End line number (1-based)
 	EndLine int `json:"end_line"`
-	
+
 	// Parent chunk ID, if any
 	ParentID string `json:"parent_id,omitempty"`
-	
+
 	// IDs of chunks that this chunk depends on
 	Dependencies []string `json:"dependencies,omitempty"`
-	
+
 	// Additional metadata specific to the chunk
 	Metadata map[string]interface{} `json:"metadata,omitempty"`
 }
@@ -83,7 +83,7 @@ type CodeChunk struct {
 type LanguageParser interface {
 	// Parse parses code in the language and returns chunks
 	Parse(ctx context.Context, code string, filename string) ([]*CodeChunk, error)
-	
+
 	// GetLanguage returns the language this parser handles
 	GetLanguage() Language
 }
@@ -109,7 +109,7 @@ func (s *ChunkingService) RegisterParser(parser LanguageParser) {
 func (s *ChunkingService) DetectLanguage(filename string, content string) Language {
 	// First try to detect based on file extension
 	extension := getFileExtension(filename)
-	
+
 	switch extension {
 	case ".go":
 		return LanguageGo
@@ -138,7 +138,7 @@ func (s *ChunkingService) DetectLanguage(filename string, content string) Langua
 	case ".kt", ".kts":
 		return LanguageKotlin
 	}
-	
+
 	// TODO: Add more sophisticated language detection based on content
 	// For now, return unknown if extension doesn't match
 	return LanguageUnknown
@@ -148,14 +148,14 @@ func (s *ChunkingService) DetectLanguage(filename string, content string) Langua
 func (s *ChunkingService) ChunkCode(ctx context.Context, code string, filename string) ([]*CodeChunk, error) {
 	// Detect language
 	language := s.DetectLanguage(filename, code)
-	
+
 	// Get appropriate parser
 	parser, exists := s.parsers[language]
 	if !exists {
 		// Use a fallback chunking method (e.g., line-based or block-based)
 		return s.fallbackChunking(code, filename, language), nil
 	}
-	
+
 	// Use the language-specific parser
 	return parser.Parse(ctx, code, filename)
 }
@@ -167,7 +167,7 @@ func (s *ChunkingService) ChunkReader(ctx context.Context, reader io.Reader, fil
 	if err != nil {
 		return nil, err
 	}
-	
+
 	return s.ChunkCode(ctx, string(code), filename)
 }
 
@@ -175,19 +175,19 @@ func (s *ChunkingService) ChunkReader(ctx context.Context, reader io.Reader, fil
 func (s *ChunkingService) fallbackChunking(code string, filename string, language Language) []*CodeChunk {
 	// Create a single chunk for the entire file
 	chunk := &CodeChunk{
-		ID:       generateChunkID(filename, 1, len(code)),
-		Type:     ChunkTypeFile,
-		Name:     filename,
-		Path:     filename,
-		Content:  code,
-		Language: language,
+		ID:        generateChunkID(filename, 1, len(code)),
+		Type:      ChunkTypeFile,
+		Name:      filename,
+		Path:      filename,
+		Content:   code,
+		Language:  language,
 		StartLine: 1,
 		EndLine:   countLines(code),
 		Metadata: map[string]interface{}{
 			"chunking_method": "fallback",
 		},
 	}
-	
+
 	return []*CodeChunk{chunk}
 }
 

@@ -31,7 +31,7 @@ func NewRelationshipRepository(db *sqlx.DB) RelationshipRepositoryInterface {
 	// Initialize the vector database for any vector operations
 	vectorDB, err := database.NewVectorDatabase(db, nil, logger)
 	if err != nil {
-		logger.Error("Failed to create vector database", map[string]interface{}{"error": err})
+		logger.Error("Failed to create vector database", map[string]any{"error": err})
 		// We still create the repository, but operations using vectorDB will fail
 	}
 
@@ -44,22 +44,22 @@ func NewRelationshipRepository(db *sqlx.DB) RelationshipRepositoryInterface {
 
 // EntityRelationshipRecord represents the database record for an entity relationship
 type EntityRelationshipRecord struct {
-	ID         string    `db:"id"`
-	Type       string    `db:"relationship_type"`
-	Direction  string    `db:"direction"`
-	SourceType string    `db:"source_type"`
-	SourceOwner string   `db:"source_owner"`
-	SourceRepo string    `db:"source_repo"`
-	SourceID   string    `db:"source_id"`
-	TargetType string    `db:"target_type"`
-	TargetOwner string   `db:"target_owner"`
-	TargetRepo string    `db:"target_repo"`
-	TargetID   string    `db:"target_id"`
-	Strength   float64   `db:"strength"`
-	Context    string    `db:"context"`
-	Metadata   []byte    `db:"metadata"`
-	CreatedAt  time.Time `db:"created_at"`
-	UpdatedAt  time.Time `db:"updated_at"`
+	ID          string    `db:"id"`
+	Type        string    `db:"relationship_type"`
+	Direction   string    `db:"direction"`
+	SourceType  string    `db:"source_type"`
+	SourceOwner string    `db:"source_owner"`
+	SourceRepo  string    `db:"source_repo"`
+	SourceID    string    `db:"source_id"`
+	TargetType  string    `db:"target_type"`
+	TargetOwner string    `db:"target_owner"`
+	TargetRepo  string    `db:"target_repo"`
+	TargetID    string    `db:"target_id"`
+	Strength    float64   `db:"strength"`
+	Context     string    `db:"context"`
+	Metadata    []byte    `db:"metadata"`
+	CreatedAt   time.Time `db:"created_at"`
+	UpdatedAt   time.Time `db:"updated_at"`
 }
 
 // CreateRelationship creates a new entity relationship
@@ -343,7 +343,7 @@ func (r *RelationshipRepository) GetRelationship(ctx context.Context, relationsh
 	// Use transaction to get the relationship
 	err := r.vectorDB.Transaction(ctx, func(tx *sqlx.Tx) error {
 		query := "SELECT * FROM mcp.entity_relationships WHERE id = $1"
-		
+
 		var record EntityRelationshipRecord
 		err := tx.GetContext(ctx, &record, query, relationshipID)
 		if err != nil {
@@ -391,10 +391,10 @@ func (r *RelationshipRepository) GetDirectRelationships(
 	err := r.vectorDB.Transaction(ctx, func(tx *sqlx.Tx) error {
 		// Base query
 		query := "SELECT * FROM mcp.entity_relationships WHERE "
-		
+
 		// Build conditions based on direction
 		conditions := []string{}
-		args := []interface{}{}
+		args := []any{}
 
 		// Handle different directions
 		if direction == models.DirectionOutgoing || direction == models.DirectionBidirectional {
@@ -478,14 +478,14 @@ func (r *RelationshipRepository) GetRelationshipsByType(
 			WHERE relationship_type = $1
 			ORDER BY updated_at DESC
 		`
-		args := []interface{}{relType}
+		args := []any{relType}
 
 		// Apply limit and offset
 		if limit > 0 {
 			query += fmt.Sprintf(" LIMIT $%d", len(args)+1)
 			args = append(args, limit)
 		}
-		
+
 		if offset > 0 {
 			query += fmt.Sprintf(" OFFSET $%d", len(args)+1)
 			args = append(args, offset)
@@ -536,14 +536,14 @@ func (r *RelationshipRepository) recordToRelationship(record *EntityRelationship
 	}
 
 	// Parse metadata
-	var metadata map[string]interface{}
+	var metadata map[string]any
 	if len(record.Metadata) > 0 {
 		err := json.Unmarshal(record.Metadata, &metadata)
 		if err != nil {
 			return nil, fmt.Errorf("failed to unmarshal relationship metadata: %w", err)
 		}
 	} else {
-		metadata = make(map[string]interface{})
+		metadata = make(map[string]any)
 	}
 
 	// Create relationship

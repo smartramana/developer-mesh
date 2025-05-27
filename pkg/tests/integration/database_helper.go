@@ -11,8 +11,8 @@ import (
 
 // DatabaseHelper provides utilities for database integration tests
 type DatabaseHelper struct {
-	t        *testing.T
-	db       *sqlx.DB
+	t          *testing.T
+	db         *sqlx.DB
 	testHelper *TestHelper
 }
 
@@ -20,7 +20,7 @@ type DatabaseHelper struct {
 func NewDatabaseHelper(t *testing.T) *DatabaseHelper {
 	testHelper := NewTestHelper(t)
 	return &DatabaseHelper{
-		t:        t,
+		t:          t,
 		testHelper: testHelper,
 	}
 }
@@ -31,7 +31,7 @@ func (h *DatabaseHelper) SetupTestDatabase(ctx context.Context, config database.
 	dbInstance, err := database.NewDatabase(ctx, config)
 	require.NoError(h.t, err, "Failed to connect to test database")
 	require.NotNil(h.t, dbInstance, "Database instance should not be nil")
-	
+
 	// Get the underlying sqlx.DB
 	db := dbInstance.GetDB()
 	require.NotNil(h.t, db, "Database connection should not be nil")
@@ -48,11 +48,11 @@ func (h *DatabaseHelper) SetupTestDatabaseWithConnection(ctx context.Context, db
 // CreateTransaction creates a new transaction for testing
 func (h *DatabaseHelper) CreateTransaction(ctx context.Context) (*sqlx.Tx, context.Context) {
 	require.NotNil(h.t, h.db, "Database must be initialized before creating transaction")
-	
+
 	// Start a new transaction
 	tx, err := h.db.BeginTxx(ctx, nil)
 	require.NoError(h.t, err, "Failed to begin transaction")
-	
+
 	// Create a new context with the transaction
 	txCtx := context.WithValue(ctx, TxKey("tx"), tx)
 	return tx, txCtx

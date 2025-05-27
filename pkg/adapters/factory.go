@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 	"sync"
-	
+
 	"github.com/S-Corkum/devops-mcp/pkg/observability"
 )
 
@@ -32,13 +32,13 @@ func NewFactory(logger observability.Logger) *Factory {
 func (f *Factory) RegisterProvider(name string, provider ProviderFunc) error {
 	f.mu.Lock()
 	defer f.mu.Unlock()
-	
+
 	if _, exists := f.providers[name]; exists {
 		return fmt.Errorf("provider %s already registered", name)
 	}
-	
+
 	f.providers[name] = provider
-	f.logger.Info("registered adapter provider", map[string]interface{}{
+	f.logger.Info("registered adapter provider", map[string]any{
 		"provider": name,
 	})
 	return nil
@@ -48,7 +48,7 @@ func (f *Factory) RegisterProvider(name string, provider ProviderFunc) error {
 func (f *Factory) SetConfig(provider string, config Config) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
-	
+
 	f.configs[provider] = config
 }
 
@@ -58,20 +58,20 @@ func (f *Factory) CreateAdapter(ctx context.Context, provider string) (SourceCon
 	providerFunc, exists := f.providers[provider]
 	config := f.configs[provider]
 	f.mu.RUnlock()
-	
+
 	if !exists {
 		return nil, fmt.Errorf("unknown provider: %s", provider)
 	}
-	
+
 	adapter, err := providerFunc(ctx, config, f.logger)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create %s adapter: %w", provider, err)
 	}
-	
-	f.logger.Info("created adapter", map[string]interface{}{
+
+	f.logger.Info("created adapter", map[string]any{
 		"provider": provider,
 	})
-	
+
 	return adapter, nil
 }
 
@@ -79,7 +79,7 @@ func (f *Factory) CreateAdapter(ctx context.Context, provider string) (SourceCon
 func (f *Factory) ListProviders() []string {
 	f.mu.RLock()
 	defer f.mu.RUnlock()
-	
+
 	providers := make([]string, 0, len(f.providers))
 	for name := range f.providers {
 		providers = append(providers, name)

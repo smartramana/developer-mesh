@@ -28,7 +28,7 @@ var (
 	rustTraitRegex = regexp.MustCompile(`(?m)^(?:pub(?:\s*\([^)]*\))?\s+)?trait\s+(\w+)(?:<[^>]*>)?(?:\s*:\s*[^{]+)?\s*\{`)
 
 	// Match impl blocks
-	rustImplRegex = regexp.MustCompile(`(?m)^impl(?:<[^>]*>)?\s+(?:(?:\w+::)*\w+)?(?:<[^>]*>)?\s+for\s+(?:(?:\w+::)*\w+)(?:<[^>]*>)?\s*(?:where\s+[^{]+)?\s*\{`)
+	rustImplRegex  = regexp.MustCompile(`(?m)^impl(?:<[^>]*>)?\s+(?:(?:\w+::)*\w+)?(?:<[^>]*>)?\s+for\s+(?:(?:\w+::)*\w+)(?:<[^>]*>)?\s*(?:where\s+[^{]+)?\s*\{`)
 	rustImplRegex2 = regexp.MustCompile(`(?m)^impl(?:<[^>]*>)?\s+(?:(?:\w+::)*\w+)(?:<[^>]*>)?\s*(?:where\s+[^{]+)?\s*\{`)
 
 	// Match function declarations
@@ -45,7 +45,7 @@ var (
 
 	// Match comments (line and block)
 	rustCommentRegex = regexp.MustCompile(`(?m)^(?://[^\n]*$|/\*[\s\S]*?\*/)`)
-	
+
 	// Match doc comments
 	rustDocCommentRegex = regexp.MustCompile(`(?m)^(?:///[^\n]*$|//![^\n]*$|/\*\*[\s\S]*?\*/|/\*![\s\S]*?\*/)`)
 )
@@ -77,88 +77,88 @@ func (p *RustParser) Parse(ctx context.Context, code string, filename string) ([
 		Metadata:  map[string]interface{}{},
 	}
 	fileChunk.ID = generateRustChunkID(fileChunk)
-	
+
 	// Split code into lines for easier processing
 	lines := strings.Split(code, "\n")
-	
+
 	// Extract all code chunks
 	allChunks := []*chunking.CodeChunk{fileChunk}
-	
+
 	// Extract imports (use statements)
 	importChunks := p.extractImports(code, lines, fileChunk.ID)
 	allChunks = append(allChunks, importChunks...)
-	
+
 	// Extract doc comments
 	docChunks := p.extractDocComments(code, lines, fileChunk.ID)
 	allChunks = append(allChunks, docChunks...)
-	
+
 	// Extract regular comments
 	commentChunks := p.extractComments(code, lines, fileChunk.ID)
 	allChunks = append(allChunks, commentChunks...)
-	
+
 	// Extract modules
 	moduleChunks := p.extractModules(code, lines, fileChunk.ID)
 	allChunks = append(allChunks, moduleChunks...)
-	
+
 	// Extract structs
 	structChunks := p.extractStructs(code, lines, fileChunk.ID)
 	allChunks = append(allChunks, structChunks...)
-	
+
 	// Extract enums
 	enumChunks := p.extractEnums(code, lines, fileChunk.ID)
 	allChunks = append(allChunks, enumChunks...)
-	
+
 	// Extract traits
 	traitChunks := p.extractTraits(code, lines, fileChunk.ID)
 	allChunks = append(allChunks, traitChunks...)
-	
+
 	// Extract implementations
 	implChunks := p.extractImpls(code, lines, fileChunk.ID)
 	allChunks = append(allChunks, implChunks...)
-	
+
 	// Extract functions
 	functionChunks := p.extractFunctions(code, lines, fileChunk.ID)
 	allChunks = append(allChunks, functionChunks...)
-	
+
 	// Extract constants and static variables
 	constChunks := p.extractConsts(code, lines, fileChunk.ID)
 	allChunks = append(allChunks, constChunks...)
-	
+
 	// Extract macros
 	macroChunks := p.extractMacros(code, lines, fileChunk.ID)
 	allChunks = append(allChunks, macroChunks...)
-	
+
 	// Process dependencies between chunks
 	p.processDependencies(allChunks)
-	
+
 	return allChunks, nil
 }
 
 // extractDocComments extracts documentation comments from Rust code
 func (p *RustParser) extractDocComments(code string, lines []string, parentID string) []*chunking.CodeChunk {
 	chunks := []*chunking.CodeChunk{}
-	
+
 	// Find all doc comments
 	docMatches := rustDocCommentRegex.FindAllStringIndex(code, -1)
-	
+
 	for i, match := range docMatches {
 		if len(match) < 2 {
 			continue
 		}
-		
+
 		// Get the comment content
 		commentContent := code[match[0]:match[1]]
-		
+
 		// Find the line numbers
 		startLine := getLineNumberFromPos(code, match[0]) + 1
 		endLine := getLineNumberFromPos(code, match[1]) + 1
-		
+
 		// Determine the type of doc comment
 		docType := "regular"
 		if strings.HasPrefix(commentContent, "//!") || strings.HasPrefix(commentContent, "/*!\n") {
 			docType = "module"
 		}
-		
+
 		// Clean up the comment text
 		commentText := commentContent
 		if strings.HasPrefix(commentContent, "//") {
@@ -169,9 +169,9 @@ func (p *RustParser) extractDocComments(code string, lines []string, parentID st
 		} else {
 			// Block doc comment
 			commentText = strings.TrimPrefix(commentText, "/**")
-			commentText = strings.TrimPrefix(commentText, "/*!") 
+			commentText = strings.TrimPrefix(commentText, "/*!")
 			commentText = strings.TrimSuffix(commentText, "*/")
-			
+
 			// Clean up lines in block comments
 			lines := strings.Split(commentText, "\n")
 			for i, line := range lines {
@@ -181,14 +181,14 @@ func (p *RustParser) extractDocComments(code string, lines []string, parentID st
 			commentText = strings.Join(lines, "\n")
 			commentText = strings.TrimSpace(commentText)
 		}
-		
+
 		// Create comment metadata
 		commentMetadata := map[string]interface{}{
-			"type": "doc",
+			"type":     "doc",
 			"doc_type": docType,
-			"text": commentText,
+			"text":     commentText,
 		}
-		
+
 		// Create doc comment chunk
 		commentChunk := &chunking.CodeChunk{
 			Type:      chunking.ChunkTypeComment,
@@ -204,37 +204,37 @@ func (p *RustParser) extractDocComments(code string, lines []string, parentID st
 		commentChunk.ID = generateRustChunkID(commentChunk)
 		chunks = append(chunks, commentChunk)
 	}
-	
+
 	return chunks
 }
 
 // extractComments extracts regular comments from Rust code
 func (p *RustParser) extractComments(code string, lines []string, parentID string) []*chunking.CodeChunk {
 	chunks := []*chunking.CodeChunk{}
-	
+
 	// Find all comments that are not doc comments
 	commentMatches := rustCommentRegex.FindAllStringIndex(code, -1)
-	
+
 	for i, match := range commentMatches {
 		if len(match) < 2 {
 			continue
 		}
-		
+
 		// Get the comment content
 		commentContent := code[match[0]:match[1]]
-		
+
 		// Skip doc comments as they're handled separately
-		if strings.HasPrefix(commentContent, "//!") || 
-		   strings.HasPrefix(commentContent, "///") || 
-		   strings.HasPrefix(commentContent, "/**") || 
-		   strings.HasPrefix(commentContent, "/*!\n") {
+		if strings.HasPrefix(commentContent, "//!") ||
+			strings.HasPrefix(commentContent, "///") ||
+			strings.HasPrefix(commentContent, "/**") ||
+			strings.HasPrefix(commentContent, "/*!\n") {
 			continue
 		}
-		
+
 		// Find the line numbers
 		startLine := getLineNumberFromPos(code, match[0]) + 1
 		endLine := getLineNumberFromPos(code, match[1]) + 1
-		
+
 		// Clean up the comment text
 		commentText := commentContent
 		if strings.HasPrefix(commentContent, "//") {
@@ -247,13 +247,13 @@ func (p *RustParser) extractComments(code string, lines []string, parentID strin
 			commentText = strings.TrimSuffix(commentText, "*/")
 			commentText = strings.TrimSpace(commentText)
 		}
-		
+
 		// Create comment metadata
 		commentMetadata := map[string]interface{}{
 			"type": "comment",
 			"text": commentText,
 		}
-		
+
 		// Create comment chunk
 		commentChunk := &chunking.CodeChunk{
 			Type:      chunking.ChunkTypeComment,
@@ -269,44 +269,44 @@ func (p *RustParser) extractComments(code string, lines []string, parentID strin
 		commentChunk.ID = generateRustChunkID(commentChunk)
 		chunks = append(chunks, commentChunk)
 	}
-	
+
 	return chunks
 }
 
 // extractStructs extracts struct declarations from Rust code
 func (p *RustParser) extractStructs(code string, lines []string, parentID string) []*chunking.CodeChunk {
 	chunks := []*chunking.CodeChunk{}
-	
+
 	// Find all struct declarations
 	structMatches := rustStructRegex.FindAllStringSubmatchIndex(code, -1)
-	
+
 	for _, match := range structMatches {
 		if len(match) < 4 {
 			continue
 		}
-		
+
 		// Get the struct name
 		structName := code[match[2]:match[3]]
-		
+
 		// Find the struct content
 		startPos := match[0]
-		
+
 		// Check if this is a struct with a body
 		hasBody := false
 		structContent := code[startPos:match[1]]
 		endPos := match[1]
-		
+
 		// Only get full body for structs with definition, not just declarations
 		if strings.Contains(structContent, "{") {
 			hasBody = true
 			// Find the complete struct definition including body
 			structContent, endPos = p.findBlockContent(code, startPos)
 		}
-		
+
 		// Find the line numbers
 		startLine := getLineNumberFromPos(code, startPos) + 1
 		endLine := getLineNumberFromPos(code, endPos) + 1
-		
+
 		// Extract generics if present
 		generics := ""
 		if strings.Contains(structName, "<") {
@@ -316,27 +316,27 @@ func (p *RustParser) extractStructs(code string, lines []string, parentID string
 				structName = structName[:genericStart]
 			}
 		}
-		
+
 		// Check if the struct is public
 		isPublic := false
 		if strings.HasPrefix(strings.TrimSpace(code[match[0]:]), "pub") {
 			isPublic = true
 		}
-		
+
 		// Create struct metadata
 		structMetadata := map[string]interface{}{
-			"type":    "struct",
-			"public":  isPublic,
+			"type":   "struct",
+			"public": isPublic,
 		}
-		
+
 		if generics != "" {
 			structMetadata["generics"] = generics
 		}
-		
+
 		if hasBody {
 			structMetadata["has_body"] = true
 		}
-		
+
 		// Create struct chunk
 		structChunk := &chunking.CodeChunk{
 			Type:      chunking.ChunkTypeStruct,
@@ -352,33 +352,33 @@ func (p *RustParser) extractStructs(code string, lines []string, parentID string
 		structChunk.ID = generateRustChunkID(structChunk)
 		chunks = append(chunks, structChunk)
 	}
-	
+
 	return chunks
 }
 
 // extractEnums extracts enum declarations from Rust code
 func (p *RustParser) extractEnums(code string, lines []string, parentID string) []*chunking.CodeChunk {
 	chunks := []*chunking.CodeChunk{}
-	
+
 	// Find all enum declarations
 	enumMatches := rustEnumRegex.FindAllStringSubmatchIndex(code, -1)
-	
+
 	for _, match := range enumMatches {
 		if len(match) < 4 {
 			continue
 		}
-		
+
 		// Get the enum name
 		enumName := code[match[2]:match[3]]
-		
+
 		// Find the enum content
 		startPos := match[0]
 		enumContent, endPos := p.findBlockContent(code, startPos)
-		
+
 		// Find the line numbers
 		startLine := getLineNumberFromPos(code, startPos) + 1
 		endLine := getLineNumberFromPos(code, endPos) + 1
-		
+
 		// Extract generics if present
 		generics := ""
 		if strings.Contains(enumName, "<") {
@@ -388,17 +388,17 @@ func (p *RustParser) extractEnums(code string, lines []string, parentID string) 
 				enumName = enumName[:genericStart]
 			}
 		}
-		
+
 		// Check if the enum is public
 		isPublic := false
 		if strings.HasPrefix(strings.TrimSpace(code[match[0]:]), "pub") {
 			isPublic = true
 		}
-		
+
 		// Try to extract enum variants
-		variantRegex := regexp.MustCompile(`(?m)\s*(\w+)(?:\s*=\s*[^,}]+|\s*\([^)]*\)|\s*\{[^}]*\})?`)  
+		variantRegex := regexp.MustCompile(`(?m)\s*(\w+)(?:\s*=\s*[^,}]+|\s*\([^)]*\)|\s*\{[^}]*\})?`)
 		variantMatches := variantRegex.FindAllStringSubmatch(enumContent, -1)
-		
+
 		var variants []string
 		if len(variantMatches) > 0 {
 			for _, vMatch := range variantMatches {
@@ -407,21 +407,21 @@ func (p *RustParser) extractEnums(code string, lines []string, parentID string) 
 				}
 			}
 		}
-		
+
 		// Create enum metadata
 		enumMetadata := map[string]interface{}{
 			"type":   "enum",
 			"public": isPublic,
 		}
-		
+
 		if generics != "" {
 			enumMetadata["generics"] = generics
 		}
-		
+
 		if len(variants) > 0 {
 			enumMetadata["variants"] = variants
 		}
-		
+
 		// Create enum chunk
 		enumChunk := &chunking.CodeChunk{
 			Type:      chunking.ChunkTypeBlock, // Using Block since there's no specific Enum type
@@ -437,34 +437,34 @@ func (p *RustParser) extractEnums(code string, lines []string, parentID string) 
 		enumChunk.ID = generateRustChunkID(enumChunk)
 		chunks = append(chunks, enumChunk)
 	}
-	
+
 	return chunks
 }
 
 // extractImports extracts use statements (imports) from Rust code
 func (p *RustParser) extractImports(code string, lines []string, parentID string) []*chunking.CodeChunk {
 	chunks := []*chunking.CodeChunk{}
-	
+
 	// Find all import statements
 	importMatches := rustUseRegex.FindAllStringSubmatchIndex(code, -1)
-	
+
 	for _, match := range importMatches {
 		if len(match) < 4 {
 			continue
 		}
-		
+
 		// Get the import path
 		importPath := strings.TrimSpace(code[match[2]:match[3]])
-		
+
 		// Get the full import statement
 		startPos := match[0]
 		endPos := match[1]
 		importContent := code[startPos:endPos]
-		
+
 		// Find the line numbers
 		startLine := getLineNumberFromPos(code, startPos) + 1
 		endLine := getLineNumberFromPos(code, endPos) + 1
-		
+
 		// Try to extract the imported name
 		importedName := importPath
 		if strings.Contains(importPath, "::{") {
@@ -480,13 +480,13 @@ func (p *RustParser) extractImports(code string, lines []string, parentID string
 			// Handle normal imports: use std::collections::HashMap
 			importedName = importPath[strings.LastIndex(importPath, ":")+1:]
 		}
-		
+
 		// Create import metadata
 		importMetadata := map[string]interface{}{
 			"type": "use",
 			"path": importPath,
 		}
-		
+
 		// Create import chunk
 		importChunk := &chunking.CodeChunk{
 			Type:      chunking.ChunkTypeImport,
@@ -502,30 +502,30 @@ func (p *RustParser) extractImports(code string, lines []string, parentID string
 		importChunk.ID = generateRustChunkID(importChunk)
 		chunks = append(chunks, importChunk)
 	}
-	
+
 	return chunks
 }
 
 // extractModules extracts module declarations from Rust code
 func (p *RustParser) extractModules(code string, lines []string, parentID string) []*chunking.CodeChunk {
 	chunks := []*chunking.CodeChunk{}
-	
+
 	// Find all module declarations
 	moduleMatches := rustModuleRegex.FindAllStringSubmatchIndex(code, -1)
-	
+
 	for _, match := range moduleMatches {
 		if len(match) < 4 {
 			continue
 		}
-		
+
 		// Get the module name
 		modName := code[match[2]:match[3]]
-		
+
 		// Find the module content if it's an inline module
 		startPos := match[0]
 		modContent := code[startPos:match[1]]
 		endPos := match[1]
-		
+
 		// Check if this is an inline module with a body
 		isInline := false
 		if strings.Contains(modContent, "{") {
@@ -533,17 +533,17 @@ func (p *RustParser) extractModules(code string, lines []string, parentID string
 			// Find the full module body with balanced braces
 			modContent, endPos = p.findBlockContent(code, startPos)
 		}
-		
+
 		// Find the line numbers
 		startLine := getLineNumberFromPos(code, startPos) + 1
 		endLine := getLineNumberFromPos(code, endPos) + 1
-		
+
 		// Create module metadata
 		modMetadata := map[string]interface{}{
-			"type":    "module",
+			"type":   "module",
 			"inline": isInline,
 		}
-		
+
 		// Create module chunk
 		moduleChunk := &chunking.CodeChunk{
 			Type:      chunking.ChunkTypeBlock,
@@ -558,21 +558,21 @@ func (p *RustParser) extractModules(code string, lines []string, parentID string
 		}
 		moduleChunk.ID = generateRustChunkID(moduleChunk)
 		chunks = append(chunks, moduleChunk)
-		
+
 		// If it's an inline module, recursively extract its contents
 		if isInline {
 			// Extract the module's code body (removing the module declaration and braces)
 			openingBracePos := strings.Index(modContent, "{")
 			if openingBracePos != -1 && len(modContent) > openingBracePos+1 {
 				modBody := modContent[openingBracePos+1 : len(modContent)-1] // Remove closing brace
-				
+
 				// Extract functions inside this module
 				modFuncs := p.extractFunctionsWithOffset(modBody, nil, moduleChunk.ID, true) // Pass nil lines as we're only processing a substring
 				chunks = append(chunks, modFuncs...)
 			}
 		}
 	}
-	
+
 	return chunks
 }
 
@@ -583,13 +583,13 @@ func (p *RustParser) findBlockContent(code string, startPos int) (string, int) {
 	if bracePos == -1 {
 		return code[startPos:], len(code)
 	}
-	
+
 	bracePos += startPos
-	
+
 	// Track nested braces
 	braceCount := 1
 	pos := bracePos + 1
-	
+
 	// Find the matching closing brace
 	for pos < len(code) && braceCount > 0 {
 		if pos+1 < len(code) && code[pos:pos+2] == "//" {
@@ -616,7 +616,7 @@ func (p *RustParser) findBlockContent(code string, startPos int) (string, int) {
 			pos++
 		}
 	}
-	
+
 	return code[startPos:pos], pos
 }
 

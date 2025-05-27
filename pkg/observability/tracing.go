@@ -182,7 +182,7 @@ func InitTracing(cfg TracingConfig) (func(), error) {
 
 	// Set global trace provider
 	otel.SetTracerProvider(tracerProvider)
-	
+
 	// Set global propagator
 	otel.SetTextMapPropagator(propagation.NewCompositeTextMapPropagator(
 		propagation.TraceContext{},

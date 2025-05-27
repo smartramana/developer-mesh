@@ -42,7 +42,7 @@ func (b *MockEventBus) Subscribe(eventType events.AdapterEventType, handler even
 func (b *MockEventBus) SubscribeAll(handler events.EventHandler) {
 	b.mu.Lock()
 	defer b.mu.Unlock()
-	
+
 	b.globalHandlers = append(b.globalHandlers, handler)
 }
 
@@ -71,7 +71,7 @@ func (b *MockEventBus) Unsubscribe(eventType events.AdapterEventType, handler ev
 func (b *MockEventBus) UnsubscribeAll(handler events.EventHandler) {
 	b.mu.Lock()
 	defer b.mu.Unlock()
-	
+
 	// Filter out the handler from global handlers
 	filteredGlobalHandlers := make([]events.EventHandler, 0, len(b.globalHandlers))
 	for _, h := range b.globalHandlers {
@@ -79,9 +79,9 @@ func (b *MockEventBus) UnsubscribeAll(handler events.EventHandler) {
 			filteredGlobalHandlers = append(filteredGlobalHandlers, h)
 		}
 	}
-	
+
 	b.globalHandlers = filteredGlobalHandlers
-	
+
 	// Also remove from specific event types
 	for eventType, handlers := range b.handlers {
 		filteredHandlers := make([]events.EventHandler, 0, len(handlers))
@@ -90,7 +90,7 @@ func (b *MockEventBus) UnsubscribeAll(handler events.EventHandler) {
 				filteredHandlers = append(filteredHandlers, h)
 			}
 		}
-		
+
 		b.handlers[eventType] = filteredHandlers
 	}
 }
@@ -100,18 +100,18 @@ func (b *MockEventBus) Emit(ctx context.Context, event *events.AdapterEvent) err
 	b.mu.Lock()
 	b.emittedEvents = append(b.emittedEvents, event)
 	b.mu.Unlock()
-	
+
 	b.mu.RLock()
 	defer b.mu.RUnlock()
-	
+
 	// Copy handlers to avoid holding lock during processing
 	handlers, exists := b.handlers[string(event.EventType)]
 	handlersCopy := make([]events.EventHandler, len(handlers))
 	copy(handlersCopy, handlers)
-	
+
 	globalHandlersCopy := make([]events.EventHandler, len(b.globalHandlers))
 	copy(globalHandlersCopy, b.globalHandlers)
-	
+
 	// Process event (simple pass through for test)
 	// Notify type-specific handlers
 	if exists {
@@ -119,12 +119,12 @@ func (b *MockEventBus) Emit(ctx context.Context, event *events.AdapterEvent) err
 			handler(ctx, event)
 		}
 	}
-	
+
 	// Notify global handlers
 	for _, handler := range globalHandlersCopy {
 		handler(ctx, event)
 	}
-	
+
 	return nil
 }
 
@@ -142,11 +142,11 @@ func (b *MockEventBus) Close() {
 func (b *MockEventBus) GetEmittedEvents() []*events.AdapterEvent {
 	b.mu.RLock()
 	defer b.mu.RUnlock()
-	
+
 	// Return a copy to avoid race conditions
 	eventsCopy := make([]*events.AdapterEvent, len(b.emittedEvents))
 	copy(eventsCopy, b.emittedEvents)
-	
+
 	return eventsCopy
 }
 
@@ -154,6 +154,6 @@ func (b *MockEventBus) GetEmittedEvents() []*events.AdapterEvent {
 func (b *MockEventBus) ClearEmittedEvents() {
 	b.mu.Lock()
 	defer b.mu.Unlock()
-	
+
 	b.emittedEvents = []*events.AdapterEvent{}
 }

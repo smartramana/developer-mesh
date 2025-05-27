@@ -65,10 +65,10 @@ func main() {
 
 	// Parse the code
 	chunks, err := parser.Parse(context.Background(), goCode, "test.go")
-	
+
 	// Verify no error occurred
 	assert.NoError(t, err)
-	
+
 	// Verify chunks were created
 	assert.Greater(t, len(chunks), 0)
 
@@ -178,10 +178,10 @@ main();`
 
 	// Parse the code
 	chunks, err := parser.Parse(context.Background(), jsCode, "test.js")
-	
+
 	// Verify no error occurred
 	assert.NoError(t, err)
-	
+
 	// Verify chunks were created
 	assert.Greater(t, len(chunks), 0)
 
@@ -199,13 +199,13 @@ main();`
 
 	// Check if we have a class chunk, but don't require it since the parser implementation may vary
 	// Just verify we have enough chunks in general
-	
+
 	// Verify we have at least one chunked element (class, function, method, etc.)
 	hasCodeElements := false
 	for _, chunk := range chunks {
-		if chunk.Type == chunking.ChunkTypeClass || 
-		   chunk.Type == chunking.ChunkTypeFunction || 
-		   chunk.Type == chunking.ChunkTypeMethod {
+		if chunk.Type == chunking.ChunkTypeClass ||
+			chunk.Type == chunking.ChunkTypeFunction ||
+			chunk.Type == chunking.ChunkTypeMethod {
 			hasCodeElements = true
 			break
 		}
@@ -298,10 +298,10 @@ if __name__ == "__main__":
 
 	// Parse the code
 	chunks, err := parser.Parse(context.Background(), pyCode, "test.py")
-	
+
 	// Verify no error occurred
 	assert.NoError(t, err)
-	
+
 	// Verify chunks were created
 	assert.Greater(t, len(chunks), 0)
 
@@ -350,7 +350,7 @@ if __name__ == "__main__":
 	}
 	assert.NotNil(t, functionChunk)
 	assert.Equal(t, "create_user", functionChunk.Name)
-	
+
 	// Verify import chunks exist
 	var importFound bool
 	for _, chunk := range chunks {
@@ -498,10 +498,10 @@ module "vpc" {
 
 	// Parse the code
 	chunks, err := parser.Parse(context.Background(), hclCode, "main.tf")
-	
+
 	// Verify no error occurred
 	assert.NoError(t, err)
-	
+
 	// Verify chunks were created
 	assert.Greater(t, len(chunks), 0)
 
@@ -527,7 +527,7 @@ module "vpc" {
 	}
 	assert.NotNil(t, resourceChunk)
 	assert.Contains(t, resourceChunk.Name, "resource.aws_instance.app_server")
-	
+
 	// Verify variable blocks exist
 	var variableChunk *chunking.CodeChunk
 	for _, chunk := range chunks {
@@ -584,7 +584,7 @@ module "vpc" {
 func TestParserFactory(t *testing.T) {
 	// Get all parsers from the factory
 	parsers := NewParserFactory()
-	
+
 	// Verify that we have parsers for supported languages
 	assert.NotNil(t, parsers[chunking.LanguageGo])
 	assert.NotNil(t, parsers[chunking.LanguageJavaScript])
@@ -594,7 +594,7 @@ func TestParserFactory(t *testing.T) {
 	assert.NotNil(t, parsers[chunking.LanguageShell])
 	assert.NotNil(t, parsers[chunking.LanguageRust])
 	assert.NotNil(t, parsers[chunking.LanguageKotlin])
-	
+
 	// Check that the parsers return the expected language
 	assert.Equal(t, chunking.LanguageGo, parsers[chunking.LanguageGo].GetLanguage())
 	assert.Equal(t, chunking.LanguageJavaScript, parsers[chunking.LanguageJavaScript].GetLanguage())
@@ -609,10 +609,10 @@ func TestParserFactory(t *testing.T) {
 func TestInitializeChunkingService(t *testing.T) {
 	// Initialize the chunking service
 	service := InitializeChunkingService()
-	
+
 	// Verify that the service was created
 	assert.NotNil(t, service)
-	
+
 	// Test that the service can detect languages
 	assert.Equal(t, chunking.LanguageGo, service.DetectLanguage("test.go", ""))
 	assert.Equal(t, chunking.LanguageJavaScript, service.DetectLanguage("test.js", ""))

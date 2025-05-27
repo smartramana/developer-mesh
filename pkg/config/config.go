@@ -8,32 +8,32 @@ package config
 
 // Config holds the complete application configuration
 type Config struct {
-	API        APIConfig              `mapstructure:"api"`
-	Cache      interface{}            `mapstructure:"cache"`
-	Database   DatabaseConfig         `mapstructure:"database"`
-	Engine     CoreConfig             `mapstructure:"engine"`
-	Metrics    interface{}            `mapstructure:"metrics"`
-	AWS        interface{}            `mapstructure:"aws"`
-	Environment string                `mapstructure:"environment"`
-	Adapters   map[string]interface{} `mapstructure:"adapters"`
+	API         APIConfig              `mapstructure:"api"`
+	Cache       interface{}            `mapstructure:"cache"`
+	Database    DatabaseConfig         `mapstructure:"database"`
+	Engine      CoreConfig             `mapstructure:"engine"`
+	Metrics     interface{}            `mapstructure:"metrics"`
+	AWS         interface{}            `mapstructure:"aws"`
+	Environment string                 `mapstructure:"environment"`
+	Adapters    map[string]interface{} `mapstructure:"adapters"`
 }
 
 // APIConfig defines the API server configuration
 type APIConfig struct {
-	ListenAddress string                 `mapstructure:"listen_address"`
-	BaseURL       string                 `mapstructure:"base_url"`
-	TLSCertFile   string                 `mapstructure:"tls_cert_file"`
-	TLSKeyFile    string                 `mapstructure:"tls_key_file"`
-	CORSAllowed   string                 `mapstructure:"cors_allowed"`
-	RateLimit     int                    `mapstructure:"rate_limit"`
-	RequestTimeout int                   `mapstructure:"request_timeout"`
-	ReadTimeout   interface{}            `mapstructure:"read_timeout"`
-	WriteTimeout  interface{}            `mapstructure:"write_timeout"`
-	IdleTimeout   interface{}            `mapstructure:"idle_timeout"`
-	EnableCORS    bool                   `mapstructure:"enable_cors"`
-	EnableSwagger bool                   `mapstructure:"enable_swagger"`
-	Auth          map[string]interface{} `mapstructure:"auth"`
-	Webhook       map[string]interface{} `mapstructure:"webhook"`
+	ListenAddress  string                 `mapstructure:"listen_address"`
+	BaseURL        string                 `mapstructure:"base_url"`
+	TLSCertFile    string                 `mapstructure:"tls_cert_file"`
+	TLSKeyFile     string                 `mapstructure:"tls_key_file"`
+	CORSAllowed    string                 `mapstructure:"cors_allowed"`
+	RateLimit      int                    `mapstructure:"rate_limit"`
+	RequestTimeout int                    `mapstructure:"request_timeout"`
+	ReadTimeout    interface{}            `mapstructure:"read_timeout"`
+	WriteTimeout   interface{}            `mapstructure:"write_timeout"`
+	IdleTimeout    interface{}            `mapstructure:"idle_timeout"`
+	EnableCORS     bool                   `mapstructure:"enable_cors"`
+	EnableSwagger  bool                   `mapstructure:"enable_swagger"`
+	Auth           map[string]interface{} `mapstructure:"auth"`
+	Webhook        map[string]interface{} `mapstructure:"webhook"`
 }
 
 // CoreConfig defines the engine core configuration

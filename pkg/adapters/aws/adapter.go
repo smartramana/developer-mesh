@@ -4,7 +4,7 @@ package aws
 
 import (
 	"context"
-	
+
 	commonaws "github.com/S-Corkum/devops-mcp/pkg/common/aws"
 	"github.com/S-Corkum/devops-mcp/pkg/feature"
 	"github.com/aws/aws-sdk-go-v2/config"
@@ -12,11 +12,11 @@ import (
 
 // LegacyAWSInterface represents the legacy interface expected by client code
 type LegacyAWSInterface interface {
-	GetSession() interface{}
-	GetCredentials() interface{}
+	GetSession() any
+	GetCredentials() any
 	GetRegion() string
-	CreateS3Client() interface{}
-	CreateSQSClient() interface{}
+	CreateS3Client() any
+	CreateSQSClient() any
 }
 
 // AWSAdapter adapts between legacy AWS interface and the new common AWS interface
@@ -34,13 +34,13 @@ func NewAWSAdapter(commonClient commonaws.AWSClient) *AWSAdapter {
 }
 
 // GetSession implements the legacy interface but delegates to the new implementation
-func (a *AWSAdapter) GetSession() interface{} {
+func (a *AWSAdapter) GetSession() any {
 	// The adapter pattern handles potential differences in return types
 	return a.commonClient.GetSession()
 }
 
 // GetCredentials implements the legacy interface but delegates to the new implementation
-func (a *AWSAdapter) GetCredentials() interface{} {
+func (a *AWSAdapter) GetCredentials() any {
 	return a.commonClient.GetCredentials()
 }
 
@@ -50,12 +50,12 @@ func (a *AWSAdapter) GetRegion() string {
 }
 
 // CreateS3Client implements the legacy interface but delegates to the new implementation
-func (a *AWSAdapter) CreateS3Client() interface{} {
+func (a *AWSAdapter) CreateS3Client() any {
 	return a.commonClient.CreateS3Client()
 }
 
 // CreateSQSClient implements the legacy interface but delegates to the new implementation
-func (a *AWSAdapter) CreateSQSClient() interface{} {
+func (a *AWSAdapter) CreateSQSClient() any {
 	return a.commonClient.CreateSQSClient()
 }
 
@@ -81,17 +81,17 @@ func (f *AdapterFactory) GetClient(cfg commonaws.AuthConfig) (LegacyAWSInterface
 		if err != nil {
 			return nil, err
 		}
-		
+
 		commonClient := commonaws.NewAWSClient(f.ctx, &awsConfig)
 		return commonClient, nil
 	}
-	
+
 	// Create the common implementation and wrap it in an adapter
 	awsConfig, err := config.LoadDefaultConfig(f.ctx)
 	if err != nil {
 		return nil, err
 	}
-	
+
 	commonClient := commonaws.NewAWSClient(f.ctx, &awsConfig)
 	return NewAWSAdapter(commonClient), nil
 }

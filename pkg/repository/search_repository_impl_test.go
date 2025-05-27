@@ -23,11 +23,11 @@ func (m *mockVectorAPIRepository) StoreEmbedding(ctx context.Context, embedding 
 }
 
 func (m *mockVectorAPIRepository) SearchEmbeddings(
-	ctx context.Context, 
-	queryEmbedding []float32, 
-	contextID string, 
-	modelID string, 
-	limit int, 
+	ctx context.Context,
+	queryEmbedding []float32,
+	contextID string,
+	modelID string,
+	limit int,
 	threshold float64,
 ) ([]*vector.Embedding, error) {
 	args := m.Called(ctx, queryEmbedding, contextID, modelID, limit, threshold)
@@ -35,9 +35,9 @@ func (m *mockVectorAPIRepository) SearchEmbeddings(
 }
 
 func (m *mockVectorAPIRepository) SearchEmbeddings_Legacy(
-	ctx context.Context, 
-	queryEmbedding []float32, 
-	contextID string, 
+	ctx context.Context,
+	queryEmbedding []float32,
+	contextID string,
 	limit int,
 ) ([]*vector.Embedding, error) {
 	args := m.Called(ctx, queryEmbedding, contextID, limit)
@@ -104,10 +104,10 @@ func TestNewSearchRepository(t *testing.T) {
 	t.Run("with provided vector repository", func(t *testing.T) {
 		db := &sqlx.DB{}
 		mockVectorRepo := new(mockVectorAPIRepository)
-		
+
 		repo := NewSearchRepository(db, mockVectorRepo)
 		assert.NotNil(t, repo, "Repository should not be nil")
-		
+
 		impl, ok := repo.(*SearchRepositoryImpl)
 		assert.True(t, ok, "Repository should be a SearchRepositoryImpl")
 		assert.Equal(t, db, impl.db, "DB should be set correctly")
@@ -118,7 +118,7 @@ func TestNewSearchRepository(t *testing.T) {
 		db := &sqlx.DB{}
 		repo := NewSearchRepository(db, nil)
 		assert.NotNil(t, repo, "Repository should not be nil")
-		
+
 		impl, ok := repo.(*SearchRepositoryImpl)
 		assert.True(t, ok, "Repository should be a SearchRepositoryImpl")
 		assert.Equal(t, db, impl.db, "DB should be set correctly")
@@ -130,7 +130,7 @@ func TestNewSearchRepository(t *testing.T) {
 func TestSearchRepositoryImpl_SearchByText(t *testing.T) {
 	ctx := context.Background()
 	mockVectorRepo := new(mockVectorAPIRepository)
-	
+
 	repo := &SearchRepositoryImpl{
 		db:         nil,
 		vectorRepo: mockVectorRepo,
@@ -162,18 +162,18 @@ func TestSearchRepositoryImpl_SearchByText(t *testing.T) {
 			},
 			MinSimilarity: 0.7,
 		}
-		
+
 		// Any vector will be passed to the mock since it's not actually derived from the query
 		// Use mock.AnythingOfType for the float64 parameter to avoid floating-point precision issues
-		mockVectorRepo.On("SearchEmbeddings", 
-			ctx, 
-			mock.Anything, 
-			"test-context", 
-			"test-model", 
-			10, 
+		mockVectorRepo.On("SearchEmbeddings",
+			ctx,
+			mock.Anything,
+			"test-context",
+			"test-model",
+			10,
 			mock.AnythingOfType("float64"),
 		).Return(embeddings, nil).Once()
-		
+
 		results, err := repo.SearchByText(ctx, "test query", options)
 		assert.NoError(t, err)
 		assert.NotNil(t, results)
@@ -182,7 +182,7 @@ func TestSearchRepositoryImpl_SearchByText(t *testing.T) {
 		assert.Equal(t, "Test content 1", results.Results[0].Content)
 		assert.Equal(t, "test-id-2", results.Results[1].ID)
 		assert.Equal(t, "Test content 2", results.Results[1].Content)
-		
+
 		mockVectorRepo.AssertExpectations(t)
 	})
 
@@ -196,20 +196,20 @@ func TestSearchRepositoryImpl_SearchByText(t *testing.T) {
 	t.Run("with nil options", func(t *testing.T) {
 		// Default limit of 10 is used when options are nil
 		// Use mock.AnythingOfType for the float64 parameter to avoid floating-point precision issues
-		mockVectorRepo.On("SearchEmbeddings", 
-			ctx, 
-			mock.Anything, 
-			"", // empty context ID when no filter
-			"", // empty model ID when no filter
-			10, // default limit
+		mockVectorRepo.On("SearchEmbeddings",
+			ctx,
+			mock.Anything,
+			"",                             // empty context ID when no filter
+			"",                             // empty model ID when no filter
+			10,                             // default limit
 			mock.AnythingOfType("float64"), // default min similarity
 		).Return(embeddings, nil).Once()
-		
+
 		results, err := repo.SearchByText(ctx, "test query", nil)
 		assert.NoError(t, err)
 		assert.NotNil(t, results)
 		assert.Equal(t, 2, len(results.Results))
-		
+
 		mockVectorRepo.AssertExpectations(t)
 	})
 }
@@ -218,8 +218,8 @@ func TestSearchRepositoryImpl_SearchByText(t *testing.T) {
 func TestSearchRepositoryImpl_List(t *testing.T) {
 	ctx := context.Background()
 	mockVectorRepo := new(mockVectorAPIRepository)
-	
-	// Create a test implementation that overrides the SearchByText method 
+
+	// Create a test implementation that overrides the SearchByText method
 	// to allow empty query, which is needed for List to work in tests
 	repo := &testSearchRepositoryImpl{
 		SearchRepositoryImpl: SearchRepositoryImpl{
@@ -250,18 +250,18 @@ func TestSearchRepositoryImpl_List(t *testing.T) {
 			"context_id": "test-context",
 			"model_id":   "test-model",
 		}
-		
+
 		// The List method converts the filter to SearchOptions and calls SearchByText
 		// Use AnythingOfType for float64 to avoid precision issues
-		mockVectorRepo.On("SearchEmbeddings", 
-			ctx, 
-			mock.Anything, 
-			"test-context", 
-			"test-model", 
-			100, // Default limit used in List
+		mockVectorRepo.On("SearchEmbeddings",
+			ctx,
+			mock.Anything,
+			"test-context",
+			"test-model",
+			100,                            // Default limit used in List
 			mock.AnythingOfType("float64"), // Default threshold
 		).Return(embeddings, nil).Once()
-		
+
 		results, err := repo.List(ctx, filter)
 		assert.NoError(t, err)
 		assert.NotNil(t, results)
@@ -270,26 +270,26 @@ func TestSearchRepositoryImpl_List(t *testing.T) {
 		assert.Equal(t, "Test content 1", results[0].Content)
 		assert.Equal(t, "test-id-2", results[1].ID)
 		assert.Equal(t, "Test content 2", results[1].Content)
-		
+
 		mockVectorRepo.AssertExpectations(t)
 	})
 
 	t.Run("with nil filter", func(t *testing.T) {
 		// Use AnythingOfType for float64 to avoid precision issues
-		mockVectorRepo.On("SearchEmbeddings", 
-			ctx, 
-			mock.Anything, 
-			"", // Empty context ID
-			"", // Empty model ID
-			100, // Default limit
+		mockVectorRepo.On("SearchEmbeddings",
+			ctx,
+			mock.Anything,
+			"",                             // Empty context ID
+			"",                             // Empty model ID
+			100,                            // Default limit
 			mock.AnythingOfType("float64"), // Default threshold
 		).Return(embeddings, nil).Once()
-		
+
 		results, err := repo.List(ctx, nil)
 		assert.NoError(t, err)
 		assert.NotNil(t, results)
 		assert.Equal(t, 2, len(results))
-		
+
 		mockVectorRepo.AssertExpectations(t)
 	})
 }
@@ -307,7 +307,7 @@ func (r *testSearchRepositoryImpl) List(ctx context.Context, filter search.Filte
 	options := &SearchOptions{
 		Limit: 100, // Default limit
 	}
-	
+
 	// Extract filters from the map
 	if filter != nil {
 		for field, value := range filter {
@@ -318,11 +318,11 @@ func (r *testSearchRepositoryImpl) List(ctx context.Context, filter search.Filte
 			})
 		}
 	}
-	
+
 	// Extract context filter if present
 	contextID := ""
 	modelID := ""
-	
+
 	for _, filter := range options.Filters {
 		if filter.Field == "context_id" {
 			if strVal, ok := filter.Value.(string); ok {
@@ -334,28 +334,28 @@ func (r *testSearchRepositoryImpl) List(ctx context.Context, filter search.Filte
 			}
 		}
 	}
-	
+
 	// Call the vector repository's search function directly
 	dummyVector := []float32{0.1, 0.2, 0.3} // This would normally be generated from the query
 	embeddings, err := r.vectorRepo.SearchEmbeddings(
-		ctx, 
-		dummyVector, 
-		contextID, 
-		modelID, 
-		options.Limit, 
+		ctx,
+		dummyVector,
+		contextID,
+		modelID,
+		options.Limit,
 		float64(options.MinSimilarity),
 	)
-	
+
 	if err != nil {
 		return nil, err
 	}
-	
+
 	// Convert embeddings to search results
 	results := make([]*SearchResult, len(embeddings))
 	for i, emb := range embeddings {
 		results[i] = &SearchResult{
 			ID:          emb.ID,
-			Score:       0.9 - float32(i) * 0.1,
+			Score:       0.9 - float32(i)*0.1,
 			Distance:    float32(i) * 0.1,
 			Content:     emb.Text,
 			Type:        "text",
@@ -363,7 +363,7 @@ func (r *testSearchRepositoryImpl) List(ctx context.Context, filter search.Filte
 			ContentHash: "",
 		}
 	}
-	
+
 	return results, nil
 }
 
@@ -375,20 +375,20 @@ func (r *testSearchRepositoryImpl) Get(ctx context.Context, id string) (*SearchR
 	embeddings, err := r.vectorRepo.SearchEmbeddings(
 		ctx,
 		dummyVector,
-		id, // Use id as contextID to match our mock expectations
-		"", // Empty modelID
-		1,  // Limit 1
+		id,  // Use id as contextID to match our mock expectations
+		"",  // Empty modelID
+		1,   // Limit 1
 		0.0, // Zero threshold
 	)
-	
+
 	if err != nil {
 		return nil, err
 	}
-	
+
 	if len(embeddings) == 0 {
 		return nil, nil // Not found
 	}
-	
+
 	// Convert the first embedding to a search result
 	result := &SearchResult{
 		ID:          embeddings[0].ID,
@@ -399,7 +399,7 @@ func (r *testSearchRepositoryImpl) Get(ctx context.Context, id string) (*SearchR
 		Metadata:    embeddings[0].Metadata,
 		ContentHash: "",
 	}
-	
+
 	return result, nil
 }
 
@@ -412,11 +412,11 @@ func (r *testSearchRepositoryImpl) SearchByText(ctx context.Context, query strin
 			Limit: 10,
 		}
 	}
-	
+
 	// Extract context filter if present
 	contextID := ""
 	modelID := ""
-	
+
 	for _, filter := range options.Filters {
 		if filter.Field == "context_id" {
 			if strVal, ok := filter.Value.(string); ok {
@@ -428,33 +428,33 @@ func (r *testSearchRepositoryImpl) SearchByText(ctx context.Context, query strin
 			}
 		}
 	}
-	
+
 	// Call the vector repository's search function
 	dummyVector := []float32{0.1, 0.2, 0.3} // This would normally be generated from the query
 	embeddings, err := r.vectorRepo.SearchEmbeddings(
-		ctx, 
-		dummyVector, 
-		contextID, 
-		modelID, 
-		options.Limit, 
+		ctx,
+		dummyVector,
+		contextID,
+		modelID,
+		options.Limit,
 		float64(options.MinSimilarity),
 	)
-	
+
 	if err != nil {
 		return nil, err
 	}
-	
+
 	// Convert embeddings to search results
 	results := &SearchResults{
 		Results: make([]*SearchResult, len(embeddings)),
 		Total:   len(embeddings),
 		HasMore: false,
 	}
-	
+
 	for i, emb := range embeddings {
 		results.Results[i] = &SearchResult{
 			ID:          emb.ID,
-			Score:       0.9 - float32(i) * 0.1,
+			Score:       0.9 - float32(i)*0.1,
 			Distance:    float32(i) * 0.1,
 			Content:     emb.Text,
 			Type:        "text",
@@ -462,7 +462,7 @@ func (r *testSearchRepositoryImpl) SearchByText(ctx context.Context, query strin
 			ContentHash: "",
 		}
 	}
-	
+
 	return results, nil
 }
 
@@ -470,7 +470,7 @@ func (r *testSearchRepositoryImpl) SearchByText(ctx context.Context, query strin
 func TestSearchRepositoryImpl_Get(t *testing.T) {
 	ctx := context.Background()
 	mockVectorRepo := new(mockVectorAPIRepository)
-	
+
 	// Use testSearchRepositoryImpl to handle empty query in SearchByText
 	repo := &testSearchRepositoryImpl{
 		SearchRepositoryImpl: SearchRepositoryImpl{
@@ -490,45 +490,45 @@ func TestSearchRepositoryImpl_Get(t *testing.T) {
 				Metadata:  map[string]interface{}{"key": "value1"},
 			},
 		}
-		
+
 		// In our test implementation, Get will directly call the mock
 		// Use mock.AnythingOfType for the float64 parameter to avoid precision issues
-		mockVectorRepo.On("SearchEmbeddings", 
-			ctx, 
-			mock.Anything, 
-			id, // Content ID is used as context ID in SearchByContentID
-			"", // Empty model ID
-			1,  // Limit of 1 since we only want one result
+		mockVectorRepo.On("SearchEmbeddings",
+			ctx,
+			mock.Anything,
+			id,                             // Content ID is used as context ID in SearchByContentID
+			"",                             // Empty model ID
+			1,                              // Limit of 1 since we only want one result
 			mock.AnythingOfType("float64"), // Default threshold
 		).Return(embeddings, nil).Once()
-		
+
 		result, err := repo.Get(ctx, id)
 		assert.NoError(t, err)
 		assert.NotNil(t, result)
 		assert.Equal(t, id, result.ID)
 		assert.Equal(t, "Test content 1", result.Content)
-		
+
 		mockVectorRepo.AssertExpectations(t)
 	})
 
 	t.Run("with not found result", func(t *testing.T) {
 		id := "non-existent-id"
-		
+
 		// Return empty results to simulate not found
 		// Use mock.AnythingOfType for the float64 parameter to avoid precision issues
-		mockVectorRepo.On("SearchEmbeddings", 
-			ctx, 
-			mock.Anything, 
-			id, 
-			"", 
-			1, 
+		mockVectorRepo.On("SearchEmbeddings",
+			ctx,
+			mock.Anything,
+			id,
+			"",
+			1,
 			mock.AnythingOfType("float64"),
 		).Return([]*vector.Embedding{}, nil).Once()
-		
+
 		result, err := repo.Get(ctx, id)
 		assert.NoError(t, err)
 		assert.Nil(t, result)
-		
+
 		mockVectorRepo.AssertExpectations(t)
 	})
 }
@@ -542,7 +542,7 @@ func TestSearchRepositoryImpl_UnsupportedOperations(t *testing.T) {
 			vectorRepo: new(mockVectorAPIRepository),
 		},
 	}
-	
+
 	result := &SearchResult{
 		ID:      "test-id",
 		Content: "Test content",
@@ -571,7 +571,7 @@ func TestSearchRepositoryImpl_UnsupportedOperations(t *testing.T) {
 func TestSearchRepositoryImpl_GetSupportedModels(t *testing.T) {
 	ctx := context.Background()
 	mockVectorRepo := new(mockVectorAPIRepository)
-	
+
 	repo := &testSearchRepositoryImpl{
 		SearchRepositoryImpl: SearchRepositoryImpl{
 			db:         nil,
@@ -581,11 +581,11 @@ func TestSearchRepositoryImpl_GetSupportedModels(t *testing.T) {
 
 	expectedModels := []string{"model1", "model2"}
 	mockVectorRepo.On("GetSupportedModels", ctx).Return(expectedModels, nil).Once()
-	
+
 	models, err := repo.GetSupportedModels(ctx)
 	assert.NoError(t, err)
 	assert.Equal(t, expectedModels, models)
-	
+
 	mockVectorRepo.AssertExpectations(t)
 }
 
@@ -596,7 +596,7 @@ func TestSearchRepositoryImpl_GetSearchStats(t *testing.T) {
 		db:         nil,
 		vectorRepo: new(mockVectorAPIRepository),
 	}
-	
+
 	stats, err := repo.GetSearchStats(ctx)
 	assert.NoError(t, err)
 	assert.NotNil(t, stats)

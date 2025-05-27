@@ -81,16 +81,16 @@ const (
 type EntityID struct {
 	// Type of the entity
 	Type EntityType `json:"type"`
-	
+
 	// Owner of the entity (GitHub username or organization)
 	Owner string `json:"owner"`
-	
+
 	// Repository name
 	Repo string `json:"repo"`
-	
+
 	// Identifier of the entity (issue number, PR number, commit hash, etc.)
 	ID string `json:"id"`
-	
+
 	// Additional qualifiers for uniquely identifying the entity
 	Qualifiers map[string]string `json:"qualifiers,omitempty"`
 }
@@ -99,31 +99,31 @@ type EntityID struct {
 type EntityRelationship struct {
 	// ID is a unique identifier for this relationship
 	ID string `json:"id"`
-	
+
 	// Type of relationship
 	Type RelationshipType `json:"type"`
-	
+
 	// Direction of the relationship (outgoing, incoming, bidirectional)
 	Direction string `json:"direction"`
-	
+
 	// Source entity
 	Source EntityID `json:"source"`
-	
+
 	// Target entity
 	Target EntityID `json:"target"`
-	
+
 	// Strength of the relationship (0.0 to 1.0)
 	Strength float64 `json:"strength"`
-	
+
 	// Context provides additional information about the relationship
 	Context string `json:"context,omitempty"`
-	
+
 	// Metadata contains additional structured data about the relationship
-	Metadata map[string]interface{} `json:"metadata,omitempty"`
-	
+	Metadata map[string]any `json:"metadata,omitempty"`
+
 	// CreatedAt is the timestamp when the relationship was created
 	CreatedAt time.Time `json:"created_at"`
-	
+
 	// UpdatedAt is the timestamp when the relationship was last updated
 	UpdatedAt time.Time `json:"updated_at"`
 }
@@ -147,7 +147,7 @@ func (e EntityID) WithQualifiers(qualifiers map[string]string) EntityID {
 // EntityIDFromContentMetadata creates an EntityID from storage content metadata
 func EntityIDFromContentMetadata(contentType string, owner, repo, contentID string) EntityID {
 	var entityType EntityType
-	
+
 	// Map storage content type to entity type
 	switch contentType {
 	case "issue":
@@ -176,7 +176,7 @@ func EntityIDFromContentMetadata(contentType string, owner, repo, contentID stri
 		// Default fallback
 		entityType = EntityType(contentType)
 	}
-	
+
 	return NewEntityID(entityType, owner, repo, contentID)
 }
 
@@ -189,17 +189,17 @@ func NewEntityRelationship(
 	strength float64,
 ) *EntityRelationship {
 	now := time.Now()
-	
+
 	// Validate direction
-	if direction != DirectionOutgoing && 
-	   direction != DirectionIncoming && 
-	   direction != DirectionBidirectional {
+	if direction != DirectionOutgoing &&
+		direction != DirectionIncoming &&
+		direction != DirectionBidirectional {
 		direction = DirectionOutgoing
 	}
-	
+
 	// Generate a deterministic ID for the relationship
 	id := GenerateRelationshipID(relType, source, target, direction)
-	
+
 	return &EntityRelationship{
 		ID:        id,
 		Type:      relType,
@@ -209,7 +209,7 @@ func NewEntityRelationship(
 		Strength:  strength,
 		CreatedAt: now,
 		UpdatedAt: now,
-		Metadata:  make(map[string]interface{}),
+		Metadata:  make(map[string]any),
 	}
 }
 
@@ -220,15 +220,15 @@ func (r *EntityRelationship) WithContext(context string) *EntityRelationship {
 }
 
 // WithMetadata adds metadata to a relationship
-func (r *EntityRelationship) WithMetadata(metadata map[string]interface{}) *EntityRelationship {
+func (r *EntityRelationship) WithMetadata(metadata map[string]any) *EntityRelationship {
 	if r.Metadata == nil {
-		r.Metadata = make(map[string]interface{})
+		r.Metadata = make(map[string]any)
 	}
-	
+
 	for k, v := range metadata {
 		r.Metadata[k] = v
 	}
-	
+
 	return r
 }
 

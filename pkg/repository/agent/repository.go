@@ -6,14 +6,14 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
-	
+
 	"github.com/S-Corkum/devops-mcp/pkg/models"
 	"github.com/jmoiron/sqlx"
 )
 
 // RepositoryImpl implements the Repository interface for agents
 type RepositoryImpl struct {
-	db *sqlx.DB
+	db        *sqlx.DB
 	tableName string
 }
 
@@ -29,7 +29,7 @@ func isSQLite(db *sqlx.DB) bool {
 func NewRepository(db *sqlx.DB) Repository {
 	// Determine the appropriate table name with schema prefix if needed
 	tableName := "agents"
-	
+
 	// Check if we're using SQLite by trying a SQLite-specific pragma
 	var sqliteVersion string
 	err := db.QueryRow("PRAGMA database_list").Scan(&sqliteVersion)
@@ -59,9 +59,9 @@ func NewRepository(db *sqlx.DB) Repository {
 			}
 		}
 	}
-	
+
 	return &RepositoryImpl{
-		db: db,
+		db:        db,
 		tableName: tableName,
 	}
 }
@@ -71,12 +71,12 @@ func (r *RepositoryImpl) Create(ctx context.Context, agent *models.Agent) error 
 	if agent == nil {
 		return errors.New("agent cannot be nil")
 	}
-	
+
 	// Validate required fields
 	if agent.Name == "" {
 		return errors.New("agent name cannot be empty")
 	}
-	
+
 	// Check if we need to use a specific transaction from context
 	// First try with string key
 	tx, ok := ctx.Value("tx").(*sqlx.Tx)
@@ -84,7 +84,7 @@ func (r *RepositoryImpl) Create(ctx context.Context, agent *models.Agent) error 
 	if !ok || tx == nil {
 		tx, ok = ctx.Value("TransactionKey").(*sqlx.Tx)
 	}
-	
+
 	// Use appropriate placeholders based on database type
 	var placeholders string
 	if isSQLite(r.db) {
@@ -92,10 +92,10 @@ func (r *RepositoryImpl) Create(ctx context.Context, agent *models.Agent) error 
 	} else {
 		placeholders = "$1, $2, $3, $4"
 	}
-	
-	query := fmt.Sprintf("INSERT INTO %s (id, name, tenant_id, model_id) VALUES (%s)", 
+
+	query := fmt.Sprintf("INSERT INTO %s (id, name, tenant_id, model_id) VALUES (%s)",
 		r.tableName, placeholders)
-	
+
 	// Use transaction if available
 	var err error
 	if ok && tx != nil {
@@ -113,11 +113,11 @@ func (r *RepositoryImpl) Create(ctx context.Context, agent *models.Agent) error 
 			agent.ModelID,
 		)
 	}
-	
+
 	if err != nil {
 		return fmt.Errorf("failed to create agent: %w", err)
 	}
-	
+
 	return nil
 }
 
@@ -126,7 +126,7 @@ func (r *RepositoryImpl) Get(ctx context.Context, id string) (*models.Agent, err
 	if id == "" {
 		return nil, errors.New("id cannot be empty")
 	}
-	
+
 	// Check if we need to use a specific transaction from context
 	// First try with string key
 	tx, ok := ctx.Value("tx").(*sqlx.Tx)
@@ -134,7 +134,7 @@ func (r *RepositoryImpl) Get(ctx context.Context, id string) (*models.Agent, err
 	if !ok || tx == nil {
 		tx, ok = ctx.Value("TransactionKey").(*sqlx.Tx)
 	}
-	
+
 	// Use appropriate placeholder based on database type
 	var placeholder string
 	if isSQLite(r.db) {
@@ -142,38 +142,38 @@ func (r *RepositoryImpl) Get(ctx context.Context, id string) (*models.Agent, err
 	} else {
 		placeholder = "$1"
 	}
-	
-	query := fmt.Sprintf("SELECT id, name, tenant_id, model_id FROM %s WHERE id = %s", 
+
+	query := fmt.Sprintf("SELECT id, name, tenant_id, model_id FROM %s WHERE id = %s",
 		r.tableName, placeholder)
-	
+
 	var agent models.Agent
 	var err error
-	
+
 	// Use transaction if available
 	if ok && tx != nil {
 		err = tx.GetContext(ctx, &agent, query, id)
 	} else {
 		err = r.db.GetContext(ctx, &agent, query, id)
 	}
-	
+
 	if err != nil {
 		if err == sql.ErrNoRows {
 			return nil, nil // Not found, return nil without error
 		}
 		return nil, fmt.Errorf("failed to get agent: %w", err)
 	}
-	
+
 	return &agent, nil
 }
 
 // List retrieves agents based on filter criteria
 func (r *RepositoryImpl) List(ctx context.Context, filter Filter) ([]*models.Agent, error) {
 	baseQuery := fmt.Sprintf("SELECT id, name, tenant_id, model_id FROM %s", r.tableName)
-	
+
 	// Build the WHERE clause based on filters
 	whereClause := ""
-	var args []interface{}
-	
+	var args []any
+
 	// Check if we need to use a specific transaction from context
 	// First try with string key
 	tx, ok := ctx.Value("tx").(*sqlx.Tx)
@@ -181,7 +181,7 @@ func (r *RepositoryImpl) List(ctx context.Context, filter Filter) ([]*models.Age
 	if !ok || tx == nil {
 		tx, ok = ctx.Value("TransactionKey").(*sqlx.Tx)
 	}
-	
+
 	if filter != nil {
 		argCount := 1
 		for key, value := range filter {
@@ -190,36 +190,36 @@ func (r *RepositoryImpl) List(ctx context.Context, filter Filter) ([]*models.Age
 			} else {
 				whereClause += " AND"
 			}
-			
+
 			// For SQLite, always use ? without numbering
 			if isSQLite(r.db) {
 				whereClause += fmt.Sprintf(" %s = ?", key)
 			} else {
 				whereClause += fmt.Sprintf(" %s = $%d", key, argCount)
 			}
-			
+
 			args = append(args, value)
 			argCount++
 		}
 	}
-	
+
 	// Order by name as a default sort
 	query := baseQuery + whereClause + " ORDER BY name ASC"
-	
+
 	var agents []*models.Agent
 	var err error
-	
+
 	// Use transaction if available
 	if ok && tx != nil {
 		err = tx.SelectContext(ctx, &agents, query, args...)
 	} else {
 		err = r.db.SelectContext(ctx, &agents, query, args...)
 	}
-	
+
 	if err != nil {
 		return nil, fmt.Errorf("failed to list agents: %w", err)
 	}
-	
+
 	return agents, nil
 }
 
@@ -228,11 +228,11 @@ func (r *RepositoryImpl) Update(ctx context.Context, agent *models.Agent) error 
 	if agent == nil {
 		return errors.New("agent cannot be nil")
 	}
-	
+
 	if agent.ID == "" {
 		return errors.New("agent ID cannot be empty")
 	}
-	
+
 	// Check if we need to use a specific transaction from context
 	// First try with string key
 	tx, ok := ctx.Value("tx").(*sqlx.Tx)
@@ -240,7 +240,7 @@ func (r *RepositoryImpl) Update(ctx context.Context, agent *models.Agent) error 
 	if !ok || tx == nil {
 		tx, ok = ctx.Value("TransactionKey").(*sqlx.Tx)
 	}
-	
+
 	// Choose the appropriate placeholders based on database type
 	var placeholders string
 	if isSQLite(r.db) {
@@ -248,41 +248,41 @@ func (r *RepositoryImpl) Update(ctx context.Context, agent *models.Agent) error 
 	} else {
 		placeholders = "name = $2, tenant_id = $3, model_id = $4 WHERE id = $1"
 	}
-	
+
 	query := fmt.Sprintf("UPDATE %s SET %s", r.tableName, placeholders)
-	
-	var args []interface{}
+
+	var args []any
 	if isSQLite(r.db) {
 		// SQLite uses placeholders in order of appearance
-		args = []interface{}{agent.Name, agent.TenantID, agent.ModelID, agent.ID}
+		args = []any{agent.Name, agent.TenantID, agent.ModelID, agent.ID}
 	} else {
 		// PostgreSQL uses numbered placeholders, maintain same order as original
-		args = []interface{}{agent.ID, agent.Name, agent.TenantID, agent.ModelID}
+		args = []any{agent.ID, agent.Name, agent.TenantID, agent.ModelID}
 	}
-	
+
 	var result sql.Result
 	var err error
-	
+
 	// Use transaction if available
 	if ok && tx != nil {
 		result, err = tx.ExecContext(ctx, query, args...)
 	} else {
 		result, err = r.db.ExecContext(ctx, query, args...)
 	}
-	
+
 	if err != nil {
 		return fmt.Errorf("failed to update agent: %w", err)
 	}
-	
+
 	rowsAffected, err := result.RowsAffected()
 	if err != nil {
 		return fmt.Errorf("failed to get rows affected: %w", err)
 	}
-	
+
 	if rowsAffected == 0 {
 		return errors.New("agent not found")
 	}
-	
+
 	return nil
 }
 
@@ -291,7 +291,7 @@ func (r *RepositoryImpl) Delete(ctx context.Context, id string) error {
 	if id == "" {
 		return errors.New("id cannot be empty")
 	}
-	
+
 	// Check if we need to use a specific transaction from context
 	// First try with string key
 	tx, ok := ctx.Value("tx").(*sqlx.Tx)
@@ -299,7 +299,7 @@ func (r *RepositoryImpl) Delete(ctx context.Context, id string) error {
 	if !ok || tx == nil {
 		tx, ok = ctx.Value("TransactionKey").(*sqlx.Tx)
 	}
-	
+
 	// Use appropriate placeholder based on database type
 	var placeholder string
 	if isSQLite(r.db) {
@@ -307,32 +307,32 @@ func (r *RepositoryImpl) Delete(ctx context.Context, id string) error {
 	} else {
 		placeholder = "$1"
 	}
-	
+
 	query := fmt.Sprintf("DELETE FROM %s WHERE id = %s", r.tableName, placeholder)
-	
+
 	var result sql.Result
 	var err error
-	
+
 	// Use transaction if available
 	if ok && tx != nil {
 		result, err = tx.ExecContext(ctx, query, id)
 	} else {
 		result, err = r.db.ExecContext(ctx, query, id)
 	}
-	
+
 	if err != nil {
 		return fmt.Errorf("failed to delete agent: %w", err)
 	}
-	
+
 	rowsAffected, err := result.RowsAffected()
 	if err != nil {
 		return fmt.Errorf("failed to get rows affected: %w", err)
 	}
-	
+
 	if rowsAffected == 0 {
 		return errors.New("agent not found")
 	}
-	
+
 	return nil
 }
 
@@ -348,12 +348,12 @@ func (r *RepositoryImpl) GetAgentByID(ctx context.Context, id string, tenantID s
 	if err != nil {
 		return nil, err
 	}
-	
+
 	// If found, verify tenant ID matches
 	if agent != nil && agent.TenantID != tenantID {
 		return nil, errors.New("agent not found for tenant")
 	}
-	
+
 	return agent, nil
 }
 

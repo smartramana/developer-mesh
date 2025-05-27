@@ -13,10 +13,10 @@ import (
 // GeneralDatabaseAdapter provides a wrapper around pkg/database.Database with the same interface as internal/database.Database
 // This allows for incremental migration from internal/database to pkg/database
 type GeneralDatabaseAdapter struct {
-	db        *sqlx.DB
-	pkgDB     *database.Database
-	config    config.DatabaseConfig
-	logger    *observability.Logger
+	db     *sqlx.DB
+	pkgDB  *database.Database
+	config config.DatabaseConfig
+	logger *observability.Logger
 }
 
 // NewDatabaseFromPkg creates a new database.Database instance that wraps a pkg/database.Database
@@ -37,7 +37,7 @@ func NewDatabaseFromPkg(ctx context.Context, cfg config.DatabaseConfig, logger o
 		UseAWS:       false, // Will be set below based on flags
 		UseIAM:       cfg.UseIAM,
 	}
-	
+
 	// UseAWS and UseIAM are already set in the config above
 
 	// Create the pkg database instance

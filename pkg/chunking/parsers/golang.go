@@ -38,7 +38,7 @@ func (p *GoParser) Parse(ctx context.Context, code string, filename string) ([]*
 	}
 
 	chunks := []*chunking.CodeChunk{}
-	
+
 	// Extract package information
 	packageName := file.Name.Name
 	packageChunk := &chunking.CodeChunk{
@@ -53,29 +53,29 @@ func (p *GoParser) Parse(ctx context.Context, code string, filename string) ([]*
 			"package": packageName,
 		},
 	}
-	
+
 	// Generate ID for package chunk
 	packageChunk.ID = generateChunkID(packageChunk)
 	chunks = append(chunks, packageChunk)
-	
+
 	// Track imports
 	importMap := make(map[string]string)
 	importChunks := []*chunking.CodeChunk{}
-	
+
 	// Extract imports
 	for _, imp := range file.Imports {
 		importPath := strings.Trim(imp.Path.Value, "\"")
 		var importName string
-		
+
 		if imp.Name != nil {
 			importName = imp.Name.Name
 		} else {
 			parts := strings.Split(importPath, "/")
 			importName = parts[len(parts)-1]
 		}
-		
+
 		importMap[importName] = importPath
-		
+
 		// Create import chunk
 		importChunk := &chunking.CodeChunk{
 			Type:      chunking.ChunkTypeImport,
@@ -91,15 +91,15 @@ func (p *GoParser) Parse(ctx context.Context, code string, filename string) ([]*
 				"import_name": importName,
 			},
 		}
-		
+
 		// Generate ID
 		importChunk.ID = generateChunkID(importChunk)
 		importChunks = append(importChunks, importChunk)
 	}
-	
+
 	// Add import chunks to the list
 	chunks = append(chunks, importChunks...)
-	
+
 	// Extract comments
 	for _, cg := range file.Comments {
 		commentChunk := &chunking.CodeChunk{
@@ -112,16 +112,16 @@ func (p *GoParser) Parse(ctx context.Context, code string, filename string) ([]*
 			EndLine:   fset.Position(cg.End()).Line,
 			ParentID:  packageChunk.ID,
 		}
-		
+
 		// Generate ID
 		commentChunk.ID = generateChunkID(commentChunk)
 		chunks = append(chunks, commentChunk)
 	}
-	
+
 	// Process all declarations
 	funcChunks := []*chunking.CodeChunk{}
 	typeChunks := []*chunking.CodeChunk{}
-	
+
 	// Extract type declarations
 	ast.Inspect(file, func(n ast.Node) bool {
 		switch decl := n.(type) {
@@ -130,7 +130,7 @@ func (p *GoParser) Parse(ctx context.Context, code string, filename string) ([]*
 			if chunk != nil {
 				typeChunks = append(typeChunks, chunk)
 			}
-			
+
 		case *ast.FuncDecl:
 			chunk := p.processFuncDecl(decl, fset, packageName, packageChunk.ID, typeChunks, code)
 			if chunk != nil {
@@ -139,14 +139,14 @@ func (p *GoParser) Parse(ctx context.Context, code string, filename string) ([]*
 		}
 		return true
 	})
-	
+
 	// Add type and function chunks to the list
 	chunks = append(chunks, typeChunks...)
 	chunks = append(chunks, funcChunks...)
-	
+
 	// Process dependencies between chunks
 	p.processDependencies(chunks, importMap)
-	
+
 	return chunks, nil
 }
 
@@ -154,7 +154,7 @@ func (p *GoParser) Parse(ctx context.Context, code string, filename string) ([]*
 func (p *GoParser) processTypeSpec(typeSpec *ast.TypeSpec, fset *token.FileSet, packageName string, parentID string, code string) *chunking.CodeChunk {
 	var chunkType chunking.ChunkType
 	var typeDetails map[string]interface{}
-	
+
 	switch typeSpec.Type.(type) {
 	case *ast.StructType:
 		chunkType = chunking.ChunkTypeStruct
@@ -166,15 +166,15 @@ func (p *GoParser) processTypeSpec(typeSpec *ast.TypeSpec, fset *token.FileSet, 
 		// Skip other type declarations
 		return nil
 	}
-	
+
 	startPos := fset.Position(typeSpec.Pos())
 	endPos := fset.Position(typeSpec.End())
-	
+
 	// Extract the content of the type declaration
 	lines := strings.Split(code, "\n")
-	contentLines := lines[startPos.Line-1:endPos.Line]
+	contentLines := lines[startPos.Line-1 : endPos.Line]
 	content := strings.Join(contentLines, "\n")
-	
+
 	chunk := &chunking.CodeChunk{
 		Type:      chunkType,
 		Name:      typeSpec.Name.Name,
@@ -186,10 +186,10 @@ func (p *GoParser) processTypeSpec(typeSpec *ast.TypeSpec, fset *token.FileSet, 
 		ParentID:  parentID,
 		Metadata:  typeDetails,
 	}
-	
+
 	// Generate ID
 	chunk.ID = generateChunkID(chunk)
-	
+
 	return chunk
 }
 
@@ -197,20 +197,20 @@ func (p *GoParser) processTypeSpec(typeSpec *ast.TypeSpec, fset *token.FileSet, 
 func (p *GoParser) processFuncDecl(funcDecl *ast.FuncDecl, fset *token.FileSet, packageName string, parentID string, typeChunks []*chunking.CodeChunk, code string) *chunking.CodeChunk {
 	startPos := fset.Position(funcDecl.Pos())
 	endPos := fset.Position(funcDecl.End())
-	
+
 	// Extract the content of the function declaration
 	lines := strings.Split(code, "\n")
-	contentLines := lines[startPos.Line-1:endPos.Line]
+	contentLines := lines[startPos.Line-1 : endPos.Line]
 	content := strings.Join(contentLines, "\n")
-	
+
 	// Determine if this is a method or a standalone function
 	chunkType := chunking.ChunkTypeFunction
 	var path string
 	methodParentID := parentID
-	
+
 	if funcDecl.Recv != nil && len(funcDecl.Recv.List) > 0 {
 		chunkType = chunking.ChunkTypeMethod
-		
+
 		// Try to extract the receiver type
 		var receiverType string
 		switch t := funcDecl.Recv.List[0].Type.(type) {
@@ -221,10 +221,10 @@ func (p *GoParser) processFuncDecl(funcDecl *ast.FuncDecl, fset *token.FileSet, 
 		case *ast.Ident:
 			receiverType = t.Name
 		}
-		
+
 		if receiverType != "" {
 			path = fmt.Sprintf("%s.%s.%s", packageName, receiverType, funcDecl.Name.Name)
-			
+
 			// Find the parent type chunk
 			for _, typeChunk := range typeChunks {
 				if typeChunk.Name == receiverType {
@@ -238,10 +238,10 @@ func (p *GoParser) processFuncDecl(funcDecl *ast.FuncDecl, fset *token.FileSet, 
 	} else {
 		path = fmt.Sprintf("%s.%s", packageName, funcDecl.Name.Name)
 	}
-	
+
 	// Extract function details
 	funcDetails := p.extractFunctionDetails(funcDecl)
-	
+
 	chunk := &chunking.CodeChunk{
 		Type:      chunkType,
 		Name:      funcDecl.Name.Name,
@@ -253,10 +253,10 @@ func (p *GoParser) processFuncDecl(funcDecl *ast.FuncDecl, fset *token.FileSet, 
 		ParentID:  methodParentID,
 		Metadata:  funcDetails,
 	}
-	
+
 	// Generate ID
 	chunk.ID = generateChunkID(chunk)
-	
+
 	return chunk
 }
 
@@ -266,11 +266,11 @@ func (p *GoParser) extractStructDetails(structType *ast.StructType) map[string]i
 		"type":   "struct",
 		"fields": []map[string]string{},
 	}
-	
+
 	if structType.Fields != nil {
 		for _, field := range structType.Fields.List {
 			fieldType := ""
-			
+
 			// Extract the field type as a string
 			switch t := field.Type.(type) {
 			case *ast.Ident:
@@ -298,26 +298,26 @@ func (p *GoParser) extractStructDetails(structType *ast.StructType) map[string]i
 			case *ast.InterfaceType:
 				fieldType = "interface{}"
 			}
-			
+
 			// Extract field names
 			for _, name := range field.Names {
 				fieldInfo := map[string]string{
 					"name": name.Name,
 					"type": fieldType,
 				}
-				
+
 				// Extract tags if present
 				if field.Tag != nil {
 					fieldInfo["tag"] = field.Tag.Value
 				}
-				
+
 				fields := details["fields"].([]map[string]string)
 				fields = append(fields, fieldInfo)
 				details["fields"] = fields
 			}
 		}
 	}
-	
+
 	return details
 }
 
@@ -327,18 +327,18 @@ func (p *GoParser) extractInterfaceDetails(interfaceType *ast.InterfaceType) map
 		"type":    "interface",
 		"methods": []map[string]string{},
 	}
-	
+
 	if interfaceType.Methods != nil {
 		for _, method := range interfaceType.Methods.List {
 			// Check if it's a method
 			if len(method.Names) > 0 {
 				methodType := ""
-				
+
 				// Try to extract method signature
 				if funcType, ok := method.Type.(*ast.FuncType); ok {
 					params := []string{}
 					returns := []string{}
-					
+
 					// Extract parameters
 					if funcType.Params != nil {
 						for _, param := range funcType.Params.List {
@@ -351,7 +351,7 @@ func (p *GoParser) extractInterfaceDetails(interfaceType *ast.InterfaceType) map
 									typeStr = x.Name + "." + t.Sel.Name
 								}
 							}
-							
+
 							if len(param.Names) > 0 {
 								for _, name := range param.Names {
 									params = append(params, name.Name+" "+typeStr)
@@ -361,7 +361,7 @@ func (p *GoParser) extractInterfaceDetails(interfaceType *ast.InterfaceType) map
 							}
 						}
 					}
-					
+
 					// Extract return values
 					if funcType.Results != nil {
 						for _, result := range funcType.Results.List {
@@ -377,7 +377,7 @@ func (p *GoParser) extractInterfaceDetails(interfaceType *ast.InterfaceType) map
 							returns = append(returns, typeStr)
 						}
 					}
-					
+
 					methodType = "func(" + strings.Join(params, ", ") + ")"
 					if len(returns) > 0 {
 						if len(returns) == 1 {
@@ -387,13 +387,13 @@ func (p *GoParser) extractInterfaceDetails(interfaceType *ast.InterfaceType) map
 						}
 					}
 				}
-				
+
 				for _, name := range method.Names {
 					methodInfo := map[string]string{
 						"name":      name.Name,
 						"signature": methodType,
 					}
-					
+
 					methods := details["methods"].([]map[string]string)
 					methods = append(methods, methodInfo)
 					details["methods"] = methods
@@ -401,7 +401,7 @@ func (p *GoParser) extractInterfaceDetails(interfaceType *ast.InterfaceType) map
 			}
 		}
 	}
-	
+
 	return details
 }
 
@@ -411,7 +411,7 @@ func (p *GoParser) extractFunctionDetails(funcDecl *ast.FuncDecl) map[string]int
 		"params":  []map[string]string{},
 		"returns": []map[string]string{},
 	}
-	
+
 	// Extract parameters
 	if funcDecl.Type.Params != nil {
 		for _, param := range funcDecl.Type.Params.List {
@@ -433,20 +433,20 @@ func (p *GoParser) extractFunctionDetails(funcDecl *ast.FuncDecl) map[string]int
 					}
 				}
 			}
-			
+
 			for _, name := range param.Names {
 				paramInfo := map[string]string{
 					"name": name.Name,
 					"type": typeStr,
 				}
-				
+
 				params := details["params"].([]map[string]string)
 				params = append(params, paramInfo)
 				details["params"] = params
 			}
 		}
 	}
-	
+
 	// Extract return types
 	if funcDecl.Type.Results != nil {
 		for _, result := range funcDecl.Type.Results.List {
@@ -468,28 +468,28 @@ func (p *GoParser) extractFunctionDetails(funcDecl *ast.FuncDecl) map[string]int
 					}
 				}
 			}
-			
+
 			name := ""
 			if len(result.Names) > 0 {
 				name = result.Names[0].Name
 			}
-			
+
 			returnInfo := map[string]string{
 				"name": name,
 				"type": typeStr,
 			}
-			
+
 			returns := details["returns"].([]map[string]string)
 			returns = append(returns, returnInfo)
 			details["returns"] = returns
 		}
 	}
-	
+
 	// Add receiver info if this is a method
 	if funcDecl.Recv != nil && len(funcDecl.Recv.List) > 0 {
 		recv := funcDecl.Recv.List[0]
 		recvType := ""
-		
+
 		switch t := recv.Type.(type) {
 		case *ast.StarExpr:
 			if ident, ok := t.X.(*ast.Ident); ok {
@@ -498,18 +498,18 @@ func (p *GoParser) extractFunctionDetails(funcDecl *ast.FuncDecl) map[string]int
 		case *ast.Ident:
 			recvType = t.Name
 		}
-		
+
 		recvName := ""
 		if len(recv.Names) > 0 {
 			recvName = recv.Names[0].Name
 		}
-		
+
 		details["receiver"] = map[string]string{
 			"name": recvName,
 			"type": recvType,
 		}
 	}
-	
+
 	return details
 }
 
@@ -520,35 +520,35 @@ func (p *GoParser) processDependencies(chunks []*chunking.CodeChunk, importMap m
 	for _, chunk := range chunks {
 		chunkMap[chunk.ID] = chunk
 	}
-	
+
 	// Map chunks by name for dependency tracking
 	chunksByName := make(map[string]*chunking.CodeChunk)
 	for _, chunk := range chunks {
-		if chunk.Type == chunking.ChunkTypeFunction || 
-		   chunk.Type == chunking.ChunkTypeMethod ||
-		   chunk.Type == chunking.ChunkTypeStruct ||
-		   chunk.Type == chunking.ChunkTypeInterface {
+		if chunk.Type == chunking.ChunkTypeFunction ||
+			chunk.Type == chunking.ChunkTypeMethod ||
+			chunk.Type == chunking.ChunkTypeStruct ||
+			chunk.Type == chunking.ChunkTypeInterface {
 			chunksByName[chunk.Name] = chunk
 		}
 	}
-	
+
 	// Analyze dependencies
 	for _, chunk := range chunks {
 		// Skip non-code chunks
-		if chunk.Type != chunking.ChunkTypeFunction && 
-		   chunk.Type != chunking.ChunkTypeMethod &&
-		   chunk.Type != chunking.ChunkTypeStruct &&
-		   chunk.Type != chunking.ChunkTypeInterface {
+		if chunk.Type != chunking.ChunkTypeFunction &&
+			chunk.Type != chunking.ChunkTypeMethod &&
+			chunk.Type != chunking.ChunkTypeStruct &&
+			chunk.Type != chunking.ChunkTypeInterface {
 			continue
 		}
-		
+
 		// Analyze content for references to other chunks
 		for name, dependentChunk := range chunksByName {
 			// Skip self-reference
 			if name == chunk.Name {
 				continue
 			}
-			
+
 			// Check if the chunk content contains references to other chunks
 			if strings.Contains(chunk.Content, name) {
 				// Add the dependency
@@ -558,7 +558,7 @@ func (p *GoParser) processDependencies(chunks []*chunking.CodeChunk, importMap m
 				chunk.Dependencies = append(chunk.Dependencies, dependentChunk.ID)
 			}
 		}
-		
+
 		// Add parent dependency if it exists
 		if chunk.ParentID != "" && chunk.ParentID != chunk.ID {
 			if chunk.Dependencies == nil {
@@ -572,7 +572,7 @@ func (p *GoParser) processDependencies(chunks []*chunking.CodeChunk, importMap m
 // fallbackParse provides a simple line-based chunking for Go code when AST parsing fails
 func (p *GoParser) fallbackParse(code string, filename string) []*chunking.CodeChunk {
 	lines := strings.Split(code, "\n")
-	
+
 	// Create a single chunk for the entire file
 	chunk := &chunking.CodeChunk{
 		Type:      chunking.ChunkTypeFile,
@@ -586,20 +586,18 @@ func (p *GoParser) fallbackParse(code string, filename string) []*chunking.CodeC
 			"chunking_method": "fallback",
 		},
 	}
-	
+
 	// Generate ID
 	chunk.ID = generateChunkID(chunk)
-	
+
 	return []*chunking.CodeChunk{chunk}
 }
-
-
 
 // generateChunkID generates a unique ID for a chunk based on its content and metadata
 func generateChunkID(chunk *chunking.CodeChunk) string {
 	// Combine type, name, path, and line numbers for a unique identifier
 	idString := string(chunk.Type) + ":" + chunk.Path + ":" + strconv.Itoa(chunk.StartLine) + "-" + strconv.Itoa(chunk.EndLine)
-	
+
 	// Generate SHA-256 hash
 	hash := sha256.Sum256([]byte(idString))
 	return hex.EncodeToString(hash[:])

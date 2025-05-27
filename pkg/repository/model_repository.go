@@ -38,12 +38,12 @@ func (r *ModelRepositoryImpl) GetModelByID(ctx context.Context, id string, tenan
 	if err != nil {
 		return nil, err
 	}
-	
+
 	// Verify tenant access if required
 	if tenantID != "" && model.TenantID != tenantID {
 		return nil, fmt.Errorf("model does not belong to tenant: %s", tenantID)
 	}
-	
+
 	return model, nil
 }
 
@@ -51,7 +51,7 @@ func (r *ModelRepositoryImpl) GetModelByID(ctx context.Context, id string, tenan
 func (r *ModelRepositoryImpl) ListModels(ctx context.Context, tenantID string) ([]*models.Model, error) {
 	// Create filter based on tenantID
 	filter := model.FilterFromTenantID(tenantID)
-	
+
 	// Delegate to the core List method
 	return r.List(ctx, filter)
 }
@@ -114,10 +114,10 @@ func (r *ModelRepositoryImpl) Get(ctx context.Context, id string) (*models.Model
 // List implements ModelRepository.List
 func (r *ModelRepositoryImpl) List(ctx context.Context, filter model.Filter) ([]*models.Model, error) {
 	query := `SELECT id, name, tenant_id, created_at, updated_at FROM models`
-	
+
 	// Apply filters
 	var whereClause string
-	var args []interface{}
+	var args []any
 	argIndex := 1
 
 	if filter != nil {

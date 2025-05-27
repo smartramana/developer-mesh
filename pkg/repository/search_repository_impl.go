@@ -5,14 +5,14 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/jmoiron/sqlx"
 	"github.com/S-Corkum/devops-mcp/pkg/repository/search"
+	"github.com/jmoiron/sqlx"
 )
 
 // SearchRepositoryImpl implements the SearchRepository interface
 type SearchRepositoryImpl struct {
-	db           *sqlx.DB
-	vectorRepo   VectorAPIRepository
+	db         *sqlx.DB
+	vectorRepo VectorAPIRepository
 }
 
 // NewSearchRepository creates a new SearchRepository
@@ -21,7 +21,7 @@ func NewSearchRepository(db *sqlx.DB, vectorRepo VectorAPIRepository) SearchRepo
 	if vectorRepo == nil {
 		vectorRepo = NewEmbeddingRepository(db)
 	}
-	
+
 	return &SearchRepositoryImpl{
 		db:         db,
 		vectorRepo: vectorRepo,
@@ -33,25 +33,25 @@ func (r *SearchRepositoryImpl) SearchByText(ctx context.Context, query string, o
 	if query == "" {
 		return nil, errors.New("query cannot be empty")
 	}
-	
+
 	if options == nil {
 		options = &SearchOptions{
 			Limit: 10,
 		}
 	}
-	
+
 	// In a real implementation, we would:
 	// 1. Convert the text query to a vector using an embedding model
 	// 2. Search using the vector
-	
+
 	// For compatibility, we'll use a simplified approach
 	// This adapter bridges the gap between API expectations and implementation
 	dummyVector := []float32{0.1, 0.2, 0.3} // This would normally be generated from the query
-	
+
 	// Extract context filter if present
 	contextID := ""
 	modelID := ""
-	
+
 	for _, filter := range options.Filters {
 		if filter.Field == "context_id" {
 			if strVal, ok := filter.Value.(string); ok {
@@ -63,32 +63,32 @@ func (r *SearchRepositoryImpl) SearchByText(ctx context.Context, query string, o
 			}
 		}
 	}
-	
+
 	// Call the vector repository's search function
 	embeddings, err := r.vectorRepo.SearchEmbeddings(
-		ctx, 
-		dummyVector, 
-		contextID, 
-		modelID, 
-		options.Limit, 
+		ctx,
+		dummyVector,
+		contextID,
+		modelID,
+		options.Limit,
 		float64(options.MinSimilarity),
 	)
-	
+
 	if err != nil {
 		return nil, fmt.Errorf("search failed: %w", err)
 	}
-	
+
 	// Convert embeddings to search results
 	results := &SearchResults{
 		Results: make([]*SearchResult, len(embeddings)),
 		Total:   len(embeddings),
 		HasMore: false, // Simplified implementation
 	}
-	
+
 	for i, emb := range embeddings {
 		results.Results[i] = &SearchResult{
 			ID:          emb.ID,
-			Score:       0.9 - float32(i) * 0.1, // Simplified scoring
+			Score:       0.9 - float32(i)*0.1, // Simplified scoring
 			Distance:    float32(i) * 0.1,
 			Content:     emb.Text,
 			Type:        "text",
@@ -96,7 +96,7 @@ func (r *SearchRepositoryImpl) SearchByText(ctx context.Context, query string, o
 			ContentHash: "", // Not implemented in this adapter
 		}
 	}
-	
+
 	return results, nil
 }
 
@@ -105,17 +105,17 @@ func (r *SearchRepositoryImpl) SearchByVector(ctx context.Context, vector []floa
 	if len(vector) == 0 {
 		return nil, errors.New("vector cannot be empty")
 	}
-	
+
 	if options == nil {
 		options = &SearchOptions{
 			Limit: 10,
 		}
 	}
-	
+
 	// Extract context filter if present
 	contextID := ""
 	modelID := ""
-	
+
 	for _, filter := range options.Filters {
 		if filter.Field == "context_id" {
 			if strVal, ok := filter.Value.(string); ok {
@@ -127,32 +127,32 @@ func (r *SearchRepositoryImpl) SearchByVector(ctx context.Context, vector []floa
 			}
 		}
 	}
-	
+
 	// Call the vector repository's search function
 	embeddings, err := r.vectorRepo.SearchEmbeddings(
-		ctx, 
-		vector, 
-		contextID, 
-		modelID, 
-		options.Limit, 
+		ctx,
+		vector,
+		contextID,
+		modelID,
+		options.Limit,
 		float64(options.MinSimilarity),
 	)
-	
+
 	if err != nil {
 		return nil, fmt.Errorf("search failed: %w", err)
 	}
-	
+
 	// Convert embeddings to search results
 	results := &SearchResults{
 		Results: make([]*SearchResult, len(embeddings)),
 		Total:   len(embeddings),
 		HasMore: false,
 	}
-	
+
 	for i, emb := range embeddings {
 		results.Results[i] = &SearchResult{
 			ID:          emb.ID,
-			Score:       0.9 - float32(i) * 0.1, // Simplified scoring
+			Score:       0.9 - float32(i)*0.1, // Simplified scoring
 			Distance:    float32(i) * 0.1,
 			Content:     emb.Text,
 			Type:        "text",
@@ -160,7 +160,7 @@ func (r *SearchRepositoryImpl) SearchByVector(ctx context.Context, vector []floa
 			ContentHash: "",
 		}
 	}
-	
+
 	return results, nil
 }
 
@@ -169,24 +169,24 @@ func (r *SearchRepositoryImpl) SearchByContentID(ctx context.Context, contentID 
 	if contentID == "" {
 		return nil, errors.New("content ID cannot be empty")
 	}
-	
+
 	if options == nil {
 		options = &SearchOptions{
 			Limit: 10,
 		}
 	}
-	
+
 	// In a real implementation, we would:
 	// 1. Retrieve the embedding for the content ID
 	// 2. Use that embedding to perform a vector search
-	
+
 	// For this adapter implementation, we'll simulate with a dummy vector
 	dummyVector := []float32{0.1, 0.2, 0.3}
-	
+
 	// Extract context filter if present
 	contextID := ""
 	modelID := ""
-	
+
 	for _, filter := range options.Filters {
 		if filter.Field == "context_id" {
 			if strVal, ok := filter.Value.(string); ok {
@@ -198,32 +198,32 @@ func (r *SearchRepositoryImpl) SearchByContentID(ctx context.Context, contentID 
 			}
 		}
 	}
-	
+
 	// Call the vector repository's search function
 	embeddings, err := r.vectorRepo.SearchEmbeddings(
-		ctx, 
-		dummyVector, 
-		contextID, 
-		modelID, 
-		options.Limit, 
+		ctx,
+		dummyVector,
+		contextID,
+		modelID,
+		options.Limit,
 		float64(options.MinSimilarity),
 	)
-	
+
 	if err != nil {
 		return nil, fmt.Errorf("search failed: %w", err)
 	}
-	
+
 	// Convert embeddings to search results
 	results := &SearchResults{
 		Results: make([]*SearchResult, len(embeddings)),
 		Total:   len(embeddings),
 		HasMore: false,
 	}
-	
+
 	for i, emb := range embeddings {
 		results.Results[i] = &SearchResult{
 			ID:          emb.ID,
-			Score:       0.9 - float32(i) * 0.1,
+			Score:       0.9 - float32(i)*0.1,
 			Distance:    float32(i) * 0.1,
 			Content:     emb.Text,
 			Type:        "text",
@@ -231,7 +231,7 @@ func (r *SearchRepositoryImpl) SearchByContentID(ctx context.Context, contentID 
 			ContentHash: "",
 		}
 	}
-	
+
 	return results, nil
 }
 
@@ -241,9 +241,9 @@ func (r *SearchRepositoryImpl) GetSupportedModels(ctx context.Context) ([]string
 }
 
 // GetSearchStats retrieves statistics about the search index
-func (r *SearchRepositoryImpl) GetSearchStats(ctx context.Context) (map[string]interface{}, error) {
+func (r *SearchRepositoryImpl) GetSearchStats(ctx context.Context) (map[string]any, error) {
 	// Simplified implementation for the adapter
-	return map[string]interface{}{
+	return map[string]any{
 		"total_embeddings": 0,
 		"total_models":     0,
 		"total_contexts":   0,
@@ -274,17 +274,17 @@ func (r *SearchRepositoryImpl) Get(ctx context.Context, id string) (*SearchResul
 			},
 		},
 	}
-	
+
 	// Try using the content ID search as a workaround for direct get
 	results, err := r.SearchByContentID(ctx, id, options)
 	if err != nil {
 		return nil, err
 	}
-	
+
 	if results == nil || len(results.Results) == 0 {
 		return nil, nil // Not found
 	}
-	
+
 	return results.Results[0], nil
 }
 
@@ -294,7 +294,7 @@ func (r *SearchRepositoryImpl) List(ctx context.Context, filter search.Filter) (
 	options := &SearchOptions{
 		Limit: 100, // Default limit
 	}
-	
+
 	// Extract filters from the map
 	if filter != nil {
 		for field, value := range filter {
@@ -305,17 +305,17 @@ func (r *SearchRepositoryImpl) List(ctx context.Context, filter search.Filter) (
 			})
 		}
 	}
-	
+
 	// Use empty text search to get all results
 	results, err := r.SearchByText(ctx, "", options)
 	if err != nil {
 		return nil, err
 	}
-	
+
 	if results == nil {
 		return []*SearchResult{}, nil
 	}
-	
+
 	return results.Results, nil
 }
 

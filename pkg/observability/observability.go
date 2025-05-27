@@ -49,7 +49,7 @@ func Initialize(cfg Config) error {
 					}
 					return returnCtx, returnSpan
 				}
-				
+
 				// TODO: Store shutdown function to be called during Shutdown()
 				_ = shutdownFunc
 			}

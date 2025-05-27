@@ -36,7 +36,7 @@ func NewDatabase(ctx context.Context, cfg Config) (*Database, error) {
 	var dsn string
 	var err error
 	var rdsClient *aws.ExtendedRDSClient
-	
+
 	// If we're using AWS RDS with IAM authentication
 	if cfg.UseAWS && cfg.UseIAM && cfg.RDSHost != "" {
 		// Create AWS RDS configuration
@@ -60,13 +60,13 @@ func NewDatabase(ctx context.Context, cfg Config) (*Database, error) {
 				AssumeRole: cfg.AWSRoleARN,
 			},
 		}
-		
+
 		// Initialize the RDS client
 		rdsClient, err = aws.NewExtendedRDSClient(ctx, awsRDSConfig)
 		if err != nil {
 			return nil, fmt.Errorf("failed to initialize RDS client: %w", err)
 		}
-		
+
 		// Get DSN with IAM authentication
 		dsn, err = rdsClient.BuildPostgresConnectionString(ctx)
 		if err != nil {
@@ -79,21 +79,21 @@ func NewDatabase(ctx context.Context, cfg Config) (*Database, error) {
 	} else {
 		// Build DSN from individual components (least recommended option)
 		log.Println("Warning: Building database connection string from components instead of using IAM authentication")
-		
+
 		sslMode := cfg.SSLMode
 		if sslMode == "" {
 			sslMode = "disable"
 		}
-		
+
 		// Check that password is not empty when not using IAM auth
 		if !cfg.UseIAM && cfg.Password == "" {
 			return nil, fmt.Errorf("password is required when not using IAM authentication")
 		}
-		
+
 		dsn = fmt.Sprintf("host=%s port=%d user=%s password=%s dbname=%s sslmode=%s",
 			cfg.Host, cfg.Port, cfg.Username, cfg.Password, cfg.Database, sslMode)
 	}
-	
+
 	// Connect to the database
 	db, err := sqlx.ConnectContext(ctx, cfg.Driver, dsn)
 	if err != nil {
@@ -125,7 +125,7 @@ func NewDatabase(ctx context.Context, cfg Config) (*Database, error) {
 		migrationOpts := migration.DefaultOptions()
 		migrationOpts.Path = cfg.MigrationsPath
 		migrationOpts.FailOnError = cfg.FailOnMigrationError
-		
+
 		if err := migration.AutoMigrate(ctx, db, cfg.Driver, migrationOpts); err != nil {
 			if migrationOpts.FailOnError {
 				db.Close()
@@ -136,9 +136,7 @@ func NewDatabase(ctx context.Context, cfg Config) (*Database, error) {
 			log.Println("Database migrations completed successfully")
 		}
 	}
-	
 
-	
 	// Initialize database tables
 	if err := database.InitializeTables(ctx); err != nil {
 		db.Close()
@@ -153,17 +151,17 @@ func (d *Database) prepareStatements(ctx context.Context) error {
 	// Prepare common SQL statements for better performance
 	// This is a placeholder implementation - add actual statements as needed
 	queries := map[string]string{
-		"get_event":       "SELECT * FROM mcp.events WHERE id = $1",
-		"insert_event":    "INSERT INTO mcp.events (source, type, data, timestamp) VALUES ($1, $2, $3, $4) RETURNING id",
-		"get_context":     "SELECT * FROM mcp.contexts WHERE id = $1",
-		"insert_context":  "INSERT INTO mcp.contexts (id, agent_id, model_id, session_id, current_tokens, max_tokens, metadata, created_at, updated_at, expires_at) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)",
-		"update_context":  "UPDATE mcp.contexts SET agent_id = $1, model_id = $2, session_id = $3, current_tokens = $4, max_tokens = $5, metadata = $6, updated_at = $7, expires_at = $8 WHERE id = $9",
-		"delete_context":  "DELETE FROM mcp.contexts WHERE id = $1",
-		"list_contexts":   "SELECT * FROM mcp.contexts WHERE agent_id = $1 ORDER BY updated_at DESC",
-		"get_context_items": "SELECT * FROM mcp.context_items WHERE context_id = $1 ORDER BY timestamp",
-		"insert_context_item": "INSERT INTO mcp.context_items (id, context_id, role, content, tokens, timestamp, metadata) VALUES ($1, $2, $3, $4, $5, $6, $7)",
+		"get_event":                 "SELECT * FROM mcp.events WHERE id = $1",
+		"insert_event":              "INSERT INTO mcp.events (source, type, data, timestamp) VALUES ($1, $2, $3, $4) RETURNING id",
+		"get_context":               "SELECT * FROM mcp.contexts WHERE id = $1",
+		"insert_context":            "INSERT INTO mcp.contexts (id, agent_id, model_id, session_id, current_tokens, max_tokens, metadata, created_at, updated_at, expires_at) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)",
+		"update_context":            "UPDATE mcp.contexts SET agent_id = $1, model_id = $2, session_id = $3, current_tokens = $4, max_tokens = $5, metadata = $6, updated_at = $7, expires_at = $8 WHERE id = $9",
+		"delete_context":            "DELETE FROM mcp.contexts WHERE id = $1",
+		"list_contexts":             "SELECT * FROM mcp.contexts WHERE agent_id = $1 ORDER BY updated_at DESC",
+		"get_context_items":         "SELECT * FROM mcp.context_items WHERE context_id = $1 ORDER BY timestamp",
+		"insert_context_item":       "INSERT INTO mcp.context_items (id, context_id, role, content, tokens, timestamp, metadata) VALUES ($1, $2, $3, $4, $5, $6, $7)",
 		"check_context_item_exists": "SELECT EXISTS(SELECT 1 FROM mcp.context_items WHERE id = $1)",
-		"get_integration": "SELECT * FROM mcp.integrations WHERE id = $1",
+		"get_integration":           "SELECT * FROM mcp.integrations WHERE id = $1",
 	}
 
 	for name, query := range queries {
@@ -179,10 +177,10 @@ func (d *Database) prepareStatements(ctx context.Context) error {
 
 // Repository interface for data access
 type Repository interface {
-	FindByID(ctx context.Context, id string) (interface{}, error)
-	FindAll(ctx context.Context, options models.QueryOptions) (interface{}, error)
-	Create(ctx context.Context, entity interface{}) error
-	Update(ctx context.Context, entity interface{}) error
+	FindByID(ctx context.Context, id string) (any, error)
+	FindAll(ctx context.Context, options models.QueryOptions) (any, error)
+	Create(ctx context.Context, entity any) error
+	Update(ctx context.Context, entity any) error
 	Delete(ctx context.Context, id string) error
 }
 
@@ -222,33 +220,33 @@ func (d *Database) RefreshConnection(ctx context.Context) error {
 		if err != nil {
 			return fmt.Errorf("failed to build PostgreSQL connection string: %w", err)
 		}
-		
+
 		// Close existing connection
 		if err := d.Close(); err != nil {
 			return fmt.Errorf("failed to close existing database connection: %w", err)
 		}
-		
+
 		// Create new connection
 		db, err := sqlx.ConnectContext(ctx, d.config.Driver, dsn)
 		if err != nil {
 			return fmt.Errorf("failed to create new database connection: %w", err)
 		}
-		
+
 		// Configure connection pool
 		db.SetMaxOpenConns(d.config.MaxOpenConns)
 		db.SetMaxIdleConns(d.config.MaxIdleConns)
 		db.SetConnMaxLifetime(d.config.ConnMaxLifetime)
-		
+
 		// Update database instance
 		d.db = db
-		
+
 		// Prepare statements
 		if err := d.prepareStatements(ctx); err != nil {
 			db.Close()
 			return fmt.Errorf("failed to prepare statements: %w", err)
 		}
 	}
-	
+
 	return nil
 }
 

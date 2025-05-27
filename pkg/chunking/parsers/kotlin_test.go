@@ -100,10 +100,10 @@ object UserUtils {
 
 	// Parse the code
 	chunks, err := parser.Parse(context.Background(), kotlinCode, "test.kt")
-	
+
 	// Verify no error occurred
 	assert.NoError(t, err)
-	
+
 	// At minimum, we should have the file chunk
 	assert.GreaterOrEqual(t, len(chunks), 1, "Should have at least one chunk")
 
@@ -117,12 +117,12 @@ object UserUtils {
 	}
 
 	assert.NotNil(t, fileChunk, "Should have a file chunk")
-	
+
 	if fileChunk != nil {
 		// Verify basic file chunk properties
 		assert.Equal(t, "test.kt", fileChunk.Name)
 		assert.Equal(t, chunking.LanguageKotlin, fileChunk.Language)
-		
+
 		// Check if chunking method metadata is set
 		method, ok := fileChunk.Metadata["chunking_method"]
 		assert.True(t, ok, "Should have chunking_method in metadata")

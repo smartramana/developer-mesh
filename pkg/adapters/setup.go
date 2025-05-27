@@ -3,7 +3,7 @@ package adapters
 import (
 	"context"
 	"fmt"
-	
+
 	"github.com/S-Corkum/devops-mcp/pkg/observability"
 )
 
@@ -16,12 +16,12 @@ type Manager struct {
 // NewManager creates a new adapter manager
 func NewManager(logger observability.Logger) *Manager {
 	factory := NewFactory(logger)
-	
+
 	// Adapters should be registered externally to avoid import cycles
 	// Example usage:
 	// manager := adapters.NewManager(logger)
 	// github.Register(manager.GetFactory())
-	
+
 	return &Manager{
 		factory: factory,
 		logger:  logger,
@@ -44,12 +44,12 @@ func (m *Manager) GetAdapter(ctx context.Context, provider string) (SourceContro
 	if err != nil {
 		return nil, fmt.Errorf("failed to get adapter: %w", err)
 	}
-	
+
 	// Perform health check
 	if err := adapter.Health(ctx); err != nil {
 		return nil, fmt.Errorf("adapter health check failed: %w", err)
 	}
-	
+
 	return adapter, nil
 }
 

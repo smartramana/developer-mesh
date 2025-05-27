@@ -28,22 +28,22 @@ func NewRelationshipRepository(db *Database) relationship.Repository {
 
 // EntityRelationshipRecord represents the database record for an entity relationship
 type EntityRelationshipRecord struct {
-	ID         string    `db:"id"`
-	Type       string    `db:"relationship_type"`
-	Direction  string    `db:"direction"`
-	SourceType string    `db:"source_type"`
-	SourceOwner string   `db:"source_owner"`
-	SourceRepo string    `db:"source_repo"`
-	SourceID   string    `db:"source_id"`
-	TargetType string    `db:"target_type"`
-	TargetOwner string   `db:"target_owner"`
-	TargetRepo string    `db:"target_repo"`
-	TargetID   string    `db:"target_id"`
-	Strength   float64   `db:"strength"`
-	Context    string    `db:"context"`
-	Metadata   []byte    `db:"metadata"`
-	CreatedAt  time.Time `db:"created_at"`
-	UpdatedAt  time.Time `db:"updated_at"`
+	ID          string    `db:"id"`
+	Type        string    `db:"relationship_type"`
+	Direction   string    `db:"direction"`
+	SourceType  string    `db:"source_type"`
+	SourceOwner string    `db:"source_owner"`
+	SourceRepo  string    `db:"source_repo"`
+	SourceID    string    `db:"source_id"`
+	TargetType  string    `db:"target_type"`
+	TargetOwner string    `db:"target_owner"`
+	TargetRepo  string    `db:"target_repo"`
+	TargetID    string    `db:"target_id"`
+	Strength    float64   `db:"strength"`
+	Context     string    `db:"context"`
+	Metadata    []byte    `db:"metadata"`
+	CreatedAt   time.Time `db:"created_at"`
+	UpdatedAt   time.Time `db:"updated_at"`
 }
 
 // EnsureRelationshipTables creates the necessary database tables for entity relationships
@@ -345,7 +345,7 @@ func (r *RelationshipRepository) getDirectRelationships(
 		SELECT * FROM mcp.entity_relationships
 		WHERE 
 	`
-	args := []interface{}{}
+	args := []any{}
 	conditions := []string{}
 
 	// Build source entity conditions
@@ -354,7 +354,7 @@ func (r *RelationshipRepository) getDirectRelationships(
 		len(args)+1, len(args)+2, len(args)+3, len(args)+4,
 	)
 	args = append(args, entityID.Type, entityID.Owner, entityID.Repo, entityID.ID)
-	
+
 	// Build target entity conditions
 	targetCondition := fmt.Sprintf(
 		"(target_type = $%d AND target_owner = $%d AND target_repo = $%d AND target_id = $%d)",
@@ -440,14 +440,14 @@ func (r *RelationshipRepository) getRelationshipsByType(
 		WHERE relationship_type = $1
 		ORDER BY updated_at DESC
 	`
-	args := []interface{}{relType}
+	args := []any{relType}
 
 	// Apply limit and offset
 	if limit > 0 {
 		query += fmt.Sprintf(" LIMIT $%d", len(args)+1)
 		args = append(args, limit)
 	}
-	
+
 	if offset > 0 {
 		query += fmt.Sprintf(" OFFSET $%d", len(args)+1)
 		args = append(args, offset)
@@ -491,14 +491,14 @@ func (r *RelationshipRepository) recordToRelationship(record *EntityRelationship
 	}
 
 	// Parse metadata
-	var metadata map[string]interface{}
+	var metadata map[string]any
 	if len(record.Metadata) > 0 {
 		err := json.Unmarshal(record.Metadata, &metadata)
 		if err != nil {
 			return nil, fmt.Errorf("failed to unmarshal relationship metadata: %w", err)
 		}
 	} else {
-		metadata = make(map[string]interface{})
+		metadata = make(map[string]any)
 	}
 
 	// Parse context if available

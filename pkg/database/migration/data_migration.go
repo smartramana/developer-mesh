@@ -13,13 +13,13 @@ import (
 type DataMigration struct {
 	// Name is a descriptive name for the migration
 	Name string
-	
+
 	// Version is the migration version number
 	Version uint
-	
+
 	// Execute is the function that performs the data migration
 	Execute func(ctx context.Context, tx *sqlx.Tx) error
-	
+
 	// Rollback is the function that reverts the data migration (optional)
 	Rollback func(ctx context.Context, tx *sqlx.Tx) error
 }
@@ -51,13 +51,13 @@ func (m *DataMigrator) RunMigration(ctx context.Context, version uint) error {
 		if migration.Version == version {
 			startTime := time.Now()
 			m.logger.Printf("Running data migration %s (version %d)...", migration.Name, migration.Version)
-			
+
 			// Begin a transaction
 			tx, err := m.db.BeginTxx(ctx, nil)
 			if err != nil {
 				return fmt.Errorf("failed to begin transaction: %w", err)
 			}
-			
+
 			// Execute the migration function
 			if err := migration.Execute(ctx, tx); err != nil {
 				// Rollback on error
@@ -66,21 +66,21 @@ func (m *DataMigrator) RunMigration(ctx context.Context, version uint) error {
 				}
 				return fmt.Errorf("migration failed: %w", err)
 			}
-			
+
 			// Commit the transaction
 			if err := tx.Commit(); err != nil {
 				return fmt.Errorf("failed to commit transaction: %w", err)
 			}
-			
+
 			if err != nil {
 				return fmt.Errorf("data migration %s failed: %w", migration.Name, err)
 			}
-			
+
 			m.logger.Printf("Data migration %s completed in %s", migration.Name, time.Since(startTime))
 			return nil
 		}
 	}
-	
+
 	return fmt.Errorf("data migration with version %d not found", version)
 }
 
@@ -91,16 +91,16 @@ func (m *DataMigrator) RollbackMigration(ctx context.Context, version uint) erro
 			if migration.Rollback == nil {
 				return fmt.Errorf("data migration %s does not support rollback", migration.Name)
 			}
-			
+
 			startTime := time.Now()
 			m.logger.Printf("Rolling back data migration %s (version %d)...", migration.Name, migration.Version)
-			
+
 			// Begin a transaction
 			tx, err := m.db.BeginTxx(ctx, nil)
 			if err != nil {
 				return fmt.Errorf("failed to begin transaction: %w", err)
 			}
-			
+
 			// Execute the rollback function
 			if err := migration.Rollback(ctx, tx); err != nil {
 				// Rollback on error
@@ -109,21 +109,21 @@ func (m *DataMigrator) RollbackMigration(ctx context.Context, version uint) erro
 				}
 				return fmt.Errorf("rollback failed: %w", err)
 			}
-			
+
 			// Commit the transaction
 			if err := tx.Commit(); err != nil {
 				return fmt.Errorf("failed to commit transaction: %w", err)
 			}
-			
+
 			if err != nil {
 				return fmt.Errorf("data migration %s rollback failed: %w", migration.Name, err)
 			}
-			
+
 			m.logger.Printf("Data migration %s rollback completed in %s", migration.Name, time.Since(startTime))
 			return nil
 		}
 	}
-	
+
 	return fmt.Errorf("data migration with version %d not found", version)
 }
 

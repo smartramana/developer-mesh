@@ -1,11 +1,11 @@
 package api
 
 import (
-	"net/http"
-	"github.com/gin-gonic/gin"
 	"github.com/S-Corkum/devops-mcp/pkg/models"
 	"github.com/S-Corkum/devops-mcp/pkg/repository"
 	"github.com/S-Corkum/devops-mcp/pkg/util"
+	"github.com/gin-gonic/gin"
+	"net/http"
 )
 
 // ModelAPI handles model management endpoints

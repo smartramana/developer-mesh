@@ -4,7 +4,7 @@ package repository
 
 import (
 	"context"
-	
+
 	"github.com/S-Corkum/devops-mcp/pkg/models"
 )
 
@@ -12,7 +12,7 @@ import (
 // This is separate from VectorAPIRepository because they serve different purposes
 type VectorRepository interface {
 	StoreVectors(ctx context.Context, vectors []*models.Vector) error
-	FindSimilar(ctx context.Context, vector []float32, limit int, filter map[string]interface{}) ([]*models.Vector, error)
+	FindSimilar(ctx context.Context, vector []float32, limit int, filter map[string]any) ([]*models.Vector, error)
 	DeleteVectors(ctx context.Context, ids []string) error
 	GetVector(ctx context.Context, id string) (*models.Vector, error)
 }

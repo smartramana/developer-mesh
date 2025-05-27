@@ -52,7 +52,7 @@ func (a *GitHubContentAdapter) GetContent(ctx context.Context, owner string, rep
 	if err != nil {
 		return nil, fmt.Errorf("failed to get content: %w", err)
 	}
-	
+
 	return content, nil
 }
 
@@ -60,7 +60,7 @@ func (a *GitHubContentAdapter) GetContent(ctx context.Context, owner string, rep
 func (a *GitHubContentAdapter) GetIssue(ctx context.Context, owner string, repo string, issueNumber int) (*GitHubIssueData, error) {
 	// This is a placeholder implementation since the content manager doesn't have GetIssue method
 	// In a real implementation, you would call the actual API or another method
-	
+
 	// For now, return a mock issue
 	return &GitHubIssueData{
 		Title:     fmt.Sprintf("Issue #%d", issueNumber),
@@ -75,7 +75,7 @@ func (a *GitHubContentAdapter) GetIssue(ctx context.Context, owner string, repo 
 func (a *GitHubContentAdapter) GetIssueComments(ctx context.Context, owner string, repo string, issueNumber int) ([]*GitHubCommentData, error) {
 	// This is a placeholder implementation since the content manager doesn't have GetIssueComments method
 	// In a real implementation, you would call the actual API or another method
-	
+
 	// For now, return a mock comment
 	comments := []*GitHubCommentData{
 		{
@@ -90,7 +90,7 @@ func (a *GitHubContentAdapter) GetIssueComments(ctx context.Context, owner strin
 			},
 		},
 	}
-	
+
 	return comments, nil
 }
 
@@ -138,6 +138,6 @@ func (m *MockGitHubContentProvider) GetIssueComments(ctx context.Context, owner 
 			},
 		},
 	}
-	
+
 	return comments, nil
 }

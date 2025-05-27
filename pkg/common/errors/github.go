@@ -20,7 +20,7 @@ var (
 	// REST API specific errors
 	ErrRESTRequest  = errors.New("rest request failed")
 	ErrRESTResponse = errors.New("invalid rest response")
-	
+
 	// Note: The following errors are already defined in errors.go,
 	// so we don't redefine them here:
 	// - ErrRateLimitExceeded
@@ -37,16 +37,16 @@ var (
 type GitHubError struct {
 	// Original error
 	Err error
-	
+
 	// HTTP status code (if applicable)
 	StatusCode int
-	
+
 	// Response message (if any)
 	Message string
-	
+
 	// Documentation URL
 	DocumentationURL string
-	
+
 	// Context information
 	Resource    string            // Resource being accessed (repo, issue, etc.)
 	ResourceID  string            // ID of the resource
@@ -58,15 +58,15 @@ type GitHubError struct {
 // Error returns the error message
 func (e *GitHubError) Error() string {
 	msg := fmt.Sprintf("%s", e.Err)
-	
+
 	if e.StatusCode > 0 {
 		msg = fmt.Sprintf("%s (HTTP %d)", msg, e.StatusCode)
 	}
-	
+
 	if e.Message != "" {
 		msg = fmt.Sprintf("%s: %s", msg, e.Message)
 	}
-	
+
 	if e.Resource != "" {
 		if e.ResourceID != "" {
 			msg = fmt.Sprintf("%s [%s: %s]", msg, e.Resource, e.ResourceID)
@@ -74,7 +74,7 @@ func (e *GitHubError) Error() string {
 			msg = fmt.Sprintf("%s [%s]", msg, e.Resource)
 		}
 	}
-	
+
 	return msg
 }
 
@@ -126,7 +126,7 @@ func (e *GitHubError) WithDocumentation(url string) *GitHubError {
 	return e
 }
 
-// Note: The following functions are already defined in errors.go, 
+// Note: The following functions are already defined in errors.go,
 // so we're commenting them out here to prevent redeclaration errors
 //
 // FromHTTPError creates a GitHubError from an HTTP status code and message
@@ -184,9 +184,9 @@ func IsGitHubValidationError(err error) bool {
 func IsGitHubServerError(err error) bool {
 	var githubErr *GitHubError
 	if errors.As(err, &githubErr) {
-		return errors.Is(githubErr.Err, ErrServerError) || 
-			   errors.Is(githubErr.Err, ErrServiceUnavailable)
+		return errors.Is(githubErr.Err, ErrServerError) ||
+			errors.Is(githubErr.Err, ErrServiceUnavailable)
 	}
-	return errors.Is(err, ErrServerError) || 
-		   errors.Is(err, ErrServiceUnavailable)
+	return errors.Is(err, ErrServerError) ||
+		errors.Is(err, ErrServiceUnavailable)
 }

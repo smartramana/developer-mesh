@@ -37,9 +37,9 @@ func (e *RelationshipContextEnricher) WithMaxRelationships(max int) *Relationshi
 
 // WithDirection sets the relationship direction to include
 func (e *RelationshipContextEnricher) WithDirection(direction string) *RelationshipContextEnricher {
-	if direction == models.DirectionOutgoing || 
-	   direction == models.DirectionIncoming || 
-	   direction == models.DirectionBidirectional {
+	if direction == models.DirectionOutgoing ||
+		direction == models.DirectionIncoming ||
+		direction == models.DirectionBidirectional {
 		e.includeDirection = direction
 	}
 	return e
@@ -101,10 +101,10 @@ func (e *RelationshipContextEnricher) EnrichEmbeddingMetadata(
 
 	// Create relationship context for metadata
 	relContext := make(map[string]interface{})
-	
+
 	// Track related entities of each type
 	relatedEntities := make(map[string][]string)
-	
+
 	// Track relationship types
 	relTypes := make(map[string]int)
 
@@ -137,10 +137,10 @@ func (e *RelationshipContextEnricher) EnrichEmbeddingMetadata(
 		}
 
 		// Create a simple identifier for the related entity
-		entityKey := fmt.Sprintf("%s/%s/%s/%s", 
-			relatedEntity.Type, 
-			relatedEntity.Owner, 
-			relatedEntity.Repo, 
+		entityKey := fmt.Sprintf("%s/%s/%s/%s",
+			relatedEntity.Type,
+			relatedEntity.Owner,
+			relatedEntity.Repo,
 			relatedEntity.ID)
 
 		// Add to related entities map by type
@@ -181,7 +181,7 @@ func (e *RelationshipContextEnricher) EnrichEmbeddingText(
 		ctx,
 		entityID,
 		models.DirectionBidirectional, // Get both directions for text enrichment
-		nil, // All relationship types
+		nil,                           // All relationship types
 	)
 	if err != nil {
 		return originalText, fmt.Errorf("failed to get relationships for entity: %w", err)
@@ -199,10 +199,10 @@ func (e *RelationshipContextEnricher) EnrichEmbeddingText(
 
 	// Generate relationship context text
 	relationshipContext := e.generateRelationshipContextText(relationships, entityID)
-	
+
 	// Combine with original text
 	enrichedText := fmt.Sprintf("%s\n\nRelationship Context:\n%s", originalText, relationshipContext)
-	
+
 	return enrichedText, nil
 }
 
@@ -212,13 +212,13 @@ func (e *RelationshipContextEnricher) generateRelationshipContextText(
 	entityID models.EntityID,
 ) string {
 	var contextBuilder strings.Builder
-	
+
 	// Group relationships by type
 	relsByType := make(map[models.RelationshipType][]*models.EntityRelationship)
 	for _, rel := range relationships {
 		relsByType[rel.Type] = append(relsByType[rel.Type], rel)
 	}
-	
+
 	// Generate context for each relationship type
 	for relType, rels := range relsByType {
 		// Determine verb based on relationship type
@@ -245,7 +245,7 @@ func (e *RelationshipContextEnricher) generateRelationshipContextText(
 		default:
 			verb = "is associated with"
 		}
-		
+
 		// Create text description for each relationship of this type
 		for _, rel := range rels {
 			// Determine if this entity is source or target
@@ -253,14 +253,14 @@ func (e *RelationshipContextEnricher) generateRelationshipContextText(
 				rel.Source.Owner == entityID.Owner &&
 				rel.Source.Repo == entityID.Repo &&
 				rel.Source.ID == entityID.ID
-				
+
 			var otherEntity models.EntityID
 			if isSource {
 				otherEntity = rel.Target
 			} else {
 				otherEntity = rel.Source
 			}
-			
+
 			// Format the relationship text
 			if isSource {
 				contextBuilder.WriteString(fmt.Sprintf("This %s %s %s %s/%s in repo %s/%s.\n",
@@ -272,7 +272,7 @@ func (e *RelationshipContextEnricher) generateRelationshipContextText(
 					entityID.Type, verb, otherEntity.Type, otherEntity.Repo, otherEntity.ID,
 					otherEntity.Owner, otherEntity.Repo))
 			}
-			
+
 			// Add context if available
 			if len(rel.Context) > 0 {
 				// Convert context map to a string representation
@@ -288,6 +288,6 @@ func (e *RelationshipContextEnricher) generateRelationshipContextText(
 			}
 		}
 	}
-	
+
 	return contextBuilder.String()
 }

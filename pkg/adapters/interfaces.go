@@ -48,20 +48,20 @@ type SourceControlAdapter interface {
 	// Repository operations
 	GetRepository(ctx context.Context, owner, repo string) (*Repository, error)
 	ListRepositories(ctx context.Context, owner string) ([]*Repository, error)
-	
+
 	// Pull Request operations
 	GetPullRequest(ctx context.Context, owner, repo string, number int) (*PullRequest, error)
 	CreatePullRequest(ctx context.Context, owner, repo string, pr *PullRequest) (*PullRequest, error)
 	ListPullRequests(ctx context.Context, owner, repo string) ([]*PullRequest, error)
-	
+
 	// Issue operations
 	GetIssue(ctx context.Context, owner, repo string, number int) (*Issue, error)
 	CreateIssue(ctx context.Context, owner, repo string, issue *Issue) (*Issue, error)
 	ListIssues(ctx context.Context, owner, repo string) ([]*Issue, error)
-	
+
 	// Webhook operations
 	HandleWebhook(ctx context.Context, eventType string, payload []byte) error
-	
+
 	// Health check
 	Health(ctx context.Context) error
 }
@@ -85,10 +85,10 @@ func (b *BaseAdapter) GetVersion() string {
 // Config represents common configuration for adapters
 type Config struct {
 	// Common fields
-	Timeout     time.Duration
-	MaxRetries  int
-	RateLimit   int
-	
+	Timeout    time.Duration
+	MaxRetries int
+	RateLimit  int
+
 	// Provider-specific config stored as map
-	ProviderConfig map[string]interface{}
+	ProviderConfig map[string]any
 }

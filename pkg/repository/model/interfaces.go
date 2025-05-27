@@ -3,13 +3,13 @@ package model
 
 import (
 	"context"
-	
+
 	"github.com/S-Corkum/devops-mcp/pkg/models"
 )
 
 // Filter defines a filter map for repository operations
 // This avoids importing pkg/repository to prevent import cycles
-type Filter map[string]interface{}
+type Filter map[string]any
 
 // FilterFromTenantID creates a filter for tenant ID
 func FilterFromTenantID(tenantID string) Filter {
@@ -33,7 +33,7 @@ type Repository interface {
 	List(ctx context.Context, filter Filter) ([]*models.Model, error)
 	Update(ctx context.Context, model *models.Model) error
 	Delete(ctx context.Context, id string) error
-	
+
 	// API-specific methods - preserved for backward compatibility
 	// These methods delegate to the core methods in the implementation
 	CreateModel(ctx context.Context, model *models.Model) error

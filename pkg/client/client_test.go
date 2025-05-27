@@ -251,7 +251,7 @@ func TestNewClient(t *testing.T) {
 			WithWebhookSecret("test-webhook-secret"),
 			WithHTTPClient(customHTTPClient),
 		)
-		
+
 		assert.Equal(t, "http://localhost:8080", client.baseURL)
 		assert.Equal(t, "test-api-key", client.apiKey)
 		assert.Equal(t, "test-webhook-secret", client.webhookSecret)
@@ -514,7 +514,7 @@ func TestExecuteToolAction(t *testing.T) {
 	result, err := client.ExecuteToolAction(ctx, "test-context-123", "github", "create_issue", params)
 	assert.NoError(t, err)
 	assert.Equal(t, "success", result["result"])
-	
+
 	// Check that the nested data was parsed correctly
 	data, ok := result["data"].(map[string]interface{})
 	assert.True(t, ok)
@@ -537,11 +537,11 @@ func TestQueryToolData(t *testing.T) {
 	result, err := client.QueryToolData(ctx, "github", query)
 	assert.NoError(t, err)
 	assert.Equal(t, "success", result["result"])
-	
+
 	// Check that the nested data was parsed correctly
 	data, ok := result["data"].(map[string]interface{})
 	assert.True(t, ok)
-	
+
 	repos, ok := data["repositories"].([]interface{})
 	assert.True(t, ok)
 	assert.Equal(t, 2, len(repos))

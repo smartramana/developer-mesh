@@ -17,20 +17,20 @@ type RedisClusterCache struct {
 
 // RedisClusterConfig holds configuration for Redis in cluster mode
 type RedisClusterConfig struct {
-	Addrs           []string
-	Username        string
-	Password        string
-	MaxRetries      int
-	MinIdleConns    int
-	PoolSize        int
-	DialTimeout     time.Duration
-	ReadTimeout     time.Duration
-	WriteTimeout    time.Duration
-	PoolTimeout     time.Duration
-	UseTLS          bool
-	TLSConfig       *tls.Config
-	RouteRandomly   bool
-	RouteByLatency  bool
+	Addrs          []string
+	Username       string
+	Password       string
+	MaxRetries     int
+	MinIdleConns   int
+	PoolSize       int
+	DialTimeout    time.Duration
+	ReadTimeout    time.Duration
+	WriteTimeout   time.Duration
+	PoolTimeout    time.Duration
+	UseTLS         bool
+	TLSConfig      *tls.Config
+	RouteRandomly  bool
+	RouteByLatency bool
 }
 
 // NewRedisClusterCache creates a new Redis cluster cache
@@ -53,7 +53,7 @@ func NewRedisClusterCache(cfg RedisClusterConfig) (*RedisClusterCache, error) {
 	if cfg.Username != "" {
 		options.Username = cfg.Username
 	}
-	
+
 	if cfg.Password != "" {
 		options.Password = cfg.Password
 	}
@@ -123,7 +123,7 @@ func (c *RedisClusterCache) Flush(ctx context.Context) error {
 	err := c.client.ForEachShard(ctx, func(ctx context.Context, shard *redis.Client) error {
 		return shard.FlushAll(ctx).Err()
 	})
-	
+
 	return err
 }
 

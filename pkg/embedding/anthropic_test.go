@@ -164,14 +164,14 @@ func TestAnthropicEmbeddingService_BatchGenerateEmbeddings(t *testing.T) {
 	assert.NoError(t, err)
 	assert.NotNil(t, embeddings)
 	assert.Len(t, embeddings, 2)
-	
+
 	// Check first embedding
 	assert.Equal(t, "id-1", embeddings[0].ContentID)
 	assert.Equal(t, "text", embeddings[0].ContentType)
 	assert.Equal(t, "claude-3-5-haiku-20250531", embeddings[0].ModelID)
 	assert.Equal(t, 4096, embeddings[0].Dimensions)
 	assert.Len(t, embeddings[0].Vector, 5) // Only 5 values in our mock response
-	
+
 	// Check second embedding
 	assert.Equal(t, "id-2", embeddings[1].ContentID)
 	assert.Equal(t, "text", embeddings[1].ContentType)
@@ -195,8 +195,8 @@ func TestAnthropicEmbeddingService_BatchGenerateEmbeddings(t *testing.T) {
 func TestAnthropicEmbeddingService_MockEmbeddings(t *testing.T) {
 	// Create a service with mock embeddings enabled
 	config := &AnthropicConfig{
-		APIKey:           "test-api-key",
-		Model:            "claude-3-5-haiku-20250531",
+		APIKey:            "test-api-key",
+		Model:             "claude-3-5-haiku-20250531",
 		UseMockEmbeddings: true,
 	}
 	service, err := NewAnthropicEmbeddingService(config)

@@ -17,35 +17,35 @@ import (
 var (
 	// Match import statements
 	jsImportRegex = regexp.MustCompile(`(?m)^(?:import\s+(?:\{[^}]*\}|\*\s+as\s+\w+|\w+)\s+from\s+['"]([^'"]+)['"]|const\s+(?:\{[^}]*\}|\w+)\s*=\s*require\(['"]([^'"]+)['"]\))`)
-	
+
 	// Match class declarations
 	jsClassRegex = regexp.MustCompile(`(?m)^(?:export\s+)?class\s+(\w+)(?:\s+extends\s+(\w+))?\s*\{`)
-	
+
 	// Match function declarations
 	jsFunctionRegex = regexp.MustCompile(`(?m)^(?:export\s+)?(?:async\s+)?function\s+(\w+)\s*\(([^)]*)\)`)
-	
+
 	// Match arrow functions assigned to variables
 	jsArrowFunctionRegex = regexp.MustCompile(`(?m)^(?:export\s+)?(?:const|let|var)\s+(\w+)\s*=\s*(?:async\s*)?\(([^)]*)\)\s*=>`)
-	
+
 	// Match method declarations inside classes
 	jsMethodRegex = regexp.MustCompile(`(?m)^\s+(?:async\s+)?(\w+)\s*\(([^)]*)\)`)
-	
+
 	// Match object literal methods
 	jsObjectMethodRegex = regexp.MustCompile(`(?m)^\s+(\w+):\s*(?:async\s*)?\(([^)]*)\)`)
-	
+
 	// Match constructor
 	jsConstructorRegex = regexp.MustCompile(`(?m)^\s+constructor\s*\(([^)]*)\)`)
-	
+
 	// Match JSDoc comments
 	jsDocRegex = regexp.MustCompile(`(?ms)/\*\*.*?\*/`)
-	
+
 	// Match braces for scope detection
-	jsOpenBraceRegex = regexp.MustCompile(`\{`)
+	jsOpenBraceRegex  = regexp.MustCompile(`\{`)
 	jsCloseBraceRegex = regexp.MustCompile(`\}`)
 )
 
 // JavaScriptParser is a parser for JavaScript code
-type JavaScriptParser struct {}
+type JavaScriptParser struct{}
 
 // NewJavaScriptParser creates a new JavaScriptParser
 func NewJavaScriptParser() *JavaScriptParser {
@@ -60,7 +60,7 @@ func (p *JavaScriptParser) GetLanguage() chunking.Language {
 // Parse parses JavaScript code and returns chunks
 func (p *JavaScriptParser) Parse(ctx context.Context, code string, filename string) ([]*chunking.CodeChunk, error) {
 	chunks := []*chunking.CodeChunk{}
-	
+
 	// Create a chunk for the entire file
 	fileChunk := &chunking.CodeChunk{
 		Type:      chunking.ChunkTypeFile,
@@ -74,48 +74,48 @@ func (p *JavaScriptParser) Parse(ctx context.Context, code string, filename stri
 	}
 	fileChunk.ID = generateJSChunkID(fileChunk)
 	chunks = append(chunks, fileChunk)
-	
+
 	// Split code by lines
 	lines := strings.Split(code, "\n")
-	
+
 	// Extract imports
 	importChunks := p.extractImports(code, lines, fileChunk.ID)
 	chunks = append(chunks, importChunks...)
-	
+
 	// Extract JSDoc comments
 	commentChunks := p.extractJSDocComments(code, lines, fileChunk.ID)
 	chunks = append(chunks, commentChunks...)
-	
+
 	// Extract classes with their methods
 	classChunks, methodChunks := p.extractClasses(code, lines, fileChunk.ID)
 	chunks = append(chunks, classChunks...)
 	chunks = append(chunks, methodChunks...)
-	
+
 	// Extract standalone functions
 	functionChunks := p.extractFunctions(code, lines, fileChunk.ID)
 	chunks = append(chunks, functionChunks...)
-	
+
 	// Process dependencies
 	p.processDependencies(chunks)
-	
+
 	return chunks, nil
 }
 
 // extractImports extracts import statements from JavaScript code
 func (p *JavaScriptParser) extractImports(code string, lines []string, parentID string) []*chunking.CodeChunk {
 	chunks := []*chunking.CodeChunk{}
-	
+
 	// Find all import statements
 	importMatches := jsImportRegex.FindAllStringSubmatchIndex(code, -1)
-	
+
 	for _, match := range importMatches {
 		if len(match) < 4 {
 			continue
 		}
-		
+
 		// Get the import statement
 		importStatement := code[match[0]:match[1]]
-		
+
 		// Get the import path
 		var importPath string
 		if match[2] != -1 && match[3] != -1 {
@@ -125,11 +125,11 @@ func (p *JavaScriptParser) extractImports(code string, lines []string, parentID 
 		} else {
 			continue
 		}
-		
+
 		// Find the line numbers
 		startLine := getLineNumberFromPos(code, match[0]) + 1
 		endLine := getLineNumberFromPos(code, match[1]) + 1
-		
+
 		// Create import chunk
 		importChunk := &chunking.CodeChunk{
 			Type:      chunking.ChunkTypeImport,
@@ -147,29 +147,29 @@ func (p *JavaScriptParser) extractImports(code string, lines []string, parentID 
 		importChunk.ID = generateJSChunkID(importChunk)
 		chunks = append(chunks, importChunk)
 	}
-	
+
 	return chunks
 }
 
 // extractJSDocComments extracts JSDoc comments from JavaScript code
 func (p *JavaScriptParser) extractJSDocComments(code string, lines []string, parentID string) []*chunking.CodeChunk {
 	chunks := []*chunking.CodeChunk{}
-	
+
 	// Find all JSDoc comments
 	commentMatches := jsDocRegex.FindAllStringIndex(code, -1)
-	
+
 	for i, match := range commentMatches {
 		if len(match) < 2 {
 			continue
 		}
-		
+
 		// Get the comment
 		commentText := code[match[0]:match[1]]
-		
+
 		// Find the line numbers
 		startLine := getLineNumberFromPos(code, match[0]) + 1
 		endLine := getLineNumberFromPos(code, match[1]) + 1
-		
+
 		// Create comment chunk
 		commentChunk := &chunking.CodeChunk{
 			Type:      chunking.ChunkTypeComment,
@@ -184,7 +184,7 @@ func (p *JavaScriptParser) extractJSDocComments(code string, lines []string, par
 		commentChunk.ID = generateJSChunkID(commentChunk)
 		chunks = append(chunks, commentChunk)
 	}
-	
+
 	return chunks
 }
 
@@ -192,28 +192,28 @@ func (p *JavaScriptParser) extractJSDocComments(code string, lines []string, par
 func (p *JavaScriptParser) extractClasses(code string, lines []string, parentID string) ([]*chunking.CodeChunk, []*chunking.CodeChunk) {
 	classChunks := []*chunking.CodeChunk{}
 	methodChunks := []*chunking.CodeChunk{}
-	
+
 	// Find all class declarations
 	classMatches := jsClassRegex.FindAllStringSubmatchIndex(code, -1)
-	
+
 	for _, classMatch := range classMatches {
 		if len(classMatch) < 4 {
 			continue
 		}
-		
+
 		// Get the class name
 		className := code[classMatch[2]:classMatch[3]]
-		
+
 		// Get parent class if exists
 		var parentClass string
 		if classMatch[4] != -1 && classMatch[5] != -1 {
 			parentClass = code[classMatch[4]:classMatch[5]]
 		}
-		
+
 		// Find the class body by counting braces
 		braceCount := 1
 		classEndPos := classMatch[1]
-		
+
 		// Skip to the opening brace
 		for i := classMatch[1]; i < len(code); i++ {
 			if code[i] == '{' {
@@ -221,7 +221,7 @@ func (p *JavaScriptParser) extractClasses(code string, lines []string, parentID 
 				break
 			}
 		}
-		
+
 		// Find the closing brace by counting opening and closing braces
 		for i := classEndPos; i < len(code); i++ {
 			if code[i] == '{' {
@@ -234,23 +234,23 @@ func (p *JavaScriptParser) extractClasses(code string, lines []string, parentID 
 				}
 			}
 		}
-		
+
 		// Get the class content
 		classContent := code[classMatch[0]:classEndPos]
-		
+
 		// Find the line numbers
 		startLine := getLineNumberFromPos(code, classMatch[0]) + 1
 		endLine := getLineNumberFromPos(code, classEndPos) + 1
-		
+
 		// Create class metadata
 		classMetadata := map[string]interface{}{
 			"type": "class",
 		}
-		
+
 		if parentClass != "" {
 			classMetadata["extends"] = parentClass
 		}
-		
+
 		// Create class chunk
 		classChunk := &chunking.CodeChunk{
 			Type:      chunking.ChunkTypeClass,
@@ -265,37 +265,37 @@ func (p *JavaScriptParser) extractClasses(code string, lines []string, parentID 
 		}
 		classChunk.ID = generateJSChunkID(classChunk)
 		classChunks = append(classChunks, classChunk)
-		
+
 		// Extract methods from class content
 		classMethods := p.extractMethods(classContent, classChunk.ID, className, startLine)
 		methodChunks = append(methodChunks, classMethods...)
 	}
-	
+
 	return classChunks, methodChunks
 }
 
 // extractMethods extracts methods from a class
 func (p *JavaScriptParser) extractMethods(classContent string, parentID, className string, classStartLine int) []*chunking.CodeChunk {
 	chunks := []*chunking.CodeChunk{}
-	
+
 	// Find all method declarations
 	methodMatches := jsMethodRegex.FindAllStringSubmatchIndex(classContent, -1)
-	
+
 	for _, methodMatch := range methodMatches {
 		if len(methodMatch) < 6 {
 			continue
 		}
-		
+
 		// Get the method name
 		methodName := classContent[methodMatch[2]:methodMatch[3]]
-		
+
 		// Get parameters
 		params := classContent[methodMatch[4]:methodMatch[5]]
-		
+
 		// Find the method body by counting braces
 		braceCount := 1
 		methodEndPos := methodMatch[1]
-		
+
 		// Skip to the opening brace
 		for i := methodMatch[1]; i < len(classContent); i++ {
 			if classContent[i] == '{' {
@@ -303,7 +303,7 @@ func (p *JavaScriptParser) extractMethods(classContent string, parentID, classNa
 				break
 			}
 		}
-		
+
 		// Find the closing brace by counting opening and closing braces
 		for i := methodEndPos; i < len(classContent); i++ {
 			if classContent[i] == '{' {
@@ -316,24 +316,24 @@ func (p *JavaScriptParser) extractMethods(classContent string, parentID, classNa
 				}
 			}
 		}
-		
+
 		// Get the method content
 		methodContent := classContent[methodMatch[0]:methodEndPos]
-		
+
 		// Find the line numbers (relative to the class)
 		methodStartLine := getLineNumberFromPos(classContent, methodMatch[0]) + 1
 		methodEndLine := getLineNumberFromPos(classContent, methodEndPos) + 1
-		
+
 		// Adjust line numbers to be relative to the file
 		absoluteStartLine := classStartLine + methodStartLine - 1
 		absoluteEndLine := classStartLine + methodEndLine - 1
-		
+
 		// Create method metadata
 		methodMetadata := map[string]interface{}{
 			"params": params,
 			"class":  className,
 		}
-		
+
 		// Create method chunk
 		methodChunk := &chunking.CodeChunk{
 			Type:      chunking.ChunkTypeMethod,
@@ -349,22 +349,22 @@ func (p *JavaScriptParser) extractMethods(classContent string, parentID, classNa
 		methodChunk.ID = generateJSChunkID(methodChunk)
 		chunks = append(chunks, methodChunk)
 	}
-	
+
 	// Find constructor
 	constructorMatches := jsConstructorRegex.FindAllStringSubmatchIndex(classContent, -1)
-	
+
 	for _, constructorMatch := range constructorMatches {
 		if len(constructorMatch) < 3 {
 			continue
 		}
-		
+
 		// Get parameters
 		params := classContent[constructorMatch[2]:constructorMatch[3]]
-		
+
 		// Find the constructor body by counting braces
 		braceCount := 1
 		constructorEndPos := constructorMatch[1]
-		
+
 		// Skip to the opening brace
 		for i := constructorMatch[1]; i < len(classContent); i++ {
 			if classContent[i] == '{' {
@@ -372,7 +372,7 @@ func (p *JavaScriptParser) extractMethods(classContent string, parentID, classNa
 				break
 			}
 		}
-		
+
 		// Find the closing brace by counting opening and closing braces
 		for i := constructorEndPos; i < len(classContent); i++ {
 			if classContent[i] == '{' {
@@ -385,24 +385,24 @@ func (p *JavaScriptParser) extractMethods(classContent string, parentID, classNa
 				}
 			}
 		}
-		
+
 		// Get the constructor content
 		constructorContent := classContent[constructorMatch[0]:constructorEndPos]
-		
+
 		// Find the line numbers (relative to the class)
 		constructorStartLine := getLineNumberFromPos(classContent, constructorMatch[0]) + 1
 		constructorEndLine := getLineNumberFromPos(classContent, constructorEndPos) + 1
-		
+
 		// Adjust line numbers to be relative to the file
 		absoluteStartLine := classStartLine + constructorStartLine - 1
 		absoluteEndLine := classStartLine + constructorEndLine - 1
-		
+
 		// Create constructor metadata
 		constructorMetadata := map[string]interface{}{
 			"params": params,
 			"class":  className,
 		}
-		
+
 		// Create constructor chunk
 		constructorChunk := &chunking.CodeChunk{
 			Type:      chunking.ChunkTypeMethod,
@@ -418,32 +418,32 @@ func (p *JavaScriptParser) extractMethods(classContent string, parentID, classNa
 		constructorChunk.ID = generateJSChunkID(constructorChunk)
 		chunks = append(chunks, constructorChunk)
 	}
-	
+
 	return chunks
 }
 
 // extractFunctions extracts standalone functions from JavaScript code
 func (p *JavaScriptParser) extractFunctions(code string, lines []string, parentID string) []*chunking.CodeChunk {
 	chunks := []*chunking.CodeChunk{}
-	
+
 	// Find all function declarations
 	functionMatches := jsFunctionRegex.FindAllStringSubmatchIndex(code, -1)
-	
+
 	for _, functionMatch := range functionMatches {
 		if len(functionMatch) < 6 {
 			continue
 		}
-		
+
 		// Get the function name
 		functionName := code[functionMatch[2]:functionMatch[3]]
-		
+
 		// Get parameters
 		params := code[functionMatch[4]:functionMatch[5]]
-		
+
 		// Find the function body by counting braces
 		braceCount := 1
 		functionEndPos := functionMatch[1]
-		
+
 		// Skip to the opening brace
 		for i := functionMatch[1]; i < len(code); i++ {
 			if code[i] == '{' {
@@ -451,7 +451,7 @@ func (p *JavaScriptParser) extractFunctions(code string, lines []string, parentI
 				break
 			}
 		}
-		
+
 		// Find the closing brace by counting opening and closing braces
 		for i := functionEndPos; i < len(code); i++ {
 			if code[i] == '{' {
@@ -464,19 +464,19 @@ func (p *JavaScriptParser) extractFunctions(code string, lines []string, parentI
 				}
 			}
 		}
-		
+
 		// Get the function content
 		functionContent := code[functionMatch[0]:functionEndPos]
-		
+
 		// Find the line numbers
 		startLine := getLineNumberFromPos(code, functionMatch[0]) + 1
 		endLine := getLineNumberFromPos(code, functionEndPos) + 1
-		
+
 		// Create function metadata
 		functionMetadata := map[string]interface{}{
 			"params": params,
 		}
-		
+
 		// Create function chunk
 		functionChunk := &chunking.CodeChunk{
 			Type:      chunking.ChunkTypeFunction,
@@ -492,25 +492,25 @@ func (p *JavaScriptParser) extractFunctions(code string, lines []string, parentI
 		functionChunk.ID = generateJSChunkID(functionChunk)
 		chunks = append(chunks, functionChunk)
 	}
-	
+
 	// Find all arrow functions
 	arrowFunctionMatches := jsArrowFunctionRegex.FindAllStringSubmatchIndex(code, -1)
-	
+
 	for _, arrowMatch := range arrowFunctionMatches {
 		if len(arrowMatch) < 6 {
 			continue
 		}
-		
+
 		// Get the function name (variable name)
 		functionName := code[arrowMatch[2]:arrowMatch[3]]
-		
+
 		// Get parameters
 		params := code[arrowMatch[4]:arrowMatch[5]]
-		
+
 		// Find the function body by counting braces
 		braceCount := 1
 		functionEndPos := arrowMatch[1]
-		
+
 		// Skip to the => and then to the opening brace or expression
 		foundArrow := false
 		for i := arrowMatch[1]; i < len(code); i++ {
@@ -519,12 +519,12 @@ func (p *JavaScriptParser) extractFunctions(code string, lines []string, parentI
 				i++
 				continue
 			}
-			
+
 			if foundArrow {
 				// Check if it's a block body or expression body
 				if code[i] == '{' {
 					functionEndPos = i + 1
-					
+
 					// Find the closing brace
 					for j := functionEndPos; j < len(code); j++ {
 						if code[j] == '{' {
@@ -551,20 +551,20 @@ func (p *JavaScriptParser) extractFunctions(code string, lines []string, parentI
 				}
 			}
 		}
-		
+
 		// Get the function content
 		functionContent := code[arrowMatch[0]:functionEndPos]
-		
+
 		// Find the line numbers
 		startLine := getLineNumberFromPos(code, arrowMatch[0]) + 1
 		endLine := getLineNumberFromPos(code, functionEndPos) + 1
-		
+
 		// Create function metadata
 		functionMetadata := map[string]interface{}{
-			"params":       params,
+			"params":         params,
 			"arrow_function": true,
 		}
-		
+
 		// Create function chunk
 		functionChunk := &chunking.CodeChunk{
 			Type:      chunking.ChunkTypeFunction,
@@ -580,7 +580,7 @@ func (p *JavaScriptParser) extractFunctions(code string, lines []string, parentI
 		functionChunk.ID = generateJSChunkID(functionChunk)
 		chunks = append(chunks, functionChunk)
 	}
-	
+
 	return chunks
 }
 
@@ -591,33 +591,33 @@ func (p *JavaScriptParser) processDependencies(chunks []*chunking.CodeChunk) {
 	for _, chunk := range chunks {
 		chunkMap[chunk.ID] = chunk
 	}
-	
+
 	// Map chunks by name for dependency tracking
 	chunksByName := make(map[string]*chunking.CodeChunk)
 	for _, chunk := range chunks {
-		if chunk.Type == chunking.ChunkTypeFunction || 
-		   chunk.Type == chunking.ChunkTypeMethod ||
-		   chunk.Type == chunking.ChunkTypeClass {
+		if chunk.Type == chunking.ChunkTypeFunction ||
+			chunk.Type == chunking.ChunkTypeMethod ||
+			chunk.Type == chunking.ChunkTypeClass {
 			chunksByName[chunk.Name] = chunk
 		}
 	}
-	
+
 	// Analyze dependencies
 	for _, chunk := range chunks {
 		// Skip non-code chunks
-		if chunk.Type != chunking.ChunkTypeFunction && 
-		   chunk.Type != chunking.ChunkTypeMethod &&
-		   chunk.Type != chunking.ChunkTypeClass {
+		if chunk.Type != chunking.ChunkTypeFunction &&
+			chunk.Type != chunking.ChunkTypeMethod &&
+			chunk.Type != chunking.ChunkTypeClass {
 			continue
 		}
-		
+
 		// Analyze content for references to other chunks
 		for name, dependentChunk := range chunksByName {
 			// Skip self-reference
 			if name == chunk.Name {
 				continue
 			}
-			
+
 			// Check if the chunk content contains references to other chunks
 			// Use word boundary regex to avoid partial matches
 			regex := regexp.MustCompile(`\b` + regexp.QuoteMeta(name) + `\b`)
@@ -629,7 +629,7 @@ func (p *JavaScriptParser) processDependencies(chunks []*chunking.CodeChunk) {
 				chunk.Dependencies = append(chunk.Dependencies, dependentChunk.ID)
 			}
 		}
-		
+
 		// Add parent dependency if it exists
 		if chunk.ParentID != "" && chunk.ParentID != chunk.ID {
 			chunk.Dependencies = append(chunk.Dependencies, chunk.ParentID)
@@ -637,13 +637,11 @@ func (p *JavaScriptParser) processDependencies(chunks []*chunking.CodeChunk) {
 	}
 }
 
-
-
 // generateJSChunkID generates a unique ID for a JavaScript chunk
 func generateJSChunkID(chunk *chunking.CodeChunk) string {
 	// Combine type, name, path, and line numbers for a unique identifier
 	idString := string(chunk.Type) + ":" + chunk.Path + ":" + strconv.Itoa(chunk.StartLine) + "-" + strconv.Itoa(chunk.EndLine)
-	
+
 	// Generate SHA-256 hash
 	hash := sha256.Sum256([]byte(idString))
 	return hex.EncodeToString(hash[:])

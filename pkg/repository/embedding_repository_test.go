@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"testing"
 	"time"
-	
+
 	"github.com/DATA-DOG/go-sqlmock"
 	"github.com/jmoiron/sqlx"
 	"github.com/stretchr/testify/assert"
@@ -15,12 +15,12 @@ import (
 func TestStoreEmbedding(t *testing.T) {
 	// Define test cases
 	testCases := []struct {
-		name           string
-		embedding      *Embedding
-		setupMock      func(mock sqlmock.Sqlmock, embedding *Embedding)
-		expectedID     string
-		expectedError  bool
-		errorContains  string
+		name          string
+		embedding     *Embedding
+		setupMock     func(mock sqlmock.Sqlmock, embedding *Embedding)
+		expectedID    string
+		expectedError bool
+		errorContains string
 	}{
 		{
 			name: "successful storage",
@@ -78,7 +78,7 @@ func TestStoreEmbedding(t *testing.T) {
 			expectedError: false,
 		},
 	}
-	
+
 	// Execute test cases
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
@@ -86,19 +86,19 @@ func TestStoreEmbedding(t *testing.T) {
 			db, mock, err := sqlmock.New()
 			require.NoError(t, err, "Error creating mock database")
 			defer db.Close()
-			
+
 			// Create sqlx.DB from the mock connection
 			sqlxDB := sqlx.NewDb(db, "sqlmock")
-			
+
 			// Create the repository with the mock database
 			repo := NewEmbeddingRepository(sqlxDB)
-			
+
 			// Setup mock expectations
 			tc.setupMock(mock, tc.embedding)
-			
+
 			// Call the method being tested
 			err = repo.StoreEmbedding(context.Background(), tc.embedding)
-			
+
 			// Assert error expectations
 			if tc.expectedError {
 				assert.Error(t, err)
@@ -109,7 +109,7 @@ func TestStoreEmbedding(t *testing.T) {
 				assert.NoError(t, err)
 				assert.Equal(t, tc.expectedID, tc.embedding.ID)
 			}
-			
+
 			// Verify all expectations were met
 			assert.NoError(t, mock.ExpectationsWereMet())
 		})
@@ -119,10 +119,10 @@ func TestStoreEmbedding(t *testing.T) {
 func TestSearchEmbeddings_Legacy(t *testing.T) {
 	// Create time for test data
 	now := time.Now()
-	
+
 	// Define columns to match our custom query in the implementation
 	columns := []string{"id", "context_id", "content_index", "text", "embedding", "vector_dimensions", "model_id", "created_at"}
-	
+
 	// Define test cases
 	testCases := []struct {
 		name           string
@@ -143,7 +143,7 @@ func TestSearchEmbeddings_Legacy(t *testing.T) {
 				rows := sqlmock.NewRows(columns).
 					AddRow("embedding-1", contextID, 1, "Text 1", "{0.1,0.2,0.3,0.4,0.5}", 5, "model-1", now).
 					AddRow("embedding-2", contextID, 2, "Text 2", "{0.5,0.4,0.3,0.2,0.1}", 5, "model-1", now)
-				
+
 				mock.ExpectQuery(`SELECT id, context_id, content_index, text, embedding::text as embedding, vector_dimensions, model_id, created_at FROM mcp.embeddings WHERE context_id = \$1 AND vector_dimensions = \$2 ORDER BY embedding <-> \$3 LIMIT \$4`).
 					WithArgs(contextID, 5, vectorStr, limit).
 					WillReturnRows(rows)
@@ -153,7 +153,7 @@ func TestSearchEmbeddings_Legacy(t *testing.T) {
 				assert.Len(t, embeddings, 2)
 				assert.Equal(t, "embedding-1", embeddings[0].ID)
 				assert.Equal(t, "embedding-2", embeddings[1].ID)
-				
+
 				// Check embeddings were properly parsed from the string format
 				assert.NotEmpty(t, embeddings[0].Embedding)
 				assert.InDelta(t, 0.1, float64(embeddings[0].Embedding[0]), 0.001)
@@ -166,7 +166,7 @@ func TestSearchEmbeddings_Legacy(t *testing.T) {
 			limit:       10,
 			setupMock: func(mock sqlmock.Sqlmock, vectorStr string, contextID string, limit int) {
 				rows := sqlmock.NewRows(columns) // Empty result set
-				
+
 				mock.ExpectQuery(`SELECT id, context_id, content_index, text, embedding::text as embedding, vector_dimensions, model_id, created_at FROM mcp.embeddings WHERE context_id = \$1 AND vector_dimensions = \$2 ORDER BY embedding <-> \$3 LIMIT \$4`).
 					WithArgs(contextID, 3, vectorStr, limit).
 					WillReturnRows(rows)
@@ -200,7 +200,7 @@ func TestSearchEmbeddings_Legacy(t *testing.T) {
 			setupMock: func(mock sqlmock.Sqlmock, vectorStr string, contextID string, limit int) {
 				rows := sqlmock.NewRows(columns).
 					AddRow("embedding-bad", contextID, 1, "Text", "not-valid-json", 2, "model-1", now)
-				
+
 				mock.ExpectQuery(`SELECT id, context_id, content_index, text, embedding::text as embedding, vector_dimensions, model_id, created_at FROM mcp.embeddings WHERE context_id = \$1 AND vector_dimensions = \$2 ORDER BY embedding <-> \$3 LIMIT \$4`).
 					WithArgs(contextID, 2, vectorStr, limit).
 					WillReturnRows(rows)
@@ -212,7 +212,7 @@ func TestSearchEmbeddings_Legacy(t *testing.T) {
 			},
 		},
 	}
-	
+
 	// Execute test cases
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
@@ -220,13 +220,13 @@ func TestSearchEmbeddings_Legacy(t *testing.T) {
 			db, mock, err := sqlmock.New()
 			require.NoError(t, err, "Error creating mock database")
 			defer db.Close()
-			
+
 			// Create sqlx.DB from the mock connection
 			sqlxDB := sqlx.NewDb(db, "sqlmock")
-			
+
 			// Create the repository with the mock database
 			repo := NewEmbeddingRepository(sqlxDB)
-			
+
 			// Calculate vector string format for the query
 			var vectorStr string
 			if len(tc.queryVector) > 0 {
@@ -239,13 +239,13 @@ func TestSearchEmbeddings_Legacy(t *testing.T) {
 				}
 				vectorStr += "]"
 			}
-			
+
 			// Setup mock expectations
 			tc.setupMock(mock, vectorStr, tc.contextID, tc.limit)
-			
+
 			// Call the method being tested
 			embeddings, err := repo.SearchEmbeddings_Legacy(context.Background(), tc.queryVector, tc.contextID, tc.limit)
-			
+
 			// Assert error expectations
 			if tc.expectedError {
 				assert.Error(t, err)
@@ -255,10 +255,10 @@ func TestSearchEmbeddings_Legacy(t *testing.T) {
 			} else {
 				assert.NoError(t, err)
 			}
-			
+
 			// Validate the result
 			tc.validateResult(t, embeddings)
-			
+
 			// Verify all expectations were met
 			assert.NoError(t, mock.ExpectationsWereMet())
 		})
@@ -272,35 +272,35 @@ func TestGetContextEmbeddings(t *testing.T) {
 		t.Fatalf("Error creating mock database: %v", err)
 	}
 	defer db.Close()
-	
+
 	// Create sqlx.DB from the mock connection
 	sqlxDB := sqlx.NewDb(db, "sqlmock")
-	
+
 	// Create the repository with the mock database
 	repo := NewEmbeddingRepository(sqlxDB)
-	
+
 	// Test parameters
 	contextID := "context-123"
-	
+
 	// Create time for test data
 	now := time.Now()
-	
+
 	// Create columns to match our custom query in the implementation
 	columns := []string{"id", "context_id", "content_index", "text", "embedding", "vector_dimensions", "model_id", "created_at"}
-	
+
 	// Create mock rows with properly formatted embeddings
 	rows := sqlmock.NewRows(columns).
 		AddRow("embedding-1", contextID, 1, "Text 1", "{0.1,0.2,0.3,0.4,0.5}", 5, "model-1", now).
 		AddRow("embedding-2", contextID, 2, "Text 2", "{0.5,0.4,0.3,0.2,0.1}", 5, "model-1", now)
-	
+
 	// Set up the expected SQL query and result
 	mock.ExpectQuery(`SELECT id, context_id, content_index, text, embedding::text as embedding, vector_dimensions, model_id, created_at FROM mcp.embeddings WHERE context_id = \$1`).
 		WithArgs(contextID).
 		WillReturnRows(rows)
-	
+
 	// Call the method being tested
 	embeddings, err := repo.GetContextEmbeddings(context.Background(), contextID)
-	
+
 	// Assert expectations
 	assert.NoError(t, err)
 	assert.Len(t, embeddings, 2)
@@ -311,10 +311,10 @@ func TestGetContextEmbeddings(t *testing.T) {
 func TestSearchEmbeddings(t *testing.T) {
 	// Create time for test data
 	now := time.Now()
-	
+
 	// Define columns to match our custom query in the implementation
 	columns := []string{"id", "context_id", "content_index", "text", "embedding", "vector_dimensions", "model_id", "created_at", "similarity"}
-	
+
 	// Define test cases
 	testCases := []struct {
 		name                string
@@ -339,7 +339,7 @@ func TestSearchEmbeddings(t *testing.T) {
 				rows := sqlmock.NewRows(columns).
 					AddRow("embedding-1", contextID, 1, "Text 1", "{0.1,0.2,0.3,0.4,0.5}", 5, modelID, now, 0.95).
 					AddRow("embedding-2", contextID, 2, "Text 2", "{0.5,0.4,0.3,0.2,0.1}", 5, modelID, now, 0.75)
-				
+
 				mock.ExpectQuery(`SELECT id, context_id, content_index, text, embedding::text as embedding, vector_dimensions, model_id, created_at, \(1 - \(embedding <-> \$3\)\) as similarity FROM mcp\.embeddings WHERE context_id = \$1 AND vector_dimensions = \$2 AND model_id = \$4 AND \(1 - \(embedding <-> \$3\)\) >= \$5 ORDER BY embedding <-> \$3 LIMIT \$6`).
 					WithArgs(contextID, 5, vectorStr, modelID, similarityThreshold, limit).
 					WillReturnRows(rows)
@@ -349,11 +349,11 @@ func TestSearchEmbeddings(t *testing.T) {
 				assert.Len(t, embeddings, 2)
 				assert.Equal(t, "embedding-1", embeddings[0].ID)
 				assert.Equal(t, "embedding-2", embeddings[1].ID)
-				
+
 				// Check embeddings were properly parsed from the string format
 				assert.NotEmpty(t, embeddings[0].Embedding)
 				assert.InDelta(t, 0.1, float64(embeddings[0].Embedding[0]), 0.001)
-				
+
 				// Note: The Similarity field was removed during migration to the new structure
 				// We now compute similarity separately or use the Distance field in the SearchResult type
 				// For this test, we'll just verify the embeddings array is correctly populated
@@ -368,7 +368,7 @@ func TestSearchEmbeddings(t *testing.T) {
 			similarityThreshold: 0.7,
 			setupMock: func(mock sqlmock.Sqlmock, vectorStr string, contextID string, modelID string, limit int, similarityThreshold float64) {
 				rows := sqlmock.NewRows(columns) // Empty result set
-				
+
 				mock.ExpectQuery(`SELECT id, context_id, content_index, text, embedding::text as embedding, vector_dimensions, model_id, created_at, \(1 - \(embedding <-> \$3\)\) as similarity FROM mcp\.embeddings WHERE context_id = \$1 AND vector_dimensions = \$2 AND model_id = \$4 AND \(1 - \(embedding <-> \$3\)\) >= \$5 ORDER BY embedding <-> \$3 LIMIT \$6`).
 					WithArgs(contextID, 3, vectorStr, modelID, similarityThreshold, limit).
 					WillReturnRows(rows)
@@ -397,7 +397,7 @@ func TestSearchEmbeddings(t *testing.T) {
 			},
 		},
 	}
-	
+
 	// Execute test cases
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
@@ -405,13 +405,13 @@ func TestSearchEmbeddings(t *testing.T) {
 			db, mock, err := sqlmock.New()
 			require.NoError(t, err, "Error creating mock database")
 			defer db.Close()
-			
+
 			// Create sqlx.DB from the mock connection
 			sqlxDB := sqlx.NewDb(db, "sqlmock")
-			
+
 			// Create the repository with the mock database
 			repo := NewEmbeddingRepository(sqlxDB)
-			
+
 			// Calculate vector string format for the query
 			var vectorStr string
 			if len(tc.queryVector) > 0 {
@@ -424,13 +424,13 @@ func TestSearchEmbeddings(t *testing.T) {
 				}
 				vectorStr += "]"
 			}
-			
+
 			// Setup mock expectations
 			tc.setupMock(mock, vectorStr, tc.contextID, tc.modelID, tc.limit, tc.similarityThreshold)
-			
+
 			// Call the method being tested
 			embeddings, err := repo.SearchEmbeddings(context.Background(), tc.queryVector, tc.contextID, tc.modelID, tc.limit, tc.similarityThreshold)
-			
+
 			// Assert error expectations
 			if tc.expectedError {
 				assert.Error(t, err)
@@ -440,10 +440,10 @@ func TestSearchEmbeddings(t *testing.T) {
 			} else {
 				assert.NoError(t, err)
 			}
-			
+
 			// Validate the result
 			tc.validateResult(t, embeddings)
-			
+
 			// Verify all expectations were met
 			assert.NoError(t, mock.ExpectationsWereMet())
 		})
@@ -457,36 +457,36 @@ func TestGetEmbeddingsByModel(t *testing.T) {
 		t.Fatalf("Error creating mock database: %v", err)
 	}
 	defer db.Close()
-	
+
 	// Create sqlx.DB from the mock connection
 	sqlxDB := sqlx.NewDb(db, "sqlmock")
-	
+
 	// Create the repository with the mock database
 	repo := NewEmbeddingRepository(sqlxDB)
-	
+
 	// Test parameters
 	contextID := "context-123"
 	modelID := "test-model"
-	
+
 	// Create time for test data
 	now := time.Now()
-	
+
 	// Create columns to match our custom query in the implementation
 	columns := []string{"id", "context_id", "content_index", "text", "embedding", "vector_dimensions", "model_id", "created_at"}
-	
+
 	// Create mock rows with properly formatted embeddings
 	rows := sqlmock.NewRows(columns).
 		AddRow("embedding-1", contextID, 1, "Text 1", "{0.1,0.2,0.3,0.4,0.5}", 5, modelID, now).
 		AddRow("embedding-2", contextID, 2, "Text 2", "{0.5,0.4,0.3,0.2,0.1}", 5, modelID, now)
-	
+
 	// Set up the expected SQL query and result
 	mock.ExpectQuery(`SELECT id, context_id, content_index, text, embedding::text as embedding, vector_dimensions, model_id, created_at FROM mcp.embeddings WHERE context_id = \$1 AND model_id = \$2 ORDER BY content_index`).
 		WithArgs(contextID, modelID).
 		WillReturnRows(rows)
-	
+
 	// Call the method being tested
 	embeddings, err := repo.GetEmbeddingsByModel(context.Background(), contextID, modelID)
-	
+
 	// Assert expectations
 	assert.NoError(t, err)
 	assert.Len(t, embeddings, 2)
@@ -502,33 +502,33 @@ func TestGetSupportedModels(t *testing.T) {
 		t.Fatalf("Error creating mock database: %v", err)
 	}
 	defer db.Close()
-	
+
 	// Create sqlx.DB from the mock connection
 	sqlxDB := sqlx.NewDb(db, "sqlmock")
-	
+
 	// Create the repository with the mock database
 	repo := NewEmbeddingRepository(sqlxDB)
-	
+
 	// Test data
 	models := []string{
 		"test.openai.ada-002",
 		"test.anthropic.claude",
 		"test.mcp.small",
 	}
-	
+
 	// Create mock rows with model IDs
 	rows := sqlmock.NewRows([]string{"model_id"})
 	for _, model := range models {
 		rows.AddRow(model)
 	}
-	
+
 	// Set up the expected SQL query and result
 	mock.ExpectQuery(`SELECT DISTINCT model_id FROM mcp.embeddings ORDER BY model_id`).
 		WillReturnRows(rows)
-	
+
 	// Call the method being tested
 	supportedModels, err := repo.GetSupportedModels(context.Background())
-	
+
 	// Assert expectations
 	assert.NoError(t, err)
 	assert.Equal(t, models, supportedModels)
@@ -542,25 +542,25 @@ func TestDeleteModelEmbeddings(t *testing.T) {
 		t.Fatalf("Error creating mock database: %v", err)
 	}
 	defer db.Close()
-	
+
 	// Create sqlx.DB from the mock connection
 	sqlxDB := sqlx.NewDb(db, "sqlmock")
-	
+
 	// Create the repository with the mock database
 	repo := NewEmbeddingRepository(sqlxDB)
-	
+
 	// Test parameters
 	contextID := "context-123"
 	modelID := "test-model"
-	
+
 	// Set up the expected SQL query and result
 	mock.ExpectExec(`DELETE FROM mcp.embeddings WHERE context_id = \$1 AND model_id = \$2`).
 		WithArgs(contextID, modelID).
 		WillReturnResult(sqlmock.NewResult(0, 2))
-	
+
 	// Call the method being tested
 	err = repo.DeleteModelEmbeddings(context.Background(), contextID, modelID)
-	
+
 	// Assert expectations
 	assert.NoError(t, err)
 	assert.NoError(t, mock.ExpectationsWereMet())
@@ -573,24 +573,24 @@ func TestDeleteContextEmbeddings(t *testing.T) {
 		t.Fatalf("Error creating mock database: %v", err)
 	}
 	defer db.Close()
-	
+
 	// Create sqlx.DB from the mock connection
 	sqlxDB := sqlx.NewDb(db, "sqlmock")
-	
+
 	// Create the repository with the mock database
 	repo := NewEmbeddingRepository(sqlxDB)
-	
+
 	// Test parameters
 	contextID := "context-123"
-	
+
 	// Set up the expected SQL query and result
 	mock.ExpectExec(`DELETE FROM mcp.embeddings WHERE context_id = (.*)`).
 		WithArgs(contextID).
 		WillReturnResult(sqlmock.NewResult(0, 2))
-	
+
 	// Call the method being tested
 	err = repo.DeleteContextEmbeddings(context.Background(), contextID)
-	
+
 	// Assert expectations
 	assert.NoError(t, err)
 	assert.NoError(t, mock.ExpectationsWereMet())

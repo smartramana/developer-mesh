@@ -13,11 +13,11 @@ import (
 
 // AWSClient provides a standard interface for AWS clients
 type AWSClient interface {
-	GetSession() interface{}
-	GetCredentials() interface{}
+	GetSession() any
+	GetCredentials() any
 	GetRegion() string
-	CreateS3Client() interface{}
-	CreateSQSClient() interface{}
+	CreateS3Client() any
+	CreateSQSClient() any
 }
 
 // LegacyAuthConfig wraps AWS authentication configuration (legacy version)
@@ -43,12 +43,12 @@ type RDSClient struct {
 
 // StandardAWSClient implements the AWSClient interface with standard AWS functionality
 type StandardAWSClient struct {
-	ctx        context.Context
-	awsConfig  *aws.Config
-	region     string
-	session    interface{}
-	s3Client   *s3.Client
-	sqsClient  *sqs.Client
+	ctx       context.Context
+	awsConfig *aws.Config
+	region    string
+	session   any
+	s3Client  *s3.Client
+	sqsClient *sqs.Client
 }
 
 // NewAWSClient creates a new AWS client with the provided config
@@ -66,12 +66,12 @@ func NewAWSClient(ctx context.Context, cfg *aws.Config) AWSClient {
 }
 
 // GetSession returns the AWS session
-func (c *StandardAWSClient) GetSession() interface{} {
+func (c *StandardAWSClient) GetSession() any {
 	return c.session
 }
 
 // GetCredentials returns the AWS credentials
-func (c *StandardAWSClient) GetCredentials() interface{} {
+func (c *StandardAWSClient) GetCredentials() any {
 	if c.awsConfig == nil {
 		return nil
 	}
@@ -84,7 +84,7 @@ func (c *StandardAWSClient) GetRegion() string {
 }
 
 // CreateS3Client creates and returns an S3 client
-func (c *StandardAWSClient) CreateS3Client() interface{} {
+func (c *StandardAWSClient) CreateS3Client() any {
 	if c.s3Client == nil {
 		c.s3Client = s3.NewFromConfig(*c.awsConfig)
 	}
@@ -92,7 +92,7 @@ func (c *StandardAWSClient) CreateS3Client() interface{} {
 }
 
 // CreateSQSClient creates and returns an SQS client
-func (c *StandardAWSClient) CreateSQSClient() interface{} {
+func (c *StandardAWSClient) CreateSQSClient() any {
 	if c.sqsClient == nil {
 		c.sqsClient = sqs.NewFromConfig(*c.awsConfig)
 	}
@@ -101,7 +101,7 @@ func (c *StandardAWSClient) CreateSQSClient() interface{} {
 
 // GetAWSConfigLegacy is a deprecated alias for LegacyGetAWSConfig in adapter.go
 // It's kept here temporarily for backward compatibility
-func GetAWSConfigLegacy(ctx context.Context, cfg LegacyAuthConfig) (interface{}, error) {
+func GetAWSConfigLegacy(ctx context.Context, cfg LegacyAuthConfig) (any, error) {
 	// Convert from legacy config to new config format
 	newCfg := AuthConfig{
 		Region:     cfg.Region,
@@ -117,7 +117,7 @@ func NewRDSClient(ctx context.Context, cfg RDSConfig) (*RDSClient, error) {
 	if err != nil {
 		return nil, err
 	}
-	
+
 	return &RDSClient{
 		Config: &awsConfig,
 	}, nil

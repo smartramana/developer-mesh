@@ -73,7 +73,7 @@ func NewProcessor(config *ProcessorConfig) *Processor {
 
 // Start starts the webhook processor
 func (p *Processor) Start() {
-	p.logger.Info("Starting webhook processor", map[string]interface{}{
+	p.logger.Info("Starting webhook processor", map[string]any{
 		"workers": p.workerCount,
 	})
 
@@ -85,7 +85,7 @@ func (p *Processor) Start() {
 
 // Stop stops the webhook processor
 func (p *Processor) Stop() {
-	p.logger.Info("Stopping webhook processor", map[string]interface{}{})
+	p.logger.Info("Stopping webhook processor", map[string]any{})
 	p.cancel()
 	close(p.queue)
 	p.wg.Wait()
@@ -101,19 +101,19 @@ func (p *Processor) ProcessEvent(event *WebhookEvent) error {
 	// Check if we have handlers for this event type
 	if _, ok := p.handlers[event.Type]; !ok && len(p.handlers["*"]) == 0 {
 		// No handlers for this event type
-		p.logger.Debug("No handlers for event type", map[string]interface{}{
+		p.logger.Debug("No handlers for event type", map[string]any{
 			"type": event.Type,
 		})
 		return nil
 	}
 
 	// Log incoming event
-	p.logger.Debug("Queuing webhook event", map[string]interface{}{
-		"id": event.ID,
-		"type": event.Type,
+	p.logger.Debug("Queuing webhook event", map[string]any{
+		"id":           event.ID,
+		"type":         event.Type,
 		"queue_length": len(p.queue),
 	})
-	
+
 	// Record metric for queue size
 	p.metrics.RecordGauge("github.webhook.queue_size", float64(len(p.queue)), map[string]string{
 		"event_type": event.Type,
@@ -137,7 +137,7 @@ func (p *Processor) ProcessEvent(event *WebhookEvent) error {
 func (p *Processor) worker(id int) {
 	defer p.wg.Done()
 
-	p.logger.Debug("Starting webhook worker", map[string]interface{}{
+	p.logger.Debug("Starting webhook worker", map[string]any{
 		"id": id,
 	})
 
@@ -174,8 +174,8 @@ func (p *Processor) handleEvent(event *WebhookEvent) {
 	defer cancel()
 
 	// Log event processing
-	p.logger.Debug("Processing webhook event", map[string]interface{}{
-		"id": event.ID,
+	p.logger.Debug("Processing webhook event", map[string]any{
+		"id":   event.ID,
 		"type": event.Type,
 	})
 
@@ -187,9 +187,9 @@ func (p *Processor) handleEvent(event *WebhookEvent) {
 		for _, handler := range handlers {
 			err := handler.HandleEvent(ctx, event)
 			if err != nil {
-				p.logger.Error("Error handling webhook event", map[string]interface{}{
-					"id": event.ID,
-					"type": event.Type,
+				p.logger.Error("Error handling webhook event", map[string]any{
+					"id":    event.ID,
+					"type":  event.Type,
 					"error": err.Error(),
 				})
 				p.metrics.RecordCounter("github.webhook.error", 1, map[string]string{
@@ -206,14 +206,14 @@ func (p *Processor) handleEvent(event *WebhookEvent) {
 		for _, handler := range handlers {
 			err := handler.HandleEvent(ctx, event)
 			if err != nil {
-				p.logger.Error("Error handling webhook event with wildcard handler", map[string]interface{}{
-					"id": event.ID,
-					"type": event.Type,
+				p.logger.Error("Error handling webhook event with wildcard handler", map[string]any{
+					"id":    event.ID,
+					"type":  event.Type,
 					"error": err.Error(),
 				})
 				p.metrics.RecordCounter("github.webhook.error", 1, map[string]string{
 					"event_type": event.Type,
-					"handler": "wildcard",
+					"handler":    "wildcard",
 				})
 			} else {
 				handled = true
@@ -223,17 +223,17 @@ func (p *Processor) handleEvent(event *WebhookEvent) {
 
 	// Log event completion
 	if handled {
-		p.logger.Debug("Webhook event processed successfully", map[string]interface{}{
-			"id": event.ID,
-			"type": event.Type,
+		p.logger.Debug("Webhook event processed successfully", map[string]any{
+			"id":       event.ID,
+			"type":     event.Type,
 			"duration": time.Since(startTime).String(),
 		})
 		p.metrics.RecordCounter("github.webhook.processed", 1, map[string]string{
 			"event_type": event.Type,
 		})
 	} else {
-		p.logger.Warn("No handlers processed webhook event", map[string]interface{}{
-			"id": event.ID,
+		p.logger.Warn("No handlers processed webhook event", map[string]any{
+			"id":   event.ID,
 			"type": event.Type,
 		})
 		p.metrics.RecordCounter("github.webhook.unhandled", 1, map[string]string{
@@ -259,13 +259,13 @@ func NewDefaultEventHandler(logger observability.Logger, metrics observability.M
 // HandleEvent handles a webhook event
 func (h *DefaultEventHandler) HandleEvent(ctx context.Context, event *WebhookEvent) error {
 	// Log event information
-	h.logger.Info("Handling webhook event", map[string]interface{}{
-		"id": event.ID,
+	h.logger.Info("Handling webhook event", map[string]any{
+		"id":   event.ID,
 		"type": event.Type,
 	})
 
 	// Parse payload
-	var payload map[string]interface{}
+	var payload map[string]any
 	if err := json.Unmarshal(event.Payload, &payload); err != nil {
 		return fmt.Errorf("failed to parse webhook payload: %w", err)
 	}
@@ -279,8 +279,8 @@ func (h *DefaultEventHandler) HandleEvent(ctx context.Context, event *WebhookEve
 	case "issues":
 		return h.handleIssueEvent(ctx, event, payload)
 	default:
-		h.logger.Info("Received webhook event", map[string]interface{}{
-			"id": event.ID,
+		h.logger.Info("Received webhook event", map[string]any{
+			"id":   event.ID,
 			"type": event.Type,
 		})
 	}
@@ -289,15 +289,15 @@ func (h *DefaultEventHandler) HandleEvent(ctx context.Context, event *WebhookEve
 }
 
 // handlePushEvent handles a push event
-func (h *DefaultEventHandler) handlePushEvent(ctx context.Context, event *WebhookEvent, payload map[string]interface{}) error {
+func (h *DefaultEventHandler) handlePushEvent(ctx context.Context, event *WebhookEvent, payload map[string]any) error {
 	ref, _ := payload["ref"].(string)
-	repo, _ := payload["repository"].(map[string]interface{})
+	repo, _ := payload["repository"].(map[string]any)
 	repoName, _ := repo["full_name"].(string)
 
-	h.logger.Info("Received push event", map[string]interface{}{
-		"id": event.ID,
+	h.logger.Info("Received push event", map[string]any{
+		"id":         event.ID,
 		"repository": repoName,
-		"ref": ref,
+		"ref":        ref,
 	})
 
 	h.metrics.RecordCounter("github.webhook.push", 1, map[string]string{
@@ -308,50 +308,50 @@ func (h *DefaultEventHandler) handlePushEvent(ctx context.Context, event *Webhoo
 }
 
 // handlePullRequestEvent handles a pull request event
-func (h *DefaultEventHandler) handlePullRequestEvent(ctx context.Context, event *WebhookEvent, payload map[string]interface{}) error {
+func (h *DefaultEventHandler) handlePullRequestEvent(ctx context.Context, event *WebhookEvent, payload map[string]any) error {
 	action, _ := payload["action"].(string)
-	pr, _ := payload["pull_request"].(map[string]interface{})
+	pr, _ := payload["pull_request"].(map[string]any)
 	number, _ := pr["number"].(float64)
 	title, _ := pr["title"].(string)
-	repo, _ := payload["repository"].(map[string]interface{})
+	repo, _ := payload["repository"].(map[string]any)
 	repoName, _ := repo["full_name"].(string)
 
-	h.logger.Info("Received pull request event", map[string]interface{}{
-		"id": event.ID,
+	h.logger.Info("Received pull request event", map[string]any{
+		"id":         event.ID,
 		"repository": repoName,
-		"number": number,
-		"title": title,
-		"action": action,
+		"number":     number,
+		"title":      title,
+		"action":     action,
 	})
 
 	h.metrics.RecordCounter("github.webhook.pull_request", 1, map[string]string{
 		"repository": repoName,
-		"action": action,
+		"action":     action,
 	})
 
 	return nil
 }
 
 // handleIssueEvent handles an issue event
-func (h *DefaultEventHandler) handleIssueEvent(ctx context.Context, event *WebhookEvent, payload map[string]interface{}) error {
+func (h *DefaultEventHandler) handleIssueEvent(ctx context.Context, event *WebhookEvent, payload map[string]any) error {
 	action, _ := payload["action"].(string)
-	issue, _ := payload["issue"].(map[string]interface{})
+	issue, _ := payload["issue"].(map[string]any)
 	number, _ := issue["number"].(float64)
 	title, _ := issue["title"].(string)
-	repo, _ := payload["repository"].(map[string]interface{})
+	repo, _ := payload["repository"].(map[string]any)
 	repoName, _ := repo["full_name"].(string)
 
-	h.logger.Info("Received issue event", map[string]interface{}{
-		"id": event.ID,
+	h.logger.Info("Received issue event", map[string]any{
+		"id":         event.ID,
 		"repository": repoName,
-		"number": number,
-		"title": title,
-		"action": action,
+		"number":     number,
+		"title":      title,
+		"action":     action,
 	})
 
 	h.metrics.RecordCounter("github.webhook.issue", 1, map[string]string{
 		"repository": repoName,
-		"action": action,
+		"action":     action,
 	})
 
 	return nil

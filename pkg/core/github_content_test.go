@@ -27,17 +27,17 @@ type testGitHubContentManager struct {
 func (m *testGitHubContentManager) StoreContent(ctx context.Context, owner string, repo string, contentType storage.ContentType, contentID string, data []byte, metadata map[string]interface{}) (*storage.ContentMetadata, error) {
 	// Record metrics like the real implementation
 	m.metrics.RecordLatency("github.content.store", time.Millisecond)
-	
+
 	// Call the mock storage
 	contentMetadata, err := m.mockStorage.StoreContent(ctx, owner, repo, contentType, contentID, data, metadata)
-	
+
 	// Record success or error count
 	if err != nil {
 		m.metrics.RecordCounter("github.content.store.error", 1.0, map[string]string{"owner": owner, "repo": repo})
 		return nil, fmt.Errorf("failed to store GitHub content: %w", err)
 	}
 	m.metrics.RecordCounter("github.content.store.success", 1.0, map[string]string{"owner": owner, "repo": repo})
-	
+
 	// Store metadata in DB
 	if contentMetadata != nil {
 		err = m.mockDB.StoreGitHubContent(ctx, contentMetadata)
@@ -46,17 +46,17 @@ func (m *testGitHubContentManager) StoreContent(ctx context.Context, owner strin
 			return nil, fmt.Errorf("failed to store content metadata in database: %w", err)
 		}
 	}
-	
+
 	return contentMetadata, nil
 }
 
 func (m *testGitHubContentManager) GetContent(ctx context.Context, owner string, repo string, contentType storage.ContentType, contentID string) ([]byte, *storage.ContentMetadata, error) {
 	// Record metrics like the real implementation
 	m.metrics.RecordLatency("github.content.get", time.Millisecond)
-	
+
 	// Call the mock storage
 	content, metadata, err := m.mockStorage.GetContent(ctx, owner, repo, contentType, contentID)
-	
+
 	// Record success or error count
 	if err != nil {
 		m.metrics.RecordCounter("github.content.get.error", 1.0, map[string]string{"owner": owner, "repo": repo})
@@ -69,13 +69,13 @@ func (m *testGitHubContentManager) GetContent(ctx context.Context, owner string,
 func (m *testGitHubContentManager) GetContentByChecksum(ctx context.Context, checksum string) ([]byte, *storage.ContentMetadata, error) {
 	// Record metrics like the real implementation
 	m.metrics.RecordLatency("github.content.get_by_uri", time.Millisecond)
-	
+
 	// Generate the URI
 	uri := "s3://test-bucket/content/" + checksum
-	
+
 	// Call the mock storage
 	content, metadata, err := m.mockStorage.GetContentByURI(ctx, uri)
-	
+
 	// Record success or error count
 	if err != nil {
 		m.metrics.RecordCounter("github.content.get_by_uri.error", 1.0, map[string]string{"checksum": checksum})
@@ -86,23 +86,23 @@ func (m *testGitHubContentManager) GetContentByChecksum(ctx context.Context, che
 }
 
 func (m *testGitHubContentManager) DeleteContent(ctx context.Context, owner string, repo string, contentType storage.ContentType, contentID string) error {
-	// Record metrics like the real implementation 
+	// Record metrics like the real implementation
 	m.metrics.RecordLatency("github.content.delete", time.Millisecond)
-	
+
 	// Delete from storage first
 	err := m.mockStorage.DeleteContent(ctx, owner, repo, contentType, contentID)
 	if err != nil {
 		m.metrics.RecordCounter("github.content.delete.error", 1.0, map[string]string{"owner": owner, "repo": repo})
 		return fmt.Errorf("failed to delete GitHub content: %w", err)
 	}
-	
+
 	// Delete from database next
 	err = m.mockDB.DeleteGitHubContent(ctx, owner, repo, string(contentType), contentID)
 	if err != nil {
 		m.metrics.RecordCounter("github.content.delete.error", 1.0, map[string]string{"owner": owner, "repo": repo})
-		return fmt.Errorf("failed to delete GitHub content metadata: %w", err) 
+		return fmt.Errorf("failed to delete GitHub content metadata: %w", err)
 	}
-	
+
 	m.metrics.RecordCounter("github.content.delete.success", 1.0, map[string]string{"owner": owner, "repo": repo})
 	return nil
 }
@@ -110,10 +110,10 @@ func (m *testGitHubContentManager) DeleteContent(ctx context.Context, owner stri
 func (m *testGitHubContentManager) ListContent(ctx context.Context, owner string, repo string, contentType storage.ContentType, limit int) ([]*storage.ContentMetadata, error) {
 	// Record metrics like the real implementation
 	m.metrics.RecordLatency("github.content.list", time.Millisecond)
-	
+
 	// Call the mock database
 	metadata, err := m.mockDB.ListGitHubContent(ctx, owner, repo, string(contentType), limit)
-	
+
 	// Record success or error count
 	if err != nil {
 		m.metrics.RecordCounter("github.content.list.error", 1.0, map[string]string{"owner": owner, "repo": repo})
@@ -351,11 +351,11 @@ func TestGitHubContentManager_StoreContent(t *testing.T) {
 	mockStorage := new(MockGitHubContentStorage)
 	mockDB := new(MockGitHubContentDB)
 	mockMetrics := new(MockMetrics)
-	
+
 	// Create a test manager that directly uses our mock objects
 	manager := &testGitHubContentManager{
 		mockStorage: mockStorage,
-		mockDB:      mockDB, 
+		mockDB:      mockDB,
 		metrics:     mockMetrics,
 		logger:      observability.NewLogger("test"),
 	}

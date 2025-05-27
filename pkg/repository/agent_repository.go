@@ -39,12 +39,12 @@ func (r *AgentRepositoryImpl) GetAgentByID(ctx context.Context, id string, tenan
 	if err != nil {
 		return nil, err
 	}
-	
+
 	// Verify tenant access if required
 	if tenantID != "" && agent.TenantID != tenantID {
 		return nil, fmt.Errorf("agent does not belong to tenant: %s", tenantID)
 	}
-	
+
 	return agent, nil
 }
 
@@ -52,7 +52,7 @@ func (r *AgentRepositoryImpl) GetAgentByID(ctx context.Context, id string, tenan
 func (r *AgentRepositoryImpl) ListAgents(ctx context.Context, tenantID string) ([]*models.Agent, error) {
 	// Create filter based on tenantID
 	filter := agent.FilterFromTenantID(tenantID)
-	
+
 	// Delegate to the core List method
 	return r.List(ctx, filter)
 }
@@ -116,10 +116,10 @@ func (r *AgentRepositoryImpl) Get(ctx context.Context, id string) (*models.Agent
 // List implements AgentRepository.List
 func (r *AgentRepositoryImpl) List(ctx context.Context, filter agent.Filter) ([]*models.Agent, error) {
 	query := `SELECT id, name, tenant_id, model_id, created_at, updated_at FROM agents`
-	
+
 	// Apply filters
 	var whereClause string
-	var args []interface{}
+	var args []any
 	argIndex := 1
 
 	if filter != nil {

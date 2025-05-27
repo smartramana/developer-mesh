@@ -39,7 +39,7 @@ func TestObservabilityStackIntegration(t *testing.T) {
 
 		// Record a metric
 		metricsClient.IncrementCounter("test.counter", 1.0)
-		
+
 		// Record a metric with labels using the new method signature
 		metricsClient.IncrementCounterWithLabels("test.counter.with.labels", 1.0, map[string]string{
 			"test": "integration",

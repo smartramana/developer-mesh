@@ -19,28 +19,28 @@ type Config struct {
 	MaxOpenConns    int
 	MaxIdleConns    int
 	ConnMaxLifetime time.Duration
-	
+
 	// Timeout configurations (best practice)
 	QueryTimeout   time.Duration // Default: 30s
 	ConnectTimeout time.Duration // Default: 10s
-	
+
 	// AWS RDS specific settings (optional)
 	UseAWS     bool
 	UseIAM     bool
 	AWSRegion  string
 	AWSRoleARN string
-	
+
 	// RDS-specific configuration
-	RDSHost                  string
-	RDSPort                  int
-	RDSDatabase              string
-	RDSUsername              string
-	RDSTokenExpiration       int    // seconds
-	RDSEnablePooling         bool
-	RDSMinPoolSize           int
-	RDSMaxPoolSize           int
-	RDSConnectionTimeout     int    // seconds
-	
+	RDSHost              string
+	RDSPort              int
+	RDSDatabase          string
+	RDSUsername          string
+	RDSTokenExpiration   int // seconds
+	RDSEnablePooling     bool
+	RDSMinPoolSize       int
+	RDSMaxPoolSize       int
+	RDSConnectionTimeout int // seconds
+
 	// Migration settings
 	AutoMigrate          bool
 	MigrationsPath       string
@@ -59,7 +59,7 @@ func NewConfig() *Config {
 		MigrationsPath:  "migrations",
 		SSLMode:         "disable",
 		Port:            5432,
-		
+
 		// RDS defaults
 		RDSPort:              5432,
 		RDSTokenExpiration:   900, // 15 minutes
@@ -75,13 +75,13 @@ func (c *Config) GetDSN() string {
 	if c.DSN != "" {
 		return c.DSN
 	}
-	
+
 	// Build DSN from components if not explicitly set
 	if c.UseAWS && c.UseIAM {
 		// For AWS RDS with IAM, DSN will be built by the RDS client
 		return ""
 	}
-	
+
 	// Build standard PostgreSQL DSN
 	return buildPostgresDSN(c)
 }
@@ -92,7 +92,7 @@ func buildPostgresDSN(c *Config) string {
 	if c.Host == "" {
 		c.Host = "localhost"
 	}
-	
+
 	dsn := "postgres://"
 	if c.Username != "" {
 		dsn += c.Username
@@ -103,7 +103,7 @@ func buildPostgresDSN(c *Config) string {
 	}
 	dsn += c.Host + ":" + string(c.Port) + "/" + c.Database
 	dsn += "?sslmode=" + c.SSLMode
-	
+
 	return dsn
 }
 
@@ -112,7 +112,7 @@ func (c *Config) Validate() error {
 	if c.Driver == "" {
 		c.Driver = "postgres"
 	}
-	
+
 	if c.UseAWS && c.UseIAM {
 		// Validate AWS-specific settings
 		if c.AWSRegion == "" {
@@ -127,6 +127,6 @@ func (c *Config) Validate() error {
 			return ErrInvalidDatabaseConfig
 		}
 	}
-	
+
 	return nil
 }

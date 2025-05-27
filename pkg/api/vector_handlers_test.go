@@ -8,7 +8,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
-	
+
 	"github.com/S-Corkum/devops-mcp/pkg/api"
 	"github.com/S-Corkum/devops-mcp/pkg/observability"
 	"github.com/S-Corkum/devops-mcp/pkg/repository/vector"
@@ -79,32 +79,32 @@ type EmbeddingRepositoryInterface interface {
 
 // TestServer is a simplified version of Server for testing
 type TestServer struct {
-	router  *gin.Engine
-	logger  *observability.Logger
-	api     *api.VectorAPI
+	router *gin.Engine
+	logger *observability.Logger
+	api    *api.VectorAPI
 }
 
 // Set up a test server with the mock repository
 func setupVectorTestServer(mockRepo *MockEmbeddingRepository) *TestServer {
 	gin.SetMode(gin.TestMode)
-	
+
 	// Create a logger for testing
 	logger := observability.NewLogger("vector-test")
-	
+
 	// Create a server with the mock repository
 	router := gin.New()
-	
+
 	// Create VectorAPI handler
 	vectorAPI := api.NewVectorAPI(mockRepo, logger)
-	
+
 	// Setup routes
 	vectorAPI.RegisterRoutes(router.Group("/api/v1"))
-	
+
 	// Return the test server
 	return &TestServer{
-		router:  router,
-		logger:  logger,
-		api:     vectorAPI,
+		router: router,
+		logger: logger,
+		api:    vectorAPI,
 	}
 }
 
@@ -112,10 +112,10 @@ func TestStoreEmbeddingHandler(t *testing.T) {
 	// Create mock repository
 	mockRepo := new(MockEmbeddingRepository)
 	server := setupVectorTestServer(mockRepo)
-	
+
 	// Set expectations
 	mockRepo.On("StoreEmbedding", mock.Anything, mock.AnythingOfType("*vector.Embedding")).Return(nil)
-	
+
 	// Create test request
 	reqBody := struct {
 		ContextID    string    `json:"context_id"`
@@ -130,21 +130,21 @@ func TestStoreEmbeddingHandler(t *testing.T) {
 		Embedding:    []float32{0.1, 0.2, 0.3},
 		ModelID:      "test-model",
 	}
-	
+
 	jsonBody, _ := json.Marshal(reqBody)
 	req, _ := http.NewRequest("POST", "/api/v1/vectors/store", bytes.NewBuffer(jsonBody))
 	req.Header.Set("Content-Type", "application/json")
-	
+
 	// Perform the request
 	w := httptest.NewRecorder()
 	server.router.ServeHTTP(w, req)
-	
+
 	// Assert response
 	assert.Equal(t, http.StatusOK, w.Code)
-	
+
 	// Verify that our expectations were met
 	mockRepo.AssertExpectations(t)
-	
+
 	// Verify response body
 	var resp vector.Embedding
 	err := json.Unmarshal(w.Body.Bytes(), &resp)
@@ -156,32 +156,32 @@ func TestSearchEmbeddingsHandler(t *testing.T) {
 	// Create mock repository
 	mockRepo := new(MockEmbeddingRepository)
 	server := setupVectorTestServer(mockRepo)
-	
+
 	// Test case 1: Legacy search (no model ID)
 	t.Run("LegacySearch", func(t *testing.T) {
 		// Test data
 		contextID := "context-123"
 		queryVector := []float32{0.1, 0.2, 0.3}
-		
+
 		// Mock results
 		mockResults := []*vector.Embedding{
 			{
-				ID:          "emb-1",
-				ContextID:   contextID,
+				ID:           "emb-1",
+				ContextID:    contextID,
 				ContentIndex: 1,
-				Text:        "Test text 1",
+				Text:         "Test text 1",
 			},
 			{
-				ID:          "emb-2",
-				ContextID:   contextID,
+				ID:           "emb-2",
+				ContextID:    contextID,
 				ContentIndex: 2,
-				Text:        "Test text 2",
+				Text:         "Test text 2",
 			},
 		}
-		
+
 		// Set expectations
 		mockRepo.On("SearchEmbeddings_Legacy", mock.Anything, queryVector, contextID, 10).Return(mockResults, nil)
-		
+
 		// Create test request
 		reqBody := struct {
 			ContextID      string    `json:"context_id"`
@@ -192,21 +192,21 @@ func TestSearchEmbeddingsHandler(t *testing.T) {
 			QueryEmbedding: queryVector,
 			Limit:          10,
 		}
-		
+
 		jsonBody, _ := json.Marshal(reqBody)
 		req, _ := http.NewRequest("POST", "/api/v1/vectors/search", bytes.NewBuffer(jsonBody))
 		req.Header.Set("Content-Type", "application/json")
-		
+
 		// Perform the request
 		w := httptest.NewRecorder()
 		server.router.ServeHTTP(w, req)
-		
+
 		// Assert response
 		assert.Equal(t, http.StatusOK, w.Code)
-		
+
 		// Verify that our expectations were met
 		mockRepo.AssertExpectations(t)
-		
+
 		// Verify response body
 		var resp struct {
 			Embeddings []*vector.Embedding `json:"embeddings"`
@@ -216,7 +216,7 @@ func TestSearchEmbeddingsHandler(t *testing.T) {
 		assert.Len(t, resp.Embeddings, 2)
 		assert.Equal(t, "emb-1", resp.Embeddings[0].ID)
 	})
-	
+
 	// Test case 2: Model-specific search
 	t.Run("ModelSearch", func(t *testing.T) {
 		// Test data
@@ -224,30 +224,30 @@ func TestSearchEmbeddingsHandler(t *testing.T) {
 		modelID := "test-model"
 		queryVector := []float32{0.1, 0.2, 0.3}
 		similarityThreshold := 0.7
-		
+
 		// Mock results
 		mockResults := []*vector.Embedding{
 			{
-				ID:          "emb-1",
-				ContextID:   contextID,
-				ModelID:     modelID,
+				ID:           "emb-1",
+				ContextID:    contextID,
+				ModelID:      modelID,
 				ContentIndex: 1,
-				Text:        "Test text 1",
-				Similarity:  0.95,
+				Text:         "Test text 1",
+				Similarity:   0.95,
 			},
 			{
-				ID:          "emb-2",
-				ContextID:   contextID,
-				ModelID:     modelID,
+				ID:           "emb-2",
+				ContextID:    contextID,
+				ModelID:      modelID,
 				ContentIndex: 2,
-				Text:        "Test text 2",
-				Similarity:  0.85,
+				Text:         "Test text 2",
+				Similarity:   0.85,
 			},
 		}
-		
+
 		// Set expectations
 		mockRepo.On("SearchEmbeddings", mock.Anything, queryVector, contextID, modelID, 5, similarityThreshold).Return(mockResults, nil)
-		
+
 		// Create test request
 		reqBody := struct {
 			ContextID           string    `json:"context_id"`
@@ -262,21 +262,21 @@ func TestSearchEmbeddingsHandler(t *testing.T) {
 			Limit:               5,
 			SimilarityThreshold: similarityThreshold,
 		}
-		
+
 		jsonBody, _ := json.Marshal(reqBody)
 		req, _ := http.NewRequest("POST", "/api/v1/vectors/search", bytes.NewBuffer(jsonBody))
 		req.Header.Set("Content-Type", "application/json")
-		
+
 		// Perform the request
 		w := httptest.NewRecorder()
 		server.router.ServeHTTP(w, req)
-		
+
 		// Assert response
 		assert.Equal(t, http.StatusOK, w.Code)
-		
+
 		// Verify that our expectations were met
 		mockRepo.AssertExpectations(t)
-		
+
 		// Verify response body
 		var resp struct {
 			Embeddings []*vector.Embedding `json:"embeddings"`
@@ -294,42 +294,42 @@ func TestGetContextEmbeddingsHandler(t *testing.T) {
 	// Create mock repository
 	mockRepo := new(MockEmbeddingRepository)
 	server := setupVectorTestServer(mockRepo)
-	
+
 	// Test data
 	contextID := "context-123"
-	
+
 	// Mock results
 	mockResults := []*vector.Embedding{
 		{
-			ID:          "emb-1",
-			ContextID:   contextID,
+			ID:           "emb-1",
+			ContextID:    contextID,
 			ContentIndex: 1,
-			Text:        "Test text 1",
+			Text:         "Test text 1",
 		},
 		{
-			ID:          "emb-2",
-			ContextID:   contextID,
+			ID:           "emb-2",
+			ContextID:    contextID,
 			ContentIndex: 2,
-			Text:        "Test text 2",
+			Text:         "Test text 2",
 		},
 	}
-	
+
 	// Set expectations
 	mockRepo.On("GetContextEmbeddings", mock.Anything, contextID).Return(mockResults, nil)
-	
+
 	// Create test request
 	req, _ := http.NewRequest("GET", "/api/v1/vectors/context/"+contextID, nil)
-	
+
 	// Perform the request
 	w := httptest.NewRecorder()
 	server.router.ServeHTTP(w, req)
-	
+
 	// Assert response
 	assert.Equal(t, http.StatusOK, w.Code)
-	
+
 	// Verify that our expectations were met
 	mockRepo.AssertExpectations(t)
-	
+
 	// Verify response body
 	var resp struct {
 		Embeddings []*vector.Embedding `json:"embeddings"`
@@ -343,26 +343,26 @@ func TestDeleteContextEmbeddingsHandler(t *testing.T) {
 	// Create mock repository
 	mockRepo := new(MockEmbeddingRepository)
 	server := setupVectorTestServer(mockRepo)
-	
+
 	// Test data
 	contextID := "context-123"
-	
+
 	// Set expectations
 	mockRepo.On("DeleteContextEmbeddings", mock.Anything, contextID).Return(nil)
-	
+
 	// Create test request
 	req, _ := http.NewRequest("DELETE", "/api/v1/vectors/context/"+contextID, nil)
-	
+
 	// Perform the request
 	w := httptest.NewRecorder()
 	server.router.ServeHTTP(w, req)
-	
+
 	// Assert response
 	assert.Equal(t, http.StatusOK, w.Code)
-	
+
 	// Verify that our expectations were met
 	mockRepo.AssertExpectations(t)
-	
+
 	// Verify response body
 	var resp struct {
 		Status string `json:"status"`
@@ -376,30 +376,30 @@ func TestGetSupportedModelsHandler(t *testing.T) {
 	// Create mock repository
 	mockRepo := new(MockEmbeddingRepository)
 	server := setupVectorTestServer(mockRepo)
-	
+
 	// Test data
 	models := []string{
 		"test.openai.ada-002",
 		"test.anthropic.claude",
 		"test.mcp.small",
 	}
-	
+
 	// Set expectations
 	mockRepo.On("GetSupportedModels", mock.Anything).Return(models, nil)
-	
+
 	// Create test request
 	req, _ := http.NewRequest("GET", "/api/v1/vectors/models", nil)
-	
+
 	// Perform the request
 	w := httptest.NewRecorder()
 	server.router.ServeHTTP(w, req)
-	
+
 	// Assert response
 	assert.Equal(t, http.StatusOK, w.Code)
-	
+
 	// Verify that our expectations were met
 	mockRepo.AssertExpectations(t)
-	
+
 	// Verify response body
 	var resp struct {
 		Models []string `json:"models"`
@@ -414,45 +414,45 @@ func TestGetModelEmbeddingsHandler(t *testing.T) {
 	// Create mock repository
 	mockRepo := new(MockEmbeddingRepository)
 	server := setupVectorTestServer(mockRepo)
-	
+
 	// Test data
 	contextID := "context-123"
 	modelID := "test.openai.ada-002"
-	
+
 	// Mock results
 	mockResults := []*vector.Embedding{
 		{
-			ID:          "emb-1",
-			ContextID:   contextID,
-			ModelID:     modelID,
+			ID:           "emb-1",
+			ContextID:    contextID,
+			ModelID:      modelID,
 			ContentIndex: 1,
-			Text:        "Test text 1",
+			Text:         "Test text 1",
 		},
 		{
-			ID:          "emb-2",
-			ContextID:   contextID,
-			ModelID:     modelID,
+			ID:           "emb-2",
+			ContextID:    contextID,
+			ModelID:      modelID,
 			ContentIndex: 2,
-			Text:        "Test text 2",
+			Text:         "Test text 2",
 		},
 	}
-	
+
 	// Set expectations
 	mockRepo.On("GetEmbeddingsByModel", mock.Anything, contextID, modelID).Return(mockResults, nil)
-	
+
 	// Create test request
 	req, _ := http.NewRequest("GET", fmt.Sprintf("/api/v1/vectors/context/%s/model/%s", contextID, modelID), nil)
-	
+
 	// Perform the request
 	w := httptest.NewRecorder()
 	server.router.ServeHTTP(w, req)
-	
+
 	// Assert response
 	assert.Equal(t, http.StatusOK, w.Code)
-	
+
 	// Verify that our expectations were met
 	mockRepo.AssertExpectations(t)
-	
+
 	// Verify response body
 	var resp struct {
 		Embeddings []*vector.Embedding `json:"embeddings"`
@@ -467,27 +467,27 @@ func TestDeleteModelEmbeddingsHandler(t *testing.T) {
 	// Create mock repository
 	mockRepo := new(MockEmbeddingRepository)
 	server := setupVectorTestServer(mockRepo)
-	
+
 	// Test data
 	contextID := "context-123"
 	modelID := "test.openai.ada-002"
-	
+
 	// Set expectations
 	mockRepo.On("DeleteModelEmbeddings", mock.Anything, contextID, modelID).Return(nil)
-	
+
 	// Create test request
 	req, _ := http.NewRequest("DELETE", fmt.Sprintf("/api/v1/vectors/context/%s/model/%s", contextID, modelID), nil)
-	
+
 	// Perform the request
 	w := httptest.NewRecorder()
 	server.router.ServeHTTP(w, req)
-	
+
 	// Assert response
 	assert.Equal(t, http.StatusOK, w.Code)
-	
+
 	// Verify that our expectations were met
 	mockRepo.AssertExpectations(t)
-	
+
 	// Verify response body
 	var resp struct {
 		Status string `json:"status"`

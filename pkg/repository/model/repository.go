@@ -6,14 +6,14 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
-	
+
 	"github.com/S-Corkum/devops-mcp/pkg/models"
 	"github.com/jmoiron/sqlx"
 )
 
 // RepositoryImpl implements the Repository interface for models
 type RepositoryImpl struct {
-	db *sqlx.DB
+	db        *sqlx.DB
 	tableName string
 }
 
@@ -29,7 +29,7 @@ func isSQLite(db *sqlx.DB) bool {
 func NewRepository(db *sqlx.DB) Repository {
 	// Determine the appropriate table name with schema prefix if needed
 	tableName := "models"
-	
+
 	// Check if we're using SQLite by trying a SQLite-specific pragma
 	var sqliteVersion string
 	err := db.QueryRow("PRAGMA database_list").Scan(&sqliteVersion)
@@ -59,9 +59,9 @@ func NewRepository(db *sqlx.DB) Repository {
 			}
 		}
 	}
-	
+
 	return &RepositoryImpl{
-		db: db,
+		db:        db,
 		tableName: tableName,
 	}
 }
@@ -71,7 +71,7 @@ func (r *RepositoryImpl) Create(ctx context.Context, model *models.Model) error 
 	if model == nil {
 		return errors.New("model cannot be nil")
 	}
-	
+
 	// Check if we need to use a specific transaction from context
 	// First try with string key
 	tx, ok := ctx.Value("tx").(*sqlx.Tx)
@@ -79,7 +79,7 @@ func (r *RepositoryImpl) Create(ctx context.Context, model *models.Model) error 
 	if !ok || tx == nil {
 		tx, ok = ctx.Value("TransactionKey").(*sqlx.Tx)
 	}
-	
+
 	// Use appropriate placeholders based on database type
 	var placeholders string
 	if isSQLite(r.db) {
@@ -87,10 +87,10 @@ func (r *RepositoryImpl) Create(ctx context.Context, model *models.Model) error 
 	} else {
 		placeholders = "$1, $2, $3"
 	}
-	
-	query := fmt.Sprintf("INSERT INTO %s (id, name, tenant_id) VALUES (%s)", 
+
+	query := fmt.Sprintf("INSERT INTO %s (id, name, tenant_id) VALUES (%s)",
 		r.tableName, placeholders)
-	
+
 	// Use transaction if available
 	var err error
 	if ok && tx != nil {
@@ -106,11 +106,11 @@ func (r *RepositoryImpl) Create(ctx context.Context, model *models.Model) error 
 			model.TenantID,
 		)
 	}
-	
+
 	if err != nil {
 		return fmt.Errorf("failed to create model: %w", err)
 	}
-	
+
 	return nil
 }
 
@@ -119,7 +119,7 @@ func (r *RepositoryImpl) Get(ctx context.Context, id string) (*models.Model, err
 	if id == "" {
 		return nil, errors.New("id cannot be empty")
 	}
-	
+
 	// Check if we need to use a specific transaction from context
 	// First try with string key
 	tx, ok := ctx.Value("tx").(*sqlx.Tx)
@@ -127,7 +127,7 @@ func (r *RepositoryImpl) Get(ctx context.Context, id string) (*models.Model, err
 	if !ok || tx == nil {
 		tx, ok = ctx.Value("TransactionKey").(*sqlx.Tx)
 	}
-	
+
 	// Use appropriate placeholder based on database type
 	var placeholder string
 	if isSQLite(r.db) {
@@ -135,38 +135,38 @@ func (r *RepositoryImpl) Get(ctx context.Context, id string) (*models.Model, err
 	} else {
 		placeholder = "$1"
 	}
-	
-	query := fmt.Sprintf("SELECT id, name, tenant_id FROM %s WHERE id = %s", 
+
+	query := fmt.Sprintf("SELECT id, name, tenant_id FROM %s WHERE id = %s",
 		r.tableName, placeholder)
-	
+
 	var model models.Model
 	var err error
-	
+
 	// Use transaction if available
 	if ok && tx != nil {
 		err = tx.GetContext(ctx, &model, query, id)
 	} else {
 		err = r.db.GetContext(ctx, &model, query, id)
 	}
-	
+
 	if err != nil {
 		if err == sql.ErrNoRows {
 			return nil, nil // Not found, return nil without error
 		}
 		return nil, fmt.Errorf("failed to get model: %w", err)
 	}
-	
+
 	return &model, nil
 }
 
 // List retrieves models based on filter criteria
 func (r *RepositoryImpl) List(ctx context.Context, filter Filter) ([]*models.Model, error) {
 	baseQuery := fmt.Sprintf("SELECT id, name, tenant_id FROM %s", r.tableName)
-	
+
 	// Build the WHERE clause based on filters
 	whereClause := ""
-	var args []interface{}
-	
+	var args []any
+
 	// Check if we need to use a specific transaction from context
 	// First try with string key
 	tx, ok := ctx.Value("tx").(*sqlx.Tx)
@@ -174,7 +174,7 @@ func (r *RepositoryImpl) List(ctx context.Context, filter Filter) ([]*models.Mod
 	if !ok || tx == nil {
 		tx, ok = ctx.Value("TransactionKey").(*sqlx.Tx)
 	}
-	
+
 	if filter != nil {
 		argCount := 1
 		for key, value := range filter {
@@ -183,36 +183,36 @@ func (r *RepositoryImpl) List(ctx context.Context, filter Filter) ([]*models.Mod
 			} else {
 				whereClause += " AND"
 			}
-			
+
 			// For SQLite, always use ? without numbering
 			if isSQLite(r.db) {
 				whereClause += fmt.Sprintf(" %s = ?", key)
 			} else {
 				whereClause += fmt.Sprintf(" %s = $%d", key, argCount)
 			}
-			
+
 			args = append(args, value)
 			argCount++
 		}
 	}
-	
+
 	// Order by name as a default sort
 	query := baseQuery + whereClause + " ORDER BY name ASC"
-	
+
 	var models []*models.Model
 	var err error
-	
+
 	// Use transaction if available
 	if ok && tx != nil {
 		err = tx.SelectContext(ctx, &models, query, args...)
 	} else {
 		err = r.db.SelectContext(ctx, &models, query, args...)
 	}
-	
+
 	if err != nil {
 		return nil, fmt.Errorf("failed to list models: %w", err)
 	}
-	
+
 	return models, nil
 }
 
@@ -221,11 +221,11 @@ func (r *RepositoryImpl) Update(ctx context.Context, model *models.Model) error 
 	if model == nil {
 		return errors.New("model cannot be nil")
 	}
-	
+
 	if model.ID == "" {
 		return errors.New("model ID cannot be empty")
 	}
-	
+
 	// Check if we need to use a specific transaction from context
 	// First try with string key
 	tx, ok := ctx.Value("tx").(*sqlx.Tx)
@@ -233,7 +233,7 @@ func (r *RepositoryImpl) Update(ctx context.Context, model *models.Model) error 
 	if !ok || tx == nil {
 		tx, ok = ctx.Value("TransactionKey").(*sqlx.Tx)
 	}
-	
+
 	// Choose the appropriate placeholders based on database type
 	var placeholders string
 	if isSQLite(r.db) {
@@ -241,41 +241,41 @@ func (r *RepositoryImpl) Update(ctx context.Context, model *models.Model) error 
 	} else {
 		placeholders = "name = $2, tenant_id = $3 WHERE id = $1"
 	}
-	
+
 	query := fmt.Sprintf("UPDATE %s SET %s", r.tableName, placeholders)
-	
-	var args []interface{}
+
+	var args []any
 	if isSQLite(r.db) {
 		// SQLite uses placeholders in order of appearance
-		args = []interface{}{model.Name, model.TenantID, model.ID}
+		args = []any{model.Name, model.TenantID, model.ID}
 	} else {
 		// PostgreSQL uses numbered placeholders, maintain same order as original
-		args = []interface{}{model.ID, model.Name, model.TenantID}
+		args = []any{model.ID, model.Name, model.TenantID}
 	}
-	
+
 	var result sql.Result
 	var err error
-	
+
 	// Use transaction if available
 	if ok && tx != nil {
 		result, err = tx.ExecContext(ctx, query, args...)
 	} else {
 		result, err = r.db.ExecContext(ctx, query, args...)
 	}
-	
+
 	if err != nil {
 		return fmt.Errorf("failed to update model: %w", err)
 	}
-	
+
 	rowsAffected, err := result.RowsAffected()
 	if err != nil {
 		return fmt.Errorf("failed to get rows affected: %w", err)
 	}
-	
+
 	if rowsAffected == 0 {
 		return errors.New("model not found")
 	}
-	
+
 	return nil
 }
 
@@ -284,23 +284,23 @@ func (r *RepositoryImpl) Delete(ctx context.Context, id string) error {
 	if id == "" {
 		return errors.New("id cannot be empty")
 	}
-	
+
 	query := fmt.Sprintf("DELETE FROM %s WHERE id = $1", r.tableName)
-	
+
 	result, err := r.db.ExecContext(ctx, query, id)
 	if err != nil {
 		return fmt.Errorf("failed to delete model: %w", err)
 	}
-	
+
 	rowsAffected, err := result.RowsAffected()
 	if err != nil {
 		return fmt.Errorf("failed to get rows affected: %w", err)
 	}
-	
+
 	if rowsAffected == 0 {
 		return errors.New("model not found")
 	}
-	
+
 	return nil
 }
 
@@ -316,12 +316,12 @@ func (r *RepositoryImpl) GetModelByID(ctx context.Context, id string, tenantID s
 	if err != nil {
 		return nil, err
 	}
-	
+
 	// If found, verify tenant ID matches
 	if model != nil && model.TenantID != tenantID {
 		return nil, errors.New("model not found for tenant")
 	}
-	
+
 	return model, nil
 }
 

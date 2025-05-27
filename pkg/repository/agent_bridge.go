@@ -4,7 +4,7 @@ package repository
 import (
 	"context"
 	"database/sql"
-	
+
 	"github.com/S-Corkum/devops-mcp/pkg/models"
 	"github.com/S-Corkum/devops-mcp/pkg/repository/agent"
 	"github.com/jmoiron/sqlx"
@@ -15,7 +15,7 @@ import (
 // This maintains compatibility with existing code while consolidating interface definitions.
 
 // NewAgentRepositoryAdapter creates a new agent repository using the adapter pattern
-func NewAgentRepositoryAdapter(db interface{}) AgentRepository {
+func NewAgentRepositoryAdapter(db any) AgentRepository {
 	// Handle different database types
 	switch typedDB := db.(type) {
 	case *sqlx.DB:
@@ -56,11 +56,11 @@ func (m *mockAgentRepository) Get(ctx context.Context, id string) (*models.Agent
 // List implements the List method for mockAgentRepository
 func (m *mockAgentRepository) List(ctx context.Context, filter agent.Filter) ([]*models.Agent, error) {
 	var result []*models.Agent
-	
+
 	if m.agents == nil {
 		return result, nil
 	}
-	
+
 	for _, agent := range m.agents {
 		matches := true
 		for key, value := range filter {
@@ -75,12 +75,12 @@ func (m *mockAgentRepository) List(ctx context.Context, filter agent.Filter) ([]
 				}
 			}
 		}
-		
+
 		if matches {
 			result = append(result, agent)
 		}
 	}
-	
+
 	return result, nil
 }
 
@@ -106,7 +106,7 @@ func (m *mockAgentRepository) CreateAgent(ctx context.Context, agent *models.Age
 	return m.Create(ctx, agent)
 }
 
-// GetAgentByID implements the API-specific method 
+// GetAgentByID implements the API-specific method
 func (m *mockAgentRepository) GetAgentByID(ctx context.Context, id string, tenantID string) (*models.Agent, error) {
 	agent, _ := m.Get(ctx, id)
 	if agent != nil && agent.TenantID != tenantID {

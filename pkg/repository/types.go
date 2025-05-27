@@ -7,7 +7,7 @@ import (
 
 // Filter defines a generic filter type for repository operations
 // This is used across all repository implementations
-type Filter map[string]interface{}
+type Filter map[string]any
 
 // Repository defines a generic repository interface for CRUD operations
 // The type parameter T represents the entity type managed by the repository

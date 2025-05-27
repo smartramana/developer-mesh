@@ -8,14 +8,13 @@ import (
 	"net/http/httptest"
 	"testing"
 
+	api "github.com/S-Corkum/devops-mcp/pkg/api"
+	"github.com/S-Corkum/devops-mcp/pkg/models"
+	"github.com/S-Corkum/devops-mcp/pkg/repository"
 	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
-	"github.com/S-Corkum/devops-mcp/pkg/models"
-	"github.com/S-Corkum/devops-mcp/pkg/repository"
-	api "github.com/S-Corkum/devops-mcp/pkg/api"
 )
-
 
 // MockModelRepository mocks repository.ModelRepository
 // Implements testify's Mock for all methods

@@ -15,10 +15,10 @@ import (
 	"github.com/S-Corkum/devops-mcp/pkg/observability"
 	"github.com/S-Corkum/devops-mcp/pkg/repository"
 	"github.com/gin-gonic/gin"
+	"github.com/gorilla/mux"
 	"github.com/jmoiron/sqlx"
 	swaggerFiles "github.com/swaggo/files"
 	ginSwagger "github.com/swaggo/gin-swagger"
-	"github.com/gorilla/mux"
 )
 
 // Global shutdown hooks
@@ -26,13 +26,13 @@ var shutdownHooks []func()
 
 // Server represents the API server
 type Server struct {
-	router        *gin.Engine
-	server        *http.Server
-	engine        *core.Engine
-	config        Config
-	logger        observability.Logger // Changed from pointer to interface type
-	db            *sqlx.DB
-	metrics       observability.MetricsClient
+	router  *gin.Engine
+	server  *http.Server
+	engine  *core.Engine
+	config  Config
+	logger  observability.Logger // Changed from pointer to interface type
+	db      *sqlx.DB
+	metrics observability.MetricsClient
 	// TODO: Currently still using internal/database.VectorDatabase
 	// This will be updated to use the adapter in the next phase of migration
 	vectorDB      *database.VectorDatabase
@@ -86,10 +86,10 @@ func NewServer(engine *core.Engine, cfg Config, db *sqlx.DB, metrics observabili
 	// Initialize API keys from configuration
 	if cfg.Auth.APIKeys != nil {
 		fmt.Printf("API Keys from config: %+v\n", cfg.Auth.APIKeys)
-		
+
 		// Initialize the key map for the API keys
 		keyMap := make(map[string]string)
-		
+
 		// Convert the APIKeys to a map[string]string
 		if apiKeys, ok := cfg.Auth.APIKeys.(map[string]interface{}); ok {
 			for key, role := range apiKeys {
@@ -104,7 +104,7 @@ func NewServer(engine *core.Engine, cfg Config, db *sqlx.DB, metrics observabili
 				fmt.Printf("Adding API key from map: %s with role: %s\n", key, role)
 			}
 		}
-		
+
 		InitAPIKeys(keyMap)
 	} else {
 		fmt.Println("No API keys defined in config")
@@ -169,8 +169,6 @@ func NewServer(engine *core.Engine, cfg Config, db *sqlx.DB, metrics observabili
 	return server
 }
 
-
-
 // Initialize initializes all components and routes
 func (s *Server) Initialize(ctx context.Context) error {
 	// Initialize vector database if available
@@ -211,10 +209,10 @@ func (s *Server) setupRoutes(ctx context.Context) {
 	for _, e := range os.Environ() {
 		fmt.Println(e)
 	}
-	
+
 	fmt.Printf("MCP_TEST_MODE value: '%s' (Type: %T)\n", testMode, testMode)
 	fmt.Printf("Is testMode true? %v\n", testMode == "true")
-	
+
 	fmt.Println("Using AuthMiddleware for /api/v1 routes (test mode does not bypass auth in functional tests)")
 	v1.Use(AuthMiddleware("api_key"))
 

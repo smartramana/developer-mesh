@@ -23,22 +23,22 @@ func NewPgVectorStorage(db *sql.DB, schema string) (*PgVectorStorage, error) {
 	if db == nil {
 		return nil, errors.New("database connection is required")
 	}
-	
+
 	if schema == "" {
 		schema = "mcp" // Default schema
 	}
-	
+
 	// Verify pgvector extension is available
 	var exists bool
 	err := db.QueryRow("SELECT EXISTS(SELECT 1 FROM pg_extension WHERE extname = 'vector')").Scan(&exists)
 	if err != nil {
 		return nil, fmt.Errorf("failed to check pgvector extension: %w", err)
 	}
-	
+
 	if !exists {
 		return nil, errors.New("pgvector extension is not installed in the database")
 	}
-	
+
 	return &PgVectorStorage{
 		db:     db,
 		schema: schema,
@@ -50,17 +50,17 @@ func (s *PgVectorStorage) StoreEmbedding(ctx context.Context, embedding *Embeddi
 	if embedding == nil {
 		return errors.New("embedding cannot be nil")
 	}
-	
+
 	// Convert metadata to JSON if present
 	var metadataJSON sql.NullString
 	if embedding.Metadata != nil && len(embedding.Metadata) > 0 {
 		// We'll handle this in the database layer to ensure proper JSON formatting
 		metadataJSON = sql.NullString{String: "{}", Valid: true}
 	}
-	
+
 	// Format vector for pgvector
 	vectorStr := formatVectorForPg(embedding.Vector)
-	
+
 	// Insert embedding into database
 	query := fmt.Sprintf(`
 		INSERT INTO %s.embeddings (
@@ -79,10 +79,10 @@ func (s *PgVectorStorage) StoreEmbedding(ctx context.Context, embedding *Embeddi
 			metadata = $8,
 			content_type = $9
 	`, s.schema)
-	
+
 	// Generate a unique ID based on content type and ID
 	id := fmt.Sprintf("%s:%s", embedding.ContentType, embedding.ContentID)
-	
+
 	_, err := s.db.ExecContext(
 		ctx,
 		query,
@@ -96,11 +96,11 @@ func (s *PgVectorStorage) StoreEmbedding(ctx context.Context, embedding *Embeddi
 		metadataJSON,          // metadata
 		embedding.ContentType, // content_type
 	)
-	
+
 	if err != nil {
 		return fmt.Errorf("failed to store embedding: %w", err)
 	}
-	
+
 	return nil
 }
 
@@ -109,14 +109,14 @@ func (s *PgVectorStorage) BatchStoreEmbeddings(ctx context.Context, embeddings [
 	if len(embeddings) == 0 {
 		return nil // Nothing to store
 	}
-	
+
 	// Use a transaction for batch inserts
 	tx, err := s.db.BeginTx(ctx, nil)
 	if err != nil {
 		return fmt.Errorf("failed to begin transaction: %w", err)
 	}
 	defer tx.Rollback() // Will be ignored if transaction is committed
-	
+
 	// Prepare statement for batch insert
 	stmt, err := tx.PrepareContext(ctx, fmt.Sprintf(`
 		INSERT INTO %s.embeddings (
@@ -139,26 +139,26 @@ func (s *PgVectorStorage) BatchStoreEmbeddings(ctx context.Context, embeddings [
 		return fmt.Errorf("failed to prepare statement: %w", err)
 	}
 	defer stmt.Close()
-	
+
 	// Insert each embedding
 	for _, embedding := range embeddings {
 		if embedding == nil {
 			continue // Skip nil embeddings
 		}
-		
+
 		// Convert metadata to JSON if present
 		var metadataJSON sql.NullString
 		if embedding.Metadata != nil && len(embedding.Metadata) > 0 {
 			// We'll handle this in the database layer to ensure proper JSON formatting
 			metadataJSON = sql.NullString{String: "{}", Valid: true}
 		}
-		
+
 		// Format vector for pgvector
 		vectorStr := formatVectorForPg(embedding.Vector)
-		
+
 		// Generate a unique ID based on content type and ID
 		id := fmt.Sprintf("%s:%s", embedding.ContentType, embedding.ContentID)
-		
+
 		_, err := stmt.ExecContext(
 			ctx,
 			id,                    // id
@@ -171,17 +171,17 @@ func (s *PgVectorStorage) BatchStoreEmbeddings(ctx context.Context, embeddings [
 			metadataJSON,          // metadata
 			embedding.ContentType, // content_type
 		)
-		
+
 		if err != nil {
 			return fmt.Errorf("failed to store embedding %s: %w", id, err)
 		}
 	}
-	
+
 	// Commit the transaction
 	if err := tx.Commit(); err != nil {
 		return fmt.Errorf("failed to commit transaction: %w", err)
 	}
-	
+
 	return nil
 }
 
@@ -190,18 +190,18 @@ func (s *PgVectorStorage) FindSimilarEmbeddings(ctx context.Context, embedding *
 	if embedding == nil {
 		return nil, errors.New("embedding cannot be nil")
 	}
-	
+
 	if limit <= 0 {
 		limit = 10 // Default limit
 	}
-	
+
 	if threshold <= 0 || threshold > 1 {
 		threshold = 0.7 // Default threshold
 	}
-	
+
 	// Format vector for pgvector
 	vectorStr := formatVectorForPg(embedding.Vector)
-	
+
 	// Query for similar embeddings
 	query := fmt.Sprintf(`
 		SELECT
@@ -219,7 +219,7 @@ func (s *PgVectorStorage) FindSimilarEmbeddings(ctx context.Context, embedding *
 			similarity DESC
 		LIMIT $5
 	`, s.schema)
-	
+
 	rows, err := s.db.QueryContext(
 		ctx,
 		query,
@@ -233,7 +233,7 @@ func (s *PgVectorStorage) FindSimilarEmbeddings(ctx context.Context, embedding *
 		return nil, fmt.Errorf("failed to query similar embeddings: %w", err)
 	}
 	defer rows.Close()
-	
+
 	var results []*EmbeddingVector
 	for rows.Next() {
 		var (
@@ -248,7 +248,7 @@ func (s *PgVectorStorage) FindSimilarEmbeddings(ctx context.Context, embedding *
 			contentType     string
 			similarityScore float32
 		)
-		
+
 		if err := rows.Scan(
 			&id,
 			&contextID,
@@ -263,7 +263,7 @@ func (s *PgVectorStorage) FindSimilarEmbeddings(ctx context.Context, embedding *
 		); err != nil {
 			return nil, fmt.Errorf("failed to scan embedding row: %w", err)
 		}
-		
+
 		// Extract content ID from compound ID
 		parts := strings.SplitN(id, ":", 2)
 		contentID := ""
@@ -272,13 +272,13 @@ func (s *PgVectorStorage) FindSimilarEmbeddings(ctx context.Context, embedding *
 		} else {
 			contentID = id
 		}
-		
+
 		// Parse the vector string
 		vector, err := parseVectorFromPg(embeddingStr)
 		if err != nil {
 			return nil, fmt.Errorf("failed to parse vector: %w", err)
 		}
-		
+
 		// Create metadata map if JSON is valid
 		metadata := make(map[string]interface{})
 		if metadataJSON.Valid {
@@ -288,7 +288,7 @@ func (s *PgVectorStorage) FindSimilarEmbeddings(ctx context.Context, embedding *
 		} else {
 			metadata["similarity"] = similarityScore
 		}
-		
+
 		result := &EmbeddingVector{
 			Vector:      vector,
 			Dimensions:  dimensions,
@@ -297,14 +297,14 @@ func (s *PgVectorStorage) FindSimilarEmbeddings(ctx context.Context, embedding *
 			ContentID:   contentID,
 			Metadata:    metadata,
 		}
-		
+
 		results = append(results, result)
 	}
-	
+
 	if err := rows.Err(); err != nil {
 		return nil, fmt.Errorf("error iterating over rows: %w", err)
 	}
-	
+
 	return results, nil
 }
 
@@ -313,16 +313,16 @@ func (s *PgVectorStorage) GetEmbeddingsByContentIDs(ctx context.Context, content
 	if len(contentIDs) == 0 {
 		return nil, errors.New("no content IDs provided")
 	}
-	
+
 	// Prepare the IN clause placeholders and args
 	placeholders := make([]string, len(contentIDs))
 	args := make([]interface{}, len(contentIDs))
-	
+
 	for i, id := range contentIDs {
 		placeholders[i] = fmt.Sprintf("$%d", i+1)
 		args[i] = id
 	}
-	
+
 	// Query for embeddings by content ID
 	query := fmt.Sprintf(`
 		SELECT
@@ -334,13 +334,13 @@ func (s *PgVectorStorage) GetEmbeddingsByContentIDs(ctx context.Context, content
 		WHERE
 			id = ANY($1)
 	`, s.schema)
-	
+
 	rows, err := s.db.QueryContext(ctx, query, pq.Array(contentIDs))
 	if err != nil {
 		return nil, fmt.Errorf("failed to query embeddings by content IDs: %w", err)
 	}
 	defer rows.Close()
-	
+
 	var results []*EmbeddingVector
 	for rows.Next() {
 		var (
@@ -354,7 +354,7 @@ func (s *PgVectorStorage) GetEmbeddingsByContentIDs(ctx context.Context, content
 			metadataJSON sql.NullString
 			contentType  string
 		)
-		
+
 		if err := rows.Scan(
 			&id,
 			&contextID,
@@ -368,7 +368,7 @@ func (s *PgVectorStorage) GetEmbeddingsByContentIDs(ctx context.Context, content
 		); err != nil {
 			return nil, fmt.Errorf("failed to scan embedding row: %w", err)
 		}
-		
+
 		// Extract content ID from compound ID
 		parts := strings.SplitN(id, ":", 2)
 		contentID := ""
@@ -377,13 +377,13 @@ func (s *PgVectorStorage) GetEmbeddingsByContentIDs(ctx context.Context, content
 		} else {
 			contentID = id
 		}
-		
+
 		// Parse the vector string
 		vector, err := parseVectorFromPg(embeddingStr)
 		if err != nil {
 			return nil, fmt.Errorf("failed to parse vector: %w", err)
 		}
-		
+
 		result := &EmbeddingVector{
 			Vector:      vector,
 			Dimensions:  dimensions,
@@ -392,14 +392,14 @@ func (s *PgVectorStorage) GetEmbeddingsByContentIDs(ctx context.Context, content
 			ContentID:   contentID,
 			Metadata:    make(map[string]interface{}),
 		}
-		
+
 		results = append(results, result)
 	}
-	
+
 	if err := rows.Err(); err != nil {
 		return nil, fmt.Errorf("error iterating over rows: %w", err)
 	}
-	
+
 	return results, nil
 }
 
@@ -408,18 +408,18 @@ func (s *PgVectorStorage) DeleteEmbeddingsByContentIDs(ctx context.Context, cont
 	if len(contentIDs) == 0 {
 		return errors.New("no content IDs provided")
 	}
-	
+
 	// Delete embeddings by content ID
 	query := fmt.Sprintf(`
 		DELETE FROM %s.embeddings
 		WHERE id = ANY($1)
 	`, s.schema)
-	
+
 	_, err := s.db.ExecContext(ctx, query, pq.Array(contentIDs))
 	if err != nil {
 		return fmt.Errorf("failed to delete embeddings: %w", err)
 	}
-	
+
 	return nil
 }
 
@@ -440,7 +440,7 @@ func parseVectorFromPg(vectorStr string) ([]float32, error) {
 	// Remove brackets and split by commas
 	vectorStr = strings.Trim(vectorStr, "[]")
 	elements := strings.Split(vectorStr, ",")
-	
+
 	vector := make([]float32, len(elements))
 	for i, elem := range elements {
 		var val float64
@@ -449,6 +449,6 @@ func parseVectorFromPg(vectorStr string) ([]float32, error) {
 		}
 		vector[i] = float32(val)
 	}
-	
+
 	return vector, nil
 }

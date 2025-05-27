@@ -10,15 +10,15 @@ import (
 
 // Logger defines a minimal logging interface
 type Logger interface {
-	Info(args ...interface{})
-	Infof(format string, args ...interface{})
-	Error(args ...interface{})
-	Errorf(format string, args ...interface{})
-	Debug(args ...interface{})
-	Debugf(format string, args ...interface{})
-	Warn(args ...interface{})
-	Warnf(format string, args ...interface{})
-	With(key string, value interface{}) Logger
+	Info(args ...any)
+	Infof(format string, args ...any)
+	Error(args ...any)
+	Errorf(format string, args ...any)
+	Debug(args ...any)
+	Debugf(format string, args ...any)
+	Warn(args ...any)
+	Warnf(format string, args ...any)
+	With(key string, value any) Logger
 }
 
 // MetricsClient defines a minimal metrics interface
@@ -30,35 +30,35 @@ type MetricsClient interface {
 
 // Cache defines a minimal cache interface
 type Cache interface {
-	Get(ctx context.Context, key string, dest interface{}) error
-	Set(ctx context.Context, key string, value interface{}, ttl int) error
+	Get(ctx context.Context, key string, dest any) error
+	Set(ctx context.Context, key string, value any, ttl int) error
 	Delete(ctx context.Context, key string) error
 }
 
 // EventBus defines a minimal event bus interface
 type EventBus interface {
-	Publish(ctx context.Context, eventType string, event interface{}) error
-	Subscribe(eventType string, handler func(ctx context.Context, event interface{}) error) error
-	Unsubscribe(eventType string, handler func(ctx context.Context, event interface{}) error) error
+	Publish(ctx context.Context, eventType string, event any) error
+	Subscribe(eventType string, handler func(ctx context.Context, event any) error) error
+	Unsubscribe(eventType string, handler func(ctx context.Context, event any) error) error
 }
 
 // Repository defines a minimal repository interface
 type Repository interface {
-	Get(ctx context.Context, id string) (interface{}, error)
-	List(ctx context.Context, filter interface{}) ([]interface{}, error)
-	Create(ctx context.Context, entity interface{}) (interface{}, error)
-	Update(ctx context.Context, entity interface{}) (interface{}, error)
+	Get(ctx context.Context, id string) (any, error)
+	List(ctx context.Context, filter any) ([]any, error)
+	Create(ctx context.Context, entity any) (any, error)
+	Update(ctx context.Context, entity any) (any, error)
 	Delete(ctx context.Context, id string) error
 }
 
 // WebhookHandler defines a minimal webhook handler interface
 type WebhookHandler interface {
-	Handle(ctx context.Context, event interface{}) error
+	Handle(ctx context.Context, event any) error
 }
 
 // SQSReceiver defines a minimal SQS receiver interface
 type SQSReceiver interface {
-	ReceiveMessage(ctx context.Context, queueURL string, maxMessages int) ([]interface{}, error)
+	ReceiveMessage(ctx context.Context, queueURL string, maxMessages int) ([]any, error)
 }
 
 // SQSDeleter defines a minimal SQS deleter interface
@@ -86,19 +86,19 @@ type RateLimiter interface {
 
 // CircuitBreaker defines a minimal circuit breaker interface
 type CircuitBreaker interface {
-	Execute(fn func() (interface{}, error)) (interface{}, error)
+	Execute(fn func() (any, error)) (any, error)
 }
 
 // Retry defines a minimal retry interface
 type Retry interface {
-	Execute(fn func() (interface{}, error)) (interface{}, error)
+	Execute(fn func() (any, error)) (any, error)
 }
 
 // ContextManager defines a minimal context manager interface
 type ContextManager interface {
 	CreateContext(ctx context.Context, tenantID, name string) (string, error)
-	GetContext(ctx context.Context, contextID string) (interface{}, error)
-	UpdateContext(ctx context.Context, contextID string, data interface{}) error
+	GetContext(ctx context.Context, contextID string) (any, error)
+	UpdateContext(ctx context.Context, contextID string, data any) error
 	DeleteContext(ctx context.Context, contextID string) error
 }
 
@@ -111,11 +111,11 @@ type S3Client interface {
 
 // WebhookConfig defines webhook configuration
 type WebhookConfig struct {
-	EnabledField                 bool     `mapstructure:"enabled"`
-	GitHubEndpointField          string   `mapstructure:"github_endpoint"`
-	GitHubSecretField            string   `mapstructure:"github_secret"`
-	GitHubIPValidationField      bool     `mapstructure:"github_ip_validation"`
-	GitHubAllowedEventsField     []string `mapstructure:"github_allowed_events"`
+	EnabledField             bool     `mapstructure:"enabled"`
+	GitHubEndpointField      string   `mapstructure:"github_endpoint"`
+	GitHubSecretField        string   `mapstructure:"github_secret"`
+	GitHubIPValidationField  bool     `mapstructure:"github_ip_validation"`
+	GitHubAllowedEventsField []string `mapstructure:"github_allowed_events"`
 }
 
 // WebhookConfigInterface defines an interface for accessing webhook configuration
@@ -154,18 +154,18 @@ func (c *WebhookConfig) GitHubAllowedEvents() []string {
 
 // APIConfig defines the API server configuration
 type APIConfig struct {
-	ListenAddress string `mapstructure:"listen_address"`
-	BaseURL       string `mapstructure:"base_url"`
-	TLSCertFile   string `mapstructure:"tls_cert_file"`
-	TLSKeyFile    string `mapstructure:"tls_key_file"`
-	CORSAllowed   string `mapstructure:"cors_allowed"`
-	RateLimit     int    `mapstructure:"rate_limit"`
-	RequestTimeout int   `mapstructure:"request_timeout"`
+	ListenAddress  string `mapstructure:"listen_address"`
+	BaseURL        string `mapstructure:"base_url"`
+	TLSCertFile    string `mapstructure:"tls_cert_file"`
+	TLSKeyFile     string `mapstructure:"tls_key_file"`
+	CORSAllowed    string `mapstructure:"cors_allowed"`
+	RateLimit      int    `mapstructure:"rate_limit"`
+	RequestTimeout int    `mapstructure:"request_timeout"`
 }
 
 // CoreConfig defines the engine core configuration
 type CoreConfig struct {
-	EventBufferSize  int         `mapstructure:"event_buffer_size"`
-	ConcurrencyLimit int         `mapstructure:"concurrency_limit"`
-	EventTimeout     interface{} `mapstructure:"event_timeout"`
+	EventBufferSize  int `mapstructure:"event_buffer_size"`
+	ConcurrencyLimit int `mapstructure:"concurrency_limit"`
+	EventTimeout     any `mapstructure:"event_timeout"`
 }

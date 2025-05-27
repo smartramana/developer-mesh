@@ -9,10 +9,10 @@ import (
 type Adapter interface {
 	// Type returns the adapter type identifier
 	Type() string
-	
+
 	// ExecuteAction executes an action with optional parameters
-	ExecuteAction(ctx context.Context, action string, params map[string]interface{}) (interface{}, error)
-	
+	ExecuteAction(ctx context.Context, action string, params map[string]any) (any, error)
+
 	// HandleWebhook processes webhook events from the external service
 	HandleWebhook(ctx context.Context, eventType string, payload []byte) error
 
@@ -21,7 +21,7 @@ type Adapter interface {
 
 	// Close gracefully shuts down the adapter
 	Close() error
-	
+
 	// Version returns the adapter's version
 	Version() string
 }
@@ -48,7 +48,7 @@ func (g *GenericAdapter) Type() string {
 }
 
 // ExecuteAction executes an action with optional parameters
-func (g *GenericAdapter) ExecuteAction(ctx context.Context, action string, params map[string]interface{}) (interface{}, error) {
+func (g *GenericAdapter) ExecuteAction(ctx context.Context, action string, params map[string]any) (any, error) {
 	// Route actions to appropriate source control methods
 	switch action {
 	case "get_repository":

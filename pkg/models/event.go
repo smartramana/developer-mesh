@@ -16,7 +16,7 @@ type Event struct {
 	Timestamp time.Time `json:"timestamp"`
 
 	// Data contains the event data
-	Data interface{} `json:"data"`
+	Data any `json:"data"`
 
 	// AgentID is the identifier for the AI agent that generated this event
 	AgentID string `json:"agent_id"`
@@ -43,7 +43,7 @@ type ContextItem struct {
 	Tokens int `json:"tokens,omitempty"`
 
 	// Metadata contains additional information about this context item
-	Metadata map[string]interface{} `json:"metadata,omitempty"`
+	Metadata map[string]any `json:"metadata,omitempty"`
 }
 
 // Context represents an AI model context
@@ -70,7 +70,7 @@ type Context struct {
 	Content []ContextItem `json:"content"`
 
 	// Metadata contains additional information about the context
-	Metadata map[string]interface{} `json:"metadata,omitempty"`
+	Metadata map[string]any `json:"metadata,omitempty"`
 
 	// CreatedAt is when this context was created
 	CreatedAt time.Time `json:"created_at"`
@@ -105,12 +105,12 @@ type EventHandler func(Event) error
 
 // EventFilter defines criteria for filtering events
 type EventFilter struct {
-	Sources   []string  `json:"sources"`
-	Types     []string  `json:"types"`
-	AgentIDs  []string  `json:"agent_ids,omitempty"`
-	SessionIDs []string `json:"session_ids,omitempty"`
-	After     time.Time `json:"after"`
-	Before    time.Time `json:"before"`
+	Sources    []string  `json:"sources"`
+	Types      []string  `json:"types"`
+	AgentIDs   []string  `json:"agent_ids,omitempty"`
+	SessionIDs []string  `json:"session_ids,omitempty"`
+	After      time.Time `json:"after"`
+	Before     time.Time `json:"before"`
 }
 
 // MatchEvent checks if an event matches the filter criteria

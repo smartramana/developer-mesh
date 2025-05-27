@@ -117,7 +117,7 @@ func TestBasicRouting(t *testing.T) {
 	req := httptest.NewRequest(http.MethodGet, "/test", nil)
 	w := httptest.NewRecorder()
 	router.ServeHTTP(w, req)
-	
+
 	// This isn't testing auth, just that the route works
 	assert.Equal(t, http.StatusOK, w.Code)
 }

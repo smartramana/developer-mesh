@@ -7,8 +7,8 @@ import (
 	"log"
 	"strings"
 
-	s3client "github.com/S-Corkum/devops-mcp/pkg/storage"
 	"github.com/S-Corkum/devops-mcp/pkg/models"
+	s3client "github.com/S-Corkum/devops-mcp/pkg/storage"
 )
 
 // S3ContextStorage implements context storage using AWS S3
@@ -31,19 +31,19 @@ func NewS3ContextStorage(s3Client *s3client.S3Client, prefix string) *S3ContextS
 func (s *S3ContextStorage) StoreContext(ctx context.Context, contextData *models.Context) error {
 	// Generate key for the context
 	key := s.generateContextKey(contextData.ID)
-	
+
 	// Serialize context data to JSON
 	jsonData, err := json.Marshal(contextData)
 	if err != nil {
 		return fmt.Errorf("failed to serialize context data: %w", err)
 	}
-	
+
 	// Upload to S3
 	err = s.s3Client.UploadFile(ctx, key, jsonData, "application/json")
 	if err != nil {
 		return fmt.Errorf("failed to upload context to S3: %w", err)
 	}
-	
+
 	return nil
 }
 
@@ -51,20 +51,20 @@ func (s *S3ContextStorage) StoreContext(ctx context.Context, contextData *models
 func (s *S3ContextStorage) GetContext(ctx context.Context, contextID string) (*models.Context, error) {
 	// Generate key for the context
 	key := s.generateContextKey(contextID)
-	
+
 	// Download from S3
 	data, err := s.s3Client.DownloadFile(ctx, key)
 	if err != nil {
 		return nil, fmt.Errorf("failed to download context from S3: %w", err)
 	}
-	
+
 	// Deserialize context data
 	var contextData models.Context
 	err = json.Unmarshal(data, &contextData)
 	if err != nil {
 		return nil, fmt.Errorf("failed to deserialize context data: %w", err)
 	}
-	
+
 	return &contextData, nil
 }
 
@@ -72,13 +72,13 @@ func (s *S3ContextStorage) GetContext(ctx context.Context, contextID string) (*m
 func (s *S3ContextStorage) DeleteContext(ctx context.Context, contextID string) error {
 	// Generate key for the context
 	key := s.generateContextKey(contextID)
-	
+
 	// Delete from S3
 	err := s.s3Client.DeleteFile(ctx, key)
 	if err != nil {
 		return fmt.Errorf("failed to delete context from S3: %w", err)
 	}
-	
+
 	return nil
 }
 
@@ -89,13 +89,13 @@ func (s *S3ContextStorage) ListContexts(ctx context.Context, agentID string, ses
 	if agentID != "" {
 		listPrefix = fmt.Sprintf("%s/agent/%s", s.prefix, agentID)
 	}
-	
+
 	// List objects from S3
 	keys, err := s.s3Client.ListFiles(ctx, listPrefix)
 	if err != nil {
 		return nil, fmt.Errorf("failed to list contexts from S3: %w", err)
 	}
-	
+
 	// Retrieve each context
 	var contexts []*models.Context
 	for _, key := range keys {
@@ -104,22 +104,22 @@ func (s *S3ContextStorage) ListContexts(ctx context.Context, agentID string, ses
 		if contextID == "" {
 			continue
 		}
-		
+
 		// Get the context
 		contextData, err := s.GetContext(ctx, contextID)
 		if err != nil {
 			log.Printf("Warning: failed to get context %s: %v", contextID, err)
 			continue
 		}
-		
+
 		// Filter by session ID if provided
 		if sessionID != "" && contextData.SessionID != sessionID {
 			continue
 		}
-		
+
 		contexts = append(contexts, contextData)
 	}
-	
+
 	return contexts, nil
 }
 
@@ -133,17 +133,17 @@ func (s *S3ContextStorage) extractContextID(key string) string {
 	// Implementation depends on the key format
 	// For simplicity, we'll assume the key format is prefix/contextID.json
 	// In a real implementation, we'd use proper path handling
-	
+
 	// First check if the key starts with the prefix
 	if !strings.HasPrefix(key, s.prefix) || len(key) <= len(s.prefix)+1 {
 		return ""
 	}
-	
+
 	// Extract the filename part
 	filename := key[len(s.prefix)+1:]
 	if len(filename) > 5 && strings.HasSuffix(filename, ".json") {
 		return filename[:len(filename)-5]
 	}
-	
+
 	return ""
 }

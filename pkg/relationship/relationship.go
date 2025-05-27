@@ -9,16 +9,16 @@ import (
 
 // Relationship represents a relationship between two entities
 type Relationship struct {
-	ID           string          `json:"id" db:"id"`
-	SourceID     string          `json:"source_id" db:"source_id"`
-	SourceType   EntityType      `json:"source_type" db:"source_type"`
-	TargetID     string          `json:"target_id" db:"target_id"`
-	TargetType   EntityType      `json:"target_type" db:"target_type"`
-	Type         RelationshipType `json:"type" db:"type"`
-	CreatedAt    int64           `json:"created_at" db:"created_at"`
-	CreatedBy    string          `json:"created_by" db:"created_by"`
-	TenantID     string          `json:"tenant_id" db:"tenant_id"`
-	Metadata     interface{}     `json:"metadata" db:"metadata"`
+	ID         string           `json:"id" db:"id"`
+	SourceID   string           `json:"source_id" db:"source_id"`
+	SourceType EntityType       `json:"source_type" db:"source_type"`
+	TargetID   string           `json:"target_id" db:"target_id"`
+	TargetType EntityType       `json:"target_type" db:"target_type"`
+	Type       RelationshipType `json:"type" db:"type"`
+	CreatedAt  int64            `json:"created_at" db:"created_at"`
+	CreatedBy  string           `json:"created_by" db:"created_by"`
+	TenantID   string           `json:"tenant_id" db:"tenant_id"`
+	Metadata   interface{}      `json:"metadata" db:"metadata"`
 }
 
 // RelationshipType represents the type of a relationship
@@ -46,7 +46,7 @@ const (
 	EntityTypeMemory  EntityType = "memory"
 	EntityTypeUser    EntityType = "user"
 	EntityTypeUnknown EntityType = "unknown"
-	
+
 	// Relationship types
 	RelationshipTypeCreatedBy      RelationshipType = "created_by"
 	RelationshipTypeHas            RelationshipType = "has"

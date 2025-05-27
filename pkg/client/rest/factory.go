@@ -17,7 +17,7 @@ func NewFactory(baseURL, apiKey string, logger observability.Logger) *Factory {
 		APIKey:  apiKey,
 		Logger:  logger,
 	}
-	
+
 	return &Factory{
 		client: NewRESTClient(config),
 		logger: logger,

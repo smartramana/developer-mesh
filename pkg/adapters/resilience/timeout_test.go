@@ -14,43 +14,43 @@ func TestExecuteWithTimeout(t *testing.T) {
 	t.Run("completes within timeout", func(t *testing.T) {
 		ctx := context.Background()
 		executed := false
-		
+
 		// Create a timeout config
 		config := TimeoutConfig{
 			Timeout:     100 * time.Millisecond,
 			GracePeriod: 0,
 		}
-		
+
 		// Operation that completes quickly
 		operation := func(ctx context.Context) (string, error) {
 			executed = true
 			return "success", nil
 		}
-		
+
 		// Call with timeout
 		result, err := ExecuteWithTimeout(ctx, config, operation)
-		
+
 		assert.NoError(t, err)
 		assert.Equal(t, "success", result)
 		assert.True(t, executed, "Operation should have executed")
 	})
-	
+
 	// Test a function that times out
 	t.Run("times out", func(t *testing.T) {
 		ctx := context.Background()
 		executed := true
 		completed := false
-		
+
 		// Create a timeout config
 		config := TimeoutConfig{
 			Timeout:     50 * time.Millisecond,
 			GracePeriod: 0,
 		}
-		
+
 		// Operation that takes too long
 		operation := func(ctx context.Context) (string, error) {
 			executed = true
-			
+
 			// Try to sleep but should be interrupted
 			select {
 			case <-time.After(200 * time.Millisecond):
@@ -60,38 +60,38 @@ func TestExecuteWithTimeout(t *testing.T) {
 				return "", ctx.Err()
 			}
 		}
-		
+
 		// Call with timeout
 		result, err := ExecuteWithTimeout(ctx, config, operation)
-		
+
 		assert.Error(t, err)
 		assert.Equal(t, "", result)
 		assert.True(t, executed, "Operation should have started execution")
 		assert.False(t, completed, "Operation should not have completed execution")
 		assert.True(t, errors.Is(err, context.DeadlineExceeded), "Error should be deadline exceeded")
 	})
-	
+
 	// Test a function that returns an error
 	t.Run("returns error", func(t *testing.T) {
 		ctx := context.Background()
 		executed := false
 		testErr := errors.New("operation failed")
-		
+
 		// Create a timeout config
 		config := TimeoutConfig{
 			Timeout:     100 * time.Millisecond,
 			GracePeriod: 0,
 		}
-		
+
 		// Operation that returns an error
 		operation := func(ctx context.Context) (string, error) {
 			executed = true
 			return "", testErr
 		}
-		
+
 		// Call with timeout
 		result, err := ExecuteWithTimeout(ctx, config, operation)
-		
+
 		assert.Error(t, err)
 		assert.Equal(t, testErr, err)
 		assert.Equal(t, "", result)
@@ -105,21 +105,21 @@ func TestGracePeriod(t *testing.T) {
 		ctx := context.Background()
 		executed := false
 		completed := false
-		
+
 		// Create a timeout config with grace period
 		config := TimeoutConfig{
 			Timeout:     50 * time.Millisecond,
 			GracePeriod: 100 * time.Millisecond, // Long enough to allow completion
 		}
-		
+
 		// Operation that completes during grace period
 		operation := func(ctx context.Context) (string, error) {
 			executed = true
-			
+
 			// Sleep a bit longer than timeout but less than grace period
 			time.Sleep(80 * time.Millisecond)
 			completed = true
-			
+
 			select {
 			case <-ctx.Done():
 				// Context is already done, but grace period is active
@@ -128,32 +128,32 @@ func TestGracePeriod(t *testing.T) {
 				return "completed normally", nil
 			}
 		}
-		
+
 		// Call with timeout and grace period
 		result, err := ExecuteWithTimeout(ctx, config, operation)
-		
+
 		assert.NoError(t, err)
 		assert.Equal(t, "completed during grace", result)
 		assert.True(t, executed, "Operation should have executed")
 		assert.True(t, completed, "Operation should have completed during grace period")
 	})
-	
+
 	// Test with grace period that is too short
 	t.Run("grace period too short", func(t *testing.T) {
 		ctx := context.Background()
 		executed := false
 		completed := false
-		
+
 		// Create a timeout config with short grace period
 		config := TimeoutConfig{
 			Timeout:     50 * time.Millisecond,
 			GracePeriod: 30 * time.Millisecond, // Not long enough
 		}
-		
+
 		// Operation that takes too long even with grace period
 		operation := func(ctx context.Context) (string, error) {
 			executed = true
-			
+
 			// Try to sleep but should be interrupted
 			select {
 			case <-time.After(200 * time.Millisecond):
@@ -167,10 +167,10 @@ func TestGracePeriod(t *testing.T) {
 				return "", ctx.Err()
 			}
 		}
-		
+
 		// Call with timeout
 		result, err := ExecuteWithTimeout(ctx, config, operation)
-		
+
 		assert.Error(t, err)
 		assert.Equal(t, "", result)
 		assert.True(t, executed, "Operation should have started execution")
@@ -186,17 +186,17 @@ func TestTimeoutWithParentContext(t *testing.T) {
 		parentCtx, cancel := context.WithCancel(context.Background())
 		executed := false
 		completed := false
-		
+
 		// Create a timeout config
 		config := TimeoutConfig{
 			Timeout:     100 * time.Millisecond,
 			GracePeriod: 0,
 		}
-		
+
 		// Operation that waits for context cancellation
 		operation := func(ctx context.Context) (string, error) {
 			executed = true
-			
+
 			select {
 			case <-time.After(200 * time.Millisecond):
 				completed = true
@@ -205,13 +205,13 @@ func TestTimeoutWithParentContext(t *testing.T) {
 				return "", ctx.Err()
 			}
 		}
-		
+
 		// Start the operation
 		resultCh := make(chan struct {
 			result string
 			err    error
 		}, 1)
-		
+
 		go func() {
 			result, err := ExecuteWithTimeout(parentCtx, config, operation)
 			resultCh <- struct {
@@ -219,11 +219,11 @@ func TestTimeoutWithParentContext(t *testing.T) {
 				err    error
 			}{result, err}
 		}()
-		
+
 		// Cancel the parent context before timeout
 		time.Sleep(20 * time.Millisecond)
 		cancel()
-		
+
 		// Get the result
 		select {
 		case res := <-resultCh:
@@ -235,30 +235,30 @@ func TestTimeoutWithParentContext(t *testing.T) {
 		case <-time.After(500 * time.Millisecond):
 			t.Fatal("Operation did not complete in time")
 		}
-		
+
 		assert.True(t, executed, "Operation should have started execution")
 		assert.False(t, completed, "Operation should not have completed execution")
 	})
-	
+
 	// Test with parent context timeout that's shorter than operation timeout
 	t.Run("parent context timeout", func(t *testing.T) {
 		// Create a parent context with timeout
 		parentCtx, cancel := context.WithTimeout(context.Background(), 30*time.Millisecond)
 		defer cancel()
-		
+
 		executed := false
 		completed := false
-		
+
 		// Create a timeout config with longer timeout
 		config := TimeoutConfig{
 			Timeout:     100 * time.Millisecond,
 			GracePeriod: 0,
 		}
-		
+
 		// Operation that waits for context cancellation
 		operation := func(ctx context.Context) (string, error) {
 			executed = true
-			
+
 			select {
 			case <-time.After(200 * time.Millisecond):
 				completed = true
@@ -267,10 +267,10 @@ func TestTimeoutWithParentContext(t *testing.T) {
 				return "", ctx.Err()
 			}
 		}
-		
+
 		// Call with timeout
 		result, err := ExecuteWithTimeout(parentCtx, config, operation)
-		
+
 		assert.Error(t, err)
 		assert.Equal(t, "", result)
 		assert.True(t, executed, "Operation should have started execution")
@@ -282,7 +282,7 @@ func TestTimeoutWithParentContext(t *testing.T) {
 func TestDefaultTimeoutConfig(t *testing.T) {
 	// Test default timeout configuration
 	config := DefaultTimeoutConfig()
-	
+
 	assert.Equal(t, 10*time.Second, config.Timeout)
 	assert.Equal(t, 2*time.Second, config.GracePeriod)
 }
@@ -292,13 +292,13 @@ func TestTimeoutIntegration(t *testing.T) {
 	t.Run("with retry", func(t *testing.T) {
 		ctx := context.Background()
 		attempts := 0
-		
+
 		// Create a timeout config with short timeout
 		timeoutConfig := TimeoutConfig{
 			Timeout:     50 * time.Millisecond,
 			GracePeriod: 0,
 		}
-		
+
 		// Create retry config
 		retryConfig := RetryConfig{
 			MaxRetries:      2,
@@ -310,30 +310,30 @@ func TestTimeoutIntegration(t *testing.T) {
 				return errors.Is(err, context.DeadlineExceeded)
 			},
 		}
-		
+
 		// Operation that initially times out but eventually succeeds
 		operation := func(innerCtx context.Context) (string, error) {
 			attempts++
-			
+
 			if attempts <= 2 {
 				// First two attempts time out
 				time.Sleep(100 * time.Millisecond)
 				return "", innerCtx.Err()
 			}
-			
+
 			// Third attempt succeeds quickly
 			return "success", nil
 		}
-		
+
 		// Wrap timeout around retry
 		var result string
 		var err error
-		
+
 		err = Retry(ctx, retryConfig, func() error {
 			result, err = ExecuteWithTimeout(ctx, timeoutConfig, operation)
 			return err
 		})
-		
+
 		assert.NoError(t, err)
 		assert.Equal(t, "success", result)
 		assert.Equal(t, 3, attempts, "Operation should succeed on third attempt")

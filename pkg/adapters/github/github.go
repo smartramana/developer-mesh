@@ -24,7 +24,7 @@ func NewGitHubAdapter(config Config) (*GitHubAdapter, error) {
 }
 
 // ExecuteAction executes a GitHub API action with the given parameters
-func (g *GitHubAdapter) ExecuteAction(ctx context.Context, contextID string, action string, params map[string]interface{}) (interface{}, error) {
+func (g *GitHubAdapter) ExecuteAction(ctx context.Context, contextID string, action string, params map[string]any) (any, error) {
 	// This is a stub implementation to satisfy compilation
 	// In real implementation, this would dispatch to the appropriate GitHub API endpoint
 	return nil, errors.New("not implemented")

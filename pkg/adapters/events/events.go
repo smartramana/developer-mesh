@@ -13,11 +13,11 @@ import (
 
 // EventBusImpl is the implementation of EventBus for adapters
 type EventBusImpl struct {
-	systemBus       events.EventBus
-	logger          observability.Logger
-	mu              sync.RWMutex
-	handlers        map[string][]EventHandler  // eventType -> handlers
-	globalHandlers  []EventHandler
+	systemBus      events.EventBus
+	logger         observability.Logger
+	mu             sync.RWMutex
+	handlers       map[string][]EventHandler // eventType -> handlers
+	globalHandlers []EventHandler
 }
 
 // NewEventBusImpl creates a new event bus implementation
@@ -47,7 +47,7 @@ func (b *EventBusImpl) Subscribe(eventType AdapterEventType, handler EventHandle
 func (b *EventBusImpl) SubscribeAll(handler EventHandler) {
 	b.mu.Lock()
 	defer b.mu.Unlock()
-	
+
 	b.globalHandlers = append(b.globalHandlers, handler)
 }
 
@@ -76,7 +76,7 @@ func (b *EventBusImpl) Unsubscribe(eventType AdapterEventType, handler EventHand
 func (b *EventBusImpl) UnsubscribeAll(handler EventHandler) {
 	b.mu.Lock()
 	defer b.mu.Unlock()
-	
+
 	// Filter out the handler from global handlers
 	filteredGlobalHandlers := make([]EventHandler, 0, len(b.globalHandlers))
 	for _, h := range b.globalHandlers {
@@ -84,9 +84,9 @@ func (b *EventBusImpl) UnsubscribeAll(handler EventHandler) {
 			filteredGlobalHandlers = append(filteredGlobalHandlers, h)
 		}
 	}
-	
+
 	b.globalHandlers = filteredGlobalHandlers
-	
+
 	// Also remove from specific event types
 	for eventType, handlers := range b.handlers {
 		filteredHandlers := make([]EventHandler, 0, len(handlers))
@@ -95,7 +95,7 @@ func (b *EventBusImpl) UnsubscribeAll(handler EventHandler) {
 				filteredHandlers = append(filteredHandlers, h)
 			}
 		}
-		
+
 		b.handlers[eventType] = filteredHandlers
 	}
 }
@@ -103,29 +103,29 @@ func (b *EventBusImpl) UnsubscribeAll(handler EventHandler) {
 // Emit emits an event to all subscribers
 func (b *EventBusImpl) Emit(ctx context.Context, event *AdapterEvent) error {
 	b.mu.RLock()
-	
+
 	// Copy handlers to avoid holding lock during processing
 	handlers, exists := b.handlers[string(event.EventType)]
 	handlersCopy := make([]EventHandler, len(handlers))
 	copy(handlersCopy, handlers)
-	
+
 	globalHandlersCopy := make([]EventHandler, len(b.globalHandlers))
 	copy(globalHandlersCopy, b.globalHandlers)
-	
+
 	b.mu.RUnlock()
-	
+
 	// Process event
-	b.logger.Debug("Emitting event", map[string]interface{}{
-		"adapterType": event.AdapterType,
-		"eventType":   string(event.EventType),
+	b.logger.Debug("Emitting event", map[string]any{
+		"adapterType":   event.AdapterType,
+		"eventType":     string(event.EventType),
 		"handlersCount": len(handlersCopy) + len(globalHandlersCopy),
 	})
-	
+
 	// Notify type-specific handlers
 	if exists {
 		for _, handler := range handlersCopy {
 			if err := handler(ctx, event); err != nil {
-				b.logger.Warn("Error handling event", map[string]interface{}{
+				b.logger.Warn("Error handling event", map[string]any{
 					"adapterType": event.AdapterType,
 					"eventType":   string(event.EventType),
 					"error":       err.Error(),
@@ -133,11 +133,11 @@ func (b *EventBusImpl) Emit(ctx context.Context, event *AdapterEvent) error {
 			}
 		}
 	}
-	
+
 	// Notify global handlers
 	for _, handler := range globalHandlersCopy {
 		if err := handler(ctx, event); err != nil {
-			b.logger.Warn("Error handling event", map[string]interface{}{
+			b.logger.Warn("Error handling event", map[string]any{
 				"adapterType": event.AdapterType,
 				"eventType":   string(event.EventType),
 				"error":       err.Error(),
@@ -150,7 +150,7 @@ func (b *EventBusImpl) Emit(ctx context.Context, event *AdapterEvent) error {
 		modelEvent := event.ToModelEvent()
 		b.systemBus.Publish(ctx, modelEvent)
 	}
-	
+
 	return nil
 }
 

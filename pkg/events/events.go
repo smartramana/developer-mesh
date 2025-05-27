@@ -12,37 +12,37 @@ type EventType string
 // Event types
 const (
 	// Context events
-	EventContextCreated  EventType = "context.created"
-	EventContextUpdated  EventType = "context.updated"
-	EventContextDeleted  EventType = "context.deleted"
-	EventContextRetrieved EventType = "context.retrieved"
+	EventContextCreated    EventType = "context.created"
+	EventContextUpdated    EventType = "context.updated"
+	EventContextDeleted    EventType = "context.deleted"
+	EventContextRetrieved  EventType = "context.retrieved"
 	EventContextSummarized EventType = "context.summarized"
-	EventContextTruncated EventType = "context.truncated"
-	
+	EventContextTruncated  EventType = "context.truncated"
+
 	// Vector events
 	EventEmbeddingStored  EventType = "embedding.stored"
 	EventEmbeddingDeleted EventType = "embedding.deleted"
-	
+
 	// Tool events
 	EventToolActionExecuted EventType = "tool.action.executed"
 	EventToolActionFailed   EventType = "tool.action.failed"
-	
+
 	// Message events
 	EventMessageSent     EventType = "message.sent"
 	EventMessageReceived EventType = "message.received"
-	
+
 	// Session events
 	EventSessionStarted EventType = "session.started"
 	EventSessionEnded   EventType = "session.ended"
-	
+
 	// Agent events
 	EventAgentConnected    EventType = "agent.connected"
 	EventAgentDisconnected EventType = "agent.disconnected"
 	EventAgentError        EventType = "agent.error"
-	
+
 	// System events
-	EventSystemStartup    EventType = "system.startup"
-	EventSystemShutdown   EventType = "system.shutdown"
+	EventSystemStartup     EventType = "system.startup"
+	EventSystemShutdown    EventType = "system.shutdown"
 	EventSystemHealthCheck EventType = "system.health_check"
 )
 

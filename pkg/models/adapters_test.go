@@ -15,11 +15,11 @@ func TestHarnessModels(t *testing.T) {
 			Type: HarnessQueryTypePipeline,
 			ID:   "pipeline-123",
 		}
-		
+
 		// Test basic field access
 		assert.Equal(t, HarnessQueryTypePipeline, query.Type)
 		assert.Equal(t, "pipeline-123", query.ID)
-		
+
 		// Test query type constants
 		assert.Equal(t, "pipeline", HarnessQueryTypePipeline)
 		assert.Equal(t, "ci_build", HarnessQueryTypeCIBuild)
@@ -27,7 +27,7 @@ func TestHarnessModels(t *testing.T) {
 		assert.Equal(t, "sto_experiment", HarnessQueryTypeSTOExperiment)
 		assert.Equal(t, "feature_flag", HarnessQueryTypeFeatureFlag)
 	})
-	
+
 	t.Run("HarnessPipeline", func(t *testing.T) {
 		now := time.Now()
 		pipeline := HarnessPipeline{
@@ -42,7 +42,7 @@ func TestHarnessModels(t *testing.T) {
 			LastModifiedAt: now,
 			Tags:           []string{"test", "pipeline"},
 		}
-		
+
 		// Test basic field access
 		assert.Equal(t, "pipeline-123", pipeline.ID)
 		assert.Equal(t, "Test Pipeline", pipeline.Name)
@@ -55,7 +55,7 @@ func TestHarnessModels(t *testing.T) {
 		assert.Equal(t, now, pipeline.LastModifiedAt)
 		assert.Equal(t, []string{"test", "pipeline"}, pipeline.Tags)
 	})
-	
+
 	t.Run("HarnessCIBuild", func(t *testing.T) {
 		now := time.Now()
 		build := HarnessCIBuild{
@@ -70,7 +70,7 @@ func TestHarnessModels(t *testing.T) {
 			Duration:    600000, // 10 minutes in ms
 			TriggeredBy: "user-123",
 		}
-		
+
 		// Test basic field access
 		assert.Equal(t, "build-123", build.ID)
 		assert.Equal(t, 42, build.BuildNumber)
@@ -83,7 +83,7 @@ func TestHarnessModels(t *testing.T) {
 		assert.Equal(t, int64(600000), build.Duration)
 		assert.Equal(t, "user-123", build.TriggeredBy)
 	})
-	
+
 	// Test serialization and deserialization
 	t.Run("HarnessSerialization", func(t *testing.T) {
 		now := time.Now()
@@ -100,16 +100,16 @@ func TestHarnessModels(t *testing.T) {
 			ArtifactID:    "artifact-123",
 			TriggeredBy:   "user-123",
 		}
-		
+
 		// Serialize to JSON
 		jsonData, err := json.Marshal(deployment)
 		assert.NoError(t, err)
-		
+
 		// Deserialize from JSON
 		var deserializedDeployment HarnessCDDeployment
 		err = json.Unmarshal(jsonData, &deserializedDeployment)
 		assert.NoError(t, err)
-		
+
 		// Verify fields match
 		assert.Equal(t, deployment.ID, deserializedDeployment.ID)
 		assert.Equal(t, deployment.PipelineID, deserializedDeployment.PipelineID)
@@ -134,7 +134,7 @@ func TestSonarQubeModels(t *testing.T) {
 			Status:       "OPEN",
 			MetricKeys:   "complexity,coverage",
 		}
-		
+
 		// Test basic field access
 		assert.Equal(t, SonarQubeQueryTypeProject, query.Type)
 		assert.Equal(t, "project-key", query.ProjectKey)
@@ -142,14 +142,14 @@ func TestSonarQubeModels(t *testing.T) {
 		assert.Equal(t, "CRITICAL", query.Severity)
 		assert.Equal(t, "OPEN", query.Status)
 		assert.Equal(t, "complexity,coverage", query.MetricKeys)
-		
+
 		// Test query type constants
 		assert.Equal(t, "project", SonarQubeQueryTypeProject)
 		assert.Equal(t, "quality_gate", SonarQubeQueryTypeQualityGate)
 		assert.Equal(t, "issues", SonarQubeQueryTypeIssues)
 		assert.Equal(t, "metrics", SonarQubeQueryTypeMetrics)
 	})
-	
+
 	t.Run("SonarQubeProject", func(t *testing.T) {
 		now := time.Now()
 		project := SonarQubeProject{
@@ -160,7 +160,7 @@ func TestSonarQubeModels(t *testing.T) {
 			LastAnalysis: now,
 			Visibility:   "public",
 		}
-		
+
 		// Test basic field access
 		assert.Equal(t, "project-key", project.Key)
 		assert.Equal(t, "Test Project", project.Name)
@@ -169,7 +169,7 @@ func TestSonarQubeModels(t *testing.T) {
 		assert.Equal(t, now, project.LastAnalysis)
 		assert.Equal(t, "public", project.Visibility)
 	})
-	
+
 	t.Run("SonarQubeWebhookEvent", func(t *testing.T) {
 		// Create a test webhook event
 		event := SonarQubeWebhookEvent{
@@ -207,30 +207,30 @@ func TestSonarQubeModels(t *testing.T) {
 				ExecutionTimeMs: 5000,
 			},
 		}
-		
+
 		// Test basic field access
 		assert.Equal(t, "https://sonarqube.example.com", event.ServerURL)
 		assert.Equal(t, "task-123", event.TaskID)
 		assert.Equal(t, "SUCCESS", event.Status)
 		assert.Equal(t, "2023-01-01T00:00:00Z", event.AnalysedAt)
-		
+
 		// Test nested objects
 		assert.NotNil(t, event.Project)
 		assert.Equal(t, "project-key", event.Project.Key)
-		
+
 		assert.NotNil(t, event.QualityGate)
 		assert.Equal(t, "Default", event.QualityGate.Name)
 		assert.Equal(t, "OK", event.QualityGate.Status)
 		assert.Equal(t, 1, len(event.QualityGate.Conditions))
-		
+
 		assert.NotNil(t, event.Branch)
 		assert.Equal(t, "main", event.Branch.Name)
-		
+
 		assert.NotNil(t, event.Task)
 		assert.Equal(t, "task-123", event.Task.ID)
 		assert.Equal(t, int64(5000), event.Task.ExecutionTimeMs)
 	})
-	
+
 	// Test serialization and deserialization
 	t.Run("SonarQubeSerialization", func(t *testing.T) {
 		// Create a test issue
@@ -247,16 +247,16 @@ func TestSonarQubeModels(t *testing.T) {
 			Debt:         "5min",
 			CreationDate: time.Now(),
 		}
-		
+
 		// Serialize to JSON
 		jsonData, err := json.Marshal(issue)
 		assert.NoError(t, err)
-		
+
 		// Deserialize from JSON
 		var deserializedIssue SonarQubeIssue
 		err = json.Unmarshal(jsonData, &deserializedIssue)
 		assert.NoError(t, err)
-		
+
 		// Verify fields match
 		assert.Equal(t, issue.Key, deserializedIssue.Key)
 		assert.Equal(t, issue.Rule, deserializedIssue.Rule)
@@ -282,7 +282,7 @@ func TestArtifactoryModels(t *testing.T) {
 			BuildName:   "build-name",
 			BuildNumber: "1.0.0",
 		}
-		
+
 		// Test basic field access
 		assert.Equal(t, ArtifactoryQueryTypeRepository, query.Type)
 		assert.Equal(t, "repo-key", query.RepoKey)
@@ -291,14 +291,14 @@ func TestArtifactoryModels(t *testing.T) {
 		assert.Equal(t, "npm", query.PackageType)
 		assert.Equal(t, "build-name", query.BuildName)
 		assert.Equal(t, "1.0.0", query.BuildNumber)
-		
+
 		// Test query type constants
 		assert.Equal(t, "repository", ArtifactoryQueryTypeRepository)
 		assert.Equal(t, "artifact", ArtifactoryQueryTypeArtifact)
 		assert.Equal(t, "build", ArtifactoryQueryTypeBuild)
 		assert.Equal(t, "storage", ArtifactoryQueryTypeStorage)
 	})
-	
+
 	t.Run("ArtifactoryRepository", func(t *testing.T) {
 		repo := ArtifactoryRepository{
 			Key:         "repo-key",
@@ -307,7 +307,7 @@ func TestArtifactoryModels(t *testing.T) {
 			URL:         "https://artifactory.example.com/artifactory/repo-key",
 			PackageType: "npm",
 		}
-		
+
 		// Test basic field access
 		assert.Equal(t, "repo-key", repo.Key)
 		assert.Equal(t, "local", repo.Type)
@@ -315,7 +315,7 @@ func TestArtifactoryModels(t *testing.T) {
 		assert.Equal(t, "https://artifactory.example.com/artifactory/repo-key", repo.URL)
 		assert.Equal(t, "npm", repo.PackageType)
 	})
-	
+
 	t.Run("ArtifactoryArtifact", func(t *testing.T) {
 		// Create a test artifact
 		artifact := ArtifactoryArtifact{
@@ -341,7 +341,7 @@ func TestArtifactoryModels(t *testing.T) {
 				"key2": {"value2", "value3"},
 			},
 		}
-		
+
 		// Test basic field access
 		assert.Equal(t, "repo-key", artifact.Repo)
 		assert.Equal(t, "path/to", artifact.Path)
@@ -355,17 +355,17 @@ func TestArtifactoryModels(t *testing.T) {
 		assert.Equal(t, "2023-01-02T00:00:00Z", artifact.LastUpdated)
 		assert.Equal(t, "https://artifactory.example.com/artifactory/repo-key/path/to/artifact.zip", artifact.DownloadUri)
 		assert.Equal(t, "application/zip", artifact.MimeType)
-		
+
 		// Test nested objects
 		assert.Equal(t, "sha1-hash", artifact.Checksums.SHA1)
 		assert.Equal(t, "md5-hash", artifact.Checksums.MD5)
 		assert.Equal(t, "sha256-hash", artifact.Checksums.SHA256)
-		
+
 		// Test properties
 		assert.Equal(t, []string{"value1"}, artifact.Properties["key1"])
 		assert.Equal(t, []string{"value2", "value3"}, artifact.Properties["key2"])
 	})
-	
+
 	// Test webhook event
 	t.Run("ArtifactoryWebhookEvent", func(t *testing.T) {
 		// Create a test webhook event
@@ -385,11 +385,11 @@ func TestArtifactoryModels(t *testing.T) {
 				ModifiedBy: "user-456",
 			},
 		}
-		
+
 		// Test basic field access
 		assert.Equal(t, "artifact", event.Domain)
 		assert.Equal(t, "deployed", event.EventType)
-		
+
 		// Test data field
 		assert.Equal(t, "repo-key", event.Data.RepoKey)
 		assert.Equal(t, "path/to", event.Data.Path)
@@ -415,7 +415,7 @@ func TestXrayModels(t *testing.T) {
 			BuildName:    "build-name",
 			BuildNumber:  "1.0.0",
 		}
-		
+
 		// Test basic field access
 		assert.Equal(t, XrayQueryTypeSummary, query.Type)
 		assert.Equal(t, "repo-key/path/to/artifact.zip", query.ArtifactPath)
@@ -423,14 +423,14 @@ func TestXrayModels(t *testing.T) {
 		assert.Equal(t, "MIT", query.LicenseID)
 		assert.Equal(t, "build-name", query.BuildName)
 		assert.Equal(t, "1.0.0", query.BuildNumber)
-		
+
 		// Test query type constants
 		assert.Equal(t, "summary", XrayQueryTypeSummary)
 		assert.Equal(t, "vulnerabilities", XrayQueryTypeVulnerabilities)
 		assert.Equal(t, "licenses", XrayQueryTypeLicenses)
 		assert.Equal(t, "scans", XrayQueryTypeScans)
 	})
-	
+
 	t.Run("XraySummary", func(t *testing.T) {
 		// Create a test summary
 		summary := XraySummary{
@@ -469,25 +469,25 @@ func TestXrayModels(t *testing.T) {
 				},
 			},
 		}
-		
+
 		// Test basic field access
 		assert.Equal(t, 1, len(summary.Vulnerabilities))
 		assert.Equal(t, "CVE-2023-12345", summary.Vulnerabilities[0].CVE)
 		assert.Equal(t, "high", summary.Vulnerabilities[0].Severity)
-		
+
 		assert.Equal(t, 1, len(summary.Licenses))
 		assert.Equal(t, "MIT", summary.Licenses[0].Name)
 		assert.Equal(t, "MIT License", summary.Licenses[0].FullName)
-		
+
 		assert.Equal(t, 1, len(summary.SecurityViolations))
 		assert.Equal(t, "security", summary.SecurityViolations[0].Type)
 		assert.Equal(t, "security-policy", summary.SecurityViolations[0].PolicyName)
-		
+
 		assert.Equal(t, 1, len(summary.LicenseViolations))
 		assert.Equal(t, "license", summary.LicenseViolations[0].Type)
 		assert.Equal(t, "license-policy", summary.LicenseViolations[0].PolicyName)
 	})
-	
+
 	// Test webhook event
 	t.Run("XrayWebhookEvent", func(t *testing.T) {
 		// Create a test webhook event
@@ -513,22 +513,22 @@ func TestXrayModels(t *testing.T) {
 				PolicyName: "security-policy",
 			},
 		}
-		
+
 		// Test basic field access
 		assert.Equal(t, "policy_violation", event.EventType)
 		assert.Equal(t, "2023-01-01T00:00:00Z", event.Timestamp)
-		
+
 		// Test data field
 		assert.Equal(t, 1, len(event.Data.Issues))
 		assert.Equal(t, "issue-123", event.Data.Issues[0].ID)
 		assert.Equal(t, "security", event.Data.Issues[0].Type)
 		assert.Equal(t, "high", event.Data.Issues[0].Severity)
 		assert.Equal(t, "Security vulnerability detected", event.Data.Issues[0].Summary)
-		
+
 		assert.Equal(t, "component-name", event.Data.Issues[0].Component.Name)
 		assert.Equal(t, "1.0.0", event.Data.Issues[0].Component.Version)
 		assert.Equal(t, "repo-key/path/to/component", event.Data.Issues[0].Component.Path)
-		
+
 		assert.Equal(t, "project-key", event.Data.ProjectKey)
 		assert.Equal(t, "security-watch", event.Data.WatchName)
 		assert.Equal(t, "security-policy", event.Data.PolicyName)

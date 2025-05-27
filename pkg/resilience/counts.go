@@ -5,25 +5,25 @@ import "time"
 // Counts holds metrics used by the circuit breaker and other resilience components
 type Counts struct {
 	// Basic counts
-	Requests             int       // Total requests
-	Successes            int       // Successful requests
-	Failures             int       // Failed requests
-	ConsecutiveSuccesses int       // Consecutive successful requests
-	ConsecutiveFailures  int       // Consecutive failed requests
-	
+	Requests             int // Total requests
+	Successes            int // Successful requests
+	Failures             int // Failed requests
+	ConsecutiveSuccesses int // Consecutive successful requests
+	ConsecutiveFailures  int // Consecutive failed requests
+
 	// Additional counts for advanced circuit breakers
-	Timeout              int       // Timed out requests
-	ShortCircuited       int       // Requests that were short-circuited
-	Rejected             int       // Requests rejected due to circuit open
-	
+	Timeout        int // Timed out requests
+	ShortCircuited int // Requests that were short-circuited
+	Rejected       int // Requests rejected due to circuit open
+
 	// Timestamps for analysis
-	LastSuccess          time.Time // Time of last successful request
-	LastFailure          time.Time // Time of last failed request
-	LastTimeout          time.Time // Time of last timeout
-	
+	LastSuccess time.Time // Time of last successful request
+	LastFailure time.Time // Time of last failed request
+	LastTimeout time.Time // Time of last timeout
+
 	// For external compatibility
-	TotalSuccesses       uint32    // Total successful requests (uint32)
-	TotalFailures        uint32    // Total failed requests (uint32)
+	TotalSuccesses uint32 // Total successful requests (uint32)
+	TotalFailures  uint32 // Total failed requests (uint32)
 }
 
 // NewCounts creates a new Counts instance

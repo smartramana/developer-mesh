@@ -60,12 +60,12 @@ func (m *MockRepository) GetModelByID(ctx context.Context, id string, tenantID s
 	if err != nil {
 		return nil, err
 	}
-	
+
 	// If found, verify tenant ID matches
 	if model != nil && model.TenantID != tenantID {
 		return nil, errors.New("model not found for tenant")
 	}
-	
+
 	return model, nil
 }
 

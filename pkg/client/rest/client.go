@@ -21,10 +21,10 @@ type RESTClient struct {
 
 // ClientConfig holds configuration for the REST client
 type ClientConfig struct {
-	BaseURL    string
-	APIKey     string
-	Timeout    time.Duration
-	Logger     observability.Logger
+	BaseURL string
+	APIKey  string
+	Timeout time.Duration
+	Logger  observability.Logger
 }
 
 // NewRESTClient creates a new REST API client

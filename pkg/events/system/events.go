@@ -9,7 +9,7 @@ import (
 type Event interface {
 	// GetType returns the event type
 	GetType() EventType
-	
+
 	// GetTimestamp returns the event timestamp
 	GetTimestamp() time.Time
 }
@@ -25,10 +25,10 @@ const (
 	EventTypeAdapterHealthChanged    EventType = "adapter.health.changed"
 	EventTypeWebhookReceived         EventType = "webhook.received"
 	EventTypeAdapterGeneric          EventType = "adapter.generic"
-	
+
 	// System events
-	EventTypeSystemStartup    EventType = "system.startup"
-	EventTypeSystemShutdown   EventType = "system.shutdown"
+	EventTypeSystemStartup     EventType = "system.startup"
+	EventTypeSystemShutdown    EventType = "system.shutdown"
 	EventTypeSystemHealthCheck EventType = "system.health.check"
 )
 
@@ -36,10 +36,10 @@ const (
 type EventBus interface {
 	// Publish publishes an event
 	Publish(ctx context.Context, event Event) error
-	
+
 	// Subscribe subscribes to events of a specific type
 	Subscribe(eventType EventType, handler func(ctx context.Context, event Event) error)
-	
+
 	// Unsubscribe unsubscribes from events of a specific type
 	Unsubscribe(eventType EventType, handler func(ctx context.Context, event Event) error)
 }

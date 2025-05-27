@@ -14,20 +14,20 @@ import (
 
 // APIConfig defines the API server configuration
 type APIConfig struct {
-	ListenAddress string                 `mapstructure:"listen_address"`
-	BaseURL       string                 `mapstructure:"base_url"`
-	TLSCertFile   string                 `mapstructure:"tls_cert_file"`
-	TLSKeyFile    string                 `mapstructure:"tls_key_file"`
-	CORSAllowed   string                 `mapstructure:"cors_allowed"`
-	RateLimit     int                    `mapstructure:"rate_limit"`
-	RequestTimeout int                   `mapstructure:"request_timeout"`
-	ReadTimeout   time.Duration          `mapstructure:"read_timeout"`
-	WriteTimeout  time.Duration          `mapstructure:"write_timeout"`
-	IdleTimeout   time.Duration          `mapstructure:"idle_timeout"`
-	EnableCORS    bool                   `mapstructure:"enable_cors"`
-	EnableSwagger bool                   `mapstructure:"enable_swagger"`
-	Auth          map[string]interface{} `mapstructure:"auth"`
-	Webhook       map[string]interface{} `mapstructure:"webhook"`
+	ListenAddress  string         `mapstructure:"listen_address"`
+	BaseURL        string         `mapstructure:"base_url"`
+	TLSCertFile    string         `mapstructure:"tls_cert_file"`
+	TLSKeyFile     string         `mapstructure:"tls_key_file"`
+	CORSAllowed    string         `mapstructure:"cors_allowed"`
+	RateLimit      int            `mapstructure:"rate_limit"`
+	RequestTimeout int            `mapstructure:"request_timeout"`
+	ReadTimeout    time.Duration  `mapstructure:"read_timeout"`
+	WriteTimeout   time.Duration  `mapstructure:"write_timeout"`
+	IdleTimeout    time.Duration  `mapstructure:"idle_timeout"`
+	EnableCORS     bool           `mapstructure:"enable_cors"`
+	EnableSwagger  bool           `mapstructure:"enable_swagger"`
+	Auth           map[string]any `mapstructure:"auth"`
+	Webhook        map[string]any `mapstructure:"webhook"`
 }
 
 // CoreConfig defines the engine core configuration
@@ -39,24 +39,22 @@ type CoreConfig struct {
 
 // Config holds the complete application configuration
 type Config struct {
-	API        APIConfig              `mapstructure:"api"`
-	Cache      cache.RedisConfig      `mapstructure:"cache"`
-	Database   DatabaseConfig         `mapstructure:"database"`
-	Engine     CoreConfig             `mapstructure:"engine"`
-	Metrics    metrics.Config         `mapstructure:"metrics"`
-	AWS        AWSConfig              `mapstructure:"aws"`
-	Environment string                `mapstructure:"environment"`
-	Adapters   map[string]interface{} `mapstructure:"adapters"`
+	API         APIConfig         `mapstructure:"api"`
+	Cache       cache.RedisConfig `mapstructure:"cache"`
+	Database    DatabaseConfig    `mapstructure:"database"`
+	Engine      CoreConfig        `mapstructure:"engine"`
+	Metrics     metrics.Config    `mapstructure:"metrics"`
+	AWS         AWSConfig         `mapstructure:"aws"`
+	Environment string            `mapstructure:"environment"`
+	Adapters    map[string]any    `mapstructure:"adapters"`
 }
 
 // AWSConfig holds configuration for AWS services
 type AWSConfig struct {
-	RDS         aws.RDSConfig        `mapstructure:"rds"`
+	RDS         aws.RDSConfig         `mapstructure:"rds"`
 	ElastiCache aws.ElastiCacheConfig `mapstructure:"elasticache"`
-	S3          aws.S3Config         `mapstructure:"s3"`
+	S3          aws.S3Config          `mapstructure:"s3"`
 }
-
-
 
 // Load loads configuration from file and environment variables
 func Load() (*Config, error) {
@@ -89,7 +87,7 @@ func Load() (*Config, error) {
 			return nil, fmt.Errorf("error reading config file: %w", err)
 		}
 	}
-	
+
 	// Process environment variable expansions in the config file
 	// This allows using ${VAR} or ${VAR:-default} syntax in config values
 	processEnvExpansion(v)
@@ -108,22 +106,22 @@ func Load() (*Config, error) {
 func processEnvExpansion(v *viper.Viper) {
 	// Get all keys in the config
 	keys := v.AllKeys()
-	
+
 	// Process each key
 	for _, key := range keys {
 		// Get the value as a string
 		value := v.GetString(key)
-		
+
 		// Skip empty values
 		if value == "" {
 			continue
 		}
-		
+
 		// Look for environment variable references in the value
 		if strings.Contains(value, "${") && strings.Contains(value, "}") {
 			// Process the value for environment variable expansion
 			expandedValue := expandEnvVars(value)
-			
+
 			// If the value changed, update it in Viper
 			if expandedValue != value {
 				v.Set(key, expandedValue)
@@ -136,22 +134,22 @@ func processEnvExpansion(v *viper.Viper) {
 // Supports ${VAR} and ${VAR:-default} syntax
 func expandEnvVars(value string) string {
 	result := value
-	
+
 	// Find all environment variable references
 	for {
 		start := strings.Index(result, "${")
 		if start == -1 {
 			break
 		}
-		
+
 		end := strings.Index(result[start:], "}") + start
 		if end == -1 {
 			break
 		}
-		
+
 		// Extract the variable reference
-		varRef := result[start+2:end]
-		
+		varRef := result[start+2 : end]
+
 		// Check if there's a default value
 		var envVar, defaultVal string
 		if strings.Contains(varRef, ":-") {
@@ -161,19 +159,19 @@ func expandEnvVars(value string) string {
 		} else {
 			envVar = varRef
 		}
-		
+
 		// Get the environment variable value
 		envVal := os.Getenv(envVar)
-		
+
 		// Use default if env var is not set
 		if envVal == "" && defaultVal != "" {
 			envVal = defaultVal
 		}
-		
+
 		// Replace the variable reference in the string
 		result = result[:start] + envVal + result[end+1:]
 	}
-	
+
 	return result
 }
 
@@ -181,7 +179,7 @@ func expandEnvVars(value string) string {
 func setDefaults(v *viper.Viper) {
 	// Environment (dev, staging, prod)
 	v.SetDefault("environment", "dev")
-	
+
 	// API defaults
 	v.SetDefault("api.listen_address", ":8080")
 	v.SetDefault("api.read_timeout", 30*time.Second)
@@ -191,7 +189,7 @@ func setDefaults(v *viper.Viper) {
 	v.SetDefault("api.enable_cors", true)
 	v.SetDefault("api.cors_origins", []string{"http://localhost:3000"})
 	v.SetDefault("api.log_requests", true)
-	
+
 	// TLS defaults (empty means no TLS)
 	v.SetDefault("api.tls_cert_file", "")
 	v.SetDefault("api.tls_key_file", "")
@@ -201,7 +199,7 @@ func setDefaults(v *viper.Viper) {
 	v.SetDefault("api.rate_limit.limit", 100)
 	v.SetDefault("api.rate_limit.burst", 150)
 	v.SetDefault("api.rate_limit.expiration", 1*time.Hour)
-	
+
 	// Auth defaults - No default values for secrets
 	v.SetDefault("api.auth.require_auth", true)
 	v.SetDefault("api.auth.jwt_expiration", 24*time.Hour)
@@ -236,28 +234,28 @@ func setDefaults(v *viper.Viper) {
 	v.SetDefault("metrics.enabled", true)
 	v.SetDefault("metrics.type", "prometheus")
 	v.SetDefault("metrics.push_interval", 10*time.Second)
-	
+
 	// AWS defaults
 	// Get AWS region from environment variable or use default
 	awsRegion := os.Getenv("AWS_REGION")
 	if awsRegion == "" {
 		awsRegion = "us-west-2"
 	}
-	
+
 	// S3 defaults
 	v.SetDefault("aws.s3.auth.region", awsRegion)
-	v.SetDefault("aws.s3.upload_part_size", 5*1024*1024) // 5MB
+	v.SetDefault("aws.s3.upload_part_size", 5*1024*1024)   // 5MB
 	v.SetDefault("aws.s3.download_part_size", 5*1024*1024) // 5MB
 	v.SetDefault("aws.s3.concurrency", 5)
 	v.SetDefault("aws.s3.request_timeout", 30*time.Second)
 	v.SetDefault("aws.s3.server_side_encryption", "AES256")
 	v.SetDefault("aws.s3.use_iam_auth", true) // Default to IAM authentication
-	
+
 	// RDS defaults
 	v.SetDefault("aws.rds.auth.region", awsRegion)
 	v.SetDefault("aws.rds.port", 5432)
 	v.SetDefault("aws.rds.database", "mcp")
-	v.SetDefault("aws.rds.use_iam_auth", true) // Always use IAM authentication by default
+	v.SetDefault("aws.rds.use_iam_auth", true)      // Always use IAM authentication by default
 	v.SetDefault("aws.rds.token_expiration", 15*60) // 15 minutes in seconds
 	v.SetDefault("aws.rds.max_open_conns", 25)
 	v.SetDefault("aws.rds.max_idle_conns", 5)
@@ -266,7 +264,7 @@ func setDefaults(v *viper.Viper) {
 	v.SetDefault("aws.rds.min_pool_size", 2)
 	v.SetDefault("aws.rds.max_pool_size", 10)
 	v.SetDefault("aws.rds.connection_timeout", 30)
-	
+
 	// ElastiCache defaults
 	v.SetDefault("aws.elasticache.auth.region", awsRegion)
 	v.SetDefault("aws.elasticache.port", 6379)
@@ -283,7 +281,7 @@ func setDefaults(v *viper.Viper) {
 	v.SetDefault("aws.elasticache.write_timeout", 3)
 	v.SetDefault("aws.elasticache.pool_timeout", 4)
 	v.SetDefault("aws.elasticache.token_expiration", 15*60) // 15 minutes in seconds
-	
+
 	// Context storage defaults
 	v.SetDefault("storage.context_storage.s3_path_prefix", "contexts")
 }
@@ -307,17 +305,17 @@ func (c *Config) IsStaging() bool {
 func (c *Config) GetListenPort() int {
 	// Parse port from listen address (format ":8080")
 	addr := c.API.ListenAddress
-	
+
 	// If in production, use port 443 for HTTPS
 	if c.IsProduction() && c.API.TLSCertFile != "" && c.API.TLSKeyFile != "" {
 		return 443
 	}
-	
+
 	// Otherwise parse from listen address or use 8080 as default
 	port := 8080
 	if addr != "" && strings.HasPrefix(addr, ":") {
 		fmt.Sscanf(addr[1:], "%d", &port)
 	}
-	
+
 	return port
 }

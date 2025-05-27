@@ -9,14 +9,14 @@ import (
 
 // LegacyGetAWSConfig is kept for backward compatibility with the old implementation
 // It converts between the new AWS SDK v2 config and the legacy interface return type
-func LegacyGetAWSConfig(ctx context.Context, cfg AuthConfig) (interface{}, error) {
+func LegacyGetAWSConfig(ctx context.Context, cfg AuthConfig) (any, error) {
 	// Call the new implementation which returns the concrete AWS config
 	awsConfig, err := GetAWSConfig(ctx, cfg)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get AWS config: %w", err)
 	}
-	
-	// Convert to interface{} type
+
+	// Convert to any type
 	return &awsConfig, nil
 }
 
@@ -24,7 +24,7 @@ func LegacyGetAWSConfig(ctx context.Context, cfg AuthConfig) (interface{}, error
 // This function emits a deprecation warning when the old implementation is used.
 func init() {
 	log.Println("DEPRECATION WARNING: The AWS client package is being migrated. " +
-		"Please update your code to use the new package structure " + 
+		"Please update your code to use the new package structure " +
 		"and interfaces from pkg/common/aws/auth.go.")
 }
 

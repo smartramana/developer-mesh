@@ -35,7 +35,7 @@ type Client interface {
 // PrometheusClient implements the metrics client using Prometheus
 type PrometheusClient struct {
 	config  Config
-	metrics map[string]interface{}
+	metrics map[string]any
 	mu      sync.RWMutex
 }
 
@@ -58,7 +58,7 @@ func NewClient(cfg Config) Client {
 func NewPrometheusClient(cfg Config) *PrometheusClient {
 	client := &PrometheusClient{
 		config:  cfg,
-		metrics: make(map[string]interface{}),
+		metrics: make(map[string]any),
 	}
 
 	// Start pushing metrics to gateway if configured

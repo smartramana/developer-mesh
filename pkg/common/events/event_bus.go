@@ -3,7 +3,7 @@ package events
 // CoreEvent represents an event published to the event bus
 type CoreEvent struct {
 	Type string
-	Data map[string]interface{}
+	Data map[string]any
 }
 
 // CoreEventBus provides a simple event bus for publishing and subscribing to events

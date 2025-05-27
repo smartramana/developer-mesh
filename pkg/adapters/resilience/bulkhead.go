@@ -17,24 +17,24 @@ type BulkheadConfig struct {
 // Bulkhead defines the interface for a bulkhead
 type Bulkhead interface {
 	// Execute executes a function with bulkhead protection
-	Execute(ctx context.Context, fn func() (interface{}, error)) (interface{}, error)
-	
+	Execute(ctx context.Context, fn func() (any, error)) (any, error)
+
 	// Name returns the bulkhead name
 	Name() string
-	
+
 	// CurrentExecutions returns the number of current executions
 	CurrentExecutions() int
-	
+
 	// RemainingExecutions returns the number of remaining executions
 	RemainingExecutions() int
 }
 
 // DefaultBulkhead is the default implementation of Bulkhead
 type DefaultBulkhead struct {
-	config          BulkheadConfig
-	semaphore       chan struct{}
-	currentCount    int
-	mu              sync.Mutex
+	config       BulkheadConfig
+	semaphore    chan struct{}
+	currentCount int
+	mu           sync.Mutex
 }
 
 // NewBulkhead creates a new bulkhead
@@ -43,7 +43,7 @@ func NewBulkhead(config BulkheadConfig) Bulkhead {
 	if config.MaxConcurrent <= 0 {
 		config.MaxConcurrent = 10
 	}
-	
+
 	return &DefaultBulkhead{
 		config:       config,
 		semaphore:    make(chan struct{}, config.MaxConcurrent),
@@ -52,18 +52,18 @@ func NewBulkhead(config BulkheadConfig) Bulkhead {
 }
 
 // Execute executes a function with bulkhead protection
-func (b *DefaultBulkhead) Execute(ctx context.Context, fn func() (interface{}, error)) (interface{}, error) {
+func (b *DefaultBulkhead) Execute(ctx context.Context, fn func() (any, error)) (any, error) {
 	// Create a context with timeout if MaxWaitingTime is set
 	var ctxToUse context.Context
 	var cancel context.CancelFunc
-	
+
 	if b.config.MaxWaitingTime > 0 {
 		ctxToUse, cancel = context.WithTimeout(ctx, b.config.MaxWaitingTime)
 		defer cancel()
 	} else {
 		ctxToUse = ctx
 	}
-	
+
 	// Try to acquire semaphore
 	select {
 	case b.semaphore <- struct{}{}:
@@ -73,7 +73,7 @@ func (b *DefaultBulkhead) Execute(ctx context.Context, fn func() (interface{}, e
 			<-b.semaphore // Release semaphore
 			b.decrementCount()
 		}()
-		
+
 		// Execute the function
 		return fn()
 	case <-ctxToUse.Done():
@@ -126,12 +126,12 @@ func NewBulkheadManager(configs map[string]BulkheadConfig) *BulkheadManager {
 	manager := &BulkheadManager{
 		bulkheads: make(map[string]Bulkhead),
 	}
-	
+
 	// Create bulkheads from configs
 	for name, config := range configs {
 		manager.bulkheads[name] = NewBulkhead(config)
 	}
-	
+
 	return manager
 }
 
@@ -139,7 +139,7 @@ func NewBulkheadManager(configs map[string]BulkheadConfig) *BulkheadManager {
 func (m *BulkheadManager) Get(name string) (Bulkhead, bool) {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
-	
+
 	bulkhead, exists := m.bulkheads[name]
 	return bulkhead, exists
 }
@@ -148,18 +148,18 @@ func (m *BulkheadManager) Get(name string) (Bulkhead, bool) {
 func (m *BulkheadManager) Register(name string, config BulkheadConfig) Bulkhead {
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	
+
 	bulkhead := NewBulkhead(config)
 	m.bulkheads[name] = bulkhead
 	return bulkhead
 }
 
 // Execute executes a function with bulkhead protection
-func (m *BulkheadManager) Execute(ctx context.Context, name string, fn func() (interface{}, error)) (interface{}, error) {
+func (m *BulkheadManager) Execute(ctx context.Context, name string, fn func() (any, error)) (any, error) {
 	m.mu.RLock()
 	bulkhead, exists := m.bulkheads[name]
 	m.mu.RUnlock()
-	
+
 	if !exists {
 		// Create a default bulkhead if it doesn't exist
 		config := BulkheadConfig{
@@ -168,6 +168,6 @@ func (m *BulkheadManager) Execute(ctx context.Context, name string, fn func() (i
 		}
 		bulkhead = m.Register(name, config)
 	}
-	
+
 	return bulkhead.Execute(ctx, fn)
 }

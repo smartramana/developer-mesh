@@ -11,12 +11,12 @@ import (
 // ToolAPI handles API endpoints for tool operations
 type ToolAPI struct {
 	adapterBridge interface{}
-	
+
 	// Handler functions for testing
-	executeToolAction   func(c *gin.Context)
-	queryToolData       func(c *gin.Context)
-	listAvailableTools  func(c *gin.Context)
-	listAllowedActions  func(c *gin.Context)
+	executeToolAction  func(c *gin.Context)
+	queryToolData      func(c *gin.Context)
+	listAvailableTools func(c *gin.Context)
+	listAllowedActions func(c *gin.Context)
 }
 
 // NewToolAPI creates a new tool API handler
@@ -24,35 +24,35 @@ func NewToolAPI(adapterBridge interface{}) *ToolAPI {
 	api := &ToolAPI{
 		adapterBridge: adapterBridge,
 	}
-	
+
 	// Initialize handler functions
 	api.executeToolAction = api.handleExecuteToolAction
 	api.queryToolData = api.handleQueryToolData
 	api.listAvailableTools = api.handleListAvailableTools
 	api.listAllowedActions = api.handleListAllowedActions
-	
+
 	return api
 }
 
 // RegisterRoutes registers all tool API routes
 func (api *ToolAPI) RegisterRoutes(router *gin.RouterGroup) {
 	tools := router.Group("/tools")
-	
+
 	// Collection endpoints
 	tools.GET("", api.listAvailableTools)
-	
+
 	// Single tool endpoints
 	tools.GET("/:tool", api.getToolDetails)
-	
+
 	// Tool actions as sub-resources
 	actions := tools.Group("/:tool/actions")
 	actions.GET("", api.listAllowedActions)
 	actions.GET("/:action", api.getActionDetails)
 	actions.POST("/:action", api.executeToolAction)
-	
+
 	// Tool data queries
 	tools.POST("/:tool/queries", api.queryToolData)
-	
+
 	// Log that we're registering routes
 	log.Println("Registered RESTful tool API routes")
 }
@@ -142,11 +142,11 @@ func (api *ToolAPI) handleExecuteToolAction(c *gin.Context) {
 
 	// Implementation using adapter bridge
 	result := map[string]interface{}{
-		"status": "success",
+		"status":  "success",
 		"message": fmt.Sprintf("Executed %s action on %s tool", actionName, toolName),
-		"tool": toolName,
-		"action": actionName,
-		"params": params,
+		"tool":    toolName,
+		"action":  actionName,
+		"params":  params,
 	}
 
 	// Add HATEOAS links
@@ -162,110 +162,110 @@ func (api *ToolAPI) handleExecuteToolAction(c *gin.Context) {
 // getToolDetails returns details about a specific tool
 func (api *ToolAPI) getToolDetails(c *gin.Context) {
 	toolName := c.Param("tool")
-	
+
 	// Map of available tools
 	toolMap := map[string]map[string]interface{}{
 		"github": {
-			"name": "GitHub",
+			"name":        "GitHub",
 			"description": "GitHub API integration for repository management",
-			"version": "v3",
-			"status": "available",
+			"version":     "v3",
+			"status":      "available",
 		},
 		"harness": {
-			"name": "Harness",
+			"name":        "Harness",
 			"description": "Harness CD platform for deployment automation",
-			"version": "v1",
-			"status": "available",
+			"version":     "v1",
+			"status":      "available",
 		},
 		"sonarqube": {
-			"name": "SonarQube",
+			"name":        "SonarQube",
 			"description": "Code quality and security analysis",
-			"version": "v8.9",
-			"status": "available",
+			"version":     "v8.9",
+			"status":      "available",
 		},
 		"artifactory": {
-			"name": "Artifactory",
+			"name":        "Artifactory",
 			"description": "Artifact repository manager",
-			"version": "v7.x",
-			"status": "available",
+			"version":     "v7.x",
+			"status":      "available",
 		},
 		"xray": {
-			"name": "JFrog Xray",
+			"name":        "JFrog Xray",
 			"description": "Security and license compliance scanning",
-			"version": "v3.x",
-			"status": "available",
+			"version":     "v3.x",
+			"status":      "available",
 		},
 	}
-	
+
 	toolInfo, exists := toolMap[toolName]
 	if !exists {
 		c.JSON(http.StatusNotFound, gin.H{"error": "Tool not found"})
 		return
 	}
-	
+
 	// Add HATEOAS links
 	baseURL := getBaseURLFromContext(c)
 	toolInfo["_links"] = map[string]string{
-		"self": fmt.Sprintf("%s/api/v1/tools/%s", baseURL, toolName),
+		"self":    fmt.Sprintf("%s/api/v1/tools/%s", baseURL, toolName),
 		"actions": fmt.Sprintf("%s/api/v1/tools/%s/actions", baseURL, toolName),
 		"queries": fmt.Sprintf("%s/api/v1/tools/%s/queries", baseURL, toolName),
 	}
-	
+
 	c.JSON(http.StatusOK, toolInfo)
 }
 
 // handleListAvailableTools lists all available tools
 func (api *ToolAPI) handleListAvailableTools(c *gin.Context) {
 	baseURL := getBaseURLFromContext(c)
-	
+
 	tools := []map[string]interface{}{
 		{
-			"name": "github",
+			"name":         "github",
 			"display_name": "GitHub",
-			"description": "GitHub API integration",
-			"status": "available",
+			"description":  "GitHub API integration",
+			"status":       "available",
 			"_links": map[string]string{
 				"self": fmt.Sprintf("%s/api/v1/tools/github", baseURL),
 			},
 		},
 		{
-			"name": "harness",
+			"name":         "harness",
 			"display_name": "Harness",
-			"description": "Harness CD platform",
-			"status": "available",
+			"description":  "Harness CD platform",
+			"status":       "available",
 			"_links": map[string]string{
 				"self": fmt.Sprintf("%s/api/v1/tools/harness", baseURL),
 			},
 		},
 		{
-			"name": "sonarqube",
+			"name":         "sonarqube",
 			"display_name": "SonarQube",
-			"description": "Code quality analysis",
-			"status": "available",
+			"description":  "Code quality analysis",
+			"status":       "available",
 			"_links": map[string]string{
 				"self": fmt.Sprintf("%s/api/v1/tools/sonarqube", baseURL),
 			},
 		},
 		{
-			"name": "artifactory",
+			"name":         "artifactory",
 			"display_name": "Artifactory",
-			"description": "Artifact repository",
-			"status": "available",
+			"description":  "Artifact repository",
+			"status":       "available",
 			"_links": map[string]string{
 				"self": fmt.Sprintf("%s/api/v1/tools/artifactory", baseURL),
 			},
 		},
 		{
-			"name": "xray",
+			"name":         "xray",
 			"display_name": "JFrog Xray",
-			"description": "Security scanning",
-			"status": "available",
+			"description":  "Security scanning",
+			"status":       "available",
 			"_links": map[string]string{
 				"self": fmt.Sprintf("%s/api/v1/tools/xray", baseURL),
 			},
 		},
 	}
-	
+
 	c.JSON(http.StatusOK, gin.H{
 		"tools": tools,
 		"count": len(tools),
@@ -279,21 +279,21 @@ func (api *ToolAPI) handleListAvailableTools(c *gin.Context) {
 func (api *ToolAPI) getActionDetails(c *gin.Context) {
 	toolName := c.Param("tool")
 	actionName := c.Param("action")
-	
+
 	// Validate tool exists
 	toolMap := map[string]bool{
-		"github": true,
-		"harness": true,
-		"sonarqube": true,
+		"github":      true,
+		"harness":     true,
+		"sonarqube":   true,
 		"artifactory": true,
-		"xray": true,
+		"xray":        true,
 	}
-	
+
 	if !toolMap[toolName] {
 		c.JSON(http.StatusNotFound, gin.H{"error": "Tool not found"})
 		return
 	}
-	
+
 	// Get allowed actions for this tool
 	var allowedActions []string
 	switch toolName {
@@ -320,9 +320,9 @@ func (api *ToolAPI) getActionDetails(c *gin.Context) {
 			"rollback_deployment",
 			"get_pipelines",
 		}
-	// Add cases for other tools...
+		// Add cases for other tools...
 	}
-	
+
 	// Check if action exists for this tool
 	actionExists := false
 	for _, action := range allowedActions {
@@ -331,44 +331,44 @@ func (api *ToolAPI) getActionDetails(c *gin.Context) {
 			break
 		}
 	}
-	
+
 	if !actionExists {
 		c.JSON(http.StatusNotFound, gin.H{"error": "Action not found for this tool"})
 		return
 	}
-	
+
 	// Get action details
 	var actionDetails map[string]interface{}
-	
+
 	// Just a simple example for GitHub create_issue action
 	if toolName == "github" && actionName == "create_issue" {
 		actionDetails = map[string]interface{}{
-			"name": "create_issue",
+			"name":         "create_issue",
 			"display_name": "Create Issue",
-			"description": "Creates a new issue in a GitHub repository",
+			"description":  "Creates a new issue in a GitHub repository",
 			"parameters": []map[string]string{
 				{
-					"name": "repository",
-					"type": "string",
-					"required": "true",
+					"name":        "repository",
+					"type":        "string",
+					"required":    "true",
 					"description": "Repository in format owner/repo",
 				},
 				{
-					"name": "title",
-					"type": "string",
-					"required": "true",
+					"name":        "title",
+					"type":        "string",
+					"required":    "true",
 					"description": "Issue title",
 				},
 				{
-					"name": "body",
-					"type": "string",
-					"required": "false",
+					"name":        "body",
+					"type":        "string",
+					"required":    "false",
 					"description": "Issue description",
 				},
 				{
-					"name": "labels",
-					"type": "array[string]",
-					"required": "false",
+					"name":        "labels",
+					"type":        "array[string]",
+					"required":    "false",
 					"description": "Issue labels",
 				},
 			},
@@ -376,42 +376,42 @@ func (api *ToolAPI) getActionDetails(c *gin.Context) {
 	} else {
 		// Generic response for other actions
 		actionDetails = map[string]interface{}{
-			"name": actionName,
+			"name":         actionName,
 			"display_name": toTitleCase(actionName),
-			"description": fmt.Sprintf("%s action for %s tool", actionName, toolName),
-			"parameters": []string{},
+			"description":  fmt.Sprintf("%s action for %s tool", actionName, toolName),
+			"parameters":   []string{},
 		}
 	}
-	
+
 	// Add HATEOAS links
 	baseURL := getBaseURLFromContext(c)
 	actionDetails["_links"] = map[string]string{
-		"self": fmt.Sprintf("%s/api/v1/tools/%s/actions/%s", baseURL, toolName, actionName),
-		"tool": fmt.Sprintf("%s/api/v1/tools/%s", baseURL, toolName),
+		"self":    fmt.Sprintf("%s/api/v1/tools/%s/actions/%s", baseURL, toolName, actionName),
+		"tool":    fmt.Sprintf("%s/api/v1/tools/%s", baseURL, toolName),
 		"execute": fmt.Sprintf("%s/api/v1/tools/%s/actions/%s", baseURL, toolName, actionName),
 	}
-	
+
 	c.JSON(http.StatusOK, actionDetails)
 }
 
 // handleListAllowedActions lists all allowed actions for a tool
 func (api *ToolAPI) handleListAllowedActions(c *gin.Context) {
 	toolName := c.Param("tool")
-	
+
 	// Validate tool exists
 	toolMap := map[string]bool{
-		"github": true,
-		"harness": true,
-		"sonarqube": true,
+		"github":      true,
+		"harness":     true,
+		"sonarqube":   true,
 		"artifactory": true,
-		"xray": true,
+		"xray":        true,
 	}
-	
+
 	if !toolMap[toolName] {
 		c.JSON(http.StatusNotFound, gin.H{"error": "Tool not found"})
 		return
 	}
-	
+
 	// Get allowed actions for this tool
 	var allowedActions []string
 	switch toolName {
@@ -442,25 +442,25 @@ func (api *ToolAPI) handleListAllowedActions(c *gin.Context) {
 	default:
 		allowedActions = []string{}
 	}
-	
+
 	// Format response with HATEOAS links
 	baseURL := getBaseURLFromContext(c)
-	
+
 	var formattedActions []map[string]interface{}
 	for _, action := range allowedActions {
 		formattedActions = append(formattedActions, map[string]interface{}{
-			"name": action,
+			"name":         action,
 			"display_name": toTitleCase(action),
 			"_links": map[string]string{
 				"self": fmt.Sprintf("%s/api/v1/tools/%s/actions/%s", baseURL, toolName, action),
 			},
 		})
 	}
-	
+
 	c.JSON(http.StatusOK, gin.H{
-		"tool": toolName,
+		"tool":    toolName,
 		"actions": formattedActions,
-		"count": len(formattedActions),
+		"count":   len(formattedActions),
 		"_links": map[string]string{
 			"self": fmt.Sprintf("%s/api/v1/tools/%s/actions", baseURL, toolName),
 			"tool": fmt.Sprintf("%s/api/v1/tools/%s", baseURL, toolName),
@@ -472,48 +472,48 @@ func (api *ToolAPI) handleListAllowedActions(c *gin.Context) {
 func (api *ToolAPI) handleQueryToolData(c *gin.Context) {
 	toolName := c.Param("tool")
 	contextID := c.Query("context_id")
-	
+
 	if contextID == "" {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "context_id is required"})
 		return
 	}
-	
+
 	// Validate tool exists
 	toolMap := map[string]bool{
-		"github": true,
-		"harness": true,
-		"sonarqube": true,
+		"github":      true,
+		"harness":     true,
+		"sonarqube":   true,
 		"artifactory": true,
-		"xray": true,
+		"xray":        true,
 	}
-	
+
 	if !toolMap[toolName] {
 		c.JSON(http.StatusNotFound, gin.H{"error": "Tool not found"})
 		return
 	}
-	
+
 	var query map[string]interface{}
 	if err := c.ShouldBindJSON(&query); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
-	
+
 	// Mock implementation
 	result := map[string]interface{}{
-		"status": "success",
+		"status":  "success",
 		"message": fmt.Sprintf("Executed query on %s tool", toolName),
-		"tool": toolName,
-		"query": query,
+		"tool":    toolName,
+		"query":   query,
 		"results": []interface{}{},
 	}
-	
+
 	// Add HATEOAS links
 	baseURL := getBaseURLFromContext(c)
 	result["_links"] = map[string]string{
 		"self": fmt.Sprintf("%s/api/v1/tools/%s/queries", baseURL, toolName),
 		"tool": fmt.Sprintf("%s/api/v1/tools/%s", baseURL, toolName),
 	}
-	
+
 	c.JSON(http.StatusOK, result)
 }
 
@@ -531,7 +531,7 @@ func toTitleCase(s string) string {
 	// This is a simplified implementation
 	result := ""
 	capitalize := true
-	
+
 	for _, char := range s {
 		if char == '_' {
 			capitalize = true
@@ -543,6 +543,6 @@ func toTitleCase(s string) string {
 			result += string(char)
 		}
 	}
-	
+
 	return result
 }

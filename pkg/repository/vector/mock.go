@@ -38,10 +38,10 @@ func (m *MockRepository) Get(ctx context.Context, id string) (*Embedding, error)
 // List implements the standardized Repository method
 func (m *MockRepository) List(ctx context.Context, filter Filter) ([]*Embedding, error) {
 	var results []*Embedding
-	
+
 	for _, e := range m.embeddings {
 		match := true
-		
+
 		for k, v := range filter {
 			switch k {
 			case "context_id":
@@ -54,12 +54,12 @@ func (m *MockRepository) List(ctx context.Context, filter Filter) ([]*Embedding,
 				}
 			}
 		}
-		
+
 		if match {
 			results = append(results, e)
 		}
 	}
-	
+
 	return results, nil
 }
 
@@ -80,48 +80,48 @@ func (m *MockRepository) StoreEmbedding(ctx context.Context, embedding *Embeddin
 	if embedding.CreatedAt.IsZero() {
 		embedding.CreatedAt = time.Now()
 	}
-	
+
 	// Store the embedding by ID
 	m.embeddings[embedding.ID] = embedding
-	
+
 	// Track the model ID
 	if embedding.ModelID != "" {
 		m.models[embedding.ModelID] = true
 	}
-	
+
 	return nil
 }
 
 // SearchEmbeddings implements Repository.SearchEmbeddings
 func (m *MockRepository) SearchEmbeddings(
-	ctx context.Context, 
-	queryVector []float32, 
-	contextID string, 
-	modelID string, 
-	limit int, 
+	ctx context.Context,
+	queryVector []float32,
+	contextID string,
+	modelID string,
+	limit int,
 	similarityThreshold float64,
 ) ([]*Embedding, error) {
 	// Simple implementation that just returns embeddings matching contextID and modelID
 	var results []*Embedding
-	
+
 	for _, e := range m.embeddings {
 		if e.ContextID == contextID && (modelID == "" || e.ModelID == modelID) {
 			results = append(results, e)
 		}
-		
+
 		if len(results) >= limit && limit > 0 {
 			break
 		}
 	}
-	
+
 	return results, nil
 }
 
 // SearchEmbeddings_Legacy implements Repository.SearchEmbeddings_Legacy
 func (m *MockRepository) SearchEmbeddings_Legacy(
-	ctx context.Context, 
-	queryVector []float32, 
-	contextID string, 
+	ctx context.Context,
+	queryVector []float32,
+	contextID string,
 	limit int,
 ) ([]*Embedding, error) {
 	// Delegate to SearchEmbeddings with empty modelID
@@ -131,13 +131,13 @@ func (m *MockRepository) SearchEmbeddings_Legacy(
 // GetContextEmbeddings implements Repository.GetContextEmbeddings
 func (m *MockRepository) GetContextEmbeddings(ctx context.Context, contextID string) ([]*Embedding, error) {
 	var results []*Embedding
-	
+
 	for _, e := range m.embeddings {
 		if e.ContextID == contextID {
 			results = append(results, e)
 		}
 	}
-	
+
 	return results, nil
 }
 
@@ -149,35 +149,35 @@ func (m *MockRepository) DeleteContextEmbeddings(ctx context.Context, contextID 
 			delete(m.embeddings, id)
 		}
 	}
-	
+
 	return nil
 }
 
 // GetEmbeddingsByModel implements Repository.GetEmbeddingsByModel
 func (m *MockRepository) GetEmbeddingsByModel(
-	ctx context.Context, 
-	contextID string, 
+	ctx context.Context,
+	contextID string,
 	modelID string,
 ) ([]*Embedding, error) {
 	var results []*Embedding
-	
+
 	for _, e := range m.embeddings {
 		if e.ContextID == contextID && e.ModelID == modelID {
 			results = append(results, e)
 		}
 	}
-	
+
 	return results, nil
 }
 
 // GetSupportedModels implements Repository.GetSupportedModels
 func (m *MockRepository) GetSupportedModels(ctx context.Context) ([]string, error) {
 	models := make([]string, 0, len(m.models))
-	
+
 	for model := range m.models {
 		models = append(models, model)
 	}
-	
+
 	return models, nil
 }
 
@@ -189,6 +189,6 @@ func (m *MockRepository) DeleteModelEmbeddings(ctx context.Context, contextID st
 			delete(m.embeddings, id)
 		}
 	}
-	
+
 	return nil
 }

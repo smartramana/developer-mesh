@@ -5,7 +5,7 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
-	
+
 	"github.com/jmoiron/sqlx"
 )
 
@@ -28,7 +28,7 @@ func (r *SQLRepository) Create(ctx context.Context, result *SearchResult) error 
 	query := `INSERT INTO search_results (id, score, distance, content, type, metadata, content_hash) 
 	          VALUES ($1, $2, $3, $4, $5, $6, $7)`
 
-	_, err := r.db.ExecContext(ctx, query, 
+	_, err := r.db.ExecContext(ctx, query,
 		result.ID,
 		result.Score,
 		result.Distance,
@@ -72,10 +72,10 @@ func (r *SQLRepository) List(ctx context.Context, filter Filter) ([]*SearchResul
 	}
 
 	query := `SELECT id, score, distance, content, type, metadata, content_hash FROM search_results`
-	
+
 	// Apply filters
 	var whereClause string
-	var args []interface{}
+	var args []any
 	argIndex := 1
 
 	if filter != nil {
@@ -112,7 +112,7 @@ func (r *SQLRepository) Update(ctx context.Context, result *SearchResult) error 
 	          score = $2, distance = $3, content = $4, type = $5, metadata = $6, content_hash = $7
 	          WHERE id = $1`
 
-	_, err := r.db.ExecContext(ctx, query, 
+	_, err := r.db.ExecContext(ctx, query,
 		result.ID,
 		result.Score,
 		result.Distance,
@@ -149,7 +149,7 @@ func (r *SQLRepository) SearchByText(ctx context.Context, query string, options 
 	// In a real implementation, this would:
 	// 1. Convert query text to vector using an embedding service
 	// 2. Call SearchByVector with resulting embedding
-	
+
 	// For now, return empty results since this requires integration with vector service
 	return &SearchResults{
 		Results: []*SearchResult{},
@@ -163,7 +163,7 @@ func (r *SQLRepository) SearchByVector(ctx context.Context, vector []float32, op
 	if r.db == nil {
 		return nil, fmt.Errorf("database connection not initialized")
 	}
-	
+
 	if options == nil {
 		options = &SearchOptions{
 			Limit:         10,
@@ -171,7 +171,7 @@ func (r *SQLRepository) SearchByVector(ctx context.Context, vector []float32, op
 			MinSimilarity: 0.7,
 		}
 	}
-	
+
 	// Build query with placeholder parameters for filters
 	// In a real implementation, this would:
 	// 1. Use vector similarity search (e.g., pgvector)
@@ -191,7 +191,7 @@ func (r *SQLRepository) SearchByContentID(ctx context.Context, contentID string,
 	if r.db == nil {
 		return nil, fmt.Errorf("database connection not initialized")
 	}
-	
+
 	// In a real implementation, this would:
 	// 1. Retrieve the vector for the contentID
 	// 2. Call SearchByVector with the retrieved vector
@@ -209,26 +209,26 @@ func (r *SQLRepository) GetSupportedModels(ctx context.Context) ([]string, error
 	if r.db == nil {
 		return nil, fmt.Errorf("database connection not initialized")
 	}
-	
+
 	var models []string
 	query := `SELECT DISTINCT model_id FROM embeddings WHERE model_id IS NOT NULL`
-	
+
 	err := r.db.SelectContext(ctx, &models, query)
 	if err != nil && err != sql.ErrNoRows {
 		return nil, fmt.Errorf("error getting supported models: %w", err)
 	}
-	
+
 	return models, nil
 }
 
 // GetSearchStats retrieves statistics about the search index
-func (r *SQLRepository) GetSearchStats(ctx context.Context) (map[string]interface{}, error) {
+func (r *SQLRepository) GetSearchStats(ctx context.Context) (map[string]any, error) {
 	if r.db == nil {
 		return nil, fmt.Errorf("database connection not initialized")
 	}
-	
-	stats := make(map[string]interface{})
-	
+
+	stats := make(map[string]any)
+
 	// Get document count
 	var count int
 	err := r.db.GetContext(ctx, &count, "SELECT COUNT(*) FROM embeddings")
@@ -236,13 +236,13 @@ func (r *SQLRepository) GetSearchStats(ctx context.Context) (map[string]interfac
 		return nil, fmt.Errorf("error getting embedding count: %w", err)
 	}
 	stats["document_count"] = count
-	
+
 	// Get models
 	models, err := r.GetSupportedModels(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("error getting supported models: %w", err)
 	}
 	stats["models"] = models
-	
+
 	return stats, nil
 }

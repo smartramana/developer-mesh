@@ -14,8 +14,8 @@ var ErrNotFound = errors.New("key not found in cache")
 
 // Cache interface defines caching operations
 type Cache interface {
-	Get(ctx context.Context, key string, value interface{}) error
-	Set(ctx context.Context, key string, value interface{}, ttl time.Duration) error
+	Get(ctx context.Context, key string, value any) error
+	Set(ctx context.Context, key string, value any, ttl time.Duration) error
 	Delete(ctx context.Context, key string) error
 	Exists(ctx context.Context, key string) (bool, error)
 	Flush(ctx context.Context) error
@@ -58,7 +58,7 @@ func NewRedisCache(cfg RedisConfig) (*RedisCache, error) {
 }
 
 // Get retrieves a value from cache
-func (c *RedisCache) Get(ctx context.Context, key string, value interface{}) error {
+func (c *RedisCache) Get(ctx context.Context, key string, value any) error {
 	data, err := c.client.Get(ctx, key).Bytes()
 	if err != nil {
 		if err == redis.Nil {
@@ -71,7 +71,7 @@ func (c *RedisCache) Get(ctx context.Context, key string, value interface{}) err
 }
 
 // Set stores a value in cache with TTL
-func (c *RedisCache) Set(ctx context.Context, key string, value interface{}, ttl time.Duration) error {
+func (c *RedisCache) Set(ctx context.Context, key string, value any, ttl time.Duration) error {
 	data, err := json.Marshal(value)
 	if err != nil {
 		return err
@@ -123,16 +123,16 @@ type CacheWarmer interface {
 type WarmableCacheImpl struct {
 	Cache
 	warmer CacheWarmer
-	logger interface{ // Simple logger interface to avoid import
-		Info(msg string, fields map[string]interface{})
-		Error(msg string, fields map[string]interface{})
+	logger interface { // Simple logger interface to avoid import
+		Info(msg string, fields map[string]any)
+		Error(msg string, fields map[string]any)
 	}
 }
 
 // NewWarmableCache wraps a cache with warming capabilities
-func NewWarmableCache(cache Cache, warmer CacheWarmer, logger interface{
-	Info(msg string, fields map[string]interface{})
-	Error(msg string, fields map[string]interface{})
+func NewWarmableCache(cache Cache, warmer CacheWarmer, logger interface {
+	Info(msg string, fields map[string]any)
+	Error(msg string, fields map[string]any)
 }) *WarmableCacheImpl {
 	return &WarmableCacheImpl{
 		Cache:  cache,
@@ -145,9 +145,9 @@ func NewWarmableCache(cache Cache, warmer CacheWarmer, logger interface{
 func (w *WarmableCacheImpl) StartWarmup(ctx context.Context) {
 	go func() {
 		if err := w.warmer.WarmCache(ctx); err != nil {
-			w.logger.Error("cache warmup failed", map[string]interface{}{"error": err.Error()})
+			w.logger.Error("cache warmup failed", map[string]any{"error": err.Error()})
 		} else {
-			w.logger.Info("cache warmup completed", map[string]interface{}{"keys": len(w.warmer.GetWarmupKeys())})
+			w.logger.Info("cache warmup completed", map[string]any{"keys": len(w.warmer.GetWarmupKeys())})
 		}
 	}()
 }

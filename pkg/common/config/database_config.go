@@ -6,22 +6,22 @@ import (
 
 // DatabaseConfig holds database configuration
 type DatabaseConfig struct {
-	Driver           string               `yaml:"driver" mapstructure:"driver"`
-	DSN              string               `yaml:"dsn" mapstructure:"dsn"`
-	Host             string               `yaml:"host" mapstructure:"host"`
-	Port             int                  `yaml:"port" mapstructure:"port"`
-	Username         string               `yaml:"username" mapstructure:"username"`
-	Password         string               `yaml:"password" mapstructure:"password"`
-	Database         string               `yaml:"database" mapstructure:"database"`
-	SSLMode          string               `yaml:"ssl_mode" mapstructure:"sslmode"`
-	MaxOpenConns     int                  `yaml:"max_open_conns" mapstructure:"max_open_conns"`
-	MaxIdleConns     int                  `yaml:"max_idle_conns" mapstructure:"max_idle_conns"`
-	ConnMaxLifetime  time.Duration        `yaml:"conn_max_lifetime" mapstructure:"conn_max_lifetime"`
-	ConnMaxIdleTime  time.Duration        `yaml:"conn_max_idle_time" mapstructure:"conn_max_idle_time"`
-	UseIAMAuth       bool                 `yaml:"use_iam_auth" mapstructure:"use_iam_auth"`
-	TokenExpiration  int                  `yaml:"token_expiration" mapstructure:"token_expiration"`
-	Vector           DatabaseVectorConfig `yaml:"vector" mapstructure:"vector"`
-	AuthConfig       struct {
+	Driver          string               `yaml:"driver" mapstructure:"driver"`
+	DSN             string               `yaml:"dsn" mapstructure:"dsn"`
+	Host            string               `yaml:"host" mapstructure:"host"`
+	Port            int                  `yaml:"port" mapstructure:"port"`
+	Username        string               `yaml:"username" mapstructure:"username"`
+	Password        string               `yaml:"password" mapstructure:"password"`
+	Database        string               `yaml:"database" mapstructure:"database"`
+	SSLMode         string               `yaml:"ssl_mode" mapstructure:"sslmode"`
+	MaxOpenConns    int                  `yaml:"max_open_conns" mapstructure:"max_open_conns"`
+	MaxIdleConns    int                  `yaml:"max_idle_conns" mapstructure:"max_idle_conns"`
+	ConnMaxLifetime time.Duration        `yaml:"conn_max_lifetime" mapstructure:"conn_max_lifetime"`
+	ConnMaxIdleTime time.Duration        `yaml:"conn_max_idle_time" mapstructure:"conn_max_idle_time"`
+	UseIAMAuth      bool                 `yaml:"use_iam_auth" mapstructure:"use_iam_auth"`
+	TokenExpiration int                  `yaml:"token_expiration" mapstructure:"token_expiration"`
+	Vector          DatabaseVectorConfig `yaml:"vector" mapstructure:"vector"`
+	AuthConfig      struct {
 		Region     string `yaml:"region" mapstructure:"region"`
 		Endpoint   string `yaml:"endpoint" mapstructure:"endpoint"`
 		AssumeRole string `yaml:"assume_role" mapstructure:"assume_role"`
@@ -30,13 +30,13 @@ type DatabaseConfig struct {
 
 // DatabaseVectorConfig holds configuration for vector database operations
 type DatabaseVectorConfig struct {
-	Enabled         bool                    `yaml:"enabled"`
-	IndexType       string                  `yaml:"index_type"`
-	Lists           int                     `yaml:"lists"`
-	Probes          int                     `yaml:"probes"`
-	Dimensions      int                     `yaml:"dimensions"`
-	SimilarityMetric string                 `yaml:"similarity_metric"`
-	Pool            DatabaseVectorPoolConfig `yaml:"pool"`
+	Enabled          bool                     `yaml:"enabled"`
+	IndexType        string                   `yaml:"index_type"`
+	Lists            int                      `yaml:"lists"`
+	Probes           int                      `yaml:"probes"`
+	Dimensions       int                      `yaml:"dimensions"`
+	SimilarityMetric string                   `yaml:"similarity_metric"`
+	Pool             DatabaseVectorPoolConfig `yaml:"pool"`
 }
 
 // DatabaseVectorPoolConfig holds configuration for the vector database connection pool

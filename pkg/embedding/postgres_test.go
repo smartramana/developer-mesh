@@ -42,21 +42,21 @@ func (s *MockPostgresEmbeddingStorage) StoreEmbedding(ctx context.Context, embed
 	if embedding == nil {
 		return errors.New("embedding is required")
 	}
-	
+
 	tx, err := s.db.BeginTx(ctx, nil)
 	if err != nil {
 		return errors.New("failed to start transaction: " + err.Error())
 	}
-	
+
 	// Format vector as string for pgvector
 	vectorStr := formatVectorForPg(embedding.Vector)
-	
+
 	// Generate a unique ID based on content type and ID
 	id := fmt.Sprintf("%s:%s", embedding.ContentType, embedding.ContentID)
-	
+
 	// Convert metadata to JSON string for SQL mock
 	metadataStr := "{}"
-	
+
 	// Insert the embedding data
 	_, err = tx.ExecContext(
 		ctx,
@@ -72,12 +72,12 @@ func (s *MockPostgresEmbeddingStorage) StoreEmbedding(ctx context.Context, embed
 		embedding.ContentType, // content_type
 		time.Now(),            // created_at
 	)
-	
+
 	if err != nil {
 		tx.Rollback()
 		return errors.New("failed to store embedding: " + err.Error())
 	}
-	
+
 	return tx.Commit()
 }
 
@@ -85,7 +85,7 @@ func (s *MockPostgresEmbeddingStorage) GetEmbedding(ctx context.Context, id stri
 	if id == "" {
 		return nil, errors.New("embedding ID is required")
 	}
-	
+
 	// Split the ID to extract content type and content ID
 	// Format is: contentType:contentID
 	parts := strings.Split(id, ":")
@@ -96,27 +96,27 @@ func (s *MockPostgresEmbeddingStorage) GetEmbedding(ctx context.Context, id stri
 	} else {
 		contentID = id
 	}
-	
+
 	// Query row using the prepared mock in the test
 	rows := s.db.QueryRowContext(
 		ctx,
 		"SELECT id, context_id, content_index, text, embedding, vector_dimensions, model_id, content_type, metadata, created_at FROM "+s.schema+".embeddings WHERE id = $1",
 		id,
 	)
-	
+
 	var (
 		dbID          string
-		contextID      sql.NullString
-		contentIndex   int
-		text           sql.NullString
-		embeddingStr   string
-		dimensions     int
-		modelID        string
-		dbContentType  string
-		metadataJSON   sql.NullString
-		createdAt      time.Time
+		contextID     sql.NullString
+		contentIndex  int
+		text          sql.NullString
+		embeddingStr  string
+		dimensions    int
+		modelID       string
+		dbContentType string
+		metadataJSON  sql.NullString
+		createdAt     time.Time
 	)
-	
+
 	err := rows.Scan(
 		&dbID,
 		&contextID,
@@ -129,14 +129,14 @@ func (s *MockPostgresEmbeddingStorage) GetEmbedding(ctx context.Context, id stri
 		&metadataJSON,
 		&createdAt,
 	)
-	
+
 	if err != nil {
 		if err == sql.ErrNoRows {
 			return nil, errors.New("embedding not found")
 		}
 		return nil, err
 	}
-	
+
 	// Parse the vector string
 	vector, err := parseVectorFromPg(embeddingStr)
 	if err != nil {
@@ -148,7 +148,7 @@ func (s *MockPostgresEmbeddingStorage) GetEmbedding(ctx context.Context, id stri
 	if metadataJSON.Valid {
 		// In a real implementation, we would parse the JSON here
 	}
-	
+
 	return &EmbeddingVector{
 		ContentID:   contentID,
 		Vector:      vector,
@@ -163,11 +163,11 @@ func (s *MockPostgresEmbeddingStorage) FindSimilarEmbeddings(ctx context.Context
 	if embedding == nil || embedding.Vector == nil {
 		return nil, errors.New("embedding and vector are required")
 	}
-	
+
 	// This is a mock implementation that would normally execute a cosine similarity search
 	// For testing, we just return some fake results
 	result := make([]*EmbeddingVector, 0, 2)
-	
+
 	// Mock some results with similarity scores
 	result = append(result, &EmbeddingVector{
 		ContentID:   "content-1",
@@ -177,7 +177,7 @@ func (s *MockPostgresEmbeddingStorage) FindSimilarEmbeddings(ctx context.Context
 		Metadata:    map[string]interface{}{"key1": "value1", "similarity": 0.95},
 		Dimensions:  len(embedding.Vector),
 	})
-	
+
 	result = append(result, &EmbeddingVector{
 		ContentID:   "content-2",
 		Vector:      []float32{0.2, 0.3, 0.4, 0.5, 0.6},
@@ -186,7 +186,7 @@ func (s *MockPostgresEmbeddingStorage) FindSimilarEmbeddings(ctx context.Context
 		Metadata:    map[string]interface{}{"key2": "value2", "similarity": 0.85},
 		Dimensions:  len(embedding.Vector),
 	})
-	
+
 	return result, nil
 }
 
@@ -196,25 +196,25 @@ func (s *MockPostgresEmbeddingStorage) BatchStoreEmbeddings(ctx context.Context,
 	if len(embeddings) == 0 {
 		return nil // Nothing to store
 	}
-	
+
 	// Use a transaction for batch inserts
 	tx, err := s.db.BeginTx(ctx, nil)
 	if err != nil {
 		return fmt.Errorf("failed to begin transaction: %w", err)
 	}
 	defer tx.Rollback() // Will be ignored if transaction is committed
-	
+
 	// Store each embedding
 	for _, embedding := range embeddings {
 		// Format vector for pgvector
 		vectorStr := formatVectorForPg(embedding.Vector)
-		
+
 		// Generate a unique ID based on content type and ID
 		id := fmt.Sprintf("%s:%s", embedding.ContentType, embedding.ContentID)
-		
+
 		// Convert metadata to JSON string for SQL mock
 		metadataStr := "{}"
-		
+
 		// Insert the embedding data
 		_, err = tx.ExecContext(
 			ctx,
@@ -230,17 +230,17 @@ func (s *MockPostgresEmbeddingStorage) BatchStoreEmbeddings(ctx context.Context,
 			embedding.ContentType, // content_type
 			time.Now(),            // created_at
 		)
-		
+
 		if err != nil {
 			return fmt.Errorf("failed to store embedding %s: %w", id, err)
 		}
 	}
-	
+
 	// Commit the transaction
 	if err := tx.Commit(); err != nil {
 		return fmt.Errorf("failed to commit transaction: %w", err)
 	}
-	
+
 	return nil
 }
 
@@ -248,10 +248,10 @@ func (s *MockPostgresEmbeddingStorage) GetEmbeddingsByContentIDs(ctx context.Con
 	if len(contentIDs) == 0 {
 		return nil, errors.New("no content IDs provided")
 	}
-	
+
 	// This is a mock implementation
 	result := make([]*EmbeddingVector, 0, len(contentIDs))
-	
+
 	// Create embeddings for each content ID
 	for _, id := range contentIDs {
 		result = append(result, &EmbeddingVector{
@@ -263,7 +263,7 @@ func (s *MockPostgresEmbeddingStorage) GetEmbeddingsByContentIDs(ctx context.Con
 			Metadata:    map[string]interface{}{"key1": "value1"},
 		})
 	}
-	
+
 	return result, nil
 }
 
@@ -271,22 +271,22 @@ func (s *MockPostgresEmbeddingStorage) DeleteEmbeddingsByContentIDs(ctx context.
 	if len(contentIDs) == 0 {
 		return errors.New("no content IDs provided")
 	}
-	
+
 	// For testing purposes, convert []string to a single comma-separated string
 	// since sqlmock doesn't handle array types well
 	idList := strings.Join(contentIDs, ",")
-	
+
 	// Prepare the query with a modified WHERE clause for the test
 	_, err := s.db.ExecContext(
 		ctx,
 		"DELETE FROM "+s.schema+".embeddings WHERE id IN ($1)", // Modified query for testing
 		idList,
 	)
-	
+
 	if err != nil {
 		return fmt.Errorf("failed to delete embeddings: %w", err)
 	}
-	
+
 	return nil
 }
 
@@ -348,7 +348,7 @@ func TestPostgresEmbeddingStorage_StoreEmbedding(t *testing.T) {
 
 	// Format vector string the same way the actual implementation does
 	vectorStr := formatVectorForPg(embedding.Vector)
-	
+
 	// Set expectations for the mock
 	mock.ExpectBegin()
 	mock.ExpectExec(`INSERT INTO mcp\.embeddings`).
@@ -360,7 +360,7 @@ func TestPostgresEmbeddingStorage_StoreEmbedding(t *testing.T) {
 			vectorStr,             // vector as formatted string
 			embedding.Dimensions,  // dimensions
 			embedding.ModelID,     // model_id
-			"{}",                 // metadata as string
+			"{}",                  // metadata as string
 			embedding.ContentType, // content_type
 			sqlmock.AnyArg(),      // created_at timestamp
 		).
@@ -401,21 +401,21 @@ func TestPostgresEmbeddingStorage_GetEmbedding(t *testing.T) {
 	// Test data
 	now := time.Now()
 	vector := []float32{0.1, 0.2, 0.3, 0.4, 0.5}
-	
+
 	// Format vector as string for mock database
 	vectorStr := formatVectorForPg(vector)
-	
+
 	// Set expectations for successful retrieval
 	rows := sqlmock.NewRows([]string{
-		"id", "context_id", "content_index", "text", "embedding", 
+		"id", "context_id", "content_index", "text", "embedding",
 		"vector_dimensions", "model_id", "content_type", "metadata", "created_at",
 	}).AddRow(
 		"test:content-1", // id in format contentType:contentID
 		"",               // context_id
-		0,                 // content_index
+		0,                // content_index
 		"",               // text
-		vectorStr,         // vector as string
-		5,                 // vector_dimensions
+		vectorStr,        // vector as string
+		5,                // vector_dimensions
 		"text-embedding-3-small",
 		"test",
 		`{"key1":"value1","key2":123}`,
@@ -430,13 +430,13 @@ func TestPostgresEmbeddingStorage_GetEmbedding(t *testing.T) {
 	embedding, err := storage.GetEmbedding(context.Background(), "test:content-1")
 	assert.NoError(t, err)
 	assert.NotNil(t, embedding)
-	
+
 	// Verify the retrieved embedding properties
 	assert.Equal(t, "content-1", embedding.ContentID)
 	assert.Equal(t, "text-embedding-3-small", embedding.ModelID)
 	assert.Equal(t, "test", embedding.ContentType)
 	assert.Equal(t, 5, embedding.Dimensions)
-	
+
 	// We can't directly compare the vector since it's parsed from string in the real implementation
 	// Instead, we need to ensure the vector has the correct length and values are close enough
 	assert.Equal(t, len(vector), len(embedding.Vector))
@@ -474,7 +474,7 @@ func TestPostgresEmbeddingStorage_BatchStoreEmbeddings(t *testing.T) {
 	// Create storage
 	storage, err := NewMockPostgresEmbeddingStorage(db, "mcp", 1536)
 	require.NoError(t, err)
-	
+
 	// Test data
 	embeddings := []*EmbeddingVector{
 		{
@@ -494,55 +494,55 @@ func TestPostgresEmbeddingStorage_BatchStoreEmbeddings(t *testing.T) {
 			Metadata:    map[string]interface{}{"key2": "value2"},
 		},
 	}
-	
+
 	// Set up transaction expectations
 	mock.ExpectBegin()
-	
+
 	// Format vectors for mock expectations
 	vector1Str := formatVectorForPg(embeddings[0].Vector)
 	vector2Str := formatVectorForPg(embeddings[1].Vector)
-	
+
 	// Set expectations for each embedding insert
 	mock.ExpectExec(`INSERT INTO mcp\.embeddings`).WithArgs(
-		"test-type:content-1", // ID format: contentType:contentID
-		"",                    // context_id
-		0,                     // content_index
-		"",                    // text
-		vector1Str,            // embedding as string
-		5,                     // dimensions
+		"test-type:content-1",    // ID format: contentType:contentID
+		"",                       // context_id
+		0,                        // content_index
+		"",                       // text
+		vector1Str,               // embedding as string
+		5,                        // dimensions
 		"text-embedding-3-small", // model_id
-		"{}",                 // metadata as string
-		"test-type",          // content_type
-		sqlmock.AnyArg(),      // created_at
+		"{}",                     // metadata as string
+		"test-type",              // content_type
+		sqlmock.AnyArg(),         // created_at
 	).WillReturnResult(sqlmock.NewResult(1, 1))
-	
+
 	mock.ExpectExec(`INSERT INTO mcp\.embeddings`).WithArgs(
-		"test-type:content-2", // ID format: contentType:contentID
-		"",                    // context_id
-		0,                     // content_index
-		"",                    // text
-		vector2Str,            // embedding as string
-		5,                     // dimensions
+		"test-type:content-2",    // ID format: contentType:contentID
+		"",                       // context_id
+		0,                        // content_index
+		"",                       // text
+		vector2Str,               // embedding as string
+		5,                        // dimensions
 		"text-embedding-3-small", // model_id
-		"{}",                 // metadata as string
-		"test-type",          // content_type
-		sqlmock.AnyArg(),      // created_at
+		"{}",                     // metadata as string
+		"test-type",              // content_type
+		sqlmock.AnyArg(),         // created_at
 	).WillReturnResult(sqlmock.NewResult(2, 1))
-	
+
 	mock.ExpectCommit()
-	
+
 	// Test batch storing embeddings
 	err = storage.BatchStoreEmbeddings(context.Background(), embeddings)
 	assert.NoError(t, err)
 	assert.NoError(t, mock.ExpectationsWereMet())
-	
+
 	// Test with empty embeddings
 	err = storage.BatchStoreEmbeddings(context.Background(), []*EmbeddingVector{})
 	assert.NoError(t, err) // Should succeed with empty input
-	
+
 	// Test with transaction error
 	mock.ExpectBegin().WillReturnError(errors.New("transaction error"))
-	
+
 	err = storage.BatchStoreEmbeddings(context.Background(), embeddings)
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "failed to begin transaction")
@@ -557,17 +557,17 @@ func TestPostgresEmbeddingStorage_GetEmbeddingsByContentIDs(t *testing.T) {
 	// Create storage
 	storage, err := NewMockPostgresEmbeddingStorage(db, "mcp", 1536)
 	require.NoError(t, err)
-	
+
 	// Test getting embeddings by IDs
 	contentIDs := []string{"content-1", "content-2"}
-	
+
 	// Test getting embeddings
 	embeddings, err := storage.GetEmbeddingsByContentIDs(context.Background(), contentIDs)
 	assert.NoError(t, err)
 	assert.Len(t, embeddings, 2)
 	assert.Equal(t, contentIDs[0], embeddings[0].ContentID)
 	assert.Equal(t, contentIDs[1], embeddings[1].ContentID)
-	
+
 	// Test with empty IDs
 	embeddings, err = storage.GetEmbeddingsByContentIDs(context.Background(), []string{})
 	assert.Error(t, err)
@@ -584,7 +584,7 @@ func TestPostgresEmbeddingStorage_FindSimilarEmbeddings(t *testing.T) {
 	// Create storage
 	storage, err := NewMockPostgresEmbeddingStorage(db, "mcp", 1536)
 	require.NoError(t, err)
-	
+
 	// Test data
 	embedding := &EmbeddingVector{
 		Vector:      []float32{0.1, 0.2, 0.3, 0.4, 0.5},
@@ -593,13 +593,13 @@ func TestPostgresEmbeddingStorage_FindSimilarEmbeddings(t *testing.T) {
 		ContentType: "test",
 		Dimensions:  5,
 	}
-	
+
 	// Test searching
 	results, err := storage.FindSimilarEmbeddings(context.Background(), embedding, 10, 0.7)
 	assert.NoError(t, err)
 	assert.NotNil(t, results)
 	assert.Len(t, results, 2)
-	
+
 	// Test with nil embedding
 	results, err = storage.FindSimilarEmbeddings(context.Background(), nil, 10, 0.7)
 	assert.Error(t, err)

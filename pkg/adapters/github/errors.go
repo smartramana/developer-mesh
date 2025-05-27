@@ -6,9 +6,9 @@ import (
 
 // GitHubErrorProvider interface defines methods for providing GitHub errors
 type GitHubErrorProvider interface {
-	NewError(err error, statusCode int, message string) *errors.GitHubError
-	FromHTTPError(statusCode int, message, documentationURL string) *errors.GitHubError
-	FromWebhookError(err error, eventType string) *errors.GitHubError
+	NewError(err error, statusCode int, message string) *errors.AdapterError
+	FromHTTPError(statusCode int, message, documentationURL string) *errors.AdapterError
+	FromWebhookError(err error, eventType string) *errors.AdapterError
 }
 
 // errorProvider implements GitHubErrorProvider
@@ -20,16 +20,17 @@ func NewGitHubErrorProvider() GitHubErrorProvider {
 }
 
 // NewError creates a new GitHub error
-func (p *errorProvider) NewError(err error, statusCode int, message string) *errors.GitHubError {
+func (p *errorProvider) NewError(err error, statusCode int, message string) *errors.AdapterError {
 	return errors.NewGitHubError(err, statusCode, message)
 }
 
 // FromHTTPError creates a GitHub error from an HTTP error
-func (p *errorProvider) FromHTTPError(statusCode int, message, documentationURL string) *errors.GitHubError {
+func (p *errorProvider) FromHTTPError(statusCode int, message, documentationURL string) *errors.AdapterError {
 	return errors.FromHTTPError(statusCode, message, documentationURL)
 }
 
 // FromWebhookError creates a GitHub error from a webhook error
-func (p *errorProvider) FromWebhookError(err error, eventType string) *errors.GitHubError {
-	return errors.FromWebhookError(err, eventType)
+func (p *errorProvider) FromWebhookError(err error, eventType string) *errors.AdapterError {
+	// Since FromWebhookError doesn't exist for AdapterError, use NewGitHubError
+	return errors.NewGitHubError(err, 0, "webhook error: "+eventType)
 }

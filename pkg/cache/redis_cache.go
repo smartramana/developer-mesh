@@ -30,34 +30,34 @@ func NewRedisCache(cfg RedisConfig) (*RedisCache, error) {
 		PoolSize:     cfg.PoolSize,
 		MinIdleConns: cfg.MinIdleConns,
 	}
-	
+
 	// Add username if provided (for Redis 6.0+)
 	if cfg.Username != "" {
 		options.Username = cfg.Username
 	}
-	
+
 	// Add TLS if needed
 	if cfg.UseIAMAuth {
 		options.TLSConfig = &tls.Config{}
 	}
-	
+
 	// Create the Redis client
 	client := redis.NewClient(options)
-	
+
 	// Create cache wrapper
 	cache := &RedisCache{
 		client: client,
 		config: cfg,
 	}
-	
+
 	// Test the connection
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
-	
+
 	if err := client.Ping(ctx).Err(); err != nil {
 		return nil, fmt.Errorf("failed to connect to redis: %w", err)
 	}
-	
+
 	return cache, nil
 }
 

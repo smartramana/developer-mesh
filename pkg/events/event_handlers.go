@@ -32,11 +32,11 @@ func (h *ContextEventHandler) RegisterWithEventBus(bus EventBus) {
 		EventContextRetrieved,
 		EventContextSummarized,
 	}
-	
+
 	for _, eventType := range contextEvents {
 		bus.Subscribe(eventType, h.HandleContextEvent)
 	}
-	
+
 	// Register for tool events that affect contexts
 	bus.Subscribe(EventToolActionExecuted, h.HandleToolEvent)
 }
@@ -50,55 +50,55 @@ func (h *ContextEventHandler) HandleContextEvent(ctx context.Context, event *mod
 			contextID = id
 		}
 	}
-	
+
 	if contextID == "" {
 		return fmt.Errorf("context event without context ID: %v", event)
 	}
-	
+
 	// Handle based on event type
 	switch EventType(event.Type) {
 	case EventContextCreated:
 		// Already created, nothing to do
 		return nil
-		
+
 	case EventContextUpdated:
 		// Already updated, nothing to do
 		return nil
-		
+
 	case EventContextDeleted:
 		// Already deleted, nothing to do
 		return nil
-		
+
 	case EventContextRetrieved:
 		// Update metadata to track access
 		existingContext, err := h.contextManager.GetContext(ctx, contextID)
 		if err != nil {
 			return fmt.Errorf("failed to get context for metadata update: %w", err)
 		}
-		
+
 		// Update metadata
 		if existingContext.Metadata == nil {
 			existingContext.Metadata = make(map[string]interface{})
 		}
-		
+
 		// Update access timestamp
 		existingContext.Metadata["last_accessed_at"] = time.Now()
-		
+
 		// Increment access count
 		accessCount := 1
 		if count, ok := existingContext.Metadata["access_count"].(float64); ok {
 			accessCount = int(count) + 1
 		}
 		existingContext.Metadata["access_count"] = accessCount
-		
+
 		// Update context
 		_, err = h.contextManager.UpdateContext(ctx, contextID, existingContext, nil)
 		if err != nil {
 			return fmt.Errorf("failed to update context metadata: %w", err)
 		}
-		
+
 		return nil
-		
+
 	case EventContextSummarized:
 		// Extract summary from event data
 		var summary string
@@ -107,34 +107,34 @@ func (h *ContextEventHandler) HandleContextEvent(ctx context.Context, event *mod
 				summary = s
 			}
 		}
-		
+
 		if summary == "" {
 			return fmt.Errorf("summary event without summary: %v", event)
 		}
-		
+
 		// Update context metadata with summary
 		existingContext, err := h.contextManager.GetContext(ctx, contextID)
 		if err != nil {
 			return fmt.Errorf("failed to get context for summary update: %w", err)
 		}
-		
+
 		// Update metadata
 		if existingContext.Metadata == nil {
 			existingContext.Metadata = make(map[string]interface{})
 		}
-		
+
 		// Add summary to metadata
 		existingContext.Metadata["summary"] = summary
 		existingContext.Metadata["summarized_at"] = time.Now()
-		
+
 		// Update context
 		_, err = h.contextManager.UpdateContext(ctx, contextID, existingContext, nil)
 		if err != nil {
 			return fmt.Errorf("failed to update context summary: %w", err)
 		}
-		
+
 		return nil
-		
+
 	default:
 		return fmt.Errorf("unsupported context event type: %s", event.Type)
 	}
@@ -147,7 +147,7 @@ func (h *ContextEventHandler) HandleToolEvent(ctx context.Context, event *models
 	var tool string
 	var action string
 	var result interface{}
-	
+
 	if data, ok := event.Data.(map[string]interface{}); ok {
 		if id, ok := data["context_id"].(string); ok {
 			contextID = id
@@ -162,24 +162,24 @@ func (h *ContextEventHandler) HandleToolEvent(ctx context.Context, event *models
 			result = r
 		}
 	}
-	
+
 	if contextID == "" || tool == "" || action == "" {
 		return fmt.Errorf("tool event missing required data: %v", event)
 	}
-	
+
 	// Get existing context
 	existingContext, err := h.contextManager.GetContext(ctx, contextID)
 	if err != nil {
 		return fmt.Errorf("failed to get context for tool event: %w", err)
 	}
-	
+
 	// Create tool action context item
 	resultJSON, err := json.Marshal(result)
 	if err != nil {
 		log.Printf("Warning: failed to marshal tool result: %v", err)
 		resultJSON = []byte("{}")
 	}
-	
+
 	toolAction := models.ContextItem{
 		Role:      "tool",
 		Content:   fmt.Sprintf("Tool %s executed action %s with result: %s", tool, action, string(resultJSON)),
@@ -190,16 +190,16 @@ func (h *ContextEventHandler) HandleToolEvent(ctx context.Context, event *models
 			"result": result,
 		},
 	}
-	
+
 	// Add tool action to context
 	existingContext.Content = append(existingContext.Content, toolAction)
-	
+
 	// Update context
 	_, err = h.contextManager.UpdateContext(ctx, contextID, existingContext, nil)
 	if err != nil {
 		return fmt.Errorf("failed to update context with tool action: %w", err)
 	}
-	
+
 	return nil
 }
 
@@ -221,7 +221,7 @@ func (h *AgentEventHandler) RegisterWithEventBus(bus EventBus) {
 		EventAgentDisconnected,
 		EventAgentError,
 	}
-	
+
 	for _, eventType := range agentEvents {
 		bus.Subscribe(eventType, h.HandleAgentEvent)
 	}
@@ -234,7 +234,7 @@ func (h *AgentEventHandler) HandleAgentEvent(ctx context.Context, event *models.
 	if agentID == "" {
 		return fmt.Errorf("agent event without agent ID: %v", event)
 	}
-	
+
 	// Handle based on event type
 	switch EventType(event.Type) {
 	case EventAgentConnected:
@@ -246,7 +246,7 @@ func (h *AgentEventHandler) HandleAgentEvent(ctx context.Context, event *models.
 	default:
 		return fmt.Errorf("unsupported agent event type: %s", event.Type)
 	}
-	
+
 	return nil
 }
 
@@ -268,7 +268,7 @@ func (h *SystemEventHandler) RegisterWithEventBus(bus EventBus) {
 		EventSystemShutdown,
 		EventSystemHealthCheck,
 	}
-	
+
 	for _, eventType := range systemEvents {
 		bus.Subscribe(eventType, h.HandleSystemEvent)
 	}
@@ -287,6 +287,6 @@ func (h *SystemEventHandler) HandleSystemEvent(ctx context.Context, event *model
 	default:
 		return fmt.Errorf("unsupported system event type: %s", event.Type)
 	}
-	
+
 	return nil
 }

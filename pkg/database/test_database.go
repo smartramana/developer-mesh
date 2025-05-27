@@ -39,13 +39,13 @@ func NewTestDatabaseWithContext(ctx context.Context) (*Database, error) {
 		if err != nil {
 			return nil, fmt.Errorf("failed to connect to test database: %w", err)
 		}
-		
+
 		// Drop schema if it exists to ensure clean test environment
 		_, err = db.ExecContext(ctx, "DROP SCHEMA IF EXISTS mcp CASCADE")
 		if err != nil {
 			return nil, fmt.Errorf("failed to drop schema: %w", err)
 		}
-		
+
 		// Create schema
 		_, err = db.ExecContext(ctx, "CREATE SCHEMA mcp")
 		if err != nil {
@@ -57,7 +57,7 @@ func NewTestDatabaseWithContext(ctx context.Context) (*Database, error) {
 		if err != nil {
 			return nil, fmt.Errorf("failed to connect to in-memory SQLite database: %w", err)
 		}
-		
+
 		// Enable foreign keys for SQLite
 		_, err = db.ExecContext(ctx, "PRAGMA foreign_keys = ON")
 		if err != nil {
@@ -67,7 +67,7 @@ func NewTestDatabaseWithContext(ctx context.Context) (*Database, error) {
 
 	// Create the Database wrapper
 	testDb := &Database{
-		db: db,
+		db:         db,
 		statements: make(map[string]*sqlx.Stmt),
 		config: Config{
 			Driver: dbType,
@@ -88,46 +88,46 @@ func NewTestDatabaseWithContext(ctx context.Context) (*Database, error) {
 		testDb.Close()
 		return nil, fmt.Errorf("failed to create GitHub content tables: %w", err)
 	}
-	
+
 	// Create model tables
 	if err := testDb.ensureTestModelTables(ctx); err != nil {
 		testDb.Close()
 		return nil, fmt.Errorf("failed to create model tables: %w", err)
 	}
-	
+
 	// Create agent tables
 	if err := testDb.ensureTestAgentTables(ctx); err != nil {
 		testDb.Close()
 		return nil, fmt.Errorf("failed to create agent tables: %w", err)
 	}
-	
+
 	// Create vector tables
 	if err := testDb.ensureTestVectorTables(ctx); err != nil {
 		testDb.Close()
 		return nil, fmt.Errorf("failed to create vector tables: %w", err)
 	}
-	
+
 	// Create relationship tables
 	if err := testDb.ensureTestRelationshipTables(ctx); err != nil {
 		testDb.Close()
 		return nil, fmt.Errorf("failed to create relationship tables: %w", err)
 	}
-	
+
 	// Create additional tables needed for integration tests
 	// These might not be covered by the standard table creation methods
-	
+
 	// Determine JSON data type based on database type
 	jsonType := "TEXT"
 	if dbType == "postgres" {
 		jsonType = "JSONB"
 	}
-	
+
 	// Schema prefix for table names
 	schemaPrefix := ""
 	if dbType == "postgres" {
 		schemaPrefix = "mcp."
 	}
-	
+
 	// Create events table (needed for worker processing)
 	eventsTable := fmt.Sprintf(`CREATE TABLE IF NOT EXISTS %sevents (
 		id TEXT PRIMARY KEY,
@@ -140,12 +140,12 @@ func NewTestDatabaseWithContext(ctx context.Context) (*Database, error) {
 		created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
 		updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
 	)`, schemaPrefix, jsonType, jsonType)
-	
+
 	if _, err := testDb.db.ExecContext(ctx, eventsTable); err != nil {
 		testDb.Close()
 		return nil, fmt.Errorf("failed to create events table: %w", err)
 	}
-	
+
 	// Create integrations table (needed for API tests)
 	integrationsTable := fmt.Sprintf(`CREATE TABLE IF NOT EXISTS %sintegrations (
 		id TEXT PRIMARY KEY,
@@ -156,7 +156,7 @@ func NewTestDatabaseWithContext(ctx context.Context) (*Database, error) {
 		created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
 		updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
 	)`, schemaPrefix, jsonType)
-	
+
 	if _, err := testDb.db.ExecContext(ctx, integrationsTable); err != nil {
 		testDb.Close()
 		return nil, fmt.Errorf("failed to create integrations table: %w", err)
@@ -168,7 +168,7 @@ func NewTestDatabaseWithContext(ctx context.Context) (*Database, error) {
 // ensureContextTables creates tables for storing context data
 func (d *Database) ensureTestContextTables(ctx context.Context) error {
 	var queries []string
-	
+
 	// Handle SQL dialect differences
 	if d.config.Driver == "sqlite3" {
 		// SQLite-compatible queries
@@ -182,7 +182,7 @@ func (d *Database) ensureTestContextTables(ctx context.Context) error {
 				created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
 				updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
 			)`,
-			
+
 			// Create context_items table
 			`CREATE TABLE IF NOT EXISTS context_items (
 				id TEXT PRIMARY KEY,
@@ -194,7 +194,7 @@ func (d *Database) ensureTestContextTables(ctx context.Context) error {
 				metadata TEXT, -- JSON stored as text in SQLite
 				FOREIGN KEY (context_id) REFERENCES contexts(id) ON DELETE CASCADE
 			)`,
-			
+
 			// Create integrations table
 			`CREATE TABLE IF NOT EXISTS integrations (
 				id TEXT PRIMARY KEY,
@@ -218,7 +218,7 @@ func (d *Database) ensureTestContextTables(ctx context.Context) error {
 				created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
 				updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
 			)`,
-			
+
 			// Create context_items table
 			`CREATE TABLE IF NOT EXISTS mcp.context_items (
 				id TEXT PRIMARY KEY,
@@ -230,7 +230,7 @@ func (d *Database) ensureTestContextTables(ctx context.Context) error {
 				metadata JSONB,
 				FOREIGN KEY (context_id) REFERENCES mcp.contexts(id) ON DELETE CASCADE
 			)`,
-			
+
 			// Create integrations table
 			`CREATE TABLE IF NOT EXISTS mcp.integrations (
 				id TEXT PRIMARY KEY,
@@ -243,20 +243,20 @@ func (d *Database) ensureTestContextTables(ctx context.Context) error {
 			)`,
 		}
 	}
-	
+
 	for _, query := range queries {
 		if _, err := d.db.ExecContext(ctx, query); err != nil {
 			return fmt.Errorf("failed to execute query: %s: %w", query, err)
 		}
 	}
-	
+
 	return nil
 }
 
 // ensureGitHubContentTables creates tables for storing GitHub content
 func (d *Database) ensureTestGitHubContentTables(ctx context.Context) error {
 	var queries []string
-	
+
 	// Handle SQL dialect differences
 	if d.config.Driver == "sqlite3" {
 		// SQLite-compatible queries
@@ -276,7 +276,7 @@ func (d *Database) ensureTestGitHubContentTables(ctx context.Context) error {
 				created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
 				updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
 			)`,
-			
+
 			// Create index on checksum for fast lookups
 			`CREATE INDEX IF NOT EXISTS idx_github_content_checksum ON github_content(checksum)`,
 		}
@@ -298,18 +298,18 @@ func (d *Database) ensureTestGitHubContentTables(ctx context.Context) error {
 				created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
 				updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
 			)`,
-			
+
 			// Create index on checksum for fast lookups
 			`CREATE INDEX IF NOT EXISTS idx_github_content_checksum ON mcp.github_content(checksum)`,
 		}
 	}
-	
+
 	for _, query := range queries {
 		if _, err := d.db.ExecContext(ctx, query); err != nil {
 			return fmt.Errorf("failed to execute query: %s: %w", query, err)
 		}
 	}
-	
+
 	return nil
 }
 
@@ -341,7 +341,7 @@ func (d *Database) initializeRepositoryTables(ctx context.Context) error {
 // ensureModelTables creates tables for models
 func (d *Database) ensureTestModelTables(ctx context.Context) error {
 	var queries []string
-	
+
 	// Handle SQL dialect differences
 	if d.config.Driver == "sqlite3" {
 		// SQLite-compatible queries
@@ -352,8 +352,7 @@ func (d *Database) ensureTestModelTables(ctx context.Context) error {
 				tenant_id TEXT NOT NULL,
 				name TEXT NOT NULL
 			)`,
-			
-			
+
 			// Create index on tenant_id for models
 			`CREATE INDEX IF NOT EXISTS idx_models_tenant ON models(tenant_id)`,
 		}
@@ -366,26 +365,25 @@ func (d *Database) ensureTestModelTables(ctx context.Context) error {
 				tenant_id TEXT NOT NULL,
 				name TEXT NOT NULL
 			)`,
-			
-			
+
 			// Create index on tenant_id for models
 			`CREATE INDEX IF NOT EXISTS idx_models_tenant ON mcp.models(tenant_id)`,
 		}
 	}
-	
+
 	for _, query := range queries {
 		if _, err := d.db.ExecContext(ctx, query); err != nil {
 			return fmt.Errorf("failed to execute query: %s: %w", query, err)
 		}
 	}
-	
+
 	return nil
 }
 
 // ensureAgentTables creates tables for agents
 func (d *Database) ensureTestAgentTables(ctx context.Context) error {
 	var queries []string
-	
+
 	// Handle SQL dialect differences
 	if d.config.Driver == "sqlite3" {
 		// SQLite-compatible queries
@@ -398,7 +396,7 @@ func (d *Database) ensureTestAgentTables(ctx context.Context) error {
 				model_id TEXT NOT NULL,
 				FOREIGN KEY (model_id) REFERENCES models(id)
 			)`,
-			
+
 			// Create index on tenant_id for agents
 			`CREATE INDEX IF NOT EXISTS idx_agents_tenant ON agents(tenant_id)`,
 		}
@@ -413,25 +411,25 @@ func (d *Database) ensureTestAgentTables(ctx context.Context) error {
 				model_id TEXT NOT NULL,
 				FOREIGN KEY (model_id) REFERENCES mcp.models(id)
 			)`,
-			
+
 			// Create index on tenant_id for agents
 			`CREATE INDEX IF NOT EXISTS idx_agents_tenant ON mcp.agents(tenant_id)`,
 		}
 	}
-	
+
 	for _, query := range queries {
 		if _, err := d.db.ExecContext(ctx, query); err != nil {
 			return fmt.Errorf("failed to execute query: %s: %w", query, err)
 		}
 	}
-	
+
 	return nil
 }
 
 // ensureVectorTables creates tables for vector storage
 func (d *Database) ensureTestVectorTables(ctx context.Context) error {
 	var queries []string
-	
+
 	// Handle SQL dialect differences
 	if d.config.Driver == "sqlite3" {
 		// SQLite-compatible queries
@@ -446,7 +444,7 @@ func (d *Database) ensureTestVectorTables(ctx context.Context) error {
 				metadata TEXT, -- JSON stored as text in SQLite
 				created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
 			)`,
-			
+
 			// Create index on tenant_id for vectors
 			`CREATE INDEX IF NOT EXISTS idx_vectors_tenant ON vectors(tenant_id)`,
 			`CREATE INDEX IF NOT EXISTS idx_vectors_content ON vectors(content_id)`,
@@ -464,26 +462,26 @@ func (d *Database) ensureTestVectorTables(ctx context.Context) error {
 				metadata JSONB,
 				created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
 			)`,
-			
+
 			// Create index on tenant_id for vectors
 			`CREATE INDEX IF NOT EXISTS idx_vectors_tenant ON mcp.vectors(tenant_id)`,
 			`CREATE INDEX IF NOT EXISTS idx_vectors_content ON mcp.vectors(content_id)`,
 		}
 	}
-	
+
 	for _, query := range queries {
 		if _, err := d.db.ExecContext(ctx, query); err != nil {
 			return fmt.Errorf("failed to execute query: %s: %w", query, err)
 		}
 	}
-	
+
 	return nil
 }
 
 // EnsureRelationshipTables creates tables for storing entity relationships
 func (d *Database) ensureTestRelationshipTables(ctx context.Context) error {
 	var queries []string
-	
+
 	// Handle SQL dialect differences
 	if d.config.Driver == "sqlite3" {
 		// SQLite-compatible queries
@@ -501,7 +499,7 @@ func (d *Database) ensureTestRelationshipTables(ctx context.Context) error {
 				created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
 				updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
 			)`,
-			
+
 			// Create indices for relationship lookups
 			`CREATE INDEX IF NOT EXISTS idx_relationships_source ON relationships(source_id, source_type)`,
 			`CREATE INDEX IF NOT EXISTS idx_relationships_target ON relationships(target_id, target_type)`,
@@ -523,19 +521,19 @@ func (d *Database) ensureTestRelationshipTables(ctx context.Context) error {
 				created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
 				updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
 			)`,
-			
+
 			// Create indices for relationship lookups
 			`CREATE INDEX IF NOT EXISTS idx_relationships_source ON mcp.relationships(source_id, source_type)`,
 			`CREATE INDEX IF NOT EXISTS idx_relationships_target ON mcp.relationships(target_id, target_type)`,
 			`CREATE INDEX IF NOT EXISTS idx_relationships_tenant ON mcp.relationships(tenant_id)`,
 		}
 	}
-	
+
 	for _, query := range queries {
 		if _, err := d.db.ExecContext(ctx, query); err != nil {
 			return fmt.Errorf("failed to execute query: %s: %w", query, err)
 		}
 	}
-	
+
 	return nil
 }

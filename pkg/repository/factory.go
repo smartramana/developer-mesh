@@ -3,7 +3,7 @@ package repository
 
 import (
 	"database/sql"
-	
+
 	"github.com/S-Corkum/devops-mcp/pkg/repository/agent"
 	"github.com/S-Corkum/devops-mcp/pkg/repository/model"
 	"github.com/S-Corkum/devops-mcp/pkg/repository/search"
@@ -17,9 +17,9 @@ type Factory struct {
 }
 
 // NewFactory creates a new repository factory
-func NewFactory(db interface{}) *Factory {
+func NewFactory(db any) *Factory {
 	var sqlxDB *sqlx.DB
-	
+
 	switch typedDB := db.(type) {
 	case *sqlx.DB:
 		sqlxDB = typedDB
@@ -29,7 +29,7 @@ func NewFactory(db interface{}) *Factory {
 		// Return factory with nil DB for testing scenarios
 		return &Factory{db: nil}
 	}
-	
+
 	return &Factory{db: sqlxDB}
 }
 
@@ -83,7 +83,7 @@ func (f *Factory) GetVectorRepositoryV2() vector.Repository {
 	if f.db == nil {
 		return vector.NewMockRepository()
 	}
-	
+
 	// Since f.db is already a *sqlx.DB, we can pass it directly
 	return vector.NewRepository(f.db)
 }
@@ -93,7 +93,7 @@ func (f *Factory) GetSearchRepository() SearchRepository {
 	if f.db == nil {
 		return search.NewMockRepository()
 	}
-	
+
 	// Since f.db is already a *sqlx.DB, we can pass it directly
 	return search.NewRepository(f.db)
 }

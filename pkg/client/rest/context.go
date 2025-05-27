@@ -59,7 +59,7 @@ func (c *ContextClient) UpdateContext(ctx context.Context, contextID string, con
 
 	// Create the request body with both the context and options
 	requestBody := struct {
-		Context *models.Context             `json:"context"`
+		Context *models.Context              `json:"context"`
 		Options *models.ContextUpdateOptions `json:"options,omitempty"`
 	}{
 		Context: contextObj,

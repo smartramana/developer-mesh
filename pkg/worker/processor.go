@@ -11,9 +11,9 @@ import (
 )
 
 var (
-	logger             = observability.NewLogger("worker.processor")
-	successCount int64  = 0
-	failureCount int64  = 0
+	logger              = observability.NewLogger("worker.processor")
+	successCount  int64 = 0
+	failureCount  int64 = 0
 	totalDuration int64 = 0 // nanoseconds
 )
 

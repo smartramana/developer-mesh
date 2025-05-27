@@ -4,7 +4,7 @@ import (
 	"context"
 	"testing"
 	"time"
-	
+
 	"github.com/DATA-DOG/go-sqlmock"
 	commonConfig "github.com/S-Corkum/devops-mcp/pkg/common/config"
 	"github.com/S-Corkum/devops-mcp/pkg/observability"
@@ -18,13 +18,13 @@ func TestVectorDatabase_Initialize(t *testing.T) {
 	mockDB, mock, err := sqlmock.New()
 	require.NoError(t, err)
 	defer mockDB.Close()
-	
+
 	// Create sqlx DB wrapper
 	db := sqlx.NewDb(mockDB, "sqlmock")
-	
+
 	// Create logger
 	logger := observability.NewStandardLogger("test")
-	
+
 	// Create config
 	cfg := &commonConfig.DatabaseConfig{
 		Driver:          "postgres",
@@ -32,30 +32,30 @@ func TestVectorDatabase_Initialize(t *testing.T) {
 		MaxIdleConns:    5,
 		ConnMaxLifetime: 5 * time.Minute,
 		Vector: commonConfig.DatabaseVectorConfig{
-			Enabled:         true,
-			Dimensions:      1536,
+			Enabled:          true,
+			Dimensions:       1536,
 			SimilarityMetric: "cosine",
 		},
 	}
-	
+
 	// Create vector database
 	vdb, err := NewVectorDatabase(db, cfg, logger)
 	require.NoError(t, err)
-	
+
 	// Set up expectations for checking pgvector extension
 	mock.ExpectQuery(`SELECT EXISTS`).
 		WithArgs().
 		WillReturnRows(sqlmock.NewRows([]string{"exists"}).AddRow(true))
-	
+
 	// Set up expectations for checking embeddings table
 	mock.ExpectQuery(`SELECT EXISTS`).
 		WithArgs().
 		WillReturnRows(sqlmock.NewRows([]string{"exists"}).AddRow(true))
-	
+
 	// Initialize vector database
 	err = vdb.Initialize(context.Background())
 	assert.NoError(t, err)
-	
+
 	// Verify all expectations were met
 	err = mock.ExpectationsWereMet()
 	assert.NoError(t, err)
@@ -67,13 +67,13 @@ func TestVectorDatabase_Initialize_CreateTable(t *testing.T) {
 	mockDB, mock, err := sqlmock.New()
 	require.NoError(t, err)
 	defer mockDB.Close()
-	
+
 	// Create sqlx DB wrapper
 	db := sqlx.NewDb(mockDB, "sqlmock")
-	
+
 	// Create logger
 	logger := observability.NewStandardLogger("test")
-	
+
 	// Create config
 	cfg := &commonConfig.DatabaseConfig{
 		Driver:          "postgres",
@@ -81,26 +81,26 @@ func TestVectorDatabase_Initialize_CreateTable(t *testing.T) {
 		MaxIdleConns:    5,
 		ConnMaxLifetime: 5 * time.Minute,
 		Vector: commonConfig.DatabaseVectorConfig{
-			Enabled:         true,
-			Dimensions:      1536,
+			Enabled:          true,
+			Dimensions:       1536,
 			SimilarityMetric: "cosine",
 		},
 	}
-	
+
 	// Create vector database
 	vdb, err := NewVectorDatabase(db, cfg, logger)
 	require.NoError(t, err)
-	
+
 	// Set up expectations for checking pgvector extension
 	mock.ExpectQuery(`SELECT EXISTS`).
 		WithArgs().
 		WillReturnRows(sqlmock.NewRows([]string{"exists"}).AddRow(true))
-	
+
 	// Set up expectations for checking embeddings table (not found)
 	mock.ExpectQuery(`SELECT EXISTS`).
 		WithArgs().
 		WillReturnRows(sqlmock.NewRows([]string{"exists"}).AddRow(false))
-	
+
 	// Set up expectations for table creation transaction
 	mock.ExpectBegin()
 	mock.ExpectExec(`CREATE SCHEMA IF NOT EXISTS mcp`).
@@ -110,11 +110,11 @@ func TestVectorDatabase_Initialize_CreateTable(t *testing.T) {
 	mock.ExpectExec(`DO \$\$`).
 		WillReturnResult(sqlmock.NewResult(0, 0))
 	mock.ExpectCommit()
-	
+
 	// Initialize vector database
 	err = vdb.Initialize(context.Background())
 	assert.NoError(t, err)
-	
+
 	// Verify all expectations were met
 	err = mock.ExpectationsWereMet()
 	assert.NoError(t, err)
@@ -125,13 +125,13 @@ func TestVectorDatabase_CheckVectorDimensions(t *testing.T) {
 	mockDB, mock, err := sqlmock.New()
 	require.NoError(t, err)
 	defer mockDB.Close()
-	
+
 	// Create sqlx DB wrapper
 	db := sqlx.NewDb(mockDB, "sqlmock")
-	
+
 	// Create logger
 	logger := observability.NewStandardLogger("test")
-	
+
 	// Create config
 	cfg := &commonConfig.DatabaseConfig{
 		Driver:          "postgres",
@@ -139,26 +139,26 @@ func TestVectorDatabase_CheckVectorDimensions(t *testing.T) {
 		MaxIdleConns:    5,
 		ConnMaxLifetime: 5 * time.Minute,
 		Vector: commonConfig.DatabaseVectorConfig{
-			Enabled:         true,
-			Dimensions:      1536,
+			Enabled:          true,
+			Dimensions:       1536,
 			SimilarityMetric: "cosine",
 		},
 	}
-	
+
 	// Create vector database
 	vdb, err := NewVectorDatabase(db, cfg, logger)
 	require.NoError(t, err)
-	
+
 	// Set up expectations for checking pgvector extension
 	mock.ExpectQuery(`SELECT EXISTS`).
 		WithArgs().
 		WillReturnRows(sqlmock.NewRows([]string{"exists"}).AddRow(true))
-	
+
 	// Set up expectations for checking embeddings table
 	mock.ExpectQuery(`SELECT EXISTS`).
 		WithArgs().
 		WillReturnRows(sqlmock.NewRows([]string{"exists"}).AddRow(true))
-	
+
 	// Set up expectations for checking vector dimensions
 	mock.ExpectQuery(`SELECT DISTINCT vector_dimensions`).
 		WithArgs().
@@ -166,12 +166,12 @@ func TestVectorDatabase_CheckVectorDimensions(t *testing.T) {
 			AddRow(384).
 			AddRow(768).
 			AddRow(1536))
-	
+
 	// Check vector dimensions
 	dimensions, err := vdb.CheckVectorDimensions(context.Background())
 	assert.NoError(t, err)
 	assert.Equal(t, []int{384, 768, 1536}, dimensions)
-	
+
 	// Verify all expectations were met
 	err = mock.ExpectationsWereMet()
 	assert.NoError(t, err)
@@ -182,13 +182,13 @@ func TestVectorDatabase_Transaction(t *testing.T) {
 	mockDB, mock, err := sqlmock.New()
 	require.NoError(t, err)
 	defer mockDB.Close()
-	
+
 	// Create sqlx DB wrapper
 	db := sqlx.NewDb(mockDB, "sqlmock")
-	
+
 	// Create logger
 	logger := observability.NewStandardLogger("test")
-	
+
 	// Create config
 	cfg := &commonConfig.DatabaseConfig{
 		Driver:          "postgres",
@@ -196,30 +196,30 @@ func TestVectorDatabase_Transaction(t *testing.T) {
 		MaxIdleConns:    5,
 		ConnMaxLifetime: 5 * time.Minute,
 		Vector: commonConfig.DatabaseVectorConfig{
-			Enabled:         true,
-			Dimensions:      1536,
+			Enabled:          true,
+			Dimensions:       1536,
 			SimilarityMetric: "cosine",
 		},
 	}
-	
+
 	// Create vector database
 	vdb, err := NewVectorDatabase(db, cfg, logger)
 	require.NoError(t, err)
-	
+
 	// Set up expectations for transaction
 	mock.ExpectBegin()
 	mock.ExpectQuery(`SELECT 1`).
 		WithArgs().
 		WillReturnRows(sqlmock.NewRows([]string{"1"}).AddRow(1))
 	mock.ExpectCommit()
-	
+
 	// Run transaction
 	err = vdb.Transaction(context.Background(), func(tx *sqlx.Tx) error {
 		var value int
 		return tx.QueryRowContext(context.Background(), "SELECT 1").Scan(&value)
 	})
 	assert.NoError(t, err)
-	
+
 	// Verify all expectations were met
 	err = mock.ExpectationsWereMet()
 	assert.NoError(t, err)
@@ -231,35 +231,35 @@ func TestVectorDatabase_Transaction_Error(t *testing.T) {
 	mockDB, mock, err := sqlmock.New()
 	require.NoError(t, err)
 	defer mockDB.Close()
-	
+
 	// Create sqlx DB wrapper
 	db := sqlx.NewDb(mockDB, "sqlmock")
-	
+
 	// Create logger
 	logger := observability.NewStandardLogger("test")
-	
+
 	// Create config
 	cfg := &commonConfig.DatabaseVectorConfig{
-		Enabled:         true,
-		Dimensions:      1536,
+		Enabled:          true,
+		Dimensions:       1536,
 		SimilarityMetric: "cosine",
 	}
-	
+
 	// Create vector database
 	vdb, err := NewVectorDatabase(db, cfg, logger)
 	require.NoError(t, err)
-	
+
 	// Set up expectations for transaction
 	mock.ExpectBegin()
 	mock.ExpectRollback()
-	
+
 	// Run transaction with error
 	err = vdb.Transaction(context.Background(), func(tx *sqlx.Tx) error {
 		return assert.AnError
 	})
 	assert.Error(t, err)
 	assert.Equal(t, assert.AnError, err)
-	
+
 	// Verify all expectations were met
 	err = mock.ExpectationsWereMet()
 	assert.NoError(t, err)
@@ -270,45 +270,45 @@ func TestVectorDatabase_CreateVector(t *testing.T) {
 	mockDB, mock, err := sqlmock.New()
 	require.NoError(t, err)
 	defer mockDB.Close()
-	
+
 	// Create sqlx DB wrapper
 	db := sqlx.NewDb(mockDB, "sqlmock")
-	
+
 	// Create logger
 	logger := observability.NewStandardLogger("test")
-	
+
 	// Create config
 	cfg := &commonConfig.DatabaseVectorConfig{
-		Enabled:         true,
-		Dimensions:      1536,
+		Enabled:          true,
+		Dimensions:       1536,
 		SimilarityMetric: "cosine",
 	}
-	
+
 	// Create vector database
 	vdb, err := NewVectorDatabase(db, cfg, logger)
 	require.NoError(t, err)
-	
+
 	// Set up expectations for checking pgvector extension
 	mock.ExpectQuery(`SELECT EXISTS`).
 		WithArgs().
 		WillReturnRows(sqlmock.NewRows([]string{"exists"}).AddRow(true))
-	
+
 	// Set up expectations for checking embeddings table
 	mock.ExpectQuery(`SELECT EXISTS`).
 		WithArgs().
 		WillReturnRows(sqlmock.NewRows([]string{"exists"}).AddRow(true))
-	
+
 	// Set up expectations for creating vector
 	mock.ExpectQuery(`SELECT \$1::float4\[\]::vector::text`).
 		WithArgs("'{1.000000,2.000000,3.000000}'").
 		WillReturnRows(sqlmock.NewRows([]string{"vector"}).AddRow("[1.0,2.0,3.0]"))
-	
+
 	// Create vector
 	vector := []float32{1.0, 2.0, 3.0}
 	vectorStr, err := vdb.CreateVector(context.Background(), vector)
 	assert.NoError(t, err)
 	assert.Equal(t, "[1.0,2.0,3.0]", vectorStr)
-	
+
 	// Verify all expectations were met
 	err = mock.ExpectationsWereMet()
 	assert.NoError(t, err)
@@ -319,55 +319,55 @@ func TestVectorDatabase_CalculateSimilarity(t *testing.T) {
 	mockDB, mock, err := sqlmock.New()
 	require.NoError(t, err)
 	defer mockDB.Close()
-	
+
 	// Create sqlx DB wrapper
 	db := sqlx.NewDb(mockDB, "sqlmock")
-	
+
 	// Create logger
 	logger := observability.NewStandardLogger("test")
-	
+
 	// Create config
 	cfg := &commonConfig.DatabaseVectorConfig{
-		Enabled:         true,
-		Dimensions:      1536,
+		Enabled:          true,
+		Dimensions:       1536,
 		SimilarityMetric: "cosine",
 	}
-	
+
 	// Create vector database
 	vdb, err := NewVectorDatabase(db, cfg, logger)
 	require.NoError(t, err)
-	
+
 	// Set up expectations for checking pgvector extension
 	mock.ExpectQuery(`SELECT EXISTS`).
 		WithArgs().
 		WillReturnRows(sqlmock.NewRows([]string{"exists"}).AddRow(true))
-	
+
 	// Set up expectations for checking embeddings table
 	mock.ExpectQuery(`SELECT EXISTS`).
 		WithArgs().
 		WillReturnRows(sqlmock.NewRows([]string{"exists"}).AddRow(true))
-	
+
 	// Set up expectations for creating vectors
 	mock.ExpectQuery(`SELECT \$1::float4\[\]::vector::text`).
 		WithArgs("'{1.000000,2.000000,3.000000}'").
 		WillReturnRows(sqlmock.NewRows([]string{"vector"}).AddRow("[1.0,2.0,3.0]"))
-	
+
 	mock.ExpectQuery(`SELECT \$1::float4\[\]::vector::text`).
 		WithArgs("'{4.000000,5.000000,6.000000}'").
 		WillReturnRows(sqlmock.NewRows([]string{"vector"}).AddRow("[4.0,5.0,6.0]"))
-	
+
 	// Set up expectations for calculating similarity
 	mock.ExpectQuery(`SELECT 1 - \(\$1::vector <=> \$2::vector\)`).
 		WithArgs("[1.0,2.0,3.0]", "[4.0,5.0,6.0]").
 		WillReturnRows(sqlmock.NewRows([]string{"similarity"}).AddRow(0.97))
-	
+
 	// Calculate similarity
 	vector1 := []float32{1.0, 2.0, 3.0}
 	vector2 := []float32{4.0, 5.0, 6.0}
 	similarity, err := vdb.CalculateSimilarity(context.Background(), vector1, vector2, "cosine")
 	assert.NoError(t, err)
 	assert.InDelta(t, 0.97, similarity, 0.001)
-	
+
 	// Verify all expectations were met
 	err = mock.ExpectationsWereMet()
 	assert.NoError(t, err)
@@ -392,7 +392,7 @@ func TestVectorDatabase_CalculateSimilarity_Methods(t *testing.T) {
 			expected: -5.2,
 		},
 	}
-	
+
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			// Skip Euclidean distance test due to SQL mocking issues
@@ -400,48 +400,48 @@ func TestVectorDatabase_CalculateSimilarity_Methods(t *testing.T) {
 				t.Skip("Skipping euclidean test due to SQL mocking issues")
 				return
 			}
-			
+
 			// Create a mock database
 			mockDB, mock, err := sqlmock.New()
 			require.NoError(t, err)
 			defer mockDB.Close()
-			
+
 			// Create sqlx DB wrapper
 			db := sqlx.NewDb(mockDB, "sqlmock")
-			
+
 			// Create logger
 			logger := observability.NewStandardLogger("test")
-			
+
 			// Create config
 			cfg := &commonConfig.DatabaseVectorConfig{
 				Enabled:          true,
 				Dimensions:       3,
 				SimilarityMetric: "cosine",
 			}
-			
+
 			// Create vector database
 			vdb, err := NewVectorDatabase(db, cfg, logger)
 			require.NoError(t, err)
-			
+
 			// Set up expectations for checking pgvector extension
 			mock.ExpectQuery(`SELECT EXISTS`).
 				WithArgs().
 				WillReturnRows(sqlmock.NewRows([]string{"exists"}).AddRow(true))
-			
+
 			// Set up expectations for checking embeddings table
 			mock.ExpectQuery(`SELECT EXISTS`).
 				WithArgs().
 				WillReturnRows(sqlmock.NewRows([]string{"exists"}).AddRow(true))
-			
+
 			// Set up expectations for creating vectors
 			mock.ExpectQuery(`SELECT \$1::float4\[\]::vector::text`).
 				WithArgs("'{1.000000,2.000000,3.000000}'").
 				WillReturnRows(sqlmock.NewRows([]string{"vector"}).AddRow("[1.0,2.0,3.0]"))
-			
+
 			mock.ExpectQuery(`SELECT \$1::float4\[\]::vector::text`).
 				WithArgs("'{4.000000,5.000000,6.000000}'").
 				WillReturnRows(sqlmock.NewRows([]string{"vector"}).AddRow("[4.0,5.0,6.0]"))
-			
+
 			// Set up expectations for calculating similarity
 			var queryRegexp string
 			if tc.method == "dot" {
@@ -449,11 +449,11 @@ func TestVectorDatabase_CalculateSimilarity_Methods(t *testing.T) {
 			} else {
 				queryRegexp = `SELECT -\(\$1::vector <-> \$2::vector\)`
 			}
-			
+
 			mock.ExpectQuery(queryRegexp).
 				WithArgs("[1.0,2.0,3.0]", "[4.0,5.0,6.0]").
 				WillReturnRows(sqlmock.NewRows([]string{"similarity"}).AddRow(tc.expected))
-			
+
 			// Calculate similarity
 			vector1 := []float32{1.0, 2.0, 3.0}
 			vector2 := []float32{4.0, 5.0, 6.0}
@@ -509,19 +509,19 @@ func TestNormalizeVector(t *testing.T) {
 			expected: []float32{0.0, 0.0, 0.0},
 		},
 	}
-	
+
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			normalized, err := NormalizeVector(tc.vector, tc.method)
-			
+
 			if tc.expectError {
 				assert.Error(t, err)
 			} else {
 				assert.NoError(t, err)
-				
+
 				if len(tc.expected) > 0 {
 					assert.Equal(t, len(tc.expected), len(normalized))
-					
+
 					for i := range tc.expected {
 						assert.InDelta(t, tc.expected[i], normalized[i], 0.0001)
 					}

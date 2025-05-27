@@ -2,8 +2,8 @@ package resilience
 
 import (
 	"context"
-	"time"
 	"sync"
+	"time"
 
 	"github.com/sony/gobreaker"
 )
@@ -11,33 +11,33 @@ import (
 // CircuitBreaker defines the interface for a circuit breaker
 type CircuitBreaker interface {
 	// Execute executes a function with circuit breaker protection
-	Execute(func() (interface{}, error)) (interface{}, error)
-	
+	Execute(func() (any, error)) (any, error)
+
 	// ExecuteContext executes a function with circuit breaker protection and context
-	ExecuteContext(ctx context.Context, fn func(context.Context) (interface{}, error)) (interface{}, error)
-	
+	ExecuteContext(ctx context.Context, fn func(context.Context) (any, error)) (any, error)
+
 	// IsOpen returns true if the circuit breaker is currently open
 	IsOpen() bool
-	
+
 	// Reset resets the circuit breaker to closed state
 	Reset()
-	
+
 	// Trip trips the circuit breaker to open state
 	Trip()
-	
+
 	// Name returns the circuit breaker name
 	Name() string
 }
 
 // CircuitBreakerConfig defines configuration for a circuit breaker
 type CircuitBreakerConfig struct {
-	Name             string
-	MaxRequests      uint32
-	Interval         time.Duration
-	Timeout          time.Duration
-	ReadyToTrip      func(counts gobreaker.Counts) bool
-	OnStateChange    func(name string, from gobreaker.State, to gobreaker.State)
-	IsSuccessful     func(err error) bool
+	Name          string
+	MaxRequests   uint32
+	Interval      time.Duration
+	Timeout       time.Duration
+	ReadyToTrip   func(counts gobreaker.Counts) bool
+	OnStateChange func(name string, from gobreaker.State, to gobreaker.State)
+	IsSuccessful  func(err error) bool
 }
 
 // DefaultCircuitBreaker is the default implementation of CircuitBreaker
@@ -64,7 +64,7 @@ func NewCircuitBreaker(config CircuitBreakerConfig) CircuitBreaker {
 			return counts.Requests >= 5 && failureRatio >= 0.5
 		}
 	}
-	
+
 	// Create circuit breaker settings
 	settings := gobreaker.Settings{
 		Name:          config.Name,
@@ -75,7 +75,7 @@ func NewCircuitBreaker(config CircuitBreakerConfig) CircuitBreaker {
 		OnStateChange: config.OnStateChange,
 		IsSuccessful:  config.IsSuccessful,
 	}
-	
+
 	return &DefaultCircuitBreaker{
 		breaker: gobreaker.NewCircuitBreaker(settings),
 		config:  config,
@@ -83,13 +83,13 @@ func NewCircuitBreaker(config CircuitBreakerConfig) CircuitBreaker {
 }
 
 // Execute executes a function with circuit breaker protection
-func (cb *DefaultCircuitBreaker) Execute(fn func() (interface{}, error)) (interface{}, error) {
+func (cb *DefaultCircuitBreaker) Execute(fn func() (any, error)) (any, error) {
 	return cb.breaker.Execute(fn)
 }
 
 // ExecuteContext executes a function with circuit breaker protection and context
-func (cb *DefaultCircuitBreaker) ExecuteContext(ctx context.Context, fn func(context.Context) (interface{}, error)) (interface{}, error) {
-	return cb.breaker.Execute(func() (interface{}, error) {
+func (cb *DefaultCircuitBreaker) ExecuteContext(ctx context.Context, fn func(context.Context) (any, error)) (any, error) {
+	return cb.breaker.Execute(func() (any, error) {
 		return fn(ctx)
 	})
 }
@@ -102,7 +102,7 @@ func (cb *DefaultCircuitBreaker) IsOpen() bool {
 // Reset resets the circuit breaker to closed state
 func (cb *DefaultCircuitBreaker) Reset() {
 	// Call the reset method if available
-	if resetable, ok := interface{}(cb.breaker).(interface{ Reset() }); ok {
+	if resetable, ok := any(cb.breaker).(interface{ Reset() }); ok {
 		resetable.Reset()
 	}
 }
@@ -110,7 +110,7 @@ func (cb *DefaultCircuitBreaker) Reset() {
 // Trip trips the circuit breaker to open state
 func (cb *DefaultCircuitBreaker) Trip() {
 	// Call the trip method if available
-	if trippable, ok := interface{}(cb.breaker).(interface{ Trip() }); ok {
+	if trippable, ok := any(cb.breaker).(interface{ Trip() }); ok {
 		trippable.Trip()
 	}
 }
@@ -131,12 +131,12 @@ func NewCircuitBreakerManager(configs map[string]CircuitBreakerConfig) *CircuitB
 	manager := &CircuitBreakerManager{
 		breakers: make(map[string]CircuitBreaker),
 	}
-	
+
 	// Create circuit breakers from configs
 	for name, config := range configs {
 		manager.breakers[name] = NewCircuitBreaker(config)
 	}
-	
+
 	return manager
 }
 
@@ -144,7 +144,7 @@ func NewCircuitBreakerManager(configs map[string]CircuitBreakerConfig) *CircuitB
 func (m *CircuitBreakerManager) Get(name string) (CircuitBreaker, bool) {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
-	
+
 	breaker, exists := m.breakers[name]
 	return breaker, exists
 }
@@ -153,18 +153,18 @@ func (m *CircuitBreakerManager) Get(name string) (CircuitBreaker, bool) {
 func (m *CircuitBreakerManager) Register(name string, config CircuitBreakerConfig) CircuitBreaker {
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	
+
 	breaker := NewCircuitBreaker(config)
 	m.breakers[name] = breaker
 	return breaker
 }
 
 // Execute executes a function with circuit breaker protection
-func (m *CircuitBreakerManager) Execute(ctx context.Context, name string, fn func() (interface{}, error)) (interface{}, error) {
+func (m *CircuitBreakerManager) Execute(ctx context.Context, name string, fn func() (any, error)) (any, error) {
 	m.mu.RLock()
 	breaker, exists := m.breakers[name]
 	m.mu.RUnlock()
-	
+
 	if !exists {
 		// Create a default circuit breaker if it doesn't exist
 		config := CircuitBreakerConfig{
@@ -172,6 +172,6 @@ func (m *CircuitBreakerManager) Execute(ctx context.Context, name string, fn fun
 		}
 		breaker = m.Register(name, config)
 	}
-	
+
 	return breaker.Execute(fn)
 }

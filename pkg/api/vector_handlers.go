@@ -18,10 +18,10 @@ type StoreEmbeddingRequest struct {
 
 // SearchEmbeddingsRequest represents a request to search for similar embeddings
 type SearchEmbeddingsRequest struct {
-	ContextID          string    `json:"context_id" binding:"required"`
-	QueryEmbedding     []float32 `json:"query_embedding" binding:"required"`
-	Limit              int       `json:"limit" binding:"required"`
-	ModelID            string    `json:"model_id"`
+	ContextID           string    `json:"context_id" binding:"required"`
+	QueryEmbedding      []float32 `json:"query_embedding" binding:"required"`
+	Limit               int       `json:"limit" binding:"required"`
+	ModelID             string    `json:"model_id"`
 	SimilarityThreshold float64   `json:"similarity_threshold"`
 }
 
@@ -32,7 +32,7 @@ func (s *Server) setupVectorRoutes(group *gin.RouterGroup) {
 	vectorsGroup.POST("/search", s.searchEmbeddings)
 	vectorsGroup.GET("/context/:context_id", s.getContextEmbeddings)
 	vectorsGroup.DELETE("/context/:context_id", s.deleteContextEmbeddings)
-	
+
 	// Multi-model endpoints
 	vectorsGroup.GET("/models", s.getSupportedModels)
 	vectorsGroup.GET("/context/:context_id/model/:model_id", s.getModelEmbeddings)
@@ -197,12 +197,12 @@ func (s *Server) getSupportedModels(c *gin.Context) {
 func (s *Server) getModelEmbeddings(c *gin.Context) {
 	contextID := c.Param("context_id")
 	modelID := c.Param("model_id")
-	
+
 	if contextID == "" {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "context_id is required"})
 		return
 	}
-	
+
 	if modelID == "" {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "model_id is required"})
 		return
@@ -227,12 +227,12 @@ func (s *Server) getModelEmbeddings(c *gin.Context) {
 func (s *Server) deleteModelEmbeddings(c *gin.Context) {
 	contextID := c.Param("context_id")
 	modelID := c.Param("model_id")
-	
+
 	if contextID == "" {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "context_id is required"})
 		return
 	}
-	
+
 	if modelID == "" {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "model_id is required"})
 		return

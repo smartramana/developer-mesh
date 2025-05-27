@@ -9,7 +9,7 @@ type PaginationOptions struct {
 	// MaxPages is the maximum number of pages to fetch
 	MaxPages int
 	// ResultHandler is called for each page of results
-	ResultHandler func(page int, data interface{}) error
+	ResultHandler func(page int, data any) error
 }
 
 // DefaultPaginationOptions returns default pagination options

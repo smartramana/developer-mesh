@@ -64,10 +64,10 @@ func (m *MockAWSClient) CreateSQSClient() interface{} {
 func TestAWSAdapter(t *testing.T) {
 	// Create a mock common AWS client
 	mockClient := NewMockAWSClient()
-	
+
 	// Create the adapter with the mock client
 	adapter := NewAWSAdapter(mockClient)
-	
+
 	// Test that the adapter correctly delegates GetSession
 	session := adapter.GetSession()
 	if session != mockClient.session {
@@ -76,7 +76,7 @@ func TestAWSAdapter(t *testing.T) {
 	if mockClient.callRegistry["GetSession"] != 1 {
 		t.Errorf("Expected GetSession to be called once, got %d", mockClient.callRegistry["GetSession"])
 	}
-	
+
 	// Test that the adapter correctly delegates GetCredentials
 	credentials := adapter.GetCredentials()
 	if credentials != mockClient.credentials {
@@ -85,7 +85,7 @@ func TestAWSAdapter(t *testing.T) {
 	if mockClient.callRegistry["GetCredentials"] != 1 {
 		t.Errorf("Expected GetCredentials to be called once, got %d", mockClient.callRegistry["GetCredentials"])
 	}
-	
+
 	// Test that the adapter correctly delegates GetRegion
 	region := adapter.GetRegion()
 	if region != mockClient.region {
@@ -94,7 +94,7 @@ func TestAWSAdapter(t *testing.T) {
 	if mockClient.callRegistry["GetRegion"] != 1 {
 		t.Errorf("Expected GetRegion to be called once, got %d", mockClient.callRegistry["GetRegion"])
 	}
-	
+
 	// Test that the adapter correctly delegates CreateS3Client
 	s3Client := adapter.CreateS3Client()
 	if s3Client != mockClient.s3Client {
@@ -103,7 +103,7 @@ func TestAWSAdapter(t *testing.T) {
 	if mockClient.callRegistry["CreateS3Client"] != 1 {
 		t.Errorf("Expected CreateS3Client to be called once, got %d", mockClient.callRegistry["CreateS3Client"])
 	}
-	
+
 	// Test that the adapter correctly delegates CreateSQSClient
 	sqsClient := adapter.CreateSQSClient()
 	if sqsClient != mockClient.sqsClient {
@@ -118,18 +118,18 @@ func TestAWSAdapter(t *testing.T) {
 func TestAdapterFactory(t *testing.T) {
 	// Create a context
 	ctx := context.Background()
-	
+
 	// Create the factory
 	factory := NewAdapterFactory(ctx)
-	
+
 	// Mock the AWS config
 	mockConfig := commonaws.AuthConfig{
 		Region: "us-west-2",
 	}
-	
+
 	// Test with feature flag disabled (should use adapter)
 	feature.SetEnabled(feature.UseNewAWS, false)
-	
+
 	// This will fail in a real test since we can't load AWS config
 	// This is just a demonstration of how the factory would be tested
 	_, err := factory.GetClient(mockConfig)
@@ -139,10 +139,10 @@ func TestAdapterFactory(t *testing.T) {
 		// 2. That it behaves correctly
 		t.Log("Factory successfully returned a client (would check that it's an adapter)")
 	}
-	
+
 	// Test with feature flag enabled (should use direct implementation)
 	feature.SetEnabled(feature.UseNewAWS, true)
-	
+
 	// This will fail in a real test since we can't load AWS config
 	// This is just a demonstration of how the factory would be tested
 	_, err = factory.GetClient(mockConfig)

@@ -56,7 +56,7 @@ func DynamicTimeoutMiddleware[T any, P any](timeoutProvider func(context.Context
 			timeout := timeoutProvider(ctx, params)
 			timeoutCtx, cancel := context.WithTimeout(ctx, timeout)
 			defer cancel()
-			
+
 			return operation(timeoutCtx, params)
 		}
 	}

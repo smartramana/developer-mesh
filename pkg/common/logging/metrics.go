@@ -46,7 +46,7 @@ func (m *metricsClient) RecordEvent(source, eventType string) {
 	if !m.enabled {
 		return
 	}
-	
+
 	// Placeholder for recording an event metric
 }
 
@@ -55,7 +55,7 @@ func (m *metricsClient) RecordLatency(operation string, duration time.Duration) 
 	if !m.enabled {
 		return
 	}
-	
+
 	// Placeholder for recording a latency metric
 	m.RecordTimer(operation+"_latency", duration, map[string]string{
 		"operation": operation,
@@ -68,8 +68,6 @@ func NewMetricsClient() MetricsClient {
 		enabled: true,
 	}
 }
-
-
 
 // RecordCounter increments a counter metric
 func (m *metricsClient) RecordCounter(name string, value float64, labels map[string]string) {
@@ -116,7 +114,7 @@ func (m *metricsClient) RecordCacheOperation(operation string, success bool, dur
 	// Placeholder for recording cache operation metrics
 	// This would typically record:
 	// - Counter for cache operations by type (get, set, delete)
-	// - Counter for cache hits/misses 
+	// - Counter for cache hits/misses
 	// - Histogram for operation duration
 }
 

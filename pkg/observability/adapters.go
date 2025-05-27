@@ -191,7 +191,7 @@ func NewLoggerAdapter(obs Logger) *commonLogging.Logger {
 func (a *obsToCommonLogger) toCommonLogger() *commonLogging.Logger {
 	// Create a new common logger
 	logger := commonLogging.NewLogger("obs-adapter")
-	
+
 	// We're returning the new logger directly, in a more complete implementation
 	// we would fully wrap the observability logger, but this resolves the interface issue
 	return logger
@@ -231,7 +231,7 @@ func (a *obsToCommonLogger) Fatal(msg string, fields map[string]interface{}) {
 func (a *obsToCommonLogger) WithPrefix(prefix string) *commonLogging.Logger {
 	// Get a new logger with the prefix
 	prefixedLogger := a.obs.WithPrefix(prefix)
-	
+
 	// Create a new adapter
 	return NewLoggerAdapter(prefixedLogger)
 }
@@ -343,35 +343,37 @@ func (a *LoggingMetricsAdapter) IncrementCounter(name string, value float64) {
 		counter.IncrementCounter(name, value)
 		return
 	}
-	
+
 	// Otherwise, log the operation
 	logTags := map[string]interface{}{
 		"metric": name,
 		"value":  value,
 	}
-	
+
 	a.logger.Debug("Incrementing counter", logTags)
 }
 
 // IncrementCounterWithLabels increments a counter metric by a given value with custom labels
 func (a *LoggingMetricsAdapter) IncrementCounterWithLabels(name string, value float64, labels map[string]string) {
 	// If the underlying metrics client supports this operation, use it
-	if counter, ok := a.metrics.(interface{ IncrementCounterWithLabels(string, float64, map[string]string) }); ok {
+	if counter, ok := a.metrics.(interface {
+		IncrementCounterWithLabels(string, float64, map[string]string)
+	}); ok {
 		counter.IncrementCounterWithLabels(name, value, labels)
 		return
 	}
-	
+
 	// Otherwise, log the operation
 	logTags := map[string]interface{}{
 		"metric": name,
 		"value":  value,
 	}
-	
+
 	// Add all labels to log tags
 	for k, v := range labels {
 		logTags[k] = v
 	}
-	
+
 	a.logger.Debug("Incrementing counter with labels", logTags)
 }
 
@@ -382,13 +384,13 @@ func (a *LoggingMetricsAdapter) RecordDuration(name string, duration time.Durati
 		recorder.RecordDuration(name, duration)
 		return
 	}
-	
+
 	// Otherwise, log the operation
 	logTags := map[string]interface{}{
 		"metric":   name,
 		"duration": duration.String(),
 	}
-	
+
 	a.logger.Debug("Recording duration", logTags)
 }
 
@@ -399,13 +401,13 @@ func (a *LoggingMetricsAdapter) RecordEvent(source, eventType string) {
 		recorder.RecordEvent(source, eventType)
 		return
 	}
-	
+
 	// Otherwise, log the operation
 	logTags := map[string]interface{}{
 		"source":     source,
 		"event_type": eventType,
 	}
-	
+
 	a.logger.Debug("Recording event", logTags)
 }
 
@@ -416,101 +418,109 @@ func (a *LoggingMetricsAdapter) RecordLatency(operation string, duration time.Du
 		recorder.RecordLatency(operation, duration)
 		return
 	}
-	
+
 	// Otherwise, log the operation
 	logTags := map[string]interface{}{
 		"operation": operation,
 		"latency":   duration.String(),
 	}
-	
+
 	a.logger.Debug("Recording latency", logTags)
 }
 
 // RecordCounter records a counter metric
 func (a *LoggingMetricsAdapter) RecordCounter(name string, value float64, labels map[string]string) {
 	// If the underlying metrics client supports this operation, use it
-	if recorder, ok := a.metrics.(interface{ RecordCounter(string, float64, map[string]string) }); ok {
+	if recorder, ok := a.metrics.(interface {
+		RecordCounter(string, float64, map[string]string)
+	}); ok {
 		recorder.RecordCounter(name, value, labels)
 		return
 	}
-	
+
 	// Otherwise, log the operation
 	logTags := map[string]interface{}{
 		"metric": name,
 		"value":  value,
 	}
-	
+
 	// Add all labels to log tags
 	for k, v := range labels {
 		logTags[k] = v
 	}
-	
+
 	a.logger.Debug("Recording counter", logTags)
 }
 
 // RecordGauge records a gauge metric
 func (a *LoggingMetricsAdapter) RecordGauge(name string, value float64, labels map[string]string) {
 	// If the underlying metrics client supports this operation, use it
-	if recorder, ok := a.metrics.(interface{ RecordGauge(string, float64, map[string]string) }); ok {
+	if recorder, ok := a.metrics.(interface {
+		RecordGauge(string, float64, map[string]string)
+	}); ok {
 		recorder.RecordGauge(name, value, labels)
 		return
 	}
-	
+
 	// Otherwise, log the operation
 	logTags := map[string]interface{}{
 		"metric": name,
 		"value":  value,
 	}
-	
+
 	// Add all labels to log tags
 	for k, v := range labels {
 		logTags[k] = v
 	}
-	
+
 	a.logger.Debug("Recording gauge", logTags)
 }
 
 // RecordHistogram records a histogram metric
 func (a *LoggingMetricsAdapter) RecordHistogram(name string, value float64, labels map[string]string) {
 	// If the underlying metrics client supports this operation, use it
-	if recorder, ok := a.metrics.(interface{ RecordHistogram(string, float64, map[string]string) }); ok {
+	if recorder, ok := a.metrics.(interface {
+		RecordHistogram(string, float64, map[string]string)
+	}); ok {
 		recorder.RecordHistogram(name, value, labels)
 		return
 	}
-	
+
 	// Otherwise, log the operation
 	logTags := map[string]interface{}{
 		"metric": name,
 		"value":  value,
 	}
-	
+
 	// Add all labels to log tags
 	for k, v := range labels {
 		logTags[k] = v
 	}
-	
+
 	a.logger.Debug("Recording histogram", logTags)
 }
 
 // RecordTimer records a timer metric
 func (a *LoggingMetricsAdapter) RecordTimer(name string, duration time.Duration, labels map[string]string) {
 	// If the underlying metrics client supports this operation, use it
-	if recorder, ok := a.metrics.(interface{ RecordTimer(string, time.Duration, map[string]string) }); ok {
+	if recorder, ok := a.metrics.(interface {
+		RecordTimer(string, time.Duration, map[string]string)
+	}); ok {
 		recorder.RecordTimer(name, duration, labels)
 		return
 	}
-	
+
 	// Otherwise, log the operation
 	logTags := map[string]interface{}{
 		"metric":   name,
 		"duration": duration.String(),
 	}
-	
+
 	// Add all labels to log tags
 	for k, v := range labels {
 		logTags[k] = v
 	}
-	
+
 	a.logger.Debug("Recording timer", logTags)
 }
 
@@ -523,7 +533,7 @@ func (a *LoggingMetricsAdapter) RecordOperation(component string, operation stri
 		recorder.RecordOperation(component, operation, success, durationSeconds, labels)
 		return
 	}
-	
+
 	// Otherwise, log the operation
 	logTags := map[string]interface{}{
 		"component": component,
@@ -531,12 +541,12 @@ func (a *LoggingMetricsAdapter) RecordOperation(component string, operation stri
 		"success":   success,
 		"duration":  durationSeconds,
 	}
-	
+
 	// Copy labels to log tags, but convert to interface{}
 	for k, v := range labels {
 		logTags[k] = v
 	}
-	
+
 	// Log the operation
 	if success {
 		a.logger.Info(component+"."+operation+" completed", logTags)
@@ -548,10 +558,12 @@ func (a *LoggingMetricsAdapter) RecordOperation(component string, operation stri
 // StartTimer starts a timer metric and returns a function to stop it
 func (a *LoggingMetricsAdapter) StartTimer(name string, labels map[string]string) func() {
 	// If the underlying metrics client supports this operation, use it
-	if starter, ok := a.metrics.(interface{ StartTimer(string, map[string]string) func() }); ok {
+	if starter, ok := a.metrics.(interface {
+		StartTimer(string, map[string]string) func()
+	}); ok {
 		return starter.StartTimer(name, labels)
 	}
-	
+
 	// Otherwise, implement it directly
 	startTime := time.Now()
 	return func() {
@@ -569,7 +581,7 @@ func (a *LoggingMetricsAdapter) RecordAPIOperation(api string, operation string,
 		recorder.RecordAPIOperation(api, operation, success, durationSeconds)
 		return
 	}
-	
+
 	// Otherwise, log the operation
 	logTags := map[string]interface{}{
 		"api":       api,
@@ -577,7 +589,7 @@ func (a *LoggingMetricsAdapter) RecordAPIOperation(api string, operation string,
 		"success":   success,
 		"duration":  durationSeconds,
 	}
-	
+
 	// Log the operation
 	if success {
 		a.logger.Info("API operation completed: "+api+"."+operation, logTags)
@@ -595,14 +607,14 @@ func (a *LoggingMetricsAdapter) RecordCacheOperation(operation string, success b
 		recorder.RecordCacheOperation(operation, success, durationSeconds)
 		return
 	}
-	
+
 	// Otherwise, log the operation
 	logTags := map[string]interface{}{
 		"operation": operation,
 		"success":   success,
 		"duration":  durationSeconds,
 	}
-	
+
 	// Log the operation
 	if success {
 		a.logger.Info("Cache operation completed: "+operation, logTags)
@@ -620,14 +632,14 @@ func (a *LoggingMetricsAdapter) RecordDatabaseOperation(operation string, succes
 		recorder.RecordDatabaseOperation(operation, success, durationSeconds)
 		return
 	}
-	
+
 	// Otherwise, log the operation
 	logTags := map[string]interface{}{
 		"operation": operation,
 		"success":   success,
 		"duration":  durationSeconds,
 	}
-	
+
 	// Log the operation
 	if success {
 		a.logger.Info("Database operation completed: "+operation, logTags)

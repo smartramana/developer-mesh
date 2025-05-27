@@ -17,23 +17,23 @@ import (
 
 // EmbeddingRepositoryImpl implements VectorAPIRepository
 type EmbeddingRepositoryImpl struct {
-	db        *sqlx.DB
-	vectorDB  *database.VectorDatabase
-	logger    observability.Logger
+	db       *sqlx.DB
+	vectorDB *database.VectorDatabase
+	logger   observability.Logger
 }
 
 // NewEmbeddingRepository creates a new EmbeddingRepository instance
 func NewEmbeddingRepository(db *sqlx.DB) VectorAPIRepository {
 	// Create a logger that implements the observability.Logger interface
 	logger := observability.NewStandardLogger("embedding_repository")
-	
+
 	// Initialize the vector database
 	vectorDB, err := database.NewVectorDatabase(db, nil, logger)
 	if err != nil {
-		logger.Error("Failed to create vector database", map[string]interface{}{"error": err})
+		logger.Error("Failed to create vector database", map[string]any{"error": err})
 		// We still create the repository, but operations using vectorDB will fail
 	}
-	
+
 	return &EmbeddingRepositoryImpl{
 		db:       db,
 		vectorDB: vectorDB,
@@ -67,7 +67,7 @@ func (r *EmbeddingRepositoryImpl) StoreEmbedding(ctx context.Context, embedding 
 	if err != nil {
 		return fmt.Errorf("failed to format vector: %w", err)
 	}
-	
+
 	// Now store the embedding in the database
 	query := `INSERT INTO mcp.embeddings 
 		(id, context_id, content_index, text, embedding, vector_dimensions, model_id, created_at)
@@ -139,9 +139,9 @@ func (r *EmbeddingRepositoryImpl) SearchEmbeddings(
 		FROM mcp.embeddings
 		WHERE context_id = $2
 	`
-	
+
 	// Add model filter if provided
-	args := []interface{}{vectorStr, contextID}
+	args := []any{vectorStr, contextID}
 	if modelID != "" {
 		query += " AND model_id = $3"
 		args = append(args, modelID)
@@ -168,11 +168,11 @@ func (r *EmbeddingRepositoryImpl) SearchEmbeddings(
 		// Process results
 		for rows.Next() {
 			var (
-				id, contextID string
+				id, contextID            string
 				contentIndex, dimensions int
-				text, embStr, modelID string
-				createdAt time.Time
-				similarity float64
+				text, embStr, modelID    string
+				createdAt                time.Time
+				similarity               float64
 			)
 
 			if err := rows.Scan(
@@ -198,11 +198,11 @@ func (r *EmbeddingRepositoryImpl) SearchEmbeddings(
 				CreatedAt:    createdAt,
 				// We'll need to convert the embedding string to float32 array
 				// For now, we'll just leave it empty since we often don't need the actual embedding values
-				Embedding:    []float32{},
+				Embedding: []float32{},
 			}
 
 			// Add metadata with the similarity score
-			embedding.Metadata = map[string]interface{}{
+			embedding.Metadata = map[string]any{
 				"similarity": similarity,
 			}
 
@@ -270,10 +270,10 @@ func (r *EmbeddingRepositoryImpl) GetContextEmbeddings(ctx context.Context, cont
 		// Process results
 		for rows.Next() {
 			var (
-				id, contextID string
+				id, contextID            string
 				contentIndex, dimensions int
-				text, embStr, modelID string
-				createdAt time.Time
+				text, embStr, modelID    string
+				createdAt                time.Time
 			)
 
 			if err := rows.Scan(
@@ -297,7 +297,7 @@ func (r *EmbeddingRepositoryImpl) GetContextEmbeddings(ctx context.Context, cont
 				ModelID:      modelID,
 				CreatedAt:    createdAt,
 				// We'll leave the embedding empty unless specifically needed
-				Embedding:    []float32{},
+				Embedding: []float32{},
 			}
 
 			embeddings = append(embeddings, embedding)
@@ -393,10 +393,10 @@ func (r *EmbeddingRepositoryImpl) GetEmbeddingsByModel(
 		// Process results
 		for rows.Next() {
 			var (
-				id, contextID string
+				id, contextID            string
 				contentIndex, dimensions int
-				text, embStr, modelID string
-				createdAt time.Time
+				text, embStr, modelID    string
+				createdAt                time.Time
 			)
 
 			if err := rows.Scan(
@@ -420,7 +420,7 @@ func (r *EmbeddingRepositoryImpl) GetEmbeddingsByModel(
 				ModelID:      modelID,
 				CreatedAt:    createdAt,
 				// We'll leave the embedding empty unless specifically needed
-				Embedding:    []float32{},
+				Embedding: []float32{},
 			}
 
 			embeddings = append(embeddings, embedding)
@@ -548,10 +548,10 @@ func (r *EmbeddingRepositoryImpl) GetEmbeddingByID(ctx context.Context, id strin
 	var embedding *Embedding
 	err := r.vectorDB.Transaction(ctx, func(tx *sqlx.Tx) error {
 		var (
-			id, contextID string
+			id, contextID            string
 			contentIndex, dimensions int
-			text, embStr, modelID string
-			createdAt time.Time
+			text, embStr, modelID    string
+			createdAt                time.Time
 		)
 
 		row := tx.QueryRowContext(ctx, query, id)
@@ -580,7 +580,7 @@ func (r *EmbeddingRepositoryImpl) GetEmbeddingByID(ctx context.Context, id strin
 			ModelID:      modelID,
 			CreatedAt:    createdAt,
 			// We'll leave the embedding empty unless specifically needed
-			Embedding:    []float32{},
+			Embedding: []float32{},
 		}
 
 		return nil
@@ -646,7 +646,7 @@ func (r *EmbeddingRepositoryImpl) BatchDeleteEmbeddings(ctx context.Context, ids
 
 	// Create parameterized query with placeholders for all IDs
 	placeholders := make([]string, len(ids))
-	args := make([]interface{}, len(ids))
+	args := make([]any, len(ids))
 	for i, id := range ids {
 		placeholders[i] = fmt.Sprintf("$%d", i+1)
 		args[i] = id
@@ -687,21 +687,21 @@ func (r *EmbeddingRepositoryImpl) Get(ctx context.Context, id string) (*vector.E
 func (r *EmbeddingRepositoryImpl) List(ctx context.Context, filter vector.Filter) ([]*vector.Embedding, error) {
 	// Extract filters from the map
 	var contextID, modelID string
-	
+
 	if filter != nil {
 		if contextIDVal, ok := filter["context_id"]; ok {
 			if contextIDStr, ok := contextIDVal.(string); ok {
 				contextID = contextIDStr
 			}
 		}
-		
+
 		if modelIDVal, ok := filter["model_id"]; ok {
 			if modelIDStr, ok := modelIDVal.(string); ok {
 				modelID = modelIDStr
 			}
 		}
 	}
-	
+
 	// Use specific retrieval methods based on filter contents
 	if contextID != "" {
 		if modelID != "" {
@@ -711,7 +711,7 @@ func (r *EmbeddingRepositoryImpl) List(ctx context.Context, filter vector.Filter
 		// If we only have context ID
 		return r.GetContextEmbeddings(ctx, contextID)
 	}
-	
+
 	// If no specific filters, return empty result for now
 	// A complete implementation would retrieve all embeddings
 	r.logger.Warn("List without context_id not implemented", nil)

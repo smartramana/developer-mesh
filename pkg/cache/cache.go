@@ -35,7 +35,7 @@ func (e Error) Error() string {
 // Note: RedisConfig is now fully defined in init.go to prevent redeclaration errors
 
 // stubCache is a simple stub implementation of the Cache interface
-type stubCache struct {}
+type stubCache struct{}
 
 func (s *stubCache) Get(ctx context.Context, key string, value interface{}) error {
 	return nil // Stub implementation

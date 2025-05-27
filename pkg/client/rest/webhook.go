@@ -10,12 +10,12 @@ import (
 
 // WebhookConfig contains the configuration for webhook handling
 type WebhookConfig struct {
-	Enabled      bool
-	Secret       string
-	Endpoint     string
+	Enabled       bool
+	Secret        string
+	Endpoint      string
 	AllowedEvents []string
-	ValidateIP   bool
-	IPWhitelist  []string
+	ValidateIP    bool
+	IPWhitelist   []string
 }
 
 // WebhookClient handles webhook processing through the REST API
@@ -81,8 +81,8 @@ func (c *WebhookClient) ValidateIP(ctx context.Context, provider string, ipAddre
 	}
 
 	var resp struct {
-		Valid  bool   `json:"valid"`
-		Error  string `json:"error,omitempty"`
+		Valid bool   `json:"valid"`
+		Error string `json:"error,omitempty"`
 	}
 
 	err := c.client.Post(ctx, endpoint, req, &resp)

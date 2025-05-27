@@ -15,23 +15,23 @@ func TestNewCache(t *testing.T) {
 
 	t.Run("Redis Cache", func(t *testing.T) {
 		redisConfig := RedisConfig{
-			Address:       addr,
-			Password:      "",
-			Database:      0,
-			DialTimeout:   5 * time.Second,
-			ReadTimeout:   3 * time.Second,
-			WriteTimeout:  3 * time.Second,
+			Address:      addr,
+			Password:     "",
+			Database:     0,
+			DialTimeout:  5 * time.Second,
+			ReadTimeout:  3 * time.Second,
+			WriteTimeout: 3 * time.Second,
 		}
-		
+
 		ctx := context.Background()
 		cache, err := NewCache(ctx, redisConfig)
 		require.NoError(t, err)
 		require.NotNil(t, cache)
-		
+
 		// Verify it's a Redis cache
 		_, ok := cache.(*RedisCache)
 		assert.True(t, ok, "Expected RedisCache implementation")
-		
+
 		// Clean up
 		err = cache.Close()
 		assert.NoError(t, err)
@@ -45,7 +45,7 @@ func TestNewCache(t *testing.T) {
 		unsupportedConfig := UnsupportedConfig{
 			Type: "unsupported",
 		}
-		
+
 		ctx := context.Background()
 		cache, err := NewCache(ctx, unsupportedConfig)
 		assert.Error(t, err)

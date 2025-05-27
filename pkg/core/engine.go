@@ -72,14 +72,14 @@ func (b *MockSystemEventBus) Unsubscribe(eventType system.EventType, handler fun
 
 // Engine is the core engine of the MCP server
 type Engine struct {
-	adapterManager      *adapters.Manager
-	contextManager      *contextManager.Manager
+	adapterManager       *adapters.Manager
+	contextManager       *contextManager.Manager
 	githubContentManager *GitHubContentManager
-	config              interface{} // Store as interface{} to handle various config types
-	metricsClient       observability.MetricsClient
-	logger              observability.Logger // Changed from pointer to interface type
-	eventBus            events.EventBusIface
-	lock                sync.RWMutex
+	config               interface{} // Store as interface{} to handle various config types
+	metricsClient        observability.MetricsClient
+	logger               observability.Logger // Changed from pointer to interface type
+	eventBus             events.EventBusIface
+	lock                 sync.RWMutex
 }
 
 // NewEngine creates a new engine
@@ -92,18 +92,18 @@ func NewEngine(
 ) (*Engine, error) {
 	// Create logger
 	logger := observability.NewLogger("engine")
-	
+
 	// Handle the case when we receive a pkg/database.Database instead of internal/database.Database
 	// This allows for gradual migration between the two implementations
 	if db == nil {
 		logger.Info("Database is nil, checking for pkg database in context", nil)
-		
+
 		// Check context for pkg/database.Database
 		pkgDbValue := ctx.Value("pkg_database")
 		if pkgDbValue != nil {
 			if pkgDatabase, ok := pkgDbValue.(*pkgDb.Database); ok && pkgDatabase != nil {
 				logger.Info("Found pkg/database.Database in context, creating adapter", nil)
-				
+
 				// Create a database instance using the pkg implementation via our adapter
 				db = database.NewDatabaseWithConnection(pkgDatabase.GetDB())
 				if db == nil {
@@ -132,10 +132,9 @@ func NewEngine(
 	// Create a simplified adapter manager
 	// For test compatibility, we'll create a basic structure without full initialization
 	adapterManager := &adapters.Manager{}
-	
+
 	// We'll implement the proper adapter manager initialization in a future task
 	// This is just a simplified version to allow tests to pass
-
 
 	// Use the correct event bus and metrics types
 	// system.NewSimpleEventBus returns *system.SimpleEventBus, which implements the required interface
@@ -153,16 +152,16 @@ func NewEngine(
 	// Create GitHub content manager - disabled for now during refactor
 	var githubContentManager *GitHubContentManager
 	logger.Info("GitHub content manager disabled during refactor", nil)
-	
+
 	// Create engine
 	engine := &Engine{
-		adapterManager:      adapterManager,
-		contextManager:      ctxManager,
+		adapterManager:       adapterManager,
+		contextManager:       ctxManager,
 		githubContentManager: githubContentManager,
-		config:              config,
-		metricsClient:       metricsClient,
-		logger:              logger,
-		eventBus:            eventBus,
+		config:               config,
+		metricsClient:        metricsClient,
+		logger:               logger,
+		eventBus:             eventBus,
 	}
 
 	return engine, nil
@@ -190,13 +189,15 @@ func (e *Engine) ExecuteAdapterAction(ctx context.Context, contextID string, ada
 	if err != nil {
 		return nil, fmt.Errorf("failed to get adapter: %w", err)
 	}
-	
+
 	// Check if the adapter implements action execution
 	// This is a simplified approach until we standardize the interfaces
-	if executor, ok := adapter.(interface{ ExecuteAction(context.Context, string, string, map[string]interface{}) (interface{}, error) }); ok {
+	if executor, ok := adapter.(interface {
+		ExecuteAction(context.Context, string, string, map[string]interface{}) (interface{}, error)
+	}); ok {
 		return executor.ExecuteAction(ctx, contextID, action, params)
 	}
-	
+
 	return nil, fmt.Errorf("adapter does not implement ActionExecutor interface")
 }
 
@@ -209,7 +210,9 @@ func (e *Engine) HandleAdapterWebhook(ctx context.Context, adapterType string, e
 	}
 
 	// Check if the adapter implements webhook handling
-	if webhookHandler, ok := adapter.(interface{ Handle(context.Context, interface{}) error }); ok {
+	if webhookHandler, ok := adapter.(interface {
+		Handle(context.Context, interface{}) error
+	}); ok {
 		return webhookHandler.Handle(ctx, map[string]interface{}{
 			"eventType": eventType,
 			"payload":   payload,

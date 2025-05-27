@@ -110,7 +110,7 @@ func TestNewEmbeddingRepository(t *testing.T) {
 func TestEmbeddingRepositoryAdapter(t *testing.T) {
 	ctx := context.Background()
 	mockRepo := new(mockVectorRepository)
-	
+
 	// Test embedding
 	embedding := &Embedding{
 		ID:        "test-id",
@@ -142,10 +142,10 @@ func TestEmbeddingRepositoryAdapter(t *testing.T) {
 		limit := 10
 		threshold := 0.8
 		expectedResults := []*Embedding{embedding}
-		
+
 		mockRepo.On("SearchEmbeddings", ctx, queryEmbedding, contextID, modelID, limit, threshold).
 			Return(expectedResults, nil).Once()
-			
+
 		results, err := adapter.SearchEmbeddings(ctx, queryEmbedding, contextID, modelID, limit, threshold)
 		assert.NoError(t, err)
 		assert.Equal(t, expectedResults, results)
@@ -166,7 +166,7 @@ func TestEmbeddingRepositoryAdapter(t *testing.T) {
 		assert.NoError(t, err)
 		mockRepo.AssertExpectations(t)
 	})
-	
+
 	t.Run("Get calls repository Get", func(t *testing.T) {
 		mockRepo.On("Get", ctx, "test-id").Return(embedding, nil).Once()
 		result, err := adapter.Get(ctx, "test-id")
@@ -186,9 +186,9 @@ func TestEmbeddingRepositoryAdapter(t *testing.T) {
 	t.Run("List with filter", func(t *testing.T) {
 		filter := vector.Filter{"model_id": "test-model"}
 		expectedResults := []*vector.Embedding{embedding}
-		
+
 		mockRepo.On("List", ctx, filter).Return(expectedResults, nil).Once()
-		
+
 		results, err := adapter.List(ctx, filter)
 		assert.NoError(t, err)
 		assert.Equal(t, expectedResults, results)
@@ -203,7 +203,7 @@ func TestEmbeddingRepositoryAdapter_Fallbacks(t *testing.T) {
 		db:         nil,
 		vectorRepo: nil,
 	}
-	
+
 	// Test embedding
 	embedding := &Embedding{
 		ID:        "test-id",

@@ -12,27 +12,27 @@ import (
 const (
 	// UseNewConfig controls whether to use the new config package
 	UseNewConfig = "USE_NEW_CONFIG"
-	
+
 	// UseNewAWS controls whether to use the new AWS implementation
 	UseNewAWS = "USE_NEW_AWS"
-	
+
 	// UseNewMetrics controls whether to use the new metrics implementation
 	UseNewMetrics = "USE_NEW_METRICS"
-	
+
 	// UseNewRelationship controls whether to use the new relationship implementation
 	UseNewRelationship = "USE_NEW_RELATIONSHIP"
-	
+
 	// UseNewObservability controls whether to use the new observability implementation
 	UseNewObservability = "USE_NEW_OBSERVABILITY"
 )
 
 var (
 	// flags stores the current state of all feature flags
-	flags   map[string]bool
-	
+	flags map[string]bool
+
 	// flagsMu protects concurrent access to the flags map
 	flagsMu sync.RWMutex
-	
+
 	// flagInitialized ensures init() is only called once
 	flagInitialized sync.Once
 )
@@ -41,7 +41,7 @@ var (
 func init() {
 	flagInitialized.Do(func() {
 		flags = make(map[string]bool)
-		
+
 		// Initialize from environment
 		for _, env := range os.Environ() {
 			if strings.HasPrefix(env, "FEATURE_") {
@@ -60,7 +60,7 @@ func init() {
 func IsEnabled(name string) bool {
 	flagsMu.RLock()
 	defer flagsMu.RUnlock()
-	
+
 	return flags[name]
 }
 
@@ -70,7 +70,7 @@ func IsEnabled(name string) bool {
 func SetEnabled(name string, enabled bool) {
 	flagsMu.Lock()
 	defer flagsMu.Unlock()
-	
+
 	flags[name] = enabled
 }
 
@@ -79,7 +79,7 @@ func SetEnabled(name string, enabled bool) {
 func RegisterFlag(name string, defaultValue bool) {
 	flagsMu.Lock()
 	defer flagsMu.Unlock()
-	
+
 	if _, exists := flags[name]; !exists {
 		flags[name] = defaultValue
 	}
@@ -90,12 +90,12 @@ func RegisterFlag(name string, defaultValue bool) {
 func GetAllFlags() map[string]bool {
 	flagsMu.RLock()
 	defer flagsMu.RUnlock()
-	
+
 	// Make a copy to avoid concurrent access issues
 	result := make(map[string]bool, len(flags))
 	for name, value := range flags {
 		result[name] = value
 	}
-	
+
 	return result
 }

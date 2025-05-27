@@ -16,19 +16,19 @@ import (
 var (
 	// Match import statements - both import x and from x import y
 	pythonImportRegex = regexp.MustCompile(`(?m)^(?:from\s+([\w.]+)\s+import\s+(?:[^#\n]+)|import\s+([\w.]+(?:\s*,\s*[\w.]+)*)(?:\s+as\s+\w+)?)`)
-	
+
 	// Match class declarations
 	pythonClassRegex = regexp.MustCompile(`(?m)^class\s+(\w+)(?:\(([^)]+)\))?:`)
-	
+
 	// Match function declarations
 	pythonFunctionRegex = regexp.MustCompile(`(?m)^def\s+(\w+)\s*\(([^)]*)\)(?:\s*->\s*[^:]+)?:`)
-	
+
 	// Match method declarations (indented functions)
 	pythonMethodRegex = regexp.MustCompile(`(?m)^(\s+)def\s+(\w+)\s*\(([^)]*)\)(?:\s*->\s*[^:]+)?:`)
-	
+
 	// Match docstrings (single and multi-line)
 	pythonDocstringRegex = regexp.MustCompile(`(?ms)('''.*?'''|""".*?""")`)
-	
+
 	// Match decorators
 	pythonDecoratorRegex = regexp.MustCompile(`(?m)^(@\w+(?:\([^)]*\))?)`)
 )
@@ -49,7 +49,7 @@ func (p *PythonParser) GetLanguage() chunking.Language {
 // Parse parses Python code and returns chunks
 func (p *PythonParser) Parse(ctx context.Context, code string, filename string) ([]*chunking.CodeChunk, error) {
 	chunks := []*chunking.CodeChunk{}
-	
+
 	// Create a chunk for the entire file
 	fileChunk := &chunking.CodeChunk{
 		Type:      chunking.ChunkTypeFile,
@@ -63,50 +63,50 @@ func (p *PythonParser) Parse(ctx context.Context, code string, filename string) 
 	}
 	fileChunk.ID = generatePythonChunkID(fileChunk)
 	chunks = append(chunks, fileChunk)
-	
+
 	// Extract imports
 	importChunks := p.extractImports(code, fileChunk.ID)
 	chunks = append(chunks, importChunks...)
-	
+
 	// Extract docstrings
 	docstringChunks := p.extractDocstrings(code, fileChunk.ID)
 	chunks = append(chunks, docstringChunks...)
-	
+
 	// Extract classes with their methods
 	classChunks, classMethodChunks := p.extractClasses(code, fileChunk.ID)
 	chunks = append(chunks, classChunks...)
 	chunks = append(chunks, classMethodChunks...)
-	
+
 	// Extract standalone functions (not methods within classes)
 	functionChunks := p.extractFunctions(code, fileChunk.ID)
 	chunks = append(chunks, functionChunks...)
-	
+
 	// Process dependencies
 	p.processDependencies(chunks)
-	
+
 	return chunks, nil
 }
 
 // extractImports extracts import statements from Python code
 func (p *PythonParser) extractImports(code string, parentID string) []*chunking.CodeChunk {
 	chunks := []*chunking.CodeChunk{}
-	
+
 	// Find all import statements
 	importMatches := pythonImportRegex.FindAllStringSubmatchIndex(code, -1)
-	
+
 	for i, match := range importMatches {
 		if len(match) < 2 {
 			continue
 		}
-		
+
 		// Get the import statement
 		importStatement := code[match[0]:match[1]]
-		
+
 		// Find the line numbers
 		startLine := countLinesUpTo(code, match[0]) + 1
 		endLine := countLinesUpTo(code, match[1]) + 1
-		
-		// Extract import name/path 
+
+		// Extract import name/path
 		var importPath string
 		if match[2] != -1 && match[3] != -1 {
 			// from X import Y
@@ -117,7 +117,7 @@ func (p *PythonParser) extractImports(code string, parentID string) []*chunking.
 		} else {
 			importPath = fmt.Sprintf("import_%d", i+1)
 		}
-		
+
 		// Create import chunk
 		importChunk := &chunking.CodeChunk{
 			Type:      chunking.ChunkTypeImport,
@@ -135,29 +135,29 @@ func (p *PythonParser) extractImports(code string, parentID string) []*chunking.
 		importChunk.ID = generatePythonChunkID(importChunk)
 		chunks = append(chunks, importChunk)
 	}
-	
+
 	return chunks
 }
 
 // extractDocstrings extracts docstring comments from Python code
 func (p *PythonParser) extractDocstrings(code string, parentID string) []*chunking.CodeChunk {
 	chunks := []*chunking.CodeChunk{}
-	
+
 	// Find all docstrings
 	docstringMatches := pythonDocstringRegex.FindAllStringIndex(code, -1)
-	
+
 	for i, match := range docstringMatches {
 		if len(match) < 2 {
 			continue
 		}
-		
+
 		// Get the docstring
 		docstringText := code[match[0]:match[1]]
-		
+
 		// Find the line numbers
 		startLine := countLinesUpTo(code, match[0]) + 1
 		endLine := countLinesUpTo(code, match[1]) + 1
-		
+
 		// Create docstring chunk
 		docstringChunk := &chunking.CodeChunk{
 			Type:      chunking.ChunkTypeComment,
@@ -172,7 +172,7 @@ func (p *PythonParser) extractDocstrings(code string, parentID string) []*chunki
 		docstringChunk.ID = generatePythonChunkID(docstringChunk)
 		chunks = append(chunks, docstringChunk)
 	}
-	
+
 	return chunks
 }
 
@@ -186,81 +186,81 @@ func (p *PythonParser) getIndentedBlock(code string, startIdx int, baseIndent st
 	if endOfLine >= len(code) {
 		return code[startIdx:], len(code)
 	}
-	
+
 	// Skip the newline
 	startIdx = endOfLine + 1
 	if startIdx >= len(code) {
 		return code[startIdx-1:], len(code)
 	}
-	
+
 	// Find the indentation of the next line
 	nextLineStart := startIdx
 	indentEnd := nextLineStart
 	for indentEnd < len(code) && (code[indentEnd] == ' ' || code[indentEnd] == '\t') {
 		indentEnd++
 	}
-	
+
 	indentation := code[nextLineStart:indentEnd]
 	if len(indentation) <= len(baseIndent) {
 		// Not an indented block or the block is empty
-		return code[startIdx-1:startIdx], startIdx
+		return code[startIdx-1 : startIdx], startIdx
 	}
-	
+
 	// Process the indented block
 	endOfBlock := startIdx
 	for endOfBlock < len(code) {
 		// Find the start of the line
 		lineStart := endOfBlock
-		
+
 		// If we're at the end of the file, break
 		if lineStart >= len(code) {
 			break
 		}
-		
+
 		// Skip empty lines
 		if lineStart < len(code) && (code[lineStart] == '\n' || code[lineStart] == '\r') {
 			endOfBlock = lineStart + 1
 			continue
 		}
-		
+
 		// Check the indentation of this line
 		lineIndentEnd := lineStart
 		for lineIndentEnd < len(code) && (code[lineIndentEnd] == ' ' || code[lineIndentEnd] == '\t') {
 			lineIndentEnd++
 		}
-		
+
 		// If this line is less indented than our block, we've reached the end
 		lineIndent := code[lineStart:lineIndentEnd]
 		if len(lineIndent) < len(indentation) {
 			break
 		}
-		
+
 		// Find the end of this line
 		endOfLine = lineIndentEnd
 		for endOfLine < len(code) && code[endOfLine] != '\n' {
 			endOfLine++
 		}
-		
+
 		// Move to the next line
 		endOfBlock = endOfLine + 1
 	}
-	
-	return code[startIdx-1:endOfBlock], endOfBlock
+
+	return code[startIdx-1 : endOfBlock], endOfBlock
 }
 
 // extractClasses extracts classes and their methods from Python code
 func (p *PythonParser) extractClasses(code string, parentID string) ([]*chunking.CodeChunk, []*chunking.CodeChunk) {
 	classChunks := []*chunking.CodeChunk{}
 	methodChunks := []*chunking.CodeChunk{}
-	
+
 	// Find all class declarations
 	classMatches := pythonClassRegex.FindAllStringSubmatchIndex(code, -1)
-	
+
 	for _, classMatch := range classMatches {
 		if len(classMatch) < 2 {
 			continue
 		}
-		
+
 		// Get the class name
 		var className string
 		if classMatch[2] != -1 && classMatch[3] != -1 {
@@ -268,13 +268,13 @@ func (p *PythonParser) extractClasses(code string, parentID string) ([]*chunking
 		} else {
 			continue
 		}
-		
+
 		// Get parent classes if any
 		var parentClasses string
 		if classMatch[4] != -1 && classMatch[5] != -1 {
 			parentClasses = code[classMatch[4]:classMatch[5]]
 		}
-		
+
 		// Get the indentation level before the class
 		startPos := classMatch[0]
 		baseIndent := ""
@@ -290,24 +290,24 @@ func (p *PythonParser) extractClasses(code string, parentID string) ([]*chunking
 			}
 			baseIndent = code[indentStart:startPos]
 		}
-		
+
 		// Get the class body (indented block)
 		classBlock, endPos := p.getIndentedBlock(code, classMatch[1], baseIndent)
 		classContent := code[startPos:endPos]
-		
+
 		// Get line numbers
 		startLine := countLinesUpTo(code, startPos) + 1
 		endLine := countLinesUpTo(code, endPos) + 1
-		
+
 		// Create class metadata
 		classMetadata := map[string]interface{}{
 			"type": "class",
 		}
-		
+
 		if parentClasses != "" {
 			classMetadata["parent_classes"] = parentClasses
 		}
-		
+
 		// Create class chunk
 		classChunk := &chunking.CodeChunk{
 			Type:      chunking.ChunkTypeClass,
@@ -322,48 +322,48 @@ func (p *PythonParser) extractClasses(code string, parentID string) ([]*chunking
 		}
 		classChunk.ID = generatePythonChunkID(classChunk)
 		classChunks = append(classChunks, classChunk)
-		
+
 		// Find all methods in this class
 		methodsInClass := p.extractMethodsFromClass(classBlock, className, classChunk.ID, startLine)
 		methodChunks = append(methodChunks, methodsInClass...)
 	}
-	
+
 	return classChunks, methodChunks
 }
 
 // extractMethodsFromClass extracts methods from a class
 func (p *PythonParser) extractMethodsFromClass(classBlock, className, parentID string, classStartLine int) []*chunking.CodeChunk {
 	chunks := []*chunking.CodeChunk{}
-	
+
 	// Find all method declarations
 	methodMatches := pythonMethodRegex.FindAllStringSubmatchIndex(classBlock, -1)
-	
+
 	for _, methodMatch := range methodMatches {
 		if len(methodMatch) < 6 {
 			continue
 		}
-		
+
 		// Get the method indentation
 		indent := classBlock[methodMatch[2]:methodMatch[3]]
-		
+
 		// Get the method name
 		methodName := classBlock[methodMatch[4]:methodMatch[5]]
-		
+
 		// Get parameters
 		parameters := ""
 		if methodMatch[6] != -1 && methodMatch[7] != -1 {
 			parameters = classBlock[methodMatch[6]:methodMatch[7]]
 		}
-		
+
 		// Get the method body (indented block)
 		startPos := methodMatch[0]
 		_, endPos := p.getIndentedBlock(classBlock, methodMatch[1], indent)
 		methodContent := classBlock[startPos:endPos]
-		
+
 		// Get line numbers relative to the file
 		startLine := countLinesUpTo(classBlock, startPos) + 1 + classStartLine - 1
 		endLine := countLinesUpTo(classBlock, endPos) + 1 + classStartLine - 1
-		
+
 		// Check for decorators before the method
 		decorators := []string{}
 		for i := startPos - 1; i >= 0; i-- {
@@ -373,13 +373,13 @@ func (p *PythonParser) extractMethodsFromClass(classBlock, className, parentID s
 				for decoratorStart < len(classBlock) && (classBlock[decoratorStart] == ' ' || classBlock[decoratorStart] == '\t') {
 					decoratorStart++
 				}
-				
+
 				if decoratorStart < len(classBlock) && classBlock[decoratorStart] == '@' {
 					decoratorEnd := decoratorStart
 					for decoratorEnd < len(classBlock) && classBlock[decoratorEnd] != '\n' {
 						decoratorEnd++
 					}
-					
+
 					decorator := classBlock[decoratorStart:decoratorEnd]
 					decorators = append(decorators, decorator)
 					startPos = decoratorStart
@@ -389,18 +389,18 @@ func (p *PythonParser) extractMethodsFromClass(classBlock, className, parentID s
 				}
 			}
 		}
-		
+
 		// Create method metadata
 		methodMetadata := map[string]interface{}{
 			"type":       "method",
 			"parameters": parameters,
 			"class":      className,
 		}
-		
+
 		if len(decorators) > 0 {
 			methodMetadata["decorators"] = decorators
 		}
-		
+
 		// Create method chunk
 		methodChunk := &chunking.CodeChunk{
 			Type:      chunking.ChunkTypeMethod,
@@ -416,22 +416,22 @@ func (p *PythonParser) extractMethodsFromClass(classBlock, className, parentID s
 		methodChunk.ID = generatePythonChunkID(methodChunk)
 		chunks = append(chunks, methodChunk)
 	}
-	
+
 	return chunks
 }
 
 // extractFunctions extracts standalone functions from Python code
 func (p *PythonParser) extractFunctions(code string, parentID string) []*chunking.CodeChunk {
 	chunks := []*chunking.CodeChunk{}
-	
+
 	// Find all function declarations (not indented, to avoid methods in classes)
 	functionMatches := pythonFunctionRegex.FindAllStringSubmatchIndex(code, -1)
-	
+
 	for _, funcMatch := range functionMatches {
 		if len(funcMatch) < 4 {
 			continue
 		}
-		
+
 		// Check if this is a top-level function (not indented)
 		startPos := funcMatch[0]
 		if startPos > 0 && code[startPos-1] != '\n' {
@@ -440,30 +440,30 @@ func (p *PythonParser) extractFunctions(code string, parentID string) []*chunkin
 			for lineStart > 0 && code[lineStart-1] != '\n' {
 				lineStart--
 			}
-			
+
 			if lineStart != startPos {
 				// This is an indented function (likely a method), skip it
 				continue
 			}
 		}
-		
+
 		// Get the function name
 		functionName := code[funcMatch[2]:funcMatch[3]]
-		
+
 		// Get parameters
 		parameters := ""
 		if funcMatch[4] != -1 && funcMatch[5] != -1 {
 			parameters = code[funcMatch[4]:funcMatch[5]]
 		}
-		
+
 		// Get the function body (indented block)
 		_, endPos := p.getIndentedBlock(code, funcMatch[1], "")
 		functionContent := code[startPos:endPos]
-		
+
 		// Get line numbers
 		startLine := countLinesUpTo(code, startPos) + 1
 		endLine := countLinesUpTo(code, endPos) + 1
-		
+
 		// Check for decorators before the function
 		decorators := []string{}
 		for i := startPos - 1; i >= 0; i-- {
@@ -475,7 +475,7 @@ func (p *PythonParser) extractFunctions(code string, parentID string) []*chunkin
 					for decoratorEnd < len(code) && code[decoratorEnd] != '\n' {
 						decoratorEnd++
 					}
-					
+
 					decorator := code[decoratorStart:decoratorEnd]
 					decorators = append(decorators, decorator)
 					startPos = decoratorStart
@@ -485,17 +485,17 @@ func (p *PythonParser) extractFunctions(code string, parentID string) []*chunkin
 				}
 			}
 		}
-		
+
 		// Create function metadata
 		functionMetadata := map[string]interface{}{
 			"type":       "function",
 			"parameters": parameters,
 		}
-		
+
 		if len(decorators) > 0 {
 			functionMetadata["decorators"] = decorators
 		}
-		
+
 		// Create function chunk
 		functionChunk := &chunking.CodeChunk{
 			Type:      chunking.ChunkTypeFunction,
@@ -511,7 +511,7 @@ func (p *PythonParser) extractFunctions(code string, parentID string) []*chunkin
 		functionChunk.ID = generatePythonChunkID(functionChunk)
 		chunks = append(chunks, functionChunk)
 	}
-	
+
 	return chunks
 }
 
@@ -522,33 +522,33 @@ func (p *PythonParser) processDependencies(chunks []*chunking.CodeChunk) {
 	for _, chunk := range chunks {
 		chunkMap[chunk.ID] = chunk
 	}
-	
+
 	// Map chunks by name for dependency tracking
 	chunksByName := make(map[string]*chunking.CodeChunk)
 	for _, chunk := range chunks {
-		if chunk.Type == chunking.ChunkTypeClass || 
-		   chunk.Type == chunking.ChunkTypeFunction ||
-		   chunk.Type == chunking.ChunkTypeMethod {
+		if chunk.Type == chunking.ChunkTypeClass ||
+			chunk.Type == chunking.ChunkTypeFunction ||
+			chunk.Type == chunking.ChunkTypeMethod {
 			chunksByName[chunk.Name] = chunk
 		}
 	}
-	
+
 	// Analyze dependencies
 	for _, chunk := range chunks {
 		// Skip non-code chunks
-		if chunk.Type != chunking.ChunkTypeClass && 
-		   chunk.Type != chunking.ChunkTypeFunction &&
-		   chunk.Type != chunking.ChunkTypeMethod {
+		if chunk.Type != chunking.ChunkTypeClass &&
+			chunk.Type != chunking.ChunkTypeFunction &&
+			chunk.Type != chunking.ChunkTypeMethod {
 			continue
 		}
-		
+
 		// Analyze content for references to other chunks
 		for name, dependentChunk := range chunksByName {
 			// Skip self-reference
 			if name == chunk.Name {
 				continue
 			}
-			
+
 			// Check if the chunk content contains references to other chunks
 			// Use word boundary regex to avoid partial matches
 			regex := regexp.MustCompile(`\b` + regexp.QuoteMeta(name) + `\b`)
@@ -560,7 +560,7 @@ func (p *PythonParser) processDependencies(chunks []*chunking.CodeChunk) {
 				chunk.Dependencies = append(chunk.Dependencies, dependentChunk.ID)
 			}
 		}
-		
+
 		// Add parent dependency if it exists
 		if chunk.ParentID != "" && chunk.ParentID != chunk.ID {
 			if chunk.Dependencies == nil {
@@ -568,7 +568,7 @@ func (p *PythonParser) processDependencies(chunks []*chunking.CodeChunk) {
 			}
 			chunk.Dependencies = append(chunk.Dependencies, chunk.ParentID)
 		}
-		
+
 		// For methods, add the parent class as a dependency
 		if chunk.Type == chunking.ChunkTypeMethod {
 			if className, ok := chunk.Metadata["class"].(string); ok {
@@ -590,7 +590,7 @@ func (p *PythonParser) processDependencies(chunks []*chunking.CodeChunk) {
 func generatePythonChunkID(chunk *chunking.CodeChunk) string {
 	// Combine type, name, path, and line numbers for a unique identifier
 	idString := string(chunk.Type) + ":" + chunk.Path + ":" + strconv.Itoa(chunk.StartLine) + "-" + strconv.Itoa(chunk.EndLine)
-	
+
 	// Generate SHA-256 hash
 	hash := sha256.Sum256([]byte(idString))
 	return hex.EncodeToString(hash[:])

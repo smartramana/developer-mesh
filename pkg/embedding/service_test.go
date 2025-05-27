@@ -43,10 +43,10 @@ func (m *ServiceMockEmbeddingService) GetModelDimensions() int {
 func TestEmbeddingVectorFormat(t *testing.T) {
 	// Create test embedding
 	embedding := &EmbeddingVector{
-		ContentID: "content-1",
-		Vector:    []float32{0.1, 0.2, 0.3, 0.4, 0.5},
-		Dimensions: 5,
-		ModelID: "test-model",
+		ContentID:   "content-1",
+		Vector:      []float32{0.1, 0.2, 0.3, 0.4, 0.5},
+		Dimensions:  5,
+		ModelID:     "test-model",
 		ContentType: "test-type",
 		Metadata: map[string]interface{}{
 			"key1": "value1",
@@ -62,17 +62,17 @@ func TestEmbeddingVectorFormat(t *testing.T) {
 func TestEmbeddingVectorWithValues(t *testing.T) {
 	// Create test embedding with vector values
 	embedding := &EmbeddingVector{
-		ContentID: "content-1",
-		Vector:    []float32{1.0, 2.0, 2.0, 1.0},
-		Dimensions: 4,
-		ModelID: "test-model",
+		ContentID:   "content-1",
+		Vector:      []float32{1.0, 2.0, 2.0, 1.0},
+		Dimensions:  4,
+		ModelID:     "test-model",
 		ContentType: "test-type",
 	}
 
 	// Test vector handling
 	assert.Equal(t, 4, len(embedding.Vector), "Vector length should match Dimensions field")
 	assert.Equal(t, 4, embedding.Dimensions, "Dimensions field should match vector length")
-	
+
 	// Calculate vector magnitude
 	sumSquares := float32(0)
 	for _, v := range embedding.Vector {
@@ -134,7 +134,7 @@ func TestGetEmbeddingModelDimensions(t *testing.T) {
 			// Create a service with the test model
 			var service *OpenAIEmbeddingService
 			var err error
-			
+
 			// For valid OpenAI models, we can use the constructor
 			if tt.modelType == ModelTypeOpenAI && !tt.expectError {
 				service, err = NewOpenAIEmbeddingService("test-key", tt.model, 0) // Let it use default dimensions
@@ -149,7 +149,7 @@ func TestGetEmbeddingModelDimensions(t *testing.T) {
 				// Error expected for invalid models
 				err = errors.New("invalid model")
 			}
-			
+
 			// Get dimensions
 			dim := service.GetModelDimensions()
 			if tt.expectError {

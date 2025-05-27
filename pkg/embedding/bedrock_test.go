@@ -100,7 +100,7 @@ func TestBedrockEmbeddingService_BatchGenerateEmbeddings(t *testing.T) {
 	embeddings, err := service.BatchGenerateEmbeddings(context.Background(), texts, "text", contentIDs)
 	assert.NoError(t, err)
 	assert.Len(t, embeddings, 3)
-	
+
 	for i, embedding := range embeddings {
 		assert.Equal(t, contentIDs[i], embedding.ContentID)
 		assert.Equal(t, "text", embedding.ContentType)
@@ -135,17 +135,17 @@ func TestBedrockEmbeddingService_BatchProcessing(t *testing.T) {
 	batchSize := maxBedrockBatchSize + 5
 	texts := make([]string, batchSize)
 	contentIDs := make([]string, batchSize)
-	
+
 	for i := 0; i < batchSize; i++ {
 		texts[i] = fmt.Sprintf("Text %d", i)
 		contentIDs[i] = fmt.Sprintf("id-%d", i)
 	}
-	
+
 	// Process the large batch
 	embeddings, err := service.BatchGenerateEmbeddings(context.Background(), texts, "text", contentIDs)
 	assert.NoError(t, err)
 	assert.Len(t, embeddings, batchSize)
-	
+
 	// Verify all embeddings were created
 	for i, embedding := range embeddings {
 		assert.Equal(t, contentIDs[i], embedding.ContentID)
@@ -157,13 +157,13 @@ func TestNewLatestAnthropicModels(t *testing.T) {
 	service, err := NewMockBedrockEmbeddingService("anthropic.claude-3-5-haiku-20250531-v1:0")
 	assert.NoError(t, err)
 	assert.NotNil(t, service)
-	
+
 	// Check that model config is set properly
 	config := service.GetModelConfig()
 	assert.Equal(t, ModelTypeBedrock, config.Type)
 	assert.Equal(t, "anthropic.claude-3-5-haiku-20250531-v1:0", config.Name)
 	assert.Equal(t, 4096, service.GetModelDimensions())
-	
+
 	// Test embedding generation
 	embedding, err := service.GenerateEmbedding(context.Background(), "Test content for Claude 3.5", "text", "claude-3-5-test")
 	assert.NoError(t, err)
@@ -173,18 +173,18 @@ func TestNewLatestAnthropicModels(t *testing.T) {
 	assert.Equal(t, "anthropic.claude-3-5-haiku-20250531-v1:0", embedding.ModelID)
 	assert.Equal(t, 4096, embedding.Dimensions)
 	assert.Len(t, embedding.Vector, 4096)
-	
+
 	// Test Claude 3.7 Sonnet
 	service, err = NewMockBedrockEmbeddingService("anthropic.claude-3-7-sonnet-20250531-v1:0")
 	assert.NoError(t, err)
 	assert.NotNil(t, service)
-	
+
 	// Check that model config is set properly
 	config = service.GetModelConfig()
 	assert.Equal(t, ModelTypeBedrock, config.Type)
 	assert.Equal(t, "anthropic.claude-3-7-sonnet-20250531-v1:0", config.Name)
 	assert.Equal(t, 8192, service.GetModelDimensions())
-	
+
 	// Test embedding generation
 	embedding, err = service.GenerateEmbedding(context.Background(), "Test content for Claude 3.7", "text", "claude-3-7-test")
 	assert.NoError(t, err)
@@ -201,16 +201,16 @@ func TestNewMockBedrockEmbeddingService(t *testing.T) {
 	service, err := NewMockBedrockEmbeddingService("amazon.titan-embed-text-v1")
 	assert.NoError(t, err)
 	assert.NotNil(t, service)
-	
+
 	// Check that it's configured as a mock
 	assert.True(t, service.useMockEmbeddings)
-	
+
 	// Check that model config is set properly
 	config := service.GetModelConfig()
 	assert.Equal(t, ModelTypeBedrock, config.Type)
 	assert.Equal(t, "amazon.titan-embed-text-v1", config.Name)
 	assert.Equal(t, 1536, service.GetModelDimensions())
-	
+
 	// Test generating embeddings with the mock service
 	embedding, err := service.GenerateEmbedding(context.Background(), "Test content", "text", "test-id")
 	assert.NoError(t, err)
@@ -220,13 +220,13 @@ func TestNewMockBedrockEmbeddingService(t *testing.T) {
 	assert.Equal(t, "amazon.titan-embed-text-v1", embedding.ModelID)
 	assert.Equal(t, 1536, embedding.Dimensions)
 	assert.Len(t, embedding.Vector, 1536)
-	
+
 	// Test with invalid model ID
 	service, err = NewMockBedrockEmbeddingService("invalid-model")
 	assert.Error(t, err)
 	assert.Nil(t, service)
 	assert.Contains(t, err.Error(), "unsupported AWS Bedrock model")
-	
+
 	// Test with default model ID (empty string)
 	service, err = NewMockBedrockEmbeddingService("")
 	assert.NoError(t, err)

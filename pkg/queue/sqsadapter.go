@@ -28,7 +28,7 @@ type SQSReceiverDeleter interface {
 // SQSAdapter interface represents the high-level operations needed by the worker
 type SQSAdapter interface {
 	// EnqueueEvent sends a message to SQS - matches the SQSClient interface
-	EnqueueEvent(ctx context.Context, event SQSEvent) error 
+	EnqueueEvent(ctx context.Context, event SQSEvent) error
 	// ReceiveEvents receives messages from SQS - matches the SQSClient interface
 	ReceiveEvents(ctx context.Context, maxMessages int32, waitSeconds int32) ([]SQSEvent, []string, error)
 	// DeleteMessage deletes a message from SQS - matches the SQSClient interface
@@ -86,7 +86,7 @@ func getEnvWithDefault(key, defaultValue string) string {
 
 // NewSQSClientAdapter creates a new SQS client adapter using configuration
 func NewSQSClientAdapter(ctx context.Context, config *SQSAdapterConfig) (*SQSClientAdapter, error) {
-	log.Printf("Initializing SQS client adapter with config: use_localstack=%v, mock_mode=%v", 
+	log.Printf("Initializing SQS client adapter with config: use_localstack=%v, mock_mode=%v",
 		config.UseLocalStack, config.MockMode)
 
 	if config.MockMode {
@@ -106,7 +106,7 @@ func NewSQSClientAdapter(ctx context.Context, config *SQSAdapterConfig) (*SQSCli
 		return nil, err
 	}
 
-	// Determine the queue URL 
+	// Determine the queue URL
 	queueURL := config.QueueURL
 	if queueURL == "" && config.UseLocalStack {
 		// Try to construct a LocalStack queue URL if not provided
@@ -123,7 +123,7 @@ func NewSQSClientAdapter(ctx context.Context, config *SQSAdapterConfig) (*SQSCli
 // createLocalStackSQSClient creates an SQS client configured for LocalStack
 func createLocalStackSQSClient(ctx context.Context, config *SQSAdapterConfig) (*sqs.Client, error) {
 	log.Printf("Creating LocalStack SQS client with endpoint: %s", config.Endpoint)
-	
+
 	// Custom HTTP client to allow insecure connections for LocalStack
 	customTransport := http.DefaultTransport.(*http.Transport).Clone()
 	customTransport.TLSClientConfig = &tls.Config{InsecureSkipVerify: true}
@@ -162,13 +162,13 @@ func createLocalStackSQSClient(ctx context.Context, config *SQSAdapterConfig) (*
 // createProductionSQSClient creates an SQS client for production AWS
 func createProductionSQSClient(ctx context.Context, config *SQSAdapterConfig) (*sqs.Client, error) {
 	log.Printf("Creating production SQS client for region: %s", config.Region)
-	
+
 	cfg, err := awsconfig.LoadDefaultConfig(ctx, awsconfig.WithRegion(config.Region))
 	if err != nil {
 		log.Printf("Failed to create production AWS config: %v", err)
 		return nil, err
 	}
-	
+
 	return sqs.NewFromConfig(cfg), nil
 }
 
@@ -231,7 +231,7 @@ func NewMockSQSClient() *SQSClientAdapter {
 	mockClient := &MockSQSClient{
 		messages: []*types.Message{},
 	}
-	
+
 	return &SQSClientAdapter{
 		client:   mockClient,
 		queueURL: "mock-queue-url",
@@ -247,17 +247,17 @@ type MockSQSClient struct {
 // SendMessage mock implementation
 func (m *MockSQSClient) SendMessage(ctx context.Context, input *sqs.SendMessageInput, optFns ...func(*sqs.Options)) (*sqs.SendMessageOutput, error) {
 	log.Printf("[MOCK] Sending message to SQS: %s", *input.MessageBody)
-	
+
 	// Generate a random message ID
 	messageId := fmt.Sprintf("mock-msg-%d", time.Now().UnixNano())
-	
+
 	// Store the message for later retrieval
 	m.messages = append(m.messages, &types.Message{
 		Body:          input.MessageBody,
 		MessageId:     aws.String(messageId),
 		ReceiptHandle: aws.String("receipt-" + messageId),
 	})
-	
+
 	return &sqs.SendMessageOutput{
 		MessageId: aws.String(messageId),
 	}, nil
@@ -266,7 +266,7 @@ func (m *MockSQSClient) SendMessage(ctx context.Context, input *sqs.SendMessageI
 // ReceiveMessage mock implementation
 func (m *MockSQSClient) ReceiveMessage(ctx context.Context, input *sqs.ReceiveMessageInput, optFns ...func(*sqs.Options)) (*sqs.ReceiveMessageOutput, error) {
 	log.Printf("[MOCK] Receiving messages from SQS (max: %d)", input.MaxNumberOfMessages)
-	
+
 	// Simulate waiting for messages
 	if len(m.messages) == 0 && input.WaitTimeSeconds > 0 {
 		select {
@@ -276,23 +276,23 @@ func (m *MockSQSClient) ReceiveMessage(ctx context.Context, input *sqs.ReceiveMe
 			// Continue after waiting
 		}
 	}
-	
+
 	// Return available messages up to MaxNumberOfMessages
 	var messagesToReturn []types.Message
 	maxMessages := int(input.MaxNumberOfMessages)
 	if maxMessages > len(m.messages) {
 		maxMessages = len(m.messages)
 	}
-	
+
 	for i := 0; i < maxMessages; i++ {
 		messagesToReturn = append(messagesToReturn, *m.messages[i])
 	}
-	
+
 	// Remove returned messages
 	if maxMessages > 0 {
 		m.messages = m.messages[maxMessages:]
 	}
-	
+
 	return &sqs.ReceiveMessageOutput{
 		Messages: messagesToReturn,
 	}, nil
@@ -321,7 +321,7 @@ func (a *SQSClientAdapter) EnqueueEvent(ctx context.Context, event SQSEvent) err
 		QueueUrl:    aws.String(a.queueURL),
 		MessageBody: aws.String(string(body)),
 	})
-	
+
 	if err != nil {
 		log.Printf("Adapter: Failed to send message to SQS: %v", err)
 		return err
@@ -334,23 +334,23 @@ func (a *SQSClientAdapter) EnqueueEvent(ctx context.Context, event SQSEvent) err
 // ReceiveEvents receives, parses and returns webhook events from SQS
 func (a *SQSClientAdapter) ReceiveEvents(ctx context.Context, maxMessages int32, waitSeconds int32) ([]SQSEvent, []string, error) {
 	log.Printf("Adapter: Receiving messages (max: %d, wait: %ds)", maxMessages, waitSeconds)
-	
+
 	resp, err := a.client.ReceiveMessage(ctx, &sqs.ReceiveMessageInput{
 		QueueUrl:            aws.String(a.queueURL),
 		MaxNumberOfMessages: maxMessages,
 		WaitTimeSeconds:     waitSeconds,
 	})
-	
+
 	if err != nil {
 		log.Printf("Adapter: Failed to receive messages: %v", err)
 		return nil, nil, err
 	}
-	
+
 	log.Printf("Adapter: Received %d messages", len(resp.Messages))
-	
+
 	var events []SQSEvent
 	var receiptHandles []string
-	
+
 	for _, msg := range resp.Messages {
 		var event SQSEvent
 		if err := json.Unmarshal([]byte(*msg.Body), &event); err == nil {
@@ -361,7 +361,7 @@ func (a *SQSClientAdapter) ReceiveEvents(ctx context.Context, maxMessages int32,
 			log.Printf("Adapter: Failed to unmarshal message: %v", err)
 		}
 	}
-	
+
 	return events, receiptHandles, nil
 }
 
@@ -372,17 +372,17 @@ func (a *SQSClientAdapter) DeleteMessage(ctx context.Context, receiptHandle stri
 	} else {
 		log.Printf("Adapter: Deleting message with receipt handle: %s", receiptHandle)
 	}
-	
+
 	_, err := a.client.DeleteMessage(ctx, &sqs.DeleteMessageInput{
 		QueueUrl:      aws.String(a.queueURL),
 		ReceiptHandle: aws.String(receiptHandle),
 	})
-	
+
 	if err != nil {
 		log.Printf("Adapter: Failed to delete message: %v", err)
 		return err
 	}
-	
+
 	log.Printf("Adapter: Successfully deleted message")
 	return nil
 }

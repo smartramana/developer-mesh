@@ -15,8 +15,9 @@ import (
 )
 
 // S3ClientInterface abstracts S3 operations for real and mock clients
-//go:generate mockery --name=S3ClientInterface
 // S3Client is a client for AWS S3
+//
+//go:generate mockery --name=S3ClientInterface
 type S3ClientInterface interface {
 	UploadFile(ctx context.Context, key string, data []byte, contentType string) error
 	DownloadFile(ctx context.Context, key string) ([]byte, error)
@@ -75,20 +76,20 @@ type S3Config struct {
 func NewS3Client(ctx context.Context, cfg S3Config) (*S3Client, error) {
 	// Create config options
 	var options []func(*config.LoadOptions) error
-	
+
 	// Use region from AWS config if specified, otherwise use the S3 config region
 	region := cfg.Region
 	if cfg.AWSConfig.Region != "" {
 		region = cfg.AWSConfig.Region
 	}
 	options = append(options, config.WithRegion(region))
-	
+
 	// Add custom endpoint if specified (for LocalStack or other S3 compatible services)
 	endpoint := cfg.Endpoint
 	if cfg.AWSConfig.Endpoint != "" {
 		endpoint = cfg.AWSConfig.Endpoint
 	}
-	
+
 	if endpoint != "" {
 		customResolver := aws.EndpointResolverWithOptionsFunc(func(service, region string, options ...interface{}) (aws.Endpoint, error) {
 			return aws.Endpoint{
@@ -99,30 +100,30 @@ func NewS3Client(ctx context.Context, cfg S3Config) (*S3Client, error) {
 		})
 		options = append(options, config.WithEndpointResolverWithOptions(customResolver))
 	}
-	
-	// Load AWS configuration - IRSA will be automatically detected if AWS_WEB_IDENTITY_TOKEN_FILE 
+
+	// Load AWS configuration - IRSA will be automatically detected if AWS_WEB_IDENTITY_TOKEN_FILE
 	// and AWS_ROLE_ARN environment variables are set by the EKS Pod Identity Agent
 	awsCfg, err := config.LoadDefaultConfig(ctx, options...)
 	if err != nil {
 		return nil, fmt.Errorf("failed to load AWS config: %w", err)
 	}
-	
+
 	// Log IRSA detection if enabled
 	if cfg.AWSConfig.UseIAMAuth {
 		// Check if IRSA environment variables are set
 		_, hasWebIdentityTokenFile := os.LookupEnv("AWS_WEB_IDENTITY_TOKEN_FILE")
 		_, hasRoleArn := os.LookupEnv("AWS_ROLE_ARN")
-		
+
 		if hasWebIdentityTokenFile && hasRoleArn {
 			fmt.Println("Using IRSA (IAM Roles for Service Accounts) authentication for S3")
 		} else {
 			fmt.Println("Warning: IAM authentication is enabled but IRSA environment variables are not set")
 		}
 	}
-	
+
 	// Create S3 client options
 	s3Options := []func(*s3.Options){}
-	
+
 	// Force path style if required (for LocalStack)
 	if cfg.ForcePathStyle {
 		s3Options = append(s3Options, func(o *s3.Options) {
@@ -145,8 +146,8 @@ func NewS3Client(ctx context.Context, cfg S3Config) (*S3Client, error) {
 	})
 
 	return &S3Client{
-		client:     client, // *s3.Client implements S3API
-		uploader:   uploader, // manager.Uploader implements Uploader
+		client:     client,     // *s3.Client implements S3API
+		uploader:   uploader,   // manager.Uploader implements Uploader
 		downloader: downloader, // manager.Downloader implements Downloader
 		config:     cfg,
 	}, nil
@@ -157,7 +158,7 @@ func (c *S3Client) UploadFile(ctx context.Context, key string, data []byte, cont
 	if key == "" {
 		return fmt.Errorf("key cannot be empty")
 	}
-	
+
 	if len(data) == 0 {
 		return fmt.Errorf("data cannot be empty")
 	}

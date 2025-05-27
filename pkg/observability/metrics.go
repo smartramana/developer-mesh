@@ -70,12 +70,12 @@ func (m *metricsClient) RecordEvent(source, eventType string) {
 	if !m.enabled {
 		return
 	}
-	
+
 	labels := map[string]string{
 		"source":     source,
 		"event_type": eventType,
 	}
-	
+
 	m.RecordCounter("events_total", 1.0, labels)
 }
 
@@ -84,11 +84,11 @@ func (m *metricsClient) RecordLatency(operation string, duration time.Duration) 
 	if !m.enabled {
 		return
 	}
-	
+
 	labels := map[string]string{
 		"operation": operation,
 	}
-	
+
 	m.RecordTimer(operation+"_latency", duration, labels)
 }
 
@@ -187,7 +187,7 @@ func (m *metricsClient) RecordOperation(component string, operation string, succ
 		"operation": operation,
 		"success":   stringFromBool(success),
 	}
-	
+
 	for k, v := range labels {
 		mergedLabels[k] = v
 	}

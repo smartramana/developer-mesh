@@ -69,7 +69,7 @@ func (b *AdapterContextBridge) ExecuteToolAction(ctx context.Context, contextID 
 		return nil, fmt.Errorf("adapter %s does not support ExecuteAction", tool)
 	}
 	result, err := actionAdapter.ExecuteAction(ctx, contextID, action, params)
-	
+
 	// Record the tool response in the context
 	responseContent := "Error executing tool action"
 	if err == nil {
@@ -148,7 +148,7 @@ func (b *AdapterContextBridge) GetToolData(ctx context.Context, contextID string
 	if queryBytes, err := json.Marshal(query); err == nil {
 		_ = json.Unmarshal(queryBytes, &queryMap)
 	}
-	
+
 	// Use ExecuteAction with a "getData" action as a workaround
 	// Type assert to ActionAdapter interface
 	actionAdapter, ok := adapter.(interface {
@@ -158,7 +158,7 @@ func (b *AdapterContextBridge) GetToolData(ctx context.Context, contextID string
 		return nil, fmt.Errorf("adapter %s does not support ExecuteAction", tool)
 	}
 	result, err := actionAdapter.ExecuteAction(ctx, contextID, "getData", queryMap)
-	
+
 	// Record the data response in the context
 	responseContent := "Error getting tool data"
 	if err == nil {

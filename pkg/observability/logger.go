@@ -90,7 +90,7 @@ func (l *StandardLogger) formatFields(fields map[string]interface{}) string {
 	if len(fields) == 0 {
 		return ""
 	}
-	
+
 	// Format the fields as key=value pairs
 	result := ""
 	for k, v := range fields {
@@ -109,7 +109,7 @@ func (l *StandardLogger) levelEnabled(level LogLevel) bool {
 		LogLevelError: 3,
 		LogLevelFatal: 4,
 	}
-	
+
 	// Check if the current level is equal to or greater than the minimum level
 	return levelHierarchy[level] >= levelHierarchy[l.level]
 }
@@ -118,16 +118,16 @@ func (l *StandardLogger) levelEnabled(level LogLevel) bool {
 func (l *StandardLogger) log(level LogLevel, msg string, fields map[string]interface{}) {
 	// Get current timestamp
 	timestamp := time.Now().Format("2006-01-02T15:04:05.000Z07:00")
-	
+
 	// Create log prefix with timestamp, level, and logger prefix
 	logPrefix := fmt.Sprintf("%s [%s] [%s]", timestamp, level, l.prefix)
-	
+
 	// Format the fields
 	fieldsStr := l.formatFields(fields)
-	
+
 	// Log the message
 	log.Printf("%s %s%s", logPrefix, msg, fieldsStr)
-	
+
 	// Exit if fatal
 	if level == LogLevelFatal {
 		os.Exit(1)
@@ -231,7 +231,7 @@ func NewLoggerFromCommon(commonLogger *commonLogging.Logger) Logger {
 	if commonLogger == nil {
 		return NewNoopLogger()
 	}
-	
+
 	// Create a standard logger with the same prefix
 	// This is a simplification - in a real implementation we might want to delegate
 	return NewStandardLogger("common-adapter")

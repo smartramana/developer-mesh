@@ -60,17 +60,17 @@ func (m *MockRepository) GetAgentByID(ctx context.Context, id string, tenantID s
 	if err != nil {
 		return nil, err
 	}
-	
+
 	// Agent not found
 	if agent == nil {
 		return nil, nil
 	}
-	
+
 	// Mock agent already has tenant ID set in the Get method, so we don't need to check it
 	// The real implementation would verify the tenant ID, but for testing we'll make it work
 	// by updating the tenant ID to match the requested one
 	agent.TenantID = tenantID
-	
+
 	return agent, nil
 }
 

@@ -8,7 +8,7 @@ import (
 
 // Filter defines a filter map for repository operations
 // This avoids importing pkg/repository to prevent import cycles
-type Filter map[string]interface{}
+type Filter map[string]any
 
 // FilterFromContextID creates a filter for context ID
 func FilterFromContextID(contextID string) Filter {
@@ -25,14 +25,14 @@ func FilterFromModelAndContext(contextID, modelID string) Filter {
 
 // Embedding represents a vector embedding with its metadata
 type Embedding struct {
-	ID           string                 `json:"id" db:"id"`
-	ContextID    string                 `json:"context_id" db:"context_id"`
-	ContentIndex int                    `json:"content_index" db:"content_index"`
-	Text         string                 `json:"text" db:"text"`
-	Embedding    []float32              `json:"embedding" db:"embedding"`
-	ModelID      string                 `json:"model_id" db:"model_id"`
-	CreatedAt    time.Time              `json:"created_at" db:"created_at"`
-	Metadata     map[string]interface{} `json:"metadata" db:"metadata"`
+	ID           string         `json:"id" db:"id"`
+	ContextID    string         `json:"context_id" db:"context_id"`
+	ContentIndex int            `json:"content_index" db:"content_index"`
+	Text         string         `json:"text" db:"text"`
+	Embedding    []float32      `json:"embedding" db:"embedding"`
+	ModelID      string         `json:"model_id" db:"model_id"`
+	CreatedAt    time.Time      `json:"created_at" db:"created_at"`
+	Metadata     map[string]any `json:"metadata" db:"metadata"`
 }
 
 // Repository defines the interface for vector embedding operations

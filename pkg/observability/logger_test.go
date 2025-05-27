@@ -14,14 +14,14 @@ func captureOutput(f func()) string {
 	var buf bytes.Buffer
 	oldLogger := log.Default()
 	log.SetOutput(&buf)
-	
+
 	// Run the function
 	f()
-	
+
 	// Restore the logger
 	log.SetOutput(os.Stderr)
 	log.SetOutput(oldLogger.Writer())
-	
+
 	return buf.String()
 }
 

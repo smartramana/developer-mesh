@@ -26,28 +26,28 @@ func NewTestEmbeddingPipeline(
 	if embeddingService == nil {
 		return nil, errors.New("embedding service is required")
 	}
-	
+
 	if storage == nil {
 		return nil, errors.New("embedding storage is required")
 	}
-	
+
 	if chunkingService == nil {
 		return nil, errors.New("chunking service is required")
 	}
-	
+
 	if contentProvider == nil {
 		return nil, errors.New("content provider is required")
 	}
-	
+
 	if config == nil {
 		return nil, errors.New("config is required")
 	}
-	
+
 	// Validate config values
 	if config.Concurrency <= 0 {
 		return nil, errors.New("invalid concurrency value - must be greater than 0")
 	}
-	
+
 	if config.BatchSize <= 0 {
 		return nil, errors.New("invalid batch size - must be greater than 0")
 	}
@@ -61,7 +61,7 @@ func NewTestEmbeddingPipeline(
 		config:           config,
 		chunkingService:  chunkingService, // Should work now with ChunkingInterface
 	}
-	
+
 	return pipeline, nil
 }
 

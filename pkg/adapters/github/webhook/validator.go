@@ -18,18 +18,18 @@ import (
 
 // IPRange represents an IP address range
 type IPRange struct {
-	CIDR   string
-	IPNet  *net.IPNet
+	CIDR  string
+	IPNet *net.IPNet
 }
 
 // Validator validates webhook requests
 type Validator struct {
-	secret         string
-	schemaCatalog  map[string]*gojsonschema.Schema
-	schemaLoader   gojsonschema.JSONLoader
-	deliveryCache  DeliveryCache
-	ipRanges       []IPRange
-	validateIPs    bool
+	secret              string
+	schemaCatalog       map[string]*gojsonschema.Schema
+	schemaLoader        gojsonschema.JSONLoader
+	deliveryCache       DeliveryCache
+	ipRanges            []IPRange
+	validateIPs         bool
 	ipRangesLastUpdated time.Time
 	// DisableSignatureValidation allows tests to bypass signature validation entirely
 	disableSignatureValidation bool
@@ -39,10 +39,10 @@ type Validator struct {
 type DeliveryCache interface {
 	// Has checks if a delivery ID exists in the cache
 	Has(deliveryID string) bool
-	
+
 	// Add adds a delivery ID to the cache
 	Add(deliveryID string, timestamp time.Time) error
-	
+
 	// GC performs garbage collection on the cache
 	GC() error
 }
@@ -56,7 +56,7 @@ func NewValidator(secret string, deliveryCache DeliveryCache) *Validator {
 		ipRanges:      []IPRange{},
 		validateIPs:   false,
 	}
-	
+
 	return validator
 }
 
@@ -77,32 +77,32 @@ func (v *Validator) updateGitHubIPRanges() error {
 	if time.Since(v.ipRangesLastUpdated) < time.Hour {
 		return nil
 	}
-	
+
 	// Fetch GitHub's Meta API
 	resp, err := http.Get("https://api.github.com/meta")
 	if err != nil {
 		return fmt.Errorf("failed to fetch GitHub IP ranges: %w", err)
 	}
 	defer resp.Body.Close()
-	
+
 	if resp.StatusCode != http.StatusOK {
 		return fmt.Errorf("failed to fetch GitHub IP ranges: HTTP %d", resp.StatusCode)
 	}
-	
+
 	// Parse the response
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
 		return fmt.Errorf("failed to read GitHub IP ranges response: %w", err)
 	}
-	
+
 	var meta struct {
 		Hooks []string `json:"hooks"`
 	}
-	
+
 	if err := json.Unmarshal(body, &meta); err != nil {
 		return fmt.Errorf("failed to parse GitHub IP ranges: %w", err)
 	}
-	
+
 	// Parse IP ranges
 	var ipRanges []IPRange
 	for _, cidr := range meta.Hooks {
@@ -110,17 +110,17 @@ func (v *Validator) updateGitHubIPRanges() error {
 		if err != nil {
 			return fmt.Errorf("failed to parse GitHub IP range %s: %w", cidr, err)
 		}
-		
+
 		ipRanges = append(ipRanges, IPRange{
 			CIDR:  cidr,
 			IPNet: ipNet,
 		})
 	}
-	
+
 	// Update IP ranges
 	v.ipRanges = ipRanges
 	v.ipRangesLastUpdated = time.Now()
-	
+
 	return nil
 }
 
@@ -130,7 +130,7 @@ func (v *Validator) ValidateSourceIP(sourceIP string) error {
 	if !v.validateIPs {
 		return nil
 	}
-	
+
 	// Update IP ranges if needed
 	if time.Since(v.ipRangesLastUpdated) > time.Hour {
 		if err := v.updateGitHubIPRanges(); err != nil {
@@ -139,7 +139,7 @@ func (v *Validator) ValidateSourceIP(sourceIP string) error {
 			return nil
 		}
 	}
-	
+
 	// Parse source IP
 	ip := net.ParseIP(sourceIP)
 	if ip == nil {
@@ -149,14 +149,14 @@ func (v *Validator) ValidateSourceIP(sourceIP string) error {
 			fmt.Sprintf("invalid source IP: %s", sourceIP),
 		).WithContext("validation", "ip_format")
 	}
-	
+
 	// Check if IP is in any of the GitHub IP ranges
 	for _, ipRange := range v.ipRanges {
 		if ipRange.IPNet.Contains(ip) {
 			return nil
 		}
 	}
-	
+
 	// Create a detailed error with context
 	err := errors.NewGitHubError(
 		errors.ErrInvalidWebhook,
@@ -164,16 +164,16 @@ func (v *Validator) ValidateSourceIP(sourceIP string) error {
 		fmt.Sprintf("source IP %s is not in GitHub's IP ranges", sourceIP),
 	)
 	err.WithContext("validation", "ip_not_allowed")
-	
+
 	// Add the allowed IP ranges for context
 	if len(v.ipRanges) > 0 {
 		var allowedRanges []string
 		for _, ipRange := range v.ipRanges {
 			allowedRanges = append(allowedRanges, ipRange.CIDR)
 		}
-		err.WithContext("allowed_ip_ranges", strings.Join(allowedRanges[:3], ", ") + "...")
+		err.WithContext("allowed_ip_ranges", strings.Join(allowedRanges[:3], ", ")+"...")
 	}
-	
+
 	return err
 }
 
@@ -194,7 +194,7 @@ func (v *Validator) RegisterSchema(eventType string, schema []byte) error {
 	if err != nil {
 		return fmt.Errorf("failed to load schema for %s: %w", eventType, err)
 	}
-	
+
 	v.schemaCatalog[eventType] = s
 	return nil
 }
@@ -215,20 +215,20 @@ func (v *Validator) ValidateSignature(payload []byte, signature string) error {
 	if v.disableSignatureValidation {
 		return nil
 	}
-	
+
 	// Skip validation if no secret is configured
 	if v.secret == "" {
 		return nil
 	}
-	
+
 	// Remove 'sha256=' prefix if present
 	signature = strings.TrimPrefix(signature, "sha256=")
-	
+
 	// Calculate expected HMAC signature
 	mac := hmac.New(sha256.New, []byte(v.secret))
 	mac.Write(payload)
 	expectedMAC := mac.Sum(nil)
-	
+
 	// Decode the provided signature
 	providedMAC, err := hex.DecodeString(signature)
 	if err != nil {
@@ -240,7 +240,7 @@ func (v *Validator) ValidateSignature(payload []byte, signature string) error {
 			WithContext("signature_length", fmt.Sprintf("%d", len(signature))).
 			WithResource("webhook", "signature")
 	}
-	
+
 	// Constant-time comparison to prevent timing attacks
 	if !hmac.Equal(providedMAC, expectedMAC) {
 		return errors.NewGitHubError(
@@ -251,7 +251,7 @@ func (v *Validator) ValidateSignature(payload []byte, signature string) error {
 			WithContext("expected_length", fmt.Sprintf("%d", len(expectedMAC))).
 			WithResource("webhook", "signature")
 	}
-	
+
 	return nil
 }
 
@@ -261,7 +261,7 @@ func (v *Validator) ValidateDeliveryID(deliveryID string) error {
 		// If no delivery cache is configured, skip verification
 		return nil
 	}
-	
+
 	// Check if delivery ID has been seen before
 	if v.deliveryCache.Has(deliveryID) {
 		return errors.NewGitHubError(
@@ -270,7 +270,7 @@ func (v *Validator) ValidateDeliveryID(deliveryID string) error {
 			fmt.Sprintf("duplicate delivery ID: %s", deliveryID),
 		)
 	}
-	
+
 	// Add delivery ID to cache
 	if err := v.deliveryCache.Add(deliveryID, time.Now()); err != nil {
 		return errors.NewGitHubError(
@@ -279,7 +279,7 @@ func (v *Validator) ValidateDeliveryID(deliveryID string) error {
 			"failed to add delivery ID to cache",
 		).WithContext("error", err.Error())
 	}
-	
+
 	return nil
 }
 
@@ -291,7 +291,7 @@ func (v *Validator) ValidateHeaders(headers http.Header) error {
 		"X-GitHub-Delivery",
 		"X-Hub-Signature-256",
 	}
-	
+
 	for _, header := range requiredHeaders {
 		if headers.Get(header) == "" {
 			return errors.NewGitHubError(
@@ -301,7 +301,7 @@ func (v *Validator) ValidateHeaders(headers http.Header) error {
 			)
 		}
 	}
-	
+
 	return nil
 }
 
@@ -313,7 +313,7 @@ func (v *Validator) ValidatePayload(eventType string, payload []byte) error {
 		// No schema registered for this event type
 		return nil
 	}
-	
+
 	// Validate payload against schema
 	documentLoader := gojsonschema.NewBytesLoader(payload)
 	result, err := schema.Validate(documentLoader)
@@ -324,7 +324,7 @@ func (v *Validator) ValidatePayload(eventType string, payload []byte) error {
 			"failed to validate payload",
 		).WithContext("error", err.Error())
 	}
-	
+
 	// Check for validation errors
 	if !result.Valid() {
 		// Collect validation errors
@@ -332,16 +332,16 @@ func (v *Validator) ValidatePayload(eventType string, payload []byte) error {
 		for _, err := range result.Errors() {
 			errMsgs = append(errMsgs, err.String())
 		}
-		
+
 		errorMsg := strings.Join(errMsgs, "; ")
-		
+
 		return errors.NewGitHubError(
 			errors.ErrInvalidPayload,
 			0,
 			"payload validation failed",
 		).WithContext("validation_errors", errorMsg)
 	}
-	
+
 	return nil
 }
 
@@ -359,7 +359,7 @@ func (v *Validator) ValidateWithIP(eventType string, payload []byte, headers htt
 	}
 	// Track the first error we encounter
 	var validationErr error
-	
+
 	// Validate headers
 	if err := v.ValidateHeaders(headers); err != nil {
 		validationErr = errors.FromWebhookError(err, http.StatusBadRequest)
@@ -368,7 +368,7 @@ func (v *Validator) ValidateWithIP(eventType string, payload []byte, headers htt
 		}
 		return validationErr
 	}
-	
+
 	// Validate signature
 	signature := headers.Get("X-Hub-Signature-256")
 	if err := v.ValidateSignature(payload, signature); err != nil {
@@ -378,7 +378,7 @@ func (v *Validator) ValidateWithIP(eventType string, payload []byte, headers htt
 		}
 		return validationErr
 	}
-	
+
 	// Validate delivery ID
 	deliveryID := headers.Get("X-GitHub-Delivery")
 	if err := v.ValidateDeliveryID(deliveryID); err != nil {
@@ -389,7 +389,7 @@ func (v *Validator) ValidateWithIP(eventType string, payload []byte, headers htt
 		}
 		return validationErr
 	}
-	
+
 	// Validate payload schema
 	if err := v.ValidatePayload(eventType, payload); err != nil {
 		validationErr = errors.FromWebhookError(err, http.StatusBadRequest)
@@ -398,13 +398,13 @@ func (v *Validator) ValidateWithIP(eventType string, payload []byte, headers htt
 		}
 		return validationErr
 	}
-	
+
 	// Validate source IP if enabled
 	if v.validateIPs && remoteAddr != "" {
 		// Extract IP from remote address (remove port if present)
 		ipParts := strings.Split(remoteAddr, ":")
 		sourceIP := ipParts[0]
-		
+
 		if err := v.ValidateSourceIP(sourceIP); err != nil {
 			validationErr = errors.FromWebhookError(err, http.StatusBadRequest)
 			if githubErr, ok := validationErr.(*errors.GitHubError); ok {
@@ -414,14 +414,14 @@ func (v *Validator) ValidateWithIP(eventType string, payload []byte, headers htt
 			return validationErr
 		}
 	}
-	
+
 	return nil
 }
 
 // InMemoryDeliveryCache is a simple in-memory implementation of DeliveryCache
 type InMemoryDeliveryCache struct {
-	cache    map[string]time.Time
-	maxAge   time.Duration
+	cache  map[string]time.Time
+	maxAge time.Duration
 }
 
 // NewInMemoryDeliveryCache creates a new in-memory delivery cache
@@ -447,20 +447,20 @@ func (c *InMemoryDeliveryCache) Add(deliveryID string, timestamp time.Time) erro
 // GC performs garbage collection on the cache
 func (c *InMemoryDeliveryCache) GC() error {
 	cutoff := time.Now().Add(-c.maxAge)
-	
+
 	for id, timestamp := range c.cache {
 		if timestamp.Before(cutoff) {
 			delete(c.cache, id)
 		}
 	}
-	
+
 	return nil
 }
 
 // JSONSchemas returns a map of event types to JSON schemas
 func JSONSchemas() map[string][]byte {
 	schemas := make(map[string][]byte)
-	
+
 	// Push event schema
 	schemas["push"] = []byte(`{
 		"type": "object",
@@ -485,7 +485,7 @@ func JSONSchemas() map[string][]byte {
 			}
 		}
 	}`)
-	
+
 	// Pull request event schema
 	schemas["pull_request"] = []byte(`{
 		"type": "object",
@@ -513,7 +513,7 @@ func JSONSchemas() map[string][]byte {
 			}
 		}
 	}`)
-	
+
 	// Issue event schema
 	schemas["issues"] = []byte(`{
 		"type": "object",
@@ -541,7 +541,7 @@ func JSONSchemas() map[string][]byte {
 			}
 		}
 	}`)
-	
+
 	// Release event schema
 	schemas["release"] = []byte(`{
 		"type": "object",
@@ -568,6 +568,6 @@ func JSONSchemas() map[string][]byte {
 			}
 		}
 	}`)
-	
+
 	return schemas
 }

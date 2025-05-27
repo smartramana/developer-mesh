@@ -1,11 +1,11 @@
 package api
 
 import (
-	"net/http"
-	"github.com/gin-gonic/gin"
 	"github.com/S-Corkum/devops-mcp/pkg/models"
 	"github.com/S-Corkum/devops-mcp/pkg/repository"
 	"github.com/S-Corkum/devops-mcp/pkg/util"
+	"github.com/gin-gonic/gin"
+	"net/http"
 )
 
 // AgentAPI handles agent management endpoints
@@ -56,13 +56,13 @@ func (a *AgentAPI) listAgents(c *gin.Context) {
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "missing tenant id"})
 		return
 	}
-	
+
 	agents, err := a.repo.ListAgents(c.Request.Context(), tenantID)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
-	
+
 	c.JSON(http.StatusOK, agents)
 }
 
@@ -73,27 +73,27 @@ func (a *AgentAPI) updateAgent(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "missing agent id"})
 		return
 	}
-	
+
 	tenantID := util.GetTenantIDFromContext(c)
 	if tenantID == "" {
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "missing tenant id"})
 		return
 	}
-	
+
 	var agent models.Agent
 	if err := c.ShouldBindJSON(&agent); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
-	
+
 	// Ensure the ID and tenant ID match what's in the URL and token
 	agent.ID = id
 	agent.TenantID = tenantID
-	
+
 	if err := a.repo.UpdateAgent(c.Request.Context(), &agent); err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
-	
+
 	c.JSON(http.StatusOK, agent)
 }

@@ -70,12 +70,12 @@ func TestPgSearchService_Search(t *testing.T) {
 
 	// Setup the mock for search query
 	rows := sqlmock.NewRows([]string{
-		"id", "context_id", "content_index", "text", "embedding", 
+		"id", "context_id", "content_index", "text", "embedding",
 		"vector_dimensions", "model_id", "metadata", "content_type", "similarity",
 	}).AddRow(
-		"code:test123", sql.NullString{String: "", Valid: false}, 0, 
-		sql.NullString{String: "", Valid: false}, "[0.1,0.2,0.3]", 
-		3, "test-model", sql.NullString{String: "{}", Valid: true}, 
+		"code:test123", sql.NullString{String: "", Valid: false}, 0,
+		sql.NullString{String: "", Valid: false}, "[0.1,0.2,0.3]",
+		3, "test-model", sql.NullString{String: "{}", Valid: true},
 		"code", 0.95,
 	)
 
@@ -117,12 +117,12 @@ func TestPgSearchService_SearchByVector(t *testing.T) {
 
 	// Setup the mock for search query
 	rows := sqlmock.NewRows([]string{
-		"id", "context_id", "content_index", "text", "embedding", 
+		"id", "context_id", "content_index", "text", "embedding",
 		"vector_dimensions", "model_id", "metadata", "content_type", "similarity",
 	}).AddRow(
-		"issue:123", sql.NullString{String: "", Valid: false}, 0, 
-		sql.NullString{String: "", Valid: false}, "[0.4,0.5,0.6]", 
-		3, "test-model", sql.NullString{String: "{\"title\":\"Test Issue\"}", Valid: true}, 
+		"issue:123", sql.NullString{String: "", Valid: false}, 0,
+		sql.NullString{String: "", Valid: false}, "[0.4,0.5,0.6]",
+		3, "test-model", sql.NullString{String: "{\"title\":\"Test Issue\"}", Valid: true},
 		"issue", 0.85,
 	)
 
@@ -137,7 +137,7 @@ func TestPgSearchService_SearchByVector(t *testing.T) {
 		MinSimilarity: 0.7,
 		Limit:         10,
 	}
-	
+
 	results, err := svc.SearchByVector(ctx, vector, options)
 	require.NoError(t, err)
 	assert.NotNil(t, results)
@@ -176,12 +176,12 @@ func TestPgSearchService_SearchByContentID(t *testing.T) {
 
 	// Setup the mock for search query
 	rows := sqlmock.NewRows([]string{
-		"id", "context_id", "content_index", "text", "embedding", 
+		"id", "context_id", "content_index", "text", "embedding",
 		"vector_dimensions", "model_id", "metadata", "content_type", "similarity",
 	}).AddRow(
-		"pr:456", sql.NullString{String: "", Valid: false}, 0, 
-		sql.NullString{String: "", Valid: false}, "[0.7,0.8,0.9]", 
-		3, "test-model", sql.NullString{String: "{\"title\":\"Similar PR\"}", Valid: true}, 
+		"pr:456", sql.NullString{String: "", Valid: false}, 0,
+		sql.NullString{String: "", Valid: false}, "[0.7,0.8,0.9]",
+		3, "test-model", sql.NullString{String: "{\"title\":\"Similar PR\"}", Valid: true},
 		"pr", 0.92,
 	)
 
@@ -194,7 +194,7 @@ func TestPgSearchService_SearchByContentID(t *testing.T) {
 		MinSimilarity: 0.8,
 		Limit:         5,
 	}
-	
+
 	results, err := svc.SearchByContentID(ctx, "code:original123", options)
 	require.NoError(t, err)
 	assert.NotNil(t, results)
@@ -217,10 +217,10 @@ func (m *mockEmbeddingService) GenerateEmbedding(ctx context.Context, text strin
 		// Generate a simple deterministic vector based on the text
 		vector = make([]float32, m.dimensions)
 		for i := 0; i < m.dimensions && i < len(text); i++ {
-			vector[i] = float32(text[i % len(text)]) / 255.0
+			vector[i] = float32(text[i%len(text)]) / 255.0
 		}
 	}
-	
+
 	return &EmbeddingVector{
 		Vector:      vector,
 		Dimensions:  m.dimensions,

@@ -53,10 +53,10 @@ func (db *Database) storeGitHubContent(ctx context.Context, tx *Tx, metadata *st
 	}
 
 	// Generate a unique ID for this metadata record
-	id := fmt.Sprintf("gh-%s-%s-%s-%s", 
-		metadata.Owner, 
-		metadata.Repo, 
-		metadata.ContentType, 
+	id := fmt.Sprintf("gh-%s-%s-%s-%s",
+		metadata.Owner,
+		metadata.Repo,
+		metadata.ContentType,
 		metadata.ContentID)
 
 	// Handle nullable time.Time for expires_at
@@ -160,7 +160,7 @@ func (db *Database) getGitHubContent(ctx context.Context, tx *Tx, owner, repo, c
 	}
 
 	// Parse metadata
-	var metadataMap map[string]interface{}
+	var metadataMap map[string]any
 	if len(metadataRaw) > 0 {
 		err = json.Unmarshal(metadataRaw, &metadataMap)
 		if err != nil {
@@ -232,7 +232,7 @@ func (db *Database) listGitHubContent(ctx context.Context, tx *Tx, owner, repo, 
 		WHERE owner = $1 AND repo = $2
 	`
 
-	args := []interface{}{owner, repo}
+	args := []any{owner, repo}
 	argIndex := 3
 
 	if contentType != "" {
@@ -292,7 +292,7 @@ func (db *Database) listGitHubContent(ctx context.Context, tx *Tx, owner, repo, 
 		}
 
 		// Parse metadata
-		var metadataMap map[string]interface{}
+		var metadataMap map[string]any
 		if len(metadataRaw) > 0 {
 			if err := json.Unmarshal(metadataRaw, &metadataMap); err != nil {
 				return nil, fmt.Errorf("failed to unmarshal metadata: %w", err)
@@ -386,7 +386,7 @@ func (db *Database) getGitHubContentByChecksum(ctx context.Context, tx *Tx, chec
 	}
 
 	// Parse metadata
-	var metadataMap map[string]interface{}
+	var metadataMap map[string]any
 	if len(metadataRaw) > 0 {
 		if err := json.Unmarshal(metadataRaw, &metadataMap); err != nil {
 			return nil, fmt.Errorf("failed to unmarshal metadata: %w", err)

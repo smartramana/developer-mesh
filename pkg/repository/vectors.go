@@ -8,7 +8,7 @@ import (
 
 // vectorRepositoryAdapter implements the VectorRepository interface
 type vectorRepositoryAdapter struct {
-	db interface{}
+	db any
 }
 
 // StoreVectors stores vectors in the repository
@@ -18,7 +18,7 @@ func (v *vectorRepositoryAdapter) StoreVectors(ctx context.Context, vectors []*m
 }
 
 // FindSimilar finds vectors similar to the given vector
-func (v *vectorRepositoryAdapter) FindSimilar(ctx context.Context, vector []float32, limit int, filter map[string]interface{}) ([]*models.Vector, error) {
+func (v *vectorRepositoryAdapter) FindSimilar(ctx context.Context, vector []float32, limit int, filter map[string]any) ([]*models.Vector, error) {
 	// Stub implementation - would actually query the vector database
 	return []*models.Vector{}, nil
 }

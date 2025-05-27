@@ -45,10 +45,10 @@ func (r *MockModelRepository) Create(ctx context.Context, model *models.Model) e
 	if model == nil {
 		return errors.New("model cannot be nil")
 	}
-	
+
 	r.mutex.Lock()
 	defer r.mutex.Unlock()
-	
+
 	r.models[model.ID] = model
 	return nil
 }
@@ -57,7 +57,7 @@ func (r *MockModelRepository) Create(ctx context.Context, model *models.Model) e
 func (r *MockModelRepository) Get(ctx context.Context, id string) (*models.Model, error) {
 	r.mutex.RLock()
 	defer r.mutex.RUnlock()
-	
+
 	model, ok := r.models[id]
 	if !ok {
 		return nil, nil
@@ -69,7 +69,7 @@ func (r *MockModelRepository) Get(ctx context.Context, id string) (*models.Model
 func (r *MockModelRepository) List(ctx context.Context, filter model.Filter) ([]*models.Model, error) {
 	r.mutex.RLock()
 	defer r.mutex.RUnlock()
-	
+
 	var result []*models.Model
 	for _, m := range r.models {
 		// Simple filter check
@@ -80,7 +80,7 @@ func (r *MockModelRepository) List(ctx context.Context, filter model.Filter) ([]
 				break
 			}
 		}
-		
+
 		if include {
 			result = append(result, m)
 		}
@@ -93,15 +93,15 @@ func (r *MockModelRepository) Update(ctx context.Context, model *models.Model) e
 	if model == nil {
 		return errors.New("model cannot be nil")
 	}
-	
+
 	r.mutex.Lock()
 	defer r.mutex.Unlock()
-	
+
 	_, ok := r.models[model.ID]
 	if !ok {
 		return errors.New("model not found")
 	}
-	
+
 	r.models[model.ID] = model
 	return nil
 }
@@ -110,12 +110,12 @@ func (r *MockModelRepository) Update(ctx context.Context, model *models.Model) e
 func (r *MockModelRepository) Delete(ctx context.Context, id string) error {
 	r.mutex.Lock()
 	defer r.mutex.Unlock()
-	
+
 	_, ok := r.models[id]
 	if !ok {
 		return errors.New("model not found")
 	}
-	
+
 	delete(r.models, id)
 	return nil
 }
@@ -131,11 +131,11 @@ func (r *MockModelRepository) GetModelByID(ctx context.Context, id string, tenan
 	if err != nil {
 		return nil, err
 	}
-	
+
 	if model == nil || model.TenantID != tenantID {
 		return nil, errors.New("model not found")
 	}
-	
+
 	return model, nil
 }
 
@@ -173,10 +173,10 @@ func (r *MockAgentRepository) Create(ctx context.Context, agent *models.Agent) e
 	if agent == nil {
 		return errors.New("agent cannot be nil")
 	}
-	
+
 	r.mutex.Lock()
 	defer r.mutex.Unlock()
-	
+
 	r.agents[agent.ID] = agent
 	return nil
 }
@@ -185,7 +185,7 @@ func (r *MockAgentRepository) Create(ctx context.Context, agent *models.Agent) e
 func (r *MockAgentRepository) Get(ctx context.Context, id string) (*models.Agent, error) {
 	r.mutex.RLock()
 	defer r.mutex.RUnlock()
-	
+
 	agent, ok := r.agents[id]
 	if !ok {
 		return nil, nil
@@ -197,7 +197,7 @@ func (r *MockAgentRepository) Get(ctx context.Context, id string) (*models.Agent
 func (r *MockAgentRepository) List(ctx context.Context, filter agent.Filter) ([]*models.Agent, error) {
 	r.mutex.RLock()
 	defer r.mutex.RUnlock()
-	
+
 	var result []*models.Agent
 	for _, a := range r.agents {
 		// Simple filter check
@@ -208,7 +208,7 @@ func (r *MockAgentRepository) List(ctx context.Context, filter agent.Filter) ([]
 				break
 			}
 		}
-		
+
 		if include {
 			result = append(result, a)
 		}
@@ -221,15 +221,15 @@ func (r *MockAgentRepository) Update(ctx context.Context, agent *models.Agent) e
 	if agent == nil {
 		return errors.New("agent cannot be nil")
 	}
-	
+
 	r.mutex.Lock()
 	defer r.mutex.Unlock()
-	
+
 	_, ok := r.agents[agent.ID]
 	if !ok {
 		return errors.New("agent not found")
 	}
-	
+
 	r.agents[agent.ID] = agent
 	return nil
 }
@@ -238,12 +238,12 @@ func (r *MockAgentRepository) Update(ctx context.Context, agent *models.Agent) e
 func (r *MockAgentRepository) Delete(ctx context.Context, id string) error {
 	r.mutex.Lock()
 	defer r.mutex.Unlock()
-	
+
 	_, ok := r.agents[id]
 	if !ok {
 		return errors.New("agent not found")
 	}
-	
+
 	delete(r.agents, id)
 	return nil
 }
@@ -259,11 +259,11 @@ func (r *MockAgentRepository) GetAgentByID(ctx context.Context, id string, tenan
 	if err != nil {
 		return nil, err
 	}
-	
+
 	if agent == nil || agent.TenantID != tenantID {
 		return nil, errors.New("agent not found")
 	}
-	
+
 	return agent, nil
 }
 
@@ -289,12 +289,12 @@ func WithTx(ctx context.Context, tx *sqlx.Tx) context.Context {
 	if ctx == nil {
 		ctx = context.Background()
 	}
-	
+
 	if tx == nil {
 		// Return original context if transaction is nil
 		return ctx
 	}
-	
+
 	// Store transaction in context
 	return context.WithValue(ctx, TransactionKey, tx)
 }
@@ -306,23 +306,23 @@ func ExtractTx(ctx context.Context) (*sqlx.Tx, bool) {
 	if ctx == nil {
 		return nil, false
 	}
-	
+
 	// Extract transaction from context
 	txValue := ctx.Value(TransactionKey)
 	if txValue == nil {
 		return nil, false
 	}
-	
+
 	// Try to cast to the expected type
 	tx, ok := txValue.(*sqlx.Tx)
 	if !ok || tx == nil {
 		return nil, false
 	}
-	
+
 	// We can't reliably check if a transaction is active without executing a query
 	// which could affect the transaction state, so we'll just trust that it's valid
 	// if we got this far
-	
+
 	return tx, true
 }
 
@@ -333,14 +333,14 @@ func GetTx(ctx context.Context) *sqlx.Tx {
 	if ctx == nil {
 		return nil
 	}
-	
+
 	tx, ok := ExtractTx(ctx)
 	if !ok {
 		// If debugging is needed, you could log here
 		// fmt.Printf("Warning: No valid transaction found in context\n")
 		return nil
 	}
-	
+
 	return tx
 }
 
@@ -355,70 +355,70 @@ func TestRepositoryDatabaseIntegration(t *testing.T) {
 			// Create in-memory repository implementations for testing
 			modelRepo := NewMockModelRepository()
 			agentRepo := NewMockAgentRepository()
-			
+
 			ctx := context.Background()
 			tenantID := "test-tenant"
-			
+
 			// Create test model and agent
 			testModel := &models.Model{
 				ID:       "model-1",
 				TenantID: tenantID,
 				Name:     "Test Model",
 			}
-			
+
 			testAgent := &models.Agent{
 				ID:       "agent-1",
 				TenantID: tenantID,
 				Name:     "Test Agent",
 				ModelID:  testModel.ID,
 			}
-			
+
 			// Run standard repository tests with in-memory implementations
 			runRepositoryTests(t, ctx, modelRepo, agentRepo, testModel, testAgent, tenantID)
 		})
 	})
-	
+
 	// Use actual database repositories for integration testing
 	t.Run("Database repositories provide proper persistence", func(t *testing.T) {
 		ctx := context.Background()
-		
+
 		// Create test database with context
 		db, err := database.NewTestDatabaseWithContext(ctx)
 		require.NoError(t, err)
 		require.NotNil(t, db)
 		defer db.Close()
-		
+
 		// Use custom test table initialization that works with both SQLite and PostgreSQL
 		err = initializeTestTables(ctx, db.DB())
 		require.NoError(t, err, "Should be able to initialize test tables")
-		
+
 		// Create real repositories using the test database
 		modelRepo := model.NewRepository(db.DB())
 		require.NotNil(t, modelRepo)
-		
+
 		agentRepo := agent.NewRepository(db.DB())
 		require.NotNil(t, agentRepo)
-		
+
 		// Create test data
 		tenantID := "test-tenant"
-		
+
 		testModel := &models.Model{
 			ID:       "db-model-1",
 			TenantID: tenantID,
 			Name:     "Test Database Model",
 		}
-		
+
 		testAgent := &models.Agent{
 			ID:       "db-agent-1",
 			TenantID: tenantID,
 			Name:     "Test Database Agent",
 			ModelID:  testModel.ID,
 		}
-		
+
 		// Run the same tests with database repositories
 		runRepositoryTests(t, ctx, modelRepo, agentRepo, testModel, testAgent, tenantID)
 	})
-	
+
 	// Test transaction handling across repositories
 	t.Run("Transaction support", func(t *testing.T) {
 		ctx := context.Background()
@@ -428,58 +428,58 @@ func TestRepositoryDatabaseIntegration(t *testing.T) {
 		require.NoError(t, err)
 		require.NotNil(t, db)
 		defer db.Close()
-		
+
 		// Use custom test table initialization that works with both SQLite and PostgreSQL
 		err = initializeTestTables(ctx, db.DB())
 		require.NoError(t, err, "Should be able to initialize test tables")
-		
+
 		// Verify tables exist before starting transactions
 		tablePrefix := getTablePrefix(ctx, db.DB())
 		var count int
 		modelTableCheck := fmt.Sprintf("SELECT COUNT(*) FROM %smodels", tablePrefix)
 		err = db.DB().QueryRowContext(ctx, modelTableCheck).Scan(&count)
 		require.NoError(t, err, "Models table should be accessible before transaction")
-		
+
 		// Create real repositories using the test database
 		modelRepo := model.NewRepository(db.DB())
 		agentRepo := agent.NewRepository(db.DB())
 		require.NotNil(t, modelRepo, "Model repository should not be nil")
 		require.NotNil(t, agentRepo, "Agent repository should not be nil")
-		
+
 		// Before we start the transaction test, let's do a direct insert to test database access
 		testDirectModel := &models.Model{
 			ID:       "direct-model-1",
 			TenantID: "test-tenant-direct",
 			Name:     "Direct Test Model",
 		}
-		
+
 		// Try a direct insert first to verify basic database functionality
 		err = modelRepo.Create(ctx, testDirectModel)
 		require.NoError(t, err, "Direct model creation should succeed")
-		
+
 		// Check we can retrieve it
 		directModel, err := modelRepo.Get(ctx, testDirectModel.ID)
 		require.NoError(t, err, "Should be able to retrieve directly created model")
 		require.NotNil(t, directModel, "Retrieved model should not be nil")
-		
+
 		// Now test with transaction
 		t.Log("Beginning transaction test")
-		
+
 		// Use transaction context for proper transaction handling
 		err = db.Transaction(ctx, func(tx *sqlx.Tx) error {
 			// Create a new context with the transaction
 			txCtx := WithTx(ctx, tx)
-			
+
 			// Verify transaction is in context
 			txFromCtx, ok := ExtractTx(txCtx)
 			if !ok || txFromCtx == nil {
 				return fmt.Errorf("transaction not properly stored in context")
 			}
-			
+
 			// Create a tenant ID for testing
 			tenantID := "test-tenant-" + uuid.New().String()
 			t.Logf("Using tenant ID %s for transaction test", tenantID)
-			
+
 			testModel := &models.Model{
 				ID:       "tx-model-1",
 				TenantID: tenantID,
@@ -492,7 +492,7 @@ func TestRepositoryDatabaseIntegration(t *testing.T) {
 				Name:     "Transaction Test Agent",
 				ModelID:  testModel.ID,
 			}
-			
+
 			// Test creating and retrieving a model and agent within the same transaction
 			// Create model using transaction context
 			t.Log("Creating model within transaction")
@@ -500,49 +500,49 @@ func TestRepositoryDatabaseIntegration(t *testing.T) {
 			if err != nil {
 				return fmt.Errorf("failed to create model in transaction: %w", err)
 			}
-			
+
 			// Create agent using transaction context
 			t.Log("Creating agent within transaction")
 			err = agentRepo.Create(txCtx, testAgent)
 			if err != nil {
 				return fmt.Errorf("failed to create agent in transaction: %w", err)
 			}
-			
+
 			// Verify the model was created within the transaction
 			t.Log("Verifying model within transaction")
 			createdModel, err := modelRepo.Get(txCtx, testModel.ID)
 			if err != nil {
 				return fmt.Errorf("failed to get model in transaction: %w", err)
 			}
-			
+
 			if createdModel == nil || createdModel.ID != testModel.ID {
 				return fmt.Errorf("model not found in transaction or ID mismatch")
 			}
-			
+
 			// Success
 			t.Log("Transaction operations successful")
 			return nil
 		})
 		require.NoError(t, err, "Transaction should complete successfully")
-		
+
 		// Verify the model exists outside the transaction
 		retrievedModel, err := modelRepo.Get(ctx, "tx-model-1")
 		require.NoError(t, err)
 		require.NotNil(t, retrievedModel, "Model should exist after transaction commit")
 		assert.Equal(t, "tx-model-1", retrievedModel.ID)
-		
+
 		// Verify the agent exists outside the transaction
 		retrievedAgent, err := agentRepo.Get(ctx, "tx-agent-1")
 		require.NoError(t, err)
 		require.NotNil(t, retrievedAgent, "Agent should exist after transaction commit")
 		assert.Equal(t, "tx-agent-1", retrievedAgent.ID)
-		
+
 		// Define model ID for reference in the next transaction
 		modelID := "tx-model-1"
-		
+
 		// Create invalid agent (missing required field) to force error
 		invalidAgent := &models.Agent{
-			ID:      "invalid-agent",
+			ID:       "invalid-agent",
 			TenantID: "test-tenant",
 			ModelID:  modelID,
 			// Missing the Name field intentionally to cause error
@@ -568,7 +568,7 @@ func TestRepositoryDatabaseIntegration(t *testing.T) {
 			return nil
 		})
 		require.Error(t, err, "Transaction should fail and rollback")
-		
+
 		// Verify the invalid agent was not persisted after rollback
 		invalidCheck, getErr := agentRepo.Get(ctx, invalidAgent.ID)
 		// The agent shouldn't exist, which can be indicated either by an error or by a nil result
@@ -576,35 +576,35 @@ func TestRepositoryDatabaseIntegration(t *testing.T) {
 			assert.Nil(t, invalidCheck, "Invalid agent should not exist after transaction rollback")
 		}
 	})
-	
+
 	// Test database schema verification
 	t.Run("Database schema verification", func(t *testing.T) {
 		ctx := context.Background()
-		
+
 		// Create test database with context
 		db, err := database.NewTestDatabaseWithContext(ctx)
 		require.NoError(t, err)
 		require.NotNil(t, db)
 		defer db.Close()
-		
+
 		// Use custom test table initialization that works with both SQLite and PostgreSQL
 		err = initializeTestTables(ctx, db.DB())
 		require.NoError(t, err, "Should be able to initialize test tables")
-		
+
 		tablePrefix := getTablePrefix(ctx, db.DB())
-		
+
 		// Verify models table exists and has expected structure
 		var modelCount int
 		modelQuery := fmt.Sprintf("SELECT COUNT(*) FROM %smodels", tablePrefix)
 		err = db.DB().QueryRowContext(ctx, modelQuery).Scan(&modelCount)
 		require.NoError(t, err, "Models table should exist")
-		
+
 		// Verify agents table exists and has expected structure
 		var agentCount int
 		agentQuery := fmt.Sprintf("SELECT COUNT(*) FROM %sagents", tablePrefix)
 		err = db.DB().QueryRowContext(ctx, agentQuery).Scan(&agentCount)
 		require.NoError(t, err, "Agents table should exist")
-		
+
 		// Verify relationships table exists
 		var relationshipCount int
 		relationshipQuery := fmt.Sprintf("SELECT COUNT(*) FROM %srelationships", tablePrefix)
@@ -643,7 +643,7 @@ func initializeTestTables(ctx context.Context, db *sqlx.DB) error {
 	// Determine if we're using SQLite or PostgreSQL
 	isSQLite := isDatabaseSQLite(ctx, db)
 	tablePrefix := ""
-	
+
 	// Log which database type we're using for debugging
 	if isSQLite {
 		fmt.Println("Using SQLite database for tests")
@@ -660,7 +660,7 @@ func initializeTestTables(ctx context.Context, db *sqlx.DB) error {
 		if err != nil {
 			return fmt.Errorf("failed to drop schema: %w", err)
 		}
-		
+
 		// Create fresh schema
 		_, err = db.ExecContext(ctx, "CREATE SCHEMA IF NOT EXISTS mcp")
 		if err != nil {
@@ -668,7 +668,7 @@ func initializeTestTables(ctx context.Context, db *sqlx.DB) error {
 		}
 		tablePrefix = "mcp."
 	}
-	
+
 	// Create models table - ensure it has all required fields from the model struct
 	modelsTable := fmt.Sprintf(`CREATE TABLE IF NOT EXISTS %smodels (
 		id TEXT PRIMARY KEY,
@@ -677,21 +677,21 @@ func initializeTestTables(ctx context.Context, db *sqlx.DB) error {
 		created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
 		updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
 	)`, tablePrefix)
-	
+
 	fmt.Printf("Creating models table with query: %s\n", modelsTable)
-	
+
 	_, err := db.ExecContext(ctx, modelsTable)
 	if err != nil {
 		return fmt.Errorf("failed to create models table: %w", err)
 	}
-	
+
 	// Create model indices for faster lookups
 	if !isSQLite {
 		indices := []string{
-			fmt.Sprintf(`CREATE INDEX IF NOT EXISTS idx_%smodels_tenant ON %smodels(tenant_id)`, 
+			fmt.Sprintf(`CREATE INDEX IF NOT EXISTS idx_%smodels_tenant ON %smodels(tenant_id)`,
 				tablePrefix[0:len(tablePrefix)-1], tablePrefix),
 		}
-		
+
 		for _, indexQuery := range indices {
 			_, err = db.ExecContext(ctx, indexQuery)
 			if err != nil {
@@ -699,7 +699,7 @@ func initializeTestTables(ctx context.Context, db *sqlx.DB) error {
 			}
 		}
 	}
-	
+
 	// Create agents table - ensure it has all required fields from the agent struct
 	agentsTable := fmt.Sprintf(`CREATE TABLE IF NOT EXISTS %sagents (
 		id TEXT PRIMARY KEY,
@@ -709,23 +709,23 @@ func initializeTestTables(ctx context.Context, db *sqlx.DB) error {
 		created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
 		updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
 	)`, tablePrefix)
-	
+
 	fmt.Printf("Creating agents table with query: %s\n", agentsTable)
-	
+
 	_, err = db.ExecContext(ctx, agentsTable)
 	if err != nil {
 		return fmt.Errorf("failed to create agents table: %w", err)
 	}
-	
+
 	// Create agent indices for faster lookups
 	if !isSQLite {
 		indices := []string{
-			fmt.Sprintf(`CREATE INDEX IF NOT EXISTS idx_%sagents_tenant ON %sagents(tenant_id)`, 
+			fmt.Sprintf(`CREATE INDEX IF NOT EXISTS idx_%sagents_tenant ON %sagents(tenant_id)`,
 				tablePrefix[0:len(tablePrefix)-1], tablePrefix),
-			fmt.Sprintf(`CREATE INDEX IF NOT EXISTS idx_%sagents_model ON %sagents(model_id)`, 
+			fmt.Sprintf(`CREATE INDEX IF NOT EXISTS idx_%sagents_model ON %sagents(model_id)`,
 				tablePrefix[0:len(tablePrefix)-1], tablePrefix),
 		}
-		
+
 		for _, indexQuery := range indices {
 			_, err = db.ExecContext(ctx, indexQuery)
 			if err != nil {
@@ -733,14 +733,14 @@ func initializeTestTables(ctx context.Context, db *sqlx.DB) error {
 			}
 		}
 	}
-	
+
 	// Create relationships table with additional metadata and timestamps
 	// Determine metadata column type based on database
 	metadataType := "JSONB"
 	if isSQLite {
 		metadataType = "TEXT"
 	}
-	
+
 	relationshipsTable := fmt.Sprintf(`CREATE TABLE IF NOT EXISTS %srelationships (
 		id TEXT PRIMARY KEY,
 		tenant_id TEXT NOT NULL,
@@ -753,23 +753,23 @@ func initializeTestTables(ctx context.Context, db *sqlx.DB) error {
 		created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
 		updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
 	)`, tablePrefix, metadataType)
-	
+
 	_, err = db.ExecContext(ctx, relationshipsTable)
 	if err != nil {
 		return fmt.Errorf("failed to create relationships table: %w", err)
 	}
-	
+
 	// Create relationship indices for faster lookups
 	if !isSQLite {
 		indices := []string{
-			fmt.Sprintf(`CREATE INDEX IF NOT EXISTS idx_%srelationships_tenant ON %srelationships(tenant_id)`, 
+			fmt.Sprintf(`CREATE INDEX IF NOT EXISTS idx_%srelationships_tenant ON %srelationships(tenant_id)`,
 				tablePrefix[0:len(tablePrefix)-1], tablePrefix),
-			fmt.Sprintf(`CREATE INDEX IF NOT EXISTS idx_%srelationships_source ON %srelationships(source_id, source_type)`, 
+			fmt.Sprintf(`CREATE INDEX IF NOT EXISTS idx_%srelationships_source ON %srelationships(source_id, source_type)`,
 				tablePrefix[0:len(tablePrefix)-1], tablePrefix),
-			fmt.Sprintf(`CREATE INDEX IF NOT EXISTS idx_%srelationships_target ON %srelationships(target_id, target_type)`, 
+			fmt.Sprintf(`CREATE INDEX IF NOT EXISTS idx_%srelationships_target ON %srelationships(target_id, target_type)`,
 				tablePrefix[0:len(tablePrefix)-1], tablePrefix),
 		}
-		
+
 		for _, indexQuery := range indices {
 			_, err = db.ExecContext(ctx, indexQuery)
 			if err != nil {
@@ -777,7 +777,7 @@ func initializeTestTables(ctx context.Context, db *sqlx.DB) error {
 			}
 		}
 	}
-	
+
 	return nil
 }
 
@@ -794,7 +794,7 @@ func runRepositoryTests(t *testing.T, ctx context.Context, modelRepo model.Repos
 			Name:     "Test Model",
 		}
 	}
-	
+
 	// If no test agent is provided, create one with required fields
 	if testAgent == nil {
 		modelID := testModel.ID
@@ -809,17 +809,17 @@ func runRepositoryTests(t *testing.T, ctx context.Context, modelRepo model.Repos
 	fmt.Printf("Creating test model with ID: %s, TenantID: %s\n", testModel.ID, testModel.TenantID)
 	err := modelRepo.Create(ctx, testModel)
 	require.NoError(t, err, "Failed to create model - check table schema and repository implementation")
-	
+
 	// 2. Add an agent that references the model
 	err = agentRepo.Create(ctx, testAgent)
 	require.NoError(t, err)
-	
+
 	// 3. Verify model can be retrieved using the API-specific method
 	retrievedModel, err := modelRepo.GetModelByID(ctx, testModel.ID, tenantID)
 	require.NoError(t, err)
 	assert.Equal(t, testModel.ID, retrievedModel.ID)
 	assert.Equal(t, testModel.Name, retrievedModel.Name)
-	
+
 	// 4. Verify agent can be retrieved and has correct model reference
 	retrievedAgent, err := agentRepo.Get(ctx, testAgent.ID)
 	require.NoError(t, err, "Error getting agent")
@@ -828,7 +828,7 @@ func runRepositoryTests(t *testing.T, ctx context.Context, modelRepo model.Repos
 	assert.Equal(t, testAgent.Name, retrievedAgent.Name, "Agent name should match")
 	assert.Equal(t, testAgent.TenantID, retrievedAgent.TenantID, "Agent tenant ID should match")
 	assert.Equal(t, testAgent.ModelID, retrievedAgent.ModelID, "Agent model ID should match")
-	
+
 	// Test list methods first (before we delete anything)
 	// List models by filter
 	filter := model.FilterFromTenantID(tenantID)
@@ -836,21 +836,21 @@ func runRepositoryTests(t *testing.T, ctx context.Context, modelRepo model.Repos
 	require.NoError(t, err)
 	assert.NotEmpty(t, models, "List should return at least one model")
 	assert.Greater(t, len(models), 0, "There should be at least one model")
-	
+
 	// Skip the API-specific methods for now as they might not be implemented
-	
+
 	// List agents
 	agentFilter := agent.FilterFromTenantID(tenantID)
 	agents, err := agentRepo.List(ctx, agentFilter)
 	require.NoError(t, err)
 	assert.NotEmpty(t, agents, "List should return at least one agent")
-	
+
 	// Skip the API-specific methods for now as they might not be implemented
-	
+
 	// Now delete the agent
 	err = agentRepo.Delete(ctx, testAgent.ID)
 	require.NoError(t, err, "Error deleting agent")
-	
+
 	// Verify agent is gone
 	deletedAgent, err := agentRepo.Get(ctx, testAgent.ID)
 	// Some implementations return nil,nil for not found, so check either condition
@@ -859,13 +859,13 @@ func runRepositoryTests(t *testing.T, ctx context.Context, modelRepo model.Repos
 	} else {
 		assert.Error(t, err, "Should get error or nil result for deleted agent")
 	}
-	
+
 	// List methods already tested above, we skip them here to avoid testing after deletion
-	
+
 	// Delete the model
 	err = modelRepo.Delete(ctx, testModel.ID)
 	require.NoError(t, err, "Error deleting model")
-	
+
 	// Verify model is gone
 	deletedModel, err := modelRepo.Get(ctx, testModel.ID)
 	// Some implementations return nil,nil for not found, so check either condition

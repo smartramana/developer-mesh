@@ -59,16 +59,16 @@ func GetTablePrefix(ctx context.Context, db *sqlx.DB) string {
 // SetupTestDatabase creates a test database and initializes it with the standard schema
 func SetupTestDatabase(t *testing.T) (*database.Database, context.Context) {
 	ctx := context.Background()
-	
+
 	// Create test database with context
 	db, err := database.NewTestDatabaseWithContext(ctx)
 	require.NoError(t, err)
 	require.NotNil(t, db)
-	
+
 	// Initialize tables with standard schema
 	err = InitializeTestTables(ctx, db.DB())
 	require.NoError(t, err, "Should be able to initialize test tables")
-	
+
 	return db, ctx
 }
 
@@ -81,7 +81,7 @@ func InitializeTestTables(ctx context.Context, db *sqlx.DB) error {
 	// Determine if we're using SQLite or PostgreSQL
 	isSQLite := IsDatabaseSQLite(ctx, db)
 	tablePrefix := ""
-	
+
 	// Configure database based on type
 	if isSQLite {
 		fmt.Println("Using SQLite database for tests")
@@ -98,7 +98,7 @@ func InitializeTestTables(ctx context.Context, db *sqlx.DB) error {
 		if err != nil {
 			return fmt.Errorf("failed to drop schema: %w", err)
 		}
-		
+
 		// Create fresh schema
 		_, err = db.ExecContext(ctx, "CREATE SCHEMA IF NOT EXISTS mcp")
 		if err != nil {
@@ -106,7 +106,7 @@ func InitializeTestTables(ctx context.Context, db *sqlx.DB) error {
 		}
 		tablePrefix = "mcp."
 	}
-	
+
 	// Create standard tables for testing
 	return createStandardTables(ctx, db, tablePrefix, isSQLite)
 }
@@ -122,12 +122,12 @@ func createStandardTables(ctx context.Context, db *sqlx.DB, tablePrefix string, 
 		created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
 		updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
 	)`, tablePrefix)
-	
+
 	_, err := db.ExecContext(ctx, modelsTable)
 	if err != nil {
 		return fmt.Errorf("failed to create models table: %w", err)
 	}
-	
+
 	// Create agents table
 	agentsTable := fmt.Sprintf(`CREATE TABLE IF NOT EXISTS %sagents (
 		id TEXT PRIMARY KEY,
@@ -139,12 +139,12 @@ func createStandardTables(ctx context.Context, db *sqlx.DB, tablePrefix string, 
 		updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
 		FOREIGN KEY (model_id) REFERENCES %smodels(id)
 	)`, tablePrefix, tablePrefix)
-	
+
 	_, err = db.ExecContext(ctx, agentsTable)
 	if err != nil {
 		return fmt.Errorf("failed to create agents table: %w", err)
 	}
-	
+
 	// Create relationships table
 	relationshipsTable := fmt.Sprintf(`CREATE TABLE IF NOT EXISTS %srelationships (
 		id TEXT PRIMARY KEY,
@@ -156,52 +156,52 @@ func createStandardTables(ctx context.Context, db *sqlx.DB, tablePrefix string, 
 		created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
 		updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
 	)`, tablePrefix)
-	
+
 	_, err = db.ExecContext(ctx, relationshipsTable)
 	if err != nil {
 		return fmt.Errorf("failed to create relationships table: %w", err)
 	}
-	
+
 	// Create indices for faster lookups
 	if !isSQLite {
 		// Model indices
 		modelIndices := []string{
-			fmt.Sprintf(`CREATE INDEX IF NOT EXISTS idx_%smodels_tenant ON %smodels(tenant_id)`, 
+			fmt.Sprintf(`CREATE INDEX IF NOT EXISTS idx_%smodels_tenant ON %smodels(tenant_id)`,
 				tablePrefix[0:len(tablePrefix)-1], tablePrefix),
 		}
-		
+
 		for _, indexQuery := range modelIndices {
 			_, err = db.ExecContext(ctx, indexQuery)
 			if err != nil {
 				return fmt.Errorf("failed to create model index: %w", err)
 			}
 		}
-		
+
 		// Agent indices
 		agentIndices := []string{
-			fmt.Sprintf(`CREATE INDEX IF NOT EXISTS idx_%sagents_tenant ON %sagents(tenant_id)`, 
+			fmt.Sprintf(`CREATE INDEX IF NOT EXISTS idx_%sagents_tenant ON %sagents(tenant_id)`,
 				tablePrefix[0:len(tablePrefix)-1], tablePrefix),
-			fmt.Sprintf(`CREATE INDEX IF NOT EXISTS idx_%sagents_model ON %sagents(model_id)`, 
+			fmt.Sprintf(`CREATE INDEX IF NOT EXISTS idx_%sagents_model ON %sagents(model_id)`,
 				tablePrefix[0:len(tablePrefix)-1], tablePrefix),
 		}
-		
+
 		for _, indexQuery := range agentIndices {
 			_, err = db.ExecContext(ctx, indexQuery)
 			if err != nil {
 				return fmt.Errorf("failed to create agent index: %w", err)
 			}
 		}
-		
+
 		// Relationship indices
 		relationshipIndices := []string{
-			fmt.Sprintf(`CREATE INDEX IF NOT EXISTS idx_%srelationships_source ON %srelationships(source_id, source_type)`, 
+			fmt.Sprintf(`CREATE INDEX IF NOT EXISTS idx_%srelationships_source ON %srelationships(source_id, source_type)`,
 				tablePrefix[0:len(tablePrefix)-1], tablePrefix),
-			fmt.Sprintf(`CREATE INDEX IF NOT EXISTS idx_%srelationships_target ON %srelationships(target_id, target_type)`, 
+			fmt.Sprintf(`CREATE INDEX IF NOT EXISTS idx_%srelationships_target ON %srelationships(target_id, target_type)`,
 				tablePrefix[0:len(tablePrefix)-1], tablePrefix),
-			fmt.Sprintf(`CREATE INDEX IF NOT EXISTS idx_%srelationships_type ON %srelationships(relationship_type)`, 
+			fmt.Sprintf(`CREATE INDEX IF NOT EXISTS idx_%srelationships_type ON %srelationships(relationship_type)`,
 				tablePrefix[0:len(tablePrefix)-1], tablePrefix),
 		}
-		
+
 		for _, indexQuery := range relationshipIndices {
 			_, err = db.ExecContext(ctx, indexQuery)
 			if err != nil {
@@ -209,7 +209,7 @@ func createStandardTables(ctx context.Context, db *sqlx.DB, tablePrefix string, 
 			}
 		}
 	}
-	
+
 	return nil
 }
 

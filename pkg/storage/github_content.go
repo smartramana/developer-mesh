@@ -24,9 +24,9 @@ const (
 	ContentTypeRelease     ContentType = "release"
 	ContentTypeWebhook     ContentType = "webhook"
 	ContentTypeComment     ContentType = "comment"
-	
+
 	// Storage paths
-	repoPathPrefix   = "repositories"
+	repoPathPrefix    = "repositories"
 	contentPathPrefix = "content"
 )
 
@@ -58,16 +58,16 @@ func (c *ContentMetadata) GetMetadata() map[string]interface{} {
 func (c *ContentMetadata) MarshalJSON() ([]byte, error) {
 	// Create a copy of the struct so we don't modify the original
 	copy := *c
-	
+
 	// Always ensure metadata is initialized with an empty map if nil
 	// This is critical for the PostgreSQL "invalid input syntax for type json" error
 	if copy.Metadata == nil {
 		copy.Metadata = map[string]interface{}{}
 	}
-	
+
 	// Use a type alias to avoid infinite recursion
 	type Alias ContentMetadata
-	
+
 	// Remove the omitempty tag from the metadata field to ensure it's always included
 	// even if empty - this forces it to be {} instead of omitted or null
 	return json.Marshal((*Alias)(&copy))
@@ -79,7 +79,7 @@ func NewContentMetadata(owner, repo string, contentType ContentType, contentID s
 	if metadata == nil {
 		metadata = map[string]interface{}{}
 	}
-	
+
 	now := time.Now()
 	return &ContentMetadata{
 		Owner:       owner,
@@ -136,14 +136,14 @@ func (s *GitHubContentStorage) StoreContent(
 	// Calculate SHA-256 hash of the content
 	hash := sha256.Sum256(data)
 	checksum := hex.EncodeToString(hash[:])
-	
+
 	// Store content by hash in the content-addressable store
 	contentKey := fmt.Sprintf("%s/%s", contentPathPrefix, checksum)
-	
+
 	// Store content by repository path for organization
-	repoKey := fmt.Sprintf("%s/%s/%s/%s/%s", 
+	repoKey := fmt.Sprintf("%s/%s/%s/%s/%s",
 		repoPathPrefix, owner, repo, contentType, contentID)
-	
+
 	// Create metadata using the constructor which ensures metadata is never nil
 	// This fixes the PostgreSQL "invalid input syntax for type json" error
 	contentMetadata := NewContentMetadata(
@@ -169,7 +169,7 @@ func (s *GitHubContentStorage) StoreContent(
 	if err != nil {
 		return nil, fmt.Errorf("failed to check if content exists: %w", err)
 	}
-	
+
 	if !exists {
 		err = s.s3Client.UploadFile(ctx, contentKey, data, "application/octet-stream")
 		if err != nil {
@@ -200,13 +200,13 @@ func (s *GitHubContentStorage) StoreContent(
 // contentExists checks if content with the given hash already exists
 func (s *GitHubContentStorage) contentExists(ctx context.Context, checksum string) (bool, error) {
 	contentKey := fmt.Sprintf("%s/%s", contentPathPrefix, checksum)
-	
+
 	// List objects with this prefix to check if any exist
 	keys, err := s.s3Client.ListFiles(ctx, contentKey)
 	if err != nil {
 		return false, err
 	}
-	
+
 	return len(keys) > 0, nil
 }
 
@@ -217,15 +217,15 @@ func (s *GitHubContentStorage) GetContentByURI(ctx context.Context, uri string) 
 	if !strings.HasPrefix(uri, prefix) {
 		return nil, nil, fmt.Errorf("invalid URI format: %s", uri)
 	}
-	
+
 	key := uri[len(prefix):]
-	
+
 	// Download content
 	data, err := s.s3Client.DownloadFile(ctx, key)
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to download content from S3: %w", err)
 	}
-	
+
 	// For content-addressable paths, retrieve the metadata
 	if strings.HasPrefix(key, contentPathPrefix+"/") {
 		checksum := strings.TrimPrefix(key, contentPathPrefix+"/")
@@ -235,7 +235,7 @@ func (s *GitHubContentStorage) GetContentByURI(ctx context.Context, uri string) 
 		}
 		return data, metadata, nil
 	}
-	
+
 	return data, nil, nil
 }
 
@@ -248,36 +248,36 @@ func (s *GitHubContentStorage) GetContent(
 	contentID string,
 ) ([]byte, *ContentMetadata, error) {
 	// Generate repository path key
-	repoKey := fmt.Sprintf("%s/%s/%s/%s/%s", 
+	repoKey := fmt.Sprintf("%s/%s/%s/%s/%s",
 		repoPathPrefix, owner, repo, contentType, contentID)
-	
+
 	// Get reference file first
 	refData, err := s.s3Client.DownloadFile(ctx, repoKey+".ref")
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to download content reference: %w", err)
 	}
-	
+
 	// Reference contains the content path
 	contentKey := string(refData)
-	
+
 	// Download the actual content
 	content, err := s.s3Client.DownloadFile(ctx, contentKey)
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to download content from S3: %w", err)
 	}
-	
+
 	// Get metadata
 	metadataContent, err := s.s3Client.DownloadFile(ctx, repoKey)
 	if err != nil {
 		return content, nil, fmt.Errorf("content found but metadata not found: %w", err)
 	}
-	
+
 	var metadata ContentMetadata
 	err = json.Unmarshal(metadataContent, &metadata)
 	if err != nil {
 		return content, nil, fmt.Errorf("failed to unmarshal content metadata: %w", err)
 	}
-	
+
 	return content, &metadata, nil
 }
 
@@ -288,30 +288,30 @@ func (s *GitHubContentStorage) getContentMetadataByChecksum(ctx context.Context,
 	if err != nil {
 		return nil, fmt.Errorf("failed to list repository objects: %w", err)
 	}
-	
-	// Check each metadata file 
+
+	// Check each metadata file
 	for _, key := range repoObjects {
 		// Skip reference files
 		if strings.HasSuffix(key, ".ref") {
 			continue
 		}
-		
+
 		metadataContent, err := s.s3Client.DownloadFile(ctx, key)
 		if err != nil {
 			continue // Skip files that can't be downloaded
 		}
-		
+
 		var metadata ContentMetadata
 		err = json.Unmarshal(metadataContent, &metadata)
 		if err != nil {
 			continue // Skip files with invalid JSON
 		}
-		
+
 		if metadata.Checksum == checksum {
 			return &metadata, nil
 		}
 	}
-	
+
 	return nil, fmt.Errorf("metadata not found for checksum: %s", checksum)
 }
 
@@ -324,36 +324,36 @@ func (s *GitHubContentStorage) DeleteContent(
 	contentID string,
 ) error {
 	// Generate repository path key
-	repoKey := fmt.Sprintf("%s/%s/%s/%s/%s", 
+	repoKey := fmt.Sprintf("%s/%s/%s/%s/%s",
 		repoPathPrefix, owner, repo, contentType, contentID)
-	
+
 	// Get reference file first to find the content path
 	refData, err := s.s3Client.DownloadFile(ctx, repoKey+".ref")
 	if err != nil {
 		return fmt.Errorf("failed to download content reference: %w", err)
 	}
-	
+
 	// Log the content path being referenced (helpful for debugging)
 	contentPath := string(refData)
 	if contentPath == "" {
 		return fmt.Errorf("invalid empty reference data")
 	}
-	
+
 	// Delete the reference
 	err = s.s3Client.DeleteFile(ctx, repoKey+".ref")
 	if err != nil {
 		return fmt.Errorf("failed to delete reference: %w", err)
 	}
-	
+
 	// Delete the metadata
 	err = s.s3Client.DeleteFile(ctx, repoKey)
 	if err != nil {
 		return fmt.Errorf("failed to delete metadata: %w", err)
 	}
-	
+
 	// Note: We intentionally do not delete the content from the content-addressable store
 	// as it may be referenced by other repositories. Content should be managed by lifecycle policies.
-	
+
 	return nil
 }
 
@@ -365,38 +365,38 @@ func (s *GitHubContentStorage) ListContent(
 	contentType ContentType,
 ) ([]*ContentMetadata, error) {
 	// Generate prefix for listing
-	prefix := fmt.Sprintf("%s/%s/%s/%s/", 
+	prefix := fmt.Sprintf("%s/%s/%s/%s/",
 		repoPathPrefix, owner, repo, contentType)
-	
+
 	// List objects with this prefix
 	keys, err := s.s3Client.ListFiles(ctx, prefix)
 	if err != nil {
 		return nil, fmt.Errorf("failed to list content: %w", err)
 	}
-	
+
 	var results []*ContentMetadata
-	
+
 	for _, key := range keys {
 		// Skip reference files
 		if strings.HasSuffix(key, ".ref") {
 			continue
 		}
-		
+
 		// Download metadata
 		metadataContent, err := s.s3Client.DownloadFile(ctx, key)
 		if err != nil {
 			continue // Skip files that can't be downloaded
 		}
-		
+
 		var metadata ContentMetadata
 		err = json.Unmarshal(metadataContent, &metadata)
 		if err != nil {
 			continue // Skip files with invalid JSON
 		}
-		
+
 		results = append(results, &metadata)
 	}
-	
+
 	return results, nil
 }
 

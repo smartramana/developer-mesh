@@ -9,8 +9,6 @@ import (
 	"github.com/jmoiron/sqlx"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	
-	"github.com/S-Corkum/devops-mcp/pkg/common/config"
 )
 
 func setupMockDB(t *testing.T) (*Database, sqlmock.Sqlmock) {
@@ -36,9 +34,7 @@ func TestNewDatabase(t *testing.T) {
 		ctx := context.Background()
 		config := Config{
 			Driver: "invalid-driver",
-			DatabaseConfig: config.DatabaseConfig{
-				DSN: "invalid-dsn",
-			},
+			DSN:    "invalid-dsn",
 		}
 
 		db, err := NewDatabase(ctx, config)
@@ -124,10 +120,10 @@ func TestPrepareErrorHandling(t *testing.T) {
 
 func TestClose(t *testing.T) {
 	db, mock := setupMockDB(t)
-	
+
 	// Expect close
 	mock.ExpectClose()
-	
+
 	err := db.Close()
 	assert.NoError(t, err)
 }
@@ -137,7 +133,7 @@ func TestPing(t *testing.T) {
 	mockDB, mock, err := sqlmock.New(sqlmock.MonitorPingsOption(true))
 	require.NoError(t, err)
 	sqlxDB := sqlx.NewDb(mockDB, "sqlmock")
-	
+
 	db := &Database{
 		db:         sqlxDB,
 		config:     Config{},
@@ -147,7 +143,7 @@ func TestPing(t *testing.T) {
 
 	t.Run("Successful Ping", func(t *testing.T) {
 		mock.ExpectPing()
-		
+
 		err := db.Ping()
 		assert.NoError(t, err)
 	})
@@ -155,7 +151,7 @@ func TestPing(t *testing.T) {
 	t.Run("Ping Error", func(t *testing.T) {
 		pingErr := errors.New("ping error")
 		mock.ExpectPing().WillReturnError(pingErr)
-		
+
 		err := db.Ping()
 		assert.Error(t, err)
 		assert.Equal(t, "ping error", err.Error())

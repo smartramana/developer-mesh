@@ -18,15 +18,15 @@ func TestModelTypes(t *testing.T) {
 func TestOpenAIEmbeddingService(t *testing.T) {
 	// Create a test service
 	service, err := embedding.NewOpenAIEmbeddingService(
-		"test-api-key", 
+		"test-api-key",
 		"text-embedding-3-small",
 		1536,
 	)
-	
+
 	// Verify service creation
 	assert.NoError(t, err)
 	assert.NotNil(t, service)
-	
+
 	// Check model configuration
 	config := service.GetModelConfig()
 	assert.Equal(t, embedding.ModelTypeOpenAI, config.Type)

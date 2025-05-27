@@ -16,9 +16,9 @@ type LegacyAgentAdapter struct {
 }
 
 // NewLegacyAgentAdapter creates a new adapter for the agent repository
-func NewLegacyAgentAdapter(db interface{}) AgentRepository {
+func NewLegacyAgentAdapter(db any) AgentRepository {
 	var sqlxDB *sqlx.DB
-	
+
 	switch typedDB := db.(type) {
 	case *sqlx.DB:
 		sqlxDB = typedDB
@@ -28,7 +28,7 @@ func NewLegacyAgentAdapter(db interface{}) AgentRepository {
 		// For testing scenarios, we can create a mock repository
 		return &LegacyAgentAdapter{repo: agent.NewMockRepository()}
 	}
-	
+
 	return &LegacyAgentAdapter{repo: agent.NewRepository(sqlxDB)}
 }
 
@@ -83,9 +83,9 @@ type LegacyModelAdapter struct {
 }
 
 // NewLegacyModelAdapter creates a new adapter for the model repository
-func NewLegacyModelAdapter(db interface{}) ModelRepository {
+func NewLegacyModelAdapter(db any) ModelRepository {
 	var sqlxDB *sqlx.DB
-	
+
 	switch typedDB := db.(type) {
 	case *sqlx.DB:
 		sqlxDB = typedDB
@@ -95,7 +95,7 @@ func NewLegacyModelAdapter(db interface{}) ModelRepository {
 		// For testing scenarios, we can create a mock repository
 		return &LegacyModelAdapter{repo: model.NewMockRepository()}
 	}
-	
+
 	return &LegacyModelAdapter{repo: model.NewRepository(sqlxDB)}
 }
 

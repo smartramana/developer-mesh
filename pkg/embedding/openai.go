@@ -65,23 +65,23 @@ func NewOpenAIEmbeddingService(apiKey string, modelName string, dimensions int) 
 	if apiKey == "" {
 		return nil, errors.New("API key is required for OpenAI embeddings")
 	}
-	
+
 	// Use default model if not specified
 	if modelName == "" {
 		return nil, errors.New("model name is required")
 	}
-	
+
 	// Validate model name
 	err := ValidateEmbeddingModel(ModelTypeOpenAI, modelName)
 	if err != nil {
 		return nil, err
 	}
-	
+
 	// Get dimensions for the model if not specified
 	if dimensions <= 0 {
 		dimensions = supportedOpenAIModels[modelName]
 	}
-	
+
 	config := ModelConfig{
 		Type:       ModelTypeOpenAI,
 		Name:       modelName,
@@ -89,11 +89,11 @@ func NewOpenAIEmbeddingService(apiKey string, modelName string, dimensions int) 
 		Dimensions: dimensions,
 		Endpoint:   defaultOpenAIEndpoint,
 	}
-	
+
 	client := &http.Client{
 		Timeout: defaultTimeout,
 	}
-	
+
 	return &OpenAIEmbeddingService{
 		config: config,
 		client: client,
@@ -106,7 +106,7 @@ func (s *OpenAIEmbeddingService) GenerateEmbedding(ctx context.Context, text str
 	if text == "" {
 		return nil, errors.New("content cannot be empty")
 	}
-	
+
 	embeddings, err := s.BatchGenerateEmbeddings(ctx, []string{text}, contentType, []string{contentID})
 	if err != nil {
 		// Check if this is an API error and format it accordingly
@@ -115,11 +115,11 @@ func (s *OpenAIEmbeddingService) GenerateEmbedding(ctx context.Context, text str
 		}
 		return nil, fmt.Errorf("failed to generate embedding: %w", err)
 	}
-	
+
 	if len(embeddings) == 0 {
 		return nil, errors.New("no embeddings generated")
 	}
-	
+
 	return embeddings[0], nil
 }
 
@@ -128,50 +128,50 @@ func (s *OpenAIEmbeddingService) BatchGenerateEmbeddings(ctx context.Context, te
 	if len(texts) == 0 {
 		return nil, errors.New("no texts provided for embedding generation")
 	}
-	
+
 	if len(texts) != len(contentIDs) {
 		return nil, errors.New("number of texts must match number of content IDs")
 	}
-	
+
 	// Process in batches if needed
 	if len(texts) > maxOpenAIBatchSize {
 		return s.processBatches(ctx, texts, contentType, contentIDs)
 	}
-	
+
 	reqBody := OpenAIEmbeddingRequest{
 		Model: s.config.Name,
 		Input: texts,
 	}
-	
+
 	jsonData, err := json.Marshal(reqBody)
 	if err != nil {
 		return nil, fmt.Errorf("failed to marshal request: %w", err)
 	}
-	
+
 	req, err := http.NewRequestWithContext(ctx, "POST", s.config.Endpoint, bytes.NewBuffer(jsonData))
 	if err != nil {
 		return nil, fmt.Errorf("failed to create request: %w", err)
 	}
-	
+
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("Authorization", "Bearer "+s.config.APIKey)
-	
+
 	resp, err := s.client.Do(req)
 	if err != nil {
 		return nil, fmt.Errorf("failed to make API request: %w", err)
 	}
 	defer resp.Body.Close()
-	
+
 	if resp.StatusCode != http.StatusOK {
 		bodyBytes, _ := io.ReadAll(resp.Body)
 		return nil, fmt.Errorf("API request failed with status %d: %s", resp.StatusCode, string(bodyBytes))
 	}
-	
+
 	var response OpenAIEmbeddingResponse
 	if err := json.NewDecoder(resp.Body).Decode(&response); err != nil {
 		return nil, fmt.Errorf("failed to decode API response: %w", err)
 	}
-	
+
 	result := make([]*EmbeddingVector, len(response.Data))
 	for i, data := range response.Data {
 		result[i] = &EmbeddingVector{
@@ -186,31 +186,31 @@ func (s *OpenAIEmbeddingService) BatchGenerateEmbeddings(ctx context.Context, te
 			},
 		}
 	}
-	
+
 	return result, nil
 }
 
 // processBatches breaks down a large batch into smaller batches for API processing
 func (s *OpenAIEmbeddingService) processBatches(ctx context.Context, texts []string, contentType string, contentIDs []string) ([]*EmbeddingVector, error) {
 	var allEmbeddings []*EmbeddingVector
-	
+
 	for i := 0; i < len(texts); i += maxOpenAIBatchSize {
 		end := i + maxOpenAIBatchSize
 		if end > len(texts) {
 			end = len(texts)
 		}
-		
+
 		batchTexts := texts[i:end]
 		batchIDs := contentIDs[i:end]
-		
+
 		embeddings, err := s.BatchGenerateEmbeddings(ctx, batchTexts, contentType, batchIDs)
 		if err != nil {
 			return nil, fmt.Errorf("failed to process batch %d-%d: %w", i, end, err)
 		}
-		
+
 		allEmbeddings = append(allEmbeddings, embeddings...)
 	}
-	
+
 	return allEmbeddings, nil
 }
 

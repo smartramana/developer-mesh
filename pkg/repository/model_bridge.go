@@ -3,7 +3,7 @@ package repository
 
 import (
 	"context"
-	
+
 	"github.com/S-Corkum/devops-mcp/pkg/models"
 	"github.com/S-Corkum/devops-mcp/pkg/repository/model"
 )
@@ -42,11 +42,11 @@ func (m *mockModelRepository) Get(ctx context.Context, id string) (*models.Model
 // List implements the List method for mockModelRepository
 func (m *mockModelRepository) List(ctx context.Context, filter model.Filter) ([]*models.Model, error) {
 	var result []*models.Model
-	
+
 	if m.models == nil {
 		return result, nil
 	}
-	
+
 	for _, model := range m.models {
 		matches := true
 		for key, value := range filter {
@@ -61,12 +61,12 @@ func (m *mockModelRepository) List(ctx context.Context, filter model.Filter) ([]
 				}
 			}
 		}
-		
+
 		if matches {
 			result = append(result, model)
 		}
 	}
-	
+
 	return result, nil
 }
 
@@ -92,7 +92,7 @@ func (m *mockModelRepository) CreateModel(ctx context.Context, model *models.Mod
 	return m.Create(ctx, model)
 }
 
-// GetModelByID implements the API-specific method 
+// GetModelByID implements the API-specific method
 func (m *mockModelRepository) GetModelByID(ctx context.Context, id string, tenantID string) (*models.Model, error) {
 	model, _ := m.Get(ctx, id)
 	if model != nil && model.TenantID != tenantID {
