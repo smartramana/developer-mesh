@@ -4,6 +4,7 @@ package cache
 import (
 	"context"
 	"crypto/tls"
+	"encoding/json"
 	"fmt"
 	"time"
 
@@ -14,6 +15,16 @@ import (
 type RedisCache struct {
 	client *redis.Client
 	config RedisConfig
+}
+
+// marshal converts a value to JSON bytes
+func marshal(v interface{}) ([]byte, error) {
+	return json.Marshal(v)
+}
+
+// unmarshal converts JSON bytes to a value
+func unmarshal(data []byte, v interface{}) error {
+	return json.Unmarshal(data, v)
 }
 
 // NewRedisCache creates a new Redis cache client
@@ -63,31 +74,60 @@ func NewRedisCache(cfg RedisConfig) (*RedisCache, error) {
 
 // Get retrieves a value from the cache
 func (c *RedisCache) Get(ctx context.Context, key string, value interface{}) error {
-	// For this stub implementation, just return not found
-	return ErrNotFound
+	data, err := c.client.Get(ctx, key).Bytes()
+	if err != nil {
+		if err == redis.Nil {
+			return ErrNotFound
+		}
+		return fmt.Errorf("failed to get value from cache: %w", err)
+	}
+
+	// Unmarshal the data into the value
+	if err := unmarshal(data, value); err != nil {
+		return fmt.Errorf("failed to unmarshal cache value: %w", err)
+	}
+
+	return nil
 }
 
 // Set stores a value in the cache
 func (c *RedisCache) Set(ctx context.Context, key string, value interface{}, ttl time.Duration) error {
-	// For this stub implementation, just return success
+	// Marshal the value
+	data, err := marshal(value)
+	if err != nil {
+		return fmt.Errorf("failed to marshal cache value: %w", err)
+	}
+
+	// Set with expiration
+	if err := c.client.Set(ctx, key, data, ttl).Err(); err != nil {
+		return fmt.Errorf("failed to set value in cache: %w", err)
+	}
+
 	return nil
 }
 
 // Delete removes a value from the cache
 func (c *RedisCache) Delete(ctx context.Context, key string) error {
-	// For this stub implementation, just return success
+	if err := c.client.Del(ctx, key).Err(); err != nil {
+		return fmt.Errorf("failed to delete value from cache: %w", err)
+	}
 	return nil
 }
 
 // Exists checks if a key exists in the cache
 func (c *RedisCache) Exists(ctx context.Context, key string) (bool, error) {
-	// For this stub implementation, just return false
-	return false, nil
+	result, err := c.client.Exists(ctx, key).Result()
+	if err != nil {
+		return false, fmt.Errorf("failed to check if key exists: %w", err)
+	}
+	return result > 0, nil
 }
 
 // Flush clears all values from the cache
 func (c *RedisCache) Flush(ctx context.Context) error {
-	// For this stub implementation, just return success
+	if err := c.client.FlushDB(ctx).Err(); err != nil {
+		return fmt.Errorf("failed to flush cache: %w", err)
+	}
 	return nil
 }
 

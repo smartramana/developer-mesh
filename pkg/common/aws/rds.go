@@ -78,6 +78,14 @@ func NewExtendedRDSClient(ctx context.Context, connCfg RDSConnectionConfig) (*Ex
 // 1. Import the AWS SDK RDS auth package: github.com/aws/aws-sdk-go-v2/feature/rds/auth
 // 2. Use rdsAuth.BuildAuthToken to generate an IAM auth token
 func (c *ExtendedRDSClient) GetAuthToken(ctx context.Context) (string, error) {
+	// If IAM auth is disabled, return password
+	if !c.connConfig.UseIAMAuth {
+		if c.connConfig.Password == "" {
+			return "", fmt.Errorf("password is required when IAM authentication is disabled")
+		}
+		return c.connConfig.Password, nil
+	}
+
 	// For testing in local development environments, return a mock token
 	if c.connConfig.Host == "localhost" || c.connConfig.Host == "127.0.0.1" ||
 		c.connConfig.Host == "" || strings.HasPrefix(c.connConfig.Host, "host.docker.internal") {
@@ -100,14 +108,6 @@ func (c *ExtendedRDSClient) GetAuthToken(ctx context.Context) (string, error) {
 	// For now, this is a placeholder implementation
 	// In a production environment, this would use the AWS SDK
 	log.Println("Using mock RDS auth token for IAM authentication")
-
-	// If IAM auth is disabled, check for password
-	if !c.connConfig.UseIAMAuth {
-		if c.connConfig.Password == "" {
-			return "", fmt.Errorf("password is required when IAM authentication is disabled")
-		}
-		return c.connConfig.Password, nil
-	}
 
 	// In production, this would use the AWS SDK to generate a token:
 	// authToken, err := rdsAuth.BuildAuthToken(

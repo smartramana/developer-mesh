@@ -90,6 +90,14 @@ func TestStoreEmbedding(t *testing.T) {
 			// Create sqlx.DB from the mock connection
 			sqlxDB := sqlx.NewDb(db, "sqlmock")
 
+			// Expect pgvector extension check during repository initialization
+			mock.ExpectQuery(`SELECT EXISTS`).
+				WillReturnRows(sqlmock.NewRows([]string{"exists"}).AddRow(true))
+			
+			// Expect embeddings table check during repository initialization
+			mock.ExpectQuery(`SELECT EXISTS`).
+				WillReturnRows(sqlmock.NewRows([]string{"exists"}).AddRow(true))
+
 			// Create the repository with the mock database
 			repo := NewEmbeddingRepository(sqlxDB)
 
@@ -223,6 +231,14 @@ func TestSearchEmbeddings_Legacy(t *testing.T) {
 
 			// Create sqlx.DB from the mock connection
 			sqlxDB := sqlx.NewDb(db, "sqlmock")
+
+			// Expect pgvector extension check during repository initialization
+			mock.ExpectQuery(`SELECT EXISTS`).
+				WillReturnRows(sqlmock.NewRows([]string{"exists"}).AddRow(true))
+			
+			// Expect embeddings table check during repository initialization
+			mock.ExpectQuery(`SELECT EXISTS`).
+				WillReturnRows(sqlmock.NewRows([]string{"exists"}).AddRow(true))
 
 			// Create the repository with the mock database
 			repo := NewEmbeddingRepository(sqlxDB)
@@ -408,6 +424,14 @@ func TestSearchEmbeddings(t *testing.T) {
 
 			// Create sqlx.DB from the mock connection
 			sqlxDB := sqlx.NewDb(db, "sqlmock")
+
+			// Expect pgvector extension check during repository initialization
+			mock.ExpectQuery(`SELECT EXISTS`).
+				WillReturnRows(sqlmock.NewRows([]string{"exists"}).AddRow(true))
+			
+			// Expect embeddings table check during repository initialization
+			mock.ExpectQuery(`SELECT EXISTS`).
+				WillReturnRows(sqlmock.NewRows([]string{"exists"}).AddRow(true))
 
 			// Create the repository with the mock database
 			repo := NewEmbeddingRepository(sqlxDB)
