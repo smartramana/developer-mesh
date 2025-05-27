@@ -2,8 +2,8 @@ package api_test
 
 import (
 	"context"
-	"rest-api/internal/repository"
 	"github.com/stretchr/testify/mock"
+	"rest-api/internal/repository"
 )
 
 type MockEmbeddingRepository struct {

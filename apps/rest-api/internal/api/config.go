@@ -59,8 +59,8 @@ type PerformanceConfig struct {
 
 // AuthConfig holds authentication configuration
 type AuthConfig struct {
-	JWTSecret string      `mapstructure:"jwt_secret"`
-	APIKeys   interface{} `mapstructure:"api_keys"`
+	JWTSecret string `mapstructure:"jwt_secret"`
+	APIKeys   any    `mapstructure:"api_keys"`
 }
 
 // RateLimitConfig holds rate limiting configuration

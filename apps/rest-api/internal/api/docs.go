@@ -1,9 +1,9 @@
 package api
 
 import (
+	"github.com/gin-gonic/gin"
 	"github.com/swaggo/files"
 	"github.com/swaggo/gin-swagger"
-	"github.com/gin-gonic/gin"
 )
 
 // @title MCP Server API

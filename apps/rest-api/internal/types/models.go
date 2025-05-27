@@ -9,7 +9,7 @@ type Embedding struct {
 	Text         string
 	Embedding    []float32
 	ModelID      string
-	Metadata     map[string]interface{}
+	Metadata     map[string]any
 }
 
 // SearchOptions defines options for search operations
@@ -17,7 +17,7 @@ type SearchOptions struct {
 	Limit               int
 	Offset              int
 	SimilarityThreshold float64
-	Filters             map[string]interface{}
+	Filters             map[string]any
 	Sort                string
 	SortDirection       string
 }
@@ -27,7 +27,7 @@ type SearchResult struct {
 	ID         string
 	Content    string
 	Similarity float64
-	Metadata   map[string]interface{}
+	Metadata   map[string]any
 }
 
 // SearchResults represents a collection of search results

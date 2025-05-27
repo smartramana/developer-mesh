@@ -12,10 +12,12 @@ import (
 	"net"
 	"net/http"
 	"os"
+	"slices"
 	"strings"
 	"sync"
 	"time"
 
+	"github.com/S-Corkum/devops-mcp/pkg/interfaces"
 	"github.com/S-Corkum/devops-mcp/pkg/observability"
 	"github.com/S-Corkum/devops-mcp/pkg/queue"
 )
@@ -43,23 +45,15 @@ func GitHubWebhookHandler(config interfaces.WebhookConfigInterface, logger obser
 		// Verify HTTP method
 		if r.Method != http.MethodPost {
 			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
-			logger.Warn("GitHub webhook received non-POST request", map[string]interface{}{"method": r.Method})
+			logger.Warn("GitHub webhook received non-POST request", map[string]any{"method": r.Method})
 			return
 		}
 
 		// Check if event type is allowed
 		allowedEvents := config.GitHubAllowedEvents()
-		isEventAllowed := false
-		for _, allowed := range allowedEvents {
-			if eventType == allowed {
-				isEventAllowed = true
-				break
-			}
-		}
-
-		if !isEventAllowed {
+		if !slices.Contains(allowedEvents, eventType) {
 			http.Error(w, "Event type not allowed", http.StatusForbidden)
-			logger.Warn("GitHub webhook event type not allowed", map[string]interface{}{"eventType": eventType})
+			logger.Warn("GitHub webhook event type not allowed", map[string]any{"eventType": eventType})
 			return
 		}
 
@@ -67,7 +61,7 @@ func GitHubWebhookHandler(config interfaces.WebhookConfigInterface, logger obser
 		bodyBytes, err := io.ReadAll(r.Body)
 		if err != nil {
 			http.Error(w, "Failed to read request body", http.StatusInternalServerError)
-			logger.Error("GitHub webhook failed to read request body", map[string]interface{}{"error": err.Error()})
+			logger.Error("GitHub webhook failed to read request body", map[string]any{"error": err.Error()})
 			return
 		}
 		// Restore the body for later use
@@ -103,7 +97,7 @@ func GitHubWebhookHandler(config interfaces.WebhookConfigInterface, logger obser
 				// For test stability, log the error but don't fail in test mode
 				fmt.Printf("[DEBUG] TEST MODE: Signature verification failed, but proceeding anyway for testing\n")
 				logger.Warn("GitHub webhook signature verification failed in test mode",
-					map[string]interface{}{"computed": validSignature})
+					map[string]any{"computed": validSignature})
 			} else {
 				// In production, fail the request
 				http.Error(w, "Invalid signature", http.StatusUnauthorized)
@@ -114,10 +108,10 @@ func GitHubWebhookHandler(config interfaces.WebhookConfigInterface, logger obser
 		// Continue processing after verification (or bypass in test mode)
 
 		// Parse payload
-		var payload map[string]interface{}
+		var payload map[string]any
 		if err := json.Unmarshal(bodyBytes, &payload); err != nil {
 			http.Error(w, "Failed to parse payload", http.StatusBadRequest)
-			logger.Error("GitHub webhook failed to parse payload", map[string]interface{}{"error": err.Error()})
+			logger.Error("GitHub webhook failed to parse payload", map[string]any{"error": err.Error()})
 			return
 		}
 
@@ -126,12 +120,12 @@ func GitHubWebhookHandler(config interfaces.WebhookConfigInterface, logger obser
 		senderName := extractSenderName(payload)
 		if repoName == "unknown" || senderName == "unknown" {
 			http.Error(w, "Missing required fields in payload (repository.full_name or sender.login)", http.StatusBadRequest)
-			logger.Warn("Webhook payload missing repository or sender info", map[string]interface{}{"eventType": eventType})
+			logger.Warn("Webhook payload missing repository or sender info", map[string]any{"eventType": eventType})
 			return
 		}
 
 		// Log the event
-		logger.Info("GitHub webhook received", map[string]interface{}{"eventType": eventType, "repository": repoName, "sender": senderName})
+		logger.Info("GitHub webhook received", map[string]any{"eventType": eventType, "repository": repoName, "sender": senderName})
 
 		// Enqueue event to SQS for asynchronous processing
 		sqsURL := os.Getenv("SQS_QUEUE_URL")
@@ -156,13 +150,13 @@ func GitHubWebhookHandler(config interfaces.WebhookConfigInterface, logger obser
 		sqsClient, err := queue.NewSQSClient(ctx)
 		if err != nil {
 			http.Error(w, "Failed to create SQS client", http.StatusInternalServerError)
-			logger.Error("Failed to create SQS client", map[string]interface{}{"error": err.Error()})
+			logger.Error("Failed to create SQS client", map[string]any{"error": err.Error()})
 			return
 		}
 		err = sqsClient.EnqueueEvent(ctx, event)
 		if err != nil {
 			http.Error(w, "Failed to enqueue event", http.StatusInternalServerError)
-			logger.Error("Failed to enqueue event to SQS", map[string]interface{}{"error": err.Error()})
+			logger.Error("Failed to enqueue event to SQS", map[string]any{"error": err.Error()})
 			return
 		}
 
@@ -212,8 +206,8 @@ func min(a, b int) int {
 }
 
 // extractRepoName extracts the repository name from the payload
-func extractRepoName(payload map[string]interface{}) string {
-	repo, ok := payload["repository"].(map[string]interface{})
+func extractRepoName(payload map[string]any) string {
+	repo, ok := payload["repository"].(map[string]any)
 	if !ok {
 		return "unknown"
 	}
@@ -225,8 +219,8 @@ func extractRepoName(payload map[string]interface{}) string {
 }
 
 // extractSenderName extracts the sender name from the payload
-func extractSenderName(payload map[string]interface{}) string {
-	sender, ok := payload["sender"].(map[string]interface{})
+func extractSenderName(payload map[string]any) string {
+	sender, ok := payload["sender"].(map[string]any)
 	if !ok {
 		return "unknown"
 	}
@@ -305,7 +299,7 @@ func (v *GitHubIPValidator) FetchGitHubIPRanges() error {
 	for _, cidr := range meta.Hooks {
 		_, ipNet, err := net.ParseCIDR(cidr)
 		if err != nil {
-			v.logger.Warn("Failed to parse GitHub IP range", map[string]interface{}{"cidr": cidr, "error": err.Error()})
+			v.logger.Warn("Failed to parse GitHub IP range", map[string]any{"cidr": cidr, "error": err.Error()})
 			continue
 		}
 		v.ipRanges = append(v.ipRanges, *ipNet)
@@ -316,14 +310,14 @@ func (v *GitHubIPValidator) FetchGitHubIPRanges() error {
 	for _, cidr := range meta.HooksIPv6 {
 		_, ipNet, err := net.ParseCIDR(cidr)
 		if err != nil {
-			v.logger.Warn("Failed to parse GitHub IPv6 range", map[string]interface{}{"cidr": cidr, "error": err.Error()})
+			v.logger.Warn("Failed to parse GitHub IPv6 range", map[string]any{"cidr": cidr, "error": err.Error()})
 			continue
 		}
 		v.ipRangesIPv6 = append(v.ipRangesIPv6, *ipNet)
 	}
 
 	v.lastUpdated = time.Now()
-	v.logger.Info("Updated GitHub IP ranges", map[string]interface{}{"ipv4Count": len(v.ipRanges), "ipv6Count": len(v.ipRangesIPv6)})
+	v.logger.Info("Updated GitHub IP ranges", map[string]any{"ipv4Count": len(v.ipRanges), "ipv6Count": len(v.ipRangesIPv6)})
 	return nil
 }
 
@@ -331,14 +325,14 @@ func (v *GitHubIPValidator) FetchGitHubIPRanges() error {
 func (v *GitHubIPValidator) IsGitHubIP(ipStr string) bool {
 	// Ensure we have the latest IP ranges
 	if err := v.FetchGitHubIPRanges(); err != nil {
-		v.logger.Error("Failed to fetch GitHub IP ranges", map[string]interface{}{"error": err.Error()})
+		v.logger.Error("Failed to fetch GitHub IP ranges", map[string]any{"error": err.Error()})
 		// If we can't fetch IP ranges, we're conservative and assume the IP is not from GitHub
 		return false
 	}
 
 	ip := net.ParseIP(ipStr)
 	if ip == nil {
-		v.logger.Warn("Invalid IP address format", map[string]interface{}{"ip": ipStr})
+		v.logger.Warn("Invalid IP address format", map[string]any{"ip": ipStr})
 		return false
 	}
 
@@ -391,7 +385,7 @@ func GitHubIPValidationMiddleware(validator *GitHubIPValidator, config interface
 			// Check if the IP is from GitHub
 			if !validator.IsGitHubIP(ip) {
 				http.Error(w, "Forbidden: IP not authorized", http.StatusForbidden)
-				logger.Warn("Blocked request from non-GitHub IP", map[string]interface{}{"ip": ip})
+				logger.Warn("Blocked request from non-GitHub IP", map[string]any{"ip": ip})
 				return
 			}
 

@@ -4,8 +4,8 @@ import (
 	"context"
 	"testing"
 
-	"rest-api/internal/repository"
 	"github.com/stretchr/testify/assert"
+	"rest-api/internal/repository"
 )
 
 func TestMockVectorRepository_DeleteModelEmbeddings(t *testing.T) {
@@ -82,7 +82,7 @@ func TestMockVectorRepository_DeleteModelEmbeddings(t *testing.T) {
 	// Test deleting non-existent model (should not error but not change anything)
 	err = repo.DeleteModelEmbeddings(ctx, contextID, "non-existent-model")
 	assert.NoError(t, err)
-	
+
 	allEmbeddings, err = repo.GetContextEmbeddings(ctx, contextID)
 	assert.NoError(t, err)
 	assert.Len(t, allEmbeddings, 1) // Still should have the model2 embedding

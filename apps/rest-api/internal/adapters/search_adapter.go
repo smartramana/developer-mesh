@@ -3,13 +3,13 @@ package adapters
 
 import (
 	"context"
-	
+
 	"rest-api/internal/repository"
 )
 
 // MockSearchAdapter implements the API's search repository interface
 // with a simple implementation for initial testing
-type MockSearchAdapter struct {}
+type MockSearchAdapter struct{}
 
 // NewMockSearchAdapter creates a new mock search adapter
 func NewMockSearchAdapter() repository.SearchRepository {

@@ -18,8 +18,6 @@ const (
 	APIVersionV2          APIVersion = "v2"
 )
 
-
-
 // acceptHeaderRegex is a regex to extract version from Accept header
 // Example: application/vnd.devops-mcp.v1+json
 var acceptHeaderRegex = regexp.MustCompile(`application/vnd\.devops-mcp\.v(\d+)(\+\w+)?`)
@@ -28,13 +26,13 @@ var acceptHeaderRegex = regexp.MustCompile(`application/vnd\.devops-mcp\.v(\d+)(
 func VersioningMiddleware(config VersioningConfig) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		var version APIVersion
-		
+
 		// Check Accept header if enabled
 		acceptHeaderCheck := false // Default value
 		if strings.ToLower(config.DefaultVersion) == "true" {
 			acceptHeaderCheck = true
 		}
-		
+
 		if acceptHeaderCheck {
 			accept := c.GetHeader("Accept")
 			if accept != "" {
@@ -44,13 +42,13 @@ func VersioningMiddleware(config VersioningConfig) gin.HandlerFunc {
 				}
 			}
 		}
-		
+
 		// Check URL version if enabled and no version found yet
 		urlVersioning := false // Default value
 		if strings.Contains(strings.ToLower(config.SupportedVersions[0]), "url") {
 			urlVersioning = true
 		}
-		
+
 		if urlVersioning && version == APIVersionUnspecified {
 			path := c.Request.URL.Path
 			if strings.HasPrefix(path, "/api/") {
@@ -62,18 +60,18 @@ func VersioningMiddleware(config VersioningConfig) gin.HandlerFunc {
 				}
 			}
 		}
-		
+
 		// Use default version if no version found
 		if version == APIVersionUnspecified {
 			version = APIVersion(config.DefaultVersion)
 		}
-		
+
 		// Store version in context
 		c.Set("api_version", version)
-		
+
 		// Add version header to response
 		c.Header("X-API-Version", string(version))
-		
+
 		c.Next()
 	}
 }
@@ -90,7 +88,7 @@ func GetAPIVersion(c *gin.Context) APIVersion {
 // RouteToVersion routes requests to the appropriate version handler
 func RouteToVersion(c *gin.Context, handlers map[APIVersion]gin.HandlerFunc) {
 	version := GetAPIVersion(c)
-	
+
 	// Find handler for version
 	handler, exists := handlers[version]
 	if !exists {
@@ -98,14 +96,14 @@ func RouteToVersion(c *gin.Context, handlers map[APIVersion]gin.HandlerFunc) {
 		handler, exists = handlers[APIVersionUnspecified]
 		if !exists {
 			c.JSON(http.StatusNotAcceptable, gin.H{
-				"error": "API version not supported",
+				"error":              "API version not supported",
 				"supported_versions": getSupportedVersions(handlers),
 			})
 			c.Abort()
 			return
 		}
 	}
-	
+
 	// Call handler
 	handler(c)
 }
@@ -113,13 +111,13 @@ func RouteToVersion(c *gin.Context, handlers map[APIVersion]gin.HandlerFunc) {
 // getSupportedVersions returns a list of supported versions
 func getSupportedVersions(handlers map[APIVersion]gin.HandlerFunc) []string {
 	versions := make([]string, 0, len(handlers))
-	
+
 	for version := range handlers {
 		if version != APIVersionUnspecified {
 			versions = append(versions, string(version))
 		}
 	}
-	
+
 	return versions
 }
 

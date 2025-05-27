@@ -18,7 +18,7 @@ func (s *Server) setupSearchRoutes(group *gin.RouterGroup) error {
 			isEnabled = enabled
 		}
 	}
-	
+
 	if !isEnabled {
 		s.logger.Info("Vector search API routes not registered (vector operations disabled)", nil)
 		return nil
@@ -92,10 +92,10 @@ func (s *Server) setupSearchRoutes(group *gin.RouterGroup) error {
 func (s *Server) createSearchService(db *sql.DB, embeddingService embedding.EmbeddingService) (embedding.SearchService, error) {
 	// Create the search service configuration
 	config := &embedding.PgSearchConfig{
-		DB:               db,
-		Schema:           "mcp", // Default schema, should match what's used elsewhere
-		EmbeddingService: embeddingService,
-		DefaultLimit:     50,     // Higher default limit for search results
+		DB:                   db,
+		Schema:               "mcp", // Default schema, should match what's used elsewhere
+		EmbeddingService:     embeddingService,
+		DefaultLimit:         50,   // Higher default limit for search results
 		DefaultMinSimilarity: 0.65, // Lower threshold for better recall
 	}
 

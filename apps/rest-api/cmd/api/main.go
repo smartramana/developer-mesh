@@ -12,8 +12,6 @@ import (
 	"syscall"
 	"time"
 
-	"rest-api/internal/api"
-	"rest-api/internal/core"
 	"github.com/S-Corkum/devops-mcp/pkg/common/aws"
 	"github.com/S-Corkum/devops-mcp/pkg/common/cache"
 	"github.com/S-Corkum/devops-mcp/pkg/common/config"
@@ -21,6 +19,8 @@ import (
 	"github.com/S-Corkum/devops-mcp/pkg/interfaces"
 	"github.com/S-Corkum/devops-mcp/pkg/metrics"
 	"github.com/S-Corkum/devops-mcp/pkg/observability"
+	"rest-api/internal/api"
+	"rest-api/internal/core"
 
 	// Import PostgreSQL driver
 	_ "github.com/lib/pq"
@@ -59,7 +59,7 @@ func main() {
 
 	// Check if IRSA is enabled (IAM Roles for Service Accounts)
 	if aws.IsIRSAEnabled() {
-		logger.Info("IRSA (IAM Roles for Service Accounts) is enabled for AWS services", map[string]interface{}{
+		logger.Info("IRSA (IAM Roles for Service Accounts) is enabled for AWS services", map[string]any{
 			"aws_role_arn":                os.Getenv("AWS_ROLE_ARN"),
 			"aws_web_identity_token_file": os.Getenv("AWS_WEB_IDENTITY_TOKEN_FILE"),
 		})
@@ -82,7 +82,7 @@ func main() {
 		MaxIdleConns:    cfg.Database.MaxIdleConns,
 		ConnMaxLifetime: cfg.Database.ConnMaxLifetime,
 	}
-	
+
 	// Check if we should use IAM authentication
 	if cfg.Database.UseIAMAuth && aws.IsIRSAEnabled() {
 		logger.Info("Using IAM authentication for RDS", nil)
@@ -131,7 +131,7 @@ func main() {
 	apiConfig := api.Config{
 		ListenAddress: cfg.API.ListenAddress,
 		ReadTimeout:   30 * time.Second, // Default value
-		WriteTimeout:  30 * time.Second, // Default value  
+		WriteTimeout:  30 * time.Second, // Default value
 		IdleTimeout:   90 * time.Second, // Default value
 		EnableCORS:    cfg.API.EnableCORS,
 		EnableSwagger: cfg.API.EnableSwagger,
@@ -142,10 +142,10 @@ func main() {
 			APIKeys:   make(map[string]string), // Empty by default
 		},
 		RateLimit: api.RateLimitConfig{
-			Enabled:     false,           // Default disabled
-			Limit:       100,             // Default limit
-			Period:      time.Minute,     // Default value
-			BurstFactor: 3,               // Default value
+			Enabled:     false,       // Default disabled
+			Limit:       100,         // Default limit
+			Period:      time.Minute, // Default value
+			BurstFactor: 3,           // Default value
 		},
 		// Use default webhook configuration
 		Webhook: interfaces.WebhookConfig{
@@ -166,7 +166,7 @@ func main() {
 
 	// Create a MetricsClient instance
 	obsMetricsClient := observability.NewMetricsClient()
-	
+
 	// Initialize API server
 	// Note: Passing nil for the old config type as it's only used for vector DB which we configure separately
 	server := api.NewServer(engine, apiConfig, db.GetDB(), obsMetricsClient, nil)
@@ -178,7 +178,7 @@ func main() {
 
 	// Determine the correct port based on environment
 	port := cfg.GetListenPort()
-	logger.Info("Server configuration", map[string]interface{}{
+	logger.Info("Server configuration", map[string]any{
 		"port":      port,
 		"env":       cfg.Environment,
 		"vector_db": cfg.Database.Vector.Enabled,
@@ -186,7 +186,7 @@ func main() {
 
 	// Start server in a goroutine
 	go func() {
-		logger.Info("Starting server", map[string]interface{}{
+		logger.Info("Starting server", map[string]any{
 			"address": cfg.API.ListenAddress,
 		})
 
@@ -216,7 +216,7 @@ func main() {
 
 	// Shutdown API server first
 	if err := server.Shutdown(shutdownCtx); err != nil {
-		logger.Error("API server shutdown error", map[string]interface{}{
+		logger.Error("API server shutdown error", map[string]any{
 			"error": err.Error(),
 		})
 	}

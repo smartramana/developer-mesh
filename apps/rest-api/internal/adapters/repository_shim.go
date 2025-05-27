@@ -3,10 +3,10 @@ package adapters
 import (
 	"context"
 	"fmt"
-	
-	internalRepo "rest-api/internal/repository"
+
 	pkgRepo "github.com/S-Corkum/devops-mcp/pkg/repository"
 	"github.com/S-Corkum/devops-mcp/pkg/repository/vector"
+	internalRepo "rest-api/internal/repository"
 )
 
 // This file contains bridge code to make our adapters package compatible with

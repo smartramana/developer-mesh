@@ -10,13 +10,13 @@ import (
 	"net/http/httptest"
 	"testing"
 
+	"github.com/S-Corkum/devops-mcp/pkg/observability"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
-	"github.com/S-Corkum/devops-mcp/pkg/observability"
 )
 
 // --- Mock Config ---
-type mockConfig struct{
+type mockConfig struct {
 	mock.Mock
 }
 
@@ -40,7 +40,6 @@ func (m *mockConfig) GitHubIPValidationEnabled() bool {
 	args := m.Called()
 	return args.Bool(0)
 }
-
 
 func TestGitHubWebhookHandler_MissingEventHeader(t *testing.T) {
 	config := new(mockConfig)
@@ -122,8 +121,8 @@ func TestGitHubWebhookHandler_ValidEventAndSignature(t *testing.T) {
 	handler := GitHubWebhookHandler(config, logger)
 
 	payload := map[string]interface{}{
-		"repository": map[string]interface{}{ "full_name": "repo" },
-		"sender": map[string]interface{}{ "login": "user" },
+		"repository": map[string]interface{}{"full_name": "repo"},
+		"sender":     map[string]interface{}{"login": "user"},
 	}
 	body, _ := json.Marshal(payload)
 	mac := hmac.New(sha256.New, []byte("testsecret"))

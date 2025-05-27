@@ -128,7 +128,7 @@ func runMigrations(db *sql.DB, direction string, limit int) {
 	count := 0
 	for _, file := range files {
 		fileVersion := extractVersion(file)
-		
+
 		if direction == "up" && fileVersion <= currentVersion {
 			continue
 		}

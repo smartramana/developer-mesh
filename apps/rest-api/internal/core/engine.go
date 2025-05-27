@@ -7,13 +7,13 @@ import (
 	"os"
 	"strings"
 	"sync"
-	
+
 	"github.com/S-Corkum/devops-mcp/pkg/observability"
 )
 
 // Engine is the central component that coordinates between different subsystems
 type Engine struct {
-	adapters       map[string]interface{}
+	adapters       map[string]any
 	contextManager ContextManagerInterface
 	logger         observability.Logger
 	mutex          sync.RWMutex
@@ -26,33 +26,33 @@ func NewEngine(logger observability.Logger) *Engine {
 	if logger == nil {
 		logger = observability.NewLogger("core-engine")
 	}
-	
+
 	return &Engine{
-		adapters: make(map[string]interface{}),
+		adapters: make(map[string]any),
 		logger:   logger,
 		mutex:    sync.RWMutex{},
 	}
 }
 
 // RegisterAdapter registers an adapter with the engine
-func (e *Engine) RegisterAdapter(name string, adapter interface{}) {
+func (e *Engine) RegisterAdapter(name string, adapter any) {
 	e.mutex.Lock()
 	defer e.mutex.Unlock()
-	
+
 	e.adapters[name] = adapter
 	e.logger.Info(fmt.Sprintf("Registered adapter: %s", name), nil)
 }
 
 // GetAdapter retrieves a registered adapter by name
-func (e *Engine) GetAdapter(name string) (interface{}, error) {
+func (e *Engine) GetAdapter(name string) (any, error) {
 	e.mutex.RLock()
 	defer e.mutex.RUnlock()
-	
+
 	adapter, ok := e.adapters[name]
 	if !ok {
 		return nil, fmt.Errorf("adapter not found: %s", name)
 	}
-	
+
 	return adapter, nil
 }
 
@@ -60,7 +60,7 @@ func (e *Engine) GetAdapter(name string) (interface{}, error) {
 func (e *Engine) SetContextManager(manager ContextManagerInterface) {
 	e.mutex.Lock()
 	defer e.mutex.Unlock()
-	
+
 	e.contextManager = manager
 	e.logger.Info("Set context manager", nil)
 }
@@ -69,25 +69,25 @@ func (e *Engine) SetContextManager(manager ContextManagerInterface) {
 func (e *Engine) GetContextManager() ContextManagerInterface {
 	e.mutex.RLock()
 	defer e.mutex.RUnlock()
-	
+
 	if e.contextManager == nil {
 		e.logger.Warn("Context manager not initialized, returning mock implementation", nil)
 		return NewMockContextManager()
 	}
-	
+
 	return e.contextManager
 }
 
 // Health returns the health status of all components
 func (e *Engine) Health() map[string]string {
 	health := make(map[string]string)
-	
+
 	// Add engine health
 	health["core_engine"] = "healthy"
-	
+
 	// Check for environment variable that indicates mock mode
 	useMock := os.Getenv("USE_MOCK_CONTEXT_MANAGER")
-	
+
 	// Add context manager health
 	if e.contextManager != nil {
 		// Always report as healthy if the context manager exists
@@ -102,7 +102,7 @@ func (e *Engine) Health() map[string]string {
 	} else {
 		health["context_manager"] = "not_initialized"
 	}
-	
+
 	// In a real implementation, this would check the health of each adapter
 	// For now, we'll just report that they're healthy
 	e.mutex.RLock()
@@ -110,14 +110,14 @@ func (e *Engine) Health() map[string]string {
 		health[fmt.Sprintf("adapter_%s", name)] = "healthy"
 	}
 	e.mutex.RUnlock()
-	
+
 	return health
 }
 
 // Shutdown gracefully shuts down the engine and its components
 func (e *Engine) Shutdown(ctx context.Context) error {
 	e.logger.Info("Shutting down engine", nil)
-	
+
 	// Clean up adapters if they implement a Close or Shutdown method
 	e.mutex.RLock()
 	for name, adapter := range e.adapters {
@@ -128,7 +128,7 @@ func (e *Engine) Shutdown(ctx context.Context) error {
 			}
 			continue
 		}
-		
+
 		// Try with Shutdown method that takes context
 		if shutdown, ok := adapter.(interface{ Shutdown(context.Context) error }); ok {
 			if err := shutdown.Shutdown(ctx); err != nil {
@@ -137,6 +137,6 @@ func (e *Engine) Shutdown(ctx context.Context) error {
 		}
 	}
 	e.mutex.RUnlock()
-	
+
 	return nil
 }

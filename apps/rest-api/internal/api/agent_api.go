@@ -1,14 +1,12 @@
 package api
 
 import (
-	"net/http"
-	"github.com/gin-gonic/gin"
-	"github.com/S-Corkum/devops-mcp/pkg/models"
 	"github.com/S-Corkum/devops-mcp/pkg/common/util"
+	"github.com/S-Corkum/devops-mcp/pkg/models"
+	"github.com/gin-gonic/gin"
+	"net/http"
 	"rest-api/internal/repository"
 )
-
-
 
 // AgentAPI handles agent management endpoints
 // Implements tenant-scoped CRUD operations for agents using the repository pattern.
@@ -19,7 +17,6 @@ type AgentAPI struct {
 func NewAgentAPI(repo repository.AgentRepository) *AgentAPI {
 	return &AgentAPI{repo: repo}
 }
-
 
 // RegisterRoutes registers agent endpoints under /agents
 func (a *AgentAPI) RegisterRoutes(router *gin.RouterGroup) {

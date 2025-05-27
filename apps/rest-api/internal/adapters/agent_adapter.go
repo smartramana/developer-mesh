@@ -31,18 +31,18 @@ func (a *AgentAdapter) GetAgentByID(ctx context.Context, tenantID, id string) (*
 	if err != nil {
 		return nil, err
 	}
-	
+
 	// If tenantID is provided, verify that the agent belongs to the tenant
 	if tenantID != "" && agent.TenantID != tenantID {
 		return nil, nil // Not found for this tenant
 	}
-	
+
 	return agent, nil
 }
 
 // ListAgents lists agents for a tenant - adapter method that calls List with tenant filter
 func (a *AgentAdapter) ListAgents(ctx context.Context, tenantID string) ([]*models.Agent, error) {
-	filter := map[string]interface{}{
+	filter := map[string]any{
 		"tenant_id": tenantID,
 	}
 	return a.repo.List(ctx, filter)

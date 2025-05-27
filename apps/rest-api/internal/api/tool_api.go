@@ -11,12 +11,12 @@ import (
 // ToolAPI handles API endpoints for tool operations
 type ToolAPI struct {
 	adapterBridge interface{}
-	
+
 	// Handler functions for testing
-	executeToolAction   func(c *gin.Context)
-	queryToolData       func(c *gin.Context)
-	listAvailableTools  func(c *gin.Context)
-	listAllowedActions  func(c *gin.Context)
+	executeToolAction  func(c *gin.Context)
+	queryToolData      func(c *gin.Context)
+	listAvailableTools func(c *gin.Context)
+	listAllowedActions func(c *gin.Context)
 }
 
 // NewToolAPI creates a new tool API handler
@@ -24,39 +24,39 @@ func NewToolAPI(adapterBridge interface{}) *ToolAPI {
 	api := &ToolAPI{
 		adapterBridge: adapterBridge,
 	}
-	
+
 	// Initialize handler functions
 	api.executeToolAction = api.handleExecuteToolAction
 	api.queryToolData = api.handleQueryToolData
 	api.listAvailableTools = api.handleListAvailableTools
 	api.listAllowedActions = api.handleListAllowedActions
-	
+
 	return api
 }
 
 // RegisterRoutes registers all tool API routes
 func (api *ToolAPI) RegisterRoutes(router *gin.RouterGroup) {
 	tools := router.Group("/tools")
-	
+
 	// Collection endpoints
 	tools.GET("", api.listAvailableTools)
-	
+
 	// Single tool endpoints
 	tools.GET("/:tool", api.getToolDetails)
-	
+
 	// Tool actions as sub-resources
 	actions := tools.Group("/:tool/actions")
 	actions.GET("", api.listAllowedActions)
 	actions.GET("/:action", api.getActionDetails)
 	actions.POST("/:action", api.executeToolAction)
-	
+
 	// Tool data queries
 	tools.POST("/:tool/queries", api.queryToolData)
-	
+
 	// Commenting out backward compatibility endpoints to avoid route conflicts
 	// router.POST("/tools/:tool/actions/:action", api.executeToolAction)
 	// router.POST("/tools/:tool/query", api.queryToolData)
-	
+
 	// Log that we're registering routes
 	log.Println("Registered RESTful tool API routes")
 }
@@ -163,11 +163,11 @@ func (api *ToolAPI) handleExecuteToolAction(c *gin.Context) {
 
 	// Mock implementation since adapterBridge is now an interface
 	result := map[string]interface{}{
-		"status": "success",
+		"status":  "success",
 		"message": fmt.Sprintf("Executed %s action on %s tool", actionName, toolName),
-		"tool": toolName,
-		"action": actionName,
-		"params": params,
+		"tool":    toolName,
+		"action":  actionName,
+		"params":  params,
 	}
 
 	// Add HATEOAS links
@@ -195,11 +195,11 @@ func (api *ToolAPI) handleExecuteToolAction(c *gin.Context) {
 // getToolDetails returns details about a specific tool
 func (api *ToolAPI) getToolDetails(c *gin.Context) {
 	toolName := c.Param("tool")
-	
+
 	// Map of available tools
 	toolMap := map[string]map[string]interface{}{
 		"github": {
-			"name": "github",
+			"name":        "github",
 			"description": "GitHub integration for repository, pull request, and code management",
 			"actions": []string{
 				"create_issue",
@@ -212,7 +212,7 @@ func (api *ToolAPI) getToolDetails(c *gin.Context) {
 			"safety_notes": "Cannot delete repositories for safety reasons",
 		},
 		"harness": {
-			"name": "harness",
+			"name":        "harness",
 			"description": "Harness CI/CD integration for builds and deployments",
 			"actions": []string{
 				"trigger_pipeline",
@@ -223,7 +223,7 @@ func (api *ToolAPI) getToolDetails(c *gin.Context) {
 			"safety_notes": "Cannot delete production feature flags for safety reasons",
 		},
 		"sonarqube": {
-			"name": "sonarqube",
+			"name":        "sonarqube",
 			"description": "SonarQube integration for code quality analysis",
 			"actions": []string{
 				"trigger_analysis",
@@ -232,7 +232,7 @@ func (api *ToolAPI) getToolDetails(c *gin.Context) {
 			},
 		},
 		"artifactory": {
-			"name": "artifactory",
+			"name":        "artifactory",
 			"description": "JFrog Artifactory integration for artifact management (read-only)",
 			"actions": []string{
 				"download_artifact",
@@ -242,7 +242,7 @@ func (api *ToolAPI) getToolDetails(c *gin.Context) {
 			"safety_notes": "Read-only access for safety reasons (no upload or delete capabilities)",
 		},
 		"xray": {
-			"name": "xray",
+			"name":        "xray",
 			"description": "JFrog Xray integration for security scanning",
 			"actions": []string{
 				"scan_artifact",
@@ -251,21 +251,21 @@ func (api *ToolAPI) getToolDetails(c *gin.Context) {
 			},
 		},
 	}
-	
+
 	toolInfo, exists := toolMap[toolName]
 	if !exists {
 		c.JSON(http.StatusNotFound, gin.H{"error": "Tool not found"})
 		return
 	}
-	
+
 	// Add HATEOAS links
 	baseURL := getBaseURLFromContext(c)
 	toolInfo["_links"] = map[string]string{
-		"self": fmt.Sprintf("%s/api/v1/tools/%s", baseURL, toolName),
+		"self":    fmt.Sprintf("%s/api/v1/tools/%s", baseURL, toolName),
 		"actions": fmt.Sprintf("%s/api/v1/tools/%s/actions", baseURL, toolName),
 		"queries": fmt.Sprintf("%s/api/v1/tools/%s/queries", baseURL, toolName),
 	}
-	
+
 	c.JSON(http.StatusOK, toolInfo)
 }
 
@@ -286,10 +286,10 @@ func (api *ToolAPI) getToolDetails(c *gin.Context) {
 func (api *ToolAPI) getActionDetails(c *gin.Context) {
 	toolName := c.Param("tool")
 	actionName := c.Param("action")
-	
+
 	// Get allowed actions for the tool
 	var allowedActions []string
-	
+
 	switch toolName {
 	case "github":
 		allowedActions = []string{
@@ -341,7 +341,7 @@ func (api *ToolAPI) getActionDetails(c *gin.Context) {
 		c.JSON(http.StatusNotFound, gin.H{"error": "Tool not found"})
 		return
 	}
-	
+
 	// Check if the action exists for this tool
 	actionExists := false
 	for _, action := range allowedActions {
@@ -350,23 +350,23 @@ func (api *ToolAPI) getActionDetails(c *gin.Context) {
 			break
 		}
 	}
-	
+
 	if !actionExists {
 		c.JSON(http.StatusNotFound, gin.H{"error": "Action not found for this tool"})
 		return
 	}
-	
+
 	// Get action description and parameters
 	actionDesc := getActionDescription(toolName, actionName)
-	
+
 	// Add HATEOAS links
 	baseURL := getBaseURLFromContext(c)
 	actionDesc["_links"] = map[string]string{
-		"self": fmt.Sprintf("%s/api/v1/tools/%s/actions/%s", baseURL, toolName, actionName),
-		"tool": fmt.Sprintf("%s/api/v1/tools/%s", baseURL, toolName),
+		"self":    fmt.Sprintf("%s/api/v1/tools/%s/actions/%s", baseURL, toolName, actionName),
+		"tool":    fmt.Sprintf("%s/api/v1/tools/%s", baseURL, toolName),
 		"actions": fmt.Sprintf("%s/api/v1/tools/%s/actions", baseURL, toolName),
 	}
-	
+
 	c.JSON(http.StatusOK, actionDesc)
 }
 
@@ -374,44 +374,44 @@ func (api *ToolAPI) getActionDetails(c *gin.Context) {
 func getActionDescription(toolName, actionName string) map[string]interface{} {
 	// This would typically come from a database or configuration
 	// Here's a simplified example for a few actions
-	
+
 	actionDescriptions := map[string]map[string]map[string]interface{}{
 		"github": {
 			"create_issue": {
-				"name": "create_issue",
+				"name":        "create_issue",
 				"description": "Creates a new issue in a GitHub repository",
 				"parameters": map[string]interface{}{
-					"owner": "Repository owner (organization or user)",
-					"repo": "Repository name",
-					"title": "Issue title",
-					"body": "Issue description",
-					"labels": "Array of label names",
+					"owner":     "Repository owner (organization or user)",
+					"repo":      "Repository name",
+					"title":     "Issue title",
+					"body":      "Issue description",
+					"labels":    "Array of label names",
 					"assignees": "Array of usernames to assign",
 				},
 				"required_parameters": []string{"owner", "repo", "title"},
 				"example": map[string]interface{}{
-					"owner": "octocat",
-					"repo": "hello-world",
-					"title": "Bug in login form",
-					"body": "The login form doesn't submit when using Safari",
+					"owner":  "octocat",
+					"repo":   "hello-world",
+					"title":  "Bug in login form",
+					"body":   "The login form doesn't submit when using Safari",
 					"labels": []string{"bug", "frontend"},
 				},
 			},
 		},
 	}
-	
+
 	// Check if we have a detailed description for this action
 	if toolActions, ok := actionDescriptions[toolName]; ok {
 		if actionDesc, ok := toolActions[actionName]; ok {
 			return actionDesc
 		}
 	}
-	
+
 	// Return minimal information if no detailed description is available
 	return map[string]interface{}{
-		"name": actionName,
+		"name":        actionName,
 		"description": fmt.Sprintf("%s action for %s", actionName, toolName),
-		"parameters": map[string]interface{}{},
+		"parameters":  map[string]interface{}{},
 	}
 }
 
@@ -421,12 +421,12 @@ func getBaseURLFromContext(c *gin.Context) string {
 	if c.Request.TLS != nil || c.GetHeader("X-Forwarded-Proto") == "https" {
 		scheme = "https"
 	}
-	
+
 	host := c.Request.Host
 	if forwardedHost := c.GetHeader("X-Forwarded-Host"); forwardedHost != "" {
 		host = forwardedHost
 	}
-	
+
 	return scheme + "://" + host
 }
 
@@ -466,9 +466,9 @@ func (api *ToolAPI) handleQueryToolData(c *gin.Context) {
 	// In a real implementation, we would use type assertions or call through an interface
 	// For now, we'll just return a mock result
 	result := map[string]interface{}{
-		"status": "success",
-		"message": fmt.Sprintf("Queried data from %s tool", toolName),
-		"tool": toolName,
+		"status":       "success",
+		"message":      fmt.Sprintf("Queried data from %s tool", toolName),
+		"tool":         toolName,
 		"query_params": query,
 		"data": []map[string]interface{}{
 			{"id": "1", "name": "Example data item 1"},
@@ -493,11 +493,11 @@ func (api *ToolAPI) handleQueryToolData(c *gin.Context) {
 func (api *ToolAPI) handleListAvailableTools(c *gin.Context) {
 	// Get base URL for HATEOAS links
 	baseURL := getBaseURLFromContext(c)
-	
+
 	// Create tool collection
 	toolsList := []map[string]interface{}{
 		{
-			"name": "github",
+			"name":        "github",
 			"description": "GitHub integration for repository, pull request, and code management",
 			"actions": []string{
 				"create_issue",
@@ -510,7 +510,7 @@ func (api *ToolAPI) handleListAvailableTools(c *gin.Context) {
 			"safety_notes": "Cannot delete repositories for safety reasons",
 		},
 		{
-			"name": "harness",
+			"name":        "harness",
 			"description": "Harness CI/CD integration for builds and deployments",
 			"actions": []string{
 				"trigger_pipeline",
@@ -521,7 +521,7 @@ func (api *ToolAPI) handleListAvailableTools(c *gin.Context) {
 			"safety_notes": "Cannot delete production feature flags for safety reasons",
 		},
 		{
-			"name": "sonarqube",
+			"name":        "sonarqube",
 			"description": "SonarQube integration for code quality analysis",
 			"actions": []string{
 				"trigger_analysis",
@@ -530,7 +530,7 @@ func (api *ToolAPI) handleListAvailableTools(c *gin.Context) {
 			},
 		},
 		{
-			"name": "artifactory",
+			"name":        "artifactory",
 			"description": "JFrog Artifactory integration for artifact management (read-only)",
 			"actions": []string{
 				"download_artifact",
@@ -540,7 +540,7 @@ func (api *ToolAPI) handleListAvailableTools(c *gin.Context) {
 			"safety_notes": "Read-only access for safety reasons (no upload or delete capabilities)",
 		},
 		{
-			"name": "xray",
+			"name":        "xray",
 			"description": "JFrog Xray integration for security scanning",
 			"actions": []string{
 				"scan_artifact",
@@ -549,7 +549,7 @@ func (api *ToolAPI) handleListAvailableTools(c *gin.Context) {
 			},
 		},
 	}
-	
+
 	// Add HATEOAS links for the tools collection
 	responseWithLinks := gin.H{
 		"tools": toolsList,
@@ -557,7 +557,7 @@ func (api *ToolAPI) handleListAvailableTools(c *gin.Context) {
 			"self": fmt.Sprintf("%s/api/v1/tools", baseURL),
 		},
 	}
-	
+
 	c.JSON(http.StatusOK, responseWithLinks)
 }
 
@@ -593,7 +593,7 @@ func (api *ToolAPI) handleListAllowedActions(c *gin.Context) {
 			"delete_organization",
 		}
 		safetyNotes = "Repository deletion is restricted for safety reasons, but archiving is allowed."
-		
+
 	case "harness":
 		allowedActions = []string{
 			"trigger_pipeline",
@@ -609,7 +609,7 @@ func (api *ToolAPI) handleListAllowedActions(c *gin.Context) {
 			"delete_service",
 		}
 		safetyNotes = "Pipeline and resource deletion operations are restricted for safety reasons."
-		
+
 	case "sonarqube":
 		allowedActions = []string{
 			"trigger_analysis",
@@ -623,7 +623,7 @@ func (api *ToolAPI) handleListAllowedActions(c *gin.Context) {
 			"reset_quality_gate",
 		}
 		safetyNotes = "Project deletion and quality gate reset operations are restricted."
-		
+
 	case "artifactory":
 		allowedActions = []string{
 			"download_artifact",
@@ -639,7 +639,7 @@ func (api *ToolAPI) handleListAllowedActions(c *gin.Context) {
 			"delete_repository",
 		}
 		safetyNotes = "Read-only access for safety reasons (no upload, delete, or modify operations allowed)."
-		
+
 	case "xray":
 		allowedActions = []string{
 			"scan_artifact",
@@ -652,16 +652,16 @@ func (api *ToolAPI) handleListAllowedActions(c *gin.Context) {
 			"delete_scan",
 		}
 		safetyNotes = "Only scanning and information retrieval operations are supported."
-		
+
 	default:
 		c.JSON(http.StatusNotFound, gin.H{"error": "Tool not found"})
 		return
 	}
 
 	c.JSON(http.StatusOK, gin.H{
-		"tool": toolName,
-		"allowed_actions": allowedActions,
+		"tool":               toolName,
+		"allowed_actions":    allowedActions,
 		"disallowed_actions": disallowedActions,
-		"safety_notes": safetyNotes,
+		"safety_notes":       safetyNotes,
 	})
 }

@@ -31,18 +31,18 @@ func (a *ModelAdapter) GetModelByID(ctx context.Context, tenantID, id string) (*
 	if err != nil {
 		return nil, err
 	}
-	
+
 	// If tenantID is provided, verify that the model belongs to the tenant
 	if tenantID != "" && model.TenantID != tenantID {
 		return nil, nil // Not found for this tenant
 	}
-	
+
 	return model, nil
 }
 
 // ListModels lists models for a tenant - adapter method that calls List with tenant filter
 func (a *ModelAdapter) ListModels(ctx context.Context, tenantID string) ([]*models.Model, error) {
-	filter := map[string]interface{}{
+	filter := map[string]any{
 		"tenant_id": tenantID,
 	}
 	return a.repo.List(ctx, filter)

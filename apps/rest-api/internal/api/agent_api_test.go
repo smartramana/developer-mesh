@@ -8,11 +8,11 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"rest-api/internal/repository"
+	"github.com/S-Corkum/devops-mcp/pkg/models"
 	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
-	"github.com/S-Corkum/devops-mcp/pkg/models"
+	"rest-api/internal/repository"
 )
 
 // MockAgentRepository mocks repository.AgentRepository

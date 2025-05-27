@@ -2,20 +2,20 @@
 package mocks
 
 import (
+	"github.com/stretchr/testify/mock"
 	"rest-api/internal/core"
 	"rest-api/internal/repository"
-	"github.com/stretchr/testify/mock"
 )
 
 // MockEngine is a mock implementation that mimics the core.Engine type
 type MockEngine struct {
 	mock.Mock
-	ContextManager     core.ContextManagerInterface
-	AgentRepo          repository.AgentRepository
-	ModelRepo          repository.ModelRepository
-	VectorRepo         repository.VectorAPIRepository
-	SearchRepo         repository.SearchRepository
-	adapters           map[string]interface{}
+	ContextManager core.ContextManagerInterface
+	AgentRepo      repository.AgentRepository
+	ModelRepo      repository.ModelRepository
+	VectorRepo     repository.VectorAPIRepository
+	SearchRepo     repository.SearchRepository
+	adapters       map[string]interface{}
 }
 
 // NewMockEngine creates a new mock engine for testing

@@ -5,10 +5,10 @@ import (
 	"strconv"
 	"time"
 
-	"rest-api/internal/core"
 	"github.com/S-Corkum/devops-mcp/pkg/models"
 	"github.com/S-Corkum/devops-mcp/pkg/observability"
 	"github.com/gin-gonic/gin"
+	"rest-api/internal/core"
 )
 
 // contextResponse wraps a context with HATEOAS links for API responses
@@ -58,24 +58,24 @@ func (api *API) RegisterRoutes(router *gin.RouterGroup) {
 // CreateContext creates a new context
 func (api *API) CreateContext(c *gin.Context) {
 	var contextData models.Context
-	
+
 	if err := c.ShouldBindJSON(&contextData); err != nil {
-		api.logger.Warn("Invalid request body for create context", map[string]interface{}{
+		api.logger.Warn("Invalid request body for create context", map[string]any{
 			"error": err.Error(),
 		})
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
-	
+
 	result, err := api.contextManager.CreateContext(c.Request.Context(), &contextData)
 	if err != nil {
-		api.logger.Error("Failed to create context", map[string]interface{}{
+		api.logger.Error("Failed to create context", map[string]any{
 			"error": err.Error(),
 		})
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
-	
+
 	// Record metric
 	if api.metricsClient != nil {
 		api.metricsClient.RecordCounter("context_api_requests", 1, map[string]string{
@@ -83,7 +83,7 @@ func (api *API) CreateContext(c *gin.Context) {
 			"status":    "success",
 		})
 	}
-	
+
 	// Create response with HATEOAS links and request tracing
 	response := &contextResponse{
 		Context: result,
@@ -93,7 +93,7 @@ func (api *API) CreateContext(c *gin.Context) {
 			"search":  "/api/v1/contexts/" + result.ID + "/search",
 		},
 	}
-	
+
 	// Include request ID for distributed tracing
 	c.JSON(http.StatusCreated, gin.H{
 		"data":       response,
@@ -105,7 +105,7 @@ func (api *API) CreateContext(c *gin.Context) {
 // GetContext retrieves a context by ID
 func (api *API) GetContext(c *gin.Context) {
 	contextID := c.Param("contextID")
-	
+
 	// Read query parameters for content options
 	includeContent := true
 	if includeContentParam := c.Query("include_content"); includeContentParam != "" {
@@ -116,22 +116,22 @@ func (api *API) GetContext(c *gin.Context) {
 			return
 		}
 	}
-	
+
 	result, err := api.contextManager.GetContext(c.Request.Context(), contextID)
 	if err != nil {
-		api.logger.Warn("Failed to get context", map[string]interface{}{
+		api.logger.Warn("Failed to get context", map[string]any{
 			"error":      err.Error(),
 			"context_id": contextID,
 		})
 		c.JSON(http.StatusNotFound, gin.H{"error": err.Error()})
 		return
 	}
-	
+
 	// Optionally remove content for lighter responses
 	if !includeContent {
 		result.Content = []models.ContextItem{}
 	}
-	
+
 	// Record metric
 	if api.metricsClient != nil {
 		api.metricsClient.RecordCounter("context_api_requests", 1, map[string]string{
@@ -139,7 +139,7 @@ func (api *API) GetContext(c *gin.Context) {
 			"status":    "success",
 		})
 	}
-	
+
 	// Add HATEOAS links
 	response := &contextResponse{
 		Context: result,
@@ -149,7 +149,7 @@ func (api *API) GetContext(c *gin.Context) {
 			"search":  "/api/v1/contexts/" + result.ID + "/search",
 		},
 	}
-	
+
 	c.JSON(http.StatusOK, gin.H{
 		"data":       response,
 		"request_id": c.GetString("RequestID"),
@@ -160,36 +160,36 @@ func (api *API) GetContext(c *gin.Context) {
 // UpdateContext updates an existing context
 func (api *API) UpdateContext(c *gin.Context) {
 	contextID := c.Param("contextID")
-	
+
 	var updateRequest struct {
-		Content []models.ContextItem          `json:"content"`
-		Options *models.ContextUpdateOptions  `json:"options,omitempty"`
+		Content []models.ContextItem         `json:"content"`
+		Options *models.ContextUpdateOptions `json:"options,omitempty"`
 	}
-	
+
 	// Bind the request body once into the typed struct
 	if err := c.ShouldBindJSON(&updateRequest); err != nil {
-		api.logger.Warn("Invalid request body for update context", map[string]interface{}{
+		api.logger.Warn("Invalid request body for update context", map[string]any{
 			"error": err.Error(),
 		})
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
-	
+
 	if updateRequest.Content == nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "content is required"})
 		return
 	}
-	
+
 	result, err := api.contextManager.UpdateContext(c.Request.Context(), contextID, &models.Context{Content: updateRequest.Content}, updateRequest.Options)
 	if err != nil {
-		api.logger.Error("Failed to update context", map[string]interface{}{
+		api.logger.Error("Failed to update context", map[string]any{
 			"error":      err.Error(),
 			"context_id": contextID,
 		})
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
-	
+
 	// Record metric
 	if api.metricsClient != nil {
 		api.metricsClient.RecordCounter("context_api_requests", 1, map[string]string{
@@ -197,7 +197,7 @@ func (api *API) UpdateContext(c *gin.Context) {
 			"status":    "success",
 		})
 	}
-	
+
 	// Add HATEOAS links
 	response := &contextResponse{
 		Context: result,
@@ -207,7 +207,7 @@ func (api *API) UpdateContext(c *gin.Context) {
 			"search":  "/api/v1/contexts/" + result.ID + "/search",
 		},
 	}
-	
+
 	c.JSON(http.StatusOK, gin.H{
 		"data":       response,
 		"request_id": c.GetString("RequestID"),
@@ -218,17 +218,17 @@ func (api *API) UpdateContext(c *gin.Context) {
 // DeleteContext deletes a context
 func (api *API) DeleteContext(c *gin.Context) {
 	contextID := c.Param("contextID")
-	
+
 	err := api.contextManager.DeleteContext(c.Request.Context(), contextID)
 	if err != nil {
-		api.logger.Error("Failed to delete context", map[string]interface{}{
+		api.logger.Error("Failed to delete context", map[string]any{
 			"error":      err.Error(),
 			"context_id": contextID,
 		})
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
-	
+
 	// Record metric
 	if api.metricsClient != nil {
 		api.metricsClient.RecordCounter("context_api_requests", 1, map[string]string{
@@ -236,7 +236,7 @@ func (api *API) DeleteContext(c *gin.Context) {
 			"status":    "success",
 		})
 	}
-	
+
 	c.JSON(http.StatusOK, gin.H{"message": "context deleted"})
 }
 
@@ -247,9 +247,9 @@ func (api *API) ListContexts(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "agent_id is required"})
 		return
 	}
-	
+
 	sessionID := c.Query("session_id")
-	
+
 	// Parse limit from query
 	limit := 0
 	if limitStr := c.Query("limit"); limitStr != "" {
@@ -260,22 +260,22 @@ func (api *API) ListContexts(c *gin.Context) {
 			return
 		}
 	}
-	
-	options := map[string]interface{}{}
+
+	options := map[string]any{}
 	if limit > 0 {
 		options["limit"] = limit
 	}
-	
+
 	result, err := api.contextManager.ListContexts(c.Request.Context(), agentID, sessionID, options)
 	if err != nil {
-		api.logger.Error("Failed to list contexts", map[string]interface{}{
+		api.logger.Error("Failed to list contexts", map[string]any{
 			"error":    err.Error(),
 			"agent_id": agentID,
 		})
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
-	
+
 	// Record metric
 	if api.metricsClient != nil {
 		api.metricsClient.RecordCounter("context_api_requests", 1, map[string]string{
@@ -283,38 +283,38 @@ func (api *API) ListContexts(c *gin.Context) {
 			"status":    "success",
 		})
 	}
-	
+
 	// Create response with contexts and their links
-	response := make([]map[string]interface{}, len(result))
+	response := make([]map[string]any, len(result))
 	for i, ctx := range result {
 		links := map[string]string{
 			"self":    "/api/v1/contexts/" + ctx.ID,
 			"summary": "/api/v1/contexts/" + ctx.ID + "/summary",
 			"search":  "/api/v1/contexts/" + ctx.ID + "/search",
 		}
-		response[i] = map[string]interface{}{
+		response[i] = map[string]any{
 			"context": ctx,
 			"_links":  links,
 		}
 	}
-	
+
 	c.JSON(http.StatusOK, response)
 }
 
 // SummarizeContext generates a summary of a context
 func (api *API) SummarizeContext(c *gin.Context) {
 	contextID := c.Param("contextID")
-	
+
 	result, err := api.contextManager.SummarizeContext(c.Request.Context(), contextID)
 	if err != nil {
-		api.logger.Error("Failed to summarize context", map[string]interface{}{
+		api.logger.Error("Failed to summarize context", map[string]any{
 			"error":      err.Error(),
 			"context_id": contextID,
 		})
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
-	
+
 	// Record metric
 	if api.metricsClient != nil {
 		api.metricsClient.RecordCounter("context_api_requests", 1, map[string]string{
@@ -322,7 +322,7 @@ func (api *API) SummarizeContext(c *gin.Context) {
 			"status":    "success",
 		})
 	}
-	
+
 	c.JSON(http.StatusOK, gin.H{
 		"context_id": contextID,
 		"summary":    result,
@@ -336,29 +336,29 @@ func (api *API) SummarizeContext(c *gin.Context) {
 // SearchInContext searches for text within a context
 func (api *API) SearchInContext(c *gin.Context) {
 	contextID := c.Param("contextID")
-	
+
 	var request struct {
 		Query string `json:"query"`
 	}
-	
+
 	if err := c.ShouldBindJSON(&request); err != nil {
-		api.logger.Warn("Invalid request body for search in context", map[string]interface{}{
+		api.logger.Warn("Invalid request body for search in context", map[string]any{
 			"error": err.Error(),
 		})
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
-	
+
 	result, err := api.contextManager.SearchInContext(c.Request.Context(), contextID, request.Query)
 	if err != nil {
-		api.logger.Error("Failed to search in context", map[string]interface{}{
+		api.logger.Error("Failed to search in context", map[string]any{
 			"error":      err.Error(),
 			"context_id": contextID,
 		})
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
-	
+
 	// Record metric
 	if api.metricsClient != nil {
 		api.metricsClient.RecordCounter("context_api_requests", 1, map[string]string{
@@ -366,7 +366,7 @@ func (api *API) SearchInContext(c *gin.Context) {
 			"status":    "success",
 		})
 	}
-	
+
 	c.JSON(http.StatusOK, gin.H{
 		"context_id": contextID,
 		"query":      request.Query,

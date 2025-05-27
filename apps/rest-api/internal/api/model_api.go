@@ -1,10 +1,10 @@
 package api
 
 import (
-	"net/http"
-	"github.com/gin-gonic/gin"
-	"github.com/S-Corkum/devops-mcp/pkg/models"
 	"github.com/S-Corkum/devops-mcp/pkg/common/util"
+	"github.com/S-Corkum/devops-mcp/pkg/models"
+	"github.com/gin-gonic/gin"
+	"net/http"
 	"rest-api/internal/repository"
 )
 
@@ -20,7 +20,6 @@ func getTenantIDFromContext(c *gin.Context) string {
 	return ""
 }
 
-
 // ModelAPI handles model management endpoints
 // Implements tenant-scoped CRUD operations for models using the repository pattern.
 type ModelAPI struct {
@@ -31,7 +30,6 @@ type ModelAPI struct {
 func NewModelAPI(repo repository.ModelRepository) *ModelAPI {
 	return &ModelAPI{repo: repo}
 }
-
 
 // RegisterRoutes registers model endpoints under /models
 func (m *ModelAPI) RegisterRoutes(router *gin.RouterGroup) {

@@ -2,9 +2,9 @@
 package adapters
 
 import (
-	"rest-api/internal/repository"
 	corerepo "github.com/S-Corkum/devops-mcp/pkg/repository"
 	"github.com/jmoiron/sqlx"
+	"rest-api/internal/repository"
 )
 
 // RepositoryFactory creates repository instances with the appropriate adapters
@@ -24,7 +24,7 @@ func (f *RepositoryFactory) NewAgentRepository() repository.AgentRepository {
 	// Create the core repository implementation
 	// Note: Handling the DB type difference between sqlx.DB and sql.DB
 	coreRepo := corerepo.NewAgentRepositoryAdapter(f.db.DB)
-	
+
 	// Wrap it with the adapter
 	return NewAgentAdapter(coreRepo)
 }
@@ -34,7 +34,7 @@ func (f *RepositoryFactory) NewModelRepository() repository.ModelRepository {
 	// Create the core repository implementation
 	// Note: Handling the DB type difference between sqlx.DB and sql.DB
 	coreRepo := corerepo.NewModelRepository(f.db.DB)
-	
+
 	// Wrap it with the adapter
 	return NewModelAdapter(coreRepo)
 }
@@ -44,7 +44,7 @@ func (f *RepositoryFactory) NewVectorRepository() repository.VectorAPIRepository
 	// Create the core repository implementation
 	// Note: Handling the DB type difference between sqlx.DB and sql.DB
 	coreRepo := corerepo.NewEmbeddingAdapter(f.db.DB)
-	
+
 	// Wrap it with the adapter
 	return NewServerEmbeddingAdapter(coreRepo)
 }

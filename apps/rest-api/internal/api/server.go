@@ -8,17 +8,17 @@ import (
 	"strings"
 	"time"
 
-	contextAPI "rest-api/internal/api/context"
-	"rest-api/internal/core"
-	"rest-api/internal/repository"
 	"github.com/S-Corkum/devops-mcp/pkg/config"
 	"github.com/S-Corkum/devops-mcp/pkg/database"
 	"github.com/S-Corkum/devops-mcp/pkg/observability"
 	"github.com/gin-gonic/gin"
+	"github.com/gorilla/mux"
 	"github.com/jmoiron/sqlx"
 	swaggerFiles "github.com/swaggo/files"
 	ginSwagger "github.com/swaggo/gin-swagger"
-	"github.com/gorilla/mux"
+	contextAPI "rest-api/internal/api/context"
+	"rest-api/internal/core"
+	"rest-api/internal/repository"
 )
 
 // Global shutdown hooks
@@ -26,16 +26,16 @@ var shutdownHooks []func()
 
 // Server represents the API server
 type Server struct {
-	router        *gin.Engine
-	server        *http.Server
-	engine        *core.Engine
-	config        Config
-	logger        observability.Logger
-	db            *sqlx.DB
-	metrics       observability.MetricsClient
-	vectorDB      *database.VectorDatabase
-	vectorRepo    repository.VectorAPIRepository
-	cfg           *config.Config
+	router     *gin.Engine
+	server     *http.Server
+	engine     *core.Engine
+	config     Config
+	logger     observability.Logger
+	db         *sqlx.DB
+	metrics    observability.MetricsClient
+	vectorDB   *database.VectorDatabase
+	vectorRepo repository.VectorAPIRepository
+	cfg        *config.Config
 }
 
 // NewServer creates a new API server
@@ -83,12 +83,12 @@ func NewServer(engine *core.Engine, cfg Config, db *sqlx.DB, metrics observabili
 	// Initialize API keys from configuration
 	if cfg.Auth.APIKeys != nil {
 		fmt.Printf("API Keys from config: %+v\n", cfg.Auth.APIKeys)
-		
+
 		// Initialize the key map for the API keys
 		keyMap := make(map[string]string)
-		
+
 		// Convert the APIKeys to a map[string]string
-		if apiKeys, ok := cfg.Auth.APIKeys.(map[string]interface{}); ok {
+		if apiKeys, ok := cfg.Auth.APIKeys.(map[string]any); ok {
 			for key, role := range apiKeys {
 				if roleStr, ok := role.(string); ok {
 					keyMap[key] = roleStr
@@ -101,7 +101,7 @@ func NewServer(engine *core.Engine, cfg Config, db *sqlx.DB, metrics observabili
 				fmt.Printf("Adding API key from map: %s with role: %s\n", key, role)
 			}
 		}
-		
+
 		InitAPIKeys(keyMap)
 	} else {
 		fmt.Println("No API keys defined in config")
@@ -136,18 +136,18 @@ func NewServer(engine *core.Engine, cfg Config, db *sqlx.DB, metrics observabili
 	var vectorDB *database.VectorDatabase
 	isVectorEnabled := false
 	if config != nil {
-		if vectorConfig, ok := config.Database.Vector.(map[string]interface{}); ok {
+		if vectorConfig, ok := config.Database.Vector.(map[string]any); ok {
 			if enabled, ok := vectorConfig["enabled"].(bool); ok {
 				isVectorEnabled = enabled
 			}
 		}
 	}
-	
+
 	if isVectorEnabled {
 		var err error
 		vectorDB, err = database.NewVectorDatabase(db, config, logger.WithPrefix("vector_db"))
 		if err != nil {
-			logger.Warn("Failed to initialize vector database", map[string]interface{}{
+			logger.Warn("Failed to initialize vector database", map[string]any{
 				"error": err.Error(),
 			})
 		}
@@ -179,7 +179,7 @@ func (s *Server) Initialize(ctx context.Context) error {
 	// Initialize vector database if available
 	if s.vectorDB != nil {
 		if err := s.vectorDB.Initialize(ctx); err != nil {
-			s.logger.Warn("Vector database initialization failed", map[string]interface{}{
+			s.logger.Warn("Vector database initialization failed", map[string]any{
 				"error": err.Error(),
 			})
 			// Don't fail server startup if vector DB init fails
@@ -193,19 +193,19 @@ func (s *Server) Initialize(ctx context.Context) error {
 		// 2. If not, check the environment to determine if we should use a mock
 		// 3. Create and set either a real or mock context manager
 		// 4. Verify that it was correctly set before proceeding
-		
+
 		// Get current context manager (if any)
 		ctxManager := s.engine.GetContextManager()
-		
+
 		// Set a new context manager if none exists
 		if ctxManager == nil {
 			// Check environment variable to determine whether to use mock or real
 			useMock := os.Getenv("USE_MOCK_CONTEXT_MANAGER")
-			
-			s.logger.Info("Context manager not found, initializing new one", map[string]interface{}{
+
+			s.logger.Info("Context manager not found, initializing new one", map[string]any{
 				"use_mock": useMock,
 			})
-			
+
 			if strings.ToLower(useMock) == "true" {
 				// Create mock context manager for development/testing
 				s.logger.Info("Using mock context manager as specified by environment", nil)
@@ -213,25 +213,25 @@ func (s *Server) Initialize(ctx context.Context) error {
 			} else {
 				// Use our production-ready context manager implementation
 				s.logger.Info("Initializing production-ready context manager", nil)
-				
+
 				// Pass existing components to the context manager
 				s.logger.Info("Creating production context manager", nil)
-				
+
 				// Create the production context manager with available components
 				// We're using an updated version of NewContextManager that accepts *sqlx.DB directly
 				ctxManager = core.NewContextManager(s.db, s.logger, s.metrics)
 				s.logger.Info("Production context manager initialized", nil)
 			}
-			
+
 			// Set the context manager on the engine
 			s.engine.SetContextManager(ctxManager)
-			
+
 			// Log the change
 			s.logger.Info("Context manager set on engine", nil)
 		} else {
 			s.logger.Info("Using existing context manager", nil)
 		}
-		
+
 		// Explicitly verify that a context manager is set before continuing
 		if verifyCtx := s.engine.GetContextManager(); verifyCtx == nil {
 			s.logger.Error("Context manager initialization failed - still nil after setting", nil)
@@ -243,10 +243,10 @@ func (s *Server) Initialize(ctx context.Context) error {
 		s.logger.Error("Engine is nil, cannot initialize context manager", nil)
 		return fmt.Errorf("engine is nil, cannot initialize context manager")
 	}
-	
+
 	// Initialize routes
 	s.setupRoutes(ctx)
-	
+
 	return nil
 }
 
@@ -272,10 +272,10 @@ func (s *Server) setupRoutes(ctx context.Context) {
 	for _, e := range os.Environ() {
 		fmt.Println(e)
 	}
-	
+
 	fmt.Printf("MCP_TEST_MODE value: '%s' (Type: %T)\n", testMode, testMode)
 	fmt.Printf("Is testMode true? %v\n", testMode == "true")
-	
+
 	fmt.Println("Using AuthMiddleware for /api/v1 routes (test mode does not bypass auth in functional tests)")
 	v1.Use(AuthMiddleware("api_key"))
 
@@ -315,7 +315,7 @@ func (s *Server) setupRoutes(ctx context.Context) {
 	// Tool integration API - using resource-based approach
 	adapterBridge, err := s.engine.GetAdapter("adapter_bridge")
 	if err != nil {
-		s.logger.Warn("Failed to get adapter bridge, using mock implementation", map[string]interface{}{
+		s.logger.Warn("Failed to get adapter bridge, using mock implementation", map[string]any{
 			"error": err.Error(),
 		})
 		// Use a nil interface, the ToolAPI will use mock implementations
@@ -343,7 +343,7 @@ func (s *Server) setupRoutes(ctx context.Context) {
 	// Setup Vector API if enabled
 	if s.vectorDB != nil {
 		if err := s.setupVectorAPI(ctx); err != nil {
-			s.logger.Warn("Failed to setup vector API", map[string]interface{}{
+			s.logger.Warn("Failed to setup vector API", map[string]any{
 				"error": err.Error(),
 			})
 		}
@@ -382,7 +382,7 @@ func (s *Server) Shutdown(ctx context.Context) error {
 	// Close vector database if available
 	if s.vectorDB != nil {
 		if err := s.vectorDB.Close(); err != nil {
-			s.logger.Warn("Failed to close vector database", map[string]interface{}{
+			s.logger.Warn("Failed to close vector database", map[string]any{
 				"error": err.Error(),
 			})
 		}

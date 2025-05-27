@@ -13,7 +13,7 @@ import (
 func NewAgentRepository(db *sql.DB) AgentRepository {
 	// Create the core repository
 	coreRepo := pkgrepo.NewAgentRepositoryAdapter(db)
-	
+
 	// Wrap it with an adapter that implements the expected interface
 	return &AgentRepositoryAdapter{
 		repo: coreRepo,
@@ -24,7 +24,7 @@ func NewAgentRepository(db *sql.DB) AgentRepository {
 func NewModelRepository(db *sql.DB) ModelRepository {
 	// Create the core repository
 	coreRepo := pkgrepo.NewModelRepository(db)
-	
+
 	// Wrap it with an adapter that implements the expected interface
 	return &ModelRepositoryAdapter{
 		repo: coreRepo,
@@ -35,7 +35,7 @@ func NewModelRepository(db *sql.DB) ModelRepository {
 func NewVectorRepository(db *sql.DB) VectorAPIRepository {
 	// Create the core repository using the adapter pattern
 	coreRepo := pkgrepo.NewEmbeddingAdapter(db)
-	
+
 	// Wrap it with an adapter that implements the expected interface
 	return &VectorRepositoryAdapter{
 		repo: coreRepo,
@@ -59,12 +59,12 @@ func (a *AgentRepositoryAdapter) GetAgentByID(ctx context.Context, tenantID, id 
 	if err != nil {
 		return nil, err
 	}
-	
+
 	// Verify this agent belongs to the requested tenant
 	if agent != nil && agent.TenantID != tenantID {
 		return nil, nil // Not found for this tenant
 	}
-	
+
 	return agent, nil
 }
 
@@ -104,12 +104,12 @@ func (m *ModelRepositoryAdapter) GetModelByID(ctx context.Context, tenantID, id 
 	if err != nil {
 		return nil, err
 	}
-	
+
 	// Verify this model belongs to the requested tenant
 	if model != nil && model.TenantID != tenantID {
 		return nil, nil // Not found for this tenant
 	}
-	
+
 	return model, nil
 }
 
@@ -157,7 +157,7 @@ func (v *VectorRepositoryAdapter) SearchEmbeddings(ctx context.Context, queryVec
 	if err != nil {
 		return nil, err
 	}
-	
+
 	// Convert to internal embeddings using the adapter pattern
 	results := make([]*Embedding, len(pkgResults))
 	for i, pkgEmb := range pkgResults {
@@ -183,7 +183,7 @@ func (v *VectorRepositoryAdapter) SearchEmbeddings_Legacy(ctx context.Context, q
 	if err != nil {
 		return nil, err
 	}
-	
+
 	// Convert to internal embeddings using the adapter pattern
 	results := make([]*Embedding, len(pkgResults))
 	for i, pkgEmb := range pkgResults {
@@ -209,7 +209,7 @@ func (v *VectorRepositoryAdapter) GetContextEmbeddings(ctx context.Context, cont
 	if err != nil {
 		return nil, err
 	}
-	
+
 	// Convert to internal embeddings using the adapter pattern
 	results := make([]*Embedding, len(pkgResults))
 	for i, pkgEmb := range pkgResults {
@@ -240,7 +240,7 @@ func (v *VectorRepositoryAdapter) GetEmbeddingsByModel(ctx context.Context, cont
 	if err != nil {
 		return nil, err
 	}
-	
+
 	// Convert to internal embeddings using the adapter pattern
 	results := make([]*Embedding, len(pkgResults))
 	for i, pkgEmb := range pkgResults {

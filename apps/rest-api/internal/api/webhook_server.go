@@ -11,11 +11,11 @@ import (
 // WebhookProvider represents a webhook provider's registration logic
 // Extend this struct for additional providers (e.g., GitLab, Bitbucket)
 type WebhookProvider struct {
-	Name        string
-	Enabled     func() bool
-	Endpoint    func() string
-	Handler     func() http.HandlerFunc
-	Middleware  func() mux.MiddlewareFunc // can be nil
+	Name       string
+	Enabled    func() bool
+	Endpoint   func() string
+	Handler    func() http.HandlerFunc
+	Middleware func() mux.MiddlewareFunc // can be nil
 }
 
 // RegisterWebhookRoutes registers webhook routes for all providers on the given router
@@ -23,10 +23,10 @@ func (s *Server) RegisterWebhookRoutes(router *mux.Router) {
 	// Add detailed debug logging
 	enabledValue := s.config.Webhook.Enabled()
 	s.logger.Info("Webhook registration debugging", map[string]interface{}{
-		"enabled": enabledValue,
+		"enabled":         enabledValue,
 		"github_endpoint": s.config.Webhook.GitHubEndpoint(),
-		"secret_length": len(s.config.Webhook.GitHubSecret()),
-		"struct_type": fmt.Sprintf("%T", s.config.Webhook),
+		"secret_length":   len(s.config.Webhook.GitHubSecret()),
+		"struct_type":     fmt.Sprintf("%T", s.config.Webhook),
 	})
 
 	if !enabledValue {
@@ -39,13 +39,13 @@ func (s *Server) RegisterWebhookRoutes(router *mux.Router) {
 		s.config.Webhook.GitHubSecretField = "test-github-webhook-secret"
 		s.config.Webhook.GitHubIPValidationField = false
 		s.config.Webhook.GitHubAllowedEventsField = []string{"issues", "push"}
-		
+
 		// Print debug info after override
 		s.logger.Info("Webhook configuration overridden for testing", map[string]interface{}{
-			"enabled": s.config.Webhook.Enabled(),
+			"enabled":         s.config.Webhook.Enabled(),
 			"github_endpoint": s.config.Webhook.GitHubEndpoint(),
-			"secret_length": len(s.config.Webhook.GitHubSecret()),
-			"allowed_events": s.config.Webhook.GitHubAllowedEvents(),
+			"secret_length":   len(s.config.Webhook.GitHubSecret()),
+			"allowed_events":  s.config.Webhook.GitHubAllowedEvents(),
 		})
 		// Don't return - continue with registration
 	}

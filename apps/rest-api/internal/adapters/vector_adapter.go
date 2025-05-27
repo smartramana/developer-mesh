@@ -3,10 +3,10 @@ package adapters
 
 import (
 	"context"
-	
-	"rest-api/internal/repository"
-	corerepo "github.com/S-Corkum/devops-mcp/pkg/repository"
+
 	"github.com/S-Corkum/devops-mcp/pkg/database"
+	corerepo "github.com/S-Corkum/devops-mcp/pkg/repository"
+	"rest-api/internal/repository"
 )
 
 // ServerEmbeddingAdapter adapts between the API's expected interface and the repository implementation
@@ -28,7 +28,7 @@ func NewVectorAPIAdapter(vectorDB *database.VectorDatabase) repository.VectorAPI
 
 // DirectVectorAdapter implements the VectorAPIRepository interface directly
 type DirectVectorAdapter struct {
-	vectorDB *database.VectorDatabase 
+	vectorDB *database.VectorDatabase
 	// Used for in-memory storage when no vectorDB is available
 	embeddings map[string][]*repository.Embedding
 }
@@ -38,7 +38,7 @@ func makeEmbeddingCopy(embedding *repository.Embedding) *repository.Embedding {
 	if embedding == nil {
 		return nil
 	}
-	
+
 	// Create a copy of the embedding
 	embCopy := &repository.Embedding{
 		ID:           embedding.ID,
@@ -49,7 +49,7 @@ func makeEmbeddingCopy(embedding *repository.Embedding) *repository.Embedding {
 		ModelID:      embedding.ModelID,
 		Metadata:     embedding.Metadata,
 	}
-	
+
 	// Copy the embedding vector
 	copy(embCopy.Embedding, embedding.Embedding)
 	return embCopy
@@ -63,12 +63,12 @@ func (a *DirectVectorAdapter) StoreEmbedding(ctx context.Context, embedding *rep
 		if a.embeddings == nil {
 			a.embeddings = make(map[string][]*repository.Embedding)
 		}
-		
+
 		// Store the embedding by context ID
 		a.embeddings[embedding.ContextID] = append(a.embeddings[embedding.ContextID], makeEmbeddingCopy(embedding))
 		return nil
 	}
-	
+
 	// When using a vector database, we would call the appropriate methods
 	// This would typically involve something like:
 	// return a.vectorDB.StoreEmbedding(ctx, embedding.ContextID, embedding.ModelID, embedding.Embedding, embedding.Text, embedding.Metadata)
@@ -84,31 +84,31 @@ func (a *DirectVectorAdapter) SearchEmbeddings(ctx context.Context, queryVector 
 		if a.embeddings == nil {
 			a.embeddings = make(map[string][]*repository.Embedding)
 		}
-		
+
 		// Simple in-memory implementation
 		result := []*repository.Embedding{}
-		
+
 		// Get embeddings for this context
 		contextEmbs, ok := a.embeddings[contextID]
 		if !ok {
 			return result, nil // No embeddings for this context
 		}
-		
+
 		// Filter by model ID if provided
 		for _, emb := range contextEmbs {
 			if modelID == "" || emb.ModelID == modelID {
 				result = append(result, makeEmbeddingCopy(emb))
 			}
 		}
-		
+
 		// Limit results if needed
 		if limit > 0 && len(result) > limit {
 			result = result[:limit]
 		}
-		
+
 		return result, nil
 	}
-	
+
 	// When using a vector database, we would call the appropriate methods
 	// For now, just use in-memory storage
 	return []*repository.Embedding{}, nil
@@ -126,21 +126,21 @@ func (a *DirectVectorAdapter) GetContextEmbeddings(ctx context.Context, contextI
 		if a.embeddings == nil {
 			a.embeddings = make(map[string][]*repository.Embedding)
 		}
-		
+
 		result := []*repository.Embedding{}
 		contextEmbs, ok := a.embeddings[contextID]
 		if !ok {
 			return result, nil // No embeddings for this context
 		}
-		
+
 		// Make a copy of each embedding to avoid modification issues
 		for _, emb := range contextEmbs {
 			result = append(result, makeEmbeddingCopy(emb))
 		}
-		
+
 		return result, nil
 	}
-	
+
 	// When using a vector database, we would call the appropriate methods
 	return []*repository.Embedding{}, nil
 }
@@ -153,7 +153,7 @@ func (a *DirectVectorAdapter) DeleteContextEmbeddings(ctx context.Context, conte
 		}
 		return nil
 	}
-	
+
 	// When using a vector database, we would call the appropriate methods
 	return nil
 }
@@ -164,24 +164,24 @@ func (a *DirectVectorAdapter) GetEmbeddingsByModel(ctx context.Context, contextI
 		if a.embeddings == nil {
 			a.embeddings = make(map[string][]*repository.Embedding)
 		}
-		
+
 		result := []*repository.Embedding{}
-		
+
 		contextEmbs, ok := a.embeddings[contextID]
 		if !ok {
 			return result, nil // No embeddings for this context
 		}
-		
+
 		// Filter by model ID
 		for _, emb := range contextEmbs {
 			if emb.ModelID == modelID {
 				result = append(result, makeEmbeddingCopy(emb))
 			}
 		}
-		
+
 		return result, nil
 	}
-	
+
 	// When using a vector database, we would call the appropriate methods
 	return []*repository.Embedding{}, nil
 }
@@ -192,9 +192,9 @@ func (a *DirectVectorAdapter) GetSupportedModels(ctx context.Context) ([]string,
 		if a.embeddings == nil {
 			a.embeddings = make(map[string][]*repository.Embedding)
 		}
-		
+
 		models := make(map[string]bool)
-		
+
 		for _, embs := range a.embeddings {
 			for _, emb := range embs {
 				if emb.ModelID != "" {
@@ -202,16 +202,16 @@ func (a *DirectVectorAdapter) GetSupportedModels(ctx context.Context) ([]string,
 				}
 			}
 		}
-		
+
 		// Convert map keys to slice
 		result := make([]string, 0, len(models))
 		for model := range models {
 			result = append(result, model)
 		}
-		
+
 		return result, nil
 	}
-	
+
 	// When using a vector database, we would call the appropriate methods
 	return []string{"default-model"}, nil
 }
@@ -224,13 +224,13 @@ func (a *DirectVectorAdapter) DeleteModelEmbeddings(ctx context.Context, context
 		if a.embeddings == nil {
 			a.embeddings = make(map[string][]*repository.Embedding)
 		}
-		
+
 		// Get embeddings for this context
 		contextEmbs, ok := a.embeddings[contextID]
 		if !ok {
 			return nil // No embeddings for this context, nothing to delete
 		}
-		
+
 		// Filter out embeddings for the specified model
 		newEmbs := make([]*repository.Embedding, 0, len(contextEmbs))
 		for _, emb := range contextEmbs {
@@ -238,12 +238,12 @@ func (a *DirectVectorAdapter) DeleteModelEmbeddings(ctx context.Context, context
 				newEmbs = append(newEmbs, emb)
 			}
 		}
-		
+
 		// Update the context embeddings
 		a.embeddings[contextID] = newEmbs
 		return nil
 	}
-	
+
 	// When using a vector database, we would call the appropriate methods
 	return nil
 }
@@ -259,7 +259,7 @@ func (a *ServerEmbeddingAdapter) StoreEmbedding(ctx context.Context, embedding *
 		Embedding:    embedding.Embedding,
 		ModelID:      embedding.ModelID,
 	}
-	
+
 	return a.repo.StoreEmbedding(ctx, repoEmbedding)
 }
 
@@ -269,7 +269,7 @@ func (a *ServerEmbeddingAdapter) SearchEmbeddings(ctx context.Context, queryVect
 	if err != nil {
 		return nil, err
 	}
-	
+
 	// Convert from core repository Embeddings to API Embeddings
 	apiEmbeddings := make([]*repository.Embedding, len(repoEmbeddings))
 	for i, e := range repoEmbeddings {
@@ -283,7 +283,7 @@ func (a *ServerEmbeddingAdapter) SearchEmbeddings(ctx context.Context, queryVect
 			Metadata:     e.Metadata,
 		}
 	}
-	
+
 	return apiEmbeddings, nil
 }
 
@@ -299,7 +299,7 @@ func (a *ServerEmbeddingAdapter) GetContextEmbeddings(ctx context.Context, conte
 	if err != nil {
 		return nil, err
 	}
-	
+
 	// Convert from core repository Embeddings to API Embeddings
 	apiEmbeddings := make([]*repository.Embedding, len(repoEmbeddings))
 	for i, e := range repoEmbeddings {
@@ -313,7 +313,7 @@ func (a *ServerEmbeddingAdapter) GetContextEmbeddings(ctx context.Context, conte
 			Metadata:     e.Metadata,
 		}
 	}
-	
+
 	return apiEmbeddings, nil
 }
 
@@ -328,7 +328,7 @@ func (a *ServerEmbeddingAdapter) GetEmbeddingsByModel(ctx context.Context, conte
 	if err != nil {
 		return nil, err
 	}
-	
+
 	// Convert from core repository Embeddings to API Embeddings
 	apiEmbeddings := make([]*repository.Embedding, len(repoEmbeddings))
 	for i, e := range repoEmbeddings {
@@ -342,7 +342,7 @@ func (a *ServerEmbeddingAdapter) GetEmbeddingsByModel(ctx context.Context, conte
 			Metadata:     e.Metadata,
 		}
 	}
-	
+
 	return apiEmbeddings, nil
 }
 

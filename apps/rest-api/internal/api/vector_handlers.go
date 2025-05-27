@@ -3,8 +3,8 @@ package api
 import (
 	"net/http"
 
-	"rest-api/internal/repository"
 	"github.com/gin-gonic/gin"
+	"rest-api/internal/repository"
 )
 
 // Routes for working with vector embeddings
@@ -14,7 +14,7 @@ func (s *Server) setupVectorRoutes(group *gin.RouterGroup) {
 	vectorsGroup.POST("/search", s.searchEmbeddings)
 	vectorsGroup.GET("/context/:context_id", s.getContextEmbeddings)
 	vectorsGroup.DELETE("/context/:context_id", s.deleteContextEmbeddings)
-	
+
 	// New multi-model endpoints
 	vectorsGroup.GET("/models", s.getSupportedModels)
 	vectorsGroup.GET("/context/:context_id/model/:model_id", s.getModelEmbeddings)
@@ -161,12 +161,12 @@ func (s *Server) getSupportedModels(c *gin.Context) {
 func (s *Server) getModelEmbeddings(c *gin.Context) {
 	contextID := c.Param("context_id")
 	modelID := c.Param("model_id")
-	
+
 	if contextID == "" {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "context_id is required"})
 		return
 	}
-	
+
 	if modelID == "" {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "model_id is required"})
 		return
@@ -191,12 +191,12 @@ func (s *Server) getModelEmbeddings(c *gin.Context) {
 func (s *Server) deleteModelEmbeddings(c *gin.Context) {
 	contextID := c.Param("context_id")
 	modelID := c.Param("model_id")
-	
+
 	if contextID == "" {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "context_id is required"})
 		return
 	}
-	
+
 	if modelID == "" {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "model_id is required"})
 		return
