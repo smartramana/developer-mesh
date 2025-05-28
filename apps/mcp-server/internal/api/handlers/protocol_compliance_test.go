@@ -678,9 +678,16 @@ func setupTestRouter(handler *MCPAPI) *gin.Engine {
 // handleJSONRPC processes JSON-RPC requests
 func handleJSONRPC(handler *MCPAPI) gin.HandlerFunc {
 	return func(c *gin.Context) {
+		// Read raw body to handle both single and batch requests
+		body, err := c.GetRawData()
+		if err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request body"})
+			return
+		}
+		
 		// First try to parse as array (batch request)
 		var batchRequest []map[string]any
-		if err := c.ShouldBindJSON(&batchRequest); err == nil {
+		if err := json.Unmarshal(body, &batchRequest); err == nil {
 			// It's a batch request
 			var responses []map[string]any
 			for _, request := range batchRequest {
@@ -695,7 +702,7 @@ func handleJSONRPC(handler *MCPAPI) gin.HandlerFunc {
 		
 		// Try as single request
 		var request map[string]any
-		if err := c.ShouldBindJSON(&request); err != nil {
+		if err := json.Unmarshal(body, &request); err != nil {
 			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid JSON"})
 			return
 		}

@@ -427,7 +427,8 @@ func setupTestServer(t *testing.T) *Server {
 	}
 	
 	// Create a mock engine with test context manager
-	engine := &core.Engine{}
+	logger := observability.NewLogger("test-engine")
+	engine := core.NewEngine(logger)
 	ctxManager := core.NewMockContextManager()
 	engine.SetContextManager(ctxManager)
 	
