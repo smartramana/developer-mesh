@@ -138,8 +138,8 @@ func main() {
 		TLSCertFile:   cfg.API.TLSCertFile,
 		TLSKeyFile:    cfg.API.TLSKeyFile,
 		Auth: api.AuthConfig{
-			JWTSecret: "",                      // Should be loaded from environment
-			APIKeys:   make(map[string]string), // Empty by default
+			JWTSecret: getStringFromConfig(cfg.API.Auth, "jwt_secret"),
+			APIKeys:   cfg.API.Auth["api_keys"],
 		},
 		RateLimit: api.RateLimitConfig{
 			Enabled:     false,       // Default disabled
@@ -258,4 +258,17 @@ func validateConfiguration(cfg *config.Config) error {
 	}
 
 	return nil
+}
+
+// getStringFromConfig safely extracts a string value from a configuration map
+func getStringFromConfig(m map[string]any, key string) string {
+	if m == nil {
+		return ""
+	}
+	if val, ok := m[key]; ok {
+		if str, ok := val.(string); ok {
+			return str
+		}
+	}
+	return ""
 }

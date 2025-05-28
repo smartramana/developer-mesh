@@ -10,6 +10,7 @@ import (
 	"testing"
 	"time"
 
+	adapterEvents "github.com/S-Corkum/devops-mcp/pkg/adapters/events"
 	"github.com/S-Corkum/devops-mcp/pkg/adapters/github"
 	"github.com/S-Corkum/devops-mcp/pkg/events"
 	"github.com/S-Corkum/devops-mcp/pkg/models"
@@ -71,17 +72,18 @@ func TestGitHubAdapter_ExecuteAction(t *testing.T) {
 	logger := observability.NewNoopLogger()
 
 	// Create a noop metrics client for testing
-	metricsClient := &observability.NoopMetricsClient{}
+	metricsClient := observability.NewNoOpMetricsClient()
 
 	// Create event bus
-	eventBus := events.NewEventBus(100)
+	systemEventBus := events.NewEventBus(100)
+	eventBus := adapterEvents.NewEventBusAdapter(systemEventBus)
 
 	// Create test event listener and subscribe to relevant events
 	eventChan := make(chan *models.Event, 10)
 	listener := &testEventListener{events: eventChan}
 
 	// Subscribe to adapter events
-	eventBus.Subscribe("github.action", listener.Handle)
+	systemEventBus.Subscribe("github.action", listener.Handle)
 
 	// Create a mock HTTP server
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -385,13 +387,11 @@ func TestGitHubAdapter_ExecuteAction(t *testing.T) {
 	// Create GitHub adapter config
 	config := github.DefaultConfig()
 	config.BaseURL = server.URL
-	config.Token = "test-token"
-	config.DefaultOwner = "octocat"
-	config.DefaultRepo = "hello-world"
-	config.DisableWebhooks = true
+	config.Auth.Token = "test-token"
+	config.WebhooksEnabled = false
 
 	// Create adapter
-	adapter, err := github.NewAdapter(config, eventBus, metricsClient, logger)
+	adapter, err := github.New(config, logger, metricsClient, eventBus)
 	require.NoError(t, err)
 	defer adapter.Close()
 
@@ -572,10 +572,11 @@ func TestGitHubAdapter_WebhookHandling(t *testing.T) {
 	logger := observability.NewNoopLogger()
 
 	// Create a noop metrics client for testing
-	metricsClient := &observability.NoopMetricsClient{}
+	metricsClient := observability.NewNoOpMetricsClient()
 
 	// Create an event bus with queue size 100
-	eventBus := events.NewEventBus(100)
+	systemEventBus := events.NewEventBus(100)
+	eventBus := adapterEvents.NewEventBusAdapter(systemEventBus)
 
 	// Create a channel to receive events
 	eventChan := make(chan *models.Event, 10)
@@ -584,15 +585,15 @@ func TestGitHubAdapter_WebhookHandling(t *testing.T) {
 	listener := &testEventListener{events: eventChan}
 
 	// Subscribe to webhook events
-	eventBus.Subscribe("github.webhook.push", listener.Handle)
+	systemEventBus.Subscribe("github.webhook.push", listener.Handle)
 
 	// Create GitHub adapter config
 	config := github.DefaultConfig()
 	// Most important settings for webhook testing:
-	config.DisableWebhooks = false
+	config.WebhooksEnabled = true
 
 	// Create adapter
-	adapter, err := github.NewAdapter(config, eventBus, metricsClient, logger)
+	adapter, err := github.New(config, logger, metricsClient, eventBus)
 	require.NoError(t, err)
 	defer adapter.Close()
 	t.Run("RegisterWebhookHandler", func(t *testing.T) {
