@@ -4,7 +4,6 @@ package aws
 import (
 	"context"
 	"fmt"
-	"log"
 )
 
 // LegacyGetAWSConfig is kept for backward compatibility with the old implementation
@@ -21,12 +20,8 @@ func LegacyGetAWSConfig(ctx context.Context, cfg AuthConfig) (any, error) {
 }
 
 // The new implementation in auth.go should be the canonical one to use going forward.
-// This function emits a deprecation warning when the old implementation is used.
-func init() {
-	log.Println("DEPRECATION WARNING: The AWS client package is being migrated. " +
-		"Please update your code to use the new package structure " +
-		"and interfaces from pkg/common/aws/auth.go.")
-}
+// Deprecation notice: Please update your code to use the new package structure
+// and interfaces from pkg/common/aws/auth.go.
 
 // This package contains several functions and types that were redeclared
 // during the migration. The migration strategy is:
