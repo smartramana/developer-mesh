@@ -8,14 +8,12 @@ import (
 	"github.com/S-Corkum/devops-mcp/pkg/events"
 	"github.com/S-Corkum/devops-mcp/pkg/models"
 	"github.com/S-Corkum/devops-mcp/pkg/observability"
-	"github.com/S-Corkum/devops-mcp/pkg/tests/integration"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
 func TestObservabilityStackIntegration(t *testing.T) {
-	// Create test helper for context management
-	_ = integration.NewTestHelper(t)
+	// Note: The integration package provides test helpers but this test doesn't need them currently
 
 	t.Run("Logger and MetricsClient integration", func(t *testing.T) {
 		// Create observability components

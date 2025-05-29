@@ -9,7 +9,7 @@ import (
 	. "github.com/onsi/gomega"
 
 	"github.com/S-Corkum/devops-mcp/pkg/models"
-	"github.com/S-Corkum/devops-mcp/test/functional/client"
+	"functional-tests/client"
 )
 
 var _ = Describe("Model Operations", func() {

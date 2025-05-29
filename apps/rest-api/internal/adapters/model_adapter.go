@@ -57,3 +57,68 @@ func (a *ModelAdapter) UpdateModel(ctx context.Context, model *models.Model) err
 func (a *ModelAdapter) DeleteModel(ctx context.Context, id string) error {
 	return a.repo.Delete(ctx, id)
 }
+
+// SearchModels searches for models by query string (tenant-scoped)
+func (a *ModelAdapter) SearchModels(ctx context.Context, tenantID, query string, limit, offset int) ([]*models.Model, error) {
+	// For now, implement a simple search by filtering the list
+	// In production, this should use proper database search functionality
+	allModels, err := a.ListModels(ctx, tenantID)
+	if err != nil {
+		return nil, err
+	}
+	
+	// Filter models that contain the query string in their name
+	var filtered []*models.Model
+	for _, model := range allModels {
+		if query == "" || containsIgnoreCase(model.Name, query) {
+			filtered = append(filtered, model)
+		}
+	}
+	
+	// Apply pagination
+	start := offset
+	if start > len(filtered) {
+		return []*models.Model{}, nil
+	}
+	
+	end := min(start + limit, len(filtered))
+	
+	return filtered[start:end], nil
+}
+
+// containsIgnoreCase checks if str contains substr case-insensitively
+func containsIgnoreCase(str, substr string) bool {
+	return len(substr) == 0 || 
+		(len(str) >= len(substr) && 
+		 contains(toLowerCase(str), toLowerCase(substr)))
+}
+
+// Helper functions for case-insensitive search
+func toLowerCase(s string) string {
+	// Simple ASCII lowercase conversion
+	result := make([]byte, len(s))
+	for i := range len(s) {
+		c := s[i]
+		if c >= 'A' && c <= 'Z' {
+			result[i] = c + 32
+		} else {
+			result[i] = c
+		}
+	}
+	return string(result)
+}
+
+func contains(s, substr string) bool {
+	if len(substr) == 0 {
+		return true
+	}
+	if len(s) < len(substr) {
+		return false
+	}
+	for i := 0; i <= len(s)-len(substr); i++ {
+		if s[i:i+len(substr)] == substr {
+			return true
+		}
+	}
+	return false
+}

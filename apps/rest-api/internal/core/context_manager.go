@@ -525,7 +525,7 @@ func (cm *ContextManager) ListContexts(ctx context.Context, agentID, sessionID s
 
 		// Build the query based on conditions
 		q := `SELECT * FROM contexts WHERE 1=1`
-		args := []interface{}{}
+		args := []any{}
 
 		// Add conditions to the query
 		if agentID != "" {

@@ -7,7 +7,6 @@ import (
 
 	"github.com/S-Corkum/devops-mcp/pkg/models"
 	"github.com/S-Corkum/devops-mcp/pkg/observability"
-	"github.com/S-Corkum/devops-mcp/pkg/tests/integration"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -46,7 +45,7 @@ func (m *MockVectorRepository) StoreVector(ctx context.Context, vector *models.V
 // TestEmbeddingChunkingIntegration tests the embedding and chunking pipeline
 func TestEmbeddingChunkingIntegration(t *testing.T) {
 	// Setup test helper but we don't need to use it directly
-	_ = integration.NewTestHelper(t)
+	// Note: The integration package provides test helpers but this test doesn't need them currently
 
 	// Create observability components
 	logger := observability.NewLogger("embedding-test")

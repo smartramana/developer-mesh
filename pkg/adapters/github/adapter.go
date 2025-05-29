@@ -3,7 +3,6 @@ package github
 import (
 	"context"
 	"fmt"
-	"math"
 	"math/rand"
 	"net/http"
 	"net/url"
@@ -83,6 +82,7 @@ type GitHubAdapter struct {
 	mu                  sync.RWMutex
 	closed              bool
 	wg                  sync.WaitGroup // WaitGroup for webhook workers
+	registeredHandlers  map[string]map[string]any // Map of handler IDs to handler details
 }
 
 // New creates a new GitHub adapter
@@ -115,8 +115,16 @@ func New(config *Config, logger observability.Logger, metricsClient observabilit
 	rateLimiterManager := resilience.NewRateLimiterManager(rateLimiterConfigs)
 
 	// Create authentication factory
-	// Initialize with an empty configs map that will be populated later
+	// Initialize with the default auth configuration from config
 	authConfigs := make(map[string]*auth.Config)
+	if config.Auth.Token != "" || config.Auth.AppID != 0 {
+		authConfigs["default"] = &auth.Config{
+			Token:             config.Auth.Token,
+			AppID:             fmt.Sprintf("%d", config.Auth.AppID),
+			AppInstallationID: fmt.Sprintf("%d", config.Auth.InstallationID),
+			AppPrivateKey:     config.Auth.PrivateKey,
+		}
+	}
 	authFactory := auth.NewAuthProviderFactory(authConfigs, logger)
 
 	// Setup empty webhook cache
@@ -124,15 +132,16 @@ func New(config *Config, logger observability.Logger, metricsClient observabilit
 
 	// Create adapter instance
 	adapter := &GitHubAdapter{
-		config:        config,
-		client:        client,
-		metricsClient: metricsClient,
-		logger:        logger,
-		eventBus:      eventBus,
-		authFactory:   authFactory,
-		deliveryCache: deliveryCache,
-		rateLimiter:   rateLimiterManager,
-		webhookQueue:  make(chan WebhookEvent, config.WebhookQueueSize),
+		config:             config,
+		client:             client,
+		metricsClient:      metricsClient,
+		logger:             logger,
+		eventBus:           eventBus,
+		authFactory:        authFactory,
+		deliveryCache:      deliveryCache,
+		rateLimiter:        rateLimiterManager,
+		webhookQueue:       make(chan WebhookEvent, config.WebhookQueueSize),
+		registeredHandlers: make(map[string]map[string]any),
 	}
 
 	// Setup authentication provider
@@ -269,7 +278,7 @@ func (a *GitHubAdapter) handleRateLimiting(info resilience.GitHubRateLimitInfo) 
 // startWebhookWorkers starts the given number of webhook worker goroutines
 func (a *GitHubAdapter) startWebhookWorkers(workers int) {
 	a.wg.Add(workers)
-	for i := 0; i < workers; i++ {
+	for i := range workers {
 		go a.webhookWorker(i)
 	}
 }
@@ -308,58 +317,9 @@ func (a *GitHubAdapter) processWebhookEvent(event WebhookEvent) {
 	}
 
 	// Process the event using our webhook manager
-	// Since we don't have the exact Event struct definition, we'll call a different method
-	// that might be available in the webhook manager or handle it ourselves
-	// This is a stub implementation until we can see the webhook manager's interface
-	// For now, we'll just log the event and not process it further
-	// This can be replaced with actual webhook processing once we have the correct interface
-	var err error
-	if err != nil {
-		logger.Errorf("Error handling GitHub webhook event: %v", err)
-		a.metricsClient.IncrementCounter("github_webhook_error", 1.0)
-
-		// Attempt retry if enabled and we haven't exceeded max attempts
-		if a.config.WebhookRetryEnabled &&
-			event.RetryCount < a.config.WebhookRetryMaxAttempts &&
-			a.webhookRetryManager != nil {
-			a.retryWebhookEvent(event)
-		}
-	}
-}
-
-// retryWebhookEvent schedules a webhook event for retry
-func (a *GitHubAdapter) retryWebhookEvent(event WebhookEvent) {
-	// Increment retry count
-	event.RetryCount++
-
-	// Calculate retry delay using exponential backoff with jitter
-	baseDelay := time.Second * time.Duration(math.Pow(2, float64(event.RetryCount)))
-	if baseDelay > time.Hour {
-		baseDelay = time.Hour // Cap at 1 hour
-	}
-
-	// Add jitter (±20%)
-	jitter := float64(baseDelay) * 0.2 * (rand.Float64()*2 - 1)
-	delay := baseDelay + time.Duration(jitter)
-	nextRetry := time.Now().Add(delay)
-
-	// Log the retry information with the nextRetry time
-	retryLogger := a.logger.With(map[string]any{
-		"event_type":  event.EventType,
-		"delivery_id": event.DeliveryID,
-		"retry_count": event.RetryCount,
-		"next_retry":  nextRetry.Format(time.RFC3339),
-	})
-	retryLogger.Infof("Scheduling webhook event retry (delivery: %s, type: %s)", event.DeliveryID, event.EventType)
-
-	// Schedule retry
-	go func() {
-		time.Sleep(delay)
-		a.webhookQueue <- event
-	}()
-
-	a.logger.Infof("Scheduled retry %d/%d for webhook event %s (delivery: %s) in %s",
-		event.RetryCount, a.config.WebhookRetryMaxAttempts, event.EventType, event.DeliveryID, delay)
+	// TODO: Implement actual webhook processing once the webhook manager interface is defined
+	// For now, this is a stub implementation that just logs the event
+	logger.Infof("Received GitHub webhook event: %s", event.EventType)
 }
 
 // Close gracefully shuts down the adapter

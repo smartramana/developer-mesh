@@ -5,6 +5,7 @@ go 1.24.2
 require (
 	github.com/S-Corkum/devops-mcp v0.0.0
 	github.com/gorilla/mux v1.8.1
+	github.com/joho/godotenv v1.5.1
 	github.com/onsi/ginkgo/v2 v2.23.3
 	github.com/onsi/gomega v1.36.3
 )
@@ -37,4 +38,7 @@ require (
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 )
 
-replace github.com/S-Corkum/devops-mcp => ../..
+replace (
+	github.com/S-Corkum/devops-mcp => ../..
+	github.com/S-Corkum/devops-mcp/test/functional/client => ./client
+)

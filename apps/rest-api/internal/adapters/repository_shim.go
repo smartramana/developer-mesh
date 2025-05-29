@@ -56,18 +56,6 @@ func convertToPkgEmbeddings(internalEmbs []*internalRepo.Embedding) []*pkgRepo.E
 	return result
 }
 
-// Convert slice of pkg repository embeddings to internal ones
-func convertToInternalEmbeddings(pkgEmbs []*pkgRepo.Embedding) []*internalRepo.Embedding {
-	if pkgEmbs == nil {
-		return nil
-	}
-	result := make([]*internalRepo.Embedding, len(pkgEmbs))
-	for i, emb := range pkgEmbs {
-		result[i] = convertToInternalEmbedding(emb)
-	}
-	return result
-}
-
 // PkgVectorAPIAdapter implements the pkg repository VectorAPIRepository interface
 // by delegating to our internal repository
 type PkgVectorAPIAdapter struct {

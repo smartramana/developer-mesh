@@ -197,12 +197,8 @@ func TestAgentCRUD(t *testing.T) {
 	// Create
 	t.Run("Create Agent", func(t *testing.T) {
 		payload := map[string]any{
-			"name":        "test-agent-" + uuid.New().String(),
-			"description": "Test agent for CRUD operations",
-			"config": map[string]any{
-				"model": "gpt-4",
-				"temperature": 0.7,
-			},
+			"name":     "test-agent-" + uuid.New().String(),
+			"model_id": "gpt-4",
 		}
 		
 		body, _ := json.Marshal(payload)
@@ -214,13 +210,20 @@ func TestAgentCRUD(t *testing.T) {
 		w := httptest.NewRecorder()
 		router.ServeHTTP(w, req)
 		
+		if w.Code != http.StatusCreated {
+			t.Logf("Response body: %s", w.Body.String())
+		}
 		assert.Equal(t, http.StatusCreated, w.Code)
 		
 		var response map[string]any
 		err := json.Unmarshal(w.Body.Bytes(), &response)
 		require.NoError(t, err)
 		
-		agentID = response["id"].(string)
+		if id, ok := response["id"]; ok {
+			agentID = id.(string)
+		} else {
+			t.Fatalf("Response missing 'id' field: %+v", response)
+		}
 		assert.NotEmpty(t, agentID)
 		
 		agent, ok := response["agent"].(map[string]any)
@@ -253,12 +256,8 @@ func TestAgentCRUD(t *testing.T) {
 		require.NotEmpty(t, agentID)
 		
 		updatePayload := map[string]any{
-			"description": "Updated description",
-			"config": map[string]any{
-				"model": "gpt-4",
-				"temperature": 0.9,
-				"max_tokens": 2000,
-			},
+			"name": "Updated Agent Name",
+			"model_id": "gpt-4-turbo",
 		}
 		
 		body, _ := json.Marshal(updatePayload)
@@ -278,7 +277,8 @@ func TestAgentCRUD(t *testing.T) {
 		
 		agent, ok := response["agent"].(map[string]any)
 		assert.True(t, ok)
-		assert.Equal(t, updatePayload["description"], agent["description"])
+		assert.Equal(t, updatePayload["name"], agent["name"])
+		assert.Equal(t, updatePayload["model_id"], agent["model_id"])
 	})
 }
 
@@ -333,6 +333,9 @@ func TestModelCRUD(t *testing.T) {
 		w := httptest.NewRecorder()
 		router.ServeHTTP(w, req)
 		
+		if w.Code != http.StatusOK {
+			t.Logf("Response body: %s", w.Body.String())
+		}
 		assert.Equal(t, http.StatusOK, w.Code)
 		
 		var response map[string]any
@@ -448,27 +451,24 @@ func setupTestRouter(server *Server) *gin.Engine {
 	// Add test middleware for auth bypass and tenant handling
 	router.Use(func(c *gin.Context) {
 		if c.GetHeader("Authorization") == "Bearer test-token" {
+			// Extract tenant ID from header
+			tenantID := c.GetHeader("X-Tenant-ID")
+			if tenantID == "" {
+				tenantID = "default-tenant"
+			}
+			
 			c.Set("user", map[string]any{
 				"id": "test-user",
+				"tenant_id": tenantID,
 			})
-			// Extract tenant ID and set it in context
-			if tenantID := c.GetHeader("X-Tenant-ID"); tenantID != "" {
-				c.Set("tenant_id", tenantID)
-			}
+			// Also set tenant_id separately for backward compatibility
+			c.Set("tenant_id", tenantID)
 		}
 		c.Next()
 	})
 	
 	// Setup routes - use the actual route registration
 	v1 := router.Group("/api/v1")
-	
-	// Register context routes
-	ctxAPI := contextAPI.NewAPI(
-		server.engine.GetContextManager(),
-		server.logger,
-		server.metrics,
-	)
-	ctxAPI.RegisterRoutes(v1)
 	
 	// Register agent routes
 	agentRepo := repository.NewAgentRepository(server.db.DB)
@@ -479,6 +479,16 @@ func setupTestRouter(server *Server) *gin.Engine {
 	modelRepo := repository.NewModelRepository(server.db.DB)
 	modelAPI := NewModelAPI(modelRepo)
 	modelAPI.RegisterRoutes(v1)
+	
+	// Register context routes - now that we have modelRepo
+	ctxAPI := contextAPI.NewAPI(
+		server.engine.GetContextManager(),
+		server.logger,
+		server.metrics,
+		server.db,
+		modelRepo,
+	)
+	ctxAPI.RegisterRoutes(v1)
 	
 	return router
 }
@@ -494,6 +504,7 @@ func setupTestDB(t *testing.T) *sqlx.DB {
 		id TEXT PRIMARY KEY,
 		tenant_id TEXT NOT NULL,
 		name TEXT,
+		model_id TEXT,
 		description TEXT,
 		config TEXT,
 		created_at TIMESTAMP,

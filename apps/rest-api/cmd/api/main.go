@@ -2,11 +2,8 @@ package main
 
 import (
 	"context"
-	"crypto/rand"
 	"fmt"
 	"log"
-	"math/big"
-	mathrand "math/rand"
 	"os"
 	"os/signal"
 	"strings"
@@ -237,22 +234,12 @@ func main() {
 	logger.Info("Server stopped gracefully", nil)
 }
 
-// initSecureRandom initializes the math/rand package with a secure seed
+// initSecureRandom is kept for backward compatibility but is no longer needed
+// as of Go 1.20, the global random number generator is automatically seeded
 func initSecureRandom() {
-	// Generate a secure random seed using crypto/rand
-	max := big.NewInt(int64(1) << 62)
-	val, err := rand.Int(rand.Reader, max)
-	if err != nil {
-		// If we can't get a secure seed, use time as a fallback
-		log.Printf("Warning: unable to generate secure random seed: %v", err)
-		// Use the global Seed function which works across all supported Go versions
-		mathrand.Seed(time.Now().UnixNano())
-		return
-	}
-
-	// Seed the global random generator with our secure random value
-	mathrand.Seed(val.Int64())
-	log.Println("Initialized secure random generator")
+	// Go 1.20+ automatically seeds the global random number generator
+	// No manual seeding is required
+	log.Println("Random number generator is automatically seeded (Go 1.20+)")
 }
 
 // validateConfiguration validates critical configuration settings

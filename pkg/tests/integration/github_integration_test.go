@@ -591,6 +591,7 @@ func TestGitHubAdapter_WebhookHandling(t *testing.T) {
 	config := github.DefaultConfig()
 	// Most important settings for webhook testing:
 	config.WebhooksEnabled = true
+	config.Auth.Token = "test-token"
 
 	// Create adapter
 	adapter, err := github.New(config, logger, metricsClient, eventBus)

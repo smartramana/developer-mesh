@@ -6,15 +6,13 @@ import (
 
 	"github.com/S-Corkum/devops-mcp/pkg/common/aws"
 	"github.com/S-Corkum/devops-mcp/pkg/observability"
-	"github.com/S-Corkum/devops-mcp/pkg/tests/integration"
 	"github.com/aws/aws-sdk-go-v2/service/s3"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
 func TestAWSIntegration(t *testing.T) {
-	helper := integration.NewTestHelper(t)
-	_ = helper // Using in future tests
+	// Note: The integration package provides test helpers but this test doesn't need them currently
 
 	// Create logger for AWS services
 	logger := observability.NewLogger("aws-test")

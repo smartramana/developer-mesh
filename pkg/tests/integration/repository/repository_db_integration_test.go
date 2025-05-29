@@ -11,7 +11,6 @@ import (
 	"github.com/S-Corkum/devops-mcp/pkg/models"
 	"github.com/S-Corkum/devops-mcp/pkg/repository/agent"
 	"github.com/S-Corkum/devops-mcp/pkg/repository/model"
-	"github.com/S-Corkum/devops-mcp/pkg/tests/integration"
 	"github.com/google/uuid"
 	"github.com/jmoiron/sqlx"
 	"github.com/stretchr/testify/assert"
@@ -345,9 +344,7 @@ func GetTx(ctx context.Context) *sqlx.Tx {
 }
 
 func TestRepositoryDatabaseIntegration(t *testing.T) {
-	// Create test helper
-	helper := integration.NewTestHelper(t)
-	_ = helper // We might use this later
+	// Note: The integration package provides test helpers but this test doesn't need them currently
 	// Use in-memory mock repositories test
 	t.Run("In-memory repositories provide expected behavior", func(t *testing.T) {
 		// Test with in-memory repository implementation

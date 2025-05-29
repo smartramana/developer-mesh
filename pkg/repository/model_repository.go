@@ -74,7 +74,7 @@ func (r *ModelRepositoryImpl) Create(ctx context.Context, model *models.Model) e
 		return errors.New("model cannot be nil")
 	}
 
-	query := `INSERT INTO models (id, name, tenant_id, created_at, updated_at)
+	query := `INSERT INTO mcp.models (id, name, tenant_id, created_at, updated_at)
               VALUES ($1, $2, $3, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)`
 
 	_, err := r.db.ExecContext(ctx, query,
@@ -97,7 +97,7 @@ func (r *ModelRepositoryImpl) Get(ctx context.Context, id string) (*models.Model
 	}
 
 	query := `SELECT id, name, tenant_id, created_at, updated_at
-              FROM models WHERE id = $1`
+              FROM mcp.models WHERE id = $1`
 
 	var model models.Model
 	err := r.db.GetContext(ctx, &model, query, id)
@@ -113,7 +113,7 @@ func (r *ModelRepositoryImpl) Get(ctx context.Context, id string) (*models.Model
 
 // List implements ModelRepository.List
 func (r *ModelRepositoryImpl) List(ctx context.Context, filter model.Filter) ([]*models.Model, error) {
-	query := `SELECT id, name, tenant_id, created_at, updated_at FROM models`
+	query := `SELECT id, name, tenant_id, created_at, updated_at FROM mcp.models`
 
 	// Apply filters
 	var whereClause string
@@ -150,7 +150,7 @@ func (r *ModelRepositoryImpl) Update(ctx context.Context, model *models.Model) e
 		return errors.New("model cannot be nil")
 	}
 
-	query := `UPDATE models
+	query := `UPDATE mcp.models
               SET name = $2, tenant_id = $3, updated_at = CURRENT_TIMESTAMP
               WHERE id = $1`
 
@@ -182,7 +182,7 @@ func (r *ModelRepositoryImpl) Delete(ctx context.Context, id string) error {
 		return errors.New("id cannot be empty")
 	}
 
-	query := `DELETE FROM models WHERE id = $1`
+	query := `DELETE FROM mcp.models WHERE id = $1`
 
 	result, err := r.db.ExecContext(ctx, query, id)
 	if err != nil {

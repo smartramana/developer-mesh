@@ -13,9 +13,9 @@ import (
 	"github.com/S-Corkum/devops-mcp/pkg/config"
 	"github.com/S-Corkum/devops-mcp/pkg/database"
 	"github.com/S-Corkum/devops-mcp/pkg/repository"
-	"github.com/S-Corkum/devops-mcp/pkg/tests/integration"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	integration "pkg-integration-tests"
 )
 
 // TestMultiModelEmbeddings tests the storage and retrieval of embeddings from multiple models

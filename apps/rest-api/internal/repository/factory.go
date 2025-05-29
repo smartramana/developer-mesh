@@ -4,6 +4,7 @@ package repository
 import (
 	"context"
 	"database/sql"
+	"strings"
 
 	"github.com/S-Corkum/devops-mcp/pkg/models"
 	pkgrepo "github.com/S-Corkum/devops-mcp/pkg/repository"
@@ -71,7 +72,7 @@ func (a *AgentRepositoryAdapter) GetAgentByID(ctx context.Context, tenantID, id 
 // ListAgents retrieves all agents for a given tenant
 func (a *AgentRepositoryAdapter) ListAgents(ctx context.Context, tenantID string) ([]*models.Agent, error) {
 	// Create a filter map for the tenant ID
-	filter := map[string]interface{}{
+	filter := map[string]any{
 		"tenant_id": tenantID,
 	}
 	return a.repo.List(ctx, filter)
@@ -115,7 +116,7 @@ func (m *ModelRepositoryAdapter) GetModelByID(ctx context.Context, tenantID, id 
 
 // ListModels retrieves all models for a given tenant
 func (m *ModelRepositoryAdapter) ListModels(ctx context.Context, tenantID string) ([]*models.Model, error) {
-	filter := map[string]interface{}{
+	filter := map[string]any{
 		"tenant_id": tenantID,
 	}
 	return m.repo.List(ctx, filter)
@@ -129,6 +130,41 @@ func (m *ModelRepositoryAdapter) UpdateModel(ctx context.Context, model *models.
 // DeleteModel deletes a model by ID
 func (m *ModelRepositoryAdapter) DeleteModel(ctx context.Context, id string) error {
 	return m.repo.Delete(ctx, id)
+}
+
+// SearchModels searches for models by query string (tenant-scoped)
+func (m *ModelRepositoryAdapter) SearchModels(ctx context.Context, tenantID, query string, limit, offset int) ([]*models.Model, error) {
+	// For now, implement a simple search by filtering the list
+	// In production, this should use proper database search functionality
+	allModels, err := m.ListModels(ctx, tenantID)
+	if err != nil {
+		return nil, err
+	}
+	
+	// Filter models that contain the query string in their name
+	var filtered []*models.Model
+	for _, model := range allModels {
+		if query == "" || containsIgnoreCase(model.Name, query) {
+			filtered = append(filtered, model)
+		}
+	}
+	
+	// Apply pagination
+	start := offset
+	if start > len(filtered) {
+		return []*models.Model{}, nil
+	}
+	
+	end := min(start + limit, len(filtered))
+	
+	return filtered[start:end], nil
+}
+
+// containsIgnoreCase checks if str contains substr case-insensitively
+func containsIgnoreCase(str, substr string) bool {
+	return len(substr) == 0 || 
+		len(str) >= len(substr) && 
+		strings.Contains(strings.ToLower(str), strings.ToLower(substr))
 }
 
 // VectorRepositoryAdapter adapts the pkg repository embedding implementation to our VectorAPIRepository interface

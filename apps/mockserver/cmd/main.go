@@ -17,7 +17,7 @@ import (
 func main() {
 	// Command line flags
 	var (
-		port = flag.String("port", "8081", "Port to run the mock server on")
+		port = flag.String("port", "8082", "Port to run the mock server on")
 		host = flag.String("host", "", "Host to bind the server to")
 	)
 	flag.Parse()

@@ -76,6 +76,7 @@ func NewDatabase(ctx context.Context, cfg Config) (*Database, error) {
 		// Use provided DSN (fallback method)
 		log.Println("Warning: Using explicit DSN for database connection instead of IAM authentication")
 		dsn = cfg.DSN
+		log.Printf("Using DSN: %s", dsn)
 	} else {
 		// Build DSN from individual components (least recommended option)
 		log.Println("Warning: Building database connection string from components instead of using IAM authentication")
@@ -111,6 +112,12 @@ func NewDatabase(ctx context.Context, cfg Config) (*Database, error) {
 		config:     cfg,
 		statements: make(map[string]*sqlx.Stmt),
 		rdsClient:  rdsClient,
+	}
+	
+	// Check current search_path
+	var searchPath string
+	if err := db.QueryRowContext(ctx, "SHOW search_path").Scan(&searchPath); err == nil {
+		log.Printf("Current search_path: %s", searchPath)
 	}
 
 	// Prepare statements

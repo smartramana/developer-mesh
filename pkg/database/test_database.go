@@ -313,30 +313,6 @@ func (d *Database) ensureTestGitHubContentTables(ctx context.Context) error {
 	return nil
 }
 
-// initializeRepositoryTables creates tables for the repository layer
-func (d *Database) initializeRepositoryTables(ctx context.Context) error {
-	// Initialize model tables
-	if err := d.ensureTestModelTables(ctx); err != nil {
-		return fmt.Errorf("failed to create model tables: %w", err)
-	}
-
-	// Initialize agent tables
-	if err := d.ensureTestAgentTables(ctx); err != nil {
-		return fmt.Errorf("failed to create agent tables: %w", err)
-	}
-
-	// Initialize vector tables
-	if err := d.ensureTestVectorTables(ctx); err != nil {
-		return fmt.Errorf("failed to create vector tables: %w", err)
-	}
-
-	// Initialize relationship tables
-	if err := d.ensureTestRelationshipTables(ctx); err != nil {
-		return fmt.Errorf("failed to create relationship tables: %w", err)
-	}
-
-	return nil
-}
 
 // ensureModelTables creates tables for models
 func (d *Database) ensureTestModelTables(ctx context.Context) error {

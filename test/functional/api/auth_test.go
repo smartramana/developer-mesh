@@ -9,7 +9,7 @@ import (
 	"net/http"
 
 	"github.com/S-Corkum/devops-mcp/pkg/models"
-	"github.com/S-Corkum/devops-mcp/test/functional/client"
+	"functional-tests/client"
 )
 
 var _ = Describe("Authentication Tests", func() {
@@ -181,24 +181,31 @@ var _ = Describe("Authentication Tests", func() {
 
 	Describe("Header-based Authentication", func() {
 		It("should accept both Authorization header formats", func() {
-			// The client has special handling for test-admin-api-key vs other keys
-			// Let's test both raw header and Bearer token formats
-			
-			// Create client with custom header handling function
-			customHeaderClient := client.NewMCPClient(
+			// Test 1: Valid test-admin-api-key should work
+			adminClient := client.NewMCPClient(
 				ServerURL,
-				"custom-api-key",
+				"test-admin-api-key",
 				client.WithTenantID("test-tenant-1"),
 				client.WithLogger(testLogger),
 			)
 			
-			// The client automatically adds Bearer prefix for non-test-admin-api-key
-			resp, err := customHeaderClient.Get(ctx, "/api/v1/health")
+			resp, err := adminClient.Get(ctx, "/api/v1/models")
 			Expect(err).NotTo(HaveOccurred())
 			defer resp.Body.Close()
+			Expect(resp.StatusCode).To(Equal(http.StatusOK), "test-admin-api-key should be accepted")
 			
-			// Might be 200 or 401 depending on server config, but should not error
-			Expect(resp.StatusCode == http.StatusOK || resp.StatusCode == http.StatusUnauthorized).To(BeTrue())
+			// Test 2: Invalid API key should be rejected
+			invalidClient := client.NewMCPClient(
+				ServerURL,
+				"invalid-api-key",
+				client.WithTenantID("test-tenant-1"),
+				client.WithLogger(testLogger),
+			)
+			
+			resp2, err := invalidClient.Get(ctx, "/api/v1/models")
+			Expect(err).NotTo(HaveOccurred())
+			defer resp2.Body.Close()
+			Expect(resp2.StatusCode).To(Equal(http.StatusUnauthorized), "invalid API key should be rejected")
 		})
 	})
 })

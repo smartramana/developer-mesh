@@ -105,7 +105,7 @@ func (m *mockBenchmarkContextManager) SummarizeContext(ctx context.Context, cont
 }
 
 // setupBenchmarkServer creates a server instance for benchmarking
-func setupBenchmarkServer(b *testing.B) *Server {
+func setupBenchmarkServer(_ *testing.B) *Server {
 	// Create a mock database connection (not used in mock context manager)
 	db := &sqlx.DB{}
 	

@@ -10,9 +10,8 @@ import (
 	"os"
 	"time"
 	
-	// Legacy imports for backward compatibility during migration
-	legacymcp "github.com/S-Corkum/devops-mcp/pkg/models"
-	legacymodels "github.com/S-Corkum/devops-mcp/pkg/models"
+	// Import models package
+	"github.com/S-Corkum/devops-mcp/pkg/models"
 )
 
 // MCPClient provides methods to interact with the MCP server API
@@ -163,6 +162,35 @@ func ParseResponse(resp *http.Response, target interface{}) error {
 	return nil
 }
 
+// ParseWrappedResponse parses a wrapped response that contains data, request_id, and timestamp fields
+func ParseWrappedResponse(resp *http.Response, target interface{}) error {
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return fmt.Errorf("error reading response body: %w", err)
+	}
+
+	// Reset the response body so it can be read again if needed
+	resp.Body = io.NopCloser(bytes.NewBuffer(body))
+
+	// Parse the wrapped response
+	var wrapped struct {
+		Data      json.RawMessage `json:"data"`
+		RequestID string          `json:"request_id"`
+		Timestamp string          `json:"timestamp"`
+	}
+	
+	if err := json.Unmarshal(body, &wrapped); err != nil {
+		return fmt.Errorf("error parsing wrapped response: %w", err)
+	}
+
+	// Parse the data field into the target
+	if err := json.Unmarshal(wrapped.Data, target); err != nil {
+		return fmt.Errorf("error parsing data field: %w", err)
+	}
+
+	return nil
+}
+
 // GetHealth checks the server health status
 func (c *MCPClient) GetHealth(ctx context.Context) (map[string]interface{}, error) {
 	resp, err := c.Get(ctx, "/api/v1/health")
@@ -217,7 +245,8 @@ func (c *MCPClient) GetContext(ctx context.Context, contextID string) (map[strin
 	}
 
 	var result map[string]interface{}
-	if err := ParseResponse(resp, &result); err != nil {
+	// GetContext returns a wrapped response
+	if err := ParseWrappedResponse(resp, &result); err != nil {
 		return nil, err
 	}
 
@@ -225,7 +254,7 @@ func (c *MCPClient) GetContext(ctx context.Context, contextID string) (map[strin
 }
 
 // GetContextTyped retrieves a specific context by ID as a strongly typed model
-func (c *MCPClient) GetContextTyped(ctx context.Context, contextID string) (*legacymodels.Context, error) {
+func (c *MCPClient) GetContextTyped(ctx context.Context, contextID string) (*models.Context, error) {
 	path := fmt.Sprintf("/api/v1/contexts/%s", contextID)
 	resp, err := c.Get(ctx, path)
 	if err != nil {
@@ -236,8 +265,9 @@ func (c *MCPClient) GetContextTyped(ctx context.Context, contextID string) (*leg
 		return nil, fmt.Errorf("unexpected status code: %d", resp.StatusCode)
 	}
 
-	var result legacymodels.Context
-	if err := ParseResponse(resp, &result); err != nil {
+	var result models.Context
+	// GetContext returns a wrapped response
+	if err := ParseWrappedResponse(resp, &result); err != nil {
 		return nil, err
 	}
 
@@ -256,7 +286,8 @@ func (c *MCPClient) CreateContext(ctx context.Context, payload map[string]interf
 	}
 
 	var result map[string]interface{}
-	if err := ParseResponse(resp, &result); err != nil {
+	// CreateContext returns a wrapped response
+	if err := ParseWrappedResponse(resp, &result); err != nil {
 		return nil, err
 	}
 
@@ -264,7 +295,7 @@ func (c *MCPClient) CreateContext(ctx context.Context, payload map[string]interf
 }
 
 // CreateContextTyped creates a new context using a strongly typed model
-func (c *MCPClient) CreateContextTyped(ctx context.Context, contextData *legacymodels.Context) (*legacymodels.Context, error) {
+func (c *MCPClient) CreateContextTyped(ctx context.Context, contextData *models.Context) (*models.Context, error) {
 	resp, err := c.Post(ctx, "/api/v1/contexts", contextData)
 	if err != nil {
 		return nil, err
@@ -274,7 +305,7 @@ func (c *MCPClient) CreateContextTyped(ctx context.Context, contextData *legacym
 		return nil, fmt.Errorf("unexpected status code: %d", resp.StatusCode)
 	}
 
-	var result legacymodels.Context
+	var result models.Context
 	if err := ParseResponse(resp, &result); err != nil {
 		return nil, err
 	}
@@ -283,7 +314,7 @@ func (c *MCPClient) CreateContextTyped(ctx context.Context, contextData *legacym
 }
 
 // CreateModel creates a new model
-func (c *MCPClient) CreateModel(ctx context.Context, model *legacymodels.Model) (*legacymodels.Model, error) {
+func (c *MCPClient) CreateModel(ctx context.Context, model *models.Model) (*models.Model, error) {
 	resp, err := c.Post(ctx, "/api/v1/models", model)
 	if err != nil {
 		return nil, err
@@ -293,16 +324,35 @@ func (c *MCPClient) CreateModel(ctx context.Context, model *legacymodels.Model) 
 		return nil, fmt.Errorf("unexpected status code: %d", resp.StatusCode)
 	}
 
-	var result legacymodels.Model
-	if err := ParseResponse(resp, &result); err != nil {
-		return nil, err
+	// Debug: log raw response
+	body, _ := io.ReadAll(resp.Body)
+	fmt.Printf("DEBUG: CreateModel raw response: %s\n", string(body))
+	resp.Body = io.NopCloser(bytes.NewBuffer(body))
+	
+	// Handle wrapped response format
+	var wrappedResponse struct {
+		ID    string        `json:"id"`
+		Model models.Model  `json:"model"`
 	}
-
-	return &result, nil
+	
+	// First try parsing as direct model since that's what the API actually returns
+	var result models.Model
+	if err := json.Unmarshal(body, &result); err == nil && result.ID != "" {
+		fmt.Printf("DEBUG: Direct parse succeeded: %+v\n", result)
+		return &result, nil
+	}
+	
+	// If direct parsing fails or returns empty ID, try wrapped format
+	if err := json.Unmarshal(body, &wrappedResponse); err == nil && wrappedResponse.Model.ID != "" {
+		fmt.Printf("DEBUG: Wrapped parse succeeded, returning model: %+v\n", wrappedResponse.Model)
+		return &wrappedResponse.Model, nil
+	}
+	
+	return nil, fmt.Errorf("failed to parse response: body=%s", string(body))
 }
 
 // GetModel retrieves a specific model by ID
-func (c *MCPClient) GetModel(ctx context.Context, modelID string) (*legacymodels.Model, error) {
+func (c *MCPClient) GetModel(ctx context.Context, modelID string) (*models.Model, error) {
 	path := fmt.Sprintf("/api/v1/models/%s", modelID)
 	resp, err := c.Get(ctx, path)
 	if err != nil {
@@ -313,7 +363,7 @@ func (c *MCPClient) GetModel(ctx context.Context, modelID string) (*legacymodels
 		return nil, fmt.Errorf("unexpected status code: %d", resp.StatusCode)
 	}
 
-	var result legacymodels.Model
+	var result models.Model
 	if err := ParseResponse(resp, &result); err != nil {
 		return nil, err
 	}
@@ -322,7 +372,7 @@ func (c *MCPClient) GetModel(ctx context.Context, modelID string) (*legacymodels
 }
 
 // CreateAgent creates a new agent
-func (c *MCPClient) CreateAgent(ctx context.Context, agent *legacymodels.Agent) (*legacymodels.Agent, error) {
+func (c *MCPClient) CreateAgent(ctx context.Context, agent *models.Agent) (*models.Agent, error) {
 	resp, err := c.Post(ctx, "/api/v1/agents", agent)
 	if err != nil {
 		return nil, err
@@ -332,7 +382,7 @@ func (c *MCPClient) CreateAgent(ctx context.Context, agent *legacymodels.Agent) 
 		return nil, fmt.Errorf("unexpected status code: %d", resp.StatusCode)
 	}
 
-	var result legacymodels.Agent
+	var result models.Agent
 	if err := ParseResponse(resp, &result); err != nil {
 		return nil, err
 	}
@@ -341,7 +391,7 @@ func (c *MCPClient) CreateAgent(ctx context.Context, agent *legacymodels.Agent) 
 }
 
 // GetAgent retrieves a specific agent by ID
-func (c *MCPClient) GetAgent(ctx context.Context, agentID string) (*legacymodels.Agent, error) {
+func (c *MCPClient) GetAgent(ctx context.Context, agentID string) (*models.Agent, error) {
 	path := fmt.Sprintf("/api/v1/agents/%s", agentID)
 	resp, err := c.Get(ctx, path)
 	if err != nil {
@@ -352,7 +402,7 @@ func (c *MCPClient) GetAgent(ctx context.Context, agentID string) (*legacymodels
 		return nil, fmt.Errorf("unexpected status code: %d", resp.StatusCode)
 	}
 
-	var result legacymodels.Agent
+	var result models.Agent
 	if err := ParseResponse(resp, &result); err != nil {
 		return nil, err
 	}

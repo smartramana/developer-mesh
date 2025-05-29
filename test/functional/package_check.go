@@ -6,9 +6,9 @@ import (
 
 // Variables that should be accessible to test files
 var (
-	ServerURL    = "http://localhost:8080"
+	ServerURL    = "http://localhost:8081"
 	APIKey       = "test-admin-api-key"
-	MockServerURL = "http://localhost:8081"
+	MockServerURL = "http://localhost:8082"
 )
 
 func init() {

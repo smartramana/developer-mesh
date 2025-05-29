@@ -22,7 +22,7 @@ type MockServer struct {
 }
 
 // Create a simple mock server for testing
-func setupMockServer(t *testing.T) *MockServer {
+func setupMockServer(_ *testing.T) *MockServer {
 	gin.SetMode(gin.TestMode)
 
 	// Create mock engine
@@ -97,12 +97,12 @@ func TestHealthHandler(t *testing.T) {
 	// Check response
 	assert.Equal(t, http.StatusOK, w.Code)
 
-	var response map[string]interface{}
+	var response map[string]any
 	err := json.Unmarshal(w.Body.Bytes(), &response)
 	require.NoError(t, err)
 
 	assert.Equal(t, "healthy", response["status"])
-	components, ok := response["components"].(map[string]interface{})
+	components, ok := response["components"].(map[string]any)
 	assert.True(t, ok)
 	assert.Equal(t, "healthy", components["engine"])
 	assert.Equal(t, "healthy", components["github"])
@@ -154,7 +154,7 @@ func TestWebhookEndpoints(t *testing.T) {
 func TestServerShutdown(t *testing.T) {
 	// Create a shutdown function to test
 	shutdownCalled := false
-	shutdownFunc := func(ctx context.Context) error {
+	shutdownFunc := func(_ context.Context) error {
 		shutdownCalled = true
 		return nil
 	}

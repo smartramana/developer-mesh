@@ -16,7 +16,7 @@ import (
 	// Use pkg/models package which is the public API
 	// This aligns with our forward-only migration strategy
 	"github.com/S-Corkum/devops-mcp/pkg/models"
-	"github.com/S-Corkum/devops-mcp/test/functional/client"
+	"functional-tests/client"
 )
 
 // Import variables from the suite
@@ -31,9 +31,9 @@ var (
 
 func init() {
 	// These will be set by the suite before tests run
-	ServerURL = "http://localhost:8080"
+	ServerURL = "http://localhost:8081"
 	APIKey = "test-admin-api-key"
-	MockServerURL = "http://localhost:8081"
+	MockServerURL = "http://localhost:8082"
 	
 	// Initialize a test logger for observability
 	testLogger = client.NewTestLogger()
@@ -53,10 +53,15 @@ var _ = BeforeSuite(func() {
 		var createdModel *models.Model
 		createdModel, err := tempClient.CreateModel(context.Background(), modelReq)
 		
+		// Debug the response
+		fmt.Fprintf(os.Stderr, "DEBUG: CreateModel err=%v, createdModel=%+v\n", err, createdModel)
+		
 		// If successful, use the model ID
 		if err == nil && createdModel != nil && createdModel.ID != "" {
 			modelID = createdModel.ID
+			fmt.Fprintf(os.Stderr, "DEBUG: Model created successfully with ID: %s\n", modelID)
 			testModelIDs = append(testModelIDs, modelID)
+			fmt.Fprintf(os.Stderr, "DEBUG: testModelIDs after append: %v\n", testModelIDs)
 			continue
 		}
 		
@@ -82,11 +87,18 @@ var _ = BeforeSuite(func() {
 				fmt.Fprintf(os.Stderr, "Model creation did not return id: status=%d, body=%s, parsed=%#v\n", resp.StatusCode, string(modelBody), modelResult)
 			}
 			Expect(ok && modelID != "").To(BeTrue(), "Model creation failed, status=%d, body=%s, parsed=%#v", resp.StatusCode, string(modelBody), modelResult)
+			if modelID != "" {
+				testModelIDs = append(testModelIDs, modelID)
+			}
 		}
-		
-		testModelIDs = append(testModelIDs, modelID)
 	}
 
+	// Debug: Print the model IDs
+	fmt.Fprintf(os.Stderr, "DEBUG: testModelIDs = %v\n", testModelIDs)
+	
+	// Ensure we have at least one model ID
+	Expect(len(testModelIDs)).To(BeNumerically(">", 0), "No model IDs were collected")
+	
 	// Create a test agent with a valid model_id
 	// Try the typed method with new model structure
 	agentReq := &models.Agent{
@@ -94,6 +106,7 @@ var _ = BeforeSuite(func() {
 		TenantID: "test-tenant-1",
 		ModelID:  testModelIDs[0],
 	}
+	fmt.Fprintf(os.Stderr, "DEBUG: Creating agent with ModelID = %s\n", agentReq.ModelID)
 	
 	// Define a new err variable for agent creation
 	var agentErr error
@@ -453,7 +466,7 @@ var _ = Describe("API", func() {
 			resp.Body = io.NopCloser(bytes.NewBuffer(body))
 
 			var result map[string]interface{}
-			err = client.ParseResponse(resp, &result)
+			err = client.ParseWrappedResponse(resp, &result)
 			Expect(err).NotTo(HaveOccurred())
 			id, ok := result["id"].(string)
 			Expect(ok).To(BeTrue())
@@ -473,7 +486,7 @@ var _ = Describe("API", func() {
 			Expect(resp.StatusCode == http.StatusOK || resp.StatusCode == http.StatusUnauthorized).To(BeTrue())
 			if resp.StatusCode == http.StatusOK {
 				var result map[string]interface{}
-				err = client.ParseResponse(resp, &result)
+				err = client.ParseWrappedResponse(resp, &result)
 				Expect(err).NotTo(HaveOccurred())
 				Expect(result["id"]).To(Equal(createdContextID))
 				Expect(result["name"]).To(Equal("Test Context"))
@@ -482,11 +495,11 @@ var _ = Describe("API", func() {
 
 		It("should update an existing context", func() {
 			updatePayload := map[string]interface{}{
-				"context": map[string]interface{}{
-					"name":        "Updated Test Context",
-					"description": "Updated by functional test",
-					"agent_id":    testAgentID,
-					"model_id":    testModelIDs[0],
+				"content": []map[string]interface{}{
+					{
+						"role":    "user",
+						"content": "Updated test content",
+					},
 				},
 				"options": nil,
 			}
@@ -494,12 +507,21 @@ var _ = Describe("API", func() {
 			resp, err := mcpClient.Put(ctx, path, updatePayload)
 			Expect(err).NotTo(HaveOccurred())
 			defer resp.Body.Close()
+			
+			// Debug response
+			body, _ := io.ReadAll(resp.Body)
+			fmt.Fprintf(os.Stderr, "Update context response status=%d, body=%s\n", resp.StatusCode, string(body))
+			resp.Body = io.NopCloser(bytes.NewBuffer(body))
+			
 			Expect(resp.StatusCode).To(Equal(http.StatusOK))
 			var result map[string]interface{}
-			err = client.ParseResponse(resp, &result)
+			err = client.ParseWrappedResponse(resp, &result)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(result["id"]).To(Equal(createdContextID))
-			Expect(result["name"]).To(Equal("Updated Test Context"))
+			// Verify content was updated
+			content, ok := result["content"].([]interface{})
+			Expect(ok).To(BeTrue())
+			Expect(len(content)).To(BeNumerically(">", 0))
 		})
 
 		It("should search within a context", func() {

@@ -6,6 +6,7 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"slices"
 	"strings"
 	"sync"
 	"time"
@@ -385,7 +386,7 @@ func TenantMiddleware() gin.HandlerFunc {
 			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "missing tenant id"})
 			return
 		}
-		c.Set("user", map[string]interface{}{"tenant_id": tenantID})
+		c.Set("user", map[string]any{"tenant_id": tenantID})
 		c.Next()
 	}
 }
@@ -434,6 +435,17 @@ func AuthMiddleware(authType string) gin.HandlerFunc {
 				return
 			}
 			fmt.Println("API key validation successful")
+			
+			// For API key auth, check if we already have user context from TenantMiddleware
+			// If not, set a default user context to avoid "missing tenant id" errors
+			if _, exists := c.Get("user"); !exists {
+				// Set default user context for API key authentication
+				// In a real system, this would look up the tenant from the API key
+				c.Set("user", map[string]any{
+					"api_key": authHeader,
+					"auth_type": "api_key",
+				})
+			}
 
 		case "jwt":
 			// Check if token format is valid (should begin with "Bearer ")
@@ -507,11 +519,9 @@ func validateAPIKey(key string) bool {
 	fmt.Printf("Stored API keys: %v\n", apiKeyStorage.keys)
 
 	// Check if the API key exists in the authorized keys
-	for _, validKey := range apiKeyStorage.keys {
-		if key == validKey {
-			fmt.Printf("API key matched: %s\n", key)
-			return true
-		}
+	if slices.Contains(apiKeyStorage.keys, key) {
+		fmt.Printf("API key matched: %s\n", key)
+		return true
 	}
 
 	fmt.Println("No matching API key found")

@@ -104,6 +104,16 @@ test-functional-verbose:
 	@bash ./test/functional/check_test_env.sh || (echo "\nEnvironment check failed. Please set all required environment variables before running functional tests." && exit 1)
 	cd $(shell pwd) && export MCP_TEST_MODE=true && ./test/scripts/run_functional_tests_fixed.sh --verbose
 
+# Run functional tests locally with proper environment setup
+test-functional-local:
+	@echo "Running functional tests with local environment..."
+	@bash ./test/scripts/run_functional_tests_local.sh
+
+# Run functional tests locally with verbose output
+test-functional-local-verbose:
+	@echo "Running functional tests with local environment (verbose)..."
+	@bash ./test/scripts/run_functional_tests_local.sh --verbose
+
 deps:
 	$(GOWORK) sync
 	$(GOMOD) download

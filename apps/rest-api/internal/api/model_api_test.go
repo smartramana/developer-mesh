@@ -47,13 +47,18 @@ func (m *MockModelRepository) DeleteModel(ctx context.Context, id string) error 
 	return args.Error(0)
 }
 
+func (m *MockModelRepository) SearchModels(ctx context.Context, tenantID, query string, limit, offset int) ([]*models.Model, error) {
+	args := m.Called(ctx, tenantID, query, limit, offset)
+	return args.Get(0).([]*models.Model), args.Error(1)
+}
+
 // Helper to set up Gin and handler
 func setupModelAPI(repo repository.ModelRepository, withTenant bool) *gin.Engine {
 	gin.SetMode(gin.TestMode)
 	r := gin.New()
 	if withTenant {
 		r.Use(func(c *gin.Context) {
-			c.Set("user", map[string]interface{}{"tenant_id": "tenant1"})
+			c.Set("user", map[string]any{"tenant_id": "tenant1"})
 			c.Next()
 		})
 	}

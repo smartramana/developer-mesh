@@ -2,28 +2,12 @@ package events
 
 import (
 	"context"
-	"reflect"
 	"sync"
 
 	"github.com/S-Corkum/devops-mcp/pkg/events"
 	"github.com/S-Corkum/devops-mcp/pkg/interfaces"
 	"github.com/S-Corkum/devops-mcp/pkg/observability"
 )
-
-// isInterfaceNil checks if an interface is nil
-func isInterfaceNil(i any) bool {
-	if i == nil {
-		return true
-	}
-
-	v := reflect.ValueOf(i)
-	switch v.Kind() {
-	case reflect.Chan, reflect.Func, reflect.Map, reflect.Ptr, reflect.Interface, reflect.Slice:
-		return v.IsNil()
-	default:
-		return false
-	}
-}
 
 // AdapterEventBridge bridges adapter events to the main event bus
 type AdapterEventBridge struct {

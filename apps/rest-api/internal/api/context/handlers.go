@@ -121,7 +121,7 @@ func (api *API) GetContext(c *gin.Context) {
 		return
 	}
 	
-	userMap, ok := userInfo.(map[string]interface{})
+	userMap, ok := userInfo.(map[string]any)
 	if !ok {
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "invalid user context"})
 		return

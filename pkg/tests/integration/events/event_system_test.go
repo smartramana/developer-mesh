@@ -9,14 +9,12 @@ import (
 	"github.com/S-Corkum/devops-mcp/pkg/common/events"
 	"github.com/S-Corkum/devops-mcp/pkg/models"
 	"github.com/S-Corkum/devops-mcp/pkg/observability"
-	"github.com/S-Corkum/devops-mcp/pkg/tests/integration"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
 func TestEventSystemIntegration(t *testing.T) {
-	helper := integration.NewTestHelper(t)
-	_ = helper // Acknowledging helper for future use
+	// Note: The integration package provides test helpers but this test doesn't need them currently
 
 	t.Run("EventBus publishes and subscribers receive events", func(t *testing.T) {
 		// Create event bus with appropriate queue size
