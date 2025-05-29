@@ -5,6 +5,44 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased] - 2025-05-29
+
+### Added
+- Go workspace structure for better code organization and dependency management
+- Hybrid architecture for mcp-server combining MCP and REST API functionality
+- GitHub API integration testing infrastructure (configurable for real API or mocks)
+- Helper scripts for GitHub App setup and webhook testing
+- Comprehensive documentation for GitHub integration testing
+- Performance optimizations for mcp-server including connection pooling and caching
+- Swagger/OpenAPI documentation improvements with better examples
+- Support for multiple authentication methods (API keys, JWT, GitHub App)
+- Database schema detection for SQLite vs PostgreSQL compatibility
+
+### Changed
+- **Project Structure**: Migrated to Go workspace with separate modules for apps
+- **Import Paths**: Updated all imports to use new workspace structure
+- **Build System**: Enhanced Makefile with workspace-aware commands
+- **Documentation**: Updated all docs to reflect current project state and commands
+- **Configuration**: Simplified config files with better examples and defaults
+- **Testing**: Improved test organization with dedicated test modules
+
+### Fixed
+- All linting errors following Go best practices
+- Context update bug where Name field wasn't being updated
+- Database schema issues when switching between SQLite and PostgreSQL
+- Import cycles and dependency issues in the new workspace structure
+- Mock server implementation for better test reliability
+- Tenant validation in context CRUD operations
+- Build and test commands to work with Go workspaces
+
+### Developer Experience
+- Added `config.yaml.example` with clear setup instructions
+- Improved quick-start guide with accurate commands
+- Enhanced troubleshooting documentation
+- Better error messages for common setup issues
+- Clearer contribution guidelines
+- Simplified local development setup with `make dev-setup`
+
 ## [0.3.8] - 2025-04-27
 
 ### Added

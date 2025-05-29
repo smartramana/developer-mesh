@@ -1,180 +1,177 @@
-# DevOps MCP Server
+# DevOps MCP (Model Context Protocol)
 
-[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+![Version](https://img.shields.io/badge/version-1.0.0-blue.svg)
+![Go](https://img.shields.io/badge/go-1.24+-00ADD8.svg)
+![License](https://img.shields.io/badge/license-MIT-green.svg)
+[![Go Report Card](https://goreportcard.com/badge/github.com/S-Corkum/devops-mcp)](https://goreportcard.com/report/github.com/S-Corkum/devops-mcp)
 
-MCP (Model Context Protocol) Server provides AI agents with a unified API for DevOps tool integrations and context management.
+> A production-ready platform connecting AI agents to DevOps tools through a unified, standardized API
 
-## 🚀 Features
+## Overview
 
-### DevOps Integration
-- **Unified API**: Standardized REST API for integrating AI agents with GitHub
-- **Tool Operations**: Execute GitHub operations through a consistent interface
-- **Event Handling**: Process webhooks from GitHub to keep AI agents informed
-- **Tool Discovery**: Dynamically discover available tools and their capabilities
+DevOps MCP (Model Context Protocol) provides a standardized, secure interface for AI agents to interact with DevOps tools, manage conversation contexts, and perform vector-based semantic search. Built with Go workspaces for modular architecture, it bridges the gap between Large Language Models (LLMs) and external DevOps tools.
 
-### Context Management
-- **Conversation History**: Maintain conversation contexts for AI agents
-- **Multi-tiered Storage**: Store contexts efficiently across Redis, PostgreSQL, and S3
-- **Context Window Management**: Handle token counting, truncation, and optimization
-- **Vector Search**: Find semantically similar content using vector embeddings
-- **Session Management**: Track conversations across multiple interactions
+### 🚀 Key Capabilities
 
-### Platform Capabilities
-- **Extensible Design**: Modular architecture making it easy to add new tool integrations
-- **Resilient Processing**: Built-in retry mechanisms, circuit breakers, and error handling
-- **Performance Optimized**: Connection pooling, caching, and concurrency management
-- **Comprehensive Authentication**: Secure API access and webhook verification
-- **AWS Integration**: Seamless integration with AWS services using IAM Roles for Service Accounts (IRSA)
+- **Multi-Tool Integration**: Unified API supporting GitHub, with extensible adapter pattern for additional tools
+- **Context Management**: Efficient storage and retrieval of conversation contexts with S3 support
+- **Vector Search**: Semantic search using pgvector with support for multiple embedding models
+- **Event-Driven Architecture**: Asynchronous processing with SQS integration
+- **Production-Ready**: Built-in observability, circuit breakers, and rate limiting
 
----
+## 🏗️ Architecture
 
-## Queue & Worker Architecture
+Built using Go workspaces for modularity and clean architecture:
 
-### Purpose
-The queue (AWS SQS or LocalStack SQS) decouples event ingestion (webhooks, API calls) from event processing. This allows the system to:
-- Scale event processing independently
-- Improve reliability and resilience
-- Ensure events are processed asynchronously and idempotently
+- **Three-Service Architecture**: MCP server, REST API, and Worker services
+- **Adapter Pattern**: Clean separation between business logic and external integrations
+- **Event-Driven**: Asynchronous processing with AWS SQS support
+- **Resilience Patterns**: Circuit breakers, retry logic, and bulkheads
+- **Observability**: OpenTelemetry tracing and Prometheus metrics
 
-### How It Works
-- The main server enqueues events to SQS when a webhook or API call is received.
-- The dedicated `worker` service polls SQS for new messages, processes each event, and updates Redis for idempotency.
-- LocalStack is used in development and CI to emulate AWS SQS, enabling full integration testing without real AWS resources.
-
-### Configuration & Environment Variables
-- `SQS_QUEUE_URL`: URL of the SQS queue (e.g., `http://localstack:4566/000000000000/test-queue` for LocalStack)
-- `REDIS_HOST`, `REDIS_PORT`: Redis connection details
-- Both the server and worker must be configured with the same queue and Redis settings for correct operation.
-
-### Message Flow
-1. **Webhook/API Event** → Main server receives event
-2. **Enqueue** → Server serializes event and sends to SQS
-3. **Poll** → Worker polls SQS for new messages
-4. **Process** → Worker processes event, performs business logic, and sets idempotency key in Redis
-5. **Ack/Delete** → Worker deletes the message from SQS after successful processing
-
-### Inspecting & Debugging the Queue
-- **LocalStack UI**: LocalStack provides a web UI (if enabled) to inspect SQS queues and messages
-- **AWS CLI (LocalStack endpoint)**: Use the AWS CLI with `--endpoint-url` to list, send, or receive messages for debugging:
-  ```bash
-  aws --endpoint-url=http://localhost:4566 sqs list-queues
-  aws --endpoint-url=http://localhost:4566 sqs receive-message --queue-url http://localhost:4566/000000000000/test-queue
-  ```
-- **Logs**: Both server and worker log SQS operations for traceability
-- **Functional Tests**: The test suite exercises the full flow, verifying that events are enqueued, processed, and idempotency is enforced
-
----
-
-## 📋 Quick Start
+## 🚀 Quick Start
 
 ### Prerequisites
-- Docker and Docker Compose (for local development)
-- GitHub account and personal access token (for GitHub integration)
 
-### Running with Docker Compose
+- **Go 1.24+** (required for workspace support)
+- Docker & Docker Compose
+- PostgreSQL 14+ with pgvector extension
+- Redis 6.2+
+- Make
+- AWS credentials (optional, for S3/SQS integration)
 
-The easiest way to get started is with Docker Compose:
+### Local Development
 
 ```bash
 # Clone the repository
-git clone https://github.com/S-Corkum/mcp-server.git
-cd mcp-server
+git clone https://github.com/S-Corkum/devops-mcp.git
+cd devops-mcp
 
-# Create configuration
-cp .env.example .env
-# Edit .env with your GitHub token and other settings
+# Copy configuration template
+cp config.yaml.example config.yaml
+# Edit config.yaml with your settings (especially API tokens)
 
-# Start the services (main stack)
-docker-compose up -d
+# Start infrastructure services (includes PostgreSQL, Redis, LocalStack)
+make dev-setup
 
-# For full end-to-end testing (including SQS, worker, and Redis idempotency), use the test compose file:
-docker-compose -f docker-compose.test.yml up --build
-```
+# Build all services
+make build
 
-#### Worker & Queue Integration
-- The system now includes a dedicated `worker` service (see `Dockerfile.worker`), which polls SQS (via LocalStack) and processes queued events.
-- LocalStack is used to emulate AWS SQS for local and CI testing.
-- Both the main server and the worker connect to the same Redis and SQS instances for realistic integration testing.
+# Run database migrations
+make migrate-local
 
-#### Functional & Integration Tests
-- Functional tests now exercise the full webhook → SQS → worker → Redis flow.
-- To run all functional tests with the complete stack:
+# Option 1: Start services (in separate terminals)
+make run-mcp-server
+make run-rest-api
+make run-worker
 
-```bash
-make test-functional-verbose
-```
-- This ensures both the server and worker are running, SQS is emulated, and Redis idempotency is verified.
+# Option 2: Run all services with Docker Compose
+make local-dev
 
-### Verify Installation
-
-```bash
-# Check the health endpoint
+# Verify health
 curl http://localhost:8080/health
-
-# Explore the Swagger UI
-open http://localhost:8080/swagger/index.html
+curl http://localhost:8081/health
 ```
 
-## 📖 Documentation
+## 📚 Documentation
 
-For detailed documentation, please see the [Documentation Index](docs/README.md).
+- [Quick Start Guide](docs/getting-started/quick-start-guide.md) - Get up and running quickly
+- [Architecture Overview](docs/architecture/system-overview.md) - System design and components
+- [API Reference](docs/api-reference/vector-search-api.md) - API endpoints and examples
+- [Development Environment](docs/developer/development-environment.md) - Setup for contributors
+- [Examples](docs/examples/README.md) - Integration examples and use cases
 
 ### Key Documentation
 
-- [Quick Start Guide](docs/quick-start-guide.md) - Get up and running quickly
-- [Installation Guide](docs/installation-guide.md) - Detailed installation instructions
-- [Configuration Guide](docs/configuration-guide.md) - Configure the server for your environment
-- [AI Agent Integration](docs/guides/ai-agent-integration-guide.md) - Integrate AI agents with the MCP Server
-- [API Reference](docs/api-reference.md) - Full API reference documentation
-- [System Architecture](docs/system-architecture.md) - Understand the system architecture
+- **Architecture**: [System Overview](docs/architecture/system-overview.md) | [Adapter Pattern](docs/architecture/adapter-pattern.md) | [Go Workspace Structure](docs/architecture/go-workspace-structure.md)
+- **Integration Examples**: [GitHub](docs/examples/github-integration.md) | [AI Agent](docs/examples/ai-agent-integration.md) | [Vector Search](docs/examples/vector-search-implementation.md)
+- **Developer Resources**: [Development Environment](docs/developer/development-environment.md) | [Debugging Guide](docs/developer/debugging-guide.md)
 
-## 👩‍💻 For Developers
+## 📁 Project Structure
 
-If you're interested in developing with or contributing to the MCP Server:
-
-- [Development Guide](docs/development-guide.md) - Setup your development environment
-- [Adding New Integrations](docs/adding-new-integrations.md) - Add new tool integrations
-- [Contributing Guide](CONTRIBUTING.md) - Guidelines for contributing to the project
-
-## 🛠️ Building from Source
-
-```bash
-# Clone the repository
-git clone https://github.com/S-Corkum/mcp-server.git
-cd mcp-server
-
-# Install dependencies
-go mod download
-
-# Build the server
-make build
-# or
-go build -o mcp-server ./cmd/server
+```
+devops-mcp/
+├── apps/                      # Go workspace applications
+│   ├── mcp-server/           # Main MCP protocol server
+│   │   ├── cmd/server/       # Server entrypoint
+│   │   └── internal/         # Internal packages
+│   ├── rest-api/             # REST API service
+│   │   ├── cmd/api/          # API entrypoint
+│   │   └── internal/         # Internal packages
+│   └── worker/               # Event processing worker
+│       ├── cmd/worker/       # Worker entrypoint
+│       └── internal/         # Internal packages
+├── pkg/                      # Shared packages (importable)
+│   ├── adapters/            # External service adapters
+│   ├── common/              # Common utilities
+│   ├── database/            # Database abstractions
+│   ├── embedding/           # Vector embedding services
+│   ├── models/              # Shared data models
+│   ├── observability/       # Logging, metrics, tracing
+│   └── repository/          # Data access patterns
+├── docs/                    # Documentation
+├── scripts/                 # Utility scripts
+├── migrations/              # Database migrations
+├── configs/                 # Configuration files
+├── go.work                  # Go workspace definition
+└── Makefile                 # Build automation
 ```
 
-## 🔒 Security
+## 🛠️ Technology Stack
 
-MCP Server takes security seriously:
+- **Language**: Go 1.24+ with workspace support
+- **Databases**: PostgreSQL 14+ (with pgvector), Redis 6.2+
+- **Message Queue**: AWS SQS
+- **Storage**: AWS S3 (optional)
+- **Observability**: OpenTelemetry, Prometheus
+- **API Framework**: Gin (REST API)
+- **Testing**: Go testing package, testify, gomock
 
-- All API endpoints support authentication (JWT or API key)
-- Webhook endpoints verify signatures to prevent tampering
-- Support for TLS encryption in production environments
-- Safety restrictions to prevent destructive operations
+## 🧪 Testing
 
-Read our [Security Guide](docs/security/production-deployment-security.md) for production deployments.
+```bash
+# Run unit tests
+make test
 
-## 🐞 Troubleshooting
+# Run integration tests (requires Docker)
+make test-integration
 
-Encountering issues? Check our [Troubleshooting Guide](docs/troubleshooting-guide.md) for solutions to common problems.
+# Run functional tests (requires full stack)
+make test-functional
 
-## 📊 Monitoring
+# Test coverage
+make test-coverage
 
-MCP Server includes built-in monitoring capabilities:
+# Generate HTML coverage report
+make test-coverage-html
+open coverage.html
+```
 
-- Prometheus metrics exposed at `/metrics` (public, no authentication required for GET)
-- Grafana dashboards for visualizing performance and usage
-- Health check endpoint at `/health`
+## 🚢 Deployment
 
-## 📝 License
+The services are containerized and can be deployed using:
+
+- **Docker Compose**: For local development and testing
+- **Kubernetes**: Production deployment with Helm charts (coming soon)
+- **AWS ECS**: Native AWS deployment option
+
+See [deployment documentation](docs/operations/) for detailed instructions.
+
+## 🤝 Contributing
+
+We welcome contributions! Please see our [Contributing Guide](docs/contributing/CONTRIBUTING.md) for:
+
+- Code of Conduct
+- Development workflow
+- Coding standards
+- Pull request process
+
+## 📄 License
 
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+
+## 🙏 Acknowledgments
+
+- OpenTelemetry for observability standards
+- pgvector for vector similarity search
+- The Go community for excellent tooling

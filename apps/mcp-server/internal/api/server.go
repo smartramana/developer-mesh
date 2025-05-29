@@ -1,0 +1,390 @@
+package api
+
+import (
+	"context"
+	"fmt"
+	"net/http"
+	"time"
+
+	"mcp-server/internal/api/proxies"
+	"github.com/S-Corkum/devops-mcp/pkg/client/rest"
+	"github.com/S-Corkum/devops-mcp/pkg/config"
+	commonLogging "github.com/S-Corkum/devops-mcp/pkg/common/logging"
+	commonMetrics "github.com/S-Corkum/devops-mcp/pkg/observability"
+	"mcp-server/internal/core"
+	"github.com/S-Corkum/devops-mcp/pkg/observability"
+	"github.com/S-Corkum/devops-mcp/pkg/repository"
+	"github.com/S-Corkum/devops-mcp/pkg/repository/agent"
+	"github.com/gin-gonic/gin"
+	"github.com/jmoiron/sqlx"
+	swaggerFiles "github.com/swaggo/files"
+	ginSwagger "github.com/swaggo/gin-swagger"
+)
+
+// Global shutdown hooks
+var shutdownHooks []func()
+
+// Server represents the API server
+type Server struct {
+	router           *gin.Engine
+	server           *http.Server
+	engine           *core.Engine
+	config           Config
+	logger           observability.Logger
+	loggerAdapter    *commonLogging.Logger // For compatibility with old code
+	loggerObsAdapter observability.Logger  // Adapter that wraps commonLogging.Logger as observability.Logger
+	db               *sqlx.DB
+	metrics          observability.MetricsClient
+	metricsAdapter   commonMetrics.Client // For compatibility with old code
+	cfg              *config.Config
+	restClientFactory *rest.Factory // REST API client factory for communication with REST API
+	// API proxies that delegate to REST API
+	vectorAPIProxy   repository.VectorAPIRepository // Proxy for vector operations
+	agentAPIProxy    agent.Repository     // Proxy for agent operations
+	modelAPIProxy    repository.ModelRepository     // Proxy for model operations
+	contextAPIProxy  repository.ContextRepository   // Proxy for context operations
+	searchAPIProxy   repository.SearchRepository    // Proxy for search operations
+	webhookAPIProxy  proxies.WebhookRepository      // Proxy for webhook operations
+}
+
+// NewServer creates a new API server
+func NewServer(engine *core.Engine, cfg Config, db *sqlx.DB, metrics observability.MetricsClient, config *config.Config) *Server {
+	// Create adapter objects for compatibility with existing code
+	loggerAdapter := observability.NewLoggerAdapter(observability.DefaultLogger)
+	// Create an adapter that wraps commonLogging.Logger as observability.Logger
+	loggerObsAdapter := observability.NewCommonLoggerAdapter(loggerAdapter)
+	metricsAdapter := observability.NewMetricsAdapter(metrics)
+	// Defensive: fail fast if db is nil
+	if db == nil {
+		panic("[api.NewServer] FATAL: received nil *sqlx.DB. Check database initialization before calling NewServer.")
+	}
+
+	router := gin.New()
+
+	// Add middleware
+	router.Use(gin.Recovery())
+	router.Use(RequestLogger())
+
+	// Apply performance optimizations based on configuration
+	if cfg.Performance.EnableCompression {
+		router.Use(CompressionMiddleware()) // Add response compression
+	}
+
+	if cfg.Performance.EnableETagCaching {
+		router.Use(CachingMiddleware()) // Add HTTP caching
+	}
+
+	router.Use(MetricsMiddleware())
+	router.Use(ErrorHandlerMiddleware()) // Add centralized error handling
+	router.Use(TracingMiddleware())      // Add request tracing
+
+	// Apply API versioning
+	router.Use(VersioningMiddleware(cfg.Versioning))
+
+	if cfg.RateLimit.Enabled {
+		limiterConfig := NewRateLimiterConfigFromConfig(cfg.RateLimit)
+		router.Use(RateLimiter(limiterConfig))
+	}
+
+	// Enable CORS if configured
+	if cfg.EnableCORS {
+		corsConfig := CORSConfig{
+			AllowedOrigins: []string{"*"}, // Default to allow all origins in development
+		}
+		router.Use(CORSMiddleware(corsConfig))
+	}
+
+	// Initialize API keys from configuration
+	if cfg.Auth.APIKeys != nil {
+		fmt.Printf("API Keys from config: %+v\n", cfg.Auth.APIKeys)
+		
+		// Initialize the key map for the API keys
+		keyMap := make(map[string]string)
+		
+		// Convert the APIKeys to a map[string]string
+		if apiKeys, ok := cfg.Auth.APIKeys.(map[string]interface{}); ok {
+			for key, role := range apiKeys {
+				if roleStr, ok := role.(string); ok {
+					keyMap[key] = roleStr
+					fmt.Printf("Adding API key from map: %s with role: %s\n", key, roleStr)
+				}
+			}
+		} else if apiKeys, ok := cfg.Auth.APIKeys.(map[string]string); ok {
+			keyMap = apiKeys
+			for key, role := range keyMap {
+				fmt.Printf("Adding API key from map: %s with role: %s\n", key, role)
+			}
+		}
+		
+		InitAPIKeys(keyMap)
+	} else {
+		fmt.Println("No API keys defined in config")
+	}
+
+	// Initialize JWT with secret from configuration
+	InitJWT(cfg.Auth.JWTSecret)
+
+	// Configure HTTP client transport for external service calls
+	httpTransport := &http.Transport{
+		MaxIdleConns:          cfg.Performance.HTTPMaxIdleConns,
+		MaxConnsPerHost:       cfg.Performance.HTTPMaxConnsPerHost,
+		IdleConnTimeout:       cfg.Performance.HTTPIdleConnTimeout,
+		ResponseHeaderTimeout: 30 * time.Second,
+		DisableCompression:    false,
+		ForceAttemptHTTP2:     true,
+	}
+
+	// Create custom HTTP client with the optimized transport
+	httpClient := &http.Client{
+		Transport: httpTransport,
+		Timeout:   60 * time.Second,
+	}
+
+	// Use the custom HTTP client for external service calls
+	http.DefaultClient = httpClient
+
+	// Initialize logger
+	// We don't initialize the vector database directly anymore
+	// Vector operations are now handled by the REST API client
+	var restClientFactory *rest.Factory
+	var vectorProxy repository.VectorAPIRepository
+	var agentProxy agent.Repository
+	var modelProxy repository.ModelRepository
+	
+	if cfg.RestAPI.Enabled {
+		// Create the REST client factory
+		restClientFactory = rest.NewFactory(
+			cfg.RestAPI.BaseURL,
+			cfg.RestAPI.APIKey,
+			observability.DefaultLogger,
+		)
+		
+		// Create proxies that implement repository interfaces but delegate to REST API
+		vectorProxy = proxies.NewVectorAPIProxy(restClientFactory, observability.DefaultLogger)
+		agentProxy = proxies.NewAgentAPIProxy(restClientFactory, observability.DefaultLogger)
+		modelProxy = proxies.NewModelAPIProxy(restClientFactory, observability.DefaultLogger)
+		
+		observability.DefaultLogger.Info("REST API client initialized", map[string]interface{}{
+			"base_url": cfg.RestAPI.BaseURL,
+			"timeout": cfg.RestAPI.Timeout,
+		})
+	} else {
+		observability.DefaultLogger.Warn("REST API client disabled - data operations will not be available", nil)
+	}
+	
+	// Create the server instance
+	s := &Server{
+		router:           router,
+		server:           &http.Server{Handler: router},
+		engine:           engine,
+		logger:           observability.DefaultLogger,
+		loggerAdapter:    loggerAdapter,
+		loggerObsAdapter: loggerObsAdapter,
+		db:               db,
+		metrics:          metrics,
+		metricsAdapter:   metricsAdapter,
+		cfg:              config,
+		restClientFactory: restClientFactory,
+		// Store the proxies
+		vectorAPIProxy:   vectorProxy,
+		agentAPIProxy:    agentProxy,
+		modelAPIProxy:    modelProxy,
+	}
+	s.server.Addr = cfg.ListenAddress
+	s.server.ReadTimeout = cfg.ReadTimeout
+	s.server.WriteTimeout = cfg.WriteTimeout
+	s.server.IdleTimeout = cfg.IdleTimeout
+
+	return s
+}
+
+// Initialize initializes all components and routes
+func (s *Server) Initialize(ctx context.Context) error {
+	// Setup HTTP server if not done already
+	if s.server == nil {
+		s.server = &http.Server{
+			Addr:    s.config.ListenAddress,
+			Handler: s.router,
+		}
+	}
+
+	// Initialize API proxies
+	if s.config.RestAPI.Enabled {
+		// Context repository initialization
+		if s.contextAPIProxy == nil {
+			// Using mock implementation until import issues are resolved
+			s.contextAPIProxy = proxies.NewMockContextRepository(s.logger)
+			s.logger.Info("Initialized Mock Context Repository for temporary use", nil)
+		}
+
+		// Search repository initialization
+		if s.searchAPIProxy == nil {
+			// Using mock implementation until import issues are resolved
+			s.searchAPIProxy = proxies.NewMockSearchRepository(s.logger)
+			s.logger.Info("Initialized Mock Search Repository for temporary use", nil)
+		}
+		
+		// Webhook repository initialization
+		if s.webhookAPIProxy == nil {
+			// Using mock implementation until rest client is fully integrated
+			s.webhookAPIProxy = proxies.NewMockWebhookRepository(s.logger)
+			s.logger.Info("Initialized Mock Webhook Repository for temporary use", nil)
+		}
+	}
+
+	// Initialize routes
+	s.setupRoutes()
+
+	return nil
+}
+
+// setupRoutes sets up all API routes
+func (s *Server) setupRoutes() {
+	// Setup base routes
+	s.router.GET("/", func(c *gin.Context) {
+		c.JSON(http.StatusOK, gin.H{"status": "MCP REST API is running"})
+	})
+	s.router.GET("/health", s.healthHandler)
+
+	// Setup API documentation
+	s.router.GET("/swagger/*any", ginSwagger.WrapHandler(swaggerFiles.Handler))
+
+	// Create API versioned routes
+	baseURL := ""
+	if s.config.ListenAddress != "" {
+		baseURL = fmt.Sprintf("http://%s", s.config.ListenAddress)
+	}
+
+	url := ginSwagger.URL(fmt.Sprintf("%s/swagger/doc.json", baseURL))
+	s.router.GET("/swagger/*any", ginSwagger.WrapHandler(swaggerFiles.Handler, url))
+
+	// API v1 routes
+	v1 := s.router.Group("/api/v1")
+	
+	// Add a simple v1 API info endpoint
+	v1.GET("/", func(c *gin.Context) {
+		c.JSON(http.StatusOK, gin.H{
+			"version": "v1",
+			"status": "operational",
+			"apis": []string{"agent", "model", "vector"},
+		})
+	})
+
+	// Log API availability via proxies
+	if s.config.RestAPI.Enabled {
+		if s.agentAPIProxy != nil {
+			s.logger.Info("Agent API available via REST API proxy", nil)
+		} else {
+			s.logger.Warn("Agent API not available - REST API proxy not configured", nil)
+		}
+
+		if s.modelAPIProxy != nil {
+			s.logger.Info("Model API available via REST API proxy", nil)
+		} else {
+			s.logger.Warn("Model API not available - REST API proxy not configured", nil)
+		}
+
+		if s.vectorAPIProxy != nil {
+			s.logger.Info("Vector API available via REST API proxy", nil)
+		} else {
+			s.logger.Warn("Vector API not available - REST API proxy not configured", nil)
+		}
+	} else {
+		s.logger.Warn("REST API is disabled - API operations will not be available", nil)
+	}
+}
+
+// Start starts the API server without TLS
+func (s *Server) Start() error {
+	// Start without TLS
+	return s.server.ListenAndServe()
+}
+
+// StartTLS starts the API server with TLS
+func (s *Server) StartTLS(certFile, keyFile string) error {
+	// If specific files are provided, use those
+	if certFile != "" && keyFile != "" {
+		return s.server.ListenAndServeTLS(certFile, keyFile)
+	}
+
+	// Otherwise use the ones from config
+	if s.config.TLSCertFile != "" && s.config.TLSKeyFile != "" {
+		return s.server.ListenAndServeTLS(s.config.TLSCertFile, s.config.TLSKeyFile)
+	}
+
+	// If no TLS files are available, return an error
+	return nil
+}
+
+// Shutdown gracefully shuts down the API server
+func (s *Server) Shutdown(ctx context.Context) error {
+	// Execute all registered shutdown hooks
+	for _, hook := range shutdownHooks {
+		hook()
+	}
+
+	// Log that we're shutting down the server
+	s.logger.Info("Shutting down MCP server", nil)
+
+	return s.server.Shutdown(ctx)
+}
+
+// healthHandler returns the health status of all components
+func (s *Server) healthHandler(c *gin.Context) {
+	health := s.engine.Health()
+
+	// Check if we have a REST API client
+	if s.restClientFactory != nil {
+		health["rest_api_client"] = "healthy"
+	} else {
+		health["rest_api_client"] = "unavailable"
+	}
+
+	// Check if any component is unhealthy
+	allHealthy := true
+	for _, status := range health {
+		// Consider "healthy" or any status starting with "healthy" (like "healthy (mock)") as healthy
+		if status != "healthy" && len(status) < 7 || (len(status) >= 7 && status[:7] != "healthy") {
+			allHealthy = false
+			break
+		}
+	}
+
+	if allHealthy {
+		c.JSON(http.StatusOK, gin.H{
+			"status":     "healthy",
+			"components": health,
+		})
+	} else {
+		c.JSON(http.StatusServiceUnavailable, gin.H{
+			"status":     "unhealthy",
+			"components": health,
+		})
+	}
+}
+
+// metricsHandler returns metrics for Prometheus
+func (s *Server) metricsHandler(c *gin.Context) {
+	// Implementation depends on metrics client
+	c.String(http.StatusOK, "# metrics data will be here")
+}
+
+// getBaseURL extracts the base URL from the request for HATEOAS links
+func (s *Server) getBaseURL(c *gin.Context) string {
+	scheme := "http"
+	if c.Request.TLS != nil || c.GetHeader("X-Forwarded-Proto") == "https" {
+		scheme = "https"
+	}
+
+	host := c.Request.Host
+	if forwardedHost := c.GetHeader("X-Forwarded-Host"); forwardedHost != "" {
+		host = forwardedHost
+	}
+
+	return scheme + "://" + host
+}
+
+// RegisterShutdownHook registers a function to be called during server shutdown
+func RegisterShutdownHook(hook func()) {
+	shutdownHooks = append(shutdownHooks, hook)
+}

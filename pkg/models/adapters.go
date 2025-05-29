@@ -14,15 +14,15 @@ type HarnessQuery struct {
 
 // Harness query types
 const (
-	HarnessQueryTypePipeline         = "pipeline"
-	HarnessQueryTypeCIBuild          = "ci_build"
-	HarnessQueryTypeCDDeployment     = "cd_deployment"
-	HarnessQueryTypeSTOExperiment    = "sto_experiment"
-	HarnessQueryTypeFeatureFlag      = "feature_flag"
-	HarnessQueryTypeCCMCost          = "ccm_cost"
+	HarnessQueryTypePipeline          = "pipeline"
+	HarnessQueryTypeCIBuild           = "ci_build"
+	HarnessQueryTypeCDDeployment      = "cd_deployment"
+	HarnessQueryTypeSTOExperiment     = "sto_experiment"
+	HarnessQueryTypeFeatureFlag       = "feature_flag"
+	HarnessQueryTypeCCMCost           = "ccm_cost"
 	HarnessQueryTypeCCMRecommendation = "ccm_recommendation"
-	HarnessQueryTypeCCMBudget        = "ccm_budget"
-	HarnessQueryTypeCCMAnomaly       = "ccm_anomaly"
+	HarnessQueryTypeCCMBudget         = "ccm_budget"
+	HarnessQueryTypeCCMAnomaly        = "ccm_anomaly"
 )
 
 // HarnessPipeline represents a Harness pipeline
@@ -59,8 +59,8 @@ type HarnessCDDeployment struct {
 	PipelineID    string    `json:"pipelineId"`
 	ServiceID     string    `json:"serviceId"`
 	EnvironmentID string    `json:"environmentId"`
-	Environment   string    `json:"environment"`  // Added for test compatibility
-	Service       string    `json:"service"`      // Added for test compatibility
+	Environment   string    `json:"environment"` // Added for test compatibility
+	Service       string    `json:"service"`     // Added for test compatibility
 	Status        string    `json:"status"`
 	StartTime     time.Time `json:"startTime"`
 	EndTime       time.Time `json:"endTime"`
@@ -82,17 +82,17 @@ type HarnessSTOExperiment struct {
 
 // HarnessFeatureFlag represents a Harness feature flag
 type HarnessFeatureFlag struct {
-	ID             string                 `json:"id"`
-	Name           string                 `json:"name"`
-	Identifier     string                 `json:"identifier"`
-	ProjectID      string                 `json:"projectId"`
-	Description    string                 `json:"description"`
-	Variations     []interface{}          `json:"variations"`
-	DefaultServeOn string                 `json:"defaultServeOn"`
-	State          string                 `json:"state"`
-	Kind           string                 `json:"kind"`
-	Tags           []string               `json:"tags"`
-	Targeting      map[string]interface{} `json:"targeting"`
+	ID             string         `json:"id"`
+	Name           string         `json:"name"`
+	Identifier     string         `json:"identifier"`
+	ProjectID      string         `json:"projectId"`
+	Description    string         `json:"description"`
+	Variations     []any          `json:"variations"`
+	DefaultServeOn string         `json:"defaultServeOn"`
+	State          string         `json:"state"`
+	Kind           string         `json:"kind"`
+	Tags           []string       `json:"tags"`
+	Targeting      map[string]any `json:"targeting"`
 }
 
 // HarnessCIBuildEvent represents a Harness CI build webhook event
@@ -125,108 +125,108 @@ type HarnessFeatureFlagEvent struct {
 
 // HarnessCCMCostQuery defines parameters for querying cloud cost data
 type HarnessCCMCostQuery struct {
-	StartTime       time.Time `json:"startTime"`
-	EndTime         time.Time `json:"endTime"`
-	GroupBy         []string  `json:"groupBy"`
-	FilterBy        []string  `json:"filterBy"`
-	CloudProvider   string    `json:"cloudProvider"`
-	PerspectiveID   string    `json:"perspectiveId"`
-	IncludeDetails  bool      `json:"includeDetails"`
+	StartTime      time.Time `json:"startTime"`
+	EndTime        time.Time `json:"endTime"`
+	GroupBy        []string  `json:"groupBy"`
+	FilterBy       []string  `json:"filterBy"`
+	CloudProvider  string    `json:"cloudProvider"`
+	PerspectiveID  string    `json:"perspectiveId"`
+	IncludeDetails bool      `json:"includeDetails"`
 }
 
 // HarnessCCMCostData represents cost data from CCM
 type HarnessCCMCostData struct {
-	TotalCost      float64                `json:"totalCost"`
-	Currency       string                 `json:"currency"`
-	TimeGrain      string                 `json:"timeGrain"`
-	StartTime      time.Time              `json:"startTime"`
-	EndTime        time.Time              `json:"endTime"`
-	CostBreakdown  []HarnessCCMCostItem   `json:"costBreakdown"`
-	Details        map[string]interface{} `json:"details"`
+	TotalCost     float64              `json:"totalCost"`
+	Currency      string               `json:"currency"`
+	TimeGrain     string               `json:"timeGrain"`
+	StartTime     time.Time            `json:"startTime"`
+	EndTime       time.Time            `json:"endTime"`
+	CostBreakdown []HarnessCCMCostItem `json:"costBreakdown"`
+	Details       map[string]any       `json:"details"`
 }
 
 // HarnessCCMCostItem represents a cost item breakdown
 type HarnessCCMCostItem struct {
-	Name      string  `json:"name"`
-	Cost      float64 `json:"cost"`
+	Name       string  `json:"name"`
+	Cost       float64 `json:"cost"`
 	Percentage float64 `json:"percentage"`
 }
 
 // HarnessCCMRecommendationQuery defines parameters for querying recommendations
 type HarnessCCMRecommendationQuery struct {
-	Status          string   `json:"status"`
-	CloudProvider   string   `json:"cloudProvider"`
+	Status             string `json:"status"`
+	CloudProvider      string `json:"cloudProvider"`
 	RecommendationType string `json:"type"`
-	ResourceID      string   `json:"resourceId"`
-	IncludeDetails  bool     `json:"includeDetails"`
+	ResourceID         string `json:"resourceId"`
+	IncludeDetails     bool   `json:"includeDetails"`
 }
 
 // HarnessCCMRecommendation represents a cost optimization recommendation
 type HarnessCCMRecommendation struct {
-	ID               string                 `json:"id"`
-	Type             string                 `json:"type"`
-	Status           string                 `json:"status"`
-	CloudProvider    string                 `json:"cloudProvider"`
-	ResourceID       string                 `json:"resourceId"`
-	ResourceName     string                 `json:"resourceName"`
-	Description      string                 `json:"description"`
-	PotentialSavings float64                `json:"potentialSavings"`
-	Currency         string                 `json:"currency"`
-	CreatedAt        time.Time              `json:"createdAt"`
-	ExpiresAt        time.Time              `json:"expiresAt"`
-	Details          map[string]interface{} `json:"details"`
+	ID               string         `json:"id"`
+	Type             string         `json:"type"`
+	Status           string         `json:"status"`
+	CloudProvider    string         `json:"cloudProvider"`
+	ResourceID       string         `json:"resourceId"`
+	ResourceName     string         `json:"resourceName"`
+	Description      string         `json:"description"`
+	PotentialSavings float64        `json:"potentialSavings"`
+	Currency         string         `json:"currency"`
+	CreatedAt        time.Time      `json:"createdAt"`
+	ExpiresAt        time.Time      `json:"expiresAt"`
+	Details          map[string]any `json:"details"`
 }
 
 // HarnessCCMBudgetQuery defines parameters for querying budgets
 type HarnessCCMBudgetQuery struct {
-	BudgetID        string   `json:"budgetId"`
-	Status          string   `json:"status"`
-	IncludeDetails  bool     `json:"includeDetails"`
+	BudgetID       string `json:"budgetId"`
+	Status         string `json:"status"`
+	IncludeDetails bool   `json:"includeDetails"`
 }
 
 // HarnessCCMBudget represents a budget in CCM
 type HarnessCCMBudget struct {
-	ID               string                 `json:"id"`
-	Name             string                 `json:"name"`
-	Type             string                 `json:"type"`
-	Amount           float64                `json:"amount"`
-	Currency         string                 `json:"currency"`
-	Period           string                 `json:"period"`
-	StartDate        time.Time              `json:"startDate"`
-	EndDate          time.Time              `json:"endDate"`
-	ActualSpend      float64                `json:"actualSpend"`
-	ForecastedSpend  float64                `json:"forecastedSpend"`
-	Status           string                 `json:"status"`
-	CreatedAt        time.Time              `json:"createdAt"`
-	LastUpdatedAt    time.Time              `json:"lastUpdatedAt"`
-	Details          map[string]interface{} `json:"details"`
+	ID              string         `json:"id"`
+	Name            string         `json:"name"`
+	Type            string         `json:"type"`
+	Amount          float64        `json:"amount"`
+	Currency        string         `json:"currency"`
+	Period          string         `json:"period"`
+	StartDate       time.Time      `json:"startDate"`
+	EndDate         time.Time      `json:"endDate"`
+	ActualSpend     float64        `json:"actualSpend"`
+	ForecastedSpend float64        `json:"forecastedSpend"`
+	Status          string         `json:"status"`
+	CreatedAt       time.Time      `json:"createdAt"`
+	LastUpdatedAt   time.Time      `json:"lastUpdatedAt"`
+	Details         map[string]any `json:"details"`
 }
 
 // HarnessCCMAnomalyQuery defines parameters for querying cost anomalies
 type HarnessCCMAnomalyQuery struct {
-	StartTime       time.Time `json:"startTime"`
-	EndTime         time.Time `json:"endTime"`
-	Status          string    `json:"status"`
-	CloudProvider   string    `json:"cloudProvider"`
-	IncludeDetails  bool      `json:"includeDetails"`
+	StartTime      time.Time `json:"startTime"`
+	EndTime        time.Time `json:"endTime"`
+	Status         string    `json:"status"`
+	CloudProvider  string    `json:"cloudProvider"`
+	IncludeDetails bool      `json:"includeDetails"`
 }
 
 // HarnessCCMAnomaly represents a cost anomaly in CCM
 type HarnessCCMAnomaly struct {
-	ID               string                 `json:"id"`
-	Name             string                 `json:"name"`
-	Status           string                 `json:"status"`
-	CloudProvider    string                 `json:"cloudProvider"`
-	ResourceID       string                 `json:"resourceId"`
-	ResourceName     string                 `json:"resourceName"`
-	Description      string                 `json:"description"`
-	AnomalyCost      float64                `json:"anomalyCost"`
-	ExpectedCost     float64                `json:"expectedCost"`
-	Currency         string                 `json:"currency"`
-	DetectedAt       time.Time              `json:"detectedAt"`
-	StartTime        time.Time              `json:"startTime"`
-	EndTime          time.Time              `json:"endTime"`
-	Details          map[string]interface{} `json:"details"`
+	ID            string         `json:"id"`
+	Name          string         `json:"name"`
+	Status        string         `json:"status"`
+	CloudProvider string         `json:"cloudProvider"`
+	ResourceID    string         `json:"resourceId"`
+	ResourceName  string         `json:"resourceName"`
+	Description   string         `json:"description"`
+	AnomalyCost   float64        `json:"anomalyCost"`
+	ExpectedCost  float64        `json:"expectedCost"`
+	Currency      string         `json:"currency"`
+	DetectedAt    time.Time      `json:"detectedAt"`
+	StartTime     time.Time      `json:"startTime"`
+	EndTime       time.Time      `json:"endTime"`
+	Details       map[string]any `json:"details"`
 }
 
 // ===============================

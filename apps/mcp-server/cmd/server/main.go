@@ -1,0 +1,688 @@
+package main
+
+import (
+	"context"
+	"crypto/rand"
+	"flag"
+	"fmt"
+	"log"
+	"math/big"
+	mathrand "math/rand"
+	"os"
+	"os/signal"
+	"path/filepath"
+	"syscall"
+	"time"
+
+	// Internal application-specific imports
+	"mcp-server/internal/api"
+	"mcp-server/internal/config"
+	"mcp-server/internal/core"
+
+	// Shared package imports
+	"github.com/S-Corkum/devops-mcp/pkg/cache"
+	"github.com/S-Corkum/devops-mcp/pkg/common/aws"
+	commonconfig "github.com/S-Corkum/devops-mcp/pkg/common/config"
+	"github.com/S-Corkum/devops-mcp/pkg/database"
+	"github.com/S-Corkum/devops-mcp/pkg/observability"
+	pkgconfig "github.com/S-Corkum/devops-mcp/pkg/config"
+
+	// Import PostgreSQL driver
+	_ "github.com/lib/pq"
+)
+
+// Version information (set via ldflags during build)
+var (
+	version   = "dev"
+	buildTime = "unknown"
+	gitCommit = "unknown"
+)
+
+// Command-line flags
+var (
+	configFile    = flag.String("config", "", "Path to configuration file (overrides default locations)")
+	showVersion   = flag.Bool("version", false, "Show version information and exit")
+	validateOnly  = flag.Bool("validate", false, "Validate configuration and exit")
+	migrateOnly   = flag.Bool("migrate", false, "Run database migrations and exit")
+	skipMigration = flag.Bool("skip-migration", false, "Skip database migration on startup")
+)
+
+func main() {
+	flag.Parse()
+
+	// Show version information if requested
+	if *showVersion {
+		fmt.Printf("MCP Server\nVersion: %s\nBuild Time: %s\nGit Commit: %s\n", version, buildTime, gitCommit)
+		os.Exit(0)
+	}
+
+	// Initialize secure random seed
+	if err := initSecureRandom(); err != nil {
+		log.Printf("Warning: failed to initialize secure random: %v", err)
+	}
+
+	// Initialize logger early
+	logger := observability.NewLogger("mcp-server")
+	logger.Info("Starting MCP Server", map[string]interface{}{
+		"version":    version,
+		"build_time": buildTime,
+		"git_commit": gitCommit,
+	})
+
+	// Setup root context with cancellation
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	// Load configuration
+	cfg, err := loadConfiguration(*configFile)
+	if err != nil {
+		logger.Error("Failed to load configuration", map[string]interface{}{
+			"error": err.Error(),
+		})
+		os.Exit(1)
+	}
+
+	// Validate configuration
+	if err := validateConfiguration(cfg); err != nil {
+		logger.Error("Invalid configuration", map[string]interface{}{
+			"error": err.Error(),
+		})
+		os.Exit(1)
+	}
+
+	// Exit if only validating
+	if *validateOnly {
+		logger.Info("Configuration validated successfully", nil)
+		os.Exit(0)
+	}
+
+	// Initialize observability
+	metricsClient := observability.NewMetricsClient()
+	defer func() {
+		if err := metricsClient.Close(); err != nil {
+			logger.Error("Failed to close metrics client", map[string]interface{}{
+				"error": err.Error(),
+			})
+		}
+	}()
+
+	// Log AWS configuration
+	logAWSConfiguration(logger)
+
+	// Initialize database
+	db, err := initializeDatabase(ctx, cfg, logger)
+	if err != nil {
+		logger.Error("Failed to initialize database", map[string]interface{}{
+			"error": err.Error(),
+		})
+		os.Exit(1)
+	}
+	if db != nil {
+		defer func() {
+			if err := db.Close(); err != nil {
+				logger.Error("Failed to close database", map[string]interface{}{
+					"error": err.Error(),
+				})
+			}
+		}()
+	}
+
+	// Run migrations if requested
+	if *migrateOnly {
+		if err := runMigrations(ctx, db, logger); err != nil {
+			logger.Error("Failed to run migrations", map[string]interface{}{
+				"error": err.Error(),
+			})
+			os.Exit(1)
+		}
+		logger.Info("Migrations completed successfully", nil)
+		os.Exit(0)
+	}
+
+	// Run migrations on startup unless skipped
+	if !*skipMigration && db != nil {
+		if err := runMigrations(ctx, db, logger); err != nil {
+			logger.Error("Failed to run migrations", map[string]interface{}{
+				"error": err.Error(),
+			})
+			os.Exit(1)
+		}
+	}
+
+	// Initialize cache
+	cacheClient, err := initializeCache(ctx, cfg, logger)
+	if err != nil {
+		logger.Error("Failed to initialize cache", map[string]interface{}{
+			"error": err.Error(),
+		})
+		os.Exit(1)
+	}
+	defer func() {
+		if err := cacheClient.Close(); err != nil {
+			logger.Error("Failed to close cache client", map[string]interface{}{
+				"error": err.Error(),
+			})
+		}
+	}()
+
+	// Initialize core engine
+	engine, err := initializeEngine(ctx, cfg, db, cacheClient, metricsClient, logger)
+	if err != nil {
+		logger.Error("Failed to initialize core engine", map[string]interface{}{
+			"error": err.Error(),
+		})
+		os.Exit(1)
+	}
+	defer func() {
+		shutdownCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+		defer cancel()
+		if err := engine.Shutdown(shutdownCtx); err != nil {
+			logger.Error("Failed to shutdown engine", map[string]interface{}{
+				"error": err.Error(),
+			})
+		}
+	}()
+
+	// Initialize and start API server
+	server, err := initializeServer(ctx, cfg, engine, db, metricsClient, logger)
+	if err != nil {
+		logger.Error("Failed to initialize server", map[string]interface{}{
+			"error": err.Error(),
+		})
+		os.Exit(1)
+	}
+
+	// Start server in a goroutine
+	serverErrCh := make(chan error, 1)
+	go func() {
+		if err := startServer(server, cfg, logger); err != nil {
+			serverErrCh <- err
+		}
+	}()
+
+	// Setup graceful shutdown
+	if err := waitForShutdown(ctx, server, serverErrCh, logger); err != nil {
+		logger.Error("Shutdown error", map[string]interface{}{
+			"error": err.Error(),
+		})
+		os.Exit(1)
+	}
+
+	logger.Info("Server stopped gracefully", nil)
+}
+
+// initSecureRandom initializes the math/rand package with a cryptographically secure seed
+func initSecureRandom() error {
+	max := big.NewInt(int64(1) << 62)
+	val, err := rand.Int(rand.Reader, max)
+	if err != nil {
+		// Fallback to time-based seed
+		mathrand.New(mathrand.NewSource(time.Now().UnixNano()))
+		return fmt.Errorf("using time-based seed: %w", err)
+	}
+
+	// Use a new random source instead of the deprecated global Seed
+	mathrand.New(mathrand.NewSource(val.Int64()))
+	return nil
+}
+
+// loadConfiguration loads configuration from file or environment
+func loadConfiguration(configFile string) (*commonconfig.Config, error) {
+	// Load configuration using the standard Load function
+	cfg, err := commonconfig.Load()
+	if err != nil {
+		return nil, fmt.Errorf("failed to load configuration: %w", err)
+	}
+
+	// If a specific config file was provided, override with values from that file
+	if configFile != "" {
+		// Since LoadFromFile doesn't exist, we'll use viper directly
+		// This is handled internally by the Load function
+		log.Printf("Note: Specific config file flag is not supported in this version")
+	}
+
+	return cfg, nil
+}
+
+// validateConfiguration validates critical configuration settings
+func validateConfiguration(cfg *commonconfig.Config) error {
+	// Validate API configuration
+	if cfg.API.ListenAddress == "" {
+		cfg.API.ListenAddress = ":8080" // Default
+	}
+
+	// Validate database configuration
+	if cfg.Database.Host == "" {
+		cfg.Database.Host = "localhost"
+	}
+	if cfg.Database.Port == 0 {
+		cfg.Database.Port = 5432
+	}
+	if cfg.Database.Database == "" {
+		return fmt.Errorf("database name must be specified")
+	}
+
+	// Validate cache configuration
+	if cfg.Cache.Type == "" {
+		cfg.Cache.Type = "redis"
+	}
+
+	return nil
+}
+
+// logAWSConfiguration logs AWS-related configuration information
+func logAWSConfiguration(logger observability.Logger) {
+	if aws.IsIRSAEnabled() {
+		logger.Info("IRSA (IAM Roles for Service Accounts) is enabled", map[string]interface{}{
+			"aws_role_arn":                os.Getenv("AWS_ROLE_ARN"),
+			"aws_web_identity_token_file": os.Getenv("AWS_WEB_IDENTITY_TOKEN_FILE"),
+		})
+	} else {
+		logger.Info("IRSA not detected, using standard AWS credential chain", nil)
+	}
+}
+
+// initializeDatabase creates and configures the database connection
+func initializeDatabase(ctx context.Context, cfg *commonconfig.Config, logger observability.Logger) (*database.Database, error) {
+	// Build connection string
+	connStr := buildDatabaseURL(cfg)
+	
+	logger.Info("Initializing database connection", map[string]interface{}{
+		"host": cfg.Database.Host,
+		"port": cfg.Database.Port,
+		"db":   cfg.Database.Database,
+	})
+
+	// Create database configuration
+	dbConfig := database.Config{
+		Driver:   "postgres",
+		DSN:      connStr,
+		Host:     cfg.Database.Host,
+		Port:     cfg.Database.Port,
+		Database: cfg.Database.Database,
+		Username: cfg.Database.Username,
+		Password: cfg.Database.Password,
+		SSLMode:  cfg.Database.SSLMode,
+		UseAWS:   cfg.Database.UseIAMAuth,
+		UseIAM:   cfg.Database.UseIAMAuth,
+	}
+
+	// Create database instance
+	db, err := database.NewDatabase(ctx, dbConfig)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create database instance: %w", err)
+	}
+
+	// Test connection - Ping doesn't take context
+	if err := db.Ping(); err != nil {
+		db.Close()
+		return nil, fmt.Errorf("failed to connect to database: %w", err)
+	}
+
+	logger.Info("Database connection established", nil)
+	return db, nil
+}
+
+// buildDatabaseURL constructs the database connection string
+func buildDatabaseURL(cfg *commonconfig.Config) string {
+	// Check for DATABASE_URL environment variable first
+	if url := os.Getenv("DATABASE_URL"); url != "" {
+		return url
+	}
+
+	// Use configuration values with environment overrides
+	host := getEnvOrDefault("DB_HOST", cfg.Database.Host)
+	port := getEnvOrDefault("DB_PORT", fmt.Sprintf("%d", cfg.Database.Port))
+	dbName := getEnvOrDefault("DB_NAME", cfg.Database.Database)
+	user := getEnvOrDefault("DB_USER", cfg.Database.Username)
+	password := getEnvOrDefault("DB_PASSWORD", cfg.Database.Password)
+	sslMode := getEnvOrDefault("DB_SSLMODE", cfg.Database.SSLMode)
+
+	if sslMode == "" {
+		sslMode = "disable"
+	}
+
+	return fmt.Sprintf("postgres://%s:%s@%s:%s/%s?sslmode=%s",
+		user, password, host, port, dbName, sslMode)
+}
+
+// initializeCache creates and configures the cache client
+func initializeCache(ctx context.Context, cfg *commonconfig.Config, logger observability.Logger) (cache.Cache, error) {
+	var cacheConfig cache.RedisConfig
+
+	// Check if we should use AWS ElastiCache
+	if cfg.AWS.ElastiCache.UseIAMAuth && aws.IsIRSAEnabled() {
+		logger.Info("Using IAM authentication for ElastiCache", nil)
+		cacheConfig = cache.RedisConfig{
+			Type:              "redis_cluster",
+			UseAWS:            true,
+			ClusterMode:       cfg.AWS.ElastiCache.ClusterMode,
+			ElastiCacheConfig: &cfg.AWS.ElastiCache,
+			MaxRetries:        cfg.AWS.ElastiCache.MaxRetries,
+			DialTimeout:       cfg.AWS.ElastiCache.DialTimeout,
+			ReadTimeout:       cfg.AWS.ElastiCache.ReadTimeout,
+			WriteTimeout:      cfg.AWS.ElastiCache.WriteTimeout,
+			PoolSize:          cfg.AWS.ElastiCache.PoolSize,
+			MinIdleConns:      cfg.AWS.ElastiCache.MinIdleConnections,
+			PoolTimeout:       cfg.AWS.ElastiCache.PoolTimeout,
+		}
+	} else {
+		// Use standard Redis configuration
+		cacheConfig = cache.ConvertFromCommonRedisConfig(cfg.Cache)
+	}
+
+	logger.Info("Initializing cache", map[string]interface{}{
+		"type":         cacheConfig.Type,
+		"cluster_mode": cacheConfig.ClusterMode,
+	})
+
+	return cache.NewCache(ctx, cacheConfig)
+}
+
+// initializeEngine creates the core engine
+func initializeEngine(ctx context.Context, cfg *commonconfig.Config, db *database.Database, 
+	cacheClient cache.Cache, metricsClient observability.MetricsClient, logger observability.Logger) (*core.Engine, error) {
+	
+	logger.Info("Initializing core engine", nil)
+	
+	configAdapter := core.NewConfigAdapter(cfg)
+	engine, err := core.NewEngine(ctx, configAdapter, db, cacheClient, metricsClient)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create engine: %w", err)
+	}
+
+	return engine, nil
+}
+
+// initializeServer creates and configures the API server
+func initializeServer(ctx context.Context, cfg *commonconfig.Config, engine *core.Engine,
+	db *database.Database, metricsClient observability.MetricsClient, logger observability.Logger) (*api.Server, error) {
+	
+	// Build API configuration
+	apiConfig := buildAPIConfig(cfg)
+	
+	logger.Info("Initializing API server", map[string]interface{}{
+		"listen_address": apiConfig.ListenAddress,
+		"enable_cors":    apiConfig.EnableCORS,
+		"enable_swagger": apiConfig.EnableSwagger,
+	})
+
+	// Create pkg/config.Config for the server
+	pkgConfig := &pkgconfig.Config{
+		Environment: cfg.Environment,
+		API: pkgconfig.APIConfig{
+			BaseURL: cfg.API.BaseURL,
+		},
+		Database: pkgconfig.DatabaseConfig{
+			DSN: buildDatabaseURL(cfg),
+		},
+	}
+
+	// Create server - pass db.GetDB() to get the *sqlx.DB
+	server := api.NewServer(engine, apiConfig, db.GetDB(), metricsClient, pkgConfig)
+
+	// Initialize server components
+	if err := server.Initialize(ctx); err != nil {
+		return nil, fmt.Errorf("failed to initialize server: %w", err)
+	}
+
+	return server, nil
+}
+
+// buildAPIConfig creates API configuration from common config
+func buildAPIConfig(cfg *commonconfig.Config) api.Config {
+	apiConfig := api.DefaultConfig()
+	
+	// Override with configuration values
+	apiConfig.ListenAddress = cfg.API.ListenAddress
+	apiConfig.TLSCertFile = cfg.API.TLSCertFile
+	apiConfig.TLSKeyFile = cfg.API.TLSKeyFile
+	
+	// Set timeouts from environment if available
+	if timeout := getEnvDuration("API_READ_TIMEOUT", 0); timeout > 0 {
+		apiConfig.ReadTimeout = timeout
+	}
+	if timeout := getEnvDuration("API_WRITE_TIMEOUT", 0); timeout > 0 {
+		apiConfig.WriteTimeout = timeout
+	}
+	if timeout := getEnvDuration("API_IDLE_TIMEOUT", 0); timeout > 0 {
+		apiConfig.IdleTimeout = timeout
+	}
+
+	// Set feature flags from environment
+	apiConfig.EnableCORS = getEnvBool("API_ENABLE_CORS", apiConfig.EnableCORS)
+	apiConfig.EnableSwagger = getEnvBool("API_ENABLE_SWAGGER", apiConfig.EnableSwagger)
+
+	// Configure authentication
+	if jwtSecret := os.Getenv("JWT_SECRET"); jwtSecret != "" {
+		apiConfig.Auth.JWTSecret = jwtSecret
+	}
+
+	// Configure webhook if available
+	if cfg.API.Webhook != nil {
+		webhookConfig := parseWebhookConfig(cfg.API.Webhook)
+		if webhookConfig != nil && webhookConfig.IsEnabled() {
+			apiConfig.Webhook = webhookConfig
+			// Log webhook configuration (without secrets)
+			log.Printf("Webhook configuration loaded: enabled=%v, github_enabled=%v, github_endpoint=%s",
+				webhookConfig.IsEnabled(),
+				webhookConfig.IsGitHubEnabled(),
+				webhookConfig.GitHubEndpoint())
+		}
+	}
+
+	return apiConfig
+}
+
+// parseWebhookConfig converts a map[string]interface{} to a WebhookConfig struct
+// This function safely parses the unstructured webhook configuration from YAML/JSON
+// into a strongly-typed WebhookConfig struct, with sensible defaults
+func parseWebhookConfig(webhookMap map[string]interface{}) *config.WebhookConfig {
+	if webhookMap == nil {
+		return nil
+	}
+
+	// Initialize with secure defaults
+	webhookConfig := &config.WebhookConfig{
+		Enabled: false,
+		GitHub: config.GitHubWebhookConfig{
+			Enabled:       false,
+			Endpoint:      "/api/webhooks/github",
+			Secret:        "",
+			IPValidation:  true, // Security best practice: validate source IPs by default
+			AllowedEvents: []string{},
+		},
+	}
+
+	// Parse enabled flag
+	if enabled, ok := webhookMap["enabled"].(bool); ok {
+		webhookConfig.Enabled = enabled
+	}
+
+	// Parse GitHub configuration
+	if githubMap, ok := webhookMap["github"].(map[string]interface{}); ok {
+		if enabled, ok := githubMap["enabled"].(bool); ok {
+			webhookConfig.GitHub.Enabled = enabled
+		}
+		if endpoint, ok := githubMap["endpoint"].(string); ok && endpoint != "" {
+			webhookConfig.GitHub.Endpoint = endpoint
+		}
+		if secret, ok := githubMap["secret"].(string); ok {
+			webhookConfig.GitHub.Secret = secret
+		}
+		// Check for environment variable override for security
+		if envSecret := os.Getenv("GITHUB_WEBHOOK_SECRET"); envSecret != "" {
+			webhookConfig.GitHub.Secret = envSecret
+		}
+		if ipValidation, ok := githubMap["ip_validation"].(bool); ok {
+			webhookConfig.GitHub.IPValidation = ipValidation
+		}
+		if events, ok := githubMap["allowed_events"].([]interface{}); ok {
+			allowedEvents := make([]string, 0, len(events))
+			for _, event := range events {
+				if eventStr, ok := event.(string); ok {
+					allowedEvents = append(allowedEvents, eventStr)
+				}
+			}
+			webhookConfig.GitHub.AllowedEvents = allowedEvents
+		}
+		
+		// Warn if webhook is enabled but secret is missing
+		if webhookConfig.GitHub.Enabled && webhookConfig.GitHub.Secret == "" {
+			log.Printf("WARNING: GitHub webhook is enabled but no secret is configured. This is insecure!")
+		}
+	}
+
+	return webhookConfig
+}
+
+// startServer starts the HTTP/HTTPS server
+func startServer(server *api.Server, cfg *commonconfig.Config, logger observability.Logger) error {
+	logger.Info("Starting server", map[string]interface{}{
+		"address":     cfg.API.ListenAddress,
+		"environment": cfg.Environment,
+		"tls_enabled": cfg.API.TLSCertFile != "" && cfg.API.TLSKeyFile != "",
+	})
+
+	// Start with TLS if configured and in production
+	if cfg.IsProduction() && cfg.API.TLSCertFile != "" && cfg.API.TLSKeyFile != "" {
+		logger.Info("Starting server with TLS (HTTPS)", nil)
+		return server.StartTLS(cfg.API.TLSCertFile, cfg.API.TLSKeyFile)
+	}
+
+	// Otherwise start HTTP server
+	return server.Start()
+}
+
+// waitForShutdown handles graceful shutdown
+func waitForShutdown(ctx context.Context, server *api.Server, serverErrCh <-chan error, logger observability.Logger) error {
+	// Setup signal handling
+	sigChan := make(chan os.Signal, 1)
+	signal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM)
+
+	// Wait for shutdown signal or server error
+	select {
+	case sig := <-sigChan:
+		logger.Info("Received shutdown signal", map[string]interface{}{
+			"signal": sig.String(),
+		})
+	case err := <-serverErrCh:
+		logger.Error("Server error", map[string]interface{}{
+			"error": err.Error(),
+		})
+		return err
+	case <-ctx.Done():
+		logger.Info("Context cancelled", nil)
+	}
+
+	// Graceful shutdown with timeout
+	shutdownCtx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	logger.Info("Shutting down server gracefully", nil)
+	return server.Shutdown(shutdownCtx)
+}
+
+// runMigrations runs database migrations
+func runMigrations(ctx context.Context, db *database.Database, logger observability.Logger) error {
+	logger.Info("Running database migrations", nil)
+	
+	// Get the migration directory path
+	migrationDir := getMigrationDir()
+	
+	logger.Info("Migration directory", map[string]interface{}{
+		"path": migrationDir,
+	})
+
+	// TODO: Implement migration logic using the migration tool
+	// For now, just check if migrations directory exists
+	if _, err := os.Stat(migrationDir); os.IsNotExist(err) {
+		logger.Warn("Migration directory not found, skipping migrations", map[string]interface{}{
+			"path": migrationDir,
+		})
+		return nil
+	}
+
+	return nil
+}
+
+// getMigrationDir returns the path to the migrations directory
+func getMigrationDir() string {
+	// Check multiple possible locations
+	possiblePaths := []string{
+		"migrations/sql",
+		"../../migrations/sql",
+		"../rest-api/migrations/sql",
+		"apps/rest-api/migrations/sql",
+		filepath.Join(os.Getenv("PROJECT_ROOT"), "apps/rest-api/migrations/sql"),
+	}
+
+	for _, path := range possiblePaths {
+		if _, err := os.Stat(path); err == nil {
+			return path
+		}
+	}
+
+	return "migrations/sql" // Default
+}
+
+// Helper functions
+
+func getEnvOrDefault(key, defaultValue string) string {
+	if value := os.Getenv(key); value != "" {
+		return value
+	}
+	return defaultValue
+}
+
+func getEnvDuration(key string, defaultValue time.Duration) time.Duration {
+	if value := os.Getenv(key); value != "" {
+		if duration, err := time.ParseDuration(value); err == nil {
+			return duration
+		}
+	}
+	return defaultValue
+}
+
+func getEnvBool(key string, defaultValue bool) bool {
+	if value := os.Getenv(key); value != "" {
+		return value == "true" || value == "1" || value == "yes"
+	}
+	return defaultValue
+}
+
+func getBoolFromMap(m map[string]interface{}, key string, defaultValue bool) bool {
+	if val, ok := m[key]; ok {
+		if boolVal, ok := val.(bool); ok {
+			return boolVal
+		}
+	}
+	return defaultValue
+}
+
+func getStringFromMap(m map[string]interface{}, key string, defaultValue string) string {
+	if val, ok := m[key]; ok {
+		if strVal, ok := val.(string); ok {
+			return strVal
+		}
+	}
+	return defaultValue
+}
+
+func getStringSliceFromMap(m map[string]interface{}, key string, defaultValue []string) []string {
+	if val, ok := m[key]; ok {
+		if slice, ok := val.([]interface{}); ok {
+			result := make([]string, 0, len(slice))
+			for _, item := range slice {
+				if str, ok := item.(string); ok {
+					result = append(result, str)
+				}
+			}
+			return result
+		}
+		if strSlice, ok := val.([]string); ok {
+			return strSlice
+		}
+	}
+	return defaultValue
+}

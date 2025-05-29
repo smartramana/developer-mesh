@@ -25,7 +25,7 @@ func TestGitHubQuery(t *testing.T) {
 		ID:     "123456",
 		Number: 42,
 	}
-	
+
 	// Verify fields
 	assert.Equal(t, GitHubQueryTypeRepository, query.Type)
 	assert.Equal(t, "test-owner", query.Owner)
@@ -43,7 +43,7 @@ func TestGitHubQueryRepositoryType(t *testing.T) {
 		Owner: "test-owner",
 		Repo:  "test-repo",
 	}
-	
+
 	assert.Equal(t, GitHubQueryTypeRepository, query.Type)
 	assert.Equal(t, "test-owner", query.Owner)
 	assert.Equal(t, "test-repo", query.Repo)
@@ -58,7 +58,7 @@ func TestGitHubQueryPullRequestsType(t *testing.T) {
 		State:  "open",
 		Branch: "main",
 	}
-	
+
 	assert.Equal(t, GitHubQueryTypePullRequests, query.Type)
 	assert.Equal(t, "test-owner", query.Owner)
 	assert.Equal(t, "test-repo", query.Repo)
@@ -75,7 +75,7 @@ func TestGitHubQueryIssuesType(t *testing.T) {
 		State:  "closed",
 		Number: 123,
 	}
-	
+
 	assert.Equal(t, GitHubQueryTypeIssues, query.Type)
 	assert.Equal(t, "test-owner", query.Owner)
 	assert.Equal(t, "test-repo", query.Repo)
@@ -91,7 +91,7 @@ func TestGitHubQueryCommitsType(t *testing.T) {
 		Repo:   "test-repo",
 		Branch: "feature/branch",
 	}
-	
+
 	assert.Equal(t, GitHubQueryTypeCommits, query.Type)
 	assert.Equal(t, "test-owner", query.Owner)
 	assert.Equal(t, "test-repo", query.Repo)

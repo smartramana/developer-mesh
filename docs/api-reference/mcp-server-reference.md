@@ -1,0 +1,1152 @@
+# MCP Server API Reference
+
+This document provides comprehensive reference documentation for the MCP (Model Context Protocol) Server API. The MCP Server implements the Model Context Protocol specification and provides additional functionality for DevOps tool integration.
+
+## Table of Contents
+
+- [Overview](#overview)
+- [Base URL and Versioning](#base-url-and-versioning)
+- [Authentication](#authentication)
+- [Rate Limiting](#rate-limiting)
+- [Error Handling](#error-handling)
+- [API Endpoints](#api-endpoints)
+  - [Health & Monitoring](#health--monitoring)
+  - [MCP Context Management](#mcp-context-management)
+  - [Tool Integration](#tool-integration)
+  - [Agent Management](#agent-management)
+  - [Model Management](#model-management)
+  - [Vector Search](#vector-search)
+  - [GitHub Tools (MCP Protocol)](#github-tools-mcp-protocol)
+  - [Webhooks](#webhooks)
+  - [Relationship Management](#relationship-management)
+- [WebSocket Support](#websocket-support)
+- [SDK Support](#sdk-support)
+
+## Overview
+
+The MCP Server API implements the Model Context Protocol specification, providing a standardized interface for AI agents to interact with DevOps tools. It acts as a bridge between AI models and various DevOps platforms while maintaining conversation context and enabling tool execution.
+
+### Key Features
+
+- **MCP Protocol Compliance**: Full implementation of the Model Context Protocol specification
+- **Context Management**: Advanced context storage and retrieval with conversation history
+- **Tool Integration**: Unified interface for GitHub, Harness, SonarQube, Artifactory, and Xray
+- **Vector Search**: Semantic search capabilities for context and documentation
+- **Real-time Updates**: WebSocket support for streaming responses
+- **Multi-tenancy**: Built-in tenant isolation for enterprise deployments
+
+## Base URL and Versioning
+
+```
+Base URL: https://api.mcp-server.example.com
+Current Version: v1
+Full Base Path: https://api.mcp-server.example.com/api/v1
+```
+
+### Version Negotiation
+
+The API supports version negotiation through:
+- URL path: `/api/v1/...`
+- Accept header: `Accept: application/vnd.mcp.v1+json`
+- Custom header: `X-API-Version: 1`
+
+## Authentication
+
+The MCP Server supports two authentication methods:
+
+### API Key Authentication
+
+```http
+Authorization: Bearer your-api-key-here
+# or
+Authorization: your-api-key-here
+```
+
+### JWT Authentication
+
+```http
+Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+```
+
+### Example Request
+
+```bash
+curl -H "Authorization: Bearer your-api-key" \
+     https://api.mcp-server.example.com/api/v1/tools
+```
+
+## Rate Limiting
+
+Rate limits are applied per user/API key:
+
+- **Default**: 1000 requests per hour
+- **Burst**: 50 requests per minute
+- **Tool Execution**: 100 requests per hour
+
+Rate limit headers:
+```http
+X-RateLimit-Limit: 1000
+X-RateLimit-Remaining: 999
+X-RateLimit-Reset: 1703001600
+```
+
+## Error Handling
+
+All error responses follow a consistent format:
+
+```json
+{
+  "error": "Error message",
+  "code": "ERROR_CODE",
+  "details": {
+    "field": "Additional context"
+  }
+}
+```
+
+Common HTTP status codes:
+- `200 OK`: Successful request
+- `201 Created`: Resource created
+- `400 Bad Request`: Invalid request parameters
+- `401 Unauthorized`: Authentication required
+- `403 Forbidden`: Insufficient permissions
+- `404 Not Found`: Resource not found
+- `429 Too Many Requests`: Rate limit exceeded
+- `500 Internal Server Error`: Server error
+
+## API Endpoints
+
+### Health & Monitoring
+
+#### Health Check
+
+Check the health status of all MCP server components.
+
+```http
+GET /health
+```
+
+**Response**
+```json
+{
+  "status": "healthy",
+  "components": {
+    "database": "healthy",
+    "cache": "healthy",
+    "context_manager": "healthy",
+    "rest_api_client": "healthy",
+    "vector_database": "healthy"
+  }
+}
+```
+
+#### API Info
+
+Get API version and available endpoints.
+
+```http
+GET /api/v1/
+```
+
+**Response**
+```json
+{
+  "version": "v1",
+  "status": "operational",
+  "apis": ["agent", "model", "vector", "mcp", "tools"]
+}
+```
+
+### MCP Context Management
+
+The MCP context endpoints implement the Model Context Protocol for managing conversation contexts.
+
+#### Create Context
+
+Create a new conversation context.
+
+```http
+POST /api/v1/mcp/context
+```
+
+**Request Body**
+```json
+{
+  "agent_id": "agent-123",
+  "session_id": "session-456",
+  "content": [
+    {
+      "role": "user",
+      "content": "Hello, I need help with my CI/CD pipeline"
+    }
+  ],
+  "metadata": {
+    "source": "web-ui",
+    "tool_context": ["github", "harness"]
+  }
+}
+```
+
+**Response**
+```json
+{
+  "message": "context created",
+  "id": "ctx-789",
+  "context": {
+    "id": "ctx-789",
+    "agent_id": "agent-123",
+    "session_id": "session-456",
+    "content": [...],
+    "created_at": "2024-01-15T10:00:00Z",
+    "updated_at": "2024-01-15T10:00:00Z"
+  }
+}
+```
+
+#### Get Context
+
+Retrieve a specific context by ID.
+
+```http
+GET /api/v1/mcp/context/:id
+```
+
+**Response**
+```json
+{
+  "id": "ctx-789",
+  "agent_id": "agent-123",
+  "session_id": "session-456",
+  "content": [
+    {
+      "role": "user",
+      "content": "Hello, I need help with my CI/CD pipeline"
+    },
+    {
+      "role": "assistant",
+      "content": "I'd be happy to help with your CI/CD pipeline. What specific aspect would you like assistance with?"
+    }
+  ],
+  "metadata": {
+    "source": "web-ui",
+    "tool_context": ["github", "harness"]
+  },
+  "created_at": "2024-01-15T10:00:00Z",
+  "updated_at": "2024-01-15T10:05:00Z"
+}
+```
+
+#### Update Context
+
+Update an existing context with new messages.
+
+```http
+PUT /api/v1/mcp/context/:id
+```
+
+**Request Body**
+```json
+{
+  "content": [
+    {
+      "role": "assistant",
+      "content": "I've checked your pipeline configuration..."
+    }
+  ],
+  "options": {
+    "replace_content": false,
+    "truncate_to_size": 100000
+  }
+}
+```
+
+**Response**
+```json
+{
+  "id": "ctx-789",
+  "agent_id": "agent-123",
+  "session_id": "session-456",
+  "content": [...],
+  "updated_at": "2024-01-15T10:10:00Z"
+}
+```
+
+#### Delete Context
+
+Remove a context and all associated data.
+
+```http
+DELETE /api/v1/mcp/context/:id
+```
+
+**Response**
+```json
+{
+  "status": "deleted"
+}
+```
+
+#### List Contexts
+
+List contexts filtered by agent or session.
+
+```http
+GET /api/v1/mcp/contexts?agent_id=agent-123&session_id=session-456
+```
+
+**Response**
+```json
+{
+  "contexts": [
+    {
+      "id": "ctx-789",
+      "agent_id": "agent-123",
+      "session_id": "session-456",
+      "created_at": "2024-01-15T10:00:00Z",
+      "updated_at": "2024-01-15T10:10:00Z",
+      "message_count": 5
+    }
+  ]
+}
+```
+
+#### Search Within Context
+
+Search for specific content within a context.
+
+```http
+POST /api/v1/mcp/context/:id/search
+```
+
+**Request Body**
+```json
+{
+  "query": "pipeline configuration"
+}
+```
+
+**Response**
+```json
+{
+  "results": [
+    {
+      "role": "user",
+      "content": "Can you check my pipeline configuration?",
+      "timestamp": "2024-01-15T10:02:00Z"
+    },
+    {
+      "role": "assistant", 
+      "content": "I've checked your pipeline configuration and found...",
+      "timestamp": "2024-01-15T10:03:00Z"
+    }
+  ]
+}
+```
+
+#### Summarize Context
+
+Generate an AI-powered summary of the context.
+
+```http
+GET /api/v1/mcp/context/:id/summary
+```
+
+**Response**
+```json
+{
+  "summary": "The conversation focused on troubleshooting a CI/CD pipeline issue. The user needed help with a failed deployment in their Harness pipeline. Key points discussed: 1) Pipeline was failing at the approval stage, 2) Missing environment variables were identified as the root cause, 3) Solution provided to add the required variables in the pipeline configuration."
+}
+```
+
+### Tool Integration
+
+#### List Available Tools
+
+Get all available DevOps tools.
+
+```http
+GET /api/v1/tools
+```
+
+**Response**
+```json
+{
+  "tools": [
+    {
+      "name": "github",
+      "description": "GitHub integration for repository, pull request, and code management",
+      "actions": [
+        "create_issue",
+        "close_issue",
+        "create_pull_request",
+        "merge_pull_request",
+        "add_comment",
+        "archive_repository"
+      ],
+      "safety_notes": "Cannot delete repositories for safety reasons"
+    },
+    {
+      "name": "harness",
+      "description": "Harness CI/CD integration for builds and deployments",
+      "actions": [
+        "trigger_pipeline",
+        "get_pipeline_status",
+        "stop_pipeline",
+        "rollback_deployment"
+      ],
+      "safety_notes": "Cannot delete production feature flags for safety reasons"
+    }
+  ],
+  "_links": {
+    "self": "https://api.mcp-server.example.com/api/v1/tools"
+  }
+}
+```
+
+#### Get Tool Details
+
+Get detailed information about a specific tool.
+
+```http
+GET /api/v1/tools/:tool
+```
+
+**Response**
+```json
+{
+  "name": "github",
+  "description": "GitHub integration for repository, pull request, and code management",
+  "actions": [
+    "create_issue",
+    "close_issue",
+    "create_pull_request",
+    "merge_pull_request",
+    "add_comment",
+    "archive_repository"
+  ],
+  "safety_notes": "Cannot delete repositories for safety reasons",
+  "_links": {
+    "self": "https://api.mcp-server.example.com/api/v1/tools/github",
+    "actions": "https://api.mcp-server.example.com/api/v1/tools/github/actions",
+    "queries": "https://api.mcp-server.example.com/api/v1/tools/github/queries"
+  }
+}
+```
+
+#### List Tool Actions
+
+Get available actions for a tool.
+
+```http
+GET /api/v1/tools/:tool/actions
+```
+
+**Response**
+```json
+{
+  "tool": "github",
+  "allowed_actions": [
+    "create_issue",
+    "close_issue",
+    "create_pull_request",
+    "merge_pull_request",
+    "add_comment",
+    "get_repository",
+    "list_repositories",
+    "get_pull_request",
+    "list_pull_requests",
+    "get_issue",
+    "list_issues",
+    "archive_repository"
+  ],
+  "disallowed_actions": [
+    "delete_repository",
+    "delete_branch",
+    "delete_organization"
+  ],
+  "safety_notes": "Repository deletion is restricted for safety reasons, but archiving is allowed."
+}
+```
+
+#### Get Action Details
+
+Get detailed information about a specific action.
+
+```http
+GET /api/v1/tools/:tool/actions/:action
+```
+
+**Response**
+```json
+{
+  "name": "create_issue",
+  "description": "Creates a new issue in a GitHub repository",
+  "parameters": {
+    "owner": "Repository owner (organization or user)",
+    "repo": "Repository name",
+    "title": "Issue title",
+    "body": "Issue description",
+    "labels": "Array of label names",
+    "assignees": "Array of usernames to assign"
+  },
+  "required_parameters": ["owner", "repo", "title"],
+  "example": {
+    "owner": "octocat",
+    "repo": "hello-world",
+    "title": "Bug in login form",
+    "body": "The login form doesn't submit when using Safari",
+    "labels": ["bug", "frontend"]
+  },
+  "_links": {
+    "self": "https://api.mcp-server.example.com/api/v1/tools/github/actions/create_issue",
+    "tool": "https://api.mcp-server.example.com/api/v1/tools/github",
+    "actions": "https://api.mcp-server.example.com/api/v1/tools/github/actions"
+  }
+}
+```
+
+#### Execute Tool Action
+
+Execute an action on a tool.
+
+```http
+POST /api/v1/tools/:tool/actions/:action?context_id=ctx-789
+```
+
+**Request Body**
+```json
+{
+  "owner": "octocat",
+  "repo": "hello-world",
+  "title": "Bug in login form",
+  "body": "The login form doesn't submit when using Safari",
+  "labels": ["bug", "frontend"]
+}
+```
+
+**Response**
+```json
+{
+  "status": "success",
+  "message": "Executed create_issue action on github tool",
+  "tool": "github",
+  "action": "create_issue",
+  "result": {
+    "issue_number": 42,
+    "html_url": "https://github.com/octocat/hello-world/issues/42"
+  },
+  "_links": {
+    "self": "https://api.mcp-server.example.com/api/v1/tools/github/actions/create_issue",
+    "tool": "https://api.mcp-server.example.com/api/v1/tools/github"
+  }
+}
+```
+
+#### Query Tool Data
+
+Query data from a tool.
+
+```http
+POST /api/v1/tools/:tool/queries?context_id=ctx-789
+```
+
+**Request Body**
+```json
+{
+  "query_type": "list_repositories",
+  "filters": {
+    "organization": "octocat",
+    "visibility": "public",
+    "sort": "updated"
+  }
+}
+```
+
+**Response**
+```json
+{
+  "status": "success",
+  "message": "Queried data from github tool",
+  "tool": "github",
+  "query_params": {...},
+  "data": [
+    {
+      "id": "1",
+      "name": "hello-world",
+      "full_name": "octocat/hello-world",
+      "private": false,
+      "updated_at": "2024-01-15T09:00:00Z"
+    }
+  ]
+}
+```
+
+### Agent Management
+
+#### Create Agent
+
+Create a new AI agent configuration.
+
+```http
+POST /api/v1/agents
+```
+
+**Request Body**
+```json
+{
+  "name": "DevOps Assistant",
+  "description": "AI agent for DevOps automation",
+  "model": "gpt-4",
+  "capabilities": ["github", "harness", "sonarqube"],
+  "configuration": {
+    "temperature": 0.7,
+    "max_tokens": 2000
+  }
+}
+```
+
+**Response**
+```json
+{
+  "id": "agent-123",
+  "name": "DevOps Assistant",
+  "description": "AI agent for DevOps automation",
+  "model": "gpt-4",
+  "capabilities": ["github", "harness", "sonarqube"],
+  "configuration": {...},
+  "created_at": "2024-01-15T10:00:00Z"
+}
+```
+
+#### List Agents
+
+List all agents for the current tenant.
+
+```http
+GET /api/v1/agents
+```
+
+**Response**
+```json
+{
+  "agents": [
+    {
+      "id": "agent-123",
+      "name": "DevOps Assistant",
+      "description": "AI agent for DevOps automation",
+      "model": "gpt-4",
+      "capabilities": ["github", "harness", "sonarqube"],
+      "created_at": "2024-01-15T10:00:00Z",
+      "updated_at": "2024-01-15T10:00:00Z"
+    }
+  ]
+}
+```
+
+#### Update Agent
+
+Update an agent configuration.
+
+```http
+PUT /api/v1/agents/:id
+```
+
+**Request Body**
+```json
+{
+  "name": "DevOps Assistant Pro",
+  "configuration": {
+    "temperature": 0.8,
+    "max_tokens": 3000
+  }
+}
+```
+
+**Response**
+```json
+{
+  "id": "agent-123",
+  "name": "DevOps Assistant Pro",
+  "description": "AI agent for DevOps automation",
+  "model": "gpt-4",
+  "capabilities": ["github", "harness", "sonarqube"],
+  "configuration": {...},
+  "updated_at": "2024-01-15T11:00:00Z"
+}
+```
+
+### Model Management
+
+#### Create Model
+
+Register a new AI model.
+
+```http
+POST /api/v1/models
+```
+
+**Request Body**
+```json
+{
+  "name": "gpt-4-turbo",
+  "provider": "openai",
+  "type": "chat",
+  "configuration": {
+    "api_endpoint": "https://api.openai.com/v1/chat/completions",
+    "max_context_length": 128000,
+    "supports_functions": true
+  }
+}
+```
+
+**Response**
+```json
+{
+  "id": "model-456",
+  "name": "gpt-4-turbo",
+  "provider": "openai",
+  "type": "chat",
+  "configuration": {...},
+  "created_at": "2024-01-15T10:00:00Z"
+}
+```
+
+#### List Models
+
+List all available models.
+
+```http
+GET /api/v1/models
+```
+
+**Response**
+```json
+{
+  "models": [
+    {
+      "id": "model-456",
+      "name": "gpt-4-turbo",
+      "provider": "openai",
+      "type": "chat",
+      "created_at": "2024-01-15T10:00:00Z"
+    }
+  ]
+}
+```
+
+#### Update Model
+
+Update model configuration.
+
+```http
+PUT /api/v1/models/:id
+```
+
+**Request Body**
+```json
+{
+  "configuration": {
+    "max_context_length": 200000,
+    "supports_vision": true
+  }
+}
+```
+
+**Response**
+```json
+{
+  "id": "model-456",
+  "name": "gpt-4-turbo",
+  "provider": "openai",
+  "type": "chat",
+  "configuration": {...},
+  "updated_at": "2024-01-15T11:00:00Z"
+}
+```
+
+### Vector Search
+
+#### Text Search
+
+Perform semantic search using text query.
+
+```http
+POST /api/v1/search
+```
+
+**Request Body**
+```json
+{
+  "query": "How to configure GitHub Actions for Python projects",
+  "limit": 10,
+  "threshold": 0.7,
+  "filters": {
+    "tool": "github",
+    "type": "documentation"
+  }
+}
+```
+
+**Response**
+```json
+{
+  "results": [
+    {
+      "id": "vec-123",
+      "content": "To configure GitHub Actions for Python projects, create a .github/workflows/python.yml file...",
+      "similarity": 0.92,
+      "metadata": {
+        "source": "github-docs",
+        "url": "https://docs.github.com/actions/python"
+      }
+    }
+  ],
+  "total": 5,
+  "query": "How to configure GitHub Actions for Python projects"
+}
+```
+
+#### Vector Search
+
+Search using pre-computed embeddings.
+
+```http
+POST /api/v1/search/vector
+```
+
+**Request Body**
+```json
+{
+  "vector": [0.1, 0.2, 0.3, ...],
+  "limit": 10,
+  "threshold": 0.7
+}
+```
+
+**Response**
+```json
+{
+  "results": [
+    {
+      "id": "vec-123",
+      "content": "Related content...",
+      "similarity": 0.89,
+      "metadata": {...}
+    }
+  ],
+  "total": 3
+}
+```
+
+#### Find Similar Content
+
+Find content similar to a reference.
+
+```http
+POST /api/v1/search/similar
+```
+
+**Request Body**
+```json
+{
+  "reference_id": "vec-123",
+  "limit": 5,
+  "threshold": 0.8
+}
+```
+
+**Response**
+```json
+{
+  "results": [
+    {
+      "id": "vec-456",
+      "content": "Similar content...",
+      "similarity": 0.95,
+      "metadata": {...}
+    }
+  ],
+  "reference": {
+    "id": "vec-123",
+    "content": "Original content..."
+  }
+}
+```
+
+### GitHub Tools (MCP Protocol)
+
+These endpoints implement MCP protocol-compliant tools for GitHub operations.
+
+#### List GitHub Tools
+
+Get available GitHub tools following MCP protocol.
+
+```http
+GET /api/v1/tools/github
+```
+
+**Response**
+```json
+{
+  "tools": [
+    {
+      "name": "github_create_issue",
+      "description": "Create a new issue in a GitHub repository",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "owner": {"type": "string"},
+          "repo": {"type": "string"},
+          "title": {"type": "string"},
+          "body": {"type": "string"}
+        },
+        "required": ["owner", "repo", "title"]
+      }
+    }
+  ]
+}
+```
+
+#### Get Tool Schema
+
+Get the MCP schema for a specific GitHub tool.
+
+```http
+GET /api/v1/tools/github/:tool_name
+```
+
+**Response**
+```json
+{
+  "name": "github_create_issue",
+  "description": "Create a new issue in a GitHub repository",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "owner": {
+        "type": "string",
+        "description": "Repository owner"
+      },
+      "repo": {
+        "type": "string",
+        "description": "Repository name"
+      },
+      "title": {
+        "type": "string",
+        "description": "Issue title"
+      },
+      "body": {
+        "type": "string",
+        "description": "Issue body"
+      }
+    },
+    "required": ["owner", "repo", "title"]
+  }
+}
+```
+
+#### Execute GitHub Tool
+
+Execute a GitHub tool following MCP protocol.
+
+```http
+POST /api/v1/tools/github/:tool_name
+```
+
+**Request Body**
+```json
+{
+  "arguments": {
+    "owner": "octocat",
+    "repo": "hello-world",
+    "title": "Bug report",
+    "body": "Description of the bug"
+  }
+}
+```
+
+**Response**
+```json
+{
+  "content": [
+    {
+      "type": "text",
+      "text": "Successfully created issue #42"
+    }
+  ],
+  "isError": false
+}
+```
+
+### Webhooks
+
+#### GitHub Webhook
+
+Receive GitHub webhook events.
+
+```http
+POST /api/webhooks/github
+```
+
+**Headers**
+```http
+X-GitHub-Event: push
+X-Hub-Signature-256: sha256=...
+```
+
+**Request Body**
+```json
+{
+  "ref": "refs/heads/main",
+  "repository": {
+    "name": "hello-world",
+    "full_name": "octocat/hello-world"
+  },
+  "pusher": {
+    "name": "octocat"
+  }
+}
+```
+
+**Response**
+```json
+{
+  "status": "accepted",
+  "message": "Webhook processed successfully"
+}
+```
+
+### Relationship Management
+
+#### Create Relationship
+
+Create a relationship between entities (contexts, tools, etc.).
+
+```http
+POST /api/v1/relationships
+```
+
+**Request Body**
+```json
+{
+  "source_type": "context",
+  "source_id": "ctx-789",
+  "target_type": "tool_execution",
+  "target_id": "exec-123",
+  "relationship_type": "triggered_by"
+}
+```
+
+**Response**
+```json
+{
+  "id": "rel-456",
+  "source_type": "context",
+  "source_id": "ctx-789",
+  "target_type": "tool_execution",
+  "target_id": "exec-123",
+  "relationship_type": "triggered_by",
+  "created_at": "2024-01-15T10:00:00Z"
+}
+```
+
+## WebSocket Support
+
+The MCP Server supports WebSocket connections for real-time communication:
+
+```javascript
+const ws = new WebSocket('wss://api.mcp-server.example.com/ws');
+
+ws.on('open', () => {
+  ws.send(JSON.stringify({
+    type: 'authenticate',
+    token: 'your-api-key'
+  }));
+});
+
+ws.on('message', (data) => {
+  const message = JSON.parse(data);
+  if (message.type === 'tool_update') {
+    console.log('Tool execution update:', message.data);
+  }
+});
+```
+
+### WebSocket Message Types
+
+- `authenticate`: Authenticate the connection
+- `subscribe`: Subscribe to updates (context, tool_execution, etc.)
+- `unsubscribe`: Unsubscribe from updates
+- `tool_update`: Real-time tool execution updates
+- `context_update`: Context change notifications
+
+## SDK Support
+
+Official SDKs are available for:
+
+- **Go**: `github.com/S-Corkum/devops-mcp/pkg/client`
+- **Python**: `pip install mcp-server-sdk`
+- **JavaScript/TypeScript**: `npm install @mcp/server-sdk`
+- **Java**: `com.mcp:server-sdk:1.0.0`
+
+### Go SDK Example
+
+```go
+import (
+    "github.com/S-Corkum/devops-mcp/pkg/client/rest"
+)
+
+// Create client
+client := rest.NewClient("https://api.mcp-server.example.com", "your-api-key")
+
+// Create context
+ctx, err := client.MCP().CreateContext(&models.Context{
+    AgentID: "agent-123",
+    Content: []models.ContextItem{
+        {Role: "user", Content: "Hello"},
+    },
+})
+
+// Execute tool
+result, err := client.Tools().Execute("github", "create_issue", map[string]interface{}{
+    "owner": "octocat",
+    "repo": "hello-world",
+    "title": "Test issue",
+})
+```
+
+### Python SDK Example
+
+```python
+from mcp_server_sdk import MCPClient
+
+# Create client
+client = MCPClient(
+    base_url="https://api.mcp-server.example.com",
+    api_key="your-api-key"
+)
+
+# Create context
+context = client.mcp.create_context(
+    agent_id="agent-123",
+    content=[{"role": "user", "content": "Hello"}]
+)
+
+# Execute tool
+result = client.tools.execute(
+    tool="github",
+    action="create_issue",
+    params={
+        "owner": "octocat",
+        "repo": "hello-world",
+        "title": "Test issue"
+    }
+)
+```
+
+## Additional Resources
+
+- [MCP Protocol Specification](https://github.com/anthropics/mcp)
+- [API Playground](https://api.mcp-server.example.com/swagger)
+- [Integration Examples](https://github.com/S-Corkum/devops-mcp/examples)
+- [Support Portal](https://support.mcp-server.example.com)

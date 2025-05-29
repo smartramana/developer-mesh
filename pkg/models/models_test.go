@@ -29,7 +29,7 @@ func TestHarnessCIBuild(t *testing.T) {
 	var decoded HarnessCIBuild
 	err = json.Unmarshal(data, &decoded)
 	require.NoError(t, err)
-	
+
 	assert.Equal(t, build.ID, decoded.ID)
 	assert.Equal(t, build.BuildNumber, decoded.BuildNumber)
 	assert.Equal(t, build.Status, decoded.Status)
@@ -60,7 +60,7 @@ func TestHarnessCIBuildEvent(t *testing.T) {
 	var decoded HarnessCIBuildEvent
 	err = json.Unmarshal(data, &decoded)
 	require.NoError(t, err)
-	
+
 	assert.Equal(t, event.EventType, decoded.EventType)
 	assert.Equal(t, event.Build.ID, decoded.Build.ID)
 	assert.Equal(t, event.Build.BuildNumber, decoded.Build.BuildNumber)
@@ -88,7 +88,7 @@ func TestHarnessCDDeployment(t *testing.T) {
 	var decoded HarnessCDDeployment
 	err = json.Unmarshal(data, &decoded)
 	require.NoError(t, err)
-	
+
 	assert.Equal(t, deployment.ID, decoded.ID)
 	assert.Equal(t, deployment.Status, decoded.Status)
 	assert.Equal(t, deployment.Environment, decoded.Environment)
@@ -129,7 +129,7 @@ func TestSonarQubeWebhookEvent(t *testing.T) {
 	var decoded SonarQubeWebhookEvent
 	err = json.Unmarshal(data, &decoded)
 	require.NoError(t, err)
-	
+
 	assert.Equal(t, event.ServerURL, decoded.ServerURL)
 	assert.Equal(t, event.TaskID, decoded.TaskID)
 	assert.Equal(t, event.Status, decoded.Status)
@@ -160,7 +160,7 @@ func TestQueryOptions(t *testing.T) {
 	var decoded QueryOptions
 	err = json.Unmarshal(data, &decoded)
 	require.NoError(t, err)
-	
+
 	assert.Equal(t, options.Limit, decoded.Limit)
 	assert.Equal(t, options.Offset, decoded.Offset)
 	assert.Equal(t, options.SortBy, decoded.SortBy)
@@ -183,7 +183,7 @@ func TestHarnessQuery(t *testing.T) {
 	var decoded HarnessQuery
 	err = json.Unmarshal(data, &decoded)
 	require.NoError(t, err)
-	
+
 	assert.Equal(t, query.Type, decoded.Type)
 	assert.Equal(t, query.ID, decoded.ID)
 }
@@ -208,7 +208,7 @@ func TestSonarQubeQuery(t *testing.T) {
 	var decoded SonarQubeQuery
 	err = json.Unmarshal(data, &decoded)
 	require.NoError(t, err)
-	
+
 	assert.Equal(t, query.Type, decoded.Type)
 	assert.Equal(t, query.ProjectKey, decoded.ProjectKey)
 	assert.Equal(t, query.Organization, decoded.Organization)
@@ -238,7 +238,7 @@ func TestArtifactoryQuery(t *testing.T) {
 	var decoded ArtifactoryQuery
 	err = json.Unmarshal(data, &decoded)
 	require.NoError(t, err)
-	
+
 	assert.Equal(t, query.Type, decoded.Type)
 	assert.Equal(t, query.RepoKey, decoded.RepoKey)
 	assert.Equal(t, query.Path, decoded.Path)
@@ -268,7 +268,7 @@ func TestXrayQuery(t *testing.T) {
 	var decoded XrayQuery
 	err = json.Unmarshal(data, &decoded)
 	require.NoError(t, err)
-	
+
 	assert.Equal(t, query.Type, decoded.Type)
 	assert.Equal(t, query.ArtifactPath, decoded.ArtifactPath)
 	assert.Equal(t, query.CVE, decoded.CVE)

@@ -1,51 +1,130 @@
-# DevOps MCP Server Documentation
+# DevOps MCP Documentation
 
-Welcome! This documentation is organized for maximum usability by admins, users, developers, and integrators.
+Welcome to the DevOps MCP documentation. This guide provides comprehensive information for users, developers, and operators of the DevOps MCP platform.
 
-## 📚 Main Sections
+## 📖 Documentation Overview
 
-- **[Getting Started](getting-started/README.md):**
-  - Quick start, installation, configuration, deployment, upgrading, troubleshooting
-- **[User Guides](user/README.md):**
-  - Context management, agent capabilities, use cases
-- **[Admin Guides](admin/README.md):**
-  - Administration, monitoring, security, database migrations
-- **[Developer Docs](developer/README.md):**
-  - Development, contributing, API docs, testing, architecture, diagrams
-- **[Integrations](integrations/README.md):**
-  - Adding integrations, GitHub, features (S3, vector search, etc.)
-- **[Examples](examples/README.md):**
-  - Complete AI agent, integration guides, vector search
-- **[API Reference](api/README.md):**
-  - REST API, OpenAPI/Swagger
-- **[Best Practices](BEST_PRACTICES.md):**
-  - Security and operational best practices
+### [Getting Started](getting-started/)
+Start here if you're new to DevOps MCP
+- [Quick Start Guide](getting-started/quick-start-guide.md) - Get up and running in minutes
+- Installation & Configuration guides
 
-## 🧭 Navigation
-- Each section contains a README with links to all relevant guides and resources.
-- Use the sidebar or search to quickly find what you need.
+### [Architecture](architecture/)
+Understanding the system design
+- [System Overview](architecture/system-overview.md) - High-level architecture
+- [Adapter Pattern](architecture/adapter-pattern.md) - Core design pattern
+- [Go Workspace Structure](architecture/go-workspace-structure.md) - Multi-module organization
+
+### [API Reference](api-reference/)
+Complete API documentation
+- [Vector Search API](api-reference/vector-search-api.md) - Semantic search endpoints
+- REST API endpoints and schemas
+
+### [Developer Guide](developer/)
+For contributors and developers
+- [Development Environment](developer/development-environment.md) - Setup instructions
+- [Debugging Guide](developer/debugging-guide.md) - Troubleshooting tips
+
+### [Examples](examples/)
+Real-world integration examples
+- [GitHub Integration](examples/github-integration.md) - Using GitHub features
+- [AI Agent Integration](examples/ai-agent-integration.md) - Connecting AI assistants
+- [Vector Search](examples/vector-search-implementation.md) - Implementing semantic search
+- [Custom Tools](examples/custom-tool-integration.md) - Adding new integrations
+- [IDE Integration](examples/ide-integration.md) - Using with Windsurf, Cursor, and other IDEs
+
+## 🚀 Quick Links
+
+### For Users
+- [Quick Start Guide](getting-started/quick-start-guide.md)
+- [Configuration Reference](getting-started/configuration-guide.md)
+- [Examples](examples/README.md)
+
+### For Developers
+- [Development Setup](developer/development-environment.md)
+- [Contributing Guide](../CONTRIBUTING.md)
+- [Architecture Overview](architecture/system-overview.md)
+
+### For Operators
+- [Deployment Guide](operations/deployment-guide.md)
+- [Monitoring & Observability](operations/monitoring.md)
+- [Security Best Practices](operations/security-best-practices.md)
+
+## 📚 Documentation Structure
+
+```
+docs/
+├── architecture/           # System design and architecture
+├── api-reference/         # API documentation
+├── developer/             # Developer guides
+├── examples/              # Usage examples
+├── getting-started/       # Quick start and setup
+├── operations/            # Deployment and operations
+└── troubleshooting/       # Problem solving guides
+```
+
+## 🔍 Finding Information
+
+### By Role
+
+**Application Developer**
+- Start with [Examples](examples/README.md)
+- Review [API Reference](api-reference/)
+- Check [Integration Patterns](examples/)
+
+**Platform Developer**
+- Read [Architecture](architecture/system-overview.md)
+- Set up [Development Environment](developer/development-environment.md)
+- Follow [Contributing Guide](../CONTRIBUTING.md)
+
+**DevOps Engineer**
+- Check [Operations Guide](operations/)
+- Review [Configuration](getting-started/configuration-guide.md)
+- Understand [Monitoring](operations/monitoring.md)
+
+### By Topic
+
+**Integration**
+- [GitHub Integration](examples/github-integration.md)
+- [AI Agent Setup](examples/ai-agent-integration.md)
+- [Custom Tools](examples/custom-tool-integration.md)
+
+**Vector Search**
+- [Implementation Guide](examples/vector-search-implementation.md)
+- [API Reference](api-reference/vector-search-api.md)
+
+**Troubleshooting**
+- [Common Issues](troubleshooting/common-issues.md)
+- [Performance Tuning](troubleshooting/performance-tuning.md)
+- [Debugging Guide](developer/debugging-guide.md)
+
+## 📝 Documentation Standards
+
+Our documentation follows these principles:
+
+1. **Clear and Concise**: Easy to understand
+2. **Example-Driven**: Real-world code examples
+3. **Up-to-Date**: Reflects current implementation
+4. **Searchable**: Well-organized and indexed
+5. **Accessible**: Written for various skill levels
+
+## 🤝 Contributing to Documentation
+
+Documentation improvements are always welcome! See our [Contributing Guide](../CONTRIBUTING.md) for:
+
+- Documentation style guide
+- How to submit documentation PRs
+- Building documentation locally
+
+## 📞 Getting Help
+
+Can't find what you need?
+
+1. Search the documentation
+2. Check [GitHub Issues](https://github.com/S-Corkum/devops-mcp/issues)
+3. Ask in [Discussions](https://github.com/S-Corkum/devops-mcp/discussions)
+4. Review [Examples](examples/README.md)
 
 ---
 
-For any questions, see the appropriate guide or contact the maintainers.
-
-## Developer Documentation
-
-* [System Architecture](system-architecture.md) - System design and architecture
-* [Development Guide](development-guide.md) - Getting started with development
-* [Adding New Integrations](adding-new-integrations.md) - How to add new tool adapters
-* [Contributing Guide](contributing-guide.md) - How to contribute to the project
-
-## Examples
-
-* [Complete AI Agent Example](examples/complete-ai-agent-example.md) - End-to-end integration example
-* [Multi-Model Vector Support](features/multi-model-vector-support.md) - Working with different embedding models
-* [S3 Storage Integration](features/s3-storage.md) - Using S3 for context storage
-
-## Support & Community
-
-If you encounter issues not covered in the documentation:
-
-1. Check the [Troubleshooting Guide](troubleshooting-guide.md)
-2. Search existing [GitHub Issues](https://github.com/S-Corkum/mcp-server/issues)
-3. Create a new issue if needed
+*Last updated: January 2025*
