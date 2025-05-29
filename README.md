@@ -33,10 +33,11 @@ Built using Go workspaces for modularity and clean architecture:
 
 ### Prerequisites
 
-- Go 1.24+
+- **Go 1.24+** (required for workspace support)
 - Docker & Docker Compose
 - PostgreSQL 14+ with pgvector extension
 - Redis 6.2+
+- Make
 - AWS credentials (optional, for S3/SQS integration)
 
 ### Local Development
@@ -47,10 +48,11 @@ git clone https://github.com/S-Corkum/devops-mcp.git
 cd devops-mcp
 
 # Copy configuration template
-cp config.yaml.template config.yaml
+cp config.yaml.example config.yaml
+# Edit config.yaml with your settings (especially API tokens)
 
-# Start infrastructure services
-docker-compose -f docker-compose.local.yml up -d
+# Start infrastructure services (includes PostgreSQL, Redis, LocalStack)
+make dev-setup
 
 # Build all services
 make build
@@ -58,10 +60,13 @@ make build
 # Run database migrations
 make migrate-local
 
-# Start services (in separate terminals)
+# Option 1: Start services (in separate terminals)
 make run-mcp-server
 make run-rest-api
 make run-worker
+
+# Option 2: Run all services with Docker Compose
+make local-dev
 
 # Verify health
 curl http://localhost:8080/health
@@ -131,11 +136,15 @@ make test
 # Run integration tests (requires Docker)
 make test-integration
 
-# Run all tests with coverage
+# Run functional tests (requires full stack)
+make test-functional
+
+# Test coverage
 make test-coverage
 
-# Generate coverage report
+# Generate HTML coverage report
 make test-coverage-html
+open coverage.html
 ```
 
 ## 🚢 Deployment
@@ -150,7 +159,7 @@ See [deployment documentation](docs/operations/) for detailed instructions.
 
 ## 🤝 Contributing
 
-We welcome contributions! Please see our [Contributing Guide](CONTRIBUTING.md) for:
+We welcome contributions! Please see our [Contributing Guide](docs/contributing/CONTRIBUTING.md) for:
 
 - Code of Conduct
 - Development workflow

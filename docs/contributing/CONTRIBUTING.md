@@ -57,10 +57,11 @@ Harassment, offensive behavior, or discrimination of any kind will not be tolera
 3. **Set Up Local Environment**
    ```bash
    # Copy configuration template
-   cp config.yaml.template config.yaml
+   cp config.yaml.example config.yaml
+   # Edit config.yaml with your settings
    
    # Start infrastructure services
-   docker-compose -f docker-compose.local.yml up -d
+   make dev-setup
    
    # Install dependencies (handled by Go workspace)
    go work sync

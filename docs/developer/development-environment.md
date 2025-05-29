@@ -48,15 +48,18 @@ chmod +x .git/hooks/*
 ### 2. Environment Configuration
 
 ```bash
-# Copy environment template
-cp .env.example .env
+# Copy configuration template
+cp config.example.yaml config.yaml
+# Or use the more detailed template:
+# cp configs/config.yaml.template config.yaml
 
 # Edit with your settings
-vim .env
+vim config.yaml
 
 # Required environment variables
 export MCP_ENV=development
-export DATABASE_URL=postgres://mcp:mcp@localhost:5432/devops_mcp?sslmode=disable
+export DATABASE_URL=postgres://dev:dev@localhost:5432/dev?sslmode=disable
+export DATABASE_DSN=postgresql://dev:dev@localhost:5432/dev?sslmode=disable
 export REDIS_URL=redis://localhost:6379
 export AWS_ENDPOINT=http://localhost:4566  # LocalStack
 ```
@@ -99,28 +102,30 @@ make logs service=postgres
 
 ```bash
 # Run migrations
-make migrate-up
+make migrate-local
+# Or with custom DSN:
+# make migrate-up dsn="postgres://dev:dev@localhost:5432/dev?sslmode=disable"
 
-# Seed development data
-make seed-dev
+# Note: Migrations are located in apps/rest-api/migrations/sql/
 
 # Verify database
-make db-status
+make db-shell
+# Then run: \dt to list tables
 ```
 
 ### 6. Build & Run
 
 ```bash
 # Build all services
-make build-all
+make build
 
-# Run with hot reload
-make dev service=mcp-server
-make dev service=rest-api
-make dev service=worker
+# Run services (after building)
+make run-mcp-server   # Port 8080
+make run-rest-api     # Port 8081
+make run-worker       # SQS worker
 
 # Or run all with Docker Compose
-make up
+make local-dev
 ```
 
 ## IDE Setup
@@ -355,8 +360,10 @@ func TestAdapter_Execute(t *testing.T) {
 # Install air for hot reload
 go install github.com/cosmtrek/air@latest
 
-# Run with hot reload
-air -c .air.toml
+# Run with hot reload (create .air.toml in each app directory)
+cd apps/mcp-server && air
+cd apps/rest-api && air
+cd apps/worker && air
 ```
 
 ### Database Management
@@ -433,10 +440,16 @@ direnv allow
 # Check for vulnerabilities
 go list -json -m all | nancy sleuth
 
-# Update dependencies safely
-go get -u ./...
-go mod tidy
-go test ./...
+# Update dependencies safely (per module)
+cd apps/mcp-server && go get -u ./... && go mod tidy
+cd apps/rest-api && go get -u ./... && go mod tidy
+cd apps/worker && go get -u ./... && go mod tidy
+
+# Sync workspace
+go work sync
+
+# Run tests
+make test
 ```
 
 ## Next Steps

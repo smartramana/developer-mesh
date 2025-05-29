@@ -25,7 +25,8 @@ git clone https://github.com/S-Corkum/devops-mcp.git
 cd devops-mcp
 
 # Copy configuration template
-cp config.yaml.template config.yaml
+cp config.yaml.example config.yaml
+# Edit config.yaml with your settings (especially API tokens)
 
 # (Optional) Edit config.yaml for your environment
 # Most defaults work out of the box
@@ -40,6 +41,12 @@ make dev-setup
 # Wait for services to be ready (usually ~10 seconds)
 # Check logs if needed
 make docker-compose-logs
+
+# Note: This command runs:
+# - PostgreSQL 17 with pgvector extension
+# - Redis 7 Alpine
+# - LocalStack for AWS services (SQS)
+# - Automatic SQS queue creation
 ```
 
 ### 3. Initialize Database
@@ -49,6 +56,7 @@ make docker-compose-logs
 make migrate-local
 
 # This creates tables and indexes including pgvector
+# Migrations are located in apps/rest-api/migrations/sql/
 ```
 
 ### 4. Build and Run Services
@@ -56,15 +64,18 @@ make migrate-local
 **Option A: Run All Services (Recommended)**
 
 ```bash
-# In separate terminal windows:
+# First build all services
+make build
 
-# Terminal 1 - MCP Server
+# Then in separate terminal windows:
+
+# Terminal 1 - MCP Server (port 8080)
 make run-mcp-server
 
-# Terminal 2 - REST API
+# Terminal 2 - REST API (port 8081)
 make run-rest-api
 
-# Terminal 3 - Worker
+# Terminal 3 - Worker (processes SQS messages)
 make run-worker
 ```
 
@@ -72,7 +83,14 @@ make run-worker
 
 ```bash
 # Build and run all services
-docker-compose -f docker-compose.local.yml up --build
+make local-dev
+
+# This automatically:
+# - Builds all service containers
+# - Starts PostgreSQL, Redis, LocalStack
+# - Creates SQS queues
+# - Runs all three services
+# - Exposes ports 8080 (MCP) and 8081 (REST API)
 ```
 
 ### 5. Verify Installation
@@ -91,6 +109,18 @@ curl http://localhost:8081/health
 # {"status":"healthy","components":{"database":"up","redis":"up"}}
 ```
 
+### 6. API Documentation
+
+Swagger UI is available for both services:
+
+- **MCP Server Swagger**: http://localhost:8080/swagger/index.html
+- **REST API Swagger**: http://localhost:8081/swagger/index.html
+
+Note: Generate/update Swagger docs with:
+```bash
+make swagger
+```
+
 ## 🎯 First API Call
 
 Create your first context:
@@ -99,6 +129,7 @@ Create your first context:
 # Create a context
 curl -X POST http://localhost:8081/api/v1/contexts \
   -H "Content-Type: application/json" \
+  -H "X-API-Key: change-this-admin-key" \
   -d '{
     "name": "My First Context",
     "type": "conversation",
@@ -108,6 +139,7 @@ curl -X POST http://localhost:8081/api/v1/contexts \
   }'
 
 # Response includes the created context with ID
+# Note: Update the API key to match your config.yaml
 ```
 
 ## 🛠️ Common Operations
@@ -125,15 +157,26 @@ docker-compose -f docker-compose.local.yml logs mcp-server -f
 ### Run Tests
 
 ```bash
-# Unit tests
+# Unit tests (fast)
 make test
 
-# Integration tests (requires running services)
+# Test specific module
+make test-mcp-server
+make test-rest-api
+make test-worker
+
+# Integration tests (requires Docker)
 make test-integration
+
+# Functional tests (requires full stack)
+make test-functional
 
 # Test coverage report
 make test-coverage-html
 open coverage.html
+
+# Run tests with specific focus
+make test-functional-focus FOCUS="Health Endpoint"
 ```
 
 ### Stop Services
@@ -149,14 +192,17 @@ make docker-compose-down
 
 ```
 devops-mcp/
-├── apps/           # Microservices
-│   ├── mcp-server/ # MCP protocol implementation
-│   ├── rest-api/   # REST API endpoints  
-│   └── worker/     # Async job processor
-├── pkg/            # Shared libraries
-├── configs/        # Configuration files
-├── migrations/     # Database migrations
-└── scripts/        # Utility scripts
+├── apps/               # Microservices (Go workspace modules)
+│   ├── mcp-server/     # MCP protocol implementation
+│   ├── rest-api/       # REST API endpoints  
+│   └── worker/         # Async job processor
+├── pkg/                # Shared libraries
+├── configs/            # Configuration files
+├── docs/               # Documentation
+├── scripts/            # Utility scripts
+├── test/               # Integration & functional tests
+├── go.work             # Go workspace configuration
+└── Makefile            # Build automation
 ```
 
 ## 🔧 Configuration
@@ -167,7 +213,9 @@ Common environment variables:
 
 ```bash
 # Database
-export DATABASE_URL="postgres://user:pass@localhost:5432/mcp?sslmode=disable"
+export DATABASE_URL="postgres://dev:dev@localhost:5432/dev?sslmode=disable"
+# Or use the DSN format:
+export DATABASE_DSN="postgresql://dev:dev@localhost:5432/dev?sslmode=disable"
 
 # Redis
 export REDIS_URL="redis://localhost:6379"
@@ -216,6 +264,7 @@ cache:
 # Create embedding
 curl -X POST http://localhost:8081/api/v1/vectors \
   -H "Content-Type: application/json" \
+  -H "X-API-Key: change-this-admin-key" \
   -d '{
     "content": "DevOps automation with AI",
     "context_id": "your-context-id"
@@ -224,10 +273,27 @@ curl -X POST http://localhost:8081/api/v1/vectors \
 # Search similar content
 curl -X POST http://localhost:8081/api/v1/vectors/search \
   -H "Content-Type: application/json" \
+  -H "X-API-Key: change-this-reader-key" \
   -d '{
     "query": "AI-powered DevOps tools",
     "limit": 5
   }'
+```
+
+### 3. Useful Helper Scripts
+
+```bash
+# Health check all services
+./scripts/health-check.sh
+
+# Validate all endpoints
+./scripts/validate-endpoints.sh
+
+# Test GitHub integration
+./scripts/test-github-integration.sh
+
+# Redis connectivity check
+./scripts/redis-check.sh
 ```
 
 ## 🚨 Troubleshooting
@@ -236,10 +302,14 @@ curl -X POST http://localhost:8081/api/v1/vectors/search \
 
 ```bash
 # Find process using port
-lsof -i :8080
+lsof -i :8080  # MCP Server
+lsof -i :8081  # REST API
 
 # Kill process
 kill -9 <PID>
+
+# Or kill by port
+kill -9 $(lsof -t -i:8080)
 ```
 
 ### Database Connection Failed
@@ -259,6 +329,12 @@ docker-compose -f docker-compose.local.yml restart postgres
 make clean
 go work sync
 make build
+
+# If module errors occur:
+cd apps/mcp-server && go mod tidy
+cd apps/rest-api && go mod tidy
+cd apps/worker && go mod tidy
+go work sync
 ```
 
 ### Permission Denied
@@ -266,6 +342,27 @@ make build
 ```bash
 # Fix script permissions
 chmod +x scripts/*.sh
+```
+
+### Go Version Issues
+
+```bash
+# Check Go version (must be 1.24+)
+go version
+
+# If using older version, update Go:
+# macOS: brew upgrade go
+# Linux: Follow https://golang.org/doc/install
+```
+
+### LocalStack/SQS Issues
+
+```bash
+# Check LocalStack is running
+docker-compose -f docker-compose.local.yml ps localstack
+
+# Manually create SQS queue if needed
+aws --endpoint-url=http://localhost:4566 sqs create-queue --queue-name tasks
 ```
 
 ## 📚 Next Steps
@@ -279,10 +376,11 @@ Now that you have DevOps MCP running:
 
 ## 💡 Tips
 
-- Use `make help` to see all available commands
+- Use `make help` to see all available commands (note: help target may not exist, check Makefile)
 - Enable debug logging with `LOG_LEVEL=debug`
-- Check `./logs/` directory for detailed logs
-- Use `docker-compose ps` to verify service status
+- Check logs with `make docker-compose-logs` or `docker-compose -f docker-compose.local.yml logs -f`
+- Use `docker-compose -f docker-compose.local.yml ps` to verify service status
+- All services log to stdout by default
 
 ## 🆘 Getting Help
 
