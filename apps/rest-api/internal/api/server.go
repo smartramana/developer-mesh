@@ -324,19 +324,21 @@ func (s *Server) setupRoutes(ctx context.Context) {
 	toolAPI := NewToolAPI(adapterBridge)
 	toolAPI.RegisterRoutes(v1)
 
+	// Agent and Model APIs - create repositories first as they're needed by context API
+	agentRepo := repository.NewAgentRepository(s.db.DB)
+	agentAPI := NewAgentAPI(agentRepo)
+	agentAPI.RegisterRoutes(v1)
+	modelRepo := repository.NewModelRepository(s.db.DB)
+
 	// Context API - register the context endpoints
 	ctxAPI := contextAPI.NewAPI(
 		s.engine.GetContextManager(),
 		s.logger,
 		s.metrics,
+		s.db,
+		modelRepo,
 	)
 	ctxAPI.RegisterRoutes(v1)
-
-	// Agent and Model APIs
-	agentRepo := repository.NewAgentRepository(s.db.DB)
-	agentAPI := NewAgentAPI(agentRepo)
-	agentAPI.RegisterRoutes(v1)
-	modelRepo := repository.NewModelRepository(s.db.DB)
 	modelAPI := NewModelAPI(modelRepo)
 	modelAPI.RegisterRoutes(v1)
 

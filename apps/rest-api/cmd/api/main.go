@@ -9,6 +9,7 @@ import (
 	mathrand "math/rand"
 	"os"
 	"os/signal"
+	"strings"
 	"syscall"
 	"time"
 
@@ -126,6 +127,18 @@ func main() {
 	// Initialize core engine with logger
 	engine := core.NewEngine(logger)
 	defer engine.Shutdown(ctx)
+
+	// Initialize context manager based on environment configuration
+	useMock := os.Getenv("USE_MOCK_CONTEXT_MANAGER")
+	if strings.ToLower(useMock) == "true" {
+		logger.Info("Using mock context manager as specified by environment", nil)
+		engine.SetContextManager(core.NewMockContextManager())
+	} else {
+		logger.Info("Using production context manager", nil)
+		// Create metrics client for context manager
+		ctxMetrics := observability.NewMetricsClient()
+		engine.SetContextManager(core.NewContextManager(db.GetDB(), logger, ctxMetrics))
+	}
 
 	// Convert configuration to api.Config
 	apiConfig := api.Config{

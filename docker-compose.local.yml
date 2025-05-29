@@ -41,7 +41,7 @@ services:
       - DATABASE_DSN=postgresql://dev:dev@database:5432/dev?sslmode=disable
       - REDIS_HOST=redis
       - REDIS_PORT=6379
-      - USE_MOCK_CONTEXT_MANAGER=true
+      - USE_MOCK_CONTEXT_MANAGER=false
     volumes:
       - ./apps/rest-api/configs:/app/configs
       - ./migrations/sql:/app/migrations

@@ -3,6 +3,7 @@ package core
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"sync"
@@ -81,12 +82,42 @@ func (cm *ContextManager) CreateContext(ctx context.Context, context *models.Con
 
 	// Store in database
 	if cm.db != nil {
-		// Create insert query for context
-		q := `INSERT INTO contexts (id, agent_id, session_id, type, metadata, created_at, updated_at) 
-		      VALUES (:id, :agent_id, :session_id, :type, :metadata, :created_at, :updated_at)`
+		// Marshal metadata to JSON
+		var metadataJSON []byte
+		if context.Metadata != nil && len(context.Metadata) > 0 {
+			var err error
+			metadataJSON, err = json.Marshal(context.Metadata)
+			if err != nil {
+				cm.logger.Error("Failed to marshal metadata", map[string]any{
+					"error":      err.Error(),
+					"context_id": context.ID,
+				})
+				cm.metrics.IncrementCounterWithLabels(MetricContextOperationsTotal, float64(1), map[string]string{"operation": "create", "status": "error"})
+				return nil, fmt.Errorf("failed to marshal metadata: %w", err)
+			}
+		} else {
+			// Use empty JSON object for null/empty metadata
+			metadataJSON = []byte("{}")
+		}
 
-		// Use sqlx's NamedExec to handle parameters
-		_, err := cm.db.NamedExecContext(ctx, q, context)
+		// Create insert query for context
+		q := `INSERT INTO mcp.contexts (id, name, description, agent_id, model_id, session_id, current_tokens, max_tokens, metadata, created_at, updated_at, expires_at) 
+		      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)`
+
+		// Use standard Exec with explicit parameters
+		_, err := cm.db.ExecContext(ctx, q, 
+			context.ID, 
+			context.Name, 
+			context.Description, 
+			context.AgentID, 
+			context.ModelID, 
+			context.SessionID, 
+			context.CurrentTokens, 
+			context.MaxTokens, 
+			metadataJSON,
+			context.CreatedAt, 
+			context.UpdatedAt, 
+			context.ExpiresAt)
 		if err != nil {
 			cm.logger.Error("Failed to store context in database", map[string]any{
 				"error":      err.Error(),
@@ -130,11 +161,26 @@ func (cm *ContextManager) GetContext(ctx context.Context, contextID string) (*mo
 
 	// Not in cache, try database
 	if cm.db != nil {
-		var context models.Context
-		q := `SELECT * FROM contexts WHERE id = $1 LIMIT 1`
+		// Create a temporary struct to handle JSON metadata
+		var dbContext struct {
+			ID            string          `db:"id"`
+			Name          string          `db:"name"`
+			Description   string          `db:"description"`
+			AgentID       string          `db:"agent_id"`
+			ModelID       string          `db:"model_id"`
+			SessionID     string          `db:"session_id"`
+			CurrentTokens int             `db:"current_tokens"`
+			MaxTokens     int             `db:"max_tokens"`
+			Metadata      json.RawMessage `db:"metadata"`
+			CreatedAt     time.Time       `db:"created_at"`
+			UpdatedAt     time.Time       `db:"updated_at"`
+			ExpiresAt     time.Time       `db:"expires_at"`
+		}
+
+		q := `SELECT id, name, description, agent_id, model_id, session_id, current_tokens, max_tokens, metadata, created_at, updated_at, expires_at FROM mcp.contexts WHERE id = $1 LIMIT 1`
 
 		// Use QueryRowxContext to fetch a single row
-		err := cm.db.QueryRowxContext(ctx, q, contextID).StructScan(&context)
+		err := cm.db.QueryRowxContext(ctx, q, contextID).StructScan(&dbContext)
 		if err != nil {
 			cm.logger.Error("Failed to retrieve context from database", map[string]any{
 				"error":      err.Error(),
@@ -142,6 +188,89 @@ func (cm *ContextManager) GetContext(ctx context.Context, contextID string) (*mo
 			})
 			cm.metrics.IncrementCounterWithLabels(MetricContextOperationsTotal, float64(1), map[string]string{"operation": "get", "status": "error"})
 			return nil, fmt.Errorf("failed to retrieve context: %w", err)
+		}
+
+		// Convert to models.Context
+		context := models.Context{
+			ID:            dbContext.ID,
+			Name:          dbContext.Name,
+			Description:   dbContext.Description,
+			AgentID:       dbContext.AgentID,
+			ModelID:       dbContext.ModelID,
+			SessionID:     dbContext.SessionID,
+			CurrentTokens: dbContext.CurrentTokens,
+			MaxTokens:     dbContext.MaxTokens,
+			CreatedAt:     dbContext.CreatedAt,
+			UpdatedAt:     dbContext.UpdatedAt,
+			ExpiresAt:     dbContext.ExpiresAt,
+		}
+
+		// Unmarshal metadata if present
+		if len(dbContext.Metadata) > 0 && string(dbContext.Metadata) != "null" {
+			if err := json.Unmarshal(dbContext.Metadata, &context.Metadata); err != nil {
+				cm.logger.Warn("Failed to unmarshal metadata", map[string]any{
+					"error":      err.Error(),
+					"context_id": contextID,
+				})
+				// Continue without metadata - context is still valid
+			}
+		}
+
+		// Load context items
+		itemsQuery := `SELECT id, context_id, role, content, tokens, timestamp, metadata FROM mcp.context_items WHERE context_id = $1 ORDER BY timestamp`
+		rows, err := cm.db.QueryxContext(ctx, itemsQuery, contextID)
+		if err != nil {
+			cm.logger.Warn("Failed to load context items", map[string]any{
+				"error":      err.Error(),
+				"context_id": contextID,
+			})
+			// Continue without items - context can still be valid without items
+		} else {
+			defer rows.Close()
+			var items []models.ContextItem
+			for rows.Next() {
+				// Create a temporary struct to handle JSON metadata
+				var dbItem struct {
+					ID        string          `db:"id"`
+					ContextID string          `db:"context_id"`
+					Role      string          `db:"role"`
+					Content   string          `db:"content"`
+					Tokens    int             `db:"tokens"`
+					Timestamp time.Time       `db:"timestamp"`
+					Metadata  json.RawMessage `db:"metadata"`
+				}
+				
+				if err := rows.StructScan(&dbItem); err != nil {
+					cm.logger.Warn("Failed to scan context item", map[string]any{
+						"error": err.Error(),
+					})
+					continue
+				}
+				
+				// Convert to models.ContextItem
+				item := models.ContextItem{
+					ID:        dbItem.ID,
+					ContextID: dbItem.ContextID,
+					Role:      dbItem.Role,
+					Content:   dbItem.Content,
+					Tokens:    dbItem.Tokens,
+					Timestamp: dbItem.Timestamp,
+				}
+				
+				// Unmarshal metadata if present
+				if len(dbItem.Metadata) > 0 && string(dbItem.Metadata) != "null" {
+					if err := json.Unmarshal(dbItem.Metadata, &item.Metadata); err != nil {
+						cm.logger.Warn("Failed to unmarshal item metadata", map[string]any{
+							"error": err.Error(),
+							"item_id": dbItem.ID,
+						})
+						// Continue without metadata - item is still valid
+					}
+				}
+				
+				items = append(items, item)
+			}
+			context.Content = items
 		}
 
 		// Update cache with retrieved context
@@ -177,32 +306,144 @@ func (cm *ContextManager) UpdateContext(ctx context.Context, contextID string, u
 		cm.metrics.IncrementCounterWithLabels(MetricContextOperationsTotal, float64(1), map[string]string{"operation": "update", "status": "error"})
 		return nil, fmt.Errorf("cannot update non-existent context: %w", err)
 	}
+	
+	// Debug log the existing context
+	cm.logger.Info("UpdateContext - retrieved existing context", map[string]any{
+		"context_id": existingContext.ID,
+		"name": existingContext.Name,
+		"agent_id": existingContext.AgentID,
+		"model_id": existingContext.ModelID,
+		"existing_is_nil": existingContext == nil,
+	})
 
-	// Apply updates
-	updatedContext.ID = contextID                        // Ensure ID remains the same
-	updatedContext.CreatedAt = existingContext.CreatedAt // Preserve creation time
-	updatedContext.UpdatedAt = time.Now()
+	// Create a new context object based on existing context
+	// Only update the fields that were provided in the update request
+	result := &models.Context{
+		ID:          existingContext.ID,
+		Name:        existingContext.Name,
+		Description: existingContext.Description,
+		AgentID:     existingContext.AgentID,
+		ModelID:     existingContext.ModelID,
+		SessionID:   existingContext.SessionID,
+		Content:     updatedContext.Content, // Use the new content from update request
+		Metadata:    existingContext.Metadata,
+		CreatedAt:   existingContext.CreatedAt,
+		UpdatedAt:   time.Now(),
+		ExpiresAt:   existingContext.ExpiresAt,
+		MaxTokens:   existingContext.MaxTokens,
+		CurrentTokens: existingContext.CurrentTokens,
+	}
+	
+	cm.logger.Debug("UpdateContext - after applying updates", map[string]any{
+		"context_id": result.ID,
+		"name": result.Name,
+		"agent_id": result.AgentID,
+		"model_id": result.ModelID,
+	})
 
 	// Persist to database
 	if cm.db != nil {
-		// Create update query
-		q := `UPDATE contexts SET 
-		       agent_id = :agent_id, 
-		       session_id = :session_id, 
-		       type = :type, 
-		       metadata = :metadata, 
+		// Start transaction
+		tx, err := cm.db.BeginTxx(ctx, nil)
+		if err != nil {
+			cm.logger.Error("Failed to start transaction", map[string]any{
+				"error":      err.Error(),
+				"context_id": contextID,
+			})
+			cm.metrics.IncrementCounterWithLabels(MetricContextOperationsTotal, float64(1), map[string]string{"operation": "update", "status": "error"})
+			return nil, fmt.Errorf("failed to start transaction: %w", err)
+		}
+
+		// Update context metadata
+		q := `UPDATE mcp.contexts SET 
+		       name = :name,
+		       description = :description,
 		       updated_at = :updated_at 
 		     WHERE id = :id`
 
-		// Execute named query with parameters
-		_, err := cm.db.NamedExecContext(ctx, q, updatedContext)
+		_, err = tx.NamedExecContext(ctx, q, result)
 		if err != nil {
+			tx.Rollback()
 			cm.logger.Error("Failed to update context in database", map[string]any{
 				"error":      err.Error(),
 				"context_id": contextID,
 			})
 			cm.metrics.IncrementCounterWithLabels(MetricContextOperationsTotal, float64(1), map[string]string{"operation": "update", "status": "error"})
 			return nil, fmt.Errorf("failed to update context: %w", err)
+		}
+
+		// Delete existing context items
+		_, err = tx.ExecContext(ctx, "DELETE FROM mcp.context_items WHERE context_id = $1", contextID)
+		if err != nil {
+			tx.Rollback()
+			cm.logger.Error("Failed to delete old context items", map[string]any{
+				"error":      err.Error(),
+				"context_id": contextID,
+			})
+			return nil, fmt.Errorf("failed to delete old context items: %w", err)
+		}
+
+		// Insert new context items if any
+		if len(result.Content) > 0 {
+			itemsQuery := `INSERT INTO mcp.context_items (id, context_id, role, content, tokens, timestamp, metadata) 
+			              VALUES ($1, $2, $3, $4, $5, $6, $7)`
+			
+			for i, item := range result.Content {
+				// Ensure each item has an ID and context ID
+				if item.ID == "" {
+					item.ID = generateUniqueID()
+				}
+				item.ContextID = contextID
+				if item.Timestamp.IsZero() {
+					item.Timestamp = time.Now()
+				}
+				result.Content[i] = item
+
+				// Marshal item metadata to JSON
+				var itemMetadataJSON []byte
+				if item.Metadata != nil && len(item.Metadata) > 0 {
+					itemMetadataJSON, err = json.Marshal(item.Metadata)
+					if err != nil {
+						tx.Rollback()
+						cm.logger.Error("Failed to marshal item metadata", map[string]any{
+							"error":      err.Error(),
+							"context_id": contextID,
+							"item_index": i,
+						})
+						return nil, fmt.Errorf("failed to marshal item metadata: %w", err)
+					}
+				} else {
+					itemMetadataJSON = []byte("{}")
+				}
+
+				_, err = tx.ExecContext(ctx, itemsQuery, 
+					item.ID, 
+					item.ContextID, 
+					item.Role, 
+					item.Content, 
+					item.Tokens, 
+					item.Timestamp, 
+					itemMetadataJSON)
+				if err != nil {
+					tx.Rollback()
+					cm.logger.Error("Failed to insert context item", map[string]any{
+						"error":      err.Error(),
+						"context_id": contextID,
+						"item_index": i,
+					})
+					return nil, fmt.Errorf("failed to insert context item: %w", err)
+				}
+			}
+		}
+
+		// Commit transaction
+		if err = tx.Commit(); err != nil {
+			cm.logger.Error("Failed to commit transaction", map[string]any{
+				"error":      err.Error(),
+				"context_id": contextID,
+			})
+			cm.metrics.IncrementCounterWithLabels(MetricContextOperationsTotal, float64(1), map[string]string{"operation": "update", "status": "error"})
+			return nil, fmt.Errorf("failed to commit transaction: %w", err)
 		}
 	} else {
 		cm.logger.Warn("Database not available, updating context in memory only", map[string]any{
@@ -212,11 +453,19 @@ func (cm *ContextManager) UpdateContext(ctx context.Context, contextID string, u
 
 	// Update cache
 	cm.mutex.Lock()
-	cm.cache[contextID] = updatedContext
+	cm.cache[contextID] = result
 	cm.mutex.Unlock()
 
 	cm.metrics.IncrementCounterWithLabels(MetricContextOperationsTotal, float64(1), map[string]string{"operation": "update", "status": "success"})
-	return updatedContext, nil
+	
+	cm.logger.Debug("UpdateContext - returning context", map[string]any{
+		"context_id": result.ID,
+		"name": result.Name,
+		"agent_id": result.AgentID,
+		"model_id": result.ModelID,
+	})
+	
+	return result, nil
 }
 
 // DeleteContext removes a context
@@ -230,7 +479,7 @@ func (cm *ContextManager) DeleteContext(ctx context.Context, contextID string) e
 	// Remove from database first
 	if cm.db != nil {
 		// Create delete query
-		q := `DELETE FROM contexts WHERE id = $1`
+		q := `DELETE FROM mcp.contexts WHERE id = $1`
 
 		// Execute query with parameter
 		_, err := cm.db.ExecContext(ctx, q, contextID)

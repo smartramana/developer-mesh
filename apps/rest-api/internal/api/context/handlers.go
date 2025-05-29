@@ -8,7 +8,9 @@ import (
 	"github.com/S-Corkum/devops-mcp/pkg/models"
 	"github.com/S-Corkum/devops-mcp/pkg/observability"
 	"github.com/gin-gonic/gin"
+	"github.com/jmoiron/sqlx"
 	"rest-api/internal/core"
+	"rest-api/internal/repository"
 )
 
 // contextResponse wraps a context with HATEOAS links for API responses
@@ -22,6 +24,8 @@ type API struct {
 	contextManager core.ContextManagerInterface
 	logger         observability.Logger
 	metricsClient  observability.MetricsClient
+	db             *sqlx.DB
+	modelRepo      repository.ModelRepository
 }
 
 // NewAPI creates a new context API handler
@@ -29,6 +33,8 @@ func NewAPI(
 	contextManager core.ContextManagerInterface,
 	logger observability.Logger,
 	metricsClient observability.MetricsClient,
+	db *sqlx.DB,
+	modelRepo repository.ModelRepository,
 ) *API {
 	if logger == nil {
 		logger = observability.NewLogger("context_api")
@@ -38,6 +44,8 @@ func NewAPI(
 		contextManager: contextManager,
 		logger:         logger,
 		metricsClient:  metricsClient,
+		db:             db,
+		modelRepo:      modelRepo,
 	}
 }
 
@@ -106,6 +114,25 @@ func (api *API) CreateContext(c *gin.Context) {
 func (api *API) GetContext(c *gin.Context) {
 	contextID := c.Param("contextID")
 
+	// Extract tenant ID from the request context
+	userInfo, exists := c.Get("user")
+	if !exists {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
+		return
+	}
+	
+	userMap, ok := userInfo.(map[string]interface{})
+	if !ok {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "invalid user context"})
+		return
+	}
+	
+	requestTenantID, ok := userMap["tenant_id"].(string)
+	if !ok || requestTenantID == "" {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "missing tenant id"})
+		return
+	}
+
 	// Read query parameters for content options
 	includeContent := true
 	if includeContentParam := c.Query("include_content"); includeContentParam != "" {
@@ -124,6 +151,32 @@ func (api *API) GetContext(c *gin.Context) {
 			"context_id": contextID,
 		})
 		c.JSON(http.StatusNotFound, gin.H{"error": err.Error()})
+		return
+	}
+	
+	// Validate tenant access - check if the context belongs to the requesting tenant
+	// We need to fetch the model to check its tenant ID
+	// We'll try to get the model with the requesting tenant ID
+	model, err := api.modelRepo.GetModelByID(c.Request.Context(), requestTenantID, result.ModelID)
+	if err != nil {
+		api.logger.Error("Failed to fetch model for tenant validation", map[string]any{
+			"error":      err.Error(),
+			"model_id":   result.ModelID,
+			"context_id": contextID,
+		})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to validate tenant access"})
+		return
+	}
+	
+	// If model is nil, it means either the model doesn't exist or doesn't belong to this tenant
+	// GetModelByID already checks tenant ownership internally
+	if model == nil {
+		api.logger.Warn("Cross-tenant access attempt blocked", map[string]any{
+			"context_id":        contextID,
+			"request_tenant_id": requestTenantID,
+			"model_id":          result.ModelID,
+		})
+		c.JSON(http.StatusForbidden, gin.H{"error": "access denied"})
 		return
 	}
 
@@ -189,6 +242,16 @@ func (api *API) UpdateContext(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
+	
+	// Debug log the result
+	api.logger.Debug("UpdateContext handler - received result", map[string]any{
+		"context_id": result.ID,
+		"name": result.Name,
+		"agent_id": result.AgentID,
+		"model_id": result.ModelID,
+		"result_is_nil": result == nil,
+		"has_content": len(result.Content),
+	})
 
 	// Record metric
 	if api.metricsClient != nil {
