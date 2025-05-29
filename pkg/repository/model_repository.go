@@ -20,7 +20,8 @@ type ModelRepositoryImpl struct {
 func NewModelRepository(db *sql.DB) ModelRepository {
 	// Convert the *sql.DB to *sqlx.DB
 	dbx := sqlx.NewDb(db, "postgres")
-	return &ModelRepositoryImpl{db: dbx}
+	// Use the model.NewRepository which handles database detection
+	return model.NewRepository(dbx)
 }
 
 // API-specific methods required by model_api.go

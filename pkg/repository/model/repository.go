@@ -30,31 +30,29 @@ func NewRepository(db *sqlx.DB) Repository {
 	// Determine the appropriate table name with schema prefix if needed
 	tableName := "models"
 
-	// Check if we're using SQLite by trying a SQLite-specific pragma
+	// Try SQLite detection first (most common in tests)
 	var sqliteVersion string
-	err := db.QueryRow("PRAGMA database_list").Scan(&sqliteVersion)
-	if err == nil {
-		// SQLite detected, use no schema prefix and log for debugging
-		fmt.Println("SQLite detected in model repository, using table name: models")
+	err := db.QueryRow("SELECT sqlite_version()").Scan(&sqliteVersion)
+	if err == nil && sqliteVersion != "" {
+		// SQLite detected, use no schema prefix
 		tableName = "models"
 	} else {
-		// Try another SQLite detection method
-		err = db.QueryRow("SELECT sqlite_version()").Scan(&sqliteVersion)
-		if err == nil {
-			// SQLite detected via version
-			fmt.Println("SQLite detected in model repository via version, using table name: models")
-			tableName = "models"
+		// Try PostgreSQL detection
+		var pgVersion string
+		err = db.QueryRow("SELECT version()").Scan(&pgVersion)
+		if err == nil && len(pgVersion) > 10 && pgVersion[:10] == "PostgreSQL" {
+			// PostgreSQL detected, use schema prefix
+			tableName = "mcp.models"
 		} else {
-			// Not SQLite, try PostgreSQL detection
-			var pgVersion string
-			err = db.QueryRow("SELECT version()").Scan(&pgVersion)
-			if err == nil && len(pgVersion) > 10 && pgVersion[:10] == "PostgreSQL" {
-				// PostgreSQL detected, use schema prefix
-				fmt.Println("PostgreSQL detected in model repository, using table name: mcp.models")
+			// Check the driver name as fallback
+			driverName := db.DriverName()
+			switch driverName {
+			case "sqlite3":
+				tableName = "models"
+			case "postgres", "pgx":
 				tableName = "mcp.models"
-			} else {
-				// Unknown database type, default to models
-				fmt.Println("Unknown database type in model repository, defaulting to table name: models")
+			default:
+				// Default to no schema for unknown databases
 				tableName = "models"
 			}
 		}

@@ -33,12 +33,33 @@ func TestContextCRUD(t *testing.T) {
 	
 	tenantID := "test-tenant-" + uuid.New().String()
 	var contextID string
+	modelID := "test-model-" + uuid.New().String()
+	
+	// First create a model that the context will reference
+	t.Run("Create Model for Context", func(t *testing.T) {
+		payload := map[string]any{
+			"id":       modelID,
+			"name":     "Test Model",
+			"provider": "openai",
+		}
+		
+		body, _ := json.Marshal(payload)
+		req := httptest.NewRequest("POST", "/api/v1/models", bytes.NewReader(body))
+		req.Header.Set("Content-Type", "application/json")
+		req.Header.Set("Authorization", "Bearer test-token")
+		req.Header.Set("X-Tenant-ID", tenantID)
+		
+		w := httptest.NewRecorder()
+		router.ServeHTTP(w, req)
+		
+		require.Equal(t, http.StatusCreated, w.Code, "Failed to create model: %s", w.Body.String())
+	})
 	
 	// Create
 	t.Run("Create Context", func(t *testing.T) {
 		payload := map[string]any{
 			"agent_id":   "test-agent-" + uuid.New().String(),
-			"model_id":   "test-model",
+			"model_id":   modelID,
 			"max_tokens": 4000,
 			"metadata": map[string]any{
 				"test": true,
@@ -314,14 +335,21 @@ func TestModelCRUD(t *testing.T) {
 		w := httptest.NewRecorder()
 		router.ServeHTTP(w, req)
 		
+		if w.Code != http.StatusCreated {
+			t.Logf("Response body: %s", w.Body.String())
+		}
 		assert.Equal(t, http.StatusCreated, w.Code)
 		
 		var response map[string]any
 		err := json.Unmarshal(w.Body.Bytes(), &response)
 		require.NoError(t, err)
 		
-		modelID = response["id"].(string)
-		assert.NotEmpty(t, modelID)
+		if id, ok := response["id"]; ok {
+			modelID = id.(string)
+			assert.NotEmpty(t, modelID)
+		} else {
+			t.Fatalf("Response does not contain 'id' field: %+v", response)
+		}
 	})
 	
 	// List

@@ -30,31 +30,29 @@ func NewRepository(db *sqlx.DB) Repository {
 	// Determine the appropriate table name with schema prefix if needed
 	tableName := "agents"
 
-	// Check if we're using SQLite by trying a SQLite-specific pragma
+	// Try SQLite detection first (most common in tests)
 	var sqliteVersion string
-	err := db.QueryRow("PRAGMA database_list").Scan(&sqliteVersion)
-	if err == nil {
-		// SQLite detected, use no schema prefix and log for debugging
-		fmt.Println("SQLite detected in agent repository, using table name: agents")
+	err := db.QueryRow("SELECT sqlite_version()").Scan(&sqliteVersion)
+	if err == nil && sqliteVersion != "" {
+		// SQLite detected, use no schema prefix
 		tableName = "agents"
 	} else {
-		// Try another SQLite detection method
-		err = db.QueryRow("SELECT sqlite_version()").Scan(&sqliteVersion)
-		if err == nil {
-			// SQLite detected via version
-			fmt.Println("SQLite detected in agent repository via version, using table name: agents")
-			tableName = "agents"
+		// Try PostgreSQL detection
+		var pgVersion string
+		err = db.QueryRow("SELECT version()").Scan(&pgVersion)
+		if err == nil && len(pgVersion) > 10 && pgVersion[:10] == "PostgreSQL" {
+			// PostgreSQL detected, use schema prefix
+			tableName = "mcp.agents"
 		} else {
-			// Not SQLite, try PostgreSQL detection
-			var pgVersion string
-			err = db.QueryRow("SELECT version()").Scan(&pgVersion)
-			if err == nil && len(pgVersion) > 10 && pgVersion[:10] == "PostgreSQL" {
-				// PostgreSQL detected, use schema prefix
-				fmt.Println("PostgreSQL detected in agent repository, using table name: mcp.agents")
+			// Check the driver name as fallback
+			driverName := db.DriverName()
+			switch driverName {
+			case "sqlite3":
+				tableName = "agents"
+			case "postgres", "pgx":
 				tableName = "mcp.agents"
-			} else {
-				// Unknown database type, default to agents
-				fmt.Println("Unknown database type in agent repository, defaulting to table name: agents")
+			default:
+				// Default to no schema for unknown databases
 				tableName = "agents"
 			}
 		}

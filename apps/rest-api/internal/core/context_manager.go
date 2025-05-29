@@ -320,7 +320,7 @@ func (cm *ContextManager) UpdateContext(ctx context.Context, contextID string, u
 	// Only update the fields that were provided in the update request
 	result := &models.Context{
 		ID:          existingContext.ID,
-		Name:        existingContext.Name,
+		Name:        updatedContext.Name,    // Use updated name if provided
 		Description: existingContext.Description,
 		AgentID:     existingContext.AgentID,
 		ModelID:     existingContext.ModelID,
