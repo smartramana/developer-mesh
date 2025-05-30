@@ -436,3 +436,100 @@ func (s *Service) InitializeDefaultAPIKeys(keys map[string]string) {
 		})
 	}
 }
+
+// AddAPIKey adds an API key to the service at runtime (thread-safe)
+func (s *Service) AddAPIKey(key string, settings APIKeySettings) error {
+    // Validation
+    if key == "" {
+        return fmt.Errorf("API key cannot be empty")
+    }
+    if len(key) < 16 {
+        return fmt.Errorf("API key too short (minimum 16 characters)")
+    }
+    
+    s.mu.Lock()
+    defer s.mu.Unlock()
+    
+    // Create API key object
+    apiKey := &APIKey{
+        Key:       key,
+        TenantID:  settings.TenantID,
+        UserID:    "system",
+        Name:      fmt.Sprintf("%s API key", settings.Role),
+        Scopes:    settings.Scopes,
+        Active:    true,
+        CreatedAt: time.Now(),
+    }
+    
+    // Apply defaults
+    if apiKey.TenantID == "" {
+        apiKey.TenantID = "default"
+    }
+    if len(apiKey.Scopes) == 0 {
+        apiKey.Scopes = []string{"read"} // Minimum scope
+    }
+    
+    // Handle expiration
+    if settings.ExpiresIn != "" {
+        duration, err := time.ParseDuration(settings.ExpiresIn)
+        if err != nil {
+            return fmt.Errorf("invalid expiration duration %q: %w", settings.ExpiresIn, err)
+        }
+        if duration < 0 {
+            return fmt.Errorf("expiration duration cannot be negative")
+        }
+        expiresAt := time.Now().Add(duration)
+        apiKey.ExpiresAt = &expiresAt
+    }
+    
+    // Store in memory
+    s.apiKeys[key] = apiKey
+    
+    // Persist to database if available
+    if s.db != nil {
+        if err := s.persistAPIKey(context.Background(), apiKey); err != nil {
+            // Log but don't fail - memory storage sufficient for operation
+            s.logger.Warn("Failed to persist API key", map[string]interface{}{
+                "key_suffix": lastN(key, 4),
+                "error":      err.Error(),
+            })
+        }
+    }
+    
+    s.logger.Info("API key added", map[string]interface{}{
+        "key_suffix": lastN(key, 4),
+        "role":       settings.Role,
+        "scopes":     settings.Scopes,
+        "tenant_id":  apiKey.TenantID,
+    })
+    
+    return nil
+}
+
+// persistAPIKey saves to database with upsert semantics
+func (s *Service) persistAPIKey(ctx context.Context, apiKey *APIKey) error {
+    query := `
+        INSERT INTO api_keys (
+            key, tenant_id, user_id, name, scopes, 
+            expires_at, created_at, active
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+        ON CONFLICT (key) DO UPDATE SET
+            scopes = EXCLUDED.scopes,
+            expires_at = EXCLUDED.expires_at,
+            active = EXCLUDED.active,
+            updated_at = NOW()
+    `
+    
+    _, err := s.db.ExecContext(ctx, query,
+        apiKey.Key,
+        apiKey.TenantID,
+        apiKey.UserID,
+        apiKey.Name,
+        apiKey.Scopes,
+        apiKey.ExpiresAt,
+        apiKey.CreatedAt,
+        apiKey.Active,
+    )
+    
+    return err
+}

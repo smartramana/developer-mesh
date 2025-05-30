@@ -41,6 +41,7 @@ type Server struct {
 	cfg               *config.Config
 	restClientFactory *rest.Factory // REST API client factory for communication with REST API
 	authService       *auth.Service
+	authMiddleware    *auth.AuthMiddleware // Enhanced auth with rate limiting, metrics, and audit
 	cache             cache.Cache
 	// API proxies that delegate to REST API
 	vectorAPIProxy  repository.VectorAPIRepository // Proxy for vector operations
@@ -106,6 +107,16 @@ func NewServer(engine *core.Engine, cfg Config, db *sqlx.DB, cacheClient cache.C
 
 	// Create auth service with cache
 	authService := auth.NewService(authConfig, db, cacheClient, observability.DefaultLogger)
+	
+	// Setup enhanced authentication with rate limiting, metrics, and audit logging
+	authMiddleware, err := auth.SetupAuthentication(db, cacheClient, observability.DefaultLogger, metrics)
+	if err != nil {
+		observability.DefaultLogger.Error("Failed to setup enhanced authentication", map[string]interface{}{
+			"error": err.Error(),
+		})
+		// Fall back to basic auth service
+		authMiddleware = nil
+	}
 
 	// Initialize API keys from configuration
 	if cfg.Auth.APIKeys != nil {
@@ -131,15 +142,11 @@ func NewServer(engine *core.Engine, cfg Config, db *sqlx.DB, cacheClient cache.C
 
 		// Initialize default API keys in auth service
 		authService.InitializeDefaultAPIKeys(keyMap)
-
-		// Also keep the old initialization for backward compatibility
-		InitAPIKeys(keyMap)
 	} else {
 		fmt.Println("No API keys defined in config")
 	}
 
-	// Initialize JWT with secret from configuration (keep for backward compatibility)
-	InitJWT(cfg.Auth.JWTSecret)
+	// JWT is now handled by the auth service configuration
 
 	// Configure HTTP client transport for external service calls
 	httpTransport := &http.Transport{
@@ -204,6 +211,7 @@ func NewServer(engine *core.Engine, cfg Config, db *sqlx.DB, cacheClient cache.C
 		cfg:               config,
 		restClientFactory: restClientFactory,
 		authService:       authService,
+		authMiddleware:    authMiddleware,
 		// Store the proxies
 		vectorAPIProxy: vectorProxy,
 		agentAPIProxy:  agentProxy,
@@ -280,8 +288,16 @@ func (s *Server) setupRoutes() {
 	// API v1 routes
 	v1 := s.router.Group("/api/v1")
 
-	// Use centralized auth middleware
-	v1.Use(s.authService.GinMiddleware(auth.TypeAPIKey, auth.TypeJWT))
+	// Use enhanced auth middleware if available, otherwise fall back to basic auth
+	if s.authMiddleware != nil {
+		// Use enhanced auth with rate limiting, metrics, and audit logging
+		v1.Use(s.authMiddleware.GinMiddleware())
+		s.logger.Info("Using enhanced authentication with rate limiting and audit logging", nil)
+	} else {
+		// Fall back to basic centralized auth middleware
+		v1.Use(s.authService.GinMiddleware(auth.TypeAPIKey, auth.TypeJWT))
+		s.logger.Warn("Using basic authentication - enhanced features not available", nil)
+	}
 
 	// Add credential extraction middleware
 	v1.Use(auth.CredentialExtractionMiddleware(s.logger))

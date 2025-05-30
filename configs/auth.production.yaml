@@ -1,0 +1,3 @@
+auth:
+  # No hardcoded keys in production
+  production_key_source: env  # or "vault" or "aws-secrets"

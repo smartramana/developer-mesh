@@ -35,9 +35,10 @@ type Server struct {
 	db          *sqlx.DB
 	metrics     observability.MetricsClient
 	vectorDB    *database.VectorDatabase
-	vectorRepo  repository.VectorAPIRepository
-	cfg         *config.Config
-	authService *auth.Service
+	vectorRepo     repository.VectorAPIRepository
+	cfg            *config.Config
+	authService    *auth.Service
+	authMiddleware *auth.AuthMiddleware // Enhanced auth with rate limiting, metrics, and audit
 }
 
 // NewServer creates a new API server
@@ -93,6 +94,16 @@ func NewServer(engine *core.Engine, cfg Config, db *sqlx.DB, metrics observabili
 
 	// Create auth service without cache for now
 	authService := auth.NewService(authConfig, db, nil, logger)
+	
+	// Setup enhanced authentication with rate limiting, metrics, and audit logging
+	authMiddleware, err := auth.SetupAuthentication(db, nil, logger, metrics)
+	if err != nil {
+		logger.Error("Failed to setup enhanced authentication", map[string]interface{}{
+			"error": err.Error(),
+		})
+		// Fall back to basic auth service
+		authMiddleware = nil
+	}
 
 	// Initialize API keys from configuration
 	if cfg.Auth.APIKeys != nil {
@@ -118,15 +129,11 @@ func NewServer(engine *core.Engine, cfg Config, db *sqlx.DB, metrics observabili
 
 		// Initialize default API keys in auth service
 		authService.InitializeDefaultAPIKeys(keyMap)
-
-		// Also keep the old initialization for backward compatibility
-		InitAPIKeys(keyMap)
 	} else {
 		fmt.Println("No API keys defined in config")
 	}
 
-	// Initialize JWT with secret from configuration (keep for backward compatibility)
-	InitJWT(cfg.Auth.JWTSecret)
+	// JWT is now handled by the auth service configuration
 
 	// Configure HTTP client transport for external service calls
 	httpTransport := &http.Transport{
@@ -175,9 +182,10 @@ func NewServer(engine *core.Engine, cfg Config, db *sqlx.DB, metrics observabili
 		logger:      logger,
 		db:          db,
 		metrics:     metrics,
-		vectorDB:    vectorDB,
-		cfg:         config,
-		authService: authService,
+		vectorDB:       vectorDB,
+		cfg:            config,
+		authService:    authService,
+		authMiddleware: authMiddleware,
 		server: &http.Server{
 			Addr:         cfg.ListenAddress,
 			Handler:      router,
@@ -282,8 +290,16 @@ func (s *Server) setupRoutes(ctx context.Context) {
 	// API v1 routes - require authentication
 	v1 := s.router.Group("/api/v1")
 
-	// Use centralized auth middleware
-	v1.Use(s.authService.GinMiddleware(auth.TypeAPIKey, auth.TypeJWT))
+	// Use enhanced auth middleware if available, otherwise fall back to basic auth
+	if s.authMiddleware != nil {
+		// Use enhanced auth with rate limiting, metrics, and audit logging
+		v1.Use(s.authMiddleware.GinMiddleware())
+		s.logger.Info("Using enhanced authentication with rate limiting and audit logging", nil)
+	} else {
+		// Fall back to basic centralized auth middleware
+		v1.Use(s.authService.GinMiddleware(auth.TypeAPIKey, auth.TypeJWT))
+		s.logger.Warn("Using basic authentication - enhanced features not available", nil)
+	}
 
 	// Keep the old middleware for backward compatibility during transition
 	// This will be removed once all tests are updated

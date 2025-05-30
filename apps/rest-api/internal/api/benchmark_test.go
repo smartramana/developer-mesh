@@ -123,6 +123,10 @@ func setupBenchmarkServer(_ *testing.B) *Server {
 	cfg.EnableSwagger = false
 	cfg.EnableCORS = false
 	cfg.RateLimit.Enabled = false
+	cfg.Auth.JWTSecret = "test-secret"
+	cfg.Auth.APIKeys = map[string]any{
+		"test-key": "admin",
+	}
 
 	// Create config for vector DB (disabled)
 	appConfig := &config.Config{
@@ -166,10 +170,7 @@ func BenchmarkContextGet(b *testing.B) {
 	server := setupBenchmarkServer(b)
 	gin.SetMode(gin.ReleaseMode)
 
-	// Set up authentication
-	InitAPIKeys(map[string]string{
-		"test-key": "admin",
-	})
+	// Authentication is now handled by the centralized auth service in setupBenchmarkServer
 
 	b.ResetTimer()
 	b.RunParallel(func(pb *testing.PB) {
@@ -191,10 +192,7 @@ func BenchmarkContextList(b *testing.B) {
 	server := setupBenchmarkServer(b)
 	gin.SetMode(gin.ReleaseMode)
 
-	// Set up authentication
-	InitAPIKeys(map[string]string{
-		"test-key": "admin",
-	})
+	// Authentication is now handled by the centralized auth service in setupBenchmarkServer
 
 	b.ResetTimer()
 	b.RunParallel(func(pb *testing.PB) {
@@ -235,10 +233,7 @@ func BenchmarkAPIRoot(b *testing.B) {
 	server := setupBenchmarkServer(b)
 	gin.SetMode(gin.ReleaseMode)
 
-	// Set up authentication
-	InitAPIKeys(map[string]string{
-		"test-key": "admin",
-	})
+	// Authentication is now handled by the centralized auth service in setupBenchmarkServer
 
 	b.ResetTimer()
 	b.RunParallel(func(pb *testing.PB) {
@@ -260,10 +255,7 @@ func BenchmarkConcurrentRequests(b *testing.B) {
 	server := setupBenchmarkServer(b)
 	gin.SetMode(gin.ReleaseMode)
 
-	// Set up authentication
-	InitAPIKeys(map[string]string{
-		"test-key": "admin",
-	})
+	// Authentication is now handled by the centralized auth service in setupBenchmarkServer
 
 	endpoints := []string{
 		"/health",
@@ -302,10 +294,7 @@ func BenchmarkMemoryAllocation(b *testing.B) {
 	server := setupBenchmarkServer(b)
 	gin.SetMode(gin.ReleaseMode)
 
-	// Set up authentication
-	InitAPIKeys(map[string]string{
-		"test-key": "admin",
-	})
+	// Authentication is now handled by the centralized auth service in setupBenchmarkServer
 
 	b.Run("HealthCheck", func(b *testing.B) {
 		b.ReportAllocs()
