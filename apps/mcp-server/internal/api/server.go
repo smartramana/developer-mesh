@@ -283,6 +283,9 @@ func (s *Server) setupRoutes() {
 	// Use centralized auth middleware
 	v1.Use(s.authService.GinMiddleware(auth.TypeAPIKey, auth.TypeJWT))
 
+	// Add credential extraction middleware
+	v1.Use(auth.CredentialExtractionMiddleware(s.logger))
+
 	// Add a simple v1 API info endpoint
 	v1.GET("/", func(c *gin.Context) {
 		c.JSON(http.StatusOK, gin.H{

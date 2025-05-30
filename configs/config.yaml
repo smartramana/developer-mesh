@@ -185,3 +185,23 @@ storage:
       enable_preprocessing: true
       enable_caching: true
       default_similarity_threshold: 0.75
+
+# Pass-through authentication configuration
+auth:
+  passthrough:
+    enabled: true
+    fallback_to_service_account: true
+    credential_storage:
+      enabled: false  # Set to true for server-side storage
+      encryption_key: "${CREDENTIAL_ENCRYPTION_KEY}"
+    
+    # Service account configuration
+    service_accounts:
+      github:
+        enabled: true
+        token: "${GITHUB_SERVICE_TOKEN}"
+      jira:
+        enabled: false
+      sonarqube:
+        enabled: true
+        token: "${SONARQUBE_SERVICE_TOKEN}"
