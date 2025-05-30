@@ -1,0 +1,133 @@
+# Docker Environment Configuration
+# This configuration is used when running services in Docker Compose
+# It inherits from config.base.yaml and provides Docker-specific overrides
+
+_base: config.base.yaml
+
+# Environment
+environment: "docker"
+
+# API Server Configuration for Docker
+api:
+  listen_address: ":8080"  # Listen on all interfaces in container
+  enable_swagger: true
+  enable_pprof: true
+  
+  # CORS - Allow host machine access
+  cors:
+    allowed_origins: 
+      - "http://localhost:3000"
+      - "http://localhost:8080"
+      - "http://localhost:8081"
+      - "*"  # For development only
+    
+  # Authentication - Relaxed for local development
+  auth:
+    require_auth: false  # Can be overridden by env var
+
+# Authentication Configuration for Docker
+auth:
+  jwt:
+    secret: "${JWT_SECRET}"  # From .env.docker
+    expiration: 24h
+    
+  api_keys:
+    static_keys:
+      "${ADMIN_API_KEY}":
+        role: "admin"
+        scopes: ["read", "write", "admin"]
+        tenant_id: "docker-tenant"
+      "${READER_API_KEY}":
+        role: "reader"  
+        scopes: ["read"]
+        tenant_id: "docker-tenant"
+        
+  # Minimal rate limiting for development
+  rate_limiting:
+    default:
+      max_attempts: 1000
+      window: 1m
+
+# Database Configuration - Using Docker service names
+database:
+  host: "${DATABASE_HOST}"     # 'database' from docker-compose
+  port: ${DATABASE_PORT}       # 5432
+  username: "${DATABASE_USER}" # 'dev'
+  password: "${DATABASE_PASSWORD}" # 'dev'
+  database: "${DATABASE_NAME}" # 'dev'
+  ssl_mode: "disable"
+  
+  # Auto-migrate for development
+  migrations:
+    auto_migrate: true
+    migrations_path: "/app/migrations"
+
+# Cache Configuration - Using Docker service names
+cache:
+  distributed:
+    address: "${REDIS_HOST}:${REDIS_PORT}"  # 'redis:6379'
+    password: ""
+    db: 0
+    
+  # Disable local cache in Docker
+  local:
+    enabled: false
+
+# Storage Configuration for Docker
+storage:
+  context:
+    provider: "s3"  # Use LocalStack in Docker
+    
+  s3:
+    endpoint: "${S3_ENDPOINT}"  # http://localstack:4566
+    region: "${AWS_REGION}"     # us-west-2
+    bucket: "${S3_BUCKET}"      # mcp-contexts
+    force_path_style: true      # Required for LocalStack
+    disable_ssl: true           # LocalStack doesn't use SSL
+
+# Monitoring Configuration
+monitoring:
+  logging:
+    level: "debug"
+    format: "text"  # Human-readable for development
+    output: "stdout"
+    color: true
+    
+  metrics:
+    enabled: true
+    
+  health:
+    liveness_path: "/health"
+    readiness_path: "/health"
+
+# Adapter Configuration for Docker
+adapters:
+  github:
+    token: "${GITHUB_TOKEN}"
+    webhook_secret: "${GITHUB_WEBHOOK_SECRET}"
+    
+    # Use mock server if enabled
+    mock:
+      enabled: ${MOCK_RESPONSES_ENABLED:-true}
+      url: "${MOCKSERVER_URL}"  # http://mockserver:8081
+      
+  # LocalStack AWS services
+  aws:
+    endpoint: "${AWS_ENDPOINT_URL}"  # http://localstack:4566
+    region: "${AWS_REGION}"
+    access_key_id: "${AWS_ACCESS_KEY_ID}"
+    secret_access_key: "${AWS_SECRET_ACCESS_KEY}"
+
+# Worker Configuration for Docker
+worker:
+  queue_type: "${WORKER_QUEUE_TYPE}"  # 'memory' or 'sqs'
+  concurrency: ${WORKER_CONCURRENCY:-5}
+  
+  sqs:
+    queue_url: "${SQS_QUEUE_URL}"  # LocalStack SQS URL
+    
+# Feature Flags for Docker
+features:
+  experimental_tools: true
+  debug_mode: true
+  mock_external_services: ${MOCK_RESPONSES_ENABLED:-true}

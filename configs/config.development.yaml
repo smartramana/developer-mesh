@@ -1,0 +1,161 @@
+# Development Configuration
+# Inherits from config.base.yaml and overrides for local development
+
+# Import base configuration
+_base: config.base.yaml
+
+# Environment
+environment: "development"
+
+# API Server - Development overrides
+api:
+  listen_address: ":8080"
+  enable_swagger: true
+  enable_pprof: true  # Enable profiling in dev
+  
+  # CORS - Allow all origins in development
+  cors:
+    allowed_origins: ["*"]
+    
+  # Disable auth for easier testing (can be toggled)
+  auth:
+    require_auth: ${REQUIRE_AUTH:-false}
+
+# Authentication - Development settings
+auth:
+  # JWT - Short expiration for testing
+  jwt:
+    secret: "dev-jwt-secret-minimum-32-characters"
+    expiration: 1h
+    refresh_expiration: 24h
+    
+  # Development API keys
+  api_keys:
+    static_keys:
+      "dev-admin-key-1234567890": 
+        role: "admin"
+        scopes: ["read", "write", "admin"]
+        tenant_id: "dev-tenant"
+      "dev-readonly-key-1234567890":
+        role: "reader"
+        scopes: ["read"]
+        tenant_id: "dev-tenant"
+        
+  # Relaxed security in dev
+  security:
+    max_failed_attempts: 10
+    lockout_duration: 1m
+    
+  # Minimal rate limiting in dev
+  rate_limiting:
+    default:
+      max_attempts: 1000
+      window: 1m
+      
+  # Verbose audit logging
+  audit:
+    log_level: "debug"
+    log_to_console: true
+
+# Database - Local PostgreSQL
+database:
+  host: "${DB_HOST:-localhost}"
+  port: ${DB_PORT:-5432}
+  username: "${DB_USER:-postgres}"
+  password: "${DB_PASSWORD:-postgres}"
+  database: "${DB_NAME:-devops_mcp_dev}"
+  ssl_mode: "disable"
+  
+  # Migrations
+  migrations:
+    auto_migrate: true
+    migrations_path: "./migrations"
+
+# Cache - Local Redis
+cache:
+  distributed:
+    address: "${REDIS_HOST:-localhost}:${REDIS_PORT:-6379}"
+    password: "${REDIS_PASSWORD:-}"
+    db: 0
+    
+  # Disable multi-level cache in dev for simplicity
+  local:
+    enabled: false
+
+# Monitoring - Development settings
+monitoring:
+  logging:
+    level: "debug"
+    format: "text"  # Human-readable in dev
+    output: "stdout"
+    color: true
+    
+  metrics:
+    enabled: true
+    
+  tracing:
+    enabled: false  # Usually disabled in dev
+
+# Storage - Local/Mock storage
+storage:
+  context:
+    provider: "filesystem"
+    filesystem:
+      base_path: "./data/contexts"
+      
+  # Use mock S3 (LocalStack) if needed
+  s3:
+    endpoint: "${S3_ENDPOINT:-http://localhost:4566}"
+    region: "us-east-1"
+    bucket: "dev-contexts"
+    force_path_style: true
+    disable_ssl: true
+
+# Adapters - Development settings
+adapters:
+  github:
+    token: "${GITHUB_TOKEN:-mock-token}"
+    base_url: "${GITHUB_API_URL:-https://api.github.com}"
+    webhook_secret: "dev-webhook-secret"
+    
+    # Use mock server in dev
+    mock:
+      enabled: ${USE_MOCK_GITHUB:-true}
+      url: "http://localhost:8081/mock-github"
+      
+  # Other adapters with dev settings
+  sonarqube:
+    base_url: "${SONARQUBE_URL:-http://localhost:9000}"
+    token: "${SONARQUBE_TOKEN:-mock-token}"
+
+# Development-specific features
+dev:
+  # Hot reload
+  hot_reload:
+    enabled: true
+    watch_paths:
+      - "./configs"
+      - "./internal"
+      
+  # Seed data
+  seed_data:
+    enabled: true
+    file: "./test/fixtures/seed_data.yaml"
+    
+  # Debug endpoints
+  debug_endpoints:
+    enabled: true
+    path_prefix: "/__debug"
+    
+  # Request/Response logging
+  http_logging:
+    enabled: true
+    log_headers: true
+    log_body: true
+    max_body_log_size: 1024
+
+# Feature flags - Enable experimental features in dev
+features:
+  experimental_tools: true
+  debug_mode: true
+  mock_external_services: true

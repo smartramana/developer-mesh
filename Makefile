@@ -27,6 +27,40 @@ SWAG_VERSION=v1.16.2
 
 all: clean sync test build
 
+# Development setup
+.PHONY: dev-setup
+dev-setup: ## Set up local development environment
+	@echo "Setting up development environment..."
+	@if [ ! -f .env ]; then \
+		echo "Creating .env file from example..."; \
+		cp .env.example .env; \
+		echo "✅ Created .env file - please update with your values"; \
+	else \
+		echo "✅ .env file already exists"; \
+	fi
+	@if [ ! -f .env.docker ]; then \
+		echo "✅ .env.docker already configured for Docker Compose"; \
+	fi
+	@echo ""
+	@echo "📋 Next steps:"
+	@echo "1. Edit .env with your GitHub token and other settings"
+	@echo "2. Run 'make local-dev' to start services with Docker Compose"
+	@echo "3. Or run 'make build' and start services locally"
+
+# Local development with Docker
+.PHONY: local-dev
+local-dev: dev-setup docker-compose-up ## Start local development environment with Docker
+
+# Local development without Docker
+.PHONY: local-native
+local-native: dev-setup ## Run services locally without Docker
+	@echo "Starting PostgreSQL and Redis are required. Please ensure they are running."
+	@echo "Run: brew services start postgresql redis"
+	@echo "Then run each service:"
+	@echo "  ./mcp-server"
+	@echo "  ./rest-api"
+	@echo "  ./worker"
+
 # Sync Go workspace
 sync:
 	$(GOWORK) sync

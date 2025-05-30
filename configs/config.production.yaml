@@ -1,0 +1,265 @@
+# Production Configuration
+# Inherits from config.base.yaml with production-specific overrides
+
+# Import base configuration
+_base: config.base.yaml
+
+# Environment
+environment: "production"
+
+# API Server - Production settings
+api:
+  listen_address: ":${PORT:-8080}"
+  enable_swagger: false  # Disable in production
+  enable_pprof: false    # Disable profiling
+  
+  # TLS Configuration
+  tls:
+    enabled: ${TLS_ENABLED:-true}
+    cert_file: "${TLS_CERT_FILE}"
+    key_file: "${TLS_KEY_FILE}"
+    min_version: "1.2"
+    
+  # CORS - Restricted origins
+  cors:
+    allowed_origins: ${CORS_ALLOWED_ORIGINS}  # Comma-separated list
+    
+  # Strict auth required
+  auth:
+    require_auth: true
+
+# Authentication - Production settings
+auth:
+  # JWT - Production secrets from environment
+  jwt:
+    secret: "${JWT_SECRET}"  # Must be set in environment
+    expiration: 24h
+    refresh_expiration: 7d
+    
+  # API Keys - Database only, no static keys
+  api_keys:
+    static_keys: {}  # No hardcoded keys in production
+    source: "database"
+    
+  # Enhanced security
+  security:
+    max_failed_attempts: 5
+    lockout_duration: 15m
+    password_min_length: 16
+    require_mfa: ${REQUIRE_MFA:-false}
+    ip_whitelist: ${IP_WHITELIST:-}  # Comma-separated
+    
+  # Production rate limiting
+  rate_limiting:
+    default:
+      max_attempts: 100
+      window: 1m
+      lockout_period: 15m
+    per_tenant:
+      # Override per tenant in database
+      premium:
+        max_attempts: 1000
+        window: 1m
+      standard:
+        max_attempts: 100
+        window: 1m
+      trial:
+        max_attempts: 10
+        window: 1m
+        
+  # Audit settings
+  audit:
+    storage: "database"
+    encryption: true
+    retention_days: 365  # 1 year for compliance
+
+# Database - Production RDS
+database:
+  # AWS RDS Configuration
+  host: "${RDS_HOST}"
+  port: ${RDS_PORT:-5432}
+  username: "${RDS_USERNAME}"
+  password: "${RDS_PASSWORD}"
+  database: "${RDS_DATABASE}"
+  ssl_mode: "require"
+  
+  # IAM Authentication
+  use_iam_auth: ${USE_IAM_AUTH:-true}
+  aws_region: "${AWS_REGION}"
+  
+  # Connection pooling for high load
+  max_open_conns: ${DB_MAX_OPEN_CONNS:-100}
+  max_idle_conns: ${DB_MAX_IDLE_CONNS:-25}
+  conn_max_lifetime: 30m
+  
+  # Read replicas
+  read_replicas:
+    enabled: ${USE_READ_REPLICAS:-true}
+    hosts: ${READ_REPLICA_HOSTS}  # Comma-separated
+
+# Cache - Production Redis Cluster
+cache:
+  distributed:
+    type: "redis-cluster"
+    
+    # AWS ElastiCache
+    cluster_endpoints: ${ELASTICACHE_ENDPOINTS}  # Comma-separated
+    password: "${ELASTICACHE_AUTH_TOKEN}"
+    
+    # TLS enabled
+    tls:
+      enabled: true
+      ca_cert: "${REDIS_CA_CERT}"
+      
+    # Production pool settings
+    pool_size: ${REDIS_POOL_SIZE:-100}
+    min_idle_conns: ${REDIS_MIN_IDLE:-20}
+    
+  # Enable local cache for performance
+  local:
+    enabled: true
+    size: 50000
+    ttl: 60s
+
+# Monitoring - Production observability
+monitoring:
+  # Structured logging
+  logging:
+    level: "${LOG_LEVEL:-info}"
+    format: "json"
+    output: "stdout"  # Let container runtime handle
+    sampling:
+      enabled: true
+      initial: 100
+      thereafter: 100
+      
+  # Prometheus metrics
+  metrics:
+    enabled: true
+    auth_required: true
+    auth_token: "${METRICS_AUTH_TOKEN}"
+    
+  # Distributed tracing
+  tracing:
+    enabled: ${TRACING_ENABLED:-true}
+    provider: "${TRACING_PROVIDER:-jaeger}"
+    endpoint: "${TRACING_ENDPOINT}"
+    sample_rate: ${TRACING_SAMPLE_RATE:-0.1}
+    
+  # Advanced health checks
+  health:
+    detailed_errors: false  # Don't expose internal details
+
+# Storage - Production S3
+storage:
+  context:
+    provider: "s3"
+    
+  s3:
+    region: "${AWS_REGION}"
+    bucket: "${S3_BUCKET}"
+    kms_key_id: "${S3_KMS_KEY_ID}"  # Server-side encryption
+    
+    # S3 performance settings
+    upload_concurrency: 10
+    download_concurrency: 10
+    part_size: 10485760  # 10MB
+    
+    # Lifecycle policies
+    lifecycle:
+      enabled: true
+      archive_after_days: 90
+      delete_after_days: 365
+
+# Engine - Production limits
+engine:
+  event_buffer_size: 100000
+  worker_pool_size: ${WORKER_POOL_SIZE:-20}
+  max_concurrent_operations: ${MAX_CONCURRENT_OPS:-50}
+  
+  # Stricter timeouts
+  operation_timeout: 2m
+  
+  # Circuit breaker for resilience
+  circuit_breaker:
+    enabled: true
+    failure_threshold: 10
+    success_threshold: 5
+    timeout: 60s
+
+# Adapters - Production endpoints
+adapters:
+  github:
+    token: "${GITHUB_TOKEN}"  # From secrets manager
+    webhook_secret: "${GITHUB_WEBHOOK_SECRET}"
+    
+    # Production GitHub Enterprise
+    base_url: "${GITHUB_API_URL:-https://api.github.com}"
+    
+    # No mocking in production
+    mock:
+      enabled: false
+      
+  sonarqube:
+    base_url: "${SONARQUBE_URL}"
+    token: "${SONARQUBE_TOKEN}"
+    
+  # Additional production adapters...
+
+# Security - Production hardening
+security:
+  # Request signing
+  request_signing:
+    enabled: ${REQUEST_SIGNING_ENABLED:-true}
+    algorithm: "HMAC-SHA256"
+    
+  # Secrets management
+  secrets:
+    provider: "${SECRETS_PROVIDER:-aws-secrets-manager}"
+    aws_region: "${AWS_REGION}"
+    key_prefix: "${SECRETS_PREFIX:-devops-mcp/}"
+    
+  # Network policies
+  network:
+    enable_private_endpoints: true
+    vpc_endpoint_ids: ${VPC_ENDPOINT_IDS}
+
+# High Availability
+ha:
+  enabled: ${HA_ENABLED:-true}
+  
+  # Leader election for distributed systems
+  leader_election:
+    enabled: true
+    backend: "redis"
+    ttl: 15s
+    
+  # Graceful degradation
+  degradation:
+    enabled: true
+    thresholds:
+      database_latency_ms: 1000
+      cache_error_rate: 0.1
+
+# Compliance
+compliance:
+  # Data residency
+  data_residency:
+    enabled: ${DATA_RESIDENCY_ENABLED:-true}
+    regions: ${ALLOWED_REGIONS}
+    
+  # Audit requirements
+  audit:
+    pii_masking: true
+    log_retention_days: 2555  # 7 years
+    
+  # Encryption at rest
+  encryption:
+    enabled: true
+    algorithm: "AES-256-GCM"
+
+# Feature flags - Conservative in production
+features:
+  experimental_tools: false
+  debug_mode: false
+  mock_external_services: false
