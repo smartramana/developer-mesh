@@ -19,7 +19,7 @@ type APIConfig struct {
 	TLSCertFile    string         `mapstructure:"tls_cert_file"`
 	TLSKeyFile     string         `mapstructure:"tls_key_file"`
 	CORSAllowed    string         `mapstructure:"cors_allowed"`
-	RateLimit      int            `mapstructure:"rate_limit"`
+	RateLimit      map[string]any `mapstructure:"rate_limit"`
 	RequestTimeout int            `mapstructure:"request_timeout"`
 	ReadTimeout    time.Duration  `mapstructure:"read_timeout"`
 	WriteTimeout   time.Duration  `mapstructure:"write_timeout"`

@@ -32,6 +32,12 @@ func main() {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
+	// Handle health check flag
+	if len(os.Args) > 1 && os.Args[1] == "-health-check" {
+		// Simple health check for Docker HEALTHCHECK
+		os.Exit(0)
+	}
+
 	var err error
 
 	// Initialize configuration
@@ -50,6 +56,19 @@ func main() {
 
 	// Initialize logging
 	logger := observability.NewLogger("server")
+
+	// Initialize connection helper
+	connHelper := api.NewConnectionHelper(logger)
+
+	// Wait for dependencies if in container environment
+	if os.Getenv("ENVIRONMENT") == "docker" {
+		deps := []string{"database", "redis"}
+		if err := connHelper.WaitForDependencies(ctx, deps); err != nil {
+			logger.Warn("Failed to wait for dependencies", map[string]any{
+				"error": err.Error(),
+			})
+		}
+	}
 
 	// Initialize metrics
 	metricsClient := metrics.NewClient(cfg.Metrics)
@@ -94,19 +113,11 @@ func main() {
 		dbConfig.RDSTokenExpiration = cfg.Database.TokenExpiration
 	}
 
-	// Initialize database
-	db, err = database.NewDatabase(ctx, dbConfig)
+	// Initialize database with retry logic
+	db, err = connHelper.ConnectToDatabase(ctx, dbConfig)
 	if err != nil {
 		log.Fatalf("Failed to initialize database: %v", err)
 	}
-	if db == nil || db.GetDB() == nil {
-		log.Fatalf("Database pointer or underlying *sqlx.DB is nil after initialization!")
-	}
-	// Ping the DB to verify connection is alive
-	if err := db.GetDB().Ping(); err != nil {
-		log.Fatalf("Database connection is not alive (ping failed): %v", err)
-	}
-	log.Printf("Database initialized successfully: db=%p, sqlx.DB=%p", db, db.GetDB())
 	defer db.Close()
 
 	// Prepare cache config with AWS integration if needed
@@ -114,12 +125,18 @@ func main() {
 	// Initialize cache using the cache config from the configuration
 	cacheConfig := cfg.Cache
 
-	// Initialize cache
-	cacheClient, err = cache.NewCache(ctx, cacheConfig)
+	// Initialize cache with retry logic and graceful degradation
+	cacheClient, err = connHelper.ConnectToCache(ctx, cacheConfig)
 	if err != nil {
-		log.Fatalf("Failed to initialize cache: %v", err)
+		logger.Warn("Cache initialization failed, running without cache", map[string]any{
+			"error": err.Error(),
+		})
+		// Create a no-op cache for graceful degradation
+		cacheClient = cache.NewNoOpCache()
 	}
-	defer cacheClient.Close()
+	if cacheClient != nil {
+		defer cacheClient.Close()
+	}
 
 	// Initialize core engine with logger
 	engine := core.NewEngine(logger)
@@ -151,12 +168,7 @@ func main() {
 			JWTSecret: getStringFromConfig(cfg.API.Auth, "jwt_secret"),
 			APIKeys:   cfg.API.Auth["api_keys"],
 		},
-		RateLimit: api.RateLimitConfig{
-			Enabled:     false,       // Default disabled
-			Limit:       100,         // Default limit
-			Period:      time.Minute, // Default value
-			BurstFactor: 3,           // Default value
-		},
+		RateLimit: parseRateLimitConfig(cfg.API.RateLimit),
 		// Use default webhook configuration
 		Webhook: interfaces.WebhookConfig{
 			EnabledField:             false,
@@ -271,4 +283,35 @@ func getStringFromConfig(m map[string]any, key string) string {
 		}
 	}
 	return ""
+}
+
+// parseRateLimitConfig parses rate limit configuration from a map
+func parseRateLimitConfig(m map[string]any) api.RateLimitConfig {
+	config := api.RateLimitConfig{
+		Enabled:     false,
+		Limit:       100,
+		Period:      time.Minute,
+		BurstFactor: 3,
+	}
+
+	if m == nil {
+		return config
+	}
+
+	if enabled, ok := m["enabled"].(bool); ok {
+		config.Enabled = enabled
+	}
+	if limit, ok := m["limit"].(int); ok {
+		config.Limit = limit
+	}
+	if period, ok := m["period"].(string); ok {
+		if d, err := time.ParseDuration(period); err == nil {
+			config.Period = d
+		}
+	}
+	if burstFactor, ok := m["burst_factor"].(int); ok {
+		config.BurstFactor = burstFactor
+	}
+
+	return config
 }

@@ -10,8 +10,7 @@ services:
     environment:
       # Core settings
       - ENVIRONMENT=docker
-      - CONFIG_PATH=/app/configs
-      - CONFIG_FILE=config.docker.yaml
+      - MCP_CONFIG_FILE=/app/configs/config.docker.yaml
       - API_HOST=0.0.0.0
       - API_PORT=8080
       # Authentication
@@ -74,7 +73,7 @@ services:
       - FEATURE_GITHUB_INTEGRATION_ENABLED=true
     volumes:
       - ./configs:/app/configs:ro
-      - ./apps/mcp-server/configs:/app/configs/app:ro
+      - ./apps/mcp-server/configs:/app/server-configs:ro
       - ./migrations/sql:/app/migrations:ro
     depends_on:
       database:
@@ -100,8 +99,7 @@ services:
     environment:
       # Core settings
       - ENVIRONMENT=docker
-      - CONFIG_PATH=/app/configs
-      - CONFIG_FILE=config.docker.yaml
+      - MCP_CONFIG_FILE=/app/configs/config.docker.yaml
       - USE_MOCK_CONTEXT_MANAGER=false
       - API_HOST=0.0.0.0
       - API_PORT=8080
@@ -160,7 +158,7 @@ services:
       - FEATURE_GITHUB_INTEGRATION_ENABLED=true
     volumes:
       - ./configs:/app/configs:ro
-      - ./apps/rest-api/configs:/app/configs/app:ro
+      - ./apps/rest-api/configs:/app/api-configs:ro
       - ./migrations/sql:/app/migrations:ro
     depends_on:
       database:

@@ -39,6 +39,7 @@ type Server struct {
 	cfg            *config.Config
 	authService    *auth.Service
 	authMiddleware *auth.AuthMiddleware // Enhanced auth with rate limiting, metrics, and audit
+	healthChecker  *HealthChecker
 }
 
 // NewServer creates a new API server
@@ -175,6 +176,9 @@ func NewServer(engine *core.Engine, cfg Config, db *sqlx.DB, metrics observabili
 		}
 	}
 
+	// Initialize health checker
+	healthChecker := NewHealthChecker(db)
+	
 	server := &Server{
 		router:      router,
 		engine:      engine,
@@ -186,6 +190,7 @@ func NewServer(engine *core.Engine, cfg Config, db *sqlx.DB, metrics observabili
 		cfg:            config,
 		authService:    authService,
 		authMiddleware: authMiddleware,
+		healthChecker:  healthChecker,
 		server: &http.Server{
 			Addr:         cfg.ListenAddress,
 			Handler:      router,
@@ -271,13 +276,20 @@ func (s *Server) Initialize(ctx context.Context) error {
 	// Initialize routes
 	s.setupRoutes(ctx)
 
+	// Mark server as ready
+	s.healthChecker.SetReady(true)
+	s.logger.Info("Server initialization complete and ready to serve requests", nil)
+
 	return nil
 }
 
 // setupRoutes initializes all API routes
 func (s *Server) setupRoutes(ctx context.Context) {
 	// Public endpoints
-	s.router.GET("/health", s.healthHandler)
+	// Health check endpoints
+	s.router.GET("/health", s.healthChecker.HealthHandler)
+	s.router.GET("/healthz", s.healthChecker.LivenessHandler)  // Kubernetes liveness probe
+	s.router.GET("/readyz", s.healthChecker.ReadinessHandler)  // Kubernetes readiness probe
 
 	// Swagger API documentation
 	if s.config.EnableSwagger {

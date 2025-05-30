@@ -12,6 +12,11 @@ api:
   listen_address: ":8080"  # Listen on all interfaces in container
   enable_swagger: true
   enable_pprof: true
+  rate_limit:
+    enabled: true
+    limit: 100
+    period: 1m
+    burst_factor: 2
   
   # CORS - Allow host machine access
   cors:
@@ -65,7 +70,7 @@ database:
 # Cache Configuration - Using Docker service names
 cache:
   distributed:
-    address: "${REDIS_HOST}:${REDIS_PORT}"  # 'redis:6379'
+    address: "redis:6379"  # Direct service name
     password: ""
     db: 0
     

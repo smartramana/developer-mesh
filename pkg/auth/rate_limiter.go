@@ -24,6 +24,7 @@ type RateLimiter struct {
 
 // RateLimiterConfig holds rate limiter configuration
 type RateLimiterConfig struct {
+    Enabled       bool          // Whether rate limiting is enabled
     MaxAttempts   int           // Max attempts per window
     WindowSize    time.Duration // Time window for attempts
     LockoutPeriod time.Duration // Lockout duration after max attempts
@@ -32,6 +33,7 @@ type RateLimiterConfig struct {
 // DefaultRateLimiterConfig returns sensible defaults
 func DefaultRateLimiterConfig() *RateLimiterConfig {
     return &RateLimiterConfig{
+        Enabled:       true,
         MaxAttempts:   5,
         WindowSize:    1 * time.Minute,
         LockoutPeriod: 15 * time.Minute,

@@ -22,20 +22,44 @@ func TestEnhancedAuthRateLimiting(t *testing.T) {
 
 	// Create test cache
 	testCache := newTestCache()
+	logger := observability.NewNoopLogger()
+	metrics := observability.NewNoOpMetricsClient()
 
-	// Create auth service with test configuration
-	authConfig := auth.DefaultConfig()
-	authConfig.JWTSecret = "test-secret"
-	authService := auth.NewService(authConfig, nil, testCache, observability.NewNoopLogger())
-
-	// Add test API keys
-	authService.InitializeDefaultAPIKeys(map[string]string{
-		"valid-key":   "admin",
-		"limited-key": "user",
-	})
+	// Create auth configuration with API keys
+	config := &auth.AuthSystemConfig{
+		Service: &auth.ServiceConfig{
+			JWTSecret:         "test-secret-minimum-32-characters!!",
+			JWTExpiration:     1 * time.Hour,
+			APIKeyHeader:      "X-API-Key",
+			EnableAPIKeys:     true,
+			EnableJWT:         true,
+			CacheEnabled:      true,
+			CacheTTL:          5 * time.Minute,
+			MaxFailedAttempts: 3, // Set to 3 for the test
+			LockoutDuration:   15 * time.Minute,
+		},
+		RateLimiter: &auth.RateLimiterConfig{
+			Enabled:       true,
+			MaxAttempts:   3, // After 3 failed attempts, lock out
+			WindowSize:    15 * time.Minute,
+			LockoutPeriod: 15 * time.Minute,
+		},
+		APIKeys: map[string]auth.APIKeySettings{
+			"valid-key-1234567890123456": {
+				Role:     "admin",
+				Scopes:   []string{"read", "write", "admin"},
+				TenantID: "default",
+			},
+			"limited-key-1234567890123456": {
+				Role:     "user",
+				Scopes:   []string{"read"},
+				TenantID: "default",
+			},
+		},
+	}
 
 	// Setup enhanced auth
-	authMiddleware, err := auth.SetupAuthentication(nil, testCache, observability.NewNoopLogger(), observability.NewNoOpMetricsClient())
+	authMiddleware, err := auth.SetupAuthenticationWithConfig(config, nil, testCache, logger, metrics)
 	require.NoError(t, err)
 
 	// Create test router
@@ -87,7 +111,7 @@ func TestEnhancedAuthRateLimiting(t *testing.T) {
 
 		// Even valid credentials should be rate limited now
 		req = httptest.NewRequest("POST", "/auth/login", nil)
-		req.Header.Set("Authorization", "Bearer valid-key")
+		req.Header.Set("Authorization", "Bearer valid-key-1234567890123456")
 		req.RemoteAddr = testIP
 
 		w = httptest.NewRecorder()
@@ -116,7 +140,7 @@ func TestEnhancedAuthRateLimiting(t *testing.T) {
 
 		// IP2: Should still be able to make requests
 		req := httptest.NewRequest("POST", "/auth/login", nil)
-		req.Header.Set("Authorization", "Bearer valid-key")
+		req.Header.Set("Authorization", "Bearer valid-key-1234567890123456")
 		req.RemoteAddr = ip2
 
 		w := httptest.NewRecorder()
@@ -125,7 +149,7 @@ func TestEnhancedAuthRateLimiting(t *testing.T) {
 
 		// IP1: Should be rate limited
 		req = httptest.NewRequest("POST", "/auth/login", nil)
-		req.Header.Set("Authorization", "Bearer valid-key")
+		req.Header.Set("Authorization", "Bearer valid-key-1234567890123456")
 		req.RemoteAddr = ip1
 
 		w = httptest.NewRecorder()
@@ -139,7 +163,7 @@ func TestEnhancedAuthRateLimiting(t *testing.T) {
 		// Regular API endpoints should not trigger rate limiting
 		for i := 0; i < 10; i++ {
 			req := httptest.NewRequest("GET", "/api/v1/test", nil)
-			req.Header.Set("Authorization", "Bearer valid-key")
+			req.Header.Set("Authorization", "Bearer valid-key-1234567890123456")
 			req.RemoteAddr = "10.0.0.5:12345"
 
 			w := httptest.NewRecorder()
@@ -155,16 +179,33 @@ func TestEnhancedAuthConcurrency(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 
 	testCache := newTestCache()
+	logger := observability.NewNoopLogger()
+	metrics := observability.NewNoOpMetricsClient()
 	
-	authConfig := auth.DefaultConfig()
-	authConfig.JWTSecret = "test-secret"
-	authService := auth.NewService(authConfig, nil, testCache, observability.NewNoopLogger())
+	// Create auth configuration with API keys
+	config := &auth.AuthSystemConfig{
+		Service: &auth.ServiceConfig{
+			JWTSecret:         "test-secret-minimum-32-characters!!",
+			JWTExpiration:     1 * time.Hour,
+			APIKeyHeader:      "X-API-Key",
+			EnableAPIKeys:     true,
+			EnableJWT:         true,
+			CacheEnabled:      true,
+			CacheTTL:          5 * time.Minute,
+			MaxFailedAttempts: 5,
+			LockoutDuration:   15 * time.Minute,
+		},
+		RateLimiter: auth.DefaultRateLimiterConfig(),
+		APIKeys: map[string]auth.APIKeySettings{
+			"concurrent-key-1234567890123456": {
+				Role:     "admin",
+				Scopes:   []string{"read", "write", "admin"},
+				TenantID: "default",
+			},
+		},
+	}
 
-	authService.InitializeDefaultAPIKeys(map[string]string{
-		"concurrent-key": "admin",
-	})
-
-	authMiddleware, err := auth.SetupAuthentication(nil, testCache, observability.NewNoopLogger(), observability.NewNoOpMetricsClient())
+	authMiddleware, err := auth.SetupAuthenticationWithConfig(config, nil, testCache, logger, metrics)
 	require.NoError(t, err)
 
 	router := gin.New()
@@ -188,7 +229,7 @@ func TestEnhancedAuthConcurrency(t *testing.T) {
 
 			for j := 0; j < requestsPerGoroutine; j++ {
 				req := httptest.NewRequest("GET", "/api/v1/concurrent", nil)
-				req.Header.Set("Authorization", "Bearer concurrent-key")
+				req.Header.Set("Authorization", "Bearer concurrent-key-1234567890123456")
 				req.RemoteAddr = fmt.Sprintf("10.0.%d.%d:12345", workerID, j)
 
 				w := httptest.NewRecorder()
@@ -219,12 +260,31 @@ func TestJWTAuthentication(t *testing.T) {
 
 	testCache := newTestCache()
 	logger := observability.NewNoopLogger()
+	metrics := observability.NewNoOpMetricsClient()
 
-	// Create auth service
-	authConfig := auth.DefaultConfig()
-	authConfig.JWTSecret = "super-secret-key"
-	authConfig.JWTExpiration = 1 * time.Hour
-	authService := auth.NewService(authConfig, nil, testCache, logger)
+	// Create auth configuration with consistent JWT secret
+	config := &auth.AuthSystemConfig{
+		Service: &auth.ServiceConfig{
+			JWTSecret:         "super-secret-key-minimum-32-chars",
+			JWTExpiration:     1 * time.Hour,
+			APIKeyHeader:      "X-API-Key",
+			EnableAPIKeys:     true,
+			EnableJWT:         true,
+			CacheEnabled:      true,
+			CacheTTL:          5 * time.Minute,
+			MaxFailedAttempts: 5,
+			LockoutDuration:   15 * time.Minute,
+		},
+		RateLimiter: auth.DefaultRateLimiterConfig(),
+		APIKeys:     make(map[string]auth.APIKeySettings),
+	}
+
+	// Setup auth middleware with config
+	authMiddleware, err := auth.SetupAuthenticationWithConfig(config, nil, testCache, logger, metrics)
+	require.NoError(t, err)
+
+	// Create auth service with same config for generating JWT
+	authService := auth.NewService(config.Service, nil, testCache, logger)
 
 	// Generate a valid JWT
 	user := &auth.User{
@@ -235,10 +295,6 @@ func TestJWTAuthentication(t *testing.T) {
 	}
 
 	token, err := authService.GenerateJWT(context.Background(), user)
-	require.NoError(t, err)
-
-	// Setup enhanced auth
-	authMiddleware, err := auth.SetupAuthentication(nil, testCache, logger, observability.NewNoOpMetricsClient())
 	require.NoError(t, err)
 
 	// Create test router
@@ -274,10 +330,18 @@ func TestJWTAuthentication(t *testing.T) {
 	})
 
 	t.Run("Expired JWT", func(t *testing.T) {
-		// Create auth service with very short expiration
-		shortConfig := auth.DefaultConfig()
-		shortConfig.JWTSecret = "super-secret-key"
-		shortConfig.JWTExpiration = 1 * time.Millisecond
+		// Create auth service with very short expiration using same secret
+		shortConfig := &auth.ServiceConfig{
+			JWTSecret:         "super-secret-key-minimum-32-chars", // Same secret as main config
+			JWTExpiration:     1 * time.Millisecond,
+			APIKeyHeader:      "X-API-Key",
+			EnableAPIKeys:     true,
+			EnableJWT:         true,
+			CacheEnabled:      true,
+			CacheTTL:          5 * time.Minute,
+			MaxFailedAttempts: 5,
+			LockoutDuration:   15 * time.Minute,
+		}
 		shortService := auth.NewService(shortConfig, nil, testCache, logger)
 
 		expiredToken, err := shortService.GenerateJWT(context.Background(), user)

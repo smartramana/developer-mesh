@@ -27,6 +27,13 @@ api:
     exposed_headers: ["X-RateLimit-Limit", "X-RateLimit-Remaining", "X-RateLimit-Reset"]
     allow_credentials: true
     max_age: 86400
+  
+  # Rate Limit Configuration (API-level)
+  rate_limit:
+    enabled: true
+    limit: 100
+    period: 60s
+    burst_factor: 3
 
 # Authentication Configuration
 auth:
