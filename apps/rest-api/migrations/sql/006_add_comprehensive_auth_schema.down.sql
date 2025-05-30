@@ -1,0 +1,6 @@
+-- Down migration
+DROP TABLE IF EXISTS auth_audit_log CASCADE;
+DROP TABLE IF EXISTS api_keys CASCADE;
+DROP TABLE IF EXISTS service_accounts CASCADE;
+DROP TABLE IF EXISTS github_installations CASCADE;
+DROP TABLE IF EXISTS tenants CASCADE;

@@ -7,7 +7,6 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-
 // storeEmbedding handles storing a vector embedding
 func (s *Server) storeEmbedding(c *gin.Context) {
 	var req StoreEmbeddingRequest

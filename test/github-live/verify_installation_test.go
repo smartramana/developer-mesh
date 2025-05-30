@@ -26,17 +26,17 @@ func TestVerifyInstallation(t *testing.T) {
 	logger := observability.NewLogger("verify-installation")
 	metricsClient := observability.NewNoOpMetricsClient()
 	var eventBus adapterEvents.EventBus = nil
-	
+
 	config := github.DefaultConfig()
 	config.BaseURL = "https://api.github.com/"
-	
+
 	// Configure GitHub App
 	appIDInt, err := strconv.ParseInt(appID, 10, 64)
 	require.NoError(t, err)
-	
+
 	config.Auth.Type = "app"
 	config.Auth.AppID = appIDInt
-	
+
 	// Add installation ID
 	installationID := os.Getenv("GITHUB_APP_INSTALLATION_ID")
 	if installationID != "" {
@@ -44,12 +44,12 @@ func TestVerifyInstallation(t *testing.T) {
 		require.NoError(t, err)
 		config.Auth.InstallationID = installationIDInt
 	}
-	
+
 	// Read private key
 	privateKeyPath := os.Getenv("GITHUB_APP_PRIVATE_KEY_PATH")
 	privateKeyBytes, err := os.ReadFile(privateKeyPath)
 	require.NoError(t, err)
-	
+
 	config.Auth.PrivateKey = string(privateKeyBytes)
 
 	// Create adapter
@@ -61,7 +61,7 @@ func TestVerifyInstallation(t *testing.T) {
 
 	t.Run("FindAccessibleRepos", func(t *testing.T) {
 		t.Logf("Checking repositories accessible by installation %s", installationID)
-		
+
 		// Try multiple possible locations
 		testCases := []struct {
 			owner string
@@ -71,14 +71,14 @@ func TestVerifyInstallation(t *testing.T) {
 			{"S-Corkum", "devops-mcp-test"},
 			{"S-Corkum-TEST", "devops-mcp-test"},
 		}
-		
+
 		foundRepo := false
 		for _, tc := range testCases {
 			params := map[string]any{
 				"owner": tc.owner,
 				"repo":  tc.repo,
 			}
-			
+
 			t.Logf("Trying %s/%s...", tc.owner, tc.repo)
 			result, err := adapter.ExecuteAction(ctx, "", "getRepository", params)
 			if err != nil {
@@ -96,7 +96,7 @@ func TestVerifyInstallation(t *testing.T) {
 				break
 			}
 		}
-		
+
 		if !foundRepo {
 			t.Log("\nNo repositories were accessible with this installation.")
 			t.Log("This means:")

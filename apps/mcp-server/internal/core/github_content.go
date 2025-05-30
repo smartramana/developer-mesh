@@ -7,8 +7,8 @@ import (
 	"time"
 
 	"github.com/S-Corkum/devops-mcp/pkg/database"
-	"github.com/S-Corkum/devops-mcp/pkg/observability"
 	"github.com/S-Corkum/devops-mcp/pkg/models/relationship"
+	"github.com/S-Corkum/devops-mcp/pkg/observability"
 	"github.com/S-Corkum/devops-mcp/pkg/storage"
 )
 
@@ -34,7 +34,7 @@ func NewGitHubContentManager(
 
 	// Create logger
 	logger := observability.NewLogger("github-content-manager")
-	
+
 	// Create content manager instance
 	manager := &GitHubContentManager{
 		db:             db,
@@ -42,7 +42,7 @@ func NewGitHubContentManager(
 		logger:         logger,
 		metricsClient:  metricsClient,
 	}
-	
+
 	// Create relationship manager if service is provided
 	if relationshipService != nil {
 		manager.relationshipManager = NewGitHubRelationshipManager(relationshipService, manager)
@@ -106,7 +106,7 @@ func (m *GitHubContentManager) StoreContent(
 		})
 		return nil, fmt.Errorf("failed to store content metadata in database: %w", err)
 	}
-	
+
 	// Process relationships if relationship manager is available
 	if m.relationshipManager != nil {
 		err = m.relationshipManager.ProcessContentRelationships(ctx, contentMetadata, data)
@@ -174,7 +174,7 @@ func (m *GitHubContentManager) GetContent(
 			})
 			return nil, metadata, fmt.Errorf("failed to get content from S3: %w", err)
 		}
-		
+
 		// Process relationships if relationship manager is available and content was retrieved
 		if m.relationshipManager != nil && len(content) > 0 {
 			err = m.relationshipManager.ProcessContentRelationships(ctx, metadata, content)

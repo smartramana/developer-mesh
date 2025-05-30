@@ -7,8 +7,8 @@ import (
 	"time"
 
 	"github.com/S-Corkum/devops-mcp/pkg/queue"
-	"worker/internal/worker"
 	"github.com/go-redis/redis/v8"
+	"worker/internal/worker"
 )
 
 type redisIdempotencyAdapter struct {
@@ -49,7 +49,7 @@ func main() {
 
 	// Load SQS adapter configuration from environment variables
 	sqsConfig := queue.LoadSQSConfigFromEnv()
-	log.Printf("SQS Configuration: mockMode=%v, useLocalStack=%v, endpoint=%s", 
+	log.Printf("SQS Configuration: mockMode=%v, useLocalStack=%v, endpoint=%s",
 		sqsConfig.MockMode, sqsConfig.UseLocalStack, sqsConfig.Endpoint)
 
 	// Initialize SQS client with the adapter pattern

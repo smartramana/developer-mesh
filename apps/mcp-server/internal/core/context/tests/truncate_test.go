@@ -113,22 +113,22 @@ func TestTruncateOldestFirst(t *testing.T) {
 				CurrentTokens: tc.context.CurrentTokens,
 				Content:       make([]models.ContextItem, len(tc.context.Content)),
 			}
-			
+
 			// Copy content items
 			for i, item := range tc.context.Content {
 				contextCopy.Content[i] = item
 			}
-			
+
 			// Call DoTruncateOldestFirst
 			err := DoTruncateOldestFirst(contextCopy)
-			
+
 			// Assert no error
 			assert.NoError(t, err)
-			
+
 			// Assert expected results
 			assert.Len(t, contextCopy.Content, tc.expectedItems)
 			assert.Equal(t, tc.expectedTokens, contextCopy.CurrentTokens)
-			
+
 			// Assert tokens are <= max tokens
 			assert.LessOrEqual(t, contextCopy.CurrentTokens, contextCopy.MaxTokens)
 		})
@@ -272,21 +272,21 @@ func TestTruncatePreservingUser(t *testing.T) {
 				CurrentTokens: tc.context.CurrentTokens,
 				Content:       make([]models.ContextItem, len(tc.context.Content)),
 			}
-			
+
 			// Copy content items
 			for i, item := range tc.context.Content {
 				contextCopy.Content[i] = item
 			}
-			
+
 			// Call DoTruncatePreservingUser
 			err := DoTruncatePreservingUser(contextCopy)
-			
+
 			// Assert no error
 			assert.NoError(t, err)
-			
+
 			// Assert tokens are <= max tokens
 			assert.LessOrEqual(t, contextCopy.CurrentTokens, contextCopy.MaxTokens)
-			
+
 			// Verify content consistency
 			actualTokens := 0
 			for _, item := range contextCopy.Content {

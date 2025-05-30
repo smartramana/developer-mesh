@@ -46,7 +46,7 @@ func (api *MCPAPI) RegisterRoutes(router *gin.RouterGroup) {
 		mcpRoutes.POST("/context/:id/search", api.searchContext)
 		mcpRoutes.GET("/context/:id/summary", api.summarizeContext)
 	}
-	
+
 	api.logger.Info("Registered MCP API routes", nil)
 }
 
@@ -79,8 +79,8 @@ func (api *MCPAPI) createContext(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusCreated, gin.H{
-		"message": "context created", 
-		"id": createdContext.ID,
+		"message": "context created",
+		"id":      createdContext.ID,
 		"context": createdContext,
 	})
 }
@@ -94,7 +94,7 @@ func (api *MCPAPI) createContext(c *gin.Context) {
 // @Param id path string true "Context ID"
 // @Success 200 {object} models.Context "Context details"
 // @Failure 400 {object} map[string]string "Bad request"
-// @Failure 401 {object} map[string]string "Unauthorized" 
+// @Failure 401 {object} map[string]string "Unauthorized"
 // @Failure 404 {object} map[string]string "Context not found"
 // @Failure 500 {object} map[string]string "Internal server error"
 // @Security ApiKeyAuth
@@ -111,7 +111,7 @@ func (api *MCPAPI) getContext(c *gin.Context) {
 	if err != nil {
 		api.logger.Error("Failed to get context", map[string]interface{}{
 			"context_id": contextID,
-			"error": err.Error(),
+			"error":      err.Error(),
 		})
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
@@ -130,8 +130,8 @@ func (api *MCPAPI) updateContext(c *gin.Context) {
 
 	// Parse request body
 	var updateRequest struct {
-		Content []models.ContextItem          `json:"content"`
-		Options *models.ContextUpdateOptions  `json:"options,omitempty"`
+		Content []models.ContextItem         `json:"content"`
+		Options *models.ContextUpdateOptions `json:"options,omitempty"`
 	}
 
 	if err := c.ShouldBindJSON(&updateRequest); err != nil {
@@ -144,7 +144,7 @@ func (api *MCPAPI) updateContext(c *gin.Context) {
 	if err != nil {
 		api.logger.Error("Context not found during update", map[string]interface{}{
 			"context_id": contextID,
-			"error": err.Error(),
+			"error":      err.Error(),
 		})
 		c.JSON(http.StatusNotFound, gin.H{"error": "context not found: " + err.Error()})
 		return
@@ -154,7 +154,7 @@ func (api *MCPAPI) updateContext(c *gin.Context) {
 	if updateRequest.Options == nil {
 		updateRequest.Options = &models.ContextUpdateOptions{}
 	}
-	
+
 	// When using MCPAPI, we want to replace content by default
 	updateRequest.Options.ReplaceContent = true
 
@@ -174,7 +174,7 @@ func (api *MCPAPI) updateContext(c *gin.Context) {
 	if err != nil {
 		api.logger.Error("Failed to update context", map[string]interface{}{
 			"context_id": contextID,
-			"error": err.Error(),
+			"error":      err.Error(),
 		})
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to update context: " + err.Error()})
 		return
@@ -195,7 +195,7 @@ func (api *MCPAPI) deleteContext(c *gin.Context) {
 	if err != nil {
 		api.logger.Error("Failed to delete context", map[string]interface{}{
 			"context_id": contextID,
-			"error": err.Error(),
+			"error":      err.Error(),
 		})
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
@@ -208,18 +208,18 @@ func (api *MCPAPI) deleteContext(c *gin.Context) {
 func (api *MCPAPI) listContexts(c *gin.Context) {
 	agentID := c.Query("agent_id")
 	sessionID := c.Query("session_id")
-	
+
 	contexts, err := api.contextManager.ListContexts(c.Request.Context(), agentID, sessionID, nil)
 	if err != nil {
 		api.logger.Error("Failed to list contexts", map[string]interface{}{
-			"agent_id": agentID,
+			"agent_id":   agentID,
 			"session_id": sessionID,
-			"error": err.Error(),
+			"error":      err.Error(),
 		})
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
-	
+
 	c.JSON(http.StatusOK, gin.H{"contexts": contexts})
 }
 
@@ -230,27 +230,27 @@ func (api *MCPAPI) searchContext(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "context ID is required"})
 		return
 	}
-	
+
 	var request struct {
 		Query string `json:"query" binding:"required"`
 	}
-	
+
 	if err := c.ShouldBindJSON(&request); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
-	
+
 	results, err := api.contextManager.SearchInContext(c.Request.Context(), contextID, request.Query)
 	if err != nil {
 		api.logger.Error("Failed to search in context", map[string]interface{}{
 			"context_id": contextID,
-			"query": request.Query,
-			"error": err.Error(),
+			"query":      request.Query,
+			"error":      err.Error(),
 		})
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
-	
+
 	c.JSON(http.StatusOK, gin.H{"results": results})
 }
 
@@ -261,16 +261,16 @@ func (api *MCPAPI) summarizeContext(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "context ID is required"})
 		return
 	}
-	
+
 	summary, err := api.contextManager.SummarizeContext(c.Request.Context(), contextID)
 	if err != nil {
 		api.logger.Error("Failed to summarize context", map[string]interface{}{
 			"context_id": contextID,
-			"error": err.Error(),
+			"error":      err.Error(),
 		})
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
-	
+
 	c.JSON(http.StatusOK, gin.H{"summary": summary})
 }

@@ -26,10 +26,12 @@ func (n *noOpMetricsClient) RecordGauge(name string, value float64, labels map[s
 func (n *noOpMetricsClient) RecordHistogram(name string, value float64, labels map[string]string) {}
 
 // RecordTimer is a no-op implementation
-func (n *noOpMetricsClient) RecordTimer(name string, duration time.Duration, labels map[string]string) {}
+func (n *noOpMetricsClient) RecordTimer(name string, duration time.Duration, labels map[string]string) {
+}
 
 // RecordCacheOperation is a no-op implementation
-func (n *noOpMetricsClient) RecordCacheOperation(operation string, success bool, durationSeconds float64) {}
+func (n *noOpMetricsClient) RecordCacheOperation(operation string, success bool, durationSeconds float64) {
+}
 
 // RecordOperation is a no-op implementation
 func (n *noOpMetricsClient) RecordOperation(component string, operation string, success bool, durationSeconds float64, labels map[string]string) {
@@ -40,7 +42,8 @@ func (n *noOpMetricsClient) RecordAPIOperation(api string, operation string, suc
 }
 
 // RecordDatabaseOperation is a no-op implementation
-func (n *noOpMetricsClient) RecordDatabaseOperation(operation string, success bool, durationSeconds float64) {}
+func (n *noOpMetricsClient) RecordDatabaseOperation(operation string, success bool, durationSeconds float64) {
+}
 
 // StartTimer is a no-op implementation
 func (n *noOpMetricsClient) StartTimer(name string, labels map[string]string) func() {
@@ -51,7 +54,8 @@ func (n *noOpMetricsClient) StartTimer(name string, labels map[string]string) fu
 func (n *noOpMetricsClient) IncrementCounter(name string, value float64) {}
 
 // IncrementCounterWithLabels is a no-op implementation
-func (n *noOpMetricsClient) IncrementCounterWithLabels(name string, value float64, labels map[string]string) {}
+func (n *noOpMetricsClient) IncrementCounterWithLabels(name string, value float64, labels map[string]string) {
+}
 
 // RecordDuration is a no-op implementation
 func (n *noOpMetricsClient) RecordDuration(name string, duration time.Duration) {}

@@ -8,6 +8,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/S-Corkum/devops-mcp/pkg/auth"
 	"github.com/S-Corkum/devops-mcp/pkg/config"
 	"github.com/S-Corkum/devops-mcp/pkg/database"
 	"github.com/S-Corkum/devops-mcp/pkg/observability"
@@ -26,16 +27,17 @@ var shutdownHooks []func()
 
 // Server represents the API server
 type Server struct {
-	router     *gin.Engine
-	server     *http.Server
-	engine     *core.Engine
-	config     Config
-	logger     observability.Logger
-	db         *sqlx.DB
-	metrics    observability.MetricsClient
-	vectorDB   *database.VectorDatabase
-	vectorRepo repository.VectorAPIRepository
-	cfg        *config.Config
+	router      *gin.Engine
+	server      *http.Server
+	engine      *core.Engine
+	config      Config
+	logger      observability.Logger
+	db          *sqlx.DB
+	metrics     observability.MetricsClient
+	vectorDB    *database.VectorDatabase
+	vectorRepo  repository.VectorAPIRepository
+	cfg         *config.Config
+	authService *auth.Service
 }
 
 // NewServer creates a new API server
@@ -80,6 +82,18 @@ func NewServer(engine *core.Engine, cfg Config, db *sqlx.DB, metrics observabili
 		router.Use(CORSMiddleware(corsConfig))
 	}
 
+	// Initialize logger first
+	logger := observability.NewLogger("api-server")
+
+	// Initialize centralized auth service
+	authConfig := auth.DefaultConfig()
+	authConfig.JWTSecret = cfg.Auth.JWTSecret
+	authConfig.EnableAPIKeys = true
+	authConfig.EnableJWT = true
+
+	// Create auth service without cache for now
+	authService := auth.NewService(authConfig, db, nil, logger)
+
 	// Initialize API keys from configuration
 	if cfg.Auth.APIKeys != nil {
 		fmt.Printf("API Keys from config: %+v\n", cfg.Auth.APIKeys)
@@ -102,12 +116,16 @@ func NewServer(engine *core.Engine, cfg Config, db *sqlx.DB, metrics observabili
 			}
 		}
 
+		// Initialize default API keys in auth service
+		authService.InitializeDefaultAPIKeys(keyMap)
+
+		// Also keep the old initialization for backward compatibility
 		InitAPIKeys(keyMap)
 	} else {
 		fmt.Println("No API keys defined in config")
 	}
 
-	// Initialize JWT with secret from configuration
+	// Initialize JWT with secret from configuration (keep for backward compatibility)
 	InitJWT(cfg.Auth.JWTSecret)
 
 	// Configure HTTP client transport for external service calls
@@ -128,9 +146,6 @@ func NewServer(engine *core.Engine, cfg Config, db *sqlx.DB, metrics observabili
 
 	// Use the custom HTTP client for external service calls
 	http.DefaultClient = httpClient
-
-	// Initialize logger
-	logger := observability.NewLogger("api-server")
 
 	// Initialize vector database if enabled
 	var vectorDB *database.VectorDatabase
@@ -154,14 +169,15 @@ func NewServer(engine *core.Engine, cfg Config, db *sqlx.DB, metrics observabili
 	}
 
 	server := &Server{
-		router:   router,
-		engine:   engine,
-		config:   cfg,
-		logger:   logger,
-		db:       db,
-		metrics:  metrics,
-		vectorDB: vectorDB,
-		cfg:      config,
+		router:      router,
+		engine:      engine,
+		config:      cfg,
+		logger:      logger,
+		db:          db,
+		metrics:     metrics,
+		vectorDB:    vectorDB,
+		cfg:         config,
+		authService: authService,
 		server: &http.Server{
 			Addr:         cfg.ListenAddress,
 			Handler:      router,
@@ -265,19 +281,17 @@ func (s *Server) setupRoutes(ctx context.Context) {
 
 	// API v1 routes - require authentication
 	v1 := s.router.Group("/api/v1")
-	// Add TenantMiddleware to ensure tenant ID is extracted and set in Gin context
-	v1.Use(TenantMiddleware())
-	// Use test mode to skip authentication
+
+	// Use centralized auth middleware
+	v1.Use(s.authService.GinMiddleware(auth.TypeAPIKey, auth.TypeJWT))
+
+	// Keep the old middleware for backward compatibility during transition
+	// This will be removed once all tests are updated
 	testMode := os.Getenv("MCP_TEST_MODE")
-	for _, e := range os.Environ() {
-		fmt.Println(e)
+	if testMode == "true" {
+		fmt.Println("Test mode enabled, also applying legacy auth middleware")
+		v1.Use(AuthMiddleware("api_key"))
 	}
-
-	fmt.Printf("MCP_TEST_MODE value: '%s' (Type: %T)\n", testMode, testMode)
-	fmt.Printf("Is testMode true? %v\n", testMode == "true")
-
-	fmt.Println("Using AuthMiddleware for /api/v1 routes (test mode does not bypass auth in functional tests)")
-	v1.Use(AuthMiddleware("api_key"))
 
 	// Root endpoint to provide API entry points (HATEOAS)
 	v1.GET("/", func(c *gin.Context) {

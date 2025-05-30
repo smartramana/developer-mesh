@@ -27,17 +27,17 @@ func AuthMiddleware() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		// Get authentication token from header
 		authHeader := c.GetHeader("Authorization")
-		
+
 		// For testing, we'll accept any of these formats:
 		// 1. "test-admin-api-key" (direct)
 		// 2. "Bearer test-admin-api-key"
-		
+
 		// If no header, return unauthorized
 		if authHeader == "" {
 			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "Missing authorization header"})
 			return
 		}
-		
+
 		// Check if it's a direct key
 		if authHeader == "test-admin-api-key" {
 			// Valid direct key
@@ -45,7 +45,7 @@ func AuthMiddleware() gin.HandlerFunc {
 			c.Next()
 			return
 		}
-		
+
 		// Check for Bearer prefix
 		if len(authHeader) > 7 && authHeader[:7] == "Bearer " {
 			tokenValue := authHeader[7:]
@@ -56,7 +56,7 @@ func AuthMiddleware() gin.HandlerFunc {
 				return
 			}
 		}
-		
+
 		// If we get here, the key is invalid
 		c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "Invalid API key"})
 	}

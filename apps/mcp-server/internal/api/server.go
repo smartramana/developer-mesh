@@ -6,19 +6,21 @@ import (
 	"net/http"
 	"time"
 
-	"mcp-server/internal/api/proxies"
+	"github.com/S-Corkum/devops-mcp/pkg/auth"
+	"github.com/S-Corkum/devops-mcp/pkg/cache"
 	"github.com/S-Corkum/devops-mcp/pkg/client/rest"
-	"github.com/S-Corkum/devops-mcp/pkg/config"
 	commonLogging "github.com/S-Corkum/devops-mcp/pkg/common/logging"
-	commonMetrics "github.com/S-Corkum/devops-mcp/pkg/observability"
-	"mcp-server/internal/core"
+	"github.com/S-Corkum/devops-mcp/pkg/config"
 	"github.com/S-Corkum/devops-mcp/pkg/observability"
+	commonMetrics "github.com/S-Corkum/devops-mcp/pkg/observability"
 	"github.com/S-Corkum/devops-mcp/pkg/repository"
 	"github.com/S-Corkum/devops-mcp/pkg/repository/agent"
 	"github.com/gin-gonic/gin"
 	"github.com/jmoiron/sqlx"
 	swaggerFiles "github.com/swaggo/files"
 	ginSwagger "github.com/swaggo/gin-swagger"
+	"mcp-server/internal/api/proxies"
+	"mcp-server/internal/core"
 )
 
 // Global shutdown hooks
@@ -26,29 +28,31 @@ var shutdownHooks []func()
 
 // Server represents the API server
 type Server struct {
-	router           *gin.Engine
-	server           *http.Server
-	engine           *core.Engine
-	config           Config
-	logger           observability.Logger
-	loggerAdapter    *commonLogging.Logger // For compatibility with old code
-	loggerObsAdapter observability.Logger  // Adapter that wraps commonLogging.Logger as observability.Logger
-	db               *sqlx.DB
-	metrics          observability.MetricsClient
-	metricsAdapter   commonMetrics.Client // For compatibility with old code
-	cfg              *config.Config
+	router            *gin.Engine
+	server            *http.Server
+	engine            *core.Engine
+	config            Config
+	logger            observability.Logger
+	loggerAdapter     *commonLogging.Logger // For compatibility with old code
+	loggerObsAdapter  observability.Logger  // Adapter that wraps commonLogging.Logger as observability.Logger
+	db                *sqlx.DB
+	metrics           observability.MetricsClient
+	metricsAdapter    commonMetrics.Client // For compatibility with old code
+	cfg               *config.Config
 	restClientFactory *rest.Factory // REST API client factory for communication with REST API
+	authService       *auth.Service
+	cache             cache.Cache
 	// API proxies that delegate to REST API
-	vectorAPIProxy   repository.VectorAPIRepository // Proxy for vector operations
-	agentAPIProxy    agent.Repository     // Proxy for agent operations
-	modelAPIProxy    repository.ModelRepository     // Proxy for model operations
-	contextAPIProxy  repository.ContextRepository   // Proxy for context operations
-	searchAPIProxy   repository.SearchRepository    // Proxy for search operations
-	webhookAPIProxy  proxies.WebhookRepository      // Proxy for webhook operations
+	vectorAPIProxy  repository.VectorAPIRepository // Proxy for vector operations
+	agentAPIProxy   agent.Repository               // Proxy for agent operations
+	modelAPIProxy   repository.ModelRepository     // Proxy for model operations
+	contextAPIProxy repository.ContextRepository   // Proxy for context operations
+	searchAPIProxy  repository.SearchRepository    // Proxy for search operations
+	webhookAPIProxy proxies.WebhookRepository      // Proxy for webhook operations
 }
 
 // NewServer creates a new API server
-func NewServer(engine *core.Engine, cfg Config, db *sqlx.DB, metrics observability.MetricsClient, config *config.Config) *Server {
+func NewServer(engine *core.Engine, cfg Config, db *sqlx.DB, cacheClient cache.Cache, metrics observability.MetricsClient, config *config.Config) *Server {
 	// Create adapter objects for compatibility with existing code
 	loggerAdapter := observability.NewLoggerAdapter(observability.DefaultLogger)
 	// Create an adapter that wraps commonLogging.Logger as observability.Logger
@@ -94,13 +98,22 @@ func NewServer(engine *core.Engine, cfg Config, db *sqlx.DB, metrics observabili
 		router.Use(CORSMiddleware(corsConfig))
 	}
 
+	// Initialize auth service with cache
+	authConfig := auth.DefaultConfig()
+	authConfig.JWTSecret = cfg.Auth.JWTSecret
+	authConfig.EnableAPIKeys = true
+	authConfig.EnableJWT = true
+
+	// Create auth service with cache
+	authService := auth.NewService(authConfig, db, cacheClient, observability.DefaultLogger)
+
 	// Initialize API keys from configuration
 	if cfg.Auth.APIKeys != nil {
 		fmt.Printf("API Keys from config: %+v\n", cfg.Auth.APIKeys)
-		
+
 		// Initialize the key map for the API keys
 		keyMap := make(map[string]string)
-		
+
 		// Convert the APIKeys to a map[string]string
 		if apiKeys, ok := cfg.Auth.APIKeys.(map[string]interface{}); ok {
 			for key, role := range apiKeys {
@@ -115,13 +128,17 @@ func NewServer(engine *core.Engine, cfg Config, db *sqlx.DB, metrics observabili
 				fmt.Printf("Adding API key from map: %s with role: %s\n", key, role)
 			}
 		}
-		
+
+		// Initialize default API keys in auth service
+		authService.InitializeDefaultAPIKeys(keyMap)
+
+		// Also keep the old initialization for backward compatibility
 		InitAPIKeys(keyMap)
 	} else {
 		fmt.Println("No API keys defined in config")
 	}
 
-	// Initialize JWT with secret from configuration
+	// Initialize JWT with secret from configuration (keep for backward compatibility)
 	InitJWT(cfg.Auth.JWTSecret)
 
 	// Configure HTTP client transport for external service calls
@@ -150,7 +167,7 @@ func NewServer(engine *core.Engine, cfg Config, db *sqlx.DB, metrics observabili
 	var vectorProxy repository.VectorAPIRepository
 	var agentProxy agent.Repository
 	var modelProxy repository.ModelRepository
-	
+
 	if cfg.RestAPI.Enabled {
 		// Create the REST client factory
 		restClientFactory = rest.NewFactory(
@@ -158,37 +175,39 @@ func NewServer(engine *core.Engine, cfg Config, db *sqlx.DB, metrics observabili
 			cfg.RestAPI.APIKey,
 			observability.DefaultLogger,
 		)
-		
+
 		// Create proxies that implement repository interfaces but delegate to REST API
 		vectorProxy = proxies.NewVectorAPIProxy(restClientFactory, observability.DefaultLogger)
 		agentProxy = proxies.NewAgentAPIProxy(restClientFactory, observability.DefaultLogger)
 		modelProxy = proxies.NewModelAPIProxy(restClientFactory, observability.DefaultLogger)
-		
+
 		observability.DefaultLogger.Info("REST API client initialized", map[string]interface{}{
 			"base_url": cfg.RestAPI.BaseURL,
-			"timeout": cfg.RestAPI.Timeout,
+			"timeout":  cfg.RestAPI.Timeout,
 		})
 	} else {
 		observability.DefaultLogger.Warn("REST API client disabled - data operations will not be available", nil)
 	}
-	
+
 	// Create the server instance
 	s := &Server{
-		router:           router,
-		server:           &http.Server{Handler: router},
-		engine:           engine,
-		logger:           observability.DefaultLogger,
-		loggerAdapter:    loggerAdapter,
-		loggerObsAdapter: loggerObsAdapter,
-		db:               db,
-		metrics:          metrics,
-		metricsAdapter:   metricsAdapter,
-		cfg:              config,
+		router:            router,
+		server:            &http.Server{Handler: router},
+		engine:            engine,
+		logger:            observability.DefaultLogger,
+		loggerAdapter:     loggerAdapter,
+		loggerObsAdapter:  loggerObsAdapter,
+		db:                db,
+		cache:             cacheClient,
+		metrics:           metrics,
+		metricsAdapter:    metricsAdapter,
+		cfg:               config,
 		restClientFactory: restClientFactory,
+		authService:       authService,
 		// Store the proxies
-		vectorAPIProxy:   vectorProxy,
-		agentAPIProxy:    agentProxy,
-		modelAPIProxy:    modelProxy,
+		vectorAPIProxy: vectorProxy,
+		agentAPIProxy:  agentProxy,
+		modelAPIProxy:  modelProxy,
 	}
 	s.server.Addr = cfg.ListenAddress
 	s.server.ReadTimeout = cfg.ReadTimeout
@@ -223,7 +242,7 @@ func (s *Server) Initialize(ctx context.Context) error {
 			s.searchAPIProxy = proxies.NewMockSearchRepository(s.logger)
 			s.logger.Info("Initialized Mock Search Repository for temporary use", nil)
 		}
-		
+
 		// Webhook repository initialization
 		if s.webhookAPIProxy == nil {
 			// Using mock implementation until rest client is fully integrated
@@ -260,13 +279,16 @@ func (s *Server) setupRoutes() {
 
 	// API v1 routes
 	v1 := s.router.Group("/api/v1")
-	
+
+	// Use centralized auth middleware
+	v1.Use(s.authService.GinMiddleware(auth.TypeAPIKey, auth.TypeJWT))
+
 	// Add a simple v1 API info endpoint
 	v1.GET("/", func(c *gin.Context) {
 		c.JSON(http.StatusOK, gin.H{
 			"version": "v1",
-			"status": "operational",
-			"apis": []string{"agent", "model", "vector"},
+			"status":  "operational",
+			"apis":    []string{"agent", "model", "vector"},
 		})
 	})
 

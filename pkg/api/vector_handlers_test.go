@@ -17,7 +17,6 @@ import (
 	"github.com/stretchr/testify/mock"
 )
 
-
 // Defining the EmbeddingRepositoryInterface for tests
 type EmbeddingRepositoryInterface interface {
 	StoreEmbedding(ctx context.Context, embedding *vector.Embedding) error

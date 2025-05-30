@@ -15,45 +15,45 @@ type ErrorCode string
 // Standard error codes
 const (
 	// General errors
-	ErrBadRequest       ErrorCode = "BAD_REQUEST"
-	ErrUnauthorized     ErrorCode = "UNAUTHORIZED"
-	ErrForbidden        ErrorCode = "FORBIDDEN"
-	ErrNotFound         ErrorCode = "NOT_FOUND"
-	ErrMethodNotAllowed ErrorCode = "METHOD_NOT_ALLOWED"
-	ErrConflict         ErrorCode = "CONFLICT"
-	ErrTooManyRequests  ErrorCode = "TOO_MANY_REQUESTS"
-	ErrInternalServer   ErrorCode = "INTERNAL_SERVER_ERROR"
+	ErrBadRequest         ErrorCode = "BAD_REQUEST"
+	ErrUnauthorized       ErrorCode = "UNAUTHORIZED"
+	ErrForbidden          ErrorCode = "FORBIDDEN"
+	ErrNotFound           ErrorCode = "NOT_FOUND"
+	ErrMethodNotAllowed   ErrorCode = "METHOD_NOT_ALLOWED"
+	ErrConflict           ErrorCode = "CONFLICT"
+	ErrTooManyRequests    ErrorCode = "TOO_MANY_REQUESTS"
+	ErrInternalServer     ErrorCode = "INTERNAL_SERVER_ERROR"
 	ErrServiceUnavailable ErrorCode = "SERVICE_UNAVAILABLE"
 
 	// Domain-specific errors
-	ErrContextNotFound  ErrorCode = "CONTEXT_NOT_FOUND"
-	ErrContextTooLarge  ErrorCode = "CONTEXT_TOO_LARGE"
-	ErrContextInvalid   ErrorCode = "CONTEXT_INVALID"
-	
+	ErrContextNotFound ErrorCode = "CONTEXT_NOT_FOUND"
+	ErrContextTooLarge ErrorCode = "CONTEXT_TOO_LARGE"
+	ErrContextInvalid  ErrorCode = "CONTEXT_INVALID"
+
 	// Vector/embedding errors
 	ErrEmbeddingFailed  ErrorCode = "EMBEDDING_FAILED"
 	ErrEmbeddingInvalid ErrorCode = "EMBEDDING_INVALID"
-	
+
 	// Tool-specific errors
-	ErrToolNotFound     ErrorCode = "TOOL_NOT_FOUND"
-	ErrActionNotFound   ErrorCode = "ACTION_NOT_FOUND"
-	ErrActionFailed     ErrorCode = "ACTION_FAILED"
-	ErrActionInvalid    ErrorCode = "ACTION_INVALID"
-	
+	ErrToolNotFound   ErrorCode = "TOOL_NOT_FOUND"
+	ErrActionNotFound ErrorCode = "ACTION_NOT_FOUND"
+	ErrActionFailed   ErrorCode = "ACTION_FAILED"
+	ErrActionInvalid  ErrorCode = "ACTION_INVALID"
+
 	// Model-specific errors
-	ErrModelNotFound    ErrorCode = "MODEL_NOT_FOUND"
-	ErrModelInvalid     ErrorCode = "MODEL_INVALID"
-	
+	ErrModelNotFound ErrorCode = "MODEL_NOT_FOUND"
+	ErrModelInvalid  ErrorCode = "MODEL_INVALID"
+
 	// Validation errors
 	ErrValidationFailed ErrorCode = "VALIDATION_FAILED"
 )
 
 // ErrorResponse is the standard response format for errors
 type ErrorResponse struct {
-	Code     ErrorCode   `json:"code"`
-	Message  string      `json:"message"`
-	Details  interface{} `json:"details,omitempty"`
-	TraceID  string      `json:"trace_id,omitempty"`
+	Code    ErrorCode   `json:"code"`
+	Message string      `json:"message"`
+	Details interface{} `json:"details,omitempty"`
+	TraceID string      `json:"trace_id,omitempty"`
 }
 
 // APIError represents an API error with associated metadata
@@ -133,7 +133,7 @@ func NewValidationError(message string, details interface{}) *APIError {
 func HandleValidationErrors(err error) *APIError {
 	validationErrors := strings.Split(err.Error(), "\n")
 	details := make(map[string]string)
-	
+
 	for _, e := range validationErrors {
 		parts := strings.SplitN(e, ":", 2)
 		if len(parts) == 2 {
@@ -142,7 +142,7 @@ func HandleValidationErrors(err error) *APIError {
 			details[field] = message
 		}
 	}
-	
+
 	return NewValidationError("Validation failed", details)
 }
 
@@ -151,18 +151,18 @@ func ErrorHandlerMiddleware() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		// Process the request
 		c.Next()
-		
+
 		// If there were errors, handle them
 		if len(c.Errors) > 0 {
 			err := c.Errors.Last().Err
-			
+
 			// Generate a trace ID for error tracking
 			traceID := uuid.New().String()
-			
+
 			// Handle the error based on type
 			var response ErrorResponse
 			var httpCode int
-			
+
 			switch e := err.(type) {
 			case *APIError:
 				// Use the APIError directly
@@ -182,12 +182,12 @@ func ErrorHandlerMiddleware() gin.HandlerFunc {
 					TraceID: traceID,
 				}
 			}
-			
+
 			// Log the error with the trace ID for tracking
 			c.Request.Context()
 			// You would typically use a structured logger here
 			// logger.WithField("trace_id", traceID).WithError(err).Error("API error")
-			
+
 			// Return the error response
 			c.AbortWithStatusJSON(httpCode, response)
 		}

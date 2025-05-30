@@ -113,7 +113,7 @@ func NewDatabase(ctx context.Context, cfg Config) (*Database, error) {
 		statements: make(map[string]*sqlx.Stmt),
 		rdsClient:  rdsClient,
 	}
-	
+
 	// Check current search_path
 	var searchPath string
 	if err := db.QueryRowContext(ctx, "SHOW search_path").Scan(&searchPath); err == nil {

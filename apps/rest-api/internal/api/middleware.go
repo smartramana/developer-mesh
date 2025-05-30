@@ -435,14 +435,14 @@ func AuthMiddleware(authType string) gin.HandlerFunc {
 				return
 			}
 			fmt.Println("API key validation successful")
-			
+
 			// For API key auth, check if we already have user context from TenantMiddleware
 			// If not, set a default user context to avoid "missing tenant id" errors
 			if _, exists := c.Get("user"); !exists {
 				// Set default user context for API key authentication
 				// In a real system, this would look up the tenant from the API key
 				c.Set("user", map[string]any{
-					"api_key": authHeader,
+					"api_key":   authHeader,
 					"auth_type": "api_key",
 				})
 			}

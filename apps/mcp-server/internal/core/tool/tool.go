@@ -171,13 +171,13 @@ func validateProperty(name string, value interface{}, schema PropertySchema) err
 	}
 
 	valueType := reflect.TypeOf(value)
-	
+
 	switch schema.Type {
 	case "string":
 		if _, ok := value.(string); !ok {
 			return fmt.Errorf("parameter '%s' must be a string", name)
 		}
-		
+
 		// Validate enum if specified
 		if len(schema.Enum) > 0 {
 			strValue := value.(string)
@@ -192,7 +192,7 @@ func validateProperty(name string, value interface{}, schema PropertySchema) err
 				return fmt.Errorf("parameter '%s' must be one of: %s", name, strings.Join(schema.Enum, ", "))
 			}
 		}
-		
+
 	case "number":
 		switch value.(type) {
 		case float64, float32, int, int32, int64:
@@ -200,7 +200,7 @@ func validateProperty(name string, value interface{}, schema PropertySchema) err
 		default:
 			return fmt.Errorf("parameter '%s' must be a number", name)
 		}
-		
+
 	case "integer":
 		switch value.(type) {
 		case int, int32, int64:
@@ -208,17 +208,17 @@ func validateProperty(name string, value interface{}, schema PropertySchema) err
 		default:
 			return fmt.Errorf("parameter '%s' must be an integer", name)
 		}
-		
+
 	case "boolean":
 		if _, ok := value.(bool); !ok {
 			return fmt.Errorf("parameter '%s' must be a boolean", name)
 		}
-		
+
 	case "array":
 		if valueType.Kind() != reflect.Slice && valueType.Kind() != reflect.Array {
 			return fmt.Errorf("parameter '%s' must be an array", name)
 		}
-		
+
 		// Validate array items if schema is provided
 		if schema.Items != nil {
 			arrayValue := reflect.ValueOf(value)
@@ -229,32 +229,32 @@ func validateProperty(name string, value interface{}, schema PropertySchema) err
 				}
 			}
 		}
-		
+
 	case "object":
 		if valueType.Kind() != reflect.Map {
 			return fmt.Errorf("parameter '%s' must be an object", name)
 		}
-		
+
 		// Validate object properties if schema is provided
 		if len(schema.Properties) > 0 {
 			mapValue, ok := value.(map[string]interface{})
 			if !ok {
 				return fmt.Errorf("parameter '%s' must be a map[string]interface{}", name)
 			}
-			
+
 			for propName, propSchema := range schema.Properties {
 				propValue, exists := mapValue[propName]
 				if !exists {
 					continue // Property is not provided
 				}
-				
+
 				if err := validateProperty(fmt.Sprintf("%s.%s", name, propName), propValue, propSchema); err != nil {
 					return err
 				}
 			}
 		}
 	}
-	
+
 	return nil
 }
 

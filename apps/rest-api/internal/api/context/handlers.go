@@ -120,13 +120,13 @@ func (api *API) GetContext(c *gin.Context) {
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
 		return
 	}
-	
+
 	userMap, ok := userInfo.(map[string]any)
 	if !ok {
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "invalid user context"})
 		return
 	}
-	
+
 	requestTenantID, ok := userMap["tenant_id"].(string)
 	if !ok || requestTenantID == "" {
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "missing tenant id"})
@@ -153,7 +153,7 @@ func (api *API) GetContext(c *gin.Context) {
 		c.JSON(http.StatusNotFound, gin.H{"error": err.Error()})
 		return
 	}
-	
+
 	// Validate tenant access - check if the context belongs to the requesting tenant
 	// We need to fetch the model to check its tenant ID
 	// We'll try to get the model with the requesting tenant ID
@@ -167,7 +167,7 @@ func (api *API) GetContext(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to validate tenant access"})
 		return
 	}
-	
+
 	// If model is nil, it means either the model doesn't exist or doesn't belong to this tenant
 	// GetModelByID already checks tenant ownership internally
 	if model == nil {
@@ -242,15 +242,15 @@ func (api *API) UpdateContext(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
-	
+
 	// Debug log the result
 	api.logger.Debug("UpdateContext handler - received result", map[string]any{
-		"context_id": result.ID,
-		"name": result.Name,
-		"agent_id": result.AgentID,
-		"model_id": result.ModelID,
+		"context_id":    result.ID,
+		"name":          result.Name,
+		"agent_id":      result.AgentID,
+		"model_id":      result.ModelID,
 		"result_is_nil": result == nil,
-		"has_content": len(result.Content),
+		"has_content":   len(result.Content),
 	})
 
 	// Record metric

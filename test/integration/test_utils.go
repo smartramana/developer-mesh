@@ -4,12 +4,12 @@
 package integration
 
 import (
-	"os"
-	"testing"
 	"fmt"
-	"time"
 	"github.com/jmoiron/sqlx"
 	_ "github.com/lib/pq"
+	"os"
+	"testing"
+	"time"
 )
 
 // getTestDatabaseDSN returns the database DSN from environment variables
@@ -35,18 +35,18 @@ func SkipIfNoDatabase(t *testing.T) {
 func CreateTestDatabaseConnection(t *testing.T) *sqlx.DB {
 	// Get database DSN from environment
 	dsn := getTestDatabaseDSN()
-	
+
 	// Connect to the database
 	db, err := sqlx.Connect("postgres", dsn)
 	if err != nil {
 		t.Fatalf("Failed to connect to database: %v", err)
 	}
-	
+
 	// Set connection pool parameters
 	db.SetMaxOpenConns(5)
 	db.SetMaxIdleConns(2)
 	db.SetConnMaxLifetime(5 * time.Minute)
-	
+
 	return db
 }
 
@@ -59,7 +59,7 @@ func CleanupTestDatabase(t *testing.T, db *sqlx.DB, contextID string) {
 			t.Logf("Warning: Failed to clean up test data for context %s: %v", contextID, err)
 		}
 	}
-	
+
 	// Close the database connection
 	if err := db.Close(); err != nil {
 		t.Logf("Warning: Failed to close database connection: %v", err)

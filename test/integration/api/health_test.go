@@ -27,10 +27,10 @@ func TestHealthEndpoint(t *testing.T) {
 
 	// Parse response
 	var healthResponse struct {
-		Status     string `json:"status"`
+		Status     string            `json:"status"`
 		Components map[string]string `json:"components"`
 	}
-	
+
 	err = testutils.ParseJSONResponse(resp, &healthResponse)
 	require.NoError(t, err, "Response should be valid JSON")
 
@@ -43,7 +43,7 @@ func TestHealthEndpoint(t *testing.T) {
 func TestMetricsEndpoint(t *testing.T) {
 	// Skip this test for now as it requires a different type of authentication
 	t.Skip("Metrics endpoint requires a different authentication mechanism")
-	
+
 	// Create HTTP client for API calls
 	client := testutils.NewHTTPClient("http://localhost:8080", "")
 

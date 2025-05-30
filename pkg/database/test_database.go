@@ -313,7 +313,6 @@ func (d *Database) ensureTestGitHubContentTables(ctx context.Context) error {
 	return nil
 }
 
-
 // ensureModelTables creates tables for models
 func (d *Database) ensureTestModelTables(ctx context.Context) error {
 	var queries []string

@@ -30,7 +30,7 @@ func (p *AgentAPIProxy) CreateAgent(ctx context.Context, agent *models.Agent) er
 		"agent_id": agent.ID,
 		"name":     agent.Name,
 	})
-	
+
 	return p.client.CreateAgent(ctx, agent)
 }
 
@@ -40,7 +40,7 @@ func (p *AgentAPIProxy) GetAgentByID(ctx context.Context, id string, tenantID st
 		"agent_id":  id,
 		"tenant_id": tenantID,
 	})
-	
+
 	return p.client.GetAgentByID(ctx, id, tenantID)
 }
 
@@ -49,7 +49,7 @@ func (p *AgentAPIProxy) ListAgents(ctx context.Context, tenantID string) ([]*mod
 	p.logger.Debug("Listing agents via REST API proxy", map[string]interface{}{
 		"tenant_id": tenantID,
 	})
-	
+
 	return p.client.ListAgents(ctx, tenantID)
 }
 
@@ -59,7 +59,7 @@ func (p *AgentAPIProxy) UpdateAgent(ctx context.Context, agent *models.Agent) er
 		"agent_id": agent.ID,
 		"name":     agent.Name,
 	})
-	
+
 	return p.client.UpdateAgent(ctx, agent)
 }
 
@@ -68,7 +68,7 @@ func (p *AgentAPIProxy) DeleteAgent(ctx context.Context, id string) error {
 	p.logger.Debug("Deleting agent via REST API proxy", map[string]interface{}{
 		"agent_id": id,
 	})
-	
+
 	return p.client.DeleteAgent(ctx, id)
 }
 

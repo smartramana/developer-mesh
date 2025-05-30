@@ -37,17 +37,17 @@ func (a *ContextAPIAdapter) repoToMCPContext(repoContext *repository.Context) *m
 	if repoContext.Properties != nil {
 		// Add status to metadata
 		metadata["status"] = repoContext.Status
-		
+
 		// Copy all other properties
 		for k, v := range repoContext.Properties {
 			metadata[k] = v
 		}
 	}
-	
+
 	// Convert timestamps
 	createdAt := time.Unix(repoContext.CreatedAt, 0)
 	updatedAt := time.Unix(repoContext.UpdatedAt, 0)
-	
+
 	// Create MCP context
 	mcpContext := &models.Context{
 		ID:        repoContext.ID,
@@ -59,7 +59,7 @@ func (a *ContextAPIAdapter) repoToMCPContext(repoContext *repository.Context) *m
 		UpdatedAt: updatedAt,
 		Content:   []models.ContextItem{}, // Initialize empty content array
 	}
-	
+
 	return mcpContext
 }
 
@@ -76,14 +76,14 @@ func (a *ContextAPIAdapter) mcpToRepoContext(mcpContext *models.Context) *reposi
 		CreatedAt:  mcpContext.CreatedAt.Unix(),
 		UpdatedAt:  mcpContext.UpdatedAt.Unix(),
 	}
-	
+
 	// Extract additional fields from metadata
 	if mcpContext.Metadata != nil {
 		// Get status if present
 		if status, ok := mcpContext.Metadata["status"].(string); ok {
 			repoContext.Status = status
 		}
-		
+
 		// Copy remaining metadata to properties
 		for k, v := range mcpContext.Metadata {
 			if k != "status" { // Avoid duplication
@@ -91,7 +91,7 @@ func (a *ContextAPIAdapter) mcpToRepoContext(mcpContext *models.Context) *reposi
 			}
 		}
 	}
-	
+
 	return repoContext
 }
 
@@ -100,21 +100,21 @@ func (a *ContextAPIAdapter) Create(ctx context.Context, contextObj *repository.C
 	a.logger.Debug("Creating context via adapter", map[string]interface{}{
 		"context_id": contextObj.ID,
 	})
-	
+
 	// Convert repository context to MCP context
 	mcpContext := a.repoToMCPContext(contextObj)
-	
+
 	// Call REST API
 	result, err := a.client.CreateContext(ctx, mcpContext)
 	if err != nil {
 		return fmt.Errorf("failed to create context via REST API: %w", err)
 	}
-	
+
 	// Update the original context object with returned data
 	contextObj.ID = result.ID
 	contextObj.CreatedAt = result.CreatedAt.Unix()
 	contextObj.UpdatedAt = result.UpdatedAt.Unix()
-	
+
 	return nil
 }
 
@@ -123,13 +123,13 @@ func (a *ContextAPIAdapter) Get(ctx context.Context, id string) (*repository.Con
 	a.logger.Debug("Getting context via adapter", map[string]interface{}{
 		"context_id": id,
 	})
-	
+
 	// Call REST API
 	result, err := a.client.GetContext(ctx, id)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get context via REST API: %w", err)
 	}
-	
+
 	// Convert MCP context to repository context
 	return a.mcpToRepoContext(result), nil
 }
@@ -139,21 +139,21 @@ func (a *ContextAPIAdapter) Update(ctx context.Context, contextObj *repository.C
 	a.logger.Debug("Updating context via adapter", map[string]interface{}{
 		"context_id": contextObj.ID,
 	})
-	
+
 	// Convert repository context to MCP context
 	mcpContext := a.repoToMCPContext(contextObj)
-	
+
 	// Set update options
 	options := &models.ContextUpdateOptions{
 		ReplaceContent: false,
 	}
-	
+
 	// Call REST API
 	_, err := a.client.UpdateContext(ctx, contextObj.ID, mcpContext, options)
 	if err != nil {
 		return fmt.Errorf("failed to update context via REST API: %w", err)
 	}
-	
+
 	return nil
 }
 
@@ -162,13 +162,13 @@ func (a *ContextAPIAdapter) Delete(ctx context.Context, id string) error {
 	a.logger.Debug("Deleting context via adapter", map[string]interface{}{
 		"context_id": id,
 	})
-	
+
 	// Call REST API
 	err := a.client.DeleteContext(ctx, id)
 	if err != nil {
 		return fmt.Errorf("failed to delete context via REST API: %w", err)
 	}
-	
+
 	return nil
 }
 
@@ -177,7 +177,7 @@ func (a *ContextAPIAdapter) List(ctx context.Context, filter map[string]interfac
 	a.logger.Debug("Listing contexts via adapter", map[string]interface{}{
 		"filter": filter,
 	})
-	
+
 	// Extract filter parameters
 	var agentID, sessionID string
 	if filter != nil {
@@ -188,19 +188,19 @@ func (a *ContextAPIAdapter) List(ctx context.Context, filter map[string]interfac
 			sessionID = sid
 		}
 	}
-	
+
 	// Call REST API
 	results, err := a.client.ListContexts(ctx, agentID, sessionID, filter)
 	if err != nil {
 		return nil, fmt.Errorf("failed to list contexts via REST API: %w", err)
 	}
-	
+
 	// Convert MCP contexts to repository contexts
 	contexts := make([]*repository.Context, len(results))
 	for i, result := range results {
 		contexts[i] = a.mcpToRepoContext(result)
 	}
-	
+
 	return contexts, nil
 }
 
@@ -210,25 +210,25 @@ func (a *ContextAPIAdapter) mcpItemToRepoItem(mcpItem models.ContextItem, contex
 	repoItem := repository.ContextItem{
 		ID:        mcpItem.ID,
 		ContextID: contextID,
-		Content:   mcpItem.Content, 
+		Content:   mcpItem.Content,
 		Type:      "content", // Default
 		Score:     0,
 		Metadata:  mcpItem.Metadata,
 	}
-	
+
 	// Extract additional fields from metadata
 	if mcpItem.Metadata != nil {
 		// Get type if present
 		if itemType, ok := mcpItem.Metadata["type"].(string); ok {
 			repoItem.Type = itemType
 		}
-		
+
 		// Get score if present
 		if score, ok := mcpItem.Metadata["score"].(float64); ok {
 			repoItem.Score = score
 		}
 	}
-	
+
 	return repoItem
 }
 
@@ -238,19 +238,19 @@ func (a *ContextAPIAdapter) Search(ctx context.Context, contextID, query string)
 		"context_id": contextID,
 		"query":      query,
 	})
-	
+
 	// Call REST API
 	results, err := a.client.SearchInContext(ctx, contextID, query)
 	if err != nil {
 		return nil, fmt.Errorf("failed to search in context via REST API: %w", err)
 	}
-	
+
 	// Convert MCP context items to repository context items
 	items := make([]repository.ContextItem, len(results))
 	for i, result := range results {
 		items[i] = a.mcpItemToRepoItem(result, contextID)
 	}
-	
+
 	return items, nil
 }
 
@@ -259,12 +259,12 @@ func (a *ContextAPIAdapter) Summarize(ctx context.Context, contextID string) (st
 	a.logger.Debug("Summarizing context via adapter", map[string]interface{}{
 		"context_id": contextID,
 	})
-	
+
 	// Call REST API
 	summary, err := a.client.SummarizeContext(ctx, contextID)
 	if err != nil {
 		return "", fmt.Errorf("failed to summarize context via REST API: %w", err)
 	}
-	
+
 	return summary, nil
 }

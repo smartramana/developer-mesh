@@ -42,23 +42,23 @@ func TestGitHubLiveAPI(t *testing.T) {
 	// Setup
 	logger := observability.NewLogger("github-live-test")
 	metricsClient := observability.NewNoOpMetricsClient()
-	
+
 	// Create a nil event bus for testing
 	var eventBus adapterEvents.EventBus = nil
-	
+
 	config := github.DefaultConfig()
-	
+
 	// Use real GitHub API
 	config.BaseURL = "https://api.github.com/"
-	
+
 	// Configure GitHub App authentication
 	appID := os.Getenv("GITHUB_APP_ID")
 	appIDInt, err := strconv.ParseInt(appID, 10, 64)
 	require.NoError(t, err, "Invalid GITHUB_APP_ID")
-	
+
 	config.Auth.Type = "app"
 	config.Auth.AppID = appIDInt
-	
+
 	// Add installation ID
 	installationID := os.Getenv("GITHUB_APP_INSTALLATION_ID")
 	if installationID != "" {
@@ -66,14 +66,14 @@ func TestGitHubLiveAPI(t *testing.T) {
 		require.NoError(t, err, "Invalid GITHUB_APP_INSTALLATION_ID")
 		config.Auth.InstallationID = installationIDInt
 	}
-	
+
 	// Read private key file
 	privateKeyPath := os.Getenv("GITHUB_APP_PRIVATE_KEY_PATH")
 	privateKeyBytes, err := os.ReadFile(privateKeyPath)
 	require.NoError(t, err, "Failed to read private key file")
-	
+
 	config.Auth.PrivateKey = string(privateKeyBytes)
-	
+
 	// Configure webhook secret if available
 	if secret := os.Getenv("GITHUB_WEBHOOK_SECRET"); secret != "" {
 		config.WebhookSecret = secret
@@ -100,13 +100,13 @@ func TestGitHubLiveAPI(t *testing.T) {
 			"owner": testOrg,
 			"repo":  testRepo,
 		}
-		
+
 		result, err := githubAdapter.ExecuteAction(ctx, "", "getRepository", params)
 		require.NoError(t, err, "Failed to get repository")
-		
+
 		repo, ok := result.(map[string]any)
 		require.True(t, ok, "Expected repository result to be a map")
-		
+
 		assert.Equal(t, testRepo, repo["name"])
 		t.Logf("Successfully retrieved repository: %s", repo["full_name"])
 		t.Logf("Repository description: %s", repo["description"])
@@ -118,7 +118,7 @@ func TestGitHubLiveAPI(t *testing.T) {
 		params := map[string]any{
 			"test": "value",
 		}
-		
+
 		_, err := githubAdapter.ExecuteAction(ctx, "", "unknown_action", params)
 		assert.Error(t, err)
 		t.Logf("Expected error for unknown action: %v", err)
@@ -127,12 +127,12 @@ func TestGitHubLiveAPI(t *testing.T) {
 	t.Run("RateLimiting", func(t *testing.T) {
 		// Test that we handle rate limiting properly
 		start := time.Now()
-		
+
 		params := map[string]any{
 			"owner": testOrg,
 			"repo":  testRepo,
 		}
-		
+
 		// Make multiple requests
 		successCount := 0
 		for i := 0; i < 3; i++ {
@@ -141,7 +141,7 @@ func TestGitHubLiveAPI(t *testing.T) {
 				successCount++
 			}
 		}
-		
+
 		elapsed := time.Since(start)
 		assert.Equal(t, 3, successCount, "All requests should succeed")
 		t.Logf("3 requests completed in %v", elapsed)
@@ -176,7 +176,7 @@ func TestGitHubWebhookValidation(t *testing.T) {
 	t.Run("ValidateWebhook", func(t *testing.T) {
 		// Test webhook handling
 		payload := []byte(`{"action":"opened","pull_request":{"id":1,"title":"Test PR"}}`)
-		
+
 		// The adapter should be able to handle the webhook
 		err := adapter.HandleWebhook(context.Background(), "pull_request", payload)
 		// This might fail if webhook processing isn't fully implemented

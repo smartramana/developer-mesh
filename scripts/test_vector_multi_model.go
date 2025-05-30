@@ -56,7 +56,7 @@ func main() {
 	// Run tests
 	ctx := context.Background()
 	contextID := fmt.Sprintf("test-context-%s", uuid.New().String()[:8])
-	
+
 	if cfg.verbose {
 		fmt.Printf("Using test context ID: %s\n", contextID)
 	}
@@ -86,7 +86,7 @@ func main() {
 // parseFlags parses command line flags
 func parseFlags() config {
 	var cfg config
-	
+
 	flag.StringVar(&cfg.dsn, "dsn", "", "Database connection string (defaults to MCP_DATABASE_DSN env var)")
 	flag.BoolVar(&cfg.cleanupAfter, "cleanup", true, "Clean up test data after running")
 	flag.BoolVar(&cfg.verbose, "verbose", true, "Enable verbose output")
@@ -118,7 +118,7 @@ func connectDB(dsn string) (*sqlx.DB, error) {
 	// Verify connection
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
-	
+
 	if err := db.PingContext(ctx); err != nil {
 		return nil, fmt.Errorf("failed to ping database: %w", err)
 	}
@@ -134,7 +134,7 @@ func testModel(ctx context.Context, repo vector.Repository, contextID string, mo
 
 	// Generate and store test embeddings
 	embeddings := generateTestEmbeddings(contextID, model.ID, model.Dimension, 5)
-	
+
 	for i, emb := range embeddings {
 		if err := repo.StoreEmbedding(ctx, emb); err != nil {
 			return fmt.Errorf("failed to store embedding %d: %w", i, err)
@@ -149,7 +149,7 @@ func testModel(ctx context.Context, repo vector.Repository, contextID string, mo
 	if err != nil {
 		return fmt.Errorf("failed to retrieve embeddings: %w", err)
 	}
-	
+
 	if verbose {
 		fmt.Printf("Retrieved %d embeddings for model %s\n", len(retrievedEmbeddings), model.ID)
 	}
@@ -231,20 +231,20 @@ func cleanupTestData(ctx context.Context, repo vector.Repository, contextID stri
 // generateTestEmbeddings creates random embeddings for testing
 func generateTestEmbeddings(contextID, modelID string, dimension, count int) []*vector.Embedding {
 	embeddings := make([]*vector.Embedding, count)
-	
+
 	// Seed random number generator for reproducibility
 	rng := rand.New(rand.NewSource(time.Now().UnixNano()))
-	
+
 	for i := 0; i < count; i++ {
 		// Generate random vector
 		vec := make([]float32, dimension)
 		for j := 0; j < dimension; j++ {
 			vec[j] = rng.Float32()*2 - 1 // Range [-1, 1]
 		}
-		
+
 		// Normalize vector
 		vec = common.NormalizeVectorL2(vec)
-		
+
 		// Create embedding with proper metadata
 		embeddings[i] = &vector.Embedding{
 			ID:           uuid.New().String(),
@@ -261,7 +261,7 @@ func generateTestEmbeddings(contextID, modelID string, dimension, count int) []*
 			},
 		}
 	}
-	
+
 	return embeddings
 }
 

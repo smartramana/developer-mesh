@@ -8,8 +8,8 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
-	"github.com/S-Corkum/devops-mcp/pkg/models"
 	"functional-tests/client"
+	"github.com/S-Corkum/devops-mcp/pkg/models"
 )
 
 var _ = Describe("Model Operations", func() {
@@ -71,7 +71,7 @@ var _ = Describe("Model Operations", func() {
 			updatePayload := map[string]interface{}{
 				"name": "Updated CRUD Model",
 			}
-			
+
 			path := fmt.Sprintf("/api/v1/models/%s", createdModel.ID)
 			resp, err := mcpClient.Put(ctx, path, updatePayload)
 			Expect(err).NotTo(HaveOccurred())
@@ -134,16 +134,16 @@ var _ = Describe("Model Operations", func() {
 			var searchResult map[string]interface{}
 			err = client.ParseResponse(resp, &searchResult)
 			Expect(err).NotTo(HaveOccurred())
-			
+
 			resultsArray, ok := searchResult["results"].([]interface{})
 			Expect(ok).To(BeTrue())
-			
+
 			// Should find at least the Alpha model
 			found := false
 			for _, result := range resultsArray {
 				resultMap, ok := result.(map[string]interface{})
 				Expect(ok).To(BeTrue())
-				
+
 				if name, ok := resultMap["name"].(string); ok && name == "Search Test Model Alpha" {
 					found = true
 					break
@@ -159,27 +159,27 @@ var _ = Describe("Model Operations", func() {
 					Name:     fmt.Sprintf("Pagination Test Model %d", i),
 					TenantID: "test-tenant-1",
 				}
-				
+
 				createdModel, err := mcpClient.CreateModel(ctx, modelReq)
 				Expect(err).NotTo(HaveOccurred())
 				createdModels = append(createdModels, createdModel.ID)
 			}
-			
+
 			// Test pagination with limit parameter
 			resp, err := mcpClient.Get(ctx, "/api/v1/models?limit=2")
 			Expect(err).NotTo(HaveOccurred())
 			defer resp.Body.Close()
 			Expect(resp.StatusCode).To(Equal(200))
-			
+
 			var result map[string]interface{}
 			err = client.ParseResponse(resp, &result)
 			Expect(err).NotTo(HaveOccurred())
-			
+
 			// Verify the results contain the expected number of models
 			modelsArray, ok := result["models"].([]interface{})
 			Expect(ok).To(BeTrue())
 			Expect(len(modelsArray)).To(Equal(2), "Should return exactly 2 models due to limit")
-			
+
 			// Verify pagination metadata
 			Expect(result).To(HaveKey("_links"))
 			links, ok := result["_links"].(map[string]interface{})
@@ -195,28 +195,28 @@ var _ = Describe("Model Operations", func() {
 				Name:     "Vector Test Model",
 				TenantID: "test-tenant-1",
 			}
-			
+
 			createdModel, err := mcpClient.CreateModel(ctx, modelReq)
 			Expect(err).NotTo(HaveOccurred())
 			createdModels = append(createdModels, createdModel.ID)
-			
+
 			// Add vector data
 			// NOTE: This is an example and might need to be adjusted based on the actual API
 			vectorPayload := map[string]interface{}{
 				"vectors": []map[string]interface{}{
 					{
-						"id":        "test-vector-1",
-						"content":   "This is a test vector document",
+						"id":      "test-vector-1",
+						"content": "This is a test vector document",
 						"metadata": map[string]interface{}{
 							"source": "functional-test",
 						},
 					},
 				},
 			}
-			
+
 			vectorPath := fmt.Sprintf("/api/v1/models/%s/vectors", createdModel.ID)
 			resp, err := mcpClient.Post(ctx, vectorPath, vectorPayload)
-			
+
 			// The vector API might not be fully implemented or available in test mode
 			// So we'll check for either success or a specific error that indicates
 			// the API exists but functionality is limited in test mode

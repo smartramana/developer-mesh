@@ -81,7 +81,7 @@ type GitHubAdapter struct {
 	rateLimiter         *resilience.RateLimiterManager
 	mu                  sync.RWMutex
 	closed              bool
-	wg                  sync.WaitGroup // WaitGroup for webhook workers
+	wg                  sync.WaitGroup            // WaitGroup for webhook workers
 	registeredHandlers  map[string]map[string]any // Map of handler IDs to handler details
 }
 

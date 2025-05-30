@@ -24,13 +24,13 @@ func (a *EventBusAdapter) Emit(ctx context.Context, event *AdapterEvent) error {
 	if a.systemEventBus != nil {
 		// Convert AdapterEvent to models.Event
 		modelEvent := event.ToModelEvent()
-		
+
 		// For github actions, use a specific event type that the tests expect
 		if event.AdapterType == "github" {
 			// Use "github.action" as the event type for GitHub actions
 			modelEvent.Type = "github.action"
 		}
-		
+
 		// Publish the event
 		a.systemEventBus.Publish(ctx, modelEvent)
 	}

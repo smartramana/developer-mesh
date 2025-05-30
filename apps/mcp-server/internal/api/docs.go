@@ -43,11 +43,11 @@ import (
 func SetupSwaggerDocs(router *gin.Engine, basePath string) {
 	// Serve the OpenAPI specification
 	router.Static("/docs/swagger", "../../docs/swagger")
-	
+
 	// Swagger UI
 	url := ginSwagger.URL(basePath + "/docs/swagger/openapi.yaml")
 	router.GET("/swagger/*any", ginSwagger.WrapHandler(swaggerFiles.Handler, url))
-	
+
 	// ReDoc alternative UI
 	router.GET("/redoc", func(c *gin.Context) {
 		c.HTML(200, "redoc.html", gin.H{

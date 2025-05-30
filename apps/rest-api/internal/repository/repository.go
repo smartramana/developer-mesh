@@ -49,7 +49,7 @@ type ModelRepository interface {
 
 	// DeleteModel deletes a model by ID
 	DeleteModel(ctx context.Context, id string) error
-	
+
 	// SearchModels searches for models by query string (tenant-scoped)
 	SearchModels(ctx context.Context, tenantID, query string, limit, offset int) ([]*models.Model, error)
 }

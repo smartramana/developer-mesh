@@ -23,9 +23,9 @@ import (
 	"github.com/S-Corkum/devops-mcp/pkg/cache"
 	"github.com/S-Corkum/devops-mcp/pkg/common/aws"
 	commonconfig "github.com/S-Corkum/devops-mcp/pkg/common/config"
+	pkgconfig "github.com/S-Corkum/devops-mcp/pkg/config"
 	"github.com/S-Corkum/devops-mcp/pkg/database"
 	"github.com/S-Corkum/devops-mcp/pkg/observability"
-	pkgconfig "github.com/S-Corkum/devops-mcp/pkg/config"
 
 	// Import PostgreSQL driver
 	_ "github.com/lib/pq"
@@ -184,7 +184,7 @@ func main() {
 	}()
 
 	// Initialize and start API server
-	server, err := initializeServer(ctx, cfg, engine, db, metricsClient, logger)
+	server, err := initializeServer(ctx, cfg, engine, db, cacheClient, metricsClient, logger)
 	if err != nil {
 		logger.Error("Failed to initialize server", map[string]interface{}{
 			"error": err.Error(),
@@ -286,7 +286,7 @@ func logAWSConfiguration(logger observability.Logger) {
 func initializeDatabase(ctx context.Context, cfg *commonconfig.Config, logger observability.Logger) (*database.Database, error) {
 	// Build connection string
 	connStr := buildDatabaseURL(cfg)
-	
+
 	logger.Info("Initializing database connection", map[string]interface{}{
 		"host": cfg.Database.Host,
 		"port": cfg.Database.Port,
@@ -380,11 +380,11 @@ func initializeCache(ctx context.Context, cfg *commonconfig.Config, logger obser
 }
 
 // initializeEngine creates the core engine
-func initializeEngine(ctx context.Context, cfg *commonconfig.Config, db *database.Database, 
+func initializeEngine(ctx context.Context, cfg *commonconfig.Config, db *database.Database,
 	cacheClient cache.Cache, metricsClient observability.MetricsClient, logger observability.Logger) (*core.Engine, error) {
-	
+
 	logger.Info("Initializing core engine", nil)
-	
+
 	configAdapter := core.NewConfigAdapter(cfg)
 	engine, err := core.NewEngine(ctx, configAdapter, db, cacheClient, metricsClient)
 	if err != nil {
@@ -396,11 +396,11 @@ func initializeEngine(ctx context.Context, cfg *commonconfig.Config, db *databas
 
 // initializeServer creates and configures the API server
 func initializeServer(ctx context.Context, cfg *commonconfig.Config, engine *core.Engine,
-	db *database.Database, metricsClient observability.MetricsClient, logger observability.Logger) (*api.Server, error) {
-	
+	db *database.Database, cacheClient cache.Cache, metricsClient observability.MetricsClient, logger observability.Logger) (*api.Server, error) {
+
 	// Build API configuration
 	apiConfig := buildAPIConfig(cfg)
-	
+
 	logger.Info("Initializing API server", map[string]interface{}{
 		"listen_address": apiConfig.ListenAddress,
 		"enable_cors":    apiConfig.EnableCORS,
@@ -419,7 +419,7 @@ func initializeServer(ctx context.Context, cfg *commonconfig.Config, engine *cor
 	}
 
 	// Create server - pass db.GetDB() to get the *sqlx.DB
-	server := api.NewServer(engine, apiConfig, db.GetDB(), metricsClient, pkgConfig)
+	server := api.NewServer(engine, apiConfig, db.GetDB(), cacheClient, metricsClient, pkgConfig)
 
 	// Initialize server components
 	if err := server.Initialize(ctx); err != nil {
@@ -432,12 +432,12 @@ func initializeServer(ctx context.Context, cfg *commonconfig.Config, engine *cor
 // buildAPIConfig creates API configuration from common config
 func buildAPIConfig(cfg *commonconfig.Config) api.Config {
 	apiConfig := api.DefaultConfig()
-	
+
 	// Override with configuration values
 	apiConfig.ListenAddress = cfg.API.ListenAddress
 	apiConfig.TLSCertFile = cfg.API.TLSCertFile
 	apiConfig.TLSKeyFile = cfg.API.TLSKeyFile
-	
+
 	// Set timeouts from environment if available
 	if timeout := getEnvDuration("API_READ_TIMEOUT", 0); timeout > 0 {
 		apiConfig.ReadTimeout = timeout
@@ -526,7 +526,7 @@ func parseWebhookConfig(webhookMap map[string]interface{}) *config.WebhookConfig
 			}
 			webhookConfig.GitHub.AllowedEvents = allowedEvents
 		}
-		
+
 		// Warn if webhook is enabled but secret is missing
 		if webhookConfig.GitHub.Enabled && webhookConfig.GitHub.Secret == "" {
 			log.Printf("WARNING: GitHub webhook is enabled but no secret is configured. This is insecure!")
@@ -586,10 +586,10 @@ func waitForShutdown(ctx context.Context, server *api.Server, serverErrCh <-chan
 // runMigrations runs database migrations
 func runMigrations(ctx context.Context, db *database.Database, logger observability.Logger) error {
 	logger.Info("Running database migrations", nil)
-	
+
 	// Get the migration directory path
 	migrationDir := getMigrationDir()
-	
+
 	logger.Info("Migration directory", map[string]interface{}{
 		"path": migrationDir,
 	})

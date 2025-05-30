@@ -33,7 +33,7 @@ func GitHubWebhookHandler(config WebhookConfig, logger observability.Logger) htt
 	if logger == nil {
 		logger = observability.NewLogger("webhooks")
 	}
-	
+
 	// Debug output for config
 	fmt.Printf("[DEBUG] Webhook Handler Config: %+v\n", config)
 	fmt.Printf("[DEBUG] Secret from config: %s (length: %d)\n", config.GitHubSecret(), len(config.GitHubSecret()))
@@ -109,7 +109,7 @@ func GitHubWebhookHandler(config WebhookConfig, logger observability.Logger) htt
 			if isTestMode {
 				// For test stability, log the error but don't fail in test mode
 				fmt.Printf("[DEBUG] TEST MODE: Signature verification failed, but proceeding anyway for testing\n")
-				logger.Warn("GitHub webhook signature verification failed in test mode", 
+				logger.Warn("GitHub webhook signature verification failed in test mode",
 					map[string]interface{}{"computed": validSignature})
 			} else {
 				// In production, fail the request
@@ -183,7 +183,7 @@ func GitHubWebhookHandler(config WebhookConfig, logger observability.Logger) htt
 func verifySignature(payload []byte, signature, secret string) bool {
 	fmt.Printf("[DEBUG] Starting signature verification with secret: '%s' (length: %d)\n", secret, len(secret))
 	fmt.Printf("[DEBUG] Signature received: %s\n", signature)
-	
+
 	if !strings.HasPrefix(signature, "sha256=") {
 		fmt.Println("[DEBUG] Signature does not have correct prefix:", signature)
 		return false
@@ -276,10 +276,9 @@ func NewGitHubIPValidator(logger observability.Logger) *GitHubIPValidator {
 	}
 	return &GitHubIPValidator{
 		cacheTTL: 24 * time.Hour, // Update IP ranges every 24 hours
-		logger: logger,
+		logger:   logger,
 	}
 }
-
 
 // FetchGitHubIPRanges fetches and caches GitHub's IP ranges
 func (v *GitHubIPValidator) FetchGitHubIPRanges() error {

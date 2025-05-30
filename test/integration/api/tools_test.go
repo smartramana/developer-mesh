@@ -33,7 +33,7 @@ func TestListTools(t *testing.T) {
 			Actions     []string `json:"actions,omitempty"`
 		} `json:"tools"`
 	}
-	
+
 	err = testutils.ParseJSONResponse(resp, &toolsResponse)
 	require.NoError(t, err, "Response should be valid JSON")
 
@@ -46,7 +46,7 @@ func TestListTools(t *testing.T) {
 			break
 		}
 	}
-	
+
 	assert.True(t, foundGithub, "GitHub tool should be available in the tools list")
 }
 
@@ -65,13 +65,13 @@ func TestListToolActions(t *testing.T) {
 
 	// Parse response - the actions appear to be returned directly in the tool object
 	var actionsResponse map[string]interface{}
-	
+
 	err = testutils.ParseJSONResponse(resp, &actionsResponse)
 	require.NoError(t, err, "Response should be valid JSON")
 
 	// Verify we have a response with actions
 	assert.NotNil(t, actionsResponse, "Response should not be nil")
-	
+
 	// Just verify that we got some kind of successful response
 	// Since the structure might not match our expected format
 	assert.Equal(t, http.StatusOK, resp.StatusCode, "Should receive a successful response")
@@ -81,7 +81,7 @@ func TestListToolActions(t *testing.T) {
 func TestQueryToolData(t *testing.T) {
 	// Skip this test for now, as the query endpoint appears to be using a different path
 	t.Skip("Query API appears to use a different path or format than expected")
-	
+
 	// Create HTTP client for API calls
 	client := testutils.NewHTTPClient("http://localhost:8080", "local-admin-api-key")
 

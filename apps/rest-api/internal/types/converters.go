@@ -3,7 +3,7 @@ package types
 
 import (
 	"time"
-	
+
 	pkgrepo "github.com/S-Corkum/devops-mcp/pkg/repository"
 )
 
@@ -100,13 +100,13 @@ type PaginationInfo struct {
 
 // VectorSearchQuery defines parameters for vector search operations
 type VectorSearchQuery struct {
-	QueryVector         []float32       `json:"query_vector,omitempty"`
-	Query              string          `json:"query,omitempty"`
-	ContextID          string          `json:"context_id,omitempty"`
-	ModelID            string          `json:"model_id,omitempty"`
-	Limit              int             `json:"limit,omitempty"`
-	SimilarityThreshold float64         `json:"similarity_threshold,omitempty"`
-	Filters            map[string]any  `json:"filters,omitempty"`
+	QueryVector         []float32      `json:"query_vector,omitempty"`
+	Query               string         `json:"query,omitempty"`
+	ContextID           string         `json:"context_id,omitempty"`
+	ModelID             string         `json:"model_id,omitempty"`
+	Limit               int            `json:"limit,omitempty"`
+	SimilarityThreshold float64        `json:"similarity_threshold,omitempty"`
+	Filters             map[string]any `json:"filters,omitempty"`
 }
 
 // VectorSearchResult represents a vector search result
@@ -131,7 +131,7 @@ func ConvertAgentFilterToMap(filter *AgentFilter) map[string]any {
 	if filter == nil {
 		return nil
 	}
-	
+
 	result := make(map[string]any)
 	if filter.ID != "" {
 		result["id"] = filter.ID
@@ -153,7 +153,7 @@ func ConvertModelFilterToMap(filter *ModelFilter) map[string]any {
 	if filter == nil {
 		return nil
 	}
-	
+
 	result := make(map[string]any)
 	if filter.ID != "" {
 		result["id"] = filter.ID
@@ -172,7 +172,7 @@ func ConvertContextFilterToMap(filter *ContextFilter) map[string]any {
 	if filter == nil {
 		return nil
 	}
-	
+
 	result := make(map[string]any)
 	if filter.ID != "" {
 		result["id"] = filter.ID

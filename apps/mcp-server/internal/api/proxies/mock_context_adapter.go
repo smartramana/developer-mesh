@@ -31,12 +31,12 @@ func (m *MockContextRepository) Create(ctx context.Context, contextObj *reposito
 	m.logger.Debug("Mock context creation", map[string]interface{}{
 		"context_id": contextObj.ID,
 	})
-	
+
 	// Just update timestamps
 	now := time.Now().Unix()
 	contextObj.CreatedAt = now
 	contextObj.UpdatedAt = now
-	
+
 	return nil
 }
 
@@ -45,7 +45,7 @@ func (m *MockContextRepository) Get(ctx context.Context, id string) (*repository
 	m.logger.Debug("Mock context get", map[string]interface{}{
 		"context_id": id,
 	})
-	
+
 	// Return a mock context
 	return &repository.Context{
 		ID:         id,
@@ -64,10 +64,10 @@ func (m *MockContextRepository) Update(ctx context.Context, contextObj *reposito
 	m.logger.Debug("Mock context update", map[string]interface{}{
 		"context_id": contextObj.ID,
 	})
-	
+
 	// Just update the timestamp
 	contextObj.UpdatedAt = time.Now().Unix()
-	
+
 	return nil
 }
 
@@ -76,7 +76,7 @@ func (m *MockContextRepository) Delete(ctx context.Context, id string) error {
 	m.logger.Debug("Mock context delete", map[string]interface{}{
 		"context_id": id,
 	})
-	
+
 	return nil
 }
 
@@ -85,7 +85,7 @@ func (m *MockContextRepository) List(ctx context.Context, filter map[string]inte
 	m.logger.Debug("Mock context list", map[string]interface{}{
 		"filter": filter,
 	})
-	
+
 	// Return a single mock context
 	mockContext := &repository.Context{
 		ID:         "mock-context-id",
@@ -97,7 +97,7 @@ func (m *MockContextRepository) List(ctx context.Context, filter map[string]inte
 		CreatedAt:  time.Now().Unix() - 3600, // 1 hour ago
 		UpdatedAt:  time.Now().Unix(),
 	}
-	
+
 	return []*repository.Context{mockContext}, nil
 }
 
@@ -107,7 +107,7 @@ func (m *MockContextRepository) Search(ctx context.Context, contextID, query str
 		"context_id": contextID,
 		"query":      query,
 	})
-	
+
 	// Return a mock context item
 	mockItem := repository.ContextItem{
 		ID:        "mock-item-id",
@@ -117,7 +117,7 @@ func (m *MockContextRepository) Search(ctx context.Context, contextID, query str
 		Score:     0.95,
 		Metadata:  map[string]interface{}{"mock": true},
 	}
-	
+
 	return []repository.ContextItem{mockItem}, nil
 }
 
@@ -126,6 +126,6 @@ func (m *MockContextRepository) Summarize(ctx context.Context, contextID string)
 	m.logger.Debug("Mock context summarize", map[string]interface{}{
 		"context_id": contextID,
 	})
-	
+
 	return fmt.Sprintf("This is a mock summary of context %s", contextID), nil
 }

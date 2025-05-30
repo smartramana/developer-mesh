@@ -45,28 +45,28 @@ func SetupHandlers(mux *http.ServeMux) {
 func HarnessHandler(w http.ResponseWriter, r *http.Request) {
 	log.Printf("Mock Harness request: %s %s", r.Method, r.URL.Path)
 	w.Header().Set("Content-Type", "application/json")
-	
+
 	// Special handling for health endpoint
 	if r.URL.Path == "/mock-harness/health" {
 		response := map[string]interface{}{
-			"status": "ok",
+			"status":    "ok",
 			"timestamp": time.Now().Format(time.RFC3339),
 		}
 		json.NewEncoder(w).Encode(response)
 		return
 	}
-	
+
 	// Handle pipelines endpoint
 	if r.URL.Path == "/mock-harness/pipelines" {
 		response := map[string]interface{}{
 			"pipelines": []map[string]interface{}{
 				{
-					"id": "pipeline1",
+					"id":   "pipeline1",
 					"name": "Deploy to Production",
 					"type": "deployment",
 				},
 				{
-					"id": "pipeline2",
+					"id":   "pipeline2",
 					"name": "Run Integration Tests",
 					"type": "build",
 				},
@@ -75,14 +75,14 @@ func HarnessHandler(w http.ResponseWriter, r *http.Request) {
 		json.NewEncoder(w).Encode(response)
 		return
 	}
-	
+
 	// Default response for other endpoints
 	response := map[string]interface{}{
 		"success": true,
 		"message": "Mock Harness response",
 		"result": map[string]interface{}{
-			"id": "mock-execution-id",
-			"status": "SUCCESS",
+			"id":        "mock-execution-id",
+			"status":    "SUCCESS",
 			"timestamp": time.Now().Format(time.RFC3339),
 		},
 		"timestamp": time.Now().Format(time.RFC3339),
@@ -94,17 +94,17 @@ func HarnessHandler(w http.ResponseWriter, r *http.Request) {
 func SonarQubeHandler(w http.ResponseWriter, r *http.Request) {
 	log.Printf("Mock SonarQube request: %s %s", r.Method, r.URL.Path)
 	w.Header().Set("Content-Type", "application/json")
-	
+
 	// Special handling for health endpoint
 	if r.URL.Path == "/mock-sonarqube/health" {
 		response := map[string]interface{}{
-			"status": "ok",
+			"status":    "ok",
 			"timestamp": time.Now().Format(time.RFC3339),
 		}
 		json.NewEncoder(w).Encode(response)
 		return
 	}
-	
+
 	// Handle quality gate endpoint
 	if strings.Contains(r.URL.Path, "/qualitygates/project_status") {
 		response := map[string]interface{}{
@@ -112,11 +112,11 @@ func SonarQubeHandler(w http.ResponseWriter, r *http.Request) {
 				"status": "OK",
 				"conditions": []map[string]interface{}{
 					{
-						"status": "OK",
-						"metricKey": "bugs",
-						"comparator": "LT",
+						"status":         "OK",
+						"metricKey":      "bugs",
+						"comparator":     "LT",
 						"errorThreshold": "10",
-						"actualValue": "0",
+						"actualValue":    "0",
 					},
 				},
 			},
@@ -124,28 +124,28 @@ func SonarQubeHandler(w http.ResponseWriter, r *http.Request) {
 		json.NewEncoder(w).Encode(response)
 		return
 	}
-	
+
 	// Handle issues search endpoint
 	if strings.Contains(r.URL.Path, "/issues/search") {
 		response := map[string]interface{}{
 			"total": 5,
 			"issues": []map[string]interface{}{
 				{
-					"key": "issue1",
+					"key":       "issue1",
 					"component": "project:file.java",
-					"severity": "MAJOR",
-					"message": "Fix this code smell",
+					"severity":  "MAJOR",
+					"message":   "Fix this code smell",
 				},
 			},
 		}
 		json.NewEncoder(w).Encode(response)
 		return
 	}
-	
+
 	// Default response for other endpoints
 	response := map[string]interface{}{
-		"success": true,
-		"message": "Mock SonarQube response",
+		"success":   true,
+		"message":   "Mock SonarQube response",
 		"timestamp": time.Now().Format(time.RFC3339),
 	}
 	json.NewEncoder(w).Encode(response)
@@ -155,40 +155,40 @@ func SonarQubeHandler(w http.ResponseWriter, r *http.Request) {
 func ArtifactoryHandler(w http.ResponseWriter, r *http.Request) {
 	log.Printf("Mock Artifactory request: %s %s", r.Method, r.URL.Path)
 	w.Header().Set("Content-Type", "application/json")
-	
+
 	// Special handling for health endpoint
 	if r.URL.Path == "/mock-artifactory/health" {
 		response := map[string]interface{}{
-			"status": "ok",
+			"status":    "ok",
 			"timestamp": time.Now().Format(time.RFC3339),
 		}
 		json.NewEncoder(w).Encode(response)
 		return
 	}
-	
+
 	// Handle storage endpoint
 	if strings.Contains(r.URL.Path, "/storage/") {
 		response := map[string]interface{}{
-			"repo": "libs-release-local",
-			"path": "/com/example/app/1.0.0/app-1.0.0.jar",
+			"repo":    "libs-release-local",
+			"path":    "/com/example/app/1.0.0/app-1.0.0.jar",
 			"created": time.Now().AddDate(0, -1, 0).Format(time.RFC3339),
-			"size": "10485760",
+			"size":    "10485760",
 			"checksums": map[string]interface{}{
-				"md5": "abcd1234abcd1234abcd1234abcd1234",
+				"md5":  "abcd1234abcd1234abcd1234abcd1234",
 				"sha1": "abcd1234abcd1234abcd1234abcd1234abcd1234",
 			},
 		}
 		json.NewEncoder(w).Encode(response)
 		return
 	}
-	
+
 	// Handle search endpoint
 	if strings.Contains(r.URL.Path, "/search/") {
 		response := map[string]interface{}{
 			"results": []map[string]interface{}{
 				{
-					"uri": "libs-release-local/com/example/app/1.0.0/app-1.0.0.jar",
-					"size": "10485760",
+					"uri":     "libs-release-local/com/example/app/1.0.0/app-1.0.0.jar",
+					"size":    "10485760",
 					"created": time.Now().AddDate(0, -1, 0).Format(time.RFC3339),
 				},
 			},
@@ -196,11 +196,11 @@ func ArtifactoryHandler(w http.ResponseWriter, r *http.Request) {
 		json.NewEncoder(w).Encode(response)
 		return
 	}
-	
+
 	// Default response for other endpoints
 	response := map[string]interface{}{
-		"success": true,
-		"message": "Mock Artifactory response",
+		"success":   true,
+		"message":   "Mock Artifactory response",
 		"timestamp": time.Now().Format(time.RFC3339),
 	}
 	json.NewEncoder(w).Encode(response)
@@ -210,26 +210,26 @@ func ArtifactoryHandler(w http.ResponseWriter, r *http.Request) {
 func XrayHandler(w http.ResponseWriter, r *http.Request) {
 	log.Printf("Mock Xray request: %s %s", r.Method, r.URL.Path)
 	w.Header().Set("Content-Type", "application/json")
-	
+
 	// Special handling for health endpoint
 	if r.URL.Path == "/mock-xray/health" {
 		response := map[string]interface{}{
-			"status": "ok",
+			"status":    "ok",
 			"timestamp": time.Now().Format(time.RFC3339),
 		}
 		json.NewEncoder(w).Encode(response)
 		return
 	}
-	
+
 	// Handle vulnerabilities endpoint
 	if strings.Contains(r.URL.Path, "/vulnerabilities") {
 		response := map[string]interface{}{
 			"total": 3,
 			"vulnerabilities": []map[string]interface{}{
 				{
-					"id": "CVE-2023-1234",
-					"severity": "HIGH",
-					"summary": "Security vulnerability in component",
+					"id":          "CVE-2023-1234",
+					"severity":    "HIGH",
+					"summary":     "Security vulnerability in component",
 					"description": "This is a serious vulnerability that should be fixed",
 				},
 			},
@@ -237,7 +237,7 @@ func XrayHandler(w http.ResponseWriter, r *http.Request) {
 		json.NewEncoder(w).Encode(response)
 		return
 	}
-	
+
 	// Handle licenses endpoint
 	if strings.Contains(r.URL.Path, "/licenses") {
 		response := map[string]interface{}{
@@ -246,7 +246,7 @@ func XrayHandler(w http.ResponseWriter, r *http.Request) {
 					"name": "Apache-2.0",
 					"components": []map[string]interface{}{
 						{
-							"name": "org.apache.commons:commons-lang3",
+							"name":    "org.apache.commons:commons-lang3",
 							"version": "3.12.0",
 						},
 					},
@@ -256,11 +256,11 @@ func XrayHandler(w http.ResponseWriter, r *http.Request) {
 		json.NewEncoder(w).Encode(response)
 		return
 	}
-	
+
 	// Default response for other endpoints
 	response := map[string]interface{}{
-		"success": true,
-		"message": "Mock Xray response",
+		"success":   true,
+		"message":   "Mock Xray response",
 		"timestamp": time.Now().Format(time.RFC3339),
 	}
 	json.NewEncoder(w).Encode(response)

@@ -157,13 +157,13 @@ func (l *TestLogger) log(level, msg string, fields map[string]interface{}) {
 		}
 		fieldsStr = " " + strings.Join(parts, " ")
 	}
-	
+
 	// Include prefix if available
 	prefixStr := ""
 	if l.prefix != "" {
 		prefixStr = l.prefix + ": "
 	}
-	
+
 	fmt.Fprintf(os.Stderr, "[TEST-%s] %s%s%s\n", level, prefixStr, msg, fieldsStr)
 }
 
@@ -171,7 +171,7 @@ func (l *TestLogger) log(level, msg string, fields map[string]interface{}) {
 func (l *TestLogger) GetLogs() []LogEntry {
 	l.mu.Lock()
 	defer l.mu.Unlock()
-	
+
 	// Return a copy to avoid race conditions
 	result := make([]LogEntry, len(l.logs))
 	copy(result, l.logs)
@@ -182,7 +182,7 @@ func (l *TestLogger) GetLogs() []LogEntry {
 func (l *TestLogger) FilterLogs(level string) []LogEntry {
 	l.mu.Lock()
 	defer l.mu.Unlock()
-	
+
 	var result []LogEntry
 	for _, entry := range l.logs {
 		if entry.Level == level {

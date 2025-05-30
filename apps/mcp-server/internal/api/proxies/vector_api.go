@@ -3,7 +3,7 @@ package proxies
 import (
 	"context"
 	"net/http"
-	
+
 	"github.com/S-Corkum/devops-mcp/pkg/observability"
 	"github.com/S-Corkum/devops-mcp/pkg/repository"
 	"github.com/gin-gonic/gin"
@@ -60,7 +60,7 @@ func (v *VectorAPI) RegisterRoutes(group *gin.RouterGroup) {
 	vectors.POST("/search", v.searchEmbeddings)
 	vectors.GET("/context/:context_id", v.getContextEmbeddings)
 	vectors.DELETE("/context/:context_id", v.deleteContextEmbeddings)
-	
+
 	// New multi-model endpoints
 	vectors.GET("/models", v.getSupportedModels)
 	vectors.GET("/context/:context_id/model/:model_id", v.getModelEmbeddings)
@@ -222,12 +222,12 @@ func (v *VectorAPI) getSupportedModels(c *gin.Context) {
 func (v *VectorAPI) getModelEmbeddings(c *gin.Context) {
 	contextID := c.Param("context_id")
 	modelID := c.Param("model_id")
-	
+
 	if contextID == "" {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "context_id is required"})
 		return
 	}
-	
+
 	if modelID == "" {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "model_id is required"})
 		return
@@ -252,12 +252,12 @@ func (v *VectorAPI) getModelEmbeddings(c *gin.Context) {
 func (v *VectorAPI) deleteModelEmbeddings(c *gin.Context) {
 	contextID := c.Param("context_id")
 	modelID := c.Param("model_id")
-	
+
 	if contextID == "" {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "context_id is required"})
 		return
 	}
-	
+
 	if modelID == "" {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "model_id is required"})
 		return

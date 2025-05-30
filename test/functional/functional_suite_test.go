@@ -13,8 +13,8 @@ import (
 
 // Global test configuration
 var (
-	ServerURL    string
-	APIKey       string
+	ServerURL     string
+	APIKey        string
 	MockServerURL string
 )
 

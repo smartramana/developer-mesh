@@ -9,7 +9,7 @@ import (
 	"net/http"
 	"os"
 	"time"
-	
+
 	// Import models package
 	"github.com/S-Corkum/devops-mcp/pkg/models"
 )
@@ -178,7 +178,7 @@ func ParseWrappedResponse(resp *http.Response, target interface{}) error {
 		RequestID string          `json:"request_id"`
 		Timestamp string          `json:"timestamp"`
 	}
-	
+
 	if err := json.Unmarshal(body, &wrapped); err != nil {
 		return fmt.Errorf("error parsing wrapped response: %w", err)
 	}
@@ -328,26 +328,26 @@ func (c *MCPClient) CreateModel(ctx context.Context, model *models.Model) (*mode
 	body, _ := io.ReadAll(resp.Body)
 	fmt.Printf("DEBUG: CreateModel raw response: %s\n", string(body))
 	resp.Body = io.NopCloser(bytes.NewBuffer(body))
-	
+
 	// Handle wrapped response format
 	var wrappedResponse struct {
-		ID    string        `json:"id"`
-		Model models.Model  `json:"model"`
+		ID    string       `json:"id"`
+		Model models.Model `json:"model"`
 	}
-	
+
 	// First try parsing as direct model since that's what the API actually returns
 	var result models.Model
 	if err := json.Unmarshal(body, &result); err == nil && result.ID != "" {
 		fmt.Printf("DEBUG: Direct parse succeeded: %+v\n", result)
 		return &result, nil
 	}
-	
+
 	// If direct parsing fails or returns empty ID, try wrapped format
 	if err := json.Unmarshal(body, &wrappedResponse); err == nil && wrappedResponse.Model.ID != "" {
 		fmt.Printf("DEBUG: Wrapped parse succeeded, returning model: %+v\n", wrappedResponse.Model)
 		return &wrappedResponse.Model, nil
 	}
-	
+
 	return nil, fmt.Errorf("failed to parse response: body=%s", string(body))
 }
 

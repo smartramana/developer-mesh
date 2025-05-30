@@ -23,27 +23,27 @@ func setupGitHubAdapter(t *testing.T) (*github.Adapter, *github.Config) {
 		// Real GitHub API configuration
 		config.BaseURL = "https://api.github.com/"
 		config.MockResponses = false
-		
+
 		// Ensure we have credentials
 		token := os.Getenv("GITHUB_TOKEN")
 		if token == "" {
 			t.Skip("GITHUB_TOKEN not set for real API testing")
 		}
 		config.Auth.Token = token
-		
+
 		// Optional: Configure GitHub App if available
 		if appID := os.Getenv("GITHUB_APP_ID"); appID != "" {
 			config.Auth.AppID = appID
 			config.Auth.PrivateKeyPath = os.Getenv("GITHUB_APP_PRIVATE_KEY_PATH")
 		}
-		
+
 		t.Logf("Using real GitHub API at %s", config.BaseURL)
 	} else {
 		// Mock server configuration (existing behavior)
 		config.MockResponses = true
 		config.BaseURL = "http://localhost:8081/mock-github"
 		config.Auth.Token = "test-token"
-		
+
 		t.Logf("Using mock GitHub API at %s", config.BaseURL)
 	}
 
@@ -58,14 +58,14 @@ func getTestOrgAndRepo(t *testing.T) (string, string) {
 	if os.Getenv("USE_GITHUB_MOCK") == "false" {
 		org := os.Getenv("GITHUB_TEST_ORG")
 		repo := os.Getenv("GITHUB_TEST_REPO")
-		
+
 		if org == "" || repo == "" {
 			t.Skip("GITHUB_TEST_ORG and GITHUB_TEST_REPO must be set for real API testing")
 		}
-		
+
 		return org, repo
 	}
-	
+
 	// Mock values
 	return "test-org", "test-repo"
 }

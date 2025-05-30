@@ -4,18 +4,18 @@ package config
 type WebhookConfig struct {
 	// General webhook settings
 	Enabled bool `mapstructure:"enabled" json:"enabled"`
-	
+
 	// GitHub-specific settings
 	GitHub GitHubWebhookConfig `mapstructure:"github" json:"github"`
 }
 
 // GitHubWebhookConfig holds GitHub-specific webhook configuration
 type GitHubWebhookConfig struct {
-	Enabled           bool     `mapstructure:"enabled" json:"enabled"`
-	Endpoint          string   `mapstructure:"endpoint" json:"endpoint"`
-	Secret            string   `mapstructure:"secret" json:"secret"`
-	IPValidation      bool     `mapstructure:"ip_validation" json:"ip_validation"`
-	AllowedEvents     []string `mapstructure:"allowed_events" json:"allowed_events"`
+	Enabled       bool     `mapstructure:"enabled" json:"enabled"`
+	Endpoint      string   `mapstructure:"endpoint" json:"endpoint"`
+	Secret        string   `mapstructure:"secret" json:"secret"`
+	IPValidation  bool     `mapstructure:"ip_validation" json:"ip_validation"`
+	AllowedEvents []string `mapstructure:"allowed_events" json:"allowed_events"`
 }
 
 // Methods to implement the webhooks.WebhookConfig interface

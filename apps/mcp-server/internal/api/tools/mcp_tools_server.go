@@ -1,10 +1,10 @@
 package tools
 
 import (
-	githubtools "mcp-server/internal/api/tools/github"
 	"github.com/S-Corkum/devops-mcp/pkg/adapters/github"
 	"github.com/S-Corkum/devops-mcp/pkg/observability"
 	"github.com/gin-gonic/gin"
+	githubtools "mcp-server/internal/api/tools/github"
 )
 
 // MCPToolsServer represents a Model Context Protocol tools server
@@ -28,20 +28,20 @@ func NewMCPToolsServer(
 ) *MCPToolsServer {
 	// Create router
 	router := gin.New()
-	
+
 	// Use recovery middleware
 	router.Use(gin.Recovery())
-	
+
 	// Create server
 	server := &MCPToolsServer{
 		router:        router,
 		logger:        logger,
 		githubAdapter: githubAdapter,
 	}
-	
+
 	// Register tools
 	server.registerTools(config)
-	
+
 	return server
 }
 
