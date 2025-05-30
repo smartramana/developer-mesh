@@ -12,14 +12,22 @@ info:
     - **Agent Management**: Configure and manage AI agents
     
     ## Authentication
-    All API requests require authentication using either:
-    - API Key: Pass in `Authorization` header
-    - JWT Bearer Token: Pass as `Bearer <token>` in `Authorization` header
+    All API requests require authentication using one of the following methods:
+    - **API Key**: Pass in `Authorization` header as `Bearer <key>` or in `X-API-Key` header
+    - **JWT Bearer Token**: Pass as `Bearer <token>` in `Authorization` header
+    - **OAuth2**: Use client credentials flow via `/auth/login` endpoint
+    
+    ### Enhanced Security Features
+    - Minimum 16-character API keys
+    - Configurable failed attempt limits with lockout
+    - Scope-based authorization
+    - Audit logging for all authentication events
     
     ## Rate Limiting
-    - Default: 1000 requests/hour per API key
-    - Tool execution: 100 requests/hour
-    - Burst: 50 requests/minute
+    - **Default**: 100 requests/minute per identifier
+    - **Authentication endpoints**: 5 attempts before 15-minute lockout
+    - **Per-tenant limits**: Configurable based on subscription tier
+    - **Headers**: X-RateLimit-Limit, X-RateLimit-Remaining, X-RateLimit-Reset
     
   version: 1.0.0
   contact:
@@ -58,6 +66,8 @@ components:
       description: JWT bearer token authentication
 
 tags:
+  - name: Authentication
+    description: Authentication and authorization endpoints
   - name: Health
     description: Health check and monitoring endpoints
   - name: Contexts
@@ -78,6 +88,28 @@ tags:
     description: GitHub-specific tool operations
 
 paths:
+  # Authentication endpoints
+  /auth/login:
+    $ref: './core/auth.yaml#/paths/~1auth~1login'
+  
+  /auth/token:
+    $ref: './core/auth.yaml#/paths/~1auth~1token'
+  
+  /auth/refresh:
+    $ref: './core/auth.yaml#/paths/~1auth~1refresh'
+  
+  /auth/revoke:
+    $ref: './core/auth.yaml#/paths/~1auth~1revoke'
+  
+  /auth/validate:
+    $ref: './core/auth.yaml#/paths/~1auth~1validate'
+  
+  /auth/api-keys:
+    $ref: './core/auth.yaml#/paths/~1auth~1api-keys'
+  
+  /auth/api-keys/{key_id}:
+    $ref: './core/auth.yaml#/paths/~1auth~1api-keys~1{key_id}'
+  
   # Health endpoints
   /health:
     $ref: './core/health.yaml#/paths/~1health'
