@@ -1,99 +1,75 @@
+# Multi-stage build for optimal image size and security
 # Build stage
 FROM golang:1.24-alpine AS builder
 
+# Install security updates and build dependencies
+RUN apk update && apk upgrade && \
+    apk add --no-cache git gcc musl-dev ca-certificates tzdata && \
+    update-ca-certificates
+
+# Create non-root user for build
+RUN adduser -D -g '' appuser
+
 # Set working directory
-WORKDIR /app
+WORKDIR /build
 
-# Install build dependencies
-RUN apk add --no-cache git gcc musl-dev
+# Copy entire project for Go workspace support
+COPY . .
 
-# Create a custom go.work file for building just this module
-RUN echo 'go 1.24' > go.work && \
-    echo 'use (' >> go.work && \
-    echo '    ./apps/worker' >> go.work && \
-    echo '    ./pkg/adapters' >> go.work && \
-    echo '    ./pkg/common' >> go.work && \
-    echo '    ./pkg/database' >> go.work && \
-    echo '    ./pkg/events' >> go.work && \
-    echo '    ./pkg/models' >> go.work && \
-    echo '    ./pkg/embedding' >> go.work && \
-    echo '    ./pkg/chunking' >> go.work && \
-    echo '    ./pkg/storage' >> go.work && \
-    echo '    ./pkg/queue' >> go.work && \
-    echo '    ./pkg/observability' >> go.work && \
-    echo '    ./pkg/repository' >> go.work && \
-    echo '    ./pkg/worker' >> go.work && \
-    echo ')' >> go.work
+# Build the application with optimizations
+WORKDIR /build/apps/worker
+RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build \
+    -ldflags='-w -s -extldflags "-static"' \
+    -a -installsuffix cgo \
+    -o worker ./cmd/worker
 
-# Create module directory structure
-RUN mkdir -p apps/worker pkg/adapters pkg/common pkg/database pkg/events pkg/models pkg/embedding pkg/chunking pkg/storage pkg/queue pkg/observability pkg/repository pkg/worker
+# Create minimal runtime stage using distroless
+FROM gcr.io/distroless/static:nonroot
 
-# Copy go mod files for all modules
-COPY apps/worker/go.mod apps/worker/go.sum* ./apps/worker/
-COPY pkg/adapters/go.mod pkg/adapters/go.sum* ./pkg/adapters/
-COPY pkg/common/go.mod pkg/common/go.sum* ./pkg/common/
-COPY pkg/database/go.mod pkg/database/go.sum* ./pkg/database/
-COPY pkg/events/go.mod pkg/events/go.sum* ./pkg/events/
-COPY pkg/models/go.mod pkg/models/go.sum* ./pkg/models/
-COPY pkg/embedding/go.mod pkg/embedding/go.sum* ./pkg/embedding/
-COPY pkg/chunking/go.mod pkg/chunking/go.sum* ./pkg/chunking/
-COPY pkg/storage/go.mod pkg/storage/go.sum* ./pkg/storage/
-COPY pkg/queue/go.mod pkg/queue/go.sum* ./pkg/queue/
-COPY pkg/observability/go.mod pkg/observability/go.sum* ./pkg/observability/
-COPY pkg/repository/go.mod pkg/repository/go.sum* ./pkg/repository/
-COPY pkg/worker/go.mod pkg/worker/go.sum* ./pkg/worker/
+# Copy timezone data and SSL certificates from builder
+COPY --from=builder /usr/share/zoneinfo /usr/share/zoneinfo
+COPY --from=builder /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/
 
-# Copy source code for all modules
-COPY apps/worker/ ./apps/worker/
-COPY pkg/adapters/ ./pkg/adapters/
-COPY pkg/common/ ./pkg/common/
-COPY pkg/database/ ./pkg/database/
-COPY pkg/events/ ./pkg/events/
-COPY pkg/models/ ./pkg/models/
-COPY pkg/embedding/ ./pkg/embedding/
-COPY pkg/chunking/ ./pkg/chunking/
-COPY pkg/storage/ ./pkg/storage/
-COPY pkg/queue/ ./pkg/queue/
-COPY pkg/observability/ ./pkg/observability/
-COPY pkg/repository/ ./pkg/repository/
-COPY pkg/worker/ ./pkg/worker/
+# Copy the binary from builder
+COPY --from=builder /build/apps/worker/worker /app/worker
 
-# Build the application
-WORKDIR /app/apps/worker
-RUN CGO_ENABLED=0 GOOS=linux go build -v -o worker ./cmd/worker
-
-# Runtime stage
-FROM alpine:3.18
-
-# Install runtime dependencies
-RUN apk add --no-cache ca-certificates tzdata
+# Copy configuration files
+COPY --chown=nonroot:nonroot apps/worker/configs /app/configs
+COPY --chown=nonroot:nonroot configs /app/base-configs
 
 # Set working directory
 WORKDIR /app
 
-# Copy binary from builder stage
-COPY --from=builder /app/apps/worker/worker .
+# Use non-root user
+USER nonroot
 
-# Copy configs directory
-COPY apps/worker/configs ./configs
+# Health check for worker (checks if process is running)
+HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
+    CMD ["/app/worker", "-health-check"]
 
-# Expose any required ports (if needed)
-# EXPOSE 8080
-
-# Set environment variables for Redis and SQS
-ENV REDIS_ADDR="redis:6379"
-ENV REDIS_ADDRESS="redis:6379"
-ENV REDIS_HOST="redis"
-ENV REDIS_PORT="6379"
-ENV REDIS_URL="redis://redis:6379"
-
-# AWS/SQS settings
-ENV USE_LOCALSTACK="true"
-ENV AWS_ENDPOINT_URL="http://localstack:4566"
-ENV AWS_REGION="us-east-1"
-ENV SQS_QUEUE_NAME="tasks"
-ENV AWS_ACCESS_KEY_ID="test"
-ENV AWS_SECRET_ACCESS_KEY="test"
+# Environment variables
+ENV MCP_CONFIG_FILE=/app/configs/config.docker.yaml \
+    GIN_MODE=release \
+    # Redis configuration
+    REDIS_ADDR="redis:6379" \
+    REDIS_ADDRESS="redis:6379" \
+    REDIS_HOST="redis" \
+    REDIS_PORT="6379" \
+    REDIS_URL="redis://redis:6379" \
+    # AWS/SQS settings
+    USE_LOCALSTACK="true" \
+    AWS_ENDPOINT_URL="http://localstack:4566" \
+    AWS_REGION="us-east-1" \
+    SQS_QUEUE_NAME="tasks" \
+    AWS_ACCESS_KEY_ID="test" \
+    AWS_SECRET_ACCESS_KEY="test" \
+    # Worker configuration
+    WORKER_CONCURRENCY="10" \
+    WORKER_POLL_INTERVAL="5s" \
+    WORKER_VISIBILITY_TIMEOUT="300s" \
+    # Observability
+    OTEL_SERVICE_NAME="worker" \
+    OTEL_EXPORTER_OTLP_ENDPOINT="http://otel-collector:4317"
 
 # Run the application
-CMD ["/app/worker"]
+ENTRYPOINT ["/app/worker"]

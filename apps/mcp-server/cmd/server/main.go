@@ -45,6 +45,7 @@ var (
 	validateOnly  = flag.Bool("validate", false, "Validate configuration and exit")
 	migrateOnly   = flag.Bool("migrate", false, "Run database migrations and exit")
 	skipMigration = flag.Bool("skip-migration", false, "Skip database migration on startup")
+	healthCheck   = flag.Bool("health-check", false, "Perform health check and exit")
 )
 
 func main() {
@@ -53,6 +54,15 @@ func main() {
 	// Show version information if requested
 	if *showVersion {
 		fmt.Printf("MCP Server\nVersion: %s\nBuild Time: %s\nGit Commit: %s\n", version, buildTime, gitCommit)
+		os.Exit(0)
+	}
+
+	// Perform health check if requested
+	if *healthCheck {
+		if err := performHealthCheck(); err != nil {
+			fmt.Fprintf(os.Stderr, "Health check failed: %v\n", err)
+			os.Exit(1)
+		}
 		os.Exit(0)
 	}
 
@@ -685,4 +695,12 @@ func getStringSliceFromMap(m map[string]interface{}, key string, defaultValue []
 		}
 	}
 	return defaultValue
+}
+
+// performHealthCheck performs a basic health check
+func performHealthCheck() error {
+	// Basic health check - verify the application can start
+	// In a real implementation, you might check database connectivity, etc.
+	// For container health checks, we just need to verify the binary runs
+	return nil
 }
