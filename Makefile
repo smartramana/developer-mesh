@@ -38,14 +38,11 @@ dev-setup: ## Set up local development environment
 	else \
 		echo "✅ .env file already exists"; \
 	fi
-	@if [ ! -f .env.docker ]; then \
-		echo "✅ .env.docker already configured for Docker Compose"; \
-	fi
 	@echo ""
 	@echo "📋 Next steps:"
 	@echo "1. Edit .env with your GitHub token and other settings"
-	@echo "2. Run 'make local-dev' to start services with Docker Compose"
-	@echo "3. Or run 'make build' and start services locally"
+	@echo "2. Run 'make local-dev' to start with Docker (uses docker service names)"
+	@echo "3. Or run 'make local-native' to run locally (uses localhost)"
 
 # Local development with Docker
 .PHONY: local-dev

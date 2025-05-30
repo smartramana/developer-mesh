@@ -20,31 +20,31 @@ configs/
 
 ## Environment Configuration
 
-### Local Development (without Docker)
+### Local Development
 
 1. Copy the example environment file:
    ```bash
    cp .env.example .env
    ```
 
-2. Edit `.env` with your local settings
+2. Edit `.env` with your settings (GitHub token, etc.)
 
-3. Run the application:
+3. Choose your development method:
+
+   **Option A: With Docker (Recommended)**
    ```bash
-   export ENVIRONMENT=development
-   ./devops-mcp server
+   make local-dev
+   # Or directly: docker-compose -f docker-compose.local.yml up
    ```
+   Docker Compose will use its built-in service names (database, redis, etc.)
 
-### Docker Compose Development
-
-1. The `.env.docker` file is pre-configured for Docker Compose
-
-2. Start the stack:
+   **Option B: Without Docker**
    ```bash
-   docker-compose -f docker-compose.local.yml up
+   # Ensure PostgreSQL and Redis are running locally
+   make local-native
+   # Or directly: ./devops-mcp server
    ```
-
-3. The services will use `configs/config.docker.yaml` automatically
+   This uses localhost connections from your .env file
 
 ### Production Deployment
 
