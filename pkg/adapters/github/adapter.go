@@ -335,6 +335,13 @@ func (a *GitHubAdapter) Close() error {
 	// Close webhook queue if webhooks are enabled
 	if a.config.WebhooksEnabled {
 		close(a.webhookQueue)
+		
+		// Close the retry manager if it exists
+		if a.webhookRetryManager != nil {
+			if err := a.webhookRetryManager.Close(); err != nil {
+				a.logger.Errorf("Failed to close webhook retry manager: %v", err)
+			}
+		}
 	}
 
 	// Wait for all webhook workers to complete

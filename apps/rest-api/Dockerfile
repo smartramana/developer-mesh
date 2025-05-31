@@ -7,19 +7,12 @@ RUN apk add --no-cache git gcc musl-dev
 # Set working directory
 WORKDIR /app
 
-# Copy go.work and go.mod files first for better caching
-COPY go.work go.work.sum* ./
-COPY apps/rest-api/go.mod apps/rest-api/go.sum* ./apps/rest-api/
-COPY pkg/*/go.mod pkg/*/go.sum* ./pkg/
+# Copy entire project (Go workspace requires full context)
+COPY . .
 
 # Download dependencies - this layer will be cached unless go.mod changes
 WORKDIR /app/apps/rest-api
 RUN go mod download
-
-WORKDIR /app
-# Copy only necessary source code
-COPY pkg/ ./pkg/
-COPY apps/rest-api/ ./apps/rest-api/
 
 # Build the application with optimizations
 WORKDIR /app/apps/rest-api

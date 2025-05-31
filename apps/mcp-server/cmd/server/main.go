@@ -481,7 +481,63 @@ func buildAPIConfig(cfg *commonconfig.Config) api.Config {
 		}
 	}
 
+	// Configure rate limiting
+	if cfg.API.RateLimit != nil {
+		apiConfig.RateLimit = parseRateLimitConfig(cfg.API.RateLimit)
+	}
+
 	return apiConfig
+}
+
+// parseRateLimitConfig parses rate limit configuration from either a map or integer
+func parseRateLimitConfig(input interface{}) api.RateLimitConfig {
+	config := api.RateLimitConfig{
+		Enabled:     false,
+		Limit:       100,
+		Period:      time.Minute,
+		BurstFactor: 3,
+	}
+
+	if input == nil {
+		return config
+	}
+
+	// Handle backward compatibility - rate_limit as integer
+	switch v := input.(type) {
+	case int:
+		config.Enabled = true
+		config.Limit = v
+		return config
+	case float64: // JSON numbers are parsed as float64
+		config.Enabled = true
+		config.Limit = int(v)
+		return config
+	case map[string]interface{}:
+		// Handle structured rate_limit configuration
+		if enabled, ok := v["enabled"].(bool); ok {
+			config.Enabled = enabled
+		}
+		if limit, ok := v["limit"].(int); ok {
+			config.Limit = limit
+		} else if limit, ok := v["limit"].(float64); ok {
+			config.Limit = int(limit)
+		}
+		if period, ok := v["period"].(string); ok {
+			if d, err := time.ParseDuration(period); err == nil {
+				config.Period = d
+			}
+		}
+		if burstFactor, ok := v["burst_factor"].(int); ok {
+			config.BurstFactor = burstFactor
+		} else if burstFactor, ok := v["burst_factor"].(float64); ok {
+			config.BurstFactor = int(burstFactor)
+		}
+		return config
+	default:
+		// Log warning and return default config
+		log.Printf("Warning: unexpected type for rate_limit configuration: %T\n", input)
+		return config
+	}
 }
 
 // parseWebhookConfig converts a map[string]interface{} to a WebhookConfig struct

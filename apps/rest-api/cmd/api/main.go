@@ -285,8 +285,8 @@ func getStringFromConfig(m map[string]any, key string) string {
 	return ""
 }
 
-// parseRateLimitConfig parses rate limit configuration from a map
-func parseRateLimitConfig(m map[string]any) api.RateLimitConfig {
+// parseRateLimitConfig parses rate limit configuration from either a map or integer
+func parseRateLimitConfig(input any) api.RateLimitConfig {
 	config := api.RateLimitConfig{
 		Enabled:     false,
 		Limit:       100,
@@ -294,24 +294,44 @@ func parseRateLimitConfig(m map[string]any) api.RateLimitConfig {
 		BurstFactor: 3,
 	}
 
-	if m == nil {
+	if input == nil {
 		return config
 	}
 
-	if enabled, ok := m["enabled"].(bool); ok {
-		config.Enabled = enabled
-	}
-	if limit, ok := m["limit"].(int); ok {
-		config.Limit = limit
-	}
-	if period, ok := m["period"].(string); ok {
-		if d, err := time.ParseDuration(period); err == nil {
-			config.Period = d
+	// Handle backward compatibility - rate_limit as integer
+	switch v := input.(type) {
+	case int:
+		config.Enabled = true
+		config.Limit = v
+		return config
+	case float64: // JSON numbers are parsed as float64
+		config.Enabled = true
+		config.Limit = int(v)
+		return config
+	case map[string]any:
+		// Handle structured rate_limit configuration
+		if enabled, ok := v["enabled"].(bool); ok {
+			config.Enabled = enabled
 		}
+		if limit, ok := v["limit"].(int); ok {
+			config.Limit = limit
+		} else if limit, ok := v["limit"].(float64); ok {
+			config.Limit = int(limit)
+		}
+		if period, ok := v["period"].(string); ok {
+			if d, err := time.ParseDuration(period); err == nil {
+				config.Period = d
+			}
+		}
+		if burstFactor, ok := v["burst_factor"].(int); ok {
+			config.BurstFactor = burstFactor
+		} else if burstFactor, ok := v["burst_factor"].(float64); ok {
+			config.BurstFactor = int(burstFactor)
+		}
+		return config
+	default:
+		// Log warning and return default config
+		fmt.Printf("Warning: unexpected type for rate_limit configuration: %T\n", input)
+		return config
 	}
-	if burstFactor, ok := m["burst_factor"].(int); ok {
-		config.BurstFactor = burstFactor
-	}
-
-	return config
 }

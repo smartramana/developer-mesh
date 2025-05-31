@@ -4,8 +4,9 @@
 **/.github
 **/README.md
 **/docs
-**/test
-**/tests
+# Don't ignore test directories - they contain go.mod files referenced in go.work
+# **/test
+# **/tests
 **/*_test.go
 **/vendor
 **/node_modules
@@ -28,3 +29,5 @@ configs/*.yml
 !configs/config.docker.yaml
 migrations/
 !migrations/sql/
+# Don't ignore go.work - needed for workspace builds
+# go.work
