@@ -77,6 +77,60 @@ class GitHubOperations:
             backoff_factor=2.0
         )
     
+    ## Secure GitHub Webhook Authentication
+
+### Setting up Webhook Authentication
+```go
+// Example: Validating GitHub webhooks with enhanced auth
+package main
+
+import (
+    "crypto/hmac"
+    "crypto/sha256"
+    "encoding/hex"
+    "net/http"
+)
+
+func validateGitHubWebhook(r *http.Request, secret string) bool {
+    signature := r.Header.Get("X-Hub-Signature-256")
+    if signature == "" {
+        return false
+    }
+    
+    body, _ := io.ReadAll(r.Body)
+    r.Body = io.NopCloser(bytes.NewBuffer(body))
+    
+    mac := hmac.New(sha256.New, []byte(secret))
+    mac.Write(body)
+    expectedMAC := hex.EncodeToString(mac.Sum(nil))
+    expectedSignature := "sha256=" + expectedMAC
+    
+    return hmac.Equal([]byte(signature), []byte(expectedSignature))
+}
+
+// Configure in your application
+webhookConfig := map[string]interface{}{
+    "github": map[string]interface{}{
+        "enabled": true,
+        "secret": os.Getenv("GITHUB_WEBHOOK_SECRET"),
+        "ip_validation": true,
+        "allowed_events": []string{"push", "pull_request", "issues"},
+    },
+}
+```
+
+### Using OAuth2 for GitHub Apps
+```yaml
+# config.yaml
+auth:
+  oauth2:
+    github:
+      client_id: ${GITHUB_CLIENT_ID}
+      client_secret: ${GITHUB_CLIENT_SECRET}
+      redirect_url: "https://api.example.com/auth/github/callback"
+      scopes: ["repo", "user:email"]
+```
+    
     async def create_issue(
         self,
         repo: str,

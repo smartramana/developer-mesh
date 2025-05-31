@@ -36,6 +36,53 @@ When implementing a new tool, you'll create:
 4. **MCP Tools**: Expose operations to AI agents
 5. **Webhook Handlers**: React to tool webhooks
 
+## Tool-Specific Authentication
+
+### Credential Passthrough for Tools
+```go
+// Example: Tool with credential passthrough
+type SecureToolExecutor struct {
+    authManager *auth.Manager
+}
+
+func (s *SecureToolExecutor) ExecuteTool(ctx context.Context, toolName string, params map[string]interface{}) (interface{}, error) {
+    // Extract user credentials from context
+    creds, ok := auth.CredentialsFromContext(ctx)
+    if !ok {
+        return nil, errors.New("no credentials in context")
+    }
+    
+    // Get tool-specific credentials
+    toolCreds, err := s.authManager.GetToolCredentials(ctx, creds.TenantID, toolName)
+    if err != nil {
+        return nil, fmt.Errorf("failed to get tool credentials: %w", err)
+    }
+    
+    // Execute tool with credentials
+    switch toolName {
+    case "github":
+        return executeGitHubTool(params, toolCreds.Token)
+    case "aws":
+        return executeAWSTool(params, toolCreds.AccessKey, toolCreds.SecretKey)
+    default:
+        return nil, fmt.Errorf("unknown tool: %s", toolName)
+    }
+}
+
+// Store tool credentials securely
+curl -X POST http://localhost:8081/api/v1/auth/tools/credentials \
+  -H "Authorization: Bearer $JWT_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "tool_name": "github",
+    "credentials": {
+      "token": "ghp_...",
+      "type": "personal_access_token"
+    },
+    "tenant_id": "my-tenant"
+  }'
+```
+
 ## Implementation Guide
 
 ### 1. Define the Adapter Interface

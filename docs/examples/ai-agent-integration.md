@@ -50,6 +50,35 @@ vector_client = VectorClient(
 )
 ```
 
+## Authentication with API Keys
+
+### Using the Enhanced Auth System
+```bash
+# Create an API key with specific scopes
+curl -X POST http://localhost:8081/api/v1/auth/keys \
+  -H "Authorization: Bearer $ADMIN_JWT" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "name": "ai-agent-key",
+    "scopes": ["contexts:read", "contexts:write", "tools:execute"],
+    "tenant_id": "ai-agent-tenant",
+    "expires_at": "2025-12-31T23:59:59Z"
+  }'
+
+# Use the API key in your AI agent
+export API_KEY="mcp_k_..."
+curl -X POST http://localhost:8081/api/v1/contexts \
+  -H "X-API-Key: $API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{"content": "AI agent context data"}'
+```
+
+### Rate Limiting for AI Agents
+The enhanced auth system automatically applies rate limits:
+- Default: 1000 requests/minute
+- Burst: 3000 requests
+- Custom limits available per API key
+
 ### 2. Context Management
 
 ```python
