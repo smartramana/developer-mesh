@@ -172,7 +172,10 @@ func (m *AuthMiddleware) GinMiddleware() gin.HandlerFunc {
         if user == nil && m.service.config.APIKeyHeader != "" {
             apiKey := c.GetHeader(m.service.config.APIKeyHeader)
             if apiKey != "" {
-                user, err = m.service.ValidateAPIKey(c.Request.Context(), apiKey)
+                // Add context with enhanced values
+                ctx := context.WithValue(c.Request.Context(), ContextKeyIPAddress, c.ClientIP())
+                ctx = context.WithValue(ctx, ContextKeyUserAgent, c.Request.UserAgent())
+                user, err = m.ValidateAPIKeyWithMetrics(ctx, apiKey)
             }
         }
         

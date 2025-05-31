@@ -1,8 +1,9 @@
+# syntax=docker/dockerfile:1
 # Build stage
 FROM golang:1.24-alpine AS builder
 
 # Install build dependencies
-RUN apk add --no-cache git gcc musl-dev
+RUN apk add --no-cache git gcc musl-dev ca-certificates tzdata
 
 # Set working directory
 WORKDIR /app
@@ -10,13 +11,12 @@ WORKDIR /app
 # Copy entire project (Go workspace requires full context)
 COPY . .
 
-# Download dependencies - this layer will be cached unless go.mod changes
+# Download dependencies and build with cache mounts
 WORKDIR /app/apps/rest-api
-RUN go mod download
-
-# Build the application with optimizations
-WORKDIR /app/apps/rest-api
-RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build \
+RUN --mount=type=cache,target=/go/pkg/mod \
+    --mount=type=cache,target=/root/.cache/go-build \
+    go mod download && \
+    CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build \
     -ldflags="-w -s" \
     -a -installsuffix cgo \
     -o rest-api ./cmd/api
@@ -31,7 +31,7 @@ COPY --from=builder --chown=nonroot:nonroot /app/apps/rest-api/rest-api /app/res
 COPY --from=builder --chown=nonroot:nonroot /app/apps/rest-api/configs /app/configs
 
 # Copy migrations if needed
-COPY --chown=nonroot:nonroot migrations/sql /app/migrations
+COPY --from=builder --chown=nonroot:nonroot /app/apps/rest-api/migrations/sql /app/migrations
 
 # Set working directory
 WORKDIR /app

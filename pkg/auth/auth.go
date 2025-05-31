@@ -3,17 +3,20 @@ package auth
 
 import (
 	"context"
+	"crypto/sha256"
+	"database/sql"
+	"encoding/hex"
 	"errors"
 	"fmt"
 	"strings"
 	"sync"
 	"time"
 
-	"database/sql"
 	"github.com/S-Corkum/devops-mcp/pkg/common/cache"
 	"github.com/S-Corkum/devops-mcp/pkg/observability"
 	"github.com/golang-jwt/jwt/v4"
 	"github.com/jmoiron/sqlx"
+	"github.com/lib/pq"
 	"golang.org/x/crypto/bcrypt"
 )
 
@@ -147,6 +150,12 @@ func (s *Service) ValidateAPIKey(ctx context.Context, apiKey string) (*User, err
 	// Check in-memory storage (for development)
 	s.mu.RLock()
 	key, exists := s.apiKeys[apiKey]
+	// Always log for debugging auth issues
+	s.logger.Info("Checking API key", map[string]interface{}{
+		"provided_key_suffix": truncateKey(apiKey, 8),
+		"exists": exists,
+		"total_keys_loaded": len(s.apiKeys),
+	})
 	s.mu.RUnlock()
 
 	if exists && key.Active {
@@ -184,13 +193,34 @@ func (s *Service) ValidateAPIKey(ctx context.Context, apiKey string) (*User, err
 
 	// Check database if available
 	if s.db != nil {
-		var dbKey APIKey
+		// Hash the API key for database lookup
+		hasher := sha256.New()
+		hasher.Write([]byte(apiKey))
+		keyHash := hex.EncodeToString(hasher.Sum(nil))
+		
+		// Extract key prefix for additional validation
+		keyPrefix := apiKey
+		if len(keyPrefix) > 8 {
+			keyPrefix = keyPrefix[:8]
+		}
+		
+		var dbKey struct {
+			ID         string         `db:"id"`
+			KeyPrefix  string         `db:"key_prefix"`
+			TenantID   string         `db:"tenant_id"`
+			UserID     *string        `db:"user_id"`
+			Name       string         `db:"name"`
+			Scopes     pq.StringArray `db:"scopes"`
+			ExpiresAt  *time.Time     `db:"expires_at"`
+			IsActive   bool           `db:"is_active"`
+		}
+		
 		query := `
-			SELECT key, tenant_id, user_id, name, scopes, expires_at, created_at, last_used, active
-			FROM api_keys
-			WHERE key = $1 AND active = true
+			SELECT id, key_prefix, tenant_id, user_id, name, scopes, expires_at, is_active
+			FROM mcp.api_keys
+			WHERE key_hash = $1 AND key_prefix = $2 AND is_active = true
 		`
-		err := s.db.GetContext(ctx, &dbKey, query, apiKey)
+		err := s.db.GetContext(ctx, &dbKey, query, keyHash, keyPrefix)
 		if err != nil {
 			if err == sql.ErrNoRows {
 				return nil, ErrInvalidAPIKey
@@ -203,16 +233,22 @@ func (s *Service) ValidateAPIKey(ctx context.Context, apiKey string) (*User, err
 			return nil, ErrInvalidAPIKey
 		}
 
+		// Default user ID if not set
+		userID := "system"
+		if dbKey.UserID != nil {
+			userID = *dbKey.UserID
+		}
+
 		user := &User{
-			ID:       dbKey.UserID,
+			ID:       userID,
 			TenantID: dbKey.TenantID,
 			Scopes:   dbKey.Scopes,
 			AuthType: TypeAPIKey,
 		}
 
 		// Update last used timestamp
-		updateQuery := `UPDATE api_keys SET last_used = $1 WHERE key = $2`
-		s.db.ExecContext(ctx, updateQuery, time.Now(), apiKey)
+		updateQuery := `UPDATE mcp.api_keys SET last_used_at = $1 WHERE key_hash = $2`
+		s.db.ExecContext(ctx, updateQuery, time.Now(), keyHash)
 
 		// Cache the result
 		if s.config.CacheEnabled && s.cache != nil {
@@ -224,6 +260,60 @@ func (s *Service) ValidateAPIKey(ctx context.Context, apiKey string) (*User, err
 	}
 
 	return nil, ErrInvalidAPIKey
+}
+
+// storeAPIKeyInDB stores an API key in the database
+func (s *Service) storeAPIKeyInDB(rawKey string, apiKey *APIKey) error {
+	// Hash the API key
+	hasher := sha256.New()
+	hasher.Write([]byte(rawKey))
+	keyHash := hex.EncodeToString(hasher.Sum(nil))
+	
+	// Extract key prefix
+	keyPrefix := rawKey
+	if len(keyPrefix) > 8 {
+		keyPrefix = keyPrefix[:8]
+	}
+	
+	// Check if key already exists
+	var exists bool
+	checkQuery := `SELECT EXISTS(SELECT 1 FROM mcp.api_keys WHERE key_hash = $1)`
+	if err := s.db.Get(&exists, checkQuery, keyHash); err != nil {
+		return fmt.Errorf("failed to check existing key: %w", err)
+	}
+	
+	if exists {
+		// Update the existing key
+		updateQuery := `
+			UPDATE mcp.api_keys 
+			SET name = $2, scopes = $3, is_active = $4, updated_at = CURRENT_TIMESTAMP
+			WHERE key_hash = $1
+		`
+		_, err := s.db.Exec(updateQuery, keyHash, apiKey.Name, pq.Array(apiKey.Scopes), apiKey.Active)
+		return err
+	}
+	
+	// Insert new key
+	insertQuery := `
+		INSERT INTO mcp.api_keys (
+			id, key_hash, key_prefix, tenant_id, user_id, name, scopes, 
+			is_active, created_at, updated_at
+		) VALUES (
+			uuid_generate_v4(), $1, $2, $3, $4, $5, $6, $7, $8, $8
+		)
+	`
+	
+	// Handle user_id - use NULL if it's "system" or empty
+	var userID sql.NullString
+	if apiKey.UserID != "" && apiKey.UserID != "system" {
+		userID = sql.NullString{String: apiKey.UserID, Valid: true}
+	}
+	
+	_, err := s.db.Exec(insertQuery, 
+		keyHash, keyPrefix, apiKey.TenantID, userID, 
+		apiKey.Name, pq.Array(apiKey.Scopes), apiKey.Active, time.Now())
+	
+	return err
 }
 
 // ValidateJWT validates a JWT token and returns the associated user

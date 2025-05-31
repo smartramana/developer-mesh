@@ -34,7 +34,7 @@ func TestFunctional(t *testing.T) {
 
 // initTestConfig initializes test configuration from environment variables
 func initTestConfig() {
-	ServerURL = getEnvOrDefault("MCP_SERVER_URL", "http://localhost:8080")
+	ServerURL = getEnvOrDefault("MCP_SERVER_URL", "http://localhost:8081")
 	APIKey = getEnvOrDefault("MCP_API_KEY", "test-admin-api-key")
 	MockServerURL = getEnvOrDefault("MOCKSERVER_URL", "http://localhost:8081")
 }

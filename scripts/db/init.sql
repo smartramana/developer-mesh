@@ -176,3 +176,158 @@ BEGIN
         RAISE NOTICE 'pgvector extension is not available. Vector search capabilities will not be enabled.';
     END IF;
 END $$;
+
+-- Auth System Tables
+-- Users table (if needed)
+CREATE TABLE IF NOT EXISTS mcp.users (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    email VARCHAR(255) UNIQUE NOT NULL,
+    tenant_id UUID NOT NULL,
+    
+    -- User metadata
+    metadata JSONB NOT NULL DEFAULT '{}',
+    
+    -- Audit fields
+    created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    last_login_at TIMESTAMP WITH TIME ZONE,
+    deleted_at TIMESTAMP WITH TIME ZONE,
+    
+    CONSTRAINT users_email_valid CHECK (email ~* '^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$')
+);
+
+-- API Keys table with production features
+CREATE TABLE IF NOT EXISTS mcp.api_keys (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    key_hash VARCHAR(64) UNIQUE NOT NULL, -- SHA-256 hash of the key
+    key_prefix VARCHAR(8) NOT NULL,       -- First 8 chars for identification
+    
+    -- Ownership
+    user_id UUID REFERENCES mcp.users(id) ON DELETE CASCADE,
+    tenant_id UUID NOT NULL,
+    
+    -- Key metadata
+    name VARCHAR(255) NOT NULL,
+    description TEXT,
+    scopes TEXT[] NOT NULL DEFAULT '{}',
+    
+    -- Expiration and rotation
+    expires_at TIMESTAMP WITH TIME ZONE,
+    last_used_at TIMESTAMP WITH TIME ZONE,
+    last_rotated_at TIMESTAMP WITH TIME ZONE,
+    rotation_version INTEGER NOT NULL DEFAULT 1,
+    
+    -- Status tracking
+    is_active BOOLEAN NOT NULL DEFAULT true,
+    revoked_at TIMESTAMP WITH TIME ZONE,
+    revoked_reason TEXT,
+    
+    -- Rate limiting
+    rate_limit_requests INTEGER DEFAULT 1000,
+    rate_limit_window_seconds INTEGER DEFAULT 3600,
+    
+    -- Metadata
+    metadata JSONB NOT NULL DEFAULT '{}',
+    ip_whitelist INET[] DEFAULT '{}',
+    
+    -- Audit
+    created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    created_by UUID,
+    
+    CONSTRAINT api_keys_name_not_empty CHECK (length(trim(name)) > 0),
+    CONSTRAINT api_keys_valid_expiry CHECK (expires_at IS NULL OR expires_at > created_at)
+);
+
+-- Indexes for API keys
+CREATE INDEX IF NOT EXISTS idx_api_keys_key_prefix ON mcp.api_keys(key_prefix) WHERE is_active = true;
+CREATE INDEX IF NOT EXISTS idx_api_keys_tenant_id ON mcp.api_keys(tenant_id) WHERE is_active = true;
+CREATE INDEX IF NOT EXISTS idx_api_keys_user_id ON mcp.api_keys(user_id) WHERE is_active = true;
+CREATE INDEX IF NOT EXISTS idx_api_keys_expires_at ON mcp.api_keys(expires_at) WHERE is_active = true AND expires_at IS NOT NULL;
+
+-- API key usage tracking for analytics
+CREATE TABLE IF NOT EXISTS mcp.api_key_usage (
+    api_key_id UUID NOT NULL REFERENCES mcp.api_keys(id) ON DELETE CASCADE,
+    used_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    ip_address INET,
+    user_agent TEXT,
+    endpoint VARCHAR(255),
+    status_code INTEGER,
+    response_time_ms INTEGER,
+    
+    -- Partitioned by month for performance
+    PRIMARY KEY (api_key_id, used_at)
+) PARTITION BY RANGE (used_at);
+
+-- Create partitions for the next 12 months
+DO $$
+DECLARE
+    start_date date;
+    end_date date;
+    partition_name text;
+BEGIN
+    FOR i IN 0..11 LOOP
+        start_date := date_trunc('month', CURRENT_DATE + (i || ' months')::interval);
+        end_date := start_date + interval '1 month';
+        partition_name := 'api_key_usage_' || to_char(start_date, 'YYYY_MM');
+        
+        EXECUTE format(
+            'CREATE TABLE IF NOT EXISTS mcp.%I PARTITION OF mcp.api_key_usage
+            FOR VALUES FROM (%L) TO (%L)',
+            partition_name, start_date, end_date
+        );
+    END LOOP;
+END $$;
+
+-- Entity Relationships table
+CREATE TABLE IF NOT EXISTS mcp.entity_relationships (
+    id VARCHAR(255) PRIMARY KEY,
+    relationship_type VARCHAR(50) NOT NULL,
+    direction VARCHAR(20) NOT NULL,
+    source_type VARCHAR(50) NOT NULL,
+    source_owner VARCHAR(255) NOT NULL,
+    source_repo VARCHAR(255) NOT NULL,
+    source_id VARCHAR(255) NOT NULL,
+    target_type VARCHAR(50) NOT NULL,
+    target_owner VARCHAR(255) NOT NULL,
+    target_repo VARCHAR(255) NOT NULL,
+    target_id VARCHAR(255) NOT NULL,
+    strength FLOAT8 NOT NULL,
+    context TEXT,
+    metadata JSONB NOT NULL DEFAULT '{}',
+    created_at TIMESTAMP WITH TIME ZONE NOT NULL,
+    updated_at TIMESTAMP WITH TIME ZONE NOT NULL
+);
+
+-- Indexes for entity relationships
+CREATE INDEX IF NOT EXISTS idx_relationships_source_type ON mcp.entity_relationships(source_type);
+CREATE INDEX IF NOT EXISTS idx_relationships_target_type ON mcp.entity_relationships(target_type);
+CREATE INDEX IF NOT EXISTS idx_relationships_source_owner_repo ON mcp.entity_relationships(source_owner, source_repo);
+CREATE INDEX IF NOT EXISTS idx_relationships_target_owner_repo ON mcp.entity_relationships(target_owner, target_repo);
+CREATE INDEX IF NOT EXISTS idx_relationships_relationship_type ON mcp.entity_relationships(relationship_type);
+CREATE INDEX IF NOT EXISTS idx_relationships_direction ON mcp.entity_relationships(direction);
+CREATE INDEX IF NOT EXISTS idx_relationships_source_id ON mcp.entity_relationships(source_id);
+CREATE INDEX IF NOT EXISTS idx_relationships_target_id ON mcp.entity_relationships(target_id);
+CREATE INDEX IF NOT EXISTS idx_relationships_updated_at ON mcp.entity_relationships(updated_at);
+
+-- GitHub content metadata table
+CREATE TABLE IF NOT EXISTS mcp.github_content_metadata (
+    id VARCHAR(255) PRIMARY KEY,
+    owner VARCHAR(255) NOT NULL,
+    repo VARCHAR(255) NOT NULL,
+    content_type VARCHAR(100) NOT NULL,
+    content_id VARCHAR(255) NOT NULL,
+    checksum VARCHAR(64),
+    uri TEXT,
+    size BIGINT,
+    created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    expires_at TIMESTAMP WITH TIME ZONE,
+    metadata JSONB DEFAULT '{}'
+);
+
+-- Indexes for GitHub content
+CREATE INDEX IF NOT EXISTS idx_github_content_owner ON mcp.github_content_metadata(owner);
+CREATE INDEX IF NOT EXISTS idx_github_content_repo ON mcp.github_content_metadata(repo);
+CREATE INDEX IF NOT EXISTS idx_github_content_type ON mcp.github_content_metadata(content_type);
+CREATE INDEX IF NOT EXISTS idx_github_content_content_id ON mcp.github_content_metadata(content_id);

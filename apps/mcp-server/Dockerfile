@@ -1,3 +1,4 @@
+# syntax=docker/dockerfile:1
 # Multi-stage build for optimal image size and security
 # Build stage
 FROM golang:1.24-alpine AS builder
@@ -16,9 +17,12 @@ WORKDIR /build
 # Copy entire project for Go workspace support
 COPY . .
 
-# Build the application with optimizations
+# Download dependencies and build with cache mounts
 WORKDIR /build/apps/mcp-server
-RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build \
+RUN --mount=type=cache,target=/go/pkg/mod \
+    --mount=type=cache,target=/root/.cache/go-build \
+    go mod download && \
+    CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build \
     -ldflags='-w -s -extldflags "-static"' \
     -a -installsuffix cgo \
     -o mcp-server ./cmd/server

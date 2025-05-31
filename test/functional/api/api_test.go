@@ -31,7 +31,12 @@ var (
 
 func init() {
 	// These will be set by the suite before tests run
-	ServerURL = os.Getenv("MCP_SERVER_URL")
+	// Use REST_API_URL for REST API tests
+	ServerURL = os.Getenv("REST_API_URL")
+	if ServerURL == "" {
+		// Fallback to MCP_SERVER_URL for backward compatibility
+		ServerURL = os.Getenv("MCP_SERVER_URL")
+	}
 	if ServerURL == "" {
 		ServerURL = "http://localhost:8081"
 	}
@@ -41,7 +46,10 @@ func init() {
 		APIKey = os.Getenv("MCP_API_KEY")
 	}
 	if APIKey == "" {
-		APIKey = "docker-admin-api-key"
+		APIKey = os.Getenv("ADMIN_API_KEY")
+	}
+	if APIKey == "" {
+		APIKey = "dev-admin-key-1234567890"
 	}
 	
 	MockServerURL = os.Getenv("MOCKSERVER_URL")

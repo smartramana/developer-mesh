@@ -40,7 +40,7 @@ func (s *Service) LoadAPIKeys(config *APIKeyConfig) error {
     env := os.Getenv("ENVIRONMENT")
     
     switch env {
-    case "development", "test", "":
+    case "development", "test", "docker", "":
         return s.loadDevelopmentKeys(config.DevelopmentKeys)
     case "production":
         return s.loadProductionKeys(config.ProductionKeySource)
@@ -51,6 +51,13 @@ func (s *Service) LoadAPIKeys(config *APIKeyConfig) error {
 
 // loadDevelopmentKeys loads keys for development/test
 func (s *Service) loadDevelopmentKeys(keys map[string]APIKeySettings) error {
+    // For docker environment, also load from environment variables
+    env := os.Getenv("ENVIRONMENT")
+    if env == "docker" {
+        s.logger.Info("Docker environment detected, loading keys from environment", nil)
+        return s.loadKeysFromEnv()
+    }
+    
     if keys == nil {
         return nil
     }
@@ -99,6 +106,59 @@ func (s *Service) loadProductionKeys(source string) error {
 func (s *Service) loadKeysFromEnv() error {
     // Look for API_KEY_* environment variables
     foundKeys := 0
+    
+    // First check for standard named API keys
+    standardKeys := []struct {
+        envVar   string
+        name     string
+        role     string
+    }{
+        {"ADMIN_API_KEY", "admin", "admin"},
+        {"READER_API_KEY", "reader", "read"},
+        {"MCP_API_KEY", "mcp", "admin"},
+    }
+    
+    for _, sk := range standardKeys {
+        if keyValue := os.Getenv(sk.envVar); keyValue != "" {
+            // Use a fixed UUID for default tenant in docker environment
+            defaultTenantID := getEnvOrDefault("DEFAULT_TENANT_ID", "00000000-0000-0000-0000-000000000001")
+            
+            apiKey := &APIKey{
+                Key:       keyValue,
+                TenantID:  defaultTenantID,
+                UserID:    "system",
+                Name:      sk.name,
+                Scopes:    getRoleScopes(sk.role),
+                CreatedAt: time.Now(),
+                Active:    true,
+            }
+            
+            s.mu.Lock()
+            s.apiKeys[keyValue] = apiKey
+            s.mu.Unlock()
+            
+            // If database is available, also store in database
+            if s.db != nil {
+                if err := s.storeAPIKeyInDB(keyValue, apiKey); err != nil {
+                    s.logger.Warn("Failed to store API key in database", map[string]interface{}{
+                        "name":  sk.name,
+                        "error": err.Error(),
+                    })
+                }
+            }
+            
+            s.logger.Info("Loaded standard API key from environment", map[string]interface{}{
+                "env_var": sk.envVar,
+                "name":    sk.name,
+                "role":    sk.role,
+                "key_suffix": truncateKey(keyValue, 8),
+                "full_key": keyValue, // TEMPORARY: Remove in production
+            })
+            foundKeys++
+        }
+    }
+    
+    // Then look for custom API_KEY_* environment variables
     for _, env := range os.Environ() {
         if strings.HasPrefix(env, "API_KEY_") {
             parts := strings.SplitN(env, "=", 2)
@@ -119,9 +179,12 @@ func (s *Service) loadKeysFromEnv() error {
             role := strings.ToLower(keyParts[len(keyParts)-1])
             name := strings.Join(keyParts[:len(keyParts)-1], "_")
             
+            // Use a fixed UUID for default tenant in docker environment
+            defaultTenantID := getEnvOrDefault("DEFAULT_TENANT_ID", "00000000-0000-0000-0000-000000000001")
+            
             apiKey := &APIKey{
                 Key:       keyValue,
-                TenantID:  "default",
+                TenantID:  defaultTenantID,
                 UserID:    "system",
                 Name:      name,
                 Scopes:    getRoleScopes(role),
@@ -203,6 +266,8 @@ func (s *Service) LoadAuthConfigBasedOnEnvironment() error {
     switch env {
     case "production":
         configFile = "configs/auth.production.yaml"
+    case "development", "test", "docker", "":
+        configFile = "configs/auth.development.yaml"
     default:
         configFile = "configs/auth.development.yaml"
     }

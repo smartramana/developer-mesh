@@ -20,6 +20,11 @@ REST_API_BINARY=rest-api
 WORKER_BINARY=worker
 
 # Docker configuration
+# Enable BuildKit for faster builds
+export DOCKER_BUILDKIT=1
+export COMPOSE_DOCKER_CLI_BUILD=1
+# Use buildx for advanced caching features
+export DOCKER_DEFAULT_BUILDER=devops-builder
 DOCKER_COMPOSE=docker-compose -f docker-compose.local.yml
 
 # Swagger configuration

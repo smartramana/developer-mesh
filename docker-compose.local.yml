@@ -25,7 +25,7 @@ services:
       - DATABASE_USER=dev
       - DATABASE_PASSWORD=dev
       - DATABASE_SSL_MODE=disable
-      - DATABASE_DSN=postgres://dev:dev@database:5432/dev?sslmode=disable
+      - DATABASE_DSN=postgres://dev:dev@database:5432/dev?sslmode=disable&search_path=mcp,public
       # Redis (using service names)
       - REDIS_HOST=redis
       - REDIS_PORT=6379
@@ -81,12 +81,8 @@ services:
       redis:
         condition: service_healthy
 
-    healthcheck:
-      test: ["CMD", "wget", "-qO-", "http://localhost:8080/health"]
-      interval: 10s
-      timeout: 5s
-      retries: 3
-      start_period: 10s
+    # Health check is defined in Dockerfile using the binary's -health-check flag
+    # No need to override it here
     networks:
       - mcp-network
       
@@ -116,7 +112,7 @@ services:
       - DATABASE_USER=dev
       - DATABASE_PASSWORD=dev
       - DATABASE_SSL_MODE=disable
-      - DATABASE_DSN=postgres://dev:dev@database:5432/dev?sslmode=disable
+      - DATABASE_DSN=postgres://dev:dev@database:5432/dev?sslmode=disable&search_path=mcp,public
       # Redis (using service names)
       - REDIS_HOST=redis
       - REDIS_PORT=6379
@@ -165,12 +161,8 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
-    healthcheck:
-      test: ["CMD", "wget", "-qO-", "http://localhost:8080/health"]
-      interval: 10s
-      timeout: 5s
-      retries: 3
-      start_period: 10s
+    # Health check is defined in Dockerfile using the binary's -health-check flag
+    # No need to override it here
     networks:
       - mcp-network
       
@@ -188,7 +180,7 @@ services:
       - DATABASE_NAME=dev
       - DATABASE_USER=dev
       - DATABASE_PASSWORD=dev
-      - DATABASE_DSN=postgresql://dev:dev@database:5432/dev?sslmode=disable
+      - DATABASE_DSN=postgresql://dev:dev@database:5432/dev?sslmode=disable&search_path=mcp,public
       # Redis (using service names)
       - REDIS_HOST=redis
       - REDIS_PORT=6379

@@ -3,11 +3,13 @@ package main
 import (
 	"context"
 	"crypto/rand"
+	"encoding/json"
 	"flag"
 	"fmt"
 	"log"
 	"math/big"
 	mathrand "math/rand"
+	"net/http"
 	"os"
 	"os/signal"
 	"path/filepath"
@@ -769,8 +771,33 @@ func getStringSliceFromMap(m map[string]interface{}, key string, defaultValue []
 
 // performHealthCheck performs a basic health check
 func performHealthCheck() error {
-	// Basic health check - verify the application can start
-	// In a real implementation, you might check database connectivity, etc.
-	// For container health checks, we just need to verify the binary runs
+	// Perform a real health check by calling the health endpoint
+	client := &http.Client{
+		Timeout: 5 * time.Second,
+	}
+	
+	// Try to connect to the health endpoint
+	resp, err := client.Get("http://localhost:8080/health")
+	if err != nil {
+		return fmt.Errorf("failed to connect to health endpoint: %w", err)
+	}
+	defer resp.Body.Close()
+	
+	// Check if the response is successful
+	if resp.StatusCode != http.StatusOK {
+		return fmt.Errorf("health check returned status %d", resp.StatusCode)
+	}
+	
+	// Parse the response to verify it's valid JSON
+	var result map[string]interface{}
+	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+		return fmt.Errorf("failed to parse health response: %w", err)
+	}
+	
+	// Check if status is healthy
+	if status, ok := result["status"].(string); ok && status != "healthy" {
+		return fmt.Errorf("service is not healthy: %s", status)
+	}
+	
 	return nil
 }

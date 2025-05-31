@@ -141,7 +141,7 @@ echo "Checking MCP Server..."
 max_attempts=30
 attempt=1
 while [ $attempt -le $max_attempts ]; do
-    if docker-compose -f $PROJECT_ROOT/docker-compose.local.yml exec -T mcp-server wget -q -O- http://localhost:8080/health > /dev/null 2>&1; then
+    if curl -f -s http://localhost:8080/health > /dev/null 2>&1; then
         echo "MCP Server is ready!"
         break
     fi
@@ -162,7 +162,7 @@ echo "Checking REST API..."
 max_attempts=30
 attempt=1
 while [ $attempt -le $max_attempts ]; do
-    if curl -f -s http://localhost:8081/api/v1/health > /dev/null 2>&1; then
+    if curl -f -s http://localhost:8081/health > /dev/null 2>&1; then
         echo "REST API is ready!"
         break
     fi
@@ -179,9 +179,16 @@ if [ $attempt -gt $max_attempts ]; then
 fi
 
 # Set environment variables for the tests
+# REST API configuration
+export REST_API_URL="http://localhost:8081"
+export API_KEY="docker-admin-api-key"
+
+# MCP Server configuration  
 export MCP_SERVER_URL="http://localhost:8080"
-export MCP_API_KEY="test-admin-api-key"
-export MOCKSERVER_URL="http://localhost:8081"
+export MCP_API_KEY="docker-admin-api-key"
+
+# Mock server for testing
+export MOCKSERVER_URL="http://localhost:8082"
 
 # Run the functional tests on the host machine instead of inside Docker
 echo "Running functional tests using host Go installation..."
@@ -197,9 +204,9 @@ cd $PROJECT_ROOT/test/functional
 
 echo "Running Ginkgo functional tests..."
 if [ $VERBOSE -eq 1 ]; then
-    $GINKGO_PATH --randomize-all --race $focus_arg -v .
+    $GINKGO_PATH -r --randomize-all --race $focus_arg -v .
 else
-    $GINKGO_PATH --randomize-all --race $focus_arg .
+    $GINKGO_PATH -r --randomize-all --race $focus_arg .
 fi
 
 echo "Functional tests completed successfully!"
