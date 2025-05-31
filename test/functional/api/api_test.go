@@ -31,9 +31,23 @@ var (
 
 func init() {
 	// These will be set by the suite before tests run
-	ServerURL = "http://localhost:8081"
-	APIKey = "test-admin-api-key"
-	MockServerURL = "http://localhost:8082"
+	ServerURL = os.Getenv("MCP_SERVER_URL")
+	if ServerURL == "" {
+		ServerURL = "http://localhost:8081"
+	}
+	
+	APIKey = os.Getenv("API_KEY")
+	if APIKey == "" {
+		APIKey = os.Getenv("MCP_API_KEY")
+	}
+	if APIKey == "" {
+		APIKey = "docker-admin-api-key"
+	}
+	
+	MockServerURL = os.Getenv("MOCKSERVER_URL")
+	if MockServerURL == "" {
+		MockServerURL = "http://localhost:8082"
+	}
 
 	// Initialize a test logger for observability
 	testLogger = client.NewTestLogger()

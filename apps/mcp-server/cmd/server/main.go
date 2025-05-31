@@ -378,12 +378,26 @@ func initializeCache(ctx context.Context, cfg *commonconfig.Config, logger obser
 		}
 	} else {
 		// Use standard Redis configuration
-		cacheConfig = cache.ConvertFromCommonRedisConfig(cfg.Cache)
+		// Convert from common cache config to our cache config
+		cacheConfig = cache.RedisConfig{
+			Type:         cfg.Cache.Type,
+			Address:      cfg.Cache.Address,
+			Password:     cfg.Cache.Password,
+			Database:     cfg.Cache.Database,
+			MaxRetries:   cfg.Cache.MaxRetries,
+			DialTimeout:  cfg.Cache.DialTimeout,
+			ReadTimeout:  cfg.Cache.ReadTimeout,
+			WriteTimeout: cfg.Cache.WriteTimeout,
+			PoolSize:     cfg.Cache.PoolSize,
+			MinIdleConns: cfg.Cache.MinIdleConns,
+			PoolTimeout:  cfg.Cache.PoolTimeout,
+		}
 	}
 
 	logger.Info("Initializing cache", map[string]interface{}{
 		"type":         cacheConfig.Type,
 		"cluster_mode": cacheConfig.ClusterMode,
+		"address":      cacheConfig.Address,
 	})
 
 	return cache.NewCache(ctx, cacheConfig)

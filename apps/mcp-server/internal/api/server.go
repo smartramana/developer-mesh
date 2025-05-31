@@ -108,6 +108,11 @@ func NewServer(engine *core.Engine, cfg Config, db *sqlx.DB, cacheClient cache.C
 	// Create auth service with cache
 	authService := auth.NewService(authConfig, db, cacheClient, observability.DefaultLogger)
 	
+	// Initialize observability if not already done
+	if observability.DefaultLogger == nil {
+		observability.DefaultLogger = observability.NewStandardLogger("mcp-server")
+	}
+	
 	// Setup enhanced authentication with rate limiting, metrics, and audit logging
 	authMiddleware, err := auth.SetupAuthentication(db, cacheClient, observability.DefaultLogger, metrics)
 	if err != nil {
@@ -274,8 +279,6 @@ func (s *Server) setupRoutes() {
 	s.router.GET("/health", s.healthHandler)
 
 	// Setup API documentation
-	s.router.GET("/swagger/*any", ginSwagger.WrapHandler(swaggerFiles.Handler))
-
 	// Create API versioned routes
 	baseURL := ""
 	if s.config.ListenAddress != "" {

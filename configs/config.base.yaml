@@ -110,26 +110,18 @@ database:
 
 # Cache Configuration
 cache:
-  # Multi-level cache configuration
-  local:
-    enabled: true
-    size: 10000
-    ttl: 30s
-    
-  distributed:
-    type: "redis"
-    pool_size: 50
-    min_idle_conns: 10
-    dial_timeout: 5s
-    read_timeout: 3s
-    write_timeout: 3s
-    idle_timeout: 300s
-    max_retries: 3
-    
-  # Cache key patterns
-  patterns:
-    api_key: "auth:apikey:%s"
-    rate_limit: "ratelimit:%s:%s"
+  # Redis cache configuration
+  type: "redis"
+  address: "localhost:6379"  # Default for local development
+  password: ""
+  database: 0
+  pool_size: 50
+  min_idle_conns: 10
+  dial_timeout: 5s
+  read_timeout: 3s
+  write_timeout: 3s
+  pool_timeout: 3
+  max_retries: 3
     context: "context:%s"
     vector: "vector:%s"
 

@@ -69,14 +69,17 @@ database:
 
 # Cache Configuration - Using Docker service names
 cache:
-  distributed:
-    address: "redis:6379"  # Direct service name
-    password: ""
-    db: 0
-    
-  # Disable local cache in Docker
-  local:
-    enabled: false
+  type: "redis"  # Standard Redis, not cluster mode
+  address: "redis:6379"  # Direct service name
+  password: ""
+  database: 0
+  max_retries: 3
+  dial_timeout: 5s
+  read_timeout: 3s
+  write_timeout: 3s
+  pool_size: 10
+  min_idle_conns: 2
+  pool_timeout: 3
 
 # Storage Configuration for Docker
 storage:

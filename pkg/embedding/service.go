@@ -2,6 +2,11 @@ package embedding
 
 import (
 	"context"
+	"encoding/json"
+	"fmt"
+	"time"
+	
+	"github.com/google/uuid"
 )
 
 // ModelType represents the type of embedding model
@@ -111,4 +116,162 @@ type EmbeddingPipeline interface {
 
 	// ProcessDiscussions processes GitHub discussions to generate and store embeddings
 	ProcessDiscussions(ctx context.Context, ownerRepo string, discussionIDs []string) error
+}
+
+// Service provides high-level embedding operations
+type Service struct {
+	repo      *Repository
+	providers map[string]Provider
+}
+
+// Provider interface for embedding providers
+type Provider interface {
+	GenerateEmbedding(ctx context.Context, content string, model string) ([]float32, error)
+	GetSupportedModels() []string
+	ValidateAPIKey() error
+}
+
+// NewService creates a new embedding service
+func NewService(repo *Repository) *Service {
+	return &Service{
+		repo:      repo,
+		providers: make(map[string]Provider),
+	}
+}
+
+// RegisterProvider adds an embedding provider
+func (s *Service) RegisterProvider(name string, provider Provider) {
+	s.providers[name] = provider
+}
+
+// CreateEmbedding generates and stores an embedding
+func (s *Service) CreateEmbedding(ctx context.Context, req CreateEmbeddingRequest) (uuid.UUID, error) {
+	// Get model information
+	model, err := s.repo.GetModelByName(ctx, req.ModelName)
+	if err != nil {
+		return uuid.Nil, fmt.Errorf("failed to get model: %w", err)
+	}
+	
+	// Get provider
+	provider, ok := s.providers[model.Provider]
+	if !ok {
+		return uuid.Nil, fmt.Errorf("provider not registered: %s", model.Provider)
+	}
+	
+	// Generate embedding
+	embedding, err := provider.GenerateEmbedding(ctx, req.Content, req.ModelName)
+	if err != nil {
+		return uuid.Nil, fmt.Errorf("failed to generate embedding: %w", err)
+	}
+	
+	// Create metadata
+	metadata := map[string]interface{}{
+		"source":      req.Source,
+		"created_at":  time.Now().UTC().Format(time.RFC3339),
+		"chunk_size":  len(req.Content),
+	}
+	
+	if req.Metadata != nil {
+		for k, v := range req.Metadata {
+			metadata[k] = v
+		}
+	}
+	
+	metadataJSON, err := json.Marshal(metadata)
+	if err != nil {
+		return uuid.Nil, fmt.Errorf("failed to marshal metadata: %w", err)
+	}
+	
+	// Insert embedding
+	insertReq := InsertRequest{
+		ContextID:            req.ContextID,
+		Content:              req.Content,
+		Embedding:            embedding,
+		ModelName:            req.ModelName,
+		TenantID:             req.TenantID,
+		Metadata:             metadataJSON,
+		ContentIndex:         req.ContentIndex,
+		ChunkIndex:           req.ChunkIndex,
+		ConfiguredDimensions: req.ConfiguredDimensions,
+	}
+	
+	return s.repo.InsertEmbedding(ctx, insertReq)
+}
+
+// SearchSimilar performs similarity search
+func (s *Service) SearchSimilar(ctx context.Context, req SearchSimilarRequest) ([]EmbeddingSearchResult, error) {
+	// Get model information
+	model, err := s.repo.GetModelByName(ctx, req.ModelName)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get model: %w", err)
+	}
+	
+	// Get provider
+	provider, ok := s.providers[model.Provider]
+	if !ok {
+		return nil, fmt.Errorf("provider not registered: %s", model.Provider)
+	}
+	
+	// Generate query embedding
+	queryEmbedding, err := provider.GenerateEmbedding(ctx, req.Query, req.ModelName)
+	if err != nil {
+		return nil, fmt.Errorf("failed to generate query embedding: %w", err)
+	}
+	
+	// Prepare metadata filter if provided
+	var metadataFilter json.RawMessage
+	if req.MetadataFilter != nil {
+		filterJSON, err := json.Marshal(req.MetadataFilter)
+		if err != nil {
+			return nil, fmt.Errorf("failed to marshal metadata filter: %w", err)
+		}
+		metadataFilter = filterJSON
+	}
+	
+	// Search embeddings
+	searchReq := SearchRequest{
+		QueryEmbedding: queryEmbedding,
+		ModelName:      req.ModelName,
+		TenantID:       req.TenantID,
+		ContextID:      req.ContextID,
+		Limit:          req.Limit,
+		Threshold:      req.Threshold,
+		MetadataFilter: metadataFilter,
+	}
+	
+	return s.repo.SearchEmbeddings(ctx, searchReq)
+}
+
+// GetAvailableModels returns all available embedding models
+func (s *Service) GetAvailableModels(ctx context.Context, filter ModelFilter) ([]Model, error) {
+	return s.repo.GetAvailableModels(ctx, filter)
+}
+
+// GetEmbeddingsByContext retrieves all embeddings for a context
+func (s *Service) GetEmbeddingsByContext(ctx context.Context, contextID, tenantID uuid.UUID) ([]Embedding, error) {
+	return s.repo.GetEmbeddingsByContext(ctx, contextID, tenantID)
+}
+
+// Service request types
+
+type CreateEmbeddingRequest struct {
+	ContextID            uuid.UUID              `json:"context_id"`
+	Content              string                 `json:"content"`
+	ModelName            string                 `json:"model_name"`
+	TenantID             uuid.UUID              `json:"tenant_id"`
+	Source               string                 `json:"source,omitempty"`
+	ContentIndex         int                    `json:"content_index"`
+	ChunkIndex           int                    `json:"chunk_index"`
+	ConfiguredDimensions *int                   `json:"configured_dimensions,omitempty"`
+	Metadata             map[string]interface{} `json:"metadata,omitempty"`
+}
+
+type SearchSimilarRequest struct {
+	Query          string                 `json:"query"`
+	ModelName      string                 `json:"model_name"`
+	TenantID       uuid.UUID              `json:"tenant_id"`
+	ContextID      *uuid.UUID             `json:"context_id,omitempty"`
+	Limit          int                    `json:"limit"`
+	Threshold      float64                `json:"threshold"`
+	MetadataFilter map[string]interface{} `json:"metadata_filter,omitempty"`
 }

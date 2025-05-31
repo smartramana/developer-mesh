@@ -76,6 +76,12 @@ func Load() (*Config, error) {
 	v.SetEnvPrefix("MCP")
 	v.SetEnvKeyReplacer(strings.NewReplacer(".", "_"))
 	v.AutomaticEnv()
+	
+	// Bind specific environment variables that don't follow the MCP_ prefix
+	// These are commonly used in Docker environments
+	v.BindEnv("cache.address", "REDIS_ADDR")
+	v.BindEnv("cache.address", "REDIS_ADDRESS")
+	v.BindEnv("cache.address", "CACHE_ADDRESS")
 
 	// Enable environment variable interpolation in config values
 	v.AllowEmptyEnv(true)

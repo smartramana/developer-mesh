@@ -99,14 +99,8 @@ func (c *MCPClient) DoRequestWithHeader(ctx context.Context, method, path string
 	// Set headers
 	req.Header.Set("Content-Type", "application/json")
 	if c.APIKey != "" {
-		// Special case for test environment
-		if c.APIKey == "test-admin-api-key" {
-			// Send test key directly to match server's special test case validation
-			req.Header.Set("Authorization", c.APIKey)
-		} else {
-			// For all other keys, use Bearer format (industry standard)
-			req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", c.APIKey))
-		}
+		// Set API key header
+		req.Header.Set("X-API-Key", c.APIKey)
 	}
 	if c.TenantID != "" {
 		req.Header.Set("X-Tenant-ID", c.TenantID)

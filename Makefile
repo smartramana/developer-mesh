@@ -96,13 +96,7 @@ test-worker:
 test-all:
 	$(GOTEST) -v ./apps/mcp-server/... ./apps/rest-api/... ./apps/worker/... ./pkg/...
 
-# Run integration tests with Docker Compose setup
-test-functional: docker-compose-up
-	@echo "Waiting for services to be ready..."
-	sleep 5
-	@echo "Running functional tests..."
-	export MCP_TEST_MODE=true && ./test/scripts/run_functional_tests_fixed.sh
-	@echo "Tests completed - services remain running, use 'make docker-compose-down' to stop"
+# Run integration tests with Docker Compose setup (removed - duplicate target below)
 
 test-coverage:
 	$(GOTEST) -coverprofile=coverage.out ./...
@@ -121,8 +115,16 @@ test-fuzz:
 	$(GOTEST) -fuzz=FuzzTruncateOldestFirst -fuzztime=30s ./apps/mcp-server/internal/core
 
 test-functional:
-	@bash ./test/functional/check_test_env.sh || (echo "\nEnvironment check failed. Please set all required environment variables before running functional tests." && exit 1)
-	cd $(shell pwd) && export MCP_TEST_MODE=true && ./test/scripts/run_functional_tests_fixed.sh
+	@echo "Loading environment variables for functional tests..."
+	@set -a; \
+	[ -f .env ] && . ./.env; \
+	[ -f .env.test ] && . ./.env.test; \
+	export ELASTICACHE_ENDPOINT=$${ELASTICACHE_ENDPOINT:-localhost}; \
+	export ELASTICACHE_PORT=$${ELASTICACHE_PORT:-6379}; \
+	export MCP_GITHUB_WEBHOOK_SECRET=$${MCP_GITHUB_WEBHOOK_SECRET:-$${GITHUB_WEBHOOK_SECRET:-dev-webhook-secret}}; \
+	set +a; \
+	bash ./test/functional/check_test_env.sh || (echo "\nEnvironment check failed. Please set all required environment variables before running functional tests." && exit 1); \
+	export MCP_TEST_MODE=true && ./test/scripts/run_functional_tests.sh
 
 # Run only specific functional tests
 # Usage: make test-functional-focus FOCUS="Health Endpoint"
@@ -183,14 +185,7 @@ docker-compose-logs:
 docker-compose-restart:
 	$(DOCKER_COMPOSE) up -d --build $(service)
 
-# Build and start everything needed for local development including test data
-dev-setup: docker-compose-down docker-compose-up
-	@echo "Setting up development environment..."
-	@echo "Waiting for services to start..."
-	@sleep 5
-	@echo "Development environment ready!"
-	@echo "- MCP Server: http://localhost:8080"
-	@echo "- REST API: http://localhost:8081"
+# Build and start everything needed for local development including test data (removed - duplicate target above)
 
 init-config:
 	cp configs/config.yaml.template configs/config.yaml
@@ -254,54 +249,54 @@ docker-verify:
 	$(DOCKER_COMPOSE) pull database
 	@echo "Docker verification complete."
 
-# Database migration commands
-migrate-tool:
-	@echo "Note: Database migrations have been moved to apps/rest-api/migrations"
-	cd apps/rest-api && go build -o ../../migrate -v ./cmd/migrate
+# Database migration commands using golang-migrate
+# Note: Database migrations have been moved to apps/rest-api/migrations
 
 # Create a new migration file with the given name
 # Usage: make migrate-create name=add_new_table
-migrate-create: migrate-tool
-	./migrate -create -name $(name)
+migrate-create:
+	@which migrate > /dev/null || (echo "Error: golang-migrate not installed. Run: brew install golang-migrate" && exit 1)
+	cd apps/rest-api && migrate create -ext sql -dir migrations/sql -seq $(name)
 
 # Run all pending migrations
 # Usage: make migrate-up dsn="postgres://user:pass@localhost:5432/mcp_db?sslmode=disable"
-migrate-up: migrate-tool
-	./migrate -up -dsn "$(dsn)"
+migrate-up:
+	@which migrate > /dev/null || (echo "Error: golang-migrate not installed. Run: brew install golang-migrate" && exit 1)
+	migrate -database "$(dsn)" -path apps/rest-api/migrations/sql up
 
-# Run all pending migrations (steps limited)
-# Usage: make migrate-up-steps dsn="postgres://user:pass@localhost:5432/mcp_db?sslmode=disable" steps=1
-migrate-up-steps: migrate-tool
-	./migrate -up -steps $(steps) -dsn "$(dsn)"
+# Run migrations for local development environment
+migrate-local:
+	@which migrate > /dev/null || (echo "Error: golang-migrate not installed. Run: brew install golang-migrate" && exit 1)
+	migrate -database "postgresql://dev:dev@localhost:5432/dev?sslmode=disable" -path apps/rest-api/migrations/sql up
+
+# Run migrations for docker environment
+migrate-docker:
+	@which migrate > /dev/null || (echo "Error: golang-migrate not installed. Run: brew install golang-migrate" && exit 1)
+	migrate -database "postgresql://dev:dev@localhost:5432/dev?sslmode=disable" -path apps/rest-api/migrations/sql up
 
 # Roll back the most recent migration
 # Usage: make migrate-down dsn="postgres://user:pass@localhost:5432/mcp_db?sslmode=disable"
-migrate-down: migrate-tool
-	./migrate -down -dsn "$(dsn)"
+migrate-down:
+	@which migrate > /dev/null || (echo "Error: golang-migrate not installed. Run: brew install golang-migrate" && exit 1)
+	migrate -database "$(dsn)" -path apps/rest-api/migrations/sql down 1
 
 # Roll back all migrations
 # Usage: make migrate-reset dsn="postgres://user:pass@localhost:5432/mcp_db?sslmode=disable"
-migrate-reset: migrate-tool
-	./migrate -reset -dsn "$(dsn)"
+migrate-reset:
+	@which migrate > /dev/null || (echo "Error: golang-migrate not installed. Run: brew install golang-migrate" && exit 1)
+	migrate -database "$(dsn)" -path apps/rest-api/migrations/sql drop -f
 
 # Check the current migration version
 # Usage: make migrate-version dsn="postgres://user:pass@localhost:5432/mcp_db?sslmode=disable"
-migrate-version: migrate-tool
-	./migrate -version -dsn "$(dsn)"
+migrate-version:
+	@which migrate > /dev/null || (echo "Error: golang-migrate not installed. Run: brew install golang-migrate" && exit 1)
+	migrate -database "$(dsn)" -path apps/rest-api/migrations/sql version
 
 # Force the database to a specific version
 # Usage: make migrate-force dsn="postgres://user:pass@localhost:5432/mcp_db?sslmode=disable" version=5
-migrate-force: migrate-tool
-	./migrate -force $(version) -dsn "$(dsn)"
-
-# Validate migrations without applying them
-# Usage: make migrate-validate dsn="postgres://user:pass@localhost:5432/mcp_db?sslmode=disable"
-migrate-validate: migrate-tool
-	./migrate -validate -dsn "$(dsn)"
-
-# Run migrations for local development environment
-migrate-local: migrate-tool
-	./migrate -up -dsn "postgresql://dev:dev@localhost:5432/dev?sslmode=disable"
+migrate-force:
+	@which migrate > /dev/null || (echo "Error: golang-migrate not installed. Run: brew install golang-migrate" && exit 1)
+	migrate -database "$(dsn)" -path apps/rest-api/migrations/sql force $(version)
 
 # Helper to enter database shell from Docker
 db-shell:
