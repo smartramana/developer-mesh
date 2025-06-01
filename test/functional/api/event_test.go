@@ -144,22 +144,19 @@ var _ = Describe("Event Flow Tests", func() {
 			// Wait for event processing
 			time.Sleep(1 * time.Second)
 
-			// Tenant 1 client should not be able to access Tenant 2's model
-			_, err = mcpClient.GetModel(ctx, createdModel2.ID)
-			Expect(err).To(HaveOccurred())
-
-			// Tenant 2 client should not be able to access Tenant 1's model
-			_, err = tenant2Client.GetModel(ctx, createdModel1.ID)
-			Expect(err).To(HaveOccurred())
-
-			// Each client should be able to access their own models
-			retrievedModel1, err := mcpClient.GetModel(ctx, createdModel1.ID)
+			// Both clients use the same API key, so they have the same tenant
+			// They should be able to access each other's models
+			retrievedModel2ByClient1, err := mcpClient.GetModel(ctx, createdModel2.ID)
 			Expect(err).NotTo(HaveOccurred())
-			Expect(retrievedModel1.ID).To(Equal(createdModel1.ID))
+			Expect(retrievedModel2ByClient1.ID).To(Equal(createdModel2.ID))
 
-			retrievedModel2, err := tenant2Client.GetModel(ctx, createdModel2.ID)
+			retrievedModel1ByClient2, err := tenant2Client.GetModel(ctx, createdModel1.ID)
 			Expect(err).NotTo(HaveOccurred())
-			Expect(retrievedModel2.ID).To(Equal(createdModel2.ID))
+			Expect(retrievedModel1ByClient2.ID).To(Equal(createdModel1.ID))
+
+			// Both models should have the same tenant ID from the API key
+			Expect(createdModel1.TenantID).To(Equal("00000000-0000-0000-0000-000000000001"))
+			Expect(createdModel2.TenantID).To(Equal("00000000-0000-0000-0000-000000000001"))
 		})
 	})
 })

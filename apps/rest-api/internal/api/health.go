@@ -131,7 +131,8 @@ func (h *HealthChecker) HealthHandler(c *gin.Context) {
 		"status": "healthy",
 		"ready":  h.IsReady(),
 		"time":   time.Now().UTC().Format(time.RFC3339),
-		"checks": make(map[string]string),
+		"components": make(map[string]string),
+		"checks": make(map[string]string), // Keep for backward compatibility
 	}
 
 	// Run all health checks
@@ -145,9 +146,11 @@ func (h *HealthChecker) HealthHandler(c *gin.Context) {
 	hasErrors := false
 	for name, check := range checks {
 		if err := check.CheckFunc(ctx); err != nil {
+			health["components"].(map[string]string)[name] = "unhealthy: " + err.Error()
 			health["checks"].(map[string]string)[name] = "unhealthy: " + err.Error()
 			hasErrors = true
 		} else {
+			health["components"].(map[string]string)[name] = "healthy"
 			health["checks"].(map[string]string)[name] = "healthy"
 		}
 	}

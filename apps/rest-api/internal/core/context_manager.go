@@ -524,7 +524,7 @@ func (cm *ContextManager) ListContexts(ctx context.Context, agentID, sessionID s
 	if cm.db != nil {
 
 		// Build the query based on conditions
-		q := `SELECT * FROM contexts WHERE 1=1`
+		q := `SELECT * FROM mcp.contexts WHERE 1=1`
 		args := []any{}
 
 		// Add conditions to the query
@@ -634,7 +634,7 @@ func (cm *ContextManager) SearchInContext(ctx context.Context, contextID, query 
 	// Perform search in database if available
 	if cm.db != nil {
 		// Create query to search in context items
-		q := `SELECT * FROM context_items WHERE context_id = $1 AND content LIKE $2`
+		q := `SELECT * FROM mcp.context_items WHERE context_id = $1 AND content LIKE $2`
 
 		// Execute query with parameters
 		rows, err := cm.db.QueryxContext(ctx, q, contextID, "%"+query+"%")

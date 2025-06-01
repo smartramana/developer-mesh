@@ -547,6 +547,21 @@ var _ = Describe("API", func() {
 		})
 
 		It("should search within a context", func() {
+			// First, add some content to search
+			updatePayload := map[string]interface{}{
+				"content": []map[string]interface{}{
+					{
+						"role":    "user",
+						"content": "This is test content for searching",
+					},
+				},
+			}
+			updatePath := fmt.Sprintf("/api/v1/contexts/%s", createdContextID)
+			updateResp, err := mcpClient.Put(ctx, updatePath, updatePayload)
+			Expect(err).NotTo(HaveOccurred())
+			updateResp.Body.Close()
+			
+			// Now search for content
 			searchPayload := map[string]interface{}{
 				"query": "test",
 			}
