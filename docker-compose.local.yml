@@ -15,9 +15,9 @@ services:
       - API_PORT=8080
       # Authentication
       - JWT_SECRET=${JWT_SECRET:-docker-jwt-secret-change-in-production}
-      - ADMIN_API_KEY=${ADMIN_API_KEY:-docker-admin-api-key}
-      - READER_API_KEY=${READER_API_KEY:-docker-reader-api-key}
-      - MCP_API_KEY=${MCP_API_KEY:-docker-admin-api-key}
+      - ADMIN_API_KEY=${ADMIN_API_KEY:-dev-admin-key-1234567890}
+      - READER_API_KEY=${READER_API_KEY:-dev-readonly-key-1234567890}
+      - MCP_API_KEY=${MCP_API_KEY:-dev-admin-key-1234567890}
       # Database (using service names)
       - DATABASE_HOST=database
       - DATABASE_PORT=5432
@@ -102,9 +102,9 @@ services:
       - MCP_SERVER_URL=http://mcp-server:8080
       # Authentication
       - JWT_SECRET=${JWT_SECRET:-docker-jwt-secret-change-in-production}
-      - ADMIN_API_KEY=${ADMIN_API_KEY:-docker-admin-api-key}
-      - READER_API_KEY=${READER_API_KEY:-docker-reader-api-key}
-      - MCP_API_KEY=${MCP_API_KEY:-docker-admin-api-key}
+      - ADMIN_API_KEY=${ADMIN_API_KEY:-dev-admin-key-1234567890}
+      - READER_API_KEY=${READER_API_KEY:-dev-readonly-key-1234567890}
+      - MCP_API_KEY=${MCP_API_KEY:-dev-admin-key-1234567890}
       # Database (using service names)
       - DATABASE_HOST=database
       - DATABASE_PORT=5432

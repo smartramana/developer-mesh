@@ -181,11 +181,11 @@ fi
 # Set environment variables for the tests
 # REST API configuration
 export REST_API_URL="http://localhost:8081"
-export API_KEY="docker-admin-api-key"
+export API_KEY="dev-admin-key-1234567890"
 
 # MCP Server configuration  
 export MCP_SERVER_URL="http://localhost:8080"
-export MCP_API_KEY="docker-admin-api-key"
+export MCP_API_KEY="dev-admin-key-1234567890"
 
 # Mock server for testing
 export MOCKSERVER_URL="http://localhost:8082"

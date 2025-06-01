@@ -123,7 +123,6 @@ test-functional:
 	@echo "Loading environment variables for functional tests..."
 	@set -a; \
 	[ -f .env ] && . ./.env; \
-	[ -f .env.test ] && . ./.env.test; \
 	export ELASTICACHE_ENDPOINT=$${ELASTICACHE_ENDPOINT:-localhost}; \
 	export ELASTICACHE_PORT=$${ELASTICACHE_PORT:-6379}; \
 	export MCP_GITHUB_WEBHOOK_SECRET=$${MCP_GITHUB_WEBHOOK_SECRET:-$${GITHUB_WEBHOOK_SECRET:-dev-webhook-secret}}; \
