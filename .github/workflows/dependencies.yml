@@ -1,0 +1,65 @@
+name: Dependencies
+
+on:
+  schedule:
+    - cron: '0 0 * * 1'  # Weekly on Monday
+  workflow_dispatch:
+
+env:
+  GO_VERSION: '1.24'
+
+jobs:
+  update-dependencies:
+    name: Update Go Dependencies
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache: true
+
+      - name: Update dependencies
+        run: |
+          # Update all modules in the workspace
+          for dir in apps/mcp-server apps/rest-api apps/worker pkg; do
+            echo "Updating dependencies in $dir"
+            cd $dir
+            go get -u ./...
+            go mod tidy
+            cd -
+          done
+          
+          # Update workspace
+          go work sync
+
+      - name: Run tests after update
+        run: make test
+
+      - name: Create Pull Request
+        uses: peter-evans/create-pull-request@v5
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          commit-message: 'chore: update Go dependencies'
+          title: 'chore: update Go dependencies'
+          body: |
+            ## Automated Dependency Update
+            
+            This PR updates all Go dependencies to their latest versions.
+            
+            ### Changes
+            - Updated Go modules in all workspace applications
+            - Ran `go mod tidy` to clean up dependencies
+            - Synchronized workspace with `go work sync`
+            
+            ### Testing
+            - [x] All tests pass
+            - [ ] Manual testing required
+            
+            Please review the changes and ensure everything works as expected.
+          branch: chore/update-dependencies
+          delete-branch: true
