@@ -138,12 +138,16 @@ func GitHubWebhookHandler(config interfaces.WebhookConfigInterface, logger obser
 			return
 		}
 
+		// Extract auth context from webhook payload
+		authContext := extractAuthContext(payload, eventType)
+
 		event := queue.SQSEvent{
-			DeliveryID: r.Header.Get("X-GitHub-Delivery"),
-			EventType:  eventType,
-			RepoName:   repoName,
-			SenderName: senderName,
-			Payload:    json.RawMessage(bodyBytes),
+			DeliveryID:  r.Header.Get("X-GitHub-Delivery"),
+			EventType:   eventType,
+			RepoName:    repoName,
+			SenderName:  senderName,
+			Payload:     json.RawMessage(bodyBytes),
+			AuthContext: authContext,
 		}
 
 		ctx := r.Context()

@@ -7,12 +7,12 @@ import (
 	"time"
 
 	"github.com/S-Corkum/devops-mcp/pkg/adapters"
-	"github.com/S-Corkum/devops-mcp/pkg/models"
 	"github.com/S-Corkum/devops-mcp/pkg/common/aws"
 	"github.com/S-Corkum/devops-mcp/pkg/common/cache"
-	"github.com/S-Corkum/devops-mcp/pkg/database"
 	"github.com/S-Corkum/devops-mcp/pkg/common/events"
 	"github.com/S-Corkum/devops-mcp/pkg/common/events/system"
+	"github.com/S-Corkum/devops-mcp/pkg/database"
+	"github.com/S-Corkum/devops-mcp/pkg/models"
 	"github.com/S-Corkum/devops-mcp/pkg/observability"
 	"github.com/S-Corkum/devops-mcp/pkg/storage/providers"
 )
@@ -98,14 +98,14 @@ type ContextManagerInterface interface {
 
 // Engine is the core engine of the MCP server
 type Engine struct {
-	adapterManager      *adapters.AdapterManager
-	contextManager      ContextManagerInterface
+	adapterManager       *adapters.AdapterManager
+	contextManager       ContextManagerInterface
 	githubContentManager *GitHubContentManager
-	config              CoreConfig
-	metricsClient       observability.MetricsClient
-	logger              observability.Logger
-	eventBus            *events.EventBus
-	lock                sync.RWMutex
+	config               CoreConfig
+	metricsClient        observability.MetricsClient
+	logger               observability.Logger
+	eventBus             *events.EventBus
+	lock                 sync.RWMutex
 }
 
 // NewEngine creates a new engine
@@ -136,7 +136,7 @@ func NewEngine(
 				s3Prefix = p
 			}
 		}
-		
+
 		// Create a new S3 client with the provided config
 		s3Client, err := aws.NewS3Client(ctx, *s3Config)
 		if err != nil {
@@ -155,12 +155,12 @@ func NewEngine(
 	// Create context manager with performance optimizations if configured
 	// Note: Performance config would be loaded from main config in production
 	// For now, we'll use the standard context manager
-	
+
 	// The context manager expects *system.EventBus but we have a mock
 	// In production, you would use the actual system event bus
 	// For now, we'll pass nil since the context manager can handle nil event bus
 	var eventBusForContext *system.EventBus = nil
-	
+
 	ctxManager, err := CreateContextManager(
 		ctx,
 		db,
@@ -193,16 +193,16 @@ func NewEngine(
 
 	// Create GitHub content manager
 	var githubContentManager *GitHubContentManager
-	
+
 	// If S3 storage is configured, use the same client for GitHub content
 	if useS3 {
 		// Use the existing s3Config that was already obtained
 		s3ClientForGithub, err := aws.NewS3Client(ctx, *s3Config)
-		
+
 		if err == nil {
 			// Create a dummy MetricsClient that matches the observability.MetricsClient interface
 			obsMetricsClient := observability.NewMetricsClient()
-			
+
 			// Create the GitHub content manager
 			githubContentManager, err = NewGitHubContentManager(db, s3ClientForGithub, obsMetricsClient, nil)
 			if err != nil {
@@ -218,16 +218,16 @@ func NewEngine(
 	} else {
 		logger.Info("S3 storage not configured, GitHub content manager not created", nil)
 	}
-	
+
 	// Create engine
 	engine := &Engine{
-		adapterManager:      adapterManager,
-		contextManager:      ctxManager,
+		adapterManager:       adapterManager,
+		contextManager:       ctxManager,
 		githubContentManager: githubContentManager,
-		config:              config,
-		metricsClient:       metricsClient,
-		logger:              logger,
-		eventBus:            eventBus,
+		config:               config,
+		metricsClient:        metricsClient,
+		logger:               logger,
+		eventBus:             eventBus,
 	}
 
 	return engine, nil

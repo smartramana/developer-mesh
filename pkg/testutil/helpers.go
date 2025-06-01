@@ -48,11 +48,11 @@ type TestDatabase struct {
 func NewTestDatabase(t *testing.T, dsn string) *TestDatabase {
 	db, err := sql.Open("postgres", dsn)
 	require.NoError(t, err)
-	
+
 	// Verify connection
 	err = db.Ping()
 	require.NoError(t, err)
-	
+
 	return &TestDatabase{DB: db}
 }
 
@@ -63,7 +63,7 @@ func (tdb *TestDatabase) Cleanup(t *testing.T, tenantID string) {
 		fmt.Sprintf("DELETE FROM mcp.agents WHERE tenant_id = '%s'", tenantID),
 		fmt.Sprintf("DELETE FROM mcp.models WHERE tenant_id = '%s'", tenantID),
 	}
-	
+
 	for _, query := range queries {
 		_, err := tdb.DB.Exec(query)
 		if err != nil {
@@ -109,7 +109,7 @@ func (c *HTTPClient) Request(method, path string, body any) (*http.Response, err
 		}
 		bodyReader = bytes.NewReader(bodyBytes)
 	}
-	
+
 	var req *http.Request
 	var err error
 	if bodyReader != nil {
@@ -120,14 +120,14 @@ func (c *HTTPClient) Request(method, path string, body any) (*http.Response, err
 	if err != nil {
 		return nil, err
 	}
-	
+
 	// Set standard headers
 	req.Header.Set("Authorization", "Bearer "+c.AuthToken)
 	req.Header.Set("X-Tenant-ID", c.TenantID)
 	if body != nil {
 		req.Header.Set("Content-Type", "application/json")
 	}
-	
+
 	return c.Client.Do(req)
 }
 
@@ -139,10 +139,10 @@ type TestServer struct {
 // NewTestServer creates a new test server
 func NewTestServer() *TestServer {
 	gin.SetMode(gin.TestMode)
-	
+
 	router := gin.New()
 	router.Use(gin.Recovery())
-	
+
 	return &TestServer{
 		Router: router,
 	}
@@ -176,30 +176,30 @@ type TestFixtures struct {
 
 // Context represents a test context
 type Context struct {
-	ID         string                 `json:"id"`
-	AgentID    string                 `json:"agent_id"`
-	ModelID    string                 `json:"model_id"`
-	MaxTokens  int                    `json:"max_tokens"`
-	Metadata   map[string]any `json:"metadata"`
-	CreatedAt  time.Time              `json:"created_at"`
+	ID        string         `json:"id"`
+	AgentID   string         `json:"agent_id"`
+	ModelID   string         `json:"model_id"`
+	MaxTokens int            `json:"max_tokens"`
+	Metadata  map[string]any `json:"metadata"`
+	CreatedAt time.Time      `json:"created_at"`
 }
 
 // Agent represents a test agent
 type Agent struct {
-	ID          string                 `json:"id"`
-	TenantID    string                 `json:"tenant_id"`
-	Name        string                 `json:"name"`
-	Description string                 `json:"description"`
+	ID          string         `json:"id"`
+	TenantID    string         `json:"tenant_id"`
+	Name        string         `json:"name"`
+	Description string         `json:"description"`
 	Config      map[string]any `json:"config"`
 }
 
 // Model represents a test model
 type Model struct {
-	ID         string `json:"id"`
-	TenantID   string `json:"tenant_id"`
-	Name       string `json:"name"`
-	Provider   string `json:"provider"`
-	ModelType  string `json:"model_type"`
+	ID        string `json:"id"`
+	TenantID  string `json:"tenant_id"`
+	Name      string `json:"name"`
+	Provider  string `json:"provider"`
+	ModelType string `json:"model_type"`
 }
 
 // LoadFixtures loads test fixtures
@@ -241,27 +241,27 @@ func AssertJSONResponse(t *testing.T, w *httptest.ResponseRecorder, expected any
 	var actual any
 	err := json.Unmarshal(w.Body.Bytes(), &actual)
 	require.NoError(t, err)
-	
+
 	expectedJSON, err := json.Marshal(expected)
 	require.NoError(t, err)
-	
+
 	actualJSON, err := json.Marshal(actual)
 	require.NoError(t, err)
-	
+
 	require.JSONEq(t, string(expectedJSON), string(actualJSON))
 }
 
 // WaitForCondition waits for a condition to be true
 func WaitForCondition(t *testing.T, timeout time.Duration, check func() bool, message string) {
 	deadline := time.Now().Add(timeout)
-	
+
 	for time.Now().Before(deadline) {
 		if check() {
 			return
 		}
 		time.Sleep(100 * time.Millisecond)
 	}
-	
+
 	t.Fatalf("Timeout waiting for condition: %s", message)
 }
 

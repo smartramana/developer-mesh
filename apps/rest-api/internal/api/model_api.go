@@ -3,7 +3,7 @@ package api
 import (
 	"fmt"
 	"strconv"
-	
+
 	"github.com/S-Corkum/devops-mcp/pkg/common/util"
 	"github.com/S-Corkum/devops-mcp/pkg/models"
 	"github.com/gin-gonic/gin"
@@ -28,7 +28,7 @@ func (m *ModelAPI) RegisterRoutes(router *gin.RouterGroup) {
 	models.POST("", m.createModel)
 	models.GET("", m.listModels)
 	models.POST("/search", m.searchModels)
-	models.GET("/test", m.testModel)  // Test endpoint - must be before /:id
+	models.GET("/test", m.testModel) // Test endpoint - must be before /:id
 	models.GET("/:id", m.getModel)
 	models.PUT("/:id", m.updateModel)
 	models.DELETE("/:id", m.deleteModel)
@@ -74,37 +74,37 @@ func (m *ModelAPI) listModels(c *gin.Context) {
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "missing tenant id"})
 		return
 	}
-	
+
 	// Parse query parameters for pagination
 	limit := 20 // default
 	offset := 0 // default
-	
+
 	if limitStr := c.Query("limit"); limitStr != "" {
 		if parsedLimit, err := strconv.Atoi(limitStr); err == nil && parsedLimit > 0 {
 			limit = min(parsedLimit, 100) // max limit
 		}
 	}
-	
+
 	if offsetStr := c.Query("offset"); offsetStr != "" {
 		if parsedOffset, err := strconv.Atoi(offsetStr); err == nil && parsedOffset >= 0 {
 			offset = parsedOffset
 		}
 	}
-	
+
 	// Get all models for the tenant
 	modelsList, err := m.repo.ListModels(c.Request.Context(), tenantID)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
-	
+
 	// Apply pagination
 	total := len(modelsList)
 	start := min(offset, total)
-	end := min(start + limit, total)
-	
+	end := min(start+limit, total)
+
 	paginatedModels := modelsList[start:end]
-	
+
 	// Build response with pagination info
 	response := gin.H{
 		"models": paginatedModels,
@@ -112,27 +112,27 @@ func (m *ModelAPI) listModels(c *gin.Context) {
 		"limit":  limit,
 		"offset": offset,
 	}
-	
+
 	// Add pagination links
 	baseURL := fmt.Sprintf("%s%s", c.Request.Host, c.Request.URL.Path)
 	links := gin.H{}
-	
+
 	// Add next link if there are more results
 	if end < total {
 		nextOffset := offset + limit
 		links["next"] = fmt.Sprintf("%s?limit=%d&offset=%d", baseURL, limit, nextOffset)
 	}
-	
+
 	// Add previous link if not at the beginning
 	if offset > 0 {
-		prevOffset := max(offset - limit, 0)
+		prevOffset := max(offset-limit, 0)
 		links["prev"] = fmt.Sprintf("%s?limit=%d&offset=%d", baseURL, limit, prevOffset)
 	}
-	
+
 	if len(links) > 0 {
 		response["_links"] = links
 	}
-	
+
 	c.JSON(http.StatusOK, response)
 }
 
@@ -187,13 +187,13 @@ func (m *ModelAPI) getModel(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "model id required"})
 		return
 	}
-	
+
 	tenantID := util.GetTenantIDFromContext(c)
 	if tenantID == "" {
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "missing tenant id"})
 		return
 	}
-	
+
 	model, err := m.repo.GetModelByID(c.Request.Context(), tenantID, id)
 	if err != nil {
 		if err.Error() == "not found" {
@@ -203,18 +203,18 @@ func (m *ModelAPI) getModel(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
-	
+
 	if model == nil {
 		c.JSON(http.StatusNotFound, gin.H{"error": "model not found"})
 		return
 	}
-	
+
 	// Verify tenant access
 	if model.TenantID != tenantID {
 		c.JSON(http.StatusForbidden, gin.H{"error": "unauthorized"})
 		return
 	}
-	
+
 	c.JSON(http.StatusOK, model)
 }
 
@@ -225,13 +225,13 @@ func (m *ModelAPI) deleteModel(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "model id required"})
 		return
 	}
-	
+
 	tenantID := util.GetTenantIDFromContext(c)
 	if tenantID == "" {
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "missing tenant id"})
 		return
 	}
-	
+
 	// First check if the model exists and belongs to the tenant
 	existing, err := m.repo.GetModelByID(c.Request.Context(), tenantID, id)
 	if err != nil {
@@ -242,23 +242,23 @@ func (m *ModelAPI) deleteModel(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
-	
+
 	if existing == nil {
 		c.JSON(http.StatusNotFound, gin.H{"error": "model not found"})
 		return
 	}
-	
+
 	if existing.TenantID != tenantID {
 		c.JSON(http.StatusForbidden, gin.H{"error": "unauthorized"})
 		return
 	}
-	
+
 	// Delete the model
 	if err := m.repo.DeleteModel(c.Request.Context(), id); err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
-	
+
 	c.JSON(http.StatusOK, gin.H{"message": "model deleted successfully"})
 }
 
@@ -269,18 +269,18 @@ func (m *ModelAPI) searchModels(c *gin.Context) {
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "missing tenant id"})
 		return
 	}
-	
+
 	var searchReq struct {
 		Query  string `json:"query"`
 		Limit  int    `json:"limit"`
 		Offset int    `json:"offset"`
 	}
-	
+
 	if err := c.ShouldBindJSON(&searchReq); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
-	
+
 	// Set defaults
 	if searchReq.Limit == 0 {
 		searchReq.Limit = 20
@@ -288,14 +288,14 @@ func (m *ModelAPI) searchModels(c *gin.Context) {
 	if searchReq.Limit > 100 {
 		searchReq.Limit = 100
 	}
-	
+
 	// Search models
 	models, err := m.repo.SearchModels(c.Request.Context(), tenantID, searchReq.Query, searchReq.Limit, searchReq.Offset)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
-	
+
 	c.JSON(http.StatusOK, gin.H{
 		"results": models,
 		"query":   searchReq.Query,

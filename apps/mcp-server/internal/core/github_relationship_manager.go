@@ -551,7 +551,7 @@ func (m *GitHubRelationshipManager) processCommentRelationships(
 	if parentType, ok := commentData["parent_type"].(string); ok {
 		if parentID, ok := commentData["parent_id"].(string); ok {
 			var entityType models.EntityType
-			
+
 			// Map parent type to entity type
 			switch parentType {
 			case "issue":
@@ -681,14 +681,14 @@ func extractIssueReferences(text string) []string {
 	// Match patterns like #123, issue #123, fixes #123, closes #123, etc.
 	re := regexp.MustCompile(`(?i)(?:issue|fixes|closes|resolves|fix|close|resolve)?\s*#(\d+)`)
 	matches := re.FindAllStringSubmatch(text, -1)
-	
+
 	var issueNums []string
 	for _, match := range matches {
 		if len(match) > 1 {
 			issueNums = append(issueNums, match[1])
 		}
 	}
-	
+
 	return issueNums
 }
 
@@ -697,14 +697,14 @@ func extractPRReferences(text string) []string {
 	// Match patterns like PR #123, pull request #123, etc.
 	re := regexp.MustCompile(`(?i)(?:PR|pull request)\s*#(\d+)`)
 	matches := re.FindAllStringSubmatch(text, -1)
-	
+
 	var prNums []string
 	for _, match := range matches {
 		if len(match) > 1 {
 			prNums = append(prNums, match[1])
 		}
 	}
-	
+
 	return prNums
 }
 
@@ -713,7 +713,7 @@ func extractFileReferences(text string) []string {
 	// Match file paths like path/to/file.go, src/file.js, etc.
 	re := regexp.MustCompile(`\b(?:[\w-]+/)+[\w.-]+\b`)
 	matches := re.FindAllString(text, -1)
-	
+
 	var filePaths []string
 	for _, match := range matches {
 		// Only include if looks like a file path (has an extension or directory structure)
@@ -721,7 +721,7 @@ func extractFileReferences(text string) []string {
 			filePaths = append(filePaths, match)
 		}
 	}
-	
+
 	return filePaths
 }
 
@@ -730,27 +730,27 @@ func extractMentions(text string) []string {
 	// Match @username patterns
 	re := regexp.MustCompile(`@([\w-]+)`)
 	matches := re.FindAllStringSubmatch(text, -1)
-	
+
 	var usernames []string
 	for _, match := range matches {
 		if len(match) > 1 {
 			usernames = append(usernames, match[1])
 		}
 	}
-	
+
 	return usernames
 }
 
 // extractImports extracts import paths from file content
 func extractImports(content string, filePath string) []string {
 	var imports []string
-	
+
 	// Determine file type from path
 	if strings.HasSuffix(filePath, ".go") {
 		// Go imports
 		re := regexp.MustCompile(`import\s+\(([^)]+)\)`)
 		importBlocks := re.FindAllStringSubmatch(content, -1)
-		
+
 		for _, block := range importBlocks {
 			if len(block) > 1 {
 				// Extract individual imports
@@ -771,7 +771,7 @@ func extractImports(content string, filePath string) []string {
 		// JavaScript/TypeScript imports
 		re := regexp.MustCompile(`(?:import|require)\s*\(?['"]([^'"]+)['"]`)
 		matches := re.FindAllStringSubmatch(content, -1)
-		
+
 		for _, match := range matches {
 			if len(match) > 1 {
 				imports = append(imports, match[1])
@@ -781,13 +781,13 @@ func extractImports(content string, filePath string) []string {
 		// Python imports
 		re := regexp.MustCompile(`(?:import|from)\s+([\w.]+)`)
 		matches := re.FindAllStringSubmatch(content, -1)
-		
+
 		for _, match := range matches {
 			if len(match) > 1 {
 				imports = append(imports, match[1])
 			}
 		}
 	}
-	
+
 	return imports
 }

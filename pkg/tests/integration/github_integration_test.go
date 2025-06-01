@@ -76,6 +76,7 @@ func TestGitHubAdapter_ExecuteAction(t *testing.T) {
 
 	// Create event bus
 	systemEventBus := events.NewEventBus(100)
+	defer systemEventBus.Close() // Close event bus to prevent goroutine leaks
 	eventBus := adapterEvents.NewEventBusAdapter(systemEventBus)
 
 	// Create test event listener and subscribe to relevant events
@@ -563,6 +564,9 @@ func TestGitHubAdapter_ExecuteAction(t *testing.T) {
 		assert.Equal(t, true, response["success"])
 		assert.Equal(t, "new-feature", response["branch"])
 	})
+	
+	// Give time for any async event handlers to complete
+	time.Sleep(100 * time.Millisecond)
 }
 
 func TestGitHubAdapter_WebhookHandling(t *testing.T) {
@@ -576,6 +580,7 @@ func TestGitHubAdapter_WebhookHandling(t *testing.T) {
 
 	// Create an event bus with queue size 100
 	systemEventBus := events.NewEventBus(100)
+	defer systemEventBus.Close() // Close event bus to prevent goroutine leaks
 	eventBus := adapterEvents.NewEventBusAdapter(systemEventBus)
 
 	// Create a channel to receive events
@@ -693,4 +698,7 @@ func TestGitHubAdapter_WebhookHandling(t *testing.T) {
 		handlers := listResponse["handlers"].([]string)
 		assert.NotContains(t, handlers, "test-push-handler")
 	})
+	
+	// Give time for any async event handlers to complete
+	time.Sleep(100 * time.Millisecond)
 }

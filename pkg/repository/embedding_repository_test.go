@@ -16,7 +16,7 @@ func TestStoreEmbedding(t *testing.T) {
 	// Skip this test as it requires complex VectorDatabase mocking
 	// These operations should be tested with integration tests
 	t.Skip("Skipping unit test that requires VectorDatabase - use integration tests")
-	
+
 	// Define test cases
 	testCases := []struct {
 		name          string
@@ -97,7 +97,7 @@ func TestStoreEmbedding(t *testing.T) {
 			// Expect pgvector extension check during repository initialization
 			mock.ExpectQuery(`SELECT EXISTS`).
 				WillReturnRows(sqlmock.NewRows([]string{"exists"}).AddRow(true))
-			
+
 			// Expect embeddings table check during repository initialization
 			mock.ExpectQuery(`SELECT EXISTS`).
 				WillReturnRows(sqlmock.NewRows([]string{"exists"}).AddRow(true))
@@ -132,7 +132,7 @@ func TestSearchEmbeddings_Legacy(t *testing.T) {
 	// Skip this test as it requires complex VectorDatabase mocking
 	// These operations should be tested with integration tests
 	t.Skip("Skipping unit test that requires VectorDatabase - use integration tests")
-	
+
 	// Create time for test data
 	now := time.Now()
 
@@ -243,7 +243,7 @@ func TestSearchEmbeddings_Legacy(t *testing.T) {
 			// Expect pgvector extension check during repository initialization
 			mock.ExpectQuery(`SELECT EXISTS`).
 				WillReturnRows(sqlmock.NewRows([]string{"exists"}).AddRow(true))
-			
+
 			// Expect embeddings table check during repository initialization
 			mock.ExpectQuery(`SELECT EXISTS`).
 				WillReturnRows(sqlmock.NewRows([]string{"exists"}).AddRow(true))
@@ -293,7 +293,7 @@ func TestGetContextEmbeddings(t *testing.T) {
 	// Skip this test as it requires complex VectorDatabase mocking
 	// These operations should be tested with integration tests
 	t.Skip("Skipping unit test that requires VectorDatabase - use integration tests")
-	
+
 	// Create a mock database connection
 	db, mock, err := sqlmock.New()
 	if err != nil {
@@ -340,7 +340,7 @@ func TestSearchEmbeddings(t *testing.T) {
 	// Skip this test as it requires complex VectorDatabase mocking
 	// These operations should be tested with integration tests
 	t.Skip("Skipping unit test that requires VectorDatabase - use integration tests")
-	
+
 	// Create time for test data
 	now := time.Now()
 
@@ -444,7 +444,7 @@ func TestSearchEmbeddings(t *testing.T) {
 			// Expect pgvector extension check during repository initialization
 			mock.ExpectQuery(`SELECT EXISTS`).
 				WillReturnRows(sqlmock.NewRows([]string{"exists"}).AddRow(true))
-			
+
 			// Expect embeddings table check during repository initialization
 			mock.ExpectQuery(`SELECT EXISTS`).
 				WillReturnRows(sqlmock.NewRows([]string{"exists"}).AddRow(true))
@@ -494,7 +494,7 @@ func TestGetEmbeddingsByModel(t *testing.T) {
 	// Skip this test as it requires complex VectorDatabase mocking
 	// These operations should be tested with integration tests
 	t.Skip("Skipping unit test that requires VectorDatabase - use integration tests")
-	
+
 	// Create a mock database connection
 	db, mock, err := sqlmock.New()
 	if err != nil {
@@ -543,7 +543,7 @@ func TestGetSupportedModels(t *testing.T) {
 	// Skip this test as it requires complex VectorDatabase mocking
 	// These operations should be tested with integration tests
 	t.Skip("Skipping unit test that requires VectorDatabase - use integration tests")
-	
+
 	// Create a mock database connection
 	db, mock, err := sqlmock.New()
 	if err != nil {
@@ -587,7 +587,7 @@ func TestDeleteModelEmbeddings(t *testing.T) {
 	// Skip this test as it requires complex VectorDatabase mocking
 	// These operations should be tested with integration tests
 	t.Skip("Skipping unit test that requires VectorDatabase - use integration tests")
-	
+
 	// Create a mock database connection
 	db, mock, err := sqlmock.New()
 	if err != nil {
@@ -622,7 +622,7 @@ func TestDeleteContextEmbeddings(t *testing.T) {
 	// Skip this test as it requires complex VectorDatabase mocking
 	// These operations should be tested with integration tests
 	t.Skip("Skipping unit test that requires VectorDatabase - use integration tests")
-	
+
 	// Create a mock database connection
 	db, mock, err := sqlmock.New()
 	if err != nil {

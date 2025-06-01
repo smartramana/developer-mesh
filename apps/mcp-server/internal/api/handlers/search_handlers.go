@@ -103,24 +103,24 @@ func (h *SearchHandler) HandleSearch(c *gin.Context) {
 	} else {
 		// Parse query parameters
 		q := c.Request.URL.Query()
-		
+
 		searchReq.Query = q.Get("query")
 		if types := q.Get("content_types"); types != "" {
 			searchReq.ContentTypes = strings.Split(types, ",")
 		}
-		
+
 		if limit := q.Get("limit"); limit != "" {
 			if l, err := strconv.Atoi(limit); err == nil && l > 0 {
 				searchReq.Limit = l
 			}
 		}
-		
+
 		if offset := q.Get("offset"); offset != "" {
 			if o, err := strconv.Atoi(offset); err == nil && o >= 0 {
 				searchReq.Offset = o
 			}
 		}
-		
+
 		if minSim := q.Get("min_similarity"); minSim != "" {
 			if ms, err := strconv.ParseFloat(minSim, 32); err == nil {
 				searchReq.MinSimilarity = float32(ms)
@@ -220,15 +220,15 @@ func (h *SearchHandler) HandleSearchSimilar(c *gin.Context) {
 	if c.Request.Method == http.MethodPost {
 		// Parse JSON request body
 		var requestBody struct {
-			ContentID string `json:"content_id"`
+			ContentID string                   `json:"content_id"`
 			Options   *embedding.SearchOptions `json:"options,omitempty"`
 		}
-		
+
 		if err := c.ShouldBindJSON(&requestBody); err != nil {
 			c.JSON(http.StatusBadRequest, gin.H{"error": fmt.Sprintf("Invalid request: %v", err)})
 			return
 		}
-		
+
 		contentID = requestBody.ContentID
 		if requestBody.Options != nil {
 			options = *requestBody.Options
@@ -236,25 +236,25 @@ func (h *SearchHandler) HandleSearchSimilar(c *gin.Context) {
 	} else {
 		// Parse query parameters
 		q := c.Request.URL.Query()
-		
+
 		contentID = q.Get("content_id")
-		
+
 		if types := q.Get("content_types"); types != "" {
 			options.ContentTypes = strings.Split(types, ",")
 		}
-		
+
 		if limit := q.Get("limit"); limit != "" {
 			if l, err := strconv.Atoi(limit); err == nil && l > 0 {
 				options.Limit = l
 			}
 		}
-		
+
 		if offset := q.Get("offset"); offset != "" {
 			if o, err := strconv.Atoi(offset); err == nil && o >= 0 {
 				options.Offset = o
 			}
 		}
-		
+
 		if minSim := q.Get("min_similarity"); minSim != "" {
 			if ms, err := strconv.ParseFloat(minSim, 32); err == nil {
 				options.MinSimilarity = float32(ms)

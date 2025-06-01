@@ -14,6 +14,7 @@ docs/swagger/
 │   ├── parameters.yaml      # Common parameters
 │   └── responses.yaml       # Standard responses
 ├── core/                    # Core API specs
+│   ├── auth.yaml           # Authentication endpoints
 │   ├── agents.yaml         
 │   ├── contexts.yaml       
 │   ├── health.yaml         
@@ -121,6 +122,70 @@ In your handler file:
 func executeSonarQubeTool(c *gin.Context) {
     // Implementation
 }
+```
+
+## Authentication Documentation
+
+### Security Schemes
+
+Define authentication methods in the main OpenAPI file:
+
+```yaml
+components:
+  securitySchemes:
+    ApiKeyAuth:
+      type: apiKey
+      in: header
+      name: Authorization
+      description: API key authentication
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: JWT bearer token authentication
+
+# Apply globally
+security:
+  - ApiKeyAuth: []
+  - BearerAuth: []
+```
+
+### Documenting Auth Endpoints
+
+Authentication endpoints should be clearly marked:
+
+```yaml
+/auth/login:
+  post:
+    tags:
+      - Authentication
+    summary: Authenticate user
+    security: []  # No auth required for login
+    responses:
+      '200':
+        description: Login successful
+        headers:
+          X-RateLimit-Limit:
+            $ref: '#/components/headers/RateLimitLimit'
+```
+
+### Rate Limiting Documentation
+
+Always document rate limiting headers:
+
+```yaml
+responses:
+  '429':
+    description: Rate limit exceeded
+    headers:
+      X-RateLimit-Limit:
+        description: Request limit per window
+        schema:
+          type: integer
+      Retry-After:
+        description: Seconds until retry
+        schema:
+          type: integer
 ```
 
 ## Best Practices

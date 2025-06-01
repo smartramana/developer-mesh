@@ -21,10 +21,18 @@
 go.work
 go.work.sum
 
-# env file
-# .env
-CLAUDE.md
-.env.test   
+# Environment files
+.env
+.env.*
+!.env.example
+!.env.*.example
+
+# Local configuration overrides
+configs/*.local.yaml
+configs/config.*.local.yaml
+
+# Claude configuration
+CLAUDE.md   
 
 # Built binaries
 /mcp-server

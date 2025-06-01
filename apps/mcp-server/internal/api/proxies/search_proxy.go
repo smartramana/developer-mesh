@@ -23,7 +23,7 @@ type SearchAPIProxy struct {
 func getResultField(result interface{}, fieldName string) interface{} {
 	// Use reflection to safely access fields
 	val := reflect.ValueOf(result)
-	
+
 	// Handle nil or non-struct types
 	if val.Kind() == reflect.Ptr {
 		if val.IsNil() {
@@ -31,18 +31,18 @@ func getResultField(result interface{}, fieldName string) interface{} {
 		}
 		val = val.Elem()
 	}
-	
+
 	// If not a struct, we can't access fields
 	if val.Kind() != reflect.Struct {
 		return nil
 	}
-	
+
 	// Try to get the field
 	field := val.FieldByName(fieldName)
 	if !field.IsValid() {
 		return nil
 	}
-	
+
 	// Return the interface{} value of the field
 	return field.Interface()
 }
@@ -221,10 +221,10 @@ func (p *SearchAPIProxy) convertSearchResults(results *embedding.SearchResults) 
 		var contentType string = "text"
 		var metadata map[string]interface{}
 		var contentHash string
-		
+
 		// Map from embedding result fields to repository fields
 		// Each field access is protected with reflection
-		
+
 		// Handle the ID field - the embedding package might use a different field name
 		if idVal := getResultField(result, "ID"); idVal != nil {
 			if str, ok := idVal.(string); ok {
@@ -234,21 +234,21 @@ func (p *SearchAPIProxy) convertSearchResults(results *embedding.SearchResults) 
 		if id == "" {
 			id = fmt.Sprintf("%v", i) // Default to index if not available
 		}
-		
+
 		// Handle score
 		if scoreVal := getResultField(result, "Score"); scoreVal != nil {
 			if s, ok := scoreVal.(float64); ok {
 				score = s
 			}
 		}
-		
+
 		// Handle distance
 		if distVal := getResultField(result, "Distance"); distVal != nil {
 			if d, ok := distVal.(float32); ok {
 				distance = d
 			}
 		}
-		
+
 		// Handle content - might be in an EmbeddingVector field
 		if contentVal := getResultField(result, "Content"); contentVal != nil {
 			if c, ok := contentVal.(string); ok {
@@ -260,14 +260,14 @@ func (p *SearchAPIProxy) convertSearchResults(results *embedding.SearchResults) 
 				content = vect.GetText()
 			}
 		}
-		
+
 		// Handle type field
 		if typeVal := getResultField(result, "Type"); typeVal != nil {
 			if t, ok := typeVal.(string); ok {
 				contentType = t
 			}
 		}
-		
+
 		// Handle metadata
 		if metaVal := getResultField(result, "Metadata"); metaVal != nil {
 			if m, ok := metaVal.(map[string]interface{}); ok {
@@ -277,14 +277,14 @@ func (p *SearchAPIProxy) convertSearchResults(results *embedding.SearchResults) 
 		if metadata == nil {
 			metadata = make(map[string]interface{})
 		}
-		
+
 		// Handle content hash
 		if hashVal := getResultField(result, "ContentHash"); hashVal != nil {
 			if h, ok := hashVal.(string); ok {
 				contentHash = h
 			}
 		}
-		
+
 		// Use extracted values to create the repository search result
 		repoResults.Results[i] = &repository.SearchResult{
 			ID:          id,
@@ -331,7 +331,7 @@ func (p *SearchAPIProxy) Create(ctx context.Context, result *repository.SearchRe
 	p.logger.Debug("Create operation not supported in search API proxy", map[string]interface{}{
 		"id": result.ID,
 	})
-	
+
 	// The search API doesn't directly support creating search results
 	// This would typically be handled by the embedding/vector repository
 	return fmt.Errorf("create operation not supported in search API proxy")
@@ -342,29 +342,29 @@ func (p *SearchAPIProxy) Get(ctx context.Context, id string) (*repository.Search
 	p.logger.Debug("Get operation not directly supported in search API proxy", map[string]interface{}{
 		"id": id,
 	})
-	
+
 	// Try to search by content ID with a limit of 1 to simulate Get
 	options := &repository.SearchOptions{
 		Limit: 1,
 		Filters: []repository.SearchFilter{
 			{
-				Field:    "id", 
+				Field:    "id",
 				Operator: "eq",
 				Value:    id,
 			},
 		},
 	}
-	
+
 	// Search for the specific ID
 	results, err := p.SearchByContentID(ctx, id, options)
 	if err != nil {
 		return nil, err
 	}
-	
+
 	if results == nil || len(results.Results) == 0 {
 		return nil, nil // Not found
 	}
-	
+
 	return results.Results[0], nil
 }
 
@@ -373,12 +373,12 @@ func (p *SearchAPIProxy) List(ctx context.Context, filter search.Filter) ([]*rep
 	p.logger.Debug("Listing search results via API proxy", map[string]interface{}{
 		"filter": filter,
 	})
-	
+
 	// Convert the generic filter to search options
 	options := &repository.SearchOptions{
 		Limit: 100, // Default limit
 	}
-	
+
 	// Extract filters from the generic filter
 	if filter != nil {
 		for field, value := range filter {
@@ -389,17 +389,17 @@ func (p *SearchAPIProxy) List(ctx context.Context, filter search.Filter) ([]*rep
 			})
 		}
 	}
-	
+
 	// Use search by text with empty query to get all results
 	results, err := p.SearchByText(ctx, "", options)
 	if err != nil {
 		return nil, err
 	}
-	
+
 	if results == nil {
 		return []*repository.SearchResult{}, nil
 	}
-	
+
 	return results.Results, nil
 }
 
@@ -408,7 +408,7 @@ func (p *SearchAPIProxy) Update(ctx context.Context, result *repository.SearchRe
 	p.logger.Debug("Update operation not supported in search API proxy", map[string]interface{}{
 		"id": result.ID,
 	})
-	
+
 	// The search API doesn't directly support updating search results
 	return fmt.Errorf("update operation not supported in search API proxy")
 }
@@ -418,7 +418,7 @@ func (p *SearchAPIProxy) Delete(ctx context.Context, id string) error {
 	p.logger.Debug("Delete operation not supported in search API proxy", map[string]interface{}{
 		"id": id,
 	})
-	
+
 	// The search API doesn't directly support deleting search results
 	return fmt.Errorf("delete operation not supported in search API proxy")
 }

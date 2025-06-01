@@ -1,164 +1,239 @@
 package embedding
 
 import (
-	"context"
-	"errors"
-	"testing"
-
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/mock"
+    "context"
+    "encoding/json"
+    "testing"
+    
+    "github.com/DATA-DOG/go-sqlmock"
+    "github.com/google/uuid"
+    "github.com/stretchr/testify/assert"
+    "github.com/stretchr/testify/require"
 )
 
-// ServiceMockEmbeddingService is a mock implementation for testing in service_test.go
-type ServiceMockEmbeddingService struct {
-	mock.Mock
+// MockProvider implements the Provider interface for testing
+type MockProvider struct {
+    GenerateEmbeddingFunc func(ctx context.Context, content string, model string) ([]float32, error)
+    SupportedModels       []string
+    ValidateAPIKeyFunc    func() error
 }
 
-func (m *ServiceMockEmbeddingService) GenerateEmbedding(ctx context.Context, text, contentType, contentID string) (*EmbeddingVector, error) {
-	args := m.Called(ctx, text, contentType, contentID)
-	if args.Get(0) == nil {
-		return nil, args.Error(1)
-	}
-	return args.Get(0).(*EmbeddingVector), args.Error(1)
+func (m *MockProvider) GenerateEmbedding(ctx context.Context, content string, model string) ([]float32, error) {
+    if m.GenerateEmbeddingFunc != nil {
+        return m.GenerateEmbeddingFunc(ctx, content, model)
+    }
+    // Return a dummy embedding
+    return make([]float32, 1536), nil
 }
 
-func (m *ServiceMockEmbeddingService) BatchGenerateEmbeddings(ctx context.Context, texts []string, contentType string, contentIDs []string) ([]*EmbeddingVector, error) {
-	args := m.Called(ctx, texts, contentType, contentIDs)
-	if args.Get(0) == nil {
-		return nil, args.Error(1)
-	}
-	return args.Get(0).([]*EmbeddingVector), args.Error(1)
+func (m *MockProvider) GetSupportedModels() []string {
+    if m.SupportedModels != nil {
+        return m.SupportedModels
+    }
+    return []string{"test-model"}
 }
 
-func (m *ServiceMockEmbeddingService) GetModelConfig() ModelConfig {
-	args := m.Called()
-	return args.Get(0).(ModelConfig)
+func (m *MockProvider) ValidateAPIKey() error {
+    if m.ValidateAPIKeyFunc != nil {
+        return m.ValidateAPIKeyFunc()
+    }
+    return nil
 }
 
-func (m *ServiceMockEmbeddingService) GetModelDimensions() int {
-	args := m.Called()
-	return args.Int(0)
+func TestService_CreateEmbedding(t *testing.T) {
+    // Create mock database
+    db, mock, err := sqlmock.New()
+    require.NoError(t, err)
+    defer db.Close()
+    
+    // Create repository and service
+    repo := NewRepository(db)
+    service := NewService(repo)
+    
+    // Register mock provider
+    mockProvider := &MockProvider{
+        GenerateEmbeddingFunc: func(ctx context.Context, content string, model string) ([]float32, error) {
+            return make([]float32, 1536), nil
+        },
+    }
+    service.RegisterProvider("openai", mockProvider)
+    
+    // Test data
+    ctx := context.Background()
+    contextID := uuid.New()
+    tenantID := uuid.New()
+    modelID := uuid.New()
+    embeddingID := uuid.New()
+    
+    req := CreateEmbeddingRequest{
+        ContextID:    contextID,
+        Content:      "Test content",
+        ModelName:    "text-embedding-ada-002",
+        TenantID:     tenantID,
+        Source:       "test",
+        ContentIndex: 0,
+        ChunkIndex:   0,
+    }
+    
+    // Mock GetModelByName
+    modelRows := sqlmock.NewRows([]string{
+        "id", "provider", "model_name", "model_version", "dimensions",
+        "max_tokens", "supports_binary", "supports_dimensionality_reduction",
+        "min_dimensions", "cost_per_million_tokens", "model_id", "model_type",
+        "is_active", "capabilities", "created_at",
+    }).AddRow(
+        modelID, "openai", "text-embedding-ada-002", "v2", 1536,
+        8191, false, false, nil, 0.10, nil, "text",
+        true, json.RawMessage("{}"), "2024-01-01",
+    )
+    
+    mock.ExpectQuery("SELECT (.+) FROM mcp.embedding_models").
+        WithArgs("text-embedding-ada-002").
+        WillReturnRows(modelRows)
+    
+    // Mock InsertEmbedding
+    mock.ExpectQuery("SELECT mcp.insert_embedding").
+        WithArgs(
+            contextID,
+            "Test content",
+            sqlmock.AnyArg(), // embedding array
+            "text-embedding-ada-002",
+            tenantID,
+            sqlmock.AnyArg(), // metadata
+            0,                // content_index
+            0,                // chunk_index
+            nil,              // configured_dimensions
+        ).
+        WillReturnRows(sqlmock.NewRows([]string{"id"}).AddRow(embeddingID))
+    
+    // Execute
+    id, err := service.CreateEmbedding(ctx, req)
+    
+    // Assert
+    assert.NoError(t, err)
+    assert.Equal(t, embeddingID, id)
+    assert.NoError(t, mock.ExpectationsWereMet())
 }
 
-func TestEmbeddingVectorFormat(t *testing.T) {
-	// Create test embedding
-	embedding := &EmbeddingVector{
-		ContentID:   "content-1",
-		Vector:      []float32{0.1, 0.2, 0.3, 0.4, 0.5},
-		Dimensions:  5,
-		ModelID:     "test-model",
-		ContentType: "test-type",
-		Metadata: map[string]interface{}{
-			"key1": "value1",
-			"key2": 123,
-		},
-	}
-
-	// Test vector format and access
-	assert.Equal(t, 5, len(embedding.Vector), "Vector should have expected length")
-	assert.Equal(t, float32(0.1), embedding.Vector[0], "First vector element should be correct")
+func TestService_SearchSimilar(t *testing.T) {
+    // Create mock database
+    db, mock, err := sqlmock.New()
+    require.NoError(t, err)
+    defer db.Close()
+    
+    // Create repository and service
+    repo := NewRepository(db)
+    service := NewService(repo)
+    
+    // Register mock provider
+    mockProvider := &MockProvider{
+        GenerateEmbeddingFunc: func(ctx context.Context, content string, model string) ([]float32, error) {
+            return make([]float32, 1536), nil
+        },
+    }
+    service.RegisterProvider("openai", mockProvider)
+    
+    // Test data
+    ctx := context.Background()
+    tenantID := uuid.New()
+    contextID := uuid.New()
+    modelID := uuid.New()
+    resultID := uuid.New()
+    
+    req := SearchSimilarRequest{
+        Query:     "Search query",
+        ModelName: "text-embedding-ada-002",
+        TenantID:  tenantID,
+        ContextID: &contextID,
+        Limit:     10,
+        Threshold: 0.8,
+    }
+    
+    // Mock GetModelByName
+    modelRows := sqlmock.NewRows([]string{
+        "id", "provider", "model_name", "model_version", "dimensions",
+        "max_tokens", "supports_binary", "supports_dimensionality_reduction",
+        "min_dimensions", "cost_per_million_tokens", "model_id", "model_type",
+        "is_active", "capabilities", "created_at",
+    }).AddRow(
+        modelID, "openai", "text-embedding-ada-002", "v2", 1536,
+        8191, false, false, nil, 0.10, nil, "text",
+        true, json.RawMessage("{}"), "2024-01-01",
+    )
+    
+    mock.ExpectQuery("SELECT (.+) FROM mcp.embedding_models").
+        WithArgs("text-embedding-ada-002").
+        WillReturnRows(modelRows)
+    
+    // Mock SearchEmbeddings
+    searchRows := sqlmock.NewRows([]string{
+        "id", "context_id", "content", "similarity", "metadata", "model_provider",
+    }).AddRow(
+        resultID, contextID, "Result content", 0.95,
+        json.RawMessage(`{"source": "test"}`), "openai",
+    )
+    
+    mock.ExpectQuery("SELECT \\* FROM mcp.search_embeddings").
+        WithArgs(
+            sqlmock.AnyArg(), // query embedding
+            "text-embedding-ada-002",
+            tenantID,
+            contextID,
+            10,
+            0.8,
+            nil, // metadata filter
+        ).
+        WillReturnRows(searchRows)
+    
+    // Execute
+    results, err := service.SearchSimilar(ctx, req)
+    
+    // Assert
+    assert.NoError(t, err)
+    assert.Len(t, results, 1)
+    assert.Equal(t, resultID, results[0].ID)
+    assert.Equal(t, "Result content", results[0].Content)
+    assert.Equal(t, 0.95, results[0].Similarity)
+    assert.NoError(t, mock.ExpectationsWereMet())
 }
 
-func TestEmbeddingVectorWithValues(t *testing.T) {
-	// Create test embedding with vector values
-	embedding := &EmbeddingVector{
-		ContentID:   "content-1",
-		Vector:      []float32{1.0, 2.0, 2.0, 1.0},
-		Dimensions:  4,
-		ModelID:     "test-model",
-		ContentType: "test-type",
-	}
-
-	// Test vector handling
-	assert.Equal(t, 4, len(embedding.Vector), "Vector length should match Dimensions field")
-	assert.Equal(t, 4, embedding.Dimensions, "Dimensions field should match vector length")
-
-	// Calculate vector magnitude
-	sumSquares := float32(0)
-	for _, v := range embedding.Vector {
-		sumSquares += v * v
-	}
-	// Expected magnitude is sqrt(10)
-	assert.InDelta(t, 10.0, sumSquares, 0.0001, "Sum of squares should match expected value")
-}
-
-func TestValidateEmbeddingModel(t *testing.T) {
-	tests := []struct {
-		name    string
-		model   string
-		wantErr bool
-	}{
-		{"Valid OpenAI model", "text-embedding-3-small", false},
-		{"Valid OpenAI model", "text-embedding-3-large", false},
-		{"Valid OpenAI model", "text-embedding-ada-002", false},
-		{"Empty model", "", true},
-		{"Invalid model", "invalid-model", true},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			// Create a service with the test model
-			_, err := NewOpenAIEmbeddingService("test-key", tt.model, 1536)
-			// The constructor will validate the model
-			if tt.wantErr {
-				assert.Error(t, err, "ValidateEmbeddingModel should return an error for invalid models")
-			} else {
-				assert.NoError(t, err, "ValidateEmbeddingModel should not return an error for valid models")
-			}
-		})
-	}
-
-	// Test unsupported model type
-	// Test with an unsupported model type by trying to create a service
-	_, err := NewOpenAIEmbeddingService("test-key", "unsupported-model", 0)
-	assert.Error(t, err, "ValidateEmbeddingModel should return an error for unsupported model types")
-}
-
-func TestGetEmbeddingModelDimensions(t *testing.T) {
-	tests := []struct {
-		name        string
-		modelType   ModelType
-		model       string
-		wantDim     int
-		expectError bool
-	}{
-		{"OpenAI text-embedding-3-small", ModelTypeOpenAI, "text-embedding-3-small", 1536, false},
-		{"OpenAI text-embedding-3-large", ModelTypeOpenAI, "text-embedding-3-large", 3072, false},
-		{"OpenAI text-embedding-ada-002", ModelTypeOpenAI, "text-embedding-ada-002", 1536, false},
-		{"Invalid OpenAI model", ModelTypeOpenAI, "invalid-model", 0, true},
-		{"Unsupported model type", "unsupported", "any-model", 0, true},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			// Create a service with the test model
-			var service *OpenAIEmbeddingService
-			var err error
-
-			// For valid OpenAI models, we can use the constructor
-			if tt.modelType == ModelTypeOpenAI && !tt.expectError {
-				service, err = NewOpenAIEmbeddingService("test-key", tt.model, 0) // Let it use default dimensions
-			} else {
-				// For invalid models or types, manually create the service
-				service = &OpenAIEmbeddingService{
-					config: ModelConfig{
-						Type: tt.modelType,
-						Name: tt.model,
-					},
-				}
-				// Error expected for invalid models
-				err = errors.New("invalid model")
-			}
-
-			// Get dimensions
-			dim := service.GetModelDimensions()
-			if tt.expectError {
-				assert.Error(t, err, "GetEmbeddingModelDimensions should return an error for invalid inputs")
-				assert.Equal(t, 0, dim, "Dimension should be 0 when error occurs")
-			} else {
-				assert.NoError(t, err, "GetEmbeddingModelDimensions should not return an error for valid inputs")
-				assert.Equal(t, tt.wantDim, dim, "Returned dimension should match expected dimension")
-			}
-		})
-	}
+func TestService_GetAvailableModels(t *testing.T) {
+    // Create mock database
+    db, mock, err := sqlmock.New()
+    require.NoError(t, err)
+    defer db.Close()
+    
+    // Create repository and service
+    repo := NewRepository(db)
+    service := NewService(repo)
+    
+    // Test data
+    ctx := context.Background()
+    provider := "openai"
+    
+    filter := ModelFilter{
+        Provider: &provider,
+    }
+    
+    // Mock query
+    rows := sqlmock.NewRows([]string{
+        "provider", "model_name", "model_version", "dimensions", "max_tokens",
+        "model_type", "supports_dimensionality_reduction", "min_dimensions", "is_active",
+    }).
+        AddRow("openai", "text-embedding-3-small", "v3", 1536, 8191, "text", true, 512, true).
+        AddRow("openai", "text-embedding-3-large", "v3", 3072, 8191, "text", true, 256, true)
+    
+    mock.ExpectQuery("SELECT (.+) FROM mcp.get_available_models").
+        WithArgs(&provider, nil).
+        WillReturnRows(rows)
+    
+    // Execute
+    models, err := service.GetAvailableModels(ctx, filter)
+    
+    // Assert
+    assert.NoError(t, err)
+    assert.Len(t, models, 2)
+    assert.Equal(t, "text-embedding-3-small", models[0].ModelName)
+    assert.Equal(t, 1536, models[0].Dimensions)
+    assert.NoError(t, mock.ExpectationsWereMet())
 }

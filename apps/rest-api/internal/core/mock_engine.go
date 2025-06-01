@@ -2,8 +2,8 @@ package core
 
 import (
 	"context"
-	"github.com/stretchr/testify/mock"
 	"github.com/S-Corkum/devops-mcp/pkg/models"
+	"github.com/stretchr/testify/mock"
 	"rest-api/internal/types"
 )
 

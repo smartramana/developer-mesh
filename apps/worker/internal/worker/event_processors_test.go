@@ -6,20 +6,20 @@ import (
 	"testing"
 	"time"
 
-	"github.com/S-Corkum/devops-mcp/pkg/queue"
 	"github.com/S-Corkum/devops-mcp/pkg/observability"
+	"github.com/S-Corkum/devops-mcp/pkg/queue"
 )
 
 // MockLogger is a simple mock for the Logger interface
 type MockLogger struct {
-	InfoCalls  int
-	ErrorCalls int
-	WarnCalls  int
-	DebugCalls int
-	FatalCalls int
-	InfofCalls int
+	InfoCalls   int
+	ErrorCalls  int
+	WarnCalls   int
+	DebugCalls  int
+	FatalCalls  int
+	InfofCalls  int
 	ErrorfCalls int
-	WarnfCalls int
+	WarnfCalls  int
 	DebugfCalls int
 	FatalfCalls int
 }
@@ -335,7 +335,7 @@ func TestEventProcessor_ProcessEvent(t *testing.T) {
 		Payload:    json.RawMessage(`{"foo": "bar"}`),
 	}
 
-	// Process unknown event 
+	// Process unknown event
 	err = processor.ProcessSQSEvent(ctx, unknownEvent)
 
 	// Assertions - should use default processor without error

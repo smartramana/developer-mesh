@@ -7,8 +7,8 @@ import (
 
 // TestMockEngine is a mock implementation of the Engine for testing
 type TestMockEngine struct {
-	adapters map[string]interface{}
-	mu       sync.RWMutex
+	adapters       map[string]interface{}
+	mu             sync.RWMutex
 	ContextManager interface{} // Added to satisfy tests
 }
 
@@ -30,12 +30,12 @@ func (m *TestMockEngine) RegisterAdapter(name string, adapter interface{}) {
 func (m *TestMockEngine) GetAdapter(name string) (interface{}, error) {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
-	
+
 	adapter, ok := m.adapters[name]
 	if !ok {
 		return nil, fmt.Errorf("adapter not found: %s", name)
 	}
-	
+
 	return adapter, nil
 }
 

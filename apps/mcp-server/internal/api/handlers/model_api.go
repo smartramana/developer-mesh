@@ -3,12 +3,12 @@ package handlers
 import (
 	"fmt"
 	"net/http"
-	
-	"github.com/gin-gonic/gin"
+
 	"github.com/S-Corkum/devops-mcp/pkg/models"
 	"github.com/S-Corkum/devops-mcp/pkg/repository"
 	"github.com/S-Corkum/devops-mcp/pkg/repository/model"
 	"github.com/S-Corkum/devops-mcp/pkg/util"
+	"github.com/gin-gonic/gin"
 )
 
 // ModelAPI handles model management endpoints
@@ -46,7 +46,7 @@ func (m *ModelAPI) createModel(c *gin.Context) {
 	if model.ID == "" {
 		model.ID = util.GenerateUUID()
 	}
-	
+
 	// Use the standardized Create method from the repository
 	if err := m.repo.Create(c.Request.Context(), &model); err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
@@ -62,11 +62,11 @@ func (m *ModelAPI) listModels(c *gin.Context) {
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "missing tenant id"})
 		return
 	}
-	
+
 	// Create a filter for the tenant ID
 	// Using model.Filter from the repository/model package
 	filter := model.FilterFromTenantID(tenantID)
-	
+
 	// Use the standardized List method
 	modelsList, err := m.repo.List(c.Request.Context(), filter)
 	if err != nil {
@@ -93,7 +93,7 @@ func (m *ModelAPI) updateModel(c *gin.Context) {
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "missing tenant id"})
 		return
 	}
-	
+
 	// Use standardized Repository.Get method with ID parameter
 	existing, err := m.repo.Get(c.Request.Context(), id)
 	if err != nil {
@@ -108,7 +108,7 @@ func (m *ModelAPI) updateModel(c *gin.Context) {
 		c.JSON(http.StatusNotFound, gin.H{"error": "model not found"})
 		return
 	}
-	
+
 	// Enforce tenant ownership after retrieval for security
 	// This maintains tenant isolation while using the standardized repository pattern
 	if existing.TenantID != tenantID {
@@ -117,7 +117,7 @@ func (m *ModelAPI) updateModel(c *gin.Context) {
 	}
 	update.ID = id
 	update.TenantID = tenantID
-	
+
 	// Use standardized Update method
 	if err := m.repo.Update(c.Request.Context(), &update); err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})

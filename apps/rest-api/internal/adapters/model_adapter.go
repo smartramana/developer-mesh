@@ -66,7 +66,7 @@ func (a *ModelAdapter) SearchModels(ctx context.Context, tenantID, query string,
 	if err != nil {
 		return nil, err
 	}
-	
+
 	// Filter models that contain the query string in their name
 	var filtered []*models.Model
 	for _, model := range allModels {
@@ -74,23 +74,23 @@ func (a *ModelAdapter) SearchModels(ctx context.Context, tenantID, query string,
 			filtered = append(filtered, model)
 		}
 	}
-	
+
 	// Apply pagination
 	start := offset
 	if start > len(filtered) {
 		return []*models.Model{}, nil
 	}
-	
-	end := min(start + limit, len(filtered))
-	
+
+	end := min(start+limit, len(filtered))
+
 	return filtered[start:end], nil
 }
 
 // containsIgnoreCase checks if str contains substr case-insensitively
 func containsIgnoreCase(str, substr string) bool {
-	return len(substr) == 0 || 
-		(len(str) >= len(substr) && 
-		 contains(toLowerCase(str), toLowerCase(substr)))
+	return len(substr) == 0 ||
+		(len(str) >= len(substr) &&
+			contains(toLowerCase(str), toLowerCase(substr)))
 }
 
 // Helper functions for case-insensitive search

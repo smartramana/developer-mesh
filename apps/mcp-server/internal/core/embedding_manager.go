@@ -83,16 +83,16 @@ type EmbeddingPipeline interface {
 type EmbeddingManager struct {
 	// The embedding pipeline for processing content
 	pipeline EmbeddingPipeline
-	
+
 	// The chunking service for code chunking
 	chunkingService *chunking.ChunkingService
-	
+
 	// Database connection for direct operations
 	db *sql.DB
-	
+
 	// Mutex for thread-safe operations
 	mu sync.RWMutex
-	
+
 	// Flag to indicate if the manager is initialized
 	initialized bool
 }
@@ -102,15 +102,15 @@ func NewEmbeddingManager(db *sql.DB, chunkingService *chunking.ChunkingService, 
 	if db == nil {
 		return nil, errors.New("database connection is required")
 	}
-	
+
 	if chunkingService == nil {
 		return nil, errors.New("chunking service is required")
 	}
-	
+
 	if pipeline == nil {
 		return nil, errors.New("embedding pipeline is required")
 	}
-	
+
 	return &EmbeddingManager{
 		pipeline:        pipeline,
 		chunkingService: chunkingService,
@@ -123,11 +123,11 @@ func NewEmbeddingManager(db *sql.DB, chunkingService *chunking.ChunkingService, 
 func (m *EmbeddingManager) CreateEmbeddingFromContent(ctx context.Context, content string, contentType string, contentID string) error {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
-	
+
 	if !m.initialized {
 		return errors.New("embedding manager is not initialized")
 	}
-	
+
 	return m.pipeline.ProcessContent(ctx, content, contentType, contentID)
 }
 
@@ -135,26 +135,26 @@ func (m *EmbeddingManager) CreateEmbeddingFromContent(ctx context.Context, conte
 func (m *EmbeddingManager) CreateEmbeddingsFromCodeFile(ctx context.Context, owner string, repo string, path string, content []byte) error {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
-	
+
 	if !m.initialized {
 		return errors.New("embedding manager is not initialized")
 	}
-	
+
 	// Generate contentID in the format owner/repo/path
 	contentID := fmt.Sprintf("%s/%s/%s", owner, repo, path)
-	
+
 	// Chunk the code
 	chunks, err := m.chunkingService.ChunkCode(ctx, string(content), path)
 	if err != nil {
 		return fmt.Errorf("failed to chunk code: %w", err)
 	}
-	
+
 	// Create a slice of chunk IDs
 	chunkIDs := make([]string, len(chunks))
 	for i, chunk := range chunks {
 		chunkIDs[i] = chunk.ID
 	}
-	
+
 	// Process the code chunks
 	return m.pipeline.ProcessCodeChunks(ctx, ContentTypeCodeChunk, contentID, chunkIDs)
 }
@@ -163,11 +163,11 @@ func (m *EmbeddingManager) CreateEmbeddingsFromCodeFile(ctx context.Context, own
 func (m *EmbeddingManager) CreateEmbeddingsFromIssue(ctx context.Context, owner string, repo string, issueNumber int) error {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
-	
+
 	if !m.initialized {
 		return errors.New("embedding manager is not initialized")
 	}
-	
+
 	// Process the issue
 	ownerRepo := fmt.Sprintf("%s/%s", owner, repo)
 	return m.pipeline.ProcessIssues(ctx, ownerRepo, []int{issueNumber})
@@ -177,11 +177,11 @@ func (m *EmbeddingManager) CreateEmbeddingsFromIssue(ctx context.Context, owner 
 func (m *EmbeddingManager) CreateEmbeddingsFromIssues(ctx context.Context, owner string, repo string, issueNumbers []int) error {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
-	
+
 	if !m.initialized {
 		return errors.New("embedding manager is not initialized")
 	}
-	
+
 	// Process the issues
 	ownerRepo := fmt.Sprintf("%s/%s", owner, repo)
 	return m.pipeline.ProcessIssues(ctx, ownerRepo, issueNumbers)
@@ -191,11 +191,11 @@ func (m *EmbeddingManager) CreateEmbeddingsFromIssues(ctx context.Context, owner
 func (m *EmbeddingManager) CreateEmbeddingsFromDiscussion(ctx context.Context, owner string, repo string, discussionID string) error {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
-	
+
 	if !m.initialized {
 		return errors.New("embedding manager is not initialized")
 	}
-	
+
 	// Process the discussion
 	ownerRepo := fmt.Sprintf("%s/%s", owner, repo)
 	return m.pipeline.ProcessDiscussions(ctx, ownerRepo, []string{discussionID})
@@ -205,11 +205,11 @@ func (m *EmbeddingManager) CreateEmbeddingsFromDiscussion(ctx context.Context, o
 func (m *EmbeddingManager) CreateEmbeddingsFromDiscussions(ctx context.Context, owner string, repo string, discussionIDs []string) error {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
-	
+
 	if !m.initialized {
 		return errors.New("embedding manager is not initialized")
 	}
-	
+
 	// Process the discussions
 	ownerRepo := fmt.Sprintf("%s/%s", owner, repo)
 	return m.pipeline.ProcessDiscussions(ctx, ownerRepo, discussionIDs)
@@ -219,11 +219,11 @@ func (m *EmbeddingManager) CreateEmbeddingsFromDiscussions(ctx context.Context, 
 func (m *EmbeddingManager) ProcessRepository(ctx context.Context, owner string, repo string) error {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
-	
+
 	if !m.initialized {
 		return errors.New("embedding manager is not initialized")
 	}
-	
+
 	// This is a placeholder for a more comprehensive implementation
 	// In a real implementation, this would:
 	// 1. List all files in the repository
@@ -232,9 +232,9 @@ func (m *EmbeddingManager) ProcessRepository(ctx context.Context, owner string, 
 	// 4. Process each issue to generate embeddings
 	// 5. List all discussions in the repository
 	// 6. Process each discussion to generate embeddings
-	
+
 	log.Printf("Processing repository %s/%s", owner, repo)
-	
+
 	// TODO: Implement full repository processing
 	// For now, return a "not implemented" error
 	return errors.New("full repository processing not implemented yet")
@@ -251,23 +251,23 @@ func (m *EmbeddingManager) SearchSimilarContent(
 ) ([]map[string]interface{}, error) {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
-	
+
 	if !m.initialized {
 		return nil, errors.New("embedding manager is not initialized")
 	}
-	
+
 	// Since we can't import the embedding package directly,
 	// we'll use a direct SQL query to search for similar embeddings
-	
+
 	// For demonstration purposes, we'll generate a simple random vector
 	// In a real implementation, this would be generated by an embedding model
 	vector := make([]float32, 1536) // Placeholder vector with 1536 dimensions
-	
+
 	// Fill with some random values for demonstration
 	for i := range vector {
-		vector[i] = float32(i % 100) / 100.0
+		vector[i] = float32(i%100) / 100.0
 	}
-	
+
 	embedding := &EmbeddingVector{
 		Vector:      vector,
 		Dimensions:  1536,
@@ -276,13 +276,13 @@ func (m *EmbeddingManager) SearchSimilarContent(
 		ContentID:   "search-" + time.Now().Format(time.RFC3339Nano),
 		Metadata:    make(map[string]interface{}),
 	}
-	
+
 	// Now we need to search for similar embeddings in the database
 	// Since we don't have direct access to the storage implementation, we'll use a SQL query
-	
+
 	// Format the vector for PostgreSQL
 	vectorStr := formatVectorForPg(embedding.Vector)
-	
+
 	// Query for similar embeddings
 	query := fmt.Sprintf(`
 		SELECT
@@ -300,7 +300,7 @@ func (m *EmbeddingManager) SearchSimilarContent(
 			similarity DESC
 		LIMIT $5
 	`)
-	
+
 	rows, err := m.db.QueryContext(
 		ctx,
 		query,
@@ -314,7 +314,7 @@ func (m *EmbeddingManager) SearchSimilarContent(
 		return nil, fmt.Errorf("failed to query similar embeddings: %w", err)
 	}
 	defer rows.Close()
-	
+
 	var results []map[string]interface{}
 	for rows.Next() {
 		var (
@@ -327,7 +327,7 @@ func (m *EmbeddingManager) SearchSimilarContent(
 			metadataJSON sql.NullString
 			similarity   float32
 		)
-		
+
 		if err := rows.Scan(
 			&id,
 			&contextID,
@@ -340,7 +340,7 @@ func (m *EmbeddingManager) SearchSimilarContent(
 		); err != nil {
 			return nil, fmt.Errorf("failed to scan embedding row: %w", err)
 		}
-		
+
 		// Create a result map
 		result := map[string]interface{}{
 			"id":           id,
@@ -348,28 +348,28 @@ func (m *EmbeddingManager) SearchSimilarContent(
 			"model_id":     modelID,
 			"similarity":   similarity,
 		}
-		
+
 		// Add optional fields if present
 		if contextID.Valid {
 			result["context_id"] = contextID.String
 		}
-		
+
 		if text.Valid {
 			result["text"] = text.String
 		}
-		
+
 		if metadataJSON.Valid {
 			// In a real implementation, you would parse the JSON
 			result["metadata"] = metadataJSON.String
 		}
-		
+
 		results = append(results, result)
 	}
-	
+
 	if err := rows.Err(); err != nil {
 		return nil, fmt.Errorf("error iterating over rows: %w", err)
 	}
-	
+
 	return results, nil
 }
 

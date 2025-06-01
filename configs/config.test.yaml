@@ -1,88 +1,175 @@
-# Test configuration for MCP Server (CI/Automated)
+# Test Configuration
+# Used for running automated tests - optimized for speed and isolation
 
+# Import base configuration
+_base: config.base.yaml
+
+# Environment
 environment: "test"
 
+# API Server - Test settings
 api:
-  listen_address: ":8080"
-  read_timeout: 30s
-  write_timeout: 30s
-  idle_timeout: 60s
-  enable_cors: true
+  listen_address: ":0"  # Random port
+  enable_swagger: false
+  enable_pprof: false
+  
+  # Minimal timeouts for fast tests
+  read_timeout: 5s
+  write_timeout: 5s
+  idle_timeout: 10s
+  
+  # Auth disabled for most tests
   auth:
-    jwt_secret: "test-jwt-secret"
-    api_keys:
-      admin: "test-admin-api-key"
-      reader: "test-reader-api-key"
-  rate_limit:
-    enabled: true
-    limit: 50
-    period: 1m
-    burst_factor: 3
-  webhook:
-    enabled: true
-    github_endpoint: "/api/webhooks/github"
-    github_secret: "test-github-webhook-secret"
-    github_ip_validation: false
-    github_allowed_events:
-      - issues
-      - push
+    require_auth: false
 
+# Authentication - Test settings
+auth:
+  jwt:
+    secret: "test-jwt-secret-minimum-32-characters"
+    expiration: 1m  # Very short for testing
+    
+  # Test API keys
+  api_keys:
+    static_keys:
+      "test-admin-key-1234567890":
+        role: "admin"
+        scopes: ["read", "write", "admin"]
+        tenant_id: "test-tenant"
+      "test-user-key-1234567890":
+        role: "user"
+        scopes: ["read", "write"]
+        tenant_id: "test-tenant"
+        
+  # Minimal security for fast tests
+  security:
+    max_failed_attempts: 100
+    lockout_duration: 1s
+    
+  # No rate limiting in tests
+  rate_limiting:
+    enabled: false
+    
+  # In-memory audit
+  audit:
+    storage: "memory"
+    max_entries: 1000
+
+# Database - In-memory or test container
 database:
-  driver: "postgres"
-  dsn: "${DATABASE_DSN}"
+  # Use in-memory SQLite for unit tests
+  driver: "${TEST_DB_DRIVER:-sqlite}"
+  dsn: "${TEST_DB_DSN:-:memory:}"
+  
+  # For integration tests using PostgreSQL
+  host: "${TEST_DB_HOST:-localhost}"
+  port: ${TEST_DB_PORT:-5433}  # Different port to avoid conflicts
+  username: "test"
+  password: "test"
+  database: "devops_mcp_test"
+  ssl_mode: "disable"
+  
+  # Fast settings
   max_open_conns: 5
   max_idle_conns: 2
-  conn_max_lifetime: 15m
-  maxOpenConns: 10
-  maxIdleConns: 5
-  connMaxLifetime: 1h
+  
+  # Auto-migrate for tests
+  migrations:
+    auto_migrate: true
+    drop_tables: true  # Clean slate for each test run
 
+# Cache - In-memory for tests
 cache:
-  type: "redis"
-  address: "${REDIS_HOST}:${REDIS_PORT}"
-  password: ""
-  db: 0
-  maxRetries: 3
-  minRetryBackoff: 8ms
-  maxRetryBackoff: 512ms
-  dialTimeout: 5s
-  readTimeout: 3s
-  writeTimeout: 3s
-  poolSize: 10
-  minIdleConns: 5
+  # Use in-memory cache
+  distributed:
+    type: "memory"
+    
+  # Or use test Redis if needed
+  test_redis:
+    enabled: ${USE_TEST_REDIS:-false}
+    address: "localhost:6380"  # Different port
+    db: 15  # Separate DB for tests
+    
+  # Always use local cache in tests
+  local:
+    enabled: true
+    size: 1000
+    ttl: 1s
 
-auth:
-  jwt_secret: "test-jwt-secret"
-  api_keys:
-    admin: "test-admin-api-key"
-    reader: "test-reader-api-key"
+# Monitoring - Minimal in tests
+monitoring:
+  logging:
+    level: "${TEST_LOG_LEVEL:-error}"  # Only errors by default
+    format: "text"
+    output: "stderr"
+    
+  metrics:
+    enabled: false
+    
+  tracing:
+    enabled: false
 
-logging:
-  level: "${LOG_LEVEL}"
-  format: "json"
-  outputPaths:
-    - "stdout"
-  errorOutputPaths:
-    - "stderr"
+# Storage - In-memory/filesystem
+storage:
+  context:
+    provider: "memory"
+    
+  # Or use temp filesystem
+  filesystem:
+    base_path: "${TEST_DATA_DIR:-/tmp/devops-mcp-test}"
+    cleanup_on_start: true
 
-tools:
-  mockserver:
-    baseURL: "${MOCKSERVER_URL}"
-    apiKey: "test-mockserver-key"
+# Engine - Fast settings
+engine:
+  event_buffer_size: 100
+  worker_pool_size: 2
+  operation_timeout: 5s
+  
+  # Disable circuit breaker in tests
+  circuit_breaker:
+    enabled: false
 
-performance:
-  enableCompression: true
-  enableETagCaching: false
-  httpMaxIdleConns: 100
-  httpMaxConnsPerHost: 100
-  httpIdleConnTimeout: 90s
+# Adapters - All mocked
+adapters:
+  # Mock all external services
+  mock_all: true
+  
+  github:
+    mock:
+      enabled: true
+      fixtures_path: "./test/fixtures/github"
+      
+  sonarqube:
+    mock:
+      enabled: true
+      fixtures_path: "./test/fixtures/sonarqube"
 
-versioning:
-  defaultVersion: "v1"
-  supportedVersions:
-    - "v1"
+# Test-specific settings
+test:
+  # Deterministic behavior
+  seed: 42
+  fixed_time: "2024-01-01T00:00:00Z"
+  
+  # Test data
+  fixtures:
+    enabled: true
+    path: "./test/fixtures"
+    
+  # Parallel execution
+  parallel:
+    enabled: true
+    max_parallel: 4
+    
+  # Coverage
+  coverage:
+    enabled: true
+    output_dir: "./coverage"
+    
+  # Cleanup
+  cleanup:
+    after_each: true
+    temp_files: true
+    database: true
 
-rateLimit:
-  enabled: false
-  requestsPerSecond: 100
-  burst: 50
+# Feature flags - Enable all for testing
+features:
+  all: true

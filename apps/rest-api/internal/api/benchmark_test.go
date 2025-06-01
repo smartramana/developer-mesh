@@ -108,22 +108,26 @@ func (m *mockBenchmarkContextManager) SummarizeContext(ctx context.Context, cont
 func setupBenchmarkServer(_ *testing.B) *Server {
 	// Create a mock database connection (not used in mock context manager)
 	db := &sqlx.DB{}
-	
+
 	// Create logger and metrics
 	logger := observability.NewLogger("benchmark")
 	metrics := observability.NewMetricsClient()
-	
+
 	// Create mock engine with mock context manager
 	contextManager := &mockBenchmarkContextManager{}
 	engine := core.NewEngine(logger)
 	engine.SetContextManager(contextManager)
-	
+
 	// Create server config
 	cfg := DefaultConfig()
 	cfg.EnableSwagger = false
 	cfg.EnableCORS = false
 	cfg.RateLimit.Enabled = false
-	
+	cfg.Auth.JWTSecret = "test-secret"
+	cfg.Auth.APIKeys = map[string]any{
+		"test-key": "admin",
+	}
+
 	// Create config for vector DB (disabled)
 	appConfig := &config.Config{
 		Database: config.DatabaseConfig{
@@ -132,13 +136,13 @@ func setupBenchmarkServer(_ *testing.B) *Server {
 			},
 		},
 	}
-	
+
 	// Create server
 	server := NewServer(engine, cfg, db, metrics, appConfig)
-	
+
 	// Initialize routes
 	server.Initialize(context.Background())
-	
+
 	return server
 }
 
@@ -146,14 +150,14 @@ func setupBenchmarkServer(_ *testing.B) *Server {
 func BenchmarkHealthEndpoint(b *testing.B) {
 	server := setupBenchmarkServer(b)
 	gin.SetMode(gin.ReleaseMode)
-	
+
 	b.ResetTimer()
 	b.RunParallel(func(pb *testing.PB) {
 		for pb.Next() {
 			w := httptest.NewRecorder()
 			req, _ := http.NewRequest("GET", "/health", nil)
 			server.router.ServeHTTP(w, req)
-			
+
 			if w.Code != http.StatusOK {
 				b.Errorf("Expected status %d, got %d", http.StatusOK, w.Code)
 			}
@@ -165,12 +169,9 @@ func BenchmarkHealthEndpoint(b *testing.B) {
 func BenchmarkContextGet(b *testing.B) {
 	server := setupBenchmarkServer(b)
 	gin.SetMode(gin.ReleaseMode)
-	
-	// Set up authentication
-	InitAPIKeys(map[string]string{
-		"test-key": "admin",
-	})
-	
+
+	// Authentication is now handled by the centralized auth service in setupBenchmarkServer
+
 	b.ResetTimer()
 	b.RunParallel(func(pb *testing.PB) {
 		for pb.Next() {
@@ -178,7 +179,7 @@ func BenchmarkContextGet(b *testing.B) {
 			req, _ := http.NewRequest("GET", "/api/v1/contexts/test-context", nil)
 			req.Header.Set("X-API-Key", "test-key")
 			server.router.ServeHTTP(w, req)
-			
+
 			if w.Code != http.StatusOK {
 				b.Errorf("Expected status %d, got %d", http.StatusOK, w.Code)
 			}
@@ -190,12 +191,9 @@ func BenchmarkContextGet(b *testing.B) {
 func BenchmarkContextList(b *testing.B) {
 	server := setupBenchmarkServer(b)
 	gin.SetMode(gin.ReleaseMode)
-	
-	// Set up authentication
-	InitAPIKeys(map[string]string{
-		"test-key": "admin",
-	})
-	
+
+	// Authentication is now handled by the centralized auth service in setupBenchmarkServer
+
 	b.ResetTimer()
 	b.RunParallel(func(pb *testing.PB) {
 		for pb.Next() {
@@ -203,7 +201,7 @@ func BenchmarkContextList(b *testing.B) {
 			req, _ := http.NewRequest("GET", "/api/v1/contexts?agent_id=agent1", nil)
 			req.Header.Set("X-API-Key", "test-key")
 			server.router.ServeHTTP(w, req)
-			
+
 			if w.Code != http.StatusOK {
 				b.Errorf("Expected status %d, got %d", http.StatusOK, w.Code)
 			}
@@ -215,14 +213,14 @@ func BenchmarkContextList(b *testing.B) {
 func BenchmarkMetricsEndpoint(b *testing.B) {
 	server := setupBenchmarkServer(b)
 	gin.SetMode(gin.ReleaseMode)
-	
+
 	b.ResetTimer()
 	b.RunParallel(func(pb *testing.PB) {
 		for pb.Next() {
 			w := httptest.NewRecorder()
 			req, _ := http.NewRequest("GET", "/metrics", nil)
 			server.router.ServeHTTP(w, req)
-			
+
 			if w.Code != http.StatusOK {
 				b.Errorf("Expected status %d, got %d", http.StatusOK, w.Code)
 			}
@@ -234,12 +232,9 @@ func BenchmarkMetricsEndpoint(b *testing.B) {
 func BenchmarkAPIRoot(b *testing.B) {
 	server := setupBenchmarkServer(b)
 	gin.SetMode(gin.ReleaseMode)
-	
-	// Set up authentication
-	InitAPIKeys(map[string]string{
-		"test-key": "admin",
-	})
-	
+
+	// Authentication is now handled by the centralized auth service in setupBenchmarkServer
+
 	b.ResetTimer()
 	b.RunParallel(func(pb *testing.PB) {
 		for pb.Next() {
@@ -247,7 +242,7 @@ func BenchmarkAPIRoot(b *testing.B) {
 			req, _ := http.NewRequest("GET", "/api/v1/", nil)
 			req.Header.Set("X-API-Key", "test-key")
 			server.router.ServeHTTP(w, req)
-			
+
 			if w.Code != http.StatusOK {
 				b.Errorf("Expected status %d, got %d", http.StatusOK, w.Code)
 			}
@@ -259,12 +254,9 @@ func BenchmarkAPIRoot(b *testing.B) {
 func BenchmarkConcurrentRequests(b *testing.B) {
 	server := setupBenchmarkServer(b)
 	gin.SetMode(gin.ReleaseMode)
-	
-	// Set up authentication
-	InitAPIKeys(map[string]string{
-		"test-key": "admin",
-	})
-	
+
+	// Authentication is now handled by the centralized auth service in setupBenchmarkServer
+
 	endpoints := []string{
 		"/health",
 		"/metrics",
@@ -272,7 +264,7 @@ func BenchmarkConcurrentRequests(b *testing.B) {
 		"/api/v1/contexts/test-context",
 		"/api/v1/contexts?agent_id=agent1",
 	}
-	
+
 	b.ResetTimer()
 	b.RunParallel(func(pb *testing.PB) {
 		i := 0
@@ -280,18 +272,18 @@ func BenchmarkConcurrentRequests(b *testing.B) {
 			endpoint := endpoints[i%len(endpoints)]
 			w := httptest.NewRecorder()
 			req, _ := http.NewRequest("GET", endpoint, nil)
-			
+
 			// Add auth header for protected endpoints
 			if endpoint != "/health" && endpoint != "/metrics" {
 				req.Header.Set("X-API-Key", "test-key")
 			}
-			
+
 			server.router.ServeHTTP(w, req)
-			
+
 			if w.Code != http.StatusOK && w.Code != http.StatusUnauthorized {
 				b.Errorf("Expected status 200 or 401 for %s, got %d", endpoint, w.Code)
 			}
-			
+
 			i++
 		}
 	})
@@ -301,12 +293,9 @@ func BenchmarkConcurrentRequests(b *testing.B) {
 func BenchmarkMemoryAllocation(b *testing.B) {
 	server := setupBenchmarkServer(b)
 	gin.SetMode(gin.ReleaseMode)
-	
-	// Set up authentication
-	InitAPIKeys(map[string]string{
-		"test-key": "admin",
-	})
-	
+
+	// Authentication is now handled by the centralized auth service in setupBenchmarkServer
+
 	b.Run("HealthCheck", func(b *testing.B) {
 		b.ReportAllocs()
 		for i := 0; i < b.N; i++ {
@@ -315,7 +304,7 @@ func BenchmarkMemoryAllocation(b *testing.B) {
 			server.router.ServeHTTP(w, req)
 		}
 	})
-	
+
 	b.Run("ContextGet", func(b *testing.B) {
 		b.ReportAllocs()
 		for i := 0; i < b.N; i++ {
@@ -325,7 +314,7 @@ func BenchmarkMemoryAllocation(b *testing.B) {
 			server.router.ServeHTTP(w, req)
 		}
 	})
-	
+
 	b.Run("ContextList", func(b *testing.B) {
 		b.ReportAllocs()
 		for i := 0; i < b.N; i++ {

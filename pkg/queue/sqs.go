@@ -10,12 +10,26 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/sqs"
 )
 
+// SQSEvent represents an event in the SQS queue with auth context
 type SQSEvent struct {
 	DeliveryID string          `json:"delivery_id"`
 	EventType  string          `json:"event_type"`
 	RepoName   string          `json:"repo_name"`
 	SenderName string          `json:"sender_name"`
 	Payload    json.RawMessage `json:"payload"`
+	// Auth context for the event
+	AuthContext *EventAuthContext `json:"auth_context,omitempty"`
+}
+
+// EventAuthContext contains authentication context for queue events
+type EventAuthContext struct {
+	TenantID       string                 `json:"tenant_id"`
+	PrincipalID    string                 `json:"principal_id"`
+	PrincipalType  string                 `json:"principal_type"`
+	InstallationID *int64                 `json:"installation_id,omitempty"`
+	AppID          *int64                 `json:"app_id,omitempty"`
+	Permissions    []string               `json:"permissions,omitempty"`
+	Metadata       map[string]interface{} `json:"metadata,omitempty"`
 }
 
 type SQSAPI interface {

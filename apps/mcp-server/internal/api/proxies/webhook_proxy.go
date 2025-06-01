@@ -35,20 +35,20 @@ func NewWebhookAPIProxy(client *rest.WebhookClient, logger observability.Logger)
 // ProcessWebhook delegates webhook processing to the REST API
 func (p *WebhookAPIProxy) ProcessWebhook(ctx context.Context, provider string, headers http.Header, body []byte) error {
 	p.logger.Debug("Processing webhook via REST API", map[string]interface{}{
-		"provider": provider,
+		"provider":  provider,
 		"body_size": len(body),
 	})
-	
+
 	return p.client.ProcessWebhook(ctx, provider, headers, body)
 }
 
 // ValidateIP delegates IP validation to the REST API
 func (p *WebhookAPIProxy) ValidateIP(ctx context.Context, provider string, ipAddress string) (bool, error) {
 	p.logger.Debug("Validating webhook IP via REST API", map[string]interface{}{
-		"provider": provider,
+		"provider":   provider,
 		"ip_address": ipAddress,
 	})
-	
+
 	return p.client.ValidateIP(ctx, provider, ipAddress)
 }
 
@@ -62,7 +62,7 @@ func NewMockWebhookRepository(logger observability.Logger) WebhookRepository {
 	if logger == nil {
 		logger = observability.NewLogger("mock-webhook-repository")
 	}
-	
+
 	return &MockWebhookRepository{
 		logger: logger,
 	}
@@ -71,20 +71,20 @@ func NewMockWebhookRepository(logger observability.Logger) WebhookRepository {
 // ProcessWebhook mock implementation
 func (m *MockWebhookRepository) ProcessWebhook(ctx context.Context, provider string, headers http.Header, body []byte) error {
 	m.logger.Debug("Mock webhook processing", map[string]interface{}{
-		"provider": provider,
+		"provider":  provider,
 		"body_size": len(body),
 	})
-	
+
 	return nil
 }
 
 // ValidateIP mock implementation
 func (m *MockWebhookRepository) ValidateIP(ctx context.Context, provider string, ipAddress string) (bool, error) {
 	m.logger.Debug("Mock IP validation", map[string]interface{}{
-		"provider": provider,
+		"provider":   provider,
 		"ip_address": ipAddress,
 	})
-	
+
 	// Always return valid in mock
 	return true, nil
 }

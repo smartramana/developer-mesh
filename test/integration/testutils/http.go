@@ -48,7 +48,7 @@ func (c *HTTPClient) Get(path string) (*http.Response, error) {
 // Post performs a POST request to the specified path with the given payload
 func (c *HTTPClient) Post(path string, payload interface{}) (*http.Response, error) {
 	url := fmt.Sprintf("%s%s", c.baseURL, path)
-	
+
 	var reqBody *bytes.Buffer
 	if payload != nil {
 		jsonData, err := json.Marshal(payload)
@@ -77,15 +77,15 @@ func (c *HTTPClient) Post(path string, payload interface{}) (*http.Response, err
 // ParseJSONResponse parses a JSON response into the provided target
 func ParseJSONResponse(resp *http.Response, target interface{}) error {
 	defer resp.Body.Close()
-	
+
 	body, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
 		return err
 	}
-	
+
 	if err := json.Unmarshal(body, target); err != nil {
 		return fmt.Errorf("failed to parse JSON response: %v, body: %s", err, string(body))
 	}
-	
+
 	return nil
 }

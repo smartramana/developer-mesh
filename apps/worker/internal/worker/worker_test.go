@@ -10,8 +10,8 @@ import (
 )
 
 type mockSQSClient struct {
-	recvFunc    func(context.Context, int32, int32) ([]queue.SQSEvent, []string, error)
-	deleteFunc  func(context.Context, string) error
+	recvFunc   func(context.Context, int32, int32) ([]queue.SQSEvent, []string, error)
+	deleteFunc func(context.Context, string) error
 }
 
 func (m *mockSQSClient) ReceiveEvents(ctx context.Context, maxMessages int32, waitSeconds int32) ([]queue.SQSEvent, []string, error) {

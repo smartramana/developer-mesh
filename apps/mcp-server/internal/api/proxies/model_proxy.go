@@ -30,17 +30,17 @@ func (p *ModelAPIProxy) CreateModel(ctx context.Context, model *models.Model) er
 		"model_id": model.ID,
 		"name":     model.Name,
 	})
-	
+
 	return p.client.CreateModel(ctx, model)
 }
 
 // GetModelByID retrieves a model by ID by delegating to the REST API
 func (p *ModelAPIProxy) GetModelByID(ctx context.Context, id string, tenantID string) (*models.Model, error) {
 	p.logger.Debug("Getting model by ID via REST API proxy", map[string]interface{}{
-		"model_id": id,
+		"model_id":  id,
 		"tenant_id": tenantID,
 	})
-	
+
 	// The REST client's GetModelByID doesn't take a tenantID parameter, but we include it in the interface
 	// for consistency with other repository interfaces
 	return p.client.GetModelByID(ctx, id)
@@ -51,7 +51,7 @@ func (p *ModelAPIProxy) ListModels(ctx context.Context, tenantID string) ([]*mod
 	p.logger.Debug("Listing models via REST API proxy", map[string]interface{}{
 		"tenant_id": tenantID,
 	})
-	
+
 	// The tenantID parameter is ignored in the current implementation
 	// but kept for interface compatibility
 	return p.client.ListModels(ctx)
@@ -63,7 +63,7 @@ func (p *ModelAPIProxy) UpdateModel(ctx context.Context, model *models.Model) er
 		"model_id": model.ID,
 		"name":     model.Name,
 	})
-	
+
 	return p.client.UpdateModel(ctx, model)
 }
 
@@ -72,7 +72,7 @@ func (p *ModelAPIProxy) DeleteModel(ctx context.Context, id string) error {
 	p.logger.Debug("Deleting model via REST API proxy", map[string]interface{}{
 		"model_id": id,
 	})
-	
+
 	return p.client.DeleteModel(ctx, id)
 }
 
@@ -98,7 +98,7 @@ func (p *ModelAPIProxy) List(ctx context.Context, filters model.Filter) ([]*mode
 			tenantID = tenantIDStr
 		}
 	}
-	
+
 	return p.ListModels(ctx, tenantID)
 }
 

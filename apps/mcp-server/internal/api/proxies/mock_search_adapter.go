@@ -30,7 +30,7 @@ func (m *MockSearchRepository) SearchByText(ctx context.Context, query string, o
 	m.logger.Debug("Mock text search", map[string]interface{}{
 		"query": query,
 	})
-	
+
 	// Return empty results for now
 	return &repository.SearchResults{
 		Results: []*repository.SearchResult{},
@@ -44,7 +44,7 @@ func (m *MockSearchRepository) SearchByVector(ctx context.Context, vector []floa
 	m.logger.Debug("Mock vector search", map[string]interface{}{
 		"vector_size": len(vector),
 	})
-	
+
 	// Return empty results for now
 	return &repository.SearchResults{
 		Results: []*repository.SearchResult{},
@@ -58,7 +58,7 @@ func (m *MockSearchRepository) SearchByContentID(ctx context.Context, contentID 
 	m.logger.Debug("Mock content ID search", map[string]interface{}{
 		"content_id": contentID,
 	})
-	
+
 	// Return empty results for now
 	return &repository.SearchResults{
 		Results: []*repository.SearchResult{},
@@ -70,7 +70,7 @@ func (m *MockSearchRepository) SearchByContentID(ctx context.Context, contentID 
 // GetSupportedModels retrieves a list of all models with embeddings
 func (m *MockSearchRepository) GetSupportedModels(ctx context.Context) ([]string, error) {
 	m.logger.Debug("Mock get supported models", nil)
-	
+
 	// Return a list of mock models
 	return []string{"mock-model-1", "mock-model-2"}, nil
 }
@@ -78,7 +78,7 @@ func (m *MockSearchRepository) GetSupportedModels(ctx context.Context) ([]string
 // GetSearchStats retrieves statistics about the search index
 func (m *MockSearchRepository) GetSearchStats(ctx context.Context) (map[string]interface{}, error) {
 	m.logger.Debug("Mock get search stats", nil)
-	
+
 	// Return mock stats
 	return map[string]interface{}{
 		"total_embeddings": 0,
@@ -102,11 +102,11 @@ func (m *MockSearchRepository) Get(ctx context.Context, id string) (*repository.
 	m.logger.Debug("Mock get search result", map[string]interface{}{
 		"id": id,
 	})
-	
+
 	// Return a mock result
 	return &repository.SearchResult{
-		ID:     id,
-		Score:  1.0,
+		ID:      id,
+		Score:   1.0,
 		Content: "Mock content for " + id,
 	}, nil
 }
@@ -116,7 +116,7 @@ func (m *MockSearchRepository) List(ctx context.Context, filter search.Filter) (
 	m.logger.Debug("Mock list search results", map[string]interface{}{
 		"filter": filter,
 	})
-	
+
 	// Return empty list for now
 	return []*repository.SearchResult{}, nil
 }

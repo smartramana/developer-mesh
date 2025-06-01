@@ -39,7 +39,7 @@ func (p *GitHubToolProvider) RegisterTools(registry *tool.ToolRegistry) error {
 	if err := registry.RegisterTool(p.deleteRepositoryTool()); err != nil {
 		return err
 	}
-	
+
 	// Register issue tools
 	if err := registry.RegisterTool(p.getIssueTool()); err != nil {
 		return err
@@ -56,7 +56,7 @@ func (p *GitHubToolProvider) RegisterTools(registry *tool.ToolRegistry) error {
 	if err := registry.RegisterTool(p.addIssueCommentTool()); err != nil {
 		return err
 	}
-	
+
 	// Register pull request tools
 	if err := registry.RegisterTool(p.getPullRequestTool()); err != nil {
 		return err
@@ -76,12 +76,12 @@ func (p *GitHubToolProvider) RegisterTools(registry *tool.ToolRegistry) error {
 	if err := registry.RegisterTool(p.getPullRequestCommentsTool()); err != nil {
 		return err
 	}
-	
+
 	// Register branch tools
 	if err := registry.RegisterTool(p.createBranchTool()); err != nil {
 		return err
 	}
-	
+
 	// Register file tools
 	if err := registry.RegisterTool(p.getFileContentsTool()); err != nil {
 		return err
@@ -92,7 +92,7 @@ func (p *GitHubToolProvider) RegisterTools(registry *tool.ToolRegistry) error {
 	if err := registry.RegisterTool(p.pushFilesTool()); err != nil {
 		return err
 	}
-	
+
 	// Register search tools
 	if err := registry.RegisterTool(p.searchCodeTool()); err != nil {
 		return err
@@ -106,17 +106,17 @@ func (p *GitHubToolProvider) RegisterTools(registry *tool.ToolRegistry) error {
 	if err := registry.RegisterTool(p.searchUsersTool()); err != nil {
 		return err
 	}
-	
+
 	// Register commit tools
 	if err := registry.RegisterTool(p.listCommitsTool()); err != nil {
 		return err
 	}
-	
+
 	// Register fork tool
 	if err := registry.RegisterTool(p.forkRepositoryTool()); err != nil {
 		return err
 	}
-	
+
 	return nil
 }
 
@@ -124,7 +124,7 @@ func (p *GitHubToolProvider) RegisterTools(registry *tool.ToolRegistry) error {
 func (p *GitHubToolProvider) executeAction(action string, params map[string]interface{}) (interface{}, error) {
 	// Create context for the operation
 	ctx := context.Background()
-	
+
 	// Default contextID if not provided
 	contextID := "default"
 	if cidValue, exists := params["_context_id"]; exists {
@@ -134,13 +134,13 @@ func (p *GitHubToolProvider) executeAction(action string, params map[string]inte
 		// Remove internal parameter before passing to adapter
 		delete(params, "_context_id")
 	}
-	
+
 	// Execute the action through the adapter
 	result, err := p.adapter.ExecuteAction(ctx, contextID, action, params)
 	if err != nil {
 		return nil, fmt.Errorf("GitHub action '%s' failed: %w", action, err)
 	}
-	
+
 	return result, nil
 }
 

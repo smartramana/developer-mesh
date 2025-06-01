@@ -8,25 +8,81 @@ services:
     ports:
       - "8080:8080"
     environment:
-      - APP_ENV=development
-      - DATABASE_DSN=postgresql://dev:dev@database:5432/dev?sslmode=disable
+      # Core settings
+      - ENVIRONMENT=docker
+      - MCP_CONFIG_FILE=/app/configs/config.docker.yaml
+      - API_HOST=0.0.0.0
+      - API_PORT=8080
+      # Authentication
+      - JWT_SECRET=${JWT_SECRET:-docker-jwt-secret-change-in-production}
+      - ADMIN_API_KEY=${ADMIN_API_KEY:-dev-admin-key-1234567890}
+      - READER_API_KEY=${READER_API_KEY:-dev-readonly-key-1234567890}
+      - MCP_API_KEY=${MCP_API_KEY:-dev-admin-key-1234567890}
+      # Database (using service names)
+      - DATABASE_HOST=database
+      - DATABASE_PORT=5432
+      - DATABASE_NAME=dev
+      - DATABASE_USER=dev
+      - DATABASE_PASSWORD=dev
+      - DATABASE_SSL_MODE=disable
+      - DATABASE_DSN=postgres://dev:dev@database:5432/dev?sslmode=disable&search_path=mcp,public
+      # Redis (using service names)
       - REDIS_HOST=redis
       - REDIS_PORT=6379
+      - REDIS_ADDR=redis:6379
+      - CACHE_TYPE=redis
+      # AWS/LocalStack
+      - AWS_REGION=${AWS_REGION:-us-west-2}
+      - AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID:-test}
+      - AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY:-test}
+      - AWS_ENDPOINT_URL=http://localstack:4566
+      - S3_BUCKET=${S3_BUCKET:-mcp-contexts}
+      - S3_ENDPOINT=http://localstack:4566
+      - S3_USE_PATH_STYLE=true
+      # GitHub Integration
+      - GITHUB_TOKEN=${GITHUB_TOKEN:-test-github-token}
+      - GITHUB_WEBHOOK_SECRET=${GITHUB_WEBHOOK_SECRET:-docker-github-webhook-secret}
+      - GITHUB_OWNER=${GITHUB_OWNER:-test-org}
+      - GITHUB_REPO=${GITHUB_REPO:-test-repo}
+      - GITHUB_APP_ID=${GITHUB_APP_ID:-}
+      - GITHUB_INSTALLATION_ID=${GITHUB_INSTALLATION_ID:-}
+      - GITHUB_PRIVATE_KEY_PATH=${GITHUB_PRIVATE_KEY_PATH:-}
+      # Mock Server
+      - MOCKSERVER_URL=http://mockserver:8081
+      - MOCK_RESPONSES_ENABLED=${MOCK_RESPONSES_ENABLED:-true}
+      # Vector Search
+      - VECTOR_ENABLED=${VECTOR_ENABLED:-true}
+      - VECTOR_DEFAULT_MODEL=${VECTOR_DEFAULT_MODEL:-text-embedding-ada-002}
+      - VECTOR_DEFAULT_DIMENSION=${VECTOR_DEFAULT_DIMENSION:-1536}
+      - OPENAI_API_KEY=${OPENAI_API_KEY:-}
+      # Monitoring
+      - LOG_LEVEL=${LOG_LEVEL:-info}
+      - LOG_FORMAT=json
+      - PROMETHEUS_ENABLED=true
+      - METRICS_PATH=/metrics
+      # Security
+      - CORS_ENABLED=true
+      - CORS_ALLOWED_ORIGINS=http://localhost:3000,http://localhost:8080
+      - RATE_LIMIT_ENABLED=true
+      - RATE_LIMIT_REQUESTS=100
+      - RATE_LIMIT_PERIOD=1m
+      - CREDENTIAL_ENCRYPTION_KEY=${CREDENTIAL_ENCRYPTION_KEY:-docker-encryption-key-32-chars-ok!}
+      # Feature Flags
+      - FEATURE_WEBHOOKS_ENABLED=true
+      - FEATURE_VECTOR_SEARCH_ENABLED=true
+      - FEATURE_GITHUB_INTEGRATION_ENABLED=true
     volumes:
-      - ./apps/mcp-server/configs:/app/configs
-      - ./migrations/sql:/app/migrations
+      - ./configs:/app/configs:ro
+      - ./apps/mcp-server/configs:/app/server-configs:ro
+      - ./migrations/sql:/app/migrations:ro
     depends_on:
       database:
         condition: service_healthy
       redis:
         condition: service_healthy
 
-    healthcheck:
-      test: ["CMD", "wget", "-qO-", "http://localhost:8080/health"]
-      interval: 10s
-      timeout: 5s
-      retries: 3
-      start_period: 10s
+    # Health check is defined in Dockerfile using the binary's -health-check flag
+    # No need to override it here
     networks:
       - mcp-network
       
@@ -37,25 +93,76 @@ services:
     ports:
       - "8081:8080"
     environment:
-      - APP_ENV=development
-      - DATABASE_DSN=postgresql://dev:dev@database:5432/dev?sslmode=disable
+      # Core settings
+      - ENVIRONMENT=docker
+      - MCP_CONFIG_FILE=/app/configs/config.docker.yaml
+      - USE_MOCK_CONTEXT_MANAGER=false
+      - API_HOST=0.0.0.0
+      - API_PORT=8080
+      - MCP_SERVER_URL=http://mcp-server:8080
+      # Authentication
+      - JWT_SECRET=${JWT_SECRET:-docker-jwt-secret-change-in-production}
+      - ADMIN_API_KEY=${ADMIN_API_KEY:-dev-admin-key-1234567890}
+      - READER_API_KEY=${READER_API_KEY:-dev-readonly-key-1234567890}
+      - MCP_API_KEY=${MCP_API_KEY:-dev-admin-key-1234567890}
+      # Database (using service names)
+      - DATABASE_HOST=database
+      - DATABASE_PORT=5432
+      - DATABASE_NAME=dev
+      - DATABASE_USER=dev
+      - DATABASE_PASSWORD=dev
+      - DATABASE_SSL_MODE=disable
+      - DATABASE_DSN=postgres://dev:dev@database:5432/dev?sslmode=disable&search_path=mcp,public
+      # Redis (using service names)
       - REDIS_HOST=redis
       - REDIS_PORT=6379
-      - USE_MOCK_CONTEXT_MANAGER=false
+      - REDIS_ADDR=redis:6379
+      - CACHE_TYPE=redis
+      # AWS/LocalStack
+      - AWS_REGION=${AWS_REGION:-us-west-2}
+      - AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID:-test}
+      - AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY:-test}
+      - AWS_ENDPOINT_URL=http://localstack:4566
+      - S3_BUCKET=${S3_BUCKET:-mcp-contexts}
+      - S3_ENDPOINT=http://localstack:4566
+      - S3_USE_PATH_STYLE=true
+      # GitHub Integration
+      - GITHUB_TOKEN=${GITHUB_TOKEN:-test-github-token}
+      - GITHUB_WEBHOOK_SECRET=${GITHUB_WEBHOOK_SECRET:-docker-github-webhook-secret}
+      - GITHUB_OWNER=${GITHUB_OWNER:-test-org}
+      - GITHUB_REPO=${GITHUB_REPO:-test-repo}
+      # Mock Server
+      - MOCKSERVER_URL=http://mockserver:8081
+      - MOCK_RESPONSES_ENABLED=${MOCK_RESPONSES_ENABLED:-true}
+      # Vector Search
+      - VECTOR_ENABLED=${VECTOR_ENABLED:-true}
+      - VECTOR_DEFAULT_MODEL=${VECTOR_DEFAULT_MODEL:-text-embedding-ada-002}
+      - VECTOR_DEFAULT_DIMENSION=${VECTOR_DEFAULT_DIMENSION:-1536}
+      - OPENAI_API_KEY=${OPENAI_API_KEY:-}
+      # Monitoring
+      - LOG_LEVEL=${LOG_LEVEL:-info}
+      - LOG_FORMAT=json
+      - PROMETHEUS_ENABLED=true
+      # Security
+      - CORS_ENABLED=true
+      - CORS_ALLOWED_ORIGINS=http://localhost:3000,http://localhost:8080
+      - RATE_LIMIT_ENABLED=true
+      - CREDENTIAL_ENCRYPTION_KEY=${CREDENTIAL_ENCRYPTION_KEY:-docker-encryption-key-32-chars-ok!}
+      # Feature Flags
+      - FEATURE_WEBHOOKS_ENABLED=true
+      - FEATURE_VECTOR_SEARCH_ENABLED=true
+      - FEATURE_GITHUB_INTEGRATION_ENABLED=true
     volumes:
-      - ./apps/rest-api/configs:/app/configs
-      - ./migrations/sql:/app/migrations
+      - ./configs:/app/configs:ro
+      - ./apps/rest-api/configs:/app/api-configs:ro
+      - ./migrations/sql:/app/migrations:ro
     depends_on:
       database:
         condition: service_healthy
       redis:
         condition: service_healthy
-    healthcheck:
-      test: ["CMD", "wget", "-qO-", "http://localhost:8080/health"]
-      interval: 10s
-      timeout: 5s
-      retries: 3
-      start_period: 10s
+    # Health check is defined in Dockerfile using the binary's -health-check flag
+    # No need to override it here
     networks:
       - mcp-network
       
@@ -64,20 +171,32 @@ services:
       context: .
       dockerfile: apps/worker/Dockerfile
     environment:
+      # Core settings
+      - ENVIRONMENT=docker
       - APP_ENV=development
-      - DATABASE_DSN=postgresql://dev:dev@database:5432/dev?sslmode=disable
+      # Database (using service names)
+      - DATABASE_HOST=database
+      - DATABASE_PORT=5432
+      - DATABASE_NAME=dev
+      - DATABASE_USER=dev
+      - DATABASE_PASSWORD=dev
+      - DATABASE_DSN=postgresql://dev:dev@database:5432/dev?sslmode=disable&search_path=mcp,public
+      # Redis (using service names)
       - REDIS_HOST=redis
       - REDIS_PORT=6379
-      # LocalStack configuration
+      - REDIS_ADDR=redis:6379
+      # AWS/LocalStack configuration
       - USE_LOCALSTACK=true
       - AWS_ENDPOINT_URL=http://localstack:4566
-      - AWS_REGION=us-east-1
+      - AWS_REGION=${AWS_REGION:-us-east-1}
+      - AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID:-test}
+      - AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY:-test}
+      # SQS configuration
       - SQS_QUEUE_NAME=tasks
-      # Explicitly set the queue URL to match LocalStack's format
       - SQS_QUEUE_URL=http://sqs.us-east-1.localhost.localstack.cloud:4566/000000000000/tasks
-      - AWS_ACCESS_KEY_ID=test
-      - AWS_SECRET_ACCESS_KEY=test
-      - REDIS_ADDR=redis:6379
+      # Worker configuration
+      - WORKER_QUEUE_TYPE=${WORKER_QUEUE_TYPE:-sqs}
+      - WORKER_CONCURRENCY=${WORKER_CONCURRENCY:-5}
       # Optional: Enable mock mode if LocalStack isn't available
       # - WORKER_MOCK_MODE=true
     depends_on:

@@ -11,7 +11,6 @@ import (
 	"github.com/S-Corkum/devops-mcp/pkg/repository"
 )
 
-
 // SetupVectorAPI initializes and registers the vector API routes
 func (s *Server) SetupVectorAPI(ctx context.Context) error {
 	logger := s.logger.WithPrefix("vector_api")

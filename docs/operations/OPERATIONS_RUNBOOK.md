@@ -1,0 +1,974 @@
+# Operations Runbook
+
+## Overview
+
+This runbook provides operational procedures for managing DevOps MCP in production. It covers daily operations, incident response, maintenance tasks, and emergency procedures.
+
+## Table of Contents
+
+1. [Daily Operations](#daily-operations)
+2. [Backup and Restore](#backup-and-restore)
+3. [Disaster Recovery](#disaster-recovery)
+4. [Performance Tuning](#performance-tuning)
+5. [Capacity Planning](#capacity-planning)
+6. [Maintenance Procedures](#maintenance-procedures)
+7. [Emergency Procedures](#emergency-procedures)
+8. [Health Checks](#health-checks)
+
+## Daily Operations
+
+### Morning Checklist (Start of Day)
+
+```bash
+#!/bin/bash
+# Daily operations checklist
+
+echo "=== DevOps MCP Daily Operations Checklist ==="
+echo "Date: $(date)"
+
+# 1. Check system health
+echo -n "1. System Health Check... "
+if curl -s http://localhost:8080/health | jq -r '.status' | grep -q "healthy"; then
+    echo "✓ PASS"
+else
+    echo "✗ FAIL - Investigate immediately"
+fi
+
+# 2. Check database connections
+echo -n "2. Database Connection... "
+if curl -s http://localhost:8080/health/db | jq -r '.status' | grep -q "connected"; then
+    echo "✓ PASS"
+else
+    echo "✗ FAIL - Check database status"
+fi
+
+# 3. Check Redis connection
+echo -n "3. Redis Connection... "
+if redis-cli ping | grep -q "PONG"; then
+    echo "✓ PASS"
+else
+    echo "✗ FAIL - Check Redis status"
+fi
+
+# 4. Check disk space
+echo -n "4. Disk Space... "
+DISK_USAGE=$(df -h / | awk 'NR==2 {print $5}' | sed 's/%//')
+if [ $DISK_USAGE -lt 80 ]; then
+    echo "✓ PASS (${DISK_USAGE}% used)"
+else
+    echo "✗ WARNING - Disk usage at ${DISK_USAGE}%"
+fi
+
+# 5. Check error rates
+echo -n "5. Error Rate (last hour)... "
+ERROR_RATE=$(curl -s http://localhost:9090/api/v1/query?query='rate(http_requests_total{status=~"5.."}[1h])' | jq -r '.data.result[0].value[1]')
+if (( $(echo "$ERROR_RATE < 0.01" | bc -l) )); then
+    echo "✓ PASS (${ERROR_RATE})"
+else
+    echo "✗ WARNING - Error rate: ${ERROR_RATE}"
+fi
+
+# 6. Check API key expirations
+echo "6. API Key Expirations:"
+psql -h localhost -U mcp_user -d mcp -c "
+    SELECT name, expires_at 
+    FROM api_keys 
+    WHERE expires_at < NOW() + INTERVAL '7 days' 
+    AND revoked_at IS NULL
+    ORDER BY expires_at;
+"
+
+echo "=== Checklist Complete ==="
+```
+
+### Service Status Monitoring
+
+```bash
+# Check all services
+kubectl get pods -n mcp-prod -o wide
+
+# Check service logs
+kubectl logs -n mcp-prod deployment/mcp-server --tail=100
+kubectl logs -n mcp-prod deployment/rest-api --tail=100
+kubectl logs -n mcp-prod deployment/worker --tail=100
+
+# Check resource usage
+kubectl top pods -n mcp-prod
+kubectl top nodes
+```
+
+### Database Operations
+
+```sql
+-- Daily database health queries
+
+-- Check connection count
+SELECT datname, count(*) 
+FROM pg_stat_activity 
+GROUP BY datname;
+
+-- Check long-running queries
+SELECT pid, now() - pg_stat_activity.query_start AS duration, query 
+FROM pg_stat_activity 
+WHERE (now() - pg_stat_activity.query_start) > interval '5 minutes';
+
+-- Check table sizes
+SELECT schemaname AS table_schema,
+       tablename AS table_name,
+       pg_size_pretty(pg_total_relation_size(schemaname||'.'||tablename)) AS size
+FROM pg_tables
+ORDER BY pg_total_relation_size(schemaname||'.'||tablename) DESC
+LIMIT 20;
+
+-- Check index usage
+SELECT schemaname, tablename, indexname, idx_scan
+FROM pg_stat_user_indexes
+ORDER BY idx_scan
+LIMIT 20;
+```
+
+## Backup and Restore
+
+### Automated Backup Schedule
+
+```yaml
+# kubernetes/cronjobs/backup.yaml
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: mcp-backup
+  namespace: mcp-prod
+spec:
+  schedule: "0 2 * * *"  # Daily at 2 AM
+  jobTemplate:
+    spec:
+      template:
+        spec:
+          containers:
+          - name: backup
+            image: devops-mcp/backup:latest
+            env:
+            - name: BACKUP_TYPE
+              value: "full"
+            - name: S3_BUCKET
+              value: "mcp-backups-prod"
+            command: ["/scripts/backup.sh"]
+          restartPolicy: OnFailure
+```
+
+### Manual Backup Procedure
+
+```bash
+#!/bin/bash
+# Manual backup script
+
+TIMESTAMP=$(date +%Y%m%d_%H%M%S)
+BACKUP_DIR="/backups/mcp_${TIMESTAMP}"
+
+echo "Starting manual backup at ${TIMESTAMP}"
+
+# 1. Create backup directory
+mkdir -p ${BACKUP_DIR}
+
+# 2. Backup PostgreSQL
+echo "Backing up PostgreSQL..."
+pg_dump -h localhost -U mcp_user -d mcp -F c -f ${BACKUP_DIR}/postgres_mcp.dump
+
+# 3. Backup Redis
+echo "Backing up Redis..."
+redis-cli BGSAVE
+sleep 5
+cp /var/lib/redis/dump.rdb ${BACKUP_DIR}/redis.rdb
+
+# 4. Backup configuration files
+echo "Backing up configuration..."
+tar -czf ${BACKUP_DIR}/configs.tar.gz /etc/mcp/
+
+# 5. Backup vector embeddings
+echo "Backing up vector data..."
+pg_dump -h localhost -U mcp_user -d mcp -t vector_embeddings -F c -f ${BACKUP_DIR}/vectors.dump
+
+# 6. Upload to S3
+echo "Uploading to S3..."
+aws s3 cp ${BACKUP_DIR} s3://mcp-backups-prod/${TIMESTAMP}/ --recursive
+
+# 7. Verify backup
+echo "Verifying backup..."
+aws s3 ls s3://mcp-backups-prod/${TIMESTAMP}/ --recursive
+
+echo "Backup completed successfully"
+```
+
+### Restore Procedure
+
+```bash
+#!/bin/bash
+# Restore from backup
+
+BACKUP_DATE=$1
+if [ -z "$BACKUP_DATE" ]; then
+    echo "Usage: ./restore.sh YYYYMMDD_HHMMSS"
+    exit 1
+fi
+
+echo "WARNING: This will restore from backup ${BACKUP_DATE}"
+echo "This operation will overwrite current data!"
+read -p "Are you sure? (yes/no): " CONFIRM
+
+if [ "$CONFIRM" != "yes" ]; then
+    echo "Restore cancelled"
+    exit 0
+fi
+
+# 1. Download backup from S3
+echo "Downloading backup..."
+aws s3 cp s3://mcp-backups-prod/${BACKUP_DATE}/ /tmp/restore/ --recursive
+
+# 2. Stop services
+echo "Stopping services..."
+kubectl scale deployment mcp-server rest-api worker --replicas=0 -n mcp-prod
+
+# 3. Restore PostgreSQL
+echo "Restoring PostgreSQL..."
+pg_restore -h localhost -U mcp_user -d mcp_test -c /tmp/restore/postgres_mcp.dump
+
+# 4. Restore Redis
+echo "Restoring Redis..."
+redis-cli FLUSHALL
+redis-cli SHUTDOWN
+cp /tmp/restore/redis.rdb /var/lib/redis/dump.rdb
+redis-server --daemonize yes
+
+# 5. Restore configurations
+echo "Restoring configurations..."
+tar -xzf /tmp/restore/configs.tar.gz -C /
+
+# 6. Restart services
+echo "Restarting services..."
+kubectl scale deployment mcp-server rest-api worker --replicas=3 -n mcp-prod
+
+# 7. Verify restore
+echo "Verifying restore..."
+./health-check.sh
+
+echo "Restore completed"
+```
+
+## Disaster Recovery
+
+### RTO/RPO Targets
+
+| Component | RTO (Recovery Time) | RPO (Point) | Priority |
+|-----------|-------------------|-------------|----------|
+| API Services | 15 minutes | 1 hour | Critical |
+| PostgreSQL | 30 minutes | 15 minutes | Critical |
+| Redis Cache | 5 minutes | 1 hour | High |
+| S3 Storage | N/A | 0 (replicated) | High |
+| Worker Services | 1 hour | 1 hour | Medium |
+
+### Disaster Recovery Procedures
+
+#### 1. Total System Failure
+
+```bash
+#!/bin/bash
+# Full disaster recovery procedure
+
+echo "=== DevOps MCP Disaster Recovery ==="
+echo "Starting recovery at $(date)"
+
+# 1. Provision new infrastructure
+echo "Step 1: Provisioning infrastructure..."
+terraform apply -var-file=disaster-recovery.tfvars -auto-approve
+
+# 2. Restore database from latest backup
+echo "Step 2: Restoring database..."
+LATEST_BACKUP=$(aws s3 ls s3://mcp-backups-prod/ | sort | tail -n 1 | awk '{print $2}')
+./restore.sh ${LATEST_BACKUP%/}
+
+# 3. Deploy applications
+echo "Step 3: Deploying applications..."
+kubectl apply -f kubernetes/namespaces/
+kubectl apply -f kubernetes/configs/
+kubectl apply -f kubernetes/deployments/
+
+# 4. Restore Redis from backup
+echo "Step 4: Restoring Redis..."
+kubectl exec -it redis-0 -n mcp-prod -- redis-cli --rdb /backup/redis.rdb
+
+# 5. Verify services
+echo "Step 5: Verifying services..."
+kubectl wait --for=condition=ready pod -l app=mcp-server -n mcp-prod --timeout=300s
+kubectl wait --for=condition=ready pod -l app=rest-api -n mcp-prod --timeout=300s
+kubectl wait --for=condition=ready pod -l app=worker -n mcp-prod --timeout=300s
+
+# 6. Run health checks
+echo "Step 6: Running health checks..."
+./health-check.sh
+
+# 7. Update DNS
+echo "Step 7: Updating DNS..."
+./update-dns.sh --target=disaster-recovery
+
+echo "Disaster recovery completed at $(date)"
+```
+
+#### 2. Database Failure Recovery
+
+```bash
+#!/bin/bash
+# PostgreSQL failure recovery
+
+# 1. Check if primary is down
+if ! pg_isready -h primary.db.mcp; then
+    echo "Primary database is down, initiating failover..."
+    
+    # 2. Promote standby to primary
+    kubectl exec -it postgres-standby-0 -n mcp-prod -- pg_ctl promote
+    
+    # 3. Update connection strings
+    kubectl set env deployment/mcp-server DATABASE_URL=postgres://user:pass@standby.db.mcp:5432/mcp
+    kubectl set env deployment/rest-api DATABASE_URL=postgres://user:pass@standby.db.mcp:5432/mcp
+    
+    # 4. Restart services
+    kubectl rollout restart deployment/mcp-server deployment/rest-api -n mcp-prod
+    
+    # 5. Set up new standby (when possible)
+    echo "Remember to provision new standby database"
+fi
+```
+
+#### 3. Region Failure
+
+```yaml
+# Multi-region failover configuration
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: region-failover
+data:
+  primary_region: "us-east-1"
+  secondary_region: "us-west-2"
+  failover_script: |
+    #!/bin/bash
+    # Automated region failover
+    
+    PRIMARY_HEALTH=$(curl -s https://api-east.mcp.example.com/health | jq -r '.status')
+    
+    if [ "$PRIMARY_HEALTH" != "healthy" ]; then
+        echo "Primary region unhealthy, failing over to secondary..."
+        
+        # Update Route53
+        aws route53 change-resource-record-sets \
+          --hosted-zone-id Z123456789 \
+          --change-batch file://failover-west.json
+        
+        # Scale up secondary region
+        kubectl --context=west-cluster scale deployment mcp-server rest-api --replicas=6
+        
+        # Notify team
+        ./notify-oncall.sh "Region failover initiated: east -> west"
+    fi
+```
+
+## Performance Tuning
+
+### Database Optimization
+
+```sql
+-- Performance tuning queries
+
+-- Find missing indexes
+SELECT schemaname, tablename, attname, n_distinct, correlation
+FROM pg_stats
+WHERE schemaname NOT IN ('pg_catalog', 'information_schema')
+  AND n_distinct > 100
+  AND correlation < 0.1
+ORDER BY n_distinct DESC;
+
+-- Optimize vacuum settings
+ALTER TABLE contexts SET (autovacuum_vacuum_scale_factor = 0.1);
+ALTER TABLE vector_embeddings SET (autovacuum_vacuum_scale_factor = 0.05);
+
+-- Update statistics
+ANALYZE contexts;
+ANALYZE vector_embeddings;
+ANALYZE api_keys;
+```
+
+### Application Tuning
+
+```yaml
+# kubernetes/configs/performance.yaml
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: performance-config
+data:
+  mcp-server.yaml: |
+    performance:
+      connection_pool:
+        max_size: 100
+        min_size: 10
+        max_lifetime: 30m
+      
+      cache:
+        ttl: 5m
+        max_entries: 10000
+        
+      http:
+        read_timeout: 30s
+        write_timeout: 30s
+        max_header_bytes: 1048576
+        
+      concurrency:
+        max_goroutines: 1000
+        worker_pool_size: 50
+```
+
+### Redis Optimization
+
+```bash
+# Redis performance tuning
+redis-cli CONFIG SET maxmemory 4gb
+redis-cli CONFIG SET maxmemory-policy allkeys-lru
+redis-cli CONFIG SET tcp-keepalive 60
+redis-cli CONFIG SET timeout 300
+
+# Monitor Redis performance
+redis-cli --latency
+redis-cli --latency-history
+redis-cli --bigkeys
+```
+
+### Load Testing
+
+```javascript
+// k6 load test for performance validation
+import http from 'k6/http';
+import { check, sleep } from 'k6';
+
+export let options = {
+  stages: [
+    { duration: '5m', target: 100 },  // Ramp up
+    { duration: '10m', target: 100 }, // Stay at 100 users
+    { duration: '5m', target: 200 },  // Ramp to 200
+    { duration: '10m', target: 200 }, // Stay at 200
+    { duration: '5m', target: 0 },    // Ramp down
+  ],
+  thresholds: {
+    http_req_duration: ['p(95)<500', 'p(99)<1000'],
+    http_req_failed: ['rate<0.01'],
+  },
+};
+
+export default function() {
+  // Test context creation
+  let contextRes = http.post('http://api.mcp.example.com/api/v1/contexts', 
+    JSON.stringify({
+      name: `perf-test-${__VU}-${__ITER}`,
+      content: 'Performance test context',
+    }),
+    { headers: { 'Content-Type': 'application/json', 'X-API-Key': API_KEY } }
+  );
+  
+  check(contextRes, {
+    'context created': (r) => r.status === 201,
+    'response time OK': (r) => r.timings.duration < 500,
+  });
+  
+  sleep(1);
+}
+```
+
+## Capacity Planning
+
+### Resource Monitoring
+
+```bash
+#!/bin/bash
+# Capacity monitoring script
+
+echo "=== MCP Capacity Report ==="
+echo "Generated: $(date)"
+
+# CPU Usage
+echo -e "\n## CPU Usage"
+kubectl top nodes | awk '{print $1, $3}'
+
+# Memory Usage
+echo -e "\n## Memory Usage"
+kubectl top nodes | awk '{print $1, $5}'
+
+# Pod Resource Usage
+echo -e "\n## Pod Resources"
+kubectl top pods -n mcp-prod --sort-by=cpu
+kubectl top pods -n mcp-prod --sort-by=memory
+
+# Database Size
+echo -e "\n## Database Growth"
+psql -h localhost -U mcp_user -d mcp -c "
+    SELECT 
+        pg_database_size('mcp')/1024/1024 as size_mb,
+        (SELECT count(*) FROM contexts) as context_count,
+        (SELECT count(*) FROM vector_embeddings) as vector_count
+"
+
+# Storage Usage
+echo -e "\n## Storage Usage"
+df -h | grep -E '(Filesystem|/mnt/data|/var/lib)'
+
+# Projection
+echo -e "\n## 30-Day Projection"
+echo "Based on current growth rate:"
+echo "- CPU: +15% expected"
+echo "- Memory: +20% expected"
+echo "- Storage: +50GB expected"
+echo "- Database: +10GB expected"
+```
+
+### Scaling Triggers
+
+```yaml
+# kubernetes/hpa/autoscaling.yaml
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: mcp-server-hpa
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: mcp-server
+  minReplicas: 3
+  maxReplicas: 20
+  metrics:
+  - type: Resource
+    resource:
+      name: cpu
+      target:
+        type: Utilization
+        averageUtilization: 70
+  - type: Resource
+    resource:
+      name: memory
+      target:
+        type: Utilization
+        averageUtilization: 80
+  - type: Pods
+    pods:
+      metric:
+        name: http_requests_per_second
+      target:
+        type: AverageValue
+        averageValue: "1000"
+  behavior:
+    scaleDown:
+      stabilizationWindowSeconds: 300
+      policies:
+      - type: Percent
+        value: 10
+        periodSeconds: 60
+    scaleUp:
+      stabilizationWindowSeconds: 60
+      policies:
+      - type: Percent
+        value: 50
+        periodSeconds: 60
+```
+
+### Capacity Planning Spreadsheet
+
+| Component | Current | 3-Month Target | 6-Month Target | Notes |
+|-----------|---------|----------------|----------------|-------|
+| API Pods | 6 | 10 | 15 | Scale based on request rate |
+| Worker Pods | 4 | 6 | 10 | Scale based on queue depth |
+| PostgreSQL | 500GB | 750GB | 1TB | Plan migration to larger instance |
+| Redis Memory | 16GB | 32GB | 32GB | Implement data expiration |
+| S3 Storage | 2TB | 5TB | 10TB | No action needed (elastic) |
+| Network Bandwidth | 1Gbps | 2Gbps | 5Gbps | Upgrade network tier |
+
+## Maintenance Procedures
+
+### Scheduled Maintenance Window
+
+```bash
+#!/bin/bash
+# Maintenance mode script
+
+MAINTENANCE_DURATION=${1:-"30"} # Default 30 minutes
+
+echo "Entering maintenance mode for ${MAINTENANCE_DURATION} minutes"
+
+# 1. Enable maintenance mode
+kubectl apply -f - <<EOF
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: maintenance-mode
+  namespace: mcp-prod
+data:
+  enabled: "true"
+  message: "DevOps MCP is undergoing scheduled maintenance. We'll be back shortly."
+  start_time: "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+  duration: "${MAINTENANCE_DURATION}m"
+EOF
+
+# 2. Drain traffic from nodes being maintained
+kubectl cordon node-1 node-2
+kubectl drain node-1 node-2 --ignore-daemonsets --delete-emptydir-data
+
+# 3. Perform maintenance tasks
+echo "Performing maintenance tasks..."
+
+# Update system packages
+ansible nodes -m apt -a "update_cache=yes upgrade=dist"
+
+# Database maintenance
+psql -h localhost -U mcp_user -d mcp -c "VACUUM ANALYZE;"
+psql -h localhost -U mcp_user -d mcp -c "REINDEX DATABASE mcp;"
+
+# Clear old logs
+find /var/log/mcp -name "*.log" -mtime +30 -delete
+
+# 4. Uncordon nodes
+kubectl uncordon node-1 node-2
+
+# 5. Disable maintenance mode
+kubectl delete configmap maintenance-mode -n mcp-prod
+
+echo "Maintenance completed"
+```
+
+### Zero-Downtime Deployment
+
+```bash
+#!/bin/bash
+# Rolling deployment script
+
+SERVICE=$1
+VERSION=$2
+
+if [ -z "$SERVICE" ] || [ -z "$VERSION" ]; then
+    echo "Usage: ./deploy.sh SERVICE VERSION"
+    exit 1
+fi
+
+echo "Deploying ${SERVICE} version ${VERSION}"
+
+# 1. Update image
+kubectl set image deployment/${SERVICE} ${SERVICE}=devops-mcp/${SERVICE}:${VERSION} -n mcp-prod
+
+# 2. Check rollout status
+kubectl rollout status deployment/${SERVICE} -n mcp-prod
+
+# 3. Verify health
+sleep 10
+HEALTH=$(curl -s http://${SERVICE}.mcp.svc.cluster.local:8080/health | jq -r '.status')
+
+if [ "$HEALTH" != "healthy" ]; then
+    echo "Health check failed, rolling back..."
+    kubectl rollout undo deployment/${SERVICE} -n mcp-prod
+    exit 1
+fi
+
+echo "Deployment successful"
+```
+
+### Certificate Renewal
+
+```bash
+#!/bin/bash
+# TLS certificate renewal
+
+echo "Checking certificate expiration..."
+
+# Check current certificate
+CERT_EXPIRY=$(echo | openssl s_client -servername api.mcp.example.com -connect api.mcp.example.com:443 2>/dev/null | openssl x509 -noout -dates | grep notAfter | cut -d= -f2)
+EXPIRY_EPOCH=$(date -d "${CERT_EXPIRY}" +%s)
+CURRENT_EPOCH=$(date +%s)
+DAYS_LEFT=$(( ($EXPIRY_EPOCH - $CURRENT_EPOCH) / 86400 ))
+
+echo "Certificate expires in ${DAYS_LEFT} days"
+
+if [ $DAYS_LEFT -lt 30 ]; then
+    echo "Renewing certificate..."
+    
+    # Request new certificate
+    certbot certonly --webroot -w /var/www/certbot \
+        -d api.mcp.example.com \
+        -d mcp.example.com \
+        --non-interactive \
+        --agree-tos \
+        --email ops@example.com
+    
+    # Update Kubernetes secret
+    kubectl create secret tls mcp-tls-new \
+        --cert=/etc/letsencrypt/live/api.mcp.example.com/fullchain.pem \
+        --key=/etc/letsencrypt/live/api.mcp.example.com/privkey.pem \
+        -n mcp-prod
+    
+    # Update ingress
+    kubectl patch ingress mcp-ingress -n mcp-prod \
+        -p '{"spec":{"tls":[{"secretName":"mcp-tls-new","hosts":["api.mcp.example.com"]}]}}'
+    
+    # Clean up old secret
+    kubectl delete secret mcp-tls -n mcp-prod
+    kubectl label secret mcp-tls-new name=mcp-tls -n mcp-prod
+fi
+```
+
+## Emergency Procedures
+
+### Service Degradation
+
+```bash
+#!/bin/bash
+# Emergency response for service degradation
+
+ALERT_TYPE=$1
+
+case $ALERT_TYPE in
+    "high_latency")
+        echo "Responding to high latency alert..."
+        # Increase resources
+        kubectl scale deployment mcp-server --replicas=10 -n mcp-prod
+        # Clear cache
+        redis-cli FLUSHALL
+        # Notify team
+        ./notify-oncall.sh "High latency detected, scaled up services"
+        ;;
+        
+    "high_error_rate")
+        echo "Responding to high error rate..."
+        # Enable debug logging
+        kubectl set env deployment/mcp-server LOG_LEVEL=debug -n mcp-prod
+        # Capture error samples
+        kubectl logs deployment/mcp-server -n mcp-prod --tail=1000 > /tmp/error-logs.txt
+        # Roll back if recent deployment
+        if [ $(kubectl rollout history deployment/mcp-server -n mcp-prod | tail -2 | grep -c "CHANGE-CAUSE") -gt 1 ]; then
+            kubectl rollout undo deployment/mcp-server -n mcp-prod
+        fi
+        ;;
+        
+    "database_connection_pool_exhausted")
+        echo "Responding to database connection exhaustion..."
+        # Increase connection pool
+        kubectl set env deployment/mcp-server DB_MAX_CONNECTIONS=200 -n mcp-prod
+        # Kill long-running queries
+        psql -h localhost -U mcp_user -d mcp -c "
+            SELECT pg_terminate_backend(pid) 
+            FROM pg_stat_activity 
+            WHERE datname = 'mcp' 
+            AND pid <> pg_backend_pid() 
+            AND state = 'active' 
+            AND query_start < now() - interval '5 minutes';
+        "
+        ;;
+esac
+```
+
+### Security Incident Response
+
+```bash
+#!/bin/bash
+# Security incident response
+
+INCIDENT_TYPE=$1
+
+echo "Security incident detected: ${INCIDENT_TYPE}"
+echo "Time: $(date)"
+
+# 1. Isolate affected systems
+case $INCIDENT_TYPE in
+    "suspicious_api_activity")
+        # Block suspicious IPs
+        kubectl apply -f - <<EOF
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: emergency-block
+  namespace: mcp-prod
+spec:
+  podSelector: {}
+  policyTypes:
+  - Ingress
+  ingress:
+  - from:
+    - podSelector:
+        matchLabels:
+          app: trusted
+EOF
+        ;;
+        
+    "api_key_compromise")
+        # Revoke all API keys
+        psql -h localhost -U mcp_user -d mcp -c "
+            UPDATE api_keys 
+            SET revoked_at = NOW(), 
+                revoked_reason = 'Security incident - bulk revocation' 
+            WHERE revoked_at IS NULL;
+        "
+        ;;
+esac
+
+# 2. Preserve evidence
+mkdir -p /security/incidents/$(date +%Y%m%d_%H%M%S)
+kubectl logs --all-containers=true --prefix=true -n mcp-prod > /security/incidents/$(date +%Y%m%d_%H%M%S)/all-logs.txt
+
+# 3. Notify security team
+./notify-security.sh "Security incident: ${INCIDENT_TYPE}"
+
+# 4. Enable enhanced monitoring
+kubectl set env deployment/mcp-server SECURITY_MODE=enhanced -n mcp-prod
+```
+
+### Data Corruption Recovery
+
+```bash
+#!/bin/bash
+# Data corruption recovery procedure
+
+echo "Data corruption detected, starting recovery..."
+
+# 1. Stop writes
+kubectl scale deployment mcp-server rest-api --replicas=0 -n mcp-prod
+
+# 2. Identify corruption extent
+psql -h localhost -U mcp_user -d mcp -c "
+    SELECT schemaname, tablename 
+    FROM pg_tables 
+    WHERE schemaname = 'public'
+" | while read schema table; do
+    echo "Checking $table..."
+    pg_dump -h localhost -U mcp_user -d mcp -t $table --data-only > /tmp/check_$table.sql 2>&1
+    if [ $? -ne 0 ]; then
+        echo "Corruption detected in $table"
+    fi
+done
+
+# 3. Restore from backup
+echo "Restoring from last known good backup..."
+./restore.sh $(aws s3 ls s3://mcp-backups-prod/ | grep -E 'PRE' | sort | tail -2 | head -1 | awk '{print $2}' | sed 's/\///')
+
+# 4. Replay recent transactions from WAL
+pg_basebackup -h standby.db.mcp -D /tmp/wal_replay -X stream -P
+
+# 5. Verify data integrity
+psql -h localhost -U mcp_user -d mcp -c "SELECT COUNT(*) FROM contexts;"
+psql -h localhost -U mcp_user -d mcp -c "SELECT COUNT(*) FROM vector_embeddings;"
+
+# 6. Resume services
+kubectl scale deployment mcp-server rest-api --replicas=3 -n mcp-prod
+```
+
+## Health Checks
+
+### Comprehensive Health Check Script
+
+```bash
+#!/bin/bash
+# Comprehensive health check
+
+echo "=== DevOps MCP Health Check ==="
+echo "Timestamp: $(date)"
+
+# Function to check endpoint
+check_endpoint() {
+    local name=$1
+    local url=$2
+    local expected=$3
+    
+    response=$(curl -s -o /dev/null -w "%{http_code}" $url)
+    if [ "$response" == "$expected" ]; then
+        echo "✓ $name: OK"
+        return 0
+    else
+        echo "✗ $name: FAILED (got $response, expected $expected)"
+        return 1
+    fi
+}
+
+# API Health Checks
+echo -e "\n## API Health"
+check_endpoint "MCP Server Health" "http://localhost:8080/health" "200"
+check_endpoint "REST API Health" "http://localhost:8081/health" "200"
+check_endpoint "Worker Health" "http://localhost:8082/health" "200"
+
+# Database Health
+echo -e "\n## Database Health"
+if pg_isready -h localhost -p 5432 > /dev/null 2>&1; then
+    echo "✓ PostgreSQL: OK"
+    
+    # Check replication lag
+    LAG=$(psql -h localhost -U mcp_user -d mcp -t -c "
+        SELECT EXTRACT(EPOCH FROM (now() - pg_last_xact_replay_timestamp()))::INT
+    " 2>/dev/null || echo "N/A")
+    
+    if [ "$LAG" != "N/A" ] && [ "$LAG" -lt 60 ]; then
+        echo "✓ Replication Lag: ${LAG}s"
+    else
+        echo "✗ Replication Lag: ${LAG}s (WARNING)"
+    fi
+else
+    echo "✗ PostgreSQL: FAILED"
+fi
+
+# Redis Health
+echo -e "\n## Redis Health"
+if redis-cli ping > /dev/null 2>&1; then
+    echo "✓ Redis: OK"
+    
+    # Check memory usage
+    USED_MEMORY=$(redis-cli info memory | grep used_memory_human | cut -d: -f2 | tr -d '\r')
+    echo "  Memory Usage: $USED_MEMORY"
+else
+    echo "✗ Redis: FAILED"
+fi
+
+# Service Mesh Health
+echo -e "\n## Service Mesh"
+PODS=$(kubectl get pods -n mcp-prod -o json | jq -r '.items[] | select(.status.phase != "Running") | .metadata.name')
+if [ -z "$PODS" ]; then
+    echo "✓ All pods running"
+else
+    echo "✗ Pods not running:"
+    echo "$PODS"
+fi
+
+# Metrics Health
+echo -e "\n## Metrics"
+ERROR_RATE=$(curl -s "http://localhost:9090/api/v1/query?query=rate(http_requests_total{status=~\"5..\"}[5m])" | jq -r '.data.result[0].value[1]' 2>/dev/null || echo "N/A")
+if [ "$ERROR_RATE" != "N/A" ]; then
+    echo "✓ Error Rate: ${ERROR_RATE}"
+else
+    echo "✗ Error Rate: Unable to fetch"
+fi
+
+# Summary
+echo -e "\n=== Health Check Complete ==="
+```
+
+### Monitoring Dashboard Verification
+
+```bash
+# Verify Grafana dashboards
+curl -s -u admin:admin http://localhost:3000/api/dashboards/uid/mcp-overview | jq '.dashboard.title'
+
+# Verify Prometheus targets
+curl -s http://localhost:9090/api/v1/targets | jq '.data.activeTargets[] | {job: .job, health: .health}'
+
+# Verify Jaeger traces
+curl -s http://localhost:16686/api/services | jq '.data[]'
+```
+
+## Runbook Maintenance
+
+This runbook should be reviewed and updated:
+- **Monthly**: Review and update procedures
+- **After Incidents**: Add new procedures based on lessons learned
+- **Before Major Changes**: Update affected procedures
+- **Quarterly**: Full review with operations team
+
+Last Updated: $(date)
+Version: 1.0.0

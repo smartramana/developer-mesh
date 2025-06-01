@@ -1,8 +1,8 @@
 package api
 
 import (
-	"net/http"
 	"context"
+	"net/http"
 
 	"github.com/S-Corkum/devops-mcp/pkg/models"
 	"github.com/gin-gonic/gin"
@@ -89,8 +89,8 @@ func (api *MCPAPI) updateContext(c *gin.Context) {
 
 	// Parse request body
 	var updateRequest struct {
-		Content []models.ContextItem          `json:"content"`
-		Options *models.ContextUpdateOptions  `json:"options,omitempty"`
+		Content []models.ContextItem         `json:"content"`
+		Options *models.ContextUpdateOptions `json:"options,omitempty"`
 	}
 
 	if err := c.ShouldBindJSON(&updateRequest); err != nil {
@@ -109,7 +109,7 @@ func (api *MCPAPI) updateContext(c *gin.Context) {
 	if updateRequest.Options == nil {
 		updateRequest.Options = &models.ContextUpdateOptions{}
 	}
-	
+
 	// When using MCPAPI, we want to replace content by default
 	updateRequest.Options.ReplaceContent = true
 
@@ -155,13 +155,13 @@ func (api *MCPAPI) deleteContext(c *gin.Context) {
 func (api *MCPAPI) listContexts(c *gin.Context) {
 	agentID := c.Query("agent_id")
 	sessionID := c.Query("session_id")
-	
+
 	contexts, err := api.contextManager.ListContexts(c.Request.Context(), agentID, sessionID, nil)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
-	
+
 	c.JSON(http.StatusOK, gin.H{"contexts": contexts})
 }
 
@@ -172,22 +172,22 @@ func (api *MCPAPI) searchContext(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "context ID is required"})
 		return
 	}
-	
+
 	var request struct {
 		Query string `json:"query" binding:"required"`
 	}
-	
+
 	if err := c.ShouldBindJSON(&request); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
-	
+
 	results, err := api.contextManager.SearchInContext(c.Request.Context(), contextID, request.Query)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
-	
+
 	c.JSON(http.StatusOK, gin.H{"results": results})
 }
 
@@ -198,12 +198,12 @@ func (api *MCPAPI) summarizeContext(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "context ID is required"})
 		return
 	}
-	
+
 	summary, err := api.contextManager.SummarizeContext(c.Request.Context(), contextID)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
-	
+
 	c.JSON(http.StatusOK, gin.H{"summary": summary})
 }

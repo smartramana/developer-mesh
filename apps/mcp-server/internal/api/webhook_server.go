@@ -10,11 +10,11 @@ import (
 // WebhookProvider represents a webhook provider's registration logic
 // Extend this struct for additional providers (e.g., GitLab, Bitbucket)
 type WebhookProvider struct {
-	Name        string
-	Enabled     func() bool
-	Endpoint    func() string
-	Handler     func() http.HandlerFunc
-	Middleware  func() mux.MiddlewareFunc // can be nil
+	Name       string
+	Enabled    func() bool
+	Endpoint   func() string
+	Handler    func() http.HandlerFunc
+	Middleware func() mux.MiddlewareFunc // can be nil
 }
 
 // RegisterWebhookRoutes registers webhook routes for all providers on the given router

@@ -20,21 +20,21 @@ const (
 )
 
 var (
-	ErrCircuitOpen = errors.New("circuit breaker is open")
+	ErrCircuitOpen     = errors.New("circuit breaker is open")
 	ErrTooManyRequests = errors.New("too many concurrent requests")
 )
 
 // CircuitBreaker provides fault tolerance for database operations
 type CircuitBreaker struct {
 	config *config.CircuitBreakerConfig
-	
+
 	state        State
 	failures     int
 	successes    int
 	lastFailTime time.Time
-	
+
 	concurrentRequests int
-	
+
 	mu      sync.RWMutex
 	logger  observability.Logger
 	metrics observability.MetricsClient
@@ -97,7 +97,7 @@ func (cb *CircuitBreaker) ExecuteWithFallback(
 	if err == ErrCircuitOpen || err == ErrTooManyRequests {
 		cb.logger.Warn("Circuit breaker triggered, using fallback", map[string]interface{}{
 			"operation": operation,
-			"error": err,
+			"error":     err,
 		})
 		return fallback()
 	}
@@ -115,7 +115,7 @@ func (cb *CircuitBreaker) GetState() State {
 func (cb *CircuitBreaker) Reset() {
 	cb.mu.Lock()
 	defer cb.mu.Unlock()
-	
+
 	cb.state = StateClosed
 	cb.failures = 0
 	cb.successes = 0
@@ -136,7 +136,7 @@ func (cb *CircuitBreaker) canExecute() error {
 	switch cb.state {
 	case StateClosed:
 		return nil
-	
+
 	case StateOpen:
 		// Check if timeout has passed
 		if time.Since(cb.lastFailTime) > cb.config.Timeout {
@@ -146,10 +146,10 @@ func (cb *CircuitBreaker) canExecute() error {
 			return nil
 		}
 		return ErrCircuitOpen
-	
+
 	case StateHalfOpen:
 		return nil
-	
+
 	default:
 		return ErrCircuitOpen
 	}
@@ -165,7 +165,7 @@ func (cb *CircuitBreaker) recordResult(err error) {
 			cb.failures++
 			if cb.failures >= cb.config.FailureThreshold {
 				cb.logger.Error("Circuit breaker opening due to failures", map[string]interface{}{
-					"failures": cb.failures,
+					"failures":  cb.failures,
 					"threshold": cb.config.FailureThreshold,
 				})
 				cb.state = StateOpen

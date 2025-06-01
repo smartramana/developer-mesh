@@ -39,14 +39,14 @@ func (p *ContextAPIProxy) Create(ctx context.Context, contextObj *repository.Con
 	// Handle the metadata storage pattern for properties that don't exist in models.Context
 	metadata := make(map[string]interface{})
 	metadata["status"] = contextObj.Status
-	
+
 	// Copy properties to metadata
 	if contextObj.Properties != nil {
 		for k, v := range contextObj.Properties {
 			metadata[k] = v
 		}
 	}
-	
+
 	mcpContext := &models.Context{
 		ID:        contextObj.ID,
 		Name:      contextObj.Name,
@@ -85,13 +85,13 @@ func (p *ContextAPIProxy) Get(ctx context.Context, id string) (*repository.Conte
 	// Extract status and other properties from metadata
 	status := ""
 	properties := make(map[string]interface{})
-	
+
 	if result.Metadata != nil {
 		// Extract status if present
 		if statusVal, ok := result.Metadata["status"].(string); ok {
 			status = statusVal
 		}
-		
+
 		// Copy remaining metadata to properties
 		for k, v := range result.Metadata {
 			if k != "status" { // Avoid duplicate status
@@ -99,7 +99,7 @@ func (p *ContextAPIProxy) Get(ctx context.Context, id string) (*repository.Conte
 			}
 		}
 	}
-	
+
 	return &repository.Context{
 		ID:         result.ID,
 		Name:       result.Name,
@@ -122,14 +122,14 @@ func (p *ContextAPIProxy) Update(ctx context.Context, contextObj *repository.Con
 	// Handle the metadata storage pattern for properties that don't exist in models.Context
 	metadata := make(map[string]interface{})
 	metadata["status"] = contextObj.Status
-	
+
 	// Copy properties to metadata
 	if contextObj.Properties != nil {
 		for k, v := range contextObj.Properties {
 			metadata[k] = v
 		}
 	}
-	
+
 	mcpContext := &models.Context{
 		ID:        contextObj.ID,
 		Name:      contextObj.Name,
@@ -196,13 +196,13 @@ func (p *ContextAPIProxy) List(ctx context.Context, filter map[string]interface{
 		// Extract status and other properties from metadata
 		status := ""
 		properties := make(map[string]interface{})
-		
+
 		if result.Metadata != nil {
 			// Extract status if present
 			if statusVal, ok := result.Metadata["status"].(string); ok {
 				status = statusVal
 			}
-			
+
 			// Copy remaining metadata to properties
 			for k, v := range result.Metadata {
 				if k != "status" { // Avoid duplicate status
@@ -210,7 +210,7 @@ func (p *ContextAPIProxy) List(ctx context.Context, filter map[string]interface{
 				}
 			}
 		}
-		
+
 		contexts[i] = &repository.Context{
 			ID:         result.ID,
 			Name:       result.Name,
@@ -242,20 +242,20 @@ func (p *ContextAPIProxy) Search(ctx context.Context, contextID, query string) (
 	items := make([]repository.ContextItem, len(results))
 	for i, result := range results {
 		// Create a default type and score
-		itemType := "content" 
+		itemType := "content"
 		var score float64 = 0.0
-		
+
 		// Extract type and score from metadata if available
 		if result.Metadata != nil {
 			if typeVal, ok := result.Metadata["type"].(string); ok {
 				itemType = typeVal
 			}
-			
+
 			if scoreVal, ok := result.Metadata["score"].(float64); ok {
 				score = scoreVal
 			}
 		}
-		
+
 		items[i] = repository.ContextItem{
 			ID:        result.ID,
 			ContextID: contextID, // Use the provided contextID

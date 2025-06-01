@@ -11,11 +11,11 @@ import (
 	"time"
 
 	"github.com/S-Corkum/devops-mcp/pkg/common/cache"
-	"github.com/S-Corkum/devops-mcp/pkg/database"
 	"github.com/S-Corkum/devops-mcp/pkg/common/events/system"
+	"github.com/S-Corkum/devops-mcp/pkg/database"
+	"github.com/S-Corkum/devops-mcp/pkg/models"
 	"github.com/S-Corkum/devops-mcp/pkg/observability"
 	"github.com/S-Corkum/devops-mcp/pkg/storage/providers"
-	"github.com/S-Corkum/devops-mcp/pkg/models"
 	"github.com/google/uuid"
 	"github.com/jmoiron/sqlx"
 )
@@ -1040,19 +1040,19 @@ func (m *Manager) updateContextInDB(ctx context.Context, tx *sqlx.Tx, contextDat
 	if err != nil {
 		m.logger.Error("updateContextInDB: failed SQL update", map[string]interface{}{
 			"error": err.Error(),
-			"sql": "UPDATE mcp.contexts SET name = $1, description = $2, agent_id = $3, model_id = $4, session_id = $5, current_tokens = $6, max_tokens = $7, metadata = $8, updated_at = $9, expires_at = $10 WHERE id = $11",
+			"sql":   "UPDATE mcp.contexts SET name = $1, description = $2, agent_id = $3, model_id = $4, session_id = $5, current_tokens = $6, max_tokens = $7, metadata = $8, updated_at = $9, expires_at = $10 WHERE id = $11",
 			"params": map[string]interface{}{
-				"name": contextData.Name,
-				"description": contextData.Description,
-				"agent_id": contextData.AgentID,
-				"model_id": contextData.ModelID,
-				"session_id": contextData.SessionID,
+				"name":           contextData.Name,
+				"description":    contextData.Description,
+				"agent_id":       contextData.AgentID,
+				"model_id":       contextData.ModelID,
+				"session_id":     contextData.SessionID,
 				"current_tokens": contextData.CurrentTokens,
-				"max_tokens": contextData.MaxTokens,
-				"metadata": string(metadataJSON),
-				"updated_at": contextData.UpdatedAt,
-				"expires_at": contextData.ExpiresAt,
-				"id": contextData.ID,
+				"max_tokens":     contextData.MaxTokens,
+				"metadata":       string(metadataJSON),
+				"updated_at":     contextData.UpdatedAt,
+				"expires_at":     contextData.ExpiresAt,
+				"id":             contextData.ID,
 			},
 		})
 		return fmt.Errorf("failed to update context: %w", err)
@@ -1103,7 +1103,7 @@ func (m *Manager) updateContextInDB(ctx context.Context, tx *sqlx.Tx, contextDat
 				item.Metadata = nil
 			}
 		}
-		
+
 		if item.Metadata != nil {
 			itemMetadataJSON, err = json.Marshal(item.Metadata)
 			if err != nil {

@@ -22,7 +22,6 @@ func NewGitHubAdapter(config Config) (*GitHubAdapter, error) {
 	}, nil
 }
 
-
 // Note: The following methods are implemented in adapter.go:
 // - Type() string
 // - Version() string

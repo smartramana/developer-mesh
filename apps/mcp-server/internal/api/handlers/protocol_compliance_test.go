@@ -139,10 +139,10 @@ const (
 // TestProtocolCompliance tests MCP protocol message format compliance
 func TestProtocolCompliance(t *testing.T) {
 	gin.SetMode(gin.TestMode)
-	
+
 	handler := setupTestHandler(t)
 	router := setupTestRouter(handler)
-	
+
 	t.Run("Request Message Format", func(t *testing.T) {
 		// Valid MCP request
 		request := map[string]interface{}{
@@ -157,28 +157,28 @@ func TestProtocolCompliance(t *testing.T) {
 				},
 			},
 		}
-		
+
 		body, _ := json.Marshal(request)
 		req := httptest.NewRequest("POST", "/mcp/v1/rpc", bytes.NewReader(body))
 		req.Header.Set("Content-Type", "application/json")
 		req.Header.Set("X-MCP-Version", "1.0")
-		
+
 		w := httptest.NewRecorder()
 		router.ServeHTTP(w, req)
-		
+
 		assert.Equal(t, http.StatusOK, w.Code)
-		
+
 		var response map[string]interface{}
 		err := json.Unmarshal(w.Body.Bytes(), &response)
 		require.NoError(t, err)
-		
+
 		// Validate response format
 		assert.Equal(t, "2.0", response["jsonrpc"])
 		assert.Equal(t, "test-123", response["id"])
 		assert.Contains(t, response, "result")
 		assert.NotContains(t, response, "error")
 	})
-	
+
 	t.Run("Batch Request Support", func(t *testing.T) {
 		// Batch of MCP requests
 		requests := []map[string]interface{}{
@@ -199,26 +199,26 @@ func TestProtocolCompliance(t *testing.T) {
 				},
 			},
 		}
-		
+
 		body, _ := json.Marshal(requests)
 		req := httptest.NewRequest("POST", "/mcp/v1/rpc", bytes.NewReader(body))
 		req.Header.Set("Content-Type", "application/json")
 		req.Header.Set("X-MCP-Version", "1.0")
-		
+
 		w := httptest.NewRecorder()
 		router.ServeHTTP(w, req)
-		
+
 		assert.Equal(t, http.StatusOK, w.Code)
-		
+
 		var responses []map[string]interface{}
 		err := json.Unmarshal(w.Body.Bytes(), &responses)
 		require.NoError(t, err)
-		
+
 		assert.Len(t, responses, 2)
 		assert.Equal(t, "batch-1", responses[0]["id"])
 		assert.Equal(t, "batch-2", responses[1]["id"])
 	})
-	
+
 	t.Run("Error Response Format", func(t *testing.T) {
 		// Invalid method
 		request := map[string]interface{}{
@@ -227,33 +227,33 @@ func TestProtocolCompliance(t *testing.T) {
 			"method":  "invalid.method",
 			"params":  map[string]interface{}{},
 		}
-		
+
 		body, _ := json.Marshal(request)
 		req := httptest.NewRequest("POST", "/mcp/v1/rpc", bytes.NewReader(body))
 		req.Header.Set("Content-Type", "application/json")
 		req.Header.Set("X-MCP-Version", "1.0")
-		
+
 		w := httptest.NewRecorder()
 		router.ServeHTTP(w, req)
-		
+
 		assert.Equal(t, http.StatusOK, w.Code) // JSON-RPC returns 200 with error in body
-		
+
 		var response map[string]interface{}
 		err := json.Unmarshal(w.Body.Bytes(), &response)
 		require.NoError(t, err)
-		
+
 		assert.Equal(t, "2.0", response["jsonrpc"])
 		assert.Equal(t, "error-test", response["id"])
 		assert.NotContains(t, response, "result")
 		assert.Contains(t, response, "error")
-		
+
 		// Validate error structure
 		errorObj := response["error"].(map[string]interface{})
 		assert.Contains(t, errorObj, "code")
 		assert.Contains(t, errorObj, "message")
 		assert.Equal(t, float64(-32601), errorObj["code"]) // Method not found
 	})
-	
+
 	t.Run("Notification Support", func(t *testing.T) {
 		// Notification (no id field)
 		notification := map[string]interface{}{
@@ -264,15 +264,15 @@ func TestProtocolCompliance(t *testing.T) {
 				"message": "Test notification",
 			},
 		}
-		
+
 		body, _ := json.Marshal(notification)
 		req := httptest.NewRequest("POST", "/mcp/v1/rpc", bytes.NewReader(body))
 		req.Header.Set("Content-Type", "application/json")
 		req.Header.Set("X-MCP-Version", "1.0")
-		
+
 		w := httptest.NewRecorder()
 		router.ServeHTTP(w, req)
-		
+
 		// Notifications should not return a response
 		assert.Equal(t, http.StatusNoContent, w.Code)
 		assert.Empty(t, w.Body.String())
@@ -282,10 +282,10 @@ func TestProtocolCompliance(t *testing.T) {
 // TestMessageFormats tests various MCP message format validations
 func TestMessageFormats(t *testing.T) {
 	gin.SetMode(gin.TestMode)
-	
+
 	handler := setupTestHandler(t)
 	router := setupTestRouter(handler)
-	
+
 	testCases := []struct {
 		name           string
 		request        interface{}
@@ -344,26 +344,26 @@ func TestMessageFormats(t *testing.T) {
 			expectedStatus: http.StatusOK,
 		},
 	}
-	
+
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			body, _ := json.Marshal(tc.request)
 			req := httptest.NewRequest("POST", "/mcp/v1/rpc", bytes.NewReader(body))
 			req.Header.Set("Content-Type", "application/json")
 			req.Header.Set("X-MCP-Version", "1.0")
-			
+
 			w := httptest.NewRecorder()
 			router.ServeHTTP(w, req)
-			
+
 			if tc.expectedStatus == http.StatusBadRequest {
 				assert.Equal(t, http.StatusBadRequest, w.Code)
 			} else {
 				assert.Equal(t, http.StatusOK, w.Code)
-				
+
 				var response map[string]interface{}
 				err := json.Unmarshal(w.Body.Bytes(), &response)
 				require.NoError(t, err)
-				
+
 				if tc.expectedError != "" {
 					assert.Contains(t, response, "error")
 					errorObj := response["error"].(map[string]interface{})
@@ -377,69 +377,69 @@ func TestMessageFormats(t *testing.T) {
 // TestVersionCompatibility tests protocol version negotiation
 func TestVersionCompatibility(t *testing.T) {
 	gin.SetMode(gin.TestMode)
-	
+
 	handler := setupTestHandler(t)
 	router := setupTestRouter(handler)
-	
+
 	t.Run("Supported Version", func(t *testing.T) {
 		request := map[string]interface{}{
 			"jsonrpc": "2.0",
 			"id":      "version-test",
 			"method":  "system.version",
 		}
-		
+
 		body, _ := json.Marshal(request)
 		req := httptest.NewRequest("POST", "/mcp/v1/rpc", bytes.NewReader(body))
 		req.Header.Set("Content-Type", "application/json")
 		req.Header.Set("X-MCP-Version", "1.0")
-		
+
 		w := httptest.NewRecorder()
 		router.ServeHTTP(w, req)
-		
+
 		assert.Equal(t, http.StatusOK, w.Code)
 		assert.Contains(t, w.Header().Get("X-MCP-Version"), "1.0")
 	})
-	
+
 	t.Run("Unsupported Version", func(t *testing.T) {
 		request := map[string]interface{}{
 			"jsonrpc": "2.0",
 			"id":      "version-test",
 			"method":  "system.version",
 		}
-		
+
 		body, _ := json.Marshal(request)
 		req := httptest.NewRequest("POST", "/mcp/v1/rpc", bytes.NewReader(body))
 		req.Header.Set("Content-Type", "application/json")
 		req.Header.Set("X-MCP-Version", "99.0") // Unsupported version
-		
+
 		w := httptest.NewRecorder()
 		router.ServeHTTP(w, req)
-		
+
 		// Should still work but indicate supported version
 		assert.Equal(t, http.StatusOK, w.Code)
 		assert.Equal(t, "1.0", w.Header().Get("X-MCP-Version"))
 	})
-	
+
 	t.Run("Version Negotiation", func(t *testing.T) {
 		request := map[string]interface{}{
 			"jsonrpc": "2.0",
 			"id":      "negotiate",
 			"method":  "system.capabilities",
 		}
-		
+
 		body, _ := json.Marshal(request)
 		req := httptest.NewRequest("POST", "/mcp/v1/rpc", bytes.NewReader(body))
 		req.Header.Set("Content-Type", "application/json")
 		req.Header.Set("Accept-MCP-Version", "1.0, 2.0, 3.0")
-		
+
 		w := httptest.NewRecorder()
 		router.ServeHTTP(w, req)
-		
+
 		assert.Equal(t, http.StatusOK, w.Code)
-		
+
 		var response map[string]interface{}
 		json.Unmarshal(w.Body.Bytes(), &response)
-		
+
 		if result, ok := response["result"].(map[string]interface{}); ok {
 			assert.Contains(t, result, "version")
 			assert.Contains(t, result, "capabilities")
@@ -450,10 +450,10 @@ func TestVersionCompatibility(t *testing.T) {
 // TestStreamingResponses tests streaming response support
 func TestStreamingResponses(t *testing.T) {
 	gin.SetMode(gin.TestMode)
-	
+
 	handler := setupTestHandler(t)
 	router := setupTestRouter(handler)
-	
+
 	t.Run("Streaming Context Updates", func(t *testing.T) {
 		request := map[string]interface{}{
 			"jsonrpc": "2.0",
@@ -464,18 +464,18 @@ func TestStreamingResponses(t *testing.T) {
 				"stream":     true,
 			},
 		}
-		
+
 		body, _ := json.Marshal(request)
 		req := httptest.NewRequest("POST", "/mcp/v1/rpc", bytes.NewReader(body))
 		req.Header.Set("Content-Type", "application/json")
 		req.Header.Set("X-MCP-Version", "1.0")
 		req.Header.Set("Accept", "text/event-stream")
-		
+
 		w := httptest.NewRecorder()
-		
+
 		// Serve the HTTP request directly (no need for goroutine for this test)
 		router.ServeHTTP(w, req)
-		
+
 		// Check headers for SSE
 		assert.Contains(t, w.Header().Get("Content-Type"), "text/event-stream")
 		assert.Equal(t, "no-cache", w.Header().Get("Cache-Control"))
@@ -485,10 +485,10 @@ func TestStreamingResponses(t *testing.T) {
 // TestContextManagementProtocol tests context-specific protocol features
 func TestContextManagementProtocol(t *testing.T) {
 	gin.SetMode(gin.TestMode)
-	
+
 	handler := setupTestHandler(t)
 	router := setupTestRouter(handler)
-	
+
 	t.Run("Context Token Tracking", func(t *testing.T) {
 		// Create context
 		createReq := map[string]interface{}{
@@ -501,18 +501,18 @@ func TestContextManagementProtocol(t *testing.T) {
 				"max_tokens": 4000,
 			},
 		}
-		
+
 		body, _ := json.Marshal(createReq)
 		req := httptest.NewRequest("POST", "/mcp/v1/rpc", bytes.NewReader(body))
 		req.Header.Set("Content-Type", "application/json")
 		req.Header.Set("X-MCP-Version", "1.0")
-		
+
 		w := httptest.NewRecorder()
 		router.ServeHTTP(w, req)
-		
+
 		var createResp map[string]interface{}
 		json.Unmarshal(w.Body.Bytes(), &createResp)
-		
+
 		if result, ok := createResp["result"].(map[string]interface{}); ok {
 			assert.Contains(t, result, "id")
 			assert.Contains(t, result, "current_tokens")
@@ -521,7 +521,7 @@ func TestContextManagementProtocol(t *testing.T) {
 			assert.Equal(t, float64(4000), result["max_tokens"])
 		}
 	})
-	
+
 	t.Run("Context Truncation Signal", func(t *testing.T) {
 		// Update context to near token limit
 		updateReq := map[string]interface{}{
@@ -538,24 +538,24 @@ func TestContextManagementProtocol(t *testing.T) {
 				},
 			},
 		}
-		
+
 		body, _ := json.Marshal(updateReq)
 		req := httptest.NewRequest("POST", "/mcp/v1/rpc", bytes.NewReader(body))
 		req.Header.Set("Content-Type", "application/json")
 		req.Header.Set("X-MCP-Version", "1.0")
-		
+
 		w := httptest.NewRecorder()
 		router.ServeHTTP(w, req)
-		
+
 		var updateResp map[string]interface{}
 		json.Unmarshal(w.Body.Bytes(), &updateResp)
-		
+
 		if result, ok := updateResp["result"].(map[string]interface{}); ok {
 			// Should include truncation warning
 			assert.Contains(t, result, "warnings")
 			warnings := result["warnings"].([]interface{})
 			assert.Greater(t, len(warnings), 0)
-			
+
 			warning := warnings[0].(map[string]interface{})
 			assert.Equal(t, "approaching_token_limit", warning["type"])
 		}
@@ -565,10 +565,10 @@ func TestContextManagementProtocol(t *testing.T) {
 // TestEventProtocol tests event handling in MCP
 func TestEventProtocol(t *testing.T) {
 	gin.SetMode(gin.TestMode)
-	
+
 	handler := setupTestHandler(t)
 	router := setupTestRouter(handler)
-	
+
 	t.Run("Event Subscription", func(t *testing.T) {
 		request := map[string]interface{}{
 			"jsonrpc": "2.0",
@@ -582,26 +582,26 @@ func TestEventProtocol(t *testing.T) {
 				},
 			},
 		}
-		
+
 		body, _ := json.Marshal(request)
 		req := httptest.NewRequest("POST", "/mcp/v1/rpc", bytes.NewReader(body))
 		req.Header.Set("Content-Type", "application/json")
 		req.Header.Set("X-MCP-Version", "1.0")
-		
+
 		w := httptest.NewRecorder()
 		router.ServeHTTP(w, req)
-		
+
 		assert.Equal(t, http.StatusOK, w.Code)
-		
+
 		var response map[string]interface{}
 		json.Unmarshal(w.Body.Bytes(), &response)
-		
+
 		if result, ok := response["result"].(map[string]interface{}); ok {
 			assert.Contains(t, result, "subscription_id")
 			assert.Contains(t, result, "events")
 		}
 	})
-	
+
 	t.Run("Event Delivery", func(t *testing.T) {
 		// Simulate event notification
 		event := map[string]interface{}{
@@ -619,15 +619,15 @@ func TestEventProtocol(t *testing.T) {
 				},
 			},
 		}
-		
+
 		body, _ := json.Marshal(event)
 		req := httptest.NewRequest("POST", "/mcp/v1/rpc", bytes.NewReader(body))
 		req.Header.Set("Content-Type", "application/json")
 		req.Header.Set("X-MCP-Version", "1.0")
-		
+
 		w := httptest.NewRecorder()
 		router.ServeHTTP(w, req)
-		
+
 		// Event notifications don't return response
 		assert.Equal(t, http.StatusNoContent, w.Code)
 	})
@@ -639,30 +639,30 @@ func setupTestHandler(t *testing.T) *MCPAPI {
 	// Create mock dependencies and handler
 	mockContextManager := &MockContextManager{}
 	mockLogger := &MockLogger{}
-	
+
 	// Setup logger expectations
 	mockLogger.On("Info", mock.Anything, mock.Anything).Return()
 	mockLogger.On("Error", mock.Anything, mock.Anything).Return()
 	mockLogger.On("Debug", mock.Anything, mock.Anything).Return()
 	mockLogger.On("Warn", mock.Anything, mock.Anything).Return()
-	
+
 	handler := NewMCPAPI(mockContextManager, mockLogger)
-	
+
 	return handler
 }
 
 func setupTestRouter(handler *MCPAPI) *gin.Engine {
 	router := gin.New()
 	router.Use(gin.Recovery())
-	
+
 	// MCP routes
 	v1 := router.Group("/v1")
 	handler.RegisterRoutes(v1)
-	
+
 	// Add RPC endpoint handler for JSON-RPC
 	router.POST("/mcp/v1/rpc", handleJSONRPC(handler))
 	router.GET("/mcp/v1/stream", handleStream(handler))
-	
+
 	return router
 }
 
@@ -671,58 +671,58 @@ func handleJSONRPC(handler *MCPAPI) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		// Set MCP version header
 		c.Header("X-MCP-Version", "1.0")
-		
+
 		// Check if client wants streaming response
 		if c.GetHeader("Accept") == "text/event-stream" {
 			c.Header("Content-Type", "text/event-stream")
 			c.Header("Cache-Control", "no-cache")
 			c.Header("Connection", "keep-alive")
-			
+
 			// For testing purposes, just return success
 			c.Status(http.StatusOK)
 			return
 		}
-		
+
 		// Read raw body to handle both single and batch requests
 		body, err := c.GetRawData()
 		if err != nil {
 			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request body"})
 			return
 		}
-		
+
 		// First try to parse as array (batch request)
 		var batchRequest []map[string]any
 		if err := json.Unmarshal(body, &batchRequest); err == nil {
 			// It's a batch request
 			var responses []map[string]any
-			
+
 			for _, request := range batchRequest {
 				response, _ := processJSONRPCRequest(request, handler)
 				if response != nil {
 					responses = append(responses, response)
 				}
 			}
-			
+
 			// For batch requests with invalid items, still return 200 with error responses
 			c.JSON(http.StatusOK, responses)
 			return
 		}
-		
+
 		// Try as single request
 		var request map[string]any
 		if err := json.Unmarshal(body, &request); err != nil {
 			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid JSON"})
 			return
 		}
-		
+
 		response, isValid := processJSONRPCRequest(request, handler)
-		
+
 		// Return 400 for invalid single requests
 		if !isValid {
 			c.JSON(http.StatusBadRequest, response)
 			return
 		}
-		
+
 		if response != nil {
 			c.JSON(http.StatusOK, response)
 		} else {
@@ -751,7 +751,7 @@ func processJSONRPCRequest(request map[string]any, handler *MCPAPI) (map[string]
 		}
 		return nil, false
 	}
-	
+
 	// Handle based on method
 	method, ok := request["method"].(string)
 	if !ok {
@@ -768,7 +768,7 @@ func processJSONRPCRequest(request map[string]any, handler *MCPAPI) (map[string]
 		}
 		return nil, false
 	}
-	
+
 	// Validate params if present
 	if params, hasParams := request["params"]; hasParams {
 		switch params.(type) {
@@ -789,10 +789,10 @@ func processJSONRPCRequest(request map[string]any, handler *MCPAPI) (map[string]
 			return nil, false
 		}
 	}
-	
+
 	// Check if it's a notification (no id)
 	id, hasID := request["id"]
-	
+
 	// Route to appropriate handler based on method
 	switch method {
 	case "context.create":
@@ -825,10 +825,10 @@ func processJSONRPCRequest(request map[string]any, handler *MCPAPI) (map[string]
 		// Extract params
 		params, _ := request["params"].(map[string]any)
 		contextID, _ := params["context_id"].(string)
-		
+
 		// Calculate approximate tokens (very rough estimate)
 		currentTokens := float64(0)
-		
+
 		// Handle content - it might come as []any, not []map[string]any
 		if contentRaw, ok := params["content"]; ok {
 			if contentArray, ok := contentRaw.([]any); ok {
@@ -841,13 +841,13 @@ func processJSONRPCRequest(request map[string]any, handler *MCPAPI) (map[string]
 				}
 			}
 		}
-		
+
 		result := map[string]any{
 			"id":             contextID,
 			"current_tokens": currentTokens,
 			"max_tokens":     float64(4000),
 		}
-		
+
 		// Add warning if near token limit
 		if currentTokens > 3800 {
 			result["warnings"] = []any{
@@ -857,7 +857,7 @@ func processJSONRPCRequest(request map[string]any, handler *MCPAPI) (map[string]
 				},
 			}
 		}
-		
+
 		return map[string]any{
 			"jsonrpc": "2.0",
 			"id":      id,
@@ -954,7 +954,7 @@ func handleStream(handler *MCPAPI) gin.HandlerFunc {
 		c.Header("Content-Type", "text/event-stream")
 		c.Header("Cache-Control", "no-cache")
 		c.Header("Connection", "keep-alive")
-		
+
 		// For testing, just set headers and return
 		c.Status(http.StatusOK)
 	}

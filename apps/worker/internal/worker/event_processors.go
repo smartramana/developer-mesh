@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/S-Corkum/devops-mcp/pkg/queue"
 	"github.com/S-Corkum/devops-mcp/pkg/observability"
+	"github.com/S-Corkum/devops-mcp/pkg/queue"
 )
 
 // BaseProcessor provides common functionality for all event processors
@@ -79,7 +79,7 @@ func (p *PushProcessor) Process(ctx context.Context, event queue.SQSEvent, paylo
 	// - Trigger CI/CD pipelines
 	// - Update metrics/alerting systems
 	// - Process dependencies
-	
+
 	return nil
 }
 
@@ -109,7 +109,7 @@ func (p *PullRequestProcessor) Process(ctx context.Context, event queue.SQSEvent
 
 	prState := getMapStringValue(pr, "state")
 	prTitle := getMapStringValue(pr, "title")
-	
+
 	p.Logger.Info("Processing pull request event", map[string]interface{}{
 		"delivery_id": event.DeliveryID,
 		"repo":        event.RepoName,
@@ -172,12 +172,12 @@ func (p *PullRequestProcessor) handlePullRequestOpened(event queue.SQSEvent, pr 
 func (p *PullRequestProcessor) handlePullRequestMerged(event queue.SQSEvent, pr map[string]interface{}) {
 	prNumber, _ := pr["number"].(float64)
 	p.Logger.Info("Pull request merged", map[string]interface{}{
-		"repo":       event.RepoName,
-		"pr_number":  prNumber,
-		"merged_by":  getMapStringValue(getNestedMap(pr, "merged_by"), "login"),
-		"merged_at":  getMapStringValue(pr, "merged_at"),
-		"base":       getMapStringValue(getNestedMap(pr, "base"), "ref"),
-		"head":       getMapStringValue(getNestedMap(pr, "head"), "ref"),
+		"repo":      event.RepoName,
+		"pr_number": prNumber,
+		"merged_by": getMapStringValue(getNestedMap(pr, "merged_by"), "login"),
+		"merged_at": getMapStringValue(pr, "merged_at"),
+		"base":      getMapStringValue(getNestedMap(pr, "base"), "ref"),
+		"head":      getMapStringValue(getNestedMap(pr, "head"), "ref"),
 	})
 }
 
@@ -211,7 +211,7 @@ func (p *PullRequestProcessor) handlePullRequestLabels(event queue.SQSEvent, pr 
 	var labelInfo map[string]interface{}
 	// Note: In a real implementation, we would need the full payload
 	// For now, just log what we have from the PR object
-	
+
 	p.Logger.Info("Pull request label changed", map[string]interface{}{
 		"repo":       event.RepoName,
 		"pr_number":  prNumber,
@@ -225,7 +225,7 @@ func (p *PullRequestProcessor) handlePullRequestAssignment(event queue.SQSEvent,
 	var assigneeInfo map[string]interface{}
 	// Note: In a real implementation, we would need the full payload
 	// For now, just use data from the PR object
-	
+
 	p.Logger.Info("Pull request assignment changed", map[string]interface{}{
 		"repo":      event.RepoName,
 		"pr_number": prNumber,
@@ -239,7 +239,7 @@ func (p *PullRequestProcessor) handlePullRequestReviewRequest(event queue.SQSEve
 	var reviewerInfo map[string]interface{}
 	// Note: In a real implementation, we would need the full payload
 	// For now, just use data from the PR object
-	
+
 	p.Logger.Info("Pull request review request changed", map[string]interface{}{
 		"repo":      event.RepoName,
 		"pr_number": prNumber,
@@ -274,7 +274,7 @@ func (p *IssuesProcessor) Process(ctx context.Context, event queue.SQSEvent, pay
 
 	issueTitle := getMapStringValue(issue, "title")
 	issueState := getMapStringValue(issue, "state")
-	
+
 	p.Logger.Info("Processing issue event", map[string]interface{}{
 		"delivery_id":  event.DeliveryID,
 		"repo":         event.RepoName,
@@ -341,23 +341,23 @@ func (p *IssueCommentProcessor) Process(ctx context.Context, event queue.SQSEven
 	if !ok {
 		return fmt.Errorf("invalid issue comment event: missing or invalid comment ID")
 	}
-	
+
 	isPullRequest := issue["pull_request"] != nil
-	
+
 	p.Logger.Info("Processing issue comment event", map[string]interface{}{
-		"delivery_id":    event.DeliveryID,
-		"repo":           event.RepoName,
-		"action":         action,
-		"issue_number":   issueNumber,
-		"comment_id":     commentID,
+		"delivery_id":     event.DeliveryID,
+		"repo":            event.RepoName,
+		"action":          action,
+		"issue_number":    issueNumber,
+		"comment_id":      commentID,
 		"is_pull_request": isPullRequest,
-		"user":           getMapStringValue(getNestedMap(comment, "user"), "login"),
+		"user":            getMapStringValue(getNestedMap(comment, "user"), "login"),
 	})
 
 	// Record metrics
 	p.Metrics.IncrementCounterWithLabels("github_issue_comment_events_processed", 1, map[string]string{
-		"repo":           event.RepoName,
-		"action":         action,
+		"repo":            event.RepoName,
+		"action":          action,
 		"is_pull_request": fmt.Sprintf("%t", isPullRequest),
 	})
 
@@ -404,7 +404,7 @@ func (p *RepositoryProcessor) Process(ctx context.Context, event queue.SQSEvent,
 
 	repoName := getMapStringValue(repository, "full_name")
 	repoID, _ := repository["id"].(float64)
-	
+
 	p.Logger.Info("Processing repository event", map[string]interface{}{
 		"delivery_id": event.DeliveryID,
 		"repo":        repoName,
@@ -458,14 +458,14 @@ func (p *ReleaseProcessor) Process(ctx context.Context, event queue.SQSEvent, pa
 	releaseName := getMapStringValue(release, "name")
 	isDraft, _ := release["draft"].(bool)
 	isPrerelease, _ := release["prerelease"].(bool)
-	
+
 	p.Logger.Info("Processing release event", map[string]interface{}{
-		"delivery_id":  event.DeliveryID,
-		"repo":         event.RepoName,
-		"action":       action,
-		"tag_name":     tagName,
-		"release_name": releaseName,
-		"is_draft":     isDraft,
+		"delivery_id":   event.DeliveryID,
+		"repo":          event.RepoName,
+		"action":        action,
+		"tag_name":      tagName,
+		"release_name":  releaseName,
+		"is_draft":      isDraft,
 		"is_prerelease": isPrerelease,
 	})
 
@@ -483,8 +483,8 @@ func (p *ReleaseProcessor) Process(ctx context.Context, event queue.SQSEvent, pa
 		if !isDraft && !isPrerelease {
 			// Handle formal release
 			p.Logger.Info("Processing formal release", map[string]interface{}{
-				"repo":      event.RepoName,
-				"tag_name":  tagName,
+				"repo":         event.RepoName,
+				"tag_name":     tagName,
 				"published_at": getMapStringValue(release, "published_at"),
 			})
 		}
@@ -524,7 +524,7 @@ func (p *WorkflowRunProcessor) Process(ctx context.Context, event queue.SQSEvent
 	workflowID, _ := workflowRun["id"].(float64)
 	status := getMapStringValue(workflowRun, "status")
 	conclusion := getMapStringValue(workflowRun, "conclusion")
-	
+
 	p.Logger.Info("Processing workflow run event", map[string]interface{}{
 		"delivery_id":   event.DeliveryID,
 		"repo":          event.RepoName,
@@ -537,9 +537,9 @@ func (p *WorkflowRunProcessor) Process(ctx context.Context, event queue.SQSEvent
 
 	// Record metrics
 	p.Metrics.IncrementCounterWithLabels("github_workflow_run_events_processed", 1, map[string]string{
-		"repo":    event.RepoName,
-		"action":  action,
-		"status":  status,
+		"repo":       event.RepoName,
+		"action":     action,
+		"status":     status,
 		"conclusion": conclusion,
 	})
 
@@ -569,7 +569,7 @@ func (p *WorkflowJobProcessor) Process(ctx context.Context, event queue.SQSEvent
 	jobID, _ := workflowJob["id"].(float64)
 	status := getMapStringValue(workflowJob, "status")
 	conclusion := getMapStringValue(workflowJob, "conclusion")
-	
+
 	p.Logger.Info("Processing workflow job event", map[string]interface{}{
 		"delivery_id": event.DeliveryID,
 		"repo":        event.RepoName,
@@ -582,9 +582,9 @@ func (p *WorkflowJobProcessor) Process(ctx context.Context, event queue.SQSEvent
 
 	// Record metrics
 	p.Metrics.IncrementCounterWithLabels("github_workflow_job_events_processed", 1, map[string]string{
-		"repo":    event.RepoName,
-		"action":  action,
-		"status":  status,
+		"repo":       event.RepoName,
+		"action":     action,
+		"status":     status,
 		"conclusion": conclusion,
 	})
 
@@ -613,7 +613,7 @@ func (p *CheckRunProcessor) Process(ctx context.Context, event queue.SQSEvent, p
 	name := getMapStringValue(checkRun, "name")
 	status := getMapStringValue(checkRun, "status")
 	conclusion := getMapStringValue(checkRun, "conclusion")
-	
+
 	p.Logger.Info("Processing check run event", map[string]interface{}{
 		"delivery_id": event.DeliveryID,
 		"repo":        event.RepoName,
@@ -650,7 +650,7 @@ func (p *DeploymentProcessor) Process(ctx context.Context, event queue.SQSEvent,
 	environment := getMapStringValue(deployment, "environment")
 	ref := getMapStringValue(deployment, "ref")
 	sha := getMapStringValue(deployment, "sha")
-	
+
 	p.Logger.Info("Processing deployment event", map[string]interface{}{
 		"delivery_id":   event.DeliveryID,
 		"repo":          event.RepoName,
@@ -691,7 +691,7 @@ func (p *DeploymentStatusProcessor) Process(ctx context.Context, event queue.SQS
 	deploymentID, _ := deployment["id"].(float64)
 	environment := getMapStringValue(deployment, "environment")
 	state := getMapStringValue(deploymentStatus, "state")
-	
+
 	p.Logger.Info("Processing deployment status event", map[string]interface{}{
 		"delivery_id":   event.DeliveryID,
 		"repo":          event.RepoName,
@@ -732,7 +732,7 @@ func (p *DependabotAlertProcessor) Process(ctx context.Context, event queue.SQSE
 	alertNumber, _ := alert["number"].(float64)
 	severity := getMapStringValue(alert, "security_advisory", "severity")
 	packageName := getMapStringValue(alert, "dependency", "package", "name")
-	
+
 	p.Logger.Info("Processing dependabot alert event", map[string]interface{}{
 		"delivery_id":  event.DeliveryID,
 		"repo":         event.RepoName,

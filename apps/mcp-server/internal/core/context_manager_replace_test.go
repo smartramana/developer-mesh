@@ -78,7 +78,6 @@ func TestContextManager_UpdateContext_ReplaceContent(t *testing.T) {
 	mockDB.On("UpdateContext", mock.Anything, mock.AnythingOfType("*models.Context")).Return(nil)
 	// Cache mock operations removed since we're using nil cache
 
-	
 	t.Logf("Type of mock context: %T", copyContext(initialContext))
 	result, err := cm.UpdateContext(context.Background(), contextID, updateRequest, options)
 	assert.NoError(t, err)
@@ -138,10 +137,8 @@ func TestContextManager_UpdateContext_AppendContent(t *testing.T) {
 	}).Return(nil)
 	// Cache mock operations removed since we're using nil cache
 
-	
-	
 	result, err := cm.UpdateContext(context.Background(), contextID, updateRequest, options)
-	
+
 	assert.NoError(t, err)
 	assert.NotNil(t, result)
 	if len(result.Content) != 2 {

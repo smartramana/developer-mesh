@@ -3,11 +3,13 @@ package main
 import (
 	"context"
 	"crypto/rand"
+	"encoding/json"
 	"flag"
 	"fmt"
 	"log"
 	"math/big"
 	mathrand "math/rand"
+	"net/http"
 	"os"
 	"os/signal"
 	"path/filepath"
@@ -23,9 +25,9 @@ import (
 	"github.com/S-Corkum/devops-mcp/pkg/cache"
 	"github.com/S-Corkum/devops-mcp/pkg/common/aws"
 	commonconfig "github.com/S-Corkum/devops-mcp/pkg/common/config"
+	pkgconfig "github.com/S-Corkum/devops-mcp/pkg/config"
 	"github.com/S-Corkum/devops-mcp/pkg/database"
 	"github.com/S-Corkum/devops-mcp/pkg/observability"
-	pkgconfig "github.com/S-Corkum/devops-mcp/pkg/config"
 
 	// Import PostgreSQL driver
 	_ "github.com/lib/pq"
@@ -45,6 +47,7 @@ var (
 	validateOnly  = flag.Bool("validate", false, "Validate configuration and exit")
 	migrateOnly   = flag.Bool("migrate", false, "Run database migrations and exit")
 	skipMigration = flag.Bool("skip-migration", false, "Skip database migration on startup")
+	healthCheck   = flag.Bool("health-check", false, "Perform health check and exit")
 )
 
 func main() {
@@ -53,6 +56,15 @@ func main() {
 	// Show version information if requested
 	if *showVersion {
 		fmt.Printf("MCP Server\nVersion: %s\nBuild Time: %s\nGit Commit: %s\n", version, buildTime, gitCommit)
+		os.Exit(0)
+	}
+
+	// Perform health check if requested
+	if *healthCheck {
+		if err := performHealthCheck(); err != nil {
+			fmt.Fprintf(os.Stderr, "Health check failed: %v\n", err)
+			os.Exit(1)
+		}
 		os.Exit(0)
 	}
 
@@ -184,7 +196,7 @@ func main() {
 	}()
 
 	// Initialize and start API server
-	server, err := initializeServer(ctx, cfg, engine, db, metricsClient, logger)
+	server, err := initializeServer(ctx, cfg, engine, db, cacheClient, metricsClient, logger)
 	if err != nil {
 		logger.Error("Failed to initialize server", map[string]interface{}{
 			"error": err.Error(),
@@ -286,7 +298,7 @@ func logAWSConfiguration(logger observability.Logger) {
 func initializeDatabase(ctx context.Context, cfg *commonconfig.Config, logger observability.Logger) (*database.Database, error) {
 	// Build connection string
 	connStr := buildDatabaseURL(cfg)
-	
+
 	logger.Info("Initializing database connection", map[string]interface{}{
 		"host": cfg.Database.Host,
 		"port": cfg.Database.Port,
@@ -368,23 +380,37 @@ func initializeCache(ctx context.Context, cfg *commonconfig.Config, logger obser
 		}
 	} else {
 		// Use standard Redis configuration
-		cacheConfig = cache.ConvertFromCommonRedisConfig(cfg.Cache)
+		// Convert from common cache config to our cache config
+		cacheConfig = cache.RedisConfig{
+			Type:         cfg.Cache.Type,
+			Address:      cfg.Cache.Address,
+			Password:     cfg.Cache.Password,
+			Database:     cfg.Cache.Database,
+			MaxRetries:   cfg.Cache.MaxRetries,
+			DialTimeout:  cfg.Cache.DialTimeout,
+			ReadTimeout:  cfg.Cache.ReadTimeout,
+			WriteTimeout: cfg.Cache.WriteTimeout,
+			PoolSize:     cfg.Cache.PoolSize,
+			MinIdleConns: cfg.Cache.MinIdleConns,
+			PoolTimeout:  cfg.Cache.PoolTimeout,
+		}
 	}
 
 	logger.Info("Initializing cache", map[string]interface{}{
 		"type":         cacheConfig.Type,
 		"cluster_mode": cacheConfig.ClusterMode,
+		"address":      cacheConfig.Address,
 	})
 
 	return cache.NewCache(ctx, cacheConfig)
 }
 
 // initializeEngine creates the core engine
-func initializeEngine(ctx context.Context, cfg *commonconfig.Config, db *database.Database, 
+func initializeEngine(ctx context.Context, cfg *commonconfig.Config, db *database.Database,
 	cacheClient cache.Cache, metricsClient observability.MetricsClient, logger observability.Logger) (*core.Engine, error) {
-	
+
 	logger.Info("Initializing core engine", nil)
-	
+
 	configAdapter := core.NewConfigAdapter(cfg)
 	engine, err := core.NewEngine(ctx, configAdapter, db, cacheClient, metricsClient)
 	if err != nil {
@@ -396,11 +422,11 @@ func initializeEngine(ctx context.Context, cfg *commonconfig.Config, db *databas
 
 // initializeServer creates and configures the API server
 func initializeServer(ctx context.Context, cfg *commonconfig.Config, engine *core.Engine,
-	db *database.Database, metricsClient observability.MetricsClient, logger observability.Logger) (*api.Server, error) {
-	
+	db *database.Database, cacheClient cache.Cache, metricsClient observability.MetricsClient, logger observability.Logger) (*api.Server, error) {
+
 	// Build API configuration
 	apiConfig := buildAPIConfig(cfg)
-	
+
 	logger.Info("Initializing API server", map[string]interface{}{
 		"listen_address": apiConfig.ListenAddress,
 		"enable_cors":    apiConfig.EnableCORS,
@@ -419,7 +445,7 @@ func initializeServer(ctx context.Context, cfg *commonconfig.Config, engine *cor
 	}
 
 	// Create server - pass db.GetDB() to get the *sqlx.DB
-	server := api.NewServer(engine, apiConfig, db.GetDB(), metricsClient, pkgConfig)
+	server := api.NewServer(engine, apiConfig, db.GetDB(), cacheClient, metricsClient, pkgConfig)
 
 	// Initialize server components
 	if err := server.Initialize(ctx); err != nil {
@@ -432,12 +458,12 @@ func initializeServer(ctx context.Context, cfg *commonconfig.Config, engine *cor
 // buildAPIConfig creates API configuration from common config
 func buildAPIConfig(cfg *commonconfig.Config) api.Config {
 	apiConfig := api.DefaultConfig()
-	
+
 	// Override with configuration values
 	apiConfig.ListenAddress = cfg.API.ListenAddress
 	apiConfig.TLSCertFile = cfg.API.TLSCertFile
 	apiConfig.TLSKeyFile = cfg.API.TLSKeyFile
-	
+
 	// Set timeouts from environment if available
 	if timeout := getEnvDuration("API_READ_TIMEOUT", 0); timeout > 0 {
 		apiConfig.ReadTimeout = timeout
@@ -471,7 +497,63 @@ func buildAPIConfig(cfg *commonconfig.Config) api.Config {
 		}
 	}
 
+	// Configure rate limiting
+	if cfg.API.RateLimit != nil {
+		apiConfig.RateLimit = parseRateLimitConfig(cfg.API.RateLimit)
+	}
+
 	return apiConfig
+}
+
+// parseRateLimitConfig parses rate limit configuration from either a map or integer
+func parseRateLimitConfig(input interface{}) api.RateLimitConfig {
+	config := api.RateLimitConfig{
+		Enabled:     false,
+		Limit:       100,
+		Period:      time.Minute,
+		BurstFactor: 3,
+	}
+
+	if input == nil {
+		return config
+	}
+
+	// Handle backward compatibility - rate_limit as integer
+	switch v := input.(type) {
+	case int:
+		config.Enabled = true
+		config.Limit = v
+		return config
+	case float64: // JSON numbers are parsed as float64
+		config.Enabled = true
+		config.Limit = int(v)
+		return config
+	case map[string]interface{}:
+		// Handle structured rate_limit configuration
+		if enabled, ok := v["enabled"].(bool); ok {
+			config.Enabled = enabled
+		}
+		if limit, ok := v["limit"].(int); ok {
+			config.Limit = limit
+		} else if limit, ok := v["limit"].(float64); ok {
+			config.Limit = int(limit)
+		}
+		if period, ok := v["period"].(string); ok {
+			if d, err := time.ParseDuration(period); err == nil {
+				config.Period = d
+			}
+		}
+		if burstFactor, ok := v["burst_factor"].(int); ok {
+			config.BurstFactor = burstFactor
+		} else if burstFactor, ok := v["burst_factor"].(float64); ok {
+			config.BurstFactor = int(burstFactor)
+		}
+		return config
+	default:
+		// Log warning and return default config
+		log.Printf("Warning: unexpected type for rate_limit configuration: %T\n", input)
+		return config
+	}
 }
 
 // parseWebhookConfig converts a map[string]interface{} to a WebhookConfig struct
@@ -526,7 +608,7 @@ func parseWebhookConfig(webhookMap map[string]interface{}) *config.WebhookConfig
 			}
 			webhookConfig.GitHub.AllowedEvents = allowedEvents
 		}
-		
+
 		// Warn if webhook is enabled but secret is missing
 		if webhookConfig.GitHub.Enabled && webhookConfig.GitHub.Secret == "" {
 			log.Printf("WARNING: GitHub webhook is enabled but no secret is configured. This is insecure!")
@@ -586,10 +668,10 @@ func waitForShutdown(ctx context.Context, server *api.Server, serverErrCh <-chan
 // runMigrations runs database migrations
 func runMigrations(ctx context.Context, db *database.Database, logger observability.Logger) error {
 	logger.Info("Running database migrations", nil)
-	
+
 	// Get the migration directory path
 	migrationDir := getMigrationDir()
-	
+
 	logger.Info("Migration directory", map[string]interface{}{
 		"path": migrationDir,
 	})
@@ -685,4 +767,37 @@ func getStringSliceFromMap(m map[string]interface{}, key string, defaultValue []
 		}
 	}
 	return defaultValue
+}
+
+// performHealthCheck performs a basic health check
+func performHealthCheck() error {
+	// Perform a real health check by calling the health endpoint
+	client := &http.Client{
+		Timeout: 5 * time.Second,
+	}
+	
+	// Try to connect to the health endpoint
+	resp, err := client.Get("http://localhost:8080/health")
+	if err != nil {
+		return fmt.Errorf("failed to connect to health endpoint: %w", err)
+	}
+	defer resp.Body.Close()
+	
+	// Check if the response is successful
+	if resp.StatusCode != http.StatusOK {
+		return fmt.Errorf("health check returned status %d", resp.StatusCode)
+	}
+	
+	// Parse the response to verify it's valid JSON
+	var result map[string]interface{}
+	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+		return fmt.Errorf("failed to parse health response: %w", err)
+	}
+	
+	// Check if status is healthy
+	if status, ok := result["status"].(string); ok && status != "healthy" {
+		return fmt.Errorf("service is not healthy: %s", status)
+	}
+	
+	return nil
 }

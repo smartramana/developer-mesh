@@ -2,8 +2,8 @@ package adapters
 
 import (
 	"context"
-	"github.com/stretchr/testify/mock"
 	"github.com/S-Corkum/devops-mcp/pkg/models"
+	"github.com/stretchr/testify/mock"
 )
 
 // MockModelAdapter is a mock implementation of ModelAdapter for testing

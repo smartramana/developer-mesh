@@ -31,7 +31,7 @@ func (c *ConfigAdapter) GetString(key string) string {
 
 // AWS returns the AWS configuration
 func (c *ConfigAdapter) AWS() *aws.AWSConfig {
-	// Since aws.AWSConfig is an alias for storage.AWSConfig, 
+	// Since aws.AWSConfig is an alias for storage.AWSConfig,
 	// we need to return the S3's AWS config
 	return &aws.AWSConfig{
 		UseIAMAuth: c.cfg.AWS.S3.AWSConfig.UseIAMAuth,

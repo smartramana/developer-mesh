@@ -13,7 +13,7 @@ import (
 type IContextManager interface {
 	// GetContext retrieves a context by ID
 	GetContext(ctx context.Context, contextID string) (*models.Context, error)
-	
+
 	// UpdateContext updates an existing context
 	UpdateContext(ctx context.Context, contextID string, updatedContext *models.Context, options *models.ContextUpdateOptions) (*models.Context, error)
 }
@@ -22,7 +22,7 @@ type IContextManager interface {
 type Adapter interface {
 	// ExecuteAction executes an action on the adapter
 	ExecuteAction(ctx context.Context, contextID string, action string, params map[string]interface{}) (interface{}, error)
-	
+
 	// HandleWebhook handles a webhook from the adapter
 	HandleWebhook(ctx context.Context, eventType string, payload []byte) error
 }
@@ -80,7 +80,7 @@ func (b *AdapterContextBridge) ExecuteToolAction(ctx context.Context, contextID 
 
 	// Execute the action
 	result, err := adapter.ExecuteAction(ctx, contextID, action, params)
-	
+
 	// Record the tool response in the context
 	responseContent := "Error executing tool action"
 	if err == nil {
@@ -159,10 +159,10 @@ func (b *AdapterContextBridge) GetToolData(ctx context.Context, contextID string
 	if queryBytes, err := json.Marshal(query); err == nil {
 		_ = json.Unmarshal(queryBytes, &queryMap)
 	}
-	
+
 	// Use ExecuteAction with a "getData" action as a workaround
 	result, err := adapter.ExecuteAction(ctx, contextID, "getData", queryMap)
-	
+
 	// Record the data response in the context
 	responseContent := "Error getting tool data"
 	if err == nil {

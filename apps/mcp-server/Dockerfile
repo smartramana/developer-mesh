@@ -1,68 +1,72 @@
+# syntax=docker/dockerfile:1
+# Multi-stage build for optimal image size and security
 # Build stage
 FROM golang:1.24-alpine AS builder
 
+# Install security updates and build dependencies
+RUN apk update && apk upgrade && \
+    apk add --no-cache git gcc musl-dev ca-certificates tzdata && \
+    update-ca-certificates
+
+# Create non-root user for build
+RUN adduser -D -g '' appuser
+
 # Set working directory
-WORKDIR /app
+WORKDIR /build
 
-# Install build dependencies
-RUN apk add --no-cache git gcc musl-dev
-
-# Copy the full source code for proper dependency resolution
+# Copy entire project for Go workspace support
 COPY . .
 
-# We'll use the existing go.work file which should have all the right modules defined
-# If it doesn't exist or has issues, uncomment the following block and configure as needed
-#RUN if [ ! -f go.work ]; then \
-#    echo "go 1.24.3" > go.work && \
-#    echo "use (" >> go.work && \
-#    echo "    ./apps/mcp-server" >> go.work && \
-#    echo "    ./pkg/adapters" >> go.work && \
-#    echo "    ./pkg/common" >> go.work && \
-#    echo "    ./pkg/database" >> go.work && \
-#    echo "    ./pkg/events" >> go.work && \
-#    echo "    ./pkg/models" >> go.work && \
-#    echo "    ./pkg/observability" >> go.work && \
-#    echo "    ./pkg/repository" >> go.work && \
-#    echo ")" >> go.work; \
-#fi
+# Download dependencies and build with cache mounts
+WORKDIR /build/apps/mcp-server
+RUN --mount=type=cache,target=/go/pkg/mod \
+    --mount=type=cache,target=/root/.cache/go-build \
+    go mod download && \
+    CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build \
+    -ldflags='-w -s -extldflags "-static"' \
+    -a -installsuffix cgo \
+    -o mcp-server ./cmd/server
 
-# Build the application
-WORKDIR /app/apps/mcp-server
-RUN CGO_ENABLED=0 GOOS=linux go build -v -o mcp-server ./cmd/server
+# Create minimal runtime stage using distroless
+FROM gcr.io/distroless/static:nonroot
 
-# Runtime stage
-FROM alpine:3.18
+# Copy timezone data and SSL certificates from builder
+COPY --from=builder /usr/share/zoneinfo /usr/share/zoneinfo
+COPY --from=builder /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/
 
-# Install runtime dependencies
-RUN apk add --no-cache ca-certificates tzdata curl bash
+# Copy the binary from builder
+COPY --from=builder /build/apps/mcp-server/mcp-server /app/mcp-server
+
+# Copy configuration files
+COPY --chown=nonroot:nonroot apps/mcp-server/configs /app/configs
+COPY --chown=nonroot:nonroot configs /app/base-configs
 
 # Set working directory
 WORKDIR /app
 
-# Copy binary from builder stage
-COPY --from=builder /app/apps/mcp-server/mcp-server .
+# Use non-root user
+USER nonroot
 
-# Copy configs directory
-COPY apps/mcp-server/configs /app/configs
-
-# Copy scripts directory
-COPY scripts /app/scripts
-
-# Create config directory and make health check executable
-RUN mkdir -p /app/configs && chmod +x /app/scripts/health-check.sh
-
-# Expose port
+# Expose port (using standard port for consistency)
 EXPOSE 8080
 
-# Set environment variables
-ENV MCP_CONFIG_FILE=/app/configs/config.yaml
+# Health check
+HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
+    CMD ["/app/mcp-server", "-health-check"]
 
-# Set environment variables for Redis
-ENV REDIS_ADDR="redis:6379"
-ENV REDIS_ADDRESS="redis:6379"
-ENV REDIS_HOST="redis"
-ENV REDIS_PORT="6379"
-ENV REDIS_URL="redis://redis:6379"
+# Environment variables
+ENV MCP_CONFIG_FILE=/app/configs/config.docker.yaml \
+    PORT=8080 \
+    GIN_MODE=release \
+    # Redis configuration
+    REDIS_ADDR="redis:6379" \
+    REDIS_ADDRESS="redis:6379" \
+    REDIS_HOST="redis" \
+    REDIS_PORT="6379" \
+    REDIS_URL="redis://redis:6379" \
+    # Observability
+    OTEL_SERVICE_NAME="mcp-server" \
+    OTEL_EXPORTER_OTLP_ENDPOINT="http://otel-collector:4317"
 
 # Run the application
-CMD ["./mcp-server"]
+ENTRYPOINT ["/app/mcp-server"]

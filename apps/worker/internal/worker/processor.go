@@ -7,8 +7,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/S-Corkum/devops-mcp/pkg/queue"
 	"github.com/S-Corkum/devops-mcp/pkg/observability"
+	"github.com/S-Corkum/devops-mcp/pkg/queue"
 )
 
 // EventProcessor handles GitHub webhook events
@@ -69,12 +69,25 @@ func (p *EventProcessor) registerProcessors() {
 func (p *EventProcessor) ProcessSQSEvent(ctx context.Context, event queue.SQSEvent) error {
 	start := time.Now()
 
-	p.logger.Info(fmt.Sprintf("Processing webhook event"), map[string]interface{}{
+	// Log event with auth context
+	logFields := map[string]interface{}{
 		"delivery_id": event.DeliveryID,
 		"event_type":  event.EventType,
 		"repo":        event.RepoName,
 		"sender":      event.SenderName,
-	})
+	}
+
+	// Add auth context to logs if present
+	if event.AuthContext != nil {
+		logFields["tenant_id"] = event.AuthContext.TenantID
+		logFields["principal_id"] = event.AuthContext.PrincipalID
+		logFields["principal_type"] = event.AuthContext.PrincipalType
+		if event.AuthContext.InstallationID != nil {
+			logFields["installation_id"] = *event.AuthContext.InstallationID
+		}
+	}
+
+	p.logger.Info(fmt.Sprintf("Processing webhook event"), logFields)
 
 	// Record metrics for this event
 	p.metrics.IncrementCounterWithLabels("webhook_events_received_total", 1, map[string]string{
@@ -126,9 +139,9 @@ func (p *EventProcessor) ProcessSQSEvent(ctx context.Context, event queue.SQSEve
 
 	p.incrementSuccessCount()
 	p.logger.Info("Successfully processed event", map[string]interface{}{
-		"delivery_id":  event.DeliveryID,
-		"event_type":   event.EventType,
-		"duration_ms":  float64(duration.Milliseconds()),
+		"delivery_id":   event.DeliveryID,
+		"event_type":    event.EventType,
+		"duration_ms":   float64(duration.Milliseconds()),
 		"success_count": p.getSuccessCount(),
 		"failure_count": p.getFailureCount(),
 	})
@@ -152,6 +165,12 @@ func (p *EventProcessor) processEvent(ctx context.Context, event queue.SQSEvent,
 			"event_type": event.EventType,
 		})
 		processor = p.processors["default"]
+	}
+
+	// Add auth context to the processing context
+	if event.AuthContext != nil {
+		ctx = context.WithValue(ctx, "auth_context", event.AuthContext)
+		ctx = context.WithValue(ctx, "tenant_id", event.AuthContext.TenantID)
 	}
 
 	// Process with appropriate handler

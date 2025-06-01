@@ -106,31 +106,31 @@ func (h *SearchHandler) HandleSearch(w http.ResponseWriter, r *http.Request) {
 	} else {
 		// Parse query parameters
 		q := r.URL.Query()
-		
+
 		searchReq.Query = q.Get("query")
 		if types := q.Get("content_types"); types != "" {
 			searchReq.ContentTypes = strings.Split(types, ",")
 		}
-		
+
 		if limit := q.Get("limit"); limit != "" {
 			if l, err := strconv.Atoi(limit); err == nil && l > 0 {
 				searchReq.Limit = l
 			}
 		}
-		
+
 		if offset := q.Get("offset"); offset != "" {
 			if o, err := strconv.Atoi(offset); err == nil && o >= 0 {
 				searchReq.Offset = o
 			}
 		}
-		
+
 		if minSim := q.Get("min_similarity"); minSim != "" {
 			if ms, err := strconv.ParseFloat(minSim, 32); err == nil {
 				searchReq.MinSimilarity = float32(ms)
 			}
 		}
-		
-		// Note: Complex parameters like filters and weight factors 
+
+		// Note: Complex parameters like filters and weight factors
 		// are not supported in GET requests for simplicity
 	}
 
@@ -241,16 +241,16 @@ func (h *SearchHandler) HandleSearchSimilar(w http.ResponseWriter, r *http.Reque
 	if r.Method == http.MethodPost {
 		// Parse JSON request body
 		var requestBody struct {
-			ContentID string `json:"content_id"`
+			ContentID string                   `json:"content_id"`
 			Options   *embedding.SearchOptions `json:"options,omitempty"`
 		}
-		
+
 		decoder := json.NewDecoder(r.Body)
 		if err := decoder.Decode(&requestBody); err != nil {
 			http.Error(w, fmt.Sprintf("Invalid request: %v", err), http.StatusBadRequest)
 			return
 		}
-		
+
 		contentID = requestBody.ContentID
 		if requestBody.Options != nil {
 			options = *requestBody.Options
@@ -258,25 +258,25 @@ func (h *SearchHandler) HandleSearchSimilar(w http.ResponseWriter, r *http.Reque
 	} else {
 		// Parse query parameters
 		q := r.URL.Query()
-		
+
 		contentID = q.Get("content_id")
-		
+
 		if types := q.Get("content_types"); types != "" {
 			options.ContentTypes = strings.Split(types, ",")
 		}
-		
+
 		if limit := q.Get("limit"); limit != "" {
 			if l, err := strconv.Atoi(limit); err == nil && l > 0 {
 				options.Limit = l
 			}
 		}
-		
+
 		if offset := q.Get("offset"); offset != "" {
 			if o, err := strconv.Atoi(offset); err == nil && o >= 0 {
 				options.Offset = o
 			}
 		}
-		
+
 		if minSim := q.Get("min_similarity"); minSim != "" {
 			if ms, err := strconv.ParseFloat(minSim, 32); err == nil {
 				options.MinSimilarity = float32(ms)

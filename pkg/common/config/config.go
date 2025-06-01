@@ -19,7 +19,7 @@ type APIConfig struct {
 	TLSCertFile    string         `mapstructure:"tls_cert_file"`
 	TLSKeyFile     string         `mapstructure:"tls_key_file"`
 	CORSAllowed    string         `mapstructure:"cors_allowed"`
-	RateLimit      int            `mapstructure:"rate_limit"`
+	RateLimit      map[string]any `mapstructure:"rate_limit"`
 	RequestTimeout int            `mapstructure:"request_timeout"`
 	ReadTimeout    time.Duration  `mapstructure:"read_timeout"`
 	WriteTimeout   time.Duration  `mapstructure:"write_timeout"`
@@ -76,6 +76,12 @@ func Load() (*Config, error) {
 	v.SetEnvPrefix("MCP")
 	v.SetEnvKeyReplacer(strings.NewReplacer(".", "_"))
 	v.AutomaticEnv()
+	
+	// Bind specific environment variables that don't follow the MCP_ prefix
+	// These are commonly used in Docker environments
+	v.BindEnv("cache.address", "REDIS_ADDR")
+	v.BindEnv("cache.address", "REDIS_ADDRESS")
+	v.BindEnv("cache.address", "CACHE_ADDRESS")
 
 	// Enable environment variable interpolation in config values
 	v.AllowEmptyEnv(true)

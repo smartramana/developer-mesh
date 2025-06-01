@@ -105,18 +105,18 @@ func (cm *ContextManager) CreateContext(ctx context.Context, context *models.Con
 		      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)`
 
 		// Use standard Exec with explicit parameters
-		_, err := cm.db.ExecContext(ctx, q, 
-			context.ID, 
-			context.Name, 
-			context.Description, 
-			context.AgentID, 
-			context.ModelID, 
-			context.SessionID, 
-			context.CurrentTokens, 
-			context.MaxTokens, 
+		_, err := cm.db.ExecContext(ctx, q,
+			context.ID,
+			context.Name,
+			context.Description,
+			context.AgentID,
+			context.ModelID,
+			context.SessionID,
+			context.CurrentTokens,
+			context.MaxTokens,
 			metadataJSON,
-			context.CreatedAt, 
-			context.UpdatedAt, 
+			context.CreatedAt,
+			context.UpdatedAt,
 			context.ExpiresAt)
 		if err != nil {
 			cm.logger.Error("Failed to store context in database", map[string]any{
@@ -239,14 +239,14 @@ func (cm *ContextManager) GetContext(ctx context.Context, contextID string) (*mo
 					Timestamp time.Time       `db:"timestamp"`
 					Metadata  json.RawMessage `db:"metadata"`
 				}
-				
+
 				if err := rows.StructScan(&dbItem); err != nil {
 					cm.logger.Warn("Failed to scan context item", map[string]any{
 						"error": err.Error(),
 					})
 					continue
 				}
-				
+
 				// Convert to models.ContextItem
 				item := models.ContextItem{
 					ID:        dbItem.ID,
@@ -256,18 +256,18 @@ func (cm *ContextManager) GetContext(ctx context.Context, contextID string) (*mo
 					Tokens:    dbItem.Tokens,
 					Timestamp: dbItem.Timestamp,
 				}
-				
+
 				// Unmarshal metadata if present
 				if len(dbItem.Metadata) > 0 && string(dbItem.Metadata) != "null" {
 					if err := json.Unmarshal(dbItem.Metadata, &item.Metadata); err != nil {
 						cm.logger.Warn("Failed to unmarshal item metadata", map[string]any{
-							"error": err.Error(),
+							"error":   err.Error(),
 							"item_id": dbItem.ID,
 						})
 						// Continue without metadata - item is still valid
 					}
 				}
-				
+
 				items = append(items, item)
 			}
 			context.Content = items
@@ -306,39 +306,39 @@ func (cm *ContextManager) UpdateContext(ctx context.Context, contextID string, u
 		cm.metrics.IncrementCounterWithLabels(MetricContextOperationsTotal, float64(1), map[string]string{"operation": "update", "status": "error"})
 		return nil, fmt.Errorf("cannot update non-existent context: %w", err)
 	}
-	
+
 	// Debug log the existing context
 	cm.logger.Info("UpdateContext - retrieved existing context", map[string]any{
-		"context_id": existingContext.ID,
-		"name": existingContext.Name,
-		"agent_id": existingContext.AgentID,
-		"model_id": existingContext.ModelID,
+		"context_id":      existingContext.ID,
+		"name":            existingContext.Name,
+		"agent_id":        existingContext.AgentID,
+		"model_id":        existingContext.ModelID,
 		"existing_is_nil": existingContext == nil,
 	})
 
 	// Create a new context object based on existing context
 	// Only update the fields that were provided in the update request
 	result := &models.Context{
-		ID:          existingContext.ID,
-		Name:        updatedContext.Name,    // Use updated name if provided
-		Description: existingContext.Description,
-		AgentID:     existingContext.AgentID,
-		ModelID:     existingContext.ModelID,
-		SessionID:   existingContext.SessionID,
-		Content:     updatedContext.Content, // Use the new content from update request
-		Metadata:    existingContext.Metadata,
-		CreatedAt:   existingContext.CreatedAt,
-		UpdatedAt:   time.Now(),
-		ExpiresAt:   existingContext.ExpiresAt,
-		MaxTokens:   existingContext.MaxTokens,
+		ID:            existingContext.ID,
+		Name:          updatedContext.Name, // Use updated name if provided
+		Description:   existingContext.Description,
+		AgentID:       existingContext.AgentID,
+		ModelID:       existingContext.ModelID,
+		SessionID:     existingContext.SessionID,
+		Content:       updatedContext.Content, // Use the new content from update request
+		Metadata:      existingContext.Metadata,
+		CreatedAt:     existingContext.CreatedAt,
+		UpdatedAt:     time.Now(),
+		ExpiresAt:     existingContext.ExpiresAt,
+		MaxTokens:     existingContext.MaxTokens,
 		CurrentTokens: existingContext.CurrentTokens,
 	}
-	
+
 	cm.logger.Debug("UpdateContext - after applying updates", map[string]any{
 		"context_id": result.ID,
-		"name": result.Name,
-		"agent_id": result.AgentID,
-		"model_id": result.ModelID,
+		"name":       result.Name,
+		"agent_id":   result.AgentID,
+		"model_id":   result.ModelID,
 	})
 
 	// Persist to database
@@ -387,7 +387,7 @@ func (cm *ContextManager) UpdateContext(ctx context.Context, contextID string, u
 		if len(result.Content) > 0 {
 			itemsQuery := `INSERT INTO mcp.context_items (id, context_id, role, content, tokens, timestamp, metadata) 
 			              VALUES ($1, $2, $3, $4, $5, $6, $7)`
-			
+
 			for i, item := range result.Content {
 				// Ensure each item has an ID and context ID
 				if item.ID == "" {
@@ -416,13 +416,13 @@ func (cm *ContextManager) UpdateContext(ctx context.Context, contextID string, u
 					itemMetadataJSON = []byte("{}")
 				}
 
-				_, err = tx.ExecContext(ctx, itemsQuery, 
-					item.ID, 
-					item.ContextID, 
-					item.Role, 
-					item.Content, 
-					item.Tokens, 
-					item.Timestamp, 
+				_, err = tx.ExecContext(ctx, itemsQuery,
+					item.ID,
+					item.ContextID,
+					item.Role,
+					item.Content,
+					item.Tokens,
+					item.Timestamp,
 					itemMetadataJSON)
 				if err != nil {
 					tx.Rollback()
@@ -457,14 +457,14 @@ func (cm *ContextManager) UpdateContext(ctx context.Context, contextID string, u
 	cm.mutex.Unlock()
 
 	cm.metrics.IncrementCounterWithLabels(MetricContextOperationsTotal, float64(1), map[string]string{"operation": "update", "status": "success"})
-	
+
 	cm.logger.Debug("UpdateContext - returning context", map[string]any{
 		"context_id": result.ID,
-		"name": result.Name,
-		"agent_id": result.AgentID,
-		"model_id": result.ModelID,
+		"name":       result.Name,
+		"agent_id":   result.AgentID,
+		"model_id":   result.ModelID,
 	})
-	
+
 	return result, nil
 }
 
@@ -524,7 +524,7 @@ func (cm *ContextManager) ListContexts(ctx context.Context, agentID, sessionID s
 	if cm.db != nil {
 
 		// Build the query based on conditions
-		q := `SELECT * FROM contexts WHERE 1=1`
+		q := `SELECT * FROM mcp.contexts WHERE 1=1`
 		args := []any{}
 
 		// Add conditions to the query
@@ -634,7 +634,7 @@ func (cm *ContextManager) SearchInContext(ctx context.Context, contextID, query 
 	// Perform search in database if available
 	if cm.db != nil {
 		// Create query to search in context items
-		q := `SELECT * FROM context_items WHERE context_id = $1 AND content LIKE $2`
+		q := `SELECT * FROM mcp.context_items WHERE context_id = $1 AND content LIKE $2`
 
 		// Execute query with parameters
 		rows, err := cm.db.QueryxContext(ctx, q, contextID, "%"+query+"%")

@@ -81,7 +81,7 @@ type GitHubAdapter struct {
 	rateLimiter         *resilience.RateLimiterManager
 	mu                  sync.RWMutex
 	closed              bool
-	wg                  sync.WaitGroup // WaitGroup for webhook workers
+	wg                  sync.WaitGroup            // WaitGroup for webhook workers
 	registeredHandlers  map[string]map[string]any // Map of handler IDs to handler details
 }
 
@@ -335,6 +335,13 @@ func (a *GitHubAdapter) Close() error {
 	// Close webhook queue if webhooks are enabled
 	if a.config.WebhooksEnabled {
 		close(a.webhookQueue)
+		
+		// Close the retry manager if it exists
+		if a.webhookRetryManager != nil {
+			if err := a.webhookRetryManager.Close(); err != nil {
+				a.logger.Errorf("Failed to close webhook retry manager: %v", err)
+			}
+		}
 	}
 
 	// Wait for all webhook workers to complete

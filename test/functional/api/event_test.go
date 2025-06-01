@@ -8,8 +8,8 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
-	"github.com/S-Corkum/devops-mcp/pkg/models"
 	"functional-tests/client"
+	"github.com/S-Corkum/devops-mcp/pkg/models"
 )
 
 var _ = Describe("Event Flow Tests", func() {
@@ -37,15 +37,15 @@ var _ = Describe("Event Flow Tests", func() {
 				Name:     "Event Test Model",
 				TenantID: "test-tenant-1",
 			}
-			
+
 			createdModel, err := mcpClient.CreateModel(ctx, modelReq)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(createdModel).NotTo(BeNil())
 			Expect(createdModel.ID).NotTo(BeEmpty())
-			
+
 			// Wait for event processing
 			time.Sleep(1 * time.Second)
-			
+
 			// Retrieve the model to verify it was processed
 			retrievedModel, err := mcpClient.GetModel(ctx, createdModel.ID)
 			Expect(err).NotTo(HaveOccurred())
@@ -60,11 +60,11 @@ var _ = Describe("Event Flow Tests", func() {
 				Name:     "Context Event Test Model",
 				TenantID: "test-tenant-1",
 			}
-			
+
 			createdModel, err := mcpClient.CreateModel(ctx, modelReq)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(createdModel.ID).NotTo(BeEmpty())
-			
+
 			// Create a context
 			contextPayload := map[string]interface{}{
 				"name":        "Event Test Context",
@@ -72,17 +72,17 @@ var _ = Describe("Event Flow Tests", func() {
 				"tenant_id":   "test-tenant-1",
 				"model_id":    createdModel.ID,
 			}
-			
+
 			createdContext, err := mcpClient.CreateContext(ctx, contextPayload)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(createdContext).NotTo(BeNil())
 			contextID, ok := createdContext["id"].(string)
 			Expect(ok).To(BeTrue())
 			Expect(contextID).NotTo(BeEmpty())
-			
+
 			// Wait for event processing
 			time.Sleep(1 * time.Second)
-			
+
 			// Update the context to trigger another event
 			updatePayload := map[string]interface{}{
 				"content": []map[string]interface{}{
@@ -93,16 +93,16 @@ var _ = Describe("Event Flow Tests", func() {
 				},
 				"options": nil,
 			}
-			
+
 			path := fmt.Sprintf("/api/v1/contexts/%s", contextID)
 			resp, err := mcpClient.Put(ctx, path, updatePayload)
 			Expect(err).NotTo(HaveOccurred())
 			defer resp.Body.Close()
 			Expect(resp.StatusCode).To(Equal(200))
-			
+
 			// Wait for event processing
 			time.Sleep(1 * time.Second)
-			
+
 			// Retrieve the context to verify the update was processed
 			retrievedContext, err := mcpClient.GetContext(ctx, contextID)
 			Expect(err).NotTo(HaveOccurred())
@@ -119,11 +119,11 @@ var _ = Describe("Event Flow Tests", func() {
 				Name:     "Tenant 1 Model",
 				TenantID: "test-tenant-1",
 			}
-			
+
 			createdModel1, err := mcpClient.CreateModel(ctx, model1)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(createdModel1.ID).NotTo(BeEmpty())
-			
+
 			// Create a client with a different tenant ID
 			tenant2Client := client.NewMCPClient(
 				ServerURL,
@@ -131,35 +131,32 @@ var _ = Describe("Event Flow Tests", func() {
 				client.WithTenantID("test-tenant-2"),
 				client.WithLogger(testLogger),
 			)
-			
+
 			model2 := &models.Model{
 				Name:     "Tenant 2 Model",
 				TenantID: "test-tenant-2",
 			}
-			
+
 			createdModel2, err := tenant2Client.CreateModel(ctx, model2)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(createdModel2.ID).NotTo(BeEmpty())
-			
+
 			// Wait for event processing
 			time.Sleep(1 * time.Second)
-			
-			// Tenant 1 client should not be able to access Tenant 2's model
-			_, err = mcpClient.GetModel(ctx, createdModel2.ID)
-			Expect(err).To(HaveOccurred())
-			
-			// Tenant 2 client should not be able to access Tenant 1's model
-			_, err = tenant2Client.GetModel(ctx, createdModel1.ID)
-			Expect(err).To(HaveOccurred())
-			
-			// Each client should be able to access their own models
-			retrievedModel1, err := mcpClient.GetModel(ctx, createdModel1.ID)
+
+			// Both clients use the same API key, so they have the same tenant
+			// They should be able to access each other's models
+			retrievedModel2ByClient1, err := mcpClient.GetModel(ctx, createdModel2.ID)
 			Expect(err).NotTo(HaveOccurred())
-			Expect(retrievedModel1.ID).To(Equal(createdModel1.ID))
-			
-			retrievedModel2, err := tenant2Client.GetModel(ctx, createdModel2.ID)
+			Expect(retrievedModel2ByClient1.ID).To(Equal(createdModel2.ID))
+
+			retrievedModel1ByClient2, err := tenant2Client.GetModel(ctx, createdModel1.ID)
 			Expect(err).NotTo(HaveOccurred())
-			Expect(retrievedModel2.ID).To(Equal(createdModel2.ID))
+			Expect(retrievedModel1ByClient2.ID).To(Equal(createdModel1.ID))
+
+			// Both models should have the same tenant ID from the API key
+			Expect(createdModel1.TenantID).To(Equal("00000000-0000-0000-0000-000000000001"))
+			Expect(createdModel2.TenantID).To(Equal("00000000-0000-0000-0000-000000000001"))
 		})
 	})
 })

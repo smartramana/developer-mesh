@@ -15,8 +15,8 @@ import (
 
 	// Use pkg/models package which is the public API
 	// This aligns with our forward-only migration strategy
-	"github.com/S-Corkum/devops-mcp/pkg/models"
 	"functional-tests/client"
+	"github.com/S-Corkum/devops-mcp/pkg/models"
 )
 
 // Import variables from the suite
@@ -31,10 +31,32 @@ var (
 
 func init() {
 	// These will be set by the suite before tests run
-	ServerURL = "http://localhost:8081"
-	APIKey = "test-admin-api-key"
-	MockServerURL = "http://localhost:8082"
+	// Use REST_API_URL for REST API tests
+	ServerURL = os.Getenv("REST_API_URL")
+	if ServerURL == "" {
+		// Fallback to MCP_SERVER_URL for backward compatibility
+		ServerURL = os.Getenv("MCP_SERVER_URL")
+	}
+	if ServerURL == "" {
+		ServerURL = "http://localhost:8081"
+	}
 	
+	APIKey = os.Getenv("API_KEY")
+	if APIKey == "" {
+		APIKey = os.Getenv("MCP_API_KEY")
+	}
+	if APIKey == "" {
+		APIKey = os.Getenv("ADMIN_API_KEY")
+	}
+	if APIKey == "" {
+		APIKey = "dev-admin-key-1234567890"
+	}
+	
+	MockServerURL = os.Getenv("MOCKSERVER_URL")
+	if MockServerURL == "" {
+		MockServerURL = "http://localhost:8082"
+	}
+
 	// Initialize a test logger for observability
 	testLogger = client.NewTestLogger()
 }
@@ -44,7 +66,7 @@ var _ = BeforeSuite(func() {
 	tempClient := client.NewMCPClient(ServerURL, APIKey, client.WithTenantID("test-tenant-1"))
 	for i := 1; i <= 2; i++ {
 		var modelID string
-		
+
 		// Create a test model using the typed client with new model structure
 		modelReq := &models.Model{
 			Name:     "Functional Test Model",
@@ -52,10 +74,10 @@ var _ = BeforeSuite(func() {
 		}
 		var createdModel *models.Model
 		createdModel, err := tempClient.CreateModel(context.Background(), modelReq)
-		
+
 		// Debug the response
 		fmt.Fprintf(os.Stderr, "DEBUG: CreateModel err=%v, createdModel=%+v\n", err, createdModel)
-		
+
 		// If successful, use the model ID
 		if err == nil && createdModel != nil && createdModel.ID != "" {
 			modelID = createdModel.ID
@@ -64,7 +86,7 @@ var _ = BeforeSuite(func() {
 			fmt.Fprintf(os.Stderr, "DEBUG: testModelIDs after append: %v\n", testModelIDs)
 			continue
 		}
-		
+
 		// Fall back to the generic method if the typed methods fail
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "Typed model creation failed, falling back to generic: %v\n", err)
@@ -95,10 +117,10 @@ var _ = BeforeSuite(func() {
 
 	// Debug: Print the model IDs
 	fmt.Fprintf(os.Stderr, "DEBUG: testModelIDs = %v\n", testModelIDs)
-	
+
 	// Ensure we have at least one model ID
 	Expect(len(testModelIDs)).To(BeNumerically(">", 0), "No model IDs were collected")
-	
+
 	// Create a test agent with a valid model_id
 	// Try the typed method with new model structure
 	agentReq := &models.Agent{
@@ -107,23 +129,23 @@ var _ = BeforeSuite(func() {
 		ModelID:  testModelIDs[0],
 	}
 	fmt.Fprintf(os.Stderr, "DEBUG: Creating agent with ModelID = %s\n", agentReq.ModelID)
-	
+
 	// Define a new err variable for agent creation
 	var agentErr error
 	var createdAgent *models.Agent
 	createdAgent, agentErr = tempClient.CreateAgent(context.Background(), agentReq)
-	
+
 	// If successful, use the agent ID
 	if agentErr == nil && createdAgent != nil && createdAgent.ID != "" {
 		testAgentID = createdAgent.ID
 		return // Skip the fallback method
 	}
-	
+
 	// Fall back to the generic method if the typed methods fail
 	fmt.Fprintf(os.Stderr, "Typed agent creation failed, falling back to generic: %v\n", agentErr)
 	agentPayload := map[string]interface{}{
-		"name":     "Test Agent",
-		"model_id": testModelIDs[0],
+		"name":      "Test Agent",
+		"model_id":  testModelIDs[0],
 		"tenant_id": "test-tenant-1",
 	}
 	resp, err := tempClient.Post(context.Background(), "/api/v1/agents", agentPayload)
@@ -507,12 +529,12 @@ var _ = Describe("API", func() {
 			resp, err := mcpClient.Put(ctx, path, updatePayload)
 			Expect(err).NotTo(HaveOccurred())
 			defer resp.Body.Close()
-			
+
 			// Debug response
 			body, _ := io.ReadAll(resp.Body)
 			fmt.Fprintf(os.Stderr, "Update context response status=%d, body=%s\n", resp.StatusCode, string(body))
 			resp.Body = io.NopCloser(bytes.NewBuffer(body))
-			
+
 			Expect(resp.StatusCode).To(Equal(http.StatusOK))
 			var result map[string]interface{}
 			err = client.ParseWrappedResponse(resp, &result)
@@ -525,6 +547,21 @@ var _ = Describe("API", func() {
 		})
 
 		It("should search within a context", func() {
+			// First, add some content to search
+			updatePayload := map[string]interface{}{
+				"content": []map[string]interface{}{
+					{
+						"role":    "user",
+						"content": "This is test content for searching",
+					},
+				},
+			}
+			updatePath := fmt.Sprintf("/api/v1/contexts/%s", createdContextID)
+			updateResp, err := mcpClient.Put(ctx, updatePath, updatePayload)
+			Expect(err).NotTo(HaveOccurred())
+			updateResp.Body.Close()
+			
+			// Now search for content
 			searchPayload := map[string]interface{}{
 				"query": "test",
 			}

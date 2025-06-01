@@ -7,8 +7,8 @@ import (
 
 	"github.com/S-Corkum/devops-mcp/pkg/adapters/github"
 	"github.com/S-Corkum/devops-mcp/pkg/observability"
-	"mcp-server/internal/core/tool"
 	"github.com/gin-gonic/gin"
+	"mcp-server/internal/core/tool"
 )
 
 // GitHubToolsHandler handles GitHub tool endpoints
@@ -25,7 +25,7 @@ func NewGitHubToolsHandler(
 	logger observability.Logger,
 ) *GitHubToolsHandler {
 	registry := tool.NewToolRegistry()
-	
+
 	// Create and register GitHub tools
 	provider := NewGitHubToolProvider(githubAdapter)
 	err := provider.RegisterTools(registry)
@@ -34,7 +34,7 @@ func NewGitHubToolsHandler(
 			"error": err.Error(),
 		})
 	}
-	
+
 	return &GitHubToolsHandler{
 		registry: registry,
 		logger:   logger,
@@ -45,13 +45,13 @@ func NewGitHubToolsHandler(
 // RegisterRoutes registers GitHub tool routes
 func (h *GitHubToolsHandler) RegisterRoutes(router *gin.RouterGroup) {
 	toolsGroup := router.Group("/tools/github")
-	
+
 	// List available tools
 	toolsGroup.GET("", h.listTools)
-	
+
 	// Get tool schema
 	toolsGroup.GET("/:tool_name", h.getToolSchema)
-	
+
 	// Execute tool
 	toolsGroup.POST("/:tool_name", h.executeTool)
 }
@@ -66,13 +66,13 @@ type ToolResponse struct {
 // listTools lists all available GitHub tools
 func (h *GitHubToolsHandler) listTools(c *gin.Context) {
 	tools := h.registry.ListTools()
-	
+
 	// Convert to simple list of tool definitions
 	toolDefs := make([]tool.ToolDefinition, 0, len(tools))
 	for _, t := range tools {
 		toolDefs = append(toolDefs, t.Definition)
 	}
-	
+
 	c.JSON(http.StatusOK, ToolResponse{
 		Success: true,
 		Data:    toolDefs,
@@ -82,7 +82,7 @@ func (h *GitHubToolsHandler) listTools(c *gin.Context) {
 // getToolSchema gets the schema for a specific tool
 func (h *GitHubToolsHandler) getToolSchema(c *gin.Context) {
 	toolName := c.Param("tool_name")
-	
+
 	// Get tool from registry
 	t, err := h.registry.GetTool(toolName)
 	if err != nil {
@@ -92,7 +92,7 @@ func (h *GitHubToolsHandler) getToolSchema(c *gin.Context) {
 		})
 		return
 	}
-	
+
 	c.JSON(http.StatusOK, ToolResponse{
 		Success: true,
 		Data:    t.Definition,
@@ -107,7 +107,7 @@ type ToolExecuteRequest struct {
 // executeTool executes a specific tool
 func (h *GitHubToolsHandler) executeTool(c *gin.Context) {
 	toolName := c.Param("tool_name")
-	
+
 	// Get tool from registry
 	t, err := h.registry.GetTool(toolName)
 	if err != nil {
@@ -117,7 +117,7 @@ func (h *GitHubToolsHandler) executeTool(c *gin.Context) {
 		})
 		return
 	}
-	
+
 	// Parse request body
 	var req ToolExecuteRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -127,7 +127,7 @@ func (h *GitHubToolsHandler) executeTool(c *gin.Context) {
 		})
 		return
 	}
-	
+
 	// Validate parameters
 	if err := t.ValidateParams(req.Parameters); err != nil {
 		c.JSON(http.StatusBadRequest, ToolResponse{
@@ -136,7 +136,7 @@ func (h *GitHubToolsHandler) executeTool(c *gin.Context) {
 		})
 		return
 	}
-	
+
 	// Execute tool
 	result, err := t.Handler(req.Parameters)
 	if err != nil {
@@ -144,14 +144,14 @@ func (h *GitHubToolsHandler) executeTool(c *gin.Context) {
 			"tool":  toolName,
 			"error": err.Error(),
 		})
-		
+
 		c.JSON(http.StatusInternalServerError, ToolResponse{
 			Success: false,
 			Error:   fmt.Sprintf("Tool execution failed: %s", err.Error()),
 		})
 		return
 	}
-	
+
 	// Return response
 	c.JSON(http.StatusOK, ToolResponse{
 		Success: true,
@@ -166,7 +166,7 @@ func RegisterGitHubTools(
 	logger observability.Logger,
 ) {
 	handler := NewGitHubToolsHandler(githubAdapter, logger)
-	
+
 	// Register with API group
 	apiGroup := router.Group("/api/v1")
 	handler.RegisterRoutes(apiGroup)
@@ -175,12 +175,12 @@ func RegisterGitHubTools(
 // GenerateToolSchemaJSON generates JSON Schema for GitHub tools
 func GenerateToolSchemaJSON(registry *tool.ToolRegistry) ([]byte, error) {
 	tools := registry.ListTools()
-	
+
 	// Convert to array of tool definitions
 	toolDefs := make([]tool.ToolDefinition, 0, len(tools))
 	for _, t := range tools {
 		toolDefs = append(toolDefs, t.Definition)
 	}
-	
+
 	return json.MarshalIndent(toolDefs, "", "  ")
 }

@@ -8,6 +8,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/S-Corkum/devops-mcp/pkg/auth"
 	"github.com/S-Corkum/devops-mcp/pkg/config"
 	"github.com/S-Corkum/devops-mcp/pkg/database"
 	"github.com/S-Corkum/devops-mcp/pkg/observability"
@@ -26,16 +27,18 @@ var shutdownHooks []func()
 
 // Server represents the API server
 type Server struct {
-	router     *gin.Engine
-	server     *http.Server
-	engine     *core.Engine
-	config     Config
-	logger     observability.Logger
-	db         *sqlx.DB
-	metrics    observability.MetricsClient
-	vectorDB   *database.VectorDatabase
-	vectorRepo repository.VectorAPIRepository
-	cfg        *config.Config
+	router      *gin.Engine
+	server      *http.Server
+	engine      *core.Engine
+	config      Config
+	logger      observability.Logger
+	db          *sqlx.DB
+	metrics     observability.MetricsClient
+	vectorDB    *database.VectorDatabase
+	vectorRepo     repository.VectorAPIRepository
+	cfg            *config.Config
+	authMiddleware *auth.AuthMiddleware // Enhanced auth with rate limiting, metrics, and audit
+	healthChecker  *HealthChecker
 }
 
 // NewServer creates a new API server
@@ -80,35 +83,43 @@ func NewServer(engine *core.Engine, cfg Config, db *sqlx.DB, metrics observabili
 		router.Use(CORSMiddleware(corsConfig))
 	}
 
-	// Initialize API keys from configuration
-	if cfg.Auth.APIKeys != nil {
-		fmt.Printf("API Keys from config: %+v\n", cfg.Auth.APIKeys)
+	// Initialize logger first
+	logger := observability.NewLogger("api-server")
 
-		// Initialize the key map for the API keys
-		keyMap := make(map[string]string)
-
-		// Convert the APIKeys to a map[string]string
-		if apiKeys, ok := cfg.Auth.APIKeys.(map[string]any); ok {
-			for key, role := range apiKeys {
-				if roleStr, ok := role.(string); ok {
-					keyMap[key] = roleStr
-					fmt.Printf("Adding API key from map: %s with role: %s\n", key, roleStr)
-				}
-			}
-		} else if apiKeys, ok := cfg.Auth.APIKeys.(map[string]string); ok {
-			keyMap = apiKeys
-			for key, role := range keyMap {
-				fmt.Printf("Adding API key from map: %s with role: %s\n", key, role)
-			}
-		}
-
-		InitAPIKeys(keyMap)
-	} else {
-		fmt.Println("No API keys defined in config")
+	// Setup authentication configuration
+	authConfig := &auth.AuthSystemConfig{
+		Service: &auth.ServiceConfig{
+			JWTSecret:         cfg.Auth.JWTSecret,
+			JWTExpiration:     24 * time.Hour,
+			APIKeyHeader:      "X-API-Key",
+			EnableAPIKeys:     true,
+			EnableJWT:         true,
+			CacheEnabled:      false, // Disable cache for now
+			MaxFailedAttempts: 5,
+			LockoutDuration:   15 * time.Minute,
+		},
+		RateLimiter: auth.DefaultRateLimiterConfig(),
+		APIKeys:     make(map[string]auth.APIKeySettings),
 	}
-
-	// Initialize JWT with secret from configuration
-	InitJWT(cfg.Auth.JWTSecret)
+	
+	// Set JWT secret environment variable if provided
+	if cfg.Auth.JWTSecret != "" {
+		os.Setenv("JWT_SECRET", cfg.Auth.JWTSecret)
+	}
+	
+	// Use the enhanced setup that gives us control over configuration
+	authMiddleware, err := auth.SetupAuthenticationWithConfig(authConfig, db, nil, logger, metrics)
+	if err != nil {
+		logger.Error("Failed to setup enhanced authentication", map[string]interface{}{
+			"error": err.Error(),
+		})
+		panic("Failed to setup authentication: " + err.Error())
+	}
+	
+	logger.Info("Enhanced authentication initialized", map[string]interface{}{
+		"environment": os.Getenv("ENVIRONMENT"),
+		"api_key_source": os.Getenv("API_KEY_SOURCE"),
+	})
 
 	// Configure HTTP client transport for external service calls
 	httpTransport := &http.Transport{
@@ -128,9 +139,6 @@ func NewServer(engine *core.Engine, cfg Config, db *sqlx.DB, metrics observabili
 
 	// Use the custom HTTP client for external service calls
 	http.DefaultClient = httpClient
-
-	// Initialize logger
-	logger := observability.NewLogger("api-server")
 
 	// Initialize vector database if enabled
 	var vectorDB *database.VectorDatabase
@@ -153,15 +161,20 @@ func NewServer(engine *core.Engine, cfg Config, db *sqlx.DB, metrics observabili
 		}
 	}
 
+	// Initialize health checker
+	healthChecker := NewHealthChecker(db)
+	
 	server := &Server{
-		router:   router,
-		engine:   engine,
-		config:   cfg,
-		logger:   logger,
-		db:       db,
-		metrics:  metrics,
-		vectorDB: vectorDB,
-		cfg:      config,
+		router:      router,
+		engine:      engine,
+		config:      cfg,
+		logger:      logger,
+		db:          db,
+		metrics:     metrics,
+		vectorDB:       vectorDB,
+		cfg:            config,
+		authMiddleware: authMiddleware,
+		healthChecker:  healthChecker,
 		server: &http.Server{
 			Addr:         cfg.ListenAddress,
 			Handler:      router,
@@ -247,13 +260,20 @@ func (s *Server) Initialize(ctx context.Context) error {
 	// Initialize routes
 	s.setupRoutes(ctx)
 
+	// Mark server as ready
+	s.healthChecker.SetReady(true)
+	s.logger.Info("Server initialization complete and ready to serve requests", nil)
+
 	return nil
 }
 
 // setupRoutes initializes all API routes
 func (s *Server) setupRoutes(ctx context.Context) {
 	// Public endpoints
-	s.router.GET("/health", s.healthHandler)
+	// Health check endpoints
+	s.router.GET("/health", s.healthChecker.HealthHandler)
+	s.router.GET("/healthz", s.healthChecker.LivenessHandler)  // Kubernetes liveness probe
+	s.router.GET("/readyz", s.healthChecker.ReadinessHandler)  // Kubernetes readiness probe
 
 	// Swagger API documentation
 	if s.config.EnableSwagger {
@@ -265,19 +285,18 @@ func (s *Server) setupRoutes(ctx context.Context) {
 
 	// API v1 routes - require authentication
 	v1 := s.router.Group("/api/v1")
-	// Add TenantMiddleware to ensure tenant ID is extracted and set in Gin context
-	v1.Use(TenantMiddleware())
-	// Use test mode to skip authentication
+
+	// Always use enhanced auth middleware - it includes all authentication features
+	v1.Use(s.authMiddleware.GinMiddleware())
+	s.logger.Info("Using enhanced authentication with rate limiting and audit logging", nil)
+
+	// Keep the old middleware for backward compatibility during transition
+	// This will be removed once all tests are updated
 	testMode := os.Getenv("MCP_TEST_MODE")
-	for _, e := range os.Environ() {
-		fmt.Println(e)
+	if testMode == "true" {
+		fmt.Println("Test mode enabled, also applying legacy auth middleware")
+		v1.Use(AuthMiddleware("api_key"))
 	}
-
-	fmt.Printf("MCP_TEST_MODE value: '%s' (Type: %T)\n", testMode, testMode)
-	fmt.Printf("Is testMode true? %v\n", testMode == "true")
-
-	fmt.Println("Using AuthMiddleware for /api/v1 routes (test mode does not bypass auth in functional tests)")
-	v1.Use(AuthMiddleware("api_key"))
 
 	// Root endpoint to provide API entry points (HATEOAS)
 	v1.GET("/", func(c *gin.Context) {

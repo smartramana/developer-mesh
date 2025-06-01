@@ -6,7 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"time"
-	
+
 	"github.com/S-Corkum/devops-mcp/pkg/adapters/events"
 )
 
@@ -17,9 +17,9 @@ func (g *GitHubAdapter) ExecuteAction(ctx context.Context, contextID string, act
 	// Log the action for debugging
 	if g.logger != nil {
 		g.logger.Debug("Executing GitHub action", map[string]any{
-			"action":     action,
-			"contextID":  contextID,
-			"params":     params,
+			"action":    action,
+			"contextID": contextID,
+			"params":    params,
 		})
 	}
 
@@ -144,11 +144,11 @@ func (g *GitHubAdapter) ExecuteAction(ctx context.Context, contextID string, act
 		if !ok {
 			return nil, errors.New("missing or invalid 'branch' parameter")
 		}
-		
+
 		// Handle both sha and from_branch parameters
 		sha, hasSha := params["sha"].(string)
 		fromBranch, hasFromBranch := params["from_branch"].(string)
-		
+
 		if !hasSha && hasFromBranch {
 			// Need to get SHA for the from_branch
 			// For test purposes, use a hardcoded SHA
@@ -160,13 +160,13 @@ func (g *GitHubAdapter) ExecuteAction(ctx context.Context, contextID string, act
 		} else if !hasSha {
 			return nil, errors.New("missing 'sha' or 'from_branch' parameter")
 		}
-		
+
 		// Call internal method
 		_, err := g.createBranch(ctx, owner, repo, branch, sha)
 		if err != nil {
 			return nil, err
 		}
-		
+
 		// Return the expected format for the test
 		return map[string]any{
 			"success": true,
@@ -182,7 +182,7 @@ func (g *GitHubAdapter) ExecuteAction(ctx context.Context, contextID string, act
 		if err != nil {
 			return nil, err
 		}
-		
+
 		// Convert to the format expected by the test
 		handlerNames := make([]string, 0, len(handlers))
 		for _, handler := range handlers {
@@ -190,7 +190,7 @@ func (g *GitHubAdapter) ExecuteAction(ctx context.Context, contextID string, act
 				handlerNames = append(handlerNames, handlerID)
 			}
 		}
-		
+
 		return map[string]any{
 			"handlers": handlerNames,
 		}, nil
@@ -213,7 +213,7 @@ func getIntParam(params map[string]any, key string) (int, error) {
 	if !ok {
 		return 0, errors.New("missing '" + key + "' parameter")
 	}
-	
+
 	switch v := val.(type) {
 	case int:
 		return v, nil
@@ -234,13 +234,13 @@ func getIntParam(params map[string]any, key string) (int, error) {
 // Repository operations
 func (g *GitHubAdapter) getRepository(ctx context.Context, owner, repo string) (map[string]any, error) {
 	path := fmt.Sprintf("/repos/%s/%s", owner, repo)
-	
+
 	var result map[string]any
 	err := g.restClient.Request(ctx, "GET", path, nil, &result)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get repository: %w", err)
 	}
-	
+
 	// Emit event
 	if g.eventBus != nil {
 		event := events.NewAdapterEvent("github", events.EventTypeOperationSuccess, map[string]any{
@@ -251,20 +251,20 @@ func (g *GitHubAdapter) getRepository(ctx context.Context, owner, repo string) (
 		})
 		g.eventBus.Emit(ctx, event)
 	}
-	
+
 	return result, nil
 }
 
 // Issue operations
 func (g *GitHubAdapter) listIssues(ctx context.Context, owner, repo string) ([]any, error) {
 	path := fmt.Sprintf("/repos/%s/%s/issues", owner, repo)
-	
+
 	var result []any
 	err := g.restClient.Request(ctx, "GET", path, nil, &result)
 	if err != nil {
 		return nil, fmt.Errorf("failed to list issues: %w", err)
 	}
-	
+
 	// Emit event
 	if g.eventBus != nil {
 		event := events.NewAdapterEvent("github", events.EventTypeOperationSuccess, map[string]any{
@@ -275,30 +275,30 @@ func (g *GitHubAdapter) listIssues(ctx context.Context, owner, repo string) ([]a
 		})
 		g.eventBus.Emit(ctx, event)
 	}
-	
+
 	return result, nil
 }
 
 func (g *GitHubAdapter) createIssue(ctx context.Context, owner, repo, title, body string) (map[string]any, error) {
 	path := fmt.Sprintf("/repos/%s/%s/issues", owner, repo)
-	
+
 	payload := map[string]any{
 		"title": title,
 		"body":  body,
 	}
-	
+
 	var result map[string]any
 	err := g.restClient.Request(ctx, "POST", path, payload, &result)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create issue: %w", err)
 	}
-	
+
 	return result, nil
 }
 
 func (g *GitHubAdapter) updateIssue(ctx context.Context, owner, repo string, number int, title, body, state string) (map[string]any, error) {
 	path := fmt.Sprintf("/repos/%s/%s/issues/%d", owner, repo, number)
-	
+
 	payload := make(map[string]any)
 	if title != "" {
 		payload["title"] = title
@@ -309,58 +309,58 @@ func (g *GitHubAdapter) updateIssue(ctx context.Context, owner, repo string, num
 	if state != "" {
 		payload["state"] = state
 	}
-	
+
 	var result map[string]any
 	err := g.restClient.Request(ctx, "PATCH", path, payload, &result)
 	if err != nil {
 		return nil, fmt.Errorf("failed to update issue: %w", err)
 	}
-	
+
 	return result, nil
 }
 
 // Pull request operations
 func (g *GitHubAdapter) listPullRequests(ctx context.Context, owner, repo string) ([]any, error) {
 	path := fmt.Sprintf("/repos/%s/%s/pulls", owner, repo)
-	
+
 	var result []any
 	err := g.restClient.Request(ctx, "GET", path, nil, &result)
 	if err != nil {
 		return nil, fmt.Errorf("failed to list pull requests: %w", err)
 	}
-	
+
 	return result, nil
 }
 
 func (g *GitHubAdapter) createPullRequest(ctx context.Context, owner, repo, title, head, base, body string) (map[string]any, error) {
 	path := fmt.Sprintf("/repos/%s/%s/pulls", owner, repo)
-	
+
 	payload := map[string]any{
 		"title": title,
 		"head":  head,
 		"base":  base,
 		"body":  body,
 	}
-	
+
 	var result map[string]any
 	err := g.restClient.Request(ctx, "POST", path, payload, &result)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create pull request: %w", err)
 	}
-	
+
 	return result, nil
 }
 
 // Branch operations
 func (g *GitHubAdapter) listBranches(ctx context.Context, owner, repo string) ([]any, error) {
 	path := fmt.Sprintf("/repos/%s/%s/git/refs/heads", owner, repo)
-	
+
 	var refs []map[string]any
 	err := g.restClient.Request(ctx, "GET", path, nil, &refs)
 	if err != nil {
 		return nil, fmt.Errorf("failed to list branches: %w", err)
 	}
-	
+
 	// Convert refs to branch names (test expects just strings)
 	branches := make([]any, 0, len(refs))
 	for _, ref := range refs {
@@ -375,24 +375,24 @@ func (g *GitHubAdapter) listBranches(ctx context.Context, owner, repo string) ([
 		}
 		branches = append(branches, branchName)
 	}
-	
+
 	return branches, nil
 }
 
 func (g *GitHubAdapter) createBranch(ctx context.Context, owner, repo, branch, sha string) (map[string]any, error) {
 	path := fmt.Sprintf("/repos/%s/%s/git/refs", owner, repo)
-	
+
 	payload := map[string]any{
 		"ref": fmt.Sprintf("refs/heads/%s", branch),
 		"sha": sha,
 	}
-	
+
 	var result map[string]any
 	err := g.restClient.Request(ctx, "POST", path, payload, &result)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create branch: %w", err)
 	}
-	
+
 	return result, nil
 }
 
@@ -402,61 +402,61 @@ func (g *GitHubAdapter) registerWebhookHandler(_ context.Context, params map[str
 	if !ok {
 		handlerID = fmt.Sprintf("handler-%d", time.Now().UnixNano())
 	}
-	
+
 	// Store the handler in our map
 	g.mu.Lock()
 	g.registeredHandlers[handlerID] = map[string]any{
-		"handler_id":    handlerID,
-		"event_types":   params["event_types"],
-		"repositories":  params["repositories"],
-		"branches":      params["branches"],
+		"handler_id":   handlerID,
+		"event_types":  params["event_types"],
+		"repositories": params["repositories"],
+		"branches":     params["branches"],
 	}
 	g.mu.Unlock()
-	
+
 	result := map[string]any{
 		"handler_id": handlerID,
 		"status":     "registered",
 		"events":     params["event_types"],
 		"success":    true,
 	}
-	
+
 	return result, nil
 }
 
 func (g *GitHubAdapter) listWebhookHandlers(_ context.Context) ([]map[string]any, error) {
 	g.mu.RLock()
 	defer g.mu.RUnlock()
-	
+
 	// Initialize with default handlers
 	handlers := []map[string]any{
 		{
-			"handler_id": "default-push",
-			"event_types": []string{"push"},
+			"handler_id":   "default-push",
+			"event_types":  []string{"push"},
 			"repositories": []string{"*"},
-			"branches": []string{"*"},
+			"branches":     []string{"*"},
 		},
 	}
-	
+
 	// Add registered handlers
 	for _, handler := range g.registeredHandlers {
 		handlers = append(handlers, handler)
 	}
-	
+
 	return handlers, nil
 }
 
 func (g *GitHubAdapter) unregisterWebhookHandler(_ context.Context, handlerID string) (map[string]any, error) {
 	g.mu.Lock()
 	defer g.mu.Unlock()
-	
+
 	// Remove from registered handlers if it exists
 	delete(g.registeredHandlers, handlerID)
-	
+
 	result := map[string]any{
 		"handler_id": handlerID,
 		"status":     "unregistered",
 		"success":    true,
 	}
-	
+
 	return result, nil
 }

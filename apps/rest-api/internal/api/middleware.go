@@ -6,7 +6,6 @@ import (
 	"log"
 	"net/http"
 	"os"
-	"slices"
 	"strings"
 	"sync"
 	"time"
@@ -399,190 +398,41 @@ func NoAuthMiddleware() gin.HandlerFunc {
 	}
 }
 
-// AuthMiddleware authenticates API requests
+// AuthMiddleware - Kept for test compatibility only
+// DEPRECATED: This function is maintained only for backward compatibility with tests.
+// Production code should use auth.Service.GinMiddleware() or auth.AuthMiddleware.GinMiddleware()
 func AuthMiddleware(authType string) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		// Check if we're in test mode with proper flag
 		testMode := os.Getenv("MCP_TEST_MODE")
 		if testMode == "true" && c.Request.Header.Get("X-Test-Bypass-Auth") == "true" {
 			fmt.Println("Test mode with bypass header active, allowing request")
+			// Set minimal user context for tests
+			c.Set("user", map[string]any{
+				"api_key":   "test-key",
+				"auth_type": "test",
+			})
 			c.Next()
 			return
 		}
 
-		// Get authentication token from header
-		authHeader := c.GetHeader("Authorization")
-		fmt.Printf("Auth header: %s\n", authHeader)
-		if authHeader == "" {
-			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "Missing authorization header"})
-			return
-		}
-
-		// Basic implementation - to be expanded based on auth requirements
-		switch authType {
-		case "api_key":
-			fmt.Printf("Using API key auth type with header: %s\n", authHeader)
-			// Check if it has Bearer prefix
-			if len(authHeader) > 7 && authHeader[:7] == "Bearer " {
-				// Strip the Bearer prefix
-				authHeader = authHeader[7:]
-				fmt.Printf("Stripped Bearer prefix, now using: %s\n", authHeader)
-			}
-
-			// Validate API key
-			if !validateAPIKey(authHeader) {
-				c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "Invalid API key"})
-				return
-			}
-			fmt.Println("API key validation successful")
-			
-			// For API key auth, check if we already have user context from TenantMiddleware
-			// If not, set a default user context to avoid "missing tenant id" errors
-			if _, exists := c.Get("user"); !exists {
-				// Set default user context for API key authentication
-				// In a real system, this would look up the tenant from the API key
-				c.Set("user", map[string]any{
-					"api_key": authHeader,
-					"auth_type": "api_key",
-				})
-			}
-
-		case "jwt":
-			// Check if token format is valid (should begin with "Bearer ")
-			if len(authHeader) < 8 || authHeader[:7] != "Bearer " {
-				c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "Invalid authorization format"})
-				return
-			}
-
-			// Extract the JWT token
-			tokenString := authHeader[7:]
-
-			// Validate JWT token
-			if !validateJWT(tokenString) {
-				c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "Invalid or expired JWT token"})
-				return
-			}
-
-		default:
-			c.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{"error": fmt.Sprintf("Unsupported auth type: %s", authType)})
-			return
-		}
-
-		c.Next()
-	}
-}
-
-// apiKeyStorage holds the API keys for validation
-var apiKeyStorage struct {
-	keys []string
-	mu   sync.RWMutex
-}
-
-// InitAPIKeys initializes the API key storage
-func InitAPIKeys(keyMap map[string]string) {
-	apiKeyStorage.mu.Lock()
-	defer apiKeyStorage.mu.Unlock()
-
-	// Extract keys from the map, ignoring the roles/descriptions
-	keys := make([]string, 0, len(keyMap))
-	for key, role := range keyMap {
-		keys = append(keys, key)
-		fmt.Printf("Initializing API key: %s with role: %s\n", key, role)
-	}
-
-	apiKeyStorage.keys = make([]string, len(keys))
-	copy(apiKeyStorage.keys, keys)
-
-	fmt.Printf("Initialized %d API keys\n", len(keys))
-}
-
-// validateAPIKey validates an API key against stored API keys
-func validateAPIKey(key string) bool {
-	if key == "" {
-		fmt.Println("API key is empty")
-		return false
-	}
-
-	// In test mode, just accept the test-admin-api-key directly
-	// This is a temporary fix for the functional tests
-	if key == "test-admin-api-key" {
-		fmt.Println("Test API key matched directly")
-		return true
-	}
-
-	fmt.Printf("Validating API key: %s\n", key)
-
-	// Use read lock to protect concurrent access
-	apiKeyStorage.mu.RLock()
-	defer apiKeyStorage.mu.RUnlock()
-
-	fmt.Printf("Stored API keys: %v\n", apiKeyStorage.keys)
-
-	// Check if the API key exists in the authorized keys
-	if slices.Contains(apiKeyStorage.keys, key) {
-		fmt.Printf("API key matched: %s\n", key)
-		return true
-	}
-
-	fmt.Println("No matching API key found")
-	return false
-}
-
-// jwtSecret holds the secret used to sign and verify JWT tokens
-var jwtSecret []byte
-
-// InitJWT initializes the JWT validation with the given secret
-func InitJWT(secret string) {
-	if secret != "" {
-		jwtSecret = []byte(secret)
-	}
-}
-
-// validateJWT validates a JWT token
-func validateJWT(tokenString string) bool {
-	if tokenString == "" || len(jwtSecret) == 0 {
-		return false
-	}
-
-	// Parse and validate the token
-	// This is a placeholder - in a real implementation, you would:
-	// 1. Parse the JWT token (using a library like github.com/golang-jwt/jwt)
-	// 2. Validate the signature using the secret
-	// 3. Check if the token has expired
-	// 4. Verify any required claims (issuer, audience, etc.)
-
-	// Example JWT validation code (commented to avoid adding dependencies):
-	/*
-		token, err := jwt.Parse(tokenString, func(token *jwt.Token) (interface{}, error) {
-			// Validate the signing method
-			if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
-				return nil, fmt.Errorf("unexpected signing method: %v", token.Header["alg"])
-			}
-			return jwtSecret, nil
+		// For non-test scenarios, this should not be used
+		c.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{
+			"error": "Deprecated AuthMiddleware called outside of test mode. Use centralized auth service.",
 		})
+	}
+}
 
-		if err != nil {
-			return false
-		}
+// InitAPIKeys - Kept for test compatibility only
+// DEPRECATED: Use auth.Service.InitializeDefaultAPIKeys() or auth.Service.LoadAPIKeys()
+func InitAPIKeys(keyMap map[string]string) {
+	// No-op for compatibility
+	fmt.Println("DEPRECATED: InitAPIKeys called - use centralized auth service")
+}
 
-		// Check if token is valid
-		if claims, ok := token.Claims.(jwt.MapClaims); ok && token.Valid {
-			// Verify expiration
-			exp, ok := claims["exp"].(float64)
-			if !ok {
-				return false
-			}
-
-			if time.Now().Unix() > int64(exp) {
-				return false
-			}
-
-			// Additional claims validation can be added here
-
-			return true
-		}
-	*/
-
-	// Placeholder return - replace with actual implementation
-	return true
+// InitJWT - Kept for test compatibility only  
+// DEPRECATED: JWT configuration is handled by auth.Service
+func InitJWT(secret string) {
+	// No-op for compatibility
+	fmt.Println("DEPRECATED: InitJWT called - use centralized auth service")
 }

@@ -25,7 +25,7 @@ type APIConfig struct {
 	TLSCertFile    string                 `mapstructure:"tls_cert_file"`
 	TLSKeyFile     string                 `mapstructure:"tls_key_file"`
 	CORSAllowed    string                 `mapstructure:"cors_allowed"`
-	RateLimit      int                    `mapstructure:"rate_limit"`
+	RateLimit      map[string]interface{} `mapstructure:"rate_limit"`
 	RequestTimeout int                    `mapstructure:"request_timeout"`
 	ReadTimeout    interface{}            `mapstructure:"read_timeout"`
 	WriteTimeout   interface{}            `mapstructure:"write_timeout"`

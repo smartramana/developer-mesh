@@ -7,10 +7,10 @@ import (
 	"sync"
 	"time"
 
-	"github.com/go-redis/redis/v8"
-	"github.com/hashicorp/golang-lru/v2"
 	"github.com/S-Corkum/devops-mcp/pkg/models"
 	"github.com/S-Corkum/devops-mcp/pkg/observability"
+	"github.com/go-redis/redis/v8"
+	"github.com/hashicorp/golang-lru/v2"
 	"mcp-server/internal/config"
 )
 

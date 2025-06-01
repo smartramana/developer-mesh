@@ -12,8 +12,8 @@ import (
 
 // VectorAPIProxy implements the embedding repository interface but delegates to the REST API
 type VectorAPIProxy struct {
-	client  *rest.VectorClient
-	logger  observability.Logger
+	client *rest.VectorClient
+	logger observability.Logger
 }
 
 // NewVectorAPIProxy creates a new VectorAPIProxy
@@ -30,7 +30,7 @@ func (p *VectorAPIProxy) StoreEmbedding(ctx context.Context, embedding *reposito
 		"vector_id": embedding.ID,
 		"tenant_id": embedding.ContextID,
 	})
-	
+
 	// Convert from repository.Embedding to models.Vector for the REST API
 	vector := &models.Vector{
 		ID:        embedding.ID,
@@ -39,10 +39,10 @@ func (p *VectorAPIProxy) StoreEmbedding(ctx context.Context, embedding *reposito
 		Embedding: embedding.Embedding,
 		Metadata: map[string]interface{}{
 			"content_index": embedding.ContentIndex,
-			"model_id":     embedding.ModelID,
+			"model_id":      embedding.ModelID,
 		},
 	}
-	
+
 	return p.client.StoreEmbedding(ctx, vector)
 }
 
@@ -54,13 +54,13 @@ func (p *VectorAPIProxy) SearchEmbeddings(ctx context.Context, queryEmbedding []
 		"limit":      limit,
 		"threshold":  threshold,
 	})
-	
+
 	// Get the models.Vector objects from the REST API
 	vectors, err := p.client.SearchEmbeddings(ctx, queryEmbedding, contextID, modelID, limit, threshold)
 	if err != nil {
 		return nil, err
 	}
-	
+
 	// Convert from models.Vector to repository.Embedding
 	embeddings := make([]*repository.Embedding, len(vectors))
 	for i, vector := range vectors {
@@ -73,7 +73,7 @@ func (p *VectorAPIProxy) SearchEmbeddings(ctx context.Context, queryEmbedding []
 			ModelID:      getModelIDFromMetadata(vector.Metadata),
 		}
 	}
-	
+
 	return embeddings, nil
 }
 
@@ -83,13 +83,13 @@ func (p *VectorAPIProxy) SearchEmbeddings_Legacy(ctx context.Context, queryEmbed
 		"context_id": contextID,
 		"limit":      limit,
 	})
-	
+
 	// Get the models.Vector objects from the REST API
 	vectors, err := p.client.SearchEmbeddings_Legacy(ctx, queryEmbedding, contextID, limit)
 	if err != nil {
 		return nil, err
 	}
-	
+
 	// Convert from models.Vector to repository.Embedding
 	embeddings := make([]*repository.Embedding, len(vectors))
 	for i, vector := range vectors {
@@ -102,7 +102,7 @@ func (p *VectorAPIProxy) SearchEmbeddings_Legacy(ctx context.Context, queryEmbed
 			ModelID:      getModelIDFromMetadata(vector.Metadata),
 		}
 	}
-	
+
 	return embeddings, nil
 }
 
@@ -111,13 +111,13 @@ func (p *VectorAPIProxy) GetContextEmbeddings(ctx context.Context, contextID str
 	p.logger.Debug("Getting context embeddings via REST API proxy", map[string]interface{}{
 		"context_id": contextID,
 	})
-	
+
 	// Get the models.Vector objects from the REST API
 	vectors, err := p.client.GetContextEmbeddings(ctx, contextID)
 	if err != nil {
 		return nil, err
 	}
-	
+
 	// Convert from models.Vector to repository.Embedding
 	embeddings := make([]*repository.Embedding, len(vectors))
 	for i, vector := range vectors {
@@ -130,7 +130,7 @@ func (p *VectorAPIProxy) GetContextEmbeddings(ctx context.Context, contextID str
 			ModelID:      getModelIDFromMetadata(vector.Metadata),
 		}
 	}
-	
+
 	return embeddings, nil
 }
 
@@ -139,7 +139,7 @@ func (p *VectorAPIProxy) DeleteContextEmbeddings(ctx context.Context, contextID 
 	p.logger.Debug("Deleting context embeddings via REST API proxy", map[string]interface{}{
 		"context_id": contextID,
 	})
-	
+
 	return p.client.DeleteContextEmbeddings(ctx, contextID)
 }
 
@@ -149,13 +149,13 @@ func (p *VectorAPIProxy) GetEmbeddingsByModel(ctx context.Context, contextID str
 		"context_id": contextID,
 		"model_id":   modelID,
 	})
-	
+
 	// Get the models.Vector objects from the REST API
 	vectors, err := p.client.GetEmbeddingsByModel(ctx, contextID, modelID)
 	if err != nil {
 		return nil, err
 	}
-	
+
 	// Convert from models.Vector to repository.Embedding
 	embeddings := make([]*repository.Embedding, len(vectors))
 	for i, vector := range vectors {
@@ -168,7 +168,7 @@ func (p *VectorAPIProxy) GetEmbeddingsByModel(ctx context.Context, contextID str
 			ModelID:      getModelIDFromMetadata(vector.Metadata),
 		}
 	}
-	
+
 	return embeddings, nil
 }
 
@@ -178,14 +178,14 @@ func (p *VectorAPIProxy) DeleteModelEmbeddings(ctx context.Context, contextID st
 		"context_id": contextID,
 		"model_id":   modelID,
 	})
-	
+
 	return p.client.DeleteModelEmbeddings(ctx, contextID, modelID)
 }
 
 // GetSupportedModels retrieves all supported models by delegating to the REST API
 func (p *VectorAPIProxy) GetSupportedModels(ctx context.Context) ([]string, error) {
 	p.logger.Debug("Getting supported models via REST API proxy", map[string]interface{}{})
-	
+
 	return p.client.GetSupportedModels(ctx)
 }
 
@@ -194,7 +194,7 @@ func (p *VectorAPIProxy) DeleteEmbedding(ctx context.Context, id string) error {
 	p.logger.Debug("Deleting embedding via REST API proxy", map[string]interface{}{
 		"id": id,
 	})
-	
+
 	// Delegate to the DeleteEmbedding endpoint in the REST API
 	return p.client.DeleteEmbedding(ctx, id)
 }
@@ -204,13 +204,13 @@ func (p *VectorAPIProxy) GetEmbedding(ctx context.Context, id string) (*reposito
 	p.logger.Debug("Getting embedding by ID via REST API proxy", map[string]interface{}{
 		"id": id,
 	})
-	
+
 	// Get the models.Vector from the REST API
 	vector, err := p.client.GetEmbedding(ctx, id)
 	if err != nil {
 		return nil, err
 	}
-	
+
 	// Convert from models.Vector to repository.Embedding
 	embedding := &repository.Embedding{
 		ID:           vector.ID,
@@ -220,7 +220,7 @@ func (p *VectorAPIProxy) GetEmbedding(ctx context.Context, id string) (*reposito
 		Embedding:    vector.Embedding,
 		ModelID:      getModelIDFromMetadata(vector.Metadata),
 	}
-	
+
 	return embedding, nil
 }
 
@@ -229,7 +229,7 @@ func getContentIndexFromMetadata(metadata map[string]interface{}) int {
 	if metadata == nil {
 		return 0
 	}
-	
+
 	if contentIndex, ok := metadata["content_index"]; ok {
 		switch v := contentIndex.(type) {
 		case int:
@@ -238,7 +238,7 @@ func getContentIndexFromMetadata(metadata map[string]interface{}) int {
 			return int(v)
 		}
 	}
-	
+
 	return 0
 }
 
@@ -246,13 +246,13 @@ func getModelIDFromMetadata(metadata map[string]interface{}) string {
 	if metadata == nil {
 		return ""
 	}
-	
+
 	if modelID, ok := metadata["model_id"]; ok {
 		if modelIDStr, ok := modelID.(string); ok {
 			return modelIDStr
 		}
 	}
-	
+
 	return ""
 }
 
@@ -278,7 +278,7 @@ func (p *VectorAPIProxy) List(ctx context.Context, filter vector.Filter) ([]*rep
 	p.logger.Debug("Listing embeddings via REST API proxy", map[string]interface{}{
 		"filter": filter,
 	})
-	
+
 	// Extract common filter parameters
 	var contextID string
 	if contextIDVal, ok := filter["context_id"]; ok {
@@ -286,7 +286,7 @@ func (p *VectorAPIProxy) List(ctx context.Context, filter vector.Filter) ([]*rep
 			contextID = contextIDStr
 		}
 	}
-	
+
 	// If we have a context ID but no other filters, use GetContextEmbeddings
 	if contextID != "" {
 		var modelID string
@@ -295,16 +295,16 @@ func (p *VectorAPIProxy) List(ctx context.Context, filter vector.Filter) ([]*rep
 				modelID = modelIDStr
 			}
 		}
-		
+
 		if modelID != "" {
 			// If we have both context and model ID, use GetEmbeddingsByModel
 			return p.GetEmbeddingsByModel(ctx, contextID, modelID)
 		}
-		
+
 		// Otherwise just get all embeddings for the context
 		return p.GetContextEmbeddings(ctx, contextID)
 	}
-	
+
 	// If no context ID, we can't list all (not supported in REST API)
 	// Return empty list for now
 	p.logger.Warn("List without context_id not supported in REST API", nil)

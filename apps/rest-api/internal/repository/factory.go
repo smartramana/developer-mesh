@@ -140,7 +140,7 @@ func (m *ModelRepositoryAdapter) SearchModels(ctx context.Context, tenantID, que
 	if err != nil {
 		return nil, err
 	}
-	
+
 	// Filter models that contain the query string in their name
 	var filtered []*models.Model
 	for _, model := range allModels {
@@ -148,23 +148,23 @@ func (m *ModelRepositoryAdapter) SearchModels(ctx context.Context, tenantID, que
 			filtered = append(filtered, model)
 		}
 	}
-	
+
 	// Apply pagination
 	start := offset
 	if start > len(filtered) {
 		return []*models.Model{}, nil
 	}
-	
-	end := min(start + limit, len(filtered))
-	
+
+	end := min(start+limit, len(filtered))
+
 	return filtered[start:end], nil
 }
 
 // containsIgnoreCase checks if str contains substr case-insensitively
 func containsIgnoreCase(str, substr string) bool {
-	return len(substr) == 0 || 
-		len(str) >= len(substr) && 
-		strings.Contains(strings.ToLower(str), strings.ToLower(substr))
+	return len(substr) == 0 ||
+		len(str) >= len(substr) &&
+			strings.Contains(strings.ToLower(str), strings.ToLower(substr))
 }
 
 // VectorRepositoryAdapter adapts the pkg repository embedding implementation to our VectorAPIRepository interface
