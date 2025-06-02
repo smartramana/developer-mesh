@@ -29,7 +29,8 @@ jobs:
 
       - name: Install golangci-lint
         run: |
-          curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b $(go env GOPATH)/bin v1.61.0
+          # Install latest version that supports Go 1.24
+          go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest
 
       - name: Install jq (required for helper scripts)
         run: sudo apt-get update && sudo apt-get install -y jq
