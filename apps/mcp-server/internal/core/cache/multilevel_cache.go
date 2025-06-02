@@ -10,7 +10,7 @@ import (
 	"mcp-server/internal/config"
 	"github.com/S-Corkum/devops-mcp/pkg/models"
 	"github.com/S-Corkum/devops-mcp/pkg/observability"
-	"github.com/go-redis/redis/v8"
+	redis "github.com/go-redis/redis/v8"
 	lru "github.com/hashicorp/golang-lru/v2"
 )
 
