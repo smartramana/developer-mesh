@@ -23,25 +23,31 @@ jobs:
         uses: actions/setup-go@v5
         with:
           go-version: ${{ env.GO_VERSION }}
-          cache: true
+          # WORKAROUND: Disable cache due to go.work issues
+          # TODO: Remove when https://github.com/actions/setup-go/issues/482 is fixed
+          cache: false
 
       - name: Install golangci-lint
         run: |
-          curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b $(go env GOPATH)/bin v1.55.2
+          curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b $(go env GOPATH)/bin v1.61.0
 
-      - name: Run golangci-lint
-        run: make lint
+      - name: Install jq (required for helper scripts)
+        run: sudo apt-get update && sudo apt-get install -y jq
+
+      - name: Run golangci-lint on all modules
+        run: ./.github/scripts/lint-all-modules.sh
 
   test:
     name: Test
     runs-on: ubuntu-latest
     services:
       postgres:
-        image: postgres:16-alpine
+        image: pgvector/pgvector:pg17
         env:
           POSTGRES_USER: test
           POSTGRES_PASSWORD: test
           POSTGRES_DB: devops_mcp_test
+          POSTGRES_INITDB_ARGS: "-c shared_preload_libraries='vector'"
         options: >-
           --health-cmd pg_isready
           --health-interval 10s
@@ -68,7 +74,17 @@ jobs:
         uses: actions/setup-go@v5
         with:
           go-version: ${{ env.GO_VERSION }}
-          cache: true
+          # WORKAROUND: Disable cache due to go.work issues
+          # TODO: Remove when https://github.com/actions/setup-go/issues/482 is fixed
+          cache: false
+
+      - name: Install jq (required for helper scripts)
+        run: sudo apt-get update && sudo apt-get install -y jq
+
+      - name: Set up test database
+        run: |
+          PGPASSWORD=test psql -h localhost -U test -d devops_mcp_test -c "CREATE EXTENSION IF NOT EXISTS vector;"
+          PGPASSWORD=test psql -h localhost -U test -d devops_mcp_test -c "CREATE EXTENSION IF NOT EXISTS \"uuid-ossp\";"
 
       - name: Create test environment file
         run: |
@@ -87,14 +103,13 @@ jobs:
           ENVIRONMENT=test
           EOF
 
-      - name: Run unit tests
-        run: make test
+      - name: Run unit tests with coverage
+        run: |
+          export TEST_FLAGS="-race -coverprofile=coverage.out -covermode=atomic"
+          ./.github/scripts/test-all-modules.sh
         env:
           DATABASE_DSN: postgres://test:test@localhost:5432/devops_mcp_test?sslmode=disable
           REDIS_ADDR: localhost:6379
-
-      - name: Generate coverage report
-        run: make test-coverage
 
       - name: Upload coverage to Codecov
         uses: codecov/codecov-action@v3
@@ -109,11 +124,12 @@ jobs:
     needs: [lint, test]
     services:
       postgres:
-        image: postgres:16-alpine
+        image: pgvector/pgvector:pg17
         env:
           POSTGRES_USER: test
           POSTGRES_PASSWORD: test
           POSTGRES_DB: devops_mcp_test
+          POSTGRES_INITDB_ARGS: "-c shared_preload_libraries='vector'"
         options: >-
           --health-cmd pg_isready
           --health-interval 10s
@@ -140,7 +156,14 @@ jobs:
         uses: actions/setup-go@v5
         with:
           go-version: ${{ env.GO_VERSION }}
-          cache: true
+          # WORKAROUND: Disable cache due to go.work issues
+          # TODO: Remove when https://github.com/actions/setup-go/issues/482 is fixed
+          cache: false
+
+      - name: Set up test database
+        run: |
+          PGPASSWORD=test psql -h localhost -U test -d devops_mcp_test -c "CREATE EXTENSION IF NOT EXISTS vector;"
+          PGPASSWORD=test psql -h localhost -U test -d devops_mcp_test -c "CREATE EXTENSION IF NOT EXISTS \"uuid-ossp\";"
 
       - name: Create test environment file
         run: |
@@ -175,7 +198,12 @@ jobs:
         uses: actions/setup-go@v5
         with:
           go-version: ${{ env.GO_VERSION }}
-          cache: true
+          # WORKAROUND: Disable cache due to go.work issues
+          # TODO: Remove when https://github.com/actions/setup-go/issues/482 is fixed
+          cache: false
+
+      - name: Sync workspace before build
+        run: go work sync
 
       - name: Build ${{ matrix.app }}
         run: make build-${{ matrix.app }}
@@ -224,7 +252,9 @@ jobs:
         uses: actions/setup-go@v5
         with:
           go-version: ${{ env.GO_VERSION }}
-          cache: true
+          # WORKAROUND: Disable cache due to go.work issues
+          # TODO: Remove when https://github.com/actions/setup-go/issues/482 is fixed
+          cache: false
 
       - name: Install Ginkgo
         run: go install github.com/onsi/ginkgo/v2/ginkgo@latest
@@ -235,7 +265,16 @@ jobs:
       - name: Start services
         run: |
           docker-compose -f docker-compose.local.yml up -d
-          sleep 30  # Wait for services to be ready
+          # Wait for services to be healthy
+          echo "Waiting for services to be ready..."
+          for i in {1..30}; do
+            if curl -f http://localhost:8080/health && curl -f http://localhost:8081/health; then
+              echo "Services are ready!"
+              break
+            fi
+            echo "Waiting for services... attempt $i/30"
+            sleep 2
+          done
 
       - name: Run functional tests
         run: |
