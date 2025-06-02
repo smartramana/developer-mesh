@@ -155,7 +155,13 @@ jobs:
         run: |
           # WORKAROUND: CodeQL autobuild doesn't understand Go workspaces
           # Manually build all applications to ensure proper analysis
-          echo "Syncing Go workspace..."
+          echo "Setting up Go workspace..."
+          if [ ! -f "go.work" ]; then
+            go work init
+            for dir in apps/mcp-server apps/rest-api apps/worker pkg; do
+              [ -f "$dir/go.mod" ] && go work use "$dir"
+            done
+          fi
           go work sync
           
           echo "Building all applications..."

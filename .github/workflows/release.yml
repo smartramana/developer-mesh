@@ -105,8 +105,15 @@ jobs:
           # TODO: Remove when https://github.com/actions/setup-go/issues/482 is fixed
           cache: false
 
-      - name: Sync workspace
-        run: go work sync
+      - name: Set up Go workspace
+        run: |
+          if [ ! -f "go.work" ]; then
+            go work init
+            for dir in apps/mcp-server apps/rest-api apps/worker pkg; do
+              [ -f "$dir/go.mod" ] && go work use "$dir"
+            done
+          fi
+          go work sync
 
       - name: Build
         run: |

@@ -6,6 +6,18 @@ set -euo pipefail
 
 echo "=== Testing all modules in Go workspace ==="
 
+# Check if go.work exists, if not create it
+if [ ! -f "go.work" ]; then
+    echo "No go.work file found, creating one..."
+    go work init
+    # Add all modules
+    for dir in apps/mcp-server apps/rest-api apps/worker pkg; do
+        if [ -f "$dir/go.mod" ]; then
+            go work use "$dir"
+        fi
+    done
+fi
+
 # Ensure workspace is synchronized
 echo "Synchronizing Go workspace..."
 go work sync
