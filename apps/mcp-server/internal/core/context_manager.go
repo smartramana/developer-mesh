@@ -219,7 +219,7 @@ func (cm *ContextManager) DeleteContext(ctx context.Context, contextID string) e
 
 	// Delete from cache
 	if cm.cache != nil {
-		cm.cache.Delete(ctx, "context:"+contextID)
+		_ = cm.cache.Delete(ctx, "context:"+contextID)
 	}
 
 	return nil

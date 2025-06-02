@@ -74,7 +74,7 @@ func (cm *ContextManager) CreateContext(ctx context.Context, contextData *models
 
 	// Cache the context
 	if cm.cache != nil {
-		cm.cache.Set(ctx, "context:"+contextData.ID, contextData, 24*time.Hour)
+		_ = cm.cache.Set(ctx, "context:"+contextData.ID, contextData, 24*time.Hour)
 	}
 
 	return contextData, nil
@@ -195,7 +195,7 @@ func (cm *ContextManager) UpdateContext(ctx context.Context, contextID string, u
 
 	// Cache the updated context
 	if cm.cache != nil {
-		cm.cache.Set(ctx, "context:"+contextID, existingContext, 24*time.Hour)
+		_ = cm.cache.Set(ctx, "context:"+contextID, existingContext, 24*time.Hour)
 	}
 
 	return existingContext, nil
@@ -219,7 +219,7 @@ func (cm *ContextManager) DeleteContext(ctx context.Context, contextID string) e
 
 	// Delete from cache
 	if cm.cache != nil {
-		cm.cache.Delete(ctx, "context:"+contextID)
+		_ = cm.cache.Delete(ctx, "context:"+contextID)
 	}
 
 	return nil
