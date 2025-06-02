@@ -182,7 +182,7 @@ func TestService_SearchSimilar(t *testing.T) {
             contextID,
             10,
             0.8,
-            nil, // metadata filter
+            sqlmock.AnyArg(), // metadata filter - can be nil or empty slice
         ).
         WillReturnRows(searchRows)
     
