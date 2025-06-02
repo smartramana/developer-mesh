@@ -3,6 +3,7 @@ package resilience
 import (
 	"context"
 	"errors"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -13,7 +14,7 @@ func TestExecuteWithTimeout(t *testing.T) {
 	// Test a function that completes within the timeout
 	t.Run("completes within timeout", func(t *testing.T) {
 		ctx := context.Background()
-		executed := false
+		var executed atomic.Bool
 
 		// Create a timeout config
 		config := TimeoutConfig{
@@ -23,7 +24,7 @@ func TestExecuteWithTimeout(t *testing.T) {
 
 		// Operation that completes quickly
 		operation := func(ctx context.Context) (string, error) {
-			executed = true
+			executed.Store(true)
 			return "success", nil
 		}
 
@@ -32,14 +33,14 @@ func TestExecuteWithTimeout(t *testing.T) {
 
 		assert.NoError(t, err)
 		assert.Equal(t, "success", result)
-		assert.True(t, executed, "Operation should have executed")
+		assert.True(t, executed.Load(), "Operation should have executed")
 	})
 
 	// Test a function that times out
 	t.Run("times out", func(t *testing.T) {
 		ctx := context.Background()
-		executed := true
-		completed := false
+		var executed atomic.Bool
+		var completed atomic.Bool
 
 		// Create a timeout config
 		config := TimeoutConfig{
@@ -49,12 +50,12 @@ func TestExecuteWithTimeout(t *testing.T) {
 
 		// Operation that takes too long
 		operation := func(ctx context.Context) (string, error) {
-			executed = true
+			executed.Store(true)
 
 			// Try to sleep but should be interrupted
 			select {
 			case <-time.After(200 * time.Millisecond):
-				completed = true
+				completed.Store(true)
 				return "too late", nil
 			case <-ctx.Done():
 				return "", ctx.Err()
@@ -66,15 +67,15 @@ func TestExecuteWithTimeout(t *testing.T) {
 
 		assert.Error(t, err)
 		assert.Equal(t, "", result)
-		assert.True(t, executed, "Operation should have started execution")
-		assert.False(t, completed, "Operation should not have completed execution")
+		assert.True(t, executed.Load(), "Operation should have started execution")
+		assert.False(t, completed.Load(), "Operation should not have completed execution")
 		assert.True(t, errors.Is(err, context.DeadlineExceeded), "Error should be deadline exceeded")
 	})
 
 	// Test a function that returns an error
 	t.Run("returns error", func(t *testing.T) {
 		ctx := context.Background()
-		executed := false
+		var executed atomic.Bool
 		testErr := errors.New("operation failed")
 
 		// Create a timeout config
@@ -85,7 +86,7 @@ func TestExecuteWithTimeout(t *testing.T) {
 
 		// Operation that returns an error
 		operation := func(ctx context.Context) (string, error) {
-			executed = true
+			executed.Store(true)
 			return "", testErr
 		}
 
@@ -95,7 +96,7 @@ func TestExecuteWithTimeout(t *testing.T) {
 		assert.Error(t, err)
 		assert.Equal(t, testErr, err)
 		assert.Equal(t, "", result)
-		assert.True(t, executed, "Operation should have executed")
+		assert.True(t, executed.Load(), "Operation should have executed")
 	})
 }
 
@@ -103,8 +104,8 @@ func TestGracePeriod(t *testing.T) {
 	// Test with grace period that allows completion
 	t.Run("grace period allows completion", func(t *testing.T) {
 		ctx := context.Background()
-		executed := false
-		completed := false
+		var executed atomic.Bool
+		var completed atomic.Bool
 
 		// Create a timeout config with grace period
 		config := TimeoutConfig{
@@ -114,11 +115,11 @@ func TestGracePeriod(t *testing.T) {
 
 		// Operation that completes during grace period
 		operation := func(ctx context.Context) (string, error) {
-			executed = true
+			executed.Store(true)
 
 			// Sleep a bit longer than timeout but less than grace period
 			time.Sleep(80 * time.Millisecond)
-			completed = true
+			completed.Store(true)
 
 			select {
 			case <-ctx.Done():
@@ -134,8 +135,8 @@ func TestGracePeriod(t *testing.T) {
 
 		assert.NoError(t, err)
 		assert.Equal(t, "completed during grace", result)
-		assert.True(t, executed, "Operation should have executed")
-		assert.True(t, completed, "Operation should have completed during grace period")
+		assert.True(t, executed.Load(), "Operation should have executed")
+		assert.True(t, completed.Load(), "Operation should have completed during grace period")
 	})
 
 	// Test with grace period that is too short

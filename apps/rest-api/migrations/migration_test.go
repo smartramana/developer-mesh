@@ -3,6 +3,7 @@ package migrations
 import (
     "database/sql"
     "fmt"
+    "os"
     "testing"
     
     _ "github.com/lib/pq"
@@ -19,8 +20,22 @@ func TestMigrations(t *testing.T) {
         t.Skip("Skipping migration test in short mode")
     }
     
+    // Get database credentials from environment or use defaults
+    dbUser := os.Getenv("DATABASE_USER")
+    if dbUser == "" {
+        dbUser = "dev"
+    }
+    dbPassword := os.Getenv("DATABASE_PASSWORD")
+    if dbPassword == "" {
+        dbPassword = "dev"
+    }
+    dbHost := os.Getenv("DATABASE_HOST")
+    if dbHost == "" {
+        dbHost = "localhost"
+    }
+    
     // Database connection string for testing
-    dsn := "postgres://dev:dev@localhost:5432/test_migrations?sslmode=disable"
+    dsn := fmt.Sprintf("postgres://%s:%s@%s:5432/postgres?sslmode=disable", dbUser, dbPassword, dbHost)
     
     // Open database connection
     db, err := sql.Open("postgres", dsn)
@@ -36,7 +51,8 @@ func TestMigrations(t *testing.T) {
     }
     
     // Connect to test database
-    testDB, err := sql.Open("postgres", "postgres://dev:dev@localhost:5432/test_migrations?sslmode=disable")
+    testDSN := fmt.Sprintf("postgres://%s:%s@%s:5432/test_migrations?sslmode=disable", dbUser, dbPassword, dbHost)
+    testDB, err := sql.Open("postgres", testDSN)
     require.NoError(t, err)
     defer testDB.Close()
     

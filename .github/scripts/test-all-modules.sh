@@ -47,15 +47,10 @@ for module in $modules; do
     fi
 done
 
-# Test from workspace root for cross-module integration
+# Skip workspace-level tests as they're not supported with Go workspaces
+# Individual module tests already cover all the code
 echo ""
-echo "=== Running workspace-level tests ==="
-if go test $test_flags ./...; then
-    echo "✓ Workspace tests passed"
-else
-    echo "✗ Workspace tests failed"
-    failed_modules="$failed_modules workspace"
-fi
+echo "=== Skipping workspace-level tests (not supported with Go workspaces) ==="
 
 # Report results
 echo ""

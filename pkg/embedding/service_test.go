@@ -4,6 +4,7 @@ import (
     "context"
     "encoding/json"
     "testing"
+    "time"
     
     "github.com/DATA-DOG/go-sqlmock"
     "github.com/google/uuid"
@@ -84,7 +85,7 @@ func TestService_CreateEmbedding(t *testing.T) {
     }).AddRow(
         modelID, "openai", "text-embedding-ada-002", "v2", 1536,
         8191, false, false, nil, 0.10, nil, "text",
-        true, json.RawMessage("{}"), "2024-01-01",
+        true, json.RawMessage("{}"), time.Now(),
     )
     
     mock.ExpectQuery("SELECT (.+) FROM mcp.embedding_models").
@@ -158,7 +159,7 @@ func TestService_SearchSimilar(t *testing.T) {
     }).AddRow(
         modelID, "openai", "text-embedding-ada-002", "v2", 1536,
         8191, false, false, nil, 0.10, nil, "text",
-        true, json.RawMessage("{}"), "2024-01-01",
+        true, json.RawMessage("{}"), time.Now(),
     )
     
     mock.ExpectQuery("SELECT (.+) FROM mcp.embedding_models").
