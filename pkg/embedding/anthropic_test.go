@@ -89,7 +89,7 @@ func TestAnthropicEmbeddingService_GenerateEmbedding(t *testing.T) {
 		// Return a mock response
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)
-		w.Write([]byte(`{
+		_, _ = w.Write([]byte(`{
 			"object": "embedding",
 			"embedding": [0.1, 0.2, 0.3, 0.4, 0.5],
 			"model": "claude-3-5-haiku-20250531"
@@ -137,7 +137,7 @@ func TestAnthropicEmbeddingService_BatchGenerateEmbeddings(t *testing.T) {
 		// Return a mock response
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)
-		w.Write([]byte(`{
+		_, _ = w.Write([]byte(`{
 			"object": "embedding_batch",
 			"embeddings": [
 				[0.1, 0.2, 0.3, 0.4, 0.5],

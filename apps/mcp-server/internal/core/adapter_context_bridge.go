@@ -166,8 +166,12 @@ func (b *AdapterContextBridge) GetToolData(ctx context.Context, contextID string
 	// Record the data response in the context
 	responseContent := "Error getting tool data"
 	if err == nil {
-		responseBytes, _ := json.Marshal(result)
-		responseContent = string(responseBytes)
+		responseBytes, marshalErr := json.Marshal(result)
+		if marshalErr != nil {
+			responseContent = fmt.Sprintf("Error marshaling result: %v", marshalErr)
+		} else {
+			responseContent = string(responseBytes)
+		}
 	}
 
 	responseItem := models.ContextItem{
