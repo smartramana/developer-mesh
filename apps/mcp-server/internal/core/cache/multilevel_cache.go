@@ -167,7 +167,7 @@ func (mlc *MultiLevelCache) InvalidatePattern(ctx context.Context, pattern strin
 func (mlc *MultiLevelCache) WarmCache(ctx context.Context, contextIDs []string, loader func(string) (*models.Context, error)) error {
 	for _, id := range contextIDs {
 		// Check if already cached
-		if cached, _ := mlc.Get(ctx, id); cached != nil {
+		if cached, err := mlc.Get(ctx, id); err == nil && cached != nil {
 			continue
 		}
 

@@ -147,7 +147,7 @@ func GitHubWebhookHandler(config WebhookConfig, logger observability.Logger) htt
 			logger.Warn("SQS_QUEUE_URL not configured - skipping SQS enqueue", nil)
 			// Return success for tests
 			w.WriteHeader(http.StatusOK)
-			fmt.Fprintf(w, "{\"status\":\"success\",\"message\":\"Webhook received, SQS enqueue skipped\"}")
+			_, _ = fmt.Fprintf(w, "{\"status\":\"success\",\"message\":\"Webhook received, SQS enqueue skipped\"}")
 			return
 		}
 
