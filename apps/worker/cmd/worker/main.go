@@ -11,7 +11,7 @@ import (
 	"time"
 
 	"github.com/S-Corkum/devops-mcp/pkg/queue"
-	"github.com/go-redis/redis/v8"
+	redis "github.com/go-redis/redis/v8"
 	"worker/internal/worker"
 )
 

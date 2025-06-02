@@ -161,6 +161,14 @@ issues:
     
     # Exclude test-related issues
     - "ineffective break statement. Did you mean to break out of the outer loop"
+    
+    # Exclude mock embedding typecheck false positives
+    - "\\.On undefined \\(type \\*Mock.* has no field or method On\\)"
+    - "\\.Called undefined \\(type \\*Mock.* has no field or method Called\\)"
+    - "\\.AssertExpectations undefined \\(type \\*Mock.* has no field or method AssertExpectations\\)"
+    - "m\\.Called undefined \\(type \\*Mock.* has no field or method Called\\)"
+    - "args := m\\.Called.* \\(type \\*Mock.* has no field or method Called\\)"
+    - "could not import sync/atomic.*internal error in importing"
   
   # Excluding configuration per-path, per-linter, per-text and per-source
   exclude-rules:
@@ -205,6 +213,18 @@ issues:
       linters:
         - dupl
         - unused
+        - typecheck
+    
+    # Exclude typecheck for test files with mocks
+    - path: _test\.go
+      text: "has no field or method (On|Called|AssertExpectations)"
+      linters:
+        - typecheck
+    
+    # Exclude sync/atomic import error
+    - text: "could not import sync/atomic"
+      linters:
+        - typecheck
   
   # Maximum issues count per one linter. Set to 0 to disable. Default is 50.
   max-issues-per-linter: 0

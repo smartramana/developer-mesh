@@ -170,7 +170,7 @@ func TestProtocolCompliance(t *testing.T) {
 		assert.Equal(t, http.StatusOK, w.Code)
 
 		var response map[string]interface{}
-		err := json.Unmarshal(w.Body.Bytes(), &response)
+		err = json.Unmarshal(w.Body.Bytes(), &response)
 		require.NoError(t, err)
 
 		// Validate response format
@@ -213,7 +213,7 @@ func TestProtocolCompliance(t *testing.T) {
 		assert.Equal(t, http.StatusOK, w.Code)
 
 		var responses []map[string]interface{}
-		err := json.Unmarshal(w.Body.Bytes(), &responses)
+		err = json.Unmarshal(w.Body.Bytes(), &responses)
 		require.NoError(t, err)
 
 		assert.Len(t, responses, 2)
@@ -242,7 +242,7 @@ func TestProtocolCompliance(t *testing.T) {
 		assert.Equal(t, http.StatusOK, w.Code) // JSON-RPC returns 200 with error in body
 
 		var response map[string]interface{}
-		err := json.Unmarshal(w.Body.Bytes(), &response)
+		err = json.Unmarshal(w.Body.Bytes(), &response)
 		require.NoError(t, err)
 
 		assert.Equal(t, "2.0", response["jsonrpc"])
@@ -551,7 +551,7 @@ func TestContextManagementProtocol(t *testing.T) {
 			},
 		}
 
-		body, err = json.Marshal(updateReq)
+		body, err := json.Marshal(updateReq)
 		require.NoError(t, err)
 		req := httptest.NewRequest("POST", "/mcp/v1/rpc", bytes.NewReader(body))
 		req.Header.Set("Content-Type", "application/json")
