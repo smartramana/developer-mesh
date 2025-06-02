@@ -90,7 +90,8 @@ func TestHandleToolWebhook(t *testing.T) {
 		},
 	}
 
-	jsonPayload, _ := json.Marshal(payload)
+	jsonPayload, err := json.Marshal(payload)
+	assert.NoError(t, err)
 
 	// Test contexts
 	testContext1 := &models.Context{
