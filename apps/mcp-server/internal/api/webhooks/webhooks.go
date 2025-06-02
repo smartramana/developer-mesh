@@ -175,7 +175,7 @@ func GitHubWebhookHandler(config WebhookConfig, logger observability.Logger) htt
 
 		// Return success response immediately
 		w.WriteHeader(http.StatusOK)
-		w.Write([]byte("Webhook received successfully"))
+		_, _ = w.Write([]byte("Webhook received successfully"))
 	}
 }
 
