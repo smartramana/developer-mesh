@@ -59,6 +59,10 @@ jobs:
   branch-name:
     name: Branch Name Check
     runs-on: ubuntu-latest
+    # Skip for main branch and dependabot
+    if: |
+      github.head_ref != 'main' && 
+      !startsWith(github.head_ref, 'dependabot/')
     
     steps:
       - name: Check branch name
@@ -66,7 +70,7 @@ jobs:
         with:
           regex: '^(feature|fix|hotfix|chore|docs|test|refactor)\/[a-z0-9-]+$'
           allowed_prefixes: 'feature,fix,hotfix,chore,docs,test,refactor'
-          ignore: main
+          ignore: main,dependabot/**
           min_length: 5
           max_length: 50
 
@@ -85,3 +89,65 @@ jobs:
         with:
           configFile: .github/commitlint.config.js
           failOnWarnings: false
+
+  pr-description:
+    name: PR Description Check
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Check PR description
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const pr = context.payload.pull_request;
+            const description = pr.body || '';
+            
+            // Check minimum length
+            if (description.length < 50) {
+              core.setFailed('PR description is too short. Please provide a detailed description of the changes.');
+              return;
+            }
+            
+            // Check for required sections
+            const requiredSections = ['## Changes', '## Testing'];
+            const missingSections = requiredSections.filter(section => 
+              !description.includes(section)
+            );
+            
+            if (missingSections.length > 0) {
+              core.setFailed(`PR description is missing required sections: ${missingSections.join(', ')}`);
+              return;
+            }
+            
+            // Check for checklist items
+            if (!description.includes('- [ ]') && !description.includes('- [x]')) {
+              core.warning('Consider adding a checklist to track PR requirements');
+            }
+            
+            console.log('✓ PR description meets requirements');
+
+  linked-issue:
+    name: Check Linked Issue
+    runs-on: ubuntu-latest
+    # Only enforce for feature and fix branches
+    if: |
+      startsWith(github.head_ref, 'feature/') || 
+      startsWith(github.head_ref, 'fix/')
+    
+    steps:
+      - name: Check for linked issue
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const pr = context.payload.pull_request;
+            const body = pr.body || '';
+            
+            // Check for issue references
+            const issuePattern = /(closes|fixes|resolves)\s+#\d+/i;
+            const hasLinkedIssue = issuePattern.test(body);
+            
+            if (!hasLinkedIssue) {
+              core.warning('This PR does not reference any issues. Consider linking related issues using "Closes #123"');
+            } else {
+              console.log('✓ PR has linked issues');
+            }

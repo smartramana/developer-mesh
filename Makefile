@@ -104,7 +104,7 @@ test-all:
 # Run integration tests with Docker Compose setup (removed - duplicate target below)
 
 test-coverage:
-	$(GOTEST) -coverprofile=coverage.out ./...
+	$(GOTEST) -coverprofile=coverage.out ./apps/mcp-server/... ./apps/rest-api/... ./apps/worker/... ./pkg/...
 	$(GOCMD) tool cover -func=coverage.out
 
 test-coverage-html: test-coverage

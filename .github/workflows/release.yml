@@ -36,18 +36,26 @@ jobs:
           else
             CHANGELOG=$(git log --pretty=format:"- %s" --reverse ${PREVIOUS_TAG}..HEAD)
           fi
+          
+          # Group changes by type
           echo "changelog<<EOF" >> $GITHUB_OUTPUT
-          echo "$CHANGELOG" >> $GITHUB_OUTPUT
+          echo "### Features" >> $GITHUB_OUTPUT
+          echo "$CHANGELOG" | grep -E "^- feat" || echo "- No new features" >> $GITHUB_OUTPUT
+          echo "" >> $GITHUB_OUTPUT
+          echo "### Bug Fixes" >> $GITHUB_OUTPUT
+          echo "$CHANGELOG" | grep -E "^- fix" || echo "- No bug fixes" >> $GITHUB_OUTPUT
+          echo "" >> $GITHUB_OUTPUT
+          echo "### Other Changes" >> $GITHUB_OUTPUT
+          echo "$CHANGELOG" | grep -vE "^- (feat|fix)" || echo "- No other changes" >> $GITHUB_OUTPUT
           echo "EOF" >> $GITHUB_OUTPUT
 
       - name: Create Release
         id: create_release
-        uses: actions/create-release@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        # Use the newer softprops/action-gh-release action
+        uses: softprops/action-gh-release@v1
         with:
-          tag_name: ${{ github.ref }}
-          release_name: Release ${{ steps.get_version.outputs.version }}
+          token: ${{ secrets.GITHUB_TOKEN }}
+          name: Release ${{ steps.get_version.outputs.version }}
           body: |
             ## Changes in this Release
             ${{ steps.changelog.outputs.changelog }}
@@ -56,8 +64,21 @@ jobs:
             - `ghcr.io/${{ github.repository }}/mcp-server:${{ steps.get_version.outputs.version }}`
             - `ghcr.io/${{ github.repository }}/rest-api:${{ steps.get_version.outputs.version }}`
             - `ghcr.io/${{ github.repository }}/worker:${{ steps.get_version.outputs.version }}`
+            
+            ## Installation
+            
+            ### Docker
+            ```bash
+            docker pull ghcr.io/${{ github.repository }}/mcp-server:${{ steps.get_version.outputs.version }}
+            docker pull ghcr.io/${{ github.repository }}/rest-api:${{ steps.get_version.outputs.version }}
+            docker pull ghcr.io/${{ github.repository }}/worker:${{ steps.get_version.outputs.version }}
+            ```
+            
+            ### Binary
+            Download the appropriate binary for your platform from the assets below.
           draft: false
           prerelease: ${{ contains(steps.get_version.outputs.version, '-') }}
+          generate_release_notes: true
 
   build-binaries:
     name: Build Binaries
@@ -80,25 +101,44 @@ jobs:
         uses: actions/setup-go@v5
         with:
           go-version: ${{ env.GO_VERSION }}
-          cache: true
+          # WORKAROUND: Disable cache due to go.work issues
+          # TODO: Remove when https://github.com/actions/setup-go/issues/482 is fixed
+          cache: false
+
+      - name: Set up Go workspace
+        run: |
+          if [ ! -f "go.work" ]; then
+            go work init
+            for dir in apps/mcp-server apps/rest-api apps/worker pkg; do
+              [ -f "$dir/go.mod" ] && go work use "$dir"
+            done
+          fi
+          go work sync
 
       - name: Build
         run: |
           cd apps/${{ matrix.app }}
-          GOOS=${{ matrix.goos }} GOARCH=${{ matrix.goarch }} go build \
-            -ldflags="-w -s -X main.Version=${{ needs.release.outputs.version }}" \
-            -o ${{ matrix.app }}-${{ matrix.goos }}-${{ matrix.goarch }}${{ matrix.goos == 'windows' && '.exe' || '' }} \
+          # Create output directory
+          mkdir -p dist
+          
+          # Build with proper versioning
+          BUILD_TIME=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+          GOOS=${{ matrix.goos }} GOARCH=${{ matrix.goarch }} CGO_ENABLED=0 go build \
+            -ldflags="-w -s -X main.Version=${{ needs.release.outputs.version }} -X main.CommitSHA=${{ github.sha }} -X main.BuildTime=${BUILD_TIME}" \
+            -o dist/${{ matrix.app }}-${{ matrix.goos }}-${{ matrix.goarch }}${{ matrix.goos == 'windows' && '.exe' || '' }} \
             ./cmd/*
+          
+          # Create checksum
+          cd dist
+          sha256sum ${{ matrix.app }}-${{ matrix.goos }}-${{ matrix.goarch }}${{ matrix.goos == 'windows' && '.exe' || '' }} > ${{ matrix.app }}-${{ matrix.goos }}-${{ matrix.goarch }}.sha256
 
-      - name: Upload Release Asset
-        uses: actions/upload-release-asset@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Upload Release Assets
+        uses: softprops/action-gh-release@v1
         with:
-          upload_url: ${{ needs.release.outputs.upload_url }}
-          asset_path: ./apps/${{ matrix.app }}/${{ matrix.app }}-${{ matrix.goos }}-${{ matrix.goarch }}${{ matrix.goos == 'windows' && '.exe' || '' }}
-          asset_name: ${{ matrix.app }}-${{ matrix.goos }}-${{ matrix.goarch }}${{ matrix.goos == 'windows' && '.exe' || '' }}
-          asset_content_type: application/octet-stream
+          token: ${{ secrets.GITHUB_TOKEN }}
+          files: |
+            apps/${{ matrix.app }}/dist/${{ matrix.app }}-${{ matrix.goos }}-${{ matrix.goarch }}${{ matrix.goos == 'windows' && '.exe' || '' }}
+            apps/${{ matrix.app }}/dist/${{ matrix.app }}-${{ matrix.goos }}-${{ matrix.goarch }}.sha256
 
   docker-release:
     name: Build and Push Docker Images
@@ -115,6 +155,9 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
@@ -137,6 +180,7 @@ jobs:
             type=semver,pattern={{major}}.{{minor}}
             type=semver,pattern={{major}}
             type=sha,prefix={{version}}-
+            type=raw,value=latest,enable={{is_default_branch}}
 
       - name: Build and push Docker image
         uses: docker/build-push-action@v5
@@ -153,3 +197,4 @@ jobs:
             VERSION=${{ needs.release.outputs.version }}
             COMMIT_SHA=${{ github.sha }}
             BUILD_TIME=${{ github.event.repository.updated_at }}
+            GO_VERSION=${{ env.GO_VERSION }}

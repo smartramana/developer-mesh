@@ -12,6 +12,9 @@ jobs:
   update-dependencies:
     name: Update Go Dependencies
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
     
     steps:
       - name: Checkout code
@@ -21,26 +24,39 @@ jobs:
         uses: actions/setup-go@v5
         with:
           go-version: ${{ env.GO_VERSION }}
-          cache: true
+          # WORKAROUND: Disable cache due to go.work issues
+          # TODO: Remove when https://github.com/actions/setup-go/issues/482 is fixed
+          cache: false
+
+      - name: Install jq (required for helper scripts)
+        run: sudo apt-get update && sudo apt-get install -y jq
 
       - name: Update dependencies
-        run: |
-          # Update all modules in the workspace
-          for dir in apps/mcp-server apps/rest-api apps/worker pkg; do
-            echo "Updating dependencies in $dir"
-            cd $dir
-            go get -u ./...
-            go mod tidy
-            cd -
-          done
-          
-          # Update workspace
-          go work sync
+        run: ./.github/scripts/update-dependencies.sh
 
-      - name: Run tests after update
-        run: make test
+      - name: Check for changes
+        id: check_changes
+        run: |
+          if [[ -z $(git status -s) ]]; then
+            echo "No changes detected"
+            echo "changes=false" >> $GITHUB_OUTPUT
+          else
+            echo "Changes detected"
+            echo "changes=true" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Run unit tests only (skip integration tests)
+        if: steps.check_changes.outputs.changes == 'true'
+        run: |
+          # Run with -short flag to skip integration tests that need external services
+          export TEST_FLAGS="-short -timeout=5m"
+          ./.github/scripts/test-all-modules.sh || {
+            echo "::warning::Tests failed after dependency update. Please review the changes."
+            echo "TEST_FAILED=true" >> $GITHUB_ENV
+          }
 
       - name: Create Pull Request
+        if: steps.check_changes.outputs.changes == 'true'
         uses: peter-evans/create-pull-request@v5
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
@@ -57,9 +73,21 @@ jobs:
             - Synchronized workspace with `go work sync`
             
             ### Testing
-            - [x] All tests pass
+            - [x] Dependency update completed
+            - ${{ env.TEST_FAILED == 'true' && '[ ] Unit tests pass (⚠️ Some tests failed - manual review required)' || '[x] Unit tests pass' }}
             - [ ] Manual testing required
+            
+            ${{ env.TEST_FAILED == 'true' && '> ⚠️ **Warning**: Some tests failed after the dependency update. Please review the changes and test failures before merging.' || '' }}
+            
+            ### Review Checklist
+            - [ ] Review dependency changes in go.mod files
+            - [ ] Check for breaking changes in release notes
+            - [ ] Verify no security vulnerabilities introduced
+            - [ ] Ensure all applications build successfully
             
             Please review the changes and ensure everything works as expected.
           branch: chore/update-dependencies
           delete-branch: true
+          labels: |
+            dependencies
+            automated
