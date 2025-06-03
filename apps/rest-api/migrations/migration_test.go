@@ -59,7 +59,7 @@ func TestMigrations(t *testing.T) {
     // Clean up after test
     defer func() {
         testDB.Close()
-        _ = db.Exec("DROP DATABASE test_migrations")
+        _, _ = db.Exec("DROP DATABASE test_migrations")
     }()
     
     // Create migrate instance
