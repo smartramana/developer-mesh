@@ -41,6 +41,50 @@ failed_modules=""
 # Get the root directory of the repository
 root_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 
+# Create a temporary script to filter golangci-lint output
+cat > /tmp/filter-lint-$$.awk <<'EOF'
+BEGIN { skip_context = 0; buffer = ""; }
+{
+    # Check if this is a mock-related error line
+    if ($0 ~ /\.(On|Called|AssertExpectations|TestData|ExpectedCalls|Calls|Parent|Test|MethodCalled|Arguments|Assert|AssertCalled|AssertNotCalled|AssertNumberOfCalls) undefined \(type .*(Mock|mock).* has no field or method/) {
+        skip_context = 2;  # Skip this line and next context line
+        next;
+    }
+    
+    # Check for other false positives
+    if ($0 ~ /undefined: (yaml|jwt|backoff|RegisterFailHandler|RunSpecs|BeforeSuite|Describe|BeforeEach|AfterEach|It|Expect|BeTrue|HaveOccurred)/) {
+        skip_context = 2;
+        next;
+    }
+    
+    # Skip import errors
+    if ($0 ~ /could not import .* \(could not load export data:/ || $0 ~ /could not import sync\/atomic/) {
+        skip_context = 2;
+        next;
+    }
+    
+    # Skip warning messages
+    if ($0 ~ /level=warning msg=.*Can.*t run linter/ || $0 ~ /no go files to analyze/) {
+        next;
+    }
+    
+    # Handle context lines after errors
+    if (skip_context > 0 && $0 ~ /^\s+\^/) {
+        skip_context--;
+        next;
+    } else if (skip_context > 0 && $0 ~ /^[^\s]/) {
+        # New error line, reset counter
+        skip_context = 0;
+    } else if (skip_context > 0) {
+        skip_context--;
+        next;
+    }
+    
+    # Output non-filtered lines
+    print $0;
+}
+EOF
+
 # Lint each module
 # Note: We filter out known typecheck false positives with testify/mock embedding patterns.
 # All code compiles and tests pass successfully.
@@ -51,37 +95,36 @@ for module in $modules; do
         
         # Run golangci-lint and capture output
         output_file="/tmp/lint-output-$$-$(basename "$module").txt"
+        filtered_file="/tmp/lint-filtered-$$-$(basename "$module").txt"
         set +e  # Don't exit on error
         (cd "$module" && golangci-lint run ./... 2>&1) > "$output_file"
         lint_exit_code=$?
         set -e
         
         # Filter out known false positives
-        filtered_output=$(cat "$output_file" | grep -v -E '\.(On|Called|AssertExpectations|TestData|ExpectedCalls|Calls|Parent|Test|MethodCalled|Arguments|Assert|AssertCalled|AssertNotCalled|AssertNumberOfCalls) undefined \(type .*(Mock|mock).* has no field or method' | \
-                         grep -v -E 'undefined: (yaml|jwt|backoff|RegisterFailHandler|RunSpecs|BeforeSuite|Describe|BeforeEach|AfterEach|It|Expect|BeTrue|HaveOccurred)' | \
-                         grep -v -E 'could not import .* \(could not load export data:' | \
-                         grep -v -E 'could not import sync/atomic' | \
-                         grep -v -E 'level=warning msg=.*Can'"'"'t run linter' | \
-                         grep -v -E 'no go files to analyze' || true)
+        awk -f /tmp/filter-lint-$$.awk "$output_file" > "$filtered_file"
         
         # Check if there are any real errors left after filtering
-        if [ -z "$filtered_output" ] || [ "$lint_exit_code" -eq 0 ]; then
+        if [ ! -s "$filtered_file" ] || [ "$lint_exit_code" -eq 0 ]; then
             echo "✓ Linting passed for $module"
         else
             # Check if the filtered output contains actual error lines
-            error_count=$(echo "$filtered_output" | grep -E '\.go:[0-9]+:[0-9]+:' | wc -l | xargs)
+            error_count=$(grep -E '\.go:[0-9]+:[0-9]+:' "$filtered_file" | wc -l | xargs)
             if [ "$error_count" -gt 0 ]; then
                 echo "✗ Linting failed for $module"
-                echo "$filtered_output"
+                cat "$filtered_file"
                 failed_modules="$failed_modules $module"
             else
                 echo "✓ Linting passed for $module (false positives filtered)"
             fi
         fi
         
-        rm -f "$output_file"
+        rm -f "$output_file" "$filtered_file"
     fi
 done
+
+# Clean up
+rm -f /tmp/filter-lint-$$.awk
 
 # Report results
 echo ""
