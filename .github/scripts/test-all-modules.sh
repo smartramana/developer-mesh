@@ -36,6 +36,13 @@ test_flags="${TEST_FLAGS:-}"
 # Test each module
 for module in $modules; do
     if [ -d "$module" ]; then
+        # Skip functional tests in unit test runs
+        if [[ "$module" == *"test/functional"* ]] || [[ "$module" == *"test/github-live"* ]]; then
+            echo ""
+            echo "=== Skipping functional test module: $module ==="
+            continue
+        fi
+        
         echo ""
         echo "=== Testing module: $module ==="
         if (cd "$module" && go test $test_flags ./...); then
