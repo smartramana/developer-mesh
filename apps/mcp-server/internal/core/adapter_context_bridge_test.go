@@ -72,11 +72,10 @@ func TestHandleToolWebhook(t *testing.T) {
 		"test-tool": mockAdapter,
 	}
 
-	bridge := NewAdapterContextBridge(mockContextManager, adapters)
+	_ = NewAdapterContextBridge(mockContextManager, adapters)
 
 	// Test data
 	ctx := context.Background()
-	tool := "test-tool"
 	eventType := "test-event"
 
 	// Create a webhook payload with context IDs
@@ -90,7 +89,7 @@ func TestHandleToolWebhook(t *testing.T) {
 		},
 	}
 
-	jsonPayload, marshalErr := json.Marshal(payload)
+	_, marshalErr := json.Marshal(payload)
 	assert.NoError(t, marshalErr)
 
 	// Test contexts

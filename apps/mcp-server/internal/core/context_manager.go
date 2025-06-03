@@ -257,10 +257,7 @@ func (cm *ContextManager) SearchInContext(ctx context.Context, contextID string,
 	}
 
 	// Simple search implementation for tests
-	var results []models.ContextItem
-	for _, item := range contextData.Content {
-		results = append(results, item)
-	}
+	results := append([]models.ContextItem(nil), contextData.Content...)
 
 	return results, nil
 }

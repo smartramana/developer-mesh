@@ -17,9 +17,7 @@ func copyContext(src *models.Context) *models.Context {
 		return nil
 	}
 	copyItems := make([]models.ContextItem, len(src.Content))
-	for i, item := range src.Content {
-		copyItems[i] = item // Struct copy is deep for value types
-	}
+	copy(copyItems, src.Content)
 	var metadataCopy map[string]interface{}
 	if src.Metadata != nil {
 		metadataCopy = make(map[string]interface{}, len(src.Metadata))

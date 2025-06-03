@@ -17,7 +17,6 @@ type GitHubContentManager struct {
 	db                  *database.Database
 	storageManager      *storage.GitHubContentStorage
 	logger              observability.Logger
-	lock                sync.RWMutex
 	metricsClient       observability.MetricsClient
 	relationshipManager *GitHubRelationshipManager
 }

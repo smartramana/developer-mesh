@@ -2,6 +2,7 @@ package observability
 
 import (
 	"context"
+	"sync"
 	"testing"
 	"time"
 
@@ -83,6 +84,7 @@ func TestObservabilityStackIntegration(t *testing.T) {
 
 		// Create event receiver with logging
 		receivedEvents := make(map[string]bool)
+		var mu sync.Mutex
 
 		handler := func(ctx context.Context, event *models.Event) error {
 			// Log event using observability package
@@ -91,7 +93,9 @@ func TestObservabilityStackIntegration(t *testing.T) {
 				"event_source": event.Source,
 			})
 
+			mu.Lock()
 			receivedEvents[event.Type] = true
+			mu.Unlock()
 			return nil
 		}
 
@@ -111,7 +115,9 @@ func TestObservabilityStackIntegration(t *testing.T) {
 		time.Sleep(100 * time.Millisecond)
 
 		// Verify event was received and logged
+		mu.Lock()
 		assert.True(t, receivedEvents["metrics.collect"])
+		mu.Unlock()
 
 		// Close the event bus
 		eventBus.Close()
