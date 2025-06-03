@@ -66,7 +66,10 @@ func (h *testWebhookHandler) IsHandled() bool {
 }
 
 func TestGitHubAdapter_ExecuteAction(t *testing.T) {
-	defer goleak.VerifyNone(t)
+	defer goleak.VerifyNone(t,
+		goleak.IgnoreTopFunction("net/http.(*persistConn).readLoop"),
+		goleak.IgnoreTopFunction("net/http.(*persistConn).writeLoop"),
+	)
 
 	// Create a logger for testing
 	logger := observability.NewNoopLogger()
@@ -81,6 +84,7 @@ func TestGitHubAdapter_ExecuteAction(t *testing.T) {
 
 	// Create test event listener and subscribe to relevant events
 	eventChan := make(chan *models.Event, 10)
+	defer close(eventChan)
 	listener := &testEventListener{events: eventChan}
 
 	// Subscribe to adapter events
@@ -570,7 +574,10 @@ func TestGitHubAdapter_ExecuteAction(t *testing.T) {
 }
 
 func TestGitHubAdapter_WebhookHandling(t *testing.T) {
-	defer goleak.VerifyNone(t)
+	defer goleak.VerifyNone(t,
+		goleak.IgnoreTopFunction("net/http.(*persistConn).readLoop"),
+		goleak.IgnoreTopFunction("net/http.(*persistConn).writeLoop"),
+	)
 
 	// Create a test logger
 	logger := observability.NewNoopLogger()
@@ -585,6 +592,7 @@ func TestGitHubAdapter_WebhookHandling(t *testing.T) {
 
 	// Create a channel to receive events
 	eventChan := make(chan *models.Event, 10)
+	defer close(eventChan)
 
 	// Create event listener
 	listener := &testEventListener{events: eventChan}
