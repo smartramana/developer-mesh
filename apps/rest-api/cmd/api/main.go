@@ -140,7 +140,13 @@ func main() {
 
 	// Initialize core engine with logger
 	engine := core.NewEngine(logger)
-	defer engine.Shutdown(ctx)
+	defer func() {
+		if err := engine.Shutdown(ctx); err != nil {
+			logger.Error("Failed to shutdown engine", map[string]any{
+				"error": err.Error(),
+			})
+		}
+	}()
 
 	// Initialize context manager based on environment configuration
 	useMock := os.Getenv("USE_MOCK_CONTEXT_MANAGER")

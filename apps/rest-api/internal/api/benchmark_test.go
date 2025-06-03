@@ -15,7 +15,9 @@ import (
 	"rest-api/internal/core"
 )
 
-// mockBenchmarkEngine implements the necessary methods for benchmarking
+// mockBenchmarkEngine is no longer used - using core.NewEngine directly
+// Commented out to resolve linting errors
+/*
 type mockBenchmarkEngine struct {
 	contextManager core.ContextManagerInterface
 }
@@ -41,6 +43,7 @@ func (m *mockBenchmarkEngine) SetContextManager(manager core.ContextManagerInter
 func (m *mockBenchmarkEngine) Shutdown(ctx context.Context) error {
 	return nil
 }
+*/
 
 // mockBenchmarkContextManager implements ContextManagerInterface for benchmarking
 type mockBenchmarkContextManager struct{}

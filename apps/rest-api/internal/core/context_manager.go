@@ -84,7 +84,7 @@ func (cm *ContextManager) CreateContext(ctx context.Context, context *models.Con
 	if cm.db != nil {
 		// Marshal metadata to JSON
 		var metadataJSON []byte
-		if context.Metadata != nil && len(context.Metadata) > 0 {
+		if len(context.Metadata) > 0 {
 			var err error
 			metadataJSON, err = json.Marshal(context.Metadata)
 			if err != nil {
@@ -401,7 +401,7 @@ func (cm *ContextManager) UpdateContext(ctx context.Context, contextID string, u
 
 				// Marshal item metadata to JSON
 				var itemMetadataJSON []byte
-				if item.Metadata != nil && len(item.Metadata) > 0 {
+				if len(item.Metadata) > 0 {
 					itemMetadataJSON, err = json.Marshal(item.Metadata)
 					if err != nil {
 						tx.Rollback()

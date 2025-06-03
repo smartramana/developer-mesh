@@ -412,37 +412,7 @@ func (s *Server) Shutdown(ctx context.Context) error {
 	return s.server.Shutdown(ctx)
 }
 
-// healthHandler returns the health status of all components
-func (s *Server) healthHandler(c *gin.Context) {
-	health := s.engine.Health()
-
-	// Add vector database health if available
-	if s.vectorDB != nil {
-		health["vector_database"] = "healthy"
-	}
-
-	// Check if any component is unhealthy
-	allHealthy := true
-	for _, status := range health {
-		// Consider "healthy" or any status starting with "healthy" (like "healthy (mock)") as healthy
-		if status != "healthy" && len(status) < 7 || (len(status) >= 7 && status[:7] != "healthy") {
-			allHealthy = false
-			break
-		}
-	}
-
-	if allHealthy {
-		c.JSON(http.StatusOK, gin.H{
-			"status":     "healthy",
-			"components": health,
-		})
-	} else {
-		c.JSON(http.StatusServiceUnavailable, gin.H{
-			"status":     "unhealthy",
-			"components": health,
-		})
-	}
-}
+// healthHandler function removed - using health.HandleHealthCheck instead
 
 // metricsHandler returns metrics for Prometheus
 func (s *Server) metricsHandler(c *gin.Context) {
