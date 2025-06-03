@@ -3,7 +3,6 @@ package core
 import (
 	"context"
 	"fmt"
-	"sync"
 	"time"
 
 	"github.com/S-Corkum/devops-mcp/pkg/database"
