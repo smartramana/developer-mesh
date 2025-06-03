@@ -8,7 +8,12 @@ RUN apk add --no-cache git
 WORKDIR /workspace
 
 # Copy go workspace files
-COPY go.work go.work.sum ./
+COPY go.work ./
+
+# Handle go.work.sum in a way that won't fail if the file doesn't exist
+# This is standard practice for Go workspaces in CI environments
+RUN touch go.work.sum
+COPY go.work.sum* ./ || true
 
 # Copy all module files
 COPY apps/mockserver/go.mod apps/mockserver/go.sum ./apps/mockserver/
