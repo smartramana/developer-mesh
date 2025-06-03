@@ -86,6 +86,9 @@ jobs:
           go work use ./apps/rest-api
           go work use ./apps/worker
           go work use ./pkg
+          go work use ./pkg/tests/integration
+          go work use ./test/functional
+          go work use ./test/github-live
           go work sync
 
       - name: Install jq (required for helper scripts)
@@ -177,6 +180,9 @@ jobs:
           go work use ./apps/rest-api
           go work use ./apps/worker
           go work use ./pkg
+          go work use ./pkg/tests/integration
+          go work use ./test/functional
+          go work use ./test/github-live
           go work sync
 
       - name: Set up test database
@@ -226,6 +232,10 @@ jobs:
           go work init
           go work use ./apps/${{ matrix.app }}
           go work use ./pkg
+          # Add test modules if they exist
+          [ -d ./pkg/tests/integration ] && go work use ./pkg/tests/integration || true
+          [ -d ./test/functional ] && go work use ./test/functional || true
+          [ -d ./test/github-live ] && go work use ./test/github-live || true
           go work sync
 
       - name: Build ${{ matrix.app }}
