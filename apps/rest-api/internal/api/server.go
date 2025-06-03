@@ -104,7 +104,9 @@ func NewServer(engine *core.Engine, cfg Config, db *sqlx.DB, metrics observabili
 	
 	// Set JWT secret environment variable if provided
 	if cfg.Auth.JWTSecret != "" {
-		os.Setenv("JWT_SECRET", cfg.Auth.JWTSecret)
+		if err := os.Setenv("JWT_SECRET", cfg.Auth.JWTSecret); err != nil {
+			logger.Warn("Failed to set JWT_SECRET environment variable", map[string]interface{}{"error": err})
+		}
 	}
 	
 	// Use the enhanced setup that gives us control over configuration

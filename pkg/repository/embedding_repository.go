@@ -163,7 +163,12 @@ func (r *EmbeddingRepositoryImpl) SearchEmbeddings(
 		if err != nil {
 			return fmt.Errorf("failed to search embeddings: %w", err)
 		}
-		defer rows.Close()
+		defer func() {
+			if err := rows.Close(); err != nil {
+				// Embedding repository - log but don't fail
+				_ = err
+			}
+		}()
 
 		// Process results
 		for rows.Next() {
@@ -265,7 +270,12 @@ func (r *EmbeddingRepositoryImpl) GetContextEmbeddings(ctx context.Context, cont
 		if err != nil {
 			return fmt.Errorf("failed to query context embeddings: %w", err)
 		}
-		defer rows.Close()
+		defer func() {
+			if err := rows.Close(); err != nil {
+				// Embedding repository - log but don't fail
+				_ = err
+			}
+		}()
 
 		// Process results
 		for rows.Next() {
@@ -388,7 +398,12 @@ func (r *EmbeddingRepositoryImpl) GetEmbeddingsByModel(
 		if err != nil {
 			return fmt.Errorf("failed to query embeddings by model: %w", err)
 		}
-		defer rows.Close()
+		defer func() {
+			if err := rows.Close(); err != nil {
+				// Embedding repository - log but don't fail
+				_ = err
+			}
+		}()
 
 		// Process results
 		for rows.Next() {
@@ -460,7 +475,12 @@ func (r *EmbeddingRepositoryImpl) GetSupportedModels(ctx context.Context) ([]str
 		if err != nil {
 			return fmt.Errorf("failed to query supported models: %w", err)
 		}
-		defer rows.Close()
+		defer func() {
+			if err := rows.Close(); err != nil {
+				// Embedding repository - log but don't fail
+				_ = err
+			}
+		}()
 
 		// Process results
 		for rows.Next() {

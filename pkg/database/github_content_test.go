@@ -17,7 +17,11 @@ func TestStoreGitHubContent(t *testing.T) {
 	// Create mock DB
 	mockDB, mock, err := sqlmock.New()
 	require.NoError(t, err)
-	defer mockDB.Close()
+	defer func() {
+		if err := mockDB.Close(); err != nil {
+			t.Errorf("Failed to close mock database: %v", err)
+		}
+	}()
 
 	// Create sqlx DB wrapper
 	db := sqlx.NewDb(mockDB, "sqlmock")
@@ -164,7 +168,11 @@ func TestGetGitHubContent(t *testing.T) {
 	// Create mock DB
 	mockDB, mock, err := sqlmock.New()
 	require.NoError(t, err)
-	defer mockDB.Close()
+	defer func() {
+		if err := mockDB.Close(); err != nil {
+			t.Errorf("Failed to close mock database: %v", err)
+		}
+	}()
 
 	// Create sqlx DB wrapper
 	db := sqlx.NewDb(mockDB, "sqlmock")
@@ -259,7 +267,11 @@ func TestDeleteGitHubContent(t *testing.T) {
 	// Create mock DB
 	mockDB, mock, err := sqlmock.New()
 	require.NoError(t, err)
-	defer mockDB.Close()
+	defer func() {
+		if err := mockDB.Close(); err != nil {
+			t.Errorf("Failed to close mock database: %v", err)
+		}
+	}()
 
 	// Create sqlx DB wrapper
 	db := sqlx.NewDb(mockDB, "sqlmock")
@@ -304,7 +316,11 @@ func TestGetGitHubContentByChecksum(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to create mock database: %v", err)
 	}
-	defer mockDB.Close()
+	defer func() {
+		if err := mockDB.Close(); err != nil {
+			t.Errorf("Failed to close mock database: %v", err)
+		}
+	}()
 
 	// Create sqlx DB with the mock
 	sqlxDB := sqlx.NewDb(mockDB, "sqlmock")
@@ -401,7 +417,11 @@ func TestListGitHubContent(t *testing.T) {
 	// Create mock DB
 	mockDB, mock, err := sqlmock.New()
 	require.NoError(t, err)
-	defer mockDB.Close()
+	defer func() {
+		if err := mockDB.Close(); err != nil {
+			t.Errorf("Failed to close mock database: %v", err)
+		}
+	}()
 
 	// Create sqlx DB wrapper
 	db := sqlx.NewDb(mockDB, "sqlmock")
@@ -525,7 +545,11 @@ func TestEnsureGitHubContentTables(t *testing.T) {
 	// Create mock DB
 	mockDB, mock, err := sqlmock.New()
 	require.NoError(t, err)
-	defer mockDB.Close()
+	defer func() {
+		if err := mockDB.Close(); err != nil {
+			t.Errorf("Failed to close mock database: %v", err)
+		}
+	}()
 
 	// Create sqlx DB wrapper
 	db := sqlx.NewDb(mockDB, "sqlmock")

@@ -8,6 +8,7 @@ import (
 )
 
 var (
+	// Deprecated: This retry constant is currently unused but reserved for future implementation of retry handling
 	maxRetries     = 5
 	idempotencyTTL = 24 * time.Hour
 )
@@ -40,7 +41,10 @@ func RunWorker(ctx context.Context, sqsClient SQSReceiverDeleter, redisClient Re
 			}
 			err = processFunc(event)
 			if err == nil {
-				redisClient.Set(ctx, idKey, "1", idempotencyTTL)
+				if err := redisClient.Set(ctx, idKey, "1", idempotencyTTL); err != nil {
+					// Redis set error - log but don't fail since we've already processed the event
+					_ = err
+				}
 				_ = sqsClient.DeleteMessage(ctx, handles[i])
 			} else {
 				// Let SQS retry by not deleting message

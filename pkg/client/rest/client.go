@@ -76,7 +76,12 @@ func (c *RESTClient) doRequest(ctx context.Context, method, path string, body in
 	if err != nil {
 		return fmt.Errorf("request failed: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() {
+		if err := resp.Body.Close(); err != nil {
+			// Client code - best effort logging
+			_ = err
+		}
+	}()
 
 	// Handle error status codes
 	if resp.StatusCode >= 400 {

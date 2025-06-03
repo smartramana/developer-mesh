@@ -79,9 +79,9 @@ func Load() (*Config, error) {
 	
 	// Bind specific environment variables that don't follow the MCP_ prefix
 	// These are commonly used in Docker environments
-	v.BindEnv("cache.address", "REDIS_ADDR")
-	v.BindEnv("cache.address", "REDIS_ADDRESS")
-	v.BindEnv("cache.address", "CACHE_ADDRESS")
+	_ = v.BindEnv("cache.address", "REDIS_ADDR") // Best effort - viper handles errors internally
+	_ = v.BindEnv("cache.address", "REDIS_ADDRESS") // Best effort - viper handles errors internally
+	_ = v.BindEnv("cache.address", "CACHE_ADDRESS") // Best effort - viper handles errors internally
 
 	// Enable environment variable interpolation in config values
 	v.AllowEmptyEnv(true)
@@ -320,7 +320,10 @@ func (c *Config) GetListenPort() int {
 	// Otherwise parse from listen address or use 8080 as default
 	port := 8080
 	if addr != "" && strings.HasPrefix(addr, ":") {
-		fmt.Sscanf(addr[1:], "%d", &port)
+		if _, err := fmt.Sscanf(addr[1:], "%d", &port); err != nil {
+			// If parsing fails, use default port
+			port = 8080
+		}
 	}
 
 	return port

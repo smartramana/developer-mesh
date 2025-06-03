@@ -51,9 +51,13 @@ func (vdb *VectorDatabase) StoreEmbedding(ctx context.Context, tx *sqlx.Tx, embe
 		}
 		defer func() {
 			if err != nil {
-				tx.Rollback()
+				if rbErr := tx.Rollback(); rbErr != nil {
+					vdb.logger.Warn("Failed to rollback transaction", map[string]any{"error": rbErr, "original_error": err})
+				}
 			} else if managedTx {
-				tx.Commit()
+				if cmErr := tx.Commit(); cmErr != nil {
+					vdb.logger.Error("Failed to commit transaction", map[string]any{"error": cmErr})
+				}
 			}
 		}()
 	}
@@ -148,7 +152,9 @@ func (vdb *VectorDatabase) SearchEmbeddings(
 		}
 		defer func() {
 			if managedTx {
-				tx.Rollback()
+				if rbErr := tx.Rollback(); rbErr != nil {
+					vdb.logger.Warn("Failed to rollback transaction", map[string]any{"error": rbErr})
+				}
 			}
 		}()
 	}
@@ -210,7 +216,11 @@ func (vdb *VectorDatabase) SearchEmbeddings(
 	if err != nil {
 		return nil, fmt.Errorf("failed to search embeddings: %w", err)
 	}
-	defer rows.Close()
+	defer func() {
+		if err := rows.Close(); err != nil {
+			vdb.logger.Warn("Failed to close rows", map[string]any{"error": err})
+		}
+	}()
 
 	// Process results
 	var results []*Embedding
@@ -252,7 +262,9 @@ func (vdb *VectorDatabase) GetEmbeddingByID(ctx context.Context, tx *sqlx.Tx, id
 		}
 		defer func() {
 			if managedTx {
-				tx.Rollback()
+				if rbErr := tx.Rollback(); rbErr != nil {
+					vdb.logger.Warn("Failed to rollback transaction", map[string]any{"error": rbErr})
+				}
 			}
 		}()
 	}
@@ -310,9 +322,13 @@ func (vdb *VectorDatabase) DeleteEmbedding(ctx context.Context, tx *sqlx.Tx, id 
 		}
 		defer func() {
 			if err != nil {
-				tx.Rollback()
+				if rbErr := tx.Rollback(); rbErr != nil {
+					vdb.logger.Warn("Failed to rollback transaction", map[string]any{"error": rbErr, "original_error": err})
+				}
 			} else if managedTx {
-				tx.Commit()
+				if cmErr := tx.Commit(); cmErr != nil {
+					vdb.logger.Error("Failed to commit transaction", map[string]any{"error": cmErr})
+				}
 			}
 		}()
 	}
@@ -351,9 +367,13 @@ func (vdb *VectorDatabase) BatchDeleteEmbeddings(
 		}
 		defer func() {
 			if err != nil {
-				tx.Rollback()
+				if rbErr := tx.Rollback(); rbErr != nil {
+					vdb.logger.Warn("Failed to rollback transaction", map[string]any{"error": rbErr, "original_error": err})
+				}
 			} else if managedTx {
-				tx.Commit()
+				if cmErr := tx.Commit(); cmErr != nil {
+					vdb.logger.Error("Failed to commit transaction", map[string]any{"error": cmErr})
+				}
 			}
 		}()
 	}

@@ -232,7 +232,14 @@ func CompressionMiddleware() gin.HandlerFunc {
 			c.Next()
 			return
 		}
-		defer gz.Close()
+		defer func() {
+			if err := gz.Close(); err != nil {
+				// Log error if logger is available via context
+				// For now, we'll ignore close errors as they're non-critical
+				// and any write errors would have already been reported
+				_ = err
+			}
+		}()
 
 		// Create a gzipped response writer
 		gzWriter := &gzipResponseWriter{

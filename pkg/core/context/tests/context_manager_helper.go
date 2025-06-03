@@ -160,7 +160,6 @@ func DoTruncatePreservingUser(contextData *models.Context) error {
 			userItems = userItems[removedUserCount:]
 		}
 
-		tokensToRemove -= removedUserTokens
 		userTokens -= removedUserTokens
 	}
 

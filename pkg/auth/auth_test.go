@@ -145,7 +145,9 @@ func (m *MockOAuthProvider) handleTokenRequest(w http.ResponseWriter, r *http.Re
         }
     }
     
-    json.NewEncoder(w).Encode(response)
+    if err := json.NewEncoder(w).Encode(response); err != nil {
+        http.Error(w, "Failed to encode response", http.StatusInternalServerError)
+    }
 }
 
 func (m *MockOAuthProvider) handleUserInfo(w http.ResponseWriter, r *http.Request) {
@@ -153,21 +155,27 @@ func (m *MockOAuthProvider) handleUserInfo(w http.ResponseWriter, r *http.Reques
     
     switch authHeader {
     case "Bearer valid-access-token":
-        json.NewEncoder(w).Encode(map[string]interface{}{
+        if err := json.NewEncoder(w).Encode(map[string]interface{}{
             "id":    "user-123",
             "email": "user@example.com",
             "name":  "Test User",
-        })
+        }); err != nil {
+            http.Error(w, "Failed to encode response", http.StatusInternalServerError)
+        }
     case "Bearer expired-token":
         w.WriteHeader(http.StatusUnauthorized)
-        json.NewEncoder(w).Encode(map[string]interface{}{
+        if err := json.NewEncoder(w).Encode(map[string]interface{}{
             "error": "token_expired",
-        })
+        }); err != nil {
+            http.Error(w, "Failed to encode response", http.StatusInternalServerError)
+        }
     default:
         w.WriteHeader(http.StatusUnauthorized)
-        json.NewEncoder(w).Encode(map[string]interface{}{
+        if err := json.NewEncoder(w).Encode(map[string]interface{}{
             "error": "invalid_token",
-        })
+        }); err != nil {
+            http.Error(w, "Failed to encode response", http.StatusInternalServerError)
+        }
     }
 }
 

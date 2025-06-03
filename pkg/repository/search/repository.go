@@ -164,13 +164,12 @@ func (r *SQLRepository) SearchByVector(ctx context.Context, vector []float32, op
 		return nil, fmt.Errorf("database connection not initialized")
 	}
 
-	if options == nil {
-		options = &SearchOptions{
-			Limit:         10,
-			Offset:        0,
-			MinSimilarity: 0.7,
-		}
-	}
+	// TODO: Use options when vector search is implemented
+	// Default options would be:
+	// - Limit: 10
+	// - Offset: 0
+	// - MinSimilarity: 0.7
+	_ = options // Suppress unused variable warning until implementation is complete
 
 	// Build query with placeholder parameters for filters
 	// In a real implementation, this would:

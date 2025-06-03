@@ -103,7 +103,10 @@ func (rl *RateLimiter) checkCacheLimit(ctx context.Context, key string) error {
     
     if attempts >= rl.maxAttempts {
         // Set lockout
-        rl.cache.Set(ctx, lockoutKey, true, rl.lockoutPeriod)
+        if err := rl.cache.Set(ctx, lockoutKey, true, rl.lockoutPeriod); err != nil {
+            // Log but don't fail - rate limiting is best effort
+            _ = err
+        }
         return fmt.Errorf("rate limit exceeded: too many attempts")
     }
     
@@ -113,8 +116,8 @@ func (rl *RateLimiter) checkCacheLimit(ctx context.Context, key string) error {
 func (rl *RateLimiter) recordCacheAttempt(ctx context.Context, key string, success bool) {
     if success {
         // Reset on successful auth
-        rl.cache.Delete(ctx, key+":count")
-        rl.cache.Delete(ctx, key+":lockout")
+        _ = rl.cache.Delete(ctx, key+":count") // Best effort cleanup
+        _ = rl.cache.Delete(ctx, key+":lockout") // Best effort cleanup
         return
     }
     
@@ -125,7 +128,11 @@ func (rl *RateLimiter) recordCacheAttempt(ctx context.Context, key string, succe
         attempts = 0 // Start from 0 if not found
     }
     attempts++
-    rl.cache.Set(ctx, key+":count", attempts, rl.windowSize)
+    if err := rl.cache.Set(ctx, key+":count", attempts, rl.windowSize); err != nil {
+        // Rate limiter cache error - log but don't fail
+        // The rate limiting should still work with local memory fallback
+        _ = err
+    }
 }
 
 // Local memory implementations for fallback

@@ -5,7 +5,6 @@ import (
 	"fmt"
 
 	storage "github.com/S-Corkum/devops-mcp/pkg/storage"
-	"github.com/aws/aws-sdk-go-v2/service/s3"
 )
 
 // S3Config is now an alias for storage.S3Config; see storage package for definition.
@@ -30,15 +29,8 @@ func NewS3Client(ctx context.Context, cfg S3Config) (*storage.S3Client, error) {
 		}
 	}
 
-	// Create S3 client with options
-	s3Options := []func(*s3.Options){}
-	if cfg.ForcePathStyle {
-		s3Options = append(s3Options, func(o *s3.Options) {
-			o.UsePathStyle = true
-		})
-	}
-
 	// Use the canonical storage.NewS3Client constructor to create the S3 client.
+	// The ForcePathStyle option is handled within NewS3Client via the config
 	s3Client, err := storage.NewS3Client(ctx, cfg)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create S3 client: %w", err)

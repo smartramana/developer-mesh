@@ -360,7 +360,14 @@ func (a *GitHubAdapter) Close() error {
 	// Close webhook queue channel if it exists and safely handle potential panic
 	if a.webhookQueue != nil {
 		func() {
-			defer func() { recover() }() // Recover from potential panic if channel is already closed
+			defer func() {
+				if r := recover(); r != nil {
+					// Log the panic but continue - channel was already closed
+					if a.logger != nil {
+						a.logger.Warn("Recovered from panic while closing webhook queue", map[string]interface{}{"panic": r})
+					}
+				}
+			}()
 			close(a.webhookQueue)
 		}()
 	}

@@ -327,7 +327,9 @@ func initializeDatabase(ctx context.Context, cfg *commonconfig.Config, logger ob
 
 	// Test connection - Ping doesn't take context
 	if err := db.Ping(); err != nil {
-		db.Close()
+		if closeErr := db.Close(); closeErr != nil {
+			logger.Warn("Failed to close database connection", map[string]interface{}{"error": closeErr})
+		}
 		return nil, fmt.Errorf("failed to connect to database: %w", err)
 	}
 
@@ -784,7 +786,11 @@ func performHealthCheck() error {
 	if err != nil {
 		return fmt.Errorf("failed to connect to health endpoint: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() {
+		if err := resp.Body.Close(); err != nil {
+			log.Printf("Failed to close response body: %v", err)
+		}
+	}()
 	
 	// Check if the response is successful
 	if resp.StatusCode != http.StatusOK {

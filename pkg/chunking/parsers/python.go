@@ -30,6 +30,7 @@ var (
 	pythonDocstringRegex = regexp.MustCompile(`(?ms)('''.*?'''|""".*?""")`)
 
 	// Match decorators
+	// TODO: Implement decorator extraction to enhance Python code analysis
 	pythonDecoratorRegex = regexp.MustCompile(`(?m)^(@\w+(?:\([^)]*\))?)`)
 )
 
@@ -382,7 +383,6 @@ func (p *PythonParser) extractMethodsFromClass(classBlock, className, parentID s
 
 					decorator := classBlock[decoratorStart:decoratorEnd]
 					decorators = append(decorators, decorator)
-					startPos = decoratorStart
 					startLine = countLinesUpTo(classBlock, decoratorStart) + 1 + classStartLine - 1
 				} else {
 					break
@@ -478,7 +478,6 @@ func (p *PythonParser) extractFunctions(code string, parentID string) []*chunkin
 
 					decorator := code[decoratorStart:decoratorEnd]
 					decorators = append(decorators, decorator)
-					startPos = decoratorStart
 					startLine = countLinesUpTo(code, decoratorStart) + 1
 				} else {
 					break

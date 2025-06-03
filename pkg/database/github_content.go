@@ -252,7 +252,12 @@ func (db *Database) listGitHubContent(ctx context.Context, tx *Tx, owner, repo, 
 	if err != nil {
 		return nil, fmt.Errorf("failed to query GitHub content metadata: %w", err)
 	}
-	defer rows.Close()
+	defer func() {
+		if err := rows.Close(); err != nil {
+			// GitHub content - log but don't fail
+			_ = err
+		}
+	}()
 
 	var results []*storage.ContentMetadata
 

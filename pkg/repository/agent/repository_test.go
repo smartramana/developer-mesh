@@ -62,6 +62,6 @@ func TestMockRepository(t *testing.T) {
 	assert.NoError(t, err, "GetAgentByID should not return an error")
 	assert.NotNil(t, retrieved, "Retrieved agent should not be nil")
 
-	agents, err = repo.ListAgents(context.Background(), agent.TenantID)
+	_, err = repo.ListAgents(context.Background(), agent.TenantID)
 	assert.NoError(t, err, "ListAgents should not return an error")
 }

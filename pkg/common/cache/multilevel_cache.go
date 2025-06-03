@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"sync"
 	"time"
 
 	"github.com/S-Corkum/devops-mcp/pkg/models"
@@ -26,7 +25,6 @@ type MultiLevelCache struct {
 	// Prefetch queue
 	prefetchQueue   chan prefetchRequest
 	prefetchWorkers int
-	prefetchMutex   sync.Mutex
 }
 
 // prefetchRequest represents a request to prefetch related data

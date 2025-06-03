@@ -185,7 +185,9 @@ func (s *Service) ValidateAPIKey(ctx context.Context, apiKey string) (*User, err
 		if s.config.CacheEnabled && s.cache != nil {
 			cacheKey := fmt.Sprintf("auth:apikey:%s", apiKey)
 			// In production, marshal user to JSON
-			s.cache.Set(ctx, cacheKey, "cached", s.config.CacheTTL)
+			if err := s.cache.Set(ctx, cacheKey, "cached", s.config.CacheTTL); err != nil {
+				s.logger.Warn("Failed to cache API key validation", map[string]interface{}{"error": err})
+			}
 		}
 
 		return user, nil
@@ -248,12 +250,17 @@ func (s *Service) ValidateAPIKey(ctx context.Context, apiKey string) (*User, err
 
 		// Update last used timestamp
 		updateQuery := `UPDATE mcp.api_keys SET last_used_at = $1 WHERE key_hash = $2`
-		s.db.ExecContext(ctx, updateQuery, time.Now(), keyHash)
+		if _, err := s.db.ExecContext(ctx, updateQuery, time.Now(), keyHash); err != nil {
+			// Log warning but don't fail the auth - last_used is not critical
+			s.logger.Warn("Failed to update API key last used timestamp", map[string]interface{}{"error": err})
+		}
 
 		// Cache the result
 		if s.config.CacheEnabled && s.cache != nil {
 			cacheKey := fmt.Sprintf("auth:apikey:%s", apiKey)
-			s.cache.Set(ctx, cacheKey, "cached", s.config.CacheTTL)
+			if err := s.cache.Set(ctx, cacheKey, "cached", s.config.CacheTTL); err != nil {
+				s.logger.Warn("Failed to cache API key from database", map[string]interface{}{"error": err})
+			}
 		}
 
 		return user, nil
@@ -440,7 +447,9 @@ func (s *Service) RevokeAPIKey(ctx context.Context, apiKey string) error {
 	// Remove from cache
 	if s.config.CacheEnabled && s.cache != nil {
 		cacheKey := fmt.Sprintf("auth:apikey:%s", apiKey)
-		s.cache.Delete(ctx, cacheKey)
+		if err := s.cache.Delete(ctx, cacheKey); err != nil {
+			s.logger.Warn("Failed to delete API key from cache", map[string]interface{}{"error": err})
+		}
 	}
 
 	return nil

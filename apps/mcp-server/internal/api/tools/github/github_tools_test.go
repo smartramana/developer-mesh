@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -55,7 +56,7 @@ func newTestGitHubToolsHandler(mockAdapter *MockGitHubAdapter, logger observabil
 	registry := tool.NewToolRegistry()
 
 	// Add some test tools to the registry
-	registry.RegisterTool(&tool.Tool{
+	err := registry.RegisterTool(&tool.Tool{
 		Definition: tool.ToolDefinition{
 			Name: "mcp0_get_repository",
 			Parameters: tool.ParameterSchema{
@@ -70,6 +71,9 @@ func newTestGitHubToolsHandler(mockAdapter *MockGitHubAdapter, logger observabil
 			return mockAdapter.ExecuteAction(context.Background(), "default", "getRepository", params)
 		},
 	})
+	if err != nil {
+		panic(fmt.Sprintf("Failed to register test tool: %v", err))
+	}
 
 	// We're creating the handler directly here
 	return &GitHubToolsHandler{

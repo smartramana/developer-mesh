@@ -68,7 +68,7 @@ func NewOpenAIEmbeddingService(apiKey string, modelName string, dimensions int) 
 
 	// Use default model if not specified
 	if modelName == "" {
-		return nil, errors.New("model name is required")
+		modelName = defaultOpenAIModel
 	}
 
 	// Validate model name
@@ -80,6 +80,10 @@ func NewOpenAIEmbeddingService(apiKey string, modelName string, dimensions int) 
 	// Get dimensions for the model if not specified
 	if dimensions <= 0 {
 		dimensions = supportedOpenAIModels[modelName]
+		// Use default dimensions if model not found in supported models
+		if dimensions == 0 {
+			dimensions = defaultOpenAIDimensions
+		}
 	}
 
 	config := ModelConfig{
@@ -160,7 +164,12 @@ func (s *OpenAIEmbeddingService) BatchGenerateEmbeddings(ctx context.Context, te
 	if err != nil {
 		return nil, fmt.Errorf("failed to make API request: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() {
+		if err := resp.Body.Close(); err != nil {
+			// OpenAI client - best effort logging
+			_ = err
+		}
+	}()
 
 	if resp.StatusCode != http.StatusOK {
 		bodyBytes, _ := io.ReadAll(resp.Body)

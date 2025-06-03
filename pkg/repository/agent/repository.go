@@ -28,7 +28,7 @@ func isSQLite(db *sqlx.DB) bool {
 // NewRepository creates a new agent repository
 func NewRepository(db *sqlx.DB) Repository {
 	// Determine the appropriate table name with schema prefix if needed
-	tableName := "agents"
+	var tableName string
 
 	// Try SQLite detection first (most common in tests)
 	var sqliteVersion string

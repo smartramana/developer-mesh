@@ -150,7 +150,10 @@ func TestDownloadFile(t *testing.T) {
 	mockDownloader.On("Download", mock.Anything, mock.AnythingOfType("*manager.WriteAtBuffer"), mock.AnythingOfType("*s3.GetObjectInput")).
 		Run(func(args mock.Arguments) {
 			w := args.Get(1).(io.WriterAt)
-			w.WriteAt([]byte("test-data"), 0)
+			if _, err := w.WriteAt([]byte("test-data"), 0); err != nil {
+				// Test mock - ignore write errors
+				_ = err
+			}
 		}).Return(int64(9), nil).Once()
 
 	data, err := s3Client.DownloadFile(ctx, "test-key")

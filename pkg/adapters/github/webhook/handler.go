@@ -211,14 +211,16 @@ func (m *Manager) ProcessEvent(ctx context.Context, event Event) error {
 			if typedEventBus, ok := m.eventBus.(interface {
 				Publish(context.Context, string, map[string]any) error
 			}); ok {
-				typedEventBus.Publish(context.Background(), "github.webhook.error", map[string]any{
+				if pubErr := typedEventBus.Publish(context.Background(), "github.webhook.error", map[string]any{
 					"eventType":  event.Type,
 					"deliveryID": event.DeliveryID,
 					"handlerID":  handler.ID,
 					"error":      err.Error(),
 					"source":     "github",
 					"timestamp":  time.Now().Format(time.RFC3339),
-				})
+				}); pubErr != nil {
+					m.logger.Warn("Failed to publish webhook error event", map[string]any{"error": pubErr})
+				}
 			}
 
 			// Continue processing with other handlers
@@ -227,13 +229,15 @@ func (m *Manager) ProcessEvent(ctx context.Context, event Event) error {
 			if typedEventBus, ok := m.eventBus.(interface {
 				Publish(context.Context, string, map[string]any) error
 			}); ok {
-				typedEventBus.Publish(context.Background(), "github.webhook.success", map[string]any{
+				if pubErr := typedEventBus.Publish(context.Background(), "github.webhook.success", map[string]any{
 					"eventType":  event.Type,
 					"deliveryID": event.DeliveryID,
 					"handlerID":  handler.ID,
 					"source":     "github",
 					"timestamp":  time.Now().Format(time.RFC3339),
-				})
+				}); pubErr != nil {
+					m.logger.Warn("Failed to publish webhook success event", map[string]any{"error": pubErr})
+				}
 			}
 		}
 	}

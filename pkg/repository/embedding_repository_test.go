@@ -89,7 +89,11 @@ func TestStoreEmbedding(t *testing.T) {
 			// Create a mock database connection
 			db, mock, err := sqlmock.New()
 			require.NoError(t, err, "Error creating mock database")
-			defer db.Close()
+			defer func() {
+				if err := db.Close(); err != nil {
+					t.Errorf("Failed to close mock database: %v", err)
+				}
+			}()
 
 			// Create sqlx.DB from the mock connection
 			sqlxDB := sqlx.NewDb(db, "sqlmock")
@@ -235,7 +239,11 @@ func TestSearchEmbeddings_Legacy(t *testing.T) {
 			// Create a mock database connection
 			db, mock, err := sqlmock.New()
 			require.NoError(t, err, "Error creating mock database")
-			defer db.Close()
+			defer func() {
+				if err := db.Close(); err != nil {
+					t.Errorf("Failed to close mock database: %v", err)
+				}
+			}()
 
 			// Create sqlx.DB from the mock connection
 			sqlxDB := sqlx.NewDb(db, "sqlmock")
@@ -299,7 +307,11 @@ func TestGetContextEmbeddings(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Error creating mock database: %v", err)
 	}
-	defer db.Close()
+	defer func() {
+		if err := db.Close(); err != nil {
+			t.Errorf("Failed to close mock database: %v", err)
+		}
+	}()
 
 	// Create sqlx.DB from the mock connection
 	sqlxDB := sqlx.NewDb(db, "sqlmock")
@@ -436,7 +448,11 @@ func TestSearchEmbeddings(t *testing.T) {
 			// Create a mock database connection
 			db, mock, err := sqlmock.New()
 			require.NoError(t, err, "Error creating mock database")
-			defer db.Close()
+			defer func() {
+				if err := db.Close(); err != nil {
+					t.Errorf("Failed to close mock database: %v", err)
+				}
+			}()
 
 			// Create sqlx.DB from the mock connection
 			sqlxDB := sqlx.NewDb(db, "sqlmock")
@@ -500,7 +516,11 @@ func TestGetEmbeddingsByModel(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Error creating mock database: %v", err)
 	}
-	defer db.Close()
+	defer func() {
+		if err := db.Close(); err != nil {
+			t.Errorf("Failed to close mock database: %v", err)
+		}
+	}()
 
 	// Create sqlx.DB from the mock connection
 	sqlxDB := sqlx.NewDb(db, "sqlmock")
@@ -549,7 +569,11 @@ func TestGetSupportedModels(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Error creating mock database: %v", err)
 	}
-	defer db.Close()
+	defer func() {
+		if err := db.Close(); err != nil {
+			t.Errorf("Failed to close mock database: %v", err)
+		}
+	}()
 
 	// Create sqlx.DB from the mock connection
 	sqlxDB := sqlx.NewDb(db, "sqlmock")
@@ -593,7 +617,11 @@ func TestDeleteModelEmbeddings(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Error creating mock database: %v", err)
 	}
-	defer db.Close()
+	defer func() {
+		if err := db.Close(); err != nil {
+			t.Errorf("Failed to close mock database: %v", err)
+		}
+	}()
 
 	// Create sqlx.DB from the mock connection
 	sqlxDB := sqlx.NewDb(db, "sqlmock")
@@ -628,7 +656,11 @@ func TestDeleteContextEmbeddings(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Error creating mock database: %v", err)
 	}
-	defer db.Close()
+	defer func() {
+		if err := db.Close(); err != nil {
+			t.Errorf("Failed to close mock database: %v", err)
+		}
+	}()
 
 	// Create sqlx.DB from the mock connection
 	sqlxDB := sqlx.NewDb(db, "sqlmock")

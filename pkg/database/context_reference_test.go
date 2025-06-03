@@ -17,7 +17,11 @@ func TestContextReference(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Error creating mock database: %v", err)
 	}
-	defer mockDB.Close()
+	defer func() {
+		if err := mockDB.Close(); err != nil {
+			t.Errorf("Failed to close mock database: %v", err)
+		}
+	}()
 
 	// Wrap in sqlx
 	sqlxDB := sqlx.NewDb(mockDB, "sqlmock")

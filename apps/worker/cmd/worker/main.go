@@ -163,7 +163,11 @@ func performHealthCheck() error {
 	client := redis.NewClient(&redis.Options{
 		Addr: redisAddr,
 	})
-	defer client.Close()
+	defer func() {
+		if err := client.Close(); err != nil {
+			log.Printf("Failed to close Redis client: %v", err)
+		}
+	}()
 	
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 	defer cancel()

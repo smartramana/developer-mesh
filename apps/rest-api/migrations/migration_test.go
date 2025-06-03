@@ -42,7 +42,11 @@ func TestMigrations(t *testing.T) {
     if err != nil {
         t.Skip("Cannot connect to test database:", err)
     }
-    defer db.Close()
+    defer func() {
+        if err := db.Close(); err != nil {
+            t.Errorf("Failed to close database: %v", err)
+        }
+    }()
     
     // Test connection
     if err := db.Ping(); err != nil {
@@ -59,11 +63,17 @@ func TestMigrations(t *testing.T) {
     testDSN := fmt.Sprintf("postgres://%s:%s@%s:5432/test_migrations?sslmode=disable", dbUser, dbPassword, dbHost)
     testDB, err := sql.Open("postgres", testDSN)
     require.NoError(t, err)
-    defer testDB.Close()
+    defer func() {
+        if err := testDB.Close(); err != nil {
+            t.Errorf("Failed to close test database: %v", err)
+        }
+    }()
     
     // Clean up after test
     defer func() {
-        testDB.Close()
+        if err := testDB.Close(); err != nil {
+            t.Errorf("Failed to close test database in cleanup: %v", err)
+        }
         _, _ = db.Exec("DROP DATABASE test_migrations")
     }()
     

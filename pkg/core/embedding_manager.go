@@ -313,7 +313,11 @@ func (m *EmbeddingManager) SearchSimilarContent(
 	if err != nil {
 		return nil, fmt.Errorf("failed to query similar embeddings: %w", err)
 	}
-	defer rows.Close()
+	defer func() {
+		if err := rows.Close(); err != nil {
+			log.Printf("Failed to close rows: %v", err)
+		}
+	}()
 
 	var results []map[string]interface{}
 	for rows.Next() {

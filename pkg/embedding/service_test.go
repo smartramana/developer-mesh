@@ -45,7 +45,11 @@ func TestService_CreateEmbedding(t *testing.T) {
     // Create mock database
     db, mock, err := sqlmock.New()
     require.NoError(t, err)
-    defer db.Close()
+    defer func() {
+        if err := db.Close(); err != nil {
+            t.Errorf("Failed to close database: %v", err)
+        }
+    }()
     
     // Create repository and service
     repo := NewRepository(db)
@@ -120,7 +124,11 @@ func TestService_SearchSimilar(t *testing.T) {
     // Create mock database
     db, mock, err := sqlmock.New()
     require.NoError(t, err)
-    defer db.Close()
+    defer func() {
+        if err := db.Close(); err != nil {
+            t.Errorf("Failed to close database: %v", err)
+        }
+    }()
     
     // Create repository and service
     repo := NewRepository(db)
@@ -202,7 +210,11 @@ func TestService_GetAvailableModels(t *testing.T) {
     // Create mock database
     db, mock, err := sqlmock.New()
     require.NoError(t, err)
-    defer db.Close()
+    defer func() {
+        if err := db.Close(); err != nil {
+            t.Errorf("Failed to close database: %v", err)
+        }
+    }()
     
     // Create repository and service
     repo := NewRepository(db)

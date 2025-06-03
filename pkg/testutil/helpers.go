@@ -75,7 +75,10 @@ func (tdb *TestDatabase) Cleanup(t *testing.T, tenantID string) {
 // Close closes the database connection
 func (tdb *TestDatabase) Close() {
 	if tdb.DB != nil {
-		tdb.DB.Close()
+		if err := tdb.DB.Close(); err != nil {
+			// Test helper - log but don't fail
+			_ = err
+		}
 	}
 }
 

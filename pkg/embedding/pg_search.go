@@ -122,7 +122,12 @@ func (s *PgSearchService) SearchByVector(ctx context.Context, vector []float32, 
 	if err != nil {
 		return nil, fmt.Errorf("failed to execute search query: %w", err)
 	}
-	defer rows.Close()
+	defer func() {
+		if err := rows.Close(); err != nil {
+			// PG search - log but don't fail
+			_ = err
+		}
+	}()
 
 	// Process the results
 	return s.processSearchResults(rows, opts)

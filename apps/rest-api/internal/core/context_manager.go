@@ -226,7 +226,11 @@ func (cm *ContextManager) GetContext(ctx context.Context, contextID string) (*mo
 			})
 			// Continue without items - context can still be valid without items
 		} else {
-			defer rows.Close()
+			defer func() {
+				if err := rows.Close(); err != nil {
+					cm.logger.Warn("Failed to close rows", map[string]any{"error": err})
+				}
+			}()
 			var items []models.ContextItem
 			for rows.Next() {
 				// Create a temporary struct to handle JSON metadata
@@ -561,7 +565,11 @@ func (cm *ContextManager) ListContexts(ctx context.Context, agentID, sessionID s
 			cm.metrics.IncrementCounterWithLabels(MetricContextOperationsTotal, float64(1), map[string]string{"operation": "list", "status": "error"})
 			return nil, fmt.Errorf("failed to list contexts: %w", err)
 		}
-		defer rows.Close()
+		defer func() {
+			if err := rows.Close(); err != nil {
+				cm.logger.Warn("Failed to close rows", map[string]any{"error": err})
+			}
+		}()
 
 		// Iterate through results
 		for rows.Next() {
@@ -647,7 +655,11 @@ func (cm *ContextManager) SearchInContext(ctx context.Context, contextID, query 
 			cm.metrics.IncrementCounterWithLabels(MetricContextOperationsTotal, float64(1), map[string]string{"operation": "search", "status": "error"})
 			return nil, fmt.Errorf("failed to search in context: %w", err)
 		}
-		defer rows.Close()
+		defer func() {
+			if err := rows.Close(); err != nil {
+				cm.logger.Warn("Failed to close rows", map[string]any{"error": err})
+			}
+		}()
 
 		// Iterate through results
 		for rows.Next() {

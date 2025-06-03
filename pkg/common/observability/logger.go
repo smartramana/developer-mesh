@@ -108,8 +108,8 @@ func (l *Logger) log(level LogLevel, message string, data map[string]any) {
 
 	// Output log message
 	if level == LogLevelError {
-		os.Stderr.WriteString(logMsg)
+		_, _ = os.Stderr.WriteString(logMsg) // Best effort logging
 	} else {
-		os.Stdout.WriteString(logMsg)
+		_, _ = os.Stdout.WriteString(logMsg) // Best effort logging
 	}
 }

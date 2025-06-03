@@ -90,7 +90,11 @@ func TestHandleSearch(t *testing.T) {
 		// Make request
 		resp, err := http.Post(server.URL+"/api/v1/search", "application/json", bytes.NewReader(body))
 		require.NoError(t, err)
-		defer resp.Body.Close()
+		t.Cleanup(func() {
+			if err := resp.Body.Close(); err != nil {
+				t.Errorf("Failed to close response body: %v", err)
+			}
+		})
 
 		// Check response
 		assert.Equal(t, http.StatusOK, resp.StatusCode)
@@ -136,7 +140,11 @@ func TestHandleSearch(t *testing.T) {
 		// Make GET request
 		resp, err := http.Get(server.URL + "/api/v1/search?query=bug%20report&content_types=issue&limit=5")
 		require.NoError(t, err)
-		defer resp.Body.Close()
+		t.Cleanup(func() {
+			if err := resp.Body.Close(); err != nil {
+				t.Errorf("Failed to close response body: %v", err)
+			}
+		})
 
 		// Check response
 		assert.Equal(t, http.StatusOK, resp.StatusCode)
@@ -202,7 +210,11 @@ func TestHandleSearchByVector(t *testing.T) {
 	// Make request
 	resp, err := http.Post(server.URL+"/api/v1/search/vector", "application/json", bytes.NewReader(body))
 	require.NoError(t, err)
-	defer resp.Body.Close()
+	t.Cleanup(func() {
+		if err := resp.Body.Close(); err != nil {
+			t.Errorf("Failed to close response body: %v", err)
+		}
+	})
 
 	// Check response
 	assert.Equal(t, http.StatusOK, resp.StatusCode)
@@ -293,7 +305,11 @@ func TestHandleSearchSimilar(t *testing.T) {
 			}
 
 			require.NoError(t, err)
-			defer resp.Body.Close()
+			t.Cleanup(func() {
+			if err := resp.Body.Close(); err != nil {
+				t.Errorf("Failed to close response body: %v", err)
+			}
+		})
 
 			// Check response
 			assert.Equal(t, http.StatusOK, resp.StatusCode)

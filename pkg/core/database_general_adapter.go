@@ -12,10 +12,16 @@ import (
 
 // GeneralDatabaseAdapter provides a wrapper around pkg/database.Database with the same interface as internal/database.Database
 // This allows for incremental migration from internal/database to pkg/database
+// Deprecated: This adapter is part of the migration strategy and will be removed when migration is complete.
+// Use pkg/database.Database directly instead.
 type GeneralDatabaseAdapter struct {
+	// Deprecated: Field is unused as part of the migration strategy and will be removed in future versions
 	db     *sqlx.DB
+	// Deprecated: Field is unused as part of the migration strategy and will be removed in future versions
 	pkgDB  *database.Database
+	// Deprecated: Field is unused as part of the migration strategy and will be removed in future versions
 	config config.DatabaseConfig
+	// Deprecated: Field is unused as part of the migration strategy and will be removed in future versions
 	logger *observability.Logger
 }
 

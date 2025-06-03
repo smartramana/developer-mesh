@@ -54,7 +54,9 @@ func TestMetricsClient_Disabled(t *testing.T) {
 	metrics.RecordAPIOperation("api", "get", true, 0.2)
 	metrics.RecordDatabaseOperation("query", true, 0.3)
 	metrics.RecordOperation("component", "op", true, 0.4, nil)
-	metrics.Close()
+	if err := metrics.Close(); err != nil {
+		t.Errorf("Failed to close metrics: %v", err)
+	}
 }
 
 func TestMetricsClient_StartTimer(t *testing.T) {

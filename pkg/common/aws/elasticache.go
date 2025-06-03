@@ -212,7 +212,10 @@ func ParseRedisURL(url string) (host string, port int, err error) {
 	}
 
 	host = parts[0]
-	fmt.Sscanf(parts[1], "%d", &port)
+	if _, err := fmt.Sscanf(parts[1], "%d", &port); err != nil {
+		// If parsing fails, use default port
+		port = 6379
+	}
 
 	if port == 0 {
 		port = 6379 // Default Redis port

@@ -269,8 +269,12 @@ func (s *BedrockEmbeddingService) BatchGenerateEmbeddings(ctx context.Context, t
 			// Set content type based on the model
 			contentTypeHeader := "application/json"
 
+			// Create a timeout context for the API call
+			timeoutCtx, cancel := context.WithTimeout(ctx, defaultBedrockTimeout)
+			defer cancel()
+
 			// Invoke Bedrock model
-			response, err := s.client.InvokeModel(ctx, &bedrockruntime.InvokeModelInput{
+			response, err := s.client.InvokeModel(timeoutCtx, &bedrockruntime.InvokeModelInput{
 				ModelId:     aws.String(s.config.Name),
 				ContentType: aws.String(contentTypeHeader),
 				Body:        requestBytes,

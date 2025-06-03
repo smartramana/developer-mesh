@@ -58,7 +58,11 @@ func TestEnvVarOverrides(t *testing.T) {
 	if err != nil {
 		t.Skip("Could not create temporary directory, skipping test")
 	}
-	defer os.RemoveAll(dir)
+	defer func() {
+		if err := os.RemoveAll(dir); err != nil {
+			t.Errorf("Failed to remove temp directory: %v", err)
+		}
+	}()
 
 	configPath := filepath.Join(dir, "config.yaml")
 	configContent := `
@@ -82,8 +86,14 @@ database:
 	v.AutomaticEnv()
 
 	// Set a test environment variable
-	os.Setenv("MCP_DATABASE_HOST", "override-host")
-	defer os.Unsetenv("MCP_DATABASE_HOST")
+	if err := os.Setenv("MCP_DATABASE_HOST", "override-host"); err != nil {
+		t.Errorf("Failed to set MCP_DATABASE_HOST: %v", err)
+	}
+	defer func() {
+		if err := os.Unsetenv("MCP_DATABASE_HOST"); err != nil {
+			t.Errorf("Failed to unset MCP_DATABASE_HOST: %v", err)
+		}
+	}()
 
 	// Read the config file
 	err = v.ReadInConfig()

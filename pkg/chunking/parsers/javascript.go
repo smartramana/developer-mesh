@@ -31,6 +31,7 @@ var (
 	jsMethodRegex = regexp.MustCompile(`(?m)^\s+(?:async\s+)?(\w+)\s*\(([^)]*)\)`)
 
 	// Match object literal methods
+	// TODO: Implement object literal method extraction for better object analysis
 	jsObjectMethodRegex = regexp.MustCompile(`(?m)^\s+(\w+):\s*(?:async\s*)?\(([^)]*)\)`)
 
 	// Match constructor
@@ -40,6 +41,7 @@ var (
 	jsDocRegex = regexp.MustCompile(`(?ms)/\*\*.*?\*/`)
 
 	// Match braces for scope detection
+	// TODO: Implement enhanced scope detection for better code structure analysis
 	jsOpenBraceRegex  = regexp.MustCompile(`\{`)
 	jsCloseBraceRegex = regexp.MustCompile(`\}`)
 )

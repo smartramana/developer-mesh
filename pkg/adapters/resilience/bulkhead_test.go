@@ -138,7 +138,7 @@ func TestBulkheadTimeout(t *testing.T) {
 	go func() {
 		defer wg.Done()
 
-		bulkhead.Execute(context.Background(), func() (interface{}, error) {
+		_, _ = bulkhead.Execute(context.Background(), func() (interface{}, error) {
 			// Occupy the bulkhead for a while
 			time.Sleep(200 * time.Millisecond)
 			firstDone = true
@@ -192,7 +192,7 @@ func TestBulkheadCounts(t *testing.T) {
 		go func() {
 			defer wg.Done()
 
-			bulkhead.Execute(context.Background(), func() (interface{}, error) {
+			_, _ = bulkhead.Execute(context.Background(), func() (interface{}, error) {
 				time.Sleep(100 * time.Millisecond)
 				return nil, nil
 			})

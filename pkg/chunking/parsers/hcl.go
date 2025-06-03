@@ -43,6 +43,7 @@ var (
 	hclCommentRegex = regexp.MustCompile(`(?ms)/\*.*?\*/`)
 
 	// Match line comments
+	// TODO: Implement line comment extraction to capture inline documentation
 	hclLineCommentRegex = regexp.MustCompile(`(?m)^([^#\n]*?)#([^\n]*)`)
 )
 

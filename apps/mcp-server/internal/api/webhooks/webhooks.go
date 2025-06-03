@@ -295,7 +295,12 @@ func (v *GitHubIPValidator) FetchGitHubIPRanges() error {
 	if err != nil {
 		return fmt.Errorf("failed to fetch GitHub meta API: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() {
+		if err := resp.Body.Close(); err != nil {
+			// Log error closing response body - non-critical
+			v.logger.Warn("Failed to close response body", map[string]interface{}{"error": err})
+		}
+	}()
 
 	if resp.StatusCode != http.StatusOK {
 		return fmt.Errorf("GitHub meta API returned non-OK status: %d", resp.StatusCode)
