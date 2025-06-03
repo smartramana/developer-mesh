@@ -31,6 +31,9 @@ services:
       - REDIS_PORT=6379
       - REDIS_ADDR=redis:6379
       - CACHE_TYPE=redis
+      # ElastiCache configuration for functional tests
+      - ELASTICACHE_ENDPOINT=redis
+      - ELASTICACHE_PORT=6379
       # AWS/LocalStack
       - AWS_REGION=${AWS_REGION:-us-west-2}
       - AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID:-test}
@@ -118,6 +121,9 @@ services:
       - REDIS_PORT=6379
       - REDIS_ADDR=redis:6379
       - CACHE_TYPE=redis
+      # ElastiCache configuration for functional tests
+      - ELASTICACHE_ENDPOINT=redis
+      - ELASTICACHE_PORT=6379
       # AWS/LocalStack
       - AWS_REGION=${AWS_REGION:-us-west-2}
       - AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID:-test}
@@ -212,6 +218,17 @@ services:
       - ./apps/worker/configs:/app/configs
     networks:
       - mcp-network
+
+  mockserver:
+    build:
+      context: .
+      dockerfile: apps/mockserver/Dockerfile
+    ports:
+      - "8082:8081"
+    environment:
+      - PORT=8081
+    networks:
+      - mcp-network
   
   database:
     image: pgvector/pgvector:pg17
@@ -253,7 +270,7 @@ services:
     ports:
       - "4566:4566"
     environment:
-      - SERVICES=sqs
+      - SERVICES=s3,sqs
       - DEBUG=1
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:4566/_localstack/health"]
@@ -276,6 +293,22 @@ services:
       - AWS_DEFAULT_REGION=us-east-1
     entrypoint: >
       /bin/sh -c "
+        echo 'Creating S3 bucket...' &&
+        aws --endpoint-url=http://localstack:4566 s3 mb s3://mcp-contexts || echo 'Bucket already exists' &&
+        echo 'Setting S3 bucket policy...' &&
+        aws --endpoint-url=http://localstack:4566 s3api put-bucket-policy --bucket mcp-contexts --policy '{
+          \"Version\": \"2012-10-17\",
+          \"Statement\": [{
+            \"Effect\": \"Allow\",
+            \"Principal\": \"*\",
+            \"Action\": \"s3:*\",
+            \"Resource\": [
+              \"arn:aws:s3:::mcp-contexts\",
+              \"arn:aws:s3:::mcp-contexts/*\"
+            ]
+          }]
+        }' &&
+        echo 'S3 bucket created successfully' &&
         echo 'Creating SQS queue...' &&
         aws --endpoint-url=http://localstack:4566 sqs create-queue --queue-name tasks &&
         echo 'SQS queue created successfully' &&

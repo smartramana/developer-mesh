@@ -388,17 +388,36 @@ func generateRandomID() string {
 
 // HandleEvent handles a webhook event asynchronously
 func (a *GitHubAdapter) HandleEvent(event WebhookEvent) {
+	a.mu.RLock()
+	defer a.mu.RUnlock()
+
+	// Check if adapter is closed
+	if a.closed {
+		a.logger.Warn("Attempted to handle event on closed adapter", map[string]any{
+			"event_type": event.EventType,
+		})
+		return
+	}
+
 	if a.webhookQueue != nil {
 		select {
 		case a.webhookQueue <- event:
 			// Successfully queued
 		default:
 			// Queue is full, process directly
-			go a.processWebhookEvent(event)
+			a.wg.Add(1)
+			go func() {
+				defer a.wg.Done()
+				a.processWebhookEvent(event)
+			}()
 		}
 	} else {
 		// No queue, process directly
-		go a.processWebhookEvent(event)
+		a.wg.Add(1)
+		go func() {
+			defer a.wg.Done()
+			a.processWebhookEvent(event)
+		}()
 	}
 }
 
@@ -414,6 +433,9 @@ func (a *GitHubAdapter) Type() string {
 
 // Health returns the health status of the adapter
 func (a *GitHubAdapter) Health() string {
+	a.mu.RLock()
+	defer a.mu.RUnlock()
+
 	// Perform a simple check to determine health status
 	if a.closed {
 		return "closed"
@@ -421,3 +443,4 @@ func (a *GitHubAdapter) Health() string {
 
 	return "healthy"
 }
+
