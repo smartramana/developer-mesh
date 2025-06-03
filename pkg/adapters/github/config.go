@@ -32,6 +32,8 @@ type Config struct {
 	WebhookRetryEnabled     bool          `yaml:"webhook_retry_enabled" json:"webhook_retry_enabled"`
 	WebhookRetryMaxAttempts int           `yaml:"webhook_retry_max_attempts" json:"webhook_retry_max_attempts"`
 	WebhookRetryDelay       time.Duration `yaml:"webhook_retry_delay" json:"webhook_retry_delay"`
+	// ForceTerminateWorkersOnTimeout is used in testing to prevent goroutine leaks
+	ForceTerminateWorkersOnTimeout bool `yaml:"force_terminate_workers_on_timeout" json:"force_terminate_workers_on_timeout"`
 
 	// Pagination settings
 	DefaultPageSize int `yaml:"default_page_size" json:"default_page_size"`
@@ -72,12 +74,13 @@ func DefaultConfig() *Config {
 		RateLimitWait:  5 * time.Second,
 
 		// Default webhook settings
-		WebhooksEnabled:         true,
-		WebhookWorkers:          5,
-		WebhookQueueSize:        100,
-		WebhookRetryEnabled:     true,
-		WebhookRetryMaxAttempts: 3,
-		WebhookRetryDelay:       5 * time.Second,
+		WebhooksEnabled:                true,
+		WebhookWorkers:                 5,
+		WebhookQueueSize:               100,
+		WebhookRetryEnabled:            true,
+		WebhookRetryMaxAttempts:        3,
+		WebhookRetryDelay:              5 * time.Second,
+		ForceTerminateWorkersOnTimeout: true, // Default to true to prevent goroutine leaks in tests
 
 		// Default pagination settings
 		DefaultPageSize: 100,

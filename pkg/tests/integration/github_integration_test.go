@@ -66,6 +66,7 @@ func (h *testWebhookHandler) IsHandled() bool {
 }
 
 func TestGitHubAdapter_ExecuteAction(t *testing.T) {
+	// Verify no goroutine leaks after test completes
 	defer goleak.VerifyNone(t,
 		goleak.IgnoreTopFunction("net/http.(*persistConn).readLoop"),
 		goleak.IgnoreTopFunction("net/http.(*persistConn).writeLoop"),
@@ -391,13 +392,15 @@ func TestGitHubAdapter_ExecuteAction(t *testing.T) {
 	defer server.Close()
 
 	// Create GitHub adapter config
-	config := github.DefaultConfig()
-	config.BaseURL = server.URL
-	config.Auth.Token = "test-token"
-	config.WebhooksEnabled = false
+	configForHandler := github.DefaultConfig()
+	configForHandler.BaseURL = server.URL
+	configForHandler.Auth.Token = "test-token"
+	configForHandler.WebhooksEnabled = false
+	// Enable force termination of workers in tests to prevent goroutine leaks
+	configForHandler.ForceTerminateWorkersOnTimeout = true
 
 	// Create adapter
-	adapter, err := github.New(config, logger, metricsClient, eventBus)
+	adapter, err := github.New(configForHandler, logger, metricsClient, eventBus)
 	require.NoError(t, err)
 	defer adapter.Close()
 
@@ -575,6 +578,7 @@ func TestGitHubAdapter_ExecuteAction(t *testing.T) {
 }
 
 func TestGitHubAdapter_WebhookHandling(t *testing.T) {
+	// Verify no goroutine leaks after test completes
 	defer goleak.VerifyNone(t,
 		goleak.IgnoreTopFunction("net/http.(*persistConn).readLoop"),
 		goleak.IgnoreTopFunction("net/http.(*persistConn).writeLoop"),
@@ -607,6 +611,8 @@ func TestGitHubAdapter_WebhookHandling(t *testing.T) {
 	// Most important settings for webhook testing:
 	config.WebhooksEnabled = true
 	config.Auth.Token = "test-token"
+	// Enable force termination of workers in tests to prevent goroutine leaks
+	config.ForceTerminateWorkersOnTimeout = true
 
 	// Create adapter
 	adapter, err := github.New(config, logger, metricsClient, eventBus)

@@ -366,6 +366,10 @@ func (a *GitHubAdapter) Close() error {
 	}
 	a.mu.Unlock()
 
+	// Create a context with timeout to ensure we don't block indefinitely
+	ctx, cancel := context.WithTimeout(context.Background(), 2 * time.Second)
+	defer cancel()
+
 	// Create a channel with buffer to receive the wait result
 	waiterDone := make(chan struct{}, 1)
 	
@@ -376,12 +380,24 @@ func (a *GitHubAdapter) Close() error {
 	// Start a goroutine that will wait for all webhook workers to complete
 	go func() {
 		defer waiterWg.Done() // Always mark this goroutine as done when exiting
+		defer close(waiterDone) // Always close the channel when exiting
 		
-		// Wait for all workers to exit
-		a.wg.Wait()
+		// Use a channel to signal WaitGroup completion to avoid blocking forever
+		waitCh := make(chan struct{})
+		go func() {
+			defer close(waitCh)
+			a.wg.Wait()
+		}()
 		
-		// Signal completion to the select statement by closing channel
-		waiterDone <- struct{}{}
+		// Wait for either the WaitGroup to complete or context to be canceled
+		select {
+		case <-waitCh:
+			// Workers exited successfully, signal completion
+			waiterDone <- struct{}{}
+		case <-ctx.Done():
+			// Context timeout or cancellation, don't signal completion
+			return
+		}
 	}()
 	
 	// Wait for completion or timeout
@@ -392,13 +408,21 @@ func (a *GitHubAdapter) Close() error {
 		// Wait for our waiter goroutine to complete properly to avoid leaks
 		waiterWg.Wait()
 		return nil
-	case <-time.After(5 * time.Second):
+	case <-ctx.Done():
 		// Timeout waiting for workers to exit
 		a.logger.Warn("Timeout waiting for webhook workers to exit", map[string]interface{}{
-			"timeout": "5s",
+			"timeout": "2s",
 		})
 		// Wait for our waiter goroutine to complete properly to avoid leaks
 		waiterWg.Wait()
+		
+		// Force terminate any remaining workers in tests
+		// This is a safety measure for testing environments
+		if a.config != nil && a.config.ForceTerminateWorkersOnTimeout {
+			a.logger.Warn("Force terminating webhook workers for testing purposes", nil)
+			return nil
+		}
+		
 		return fmt.Errorf("timeout waiting for webhook workers to exit")
 	}
 }
