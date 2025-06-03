@@ -363,7 +363,7 @@ func (cm *ContextManager) UpdateContext(ctx context.Context, contextID string, u
 
 		_, err = tx.NamedExecContext(ctx, q, result)
 		if err != nil {
-			tx.Rollback()
+			_ = tx.Rollback()
 			cm.logger.Error("Failed to update context in database", map[string]any{
 				"error":      err.Error(),
 				"context_id": contextID,
@@ -375,7 +375,7 @@ func (cm *ContextManager) UpdateContext(ctx context.Context, contextID string, u
 		// Delete existing context items
 		_, err = tx.ExecContext(ctx, "DELETE FROM mcp.context_items WHERE context_id = $1", contextID)
 		if err != nil {
-			tx.Rollback()
+			_ = tx.Rollback()
 			cm.logger.Error("Failed to delete old context items", map[string]any{
 				"error":      err.Error(),
 				"context_id": contextID,
@@ -404,7 +404,7 @@ func (cm *ContextManager) UpdateContext(ctx context.Context, contextID string, u
 				if len(item.Metadata) > 0 {
 					itemMetadataJSON, err = json.Marshal(item.Metadata)
 					if err != nil {
-						tx.Rollback()
+						_ = tx.Rollback()
 						cm.logger.Error("Failed to marshal item metadata", map[string]any{
 							"error":      err.Error(),
 							"context_id": contextID,

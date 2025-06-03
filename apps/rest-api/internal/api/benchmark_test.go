@@ -144,7 +144,7 @@ func setupBenchmarkServer(_ *testing.B) *Server {
 	server := NewServer(engine, cfg, db, metrics, appConfig)
 
 	// Initialize routes
-	server.Initialize(context.Background())
+	_ = server.Initialize(context.Background())
 
 	return server
 }
