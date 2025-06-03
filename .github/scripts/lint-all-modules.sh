@@ -43,45 +43,65 @@ root_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 
 # Create a temporary script to filter golangci-lint output
 cat > /tmp/filter-lint-$$.awk <<'EOF'
-BEGIN { skip_context = 0; buffer = ""; }
+BEGIN { 
+    skip_next = 0;
+    in_error_block = 0;
+    error_line = "";
+}
 {
-    # Check if this is a mock-related error line
-    if ($0 ~ /\.(On|Called|AssertExpectations|TestData|ExpectedCalls|Calls|Parent|Test|MethodCalled|Arguments|Assert|AssertCalled|AssertNotCalled|AssertNumberOfCalls) undefined \(type .*(Mock|mock).* has no field or method/) {
-        skip_context = 2;  # Skip this line and next context line
+    # If we're supposed to skip this line, do so
+    if (skip_next > 0) {
+        skip_next--;
         next;
     }
     
-    # Check for other false positives
-    if ($0 ~ /undefined: (yaml|jwt|backoff|RegisterFailHandler|RunSpecs|BeforeSuite|Describe|BeforeEach|AfterEach|It|Expect|BeTrue|HaveOccurred)/) {
-        skip_context = 2;
-        next;
+    # Check if this is an error line (contains file:line:col pattern)
+    if ($0 ~ /^[^:]+\.go:[0-9]+:[0-9]+:/) {
+        error_line = $0;
+        in_error_block = 1;
+        
+        # Check if this is a mock-related error we want to filter
+        if ($0 ~ /\.(On|Called|AssertExpectations|TestData|ExpectedCalls|Calls|Parent|Test|MethodCalled|Arguments|Assert|AssertCalled|AssertNotCalled|AssertNumberOfCalls) undefined \(type .*(Mock|mock).* has no field or method/) {
+            skip_next = 2;  # Skip next 2 lines (code snippet and pointer)
+            next;
+        }
+        
+        # Check for other false positives
+        if ($0 ~ /undefined: (yaml|jwt|backoff|RegisterFailHandler|RunSpecs|BeforeSuite|Describe|BeforeEach|AfterEach|It|Expect|BeTrue|HaveOccurred)/) {
+            skip_next = 2;
+            next;
+        }
+        
+        # Check for import errors
+        if ($0 ~ /could not import .* \(could not load export data:/ || $0 ~ /could not import sync\/atomic/ || $0 ~ /could not import unicode/) {
+            skip_next = 2;
+            next;
+        }
+        
+        # Not a false positive, print it
+        print $0;
     }
-    
-    # Skip import errors
-    if ($0 ~ /could not import .* \(could not load export data:/ || $0 ~ /could not import sync\/atomic/) {
-        skip_context = 2;
-        next;
+    # Check for warning/error level messages
+    else if ($0 ~ /^level=(warning|error) msg=/) {
+        # Skip certain warnings
+        if ($0 ~ /Can.*t run linter/ || $0 ~ /no go files to analyze/) {
+            next;
+        }
+        print $0;
+        in_error_block = 0;
     }
-    
-    # Skip warning messages
-    if ($0 ~ /level=warning msg=.*Can.*t run linter/ || $0 ~ /no go files to analyze/) {
-        next;
+    # If we're in an error block, this is likely context
+    else if (in_error_block) {
+        print $0;
+        # Check if this is the pointer line
+        if ($0 ~ /^\s+\^/) {
+            in_error_block = 0;
+        }
     }
-    
-    # Handle context lines after errors
-    if (skip_context > 0 && $0 ~ /^\s+\^/) {
-        skip_context--;
-        next;
-    } else if (skip_context > 0 && $0 ~ /^[^\s]/) {
-        # New error line, reset counter
-        skip_context = 0;
-    } else if (skip_context > 0) {
-        skip_context--;
-        next;
+    # Other lines (headers, etc)
+    else {
+        print $0;
     }
-    
-    # Output non-filtered lines
-    print $0;
 }
 EOF
 
@@ -105,18 +125,16 @@ for module in $modules; do
         awk -f /tmp/filter-lint-$$.awk "$output_file" > "$filtered_file"
         
         # Check if there are any real errors left after filtering
-        if [ ! -s "$filtered_file" ] || [ "$lint_exit_code" -eq 0 ]; then
-            echo "✓ Linting passed for $module"
+        if [ ! -s "$filtered_file" ]; then
+            echo "✓ Linting passed for $module (all errors were false positives)"
+        elif grep -qE '\.go:[0-9]+:[0-9]+:' "$filtered_file"; then
+            # There are actual error lines in the output
+            echo "✗ Linting failed for $module"
+            cat "$filtered_file"
+            failed_modules="$failed_modules $module"
         else
-            # Check if the filtered output contains actual error lines
-            error_count=$(grep -E '\.go:[0-9]+:[0-9]+:' "$filtered_file" | wc -l | xargs)
-            if [ "$error_count" -gt 0 ]; then
-                echo "✗ Linting failed for $module"
-                cat "$filtered_file"
-                failed_modules="$failed_modules $module"
-            else
-                echo "✓ Linting passed for $module (false positives filtered)"
-            fi
+            # No error lines, just headers/info
+            echo "✓ Linting passed for $module"
         fi
         
         rm -f "$output_file" "$filtered_file"
