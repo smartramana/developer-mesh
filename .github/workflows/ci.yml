@@ -160,6 +160,19 @@ jobs:
           --health-retries 5
         ports:
           - 6379:6379
+      
+      localstack:
+        image: localstack/localstack:3.4
+        env:
+          SERVICES: s3,sqs
+          DEBUG: 1
+        options: >-
+          --health-cmd "curl -f http://localhost:4566/_localstack/health"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 4566:4566
 
     steps:
       - name: Checkout code
@@ -190,6 +203,21 @@ jobs:
           PGPASSWORD=test psql -h localhost -U test -d devops_mcp_test -c "CREATE EXTENSION IF NOT EXISTS vector;"
           PGPASSWORD=test psql -h localhost -U test -d devops_mcp_test -c "CREATE EXTENSION IF NOT EXISTS \"uuid-ossp\";"
 
+      - name: Initialize LocalStack resources
+        run: |
+          # Install AWS CLI for LocalStack setup
+          pip install awscli-local
+          
+          # Create S3 bucket
+          awslocal s3 mb s3://mcp-contexts || echo "Bucket already exists"
+          
+          # Create SQS queue  
+          awslocal sqs create-queue --queue-name tasks || echo "Queue already exists"
+          
+          # Verify resources
+          awslocal s3 ls
+          awslocal sqs list-queues
+
       - name: Create test environment file
         run: |
           cp .env.example .env
@@ -199,6 +227,9 @@ jobs:
           echo "DATABASE_PASSWORD=test" >> .env
           echo "DATABASE_NAME=devops_mcp_test" >> .env
           echo "REDIS_ADDR=localhost:6379" >> .env
+          echo "AWS_ENDPOINT_URL=http://localhost:4566" >> .env
+          echo "S3_ENDPOINT=http://localhost:4566" >> .env
+          echo "S3_BUCKET=mcp-contexts" >> .env
 
       - name: Run integration tests
         run: make test-integration
@@ -206,6 +237,13 @@ jobs:
           ENABLE_INTEGRATION_TESTS: true
           DATABASE_DSN: postgres://test:test@localhost:5432/devops_mcp_test?sslmode=disable
           REDIS_ADDR: localhost:6379
+          AWS_ENDPOINT_URL: http://localhost:4566
+          AWS_REGION: us-east-1
+          AWS_ACCESS_KEY_ID: test
+          AWS_SECRET_ACCESS_KEY: test
+          S3_ENDPOINT: http://localhost:4566
+          S3_BUCKET: mcp-contexts
+          S3_USE_PATH_STYLE: true
 
   build:
     name: Build
@@ -289,40 +327,109 @@ jobs:
           # TODO: Remove when https://github.com/actions/setup-go/issues/482 is fixed
           cache: false
 
+      - name: Setup Go workspace
+        run: |
+          go work init
+          go work use ./apps/mcp-server
+          go work use ./apps/rest-api
+          go work use ./apps/worker
+          go work use ./pkg
+          go work use ./pkg/tests/integration
+          go work use ./test/functional
+          go work use ./test/github-live
+          go work sync
+
       - name: Install Ginkgo
         run: go install github.com/onsi/ginkgo/v2/ginkgo@latest
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
+      - name: Create .env file
+        run: |
+          cp .env.example .env
+          # Add any CI-specific overrides if needed
+
+      - name: Build Docker images
+        run: |
+          # Build all required images
+          docker compose -f docker-compose.local.yml build
+
       - name: Start services
         run: |
           docker compose -f docker-compose.local.yml up -d
+          
           # Wait for services to be healthy
           echo "Waiting for services to be ready..."
+          
+          # Wait for database
           for i in {1..30}; do
+            if docker compose -f docker-compose.local.yml exec -T database pg_isready -U dev; then
+              echo "Database is ready!"
+              break
+            fi
+            echo "Waiting for database... attempt $i/30"
+            sleep 2
+          done
+          
+          # Wait for services
+          for i in {1..60}; do
             if curl -f http://localhost:8080/health && curl -f http://localhost:8081/health; then
               echo "Services are ready!"
               break
             fi
-            echo "Waiting for services... attempt $i/30"
+            echo "Waiting for services... attempt $i/60"
+            sleep 2
+          done
+          
+          # Verify LocalStack is ready
+          for i in {1..30}; do
+            if curl -f http://localhost:4566/_localstack/health; then
+              echo "LocalStack is ready!"
+              break
+            fi
+            echo "Waiting for LocalStack... attempt $i/30"
             sleep 2
           done
 
       - name: Run functional tests
         run: |
           export PATH=$PATH:$(go env GOPATH)/bin
-          make test-functional
-        env:
-          MCP_SERVER_URL: http://localhost:8080
-          REST_API_URL: http://localhost:8081
-          MCP_API_KEY: dev-admin-key-1234567890
-          ADMIN_API_KEY: dev-admin-key-1234567890
+          
+          # Export required environment variables
+          export MCP_SERVER_URL=http://localhost:8080
+          export REST_API_URL=http://localhost:8081
+          export MCP_API_KEY=dev-admin-key-1234567890
+          export ADMIN_API_KEY=dev-admin-key-1234567890
+          export MOCKSERVER_URL=http://localhost:8082
+          export GITHUB_TOKEN=test-github-token
+          export GITHUB_REPO=test-repo
+          export GITHUB_OWNER=test-org
+          export ELASTICACHE_ENDPOINT=localhost
+          export ELASTICACHE_PORT=6379
+          export MCP_GITHUB_WEBHOOK_SECRET=docker-github-webhook-secret
+          export REDIS_ADDR=localhost:6379
+          export AWS_ENDPOINT_URL=http://localhost:4566
+          export S3_ENDPOINT=http://localhost:4566
+          export S3_BUCKET=mcp-contexts
+          
+          # Run tests using the functional test script
+          cd test/functional
+          ./check_test_env.sh
+          cd ../..
+          ginkgo -r --randomize-all --race test/functional
 
       - name: Collect logs on failure
         if: failure()
         run: |
-          docker compose -f docker-compose.local.yml logs
+          echo "=== Docker Compose Status ==="
+          docker compose -f docker-compose.local.yml ps
+          echo "=== MCP Server Logs ==="
+          docker compose -f docker-compose.local.yml logs --tail=100 mcp-server
+          echo "=== REST API Logs ==="
+          docker compose -f docker-compose.local.yml logs --tail=100 rest-api
+          echo "=== LocalStack Logs ==="
+          docker compose -f docker-compose.local.yml logs --tail=100 localstack
           
       - name: Stop services
         if: always()
