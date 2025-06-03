@@ -287,8 +287,8 @@ func TestHandleSearchSimilar(t *testing.T) {
 			if tc.method == "GET" {
 				resp, err = http.Get(tc.url)
 			} else {
-				body, err := json.Marshal(tc.body)
-				require.NoError(t, err)
+				body, marshalErr := json.Marshal(tc.body)
+				require.NoError(t, marshalErr)
 				resp, err = http.Post(tc.url, "application/json", bytes.NewReader(body))
 			}
 

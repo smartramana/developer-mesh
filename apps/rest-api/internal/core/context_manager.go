@@ -425,7 +425,7 @@ func (cm *ContextManager) UpdateContext(ctx context.Context, contextID string, u
 					item.Timestamp,
 					itemMetadataJSON)
 				if err != nil {
-					tx.Rollback()
+					_ = tx.Rollback()
 					cm.logger.Error("Failed to insert context item", map[string]any{
 						"error":      err.Error(),
 						"context_id": contextID,

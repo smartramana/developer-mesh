@@ -733,41 +733,44 @@ func getEnvBool(key string, defaultValue bool) bool {
 	return defaultValue
 }
 
-func getBoolFromMap(m map[string]interface{}, key string, defaultValue bool) bool {
-	if val, ok := m[key]; ok {
-		if boolVal, ok := val.(bool); ok {
-			return boolVal
-		}
-	}
-	return defaultValue
-}
+// getBoolFromMap extracts a boolean value from a map (commented out - unused)
+// func getBoolFromMap(m map[string]interface{}, key string, defaultValue bool) bool {
+// 	if val, ok := m[key]; ok {
+// 		if boolVal, ok := val.(bool); ok {
+// 			return boolVal
+// 		}
+// 	}
+// 	return defaultValue
+// }
 
-func getStringFromMap(m map[string]interface{}, key string, defaultValue string) string {
-	if val, ok := m[key]; ok {
-		if strVal, ok := val.(string); ok {
-			return strVal
-		}
-	}
-	return defaultValue
-}
+// getStringFromMap extracts a string value from a map (commented out - unused)
+// func getStringFromMap(m map[string]interface{}, key string, defaultValue string) string {
+// 	if val, ok := m[key]; ok {
+// 		if strVal, ok := val.(string); ok {
+// 			return strVal
+// 		}
+// 	}
+// 	return defaultValue
+// }
 
-func getStringSliceFromMap(m map[string]interface{}, key string, defaultValue []string) []string {
-	if val, ok := m[key]; ok {
-		if slice, ok := val.([]interface{}); ok {
-			result := make([]string, 0, len(slice))
-			for _, item := range slice {
-				if str, ok := item.(string); ok {
-					result = append(result, str)
-				}
-			}
-			return result
-		}
-		if strSlice, ok := val.([]string); ok {
-			return strSlice
-		}
-	}
-	return defaultValue
-}
+// getStringSliceFromMap extracts a string slice from a map (commented out - unused)
+// func getStringSliceFromMap(m map[string]interface{}, key string, defaultValue []string) []string {
+// 	if val, ok := m[key]; ok {
+// 		if slice, ok := val.([]interface{}); ok {
+// 			result := make([]string, 0, len(slice))
+// 			for _, item := range slice {
+// 				if str, ok := item.(string); ok {
+// 					result = append(result, str)
+// 				}
+// 			}
+// 			return result
+// 		}
+// 		if strSlice, ok := val.([]string); ok {
+// 			return strSlice
+// 		}
+// 	}
+// 	return defaultValue
+// }
 
 // performHealthCheck performs a basic health check
 func performHealthCheck() error {

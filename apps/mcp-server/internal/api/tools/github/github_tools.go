@@ -13,10 +13,10 @@ import (
 
 // GitHubToolsHandler handles GitHub tool endpoints
 type GitHubToolsHandler struct {
-	registry     *tool.ToolRegistry
-	logger       observability.Logger
-	githubConfig *github.Config
-	provider     *GitHubToolProvider
+	registry *tool.ToolRegistry
+	logger   observability.Logger
+	// githubConfig *github.Config // Removed: unused field
+	provider *GitHubToolProvider
 }
 
 // NewGitHubToolsHandler creates a new GitHub tools handler
