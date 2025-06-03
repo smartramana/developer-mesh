@@ -79,6 +79,15 @@ jobs:
           # TODO: Remove when https://github.com/actions/setup-go/issues/482 is fixed
           cache: false
 
+      - name: Setup Go workspace
+        run: |
+          go work init
+          go work use ./apps/mcp-server
+          go work use ./apps/rest-api
+          go work use ./apps/worker
+          go work use ./pkg
+          go work sync
+
       - name: Install jq (required for helper scripts)
         run: sudo apt-get update && sudo apt-get install -y jq
 
@@ -161,6 +170,15 @@ jobs:
           # TODO: Remove when https://github.com/actions/setup-go/issues/482 is fixed
           cache: false
 
+      - name: Setup Go workspace
+        run: |
+          go work init
+          go work use ./apps/mcp-server
+          go work use ./apps/rest-api
+          go work use ./apps/worker
+          go work use ./pkg
+          go work sync
+
       - name: Set up test database
         run: |
           PGPASSWORD=test psql -h localhost -U test -d devops_mcp_test -c "CREATE EXTENSION IF NOT EXISTS vector;"
@@ -203,8 +221,12 @@ jobs:
           # TODO: Remove when https://github.com/actions/setup-go/issues/482 is fixed
           cache: false
 
-      - name: Sync workspace before build
-        run: go work sync
+      - name: Setup Go workspace
+        run: |
+          go work init
+          go work use ./apps/${{ matrix.app }}
+          go work use ./pkg
+          go work sync
 
       - name: Build ${{ matrix.app }}
         run: make build-${{ matrix.app }}
@@ -265,7 +287,7 @@ jobs:
 
       - name: Start services
         run: |
-          docker-compose -f docker-compose.local.yml up -d
+          docker compose -f docker-compose.local.yml up -d
           # Wait for services to be healthy
           echo "Waiting for services to be ready..."
           for i in {1..30}; do
@@ -290,8 +312,8 @@ jobs:
       - name: Collect logs on failure
         if: failure()
         run: |
-          docker-compose -f docker-compose.local.yml logs
+          docker compose -f docker-compose.local.yml logs
           
       - name: Stop services
         if: always()
-        run: docker-compose -f docker-compose.local.yml down -v
+        run: docker compose -f docker-compose.local.yml down -v
