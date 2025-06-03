@@ -120,16 +120,14 @@ func TestGitHubIntegrationEnhanced(t *testing.T) {
 	})
 
 	t.Run("WebhookSignature", func(t *testing.T) {
-		secret := "test-secret"
-		if os.Getenv("USE_GITHUB_MOCK") == "false" {
-			secret = os.Getenv("GITHUB_WEBHOOK_SECRET")
-			if secret == "" {
-				t.Skip("GITHUB_WEBHOOK_SECRET not set")
-			}
-		}
+		// For now, we'll skip this test as we need to access adapter-specific methods
+		// that are not part of the standard adapter interface
+		t.Skip("Skipping webhook signature test - needs to be updated to work with adapter interface")
 
-		// Note: Webhook signature methods may not exist on generic Adapter interface
-		// This test may need to be refactored based on available methods
-		t.Skip("Webhook signature methods need to be implemented on Adapter interface")
+		// The test needs to be redesigned to work without type assertions to the concrete GitHub adapter
+		// Options include:
+		// 1. Adding webhook validator methods to the main adapter interface
+		// 2. Creating a test-specific adapter factory that exposes the needed methods
+		// 3. Using a separate webhook validation utility that doesn't rely on adapter internals
 	})
 }
