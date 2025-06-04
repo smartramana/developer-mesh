@@ -18,6 +18,7 @@ func TestStoreGitHubContent(t *testing.T) {
 	mockDB, mock, err := sqlmock.New()
 	require.NoError(t, err)
 	defer func() {
+		mock.ExpectClose()
 		if err := mockDB.Close(); err != nil {
 			t.Errorf("Failed to close mock database: %v", err)
 		}
@@ -169,6 +170,7 @@ func TestGetGitHubContent(t *testing.T) {
 	mockDB, mock, err := sqlmock.New()
 	require.NoError(t, err)
 	defer func() {
+		mock.ExpectClose()
 		if err := mockDB.Close(); err != nil {
 			t.Errorf("Failed to close mock database: %v", err)
 		}
@@ -268,6 +270,7 @@ func TestDeleteGitHubContent(t *testing.T) {
 	mockDB, mock, err := sqlmock.New()
 	require.NoError(t, err)
 	defer func() {
+		mock.ExpectClose()
 		if err := mockDB.Close(); err != nil {
 			t.Errorf("Failed to close mock database: %v", err)
 		}
@@ -317,6 +320,7 @@ func TestGetGitHubContentByChecksum(t *testing.T) {
 		t.Fatalf("Failed to create mock database: %v", err)
 	}
 	defer func() {
+		mock.ExpectClose()
 		if err := mockDB.Close(); err != nil {
 			t.Errorf("Failed to close mock database: %v", err)
 		}
@@ -418,6 +422,7 @@ func TestListGitHubContent(t *testing.T) {
 	mockDB, mock, err := sqlmock.New()
 	require.NoError(t, err)
 	defer func() {
+		mock.ExpectClose()
 		if err := mockDB.Close(); err != nil {
 			t.Errorf("Failed to close mock database: %v", err)
 		}
@@ -546,6 +551,7 @@ func TestEnsureGitHubContentTables(t *testing.T) {
 	mockDB, mock, err := sqlmock.New()
 	require.NoError(t, err)
 	defer func() {
+		mock.ExpectClose()
 		if err := mockDB.Close(); err != nil {
 			t.Errorf("Failed to close mock database: %v", err)
 		}

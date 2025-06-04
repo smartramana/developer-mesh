@@ -46,6 +46,7 @@ func TestNewDatabase(t *testing.T) {
 func TestTransaction(t *testing.T) {
 	db, mock := setupMockDB(t)
 	defer func() {
+		mock.ExpectClose()
 		if err := db.Close(); err != nil {
 			t.Errorf("Failed to close database: %v", err)
 		}
@@ -133,35 +134,51 @@ func TestClose(t *testing.T) {
 }
 
 func TestPing(t *testing.T) {
-	// Create a custom mock for ping test
-	mockDB, mock, err := sqlmock.New(sqlmock.MonitorPingsOption(true))
-	require.NoError(t, err)
-	sqlxDB := sqlx.NewDb(mockDB, "sqlmock")
-
-	db := &Database{
-		db:         sqlxDB,
-		config:     Config{},
-		statements: make(map[string]*sqlx.Stmt),
-	}
-	defer func() {
-		if err := db.Close(); err != nil {
-			t.Errorf("Failed to close database: %v", err)
-		}
-	}()
-
 	t.Run("Successful Ping", func(t *testing.T) {
-		mock.ExpectPing()
+		// Create a fresh mock for this subtest
+		mockDB, mock, err := sqlmock.New(sqlmock.MonitorPingsOption(true))
+		require.NoError(t, err)
+		defer mockDB.Close()
+		
+		sqlxDB := sqlx.NewDb(mockDB, "sqlmock")
+		db := &Database{
+			db:         sqlxDB,
+			config:     Config{},
+			statements: make(map[string]*sqlx.Stmt),
+		}
 
-		err := db.Ping()
+		mock.ExpectPing()
+		mock.ExpectClose()
+
+		err = db.Ping()
+		assert.NoError(t, err)
+		
+		err = db.Close()
 		assert.NoError(t, err)
 	})
 
 	t.Run("Ping Error", func(t *testing.T) {
+		// Create a fresh mock for this subtest
+		mockDB, mock, err := sqlmock.New(sqlmock.MonitorPingsOption(true))
+		require.NoError(t, err)
+		defer mockDB.Close()
+		
+		sqlxDB := sqlx.NewDb(mockDB, "sqlmock")
+		db := &Database{
+			db:         sqlxDB,
+			config:     Config{},
+			statements: make(map[string]*sqlx.Stmt),
+		}
+
 		pingErr := errors.New("ping error")
 		mock.ExpectPing().WillReturnError(pingErr)
+		mock.ExpectClose()
 
-		err := db.Ping()
+		err = db.Ping()
 		assert.Error(t, err)
 		assert.Equal(t, "ping error", err.Error())
+		
+		err = db.Close()
+		assert.NoError(t, err)
 	})
 }
