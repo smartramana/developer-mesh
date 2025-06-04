@@ -127,27 +127,29 @@ jobs:
           upload-artifact: true
           upload-release-assets: ${{ github.event_name == 'release' }}
 
-      - name: Install Cosign
-        if: github.event_name != 'pull_request'
-        uses: sigstore/cosign-installer@v3
-        with:
-          cosign-release: 'v2.2.4'
+      # Cosign signing temporarily disabled due to workflow failures
+      # TODO: Re-enable once properly configured with GitHub OIDC
+      # - name: Install Cosign
+      #   if: github.event_name != 'pull_request'
+      #   uses: sigstore/cosign-installer@v3
+      #   with:
+      #     cosign-release: 'v2.2.4'
 
-      - name: Sign container image
-        if: github.event_name != 'pull_request'
-        run: |
-          # Sign the images with keyless signing (OIDC)
-          echo "Cosign version:"
-          cosign version
-          
-          echo "Tags to sign: ${{ steps.meta.outputs.tags }}"
-          
-          # Sign each tag
-          for tag in ${{ steps.meta.outputs.tags }}; do
-            echo "Signing $tag"
-            cosign sign --yes $tag
-            echo "Successfully signed $tag"
-          done
+      # - name: Sign container image
+      #   if: github.event_name != 'pull_request'
+      #   run: |
+      #     # Sign the images with keyless signing (OIDC)
+      #     echo "Cosign version:"
+      #     cosign version
+      #     
+      #     echo "Tags to sign: ${{ steps.meta.outputs.tags }}"
+      #     
+      #     # Sign each tag
+      #     for tag in ${{ steps.meta.outputs.tags }}; do
+      #       echo "Signing $tag"
+      #       cosign sign --yes $tag
+      #       echo "Successfully signed $tag"
+      #     done
 
   docker-manifest:
     name: Create Multi-arch Manifest

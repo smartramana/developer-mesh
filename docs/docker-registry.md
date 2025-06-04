@@ -107,11 +107,13 @@ docker inspect ghcr.io/{github-username}/devops-mcp-mcp-server:latest
 ## Security Features
 
 ### Image Signing
-All images are signed using Sigstore Cosign. To verify an image signature:
+Image signing with Sigstore Cosign is temporarily disabled while we resolve GitHub Actions OIDC integration issues. This feature will be re-enabled in a future update.
 
+<!-- When re-enabled, verify signatures with:
 ```bash
 cosign verify ghcr.io/{github-username}/devops-mcp-mcp-server:latest
 ```
+-->
 
 ### Vulnerability Scanning
 Images are automatically scanned for vulnerabilities using Trivy. Scan results are uploaded to GitHub Security tab.
