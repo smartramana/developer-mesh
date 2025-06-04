@@ -19,6 +19,25 @@ This guide provides a comprehensive setup for developing on the DevOps MCP platf
 
 ## Quick Start (5 minutes)
 
+### Option 1: Using Pre-built Images
+
+```bash
+# Clone the repository
+git clone https://github.com/S-Corkum/devops-mcp.git
+cd devops-mcp
+
+# Pull pre-built images
+GITHUB_USERNAME=your-github-username ./scripts/pull-images.sh
+
+# Start services
+docker-compose -f docker-compose.prod.yml up -d
+
+# Verify
+curl http://localhost:8080/health
+```
+
+### Option 2: Building from Source
+
 ```bash
 # Clone and setup
 git clone https://github.com/S-Corkum/devops-mcp.git
@@ -380,6 +399,56 @@ make migrate-down
 
 # Reset database
 make db-reset
+```
+
+### Working with Docker Images
+
+#### Using Pre-built Images for Development
+
+```bash
+# Pull specific version for testing
+GITHUB_USERNAME=your-github-username ./scripts/pull-images.sh v1.2.3
+
+# Run a specific service with pre-built image
+docker run -it --rm \
+  -e DATABASE_URL=postgres://dev:dev@host.docker.internal:5432/dev \
+  -p 8080:8080 \
+  ghcr.io/${GITHUB_USERNAME}/devops-mcp-mcp-server:latest
+
+# Override configuration
+docker run -it --rm \
+  -v $(pwd)/config.yaml:/app/config.yaml \
+  ghcr.io/${GITHUB_USERNAME}/devops-mcp-rest-api:latest
+```
+
+#### Building Images Locally
+
+```bash
+# Build single service
+make docker-build-mcp-server
+
+# Build all services with proper metadata
+make docker-build-all VERSION=dev
+
+# Build with custom tags
+docker build \
+  --build-arg VERSION=$(git describe --tags --always) \
+  --build-arg COMMIT_SHA=$(git rev-parse HEAD) \
+  --build-arg BUILD_DATE=$(date -u +"%Y-%m-%dT%H:%M:%SZ") \
+  -t devops-mcp-local:dev \
+  -f apps/mcp-server/Dockerfile .
+```
+
+#### Testing with Different Image Versions
+
+```bash
+# Compare behavior between versions
+VERSION=v1.2.2 docker-compose -f docker-compose.prod.yml up -d
+# Test...
+docker-compose -f docker-compose.prod.yml down
+
+VERSION=v1.2.3 docker-compose -f docker-compose.prod.yml up -d
+# Test...
 ```
 
 ### Performance Profiling

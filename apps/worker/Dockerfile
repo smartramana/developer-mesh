@@ -1,5 +1,11 @@
 # syntax=docker/dockerfile:1
 # Multi-stage build for optimal image size and security
+
+# Build arguments for metadata
+ARG VERSION=dev
+ARG COMMIT_SHA=unknown
+ARG BUILD_DATE
+
 # Build stage
 FROM golang:1.24-alpine AS builder
 
@@ -19,11 +25,16 @@ COPY . .
 
 # Download dependencies and build with cache mounts
 WORKDIR /build/apps/worker
+# Re-declare build args for use in this stage
+ARG VERSION
+ARG COMMIT_SHA
+ARG BUILD_DATE
+
 RUN --mount=type=cache,target=/go/pkg/mod \
     --mount=type=cache,target=/root/.cache/go-build \
     go mod download && \
     CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build \
-    -ldflags='-w -s -extldflags "-static"' \
+    -ldflags="-w -s -extldflags '-static' -X main.Version=${VERSION} -X main.GitCommit=${COMMIT_SHA} -X main.BuildDate=${BUILD_DATE}" \
     -a -installsuffix cgo \
     -o worker ./cmd/worker
 
@@ -74,6 +85,14 @@ ENV MCP_CONFIG_FILE=/app/configs/config.docker.yaml \
     # Observability
     OTEL_SERVICE_NAME="worker" \
     OTEL_EXPORTER_OTLP_ENDPOINT="http://otel-collector:4317"
+
+# Add metadata labels
+ARG VERSION
+ARG COMMIT_SHA
+ARG BUILD_DATE
+LABEL org.opencontainers.image.version="${VERSION}" \
+      org.opencontainers.image.revision="${COMMIT_SHA}" \
+      org.opencontainers.image.created="${BUILD_DATE}"
 
 # Run the application
 ENTRYPOINT ["/app/worker"]

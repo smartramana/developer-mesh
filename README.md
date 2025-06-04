@@ -31,7 +31,35 @@ Built using Go workspaces for modularity and clean architecture:
 
 ## 🚀 Quick Start
 
-### Prerequisites
+### Option 1: Using Pre-built Docker Images (Recommended)
+
+The fastest way to get started - no build required!
+
+```bash
+# Clone for configuration files
+git clone https://github.com/S-Corkum/devops-mcp.git
+cd devops-mcp
+
+# Copy environment configuration
+cp .env.example .env
+# Edit .env with your settings
+
+# Pull and run the latest images
+GITHUB_USERNAME={github-username} ./scripts/pull-images.sh
+docker-compose -f docker-compose.prod.yml up -d
+
+# Access services
+# - MCP Server: http://localhost:8080
+# - REST API: http://localhost:8081
+# - Prometheus: http://localhost:9090
+# - Grafana: http://localhost:3000
+```
+
+### Option 2: Building from Source
+
+For development or customization:
+
+#### Prerequisites
 
 - **Go 1.24+** (required for workspace support)
 - Docker & Docker Compose
@@ -40,7 +68,7 @@ Built using Go workspaces for modularity and clean architecture:
 - Make
 - AWS credentials (optional, for S3/SQS integration)
 
-### Local Development
+#### Local Development
 
 ```bash
 # Clone the repository
@@ -126,6 +154,23 @@ devops-mcp/
 - **Observability**: OpenTelemetry, Prometheus
 - **API Framework**: Gin (REST API)
 - **Testing**: Go testing package, testify, gomock
+
+## 🐳 Docker Images
+
+Pre-built Docker images are available on GitHub Container Registry:
+
+- `ghcr.io/{github-username}/devops-mcp-mcp-server` - MCP protocol server
+- `ghcr.io/{github-username}/devops-mcp-rest-api` - REST API service
+- `ghcr.io/{github-username}/devops-mcp-worker` - Event processing worker
+- `ghcr.io/{github-username}/devops-mcp-mockserver` - Mock server for testing
+
+All images:
+- Support multiple architectures (amd64, arm64)
+- Are signed with Sigstore Cosign
+- Include SBOMs (Software Bill of Materials)
+- Follow semantic versioning
+
+See [Docker Registry Guide](docs/docker-registry.md) for detailed information.
 
 ## 🧪 Testing
 

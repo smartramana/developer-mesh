@@ -7,13 +7,14 @@ This runbook provides operational procedures for managing DevOps MCP in producti
 ## Table of Contents
 
 1. [Daily Operations](#daily-operations)
-2. [Backup and Restore](#backup-and-restore)
-3. [Disaster Recovery](#disaster-recovery)
-4. [Performance Tuning](#performance-tuning)
-5. [Capacity Planning](#capacity-planning)
-6. [Maintenance Procedures](#maintenance-procedures)
-7. [Emergency Procedures](#emergency-procedures)
-8. [Health Checks](#health-checks)
+2. [Deployment Procedures](#deployment-procedures)
+3. [Backup and Restore](#backup-and-restore)
+4. [Disaster Recovery](#disaster-recovery)
+5. [Performance Tuning](#performance-tuning)
+6. [Capacity Planning](#capacity-planning)
+7. [Maintenance Procedures](#maintenance-procedures)
+8. [Emergency Procedures](#emergency-procedures)
+9. [Health Checks](#health-checks)
 
 ## Daily Operations
 
@@ -127,6 +128,194 @@ ORDER BY idx_scan
 LIMIT 20;
 ```
 
+## Deployment Procedures
+
+### Using Pre-built Docker Images
+
+DevOps MCP provides pre-built Docker images through GitHub Container Registry (ghcr.io). This is the recommended approach for production deployments.
+
+#### Available Images
+
+- `ghcr.io/{github-username}/devops-mcp-mcp-server` - MCP protocol server
+- `ghcr.io/{github-username}/devops-mcp-rest-api` - REST API service  
+- `ghcr.io/{github-username}/devops-mcp-worker` - Event processing worker
+- `ghcr.io/{github-username}/devops-mcp-mockserver` - Mock server for testing
+
+All images:
+- Support multiple architectures (amd64, arm64)
+- Are signed with Sigstore Cosign for security
+- Include SBOMs (Software Bill of Materials)
+- Follow semantic versioning
+
+#### Initial Deployment
+
+```bash
+#!/bin/bash
+# Deploy using pre-built images
+
+# 1. Set GitHub username (replace with actual username)
+export GITHUB_USERNAME=your-github-username
+
+# 2. Pull latest images
+./scripts/pull-images.sh
+
+# 3. Verify image signatures (optional but recommended)
+cosign verify ghcr.io/${GITHUB_USERNAME}/devops-mcp-mcp-server:latest
+cosign verify ghcr.io/${GITHUB_USERNAME}/devops-mcp-rest-api:latest
+cosign verify ghcr.io/${GITHUB_USERNAME}/devops-mcp-worker:latest
+
+# 4. Deploy using production docker-compose
+docker-compose -f docker-compose.prod.yml up -d
+
+# 5. Verify deployment
+docker-compose -f docker-compose.prod.yml ps
+./scripts/health-check.sh
+```
+
+#### Version Update Procedure
+
+```bash
+#!/bin/bash
+# Update to a specific version
+
+VERSION=$1
+if [ -z "$VERSION" ]; then
+    echo "Usage: ./update-version.sh VERSION"
+    echo "Example: ./update-version.sh v1.2.3"
+    exit 1
+fi
+
+echo "Updating DevOps MCP to version ${VERSION}"
+
+# 1. Pull new version
+GITHUB_USERNAME=your-github-username ./scripts/pull-images.sh ${VERSION}
+
+# 2. Verify new images
+docker images | grep devops-mcp | grep ${VERSION}
+
+# 3. Update docker-compose file
+export VERSION=${VERSION}
+
+# 4. Stop current services
+docker-compose -f docker-compose.prod.yml down
+
+# 5. Start with new version
+docker-compose -f docker-compose.prod.yml up -d
+
+# 6. Verify update
+docker-compose -f docker-compose.prod.yml ps
+docker-compose -f docker-compose.prod.yml logs --tail=100
+
+# 7. Health check
+./scripts/health-check.sh
+```
+
+#### Kubernetes Deployment
+
+```yaml
+# kubernetes/deployments/mcp-server.yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: mcp-server
+  namespace: mcp-prod
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: mcp-server
+  template:
+    metadata:
+      labels:
+        app: mcp-server
+    spec:
+      containers:
+      - name: mcp-server
+        # Replace {github-username} with actual username
+        image: ghcr.io/{github-username}/devops-mcp-mcp-server:v1.2.3
+        imagePullPolicy: Always
+        ports:
+        - containerPort: 8080
+        env:
+        - name: MCP_CONFIG_FILE
+          value: /app/configs/config.yaml
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 8080
+          initialDelaySeconds: 30
+          periodSeconds: 30
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: 8080
+          initialDelaySeconds: 10
+          periodSeconds: 10
+```
+
+#### Image Verification
+
+```bash
+#!/bin/bash
+# Verify image integrity and scan for vulnerabilities
+
+IMAGE=$1
+if [ -z "$IMAGE" ]; then
+    echo "Usage: ./verify-image.sh IMAGE"
+    exit 1
+fi
+
+echo "Verifying image: ${IMAGE}"
+
+# 1. Check signature
+echo "Checking signature..."
+cosign verify ${IMAGE}
+
+# 2. Scan for vulnerabilities
+echo "Scanning for vulnerabilities..."
+docker run --rm -v /var/run/docker.sock:/var/run/docker.sock \
+    aquasec/trivy image ${IMAGE}
+
+# 3. Inspect metadata
+echo "Image metadata:"
+docker inspect ${IMAGE} | jq '.[0].Config.Labels'
+
+# 4. Check SBOM
+echo "Extracting SBOM..."
+cosign download sbom ${IMAGE} > sbom.json
+```
+
+#### Rolling Updates
+
+```bash
+#!/bin/bash
+# Perform zero-downtime rolling update
+
+SERVICE=$1
+VERSION=$2
+
+if [ -z "$SERVICE" ] || [ -z "$VERSION" ]; then
+    echo "Usage: ./rolling-update.sh SERVICE VERSION"
+    exit 1
+fi
+
+echo "Rolling update of ${SERVICE} to ${VERSION}"
+
+# For Docker Swarm
+docker service update \
+    --image ghcr.io/${GITHUB_USERNAME}/devops-mcp-${SERVICE}:${VERSION} \
+    --update-parallelism 1 \
+    --update-delay 30s \
+    mcp_${SERVICE}
+
+# For Kubernetes
+kubectl set image deployment/${SERVICE} \
+    ${SERVICE}=ghcr.io/${GITHUB_USERNAME}/devops-mcp-${SERVICE}:${VERSION} \
+    -n mcp-prod
+
+kubectl rollout status deployment/${SERVICE} -n mcp-prod
+```
+
 ## Backup and Restore
 
 ### Automated Backup Schedule
@@ -188,11 +377,16 @@ tar -czf ${BACKUP_DIR}/configs.tar.gz /etc/mcp/
 echo "Backing up vector data..."
 pg_dump -h localhost -U mcp_user -d mcp -t vector_embeddings -F c -f ${BACKUP_DIR}/vectors.dump
 
-# 6. Upload to S3
+# 6. Record image versions
+echo "Recording deployed image versions..."
+docker images | grep devops-mcp | grep -v "<none>" > ${BACKUP_DIR}/image_versions.txt
+docker-compose -f docker-compose.prod.yml ps --format json > ${BACKUP_DIR}/running_services.json
+
+# 7. Upload to S3
 echo "Uploading to S3..."
 aws s3 cp ${BACKUP_DIR} s3://mcp-backups-prod/${TIMESTAMP}/ --recursive
 
-# 7. Verify backup
+# 8. Verify backup
 echo "Verifying backup..."
 aws s3 ls s3://mcp-backups-prod/${TIMESTAMP}/ --recursive
 
@@ -644,25 +838,35 @@ echo "Maintenance completed"
 
 ```bash
 #!/bin/bash
-# Rolling deployment script
+# Rolling deployment script using published images
 
 SERVICE=$1
 VERSION=$2
+GITHUB_USERNAME=${GITHUB_USERNAME:-your-github-username}
 
 if [ -z "$SERVICE" ] || [ -z "$VERSION" ]; then
     echo "Usage: ./deploy.sh SERVICE VERSION"
+    echo "Example: ./deploy.sh mcp-server v1.2.3"
     exit 1
 fi
 
 echo "Deploying ${SERVICE} version ${VERSION}"
 
-# 1. Update image
-kubectl set image deployment/${SERVICE} ${SERVICE}=devops-mcp/${SERVICE}:${VERSION} -n mcp-prod
+# 1. Pull and verify new image
+echo "Pulling new image..."
+docker pull ghcr.io/${GITHUB_USERNAME}/devops-mcp-${SERVICE}:${VERSION}
 
-# 2. Check rollout status
+# 2. Verify image signature
+echo "Verifying image signature..."
+cosign verify ghcr.io/${GITHUB_USERNAME}/devops-mcp-${SERVICE}:${VERSION}
+
+# 3. Update image in Kubernetes
+kubectl set image deployment/${SERVICE} ${SERVICE}=ghcr.io/${GITHUB_USERNAME}/devops-mcp-${SERVICE}:${VERSION} -n mcp-prod
+
+# 4. Check rollout status
 kubectl rollout status deployment/${SERVICE} -n mcp-prod
 
-# 3. Verify health
+# 5. Verify health
 sleep 10
 HEALTH=$(curl -s http://${SERVICE}.mcp.svc.cluster.local:8080/health | jq -r '.status')
 
@@ -671,6 +875,9 @@ if [ "$HEALTH" != "healthy" ]; then
     kubectl rollout undo deployment/${SERVICE} -n mcp-prod
     exit 1
 fi
+
+# 6. Record deployment
+echo "${SERVICE}:${VERSION}" >> /var/log/deployments.log
 
 echo "Deployment successful"
 ```
@@ -969,6 +1176,11 @@ This runbook should be reviewed and updated:
 - **After Incidents**: Add new procedures based on lessons learned
 - **Before Major Changes**: Update affected procedures
 - **Quarterly**: Full review with operations team
+- **On New Releases**: Update deployment procedures and image versions
+
+### Version History
+- **v1.1.0**: Added Docker registry deployment procedures
+- **v1.0.0**: Initial runbook creation
 
 Last Updated: $(date)
-Version: 1.0.0
+Version: 1.1.0
