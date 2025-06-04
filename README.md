@@ -40,6 +40,18 @@ Built using Go workspaces for modularity and clean architecture:
 - Make
 - AWS credentials (optional, for S3/SQS integration)
 
+### Using Pre-built Docker Images
+
+The easiest way to get started is using our pre-built Docker images from GitHub Container Registry:
+
+```bash
+# Pull the latest images (replace {github-username} with the repo owner)
+GITHUB_USERNAME={github-username} ./scripts/pull-images.sh
+
+# Run using production docker-compose
+docker-compose -f docker-compose.prod.yml up -d
+```
+
 ### Local Development
 
 ```bash
@@ -126,6 +138,23 @@ devops-mcp/
 - **Observability**: OpenTelemetry, Prometheus
 - **API Framework**: Gin (REST API)
 - **Testing**: Go testing package, testify, gomock
+
+## 🐳 Docker Images
+
+Pre-built Docker images are available on GitHub Container Registry:
+
+- `ghcr.io/{github-username}/devops-mcp-mcp-server` - MCP protocol server
+- `ghcr.io/{github-username}/devops-mcp-rest-api` - REST API service
+- `ghcr.io/{github-username}/devops-mcp-worker` - Event processing worker
+- `ghcr.io/{github-username}/devops-mcp-mockserver` - Mock server for testing
+
+All images:
+- Support multiple architectures (amd64, arm64)
+- Are signed with Sigstore Cosign
+- Include SBOMs (Software Bill of Materials)
+- Follow semantic versioning
+
+See [Docker Registry Guide](docs/docker-registry.md) for detailed information.
 
 ## 🧪 Testing
 

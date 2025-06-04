@@ -306,9 +306,15 @@ jobs:
           context: .
           file: ./apps/${{ matrix.app }}/Dockerfile
           push: false
-          tags: devops-mcp/${{ matrix.app }}:${{ github.sha }}
+          tags: |
+            devops-mcp/${{ matrix.app }}:${{ github.sha }}
+            devops-mcp/${{ matrix.app }}:ci-test
           cache-from: type=gha
           cache-to: type=gha,mode=max
+          build-args: |
+            VERSION=${{ github.ref_name }}
+            COMMIT_SHA=${{ github.sha }}
+            BUILD_DATE=${{ github.event.repository.updated_at }}
 
   functional-test:
     name: Functional Tests
