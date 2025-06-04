@@ -361,6 +361,113 @@ cache:
       ca_cert: "/path/to/ca.crt"
 ```
 
+## Docker Deployment Configuration
+
+### Using Pre-built Images
+
+When deploying with pre-built Docker images from GitHub Container Registry:
+
+#### Docker Compose Configuration
+
+```yaml
+# docker-compose.prod.yml
+services:
+  mcp-server:
+    image: ghcr.io/${GITHUB_USERNAME}/devops-mcp-mcp-server:${VERSION:-latest}
+    environment:
+      MCP_CONFIG_FILE: /app/configs/config.docker.yaml
+      DATABASE_HOST: database
+      DATABASE_PORT: 5432
+      DATABASE_USER: ${DATABASE_USER}
+      DATABASE_PASSWORD: ${DATABASE_PASSWORD}
+      # ... other environment variables
+```
+
+#### Environment File (.env)
+
+Create a `.env` file for Docker Compose:
+
+```bash
+# Registry configuration
+GITHUB_USERNAME=your-github-username
+VERSION=v1.2.3  # Or 'latest' for latest stable
+
+# Database configuration
+DATABASE_USER=mcp
+DATABASE_PASSWORD=secure-password
+DATABASE_NAME=devops_mcp
+DATABASE_SSL_MODE=disable  # Use 'require' in production
+
+# Redis configuration
+REDIS_ADDR=redis:6379
+
+# Security
+JWT_SECRET=your-jwt-secret
+ADMIN_API_KEY=your-admin-api-key
+
+# AWS (optional)
+AWS_REGION=us-east-1
+AWS_ACCESS_KEY_ID=your-access-key
+AWS_SECRET_ACCESS_KEY=your-secret-key
+S3_BUCKET=mcp-storage
+
+# GitHub integration
+GITHUB_TOKEN=your-github-token
+GITHUB_APP_ID=your-app-id
+GITHUB_APP_PRIVATE_KEY=your-private-key
+GITHUB_WEBHOOK_SECRET=your-webhook-secret
+```
+
+#### Kubernetes ConfigMap
+
+For Kubernetes deployments:
+
+```yaml
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: mcp-config
+  namespace: mcp-prod
+data:
+  config.yaml: |
+    api:
+      listen_address: ":8080"
+      base_path: "/api/v1"
+    
+    database:
+      host: postgres-service
+      port: 5432
+      database: devops_mcp
+      
+    cache:
+      type: redis
+      address: redis-service:6379
+```
+
+#### Secrets Management
+
+```yaml
+apiVersion: v1
+kind: Secret
+metadata:
+  name: mcp-secrets
+  namespace: mcp-prod
+type: Opaque
+data:
+  database-password: <base64-encoded-password>
+  jwt-secret: <base64-encoded-secret>
+  github-token: <base64-encoded-token>
+```
+
+### Image Version Selection
+
+Choose the appropriate image tag:
+
+- **latest**: Latest stable release
+- **v1.2.3**: Specific version (recommended for production)
+- **main-abc1234**: Specific commit
+- **pr-123**: Pull request build
+
 ## Migration Guide
 
 ### From Old Configuration Format

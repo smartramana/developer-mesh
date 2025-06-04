@@ -31,7 +31,35 @@ Built using Go workspaces for modularity and clean architecture:
 
 ## 🚀 Quick Start
 
-### Prerequisites
+### Option 1: Using Pre-built Docker Images (Recommended)
+
+The fastest way to get started - no build required!
+
+```bash
+# Clone for configuration files
+git clone https://github.com/S-Corkum/devops-mcp.git
+cd devops-mcp
+
+# Copy environment configuration
+cp .env.example .env
+# Edit .env with your settings
+
+# Pull and run the latest images
+GITHUB_USERNAME={github-username} ./scripts/pull-images.sh
+docker-compose -f docker-compose.prod.yml up -d
+
+# Access services
+# - MCP Server: http://localhost:8080
+# - REST API: http://localhost:8081
+# - Prometheus: http://localhost:9090
+# - Grafana: http://localhost:3000
+```
+
+### Option 2: Building from Source
+
+For development or customization:
+
+#### Prerequisites
 
 - **Go 1.24+** (required for workspace support)
 - Docker & Docker Compose
@@ -40,19 +68,7 @@ Built using Go workspaces for modularity and clean architecture:
 - Make
 - AWS credentials (optional, for S3/SQS integration)
 
-### Using Pre-built Docker Images
-
-The easiest way to get started is using our pre-built Docker images from GitHub Container Registry:
-
-```bash
-# Pull the latest images (replace {github-username} with the repo owner)
-GITHUB_USERNAME={github-username} ./scripts/pull-images.sh
-
-# Run using production docker-compose
-docker-compose -f docker-compose.prod.yml up -d
-```
-
-### Local Development
+#### Local Development
 
 ```bash
 # Clone the repository

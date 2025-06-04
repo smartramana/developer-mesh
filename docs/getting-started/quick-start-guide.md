@@ -4,8 +4,11 @@ Get DevOps MCP running locally in under 5 minutes.
 
 ## Prerequisites
 
-Ensure you have the following installed:
+### Option A: Using Pre-built Images (Recommended)
+- **[Docker](https://www.docker.com/get-started)** and Docker Compose
+- **[Git](https://git-scm.com/downloads)** (to clone configuration files)
 
+### Option B: Building from Source
 - **[Go](https://golang.org/doc/install)** 1.24 or later
 - **[Docker](https://www.docker.com/get-started)** and Docker Compose
 - **[Git](https://git-scm.com/downloads)**
@@ -17,7 +20,41 @@ Ensure you have the following installed:
 
 ## 🚀 Quick Setup
 
-### 1. Clone and Configure
+Choose one of the following options:
+
+### Option A: Using Pre-built Images (Recommended) 🐳
+
+This is the fastest way to get started with DevOps MCP.
+
+```bash
+# Clone the repository for configuration files
+git clone https://github.com/S-Corkum/devops-mcp.git
+cd devops-mcp
+
+# Create environment file
+cp .env.example .env
+# Edit .env with your settings (API tokens, passwords, etc.)
+
+# Pull the latest images (replace 'your-github-username' with the repo owner)
+GITHUB_USERNAME=your-github-username ./scripts/pull-images.sh
+
+# Start all services using production docker-compose
+docker-compose -f docker-compose.prod.yml up -d
+
+# Check service health
+docker-compose -f docker-compose.prod.yml ps
+docker-compose -f docker-compose.prod.yml logs -f --tail=100
+```
+
+Services will be available at:
+- MCP Server: http://localhost:8080
+- REST API: http://localhost:8081
+- Prometheus: http://localhost:9090
+- Grafana: http://localhost:3000
+
+### Option B: Building from Source 🔨
+
+For development or customization:
 
 ```bash
 # Clone the repository
@@ -28,14 +65,7 @@ cd devops-mcp
 cp config.yaml.example config.yaml
 # Edit config.yaml with your settings (especially API tokens)
 
-# (Optional) Edit config.yaml for your environment
-# Most defaults work out of the box
-```
-
-### 2. Start Infrastructure
-
-```bash
-# Start PostgreSQL, Redis, and LocalStack
+# Start infrastructure services
 make dev-setup
 
 # Wait for services to be ready (usually ~10 seconds)
@@ -48,6 +78,15 @@ make docker-compose-logs
 # - LocalStack for AWS services (SQS)
 # - Automatic SQS queue creation
 ```
+
+Then continue with the appropriate steps:
+
+#### For Pre-built Images (Option A):
+
+The database is automatically initialized when using `docker-compose.prod.yml`. 
+Skip to the [Verify Installation](#verify-installation) section below.
+
+#### For Building from Source (Option B):
 
 ### 3. Initialize Database
 
@@ -182,10 +221,29 @@ make test-functional-focus FOCUS="Health Endpoint"
 ### Stop Services
 
 ```bash
-# Stop Docker Compose services
+# For pre-built images
+docker-compose -f docker-compose.prod.yml down
+
+# For local development
 make docker-compose-down
 
 # Stop individual services (Ctrl+C in their terminals)
+```
+
+### Update Docker Images
+
+When using pre-built images, update to the latest versions:
+
+```bash
+# Pull latest images
+GITHUB_USERNAME=your-github-username ./scripts/pull-images.sh
+
+# Or pull a specific version
+GITHUB_USERNAME=your-github-username ./scripts/pull-images.sh v1.2.3
+
+# Restart services with new images
+docker-compose -f docker-compose.prod.yml down
+docker-compose -f docker-compose.prod.yml up -d
 ```
 
 ## 📁 Project Structure Overview
