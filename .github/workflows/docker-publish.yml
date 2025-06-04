@@ -19,7 +19,6 @@ on:
 
 env:
   REGISTRY: ghcr.io
-  IMAGE_PREFIX: ${{ github.repository_owner }}/devops-mcp
 
 jobs:
   docker-build-publish:
@@ -49,6 +48,11 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
+      - name: Convert repository owner to lowercase
+        id: lowercase
+        run: |
+          echo "owner=$(echo '${{ github.repository_owner }}' | tr '[:upper:]' '[:lower:]')" >> $GITHUB_OUTPUT
+
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
@@ -64,7 +68,7 @@ jobs:
         id: meta
         uses: docker/metadata-action@v5
         with:
-          images: ${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}-${{ matrix.app }}
+          images: ${{ env.REGISTRY }}/${{ steps.lowercase.outputs.owner }}/devops-mcp-${{ matrix.app }}
           # Generate tags based on the following patterns
           tags: |
             # Set latest tag for default branch
@@ -159,11 +163,13 @@ jobs:
     permissions:
       contents: read
       packages: write
-    env:
-      REGISTRY: ghcr.io
-      IMAGE_PREFIX: ${{ github.repository_owner }}/devops-mcp
 
     steps:
+      - name: Convert repository owner to lowercase
+        id: lowercase
+        run: |
+          echo "owner=$(echo '${{ github.repository_owner }}' | tr '[:upper:]' '[:lower:]')" >> $GITHUB_OUTPUT
+
       - name: Log in to GitHub Container Registry
         uses: docker/login-action@v3
         with:
@@ -184,7 +190,7 @@ jobs:
           
           # Create manifest for each app
           for app in mcp-server rest-api worker mockserver; do
-            IMAGE="${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}-${app}"
+            IMAGE="${{ env.REGISTRY }}/${{ steps.lowercase.outputs.owner }}/devops-mcp-${app}"
             
             # Create and push manifest list
             docker manifest create ${IMAGE}:${PRIMARY_TAG} \
@@ -215,15 +221,17 @@ jobs:
     strategy:
       matrix:
         app: [mcp-server, rest-api, worker, mockserver]
-    env:
-      REGISTRY: ghcr.io
-      IMAGE_PREFIX: ${{ github.repository_owner }}/devops-mcp
 
     steps:
+      - name: Convert repository owner to lowercase
+        id: lowercase
+        run: |
+          echo "owner=$(echo '${{ github.repository_owner }}' | tr '[:upper:]' '[:lower:]')" >> $GITHUB_OUTPUT
+
       - name: Run Trivy vulnerability scanner
         uses: aquasecurity/trivy-action@master
         with:
-          image-ref: ${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}-${{ matrix.app }}:${{ github.ref_name == 'main' && 'latest' || github.ref_name }}
+          image-ref: ${{ env.REGISTRY }}/${{ steps.lowercase.outputs.owner }}/devops-mcp-${{ matrix.app }}:${{ github.ref_name == 'main' && 'latest' || github.ref_name }}
           format: 'sarif'
           output: 'trivy-results-${{ matrix.app }}.sarif'
           severity: 'CRITICAL,HIGH'
@@ -244,13 +252,18 @@ jobs:
       packages: read
 
     steps:
+      - name: Convert repository owner to lowercase
+        id: lowercase
+        run: |
+          echo "owner=$(echo '${{ github.repository_owner }}' | tr '[:upper:]' '[:lower:]')" >> $GITHUB_OUTPUT
+
       - name: Create Release Notes
         uses: actions/github-script@v7
         with:
           script: |
             const tag = context.ref.replace('refs/tags/', '');
             const registry = '${{ env.REGISTRY }}';
-            const imagePrefix = '${{ env.IMAGE_PREFIX }}';
+            const owner = '${{ steps.lowercase.outputs.owner }}';
             
             const releaseBody = `## Docker Images
             
@@ -259,16 +272,16 @@ jobs:
             ### Pull Commands
             \`\`\`bash
             # MCP Server
-            docker pull ${registry}/${imagePrefix}-mcp-server:${tag}
+            docker pull ${registry}/${owner}/devops-mcp-mcp-server:${tag}
             
             # REST API
-            docker pull ${registry}/${imagePrefix}-rest-api:${tag}
+            docker pull ${registry}/${owner}/devops-mcp-rest-api:${tag}
             
             # Worker
-            docker pull ${registry}/${imagePrefix}-worker:${tag}
+            docker pull ${registry}/${owner}/devops-mcp-worker:${tag}
             
             # Mock Server
-            docker pull ${registry}/${imagePrefix}-mockserver:${tag}
+            docker pull ${registry}/${owner}/devops-mcp-mockserver:${tag}
             \`\`\`
             
             ### Multi-Architecture Support
@@ -279,7 +292,7 @@ jobs:
             ### Image Signing
             All images are signed using Sigstore Cosign. To verify:
             \`\`\`bash
-            cosign verify ${registry}/${imagePrefix}-<service>:${tag}
+            cosign verify ${registry}/${owner}/devops-mcp-<service>:${tag}
             \`\`\`
             
             ### SBOMs
