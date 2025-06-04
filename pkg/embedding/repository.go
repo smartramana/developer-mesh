@@ -58,7 +58,12 @@ func (r *Repository) SearchEmbeddings(ctx context.Context, req SearchRequest) ([
     if err != nil {
         return nil, fmt.Errorf("failed to search embeddings: %w", err)
     }
-    defer rows.Close()
+    defer func() {
+        if err := rows.Close(); err != nil {
+            // Embedding repository - log but don't fail
+            _ = err
+        }
+    }()
     
     var results []EmbeddingSearchResult
     for rows.Next() {
@@ -88,7 +93,12 @@ func (r *Repository) GetAvailableModels(ctx context.Context, filter ModelFilter)
     if err != nil {
         return nil, fmt.Errorf("failed to get available models: %w", err)
     }
-    defer rows.Close()
+    defer func() {
+        if err := rows.Close(); err != nil {
+            // Embedding repository - log but don't fail
+            _ = err
+        }
+    }()
     
     var models []Model
     for rows.Next() {
@@ -174,7 +184,12 @@ func (r *Repository) GetEmbeddingsByContext(ctx context.Context, contextID, tena
     if err != nil {
         return nil, fmt.Errorf("failed to query embeddings: %w", err)
     }
-    defer rows.Close()
+    defer func() {
+        if err := rows.Close(); err != nil {
+            // Embedding repository - log but don't fail
+            _ = err
+        }
+    }()
     
     var embeddings []Embedding
     for rows.Next() {

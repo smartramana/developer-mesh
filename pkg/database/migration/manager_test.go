@@ -14,7 +14,11 @@ func TestNewManager(t *testing.T) {
 	// Create a mock DB
 	mockDB, _, err := sqlmock.New()
 	require.NoError(t, err)
-	defer mockDB.Close()
+	defer func() {
+		if err := mockDB.Close(); err != nil {
+			t.Errorf("Failed to close mock database: %v", err)
+		}
+	}()
 
 	db := sqlx.NewDb(mockDB, "sqlmock")
 

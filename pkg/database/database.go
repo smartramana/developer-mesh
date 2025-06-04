@@ -122,7 +122,9 @@ func NewDatabase(ctx context.Context, cfg Config) (*Database, error) {
 
 	// Prepare statements
 	if err := database.prepareStatements(ctx); err != nil {
-		db.Close()
+		if closeErr := db.Close(); closeErr != nil {
+			log.Printf("Failed to close database after error: %v", closeErr)
+		}
 		return nil, err
 	}
 
@@ -135,7 +137,9 @@ func NewDatabase(ctx context.Context, cfg Config) (*Database, error) {
 
 		if err := migration.AutoMigrate(ctx, db, cfg.Driver, migrationOpts); err != nil {
 			if migrationOpts.FailOnError {
-				db.Close()
+				if closeErr := db.Close(); closeErr != nil {
+					log.Printf("Failed to close database after migration error: %v", closeErr)
+				}
 				return nil, fmt.Errorf("database migration failed: %w", err)
 			}
 			log.Printf("Warning: Database migration had errors but continuing: %v", err)
@@ -146,7 +150,9 @@ func NewDatabase(ctx context.Context, cfg Config) (*Database, error) {
 
 	// Initialize database tables
 	if err := database.InitializeTables(ctx); err != nil {
-		db.Close()
+		if closeErr := db.Close(); closeErr != nil {
+			log.Printf("Failed to close database after initialization error: %v", closeErr)
+		}
 		return nil, fmt.Errorf("failed to initialize database tables: %w", err)
 	}
 
@@ -205,13 +211,15 @@ func (d *Database) Transaction(ctx context.Context, fn func(*sqlx.Tx) error) err
 
 	defer func() {
 		if p := recover(); p != nil {
-			tx.Rollback()
+			_ = tx.Rollback() // Ignore error in panic recovery
 			panic(p) // Re-throw panic after rollback
 		}
 	}()
 
 	if err := fn(tx); err != nil {
-		tx.Rollback()
+		if rbErr := tx.Rollback(); rbErr != nil {
+			log.Printf("Failed to rollback transaction: %v (original error: %v)", rbErr, err)
+		}
 		return err
 	}
 
@@ -249,7 +257,10 @@ func (d *Database) RefreshConnection(ctx context.Context) error {
 
 		// Prepare statements
 		if err := d.prepareStatements(ctx); err != nil {
-			db.Close()
+			if closeErr := db.Close(); closeErr != nil {
+				// Log close error but return original error
+				log.Printf("Failed to close database after prepare error: %v", closeErr)
+			}
 			return fmt.Errorf("failed to prepare statements: %w", err)
 		}
 	}
@@ -261,7 +272,7 @@ func (d *Database) RefreshConnection(ctx context.Context) error {
 func (d *Database) Close() error {
 	// Close all prepared statements
 	for _, stmt := range d.statements {
-		stmt.Close()
+		_ = stmt.Close() // Ignore close errors in cleanup
 	}
 
 	// Clear statements map

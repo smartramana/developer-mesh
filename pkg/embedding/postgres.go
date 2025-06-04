@@ -115,7 +115,12 @@ func (s *PgVectorStorage) BatchStoreEmbeddings(ctx context.Context, embeddings [
 	if err != nil {
 		return fmt.Errorf("failed to begin transaction: %w", err)
 	}
-	defer tx.Rollback() // Will be ignored if transaction is committed
+	defer func() {
+		if rbErr := tx.Rollback(); rbErr != nil {
+			// Will be ignored if transaction is committed, which is the expected case
+			_ = rbErr
+		}
+	}()
 
 	// Prepare statement for batch insert
 	stmt, err := tx.PrepareContext(ctx, fmt.Sprintf(`
@@ -138,7 +143,12 @@ func (s *PgVectorStorage) BatchStoreEmbeddings(ctx context.Context, embeddings [
 	if err != nil {
 		return fmt.Errorf("failed to prepare statement: %w", err)
 	}
-	defer stmt.Close()
+	defer func() {
+		if err := stmt.Close(); err != nil {
+			// Statement close error - log but don't fail
+			_ = err
+		}
+	}()
 
 	// Insert each embedding
 	for _, embedding := range embeddings {
@@ -232,7 +242,12 @@ func (s *PgVectorStorage) FindSimilarEmbeddings(ctx context.Context, embedding *
 	if err != nil {
 		return nil, fmt.Errorf("failed to query similar embeddings: %w", err)
 	}
-	defer rows.Close()
+	defer func() {
+		if err := rows.Close(); err != nil {
+			// Postgres - log but don't fail
+			_ = err
+		}
+	}()
 
 	var results []*EmbeddingVector
 	for rows.Next() {
@@ -339,7 +354,12 @@ func (s *PgVectorStorage) GetEmbeddingsByContentIDs(ctx context.Context, content
 	if err != nil {
 		return nil, fmt.Errorf("failed to query embeddings by content IDs: %w", err)
 	}
-	defer rows.Close()
+	defer func() {
+		if err := rows.Close(); err != nil {
+			// Postgres - log but don't fail
+			_ = err
+		}
+	}()
 
 	var results []*EmbeddingVector
 	for rows.Next() {

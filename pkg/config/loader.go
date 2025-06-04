@@ -14,7 +14,6 @@ import (
 // ConfigLoader handles loading and merging configuration files
 type ConfigLoader struct {
 	configPath string
-	envFile    string
 	viper      *viper.Viper
 }
 
@@ -76,7 +75,12 @@ func (cl *ConfigLoader) loadEnvFile(filename string) error {
 	if err != nil {
 		return err
 	}
-	defer file.Close()
+	defer func() {
+		if err := file.Close(); err != nil {
+			// Log error but don't fail - file read was already successful
+			fmt.Fprintf(os.Stderr, "Warning: failed to close env file: %v\n", err)
+		}
+	}()
 
 	scanner := bufio.NewScanner(file)
 	for scanner.Scan() {
@@ -104,7 +108,9 @@ func (cl *ConfigLoader) loadEnvFile(filename string) error {
 		}
 		
 		// Set environment variable
-		os.Setenv(key, value)
+		if err := os.Setenv(key, value); err != nil {
+			return fmt.Errorf("failed to set environment variable %s: %w", key, err)
+		}
 	}
 	
 	return scanner.Err()

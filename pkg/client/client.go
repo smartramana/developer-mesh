@@ -96,7 +96,12 @@ func (c *Client) CreateContext(ctx context.Context, contextData *models.Context)
 	if err != nil {
 		return nil, err
 	}
-	defer resp.Body.Close()
+	defer func() {
+		if err := resp.Body.Close(); err != nil {
+			// Client code - best effort logging
+			_ = err
+		}
+	}()
 
 	if resp.StatusCode != http.StatusCreated {
 		var errResp map[string]string
@@ -136,7 +141,12 @@ func (c *Client) GetContext(ctx context.Context, contextID string) (*models.Cont
 	if err != nil {
 		return nil, err
 	}
-	defer resp.Body.Close()
+	defer func() {
+		if err := resp.Body.Close(); err != nil {
+			// Client code - best effort logging
+			_ = err
+		}
+	}()
 
 	if resp.StatusCode != http.StatusOK {
 		var errResp map[string]string
@@ -191,7 +201,12 @@ func (c *Client) UpdateContext(ctx context.Context, contextID string, contextDat
 	if err != nil {
 		return nil, err
 	}
-	defer resp.Body.Close()
+	defer func() {
+		if err := resp.Body.Close(); err != nil {
+			// Client code - best effort logging
+			_ = err
+		}
+	}()
 
 	if resp.StatusCode != http.StatusOK {
 		var errResp map[string]string
@@ -231,7 +246,12 @@ func (c *Client) DeleteContext(ctx context.Context, contextID string) error {
 	if err != nil {
 		return err
 	}
-	defer resp.Body.Close()
+	defer func() {
+		if err := resp.Body.Close(); err != nil {
+			// Client code - best effort logging
+			_ = err
+		}
+	}()
 
 	if resp.StatusCode != http.StatusOK {
 		var errResp map[string]string
@@ -276,7 +296,12 @@ func (c *Client) ListContexts(ctx context.Context, agentID string, sessionID str
 	if err != nil {
 		return nil, err
 	}
-	defer resp.Body.Close()
+	defer func() {
+		if err := resp.Body.Close(); err != nil {
+			// Client code - best effort logging
+			_ = err
+		}
+	}()
 
 	if resp.StatusCode != http.StatusOK {
 		var errResp map[string]string
@@ -328,7 +353,12 @@ func (c *Client) SearchContext(ctx context.Context, contextID string, query stri
 	if err != nil {
 		return nil, err
 	}
-	defer resp.Body.Close()
+	defer func() {
+		if err := resp.Body.Close(); err != nil {
+			// Client code - best effort logging
+			_ = err
+		}
+	}()
 
 	if resp.StatusCode != http.StatusOK {
 		var errResp map[string]string
@@ -370,7 +400,12 @@ func (c *Client) SummarizeContext(ctx context.Context, contextID string) (string
 	if err != nil {
 		return "", err
 	}
-	defer resp.Body.Close()
+	defer func() {
+		if err := resp.Body.Close(); err != nil {
+			// Client code - best effort logging
+			_ = err
+		}
+	}()
 
 	if resp.StatusCode != http.StatusOK {
 		var errResp map[string]string
@@ -425,7 +460,12 @@ func (c *Client) SendEvent(ctx context.Context, event *models.Event) error {
 	if err != nil {
 		return err
 	}
-	defer resp.Body.Close()
+	defer func() {
+		if err := resp.Body.Close(); err != nil {
+			// Client code - best effort logging
+			_ = err
+		}
+	}()
 
 	if resp.StatusCode != http.StatusOK {
 		var errResp map[string]string
@@ -475,7 +515,12 @@ func (c *Client) ExecuteToolAction(ctx context.Context, contextID string, adapte
 	if err != nil {
 		return nil, err
 	}
-	defer resp.Body.Close()
+	defer func() {
+		if err := resp.Body.Close(); err != nil {
+			// Client code - best effort logging
+			_ = err
+		}
+	}()
 
 	if resp.StatusCode != http.StatusOK {
 		var errResp map[string]string
@@ -525,7 +570,12 @@ func (c *Client) QueryToolData(ctx context.Context, adapterName string, query ma
 	if err != nil {
 		return nil, err
 	}
-	defer resp.Body.Close()
+	defer func() {
+		if err := resp.Body.Close(); err != nil {
+			// Client code - best effort logging
+			_ = err
+		}
+	}()
 
 	if resp.StatusCode != http.StatusOK {
 		var errResp map[string]string
@@ -565,7 +615,12 @@ func (c *Client) ListTools(ctx context.Context) ([]string, error) {
 	if err != nil {
 		return nil, err
 	}
-	defer resp.Body.Close()
+	defer func() {
+		if err := resp.Body.Close(); err != nil {
+			// Client code - best effort logging
+			_ = err
+		}
+	}()
 
 	if resp.StatusCode != http.StatusOK {
 		var errResp map[string]string

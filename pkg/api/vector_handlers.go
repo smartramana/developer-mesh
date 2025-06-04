@@ -8,6 +8,9 @@ import (
 )
 
 // storeEmbedding handles storing a vector embedding
+// Deprecated: This method has been migrated to apps/mcp-server/internal/api/handlers
+// as part of the Go workspace migration. It is preserved here temporarily for
+// reference purposes and will be removed once the migration is complete.
 func (s *Server) storeEmbedding(c *gin.Context) {
 	var req StoreEmbeddingRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -42,6 +45,9 @@ func (s *Server) storeEmbedding(c *gin.Context) {
 }
 
 // searchEmbeddings handles searching for similar embeddings
+// Deprecated: This method has been migrated to apps/mcp-server/internal/api/handlers
+// as part of the Go workspace migration. It is preserved here temporarily for
+// reference purposes and will be removed once the migration is complete.
 func (s *Server) searchEmbeddings(c *gin.Context) {
 	var req SearchEmbeddingsRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -103,6 +109,9 @@ func (s *Server) searchEmbeddings(c *gin.Context) {
 }
 
 // getContextEmbeddings handles retrieving all embeddings for a context
+// Deprecated: This method has been migrated to apps/mcp-server/internal/api/handlers
+// as part of the Go workspace migration. It is preserved here temporarily for
+// reference purposes and will be removed once the migration is complete.
 func (s *Server) getContextEmbeddings(c *gin.Context) {
 	contextID := c.Param("context_id")
 	if contextID == "" {
@@ -125,6 +134,9 @@ func (s *Server) getContextEmbeddings(c *gin.Context) {
 }
 
 // deleteContextEmbeddings handles deleting all embeddings for a context
+// Deprecated: This method has been migrated to apps/mcp-server/internal/api/handlers
+// as part of the Go workspace migration. It is preserved here temporarily for
+// reference purposes and will be removed once the migration is complete.
 func (s *Server) deleteContextEmbeddings(c *gin.Context) {
 	contextID := c.Param("context_id")
 	if contextID == "" {
@@ -147,6 +159,9 @@ func (s *Server) deleteContextEmbeddings(c *gin.Context) {
 }
 
 // getSupportedModels handles getting a list of all model IDs with embeddings
+// Deprecated: This method has been migrated to apps/mcp-server/internal/api/handlers
+// as part of the Go workspace migration. It is preserved here temporarily for
+// reference purposes and will be removed once the migration is complete.
 func (s *Server) getSupportedModels(c *gin.Context) {
 	// Get supported models from repository
 	models, err := s.embeddingRepo.GetSupportedModels(c.Request.Context())
@@ -162,6 +177,9 @@ func (s *Server) getSupportedModels(c *gin.Context) {
 }
 
 // getModelEmbeddings handles getting embeddings for a specific model in a context
+// Deprecated: This method has been migrated to apps/mcp-server/internal/api/handlers
+// as part of the Go workspace migration. It is preserved here temporarily for
+// reference purposes and will be removed once the migration is complete.
 func (s *Server) getModelEmbeddings(c *gin.Context) {
 	contextID := c.Param("context_id")
 	modelID := c.Param("model_id")
@@ -192,6 +210,9 @@ func (s *Server) getModelEmbeddings(c *gin.Context) {
 }
 
 // deleteModelEmbeddings handles deleting embeddings for a specific model in a context
+// Deprecated: This method has been migrated to apps/mcp-server/internal/api/handlers
+// as part of the Go workspace migration. It is preserved here temporarily for
+// reference purposes and will be removed once the migration is complete.
 func (s *Server) deleteModelEmbeddings(c *gin.Context) {
 	contextID := c.Param("context_id")
 	modelID := c.Param("model_id")

@@ -241,7 +241,12 @@ func LoadAuthConfigFromFile(filename string) (*APIKeyConfig, error) {
     if err != nil {
         return nil, err
     }
-    defer file.Close()
+    defer func() {
+        if err := file.Close(); err != nil {
+            // Log error but don't fail - file was already read
+            _ = err
+        }
+    }()
     
     var config struct {
         Auth APIKeyConfig `yaml:"auth"`

@@ -8,7 +8,6 @@ import (
 	"io"
 	"net/http"
 	"strings"
-	"sync"
 	"time"
 
 	"github.com/S-Corkum/devops-mcp/pkg/adapters/resilience"
@@ -225,8 +224,7 @@ type GraphQLClient struct {
 	rateLimiter   resilience.RateLimiter
 	logger        observability.Logger
 	metricsClient observability.MetricsClient
-	queryCache    map[string]any
-	cacheMutex    sync.RWMutex
+	queryCache    map[string]map[string]any
 }
 
 // Config holds configuration for the GraphQL client
@@ -257,7 +255,7 @@ func NewGraphQLClient(config *Config, client *http.Client, rateLimiter resilienc
 		rateLimiter:   rateLimiter,
 		logger:        logger,
 		metricsClient: metricsClient,
-		queryCache:    make(map[string]any),
+		queryCache:    make(map[string]map[string]any),
 	}
 }
 
@@ -750,15 +748,15 @@ func (c *GraphQLClient) execute(ctx context.Context, req GraphQLRequest, resp *G
 		)
 
 		// Add context information
-		githubErr.WithContext("error", err.Error())
-		githubErr.WithResource("graphql", c.config.URL)
-		githubErr.WithOperation("POST", c.config.URL)
+		githubErr = githubErr.WithContext("error", err.Error())
+		githubErr = githubErr.WithResource("graphql", c.config.URL)
+		githubErr = githubErr.WithOperation("POST", c.config.URL)
 
 		// Add query preview
 		if len(req.Query) > 20 {
-			githubErr.WithContext("query_preview", req.Query[:20]+"...")
+			githubErr = githubErr.WithContext("query_preview", req.Query[:20]+"...")
 		} else {
-			githubErr.WithContext("query_preview", req.Query)
+			githubErr = githubErr.WithContext("query_preview", req.Query)
 		}
 
 		// Log the error
@@ -769,7 +767,11 @@ func (c *GraphQLClient) execute(ctx context.Context, req GraphQLRequest, resp *G
 
 		return githubErr
 	}
-	defer httpResp.Body.Close()
+	defer func() {
+		if err := httpResp.Body.Close(); err != nil {
+			c.logger.Warn("Failed to close response body", map[string]any{"error": err})
+		}
+	}()
 
 	// Check response status
 	if httpResp.StatusCode != http.StatusOK {
@@ -785,7 +787,8 @@ func (c *GraphQLClient) execute(ctx context.Context, req GraphQLRequest, resp *G
 			Message       string `json:"message"`
 			Documentation string `json:"documentation_url"`
 		}
-		json.Unmarshal(errorBody, &errorResponse) // Ignore error, we'll use raw body if this fails
+		// Ignore error, we'll use raw body if this fails
+		_ = json.Unmarshal(errorBody, &errorResponse)
 
 		// Create appropriate error
 		var message string
@@ -803,14 +806,14 @@ func (c *GraphQLClient) execute(ctx context.Context, req GraphQLRequest, resp *G
 		)
 
 		// Add GraphQL context
-		githubErr.WithResource("graphql", "")
-		githubErr.WithOperation("POST", c.config.URL)
+		githubErr = githubErr.WithResource("graphql", "")
+		githubErr = githubErr.WithOperation("POST", c.config.URL)
 
 		// Add rate limit info if available
 		if rateLimit := httpResp.Header.Get("X-RateLimit-Limit"); rateLimit != "" {
-			githubErr.WithContext("rate_limit", rateLimit)
-			githubErr.WithContext("rate_limit_remaining", httpResp.Header.Get("X-RateLimit-Remaining"))
-			githubErr.WithContext("rate_limit_reset", httpResp.Header.Get("X-RateLimit-Reset"))
+			githubErr = githubErr.WithContext("rate_limit", rateLimit)
+			githubErr = githubErr.WithContext("rate_limit_remaining", httpResp.Header.Get("X-RateLimit-Remaining"))
+			githubErr = githubErr.WithContext("rate_limit_reset", httpResp.Header.Get("X-RateLimit-Reset"))
 		}
 
 		// Log appropriate error level
@@ -877,18 +880,18 @@ func (c *GraphQLClient) execute(ctx context.Context, req GraphQLRequest, resp *G
 			)
 
 			// Add GraphQL context
-			githubErr.WithResource("graphql", "")
-			githubErr.WithOperation("POST", c.config.URL)
+			githubErr = githubErr.WithResource("graphql", "")
+			githubErr = githubErr.WithOperation("POST", c.config.URL)
 
 			// Add error details
 			if resp.Errors[0].Type != "" {
-				githubErr.WithContext("error_type", resp.Errors[0].Type)
+				githubErr = githubErr.WithContext("error_type", resp.Errors[0].Type)
 			}
 
 			// Add location if available
 			if len(resp.Errors[0].Locations) > 0 {
 				loc := resp.Errors[0].Locations[0]
-				githubErr.WithContext("error_location", fmt.Sprintf("line %d, column %d", loc.Line, loc.Column))
+				githubErr = githubErr.WithContext("error_location", fmt.Sprintf("line %d, column %d", loc.Line, loc.Column))
 			}
 
 			// Add query info (first 100 chars only)
@@ -897,7 +900,7 @@ func (c *GraphQLClient) execute(ctx context.Context, req GraphQLRequest, resp *G
 				if len(queryPreview) > 100 {
 					queryPreview = queryPreview[:97] + "..."
 				}
-				githubErr.WithContext("query_preview", queryPreview)
+				githubErr = githubErr.WithContext("query_preview", queryPreview)
 			}
 
 			return githubErr

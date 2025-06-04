@@ -167,7 +167,10 @@ func (h *SearchHandler) HandleSearch(w http.ResponseWriter, r *http.Request) {
 	// Send the response
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode(response)
+	if err := json.NewEncoder(w).Encode(response); err != nil {
+		// Encoding error already sent partial response, can't do much
+		_ = err
+	}
 }
 
 // HandleSearchByVector handles vector-based search requests
@@ -221,7 +224,10 @@ func (h *SearchHandler) HandleSearchByVector(w http.ResponseWriter, r *http.Requ
 	// Send the response
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode(response)
+	if err := json.NewEncoder(w).Encode(response); err != nil {
+		// Encoding error already sent partial response, can't do much
+		_ = err
+	}
 }
 
 // HandleSearchSimilar handles "more like this" search requests
@@ -306,5 +312,8 @@ func (h *SearchHandler) HandleSearchSimilar(w http.ResponseWriter, r *http.Reque
 	// Send the response
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode(response)
+	if err := json.NewEncoder(w).Encode(response); err != nil {
+		// Encoding error already sent partial response, can't do much
+		_ = err
+	}
 }

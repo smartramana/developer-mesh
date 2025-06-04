@@ -215,7 +215,12 @@ func (s *AnthropicEmbeddingService) GenerateEmbedding(ctx context.Context, text 
 		if err != nil {
 			return nil, fmt.Errorf("failed to send request: %w", err)
 		}
-		defer resp.Body.Close()
+		defer func() {
+			if err := resp.Body.Close(); err != nil {
+				// Anthropic client - best effort logging
+				_ = err
+			}
+		}()
 
 		// Read response body
 		responseBody, err := io.ReadAll(resp.Body)
@@ -308,7 +313,12 @@ func (s *AnthropicEmbeddingService) BatchGenerateEmbeddings(ctx context.Context,
 	if err != nil {
 		return nil, fmt.Errorf("failed to send request: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() {
+		if err := resp.Body.Close(); err != nil {
+			// Anthropic client - best effort logging
+			_ = err
+		}
+	}()
 
 	// Read response body
 	responseBody, err := io.ReadAll(resp.Body)

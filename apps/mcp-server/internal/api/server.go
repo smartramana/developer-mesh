@@ -407,26 +407,26 @@ func (s *Server) healthHandler(c *gin.Context) {
 	}
 }
 
-// metricsHandler returns metrics for Prometheus
-func (s *Server) metricsHandler(c *gin.Context) {
-	// Implementation depends on metrics client
-	c.String(http.StatusOK, "# metrics data will be here")
-}
+// metricsHandler returns metrics for Prometheus (commented out - unused)
+// func (s *Server) metricsHandler(c *gin.Context) {
+// 	// Implementation depends on metrics client
+// 	c.String(http.StatusOK, "# metrics data will be here")
+// }
 
-// getBaseURL extracts the base URL from the request for HATEOAS links
-func (s *Server) getBaseURL(c *gin.Context) string {
-	scheme := "http"
-	if c.Request.TLS != nil || c.GetHeader("X-Forwarded-Proto") == "https" {
-		scheme = "https"
-	}
-
-	host := c.Request.Host
-	if forwardedHost := c.GetHeader("X-Forwarded-Host"); forwardedHost != "" {
-		host = forwardedHost
-	}
-
-	return scheme + "://" + host
-}
+// getBaseURL extracts the base URL from the request for HATEOAS links (commented out - unused)
+// func (s *Server) getBaseURL(c *gin.Context) string {
+// 	scheme := "http"
+// 	if c.Request.TLS != nil || c.GetHeader("X-Forwarded-Proto") == "https" {
+// 		scheme = "https"
+// 	}
+// 
+// 	host := c.Request.Host
+// 	if forwardedHost := c.GetHeader("X-Forwarded-Host"); forwardedHost != "" {
+// 		host = forwardedHost
+// 	}
+// 
+// 	return scheme + "://" + host
+// }
 
 // RegisterShutdownHook registers a function to be called during server shutdown
 func RegisterShutdownHook(hook func()) {

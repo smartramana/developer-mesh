@@ -327,7 +327,9 @@ func initializeDatabase(ctx context.Context, cfg *commonconfig.Config, logger ob
 
 	// Test connection - Ping doesn't take context
 	if err := db.Ping(); err != nil {
-		db.Close()
+		if closeErr := db.Close(); closeErr != nil {
+			logger.Warn("Failed to close database connection", map[string]interface{}{"error": closeErr})
+		}
 		return nil, fmt.Errorf("failed to connect to database: %w", err)
 	}
 
@@ -733,41 +735,44 @@ func getEnvBool(key string, defaultValue bool) bool {
 	return defaultValue
 }
 
-func getBoolFromMap(m map[string]interface{}, key string, defaultValue bool) bool {
-	if val, ok := m[key]; ok {
-		if boolVal, ok := val.(bool); ok {
-			return boolVal
-		}
-	}
-	return defaultValue
-}
+// getBoolFromMap extracts a boolean value from a map (commented out - unused)
+// func getBoolFromMap(m map[string]interface{}, key string, defaultValue bool) bool {
+// 	if val, ok := m[key]; ok {
+// 		if boolVal, ok := val.(bool); ok {
+// 			return boolVal
+// 		}
+// 	}
+// 	return defaultValue
+// }
 
-func getStringFromMap(m map[string]interface{}, key string, defaultValue string) string {
-	if val, ok := m[key]; ok {
-		if strVal, ok := val.(string); ok {
-			return strVal
-		}
-	}
-	return defaultValue
-}
+// getStringFromMap extracts a string value from a map (commented out - unused)
+// func getStringFromMap(m map[string]interface{}, key string, defaultValue string) string {
+// 	if val, ok := m[key]; ok {
+// 		if strVal, ok := val.(string); ok {
+// 			return strVal
+// 		}
+// 	}
+// 	return defaultValue
+// }
 
-func getStringSliceFromMap(m map[string]interface{}, key string, defaultValue []string) []string {
-	if val, ok := m[key]; ok {
-		if slice, ok := val.([]interface{}); ok {
-			result := make([]string, 0, len(slice))
-			for _, item := range slice {
-				if str, ok := item.(string); ok {
-					result = append(result, str)
-				}
-			}
-			return result
-		}
-		if strSlice, ok := val.([]string); ok {
-			return strSlice
-		}
-	}
-	return defaultValue
-}
+// getStringSliceFromMap extracts a string slice from a map (commented out - unused)
+// func getStringSliceFromMap(m map[string]interface{}, key string, defaultValue []string) []string {
+// 	if val, ok := m[key]; ok {
+// 		if slice, ok := val.([]interface{}); ok {
+// 			result := make([]string, 0, len(slice))
+// 			for _, item := range slice {
+// 				if str, ok := item.(string); ok {
+// 					result = append(result, str)
+// 				}
+// 			}
+// 			return result
+// 		}
+// 		if strSlice, ok := val.([]string); ok {
+// 			return strSlice
+// 		}
+// 	}
+// 	return defaultValue
+// }
 
 // performHealthCheck performs a basic health check
 func performHealthCheck() error {
@@ -781,7 +786,11 @@ func performHealthCheck() error {
 	if err != nil {
 		return fmt.Errorf("failed to connect to health endpoint: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() {
+		if err := resp.Body.Close(); err != nil {
+			log.Printf("Failed to close response body: %v", err)
+		}
+	}()
 	
 	// Check if the response is successful
 	if resp.StatusCode != http.StatusOK {

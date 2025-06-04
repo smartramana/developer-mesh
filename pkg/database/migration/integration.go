@@ -63,7 +63,12 @@ func AutoMigrate(ctx context.Context, db *sqlx.DB, driverName string, options Au
 	if err != nil {
 		return fmt.Errorf("failed to create migration manager: %w", err)
 	}
-	defer manager.Close()
+	defer func() {
+		if err := manager.Close(); err != nil {
+			// Integration tool - log but don't fail
+			fmt.Printf("Failed to close migration manager: %v\n", err)
+		}
+	}()
 
 	// Initialize the migration manager
 	if err := manager.Init(ctx); err != nil {
@@ -100,11 +105,18 @@ func AutoMigrate(ctx context.Context, db *sqlx.DB, driverName string, options Au
 
 	// Get new version after migration
 	newVersion, dirty, err := manager.GetVersion()
-	if err == nil && newVersion != version {
-		options.Logger.Printf("Migrated from version %d to %d in %s",
-			version, newVersion, time.Since(startTime))
+	if err == nil {
+		if dirty {
+			options.Logger.Printf("WARNING: Database is in dirty state at version %d", newVersion)
+		}
+		if newVersion != version {
+			options.Logger.Printf("Migrated from version %d to %d in %s",
+				version, newVersion, time.Since(startTime))
+		} else {
+			options.Logger.Printf("Migrations completed in %s", time.Since(startTime))
+		}
 	} else {
-		options.Logger.Printf("Migrations completed in %s", time.Since(startTime))
+		options.Logger.Printf("Failed to get migration version: %v", err)
 	}
 
 	return nil

@@ -72,7 +72,11 @@ func main() {
 
 	// Initialize metrics
 	metricsClient := metrics.NewClient(cfg.Metrics)
-	defer metricsClient.Close()
+	defer func() {
+		if err := metricsClient.Close(); err != nil {
+			logger.Warn("Failed to close metrics client", map[string]any{"error": err})
+		}
+	}()
 
 	// Check if IRSA is enabled (IAM Roles for Service Accounts)
 	if aws.IsIRSAEnabled() {
@@ -118,7 +122,11 @@ func main() {
 	if err != nil {
 		log.Fatalf("Failed to initialize database: %v", err)
 	}
-	defer db.Close()
+	defer func() {
+		if err := db.Close(); err != nil {
+			log.Printf("Failed to close database connection: %v", err)
+		}
+	}()
 
 	// Prepare cache config with AWS integration if needed
 	var cacheClient cache.Cache
@@ -135,12 +143,22 @@ func main() {
 		cacheClient = cache.NewNoOpCache()
 	}
 	if cacheClient != nil {
-		defer cacheClient.Close()
+		defer func() {
+			if err := cacheClient.Close(); err != nil {
+				logger.Warn("Failed to close cache client", map[string]any{"error": err})
+			}
+		}()
 	}
 
 	// Initialize core engine with logger
 	engine := core.NewEngine(logger)
-	defer engine.Shutdown(ctx)
+	defer func() {
+		if err := engine.Shutdown(ctx); err != nil {
+			logger.Error("Failed to shutdown engine", map[string]any{
+				"error": err.Error(),
+			})
+		}
+	}()
 
 	// Initialize context manager based on environment configuration
 	useMock := os.Getenv("USE_MOCK_CONTEXT_MANAGER")

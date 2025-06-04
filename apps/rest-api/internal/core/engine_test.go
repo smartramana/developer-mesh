@@ -161,8 +161,14 @@ func TestHealth(t *testing.T) {
 		engine.contextManager = nil
 
 		// Override os.Getenv
-		os.Setenv("USE_MOCK_CONTEXT_MANAGER", "true")
-		defer os.Setenv("USE_MOCK_CONTEXT_MANAGER", "")
+		if err := os.Setenv("USE_MOCK_CONTEXT_MANAGER", "true"); err != nil {
+			t.Fatalf("Failed to set env var: %v", err)
+		}
+		defer func() {
+			if err := os.Setenv("USE_MOCK_CONTEXT_MANAGER", ""); err != nil {
+				t.Errorf("Failed to reset env var: %v", err)
+			}
+		}()
 
 		// Act
 		health := engine.Health()
@@ -181,7 +187,9 @@ func TestHealth(t *testing.T) {
 		engine.contextManager = nil
 
 		// Override os.Getenv
-		os.Setenv("USE_MOCK_CONTEXT_MANAGER", "")
+		if err := os.Setenv("USE_MOCK_CONTEXT_MANAGER", ""); err != nil {
+			t.Errorf("Failed to reset env var: %v", err)
+		}
 
 		// Act
 		health := engine.Health()

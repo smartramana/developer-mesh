@@ -99,11 +99,12 @@ func (c *ExtendedRDSClient) GetAuthToken(ctx context.Context) (string, error) {
 		return "", fmt.Errorf("failed to get AWS config: %w", err)
 	}
 
-	// Set token expiration
+	// Set token expiration (for future use when implementing real token generation)
 	tokenExpiryTime := time.Duration(c.connConfig.TokenExpiration) * time.Second
 	if tokenExpiryTime == 0 {
 		tokenExpiryTime = 15 * time.Minute
 	}
+	_ = tokenExpiryTime // TODO: Use when implementing real token generation
 
 	// For now, this is a placeholder implementation
 	// In a production environment, this would use the AWS SDK

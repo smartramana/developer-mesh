@@ -3,7 +3,6 @@ package core
 import (
 	"context"
 	"fmt"
-	"sync"
 	"time"
 
 	"github.com/S-Corkum/devops-mcp/pkg/adapters"
@@ -79,7 +78,6 @@ type Engine struct {
 	metricsClient        observability.MetricsClient
 	logger               observability.Logger // Changed from pointer to interface type
 	eventBus             events.EventBusIface
-	lock                 sync.RWMutex
 }
 
 // NewEngine creates a new engine
@@ -284,7 +282,12 @@ func (e *Engine) Close() {
 			closer.Close()
 		}
 	}
-	e.Shutdown(context.Background())
+	if err := e.Shutdown(context.Background()); err != nil {
+		// Log error if logger is available
+		if e.logger != nil {
+			e.logger.Error("Failed to shutdown engine gracefully", map[string]interface{}{"error": err})
+		}
+	}
 }
 
 // Shutdown performs a graceful shutdown of the engine

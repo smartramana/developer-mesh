@@ -160,7 +160,7 @@ func DoTruncatePreservingUser(contextData *models.Context) error {
 			userItems = userItems[removedUserCount:]
 		}
 
-		tokensToRemove -= removedUserTokens
+		// tokensToRemove -= removedUserTokens // Removed: ineffectual assignment
 		userTokens -= removedUserTokens
 	}
 

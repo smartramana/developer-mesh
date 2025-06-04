@@ -14,7 +14,11 @@ func TestNewPgSearchService(t *testing.T) {
 	// Create a mock DB
 	db, mock, err := sqlmock.New()
 	require.NoError(t, err)
-	defer db.Close()
+	defer func() {
+		if err := db.Close(); err != nil {
+			t.Errorf("Failed to close mock database: %v", err)
+		}
+	}()
 
 	// Create a mock embedding service
 	mockEmbService := &mockEmbeddingService{
@@ -49,7 +53,11 @@ func TestPgSearchService_Search(t *testing.T) {
 	// Create a mock DB
 	db, mock, err := sqlmock.New()
 	require.NoError(t, err)
-	defer db.Close()
+	defer func() {
+		if err := db.Close(); err != nil {
+			t.Errorf("Failed to close mock database: %v", err)
+		}
+	}()
 
 	// Setup the mock embedding service
 	mockEmbService := &mockEmbeddingService{
@@ -97,7 +105,11 @@ func TestPgSearchService_SearchByVector(t *testing.T) {
 	// Create a mock DB
 	db, mock, err := sqlmock.New()
 	require.NoError(t, err)
-	defer db.Close()
+	defer func() {
+		if err := db.Close(); err != nil {
+			t.Errorf("Failed to close mock database: %v", err)
+		}
+	}()
 
 	// Setup the mock embedding service
 	mockEmbService := &mockEmbeddingService{
@@ -151,7 +163,11 @@ func TestPgSearchService_SearchByContentID(t *testing.T) {
 	// Create a mock DB
 	db, mock, err := sqlmock.New()
 	require.NoError(t, err)
-	defer db.Close()
+	defer func() {
+		if err := db.Close(); err != nil {
+			t.Errorf("Failed to close mock database: %v", err)
+		}
+	}()
 
 	// Setup the mock embedding service
 	mockEmbService := &mockEmbeddingService{

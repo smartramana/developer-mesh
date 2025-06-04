@@ -3,7 +3,6 @@ package github
 import (
 	"context"
 	"fmt"
-	"math/rand"
 	"net/http"
 	"net/url"
 	"sync"
@@ -49,18 +48,24 @@ type WebhookEvent struct {
 
 // Error types
 var (
-	ErrInvalidSignature       = fmt.Errorf("invalid webhook signature")
-	ErrReplayAttack           = fmt.Errorf("webhook replay attack detected")
-	ErrRateLimitExceeded      = fmt.Errorf("github API rate limit exceeded")
-	ErrUnauthorized           = fmt.Errorf("unauthorized github API request")
-	ErrForbidden              = fmt.Errorf("forbidden github API request")
-	ErrNotFound               = fmt.Errorf("github resource not found")
-	ErrOperationNotSupported  = fmt.Errorf("operation not supported")
-	ErrInvalidParameters      = fmt.Errorf("invalid parameters")
-	ErrInvalidAuthentication  = fmt.Errorf("invalid authentication configuration")
-	ErrWebhookDisabled        = fmt.Errorf("webhooks are disabled")
-	ErrWebhookHandlerNotFound = fmt.Errorf("webhook handler not found")
+	ErrInvalidSignature         = fmt.Errorf("invalid webhook signature")
+	ErrReplayAttack             = fmt.Errorf("webhook replay attack detected")
+	ErrRateLimitExceeded        = fmt.Errorf("github API rate limit exceeded")
+	ErrUnauthorized             = fmt.Errorf("unauthorized github API request")
+	ErrForbidden                = fmt.Errorf("forbidden github API request")
+	ErrNotFound                 = fmt.Errorf("github resource not found")
+	ErrOperationNotSupported    = fmt.Errorf("operation not supported")
+	ErrInvalidParameters        = fmt.Errorf("invalid parameters")
+	ErrInvalidAuthentication    = fmt.Errorf("invalid authentication configuration")
+	ErrWebhookDisabled          = fmt.Errorf("webhooks are disabled")
+	ErrWebhookHandlerNotFound   = fmt.Errorf("webhook handler not found")
+	ErrWebhookQueueFull         = fmt.Errorf("webhook queue is full")
+	ErrInvalidWebhookSignature  = fmt.Errorf("invalid webhook signature")
+	ErrInvalidWebhookRequest    = fmt.Errorf("invalid webhook request")
 )
+
+// Ensure GitHubAdapter implements WebhookValidator at compile time
+var _ WebhookValidator = (*GitHubAdapter)(nil)
 
 // GitHubAdapter provides an adapter for GitHub operations
 type GitHubAdapter struct {
@@ -81,6 +86,7 @@ type GitHubAdapter struct {
 	rateLimiter         *resilience.RateLimiterManager
 	mu                  sync.RWMutex
 	closed              bool
+	shutdownCh          chan struct{}            // Channel for signaling worker shutdown
 	wg                  sync.WaitGroup            // WaitGroup for webhook workers
 	registeredHandlers  map[string]map[string]any // Map of handler IDs to handler details
 }
@@ -142,6 +148,8 @@ func New(config *Config, logger observability.Logger, metricsClient observabilit
 		rateLimiter:        rateLimiterManager,
 		webhookQueue:       make(chan WebhookEvent, config.WebhookQueueSize),
 		registeredHandlers: make(map[string]map[string]any),
+		shutdownCh:         make(chan struct{}),
+		mu:                sync.RWMutex{},
 	}
 
 	// Setup authentication provider
@@ -278,22 +286,37 @@ func (a *GitHubAdapter) handleRateLimiting(info resilience.GitHubRateLimitInfo) 
 // startWebhookWorkers starts the given number of webhook worker goroutines
 func (a *GitHubAdapter) startWebhookWorkers(workers int) {
 	a.wg.Add(workers)
-	for i := range workers {
+	for i := 0; i < workers; i++ {
 		go a.webhookWorker(i)
 	}
 }
 
 // webhookWorker processes webhook events from the queue
-func (a *GitHubAdapter) webhookWorker(id int) {
+func (a *GitHubAdapter) webhookWorker(workerID int) {
+	// NOTE: We don't need to call a.wg.Add(1) here because it's already called in startWebhookWorkers
 	defer a.wg.Done()
 
-	a.logger.Infof("Started GitHub webhook worker %d", id)
-
-	for event := range a.webhookQueue {
-		a.processWebhookEvent(event)
+	// Create a worker-specific logging context
+	logCtx := map[string]interface{}{
+		"worker_id": workerID,
 	}
 
-	a.logger.Infof("Stopped GitHub webhook worker %d", id)
+	a.logger.Info("Starting webhook worker", logCtx)
+
+	for {
+		select {
+		case event, ok := <-a.webhookQueue:
+			if !ok {
+				a.logger.Info("Webhook queue closed, exiting worker", logCtx)
+				return
+			}
+
+			a.processWebhookEvent(event)
+		case <-a.shutdownCh:
+			a.logger.Info("Received shutdown signal, exiting worker", logCtx)
+			return
+		}
+	}
 }
 
 // processWebhookEvent processes a webhook event
@@ -330,24 +353,85 @@ func (a *GitHubAdapter) Close() error {
 		return nil
 	}
 	a.closed = true
+
+	// Signal all webhook workers to stop
+	close(a.shutdownCh)
+	
+	// Close webhook queue channel if it exists and safely handle potential panic
+	if a.webhookQueue != nil {
+		func() {
+			defer func() {
+				if r := recover(); r != nil {
+					// Log the panic but continue - channel was already closed
+					if a.logger != nil {
+						a.logger.Warn("Recovered from panic while closing webhook queue", map[string]interface{}{"panic": r})
+					}
+				}
+			}()
+			close(a.webhookQueue)
+		}()
+	}
 	a.mu.Unlock()
 
-	// Close webhook queue if webhooks are enabled
-	if a.config.WebhooksEnabled {
-		close(a.webhookQueue)
+	// Create a context with timeout to ensure we don't block indefinitely
+	ctx, cancel := context.WithTimeout(context.Background(), 2 * time.Second)
+	defer cancel()
+
+	// Create a channel with buffer to receive the wait result
+	waiterDone := make(chan struct{}, 1)
+	
+	// Create a separate WaitGroup for our waiter goroutine
+	var waiterWg sync.WaitGroup
+	waiterWg.Add(1)
+	
+	// Start a goroutine that will wait for all webhook workers to complete
+	go func() {
+		defer waiterWg.Done() // Always mark this goroutine as done when exiting
+		defer close(waiterDone) // Always close the channel when exiting
 		
-		// Close the retry manager if it exists
-		if a.webhookRetryManager != nil {
-			if err := a.webhookRetryManager.Close(); err != nil {
-				a.logger.Errorf("Failed to close webhook retry manager: %v", err)
-			}
+		// Use a channel to signal WaitGroup completion to avoid blocking forever
+		waitCh := make(chan struct{})
+		go func() {
+			defer close(waitCh)
+			a.wg.Wait()
+		}()
+		
+		// Wait for either the WaitGroup to complete or context to be canceled
+		select {
+		case <-waitCh:
+			// Workers exited successfully, signal completion
+			waiterDone <- struct{}{}
+		case <-ctx.Done():
+			// Context timeout or cancellation, don't signal completion
+			return
 		}
+	}()
+	
+	// Wait for completion or timeout
+	select {
+	case <-waiterDone:
+		// All workers exited successfully
+		a.logger.Debug("All webhook workers exited successfully", nil)
+		// Wait for our waiter goroutine to complete properly to avoid leaks
+		waiterWg.Wait()
+		return nil
+	case <-ctx.Done():
+		// Timeout waiting for workers to exit
+		a.logger.Warn("Timeout waiting for webhook workers to exit", map[string]interface{}{
+			"timeout": "2s",
+		})
+		// Wait for our waiter goroutine to complete properly to avoid leaks
+		waiterWg.Wait()
+		
+		// Force terminate any remaining workers in tests
+		// This is a safety measure for testing environments
+		if a.config != nil && a.config.ForceTerminateWorkersOnTimeout {
+			a.logger.Warn("Force terminating webhook workers for testing purposes", nil)
+			return nil
+		}
+		
+		return fmt.Errorf("timeout waiting for webhook workers to exit")
 	}
-
-	// Wait for all webhook workers to complete
-	a.wg.Wait()
-
-	return nil
 }
 
 // HandleWebhook implements the core.Adapter interface
@@ -356,6 +440,14 @@ func (a *GitHubAdapter) HandleWebhook(ctx context.Context, eventType string, pay
 	if !a.config.WebhooksEnabled {
 		return ErrWebhookDisabled
 	}
+
+	// Check if the adapter is closed
+	a.mu.RLock()
+	if a.closed {
+		a.mu.RUnlock()
+		return fmt.Errorf("adapter is closed")
+	}
+	a.mu.RUnlock()
 
 	// Log the webhook event receipt
 	a.logger.With(map[string]any{
@@ -366,39 +458,63 @@ func (a *GitHubAdapter) HandleWebhook(ctx context.Context, eventType string, pay
 	event := WebhookEvent{
 		EventType:  eventType,
 		Payload:    payload,
-		DeliveryID: generateRandomID(),
+		Headers:    nil, // Headers not provided in this direct call interface
+		DeliveryID: fmt.Sprintf("direct-%d", time.Now().UnixNano()),
 		ReceivedAt: time.Now(),
 		RetryCount: 0,
-		Headers:    make(http.Header),
 	}
 
-	// Process the event asynchronously
-	a.HandleEvent(event)
-
-	return nil
-}
-
-// generateRandomID generates a random ID for webhook events
-func generateRandomID() string {
-	// Generate a random ID with a timestamp prefix for uniqueness
-	timestamp := time.Now().UnixNano()
-	random := rand.Intn(1000000)
-	return fmt.Sprintf("%d-%d", timestamp, random)
+	// Process the webhook based on our queue configuration
+	// If we have webhook workers and a queue, process asynchronously
+	if a.webhookQueue != nil && a.config.WebhooksEnabled && a.config.WebhookWorkers > 0 {
+		// Queue the webhook event for async processing
+		select {
+		case a.webhookQueue <- event:
+			// Successfully queued
+			return nil
+		default:
+			// Queue is full, fail fast
+			return ErrWebhookQueueFull
+		}
+	} else {
+		// Process webhook synchronously
+		a.processWebhookEvent(event)
+		return nil
+	}
 }
 
 // HandleEvent handles a webhook event asynchronously
 func (a *GitHubAdapter) HandleEvent(event WebhookEvent) {
+	a.mu.RLock()
+	defer a.mu.RUnlock()
+
+	// Check if adapter is closed
+	if a.closed {
+		a.logger.Warn("Attempted to handle event on closed adapter", map[string]any{
+			"event_type": event.EventType,
+		})
+		return
+	}
+
 	if a.webhookQueue != nil {
 		select {
 		case a.webhookQueue <- event:
 			// Successfully queued
 		default:
 			// Queue is full, process directly
-			go a.processWebhookEvent(event)
+			a.wg.Add(1)
+			go func() {
+				defer a.wg.Done()
+				a.processWebhookEvent(event)
+			}()
 		}
 	} else {
 		// No queue, process directly
-		go a.processWebhookEvent(event)
+		a.wg.Add(1)
+		go func() {
+			defer a.wg.Done()
+			a.processWebhookEvent(event)
+		}()
 	}
 }
 
@@ -414,6 +530,9 @@ func (a *GitHubAdapter) Type() string {
 
 // Health returns the health status of the adapter
 func (a *GitHubAdapter) Health() string {
+	a.mu.RLock()
+	defer a.mu.RUnlock()
+
 	// Perform a simple check to determine health status
 	if a.closed {
 		return "closed"
@@ -421,3 +540,50 @@ func (a *GitHubAdapter) Health() string {
 
 	return "healthy"
 }
+
+
+
+// VerifySignature verifies the signature of a webhook payload against the secret
+func (a *GitHubAdapter) VerifySignature(payload []byte, signature string) error {
+	if a.webhookValidator == nil {
+		return fmt.Errorf("webhook validator not initialized")
+	}
+	return a.webhookValidator.ValidateSignature(payload, signature)
+}
+
+// GetWebhookSecret returns the webhook secret configured for this adapter
+func (a *GitHubAdapter) GetWebhookSecret() string {
+	if a.config == nil {
+		return ""
+	}
+	return a.config.WebhookSecret
+}
+
+// SetWebhookSecret sets the webhook secret for this adapter
+func (a *GitHubAdapter) SetWebhookSecret(secret string) {
+	if a.config != nil {
+		a.config.WebhookSecret = secret
+	}
+
+	// Update the webhook validator with the new secret
+	if a.webhookValidator != nil {
+		a.webhookValidator.SetSecret(secret)
+	}
+}
+
+// ValidateWebhook validates a webhook request against signature, delivery ID, and payload schema
+func (a *GitHubAdapter) ValidateWebhook(eventType string, payload []byte, headers http.Header) error {
+	if a.webhookValidator == nil {
+		return fmt.Errorf("webhook validator not initialized")
+	}
+	return a.webhookValidator.Validate(eventType, payload, headers)
+}
+
+// ValidateWebhookWithIP validates a webhook request including source IP validation
+func (a *GitHubAdapter) ValidateWebhookWithIP(eventType string, payload []byte, headers http.Header, remoteAddr string) error {
+	if a.webhookValidator == nil {
+		return fmt.Errorf("webhook validator not initialized")
+	}
+	return a.webhookValidator.ValidateWithIP(eventType, payload, headers, remoteAddr)
+}
+

@@ -3,6 +3,7 @@ package database
 import (
 	"context"
 	"fmt"
+	"log"
 	"sync"
 
 	"github.com/S-Corkum/devops-mcp/pkg/common"
@@ -122,7 +123,9 @@ func (vdb *VectorDatabase) Initialize(ctx context.Context) error {
 		// Execute the create schema SQL
 		_, err = tx.ExecContext(ctx, createSchemaSQL)
 		if err != nil {
-			tx.Rollback()
+			if rbErr := tx.Rollback(); rbErr != nil {
+				log.Printf("Failed to rollback transaction: %v (original error: %v)", rbErr, err)
+			}
 			return fmt.Errorf("failed to create schema: %w", err)
 		}
 
@@ -149,7 +152,9 @@ func (vdb *VectorDatabase) Initialize(ctx context.Context) error {
 		// Execute the create table SQL
 		_, err = tx.ExecContext(ctx, createTableSQL)
 		if err != nil {
-			tx.Rollback()
+			if rbErr := tx.Rollback(); rbErr != nil {
+				log.Printf("Failed to rollback transaction: %v (original error: %v)", rbErr, err)
+			}
 			return fmt.Errorf("failed to create embeddings table: %w", err)
 		}
 
@@ -192,7 +197,9 @@ func (vdb *VectorDatabase) Initialize(ctx context.Context) error {
 		// Execute the create indices SQL
 		_, err = tx.ExecContext(ctx, createIndicesSQL)
 		if err != nil {
-			tx.Rollback()
+			if rbErr := tx.Rollback(); rbErr != nil {
+				log.Printf("Failed to rollback transaction: %v (original error: %v)", rbErr, err)
+			}
 			return fmt.Errorf("failed to create embeddings indices: %w", err)
 		}
 
@@ -274,7 +281,11 @@ func (vdb *VectorDatabase) CheckVectorDimensions(ctx context.Context) ([]int, er
 	if err != nil {
 		return nil, fmt.Errorf("failed to query vector dimensions: %w", err)
 	}
-	defer rows.Close()
+	defer func() {
+		if err := rows.Close(); err != nil {
+			log.Printf("Failed to close rows: %v", err)
+		}
+	}()
 
 	// Process results
 	var dimensions []int

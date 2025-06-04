@@ -364,7 +364,7 @@ func TestGracefulJobCompletion(t *testing.T) {
 				Data: i,
 			}
 
-			worker.ProcessMessage(ctx, createSQSMessage(msg))
+			_ = worker.ProcessMessage(ctx, createSQSMessage(msg))
 		}
 	}()
 
@@ -494,7 +494,7 @@ func TestBackpressure(t *testing.T) {
 			}
 			defer worker.ReleaseConcurrencySlot()
 
-			worker.ProcessMessage(ctx, createSQSMessage(msg))
+			_ = worker.ProcessMessage(ctx, createSQSMessage(msg))
 		}(i)
 	}
 

@@ -656,7 +656,7 @@ func (m *Manager) truncatePreservingUser(contextData *models.Context) error {
 			userItems = userItems[removedUserCount:]
 		}
 
-		tokensToRemove -= removedUserTokens
+		// tokensToRemove -= removedUserTokens // Removed: ineffectual assignment
 		userTokens -= removedUserTokens
 	}
 
@@ -781,7 +781,7 @@ func (m *Manager) createContextInDB(ctx context.Context, tx *sqlx.Tx, contextDat
 		}
 	}
 	// Ensure metadataJSON is always valid JSON (never empty string)
-	if metadataJSON == nil || len(metadataJSON) == 0 || string(metadataJSON) == "" {
+	if len(metadataJSON) == 0 {
 		metadataJSON = []byte("{}")
 	}
 	_, err = tx.ExecContext(
@@ -931,7 +931,11 @@ func (m *Manager) getContextFromDB(ctx context.Context, tx *sqlx.Tx, contextID s
 	if err != nil {
 		return nil, fmt.Errorf("failed to get context items: %w", err)
 	}
-	defer rows.Close()
+	defer func() {
+		if err := rows.Close(); err != nil {
+			m.logger.Warn("Failed to close rows", map[string]interface{}{"error": err})
+		}
+	}()
 
 	// Parse context items
 	for rows.Next() {
@@ -1012,7 +1016,7 @@ func (m *Manager) updateContextInDB(ctx context.Context, tx *sqlx.Tx, contextDat
 		}
 	}
 	// Ensure metadataJSON is always valid JSON (never empty string)
-	if metadataJSON == nil || len(metadataJSON) == 0 || string(metadataJSON) == "" {
+	if len(metadataJSON) == 0 {
 		metadataJSON = []byte("{}")
 	}
 
@@ -1111,7 +1115,7 @@ func (m *Manager) updateContextInDB(ctx context.Context, tx *sqlx.Tx, contextDat
 			}
 		}
 		// Ensure itemMetadataJSON is always valid JSON (never empty string)
-		if itemMetadataJSON == nil || len(itemMetadataJSON) == 0 || string(itemMetadataJSON) == "" {
+		if len(itemMetadataJSON) == 0 {
 			itemMetadataJSON = []byte("{}")
 		}
 
@@ -1177,7 +1181,11 @@ func (m *Manager) listContextsFromDB(ctx context.Context, tx *sqlx.Tx, agentID s
 	if err != nil {
 		return nil, fmt.Errorf("failed to list contexts: %w", err)
 	}
-	defer rows.Close()
+	defer func() {
+		if err := rows.Close(); err != nil {
+			m.logger.Warn("Failed to close rows", map[string]interface{}{"error": err})
+		}
+	}()
 
 	// Parse contexts
 	var contexts []*models.Context

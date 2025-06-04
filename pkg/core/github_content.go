@@ -3,7 +3,6 @@ package core
 import (
 	"context"
 	"fmt"
-	"sync"
 	"time"
 
 	// Maintain the internal/database import for backward compatibility
@@ -23,7 +22,6 @@ type GitHubContentManager struct {
 	pkgDB               *pkgdb.Database    // Direct access to pkg/database
 	storageManager      *storage.GitHubContentStorage
 	logger              observability.Logger // Changed from pointer to interface type
-	lock                sync.RWMutex
 	metricsClient       observability.MetricsClient
 	relationshipManager *GitHubRelationshipManager
 }

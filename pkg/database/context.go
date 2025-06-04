@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
+	"log"
 	"time"
 
 	"github.com/jmoiron/sqlx"
@@ -220,7 +221,11 @@ func (db *Database) getContext(ctx context.Context, tx *Tx, contextID string) (*
 	if err != nil {
 		return nil, fmt.Errorf("failed to query context items: %w", err)
 	}
-	defer rows.Close()
+	defer func() {
+		if err := rows.Close(); err != nil {
+			log.Printf("Failed to close rows: %v", err)
+		}
+	}()
 
 	for rows.Next() {
 		var (
@@ -392,7 +397,7 @@ func (db *Database) listContexts(ctx context.Context, tx *Tx, agentID string, se
 		if limit, ok := options["limit"].(int); ok && limit > 0 {
 			query += fmt.Sprintf(" LIMIT $%d", argIndex)
 			args = append(args, limit)
-			argIndex++
+			// argIndex++ not needed as it's not used after this
 		}
 	}
 
@@ -404,7 +409,11 @@ func (db *Database) listContexts(ctx context.Context, tx *Tx, agentID string, se
 	if err != nil {
 		return nil, fmt.Errorf("failed to query contexts: %w", err)
 	}
-	defer rows.Close()
+	defer func() {
+		if err := rows.Close(); err != nil {
+			log.Printf("Failed to close rows: %v", err)
+		}
+	}()
 
 	// Process results
 	var contexts []*models.Context
@@ -521,7 +530,11 @@ func (db *Database) searchContexts(ctx context.Context, tx *Tx, agentID string, 
 	if err != nil {
 		return nil, fmt.Errorf("failed to search contexts: %w", err)
 	}
-	defer rows.Close()
+	defer func() {
+		if err := rows.Close(); err != nil {
+			log.Printf("Failed to close rows: %v", err)
+		}
+	}()
 
 	// Collect matching context IDs
 	var contextIDs []string

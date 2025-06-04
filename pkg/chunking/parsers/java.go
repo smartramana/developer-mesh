@@ -33,12 +33,14 @@ var (
 	javaConstructorRegex = regexp.MustCompile(`(?m)^(?:public\s+|protected\s+|private\s+)(\w+)\s*\(([^)]*)\)`)
 
 	// Match field declarations
-	javaFieldRegex = regexp.MustCompile(`(?m)^(?:public\s+|protected\s+|private\s+)?(?:static\s+|final\s+)*(?:[\w.<>[\]]+)\s+(\w+)(?:\s*=\s*[^;]+)?\s*;`)
+	// TODO: Implement field extraction to enhance code analysis capabilities
+	javaFieldRegex = regexp.MustCompile(`(?m)^(?:public\s+|protected\s+|private\s+)?(?:static\s+|final\s+)*(?:[\w.<>\[\]]+)\s+(\w+)(?:\s*=\s*[^;]+)?\s*;`)
 
 	// Match JavaDoc comments
 	javaDocRegex = regexp.MustCompile(`(?ms)/\*\*.*?\*/`)
 
 	// Match braces for scope detection
+	// TODO: Implement enhanced scope detection for better code structure analysis
 	javaOpenBraceRegex  = regexp.MustCompile(`\{`)
 	javaCloseBraceRegex = regexp.MustCompile(`\}`)
 )

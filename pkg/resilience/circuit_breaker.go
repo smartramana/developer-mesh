@@ -29,8 +29,11 @@ type CircuitBreaker struct {
 	name            string
 	config          CircuitBreakerConfig
 	state           CircuitBreakerState
+	// Deprecated: This field is currently unused but reserved for future implementation of metrics tracking
 	counts          Counts
+	// Deprecated: This field is currently unused but reserved for future implementation of state change tracking
 	lastStateChange time.Time
+	// Deprecated: This field is currently unused but reserved for future implementation of concurrent access control
 	mutex           sync.RWMutex
 }
 

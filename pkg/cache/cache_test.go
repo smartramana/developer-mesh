@@ -57,12 +57,12 @@ func TestNewRedisCache(t *testing.T) {
 			Database: 0,
 		}
 
-		cache, err := NewRedisCache(config)
+		_, err := NewRedisCache(config)
 		assert.Error(t, err)
 
 		// Should succeed with password
 		config.Password = "testpassword"
-		cache, err = NewRedisCache(config)
+		cache, err := NewRedisCache(config)
 		require.NoError(t, err)
 		require.NotNil(t, cache)
 
@@ -115,7 +115,11 @@ func TestCacheOperations(t *testing.T) {
 
 	cache, err := NewRedisCache(config)
 	require.NoError(t, err)
-	defer cache.Close()
+	defer func() {
+		if err := cache.Close(); err != nil {
+			t.Errorf("Failed to close cache: %v", err)
+		}
+	}()
 
 	ctx := context.Background()
 

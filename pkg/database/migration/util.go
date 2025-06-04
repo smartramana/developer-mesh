@@ -98,7 +98,11 @@ func createFile(path, content string) error {
 	if err != nil {
 		return err
 	}
-	defer file.Close()
+	defer func() {
+		if closeErr := file.Close(); closeErr != nil && err == nil {
+			err = closeErr
+		}
+	}()
 
 	_, err = file.WriteString(content)
 	return err

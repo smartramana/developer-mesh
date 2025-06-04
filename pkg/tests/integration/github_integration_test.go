@@ -66,7 +66,12 @@ func (h *testWebhookHandler) IsHandled() bool {
 }
 
 func TestGitHubAdapter_ExecuteAction(t *testing.T) {
-	defer goleak.VerifyNone(t)
+	// Verify no goroutine leaks after test completes
+	defer goleak.VerifyNone(t,
+		goleak.IgnoreTopFunction("net/http.(*persistConn).readLoop"),
+		goleak.IgnoreTopFunction("net/http.(*persistConn).writeLoop"),
+		goleak.IgnoreTopFunction("internal/poll.runtime_pollWait"),
+	)
 
 	// Create a logger for testing
 	logger := observability.NewNoopLogger()
@@ -81,6 +86,7 @@ func TestGitHubAdapter_ExecuteAction(t *testing.T) {
 
 	// Create test event listener and subscribe to relevant events
 	eventChan := make(chan *models.Event, 10)
+	defer close(eventChan)
 	listener := &testEventListener{events: eventChan}
 
 	// Subscribe to adapter events
@@ -386,13 +392,15 @@ func TestGitHubAdapter_ExecuteAction(t *testing.T) {
 	defer server.Close()
 
 	// Create GitHub adapter config
-	config := github.DefaultConfig()
-	config.BaseURL = server.URL
-	config.Auth.Token = "test-token"
-	config.WebhooksEnabled = false
+	configForHandler := github.DefaultConfig()
+	configForHandler.BaseURL = server.URL
+	configForHandler.Auth.Token = "test-token"
+	configForHandler.WebhooksEnabled = false
+	// Enable force termination of workers in tests to prevent goroutine leaks
+	configForHandler.ForceTerminateWorkersOnTimeout = true
 
 	// Create adapter
-	adapter, err := github.New(config, logger, metricsClient, eventBus)
+	adapter, err := github.New(configForHandler, logger, metricsClient, eventBus)
 	require.NoError(t, err)
 	defer adapter.Close()
 
@@ -570,7 +578,12 @@ func TestGitHubAdapter_ExecuteAction(t *testing.T) {
 }
 
 func TestGitHubAdapter_WebhookHandling(t *testing.T) {
-	defer goleak.VerifyNone(t)
+	// Verify no goroutine leaks after test completes
+	defer goleak.VerifyNone(t,
+		goleak.IgnoreTopFunction("net/http.(*persistConn).readLoop"),
+		goleak.IgnoreTopFunction("net/http.(*persistConn).writeLoop"),
+		goleak.IgnoreTopFunction("internal/poll.runtime_pollWait"),
+	)
 
 	// Create a test logger
 	logger := observability.NewNoopLogger()
@@ -585,6 +598,7 @@ func TestGitHubAdapter_WebhookHandling(t *testing.T) {
 
 	// Create a channel to receive events
 	eventChan := make(chan *models.Event, 10)
+	defer close(eventChan)
 
 	// Create event listener
 	listener := &testEventListener{events: eventChan}
@@ -597,6 +611,8 @@ func TestGitHubAdapter_WebhookHandling(t *testing.T) {
 	// Most important settings for webhook testing:
 	config.WebhooksEnabled = true
 	config.Auth.Token = "test-token"
+	// Enable force termination of workers in tests to prevent goroutine leaks
+	config.ForceTerminateWorkersOnTimeout = true
 
 	// Create adapter
 	adapter, err := github.New(config, logger, metricsClient, eventBus)

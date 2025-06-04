@@ -84,7 +84,7 @@ func (cm *ContextManager) CreateContext(ctx context.Context, context *models.Con
 	if cm.db != nil {
 		// Marshal metadata to JSON
 		var metadataJSON []byte
-		if context.Metadata != nil && len(context.Metadata) > 0 {
+		if len(context.Metadata) > 0 {
 			var err error
 			metadataJSON, err = json.Marshal(context.Metadata)
 			if err != nil {
@@ -226,7 +226,11 @@ func (cm *ContextManager) GetContext(ctx context.Context, contextID string) (*mo
 			})
 			// Continue without items - context can still be valid without items
 		} else {
-			defer rows.Close()
+			defer func() {
+				if err := rows.Close(); err != nil {
+					cm.logger.Warn("Failed to close rows", map[string]any{"error": err})
+				}
+			}()
 			var items []models.ContextItem
 			for rows.Next() {
 				// Create a temporary struct to handle JSON metadata
@@ -363,7 +367,7 @@ func (cm *ContextManager) UpdateContext(ctx context.Context, contextID string, u
 
 		_, err = tx.NamedExecContext(ctx, q, result)
 		if err != nil {
-			tx.Rollback()
+			_ = tx.Rollback()
 			cm.logger.Error("Failed to update context in database", map[string]any{
 				"error":      err.Error(),
 				"context_id": contextID,
@@ -375,7 +379,7 @@ func (cm *ContextManager) UpdateContext(ctx context.Context, contextID string, u
 		// Delete existing context items
 		_, err = tx.ExecContext(ctx, "DELETE FROM mcp.context_items WHERE context_id = $1", contextID)
 		if err != nil {
-			tx.Rollback()
+			_ = tx.Rollback()
 			cm.logger.Error("Failed to delete old context items", map[string]any{
 				"error":      err.Error(),
 				"context_id": contextID,
@@ -401,10 +405,10 @@ func (cm *ContextManager) UpdateContext(ctx context.Context, contextID string, u
 
 				// Marshal item metadata to JSON
 				var itemMetadataJSON []byte
-				if item.Metadata != nil && len(item.Metadata) > 0 {
+				if len(item.Metadata) > 0 {
 					itemMetadataJSON, err = json.Marshal(item.Metadata)
 					if err != nil {
-						tx.Rollback()
+						_ = tx.Rollback()
 						cm.logger.Error("Failed to marshal item metadata", map[string]any{
 							"error":      err.Error(),
 							"context_id": contextID,
@@ -425,7 +429,7 @@ func (cm *ContextManager) UpdateContext(ctx context.Context, contextID string, u
 					item.Timestamp,
 					itemMetadataJSON)
 				if err != nil {
-					tx.Rollback()
+					_ = tx.Rollback()
 					cm.logger.Error("Failed to insert context item", map[string]any{
 						"error":      err.Error(),
 						"context_id": contextID,
@@ -561,7 +565,11 @@ func (cm *ContextManager) ListContexts(ctx context.Context, agentID, sessionID s
 			cm.metrics.IncrementCounterWithLabels(MetricContextOperationsTotal, float64(1), map[string]string{"operation": "list", "status": "error"})
 			return nil, fmt.Errorf("failed to list contexts: %w", err)
 		}
-		defer rows.Close()
+		defer func() {
+			if err := rows.Close(); err != nil {
+				cm.logger.Warn("Failed to close rows", map[string]any{"error": err})
+			}
+		}()
 
 		// Iterate through results
 		for rows.Next() {
@@ -647,7 +655,11 @@ func (cm *ContextManager) SearchInContext(ctx context.Context, contextID, query 
 			cm.metrics.IncrementCounterWithLabels(MetricContextOperationsTotal, float64(1), map[string]string{"operation": "search", "status": "error"})
 			return nil, fmt.Errorf("failed to search in context: %w", err)
 		}
-		defer rows.Close()
+		defer func() {
+			if err := rows.Close(); err != nil {
+				cm.logger.Warn("Failed to close rows", map[string]any{"error": err})
+			}
+		}()
 
 		// Iterate through results
 		for rows.Next() {

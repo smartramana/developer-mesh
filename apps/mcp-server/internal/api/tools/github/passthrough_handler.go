@@ -189,7 +189,7 @@ func (f *PassthroughAdapterFactory) GetAuthenticatedUser(ctx context.Context) (m
 
 	// Check if this is a service account or user credential
 	isServiceAccount := false
-	authMethod := "unknown"
+	var authMethod string
 	
 	if creds, ok := auth.GetToolCredentials(ctx); !ok || creds == nil || creds.GitHub == nil {
 		isServiceAccount = true

@@ -68,8 +68,12 @@ func TestIRSADetection(t *testing.T) {
 	origRoleArn := os.Getenv("AWS_ROLE_ARN")
 
 	// Set test env vars
-	os.Setenv("AWS_WEB_IDENTITY_TOKEN_FILE", "/var/run/secrets/eks.amazonaws.com/serviceaccount/token")
-	os.Setenv("AWS_ROLE_ARN", "arn:aws:iam::123456789012:role/test-role")
+	if err := os.Setenv("AWS_WEB_IDENTITY_TOKEN_FILE", "/var/run/secrets/eks.amazonaws.com/serviceaccount/token"); err != nil {
+		t.Fatalf("Failed to set AWS_WEB_IDENTITY_TOKEN_FILE: %v", err)
+	}
+	if err := os.Setenv("AWS_ROLE_ARN", "arn:aws:iam::123456789012:role/test-role"); err != nil {
+		t.Fatalf("Failed to set AWS_ROLE_ARN: %v", err)
+	}
 
 	// Test IRSA detection
 	if !IsIRSAEnabled() {
@@ -77,8 +81,12 @@ func TestIRSADetection(t *testing.T) {
 	}
 
 	// Clean up
-	os.Setenv("AWS_WEB_IDENTITY_TOKEN_FILE", origWebIdentityTokenFile)
-	os.Setenv("AWS_ROLE_ARN", origRoleArn)
+	if err := os.Setenv("AWS_WEB_IDENTITY_TOKEN_FILE", origWebIdentityTokenFile); err != nil {
+		t.Errorf("Failed to restore AWS_WEB_IDENTITY_TOKEN_FILE: %v", err)
+	}
+	if err := os.Setenv("AWS_ROLE_ARN", origRoleArn); err != nil {
+		t.Errorf("Failed to restore AWS_ROLE_ARN: %v", err)
+	}
 }
 
 func TestIsIRSAEnabled(t *testing.T) {
@@ -88,45 +96,65 @@ func TestIsIRSAEnabled(t *testing.T) {
 
 	// Clean up environment variables when the test completes
 	defer func() {
-		os.Unsetenv("AWS_WEB_IDENTITY_TOKEN_FILE")
-		os.Unsetenv("AWS_ROLE_ARN")
+		_ = os.Unsetenv("AWS_WEB_IDENTITY_TOKEN_FILE") // Ignore error in cleanup
+		_ = os.Unsetenv("AWS_ROLE_ARN") // Ignore error in cleanup
 
 		// Restore original environment variables if they existed
 		if hasWebIdentityTokenFile {
-			os.Setenv("AWS_WEB_IDENTITY_TOKEN_FILE", originalWebIdentityTokenFile)
+			if err := os.Setenv("AWS_WEB_IDENTITY_TOKEN_FILE", originalWebIdentityTokenFile); err != nil {
+				t.Errorf("Failed to restore AWS_WEB_IDENTITY_TOKEN_FILE: %v", err)
+			}
 		}
 		if hasRoleArn {
-			os.Setenv("AWS_ROLE_ARN", originalRoleArn)
+			if err := os.Setenv("AWS_ROLE_ARN", originalRoleArn); err != nil {
+				t.Errorf("Failed to restore AWS_ROLE_ARN: %v", err)
+			}
 		}
 	}()
 
 	// Test case 1: No IRSA environment variables set
-	os.Unsetenv("AWS_WEB_IDENTITY_TOKEN_FILE")
-	os.Unsetenv("AWS_ROLE_ARN")
+	if err := os.Unsetenv("AWS_WEB_IDENTITY_TOKEN_FILE"); err != nil {
+		t.Errorf("Failed to unset AWS_WEB_IDENTITY_TOKEN_FILE: %v", err)
+	}
+	if err := os.Unsetenv("AWS_ROLE_ARN"); err != nil {
+		t.Errorf("Failed to unset AWS_ROLE_ARN: %v", err)
+	}
 
 	if IsIRSAEnabled() {
 		t.Error("Expected IsIRSAEnabled() to return false when no environment variables are set")
 	}
 
 	// Test case 2: Only AWS_WEB_IDENTITY_TOKEN_FILE set
-	os.Setenv("AWS_WEB_IDENTITY_TOKEN_FILE", "/var/run/secrets/token")
-	os.Unsetenv("AWS_ROLE_ARN")
+	if err := os.Setenv("AWS_WEB_IDENTITY_TOKEN_FILE", "/var/run/secrets/token"); err != nil {
+		t.Errorf("Failed to set AWS_WEB_IDENTITY_TOKEN_FILE: %v", err)
+	}
+	if err := os.Unsetenv("AWS_ROLE_ARN"); err != nil {
+		t.Errorf("Failed to unset AWS_ROLE_ARN: %v", err)
+	}
 
 	if IsIRSAEnabled() {
 		t.Error("Expected IsIRSAEnabled() to return false when only AWS_WEB_IDENTITY_TOKEN_FILE is set")
 	}
 
 	// Test case 3: Only AWS_ROLE_ARN set
-	os.Unsetenv("AWS_WEB_IDENTITY_TOKEN_FILE")
-	os.Setenv("AWS_ROLE_ARN", "arn:aws:iam::123456789012:role/test-role")
+	if err := os.Unsetenv("AWS_WEB_IDENTITY_TOKEN_FILE"); err != nil {
+		t.Errorf("Failed to unset AWS_WEB_IDENTITY_TOKEN_FILE: %v", err)
+	}
+	if err := os.Setenv("AWS_ROLE_ARN", "arn:aws:iam::123456789012:role/test-role"); err != nil {
+		t.Errorf("Failed to set AWS_ROLE_ARN: %v", err)
+	}
 
 	if IsIRSAEnabled() {
 		t.Error("Expected IsIRSAEnabled() to return false when only AWS_ROLE_ARN is set")
 	}
 
 	// Test case 4: Both environment variables set (IRSA enabled)
-	os.Setenv("AWS_WEB_IDENTITY_TOKEN_FILE", "/var/run/secrets/token")
-	os.Setenv("AWS_ROLE_ARN", "arn:aws:iam::123456789012:role/test-role")
+	if err := os.Setenv("AWS_WEB_IDENTITY_TOKEN_FILE", "/var/run/secrets/token"); err != nil {
+		t.Errorf("Failed to set AWS_WEB_IDENTITY_TOKEN_FILE: %v", err)
+	}
+	if err := os.Setenv("AWS_ROLE_ARN", "arn:aws:iam::123456789012:role/test-role"); err != nil {
+		t.Errorf("Failed to set AWS_ROLE_ARN: %v", err)
+	}
 
 	if !IsIRSAEnabled() {
 		t.Error("Expected IsIRSAEnabled() to return true when both environment variables are set")
@@ -140,15 +168,19 @@ func TestGetAWSConfig(t *testing.T) {
 
 	// Clean up environment variables when the test completes
 	defer func() {
-		os.Unsetenv("AWS_WEB_IDENTITY_TOKEN_FILE")
-		os.Unsetenv("AWS_ROLE_ARN")
+		_ = os.Unsetenv("AWS_WEB_IDENTITY_TOKEN_FILE") // Ignore error in cleanup
+		_ = os.Unsetenv("AWS_ROLE_ARN") // Ignore error in cleanup
 
 		// Restore original environment variables if they existed
 		if hasWebIdentityTokenFile {
-			os.Setenv("AWS_WEB_IDENTITY_TOKEN_FILE", originalWebIdentityTokenFile)
+			if err := os.Setenv("AWS_WEB_IDENTITY_TOKEN_FILE", originalWebIdentityTokenFile); err != nil {
+				t.Errorf("Failed to restore AWS_WEB_IDENTITY_TOKEN_FILE: %v", err)
+			}
 		}
 		if hasRoleArn {
-			os.Setenv("AWS_ROLE_ARN", originalRoleArn)
+			if err := os.Setenv("AWS_ROLE_ARN", originalRoleArn); err != nil {
+				t.Errorf("Failed to restore AWS_ROLE_ARN: %v", err)
+			}
 		}
 	}()
 
@@ -159,8 +191,12 @@ func TestGetAWSConfig(t *testing.T) {
 	}
 
 	// Test without IRSA
-	os.Unsetenv("AWS_WEB_IDENTITY_TOKEN_FILE")
-	os.Unsetenv("AWS_ROLE_ARN")
+	if err := os.Unsetenv("AWS_WEB_IDENTITY_TOKEN_FILE"); err != nil {
+		t.Errorf("Failed to unset AWS_WEB_IDENTITY_TOKEN_FILE: %v", err)
+	}
+	if err := os.Unsetenv("AWS_ROLE_ARN"); err != nil {
+		t.Errorf("Failed to unset AWS_ROLE_ARN: %v", err)
+	}
 
 	awsCfg, err := GetAWSConfig(context.Background(), cfg)
 	if err != nil {
@@ -172,8 +208,12 @@ func TestGetAWSConfig(t *testing.T) {
 	}
 
 	// Test with IRSA
-	os.Setenv("AWS_WEB_IDENTITY_TOKEN_FILE", "/var/run/secrets/token")
-	os.Setenv("AWS_ROLE_ARN", "arn:aws:iam::123456789012:role/test-role")
+	if err := os.Setenv("AWS_WEB_IDENTITY_TOKEN_FILE", "/var/run/secrets/token"); err != nil {
+		t.Errorf("Failed to set AWS_WEB_IDENTITY_TOKEN_FILE: %v", err)
+	}
+	if err := os.Setenv("AWS_ROLE_ARN", "arn:aws:iam::123456789012:role/test-role"); err != nil {
+		t.Errorf("Failed to set AWS_ROLE_ARN: %v", err)
+	}
 
 	awsCfg, err = GetAWSConfig(context.Background(), cfg)
 	if err != nil {

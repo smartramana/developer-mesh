@@ -10,6 +10,13 @@ import (
     "time"
 )
 
+const (
+    // Default Google embedding model
+    defaultGoogleModel = "text-embedding-004"
+    // Default timeout for API requests
+    defaultGoogleTimeout = 30 * time.Second
+)
+
 // GoogleProvider implements the Provider interface for Google Vertex AI embeddings
 type GoogleProvider struct {
     projectID   string
@@ -25,7 +32,7 @@ func NewGoogleProvider(projectID, location, apiKey string) *GoogleProvider {
         location:   location,
         apiKey:     apiKey,
         httpClient: &http.Client{
-            Timeout: 30 * time.Second,
+            Timeout: defaultGoogleTimeout,
         },
     }
 }
@@ -50,6 +57,11 @@ type googleEmbedResponse struct {
 
 // GenerateEmbedding generates an embedding using Google Vertex AI
 func (p *GoogleProvider) GenerateEmbedding(ctx context.Context, content string, model string) ([]float32, error) {
+    // Use default model if not specified
+    if model == "" {
+        model = defaultGoogleModel
+    }
+    
     // Map model names to endpoints
     var endpoint string
     switch model {
@@ -103,7 +115,12 @@ func (p *GoogleProvider) GenerateEmbedding(ctx context.Context, content string, 
     if err != nil {
         return nil, fmt.Errorf("failed to send request: %w", err)
     }
-    defer resp.Body.Close()
+    defer func() {
+        if err := resp.Body.Close(); err != nil {
+            // Google provider - best effort logging
+            _ = err
+        }
+    }()
     
     // Read response
     body, err := io.ReadAll(resp.Body)

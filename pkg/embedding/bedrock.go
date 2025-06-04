@@ -269,8 +269,12 @@ func (s *BedrockEmbeddingService) BatchGenerateEmbeddings(ctx context.Context, t
 			// Set content type based on the model
 			contentTypeHeader := "application/json"
 
+			// Create a timeout context for the API call
+			timeoutCtx, cancel := context.WithTimeout(ctx, defaultBedrockTimeout)
+			defer cancel()
+
 			// Invoke Bedrock model
-			response, err := s.client.InvokeModel(ctx, &bedrockruntime.InvokeModelInput{
+			response, err := s.client.InvokeModel(timeoutCtx, &bedrockruntime.InvokeModelInput{
 				ModelId:     aws.String(s.config.Name),
 				ContentType: aws.String(contentTypeHeader),
 				Body:        requestBytes,
@@ -377,7 +381,11 @@ func formatAmazonRequest(text string) ([]byte, error) {
 	request := map[string]interface{}{
 		"inputText": text,
 	}
-	return json.Marshal(request)
+	bytes, err := json.Marshal(request)
+	if err != nil {
+		return nil, fmt.Errorf("failed to marshal Amazon request: %w", err)
+	}
+	return bytes, nil
 }
 
 func formatCohereRequest(texts []string) ([]byte, error) {
@@ -386,14 +394,22 @@ func formatCohereRequest(texts []string) ([]byte, error) {
 		"input_type": "search_document",
 		"truncate":   "NONE",
 	}
-	return json.Marshal(request)
+	bytes, err := json.Marshal(request)
+	if err != nil {
+		return nil, fmt.Errorf("failed to marshal Cohere request: %w", err)
+	}
+	return bytes, nil
 }
 
 func formatAnthropicRequest(texts []string) ([]byte, error) {
 	request := map[string]interface{}{
 		"input": texts,
 	}
-	return json.Marshal(request)
+	bytes, err := json.Marshal(request)
+	if err != nil {
+		return nil, fmt.Errorf("failed to marshal Anthropic request: %w", err)
+	}
+	return bytes, nil
 }
 
 func formatMetaRequest(text string) ([]byte, error) {
@@ -401,7 +417,11 @@ func formatMetaRequest(text string) ([]byte, error) {
 	request := map[string]interface{}{
 		"text": text,
 	}
-	return json.Marshal(request)
+	bytes, err := json.Marshal(request)
+	if err != nil {
+		return nil, fmt.Errorf("failed to marshal Meta request: %w", err)
+	}
+	return bytes, nil
 }
 
 // Placeholder for future Nova embedding models
@@ -411,7 +431,11 @@ func formatNovaRequest(text string) ([]byte, error) {
 	request := map[string]interface{}{
 		"inputText": text,
 	}
-	return json.Marshal(request)
+	bytes, err := json.Marshal(request)
+	if err != nil {
+		return nil, fmt.Errorf("failed to marshal Nova request: %w", err)
+	}
+	return bytes, nil
 }
 
 // Helper functions to parse responses based on provider

@@ -99,7 +99,11 @@ func (c *RESTClient) Request(ctx context.Context, method, path string, body any,
 	if err != nil {
 		return fmt.Errorf("failed to execute request: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() {
+		if err := resp.Body.Close(); err != nil {
+			c.logger.Warn("Failed to close response body", map[string]interface{}{"error": err})
+		}
+	}()
 
 	// Handle rate limiting
 	c.handleRateLimiting(resp)

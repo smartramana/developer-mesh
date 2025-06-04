@@ -158,8 +158,9 @@ func TestProtocolCompliance(t *testing.T) {
 			},
 		}
 
-		body, _ := json.Marshal(request)
-		req := httptest.NewRequest("POST", "/mcp/v1/rpc", bytes.NewReader(body))
+		body, err := json.Marshal(request)
+			require.NoError(t, err)
+			req := httptest.NewRequest("POST", "/mcp/v1/rpc", bytes.NewReader(body))
 		req.Header.Set("Content-Type", "application/json")
 		req.Header.Set("X-MCP-Version", "1.0")
 
@@ -169,7 +170,7 @@ func TestProtocolCompliance(t *testing.T) {
 		assert.Equal(t, http.StatusOK, w.Code)
 
 		var response map[string]interface{}
-		err := json.Unmarshal(w.Body.Bytes(), &response)
+		err = json.Unmarshal(w.Body.Bytes(), &response)
 		require.NoError(t, err)
 
 		// Validate response format
@@ -200,8 +201,9 @@ func TestProtocolCompliance(t *testing.T) {
 			},
 		}
 
-		body, _ := json.Marshal(requests)
-		req := httptest.NewRequest("POST", "/mcp/v1/rpc", bytes.NewReader(body))
+		body, err := json.Marshal(requests)
+			require.NoError(t, err)
+			req := httptest.NewRequest("POST", "/mcp/v1/rpc", bytes.NewReader(body))
 		req.Header.Set("Content-Type", "application/json")
 		req.Header.Set("X-MCP-Version", "1.0")
 
@@ -211,7 +213,7 @@ func TestProtocolCompliance(t *testing.T) {
 		assert.Equal(t, http.StatusOK, w.Code)
 
 		var responses []map[string]interface{}
-		err := json.Unmarshal(w.Body.Bytes(), &responses)
+		err = json.Unmarshal(w.Body.Bytes(), &responses)
 		require.NoError(t, err)
 
 		assert.Len(t, responses, 2)
@@ -228,8 +230,9 @@ func TestProtocolCompliance(t *testing.T) {
 			"params":  map[string]interface{}{},
 		}
 
-		body, _ := json.Marshal(request)
-		req := httptest.NewRequest("POST", "/mcp/v1/rpc", bytes.NewReader(body))
+		body, err := json.Marshal(request)
+			require.NoError(t, err)
+			req := httptest.NewRequest("POST", "/mcp/v1/rpc", bytes.NewReader(body))
 		req.Header.Set("Content-Type", "application/json")
 		req.Header.Set("X-MCP-Version", "1.0")
 
@@ -239,7 +242,7 @@ func TestProtocolCompliance(t *testing.T) {
 		assert.Equal(t, http.StatusOK, w.Code) // JSON-RPC returns 200 with error in body
 
 		var response map[string]interface{}
-		err := json.Unmarshal(w.Body.Bytes(), &response)
+		err = json.Unmarshal(w.Body.Bytes(), &response)
 		require.NoError(t, err)
 
 		assert.Equal(t, "2.0", response["jsonrpc"])
@@ -265,8 +268,9 @@ func TestProtocolCompliance(t *testing.T) {
 			},
 		}
 
-		body, _ := json.Marshal(notification)
-		req := httptest.NewRequest("POST", "/mcp/v1/rpc", bytes.NewReader(body))
+		body, err := json.Marshal(notification)
+			require.NoError(t, err)
+			req := httptest.NewRequest("POST", "/mcp/v1/rpc", bytes.NewReader(body))
 		req.Header.Set("Content-Type", "application/json")
 		req.Header.Set("X-MCP-Version", "1.0")
 
@@ -347,7 +351,8 @@ func TestMessageFormats(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			body, _ := json.Marshal(tc.request)
+			body, err := json.Marshal(tc.request)
+			require.NoError(t, err)
 			req := httptest.NewRequest("POST", "/mcp/v1/rpc", bytes.NewReader(body))
 			req.Header.Set("Content-Type", "application/json")
 			req.Header.Set("X-MCP-Version", "1.0")
@@ -362,7 +367,7 @@ func TestMessageFormats(t *testing.T) {
 
 				var response map[string]interface{}
 				err := json.Unmarshal(w.Body.Bytes(), &response)
-				require.NoError(t, err)
+			require.NoError(t, err)
 
 				if tc.expectedError != "" {
 					assert.Contains(t, response, "error")
@@ -388,8 +393,9 @@ func TestVersionCompatibility(t *testing.T) {
 			"method":  "system.version",
 		}
 
-		body, _ := json.Marshal(request)
-		req := httptest.NewRequest("POST", "/mcp/v1/rpc", bytes.NewReader(body))
+		body, err := json.Marshal(request)
+			require.NoError(t, err)
+			req := httptest.NewRequest("POST", "/mcp/v1/rpc", bytes.NewReader(body))
 		req.Header.Set("Content-Type", "application/json")
 		req.Header.Set("X-MCP-Version", "1.0")
 
@@ -407,8 +413,9 @@ func TestVersionCompatibility(t *testing.T) {
 			"method":  "system.version",
 		}
 
-		body, _ := json.Marshal(request)
-		req := httptest.NewRequest("POST", "/mcp/v1/rpc", bytes.NewReader(body))
+		body, err := json.Marshal(request)
+			require.NoError(t, err)
+			req := httptest.NewRequest("POST", "/mcp/v1/rpc", bytes.NewReader(body))
 		req.Header.Set("Content-Type", "application/json")
 		req.Header.Set("X-MCP-Version", "99.0") // Unsupported version
 
@@ -427,7 +434,8 @@ func TestVersionCompatibility(t *testing.T) {
 			"method":  "system.capabilities",
 		}
 
-		body, _ := json.Marshal(request)
+		body, err := json.Marshal(request)
+		require.NoError(t, err)
 		req := httptest.NewRequest("POST", "/mcp/v1/rpc", bytes.NewReader(body))
 		req.Header.Set("Content-Type", "application/json")
 		req.Header.Set("Accept-MCP-Version", "1.0, 2.0, 3.0")
@@ -438,7 +446,8 @@ func TestVersionCompatibility(t *testing.T) {
 		assert.Equal(t, http.StatusOK, w.Code)
 
 		var response map[string]interface{}
-		json.Unmarshal(w.Body.Bytes(), &response)
+		err = json.Unmarshal(w.Body.Bytes(), &response)
+		require.NoError(t, err)
 
 		if result, ok := response["result"].(map[string]interface{}); ok {
 			assert.Contains(t, result, "version")
@@ -465,8 +474,9 @@ func TestStreamingResponses(t *testing.T) {
 			},
 		}
 
-		body, _ := json.Marshal(request)
-		req := httptest.NewRequest("POST", "/mcp/v1/rpc", bytes.NewReader(body))
+		body, err := json.Marshal(request)
+			require.NoError(t, err)
+			req := httptest.NewRequest("POST", "/mcp/v1/rpc", bytes.NewReader(body))
 		req.Header.Set("Content-Type", "application/json")
 		req.Header.Set("X-MCP-Version", "1.0")
 		req.Header.Set("Accept", "text/event-stream")
@@ -502,7 +512,8 @@ func TestContextManagementProtocol(t *testing.T) {
 			},
 		}
 
-		body, _ := json.Marshal(createReq)
+		body, err := json.Marshal(createReq)
+		require.NoError(t, err)
 		req := httptest.NewRequest("POST", "/mcp/v1/rpc", bytes.NewReader(body))
 		req.Header.Set("Content-Type", "application/json")
 		req.Header.Set("X-MCP-Version", "1.0")
@@ -511,7 +522,8 @@ func TestContextManagementProtocol(t *testing.T) {
 		router.ServeHTTP(w, req)
 
 		var createResp map[string]interface{}
-		json.Unmarshal(w.Body.Bytes(), &createResp)
+		err = json.Unmarshal(w.Body.Bytes(), &createResp)
+		require.NoError(t, err)
 
 		if result, ok := createResp["result"].(map[string]interface{}); ok {
 			assert.Contains(t, result, "id")
@@ -539,7 +551,8 @@ func TestContextManagementProtocol(t *testing.T) {
 			},
 		}
 
-		body, _ := json.Marshal(updateReq)
+		body, err := json.Marshal(updateReq)
+		require.NoError(t, err)
 		req := httptest.NewRequest("POST", "/mcp/v1/rpc", bytes.NewReader(body))
 		req.Header.Set("Content-Type", "application/json")
 		req.Header.Set("X-MCP-Version", "1.0")
@@ -548,7 +561,8 @@ func TestContextManagementProtocol(t *testing.T) {
 		router.ServeHTTP(w, req)
 
 		var updateResp map[string]interface{}
-		json.Unmarshal(w.Body.Bytes(), &updateResp)
+		err = json.Unmarshal(w.Body.Bytes(), &updateResp)
+		require.NoError(t, err)
 
 		if result, ok := updateResp["result"].(map[string]interface{}); ok {
 			// Should include truncation warning
@@ -583,7 +597,8 @@ func TestEventProtocol(t *testing.T) {
 			},
 		}
 
-		body, _ := json.Marshal(request)
+		body, err := json.Marshal(request)
+		require.NoError(t, err)
 		req := httptest.NewRequest("POST", "/mcp/v1/rpc", bytes.NewReader(body))
 		req.Header.Set("Content-Type", "application/json")
 		req.Header.Set("X-MCP-Version", "1.0")
@@ -594,7 +609,8 @@ func TestEventProtocol(t *testing.T) {
 		assert.Equal(t, http.StatusOK, w.Code)
 
 		var response map[string]interface{}
-		json.Unmarshal(w.Body.Bytes(), &response)
+		err = json.Unmarshal(w.Body.Bytes(), &response)
+		require.NoError(t, err)
 
 		if result, ok := response["result"].(map[string]interface{}); ok {
 			assert.Contains(t, result, "subscription_id")
@@ -620,8 +636,9 @@ func TestEventProtocol(t *testing.T) {
 			},
 		}
 
-		body, _ := json.Marshal(event)
-		req := httptest.NewRequest("POST", "/mcp/v1/rpc", bytes.NewReader(body))
+		body, err := json.Marshal(event)
+			require.NoError(t, err)
+			req := httptest.NewRequest("POST", "/mcp/v1/rpc", bytes.NewReader(body))
 		req.Header.Set("Content-Type", "application/json")
 		req.Header.Set("X-MCP-Version", "1.0")
 

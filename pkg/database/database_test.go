@@ -45,7 +45,11 @@ func TestNewDatabase(t *testing.T) {
 
 func TestTransaction(t *testing.T) {
 	db, mock := setupMockDB(t)
-	defer db.Close()
+	defer func() {
+		if err := db.Close(); err != nil {
+			t.Errorf("Failed to close database: %v", err)
+		}
+	}()
 
 	t.Run("Successful Transaction", func(t *testing.T) {
 		mock.ExpectBegin()
@@ -139,7 +143,11 @@ func TestPing(t *testing.T) {
 		config:     Config{},
 		statements: make(map[string]*sqlx.Stmt),
 	}
-	defer db.Close()
+	defer func() {
+		if err := db.Close(); err != nil {
+			t.Errorf("Failed to close database: %v", err)
+		}
+	}()
 
 	t.Run("Successful Ping", func(t *testing.T) {
 		mock.ExpectPing()

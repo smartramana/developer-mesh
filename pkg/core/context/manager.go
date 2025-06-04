@@ -679,7 +679,6 @@ func (m *Manager) truncatePreservingUser(contextData *models.Context) error {
 			userItems = userItems[removedUserCount:]
 		}
 
-		tokensToRemove -= removedUserTokens
 		userTokens -= removedUserTokens
 	}
 
@@ -944,7 +943,11 @@ func (m *Manager) getContextFromDB(ctx context.Context, tx *sqlx.Tx, contextID s
 	if err != nil {
 		return nil, fmt.Errorf("failed to get context items: %w", err)
 	}
-	defer rows.Close()
+	defer func() {
+		if err := rows.Close(); err != nil {
+			m.logger.Warn("Failed to close rows", map[string]any{"error": err})
+		}
+	}()
 
 	// Parse context items
 	for rows.Next() {
@@ -1205,7 +1208,11 @@ func (m *Manager) listContextsFromDB(ctx context.Context, tx *sqlx.Tx, agentID s
 	if err != nil {
 		return nil, fmt.Errorf("failed to list contexts: %w", err)
 	}
-	defer rows.Close()
+	defer func() {
+		if err := rows.Close(); err != nil {
+			m.logger.Warn("Failed to close rows", map[string]any{"error": err})
+		}
+	}()
 
 	// Parse contexts
 	var contexts []*models.Context

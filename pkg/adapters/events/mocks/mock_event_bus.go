@@ -116,13 +116,13 @@ func (b *MockEventBus) Emit(ctx context.Context, event *events.AdapterEvent) err
 	// Notify type-specific handlers
 	if exists {
 		for _, handler := range handlersCopy {
-			handler(ctx, event)
+			_ = handler(ctx, event) // Ignore errors in mock
 		}
 	}
 
 	// Notify global handlers
 	for _, handler := range globalHandlersCopy {
-		handler(ctx, event)
+		_ = handler(ctx, event) // Ignore errors in mock
 	}
 
 	return nil

@@ -84,8 +84,12 @@ func (b *AdapterContextBridge) ExecuteToolAction(ctx context.Context, contextID 
 	// Record the tool response in the context
 	responseContent := "Error executing tool action"
 	if err == nil {
-		responseBytes, _ := json.Marshal(result)
-		responseContent = string(responseBytes)
+		responseBytes, marshalErr := json.Marshal(result)
+		if marshalErr != nil {
+			responseContent = fmt.Sprintf("Error marshaling result: %v", marshalErr)
+		} else {
+			responseContent = string(responseBytes)
+		}
 	}
 
 	responseItem := models.ContextItem{
@@ -132,10 +136,14 @@ func (b *AdapterContextBridge) GetToolData(ctx context.Context, contextID string
 	}
 
 	// Record the data request in the context
-	queryBytes, _ := json.Marshal(query)
+	queryBytes, marshalErr := json.Marshal(query)
+	queryStr := "<error marshaling query>"
+	if marshalErr == nil {
+		queryStr = string(queryBytes)
+	}
 	requestItem := models.ContextItem{
 		Role:    "data_request",
-		Content: fmt.Sprintf("%s.getData(%s)", tool, string(queryBytes)),
+		Content: fmt.Sprintf("%s.getData(%s)", tool, queryStr),
 		Tokens:  1, // Will be calculated properly in production
 		Metadata: map[string]interface{}{
 			"tool":  tool,
@@ -166,8 +174,12 @@ func (b *AdapterContextBridge) GetToolData(ctx context.Context, contextID string
 	// Record the data response in the context
 	responseContent := "Error getting tool data"
 	if err == nil {
-		responseBytes, _ := json.Marshal(result)
-		responseContent = string(responseBytes)
+		responseBytes, marshalErr := json.Marshal(result)
+		if marshalErr != nil {
+			responseContent = fmt.Sprintf("Error marshaling result: %v", marshalErr)
+		} else {
+			responseContent = string(responseBytes)
+		}
 	}
 
 	responseItem := models.ContextItem{

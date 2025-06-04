@@ -7,11 +7,11 @@ import (
 	"sync"
 	"time"
 
+	"mcp-server/internal/config"
 	"github.com/S-Corkum/devops-mcp/pkg/models"
 	"github.com/S-Corkum/devops-mcp/pkg/observability"
-	"github.com/go-redis/redis/v8"
-	"github.com/hashicorp/golang-lru/v2"
-	"mcp-server/internal/config"
+	redis "github.com/go-redis/redis/v8"
+	lru "github.com/hashicorp/golang-lru/v2"
 )
 
 // MultiLevelCache implements a tiered caching strategy for optimal performance
@@ -167,7 +167,7 @@ func (mlc *MultiLevelCache) InvalidatePattern(ctx context.Context, pattern strin
 func (mlc *MultiLevelCache) WarmCache(ctx context.Context, contextIDs []string, loader func(string) (*models.Context, error)) error {
 	for _, id := range contextIDs {
 		// Check if already cached
-		if cached, _ := mlc.Get(ctx, id); cached != nil {
+		if cached, err := mlc.Get(ctx, id); err == nil && cached != nil {
 			continue
 		}
 

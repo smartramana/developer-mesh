@@ -7,6 +7,8 @@ import (
 )
 
 // vectorRepositoryAdapter implements the VectorRepository interface
+// Deprecated: This adapter is part of the migration strategy for the Go workspace migration.
+// It's intended for future vector database integration. Methods are preserved for API compatibility.
 type vectorRepositoryAdapter struct {
 	db any
 }

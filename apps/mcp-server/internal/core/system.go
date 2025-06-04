@@ -26,9 +26,7 @@ func (b *SystemEventBus) Publish(ctx context.Context, event system.Event) error 
 	}
 
 	for _, handler := range handlers {
-		if err := handler(ctx, event); err != nil {
-			// Log error but continue
-		}
+		_ = handler(ctx, event) // Ignore errors and continue
 	}
 
 	return nil

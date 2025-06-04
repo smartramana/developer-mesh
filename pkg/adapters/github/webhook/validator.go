@@ -26,7 +26,6 @@ type IPRange struct {
 type Validator struct {
 	secret              string
 	schemaCatalog       map[string]*gojsonschema.Schema
-	schemaLoader        gojsonschema.JSONLoader
 	deliveryCache       DeliveryCache
 	ipRanges            []IPRange
 	validateIPs         bool
@@ -83,7 +82,12 @@ func (v *Validator) updateGitHubIPRanges() error {
 	if err != nil {
 		return fmt.Errorf("failed to fetch GitHub IP ranges: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() {
+		if err := resp.Body.Close(); err != nil {
+			// Ignore close error - response was already read
+			_ = err
+		}
+	}()
 
 	if resp.StatusCode != http.StatusOK {
 		return fmt.Errorf("failed to fetch GitHub IP ranges: HTTP %d", resp.StatusCode)
@@ -163,7 +167,7 @@ func (v *Validator) ValidateSourceIP(sourceIP string) error {
 		0,
 		fmt.Sprintf("source IP %s is not in GitHub's IP ranges", sourceIP),
 	)
-	err.WithContext("validation", "ip_not_allowed")
+	err = err.WithContext("validation", "ip_not_allowed")
 
 	// Add the allowed IP ranges for context
 	if len(v.ipRanges) > 0 {
@@ -171,7 +175,7 @@ func (v *Validator) ValidateSourceIP(sourceIP string) error {
 		for _, ipRange := range v.ipRanges {
 			allowedRanges = append(allowedRanges, ipRange.CIDR)
 		}
-		err.WithContext("allowed_ip_ranges", strings.Join(allowedRanges[:3], ", ")+"...")
+		err = err.WithContext("allowed_ip_ranges", strings.Join(allowedRanges[:3], ", ")+"...")
 	}
 
 	return err
@@ -364,7 +368,7 @@ func (v *Validator) ValidateWithIP(eventType string, payload []byte, headers htt
 	if err := v.ValidateHeaders(headers); err != nil {
 		validationErr = errors.FromWebhookError(err, http.StatusBadRequest)
 		if githubErr, ok := validationErr.(*errors.GitHubError); ok {
-			githubErr.WithContext("stage", "headers")
+			githubErr = githubErr.WithContext("stage", "headers")
 		}
 		return validationErr
 	}
@@ -374,7 +378,7 @@ func (v *Validator) ValidateWithIP(eventType string, payload []byte, headers htt
 	if err := v.ValidateSignature(payload, signature); err != nil {
 		validationErr = errors.FromWebhookError(err, http.StatusBadRequest)
 		if githubErr, ok := validationErr.(*errors.GitHubError); ok {
-			githubErr.WithContext("stage", "signature")
+			githubErr = githubErr.WithContext("stage", "signature")
 		}
 		return validationErr
 	}
@@ -384,8 +388,8 @@ func (v *Validator) ValidateWithIP(eventType string, payload []byte, headers htt
 	if err := v.ValidateDeliveryID(deliveryID); err != nil {
 		validationErr = errors.FromWebhookError(err, http.StatusBadRequest)
 		if githubErr, ok := validationErr.(*errors.GitHubError); ok {
-			githubErr.WithContext("stage", "delivery_id")
-			githubErr.WithContext("delivery_id", deliveryID)
+			githubErr = githubErr.WithContext("stage", "delivery_id")
+			githubErr = githubErr.WithContext("delivery_id", deliveryID)
 		}
 		return validationErr
 	}
@@ -394,7 +398,7 @@ func (v *Validator) ValidateWithIP(eventType string, payload []byte, headers htt
 	if err := v.ValidatePayload(eventType, payload); err != nil {
 		validationErr = errors.FromWebhookError(err, http.StatusBadRequest)
 		if githubErr, ok := validationErr.(*errors.GitHubError); ok {
-			githubErr.WithContext("stage", "payload")
+			githubErr = githubErr.WithContext("stage", "payload")
 		}
 		return validationErr
 	}
@@ -408,8 +412,8 @@ func (v *Validator) ValidateWithIP(eventType string, payload []byte, headers htt
 		if err := v.ValidateSourceIP(sourceIP); err != nil {
 			validationErr = errors.FromWebhookError(err, http.StatusBadRequest)
 			if githubErr, ok := validationErr.(*errors.GitHubError); ok {
-				githubErr.WithContext("stage", "source_ip")
-				githubErr.WithContext("ip", sourceIP)
+				githubErr = githubErr.WithContext("stage", "source_ip")
+				githubErr = githubErr.WithContext("ip", sourceIP)
 			}
 			return validationErr
 		}

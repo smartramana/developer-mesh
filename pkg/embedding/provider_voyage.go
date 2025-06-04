@@ -83,7 +83,12 @@ func (p *VoyageProvider) GenerateEmbedding(ctx context.Context, content string, 
     if err != nil {
         return nil, fmt.Errorf("failed to send request: %w", err)
     }
-    defer resp.Body.Close()
+    defer func() {
+        if err := resp.Body.Close(); err != nil {
+            // Voyage provider - best effort logging
+            _ = err
+        }
+    }()
     
     // Read response
     body, err := io.ReadAll(resp.Body)

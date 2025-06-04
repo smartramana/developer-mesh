@@ -17,9 +17,7 @@ func copyContext(src *models.Context) *models.Context {
 		return nil
 	}
 	copyItems := make([]models.ContextItem, len(src.Content))
-	for i, item := range src.Content {
-		copyItems[i] = item // Struct copy is deep for value types
-	}
+	copy(copyItems, src.Content)
 	var metadataCopy map[string]interface{}
 	if src.Metadata != nil {
 		metadataCopy = make(map[string]interface{}, len(src.Metadata))
@@ -129,7 +127,7 @@ func TestContextManager_UpdateContext_AppendContent(t *testing.T) {
 		Return(copyContext(persistedContext), nil)
 	mockDB.On("UpdateContext", mock.Anything, mock.AnythingOfType("*models.Context")).Run(func(args mock.Arguments) {
 		ctx := args.Get(1).(*models.Context)
-		if ctx.Content != nil && len(ctx.Content) > 0 {
+		if len(ctx.Content) > 0 {
 			persistedContext.Content = append(persistedContext.Content, ctx.Content...)
 			persistedContext.CurrentTokens += ctx.CurrentTokens
 		}

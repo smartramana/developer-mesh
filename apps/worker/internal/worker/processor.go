@@ -11,6 +11,16 @@ import (
 	"github.com/S-Corkum/devops-mcp/pkg/queue"
 )
 
+// contextKey is a type for context keys
+type contextKey string
+
+const (
+	// authContextKey is the key for auth context in context.Value
+	authContextKey contextKey = "auth_context"
+	// tenantIDKey is the key for tenant ID in context.Value
+	tenantIDKey contextKey = "tenant_id"
+)
+
 // EventProcessor handles GitHub webhook events
 type EventProcessor struct {
 	logger       observability.Logger
@@ -87,7 +97,7 @@ func (p *EventProcessor) ProcessSQSEvent(ctx context.Context, event queue.SQSEve
 		}
 	}
 
-	p.logger.Info(fmt.Sprintf("Processing webhook event"), logFields)
+	p.logger.Info("Processing webhook event", logFields)
 
 	// Record metrics for this event
 	p.metrics.IncrementCounterWithLabels("webhook_events_received_total", 1, map[string]string{
@@ -169,8 +179,8 @@ func (p *EventProcessor) processEvent(ctx context.Context, event queue.SQSEvent,
 
 	// Add auth context to the processing context
 	if event.AuthContext != nil {
-		ctx = context.WithValue(ctx, "auth_context", event.AuthContext)
-		ctx = context.WithValue(ctx, "tenant_id", event.AuthContext.TenantID)
+		ctx = context.WithValue(ctx, authContextKey, event.AuthContext)
+		ctx = context.WithValue(ctx, tenantIDKey, event.AuthContext.TenantID)
 	}
 
 	// Process with appropriate handler

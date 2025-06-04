@@ -38,7 +38,10 @@ func setupMockServer() *httptest.Server {
 
 		// Default response for unknown endpoints
 		w.WriteHeader(http.StatusNotFound)
-		w.Write([]byte(`{"error":"Endpoint not found"}`))
+		if _, err := w.Write([]byte(`{"error":"Endpoint not found"}`)); err != nil {
+			// Test helper - ignore write errors
+			_ = err
+		}
 	}))
 }
 
@@ -49,7 +52,7 @@ func handleContextEndpoint(w http.ResponseWriter, r *http.Request) {
 	// Context creation
 	if r.Method == "POST" && r.URL.Path == "/api/v1/contexts" {
 		w.WriteHeader(http.StatusCreated)
-		w.Write([]byte(`{
+		if _, err := w.Write([]byte(`{
 			"id": "test-context-123",
 			"agent_id": "test-agent",
 			"model_id": "test-model",
@@ -60,14 +63,17 @@ func handleContextEndpoint(w http.ResponseWriter, r *http.Request) {
 			"max_tokens": 1000,
 			"created_at": "2023-01-01T00:00:00Z",
 			"updated_at": "2023-01-01T00:00:00Z"
-		}`))
+		}`)); err != nil {
+			// Test helper - ignore write errors
+			_ = err
+		}
 		return
 	}
 
 	// Context search
 	if r.Method == "POST" && strings.HasSuffix(r.URL.Path, "/search") {
 		w.WriteHeader(http.StatusOK)
-		w.Write([]byte(`{
+		if _, err := w.Write([]byte(`{
 			"results": [
 				{
 					"role": "user",
@@ -76,23 +82,29 @@ func handleContextEndpoint(w http.ResponseWriter, r *http.Request) {
 					"tokens": 5
 				}
 			]
-		}`))
+		}`)); err != nil {
+			// Test helper - ignore write errors
+			_ = err
+		}
 		return
 	}
 
 	// Context summary
 	if r.Method == "GET" && strings.HasSuffix(r.URL.Path, "/summary") {
 		w.WriteHeader(http.StatusOK)
-		w.Write([]byte(`{
+		if _, err := w.Write([]byte(`{
 			"summary": "This is a test summary"
-		}`))
+		}`)); err != nil {
+			// Test helper - ignore write errors
+			_ = err
+		}
 		return
 	}
 
 	// List contexts
 	if r.Method == "GET" && r.URL.Path == "/api/v1/contexts" {
 		w.WriteHeader(http.StatusOK)
-		w.Write([]byte(`{
+		if _, err := w.Write([]byte(`{
 			"contexts": [
 				{
 					"id": "test-context-123",
@@ -107,7 +119,10 @@ func handleContextEndpoint(w http.ResponseWriter, r *http.Request) {
 					"updated_at": "2023-01-01T00:00:00Z"
 				}
 			]
-		}`))
+		}`)); err != nil {
+			// Test helper - ignore write errors
+			_ = err
+		}
 		return
 	}
 
@@ -115,7 +130,10 @@ func handleContextEndpoint(w http.ResponseWriter, r *http.Request) {
 	parts := strings.Split(r.URL.Path, "/")
 	if len(parts) < 4 {
 		w.WriteHeader(http.StatusBadRequest)
-		w.Write([]byte(`{"error":"Invalid context ID"}`))
+		if _, err := w.Write([]byte(`{"error":"Invalid context ID"}`)); err != nil {
+			// Test helper - ignore write errors
+			_ = err
+		}
 		return
 	}
 	contextID := parts[3]
@@ -123,7 +141,7 @@ func handleContextEndpoint(w http.ResponseWriter, r *http.Request) {
 	// Get context
 	if r.Method == "GET" {
 		w.WriteHeader(http.StatusOK)
-		w.Write([]byte(fmt.Sprintf(`{
+		if _, err := w.Write([]byte(fmt.Sprintf(`{
 			"id": "%s",
 			"agent_id": "test-agent",
 			"model_id": "test-model",
@@ -134,14 +152,17 @@ func handleContextEndpoint(w http.ResponseWriter, r *http.Request) {
 			"max_tokens": 1000,
 			"created_at": "2023-01-01T00:00:00Z",
 			"updated_at": "2023-01-01T00:00:00Z"
-		}`, contextID)))
+		}`, contextID))); err != nil {
+			// Test helper - ignore write errors
+			_ = err
+		}
 		return
 	}
 
 	// Update context
 	if r.Method == "PUT" {
 		w.WriteHeader(http.StatusOK)
-		w.Write([]byte(fmt.Sprintf(`{
+		if _, err := w.Write([]byte(fmt.Sprintf(`{
 			"id": "%s",
 			"agent_id": "test-agent",
 			"model_id": "test-model",
@@ -159,20 +180,29 @@ func handleContextEndpoint(w http.ResponseWriter, r *http.Request) {
 			"max_tokens": 1000,
 			"created_at": "2023-01-01T00:00:00Z",
 			"updated_at": "2023-01-01T00:00:00Z"
-		}`, contextID)))
+		}`, contextID))); err != nil {
+			// Test helper - ignore write errors
+			_ = err
+		}
 		return
 	}
 
 	// Delete context
 	if r.Method == "DELETE" {
 		w.WriteHeader(http.StatusOK)
-		w.Write([]byte(`{"status":"ok"}`))
+		if _, err := w.Write([]byte(`{"status":"ok"}`)); err != nil {
+			// Test helper - ignore write errors
+			_ = err
+		}
 		return
 	}
 
 	// Default response for unsupported methods
 	w.WriteHeader(http.StatusMethodNotAllowed)
-	w.Write([]byte(`{"error":"Method not allowed"}`))
+	if _, err := w.Write([]byte(`{"error":"Method not allowed"}`)); err != nil {
+		// Test helper - ignore write errors
+		_ = err
+	}
 }
 
 // handleWebhookEndpoint handles webhook endpoints
@@ -187,7 +217,10 @@ func handleWebhookEndpoint(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.WriteHeader(http.StatusOK)
-	w.Write([]byte(`{"status":"ok"}`))
+	if _, err := w.Write([]byte(`{"status":"ok"}`)); err != nil {
+		// Test helper - ignore write errors
+		_ = err
+	}
 }
 
 // handleToolEndpoint handles tool-related endpoints
@@ -197,40 +230,52 @@ func handleToolEndpoint(w http.ResponseWriter, r *http.Request) {
 	// List tools
 	if r.Method == "GET" && r.URL.Path == "/api/v1/devops/adapters" {
 		w.WriteHeader(http.StatusOK)
-		w.Write([]byte(`{
+		if _, err := w.Write([]byte(`{
 			"adapters": ["github", "artifactory"]
-		}`))
+		}`)); err != nil {
+			// Test helper - ignore write errors
+			_ = err
+		}
 		return
 	}
 
 	// Tool action
 	if r.Method == "POST" && strings.Contains(r.URL.Path, "/action") {
 		w.WriteHeader(http.StatusOK)
-		w.Write([]byte(`{
+		if _, err := w.Write([]byte(`{
 			"result": "success",
 			"data": {
 				"issue_number": 123,
 				"url": "https://github.com/owner/repo/issues/123"
 			}
-		}`))
+		}`)); err != nil {
+			// Test helper - ignore write errors
+			_ = err
+		}
 		return
 	}
 
 	// Tool query
 	if r.Method == "POST" && strings.Contains(r.URL.Path, "/query") {
 		w.WriteHeader(http.StatusOK)
-		w.Write([]byte(`{
+		if _, err := w.Write([]byte(`{
 			"result": "success",
 			"data": {
 				"repositories": ["repo1", "repo2"]
 			}
-		}`))
+		}`)); err != nil {
+			// Test helper - ignore write errors
+			_ = err
+		}
 		return
 	}
 
 	// Default response for unsupported methods
 	w.WriteHeader(http.StatusMethodNotAllowed)
-	w.Write([]byte(`{"error":"Method not allowed"}`))
+	if _, err := w.Write([]byte(`{"error":"Method not allowed"}`)); err != nil {
+		// Test helper - ignore write errors
+		_ = err
+	}
 }
 
 // TestNewClient tests client initialization
@@ -445,7 +490,10 @@ func TestSendEvent(t *testing.T) {
 		assert.Equal(t, "application/json", r.Header.Get("Content-Type"))
 
 		w.WriteHeader(http.StatusOK)
-		w.Write([]byte(`{"status":"ok"}`))
+		if _, err := w.Write([]byte(`{"status":"ok"}`)); err != nil {
+			// Test helper - ignore write errors
+			_ = err
+		}
 	}))
 	defer customServer.Close()
 
@@ -485,7 +533,10 @@ func TestSendEventWithoutWebhookSecret(t *testing.T) {
 		assert.Equal(t, "application/json", r.Header.Get("Content-Type"))
 
 		w.WriteHeader(http.StatusOK)
-		w.Write([]byte(`{"status":"ok"}`))
+		if _, err := w.Write([]byte(`{"status":"ok"}`)); err != nil {
+			// Test helper - ignore write errors
+			_ = err
+		}
 	}))
 	defer customServer.Close()
 
@@ -570,7 +621,10 @@ func TestErrorHandling(t *testing.T) {
 	errorServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusBadRequest)
-		w.Write([]byte(`{"error":"Test error message"}`))
+		if _, err := w.Write([]byte(`{"error":"Test error message"}`)); err != nil {
+			// Test helper - ignore write errors
+			_ = err
+		}
 	}))
 	defer errorServer.Close()
 
@@ -673,7 +727,10 @@ func TestInvalidJSONResponse(t *testing.T) {
 	invalidJSONServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)
-		w.Write([]byte(`{"invalid json`)) // Intentionally invalid JSON
+		if _, err := w.Write([]byte(`{"invalid json`)); err != nil { // Intentionally invalid JSON
+			// Test helper - ignore write errors
+			_ = err
+		}
 	}))
 	defer invalidJSONServer.Close()
 

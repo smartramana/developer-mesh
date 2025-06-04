@@ -44,7 +44,7 @@ func TestOpenAIEmbeddingService_GenerateEmbedding(t *testing.T) {
 		// Return a mock response
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)
-		w.Write([]byte(`{
+		_, _ = w.Write([]byte(`{
 			"object": "list",
 			"data": [
 				{
@@ -84,7 +84,7 @@ func TestOpenAIEmbeddingService_ErrorHandling(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusBadRequest)
-		w.Write([]byte(`{
+		_, _ = w.Write([]byte(`{
 			"error": {
 				"message": "Test API error",
 				"type": "invalid_request_error",

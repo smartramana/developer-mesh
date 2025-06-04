@@ -4,6 +4,7 @@ import (
     "context"
     "encoding/json"
     "testing"
+    "time"
     
     "github.com/DATA-DOG/go-sqlmock"
     "github.com/google/uuid"
@@ -44,7 +45,11 @@ func TestService_CreateEmbedding(t *testing.T) {
     // Create mock database
     db, mock, err := sqlmock.New()
     require.NoError(t, err)
-    defer db.Close()
+    defer func() {
+        if err := db.Close(); err != nil {
+            t.Errorf("Failed to close database: %v", err)
+        }
+    }()
     
     // Create repository and service
     repo := NewRepository(db)
@@ -84,7 +89,7 @@ func TestService_CreateEmbedding(t *testing.T) {
     }).AddRow(
         modelID, "openai", "text-embedding-ada-002", "v2", 1536,
         8191, false, false, nil, 0.10, nil, "text",
-        true, json.RawMessage("{}"), "2024-01-01",
+        true, json.RawMessage("{}"), time.Now(),
     )
     
     mock.ExpectQuery("SELECT (.+) FROM mcp.embedding_models").
@@ -119,7 +124,11 @@ func TestService_SearchSimilar(t *testing.T) {
     // Create mock database
     db, mock, err := sqlmock.New()
     require.NoError(t, err)
-    defer db.Close()
+    defer func() {
+        if err := db.Close(); err != nil {
+            t.Errorf("Failed to close database: %v", err)
+        }
+    }()
     
     // Create repository and service
     repo := NewRepository(db)
@@ -158,7 +167,7 @@ func TestService_SearchSimilar(t *testing.T) {
     }).AddRow(
         modelID, "openai", "text-embedding-ada-002", "v2", 1536,
         8191, false, false, nil, 0.10, nil, "text",
-        true, json.RawMessage("{}"), "2024-01-01",
+        true, json.RawMessage("{}"), time.Now(),
     )
     
     mock.ExpectQuery("SELECT (.+) FROM mcp.embedding_models").
@@ -181,7 +190,7 @@ func TestService_SearchSimilar(t *testing.T) {
             contextID,
             10,
             0.8,
-            nil, // metadata filter
+            sqlmock.AnyArg(), // metadata filter - can be nil or empty slice
         ).
         WillReturnRows(searchRows)
     
@@ -201,7 +210,11 @@ func TestService_GetAvailableModels(t *testing.T) {
     // Create mock database
     db, mock, err := sqlmock.New()
     require.NoError(t, err)
-    defer db.Close()
+    defer func() {
+        if err := db.Close(); err != nil {
+            t.Errorf("Failed to close database: %v", err)
+        }
+    }()
     
     // Create repository and service
     repo := NewRepository(db)

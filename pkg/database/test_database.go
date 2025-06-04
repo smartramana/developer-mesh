@@ -79,37 +79,55 @@ func NewTestDatabaseWithContext(ctx context.Context) (*Database, error) {
 
 	// Create context tables
 	if err := testDb.ensureTestContextTables(ctx); err != nil {
-		testDb.Close()
+		if closeErr := testDb.Close(); closeErr != nil {
+			// Log close error but return original error
+			fmt.Printf("Failed to close test database: %v\n", closeErr)
+		}
 		return nil, fmt.Errorf("failed to create context tables: %w", err)
 	}
 
 	// Create GitHub content tables
 	if err := testDb.ensureTestGitHubContentTables(ctx); err != nil {
-		testDb.Close()
+		if closeErr := testDb.Close(); closeErr != nil {
+			// Log close error but return original error
+			fmt.Printf("Failed to close test database: %v\n", closeErr)
+		}
 		return nil, fmt.Errorf("failed to create GitHub content tables: %w", err)
 	}
 
 	// Create model tables
 	if err := testDb.ensureTestModelTables(ctx); err != nil {
-		testDb.Close()
+		if closeErr := testDb.Close(); closeErr != nil {
+			// Log close error but return original error
+			fmt.Printf("Failed to close test database: %v\n", closeErr)
+		}
 		return nil, fmt.Errorf("failed to create model tables: %w", err)
 	}
 
 	// Create agent tables
 	if err := testDb.ensureTestAgentTables(ctx); err != nil {
-		testDb.Close()
+		if closeErr := testDb.Close(); closeErr != nil {
+			// Log close error but return original error
+			fmt.Printf("Failed to close test database: %v\n", closeErr)
+		}
 		return nil, fmt.Errorf("failed to create agent tables: %w", err)
 	}
 
 	// Create vector tables
 	if err := testDb.ensureTestVectorTables(ctx); err != nil {
-		testDb.Close()
+		if closeErr := testDb.Close(); closeErr != nil {
+			// Log close error but return original error
+			fmt.Printf("Failed to close test database: %v\n", closeErr)
+		}
 		return nil, fmt.Errorf("failed to create vector tables: %w", err)
 	}
 
 	// Create relationship tables
 	if err := testDb.ensureTestRelationshipTables(ctx); err != nil {
-		testDb.Close()
+		if closeErr := testDb.Close(); closeErr != nil {
+			// Log close error but return original error
+			fmt.Printf("Failed to close test database: %v\n", closeErr)
+		}
 		return nil, fmt.Errorf("failed to create relationship tables: %w", err)
 	}
 
@@ -142,7 +160,10 @@ func NewTestDatabaseWithContext(ctx context.Context) (*Database, error) {
 	)`, schemaPrefix, jsonType, jsonType)
 
 	if _, err := testDb.db.ExecContext(ctx, eventsTable); err != nil {
-		testDb.Close()
+		if closeErr := testDb.Close(); closeErr != nil {
+			// Log close error but return original error
+			fmt.Printf("Failed to close test database: %v\n", closeErr)
+		}
 		return nil, fmt.Errorf("failed to create events table: %w", err)
 	}
 
@@ -158,7 +179,10 @@ func NewTestDatabaseWithContext(ctx context.Context) (*Database, error) {
 	)`, schemaPrefix, jsonType)
 
 	if _, err := testDb.db.ExecContext(ctx, integrationsTable); err != nil {
-		testDb.Close()
+		if closeErr := testDb.Close(); closeErr != nil {
+			// Log close error but return original error
+			fmt.Printf("Failed to close test database: %v\n", closeErr)
+		}
 		return nil, fmt.Errorf("failed to create integrations table: %w", err)
 	}
 

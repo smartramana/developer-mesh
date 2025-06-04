@@ -380,14 +380,12 @@ func (p *SearchAPIProxy) List(ctx context.Context, filter search.Filter) ([]*rep
 	}
 
 	// Extract filters from the generic filter
-	if filter != nil {
-		for field, value := range filter {
-			options.Filters = append(options.Filters, repository.SearchFilter{
-				Field:    field,
-				Operator: "eq",
-				Value:    value,
-			})
-		}
+	for field, value := range filter {
+		options.Filters = append(options.Filters, repository.SearchFilter{
+			Field:    field,
+			Operator: "eq",
+			Value:    value,
+		})
 	}
 
 	// Use search by text with empty query to get all results

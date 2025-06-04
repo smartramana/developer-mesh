@@ -3,7 +3,6 @@ package core
 import (
 	"context"
 	"fmt"
-	"sync"
 	"time"
 
 	"github.com/S-Corkum/devops-mcp/pkg/adapters"
@@ -105,7 +104,7 @@ type Engine struct {
 	metricsClient        observability.MetricsClient
 	logger               observability.Logger
 	eventBus             *events.EventBus
-	lock                 sync.RWMutex
+	// lock                 sync.RWMutex // Removed: unused field
 }
 
 // NewEngine creates a new engine
@@ -328,7 +327,7 @@ func (e *Engine) Close() {
 	if e.eventBus != nil {
 		e.eventBus.Close()
 	}
-	e.Shutdown(context.Background())
+	_ = e.Shutdown(context.Background())
 }
 
 // Shutdown performs a graceful shutdown of the engine

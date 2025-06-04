@@ -366,7 +366,11 @@ func (p *AppProvider) RefreshToken(ctx context.Context) error {
 			"failed to get installation token",
 		).WithContext("error", err.Error())
 	}
-	defer resp.Body.Close()
+	defer func() {
+		if err := resp.Body.Close(); err != nil {
+			p.logger.Warn("Failed to close response body", map[string]interface{}{"error": err})
+		}
+	}()
 
 	// Read response body
 	body, err := io.ReadAll(resp.Body)
@@ -582,7 +586,11 @@ func (p *OAuthProvider) RefreshToken(ctx context.Context) error {
 	if err != nil {
 		return fmt.Errorf("failed to refresh token: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() {
+		if err := resp.Body.Close(); err != nil {
+			p.logger.Warn("Failed to close response body", map[string]interface{}{"error": err})
+		}
+	}()
 
 	if resp.StatusCode != http.StatusOK {
 		return fmt.Errorf("failed to refresh token: status code %d", resp.StatusCode)

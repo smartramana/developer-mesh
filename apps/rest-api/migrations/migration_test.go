@@ -3,6 +3,7 @@ package migrations
 import (
     "database/sql"
     "fmt"
+    "os"
     "testing"
     
     _ "github.com/lib/pq"
@@ -19,31 +20,61 @@ func TestMigrations(t *testing.T) {
         t.Skip("Skipping migration test in short mode")
     }
     
+    // Get database credentials from environment or use defaults
+    dbUser := os.Getenv("DATABASE_USER")
+    if dbUser == "" {
+        dbUser = "dev"
+    }
+    dbPassword := os.Getenv("DATABASE_PASSWORD")
+    if dbPassword == "" {
+        dbPassword = "dev"
+    }
+    dbHost := os.Getenv("DATABASE_HOST")
+    if dbHost == "" {
+        dbHost = "localhost"
+    }
+    
     // Database connection string for testing
-    dsn := "postgres://dev:dev@localhost:5432/test_migrations?sslmode=disable"
+    dsn := fmt.Sprintf("postgres://%s:%s@%s:5432/postgres?sslmode=disable", dbUser, dbPassword, dbHost)
     
     // Open database connection
     db, err := sql.Open("postgres", dsn)
     if err != nil {
         t.Skip("Cannot connect to test database:", err)
     }
-    defer db.Close()
+    defer func() {
+        if err := db.Close(); err != nil {
+            t.Errorf("Failed to close database: %v", err)
+        }
+    }()
+    
+    // Test connection
+    if err := db.Ping(); err != nil {
+        t.Skip("Cannot connect to test database:", err)
+    }
     
     // Create test database
     _, err = db.Exec("CREATE DATABASE test_migrations")
     if err != nil && !isAlreadyExistsError(err) {
-        t.Fatal("Failed to create test database:", err)
+        t.Skip("Failed to create test database (may need permissions):", err)
     }
     
     // Connect to test database
-    testDB, err := sql.Open("postgres", "postgres://dev:dev@localhost:5432/test_migrations?sslmode=disable")
+    testDSN := fmt.Sprintf("postgres://%s:%s@%s:5432/test_migrations?sslmode=disable", dbUser, dbPassword, dbHost)
+    testDB, err := sql.Open("postgres", testDSN)
     require.NoError(t, err)
-    defer testDB.Close()
+    defer func() {
+        if err := testDB.Close(); err != nil {
+            t.Errorf("Failed to close test database: %v", err)
+        }
+    }()
     
     // Clean up after test
     defer func() {
-        testDB.Close()
-        db.Exec("DROP DATABASE test_migrations")
+        if err := testDB.Close(); err != nil {
+            t.Errorf("Failed to close test database in cleanup: %v", err)
+        }
+        _, _ = db.Exec("DROP DATABASE test_migrations")
     }()
     
     // Create migrate instance

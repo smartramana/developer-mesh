@@ -28,24 +28,16 @@ func main() {
 	log.Printf("SQS Settings: useLocalStack=%v, endpoint=%s, region=%s, queueName=%s",
 		useLocalStack, endpoint, region, queueName)
 
-	// Create a resolver using the provided endpoint
-	customResolver := aws.EndpointResolverWithOptionsFunc(func(service, region string, options ...interface{}) (aws.Endpoint, error) {
-		if useLocalStack {
-			return aws.Endpoint{
-				PartitionID:   "aws",
-				URL:           endpoint,
-				SigningRegion: region,
-			}, nil
-		}
-		// Return EndpointNotFoundError to use the default resolver
-		return aws.Endpoint{}, &aws.EndpointNotFoundError{}
-	})
-
 	// Load AWS SDK configuration
-	cfg, err := config.LoadDefaultConfig(context.TODO(),
-		config.WithRegion(region),
-		config.WithEndpointResolverWithOptions(customResolver),
-	)
+	var configOptions []func(*config.LoadOptions) error
+	configOptions = append(configOptions, config.WithRegion(region))
+
+	// Set custom endpoint for LocalStack
+	if useLocalStack && endpoint != "" {
+		configOptions = append(configOptions, config.WithBaseEndpoint(endpoint))
+	}
+
+	cfg, err := config.LoadDefaultConfig(context.TODO(), configOptions...)
 	if err != nil {
 		log.Fatalf("Failed to load AWS config: %v", err)
 	}

@@ -147,7 +147,7 @@ func GitHubWebhookHandler(config WebhookConfig, logger observability.Logger) htt
 			logger.Warn("SQS_QUEUE_URL not configured - skipping SQS enqueue", nil)
 			// Return success for tests
 			w.WriteHeader(http.StatusOK)
-			fmt.Fprintf(w, "{\"status\":\"success\",\"message\":\"Webhook received, SQS enqueue skipped\"}")
+			_, _ = fmt.Fprintf(w, "{\"status\":\"success\",\"message\":\"Webhook received, SQS enqueue skipped\"}")
 			return
 		}
 
@@ -175,7 +175,7 @@ func GitHubWebhookHandler(config WebhookConfig, logger observability.Logger) htt
 
 		// Return success response immediately
 		w.WriteHeader(http.StatusOK)
-		w.Write([]byte("Webhook received successfully"))
+		_, _ = w.Write([]byte("Webhook received successfully"))
 	}
 }
 
@@ -295,7 +295,12 @@ func (v *GitHubIPValidator) FetchGitHubIPRanges() error {
 	if err != nil {
 		return fmt.Errorf("failed to fetch GitHub meta API: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() {
+		if err := resp.Body.Close(); err != nil {
+			// Log error closing response body - non-critical
+			v.logger.Warn("Failed to close response body", map[string]interface{}{"error": err})
+		}
+	}()
 
 	if resp.StatusCode != http.StatusOK {
 		return fmt.Errorf("GitHub meta API returned non-OK status: %d", resp.StatusCode)

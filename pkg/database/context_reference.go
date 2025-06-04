@@ -284,7 +284,12 @@ func (d *Database) ListContextReferences(ctx context.Context, agentID, sessionID
 	if err != nil {
 		return nil, fmt.Errorf("failed to list context references: %w", err)
 	}
-	defer rows.Close()
+	defer func() {
+		if err := rows.Close(); err != nil {
+			// Context reference - log but don't fail
+			_ = err
+		}
+	}()
 
 	// Process the results
 	var refs []*ContextReference
@@ -313,7 +318,7 @@ func (d *Database) RunTransaction(ctx context.Context, fn func(*sqlx.Tx) error) 
 
 	defer func() {
 		if p := recover(); p != nil {
-			tx.Rollback()
+			_ = tx.Rollback() // Ignore error in panic recovery
 			panic(p) // re-throw panic after Rollback
 		}
 	}()

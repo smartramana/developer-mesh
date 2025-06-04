@@ -17,7 +17,11 @@ func TestVectorDatabase_Initialize(t *testing.T) {
 	// Create a mock database
 	mockDB, mock, err := sqlmock.New()
 	require.NoError(t, err)
-	defer mockDB.Close()
+	defer func() {
+		if err := mockDB.Close(); err != nil {
+			t.Errorf("Failed to close mock database: %v", err)
+		}
+	}()
 
 	// Create sqlx DB wrapper
 	db := sqlx.NewDb(mockDB, "sqlmock")
@@ -66,7 +70,11 @@ func TestVectorDatabase_Initialize_CreateTable(t *testing.T) {
 	// Create a mock database
 	mockDB, mock, err := sqlmock.New()
 	require.NoError(t, err)
-	defer mockDB.Close()
+	defer func() {
+		if err := mockDB.Close(); err != nil {
+			t.Errorf("Failed to close mock database: %v", err)
+		}
+	}()
 
 	// Create sqlx DB wrapper
 	db := sqlx.NewDb(mockDB, "sqlmock")
@@ -124,7 +132,11 @@ func TestVectorDatabase_CheckVectorDimensions(t *testing.T) {
 	// Create a mock database
 	mockDB, mock, err := sqlmock.New()
 	require.NoError(t, err)
-	defer mockDB.Close()
+	defer func() {
+		if err := mockDB.Close(); err != nil {
+			t.Errorf("Failed to close mock database: %v", err)
+		}
+	}()
 
 	// Create sqlx DB wrapper
 	db := sqlx.NewDb(mockDB, "sqlmock")
@@ -181,7 +193,11 @@ func TestVectorDatabase_Transaction(t *testing.T) {
 	// Create a mock database
 	mockDB, mock, err := sqlmock.New()
 	require.NoError(t, err)
-	defer mockDB.Close()
+	defer func() {
+		if err := mockDB.Close(); err != nil {
+			t.Errorf("Failed to close mock database: %v", err)
+		}
+	}()
 
 	// Create sqlx DB wrapper
 	db := sqlx.NewDb(mockDB, "sqlmock")
@@ -230,7 +246,11 @@ func TestVectorDatabase_Transaction_Error(t *testing.T) {
 	// Create a mock database
 	mockDB, mock, err := sqlmock.New()
 	require.NoError(t, err)
-	defer mockDB.Close()
+	defer func() {
+		if err := mockDB.Close(); err != nil {
+			t.Errorf("Failed to close mock database: %v", err)
+		}
+	}()
 
 	// Create sqlx DB wrapper
 	db := sqlx.NewDb(mockDB, "sqlmock")
@@ -269,7 +289,11 @@ func TestVectorDatabase_CreateVector(t *testing.T) {
 	// Create a mock database
 	mockDB, mock, err := sqlmock.New()
 	require.NoError(t, err)
-	defer mockDB.Close()
+	defer func() {
+		if err := mockDB.Close(); err != nil {
+			t.Errorf("Failed to close mock database: %v", err)
+		}
+	}()
 
 	// Create sqlx DB wrapper
 	db := sqlx.NewDb(mockDB, "sqlmock")
@@ -318,7 +342,11 @@ func TestVectorDatabase_CalculateSimilarity(t *testing.T) {
 	// Create a mock database
 	mockDB, mock, err := sqlmock.New()
 	require.NoError(t, err)
-	defer mockDB.Close()
+	defer func() {
+		if err := mockDB.Close(); err != nil {
+			t.Errorf("Failed to close mock database: %v", err)
+		}
+	}()
 
 	// Create sqlx DB wrapper
 	db := sqlx.NewDb(mockDB, "sqlmock")
@@ -404,7 +432,11 @@ func TestVectorDatabase_CalculateSimilarity_Methods(t *testing.T) {
 			// Create a mock database
 			mockDB, mock, err := sqlmock.New()
 			require.NoError(t, err)
-			defer mockDB.Close()
+			defer func() {
+		if err := mockDB.Close(); err != nil {
+			t.Errorf("Failed to close mock database: %v", err)
+		}
+	}()
 
 			// Create sqlx DB wrapper
 			db := sqlx.NewDb(mockDB, "sqlmock")
