@@ -2,58 +2,48 @@
 FROM golang:1.24-alpine AS builder
 
 # Install build dependencies
-RUN apk add --no-cache git
+RUN apk add --no-cache git gcc musl-dev ca-certificates tzdata
 
 # Set working directory
-WORKDIR /workspace
+WORKDIR /build
 
-# Copy go workspace files
-COPY go.work ./
+# Copy only the mockserver app since it's self-contained
+COPY apps/mockserver/ ./
 
-# Handle go.work.sum in a way that won't fail if the file doesn't exist
-# This is standard practice for Go workspaces in CI environments
-RUN touch go.work.sum
-COPY go.work.sum* ./ || true
+# Download dependencies and build with cache mounts
+RUN --mount=type=cache,target=/go/pkg/mod \
+    --mount=type=cache,target=/root/.cache/go-build \
+    go mod download && \
+    CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build \
+    -ldflags='-w -s -extldflags "-static"' \
+    -a -installsuffix cgo \
+    -o mockserver ./cmd/main.go
 
-# Copy all module files
-COPY apps/mockserver/go.mod apps/mockserver/go.sum ./apps/mockserver/
-COPY pkg/go.mod pkg/go.sum ./pkg/
+# Runtime stage - using distroless for security
+FROM gcr.io/distroless/static:nonroot
 
-# Download dependencies
-RUN go mod download
+# Copy timezone data and SSL certificates from builder
+COPY --from=builder /usr/share/zoneinfo /usr/share/zoneinfo
+COPY --from=builder /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/
 
-# Copy source code
-COPY apps/mockserver/ ./apps/mockserver/
-COPY pkg/ ./pkg/
-
-# Build the application
-WORKDIR /workspace/apps/mockserver
-RUN CGO_ENABLED=0 GOOS=linux go build -a -installsuffix cgo -o mockserver ./cmd/main.go
-
-# Runtime stage
-FROM alpine:3.19
-
-# Install runtime dependencies
-RUN apk --no-cache add ca-certificates
-
-# Create non-root user
-RUN addgroup -g 1000 appuser && \
-    adduser -D -u 1000 -G appuser appuser
+# Copy the binary from builder
+COPY --from=builder /build/mockserver /app/mockserver
 
 # Set working directory
 WORKDIR /app
 
-# Copy the binary from builder
-COPY --from=builder /workspace/apps/mockserver/mockserver .
-
-# Change ownership
-RUN chown -R appuser:appuser /app
-
-# Switch to non-root user
-USER appuser
+# Use non-root user
+USER nonroot
 
 # Expose port
 EXPOSE 8081
 
+# Health check is handled by docker-compose or Kubernetes
+# The mockserver provides a /health endpoint on the configured port
+
+# Environment variables
+ENV GIN_MODE=release \
+    PORT=8081
+
 # Run the application
-CMD ["./mockserver"]
+ENTRYPOINT ["/app/mockserver"]
