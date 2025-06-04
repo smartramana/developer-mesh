@@ -127,7 +127,7 @@ func TestContextManager_UpdateContext_AppendContent(t *testing.T) {
 		Return(copyContext(persistedContext), nil)
 	mockDB.On("UpdateContext", mock.Anything, mock.AnythingOfType("*models.Context")).Run(func(args mock.Arguments) {
 		ctx := args.Get(1).(*models.Context)
-		if ctx.Content != nil && len(ctx.Content) > 0 {
+		if len(ctx.Content) > 0 {
 			persistedContext.Content = append(persistedContext.Content, ctx.Content...)
 			persistedContext.CurrentTokens += ctx.CurrentTokens
 		}

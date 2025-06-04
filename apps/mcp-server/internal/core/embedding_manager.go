@@ -284,7 +284,7 @@ func (m *EmbeddingManager) SearchSimilarContent(
 	vectorStr := formatVectorForPg(embedding.Vector)
 
 	// Query for similar embeddings
-	query := fmt.Sprintf(`
+	query := `
 		SELECT
 			id, context_id, content_index, text,
 			content_type, model_id,
@@ -299,7 +299,7 @@ func (m *EmbeddingManager) SearchSimilarContent(
 		ORDER BY
 			similarity DESC
 		LIMIT $5
-	`)
+	`
 
 	rows, err := m.db.QueryContext(
 		ctx,
