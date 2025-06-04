@@ -18,6 +18,7 @@ func TestVectorDatabase_Initialize(t *testing.T) {
 	mockDB, mock, err := sqlmock.New()
 	require.NoError(t, err)
 	defer func() {
+		mock.ExpectClose()
 		if err := mockDB.Close(); err != nil {
 			t.Errorf("Failed to close mock database: %v", err)
 		}
@@ -71,6 +72,7 @@ func TestVectorDatabase_Initialize_CreateTable(t *testing.T) {
 	mockDB, mock, err := sqlmock.New()
 	require.NoError(t, err)
 	defer func() {
+		mock.ExpectClose()
 		if err := mockDB.Close(); err != nil {
 			t.Errorf("Failed to close mock database: %v", err)
 		}
@@ -133,6 +135,7 @@ func TestVectorDatabase_CheckVectorDimensions(t *testing.T) {
 	mockDB, mock, err := sqlmock.New()
 	require.NoError(t, err)
 	defer func() {
+		mock.ExpectClose()
 		if err := mockDB.Close(); err != nil {
 			t.Errorf("Failed to close mock database: %v", err)
 		}
@@ -194,6 +197,7 @@ func TestVectorDatabase_Transaction(t *testing.T) {
 	mockDB, mock, err := sqlmock.New()
 	require.NoError(t, err)
 	defer func() {
+		mock.ExpectClose()
 		if err := mockDB.Close(); err != nil {
 			t.Errorf("Failed to close mock database: %v", err)
 		}
@@ -247,6 +251,7 @@ func TestVectorDatabase_Transaction_Error(t *testing.T) {
 	mockDB, mock, err := sqlmock.New()
 	require.NoError(t, err)
 	defer func() {
+		mock.ExpectClose()
 		if err := mockDB.Close(); err != nil {
 			t.Errorf("Failed to close mock database: %v", err)
 		}
@@ -290,6 +295,7 @@ func TestVectorDatabase_CreateVector(t *testing.T) {
 	mockDB, mock, err := sqlmock.New()
 	require.NoError(t, err)
 	defer func() {
+		mock.ExpectClose()
 		if err := mockDB.Close(); err != nil {
 			t.Errorf("Failed to close mock database: %v", err)
 		}
@@ -343,6 +349,7 @@ func TestVectorDatabase_CalculateSimilarity(t *testing.T) {
 	mockDB, mock, err := sqlmock.New()
 	require.NoError(t, err)
 	defer func() {
+		mock.ExpectClose()
 		if err := mockDB.Close(); err != nil {
 			t.Errorf("Failed to close mock database: %v", err)
 		}
@@ -433,6 +440,7 @@ func TestVectorDatabase_CalculateSimilarity_Methods(t *testing.T) {
 			mockDB, mock, err := sqlmock.New()
 			require.NoError(t, err)
 			defer func() {
+		mock.ExpectClose()
 		if err := mockDB.Close(); err != nil {
 			t.Errorf("Failed to close mock database: %v", err)
 		}

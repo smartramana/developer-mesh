@@ -18,6 +18,7 @@ func TestContextReference(t *testing.T) {
 		t.Fatalf("Error creating mock database: %v", err)
 	}
 	defer func() {
+		mock.ExpectClose()
 		if err := mockDB.Close(); err != nil {
 			t.Errorf("Failed to close mock database: %v", err)
 		}
