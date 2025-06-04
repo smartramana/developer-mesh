@@ -80,7 +80,7 @@ jobs:
             type=semver,pattern={{major}}.{{minor}}
             type=semver,pattern={{major}}
             # Set sha tag for every build
-            type=sha,prefix={{branch}}-,format=short
+            type=sha,format=short
             # Set custom tag if provided
             type=raw,value=${{ github.event.inputs.tag }},enable=${{ github.event.inputs.tag != '' }}
           # Generate labels

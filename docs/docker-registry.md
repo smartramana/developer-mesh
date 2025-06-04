@@ -41,7 +41,7 @@ The CI/CD pipeline automatically generates the following tags:
 - `1` - Major version only
 
 ### Commit-based Tags
-- `{branch}-{short-sha}` - Branch name with commit SHA (e.g., `main-abc1234`)
+- `{short-sha}` - Short commit SHA (e.g., `abc1234`)
 
 ## Pulling Images
 
