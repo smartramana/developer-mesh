@@ -110,11 +110,18 @@ jobs:
             COMMIT_SHA=${{ github.sha }}
             BUILD_DATE=${{ steps.meta.outputs.created }}
 
+      - name: Debug metadata
+        if: github.event_name != 'pull_request'
+        run: |
+          echo "Tags: ${{ steps.meta.outputs.tags }}"
+          echo "First tag: ${{ fromJSON(steps.meta.outputs.json).tags[0] }}"
+          echo "Version: ${{ steps.meta.outputs.version }}"
+
       - name: Generate SBOM
         if: github.event_name != 'pull_request'
         uses: anchore/sbom-action@v0
         with:
-          image: ${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}-${{ matrix.app }}:${{ steps.meta.outputs.version }}
+          image: ${{ fromJSON(steps.meta.outputs.json).tags[0] }}
           format: spdx-json
           output-file: ${{ matrix.app }}-sbom.spdx.json
           upload-artifact: true
@@ -201,7 +208,7 @@ jobs:
       - name: Run Trivy vulnerability scanner
         uses: aquasecurity/trivy-action@master
         with:
-          image-ref: ${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}-${{ matrix.app }}:${{ github.sha }}
+          image-ref: ${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}-${{ matrix.app }}:${{ github.ref_name == 'main' && 'latest' || github.ref_name }}
           format: 'sarif'
           output: 'trivy-results-${{ matrix.app }}.sarif'
           severity: 'CRITICAL,HIGH'
