@@ -16,8 +16,7 @@ import (
 	"go.opentelemetry.io/otel/sdk/resource"
 	sdktrace "go.opentelemetry.io/otel/sdk/trace"
 	"go.opentelemetry.io/otel/trace"
-	"google.golang.org/grpc"
-	"google.golang.org/grpc/credentials/insecure"
+	"go.opentelemetry.io/otel/trace/noop"
 )
 
 // otelSpanWrapper wraps an OpenTelemetry span to implement the Span interface
@@ -146,17 +145,11 @@ func InitTracing(cfg TracingConfig) (func(), error) {
 
 	ctx := context.Background()
 
-	// Create gRPC connection to collector
-	conn, err := grpc.DialContext(ctx, cfg.Endpoint,
-		grpc.WithTransportCredentials(insecure.NewCredentials()),
-		grpc.WithBlock(),
+	// Create OTLP exporter with endpoint
+	traceExporter, err := otlptracegrpc.New(ctx,
+		otlptracegrpc.WithEndpoint(cfg.Endpoint),
+		otlptracegrpc.WithInsecure(),
 	)
-	if err != nil {
-		return nil, fmt.Errorf("failed to create gRPC connection to collector: %w", err)
-	}
-
-	// Create OTLP exporter
-	traceExporter, err := otlptracegrpc.New(ctx, otlptracegrpc.WithGRPCConn(conn))
 	if err != nil {
 		return nil, fmt.Errorf("failed to create trace exporter: %w", err)
 	}
@@ -223,7 +216,7 @@ func SetTracer(t trace.Tracer) {
 func GetTracer() trace.Tracer {
 	if !globalTracerInit {
 		log.Println("Warning: Tracing not initialized, operations will not be traced")
-		return trace.NewNoopTracerProvider().Tracer("")
+		return noop.NewTracerProvider().Tracer("")
 	}
 	return globalTracer
 }

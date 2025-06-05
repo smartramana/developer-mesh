@@ -383,7 +383,7 @@ func TestRepositoryDatabaseIntegration(t *testing.T) {
 		db, err := database.NewTestDatabaseWithContext(ctx)
 		require.NoError(t, err)
 		require.NotNil(t, db)
-		defer db.Close()
+		defer func() { _ = db.Close() }()
 
 		// Use custom test table initialization that works with both SQLite and PostgreSQL
 		err = initializeTestTables(ctx, db.DB())
@@ -424,7 +424,7 @@ func TestRepositoryDatabaseIntegration(t *testing.T) {
 		db, err := database.NewTestDatabaseWithContext(ctx)
 		require.NoError(t, err)
 		require.NotNil(t, db)
-		defer db.Close()
+		defer func() { _ = db.Close() }()
 
 		// Use custom test table initialization that works with both SQLite and PostgreSQL
 		err = initializeTestTables(ctx, db.DB())
@@ -582,7 +582,7 @@ func TestRepositoryDatabaseIntegration(t *testing.T) {
 		db, err := database.NewTestDatabaseWithContext(ctx)
 		require.NoError(t, err)
 		require.NotNil(t, db)
-		defer db.Close()
+		defer func() { _ = db.Close() }()
 
 		// Use custom test table initialization that works with both SQLite and PostgreSQL
 		err = initializeTestTables(ctx, db.DB())

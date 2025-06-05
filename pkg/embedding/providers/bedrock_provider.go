@@ -356,7 +356,7 @@ func (p *BedrockProvider) generateCohereEmbedding(ctx context.Context, req Gener
 func (p *BedrockProvider) generateClaudeEmbedding(ctx context.Context, req GenerateEmbeddingRequest, model ModelInfo) (*EmbeddingResponse, error) {
 	// Claude doesn't support embeddings natively
 	// This would implement a synthetic embedding approach using Claude's understanding
-	return nil, fmt.Errorf("Claude embedding generation not yet implemented")
+	return nil, fmt.Errorf("claude embedding generation not yet implemented")
 }
 
 func (p *BedrockProvider) batchGenerateCohereEmbeddings(ctx context.Context, req BatchGenerateEmbeddingRequest, model ModelInfo) (*BatchEmbeddingResponse, error) {

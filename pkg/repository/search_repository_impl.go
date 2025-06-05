@@ -299,14 +299,12 @@ func (r *SearchRepositoryImpl) List(ctx context.Context, filter search.Filter) (
 	}
 
 	// Extract filters from the map
-	if filter != nil {
-		for field, value := range filter {
-			options.Filters = append(options.Filters, SearchFilter{
-				Field:    field,
-				Operator: "eq",
-				Value:    value,
-			})
-		}
+	for field, value := range filter {
+		options.Filters = append(options.Filters, SearchFilter{
+			Field:    field,
+			Operator: "eq",
+			Value:    value,
+		})
 	}
 
 	// Use empty text search to get all results

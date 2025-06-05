@@ -39,7 +39,7 @@ func (db *Database) storeGitHubContent(ctx context.Context, tx *Tx, metadata *st
 	// Serialize metadata to JSON, handling nil/empty cases
 	var metadataJSON []byte
 	var err error
-	if metadata.Metadata == nil || len(metadata.Metadata) == 0 {
+	if len(metadata.Metadata) == 0 {
 		metadataJSON = []byte("{}")
 	} else {
 		metadataJSON, err = json.Marshal(metadata.Metadata)

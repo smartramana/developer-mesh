@@ -46,9 +46,8 @@ func RunWorker(ctx context.Context, sqsClient SQSReceiverDeleter, redisClient Re
 					_ = err
 				}
 				_ = sqsClient.DeleteMessage(ctx, handles[i])
-			} else {
-				// Let SQS retry by not deleting message
 			}
+			// else: Let SQS retry by not deleting message
 		}
 	}
 }

@@ -148,7 +148,7 @@ func MockWebhookHandler(config *MockWebhookConfig) http.HandlerFunc {
 				// This is a duplicate event, but we'll return 200 OK for idempotency
 				config.ProcessedEventsMux.Unlock()
 				w.WriteHeader(http.StatusOK)
-				w.Write([]byte(`{"status":"success","message":"Webhook already processed (idempotent)"}`))
+				_, _ = w.Write([]byte(`{"status":"success","message":"Webhook already processed (idempotent)"}`))
 				return
 			}
 			// Mark as processed
@@ -158,7 +158,7 @@ func MockWebhookHandler(config *MockWebhookConfig) http.HandlerFunc {
 
 		// Return success
 		w.WriteHeader(http.StatusOK)
-		w.Write([]byte(`{"status":"success","message":"Webhook processed successfully"}`))
+		_, _ = w.Write([]byte(`{"status":"success","message":"Webhook processed successfully"}`))
 	}
 }
 

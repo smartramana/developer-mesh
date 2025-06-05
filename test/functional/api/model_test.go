@@ -88,7 +88,7 @@ var _ = Describe("Model Operations", func() {
 			// DELETE
 			deleteResp, err := mcpClient.Delete(ctx, path)
 			Expect(err).NotTo(HaveOccurred())
-			defer deleteResp.Body.Close()
+			defer func() { _ = deleteResp.Body.Close() }()
 			Expect(deleteResp.StatusCode).To(Equal(200))
 
 			// Verify the delete

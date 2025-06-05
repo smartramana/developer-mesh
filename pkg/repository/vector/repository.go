@@ -52,17 +52,15 @@ func (r *RepositoryImpl) List(ctx context.Context, filter Filter) ([]*Embedding,
 	var args []any
 	argIndex := 1
 
-	if filter != nil {
-		for k, v := range filter {
-			if whereClause == "" {
-				whereClause = " WHERE "
-			} else {
-				whereClause += " AND "
-			}
-			whereClause += fmt.Sprintf("%s = $%d", k, argIndex)
-			args = append(args, v)
-			argIndex++
+	for k, v := range filter {
+		if whereClause == "" {
+			whereClause = " WHERE "
+		} else {
+			whereClause += " AND "
 		}
+		whereClause += fmt.Sprintf("%s = $%d", k, argIndex)
+		args = append(args, v)
+		argIndex++
 	}
 
 	query += whereClause + " ORDER BY content_index"

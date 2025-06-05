@@ -41,8 +41,9 @@ func (b *SimpleEventBus) Publish(ctx context.Context, event Event) error {
 	// Execute handlers
 	for _, handler := range handlersCopy {
 		if err := handler(ctx, event); err != nil {
-			// In a real implementation, we might want to log errors here
-			// but we continue processing other handlers
+			// TODO: Add error logging when logger is available
+			// Continue processing other handlers to ensure all get the event
+			_ = err
 		}
 	}
 

@@ -48,7 +48,7 @@ func NewGoogleProvider(config ProviderConfig) (*GoogleProvider, error) {
 	// Extract Google-specific config from ExtraParams
 	projectID, _ := config.ExtraParams["google_project_id"].(string)
 	if projectID == "" {
-		return nil, fmt.Errorf("Google project ID is required (set in ExtraParams['google_project_id'])")
+		return nil, fmt.Errorf("google project ID is required (set in ExtraParams['google_project_id'])")
 	}
 
 	location, _ := config.ExtraParams["google_location"].(string)

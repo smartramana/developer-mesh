@@ -788,7 +788,7 @@ func (m *Manager) createContextInDB(ctx context.Context, tx *sqlx.Tx, contextDat
 		}
 	}
 	// Ensure metadataJSON is always valid JSON (never empty string)
-	if metadataJSON == nil || len(metadataJSON) == 0 || string(metadataJSON) == "" {
+	if len(metadataJSON) == 0 || string(metadataJSON) == "" {
 		metadataJSON = []byte("{}")
 	}
 	_, err = tx.ExecContext(
@@ -855,7 +855,7 @@ func (m *Manager) createContextInDB(ctx context.Context, tx *sqlx.Tx, contextDat
 				}
 			}
 			// Ensure itemMetadataJSON is always valid JSON (never empty string)
-			if itemMetadataJSON == nil || len(itemMetadataJSON) == 0 || string(itemMetadataJSON) == "" {
+			if len(itemMetadataJSON) == 0 || string(itemMetadataJSON) == "" {
 				itemMetadataJSON = []byte("{}")
 			}
 
@@ -1025,7 +1025,7 @@ func (m *Manager) updateContextInDB(ctx context.Context, tx *sqlx.Tx, contextDat
 		}
 	}
 	// Ensure metadataJSON is always valid JSON (never empty string)
-	if metadataJSON == nil || len(metadataJSON) == 0 || string(metadataJSON) == "" {
+	if len(metadataJSON) == 0 || string(metadataJSON) == "" {
 		metadataJSON = []byte("{}")
 	}
 
@@ -1126,7 +1126,7 @@ func (m *Manager) updateContextInDB(ctx context.Context, tx *sqlx.Tx, contextDat
 			}
 		}
 		// Ensure itemMetadataJSON is always valid JSON (never empty string)
-		if itemMetadataJSON == nil || len(itemMetadataJSON) == 0 || string(itemMetadataJSON) == "" {
+		if len(itemMetadataJSON) == 0 || string(itemMetadataJSON) == "" {
 			itemMetadataJSON = []byte("{}")
 		}
 

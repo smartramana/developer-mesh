@@ -184,7 +184,7 @@ func (p *EmbeddingProxy) proxyRequest(c *gin.Context, path string, method string
 		c.JSON(http.StatusServiceUnavailable, gin.H{"error": "Service unavailable"})
 		return
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 	
 	// Read response body
 	respBody, err := io.ReadAll(resp.Body)

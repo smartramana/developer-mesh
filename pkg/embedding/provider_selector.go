@@ -258,7 +258,7 @@ func (s *EmbeddingProviderSelector) GetProviderSummary() string {
 	// Show recommendation
 	provider, model, dimensions, err := s.SelectProvider()
 	if err == nil {
-		summary.WriteString(fmt.Sprintf("\nSelected Configuration:\n"))
+		summary.WriteString("\nSelected Configuration:\n")
 		summary.WriteString(fmt.Sprintf("  Provider: %s\n", provider))
 		summary.WriteString(fmt.Sprintf("  Model: %s\n", model))
 		summary.WriteString(fmt.Sprintf("  Dimensions: %d\n", dimensions))

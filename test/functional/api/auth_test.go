@@ -218,7 +218,7 @@ var _ = Describe("Authentication Tests", func() {
 
 			resp2, err := invalidClient.Get(ctx, "/api/v1/models")
 			Expect(err).NotTo(HaveOccurred())
-			defer resp2.Body.Close()
+			defer func() { _ = resp2.Body.Close() }()
 			Expect(resp2.StatusCode).To(Equal(http.StatusUnauthorized), "invalid API key should be rejected")
 		})
 	})

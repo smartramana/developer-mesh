@@ -104,7 +104,7 @@ func (r *RelationshipRepository) createRelationship(ctx context.Context, tx *Tx,
 	// Serialize metadata to JSON, handling nil/empty cases
 	var metadataJSON []byte
 	var err error
-	if relationship.Metadata == nil || len(relationship.Metadata) == 0 {
+	if len(relationship.Metadata) == 0 {
 		metadataJSON = []byte("{}")
 	} else {
 		metadataJSON, err = json.Marshal(relationship.Metadata)
@@ -163,7 +163,7 @@ func (r *RelationshipRepository) updateRelationship(ctx context.Context, tx *Tx,
 	// Serialize metadata to JSON, handling nil/empty cases
 	var metadataJSON []byte
 	var err error
-	if relationship.Metadata == nil || len(relationship.Metadata) == 0 {
+	if len(relationship.Metadata) == 0 {
 		metadataJSON = []byte("{}")
 	} else {
 		metadataJSON, err = json.Marshal(relationship.Metadata)

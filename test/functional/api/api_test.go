@@ -559,7 +559,7 @@ var _ = Describe("API", func() {
 			updatePath := fmt.Sprintf("/api/v1/contexts/%s", createdContextID)
 			updateResp, err := mcpClient.Put(ctx, updatePath, updatePayload)
 			Expect(err).NotTo(HaveOccurred())
-			updateResp.Body.Close()
+			_ = updateResp.Body.Close()
 			
 			// Now search for content
 			searchPayload := map[string]interface{}{
@@ -598,7 +598,7 @@ var _ = Describe("API", func() {
 			Expect(resp.StatusCode).To(Equal(http.StatusOK))
 			getResp, err := mcpClient.Get(ctx, path)
 			Expect(err).NotTo(HaveOccurred())
-			defer getResp.Body.Close()
+			defer func() { _ = getResp.Body.Close() }()
 			Expect(getResp.StatusCode).To(Equal(http.StatusNotFound))
 		})
 	})

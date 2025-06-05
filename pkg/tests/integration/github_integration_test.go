@@ -107,7 +107,7 @@ func TestGitHubAdapter_ExecuteAction(t *testing.T) {
 
 			if err := json.NewDecoder(r.Body).Decode(&graphqlRequest); err != nil {
 				w.WriteHeader(http.StatusBadRequest)
-				json.NewEncoder(w).Encode(map[string]interface{}{
+				_ = json.NewEncoder(w).Encode(map[string]interface{}{
 					"errors": []map[string]interface{}{
 						{"message": "Invalid GraphQL request"},
 					},
@@ -133,7 +133,7 @@ func TestGitHubAdapter_ExecuteAction(t *testing.T) {
 
 				// Output the response with the data field containing just the repository
 				// The GraphQL client will extract just the data field
-				json.NewEncoder(w).Encode(map[string]interface{}{
+				_ = json.NewEncoder(w).Encode(map[string]interface{}{
 					"data": repoData,
 				})
 				return
@@ -171,7 +171,7 @@ func TestGitHubAdapter_ExecuteAction(t *testing.T) {
 					}
 
 					// Wrap this in a data object for GraphQL response format
-					json.NewEncoder(w).Encode(map[string]interface{}{
+					_ = json.NewEncoder(w).Encode(map[string]interface{}{
 						"data": map[string]interface{}{
 							"repository": map[string]interface{}{
 								"issues": map[string]interface{}{
@@ -185,7 +185,7 @@ func TestGitHubAdapter_ExecuteAction(t *testing.T) {
 			}
 
 			// Default GraphQL response
-			json.NewEncoder(w).Encode(map[string]interface{}{
+			_ = json.NewEncoder(w).Encode(map[string]interface{}{
 				"data": map[string]interface{}{
 					"repository": map[string]interface{}{
 						"name": "hello-world",
@@ -223,7 +223,7 @@ func TestGitHubAdapter_ExecuteAction(t *testing.T) {
 						},
 					},
 				}
-				json.NewEncoder(w).Encode(issues)
+				_ = json.NewEncoder(w).Encode(issues)
 			} else if r.Method == http.MethodPost {
 				// Create issue
 				var issueRequest map[string]interface{}
@@ -244,7 +244,7 @@ func TestGitHubAdapter_ExecuteAction(t *testing.T) {
 					},
 				}
 
-				json.NewEncoder(w).Encode(newIssue)
+				_ = json.NewEncoder(w).Encode(newIssue)
 			} else if r.Method == http.MethodPatch {
 				// Update issue
 				var updateRequest map[string]interface{}
@@ -402,7 +402,7 @@ func TestGitHubAdapter_ExecuteAction(t *testing.T) {
 	// Create adapter
 	adapter, err := github.New(configForHandler, logger, metricsClient, eventBus)
 	require.NoError(t, err)
-	defer adapter.Close()
+	defer func() { _ = adapter.Close() }()
 
 	// Test get repository
 	t.Run("GetRepository", func(t *testing.T) {
@@ -617,7 +617,7 @@ func TestGitHubAdapter_WebhookHandling(t *testing.T) {
 	// Create adapter
 	adapter, err := github.New(config, logger, metricsClient, eventBus)
 	require.NoError(t, err)
-	defer adapter.Close()
+	defer func() { _ = adapter.Close() }()
 	t.Run("RegisterWebhookHandler", func(t *testing.T) {
 		params := map[string]interface{}{
 			"handler_id":   "test-push-handler",

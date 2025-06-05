@@ -91,7 +91,7 @@ func (db *Database) createContextItem(ctx context.Context, tx *Tx, contextID str
 	// Serialize item metadata to JSON, handling nil/empty cases
 	var metadataJSON []byte
 	var err error
-	if item.Metadata == nil || len(item.Metadata) == 0 {
+	if len(item.Metadata) == 0 {
 		metadataJSON = []byte("{}")
 	} else {
 		metadataJSON, err = json.Marshal(item.Metadata)

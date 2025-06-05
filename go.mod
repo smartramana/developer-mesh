@@ -38,10 +38,12 @@ require (
 	go.opentelemetry.io/otel/sdk v1.35.0
 	go.opentelemetry.io/otel/trace v1.35.0
 	golang.org/x/time v0.8.0
-	google.golang.org/grpc v1.71.1
 )
 
-require github.com/onsi/gomega v1.36.3 // indirect
+require (
+	github.com/onsi/gomega v1.36.3 // indirect
+	google.golang.org/grpc v1.71.1 // indirect
+)
 
 require (
 	github.com/alicebob/gopher-json v0.0.0-20230218143504-906a9b012302 // indirect

@@ -269,7 +269,7 @@ func (s *SearchServiceV2) buildCrossModelSearchQuery(req CrossModelSearchRequest
 		args = append(args, pq.Array(req.ExcludeAgents))
 	}
 
-	if req.MetadataFilter != nil && len(req.MetadataFilter) > 0 {
+	if len(req.MetadataFilter) > 0 {
 		argCount++
 		query += fmt.Sprintf(" AND e.metadata @> $%d", argCount)
 		metadataJSON, _ := json.Marshal(req.MetadataFilter)

@@ -52,7 +52,7 @@ func HarnessHandler(w http.ResponseWriter, r *http.Request) {
 			"status":    "ok",
 			"timestamp": time.Now().Format(time.RFC3339),
 		}
-		json.NewEncoder(w).Encode(response)
+		_ = json.NewEncoder(w).Encode(response)
 		return
 	}
 
@@ -72,7 +72,7 @@ func HarnessHandler(w http.ResponseWriter, r *http.Request) {
 				},
 			},
 		}
-		json.NewEncoder(w).Encode(response)
+		_ = json.NewEncoder(w).Encode(response)
 		return
 	}
 
@@ -87,7 +87,7 @@ func HarnessHandler(w http.ResponseWriter, r *http.Request) {
 		},
 		"timestamp": time.Now().Format(time.RFC3339),
 	}
-	json.NewEncoder(w).Encode(response)
+	_ = json.NewEncoder(w).Encode(response)
 }
 
 // SonarQubeHandler handles mock SonarQube API requests
@@ -101,7 +101,7 @@ func SonarQubeHandler(w http.ResponseWriter, r *http.Request) {
 			"status":    "ok",
 			"timestamp": time.Now().Format(time.RFC3339),
 		}
-		json.NewEncoder(w).Encode(response)
+		_ = json.NewEncoder(w).Encode(response)
 		return
 	}
 
@@ -121,7 +121,7 @@ func SonarQubeHandler(w http.ResponseWriter, r *http.Request) {
 				},
 			},
 		}
-		json.NewEncoder(w).Encode(response)
+		_ = json.NewEncoder(w).Encode(response)
 		return
 	}
 
@@ -138,7 +138,7 @@ func SonarQubeHandler(w http.ResponseWriter, r *http.Request) {
 				},
 			},
 		}
-		json.NewEncoder(w).Encode(response)
+		_ = json.NewEncoder(w).Encode(response)
 		return
 	}
 
@@ -148,7 +148,7 @@ func SonarQubeHandler(w http.ResponseWriter, r *http.Request) {
 		"message":   "Mock SonarQube response",
 		"timestamp": time.Now().Format(time.RFC3339),
 	}
-	json.NewEncoder(w).Encode(response)
+	_ = json.NewEncoder(w).Encode(response)
 }
 
 // ArtifactoryHandler handles mock Artifactory API requests
@@ -162,7 +162,7 @@ func ArtifactoryHandler(w http.ResponseWriter, r *http.Request) {
 			"status":    "ok",
 			"timestamp": time.Now().Format(time.RFC3339),
 		}
-		json.NewEncoder(w).Encode(response)
+		_ = json.NewEncoder(w).Encode(response)
 		return
 	}
 
@@ -178,7 +178,7 @@ func ArtifactoryHandler(w http.ResponseWriter, r *http.Request) {
 				"sha1": "abcd1234abcd1234abcd1234abcd1234abcd1234",
 			},
 		}
-		json.NewEncoder(w).Encode(response)
+		_ = json.NewEncoder(w).Encode(response)
 		return
 	}
 
@@ -193,7 +193,7 @@ func ArtifactoryHandler(w http.ResponseWriter, r *http.Request) {
 				},
 			},
 		}
-		json.NewEncoder(w).Encode(response)
+		_ = json.NewEncoder(w).Encode(response)
 		return
 	}
 
@@ -203,7 +203,7 @@ func ArtifactoryHandler(w http.ResponseWriter, r *http.Request) {
 		"message":   "Mock Artifactory response",
 		"timestamp": time.Now().Format(time.RFC3339),
 	}
-	json.NewEncoder(w).Encode(response)
+	_ = json.NewEncoder(w).Encode(response)
 }
 
 // XrayHandler handles mock Xray API requests
@@ -217,7 +217,7 @@ func XrayHandler(w http.ResponseWriter, r *http.Request) {
 			"status":    "ok",
 			"timestamp": time.Now().Format(time.RFC3339),
 		}
-		json.NewEncoder(w).Encode(response)
+		_ = json.NewEncoder(w).Encode(response)
 		return
 	}
 
@@ -234,7 +234,7 @@ func XrayHandler(w http.ResponseWriter, r *http.Request) {
 				},
 			},
 		}
-		json.NewEncoder(w).Encode(response)
+		_ = json.NewEncoder(w).Encode(response)
 		return
 	}
 
@@ -253,7 +253,7 @@ func XrayHandler(w http.ResponseWriter, r *http.Request) {
 				},
 			},
 		}
-		json.NewEncoder(w).Encode(response)
+		_ = json.NewEncoder(w).Encode(response)
 		return
 	}
 
@@ -263,5 +263,5 @@ func XrayHandler(w http.ResponseWriter, r *http.Request) {
 		"message":   "Mock Xray response",
 		"timestamp": time.Now().Format(time.RFC3339),
 	}
-	json.NewEncoder(w).Encode(response)
+	_ = json.NewEncoder(w).Encode(response)
 }

@@ -24,7 +24,7 @@ func GitHubHandler(w http.ResponseWriter, r *http.Request) {
 				},
 			},
 		}
-		json.NewEncoder(w).Encode(response)
+		_ = json.NewEncoder(w).Encode(response)
 		return
 	}
 
@@ -34,7 +34,7 @@ func GitHubHandler(w http.ResponseWriter, r *http.Request) {
 			"status":    "ok",
 			"timestamp": time.Now().Format(time.RFC3339),
 		}
-		json.NewEncoder(w).Encode(response)
+		_ = json.NewEncoder(w).Encode(response)
 		return
 	}
 
@@ -44,5 +44,5 @@ func GitHubHandler(w http.ResponseWriter, r *http.Request) {
 		"message":   "Mock GitHub response",
 		"timestamp": time.Now().Format(time.RFC3339),
 	}
-	json.NewEncoder(w).Encode(response)
+	_ = json.NewEncoder(w).Encode(response)
 }

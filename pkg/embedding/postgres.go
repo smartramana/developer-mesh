@@ -53,7 +53,7 @@ func (s *PgVectorStorage) StoreEmbedding(ctx context.Context, embedding *Embeddi
 
 	// Convert metadata to JSON if present
 	var metadataJSON sql.NullString
-	if embedding.Metadata != nil && len(embedding.Metadata) > 0 {
+	if len(embedding.Metadata) > 0 {
 		// We'll handle this in the database layer to ensure proper JSON formatting
 		metadataJSON = sql.NullString{String: "{}", Valid: true}
 	}
@@ -158,7 +158,7 @@ func (s *PgVectorStorage) BatchStoreEmbeddings(ctx context.Context, embeddings [
 
 		// Convert metadata to JSON if present
 		var metadataJSON sql.NullString
-		if embedding.Metadata != nil && len(embedding.Metadata) > 0 {
+		if len(embedding.Metadata) > 0 {
 			// We'll handle this in the database layer to ensure proper JSON formatting
 			metadataJSON = sql.NullString{String: "{}", Valid: true}
 		}

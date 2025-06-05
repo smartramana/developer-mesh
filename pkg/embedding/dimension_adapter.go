@@ -184,11 +184,7 @@ func (da *DimensionAdapter) TrainProjectionMatrix(fromDim, toDim int, provider, 
 		IsActive:       true,
 	}
 
-	// Store in database if available
-	if da.db != nil {
-		// Store projection matrix in database
-		// This would be implemented based on the database schema
-	}
+	// Store in database if available - implementation pending
 
 	return nil
 }

@@ -43,6 +43,7 @@ func (b *SimpleEventBus) Publish(ctx context.Context, event Event) error {
 		if err := handler(ctx, event); err != nil {
 			// In a real implementation, we might want to log errors here
 			// but we continue processing other handlers
+			_ = err
 		}
 	}
 
