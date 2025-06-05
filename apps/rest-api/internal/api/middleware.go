@@ -335,9 +335,12 @@ func CORSMiddleware(corsConfig CORSConfig) gin.HandlerFunc {
 		// Use configuration if available, otherwise default to more restrictive list
 		allowedOrigins := corsConfig.AllowedOrigins
 		if len(allowedOrigins) == 0 {
-			// Fallback to default if not configured
-			allowedOrigins = []string{
-				"http://localhost:3000", // For development
+			// Only allow localhost in development mode
+			if os.Getenv("ENVIRONMENT") == "development" || os.Getenv("GO_ENV") == "development" {
+				allowedOrigins = []string{"http://localhost:3000"}
+			} else {
+				// In production, origins must be explicitly configured
+				allowedOrigins = []string{} // No default origins in production
 			}
 		}
 

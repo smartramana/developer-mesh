@@ -2,9 +2,10 @@ package providers
 
 import (
 	"context"
+	"crypto/rand"
+	"encoding/binary"
 	"fmt"
 	"math"
-	"math/rand"
 	"sync"
 	"time"
 )
@@ -361,8 +362,17 @@ func (m *MockProvider) shouldFail() bool {
 	}
 	
 	// Check failure rate
-	if m.failureRate > 0 && rand.Float64() < m.failureRate {
-		return true
+	if m.failureRate > 0 {
+		// Use crypto/rand for secure randomness
+		var randomBytes [8]byte
+		if _, err := rand.Read(randomBytes[:]); err != nil {
+			// If crypto/rand fails, fail the request to be safe
+			return true
+		}
+		randomFloat := float64(binary.BigEndian.Uint64(randomBytes[:])) / float64(^uint64(0))
+		if randomFloat < m.failureRate {
+			return true
+		}
 	}
 	
 	return false
@@ -372,17 +382,17 @@ func (m *MockProvider) generateMockEmbedding(text string, dimensions int) []floa
 	// Generate deterministic but varied embeddings based on text
 	embedding := make([]float32, dimensions)
 	
-	// Use text hash as seed for reproducibility
-	hash := 0
+	// Use text hash as basis for deterministic generation (for testing consistency)
+	hash := uint64(0)
 	for _, ch := range text {
-		hash = hash*31 + int(ch)
+		hash = hash*31 + uint64(ch)
 	}
-	r := rand.New(rand.NewSource(int64(hash)))
 	
 	// Generate values with some structure
 	for i := 0; i < dimensions; i++ {
-		// Create some patterns in the embedding
-		base := r.Float64()*2 - 1 // Range -1 to 1
+		// Create deterministic patterns based on hash and position
+		// This maintains test reproducibility while avoiding math/rand
+		base := float64(hash>>uint(i%64)&0xFF)/255.0*2 - 1 // Range -1 to 1
 		
 		// Add some periodic components
 		wave1 := math.Sin(float64(i) * 0.1)

@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"strings"
 	"sync"
 	"time"
 
@@ -149,6 +150,11 @@ func NewServiceV2(config ServiceV2Config) (*ServiceV2, error) {
 
 // GenerateEmbedding generates an embedding for the given request
 func (s *ServiceV2) GenerateEmbedding(ctx context.Context, req GenerateEmbeddingRequest) (*GenerateEmbeddingResponse, error) {
+	// Input validation
+	if err := s.validateEmbeddingRequest(req); err != nil {
+		return nil, fmt.Errorf("invalid request: %w", err)
+	}
+	
 	start := time.Now()
 	requestID := req.RequestID
 	if requestID == "" {
@@ -394,6 +400,47 @@ func (s *ServiceV2) recordMetric(ctx context.Context, metric *EmbeddingMetric) {
 			_ = s.metricsRepo.RecordMetric(context.Background(), metric)
 		}()
 	}
+}
+
+// validateEmbeddingRequest validates the embedding request for security
+func (s *ServiceV2) validateEmbeddingRequest(req GenerateEmbeddingRequest) error {
+	// Validate agent ID
+	if req.AgentID == "" {
+		return fmt.Errorf("agent ID is required")
+	}
+	if len(req.AgentID) > 255 {
+		return fmt.Errorf("agent ID too long")
+	}
+	
+	// Validate text
+	if req.Text == "" {
+		return fmt.Errorf("text is required")
+	}
+	const maxTextLength = 1_000_000 // 1MB max text size
+	if len(req.Text) > maxTextLength {
+		return fmt.Errorf("text exceeds maximum length of %d characters", maxTextLength)
+	}
+	
+	// Validate tenant ID if provided
+	if req.TenantID != uuid.Nil {
+		// UUID validation is implicit in the type
+	}
+	
+	// Validate metadata if provided
+	if req.Metadata != nil {
+		// Ensure metadata doesn't contain sensitive keys
+		sensitiveKeys := []string{"password", "secret", "token", "apikey", "api_key"}
+		for key := range req.Metadata {
+			lowerKey := strings.ToLower(key)
+			for _, sensitive := range sensitiveKeys {
+				if strings.Contains(lowerKey, sensitive) {
+					return fmt.Errorf("metadata contains potentially sensitive key: %s", key)
+				}
+			}
+		}
+	}
+	
+	return nil
 }
 
 func calculateCost(tokens int, model string) float64 {
