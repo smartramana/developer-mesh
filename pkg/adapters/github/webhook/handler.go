@@ -195,7 +195,8 @@ func (m *Manager) ProcessEvent(ctx context.Context, event Event) error {
 
 	// Process event with matching handlers
 	for _, handler := range matchingHandlers {
-		handlerCtx := context.WithValue(ctx, "handlerID", handler.ID)
+		type handlerIDKey struct{}
+		handlerCtx := context.WithValue(ctx, handlerIDKey{}, handler.ID)
 
 		// Execute handler
 		err := handler.Handler(handlerCtx, event)

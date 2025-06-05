@@ -8,8 +8,9 @@ info:
     This API enables:
     - **Context Management**: Store and retrieve conversation contexts for AI agents
     - **Tool Integration**: Execute actions across multiple DevOps platforms
-    - **Vector Search**: Semantic search capabilities for documentation and code
-    - **Agent Management**: Configure and manage AI agents
+    - **Multi-Agent Embeddings**: Agent-specific embedding generation with intelligent provider routing
+    - **Cross-Model Search**: Semantic search across embeddings from different models
+    - **Agent Management**: Configure and manage AI agents with custom embedding preferences
     
     ## Authentication
     All API requests require authentication using one of the following methods:
@@ -78,8 +79,8 @@ tags:
     description: AI agent management
   - name: Models
     description: AI model configuration
-  - name: Vectors
-    description: Vector storage and search operations
+  - name: Embeddings
+    description: Multi-agent embedding generation and search operations
   - name: Search
     description: Semantic search endpoints
   - name: Webhooks
@@ -171,15 +172,33 @@ paths:
   /models/{id}:
     $ref: './core/models.yaml#/paths/~1models~1{id}'
   
-  # Vector Operations
-  /vectors/store:
-    $ref: './core/vectors.yaml#/paths/~1vectors~1store'
+  # Embedding Operations
+  /embeddings:
+    $ref: './core/embeddings_v2.yaml#/paths/~1embeddings'
   
-  /vectors/search:
-    $ref: './core/vectors.yaml#/paths/~1vectors~1search'
+  /embeddings/batch:
+    $ref: './core/embeddings_v2.yaml#/paths/~1embeddings~1batch'
   
-  /vectors/{id}:
-    $ref: './core/vectors.yaml#/paths/~1vectors~1{id}'
+  /embeddings/search:
+    $ref: './core/embeddings_v2.yaml#/paths/~1embeddings~1search'
+  
+  /embeddings/search/cross-model:
+    $ref: './core/embeddings_v2.yaml#/paths/~1embeddings~1search~1cross-model'
+  
+  /embeddings/providers/health:
+    $ref: './core/embeddings_v2.yaml#/paths/~1embeddings~1providers~1health'
+  
+  /embeddings/agents:
+    $ref: './core/embeddings_v2.yaml#/paths/~1embeddings~1agents'
+  
+  /embeddings/agents/{agentId}:
+    $ref: './core/embeddings_v2.yaml#/paths/~1embeddings~1agents~1{agentId}'
+  
+  /embeddings/agents/{agentId}/models:
+    $ref: './core/embeddings_v2.yaml#/paths/~1embeddings~1agents~1{agentId}~1models'
+  
+  /embeddings/agents/{agentId}/costs:
+    $ref: './core/embeddings_v2.yaml#/paths/~1embeddings~1agents~1{agentId}~1costs'
   
   # Search Operations
   /search:

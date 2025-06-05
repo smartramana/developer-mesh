@@ -194,7 +194,7 @@ func (d *Database) ListContextReferences(ctx context.Context, agentID, sessionID
 
 	// Create a slice to hold the query arguments
 	var args []any
-	var argIndex int = 0
+	var argIndex = 0
 
 	// Add agentID filter if provided
 	if agentID != "" {

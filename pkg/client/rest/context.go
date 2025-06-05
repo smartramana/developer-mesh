@@ -104,11 +104,9 @@ func (c *ContextClient) ListContexts(ctx context.Context, agentID, sessionID str
 	}
 
 	// Add additional options as query parameters if provided
-	if options != nil {
-		for key, value := range options {
-			if strValue, ok := value.(string); ok {
-				query.Set(key, strValue)
-			}
+	for key, value := range options {
+		if strValue, ok := value.(string); ok {
+			query.Set(key, strValue)
 		}
 	}
 

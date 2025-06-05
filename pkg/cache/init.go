@@ -57,7 +57,7 @@ func NewCache(ctx context.Context, cfg interface{}) (Cache, error) {
 		}
 
 		// Check if we should use cluster mode
-		if config.Type == "redis_cluster" || (config.Addresses != nil && len(config.Addresses) > 0) {
+		if config.Type == "redis_cluster" || len(config.Addresses) > 0 {
 			return newRedisClusterClient(config)
 		}
 

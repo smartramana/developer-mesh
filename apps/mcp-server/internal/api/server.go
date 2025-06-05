@@ -310,9 +310,29 @@ func (s *Server) setupRoutes() {
 		c.JSON(http.StatusOK, gin.H{
 			"version": "v1",
 			"status":  "operational",
-			"apis":    []string{"agent", "model", "vector"},
+			"apis":    []string{"agent", "model", "vector", "embeddings", "mcp"},
 		})
 	})
+	
+	// Register MCP API routes
+	if s.engine != nil && s.engine.GetContextManager() != nil {
+		mcpAPI := NewMCPAPI(s.engine.GetContextManager())
+		mcpAPI.RegisterRoutes(v1)
+		s.logger.Info("MCP API routes registered", nil)
+	} else {
+		s.logger.Warn("MCP API not available - context manager not initialized", nil)
+	}
+	
+	// Register Embedding Proxy routes
+	if s.config.RestAPI.Enabled && s.config.RestAPI.BaseURL != "" {
+		embeddingProxy := proxies.NewEmbeddingProxy(s.config.RestAPI.BaseURL, s.logger)
+		embeddingProxy.RegisterRoutes(v1)
+		s.logger.Info("Embedding proxy routes registered", map[string]any{
+			"rest_api_url": s.config.RestAPI.BaseURL,
+		})
+	} else {
+		s.logger.Warn("Embedding proxy not available - REST API not configured", nil)
+	}
 
 	// Log API availability via proxies
 	if s.config.RestAPI.Enabled {

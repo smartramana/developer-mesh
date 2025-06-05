@@ -153,15 +153,11 @@ func (p *KotlinParser) extractClasses(code string, lines []string, parentID stri
 			// Extract the class body (content between the braces)
 			// This is where we would recursively extract class members
 			openBracePos := strings.Index(classContent, "{")
-			if openBracePos != -1 && len(classContent) > openBracePos+1 {
-				// Extract nested constructors, methods, properties, etc.
-				// In a full implementation, we would call method extraction, property extraction, etc.
-				// with parent ID set to classChunk.ID
-
-				// For example:
-				// nestedFunctions := p.extractFunctions(classContent[openBracePos+1:len(classContent)-1], nil, classChunk.ID)
-				// chunks = append(chunks, nestedFunctions...)
-			}
+			_ = openBracePos // TODO: Implement nested member extraction
+			// In a full implementation, we would:
+			// 1. Extract nested constructors, methods, properties, etc.
+			// 2. Call method extraction, property extraction, etc. with parent ID set to classChunk.ID
+			// Example: nestedFunctions := p.extractFunctions(classContent[openBracePos+1:], nil, classChunk.ID)
 		}
 	}
 

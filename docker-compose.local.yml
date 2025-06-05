@@ -53,11 +53,22 @@ services:
       # Mock Server
       - MOCKSERVER_URL=http://mockserver:8081
       - MOCK_RESPONSES_ENABLED=${MOCK_RESPONSES_ENABLED:-true}
-      # Vector Search
+      # Embedding Configuration
+      - EMBEDDING_ENABLED=${EMBEDDING_ENABLED:-true}
+      # OpenAI Provider
+      - OPENAI_ENABLED=${OPENAI_ENABLED:-false}
+      - OPENAI_API_KEY=${OPENAI_API_KEY:-}
+      # AWS Bedrock Provider
+      - BEDROCK_ENABLED=${BEDROCK_ENABLED:-false}
+      - BEDROCK_ENDPOINT=${BEDROCK_ENDPOINT:-}
+      - BEDROCK_ROLE_ARN=${BEDROCK_ROLE_ARN:-}
+      # Google AI Provider
+      - GOOGLE_AI_ENABLED=${GOOGLE_AI_ENABLED:-false}
+      - GOOGLE_AI_API_KEY=${GOOGLE_AI_API_KEY:-}
+      # Legacy Vector Search (for compatibility)
       - VECTOR_ENABLED=${VECTOR_ENABLED:-true}
       - VECTOR_DEFAULT_MODEL=${VECTOR_DEFAULT_MODEL:-text-embedding-ada-002}
       - VECTOR_DEFAULT_DIMENSION=${VECTOR_DEFAULT_DIMENSION:-1536}
-      - OPENAI_API_KEY=${OPENAI_API_KEY:-}
       # Monitoring
       - LOG_LEVEL=${LOG_LEVEL:-info}
       - LOG_FORMAT=json
@@ -140,11 +151,22 @@ services:
       # Mock Server
       - MOCKSERVER_URL=http://mockserver:8081
       - MOCK_RESPONSES_ENABLED=${MOCK_RESPONSES_ENABLED:-true}
-      # Vector Search
+      # Embedding Configuration
+      - EMBEDDING_ENABLED=${EMBEDDING_ENABLED:-true}
+      # OpenAI Provider
+      - OPENAI_ENABLED=${OPENAI_ENABLED:-false}
+      - OPENAI_API_KEY=${OPENAI_API_KEY:-}
+      # AWS Bedrock Provider
+      - BEDROCK_ENABLED=${BEDROCK_ENABLED:-false}
+      - BEDROCK_ENDPOINT=${BEDROCK_ENDPOINT:-}
+      - BEDROCK_ROLE_ARN=${BEDROCK_ROLE_ARN:-}
+      # Google AI Provider
+      - GOOGLE_AI_ENABLED=${GOOGLE_AI_ENABLED:-false}
+      - GOOGLE_AI_API_KEY=${GOOGLE_AI_API_KEY:-}
+      # Legacy Vector Search (for compatibility)
       - VECTOR_ENABLED=${VECTOR_ENABLED:-true}
       - VECTOR_DEFAULT_MODEL=${VECTOR_DEFAULT_MODEL:-text-embedding-ada-002}
       - VECTOR_DEFAULT_DIMENSION=${VECTOR_DEFAULT_DIMENSION:-1536}
-      - OPENAI_API_KEY=${OPENAI_API_KEY:-}
       # Monitoring
       - LOG_LEVEL=${LOG_LEVEL:-info}
       - LOG_FORMAT=json

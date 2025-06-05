@@ -450,69 +450,62 @@ Get all registered models.
 GET /api/v1/models
 ```
 
-## Vector Operations API
+## Embedding Operations
 
-### Store Embedding
-Store a vector embedding.
+The DevOps MCP uses a multi-agent embedding system that provides intelligent routing, cross-model compatibility, and cost optimization.
 
-```http
-POST /api/v1/vectors/store
-```
+### Key Concepts
 
-**Request Body:**
-```json
-{
-  "context_id": "ctx-123",
-  "text": "OAuth 2.0 is an authorization framework",
-  "embedding": [0.1, 0.2, 0.3, ...],
-  "model_id": "text-embedding-3-small",
-  "metadata": {
-    "source": "documentation",
-    "chunk_index": 1
-  }
-}
-```
+- **Agent Configuration**: Each AI agent has its own embedding preferences and constraints
+- **Smart Routing**: Automatic selection of best provider based on agent strategy
+- **Cross-Model Search**: Search across embeddings from different models
+- **Dimension Normalization**: All embeddings normalized to 1536 dimensions for compatibility
 
-### Search Embeddings
-Search for similar embeddings.
+### Endpoints
 
-```http
-POST /api/v1/vectors/search
-```
+#### Generate Embedding
+`POST /api/embeddings`
+
+Generate an embedding for the specified agent and text.
 
 **Request Body:**
 ```json
 {
-  "query": "How does OAuth work?",
-  "context_ids": ["ctx-123", "ctx-456"],
-  "limit": 10,
-  "similarity_threshold": 0.75,
-  "filters": {
-    "source": "documentation"
-  }
+  "agent_id": "claude-assistant",
+  "text": "Content to embed",
+  "task_type": "general_qa",
+  "context_id": "ctx_123"
 }
-```
-
-### Get Supported Models
-List models available for embeddings.
-
-```http
-GET /api/v1/vectors/models
 ```
 
 **Response:**
 ```json
 {
-  "models": [
-    {
-      "id": "text-embedding-3-small",
-      "name": "OpenAI Text Embedding Small",
-      "dimensions": 1536,
-      "max_tokens": 8191
-    }
-  ]
+  "embedding_id": "emb_789",
+  "model_used": "text-embedding-3-small",
+  "provider": "openai",
+  "dimensions": 1536,
+  "cached": false,
+  "cost_usd": 0.00002
 }
 ```
+
+#### Cross-Model Search
+`POST /api/embeddings/search/cross-model`
+
+Search across embeddings created by different models.
+
+**Request Body:**
+```json
+{
+  "query": "search query",
+  "search_model": "text-embedding-3-small",
+  "include_models": ["voyage-2", "text-embedding-ada-002"],
+  "limit": 10
+}
+```
+
+See the [Embedding API Reference](./embedding-api-reference.md) for complete details.
 
 ## Search API
 

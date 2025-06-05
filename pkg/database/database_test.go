@@ -138,7 +138,9 @@ func TestPing(t *testing.T) {
 		// Create a fresh mock for this subtest
 		mockDB, mock, err := sqlmock.New(sqlmock.MonitorPingsOption(true))
 		require.NoError(t, err)
-		defer mockDB.Close()
+		defer func() {
+			_ = mockDB.Close()
+		}()
 		
 		sqlxDB := sqlx.NewDb(mockDB, "sqlmock")
 		db := &Database{
@@ -161,7 +163,9 @@ func TestPing(t *testing.T) {
 		// Create a fresh mock for this subtest
 		mockDB, mock, err := sqlmock.New(sqlmock.MonitorPingsOption(true))
 		require.NoError(t, err)
-		defer mockDB.Close()
+		defer func() {
+			_ = mockDB.Close()
+		}()
 		
 		sqlxDB := sqlx.NewDb(mockDB, "sqlmock")
 		db := &Database{

@@ -422,10 +422,10 @@ time_starttransfer: %{time_starttransfer}\n
 time_total:       %{time_total}\n
 
 # Using httpie
-http -v POST localhost:8080/api/v1/vectors \
+http -v POST localhost:8081/api/embeddings \
   Authorization:"Bearer $API_KEY" \
-  context_id=test \
-  embedding:='[0.1, 0.2, 0.3]'
+  agent_id=test-agent \
+  text="Sample text to embed"
 
 # Using grpcurl for MCP
 grpcurl -plaintext \
@@ -437,7 +437,7 @@ grpcurl -plaintext \
 
 ```bash
 # Using vegeta
-echo "POST http://localhost:8080/api/v1/vectors/search" | \
+echo "POST http://localhost:8081/api/embeddings/search" | \
   vegeta attack -duration=30s -rate=100 -body=search.json | \
   vegeta report
 
@@ -449,9 +449,10 @@ import http from 'k6/http';
 import { check } from 'k6';
 
 export default function() {
-  const res = http.post('http://localhost:8080/api/v1/vectors/search', 
+  const res = http.post('http://localhost:8081/api/embeddings/search', 
     JSON.stringify({
-      query_embedding: [0.1, 0.2, 0.3],
+      agent_id: 'test-agent',
+      query: 'Sample search query',
       limit: 10
     }),
     { headers: { 'Content-Type': 'application/json' }}

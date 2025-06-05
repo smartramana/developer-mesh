@@ -17,6 +17,7 @@ Understanding the system design
 
 ### [API Reference](api-reference/)
 Complete API documentation
+- [Embedding API](api-reference/embedding-api-reference.md) - Multi-agent embedding endpoints
 - [Vector Search API](api-reference/vector-search-api.md) - Semantic search endpoints
 - REST API endpoints and schemas
 

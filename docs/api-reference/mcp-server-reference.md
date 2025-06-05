@@ -15,7 +15,7 @@ This document provides comprehensive reference documentation for the MCP (Model 
   - [Tool Integration](#tool-integration)
   - [Agent Management](#agent-management)
   - [Model Management](#model-management)
-  - [Vector Search](#vector-search)
+  - [Embedding Operations](#embedding-operations)
   - [GitHub Tools (MCP Protocol)](#github-tools-mcp-protocol)
   - [Webhooks](#webhooks)
   - [Relationship Management](#relationship-management)
@@ -31,7 +31,7 @@ The MCP Server API implements the Model Context Protocol specification, providin
 - **MCP Protocol Compliance**: Full implementation of the Model Context Protocol specification
 - **Context Management**: Advanced context storage and retrieval with conversation history
 - **Tool Integration**: Unified interface for GitHub, Harness, SonarQube, Artifactory, and Xray
-- **Vector Search**: Semantic search capabilities for context and documentation
+- **Multi-Agent Embeddings**: Agent-specific embedding generation with intelligent provider routing
 - **Real-time Updates**: WebSocket support for streaming responses
 - **Multi-tenancy**: Built-in tenant isolation for enterprise deployments
 
@@ -764,114 +764,68 @@ PUT /api/v1/models/:id
 }
 ```
 
-### Vector Search
+## Embedding Operations
 
-#### Text Search
+The MCP Server provides embedding operations through the multi-agent embedding system. All requests are routed to the REST API's v2 embedding endpoints.
 
-Perform semantic search using text query.
+### Generate Embedding
 
-```http
-POST /api/v1/search
-```
-
-**Request Body**
+**Request:**
 ```json
 {
-  "query": "How to configure GitHub Actions for Python projects",
-  "limit": 10,
-  "threshold": 0.7,
-  "filters": {
-    "tool": "github",
-    "type": "documentation"
-  }
+  "action": "generate_embedding",
+  "agent_id": "claude-assistant",
+  "text": "Content to embed",
+  "context_id": "ctx_123"
 }
 ```
 
-**Response**
+**Response:**
 ```json
 {
-  "results": [
-    {
-      "id": "vec-123",
-      "content": "To configure GitHub Actions for Python projects, create a .github/workflows/python.yml file...",
-      "similarity": 0.92,
-      "metadata": {
-        "source": "github-docs",
-        "url": "https://docs.github.com/actions/python"
-      }
-    }
-  ],
-  "total": 5,
-  "query": "How to configure GitHub Actions for Python projects"
+  "embedding_id": "550e8400-e29b-41d4-a716-446655440000",
+  "model_used": "text-embedding-3-large",
+  "provider": "openai",
+  "dimensions": 3072,
+  "cached": false,
+  "cost_usd": 0.00013
 }
 ```
 
-#### Vector Search
+### Search
 
-Search using pre-computed embeddings.
-
-```http
-POST /api/v1/search/vector
-```
-
-**Request Body**
+**Request:**
 ```json
 {
-  "vector": [0.1, 0.2, 0.3, ...],
-  "limit": 10,
-  "threshold": 0.7
+  "action": "search",
+  "agent_id": "claude-assistant",
+  "query": "kubernetes deployment",
+  "limit": 10
 }
 ```
 
-**Response**
+### Cross-Model Search
+
+**Request:**
 ```json
 {
-  "results": [
-    {
-      "id": "vec-123",
-      "content": "Related content...",
-      "similarity": 0.89,
-      "metadata": {...}
-    }
-  ],
-  "total": 3
+  "action": "cross_model_search",
+  "query": "deployment strategies",
+  "include_models": ["text-embedding-3-small", "voyage-2"],
+  "limit": 20
 }
 ```
 
-#### Find Similar Content
+### Provider Health Check
 
-Find content similar to a reference.
-
-```http
-POST /api/v1/search/similar
-```
-
-**Request Body**
+**Request:**
 ```json
 {
-  "reference_id": "vec-123",
-  "limit": 5,
-  "threshold": 0.8
+  "action": "provider_health"
 }
 ```
 
-**Response**
-```json
-{
-  "results": [
-    {
-      "id": "vec-456",
-      "content": "Similar content...",
-      "similarity": 0.95,
-      "metadata": {...}
-    }
-  ],
-  "reference": {
-    "id": "vec-123",
-    "content": "Original content..."
-  }
-}
-```
+All embedding operations require an `agent_id` to determine which models and strategies to use.
 
 ### GitHub Tools (MCP Protocol)
 

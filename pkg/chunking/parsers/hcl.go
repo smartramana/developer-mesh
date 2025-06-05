@@ -177,9 +177,10 @@ func (p *HCLParser) findBlockContent(code string, startPos int) (string, int) {
 	endPos := openBracePos + 1
 
 	for endPos < len(code) && braceCount > 0 {
-		if code[endPos] == '{' {
+		switch code[endPos] {
+		case '{':
 			braceCount++
-		} else if code[endPos] == '}' {
+		case '}':
 			braceCount--
 		}
 		endPos++

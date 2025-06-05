@@ -427,7 +427,7 @@ func (p *TypeScriptParser) extractTSDocComments(code string, lines []string, par
 			}
 
 			for _, pattern := range patterns {
-				if matches := pattern.regex.FindStringSubmatchIndex(afterComment); matches != nil && len(matches) >= 2 {
+				if matches := pattern.regex.FindStringSubmatchIndex(afterComment); len(matches) >= 2 {
 					// Check if the match is within a few lines of the comment (to ensure they're related)
 					matchPos := commentEndPos + matches[0]
 					matchLine := getLineNumberFromPos(code, matchPos) + 1
@@ -1105,9 +1105,10 @@ func (p *TypeScriptParser) findBlockContent(code string, startPos, openBracePos 
 	endPos := openBracePos + 1
 
 	for endPos < len(code) && braceCount > 0 {
-		if code[endPos] == '{' {
+		switch code[endPos] {
+		case '{':
 			braceCount++
-		} else if code[endPos] == '}' {
+		case '}':
 			braceCount--
 		}
 		endPos++

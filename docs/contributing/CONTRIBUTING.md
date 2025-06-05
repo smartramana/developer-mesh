@@ -114,11 +114,11 @@ Types:
 
 Example:
 ```
-feat(api): add vector similarity search endpoint
+feat(api): add cross-model embedding search
 
-- Implement POST /api/v1/vectors/search
-- Add support for multiple embedding models
-- Include similarity threshold parameter
+- Implement POST /api/embeddings/search/cross-model
+- Add support for searching across different embedding models
+- Include dimension normalization for compatibility
 
 Closes #123
 ```

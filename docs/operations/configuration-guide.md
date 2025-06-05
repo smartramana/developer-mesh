@@ -361,6 +361,63 @@ cache:
       ca_cert: "/path/to/ca.crt"
 ```
 
+## Embedding Configuration
+
+The embedding system requires at least one provider to be configured:
+
+### OpenAI Configuration
+```yaml
+embedding:
+  providers:
+    openai:
+      enabled: true
+      api_key: ${OPENAI_API_KEY}
+```
+
+### AWS Bedrock Configuration
+```yaml
+embedding:
+  providers:
+    bedrock:
+      enabled: true
+      region: us-east-1
+      # Uses standard AWS credential chain
+```
+
+### Google AI Configuration
+```yaml
+embedding:
+  providers:
+    google:
+      enabled: true
+      api_key: ${GOOGLE_API_KEY}
+```
+
+### Agent Configuration Example
+```yaml
+# Create via API
+POST /api/embeddings/agents
+{
+  "agent_id": "production-claude",
+  "embedding_strategy": "quality",
+  "model_preferences": [
+    {
+      "task_type": "general_qa",
+      "primary_models": ["text-embedding-3-large"],
+      "fallback_models": ["text-embedding-3-small"]
+    },
+    {
+      "task_type": "code_analysis",
+      "primary_models": ["voyage-code-2"],
+      "fallback_models": ["text-embedding-3-large"]
+    }
+  ],
+  "constraints": {
+    "max_cost_per_month_usd": 500.0
+  }
+}
+```
+
 ## Docker Deployment Configuration
 
 ### Using Pre-built Images
