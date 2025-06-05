@@ -145,13 +145,13 @@ func TestCircuitBreakerHealthScore(t *testing.T) {
 	t.Run("closed state health score", func(t *testing.T) {
 		cb.state = StateClosed
 		cb.failureCount = 0
-		assert.Equal(t, 1.0, cb.HealthScore())
+		assert.InDelta(t, 1.0, cb.HealthScore(), 0.001)
 
 		cb.failureCount = 2
-		assert.Equal(t, 0.6, cb.HealthScore())
+		assert.InDelta(t, 0.6, cb.HealthScore(), 0.001)
 
 		cb.failureCount = 4
-		assert.Equal(t, 0.2, cb.HealthScore())
+		assert.InDelta(t, 0.2, cb.HealthScore(), 0.001)
 	})
 
 	t.Run("half-open state health score", func(t *testing.T) {

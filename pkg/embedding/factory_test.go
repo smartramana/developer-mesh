@@ -11,13 +11,16 @@ import (
 
 func TestNewEmbeddingFactory(t *testing.T) {
 	// Create a mock DB
-	db, _, err := sqlmock.New()
+	db, mock, err := sqlmock.New()
 	require.NoError(t, err)
 	defer func() {
 		if err := db.Close(); err != nil {
 			t.Errorf("Failed to close mock database: %v", err)
 		}
 	}()
+	
+	// Expect the Close call
+	mock.ExpectClose()
 
 	// Test with valid config
 	config := &EmbeddingFactoryConfig{
@@ -126,13 +129,16 @@ func TestNewEmbeddingFactory(t *testing.T) {
 
 func TestEmbeddingFactory_CreateEmbeddingService(t *testing.T) {
 	// Create a mock DB
-	db, _, err := sqlmock.New()
+	db, mock, err := sqlmock.New()
 	require.NoError(t, err)
 	defer func() {
 		if err := db.Close(); err != nil {
 			t.Errorf("Failed to close mock database: %v", err)
 		}
 	}()
+	
+	// Expect the Close call
+	mock.ExpectClose()
 
 	// Create factory with OpenAI config
 	config := &EmbeddingFactoryConfig{
@@ -204,6 +210,9 @@ func TestEmbeddingFactory_CreateEmbeddingStorage(t *testing.T) {
 	// Set up expectations for checking pgvector extension
 	rows := sqlmock.NewRows([]string{"exists"}).AddRow(true)
 	mock.ExpectQuery(`SELECT EXISTS\(SELECT 1 FROM pg_extension WHERE extname = 'vector'\)`).WillReturnRows(rows)
+	
+	// Expect the Close call
+	mock.ExpectClose()
 
 	// Create factory with valid config
 	config := &EmbeddingFactoryConfig{

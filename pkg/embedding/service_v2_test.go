@@ -6,6 +6,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/DATA-DOG/go-sqlmock"
 	"github.com/S-Corkum/devops-mcp/pkg/agents"
 	"github.com/S-Corkum/devops-mcp/pkg/embedding/providers"
 	"github.com/google/uuid"
@@ -180,12 +181,23 @@ func TestGenerateEmbedding(t *testing.T) {
 			},
 		}
 
+		// Create a mock database for the repository
+		db, mockDB, err := sqlmock.New()
+		require.NoError(t, err)
+		defer db.Close()
+		
+		// Expect the insert query
+		mockDB.ExpectExec("INSERT INTO mcp.embeddings").
+			WillReturnResult(sqlmock.NewResult(1, 1))
+		
+		repo := NewRepository(db)
+		
 		config := ServiceV2Config{
 			Providers: map[string]providers.Provider{
 				"openai": mockProvider,
 			},
 			AgentService: mockAgentService,
-			Repository:   &Repository{},
+			Repository:   repo,
 			MetricsRepo:  mockMetricsRepo,
 			Cache:        mockCache,
 		}
@@ -387,12 +399,23 @@ func TestBatchGenerateEmbeddings(t *testing.T) {
 			},
 		}
 
+		// Create a mock database for the repository
+		db, mockDB, err := sqlmock.New()
+		require.NoError(t, err)
+		defer db.Close()
+		
+		// Expect the insert query
+		mockDB.ExpectExec("INSERT INTO mcp.embeddings").
+			WillReturnResult(sqlmock.NewResult(1, 1))
+		
+		repo := NewRepository(db)
+		
 		config := ServiceV2Config{
 			Providers: map[string]providers.Provider{
 				"openai": mockProvider,
 			},
 			AgentService: mockAgentService,
-			Repository:   &Repository{},
+			Repository:   repo,
 			MetricsRepo:  mockMetricsRepo,
 			Cache:        mockCache,
 		}

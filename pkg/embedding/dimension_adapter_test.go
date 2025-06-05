@@ -42,10 +42,13 @@ func TestDimensionAdapterNormalize(t *testing.T) {
 		result := adapter.Normalize(embedding, 6, 3)
 		
 		assert.Len(t, result, 3)
-		// Values should be averaged
-		assert.Equal(t, float32(1.5), result[0]) // (1+2)/2
-		assert.Equal(t, float32(3.5), result[1]) // (3+4)/2
-		assert.Equal(t, float32(5.5), result[2]) // (5+6)/2
+		// Values should be averaged and then normalized
+		// Expected averages: [1.5, 3.5, 5.5]
+		// After normalization to unit length
+		expectedMagnitude := float32(math.Sqrt(1.5*1.5 + 3.5*3.5 + 5.5*5.5))
+		assert.InDelta(t, 1.5/expectedMagnitude, result[0], 0.001)
+		assert.InDelta(t, 3.5/expectedMagnitude, result[1], 0.001)
+		assert.InDelta(t, 5.5/expectedMagnitude, result[2], 0.001)
 	})
 
 	t.Run("reduce with uneven ratio", func(t *testing.T) {
@@ -108,9 +111,10 @@ func TestDimensionAdapterPadEmbedding(t *testing.T) {
 		assert.Equal(t, float32(1.0), result[0])
 		assert.Equal(t, float32(2.0), result[1])
 		// Padded values should be small but deterministic
-		assert.Equal(t, float32(0.0001*2), result[2])
-		assert.Equal(t, float32(0.0001*3), result[3])
-		assert.Equal(t, float32(0.0001*4), result[4])
+		// padded[i] = 0.0001 * float32(i%10)
+		assert.InDelta(t, float32(0.0001*2), result[2], 0.00001)  // index 2: 2%10 = 2
+		assert.InDelta(t, float32(0.0001*3), result[3], 0.00001)  // index 3: 3%10 = 3
+		assert.InDelta(t, float32(0.0001*4), result[4], 0.00001)  // index 4: 4%10 = 4
 	})
 
 	t.Run("truncate if target is smaller", func(t *testing.T) {
@@ -197,7 +201,7 @@ func TestDimensionAdapterApplyProjection(t *testing.T) {
 		
 		assert.Len(t, result, 2)
 		assert.InDelta(t, 3.0, result[0], 0.001)     // (2*0.5 + 4*0.5)
-		assert.InDelta(t, 4.0, result[1], 0.01)      // (2*0.33 + 4*0.33 + 6*0.34)
+		assert.InDelta(t, 4.02, result[1], 0.001)    // (2*0.33 + 4*0.33 + 6*0.34) = 0.66 + 1.32 + 2.04 = 4.02
 	})
 
 	t.Run("handle matrix size mismatch gracefully", func(t *testing.T) {

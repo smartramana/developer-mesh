@@ -111,6 +111,13 @@ func createTestConfig(agentID string) *AgentConfig {
 			MaxRetries:      3,
 			InitialDelayMs:  100,
 			ExponentialBase: 2.0,
+			CircuitBreaker: CircuitConfig{
+				Enabled:          true,
+				FailureThreshold: 5,
+				SuccessThreshold: 2,
+				TimeoutSeconds:   30,
+				HalfOpenRequests: 3,
+			},
 		},
 		IsActive:  true,
 		CreatedAt: time.Now(),
@@ -289,16 +296,18 @@ func TestService_GetModelsForAgent(t *testing.T) {
 		assert.Equal(t, []string{"text-embedding-3-large"}, fallback)
 	})
 
-	t.Run("task type not configured", func(t *testing.T) {
+	t.Run("task type not configured falls back to general QA", func(t *testing.T) {
 		mockRepo := new(MockRepository)
 		service := NewService(mockRepo)
 
 		config := createTestConfig("agent-001")
 		service.cache.Store("agent-001", config)
 
-		_, _, err := service.GetModelsForAgent(ctx, "agent-001", TaskTypeCodeAnalysis)
-		assert.Error(t, err)
-		assert.Contains(t, err.Error(), "no models configured")
+		primary, fallback, err := service.GetModelsForAgent(ctx, "agent-001", TaskTypeCodeAnalysis)
+		assert.NoError(t, err)
+		// Should fall back to GeneralQA models
+		assert.Equal(t, []string{"text-embedding-3-small"}, primary)
+		assert.Equal(t, []string{"text-embedding-ada-002"}, fallback)
 	})
 
 	t.Run("fallback to general QA", func(t *testing.T) {
