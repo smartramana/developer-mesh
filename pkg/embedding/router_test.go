@@ -164,7 +164,7 @@ func TestSmartRouterScoreCandidates(t *testing.T) {
 		for _, candidate := range candidates {
 			assert.NotEmpty(t, candidate.Provider)
 			assert.NotEmpty(t, candidate.Model)
-			assert.True(t, candidate.Score >= 0 && candidate.Score <= 1)
+			assert.True(t, candidate.Score >= 0 && candidate.Score <= 1, "Score %f should be between 0 and 1", candidate.Score)
 			assert.NotEmpty(t, candidate.Reasons)
 		}
 	})
