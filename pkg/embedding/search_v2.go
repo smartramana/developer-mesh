@@ -71,7 +71,7 @@ type CrossModelSearchResult struct {
 // CrossModelSearch performs search across embeddings from different models
 func (s *SearchServiceV2) CrossModelSearch(ctx context.Context, req CrossModelSearchRequest) ([]CrossModelSearchResult, error) {
 	// Validate request
-	if err := s.validateSearchRequest(req); err != nil {
+	if err := s.validateSearchRequest(&req); err != nil {
 		return nil, err
 	}
 
@@ -191,7 +191,7 @@ func (s *SearchServiceV2) HybridSearch(ctx context.Context, req HybridSearchRequ
 
 // Private methods
 
-func (s *SearchServiceV2) validateSearchRequest(req CrossModelSearchRequest) error {
+func (s *SearchServiceV2) validateSearchRequest(req *CrossModelSearchRequest) error {
 	if len(req.Query) == 0 && len(req.QueryEmbedding) == 0 {
 		return fmt.Errorf("either query or query_embedding must be provided")
 	}

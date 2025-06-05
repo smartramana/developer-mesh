@@ -162,69 +162,86 @@ func (r *SmartRouter) scoreProviderModel(req *RoutingRequest, providerName strin
 	var score float64
 	var reasons []string
 
-	// Base score
-	score = 50.0
+	// Deprecated models get zero score
+	if model.DeprecatedAt != nil && model.DeprecatedAt.Before(time.Now()) {
+		reasons = append(reasons, "deprecated model")
+		return 0.0, reasons
+	}
+
+	// Inactive models get zero score
+	if !model.IsActive {
+		reasons = append(reasons, "inactive model")
+		return 0.0, reasons
+	}
+
+	// Start with base score (normalized to 0-1 range)
+	score = 0.5
 
 	// Strategy-based scoring
 	switch req.AgentConfig.EmbeddingStrategy {
 	case agents.StrategyQuality:
 		// Prioritize larger models and quality providers
+		dimensionBonus := 0.0
 		if model.Dimensions >= 3072 {
-			score += 30
-			reasons = append(reasons, "high-dimension model (+30)")
+			dimensionBonus = 0.3
+			reasons = append(reasons, "high-dimension model (+0.30)")
 		} else if model.Dimensions >= 1536 {
-			score += 20
-			reasons = append(reasons, "standard-dimension model (+20)")
+			dimensionBonus = 0.2
+			reasons = append(reasons, "standard-dimension model (+0.20)")
 		}
+		score += dimensionBonus * 0.3 // Weight dimension bonus
 
 		// Quality score from tracker
 		qualityScore := r.qualityTracker.GetScore(providerName, model.Name)
-		score += qualityScore * 20
-		reasons = append(reasons, fmt.Sprintf("quality score: %.2f (+%.1f)", qualityScore, qualityScore*20))
+		score += qualityScore * 0.2
+		reasons = append(reasons, fmt.Sprintf("quality score: %.2f (+%.2f)", qualityScore, qualityScore*0.2))
+		reasons = append(reasons, "quality priority")
 
 	case agents.StrategyCost:
 		// Prioritize cheaper models
-		costScore := 1.0 - (model.CostPer1MTokens / 0.20) // Normalize to max $0.20
-		score += costScore * 40
-		reasons = append(reasons, fmt.Sprintf("cost efficiency: $%.3f/1M tokens (+%.1f)", model.CostPer1MTokens, costScore*40))
+		costScore := math.Max(0, 1.0-(model.CostPer1MTokens/0.20)) // Normalize to max $0.20
+		score += costScore * 0.4
+		reasons = append(reasons, fmt.Sprintf("cost efficiency: $%.3f/1M tokens (+%.2f)", model.CostPer1MTokens, costScore*0.4))
+		reasons = append(reasons, "cost optimized")
 
 	case agents.StrategySpeed:
 		// Prioritize based on current load and latency
 		load := r.loadBalancer.GetLoad(providerName)
-		latencyScore := math.Max(0, 1.0-(load/100.0)) * 30
-		score += latencyScore
-		reasons = append(reasons, fmt.Sprintf("load: %.1f%% (+%.1f)", load, latencyScore))
+		latencyScore := math.Max(0, 1.0-(load/100.0))
+		score += latencyScore * 0.3
+		reasons = append(reasons, fmt.Sprintf("load: %.1f%% (+%.2f)", load, latencyScore*0.3))
 
 		// Smaller models are generally faster
 		if model.Dimensions <= 1024 {
-			score += 10
-			reasons = append(reasons, "small model for speed (+10)")
+			score += 0.1
+			reasons = append(reasons, "small model for speed (+0.10)")
 		}
+		reasons = append(reasons, "speed priority")
 
 	case agents.StrategyBalanced:
 		// Balance all factors
 		qualityScore := r.qualityTracker.GetScore(providerName, model.Name)
-		costScore := 1.0 - (model.CostPer1MTokens / 0.20)
+		costScore := math.Max(0, 1.0-(model.CostPer1MTokens/0.20))
 		load := r.loadBalancer.GetLoad(providerName)
 		latencyScore := math.Max(0, 1.0-(load/100.0))
 
-		score += qualityScore * 10
-		score += costScore * 10
-		score += latencyScore * 10
+		// Weighted average of all factors
+		balancedScore := (qualityScore*0.3 + costScore*0.3 + latencyScore*0.4) * 0.3
+		score += balancedScore
 		reasons = append(reasons, fmt.Sprintf("balanced: quality=%.2f, cost=%.2f, latency=%.2f (+%.1f)",
-			qualityScore, costScore, latencyScore, qualityScore*10+costScore*10+latencyScore*10))
+			qualityScore, costScore, latencyScore, balancedScore))
 	}
 
-	// Circuit breaker health bonus
+	// Circuit breaker health bonus (normalized)
 	cbHealth := r.circuitBreakers[providerName].HealthScore()
-	score += cbHealth * 10
-	reasons = append(reasons, fmt.Sprintf("circuit breaker health: %.2f (+%.1f)", cbHealth, cbHealth*10))
+	score += cbHealth * 0.1
+	reasons = append(reasons, fmt.Sprintf("circuit breaker health: %.2f (+%.1f)", cbHealth, cbHealth*0.1))
 
 	// Task type compatibility bonus
 	for _, taskType := range model.SupportedTaskTypes {
 		if taskType == string(req.TaskType) {
-			score += 15
-			reasons = append(reasons, "task type match (+15)")
+			score += 0.15
+			reasons = append(reasons, "task type match (+0.15)")
 			break
 		}
 	}
@@ -237,11 +254,14 @@ func (r *SmartRouter) scoreProviderModel(req *RoutingRequest, providerName strin
 		// Estimate monthly cost based on rate
 		estimatedMonthlyCost := model.CostPer1MTokens * float64(constraints.RateLimits.TokensPerHour) * 24 * 30 / 1_000_000
 		if estimatedMonthlyCost > constraints.MaxCostPerMonthUSD {
-			score -= 50
-			reasons = append(reasons, fmt.Sprintf("exceeds cost limit: $%.2f > $%.2f (-50)",
+			score *= 0.1 // Heavy penalty but don't go negative
+			reasons = append(reasons, fmt.Sprintf("exceeds cost limit: $%.2f > $%.2f (×0.1)",
 				estimatedMonthlyCost, constraints.MaxCostPerMonthUSD))
 		}
 	}
+
+	// Ensure score stays in 0-1 range
+	score = math.Max(0, math.Min(1, score))
 
 	return score, reasons
 }

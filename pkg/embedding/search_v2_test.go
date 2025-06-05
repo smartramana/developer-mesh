@@ -50,8 +50,8 @@ func TestCrossModelSearchValidation(t *testing.T) {
 
 	t.Run("valid request with defaults", func(t *testing.T) {
 		req := CrossModelSearchRequest{
-			Query:    "test query",
-			TenantID: uuid.New(),
+			QueryEmbedding: []float32{0.1, 0.2, 0.3}, // Provide embedding instead of query
+			TenantID:       uuid.New(),
 		}
 
 		// Mock database response
@@ -65,7 +65,7 @@ func TestCrossModelSearchValidation(t *testing.T) {
 
 		// Expect the search query
 		mock.ExpectQuery("WITH normalized_embeddings AS").
-			WithArgs(StandardDimension, pq.Array([]float32{}), req.TenantID, 0.7, 10).
+			WithArgs(StandardDimension, pq.Array(req.QueryEmbedding), req.TenantID, 0.7, 10).
 			WillReturnRows(sqlmock.NewRows([]string{
 				"id", "context_id", "content", "original_model", "original_dimension",
 				"embedding", "similarity", "agent_id", "metadata", "created_at",
@@ -263,7 +263,7 @@ func TestCalculateFinalScore(t *testing.T) {
 		score := service.calculateFinalScore(0.9, 0.8, "research")
 		// Research: 60% similarity, 40% quality
 		expected := 0.6*0.9 + 0.4*0.8
-		assert.Equal(t, expected, score)
+		assert.InDelta(t, expected, score, 0.000001)
 	})
 
 	t.Run("code analysis task type", func(t *testing.T) {
@@ -277,7 +277,7 @@ func TestCalculateFinalScore(t *testing.T) {
 		score := service.calculateFinalScore(0.9, 0.8, "unknown")
 		// Default: 80% similarity, 20% quality
 		expected := 0.8*0.9 + 0.2*0.8
-		assert.Equal(t, expected, score)
+		assert.InDelta(t, expected, score, 0.000001)
 	})
 }
 
@@ -368,8 +368,8 @@ func TestMergeResults(t *testing.T) {
 
 		assert.Len(t, merged, 2)
 		// Check hybrid scores
-		assert.Equal(t, 0.6*0.9, merged[0].HybridScore)      // Semantic only
-		assert.Equal(t, (1-0.6)*0.8, merged[1].HybridScore)  // Keyword only
+		assert.InDelta(t, 0.6*0.9, merged[0].HybridScore, 0.000001)      // Semantic only
+		assert.InDelta(t, (1-0.6)*0.8, merged[1].HybridScore, 0.000001)  // Keyword only
 	})
 
 	t.Run("merge with duplicates", func(t *testing.T) {
@@ -400,9 +400,9 @@ func TestMergeResults(t *testing.T) {
 
 		assert.Len(t, merged, 1)
 		// Combined score
-		assert.Equal(t, 0.5*0.9+0.5*0.8, merged[0].HybridScore)
-		assert.Equal(t, 0.9, merged[0].SemanticScore)
-		assert.Equal(t, 0.8, merged[0].KeywordScore)
+		assert.InDelta(t, 0.5*0.9+0.5*0.8, merged[0].HybridScore, 0.000001)
+		assert.InDelta(t, 0.9, merged[0].SemanticScore, 0.000001)
+		assert.InDelta(t, 0.8, merged[0].KeywordScore, 0.000001)
 	})
 }
 

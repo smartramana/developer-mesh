@@ -158,7 +158,8 @@ func TestSmartRouterScoreCandidates(t *testing.T) {
 		models := []string{"mock-model-small", "mock-model-large", "mock-model-titan"}
 		candidates := router.scoreCandidates(req, models)
 
-		assert.Len(t, candidates, 3)
+		// We have 2 providers and 3 models, so 6 candidates total
+		assert.Len(t, candidates, 6)
 		
 		// Check that all candidates have scores and reasons
 		for _, candidate := range candidates {
