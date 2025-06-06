@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/S-Corkum/devops-mcp/pkg/observability"
@@ -169,7 +170,7 @@ func (p *EmbeddingProxy) proxyRequest(c *gin.Context, path string, method string
 	p.logger.Debug("Proxying embedding request", map[string]any{
 		"method":     method,
 		"path":       path,
-		"target_url": targetURL,
+		"target_url": sanitizeLogValue(targetURL),
 		"request_id": requestID,
 	})
 	
@@ -274,4 +275,17 @@ type SearchResult struct {
 	Content    string                 `json:"content"`
 	Similarity float64                `json:"similarity"`
 	Metadata   map[string]interface{} `json:"metadata"`
+}
+
+// sanitizeLogValue removes newlines and carriage returns from user input to prevent log injection
+func sanitizeLogValue(input string) string {
+	// Remove newlines, carriage returns, and other control characters
+	sanitized := strings.ReplaceAll(input, "\n", "\\n")
+	sanitized = strings.ReplaceAll(sanitized, "\r", "\\r")
+	sanitized = strings.ReplaceAll(sanitized, "\t", "\\t")
+	// Limit length to prevent excessive log sizes
+	if len(sanitized) > 100 {
+		sanitized = sanitized[:100] + "..."
+	}
+	return sanitized
 }

@@ -3,6 +3,7 @@ package api
 import (
     "net/http"
     "strconv"
+    "strings"
     "time"
     
     "github.com/S-Corkum/devops-mcp/pkg/agents"
@@ -78,7 +79,7 @@ func (api *EmbeddingAPI) generateEmbedding(c *gin.Context) {
     if err != nil {
         api.logger.Error("Failed to generate embedding", map[string]any{
             "error": err.Error(),
-            "agent_id": req.AgentID,
+            "agent_id": sanitizeLogValue(req.AgentID),
             "text_length": len(req.Text),
         })
         
@@ -205,7 +206,7 @@ func (api *EmbeddingAPI) createAgentConfig(c *gin.Context) {
     if err := api.agentService.CreateConfig(c.Request.Context(), &config); err != nil {
         api.logger.Error("Failed to create agent config", map[string]any{
             "error": err.Error(),
-            "agent_id": config.AgentID,
+            "agent_id": sanitizeLogValue(config.AgentID),
         })
         c.JSON(http.StatusInternalServerError, ErrorResponse{
             Code:    ErrInternalServer,
@@ -250,7 +251,7 @@ func (api *EmbeddingAPI) updateAgentConfig(c *gin.Context) {
     if err != nil {
         api.logger.Error("Failed to update agent config", map[string]any{
             "error": err.Error(),
-            "agent_id": agentID,
+            "agent_id": sanitizeLogValue(agentID),
         })
         c.JSON(http.StatusInternalServerError, ErrorResponse{
             Code:    ErrInternalServer,
@@ -308,3 +309,16 @@ func (api *EmbeddingAPI) getAgentCosts(c *gin.Context) {
 }
 
 // Use the common ErrorResponse from errors.go
+
+// sanitizeLogValue removes newlines and carriage returns from user input to prevent log injection
+func sanitizeLogValue(input string) string {
+    // Remove newlines, carriage returns, and other control characters
+    sanitized := strings.ReplaceAll(input, "\n", "\\n")
+    sanitized = strings.ReplaceAll(sanitized, "\r", "\\r")
+    sanitized = strings.ReplaceAll(sanitized, "\t", "\\t")
+    // Limit length to prevent excessive log sizes
+    if len(sanitized) > 100 {
+        sanitized = sanitized[:100] + "..."
+    }
+    return sanitized
+}
