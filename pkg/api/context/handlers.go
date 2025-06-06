@@ -3,6 +3,7 @@ package context
 import (
 	"net/http"
 	"strconv"
+	"strings"
 
 	contextManager "github.com/S-Corkum/devops-mcp/pkg/core/context"
 	"github.com/S-Corkum/devops-mcp/pkg/models"
@@ -115,7 +116,7 @@ func (api *API) GetContext(c *gin.Context) {
 	if err != nil {
 		api.logger.Warn("Failed to get context", map[string]interface{}{
 			"error":      err.Error(),
-			"context_id": contextID,
+			"context_id": sanitizeLogValue(contextID),
 		})
 		c.JSON(http.StatusNotFound, gin.H{"error": err.Error()})
 		return
@@ -178,7 +179,7 @@ func (api *API) UpdateContext(c *gin.Context) {
 	if err != nil {
 		api.logger.Error("Failed to update context", map[string]interface{}{
 			"error":      err.Error(),
-			"context_id": contextID,
+			"context_id": sanitizeLogValue(contextID),
 		})
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
@@ -213,7 +214,7 @@ func (api *API) DeleteContext(c *gin.Context) {
 	if err != nil {
 		api.logger.Error("Failed to delete context", map[string]interface{}{
 			"error":      err.Error(),
-			"context_id": contextID,
+			"context_id": sanitizeLogValue(contextID),
 		})
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
@@ -296,7 +297,7 @@ func (api *API) SummarizeContext(c *gin.Context) {
 	if err != nil {
 		api.logger.Error("Failed to summarize context", map[string]interface{}{
 			"error":      err.Error(),
-			"context_id": contextID,
+			"context_id": sanitizeLogValue(contextID),
 		})
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
@@ -340,7 +341,7 @@ func (api *API) SearchInContext(c *gin.Context) {
 	if err != nil {
 		api.logger.Error("Failed to search in context", map[string]interface{}{
 			"error":      err.Error(),
-			"context_id": contextID,
+			"context_id": sanitizeLogValue(contextID),
 		})
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
@@ -363,4 +364,17 @@ func (api *API) SearchInContext(c *gin.Context) {
 			"context": "/api/v1/contexts/" + contextID,
 		},
 	})
+}
+
+// sanitizeLogValue removes newlines and carriage returns from user input to prevent log injection
+func sanitizeLogValue(input string) string {
+	// Remove newlines, carriage returns, and other control characters
+	sanitized := strings.ReplaceAll(input, "\n", "\\n")
+	sanitized = strings.ReplaceAll(sanitized, "\r", "\\r")
+	sanitized = strings.ReplaceAll(sanitized, "\t", "\\t")
+	// Limit length to prevent excessive log sizes
+	if len(sanitized) > 100 {
+		sanitized = sanitized[:100] + "..."
+	}
+	return sanitized
 }

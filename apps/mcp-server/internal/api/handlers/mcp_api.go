@@ -3,6 +3,7 @@ package handlers
 import (
 	"context"
 	"net/http"
+	"strings"
 
 	"github.com/S-Corkum/devops-mcp/pkg/models"
 	"github.com/S-Corkum/devops-mcp/pkg/observability"
@@ -110,7 +111,7 @@ func (api *MCPAPI) getContext(c *gin.Context) {
 	contextObj, err := api.contextManager.GetContext(c.Request.Context(), contextID)
 	if err != nil {
 		api.logger.Error("Failed to get context", map[string]interface{}{
-			"context_id": contextID,
+			"context_id": sanitizeLogValue(contextID),
 			"error":      err.Error(),
 		})
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
@@ -143,7 +144,7 @@ func (api *MCPAPI) updateContext(c *gin.Context) {
 	currentContext, err := api.contextManager.GetContext(c.Request.Context(), contextID)
 	if err != nil {
 		api.logger.Error("Context not found during update", map[string]interface{}{
-			"context_id": contextID,
+			"context_id": sanitizeLogValue(contextID),
 			"error":      err.Error(),
 		})
 		c.JSON(http.StatusNotFound, gin.H{"error": "context not found: " + err.Error()})
@@ -173,7 +174,7 @@ func (api *MCPAPI) updateContext(c *gin.Context) {
 
 	if err != nil {
 		api.logger.Error("Failed to update context", map[string]interface{}{
-			"context_id": contextID,
+			"context_id": sanitizeLogValue(contextID),
 			"error":      err.Error(),
 		})
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to update context: " + err.Error()})
@@ -194,7 +195,7 @@ func (api *MCPAPI) deleteContext(c *gin.Context) {
 	err := api.contextManager.DeleteContext(c.Request.Context(), contextID)
 	if err != nil {
 		api.logger.Error("Failed to delete context", map[string]interface{}{
-			"context_id": contextID,
+			"context_id": sanitizeLogValue(contextID),
 			"error":      err.Error(),
 		})
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
@@ -212,8 +213,8 @@ func (api *MCPAPI) listContexts(c *gin.Context) {
 	contexts, err := api.contextManager.ListContexts(c.Request.Context(), agentID, sessionID, nil)
 	if err != nil {
 		api.logger.Error("Failed to list contexts", map[string]interface{}{
-			"agent_id":   agentID,
-			"session_id": sessionID,
+			"agent_id":   sanitizeLogValue(agentID),
+			"session_id": sanitizeLogValue(sessionID),
 			"error":      err.Error(),
 		})
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
@@ -243,8 +244,8 @@ func (api *MCPAPI) searchContext(c *gin.Context) {
 	results, err := api.contextManager.SearchInContext(c.Request.Context(), contextID, request.Query)
 	if err != nil {
 		api.logger.Error("Failed to search in context", map[string]interface{}{
-			"context_id": contextID,
-			"query":      request.Query,
+			"context_id": sanitizeLogValue(contextID),
+			"query":      sanitizeLogValue(request.Query),
 			"error":      err.Error(),
 		})
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
@@ -265,7 +266,7 @@ func (api *MCPAPI) summarizeContext(c *gin.Context) {
 	summary, err := api.contextManager.SummarizeContext(c.Request.Context(), contextID)
 	if err != nil {
 		api.logger.Error("Failed to summarize context", map[string]interface{}{
-			"context_id": contextID,
+			"context_id": sanitizeLogValue(contextID),
 			"error":      err.Error(),
 		})
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
@@ -273,4 +274,17 @@ func (api *MCPAPI) summarizeContext(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, gin.H{"summary": summary})
+}
+
+// sanitizeLogValue removes newlines and carriage returns from user input to prevent log injection
+func sanitizeLogValue(input string) string {
+	// Remove newlines, carriage returns, and other control characters
+	sanitized := strings.ReplaceAll(input, "\n", "\\n")
+	sanitized = strings.ReplaceAll(sanitized, "\r", "\\r")
+	sanitized = strings.ReplaceAll(sanitized, "\t", "\\t")
+	// Limit length to prevent excessive log sizes
+	if len(sanitized) > 100 {
+		sanitized = sanitized[:100] + "..."
+	}
+	return sanitized
 }
