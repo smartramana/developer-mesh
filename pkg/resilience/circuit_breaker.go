@@ -29,12 +29,12 @@ type CircuitBreaker struct {
 	name            string
 	config          CircuitBreakerConfig
 	state           CircuitBreakerState
-	// Deprecated: This field is currently unused but reserved for future implementation of metrics tracking
-	counts          Counts
-	// Deprecated: This field is currently unused but reserved for future implementation of state change tracking
-	lastStateChange time.Time
-	// Deprecated: This field is currently unused but reserved for future implementation of concurrent access control
-	mutex           sync.RWMutex
+	// TODO: Future implementation of metrics tracking
+	// counts          Counts
+	// TODO: Future implementation of state change tracking  
+	// lastStateChange time.Time
+	// TODO: Future implementation of concurrent access control
+	// mutex           sync.RWMutex
 }
 
 // NewCircuitBreaker creates a new circuit breaker with the given configuration
@@ -43,7 +43,7 @@ func NewCircuitBreaker(name string, config CircuitBreakerConfig) *CircuitBreaker
 		name:            name,
 		config:          config,
 		state:           CircuitBreakerClosed,
-		lastStateChange: time.Now(),
+		// lastStateChange: time.Now(), // TODO: Enable when implementing state tracking
 	}
 }
 

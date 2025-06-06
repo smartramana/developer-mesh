@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"encoding/json"
 	"io"
-	"io/ioutil"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -23,7 +22,6 @@ type MockHandlerTestCase struct {
 	requestBody    string
 	requestHeaders map[string]string
 	expectedStatus int
-	expectedBody   map[string]interface{}
 	expectedFields []string
 }
 
@@ -585,7 +583,7 @@ func TestRequestBodyProcessing(t *testing.T) {
 		}
 
 		// Read the request body
-		body, err := ioutil.ReadAll(r.Body)
+		body, err := io.ReadAll(r.Body)
 		if err != nil {
 			w.WriteHeader(http.StatusBadRequest)
 			_, _ = w.Write([]byte(`{"error":"Failed to read request body"}`))

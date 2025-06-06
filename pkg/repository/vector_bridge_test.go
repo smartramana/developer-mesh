@@ -90,17 +90,13 @@ func TestNewEmbeddingRepository(t *testing.T) {
 		db := &sqlx.DB{}
 		repo := NewEmbeddingRepository(db)
 		assert.NotNil(t, repo, "Repository should not be nil")
-		// Verify the repository is not nil and implements the expected interface
-		_, ok := repo.(VectorAPIRepository)
-		assert.True(t, ok, "Repository should implement VectorAPIRepository interface")
+		// Verify the repository is not nil (interface check is implicit in return type)
 	})
 
 	t.Run("with nil", func(t *testing.T) {
 		repo := NewEmbeddingRepository(nil)
 		assert.NotNil(t, repo, "Repository should not be nil")
-		// Verify the repository is not nil and implements the expected interface
-		_, ok := repo.(VectorAPIRepository)
-		assert.True(t, ok, "Repository should implement VectorAPIRepository interface")
+		// Verify the repository is not nil (interface check is implicit in return type)
 	})
 
 	// We don't need to test with unsupported DB types since NewEmbeddingRepository expects *sqlx.DB

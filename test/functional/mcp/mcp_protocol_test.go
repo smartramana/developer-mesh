@@ -52,7 +52,12 @@ var _ = Describe("MCP Protocol Tests", func() {
 
 			resp, err := client.Do(req)
 			Expect(err).NotTo(HaveOccurred())
-			defer resp.Body.Close()
+			defer func() {
+				if err := resp.Body.Close(); err != nil {
+					// Test helper - ignore close errors
+					_ = err
+				}
+			}()
 
 			Expect(resp.StatusCode).To(Equal(http.StatusOK))
 
@@ -71,7 +76,12 @@ var _ = Describe("MCP Protocol Tests", func() {
 
 			resp, err := client.Do(req)
 			Expect(err).NotTo(HaveOccurred())
-			defer resp.Body.Close()
+			defer func() {
+				if err := resp.Body.Close(); err != nil {
+					// Test helper - ignore close errors
+					_ = err
+				}
+			}()
 
 			// The actual MCP endpoints may return 404 if not implemented yet
 			// For now, we just check that the server is responding
@@ -86,7 +96,12 @@ var _ = Describe("MCP Protocol Tests", func() {
 
 			resp, err := client.Do(req)
 			Expect(err).NotTo(HaveOccurred())
-			defer resp.Body.Close()
+			defer func() {
+				if err := resp.Body.Close(); err != nil {
+					// Test helper - ignore close errors
+					_ = err
+				}
+			}()
 
 			// The actual MCP endpoints may return 404 if not implemented yet
 			// For now, we just check that the server is responding

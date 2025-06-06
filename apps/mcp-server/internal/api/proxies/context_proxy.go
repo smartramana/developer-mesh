@@ -243,7 +243,7 @@ func (p *ContextAPIProxy) Search(ctx context.Context, contextID, query string) (
 	for i, result := range results {
 		// Create a default type and score
 		itemType := "content"
-		var score float64 = 0.0
+		score := 0.0
 
 		// Extract type and score from metadata if available
 		if result.Metadata != nil {

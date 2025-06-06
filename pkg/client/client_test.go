@@ -141,7 +141,7 @@ func handleContextEndpoint(w http.ResponseWriter, r *http.Request) {
 	// Get context
 	if r.Method == "GET" {
 		w.WriteHeader(http.StatusOK)
-		if _, err := w.Write([]byte(fmt.Sprintf(`{
+		if _, err := fmt.Fprintf(w, `{
 			"id": "%s",
 			"agent_id": "test-agent",
 			"model_id": "test-model",
@@ -152,7 +152,7 @@ func handleContextEndpoint(w http.ResponseWriter, r *http.Request) {
 			"max_tokens": 1000,
 			"created_at": "2023-01-01T00:00:00Z",
 			"updated_at": "2023-01-01T00:00:00Z"
-		}`, contextID))); err != nil {
+		}`, contextID); err != nil {
 			// Test helper - ignore write errors
 			_ = err
 		}
@@ -162,7 +162,7 @@ func handleContextEndpoint(w http.ResponseWriter, r *http.Request) {
 	// Update context
 	if r.Method == "PUT" {
 		w.WriteHeader(http.StatusOK)
-		if _, err := w.Write([]byte(fmt.Sprintf(`{
+		if _, err := fmt.Fprintf(w, `{
 			"id": "%s",
 			"agent_id": "test-agent",
 			"model_id": "test-model",
@@ -180,7 +180,7 @@ func handleContextEndpoint(w http.ResponseWriter, r *http.Request) {
 			"max_tokens": 1000,
 			"created_at": "2023-01-01T00:00:00Z",
 			"updated_at": "2023-01-01T00:00:00Z"
-		}`, contextID))); err != nil {
+		}`, contextID); err != nil {
 			// Test helper - ignore write errors
 			_ = err
 		}
@@ -210,11 +210,9 @@ func handleWebhookEndpoint(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 
 	// Check for webhook signature if applicable
-	signature := r.Header.Get("X-MCP-Signature")
-	if signature != "" {
-		// In a real implementation, we would verify the signature here
-		// For testing purposes, we'll accept any non-empty signature
-	}
+	// In a real implementation, we would verify the signature here
+	// For testing purposes, we'll accept any non-empty signature
+	_ = r.Header.Get("X-MCP-Signature")
 
 	w.WriteHeader(http.StatusOK)
 	if _, err := w.Write([]byte(`{"status":"ok"}`)); err != nil {

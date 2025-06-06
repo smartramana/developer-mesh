@@ -8,8 +8,8 @@ import (
 )
 
 var (
-	// Deprecated: This retry constant is currently unused but reserved for future implementation of retry handling
-	maxRetries     = 5
+	// TODO: Future implementation of retry handling
+	// maxRetries     = 5
 	idempotencyTTL = 24 * time.Hour
 )
 

@@ -115,9 +115,7 @@ func TestTruncateOldestFirst(t *testing.T) {
 			}
 
 			// Copy content items
-			for i, item := range tc.context.Content {
-				contextCopy.Content[i] = item
-			}
+			copy(contextCopy.Content, tc.context.Content)
 
 			// Call DoTruncateOldestFirst
 			err := DoTruncateOldestFirst(contextCopy)
@@ -274,9 +272,7 @@ func TestTruncatePreservingUser(t *testing.T) {
 			}
 
 			// Copy content items
-			for i, item := range tc.context.Content {
-				contextCopy.Content[i] = item
-			}
+			copy(contextCopy.Content, tc.context.Content)
 
 			// Call DoTruncatePreservingUser
 			err := DoTruncatePreservingUser(contextCopy)

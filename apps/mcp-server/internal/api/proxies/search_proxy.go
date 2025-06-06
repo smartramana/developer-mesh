@@ -218,7 +218,7 @@ func (p *SearchAPIProxy) convertSearchResults(results *embedding.SearchResults) 
 		var score float64
 		var distance float32
 		var content string
-		var contentType string = "text"
+		contentType := "text"
 		var metadata map[string]interface{}
 		var contentHash string
 

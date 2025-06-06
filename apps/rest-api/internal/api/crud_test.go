@@ -427,9 +427,10 @@ func TestConcurrentWrites(t *testing.T) {
 		successCount := 0
 		conflictCount := 0
 		for code := range results {
-			if code == http.StatusOK {
+			switch code {
+			case http.StatusOK:
 				successCount++
-			} else if code == http.StatusConflict {
+			case http.StatusConflict:
 				conflictCount++
 			}
 		}

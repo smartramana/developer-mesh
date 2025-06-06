@@ -12,7 +12,6 @@ import (
 	commonLogging "github.com/S-Corkum/devops-mcp/pkg/common/logging"
 	"github.com/S-Corkum/devops-mcp/pkg/config"
 	"github.com/S-Corkum/devops-mcp/pkg/observability"
-	commonMetrics "github.com/S-Corkum/devops-mcp/pkg/observability"
 	"github.com/S-Corkum/devops-mcp/pkg/repository"
 	"github.com/S-Corkum/devops-mcp/pkg/repository/agent"
 	"github.com/gin-gonic/gin"
@@ -37,7 +36,7 @@ type Server struct {
 	loggerObsAdapter  observability.Logger  // Adapter that wraps commonLogging.Logger as observability.Logger
 	db                *sqlx.DB
 	metrics           observability.MetricsClient
-	metricsAdapter    commonMetrics.Client // For compatibility with old code
+	metricsAdapter    observability.Client // For compatibility with old code
 	cfg               *config.Config
 	restClientFactory *rest.Factory // REST API client factory for communication with REST API
 	authService       *auth.Service

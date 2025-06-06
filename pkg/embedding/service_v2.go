@@ -422,9 +422,7 @@ func (s *ServiceV2) validateEmbeddingRequest(req GenerateEmbeddingRequest) error
 	}
 	
 	// Validate tenant ID if provided
-	if req.TenantID != uuid.Nil {
-		// UUID validation is implicit in the type
-	}
+	// UUID validation is implicit in the type when TenantID != uuid.Nil
 	
 	// Validate metadata if provided
 	if req.Metadata != nil {

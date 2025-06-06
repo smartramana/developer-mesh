@@ -6,7 +6,6 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"strings"
-	"sync"
 	"testing"
 	"time"
 
@@ -31,39 +30,6 @@ func (l *testEventListener) Handle(ctx context.Context, event *models.Event) err
 	return nil
 }
 
-// Mock webhook handler for testing
-type testWebhookHandler struct {
-	handled bool
-	mutex   sync.Mutex
-	eventCh chan struct{}
-}
-
-func newTestWebhookHandler() *testWebhookHandler {
-	return &testWebhookHandler{
-		handled: false,
-		eventCh: make(chan struct{}, 1),
-	}
-}
-
-func (h *testWebhookHandler) Handle(ctx context.Context, event interface{}) error {
-	h.mutex.Lock()
-	defer h.mutex.Unlock()
-	h.handled = true
-	// Signal that an event was handled
-	select {
-	case h.eventCh <- struct{}{}:
-		// Successfully sent
-	default:
-		// Channel full or closed, ignore
-	}
-	return nil
-}
-
-func (h *testWebhookHandler) IsHandled() bool {
-	h.mutex.Lock()
-	defer h.mutex.Unlock()
-	return h.handled
-}
 
 func TestGitHubAdapter_ExecuteAction(t *testing.T) {
 	// Verify no goroutine leaks after test completes
@@ -199,7 +165,8 @@ func TestGitHubAdapter_ExecuteAction(t *testing.T) {
 		switch {
 		case strings.Contains(r.URL.Path, "/repos/octocat/hello-world/issues"):
 			// Handle issues request
-			if r.Method == http.MethodGet {
+			switch r.Method {
+			case http.MethodGet:
 				// List issues
 				issues := []map[string]interface{}{
 					{
@@ -224,7 +191,7 @@ func TestGitHubAdapter_ExecuteAction(t *testing.T) {
 					},
 				}
 				_ = json.NewEncoder(w).Encode(issues)
-			} else if r.Method == http.MethodPost {
+			case http.MethodPost:
 				// Create issue
 				var issueRequest map[string]interface{}
 				if err := json.NewDecoder(r.Body).Decode(&issueRequest); err != nil {
@@ -245,7 +212,7 @@ func TestGitHubAdapter_ExecuteAction(t *testing.T) {
 				}
 
 				_ = json.NewEncoder(w).Encode(newIssue)
-			} else if r.Method == http.MethodPatch {
+			case http.MethodPatch:
 				// Update issue
 				var updateRequest map[string]interface{}
 				if err := json.NewDecoder(r.Body).Decode(&updateRequest); err != nil {
@@ -268,12 +235,16 @@ func TestGitHubAdapter_ExecuteAction(t *testing.T) {
 					},
 				}
 
-				json.NewEncoder(w).Encode(updatedIssue)
+				if err := json.NewEncoder(w).Encode(updatedIssue); err != nil {
+					// Test helper - ignore encoding errors
+					_ = err
+				}
 			}
 
 		case strings.Contains(r.URL.Path, "/repos/octocat/hello-world/pulls"):
 			// Handle pull requests
-			if r.Method == http.MethodGet {
+			switch r.Method {
+			case http.MethodGet:
 				// List PRs
 				prs := []map[string]interface{}{
 					{
@@ -295,8 +266,11 @@ func TestGitHubAdapter_ExecuteAction(t *testing.T) {
 						},
 					},
 				}
-				json.NewEncoder(w).Encode(prs)
-			} else if r.Method == http.MethodPost {
+				if err := json.NewEncoder(w).Encode(prs); err != nil {
+					// Test helper - ignore encoding errors
+					_ = err
+				}
+			case http.MethodPost:
 				// Create PR
 				var prRequest map[string]interface{}
 				if err := json.NewDecoder(r.Body).Decode(&prRequest); err != nil {
@@ -323,12 +297,16 @@ func TestGitHubAdapter_ExecuteAction(t *testing.T) {
 					},
 				}
 
-				json.NewEncoder(w).Encode(newPR)
+				if err := json.NewEncoder(w).Encode(newPR); err != nil {
+					// Test helper - ignore encoding errors
+					_ = err
+				}
 			}
 
 		case strings.Contains(r.URL.Path, "/repos/octocat/hello-world/git/refs"):
 			// Handle references (branches)
-			if r.Method == http.MethodGet {
+			switch r.Method {
+			case http.MethodGet:
 				refs := []map[string]interface{}{
 					{
 						"ref": "refs/heads/main",
@@ -347,8 +325,8 @@ func TestGitHubAdapter_ExecuteAction(t *testing.T) {
 						},
 					},
 				}
-				json.NewEncoder(w).Encode(refs)
-			} else if r.Method == http.MethodPost {
+				_ = json.NewEncoder(w).Encode(refs)
+			case http.MethodPost:
 				// Create branch
 				var refRequest map[string]interface{}
 				if err := json.NewDecoder(r.Body).Decode(&refRequest); err != nil {
@@ -365,7 +343,7 @@ func TestGitHubAdapter_ExecuteAction(t *testing.T) {
 					},
 				}
 
-				json.NewEncoder(w).Encode(newRef)
+				_ = json.NewEncoder(w).Encode(newRef)
 			}
 
 		case strings.Contains(r.URL.Path, "/repos/octocat/hello-world"):
@@ -381,12 +359,12 @@ func TestGitHubAdapter_ExecuteAction(t *testing.T) {
 				"html_url": "https://github.com/octocat/hello-world",
 				"private":  false,
 			}
-			json.NewEncoder(w).Encode(repo)
+			_ = json.NewEncoder(w).Encode(repo)
 
 		default:
 			// Default response for other endpoints
 			w.WriteHeader(http.StatusOK)
-			json.NewEncoder(w).Encode(map[string]string{"status": "ok"})
+			_ = json.NewEncoder(w).Encode(map[string]string{"status": "ok"})
 		}
 	}))
 	defer server.Close()

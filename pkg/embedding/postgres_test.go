@@ -147,10 +147,8 @@ func (s *MockPostgresEmbeddingStorage) GetEmbedding(ctx context.Context, id stri
 	}
 
 	// Create a new embedding vector
+	// In a real implementation, we would parse the JSON metadata if valid
 	metadata := make(map[string]interface{})
-	if metadataJSON.Valid {
-		// In a real implementation, we would parse the JSON here
-	}
 
 	return &EmbeddingVector{
 		ContentID:   contentID,

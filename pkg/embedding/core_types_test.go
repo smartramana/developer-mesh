@@ -69,8 +69,7 @@ func TestCoreInterfaceCompatibility(t *testing.T) {
 
 	// Create a variable of interface type and assign it nil to verify the interface
 	// is implemented by the type
-	var embeddingService EmbeddingService
-	embeddingService = (*OpenAIEmbeddingService)(nil)
+	var embeddingService EmbeddingService = (*OpenAIEmbeddingService)(nil)
 
 	// This doesn't actually run as a test, it just verifies that the interfaces match
 	// at compile time

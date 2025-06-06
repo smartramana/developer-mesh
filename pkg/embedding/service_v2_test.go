@@ -184,7 +184,11 @@ func TestGenerateEmbedding(t *testing.T) {
 		// Create a mock database for the repository
 		db, mockDB, err := sqlmock.New()
 		require.NoError(t, err)
-		defer db.Close()
+		defer func() {
+			if err := db.Close(); err != nil {
+				t.Logf("Failed to close database: %v", err)
+			}
+		}()
 		
 		// Expect the insert query using stored procedure
 		mockDB.ExpectQuery("SELECT mcp.insert_embedding").
@@ -414,7 +418,11 @@ func TestBatchGenerateEmbeddings(t *testing.T) {
 		// Create a mock database for the repository
 		db, mockDB, err := sqlmock.New()
 		require.NoError(t, err)
-		defer db.Close()
+		defer func() {
+			if err := db.Close(); err != nil {
+				t.Logf("Failed to close database: %v", err)
+			}
+		}()
 		
 		// Expect the insert query using stored procedure for both requests
 		for i := 0; i < 2; i++ {
@@ -533,7 +541,11 @@ func TestBatchGenerateEmbeddings(t *testing.T) {
 		// Create a mock database for the valid request
 		db, mockDB, err := sqlmock.New()
 		require.NoError(t, err)
-		defer db.Close()
+		defer func() {
+			if err := db.Close(); err != nil {
+				t.Logf("Failed to close database: %v", err)
+			}
+		}()
 		
 		// Expect the insert query using stored procedure for the valid request
 		mockDB.ExpectQuery("SELECT mcp.insert_embedding").

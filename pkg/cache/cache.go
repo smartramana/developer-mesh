@@ -34,48 +34,9 @@ func (e Error) Error() string {
 
 // Note: RedisConfig is now fully defined in init.go to prevent redeclaration errors
 
-// stubCache is a simple stub implementation of the Cache interface
-// stubCache provides a minimal no-op implementation of the Cache interface
-// Deprecated: This stub implementation is no longer used and will be removed when
-// the Go workspace migration is complete. Use redis_cache.go and redis_cluster.go
-// implementations instead, which provide full cache functionality with Redis.
-type stubCache struct{}
-
-// Get retrieves data from the cache
-// Deprecated: Use the Get method from redis_cache.go or redis_cluster.go instead.
-func (s *stubCache) Get(ctx context.Context, key string, value interface{}) error {
-	return nil // Stub implementation
-}
-
-// Set stores data in the cache
-// Deprecated: Use the Set method from redis_cache.go or redis_cluster.go instead.
-func (s *stubCache) Set(ctx context.Context, key string, value interface{}, ttl time.Duration) error {
-	return nil // Stub implementation
-}
-
-// Delete removes data from the cache
-// Deprecated: Use the Delete method from redis_cache.go or redis_cluster.go instead.
-func (s *stubCache) Delete(ctx context.Context, key string) error {
-	return nil // Stub implementation
-}
-
-// Close closes the cache connection
-// Deprecated: Use the Close method from redis_cache.go or redis_cluster.go instead.
-func (s *stubCache) Close() error {
-	return nil // Stub implementation
-}
-
-// Exists checks if a key exists in the cache
-// Deprecated: Use the Exists method from redis_cache.go or redis_cluster.go instead.
-func (s *stubCache) Exists(ctx context.Context, key string) (bool, error) {
-	return false, nil // Stub implementation
-}
-
-// Flush clears all data from the cache
-// Deprecated: Use the Flush method from redis_cache.go or redis_cluster.go instead.
-func (s *stubCache) Flush(ctx context.Context) error {
-	return nil // Stub implementation
-}
+// Note: stubCache has been removed as part of the Go workspace migration.
+// Use redis_cache.go and redis_cluster.go implementations instead,
+// which provide full cache functionality with Redis.
 
 // Note: NewCache is now fully implemented in init.go to prevent redeclaration errors
 

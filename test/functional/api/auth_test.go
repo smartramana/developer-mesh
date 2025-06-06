@@ -64,7 +64,7 @@ var _ = Describe("Authentication Tests", func() {
 		It("should reject requests with no API key", func() {
 			resp, err := noKeyClient.Get(ctx, "/api/v1/tools")
 			Expect(err).NotTo(HaveOccurred())
-			defer resp.Body.Close()
+			defer func() { _ = resp.Body.Close() }()
 
 			Expect(resp.StatusCode).To(Equal(http.StatusUnauthorized))
 		})
@@ -72,7 +72,7 @@ var _ = Describe("Authentication Tests", func() {
 		It("should reject requests with invalid API key", func() {
 			resp, err := invalidKeyClient.Get(ctx, "/api/v1/tools")
 			Expect(err).NotTo(HaveOccurred())
-			defer resp.Body.Close()
+			defer func() { _ = resp.Body.Close() }()
 
 			Expect(resp.StatusCode).To(Equal(http.StatusUnauthorized))
 		})
@@ -80,7 +80,7 @@ var _ = Describe("Authentication Tests", func() {
 		It("should accept requests with valid API key", func() {
 			resp, err := validClient.Get(ctx, "/api/v1/tools")
 			Expect(err).NotTo(HaveOccurred())
-			defer resp.Body.Close()
+			defer func() { _ = resp.Body.Close() }()
 
 			Expect(resp.StatusCode).To(Equal(http.StatusOK))
 		})
@@ -100,7 +100,7 @@ var _ = Describe("Authentication Tests", func() {
 
 			resp, err := adminClient.Get(ctx, "/api/v1/tools")
 			Expect(err).NotTo(HaveOccurred())
-			defer resp.Body.Close()
+			defer func() { _ = resp.Body.Close() }()
 
 			Expect(resp.StatusCode).To(Equal(http.StatusOK))
 		})
@@ -205,7 +205,7 @@ var _ = Describe("Authentication Tests", func() {
 
 			resp, err := adminClient.Get(ctx, "/api/v1/models")
 			Expect(err).NotTo(HaveOccurred())
-			defer resp.Body.Close()
+			defer func() { _ = resp.Body.Close() }()
 			Expect(resp.StatusCode).To(Equal(http.StatusOK), "admin API key should be accepted")
 
 			// Test 2: Invalid API key should be rejected
