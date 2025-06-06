@@ -31,7 +31,7 @@ func (db *Database) createContext(ctx context.Context, tx *Tx, contextData *mode
 	// Serialize metadata to JSON, handling nil/empty cases
 	var metadataJSON []byte
 	var err error
-	if contextData.Metadata == nil || len(contextData.Metadata) == 0 {
+	if len(contextData.Metadata) == 0 {
 		metadataJSON = []byte("{}")
 	} else {
 		metadataJSON, err = json.Marshal(contextData.Metadata)
@@ -91,7 +91,7 @@ func (db *Database) createContextItem(ctx context.Context, tx *Tx, contextID str
 	// Serialize item metadata to JSON, handling nil/empty cases
 	var metadataJSON []byte
 	var err error
-	if item.Metadata == nil || len(item.Metadata) == 0 {
+	if len(item.Metadata) == 0 {
 		metadataJSON = []byte("{}")
 	} else {
 		metadataJSON, err = json.Marshal(item.Metadata)
@@ -280,7 +280,7 @@ func (db *Database) updateContext(ctx context.Context, tx *Tx, contextData *mode
 	// Serialize metadata to JSON, handling nil/empty cases
 	var metadataJSON []byte
 	var err error
-	if contextData.Metadata == nil || len(contextData.Metadata) == 0 {
+	if len(contextData.Metadata) == 0 {
 		metadataJSON = []byte("{}")
 	} else {
 		metadataJSON, err = json.Marshal(contextData.Metadata)

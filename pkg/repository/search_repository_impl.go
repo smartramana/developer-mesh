@@ -53,11 +53,12 @@ func (r *SearchRepositoryImpl) SearchByText(ctx context.Context, query string, o
 	modelID := ""
 
 	for _, filter := range options.Filters {
-		if filter.Field == "context_id" {
+		switch filter.Field {
+		case "context_id":
 			if strVal, ok := filter.Value.(string); ok {
 				contextID = strVal
 			}
-		} else if filter.Field == "model_id" {
+		case "model_id":
 			if strVal, ok := filter.Value.(string); ok {
 				modelID = strVal
 			}
@@ -117,11 +118,12 @@ func (r *SearchRepositoryImpl) SearchByVector(ctx context.Context, vector []floa
 	modelID := ""
 
 	for _, filter := range options.Filters {
-		if filter.Field == "context_id" {
+		switch filter.Field {
+		case "context_id":
 			if strVal, ok := filter.Value.(string); ok {
 				contextID = strVal
 			}
-		} else if filter.Field == "model_id" {
+		case "model_id":
 			if strVal, ok := filter.Value.(string); ok {
 				modelID = strVal
 			}
@@ -188,11 +190,12 @@ func (r *SearchRepositoryImpl) SearchByContentID(ctx context.Context, contentID 
 	modelID := ""
 
 	for _, filter := range options.Filters {
-		if filter.Field == "context_id" {
+		switch filter.Field {
+		case "context_id":
 			if strVal, ok := filter.Value.(string); ok {
 				contextID = strVal
 			}
-		} else if filter.Field == "model_id" {
+		case "model_id":
 			if strVal, ok := filter.Value.(string); ok {
 				modelID = strVal
 			}
@@ -296,14 +299,12 @@ func (r *SearchRepositoryImpl) List(ctx context.Context, filter search.Filter) (
 	}
 
 	// Extract filters from the map
-	if filter != nil {
-		for field, value := range filter {
-			options.Filters = append(options.Filters, SearchFilter{
-				Field:    field,
-				Operator: "eq",
-				Value:    value,
-			})
-		}
+	for field, value := range filter {
+		options.Filters = append(options.Filters, SearchFilter{
+			Field:    field,
+			Operator: "eq",
+			Value:    value,
+		})
 	}
 
 	// Use empty text search to get all results

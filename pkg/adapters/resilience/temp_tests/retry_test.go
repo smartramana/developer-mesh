@@ -80,13 +80,14 @@ func TestRetryIfFn(t *testing.T) {
 		operation := func() error {
 			attempts++
 
-			if attempts == 1 {
+			switch attempts {
+			case 1:
 				return retryableErr
-			} else if attempts == 2 {
+			case 2:
 				return nonRetryableErr
+			default:
+				return nil
 			}
-
-			return nil
 		}
 
 		config := resilience.DefaultRetryConfig()

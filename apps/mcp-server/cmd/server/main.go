@@ -782,7 +782,12 @@ func performHealthCheck() error {
 	}
 	
 	// Try to connect to the health endpoint
-	resp, err := client.Get("http://localhost:8080/health")
+	// Use the actual server address with proper scheme
+	scheme := "http"
+	if os.Getenv("TLS_ENABLED") == "true" {
+		scheme = "https"
+	}
+	resp, err := client.Get(fmt.Sprintf("%s://localhost:8080/health", scheme))
 	if err != nil {
 		return fmt.Errorf("failed to connect to health endpoint: %w", err)
 	}

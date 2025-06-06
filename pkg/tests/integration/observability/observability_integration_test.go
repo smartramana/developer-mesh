@@ -62,7 +62,7 @@ func TestObservabilityStackIntegration(t *testing.T) {
 		require.NotNil(t, rootSpan)
 
 		// Create child span
-		ctx, childSpan := tracer.Start(ctx, "child-operation")
+		_, childSpan := tracer.Start(ctx, "child-operation")
 		require.NotNil(t, childSpan)
 
 		// Skip adding attributes to span for now as the interface methods have changed

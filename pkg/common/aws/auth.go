@@ -27,16 +27,8 @@ func GetAWSConfig(ctx context.Context, cfg AuthConfig) (aws.Config, error) {
 	}
 
 	// Add custom endpoint if specified (for local development or testing)
-	if cfg.Endpoint != "" {
-		customResolver := aws.EndpointResolverWithOptionsFunc(func(service, region string, options ...any) (aws.Endpoint, error) {
-			return aws.Endpoint{
-				URL:               cfg.Endpoint,
-				HostnameImmutable: true,
-				SigningRegion:     cfg.Region,
-			}, nil
-		})
-		options = append(options, config.WithEndpointResolverWithOptions(customResolver))
-	}
+	// Note: With AWS SDK v2, endpoints should be configured per-service client
+	// This will be handled when creating service clients
 
 	// Check if running in a Kubernetes pod with a service account
 	// The AWS SDK automatically detects and uses IRSA if the required environment variables are set
@@ -63,7 +55,17 @@ func GetAWSConfig(ctx context.Context, cfg AuthConfig) (aws.Config, error) {
 		return awsCfg, nil
 	}
 	// Load the AWS configuration (default provider chain, no assume role)
-	return config.LoadDefaultConfig(ctx, options...)
+	awsCfg, err := config.LoadDefaultConfig(ctx, options...)
+	if err != nil {
+		return aws.Config{}, err
+	}
+	
+	// Store the endpoint in the config context for service clients to use
+	if cfg.Endpoint != "" {
+		awsCfg.BaseEndpoint = aws.String(cfg.Endpoint)
+	}
+	
+	return awsCfg, nil
 }
 
 // AssumeRoleProvider uses STS to assume the specified IAM role and returns a credentials provider

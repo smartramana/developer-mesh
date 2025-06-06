@@ -263,3 +263,121 @@ features:
   experimental_tools: false
   debug_mode: false
   mock_external_services: false
+
+# Embedding Configuration - Production
+embedding:
+  # Provider Configuration - Enable based on contracts
+  providers:
+    # OpenAI Provider
+    openai:
+      enabled: ${OPENAI_ENABLED:-true}
+      api_key: "${OPENAI_API_KEY}"  # From secrets manager
+      # Rate limiting per provider
+      rate_limit:
+        requests_per_minute: 3000
+        tokens_per_minute: 1000000
+      
+    # AWS Bedrock Provider
+    bedrock:
+      enabled: ${BEDROCK_ENABLED:-true}
+      region: "${AWS_REGION}"
+      # Use VPC endpoint for security
+      endpoint: "${BEDROCK_VPC_ENDPOINT:-}"
+      # IAM role for authentication
+      assume_role_arn: "${BEDROCK_ROLE_ARN:-}"
+      
+    # Google AI Provider
+    google:
+      enabled: ${GOOGLE_AI_ENABLED:-false}
+      api_key: "${GOOGLE_AI_API_KEY}"  # From secrets manager
+      # Custom endpoint for private connectivity
+      endpoint: "${GOOGLE_AI_PRIVATE_ENDPOINT:-}"
+  
+  # Production agent defaults
+  default_agent_config:
+    embedding_strategy: "quality"  # Prioritize quality in production
+    model_preferences:
+      primary_models:
+        - "text-embedding-3-large"  # Best quality
+        - "amazon.titan-embed-text-v2:0"
+      fallback_models:
+        - "text-embedding-3-small"
+        - "text-embedding-ada-002"
+    constraints:
+      max_tokens_per_request: 8000
+      max_cost_per_day: 100.0  # Higher limit for production
+      preferred_dimensions: 1536
+      allow_dimension_reduction: true
+    fallback_behavior:
+      enabled: true
+      max_retries: 5
+      retry_delay: "2s"
+      exponential_backoff: true
+      use_cache_on_failure: true
+  
+  # Strict circuit breaker for production
+  circuit_breaker:
+    failure_threshold: 5
+    success_threshold: 3
+    timeout: "30s"
+    half_open_requests: 3
+    
+  # Smart routing for production
+  router:
+    selection_strategy: "smart"  # Intelligent routing
+    cost_weight: 0.2
+    quality_weight: 0.6  # Quality matters most
+    speed_weight: 0.2
+    cache_ttl: "15m"  # Longer cache for stability
+    
+    # Provider health monitoring
+    health_check:
+      enabled: true
+      interval: "30s"
+      timeout: "5s"
+      
+  # Metrics and monitoring
+  metrics:
+    enabled: true
+    export_interval: "10s"
+    
+    # Cost tracking
+    cost_tracking:
+      enabled: true
+      alert_threshold: 1000.0  # Alert if daily cost exceeds $1000
+      
+    # Performance tracking
+    performance:
+      latency_percentiles: [0.5, 0.95, 0.99]
+      slow_request_threshold: "5s"
+  
+  # Security
+  security:
+    # API key rotation
+    api_key_rotation:
+      enabled: true
+      rotation_period: "30d"
+      
+    # Request validation
+    request_validation:
+      max_text_length: 50000
+      sanitize_input: true
+      
+    # PII detection
+    pii_detection:
+      enabled: true
+      redact_pii: true
+      
+  # High availability
+  ha:
+    # Provider failover
+    provider_failover:
+      enabled: true
+      health_check_interval: "30s"
+      failover_threshold: 3
+      
+    # Request queuing
+    request_queue:
+      enabled: true
+      max_queue_size: 10000
+      queue_timeout: "30s"

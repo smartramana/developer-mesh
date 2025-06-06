@@ -320,19 +320,21 @@ cache:
 
 ```bash
 # Create embedding
-curl -X POST http://localhost:8081/api/v1/vectors \
+curl -X POST http://localhost:8081/api/embeddings \
   -H "Content-Type: application/json" \
   -H "X-API-Key: change-this-admin-key" \
   -d '{
-    "content": "DevOps automation with AI",
+    "agent_id": "my-agent",
+    "text": "DevOps automation with AI",
     "context_id": "your-context-id"
   }'
 
-# Search similar content
-curl -X POST http://localhost:8081/api/v1/vectors/search \
+# Search embeddings
+curl -X POST http://localhost:8081/api/embeddings/search \
   -H "Content-Type: application/json" \
   -H "X-API-Key: change-this-reader-key" \
   -d '{
+    "agent_id": "my-agent",
     "query": "AI-powered DevOps tools",
     "limit": 5
   }'

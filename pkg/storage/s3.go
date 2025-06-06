@@ -90,17 +90,6 @@ func NewS3Client(ctx context.Context, cfg S3Config) (*S3Client, error) {
 		endpoint = cfg.AWSConfig.Endpoint
 	}
 
-	if endpoint != "" {
-		customResolver := aws.EndpointResolverWithOptionsFunc(func(service, region string, options ...interface{}) (aws.Endpoint, error) {
-			return aws.Endpoint{
-				URL:               endpoint,
-				HostnameImmutable: true,
-				SigningRegion:     region,
-			}, nil
-		})
-		options = append(options, config.WithEndpointResolverWithOptions(customResolver))
-	}
-
 	// Load AWS configuration - IRSA will be automatically detected if AWS_WEB_IDENTITY_TOKEN_FILE
 	// and AWS_ROLE_ARN environment variables are set by the EKS Pod Identity Agent
 	awsCfg, err := config.LoadDefaultConfig(ctx, options...)
@@ -123,6 +112,13 @@ func NewS3Client(ctx context.Context, cfg S3Config) (*S3Client, error) {
 
 	// Create S3 client options
 	s3Options := []func(*s3.Options){}
+
+	// Add custom endpoint if specified
+	if endpoint != "" {
+		s3Options = append(s3Options, func(o *s3.Options) {
+			o.BaseEndpoint = aws.String(endpoint)
+		})
+	}
 
 	// Force path style if required (for LocalStack)
 	if cfg.ForcePathStyle {

@@ -167,7 +167,7 @@ func (s *serviceImpl) GetRelatedEntities(
 
 	for _, rel := range relationships {
 		// Check if relationship type is of interest
-		if relTypes != nil && len(relTypes) > 0 {
+		if len(relTypes) > 0 {
 			typeMatched := false
 			for _, wantedType := range relTypes {
 				if rel.Type == wantedType {

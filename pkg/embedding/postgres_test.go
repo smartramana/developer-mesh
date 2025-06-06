@@ -147,10 +147,8 @@ func (s *MockPostgresEmbeddingStorage) GetEmbedding(ctx context.Context, id stri
 	}
 
 	// Create a new embedding vector
+	// In a real implementation, we would parse the JSON metadata if valid
 	metadata := make(map[string]interface{})
-	if metadataJSON.Valid {
-		// In a real implementation, we would parse the JSON here
-	}
 
 	return &EmbeddingVector{
 		ContentID:   contentID,
@@ -303,9 +301,7 @@ func TestPostgresEmbeddingStorage(t *testing.T) {
 	db, _, err := sqlmock.New()
 	require.NoError(t, err)
 	defer func() {
-		if err := db.Close(); err != nil {
-			t.Errorf("Failed to close mock database: %v", err)
-		}
+		_ = db.Close()
 	}()
 
 	// Test with valid parameters
@@ -339,9 +335,7 @@ func TestPostgresEmbeddingStorage_StoreEmbedding(t *testing.T) {
 	db, mock, err := sqlmock.New()
 	require.NoError(t, err)
 	defer func() {
-		if err := db.Close(); err != nil {
-			t.Errorf("Failed to close mock database: %v", err)
-		}
+		_ = db.Close()
 	}()
 
 	// Create storage
@@ -409,9 +403,7 @@ func TestPostgresEmbeddingStorage_GetEmbedding(t *testing.T) {
 	db, mock, err := sqlmock.New()
 	require.NoError(t, err)
 	defer func() {
-		if err := db.Close(); err != nil {
-			t.Errorf("Failed to close mock database: %v", err)
-		}
+		_ = db.Close()
 	}()
 
 	// Create storage
@@ -490,9 +482,7 @@ func TestPostgresEmbeddingStorage_BatchStoreEmbeddings(t *testing.T) {
 	db, mock, err := sqlmock.New()
 	require.NoError(t, err)
 	defer func() {
-		if err := db.Close(); err != nil {
-			t.Errorf("Failed to close mock database: %v", err)
-		}
+		_ = db.Close()
 	}()
 
 	// Create storage
@@ -577,9 +567,7 @@ func TestPostgresEmbeddingStorage_GetEmbeddingsByContentIDs(t *testing.T) {
 	db, _, err := sqlmock.New()
 	require.NoError(t, err)
 	defer func() {
-		if err := db.Close(); err != nil {
-			t.Errorf("Failed to close mock database: %v", err)
-		}
+		_ = db.Close()
 	}()
 
 	// Create storage
@@ -608,9 +596,7 @@ func TestPostgresEmbeddingStorage_FindSimilarEmbeddings(t *testing.T) {
 	db, _, err := sqlmock.New()
 	require.NoError(t, err)
 	defer func() {
-		if err := db.Close(); err != nil {
-			t.Errorf("Failed to close mock database: %v", err)
-		}
+		_ = db.Close()
 	}()
 
 	// Create storage
@@ -644,9 +630,7 @@ func TestPostgresEmbeddingStorage_DeleteEmbeddingsByContentIDs(t *testing.T) {
 	db, mock, err := sqlmock.New()
 	require.NoError(t, err)
 	defer func() {
-		if err := db.Close(); err != nil {
-			t.Errorf("Failed to close mock database: %v", err)
-		}
+		_ = db.Close()
 	}()
 
 	// Create storage

@@ -5,10 +5,7 @@ import (
 	"fmt"
 	"time"
 
-	// Maintain the internal/database import for backward compatibility
 	"github.com/S-Corkum/devops-mcp/pkg/database"
-	// Add pkg/database which will be used through the adapter
-	pkgdb "github.com/S-Corkum/devops-mcp/pkg/database"
 	"github.com/S-Corkum/devops-mcp/pkg/models/relationship"
 	"github.com/S-Corkum/devops-mcp/pkg/observability"
 	"github.com/S-Corkum/devops-mcp/pkg/storage"
@@ -19,7 +16,7 @@ import (
 type GitHubContentManager struct {
 	db                  *database.Database // Kept for backward compatibility
 	dbAdapter           *DatabaseAdapter   // New adapter to pkg/database
-	pkgDB               *pkgdb.Database    // Direct access to pkg/database
+	pkgDB               *database.Database    // Direct access to pkg/database
 	storageManager      *storage.GitHubContentStorage
 	logger              observability.Logger // Changed from pointer to interface type
 	metricsClient       observability.MetricsClient

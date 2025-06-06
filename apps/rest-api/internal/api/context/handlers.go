@@ -3,6 +3,7 @@ package context
 import (
 	"net/http"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/S-Corkum/devops-mcp/pkg/models"
@@ -148,7 +149,7 @@ func (api *API) GetContext(c *gin.Context) {
 	if err != nil {
 		api.logger.Warn("Failed to get context", map[string]any{
 			"error":      err.Error(),
-			"context_id": contextID,
+			"context_id": sanitizeLogValue(contextID),
 		})
 		c.JSON(http.StatusNotFound, gin.H{"error": err.Error()})
 		return
@@ -162,7 +163,7 @@ func (api *API) GetContext(c *gin.Context) {
 		api.logger.Error("Failed to fetch model for tenant validation", map[string]any{
 			"error":      err.Error(),
 			"model_id":   result.ModelID,
-			"context_id": contextID,
+			"context_id": sanitizeLogValue(contextID),
 		})
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to validate tenant access"})
 		return
@@ -172,7 +173,7 @@ func (api *API) GetContext(c *gin.Context) {
 	// GetModelByID already checks tenant ownership internally
 	if model == nil {
 		api.logger.Warn("Cross-tenant access attempt blocked", map[string]any{
-			"context_id":        contextID,
+			"context_id":        sanitizeLogValue(contextID),
 			"request_tenant_id": requestTenantID,
 			"model_id":          result.ModelID,
 		})
@@ -237,7 +238,7 @@ func (api *API) UpdateContext(c *gin.Context) {
 	if err != nil {
 		api.logger.Error("Failed to update context", map[string]any{
 			"error":      err.Error(),
-			"context_id": contextID,
+			"context_id": sanitizeLogValue(contextID),
 		})
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
@@ -286,7 +287,7 @@ func (api *API) DeleteContext(c *gin.Context) {
 	if err != nil {
 		api.logger.Error("Failed to delete context", map[string]any{
 			"error":      err.Error(),
-			"context_id": contextID,
+			"context_id": sanitizeLogValue(contextID),
 		})
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
@@ -372,7 +373,7 @@ func (api *API) SummarizeContext(c *gin.Context) {
 	if err != nil {
 		api.logger.Error("Failed to summarize context", map[string]any{
 			"error":      err.Error(),
-			"context_id": contextID,
+			"context_id": sanitizeLogValue(contextID),
 		})
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
@@ -416,7 +417,7 @@ func (api *API) SearchInContext(c *gin.Context) {
 	if err != nil {
 		api.logger.Error("Failed to search in context", map[string]any{
 			"error":      err.Error(),
-			"context_id": contextID,
+			"context_id": sanitizeLogValue(contextID),
 		})
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
@@ -439,4 +440,17 @@ func (api *API) SearchInContext(c *gin.Context) {
 			"context": "/api/v1/contexts/" + contextID,
 		},
 	})
+}
+
+// sanitizeLogValue removes newlines and carriage returns from user input to prevent log injection
+func sanitizeLogValue(input string) string {
+	// Remove newlines, carriage returns, and other control characters
+	sanitized := strings.ReplaceAll(input, "\n", "\\n")
+	sanitized = strings.ReplaceAll(sanitized, "\r", "\\r")
+	sanitized = strings.ReplaceAll(sanitized, "\t", "\\t")
+	// Limit length to prevent excessive log sizes
+	if len(sanitized) > 100 {
+		sanitized = sanitized[:100] + "..."
+	}
+	return sanitized
 }

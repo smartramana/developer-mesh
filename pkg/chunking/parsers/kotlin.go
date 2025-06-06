@@ -178,7 +178,7 @@ func (p *KotlinParser) findBlockContent(code string, startPos int) (string, int)
 func generateKotlinChunkID(chunk *chunking.CodeChunk) string {
 	// Create a hash from the chunk's name, path, and content
 	h := sha256.New()
-	h.Write([]byte(fmt.Sprintf("%s:%s:%s", chunk.Name, chunk.Path, chunk.Content)))
+	_, _ = fmt.Fprintf(h, "%s:%s:%s", chunk.Name, chunk.Path, chunk.Content)
 	return hex.EncodeToString(h.Sum(nil))
 }
 

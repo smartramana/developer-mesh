@@ -8,7 +8,9 @@ import (
 	"strings"
 	"time"
 
+	"github.com/S-Corkum/devops-mcp/pkg/agents"
 	"github.com/S-Corkum/devops-mcp/pkg/auth"
+	"github.com/S-Corkum/devops-mcp/pkg/common/cache"
 	"github.com/S-Corkum/devops-mcp/pkg/config"
 	"github.com/S-Corkum/devops-mcp/pkg/database"
 	"github.com/S-Corkum/devops-mcp/pkg/observability"
@@ -17,6 +19,7 @@ import (
 	"github.com/jmoiron/sqlx"
 	swaggerFiles "github.com/swaggo/files"
 	ginSwagger "github.com/swaggo/gin-swagger"
+	"rest-api/internal/adapters"
 	contextAPI "rest-api/internal/api/context"
 	"rest-api/internal/core"
 	"rest-api/internal/repository"
@@ -34,11 +37,10 @@ type Server struct {
 	logger      observability.Logger
 	db          *sqlx.DB
 	metrics     observability.MetricsClient
-	vectorDB    *database.VectorDatabase
-	vectorRepo     repository.VectorAPIRepository
 	cfg            *config.Config
 	authMiddleware *auth.AuthMiddleware // Enhanced auth with rate limiting, metrics, and audit
 	healthChecker  *HealthChecker
+	cache          cache.Cache
 }
 
 // NewServer creates a new API server
@@ -142,29 +144,27 @@ func NewServer(engine *core.Engine, cfg Config, db *sqlx.DB, metrics observabili
 	// Use the custom HTTP client for external service calls
 	http.DefaultClient = httpClient
 
-	// Initialize vector database if enabled
-	var vectorDB *database.VectorDatabase
-	isVectorEnabled := false
-	if config != nil {
-		if vectorConfig, ok := config.Database.Vector.(map[string]any); ok {
-			if enabled, ok := vectorConfig["enabled"].(bool); ok {
-				isVectorEnabled = enabled
-			}
-		}
-	}
-
-	if isVectorEnabled {
-		var err error
-		vectorDB, err = database.NewVectorDatabase(db, config, logger.WithPrefix("vector_db"))
-		if err != nil {
-			logger.Warn("Failed to initialize vector database", map[string]any{
-				"error": err.Error(),
-			})
-		}
-	}
 
 	// Initialize health checker
 	healthChecker := NewHealthChecker(db)
+	
+	// Initialize cache based on configuration
+	var cacheImpl cache.Cache
+	if config != nil && config.Cache != nil {
+		// Initialize cache with context
+		var err error
+		cacheImpl, err = cache.NewCache(context.Background(), config.Cache)
+		if err != nil {
+			logger.Warn("Failed to initialize cache, using no-op cache", map[string]any{
+				"error": err.Error(),
+			})
+			// Fall back to no-op cache
+			cacheImpl = cache.NewNoOpCache()
+		}
+	} else {
+		// Use no-op cache if not configured
+		cacheImpl = cache.NewNoOpCache()
+	}
 	
 	server := &Server{
 		router:      router,
@@ -173,10 +173,10 @@ func NewServer(engine *core.Engine, cfg Config, db *sqlx.DB, metrics observabili
 		logger:      logger,
 		db:          db,
 		metrics:     metrics,
-		vectorDB:       vectorDB,
 		cfg:            config,
 		authMiddleware: authMiddleware,
 		healthChecker:  healthChecker,
+		cache:          cacheImpl,
 		server: &http.Server{
 			Addr:         cfg.ListenAddress,
 			Handler:      router,
@@ -191,15 +191,6 @@ func NewServer(engine *core.Engine, cfg Config, db *sqlx.DB, metrics observabili
 
 // Initialize initializes all components and routes
 func (s *Server) Initialize(ctx context.Context) error {
-	// Initialize vector database if available
-	if s.vectorDB != nil {
-		if err := s.vectorDB.Initialize(ctx); err != nil {
-			s.logger.Warn("Vector database initialization failed", map[string]any{
-				"error": err.Error(),
-			})
-			// Don't fail server startup if vector DB init fails
-		}
-	}
 
 	// Ensure we have a valid context manager
 	if s.engine != nil {
@@ -316,7 +307,7 @@ func (s *Server) setupRoutes(ctx context.Context) {
 			"links": map[string]string{
 				"tools":         baseURL + "/api/v1/tools",
 				"contexts":      baseURL + "/api/v1/contexts",
-				"vectors":       baseURL + "/api/v1/vectors",
+				"embeddings":    baseURL + "/api/embeddings",
 				"health":        baseURL + "/health",
 				"documentation": baseURL + "/swagger/index.html",
 			},
@@ -363,13 +354,25 @@ func (s *Server) setupRoutes(ctx context.Context) {
 	modelAPI := NewModelAPI(modelRepo)
 	modelAPI.RegisterRoutes(v1)
 
-	// Setup Vector API if enabled
-	if s.vectorDB != nil {
-		if err := s.setupVectorAPI(ctx); err != nil {
-			s.logger.Warn("Failed to setup vector API", map[string]any{
-				"error": err.Error(),
-			})
-		}
+	// Embedding API v2 - Multi-agent embedding system
+	// Initialize the embedding service with all configured providers
+	embeddingService, embeddingErr := adapters.CreateEmbeddingService(s.cfg, *database.NewDatabaseWithConnection(s.db), s.cache)
+	if embeddingErr != nil {
+		s.logger.Error("Failed to create embedding service", map[string]any{
+			"error": embeddingErr.Error(),
+		})
+		// Use mock or partial service if initialization fails
+		s.logger.Warn("Embedding service initialization failed, some features may be limited", nil)
+	} else {
+		// Create agent repository and service using the PostgreSQL implementation
+		agentPostgresRepo := agents.NewPostgresRepository(s.db, "mcp")
+		agentService := agents.NewService(agentPostgresRepo)
+		
+		// Create and register embedding API
+		embeddingAPI := NewEmbeddingAPI(embeddingService, agentService, s.logger)
+		embeddingAPI.RegisterRoutes(v1)
+		
+		s.logger.Info("Embedding API v2 initialized successfully", nil)
 	}
 }
 
@@ -400,15 +403,6 @@ func (s *Server) Shutdown(ctx context.Context) error {
 	// Execute all registered shutdown hooks
 	for _, hook := range shutdownHooks {
 		hook()
-	}
-
-	// Close vector database if available
-	if s.vectorDB != nil {
-		if err := s.vectorDB.Close(); err != nil {
-			s.logger.Warn("Failed to close vector database", map[string]any{
-				"error": err.Error(),
-			})
-		}
 	}
 
 	return s.server.Shutdown(ctx)

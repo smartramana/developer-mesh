@@ -3,6 +3,7 @@ package webhooks
 
 import (
 	"bytes"
+	"context"
 	"crypto/hmac"
 	"crypto/sha256"
 	"encoding/hex"
@@ -290,8 +291,18 @@ func (v *GitHubIPValidator) FetchGitHubIPRanges() error {
 		return nil
 	}
 
+	// Create a context with timeout for the HTTP request
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	// Create the request with context
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, "https://api.github.com/meta", nil)
+	if err != nil {
+		return fmt.Errorf("failed to create request: %w", err)
+	}
+
 	// Fetch the GitHub meta API
-	resp, err := http.Get("https://api.github.com/meta")
+	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
 		return fmt.Errorf("failed to fetch GitHub meta API: %w", err)
 	}

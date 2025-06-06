@@ -14,9 +14,6 @@ import (
 	"github.com/S-Corkum/devops-mcp/pkg/models"
 	"github.com/S-Corkum/devops-mcp/pkg/observability"
 	"github.com/S-Corkum/devops-mcp/pkg/storage/providers"
-
-	// Import pkg version to support gradual migration
-	pkgDb "github.com/S-Corkum/devops-mcp/pkg/database"
 )
 
 // MockMetricsClient is a mock implementation of observability.MetricsClient
@@ -99,7 +96,7 @@ func NewEngine(
 		// Check context for pkg/database.Database
 		pkgDbValue := ctx.Value("pkg_database")
 		if pkgDbValue != nil {
-			if pkgDatabase, ok := pkgDbValue.(*pkgDb.Database); ok && pkgDatabase != nil {
+			if pkgDatabase, ok := pkgDbValue.(*database.Database); ok && pkgDatabase != nil {
 				logger.Info("Found pkg/database.Database in context, creating adapter", nil)
 
 				// Create a database instance using the pkg implementation via our adapter

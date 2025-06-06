@@ -75,7 +75,7 @@ func (h *DatabaseHelper) Commit(tx *sqlx.Tx) {
 // CleanupDatabase closes the database connection
 func (h *DatabaseHelper) CleanupDatabase() {
 	if h.db != nil {
-		h.db.Close()
+		_ = h.db.Close()
 	}
 }
 

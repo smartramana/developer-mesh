@@ -89,13 +89,8 @@ func (a *LoggingAdapter) With(fields map[string]interface{}) Logger {
 	return &LoggingAdapter{logger: a.logger}
 }
 
-// LoggerAdapter adapts between commonLogging.Logger and observability.Logger
-// Deprecated: This adapter is part of the migration strategy for Go workspace migration.
-// Use direct interface implementations instead once migration is complete.
-type LoggerAdapter struct {
-	// Deprecated: this field is currently unused but reserved for future adapter implementation
-	obs Logger
-}
+// Note: LoggerAdapter has been removed as part of the Go workspace migration.
+// Use NewLoggerAdapter function directly which returns the appropriate adapter.
 
 // commonToObsLogger adapts common/logging.Logger to observability.Logger
 type commonToObsLogger struct {

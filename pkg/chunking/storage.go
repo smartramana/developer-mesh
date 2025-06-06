@@ -78,10 +78,8 @@ func (m *ChunkingManager) ChunkAndStoreFile(
 		}
 
 		// Add file metadata
-		if fileMetadata != nil {
-			for k, v := range fileMetadata {
-				metadata[k] = v
-			}
+		for k, v := range fileMetadata {
+			metadata[k] = v
 		}
 
 		// Add chunk specific metadata

@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"encoding/json"
 	"io"
-	"io/ioutil"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -23,7 +22,6 @@ type MockHandlerTestCase struct {
 	requestBody    string
 	requestHeaders map[string]string
 	expectedStatus int
-	expectedBody   map[string]interface{}
 	expectedFields []string
 }
 
@@ -45,7 +43,7 @@ func TestGitHubMockHandler(t *testing.T) {
 					},
 				},
 			}
-			json.NewEncoder(w).Encode(response)
+			_ = json.NewEncoder(w).Encode(response)
 			return
 		}
 
@@ -55,7 +53,7 @@ func TestGitHubMockHandler(t *testing.T) {
 				"status":    "ok",
 				"timestamp": time.Now().Format(time.RFC3339),
 			}
-			json.NewEncoder(w).Encode(response)
+			_ = json.NewEncoder(w).Encode(response)
 			return
 		}
 
@@ -65,7 +63,7 @@ func TestGitHubMockHandler(t *testing.T) {
 			"message":   "Mock GitHub response",
 			"timestamp": time.Now().Format(time.RFC3339),
 		}
-		json.NewEncoder(w).Encode(response)
+		_ = json.NewEncoder(w).Encode(response)
 	}
 
 	// Define test cases using table-driven approach
@@ -183,7 +181,7 @@ func TestMockHandlers(t *testing.T) {
 					"status":    "ok",
 					"timestamp": time.Now().Format(time.RFC3339),
 				}
-				json.NewEncoder(w).Encode(response)
+				_ = json.NewEncoder(w).Encode(response)
 				return
 			}
 
@@ -203,7 +201,7 @@ func TestMockHandlers(t *testing.T) {
 						},
 					},
 				}
-				json.NewEncoder(w).Encode(response)
+				_ = json.NewEncoder(w).Encode(response)
 				return
 			}
 
@@ -213,7 +211,7 @@ func TestMockHandlers(t *testing.T) {
 				"message":   "Mock Harness response",
 				"timestamp": time.Now().Format(time.RFC3339),
 			}
-			json.NewEncoder(w).Encode(response)
+			_ = json.NewEncoder(w).Encode(response)
 		},
 		"sonarqube": func(w http.ResponseWriter, r *http.Request) {
 			w.Header().Set("Content-Type", "application/json")
@@ -224,7 +222,7 @@ func TestMockHandlers(t *testing.T) {
 					"status":    "ok",
 					"timestamp": time.Now().Format(time.RFC3339),
 				}
-				json.NewEncoder(w).Encode(response)
+				_ = json.NewEncoder(w).Encode(response)
 				return
 			}
 
@@ -244,7 +242,7 @@ func TestMockHandlers(t *testing.T) {
 						},
 					},
 				}
-				json.NewEncoder(w).Encode(response)
+				_ = json.NewEncoder(w).Encode(response)
 				return
 			}
 
@@ -254,7 +252,7 @@ func TestMockHandlers(t *testing.T) {
 				"message":   "Mock SonarQube response",
 				"timestamp": time.Now().Format(time.RFC3339),
 			}
-			json.NewEncoder(w).Encode(response)
+			_ = json.NewEncoder(w).Encode(response)
 		},
 		"artifactory": func(w http.ResponseWriter, r *http.Request) {
 			w.Header().Set("Content-Type", "application/json")
@@ -265,7 +263,7 @@ func TestMockHandlers(t *testing.T) {
 					"status":    "ok",
 					"timestamp": time.Now().Format(time.RFC3339),
 				}
-				json.NewEncoder(w).Encode(response)
+				_ = json.NewEncoder(w).Encode(response)
 				return
 			}
 
@@ -275,7 +273,7 @@ func TestMockHandlers(t *testing.T) {
 				"message":   "Mock Artifactory response",
 				"timestamp": time.Now().Format(time.RFC3339),
 			}
-			json.NewEncoder(w).Encode(response)
+			_ = json.NewEncoder(w).Encode(response)
 		},
 		"xray": func(w http.ResponseWriter, r *http.Request) {
 			w.Header().Set("Content-Type", "application/json")
@@ -286,7 +284,7 @@ func TestMockHandlers(t *testing.T) {
 					"status":    "ok",
 					"timestamp": time.Now().Format(time.RFC3339),
 				}
-				json.NewEncoder(w).Encode(response)
+				_ = json.NewEncoder(w).Encode(response)
 				return
 			}
 
@@ -296,7 +294,7 @@ func TestMockHandlers(t *testing.T) {
 				"message":   "Mock Xray response",
 				"timestamp": time.Now().Format(time.RFC3339),
 			}
-			json.NewEncoder(w).Encode(response)
+			_ = json.NewEncoder(w).Encode(response)
 		},
 	}
 
@@ -466,13 +464,13 @@ func TestWebhookEndpoints(t *testing.T) {
 		// Only accept POST requests
 		if r.Method != http.MethodPost {
 			w.WriteHeader(http.StatusMethodNotAllowed)
-			w.Write([]byte(`{"error":"Method not allowed"}`))
+			_, _ = w.Write([]byte(`{"error":"Method not allowed"}`))
 			return
 		}
 
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)
-		w.Write([]byte(`{"status":"ok"}`))
+		_, _ = w.Write([]byte(`{"status":"ok"}`))
 	}
 
 	// Define webhook paths to test
@@ -534,7 +532,7 @@ func TestHealthCheckHandler(t *testing.T) {
 
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)
-		w.Write([]byte(`{"status":"healthy"}`))
+		_, _ = w.Write([]byte(`{"status":"healthy"}`))
 	}
 
 	testCases := []struct {
@@ -585,10 +583,10 @@ func TestRequestBodyProcessing(t *testing.T) {
 		}
 
 		// Read the request body
-		body, err := ioutil.ReadAll(r.Body)
+		body, err := io.ReadAll(r.Body)
 		if err != nil {
 			w.WriteHeader(http.StatusBadRequest)
-			w.Write([]byte(`{"error":"Failed to read request body"}`))
+			_, _ = w.Write([]byte(`{"error":"Failed to read request body"}`))
 			return
 		}
 
@@ -596,7 +594,7 @@ func TestRequestBodyProcessing(t *testing.T) {
 		var requestData map[string]interface{}
 		if err := json.Unmarshal(body, &requestData); err != nil {
 			w.WriteHeader(http.StatusBadRequest)
-			w.Write([]byte(`{"error":"Invalid JSON"}`))
+			_, _ = w.Write([]byte(`{"error":"Invalid JSON"}`))
 			return
 		}
 
@@ -609,7 +607,7 @@ func TestRequestBodyProcessing(t *testing.T) {
 		// Send response
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)
-		json.NewEncoder(w).Encode(response)
+		_ = json.NewEncoder(w).Encode(response)
 	}
 
 	testCases := []struct {
@@ -695,7 +693,7 @@ func TestContentTypeHandling(t *testing.T) {
 
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)
-		json.NewEncoder(w).Encode(response)
+		_ = json.NewEncoder(w).Encode(response)
 	}
 
 	testCases := []struct {

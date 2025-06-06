@@ -98,7 +98,7 @@ func (p *VoyageProvider) GenerateEmbedding(ctx context.Context, content string, 
     
     // Check status code
     if resp.StatusCode != http.StatusOK {
-        return nil, fmt.Errorf("Voyage AI API error (status %d): %s", resp.StatusCode, string(body))
+        return nil, fmt.Errorf("voyage AI API error (status %d): %s", resp.StatusCode, string(body))
     }
     
     // Parse response

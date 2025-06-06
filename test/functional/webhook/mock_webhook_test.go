@@ -148,7 +148,7 @@ func MockWebhookHandler(config *MockWebhookConfig) http.HandlerFunc {
 				// This is a duplicate event, but we'll return 200 OK for idempotency
 				config.ProcessedEventsMux.Unlock()
 				w.WriteHeader(http.StatusOK)
-				w.Write([]byte(`{"status":"success","message":"Webhook already processed (idempotent)"}`))
+				_, _ = w.Write([]byte(`{"status":"success","message":"Webhook already processed (idempotent)"}`))
 				return
 			}
 			// Mark as processed
@@ -158,7 +158,7 @@ func MockWebhookHandler(config *MockWebhookConfig) http.HandlerFunc {
 
 		// Return success
 		w.WriteHeader(http.StatusOK)
-		w.Write([]byte(`{"status":"success","message":"Webhook processed successfully"}`))
+		_, _ = w.Write([]byte(`{"status":"success","message":"Webhook processed successfully"}`))
 	}
 }
 
@@ -244,7 +244,12 @@ var _ = Describe("Mock GitHub Webhook Tests", func() {
 		client := &http.Client{Timeout: 5 * time.Second}
 		resp, err := client.Do(req)
 		Expect(err).NotTo(HaveOccurred())
-		defer resp.Body.Close()
+		defer func() {
+			if err := resp.Body.Close(); err != nil {
+				// Test helper - ignore close errors
+				_ = err
+			}
+		}()
 		Expect(resp.StatusCode).To(Equal(http.StatusOK))
 
 		// Test with invalid signature
@@ -258,7 +263,12 @@ var _ = Describe("Mock GitHub Webhook Tests", func() {
 
 		resp, err = client.Do(req)
 		Expect(err).NotTo(HaveOccurred())
-		defer resp.Body.Close()
+		defer func() {
+			if err := resp.Body.Close(); err != nil {
+				// Test helper - ignore close errors
+				_ = err
+			}
+		}()
 		Expect(resp.StatusCode).To(Equal(http.StatusUnauthorized))
 	})
 
@@ -299,7 +309,12 @@ var _ = Describe("Mock GitHub Webhook Tests", func() {
 		client := &http.Client{Timeout: 5 * time.Second}
 		resp, err := client.Do(req)
 		Expect(err).NotTo(HaveOccurred())
-		defer resp.Body.Close()
+		defer func() {
+			if err := resp.Body.Close(); err != nil {
+				// Test helper - ignore close errors
+				_ = err
+			}
+		}()
 		Expect(resp.StatusCode).To(Equal(http.StatusOK))
 
 		// Second request with same ID should still return 200 (idempotent)
@@ -312,7 +327,12 @@ var _ = Describe("Mock GitHub Webhook Tests", func() {
 
 		resp, err = client.Do(req)
 		Expect(err).NotTo(HaveOccurred())
-		defer resp.Body.Close()
+		defer func() {
+			if err := resp.Body.Close(); err != nil {
+				// Test helper - ignore close errors
+				_ = err
+			}
+		}()
 		Expect(resp.StatusCode).To(Equal(http.StatusOK))
 
 		// Verify it was marked as processed exactly once
@@ -347,7 +367,12 @@ var _ = Describe("Mock GitHub Webhook Tests", func() {
 		client := &http.Client{Timeout: 5 * time.Second}
 		resp, err := client.Do(req)
 		Expect(err).NotTo(HaveOccurred())
-		defer resp.Body.Close()
+		defer func() {
+			if err := resp.Body.Close(); err != nil {
+				// Test helper - ignore close errors
+				_ = err
+			}
+		}()
 		Expect(resp.StatusCode).To(Equal(http.StatusForbidden))
 	})
 
@@ -389,7 +414,12 @@ var _ = Describe("Mock GitHub Webhook Tests", func() {
 		client := &http.Client{Timeout: 5 * time.Second}
 		resp, err := client.Do(req)
 		Expect(err).NotTo(HaveOccurred())
-		defer resp.Body.Close()
+		defer func() {
+			if err := resp.Body.Close(); err != nil {
+				// Test helper - ignore close errors
+				_ = err
+			}
+		}()
 
 		// The request should succeed even though it's an error event
 		Expect(resp.StatusCode).To(Equal(http.StatusOK))

@@ -11,8 +11,7 @@ import (
 	"time"
 
 	"github.com/S-Corkum/devops-mcp/pkg/cache"
-	internalDb "github.com/S-Corkum/devops-mcp/pkg/database"
-	pkgDb "github.com/S-Corkum/devops-mcp/pkg/database"
+	"github.com/S-Corkum/devops-mcp/pkg/database"
 	"github.com/S-Corkum/devops-mcp/pkg/events/system"
 	"github.com/S-Corkum/devops-mcp/pkg/models"
 	"github.com/S-Corkum/devops-mcp/pkg/observability"
@@ -37,8 +36,8 @@ const (
 
 // Manager manages conversation contexts
 type Manager struct {
-	db            *internalDb.Database
-	pkgDb         *pkgDb.Database // New field for pkg/database implementation
+	db            *database.Database
+	pkgDb         *database.Database // New field for pkg/database implementation
 	usingPkgDb    bool            // Flag to track which implementation is being used
 	cache         cache.Cache
 	storage       providers.ContextStorage
@@ -51,7 +50,7 @@ type Manager struct {
 
 // NewManager creates a new context manager with internal/database implementation
 func NewManager(
-	db *internalDb.Database,
+	db *database.Database,
 	cache cache.Cache,
 	storage providers.ContextStorage,
 	eventBus *system.EventBus,
@@ -77,7 +76,7 @@ func NewManager(
 
 // NewManagerWithPkgDb creates a new context manager with pkg/database implementation
 func NewManagerWithPkgDb(
-	db *pkgDb.Database,
+	db *database.Database,
 	cache cache.Cache,
 	storage providers.ContextStorage,
 	eventBus *system.EventBus,
@@ -789,7 +788,7 @@ func (m *Manager) createContextInDB(ctx context.Context, tx *sqlx.Tx, contextDat
 		}
 	}
 	// Ensure metadataJSON is always valid JSON (never empty string)
-	if metadataJSON == nil || len(metadataJSON) == 0 || string(metadataJSON) == "" {
+	if len(metadataJSON) == 0 || string(metadataJSON) == "" {
 		metadataJSON = []byte("{}")
 	}
 	_, err = tx.ExecContext(
@@ -856,7 +855,7 @@ func (m *Manager) createContextInDB(ctx context.Context, tx *sqlx.Tx, contextDat
 				}
 			}
 			// Ensure itemMetadataJSON is always valid JSON (never empty string)
-			if itemMetadataJSON == nil || len(itemMetadataJSON) == 0 || string(itemMetadataJSON) == "" {
+			if len(itemMetadataJSON) == 0 || string(itemMetadataJSON) == "" {
 				itemMetadataJSON = []byte("{}")
 			}
 
@@ -1026,7 +1025,7 @@ func (m *Manager) updateContextInDB(ctx context.Context, tx *sqlx.Tx, contextDat
 		}
 	}
 	// Ensure metadataJSON is always valid JSON (never empty string)
-	if metadataJSON == nil || len(metadataJSON) == 0 || string(metadataJSON) == "" {
+	if len(metadataJSON) == 0 || string(metadataJSON) == "" {
 		metadataJSON = []byte("{}")
 	}
 
@@ -1127,7 +1126,7 @@ func (m *Manager) updateContextInDB(ctx context.Context, tx *sqlx.Tx, contextDat
 			}
 		}
 		// Ensure itemMetadataJSON is always valid JSON (never empty string)
-		if itemMetadataJSON == nil || len(itemMetadataJSON) == 0 || string(itemMetadataJSON) == "" {
+		if len(itemMetadataJSON) == 0 || string(itemMetadataJSON) == "" {
 			itemMetadataJSON = []byte("{}")
 		}
 

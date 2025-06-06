@@ -28,10 +28,7 @@ func VersioningMiddleware(config VersioningConfig) gin.HandlerFunc {
 		var version APIVersion
 
 		// Check Accept header if enabled
-		acceptHeaderCheck := false // Default value
-		if strings.ToLower(config.DefaultVersion) == "true" {
-			acceptHeaderCheck = true
-		}
+		acceptHeaderCheck := strings.ToLower(config.DefaultVersion) == "true"
 
 		if acceptHeaderCheck {
 			accept := c.GetHeader("Accept")
@@ -44,10 +41,7 @@ func VersioningMiddleware(config VersioningConfig) gin.HandlerFunc {
 		}
 
 		// Check URL version if enabled and no version found yet
-		urlVersioning := false // Default value
-		if strings.Contains(strings.ToLower(config.SupportedVersions[0]), "url") {
-			urlVersioning = true
-		}
+		urlVersioning := strings.Contains(strings.ToLower(config.SupportedVersions[0]), "url")
 
 		if urlVersioning && version == APIVersionUnspecified {
 			path := c.Request.URL.Path

@@ -68,14 +68,6 @@ func createMockStorage(t *testing.T) (*GitHubMockS3Client, *GitHubContentStorage
 	return mockS3Client, storage
 }
 
-// ensureValidMetadata ensures that metadata is never nil or an empty string
-// This fixes the PostgreSQL "invalid input syntax for type json" error
-func ensureValidMetadata(metadata map[string]interface{}) map[string]interface{} {
-	if metadata == nil {
-		return map[string]interface{}{}
-	}
-	return metadata
-}
 
 // Test the GitHubContentStorage constructor
 func TestNewGitHubContentStorage(t *testing.T) {
@@ -113,7 +105,7 @@ func TestGitHubContentStorage_StoreContent_NewContent(t *testing.T) {
 	mockS3Client.On("ListFiles", ctx, fmt.Sprintf("content/%s", expectedHashStr)).Return([]string{}, nil)
 	mockS3Client.On("UploadFile", ctx, fmt.Sprintf("content/%s", expectedHashStr), testData, "application/octet-stream").Return(nil)
 
-	// For the metadata JSON - use ensureValidMetadata to fix PostgreSQL empty string issue
+	// For the metadata JSON - ensure metadata is never nil to fix PostgreSQL empty string issue
 	// We don't need to store metadataBytes locally since it's only used in the call expectations
 	// This implements the fix for the PostgreSQL empty string issue mentioned in memories
 	mockS3Client.On("UploadFile", ctx, "repositories/owner/repo/issue/123", mock.AnythingOfType("[]uint8"), "application/json").Return(nil)

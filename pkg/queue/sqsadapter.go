@@ -132,19 +132,9 @@ func createLocalStackSQSClient(ctx context.Context, config *SQSAdapterConfig) (*
 		Timeout:   30 * time.Second,
 	}
 
-	// Create custom resolver for LocalStack endpoint
-	customResolver := aws.EndpointResolverWithOptionsFunc(func(service, region string, options ...interface{}) (aws.Endpoint, error) {
-		return aws.Endpoint{
-			URL:               config.Endpoint,
-			HostnameImmutable: true,
-			SigningRegion:     config.Region,
-		}, nil
-	})
-
 	// Create AWS config
 	cfg, err := awsconfig.LoadDefaultConfig(ctx,
 		awsconfig.WithHTTPClient(customHTTPClient),
-		awsconfig.WithEndpointResolverWithOptions(customResolver),
 		awsconfig.WithCredentialsProvider(credentials.NewStaticCredentialsProvider(
 			config.AccessKey, config.SecretKey, "")),
 		awsconfig.WithRegion(config.Region),
@@ -154,8 +144,10 @@ func createLocalStackSQSClient(ctx context.Context, config *SQSAdapterConfig) (*
 		return nil, err
 	}
 
-	// Create SQS client
-	sqsClient := sqs.NewFromConfig(cfg)
+	// Create SQS client with custom endpoint
+	sqsClient := sqs.NewFromConfig(cfg, func(o *sqs.Options) {
+		o.BaseEndpoint = aws.String(config.Endpoint)
+	})
 	return sqsClient, nil
 }
 

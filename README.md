@@ -15,9 +15,16 @@ DevOps MCP (Model Context Protocol) provides a standardized, secure interface fo
 
 - **Multi-Tool Integration**: Unified API supporting GitHub, with extensible adapter pattern for additional tools
 - **Context Management**: Efficient storage and retrieval of conversation contexts with S3 support
-- **Vector Search**: Semantic search using pgvector with support for multiple embedding models
+- **Multi-Agent Embedding System**: Each AI agent can have customized embedding models and strategies
 - **Event-Driven Architecture**: Asynchronous processing with SQS integration
 - **Production-Ready**: Built-in observability, circuit breakers, and rate limiting
+
+## Key Features
+
+- **Multi-Agent Embedding System**: Each AI agent can have customized embedding models and strategies
+- **Intelligent Provider Routing**: Automatic failover between OpenAI, AWS Bedrock, and Google AI
+- **Cross-Model Search**: Search across embeddings created by different models
+- **Cost Optimization**: Track and optimize embedding costs per agent
 
 ## 🏗️ Architecture
 
@@ -112,7 +119,7 @@ curl http://localhost:8081/health
 ### Key Documentation
 
 - **Architecture**: [System Overview](docs/architecture/system-overview.md) | [Adapter Pattern](docs/architecture/adapter-pattern.md) | [Go Workspace Structure](docs/architecture/go-workspace-structure.md)
-- **Integration Examples**: [GitHub](docs/examples/github-integration.md) | [AI Agent](docs/examples/ai-agent-integration.md) | [Vector Search](docs/examples/vector-search-implementation.md)
+- **Integration Examples**: [GitHub](docs/examples/github-integration.md) | [AI Agent](docs/examples/ai-agent-integration.md) | [Embeddings](docs/examples/embedding-examples.md)
 - **Developer Resources**: [Development Environment](docs/developer/development-environment.md) | [Debugging Guide](docs/developer/debugging-guide.md)
 
 ## 📁 Project Structure

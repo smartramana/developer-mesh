@@ -31,7 +31,7 @@ var (
 
 	// Match decorators
 	// TODO: Implement decorator extraction to enhance Python code analysis
-	pythonDecoratorRegex = regexp.MustCompile(`(?m)^(@\w+(?:\([^)]*\))?)`)
+	// pythonDecoratorRegex = regexp.MustCompile(`(?m)^(@\w+(?:\([^)]*\))?)`)
 )
 
 // PythonParser is a parser for Python code

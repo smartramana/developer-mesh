@@ -529,7 +529,8 @@ func generateMockEmbedding(text string, dimensions int) ([]float32, error) {
 	// Convert to float32 and normalize
 	var sum float64
 	for i := 0; i < dimensions; i++ {
-		val := float64(int32(binary.BigEndian.Uint32(randomBytes[i*4:(i+1)*4]))) / float64(math.MaxInt32)
+		// Convert uint32 directly to float64 to avoid integer overflow
+		val := (float64(binary.BigEndian.Uint32(randomBytes[i*4:(i+1)*4])) / float64(math.MaxUint32)) * 2.0 - 1.0
 		vector[i] = float32(val)
 		sum += float64(vector[i] * vector[i])
 	}

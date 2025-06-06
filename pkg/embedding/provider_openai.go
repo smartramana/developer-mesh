@@ -60,10 +60,7 @@ func (p *OpenAIProvider) GenerateEmbedding(ctx context.Context, content string, 
     }
     
     // Add dimensions for models that support reduction
-    if model == "text-embedding-3-small" || model == "text-embedding-3-large" {
-        // Could be made configurable
-        // For now, use default dimensions
-    }
+    // For now, use default dimensions for text-embedding-3-small and text-embedding-3-large
     
     jsonData, err := json.Marshal(reqBody)
     if err != nil {

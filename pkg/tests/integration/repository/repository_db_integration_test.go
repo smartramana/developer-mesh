@@ -21,9 +21,12 @@ import (
 type TxKey string
 
 // Known transaction context keys
+// contextKey is a type for context keys to avoid collisions
+type contextKey string
+
 const (
 	// TransactionKey is the key used to store transaction in context
-	TransactionKey = "tx" // Using string "tx" to match what's expected in repository implementation
+	TransactionKey contextKey = "tx" // Using contextKey type to avoid collisions
 )
 
 // MockModelRepository implements a simple in-memory model.Repository for testing
@@ -383,7 +386,7 @@ func TestRepositoryDatabaseIntegration(t *testing.T) {
 		db, err := database.NewTestDatabaseWithContext(ctx)
 		require.NoError(t, err)
 		require.NotNil(t, db)
-		defer db.Close()
+		defer func() { _ = db.Close() }()
 
 		// Use custom test table initialization that works with both SQLite and PostgreSQL
 		err = initializeTestTables(ctx, db.DB())
@@ -424,7 +427,7 @@ func TestRepositoryDatabaseIntegration(t *testing.T) {
 		db, err := database.NewTestDatabaseWithContext(ctx)
 		require.NoError(t, err)
 		require.NotNil(t, db)
-		defer db.Close()
+		defer func() { _ = db.Close() }()
 
 		// Use custom test table initialization that works with both SQLite and PostgreSQL
 		err = initializeTestTables(ctx, db.DB())
@@ -551,8 +554,10 @@ func TestRepositoryDatabaseIntegration(t *testing.T) {
 			_, err = db.DB().ExecContext(ctx, "CREATE TRIGGER IF NOT EXISTS check_agent_name BEFORE INSERT ON agents FOR EACH ROW WHEN NEW.name IS NULL OR NEW.name = '' BEGIN SELECT RAISE(FAIL, 'agent name cannot be empty'); END;")
 			require.NoError(t, err, "Failed to create trigger")
 		} else {
-			_, err = db.DB().ExecContext(ctx, "ALTER TABLE mcp.agents ADD CONSTRAINT check_agent_name CHECK (name IS NOT NULL AND name != '')")
-			// Ignore errors if constraint already exists
+			if _, err = db.DB().ExecContext(ctx, "ALTER TABLE mcp.agents ADD CONSTRAINT check_agent_name CHECK (name IS NOT NULL AND name != '')"); err != nil {
+				// Ignore errors if constraint already exists
+				_ = err
+			}
 		}
 
 		// This should fail and cause rollback
@@ -582,7 +587,7 @@ func TestRepositoryDatabaseIntegration(t *testing.T) {
 		db, err := database.NewTestDatabaseWithContext(ctx)
 		require.NoError(t, err)
 		require.NotNil(t, db)
-		defer db.Close()
+		defer func() { _ = db.Close() }()
 
 		// Use custom test table initialization that works with both SQLite and PostgreSQL
 		err = initializeTestTables(ctx, db.DB())

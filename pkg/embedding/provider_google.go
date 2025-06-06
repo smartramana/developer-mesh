@@ -130,7 +130,7 @@ func (p *GoogleProvider) GenerateEmbedding(ctx context.Context, content string, 
     
     // Check status code
     if resp.StatusCode != http.StatusOK {
-        return nil, fmt.Errorf("Google API error (status %d): %s", resp.StatusCode, string(body))
+        return nil, fmt.Errorf("google API error (status %d): %s", resp.StatusCode, string(body))
     }
     
     // Parse response

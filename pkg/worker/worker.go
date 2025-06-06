@@ -8,8 +8,8 @@ import (
 )
 
 var (
-	// Deprecated: This retry constant is currently unused but reserved for future implementation of retry handling
-	maxRetries     = 5
+	// TODO: Future implementation of retry handling
+	// maxRetries     = 5
 	idempotencyTTL = 24 * time.Hour
 )
 
@@ -46,9 +46,8 @@ func RunWorker(ctx context.Context, sqsClient SQSReceiverDeleter, redisClient Re
 					_ = err
 				}
 				_ = sqsClient.DeleteMessage(ctx, handles[i])
-			} else {
-				// Let SQS retry by not deleting message
 			}
+			// else: Let SQS retry by not deleting message
 		}
 	}
 }

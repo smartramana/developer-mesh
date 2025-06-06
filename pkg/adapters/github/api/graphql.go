@@ -310,7 +310,7 @@ func (c *GraphQLClient) Query(ctx context.Context, query string, variables map[s
 	}
 
 	// If the response has no data, that's an error
-	if resp.Data == nil || len(resp.Data) == 0 {
+	if len(resp.Data) == 0 {
 		if len(resp.Errors) > 0 {
 			return errors.NewGitHubError(
 				errors.ErrGraphQLResponse,
@@ -871,7 +871,7 @@ func (c *GraphQLClient) execute(ctx context.Context, req GraphQLRequest, resp *G
 		}
 
 		// If response has no data, return error
-		if resp.Data == nil || len(resp.Data) == 0 {
+		if len(resp.Data) == 0 {
 			// Create structured error
 			githubErr := errors.NewGitHubError(
 				errors.ErrGraphQLResponse,
@@ -1102,9 +1102,10 @@ func findMatchingCloseBrace(s string, openIndex int) int {
 
 	depth := 1
 	for i := openIndex + 1; i < len(s); i++ {
-		if s[i] == '{' {
+		switch s[i] {
+		case '{':
 			depth++
-		} else if s[i] == '}' {
+		case '}':
 			depth--
 			if depth == 0 {
 				return i

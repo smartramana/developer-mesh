@@ -36,7 +36,9 @@ func (b *EventBusImpl) Publish(ctx context.Context, event *models.Event) {
 		go func(h Handler, e *models.Event) {
 			err := h(ctx, e)
 			if err != nil {
-				// Log error but don't stop processing
+				// TODO: Add error logging when logger is available
+				// Continue processing other handlers
+				_ = err
 			}
 		}(handler, event)
 	}

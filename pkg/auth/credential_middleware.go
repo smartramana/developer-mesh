@@ -91,11 +91,7 @@ func parseToolCredentials(data interface{}, logger observability.Logger) *models
 	}
 
 	// Validate at least one credential is present
-	hasAnyCredential := false
-	
-	if creds.GitHub != nil && creds.GitHub.Token != "" {
-		hasAnyCredential = true
-	}
+	hasAnyCredential := creds.GitHub != nil && creds.GitHub.Token != ""
 	if creds.Jira != nil && creds.Jira.Token != "" {
 		hasAnyCredential = true
 	}

@@ -213,7 +213,7 @@ func (b *GraphQLBuilder) String() string {
 		sb.WriteString(" {\n")
 
 		// Add child fields
-		childContent := strings.Replace(strings.TrimSuffix(strings.TrimPrefix(child.String(), child.operationType+" "+child.operation+" {\n"), "\n}"), "\n", "\n  ", -1)
+		childContent := strings.ReplaceAll(strings.TrimSuffix(strings.TrimPrefix(child.String(), child.operationType+" "+child.operation+" {\n"), "\n}"), "\n", "\n  ")
 		sb.WriteString("  ")
 		sb.WriteString(childContent)
 		sb.WriteString("\n  }")

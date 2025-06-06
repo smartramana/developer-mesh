@@ -47,19 +47,17 @@ func (m *MockRepository) List(ctx context.Context, filter Filter) ([]*SearchResu
 	for _, doc := range m.documents {
 		match := true
 
-		if filter != nil {
-			for k, v := range filter {
-				switch k {
-				case "type":
-					if doc.Type != v.(string) {
-						match = false
-					}
-				case "content_hash":
-					if doc.ContentHash != v.(string) {
-						match = false
-					}
-					// Additional filter fields can be added here
+		for k, v := range filter {
+			switch k {
+			case "type":
+				if doc.Type != v.(string) {
+					match = false
 				}
+			case "content_hash":
+				if doc.ContentHash != v.(string) {
+					match = false
+				}
+				// Additional filter fields can be added here
 			}
 		}
 

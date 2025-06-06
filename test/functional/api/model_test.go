@@ -38,7 +38,7 @@ var _ = Describe("Model Operations", func() {
 			path := fmt.Sprintf("/api/v1/models/%s", modelID)
 			resp, err := mcpClient.Delete(ctx, path)
 			if err == nil {
-				resp.Body.Close()
+				_ = resp.Body.Close()
 			}
 		}
 	})
@@ -76,7 +76,7 @@ var _ = Describe("Model Operations", func() {
 			path := fmt.Sprintf("/api/v1/models/%s", createdModel.ID)
 			resp, err := mcpClient.Put(ctx, path, updatePayload)
 			Expect(err).NotTo(HaveOccurred())
-			defer resp.Body.Close()
+			defer func() { _ = resp.Body.Close() }()
 			Expect(resp.StatusCode).To(Equal(200))
 
 			// Verify the update
@@ -88,7 +88,7 @@ var _ = Describe("Model Operations", func() {
 			// DELETE
 			deleteResp, err := mcpClient.Delete(ctx, path)
 			Expect(err).NotTo(HaveOccurred())
-			defer deleteResp.Body.Close()
+			defer func() { _ = deleteResp.Body.Close() }()
 			Expect(deleteResp.StatusCode).To(Equal(200))
 
 			// Verify the delete
@@ -129,7 +129,7 @@ var _ = Describe("Model Operations", func() {
 			}
 			resp, err := mcpClient.Post(ctx, "/api/v1/models/search", searchPayload)
 			Expect(err).NotTo(HaveOccurred())
-			defer resp.Body.Close()
+			defer func() { _ = resp.Body.Close() }()
 			Expect(resp.StatusCode).To(Equal(200))
 
 			var searchResult map[string]interface{}
@@ -169,7 +169,7 @@ var _ = Describe("Model Operations", func() {
 			// Test pagination with limit parameter
 			resp, err := mcpClient.Get(ctx, "/api/v1/models?limit=2")
 			Expect(err).NotTo(HaveOccurred())
-			defer resp.Body.Close()
+			defer func() { _ = resp.Body.Close() }()
 			Expect(resp.StatusCode).To(Equal(200))
 
 			var result map[string]interface{}
@@ -222,7 +222,7 @@ var _ = Describe("Model Operations", func() {
 			// So we'll check for either success or a specific error that indicates
 			// the API exists but functionality is limited in test mode
 			if err == nil {
-				defer resp.Body.Close()
+				defer func() { _ = resp.Body.Close() }()
 				// If successful, should return 200 or 201
 				Expect(resp.StatusCode == 200 || resp.StatusCode == 201 || resp.StatusCode == 404).To(BeTrue())
 			}

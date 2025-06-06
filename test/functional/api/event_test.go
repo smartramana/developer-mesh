@@ -97,7 +97,7 @@ var _ = Describe("Event Flow Tests", func() {
 			path := fmt.Sprintf("/api/v1/contexts/%s", contextID)
 			resp, err := mcpClient.Put(ctx, path, updatePayload)
 			Expect(err).NotTo(HaveOccurred())
-			defer resp.Body.Close()
+			defer func() { _ = resp.Body.Close() }()
 			Expect(resp.StatusCode).To(Equal(200))
 
 			// Wait for event processing

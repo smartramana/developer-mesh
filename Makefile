@@ -151,6 +151,45 @@ test-functional-local-verbose:
 	@echo "Running functional tests with local environment (verbose)..."
 	@bash ./test/scripts/run_functional_tests_local.sh --verbose
 
+# Multi-Agent Embedding System tests
+test-embedding: test-embedding-unit test-embedding-integration
+
+# Run unit tests for embedding system
+test-embedding-unit:
+	@echo "Running embedding unit tests..."
+	$(GOTEST) -v -short ./pkg/embedding/... ./pkg/agents/...
+
+# Run integration tests for multi-agent embeddings (requires Docker)
+test-embedding-integration: docker-compose-up
+	@echo "Running embedding integration tests..."
+	$(GOTEST) -v -tags=integration ./test/integration/multi_agent_embedding_test.go
+
+# Test specific embedding provider
+# Usage: make test-embedding-provider PROVIDER=openai
+test-embedding-provider:
+	@echo "Testing $(PROVIDER) provider..."
+	$(GOTEST) -v ./pkg/embedding/providers -run Test.*$(PROVIDER).*
+
+# Test with coverage for embedding system
+test-embedding-coverage:
+	$(GOTEST) -v -coverprofile=embedding_coverage.out ./pkg/embedding/... ./pkg/agents/...
+	$(GOCMD) tool cover -html=embedding_coverage.out -o embedding_coverage.html
+	@echo "Coverage report generated: embedding_coverage.html"
+
+# Benchmark embedding system
+test-embedding-bench:
+	@echo "Running embedding benchmarks..."
+	$(GOTEST) -bench=. -benchmem ./pkg/embedding/...
+
+# Run all multi-agent tests
+test-multi-agent: test-embedding test-agents-unit
+	@echo "All multi-agent tests completed"
+
+# Test agent configuration system
+test-agents-unit:
+	@echo "Running agent configuration tests..."
+	$(GOTEST) -v -short ./pkg/agents/...
+
 deps:
 	$(GOWORK) sync
 	$(GOMOD) download
@@ -210,7 +249,7 @@ check-imports:
 # Linting and code quality
 lint:
 	@echo "Running linters..."
-	golangci-lint run ./apps/mcp-server/... ./apps/rest-api/... ./apps/worker/... ./pkg/...
+	@./.github/scripts/lint-all-modules.sh
 
 # Swagger documentation commands
 swagger-install:

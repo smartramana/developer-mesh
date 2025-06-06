@@ -109,7 +109,7 @@ func ExampleService_StandardMiddleware() {
 	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		user, ok := auth.GetUserFromRequest(r)
 		if ok {
-			if _, err := w.Write([]byte(fmt.Sprintf("Hello user %s", user.ID))); err != nil {
+			if _, err := fmt.Fprintf(w, "Hello user %s", user.ID); err != nil {
 				// Log error if needed - in example code, we'll just ignore
 				_ = err
 			}

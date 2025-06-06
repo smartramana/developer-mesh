@@ -193,6 +193,96 @@ storage:
     batch_size: 100
     default_similarity_threshold: 0.75
 
+# Embedding Configuration
+embedding:
+  # Provider Configuration
+  providers:
+    # OpenAI Provider
+    openai:
+      enabled: false
+      api_key: "${OPENAI_API_KEY}"
+      models:
+        - name: "text-embedding-3-large"
+          dimensions: 3072
+          max_tokens: 8191
+        - name: "text-embedding-3-small"
+          dimensions: 1536
+          max_tokens: 8191
+        - name: "text-embedding-ada-002"
+          dimensions: 1536
+          max_tokens: 8191
+    
+    # AWS Bedrock Provider
+    bedrock:
+      enabled: false
+      region: "${AWS_REGION:-us-east-1}"
+      endpoint: ""  # Optional custom endpoint
+      models:
+        - name: "amazon.titan-embed-text-v2:0"
+          dimensions: 1024
+          max_tokens: 8192
+        - name: "cohere.embed-english-v3"
+          dimensions: 1024
+          max_tokens: 512
+        - name: "cohere.embed-multilingual-v3"
+          dimensions: 1024
+          max_tokens: 512
+    
+    # Google AI Provider
+    google:
+      enabled: false
+      api_key: "${GOOGLE_AI_API_KEY}"
+      endpoint: ""  # Optional custom endpoint
+      models:
+        - name: "text-embedding-004"
+          dimensions: 768
+          max_tokens: 2048
+        - name: "textembedding-gecko@003"
+          dimensions: 768
+          max_tokens: 3072
+  
+  # Default Agent Configuration
+  default_agent_config:
+    embedding_strategy: "balanced"  # quality, speed, cost, balanced
+    model_preferences:
+      primary_models:
+        - "text-embedding-3-small"
+        - "amazon.titan-embed-text-v2:0"
+      fallback_models:
+        - "text-embedding-ada-002"
+        - "textembedding-gecko@003"
+    constraints:
+      max_tokens_per_request: 8000
+      max_cost_per_day: 10.0
+      preferred_dimensions: 1536
+      allow_dimension_reduction: true
+    fallback_behavior:
+      enabled: true
+      max_retries: 3
+      retry_delay: "1s"
+      use_cache_on_failure: true
+  
+  # Circuit Breaker Configuration
+  circuit_breaker:
+    failure_threshold: 5
+    success_threshold: 2
+    timeout: "30s"
+    half_open_requests: 3
+  
+  # Router Configuration
+  router:
+    selection_strategy: "smart"  # smart, round_robin, least_cost, fastest
+    cost_weight: 0.3
+    quality_weight: 0.5
+    speed_weight: 0.2
+    cache_ttl: "5m"
+  
+  # Dimension Normalization
+  normalization:
+    target_dimensions: 1536  # Standard dimension for cross-model compatibility
+    method: "pca"  # pca, truncate, pad
+    preserve_magnitude: true
+
 # Adapter Defaults
 adapters:
   # Common HTTP client settings

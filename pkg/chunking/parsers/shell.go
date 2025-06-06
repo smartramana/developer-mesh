@@ -509,9 +509,10 @@ func findShellBlockEnd(code string, startPos int) (string, int) {
 
 	// Find the matching closing brace
 	for pos < len(code) && braceCount > 0 {
-		if code[pos] == '{' {
+		switch code[pos] {
+		case '{':
 			braceCount++
-		} else if code[pos] == '}' {
+		case '}':
 			braceCount--
 		}
 		pos++
@@ -529,6 +530,6 @@ func findShellBlockEnd(code string, startPos int) (string, int) {
 func generateShellChunkID(chunk *chunking.CodeChunk) string {
 	// Create a hash from the chunk's name, path, and content
 	h := sha256.New()
-	h.Write([]byte(fmt.Sprintf("%s:%s:%s", chunk.Name, chunk.Path, chunk.Content)))
+	_, _ = fmt.Fprintf(h, "%s:%s:%s", chunk.Name, chunk.Path, chunk.Content)
 	return hex.EncodeToString(h.Sum(nil))
 }

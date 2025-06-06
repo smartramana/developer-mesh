@@ -37,6 +37,10 @@ func TestNewPgSearchService(t *testing.T) {
 
 	// Test case: successful creation
 	mock.ExpectQuery("SELECT EXISTS").WillReturnRows(sqlmock.NewRows([]string{"exists"}).AddRow(true))
+	
+	// Expect the Close call
+	mock.ExpectClose()
+	
 	svc, err := NewPgSearchService(&PgSearchConfig{
 		DB:               db,
 		Schema:           "mcp",
@@ -58,6 +62,7 @@ func TestPgSearchService_Search(t *testing.T) {
 			t.Errorf("Failed to close mock database: %v", err)
 		}
 	}()
+	
 
 	// Setup the mock embedding service
 	mockEmbService := &mockEmbeddingService{
@@ -89,6 +94,9 @@ func TestPgSearchService_Search(t *testing.T) {
 
 	// We need to use MatchAny because the actual SQL is complex and we just want to test the flow
 	mock.ExpectQuery("SELECT (.+) FROM mcp.embeddings").WillReturnRows(rows)
+	
+	// Expect close at the end
+	mock.ExpectClose()
 
 	// Perform the search
 	ctx := context.Background()
@@ -110,6 +118,7 @@ func TestPgSearchService_SearchByVector(t *testing.T) {
 			t.Errorf("Failed to close mock database: %v", err)
 		}
 	}()
+	
 
 	// Setup the mock embedding service
 	mockEmbService := &mockEmbeddingService{
@@ -140,6 +149,9 @@ func TestPgSearchService_SearchByVector(t *testing.T) {
 
 	// Mock the query execution
 	mock.ExpectQuery("SELECT (.+) FROM mcp.embeddings").WillReturnRows(rows)
+	
+	// Expect close at the end
+	mock.ExpectClose()
 
 	// Perform the search with a vector
 	ctx := context.Background()
@@ -168,6 +180,7 @@ func TestPgSearchService_SearchByContentID(t *testing.T) {
 			t.Errorf("Failed to close mock database: %v", err)
 		}
 	}()
+	
 
 	// Setup the mock embedding service
 	mockEmbService := &mockEmbeddingService{
@@ -203,6 +216,9 @@ func TestPgSearchService_SearchByContentID(t *testing.T) {
 
 	// Mock the query execution for the search
 	mock.ExpectQuery("SELECT (.+) FROM mcp.embeddings").WillReturnRows(rows)
+	
+	// Expect close at the end
+	mock.ExpectClose()
 
 	// Perform the search by content ID
 	ctx := context.Background()

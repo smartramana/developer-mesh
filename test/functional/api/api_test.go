@@ -97,7 +97,7 @@ var _ = BeforeSuite(func() {
 			}
 			resp, err := tempClient.Post(context.Background(), "/api/v1/models", modelPayload)
 			Expect(err).NotTo(HaveOccurred())
-			defer resp.Body.Close()
+			defer func() { _ = resp.Body.Close() }()
 			modelBody, _ := io.ReadAll(resp.Body)
 			if resp.StatusCode < 200 || resp.StatusCode >= 300 {
 				fmt.Fprintf(os.Stderr, "Model creation failed: status=%d, body=%s\n", resp.StatusCode, string(modelBody))
@@ -150,7 +150,7 @@ var _ = BeforeSuite(func() {
 	}
 	resp, err := tempClient.Post(context.Background(), "/api/v1/agents", agentPayload)
 	Expect(err).NotTo(HaveOccurred())
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 	body, _ := io.ReadAll(resp.Body)
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
 		fmt.Fprintf(os.Stderr, "Agent creation failed: status=%d, body=%s\n", resp.StatusCode, string(body))
@@ -188,7 +188,7 @@ var _ = Describe("API", func() {
 			// Call the health endpoint
 			resp, err := mcpClient.Get(ctx, "/health")
 			Expect(err).NotTo(HaveOccurred())
-			defer resp.Body.Close()
+			defer func() { _ = resp.Body.Close() }()
 
 			// Verify response status - health endpoint should return 200 OK
 			Expect(resp.StatusCode).To(Equal(http.StatusOK))
@@ -212,7 +212,7 @@ var _ = Describe("API", func() {
 			// Call the root API endpoint without authentication
 			resp, err := unauthClient.Get(ctx, "/api/v1")
 			Expect(err).NotTo(HaveOccurred())
-			defer resp.Body.Close()
+			defer func() { _ = resp.Body.Close() }()
 
 			// Expect Unauthorized status
 			Expect(resp.StatusCode).To(Equal(http.StatusUnauthorized))
@@ -235,7 +235,7 @@ var _ = Describe("API", func() {
 			// Call the tools endpoint without authentication
 			resp, err := unauthClient.Get(ctx, "/api/v1/tools")
 			Expect(err).NotTo(HaveOccurred())
-			defer resp.Body.Close()
+			defer func() { _ = resp.Body.Close() }()
 
 			// Verify response status (should be unauthorized)
 			Expect(resp.StatusCode).To(Equal(http.StatusUnauthorized))
@@ -245,7 +245,7 @@ var _ = Describe("API", func() {
 			// Call the tools endpoint with authentication
 			resp, err := mcpClient.Get(ctx, "/api/v1/tools")
 			Expect(err).NotTo(HaveOccurred())
-			defer resp.Body.Close()
+			defer func() { _ = resp.Body.Close() }()
 
 			// With the current authentication behavior, expect StatusOK
 			Expect(resp.StatusCode).To(Equal(http.StatusOK))
@@ -256,7 +256,7 @@ var _ = Describe("API", func() {
 		It("should list available tools (200)", func() {
 			resp, err := mcpClient.Get(ctx, "/api/v1/tools")
 			Expect(err).NotTo(HaveOccurred())
-			defer resp.Body.Close()
+			defer func() { _ = resp.Body.Close() }()
 			Expect(resp.StatusCode).To(Equal(http.StatusOK))
 			var result map[string]interface{}
 			err = client.ParseResponse(resp, &result)
@@ -267,13 +267,13 @@ var _ = Describe("API", func() {
 			unauthClient := client.NewMCPClient(ServerURL, "", client.WithTenantID("test-tenant-1"))
 			resp, err := unauthClient.Get(ctx, "/api/v1/tools")
 			Expect(err).NotTo(HaveOccurred())
-			defer resp.Body.Close()
+			defer func() { _ = resp.Body.Close() }()
 			Expect(resp.StatusCode).To(Equal(http.StatusUnauthorized))
 		})
 		It("should get tool details (200)", func() {
 			resp, err := mcpClient.Get(ctx, "/api/v1/tools/github")
 			Expect(err).NotTo(HaveOccurred())
-			defer resp.Body.Close()
+			defer func() { _ = resp.Body.Close() }()
 			Expect(resp.StatusCode).To(Equal(http.StatusOK))
 			var result map[string]interface{}
 			err = client.ParseResponse(resp, &result)
@@ -283,20 +283,20 @@ var _ = Describe("API", func() {
 		It("should return 404 for unknown tool", func() {
 			resp, err := mcpClient.Get(ctx, "/api/v1/tools/unknown-tool")
 			Expect(err).NotTo(HaveOccurred())
-			defer resp.Body.Close()
+			defer func() { _ = resp.Body.Close() }()
 			Expect(resp.StatusCode).To(Equal(http.StatusNotFound))
 		})
 		It("should get tool actions (200)", func() {
 			resp, err := mcpClient.Get(ctx, "/api/v1/tools/github/actions")
 			Expect(err).NotTo(HaveOccurred())
-			defer resp.Body.Close()
+			defer func() { _ = resp.Body.Close() }()
 			Expect(resp.StatusCode).To(Equal(http.StatusOK))
 		})
 		It("should return 401 for actions endpoint without auth", func() {
 			unauthClient := client.NewMCPClient(ServerURL, "", client.WithTenantID("test-tenant-1"))
 			resp, err := unauthClient.Get(ctx, "/api/v1/tools/github/actions")
 			Expect(err).NotTo(HaveOccurred())
-			defer resp.Body.Close()
+			defer func() { _ = resp.Body.Close() }()
 			Expect(resp.StatusCode).To(Equal(http.StatusUnauthorized))
 		})
 		It("should execute add_comment action (200)", func() {
@@ -308,56 +308,56 @@ var _ = Describe("API", func() {
 			}
 			resp, err := mcpClient.Post(ctx, "/api/v1/tools/github/actions/add_comment?context_id=test-context", payload)
 			Expect(err).NotTo(HaveOccurred())
-			defer resp.Body.Close()
+			defer func() { _ = resp.Body.Close() }()
 			Expect(resp.StatusCode).To(Equal(http.StatusOK))
 		})
 		It("should get repository details (200)", func() {
 			payload := map[string]interface{}{"owner": "octocat", "repo": "hello-world"}
 			resp, err := mcpClient.Post(ctx, "/api/v1/tools/github/actions/get_repository?context_id=test-context", payload)
 			Expect(err).NotTo(HaveOccurred())
-			defer resp.Body.Close()
+			defer func() { _ = resp.Body.Close() }()
 			Expect(resp.StatusCode).To(Equal(http.StatusOK))
 		})
 		It("should list repositories (200)", func() {
 			payload := map[string]interface{}{"owner": "octocat"}
 			resp, err := mcpClient.Post(ctx, "/api/v1/tools/github/actions/list_repositories?context_id=test-context", payload)
 			Expect(err).NotTo(HaveOccurred())
-			defer resp.Body.Close()
+			defer func() { _ = resp.Body.Close() }()
 			Expect(resp.StatusCode).To(Equal(http.StatusOK))
 		})
 		It("should get pull request details (200)", func() {
 			payload := map[string]interface{}{"owner": "octocat", "repo": "hello-world", "pull_number": 101}
 			resp, err := mcpClient.Post(ctx, "/api/v1/tools/github/actions/get_pull_request?context_id=test-context", payload)
 			Expect(err).NotTo(HaveOccurred())
-			defer resp.Body.Close()
+			defer func() { _ = resp.Body.Close() }()
 			Expect(resp.StatusCode).To(Equal(http.StatusOK))
 		})
 		It("should list pull requests (200)", func() {
 			payload := map[string]interface{}{"owner": "octocat", "repo": "hello-world"}
 			resp, err := mcpClient.Post(ctx, "/api/v1/tools/github/actions/list_pull_requests?context_id=test-context", payload)
 			Expect(err).NotTo(HaveOccurred())
-			defer resp.Body.Close()
+			defer func() { _ = resp.Body.Close() }()
 			Expect(resp.StatusCode).To(Equal(http.StatusOK))
 		})
 		It("should get issue details (200)", func() {
 			payload := map[string]interface{}{"owner": "octocat", "repo": "hello-world", "issue_number": 42}
 			resp, err := mcpClient.Post(ctx, "/api/v1/tools/github/actions/get_issue?context_id=test-context", payload)
 			Expect(err).NotTo(HaveOccurred())
-			defer resp.Body.Close()
+			defer func() { _ = resp.Body.Close() }()
 			Expect(resp.StatusCode).To(Equal(http.StatusOK))
 		})
 		It("should list issues (200)", func() {
 			payload := map[string]interface{}{"owner": "octocat", "repo": "hello-world"}
 			resp, err := mcpClient.Post(ctx, "/api/v1/tools/github/actions/list_issues?context_id=test-context", payload)
 			Expect(err).NotTo(HaveOccurred())
-			defer resp.Body.Close()
+			defer func() { _ = resp.Body.Close() }()
 			Expect(resp.StatusCode).To(Equal(http.StatusOK))
 		})
 		It("should archive a repository (200)", func() {
 			payload := map[string]interface{}{"owner": "octocat", "repo": "hello-world"}
 			resp, err := mcpClient.Post(ctx, "/api/v1/tools/github/actions/archive_repository?context_id=test-context", payload)
 			Expect(err).NotTo(HaveOccurred())
-			defer resp.Body.Close()
+			defer func() { _ = resp.Body.Close() }()
 			Expect(resp.StatusCode).To(Equal(http.StatusOK))
 		})
 		// Auth and error cases
@@ -366,28 +366,28 @@ var _ = Describe("API", func() {
 			payload := map[string]interface{}{"owner": "octocat", "repo": "hello-world"}
 			resp, err := unauthClient.Post(ctx, "/api/v1/tools/github/actions/get_repository?context_id=test-context", payload)
 			Expect(err).NotTo(HaveOccurred())
-			defer resp.Body.Close()
+			defer func() { _ = resp.Body.Close() }()
 			Expect(resp.StatusCode).To(Equal(http.StatusUnauthorized))
 		})
 		It("should return 200 for invalid GitHub action payload (mock always returns 200)", func() {
 			payload := map[string]interface{}{"owner": "octocat"} // missing required fields for get_issue
 			resp, err := mcpClient.Post(ctx, "/api/v1/tools/github/actions/get_issue?context_id=test-context", payload)
 			Expect(err).NotTo(HaveOccurred())
-			defer resp.Body.Close()
+			defer func() { _ = resp.Body.Close() }()
 			Expect(resp.StatusCode).To(Equal(http.StatusOK))
 		})
 		It("should return 404 for unknown GitHub action", func() {
 			payload := map[string]interface{}{"owner": "octocat", "repo": "hello-world"}
 			resp, err := mcpClient.Post(ctx, "/api/v1/tools/github/actions/unknown_action?context_id=test-context", payload)
 			Expect(err).NotTo(HaveOccurred())
-			defer resp.Body.Close()
+			defer func() { _ = resp.Body.Close() }()
 			Expect(resp.StatusCode).To(Equal(http.StatusNotFound))
 		})
 	})
 
 	Describe("Vectors API", func() {
-		var contextID string = "ctx_123"
-		var modelID string = "text-embedding-ada-002"
+		contextID := "ctx_123"
+		modelID := "text-embedding-ada-002"
 		// These endpoints require the context/model to exist; expect 404 for mock/unimplemented
 		It("should store an embedding (404 for missing context)", func() {
 			payload := map[string]interface{}{
@@ -399,14 +399,14 @@ var _ = Describe("API", func() {
 			}
 			resp, err := mcpClient.Post(ctx, "/api/v1/vectors/store", payload)
 			Expect(err).NotTo(HaveOccurred())
-			defer resp.Body.Close()
+			defer func() { _ = resp.Body.Close() }()
 			Expect(resp.StatusCode).To(Equal(http.StatusNotFound))
 		})
 		It("should return 404 for invalid embedding payload (missing context)", func() {
 			payload := map[string]interface{}{"context_id": contextID} // missing required fields
 			resp, err := mcpClient.Post(ctx, "/api/v1/vectors/store", payload)
 			Expect(err).NotTo(HaveOccurred())
-			defer resp.Body.Close()
+			defer func() { _ = resp.Body.Close() }()
 			Expect(resp.StatusCode).To(Equal(http.StatusNotFound))
 		})
 		It("should search embeddings (404 for missing context)", func() {
@@ -419,41 +419,41 @@ var _ = Describe("API", func() {
 			}
 			resp, err := mcpClient.Post(ctx, "/api/v1/vectors/search", payload)
 			Expect(err).NotTo(HaveOccurred())
-			defer resp.Body.Close()
+			defer func() { _ = resp.Body.Close() }()
 			Expect(resp.StatusCode).To(Equal(http.StatusNotFound))
 		})
 		It("should return 404 for invalid search payload (missing context)", func() {
 			payload := map[string]interface{}{"context_id": contextID} // missing required fields
 			resp, err := mcpClient.Post(ctx, "/api/v1/vectors/search", payload)
 			Expect(err).NotTo(HaveOccurred())
-			defer resp.Body.Close()
+			defer func() { _ = resp.Body.Close() }()
 			Expect(resp.StatusCode).To(Equal(http.StatusNotFound))
 		})
 		It("should get context embeddings (404 for missing context)", func() {
 			path := "/api/v1/vectors/context/" + contextID
 			resp, err := mcpClient.Get(ctx, path)
 			Expect(err).NotTo(HaveOccurred())
-			defer resp.Body.Close()
+			defer func() { _ = resp.Body.Close() }()
 			Expect(resp.StatusCode).To(Equal(http.StatusNotFound))
 		})
 		It("should delete context embeddings (404 for missing context)", func() {
 			path := "/api/v1/vectors/context/" + contextID
 			resp, err := mcpClient.Delete(ctx, path)
 			Expect(err).NotTo(HaveOccurred())
-			defer resp.Body.Close()
+			defer func() { _ = resp.Body.Close() }()
 			Expect(resp.StatusCode).To(Equal(http.StatusNotFound))
 		})
 		It("should get supported models (404 for missing implementation)", func() {
 			resp, err := mcpClient.Get(ctx, "/api/v1/vectors/models")
 			Expect(err).NotTo(HaveOccurred())
-			defer resp.Body.Close()
+			defer func() { _ = resp.Body.Close() }()
 			Expect(resp.StatusCode).To(Equal(http.StatusNotFound))
 		})
 		It("should get model embeddings (404 for missing context/model)", func() {
 			path := "/api/v1/vectors/context/" + contextID + "/model/" + modelID
 			resp, err := mcpClient.Get(ctx, path)
 			Expect(err).NotTo(HaveOccurred())
-			defer resp.Body.Close()
+			defer func() { _ = resp.Body.Close() }()
 			Expect(resp.StatusCode).To(Equal(http.StatusNotFound))
 		})
 		It("should return 404 for invalid model embeddings request (missing context/model)", func() {
@@ -475,7 +475,7 @@ var _ = Describe("API", func() {
 			}
 			resp, err := mcpClient.Post(ctx, "/api/v1/contexts", payload)
 			Expect(err).NotTo(HaveOccurred())
-			defer resp.Body.Close()
+			defer func() { _ = resp.Body.Close() }()
 			body, _ := io.ReadAll(resp.Body)
 			fmt.Fprintf(os.Stderr, "DEBUG: Context creation response status=%d, body=%s\n", resp.StatusCode, string(body))
 			if resp.StatusCode != http.StatusOK && resp.StatusCode != http.StatusCreated {
@@ -504,7 +504,7 @@ var _ = Describe("API", func() {
 			path := fmt.Sprintf("/api/v1/contexts/%s", createdContextID)
 			resp, err := mcpClient.Get(ctx, path)
 			Expect(err).NotTo(HaveOccurred())
-			defer resp.Body.Close()
+			defer func() { _ = resp.Body.Close() }()
 			Expect(resp.StatusCode == http.StatusOK || resp.StatusCode == http.StatusUnauthorized).To(BeTrue())
 			if resp.StatusCode == http.StatusOK {
 				var result map[string]interface{}
@@ -528,7 +528,7 @@ var _ = Describe("API", func() {
 			path := fmt.Sprintf("/api/v1/contexts/%s", createdContextID)
 			resp, err := mcpClient.Put(ctx, path, updatePayload)
 			Expect(err).NotTo(HaveOccurred())
-			defer resp.Body.Close()
+			defer func() { _ = resp.Body.Close() }()
 
 			// Debug response
 			body, _ := io.ReadAll(resp.Body)
@@ -559,7 +559,7 @@ var _ = Describe("API", func() {
 			updatePath := fmt.Sprintf("/api/v1/contexts/%s", createdContextID)
 			updateResp, err := mcpClient.Put(ctx, updatePath, updatePayload)
 			Expect(err).NotTo(HaveOccurred())
-			updateResp.Body.Close()
+			_ = updateResp.Body.Close()
 			
 			// Now search for content
 			searchPayload := map[string]interface{}{
@@ -568,7 +568,7 @@ var _ = Describe("API", func() {
 			path := fmt.Sprintf("/api/v1/contexts/%s/search", createdContextID)
 			resp, err := mcpClient.Post(ctx, path, searchPayload)
 			Expect(err).NotTo(HaveOccurred())
-			defer resp.Body.Close()
+			defer func() { _ = resp.Body.Close() }()
 			Expect(resp.StatusCode).To(Equal(http.StatusOK))
 			var result map[string]interface{}
 			err = client.ParseResponse(resp, &result)
@@ -580,7 +580,7 @@ var _ = Describe("API", func() {
 			path := fmt.Sprintf("/api/v1/contexts/%s/summary", createdContextID)
 			resp, err := mcpClient.Get(ctx, path)
 			Expect(err).NotTo(HaveOccurred())
-			defer resp.Body.Close()
+			defer func() { _ = resp.Body.Close() }()
 			Expect(resp.StatusCode).To(Equal(http.StatusOK))
 			var result map[string]interface{}
 			err = client.ParseResponse(resp, &result)
@@ -594,11 +594,11 @@ var _ = Describe("API", func() {
 			path := fmt.Sprintf("/api/v1/contexts/%s", createdContextID)
 			resp, err := mcpClient.Delete(ctx, path)
 			Expect(err).NotTo(HaveOccurred())
-			defer resp.Body.Close()
+			defer func() { _ = resp.Body.Close() }()
 			Expect(resp.StatusCode).To(Equal(http.StatusOK))
 			getResp, err := mcpClient.Get(ctx, path)
 			Expect(err).NotTo(HaveOccurred())
-			defer getResp.Body.Close()
+			defer func() { _ = getResp.Body.Close() }()
 			Expect(getResp.StatusCode).To(Equal(http.StatusNotFound))
 		})
 	})

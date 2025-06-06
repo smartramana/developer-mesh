@@ -276,7 +276,7 @@ components:
           items:
             type: string
           description: Available API capabilities
-          example: ["contexts", "tools", "agents", "vectors", "search"]
+          example: ["contexts", "tools", "agents", "embeddings", "search"]
         rate_limits:
           type: object
           properties:
@@ -296,6 +296,6 @@ components:
           example:
             tools: "https://api.example.com/api/v1/tools"
             contexts: "https://api.example.com/api/v1/contexts"
-            vectors: "https://api.example.com/api/v1/vectors"
+            embeddings: "https://api.example.com/api/embeddings"
             health: "https://api.example.com/health"
             documentation: "https://api.example.com/swagger/index.html"
