@@ -18,7 +18,7 @@ require (
 	github.com/swaggo/gin-swagger v1.6.0
 	go.opentelemetry.io/otel v1.35.0
 	go.opentelemetry.io/otel/trace v1.35.0
-	golang.org/x/time v0.8.0
+	golang.org/x/time v0.12.0
 )
 
 require (
