@@ -190,6 +190,78 @@ test-agents-unit:
 	@echo "Running agent configuration tests..."
 	$(GOTEST) -v -short ./pkg/agents/...
 
+# MCP Functional Tests
+test-functional-mcp: test-functional-mcp-all
+
+# Run all MCP functional tests
+test-functional-mcp-all:
+	@echo "Running all MCP functional tests..."
+	@set -a; \
+	[ -f .env ] && . ./.env; \
+	export MCP_SERVER_URL=$${MCP_SERVER_URL:-http://localhost:8080}; \
+	export MCP_API_KEY=$${MCP_API_KEY:-docker-admin-api-key}; \
+	export MCP_TEST_MODE=true; \
+	set +a; \
+	cd test/functional && ginkgo -v --label-filter="" ./mcp
+
+# Run only WebSocket tests
+test-functional-mcp-websocket:
+	@echo "Running MCP WebSocket tests..."
+	@set -a; \
+	[ -f .env ] && . ./.env; \
+	export MCP_SERVER_URL=$${MCP_SERVER_URL:-http://localhost:8080}; \
+	export MCP_API_KEY=$${MCP_API_KEY:-docker-admin-api-key}; \
+	export MCP_TEST_MODE=true; \
+	set +a; \
+	cd test/functional && ginkgo -v --focus "WebSocket" ./mcp
+
+# Run only REST API tests
+test-functional-mcp-rest:
+	@echo "Running MCP REST API tests..."
+	@set -a; \
+	[ -f .env ] && . ./.env; \
+	export MCP_SERVER_URL=$${MCP_SERVER_URL:-http://localhost:8080}; \
+	export MCP_API_KEY=$${MCP_API_KEY:-docker-admin-api-key}; \
+	export MCP_TEST_MODE=true; \
+	set +a; \
+	cd test/functional && ginkgo -v --focus "REST API" ./mcp
+
+# Run MCP tests with coverage
+test-functional-mcp-coverage:
+	@echo "Running MCP tests with coverage..."
+	@set -a; \
+	[ -f .env ] && . ./.env; \
+	export MCP_SERVER_URL=$${MCP_SERVER_URL:-http://localhost:8080}; \
+	export MCP_API_KEY=$${MCP_API_KEY:-docker-admin-api-key}; \
+	export MCP_TEST_MODE=true; \
+	set +a; \
+	cd test/functional && go test -v -cover -coverprofile=mcp_coverage.out ./mcp && \
+	go tool cover -html=mcp_coverage.out -o mcp_coverage.html && \
+	echo "Coverage report generated: test/functional/mcp_coverage.html"
+
+# Run MCP tests with specific focus
+# Usage: make test-functional-mcp-focus FOCUS="Tool Discovery"
+test-functional-mcp-focus:
+	@echo "Running MCP tests with focus: $(FOCUS)"
+	@set -a; \
+	[ -f .env ] && . ./.env; \
+	export MCP_SERVER_URL=$${MCP_SERVER_URL:-http://localhost:8080}; \
+	export MCP_API_KEY=$${MCP_API_KEY:-docker-admin-api-key}; \
+	export MCP_TEST_MODE=true; \
+	set +a; \
+	cd test/functional && ginkgo -v --focus "$(FOCUS)" ./mcp
+
+# Run MCP tests in watch mode for development
+test-functional-mcp-watch:
+	@echo "Running MCP tests in watch mode..."
+	@set -a; \
+	[ -f .env ] && . ./.env; \
+	export MCP_SERVER_URL=$${MCP_SERVER_URL:-http://localhost:8080}; \
+	export MCP_API_KEY=$${MCP_API_KEY:-docker-admin-api-key}; \
+	export MCP_TEST_MODE=true; \
+	set +a; \
+	cd test/functional && ginkgo watch -v ./mcp
+
 deps:
 	$(GOWORK) sync
 	$(GOMOD) download
