@@ -19,6 +19,7 @@ import (
 	swaggerFiles "github.com/swaggo/files"
 	ginSwagger "github.com/swaggo/gin-swagger"
 	"mcp-server/internal/api/proxies"
+	"mcp-server/internal/api/websocket"
 	"mcp-server/internal/core"
 )
 
@@ -48,6 +49,8 @@ type Server struct {
 	modelAPIProxy   repository.ModelRepository     // Proxy for model operations
 	contextAPIProxy repository.ContextRepository   // Proxy for context operations
 	searchAPIProxy  repository.SearchRepository    // Proxy for search operations
+	// WebSocket server
+	wsServer        *websocket.Server
 	webhookAPIProxy proxies.WebhookRepository      // Proxy for webhook operations
 }
 
@@ -221,6 +224,36 @@ func NewServer(engine *core.Engine, cfg Config, db *sqlx.DB, cacheClient cache.C
 		agentAPIProxy:  agentProxy,
 		modelAPIProxy:  modelProxy,
 	}
+	
+	// Initialize WebSocket server if enabled
+	if cfg.WebSocket.Enabled {
+		wsConfig := websocket.Config{
+			MaxConnections:  cfg.WebSocket.MaxConnections,
+			ReadBufferSize:  cfg.WebSocket.ReadBufferSize,
+			WriteBufferSize: cfg.WebSocket.WriteBufferSize,
+			PingInterval:    cfg.WebSocket.PingInterval,
+			PongTimeout:     cfg.WebSocket.PongTimeout,
+			MaxMessageSize:  cfg.WebSocket.MaxMessageSize,
+			Security:        cfg.WebSocket.Security,
+			RateLimit:       cfg.WebSocket.RateLimit,
+		}
+		
+		s.wsServer = websocket.NewServer(*authService, metrics, observability.DefaultLogger, wsConfig)
+		
+		// Set dependencies (will be properly implemented in full integration)
+		if engine != nil {
+			// Use adapter to bridge the interface differences
+			contextAdapter := websocket.NewContextManagerAdapter(engine.GetContextManager())
+			s.wsServer.SetContextManager(contextAdapter)
+			// TODO: Set tool registry and event bus when available
+		}
+		
+		observability.DefaultLogger.Info("WebSocket server initialized", map[string]interface{}{
+			"enabled":         true,
+			"max_connections": cfg.WebSocket.MaxConnections,
+		})
+	}
+	
 	s.server.Addr = cfg.ListenAddress
 	s.server.ReadTimeout = cfg.ReadTimeout
 	s.server.WriteTimeout = cfg.WriteTimeout
@@ -276,6 +309,17 @@ func (s *Server) setupRoutes() {
 		c.JSON(http.StatusOK, gin.H{"status": "MCP REST API is running"})
 	})
 	s.router.GET("/health", s.healthHandler)
+	
+	// Setup WebSocket endpoint
+	if s.config.WebSocket.Enabled && s.wsServer != nil {
+		// Convert gin handler to http.HandlerFunc
+		s.router.GET("/ws", func(c *gin.Context) {
+			s.wsServer.HandleWebSocket(c.Writer, c.Request)
+		})
+		s.logger.Info("WebSocket endpoint enabled at /ws", map[string]interface{}{
+			"max_connections": s.config.WebSocket.MaxConnections,
+		})
+	}
 
 	// Setup API documentation
 	// Create API versioned routes
@@ -320,6 +364,13 @@ func (s *Server) setupRoutes() {
 		s.logger.Info("MCP API routes registered", nil)
 	} else {
 		s.logger.Warn("MCP API not available - context manager not initialized", nil)
+	}
+	
+	// Register WebSocket monitoring routes
+	if s.config.WebSocket.Enabled && s.wsServer != nil {
+		wsMonitoring := websocket.NewMonitoringEndpoints(s.wsServer)
+		wsMonitoring.RegisterRoutes(v1)
+		s.logger.Info("WebSocket monitoring routes registered", nil)
 	}
 	
 	// Register Embedding Proxy routes

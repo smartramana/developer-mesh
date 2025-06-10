@@ -3,6 +3,7 @@ package api
 import (
 	"time"
 
+	"mcp-server/internal/api/websocket"
 	"mcp-server/internal/config"
 )
 
@@ -22,6 +23,7 @@ type Config struct {
 	Performance   PerformanceConfig     `mapstructure:"performance"`
 	Webhook       *config.WebhookConfig `mapstructure:"webhook"`
 	RestAPI       RestAPIConfig         `mapstructure:"rest_api"`
+	WebSocket     WebSocketConfig       `mapstructure:"websocket"`
 }
 
 // VersioningConfig holds API versioning configuration
@@ -91,6 +93,19 @@ type RestAPIConfig struct {
 	RetryCount int           `mapstructure:"retry_count"`
 }
 
+// WebSocketConfig holds configuration for the WebSocket server
+type WebSocketConfig struct {
+	Enabled         bool                        `mapstructure:"enabled"`
+	MaxConnections  int                         `mapstructure:"max_connections"`
+	ReadBufferSize  int                         `mapstructure:"read_buffer_size"`
+	WriteBufferSize int                         `mapstructure:"write_buffer_size"`
+	PingInterval    time.Duration               `mapstructure:"ping_interval"`
+	PongTimeout     time.Duration               `mapstructure:"pong_timeout"`
+	MaxMessageSize  int64                       `mapstructure:"max_message_size"`
+	Security        websocket.SecurityConfig    `mapstructure:"security"`
+	RateLimit       websocket.RateLimiterConfig `mapstructure:"rate_limit"`
+}
+
 // DefaultConfig returns a Config with sensible defaults
 func DefaultConfig() Config {
 	return Config{
@@ -156,6 +171,27 @@ func DefaultConfig() Config {
 			APIKey:     "",
 			Timeout:    30 * time.Second,
 			RetryCount: 3,
+		},
+		WebSocket: WebSocketConfig{
+			Enabled:         false, // Disabled by default
+			MaxConnections:  10000,
+			ReadBufferSize:  4096,
+			WriteBufferSize: 4096,
+			PingInterval:    30 * time.Second,
+			PongTimeout:     60 * time.Second,
+			MaxMessageSize:  1048576, // 1MB
+			Security: websocket.SecurityConfig{
+				RequireAuth:    true,
+				HMACSignatures: false,
+				AllowedOrigins: []string{"*"},
+				MaxFrameSize:   1048576,
+			},
+			RateLimit: websocket.RateLimiterConfig{
+				Rate:    1000.0 / 60.0, // 1000 per minute
+				Burst:   100,
+				PerIP:   true,
+				PerUser: true,
+			},
 		},
 	}
 }

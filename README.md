@@ -18,6 +18,7 @@ DevOps MCP (Model Context Protocol) provides a standardized, secure interface fo
 - **Multi-Agent Embedding System**: Each AI agent can have customized embedding models and strategies
 - **Event-Driven Architecture**: Asynchronous processing with SQS integration
 - **Production-Ready**: Built-in observability, circuit breakers, and rate limiting
+- **Real-Time WebSocket**: High-performance binary protocol for AI agents and IDE connections
 
 ## Key Features
 
@@ -25,6 +26,7 @@ DevOps MCP (Model Context Protocol) provides a standardized, secure interface fo
 - **Intelligent Provider Routing**: Automatic failover between OpenAI, AWS Bedrock, and Google AI
 - **Cross-Model Search**: Search across embeddings created by different models
 - **Cost Optimization**: Track and optimize embedding costs per agent
+- **WebSocket Support**: Real-time bidirectional communication with 10-15x performance improvement using binary protocol
 
 ## 🏗️ Architecture
 
@@ -35,6 +37,7 @@ Built using Go workspaces for modularity and clean architecture:
 - **Event-Driven**: Asynchronous processing with AWS SQS support
 - **Resilience Patterns**: Circuit breakers, retry logic, and bulkheads
 - **Observability**: OpenTelemetry tracing and Prometheus metrics
+- **WebSocket Server**: Real-time communication with binary protocol, connection pooling, and message batching
 
 ## 🚀 Quick Start
 
@@ -57,6 +60,7 @@ docker-compose -f docker-compose.prod.yml up -d
 
 # Access services
 # - MCP Server: http://localhost:8080
+# - WebSocket: ws://localhost:8080/ws
 # - REST API: http://localhost:8081
 # - Prometheus: http://localhost:9090
 # - Grafana: http://localhost:3000
@@ -106,6 +110,12 @@ make local-dev
 # Verify health
 curl http://localhost:8080/health
 curl http://localhost:8081/health
+
+# Test WebSocket connection
+curl -i -N -H "Authorization: Bearer test-key-admin" \
+  -H "Upgrade: websocket" \
+  -H "Connection: Upgrade" \
+  http://localhost:8080/ws
 ```
 
 ## 📚 Documentation
@@ -113,13 +123,14 @@ curl http://localhost:8081/health
 - [Quick Start Guide](docs/getting-started/quick-start-guide.md) - Get up and running quickly
 - [Architecture Overview](docs/architecture/system-overview.md) - System design and components
 - [API Reference](docs/api-reference/vector-search-api.md) - API endpoints and examples
+- [WebSocket Implementation Guide](docs/websocket-implementation-guide.md) - Real-time communication setup
 - [Development Environment](docs/developer/development-environment.md) - Setup for contributors
 - [Examples](docs/examples/README.md) - Integration examples and use cases
 
 ### Key Documentation
 
 - **Architecture**: [System Overview](docs/architecture/system-overview.md) | [Adapter Pattern](docs/architecture/adapter-pattern.md) | [Go Workspace Structure](docs/architecture/go-workspace-structure.md)
-- **Integration Examples**: [GitHub](docs/examples/github-integration.md) | [AI Agent](docs/examples/ai-agent-integration.md) | [Embeddings](docs/examples/embedding-examples.md)
+- **Integration Examples**: [GitHub](docs/examples/github-integration.md) | [AI Agent](docs/examples/ai-agent-integration.md) | [Embeddings](docs/examples/embedding-examples.md) | [WebSocket](docs/websocket-implementation-guide.md#api-reference)
 - **Developer Resources**: [Development Environment](docs/developer/development-environment.md) | [Debugging Guide](docs/developer/debugging-guide.md)
 
 ## 📁 Project Structure
@@ -190,6 +201,12 @@ make test-integration
 
 # Run functional tests (requires full stack)
 make test-functional
+
+# WebSocket-specific tests
+make test-websocket               # Unit tests
+make test-functional-websocket    # Functional tests
+make test-websocket-performance   # Performance tests
+make test-websocket-load          # Load tests
 
 # Test coverage
 make test-coverage

@@ -113,6 +113,17 @@ test-coverage-html: test-coverage
 test-integration:
 	ENABLE_INTEGRATION_TESTS=true $(GOTEST) -tags=integration -v ./pkg/tests/integration
 
+# Run WebSocket integration tests
+test-websocket-integration:
+	@echo "Running WebSocket integration tests..."
+	@set -a; \
+	[ -f .env ] && . ./.env; \
+	export MCP_SERVER_URL=$${MCP_SERVER_URL:-http://localhost:8080}; \
+	export TEST_API_KEY=$${TEST_API_KEY:-test-key-admin}; \
+	export MCP_TEST_MODE=true; \
+	set +a; \
+	$(GOTEST) -v -tags=integration ./test/integration -run TestWebSocket
+
 test-github:
 	$(GOTEST) -v ./pkg/tests/integration/github_integration_test.go
 
@@ -204,16 +215,47 @@ test-functional-mcp-all:
 	set +a; \
 	cd test/functional && ginkgo -v --label-filter="" ./mcp
 
-# Run only WebSocket tests
-test-functional-mcp-websocket:
-	@echo "Running MCP WebSocket tests..."
+# Run WebSocket functional tests
+test-functional-websocket:
+	@echo "Running WebSocket functional tests..."
 	@set -a; \
 	[ -f .env ] && . ./.env; \
 	export MCP_SERVER_URL=$${MCP_SERVER_URL:-http://localhost:8080}; \
-	export MCP_API_KEY=$${MCP_API_KEY:-docker-admin-api-key}; \
+	export TEST_API_KEY=$${TEST_API_KEY:-test-key-admin}; \
 	export MCP_TEST_MODE=true; \
 	set +a; \
-	cd test/functional && ginkgo -v --focus "WebSocket" ./mcp
+	cd test/functional && ginkgo -v --focus "WebSocket" ./api
+
+# Run WebSocket performance tests
+test-websocket-performance:
+	@echo "Running WebSocket performance tests..."
+	@set -a; \
+	[ -f .env ] && . ./.env; \
+	export MCP_SERVER_URL=$${MCP_SERVER_URL:-http://localhost:8080}; \
+	export TEST_API_KEY=$${TEST_API_KEY:-test-key-admin}; \
+	export MCP_TEST_MODE=true; \
+	set +a; \
+	cd test/functional && ginkgo -v --focus "WebSocket Performance" ./api
+
+# Run WebSocket load tests
+test-websocket-load:
+	@echo "Running WebSocket load tests..."
+	@set -a; \
+	[ -f .env ] && . ./.env; \
+	set +a; \
+	./scripts/websocket-load-test.sh
+
+# Run WebSocket load test with custom parameters
+# Usage: make test-websocket-load-custom CONNECTIONS=50 MESSAGES=200 DURATION=120
+test-websocket-load-custom:
+	@echo "Running custom WebSocket load test..."
+	@set -a; \
+	[ -f .env ] && . ./.env; \
+	export NUM_CONNECTIONS=$${CONNECTIONS:-10}; \
+	export MESSAGES_PER_CONNECTION=$${MESSAGES:-100}; \
+	export DURATION_SECONDS=$${DURATION:-60}; \
+	set +a; \
+	./scripts/websocket-load-test.sh
 
 # Run only REST API tests
 test-functional-mcp-rest:

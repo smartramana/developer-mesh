@@ -57,6 +57,24 @@ auth:
     log_level: "debug"
     log_to_console: true
 
+# WebSocket - Development settings
+websocket:
+  enabled: true  # Enable WebSocket in development
+  max_connections: 1000  # Lower limit for local development
+  
+  # Security - Relaxed for development
+  security:
+    require_auth: false  # Disable auth for easier testing
+    hmac_signatures: false
+    allowed_origins: ["*"]  # Allow all origins in dev
+    
+  # Rate limiting - Relaxed for development
+  rate_limit:
+    rate: 100  # 6000 per minute (100 per second) - higher for testing
+    burst: 200
+    per_ip: false  # Disable IP-based limiting in dev
+    per_user: false  # Disable user-based limiting in dev
+
 # Database - Local PostgreSQL
 database:
   host: "${DB_HOST:-localhost}"
