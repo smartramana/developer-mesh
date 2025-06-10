@@ -132,7 +132,7 @@ func (s *Service) ValidateAPIKey(ctx context.Context, apiKey string) (*User, err
 	}
 
 	// Check cache first if enabled
-	if s.config.CacheEnabled && s.cache != nil {
+	if s.config != nil && s.config.CacheEnabled && s.cache != nil {
 		cacheKey := fmt.Sprintf("auth:apikey:%s", apiKey)
 		var cached string
 		if err := s.cache.Get(ctx, cacheKey, &cached); err == nil && cached != "" {
@@ -151,11 +151,13 @@ func (s *Service) ValidateAPIKey(ctx context.Context, apiKey string) (*User, err
 	s.mu.RLock()
 	key, exists := s.apiKeys[apiKey]
 	// Always log for debugging auth issues
-	s.logger.Info("Checking API key", map[string]interface{}{
-		"provided_key_suffix": truncateKey(apiKey, 8),
-		"exists": exists,
-		"total_keys_loaded": len(s.apiKeys),
-	})
+	if s.logger != nil {
+		s.logger.Info("Checking API key", map[string]interface{}{
+			"provided_key_suffix": truncateKey(apiKey, 8),
+			"exists": exists,
+			"total_keys_loaded": len(s.apiKeys),
+		})
+	}
 	s.mu.RUnlock()
 
 	if exists && key.Active {

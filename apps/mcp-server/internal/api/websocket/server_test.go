@@ -51,7 +51,7 @@ func TestNewServer(t *testing.T) {
         MaxMessageSize:  1024 * 1024,
     }
     
-    server := NewServer(auth.Service{}, nil, mockLogger, config)
+    server := NewServer(&auth.Service{}, nil, mockLogger, config)
     
     assert.NotNil(t, server)
     assert.Equal(t, config, server.config)
@@ -71,7 +71,7 @@ func TestHandleWebSocket(t *testing.T) {
         },
     }
     
-    server := NewServer(auth.Service{}, nil, mockLogger, config)
+    server := NewServer(&auth.Service{}, nil, mockLogger, config)
     
     // Create test HTTP server
     ts := httptest.NewServer(http.HandlerFunc(server.HandleWebSocket))
@@ -112,7 +112,7 @@ func TestConnectionLifecycle(t *testing.T) {
     }
     
     // Create auth service with minimal setup to avoid nil pointer
-    authService := auth.Service{}
+    authService := &auth.Service{}
     server := &Server{
         connections:      make(map[string]*Connection),
         handlers:        make(map[string]MessageHandler),
@@ -159,7 +159,7 @@ func TestConnectionLifecycle(t *testing.T) {
 func TestMessageProcessing(t *testing.T) {
     mockLogger := NewTestLogger()
     
-    server := NewServer(auth.Service{}, nil, mockLogger, Config{})
+    server := NewServer(&auth.Service{}, nil, mockLogger, Config{})
     
     conn := NewConnection("test-conn", nil, server)
     conn.AgentID = "agent-1"

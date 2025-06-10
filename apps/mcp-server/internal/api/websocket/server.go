@@ -20,7 +20,7 @@ type Server struct {
     mu          sync.RWMutex
     handlers    map[string]MessageHandler
     
-    auth        auth.Service
+    auth        *auth.Service
     metrics     observability.MetricsClient
     logger      observability.Logger
     
@@ -68,7 +68,7 @@ type Connection struct {
     hub      *Server
 }
 
-func NewServer(auth auth.Service, metrics observability.MetricsClient, logger observability.Logger, config Config) *Server {
+func NewServer(auth *auth.Service, metrics observability.MetricsClient, logger observability.Logger, config Config) *Server {
     s := &Server{
         connections: make(map[string]*Connection),
         handlers:    make(map[string]MessageHandler),

@@ -238,7 +238,7 @@ func NewServer(engine *core.Engine, cfg Config, db *sqlx.DB, cacheClient cache.C
 			RateLimit:       cfg.WebSocket.RateLimit,
 		}
 		
-		s.wsServer = websocket.NewServer(*authService, metrics, observability.DefaultLogger, wsConfig)
+		s.wsServer = websocket.NewServer(authService, metrics, observability.DefaultLogger, wsConfig)
 		
 		// Set dependencies (will be properly implemented in full integration)
 		if engine != nil {
