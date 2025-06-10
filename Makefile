@@ -1,15 +1,37 @@
-.PHONY: all build clean test test-coverage test-coverage-html test-integration test-fuzz test-functional docker-compose-up docker-compose-down docker-compose-logs
+# DevOps MCP Makefile
+# Run 'make help' to see all available commands
 
-# Default Go parameters
+.DEFAULT_GOAL := help
+.PHONY: help
+help: ## Show this help message
+	@echo "DevOps MCP - Available Commands"
+	@echo "==============================="
+	@echo ""
+	@echo "Common workflows:"
+	@echo "  make help           # Show all available commands"
+	@echo "  make dev            # Start development environment with Docker"
+	@echo "  make test           # Run all tests"
+	@echo "  make pre-commit     # Run all checks before committing"
+	@echo "  make build          # Build all applications"
+	@echo ""
+	@echo "All commands:"
+	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | sort | awk 'BEGIN {FS = ":.*?## "}; {printf "\033[36m%-20s\033[0m %s\n", $$1, $$2}'
+
+# ==============================================================================
+# Variables
+# ==============================================================================
+
+# Go parameters
 GOCMD=go
 GOBUILD=$(GOCMD) build
 GOCLEAN=$(GOCMD) clean
 GOTEST=$(GOCMD) test
-GOGET=$(GOCMD) get
 GOMOD=$(GOCMD) mod
 GOWORK=$(GOCMD) work
+GOFMT=gofmt
+GOVET=$(GOCMD) vet
 
-# App directories
+# Application directories
 MCP_SERVER_DIR=./apps/mcp-server
 REST_API_DIR=./apps/rest-api
 WORKER_DIR=./apps/worker
@@ -20,22 +42,56 @@ REST_API_BINARY=rest-api
 WORKER_BINARY=worker
 
 # Docker configuration
-# Enable BuildKit for faster builds
 export DOCKER_BUILDKIT=1
 export COMPOSE_DOCKER_CLI_BUILD=1
-# Use buildx for advanced caching features
-export DOCKER_DEFAULT_BUILDER=devops-builder
 DOCKER_COMPOSE=docker-compose -f docker-compose.local.yml
 
-# Swagger configuration
+# Other configuration
 SWAG_VERSION=v1.16.2
 
-all: clean sync test build
+# ==============================================================================
+# Primary Commands
+# ==============================================================================
 
-# Development setup
+.PHONY: all
+all: clean test build ## Clean, test, and build everything
+
+.PHONY: dev
+dev: dev-setup up ## Start development environment with Docker
+
+.PHONY: dev-native
+dev-native: dev-setup ## Setup for running services locally (without Docker)
+	@echo "Starting services locally requires PostgreSQL and Redis running."
+	@echo "Run: brew services start postgresql redis"
+	@echo "Then run each service: make run-mcp-server, run-rest-api, run-worker"
+
+.PHONY: pre-commit
+pre-commit: fmt lint test-coverage security-check ## Run all pre-commit checks
+	@echo "Checking test coverage..."
+	@coverage=$$(go tool cover -func=coverage.out | grep total | awk '{print $$3}' | sed 's/%//'); \
+	if [ $$(echo "$$coverage < 85" | bc) -eq 1 ]; then \
+		echo "❌ Test coverage $$coverage% is below 85%"; \
+		exit 1; \
+	else \
+		echo "✅ Test coverage $$coverage% meets requirement"; \
+	fi
+	@echo "✅ All pre-commit checks passed!"
+
+# ==============================================================================
+# Setup & Installation
+# ==============================================================================
+
+.PHONY: install-tools
+install-tools: ## Install all development tools
+	@echo "Installing development tools..."
+	@go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest
+	@go install github.com/securego/gosec/v2/cmd/gosec@latest
+	@go install golang.org/x/tools/cmd/goimports@latest
+	@go install github.com/swaggo/swag/cmd/swag@$(SWAG_VERSION)
+	@echo "✅ Tools installed"
+
 .PHONY: dev-setup
-dev-setup: ## Set up local development environment
-	@echo "Setting up development environment..."
+dev-setup: ## Setup development environment
 	@if [ ! -f .env ]; then \
 		echo "Creating .env file from example..."; \
 		cp .env.example .env; \
@@ -43,422 +99,257 @@ dev-setup: ## Set up local development environment
 	else \
 		echo "✅ .env file already exists"; \
 	fi
-	@echo ""
-	@echo "📋 Next steps:"
-	@echo "1. Edit .env with your GitHub token and other settings"
-	@echo "2. Run 'make local-dev' to start with Docker (uses docker service names)"
-	@echo "3. Or run 'make local-native' to run locally (uses localhost)"
 
-# Local development with Docker
-.PHONY: local-dev
-local-dev: dev-setup docker-compose-up ## Start local development environment with Docker
+# ==============================================================================
+# Build Commands
+# ==============================================================================
 
-# Local development without Docker
-.PHONY: local-native
-local-native: dev-setup ## Run services locally without Docker
-	@echo "Starting PostgreSQL and Redis are required. Please ensure they are running."
-	@echo "Run: brew services start postgresql redis"
-	@echo "Then run each service:"
-	@echo "  ./mcp-server"
-	@echo "  ./rest-api"
-	@echo "  ./worker"
+.PHONY: build
+build: build-mcp-server build-rest-api build-worker ## Build all applications
 
-# Sync Go workspace
-sync:
-	$(GOWORK) sync
-
-# Build all applications
-build: build-mcp-server build-rest-api build-worker
-
-build-mcp-server:
+.PHONY: build-mcp-server
+build-mcp-server: ## Build MCP server
 	cd $(MCP_SERVER_DIR) && $(GOBUILD) -o $(MCP_SERVER_BINARY) -v ./cmd/server
 
-build-rest-api:
+.PHONY: build-rest-api
+build-rest-api: ## Build REST API
 	cd $(REST_API_DIR) && $(GOBUILD) -o $(REST_API_BINARY) -v ./cmd/api
 
-build-worker:
+.PHONY: build-worker
+build-worker: ## Build worker service
 	cd $(WORKER_DIR) && $(GOBUILD) -o $(WORKER_BINARY) -v ./cmd/worker
 
-clean:
+.PHONY: clean
+clean: ## Clean build artifacts
 	$(GOCLEAN)
 	rm -f $(MCP_SERVER_DIR)/$(MCP_SERVER_BINARY) $(REST_API_DIR)/$(REST_API_BINARY) $(WORKER_DIR)/$(WORKER_BINARY)
 
-# Run unit tests for all workspaces
-test:
+# ==============================================================================
+# Testing Commands
+# ==============================================================================
+
+.PHONY: test
+test: ## Run all unit tests
 	$(GOTEST) -v -short ./apps/mcp-server/... ./apps/rest-api/... ./apps/worker/... ./pkg/...
 
-# Test specific application
-test-mcp-server:
-	$(GOTEST) -v -short ./apps/mcp-server/...
-
-test-rest-api:
-	$(GOTEST) -v -short ./apps/rest-api/...
-
-test-worker:
-	$(GOTEST) -v -short ./apps/worker/...
-
-# Run all tests, including integration and functional (requires server)
-test-all:
-	$(GOTEST) -v ./apps/mcp-server/... ./apps/rest-api/... ./apps/worker/... ./pkg/...
-
-# Run integration tests with Docker Compose setup (removed - duplicate target below)
-
-test-coverage:
+.PHONY: test-coverage
+test-coverage: ## Run tests with coverage report
 	$(GOTEST) -coverprofile=coverage.out ./apps/mcp-server/... ./apps/rest-api/... ./apps/worker/... ./pkg/...
 	$(GOCMD) tool cover -func=coverage.out
 
-test-coverage-html: test-coverage
+.PHONY: test-coverage-html
+test-coverage-html: test-coverage ## Generate HTML coverage report
 	$(GOCMD) tool cover -html=coverage.out
 
-test-integration:
-	ENABLE_INTEGRATION_TESTS=true $(GOTEST) -tags=integration -v ./pkg/tests/integration
+.PHONY: test-integration
+test-integration: ## Run integration tests
+	ENABLE_INTEGRATION_TESTS=true $(GOTEST) -tags=integration -v ./pkg/tests/integration ./test/integration
 
-# Run WebSocket integration tests
-test-websocket-integration:
-	@echo "Running WebSocket integration tests..."
-	@set -a; \
-	[ -f .env ] && . ./.env; \
-	export MCP_SERVER_URL=$${MCP_SERVER_URL:-http://localhost:8080}; \
-	export TEST_API_KEY=$${TEST_API_KEY:-test-key-admin}; \
-	export MCP_TEST_MODE=true; \
-	set +a; \
-	$(GOTEST) -v -tags=integration ./test/integration -run TestWebSocket
-
-test-github:
-	$(GOTEST) -v ./pkg/tests/integration/github_integration_test.go
-
-test-fuzz:
-	$(GOTEST) -fuzz=FuzzTruncateOldestFirst -fuzztime=30s ./apps/mcp-server/internal/core
-
-test-functional:
-	@echo "Loading environment variables for functional tests..."
-	@set -a; \
-	[ -f .env ] && . ./.env; \
-	export ELASTICACHE_ENDPOINT=$${ELASTICACHE_ENDPOINT:-localhost}; \
-	export ELASTICACHE_PORT=$${ELASTICACHE_PORT:-6379}; \
-	export MCP_GITHUB_WEBHOOK_SECRET=$${MCP_GITHUB_WEBHOOK_SECRET:-$${GITHUB_WEBHOOK_SECRET:-dev-webhook-secret}}; \
-	set +a; \
-	bash ./test/functional/check_test_env.sh || (echo "\nEnvironment check failed. Please set all required environment variables before running functional tests." && exit 1); \
+.PHONY: test-functional
+test-functional: ## Run functional tests
+	@set -a; [ -f .env ] && . ./.env; set +a; \
 	export MCP_TEST_MODE=true && ./test/scripts/run_functional_tests.sh
 
-# Run only specific functional tests
-# Usage: make test-functional-focus FOCUS="Health Endpoint"
-test-functional-focus:
-	@bash ./test/functional/check_test_env.sh || (echo "\nEnvironment check failed. Please set all required environment variables before running functional tests." && exit 1)
-	cd $(shell pwd) && export MCP_TEST_MODE=true && ./test/scripts/run_functional_tests_fixed.sh --focus "$(FOCUS)"
+.PHONY: test-websocket
+test-websocket: ## Run all WebSocket tests
+	@echo "Running WebSocket tests..."
+	@$(MAKE) test-websocket-unit
+	@$(MAKE) test-websocket-functional
+	@$(MAKE) test-websocket-integration
 
-# Run functional tests with verbose output
-test-functional-verbose:
-	@bash ./test/functional/check_test_env.sh || (echo "\nEnvironment check failed. Please set all required environment variables before running functional tests." && exit 1)
-	cd $(shell pwd) && export MCP_TEST_MODE=true && ./test/scripts/run_functional_tests_fixed.sh --verbose
+.PHONY: test-websocket-unit
+test-websocket-unit: ## Run WebSocket unit tests
+	$(GOTEST) -v -short ./apps/mcp-server/internal/api/websocket/... ./pkg/models/websocket/...
 
-# Run functional tests locally with proper environment setup
-test-functional-local:
-	@echo "Running functional tests with local environment..."
-	@bash ./test/scripts/run_functional_tests_local.sh
-
-# Run functional tests locally with verbose output
-test-functional-local-verbose:
-	@echo "Running functional tests with local environment (verbose)..."
-	@bash ./test/scripts/run_functional_tests_local.sh --verbose
-
-# Multi-Agent Embedding System tests
-test-embedding: test-embedding-unit test-embedding-integration
-
-# Run unit tests for embedding system
-test-embedding-unit:
-	@echo "Running embedding unit tests..."
-	$(GOTEST) -v -short ./pkg/embedding/... ./pkg/agents/...
-
-# Run integration tests for multi-agent embeddings (requires Docker)
-test-embedding-integration: docker-compose-up
-	@echo "Running embedding integration tests..."
-	$(GOTEST) -v -tags=integration ./test/integration/multi_agent_embedding_test.go
-
-# Test specific embedding provider
-# Usage: make test-embedding-provider PROVIDER=openai
-test-embedding-provider:
-	@echo "Testing $(PROVIDER) provider..."
-	$(GOTEST) -v ./pkg/embedding/providers -run Test.*$(PROVIDER).*
-
-# Test with coverage for embedding system
-test-embedding-coverage:
-	$(GOTEST) -v -coverprofile=embedding_coverage.out ./pkg/embedding/... ./pkg/agents/...
-	$(GOCMD) tool cover -html=embedding_coverage.out -o embedding_coverage.html
-	@echo "Coverage report generated: embedding_coverage.html"
-
-# Benchmark embedding system
-test-embedding-bench:
-	@echo "Running embedding benchmarks..."
-	$(GOTEST) -bench=. -benchmem ./pkg/embedding/...
-
-# Run all multi-agent tests
-test-multi-agent: test-embedding test-agents-unit
-	@echo "All multi-agent tests completed"
-
-# Test agent configuration system
-test-agents-unit:
-	@echo "Running agent configuration tests..."
-	$(GOTEST) -v -short ./pkg/agents/...
-
-# MCP Functional Tests
-test-functional-mcp: test-functional-mcp-all
-
-# Run all MCP functional tests
-test-functional-mcp-all:
-	@echo "Running all MCP functional tests..."
-	@set -a; \
-	[ -f .env ] && . ./.env; \
-	export MCP_SERVER_URL=$${MCP_SERVER_URL:-http://localhost:8080}; \
-	export MCP_API_KEY=$${MCP_API_KEY:-docker-admin-api-key}; \
-	export MCP_TEST_MODE=true; \
-	set +a; \
-	cd test/functional && ginkgo -v --label-filter="" ./mcp
-
-# Run WebSocket functional tests
-test-functional-websocket:
-	@echo "Running WebSocket functional tests..."
-	@set -a; \
-	[ -f .env ] && . ./.env; \
-	export MCP_SERVER_URL=$${MCP_SERVER_URL:-http://localhost:8080}; \
-	export TEST_API_KEY=$${TEST_API_KEY:-test-key-admin}; \
-	export MCP_TEST_MODE=true; \
-	set +a; \
+.PHONY: test-websocket-functional
+test-websocket-functional: ## Run WebSocket functional tests
+	@set -a; [ -f .env ] && . ./.env; set +a; \
 	cd test/functional && ginkgo -v --focus "WebSocket" ./api
 
-# Run WebSocket performance tests
-test-websocket-performance:
-	@echo "Running WebSocket performance tests..."
-	@set -a; \
-	[ -f .env ] && . ./.env; \
-	export MCP_SERVER_URL=$${MCP_SERVER_URL:-http://localhost:8080}; \
-	export TEST_API_KEY=$${TEST_API_KEY:-test-key-admin}; \
-	export MCP_TEST_MODE=true; \
-	set +a; \
-	cd test/functional && ginkgo -v --focus "WebSocket Performance" ./api
+.PHONY: test-websocket-integration
+test-websocket-integration: ## Run WebSocket integration tests
+	@set -a; [ -f .env ] && . ./.env; set +a; \
+	$(GOTEST) -v -tags=integration ./test/integration -run TestWebSocket
 
-# Run WebSocket load tests
-test-websocket-load:
-	@echo "Running WebSocket load tests..."
-	@set -a; \
-	[ -f .env ] && . ./.env; \
-	set +a; \
+.PHONY: test-websocket-load
+test-websocket-load: ## Run WebSocket load tests
 	./scripts/websocket-load-test.sh
 
-# Run WebSocket load test with custom parameters
-# Usage: make test-websocket-load-custom CONNECTIONS=50 MESSAGES=200 DURATION=120
-test-websocket-load-custom:
-	@echo "Running custom WebSocket load test..."
-	@set -a; \
-	[ -f .env ] && . ./.env; \
-	export NUM_CONNECTIONS=$${CONNECTIONS:-10}; \
-	export MESSAGES_PER_CONNECTION=$${MESSAGES:-100}; \
-	export DURATION_SECONDS=$${DURATION:-60}; \
-	set +a; \
-	./scripts/websocket-load-test.sh
+.PHONY: bench
+bench: ## Run benchmarks (PACKAGE=./pkg/embedding)
+	$(GOTEST) -bench=. -benchmem ${PACKAGE:-./pkg/embedding}
 
-# Run only REST API tests
-test-functional-mcp-rest:
-	@echo "Running MCP REST API tests..."
-	@set -a; \
-	[ -f .env ] && . ./.env; \
-	export MCP_SERVER_URL=$${MCP_SERVER_URL:-http://localhost:8080}; \
-	export MCP_API_KEY=$${MCP_API_KEY:-docker-admin-api-key}; \
-	export MCP_TEST_MODE=true; \
-	set +a; \
-	cd test/functional && ginkgo -v --focus "REST API" ./mcp
+# ==============================================================================
+# Code Quality & Security
+# ==============================================================================
 
-# Run MCP tests with coverage
-test-functional-mcp-coverage:
-	@echo "Running MCP tests with coverage..."
-	@set -a; \
-	[ -f .env ] && . ./.env; \
-	export MCP_SERVER_URL=$${MCP_SERVER_URL:-http://localhost:8080}; \
-	export MCP_API_KEY=$${MCP_API_KEY:-docker-admin-api-key}; \
-	export MCP_TEST_MODE=true; \
-	set +a; \
-	cd test/functional && go test -v -cover -coverprofile=mcp_coverage.out ./mcp && \
-	go tool cover -html=mcp_coverage.out -o mcp_coverage.html && \
-	echo "Coverage report generated: test/functional/mcp_coverage.html"
-
-# Run MCP tests with specific focus
-# Usage: make test-functional-mcp-focus FOCUS="Tool Discovery"
-test-functional-mcp-focus:
-	@echo "Running MCP tests with focus: $(FOCUS)"
-	@set -a; \
-	[ -f .env ] && . ./.env; \
-	export MCP_SERVER_URL=$${MCP_SERVER_URL:-http://localhost:8080}; \
-	export MCP_API_KEY=$${MCP_API_KEY:-docker-admin-api-key}; \
-	export MCP_TEST_MODE=true; \
-	set +a; \
-	cd test/functional && ginkgo -v --focus "$(FOCUS)" ./mcp
-
-# Run MCP tests in watch mode for development
-test-functional-mcp-watch:
-	@echo "Running MCP tests in watch mode..."
-	@set -a; \
-	[ -f .env ] && . ./.env; \
-	export MCP_SERVER_URL=$${MCP_SERVER_URL:-http://localhost:8080}; \
-	export MCP_API_KEY=$${MCP_API_KEY:-docker-admin-api-key}; \
-	export MCP_TEST_MODE=true; \
-	set +a; \
-	cd test/functional && ginkgo watch -v ./mcp
-
-deps:
-	$(GOWORK) sync
-	$(GOMOD) download
-	$(GOMOD) tidy
-
-# Run individual services locally
-run-mcp-server:
-	cd $(MCP_SERVER_DIR) && ./$(MCP_SERVER_BINARY)
-
-run-rest-api:
-	cd $(REST_API_DIR) && ./$(REST_API_BINARY)
-
-run-worker:
-	cd $(WORKER_DIR) && ./$(WORKER_BINARY)
-
-# Start the whole stack with Docker Compose
-local-dev: docker-compose-up
-	@echo "Started development environment"
-	@echo "MCP Server available at: http://localhost:8080"
-	@echo "REST API available at: http://localhost:8081"
-	@echo "Run 'make docker-compose-logs' to view logs"
-	@echo "Run 'make docker-compose-down' to stop services"
-
-# Docker Compose commands
-docker-compose-up:
-	$(DOCKER_COMPOSE) up -d
-
-docker-compose-down:
-	$(DOCKER_COMPOSE) down
-
-# View logs from all services or a specific service
-docker-compose-logs:
-	$(DOCKER_COMPOSE) logs -f $(service)
-
-# Rebuild and restart a specific service
-docker-compose-restart:
-	$(DOCKER_COMPOSE) up -d --build $(service)
-
-# Build and start everything needed for local development including test data (removed - duplicate target above)
-
-init-config:
-	cp configs/config.yaml.template configs/config.yaml
-
-# Workspace structure and tool validation commands
-check-workspace:
-	@echo "Checking Go workspace configuration..."
-	$(GOWORK) init
-	$(GOWORK) use ./apps/mcp-server ./apps/rest-api ./apps/worker ./pkg
-	$(GOWORK) sync
-	@echo "Workspace check complete."
-
-check-imports:
-	@echo "Checking for import cycles..."
-	$(GOWORK) graph | grep -v '@' | sort | uniq > imports.txt
-	@echo "Import check complete. See imports.txt for details."
-
-# Linting and code quality
-lint:
-	@echo "Running linters..."
+.PHONY: lint
+lint: ## Run linters
 	@./.github/scripts/lint-all-modules.sh
 
-# Swagger documentation commands
-swagger-install:
-	@echo "Installing swag CLI tool..."
-	go install github.com/swaggo/swag/cmd/swag@$(SWAG_VERSION)
+.PHONY: fmt
+fmt: ## Format code
+	$(GOFMT) -w -s .
+	@which goimports > /dev/null || go install golang.org/x/tools/cmd/goimports@latest
+	goimports -w .
 
-swagger-init: swagger-install
-	@echo "Initializing Swagger documentation..."
-	cd $(MCP_SERVER_DIR) && swag init -g ./cmd/server/main.go -o ./docs --parseDependency --parseInternal
-	cd $(REST_API_DIR) && swag init -g ./cmd/api/main.go -o ./docs --parseDependency --parseInternal
+.PHONY: vet
+vet: ## Run go vet
+	$(GOVET) ./...
 
-swagger-fmt:
-	@echo "Formatting Swagger comments..."
-	cd $(MCP_SERVER_DIR) && swag fmt
-	cd $(REST_API_DIR) && swag fmt
+.PHONY: security-check
+security-check: ## Run security checks
+	@which gosec > /dev/null || go install github.com/securego/gosec/v2/cmd/gosec@latest
+	gosec ./...
 
-swagger: swagger-fmt swagger-init
-	@echo "Swagger documentation generated successfully"
-	@echo "MCP Server Swagger UI: http://localhost:8080/swagger/index.html"
-	@echo "REST API Swagger UI: http://localhost:8081/swagger/index.html"
+# ==============================================================================
+# Docker Commands
+# ==============================================================================
 
-swagger-serve:
-	@echo "Serving OpenAPI documentation..."
-	python3 -m http.server 8082 --directory ./docs/swagger &
-	@echo "OpenAPI specs available at: http://localhost:8082/"
-	@echo "Main spec: http://localhost:8082/openapi.yaml"
+.PHONY: up
+up: ## Start all services with Docker Compose
+	$(DOCKER_COMPOSE) up -d
+	@echo "Services started:"
+	@echo "  MCP Server: http://localhost:8080"
+	@echo "  REST API: http://localhost:8081"
+	@echo "  Prometheus: http://localhost:9090"
+	@echo "  Grafana: http://localhost:3000"
 
-# Check adapter pattern implementation
-check-adapter-pattern:
-	@echo "Verifying adapter pattern implementations..."
-	find ./apps -name "*adapter*.go" | xargs grep -l "repository"
-	@echo "Adapter implementation check complete."
+.PHONY: down
+down: ## Stop all Docker services
+	$(DOCKER_COMPOSE) down
 
-# Verify Docker setup
-docker-verify:
-	@echo "Verifying Docker setup..."
-	@docker info > /dev/null 2>&1 || (echo "Docker is not running" && exit 1)
-	@echo "Docker is running properly."
-	@echo "Checking PostgreSQL with pgvector..."
-	$(DOCKER_COMPOSE) pull database
-	@echo "Docker verification complete."
+.PHONY: logs
+logs: ## View Docker logs (service=<name> to filter)
+	$(DOCKER_COMPOSE) logs -f $(service)
 
-# Database migration commands using golang-migrate
-# Note: Database migrations have been moved to apps/rest-api/migrations
+.PHONY: restart
+restart: ## Restart Docker services (service=<name> for specific service)
+	$(DOCKER_COMPOSE) up -d --build $(service)
 
-# Create a new migration file with the given name
-# Usage: make migrate-create name=add_new_table
-migrate-create:
+.PHONY: ps
+ps: ## Show running Docker services
+	$(DOCKER_COMPOSE) ps
+
+# ==============================================================================
+# Database Commands
+# ==============================================================================
+
+.PHONY: db-shell
+db-shell: ## Open PostgreSQL shell
+	$(DOCKER_COMPOSE) exec database psql -U dev -d dev
+
+.PHONY: migrate-create
+migrate-create: ## Create new migration (name=migration_name)
 	@which migrate > /dev/null || (echo "Error: golang-migrate not installed. Run: brew install golang-migrate" && exit 1)
 	cd apps/rest-api && migrate create -ext sql -dir migrations/sql -seq $(name)
 
-# Run all pending migrations
-# Usage: make migrate-up dsn="postgres://user:pass@localhost:5432/mcp_db?sslmode=disable"
-migrate-up:
-	@which migrate > /dev/null || (echo "Error: golang-migrate not installed. Run: brew install golang-migrate" && exit 1)
-	migrate -database "$(dsn)" -path apps/rest-api/migrations/sql up
-
-# Run migrations for local development environment
-migrate-local:
+.PHONY: migrate-up
+migrate-up: ## Run all pending migrations
 	@which migrate > /dev/null || (echo "Error: golang-migrate not installed. Run: brew install golang-migrate" && exit 1)
 	migrate -database "postgresql://dev:dev@localhost:5432/dev?sslmode=disable" -path apps/rest-api/migrations/sql up
 
-# Run migrations for docker environment
-migrate-docker:
+.PHONY: migrate-down
+migrate-down: ## Rollback last migration
 	@which migrate > /dev/null || (echo "Error: golang-migrate not installed. Run: brew install golang-migrate" && exit 1)
-	migrate -database "postgresql://dev:dev@localhost:5432/dev?sslmode=disable" -path apps/rest-api/migrations/sql up
+	migrate -database "postgresql://dev:dev@localhost:5432/dev?sslmode=disable" -path apps/rest-api/migrations/sql down 1
 
-# Roll back the most recent migration
-# Usage: make migrate-down dsn="postgres://user:pass@localhost:5432/mcp_db?sslmode=disable"
-migrate-down:
+.PHONY: migrate-status
+migrate-status: ## Show migration status
 	@which migrate > /dev/null || (echo "Error: golang-migrate not installed. Run: brew install golang-migrate" && exit 1)
-	migrate -database "$(dsn)" -path apps/rest-api/migrations/sql down 1
+	migrate -database "postgresql://dev:dev@localhost:5432/dev?sslmode=disable" -path apps/rest-api/migrations/sql version
 
-# Roll back all migrations
-# Usage: make migrate-reset dsn="postgres://user:pass@localhost:5432/mcp_db?sslmode=disable"
-migrate-reset:
-	@which migrate > /dev/null || (echo "Error: golang-migrate not installed. Run: brew install golang-migrate" && exit 1)
-	migrate -database "$(dsn)" -path apps/rest-api/migrations/sql drop -f
+# ==============================================================================
+# Development Helpers
+# ==============================================================================
 
-# Check the current migration version
-# Usage: make migrate-version dsn="postgres://user:pass@localhost:5432/mcp_db?sslmode=disable"
-migrate-version:
-	@which migrate > /dev/null || (echo "Error: golang-migrate not installed. Run: brew install golang-migrate" && exit 1)
-	migrate -database "$(dsn)" -path apps/rest-api/migrations/sql version
+.PHONY: run-mcp-server
+run-mcp-server: ## Run MCP server locally
+	cd $(MCP_SERVER_DIR) && ./$(MCP_SERVER_BINARY)
 
-# Force the database to a specific version
-# Usage: make migrate-force dsn="postgres://user:pass@localhost:5432/mcp_db?sslmode=disable" version=5
-migrate-force:
-	@which migrate > /dev/null || (echo "Error: golang-migrate not installed. Run: brew install golang-migrate" && exit 1)
-	migrate -database "$(dsn)" -path apps/rest-api/migrations/sql force $(version)
+.PHONY: run-rest-api
+run-rest-api: ## Run REST API locally
+	cd $(REST_API_DIR) && ./$(REST_API_BINARY)
 
-# Helper to enter database shell from Docker
-db-shell:
-	$(DOCKER_COMPOSE) exec database psql -U dev -d dev
+.PHONY: run-worker
+run-worker: ## Run worker service locally
+	cd $(WORKER_DIR) && ./$(WORKER_BINARY)
 
-# Helper to view vector tables
-psql-vector-tables:
-	$(DOCKER_COMPOSE) exec database psql -U dev -d dev -c "SELECT table_name FROM information_schema.tables WHERE table_name LIKE '%vector%' OR table_name LIKE '%embedding%';"
+.PHONY: swagger
+swagger: ## Generate Swagger documentation
+	@which swag > /dev/null || go install github.com/swaggo/swag/cmd/swag@$(SWAG_VERSION)
+	cd $(MCP_SERVER_DIR) && swag init -g ./cmd/server/main.go -o ./docs --parseDependency --parseInternal
+	cd $(REST_API_DIR) && swag init -g ./cmd/api/main.go -o ./docs --parseDependency --parseInternal
+	@echo "Swagger UI available at:"
+	@echo "  MCP Server: http://localhost:8080/swagger/index.html"
+	@echo "  REST API: http://localhost:8081/swagger/index.html"
+
+.PHONY: deps
+deps: ## Update and sync dependencies
+	$(GOMOD) tidy
+	cd $(MCP_SERVER_DIR) && $(GOMOD) tidy
+	cd $(REST_API_DIR) && $(GOMOD) tidy
+	cd $(WORKER_DIR) && $(GOMOD) tidy
+	$(GOWORK) sync
+
+# ==============================================================================
+# Monitoring & Debugging
+# ==============================================================================
+
+.PHONY: health
+health: ## Check health of all services
+	@curl -sf http://localhost:8080/health | jq . || echo "MCP Server: ❌ Not responding"
+	@curl -sf http://localhost:8081/health | jq . || echo "REST API: ❌ Not responding"
+	@echo "✅ Health check complete"
+
+.PHONY: metrics
+metrics: ## Open Grafana dashboard
+	open http://localhost:3000
+
+.PHONY: profile-cpu
+profile-cpu: ## Profile CPU usage (DURATION=30s)
+	go tool pprof -http=:8090 http://localhost:8080/debug/pprof/profile?seconds=${DURATION:-30}
+
+.PHONY: profile-mem
+profile-mem: ## Profile memory usage
+	go tool pprof -http=:8090 http://localhost:8080/debug/pprof/heap
+
+# ==============================================================================
+# Advanced Commands
+# ==============================================================================
+
+.PHONY: generate-adapter
+generate-adapter: ## Generate new adapter (NAME=adapter_name)
+	@if [ -z "${NAME}" ]; then echo "Error: NAME is required. Usage: make generate-adapter NAME=harness"; exit 1; fi
+	@mkdir -p pkg/adapters/${NAME}
+	@echo "package ${NAME}" > pkg/adapters/${NAME}/adapter.go
+	@echo "" >> pkg/adapters/${NAME}/adapter.go
+	@echo "// TODO: Implement ${NAME} adapter" >> pkg/adapters/${NAME}/adapter.go
+	@echo "package ${NAME}_test" > pkg/adapters/${NAME}/adapter_test.go
+	@echo "package ${NAME}" > pkg/adapters/${NAME}/config.go
+	@echo "" >> pkg/adapters/${NAME}/config.go
+	@echo "type Config struct {" >> pkg/adapters/${NAME}/config.go
+	@echo "    // TODO: Add configuration fields" >> pkg/adapters/${NAME}/config.go
+	@echo "}" >> pkg/adapters/${NAME}/config.go
+	@echo "✅ Adapter skeleton created at pkg/adapters/${NAME}/"
+
+.PHONY: load-test
+load-test: ## Run load tests (requires k6)
+	@which k6 > /dev/null || (echo "Error: k6 not installed. Run: brew install k6" && exit 1)
+	k6 run --vus ${USERS:-10} --duration ${DURATION:-30s} scripts/k6-load-test.js
+
+# ==============================================================================
+# Quick Shortcuts
+# ==============================================================================
+
+.PHONY: t
+t: test ## Shortcut for 'make test'
+
+.PHONY: b
+b: build ## Shortcut for 'make build'
+
+.PHONY: l
+l: lint ## Shortcut for 'make lint'
+
+.PHONY: c
+c: clean ## Shortcut for 'make clean'
