@@ -27,7 +27,7 @@ GOBUILD=$(GOCMD) build
 GOCLEAN=$(GOCMD) clean
 GOTEST=$(GOCMD) test
 GOMOD=$(GOCMD) mod
-GOWORK=$(GOCMD) work
+GOWORKCMD=$(GOCMD) work
 GOFMT=gofmt
 GOVET=$(GOCMD) vet
 
@@ -109,15 +109,15 @@ build: build-mcp-server build-rest-api build-worker ## Build all applications
 
 .PHONY: build-mcp-server
 build-mcp-server: ## Build MCP server
-	cd $(MCP_SERVER_DIR) && $(GOBUILD) -o $(MCP_SERVER_BINARY) -v ./cmd/server
+	$(GOBUILD) -o $(MCP_SERVER_DIR)/$(MCP_SERVER_BINARY) -v $(MCP_SERVER_DIR)/cmd/server
 
 .PHONY: build-rest-api
 build-rest-api: ## Build REST API
-	cd $(REST_API_DIR) && $(GOBUILD) -o $(REST_API_BINARY) -v ./cmd/api
+	$(GOBUILD) -o $(REST_API_DIR)/$(REST_API_BINARY) -v $(REST_API_DIR)/cmd/api
 
 .PHONY: build-worker
 build-worker: ## Build worker service
-	cd $(WORKER_DIR) && $(GOBUILD) -o $(WORKER_BINARY) -v ./cmd/worker
+	$(GOBUILD) -o $(WORKER_DIR)/$(WORKER_BINARY) -v $(WORKER_DIR)/cmd/worker
 
 .PHONY: clean
 clean: ## Clean build artifacts
@@ -268,17 +268,21 @@ migrate-status: ## Show migration status
 # Development Helpers
 # ==============================================================================
 
+# Include .env file if it exists
+-include .env
+export
+
 .PHONY: run-mcp-server
 run-mcp-server: ## Run MCP server locally
-	cd $(MCP_SERVER_DIR) && ./$(MCP_SERVER_BINARY)
+	cd $(MCP_SERVER_DIR) && MCP_CONFIG_FILE=../../configs/config.development.yaml ./$(MCP_SERVER_BINARY)
 
 .PHONY: run-rest-api
 run-rest-api: ## Run REST API locally
-	cd $(REST_API_DIR) && ./$(REST_API_BINARY)
+	cd $(REST_API_DIR) && MCP_CONFIG_FILE=../../configs/config.development.yaml ./$(REST_API_BINARY)
 
 .PHONY: run-worker
 run-worker: ## Run worker service locally
-	cd $(WORKER_DIR) && ./$(WORKER_BINARY)
+	cd $(WORKER_DIR) && MCP_CONFIG_FILE=../../configs/config.development.yaml ./$(WORKER_BINARY)
 
 .PHONY: swagger
 swagger: ## Generate Swagger documentation
@@ -295,7 +299,7 @@ deps: ## Update and sync dependencies
 	cd $(MCP_SERVER_DIR) && $(GOMOD) tidy
 	cd $(REST_API_DIR) && $(GOMOD) tidy
 	cd $(WORKER_DIR) && $(GOMOD) tidy
-	$(GOWORK) sync
+	$(GOWORKCMD) sync
 
 # ==============================================================================
 # Monitoring & Debugging

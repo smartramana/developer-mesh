@@ -2,6 +2,7 @@ package cache
 
 import (
 	"context"
+	"crypto/tls"
 	"encoding/json"
 	"errors"
 	"time"
@@ -30,7 +31,7 @@ type RedisCache struct {
 
 // NewRedisCache creates a new Redis cache
 func NewRedisCache(cfg RedisConfig) (*RedisCache, error) {
-	client := redis.NewClient(&redis.Options{
+	options := &redis.Options{
 		Addr:         cfg.Address,
 		Password:     cfg.Password,
 		DB:           cfg.Database,
@@ -41,7 +42,16 @@ func NewRedisCache(cfg RedisConfig) (*RedisCache, error) {
 		PoolSize:     cfg.PoolSize,
 		MinIdleConns: cfg.MinIdleConns,
 		PoolTimeout:  time.Duration(cfg.PoolTimeout) * time.Second,
-	})
+	}
+	
+	// Configure TLS if enabled
+	if cfg.TLS != nil && cfg.TLS.Enabled {
+		options.TLSConfig = &tls.Config{
+			InsecureSkipVerify: cfg.TLS.InsecureSkipVerify,
+		}
+	}
+	
+	client := redis.NewClient(options)
 
 	// Test connection
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)

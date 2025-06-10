@@ -396,12 +396,25 @@ func initializeCache(ctx context.Context, cfg *commonconfig.Config, logger obser
 			MinIdleConns: cfg.Cache.MinIdleConns,
 			PoolTimeout:  cfg.Cache.PoolTimeout,
 		}
+		
+		// Convert TLS config if present
+		if cfg.Cache.TLS != nil {
+			logger.Info("Converting TLS config", map[string]interface{}{
+				"enabled": cfg.Cache.TLS.Enabled,
+				"skip_verify": cfg.Cache.TLS.InsecureSkipVerify,
+			})
+			cacheConfig.TLS = &cache.TLSConfig{
+				Enabled:            cfg.Cache.TLS.Enabled,
+				InsecureSkipVerify: cfg.Cache.TLS.InsecureSkipVerify,
+			}
+		}
 	}
 
 	logger.Info("Initializing cache", map[string]interface{}{
 		"type":         cacheConfig.Type,
 		"cluster_mode": cacheConfig.ClusterMode,
 		"address":      cacheConfig.Address,
+		"tls_enabled":  cacheConfig.TLS != nil && cacheConfig.TLS.Enabled,
 	})
 
 	return cache.NewCache(ctx, cacheConfig)

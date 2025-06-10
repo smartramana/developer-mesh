@@ -106,4 +106,4 @@ fi
 
 echo ""
 echo "Environment setup complete!"
-echo "Run tests with: go test ./...
+echo "Run tests with: go test ./..."

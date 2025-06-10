@@ -50,7 +50,7 @@ MCP_CONFIG_FILE=configs/config.development.yaml ./apps/mcp-server/mcp-server &> 
 MCP_PID=$!
 
 echo "Starting REST API..."
-MCP_CONFIG_FILE=configs/config.development.yaml API_PORT=8081 ./apps/rest-api/rest-api &> logs/rest-api.log &
+MCP_CONFIG_FILE=configs/config.development.yaml MCP_API_LISTEN_ADDRESS=:8081 ./apps/rest-api/rest-api &> logs/rest-api.log &
 API_PID=$!
 
 echo "Starting Worker..."

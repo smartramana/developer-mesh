@@ -29,6 +29,8 @@ func unmarshal(data []byte, v interface{}) error {
 
 // NewRedisCache creates a new Redis cache client
 func NewRedisCache(cfg RedisConfig) (*RedisCache, error) {
+	fmt.Printf("NewRedisCache called with TLS config: %+v\n", cfg.TLS)
+	
 	// Create Redis options
 	options := &redis.Options{
 		Addr:         cfg.Address,
@@ -50,6 +52,10 @@ func NewRedisCache(cfg RedisConfig) (*RedisCache, error) {
 	// Add TLS if needed
 	if cfg.UseIAMAuth {
 		options.TLSConfig = &tls.Config{}
+	} else if cfg.TLS != nil && cfg.TLS.Enabled {
+		options.TLSConfig = &tls.Config{
+			InsecureSkipVerify: cfg.TLS.InsecureSkipVerify,
+		}
 	}
 
 	// Create the Redis client
@@ -65,6 +71,7 @@ func NewRedisCache(cfg RedisConfig) (*RedisCache, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
+	fmt.Printf("Testing Redis connection to %s with TLS=%v\n", cfg.Address, cfg.TLS != nil && cfg.TLS.Enabled)
 	if err := client.Ping(ctx).Err(); err != nil {
 		return nil, fmt.Errorf("failed to connect to redis: %w", err)
 	}

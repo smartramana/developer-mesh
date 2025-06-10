@@ -17,9 +17,24 @@ api:
   cors:
     allowed_origins: ["*"]
     
-  # Disable auth for easier testing (can be toggled)
+  # Authentication settings for API
   auth:
     require_auth: ${REQUIRE_AUTH:-false}
+    # JWT - Short expiration for testing
+    jwt_secret: "dev-jwt-secret-minimum-32-characters"
+    jwt_expiration: 1h
+    
+    # Development API keys
+    api_keys:
+      static_keys:
+        "dev-admin-key-1234567890": 
+          role: "admin"
+          scopes: ["read", "write", "admin"]
+          tenant_id: "dev-tenant"
+        "dev-readonly-key-1234567890":
+          role: "reader"
+          scopes: ["read"]
+          tenant_id: "dev-tenant"
 
 # Authentication - Development settings
 auth:
@@ -91,8 +106,8 @@ database:
 
 # Cache - AWS ElastiCache Redis
 cache:
-  type: "redis"  # Standard Redis (not cluster mode)
-  address: "${REDIS_HOST:-sean-mcp-test-qem3fz.serverless.use1.cache.amazonaws.com}:${REDIS_PORT:-6379}"
+  type: "${CACHE_TYPE:-redis}"  # Redis for both local and prod
+  address: "${REDIS_HOST:-127.0.0.1}:${REDIS_PORT:-6379}"
   password: "${REDIS_PASSWORD:-}"
   database: 0
   
@@ -104,10 +119,10 @@ cache:
   write_timeout: 3s
   max_retries: 3
   
-  # TLS settings for ElastiCache (if needed)
+  # TLS settings for ElastiCache Serverless (required)
   tls:
-    enabled: ${REDIS_TLS_ENABLED:-false}
-    insecure_skip_verify: ${REDIS_TLS_SKIP_VERIFY:-false}
+    enabled: ${REDIS_TLS_ENABLED:-true}
+    insecure_skip_verify: ${REDIS_TLS_SKIP_VERIFY:-true}
 
 # Monitoring - Development settings
 monitoring:

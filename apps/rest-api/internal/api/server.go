@@ -25,6 +25,24 @@ import (
 	"rest-api/internal/repository"
 )
 
+// Helper function to extract string from map
+func getStringFromMap(m map[string]interface{}, key string) string {
+	if val, ok := m[key]; ok {
+		if str, ok := val.(string); ok {
+			return str
+		}
+	}
+	return ""
+}
+
+// Helper function to get last N characters of a string
+func lastN(s string, n int) string {
+	if len(s) <= n {
+		return s
+	}
+	return s[len(s)-n:]
+}
+
 // Global shutdown hooks
 var shutdownHooks []func()
 
@@ -102,6 +120,41 @@ func NewServer(engine *core.Engine, cfg Config, db *sqlx.DB, metrics observabili
 		},
 		RateLimiter: auth.DefaultRateLimiterConfig(),
 		APIKeys:     make(map[string]auth.APIKeySettings),
+	}
+	
+	// Parse API keys from configuration
+	if apiKeysRaw, ok := cfg.Auth.APIKeys.(map[string]interface{}); ok {
+		if staticKeys, ok := apiKeysRaw["static_keys"].(map[string]interface{}); ok {
+			for key, settings := range staticKeys {
+				if settingsMap, ok := settings.(map[string]interface{}); ok {
+					apiKeySettings := auth.APIKeySettings{
+						Role:     getStringFromMap(settingsMap, "role"),
+						TenantID: getStringFromMap(settingsMap, "tenant_id"),
+					}
+					
+					// Parse scopes
+					if scopesRaw, ok := settingsMap["scopes"].([]interface{}); ok {
+						scopes := make([]string, 0, len(scopesRaw))
+						for _, s := range scopesRaw {
+							if scope, ok := s.(string); ok {
+								scopes = append(scopes, scope)
+							}
+						}
+						apiKeySettings.Scopes = scopes
+					}
+					
+					authConfig.APIKeys[key] = apiKeySettings
+					
+					// Debug logging
+					logger.Info("API Key from config", map[string]interface{}{
+						"key_suffix": lastN(key, 8),
+						"role":       apiKeySettings.Role,
+						"tenant_id":  apiKeySettings.TenantID,
+						"scopes":     apiKeySettings.Scopes,
+					})
+				}
+			}
+		}
 	}
 	
 	// Set JWT secret environment variable if provided

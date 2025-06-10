@@ -31,6 +31,15 @@ type RedisConfig struct {
 	UseAWS            bool                   `mapstructure:"use_aws"`      // Use AWS ElastiCache
 	ClusterMode       bool                   `mapstructure:"cluster_mode"` // Use ElastiCache in cluster mode
 	ElastiCacheConfig *aws.ElastiCacheConfig `mapstructure:"elasticache"`  // ElastiCache configuration
+	
+	// TLS configuration
+	TLS *TLSConfig `mapstructure:"tls"` // TLS configuration
+}
+
+// TLSConfig holds TLS configuration
+type TLSConfig struct {
+	Enabled            bool `mapstructure:"enabled"`              // Enable TLS
+	InsecureSkipVerify bool `mapstructure:"insecure_skip_verify"` // Skip certificate verification (dev only)
 }
 
 // NewCache creates a new cache based on the configuration

@@ -4,6 +4,7 @@ go 1.24.2
 
 require (
 	github.com/S-Corkum/devops-mcp v0.0.0
+	github.com/coder/websocket v1.8.13
 	github.com/google/uuid v1.6.0
 	github.com/gorilla/mux v1.8.1
 	github.com/gorilla/websocket v1.5.1
