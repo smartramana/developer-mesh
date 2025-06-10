@@ -327,7 +327,7 @@ func (s *Service) storeAPIKeyInDB(rawKey string, apiKey *APIKey) error {
 
 // ValidateJWT validates a JWT token and returns the associated user
 func (s *Service) ValidateJWT(ctx context.Context, tokenString string) (*User, error) {
-	if tokenString == "" || s.config.JWTSecret == "" {
+	if tokenString == "" || s.config == nil || s.config.JWTSecret == "" {
 		return nil, ErrInvalidToken
 	}
 

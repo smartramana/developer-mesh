@@ -1,6 +1,7 @@
 package websocket
 
 import (
+    "context"
     "time"
     
     "github.com/coder/websocket"
@@ -126,4 +127,9 @@ func NewConnection(id string, conn *websocket.Conn, hub *Server) *Connection {
     }
     
     return c
+}
+
+// testContext creates a context for testing
+func testContext() context.Context {
+    return context.Background()
 }
