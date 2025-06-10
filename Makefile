@@ -146,9 +146,14 @@ test-integration: ## Run integration tests
 	ENABLE_INTEGRATION_TESTS=true $(GOTEST) -tags=integration -v ./pkg/tests/integration ./test/integration
 
 .PHONY: test-functional
-test-functional: ## Run functional tests
+test-functional: ## Run functional tests (Docker)
 	@set -a; [ -f .env ] && . ./.env; set +a; \
 	export MCP_TEST_MODE=true && ./test/scripts/run_functional_tests.sh
+
+.PHONY: test-functional-local
+test-functional-local: ## Run functional tests with local services and real AWS
+	@set -a; [ -f .env ] && . ./.env; set +a; \
+	export MCP_TEST_MODE=true && ./test/scripts/run_functional_tests_local.sh
 
 .PHONY: test-websocket
 test-websocket: ## Run all WebSocket tests

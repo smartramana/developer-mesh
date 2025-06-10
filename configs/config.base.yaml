@@ -37,7 +37,7 @@ api:
 
 # WebSocket Configuration
 websocket:
-  enabled: false  # Default disabled, enable in specific environments
+  enabled: ${WEBSOCKET_ENABLED:-true}  # Default enabled, can be disabled via env
   max_connections: 10000
   read_buffer_size: 4096
   write_buffer_size: 4096
@@ -338,6 +338,34 @@ features:
   audit_logging: true
   distributed_tracing: false
   experimental_tools: false
+
+# AWS Configuration - Default settings for AWS services
+aws:
+  region: "${AWS_REGION:-us-east-1}"
+  
+  # Service configuration defaults
+  services:
+    # ElastiCache defaults
+    elasticache:
+      enabled: ${ELASTICACHE_ENABLED:-false}
+      
+    # SQS defaults  
+    sqs:
+      enabled: ${SQS_ENABLED:-false}
+      
+    # S3 defaults
+    s3:
+      enabled: ${S3_ENABLED:-false}
+      
+    # Bedrock defaults
+    bedrock:
+      enabled: ${BEDROCK_ENABLED:-false}
+
+# Worker Configuration - Default settings
+worker:
+  enabled: ${WORKER_ENABLED:-false}
+  queue_type: "${WORKER_QUEUE_TYPE:-memory}"  # Default to memory queue
+  concurrency: ${WORKER_CONCURRENCY:-5}
 
 # Graceful Shutdown
 shutdown:

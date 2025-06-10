@@ -50,3 +50,7 @@ CLAUDE.md
 
 # Log files
 *.log
+
+# Functional test artifacts
+logs/
+.test-pids
