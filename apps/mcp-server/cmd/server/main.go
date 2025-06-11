@@ -441,7 +441,7 @@ func initializeServer(ctx context.Context, cfg *commonconfig.Config, engine *cor
 	db *database.Database, cacheClient cache.Cache, metricsClient observability.MetricsClient, logger observability.Logger) (*api.Server, error) {
 
 	// Build API configuration
-	apiConfig := buildAPIConfig(cfg)
+	apiConfig := buildAPIConfig(cfg, logger)
 
 	logger.Info("Initializing API server", map[string]interface{}{
 		"listen_address": apiConfig.ListenAddress,
@@ -472,11 +472,31 @@ func initializeServer(ctx context.Context, cfg *commonconfig.Config, engine *cor
 }
 
 // buildAPIConfig creates API configuration from common config
-func buildAPIConfig(cfg *commonconfig.Config) api.Config {
+func buildAPIConfig(cfg *commonconfig.Config, logger observability.Logger) api.Config {
 	apiConfig := api.DefaultConfig()
 
 	// Override with configuration values
 	apiConfig.ListenAddress = cfg.API.ListenAddress
+	
+	// Debug logging
+	logger.Info("Building API config", map[string]interface{}{
+		"api_listen_address": cfg.API.ListenAddress,
+		"has_mcp_server": cfg.MCPServer != nil,
+	})
+	
+	// Check if MCP server has a specific listen address override
+	if cfg.MCPServer != nil {
+		logger.Info("MCP server config found", map[string]interface{}{
+			"listen_address": cfg.MCPServer.ListenAddress,
+		})
+		if cfg.MCPServer.ListenAddress != "" {
+			logger.Info("Using MCP server listen address override", map[string]interface{}{
+				"old_address": apiConfig.ListenAddress,
+				"new_address": cfg.MCPServer.ListenAddress,
+			})
+			apiConfig.ListenAddress = cfg.MCPServer.ListenAddress
+		}
+	}
 	apiConfig.TLSCertFile = cfg.API.TLSCertFile
 	apiConfig.TLSKeyFile = cfg.API.TLSKeyFile
 
@@ -506,10 +526,11 @@ func buildAPIConfig(cfg *commonconfig.Config) api.Config {
 		if webhookConfig != nil && webhookConfig.IsEnabled() {
 			apiConfig.Webhook = webhookConfig
 			// Log webhook configuration (without secrets)
-			log.Printf("Webhook configuration loaded: enabled=%v, github_enabled=%v, github_endpoint=%s",
-				webhookConfig.IsEnabled(),
-				webhookConfig.IsGitHubEnabled(),
-				webhookConfig.GitHubEndpoint())
+			logger.Info("Webhook configuration loaded", map[string]interface{}{
+				"enabled":        webhookConfig.IsEnabled(),
+				"github_enabled": webhookConfig.IsGitHubEnabled(),
+				"github_endpoint": webhookConfig.GitHubEndpoint(),
+			})
 		}
 	}
 
@@ -676,7 +697,7 @@ func parseWebSocketConfig(wsConfig *commonconfig.WebSocketConfig) api.WebSocketC
 // startServer starts the HTTP/HTTPS server
 func startServer(server *api.Server, cfg *commonconfig.Config, logger observability.Logger) error {
 	logger.Info("Starting server", map[string]interface{}{
-		"address":     cfg.API.ListenAddress,
+		"address":     server.GetListenAddress(),
 		"environment": cfg.Environment,
 		"tls_enabled": cfg.API.TLSCertFile != "" && cfg.API.TLSKeyFile != "",
 	})

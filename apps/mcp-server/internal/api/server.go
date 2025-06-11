@@ -408,6 +408,11 @@ func (s *Server) setupRoutes() {
 	}
 }
 
+// GetListenAddress returns the configured listen address
+func (s *Server) GetListenAddress() string {
+	return s.server.Addr
+}
+
 // Start starts the API server without TLS
 func (s *Server) Start() error {
 	// Start without TLS

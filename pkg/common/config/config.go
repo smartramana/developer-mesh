@@ -48,6 +48,22 @@ type Config struct {
 	Environment string            `mapstructure:"environment"`
 	Adapters    map[string]any    `mapstructure:"adapters"`
 	WebSocket   *WebSocketConfig  `mapstructure:"websocket"`
+	MCPServer   *MCPServerConfig  `mapstructure:"mcp_server"`
+}
+
+// RestAPIConfig holds configuration for connecting to REST API service
+type RestAPIConfig struct {
+	Enabled    bool          `mapstructure:"enabled"`
+	BaseURL    string        `mapstructure:"base_url"`
+	APIKey     string        `mapstructure:"api_key"`
+	Timeout    time.Duration `mapstructure:"timeout"`
+	RetryCount int           `mapstructure:"retry_count"`
+}
+
+// MCPServerConfig holds MCP-specific configuration overrides
+type MCPServerConfig struct {
+	ListenAddress string         `mapstructure:"listen_address"`
+	RestAPI       RestAPIConfig  `mapstructure:"rest_api"`
 }
 
 // WebSocketConfig holds WebSocket server configuration

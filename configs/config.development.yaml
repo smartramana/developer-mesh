@@ -118,22 +118,22 @@ database:
 # Cache - AWS ElastiCache Redis
 cache:
   type: "redis"  # Enable Redis caching
-  address: "localhost:6379"  # SSH tunnel to ElastiCache
+  address: "127.0.0.1:6379"  # SSH tunnel to ElastiCache (use 127.0.0.1 not localhost)
   password: "${REDIS_PASSWORD:-}"
   database: 0
   
   # Connection settings for AWS ElastiCache
   pool_size: 50
   min_idle_conns: 10
-  dial_timeout: 5s
-  read_timeout: 3s
-  write_timeout: 3s
+  dial_timeout: 10s  # Increased for TLS handshake
+  read_timeout: 5s   # Increased for stability
+  write_timeout: 5s  # Increased for stability
   max_retries: 3
   
   # TLS settings for ElastiCache Serverless (required)
   tls:
     enabled: true  # ElastiCache requires TLS
-    insecure_skip_verify: true  # Allow self-signed certs for dev
+    insecure_skip_verify: true  # Skip cert verification for SSH tunnel
 
 # Monitoring - Development settings
 monitoring:
