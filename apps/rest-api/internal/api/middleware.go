@@ -408,6 +408,34 @@ func NoAuthMiddleware() gin.HandlerFunc {
 	}
 }
 
+// ExtractTenantContext follows CLAUDE.md adapter pattern
+// This middleware should be called AFTER authentication middleware
+func ExtractTenantContext() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		// The auth middleware sets the User under auth.UserContextKey
+		// but also sets tenant_id directly
+		if tenantID, exists := c.Get("tenant_id"); exists {
+			if tid, ok := tenantID.(string); ok && tid != "" {
+				c.Header("X-Tenant-ID", tid)
+				c.Next()
+				return
+			}
+		}
+		
+		// Try to get from user context (backward compatibility)
+		if userVal, userExists := c.Get("user"); userExists {
+			if userMap, ok := userVal.(map[string]interface{}); ok {
+				if tenantID, hasTenant := userMap["tenant_id"].(string); hasTenant {
+					c.Set("tenant_id", tenantID)
+					c.Header("X-Tenant-ID", tenantID)
+				}
+			}
+		}
+		
+		c.Next()
+	}
+}
+
 // AuthMiddleware - Kept for test compatibility only
 // DEPRECATED: This function is maintained only for backward compatibility with tests.
 // Production code should use auth.Service.GinMiddleware() or auth.AuthMiddleware.GinMiddleware()

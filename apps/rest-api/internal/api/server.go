@@ -336,6 +336,9 @@ func (s *Server) setupRoutes(ctx context.Context) {
 	v1.Use(s.authMiddleware.GinMiddleware())
 	s.logger.Info("Using enhanced authentication with rate limiting and audit logging", nil)
 
+	// Add tenant context extraction middleware AFTER authentication
+	v1.Use(ExtractTenantContext())
+
 	// Keep the old middleware for backward compatibility during transition
 	// This will be removed once all tests are updated
 	testMode := os.Getenv("MCP_TEST_MODE")
