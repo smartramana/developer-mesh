@@ -540,8 +540,16 @@ func buildAPIConfig(cfg *commonconfig.Config, logger observability.Logger) api.C
 	}
 	
 	// Configure WebSocket if available
+	logger.Info("WebSocket config check", map[string]interface{}{
+		"websocket_nil": cfg.WebSocket == nil,
+		"websocket_enabled": cfg.WebSocket != nil && cfg.WebSocket.Enabled,
+	})
+	
 	if cfg.WebSocket != nil && cfg.WebSocket.Enabled {
 		apiConfig.WebSocket = parseWebSocketConfig(cfg.WebSocket)
+		logger.Info("WebSocket config parsed", map[string]interface{}{
+			"enabled": apiConfig.WebSocket.Enabled,
+		})
 	}
 
 	return apiConfig

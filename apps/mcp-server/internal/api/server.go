@@ -208,6 +208,7 @@ func NewServer(engine *core.Engine, cfg Config, db *sqlx.DB, cacheClient cache.C
 		router:            router,
 		server:            &http.Server{Handler: router},
 		engine:            engine,
+		config:            cfg,  // Set the API config
 		logger:            observability.DefaultLogger,
 		loggerAdapter:     loggerAdapter,
 		loggerObsAdapter:  loggerObsAdapter,
@@ -311,6 +312,11 @@ func (s *Server) setupRoutes() {
 	s.router.GET("/health", s.healthHandler)
 	
 	// Setup WebSocket endpoint
+	s.logger.Info("WebSocket route registration check", map[string]interface{}{
+		"enabled": s.config.WebSocket.Enabled,
+		"wsServer_nil": s.wsServer == nil,
+	})
+	
 	if s.config.WebSocket.Enabled && s.wsServer != nil {
 		// Convert gin handler to http.HandlerFunc
 		s.router.GET("/ws", func(c *gin.Context) {
@@ -318,6 +324,11 @@ func (s *Server) setupRoutes() {
 		})
 		s.logger.Info("WebSocket endpoint enabled at /ws", map[string]interface{}{
 			"max_connections": s.config.WebSocket.MaxConnections,
+		})
+	} else {
+		s.logger.Warn("WebSocket endpoint NOT enabled", map[string]interface{}{
+			"enabled": s.config.WebSocket.Enabled,
+			"wsServer_nil": s.wsServer == nil,
 		})
 	}
 
