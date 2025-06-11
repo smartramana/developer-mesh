@@ -54,7 +54,15 @@ func (c *Connection) readPump() {
     defer func() {
         c.SetState(ws.ConnectionStateClosing)
         c.hub.removeConnection(c)
-        c.conn.Close(websocket.StatusNormalClosure, "")
+        if err := c.conn.Close(websocket.StatusNormalClosure, ""); err != nil {
+            // Log error but don't fail - connection is already being closed
+            if c.hub.logger != nil {
+                c.hub.logger.Debug("Error closing WebSocket connection", map[string]interface{}{
+                    "error": err.Error(),
+                    "connection_id": c.ID,
+                })
+            }
+        }
     }()
     
     ctx := context.Background()
@@ -119,7 +127,15 @@ func (c *Connection) writePump() {
     ticker := time.NewTicker(c.hub.config.PingInterval)
     defer func() {
         ticker.Stop()
-        c.conn.Close(websocket.StatusNormalClosure, "")
+        if err := c.conn.Close(websocket.StatusNormalClosure, ""); err != nil {
+            // Log error but don't fail - connection is already being closed
+            if c.hub.logger != nil {
+                c.hub.logger.Debug("Error closing WebSocket connection in writePump", map[string]interface{}{
+                    "error": err.Error(),
+                    "connection_id": c.ID,
+                })
+            }
+        }
     }()
     
     ctx := context.Background()
@@ -129,7 +145,14 @@ func (c *Connection) writePump() {
         case message, ok := <-c.send:
             if !ok {
                 // The hub closed the channel
-                c.conn.Close(websocket.StatusNormalClosure, "")
+                if err := c.conn.Close(websocket.StatusNormalClosure, ""); err != nil {
+                    if c.hub.logger != nil {
+                        c.hub.logger.Debug("Error closing connection when hub closed channel", map[string]interface{}{
+                            "error": err.Error(),
+                            "connection_id": c.ID,
+                        })
+                    }
+                }
                 return
             }
             

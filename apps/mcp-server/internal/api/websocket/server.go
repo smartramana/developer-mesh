@@ -309,7 +309,12 @@ func (s *Server) Close() error {
     // Close all connections
     for _, conn := range s.connections {
         conn.SetState(ws.ConnectionStateClosing)
-        conn.conn.Close(websocket.StatusNormalClosure, "Server shutting down")
+        if err := conn.conn.Close(websocket.StatusNormalClosure, "Server shutting down"); err != nil {
+            s.logger.Debug("Error closing connection during shutdown", map[string]interface{}{
+                "error": err.Error(),
+                "connection_id": conn.ID,
+            })
+        }
     }
     
     // Clear connections map

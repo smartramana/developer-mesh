@@ -79,6 +79,7 @@ func NewCache(ctx context.Context, cfg any) (Cache, error) {
 			PoolSize:     config.PoolSize,
 			MinIdleConns: config.MinIdleConns,
 			PoolTimeout:  config.PoolTimeout,
+			TLS:          config.TLS,  // Pass TLS configuration
 		})
 	default:
 		return nil, fmt.Errorf("unsupported cache type: %T", cfg)
@@ -101,6 +102,14 @@ func newRedisClusterClient(config RedisConfig) (Cache, error) {
 		PoolTimeout:    time.Duration(config.PoolTimeout) * time.Second,
 		RouteRandomly:  true,
 		RouteByLatency: true,
+	}
+
+	// Add TLS if configured
+	if config.TLS != nil && config.TLS.Enabled {
+		clusterConfig.UseTLS = true
+		clusterConfig.TLSConfig = &tls.Config{
+			InsecureSkipVerify: config.TLS.InsecureSkipVerify,
+		}
 	}
 
 	return NewRedisClusterCache(clusterConfig)
@@ -184,6 +193,16 @@ func newAWSElastiCacheClient(ctx context.Context, config RedisConfig) (Cache, er
 
 		if password, ok := options["password"].(string); ok {
 			redisConfig.Password = password
+		}
+
+		// Add TLS if enabled
+		if tlsConfig, ok := options["tls"].(*tls.Config); ok && tlsConfig != nil {
+			// For standard Redis, we need to enable TLS
+			// Since the config doesn't have a UseTLS field, we check if TLS config exists
+			redisConfig.TLS = &TLSConfig{
+				Enabled:            true,
+				InsecureSkipVerify: tlsConfig.InsecureSkipVerify,
+			}
 		}
 
 		return NewRedisCache(redisConfig)

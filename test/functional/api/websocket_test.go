@@ -64,7 +64,11 @@ var _ = Describe("WebSocket API Functional Tests", func() {
             conn, resp, err := websocket.Dial(ctx, wsURL, opts)
             Expect(err).NotTo(HaveOccurred())
             Expect(resp.StatusCode).To(Equal(http.StatusSwitchingProtocols))
-            defer conn.Close(websocket.StatusNormalClosure, "")
+            defer func() {
+                if err := conn.Close(websocket.StatusNormalClosure, ""); err != nil {
+                    GinkgoWriter.Printf("Error closing connection: %v\n", err)
+                }
+            }()
             
             // Send initialize message
             initMsg := ws.Message{
@@ -158,7 +162,9 @@ var _ = Describe("WebSocket API Functional Tests", func() {
             // Clean up connections
             for _, conn := range connections {
                 if conn != nil {
-                    conn.Close(websocket.StatusNormalClosure, "")
+                    if err := conn.Close(websocket.StatusNormalClosure, ""); err != nil {
+                        GinkgoWriter.Printf("Error closing connection: %v\n", err)
+                    }
                 }
             }
         })
@@ -203,7 +209,9 @@ var _ = Describe("WebSocket API Functional Tests", func() {
         
         AfterEach(func() {
             if conn != nil {
-                conn.Close(websocket.StatusNormalClosure, "")
+                if err := conn.Close(websocket.StatusNormalClosure, ""); err != nil {
+                    GinkgoWriter.Printf("Error closing connection: %v\n", err)
+                }
             }
             cancel()
         })
@@ -322,7 +330,11 @@ var _ = Describe("WebSocket API Functional Tests", func() {
             
             conn, _, err := websocket.Dial(ctx, wsURL, opts)
             Expect(err).NotTo(HaveOccurred())
-            defer conn.Close(websocket.StatusNormalClosure, "")
+            defer func() {
+                if err := conn.Close(websocket.StatusNormalClosure, ""); err != nil {
+                    GinkgoWriter.Printf("Error closing connection: %v\n", err)
+                }
+            }()
             
             // Send many messages rapidly
             var rateLimited bool
@@ -364,7 +376,11 @@ var _ = Describe("WebSocket API Functional Tests", func() {
         It("should provide WebSocket statistics", func() {
             resp, err := httpClient.Get(baseURL + "/api/v1/websocket/stats")
             Expect(err).NotTo(HaveOccurred())
-            defer resp.Body.Close()
+            defer func() {
+                if err := resp.Body.Close(); err != nil {
+                    GinkgoWriter.Printf("Error closing response body: %v\n", err)
+                }
+            }()
             
             // Stats endpoint might require auth
             if resp.StatusCode == http.StatusUnauthorized {
@@ -383,7 +399,11 @@ var _ = Describe("WebSocket API Functional Tests", func() {
         It("should provide health check", func() {
             resp, err := httpClient.Get(baseURL + "/api/v1/websocket/health")
             Expect(err).NotTo(HaveOccurred())
-            defer resp.Body.Close()
+            defer func() {
+                if err := resp.Body.Close(); err != nil {
+                    GinkgoWriter.Printf("Error closing response body: %v\n", err)
+                }
+            }()
             
             // Health endpoint might require auth
             if resp.StatusCode == http.StatusUnauthorized {

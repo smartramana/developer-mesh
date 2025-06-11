@@ -108,6 +108,12 @@ func newRedisClusterClient(config RedisConfig) (Cache, error) {
 		RouteByLatency: true,
 	}
 
+	// Add TLS if IAM auth is enabled
+	if config.UseIAMAuth {
+		clusterConfig.UseTLS = true
+		clusterConfig.TLSConfig = &tls.Config{}
+	}
+
 	return NewRedisClusterCache(clusterConfig)
 }
 
@@ -189,6 +195,11 @@ func newAWSElastiCacheClient(ctx context.Context, config RedisConfig) (Cache, er
 
 		if password, ok := options["password"].(string); ok {
 			redisConfig.Password = password
+		}
+
+		// Add TLS if enabled
+		if tlsConfig, ok := options["tls"].(*tls.Config); ok && tlsConfig != nil {
+			redisConfig.UseIAMAuth = true  // If TLS is present, enable it
 		}
 
 		return NewRedisCache(redisConfig)

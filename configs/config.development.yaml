@@ -7,9 +7,20 @@ _base: config.base.yaml
 # Environment
 environment: "development"
 
-# API Server - Development overrides
+# MCP Server Configuration
+mcp_server:
+  listen_address: ":8080"  # MCP server port (WebSocket/MCP protocol)
+  # Connection to REST API for data operations
+  rest_api:
+    enabled: true
+    base_url: "http://localhost:8081"
+    api_key: "${MCP_API_KEY:-dev-admin-key-1234567890}"
+    timeout: 30s
+    retry_count: 3
+
+# API Server - Development overrides (used by REST API)
 api:
-  listen_address: ":8080"
+  listen_address: ":8081"  # REST API server port
   enable_swagger: true
   enable_pprof: true  # Enable profiling in dev
   
@@ -96,7 +107,7 @@ database:
   port: ${DB_PORT:-5432}
   username: "${DB_USER:-postgres}"
   password: "${DB_PASSWORD:-postgres}"
-  database: "${DB_NAME:-devops_mcp_dev}"
+  database: "devops_mcp_dev"
   ssl_mode: "disable"
   
   # Migrations
@@ -106,8 +117,8 @@ database:
 
 # Cache - AWS ElastiCache Redis
 cache:
-  type: "${CACHE_TYPE:-redis}"  # Redis for both local and prod
-  address: "${REDIS_HOST:-127.0.0.1}:${REDIS_PORT:-6379}"
+  type: "redis"  # Enable Redis caching
+  address: "localhost:6379"  # SSH tunnel to ElastiCache
   password: "${REDIS_PASSWORD:-}"
   database: 0
   
@@ -121,8 +132,8 @@ cache:
   
   # TLS settings for ElastiCache Serverless (required)
   tls:
-    enabled: ${REDIS_TLS_ENABLED:-true}
-    insecure_skip_verify: ${REDIS_TLS_SKIP_VERIFY:-true}
+    enabled: true  # ElastiCache requires TLS
+    insecure_skip_verify: true  # Allow self-signed certs for dev
 
 # Monitoring - Development settings
 monitoring:

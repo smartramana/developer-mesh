@@ -33,10 +33,6 @@ var _ = Describe("Model API", func() {
 		It("should create a model for tenant 1", func() {
 			model := models.Model{
 				Name: "Test Model Tenant 1",
-				Provider: "openai",
-				Configuration: map[string]interface{}{
-					"apiKey": "test-key",
-				},
 			}
 			
 			body, err := json.Marshal(model)
@@ -52,7 +48,11 @@ var _ = Describe("Model API", func() {
 			
 			resp, err := client.Do(req)
 			Expect(err).NotTo(HaveOccurred())
-			defer resp.Body.Close()
+			defer func() {
+				if err := resp.Body.Close(); err != nil {
+					GinkgoWriter.Printf("Error closing response body: %v\n", err)
+				}
+			}()
 			
 			Expect(resp.StatusCode).To(Equal(http.StatusCreated))
 			
@@ -76,7 +76,11 @@ var _ = Describe("Model API", func() {
 			
 			resp, err := client.Do(req)
 			Expect(err).NotTo(HaveOccurred())
-			defer resp.Body.Close()
+			defer func() {
+				if err := resp.Body.Close(); err != nil {
+					GinkgoWriter.Printf("Error closing response body: %v\n", err)
+				}
+			}()
 			
 			// Should get forbidden or not found
 			Expect(resp.StatusCode).To(Or(Equal(http.StatusForbidden), Equal(http.StatusNotFound)))
@@ -86,7 +90,6 @@ var _ = Describe("Model API", func() {
 			// Create a model for tenant 2
 			model := models.Model{
 				Name: "Test Model Tenant 2",
-				Provider: "anthropic",
 			}
 			
 			body, err := json.Marshal(model)
@@ -102,7 +105,9 @@ var _ = Describe("Model API", func() {
 			
 			resp, err := client.Do(req)
 			Expect(err).NotTo(HaveOccurred())
-			resp.Body.Close()
+			if err := resp.Body.Close(); err != nil {
+				GinkgoWriter.Printf("Error closing response body: %v\n", err)
+			}
 			Expect(resp.StatusCode).To(Equal(http.StatusCreated))
 			
 			// Now list models for tenant 2
@@ -115,7 +120,11 @@ var _ = Describe("Model API", func() {
 			
 			resp, err = client.Do(req)
 			Expect(err).NotTo(HaveOccurred())
-			defer resp.Body.Close()
+			defer func() {
+				if err := resp.Body.Close(); err != nil {
+					GinkgoWriter.Printf("Error closing response body: %v\n", err)
+				}
+			}()
 			
 			Expect(resp.StatusCode).To(Equal(http.StatusOK))
 			
@@ -153,7 +162,11 @@ var _ = Describe("Model API", func() {
 			
 			resp, err := client.Do(req)
 			Expect(err).NotTo(HaveOccurred())
-			defer resp.Body.Close()
+			defer func() {
+				if err := resp.Body.Close(); err != nil {
+					GinkgoWriter.Printf("Error closing response body: %v\n", err)
+				}
+			}()
 			
 			// Should get forbidden or not found
 			Expect(resp.StatusCode).To(Or(Equal(http.StatusForbidden), Equal(http.StatusNotFound)))

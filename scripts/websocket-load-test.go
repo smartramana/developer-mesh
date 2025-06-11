@@ -2,7 +2,6 @@ package main
 
 import (
     "context"
-    "encoding/json"
     "flag"
     "fmt"
     "log"
@@ -89,7 +88,11 @@ func runClient(ctx context.Context, id int, wsURL, apiKey string, messagesPerCli
         log.Printf("Client %d: Failed to connect: %v", id, err)
         return
     }
-    defer conn.Close(websocket.StatusNormalClosure, "")
+    defer func() {
+        if err := conn.Close(websocket.StatusNormalClosure, ""); err != nil {
+            log.Printf("Client %d: Error closing connection: %v", id, err)
+        }
+    }()
     
     atomic.AddInt64(&metrics.ConnectionsCreated, 1)
     
@@ -137,13 +140,14 @@ func runClient(ctx context.Context, id int, wsURL, apiKey string, messagesPerCli
         
         // Vary the message type
         var msg Message
-        if i%3 == 0 {
+        switch i % 3 {
+        case 0:
             msg = Message{
                 ID:     fmt.Sprintf("client-%d-msg-%d", id, i),
                 Type:   0, // Request
                 Method: "tool.list",
             }
-        } else if i%3 == 1 {
+        case 1:
             msg = Message{
                 ID:     fmt.Sprintf("client-%d-msg-%d", id, i),
                 Type:   0, // Request
@@ -153,7 +157,7 @@ func runClient(ctx context.Context, id int, wsURL, apiKey string, messagesPerCli
                     "content": "Load test context",
                 },
             }
-        } else {
+        case 2:
             msg = Message{
                 ID:     fmt.Sprintf("client-%d-msg-%d", id, i),
                 Type:   0, // Request

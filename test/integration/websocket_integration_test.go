@@ -53,7 +53,11 @@ func TestWebSocketMCPIntegration(t *testing.T) {
         
         conn, _, err := websocket.Dial(ctx, wsURL, opts)
         require.NoError(t, err)
-        defer conn.Close(websocket.StatusNormalClosure, "")
+        defer func() {
+            if err := conn.Close(websocket.StatusNormalClosure, ""); err != nil {
+                t.Logf("Error closing connection: %v", err)
+            }
+        }()
         
         // Initialize connection
         initMsg := ws.Message{
@@ -152,7 +156,11 @@ func TestWebSocketMCPIntegration(t *testing.T) {
         
         conn, _, err := websocket.Dial(ctx, wsURL, opts)
         require.NoError(t, err)
-        defer conn.Close(websocket.StatusNormalClosure, "")
+        defer func() {
+            if err := conn.Close(websocket.StatusNormalClosure, ""); err != nil {
+                t.Logf("Error closing connection: %v", err)
+            }
+        }()
         
         // Initialize
         initMsg := ws.Message{
@@ -233,7 +241,11 @@ func TestWebSocketMCPIntegration(t *testing.T) {
         // Client 1 - subscriber
         conn1, _, err := websocket.Dial(ctx, wsURL, opts)
         require.NoError(t, err)
-        defer conn1.Close(websocket.StatusNormalClosure, "")
+        defer func() {
+            if err := conn1.Close(websocket.StatusNormalClosure, ""); err != nil {
+                t.Logf("Error closing connection 1: %v", err)
+            }
+        }()
         
         // Initialize client 1
         initMsg1 := ws.Message{
@@ -274,7 +286,11 @@ func TestWebSocketMCPIntegration(t *testing.T) {
         // Client 2 - event generator
         conn2, _, err := websocket.Dial(ctx, wsURL, opts)
         require.NoError(t, err)
-        defer conn2.Close(websocket.StatusNormalClosure, "")
+        defer func() {
+            if err := conn2.Close(websocket.StatusNormalClosure, ""); err != nil {
+                t.Logf("Error closing connection 2: %v", err)
+            }
+        }()
         
         // Initialize client 2
         initMsg2 := ws.Message{
@@ -354,7 +370,11 @@ func TestWebSocketPerformanceMetrics(t *testing.T) {
     if err != nil {
         t.Skip("WebSocket metrics endpoint not available")
     }
-    defer resp.Body.Close()
+    defer func() {
+        if err := resp.Body.Close(); err != nil {
+            t.Logf("Error closing response body: %v", err)
+        }
+    }()
     
     if resp.StatusCode == http.StatusUnauthorized {
         t.Skip("WebSocket metrics endpoint requires authentication")
@@ -399,7 +419,11 @@ func BenchmarkWebSocketThroughput(b *testing.B) {
     if err != nil {
         b.Skip("Cannot connect to WebSocket server")
     }
-    defer conn.Close(websocket.StatusNormalClosure, "")
+    defer func() {
+        if err := conn.Close(websocket.StatusNormalClosure, ""); err != nil {
+            b.Logf("Error closing connection: %v", err)
+        }
+    }()
     
     // Initialize
     initMsg := ws.Message{

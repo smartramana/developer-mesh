@@ -26,7 +26,11 @@ func TestConnectionReadPump(t *testing.T) {
     server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
         conn, err := websocket.Accept(w, r, nil)
         require.NoError(t, err)
-        defer conn.Close(websocket.StatusNormalClosure, "")
+        defer func() {
+            if err := conn.Close(websocket.StatusNormalClosure, ""); err != nil {
+                t.Logf("Error closing connection: %v", err)
+            }
+        }()
         
         // Create mock logger
         mockLogger := &MockLogger{}
@@ -71,7 +75,9 @@ func TestConnectionReadPump(t *testing.T) {
         time.Sleep(100 * time.Millisecond)
         
         // Close connection
-        conn.Close(websocket.StatusNormalClosure, "")
+        if err := conn.Close(websocket.StatusNormalClosure, ""); err != nil {
+            t.Logf("Error closing connection: %v", err)
+        }
     }))
     defer server.Close()
     
@@ -82,7 +88,11 @@ func TestConnectionReadPump(t *testing.T) {
     
     conn, _, err := websocket.Dial(ctx, wsURL, nil)
     require.NoError(t, err)
-    defer conn.Close(websocket.StatusNormalClosure, "")
+    defer func() {
+        if err := conn.Close(websocket.StatusNormalClosure, ""); err != nil {
+            t.Logf("Error closing connection: %v", err)
+        }
+    }()
     
     // Send message
     msg := ws.Message{
@@ -100,7 +110,11 @@ func TestConnectionWritePump(t *testing.T) {
     server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
         conn, err := websocket.Accept(w, r, nil)
         require.NoError(t, err)
-        defer conn.Close(websocket.StatusNormalClosure, "")
+        defer func() {
+            if err := conn.Close(websocket.StatusNormalClosure, ""); err != nil {
+                t.Logf("Error closing connection: %v", err)
+            }
+        }()
         
         // Create mock logger
         mockLogger := &MockLogger{}
@@ -152,7 +166,11 @@ func TestConnectionWritePump(t *testing.T) {
     
     conn, _, err := websocket.Dial(ctx, wsURL, nil)
     require.NoError(t, err)
-    defer conn.Close(websocket.StatusNormalClosure, "")
+    defer func() {
+        if err := conn.Close(websocket.StatusNormalClosure, ""); err != nil {
+            t.Logf("Error closing connection: %v", err)
+        }
+    }()
     
     // Read message sent by server
     var msg ws.Message

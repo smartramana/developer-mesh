@@ -18,6 +18,7 @@ import (
 
 	// Internal application-specific imports
 	"mcp-server/internal/api"
+	"mcp-server/internal/api/websocket"
 	"mcp-server/internal/config"
 	"mcp-server/internal/core"
 
@@ -516,6 +517,11 @@ func buildAPIConfig(cfg *commonconfig.Config) api.Config {
 	if cfg.API.RateLimit != nil {
 		apiConfig.RateLimit = parseRateLimitConfig(cfg.API.RateLimit)
 	}
+	
+	// Configure WebSocket if available
+	if cfg.WebSocket != nil && cfg.WebSocket.Enabled {
+		apiConfig.WebSocket = parseWebSocketConfig(cfg.WebSocket)
+	}
 
 	return apiConfig
 }
@@ -631,6 +637,40 @@ func parseWebhookConfig(webhookMap map[string]interface{}) *config.WebhookConfig
 	}
 
 	return webhookConfig
+}
+
+// parseWebSocketConfig parses WebSocket configuration
+func parseWebSocketConfig(wsConfig *commonconfig.WebSocketConfig) api.WebSocketConfig {
+	config := api.WebSocketConfig{
+		Enabled:         wsConfig.Enabled,
+		MaxConnections:  wsConfig.MaxConnections,
+		ReadBufferSize:  wsConfig.ReadBufferSize,
+		WriteBufferSize: wsConfig.WriteBufferSize,
+		PingInterval:    wsConfig.PingInterval,
+		PongTimeout:     wsConfig.PongTimeout,
+		MaxMessageSize:  wsConfig.MaxMessageSize,
+	}
+	
+	// Parse security config
+	if wsConfig.Security != nil {
+		config.Security = websocket.SecurityConfig{
+			RequireAuth:     wsConfig.Security.RequireAuth,
+			HMACSignatures:  wsConfig.Security.HMACSignatures,
+			AllowedOrigins:  wsConfig.Security.AllowedOrigins,
+		}
+	}
+	
+	// Parse rate limit config
+	if wsConfig.RateLimit != nil {
+		config.RateLimit = websocket.RateLimiterConfig{
+			Rate:       float64(wsConfig.RateLimit.Rate),
+			Burst:      float64(wsConfig.RateLimit.Burst),
+			PerIP:      wsConfig.RateLimit.PerIP,
+			PerUser:    wsConfig.RateLimit.PerUser,
+		}
+	}
+	
+	return config
 }
 
 // startServer starts the HTTP/HTTPS server

@@ -57,7 +57,11 @@ var _ = Describe("WebSocket Performance Tests", func() {
             
             conn, _, err := websocket.Dial(ctx, wsURL, opts)
             Expect(err).NotTo(HaveOccurred())
-            defer conn.Close(websocket.StatusNormalClosure, "")
+            defer func() {
+                if err := conn.Close(websocket.StatusNormalClosure, ""); err != nil {
+                    GinkgoWriter.Printf("Error closing connection: %v\n", err)
+                }
+            }()
             
             // Initialize connection
             initMsg := ws.Message{
@@ -183,7 +187,11 @@ var _ = Describe("WebSocket Performance Tests", func() {
                         atomic.AddInt64(&totalErrors, 1)
                         return
                     }
-                    defer conn.Close(websocket.StatusNormalClosure, "")
+                    defer func() {
+                if err := conn.Close(websocket.StatusNormalClosure, ""); err != nil {
+                    GinkgoWriter.Printf("Error closing connection: %v\n", err)
+                }
+            }()
                     
                     // Initialize
                     initMsg := ws.Message{
@@ -269,7 +277,11 @@ var _ = Describe("WebSocket Performance Tests", func() {
             
             conn, _, err := websocket.Dial(ctx, wsURL, opts)
             Expect(err).NotTo(HaveOccurred())
-            defer conn.Close(websocket.StatusNormalClosure, "")
+            defer func() {
+                if err := conn.Close(websocket.StatusNormalClosure, ""); err != nil {
+                    GinkgoWriter.Printf("Error closing connection: %v\n", err)
+                }
+            }()
             
             // Initialize
             initMsg := ws.Message{

@@ -35,7 +35,11 @@ func TestBatchProcessor(t *testing.T) {
     logger := observability.NewStandardLogger("test")
     
     processor := NewBatchProcessor(config, sendFunc, logger, nil)
-    defer processor.Close()
+    defer func() {
+        if err := processor.Close(); err != nil {
+            t.Errorf("Failed to close processor: %v", err)
+        }
+    }()
     
     // Add messages below batch size
     for i := 0; i < 3; i++ {
@@ -76,7 +80,9 @@ func TestBatchProcessor(t *testing.T) {
         "method": "test",
     }
     data, _ := json.Marshal(msg)
-    processor.Add("conn1", data)
+    if err := processor.Add("conn1", data); err != nil {
+        t.Fatalf("Failed to add message: %v", err)
+    }
     
     // Wait for flush interval
     time.Sleep(60 * time.Millisecond)
@@ -103,7 +109,11 @@ func TestBatchProcessorBinaryMode(t *testing.T) {
     logger := observability.NewStandardLogger("test")
     
     processor := NewBatchProcessor(config, sendFunc, logger, nil)
-    defer processor.Close()
+    defer func() {
+        if err := processor.Close(); err != nil {
+            t.Errorf("Failed to close processor: %v", err)
+        }
+    }()
     
     // Add messages
     for i := 0; i < 3; i++ {
@@ -113,7 +123,9 @@ func TestBatchProcessorBinaryMode(t *testing.T) {
             Method: "test",
         }
         data, _ := json.Marshal(msg)
-        processor.Add("conn1", data)
+        if err := processor.Add("conn1", data); err != nil {
+        t.Fatalf("Failed to add message: %v", err)
+    }
     }
     
     // Check binary format
@@ -138,12 +150,18 @@ func TestBatchStats(t *testing.T) {
     logger := observability.NewStandardLogger("test")
     
     processor := NewBatchProcessor(config, sendFunc, logger, nil)
-    defer processor.Close()
+    defer func() {
+        if err := processor.Close(); err != nil {
+            t.Errorf("Failed to close processor: %v", err)
+        }
+    }()
     
     // Send messages
     for i := 0; i < 10; i++ {
         data := []byte(`{"test": true}`)
-        processor.Add("conn1", data)
+        if err := processor.Add("conn1", data); err != nil {
+        t.Fatalf("Failed to add message: %v", err)
+    }
     }
     
     // Get stats
@@ -159,7 +177,11 @@ func TestBatchManager(t *testing.T) {
     logger := observability.NewStandardLogger("test")
     
     manager := NewBatchManager(config, logger, nil)
-    defer manager.Close()
+    defer func() {
+        if err := manager.Close(); err != nil {
+            t.Errorf("Failed to close manager: %v", err)
+        }
+    }()
     
     // Create processors for different connections
     sendFunc1 := func(data []byte) error { return nil }
@@ -193,13 +215,19 @@ func BenchmarkBatchProcessor(b *testing.B) {
     logger := observability.NewStandardLogger("bench")
     
     processor := NewBatchProcessor(config, sendFunc, logger, nil)
-    defer processor.Close()
+    defer func() {
+        if err := processor.Close(); err != nil {
+            b.Errorf("Failed to close processor: %v", err)
+        }
+    }()
     
     msg := []byte(`{"id": "test", "method": "benchmark"}`)
     
     b.ResetTimer()
     for i := 0; i < b.N; i++ {
-        processor.Add("conn1", msg)
+        if err := processor.Add("conn1", msg); err != nil {
+            b.Fatalf("Failed to add message: %v", err)
+        }
     }
 }
 
@@ -212,12 +240,18 @@ func BenchmarkBatchProcessorBinary(b *testing.B) {
     logger := observability.NewStandardLogger("bench")
     
     processor := NewBatchProcessor(config, sendFunc, logger, nil)
-    defer processor.Close()
+    defer func() {
+        if err := processor.Close(); err != nil {
+            b.Errorf("Failed to close processor: %v", err)
+        }
+    }()
     
     msg := []byte(`{"id": "test", "method": "benchmark"}`)
     
     b.ResetTimer()
     for i := 0; i < b.N; i++ {
-        processor.Add("conn1", msg)
+        if err := processor.Add("conn1", msg); err != nil {
+            b.Fatalf("Failed to add message: %v", err)
+        }
     }
 }

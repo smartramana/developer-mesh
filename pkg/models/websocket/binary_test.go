@@ -157,7 +157,9 @@ func BenchmarkBinaryParsing(b *testing.B) {
     }
     
     buf := &bytes.Buffer{}
-    WriteBinaryHeader(buf, header)
+    if err := WriteBinaryHeader(buf, header); err != nil {
+        b.Fatalf("Failed to write header: %v", err)
+    }
     data := buf.Bytes()
     
     b.ResetTimer()

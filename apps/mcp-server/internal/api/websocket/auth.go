@@ -112,11 +112,12 @@ func (s *Server) ValidateConnection(token string) (*auth.Claims, error) {
 }
 
 // getSigningKey retrieves the JWT signing key
-func (s *Server) getSigningKey() []byte {
-    // In production, this would come from secure configuration
-    // For now, use a placeholder
-    return []byte("your-secret-key")
-}
+// TODO: Uncomment when JWT validation is implemented
+// func (s *Server) getSigningKey() []byte {
+//     // In production, this would come from secure configuration
+//     // For now, use a placeholder
+//     return []byte("your-secret-key")
+// }
 
 // SignMessage creates HMAC signature for a message
 func (c *Connection) SignMessage(msg []byte) string {
@@ -128,7 +129,12 @@ func (c *Connection) SignMessage(msg []byte) string {
     h := hmac.New(sha256.New, sessionKey.Key)
     h.Write(msg)
     h.Write([]byte(c.ID))
-    h.Write([]byte(fmt.Sprintf("%d", time.Now().Unix())))
+    if _, err := fmt.Fprintf(h, "%d", time.Now().Unix()); err != nil {
+        // Hash write error is unlikely but log it
+        c.hub.logger.Debug("Error writing to hash", map[string]interface{}{
+            "error": err.Error(),
+        })
+    }
     
     return base64.StdEncoding.EncodeToString(h.Sum(nil))
 }
@@ -254,12 +260,13 @@ func (c *AntiReplayCache) cleanup() {
 }
 
 // Add these to the Server struct (would be added in server.go)
-type ServerWithAuth struct {
-    *Server
-    sessionManager  *SessionManager
-    ipRateLimiter  *IPRateLimiter
-    antiReplayCache *AntiReplayCache
-}
+// TODO: Uncomment when implementing enhanced auth features
+// type ServerWithAuth struct {
+//     *Server
+//     sessionManager  *SessionManager
+//     ipRateLimiter  *IPRateLimiter
+//     antiReplayCache *AntiReplayCache
+// }
 
 // ValidateMessageAuth validates authentication for a single message
 func (s *Server) ValidateMessageAuth(conn *Connection, msg *AuthenticatedMessage) error {

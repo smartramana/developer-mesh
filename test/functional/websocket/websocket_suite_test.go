@@ -59,7 +59,9 @@ var _ = Describe("WebSocket Connection", func() {
 	
 	AfterEach(func() {
 		if conn != nil {
-			conn.Close(websocket.StatusNormalClosure, "")
+			if err := conn.Close(websocket.StatusNormalClosure, ""); err != nil {
+				GinkgoWriter.Printf("Error closing connection in AfterEach: %v\n", err)
+			}
 		}
 		cancel()
 	})
@@ -122,7 +124,11 @@ var _ = Describe("WebSocket Connection", func() {
 				HTTPHeader: headers1,
 			})
 			Expect(err).NotTo(HaveOccurred())
-			defer conn1.Close(websocket.StatusNormalClosure, "")
+			defer func() {
+				if err := conn1.Close(websocket.StatusNormalClosure, ""); err != nil {
+					GinkgoWriter.Printf("Error closing connection 1: %v\n", err)
+				}
+			}()
 			
 			// Connect as tenant-2
 			apiKey2 := shared.GetTestAPIKey("test-tenant-2")
@@ -134,7 +140,11 @@ var _ = Describe("WebSocket Connection", func() {
 				HTTPHeader: headers2,
 			})
 			Expect(err).NotTo(HaveOccurred())
-			defer conn2.Close(websocket.StatusNormalClosure, "")
+			defer func() {
+				if err := conn2.Close(websocket.StatusNormalClosure, ""); err != nil {
+					GinkgoWriter.Printf("Error closing connection 2: %v\n", err)
+				}
+			}()
 			
 			// Send message from tenant-1
 			msg1 := ws.Message{

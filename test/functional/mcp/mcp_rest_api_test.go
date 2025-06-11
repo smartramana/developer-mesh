@@ -107,7 +107,11 @@ var _ = Describe("MCP REST API Tests", func() {
 		It("should return health status", func() {
 			resp, err := makeRequest("GET", "/health", nil, nil)
 			Expect(err).NotTo(HaveOccurred())
-			defer resp.Body.Close()
+			defer func() {
+				if err := resp.Body.Close(); err != nil {
+					GinkgoWriter.Printf("Error closing response body: %v\n", err)
+				}
+			}()
 
 			Expect(resp.StatusCode).To(Equal(http.StatusOK))
 
@@ -120,7 +124,11 @@ var _ = Describe("MCP REST API Tests", func() {
 		It("should return API version information", func() {
 			resp, err := makeRequest("GET", "/api/v1/version", nil, nil)
 			Expect(err).NotTo(HaveOccurred())
-			defer resp.Body.Close()
+			defer func() {
+				if err := resp.Body.Close(); err != nil {
+					GinkgoWriter.Printf("Error closing response body: %v\n", err)
+				}
+			}()
 
 			if resp.StatusCode == http.StatusOK {
 				var version map[string]interface{}
@@ -138,7 +146,11 @@ var _ = Describe("MCP REST API Tests", func() {
 			
 			resp, err := httpClient.Do(req)
 			Expect(err).NotTo(HaveOccurred())
-			defer resp.Body.Close()
+			defer func() {
+				if err := resp.Body.Close(); err != nil {
+					GinkgoWriter.Printf("Error closing response body: %v\n", err)
+				}
+			}()
 
 			Expect(resp.StatusCode).To(Equal(http.StatusUnauthorized))
 		})
@@ -148,7 +160,11 @@ var _ = Describe("MCP REST API Tests", func() {
 				"X-API-Key": "invalid-key",
 			})
 			Expect(err).NotTo(HaveOccurred())
-			defer resp.Body.Close()
+			defer func() {
+				if err := resp.Body.Close(); err != nil {
+					GinkgoWriter.Printf("Error closing response body: %v\n", err)
+				}
+			}()
 
 			Expect(resp.StatusCode).To(Equal(http.StatusUnauthorized))
 		})
@@ -156,7 +172,11 @@ var _ = Describe("MCP REST API Tests", func() {
 		It("should accept requests with valid API key", func() {
 			resp, err := makeRequest("GET", "/api/v1/mcp/tools", nil, nil)
 			Expect(err).NotTo(HaveOccurred())
-			defer resp.Body.Close()
+			defer func() {
+				if err := resp.Body.Close(); err != nil {
+					GinkgoWriter.Printf("Error closing response body: %v\n", err)
+				}
+			}()
 
 			// Should not be unauthorized
 			Expect(resp.StatusCode).NotTo(Equal(http.StatusUnauthorized))
@@ -167,7 +187,11 @@ var _ = Describe("MCP REST API Tests", func() {
 		It("should list available tools", func() {
 			resp, err := makeRequest("GET", "/api/v1/mcp/tools", nil, nil)
 			Expect(err).NotTo(HaveOccurred())
-			defer resp.Body.Close()
+			defer func() {
+				if err := resp.Body.Close(); err != nil {
+					GinkgoWriter.Printf("Error closing response body: %v\n", err)
+				}
+			}()
 
 			if resp.StatusCode == http.StatusNotFound {
 				Skip("Tool endpoints not implemented")
@@ -192,15 +216,22 @@ var _ = Describe("MCP REST API Tests", func() {
 		It("should get specific tool details", func() {
 			// First get list of tools
 			resp, err := makeRequest("GET", "/api/v1/mcp/tools", nil, nil)
+			Expect(err).NotTo(HaveOccurred())
 			if resp.StatusCode == http.StatusNotFound {
 				Skip("Tool endpoints not implemented")
 			}
-			resp.Body.Close()
+			if err := resp.Body.Close(); err != nil {
+				GinkgoWriter.Printf("Error closing response body: %v\n", err)
+			}
 
 			// Try to get a specific tool
 			resp, err = makeRequest("GET", "/api/v1/mcp/tools/github_list_repos", nil, nil)
 			Expect(err).NotTo(HaveOccurred())
-			defer resp.Body.Close()
+			defer func() {
+				if err := resp.Body.Close(); err != nil {
+					GinkgoWriter.Printf("Error closing response body: %v\n", err)
+				}
+			}()
 
 			if resp.StatusCode == http.StatusOK {
 				var tool ToolDefinition
@@ -222,7 +253,11 @@ var _ = Describe("MCP REST API Tests", func() {
 
 			resp, err := makeRequest("POST", "/api/v1/mcp/tools/call", toolCall, nil)
 			Expect(err).NotTo(HaveOccurred())
-			defer resp.Body.Close()
+			defer func() {
+				if err := resp.Body.Close(); err != nil {
+					GinkgoWriter.Printf("Error closing response body: %v\n", err)
+				}
+			}()
 
 			if resp.StatusCode == http.StatusNotFound {
 				Skip("Tool execution endpoint not implemented")
@@ -251,7 +286,11 @@ var _ = Describe("MCP REST API Tests", func() {
 
 			resp, err := makeRequest("POST", "/api/v1/mcp/tools/call", toolCall, nil)
 			Expect(err).NotTo(HaveOccurred())
-			defer resp.Body.Close()
+			defer func() {
+				if err := resp.Body.Close(); err != nil {
+					GinkgoWriter.Printf("Error closing response body: %v\n", err)
+				}
+			}()
 
 			if resp.StatusCode == http.StatusNotFound {
 				Skip("Tool execution endpoint not implemented")
@@ -281,7 +320,11 @@ var _ = Describe("MCP REST API Tests", func() {
 
 			resp, err := makeRequest("POST", "/api/v1/mcp/contexts", contextReq, nil)
 			Expect(err).NotTo(HaveOccurred())
-			defer resp.Body.Close()
+			defer func() {
+				if err := resp.Body.Close(); err != nil {
+					GinkgoWriter.Printf("Error closing response body: %v\n", err)
+				}
+			}()
 
 			if resp.StatusCode == http.StatusNotFound {
 				Skip("Context endpoints not implemented")
@@ -303,7 +346,11 @@ var _ = Describe("MCP REST API Tests", func() {
 		It("should list contexts", func() {
 			resp, err := makeRequest("GET", "/api/v1/mcp/contexts", nil, nil)
 			Expect(err).NotTo(HaveOccurred())
-			defer resp.Body.Close()
+			defer func() {
+				if err := resp.Body.Close(); err != nil {
+					GinkgoWriter.Printf("Error closing response body: %v\n", err)
+				}
+			}()
 
 			if resp.StatusCode == http.StatusNotFound {
 				Skip("Context endpoints not implemented")
@@ -325,7 +372,11 @@ var _ = Describe("MCP REST API Tests", func() {
 
 			resp, err := makeRequest("GET", fmt.Sprintf("/api/v1/mcp/contexts/%s", createdContextID), nil, nil)
 			Expect(err).NotTo(HaveOccurred())
-			defer resp.Body.Close()
+			defer func() {
+				if err := resp.Body.Close(); err != nil {
+					GinkgoWriter.Printf("Error closing response body: %v\n", err)
+				}
+			}()
 
 			if resp.StatusCode == http.StatusNotFound {
 				Skip("Context endpoints not implemented")
@@ -355,7 +406,11 @@ var _ = Describe("MCP REST API Tests", func() {
 
 			resp, err := makeRequest("PUT", fmt.Sprintf("/api/v1/mcp/contexts/%s", createdContextID), updateReq, nil)
 			Expect(err).NotTo(HaveOccurred())
-			defer resp.Body.Close()
+			defer func() {
+				if err := resp.Body.Close(); err != nil {
+					GinkgoWriter.Printf("Error closing response body: %v\n", err)
+				}
+			}()
 
 			if resp.StatusCode == http.StatusNotFound {
 				Skip("Context update endpoint not implemented")
@@ -377,7 +432,11 @@ var _ = Describe("MCP REST API Tests", func() {
 
 			resp, err := makeRequest("DELETE", fmt.Sprintf("/api/v1/mcp/contexts/%s", createdContextID), nil, nil)
 			Expect(err).NotTo(HaveOccurred())
-			defer resp.Body.Close()
+			defer func() {
+				if err := resp.Body.Close(); err != nil {
+					GinkgoWriter.Printf("Error closing response body: %v\n", err)
+				}
+			}()
 
 			if resp.StatusCode == http.StatusNotFound {
 				Skip("Context delete endpoint not implemented")
@@ -388,7 +447,11 @@ var _ = Describe("MCP REST API Tests", func() {
 			// Verify deletion
 			resp, err = makeRequest("GET", fmt.Sprintf("/api/v1/mcp/contexts/%s", createdContextID), nil, nil)
 			Expect(err).NotTo(HaveOccurred())
-			defer resp.Body.Close()
+			defer func() {
+				if err := resp.Body.Close(); err != nil {
+					GinkgoWriter.Printf("Error closing response body: %v\n", err)
+				}
+			}()
 			
 			Expect(resp.StatusCode).To(Equal(http.StatusNotFound))
 		})
@@ -398,7 +461,11 @@ var _ = Describe("MCP REST API Tests", func() {
 		It("should list available resources", func() {
 			resp, err := makeRequest("GET", "/api/v1/mcp/resources", nil, nil)
 			Expect(err).NotTo(HaveOccurred())
-			defer resp.Body.Close()
+			defer func() {
+				if err := resp.Body.Close(); err != nil {
+					GinkgoWriter.Printf("Error closing response body: %v\n", err)
+				}
+			}()
 
 			if resp.StatusCode == http.StatusNotFound {
 				Skip("Resource endpoints not implemented")
@@ -418,7 +485,11 @@ var _ = Describe("MCP REST API Tests", func() {
 			
 			resp, err := makeRequest("GET", fmt.Sprintf("/api/v1/mcp/resources?uri=%s", resourceURI), nil, nil)
 			Expect(err).NotTo(HaveOccurred())
-			defer resp.Body.Close()
+			defer func() {
+				if err := resp.Body.Close(); err != nil {
+					GinkgoWriter.Printf("Error closing response body: %v\n", err)
+				}
+			}()
 
 			if resp.StatusCode == http.StatusNotFound {
 				Skip("Resource read endpoint not implemented")
@@ -434,7 +505,11 @@ var _ = Describe("MCP REST API Tests", func() {
 		It("should list available prompts", func() {
 			resp, err := makeRequest("GET", "/api/v1/mcp/prompts", nil, nil)
 			Expect(err).NotTo(HaveOccurred())
-			defer resp.Body.Close()
+			defer func() {
+				if err := resp.Body.Close(); err != nil {
+					GinkgoWriter.Printf("Error closing response body: %v\n", err)
+				}
+			}()
 
 			if resp.StatusCode == http.StatusNotFound {
 				Skip("Prompt endpoints not implemented")
@@ -454,7 +529,11 @@ var _ = Describe("MCP REST API Tests", func() {
 			
 			resp, err := makeRequest("GET", fmt.Sprintf("/api/v1/mcp/prompts/%s", promptName), nil, nil)
 			Expect(err).NotTo(HaveOccurred())
-			defer resp.Body.Close()
+			defer func() {
+				if err := resp.Body.Close(); err != nil {
+					GinkgoWriter.Printf("Error closing response body: %v\n", err)
+				}
+			}()
 
 			if resp.StatusCode == http.StatusNotFound {
 				Skip("Prompt endpoints not implemented or prompt not found")
@@ -492,7 +571,11 @@ var _ = Describe("MCP REST API Tests", func() {
 
 			resp, err := makeRequest("POST", "/api/v1/mcp/tools/batch", batchRequest, nil)
 			Expect(err).NotTo(HaveOccurred())
-			defer resp.Body.Close()
+			defer func() {
+				if err := resp.Body.Close(); err != nil {
+					GinkgoWriter.Printf("Error closing response body: %v\n", err)
+				}
+			}()
 
 			if resp.StatusCode == http.StatusNotFound {
 				Skip("Batch operations not implemented")
@@ -514,7 +597,11 @@ var _ = Describe("MCP REST API Tests", func() {
 		It("should return proper error for non-existent endpoints", func() {
 			resp, err := makeRequest("GET", "/api/v1/mcp/nonexistent", nil, nil)
 			Expect(err).NotTo(HaveOccurred())
-			defer resp.Body.Close()
+			defer func() {
+				if err := resp.Body.Close(); err != nil {
+					GinkgoWriter.Printf("Error closing response body: %v\n", err)
+				}
+			}()
 
 			Expect(resp.StatusCode).To(Equal(http.StatusNotFound))
 
@@ -535,7 +622,11 @@ var _ = Describe("MCP REST API Tests", func() {
 
 			resp, err := httpClient.Do(req)
 			Expect(err).NotTo(HaveOccurred())
-			defer resp.Body.Close()
+			defer func() {
+				if err := resp.Body.Close(); err != nil {
+					GinkgoWriter.Printf("Error closing response body: %v\n", err)
+				}
+			}()
 
 			if resp.StatusCode != http.StatusNotFound {
 				Expect(resp.StatusCode).To(Equal(http.StatusBadRequest))
@@ -553,14 +644,20 @@ var _ = Describe("MCP REST API Tests", func() {
 				if resp.StatusCode == http.StatusTooManyRequests {
 					// Rate limiting is enforced
 					var rateLimitInfo map[string]interface{}
-					json.NewDecoder(resp.Body).Decode(&rateLimitInfo)
-					resp.Body.Close()
+					if err := json.NewDecoder(resp.Body).Decode(&rateLimitInfo); err != nil {
+						GinkgoWriter.Printf("Error decoding rate limit info: %v\n", err)
+					}
+					if err := resp.Body.Close(); err != nil {
+				GinkgoWriter.Printf("Error closing response body: %v\n", err)
+			}
 					
 					GinkgoWriter.Printf("Rate limit hit after %d requests: %+v\n", i+1, rateLimitInfo)
 					return
 				}
 				
-				resp.Body.Close()
+				if err := resp.Body.Close(); err != nil {
+				GinkgoWriter.Printf("Error closing response body: %v\n", err)
+			}
 			}
 			
 			// If we get here, rate limiting might not be enabled
@@ -573,7 +670,9 @@ var _ = Describe("MCP REST API Tests", func() {
 			// Warm up
 			resp, err := makeRequest("GET", "/api/v1/mcp/tools", nil, nil)
 			if err == nil {
-				resp.Body.Close()
+				if err := resp.Body.Close(); err != nil {
+				GinkgoWriter.Printf("Error closing response body: %v\n", err)
+			}
 			}
 
 			// Measure latency
@@ -588,7 +687,9 @@ var _ = Describe("MCP REST API Tests", func() {
 					Skip("Server not responding consistently")
 				}
 				
-				resp.Body.Close()
+				if err := resp.Body.Close(); err != nil {
+				GinkgoWriter.Printf("Error closing response body: %v\n", err)
+			}
 				totalDuration += time.Since(start)
 			}
 
@@ -616,7 +717,9 @@ var _ = Describe("MCP REST API Tests", func() {
 							errorChan <- err
 							continue
 						}
-						resp.Body.Close()
+						if err := resp.Body.Close(); err != nil {
+				GinkgoWriter.Printf("Error closing response body: %v\n", err)
+			}
 					}
 					doneChan <- true
 				}(i)
@@ -658,11 +761,17 @@ var _ = Describe("MCP REST API Tests", func() {
 			if err != nil || resp.StatusCode == http.StatusNotFound {
 				Skip("Context API not available")
 			}
-			defer resp.Body.Close()
+			defer func() {
+				if err := resp.Body.Close(); err != nil {
+					GinkgoWriter.Printf("Error closing response body: %v\n", err)
+				}
+			}()
 
 			if resp.StatusCode == http.StatusCreated {
 				var context ContextResponse
-				json.NewDecoder(resp.Body).Decode(&context)
+				if err := json.NewDecoder(resp.Body).Decode(&context); err != nil {
+					GinkgoWriter.Printf("Error decoding context: %v\n", err)
+				}
 				
 				// Use context in MCP operation
 				toolCall := ToolCallRequest{
@@ -674,7 +783,9 @@ var _ = Describe("MCP REST API Tests", func() {
 
 				resp2, err := makeRequest("POST", "/api/v1/mcp/tools/call", toolCall, nil)
 				Expect(err).NotTo(HaveOccurred())
-				resp2.Body.Close()
+				if err := resp2.Body.Close(); err != nil {
+					GinkgoWriter.Printf("Error closing response body: %v\n", err)
+				}
 			}
 		})
 
@@ -689,11 +800,17 @@ var _ = Describe("MCP REST API Tests", func() {
 			if err != nil || resp.StatusCode == http.StatusNotFound {
 				Skip("Vector search not available")
 			}
-			defer resp.Body.Close()
+			defer func() {
+				if err := resp.Body.Close(); err != nil {
+					GinkgoWriter.Printf("Error closing response body: %v\n", err)
+				}
+			}()
 
 			if resp.StatusCode == http.StatusOK {
 				var results []map[string]interface{}
-				json.NewDecoder(resp.Body).Decode(&results)
+				if err := json.NewDecoder(resp.Body).Decode(&results); err != nil {
+					GinkgoWriter.Printf("Error decoding results: %v\n", err)
+				}
 				GinkgoWriter.Printf("Vector search returned %d results\n", len(results))
 			}
 		})

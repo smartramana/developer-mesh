@@ -25,15 +25,16 @@ func (s *Server) RegisterHandlers() {
 }
 
 // Add handlers field to Server struct (this would be added to server.go)
-type ServerWithHandlers struct {
-    *Server
-    handlers map[string]MessageHandler
-    
-    // Dependencies (these will be set in Task 7)
-    toolRegistry   ToolRegistry
-    contextManager ContextManager
-    eventBus       EventBus
-}
+// TODO: Uncomment when implementing message handlers
+// type ServerWithHandlers struct {
+//     *Server
+//     handlers map[string]MessageHandler
+//     
+//     // Dependencies (these will be set in Task 7)
+//     toolRegistry   ToolRegistry
+//     contextManager ContextManager
+//     eventBus       EventBus
+// }
 
 // processMessage handles incoming WebSocket messages
 func (s *Server) processMessage(ctx context.Context, conn *Connection, msg *ws.Message) ([]byte, error) {

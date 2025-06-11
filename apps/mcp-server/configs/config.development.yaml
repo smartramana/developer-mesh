@@ -1,0 +1,36 @@
+# MCP Server Development Configuration
+# Inherits from main development config but sets MCP-specific overrides
+
+_base: ../../../configs/config.development.yaml
+
+# Override the API listen address for MCP server
+api:
+  listen_address: ":8080"  # MCP server uses port 8080
+  
+# REST API client configuration (to connect to the separate REST API)
+rest_api:
+  enabled: true
+  base_url: "http://localhost:8081"
+  timeout: 30s
+
+# Database configuration (just to be explicit)
+database:
+  host: "localhost"
+  port: 5432
+  username: "postgres"
+  password: "postgres"
+  database: "devops_mcp_dev"
+  ssl_mode: "disable"
+
+# Cache configuration - use Redis via SSH tunnel
+cache:
+  type: "redis"  # Enable Redis caching
+  address: "127.0.0.1:6379"  # SSH tunnel to ElastiCache
+  # TLS enabled for ElastiCache (required)
+  tls:
+    enabled: true  # ElastiCache requires TLS
+    insecure_skip_verify: true  # Skip cert verification for localhost
+  # Increase timeouts for TLS handshake
+  dial_timeout: 10s
+  read_timeout: 5s
+  write_timeout: 5s

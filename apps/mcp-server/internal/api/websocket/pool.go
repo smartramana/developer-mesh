@@ -24,13 +24,14 @@ var (
     }
     
     // Connection pool for reusing connection objects
-    connectionPool = sync.Pool{
-        New: func() interface{} {
-            return &Connection{
-                send: make(chan []byte, 256),
-            }
-        },
-    }
+    // TODO: Uncomment when implementing connection pooling
+    // connectionPool = sync.Pool{
+    //     New: func() interface{} {
+    //         return &Connection{
+    //             send: make(chan []byte, 256),
+    //         }
+    //     },
+    // }
     
     // Binary header pool
     binaryHeaderPool = sync.Pool{
@@ -146,7 +147,8 @@ func PutByteSlice(b *[]byte) {
 type ConnectionPoolManager struct {
     pool chan *Connection
     size int
-    mu   sync.Mutex
+    // mu field reserved for future thread-safe operations
+    // mu   sync.Mutex
 }
 
 // NewConnectionPoolManager creates a new connection pool manager
@@ -164,7 +166,8 @@ func NewConnectionPoolManager(size int) *ConnectionPoolManager {
         select {
         case manager.pool <- conn:
         default:
-            break
+            // Pool is full, stop pre-filling
+            return manager
         }
     }
     

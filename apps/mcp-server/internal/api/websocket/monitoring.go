@@ -7,7 +7,7 @@ import (
     "time"
     
     "github.com/gin-gonic/gin"
-    "github.com/coder/websocket"
+    // "github.com/coder/websocket" // Reserved for dashboard WebSocket connections
 )
 
 // MonitoringEndpoints provides HTTP endpoints for WebSocket monitoring
@@ -283,9 +283,11 @@ type DashboardHub struct {
 // DashboardConnection represents a dashboard WebSocket connection
 type DashboardConnection struct {
     id     string
-    conn   *websocket.Conn
+    // conn field reserved for WebSocket connection
+    // conn   *websocket.Conn
     send   chan []byte
-    hub    *DashboardHub
+    // hub field reserved for dashboard hub reference
+    // hub    *DashboardHub
 }
 
 // NewWebSocketDashboard creates a new dashboard
@@ -344,7 +346,8 @@ func (h *DashboardHub) run() {
 }
 
 // Add startTime to Server struct
-type ServerWithStartTime struct {
-    *Server
-    startTime time.Time
-}
+// TODO: Uncomment when implementing server uptime tracking
+// type ServerWithStartTime struct {
+//     *Server
+//     startTime time.Time
+// }

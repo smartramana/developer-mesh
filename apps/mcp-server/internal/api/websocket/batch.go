@@ -197,12 +197,22 @@ func (bp *BatchProcessor) createBinaryBatch() ([]byte, error) {
     buf.Write(make([]byte, headerSize))
     
     // Write message count
-    binary.Write(buf, binary.BigEndian, uint32(len(bp.pendingMessages)))
+    if err := binary.Write(buf, binary.BigEndian, uint32(len(bp.pendingMessages))); err != nil {
+        bp.logger.Error("Failed to write message count", map[string]interface{}{
+            "error": err.Error(),
+        })
+        return nil, err
+    }
     
     // Write each message
     for _, msg := range bp.pendingMessages {
         // Write message length
-        binary.Write(buf, binary.BigEndian, uint32(len(msg.Message)))
+        if err := binary.Write(buf, binary.BigEndian, uint32(len(msg.Message))); err != nil {
+            bp.logger.Error("Failed to write message length", map[string]interface{}{
+                "error": err.Error(),
+            })
+            return nil, err
+        }
         // Write message data
         buf.Write(msg.Message)
     }
@@ -213,7 +223,12 @@ func (bp *BatchProcessor) createBinaryBatch() ([]byte, error) {
     
     // Write header to beginning of buffer
     headerBuf := bytes.NewBuffer(data[:0])
-    ws.WriteBinaryHeader(headerBuf, header)
+    if err := ws.WriteBinaryHeader(headerBuf, header); err != nil {
+        bp.logger.Error("Failed to write binary header", map[string]interface{}{
+            "error": err.Error(),
+        })
+        return nil, err
+    }
     
     result := make([]byte, buf.Len())
     copy(result, buf.Bytes())
@@ -244,7 +259,11 @@ func (bp *BatchProcessor) resetTimer() {
     }
     
     bp.flushTimer = time.AfterFunc(bp.flushInterval, func() {
-        bp.Flush()
+        if err := bp.Flush(); err != nil {
+            bp.logger.Error("Failed to flush batch", map[string]interface{}{
+                "error": err.Error(),
+            })
+        }
     })
 }
 
@@ -302,7 +321,8 @@ func generateBatchID() string {
 type ConnectionBatcher struct {
     connectionID string
     processor    *BatchProcessor
-    mu           sync.Mutex
+    // mu field reserved for future thread-safe operations
+    // mu           sync.Mutex
 }
 
 // NewConnectionBatcher creates a new connection batcher
