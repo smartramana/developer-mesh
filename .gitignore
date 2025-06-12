@@ -43,9 +43,12 @@ CLAUDE.md
 /simplified-mcp
 /api
 /apps/rest-api/rest-api
+/apps/rest-api/api
 /apps/mcp-server/mcp-server
+/apps/mcp-server/server
 /apps/worker/worker
 /apps/mockserver/mockserver
+/bin/
 
 
 # Log files
