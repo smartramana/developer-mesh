@@ -516,6 +516,31 @@ func buildAPIConfig(cfg *commonconfig.Config, logger observability.Logger) api.C
 	apiConfig.EnableSwagger = getEnvBool("API_ENABLE_SWAGGER", apiConfig.EnableSwagger)
 
 	// Configure authentication
+	if cfg.API.Auth != nil {
+		// JWT configuration
+		if jwtConfig, ok := cfg.API.Auth["jwt"].(map[string]interface{}); ok {
+			if secret, ok := jwtConfig["secret"].(string); ok && secret != "" {
+				apiConfig.Auth.JWTSecret = secret
+			}
+		}
+		
+		// API keys configuration
+		if apiKeysConfig, ok := cfg.API.Auth["api_keys"].(map[string]interface{}); ok {
+			if staticKeys, ok := apiKeysConfig["static_keys"].(map[string]interface{}); ok {
+				// Convert the nested structure to the format expected by the server
+				apiKeys := make(map[string]interface{})
+				for key, keyData := range staticKeys {
+					apiKeys[key] = keyData
+				}
+				apiConfig.Auth.APIKeys = apiKeys
+				logger.Info("Loaded API keys from config", map[string]interface{}{
+					"count": len(apiKeys),
+				})
+			}
+		}
+	}
+	
+	// Override JWT secret from environment if set
 	if jwtSecret := os.Getenv("JWT_SECRET"); jwtSecret != "" {
 		apiConfig.Auth.JWTSecret = jwtSecret
 	}

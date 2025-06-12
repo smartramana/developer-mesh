@@ -4,6 +4,7 @@ import (
     "bytes"
     "sync"
     
+    "github.com/coder/websocket"
     ws "github.com/S-Corkum/devops-mcp/pkg/models/websocket"
 )
 
@@ -189,6 +190,12 @@ func (m *ConnectionPoolManager) Get() *Connection {
 
 // Put returns a connection to the pool
 func (m *ConnectionPoolManager) Put(conn *Connection) {
+    // Close the underlying websocket connection if it exists
+    if conn.conn != nil {
+        // Ignore error as connection might already be closed
+        _ = conn.conn.Close(websocket.StatusNormalClosure, "")
+    }
+    
     // Reset connection state
     conn.Connection = nil
     conn.conn = nil

@@ -284,6 +284,25 @@ run-rest-api: ## Run REST API locally
 run-worker: ## Run worker service locally
 	cd $(WORKER_DIR) && MCP_CONFIG_FILE=../../configs/config.development.yaml ./$(WORKER_BINARY)
 
+.PHONY: stop-mcp-server
+stop-mcp-server: ## Stop MCP server
+	@echo "Stopping MCP server..."
+	@pkill -f "mcp-server.*MCP_CONFIG_FILE" || echo "MCP server not running"
+
+.PHONY: stop-rest-api
+stop-rest-api: ## Stop REST API
+	@echo "Stopping REST API..."
+	@pkill -f "rest-api.*MCP_CONFIG_FILE" || echo "REST API not running"
+
+.PHONY: stop-worker
+stop-worker: ## Stop worker service
+	@echo "Stopping worker..."
+	@pkill -f "worker.*MCP_CONFIG_FILE" || echo "Worker not running"
+
+.PHONY: stop-all
+stop-all: stop-mcp-server stop-rest-api stop-worker ## Stop all services
+	@echo "All services stopped"
+
 .PHONY: swagger
 swagger: ## Generate Swagger documentation
 	@which swag > /dev/null || go install github.com/swaggo/swag/cmd/swag@$(SWAG_VERSION)

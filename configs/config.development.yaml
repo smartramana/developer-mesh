@@ -41,31 +41,28 @@ api:
         "dev-admin-key-1234567890": 
           role: "admin"
           scopes: ["read", "write", "admin"]
-          tenant_id: "dev-tenant"
+          tenant_id: "test-tenant-1"
         "dev-readonly-key-1234567890":
           role: "reader"
           scopes: ["read"]
-          tenant_id: "dev-tenant"
+          tenant_id: "test-tenant-1"
+        # Test-specific API keys for tenant isolation testing
+        "test-key-tenant-1":
+          role: "user"
+          scopes: ["read", "write"]
+          tenant_id: "test-tenant-1"
+        "test-key-tenant-2":
+          role: "user"
+          scopes: ["read", "write"]
+          tenant_id: "test-tenant-2"
 
-# Authentication - Development settings
+# Authentication - Development settings (Note: API keys are configured in api.auth.api_keys above)
 auth:
   # JWT - Short expiration for testing
   jwt:
     secret: "dev-jwt-secret-minimum-32-characters"
     expiration: 1h
     refresh_expiration: 24h
-    
-  # Development API keys
-  api_keys:
-    static_keys:
-      "dev-admin-key-1234567890": 
-        role: "admin"
-        scopes: ["read", "write", "admin"]
-        tenant_id: "dev-tenant"
-      "dev-readonly-key-1234567890":
-        role: "reader"
-        scopes: ["read"]
-        tenant_id: "dev-tenant"
         
   # Relaxed security in dev
   security:
@@ -87,6 +84,11 @@ auth:
 websocket:
   enabled: true  # Enable WebSocket in development
   max_connections: 1000  # Lower limit for local development
+  read_buffer_size: 4096
+  write_buffer_size: 4096
+  ping_interval: 30s
+  pong_timeout: 60s
+  max_message_size: 1048576  # 1MB
   
   # Security - Relaxed for development
   security:
@@ -278,7 +280,6 @@ worker:
   sqs:
     queue_url: "${SQS_QUEUE_URL:-https://sqs.us-east-1.amazonaws.com/594992249511/sean-mcp-test}"
     region: "${AWS_REGION:-us-east-1}"
-    
     # AWS credentials (from environment or IAM role)
     access_key_id: "${AWS_ACCESS_KEY_ID:-}"
     secret_access_key: "${AWS_SECRET_ACCESS_KEY:-}"

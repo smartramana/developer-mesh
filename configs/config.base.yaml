@@ -342,7 +342,6 @@ features:
 # AWS Configuration - Default settings for AWS services
 aws:
   region: "${AWS_REGION:-us-east-1}"
-  
   # Service configuration defaults
   services:
     # ElastiCache defaults

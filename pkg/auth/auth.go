@@ -538,6 +538,91 @@ func (s *Service) InitializeDefaultAPIKeys(keys map[string]string) {
 	}
 }
 
+// InitializeAPIKeysWithConfig initializes API keys with full configuration including tenant IDs
+func (s *Service) InitializeAPIKeysWithConfig(keysConfig map[string]interface{}) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	for key, config := range keysConfig {
+		var apiKey *APIKey
+		
+		switch v := config.(type) {
+		case string:
+			// Simple role string - use defaults
+			var scopes []string
+			switch v {
+			case "admin":
+				scopes = []string{"read", "write", "admin"}
+			case "write":
+				scopes = []string{"read", "write"}
+			case "read", "reader":
+				scopes = []string{"read"}
+			default:
+				scopes = []string{"read"}
+			}
+			
+			apiKey = &APIKey{
+				Key:       key,
+				TenantID:  "default",
+				UserID:    "system",
+				Name:      fmt.Sprintf("Default %s key", v),
+				Scopes:    scopes,
+				CreatedAt: time.Now(),
+				Active:    true,
+			}
+			
+		case map[string]interface{}:
+			// Full configuration with tenant_id, scopes, etc.
+			role, _ := v["role"].(string)
+			tenantID, _ := v["tenant_id"].(string)
+			if tenantID == "" {
+				tenantID = "default"
+			}
+			
+			// Get scopes from config or derive from role
+			var scopes []string
+			if scopesInterface, ok := v["scopes"].([]interface{}); ok {
+				for _, s := range scopesInterface {
+					if scope, ok := s.(string); ok {
+						scopes = append(scopes, scope)
+					}
+				}
+			} else {
+				// Derive from role
+				switch role {
+				case "admin":
+					scopes = []string{"read", "write", "admin"}
+				case "write":
+					scopes = []string{"read", "write"}
+				case "read", "reader":
+					scopes = []string{"read"}
+				default:
+					scopes = []string{"read"}
+				}
+			}
+			
+			apiKey = &APIKey{
+				Key:       key,
+				TenantID:  tenantID,
+				UserID:    "system",
+				Name:      fmt.Sprintf("%s key for %s", role, tenantID),
+				Scopes:    scopes,
+				CreatedAt: time.Now(),
+				Active:    true,
+			}
+		}
+		
+		if apiKey != nil {
+			s.apiKeys[key] = apiKey
+			s.logger.Info("Initialized API key with config", map[string]interface{}{
+				"key_suffix": key[len(key)-4:], // Log only last 4 chars for security
+				"tenant_id":  apiKey.TenantID,
+				"scopes":     apiKey.Scopes,
+			})
+		}
+	}
+}
+
 // AddAPIKey adds an API key to the service at runtime (thread-safe)
 func (s *Service) AddAPIKey(key string, settings APIKeySettings) error {
     // Validation

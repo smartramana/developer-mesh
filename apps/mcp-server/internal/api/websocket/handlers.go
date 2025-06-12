@@ -4,6 +4,7 @@ import (
     "context"
     "encoding/json"
     "fmt"
+    "time"
     
     "github.com/S-Corkum/devops-mcp/pkg/models"
     ws "github.com/S-Corkum/devops-mcp/pkg/models/websocket"
@@ -18,6 +19,7 @@ func (s *Server) RegisterHandlers() {
         "initialize":      s.handleInitialize,
         "tool.list":       s.handleToolList,
         "tool.execute":    s.handleToolExecute,
+        "context.create":  s.handleContextCreate,
         "context.get":     s.handleContextGet,
         "context.update":  s.handleContextUpdate,
         "event.subscribe": s.handleEventSubscribe,
@@ -155,6 +157,32 @@ func (s *Server) handleToolExecute(ctx context.Context, conn *Connection, params
         "result": map[string]interface{}{
             "message": "Tool executed successfully",
         },
+    }, nil
+}
+
+// handleContextCreate handles the context.create method
+func (s *Server) handleContextCreate(ctx context.Context, conn *Connection, params json.RawMessage) (interface{}, error) {
+    var createParams struct {
+        Name    string `json:"name"`
+        Content string `json:"content"`
+    }
+    
+    if err := json.Unmarshal(params, &createParams); err != nil {
+        return nil, err
+    }
+    
+    // This will be implemented properly in Task 7
+    // For now, return a mock response with a generated ID
+    contextID := fmt.Sprintf("ctx_%d", time.Now().UnixNano())
+    
+    return map[string]interface{}{
+        "id":         contextID,
+        "name":       createParams.Name,
+        "content":    createParams.Content,
+        "agent_id":   conn.AgentID,
+        "tenant_id":  conn.TenantID,
+        "created_at": time.Now().Format(time.RFC3339),
+        "updated_at": time.Now().Format(time.RFC3339),
     }, nil
 }
 

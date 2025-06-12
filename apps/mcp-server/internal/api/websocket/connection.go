@@ -54,13 +54,15 @@ func (c *Connection) readPump() {
     defer func() {
         c.SetState(ws.ConnectionStateClosing)
         c.hub.removeConnection(c)
-        if err := c.conn.Close(websocket.StatusNormalClosure, ""); err != nil {
-            // Log error but don't fail - connection is already being closed
-            if c.hub.logger != nil {
-                c.hub.logger.Debug("Error closing WebSocket connection", map[string]interface{}{
-                    "error": err.Error(),
-                    "connection_id": c.ID,
-                })
+        if c.conn != nil {
+            if err := c.conn.Close(websocket.StatusNormalClosure, ""); err != nil {
+                // Log error but don't fail - connection is already being closed
+                if c.hub.logger != nil {
+                    c.hub.logger.Debug("Error closing WebSocket connection", map[string]interface{}{
+                        "error": err.Error(),
+                        "connection_id": c.ID,
+                    })
+                }
             }
         }
     }()
@@ -145,12 +147,14 @@ func (c *Connection) writePump() {
         case message, ok := <-c.send:
             if !ok {
                 // The hub closed the channel
-                if err := c.conn.Close(websocket.StatusNormalClosure, ""); err != nil {
-                    if c.hub.logger != nil {
-                        c.hub.logger.Debug("Error closing connection when hub closed channel", map[string]interface{}{
-                            "error": err.Error(),
-                            "connection_id": c.ID,
-                        })
+                if c.conn != nil {
+                    if err := c.conn.Close(websocket.StatusNormalClosure, ""); err != nil {
+                        if c.hub.logger != nil {
+                            c.hub.logger.Debug("Error closing connection when hub closed channel", map[string]interface{}{
+                                "error": err.Error(),
+                                "connection_id": c.ID,
+                            })
+                        }
                     }
                 }
                 return
@@ -160,9 +164,16 @@ func (c *Connection) writePump() {
             writeCtx, cancel := context.WithTimeout(ctx, 10*time.Second)
             defer cancel()
             
-            if err := c.conn.Write(writeCtx, websocket.MessageText, message); err != nil {
-                c.hub.logger.Error("Write error", map[string]interface{}{
-                    "error":         err.Error(),
+            if c.conn != nil {
+                if err := c.conn.Write(writeCtx, websocket.MessageText, message); err != nil {
+                    c.hub.logger.Error("Write error", map[string]interface{}{
+                        "error":         err.Error(),
+                        "connection_id": c.ID,
+                    })
+                    return
+                }
+            } else {
+                c.hub.logger.Error("Connection is nil", map[string]interface{}{
                     "connection_id": c.ID,
                 })
                 return
@@ -173,16 +184,18 @@ func (c *Connection) writePump() {
             
         case <-ticker.C:
             // Send ping to detect disconnected clients
-            pingCtx, cancel := context.WithTimeout(ctx, 10*time.Second)
-            if err := c.conn.Ping(pingCtx); err != nil {
+            if c.conn != nil {
+                pingCtx, cancel := context.WithTimeout(ctx, 10*time.Second)
+                if err := c.conn.Ping(pingCtx); err != nil {
+                    cancel()
+                    c.hub.logger.Error("Ping error", map[string]interface{}{
+                        "error":         err.Error(),
+                        "connection_id": c.ID,
+                    })
+                    return
+                }
                 cancel()
-                c.hub.logger.Error("Ping error", map[string]interface{}{
-                    "error":         err.Error(),
-                    "connection_id": c.ID,
-                })
-                return
             }
-            cancel()
         }
     }
 }

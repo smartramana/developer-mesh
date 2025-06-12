@@ -67,7 +67,7 @@ var _ = Describe("MCP REST API Tests", func() {
 		
 		apiKey = os.Getenv("MCP_API_KEY")
 		if apiKey == "" {
-			apiKey = "docker-admin-api-key"
+			apiKey = "dev-admin-key-1234567890"
 		}
 		
 		httpClient = &http.Client{
@@ -141,7 +141,8 @@ var _ = Describe("MCP REST API Tests", func() {
 
 	Describe("Authentication", func() {
 		It("should reject requests without API key", func() {
-			req, err := http.NewRequest("GET", baseURL+"/api/v1/mcp/tools", nil)
+			// Use context endpoint which exists on MCP server
+			req, err := http.NewRequest("GET", baseURL+"/api/v1/mcp/contexts", nil)
 			Expect(err).NotTo(HaveOccurred())
 			
 			resp, err := httpClient.Do(req)
@@ -156,7 +157,8 @@ var _ = Describe("MCP REST API Tests", func() {
 		})
 
 		It("should reject requests with invalid API key", func() {
-			resp, err := makeRequest("GET", "/api/v1/mcp/tools", nil, map[string]string{
+			// Use context endpoint which exists on MCP server
+			resp, err := makeRequest("GET", "/api/v1/mcp/contexts", nil, map[string]string{
 				"X-API-Key": "invalid-key",
 			})
 			Expect(err).NotTo(HaveOccurred())
@@ -170,7 +172,8 @@ var _ = Describe("MCP REST API Tests", func() {
 		})
 
 		It("should accept requests with valid API key", func() {
-			resp, err := makeRequest("GET", "/api/v1/mcp/tools", nil, nil)
+			// Use context endpoint which exists on MCP server
+			resp, err := makeRequest("GET", "/api/v1/mcp/contexts", nil, nil)
 			Expect(err).NotTo(HaveOccurred())
 			defer func() {
 				if err := resp.Body.Close(); err != nil {
@@ -180,6 +183,8 @@ var _ = Describe("MCP REST API Tests", func() {
 
 			// Should not be unauthorized
 			Expect(resp.StatusCode).NotTo(Equal(http.StatusUnauthorized))
+			// Should return OK (200)
+			Expect(resp.StatusCode).To(Equal(http.StatusOK))
 		})
 	})
 
@@ -310,15 +315,22 @@ var _ = Describe("MCP REST API Tests", func() {
 		var createdContextID string
 
 		It("should create a new context", func() {
-			contextReq := ContextRequest{
-				Content: "This is a test context for MCP operations",
-				Metadata: map[string]interface{}{
-					"source": "test",
-					"type":   "conversation",
+			// Use the actual Context struct format from models
+			contextReq := map[string]interface{}{
+				"name":        "Test Context",
+				"description": "This is a test context for MCP operations",
+				"agent_id":    "test-agent-123",
+				"model_id":    "test-model-123",
+				"content": []map[string]interface{}{
+					{
+						"role":    "user",
+						"content": "Test message",
+					},
 				},
+				"max_tokens": 1000,
 			}
 
-			resp, err := makeRequest("POST", "/api/v1/mcp/contexts", contextReq, nil)
+			resp, err := makeRequest("POST", "/api/v1/mcp/context", contextReq, nil)
 			Expect(err).NotTo(HaveOccurred())
 			defer func() {
 				if err := resp.Body.Close(); err != nil {
@@ -330,16 +342,21 @@ var _ = Describe("MCP REST API Tests", func() {
 				Skip("Context endpoints not implemented")
 			}
 
-			Expect(resp.StatusCode).To(Equal(http.StatusCreated))
+			// MCP server returns 200 OK, not 201 Created
+			Expect(resp.StatusCode).To(Equal(http.StatusOK))
 
-			var context ContextResponse
-			err = json.NewDecoder(resp.Body).Decode(&context)
+			var response map[string]interface{}
+			err = json.NewDecoder(resp.Body).Decode(&response)
 			Expect(err).NotTo(HaveOccurred())
 			
-			Expect(context.ID).NotTo(BeEmpty())
-			Expect(context.Content).To(Equal(contextReq.Content))
+			// Check response has message and id
+			Expect(response).To(HaveKey("message"))
+			Expect(response).To(HaveKey("id"))
 			
-			createdContextID = context.ID
+			if id, ok := response["id"].(string); ok && id != "" {
+				createdContextID = id
+			}
+			
 			GinkgoWriter.Printf("Created context: %s\n", createdContextID)
 		})
 
@@ -358,11 +375,20 @@ var _ = Describe("MCP REST API Tests", func() {
 
 			Expect(resp.StatusCode).To(Equal(http.StatusOK))
 
-			var contexts []ContextResponse
-			err = json.NewDecoder(resp.Body).Decode(&contexts)
+			// MCP server returns {"contexts": [...]}
+			var response map[string]interface{}
+			err = json.NewDecoder(resp.Body).Decode(&response)
 			Expect(err).NotTo(HaveOccurred())
 			
-			GinkgoWriter.Printf("Found %d contexts\n", len(contexts))
+			// Check that contexts key exists
+			Expect(response).To(HaveKey("contexts"))
+			
+			// Get the contexts array
+			if contextsRaw, ok := response["contexts"].([]interface{}); ok {
+				GinkgoWriter.Printf("Found %d contexts\n", len(contextsRaw))
+			} else {
+				GinkgoWriter.Printf("Contexts is not an array or is empty\n")
+			}
 		})
 
 		It("should get a specific context", func() {

@@ -45,6 +45,10 @@ var _ = Describe("WebSocket API Functional Tests", func() {
             apiKey = "test-key-admin"
         }
         
+        // Debug: Print the API key being used
+        GinkgoWriter.Printf("Using API key: %s\n", apiKey)
+        GinkgoWriter.Printf("WebSocket URL: %s\n", wsURL)
+        
         httpClient = &http.Client{
             Timeout: 30 * time.Second,
         }
@@ -268,7 +272,7 @@ var _ = Describe("WebSocket API Functional Tests", func() {
                 Type:   ws.MessageTypeRequest,
                 Method: "context.get",
                 Params: map[string]interface{}{
-                    "id": contextID,
+                    "context_id": contextID,
                 },
             }
             

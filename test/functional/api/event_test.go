@@ -155,8 +155,8 @@ var _ = Describe("Event Flow Tests", func() {
 			Expect(retrievedModel1ByClient2.ID).To(Equal(createdModel1.ID))
 
 			// Both models should have the same tenant ID from the API key
-			Expect(createdModel1.TenantID).To(Equal("00000000-0000-0000-0000-000000000001"))
-			Expect(createdModel2.TenantID).To(Equal("00000000-0000-0000-0000-000000000001"))
+			Expect(createdModel1.TenantID).To(Equal("test-tenant-1"))
+			Expect(createdModel2.TenantID).To(Equal("test-tenant-1"))
 		})
 	})
 })

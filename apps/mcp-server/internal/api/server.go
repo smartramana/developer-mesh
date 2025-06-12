@@ -101,6 +101,11 @@ func NewServer(engine *core.Engine, cfg Config, db *sqlx.DB, cacheClient cache.C
 		router.Use(CORSMiddleware(corsConfig))
 	}
 
+	// Initialize observability if not already done
+	if observability.DefaultLogger == nil {
+		observability.DefaultLogger = observability.NewStandardLogger("mcp-server")
+	}
+	
 	// Initialize auth service with cache
 	authConfig := auth.DefaultConfig()
 	authConfig.JWTSecret = cfg.Auth.JWTSecret
@@ -109,11 +114,6 @@ func NewServer(engine *core.Engine, cfg Config, db *sqlx.DB, cacheClient cache.C
 
 	// Create auth service with cache
 	authService := auth.NewService(authConfig, db, cacheClient, observability.DefaultLogger)
-	
-	// Initialize observability if not already done
-	if observability.DefaultLogger == nil {
-		observability.DefaultLogger = observability.NewStandardLogger("mcp-server")
-	}
 	
 	// Setup enhanced authentication with rate limiting, metrics, and audit logging
 	authMiddleware, err := auth.SetupAuthentication(db, cacheClient, observability.DefaultLogger, metrics)
@@ -129,26 +129,15 @@ func NewServer(engine *core.Engine, cfg Config, db *sqlx.DB, cacheClient cache.C
 	if cfg.Auth.APIKeys != nil {
 		fmt.Printf("API Keys from config: %+v\n", cfg.Auth.APIKeys)
 
-		// Initialize the key map for the API keys
-		keyMap := make(map[string]string)
-
-		// Convert the APIKeys to a map[string]string
+		// Use the new method that handles full configuration including tenant IDs
 		if apiKeys, ok := cfg.Auth.APIKeys.(map[string]interface{}); ok {
-			for key, role := range apiKeys {
-				if roleStr, ok := role.(string); ok {
-					keyMap[key] = roleStr
-					fmt.Printf("Adding API key from map: %s with role: %s\n", key, roleStr)
-				}
-			}
-		} else if apiKeys, ok := cfg.Auth.APIKeys.(map[string]string); ok {
-			keyMap = apiKeys
-			for key, role := range keyMap {
-				fmt.Printf("Adding API key from map: %s with role: %s\n", key, role)
+			authService.InitializeAPIKeysWithConfig(apiKeys)
+		} else {
+			// Fall back to simple string map if needed
+			if apiKeys, ok := cfg.Auth.APIKeys.(map[string]string); ok {
+				authService.InitializeDefaultAPIKeys(apiKeys)
 			}
 		}
-
-		// Initialize default API keys in auth service
-		authService.InitializeDefaultAPIKeys(keyMap)
 	} else {
 		fmt.Println("No API keys defined in config")
 	}
