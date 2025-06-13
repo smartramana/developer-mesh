@@ -99,6 +99,13 @@ dev-setup: ## Setup development environment
 	else \
 		echo "✅ .env file already exists"; \
 	fi
+	@echo "💡 To generate development TLS certificates, run: make dev-certs"
+
+.PHONY: dev-certs
+dev-certs: ## Generate development TLS certificates
+	@echo "🔐 Generating development TLS certificates..."
+	@./scripts/certs/generate-dev-certs.sh
+	@echo "✅ Certificates generated. Run 'source certs/dev/env-exports.sh' to load environment variables."
 
 # ==============================================================================
 # Build Commands

@@ -62,3 +62,12 @@ CLAUDE.md
 # Functional test artifacts
 logs/
 .test-pids
+
+# Development certificates
+certs/
+*.pem
+*.p12
+*.jks
+*.crt
+*.key
+*.csr

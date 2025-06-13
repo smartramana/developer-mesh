@@ -4,6 +4,8 @@ package database
 import (
 	"fmt"
 	"time"
+
+	securitytls "github.com/S-Corkum/devops-mcp/pkg/security/tls"
 )
 
 // Config defines what the database package needs - no external imports!
@@ -20,6 +22,9 @@ type Config struct {
 	MaxOpenConns    int
 	MaxIdleConns    int
 	ConnMaxLifetime time.Duration
+
+	// TLS Configuration
+	TLS *securitytls.Config
 
 	// Timeout configurations (best practice)
 	QueryTimeout   time.Duration // Default: 30s
@@ -104,6 +109,21 @@ func buildPostgresDSN(c *Config) string {
 	}
 	dsn += fmt.Sprintf("%s:%d/%s", c.Host, c.Port, c.Database)
 	dsn += "?sslmode=" + c.SSLMode
+
+	// Add TLS parameters if configured
+	if c.TLS != nil && c.TLS.Enabled && c.SSLMode != "disable" {
+		if c.TLS.CertFile != "" {
+			dsn += "&sslcert=" + c.TLS.CertFile
+		}
+		if c.TLS.KeyFile != "" {
+			dsn += "&sslkey=" + c.TLS.KeyFile
+		}
+		if c.TLS.CAFile != "" {
+			dsn += "&sslrootcert=" + c.TLS.CAFile
+		}
+		// Note: PostgreSQL driver doesn't support min TLS version in DSN
+		// This would need to be handled at the driver level
+	}
 
 	return dsn
 }

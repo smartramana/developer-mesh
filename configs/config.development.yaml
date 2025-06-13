@@ -24,6 +24,14 @@ api:
   enable_swagger: true
   enable_pprof: true  # Enable profiling in dev
   
+  # TLS Configuration (optional for development HTTPS)
+  tls:
+    enabled: ${API_TLS_ENABLED:-false}
+    cert_file: "${TLS_CERT_FILE:-}"
+    key_file: "${TLS_KEY_FILE:-}"
+    client_ca_file: "${TLS_CLIENT_CA_FILE:-}"
+    min_version: "${TLS_MIN_VERSION:-1.3}"
+  
   # CORS - Allow all origins in development
   cors:
     allowed_origins: ["*"]
@@ -110,7 +118,14 @@ database:
   username: "${DB_USER:-postgres}"
   password: "${DB_PASSWORD:-postgres}"
   database: "devops_mcp_dev"
-  ssl_mode: "disable"
+  ssl_mode: "${DATABASE_SSL_MODE:-disable}"
+  
+  # TLS Configuration (optional for development)
+  tls:
+    enabled: ${DATABASE_TLS_ENABLED:-false}
+    cert_file: "${DATABASE_TLS_CERT:-}"
+    key_file: "${DATABASE_TLS_KEY:-}"
+    ca_file: "${DATABASE_TLS_CA:-}"
   
   # Migrations
   migrations:
@@ -135,7 +150,10 @@ cache:
   # TLS settings for ElastiCache Serverless (required)
   tls:
     enabled: true  # ElastiCache requires TLS
-    insecure_skip_verify: true  # Skip cert verification for SSH tunnel
+    min_version: "1.3"  # Use TLS 1.3 for ElastiCache
+    insecure_skip_verify: true  # Skip cert verification for SSH tunnel (dev only)
+    session_tickets: true  # Performance optimization
+    ca_file: "${REDIS_CA_CERT:-}"  # Optional CA cert for verification
 
 # Monitoring - Development settings
 monitoring:
@@ -315,3 +333,7 @@ aws:
   elasticache:
     endpoint: "${ELASTICACHE_ENDPOINT:-sean-mcp-test-qem3fz.serverless.use1.cache.amazonaws.com:6379}"
     auth_token: "${ELASTICACHE_AUTH_TOKEN:-}"
+    tls:
+      enabled: true
+      min_version: "1.3"
+      insecure_skip_verify: true  # For SSH tunnel in dev

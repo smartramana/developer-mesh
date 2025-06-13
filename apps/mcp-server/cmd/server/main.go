@@ -28,6 +28,7 @@ import (
 	commonconfig "github.com/S-Corkum/devops-mcp/pkg/common/config"
 	pkgconfig "github.com/S-Corkum/devops-mcp/pkg/config"
 	"github.com/S-Corkum/devops-mcp/pkg/database"
+	securitytls "github.com/S-Corkum/devops-mcp/pkg/security/tls"
 	"github.com/S-Corkum/devops-mcp/pkg/observability"
 
 	// Import PostgreSQL driver
@@ -405,8 +406,11 @@ func initializeCache(ctx context.Context, cfg *commonconfig.Config, logger obser
 				"skip_verify": cfg.Cache.TLS.InsecureSkipVerify,
 			})
 			cacheConfig.TLS = &cache.TLSConfig{
-				Enabled:            cfg.Cache.TLS.Enabled,
-				InsecureSkipVerify: cfg.Cache.TLS.InsecureSkipVerify,
+				Config: &securitytls.Config{
+					Enabled:            cfg.Cache.TLS.Enabled,
+					InsecureSkipVerify: cfg.Cache.TLS.InsecureSkipVerify,
+					MinVersion:         cfg.Cache.TLS.MinVersion,
+				},
 			}
 		}
 	}

@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/S-Corkum/devops-mcp/pkg/common/aws"
+	securitytls "github.com/S-Corkum/devops-mcp/pkg/security/tls"
 )
 
 // RedisConfig holds configuration for Redis
@@ -38,8 +39,7 @@ type RedisConfig struct {
 
 // TLSConfig holds TLS configuration
 type TLSConfig struct {
-	Enabled            bool `mapstructure:"enabled"`              // Enable TLS
-	InsecureSkipVerify bool `mapstructure:"insecure_skip_verify"` // Skip certificate verification (dev only)
+	*securitytls.Config `mapstructure:",squash"` // Embed secure TLS configuration
 }
 
 // NewCache creates a new cache based on the configuration
@@ -105,10 +105,14 @@ func newRedisClusterClient(config RedisConfig) (Cache, error) {
 	}
 
 	// Add TLS if configured
-	if config.TLS != nil && config.TLS.Enabled {
-		clusterConfig.UseTLS = true
-		clusterConfig.TLSConfig = &tls.Config{
-			InsecureSkipVerify: config.TLS.InsecureSkipVerify,
+	if config.TLS != nil && config.TLS.Config != nil && config.TLS.Config.Enabled {
+		tlsConfig, err := config.TLS.Config.BuildTLSConfig()
+		if err != nil {
+			return nil, fmt.Errorf("failed to build TLS config: %w", err)
+		}
+		if tlsConfig != nil {
+			clusterConfig.UseTLS = true
+			clusterConfig.TLSConfig = tlsConfig
 		}
 	}
 
@@ -200,8 +204,11 @@ func newAWSElastiCacheClient(ctx context.Context, config RedisConfig) (Cache, er
 			// For standard Redis, we need to enable TLS
 			// Since the config doesn't have a UseTLS field, we check if TLS config exists
 			redisConfig.TLS = &TLSConfig{
-				Enabled:            true,
-				InsecureSkipVerify: tlsConfig.InsecureSkipVerify,
+				Config: &securitytls.Config{
+					Enabled:            true,
+					InsecureSkipVerify: tlsConfig.InsecureSkipVerify,
+					MinVersion:         securitytls.DefaultMinVersion,
+				},
 			}
 		}
 

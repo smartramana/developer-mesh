@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/S-Corkum/devops-mcp/pkg/common/aws"
+	securitytls "github.com/S-Corkum/devops-mcp/pkg/security/tls"
 )
 
 // ErrNotFound is returned when a key is not found in the cache
@@ -42,8 +43,7 @@ type RedisConfig struct {
 
 // TLSConfig holds TLS configuration
 type TLSConfig struct {
-	Enabled            bool `mapstructure:"enabled"`              // Enable TLS
-	InsecureSkipVerify bool `mapstructure:"insecure_skip_verify"` // Skip certificate verification (dev only)
+	*securitytls.Config `mapstructure:",squash"` // Embed secure TLS configuration
 }
 
 // NewCache creates a new cache based on the configuration

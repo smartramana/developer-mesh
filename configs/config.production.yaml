@@ -18,7 +18,13 @@ api:
     enabled: ${TLS_ENABLED:-true}
     cert_file: "${TLS_CERT_FILE}"
     key_file: "${TLS_KEY_FILE}"
-    min_version: "1.2"
+    min_version: "1.3"  # TLS 1.3 for production
+    client_auth: "${TLS_CLIENT_AUTH:-none}"  # Set to "require" for mutual TLS
+    client_ca_file: "${TLS_CLIENT_CA_FILE:-}"
+    session_tickets: true
+    enable_http2: true
+    strict_sni: true
+    ocsp_stapling: true  # Performance optimization
     
   # CORS - Restricted origins
   cors:
@@ -123,6 +129,13 @@ database:
   database: "${RDS_DATABASE}"
   ssl_mode: "require"
   
+  # TLS Configuration
+  tls:
+    enabled: true
+    min_version: "1.3"  # TLS 1.3 for RDS
+    verify_certificates: true
+    ca_file: "${RDS_CA_CERT:-/opt/certs/rds-ca-cert.pem}"
+  
   # IAM Authentication
   use_iam_auth: ${USE_IAM_AUTH:-true}
   aws_region: "${AWS_REGION}"
@@ -149,7 +162,10 @@ cache:
     # TLS enabled
     tls:
       enabled: true
+      min_version: "1.3"  # TLS 1.3 for ElastiCache
       ca_cert: "${REDIS_CA_CERT}"
+      verify_certificates: true  # Always verify in production
+      session_tickets: true  # Performance optimization
       
     # Production pool settings
     pool_size: ${REDIS_POOL_SIZE:-100}
