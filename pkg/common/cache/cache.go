@@ -45,8 +45,8 @@ func NewRedisCache(cfg RedisConfig) (*RedisCache, error) {
 	}
 	
 	// Configure TLS if enabled
-	if cfg.TLS != nil && cfg.TLS.Config != nil && cfg.TLS.Config.Enabled {
-		tlsConfig, err := cfg.TLS.Config.BuildTLSConfig()
+	if cfg.TLS != nil && cfg.TLS.Enabled {
+		tlsConfig, err := cfg.TLS.BuildTLSConfig()
 		if err != nil {
 			return nil, fmt.Errorf("failed to build TLS config: %w", err)
 		}

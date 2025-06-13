@@ -105,8 +105,8 @@ func newRedisClusterClient(config RedisConfig) (Cache, error) {
 	}
 
 	// Add TLS if configured
-	if config.TLS != nil && config.TLS.Config != nil && config.TLS.Config.Enabled {
-		tlsConfig, err := config.TLS.Config.BuildTLSConfig()
+	if config.TLS != nil && config.TLS.Enabled {
+		tlsConfig, err := config.TLS.BuildTLSConfig()
 		if err != nil {
 			return nil, fmt.Errorf("failed to build TLS config: %w", err)
 		}

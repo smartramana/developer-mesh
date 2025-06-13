@@ -231,12 +231,13 @@ func initSecureRandom() error {
 	val, err := rand.Int(rand.Reader, max)
 	if err != nil {
 		// Fallback to time-based seed
-		mathrand.New(mathrand.NewSource(time.Now().UnixNano()))
+		mathrand.New(mathrand.NewSource(time.Now().UnixNano())) // #nosec G404 - Fallback only
 		return fmt.Errorf("using time-based seed: %w", err)
 	}
 
 	// Use a new random source instead of the deprecated global Seed
-	mathrand.New(mathrand.NewSource(val.Int64()))
+	// This is secure: we're seeding math/rand with crypto/rand for performance
+	mathrand.New(mathrand.NewSource(val.Int64())) // #nosec G404 - Properly seeded with crypto/rand
 	return nil
 }
 

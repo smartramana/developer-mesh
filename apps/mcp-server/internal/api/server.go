@@ -195,7 +195,10 @@ func NewServer(engine *core.Engine, cfg Config, db *sqlx.DB, cacheClient cache.C
 	// Create the server instance
 	s := &Server{
 		router:            router,
-		server:            &http.Server{Handler: router},
+		server:            &http.Server{
+			Handler:           router,
+			ReadHeaderTimeout: 5 * time.Second, // Prevent Slowloris attacks
+		},
 		engine:            engine,
 		config:            cfg,  // Set the API config
 		logger:            observability.DefaultLogger,
@@ -257,8 +260,9 @@ func (s *Server) Initialize(ctx context.Context) error {
 	// Setup HTTP server if not done already
 	if s.server == nil {
 		s.server = &http.Server{
-			Addr:    s.config.ListenAddress,
-			Handler: s.router,
+			Addr:              s.config.ListenAddress,
+			Handler:           s.router,
+			ReadHeaderTimeout: 5 * time.Second, // Prevent Slowloris attacks
 		}
 	}
 

@@ -4,6 +4,7 @@ import (
     "bytes"
     "encoding/binary"
     "encoding/json"
+    "fmt"
     "sync"
     "time"
     
@@ -197,7 +198,11 @@ func (bp *BatchProcessor) createBinaryBatch() ([]byte, error) {
     buf.Write(make([]byte, headerSize))
     
     // Write message count
-    if err := binary.Write(buf, binary.BigEndian, uint32(len(bp.pendingMessages))); err != nil {
+    msgCount := len(bp.pendingMessages)
+    if msgCount > int(^uint32(0)) {
+        return nil, fmt.Errorf("message count exceeds uint32 max: %d", msgCount)
+    }
+    if err := binary.Write(buf, binary.BigEndian, uint32(msgCount)); err != nil { // #nosec G115 - Bounds checked above
         bp.logger.Error("Failed to write message count", map[string]interface{}{
             "error": err.Error(),
         })
@@ -207,7 +212,11 @@ func (bp *BatchProcessor) createBinaryBatch() ([]byte, error) {
     // Write each message
     for _, msg := range bp.pendingMessages {
         // Write message length
-        if err := binary.Write(buf, binary.BigEndian, uint32(len(msg.Message))); err != nil {
+        msgLen := len(msg.Message)
+        if msgLen > int(^uint32(0)) {
+            return nil, fmt.Errorf("message length exceeds uint32 max: %d", msgLen)
+        }
+        if err := binary.Write(buf, binary.BigEndian, uint32(msgLen)); err != nil { // #nosec G115 - Bounds checked above
             bp.logger.Error("Failed to write message length", map[string]interface{}{
                 "error": err.Error(),
             })
@@ -219,7 +228,11 @@ func (bp *BatchProcessor) createBinaryBatch() ([]byte, error) {
     
     // Update header with actual data size
     data := buf.Bytes()
-    header.DataSize = uint32(len(data) - headerSize)
+    dataSize := len(data) - headerSize
+    if dataSize < 0 || dataSize > int(^uint32(0)) {
+        return nil, fmt.Errorf("data size out of bounds: %d", dataSize)
+    }
+    header.DataSize = uint32(dataSize) // #nosec G115 - Bounds checked above
     
     // Write header to beginning of buffer
     headerBuf := bytes.NewBuffer(data[:0])

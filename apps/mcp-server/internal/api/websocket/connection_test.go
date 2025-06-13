@@ -36,6 +36,8 @@ func TestConnectionReadPump(t *testing.T) {
         mockLogger := &MockLogger{}
         mockLogger.On("Error", mock.Anything, mock.Anything).Return()
         mockLogger.On("Warn", mock.Anything, mock.Anything).Return()
+        mockLogger.On("Debug", mock.Anything, mock.Anything).Return()
+        mockLogger.On("Info", mock.Anything, mock.Anything).Return()
         
         // Create mock hub
         mockHub := &Server{
@@ -119,6 +121,9 @@ func TestConnectionWritePump(t *testing.T) {
         // Create mock logger
         mockLogger := &MockLogger{}
         mockLogger.On("Error", mock.Anything, mock.Anything).Return()
+        mockLogger.On("Debug", mock.Anything, mock.Anything).Return()
+        mockLogger.On("Info", mock.Anything, mock.Anything).Return()
+        mockLogger.On("Warn", mock.Anything, mock.Anything).Return()
         
         // Create mock hub
         mockHub := &Server{
@@ -185,6 +190,8 @@ func TestConnectionSendError(t *testing.T) {
     mockLogger := &MockLogger{}
     mockLogger.On("Error", mock.Anything, mock.Anything).Return()
     mockLogger.On("Warn", mock.Anything, mock.Anything).Return()
+    mockLogger.On("Debug", mock.Anything, mock.Anything).Return()
+    mockLogger.On("Info", mock.Anything, mock.Anything).Return()
     
     mockHub := &Server{
         logger:           mockLogger,

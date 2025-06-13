@@ -15,9 +15,7 @@ type Config struct {
 	IdleTimeout   time.Duration            `mapstructure:"idle_timeout"`
 	EnableCORS    bool                     `mapstructure:"enable_cors"`
 	EnableSwagger bool                     `mapstructure:"enable_swagger"`
-	TLSCertFile   string                   `mapstructure:"tls_cert_file"`   // Deprecated: Use TLS.CertFile
-	TLSKeyFile    string                   `mapstructure:"tls_key_file"`    // Deprecated: Use TLS.KeyFile
-	TLS           *securitytls.Config      `mapstructure:"tls"`             // TLS configuration
+	TLS           *securitytls.Config      `mapstructure:"tls"`        // TLS configuration
 	Auth          AuthConfig               `mapstructure:"auth"`
 	RateLimit     RateLimitConfig          `mapstructure:"rate_limit"`
 	Versioning    VersioningConfig         `mapstructure:"versioning"`

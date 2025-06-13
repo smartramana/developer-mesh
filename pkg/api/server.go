@@ -299,46 +299,37 @@ func (s *Server) Start() error {
 
 // StartTLS starts the API server with TLS
 func (s *Server) StartTLS(certFile, keyFile string) error {
-	// First check if new TLS config is available
-	if s.config.TLS != nil && s.config.TLS.Enabled {
-		// Build TLS configuration
-		tlsConfig, err := s.config.TLS.BuildTLSConfig()
-		if err != nil {
-			return fmt.Errorf("failed to build TLS config: %w", err)
-		}
-		
-		// Apply TLS config to server
-		s.server.TLSConfig = tlsConfig
-		
-		// Use cert and key files from TLS config
-		certPath := s.config.TLS.CertFile
-		keyPath := s.config.TLS.KeyFile
-		
-		// Override with provided files if any
-		if certFile != "" {
-			certPath = certFile
-		}
-		if keyFile != "" {
-			keyPath = keyFile
-		}
-		
-		if certPath != "" && keyPath != "" {
-			return s.server.ListenAndServeTLS(certPath, keyPath)
-		}
+	// Check if TLS config is available
+	if s.config.TLS == nil || !s.config.TLS.Enabled {
+		return fmt.Errorf("TLS is not enabled in configuration")
+	}
+
+	// Build TLS configuration
+	tlsConfig, err := s.config.TLS.BuildTLSConfig()
+	if err != nil {
+		return fmt.Errorf("failed to build TLS config: %w", err)
 	}
 	
-	// Fallback to deprecated fields
-	if certFile != "" && keyFile != "" {
-		return s.server.ListenAndServeTLS(certFile, keyFile)
+	// Apply TLS config to server
+	s.server.TLSConfig = tlsConfig
+	
+	// Use cert and key files from TLS config
+	certPath := s.config.TLS.CertFile
+	keyPath := s.config.TLS.KeyFile
+	
+	// Override with provided files if any
+	if certFile != "" {
+		certPath = certFile
 	}
-
-	// Otherwise use the ones from config
-	if s.config.TLSCertFile != "" && s.config.TLSKeyFile != "" {
-		return s.server.ListenAndServeTLS(s.config.TLSCertFile, s.config.TLSKeyFile)
+	if keyFile != "" {
+		keyPath = keyFile
 	}
-
-	// If no TLS files are available, return an error
-	return fmt.Errorf("no TLS certificate files configured")
+	
+	if certPath == "" || keyPath == "" {
+		return fmt.Errorf("TLS certificate and key files must be configured")
+	}
+	
+	return s.server.ListenAndServeTLS(certPath, keyPath)
 }
 
 // Shutdown gracefully shuts down the API server

@@ -22,12 +22,8 @@ var secureVersions = map[string]uint16{
 	"1.3": tls.VersionTLS13, // Default and recommended
 }
 
-// TLS 1.3 cipher suites (automatically selected by Go)
-var tls13CipherSuites = []uint16{
-	tls.TLS_AES_128_GCM_SHA256,
-	tls.TLS_AES_256_GCM_SHA384,
-	tls.TLS_CHACHA20_POLY1305_SHA256,
-}
+// TLS 1.3 cipher suites are automatically selected by Go
+// and cannot be configured manually
 
 // TLS 1.2 secure cipher suites (PFS only)
 var tls12SecureCipherSuites = []uint16{
@@ -92,7 +88,10 @@ func (c *Config) BuildTLSConfig() (*tls.Config, error) {
 	}
 
 	tlsConfig := &tls.Config{
-		InsecureSkipVerify: c.InsecureSkipVerify,
+		// InsecureSkipVerify is configurable but should only be used in development
+		// environments (e.g., with self-signed certs or SSH tunnels). Production 
+		// deployments should ALWAYS verify certificates.
+		InsecureSkipVerify: c.InsecureSkipVerify, // #nosec G402 - Configurable for dev environments
 		ServerName:         c.ServerName,
 		SessionTicketsDisabled: !c.SessionTickets, // Invert for Go 1.18+
 		Renegotiation:      tls.RenegotiateNever, // Security best practice

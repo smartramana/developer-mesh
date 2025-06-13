@@ -23,9 +23,7 @@ type ElastiCacheConfig struct {
 	CacheNodes         []string      `mapstructure:"cache_nodes"`       // List of nodes for cluster mode
 	ClusterDiscovery   bool                  `mapstructure:"cluster_discovery"` // Use API to discover nodes
 	ClusterName        string                `mapstructure:"cluster_name"`
-	UseTLS             bool                  `mapstructure:"use_tls"`              // Deprecated: Use TLS.Enabled instead
-	InsecureSkipVerify bool                  `mapstructure:"insecure_skip_verify"` // Deprecated: Use TLS.InsecureSkipVerify instead
-	TLS                *securitytls.Config   `mapstructure:"tls"`                  // TLS configuration
+	TLS                *securitytls.Config   `mapstructure:"tls"`          // TLS configuration
 	MaxRetries         int                   `mapstructure:"max_retries"`
 	MinIdleConnections int           `mapstructure:"min_idle_connections"`
 	PoolSize           int           `mapstructure:"pool_size"`
@@ -178,24 +176,12 @@ func (c *ElastiCacheClient) BuildRedisOptions(ctx context.Context) (map[string]a
 
 	// TLS configuration
 	if c.config.TLS != nil && c.config.TLS.Enabled {
-		// Use new TLS configuration
+		// Use TLS configuration
 		tlsConfig, err := c.config.TLS.BuildTLSConfig()
 		if err != nil {
 			return nil, fmt.Errorf("failed to build TLS config: %w", err)
 		}
 		options["tls"] = tlsConfig
-	} else if c.config.UseTLS {
-		// Fallback to deprecated fields
-		tlsConfig := &securitytls.Config{
-			Enabled:            true,
-			InsecureSkipVerify: c.config.InsecureSkipVerify,
-			MinVersion:         securitytls.DefaultMinVersion,
-		}
-		builtConfig, err := tlsConfig.BuildTLSConfig()
-		if err != nil {
-			return nil, fmt.Errorf("failed to build TLS config: %w", err)
-		}
-		options["tls"] = builtConfig
 	}
 
 	// Connection pool settings
