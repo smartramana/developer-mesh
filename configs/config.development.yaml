@@ -7,9 +7,20 @@ _base: config.base.yaml
 # Environment
 environment: "development"
 
-# API Server - Development overrides
+# MCP Server Configuration
+mcp_server:
+  listen_address: ":8080"  # MCP server port (WebSocket/MCP protocol)
+  # Connection to REST API for data operations
+  rest_api:
+    enabled: true
+    base_url: "http://localhost:8081"
+    api_key: "${MCP_API_KEY:-dev-admin-key-1234567890}"
+    timeout: 30s
+    retry_count: 3
+
+# API Server - Development overrides (used by REST API)
 api:
-  listen_address: ":8080"
+  listen_address: ":8081"  # REST API server port
   enable_swagger: true
   enable_pprof: true  # Enable profiling in dev
   
@@ -17,29 +28,41 @@ api:
   cors:
     allowed_origins: ["*"]
     
-  # Disable auth for easier testing (can be toggled)
+  # Authentication settings for API
   auth:
     require_auth: ${REQUIRE_AUTH:-false}
+    # JWT - Short expiration for testing
+    jwt_secret: "dev-jwt-secret-minimum-32-characters"
+    jwt_expiration: 1h
+    
+    # Development API keys
+    api_keys:
+      static_keys:
+        "dev-admin-key-1234567890": 
+          role: "admin"
+          scopes: ["read", "write", "admin"]
+          tenant_id: "test-tenant-1"
+        "dev-readonly-key-1234567890":
+          role: "reader"
+          scopes: ["read"]
+          tenant_id: "test-tenant-1"
+        # Test-specific API keys for tenant isolation testing
+        "test-key-tenant-1":
+          role: "user"
+          scopes: ["read", "write"]
+          tenant_id: "test-tenant-1"
+        "test-key-tenant-2":
+          role: "user"
+          scopes: ["read", "write"]
+          tenant_id: "test-tenant-2"
 
-# Authentication - Development settings
+# Authentication - Development settings (Note: API keys are configured in api.auth.api_keys above)
 auth:
   # JWT - Short expiration for testing
   jwt:
     secret: "dev-jwt-secret-minimum-32-characters"
     expiration: 1h
     refresh_expiration: 24h
-    
-  # Development API keys
-  api_keys:
-    static_keys:
-      "dev-admin-key-1234567890": 
-        role: "admin"
-        scopes: ["read", "write", "admin"]
-        tenant_id: "dev-tenant"
-      "dev-readonly-key-1234567890":
-        role: "reader"
-        scopes: ["read"]
-        tenant_id: "dev-tenant"
         
   # Relaxed security in dev
   security:
@@ -57,13 +80,36 @@ auth:
     log_level: "debug"
     log_to_console: true
 
+# WebSocket - Development settings
+websocket:
+  enabled: true  # Enable WebSocket in development
+  max_connections: 1000  # Lower limit for local development
+  read_buffer_size: 4096
+  write_buffer_size: 4096
+  ping_interval: 30s
+  pong_timeout: 60s
+  max_message_size: 1048576  # 1MB
+  
+  # Security - Relaxed for development
+  security:
+    require_auth: false  # Disable auth for easier testing
+    hmac_signatures: false
+    allowed_origins: ["*"]  # Allow all origins in dev
+    
+  # Rate limiting - Relaxed for development
+  rate_limit:
+    rate: 100  # 6000 per minute (100 per second) - higher for testing
+    burst: 200
+    per_ip: false  # Disable IP-based limiting in dev
+    per_user: false  # Disable user-based limiting in dev
+
 # Database - Local PostgreSQL
 database:
   host: "${DB_HOST:-localhost}"
   port: ${DB_PORT:-5432}
   username: "${DB_USER:-postgres}"
   password: "${DB_PASSWORD:-postgres}"
-  database: "${DB_NAME:-devops_mcp_dev}"
+  database: "devops_mcp_dev"
   ssl_mode: "disable"
   
   # Migrations
@@ -71,16 +117,25 @@ database:
     auto_migrate: true
     migrations_path: "./migrations"
 
-# Cache - Local Redis
+# Cache - AWS ElastiCache Redis
 cache:
-  distributed:
-    address: "${REDIS_HOST:-localhost}:${REDIS_PORT:-6379}"
-    password: "${REDIS_PASSWORD:-}"
-    db: 0
-    
-  # Disable multi-level cache in dev for simplicity
-  local:
-    enabled: false
+  type: "redis"  # Enable Redis caching
+  address: "127.0.0.1:6379"  # SSH tunnel to ElastiCache (use 127.0.0.1 not localhost)
+  password: "${REDIS_PASSWORD:-}"
+  database: 0
+  
+  # Connection settings for AWS ElastiCache
+  pool_size: 50
+  min_idle_conns: 10
+  dial_timeout: 10s  # Increased for TLS handshake
+  read_timeout: 5s   # Increased for stability
+  write_timeout: 5s  # Increased for stability
+  max_retries: 3
+  
+  # TLS settings for ElastiCache Serverless (required)
+  tls:
+    enabled: true  # ElastiCache requires TLS
+    insecure_skip_verify: true  # Skip cert verification for SSH tunnel
 
 # Monitoring - Development settings
 monitoring:
@@ -96,20 +151,25 @@ monitoring:
   tracing:
     enabled: false  # Usually disabled in dev
 
-# Storage - Local/Mock storage
+# Storage - Real AWS S3
 storage:
   context:
-    provider: "filesystem"
+    provider: "${STORAGE_PROVIDER:-s3}"  # Use S3 by default, can override to filesystem
     filesystem:
       base_path: "./data/contexts"
       
-  # Use mock S3 (LocalStack) if needed
+  # Real AWS S3 configuration
   s3:
-    endpoint: "${S3_ENDPOINT:-http://localhost:4566}"
-    region: "us-east-1"
-    bucket: "dev-contexts"
-    force_path_style: true
-    disable_ssl: true
+    endpoint: "${S3_ENDPOINT:-}"  # Empty for real AWS S3
+    region: "${AWS_REGION:-us-east-1}"
+    bucket: "${S3_BUCKET:-mcp-dev-contexts}"
+    force_path_style: false  # Use virtual-hosted-style for real S3
+    disable_ssl: false  # Use SSL for real S3
+    
+    # AWS credentials (from environment or IAM role)
+    access_key_id: "${AWS_ACCESS_KEY_ID:-}"
+    secret_access_key: "${AWS_SECRET_ACCESS_KEY:-}"
+    session_token: "${AWS_SESSION_TOKEN:-}"  # For temporary credentials
 
 # Adapters - Development settings
 adapters:
@@ -169,12 +229,17 @@ embedding:
       enabled: ${OPENAI_ENABLED:-false}
       api_key: "${OPENAI_API_KEY}"
       
-    # AWS Bedrock Provider - Alternative
+    # AWS Bedrock Provider - Real AWS
     bedrock:
-      enabled: ${BEDROCK_ENABLED:-false}
+      enabled: ${BEDROCK_ENABLED:-true}  # Enable by default for AWS development
       region: "${AWS_REGION:-us-east-1}"
-      # Use LocalStack endpoint in development if available
+      # Empty endpoint to use real AWS Bedrock
       endpoint: "${BEDROCK_ENDPOINT:-}"
+      
+      # AWS credentials (from environment or IAM role)
+      access_key_id: "${AWS_ACCESS_KEY_ID:-}"
+      secret_access_key: "${AWS_SECRET_ACCESS_KEY:-}"
+      session_token: "${AWS_SESSION_TOKEN:-}"  # For temporary credentials
       
     # Google AI Provider
     google:
@@ -205,3 +270,48 @@ embedding:
   router:
     selection_strategy: "round_robin"  # Simple strategy for dev
     cache_ttl: "1m"  # Shorter cache in dev
+
+# Worker Configuration - Real AWS SQS
+worker:
+  queue_type: "${WORKER_QUEUE_TYPE:-sqs}"  # Use SQS by default
+  concurrency: ${WORKER_CONCURRENCY:-10}
+  
+  # Real AWS SQS configuration
+  sqs:
+    queue_url: "${SQS_QUEUE_URL:-https://sqs.us-east-1.amazonaws.com/594992249511/sean-mcp-test}"
+    region: "${AWS_REGION:-us-east-1}"
+    # AWS credentials (from environment or IAM role)
+    access_key_id: "${AWS_ACCESS_KEY_ID:-}"
+    secret_access_key: "${AWS_SECRET_ACCESS_KEY:-}"
+    session_token: "${AWS_SESSION_TOKEN:-}"  # For temporary credentials
+    
+    # SQS settings
+    visibility_timeout: 30s
+    wait_time_seconds: 20  # Long polling
+    max_messages: 10  # Max messages per receive
+    
+  # Memory queue for local testing without AWS
+  memory:
+    enabled: ${MEMORY_QUEUE_ENABLED:-false}
+    buffer_size: 1000
+
+# AWS Configuration - Common settings for all AWS services
+aws:
+  region: "${AWS_REGION:-us-east-1}"
+  
+  # Credentials (optional - can use IAM role or environment)
+  credentials:
+    access_key_id: "${AWS_ACCESS_KEY_ID:-}"
+    secret_access_key: "${AWS_SECRET_ACCESS_KEY:-}"
+    session_token: "${AWS_SESSION_TOKEN:-}"
+    
+  # Service endpoints (empty for real AWS)
+  endpoints:
+    s3: "${S3_ENDPOINT:-}"
+    sqs: "${SQS_ENDPOINT:-}"
+    bedrock: "${BEDROCK_ENDPOINT:-}"
+    
+  # ElastiCache specific configuration
+  elasticache:
+    endpoint: "${ELASTICACHE_ENDPOINT:-sean-mcp-test-qem3fz.serverless.use1.cache.amazonaws.com:6379}"
+    auth_token: "${ELASTICACHE_AUTH_TOKEN:-}"

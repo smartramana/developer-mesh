@@ -119,7 +119,7 @@ var _ = Describe("Authentication Tests", func() {
 			Expect(err).NotTo(HaveOccurred())
 			Expect(createdModel.ID).NotTo(BeEmpty())
 			// The model should be created with the API key's tenant ID, not the requested one
-			Expect(createdModel.TenantID).To(Equal("00000000-0000-0000-0000-000000000001"))
+			Expect(createdModel.TenantID).To(Equal("test-tenant-1"))
 
 			// Both clients have the same API key tenant, so access should work
 			retrievedModel, err := crossTenantClient.GetModel(ctx, createdModel.ID)

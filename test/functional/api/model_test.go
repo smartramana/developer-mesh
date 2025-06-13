@@ -60,7 +60,7 @@ var _ = Describe("Model Operations", func() {
 			// Verify required fields
 			Expect(createdModel.Name).To(Equal("CRUD Test Model"))
 			// The tenant ID should be from the API key, not the request
-			Expect(createdModel.TenantID).To(Equal("00000000-0000-0000-0000-000000000001"))
+			Expect(createdModel.TenantID).To(Equal("test-tenant-1"))
 
 			// READ
 			retrievedModel, err := mcpClient.GetModel(ctx, createdModel.ID)

@@ -47,6 +47,51 @@ type Config struct {
 	AWS         AWSConfig         `mapstructure:"aws"`
 	Environment string            `mapstructure:"environment"`
 	Adapters    map[string]any    `mapstructure:"adapters"`
+	WebSocket   *WebSocketConfig  `mapstructure:"websocket"`
+	MCPServer   *MCPServerConfig  `mapstructure:"mcp_server"`
+}
+
+// RestAPIConfig holds configuration for connecting to REST API service
+type RestAPIConfig struct {
+	Enabled    bool          `mapstructure:"enabled"`
+	BaseURL    string        `mapstructure:"base_url"`
+	APIKey     string        `mapstructure:"api_key"`
+	Timeout    time.Duration `mapstructure:"timeout"`
+	RetryCount int           `mapstructure:"retry_count"`
+}
+
+// MCPServerConfig holds MCP-specific configuration overrides
+type MCPServerConfig struct {
+	ListenAddress string         `mapstructure:"listen_address"`
+	RestAPI       RestAPIConfig  `mapstructure:"rest_api"`
+}
+
+// WebSocketConfig holds WebSocket server configuration
+type WebSocketConfig struct {
+	Enabled         bool                     `mapstructure:"enabled"`
+	MaxConnections  int                      `mapstructure:"max_connections"`
+	ReadBufferSize  int                      `mapstructure:"read_buffer_size"`
+	WriteBufferSize int                      `mapstructure:"write_buffer_size"`
+	PingInterval    time.Duration            `mapstructure:"ping_interval"`
+	PongTimeout     time.Duration            `mapstructure:"pong_timeout"`
+	MaxMessageSize  int64                    `mapstructure:"max_message_size"`
+	Security        *WebSocketSecurityConfig `mapstructure:"security"`
+	RateLimit       *WebSocketRateLimitConfig `mapstructure:"rate_limit"`
+}
+
+// WebSocketSecurityConfig holds WebSocket security configuration
+type WebSocketSecurityConfig struct {
+	RequireAuth     bool     `mapstructure:"require_auth"`
+	HMACSignatures  bool     `mapstructure:"hmac_signatures"`
+	AllowedOrigins  []string `mapstructure:"allowed_origins"`
+}
+
+// WebSocketRateLimitConfig holds WebSocket rate limiting configuration
+type WebSocketRateLimitConfig struct {
+	Rate    float64 `mapstructure:"rate"`
+	Burst   int     `mapstructure:"burst"`
+	PerIP   bool    `mapstructure:"per_ip"`
+	PerUser bool    `mapstructure:"per_user"`
 }
 
 // AWSConfig holds configuration for AWS services

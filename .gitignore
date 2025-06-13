@@ -43,10 +43,22 @@ CLAUDE.md
 /simplified-mcp
 /api
 /apps/rest-api/rest-api
+/apps/rest-api/rest-api-linux
+/apps/rest-api/api
 /apps/mcp-server/mcp-server
+/apps/mcp-server/server
 /apps/worker/worker
 /apps/mockserver/mockserver
+/bin/
+# Any file without extension in app directories (likely binaries)
+/apps/*/[!.]*
+!/apps/*/Dockerfile
+!/apps/*/Makefile
 
 
 # Log files
 *.log
+
+# Functional test artifacts
+logs/
+.test-pids

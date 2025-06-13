@@ -54,6 +54,38 @@ auth:
     log_level: "info"
     include_request_body: true
 
+# WebSocket - Staging settings
+websocket:
+  enabled: true
+  max_connections: 10000  # Lower than production but sufficient for testing
+  
+  # Standard buffer sizes
+  read_buffer_size: 4096
+  write_buffer_size: 4096
+  
+  # Connection settings
+  ping_interval: 30s
+  pong_timeout: 60s
+  max_message_size: 1048576  # 1MB
+  
+  # Security - Similar to production but with test allowances
+  security:
+    require_auth: true
+    hmac_signatures: ${WS_HMAC_ENABLED:-false}  # Can toggle for testing
+    allowed_origins: 
+      - "https://staging.example.com"
+      - "https://test.example.com"
+      - "ws://staging.example.com"
+      - "wss://staging.example.com"
+    max_frame_size: 1048576
+    
+  # Rate limiting - Higher for load testing
+  rate_limit:
+    rate: 33.33  # 2000 per minute for testing
+    burst: 200
+    per_ip: true
+    per_user: true
+
 # Database - Staging RDS
 database:
   host: "${RDS_HOST}"

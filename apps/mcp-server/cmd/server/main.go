@@ -18,6 +18,7 @@ import (
 
 	// Internal application-specific imports
 	"mcp-server/internal/api"
+	"mcp-server/internal/api/websocket"
 	"mcp-server/internal/config"
 	"mcp-server/internal/core"
 
@@ -396,12 +397,25 @@ func initializeCache(ctx context.Context, cfg *commonconfig.Config, logger obser
 			MinIdleConns: cfg.Cache.MinIdleConns,
 			PoolTimeout:  cfg.Cache.PoolTimeout,
 		}
+		
+		// Convert TLS config if present
+		if cfg.Cache.TLS != nil {
+			logger.Info("Converting TLS config", map[string]interface{}{
+				"enabled": cfg.Cache.TLS.Enabled,
+				"skip_verify": cfg.Cache.TLS.InsecureSkipVerify,
+			})
+			cacheConfig.TLS = &cache.TLSConfig{
+				Enabled:            cfg.Cache.TLS.Enabled,
+				InsecureSkipVerify: cfg.Cache.TLS.InsecureSkipVerify,
+			}
+		}
 	}
 
 	logger.Info("Initializing cache", map[string]interface{}{
 		"type":         cacheConfig.Type,
 		"cluster_mode": cacheConfig.ClusterMode,
 		"address":      cacheConfig.Address,
+		"tls_enabled":  cacheConfig.TLS != nil && cacheConfig.TLS.Enabled,
 	})
 
 	return cache.NewCache(ctx, cacheConfig)
@@ -427,7 +441,7 @@ func initializeServer(ctx context.Context, cfg *commonconfig.Config, engine *cor
 	db *database.Database, cacheClient cache.Cache, metricsClient observability.MetricsClient, logger observability.Logger) (*api.Server, error) {
 
 	// Build API configuration
-	apiConfig := buildAPIConfig(cfg)
+	apiConfig := buildAPIConfig(cfg, logger)
 
 	logger.Info("Initializing API server", map[string]interface{}{
 		"listen_address": apiConfig.ListenAddress,
@@ -458,11 +472,31 @@ func initializeServer(ctx context.Context, cfg *commonconfig.Config, engine *cor
 }
 
 // buildAPIConfig creates API configuration from common config
-func buildAPIConfig(cfg *commonconfig.Config) api.Config {
+func buildAPIConfig(cfg *commonconfig.Config, logger observability.Logger) api.Config {
 	apiConfig := api.DefaultConfig()
 
 	// Override with configuration values
 	apiConfig.ListenAddress = cfg.API.ListenAddress
+	
+	// Debug logging
+	logger.Info("Building API config", map[string]interface{}{
+		"api_listen_address": cfg.API.ListenAddress,
+		"has_mcp_server": cfg.MCPServer != nil,
+	})
+	
+	// Check if MCP server has a specific listen address override
+	if cfg.MCPServer != nil {
+		logger.Info("MCP server config found", map[string]interface{}{
+			"listen_address": cfg.MCPServer.ListenAddress,
+		})
+		if cfg.MCPServer.ListenAddress != "" {
+			logger.Info("Using MCP server listen address override", map[string]interface{}{
+				"old_address": apiConfig.ListenAddress,
+				"new_address": cfg.MCPServer.ListenAddress,
+			})
+			apiConfig.ListenAddress = cfg.MCPServer.ListenAddress
+		}
+	}
 	apiConfig.TLSCertFile = cfg.API.TLSCertFile
 	apiConfig.TLSKeyFile = cfg.API.TLSKeyFile
 
@@ -482,6 +516,31 @@ func buildAPIConfig(cfg *commonconfig.Config) api.Config {
 	apiConfig.EnableSwagger = getEnvBool("API_ENABLE_SWAGGER", apiConfig.EnableSwagger)
 
 	// Configure authentication
+	if cfg.API.Auth != nil {
+		// JWT configuration
+		if jwtConfig, ok := cfg.API.Auth["jwt"].(map[string]interface{}); ok {
+			if secret, ok := jwtConfig["secret"].(string); ok && secret != "" {
+				apiConfig.Auth.JWTSecret = secret
+			}
+		}
+		
+		// API keys configuration
+		if apiKeysConfig, ok := cfg.API.Auth["api_keys"].(map[string]interface{}); ok {
+			if staticKeys, ok := apiKeysConfig["static_keys"].(map[string]interface{}); ok {
+				// Convert the nested structure to the format expected by the server
+				apiKeys := make(map[string]interface{})
+				for key, keyData := range staticKeys {
+					apiKeys[key] = keyData
+				}
+				apiConfig.Auth.APIKeys = apiKeys
+				logger.Info("Loaded API keys from config", map[string]interface{}{
+					"count": len(apiKeys),
+				})
+			}
+		}
+	}
+	
+	// Override JWT secret from environment if set
 	if jwtSecret := os.Getenv("JWT_SECRET"); jwtSecret != "" {
 		apiConfig.Auth.JWTSecret = jwtSecret
 	}
@@ -492,16 +551,30 @@ func buildAPIConfig(cfg *commonconfig.Config) api.Config {
 		if webhookConfig != nil && webhookConfig.IsEnabled() {
 			apiConfig.Webhook = webhookConfig
 			// Log webhook configuration (without secrets)
-			log.Printf("Webhook configuration loaded: enabled=%v, github_enabled=%v, github_endpoint=%s",
-				webhookConfig.IsEnabled(),
-				webhookConfig.IsGitHubEnabled(),
-				webhookConfig.GitHubEndpoint())
+			logger.Info("Webhook configuration loaded", map[string]interface{}{
+				"enabled":        webhookConfig.IsEnabled(),
+				"github_enabled": webhookConfig.IsGitHubEnabled(),
+				"github_endpoint": webhookConfig.GitHubEndpoint(),
+			})
 		}
 	}
 
 	// Configure rate limiting
 	if cfg.API.RateLimit != nil {
 		apiConfig.RateLimit = parseRateLimitConfig(cfg.API.RateLimit)
+	}
+	
+	// Configure WebSocket if available
+	logger.Info("WebSocket config check", map[string]interface{}{
+		"websocket_nil": cfg.WebSocket == nil,
+		"websocket_enabled": cfg.WebSocket != nil && cfg.WebSocket.Enabled,
+	})
+	
+	if cfg.WebSocket != nil && cfg.WebSocket.Enabled {
+		apiConfig.WebSocket = parseWebSocketConfig(cfg.WebSocket)
+		logger.Info("WebSocket config parsed", map[string]interface{}{
+			"enabled": apiConfig.WebSocket.Enabled,
+		})
 	}
 
 	return apiConfig
@@ -620,10 +693,44 @@ func parseWebhookConfig(webhookMap map[string]interface{}) *config.WebhookConfig
 	return webhookConfig
 }
 
+// parseWebSocketConfig parses WebSocket configuration
+func parseWebSocketConfig(wsConfig *commonconfig.WebSocketConfig) api.WebSocketConfig {
+	config := api.WebSocketConfig{
+		Enabled:         wsConfig.Enabled,
+		MaxConnections:  wsConfig.MaxConnections,
+		ReadBufferSize:  wsConfig.ReadBufferSize,
+		WriteBufferSize: wsConfig.WriteBufferSize,
+		PingInterval:    wsConfig.PingInterval,
+		PongTimeout:     wsConfig.PongTimeout,
+		MaxMessageSize:  wsConfig.MaxMessageSize,
+	}
+	
+	// Parse security config
+	if wsConfig.Security != nil {
+		config.Security = websocket.SecurityConfig{
+			RequireAuth:     wsConfig.Security.RequireAuth,
+			HMACSignatures:  wsConfig.Security.HMACSignatures,
+			AllowedOrigins:  wsConfig.Security.AllowedOrigins,
+		}
+	}
+	
+	// Parse rate limit config
+	if wsConfig.RateLimit != nil {
+		config.RateLimit = websocket.RateLimiterConfig{
+			Rate:       float64(wsConfig.RateLimit.Rate),
+			Burst:      float64(wsConfig.RateLimit.Burst),
+			PerIP:      wsConfig.RateLimit.PerIP,
+			PerUser:    wsConfig.RateLimit.PerUser,
+		}
+	}
+	
+	return config
+}
+
 // startServer starts the HTTP/HTTPS server
 func startServer(server *api.Server, cfg *commonconfig.Config, logger observability.Logger) error {
 	logger.Info("Starting server", map[string]interface{}{
-		"address":     cfg.API.ListenAddress,
+		"address":     server.GetListenAddress(),
 		"environment": cfg.Environment,
 		"tls_enabled": cfg.API.TLSCertFile != "" && cfg.API.TLSKeyFile != "",
 	})

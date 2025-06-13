@@ -18,6 +18,11 @@ func CreateEmbeddingService(cfg *config.Config, db database.Database, cache cach
     // Initialize providers map
     providerMap := make(map[string]providers.Provider)
     
+    // Check if config exists
+    if cfg == nil {
+        return nil, fmt.Errorf("configuration is nil")
+    }
+    
     // Configure OpenAI if enabled
     if cfg.Embedding.Providers.OpenAI.Enabled && cfg.Embedding.Providers.OpenAI.APIKey != "" {
         openaiCfg := providers.ProviderConfig{

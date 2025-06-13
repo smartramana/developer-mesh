@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"crypto/tls"
 	"flag"
 	"fmt"
 	"log"
@@ -131,9 +132,21 @@ func runWorker(ctx context.Context) error {
 		redisAddr = "localhost:6379"
 	}
 	log.Printf("Connecting to Redis at %s", redisAddr)
-	redisClient := redis.NewClient(&redis.Options{
+	
+	// Configure Redis options with TLS support
+	redisOptions := &redis.Options{
 		Addr: redisAddr,
-	})
+	}
+	
+	// Check if TLS is enabled
+	if os.Getenv("REDIS_TLS_ENABLED") == "true" {
+		log.Printf("Redis TLS enabled")
+		redisOptions.TLSConfig = &tls.Config{
+			InsecureSkipVerify: os.Getenv("REDIS_TLS_SKIP_VERIFY") == "true",
+		}
+	}
+	
+	redisClient := redis.NewClient(redisOptions)
 	
 	// Test Redis connection
 	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
@@ -160,9 +173,19 @@ func performHealthCheck() error {
 		redisAddr = "localhost:6379"
 	}
 	
-	client := redis.NewClient(&redis.Options{
+	// Configure Redis options with TLS support
+	redisOptions := &redis.Options{
 		Addr: redisAddr,
-	})
+	}
+	
+	// Check if TLS is enabled
+	if os.Getenv("REDIS_TLS_ENABLED") == "true" {
+		redisOptions.TLSConfig = &tls.Config{
+			InsecureSkipVerify: os.Getenv("REDIS_TLS_SKIP_VERIFY") == "true",
+		}
+	}
+	
+	client := redis.NewClient(redisOptions)
 	defer func() {
 		if err := client.Close(); err != nil {
 			log.Printf("Failed to close Redis client: %v", err)

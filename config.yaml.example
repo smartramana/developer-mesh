@@ -32,6 +32,30 @@ api:
       enabled: true
       path: "/github"
       secret: "change-this-webhook-secret"
+  
+  # WebSocket Configuration
+  websocket:
+    enabled: true  # Enable for real-time communication
+    max_connections: 1000
+    read_buffer_size: 4096
+    write_buffer_size: 4096
+    ping_interval: 30s
+    pong_timeout: 60s
+    max_message_size: 1048576  # 1MB
+    
+    # Security settings
+    security:
+      require_auth: true
+      hmac_signatures: false
+      allowed_origins: ["*"]  # Restrict in production!
+      max_frame_size: 1048576
+      
+    # Rate limiting
+    rate_limit:
+      rate: 16.67  # 1000 per minute
+      burst: 100
+      per_ip: true
+      per_user: true
 
 # Database Configuration
 database:
@@ -87,12 +111,46 @@ monitoring:
     format: "json"
     output: "stdout"
 
-# Optional: AWS Configuration (for production)
-# aws:
-#   region: "us-west-2"
-#   s3:
-#     bucket: "mcp-contexts"
-#     use_iam_auth: true
-#   sqs:
-#     queue_name: "mcp-tasks"
-#     use_iam_auth: true
+# AWS Configuration (for local development with real AWS services)
+aws:
+  region: "us-east-1"  # Or use ${AWS_REGION}
+  
+  # ElastiCache Redis (replaces local Redis)
+  elasticache:
+    endpoint: "sean-mcp-test-qem3fz.serverless.use1.cache.amazonaws.com:6379"
+    # auth_token: "your-auth-token"  # If AUTH is enabled
+    
+  # S3 for context storage
+  s3:
+    bucket: "mcp-dev-contexts"  # Or use ${S3_BUCKET}
+    # Empty endpoint uses real AWS S3
+    # endpoint: "http://localhost:4566"  # For LocalStack testing
+    
+  # SQS for async processing
+  sqs:
+    queue_url: "https://sqs.us-east-1.amazonaws.com/594992249511/sean-mcp-test"
+    # endpoint: "http://localhost:4566"  # For LocalStack testing
+    
+  # Bedrock for embeddings
+  bedrock:
+    enabled: true
+    # endpoint: "http://localhost:4566"  # For LocalStack testing
+
+# Worker Configuration (for async processing)
+worker:
+  enabled: true
+  queue_type: "sqs"  # or "memory" for local testing
+  concurrency: 10
+  
+# Storage Configuration
+storage:
+  context:
+    provider: "s3"  # or "filesystem" for local development
+    # filesystem:
+    #   base_path: "./data/contexts"
+      
+# To use local services instead of AWS:
+# 1. Set cache.address to "localhost:6379" 
+# 2. Set storage.context.provider to "filesystem"
+# 3. Set worker.queue_type to "memory"
+# 4. Comment out the aws section

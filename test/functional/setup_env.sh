@@ -19,10 +19,20 @@ set_default() {
 
 echo "Setting up functional test environment..."
 
-# Load .env file if it exists
+# Load parent .env file first (for AWS credentials)
+if [ -f "$(dirname "$0")/../../.env" ]; then
+    echo "Loading parent .env file..."
+    set -a
+    source "$(dirname "$0")/../../.env"
+    set +a
+fi
+
+# Load test-specific .env file
 if [ -f "$(dirname "$0")/.env" ]; then
-    echo "Loading .env file..."
-    export $(cat "$(dirname "$0")/.env" | grep -v '^#' | xargs)
+    echo "Loading test .env file..."
+    set -a
+    source "$(dirname "$0")/.env"
+    set +a
 fi
 
 # MCP Server Configuration
@@ -43,13 +53,21 @@ set_default "REDIS_ADDR" "localhost:6379"
 set_default "ELASTICACHE_ENDPOINT" "localhost"
 set_default "ELASTICACHE_PORT" "6379"
 
-# AWS/LocalStack Configuration
-set_default "AWS_REGION" "us-west-2"
-set_default "AWS_ACCESS_KEY_ID" "test"
-set_default "AWS_SECRET_ACCESS_KEY" "test"
-set_default "AWS_ENDPOINT_URL" "http://localhost:4566"
-set_default "S3_BUCKET" "mcp-contexts"
-set_default "S3_ENDPOINT" "http://localhost:4566"
+# AWS Configuration
+# Don't override AWS credentials if they're already set from parent .env
+if [ "$USE_REAL_AWS" = "true" ]; then
+    echo "Using real AWS services"
+    # AWS credentials should come from parent .env
+    # S3_BUCKET should come from parent .env (sean-mcp-dev-contexts)
+else
+    # LocalStack fallback
+    set_default "AWS_REGION" "us-west-2"
+    set_default "AWS_ACCESS_KEY_ID" "test"
+    set_default "AWS_SECRET_ACCESS_KEY" "test"
+    set_default "AWS_ENDPOINT_URL" "http://localhost:4566"
+    set_default "S3_BUCKET" "mcp-contexts"
+    set_default "S3_ENDPOINT" "http://localhost:4566"
+fi
 
 # Check if services are running
 echo ""
@@ -70,8 +88,14 @@ check_service() {
 
 # Check services
 check_service "MCP Server" "${MCP_SERVER_URL}/health"
-check_service "Mock Server" "${MOCKSERVER_URL}/health"
-check_service "LocalStack" "${AWS_ENDPOINT_URL}/_localstack/health"
+if [ "$USE_MOCK_GITHUB" != "false" ]; then
+    check_service "Mock Server" "${MOCKSERVER_URL}/health"
+fi
+if [ "$USE_REAL_AWS" != "true" ]; then
+    check_service "LocalStack" "${AWS_ENDPOINT_URL}/_localstack/health"
+else
+    echo "✓ Using real AWS services (S3, SQS, Bedrock)"
+fi
 
 # Check Redis
 if redis-cli -h localhost ping > /dev/null 2>&1; then
@@ -82,4 +106,4 @@ fi
 
 echo ""
 echo "Environment setup complete!"
-echo "Run tests with: go test ./...
+echo "Run tests with: go test ./..."

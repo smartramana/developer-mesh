@@ -95,7 +95,11 @@ var _ = Describe("MCP Server Comprehensive WebSocket Tests", func() {
 				}
 				Skip("WebSocket server not available")
 			}
-			defer conn.Close()
+			defer func() {
+				if err := conn.Close(); err != nil {
+					GinkgoWriter.Printf("Error closing connection: %v\n", err)
+				}
+			}()
 			
 			Expect(resp.StatusCode).To(Equal(http.StatusSwitchingProtocols))
 			
@@ -104,10 +108,15 @@ var _ = Describe("MCP Server Comprehensive WebSocket Tests", func() {
 			Expect(err).NotTo(HaveOccurred())
 			
 			// Set read deadline for pong
-			conn.SetReadDeadline(time.Now().Add(5 * time.Second))
-			_, _, err = conn.NextReader()
+			if err := conn.SetReadDeadline(time.Now().Add(5 * time.Second)); err != nil {
+				GinkgoWriter.Printf("Error setting read deadline: %v\n", err)
+			}
+			_, _, readErr := conn.NextReader()
 			// Reset deadline
-			conn.SetReadDeadline(time.Time{})
+			if err := conn.SetReadDeadline(time.Time{}); err != nil {
+				GinkgoWriter.Printf("Error resetting read deadline: %v\n", err)
+			}
+			Expect(readErr).To(BeNil())
 		})
 
 		It("should reject connection without authentication", func() {
@@ -117,7 +126,11 @@ var _ = Describe("MCP Server Comprehensive WebSocket Tests", func() {
 			
 			conn, resp, err := dialer.Dial(wsURL, nil)
 			if conn != nil {
-				defer conn.Close()
+				defer func() {
+				if err := conn.Close(); err != nil {
+					GinkgoWriter.Printf("Error closing connection: %v\n", err)
+				}
+			}()
 			}
 			
 			// Either connection should fail or we should get unauthorized
@@ -156,13 +169,16 @@ var _ = Describe("MCP Server Comprehensive WebSocket Tests", func() {
 
 		AfterEach(func() {
 			if conn != nil {
-				conn.Close()
+				if err := conn.Close(); err != nil {
+					GinkgoWriter.Printf("Error closing connection: %v\n", err)
+				}
 			}
 			cancel()
 		})
 
 		It("should complete MCP initialization handshake", func() {
 			// Send initialization request
+			var err error
 			initMsg := MCPMessage{
 				Type:   "request",
 				ID:     uuid.New().String(),
@@ -183,7 +199,7 @@ var _ = Describe("MCP Server Comprehensive WebSocket Tests", func() {
 				},
 			}
 
-			err := conn.WriteJSON(initMsg)
+			err = conn.WriteJSON(initMsg)
 			Expect(err).NotTo(HaveOccurred())
 
 			// Read response
@@ -209,6 +225,7 @@ var _ = Describe("MCP Server Comprehensive WebSocket Tests", func() {
 
 		It("should handle protocol version negotiation", func() {
 			// Try with an unsupported version
+			var err error
 			initMsg := MCPMessage{
 				Type:   "request",
 				ID:     uuid.New().String(),
@@ -219,7 +236,7 @@ var _ = Describe("MCP Server Comprehensive WebSocket Tests", func() {
 				},
 			}
 
-			err := conn.WriteJSON(initMsg)
+			err = conn.WriteJSON(initMsg)
 			Expect(err).NotTo(HaveOccurred())
 
 			var response MCPMessage
@@ -260,15 +277,19 @@ var _ = Describe("MCP Server Comprehensive WebSocket Tests", func() {
 					"capabilities":    MCPCapabilities{Tools: true},
 				},
 			}
-			conn.WriteJSON(initMsg)
+			err = conn.WriteJSON(initMsg)
+			Expect(err).NotTo(HaveOccurred())
 			
 			var initResp MCPMessage
-			conn.ReadJSON(&initResp)
+			err = conn.ReadJSON(&initResp)
+			Expect(err).NotTo(HaveOccurred())
 		})
 
 		AfterEach(func() {
 			if conn != nil {
-				conn.Close()
+				if err := conn.Close(); err != nil {
+					GinkgoWriter.Printf("Error closing connection: %v\n", err)
+				}
 			}
 		})
 
@@ -322,10 +343,12 @@ var _ = Describe("MCP Server Comprehensive WebSocket Tests", func() {
 				Method: "tools/list",
 				Params: map[string]interface{}{},
 			}
-			conn.WriteJSON(toolsMsg)
+			err := conn.WriteJSON(toolsMsg)
+			Expect(err).NotTo(HaveOccurred())
 			
 			var toolsResp MCPMessage
-			conn.ReadJSON(&toolsResp)
+			err = conn.ReadJSON(&toolsResp)
+			Expect(err).NotTo(HaveOccurred())
 			
 			// Execute a simple tool if available
 			callMsg := MCPMessage{
@@ -340,7 +363,7 @@ var _ = Describe("MCP Server Comprehensive WebSocket Tests", func() {
 				},
 			}
 
-			err := conn.WriteJSON(callMsg)
+			err = conn.WriteJSON(callMsg)
 			Expect(err).NotTo(HaveOccurred())
 
 			var response MCPMessage
@@ -387,15 +410,19 @@ var _ = Describe("MCP Server Comprehensive WebSocket Tests", func() {
 					"capabilities":    MCPCapabilities{Resources: true},
 				},
 			}
-			conn.WriteJSON(initMsg)
+			err = conn.WriteJSON(initMsg)
+			Expect(err).NotTo(HaveOccurred())
 			
 			var initResp MCPMessage
-			conn.ReadJSON(&initResp)
+			err = conn.ReadJSON(&initResp)
+			Expect(err).NotTo(HaveOccurred())
 		})
 
 		AfterEach(func() {
 			if conn != nil {
-				conn.Close()
+				if err := conn.Close(); err != nil {
+					GinkgoWriter.Printf("Error closing connection: %v\n", err)
+				}
 			}
 		})
 
@@ -467,15 +494,19 @@ var _ = Describe("MCP Server Comprehensive WebSocket Tests", func() {
 					"capabilities":    MCPCapabilities{Tools: true},
 				},
 			}
-			conn.WriteJSON(initMsg)
+			err = conn.WriteJSON(initMsg)
+			Expect(err).NotTo(HaveOccurred())
 			
 			var initResp MCPMessage
-			conn.ReadJSON(&initResp)
+			err = conn.ReadJSON(&initResp)
+			Expect(err).NotTo(HaveOccurred())
 		})
 
 		AfterEach(func() {
 			if conn != nil {
-				conn.Close()
+				if err := conn.Close(); err != nil {
+					GinkgoWriter.Printf("Error closing connection: %v\n", err)
+				}
 			}
 		})
 
@@ -566,7 +597,9 @@ var _ = Describe("MCP Server Comprehensive WebSocket Tests", func() {
 
 		AfterEach(func() {
 			if conn != nil {
-				conn.Close()
+				if err := conn.Close(); err != nil {
+					GinkgoWriter.Printf("Error closing connection: %v\n", err)
+				}
 			}
 		})
 
@@ -620,7 +653,9 @@ var _ = Describe("MCP Server Comprehensive WebSocket Tests", func() {
 			}
 
 			// Close connection abruptly
-			conn.Close()
+			if err := conn.Close(); err != nil {
+				GinkgoWriter.Printf("Error closing connection: %v\n", err)
+			}
 
 			// Try to write - should fail
 			msg := MCPMessage{
@@ -646,14 +681,19 @@ var _ = Describe("MCP Server Comprehensive WebSocket Tests", func() {
 			if err != nil {
 				Skip("WebSocket server not available")
 			}
-			conn1.Close()
+			err = conn1.Close()
+			Expect(err).NotTo(HaveOccurred())
 
 			// Second connection should work
 			conn2, _, err := dialer.Dial(wsURL, header)
 			if err != nil {
 				Skip("Server doesn't support reconnection")
 			}
-			defer conn2.Close()
+			defer func() {
+				if err := conn2.Close(); err != nil {
+					GinkgoWriter.Printf("Error closing connection: %v\n", err)
+				}
+			}()
 
 			// Should be able to send messages on new connection
 			initMsg := MCPMessage{
@@ -697,15 +737,19 @@ var _ = Describe("MCP Server Comprehensive WebSocket Tests", func() {
 					"capabilities":    MCPCapabilities{Tools: true},
 				},
 			}
-			conn.WriteJSON(initMsg)
+			err = conn.WriteJSON(initMsg)
+			Expect(err).NotTo(HaveOccurred())
 			
 			var initResp MCPMessage
-			conn.ReadJSON(&initResp)
+			err = conn.ReadJSON(&initResp)
+			Expect(err).NotTo(HaveOccurred())
 		})
 
 		AfterEach(func() {
 			if conn != nil {
-				conn.Close()
+				if err := conn.Close(); err != nil {
+					GinkgoWriter.Printf("Error closing connection: %v\n", err)
+				}
 			}
 		})
 

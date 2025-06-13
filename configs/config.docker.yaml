@@ -53,6 +53,38 @@ auth:
       max_attempts: 1000
       window: 1m
 
+# WebSocket Configuration for Docker
+websocket:
+  enabled: true  # Enable WebSocket in Docker environment
+  max_connections: 5000  # Moderate limit for container environment
+  
+  # Buffer sizes for container environment
+  read_buffer_size: 4096
+  write_buffer_size: 4096
+  
+  # Connection settings
+  ping_interval: 30s
+  pong_timeout: 60s
+  max_message_size: 1048576  # 1MB
+  
+  # Security - Development-friendly but secure
+  security:
+    require_auth: ${WS_REQUIRE_AUTH:-false}  # Can be toggled via env
+    hmac_signatures: false
+    allowed_origins: 
+      - "http://localhost:*"
+      - "http://host.docker.internal:*"
+      - "ws://localhost:*"
+      - "ws://host.docker.internal:*"
+    max_frame_size: 1048576
+    
+  # Rate limiting - Moderate for containers
+  rate_limit:
+    rate: 16.67  # 1000 per minute
+    burst: 100
+    per_ip: true
+    per_user: false  # Disabled for easier testing
+
 # Database Configuration - Using Docker service names
 database:
   host: "${DATABASE_HOST}"     # 'database' from docker-compose

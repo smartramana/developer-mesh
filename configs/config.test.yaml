@@ -54,6 +54,34 @@ auth:
     storage: "memory"
     max_entries: 1000
 
+# WebSocket - Disabled for tests
+websocket:
+  enabled: false  # Disabled by default to avoid test interference
+  max_connections: 100  # Low limit for tests if enabled
+  
+  # Minimal buffer sizes for tests
+  read_buffer_size: 1024
+  write_buffer_size: 1024
+  
+  # Fast timeouts for tests
+  ping_interval: 5s
+  pong_timeout: 10s
+  max_message_size: 65536  # 64KB for tests
+  
+  # Security - Disabled for tests
+  security:
+    require_auth: false
+    hmac_signatures: false
+    allowed_origins: ["*"]
+    max_frame_size: 65536
+    
+  # No rate limiting in tests
+  rate_limit:
+    rate: 1000  # Very high for tests
+    burst: 1000
+    per_ip: false
+    per_user: false
+
 # Database - In-memory or test container
 database:
   # Use in-memory SQLite for unit tests

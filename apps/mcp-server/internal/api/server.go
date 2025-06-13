@@ -19,6 +19,7 @@ import (
 	swaggerFiles "github.com/swaggo/files"
 	ginSwagger "github.com/swaggo/gin-swagger"
 	"mcp-server/internal/api/proxies"
+	"mcp-server/internal/api/websocket"
 	"mcp-server/internal/core"
 )
 
@@ -48,6 +49,8 @@ type Server struct {
 	modelAPIProxy   repository.ModelRepository     // Proxy for model operations
 	contextAPIProxy repository.ContextRepository   // Proxy for context operations
 	searchAPIProxy  repository.SearchRepository    // Proxy for search operations
+	// WebSocket server
+	wsServer        *websocket.Server
 	webhookAPIProxy proxies.WebhookRepository      // Proxy for webhook operations
 }
 
@@ -98,6 +101,11 @@ func NewServer(engine *core.Engine, cfg Config, db *sqlx.DB, cacheClient cache.C
 		router.Use(CORSMiddleware(corsConfig))
 	}
 
+	// Initialize observability if not already done
+	if observability.DefaultLogger == nil {
+		observability.DefaultLogger = observability.NewStandardLogger("mcp-server")
+	}
+	
 	// Initialize auth service with cache
 	authConfig := auth.DefaultConfig()
 	authConfig.JWTSecret = cfg.Auth.JWTSecret
@@ -106,11 +114,6 @@ func NewServer(engine *core.Engine, cfg Config, db *sqlx.DB, cacheClient cache.C
 
 	// Create auth service with cache
 	authService := auth.NewService(authConfig, db, cacheClient, observability.DefaultLogger)
-	
-	// Initialize observability if not already done
-	if observability.DefaultLogger == nil {
-		observability.DefaultLogger = observability.NewStandardLogger("mcp-server")
-	}
 	
 	// Setup enhanced authentication with rate limiting, metrics, and audit logging
 	authMiddleware, err := auth.SetupAuthentication(db, cacheClient, observability.DefaultLogger, metrics)
@@ -126,26 +129,15 @@ func NewServer(engine *core.Engine, cfg Config, db *sqlx.DB, cacheClient cache.C
 	if cfg.Auth.APIKeys != nil {
 		fmt.Printf("API Keys from config: %+v\n", cfg.Auth.APIKeys)
 
-		// Initialize the key map for the API keys
-		keyMap := make(map[string]string)
-
-		// Convert the APIKeys to a map[string]string
+		// Use the new method that handles full configuration including tenant IDs
 		if apiKeys, ok := cfg.Auth.APIKeys.(map[string]interface{}); ok {
-			for key, role := range apiKeys {
-				if roleStr, ok := role.(string); ok {
-					keyMap[key] = roleStr
-					fmt.Printf("Adding API key from map: %s with role: %s\n", key, roleStr)
-				}
-			}
-		} else if apiKeys, ok := cfg.Auth.APIKeys.(map[string]string); ok {
-			keyMap = apiKeys
-			for key, role := range keyMap {
-				fmt.Printf("Adding API key from map: %s with role: %s\n", key, role)
+			authService.InitializeAPIKeysWithConfig(apiKeys)
+		} else {
+			// Fall back to simple string map if needed
+			if apiKeys, ok := cfg.Auth.APIKeys.(map[string]string); ok {
+				authService.InitializeDefaultAPIKeys(apiKeys)
 			}
 		}
-
-		// Initialize default API keys in auth service
-		authService.InitializeDefaultAPIKeys(keyMap)
 	} else {
 		fmt.Println("No API keys defined in config")
 	}
@@ -205,6 +197,7 @@ func NewServer(engine *core.Engine, cfg Config, db *sqlx.DB, cacheClient cache.C
 		router:            router,
 		server:            &http.Server{Handler: router},
 		engine:            engine,
+		config:            cfg,  // Set the API config
 		logger:            observability.DefaultLogger,
 		loggerAdapter:     loggerAdapter,
 		loggerObsAdapter:  loggerObsAdapter,
@@ -221,6 +214,36 @@ func NewServer(engine *core.Engine, cfg Config, db *sqlx.DB, cacheClient cache.C
 		agentAPIProxy:  agentProxy,
 		modelAPIProxy:  modelProxy,
 	}
+	
+	// Initialize WebSocket server if enabled
+	if cfg.WebSocket.Enabled {
+		wsConfig := websocket.Config{
+			MaxConnections:  cfg.WebSocket.MaxConnections,
+			ReadBufferSize:  cfg.WebSocket.ReadBufferSize,
+			WriteBufferSize: cfg.WebSocket.WriteBufferSize,
+			PingInterval:    cfg.WebSocket.PingInterval,
+			PongTimeout:     cfg.WebSocket.PongTimeout,
+			MaxMessageSize:  cfg.WebSocket.MaxMessageSize,
+			Security:        cfg.WebSocket.Security,
+			RateLimit:       cfg.WebSocket.RateLimit,
+		}
+		
+		s.wsServer = websocket.NewServer(authService, metrics, observability.DefaultLogger, wsConfig)
+		
+		// Set dependencies (will be properly implemented in full integration)
+		if engine != nil {
+			// Use adapter to bridge the interface differences
+			contextAdapter := websocket.NewContextManagerAdapter(engine.GetContextManager())
+			s.wsServer.SetContextManager(contextAdapter)
+			// TODO: Set tool registry and event bus when available
+		}
+		
+		observability.DefaultLogger.Info("WebSocket server initialized", map[string]interface{}{
+			"enabled":         true,
+			"max_connections": cfg.WebSocket.MaxConnections,
+		})
+	}
+	
 	s.server.Addr = cfg.ListenAddress
 	s.server.ReadTimeout = cfg.ReadTimeout
 	s.server.WriteTimeout = cfg.WriteTimeout
@@ -276,6 +299,27 @@ func (s *Server) setupRoutes() {
 		c.JSON(http.StatusOK, gin.H{"status": "MCP REST API is running"})
 	})
 	s.router.GET("/health", s.healthHandler)
+	
+	// Setup WebSocket endpoint
+	s.logger.Info("WebSocket route registration check", map[string]interface{}{
+		"enabled": s.config.WebSocket.Enabled,
+		"wsServer_nil": s.wsServer == nil,
+	})
+	
+	if s.config.WebSocket.Enabled && s.wsServer != nil {
+		// Convert gin handler to http.HandlerFunc
+		s.router.GET("/ws", func(c *gin.Context) {
+			s.wsServer.HandleWebSocket(c.Writer, c.Request)
+		})
+		s.logger.Info("WebSocket endpoint enabled at /ws", map[string]interface{}{
+			"max_connections": s.config.WebSocket.MaxConnections,
+		})
+	} else {
+		s.logger.Warn("WebSocket endpoint NOT enabled", map[string]interface{}{
+			"enabled": s.config.WebSocket.Enabled,
+			"wsServer_nil": s.wsServer == nil,
+		})
+	}
 
 	// Setup API documentation
 	// Create API versioned routes
@@ -322,6 +366,13 @@ func (s *Server) setupRoutes() {
 		s.logger.Warn("MCP API not available - context manager not initialized", nil)
 	}
 	
+	// Register WebSocket monitoring routes
+	if s.config.WebSocket.Enabled && s.wsServer != nil {
+		wsMonitoring := websocket.NewMonitoringEndpoints(s.wsServer)
+		wsMonitoring.RegisterRoutes(v1)
+		s.logger.Info("WebSocket monitoring routes registered", nil)
+	}
+	
 	// Register Embedding Proxy routes
 	if s.config.RestAPI.Enabled && s.config.RestAPI.BaseURL != "" {
 		embeddingProxy := proxies.NewEmbeddingProxy(s.config.RestAPI.BaseURL, s.logger)
@@ -355,6 +406,11 @@ func (s *Server) setupRoutes() {
 	} else {
 		s.logger.Warn("REST API is disabled - API operations will not be available", nil)
 	}
+}
+
+// GetListenAddress returns the configured listen address
+func (s *Server) GetListenAddress() string {
+	return s.server.Addr
 }
 
 // Start starts the API server without TLS
