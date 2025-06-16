@@ -1,8 +1,5 @@
 # Development Configuration
-# Inherits from config.base.yaml and overrides for local development
-
-# Import base configuration
-_base: config.base.yaml
+# Complete configuration for local development
 
 # Environment
 environment: "development"
@@ -63,6 +60,17 @@ api:
           role: "user"
           scopes: ["read", "write"]
           tenant_id: "test-tenant-2"
+        # Additional keys for multi-agent collaboration within same tenant
+        "test-key-agent-1":
+          role: "user"
+          scopes: ["read", "write"]
+          tenant_id: "test-tenant-1"
+          user_id: "agent-1"
+        "test-key-agent-2":
+          role: "user"
+          scopes: ["read", "write"]
+          tenant_id: "test-tenant-1"
+          user_id: "agent-2"
 
 # Authentication - Development settings (Note: API keys are configured in api.auth.api_keys above)
 auth:
@@ -149,9 +157,9 @@ cache:
   
   # TLS settings for ElastiCache Serverless (required)
   tls:
-    enabled: true  # ElastiCache requires TLS
-    min_version: "1.3"  # Use TLS 1.3 for ElastiCache
-    insecure_skip_verify: true  # Skip cert verification for SSH tunnel (dev only)
+    enabled: true  # MUST be enabled - ElastiCache Serverless requires TLS
+    min_version: "1.2"  # ElastiCache supports TLS 1.2+
+    insecure_skip_verify: true  # Skip cert verification when using SSH tunnel (dev only)
     session_tickets: true  # Performance optimization
     ca_file: "${REDIS_CA_CERT:-}"  # Optional CA cert for verification
 

@@ -26,10 +26,17 @@ type Server struct {
     
     config      Config
     
-    // Dependencies (will be set in Task 7)
-    toolRegistry   ToolRegistry
-    contextManager ContextManager
-    eventBus       EventBus
+    // Dependencies
+    toolRegistry        ToolRegistry
+    contextManager      ContextManager
+    eventBus            EventBus
+    conversationManager *ConversationSessionManager
+    subscriptionManager *SubscriptionManager
+    workflowEngine      *WorkflowEngine
+    agentRegistry       *AgentRegistry
+    taskManager         *TaskManager
+    workspaceManager    *WorkspaceManager
+    notificationManager *NotificationManager
     
     // Security components
     sessionManager  *SessionManager
@@ -66,6 +73,8 @@ type Connection struct {
     conn     *websocket.Conn
     send     chan []byte
     hub      *Server
+    mu       sync.RWMutex
+    state    *ConnectionState
 }
 
 func NewServer(auth *auth.Service, metrics observability.MetricsClient, logger observability.Logger, config Config) *Server {
@@ -99,6 +108,27 @@ func NewServer(auth *auth.Service, metrics observability.MetricsClient, logger o
     
     // Initialize metrics collector
     s.metricsCollector = NewMetricsCollector(metrics)
+    
+    // Initialize notification manager first as other managers depend on it
+    s.notificationManager = NewNotificationManager(logger, metrics)
+    
+    // Initialize new managers (these would typically be injected as dependencies)
+    s.subscriptionManager = NewSubscriptionManager(logger, metrics)
+    s.workflowEngine = NewWorkflowEngine(logger, metrics)
+    s.agentRegistry = NewAgentRegistry(logger, metrics)
+    s.taskManager = NewTaskManager(logger, metrics)
+    s.workspaceManager = NewWorkspaceManager(logger, metrics, s)
+    
+    // Connect notification manager with subscription manager
+    s.notificationManager.SetSubscriptionManager(s.subscriptionManager)
+    
+    // Set notification manager in workflow engine
+    s.workflowEngine.SetNotificationManager(s.notificationManager)
+    
+    // Initialize conversation manager with a simple in-memory cache
+    // In production, this would be injected with a proper cache implementation
+    inMemoryCache := NewInMemoryCache()
+    s.conversationManager = NewConversationSessionManager(inMemoryCache, logger, metrics)
     
     // Register handlers
     s.RegisterHandlers()
@@ -205,6 +235,11 @@ func (s *Server) addConnection(conn *Connection) {
     defer s.mu.Unlock()
     s.connections[conn.ID] = conn
     
+    // Register with notification manager
+    if s.notificationManager != nil {
+        s.notificationManager.RegisterConnection(conn)
+    }
+    
     // Increment metrics
     s.metrics.IncrementCounter("websocket_connections_total", 1)
     s.metrics.RecordGauge("websocket_connections_active", float64(len(s.connections)), nil)
@@ -217,6 +252,16 @@ func (s *Server) removeConnection(conn *Connection) {
     
     if _, ok := s.connections[conn.ID]; ok {
         delete(s.connections, conn.ID)
+        
+        // Unregister from notification manager
+        if s.notificationManager != nil {
+            s.notificationManager.UnregisterConnection(conn.ID)
+        }
+        
+        // Unsubscribe from all subscriptions
+        if s.subscriptionManager != nil {
+            s.subscriptionManager.UnsubscribeAll(conn.ID)
+        }
         
         // Clean up session key
         if s.sessionManager != nil {
@@ -299,6 +344,11 @@ func (s *Server) SetContextManager(manager ContextManager) {
 // SetEventBus sets the event bus for the server
 func (s *Server) SetEventBus(bus EventBus) {
     s.eventBus = bus
+}
+
+// SetConversationSessionManager sets the conversation session manager
+func (s *Server) SetConversationSessionManager(manager *ConversationSessionManager) {
+    s.conversationManager = manager
 }
 
 // Close gracefully shuts down the server

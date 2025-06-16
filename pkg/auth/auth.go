@@ -134,16 +134,11 @@ func (s *Service) ValidateAPIKey(ctx context.Context, apiKey string) (*User, err
 	// Check cache first if enabled
 	if s.config != nil && s.config.CacheEnabled && s.cache != nil {
 		cacheKey := fmt.Sprintf("auth:apikey:%s", apiKey)
-		var cached string
-		if err := s.cache.Get(ctx, cacheKey, &cached); err == nil && cached != "" {
-			// Parse cached user data
-			// In production, unmarshal JSON from cache
-			// For now, return a simple user
-			return &User{
-				ID:       "cached-user",
-				TenantID: "cached-tenant",
-				AuthType: TypeAPIKey,
-			}, nil
+		var cachedUser User
+		if err := s.cache.Get(ctx, cacheKey, &cachedUser); err == nil {
+			// Return the properly deserialized user from cache
+			cachedUser.AuthType = TypeAPIKey // Ensure auth type is set
+			return &cachedUser, nil
 		}
 	}
 
@@ -186,8 +181,8 @@ func (s *Service) ValidateAPIKey(ctx context.Context, apiKey string) (*User, err
 		// Cache the result
 		if s.config.CacheEnabled && s.cache != nil {
 			cacheKey := fmt.Sprintf("auth:apikey:%s", apiKey)
-			// In production, marshal user to JSON
-			if err := s.cache.Set(ctx, cacheKey, "cached", s.config.CacheTTL); err != nil {
+			// Cache the entire user object for proper retrieval
+			if err := s.cache.Set(ctx, cacheKey, user, s.config.CacheTTL); err != nil {
 				s.logger.Warn("Failed to cache API key validation", map[string]interface{}{"error": err})
 			}
 		}
@@ -260,7 +255,8 @@ func (s *Service) ValidateAPIKey(ctx context.Context, apiKey string) (*User, err
 		// Cache the result
 		if s.config.CacheEnabled && s.cache != nil {
 			cacheKey := fmt.Sprintf("auth:apikey:%s", apiKey)
-			if err := s.cache.Set(ctx, cacheKey, "cached", s.config.CacheTTL); err != nil {
+			// Cache the entire user object for proper retrieval
+			if err := s.cache.Set(ctx, cacheKey, user, s.config.CacheTTL); err != nil {
 				s.logger.Warn("Failed to cache API key from database", map[string]interface{}{"error": err})
 			}
 		}
@@ -601,10 +597,18 @@ func (s *Service) InitializeAPIKeysWithConfig(keysConfig map[string]interface{})
 				}
 			}
 			
+			// Check if user_id is provided in config
+			userID, _ := v["user_id"].(string)
+			if userID == "" {
+				// Generate a unique user ID based on the key
+				// This ensures each API key has a unique agent ID
+				userID = fmt.Sprintf("user-%s", key)
+			}
+			
 			apiKey = &APIKey{
 				Key:       key,
 				TenantID:  tenantID,
-				UserID:    "system",
+				UserID:    userID,
 				Name:      fmt.Sprintf("%s key for %s", role, tenantID),
 				Scopes:    scopes,
 				CreatedAt: time.Now(),

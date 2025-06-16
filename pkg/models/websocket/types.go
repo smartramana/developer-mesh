@@ -16,6 +16,7 @@ const (
     MessageTypePing
     MessageTypePong
     MessageTypeBatch
+    MessageTypeProgress
 )
 
 // Message represents a WebSocket message (JSON initially)
@@ -57,12 +58,15 @@ const (
 
 // Standard error codes
 const (
-    ErrCodeInvalidMessage = 4000
-    ErrCodeAuthFailed     = 4001
-    ErrCodeRateLimited    = 4002
-    ErrCodeServerError    = 4003
-    ErrCodeMethodNotFound = 4004
-    ErrCodeInvalidParams  = 4005
+    ErrCodeInvalidMessage      = 4000
+    ErrCodeAuthFailed          = 4001
+    ErrCodeRateLimited         = 4002
+    ErrCodeServerError         = 4003
+    ErrCodeMethodNotFound      = 4004
+    ErrCodeInvalidParams       = 4005
+    ErrCodeOperationCancelled  = 4006
+    ErrCodeContextTooLarge     = 4007
+    ErrCodeConflict            = 4008
 )
 
 // NewError creates a new WebSocket error

@@ -43,3 +43,55 @@ func (a *contextManagerAdapter) UpdateContext(ctx context.Context, contextID str
     
     return a.coreManager.UpdateContext(ctx, contextID, updateData, options)
 }
+
+// TruncateContext implements websocket.ContextManager
+func (a *contextManagerAdapter) TruncateContext(ctx context.Context, contextID string, maxTokens int, preserveRecent bool) (*TruncatedContext, int, error) {
+    // Get current context
+    context, err := a.coreManager.GetContext(ctx, contextID)
+    if err != nil {
+        return nil, 0, err
+    }
+    
+    // Calculate tokens to remove
+    removedTokens := 0
+    if context.CurrentTokens > maxTokens {
+        removedTokens = context.CurrentTokens - maxTokens
+    }
+    
+    // Update context with truncation
+    updateData := &models.Context{
+        Content: context.Content, // This would be truncated in a real implementation
+    }
+    
+    options := &models.ContextUpdateOptions{
+        Truncate:         true,
+        TruncateStrategy: "keep_recent",
+    }
+    
+    updatedContext, err := a.coreManager.UpdateContext(ctx, contextID, updateData, options)
+    if err != nil {
+        return nil, 0, err
+    }
+    
+    return &TruncatedContext{
+        ID:         updatedContext.ID,
+        TokenCount: maxTokens,
+    }, removedTokens, nil
+}
+
+// CreateContext implements websocket.ContextManager
+func (a *contextManagerAdapter) CreateContext(ctx context.Context, agentID, tenantID, name, content string) (*models.Context, error) {
+    // Create a new context
+    newContext := &models.Context{
+        Name:    name,
+        AgentID: agentID,
+        Content: []models.ContextItem{
+            {
+                Content: content,
+                Role:    "system",
+            },
+        },
+    }
+    
+    return a.coreManager.CreateContext(ctx, newContext)
+}

@@ -59,6 +59,8 @@ func GetTestAPIKey(tenantID string) string {
 		"test-tenant-1": "test-key-tenant-1",
 		"test-tenant-2": "test-key-tenant-2",
 		"dev-tenant": "dev-admin-key-1234567890",
+		"agent-1": "test-key-agent-1",  // Same tenant, different user
+		"agent-2": "test-key-agent-2",  // Same tenant, different user
 	}
 	
 	if key, exists := keys[tenantID]; exists {

@@ -162,6 +162,10 @@ test-functional-local: ## Run functional tests with local services and real AWS
 	@set -a; [ -f .env ] && . ./.env; set +a; \
 	export MCP_TEST_MODE=true && ./test/scripts/run_functional_tests_local.sh
 
+.PHONY: start-functional-env
+start-functional-env: ## Start functional test environment (PostgreSQL + services)
+	./scripts/start-functional-test-env.sh
+
 .PHONY: test-websocket
 test-websocket: ## Run all WebSocket tests
 	@echo "Running WebSocket tests..."

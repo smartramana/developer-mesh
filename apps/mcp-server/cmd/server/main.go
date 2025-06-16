@@ -400,8 +400,8 @@ func initializeCache(ctx context.Context, cfg *commonconfig.Config, logger obser
 			PoolTimeout:  cfg.Cache.PoolTimeout,
 		}
 		
-		// Convert TLS config if present
-		if cfg.Cache.TLS != nil {
+		// Convert TLS config if present AND enabled
+		if cfg.Cache.TLS != nil && cfg.Cache.TLS.Enabled {
 			logger.Info("Converting TLS config", map[string]interface{}{
 				"enabled": cfg.Cache.TLS.Enabled,
 				"skip_verify": cfg.Cache.TLS.InsecureSkipVerify,

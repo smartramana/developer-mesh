@@ -39,7 +39,7 @@ type RedisConfig struct {
 
 // TLSConfig holds TLS configuration
 type TLSConfig struct {
-	*securitytls.Config `mapstructure:",squash"` // Embed secure TLS configuration
+	securitytls.Config `mapstructure:",squash"` // Embed secure TLS configuration (non-pointer)
 }
 
 // NewCache creates a new cache based on the configuration
@@ -204,7 +204,7 @@ func newAWSElastiCacheClient(ctx context.Context, config RedisConfig) (Cache, er
 			// For standard Redis, we need to enable TLS
 			// Since the config doesn't have a UseTLS field, we check if TLS config exists
 			redisConfig.TLS = &TLSConfig{
-				Config: &securitytls.Config{
+				securitytls.Config{
 					Enabled:            true,
 					InsecureSkipVerify: tlsConfig.InsecureSkipVerify,
 					MinVersion:         securitytls.DefaultMinVersion,

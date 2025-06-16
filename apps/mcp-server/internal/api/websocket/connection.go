@@ -12,6 +12,19 @@ import (
     ws "github.com/S-Corkum/devops-mcp/pkg/models/websocket"
 )
 
+// ConnectionState tracks additional connection state
+type ConnectionState struct {
+    BinaryMode           bool
+    CompressionThreshold int
+    MaxTokens            int
+    CurrentTokenUsage    int
+    ActiveSessionID      string
+    PreviousSessionID    string
+    SystemPromptTokens   int
+    ConversationTokens   int
+    ToolTokens           int
+}
+
 // RateLimiter implements token bucket algorithm
 type RateLimiter struct {
     tokens    float64
@@ -129,13 +142,15 @@ func (c *Connection) writePump() {
     ticker := time.NewTicker(c.hub.config.PingInterval)
     defer func() {
         ticker.Stop()
-        if err := c.conn.Close(websocket.StatusNormalClosure, ""); err != nil {
-            // Log error but don't fail - connection is already being closed
-            if c.hub.logger != nil {
-                c.hub.logger.Debug("Error closing WebSocket connection in writePump", map[string]interface{}{
-                    "error": err.Error(),
-                    "connection_id": c.ID,
-                })
+        if c.conn != nil {
+            if err := c.conn.Close(websocket.StatusNormalClosure, ""); err != nil {
+                // Log error but don't fail - connection is already being closed
+                if c.hub.logger != nil {
+                    c.hub.logger.Debug("Error closing WebSocket connection in writePump", map[string]interface{}{
+                        "error": err.Error(),
+                        "connection_id": c.ID,
+                    })
+                }
             }
         }
     }()
@@ -274,3 +289,153 @@ var (
         Message: "Message channel full",
     }
 )
+
+// Extended Connection methods for new features
+
+// SetBinaryMode enables/disables binary protocol for the connection
+func (c *Connection) SetBinaryMode(enabled bool) {
+    c.mu.Lock()
+    defer c.mu.Unlock()
+    if c.state == nil {
+        c.state = &ConnectionState{}
+    }
+    c.state.BinaryMode = enabled
+}
+
+// IsBinaryMode returns whether binary mode is enabled
+func (c *Connection) IsBinaryMode() bool {
+    c.mu.RLock()
+    defer c.mu.RUnlock()
+    if c.state == nil {
+        return false
+    }
+    return c.state.BinaryMode
+}
+
+// SetCompressionThreshold sets the message size threshold for compression
+func (c *Connection) SetCompressionThreshold(threshold int) {
+    c.mu.Lock()
+    defer c.mu.Unlock()
+    if c.state == nil {
+        c.state = &ConnectionState{}
+    }
+    c.state.CompressionThreshold = threshold
+}
+
+// GetCompressionThreshold returns the compression threshold
+func (c *Connection) GetCompressionThreshold() int {
+    c.mu.RLock()
+    defer c.mu.RUnlock()
+    if c.state == nil {
+        return 0
+    }
+    return c.state.CompressionThreshold
+}
+
+// Token management methods
+
+// SetMaxTokens sets the maximum token window for the connection
+func (c *Connection) SetMaxTokens(maxTokens int) {
+    c.mu.Lock()
+    defer c.mu.Unlock()
+    if c.state == nil {
+        c.state = &ConnectionState{}
+    }
+    c.state.MaxTokens = maxTokens
+}
+
+// GetMaxTokens returns the maximum token window
+func (c *Connection) GetMaxTokens() int {
+    c.mu.RLock()
+    defer c.mu.RUnlock()
+    if c.state == nil {
+        return 200000 // Default for Claude 3 Opus
+    }
+    if c.state.MaxTokens == 0 {
+        return 200000
+    }
+    return c.state.MaxTokens
+}
+
+// GetTokenUsage returns current token usage
+func (c *Connection) GetTokenUsage() int {
+    c.mu.RLock()
+    defer c.mu.RUnlock()
+    if c.state == nil {
+        return 0
+    }
+    return c.state.CurrentTokenUsage
+}
+
+// UpdateTokenUsage updates the current token usage
+func (c *Connection) UpdateTokenUsage(tokens int) {
+    c.mu.Lock()
+    defer c.mu.Unlock()
+    if c.state == nil {
+        c.state = &ConnectionState{}
+    }
+    c.state.CurrentTokenUsage = tokens
+}
+
+// GetSystemPromptTokens returns system prompt token count
+func (c *Connection) GetSystemPromptTokens() int {
+    c.mu.RLock()
+    defer c.mu.RUnlock()
+    if c.state == nil {
+        return 0
+    }
+    return c.state.SystemPromptTokens
+}
+
+// GetConversationTokens returns conversation token count
+func (c *Connection) GetConversationTokens() int {
+    c.mu.RLock()
+    defer c.mu.RUnlock()
+    if c.state == nil {
+        return 0
+    }
+    return c.state.ConversationTokens
+}
+
+// GetToolTokens returns tool token count
+func (c *Connection) GetToolTokens() int {
+    c.mu.RLock()
+    defer c.mu.RUnlock()
+    if c.state == nil {
+        return 0
+    }
+    return c.state.ToolTokens
+}
+
+// Session management methods
+
+// SetActiveSession sets the active session for the connection
+func (c *Connection) SetActiveSession(sessionID string) {
+    c.mu.Lock()
+    defer c.mu.Unlock()
+    if c.state == nil {
+        c.state = &ConnectionState{}
+    }
+    c.state.PreviousSessionID = c.state.ActiveSessionID
+    c.state.ActiveSessionID = sessionID
+}
+
+// GetActiveSession returns the active session ID
+func (c *Connection) GetActiveSession() string {
+    c.mu.RLock()
+    defer c.mu.RUnlock()
+    if c.state == nil {
+        return ""
+    }
+    return c.state.ActiveSessionID
+}
+
+// GetPreviousSession returns the previous session ID
+func (c *Connection) GetPreviousSession() string {
+    c.mu.RLock()
+    defer c.mu.RUnlock()
+    if c.state == nil {
+        return ""
+    }
+    return c.state.PreviousSessionID
+}
