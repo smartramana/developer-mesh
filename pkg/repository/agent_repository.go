@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 
+	"github.com/google/uuid"
 	"github.com/S-Corkum/devops-mcp/pkg/models"
 	"github.com/S-Corkum/devops-mcp/pkg/repository/agent"
 	"github.com/jmoiron/sqlx"
@@ -41,8 +42,14 @@ func (r *AgentRepositoryImpl) GetAgentByID(ctx context.Context, id string, tenan
 	}
 
 	// Verify tenant access if required
-	if tenantID != "" && agent.TenantID != tenantID {
-		return nil, fmt.Errorf("agent does not belong to tenant: %s", tenantID)
+	if tenantID != "" {
+		tenantUUID, err := uuid.Parse(tenantID)
+		if err != nil {
+			return nil, err
+		}
+		if agent.TenantID != tenantUUID {
+			return nil, fmt.Errorf("agent does not belong to tenant: %s", tenantID)
+		}
 	}
 
 	return agent, nil

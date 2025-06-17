@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 
+	"github.com/google/uuid"
 	"github.com/S-Corkum/devops-mcp/pkg/models"
 	"github.com/jmoiron/sqlx"
 )
@@ -348,8 +349,14 @@ func (r *RepositoryImpl) GetAgentByID(ctx context.Context, id string, tenantID s
 	}
 
 	// If found, verify tenant ID matches
-	if agent != nil && agent.TenantID != tenantID {
-		return nil, errors.New("agent not found for tenant")
+	if agent != nil && tenantID != "" {
+		tenantUUID, err := uuid.Parse(tenantID)
+		if err != nil {
+			return nil, err
+		}
+		if agent.TenantID != tenantUUID {
+			return nil, errors.New("agent not found for tenant")
+		}
 	}
 
 	return agent, nil

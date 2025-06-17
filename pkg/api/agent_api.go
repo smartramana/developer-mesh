@@ -1,11 +1,13 @@
 package api
 
 import (
+	"net/http"
+
+	"github.com/google/uuid"
+	"github.com/gin-gonic/gin"
 	"github.com/S-Corkum/devops-mcp/pkg/models"
 	"github.com/S-Corkum/devops-mcp/pkg/repository"
 	"github.com/S-Corkum/devops-mcp/pkg/util"
-	"github.com/gin-gonic/gin"
-	"net/http"
 )
 
 // AgentAPI handles agent management endpoints
@@ -38,7 +40,12 @@ func (a *AgentAPI) createAgent(c *gin.Context) {
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "missing tenant id"})
 		return
 	}
-	agent.TenantID = tenantID
+	tenantUUID, err := uuid.Parse(tenantID)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid tenant id format"})
+		return
+	}
+	agent.TenantID = tenantUUID
 	if agent.ID == "" {
 		agent.ID = util.GenerateUUID() // Assume a UUID generator utility exists
 	}
@@ -88,7 +95,12 @@ func (a *AgentAPI) updateAgent(c *gin.Context) {
 
 	// Ensure the ID and tenant ID match what's in the URL and token
 	agent.ID = id
-	agent.TenantID = tenantID
+	tenantUUID, err := uuid.Parse(tenantID)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid tenant id format"})
+		return
+	}
+	agent.TenantID = tenantUUID
 
 	if err := a.repo.UpdateAgent(c.Request.Context(), &agent); err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})

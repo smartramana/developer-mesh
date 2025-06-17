@@ -8,6 +8,7 @@ import (
 	"net/http/httptest"
 	"testing"
 
+	"github.com/google/uuid"
 	"github.com/S-Corkum/devops-mcp/pkg/models"
 	"github.com/S-Corkum/devops-mcp/pkg/repository"
 	"github.com/S-Corkum/devops-mcp/pkg/repository/agent"
@@ -127,7 +128,7 @@ func TestCreateAgent_MissingTenant(t *testing.T) {
 
 func TestListAgents_Success(t *testing.T) {
 	repo := new(MockAgentRepository)
-	agents := []*models.Agent{{ID: "a1", TenantID: "tenant1", Name: "Agent1"}}
+	agents := []*models.Agent{{ID: "a1", TenantID: uuid.MustParse("00000000-0000-0000-0000-000000000001"), Name: "Agent1"}}
 	repo.On("ListAgents", mock.Anything, "tenant1").Return(agents, nil)
 
 	r := setupAgentAPI(repo, true)
@@ -142,7 +143,7 @@ func TestUpdateAgent_NotFound(t *testing.T) {
 	repo := new(MockAgentRepository)
 	// The API calls UpdateAgent directly, which should return an error for non-existent agent
 	repo.On("UpdateAgent", mock.Anything, mock.MatchedBy(func(agent *models.Agent) bool {
-		return agent.ID == "a1" && agent.TenantID == "tenant1" && agent.Name == "Updated"
+		return agent.ID == "a1" && agent.TenantID == uuid.MustParse("00000000-0000-0000-0000-000000000001") && agent.Name == "Updated"
 	})).Return(errors.New("agent not found"))
 
 	r := setupAgentAPI(repo, true)

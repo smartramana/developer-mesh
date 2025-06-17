@@ -3,6 +3,7 @@ package agent
 import (
 	"context"
 
+	"github.com/google/uuid"
 	"github.com/S-Corkum/devops-mcp/pkg/models"
 )
 
@@ -26,7 +27,7 @@ func (m *MockRepository) Get(ctx context.Context, id string) (*models.Agent, err
 	return &models.Agent{
 		ID:       id,
 		Name:     "Mock Agent",
-		TenantID: "mock-tenant",
+		TenantID: uuid.MustParse("00000000-0000-0000-0000-000000000001"),
 		ModelID:  "mock-model",
 	}, nil
 }
@@ -69,7 +70,13 @@ func (m *MockRepository) GetAgentByID(ctx context.Context, id string, tenantID s
 	// Mock agent already has tenant ID set in the Get method, so we don't need to check it
 	// The real implementation would verify the tenant ID, but for testing we'll make it work
 	// by updating the tenant ID to match the requested one
-	agent.TenantID = tenantID
+	if tenantID != "" {
+		tenantUUID, err := uuid.Parse(tenantID)
+		if err != nil {
+			return nil, err
+		}
+		agent.TenantID = tenantUUID
+	}
 
 	return agent, nil
 }

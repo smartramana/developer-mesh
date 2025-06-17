@@ -74,7 +74,7 @@ type Engine struct {
 	config               interface{} // Store as interface{} to handle various config types
 	metricsClient        observability.MetricsClient
 	logger               observability.Logger // Changed from pointer to interface type
-	eventBus             events.EventBusIface
+	eventBus             *events.EventBusImpl
 }
 
 // NewEngine creates a new engine
@@ -113,8 +113,8 @@ func NewEngine(
 	if eventBusImpl == nil {
 		return nil, fmt.Errorf("failed to create event bus")
 	}
-	// Use the implementation as the EventBusIface interface
-	var eventBus events.EventBusIface = eventBusImpl
+	// Use the implementation directly
+	eventBus := eventBusImpl
 
 	// No need for a mock system event bus anymore
 
@@ -274,10 +274,7 @@ func (e *Engine) RecordWebhookInContext(ctx context.Context, agentID string, ada
 func (e *Engine) Close() {
 	// Event bus might be nil during tests
 	if e.eventBus != nil {
-		// Handle different EventBusIface implementations
-		if closer, ok := e.eventBus.(interface{ Close() }); ok {
-			closer.Close()
-		}
+		e.eventBus.Close()
 	}
 	if err := e.Shutdown(context.Background()); err != nil {
 		// Log error if logger is available

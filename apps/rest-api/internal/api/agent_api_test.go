@@ -8,6 +8,7 @@ import (
 	"net/http/httptest"
 	"testing"
 
+	"github.com/google/uuid"
 	"github.com/S-Corkum/devops-mcp/pkg/models"
 	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/assert"
@@ -84,7 +85,7 @@ func TestCreateAgent_MissingTenant(t *testing.T) {
 
 func TestListAgents_Success(t *testing.T) {
 	repo := new(MockAgentRepository)
-	agents := []*models.Agent{{ID: "a1", TenantID: "tenant1", Name: "Agent1"}}
+	agents := []*models.Agent{{ID: "a1", TenantID: uuid.MustParse("00000000-0000-0000-0000-000000000001"), Name: "Agent1"}}
 	repo.On("ListAgents", mock.Anything, "tenant1").Return(agents, nil)
 
 	r := setupAgentAPI(repo, true)

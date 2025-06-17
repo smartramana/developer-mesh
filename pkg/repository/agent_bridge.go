@@ -5,6 +5,7 @@ import (
 	"context"
 	"database/sql"
 
+	"github.com/google/uuid"
 	"github.com/S-Corkum/devops-mcp/pkg/models"
 	"github.com/S-Corkum/devops-mcp/pkg/repository/agent"
 	"github.com/jmoiron/sqlx"
@@ -66,7 +67,13 @@ func (m *mockAgentRepository) List(ctx context.Context, filter agent.Filter) ([]
 		for key, value := range filter {
 			switch key {
 			case "tenant_id":
-				if agent.TenantID != value.(string) {
+				tenantStr, ok := value.(string)
+				if !ok {
+					matches = false
+					break
+				}
+				tenantUUID, err := uuid.Parse(tenantStr)
+				if err != nil || agent.TenantID != tenantUUID {
 					matches = false
 				}
 			case "id":
@@ -109,8 +116,14 @@ func (m *mockAgentRepository) CreateAgent(ctx context.Context, agent *models.Age
 // GetAgentByID implements the API-specific method
 func (m *mockAgentRepository) GetAgentByID(ctx context.Context, id string, tenantID string) (*models.Agent, error) {
 	agent, _ := m.Get(ctx, id)
-	if agent != nil && agent.TenantID != tenantID {
-		return nil, nil
+	if agent != nil && tenantID != "" {
+		tenantUUID, err := uuid.Parse(tenantID)
+		if err != nil {
+			return nil, err
+		}
+		if agent.TenantID != tenantUUID {
+			return nil, nil
+		}
 	}
 	return agent, nil
 }
