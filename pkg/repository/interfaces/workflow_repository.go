@@ -23,6 +23,18 @@ type WorkflowFilters struct {
 	SortOrder     types.SortOrder
 }
 
+// ExecutionFilters defines filtering options for workflow execution queries
+type ExecutionFilters struct {
+	Status        []string
+	CreatedAfter  *time.Time
+	CreatedBefore *time.Time
+	TriggeredBy   *string
+	Limit         int
+	Offset        int
+	SortBy        string
+	SortOrder     types.SortOrder
+}
+
 // WorkflowStats represents workflow execution statistics
 type WorkflowStats struct {
 	TotalRuns        int64

@@ -144,6 +144,21 @@ func (m *JSONMap) Scan(value interface{}) error {
 
 // Helper methods
 
+// GetID returns the task ID (implements AggregateRoot)
+func (t *Task) GetID() uuid.UUID {
+	return t.ID
+}
+
+// GetType returns the aggregate type (implements AggregateRoot)
+func (t *Task) GetType() string {
+	return "Task"
+}
+
+// GetVersion returns the version (implements AggregateRoot)
+func (t *Task) GetVersion() int {
+	return t.Version
+}
+
 // IsTerminal returns true if the task is in a terminal state
 func (t *Task) IsTerminal() bool {
 	switch t.Status {
