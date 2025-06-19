@@ -281,6 +281,18 @@ func (c *Connection) Close() error {
     return c.conn.Close(websocket.StatusNormalClosure, "Connection closed by server")
 }
 
+// GetTenantUUID returns the tenant ID as a UUID
+func (c *Connection) GetTenantUUID() uuid.UUID {
+    c.mu.RLock()
+    defer c.mu.RUnlock()
+    
+    tenantUUID, err := uuid.Parse(c.TenantID)
+    if err != nil {
+        // Return zero UUID if parsing fails
+        return uuid.UUID{}
+    }
+    return tenantUUID
+}
 
 // Custom errors
 var (

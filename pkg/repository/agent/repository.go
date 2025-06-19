@@ -377,3 +377,106 @@ func (r *RepositoryImpl) UpdateAgent(ctx context.Context, agent *models.Agent) e
 func (r *RepositoryImpl) DeleteAgent(ctx context.Context, id string) error {
 	return r.Delete(ctx, id)
 }
+
+// GetByStatus implements the Repository interface
+func (r *RepositoryImpl) GetByStatus(ctx context.Context, status models.AgentStatus) ([]*models.Agent, error) {
+	if status == "" {
+		return nil, errors.New("status cannot be empty")
+	}
+
+	// Check if we need to use a specific transaction from context
+	tx, ok := ctx.Value("tx").(*sqlx.Tx)
+	if !ok || tx == nil {
+		tx, ok = ctx.Value("TransactionKey").(*sqlx.Tx)
+	}
+
+	// Use appropriate placeholder based on database type
+	var placeholder string
+	if isSQLite(r.db) {
+		placeholder = "?"
+	} else {
+		placeholder = "$1"
+	}
+
+	query := fmt.Sprintf("SELECT id, name, tenant_id, model_id FROM %s WHERE status = %s ORDER BY created_at DESC",
+		r.tableName, placeholder)
+
+	var agents []*models.Agent
+	var err error
+
+	// Use transaction if available
+	if ok && tx != nil {
+		err = tx.SelectContext(ctx, &agents, query, string(status))
+	} else {
+		err = r.db.SelectContext(ctx, &agents, query, string(status))
+	}
+
+	if err != nil {
+		return nil, fmt.Errorf("failed to get agents by status: %w", err)
+	}
+
+	return agents, nil
+}
+
+// GetWorkload implements the Repository interface
+func (r *RepositoryImpl) GetWorkload(ctx context.Context, agentID uuid.UUID) (*models.AgentWorkload, error) {
+	// For now, return a simple workload calculation
+	// In production, this would query actual task counts and metrics
+	return &models.AgentWorkload{
+		AgentID:       agentID.String(),
+		ActiveTasks:   0,
+		QueuedTasks:   0,
+		TasksByType:   make(map[string]int),
+		LoadScore:     0.0,
+		EstimatedTime: 0,
+	}, nil
+}
+
+// UpdateWorkload implements the Repository interface
+func (r *RepositoryImpl) UpdateWorkload(ctx context.Context, workload *models.AgentWorkload) error {
+	if workload == nil {
+		return errors.New("workload cannot be nil")
+	}
+	// For MVP, this is a no-op as we don't track workload in a separate table yet
+	return nil
+}
+
+// GetLeastLoadedAgent implements the Repository interface
+func (r *RepositoryImpl) GetLeastLoadedAgent(ctx context.Context, capability models.AgentCapability) (*models.Agent, error) {
+	// Check if we need to use a specific transaction from context
+	tx, ok := ctx.Value("tx").(*sqlx.Tx)
+	if !ok || tx == nil {
+		tx, ok = ctx.Value("TransactionKey").(*sqlx.Tx)
+	}
+
+	// For MVP, we'll just get the first active agent
+	// In production, this would perform complex load balancing queries
+	var placeholder string
+	if isSQLite(r.db) {
+		placeholder = "?"
+	} else {
+		placeholder = "$1"
+	}
+
+	query := fmt.Sprintf("SELECT id, name, tenant_id, model_id FROM %s WHERE status = %s ORDER BY name ASC LIMIT 1",
+		r.tableName, placeholder)
+
+	var agent models.Agent
+	var err error
+
+	// Use transaction if available
+	if ok && tx != nil {
+		err = tx.GetContext(ctx, &agent, query, string(models.AgentStatusActive))
+	} else {
+		err = r.db.GetContext(ctx, &agent, query, string(models.AgentStatusActive))
+	}
+
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return nil, fmt.Errorf("no available agent with capability %s", capability)
+		}
+		return nil, fmt.Errorf("failed to get least loaded agent: %w", err)
+	}
+
+	return &agent, nil
+}

@@ -95,3 +95,53 @@ func (a *contextManagerAdapter) CreateContext(ctx context.Context, agentID, tena
     
     return a.coreManager.CreateContext(ctx, newContext)
 }
+
+// AppendToContext appends content to an existing context
+func (a *contextManagerAdapter) AppendToContext(ctx context.Context, contextID string, content string) (*models.Context, error) {
+    // Get current context
+    currentContext, err := a.coreManager.GetContext(ctx, contextID)
+    if err != nil {
+        return nil, err
+    }
+    
+    // Append new content
+    currentContext.Content = append(currentContext.Content, models.ContextItem{
+        Content: content,
+        Role:    "user",
+    })
+    
+    // Update context
+    options := &models.ContextUpdateOptions{
+        Truncate: false,
+    }
+    
+    return a.coreManager.UpdateContext(ctx, contextID, currentContext, options)
+}
+
+// GetContextStats returns statistics for a context
+func (a *contextManagerAdapter) GetContextStats(ctx context.Context, contextID string) (*ContextStats, error) {
+    // Get context to calculate stats
+    context, err := a.coreManager.GetContext(ctx, contextID)
+    if err != nil {
+        return nil, err
+    }
+    
+    // Calculate stats
+    messageCount := len(context.Content)
+    toolInvocations := 0
+    
+    // Count tool invocations (simplified - would parse content in real implementation)
+    for _, item := range context.Content {
+        if item.Role == "tool" {
+            toolInvocations++
+        }
+    }
+    
+    return &ContextStats{
+        TotalTokens:     context.CurrentTokens,
+        MessageCount:    messageCount,
+        ToolInvocations: toolInvocations,
+        CreatedAt:       context.CreatedAt,
+        LastAccessed:    context.UpdatedAt,
+    }, nil
+}

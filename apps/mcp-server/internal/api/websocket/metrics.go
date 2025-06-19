@@ -342,6 +342,131 @@ func boolToString(b bool) string {
     return "false"
 }
 
+// Collaboration-specific metrics
+
+// RecordTaskCreated records task creation metrics
+func (mc *MetricsCollector) RecordTaskCreated(tenantID string, taskType string, priority string) {
+    if mc.client != nil {
+        mc.client.IncrementCounterWithLabels("mcp_task_created_total", 1, map[string]string{
+            "tenant_id": tenantID,
+            "task_type": taskType,
+            "priority":  priority,
+        })
+    }
+}
+
+// RecordTaskDelegated records task delegation metrics
+func (mc *MetricsCollector) RecordTaskDelegated(tenantID string, fromAgent string, toAgent string, delegationType string) {
+    if mc.client != nil {
+        mc.client.IncrementCounterWithLabels("mcp_task_delegated_total", 1, map[string]string{
+            "tenant_id":       tenantID,
+            "from_agent":      fromAgent,
+            "to_agent":        toAgent,
+            "delegation_type": delegationType,
+        })
+    }
+}
+
+// RecordTaskCompleted records task completion metrics
+func (mc *MetricsCollector) RecordTaskCompleted(tenantID string, agentID string, status string, duration time.Duration) {
+    if mc.client != nil {
+        mc.client.IncrementCounterWithLabels("mcp_task_completed_total", 1, map[string]string{
+            "tenant_id": tenantID,
+            "agent_id":  agentID,
+            "status":    status,
+        })
+        mc.client.RecordHistogram("mcp_task_duration_seconds", duration.Seconds(), map[string]string{
+            "tenant_id": tenantID,
+            "status":    status,
+        })
+    }
+}
+
+// RecordWorkflowStarted records workflow start metrics
+func (mc *MetricsCollector) RecordWorkflowStarted(tenantID string, workflowType string) {
+    if mc.client != nil {
+        mc.client.IncrementCounterWithLabels("mcp_workflow_started_total", 1, map[string]string{
+            "tenant_id":     tenantID,
+            "workflow_type": workflowType,
+        })
+    }
+}
+
+// RecordWorkflowCompleted records workflow completion metrics
+func (mc *MetricsCollector) RecordWorkflowCompleted(tenantID string, workflowType string, status string, duration time.Duration) {
+    if mc.client != nil {
+        mc.client.IncrementCounterWithLabels("mcp_workflow_completed_total", 1, map[string]string{
+            "tenant_id":     tenantID,
+            "workflow_type": workflowType,
+            "status":        status,
+        })
+        mc.client.RecordHistogram("mcp_workflow_duration_seconds", duration.Seconds(), map[string]string{
+            "tenant_id":     tenantID,
+            "workflow_type": workflowType,
+        })
+    }
+}
+
+// RecordWorkspaceActivity records workspace activity metrics
+func (mc *MetricsCollector) RecordWorkspaceActivity(tenantID string, workspaceID string, activityType string) {
+    if mc.client != nil {
+        mc.client.IncrementCounterWithLabels("mcp_workspace_activity_total", 1, map[string]string{
+            "tenant_id":     tenantID,
+            "workspace_id":  workspaceID,
+            "activity_type": activityType,
+        })
+    }
+}
+
+// RecordDocumentEdit records document edit metrics
+func (mc *MetricsCollector) RecordDocumentEdit(tenantID string, workspaceID string, documentID string, editType string) {
+    if mc.client != nil {
+        mc.client.IncrementCounterWithLabels("mcp_document_edits_total", 1, map[string]string{
+            "tenant_id":    tenantID,
+            "workspace_id": workspaceID,
+            "document_id":  documentID,
+            "edit_type":    editType,
+        })
+    }
+}
+
+// RecordCRDTOperation records CRDT operation metrics
+func (mc *MetricsCollector) RecordCRDTOperation(tenantID string, crdtType string, operation string, duration time.Duration) {
+    if mc.client != nil {
+        mc.client.IncrementCounterWithLabels("mcp_crdt_operations_total", 1, map[string]string{
+            "tenant_id": tenantID,
+            "crdt_type": crdtType,
+            "operation": operation,
+        })
+        mc.client.RecordHistogram("mcp_crdt_operation_duration_seconds", duration.Seconds(), map[string]string{
+            "tenant_id": tenantID,
+            "crdt_type": crdtType,
+        })
+    }
+}
+
+// RecordConflictResolution records conflict resolution metrics
+func (mc *MetricsCollector) RecordConflictResolution(tenantID string, conflictType string, resolution string) {
+    if mc.client != nil {
+        mc.client.IncrementCounterWithLabels("mcp_conflicts_resolved_total", 1, map[string]string{
+            "tenant_id":     tenantID,
+            "conflict_type": conflictType,
+            "resolution":    resolution,
+        })
+    }
+}
+
+// RecordAgentCapabilityMatch records agent capability matching metrics
+func (mc *MetricsCollector) RecordAgentCapabilityMatch(tenantID string, capability string, matched bool) {
+    if mc.client != nil {
+        mc.client.IncrementCounterWithLabels("mcp_capability_matches_total", 1, map[string]string{
+            "tenant_id":  tenantID,
+            "capability": capability,
+            "matched":    boolToString(matched),
+        })
+    }
+}
+
 // MetricsRegistry provides centralized metrics registration
 type MetricsRegistry struct {
     collectors map[string]*MetricsCollector

@@ -96,3 +96,41 @@ func (m *MockRepository) UpdateAgent(ctx context.Context, agent *models.Agent) e
 func (m *MockRepository) DeleteAgent(ctx context.Context, id string) error {
 	return m.Delete(ctx, id)
 }
+
+// GetByStatus implements the Repository interface
+func (m *MockRepository) GetByStatus(ctx context.Context, status models.AgentStatus) ([]*models.Agent, error) {
+	// Mock implementation that returns empty list
+	return []*models.Agent{}, nil
+}
+
+// GetWorkload implements the Repository interface
+func (m *MockRepository) GetWorkload(ctx context.Context, agentID uuid.UUID) (*models.AgentWorkload, error) {
+	// Mock implementation that returns dummy workload
+	return &models.AgentWorkload{
+		AgentID:       agentID.String(),
+		ActiveTasks:   0,
+		QueuedTasks:   0,
+		TasksByType:   make(map[string]int),
+		LoadScore:     0.0,
+		EstimatedTime: 0,
+	}, nil
+}
+
+// UpdateWorkload implements the Repository interface
+func (m *MockRepository) UpdateWorkload(ctx context.Context, workload *models.AgentWorkload) error {
+	// Mock implementation that does nothing but return success
+	return nil
+}
+
+// GetLeastLoadedAgent implements the Repository interface
+func (m *MockRepository) GetLeastLoadedAgent(ctx context.Context, capability models.AgentCapability) (*models.Agent, error) {
+	// Mock implementation that returns a dummy agent
+	return &models.Agent{
+		ID:           uuid.New().String(),
+		Name:         "Mock Least Loaded Agent",
+		TenantID:     uuid.MustParse("00000000-0000-0000-0000-000000000001"),
+		ModelID:      "mock-model",
+		Status:       string(models.AgentStatusActive),
+		Capabilities: []string{string(capability)},
+	}, nil
+}

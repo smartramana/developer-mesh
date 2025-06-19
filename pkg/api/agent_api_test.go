@@ -86,6 +86,39 @@ func (m *MockAgentRepository) DeleteAgent(ctx context.Context, id string) error 
 	return args.Error(0)
 }
 
+// GetByStatus retrieves agents by status
+func (m *MockAgentRepository) GetByStatus(ctx context.Context, status models.AgentStatus) ([]*models.Agent, error) {
+	args := m.Called(ctx, status)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).([]*models.Agent), args.Error(1)
+}
+
+// GetWorkload retrieves agent workload
+func (m *MockAgentRepository) GetWorkload(ctx context.Context, agentID uuid.UUID) (*models.AgentWorkload, error) {
+	args := m.Called(ctx, agentID)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*models.AgentWorkload), args.Error(1)
+}
+
+// UpdateWorkload updates agent workload
+func (m *MockAgentRepository) UpdateWorkload(ctx context.Context, workload *models.AgentWorkload) error {
+	args := m.Called(ctx, workload)
+	return args.Error(0)
+}
+
+// GetLeastLoadedAgent retrieves the least loaded agent with a capability
+func (m *MockAgentRepository) GetLeastLoadedAgent(ctx context.Context, capability models.AgentCapability) (*models.Agent, error) {
+	args := m.Called(ctx, capability)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*models.Agent), args.Error(1)
+}
+
 // Helper to set up Gin and handler
 func setupAgentAPI(repo repository.AgentRepository, withTenant bool) *gin.Engine {
 	gin.SetMode(gin.TestMode)

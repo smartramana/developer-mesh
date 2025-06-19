@@ -507,6 +507,20 @@ func (s *Server) healthHandler(c *gin.Context) {
 // 	return scheme + "://" + host
 // }
 
+// InjectServices injects services into the WebSocket server
+func (s *Server) InjectServices(services interface{}) {
+	if s.wsServer == nil {
+		s.logger.Warn("Cannot inject services: WebSocket server is not initialized", nil)
+		return
+	}
+	
+	// The services parameter should be a *ServicesBundle from main.go
+	// We'll need to do type assertion and then inject into WebSocket server
+	s.logger.Info("Services injection requested - implementation needed", map[string]interface{}{
+		"has_services": services != nil,
+	})
+}
+
 // RegisterShutdownHook registers a function to be called during server shutdown
 func RegisterShutdownHook(hook func()) {
 	shutdownHooks = append(shutdownHooks, hook)

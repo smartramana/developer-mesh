@@ -118,6 +118,13 @@ func (s *Server) RegisterHandlers() {
         
         // Metrics
         "metrics.record": s.handleMetricsRecord,
+        
+        // Conflict Resolution
+        "document.sync":      s.handleDocumentSync,
+        "workspace.sync":     s.handleWorkspaceStateSync,
+        "conflict.detect":    s.handleConflictDetect,
+        "vector_clock.get":   s.handleVectorClockGet,
+        "vector_clock.update": s.handleVectorClockUpdate,
     }
 }
 
@@ -186,6 +193,71 @@ func (s *Server) createErrorResponse(id string, code int, message string) ([]byt
     }
     
     return json.Marshal(response)
+}
+
+// Protocol handlers
+
+// handleProtocolGetInfo returns protocol information
+func (s *Server) handleProtocolGetInfo(ctx context.Context, conn *Connection, params json.RawMessage) (interface{}, error) {
+    return map[string]interface{}{
+        "version": "1.0.0",
+        "capabilities": []string{
+            "binary_protocol",
+            "streaming",
+            "collaboration",
+            "conflict_resolution",
+        },
+        "binary_enabled": conn.IsBinaryMode(),
+    }, nil
+}
+
+// Testing and diagnostic handlers
+
+// handleEcho echoes back the input
+func (s *Server) handleEcho(ctx context.Context, conn *Connection, params json.RawMessage) (interface{}, error) {
+    var echoParams map[string]interface{}
+    if err := json.Unmarshal(params, &echoParams); err != nil {
+        return nil, err
+    }
+    return echoParams, nil
+}
+
+// handlePing responds to ping requests
+func (s *Server) handlePing(ctx context.Context, conn *Connection, params json.RawMessage) (interface{}, error) {
+    return map[string]interface{}{
+        "pong": true,
+        "timestamp": time.Now().Unix(),
+    }, nil
+}
+
+// handleBenchmark performs a benchmark test
+func (s *Server) handleBenchmark(ctx context.Context, conn *Connection, params json.RawMessage) (interface{}, error) {
+    var benchParams struct {
+        Iterations int `json:"iterations"`
+        DataSize   int `json:"data_size"`
+    }
+    
+    if err := json.Unmarshal(params, &benchParams); err != nil {
+        benchParams.Iterations = 1000
+        benchParams.DataSize = 1024
+    }
+    
+    start := time.Now()
+    
+    // Simulate some work
+    data := make([]byte, benchParams.DataSize)
+    for i := 0; i < benchParams.Iterations; i++ {
+        _ = data
+    }
+    
+    duration := time.Since(start)
+    
+    return map[string]interface{}{
+        "iterations": benchParams.Iterations,
+        "data_size": benchParams.DataSize,
+        "duration_ms": duration.Milliseconds(),
+        "ops_per_sec": float64(benchParams.Iterations) / duration.Seconds(),
+    }, nil
 }
 
 // handleInitialize handles the initialize method
@@ -611,6 +683,97 @@ func (s *Server) handleContextGetLimits(ctx context.Context, conn *Connection, p
         "warning_threshold": int(float64(agentConfig.MaxContextTokens) * 0.9),
         "current_usage":     conn.GetTokenUsage(),
         "model":            agentConfig.Model,
+    }, nil
+}
+
+// handleToolCancel cancels a running tool execution
+func (s *Server) handleToolCancel(ctx context.Context, conn *Connection, params json.RawMessage) (interface{}, error) {
+    var cancelParams struct {
+        ExecutionID string `json:"execution_id"`
+    }
+    
+    if err := json.Unmarshal(params, &cancelParams); err != nil {
+        return nil, err
+    }
+    
+    if s.toolRegistry != nil {
+        err := s.toolRegistry.CancelExecution(ctx, cancelParams.ExecutionID)
+        if err != nil {
+            return nil, err
+        }
+    }
+    
+    return map[string]interface{}{
+        "execution_id": cancelParams.ExecutionID,
+        "status": "cancelled",
+    }, nil
+}
+
+// handleContextAppend appends content to an existing context
+func (s *Server) handleContextAppend(ctx context.Context, conn *Connection, params json.RawMessage) (interface{}, error) {
+    var appendParams struct {
+        ContextID string `json:"context_id"`
+        Content   string `json:"content"`
+    }
+    
+    if err := json.Unmarshal(params, &appendParams); err != nil {
+        return nil, err
+    }
+    
+    if s.contextManager != nil {
+        context, err := s.contextManager.AppendToContext(ctx, appendParams.ContextID, appendParams.Content)
+        if err != nil {
+            return nil, err
+        }
+        
+        return map[string]interface{}{
+            "id": context.ID,
+            "current_tokens": context.CurrentTokens,
+            "updated_at": context.UpdatedAt.Format(time.RFC3339),
+        }, nil
+    }
+    
+    // Mock response
+    return map[string]interface{}{
+        "id": appendParams.ContextID,
+        "updated_at": time.Now().Format(time.RFC3339),
+    }, nil
+}
+
+// handleContextGetStats returns statistics for a context
+func (s *Server) handleContextGetStats(ctx context.Context, conn *Connection, params json.RawMessage) (interface{}, error) {
+    var statsParams struct {
+        ContextID string `json:"context_id"`
+    }
+    
+    if err := json.Unmarshal(params, &statsParams); err != nil {
+        return nil, err
+    }
+    
+    if s.contextManager != nil {
+        stats, err := s.contextManager.GetContextStats(ctx, statsParams.ContextID)
+        if err != nil {
+            return nil, err
+        }
+        
+        return map[string]interface{}{
+            "context_id": statsParams.ContextID,
+            "total_tokens": stats.TotalTokens,
+            "message_count": stats.MessageCount,
+            "tool_invocations": stats.ToolInvocations,
+            "created_at": stats.CreatedAt.Format(time.RFC3339),
+            "last_accessed": stats.LastAccessed.Format(time.RFC3339),
+        }, nil
+    }
+    
+    // Mock response
+    return map[string]interface{}{
+        "context_id": statsParams.ContextID,
+        "total_tokens": 1000,
+        "message_count": 10,
+        "tool_invocations": 5,
+        "created_at": time.Now().Add(-1 * time.Hour).Format(time.RFC3339),
+        "last_accessed": time.Now().Format(time.RFC3339),
     }, nil
 }
 
@@ -1089,6 +1252,79 @@ func (s *Server) handleEventUnsubscribe(ctx context.Context, conn *Connection, p
     return map[string]interface{}{
         "unsubscribed": unsubParams.Events,
         "status":       "success",
+    }, nil
+}
+
+// handleSubscriptionList lists active subscriptions
+func (s *Server) handleSubscriptionList(ctx context.Context, conn *Connection, params json.RawMessage) (interface{}, error) {
+    subscriptions := s.subscriptionManager.ListSubscriptions(conn.ID)
+    
+    return map[string]interface{}{
+        "subscriptions": subscriptions,
+        "count": len(subscriptions),
+    }, nil
+}
+
+// handleSubscriptionStatus gets status of a subscription
+func (s *Server) handleSubscriptionStatus(ctx context.Context, conn *Connection, params json.RawMessage) (interface{}, error) {
+    var statusParams struct {
+        SubscriptionID string `json:"subscription_id"`
+    }
+    
+    if err := json.Unmarshal(params, &statusParams); err != nil {
+        return nil, err
+    }
+    
+    status, err := s.subscriptionManager.GetSubscriptionStatus(conn.ID, statusParams.SubscriptionID)
+    if err != nil {
+        return nil, err
+    }
+    
+    return map[string]interface{}{
+        "subscription_id": statusParams.SubscriptionID,
+        "status": status.Status,
+        "resource": status.Resource,
+        "filter": status.Filter,
+        "created_at": status.CreatedAt.Format(time.RFC3339),
+        "last_event": status.LastEvent.Format(time.RFC3339),
+        "event_count": status.EventCount,
+    }, nil
+}
+
+// handleSubscriptionRestore restores subscriptions after reconnect
+func (s *Server) handleSubscriptionRestore(ctx context.Context, conn *Connection, params json.RawMessage) (interface{}, error) {
+    var restoreParams struct {
+        Subscriptions []struct {
+            ID       string                 `json:"id"`
+            Resource string                 `json:"resource"`
+            Filter   map[string]interface{} `json:"filter"`
+        } `json:"subscriptions"`
+    }
+    
+    if err := json.Unmarshal(params, &restoreParams); err != nil {
+        return nil, err
+    }
+    
+    restored := []string{}
+    failed := []map[string]interface{}{}
+    
+    for _, sub := range restoreParams.Subscriptions {
+        // Restore by creating a new subscription with the old ID
+        restoredID, err := s.subscriptionManager.Subscribe(conn.ID, sub.Resource, sub.Filter)
+        if err != nil {
+            failed = append(failed, map[string]interface{}{
+                "id": sub.ID,
+                "error": err.Error(),
+            })
+        } else {
+            restored = append(restored, restoredID)
+        }
+    }
+    
+    return map[string]interface{}{
+        "restored": restored,
+        "failed": failed,
+        "status": "complete",
     }, nil
 }
 
@@ -1621,7 +1857,7 @@ func (s *Server) handleWorkspaceJoin(ctx context.Context, conn *Connection, para
     }
     
     // Subscribe connection to workspace events
-    s.subscriptionManager.SubscribeToWorkspace(conn.ID, joinParams.WorkspaceID)
+    _ = s.subscriptionManager.SubscribeToWorkspace(conn.ID, joinParams.WorkspaceID)
     
     return map[string]interface{}{
         "workspace_id": joinParams.WorkspaceID,
@@ -1646,7 +1882,7 @@ func (s *Server) handleWorkspaceLeave(ctx context.Context, conn *Connection, par
     }
     
     // Unsubscribe from workspace events
-    s.subscriptionManager.UnsubscribeFromWorkspace(conn.ID, leaveParams.WorkspaceID)
+    _ = s.subscriptionManager.UnsubscribeFromWorkspace(conn.ID, leaveParams.WorkspaceID)
     
     return map[string]interface{}{
         "workspace_id": leaveParams.WorkspaceID,
@@ -1715,18 +1951,68 @@ func (s *Server) handleWorkspaceListMembers(ctx context.Context, conn *Connectio
     }, nil
 }
 
-// Tool represents a tool definition
-type Tool struct {
-    ID          string                 `json:"id"`
-    Name        string                 `json:"name"`
-    Description string                 `json:"description"`
-    Parameters  map[string]interface{} `json:"parameters"`
+// handleStreamBinary handles binary streaming
+func (s *Server) handleStreamBinary(ctx context.Context, conn *Connection, params json.RawMessage) (interface{}, error) {
+    var streamParams struct {
+        StreamID string `json:"stream_id"`
+        Data     []byte `json:"data"`
+        Sequence int    `json:"sequence"`
+        Final    bool   `json:"final"`
+    }
+    
+    if err := json.Unmarshal(params, &streamParams); err != nil {
+        return nil, err
+    }
+    
+    // In a real implementation, this would handle binary data streaming
+    // For now, just acknowledge receipt
+    
+    return map[string]interface{}{
+        "stream_id": streamParams.StreamID,
+        "sequence": streamParams.Sequence,
+        "received": len(streamParams.Data),
+        "final": streamParams.Final,
+    }, nil
+}
+
+// handleMetricsRecord handles metrics recording
+func (s *Server) handleMetricsRecord(ctx context.Context, conn *Connection, params json.RawMessage) (interface{}, error) {
+    var metricsParams struct {
+        Metric    string                 `json:"metric"`
+        Value     float64                `json:"value"`
+        Tags      map[string]string      `json:"tags"`
+        Timestamp int64                  `json:"timestamp"`
+    }
+    
+    if err := json.Unmarshal(params, &metricsParams); err != nil {
+        return nil, err
+    }
+    
+    // Record metric
+    if s.metrics != nil {
+        tags := metricsParams.Tags
+        if tags == nil {
+            tags = make(map[string]string)
+        }
+        tags["agent_id"] = conn.AgentID
+        tags["tenant_id"] = conn.TenantID
+        
+        s.metrics.RecordGauge(metricsParams.Metric, metricsParams.Value, tags)
+    }
+    
+    return map[string]interface{}{
+        "metric": metricsParams.Metric,
+        "recorded": true,
+        "timestamp": time.Now().Unix(),
+    }, nil
 }
 
 // Interfaces for dependencies
 type ToolRegistry interface {
     GetToolsForAgent(agentID string) ([]Tool, error)
     ExecuteTool(ctx context.Context, agentID, toolID string, args map[string]interface{}) (interface{}, error)
+    CancelExecution(ctx context.Context, executionID string) error
+    GetExecutionStatus(ctx context.Context, executionID string) (*ToolExecutionStatus, error)
 }
 
 type ContextManager interface {
@@ -1734,12 +2020,8 @@ type ContextManager interface {
     UpdateContext(ctx context.Context, contextID string, content string) (*models.Context, error)
     TruncateContext(ctx context.Context, contextID string, maxTokens int, preserveRecent bool) (*TruncatedContext, int, error)
     CreateContext(ctx context.Context, agentID, tenantID, name, content string) (*models.Context, error)
-}
-
-// TruncatedContext represents a truncated context
-type TruncatedContext struct {
-    ID         string
-    TokenCount int
+    AppendToContext(ctx context.Context, contextID string, content string) (*models.Context, error)
+    GetContextStats(ctx context.Context, contextID string) (*ContextStats, error)
 }
 
 type EventBus interface {

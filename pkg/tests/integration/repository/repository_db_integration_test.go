@@ -205,7 +205,7 @@ func (r *MockAgentRepository) List(ctx context.Context, filter agent.Filter) ([]
 		// Simple filter check
 		include := true
 		for key, value := range filter {
-			if key == "tenant_id" && a.TenantID != value.(string) {
+			if key == "tenant_id" && a.TenantID.String() != value.(string) {
 				include = false
 				break
 			}
@@ -262,7 +262,7 @@ func (r *MockAgentRepository) GetAgentByID(ctx context.Context, id string, tenan
 		return nil, err
 	}
 
-	if agent == nil || agent.TenantID != tenantID {
+	if agent == nil || agent.TenantID.String() != tenantID {
 		return nil, errors.New("agent not found")
 	}
 
@@ -283,6 +283,53 @@ func (r *MockAgentRepository) UpdateAgent(ctx context.Context, agent *models.Age
 // DeleteAgent implements the API-specific method
 func (r *MockAgentRepository) DeleteAgent(ctx context.Context, id string) error {
 	return r.Delete(ctx, id)
+}
+
+// GetByStatus retrieves agents by status
+func (r *MockAgentRepository) GetByStatus(ctx context.Context, status models.AgentStatus) ([]*models.Agent, error) {
+	r.mutex.RLock()
+	defer r.mutex.RUnlock()
+	
+	var result []*models.Agent
+	for _, agent := range r.agents {
+		if agent.Status == string(status) {
+			result = append(result, agent)
+		}
+	}
+	return result, nil
+}
+
+// GetWorkload retrieves agent workload
+func (r *MockAgentRepository) GetWorkload(ctx context.Context, agentID uuid.UUID) (*models.AgentWorkload, error) {
+	// Return a mock workload
+	return &models.AgentWorkload{
+		AgentID:       agentID.String(),
+		ActiveTasks:   0,
+		QueuedTasks:   0,
+		TasksByType:   make(map[string]int),
+		LoadScore:     0.0,
+		EstimatedTime: 0,
+	}, nil
+}
+
+// UpdateWorkload updates agent workload
+func (r *MockAgentRepository) UpdateWorkload(ctx context.Context, workload *models.AgentWorkload) error {
+	// Mock implementation - do nothing
+	return nil
+}
+
+// GetLeastLoadedAgent retrieves the least loaded agent with a capability
+func (r *MockAgentRepository) GetLeastLoadedAgent(ctx context.Context, capability models.AgentCapability) (*models.Agent, error) {
+	r.mutex.RLock()
+	defer r.mutex.RUnlock()
+	
+	// Return the first active agent for simplicity
+	for _, agent := range r.agents {
+		if agent.Status == string(models.AgentStatusActive) {
+			return agent, nil
+		}
+	}
+	return nil, nil
 }
 
 // WithTx returns a new context with the transaction
@@ -368,7 +415,7 @@ func TestRepositoryDatabaseIntegration(t *testing.T) {
 
 			testAgent := &models.Agent{
 				ID:       "agent-1",
-				TenantID: tenantID,
+				TenantID: uuid.MustParse(tenantID),
 				Name:     "Test Agent",
 				ModelID:  testModel.ID,
 			}
@@ -410,7 +457,7 @@ func TestRepositoryDatabaseIntegration(t *testing.T) {
 
 		testAgent := &models.Agent{
 			ID:       "db-agent-1",
-			TenantID: tenantID,
+			TenantID: uuid.MustParse(tenantID),
 			Name:     "Test Database Agent",
 			ModelID:  testModel.ID,
 		}
@@ -488,7 +535,7 @@ func TestRepositoryDatabaseIntegration(t *testing.T) {
 
 			testAgent := &models.Agent{
 				ID:       "tx-agent-1",
-				TenantID: tenantID,
+				TenantID: uuid.MustParse(tenantID),
 				Name:     "Transaction Test Agent",
 				ModelID:  testModel.ID,
 			}
@@ -543,7 +590,7 @@ func TestRepositoryDatabaseIntegration(t *testing.T) {
 		// Create invalid agent (missing required field) to force error
 		invalidAgent := &models.Agent{
 			ID:       "invalid-agent",
-			TenantID: "test-tenant",
+			TenantID: uuid.MustParse("00000000-0000-0000-0000-000000000001"),
 			ModelID:  modelID,
 			// Missing the Name field intentionally to cause error
 		}
@@ -802,7 +849,7 @@ func runRepositoryTests(t *testing.T, ctx context.Context, modelRepo model.Repos
 		modelID := testModel.ID
 		testAgent = &models.Agent{
 			ID:       uuid.New().String(),
-			TenantID: tenantID,
+			TenantID: uuid.MustParse(tenantID),
 			Name:     "Test Agent",
 			ModelID:  modelID,
 		}

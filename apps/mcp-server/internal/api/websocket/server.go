@@ -13,6 +13,7 @@ import (
     "github.com/S-Corkum/devops-mcp/pkg/auth"
     ws "github.com/S-Corkum/devops-mcp/pkg/models/websocket"
     "github.com/S-Corkum/devops-mcp/pkg/observability"
+    "github.com/S-Corkum/devops-mcp/pkg/services"
 )
 
 type Server struct {
@@ -37,6 +38,13 @@ type Server struct {
     taskManager         *TaskManager
     workspaceManager    *WorkspaceManager
     notificationManager *NotificationManager
+    
+    // Service layer dependencies
+    taskService         services.TaskService
+    workflowService     services.WorkflowService
+    workspaceService    services.WorkspaceService
+    documentService     services.DocumentService
+    conflictService     services.ConflictResolutionService
     
     // Security components
     sessionManager  *SessionManager
@@ -114,7 +122,8 @@ func NewServer(auth *auth.Service, metrics observability.MetricsClient, logger o
     
     // Initialize new managers (these would typically be injected as dependencies)
     s.subscriptionManager = NewSubscriptionManager(logger, metrics)
-    s.workflowEngine = NewWorkflowEngine(logger, metrics)
+    // Initialize workflow engine with nil services for now - will be set later
+    s.workflowEngine = NewWorkflowEngine(logger, metrics, nil, nil)
     s.agentRegistry = NewAgentRegistry(logger, metrics)
     s.taskManager = NewTaskManager(logger, metrics)
     s.workspaceManager = NewWorkspaceManager(logger, metrics, s)
@@ -260,7 +269,7 @@ func (s *Server) removeConnection(conn *Connection) {
         
         // Unsubscribe from all subscriptions
         if s.subscriptionManager != nil {
-            s.subscriptionManager.UnsubscribeAll(conn.ID)
+            _ = s.subscriptionManager.UnsubscribeAll(conn.ID)
         }
         
         // Clean up session key
@@ -349,6 +358,43 @@ func (s *Server) SetEventBus(bus EventBus) {
 // SetConversationSessionManager sets the conversation session manager
 func (s *Server) SetConversationSessionManager(manager *ConversationSessionManager) {
     s.conversationManager = manager
+}
+
+// SetWorkflowService sets the workflow service for the server
+func (s *Server) SetWorkflowService(service services.WorkflowService) {
+    s.workflowService = service
+    // Update workflow engine if it exists
+    if s.workflowEngine != nil {
+        s.workflowEngine = NewWorkflowEngine(s.logger, s.metrics, service, s.taskService)
+        s.workflowEngine.SetNotificationManager(s.notificationManager)
+    }
+}
+
+// SetTaskService sets the task service for the server
+func (s *Server) SetTaskService(service services.TaskService) {
+    s.taskService = service
+    // Update workflow engine if it exists
+    if s.workflowEngine != nil {
+        s.workflowEngine = NewWorkflowEngine(s.logger, s.metrics, s.workflowService, service)
+        s.workflowEngine.SetNotificationManager(s.notificationManager)
+    }
+}
+
+// SetServices sets all the services at once
+func (s *Server) SetServices(taskService services.TaskService, workflowService services.WorkflowService, 
+    workspaceService services.WorkspaceService, documentService services.DocumentService,
+    conflictService services.ConflictResolutionService) {
+    s.taskService = taskService
+    s.workflowService = workflowService
+    s.workspaceService = workspaceService
+    s.documentService = documentService
+    s.conflictService = conflictService
+    
+    // Reinitialize workflow engine with real services
+    if workflowService != nil && taskService != nil {
+        s.workflowEngine = NewWorkflowEngine(s.logger, s.metrics, workflowService, taskService)
+        s.workflowEngine.SetNotificationManager(s.notificationManager)
+    }
 }
 
 // Close gracefully shuts down the server

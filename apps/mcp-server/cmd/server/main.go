@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"crypto/rand"
+	"encoding/base64"
 	"encoding/json"
 	"flag"
 	"fmt"
@@ -28,11 +29,18 @@ import (
 	commonconfig "github.com/S-Corkum/devops-mcp/pkg/common/config"
 	pkgconfig "github.com/S-Corkum/devops-mcp/pkg/config"
 	"github.com/S-Corkum/devops-mcp/pkg/database"
+	"github.com/S-Corkum/devops-mcp/pkg/repository"
+	"github.com/S-Corkum/devops-mcp/pkg/repository/postgres"
+	"github.com/S-Corkum/devops-mcp/pkg/resilience"
+	"github.com/S-Corkum/devops-mcp/pkg/services"
 	securitytls "github.com/S-Corkum/devops-mcp/pkg/security/tls"
 	"github.com/S-Corkum/devops-mcp/pkg/observability"
 
 	// Import PostgreSQL driver
 	_ "github.com/lib/pq"
+	
+	// Import auth package for production authorizer
+	"github.com/S-Corkum/devops-mcp/pkg/auth"
 )
 
 // Version information (set via ldflags during build)
@@ -197,6 +205,15 @@ func main() {
 		}
 	}()
 
+	// Initialize services for multi-agent collaboration
+	services, err := initializeServices(ctx, cfg, db, cacheClient, metricsClient, logger)
+	if err != nil {
+		logger.Error("Failed to initialize services", map[string]interface{}{
+			"error": err.Error(),
+		})
+		os.Exit(1)
+	}
+
 	// Initialize and start API server
 	server, err := initializeServer(ctx, cfg, engine, db, cacheClient, metricsClient, logger)
 	if err != nil {
@@ -204,6 +221,11 @@ func main() {
 			"error": err.Error(),
 		})
 		os.Exit(1)
+	}
+	
+	// Inject services into WebSocket server
+	if services != nil {
+		server.InjectServices(services)
 	}
 
 	// Start server in a goroutine
@@ -439,6 +461,179 @@ func initializeEngine(ctx context.Context, cfg *commonconfig.Config, db *databas
 	}
 
 	return engine, nil
+}
+
+// ServicesBundle holds all the services needed for multi-agent collaboration
+type ServicesBundle struct {
+	TaskService      interface{}
+	WorkflowService  interface{}
+	WorkspaceService interface{}
+	DocumentService  interface{}
+	ConflictService  interface{}
+}
+
+// initializeServices creates all services for multi-agent collaboration
+func initializeServices(ctx context.Context, cfg *commonconfig.Config, db *database.Database, cacheClient cache.Cache, metricsClient observability.MetricsClient, logger observability.Logger) (*ServicesBundle, error) {
+	logger.Info("Initializing multi-agent collaboration services", nil)
+	
+	// Create repositories
+	// Get sqlx.DB from database
+	sqlxDB := db.GetDB()
+	
+	// Create repositories with proper parameters
+	taskRepo := postgres.NewTaskRepository(sqlxDB, sqlxDB, cacheClient, logger, observability.NoopStartSpan)
+	workflowRepo := postgres.NewWorkflowRepository(sqlxDB, sqlxDB, cacheClient, logger, observability.NoopStartSpan)
+	workspaceRepo := postgres.NewWorkspaceRepository(sqlxDB, sqlxDB, cacheClient, logger, observability.NoopStartSpan)
+	documentRepo := postgres.NewDocumentRepository(sqlxDB, sqlxDB, cacheClient, logger, observability.NoopStartSpan)
+	agentRepo := repository.NewAgentRepository(sqlxDB)
+	
+	// Create service configuration with production-ready components
+	serviceConfig := services.ServiceConfig{
+		// Resilience
+		CircuitBreaker: services.CreateDefaultCircuitBreakerSettings(),
+		RetryPolicy: resilience.RetryPolicy{
+			MaxAttempts:  3,
+			InitialDelay: 100 * time.Millisecond,
+			MaxDelay:     5 * time.Second,
+			Multiplier:   2.0,
+			Jitter:       0.1,
+		},
+		TimeoutPolicy: resilience.TimeoutPolicy{
+			Timeout: 30 * time.Second,
+		},
+		BulkheadPolicy: resilience.BulkheadPolicy{
+			MaxConcurrent: 100,
+			QueueSize:     50,
+			Timeout:       5 * time.Second,
+		},
+		
+		// Rate Limiting
+		RateLimiter:  services.NewInMemoryRateLimiter(100, time.Minute),
+		QuotaManager: services.NewInMemoryQuotaManager(),
+		
+		// Security
+		Authorizer:        createProductionAuthorizer(cacheClient, logger, metricsClient),
+		Sanitizer:         services.NewDefaultSanitizer(),
+		EncryptionService: createEncryptionService(logger),
+		
+		// Observability
+		Logger:  logger,
+		Metrics: metricsClient,
+		Tracer: observability.NoopStartSpan,
+		
+		// Business Rules
+		RuleEngine:    nil, // TODO: Implement rules engine
+		PolicyManager: nil, // TODO: Implement policy manager
+	}
+	
+	// Create notification service
+	notificationService := services.NewNotificationService(serviceConfig)
+	
+	// Create agent service
+	agentService := services.NewAgentService(serviceConfig, agentRepo)
+	
+	// Create task service
+	taskService := services.NewTaskService(serviceConfig, taskRepo, agentService, notificationService)
+	
+	// Create workflow service
+	workflowService := services.NewWorkflowService(serviceConfig, workflowRepo, taskService, agentService, notificationService)
+	
+	// Create document service
+	documentService := services.NewDocumentService(serviceConfig, documentRepo, cacheClient)
+	
+	// Create workspace service (it needs documentRepo, not documentService)
+	workspaceService := services.NewWorkspaceService(serviceConfig, workspaceRepo, documentRepo, cacheClient)
+	
+	// Create conflict resolution service
+	conflictService := services.NewConflictResolutionService(
+		serviceConfig,
+		documentRepo,
+		workspaceRepo,
+		taskRepo,
+		"default", // Default conflict resolution strategy
+	)
+	
+	logger.Info("All multi-agent collaboration services initialized successfully", map[string]interface{}{
+		"task_service": "ready",
+		"workflow_service": "ready",
+		"workspace_service": "ready",
+		"document_service": "ready",
+		"conflict_service": "ready",
+		"agent_service": "ready",
+		"notification_service": "ready",
+	})
+	
+	return &ServicesBundle{
+		TaskService:      taskService,
+		WorkflowService:  workflowService,
+		WorkspaceService: workspaceService,
+		DocumentService:  documentService,
+		ConflictService:  conflictService,
+	}, nil
+}
+
+// createProductionAuthorizer creates the production authorizer
+func createProductionAuthorizer(cacheClient cache.Cache, logger observability.Logger, metrics observability.MetricsClient) auth.Authorizer {
+	// Create audit logger
+	auditLogger := auth.NewAuditLogger(logger)
+	
+	// Create auth configuration
+	authConfig := auth.AuthConfig{
+		Cache:          cacheClient,
+		Logger:         logger,
+		Metrics:        metrics,
+		Tracer:         observability.NoopStartSpan,
+		AuditLogger:    auditLogger,
+		CacheEnabled:   true,
+		CacheDuration:  5 * time.Minute,
+		ModelPath:      "pkg/auth/rbac_model.conf",
+		PolicyPath:     "", // Policies will be loaded from memory for now
+	}
+	
+	// Create production authorizer
+	authorizer, err := auth.NewProductionAuthorizer(authConfig)
+	if err != nil {
+		// If we can't create the production authorizer, log the error and return nil
+		// This ensures the service can still start, just without authorization
+		logger.Error("Failed to create production authorizer", map[string]interface{}{
+			"error": err.Error(),
+		})
+		return nil
+	}
+	
+	logger.Info("Production authorizer initialized successfully", nil)
+	return authorizer
+}
+
+// createEncryptionService creates the appropriate encryption service
+func createEncryptionService(logger observability.Logger) services.EncryptionService {
+	// Check for encryption key in environment
+	encryptionKey := os.Getenv("ENCRYPTION_KEY")
+	if encryptionKey == "" {
+		logger.Warn("ENCRYPTION_KEY not set, using no-op encryption service", nil)
+		return services.NewNoOpEncryptionService()
+	}
+	
+	// Decode the key from base64
+	keyBytes, err := base64.StdEncoding.DecodeString(encryptionKey)
+	if err != nil {
+		logger.Error("Failed to decode encryption key", map[string]interface{}{
+			"error": err.Error(),
+		})
+		return services.NewNoOpEncryptionService()
+	}
+	
+	// Create AES encryption service
+	encryptionService, err := services.NewAESEncryptionService(keyBytes)
+	if err != nil {
+		logger.Error("Failed to create AES encryption service", map[string]interface{}{
+			"error": err.Error(),
+		})
+		return services.NewNoOpEncryptionService()
+	}
+	
+	logger.Info("Production AES-256-GCM encryption service initialized", nil)
+	return encryptionService
 }
 
 // initializeServer creates and configures the API server

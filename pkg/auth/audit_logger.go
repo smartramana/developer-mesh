@@ -105,3 +105,91 @@ func (al *AuditLogger) LogRateLimitExceeded(ctx context.Context, identifier, ipA
         "audit_event": string(data),
     })
 }
+
+// LogPolicyChange logs policy changes
+func (al *AuditLogger) LogPolicyChange(ctx context.Context, action string, policy interface{}, reason string) {
+    event := AuditEvent{
+        Timestamp: time.Now(),
+        EventType: "policy_change",
+        Success:   true,
+        Metadata: map[string]interface{}{
+            "action": action,
+            "policy": policy,
+            "reason": reason,
+        },
+    }
+    
+    data, _ := json.Marshal(event)
+    al.logger.Info("AUDIT: Policy change", map[string]interface{}{
+        "audit_event": string(data),
+        "action":     action,
+    })
+}
+
+// LogRoleAssignment logs role assignment changes
+func (al *AuditLogger) LogRoleAssignment(ctx context.Context, action, user, role string) {
+    event := AuditEvent{
+        Timestamp: time.Now(),
+        EventType: "role_assignment",
+        UserID:    user,
+        Success:   true,
+        Metadata: map[string]interface{}{
+            "action": action,
+            "role":   role,
+        },
+    }
+    
+    data, _ := json.Marshal(event)
+    al.logger.Info("AUDIT: Role assignment", map[string]interface{}{
+        "audit_event": string(data),
+        "action":     action,
+        "user":       user,
+        "role":       role,
+    })
+}
+
+// LogAuthorizationSuccess logs successful authorization
+func (al *AuditLogger) LogAuthorizationSuccess(ctx context.Context, subject, resource, action string) {
+    event := AuditEvent{
+        Timestamp: time.Now(),
+        EventType: "authorization_success",
+        UserID:    subject,
+        Success:   true,
+        Metadata: map[string]interface{}{
+            "resource": resource,
+            "action":   action,
+        },
+    }
+    
+    data, _ := json.Marshal(event)
+    al.logger.Debug("AUDIT: Authorization success", map[string]interface{}{
+        "audit_event": string(data),
+        "subject":    subject,
+        "resource":   resource,
+        "action":     action,
+    })
+}
+
+// LogAuthorizationDenial logs authorization denials
+func (al *AuditLogger) LogAuthorizationDenial(ctx context.Context, subject, resource, action, reason string) {
+    event := AuditEvent{
+        Timestamp: time.Now(),
+        EventType: "authorization_denial",
+        UserID:    subject,
+        Success:   false,
+        Error:     reason,
+        Metadata: map[string]interface{}{
+            "resource": resource,
+            "action":   action,
+        },
+    }
+    
+    data, _ := json.Marshal(event)
+    al.logger.Warn("AUDIT: Authorization denial", map[string]interface{}{
+        "audit_event": string(data),
+        "subject":    subject,
+        "resource":   resource,
+        "action":     action,
+        "reason":     reason,
+    })
+}

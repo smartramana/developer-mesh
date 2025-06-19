@@ -52,6 +52,7 @@ type WorkflowExecution struct {
 	// Runtime data
 	Workflow      *Workflow        `json:"workflow,omitempty" db:"-"`
 	StepStatuses  map[string]*StepStatus `json:"step_statuses,omitempty" db:"-"`
+	CurrentStepID string           `json:"current_step_id,omitempty" db:"-"`
 }
 
 // WorkflowStatus represents the state of a workflow execution

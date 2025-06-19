@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 
+	"github.com/google/uuid"
 	"github.com/S-Corkum/devops-mcp/pkg/models"
 	"github.com/S-Corkum/devops-mcp/pkg/repository/agent"
 	"github.com/S-Corkum/devops-mcp/pkg/repository/model"
@@ -75,6 +76,26 @@ func (a *LegacyAgentAdapter) Update(ctx context.Context, agent *models.Agent) er
 
 func (a *LegacyAgentAdapter) Delete(ctx context.Context, id string) error {
 	return a.repo.Delete(ctx, id)
+}
+
+// GetByStatus implements the Repository interface
+func (a *LegacyAgentAdapter) GetByStatus(ctx context.Context, status models.AgentStatus) ([]*models.Agent, error) {
+	return a.repo.GetByStatus(ctx, status)
+}
+
+// GetWorkload implements the Repository interface
+func (a *LegacyAgentAdapter) GetWorkload(ctx context.Context, agentID uuid.UUID) (*models.AgentWorkload, error) {
+	return a.repo.GetWorkload(ctx, agentID)
+}
+
+// UpdateWorkload implements the Repository interface
+func (a *LegacyAgentAdapter) UpdateWorkload(ctx context.Context, workload *models.AgentWorkload) error {
+	return a.repo.UpdateWorkload(ctx, workload)
+}
+
+// GetLeastLoadedAgent implements the Repository interface
+func (a *LegacyAgentAdapter) GetLeastLoadedAgent(ctx context.Context, capability models.AgentCapability) (*models.Agent, error) {
+	return a.repo.GetLeastLoadedAgent(ctx, capability)
 }
 
 // LegacyModelAdapter adapts the new model.Repository to the API expectations

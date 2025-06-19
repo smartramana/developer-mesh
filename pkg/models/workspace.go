@@ -1,9 +1,11 @@
 package models
 
 import (
+	"fmt"
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/lib/pq"
 )
 
 // Workspace represents a collaborative space for agents
@@ -25,6 +27,19 @@ type Workspace struct {
 	CreatedAt       time.Time            `json:"created_at" db:"created_at"`
 	UpdatedAt       time.Time            `json:"updated_at" db:"updated_at"`
 	DeletedAt       *time.Time           `json:"deleted_at,omitempty" db:"deleted_at"`
+	
+	// New production fields for Phase 3
+	IsPublic        bool                 `json:"is_public" db:"is_public"`
+	Settings        WorkspaceSettings    `json:"settings" db:"settings"`
+	Tags            pq.StringArray       `json:"tags" db:"tags"`
+	Metadata        JSONMap              `json:"metadata" db:"metadata"`
+	
+	// Additional fields for production
+	Owner           string               `json:"owner" db:"owner"`
+	Status          WorkspaceStatus      `json:"status" db:"status"`
+	Features        pq.StringArray       `json:"features" db:"features"`
+	Limits          WorkspaceLimits      `json:"limits" db:"limits"`
+	Stats           *WorkspaceStats      `json:"stats,omitempty" db:"-"` // Computed field
 	
 	// Runtime data
 	Members         []*WorkspaceMember   `json:"members,omitempty" db:"-"`
@@ -103,4 +118,76 @@ func (m *WorkspaceMember) CanManage() bool {
 	default:
 		return false
 	}
+}
+
+// IsActive returns true if the workspace is active
+func (w *Workspace) IsActive() bool {
+	return w.Status == WorkspaceStatusActive && w.DeletedAt == nil
+}
+
+// HasFeature checks if the workspace has a specific feature enabled
+func (w *Workspace) HasFeature(feature string) bool {
+	for _, f := range w.Features {
+		if f == feature {
+			return true
+		}
+	}
+	return false
+}
+
+// HasTag checks if the workspace has a specific tag
+func (w *Workspace) HasTag(tag string) bool {
+	for _, t := range w.Tags {
+		if t == tag {
+			return true
+		}
+	}
+	return false
+}
+
+// SetDefaultValues sets default values for a new workspace
+func (w *Workspace) SetDefaultValues() {
+	if w.Status == "" {
+		w.Status = WorkspaceStatusActive
+	}
+	if w.Visibility == "" {
+		w.Visibility = WorkspaceVisibilityPrivate
+	}
+	// Initialize settings if empty (check a specific field)
+	if w.Settings.Notifications.DigestFrequency == "" {
+		w.Settings = GetDefaultWorkspaceSettings()
+	}
+	// Initialize limits if empty (check a specific field)
+	if w.Limits.MaxMembers == 0 {
+		w.Limits = GetDefaultWorkspaceLimits()
+	}
+	if w.Configuration == nil {
+		w.Configuration = make(JSONMap)
+	}
+	if w.State == nil {
+		w.State = make(JSONMap)
+	}
+	if w.Metadata == nil {
+		w.Metadata = make(JSONMap)
+	}
+	if w.Tags == nil {
+		w.Tags = pq.StringArray{}
+	}
+	if w.Features == nil {
+		w.Features = pq.StringArray{}
+	}
+}
+
+// Validate validates the workspace fields
+func (w *Workspace) Validate() error {
+	if w.Name == "" {
+		return fmt.Errorf("workspace name is required")
+	}
+	if w.TenantID == uuid.Nil {
+		return fmt.Errorf("tenant ID is required")
+	}
+	if !w.Status.IsValid() {
+		return fmt.Errorf("invalid workspace status: %s", w.Status)
+	}
+	return nil
 }

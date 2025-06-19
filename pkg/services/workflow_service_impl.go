@@ -733,7 +733,73 @@ func (s *workflowService) GetExecutionTimeline(ctx context.Context, executionID 
 	return nil, errors.New("not implemented")
 }
 
-func (s *workflowService) PauseExecution(ctx context.Context, executionID uuid.UUID) error {
+func (s *workflowService) UpdateExecution(ctx context.Context, execution *models.WorkflowExecution) error {
+	ctx, span := s.config.Tracer(ctx, "WorkflowService.UpdateExecution")
+	defer span.End()
+
+	// Validate execution
+	if execution == nil {
+		return ValidationError{Field: "execution", Message: "required"}
+	}
+
+	if execution.ID == uuid.Nil {
+		return ValidationError{Field: "execution.id", Message: "required"}
+	}
+
+	// Check authorization
+	existingExecution, err := s.getExecution(ctx, execution.ID)
+	if err != nil {
+		return errors.Wrap(err, "failed to get existing execution")
+	}
+
+	if s.config.Authorizer != nil {
+		decision := s.config.Authorizer.Authorize(ctx, auth.Permission{
+			Resource: "workflow_execution",
+			Action:   "update",
+			Conditions: map[string]interface{}{
+				"execution_id": execution.ID,
+				"workflow_id":  existingExecution.WorkflowID,
+				"tenant_id":    existingExecution.TenantID,
+			},
+		})
+
+		if !decision.Allowed {
+			return UnauthorizedError{
+				Action: "update workflow execution",
+				Reason: decision.Reason,
+			}
+		}
+	}
+
+	// Execute in transaction
+	err = s.WithTransaction(ctx, func(ctx context.Context, tx Transaction) error {
+		// Update timestamp
+		execution.UpdatedAt = time.Now()
+
+		// Update execution
+		if err := s.repo.UpdateExecution(ctx, execution); err != nil {
+			return errors.Wrap(err, "failed to update execution")
+		}
+
+		// Publish event
+		if err := s.PublishEvent(ctx, "WorkflowExecutionUpdated", execution, execution); err != nil {
+			return err
+		}
+
+		return nil
+	})
+
+	if err != nil {
+		return err
+	}
+
+	// Invalidate caches
+	s.executionCache.Delete(ctx, fmt.Sprintf("execution:%s", execution.ID))
+
+	return nil
+}
+
+func (s *workflowService) PauseExecution(ctx context.Context, executionID uuid.UUID, reason string) error {
 	// TODO: Implement execution pause
 	return errors.New("not implemented")
 }
@@ -825,6 +891,432 @@ func (s *workflowService) CreateCompensation(ctx context.Context, executionID uu
 func (s *workflowService) ExecuteCompensation(ctx context.Context, executionID uuid.UUID) error {
 	// TODO: Implement compensation execution
 	return errors.New("not implemented")
+}
+
+// CreateExecution creates a new workflow execution record
+func (s *workflowService) CreateExecution(ctx context.Context, execution *models.WorkflowExecution) error {
+	ctx, span := s.config.Tracer(ctx, "WorkflowService.CreateExecution")
+	defer span.End()
+
+	// Validate execution
+	if execution.WorkflowID == uuid.Nil {
+		return fmt.Errorf("workflow ID is required")
+	}
+	if execution.ID == uuid.Nil {
+		execution.ID = uuid.New()
+	}
+
+	// Set defaults
+	if execution.Status == "" {
+		execution.Status = models.WorkflowStatusPending
+	}
+	if execution.StartedAt.IsZero() {
+		execution.StartedAt = time.Now()
+	}
+	if execution.Context == nil {
+		execution.Context = make(models.JSONMap)
+	}
+	if execution.State == nil {
+		execution.State = make(models.JSONMap)
+	}
+
+	// Store in repository
+	if err := s.repo.CreateExecution(ctx, execution); err != nil {
+		return errors.Wrap(err, "failed to create execution")
+	}
+
+	// Cache execution
+	s.executionCache.Set(ctx, execution.ID.String(), execution, 5*time.Minute)
+	
+	// Store in active executions
+	s.activeExecutions.Store(execution.ID, execution)
+
+	// Publish event
+	s.PublishEvent(ctx, "ExecutionCreated", execution, execution)
+
+	return nil
+}
+
+// StartWorkflow starts a new workflow execution
+func (s *workflowService) StartWorkflow(ctx context.Context, workflowID uuid.UUID, initiatorID string, input map[string]interface{}) (*models.WorkflowExecution, error) {
+	ctx, span := s.config.Tracer(ctx, "WorkflowService.StartWorkflow")
+	defer span.End()
+
+	// Get workflow
+	workflow, err := s.getWorkflow(ctx, workflowID)
+	if err != nil {
+		return nil, errors.Wrap(err, "workflow not found")
+	}
+
+	// Create execution
+	execution := &models.WorkflowExecution{
+		ID:          uuid.New(),
+		WorkflowID:  workflowID,
+		TenantID:    workflow.TenantID,
+		InitiatedBy: initiatorID,
+		Status:      models.WorkflowExecutionStatusRunning,
+		Context:     make(models.JSONMap),
+		State:       make(models.JSONMap),
+		StartedAt:   time.Now(),
+	}
+
+	// Store input
+	if input != nil {
+		execution.Context["input"] = input
+	}
+
+	// Initialize step statuses
+	workflowSteps := workflow.GetSteps()
+	execution.StepStatuses = make(map[string]*models.StepStatus)
+	for _, step := range workflowSteps {
+		execution.StepStatuses[step.ID] = &models.StepStatus{
+			StepID:    step.ID,
+			Status:    models.StepStatusPending,
+			StartedAt: nil,
+		}
+	}
+
+	// Create execution record
+	if err := s.CreateExecution(ctx, execution); err != nil {
+		return nil, err
+	}
+
+	// Start first step
+	if len(workflowSteps) > 0 {
+		firstStep := workflowSteps[0]
+		execution.CurrentStepID = firstStep.ID
+		execution.StepStatuses[firstStep.ID].Status = models.StepStatusRunning
+		execution.StepStatuses[firstStep.ID].StartedAt = &execution.StartedAt
+		
+		if err := s.UpdateExecution(ctx, execution); err != nil {
+			return nil, err
+		}
+	}
+
+	// Notify
+	s.notifier.NotifyWorkflowStarted(ctx, execution)
+
+	return execution, nil
+}
+
+// CompleteStep marks a workflow step as completed
+func (s *workflowService) CompleteStep(ctx context.Context, executionID uuid.UUID, stepID string, output map[string]interface{}) error {
+	ctx, span := s.config.Tracer(ctx, "WorkflowService.CompleteStep")
+	defer span.End()
+
+	// Get execution
+	execution, err := s.getExecution(ctx, executionID)
+	if err != nil {
+		return err
+	}
+
+	// Validate step
+	stepStatus, exists := execution.StepStatuses[stepID]
+	if !exists {
+		return fmt.Errorf("step %s not found in execution", stepID)
+	}
+
+	if stepStatus.Status != models.StepStatusRunning {
+		return fmt.Errorf("step %s is not running (status: %s)", stepID, stepStatus.Status)
+	}
+
+	// Update step status
+	now := time.Now()
+	stepStatus.Status = models.StepStatusCompleted
+	stepStatus.CompletedAt = &now
+	if output != nil {
+		stepStatus.Output = output
+	}
+
+	// Find next step
+	workflow, err := s.getWorkflow(ctx, execution.WorkflowID)
+	if err != nil {
+		return err
+	}
+
+	workflowSteps := workflow.GetSteps()
+	var currentStepIndex int
+	for i, step := range workflowSteps {
+		if step.ID == stepID {
+			currentStepIndex = i
+			break
+		}
+	}
+
+	// Move to next step or complete workflow
+	if currentStepIndex < len(workflowSteps)-1 {
+		nextStep := workflowSteps[currentStepIndex+1]
+		execution.CurrentStepID = nextStep.ID
+		execution.StepStatuses[nextStep.ID].Status = models.StepStatusRunning
+		execution.StepStatuses[nextStep.ID].StartedAt = &now
+		
+		// Notify step completed
+		s.notifier.NotifyStepCompleted(ctx, executionID, stepID, output)
+	} else {
+		// All steps completed
+		execution.Status = models.WorkflowExecutionStatusCompleted
+		execution.CompletedAt = &now
+		execution.CurrentStepID = ""
+		
+		// Notify workflow completed
+		s.notifier.NotifyWorkflowCompleted(ctx, execution)
+	}
+
+	// Update execution
+	if err := s.UpdateExecution(ctx, execution); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+// FailStep marks a workflow step as failed
+func (s *workflowService) FailStep(ctx context.Context, executionID uuid.UUID, stepID string, reason string, details map[string]interface{}) error {
+	ctx, span := s.config.Tracer(ctx, "WorkflowService.FailStep")
+	defer span.End()
+
+	// Get execution
+	execution, err := s.getExecution(ctx, executionID)
+	if err != nil {
+		return err
+	}
+
+	// Update step status
+	stepStatus, exists := execution.StepStatuses[stepID]
+	if !exists {
+		return fmt.Errorf("step %s not found", stepID)
+	}
+
+	now := time.Now()
+	stepStatus.Status = models.StepStatusFailed
+	stepStatus.CompletedAt = &now
+	stepStatus.Error = reason
+	if details != nil {
+		stepStatus.Output = details
+	}
+
+	// Mark execution as failed
+	execution.Status = models.WorkflowExecutionStatusFailed
+	execution.CompletedAt = &now
+	execution.Error = reason
+
+	// Update execution
+	if err := s.UpdateExecution(ctx, execution); err != nil {
+		return err
+	}
+
+	// Notify
+	s.notifier.NotifyWorkflowFailed(ctx, executionID, reason)
+
+	return nil
+}
+
+// RetryStep retries a failed workflow step
+func (s *workflowService) RetryStep(ctx context.Context, executionID uuid.UUID, stepID string) error {
+	ctx, span := s.config.Tracer(ctx, "WorkflowService.RetryStep")
+	defer span.End()
+
+	// Get execution
+	execution, err := s.getExecution(ctx, executionID)
+	if err != nil {
+		return err
+	}
+
+	// Validate step can be retried
+	stepStatus, exists := execution.StepStatuses[stepID]
+	if !exists {
+		return fmt.Errorf("step %s not found", stepID)
+	}
+
+	if stepStatus.Status != models.StepStatusFailed {
+		return fmt.Errorf("step %s is not failed (status: %s)", stepID, stepStatus.Status)
+	}
+
+	// Reset step status
+	now := time.Now()
+	stepStatus.Status = models.StepStatusRunning
+	stepStatus.StartedAt = &now
+	stepStatus.CompletedAt = nil
+	stepStatus.Error = ""
+	stepStatus.RetryCount++
+
+	// Update execution status if needed
+	if execution.Status == models.WorkflowExecutionStatusFailed {
+		execution.Status = models.WorkflowExecutionStatusRunning
+		execution.CompletedAt = nil
+		execution.Error = ""
+	}
+
+	execution.CurrentStepID = stepID
+
+	// Update execution
+	if err := s.UpdateExecution(ctx, execution); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+// GetCurrentStep returns the currently executing step
+func (s *workflowService) GetCurrentStep(ctx context.Context, executionID uuid.UUID) (*models.StepExecution, error) {
+	ctx, span := s.config.Tracer(ctx, "WorkflowService.GetCurrentStep")
+	defer span.End()
+
+	execution, err := s.getExecution(ctx, executionID)
+	if err != nil {
+		return nil, err
+	}
+
+	if execution.CurrentStepID == "" {
+		return nil, nil
+	}
+
+	stepStatus, exists := execution.StepStatuses[execution.CurrentStepID]
+	if !exists {
+		return nil, fmt.Errorf("current step not found")
+	}
+
+	return &models.StepExecution{
+		ExecutionID: executionID,
+		StepName:    execution.CurrentStepID,
+		Status:      stepStatus.Status,
+		StartedAt:   getTimeValue(stepStatus.StartedAt),
+		CompletedAt: stepStatus.CompletedAt,
+		RetryCount:  stepStatus.RetryCount,
+		Result:      stepStatus.Output,
+		Error:       getStringPtr(stepStatus.Error),
+	}, nil
+}
+
+// GetPendingSteps returns all pending steps for parallel execution
+func (s *workflowService) GetPendingSteps(ctx context.Context, executionID uuid.UUID) ([]*models.StepExecution, error) {
+	ctx, span := s.config.Tracer(ctx, "WorkflowService.GetPendingSteps")
+	defer span.End()
+
+	execution, err := s.getExecution(ctx, executionID)
+	if err != nil {
+		return nil, err
+	}
+
+	var pendingSteps []*models.StepExecution
+	for stepID, stepStatus := range execution.StepStatuses {
+		if stepStatus.Status == models.StepStatusPending || stepStatus.Status == models.StepStatusRunning {
+			pendingSteps = append(pendingSteps, &models.StepExecution{
+				ExecutionID: executionID,
+				StepName:    stepID,
+				Status:      stepStatus.Status,
+				StartedAt:   getTimeValue(stepStatus.StartedAt),
+				RetryCount:  stepStatus.RetryCount,
+			})
+		}
+	}
+
+	return pendingSteps, nil
+}
+
+// GetStepExecution returns a specific step execution
+func (s *workflowService) GetStepExecution(ctx context.Context, executionID uuid.UUID, stepID string) (*models.StepExecution, error) {
+	ctx, span := s.config.Tracer(ctx, "WorkflowService.GetStepExecution")
+	defer span.End()
+
+	execution, err := s.getExecution(ctx, executionID)
+	if err != nil {
+		return nil, err
+	}
+
+	stepStatus, exists := execution.StepStatuses[stepID]
+	if !exists {
+		return nil, fmt.Errorf("step %s not found", stepID)
+	}
+
+	return &models.StepExecution{
+		ExecutionID: executionID,
+		StepName:    stepID,
+		Status:      stepStatus.Status,
+		StartedAt:   getTimeValue(stepStatus.StartedAt),
+		CompletedAt: stepStatus.CompletedAt,
+		RetryCount:  stepStatus.RetryCount,
+		Result:      stepStatus.Output,
+		Error:       getStringPtr(stepStatus.Error),
+	}, nil
+}
+
+// GetWorkflowHistory returns execution history for a workflow
+func (s *workflowService) GetWorkflowHistory(ctx context.Context, workflowID uuid.UUID, limit int, offset int) ([]*models.WorkflowExecution, error) {
+	ctx, span := s.config.Tracer(ctx, "WorkflowService.GetWorkflowHistory")
+	defer span.End()
+
+	// Get from repository
+	executions, err := s.repo.ListExecutions(ctx, workflowID, limit)
+	if err != nil {
+		return nil, err
+	}
+
+	return executions, nil
+}
+
+// GetWorkflowMetrics returns metrics for a workflow
+func (s *workflowService) GetWorkflowMetrics(ctx context.Context, workflowID uuid.UUID) (*models.WorkflowMetrics, error) {
+	ctx, span := s.config.Tracer(ctx, "WorkflowService.GetWorkflowMetrics")
+	defer span.End()
+
+	// Check cache
+	cacheKey := fmt.Sprintf("metrics:%s", workflowID)
+	var metrics models.WorkflowMetrics
+	if err := s.statsCache.Get(ctx, cacheKey, &metrics); err == nil {
+		return &metrics, nil
+	}
+
+	// Calculate metrics - get all executions
+	executions, err := s.repo.ListExecutions(ctx, workflowID, 1000)
+	if err != nil {
+		return nil, err
+	}
+
+	metrics.WorkflowID = workflowID
+	metrics.TotalExecutions = int64(len(executions))
+	
+	var totalDuration time.Duration
+	for _, exec := range executions {
+		if exec.Status == models.WorkflowExecutionStatusCompleted {
+			metrics.SuccessfulRuns++
+			if exec.CompletedAt != nil {
+				duration := exec.CompletedAt.Sub(exec.StartedAt)
+				totalDuration += duration
+			}
+		} else if exec.Status == models.WorkflowExecutionStatusFailed {
+			metrics.FailedRuns++
+		}
+	}
+
+	if metrics.SuccessfulRuns > 0 {
+		metrics.AverageRunTime = totalDuration / time.Duration(metrics.SuccessfulRuns)
+	}
+
+	// Cache metrics
+	s.statsCache.Set(ctx, cacheKey, &metrics, 1*time.Minute)
+
+	return &metrics, nil
+}
+
+// GetExecutionHistory returns the execution history (same as GetWorkflowHistory for compatibility)
+func (s *workflowService) GetExecutionHistory(ctx context.Context, workflowID uuid.UUID) ([]*models.WorkflowExecution, error) {
+	return s.GetWorkflowHistory(ctx, workflowID, 100, 0)
+}
+
+// Helper functions
+func getTimeValue(t *time.Time) time.Time {
+	if t == nil {
+		return time.Time{}
+	}
+	return *t
+}
+
+func getStringPtr(s string) *string {
+	if s == "" {
+		return nil
+	}
+	return &s
 }
 
 // ExecutionMonitor monitors running workflow executions

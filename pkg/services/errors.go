@@ -22,6 +22,10 @@ var (
 	ErrWorkflowNotActive       = errors.New("workflow is not active")
 	ErrDocumentLocked          = errors.New("document is locked")
 	ErrMergeConflict           = errors.New("merge conflict detected")
+	
+	// Additional errors
+	ErrInvalidID               = errors.New("invalid ID format")
+	ErrResourceNotFound        = errors.New("resource not found")
 )
 
 // ValidationError represents a validation failure

@@ -226,7 +226,7 @@ func CreateTestModel(tenantID string) *models.Model {
 func CreateTestAgent(tenantID, modelID string) *models.Agent {
 	return &models.Agent{
 		ID:       uuid.New().String(),
-		TenantID: tenantID,
+		TenantID: uuid.MustParse(tenantID),
 		Name:     "Test Agent " + uuid.New().String()[0:8],
 		ModelID:  modelID,
 	}

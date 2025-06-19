@@ -64,10 +64,13 @@ type HealthChecker interface {
 type NotificationService interface {
 	NotifyTaskAssigned(ctx context.Context, agentID string, task interface{}) error
 	NotifyTaskCompleted(ctx context.Context, agentID string, task interface{}) error
+	NotifyTaskFailed(ctx context.Context, taskID uuid.UUID, agentID string, reason string) error
 	NotifyWorkflowStarted(ctx context.Context, workflow interface{}) error
 	NotifyWorkflowCompleted(ctx context.Context, workflow interface{}) error
+	NotifyWorkflowFailed(ctx context.Context, workflowID uuid.UUID, reason string) error
 	NotifyStepStarted(ctx context.Context, executionID uuid.UUID, stepID string) error
 	NotifyStepCompleted(ctx context.Context, executionID uuid.UUID, stepID string, output interface{}) error
+	BroadcastToAgents(ctx context.Context, agentIDs []string, message interface{}) error
 	BroadcastToWorkspace(ctx context.Context, workspaceID uuid.UUID, message interface{}) error
 }
 

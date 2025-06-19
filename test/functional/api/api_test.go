@@ -12,6 +12,7 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/google/uuid"
 
 	// Use pkg/models package which is the public API
 	// This aligns with our forward-only migration strategy
@@ -125,7 +126,7 @@ var _ = BeforeSuite(func() {
 	// Try the typed method with new model structure
 	agentReq := &models.Agent{
 		Name:     "Functional Test Agent",
-		TenantID: "test-tenant-1",
+		TenantID: uuid.MustParse("00000000-0000-0000-0000-000000000001"),
 		ModelID:  testModelIDs[0],
 	}
 	fmt.Fprintf(os.Stderr, "DEBUG: Creating agent with ModelID = %s\n", agentReq.ModelID)

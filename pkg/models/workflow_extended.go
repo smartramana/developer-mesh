@@ -407,9 +407,84 @@ func getRetryPolicy(m map[string]interface{}) WorkflowRetryPolicy {
 
 // Step status constants
 const (
-	StepStatusPending   = "pending"
-	StepStatusRunning   = "running"
-	StepStatusCompleted = "completed"
-	StepStatusFailed    = "failed"
-	StepStatusSkipped   = "skipped"
+	StepStatusPending    = "pending"
+	StepStatusQueued     = "queued"
+	StepStatusRunning    = "running"
+	StepStatusCompleted  = "completed"
+	StepStatusFailed     = "failed"
+	StepStatusSkipped    = "skipped"
+	StepStatusRetrying   = "retrying"
+	StepStatusCancelling = "cancelling"
+	StepStatusCancelled  = "cancelled"
+	StepStatusTimeout    = "timeout"
 )
+
+// WorkflowStatus constants for workflow definitions
+const (
+	WorkflowStatusActive   WorkflowStatus = "active"
+	WorkflowStatusInactive WorkflowStatus = "inactive"
+	WorkflowStatusDraft    WorkflowStatus = "draft"
+	WorkflowStatusArchived WorkflowStatus = "archived"
+)
+
+// Document represents a shared document for collaboration
+type Document struct {
+	ID          uuid.UUID  `json:"id" db:"id"`
+	TenantID    uuid.UUID  `json:"tenant_id" db:"tenant_id"`
+	WorkspaceID *uuid.UUID `json:"workspace_id,omitempty" db:"workspace_id"`
+	Title       string     `json:"title" db:"title"`
+	Type        string     `json:"type" db:"type"`
+	Content     string     `json:"content" db:"content"`
+	ContentType string     `json:"content_type" db:"content_type"`
+	CreatedBy   string     `json:"created_by" db:"created_by"`
+	Version     int        `json:"version" db:"version"`
+	Permissions JSONMap    `json:"permissions" db:"permissions"`
+	Metadata    JSONMap    `json:"metadata" db:"metadata"`
+	CreatedAt   time.Time  `json:"created_at" db:"created_at"`
+	UpdatedAt   time.Time  `json:"updated_at" db:"updated_at"`
+	DeletedAt   *time.Time `json:"deleted_at,omitempty" db:"deleted_at"`
+}
+
+// DocumentChange represents a change to a document (for CRDT)
+type DocumentChange struct {
+	ID         uuid.UUID `json:"id" db:"id"`
+	DocumentID uuid.UUID `json:"document_id" db:"document_id"`
+	AgentID    string    `json:"agent_id" db:"agent_id"`
+	ChangeType string    `json:"change_type" db:"change_type"`
+	Position   int       `json:"position" db:"position"`
+	Content    string    `json:"content" db:"content"`
+	Length     int       `json:"length" db:"length"`
+	Metadata   JSONMap   `json:"metadata" db:"metadata"`
+	Timestamp  time.Time `json:"timestamp" db:"timestamp"`
+}
+
+// Removed StateOperation - it's defined in workspace_extended.go
+
+// Enhanced WorkflowStep for multi-agent support
+type MultiAgentWorkflowStep struct {
+	ID                   uuid.UUID `json:"id" db:"id"`
+	WorkflowID           uuid.UUID `json:"workflow_id" db:"workflow_id"`
+	Name                 string    `json:"name" db:"name"`
+	Type                 string    `json:"type" db:"type"`
+	Order                int       `json:"order" db:"order"`
+	Config               JSONMap   `json:"config" db:"config"`
+	Dependencies         []string  `json:"dependencies" db:"dependencies"`
+	AssignedAgents       []string  `json:"assigned_agents" db:"assigned_agents"`
+	RequiredCapabilities []string  `json:"required_capabilities" db:"required_capabilities"`
+	TimeoutSeconds       int       `json:"timeout_seconds" db:"timeout_seconds"`
+	RetryPolicy          JSONMap   `json:"retry_policy" db:"retry_policy"`
+	CreatedAt            time.Time `json:"created_at" db:"created_at"`
+}
+
+// ExecutionContext for workflow executions
+type ExecutionContext struct {
+	ExecutionID uuid.UUID              `json:"execution_id"`
+	WorkflowID  uuid.UUID              `json:"workflow_id"`
+	Status      string                 `json:"status"`
+	CurrentStep string                 `json:"current_step"`
+	TotalSteps  int                    `json:"total_steps"`
+	StartedAt   time.Time              `json:"started_at"`
+	CompletedAt *time.Time             `json:"completed_at,omitempty"`
+	ExecutionTime time.Duration        `json:"execution_time"`
+	StepResults map[string]interface{} `json:"step_results"`
+}

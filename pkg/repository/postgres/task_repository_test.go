@@ -283,17 +283,19 @@ type mockCache struct {
 	data   map[string]interface{}
 }
 
-func (m *mockCache) Get(ctx context.Context, key string, value interface{}) (bool, error) {
+func (m *mockCache) Get(ctx context.Context, key string, value interface{}) error {
 	if m.getErr != nil {
-		return false, nil
+		return m.getErr
 	}
 	if m.data != nil {
-		if _, ok := m.data[key]; ok {
+		if v, ok := m.data[key]; ok {
 			// In real implementation, would unmarshal into value
-			return true, nil
+			// For testing, we just simulate success
+			_ = v
+			return nil
 		}
 	}
-	return false, nil
+	return cache.ErrNotFound
 }
 
 func (m *mockCache) Set(ctx context.Context, key string, value interface{}, ttl time.Duration) error {
@@ -308,6 +310,19 @@ func (m *mockCache) Delete(ctx context.Context, key string) error {
 	if m.data != nil {
 		delete(m.data, key)
 	}
+	return nil
+}
+
+func (m *mockCache) Exists(ctx context.Context, key string) (bool, error) {
+	if m.data != nil {
+		_, ok := m.data[key]
+		return ok, nil
+	}
+	return false, nil
+}
+
+func (m *mockCache) Flush(ctx context.Context) error {
+	m.data = make(map[string]interface{})
 	return nil
 }
 

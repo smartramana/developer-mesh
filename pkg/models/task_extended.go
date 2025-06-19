@@ -1,6 +1,7 @@
 package models
 
 import (
+	"fmt"
 	"time"
 
 	"github.com/google/uuid"
@@ -26,6 +27,28 @@ type DistributedTask struct {
 	Subtasks    []Subtask          `json:"subtasks"`
 	Aggregation AggregationConfig  `json:"aggregation"`
 	SubtaskIDs  []uuid.UUID        `json:"subtask_ids,omitempty"`
+	
+	// Phase 3 additions
+	Task            *Task             `json:"task,omitempty" db:"-"`
+	CoordinationMode CoordinationMode  `json:"coordination_mode" db:"coordination_mode"`
+	CompletionMode   CompletionMode    `json:"completion_mode" db:"completion_mode"`
+	CompletionThreshold int            `json:"completion_threshold,omitempty" db:"completion_threshold"`
+	
+	// Execution tracking fields
+	ExecutionPlan   *ExecutionPlan    `json:"execution_plan,omitempty" db:"execution_plan"`
+	Partitions      []TaskPartition   `json:"partitions,omitempty" db:"-"`
+	Progress        *TaskProgress     `json:"progress,omitempty" db:"-"`
+	ResourceUsage   *ResourceUsage    `json:"resource_usage,omitempty" db:"-"`
+	
+	// Timing fields
+	StartedAt       *time.Time        `json:"started_at,omitempty" db:"started_at"`
+	CompletedAt     *time.Time        `json:"completed_at,omitempty" db:"completed_at"`
+	EstimatedDuration time.Duration   `json:"estimated_duration,omitempty" db:"estimated_duration"`
+	
+	// Results aggregation
+	ResultsCollected int              `json:"results_collected" db:"results_collected"`
+	FinalResult     interface{}       `json:"final_result,omitempty" db:"final_result"`
+	IntermediateResults []interface{} `json:"intermediate_results,omitempty" db:"-"`
 }
 
 // Subtask represents a subtask definition
@@ -101,4 +124,94 @@ type AgentWorkload struct {
 	TasksByType  map[string]int `json:"tasks_by_type"`
 	LoadScore    float64        `json:"load_score"`    // 0.0 (idle) to 1.0 (overloaded)
 	EstimatedTime int            `json:"estimated_time"` // Estimated time to complete all tasks in seconds
+}
+
+// Helper methods for DistributedTask
+
+// SetDefaults sets default values for a distributed task
+func (dt *DistributedTask) SetDefaults() {
+	if dt.CoordinationMode == "" {
+		dt.CoordinationMode = CoordinationModeParallel
+	}
+	if dt.CompletionMode == "" {
+		dt.CompletionMode = CompletionModeAll
+	}
+	if dt.Priority == "" {
+		dt.Priority = TaskPriorityNormal
+	}
+}
+
+// Validate validates the distributed task
+func (dt *DistributedTask) Validate() error {
+	if dt.ID == uuid.Nil {
+		return fmt.Errorf("distributed task ID is required")
+	}
+	if dt.Type == "" {
+		return fmt.Errorf("distributed task type is required")
+	}
+	if !dt.CoordinationMode.IsValid() {
+		return fmt.Errorf("invalid coordination mode: %s", dt.CoordinationMode)
+	}
+	if !dt.CompletionMode.IsValid() {
+		return fmt.Errorf("invalid completion mode: %s", dt.CompletionMode)
+	}
+	if dt.CompletionMode == CompletionModeThreshold && dt.CompletionThreshold <= 0 {
+		return fmt.Errorf("completion threshold must be positive for threshold mode")
+	}
+	return nil
+}
+
+// CalculateProgress calculates the overall progress of the distributed task
+func (dt *DistributedTask) CalculateProgress() float64 {
+	if dt.Progress != nil {
+		return dt.Progress.PercentComplete
+	}
+	
+	if len(dt.SubtaskIDs) == 0 {
+		return 0.0
+	}
+	
+	// Calculate based on collected results
+	return float64(dt.ResultsCollected) / float64(len(dt.SubtaskIDs)) * 100.0
+}
+
+// IsComplete checks if the distributed task is complete based on completion mode
+func (dt *DistributedTask) IsComplete() bool {
+	totalSubtasks := len(dt.SubtaskIDs)
+	if totalSubtasks == 0 {
+		return true
+	}
+	
+	switch dt.CompletionMode {
+	case CompletionModeAll:
+		return dt.ResultsCollected >= totalSubtasks
+	case CompletionModeAny:
+		return dt.ResultsCollected > 0
+	case CompletionModeMajority:
+		return dt.ResultsCollected > totalSubtasks/2
+	case CompletionModeThreshold:
+		if dt.CompletionThreshold > 0 {
+			return dt.ResultsCollected >= dt.CompletionThreshold
+		}
+		return dt.ResultsCollected >= totalSubtasks
+	case CompletionModeBestOf:
+		// For best_of mode, check if we have enough results
+		return dt.ResultsCollected >= dt.CompletionThreshold
+	default:
+		return false
+	}
+}
+
+// GetEstimatedCompletion returns the estimated completion time
+func (dt *DistributedTask) GetEstimatedCompletion() *time.Time {
+	if dt.StartedAt == nil {
+		return nil
+	}
+	
+	if dt.EstimatedDuration == 0 {
+		return nil
+	}
+	
+	estimatedTime := dt.StartedAt.Add(dt.EstimatedDuration)
+	return &estimatedTime
 }
