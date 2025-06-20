@@ -207,7 +207,7 @@ type mockCache struct {
 func (m *mockCache) Get(ctx context.Context, key string, value interface{}) error {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
-	
+
 	if v, ok := m.data[key]; ok {
 		// Simple assignment for testing
 		switch dst := value.(type) {

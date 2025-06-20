@@ -5,9 +5,9 @@ import (
 	"context"
 	"database/sql"
 
-	"github.com/google/uuid"
 	"github.com/S-Corkum/devops-mcp/pkg/models"
 	"github.com/S-Corkum/devops-mcp/pkg/repository/agent"
+	"github.com/google/uuid"
 	"github.com/jmoiron/sqlx"
 )
 
@@ -150,7 +150,7 @@ func (m *mockAgentRepository) GetByStatus(ctx context.Context, status models.Age
 	if m.agents == nil {
 		return result, nil
 	}
-	
+
 	for _, agent := range m.agents {
 		if agent.Status == string(status) {
 			result = append(result, agent)
@@ -183,7 +183,7 @@ func (m *mockAgentRepository) GetLeastLoadedAgent(ctx context.Context, capabilit
 	if m.agents == nil {
 		return nil, nil
 	}
-	
+
 	for _, agent := range m.agents {
 		if agent.Status == string(models.AgentStatusActive) {
 			return agent, nil

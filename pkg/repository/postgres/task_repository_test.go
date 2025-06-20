@@ -21,9 +21,9 @@ import (
 
 // mockMetricsClient implements observability.MetricsClient for testing
 type mockMetricsClient struct {
-	counters   map[string]float64
-	timers     map[string]time.Duration
-	mu         sync.Mutex
+	counters map[string]float64
+	timers   map[string]time.Duration
+	mu       sync.Mutex
 }
 
 func newMockMetricsClient() *mockMetricsClient {
@@ -33,16 +33,21 @@ func newMockMetricsClient() *mockMetricsClient {
 	}
 }
 
-func (m *mockMetricsClient) RecordEvent(source, eventType string) {}
-func (m *mockMetricsClient) RecordLatency(operation string, duration time.Duration) {}
-func (m *mockMetricsClient) RecordCounter(name string, value float64, labels map[string]string) {}
-func (m *mockMetricsClient) RecordGauge(name string, value float64, labels map[string]string) {}
+func (m *mockMetricsClient) RecordEvent(source, eventType string)                                 {}
+func (m *mockMetricsClient) RecordLatency(operation string, duration time.Duration)               {}
+func (m *mockMetricsClient) RecordCounter(name string, value float64, labels map[string]string)   {}
+func (m *mockMetricsClient) RecordGauge(name string, value float64, labels map[string]string)     {}
 func (m *mockMetricsClient) RecordHistogram(name string, value float64, labels map[string]string) {}
-func (m *mockMetricsClient) RecordTimer(name string, duration time.Duration, labels map[string]string) {}
-func (m *mockMetricsClient) RecordCacheOperation(operation string, success bool, durationSeconds float64) {}
-func (m *mockMetricsClient) RecordOperation(component string, operation string, success bool, durationSeconds float64, labels map[string]string) {}
-func (m *mockMetricsClient) RecordAPIOperation(api string, operation string, success bool, durationSeconds float64) {}
-func (m *mockMetricsClient) RecordDatabaseOperation(operation string, success bool, durationSeconds float64) {}
+func (m *mockMetricsClient) RecordTimer(name string, duration time.Duration, labels map[string]string) {
+}
+func (m *mockMetricsClient) RecordCacheOperation(operation string, success bool, durationSeconds float64) {
+}
+func (m *mockMetricsClient) RecordOperation(component string, operation string, success bool, durationSeconds float64, labels map[string]string) {
+}
+func (m *mockMetricsClient) RecordAPIOperation(api string, operation string, success bool, durationSeconds float64) {
+}
+func (m *mockMetricsClient) RecordDatabaseOperation(operation string, success bool, durationSeconds float64) {
+}
 func (m *mockMetricsClient) StartTimer(name string, labels map[string]string) func() {
 	return func() {
 		m.mu.Lock()
@@ -59,13 +64,13 @@ func (m *mockMetricsClient) IncrementCounterWithLabels(name string, value float6
 	m.IncrementCounter(name, value)
 }
 func (m *mockMetricsClient) RecordDuration(name string, duration time.Duration) {}
-func (m *mockMetricsClient) Close() error { return nil }
+func (m *mockMetricsClient) Close() error                                       { return nil }
 
 func TestTaskRepository_Create(t *testing.T) {
 	// Create mock database
 	db, mock, err := sqlmock.New()
 	require.NoError(t, err)
-	defer db.Close()
+	defer func() { _ = db.Close() }()
 
 	sqlxDB := sqlx.NewDb(db, "postgres")
 
@@ -88,14 +93,14 @@ func TestTaskRepository_Create(t *testing.T) {
 	ctx := context.Background()
 	task := &models.Task{
 		TenantID:       uuid.New(),
-		Type:          "test",
-		Status:        models.TaskStatusPending,
-		Priority:      models.TaskPriorityNormal,
-		CreatedBy:     "test-agent",
-		Title:         "Test Task",
-		Description:   "Test Description",
-		Parameters:    models.JSONMap{"key": "value"},
-		MaxRetries:    3,
+		Type:           "test",
+		Status:         models.TaskStatusPending,
+		Priority:       models.TaskPriorityNormal,
+		CreatedBy:      "test-agent",
+		Title:          "Test Task",
+		Description:    "Test Description",
+		Parameters:     models.JSONMap{"key": "value"},
+		MaxRetries:     3,
 		TimeoutSeconds: 3600,
 	}
 
@@ -136,7 +141,7 @@ func TestTaskRepository_Get(t *testing.T) {
 	// Create mock database
 	db, mock, err := sqlmock.New()
 	require.NoError(t, err)
-	defer db.Close()
+	defer func() { _ = db.Close() }()
 
 	sqlxDB := sqlx.NewDb(db, "postgres")
 
@@ -215,7 +220,7 @@ func TestTaskRepository_UpdateWithVersion(t *testing.T) {
 	// Create mock database
 	db, mock, err := sqlmock.New()
 	require.NoError(t, err)
-	defer db.Close()
+	defer func() { _ = db.Close() }()
 
 	sqlxDB := sqlx.NewDb(db, "postgres")
 
@@ -236,16 +241,16 @@ func TestTaskRepository_UpdateWithVersion(t *testing.T) {
 	task := &models.Task{
 		ID:             uuid.New(),
 		TenantID:       uuid.New(),
-		Type:          "test",
-		Status:        models.TaskStatusInProgress,
-		Priority:      models.TaskPriorityHigh,
-		CreatedBy:     "test-agent",
-		Title:         "Updated Task",
-		Description:   "Updated Description",
-		Parameters:    models.JSONMap{"key": "updated"},
-		MaxRetries:    3,
+		Type:           "test",
+		Status:         models.TaskStatusInProgress,
+		Priority:       models.TaskPriorityHigh,
+		CreatedBy:      "test-agent",
+		Title:          "Updated Task",
+		Description:    "Updated Description",
+		Parameters:     models.JSONMap{"key": "updated"},
+		MaxRetries:     3,
 		TimeoutSeconds: 3600,
-		Version:       1,
+		Version:        1,
 	}
 
 	// Expect the update query
@@ -286,7 +291,7 @@ func TestTaskRepository_Transaction(t *testing.T) {
 	// Create mock database
 	db, mock, err := sqlmock.New()
 	require.NoError(t, err)
-	defer db.Close()
+	defer func() { _ = db.Close() }()
 
 	sqlxDB := sqlx.NewDb(db, "postgres")
 

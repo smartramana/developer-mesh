@@ -13,8 +13,9 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
-	ws "github.com/S-Corkum/devops-mcp/pkg/models/websocket"
 	"functional-tests/shared"
+
+	ws "github.com/S-Corkum/devops-mcp/pkg/models/websocket"
 )
 
 var _ = Describe("WebSocket Binary Protocol", func() {
@@ -28,17 +29,17 @@ var _ = Describe("WebSocket Binary Protocol", func() {
 
 	BeforeEach(func() {
 		ctx, cancel = context.WithTimeout(context.Background(), 30*time.Second)
-		
+
 		// Get test configuration
 		config := shared.GetTestConfig()
 		wsURL = config.WebSocketURL
 		apiKey = shared.GetTestAPIKey("test-tenant-1")
-		
+
 		// Connect with binary protocol support
 		var err error
 		conn, err = shared.EstablishConnection(wsURL, apiKey)
 		Expect(err).NotTo(HaveOccurred())
-		
+
 		// Enable binary protocol
 		enableMsg := ws.Message{
 			ID:     uuid.New().String(),
@@ -52,17 +53,17 @@ var _ = Describe("WebSocket Binary Protocol", func() {
 				},
 			},
 		}
-		
+
 		msgBytes, err := json.Marshal(enableMsg)
 		Expect(err).NotTo(HaveOccurred())
-		
+
 		err = conn.Write(ctx, websocket.MessageText, msgBytes)
 		Expect(err).NotTo(HaveOccurred())
-		
+
 		// Read confirmation
 		_, respBytes, err := conn.Read(ctx)
 		Expect(err).NotTo(HaveOccurred())
-		
+
 		var resp ws.Message
 		err = json.Unmarshal(respBytes, &resp)
 		Expect(err).NotTo(HaveOccurred())
@@ -250,7 +251,7 @@ var _ = Describe("WebSocket Binary Protocol", func() {
 			jsonStart := time.Now()
 			jsonBytes, err := json.Marshal(msg)
 			Expect(err).NotTo(HaveOccurred())
-			
+
 			var jsonDecoded ws.Message
 			err = json.Unmarshal(jsonBytes, &jsonDecoded)
 			Expect(err).NotTo(HaveOccurred())
@@ -260,7 +261,7 @@ var _ = Describe("WebSocket Binary Protocol", func() {
 			binaryStart := time.Now()
 			binaryBytes, err := encodeBinaryMessage(msg)
 			Expect(err).NotTo(HaveOccurred())
-			
+
 			var binaryDecoded ws.Message
 			err = decodeBinaryMessage(binaryBytes, &binaryDecoded)
 			Expect(err).NotTo(HaveOccurred())
@@ -353,7 +354,7 @@ var _ = Describe("WebSocket Binary Protocol", func() {
 				if len(chunkBytes) > 4 {
 					chunkType := binary.BigEndian.Uint16(chunkBytes[0:2])
 					chunkSize := binary.BigEndian.Uint16(chunkBytes[2:4])
-					
+
 					if chunkType == 0x0001 { // Stream chunk marker
 						totalBytes += int(chunkSize)
 						chunkCount++
@@ -421,7 +422,7 @@ var _ = Describe("WebSocket Binary Protocol", func() {
 func encodeBinaryMessage(msg ws.Message) ([]byte, error) {
 	// Simple binary format:
 	// [2 bytes: header] [4 bytes: length] [N bytes: msgpack/protobuf data]
-	
+
 	// For testing, we'll use JSON inside binary wrapper
 	jsonData, err := json.Marshal(msg)
 	if err != nil {
@@ -429,18 +430,18 @@ func encodeBinaryMessage(msg ws.Message) ([]byte, error) {
 	}
 
 	buf := bytes.NewBuffer(nil)
-	
+
 	// Header (version + flags)
 	header := uint16(0x0100) // Version 1.0, no compression
 	binary.Write(buf, binary.BigEndian, header)
-	
+
 	// Length
 	length := uint32(len(jsonData))
 	binary.Write(buf, binary.BigEndian, length)
-	
+
 	// Data
 	buf.Write(jsonData)
-	
+
 	return buf.Bytes(), nil
 }
 
@@ -465,18 +466,18 @@ func encodeBinaryMessageWithCompression(msg ws.Message) ([]byte, error) {
 	gz.Close()
 
 	buf := bytes.NewBuffer(nil)
-	
+
 	// Header with compression flag
 	header := uint16(0x8100) // Version 1.0, compressed
 	binary.Write(buf, binary.BigEndian, header)
-	
+
 	// Length of compressed data
 	length := uint32(compressed.Len())
 	binary.Write(buf, binary.BigEndian, length)
-	
+
 	// Compressed data
 	buf.Write(compressed.Bytes())
-	
+
 	return buf.Bytes(), nil
 }
 
@@ -488,7 +489,7 @@ func decodeBinaryMessage(data []byte, msg *ws.Message) error {
 	// Read header
 	header := binary.BigEndian.Uint16(data[0:2])
 	length := binary.BigEndian.Uint32(data[2:6])
-	
+
 	if uint32(len(data)-6) < length {
 		return json.Unmarshal(data, msg) // Fallback to JSON
 	}

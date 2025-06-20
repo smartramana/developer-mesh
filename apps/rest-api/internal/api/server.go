@@ -8,6 +8,11 @@ import (
 	"strings"
 	"time"
 
+	"rest-api/internal/adapters"
+	contextAPI "rest-api/internal/api/context"
+	"rest-api/internal/core"
+	"rest-api/internal/repository"
+
 	"github.com/S-Corkum/devops-mcp/pkg/agents"
 	"github.com/S-Corkum/devops-mcp/pkg/auth"
 	"github.com/S-Corkum/devops-mcp/pkg/common/cache"
@@ -19,10 +24,6 @@ import (
 	"github.com/jmoiron/sqlx"
 	swaggerFiles "github.com/swaggo/files"
 	ginSwagger "github.com/swaggo/gin-swagger"
-	"rest-api/internal/adapters"
-	contextAPI "rest-api/internal/api/context"
-	"rest-api/internal/core"
-	"rest-api/internal/repository"
 )
 
 // Helper function to extract string from map
@@ -48,13 +49,13 @@ var shutdownHooks []func()
 
 // Server represents the API server
 type Server struct {
-	router      *gin.Engine
-	server      *http.Server
-	engine      *core.Engine
-	config      Config
-	logger      observability.Logger
-	db          *sqlx.DB
-	metrics     observability.MetricsClient
+	router         *gin.Engine
+	server         *http.Server
+	engine         *core.Engine
+	config         Config
+	logger         observability.Logger
+	db             *sqlx.DB
+	metrics        observability.MetricsClient
 	cfg            *config.Config
 	authMiddleware *auth.AuthMiddleware // Enhanced auth with rate limiting, metrics, and audit
 	healthChecker  *HealthChecker
@@ -121,7 +122,7 @@ func NewServer(engine *core.Engine, cfg Config, db *sqlx.DB, metrics observabili
 		RateLimiter: auth.DefaultRateLimiterConfig(),
 		APIKeys:     make(map[string]auth.APIKeySettings),
 	}
-	
+
 	// Parse API keys from configuration
 	if apiKeysRaw, ok := cfg.Auth.APIKeys.(map[string]interface{}); ok {
 		if staticKeys, ok := apiKeysRaw["static_keys"].(map[string]interface{}); ok {
@@ -131,7 +132,7 @@ func NewServer(engine *core.Engine, cfg Config, db *sqlx.DB, metrics observabili
 						Role:     getStringFromMap(settingsMap, "role"),
 						TenantID: getStringFromMap(settingsMap, "tenant_id"),
 					}
-					
+
 					// Parse scopes
 					if scopesRaw, ok := settingsMap["scopes"].([]interface{}); ok {
 						scopes := make([]string, 0, len(scopesRaw))
@@ -142,9 +143,9 @@ func NewServer(engine *core.Engine, cfg Config, db *sqlx.DB, metrics observabili
 						}
 						apiKeySettings.Scopes = scopes
 					}
-					
+
 					authConfig.APIKeys[key] = apiKeySettings
-					
+
 					// Debug logging
 					logger.Info("API Key from config", map[string]interface{}{
 						"key_suffix": lastN(key, 8),
@@ -156,14 +157,14 @@ func NewServer(engine *core.Engine, cfg Config, db *sqlx.DB, metrics observabili
 			}
 		}
 	}
-	
+
 	// Set JWT secret environment variable if provided
 	if cfg.Auth.JWTSecret != "" {
 		if err := os.Setenv("JWT_SECRET", cfg.Auth.JWTSecret); err != nil {
 			logger.Warn("Failed to set JWT_SECRET environment variable", map[string]interface{}{"error": err})
 		}
 	}
-	
+
 	// Use the enhanced setup that gives us control over configuration
 	authMiddleware, err := auth.SetupAuthenticationWithConfig(authConfig, db, nil, logger, metrics)
 	if err != nil {
@@ -172,9 +173,9 @@ func NewServer(engine *core.Engine, cfg Config, db *sqlx.DB, metrics observabili
 		})
 		panic("Failed to setup authentication: " + err.Error())
 	}
-	
+
 	logger.Info("Enhanced authentication initialized", map[string]interface{}{
-		"environment": os.Getenv("ENVIRONMENT"),
+		"environment":    os.Getenv("ENVIRONMENT"),
 		"api_key_source": os.Getenv("API_KEY_SOURCE"),
 	})
 
@@ -197,10 +198,9 @@ func NewServer(engine *core.Engine, cfg Config, db *sqlx.DB, metrics observabili
 	// Use the custom HTTP client for external service calls
 	http.DefaultClient = httpClient
 
-
 	// Initialize health checker
 	healthChecker := NewHealthChecker(db)
-	
+
 	// Initialize cache based on configuration
 	var cacheImpl cache.Cache
 	if config != nil && config.Cache != nil {
@@ -218,14 +218,14 @@ func NewServer(engine *core.Engine, cfg Config, db *sqlx.DB, metrics observabili
 		// Use no-op cache if not configured
 		cacheImpl = cache.NewNoOpCache()
 	}
-	
+
 	server := &Server{
-		router:      router,
-		engine:      engine,
-		config:      cfg,
-		logger:      logger,
-		db:          db,
-		metrics:     metrics,
+		router:         router,
+		engine:         engine,
+		config:         cfg,
+		logger:         logger,
+		db:             db,
+		metrics:        metrics,
 		cfg:            config,
 		authMiddleware: authMiddleware,
 		healthChecker:  healthChecker,
@@ -318,8 +318,8 @@ func (s *Server) setupRoutes(ctx context.Context) {
 	// Public endpoints
 	// Health check endpoints
 	s.router.GET("/health", s.healthChecker.HealthHandler)
-	s.router.GET("/healthz", s.healthChecker.LivenessHandler)  // Kubernetes liveness probe
-	s.router.GET("/readyz", s.healthChecker.ReadinessHandler)  // Kubernetes readiness probe
+	s.router.GET("/healthz", s.healthChecker.LivenessHandler) // Kubernetes liveness probe
+	s.router.GET("/readyz", s.healthChecker.ReadinessHandler) // Kubernetes readiness probe
 
 	// Swagger API documentation
 	if s.config.EnableSwagger {
@@ -423,11 +423,11 @@ func (s *Server) setupRoutes(ctx context.Context) {
 		// Create agent repository and service using the PostgreSQL implementation
 		agentPostgresRepo := agents.NewPostgresRepository(s.db, "mcp")
 		agentService := agents.NewService(agentPostgresRepo)
-		
+
 		// Create and register embedding API
 		embeddingAPI := NewEmbeddingAPI(embeddingService, agentService, s.logger)
 		embeddingAPI.RegisterRoutes(v1)
-		
+
 		s.logger.Info("Embedding API v2 initialized successfully", nil)
 	}
 }

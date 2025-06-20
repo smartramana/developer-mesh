@@ -3,11 +3,12 @@ package api
 import (
 	"net/http"
 
-	"github.com/google/uuid"
-	"github.com/gin-gonic/gin"
+	"rest-api/internal/repository"
+
 	"github.com/S-Corkum/devops-mcp/pkg/common/util"
 	"github.com/S-Corkum/devops-mcp/pkg/models"
-	"rest-api/internal/repository"
+	"github.com/gin-gonic/gin"
+	"github.com/google/uuid"
 )
 
 // AgentAPI handles agent management endpoints

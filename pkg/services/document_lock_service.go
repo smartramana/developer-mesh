@@ -20,16 +20,16 @@ type DocumentLockService interface {
 	UnlockDocument(ctx context.Context, documentID uuid.UUID, agentID string) error
 	ExtendLock(ctx context.Context, documentID uuid.UUID, agentID string, extension time.Duration) error
 	IsDocumentLocked(ctx context.Context, documentID uuid.UUID) (bool, *DocumentLock, error)
-	
+
 	// Section-level locking
 	LockSection(ctx context.Context, documentID uuid.UUID, sectionID string, agentID string, duration time.Duration) (*SectionLock, error)
 	UnlockSection(ctx context.Context, documentID uuid.UUID, sectionID string, agentID string) error
 	GetSectionLocks(ctx context.Context, documentID uuid.UUID) ([]*SectionLock, error)
-	
+
 	// Lock management
 	GetActiveLocks(ctx context.Context, agentID string) ([]*DocumentLock, error)
 	ReleaseAllLocks(ctx context.Context, agentID string) error
-	
+
 	// Deadlock detection
 	DetectDeadlocks(ctx context.Context) ([]*DeadlockInfo, error)
 	ResolveDeadlock(ctx context.Context, deadlockID string) error
@@ -37,13 +37,13 @@ type DocumentLockService interface {
 
 // DocumentLock represents a lock on a document
 type DocumentLock struct {
-	ID           string        `json:"id"`
-	DocumentID   uuid.UUID     `json:"document_id"`
-	AgentID      string        `json:"agent_id"`
-	Type         LockType      `json:"type"`
-	AcquiredAt   time.Time     `json:"acquired_at"`
-	ExpiresAt    time.Time     `json:"expires_at"`
-	RefreshCount int           `json:"refresh_count"`
+	ID           string                 `json:"id"`
+	DocumentID   uuid.UUID              `json:"document_id"`
+	AgentID      string                 `json:"agent_id"`
+	Type         LockType               `json:"type"`
+	AcquiredAt   time.Time              `json:"acquired_at"`
+	ExpiresAt    time.Time              `json:"expires_at"`
+	RefreshCount int                    `json:"refresh_count"`
 	Metadata     map[string]interface{} `json:"metadata,omitempty"`
 }
 
@@ -81,12 +81,11 @@ type documentLockService struct {
 	sectionKeyPrefix string
 	defaultTTL       time.Duration
 	maxRefreshCount  int
-	
+
 	// Auto-refresh management
-	refreshInterval  time.Duration
-	activeLocks      sync.Map // lockID -> *lockRefreshInfo
-	refreshStop      chan struct{}
-	refreshWg        sync.WaitGroup
+	refreshInterval time.Duration
+	activeLocks     sync.Map // lockID -> *lockRefreshInfo
+	refreshStop     chan struct{}
 }
 
 type lockRefreshInfo struct {
@@ -109,10 +108,10 @@ func NewDocumentLockService(
 		refreshInterval:  30 * time.Second,
 		refreshStop:      make(chan struct{}),
 	}
-	
+
 	// Start auto-refresh goroutine
 	go s.autoRefreshLocks()
-	
+
 	return s
 }
 
@@ -120,14 +119,14 @@ func NewDocumentLockService(
 func (s *documentLockService) LockDocument(ctx context.Context, documentID uuid.UUID, agentID string, duration time.Duration) (*DocumentLock, error) {
 	ctx, span := s.config.Tracer(ctx, "DocumentLockService.LockDocument")
 	defer span.End()
-	
+
 	if duration > 30*time.Minute {
 		duration = 30 * time.Minute
 	}
 	if duration == 0 {
 		duration = s.defaultTTL
 	}
-	
+
 	lockID := uuid.New().String()
 	lock := &DocumentLock{
 		ID:         lockID,
@@ -141,27 +140,27 @@ func (s *documentLockService) LockDocument(ctx context.Context, documentID uuid.
 			"pid":  getPID(),
 		},
 	}
-	
+
 	// Serialize lock
 	lockData, err := json.Marshal(lock)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to serialize lock")
 	}
-	
+
 	// Try to acquire lock with Redis SET NX
 	key := s.lockKeyPrefix + documentID.String()
 	success, err := s.redis.SetNX(ctx, key, lockData, duration).Result()
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to acquire lock")
 	}
-	
+
 	if !success {
 		// Lock already exists, check if it's expired
 		existingLock, err := s.getLock(ctx, key)
 		if err != nil {
 			return nil, errors.Wrap(err, "failed to get existing lock")
 		}
-		
+
 		if existingLock != nil && time.Now().After(existingLock.ExpiresAt) {
 			// Lock is expired, try to acquire with atomic compare-and-swap
 			if err := s.tryAcquireExpiredLock(ctx, key, lock, duration); err != nil {
@@ -175,13 +174,13 @@ func (s *documentLockService) LockDocument(ctx context.Context, documentID uuid.
 			}
 		}
 	}
-	
+
 	// Start auto-refresh if enabled
 	s.startAutoRefresh(lock)
-	
+
 	// Record metrics
 	s.config.Metrics.IncrementCounter("document_lock.acquired", 1)
-	
+
 	return lock, nil
 }
 
@@ -189,19 +188,19 @@ func (s *documentLockService) LockDocument(ctx context.Context, documentID uuid.
 func (s *documentLockService) UnlockDocument(ctx context.Context, documentID uuid.UUID, agentID string) error {
 	ctx, span := s.config.Tracer(ctx, "DocumentLockService.UnlockDocument")
 	defer span.End()
-	
+
 	key := s.lockKeyPrefix + documentID.String()
-	
+
 	// Get current lock to verify ownership
 	currentLock, err := s.getLock(ctx, key)
 	if err != nil {
 		return errors.Wrap(err, "failed to get lock")
 	}
-	
+
 	if currentLock == nil {
 		return nil // Lock doesn't exist
 	}
-	
+
 	if currentLock.AgentID != agentID {
 		return &UnauthorizedLockError{
 			DocumentID: documentID,
@@ -209,18 +208,18 @@ func (s *documentLockService) UnlockDocument(ctx context.Context, documentID uui
 			OwnerID:    currentLock.AgentID,
 		}
 	}
-	
+
 	// Stop auto-refresh
 	s.stopAutoRefresh(currentLock.ID)
-	
+
 	// Delete lock
 	if err := s.redis.Del(ctx, key).Err(); err != nil {
 		return errors.Wrap(err, "failed to delete lock")
 	}
-	
+
 	// Record metrics
 	s.config.Metrics.IncrementCounter("document_lock.released", 1)
-	
+
 	return nil
 }
 
@@ -228,23 +227,23 @@ func (s *documentLockService) UnlockDocument(ctx context.Context, documentID uui
 func (s *documentLockService) ExtendLock(ctx context.Context, documentID uuid.UUID, agentID string, extension time.Duration) error {
 	ctx, span := s.config.Tracer(ctx, "DocumentLockService.ExtendLock")
 	defer span.End()
-	
+
 	if extension > 30*time.Minute {
 		extension = 30 * time.Minute
 	}
-	
+
 	key := s.lockKeyPrefix + documentID.String()
-	
+
 	// Get current lock
 	currentLock, err := s.getLock(ctx, key)
 	if err != nil {
 		return errors.Wrap(err, "failed to get lock")
 	}
-	
+
 	if currentLock == nil {
 		return &LockNotFoundError{DocumentID: documentID}
 	}
-	
+
 	if currentLock.AgentID != agentID {
 		return &UnauthorizedLockError{
 			DocumentID: documentID,
@@ -252,7 +251,7 @@ func (s *documentLockService) ExtendLock(ctx context.Context, documentID uuid.UU
 			OwnerID:    currentLock.AgentID,
 		}
 	}
-	
+
 	// Check refresh count
 	if currentLock.RefreshCount >= s.maxRefreshCount {
 		return &LockRefreshLimitError{
@@ -261,21 +260,21 @@ func (s *documentLockService) ExtendLock(ctx context.Context, documentID uuid.UU
 			MaxRefresh:   s.maxRefreshCount,
 		}
 	}
-	
+
 	// Update lock
 	currentLock.ExpiresAt = time.Now().Add(extension)
 	currentLock.RefreshCount++
-	
+
 	lockData, err := json.Marshal(currentLock)
 	if err != nil {
 		return errors.Wrap(err, "failed to serialize lock")
 	}
-	
+
 	// Update with new expiration
 	if err := s.redis.Set(ctx, key, lockData, extension).Err(); err != nil {
 		return errors.Wrap(err, "failed to extend lock")
 	}
-	
+
 	return nil
 }
 
@@ -283,24 +282,24 @@ func (s *documentLockService) ExtendLock(ctx context.Context, documentID uuid.UU
 func (s *documentLockService) IsDocumentLocked(ctx context.Context, documentID uuid.UUID) (bool, *DocumentLock, error) {
 	ctx, span := s.config.Tracer(ctx, "DocumentLockService.IsDocumentLocked")
 	defer span.End()
-	
+
 	key := s.lockKeyPrefix + documentID.String()
 	lock, err := s.getLock(ctx, key)
 	if err != nil {
 		return false, nil, err
 	}
-	
+
 	if lock == nil {
 		return false, nil, nil
 	}
-	
+
 	// Check if lock is expired
 	if time.Now().After(lock.ExpiresAt) {
 		// Clean up expired lock
 		s.redis.Del(ctx, key)
 		return false, nil, nil
 	}
-	
+
 	return true, lock, nil
 }
 
@@ -308,17 +307,17 @@ func (s *documentLockService) IsDocumentLocked(ctx context.Context, documentID u
 func (s *documentLockService) LockSection(ctx context.Context, documentID uuid.UUID, sectionID string, agentID string, duration time.Duration) (*SectionLock, error) {
 	ctx, span := s.config.Tracer(ctx, "DocumentLockService.LockSection")
 	defer span.End()
-	
+
 	if duration == 0 {
 		duration = s.defaultTTL
 	}
-	
+
 	// Check if document is exclusively locked
 	isLocked, docLock, err := s.IsDocumentLocked(ctx, documentID)
 	if err != nil {
 		return nil, err
 	}
-	
+
 	if isLocked && docLock.Type == LockTypeExclusive && docLock.AgentID != agentID {
 		return nil, &LockConflictError{
 			DocumentID:    documentID,
@@ -326,13 +325,13 @@ func (s *documentLockService) LockSection(ctx context.Context, documentID uuid.U
 			ExpiresAt:     docLock.ExpiresAt,
 		}
 	}
-	
+
 	// Check for conflicting section locks
 	existingLocks, err := s.GetSectionLocks(ctx, documentID)
 	if err != nil {
 		return nil, err
 	}
-	
+
 	for _, existing := range existingLocks {
 		if existing.SectionID == sectionID && existing.AgentID != agentID {
 			return nil, &SectionLockConflictError{
@@ -342,7 +341,7 @@ func (s *documentLockService) LockSection(ctx context.Context, documentID uuid.U
 			}
 		}
 	}
-	
+
 	// Create section lock
 	lockID := uuid.New().String()
 	sectionLock := &SectionLock{
@@ -356,21 +355,21 @@ func (s *documentLockService) LockSection(ctx context.Context, documentID uuid.U
 		},
 		SectionID: sectionID,
 	}
-	
+
 	// Store section lock
 	key := fmt.Sprintf("%s%s:%s", s.sectionKeyPrefix, documentID.String(), sectionID)
 	lockData, err := json.Marshal(sectionLock)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to serialize section lock")
 	}
-	
+
 	if err := s.redis.Set(ctx, key, lockData, duration).Err(); err != nil {
 		return nil, errors.Wrap(err, "failed to acquire section lock")
 	}
-	
+
 	// Start auto-refresh
 	s.startAutoRefresh(&sectionLock.DocumentLock)
-	
+
 	return sectionLock, nil
 }
 
@@ -384,12 +383,12 @@ func (s *documentLockService) getLock(ctx context.Context, key string) (*Documen
 	if err != nil {
 		return nil, err
 	}
-	
+
 	var lock DocumentLock
 	if err := json.Unmarshal(data, &lock); err != nil {
 		return nil, err
 	}
-	
+
 	return &lock, nil
 }
 
@@ -411,17 +410,17 @@ func (s *documentLockService) tryAcquireExpiredLock(ctx context.Context, key str
 		
 		return nil
 	`
-	
+
 	lockData, _ := json.Marshal(newLock)
 	_, err := s.redis.Eval(ctx, script, []string{key}, lockData, int(duration.Seconds()), time.Now().Unix()).Result()
-	
+
 	return err
 }
 
 func (s *documentLockService) autoRefreshLocks() {
 	ticker := time.NewTicker(s.refreshInterval)
 	defer ticker.Stop()
-	
+
 	for {
 		select {
 		case <-ticker.C:
@@ -435,26 +434,26 @@ func (s *documentLockService) autoRefreshLocks() {
 func (s *documentLockService) refreshActiveLocks() {
 	s.activeLocks.Range(func(key, value interface{}) bool {
 		info := value.(*lockRefreshInfo)
-		
+
 		// Check if lock is about to expire
 		timeUntilExpiry := time.Until(info.lock.ExpiresAt)
 		if timeUntilExpiry < s.refreshInterval*2 {
 			// Extend lock
 			ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 			defer cancel()
-			
+
 			if err := s.ExtendLock(ctx, info.lock.DocumentID, info.lock.AgentID, s.defaultTTL); err != nil {
 				s.config.Logger.Error("Failed to auto-refresh lock", map[string]interface{}{
 					"lock_id":     info.lock.ID,
 					"document_id": info.lock.DocumentID,
 					"error":       err.Error(),
 				})
-				
+
 				// Remove from active locks if refresh fails
 				s.activeLocks.Delete(key)
 			}
 		}
-		
+
 		return true
 	})
 }
@@ -465,7 +464,7 @@ func (s *documentLockService) startAutoRefresh(lock *DocumentLock) {
 		lock:       lock,
 		cancelFunc: cancel,
 	}
-	
+
 	s.activeLocks.Store(lock.ID, info)
 }
 
@@ -480,7 +479,7 @@ func (s *documentLockService) stopAutoRefresh(lockID string) {
 
 func (s *documentLockService) UnlockSection(ctx context.Context, documentID uuid.UUID, sectionID string, agentID string) error {
 	key := fmt.Sprintf("%s%s:%s", s.sectionKeyPrefix, documentID.String(), sectionID)
-	
+
 	// Verify ownership
 	data, err := s.redis.Get(ctx, key).Bytes()
 	if err == redis.Nil {
@@ -489,12 +488,12 @@ func (s *documentLockService) UnlockSection(ctx context.Context, documentID uuid
 	if err != nil {
 		return err
 	}
-	
+
 	var lock SectionLock
 	if err := json.Unmarshal(data, &lock); err != nil {
 		return err
 	}
-	
+
 	if lock.AgentID != agentID {
 		return &UnauthorizedLockError{
 			DocumentID: documentID,
@@ -502,10 +501,10 @@ func (s *documentLockService) UnlockSection(ctx context.Context, documentID uuid
 			OwnerID:    lock.AgentID,
 		}
 	}
-	
+
 	// Stop auto-refresh
 	s.stopAutoRefresh(lock.ID)
-	
+
 	return s.redis.Del(ctx, key).Err()
 }
 
@@ -515,25 +514,25 @@ func (s *documentLockService) GetSectionLocks(ctx context.Context, documentID uu
 	if err != nil {
 		return nil, err
 	}
-	
+
 	var locks []*SectionLock
 	for _, key := range keys {
 		data, err := s.redis.Get(ctx, key).Bytes()
 		if err != nil {
 			continue
 		}
-		
+
 		var lock SectionLock
 		if err := json.Unmarshal(data, &lock); err != nil {
 			continue
 		}
-		
+
 		// Skip expired locks
 		if time.Now().Before(lock.ExpiresAt) {
 			locks = append(locks, &lock)
 		}
 	}
-	
+
 	return locks, nil
 }
 
@@ -544,44 +543,44 @@ func (s *documentLockService) GetActiveLocks(ctx context.Context, agentID string
 	if err != nil {
 		return nil, err
 	}
-	
+
 	var locks []*DocumentLock
-	
+
 	// Check document locks
 	for _, key := range docKeys {
 		lock, err := s.getLock(ctx, key)
 		if err != nil || lock == nil {
 			continue
 		}
-		
+
 		if lock.AgentID == agentID && time.Now().Before(lock.ExpiresAt) {
 			locks = append(locks, lock)
 		}
 	}
-	
+
 	// Check section locks
 	sectionPattern := s.sectionKeyPrefix + "*"
 	sectionKeys, err := s.redis.Keys(ctx, sectionPattern).Result()
 	if err != nil {
 		return nil, err
 	}
-	
+
 	for _, key := range sectionKeys {
 		data, err := s.redis.Get(ctx, key).Bytes()
 		if err != nil {
 			continue
 		}
-		
+
 		var sectionLock SectionLock
 		if err := json.Unmarshal(data, &sectionLock); err != nil {
 			continue
 		}
-		
+
 		if sectionLock.AgentID == agentID && time.Now().Before(sectionLock.ExpiresAt) {
 			locks = append(locks, &sectionLock.DocumentLock)
 		}
 	}
-	
+
 	return locks, nil
 }
 
@@ -590,13 +589,13 @@ func (s *documentLockService) ReleaseAllLocks(ctx context.Context, agentID strin
 	if err != nil {
 		return err
 	}
-	
+
 	for _, lock := range locks {
 		if lock.Type == LockTypeSection {
 			// Handle section locks
 			continue
 		}
-		
+
 		if err := s.UnlockDocument(ctx, lock.DocumentID, agentID); err != nil {
 			s.config.Logger.Error("Failed to release lock", map[string]interface{}{
 				"lock_id":     lock.ID,
@@ -605,23 +604,23 @@ func (s *documentLockService) ReleaseAllLocks(ctx context.Context, agentID strin
 			})
 		}
 	}
-	
+
 	return nil
 }
 
 func (s *documentLockService) DetectDeadlocks(ctx context.Context) ([]*DeadlockInfo, error) {
 	// Basic deadlock detection using wait-for graph
 	// This is a simplified implementation
-	
+
 	// Basic deadlock detection using wait-for graph
 	// This is a simplified implementation
-	
+
 	// In a production system, this would:
 	// 1. Track wait relationships between agents and locks
 	// 2. Build a wait-for graph
 	// 3. Detect cycles using DFS or similar algorithm
 	// 4. Return detailed deadlock information
-	
+
 	// For now, return empty list
 	return []*DeadlockInfo{}, nil
 }
@@ -643,7 +642,7 @@ type LockConflictError struct {
 }
 
 func (e *LockConflictError) Error() string {
-	return fmt.Sprintf("document %s is locked by %s until %s", 
+	return fmt.Sprintf("document %s is locked by %s until %s",
 		e.DocumentID, e.CurrentHolder, e.ExpiresAt.Format(time.RFC3339))
 }
 

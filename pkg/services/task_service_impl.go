@@ -41,9 +41,6 @@ type taskService struct {
 	// Background workers
 	progressTracker *ProgressTracker
 	taskRebalancer  *TaskRebalancer
-
-	// Synchronization
-	taskLocks sync.Map // map[uuid.UUID]*sync.Mutex
 }
 
 // NewTaskService creates a production-ready task service
@@ -58,7 +55,7 @@ func NewTaskService(
 		repo:             repo,
 		agentService:     agentService,
 		notifier:         notifier,
-		assignmentEngine: NewAssignmentEngine(config.RuleEngine),
+		assignmentEngine: NewAssignmentEngine(config.RuleEngine, agentService),
 		aggregator:       NewResultAggregator(),
 		taskCache:        cache.NewMemoryCache(10000, 5*time.Minute),
 		statsCache:       cache.NewMemoryCache(1000, 1*time.Minute),
@@ -82,9 +79,9 @@ func (s *taskService) isValidStatusTransition(from, to models.TaskStatus) bool {
 		models.TaskStatusAccepted:   {models.TaskStatusInProgress, models.TaskStatusCancelled},
 		models.TaskStatusRejected:   {models.TaskStatusPending, models.TaskStatusCancelled},
 		models.TaskStatusInProgress: {models.TaskStatusCompleted, models.TaskStatusFailed, models.TaskStatusCancelled},
-		models.TaskStatusCompleted:  {}, // Terminal state
+		models.TaskStatusCompleted:  {},                         // Terminal state
 		models.TaskStatusFailed:     {models.TaskStatusPending}, // Can retry
-		models.TaskStatusCancelled:  {}, // Terminal state
+		models.TaskStatusCancelled:  {},                         // Terminal state
 	}
 
 	allowed, exists := validTransitions[from]
@@ -390,7 +387,7 @@ func (s *taskService) Get(ctx context.Context, id uuid.UUID) (*models.Task, erro
 	}
 
 	// Cache the result
-	s.taskCache.Set(ctx, cacheKey, task, 5*time.Minute)
+	_ = s.taskCache.Set(ctx, cacheKey, task, 5*time.Minute) // Best effort caching
 
 	return task, nil
 }
@@ -434,11 +431,7 @@ func (s *taskService) validateTask(ctx context.Context, task *models.Task) error
 		return ValidationError{Field: "title", Message: "exceeds maximum length"}
 	}
 
-	// Business rule validation
-	if s.config.PolicyManager != nil {
-		// Rule-based validation is handled by the policy manager
-		// The policy manager will evaluate rules as needed
-	}
+	// Business rule validation is handled by the policy manager if configured
 
 	return nil
 }
@@ -519,9 +512,9 @@ func (s *taskService) executePostCreationActions(ctx context.Context, task *mode
 
 	// Update caches
 	if task.AssignedTo != nil {
-		s.taskCache.Delete(ctx, fmt.Sprintf("agent:%s:tasks", *task.AssignedTo))
+		_ = s.taskCache.Delete(ctx, fmt.Sprintf("agent:%s:tasks", *task.AssignedTo))
 	}
-	s.statsCache.Delete(ctx, fmt.Sprintf("tenant:%s:stats", task.TenantID))
+	_ = s.statsCache.Delete(ctx, fmt.Sprintf("tenant:%s:stats", task.TenantID))
 
 	// Schedule monitoring
 	s.progressTracker.Track(task.ID)
@@ -1110,7 +1103,7 @@ func (s *taskService) CompleteTask(ctx context.Context, taskID uuid.UUID, agentI
 	task.Status = models.TaskStatusCompleted
 	task.CompletedAt = timePtr(time.Now())
 	task.UpdatedAt = time.Now()
-	
+
 	// Store result
 	if resultMap, ok := result.(map[string]interface{}); ok {
 		task.Result = models.JSONMap(resultMap)
@@ -1118,11 +1111,11 @@ func (s *taskService) CompleteTask(ctx context.Context, taskID uuid.UUID, agentI
 		task.Result = make(models.JSONMap)
 		task.Result["data"] = result
 	}
-	
+
 	// Add completion metadata
 	task.Result["progress"] = 100
 	task.Result["completed_by"] = agentID
-	
+
 	// Calculate duration if started
 	if task.StartedAt != nil {
 		duration := time.Since(*task.StartedAt)
@@ -1205,9 +1198,9 @@ func (s *taskService) FailTask(ctx context.Context, taskID uuid.UUID, agentID st
 
 	if err := s.repo.Update(ctx, task); err != nil {
 		s.config.Logger.Error("Failed to fail task", map[string]interface{}{
-			"error":        err.Error(),
-			"task_id":      taskID.String(),
-			"agent_id":     agentID,
+			"error":         err.Error(),
+			"task_id":       taskID.String(),
+			"agent_id":      agentID,
 			"error_message": errorMsg,
 		})
 		return errors.Wrap(err, "failed to fail task")
@@ -1318,16 +1311,13 @@ func (s *taskService) GetAgentTasks(ctx context.Context, agentID string, filters
 		return tasks, nil
 	}
 
-	// Set agent filter
-	filters.AssignedTo = &agentID
-
 	// Get from repository using ListByAgent
 	page, err := s.repo.ListByAgent(ctx, agentID, types.TaskFilters{
-		Status:     filters.Status,
-		Priority:   filters.Priority,
-		Types:      filters.Types,
-		Limit:      filters.Limit,
-		Offset:     filters.Offset,
+		Status:   filters.Status,
+		Priority: filters.Priority,
+		Types:    filters.Types,
+		Limit:    filters.Limit,
+		Offset:   filters.Offset,
 	})
 	if err != nil {
 		s.config.Logger.Error("Failed to get agent tasks", map[string]interface{}{
@@ -1593,7 +1583,7 @@ func (s *taskService) GetTaskTree(ctx context.Context, rootTaskID uuid.UUID) (*m
 	tree, err := s.repo.GetTaskTree(ctx, rootTaskID, 10)
 	if err != nil {
 		s.config.Logger.Error("Failed to get task tree", map[string]interface{}{
-			"error":         err.Error(),
+			"error":        err.Error(),
 			"root_task_id": rootTaskID.String(),
 		})
 		return nil, errors.Wrap(err, "failed to get task tree")
@@ -1676,7 +1666,7 @@ func (s *taskService) CancelTaskTree(ctx context.Context, rootTaskID uuid.UUID, 
 	// Wait for all cancellations
 	if err := eg.Wait(); err != nil {
 		s.config.Logger.Error("Failed to cancel task tree", map[string]interface{}{
-			"error":         err.Error(),
+			"error":        err.Error(),
 			"root_task_id": rootTaskID.String(),
 		})
 		return errors.Wrap(err, "failed to cancel task tree")

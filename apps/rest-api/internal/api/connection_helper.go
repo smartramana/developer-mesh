@@ -33,12 +33,12 @@ func (h *ConnectionHelper) ConnectToDatabase(ctx context.Context, config databas
 
 	for attempt := range maxRetries {
 		if attempt > 0 {
-			delay := min(baseDelay * time.Duration(1<<uint(attempt-1)), maxDelay)
+			delay := min(baseDelay*time.Duration(1<<uint(attempt-1)), maxDelay)
 			h.logger.Info("Retrying database connection", map[string]any{
 				"attempt": attempt + 1,
 				"delay":   delay.String(),
 			})
-			
+
 			select {
 			case <-time.After(delay):
 			case <-ctx.Done():
@@ -83,7 +83,7 @@ func (h *ConnectionHelper) ConnectToCache(ctx context.Context, config any) (cach
 				"attempt": attempt + 1,
 				"delay":   delay.String(),
 			})
-			
+
 			select {
 			case <-time.After(delay):
 			case <-ctx.Done():
@@ -99,7 +99,7 @@ func (h *ConnectionHelper) ConnectToCache(ctx context.Context, config any) (cach
 			testCtx, testCancel := context.WithTimeout(ctx, 2*time.Second)
 			testErr := cacheClient.Set(testCtx, "health:check", "ok", time.Second)
 			testCancel()
-			
+
 			if testErr == nil {
 				h.logger.Info("Cache connection established", map[string]any{
 					"attempt": attempt + 1,

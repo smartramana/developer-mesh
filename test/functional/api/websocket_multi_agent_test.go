@@ -12,8 +12,9 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
-	ws "github.com/S-Corkum/devops-mcp/pkg/models/websocket"
 	"functional-tests/shared"
+
+	ws "github.com/S-Corkum/devops-mcp/pkg/models/websocket"
 )
 
 var _ = Describe("WebSocket Multi-Agent Collaboration", func() {
@@ -26,7 +27,7 @@ var _ = Describe("WebSocket Multi-Agent Collaboration", func() {
 
 	BeforeEach(func() {
 		ctx, cancel = context.WithTimeout(context.Background(), 30*time.Second)
-		
+
 		// Get test configuration
 		config := shared.GetTestConfig()
 		wsURL = config.WebSocketURL
@@ -148,7 +149,7 @@ var _ = Describe("WebSocket Multi-Agent Collaboration", func() {
 					Type:   ws.MessageTypeRequest,
 					Method: "agent.register",
 					Params: map[string]interface{}{
-						"name": fmt.Sprintf("agent-%d", i+1),
+						"name":         fmt.Sprintf("agent-%d", i+1),
 						"capabilities": []string{"general"},
 					},
 				}
@@ -355,7 +356,7 @@ var _ = Describe("WebSocket Multi-Agent Collaboration", func() {
 									Type:   ws.MessageTypeRequest,
 									Method: "task.accept",
 									Params: map[string]interface{}{
-										"task_id": taskID,
+										"task_id":            taskID,
 										"estimated_duration": "10m",
 									},
 								}
@@ -461,7 +462,7 @@ var _ = Describe("WebSocket Multi-Agent Collaboration", func() {
 						},
 					},
 					"aggregation": map[string]interface{}{
-						"method": "combine_results",
+						"method":       "combine_results",
 						"wait_for_all": true,
 					},
 				},
@@ -532,14 +533,14 @@ var _ = Describe("WebSocket Multi-Agent Collaboration", func() {
 						if params, ok := msg.Params.(map[string]interface{}); ok {
 							if params["task_id"] == parentTaskID {
 								aggregatedReceived = true
-								
+
 								// Verify aggregated results
 								if result, ok := params["aggregated_result"].(map[string]interface{}); ok {
 									Expect(result).To(HaveKey("total_issues"))
 									Expect(result).To(HaveKey("average_coverage"))
 									Expect(result).To(HaveKey("max_complexity"))
 									Expect(result).To(HaveKey("modules_analyzed"))
-									
+
 									if modules, ok := result["modules_analyzed"].(float64); ok {
 										Expect(int(modules)).To(Equal(numWorkers))
 									}
@@ -559,9 +560,9 @@ var _ = Describe("WebSocket Multi-Agent Collaboration", func() {
 			// Create specialized agents
 			agents := make(map[string]*websocket.Conn)
 			agentIDs := make(map[string]string)
-			
+
 			specializations := []string{"analyzer", "optimizer", "validator"}
-			
+
 			for _, spec := range specializations {
 				conn, err := shared.EstablishConnection(wsURL, apiKey)
 				Expect(err).NotTo(HaveOccurred())
@@ -610,10 +611,10 @@ var _ = Describe("WebSocket Multi-Agent Collaboration", func() {
 					},
 					"steps": []map[string]interface{}{
 						{
-							"id":       "analyze",
-							"agent":    "analyzer",
-							"action":   "analyze_code",
-							"input":    "source_code",
+							"id":     "analyze",
+							"agent":  "analyzer",
+							"action": "analyze_code",
+							"input":  "source_code",
 						},
 						{
 							"id":         "optimize",
@@ -664,7 +665,7 @@ var _ = Describe("WebSocket Multi-Agent Collaboration", func() {
 				wg.Add(1)
 				go func(s string, c *websocket.Conn) {
 					defer wg.Done()
-					
+
 					timeout := time.After(5 * time.Second)
 					for {
 						select {
@@ -680,7 +681,7 @@ var _ = Describe("WebSocket Multi-Agent Collaboration", func() {
 							if msg.Type == ws.MessageTypeNotification && msg.Method == "workflow.task_ready" {
 								if params, ok := msg.Params.(map[string]interface{}); ok {
 									tasksReceived[s] = true
-									
+
 									// Simulate task completion
 									completeMsg := ws.Message{
 										ID:     uuid.New().String(),
@@ -710,7 +711,7 @@ var _ = Describe("WebSocket Multi-Agent Collaboration", func() {
 
 			// Verify all agents participated
 			for spec := range agents {
-				Expect(tasksReceived[spec]).To(BeTrue(), 
+				Expect(tasksReceived[spec]).To(BeTrue(),
 					fmt.Sprintf("Agent %s should receive task", spec))
 			}
 		})
@@ -734,7 +735,13 @@ var _ = Describe("WebSocket Multi-Agent Collaboration", func() {
 					Params: map[string]interface{}{
 						"name":         fmt.Sprintf("processor-%d", i+1),
 						"capabilities": []string{"data_processing"},
-						"role":         func() string { if i == 0 { return "primary" } else { return "backup" } }(),
+						"role": func() string {
+							if i == 0 {
+								return "primary"
+							} else {
+								return "backup"
+							}
+						}(),
 					},
 				}
 
@@ -781,7 +788,7 @@ var _ = Describe("WebSocket Multi-Agent Collaboration", func() {
 					if msg.Type == ws.MessageTypeNotification && msg.Method == "task.assigned" {
 						// Simulate failure
 						time.Sleep(500 * time.Millisecond)
-						
+
 						failMsg := ws.Message{
 							ID:     uuid.New().String(),
 							Type:   ws.MessageTypeRequest,
@@ -817,7 +824,7 @@ var _ = Describe("WebSocket Multi-Agent Collaboration", func() {
 						if params, ok := msg.Params.(map[string]interface{}); ok {
 							if params["task_id"] == taskID {
 								backupReceived = true
-								
+
 								// Backup completes the task
 								completeMsg := ws.Message{
 									ID:     uuid.New().String(),
@@ -826,7 +833,7 @@ var _ = Describe("WebSocket Multi-Agent Collaboration", func() {
 									Params: map[string]interface{}{
 										"task_id": taskID,
 										"result": map[string]interface{}{
-											"status":      "completed",
+											"status":       "completed",
 											"processed_by": "backup",
 										},
 									},
@@ -855,7 +862,7 @@ var _ = Describe("WebSocket Multi-Agent Collaboration", func() {
 
 			// Both agents join a shared workspace
 			workspaceID := uuid.New().String()
-			
+
 			for i, conn := range []*websocket.Conn{agent1, agent2} {
 				joinMsg := ws.Message{
 					ID:     uuid.New().String(),
@@ -883,8 +890,8 @@ var _ = Describe("WebSocket Multi-Agent Collaboration", func() {
 				Params: map[string]interface{}{
 					"workspace_id": workspaceID,
 					"updates": map[string]interface{}{
-						"current_task":     "implementing feature X",
-						"progress":         25,
+						"current_task":      "implementing feature X",
+						"progress":          25,
 						"discovered_issues": []string{"issue1", "issue2"},
 					},
 				},
@@ -928,7 +935,7 @@ var _ = Describe("WebSocket Multi-Agent Collaboration", func() {
 				Params: map[string]interface{}{
 					"workspace_id": workspaceID,
 					"updates": map[string]interface{}{
-						"progress":         50,
+						"progress":          50,
 						"discovered_issues": []string{"issue3"}, // Should append
 					},
 					"merge_strategy": "append_arrays",
@@ -959,7 +966,7 @@ var _ = Describe("WebSocket Multi-Agent Collaboration", func() {
 			if result, ok := stateResp.Result.(map[string]interface{}); ok {
 				if state, ok := result["state"].(map[string]interface{}); ok {
 					Expect(state["progress"]).To(Equal(float64(50)))
-					
+
 					if issues, ok := state["discovered_issues"].([]interface{}); ok {
 						Expect(len(issues)).To(Equal(3)) // All issues combined
 					}
@@ -1038,7 +1045,7 @@ var _ = Describe("WebSocket Multi-Agent Collaboration", func() {
 			// One should succeed, one should get conflict
 			successCount := 0
 			conflictCount := 0
-			
+
 			for result := range conflicts {
 				if result {
 					conflictCount++

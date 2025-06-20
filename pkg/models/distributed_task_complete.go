@@ -10,10 +10,10 @@ import (
 type CoordinationMode string
 
 const (
-	CoordinationModeParallel    CoordinationMode = "parallel"    // All subtasks run in parallel
-	CoordinationModeSequential  CoordinationMode = "sequential"  // Subtasks run one after another
-	CoordinationModePipeline    CoordinationMode = "pipeline"    // Output of one feeds into next
-	CoordinationModeMapReduce   CoordinationMode = "map_reduce"  // Map phase then reduce phase
+	CoordinationModeParallel    CoordinationMode = "parallel"     // All subtasks run in parallel
+	CoordinationModeSequential  CoordinationMode = "sequential"   // Subtasks run one after another
+	CoordinationModePipeline    CoordinationMode = "pipeline"     // Output of one feeds into next
+	CoordinationModeMapReduce   CoordinationMode = "map_reduce"   // Map phase then reduce phase
 	CoordinationModeLeaderElect CoordinationMode = "leader_elect" // One agent elected as coordinator
 )
 
@@ -21,11 +21,11 @@ const (
 type CompletionMode string
 
 const (
-	CompletionModeAll       CompletionMode = "all"        // All subtasks must complete
-	CompletionModeAny       CompletionMode = "any"        // Any subtask completion completes the task
-	CompletionModeMajority  CompletionMode = "majority"   // Majority of subtasks must complete
-	CompletionModeThreshold CompletionMode = "threshold"  // Configurable threshold of completions
-	CompletionModeBestOf    CompletionMode = "best_of"    // Best result from N attempts
+	CompletionModeAll       CompletionMode = "all"       // All subtasks must complete
+	CompletionModeAny       CompletionMode = "any"       // Any subtask completion completes the task
+	CompletionModeMajority  CompletionMode = "majority"  // Majority of subtasks must complete
+	CompletionModeThreshold CompletionMode = "threshold" // Configurable threshold of completions
+	CompletionModeBestOf    CompletionMode = "best_of"   // Best result from N attempts
 )
 
 // TaskPartition represents a partition of work for a subtask
@@ -40,11 +40,11 @@ type TaskPartition struct {
 
 // SyncPoint represents a synchronization point between subtasks
 type SyncPoint struct {
-	ID           string        `json:"id"`
-	Name         string        `json:"name"`
+	ID            string        `json:"id"`
+	Name          string        `json:"name"`
 	RequiredTasks []string      `json:"required_tasks"`
-	Timeout      time.Duration `json:"timeout"`
-	OnTimeout    string        `json:"on_timeout"` // continue, fail, retry
+	Timeout       time.Duration `json:"timeout"`
+	OnTimeout     string        `json:"on_timeout"` // continue, fail, retry
 }
 
 // ExecutionPlan represents the execution plan for a distributed task
@@ -66,14 +66,14 @@ type ExecutionPhase struct {
 
 // TaskProgress represents progress information for a task
 type TaskProgress struct {
-	TaskID          uuid.UUID              `json:"task_id"`
-	TotalSteps      int                    `json:"total_steps"`
-	CompletedSteps  int                    `json:"completed_steps"`
-	CurrentStep     string                 `json:"current_step"`
-	PercentComplete float64                `json:"percent_complete"`
-	EstimatedTimeRemaining time.Duration     `json:"estimated_time_remaining,omitempty"`
-	LastUpdated     time.Time              `json:"last_updated"`
-	Details         map[string]interface{} `json:"details,omitempty"`
+	TaskID                 uuid.UUID              `json:"task_id"`
+	TotalSteps             int                    `json:"total_steps"`
+	CompletedSteps         int                    `json:"completed_steps"`
+	CurrentStep            string                 `json:"current_step"`
+	PercentComplete        float64                `json:"percent_complete"`
+	EstimatedTimeRemaining time.Duration          `json:"estimated_time_remaining,omitempty"`
+	LastUpdated            time.Time              `json:"last_updated"`
+	Details                map[string]interface{} `json:"details,omitempty"`
 }
 
 // ResourceUsage represents resource usage for a task
@@ -91,29 +91,29 @@ type ResourceUsage struct {
 // ExtendedDistributedTask extends the DistributedTask with production fields
 type ExtendedDistributedTask struct {
 	DistributedTask
-	
+
 	// Embedded task reference
-	Task            *Task             `json:"task,omitempty"`
-	
+	Task *Task `json:"task,omitempty"`
+
 	// Coordination fields
-	CoordinationMode CoordinationMode  `json:"coordination_mode"`
-	CompletionMode   CompletionMode    `json:"completion_mode"`
-	CompletionThreshold int            `json:"completion_threshold,omitempty"` // For threshold mode
-	
+	CoordinationMode    CoordinationMode `json:"coordination_mode"`
+	CompletionMode      CompletionMode   `json:"completion_mode"`
+	CompletionThreshold int              `json:"completion_threshold,omitempty"` // For threshold mode
+
 	// Execution tracking
-	ExecutionPlan   *ExecutionPlan    `json:"execution_plan,omitempty"`
-	Partitions      []TaskPartition   `json:"partitions,omitempty"`
-	Progress        *TaskProgress     `json:"progress,omitempty"`
-	ResourceUsage   *ResourceUsage    `json:"resource_usage,omitempty"`
-	
+	ExecutionPlan *ExecutionPlan  `json:"execution_plan,omitempty"`
+	Partitions    []TaskPartition `json:"partitions,omitempty"`
+	Progress      *TaskProgress   `json:"progress,omitempty"`
+	ResourceUsage *ResourceUsage  `json:"resource_usage,omitempty"`
+
 	// Timing
-	StartedAt       *time.Time        `json:"started_at,omitempty"`
-	CompletedAt     *time.Time        `json:"completed_at,omitempty"`
-	EstimatedDuration time.Duration   `json:"estimated_duration,omitempty"`
-	
+	StartedAt         *time.Time    `json:"started_at,omitempty"`
+	CompletedAt       *time.Time    `json:"completed_at,omitempty"`
+	EstimatedDuration time.Duration `json:"estimated_duration,omitempty"`
+
 	// Results aggregation
-	ResultsCollected int              `json:"results_collected"`
-	FinalResult     interface{}       `json:"final_result,omitempty"`
+	ResultsCollected    int           `json:"results_collected"`
+	FinalResult         interface{}   `json:"final_result,omitempty"`
 	IntermediateResults []interface{} `json:"intermediate_results,omitempty"`
 }
 
@@ -144,11 +144,11 @@ func (dt *ExtendedDistributedTask) CalculateProgress() float64 {
 	if dt.Progress != nil {
 		return dt.Progress.PercentComplete
 	}
-	
+
 	if len(dt.SubtaskIDs) == 0 {
 		return 0.0
 	}
-	
+
 	// Calculate based on collected results
 	return float64(dt.ResultsCollected) / float64(len(dt.SubtaskIDs)) * 100.0
 }
@@ -159,7 +159,7 @@ func (dt *ExtendedDistributedTask) IsComplete() bool {
 	if totalSubtasks == 0 {
 		return true
 	}
-	
+
 	switch dt.CompletionMode {
 	case CompletionModeAll:
 		return dt.ResultsCollected >= totalSubtasks
@@ -185,11 +185,11 @@ func (dt *ExtendedDistributedTask) GetEstimatedCompletion() *time.Time {
 	if dt.StartedAt == nil {
 		return nil
 	}
-	
+
 	if dt.EstimatedDuration == 0 {
 		return nil
 	}
-	
+
 	estimatedTime := dt.StartedAt.Add(dt.EstimatedDuration)
 	return &estimatedTime
 }

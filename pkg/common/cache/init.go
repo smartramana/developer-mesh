@@ -32,7 +32,7 @@ type RedisConfig struct {
 	UseAWS            bool                   `mapstructure:"use_aws"`      // Use AWS ElastiCache
 	ClusterMode       bool                   `mapstructure:"cluster_mode"` // Use ElastiCache in cluster mode
 	ElastiCacheConfig *aws.ElastiCacheConfig `mapstructure:"elasticache"`  // ElastiCache configuration
-	
+
 	// TLS configuration
 	TLS *TLSConfig `mapstructure:"tls"` // TLS configuration
 }
@@ -79,7 +79,7 @@ func NewCache(ctx context.Context, cfg any) (Cache, error) {
 			PoolSize:     config.PoolSize,
 			MinIdleConns: config.MinIdleConns,
 			PoolTimeout:  config.PoolTimeout,
-			TLS:          config.TLS,  // Pass TLS configuration
+			TLS:          config.TLS, // Pass TLS configuration
 		})
 	default:
 		return nil, fmt.Errorf("unsupported cache type: %T", cfg)

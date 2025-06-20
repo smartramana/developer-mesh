@@ -36,10 +36,10 @@ const (
 
 // Common errors
 var (
-	ErrNotFound       = NewRepositoryError("NOT_FOUND", "entity not found")
-	ErrAlreadyExists  = NewRepositoryError("ALREADY_EXISTS", "entity already exists")
-	ErrOptimisticLock = NewRepositoryError("OPTIMISTIC_LOCK", "version mismatch")
-	ErrInvalidInput   = NewRepositoryError("INVALID_INPUT", "invalid input parameters")
+	ErrNotFound            = NewRepositoryError("NOT_FOUND", "entity not found")
+	ErrAlreadyExists       = NewRepositoryError("ALREADY_EXISTS", "entity already exists")
+	ErrOptimisticLock      = NewRepositoryError("OPTIMISTIC_LOCK", "version mismatch")
+	ErrInvalidInput        = NewRepositoryError("INVALID_INPUT", "invalid input parameters")
 	ErrConstraintViolation = NewRepositoryError("CONSTRAINT_VIOLATION", "constraint violation")
 )
 
@@ -102,11 +102,11 @@ type StringList []string
 
 // IntegrityReport contains results of integrity checks
 type IntegrityReport struct {
-	CheckedAt        time.Time
-	TotalChecked     int64
-	IssuesFound      int64
-	Issues           []IntegrityIssue
-	Recommendations  []string
+	CheckedAt       time.Time
+	TotalChecked    int64
+	IssuesFound     int64
+	Issues          []IntegrityIssue
+	Recommendations []string
 }
 
 // IntegrityIssue represents a data integrity problem
@@ -131,25 +131,25 @@ type TaskFilters struct {
 	CreatedBefore *time.Time
 	UpdatedAfter  *time.Time
 	UpdatedBefore *time.Time
-	
+
 	// Pagination
-	Limit      int
-	Offset     int
-	Cursor     string
-	
+	Limit  int
+	Offset int
+	Cursor string
+
 	// Sorting
-	SortBy     string
-	SortOrder  string
+	SortBy    string
+	SortOrder string
 }
 
 // TaskStats contains statistics about tasks
 type TaskStats struct {
-	TotalTasks      int64
-	CompletedTasks  int64
-	FailedTasks     int64
-	PendingTasks    int64
-	AverageTime     time.Duration
-	SuccessRate     float64
+	TotalTasks     int64
+	CompletedTasks int64
+	FailedTasks    int64
+	PendingTasks   int64
+	AverageTime    time.Duration
+	SuccessRate    float64
 }
 
 // WorkflowFilters contains filtering options for workflow queries
@@ -160,14 +160,14 @@ type WorkflowFilters struct {
 	CreatedAfter  *time.Time
 	CreatedBefore *time.Time
 	Active        *bool
-	
+
 	// Pagination
-	Limit      int
-	Offset     int
-	
+	Limit  int
+	Offset int
+
 	// Sorting
-	SortBy     string
-	SortOrder  string
+	SortBy    string
+	SortOrder string
 }
 
 // DocumentFilters contains filtering options for document queries
@@ -178,12 +178,12 @@ type DocumentFilters struct {
 	LockedBy      *string
 	CreatedAfter  *time.Time
 	CreatedBefore *time.Time
-	
+
 	// Pagination
-	Limit      int
-	Offset     int
-	
+	Limit  int
+	Offset int
+
 	// Sorting
-	SortBy     string
-	SortOrder  string
+	SortBy    string
+	SortOrder string
 }

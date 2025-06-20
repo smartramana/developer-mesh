@@ -224,20 +224,61 @@ func (m *EmbeddingManager) ProcessRepository(ctx context.Context, owner string, 
 		return errors.New("embedding manager is not initialized")
 	}
 
-	// This is a placeholder for a more comprehensive implementation
-	// In a real implementation, this would:
-	// 1. List all files in the repository
-	// 2. Process each file to generate embeddings
-	// 3. List all issues in the repository
-	// 4. Process each issue to generate embeddings
-	// 5. List all discussions in the repository
-	// 6. Process each discussion to generate embeddings
-
 	log.Printf("Processing repository %s/%s", owner, repo)
 
-	// TODO: Implement full repository processing
-	// For now, return a "not implemented" error
-	return errors.New("full repository processing not implemented yet")
+	// Create error group for concurrent processing
+	var wg sync.WaitGroup
+	errCh := make(chan error, 3)
+
+	// Process issues concurrently
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		// Process all issues (empty slice means all issues)
+		ownerRepo := fmt.Sprintf("%s/%s", owner, repo)
+		if err := m.pipeline.ProcessIssues(ctx, ownerRepo, nil); err != nil {
+			errCh <- fmt.Errorf("failed to process issues: %w", err)
+		}
+	}()
+
+	// Process discussions concurrently
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		// Process all discussions (empty slice means all discussions)
+		ownerRepo := fmt.Sprintf("%s/%s", owner, repo)
+		if err := m.pipeline.ProcessDiscussions(ctx, ownerRepo, nil); err != nil {
+			errCh <- fmt.Errorf("failed to process discussions: %w", err)
+		}
+	}()
+
+	// Process repository content as a single batch
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		ownerRepo := fmt.Sprintf("%s/%s", owner, repo)
+		content := fmt.Sprintf("Repository: %s", ownerRepo)
+		if err := m.pipeline.ProcessContent(ctx, content, ContentTypeCodeChunk, ownerRepo); err != nil {
+			errCh <- fmt.Errorf("failed to process repository content: %w", err)
+		}
+	}()
+
+	// Wait for all processing to complete
+	wg.Wait()
+	close(errCh)
+
+	// Collect any errors
+	var errs []string
+	for err := range errCh {
+		errs = append(errs, err.Error())
+	}
+
+	if len(errs) > 0 {
+		return fmt.Errorf("repository processing errors: %s", strings.Join(errs, "; "))
+	}
+
+	log.Printf("Successfully processed repository %s/%s", owner, repo)
+	return nil
 }
 
 // SearchSimilarContent searches for content similar to the provided text

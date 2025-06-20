@@ -71,15 +71,15 @@ func (s *TaskServiceIntegrationSuite) TearDownSuite() {
 	s.cancel()
 	if s.db != nil {
 		// Clean up test data
-		shared.CleanupTestData(s.db, s.tenantID)
-		s.db.Close()
+		_ = shared.CleanupTestData(s.db, s.tenantID)
+		_ = s.db.Close()
 	}
 }
 
 // SetupTest runs before each test
 func (s *TaskServiceIntegrationSuite) SetupTest() {
 	// Clean up any data from previous test
-	shared.CleanupTaskData(s.db, s.tenantID)
+	_ = shared.CleanupTaskData(s.db, s.tenantID)
 }
 
 // TestCreateAndRetrieveTask tests basic task creation and retrieval
@@ -173,7 +173,7 @@ func (s *TaskServiceIntegrationSuite) TestTaskAssignmentFlow() {
 		"output": "Feature implemented successfully",
 		"metrics": map[string]interface{}{
 			"lines_of_code": 150,
-			"test_coverage":  85.5,
+			"test_coverage": 85.5,
 		},
 	}
 	err = s.taskService.CompleteTask(s.ctx, task.ID, agentID, result)
@@ -328,32 +328,32 @@ func (s *TaskServiceIntegrationSuite) TestTaskFiltering() {
 
 	tasks := []*models.Task{
 		{
-			TenantID:    s.tenantID,
-			Type:        "coding",
-			Status:      models.TaskStatusPending,
-			Priority:    models.TaskPriorityHigh,
-			CreatedBy:   agent1,
-			Title:       "High Priority Coding Task",
-			Tags:        []string{"backend", "api"},
+			TenantID:  s.tenantID,
+			Type:      "coding",
+			Status:    models.TaskStatusPending,
+			Priority:  models.TaskPriorityHigh,
+			CreatedBy: agent1,
+			Title:     "High Priority Coding Task",
+			Tags:      []string{"backend", "api"},
 		},
 		{
-			TenantID:    s.tenantID,
-			Type:        "testing",
-			Status:      models.TaskStatusInProgress,
-			Priority:    models.TaskPriorityNormal,
-			CreatedBy:   agent2,
-			Title:       "Testing Task",
-			Tags:        []string{"qa", "automated"},
-			AssignedTo:  &agent1,
+			TenantID:   s.tenantID,
+			Type:       "testing",
+			Status:     models.TaskStatusInProgress,
+			Priority:   models.TaskPriorityNormal,
+			CreatedBy:  agent2,
+			Title:      "Testing Task",
+			Tags:       []string{"qa", "automated"},
+			AssignedTo: &agent1,
 		},
 		{
-			TenantID:    s.tenantID,
-			Type:        "documentation",
-			Status:      models.TaskStatusCompleted,
-			Priority:    models.TaskPriorityLow,
-			CreatedBy:   agent1,
-			Title:       "Documentation Task",
-			Tags:        []string{"docs"},
+			TenantID:  s.tenantID,
+			Type:      "documentation",
+			Status:    models.TaskStatusCompleted,
+			Priority:  models.TaskPriorityLow,
+			CreatedBy: agent1,
+			Title:     "Documentation Task",
+			Tags:      []string{"docs"},
 		},
 	}
 

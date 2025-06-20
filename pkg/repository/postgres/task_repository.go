@@ -24,7 +24,7 @@ import (
 // taskRepository implements TaskRepository with production features
 type taskRepository struct {
 	*BaseRepository
-	
+
 	// Task-specific configuration
 	batchSize int
 }
@@ -42,7 +42,7 @@ func NewTaskRepository(
 		MaxRetries:   3,
 		CacheTimeout: 5 * time.Minute,
 	}
-	
+
 	// Create circuit breaker for external service calls
 	cbConfig := resilience.CircuitBreakerConfig{
 		FailureThreshold: 5,
@@ -50,16 +50,16 @@ func NewTaskRepository(
 	}
 	cb := resilience.NewCircuitBreaker("task_repository", cbConfig, logger, metrics)
 	config.CircuitBreaker = cb
-	
+
 	repo := &taskRepository{
 		BaseRepository: NewBaseRepository(writeDB, readDB, cache, logger, tracer, metrics, config),
 		batchSize:      1000,
 	}
-	
+
 	// Optionally start background tasks
 	// go repo.monitorPoolStats()
 	// go repo.prepareCommonStatements()
-	
+
 	return repo
 }
 
@@ -105,7 +105,7 @@ func (r *taskRepository) BeginTx(ctx context.Context, opts *types.TxOptions) (ty
 	if opts != nil && opts.Timeout > 0 {
 		_, err = tx.ExecContext(ctx, "SET LOCAL statement_timeout = $1", opts.Timeout.Milliseconds())
 		if err != nil {
-			tx.Rollback()
+			_ = tx.Rollback()
 			return nil, errors.Wrap(err, "failed to set transaction timeout")
 		}
 	}
@@ -118,11 +118,10 @@ func (r *taskRepository) Create(ctx context.Context, task *models.Task) error {
 	ctx, span := r.tracer(ctx, "TaskRepository.Create")
 	defer span.End()
 
-	// TODO: Wrap with circuit breaker when implemented
-	// return r.circuitBreaker.Execute(ctx, func(ctx context.Context) error {
-	// 	return r.createWithRetry(ctx, task)
-	// })
-	return r.createWithRetry(ctx, task)
+	_, err := r.ExecuteWithCircuitBreaker(ctx, "task_create", func() (interface{}, error) {
+		return nil, r.createWithRetry(ctx, task)
+	})
+	return err
 }
 
 func (r *taskRepository) createWithRetry(ctx context.Context, task *models.Task) error {
@@ -217,8 +216,6 @@ func (r *taskRepository) CreateBatch(ctx context.Context, tasks []*models.Task) 
 		return nil
 	}
 
-	// TODO: Wrap with circuit breaker when implemented
-	// return r.circuitBreaker.Execute(ctx, func(ctx context.Context) error {
 	// Process in batches
 	for i := 0; i < len(tasks); i += r.batchSize {
 		end := i + r.batchSize
@@ -240,7 +237,7 @@ func (r *taskRepository) doBatchInsert(ctx context.Context, tasks []*models.Task
 	if err != nil {
 		return errors.Wrap(err, "failed to begin transaction")
 	}
-	defer tx.Rollback()
+	defer func() { _ = tx.Rollback() }()
 
 	// Prepare COPY statement
 	stmt, err := tx.PrepareContext(ctx, pq.CopyIn("tasks",
@@ -253,7 +250,11 @@ func (r *taskRepository) doBatchInsert(ctx context.Context, tasks []*models.Task
 	if err != nil {
 		return errors.Wrap(err, "failed to prepare copy statement")
 	}
-	defer stmt.Close()
+	defer func() {
+		if err := stmt.Close(); err != nil {
+			r.logger.Error("Failed to close statement", map[string]interface{}{"error": err.Error()})
+		}
+	}()
 
 	// Generate IDs and timestamps
 	now := time.Now()
@@ -320,15 +321,19 @@ func (r *taskRepository) Get(ctx context.Context, id uuid.UUID) (*models.Task, e
 	r.metrics.IncrementCounterWithLabels("repository_cache_misses", 1, map[string]string{"type": "task"})
 
 	// Query database (use read replica)
-	// TODO: Wrap with circuit breaker when implemented
-	err = r.doGet(ctx, id, &task)
+	_, cbErr := r.ExecuteWithCircuitBreaker(ctx, "task_get", func() (interface{}, error) {
+		return nil, r.doGet(ctx, id, &task)
+	})
+	err = cbErr
 
 	if err != nil {
 		return nil, err
 	}
 
 	// Cache the result
-	r.cache.Set(ctx, cacheKey, &task, 5*time.Minute)
+	if err := r.cache.Set(ctx, cacheKey, &task, 5*time.Minute); err != nil {
+		r.logger.Warn("Failed to cache task", map[string]interface{}{"error": err.Error(), "task_id": task.ID})
+	}
 
 	return &task, nil
 }
@@ -400,7 +405,9 @@ func (r *taskRepository) GetBatch(ctx context.Context, ids []uuid.UUID) ([]*mode
 		// Cache the results
 		for _, task := range dbTasks {
 			cacheKey := fmt.Sprintf("task:%s", task.ID)
-			r.cache.Set(ctx, cacheKey, task, 5*time.Minute)
+			if err := r.cache.Set(ctx, cacheKey, task, 5*time.Minute); err != nil {
+				r.logger.Warn("Failed to cache task", map[string]interface{}{"error": err.Error(), "task_id": task.ID})
+			}
 			tasks = append(tasks, task)
 		}
 	}
@@ -440,8 +447,9 @@ func (r *taskRepository) GetForUpdate(ctx context.Context, id uuid.UUID) (*model
 	defer span.End()
 
 	var task models.Task
-	// TODO: Wrap with circuit breaker when implemented
-	err := r.doGetForUpdate(ctx, id, &task)
+	_, err := r.ExecuteWithCircuitBreaker(ctx, "task_get_for_update", func() (interface{}, error) {
+		return nil, r.doGetForUpdate(ctx, id, &task)
+	})
 
 	if err != nil {
 		return nil, err
@@ -487,8 +495,10 @@ func (r *taskRepository) Update(ctx context.Context, task *models.Task) error {
 	ctx, span := r.tracer(ctx, "TaskRepository.Update")
 	defer span.End()
 
-	// TODO: Wrap with circuit breaker when implemented
-	return r.doUpdate(ctx, task)
+	_, err := r.ExecuteWithCircuitBreaker(ctx, "task_update", func() (interface{}, error) {
+		return nil, r.doUpdate(ctx, task)
+	})
+	return err
 }
 
 func (r *taskRepository) doUpdate(ctx context.Context, task *models.Task) error {
@@ -553,8 +563,10 @@ func (r *taskRepository) UpdateWithVersion(ctx context.Context, task *models.Tas
 	ctx, span := r.tracer(ctx, "TaskRepository.UpdateWithVersion")
 	defer span.End()
 
-	// TODO: Wrap with circuit breaker when implemented
-	return r.doUpdateWithVersion(ctx, task, expectedVersion)
+	_, err := r.ExecuteWithCircuitBreaker(ctx, "task_update_with_version", func() (interface{}, error) {
+		return nil, r.doUpdateWithVersion(ctx, task, expectedVersion)
+	})
+	return err
 }
 
 func (r *taskRepository) doUpdateWithVersion(ctx context.Context, task *models.Task, expectedVersion int) error {
@@ -643,7 +655,7 @@ func (r *taskRepository) Delete(ctx context.Context, id uuid.UUID) error {
 	return r.ExecuteQuery(ctx, "delete_task", func(ctx context.Context) error {
 		// First check if task has subtasks
 		var subtaskCount int
-		err := r.readDB.GetContext(ctx, &subtaskCount, 
+		err := r.readDB.GetContext(ctx, &subtaskCount,
 			"SELECT COUNT(*) FROM tasks WHERE parent_task_id = $1 AND deleted_at IS NULL", id)
 		if err != nil {
 			return errors.Wrap(err, "failed to check subtasks")
@@ -688,16 +700,14 @@ func (r *taskRepository) Delete(ctx context.Context, id uuid.UUID) error {
 	})
 }
 
-
 // Helper methods
-
 
 func (r *taskRepository) invalidateTaskCache(ctx context.Context, task *models.Task) {
 	keys := []string{
 		fmt.Sprintf("task:%s", task.ID),
 		fmt.Sprintf("tasks:tenant:%s", task.TenantID),
 	}
-	
+
 	if task.AssignedTo != nil {
 		keys = append(keys, fmt.Sprintf("tasks:agent:%s", *task.AssignedTo))
 	}
@@ -707,45 +717,12 @@ func (r *taskRepository) invalidateTaskCache(ctx context.Context, task *models.T
 	}
 
 	for _, key := range keys {
-		r.CacheDelete(ctx, key)
+		_ = r.CacheDelete(ctx, key)
 	}
 }
 
-func (r *taskRepository) monitorPoolStats() {
-	ticker := time.NewTicker(10 * time.Second)
-	defer ticker.Stop()
-
-	for range ticker.C {
-		stats := r.writeDB.Stats()
-		r.metrics.RecordGauge("repository_pool_stats", float64(stats.OpenConnections), map[string]string{"pool": "write", "stat": "open"})
-		r.metrics.RecordGauge("repository_pool_stats", float64(stats.InUse), map[string]string{"pool": "write", "stat": "in_use"})
-		r.metrics.RecordGauge("repository_pool_stats", float64(stats.Idle), map[string]string{"pool": "write", "stat": "idle"})
-
-		stats = r.readDB.Stats()
-		r.metrics.RecordGauge("repository_pool_stats", float64(stats.OpenConnections), map[string]string{"pool": "read", "stat": "open"})
-		r.metrics.RecordGauge("repository_pool_stats", float64(stats.InUse), map[string]string{"pool": "read", "stat": "in_use"})
-		r.metrics.RecordGauge("repository_pool_stats", float64(stats.Idle), map[string]string{"pool": "read", "stat": "idle"})
-	}
-}
-
-func (r *taskRepository) prepareCommonStatements() {
-	// Pre-prepare commonly used statements
-	commonQueries := map[string]string{
-		"get_by_id": `SELECT * FROM tasks WHERE id = :id AND deleted_at IS NULL`,
-		"get_by_tenant": `SELECT * FROM tasks WHERE tenant_id = :tenant_id AND deleted_at IS NULL ORDER BY created_at DESC LIMIT :limit OFFSET :offset`,
-		"get_by_agent": `SELECT * FROM tasks WHERE assigned_to = :agent_id AND deleted_at IS NULL ORDER BY priority DESC, created_at ASC`,
-	}
-
-	for name, query := range commonQueries {
-		_, err := r.GetPreparedStatement(name, query, r.writeDB)
-		if err != nil {
-			r.logger.Error("Failed to prepare statement", map[string]interface{}{
-				"name":  name,
-				"error": err.Error(),
-			})
-		}
-	}
-}
+// Removed unused monitorPoolStats and prepareCommonStatements methods
+// These can be implemented when monitoring and statement preparation are needed
 
 // Error classification helpers
 

@@ -4,8 +4,9 @@ import (
 	"context"
 	"testing"
 
-	"github.com/stretchr/testify/assert"
 	"rest-api/internal/repository"
+
+	"github.com/stretchr/testify/assert"
 )
 
 func TestMockVectorRepository_DeleteModelEmbeddings(t *testing.T) {

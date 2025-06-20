@@ -8,9 +8,9 @@ import (
 
 // MemoryCache implements an in-memory cache
 type MemoryCache struct {
-	items     map[string]cacheItem
-	mu        sync.RWMutex
-	maxItems  int
+	items      map[string]cacheItem
+	mu         sync.RWMutex
+	maxItems   int
 	defaultTTL time.Duration
 }
 

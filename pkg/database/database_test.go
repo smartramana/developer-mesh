@@ -141,7 +141,7 @@ func TestPing(t *testing.T) {
 		defer func() {
 			_ = mockDB.Close()
 		}()
-		
+
 		sqlxDB := sqlx.NewDb(mockDB, "sqlmock")
 		db := &Database{
 			db:         sqlxDB,
@@ -154,7 +154,7 @@ func TestPing(t *testing.T) {
 
 		err = db.Ping()
 		assert.NoError(t, err)
-		
+
 		err = db.Close()
 		assert.NoError(t, err)
 	})
@@ -166,7 +166,7 @@ func TestPing(t *testing.T) {
 		defer func() {
 			_ = mockDB.Close()
 		}()
-		
+
 		sqlxDB := sqlx.NewDb(mockDB, "sqlmock")
 		db := &Database{
 			db:         sqlxDB,
@@ -181,7 +181,7 @@ func TestPing(t *testing.T) {
 		err = db.Ping()
 		assert.Error(t, err)
 		assert.Equal(t, "ping error", err.Error())
-		
+
 		err = db.Close()
 		assert.NoError(t, err)
 	})

@@ -19,26 +19,26 @@ import (
 // documentService implements DocumentService with production features
 type documentService struct {
 	BaseService
-	
+
 	// Repositories
 	documentRepo interfaces.DocumentRepository
-	
+
 	// Caching
 	cache         cache.Cache
 	cachePrefix   string
 	cacheDuration time.Duration
-	
+
 	// Locking
-	lockService   DocumentLockService
-	locks         sync.Map // documentID -> *documentLock (deprecated, use lockService)
-	lockTimeout   time.Duration
-	
+	lockService DocumentLockService
+	locks       sync.Map // documentID -> *documentLock (deprecated, use lockService)
+	lockTimeout time.Duration
+
 	// Metrics
 	metricsPrefix string
-	
+
 	// Event publishing
 	eventPublisher events.EventPublisher
-	
+
 	// Real-time subscriptions
 	subscriptions sync.Map // documentID -> map[subscriptionID]*subscription
 }
@@ -95,7 +95,7 @@ func NewDocumentServiceWithLocks(
 func (s *documentService) Create(ctx context.Context, document *models.SharedDocument) error {
 	ctx, span := s.config.Tracer(ctx, "DocumentService.Create")
 	defer span.End()
-	
+
 	startTime := time.Now()
 	defer func() {
 		s.config.Metrics.RecordHistogram(
@@ -104,28 +104,28 @@ func (s *documentService) Create(ctx context.Context, document *models.SharedDoc
 			nil,
 		)
 	}()
-	
+
 	// Check rate limit
 	if err := s.CheckRateLimit(ctx, "document:create"); err != nil {
 		return err
 	}
-	
+
 	// Check quota
 	if err := s.CheckQuota(ctx, "documents", 1); err != nil {
 		return err
 	}
-	
+
 	// Validate document
 	if err := s.validateDocument(document); err != nil {
 		return errors.Wrap(err, "document validation failed")
 	}
-	
+
 	// Set defaults
 	document.ID = uuid.New()
 	document.Version = 1
 	document.CreatedAt = time.Now()
 	document.UpdatedAt = time.Now()
-	
+
 	if document.Metadata == nil {
 		document.Metadata = make(models.JSONMap)
 	}
@@ -137,29 +137,29 @@ func (s *documentService) Create(ctx context.Context, document *models.SharedDoc
 			"size":       len(document.Content),
 		},
 	}
-	
+
 	// Create with transaction
 	err := s.WithTransaction(ctx, func(ctx context.Context, tx Transaction) error {
 		// Create document
 		if err := s.documentRepo.Create(ctx, document); err != nil {
 			return err
 		}
-		
+
 		// Create initial snapshot
 		if err := s.documentRepo.CreateSnapshot(ctx, document.ID, 1); err != nil {
 			return err
 		}
-		
+
 		// Quota is already consumed by CheckQuota call above
-		
+
 		return nil
 	})
-	
+
 	if err != nil {
 		s.config.Metrics.IncrementCounter(fmt.Sprintf("%s.create.error", s.metricsPrefix), 1)
 		return err
 	}
-	
+
 	// Publish event
 	if s.eventPublisher != nil {
 		event := &events.DomainEvent{
@@ -180,7 +180,7 @@ func (s *documentService) Create(ctx context.Context, document *models.SharedDoc
 			})
 		}
 	}
-	
+
 	s.config.Metrics.IncrementCounter(fmt.Sprintf("%s.create.success", s.metricsPrefix), 1)
 	return nil
 }
@@ -189,7 +189,7 @@ func (s *documentService) Create(ctx context.Context, document *models.SharedDoc
 func (s *documentService) Get(ctx context.Context, id uuid.UUID) (*models.SharedDocument, error) {
 	ctx, span := s.config.Tracer(ctx, "DocumentService.Get")
 	defer span.End()
-	
+
 	// Check cache
 	cacheKey := s.cachePrefix + id.String()
 	var cached models.SharedDocument
@@ -197,18 +197,18 @@ func (s *documentService) Get(ctx context.Context, id uuid.UUID) (*models.Shared
 		s.config.Metrics.IncrementCounter(fmt.Sprintf("%s.cache.hit", s.metricsPrefix), 1)
 		return &cached, nil
 	}
-	
+
 	s.config.Metrics.IncrementCounter(fmt.Sprintf("%s.cache.miss", s.metricsPrefix), 1)
-	
+
 	// Get from repository
 	document, err := s.documentRepo.Get(ctx, id)
 	if err != nil {
 		return nil, err
 	}
-	
+
 	// Cache result
 	_ = s.cache.Set(ctx, cacheKey, document, s.cacheDuration)
-	
+
 	return document, nil
 }
 
@@ -216,17 +216,17 @@ func (s *documentService) Get(ctx context.Context, id uuid.UUID) (*models.Shared
 func (s *documentService) Update(ctx context.Context, document *models.SharedDocument) error {
 	ctx, span := s.config.Tracer(ctx, "DocumentService.Update")
 	defer span.End()
-	
+
 	// Check rate limit
 	if err := s.CheckRateLimit(ctx, "document:update"); err != nil {
 		return err
 	}
-	
+
 	// Validate document
 	if err := s.validateDocument(document); err != nil {
 		return errors.Wrap(err, "document validation failed")
 	}
-	
+
 	// Check if locked
 	lock, err := s.GetLockInfo(ctx, document.ID)
 	if err != nil {
@@ -235,7 +235,7 @@ func (s *documentService) Update(ctx context.Context, document *models.SharedDoc
 	if lock != nil && lock.LockedBy != document.CreatedBy {
 		return fmt.Errorf("document is locked by agent %s", lock.LockedBy)
 	}
-	
+
 	// Update with transaction
 	err = s.WithTransaction(ctx, func(ctx context.Context, tx Transaction) error {
 		// Get current document for conflict detection
@@ -243,21 +243,21 @@ func (s *documentService) Update(ctx context.Context, document *models.SharedDoc
 		if err != nil {
 			return err
 		}
-		
+
 		// Check version for optimistic locking
 		if current.Version != document.Version {
 			return ErrConcurrentModification
 		}
-		
+
 		// Increment version
 		document.Version++
 		document.UpdatedAt = time.Now()
-		
+
 		// Update version history in metadata
 		if document.Metadata == nil {
 			document.Metadata = make(models.JSONMap)
 		}
-		
+
 		history, _ := document.Metadata["version_history"].([]interface{})
 		history = append(history, map[string]interface{}{
 			"version":    document.Version,
@@ -266,35 +266,35 @@ func (s *documentService) Update(ctx context.Context, document *models.SharedDoc
 			"size":       len(document.Content),
 			"changes":    s.calculateChanges(current.Content, document.Content),
 		})
-		
+
 		// Keep only last 100 versions in metadata
 		if len(history) > 100 {
 			history = history[len(history)-100:]
 		}
 		document.Metadata["version_history"] = history
-		
+
 		// Update document
 		if err := s.documentRepo.Update(ctx, document); err != nil {
 			return err
 		}
-		
+
 		// Create version snapshot
 		if err := s.documentRepo.CreateSnapshot(ctx, document.ID, document.Version); err != nil {
 			return err
 		}
-		
+
 		return nil
 	})
-	
+
 	if err != nil {
 		s.config.Metrics.IncrementCounter(fmt.Sprintf("%s.update.error", s.metricsPrefix), 1)
 		return err
 	}
-	
+
 	// Invalidate cache
 	cacheKey := s.cachePrefix + document.ID.String()
 	_ = s.cache.Delete(ctx, cacheKey)
-	
+
 	// Publish event
 	if s.eventPublisher != nil {
 		event := &events.DomainEvent{
@@ -310,7 +310,7 @@ func (s *documentService) Update(ctx context.Context, document *models.SharedDoc
 		}
 		_ = s.eventPublisher.Publish(ctx, event)
 	}
-	
+
 	s.config.Metrics.IncrementCounter(fmt.Sprintf("%s.update.success", s.metricsPrefix), 1)
 	return nil
 }
@@ -319,27 +319,27 @@ func (s *documentService) Update(ctx context.Context, document *models.SharedDoc
 func (s *documentService) Delete(ctx context.Context, id uuid.UUID) error {
 	ctx, span := s.config.Tracer(ctx, "DocumentService.Delete")
 	defer span.End()
-	
+
 	// Check rate limit
 	if err := s.CheckRateLimit(ctx, "document:delete"); err != nil {
 		return err
 	}
-	
+
 	// Delete from repository
 	if err := s.documentRepo.Delete(ctx, id); err != nil {
 		return err
 	}
-	
+
 	// Invalidate cache
 	cacheKey := s.cachePrefix + id.String()
 	_ = s.cache.Delete(ctx, cacheKey)
-	
+
 	// Clean up locks
 	s.locks.Delete(id)
-	
+
 	// Clean up subscriptions
 	s.subscriptions.Delete(id)
-	
+
 	return nil
 }
 
@@ -347,12 +347,12 @@ func (s *documentService) Delete(ctx context.Context, id uuid.UUID) error {
 func (s *documentService) ApplyOperation(ctx context.Context, docID uuid.UUID, operation *collaboration.DocumentOperation) error {
 	ctx, span := s.config.Tracer(ctx, "DocumentService.ApplyOperation")
 	defer span.End()
-	
+
 	// Validate operation
 	if operation.DocumentID != docID {
 		return fmt.Errorf("operation document ID mismatch")
 	}
-	
+
 	// Convert collaboration.DocumentOperation to models.DocumentOperation
 	modelOp := &models.DocumentOperation{
 		ID:             operation.ID,
@@ -365,17 +365,17 @@ func (s *documentService) ApplyOperation(ctx context.Context, docID uuid.UUID, o
 		Timestamp:      operation.AppliedAt,
 		IsApplied:      false,
 	}
-	
+
 	// Copy vector clock
 	for k, v := range operation.VectorClock {
 		modelOp.VectorClock[k] = v
 	}
-	
+
 	// Record operation
 	if err := s.documentRepo.RecordOperation(ctx, modelOp); err != nil {
 		return err
 	}
-	
+
 	// Broadcast to subscribers
 	return s.BroadcastChange(ctx, docID, operation)
 }
@@ -384,19 +384,19 @@ func (s *documentService) ApplyOperation(ctx context.Context, docID uuid.UUID, o
 func (s *documentService) GetOperations(ctx context.Context, docID uuid.UUID, since time.Time) ([]*collaboration.DocumentOperation, error) {
 	ctx, span := s.config.Tracer(ctx, "DocumentService.GetOperations")
 	defer span.End()
-	
+
 	// Get model operations
 	modelOps, err := s.documentRepo.GetOperations(ctx, docID, since)
 	if err != nil {
 		return nil, err
 	}
-	
+
 	// Convert to collaboration operations
 	result := make([]*collaboration.DocumentOperation, len(modelOps))
 	for i, op := range modelOps {
 		result[i] = s.convertToCollaborationOp(op)
 	}
-	
+
 	return result, nil
 }
 
@@ -404,19 +404,19 @@ func (s *documentService) GetOperations(ctx context.Context, docID uuid.UUID, si
 func (s *documentService) GetOperationsBySequence(ctx context.Context, docID uuid.UUID, fromSeq, toSeq int64) ([]*collaboration.DocumentOperation, error) {
 	ctx, span := s.config.Tracer(ctx, "DocumentService.GetOperationsBySequence")
 	defer span.End()
-	
+
 	// Get model operations
 	modelOps, err := s.documentRepo.GetOperationsBySequence(ctx, docID, fromSeq, toSeq)
 	if err != nil {
 		return nil, err
 	}
-	
+
 	// Convert to collaboration operations
 	result := make([]*collaboration.DocumentOperation, len(modelOps))
 	for i, op := range modelOps {
 		result[i] = s.convertToCollaborationOp(op)
 	}
-	
+
 	return result, nil
 }
 
@@ -424,46 +424,46 @@ func (s *documentService) GetOperationsBySequence(ctx context.Context, docID uui
 func (s *documentService) AcquireLock(ctx context.Context, docID uuid.UUID, agentID string, duration time.Duration) error {
 	ctx, span := s.config.Tracer(ctx, "DocumentService.AcquireLock")
 	defer span.End()
-	
+
 	// Use distributed lock service if available
 	if s.lockService != nil {
 		lock, err := s.lockService.LockDocument(ctx, docID, agentID, duration)
 		if err != nil {
 			return errors.Wrap(err, "failed to acquire distributed lock")
 		}
-		
+
 		// Update document metadata to reflect lock
 		doc, err := s.documentRepo.Get(ctx, docID)
 		if err != nil {
 			// Rollback lock
-			s.lockService.UnlockDocument(ctx, docID, agentID)
+			_ = s.lockService.UnlockDocument(ctx, docID, agentID)
 			return err
 		}
-		
+
 		doc.LockedBy = &agentID
 		doc.LockedAt = &lock.AcquiredAt
 		doc.LockExpiresAt = &lock.ExpiresAt
-		
+
 		if err := s.documentRepo.Update(ctx, doc); err != nil {
 			// Rollback lock
-			s.lockService.UnlockDocument(ctx, docID, agentID)
+			_ = s.lockService.UnlockDocument(ctx, docID, agentID)
 			return err
 		}
-		
+
 		return nil
 	}
-	
+
 	// Fallback to local locking (deprecated)
 	if duration > s.lockTimeout {
 		duration = s.lockTimeout
 	}
-	
+
 	// Check if already locked
 	if val, exists := s.locks.Load(docID); exists {
 		lock := val.(*documentLock)
 		lock.mu.RLock()
 		defer lock.mu.RUnlock()
-		
+
 		if time.Now().Before(lock.expiresAt) {
 			if lock.agentID == agentID {
 				// Extend lock
@@ -473,32 +473,32 @@ func (s *documentService) AcquireLock(ctx context.Context, docID uuid.UUID, agen
 			return fmt.Errorf("document already locked by agent %s", lock.agentID)
 		}
 	}
-	
+
 	// Create new lock
 	lock := &documentLock{
 		agentID:   agentID,
 		expiresAt: time.Now().Add(duration),
 		lockType:  "exclusive",
 	}
-	
+
 	s.locks.Store(docID, lock)
-	
+
 	// Update document lock fields
 	doc, err := s.documentRepo.Get(ctx, docID)
 	if err != nil {
 		return err
 	}
-	
+
 	now := time.Now()
 	doc.LockedBy = &agentID
 	doc.LockedAt = &now
 	doc.LockExpiresAt = &lock.expiresAt
-	
+
 	if err := s.documentRepo.Update(ctx, doc); err != nil {
 		s.locks.Delete(docID)
 		return err
 	}
-	
+
 	s.config.Metrics.IncrementCounter(fmt.Sprintf("%s.lock.acquired", s.metricsPrefix), 1)
 	return nil
 }
@@ -507,60 +507,60 @@ func (s *documentService) AcquireLock(ctx context.Context, docID uuid.UUID, agen
 func (s *documentService) ReleaseLock(ctx context.Context, docID uuid.UUID, agentID string) error {
 	ctx, span := s.config.Tracer(ctx, "DocumentService.ReleaseLock")
 	defer span.End()
-	
+
 	// Use distributed lock service if available
 	if s.lockService != nil {
 		if err := s.lockService.UnlockDocument(ctx, docID, agentID); err != nil {
 			return errors.Wrap(err, "failed to release distributed lock")
 		}
-		
+
 		// Update document metadata
 		doc, err := s.documentRepo.Get(ctx, docID)
 		if err != nil {
 			return err
 		}
-		
+
 		doc.LockedBy = nil
 		doc.LockedAt = nil
 		doc.LockExpiresAt = nil
-		
+
 		if err := s.documentRepo.Update(ctx, doc); err != nil {
 			return err
 		}
-		
+
 		return nil
 	}
-	
+
 	// Fallback to local locking (deprecated)
 	// Check lock ownership
 	if val, exists := s.locks.Load(docID); exists {
 		lock := val.(*documentLock)
 		lock.mu.RLock()
-		
+
 		if lock.agentID != agentID {
 			lock.mu.RUnlock()
 			return fmt.Errorf("lock not owned by agent %s", agentID)
 		}
 		lock.mu.RUnlock()
 	}
-	
+
 	// Remove lock
 	s.locks.Delete(docID)
-	
+
 	// Update document
 	doc, err := s.documentRepo.Get(ctx, docID)
 	if err != nil {
 		return err
 	}
-	
+
 	doc.LockedBy = nil
 	doc.LockedAt = nil
 	doc.LockExpiresAt = nil
-	
+
 	if err := s.documentRepo.Update(ctx, doc); err != nil {
 		return err
 	}
-	
+
 	s.config.Metrics.IncrementCounter(fmt.Sprintf("%s.lock.released", s.metricsPrefix), 1)
 	return nil
 }
@@ -569,74 +569,74 @@ func (s *documentService) ReleaseLock(ctx context.Context, docID uuid.UUID, agen
 func (s *documentService) ExtendLock(ctx context.Context, docID uuid.UUID, agentID string, duration time.Duration) error {
 	ctx, span := s.config.Tracer(ctx, "DocumentService.ExtendLock")
 	defer span.End()
-	
+
 	// Use distributed lock service if available
 	if s.lockService != nil {
 		if err := s.lockService.ExtendLock(ctx, docID, agentID, duration); err != nil {
 			return errors.Wrap(err, "failed to extend distributed lock")
 		}
-		
+
 		// Update document metadata
 		doc, err := s.documentRepo.Get(ctx, docID)
 		if err != nil {
 			return err
 		}
-		
+
 		newExpiry := time.Now().Add(duration)
 		doc.LockExpiresAt = &newExpiry
-		
+
 		if err := s.documentRepo.Update(ctx, doc); err != nil {
 			return err
 		}
-		
+
 		return nil
 	}
-	
+
 	if duration > s.lockTimeout {
 		duration = s.lockTimeout
 	}
-	
+
 	// Check lock ownership
 	if val, exists := s.locks.Load(docID); exists {
 		lock := val.(*documentLock)
 		lock.mu.Lock()
 		defer lock.mu.Unlock()
-		
+
 		if lock.agentID != agentID {
 			return fmt.Errorf("lock not owned by agent %s", agentID)
 		}
-		
+
 		// Extend lock
 		lock.expiresAt = time.Now().Add(duration)
-		
+
 		// Update document
 		doc, err := s.documentRepo.Get(ctx, docID)
 		if err != nil {
 			return err
 		}
-		
+
 		doc.LockExpiresAt = &lock.expiresAt
-		
+
 		if err := s.documentRepo.Update(ctx, doc); err != nil {
 			return err
 		}
-		
+
 		return nil
 	}
-	
+
 	return fmt.Errorf("no lock found for document %s", docID)
 }
 
 // GetLockInfo retrieves lock information for a document
 func (s *documentService) GetLockInfo(ctx context.Context, docID uuid.UUID) (*models.DocumentLock, error) {
-	ctx, span := s.config.Tracer(ctx, "DocumentService.GetLockInfo")
+	_, span := s.config.Tracer(ctx, "DocumentService.GetLockInfo")
 	defer span.End()
-	
+
 	if val, exists := s.locks.Load(docID); exists {
 		lock := val.(*documentLock)
 		lock.mu.RLock()
 		defer lock.mu.RUnlock()
-		
+
 		if time.Now().Before(lock.expiresAt) {
 			return &models.DocumentLock{
 				DocumentID:    docID,
@@ -647,7 +647,7 @@ func (s *documentService) GetLockInfo(ctx context.Context, docID uuid.UUID) (*mo
 			}, nil
 		}
 	}
-	
+
 	return nil, nil
 }
 
@@ -655,25 +655,25 @@ func (s *documentService) GetLockInfo(ctx context.Context, docID uuid.UUID) (*mo
 func (s *documentService) DetectConflicts(ctx context.Context, docID uuid.UUID) ([]*models.ConflictInfo, error) {
 	ctx, span := s.config.Tracer(ctx, "DocumentService.DetectConflicts")
 	defer span.End()
-	
+
 	// Get unresolved conflicts from repository
 	conflicts, err := s.documentRepo.GetUnresolvedConflicts(ctx, docID)
 	if err != nil {
 		return nil, err
 	}
-	
+
 	// Convert to ConflictInfo
 	result := make([]*models.ConflictInfo, len(conflicts))
 	for i, c := range conflicts {
 		result[i] = &models.ConflictInfo{
-			ID:           c.ID,
-			DocumentID:   c.ResourceID,
-			Type:         c.ConflictType,
-			DetectedAt:   c.CreatedAt,
-			Metadata:     c.Details,
+			ID:         c.ID,
+			DocumentID: c.ResourceID,
+			Type:       c.ConflictType,
+			DetectedAt: c.CreatedAt,
+			Metadata:   c.Details,
 		}
 	}
-	
+
 	return result, nil
 }
 
@@ -681,7 +681,7 @@ func (s *documentService) DetectConflicts(ctx context.Context, docID uuid.UUID) 
 func (s *documentService) ResolveConflict(ctx context.Context, conflictID uuid.UUID, resolution interface{}) error {
 	ctx, span := s.config.Tracer(ctx, "DocumentService.ResolveConflict")
 	defer span.End()
-	
+
 	// Convert resolution to map[string]interface{}
 	resolutionMap := make(map[string]interface{})
 	if m, ok := resolution.(map[string]interface{}); ok {
@@ -689,7 +689,7 @@ func (s *documentService) ResolveConflict(ctx context.Context, conflictID uuid.U
 	} else {
 		resolutionMap["resolution"] = resolution
 	}
-	
+
 	return s.documentRepo.ResolveConflict(ctx, conflictID, resolutionMap)
 }
 
@@ -697,7 +697,7 @@ func (s *documentService) ResolveConflict(ctx context.Context, conflictID uuid.U
 func (s *documentService) GetConflictHistory(ctx context.Context, docID uuid.UUID) ([]*models.ConflictResolution, error) {
 	ctx, span := s.config.Tracer(ctx, "DocumentService.GetConflictHistory")
 	defer span.End()
-	
+
 	return s.documentRepo.GetConflicts(ctx, docID)
 }
 
@@ -705,17 +705,17 @@ func (s *documentService) GetConflictHistory(ctx context.Context, docID uuid.UUI
 func (s *documentService) CreateSnapshot(ctx context.Context, docID uuid.UUID) (*models.DocumentSnapshot, error) {
 	ctx, span := s.config.Tracer(ctx, "DocumentService.CreateSnapshot")
 	defer span.End()
-	
+
 	doc, err := s.Get(ctx, docID)
 	if err != nil {
 		return nil, err
 	}
-	
+
 	// Create snapshot in repository
 	if err := s.documentRepo.CreateSnapshot(ctx, docID, doc.Version); err != nil {
 		return nil, err
 	}
-	
+
 	// Return the snapshot object
 	snapshot := &models.DocumentSnapshot{
 		ID:         uuid.New(),
@@ -725,7 +725,7 @@ func (s *documentService) CreateSnapshot(ctx context.Context, docID uuid.UUID) (
 		CreatedBy:  doc.CreatedBy,
 		CreatedAt:  time.Now(),
 	}
-	
+
 	return snapshot, nil
 }
 
@@ -733,7 +733,7 @@ func (s *documentService) CreateSnapshot(ctx context.Context, docID uuid.UUID) (
 func (s *documentService) GetSnapshot(ctx context.Context, docID uuid.UUID, version int64) (*models.DocumentSnapshot, error) {
 	ctx, span := s.config.Tracer(ctx, "DocumentService.GetSnapshot")
 	defer span.End()
-	
+
 	return s.documentRepo.GetSnapshot(ctx, docID, version)
 }
 
@@ -741,7 +741,7 @@ func (s *documentService) GetSnapshot(ctx context.Context, docID uuid.UUID, vers
 func (s *documentService) ListSnapshots(ctx context.Context, docID uuid.UUID) ([]*models.DocumentSnapshot, error) {
 	ctx, span := s.config.Tracer(ctx, "DocumentService.ListSnapshots")
 	defer span.End()
-	
+
 	return s.documentRepo.ListSnapshots(ctx, docID)
 }
 
@@ -749,20 +749,20 @@ func (s *documentService) ListSnapshots(ctx context.Context, docID uuid.UUID) ([
 func (s *documentService) RestoreSnapshot(ctx context.Context, docID uuid.UUID, version int64) error {
 	ctx, span := s.config.Tracer(ctx, "DocumentService.RestoreSnapshot")
 	defer span.End()
-	
+
 	snapshot, err := s.GetSnapshot(ctx, docID, version)
 	if err != nil {
 		return err
 	}
-	
+
 	doc, err := s.Get(ctx, docID)
 	if err != nil {
 		return err
 	}
-	
+
 	doc.Content = snapshot.Content
 	doc.Version++
-	
+
 	return s.Update(ctx, doc)
 }
 
@@ -770,7 +770,7 @@ func (s *documentService) RestoreSnapshot(ctx context.Context, docID uuid.UUID, 
 func (s *documentService) SearchDocuments(ctx context.Context, query string, filters interfaces.DocumentFilters) ([]*models.SharedDocument, error) {
 	ctx, span := s.config.Tracer(ctx, "DocumentService.SearchDocuments")
 	defer span.End()
-	
+
 	return s.documentRepo.SearchDocuments(ctx, query, filters)
 }
 
@@ -778,7 +778,7 @@ func (s *documentService) SearchDocuments(ctx context.Context, query string, fil
 func (s *documentService) GetDocumentsByWorkspace(ctx context.Context, workspaceID uuid.UUID) ([]*models.SharedDocument, error) {
 	ctx, span := s.config.Tracer(ctx, "DocumentService.GetDocumentsByWorkspace")
 	defer span.End()
-	
+
 	return s.documentRepo.ListByWorkspace(ctx, workspaceID)
 }
 
@@ -786,7 +786,7 @@ func (s *documentService) GetDocumentsByWorkspace(ctx context.Context, workspace
 func (s *documentService) GetDocumentsByCreator(ctx context.Context, createdBy string) ([]*models.SharedDocument, error) {
 	ctx, span := s.config.Tracer(ctx, "DocumentService.GetDocumentsByCreator")
 	defer span.End()
-	
+
 	return s.documentRepo.ListByCreator(ctx, createdBy)
 }
 
@@ -794,7 +794,7 @@ func (s *documentService) GetDocumentsByCreator(ctx context.Context, createdBy s
 func (s *documentService) GetDocumentStats(ctx context.Context, docID uuid.UUID) (*interfaces.DocumentStats, error) {
 	ctx, span := s.config.Tracer(ctx, "DocumentService.GetDocumentStats")
 	defer span.End()
-	
+
 	return s.documentRepo.GetDocumentStats(ctx, docID)
 }
 
@@ -802,7 +802,7 @@ func (s *documentService) GetDocumentStats(ctx context.Context, docID uuid.UUID)
 func (s *documentService) GetCollaborationMetrics(ctx context.Context, docID uuid.UUID, period time.Duration) (*models.CollaborationMetrics, error) {
 	ctx, span := s.config.Tracer(ctx, "DocumentService.GetCollaborationMetrics")
 	defer span.End()
-	
+
 	return s.documentRepo.GetCollaborationMetrics(ctx, docID, period)
 }
 
@@ -813,12 +813,12 @@ func (s *documentService) SubscribeToChanges(ctx context.Context, docID uuid.UUI
 		id:      subID,
 		handler: handler,
 	}
-	
+
 	// Get or create subscription map for document
 	subsMap, _ := s.subscriptions.LoadOrStore(docID, &sync.Map{})
 	subs := subsMap.(*sync.Map)
 	subs.Store(subID, sub)
-	
+
 	// Return unsubscribe function
 	return func() {
 		if subsMap, ok := s.subscriptions.Load(docID); ok {
@@ -830,13 +830,13 @@ func (s *documentService) SubscribeToChanges(ctx context.Context, docID uuid.UUI
 
 // BroadcastChange broadcasts a change to subscribers
 func (s *documentService) BroadcastChange(ctx context.Context, docID uuid.UUID, operation *collaboration.DocumentOperation) error {
-	ctx, span := s.config.Tracer(ctx, "DocumentService.BroadcastChange")
+	_, span := s.config.Tracer(ctx, "DocumentService.BroadcastChange")
 	defer span.End()
-	
+
 	// Get subscribers for document
 	if subsMap, ok := s.subscriptions.Load(docID); ok {
 		subs := subsMap.(*sync.Map)
-		
+
 		// Notify each subscriber
 		subs.Range(func(key, value interface{}) bool {
 			sub := value.(*subscription)
@@ -856,7 +856,7 @@ func (s *documentService) BroadcastChange(ctx context.Context, docID uuid.UUID, 
 			return true
 		})
 	}
-	
+
 	return nil
 }
 
@@ -878,10 +878,7 @@ func (s *documentService) validateDocument(document *models.SharedDocument) erro
 	return nil
 }
 
-func (s *documentService) hashContent(content string) string {
-	// Simple hash for demonstration - use proper crypto hash in production
-	return fmt.Sprintf("%x", len(content))
-}
+// hashContent removed - implement when content hashing is needed
 
 func (s *documentService) calculateChanges(oldContent, newContent string) map[string]interface{} {
 	// Simple change detection - use proper diff algorithm in production
@@ -901,15 +898,15 @@ func max(a, b int) int {
 // convertToCollaborationOp converts a model operation to collaboration operation
 func (s *documentService) convertToCollaborationOp(op *models.DocumentOperation) *collaboration.DocumentOperation {
 	result := &collaboration.DocumentOperation{
-		ID:           op.ID,
-		DocumentID:   op.DocumentID,
-		Sequence:     op.SequenceNumber,
-		Type:         op.OperationType,
-		AgentID:      op.AgentID,
-		VectorClock:  make(map[string]int),
-		AppliedAt:    op.Timestamp,
+		ID:          op.ID,
+		DocumentID:  op.DocumentID,
+		Sequence:    op.SequenceNumber,
+		Type:        op.OperationType,
+		AgentID:     op.AgentID,
+		VectorClock: make(map[string]int),
+		AppliedAt:   op.Timestamp,
 	}
-	
+
 	// Extract path and value from operation data
 	if path, ok := op.OperationData["path"].(string); ok {
 		result.Path = path
@@ -917,7 +914,7 @@ func (s *documentService) convertToCollaborationOp(op *models.DocumentOperation)
 	if value, ok := op.OperationData["value"]; ok {
 		result.Value = value
 	}
-	
+
 	// Copy vector clock
 	for k, v := range op.VectorClock {
 		if intVal, ok := v.(int); ok {
@@ -926,7 +923,7 @@ func (s *documentService) convertToCollaborationOp(op *models.DocumentOperation)
 			result.VectorClock[k] = int(floatVal)
 		}
 	}
-	
+
 	// Copy dependencies if any
 	if deps, ok := op.OperationData["dependencies"].([]interface{}); ok {
 		result.Dependencies = make([]uuid.UUID, 0, len(deps))
@@ -938,6 +935,6 @@ func (s *documentService) convertToCollaborationOp(op *models.DocumentOperation)
 			}
 		}
 	}
-	
+
 	return result
 }

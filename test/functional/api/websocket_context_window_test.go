@@ -12,8 +12,9 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
-	ws "github.com/S-Corkum/devops-mcp/pkg/models/websocket"
 	"functional-tests/shared"
+
+	ws "github.com/S-Corkum/devops-mcp/pkg/models/websocket"
 )
 
 var _ = Describe("WebSocket Context Window Management", func() {
@@ -27,12 +28,12 @@ var _ = Describe("WebSocket Context Window Management", func() {
 
 	BeforeEach(func() {
 		ctx, cancel = context.WithTimeout(context.Background(), 30*time.Second)
-		
+
 		// Get test configuration
 		config := shared.GetTestConfig()
 		wsURL = config.WebSocketURL
 		apiKey = shared.GetTestAPIKey("test-tenant-1")
-		
+
 		var err error
 		conn, err = shared.EstablishConnection(wsURL, apiKey)
 		Expect(err).NotTo(HaveOccurred())
@@ -49,7 +50,7 @@ var _ = Describe("WebSocket Context Window Management", func() {
 		It("should report token count for messages", func() {
 			// Create a context with known content
 			testContent := "This is a test message for token counting. It should have a predictable token count."
-			
+
 			createMsg := ws.Message{
 				ID:     uuid.New().String(),
 				Type:   ws.MessageTypeRequest,
@@ -73,14 +74,14 @@ var _ = Describe("WebSocket Context Window Management", func() {
 			result, ok := response.Result.(map[string]interface{})
 			Expect(ok).To(BeTrue())
 			Expect(result).To(HaveKey("token_count"))
-			
+
 			tokenCount := int(result["token_count"].(float64))
 			expectedTokens := shared.SimulateTokenCount(testContent)
-			
+
 			// Token count should be within reasonable range
 			Expect(tokenCount).To(BeNumerically("~", expectedTokens, int(float64(expectedTokens)*0.2)))
-			
-			GinkgoWriter.Printf("Content length: %d chars, Token count: %d\n", 
+
+			GinkgoWriter.Printf("Content length: %d chars, Token count: %d\n",
 				len(testContent), tokenCount)
 		})
 
@@ -110,7 +111,7 @@ var _ = Describe("WebSocket Context Window Management", func() {
 
 			// Try to create context exceeding limit
 			largeContent := shared.GenerateLargeContext(maxTokens + 1000)
-			
+
 			createMsg := ws.Message{
 				ID:     uuid.New().String(),
 				Type:   ws.MessageTypeRequest,
@@ -142,7 +143,7 @@ var _ = Describe("WebSocket Context Window Management", func() {
 
 		It("should provide token count for conversation history", func() {
 			contextID := uuid.New().String()
-			
+
 			// Create initial context
 			createMsg := ws.Message{
 				ID:     uuid.New().String(),
@@ -228,11 +229,11 @@ var _ = Describe("WebSocket Context Window Management", func() {
 				Type:   ws.MessageTypeRequest,
 				Method: "context.create",
 				Params: map[string]interface{}{
-					"id":              contextID,
-					"name":            "truncation-test",
-					"content":         "System: Test assistant",
-					"max_tokens":      maxTokens,
-					"truncation_mode": "sliding_window",
+					"id":               contextID,
+					"name":             "truncation-test",
+					"content":          "System: Test assistant",
+					"max_tokens":       maxTokens,
+					"truncation_mode":  "sliding_window",
 					"notify_threshold": 0.8, // Notify at 80% capacity
 				},
 			}
@@ -270,7 +271,7 @@ var _ = Describe("WebSocket Context Window Management", func() {
 
 			for i := 0; currentTokens < maxTokens && !truncationWarningReceived; i++ {
 				message := fmt.Sprintf("Message %d: %s", i, strings.Repeat("content ", 20))
-				
+
 				appendMsg := ws.Message{
 					ID:     uuid.New().String(),
 					Type:   ws.MessageTypeRequest,
@@ -302,7 +303,7 @@ var _ = Describe("WebSocket Context Window Management", func() {
 								truncationWarningReceived = true
 								if params, ok := msg.Params.(map[string]interface{}); ok {
 									currentTokens = int(params["current_tokens"].(float64))
-									GinkgoWriter.Printf("Truncation warning at %d/%d tokens\n", 
+									GinkgoWriter.Printf("Truncation warning at %d/%d tokens\n",
 										currentTokens, maxTokens)
 								}
 							}
@@ -316,7 +317,7 @@ var _ = Describe("WebSocket Context Window Management", func() {
 						}
 					}
 				}
-				next:
+			next:
 			}
 
 			Expect(truncationWarningReceived).To(BeTrue(), "Should receive truncation warning")
@@ -325,10 +326,10 @@ var _ = Describe("WebSocket Context Window Management", func() {
 
 		It("should preserve system messages during truncation", func() {
 			contextID := uuid.New().String()
-			
+
 			// Create context with important system message
 			systemPrompt := "System: You are a specialized code review assistant. Always maintain high standards."
-			
+
 			createMsg := ws.Message{
 				ID:     uuid.New().String(),
 				Type:   ws.MessageTypeRequest,
@@ -406,7 +407,7 @@ var _ = Describe("WebSocket Context Window Management", func() {
 				Type:   ws.MessageTypeRequest,
 				Method: "context.get",
 				Params: map[string]interface{}{
-					"context_id":     contextID,
+					"context_id":       contextID,
 					"include_messages": true,
 				},
 			}
@@ -421,7 +422,7 @@ var _ = Describe("WebSocket Context Window Management", func() {
 			// Verify system message is preserved
 			result, ok := getResp.Result.(map[string]interface{})
 			Expect(ok).To(BeTrue())
-			
+
 			messages, ok := result["messages"].([]interface{})
 			Expect(ok).To(BeTrue())
 			Expect(len(messages)).To(BeNumerically(">", 0))
@@ -436,7 +437,7 @@ var _ = Describe("WebSocket Context Window Management", func() {
 			Expect(result).To(HaveKey("truncated"))
 			Expect(result["truncated"].(bool)).To(BeTrue())
 			Expect(result).To(HaveKey("messages_removed"))
-			
+
 			GinkgoWriter.Printf("Truncation preserved system message, removed %v messages\n",
 				result["messages_removed"])
 		})
@@ -445,7 +446,7 @@ var _ = Describe("WebSocket Context Window Management", func() {
 	Describe("Sliding Window Management", func() {
 		It("should implement sliding window with overlap", func() {
 			contextID := uuid.New().String()
-			
+
 			// Create context with sliding window
 			createMsg := ws.Message{
 				ID:     uuid.New().String(),
@@ -495,7 +496,7 @@ var _ = Describe("WebSocket Context Window Management", func() {
 			go func() {
 				for i := 0; i < 50; i++ {
 					message := fmt.Sprintf("Message %d: %s", i, strings.Repeat("data ", 30))
-					
+
 					appendMsg := ws.Message{
 						ID:     uuid.New().String(),
 						Type:   ws.MessageTypeRequest,
@@ -529,14 +530,14 @@ var _ = Describe("WebSocket Context Window Management", func() {
 						if params, ok := msg.Params.(map[string]interface{}); ok {
 							GinkgoWriter.Printf("Window slide %d: removed %v messages, kept %v overlap tokens\n",
 								windowSlides, params["messages_removed"], params["overlap_tokens"])
-							
+
 							// Verify overlap
 							if windowSlides > 1 && previousWindowEnd != "" {
 								Expect(params).To(HaveKey("overlap_content"))
 								overlap := params["overlap_content"].(string)
 								Expect(overlap).To(ContainSubstring(previousWindowEnd))
 							}
-							
+
 							if windowEnd, ok := params["window_end"].(string); ok {
 								previousWindowEnd = windowEnd
 							}
@@ -544,7 +545,7 @@ var _ = Describe("WebSocket Context Window Management", func() {
 					}
 				}
 			}
-			done:
+		done:
 
 			Expect(windowSlides).To(BeNumerically(">=", 1), "Should have at least one window slide")
 		})
@@ -553,7 +554,7 @@ var _ = Describe("WebSocket Context Window Management", func() {
 	Describe("Context Compression", func() {
 		It("should trigger automatic summarization", func() {
 			contextID := uuid.New().String()
-			
+
 			// Create context with compression enabled
 			createMsg := ws.Message{
 				ID:     uuid.New().String(),
@@ -617,7 +618,7 @@ var _ = Describe("WebSocket Context Window Management", func() {
 								compressionTriggered = true
 								if params, ok := msg.Params.(map[string]interface{}); ok {
 									GinkgoWriter.Printf("Context compressed: before=%v tokens, after=%v tokens, ratio=%.2f\n",
-										params["tokens_before"], params["tokens_after"], 
+										params["tokens_before"], params["tokens_after"],
 										params["compression_ratio"])
 								}
 								break
@@ -635,7 +636,7 @@ var _ = Describe("WebSocket Context Window Management", func() {
 				Type:   ws.MessageTypeRequest,
 				Method: "context.get",
 				Params: map[string]interface{}{
-					"context_id": contextID,
+					"context_id":      contextID,
 					"include_summary": true,
 				},
 			}
@@ -657,16 +658,16 @@ var _ = Describe("WebSocket Context Window Management", func() {
 	Describe("Importance-Based Retention", func() {
 		It("should retain high-importance messages during truncation", func() {
 			contextID := uuid.New().String()
-			
+
 			createMsg := ws.Message{
 				ID:     uuid.New().String(),
 				Type:   ws.MessageTypeRequest,
 				Method: "context.create",
 				Params: map[string]interface{}{
-					"id":              contextID,
-					"name":            "importance-test",
-					"max_tokens":      500,
-					"retention_mode":  "importance_based",
+					"id":             contextID,
+					"name":           "importance-test",
+					"max_tokens":     500,
+					"retention_mode": "importance_based",
 				},
 			}
 
@@ -721,7 +722,7 @@ var _ = Describe("WebSocket Context Window Management", func() {
 			// Add many regular messages to trigger truncation
 			for i := 0; i < 30; i++ {
 				msg := regularMessages[i%len(regularMessages)] + fmt.Sprintf(" (iteration %d)", i)
-				
+
 				appendMsg := ws.Message{
 					ID:     uuid.New().String(),
 					Type:   ws.MessageTypeRequest,
@@ -765,20 +766,20 @@ var _ = Describe("WebSocket Context Window Management", func() {
 			// Verify important messages are retained
 			result, ok := getResp.Result.(map[string]interface{})
 			Expect(ok).To(BeTrue())
-			
+
 			messages, ok := result["messages"].([]interface{})
 			Expect(ok).To(BeTrue())
 
 			// Check that critical messages are present
 			criticalFound := 0
 			regularFound := 0
-			
+
 			for _, msg := range messages {
 				msgMap, ok := msg.(map[string]interface{})
 				if !ok {
 					continue
 				}
-				
+
 				content := msgMap["content"].(string)
 				for _, critical := range importantMessages {
 					if strings.Contains(content, critical) {
@@ -786,7 +787,7 @@ var _ = Describe("WebSocket Context Window Management", func() {
 						break
 					}
 				}
-				
+
 				for _, regular := range regularMessages {
 					if strings.Contains(content, regular) {
 						regularFound++

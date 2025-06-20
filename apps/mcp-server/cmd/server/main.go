@@ -29,16 +29,16 @@ import (
 	commonconfig "github.com/S-Corkum/devops-mcp/pkg/common/config"
 	pkgconfig "github.com/S-Corkum/devops-mcp/pkg/config"
 	"github.com/S-Corkum/devops-mcp/pkg/database"
+	"github.com/S-Corkum/devops-mcp/pkg/observability"
 	"github.com/S-Corkum/devops-mcp/pkg/repository"
 	"github.com/S-Corkum/devops-mcp/pkg/repository/postgres"
 	"github.com/S-Corkum/devops-mcp/pkg/resilience"
-	"github.com/S-Corkum/devops-mcp/pkg/services"
 	securitytls "github.com/S-Corkum/devops-mcp/pkg/security/tls"
-	"github.com/S-Corkum/devops-mcp/pkg/observability"
+	"github.com/S-Corkum/devops-mcp/pkg/services"
 
 	// Import PostgreSQL driver
 	_ "github.com/lib/pq"
-	
+
 	// Import auth package for production authorizer
 	"github.com/S-Corkum/devops-mcp/pkg/auth"
 )
@@ -222,7 +222,7 @@ func main() {
 		})
 		os.Exit(1)
 	}
-	
+
 	// Inject services into WebSocket server
 	if services != nil {
 		server.InjectServices(services)
@@ -421,11 +421,11 @@ func initializeCache(ctx context.Context, cfg *commonconfig.Config, logger obser
 			MinIdleConns: cfg.Cache.MinIdleConns,
 			PoolTimeout:  cfg.Cache.PoolTimeout,
 		}
-		
+
 		// Convert TLS config if present AND enabled
 		if cfg.Cache.TLS != nil && cfg.Cache.TLS.Enabled {
 			logger.Info("Converting TLS config", map[string]interface{}{
-				"enabled": cfg.Cache.TLS.Enabled,
+				"enabled":     cfg.Cache.TLS.Enabled,
 				"skip_verify": cfg.Cache.TLS.InsecureSkipVerify,
 			})
 			cacheConfig.TLS = &cache.TLSConfig{
@@ -475,18 +475,18 @@ type ServicesBundle struct {
 // initializeServices creates all services for multi-agent collaboration
 func initializeServices(ctx context.Context, cfg *commonconfig.Config, db *database.Database, cacheClient cache.Cache, metricsClient observability.MetricsClient, logger observability.Logger) (*ServicesBundle, error) {
 	logger.Info("Initializing multi-agent collaboration services", nil)
-	
+
 	// Create repositories
 	// Get sqlx.DB from database
 	sqlxDB := db.GetDB()
-	
+
 	// Create repositories with proper parameters
 	taskRepo := postgres.NewTaskRepository(sqlxDB, sqlxDB, cacheClient, logger, observability.NoopStartSpan, metricsClient)
 	workflowRepo := postgres.NewWorkflowRepository(sqlxDB, sqlxDB, cacheClient, logger, observability.NoopStartSpan, metricsClient)
 	workspaceRepo := postgres.NewWorkspaceRepository(sqlxDB, sqlxDB, cacheClient, logger, observability.NoopStartSpan)
 	documentRepo := postgres.NewDocumentRepository(sqlxDB, sqlxDB, cacheClient, logger, observability.NoopStartSpan)
 	agentRepo := repository.NewAgentRepository(sqlxDB)
-	
+
 	// Create service configuration with production-ready components
 	serviceConfig := services.ServiceConfig{
 		// Resilience
@@ -506,44 +506,44 @@ func initializeServices(ctx context.Context, cfg *commonconfig.Config, db *datab
 			QueueSize:     50,
 			Timeout:       5 * time.Second,
 		},
-		
+
 		// Rate Limiting
 		RateLimiter:  services.NewInMemoryRateLimiter(100, time.Minute),
 		QuotaManager: services.NewInMemoryQuotaManager(),
-		
+
 		// Security
 		Authorizer:        createProductionAuthorizer(cacheClient, logger, metricsClient),
 		Sanitizer:         services.NewDefaultSanitizer(),
 		EncryptionService: createEncryptionService(logger),
-		
+
 		// Observability
 		Logger:  logger,
 		Metrics: metricsClient,
-		Tracer: observability.NoopStartSpan,
-		
+		Tracer:  observability.NoopStartSpan,
+
 		// Business Rules
 		RuleEngine:    nil, // TODO: Implement rules engine
 		PolicyManager: nil, // TODO: Implement policy manager
 	}
-	
+
 	// Create notification service
 	notificationService := services.NewNotificationService(serviceConfig)
-	
+
 	// Create agent service
 	agentService := services.NewAgentService(serviceConfig, agentRepo)
-	
+
 	// Create task service
 	taskService := services.NewTaskService(serviceConfig, taskRepo, agentService, notificationService)
-	
+
 	// Create workflow service
 	workflowService := services.NewWorkflowService(serviceConfig, workflowRepo, taskService, agentService, notificationService)
-	
+
 	// Create document service
 	documentService := services.NewDocumentService(serviceConfig, documentRepo, cacheClient)
-	
+
 	// Create workspace service (it needs documentRepo, not documentService)
 	workspaceService := services.NewWorkspaceService(serviceConfig, workspaceRepo, documentRepo, cacheClient)
-	
+
 	// Create conflict resolution service
 	conflictService := services.NewConflictResolutionService(
 		serviceConfig,
@@ -552,17 +552,17 @@ func initializeServices(ctx context.Context, cfg *commonconfig.Config, db *datab
 		taskRepo,
 		"default", // Default conflict resolution strategy
 	)
-	
+
 	logger.Info("All multi-agent collaboration services initialized successfully", map[string]interface{}{
-		"task_service": "ready",
-		"workflow_service": "ready",
-		"workspace_service": "ready",
-		"document_service": "ready",
-		"conflict_service": "ready",
-		"agent_service": "ready",
+		"task_service":         "ready",
+		"workflow_service":     "ready",
+		"workspace_service":    "ready",
+		"document_service":     "ready",
+		"conflict_service":     "ready",
+		"agent_service":        "ready",
 		"notification_service": "ready",
 	})
-	
+
 	return &ServicesBundle{
 		TaskService:      taskService,
 		WorkflowService:  workflowService,
@@ -576,20 +576,20 @@ func initializeServices(ctx context.Context, cfg *commonconfig.Config, db *datab
 func createProductionAuthorizer(cacheClient cache.Cache, logger observability.Logger, metrics observability.MetricsClient) auth.Authorizer {
 	// Create audit logger
 	auditLogger := auth.NewAuditLogger(logger)
-	
+
 	// Create auth configuration
 	authConfig := auth.AuthConfig{
-		Cache:          cacheClient,
-		Logger:         logger,
-		Metrics:        metrics,
-		Tracer:         observability.NoopStartSpan,
-		AuditLogger:    auditLogger,
-		CacheEnabled:   true,
-		CacheDuration:  5 * time.Minute,
-		ModelPath:      "pkg/auth/rbac_model.conf",
-		PolicyPath:     "", // Policies will be loaded from memory for now
+		Cache:         cacheClient,
+		Logger:        logger,
+		Metrics:       metrics,
+		Tracer:        observability.NoopStartSpan,
+		AuditLogger:   auditLogger,
+		CacheEnabled:  true,
+		CacheDuration: 5 * time.Minute,
+		ModelPath:     "pkg/auth/rbac_model.conf",
+		PolicyPath:    "", // Policies will be loaded from memory for now
 	}
-	
+
 	// Create production authorizer
 	authorizer, err := auth.NewProductionAuthorizer(authConfig)
 	if err != nil {
@@ -600,7 +600,7 @@ func createProductionAuthorizer(cacheClient cache.Cache, logger observability.Lo
 		})
 		return nil
 	}
-	
+
 	logger.Info("Production authorizer initialized successfully", nil)
 	return authorizer
 }
@@ -613,7 +613,7 @@ func createEncryptionService(logger observability.Logger) services.EncryptionSer
 		logger.Warn("ENCRYPTION_KEY not set, using no-op encryption service", nil)
 		return services.NewNoOpEncryptionService()
 	}
-	
+
 	// Decode the key from base64
 	keyBytes, err := base64.StdEncoding.DecodeString(encryptionKey)
 	if err != nil {
@@ -622,7 +622,7 @@ func createEncryptionService(logger observability.Logger) services.EncryptionSer
 		})
 		return services.NewNoOpEncryptionService()
 	}
-	
+
 	// Create AES encryption service
 	encryptionService, err := services.NewAESEncryptionService(keyBytes)
 	if err != nil {
@@ -631,7 +631,7 @@ func createEncryptionService(logger observability.Logger) services.EncryptionSer
 		})
 		return services.NewNoOpEncryptionService()
 	}
-	
+
 	logger.Info("Production AES-256-GCM encryption service initialized", nil)
 	return encryptionService
 }
@@ -677,13 +677,13 @@ func buildAPIConfig(cfg *commonconfig.Config, logger observability.Logger) api.C
 
 	// Override with configuration values
 	apiConfig.ListenAddress = cfg.API.ListenAddress
-	
+
 	// Debug logging
 	logger.Info("Building API config", map[string]interface{}{
 		"api_listen_address": cfg.API.ListenAddress,
-		"has_mcp_server": cfg.MCPServer != nil,
+		"has_mcp_server":     cfg.MCPServer != nil,
 	})
-	
+
 	// Check if MCP server has a specific listen address override
 	if cfg.MCPServer != nil {
 		logger.Info("MCP server config found", map[string]interface{}{
@@ -723,7 +723,7 @@ func buildAPIConfig(cfg *commonconfig.Config, logger observability.Logger) api.C
 				apiConfig.Auth.JWTSecret = secret
 			}
 		}
-		
+
 		// API keys configuration
 		if apiKeysConfig, ok := cfg.API.Auth["api_keys"].(map[string]interface{}); ok {
 			if staticKeys, ok := apiKeysConfig["static_keys"].(map[string]interface{}); ok {
@@ -739,7 +739,7 @@ func buildAPIConfig(cfg *commonconfig.Config, logger observability.Logger) api.C
 			}
 		}
 	}
-	
+
 	// Override JWT secret from environment if set
 	if jwtSecret := os.Getenv("JWT_SECRET"); jwtSecret != "" {
 		apiConfig.Auth.JWTSecret = jwtSecret
@@ -752,8 +752,8 @@ func buildAPIConfig(cfg *commonconfig.Config, logger observability.Logger) api.C
 			apiConfig.Webhook = webhookConfig
 			// Log webhook configuration (without secrets)
 			logger.Info("Webhook configuration loaded", map[string]interface{}{
-				"enabled":        webhookConfig.IsEnabled(),
-				"github_enabled": webhookConfig.IsGitHubEnabled(),
+				"enabled":         webhookConfig.IsEnabled(),
+				"github_enabled":  webhookConfig.IsGitHubEnabled(),
 				"github_endpoint": webhookConfig.GitHubEndpoint(),
 			})
 		}
@@ -763,13 +763,13 @@ func buildAPIConfig(cfg *commonconfig.Config, logger observability.Logger) api.C
 	if cfg.API.RateLimit != nil {
 		apiConfig.RateLimit = parseRateLimitConfig(cfg.API.RateLimit)
 	}
-	
+
 	// Configure WebSocket if available
 	logger.Info("WebSocket config check", map[string]interface{}{
-		"websocket_nil": cfg.WebSocket == nil,
+		"websocket_nil":     cfg.WebSocket == nil,
 		"websocket_enabled": cfg.WebSocket != nil && cfg.WebSocket.Enabled,
 	})
-	
+
 	if cfg.WebSocket != nil && cfg.WebSocket.Enabled {
 		apiConfig.WebSocket = parseWebSocketConfig(cfg.WebSocket)
 		logger.Info("WebSocket config parsed", map[string]interface{}{
@@ -904,26 +904,26 @@ func parseWebSocketConfig(wsConfig *commonconfig.WebSocketConfig) api.WebSocketC
 		PongTimeout:     wsConfig.PongTimeout,
 		MaxMessageSize:  wsConfig.MaxMessageSize,
 	}
-	
+
 	// Parse security config
 	if wsConfig.Security != nil {
 		config.Security = websocket.SecurityConfig{
-			RequireAuth:     wsConfig.Security.RequireAuth,
-			HMACSignatures:  wsConfig.Security.HMACSignatures,
-			AllowedOrigins:  wsConfig.Security.AllowedOrigins,
+			RequireAuth:    wsConfig.Security.RequireAuth,
+			HMACSignatures: wsConfig.Security.HMACSignatures,
+			AllowedOrigins: wsConfig.Security.AllowedOrigins,
 		}
 	}
-	
+
 	// Parse rate limit config
 	if wsConfig.RateLimit != nil {
 		config.RateLimit = websocket.RateLimiterConfig{
-			Rate:       float64(wsConfig.RateLimit.Rate),
-			Burst:      float64(wsConfig.RateLimit.Burst),
-			PerIP:      wsConfig.RateLimit.PerIP,
-			PerUser:    wsConfig.RateLimit.PerUser,
+			Rate:    float64(wsConfig.RateLimit.Rate),
+			Burst:   float64(wsConfig.RateLimit.Burst),
+			PerIP:   wsConfig.RateLimit.PerIP,
+			PerUser: wsConfig.RateLimit.PerUser,
 		}
 	}
-	
+
 	return config
 }
 
@@ -1087,7 +1087,7 @@ func performHealthCheck() error {
 	client := &http.Client{
 		Timeout: 5 * time.Second,
 	}
-	
+
 	// Try to connect to the health endpoint
 	// Use the actual server address with proper scheme
 	scheme := "http"
@@ -1103,22 +1103,22 @@ func performHealthCheck() error {
 			log.Printf("Failed to close response body: %v", err)
 		}
 	}()
-	
+
 	// Check if the response is successful
 	if resp.StatusCode != http.StatusOK {
 		return fmt.Errorf("health check returned status %d", resp.StatusCode)
 	}
-	
+
 	// Parse the response to verify it's valid JSON
 	var result map[string]interface{}
 	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
 		return fmt.Errorf("failed to parse health response: %w", err)
 	}
-	
+
 	// Check if status is healthy
 	if status, ok := result["status"].(string); ok && status != "healthy" {
 		return fmt.Errorf("service is not healthy: %s", status)
 	}
-	
+
 	return nil
 }

@@ -2,7 +2,7 @@ package crdt
 
 import (
 	"time"
-	
+
 	"github.com/google/uuid"
 )
 
@@ -76,10 +76,10 @@ type Timestamp struct {
 type CRDT interface {
 	// Merge combines this CRDT with another, resolving conflicts
 	Merge(other CRDT) error
-	
+
 	// Clone creates a deep copy of the CRDT
 	Clone() CRDT
-	
+
 	// GetType returns the type of CRDT
 	GetType() string
 }
@@ -88,10 +88,10 @@ type CRDT interface {
 type Operation interface {
 	// Apply applies the operation to a CRDT
 	Apply(crdt CRDT) error
-	
+
 	// GetTimestamp returns the operation timestamp
 	GetTimestamp() Timestamp
-	
+
 	// GetType returns the operation type
 	GetType() string
 }
@@ -100,7 +100,7 @@ type Operation interface {
 type Delta interface {
 	// GetOperations returns the operations in this delta
 	GetOperations() []Operation
-	
+
 	// Merge combines this delta with another
 	Merge(other Delta) Delta
 }
@@ -108,10 +108,10 @@ type Delta interface {
 // DeltaCRDT supports delta-based synchronization
 type DeltaCRDT interface {
 	CRDT
-	
+
 	// GenerateDelta creates a delta since the given vector clock
 	GenerateDelta(since VectorClock) Delta
-	
+
 	// ApplyDelta applies a delta to this CRDT
 	ApplyDelta(delta Delta) error
 }

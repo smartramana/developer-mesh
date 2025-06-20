@@ -10,6 +10,9 @@ import (
 	"syscall"
 	"time"
 
+	"rest-api/internal/api"
+	"rest-api/internal/core"
+
 	"github.com/S-Corkum/devops-mcp/pkg/common/aws"
 	"github.com/S-Corkum/devops-mcp/pkg/common/cache"
 	"github.com/S-Corkum/devops-mcp/pkg/common/config"
@@ -17,8 +20,6 @@ import (
 	"github.com/S-Corkum/devops-mcp/pkg/interfaces"
 	"github.com/S-Corkum/devops-mcp/pkg/metrics"
 	"github.com/S-Corkum/devops-mcp/pkg/observability"
-	"rest-api/internal/api"
-	"rest-api/internal/core"
 
 	// Import PostgreSQL driver
 	_ "github.com/lib/pq"

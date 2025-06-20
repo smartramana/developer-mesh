@@ -10,13 +10,14 @@ import (
 	"os"
 	"time"
 
+	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/google/uuid"
 
 	// Use pkg/models package which is the public API
 	// This aligns with our forward-only migration strategy
 	"functional-tests/client"
+
 	"github.com/S-Corkum/devops-mcp/pkg/models"
 )
 
@@ -41,7 +42,7 @@ func init() {
 	if ServerURL == "" {
 		ServerURL = "http://localhost:8081"
 	}
-	
+
 	APIKey = os.Getenv("API_KEY")
 	if APIKey == "" {
 		APIKey = os.Getenv("MCP_API_KEY")
@@ -52,7 +53,7 @@ func init() {
 	if APIKey == "" {
 		APIKey = "dev-admin-key-1234567890"
 	}
-	
+
 	MockServerURL = os.Getenv("MOCKSERVER_URL")
 	if MockServerURL == "" {
 		MockServerURL = "http://localhost:8082"
@@ -561,7 +562,7 @@ var _ = Describe("API", func() {
 			updateResp, err := mcpClient.Put(ctx, updatePath, updatePayload)
 			Expect(err).NotTo(HaveOccurred())
 			_ = updateResp.Body.Close()
-			
+
 			// Now search for content
 			searchPayload := map[string]interface{}{
 				"query": "test",

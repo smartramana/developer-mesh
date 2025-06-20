@@ -30,18 +30,18 @@ const (
 
 // AgentConfig represents the complete configuration for an AI agent
 type AgentConfig struct {
-	ID               uuid.UUID            `json:"id" db:"id"`
-	AgentID          string               `json:"agent_id" db:"agent_id" validate:"required,min=3,max=255"`
-	Version          int                  `json:"version" db:"version"`
-	EmbeddingStrategy EmbeddingStrategy   `json:"embedding_strategy" db:"embedding_strategy" validate:"required,oneof=balanced quality speed cost"`
-	ModelPreferences []ModelPreference    `json:"model_preferences" db:"model_preferences" validate:"required,dive"`
-	Constraints      AgentConstraints     `json:"constraints" db:"constraints" validate:"required"`
-	FallbackBehavior FallbackConfig       `json:"fallback_behavior" db:"fallback_behavior"`
-	Metadata         map[string]interface{} `json:"metadata" db:"metadata"`
-	IsActive         bool                 `json:"is_active" db:"is_active"`
-	CreatedAt        time.Time            `json:"created_at" db:"created_at"`
-	UpdatedAt        time.Time            `json:"updated_at" db:"updated_at"`
-	CreatedBy        string               `json:"created_by" db:"created_by"`
+	ID                uuid.UUID              `json:"id" db:"id"`
+	AgentID           string                 `json:"agent_id" db:"agent_id" validate:"required,min=3,max=255"`
+	Version           int                    `json:"version" db:"version"`
+	EmbeddingStrategy EmbeddingStrategy      `json:"embedding_strategy" db:"embedding_strategy" validate:"required,oneof=balanced quality speed cost"`
+	ModelPreferences  []ModelPreference      `json:"model_preferences" db:"model_preferences" validate:"required,dive"`
+	Constraints       AgentConstraints       `json:"constraints" db:"constraints" validate:"required"`
+	FallbackBehavior  FallbackConfig         `json:"fallback_behavior" db:"fallback_behavior"`
+	Metadata          map[string]interface{} `json:"metadata" db:"metadata"`
+	IsActive          bool                   `json:"is_active" db:"is_active"`
+	CreatedAt         time.Time              `json:"created_at" db:"created_at"`
+	UpdatedAt         time.Time              `json:"updated_at" db:"updated_at"`
+	CreatedBy         string                 `json:"created_by" db:"created_by"`
 }
 
 // ModelPreference defines which models an agent prefers for specific tasks
@@ -54,17 +54,17 @@ type ModelPreference struct {
 
 // AgentConstraints defines operational constraints for an agent
 type AgentConstraints struct {
-	MaxCostPerMonthUSD  float64          `json:"max_cost_per_month_usd" validate:"min=0"`
-	MaxLatencyP99Ms     int              `json:"max_latency_p99_ms" validate:"min=0"`
-	MinAvailabilitySLA  float64          `json:"min_availability_sla" validate:"min=0,max=1"`
-	RateLimits          RateLimitConfig  `json:"rate_limits"`
-	QualityThresholds   QualityConfig    `json:"quality_thresholds"`
+	MaxCostPerMonthUSD float64         `json:"max_cost_per_month_usd" validate:"min=0"`
+	MaxLatencyP99Ms    int             `json:"max_latency_p99_ms" validate:"min=0"`
+	MinAvailabilitySLA float64         `json:"min_availability_sla" validate:"min=0,max=1"`
+	RateLimits         RateLimitConfig `json:"rate_limits"`
+	QualityThresholds  QualityConfig   `json:"quality_thresholds"`
 }
 
 // RateLimitConfig defines rate limiting constraints
 type RateLimitConfig struct {
-	RequestsPerMinute int `json:"requests_per_minute" validate:"min=0"`
-	TokensPerHour     int `json:"tokens_per_hour" validate:"min=0"`
+	RequestsPerMinute  int `json:"requests_per_minute" validate:"min=0"`
+	TokensPerHour      int `json:"tokens_per_hour" validate:"min=0"`
 	ConcurrentRequests int `json:"concurrent_requests" validate:"min=0"`
 }
 
@@ -77,22 +77,22 @@ type QualityConfig struct {
 
 // FallbackConfig defines behavior when primary models fail
 type FallbackConfig struct {
-	MaxRetries          int           `json:"max_retries" validate:"min=0,max=10"`
-	InitialDelayMs      int           `json:"initial_delay_ms" validate:"min=0"`
-	MaxDelayMs          int           `json:"max_delay_ms" validate:"min=0"`
-	ExponentialBase     float64       `json:"exponential_base" validate:"min=1,max=10"`
-	QueueOnFailure      bool          `json:"queue_on_failure"`
-	QueueTimeoutMs      int           `json:"queue_timeout_ms" validate:"min=0"`
-	CircuitBreaker      CircuitConfig `json:"circuit_breaker"`
+	MaxRetries      int           `json:"max_retries" validate:"min=0,max=10"`
+	InitialDelayMs  int           `json:"initial_delay_ms" validate:"min=0"`
+	MaxDelayMs      int           `json:"max_delay_ms" validate:"min=0"`
+	ExponentialBase float64       `json:"exponential_base" validate:"min=1,max=10"`
+	QueueOnFailure  bool          `json:"queue_on_failure"`
+	QueueTimeoutMs  int           `json:"queue_timeout_ms" validate:"min=0"`
+	CircuitBreaker  CircuitConfig `json:"circuit_breaker"`
 }
 
 // CircuitConfig defines circuit breaker settings
 type CircuitConfig struct {
-	Enabled             bool   `json:"enabled"`
-	FailureThreshold    int    `json:"failure_threshold" validate:"min=1"`
-	SuccessThreshold    int    `json:"success_threshold" validate:"min=1"`
-	TimeoutSeconds      int    `json:"timeout_seconds" validate:"min=1"`
-	HalfOpenRequests    int    `json:"half_open_requests" validate:"min=1"`
+	Enabled          bool `json:"enabled"`
+	FailureThreshold int  `json:"failure_threshold" validate:"min=1"`
+	SuccessThreshold int  `json:"success_threshold" validate:"min=1"`
+	TimeoutSeconds   int  `json:"timeout_seconds" validate:"min=1"`
+	HalfOpenRequests int  `json:"half_open_requests" validate:"min=1"`
 }
 
 // ConfigFilter for querying agent configurations
@@ -107,12 +107,12 @@ type ConfigFilter struct {
 
 // ConfigUpdateRequest represents a request to update agent configuration
 type ConfigUpdateRequest struct {
-	EmbeddingStrategy *EmbeddingStrategy    `json:"embedding_strategy,omitempty"`
-	ModelPreferences  []ModelPreference     `json:"model_preferences,omitempty"`
-	Constraints       *AgentConstraints     `json:"constraints,omitempty"`
-	FallbackBehavior  *FallbackConfig       `json:"fallback_behavior,omitempty"`
+	EmbeddingStrategy *EmbeddingStrategy     `json:"embedding_strategy,omitempty"`
+	ModelPreferences  []ModelPreference      `json:"model_preferences,omitempty"`
+	Constraints       *AgentConstraints      `json:"constraints,omitempty"`
+	FallbackBehavior  *FallbackConfig        `json:"fallback_behavior,omitempty"`
 	Metadata          map[string]interface{} `json:"metadata,omitempty"`
-	UpdatedBy         string                `json:"updated_by" validate:"required"`
+	UpdatedBy         string                 `json:"updated_by" validate:"required"`
 }
 
 // Validate validates the agent configuration
@@ -167,21 +167,21 @@ func (c *AgentConfig) GetModelsForTask(taskType TaskType) (primary []string, fal
 			return pref.PrimaryModels, pref.FallbackModels
 		}
 	}
-	
+
 	// If no specific preference, look for a default
 	for _, pref := range c.ModelPreferences {
 		if pref.TaskType == TaskTypeGeneralQA {
 			return pref.PrimaryModels, pref.FallbackModels
 		}
 	}
-	
+
 	return nil, nil
 }
 
 // Clone creates a deep copy of the configuration
 func (c *AgentConfig) Clone() *AgentConfig {
 	clone := *c
-	
+
 	// Deep copy slices
 	clone.ModelPreferences = make([]ModelPreference, len(c.ModelPreferences))
 	for i, pref := range c.ModelPreferences {
@@ -192,7 +192,7 @@ func (c *AgentConfig) Clone() *AgentConfig {
 		clone.ModelPreferences[i].PrimaryModels = append([]string(nil), pref.PrimaryModels...)
 		clone.ModelPreferences[i].FallbackModels = append([]string(nil), pref.FallbackModels...)
 	}
-	
+
 	// Deep copy metadata
 	if c.Metadata != nil {
 		clone.Metadata = make(map[string]interface{})
@@ -200,6 +200,6 @@ func (c *AgentConfig) Clone() *AgentConfig {
 			clone.Metadata[k] = v
 		}
 	}
-	
+
 	return &clone
 }

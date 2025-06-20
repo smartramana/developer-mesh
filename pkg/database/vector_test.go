@@ -440,11 +440,11 @@ func TestVectorDatabase_CalculateSimilarity_Methods(t *testing.T) {
 			mockDB, mock, err := sqlmock.New()
 			require.NoError(t, err)
 			defer func() {
-		mock.ExpectClose()
-		if err := mockDB.Close(); err != nil {
-			t.Errorf("Failed to close mock database: %v", err)
-		}
-	}()
+				mock.ExpectClose()
+				if err := mockDB.Close(); err != nil {
+					t.Errorf("Failed to close mock database: %v", err)
+				}
+			}()
 
 			// Create sqlx DB wrapper
 			db := sqlx.NewDb(mockDB, "sqlmock")

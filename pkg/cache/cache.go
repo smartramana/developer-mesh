@@ -47,7 +47,7 @@ func ConvertFromCommonRedisConfig(commonConfig interface{}) RedisConfig {
 	if cfg, ok := commonConfig.(RedisConfig); ok {
 		// IMPORTANT: Preserve the configured address, don't override it!
 		result := cfg
-		
+
 		// Only set defaults for timeout/pool settings, NOT the address
 		if result.DialTimeout == 0 {
 			result.DialTimeout = time.Second * 5
@@ -73,7 +73,7 @@ func ConvertFromCommonRedisConfig(commonConfig interface{}) RedisConfig {
 		// CRITICAL: Return the result with the original Address intact
 		return result
 	}
-	
+
 	// FALLBACK: Only use localhost if type assertion completely fails
 	// This should rarely happen in production
 	return RedisConfig{

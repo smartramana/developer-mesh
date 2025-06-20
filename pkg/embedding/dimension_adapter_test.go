@@ -25,7 +25,7 @@ func TestDimensionAdapterNormalize(t *testing.T) {
 	t.Run("pad smaller to larger dimension", func(t *testing.T) {
 		embedding := []float32{1.0, 2.0, 3.0}
 		result := adapter.Normalize(embedding, 3, 6)
-		
+
 		assert.Len(t, result, 6)
 		// Original values preserved
 		assert.Equal(t, float32(1.0), result[0])
@@ -40,7 +40,7 @@ func TestDimensionAdapterNormalize(t *testing.T) {
 	t.Run("reduce larger to smaller dimension", func(t *testing.T) {
 		embedding := []float32{1.0, 2.0, 3.0, 4.0, 5.0, 6.0}
 		result := adapter.Normalize(embedding, 6, 3)
-		
+
 		assert.Len(t, result, 3)
 		// Values should be averaged and then normalized
 		// Expected averages: [1.5, 3.5, 5.5]
@@ -54,7 +54,7 @@ func TestDimensionAdapterNormalize(t *testing.T) {
 	t.Run("reduce with uneven ratio", func(t *testing.T) {
 		embedding := []float32{1.0, 2.0, 3.0, 4.0, 5.0}
 		result := adapter.Normalize(embedding, 5, 2)
-		
+
 		assert.Len(t, result, 2)
 		// First bucket: indices 0,1,2 -> (1+2+3)/3 = 2
 		// Second bucket: indices 3,4 -> (4+5)/2 = 4.5
@@ -70,7 +70,7 @@ func TestDimensionAdapterNormalizeWithProvider(t *testing.T) {
 	t.Run("uses generic normalization without projection matrix", func(t *testing.T) {
 		embedding := []float32{1.0, 2.0, 3.0, 4.0}
 		result := adapter.NormalizeWithProvider(embedding, 4, 8, "openai", "text-embedding-3-small")
-		
+
 		assert.Len(t, result, 8)
 		// Should fall back to generic normalization (padding)
 		assert.Equal(t, float32(1.0), result[0])
@@ -91,7 +91,7 @@ func TestDimensionAdapterNormalizeWithProvider(t *testing.T) {
 
 		embedding := []float32{2.0, 4.0, 6.0}
 		result := adapter.NormalizeWithProvider(embedding, 3, 2, "openai", "test-model")
-		
+
 		assert.Len(t, result, 2)
 		// Matrix multiplication: [0.5,0.5,0.0] * [2,4,6] = 3
 		// Matrix multiplication: [0.0,0.5,0.5] * [2,4,6] = 5
@@ -106,21 +106,21 @@ func TestDimensionAdapterPadEmbedding(t *testing.T) {
 	t.Run("pad to larger dimension", func(t *testing.T) {
 		embedding := []float32{1.0, 2.0}
 		result := adapter.padEmbedding(embedding, 5)
-		
+
 		assert.Len(t, result, 5)
 		assert.Equal(t, float32(1.0), result[0])
 		assert.Equal(t, float32(2.0), result[1])
 		// Padded values should be small but deterministic
 		// padded[i] = 0.0001 * float32(i%10)
-		assert.InDelta(t, float32(0.0001*2), result[2], 0.00001)  // index 2: 2%10 = 2
-		assert.InDelta(t, float32(0.0001*3), result[3], 0.00001)  // index 3: 3%10 = 3
-		assert.InDelta(t, float32(0.0001*4), result[4], 0.00001)  // index 4: 4%10 = 4
+		assert.InDelta(t, float32(0.0001*2), result[2], 0.00001) // index 2: 2%10 = 2
+		assert.InDelta(t, float32(0.0001*3), result[3], 0.00001) // index 3: 3%10 = 3
+		assert.InDelta(t, float32(0.0001*4), result[4], 0.00001) // index 4: 4%10 = 4
 	})
 
 	t.Run("truncate if target is smaller", func(t *testing.T) {
 		embedding := []float32{1.0, 2.0, 3.0, 4.0, 5.0}
 		result := adapter.padEmbedding(embedding, 3)
-		
+
 		assert.Len(t, result, 3)
 		assert.Equal(t, []float32{1.0, 2.0, 3.0}, result)
 	})
@@ -128,7 +128,7 @@ func TestDimensionAdapterPadEmbedding(t *testing.T) {
 	t.Run("return same if equal dimensions", func(t *testing.T) {
 		embedding := []float32{1.0, 2.0, 3.0}
 		result := adapter.padEmbedding(embedding, 3)
-		
+
 		assert.Equal(t, embedding, result)
 	})
 }
@@ -139,7 +139,7 @@ func TestDimensionAdapterReduceEmbedding(t *testing.T) {
 	t.Run("reduce by averaging", func(t *testing.T) {
 		embedding := []float32{1.0, 2.0, 3.0, 4.0}
 		result := adapter.reduceEmbedding(embedding, 2)
-		
+
 		assert.Len(t, result, 2)
 		// Normalized values after averaging and magnitude normalization
 		// Original averages would be [1.5, 3.5]
@@ -151,14 +151,14 @@ func TestDimensionAdapterReduceEmbedding(t *testing.T) {
 	t.Run("return same if target is larger", func(t *testing.T) {
 		embedding := []float32{1.0, 2.0}
 		result := adapter.reduceEmbedding(embedding, 5)
-		
+
 		assert.Equal(t, embedding, result)
 	})
 
 	t.Run("handle zero vector", func(t *testing.T) {
 		embedding := []float32{0.0, 0.0, 0.0, 0.0}
 		result := adapter.reduceEmbedding(embedding, 2)
-		
+
 		assert.Len(t, result, 2)
 		assert.Equal(t, float32(0.0), result[0])
 		assert.Equal(t, float32(0.0), result[1])
@@ -180,7 +180,7 @@ func TestDimensionAdapterApplyProjection(t *testing.T) {
 		}
 
 		result := adapter.applyProjection(embedding, matrix)
-		
+
 		assert.Len(t, result, 2)
 		assert.Equal(t, float32(1.0), result[0])
 		assert.Equal(t, float32(3.0), result[1])
@@ -192,16 +192,16 @@ func TestDimensionAdapterApplyProjection(t *testing.T) {
 			FromDimensions: 3,
 			ToDimensions:   2,
 			Matrix: []float32{
-				0.5, 0.5, 0.0,   // Average first two
+				0.5, 0.5, 0.0, // Average first two
 				0.33, 0.33, 0.34, // Average all three
 			},
 		}
 
 		result := adapter.applyProjection(embedding, matrix)
-		
+
 		assert.Len(t, result, 2)
-		assert.InDelta(t, 3.0, result[0], 0.001)     // (2*0.5 + 4*0.5)
-		assert.InDelta(t, 4.02, result[1], 0.001)    // (2*0.33 + 4*0.33 + 6*0.34) = 0.66 + 1.32 + 2.04 = 4.02
+		assert.InDelta(t, 3.0, result[0], 0.001)  // (2*0.5 + 4*0.5)
+		assert.InDelta(t, 4.02, result[1], 0.001) // (2*0.33 + 4*0.33 + 6*0.34) = 0.66 + 1.32 + 2.04 = 4.02
 	})
 
 	t.Run("handle matrix size mismatch gracefully", func(t *testing.T) {
@@ -213,7 +213,7 @@ func TestDimensionAdapterApplyProjection(t *testing.T) {
 		}
 
 		result := adapter.applyProjection(embedding, matrix)
-		
+
 		// Should handle gracefully without panic
 		assert.Len(t, result, 2)
 	})
@@ -225,11 +225,11 @@ func TestDimensionAdapterNormalizeMagnitude(t *testing.T) {
 	t.Run("normalize non-zero vector", func(t *testing.T) {
 		embedding := []float32{3.0, 4.0} // Magnitude = 5
 		result := adapter.normalizeMagnitude(embedding)
-		
+
 		assert.Len(t, result, 2)
 		assert.InDelta(t, 0.6, result[0], 0.001) // 3/5
 		assert.InDelta(t, 0.8, result[1], 0.001) // 4/5
-		
+
 		// Check magnitude is 1
 		magnitude := float32(math.Sqrt(float64(result[0]*result[0] + result[1]*result[1])))
 		assert.InDelta(t, 1.0, magnitude, 0.001)
@@ -238,14 +238,14 @@ func TestDimensionAdapterNormalizeMagnitude(t *testing.T) {
 	t.Run("handle zero vector", func(t *testing.T) {
 		embedding := []float32{0.0, 0.0, 0.0}
 		result := adapter.normalizeMagnitude(embedding)
-		
+
 		assert.Equal(t, embedding, result)
 	})
 
 	t.Run("already normalized vector", func(t *testing.T) {
 		embedding := []float32{0.6, 0.8} // Already magnitude 1
 		result := adapter.normalizeMagnitude(embedding)
-		
+
 		assert.InDelta(t, 0.6, result[0], 0.001)
 		assert.InDelta(t, 0.8, result[1], 0.001)
 	})
@@ -267,7 +267,7 @@ func TestDimensionAdapterEdgeCases(t *testing.T) {
 	t.Run("single dimension to multiple", func(t *testing.T) {
 		embedding := []float32{5.0}
 		result := adapter.Normalize(embedding, 1, 3)
-		
+
 		assert.Len(t, result, 3)
 		assert.Equal(t, float32(5.0), result[0])
 		assert.True(t, result[1] >= 0)
@@ -280,10 +280,10 @@ func TestDimensionAdapterEdgeCases(t *testing.T) {
 		for i := range embedding {
 			embedding[i] = float32(i)
 		}
-		
+
 		result := adapter.Normalize(embedding, 1000, 10)
 		assert.Len(t, result, 10)
-		
+
 		// Each bucket should average 100 values
 		for i := 0; i < 10; i++ {
 			// After magnitude normalization, values will be different

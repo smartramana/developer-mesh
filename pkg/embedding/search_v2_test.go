@@ -88,11 +88,11 @@ func TestCrossModelSearchResults(t *testing.T) {
 	tenantID := uuid.New()
 	contextID := uuid.New()
 	req := CrossModelSearchRequest{
-		Query:         "test query",
+		Query:          "test query",
 		QueryEmbedding: []float32{0.1, 0.2, 0.3},
-		TenantID:      tenantID,
-		Limit:         5,
-		MinSimilarity: 0.8,
+		TenantID:       tenantID,
+		Limit:          5,
+		MinSimilarity:  0.8,
 	}
 
 	// Mock search results
@@ -368,8 +368,8 @@ func TestMergeResults(t *testing.T) {
 
 		assert.Len(t, merged, 2)
 		// Check hybrid scores
-		assert.InDelta(t, 0.6*0.9, merged[0].HybridScore, 0.000001)      // Semantic only
-		assert.InDelta(t, (1-0.6)*0.8, merged[1].HybridScore, 0.000001)  // Keyword only
+		assert.InDelta(t, 0.6*0.9, merged[0].HybridScore, 0.000001)     // Semantic only
+		assert.InDelta(t, (1-0.6)*0.8, merged[1].HybridScore, 0.000001) // Keyword only
 	})
 
 	t.Run("merge with duplicates", func(t *testing.T) {
@@ -460,11 +460,11 @@ func BenchmarkCrossModelSearch(b *testing.B) {
 	service := NewSearchServiceV2(db, &Repository{}, NewDimensionAdapter())
 
 	req := CrossModelSearchRequest{
-		Query:         "benchmark query",
+		Query:          "benchmark query",
 		QueryEmbedding: make([]float32, 1536),
-		TenantID:      uuid.New(),
-		Limit:         50,
-		MinSimilarity: 0.7,
+		TenantID:       uuid.New(),
+		Limit:          50,
+		MinSimilarity:  0.7,
 	}
 
 	// Mock empty results to avoid complex setup

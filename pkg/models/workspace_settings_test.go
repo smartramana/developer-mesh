@@ -30,17 +30,17 @@ func TestWorkspaceStatus(t *testing.T) {
 
 func TestWorkspaceSettingsJSON(t *testing.T) {
 	settings := GetDefaultWorkspaceSettings()
-	
+
 	// Test marshaling
 	data, err := json.Marshal(settings)
 	require.NoError(t, err)
 	assert.NotEmpty(t, data)
-	
+
 	// Test unmarshaling
 	var decoded WorkspaceSettings
 	err = json.Unmarshal(data, &decoded)
 	require.NoError(t, err)
-	
+
 	assert.Equal(t, settings.Notifications.Enabled, decoded.Notifications.Enabled)
 	assert.Equal(t, settings.Collaboration.ConflictResolution, decoded.Collaboration.ConflictResolution)
 	assert.Equal(t, settings.Security.AuditLogging, decoded.Security.AuditLogging)
@@ -48,25 +48,25 @@ func TestWorkspaceSettingsJSON(t *testing.T) {
 
 func TestWorkspaceSettingsValueScan(t *testing.T) {
 	settings := GetDefaultWorkspaceSettings()
-	
+
 	// Test Value method
 	value, err := settings.Value()
 	require.NoError(t, err)
 	assert.NotNil(t, value)
-	
+
 	// Test Scan method with byte slice
 	var scanned WorkspaceSettings
 	err = scanned.Scan(value)
 	require.NoError(t, err)
 	assert.Equal(t, settings.Notifications.Enabled, scanned.Notifications.Enabled)
-	
+
 	// Test Scan with string
 	jsonStr := `{"notifications":{"enabled":false},"collaboration":{},"security":{}}`
 	var fromString WorkspaceSettings
 	err = fromString.Scan(jsonStr)
 	require.NoError(t, err)
 	assert.False(t, fromString.Notifications.Enabled)
-	
+
 	// Test Scan with nil
 	var nilSettings WorkspaceSettings
 	err = nilSettings.Scan(nil)
@@ -76,12 +76,12 @@ func TestWorkspaceSettingsValueScan(t *testing.T) {
 
 func TestWorkspaceLimitsValueScan(t *testing.T) {
 	limits := GetDefaultWorkspaceLimits()
-	
+
 	// Test Value method
 	value, err := limits.Value()
 	require.NoError(t, err)
 	assert.NotNil(t, value)
-	
+
 	// Test Scan method
 	var scanned WorkspaceLimits
 	err = scanned.Scan(value)
@@ -96,7 +96,7 @@ func TestWorkspaceLimitsIsWithinLimits(t *testing.T) {
 		MaxDocuments:    100,
 		MaxStorageBytes: 1000,
 	}
-	
+
 	tests := []struct {
 		name         string
 		members      int
@@ -111,7 +111,7 @@ func TestWorkspaceLimitsIsWithinLimits(t *testing.T) {
 		{"Exceeds storage limit", 5, 50, 1001, false},
 		{"Zero limit means no limit", 5, 50, 500, true},
 	}
-	
+
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			result := limits.IsWithinLimits(tt.members, tt.documents, tt.storageBytes)
@@ -122,19 +122,19 @@ func TestWorkspaceLimitsIsWithinLimits(t *testing.T) {
 
 func TestGetDefaultWorkspaceSettings(t *testing.T) {
 	settings := GetDefaultWorkspaceSettings()
-	
+
 	// Verify notifications defaults
 	assert.True(t, settings.Notifications.Enabled)
 	assert.False(t, settings.Notifications.EmailEnabled)
 	assert.Equal(t, "immediate", settings.Notifications.DigestFrequency)
 	assert.Contains(t, settings.Notifications.EventTypes, "member_joined")
-	
+
 	// Verify collaboration defaults
 	assert.False(t, settings.Collaboration.AllowGuestAccess)
 	assert.True(t, settings.Collaboration.RequireApproval)
 	assert.Equal(t, "member", settings.Collaboration.DefaultMemberRole)
 	assert.Equal(t, "manual", settings.Collaboration.ConflictResolution)
-	
+
 	// Verify security defaults
 	assert.False(t, settings.Security.RequireMFA)
 	assert.True(t, settings.Security.AllowAPIAccess)
@@ -146,7 +146,7 @@ func TestGetDefaultWorkspaceSettings(t *testing.T) {
 
 func TestGetDefaultWorkspaceLimits(t *testing.T) {
 	limits := GetDefaultWorkspaceLimits()
-	
+
 	assert.Equal(t, 100, limits.MaxMembers)
 	assert.Equal(t, 1000, limits.MaxDocuments)
 	assert.Equal(t, int64(10*1024*1024*1024), limits.MaxStorageBytes) // 10 GB

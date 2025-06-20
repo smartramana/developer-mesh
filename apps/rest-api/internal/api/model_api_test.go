@@ -8,12 +8,13 @@ import (
 	"net/http/httptest"
 	"testing"
 
+	api "rest-api/internal/api"
+	"rest-api/internal/repository"
+
 	"github.com/S-Corkum/devops-mcp/pkg/models"
 	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
-	api "rest-api/internal/api"
-	"rest-api/internal/repository"
 )
 
 // MockModelRepository mocks repository.ModelRepository

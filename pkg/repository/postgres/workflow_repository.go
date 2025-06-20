@@ -39,7 +39,7 @@ func NewWorkflowRepository(
 		MaxRetries:   3,
 		CacheTimeout: 5 * time.Minute,
 	}
-	
+
 	// Create circuit breaker for external service calls
 	cbConfig := resilience.CircuitBreakerConfig{
 		FailureThreshold: 5,
@@ -47,7 +47,7 @@ func NewWorkflowRepository(
 	}
 	cb := resilience.NewCircuitBreaker("workflow_repository", cbConfig, logger, metrics)
 	config.CircuitBreaker = cb
-	
+
 	return &workflowRepository{
 		BaseRepository: NewBaseRepository(writeDB, readDB, cache, logger, tracer, metrics, config),
 	}
@@ -95,7 +95,7 @@ func (r *workflowRepository) BeginTx(ctx context.Context, opts *types.TxOptions)
 	if opts != nil && opts.Timeout > 0 {
 		_, err = tx.ExecContext(ctx, "SET LOCAL statement_timeout = $1", opts.Timeout.Milliseconds())
 		if err != nil {
-			tx.Rollback()
+			_ = tx.Rollback()
 			return nil, errors.Wrap(err, "failed to set transaction timeout")
 		}
 	}
@@ -281,7 +281,7 @@ func (r *workflowRepository) Update(ctx context.Context, workflow *models.Workfl
 	return r.ExecuteQuery(ctx, "update_workflow", func(ctx context.Context) error {
 		// Store old version for optimistic locking
 		oldVersion := workflow.Version
-		
+
 		// Increment version and update timestamp
 		workflow.Version++
 		workflow.UpdatedAt = time.Now()
@@ -329,8 +329,8 @@ func (r *workflowRepository) Update(ctx context.Context, workflow *models.Workfl
 		if rowsAffected == 0 {
 			// Check if workflow exists
 			var exists bool
-			err = r.readDB.GetContext(ctx, &exists, 
-				"SELECT EXISTS(SELECT 1 FROM workflows WHERE id = $1 AND deleted_at IS NULL)", 
+			err = r.readDB.GetContext(ctx, &exists,
+				"SELECT EXISTS(SELECT 1 FROM workflows WHERE id = $1 AND deleted_at IS NULL)",
 				workflow.ID)
 			if err != nil {
 				return errors.Wrap(err, "failed to check workflow existence")
@@ -379,7 +379,7 @@ func (r *workflowRepository) Delete(ctx context.Context, id uuid.UUID) error {
 			FROM workflow_executions 
 			WHERE workflow_id = $1 
 			AND status IN ('pending', 'running', 'paused')`
-		
+
 		err := tx.GetContext(ctx, &activeCount, checkQuery, id)
 		if err != nil {
 			return errors.Wrap(err, "failed to check active executions")
@@ -424,7 +424,7 @@ func (r *workflowRepository) Delete(ctx context.Context, id uuid.UUID) error {
 			fmt.Sprintf("workflow:executions:%s", id),
 			fmt.Sprintf("workflow:stats:%s", id),
 		}
-		
+
 		for _, key := range cacheKeys {
 			if err := r.CacheDelete(ctx, key); err != nil {
 				r.logger.Warn("Failed to invalidate cache", map[string]interface{}{
@@ -678,7 +678,7 @@ func (r *workflowRepository) SoftDelete(ctx context.Context, id uuid.UUID) error
 
 	return r.ExecuteQueryWithRetry(ctx, "soft_delete_workflow", func(ctx context.Context) error {
 		now := time.Now()
-		
+
 		// Get workflow info for cache invalidation
 		var workflow models.Workflow
 		getQuery := `SELECT tenant_id, name FROM workflows WHERE id = $1 AND deleted_at IS NULL`
@@ -716,7 +716,7 @@ func (r *workflowRepository) SoftDelete(ctx context.Context, id uuid.UUID) error
 			fmt.Sprintf("workflows:tenant:%s", workflow.TenantID),
 			fmt.Sprintf("workflow:tenant:%s:name:%s", workflow.TenantID, workflow.Name),
 		}
-		
+
 		for _, key := range cacheKeys {
 			if err := r.CacheDelete(ctx, key); err != nil {
 				r.logger.Warn("Failed to invalidate cache", map[string]interface{}{
@@ -926,7 +926,7 @@ func (r *workflowRepository) UpdateExecution(ctx context.Context, execution *mod
 			fmt.Sprintf("workflow:executions:%s", execution.WorkflowID),
 			fmt.Sprintf("workflow:stats:%s", execution.WorkflowID),
 		}
-		
+
 		for _, key := range cacheKeys {
 			if err := r.CacheDelete(ctx, key); err != nil {
 				r.logger.Warn("Failed to invalidate cache", map[string]interface{}{
@@ -1034,7 +1034,7 @@ func (r *workflowRepository) UpdateStepStatus(ctx context.Context, executionID u
 			SELECT id, workflow_id, state 
 			FROM workflow_executions 
 			WHERE id = $1`
-		
+
 		err := tx.GetContext(ctx, &execution, getQuery, executionID)
 		if err != nil {
 			if err == sql.ErrNoRows {
@@ -1047,7 +1047,7 @@ func (r *workflowRepository) UpdateStepStatus(ctx context.Context, executionID u
 		if execution.State == nil {
 			execution.State = make(models.JSONMap)
 		}
-		
+
 		stepStatuses, ok := execution.State["step_statuses"].(map[string]interface{})
 		if !ok {
 			stepStatuses = make(map[string]interface{})
@@ -1074,7 +1074,7 @@ func (r *workflowRepository) UpdateStepStatus(ctx context.Context, executionID u
 			UPDATE workflow_executions 
 			SET state = $1, updated_at = $2
 			WHERE id = $3`
-		
+
 		_, err = tx.ExecContext(ctx, updateQuery, stateJSON, time.Now(), executionID)
 		if err != nil {
 			return errors.Wrap(err, "failed to update execution state")
@@ -1085,7 +1085,7 @@ func (r *workflowRepository) UpdateStepStatus(ctx context.Context, executionID u
 			fmt.Sprintf("execution:%s", executionID),
 			fmt.Sprintf("workflow:executions:%s", execution.WorkflowID),
 		}
-		
+
 		for _, key := range cacheKeys {
 			if err := r.CacheDelete(ctx, key); err != nil {
 				r.logger.Warn("Failed to invalidate cache", map[string]interface{}{
@@ -1176,7 +1176,11 @@ func (r *workflowRepository) GetWorkflowStats(ctx context.Context, workflowID uu
 		if err != nil {
 			return errors.Wrap(err, "failed to get status breakdown")
 		}
-		defer rows.Close()
+		defer func() {
+			if err := rows.Close(); err != nil {
+				r.logger.Error("Failed to close rows", map[string]interface{}{"error": err.Error()})
+			}
+		}()
 
 		stats.ByStatus = make(map[string]int64)
 		for rows.Next() {
@@ -1405,44 +1409,44 @@ func (r *workflowRepository) GetStepStatus(ctx context.Context, executionID uuid
 				if stepData, ok := stepStatuses[stepID].(map[string]interface{}); ok {
 					// Populate StepStatus struct
 					stepStatus.StepID = stepID
-					
+
 					if status, ok := stepData["status"].(string); ok {
 						stepStatus.Status = status
 					}
-					
+
 					if agentID, ok := stepData["agent_id"].(string); ok {
 						stepStatus.AgentID = agentID
 					}
-					
+
 					if input, ok := stepData["input"].(map[string]interface{}); ok {
 						stepStatus.Input = input
 					}
-					
+
 					if output, ok := stepData["output"].(map[string]interface{}); ok {
 						stepStatus.Output = output
 					}
-					
+
 					if errStr, ok := stepData["error"].(string); ok {
 						stepStatus.Error = errStr
 					}
-					
+
 					if retryCount, ok := stepData["retry_count"].(float64); ok {
 						stepStatus.RetryCount = int(retryCount)
 					}
-					
+
 					// Parse timestamps
 					if startedAt, ok := stepData["started_at"].(string); ok {
 						if t, err := time.Parse(time.RFC3339, startedAt); err == nil {
 							stepStatus.StartedAt = &t
 						}
 					}
-					
+
 					if completedAt, ok := stepData["completed_at"].(string); ok {
 						if t, err := time.Parse(time.RFC3339, completedAt); err == nil {
 							stepStatus.CompletedAt = &t
 						}
 					}
-					
+
 					return nil
 				}
 			}
@@ -1491,12 +1495,12 @@ func (r *workflowRepository) ValidateWorkflowIntegrity(ctx context.Context, work
 		}
 
 		// Validate agents configuration
-		if workflow.Agents == nil || len(workflow.Agents) == 0 {
+		if len(workflow.Agents) == 0 {
 			return errors.New("workflow must have at least one agent")
 		}
 
 		// Validate steps configuration
-		if workflow.Steps == nil || len(workflow.Steps) == 0 {
+		if len(workflow.Steps) == 0 {
 			return errors.New("workflow must have at least one step")
 		}
 
@@ -1507,7 +1511,7 @@ func (r *workflowRepository) ValidateWorkflowIntegrity(ctx context.Context, work
 				if _, hasType := step["type"]; !hasType {
 					return errors.Errorf("step %s missing type", stepID)
 				}
-				
+
 				// Check agent reference
 				if agentID, hasAgent := step["agent_id"].(string); hasAgent {
 					if _, agentExists := workflow.Agents[agentID]; !agentExists {
@@ -1525,7 +1529,7 @@ func (r *workflowRepository) ValidateWorkflowIntegrity(ctx context.Context, work
 			WHERE workflow_id = $1 
 			AND status IN ('running', 'paused') 
 			AND updated_at < NOW() - INTERVAL '24 hours'`
-		
+
 		err = r.readDB.GetContext(ctx, &orphanedCount, orphanQuery, workflowID)
 		if err != nil {
 			return errors.Wrap(err, "failed to check orphaned executions")

@@ -10,40 +10,40 @@ import (
 
 // Workspace represents a collaborative space for agents
 type Workspace struct {
-	ID              uuid.UUID            `json:"id" db:"id"`
-	TenantID        uuid.UUID            `json:"tenant_id" db:"tenant_id"`
-	Name            string               `json:"name" db:"name"`
-	Type            string               `json:"type" db:"type"`
-	OwnerID         string               `json:"owner_id" db:"owner_id"`
-	Description     string               `json:"description,omitempty" db:"description"`
-	Configuration   JSONMap              `json:"configuration" db:"configuration"`
-	Visibility      WorkspaceVisibility  `json:"visibility" db:"visibility"`
-	State           JSONMap              `json:"state" db:"state"`
-	StateVersion    int64                `json:"state_version" db:"state_version"`
-	LastActivityAt  time.Time            `json:"last_activity_at" db:"last_activity_at"`
-	LockedBy        *string              `json:"locked_by,omitempty" db:"locked_by"`
-	LockedAt        *time.Time           `json:"locked_at,omitempty" db:"locked_at"`
-	LockExpiresAt   *time.Time           `json:"lock_expires_at,omitempty" db:"lock_expires_at"`
-	CreatedAt       time.Time            `json:"created_at" db:"created_at"`
-	UpdatedAt       time.Time            `json:"updated_at" db:"updated_at"`
-	DeletedAt       *time.Time           `json:"deleted_at,omitempty" db:"deleted_at"`
-	
+	ID             uuid.UUID           `json:"id" db:"id"`
+	TenantID       uuid.UUID           `json:"tenant_id" db:"tenant_id"`
+	Name           string              `json:"name" db:"name"`
+	Type           string              `json:"type" db:"type"`
+	OwnerID        string              `json:"owner_id" db:"owner_id"`
+	Description    string              `json:"description,omitempty" db:"description"`
+	Configuration  JSONMap             `json:"configuration" db:"configuration"`
+	Visibility     WorkspaceVisibility `json:"visibility" db:"visibility"`
+	State          JSONMap             `json:"state" db:"state"`
+	StateVersion   int64               `json:"state_version" db:"state_version"`
+	LastActivityAt time.Time           `json:"last_activity_at" db:"last_activity_at"`
+	LockedBy       *string             `json:"locked_by,omitempty" db:"locked_by"`
+	LockedAt       *time.Time          `json:"locked_at,omitempty" db:"locked_at"`
+	LockExpiresAt  *time.Time          `json:"lock_expires_at,omitempty" db:"lock_expires_at"`
+	CreatedAt      time.Time           `json:"created_at" db:"created_at"`
+	UpdatedAt      time.Time           `json:"updated_at" db:"updated_at"`
+	DeletedAt      *time.Time          `json:"deleted_at,omitempty" db:"deleted_at"`
+
 	// New production fields for Phase 3
-	IsPublic        bool                 `json:"is_public" db:"is_public"`
-	Settings        WorkspaceSettings    `json:"settings" db:"settings"`
-	Tags            pq.StringArray       `json:"tags" db:"tags"`
-	Metadata        JSONMap              `json:"metadata" db:"metadata"`
-	
+	IsPublic bool              `json:"is_public" db:"is_public"`
+	Settings WorkspaceSettings `json:"settings" db:"settings"`
+	Tags     pq.StringArray    `json:"tags" db:"tags"`
+	Metadata JSONMap           `json:"metadata" db:"metadata"`
+
 	// Additional fields for production
-	Owner           string               `json:"owner" db:"owner"`
-	Status          WorkspaceStatus      `json:"status" db:"status"`
-	Features        pq.StringArray       `json:"features" db:"features"`
-	Limits          WorkspaceLimits      `json:"limits" db:"limits"`
-	Stats           *WorkspaceStats      `json:"stats,omitempty" db:"-"` // Computed field
-	
+	Owner    string          `json:"owner" db:"owner"`
+	Status   WorkspaceStatus `json:"status" db:"status"`
+	Features pq.StringArray  `json:"features" db:"features"`
+	Limits   WorkspaceLimits `json:"limits" db:"limits"`
+	Stats    *WorkspaceStats `json:"stats,omitempty" db:"-"` // Computed field
+
 	// Runtime data
-	Members         []*WorkspaceMember   `json:"members,omitempty" db:"-"`
-	Documents       []*SharedDocument    `json:"documents,omitempty" db:"-"`
+	Members   []*WorkspaceMember `json:"members,omitempty" db:"-"`
+	Documents []*SharedDocument  `json:"documents,omitempty" db:"-"`
 }
 
 // WorkspaceVisibility defines who can access a workspace
@@ -57,16 +57,16 @@ const (
 
 // WorkspaceMember represents an agent's membership in a workspace
 type WorkspaceMember struct {
-	WorkspaceID  uuid.UUID   `json:"workspace_id" db:"workspace_id"`
-	AgentID      string      `json:"agent_id" db:"agent_id"`
-	TenantID     uuid.UUID   `json:"tenant_id" db:"tenant_id"`
-	Role         MemberRole  `json:"role" db:"role"`
-	Permissions  JSONMap     `json:"permissions" db:"permissions"`
-	JoinedAt     time.Time   `json:"joined_at" db:"joined_at"`
-	LastSeenAt   *time.Time  `json:"last_seen_at,omitempty" db:"last_seen_at"`
-	
+	WorkspaceID uuid.UUID  `json:"workspace_id" db:"workspace_id"`
+	AgentID     string     `json:"agent_id" db:"agent_id"`
+	TenantID    uuid.UUID  `json:"tenant_id" db:"tenant_id"`
+	Role        MemberRole `json:"role" db:"role"`
+	Permissions JSONMap    `json:"permissions" db:"permissions"`
+	JoinedAt    time.Time  `json:"joined_at" db:"joined_at"`
+	LastSeenAt  *time.Time `json:"last_seen_at,omitempty" db:"last_seen_at"`
+
 	// Runtime data
-	Agent        interface{} `json:"agent,omitempty" db:"-"` // Agent details if loaded
+	Agent interface{} `json:"agent,omitempty" db:"-"` // Agent details if loaded
 }
 
 // MemberRole defines the role of a member in a workspace

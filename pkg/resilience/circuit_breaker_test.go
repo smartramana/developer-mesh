@@ -30,7 +30,7 @@ func newMockMetricsClient() *mockMetricsClient {
 	}
 }
 
-func (m *mockMetricsClient) RecordEvent(source, eventType string) {}
+func (m *mockMetricsClient) RecordEvent(source, eventType string)                   {}
 func (m *mockMetricsClient) RecordLatency(operation string, duration time.Duration) {}
 func (m *mockMetricsClient) RecordCounter(name string, value float64, labels map[string]string) {
 	m.mu.Lock()
@@ -47,12 +47,19 @@ func (m *mockMetricsClient) RecordHistogram(name string, value float64, labels m
 	defer m.mu.Unlock()
 	m.histograms[name] = append(m.histograms[name], value)
 }
-func (m *mockMetricsClient) RecordTimer(name string, duration time.Duration, labels map[string]string) {}
-func (m *mockMetricsClient) RecordCacheOperation(operation string, success bool, durationSeconds float64) {}
-func (m *mockMetricsClient) RecordOperation(component string, operation string, success bool, durationSeconds float64, labels map[string]string) {}
-func (m *mockMetricsClient) RecordAPIOperation(api string, operation string, success bool, durationSeconds float64) {}
-func (m *mockMetricsClient) RecordDatabaseOperation(operation string, success bool, durationSeconds float64) {}
-func (m *mockMetricsClient) StartTimer(name string, labels map[string]string) func() { return func() {} }
+func (m *mockMetricsClient) RecordTimer(name string, duration time.Duration, labels map[string]string) {
+}
+func (m *mockMetricsClient) RecordCacheOperation(operation string, success bool, durationSeconds float64) {
+}
+func (m *mockMetricsClient) RecordOperation(component string, operation string, success bool, durationSeconds float64, labels map[string]string) {
+}
+func (m *mockMetricsClient) RecordAPIOperation(api string, operation string, success bool, durationSeconds float64) {
+}
+func (m *mockMetricsClient) RecordDatabaseOperation(operation string, success bool, durationSeconds float64) {
+}
+func (m *mockMetricsClient) StartTimer(name string, labels map[string]string) func() {
+	return func() {}
+}
 func (m *mockMetricsClient) IncrementCounter(name string, value float64) {
 	m.RecordCounter(name, value, nil)
 }
@@ -60,7 +67,7 @@ func (m *mockMetricsClient) IncrementCounterWithLabels(name string, value float6
 	m.RecordCounter(name, value, labels)
 }
 func (m *mockMetricsClient) RecordDuration(name string, duration time.Duration) {}
-func (m *mockMetricsClient) Close() error { return nil }
+func (m *mockMetricsClient) Close() error                                       { return nil }
 
 // mockLogger implements a mock logger for testing
 type mockLogger struct {
@@ -80,17 +87,17 @@ func newMockLogger() *mockLogger {
 	}
 }
 
-func (l *mockLogger) Debug(msg string, fields map[string]interface{}) { l.log("debug", msg, fields) }
-func (l *mockLogger) Info(msg string, fields map[string]interface{})  { l.log("info", msg, fields) }
-func (l *mockLogger) Warn(msg string, fields map[string]interface{})  { l.log("warn", msg, fields) }
-func (l *mockLogger) Error(msg string, fields map[string]interface{}) { l.log("error", msg, fields) }
-func (l *mockLogger) Fatal(msg string, fields map[string]interface{}) { l.log("fatal", msg, fields) }
-func (l *mockLogger) Debugf(format string, args ...interface{}) {}
-func (l *mockLogger) Infof(format string, args ...interface{})  {}
-func (l *mockLogger) Warnf(format string, args ...interface{})  {}
-func (l *mockLogger) Errorf(format string, args ...interface{}) {}
-func (l *mockLogger) Fatalf(format string, args ...interface{}) {}
-func (l *mockLogger) WithPrefix(prefix string) observability.Logger { return l }
+func (l *mockLogger) Debug(msg string, fields map[string]interface{})         { l.log("debug", msg, fields) }
+func (l *mockLogger) Info(msg string, fields map[string]interface{})          { l.log("info", msg, fields) }
+func (l *mockLogger) Warn(msg string, fields map[string]interface{})          { l.log("warn", msg, fields) }
+func (l *mockLogger) Error(msg string, fields map[string]interface{})         { l.log("error", msg, fields) }
+func (l *mockLogger) Fatal(msg string, fields map[string]interface{})         { l.log("fatal", msg, fields) }
+func (l *mockLogger) Debugf(format string, args ...interface{})               {}
+func (l *mockLogger) Infof(format string, args ...interface{})                {}
+func (l *mockLogger) Warnf(format string, args ...interface{})                {}
+func (l *mockLogger) Errorf(format string, args ...interface{})               {}
+func (l *mockLogger) Fatalf(format string, args ...interface{})               {}
+func (l *mockLogger) WithPrefix(prefix string) observability.Logger           { return l }
 func (l *mockLogger) With(fields map[string]interface{}) observability.Logger { return l }
 
 func (l *mockLogger) log(level, msg string, fields map[string]interface{}) {
@@ -142,7 +149,7 @@ func TestCircuitBreaker_Execute(t *testing.T) {
 			setup: func(cb *CircuitBreaker) {
 				// Cause failures to trip the circuit
 				for i := 0; i < 5; i++ {
-					cb.Execute(context.Background(), func() (interface{}, error) {
+					_, _ = cb.Execute(context.Background(), func() (interface{}, error) {
 						return nil, errors.New("failure")
 					})
 				}
@@ -159,7 +166,7 @@ func TestCircuitBreaker_Execute(t *testing.T) {
 			setup: func(cb *CircuitBreaker) {
 				// Trip the circuit
 				for i := 0; i < 5; i++ {
-					cb.Execute(context.Background(), func() (interface{}, error) {
+					_, _ = cb.Execute(context.Background(), func() (interface{}, error) {
 						return nil, errors.New("failure")
 					})
 				}
@@ -178,14 +185,14 @@ func TestCircuitBreaker_Execute(t *testing.T) {
 			setup: func(cb *CircuitBreaker) {
 				// Trip the circuit
 				for i := 0; i < 5; i++ {
-					cb.Execute(context.Background(), func() (interface{}, error) {
+					_, _ = cb.Execute(context.Background(), func() (interface{}, error) {
 						return nil, errors.New("failure")
 					})
 				}
 				// Transition to half-open
 				cb.lastFailureTime.Store(time.Now().Add(-31 * time.Second))
 				// First success in half-open
-				cb.Execute(context.Background(), func() (interface{}, error) {
+				_, _ = cb.Execute(context.Background(), func() (interface{}, error) {
 					return "success", nil
 				})
 			},
@@ -201,7 +208,7 @@ func TestCircuitBreaker_Execute(t *testing.T) {
 			setup: func(cb *CircuitBreaker) {
 				// Trip the circuit
 				for i := 0; i < 5; i++ {
-					cb.Execute(context.Background(), func() (interface{}, error) {
+					_, _ = cb.Execute(context.Background(), func() (interface{}, error) {
 						return nil, errors.New("failure")
 					})
 				}
@@ -221,7 +228,7 @@ func TestCircuitBreaker_Execute(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			logger := newMockLogger()
 			metrics := newMockMetricsClient()
-			
+
 			config := CircuitBreakerConfig{
 				FailureThreshold:    5,
 				FailureRatio:        0.6,
@@ -231,15 +238,15 @@ func TestCircuitBreaker_Execute(t *testing.T) {
 				MaxRequestsHalfOpen: 5,
 				MinimumRequestCount: 10,
 			}
-			
+
 			cb := NewCircuitBreaker("test", config, logger, metrics)
-			
+
 			if tt.setup != nil {
 				tt.setup(cb)
 			}
-			
+
 			result, err := cb.Execute(context.Background(), tt.fn)
-			
+
 			if tt.wantErr != nil {
 				require.Error(t, err)
 				assert.Contains(t, err.Error(), tt.wantErr.Error())
@@ -247,9 +254,9 @@ func TestCircuitBreaker_Execute(t *testing.T) {
 				require.NoError(t, err)
 				assert.Equal(t, tt.wantResult, result)
 			}
-			
+
 			assert.Equal(t, tt.checkState, cb.getState())
-			
+
 			if tt.checkCounts != nil {
 				counts := cb.getCounts()
 				tt.checkCounts(t, counts)
@@ -261,22 +268,22 @@ func TestCircuitBreaker_Execute(t *testing.T) {
 func TestCircuitBreaker_Timeout(t *testing.T) {
 	logger := newMockLogger()
 	metrics := newMockMetricsClient()
-	
+
 	config := CircuitBreakerConfig{
 		TimeoutThreshold: 100 * time.Millisecond,
 	}
-	
+
 	cb := NewCircuitBreaker("test-timeout", config, logger, metrics)
-	
+
 	result, err := cb.Execute(context.Background(), func() (interface{}, error) {
 		time.Sleep(200 * time.Millisecond)
 		return "should timeout", nil
 	})
-	
+
 	require.Error(t, err)
 	assert.Equal(t, ErrCircuitBreakerTimeout, err)
 	assert.Nil(t, result)
-	
+
 	counts := cb.getCounts()
 	assert.Equal(t, 1, counts.Failures)
 }
@@ -284,21 +291,21 @@ func TestCircuitBreaker_Timeout(t *testing.T) {
 func TestCircuitBreaker_ContextCancellation(t *testing.T) {
 	logger := newMockLogger()
 	metrics := newMockMetricsClient()
-	
+
 	cb := NewCircuitBreaker("test-cancel", CircuitBreakerConfig{}, logger, metrics)
-	
+
 	ctx, cancel := context.WithCancel(context.Background())
-	
+
 	go func() {
 		time.Sleep(50 * time.Millisecond)
 		cancel()
 	}()
-	
+
 	result, err := cb.Execute(ctx, func() (interface{}, error) {
 		time.Sleep(100 * time.Millisecond)
 		return "should be cancelled", nil
 	})
-	
+
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "context cancelled")
 	assert.Nil(t, result)
@@ -307,24 +314,24 @@ func TestCircuitBreaker_ContextCancellation(t *testing.T) {
 func TestCircuitBreaker_ConcurrentAccess(t *testing.T) {
 	logger := newMockLogger()
 	metrics := newMockMetricsClient()
-	
+
 	config := CircuitBreakerConfig{
 		FailureThreshold:    50,
 		MaxRequestsHalfOpen: 5,
 	}
-	
+
 	cb := NewCircuitBreaker("test-concurrent", config, logger, metrics)
-	
+
 	var wg sync.WaitGroup
 	successCount := atomic.Int32{}
 	failureCount := atomic.Int32{}
-	
+
 	// Run 100 concurrent operations
 	for i := 0; i < 100; i++ {
 		wg.Add(1)
 		go func(idx int) {
 			defer wg.Done()
-			
+
 			_, err := cb.Execute(context.Background(), func() (interface{}, error) {
 				// 50% success rate
 				if idx%2 == 0 {
@@ -332,7 +339,7 @@ func TestCircuitBreaker_ConcurrentAccess(t *testing.T) {
 				}
 				return nil, errors.New("failure")
 			})
-			
+
 			if err != nil {
 				failureCount.Add(1)
 			} else {
@@ -340,13 +347,13 @@ func TestCircuitBreaker_ConcurrentAccess(t *testing.T) {
 			}
 		}(i)
 	}
-	
+
 	wg.Wait()
-	
+
 	// Verify all operations completed
 	total := successCount.Load() + failureCount.Load()
 	assert.Equal(t, int32(100), total)
-	
+
 	// Verify state consistency
 	counts := cb.getCounts()
 	assert.Equal(t, counts.Successes+counts.Failures, counts.Requests)
@@ -355,31 +362,31 @@ func TestCircuitBreaker_ConcurrentAccess(t *testing.T) {
 func TestCircuitBreaker_HalfOpenMaxRequests(t *testing.T) {
 	logger := newMockLogger()
 	metrics := newMockMetricsClient()
-	
+
 	config := CircuitBreakerConfig{
 		FailureThreshold:    3,
 		MaxRequestsHalfOpen: 2,
 		ResetTimeout:        100 * time.Millisecond,
 	}
-	
+
 	cb := NewCircuitBreaker("test-halfopen", config, logger, metrics)
-	
+
 	// Trip the circuit
 	for i := 0; i < 3; i++ {
-		cb.Execute(context.Background(), func() (interface{}, error) {
+		_, _ = cb.Execute(context.Background(), func() (interface{}, error) {
 			return nil, errors.New("failure")
 		})
 	}
-	
+
 	assert.Equal(t, CircuitBreakerOpen, cb.getState())
-	
+
 	// Wait for reset timeout
 	time.Sleep(150 * time.Millisecond)
-	
+
 	// Execute requests in half-open state
 	var wg sync.WaitGroup
 	results := make([]error, 5)
-	
+
 	for i := 0; i < 5; i++ {
 		wg.Add(1)
 		go func(idx int) {
@@ -391,9 +398,9 @@ func TestCircuitBreaker_HalfOpenMaxRequests(t *testing.T) {
 			results[idx] = err
 		}(i)
 	}
-	
+
 	wg.Wait()
-	
+
 	// Count how many requests were allowed vs rejected
 	allowed := 0
 	rejected := 0
@@ -409,7 +416,7 @@ func TestCircuitBreaker_HalfOpenMaxRequests(t *testing.T) {
 			timedOut++
 		}
 	}
-	
+
 	// Should allow max 2 requests in half-open state, but timing can vary
 	// So we just verify that some were rejected
 	assert.Greater(t, allowed, 0, "Expected some requests to be allowed")
@@ -420,36 +427,36 @@ func TestCircuitBreaker_HalfOpenMaxRequests(t *testing.T) {
 func TestCircuitBreaker_FailureRatio(t *testing.T) {
 	logger := newMockLogger()
 	metrics := newMockMetricsClient()
-	
+
 	config := CircuitBreakerConfig{
 		FailureThreshold:    100, // High threshold to test ratio
 		FailureRatio:        0.5, // 50% failure rate
 		MinimumRequestCount: 10,
 	}
-	
+
 	cb := NewCircuitBreaker("test-ratio", config, logger, metrics)
-	
+
 	// Execute 9 requests (below minimum)
 	for i := 0; i < 9; i++ {
 		if i < 5 {
-			cb.Execute(context.Background(), func() (interface{}, error) {
+			_, _ = cb.Execute(context.Background(), func() (interface{}, error) {
 				return nil, errors.New("failure")
 			})
 		} else {
-			cb.Execute(context.Background(), func() (interface{}, error) {
+			_, _ = cb.Execute(context.Background(), func() (interface{}, error) {
 				return "success", nil
 			})
 		}
 	}
-	
+
 	// Should still be closed (below minimum request count)
 	assert.Equal(t, CircuitBreakerClosed, cb.getState())
-	
+
 	// 10th request (failure) should trip based on ratio
-	cb.Execute(context.Background(), func() (interface{}, error) {
+	_, _ = cb.Execute(context.Background(), func() (interface{}, error) {
 		return nil, errors.New("failure")
 	})
-	
+
 	// Should now be open (60% failure rate > 50% threshold)
 	assert.Equal(t, CircuitBreakerOpen, cb.getState())
 }
@@ -457,21 +464,21 @@ func TestCircuitBreaker_FailureRatio(t *testing.T) {
 func TestCircuitBreaker_Reset(t *testing.T) {
 	logger := newMockLogger()
 	metrics := newMockMetricsClient()
-	
+
 	cb := NewCircuitBreaker("test-reset", CircuitBreakerConfig{}, logger, metrics)
-	
+
 	// Trip the circuit
 	for i := 0; i < 5; i++ {
-		cb.Execute(context.Background(), func() (interface{}, error) {
+		_, _ = cb.Execute(context.Background(), func() (interface{}, error) {
 			return nil, errors.New("failure")
 		})
 	}
-	
+
 	assert.Equal(t, CircuitBreakerOpen, cb.getState())
-	
+
 	// Reset the circuit
 	cb.Reset()
-	
+
 	assert.Equal(t, CircuitBreakerClosed, cb.getState())
 	counts := cb.getCounts()
 	assert.Equal(t, 0, counts.Requests)
@@ -482,7 +489,7 @@ func TestCircuitBreaker_Reset(t *testing.T) {
 func TestCircuitBreakerManager(t *testing.T) {
 	logger := newMockLogger()
 	metrics := newMockMetricsClient()
-	
+
 	configs := map[string]CircuitBreakerConfig{
 		"service1": {
 			FailureThreshold: 3,
@@ -491,37 +498,37 @@ func TestCircuitBreakerManager(t *testing.T) {
 			FailureThreshold: 5,
 		},
 	}
-	
+
 	manager := NewCircuitBreakerManager(logger, metrics, configs)
-	
+
 	// Test existing circuit breaker
 	cb1 := manager.GetCircuitBreaker("service1")
 	assert.NotNil(t, cb1)
 	assert.Equal(t, "service1", cb1.name)
-	
+
 	// Test getting same circuit breaker returns same instance
 	cb1Again := manager.GetCircuitBreaker("service1")
 	assert.Same(t, cb1, cb1Again)
-	
+
 	// Test creating new circuit breaker
 	cb3 := manager.GetCircuitBreaker("service3")
 	assert.NotNil(t, cb3)
 	assert.Equal(t, "service3", cb3.name)
-	
+
 	// Test Execute method
 	result, err := manager.Execute(context.Background(), "service1", func() (interface{}, error) {
 		return "test result", nil
 	})
 	assert.NoError(t, err)
 	assert.Equal(t, "test result", result)
-	
+
 	// Test GetAllMetrics
 	allMetrics := manager.GetAllMetrics()
 	assert.Len(t, allMetrics, 3)
 	assert.Contains(t, allMetrics, "service1")
 	assert.Contains(t, allMetrics, "service2")
 	assert.Contains(t, allMetrics, "service3")
-	
+
 	// Test ResetAll
 	manager.ResetAll()
 	for _, metrics := range allMetrics {
@@ -533,12 +540,12 @@ func TestCircuitBreakerManager(t *testing.T) {
 func BenchmarkCircuitBreaker_Execute(b *testing.B) {
 	logger := observability.NewStandardLogger("bench")
 	metrics := newMockMetricsClient()
-	
+
 	cb := NewCircuitBreaker("bench", CircuitBreakerConfig{}, logger, metrics)
-	
+
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		cb.Execute(context.Background(), func() (interface{}, error) {
+		_, _ = cb.Execute(context.Background(), func() (interface{}, error) {
 			return "result", nil
 		})
 	}
@@ -547,13 +554,13 @@ func BenchmarkCircuitBreaker_Execute(b *testing.B) {
 func BenchmarkCircuitBreaker_ConcurrentExecute(b *testing.B) {
 	logger := observability.NewStandardLogger("bench")
 	metrics := newMockMetricsClient()
-	
+
 	cb := NewCircuitBreaker("bench-concurrent", CircuitBreakerConfig{}, logger, metrics)
-	
+
 	b.ResetTimer()
 	b.RunParallel(func(pb *testing.PB) {
 		for pb.Next() {
-			cb.Execute(context.Background(), func() (interface{}, error) {
+			_, _ = cb.Execute(context.Background(), func() (interface{}, error) {
 				return "result", nil
 			})
 		}
@@ -570,7 +577,7 @@ func TestCircuitBreakerState_String(t *testing.T) {
 		{CircuitBreakerHalfOpen, "half-open"},
 		{CircuitBreakerState(99), "unknown"},
 	}
-	
+
 	for _, tt := range tests {
 		t.Run(tt.want, func(t *testing.T) {
 			assert.Equal(t, tt.want, tt.state.String())
@@ -581,26 +588,26 @@ func TestCircuitBreakerState_String(t *testing.T) {
 func TestCircuitBreaker_EdgeCases(t *testing.T) {
 	logger := newMockLogger()
 	metrics := newMockMetricsClient()
-	
+
 	t.Run("unknown state in canExecute", func(t *testing.T) {
 		cb := NewCircuitBreaker("test-unknown", CircuitBreakerConfig{}, logger, metrics)
 		// Force an invalid state
 		cb.state.Store(CircuitBreakerState(99))
-		
+
 		_, err := cb.Execute(context.Background(), func() (interface{}, error) {
 			return "should not execute", nil
 		})
-		
+
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "unknown circuit breaker state")
 	})
-	
+
 	t.Run("GetCircuitBreaker concurrent creation", func(t *testing.T) {
 		manager := NewCircuitBreakerManager(logger, metrics, nil)
-		
+
 		var wg sync.WaitGroup
 		breakers := make([]*CircuitBreaker, 10)
-		
+
 		// Concurrently try to get the same circuit breaker
 		for i := 0; i < 10; i++ {
 			wg.Add(1)
@@ -609,15 +616,15 @@ func TestCircuitBreaker_EdgeCases(t *testing.T) {
 				breakers[idx] = manager.GetCircuitBreaker("concurrent-test")
 			}(i)
 		}
-		
+
 		wg.Wait()
-		
+
 		// All should be the same instance
 		for i := 1; i < 10; i++ {
 			assert.Same(t, breakers[0], breakers[i])
 		}
 	})
-	
+
 	t.Run("config with all defaults", func(t *testing.T) {
 		cb := NewCircuitBreaker("defaults", CircuitBreakerConfig{}, logger, metrics)
 		assert.Equal(t, 5, cb.config.FailureThreshold)
@@ -634,7 +641,7 @@ func TestCounts_Methods(t *testing.T) {
 	t.Run("RecordTimeout", func(t *testing.T) {
 		counts := NewCounts()
 		counts.RecordTimeout()
-		
+
 		assert.Equal(t, 1, counts.Requests)
 		assert.Equal(t, 1, counts.Failures)
 		assert.Equal(t, uint32(1), counts.TotalFailures)
@@ -644,19 +651,19 @@ func TestCounts_Methods(t *testing.T) {
 		assert.NotZero(t, counts.LastTimeout)
 		assert.NotZero(t, counts.LastFailure)
 	})
-	
+
 	t.Run("RecordRejected", func(t *testing.T) {
 		counts := NewCounts()
 		counts.RecordRejected()
 		assert.Equal(t, 1, counts.Rejected)
 	})
-	
+
 	t.Run("RecordShortCircuited", func(t *testing.T) {
 		counts := NewCounts()
 		counts.RecordShortCircuited()
 		assert.Equal(t, 1, counts.ShortCircuited)
 	})
-	
+
 	t.Run("Reset", func(t *testing.T) {
 		counts := NewCounts()
 		counts.Requests = 10
@@ -667,9 +674,9 @@ func TestCounts_Methods(t *testing.T) {
 		counts.Timeout = 1
 		counts.ShortCircuited = 2
 		counts.Rejected = 3
-		
+
 		counts.Reset()
-		
+
 		assert.Equal(t, 0, counts.Requests)
 		assert.Equal(t, 0, counts.Successes)
 		assert.Equal(t, 0, counts.Failures)
@@ -679,15 +686,15 @@ func TestCounts_Methods(t *testing.T) {
 		assert.Equal(t, 0, counts.ShortCircuited)
 		assert.Equal(t, 0, counts.Rejected)
 	})
-	
+
 	t.Run("ResetTimestamps", func(t *testing.T) {
 		counts := NewCounts()
 		counts.LastSuccess = time.Now()
 		counts.LastFailure = time.Now()
 		counts.LastTimeout = time.Now()
-		
+
 		counts.ResetTimestamps()
-		
+
 		assert.True(t, counts.LastSuccess.IsZero())
 		assert.True(t, counts.LastFailure.IsZero())
 		assert.True(t, counts.LastTimeout.IsZero())
@@ -697,26 +704,26 @@ func TestCounts_Methods(t *testing.T) {
 func TestCircuitBreaker_Timeout_RecordsMetrics(t *testing.T) {
 	logger := newMockLogger()
 	metrics := newMockMetricsClient()
-	
+
 	config := CircuitBreakerConfig{
 		TimeoutThreshold: 50 * time.Millisecond,
 	}
-	
+
 	cb := NewCircuitBreaker("test-timeout-metrics", config, logger, metrics)
-	
+
 	// Force a timeout to verify it records timeout in counts
 	_, err := cb.Execute(context.Background(), func() (interface{}, error) {
 		time.Sleep(100 * time.Millisecond)
 		return "should timeout", nil
 	})
-	
+
 	require.Error(t, err)
 	assert.Equal(t, ErrCircuitBreakerTimeout, err)
-	
+
 	// Verify the metrics were recorded
 	assert.Greater(t, metrics.counters["circuit_breaker_requests_total"], 0.0)
 	assert.Greater(t, metrics.counters["circuit_breaker_failures_total"], 0.0)
-	
+
 	// Verify state metrics
 	gaugeValue, exists := metrics.gauges["circuit_breaker_current_state"]
 	assert.True(t, exists)

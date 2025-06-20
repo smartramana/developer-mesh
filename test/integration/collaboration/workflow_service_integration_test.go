@@ -79,15 +79,15 @@ func (s *WorkflowServiceIntegrationSuite) TearDownSuite() {
 	s.cancel()
 	if s.db != nil {
 		// Clean up test data
-		shared.CleanupTestData(s.db, s.tenantID)
-		s.db.Close()
+		_ = shared.CleanupTestData(s.db, s.tenantID)
+		_ = s.db.Close()
 	}
 }
 
 // SetupTest runs before each test
 func (s *WorkflowServiceIntegrationSuite) SetupTest() {
 	// Clean up any data from previous test
-	shared.CleanupWorkflowData(s.db, s.tenantID)
+	_ = shared.CleanupWorkflowData(s.db, s.tenantID)
 }
 
 // TestCreateAndRetrieveWorkflow tests basic workflow creation and retrieval
@@ -202,13 +202,13 @@ func (s *WorkflowServiceIntegrationSuite) TestWorkflowExecution() {
 	// Complete remaining steps
 	err = s.workflowService.CompleteStep(s.ctx, execution.ID, "processing", map[string]interface{}{
 		"processed_records": 100,
-		"errors":           0,
+		"errors":            0,
 	})
 	require.NoError(s.T(), err)
 
 	err = s.workflowService.CompleteStep(s.ctx, execution.ID, "validation", map[string]interface{}{
 		"validation_passed": true,
-		"warnings":         0,
+		"warnings":          0,
 	})
 	require.NoError(s.T(), err)
 

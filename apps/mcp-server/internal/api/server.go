@@ -6,6 +6,10 @@ import (
 	"net/http"
 	"time"
 
+	"mcp-server/internal/api/proxies"
+	"mcp-server/internal/api/websocket"
+	"mcp-server/internal/core"
+
 	"github.com/S-Corkum/devops-mcp/pkg/auth"
 	"github.com/S-Corkum/devops-mcp/pkg/cache"
 	"github.com/S-Corkum/devops-mcp/pkg/client/rest"
@@ -18,9 +22,6 @@ import (
 	"github.com/jmoiron/sqlx"
 	swaggerFiles "github.com/swaggo/files"
 	ginSwagger "github.com/swaggo/gin-swagger"
-	"mcp-server/internal/api/proxies"
-	"mcp-server/internal/api/websocket"
-	"mcp-server/internal/core"
 )
 
 // Global shutdown hooks
@@ -51,7 +52,7 @@ type Server struct {
 	searchAPIProxy  repository.SearchRepository    // Proxy for search operations
 	// WebSocket server
 	wsServer        *websocket.Server
-	webhookAPIProxy proxies.WebhookRepository      // Proxy for webhook operations
+	webhookAPIProxy proxies.WebhookRepository // Proxy for webhook operations
 }
 
 // NewServer creates a new API server
@@ -105,7 +106,7 @@ func NewServer(engine *core.Engine, cfg Config, db *sqlx.DB, cacheClient cache.C
 	if observability.DefaultLogger == nil {
 		observability.DefaultLogger = observability.NewStandardLogger("mcp-server")
 	}
-	
+
 	// Initialize auth service with cache
 	authConfig := auth.DefaultConfig()
 	authConfig.JWTSecret = cfg.Auth.JWTSecret
@@ -114,7 +115,7 @@ func NewServer(engine *core.Engine, cfg Config, db *sqlx.DB, cacheClient cache.C
 
 	// Create auth service with cache
 	authService := auth.NewService(authConfig, db, cacheClient, observability.DefaultLogger)
-	
+
 	// Setup enhanced authentication with rate limiting, metrics, and audit logging
 	authMiddleware, err := auth.SetupAuthentication(db, cacheClient, observability.DefaultLogger, metrics)
 	if err != nil {
@@ -194,13 +195,13 @@ func NewServer(engine *core.Engine, cfg Config, db *sqlx.DB, cacheClient cache.C
 
 	// Create the server instance
 	s := &Server{
-		router:            router,
-		server:            &http.Server{
+		router: router,
+		server: &http.Server{
 			Handler:           router,
 			ReadHeaderTimeout: 5 * time.Second, // Prevent Slowloris attacks
 		},
 		engine:            engine,
-		config:            cfg,  // Set the API config
+		config:            cfg, // Set the API config
 		logger:            observability.DefaultLogger,
 		loggerAdapter:     loggerAdapter,
 		loggerObsAdapter:  loggerObsAdapter,
@@ -217,7 +218,7 @@ func NewServer(engine *core.Engine, cfg Config, db *sqlx.DB, cacheClient cache.C
 		agentAPIProxy:  agentProxy,
 		modelAPIProxy:  modelProxy,
 	}
-	
+
 	// Initialize WebSocket server if enabled
 	if cfg.WebSocket.Enabled {
 		wsConfig := websocket.Config{
@@ -230,9 +231,9 @@ func NewServer(engine *core.Engine, cfg Config, db *sqlx.DB, cacheClient cache.C
 			Security:        cfg.WebSocket.Security,
 			RateLimit:       cfg.WebSocket.RateLimit,
 		}
-		
+
 		s.wsServer = websocket.NewServer(authService, metrics, observability.DefaultLogger, wsConfig)
-		
+
 		// Set dependencies (will be properly implemented in full integration)
 		if engine != nil {
 			// Use adapter to bridge the interface differences
@@ -240,13 +241,13 @@ func NewServer(engine *core.Engine, cfg Config, db *sqlx.DB, cacheClient cache.C
 			s.wsServer.SetContextManager(contextAdapter)
 			// TODO: Set tool registry and event bus when available
 		}
-		
+
 		observability.DefaultLogger.Info("WebSocket server initialized", map[string]interface{}{
 			"enabled":         true,
 			"max_connections": cfg.WebSocket.MaxConnections,
 		})
 	}
-	
+
 	s.server.Addr = cfg.ListenAddress
 	s.server.ReadTimeout = cfg.ReadTimeout
 	s.server.WriteTimeout = cfg.WriteTimeout
@@ -303,13 +304,13 @@ func (s *Server) setupRoutes() {
 		c.JSON(http.StatusOK, gin.H{"status": "MCP REST API is running"})
 	})
 	s.router.GET("/health", s.healthHandler)
-	
+
 	// Setup WebSocket endpoint
 	s.logger.Info("WebSocket route registration check", map[string]interface{}{
-		"enabled": s.config.WebSocket.Enabled,
+		"enabled":      s.config.WebSocket.Enabled,
 		"wsServer_nil": s.wsServer == nil,
 	})
-	
+
 	if s.config.WebSocket.Enabled && s.wsServer != nil {
 		// Convert gin handler to http.HandlerFunc
 		s.router.GET("/ws", func(c *gin.Context) {
@@ -320,7 +321,7 @@ func (s *Server) setupRoutes() {
 		})
 	} else {
 		s.logger.Warn("WebSocket endpoint NOT enabled", map[string]interface{}{
-			"enabled": s.config.WebSocket.Enabled,
+			"enabled":      s.config.WebSocket.Enabled,
 			"wsServer_nil": s.wsServer == nil,
 		})
 	}
@@ -360,7 +361,7 @@ func (s *Server) setupRoutes() {
 			"apis":    []string{"agent", "model", "vector", "embeddings", "mcp"},
 		})
 	})
-	
+
 	// Register MCP API routes
 	if s.engine != nil && s.engine.GetContextManager() != nil {
 		mcpAPI := NewMCPAPI(s.engine.GetContextManager())
@@ -369,14 +370,14 @@ func (s *Server) setupRoutes() {
 	} else {
 		s.logger.Warn("MCP API not available - context manager not initialized", nil)
 	}
-	
+
 	// Register WebSocket monitoring routes
 	if s.config.WebSocket.Enabled && s.wsServer != nil {
 		wsMonitoring := websocket.NewMonitoringEndpoints(s.wsServer)
 		wsMonitoring.RegisterRoutes(v1)
 		s.logger.Info("WebSocket monitoring routes registered", nil)
 	}
-	
+
 	// Register Embedding Proxy routes
 	if s.config.RestAPI.Enabled && s.config.RestAPI.BaseURL != "" {
 		embeddingProxy := proxies.NewEmbeddingProxy(s.config.RestAPI.BaseURL, s.logger)
@@ -498,12 +499,12 @@ func (s *Server) healthHandler(c *gin.Context) {
 // 	if c.Request.TLS != nil || c.GetHeader("X-Forwarded-Proto") == "https" {
 // 		scheme = "https"
 // 	}
-// 
+//
 // 	host := c.Request.Host
 // 	if forwardedHost := c.GetHeader("X-Forwarded-Host"); forwardedHost != "" {
 // 		host = forwardedHost
 // 	}
-// 
+//
 // 	return scheme + "://" + host
 // }
 
@@ -513,7 +514,7 @@ func (s *Server) InjectServices(services interface{}) {
 		s.logger.Warn("Cannot inject services: WebSocket server is not initialized", nil)
 		return
 	}
-	
+
 	// The services parameter should be a *ServicesBundle from main.go
 	// We'll need to do type assertion and then inject into WebSocket server
 	s.logger.Info("Services injection requested - implementation needed", map[string]interface{}{

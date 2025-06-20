@@ -16,7 +16,7 @@ import (
 type GitHubContentManager struct {
 	db                  *database.Database // Kept for backward compatibility
 	dbAdapter           *DatabaseAdapter   // New adapter to pkg/database
-	pkgDB               *database.Database    // Direct access to pkg/database
+	pkgDB               *database.Database // Direct access to pkg/database
 	storageManager      *storage.GitHubContentStorage
 	logger              observability.Logger // Changed from pointer to interface type
 	metricsClient       observability.MetricsClient

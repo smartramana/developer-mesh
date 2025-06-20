@@ -30,21 +30,21 @@ func NewEmbeddingAPIV2(embeddingService *embedding.ServiceV2, agentService embed
 // RegisterRoutes registers embedding API routes
 func (api *EmbeddingAPIV2) RegisterRoutes(router *mux.Router) {
 	v2 := router.PathPrefix("/api/v2/embeddings").Subrouter()
-	
+
 	// Embedding generation
 	v2.HandleFunc("", api.GenerateEmbedding).Methods("POST")
 	v2.HandleFunc("/batch", api.BatchGenerateEmbeddings).Methods("POST")
-	
+
 	// Provider health
 	v2.HandleFunc("/providers/health", api.GetProviderHealth).Methods("GET")
-	
+
 	// Agent configuration endpoints
 	v2.HandleFunc("/agents", api.CreateAgentConfig).Methods("POST")
 	v2.HandleFunc("/agents/{agentId}", api.GetAgentConfig).Methods("GET")
 	v2.HandleFunc("/agents/{agentId}", api.UpdateAgentConfig).Methods("PUT")
 	v2.HandleFunc("/agents/{agentId}/models", api.GetAgentModels).Methods("GET")
 	v2.HandleFunc("/agents/{agentId}/costs", api.GetAgentCosts).Methods("GET")
-	
+
 	// Search endpoints
 	v2.HandleFunc("/search", api.SearchEmbeddings).Methods("POST")
 	v2.HandleFunc("/search/cross-model", api.CrossModelSearch).Methods("POST")
@@ -54,27 +54,27 @@ func (api *EmbeddingAPIV2) RegisterRoutes(router *mux.Router) {
 func (api *EmbeddingAPIV2) GenerateEmbedding(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	tenantID := getTenantIDFromContext(ctx)
-	
+
 	var req embedding.GenerateEmbeddingRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		sendError(w, http.StatusBadRequest, "Invalid request body: "+err.Error())
 		return
 	}
-	
+
 	// Set tenant ID from context
 	req.TenantID = tenantID
-	
+
 	// Generate request ID if not provided
 	if req.RequestID == "" {
 		req.RequestID = uuid.New().String()
 	}
-	
+
 	resp, err := api.embeddingService.GenerateEmbedding(ctx, req)
 	if err != nil {
 		sendError(w, http.StatusInternalServerError, "Failed to generate embedding: "+err.Error())
 		return
 	}
-	
+
 	sendJSON(w, http.StatusOK, resp)
 }
 
@@ -82,13 +82,13 @@ func (api *EmbeddingAPIV2) GenerateEmbedding(w http.ResponseWriter, r *http.Requ
 func (api *EmbeddingAPIV2) BatchGenerateEmbeddings(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	tenantID := getTenantIDFromContext(ctx)
-	
+
 	var reqs []embedding.GenerateEmbeddingRequest
 	if err := json.NewDecoder(r.Body).Decode(&reqs); err != nil {
 		sendError(w, http.StatusBadRequest, "Invalid request body: "+err.Error())
 		return
 	}
-	
+
 	// Set tenant ID for all requests
 	for i := range reqs {
 		reqs[i].TenantID = tenantID
@@ -96,13 +96,13 @@ func (api *EmbeddingAPIV2) BatchGenerateEmbeddings(w http.ResponseWriter, r *htt
 			reqs[i].RequestID = uuid.New().String()
 		}
 	}
-	
+
 	resps, err := api.embeddingService.BatchGenerateEmbeddings(ctx, reqs)
 	if err != nil {
 		sendError(w, http.StatusInternalServerError, "Failed to generate embeddings: "+err.Error())
 		return
 	}
-	
+
 	sendJSON(w, http.StatusOK, map[string]interface{}{
 		"embeddings": resps,
 		"count":      len(resps),
@@ -112,9 +112,9 @@ func (api *EmbeddingAPIV2) BatchGenerateEmbeddings(w http.ResponseWriter, r *htt
 // GetProviderHealth handles GET /api/v2/embeddings/providers/health
 func (api *EmbeddingAPIV2) GetProviderHealth(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
-	
+
 	health := api.embeddingService.GetProviderHealth(ctx)
-	
+
 	sendJSON(w, http.StatusOK, map[string]interface{}{
 		"providers": health,
 		"timestamp": time.Now().UTC(),
@@ -124,21 +124,21 @@ func (api *EmbeddingAPIV2) GetProviderHealth(w http.ResponseWriter, r *http.Requ
 // CreateAgentConfig handles POST /api/v2/embeddings/agents
 func (api *EmbeddingAPIV2) CreateAgentConfig(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
-	
+
 	var config agents.AgentConfig
 	if err := json.NewDecoder(r.Body).Decode(&config); err != nil {
 		sendError(w, http.StatusBadRequest, "Invalid request body: "+err.Error())
 		return
 	}
-	
+
 	// Set created by from context
 	config.CreatedBy = getUserIDFromContext(ctx)
-	
+
 	if err := api.agentService.CreateConfig(ctx, &config); err != nil {
 		sendError(w, http.StatusInternalServerError, "Failed to create agent config: "+err.Error())
 		return
 	}
-	
+
 	sendJSON(w, http.StatusCreated, config)
 }
 
@@ -147,13 +147,13 @@ func (api *EmbeddingAPIV2) GetAgentConfig(w http.ResponseWriter, r *http.Request
 	ctx := r.Context()
 	vars := mux.Vars(r)
 	agentID := vars["agentId"]
-	
+
 	config, err := api.agentService.GetConfig(ctx, agentID)
 	if err != nil {
 		sendError(w, http.StatusNotFound, "Agent config not found: "+err.Error())
 		return
 	}
-	
+
 	sendJSON(w, http.StatusOK, config)
 }
 
@@ -162,22 +162,22 @@ func (api *EmbeddingAPIV2) UpdateAgentConfig(w http.ResponseWriter, r *http.Requ
 	ctx := r.Context()
 	vars := mux.Vars(r)
 	agentID := vars["agentId"]
-	
+
 	var update agents.ConfigUpdateRequest
 	if err := json.NewDecoder(r.Body).Decode(&update); err != nil {
 		sendError(w, http.StatusBadRequest, "Invalid request body: "+err.Error())
 		return
 	}
-	
+
 	// Set updated by from context
 	update.UpdatedBy = getUserIDFromContext(ctx)
-	
+
 	config, err := api.agentService.UpdateConfig(ctx, agentID, &update)
 	if err != nil {
 		sendError(w, http.StatusInternalServerError, "Failed to update agent config: "+err.Error())
 		return
 	}
-	
+
 	sendJSON(w, http.StatusOK, config)
 }
 
@@ -186,19 +186,19 @@ func (api *EmbeddingAPIV2) GetAgentModels(w http.ResponseWriter, r *http.Request
 	ctx := r.Context()
 	vars := mux.Vars(r)
 	agentID := vars["agentId"]
-	
+
 	// Get task type from query param
 	taskType := agents.TaskType(r.URL.Query().Get("task_type"))
 	if taskType == "" {
 		taskType = agents.TaskTypeGeneralQA
 	}
-	
+
 	primary, fallback, err := api.agentService.GetModelsForAgent(ctx, agentID, taskType)
 	if err != nil {
 		sendError(w, http.StatusNotFound, "Failed to get agent models: "+err.Error())
 		return
 	}
-	
+
 	sendJSON(w, http.StatusOK, map[string]interface{}{
 		"agent_id":        agentID,
 		"task_type":       taskType,
@@ -212,10 +212,10 @@ func (api *EmbeddingAPIV2) GetAgentCosts(w http.ResponseWriter, r *http.Request)
 	ctx := r.Context()
 	vars := mux.Vars(r)
 	agentID := vars["agentId"]
-	
+
 	// Mark ctx as used
 	_ = ctx
-	
+
 	// Get period from query param (default 30 days)
 	periodDays := 30
 	if p := r.URL.Query().Get("period_days"); p != "" {
@@ -223,7 +223,7 @@ func (api *EmbeddingAPIV2) GetAgentCosts(w http.ResponseWriter, r *http.Request)
 			periodDays = days
 		}
 	}
-	
+
 	// This would call the metrics repository to get cost data
 	// For now, return a mock response
 	costs := map[string]interface{}{
@@ -242,7 +242,7 @@ func (api *EmbeddingAPIV2) GetAgentCosts(w http.ResponseWriter, r *http.Request)
 		"request_count": 125430,
 		"tokens_used":   234567890,
 	}
-	
+
 	sendJSON(w, http.StatusOK, costs)
 }
 
@@ -250,13 +250,13 @@ func (api *EmbeddingAPIV2) GetAgentCosts(w http.ResponseWriter, r *http.Request)
 func (api *EmbeddingAPIV2) SearchEmbeddings(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	tenantID := getTenantIDFromContext(ctx)
-	
+
 	var req EmbeddingSearchRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		sendError(w, http.StatusBadRequest, "Invalid request body: "+err.Error())
 		return
 	}
-	
+
 	// For now, return a mock response
 	// This would integrate with the enhanced search functionality
 	results := []SearchResult{
@@ -270,7 +270,7 @@ func (api *EmbeddingAPIV2) SearchEmbeddings(w http.ResponseWriter, r *http.Reque
 			},
 		},
 	}
-	
+
 	sendJSON(w, http.StatusOK, map[string]interface{}{
 		"results": results,
 		"count":   len(results),
@@ -279,7 +279,7 @@ func (api *EmbeddingAPIV2) SearchEmbeddings(w http.ResponseWriter, r *http.Reque
 			"limit":    req.Limit,
 		},
 	})
-	
+
 	// Mark tenantID as used
 	_ = tenantID
 }
@@ -288,13 +288,13 @@ func (api *EmbeddingAPIV2) SearchEmbeddings(w http.ResponseWriter, r *http.Reque
 func (api *EmbeddingAPIV2) CrossModelSearch(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	tenantID := getTenantIDFromContext(ctx)
-	
+
 	var req CrossModelSearchRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		sendError(w, http.StatusBadRequest, "Invalid request body: "+err.Error())
 		return
 	}
-	
+
 	// For now, return a mock response
 	// This would use the dimension adapter to search across different model embeddings
 	results := []CrossModelSearchResult{
@@ -309,7 +309,7 @@ func (api *EmbeddingAPIV2) CrossModelSearch(w http.ResponseWriter, r *http.Reque
 			},
 		},
 	}
-	
+
 	sendJSON(w, http.StatusOK, map[string]interface{}{
 		"results":      results,
 		"count":        len(results),
@@ -320,7 +320,7 @@ func (api *EmbeddingAPIV2) CrossModelSearch(w http.ResponseWriter, r *http.Reque
 			"amazon.titan-embed-text-v2:0",
 		},
 	})
-	
+
 	// Mark tenantID as used
 	_ = tenantID
 }
@@ -343,13 +343,13 @@ type SearchResult struct {
 }
 
 type CrossModelSearchRequest struct {
-	Query            string                 `json:"query" validate:"required"`
-	SearchModel      string                 `json:"search_model,omitempty"`
-	IncludeModels    []string               `json:"include_models,omitempty"`
-	ExcludeModels    []string               `json:"exclude_models,omitempty"`
-	Limit            int                    `json:"limit,omitempty"`
-	MinSimilarity    float64                `json:"min_similarity,omitempty"`
-	MetadataFilter   map[string]interface{} `json:"metadata_filter,omitempty"`
+	Query          string                 `json:"query" validate:"required"`
+	SearchModel    string                 `json:"search_model,omitempty"`
+	IncludeModels  []string               `json:"include_models,omitempty"`
+	ExcludeModels  []string               `json:"exclude_models,omitempty"`
+	Limit          int                    `json:"limit,omitempty"`
+	MinSimilarity  float64                `json:"min_similarity,omitempty"`
+	MetadataFilter map[string]interface{} `json:"metadata_filter,omitempty"`
 }
 
 type CrossModelSearchResult struct {

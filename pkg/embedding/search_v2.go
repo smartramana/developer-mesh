@@ -483,7 +483,7 @@ func (s *SearchServiceV2) keywordSearch(ctx context.Context, req HybridSearchReq
 
 	// Build query string from keywords
 	queryStr := buildTsQuery(req.Keywords)
-	
+
 	rows, err := s.db.QueryContext(ctx, query, queryStr, req.TenantID, req.Limit*2)
 	if err != nil {
 		return nil, err
@@ -603,7 +603,7 @@ func buildTsQuery(keywords []string) string {
 	if len(keywords) == 0 {
 		return ""
 	}
-	
+
 	// Join keywords with AND operator
 	query := ""
 	for i, kw := range keywords {

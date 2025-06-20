@@ -77,15 +77,15 @@ func (s *WorkspaceServiceIntegrationSuite) TearDownSuite() {
 	s.cancel()
 	if s.db != nil {
 		// Clean up test data
-		shared.CleanupTestData(s.db, s.tenantID)
-		s.db.Close()
+		_ = shared.CleanupTestData(s.db, s.tenantID)
+		_ = s.db.Close()
 	}
 }
 
 // SetupTest runs before each test
 func (s *WorkspaceServiceIntegrationSuite) SetupTest() {
 	// Clean up any data from previous test
-	shared.CleanupWorkspaceData(s.db, s.tenantID)
+	_ = shared.CleanupWorkspaceData(s.db, s.tenantID)
 }
 
 // TestCreateAndRetrieveWorkspace tests basic workspace creation and retrieval
@@ -100,9 +100,9 @@ func (s *WorkspaceServiceIntegrationSuite) TestCreateAndRetrieveWorkspace() {
 		IsPublic:    false,
 		Settings: models.WorkspaceSettings{
 			Preferences: map[string]interface{}{
-				"theme":             "dark",
-				"notifications":     true,
-				"auto_save":         true,
+				"theme":              "dark",
+				"notifications":      true,
+				"auto_save":          true,
 				"collaboration_mode": "real-time",
 			},
 		},
@@ -263,10 +263,10 @@ func (s *WorkspaceServiceIntegrationSuite) TestWorkspaceDocuments() {
 
 	// Update document through workspace service
 	operation := &collaboration.DocumentOperation{
-		DocumentID:  doc1.ID,
-		AgentID:     workspace.OwnerID,
-		Type:        "replace",
-		Path:        "/",
+		DocumentID: doc1.ID,
+		AgentID:    workspace.OwnerID,
+		Type:       "replace",
+		Path:       "/",
 		Value: map[string]interface{}{
 			"title":   "Updated Design Document",
 			"content": "# System Design\n\nUpdated content with more details.",
@@ -361,7 +361,7 @@ func (s *WorkspaceServiceIntegrationSuite) TestWorkspaceStateManagement() {
 	// Verify updates
 	assert.Equal(s.T(), float64(5), state.Data["counter"])
 	assert.Contains(s.T(), state.Data["users"], "user1")
-	
+
 	settings := state.Data["settings"].(map[string]interface{})
 	assert.Equal(s.T(), "dark", settings["theme"])
 }
@@ -422,7 +422,7 @@ func (s *WorkspaceServiceIntegrationSuite) TestConcurrentWorkspaceOperations() {
 	// Verify final counter value
 	state, err := s.workspaceService.GetState(s.ctx, workspace.ID)
 	require.NoError(s.T(), err)
-	
+
 	expectedValue := float64(numGoroutines * incrementsPerGoroutine)
 	assert.Equal(s.T(), expectedValue, state.Data["counter"])
 }

@@ -11,31 +11,31 @@ import (
 // Task represents a unit of work in the multi-agent system
 type Task struct {
 	// Core fields
-	ID         uuid.UUID  `json:"id" db:"id"`
-	TenantID   uuid.UUID  `json:"tenant_id" db:"tenant_id"`
-	Type       string     `json:"type" db:"type"`
-	Status     TaskStatus `json:"status" db:"status"`
-	Priority   TaskPriority `json:"priority" db:"priority"`
-	
+	ID       uuid.UUID    `json:"id" db:"id"`
+	TenantID uuid.UUID    `json:"tenant_id" db:"tenant_id"`
+	Type     string       `json:"type" db:"type"`
+	Status   TaskStatus   `json:"status" db:"status"`
+	Priority TaskPriority `json:"priority" db:"priority"`
+
 	// Agent relationships
 	CreatedBy  string  `json:"created_by" db:"created_by"`
 	AssignedTo *string `json:"assigned_to,omitempty" db:"assigned_to"`
-	
+
 	// Task hierarchy
 	ParentTaskID *uuid.UUID `json:"parent_task_id,omitempty" db:"parent_task_id"`
-	
+
 	// Task data
 	Title       string  `json:"title" db:"title"`
 	Description string  `json:"description,omitempty" db:"description"`
 	Parameters  JSONMap `json:"parameters" db:"parameters"`
 	Result      JSONMap `json:"result,omitempty" db:"result"`
 	Error       string  `json:"error,omitempty" db:"error"`
-	
+
 	// Execution control
 	MaxRetries     int `json:"max_retries" db:"max_retries"`
 	RetryCount     int `json:"retry_count" db:"retry_count"`
 	TimeoutSeconds int `json:"timeout_seconds" db:"timeout_seconds"`
-	
+
 	// Timestamps
 	CreatedAt   time.Time  `json:"created_at" db:"created_at"`
 	AssignedAt  *time.Time `json:"assigned_at,omitempty" db:"assigned_at"`
@@ -43,15 +43,15 @@ type Task struct {
 	CompletedAt *time.Time `json:"completed_at,omitempty" db:"completed_at"`
 	UpdatedAt   time.Time  `json:"updated_at" db:"updated_at"`
 	DeletedAt   *time.Time `json:"deleted_at,omitempty" db:"deleted_at"`
-	
+
 	// Optimistic locking
 	Version int `json:"version" db:"version"`
-	
+
 	// Computed fields (not stored)
-	Subtasks     []*Task               `json:"subtasks,omitempty" db:"-"`
-	Delegations  []*TaskDelegation     `json:"delegations,omitempty" db:"-"`
-	Tags         []string              `json:"tags,omitempty" db:"-"`
-	Capabilities []string              `json:"capabilities,omitempty" db:"-"`
+	Subtasks     []*Task           `json:"subtasks,omitempty" db:"-"`
+	Delegations  []*TaskDelegation `json:"delegations,omitempty" db:"-"`
+	Tags         []string          `json:"tags,omitempty" db:"-"`
+	Capabilities []string          `json:"capabilities,omitempty" db:"-"`
 }
 
 // TaskStatus represents the lifecycle state of a task
@@ -131,7 +131,7 @@ func (m *JSONMap) Scan(value interface{}) error {
 	if value == nil {
 		return nil
 	}
-	
+
 	switch v := value.(type) {
 	case []byte:
 		return json.Unmarshal(v, (*map[string]interface{})(m))

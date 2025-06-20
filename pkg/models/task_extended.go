@@ -19,35 +19,35 @@ type TaskEvent struct {
 
 // DistributedTask represents a task that can be split into subtasks
 type DistributedTask struct {
-	ID          uuid.UUID          `json:"id"`
-	Type        string             `json:"type"`
-	Title       string             `json:"title"`
-	Description string             `json:"description"`
-	Priority    TaskPriority       `json:"priority"`
-	Subtasks    []Subtask          `json:"subtasks"`
-	Aggregation AggregationConfig  `json:"aggregation"`
-	SubtaskIDs  []uuid.UUID        `json:"subtask_ids,omitempty"`
-	
+	ID          uuid.UUID         `json:"id"`
+	Type        string            `json:"type"`
+	Title       string            `json:"title"`
+	Description string            `json:"description"`
+	Priority    TaskPriority      `json:"priority"`
+	Subtasks    []Subtask         `json:"subtasks"`
+	Aggregation AggregationConfig `json:"aggregation"`
+	SubtaskIDs  []uuid.UUID       `json:"subtask_ids,omitempty"`
+
 	// Phase 3 additions
-	Task            *Task             `json:"task,omitempty" db:"-"`
-	CoordinationMode CoordinationMode  `json:"coordination_mode" db:"coordination_mode"`
-	CompletionMode   CompletionMode    `json:"completion_mode" db:"completion_mode"`
-	CompletionThreshold int            `json:"completion_threshold,omitempty" db:"completion_threshold"`
-	
+	Task                *Task            `json:"task,omitempty" db:"-"`
+	CoordinationMode    CoordinationMode `json:"coordination_mode" db:"coordination_mode"`
+	CompletionMode      CompletionMode   `json:"completion_mode" db:"completion_mode"`
+	CompletionThreshold int              `json:"completion_threshold,omitempty" db:"completion_threshold"`
+
 	// Execution tracking fields
-	ExecutionPlan   *ExecutionPlan    `json:"execution_plan,omitempty" db:"execution_plan"`
-	Partitions      []TaskPartition   `json:"partitions,omitempty" db:"-"`
-	Progress        *TaskProgress     `json:"progress,omitempty" db:"-"`
-	ResourceUsage   *ResourceUsage    `json:"resource_usage,omitempty" db:"-"`
-	
+	ExecutionPlan *ExecutionPlan  `json:"execution_plan,omitempty" db:"execution_plan"`
+	Partitions    []TaskPartition `json:"partitions,omitempty" db:"-"`
+	Progress      *TaskProgress   `json:"progress,omitempty" db:"-"`
+	ResourceUsage *ResourceUsage  `json:"resource_usage,omitempty" db:"-"`
+
 	// Timing fields
-	StartedAt       *time.Time        `json:"started_at,omitempty" db:"started_at"`
-	CompletedAt     *time.Time        `json:"completed_at,omitempty" db:"completed_at"`
-	EstimatedDuration time.Duration   `json:"estimated_duration,omitempty" db:"estimated_duration"`
-	
+	StartedAt         *time.Time    `json:"started_at,omitempty" db:"started_at"`
+	CompletedAt       *time.Time    `json:"completed_at,omitempty" db:"completed_at"`
+	EstimatedDuration time.Duration `json:"estimated_duration,omitempty" db:"estimated_duration"`
+
 	// Results aggregation
-	ResultsCollected int              `json:"results_collected" db:"results_collected"`
-	FinalResult     interface{}       `json:"final_result,omitempty" db:"final_result"`
+	ResultsCollected    int           `json:"results_collected" db:"results_collected"`
+	FinalResult         interface{}   `json:"final_result,omitempty" db:"final_result"`
 	IntermediateResults []interface{} `json:"intermediate_results,omitempty" db:"-"`
 }
 
@@ -61,41 +61,40 @@ type Subtask struct {
 
 // AggregationConfig defines how results should be aggregated
 type AggregationConfig struct {
-	Method     string `json:"method"`      // combine_results, first_complete, majority_vote
+	Method     string `json:"method"`       // combine_results, first_complete, majority_vote
 	WaitForAll bool   `json:"wait_for_all"` // Whether to wait for all subtasks
 	Timeout    int    `json:"timeout"`      // Timeout in seconds
 }
 
-
 // TaskStats represents task statistics
 type TaskStats struct {
-	TotalTasks      int64                    `json:"total_tasks"`
-	TasksByStatus   map[TaskStatus]int64     `json:"tasks_by_status"`
-	TasksByPriority map[TaskPriority]int64   `json:"tasks_by_priority"`
-	TasksByType     map[string]int64         `json:"tasks_by_type"`
-	AverageTime     float64                  `json:"average_time_seconds"`
-	SuccessRate     float64                  `json:"success_rate"`
+	TotalTasks      int64                  `json:"total_tasks"`
+	TasksByStatus   map[TaskStatus]int64   `json:"tasks_by_status"`
+	TasksByPriority map[TaskPriority]int64 `json:"tasks_by_priority"`
+	TasksByType     map[string]int64       `json:"tasks_by_type"`
+	AverageTime     float64                `json:"average_time_seconds"`
+	SuccessRate     float64                `json:"success_rate"`
 }
 
 // AgentPerformance represents agent performance metrics
 type AgentPerformance struct {
-	AgentID              string                 `json:"agent_id"`
-	TasksCompleted       int64                  `json:"tasks_completed"`
-	TasksFailed          int64                  `json:"tasks_failed"`
-	AverageCompletionTime float64               `json:"average_completion_time"`
-	SuccessRate          float64                `json:"success_rate"`
-	LoadFactor           float64                `json:"load_factor"`
-	SpeedScore           float64                `json:"speed_score"`
-	TaskTypeMetrics      map[string]TaskMetrics `json:"task_type_metrics"`
+	AgentID               string                 `json:"agent_id"`
+	TasksCompleted        int64                  `json:"tasks_completed"`
+	TasksFailed           int64                  `json:"tasks_failed"`
+	AverageCompletionTime float64                `json:"average_completion_time"`
+	SuccessRate           float64                `json:"success_rate"`
+	LoadFactor            float64                `json:"load_factor"`
+	SpeedScore            float64                `json:"speed_score"`
+	TaskTypeMetrics       map[string]TaskMetrics `json:"task_type_metrics"`
 }
 
 // TaskMetrics represents metrics for a specific task type
 type TaskMetrics struct {
-	Count              int64   `json:"count"`
-	SuccessRate        float64 `json:"success_rate"`
-	AverageTime        float64 `json:"average_time"`
-	MedianTime         float64 `json:"median_time"`
-	P95Time            float64 `json:"p95_time"`
+	Count       int64   `json:"count"`
+	SuccessRate float64 `json:"success_rate"`
+	AverageTime float64 `json:"average_time"`
+	MedianTime  float64 `json:"median_time"`
+	P95Time     float64 `json:"p95_time"`
 }
 
 // TaskCreatedEvent represents a task creation event
@@ -111,18 +110,18 @@ type SubtaskCreatedEvent struct {
 
 // TaskDelegatedEvent represents a task delegation event
 type TaskDelegatedEvent struct {
-	Task          *Task            `json:"task"`
-	Delegation    *TaskDelegation  `json:"delegation"`
+	Task          *Task           `json:"task"`
+	Delegation    *TaskDelegation `json:"delegation"`
 	PreviousAgent string          `json:"previous_agent"`
 }
 
 // AgentWorkload represents current workload for an agent
 type AgentWorkload struct {
-	AgentID      string         `json:"agent_id"`
-	ActiveTasks  int            `json:"active_tasks"`
-	QueuedTasks  int            `json:"queued_tasks"`
-	TasksByType  map[string]int `json:"tasks_by_type"`
-	LoadScore    float64        `json:"load_score"`    // 0.0 (idle) to 1.0 (overloaded)
+	AgentID       string         `json:"agent_id"`
+	ActiveTasks   int            `json:"active_tasks"`
+	QueuedTasks   int            `json:"queued_tasks"`
+	TasksByType   map[string]int `json:"tasks_by_type"`
+	LoadScore     float64        `json:"load_score"`     // 0.0 (idle) to 1.0 (overloaded)
 	EstimatedTime int            `json:"estimated_time"` // Estimated time to complete all tasks in seconds
 }
 
@@ -166,11 +165,11 @@ func (dt *DistributedTask) CalculateProgress() float64 {
 	if dt.Progress != nil {
 		return dt.Progress.PercentComplete
 	}
-	
+
 	if len(dt.SubtaskIDs) == 0 {
 		return 0.0
 	}
-	
+
 	// Calculate based on collected results
 	return float64(dt.ResultsCollected) / float64(len(dt.SubtaskIDs)) * 100.0
 }
@@ -181,7 +180,7 @@ func (dt *DistributedTask) IsComplete() bool {
 	if totalSubtasks == 0 {
 		return true
 	}
-	
+
 	switch dt.CompletionMode {
 	case CompletionModeAll:
 		return dt.ResultsCollected >= totalSubtasks
@@ -207,11 +206,11 @@ func (dt *DistributedTask) GetEstimatedCompletion() *time.Time {
 	if dt.StartedAt == nil {
 		return nil
 	}
-	
+
 	if dt.EstimatedDuration == 0 {
 		return nil
 	}
-	
+
 	estimatedTime := dt.StartedAt.Add(dt.EstimatedDuration)
 	return &estimatedTime
 }

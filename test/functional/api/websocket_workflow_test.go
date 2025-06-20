@@ -11,8 +11,9 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
-	ws "github.com/S-Corkum/devops-mcp/pkg/models/websocket"
 	"functional-tests/shared"
+
+	ws "github.com/S-Corkum/devops-mcp/pkg/models/websocket"
 )
 
 var _ = Describe("WebSocket Multi-Step Workflows", func() {
@@ -26,12 +27,12 @@ var _ = Describe("WebSocket Multi-Step Workflows", func() {
 
 	BeforeEach(func() {
 		ctx, cancel = context.WithTimeout(context.Background(), 60*time.Second)
-		
+
 		// Get test configuration
 		config := shared.GetTestConfig()
 		wsURL = config.WebSocketURL
 		apiKey = shared.GetTestAPIKey("test-tenant-1")
-		
+
 		var err error
 		conn, err = shared.EstablishConnection(wsURL, apiKey)
 		Expect(err).NotTo(HaveOccurred())
@@ -48,7 +49,7 @@ var _ = Describe("WebSocket Multi-Step Workflows", func() {
 		It("should execute tools sequentially with output piping", func() {
 			// Define a workflow: fetch data → transform → analyze
 			workflowID := uuid.New().String()
-			
+
 			// Step 1: Create workflow
 			createWorkflowMsg := ws.Message{
 				ID:     uuid.New().String(),
@@ -116,28 +117,28 @@ var _ = Describe("WebSocket Multi-Step Workflows", func() {
 			Expect(err).NotTo(HaveOccurred())
 			Expect(executeResp.ID).To(Equal(executeMsg.ID))
 			Expect(executeResp.Error).To(BeNil())
-			
+
 			// Extract execution details from response
 			result, ok := executeResp.Result.(map[string]interface{})
 			Expect(ok).To(BeTrue())
-			
+
 			executionID, ok := result["execution_id"].(string)
 			Expect(ok).To(BeTrue())
 			Expect(executionID).NotTo(BeEmpty())
-			
+
 			// Check execution order from response
 			executionOrder, ok := result["execution_order"].([]interface{})
 			Expect(ok).To(BeTrue())
-			
+
 			// Convert to string array
 			stepOrder := make([]string, len(executionOrder))
 			for i, step := range executionOrder {
 				stepOrder[i] = step.(string)
 			}
-			
+
 			// Verify execution order
 			Expect(stepOrder).To(Equal([]string{"fetch", "transform", "analyze"}))
-			
+
 			// TODO: In a real implementation, we would check workflow status
 			// to verify data was passed between steps
 		})
@@ -145,7 +146,7 @@ var _ = Describe("WebSocket Multi-Step Workflows", func() {
 		It("should execute simple workflow with notifications", func() {
 			// Create a simple workflow to test notifications
 			workflowID := uuid.New().String()
-			
+
 			createWorkflowMsg := ws.Message{
 				ID:     uuid.New().String(),
 				Type:   ws.MessageTypeRequest,
@@ -196,7 +197,7 @@ var _ = Describe("WebSocket Multi-Step Workflows", func() {
 			// Track notifications
 			notifications := []ws.Message{}
 			gotResponse := false
-			
+
 			timeout := time.After(5 * time.Second)
 			for len(notifications) < 4 { // Expect 2 started + 2 completed
 				select {
@@ -210,7 +211,7 @@ var _ = Describe("WebSocket Multi-Step Workflows", func() {
 					var msg ws.Message
 					err := wsjson.Read(ctx, conn, &msg)
 					Expect(err).NotTo(HaveOccurred())
-					
+
 					if msg.Type == ws.MessageTypeResponse && msg.ID == executeMsg.ID {
 						gotResponse = true
 						GinkgoWriter.Printf("Got execute response\n")
@@ -220,7 +221,7 @@ var _ = Describe("WebSocket Multi-Step Workflows", func() {
 					}
 				}
 			}
-			
+
 			Expect(gotResponse).To(BeTrue())
 			Expect(len(notifications)).To(BeNumerically(">=", 4))
 		})
@@ -228,7 +229,7 @@ var _ = Describe("WebSocket Multi-Step Workflows", func() {
 		It("should support conditional branching", func() {
 			// Create a workflow with conditional execution
 			workflowID := uuid.New().String()
-			
+
 			createWorkflowMsg := ws.Message{
 				ID:     uuid.New().String(),
 				Type:   ws.MessageTypeRequest,
@@ -298,7 +299,7 @@ var _ = Describe("WebSocket Multi-Step Workflows", func() {
 			// Track which steps executed
 			executedSteps := make(map[string]bool)
 			startedSteps := make(map[string]bool)
-			
+
 			// First, get the execute response
 			var executeResp ws.Message
 			err = wsjson.Read(ctx, conn, &executeResp)
@@ -306,12 +307,12 @@ var _ = Describe("WebSocket Multi-Step Workflows", func() {
 			Expect(executeResp.ID).To(Equal(executeMsg.ID))
 			Expect(executeResp.Error).To(BeNil())
 			GinkgoWriter.Printf("Got execute response\n")
-			
+
 			// Now wait for notifications
 			timeout := time.After(5 * time.Second)
 			done := false
 			messageCount := 0
-			
+
 			for !done && len(executedSteps) < 2 { // We expect at least 2 steps
 				select {
 				case <-timeout:
@@ -322,12 +323,12 @@ var _ = Describe("WebSocket Multi-Step Workflows", func() {
 					ctx, cancel := context.WithTimeout(context.Background(), 100*time.Millisecond)
 					err := wsjson.Read(ctx, conn, &msg)
 					cancel()
-					
+
 					if err != nil {
 						// Timeout is expected when no messages
 						continue
 					}
-					
+
 					messageCount++
 					GinkgoWriter.Printf("Notification %d: Type=%s, Method=%s\n", messageCount, msg.Type, msg.Method)
 
@@ -352,7 +353,7 @@ var _ = Describe("WebSocket Multi-Step Workflows", func() {
 			// Verify conditional execution
 			// For now, accept either started or completed as evidence of execution
 			Expect(startedSteps["run_tests"] || executedSteps["run_tests"]).To(BeTrue(), "Tests should always run")
-			
+
 			// Either deploy or notify should run, but not both
 			deployRan := executedSteps["deploy_staging"]
 			notifyRan := executedSteps["notify_failure"]
@@ -363,7 +364,7 @@ var _ = Describe("WebSocket Multi-Step Workflows", func() {
 		It("should execute tools in parallel when possible", func() {
 			// Create workflow with parallel steps
 			workflowID := uuid.New().String()
-			
+
 			createWorkflowMsg := ws.Message{
 				ID:     uuid.New().String(),
 				Type:   ws.MessageTypeRequest,
@@ -386,7 +387,7 @@ var _ = Describe("WebSocket Multi-Step Workflows", func() {
 							"depends_on": []string{"fetch_data"},
 							"parallel":   true,
 							"arguments": map[string]interface{}{
-								"data": "$fetch_data.result",
+								"data":  "$fetch_data.result",
 								"level": "deep",
 							},
 						},
@@ -396,7 +397,7 @@ var _ = Describe("WebSocket Multi-Step Workflows", func() {
 							"depends_on": []string{"fetch_data"},
 							"parallel":   true,
 							"arguments": map[string]interface{}{
-								"data": "$fetch_data.result",
+								"data":       "$fetch_data.result",
 								"iterations": 100,
 							},
 						},
@@ -449,7 +450,7 @@ var _ = Describe("WebSocket Multi-Step Workflows", func() {
 			// Track step timing
 			stepStartTimes := make(map[string]time.Time)
 			stepEndTimes := make(map[string]time.Time)
-			
+
 			completed := false
 			for !completed {
 				var msg ws.Message
@@ -474,11 +475,11 @@ var _ = Describe("WebSocket Multi-Step Workflows", func() {
 			}
 
 			totalDuration := time.Since(startTime)
-			
+
 			// Verify parallel execution
 			// The three parallel steps should have overlapping execution times
 			parallelSteps := []string{"security_scan", "performance_test", "quality_check"}
-			
+
 			overlapFound := false
 			for i := 0; i < len(parallelSteps); i++ {
 				for j := i + 1; j < len(parallelSteps); j++ {
@@ -486,18 +487,18 @@ var _ = Describe("WebSocket Multi-Step Workflows", func() {
 					step1End := stepEndTimes[parallelSteps[i]]
 					step2Start := stepStartTimes[parallelSteps[j]]
 					step2End := stepEndTimes[parallelSteps[j]]
-					
+
 					// Check if execution times overlap
 					if step1Start.Before(step2End) && step2Start.Before(step1End) {
 						overlapFound = true
-						GinkgoWriter.Printf("Steps %s and %s ran in parallel\n", 
+						GinkgoWriter.Printf("Steps %s and %s ran in parallel\n",
 							parallelSteps[i], parallelSteps[j])
 					}
 				}
 			}
-			
+
 			Expect(overlapFound).To(BeTrue(), "Parallel steps should have overlapping execution")
-			
+
 			GinkgoWriter.Printf("Workflow completed in %v\n", totalDuration)
 		})
 	})
@@ -506,14 +507,14 @@ var _ = Describe("WebSocket Multi-Step Workflows", func() {
 		It("should support atomic multi-tool operations", func() {
 			// Create a transactional workflow
 			workflowID := uuid.New().String()
-			
+
 			createWorkflowMsg := ws.Message{
 				ID:     uuid.New().String(),
 				Type:   ws.MessageTypeRequest,
 				Method: "workflow.create",
 				Params: map[string]interface{}{
-					"id":           workflowID,
-					"name":         "atomic-update",
+					"id":            workflowID,
+					"name":          "atomic-update",
 					"transactional": true, // Enable transaction
 					"steps": []map[string]interface{}{
 						{
@@ -580,10 +581,10 @@ var _ = Describe("WebSocket Multi-Step Workflows", func() {
 
 			// Track transaction state
 			transactionEvents := make([]string, 0)
-			
+
 			timeout := time.After(10 * time.Second)
 			done := false
-			
+
 			for !done {
 				select {
 				case <-timeout:
@@ -605,7 +606,7 @@ var _ = Describe("WebSocket Multi-Step Workflows", func() {
 						}
 					} else if msg.Type == ws.MessageTypeResponse {
 						done = true
-						
+
 						// Verify transaction completed successfully
 						if result, ok := msg.Result.(map[string]interface{}); ok {
 							Expect(result["status"]).To(Equal("committed"))
@@ -623,7 +624,7 @@ var _ = Describe("WebSocket Multi-Step Workflows", func() {
 		It("should rollback on failure", func() {
 			// Create workflow that will fail
 			workflowID := uuid.New().String()
-			
+
 			createWorkflowMsg := ws.Message{
 				ID:     uuid.New().String(),
 				Type:   ws.MessageTypeRequest,
@@ -676,10 +677,10 @@ var _ = Describe("WebSocket Multi-Step Workflows", func() {
 			// Track rollback
 			rollbackOccurred := false
 			compensatingActions := make([]string, 0)
-			
+
 			timeout := time.After(10 * time.Second)
 			done := false
-			
+
 			for !done {
 				select {
 				case <-timeout:
@@ -718,14 +719,14 @@ var _ = Describe("WebSocket Multi-Step Workflows", func() {
 		It("should support workflow state checkpointing", func() {
 			// Create a long-running workflow with checkpoints
 			workflowID := uuid.New().String()
-			
+
 			createWorkflowMsg := ws.Message{
 				ID:     uuid.New().String(),
 				Type:   ws.MessageTypeRequest,
 				Method: "workflow.create",
 				Params: map[string]interface{}{
-					"id":                workflowID,
-					"name":              "resumable-workflow",
+					"id":                 workflowID,
+					"name":               "resumable-workflow",
 					"checkpoint_enabled": true,
 					"steps": []map[string]interface{}{
 						{
@@ -783,7 +784,7 @@ var _ = Describe("WebSocket Multi-Step Workflows", func() {
 			// Wait for first checkpoint
 			var checkpointID string
 			checkpointReceived := false
-			
+
 			timeout := time.After(5 * time.Second)
 			for !checkpointReceived {
 				select {
@@ -839,7 +840,7 @@ var _ = Describe("WebSocket Multi-Step Workflows", func() {
 			// Verify workflow resumes and completes
 			resumed := false
 			completed := false
-			
+
 			timeout = time.After(10 * time.Second)
 			for !completed {
 				select {
@@ -871,7 +872,7 @@ var _ = Describe("WebSocket Multi-Step Workflows", func() {
 		It("should support nested workflows", func() {
 			// Create parent workflow that calls child workflows
 			parentWorkflowID := uuid.New().String()
-			
+
 			createParentMsg := ws.Message{
 				ID:     uuid.New().String(),
 				Type:   ws.MessageTypeRequest,
@@ -977,7 +978,7 @@ var _ = Describe("WebSocket Multi-Step Workflows", func() {
 			// Track sub-workflow execution
 			subWorkflowsStarted := make(map[string]bool)
 			subWorkflowsCompleted := make(map[string]bool)
-			
+
 			completed := false
 			for !completed {
 				var msg ws.Message
@@ -1010,7 +1011,7 @@ var _ = Describe("WebSocket Multi-Step Workflows", func() {
 		It("should handle dynamic workflow generation", func() {
 			// Create a workflow that generates steps dynamically based on input
 			workflowID := uuid.New().String()
-			
+
 			createWorkflowMsg := ws.Message{
 				ID:     uuid.New().String(),
 				Type:   ws.MessageTypeRequest,
@@ -1022,8 +1023,8 @@ var _ = Describe("WebSocket Multi-Step Workflows", func() {
 					"generator": map[string]interface{}{
 						"tool": "workflow_generator",
 						"arguments": map[string]interface{}{
-							"template": "multi-environment-deploy",
-							"environments": []string{"dev", "staging", "prod"},
+							"template":         "multi-environment-deploy",
+							"environments":     []string{"dev", "staging", "prod"},
 							"require_approval": []string{"staging", "prod"},
 						},
 					},
@@ -1059,7 +1060,7 @@ var _ = Describe("WebSocket Multi-Step Workflows", func() {
 				if steps, ok := result["steps"].([]interface{}); ok {
 					// Should have steps for each environment plus approvals
 					Expect(len(steps)).To(BeNumerically(">=", 5)) // 3 deploys + 2 approvals minimum
-					
+
 					// Verify approval steps were inserted
 					approvalSteps := 0
 					for _, step := range steps {
@@ -1079,7 +1080,7 @@ var _ = Describe("WebSocket Multi-Step Workflows", func() {
 		It("should support retry with exponential backoff", func() {
 			// Create workflow with retry policy
 			workflowID := uuid.New().String()
-			
+
 			createWorkflowMsg := ws.Message{
 				ID:     uuid.New().String(),
 				Type:   ws.MessageTypeRequest,
@@ -1130,7 +1131,7 @@ var _ = Describe("WebSocket Multi-Step Workflows", func() {
 			retryAttempts := 0
 			retryDelays := make([]time.Duration, 0)
 			lastRetryTime := startTime
-			
+
 			completed := false
 			for !completed {
 				var msg ws.Message
@@ -1143,9 +1144,9 @@ var _ = Describe("WebSocket Multi-Step Workflows", func() {
 					delay := currentTime.Sub(lastRetryTime)
 					retryDelays = append(retryDelays, delay)
 					lastRetryTime = currentTime
-					
+
 					if params, ok := msg.Params.(map[string]interface{}); ok {
-						GinkgoWriter.Printf("Retry attempt %v after %v delay\n", 
+						GinkgoWriter.Printf("Retry attempt %v after %v delay\n",
 							params["attempt"], delay)
 					}
 				} else if msg.Type == ws.MessageTypeResponse || msg.Type == ws.MessageTypeError {
@@ -1166,7 +1167,7 @@ var _ = Describe("WebSocket Multi-Step Workflows", func() {
 		It("should support circuit breaker pattern", func() {
 			// Create workflow with circuit breaker
 			workflowID := uuid.New().String()
-			
+
 			createWorkflowMsg := ws.Message{
 				ID:     uuid.New().String(),
 				Type:   ws.MessageTypeRequest,
@@ -1181,8 +1182,8 @@ var _ = Describe("WebSocket Multi-Step Workflows", func() {
 					},
 					"steps": []map[string]interface{}{
 						{
-							"id":   "external_api_call",
-							"tool": "external_api",
+							"id":                      "external_api_call",
+							"tool":                    "external_api",
 							"circuit_breaker_enabled": true,
 							"arguments": map[string]interface{}{
 								"endpoint": "https://flaky-api.example.com",
@@ -1201,7 +1202,7 @@ var _ = Describe("WebSocket Multi-Step Workflows", func() {
 
 			// Execute workflow multiple times to trigger circuit breaker
 			circuitOpen := false
-			
+
 			for i := 0; i < 5; i++ {
 				executeMsg := ws.Message{
 					ID:     uuid.New().String(),

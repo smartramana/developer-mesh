@@ -7,8 +7,8 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/google/uuid"
 	"github.com/S-Corkum/devops-mcp/pkg/models"
+	"github.com/google/uuid"
 	"github.com/jmoiron/sqlx"
 )
 

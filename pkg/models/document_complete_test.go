@@ -178,9 +178,9 @@ func TestWorkspaceMemberRole_HasPermission(t *testing.T) {
 
 func TestWorkspaceMemberRole_CanTransitionTo(t *testing.T) {
 	tests := []struct {
-		name         string
-		from         WorkspaceMemberRole
-		to           WorkspaceMemberRole
+		name          string
+		from          WorkspaceMemberRole
+		to            WorkspaceMemberRole
 		canTransition bool
 	}{
 		// Owner transitions

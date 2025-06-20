@@ -14,7 +14,7 @@ import (
 func TestNewSmartRouter(t *testing.T) {
 	config := DefaultRouterConfig()
 	providers := map[string]providers.Provider{
-		"openai": providers.NewMockProvider("openai"),
+		"openai":  providers.NewMockProvider("openai"),
 		"bedrock": providers.NewMockProvider("bedrock"),
 	}
 
@@ -31,11 +31,11 @@ func TestNewSmartRouter(t *testing.T) {
 
 func TestSmartRouterSelectProvider(t *testing.T) {
 	config := DefaultRouterConfig()
-	
+
 	// Create mock providers
 	openaiProvider := providers.NewMockProvider("openai")
 	bedrockProvider := providers.NewMockProvider("bedrock")
-	
+
 	providerMap := map[string]providers.Provider{
 		"openai":  openaiProvider,
 		"bedrock": bedrockProvider,
@@ -49,8 +49,8 @@ func TestSmartRouterSelectProvider(t *testing.T) {
 			EmbeddingStrategy: agents.StrategyBalanced,
 			ModelPreferences: []agents.ModelPreference{
 				{
-					TaskType:      agents.TaskTypeGeneralQA,
-					PrimaryModels: []string{"mock-model-small", "mock-model-large"},
+					TaskType:       agents.TaskTypeGeneralQA,
+					PrimaryModels:  []string{"mock-model-small", "mock-model-large"},
 					FallbackModels: []string{"mock-model-titan"},
 				},
 			},
@@ -67,7 +67,7 @@ func TestSmartRouterSelectProvider(t *testing.T) {
 		assert.NotNil(t, decision)
 		assert.True(t, len(decision.Candidates) > 0)
 		assert.Equal(t, "balanced", decision.Strategy)
-		
+
 		// Check that candidates are properly scored
 		for i := 0; i < len(decision.Candidates)-1; i++ {
 			assert.GreaterOrEqual(t, decision.Candidates[i].Score, decision.Candidates[i+1].Score)
@@ -126,10 +126,10 @@ func TestSmartRouterSelectProvider(t *testing.T) {
 
 func TestSmartRouterScoreCandidates(t *testing.T) {
 	config := DefaultRouterConfig()
-	
+
 	openaiProvider := providers.NewMockProvider("openai")
 	bedrockProvider := providers.NewMockProvider("bedrock")
-	
+
 	providerMap := map[string]providers.Provider{
 		"openai":  openaiProvider,
 		"bedrock": bedrockProvider,
@@ -160,7 +160,7 @@ func TestSmartRouterScoreCandidates(t *testing.T) {
 
 		// We have 2 providers and 3 models, so 6 candidates total
 		assert.Len(t, candidates, 6)
-		
+
 		// Check that all candidates have scores and reasons
 		for _, candidate := range candidates {
 			assert.NotEmpty(t, candidate.Provider)
@@ -173,7 +173,7 @@ func TestSmartRouterScoreCandidates(t *testing.T) {
 
 func TestSmartRouterScoreProviderModel(t *testing.T) {
 	config := DefaultRouterConfig()
-	
+
 	providerMap := map[string]providers.Provider{
 		"openai": providers.NewMockProvider("openai"),
 	}
@@ -201,7 +201,7 @@ func TestSmartRouterScoreProviderModel(t *testing.T) {
 		}
 
 		score, reasons := router.scoreProviderModel(req, "openai", model)
-		
+
 		assert.True(t, score > 0 && score <= 1)
 		assert.NotEmpty(t, reasons)
 	})
@@ -225,7 +225,7 @@ func TestSmartRouterScoreProviderModel(t *testing.T) {
 		}
 
 		score, reasons := router.scoreProviderModel(req, "openai", model)
-		
+
 		// Quality strategy should favor higher dimension models
 		assert.True(t, score > 0.5)
 		assert.Contains(t, reasons, "quality priority")
@@ -249,7 +249,7 @@ func TestSmartRouterScoreProviderModel(t *testing.T) {
 		}
 
 		score, reasons := router.scoreProviderModel(req, "openai", model)
-		
+
 		// Cost strategy should favor cheaper models
 		assert.True(t, score > 0.7)
 		assert.Contains(t, reasons, "cost optimized")
@@ -273,7 +273,7 @@ func TestSmartRouterScoreProviderModel(t *testing.T) {
 		}
 
 		score, reasons := router.scoreProviderModel(req, "openai", model)
-		
+
 		assert.True(t, score > 0)
 		assert.Contains(t, reasons, "speed priority")
 	})
@@ -296,7 +296,7 @@ func TestSmartRouterScoreProviderModel(t *testing.T) {
 		}
 
 		score, reasons := router.scoreProviderModel(req, "openai", model)
-		
+
 		assert.Equal(t, float64(0), score)
 		assert.Contains(t, reasons, "inactive model")
 	})
@@ -321,7 +321,7 @@ func TestSmartRouterScoreProviderModel(t *testing.T) {
 		}
 
 		score, reasons := router.scoreProviderModel(req, "openai", model)
-		
+
 		// Deprecated models should have reduced score
 		assert.True(t, score < 0.5)
 		assert.Contains(t, reasons, "deprecated model")
@@ -332,7 +332,7 @@ func TestSmartRouterCircuitBreakerIntegration(t *testing.T) {
 	config := DefaultRouterConfig()
 	config.CircuitBreakerConfig.FailureThreshold = 2
 	config.CircuitBreakerConfig.Timeout = 100 * time.Millisecond
-	
+
 	providerMap := map[string]providers.Provider{
 		"openai":  providers.NewMockProvider("openai"),
 		"bedrock": providers.NewMockProvider("bedrock"),
@@ -370,7 +370,7 @@ func TestSmartRouterCircuitBreakerIntegration(t *testing.T) {
 	// OpenAI should now be filtered out
 	decision, err = router.SelectProvider(context.Background(), req)
 	require.NoError(t, err)
-	
+
 	// Should only have bedrock candidates
 	for _, candidate := range decision.Candidates {
 		assert.NotEqual(t, "openai", candidate.Provider)
@@ -382,7 +382,7 @@ func TestSmartRouterCircuitBreakerIntegration(t *testing.T) {
 	// OpenAI should be available again (half-open)
 	decision, err = router.SelectProvider(context.Background(), req)
 	require.NoError(t, err)
-	
+
 	hasOpenAI := false
 	for _, candidate := range decision.Candidates {
 		if candidate.Provider == "openai" {
@@ -424,7 +424,7 @@ func TestQualityTracker(t *testing.T) {
 // Benchmark tests
 func BenchmarkSmartRouterSelectProvider(b *testing.B) {
 	config := DefaultRouterConfig()
-	
+
 	providerMap := map[string]providers.Provider{
 		"openai":  providers.NewMockProvider("openai"),
 		"bedrock": providers.NewMockProvider("bedrock"),
@@ -461,7 +461,7 @@ func BenchmarkSmartRouterSelectProvider(b *testing.B) {
 
 func BenchmarkSmartRouterScoreCandidates(b *testing.B) {
 	config := DefaultRouterConfig()
-	
+
 	providerMap := map[string]providers.Provider{
 		"openai":  providers.NewMockProvider("openai"),
 		"bedrock": providers.NewMockProvider("bedrock"),

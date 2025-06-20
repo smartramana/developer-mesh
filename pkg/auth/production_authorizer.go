@@ -5,9 +5,9 @@ import (
 	"fmt"
 	"sync"
 	"time"
-	
+
 	"github.com/pkg/errors"
-	
+
 	"github.com/S-Corkum/devops-mcp/pkg/cache"
 	"github.com/S-Corkum/devops-mcp/pkg/observability"
 )
@@ -15,36 +15,36 @@ import (
 // ProductionAuthorizer implements production-grade authorization
 type ProductionAuthorizer struct {
 	// In-memory policy storage for now (will be replaced with Casbin later)
-	policies      []Policy
-	roleBindings  map[string][]string // user -> roles
-	roles         map[string]bool     // available roles
-	cache         cache.Cache
-	logger        observability.Logger
-	metrics       observability.MetricsClient
-	tracer        observability.StartSpanFunc
-	auditLogger   *AuditLogger
-	mu            sync.RWMutex
-	
+	policies     []Policy
+	roleBindings map[string][]string // user -> roles
+	roles        map[string]bool     // available roles
+	cache        cache.Cache
+	logger       observability.Logger
+	metrics      observability.MetricsClient
+	tracer       observability.StartSpanFunc
+	auditLogger  *AuditLogger
+	mu           sync.RWMutex
+
 	// Configuration
-	cacheEnabled   bool
-	cacheDuration  time.Duration
-	policyPath     string
-	modelPath      string
+	cacheEnabled  bool
+	cacheDuration time.Duration
+	policyPath    string
+	modelPath     string
 }
 
 // AuthConfig holds configuration for the production authorizer
 type AuthConfig struct {
-	ModelPath      string
-	PolicyPath     string
-	DBDriver       string
-	DBSource       string
-	Cache          cache.Cache
-	Logger         observability.Logger
-	Metrics        observability.MetricsClient
-	Tracer         observability.StartSpanFunc
-	AuditLogger    *AuditLogger
-	CacheEnabled   bool
-	CacheDuration  time.Duration
+	ModelPath     string
+	PolicyPath    string
+	DBDriver      string
+	DBSource      string
+	Cache         cache.Cache
+	Logger        observability.Logger
+	Metrics       observability.MetricsClient
+	Tracer        observability.StartSpanFunc
+	AuditLogger   *AuditLogger
+	CacheEnabled  bool
+	CacheDuration time.Duration
 }
 
 // AuthRequest represents an authorization request
@@ -80,16 +80,16 @@ func NewProductionAuthorizer(config AuthConfig) (*ProductionAuthorizer, error) {
 	if config.AuditLogger == nil {
 		return nil, errors.New("audit logger is required")
 	}
-	
+
 	// Initialize in-memory storage
 	roleBindings := make(map[string][]string)
 	roles := make(map[string]bool)
-	
+
 	// Default roles
 	roles["admin"] = true
 	roles["user"] = true
 	roles["viewer"] = true
-	
+
 	auth := &ProductionAuthorizer{
 		policies:      []Policy{},
 		roleBindings:  roleBindings,
@@ -104,21 +104,21 @@ func NewProductionAuthorizer(config AuthConfig) (*ProductionAuthorizer, error) {
 		modelPath:     config.ModelPath,
 		policyPath:    config.PolicyPath,
 	}
-	
+
 	// Load initial policies
 	if err := auth.loadPolicies(); err != nil {
 		return nil, errors.Wrap(err, "failed to load initial policies")
 	}
-	
+
 	// Start policy watcher for dynamic updates
 	go auth.watchPolicyChanges(context.Background())
-	
+
 	config.Logger.Info("Production authorizer initialized", map[string]interface{}{
 		"model_path":     config.ModelPath,
 		"cache_enabled":  config.CacheEnabled,
 		"cache_duration": config.CacheDuration,
 	})
-	
+
 	return auth, nil
 }
 
@@ -132,9 +132,9 @@ func (a *ProductionAuthorizer) Authorize(ctx context.Context, permission Permiss
 			Reason:  "no user in context",
 		}
 	}
-	
+
 	tenantID := GetTenantID(ctx).String()
-	
+
 	// Create auth request
 	req := &AuthRequest{
 		Subject:  userID,
@@ -143,7 +143,7 @@ func (a *ProductionAuthorizer) Authorize(ctx context.Context, permission Permiss
 		Tenant:   tenantID,
 		Context:  permission.Conditions,
 	}
-	
+
 	// Check authorization
 	err := a.AuthorizeRequest(ctx, req)
 	if err != nil {
@@ -152,7 +152,7 @@ func (a *ProductionAuthorizer) Authorize(ctx context.Context, permission Permiss
 			Reason:  err.Error(),
 		}
 	}
-	
+
 	return Decision{
 		Allowed: true,
 		Reason:  "permission granted",
@@ -163,18 +163,18 @@ func (a *ProductionAuthorizer) Authorize(ctx context.Context, permission Permiss
 func (a *ProductionAuthorizer) AuthorizeRequest(ctx context.Context, req *AuthRequest) error {
 	ctx, span := a.tracer(ctx, "ProductionAuthorizer.AuthorizeRequest")
 	defer span.End()
-	
+
 	startTime := time.Now()
 	defer func() {
 		a.metrics.RecordHistogram("auth.authorize.duration", time.Since(startTime).Seconds(), nil)
 	}()
-	
+
 	// Validate request
 	if err := a.validateAuthRequest(req); err != nil {
 		a.metrics.IncrementCounter("auth.validation.error", 1)
 		return errors.Wrap(err, "invalid auth request")
 	}
-	
+
 	// Check cache if enabled
 	if a.cacheEnabled {
 		cacheKey := a.buildCacheKey(req)
@@ -187,28 +187,28 @@ func (a *ProductionAuthorizer) AuthorizeRequest(ctx context.Context, req *AuthRe
 			return a.recordAndReturnSuccess(ctx, req)
 		}
 	}
-	
+
 	// Prepare request parameters
 	params := a.buildEnforcerParams(req)
-	
+
 	// Check permission with retries for resilience
 	allowed, err := a.enforceWithRetry(ctx, params)
 	if err != nil {
 		a.metrics.IncrementCounter("auth.enforce.error", 1)
 		return errors.Wrap(err, "failed to check permission")
 	}
-	
+
 	// Cache result
 	if a.cacheEnabled {
 		cacheKey := a.buildCacheKey(req)
 		_ = a.cache.Set(ctx, cacheKey, allowed, a.cacheDuration)
 	}
-	
+
 	// Handle result
 	if !allowed {
 		return a.recordAndReturnDenial(ctx, req, "permission denied")
 	}
-	
+
 	return a.recordAndReturnSuccess(ctx, req)
 }
 
@@ -219,9 +219,9 @@ func (a *ProductionAuthorizer) CheckPermission(ctx context.Context, resource, ac
 	if userID == "" {
 		return false
 	}
-	
+
 	tenantID := GetTenantID(ctx).String()
-	
+
 	// Create auth request
 	req := &AuthRequest{
 		Subject:  userID,
@@ -229,7 +229,7 @@ func (a *ProductionAuthorizer) CheckPermission(ctx context.Context, resource, ac
 		Action:   action,
 		Tenant:   tenantID,
 	}
-	
+
 	// Check authorization
 	err := a.AuthorizeRequest(ctx, req)
 	return err == nil
@@ -239,32 +239,32 @@ func (a *ProductionAuthorizer) CheckPermission(ctx context.Context, resource, ac
 func (a *ProductionAuthorizer) AddPolicy(ctx context.Context, policy Policy) error {
 	ctx, span := a.tracer(ctx, "ProductionAuthorizer.AddPolicy")
 	defer span.End()
-	
+
 	// Validate policy
 	if err := a.validatePolicy(policy); err != nil {
 		return errors.Wrap(err, "invalid policy")
 	}
-	
+
 	// Check if policy already exists
 	for _, p := range a.policies {
 		if p.Subject == policy.Subject && p.Resource == policy.Resource && p.Action == policy.Action {
 			return errors.New("policy already exists")
 		}
 	}
-	
+
 	// Add policy
 	a.mu.Lock()
 	a.policies = append(a.policies, policy)
 	a.mu.Unlock()
-	
+
 	// Invalidate cache for this subject
 	if a.cacheEnabled {
 		a.invalidateCacheForSubject(ctx, policy.Subject)
 	}
-	
+
 	// Audit log
 	a.auditLogger.LogPolicyChange(ctx, "add_policy", policy, "")
-	
+
 	a.metrics.IncrementCounter("auth.policy.added", 1)
 	return nil
 }
@@ -273,12 +273,12 @@ func (a *ProductionAuthorizer) AddPolicy(ctx context.Context, policy Policy) err
 func (a *ProductionAuthorizer) RemovePolicy(ctx context.Context, policy Policy) error {
 	ctx, span := a.tracer(ctx, "ProductionAuthorizer.RemovePolicy")
 	defer span.End()
-	
+
 	// Validate policy
 	if err := a.validatePolicy(policy); err != nil {
 		return errors.Wrap(err, "invalid policy")
 	}
-	
+
 	// Find and remove policy
 	a.mu.Lock()
 	found := false
@@ -292,19 +292,19 @@ func (a *ProductionAuthorizer) RemovePolicy(ctx context.Context, policy Policy) 
 	}
 	a.policies = newPolicies
 	a.mu.Unlock()
-	
+
 	if !found {
 		return errors.New("policy not found")
 	}
-	
+
 	// Invalidate cache
 	if a.cacheEnabled {
 		a.invalidateCacheForSubject(ctx, policy.Subject)
 	}
-	
+
 	// Audit log
 	a.auditLogger.LogPolicyChange(ctx, "remove_policy", policy, "")
-	
+
 	a.metrics.IncrementCounter("auth.policy.removed", 1)
 	return nil
 }
@@ -313,17 +313,17 @@ func (a *ProductionAuthorizer) RemovePolicy(ctx context.Context, policy Policy) 
 func (a *ProductionAuthorizer) AddRole(ctx context.Context, user, role string) error {
 	ctx, span := a.tracer(ctx, "ProductionAuthorizer.AddRole")
 	defer span.End()
-	
+
 	// Validate inputs
 	if user == "" || role == "" {
 		return errors.New("user and role must not be empty")
 	}
-	
+
 	// Check if role exists
 	if !a.roleExists(role) {
 		return errors.Errorf("role '%s' does not exist", role)
 	}
-	
+
 	// Check if role assignment already exists
 	a.mu.RLock()
 	if roles, exists := a.roleBindings[user]; exists {
@@ -335,20 +335,20 @@ func (a *ProductionAuthorizer) AddRole(ctx context.Context, user, role string) e
 		}
 	}
 	a.mu.RUnlock()
-	
+
 	// Add role assignment
 	a.mu.Lock()
 	a.roleBindings[user] = append(a.roleBindings[user], role)
 	a.mu.Unlock()
-	
+
 	// Invalidate cache
 	if a.cacheEnabled {
 		a.invalidateCacheForSubject(ctx, user)
 	}
-	
+
 	// Audit log
 	a.auditLogger.LogRoleAssignment(ctx, "add_role", user, role)
-	
+
 	a.metrics.IncrementCounter("auth.role.assigned", 1)
 	return nil
 }
@@ -357,12 +357,12 @@ func (a *ProductionAuthorizer) AddRole(ctx context.Context, user, role string) e
 func (a *ProductionAuthorizer) RemoveRole(ctx context.Context, user, role string) error {
 	ctx, span := a.tracer(ctx, "ProductionAuthorizer.RemoveRole")
 	defer span.End()
-	
+
 	// Validate inputs
 	if user == "" || role == "" {
 		return errors.New("user and role must not be empty")
 	}
-	
+
 	// Remove role assignment
 	a.mu.Lock()
 	found := false
@@ -378,51 +378,51 @@ func (a *ProductionAuthorizer) RemoveRole(ctx context.Context, user, role string
 		a.roleBindings[user] = newRoles
 	}
 	a.mu.Unlock()
-	
+
 	if !found {
 		return errors.New("role assignment not found")
 	}
-	
+
 	// Invalidate cache
 	if a.cacheEnabled {
 		a.invalidateCacheForSubject(ctx, user)
 	}
-	
+
 	// Audit log
 	a.auditLogger.LogRoleAssignment(ctx, "remove_role", user, role)
-	
+
 	a.metrics.IncrementCounter("auth.role.removed", 1)
 	return nil
 }
 
 // GetRolesForUser returns all roles assigned to a user
 func (a *ProductionAuthorizer) GetRolesForUser(ctx context.Context, user string) ([]string, error) {
-	ctx, span := a.tracer(ctx, "ProductionAuthorizer.GetRolesForUser")
+	_, span := a.tracer(ctx, "ProductionAuthorizer.GetRolesForUser")
 	defer span.End()
-	
+
 	if user == "" {
 		return nil, errors.New("user must not be empty")
 	}
-	
+
 	a.mu.RLock()
 	roles := a.roleBindings[user]
 	a.mu.RUnlock()
-	
+
 	return roles, nil
 }
 
 // GetUsersForRole returns all users assigned to a role
 func (a *ProductionAuthorizer) GetUsersForRole(ctx context.Context, role string) ([]string, error) {
-	ctx, span := a.tracer(ctx, "ProductionAuthorizer.GetUsersForRole")
+	_, span := a.tracer(ctx, "ProductionAuthorizer.GetUsersForRole")
 	defer span.End()
-	
+
 	if role == "" {
 		return nil, errors.New("role must not be empty")
 	}
-	
+
 	a.mu.RLock()
 	defer a.mu.RUnlock()
-	
+
 	var users []string
 	for user, roles := range a.roleBindings {
 		for _, r := range roles {
@@ -432,7 +432,7 @@ func (a *ProductionAuthorizer) GetUsersForRole(ctx context.Context, role string)
 			}
 		}
 	}
-	
+
 	return users, nil
 }
 
@@ -442,7 +442,7 @@ func (a *ProductionAuthorizer) enforceWithRetry(ctx context.Context, params []in
 	if len(params) < 3 {
 		return false, errors.New("invalid parameters")
 	}
-	
+
 	subject, _ := params[0].(string)
 	resource, _ := params[1].(string)
 	action, _ := params[2].(string)
@@ -450,17 +450,17 @@ func (a *ProductionAuthorizer) enforceWithRetry(ctx context.Context, params []in
 	if len(params) > 3 {
 		tenant, _ = params[3].(string)
 	}
-	
+
 	a.mu.RLock()
 	defer a.mu.RUnlock()
-	
+
 	// Check direct policies
 	for _, policy := range a.policies {
 		if a.matchPolicy(policy, subject, resource, action, tenant) {
 			return policy.Effect != "deny", nil
 		}
 	}
-	
+
 	// Check role-based policies
 	if roles, exists := a.roleBindings[subject]; exists {
 		for _, role := range roles {
@@ -471,7 +471,7 @@ func (a *ProductionAuthorizer) enforceWithRetry(ctx context.Context, params []in
 			}
 		}
 	}
-	
+
 	return false, nil
 }
 
@@ -479,7 +479,7 @@ func (a *ProductionAuthorizer) enforceWithRetry(ctx context.Context, params []in
 func (a *ProductionAuthorizer) watchPolicyChanges(ctx context.Context) {
 	ticker := time.NewTicker(30 * time.Second)
 	defer ticker.Stop()
-	
+
 	for {
 		select {
 		case <-ctx.Done():
@@ -501,7 +501,7 @@ func (a *ProductionAuthorizer) loadPolicies() error {
 	defaultPolicies := []Policy{
 		// Admin policies
 		{Subject: "admin", Resource: "*", Action: "*", Effect: "allow"},
-		
+
 		// User policies
 		{Subject: "user", Resource: "workspace", Action: "read", Effect: "allow"},
 		{Subject: "user", Resource: "workspace", Action: "create", Effect: "allow"},
@@ -509,17 +509,17 @@ func (a *ProductionAuthorizer) loadPolicies() error {
 		{Subject: "user", Resource: "document", Action: "create", Effect: "allow"},
 		{Subject: "user", Resource: "task", Action: "read", Effect: "allow"},
 		{Subject: "user", Resource: "task", Action: "create", Effect: "allow"},
-		
+
 		// Viewer policies
 		{Subject: "viewer", Resource: "workspace", Action: "read", Effect: "allow"},
 		{Subject: "viewer", Resource: "document", Action: "read", Effect: "allow"},
 		{Subject: "viewer", Resource: "task", Action: "read", Effect: "allow"},
 	}
-	
+
 	a.mu.Lock()
 	a.policies = defaultPolicies
 	a.mu.Unlock()
-	
+
 	return nil
 }
 
@@ -584,22 +584,22 @@ func (a *ProductionAuthorizer) matchPolicy(policy Policy, subject, resource, act
 	if policy.Subject != "*" && policy.Subject != subject {
 		return false
 	}
-	
+
 	// Resource match (support wildcards)
 	if policy.Resource != "*" && policy.Resource != resource {
 		return false
 	}
-	
+
 	// Action match
 	if policy.Action != "*" && policy.Action != action {
 		return false
 	}
-	
+
 	// Tenant match if specified
 	if policy.Tenant != "" && policy.Tenant != tenant {
 		return false
 	}
-	
+
 	return true
 }
 

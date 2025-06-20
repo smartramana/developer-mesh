@@ -3,8 +3,8 @@ package agent
 import (
 	"context"
 
-	"github.com/google/uuid"
 	"github.com/S-Corkum/devops-mcp/pkg/models"
+	"github.com/google/uuid"
 )
 
 // MockRepository is a mock implementation of the Repository interface

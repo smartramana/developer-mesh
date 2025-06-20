@@ -11,9 +11,10 @@ import (
 	"syscall"
 	"time"
 
+	"worker/internal/worker"
+
 	"github.com/S-Corkum/devops-mcp/pkg/queue"
 	redis "github.com/go-redis/redis/v8"
-	"worker/internal/worker"
 )
 
 // Version information (set via ldflags during build)
@@ -132,12 +133,12 @@ func runWorker(ctx context.Context) error {
 		redisAddr = "localhost:6379"
 	}
 	log.Printf("Connecting to Redis at %s", redisAddr)
-	
+
 	// Configure Redis options with TLS support
 	redisOptions := &redis.Options{
 		Addr: redisAddr,
 	}
-	
+
 	// Check if TLS is enabled
 	if os.Getenv("REDIS_TLS_ENABLED") == "true" {
 		log.Printf("Redis TLS enabled")
@@ -145,16 +146,16 @@ func runWorker(ctx context.Context) error {
 			InsecureSkipVerify: os.Getenv("REDIS_TLS_SKIP_VERIFY") == "true",
 		}
 	}
-	
+
 	redisClient := redis.NewClient(redisOptions)
-	
+
 	// Test Redis connection
 	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
 	defer cancel()
 	if err := redisClient.Ping(ctx).Err(); err != nil {
 		return fmt.Errorf("failed to connect to Redis: %w", err)
 	}
-	
+
 	redisAdapter := &redisIdempotencyAdapter{client: redisClient}
 
 	// Use the real event processing function
@@ -172,32 +173,32 @@ func performHealthCheck() error {
 	if redisAddr == "" {
 		redisAddr = "localhost:6379"
 	}
-	
+
 	// Configure Redis options with TLS support
 	redisOptions := &redis.Options{
 		Addr: redisAddr,
 	}
-	
+
 	// Check if TLS is enabled
 	if os.Getenv("REDIS_TLS_ENABLED") == "true" {
 		redisOptions.TLSConfig = &tls.Config{
 			InsecureSkipVerify: os.Getenv("REDIS_TLS_SKIP_VERIFY") == "true",
 		}
 	}
-	
+
 	client := redis.NewClient(redisOptions)
 	defer func() {
 		if err := client.Close(); err != nil {
 			log.Printf("Failed to close Redis client: %v", err)
 		}
 	}()
-	
+
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 	defer cancel()
-	
+
 	if err := client.Ping(ctx).Err(); err != nil {
 		return fmt.Errorf("redis health check failed: %w", err)
 	}
-	
+
 	return nil
 }

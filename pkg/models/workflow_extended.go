@@ -29,11 +29,11 @@ type WorkflowExecutionRequest struct {
 // CollaborativeWorkflow represents a workflow designed for multi-agent collaboration
 type CollaborativeWorkflow struct {
 	*Workflow
-	RequiredAgents   []string               `json:"required_agents"`
-	AgentRoles       map[string]string      `json:"agent_roles"`
-	CoordinationMode string                 `json:"coordination_mode"` // parallel, sequential, consensus
-	VotingStrategy   string                 `json:"voting_strategy"`   // majority, unanimous, weighted
-	SyncPoints       []string               `json:"sync_points"`       // Step IDs where agents must synchronize
+	RequiredAgents   []string          `json:"required_agents"`
+	AgentRoles       map[string]string `json:"agent_roles"`
+	CoordinationMode string            `json:"coordination_mode"` // parallel, sequential, consensus
+	VotingStrategy   string            `json:"voting_strategy"`   // majority, unanimous, weighted
+	SyncPoints       []string          `json:"sync_points"`       // Step IDs where agents must synchronize
 }
 
 // WorkflowStep represents a step in a workflow
@@ -52,6 +52,7 @@ type WorkflowStep struct {
 	RetryPolicy     WorkflowRetryPolicy    `json:"retry_policy,omitempty"`
 	ContinueOnError bool                   `json:"continue_on_error"`
 	Dependencies    []string               `json:"dependencies"`
+	OnFailure       string                 `json:"on_failure,omitempty"` // fail_workflow, continue, compensate
 }
 
 // WorkflowRetryPolicy defines retry behavior for workflow steps
@@ -62,44 +63,43 @@ type WorkflowRetryPolicy struct {
 	MaxWait     time.Duration `json:"max_wait"`
 }
 
-
 // WorkflowMetrics represents metrics for a workflow
 type WorkflowMetrics struct {
-	WorkflowID        uuid.UUID              `json:"workflow_id"`
-	TotalExecutions   int64                  `json:"total_executions"`
-	SuccessfulRuns    int64                  `json:"successful_runs"`
-	FailedRuns        int64                  `json:"failed_runs"`
-	AverageRunTime    time.Duration          `json:"average_run_time"`
-	MedianRunTime     time.Duration          `json:"median_run_time"`
-	P95RunTime        time.Duration          `json:"p95_run_time"`
-	StepMetrics       map[string]StepMetrics `json:"step_metrics"`
+	WorkflowID      uuid.UUID              `json:"workflow_id"`
+	TotalExecutions int64                  `json:"total_executions"`
+	SuccessfulRuns  int64                  `json:"successful_runs"`
+	FailedRuns      int64                  `json:"failed_runs"`
+	AverageRunTime  time.Duration          `json:"average_run_time"`
+	MedianRunTime   time.Duration          `json:"median_run_time"`
+	P95RunTime      time.Duration          `json:"p95_run_time"`
+	StepMetrics     map[string]StepMetrics `json:"step_metrics"`
 }
 
 // StepMetrics represents metrics for a workflow step
 type StepMetrics struct {
-	SuccessRate   float64       `json:"success_rate"`
-	AverageTime   time.Duration `json:"average_time"`
+	SuccessRate    float64        `json:"success_rate"`
+	AverageTime    time.Duration  `json:"average_time"`
 	FailureReasons map[string]int `json:"failure_reasons"`
 }
 
 // ExecutionTrace represents a trace of workflow execution
 type ExecutionTrace struct {
-	ExecutionID uuid.UUID     `json:"execution_id"`
-	Steps       []StepTrace   `json:"steps"`
-	Timeline    []TimelineEvent `json:"timeline"`
+	ExecutionID uuid.UUID              `json:"execution_id"`
+	Steps       []StepTrace            `json:"steps"`
+	Timeline    []TimelineEvent        `json:"timeline"`
 	Metadata    map[string]interface{} `json:"metadata"`
 }
 
 // StepTrace represents a trace of a step execution
 type StepTrace struct {
-	StepID      string                 `json:"step_id"`
-	StartTime   time.Time              `json:"start_time"`
-	EndTime     time.Time              `json:"end_time"`
-	Duration    time.Duration          `json:"duration"`
-	Status      string                 `json:"status"`
-	Input       map[string]interface{} `json:"input"`
-	Output      map[string]interface{} `json:"output"`
-	Error       string                 `json:"error,omitempty"`
+	StepID    string                 `json:"step_id"`
+	StartTime time.Time              `json:"start_time"`
+	EndTime   time.Time              `json:"end_time"`
+	Duration  time.Duration          `json:"duration"`
+	Status    string                 `json:"status"`
+	Input     map[string]interface{} `json:"input"`
+	Output    map[string]interface{} `json:"output"`
+	Error     string                 `json:"error,omitempty"`
 }
 
 // TimelineEvent represents an event in the execution timeline
@@ -113,12 +113,12 @@ type TimelineEvent struct {
 
 // WorkflowInsights represents insights about workflow performance
 type WorkflowInsights struct {
-	WorkflowID           uuid.UUID                    `json:"workflow_id"`
-	Period               time.Duration                `json:"period"`
-	BottleneckSteps      []string                     `json:"bottleneck_steps"`
-	FailurePredictors    map[string]float64           `json:"failure_predictors"`
-	OptimizationSuggestions []OptimizationSuggestion   `json:"optimization_suggestions"`
-	TrendAnalysis        map[string]TrendData         `json:"trend_analysis"`
+	WorkflowID              uuid.UUID                `json:"workflow_id"`
+	Period                  time.Duration            `json:"period"`
+	BottleneckSteps         []string                 `json:"bottleneck_steps"`
+	FailurePredictors       map[string]float64       `json:"failure_predictors"`
+	OptimizationSuggestions []OptimizationSuggestion `json:"optimization_suggestions"`
+	TrendAnalysis           map[string]TrendData     `json:"trend_analysis"`
 }
 
 // OptimizationSuggestion represents a suggestion for workflow optimization
@@ -176,6 +176,7 @@ type ExecutionStatus struct {
 
 // ApprovalDecision represents an approval decision for a workflow step
 type ApprovalDecision struct {
+	ID         uuid.UUID              `json:"id"`
 	Approved   bool                   `json:"approved"`
 	ApprovedBy string                 `json:"approved_by"`
 	Comments   string                 `json:"comments,omitempty"`
@@ -183,18 +184,34 @@ type ApprovalDecision struct {
 	Timestamp  time.Time              `json:"timestamp"`
 }
 
+// Add methods to make ApprovalDecision implement AggregateRoot
+func (a *ApprovalDecision) GetID() uuid.UUID {
+	if a.ID == uuid.Nil {
+		a.ID = uuid.New()
+	}
+	return a.ID
+}
+
+func (a *ApprovalDecision) GetType() string {
+	return "approval_decision"
+}
+
+func (a *ApprovalDecision) GetVersion() int {
+	return 1
+}
+
 // PendingApproval represents a pending approval request
 type PendingApproval struct {
-	ExecutionID  uuid.UUID              `json:"execution_id"`
-	WorkflowID   uuid.UUID              `json:"workflow_id"`
-	StepID       string                 `json:"step_id"`
-	StepName     string                 `json:"step_name"`
-	RequestedAt  time.Time              `json:"requested_at"`
-	RequiredBy   []string               `json:"required_by"`
-	ApprovedBy   []string               `json:"approved_by,omitempty"`
-	RejectedBy   []string               `json:"rejected_by,omitempty"`
-	DueBy        *time.Time             `json:"due_by,omitempty"`
-	Context      map[string]interface{} `json:"context,omitempty"`
+	ExecutionID uuid.UUID              `json:"execution_id"`
+	WorkflowID  uuid.UUID              `json:"workflow_id"`
+	StepID      string                 `json:"step_id"`
+	StepName    string                 `json:"step_name"`
+	RequestedAt time.Time              `json:"requested_at"`
+	RequiredBy  []string               `json:"required_by"`
+	ApprovedBy  []string               `json:"approved_by,omitempty"`
+	RejectedBy  []string               `json:"rejected_by,omitempty"`
+	DueBy       *time.Time             `json:"due_by,omitempty"`
+	Context     map[string]interface{} `json:"context,omitempty"`
 }
 
 // SimulationResult represents the result of a workflow simulation
@@ -229,6 +246,19 @@ type CompensationAction struct {
 	CreatedAt   time.Time              `json:"created_at"`
 	ExecutedAt  *time.Time             `json:"executed_at,omitempty"`
 	Result      map[string]interface{} `json:"result,omitempty"`
+}
+
+// Add methods to make WorkflowTemplate implement AggregateRoot
+func (t *WorkflowTemplate) GetID() uuid.UUID {
+	return t.ID
+}
+
+func (t *WorkflowTemplate) GetType() string {
+	return "workflow_template"
+}
+
+func (t *WorkflowTemplate) GetVersion() int {
+	return 1 // Templates don't have versioning yet
 }
 
 // Add methods to make Workflow implement AggregateRoot
@@ -407,16 +437,17 @@ func getRetryPolicy(m map[string]interface{}) WorkflowRetryPolicy {
 
 // Step status constants
 const (
-	StepStatusPending    = "pending"
-	StepStatusQueued     = "queued"
-	StepStatusRunning    = "running"
-	StepStatusCompleted  = "completed"
-	StepStatusFailed     = "failed"
-	StepStatusSkipped    = "skipped"
-	StepStatusRetrying   = "retrying"
-	StepStatusCancelling = "cancelling"
-	StepStatusCancelled  = "cancelled"
-	StepStatusTimeout    = "timeout"
+	StepStatusPending          = "pending"
+	StepStatusQueued           = "queued"
+	StepStatusRunning          = "running"
+	StepStatusCompleted        = "completed"
+	StepStatusFailed           = "failed"
+	StepStatusSkipped          = "skipped"
+	StepStatusRetrying         = "retrying"
+	StepStatusCancelling       = "cancelling"
+	StepStatusCancelled        = "cancelled"
+	StepStatusTimeout          = "timeout"
+	StepStatusAwaitingApproval = "awaiting_approval"
 )
 
 // WorkflowStatus constants for workflow definitions
@@ -478,13 +509,13 @@ type MultiAgentWorkflowStep struct {
 
 // ExecutionContext for workflow executions
 type ExecutionContext struct {
-	ExecutionID uuid.UUID              `json:"execution_id"`
-	WorkflowID  uuid.UUID              `json:"workflow_id"`
-	Status      string                 `json:"status"`
-	CurrentStep string                 `json:"current_step"`
-	TotalSteps  int                    `json:"total_steps"`
-	StartedAt   time.Time              `json:"started_at"`
-	CompletedAt *time.Time             `json:"completed_at,omitempty"`
-	ExecutionTime time.Duration        `json:"execution_time"`
-	StepResults map[string]interface{} `json:"step_results"`
+	ExecutionID   uuid.UUID              `json:"execution_id"`
+	WorkflowID    uuid.UUID              `json:"workflow_id"`
+	Status        string                 `json:"status"`
+	CurrentStep   string                 `json:"current_step"`
+	TotalSteps    int                    `json:"total_steps"`
+	StartedAt     time.Time              `json:"started_at"`
+	CompletedAt   *time.Time             `json:"completed_at,omitempty"`
+	ExecutionTime time.Duration          `json:"execution_time"`
+	StepResults   map[string]interface{} `json:"step_results"`
 }

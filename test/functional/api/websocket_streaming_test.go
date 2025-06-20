@@ -12,8 +12,9 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
-	ws "github.com/S-Corkum/devops-mcp/pkg/models/websocket"
 	"functional-tests/shared"
+
+	ws "github.com/S-Corkum/devops-mcp/pkg/models/websocket"
 )
 
 var _ = Describe("WebSocket Streaming Operations", func() {
@@ -27,12 +28,12 @@ var _ = Describe("WebSocket Streaming Operations", func() {
 
 	BeforeEach(func() {
 		ctx, cancel = context.WithTimeout(context.Background(), 30*time.Second)
-		
+
 		// Get test configuration
 		config := shared.GetTestConfig()
 		wsURL = config.WebSocketURL
 		apiKey = shared.GetTestAPIKey("test-tenant-1")
-		
+
 		var err error
 		conn, err = shared.EstablishConnection(wsURL, apiKey)
 		Expect(err).NotTo(HaveOccurred())
@@ -99,7 +100,7 @@ var _ = Describe("WebSocket Streaming Operations", func() {
 			// Verify progress updates
 			Expect(len(progressUpdates)).To(BeNumerically(">", 0), "Should receive progress updates")
 			Expect(progressUpdates[len(progressUpdates)-1]).To(Equal(100), "Final progress should be 100%")
-			
+
 			// Verify progress is monotonic
 			for i := 1; i < len(progressUpdates); i++ {
 				Expect(progressUpdates[i]).To(BeNumerically(">=", progressUpdates[i-1]))
@@ -142,7 +143,7 @@ var _ = Describe("WebSocket Streaming Operations", func() {
 
 				if msg.Type == ws.MessageTypeNotification && msg.Method == "tool.progress" {
 					progressReceived = true
-					
+
 					// Send cancellation
 					cancelMsg := ws.Message{
 						ID:     uuid.New().String(),
@@ -152,7 +153,7 @@ var _ = Describe("WebSocket Streaming Operations", func() {
 							"operation_id": execMsg.ID,
 						},
 					}
-					
+
 					err = wsjson.Write(ctx, conn, cancelMsg)
 					Expect(err).NotTo(HaveOccurred())
 				}
@@ -204,8 +205,8 @@ var _ = Describe("WebSocket Streaming Operations", func() {
 				err := wsjson.Read(ctx, conn, &msg)
 				Expect(err).NotTo(HaveOccurred())
 
-				if msg.Type == ws.MessageTypeError || 
-				   (msg.Type == ws.MessageTypeResponse && msg.Error != nil) {
+				if msg.Type == ws.MessageTypeError ||
+					(msg.Type == ws.MessageTypeResponse && msg.Error != nil) {
 					errorReceived = true
 					Expect(msg.Error).NotTo(BeNil())
 					Expect(msg.Error.Message).To(ContainSubstring("fail"))
@@ -218,7 +219,7 @@ var _ = Describe("WebSocket Streaming Operations", func() {
 		It("should stream large context chunks efficiently", func() {
 			// Create a very large context
 			largeContent := shared.GenerateLargeContext(10000) // 10K tokens
-			
+
 			createMsg := ws.Message{
 				ID:     uuid.New().String(),
 				Type:   ws.MessageTypeRequest,
@@ -254,7 +255,7 @@ var _ = Describe("WebSocket Streaming Operations", func() {
 				} else if msg.Type == ws.MessageTypeResponse {
 					Expect(msg.ID).To(Equal(createMsg.ID))
 					Expect(msg.Error).To(BeNil())
-					
+
 					if result, ok := msg.Result.(map[string]interface{}); ok {
 						contextID = result["id"].(string)
 					}
@@ -264,22 +265,22 @@ var _ = Describe("WebSocket Streaming Operations", func() {
 
 			duration := time.Since(startTime)
 			throughput := float64(totalBytes) / duration.Seconds() / 1024 / 1024 // MB/s
-			
-			GinkgoWriter.Printf("Streamed %d bytes in %d chunks over %v (%.2f MB/s)\n", 
+
+			GinkgoWriter.Printf("Streamed %d bytes in %d chunks over %v (%.2f MB/s)\n",
 				totalBytes, chunks, duration, throughput)
 
 			// Verify streaming was used
 			Expect(chunks).To(BeNumerically(">", 1), "Should receive multiple chunks")
 			Expect(totalBytes).To(BeNumerically(">=", len(largeContent)))
 			Expect(contextID).NotTo(BeEmpty())
-			
+
 			// Verify throughput is reasonable
 			Expect(throughput).To(BeNumerically(">", 1.0), "Should achieve >1 MB/s throughput")
 		})
 
 		It("should support binary protocol for efficient transfer", func() {
 			Skip("Binary protocol implementation pending")
-			
+
 			// This test would verify binary encoding reduces payload size
 			// and improves throughput compared to JSON
 		})
@@ -290,7 +291,7 @@ var _ = Describe("WebSocket Streaming Operations", func() {
 			for i := 0; i < 1000; i++ {
 				repetitiveContent += "This is a repeating pattern that should compress well. "
 			}
-			
+
 			createMsg := ws.Message{
 				ID:     uuid.New().String(),
 				Type:   ws.MessageTypeRequest,
@@ -316,10 +317,10 @@ var _ = Describe("WebSocket Streaming Operations", func() {
 					originalSize := stats["original_size"].(float64)
 					compressedSize := stats["compressed_size"].(float64)
 					ratio := compressedSize / originalSize
-					
+
 					GinkgoWriter.Printf("Compression ratio: %.2f%% (%.0f -> %.0f bytes)\n",
 						ratio*100, originalSize, compressedSize)
-					
+
 					Expect(ratio).To(BeNumerically("<", 0.5), "Should achieve >50% compression")
 				}
 			}
@@ -348,7 +349,7 @@ var _ = Describe("WebSocket Streaming Operations", func() {
 
 			// Collect all progress notifications
 			progressEvents := make([]map[string]interface{}, 0)
-			
+
 			for {
 				var msg ws.Message
 				err := wsjson.Read(ctx, conn, &msg)
@@ -365,12 +366,12 @@ var _ = Describe("WebSocket Streaming Operations", func() {
 
 			// Verify detailed progress information
 			Expect(len(progressEvents)).To(BeNumerically(">", 0))
-			
+
 			for _, event := range progressEvents {
 				Expect(event).To(HaveKey("percentage"))
 				Expect(event).To(HaveKey("message"))
 				Expect(event).To(HaveKey("timestamp"))
-				
+
 				// Detailed progress should include additional fields
 				if event["percentage"].(float64) > 0 {
 					Expect(event).To(HaveKey("current_operation"))
@@ -403,7 +404,7 @@ var _ = Describe("WebSocket Streaming Operations", func() {
 			// Simulate slow consumer by adding delays
 			messagesReceived := 0
 			droppedMessages := 0
-			
+
 			timeout := time.After(5 * time.Second)
 			for {
 				select {
@@ -412,7 +413,7 @@ var _ = Describe("WebSocket Streaming Operations", func() {
 				default:
 					// Slow read
 					time.Sleep(100 * time.Millisecond)
-					
+
 					var msg ws.Message
 					err := wsjson.Read(ctx, conn, &msg)
 					if err != nil {
@@ -421,7 +422,7 @@ var _ = Describe("WebSocket Streaming Operations", func() {
 
 					if msg.Type == ws.MessageTypeNotification {
 						messagesReceived++
-						
+
 						if params, ok := msg.Params.(map[string]interface{}); ok {
 							if dropped, ok := params["messages_dropped"].(float64); ok {
 								droppedMessages = int(dropped)
@@ -430,7 +431,7 @@ var _ = Describe("WebSocket Streaming Operations", func() {
 					}
 				}
 			}
-			done:
+		done:
 
 			GinkgoWriter.Printf("Received %d messages, %d dropped due to backpressure\n",
 				messagesReceived, droppedMessages)

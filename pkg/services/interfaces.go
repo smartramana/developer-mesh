@@ -68,8 +68,10 @@ type NotificationService interface {
 	NotifyWorkflowStarted(ctx context.Context, workflow interface{}) error
 	NotifyWorkflowCompleted(ctx context.Context, workflow interface{}) error
 	NotifyWorkflowFailed(ctx context.Context, workflowID uuid.UUID, reason string) error
+	NotifyWorkflowUpdated(ctx context.Context, workflow interface{}) error
 	NotifyStepStarted(ctx context.Context, executionID uuid.UUID, stepID string) error
 	NotifyStepCompleted(ctx context.Context, executionID uuid.UUID, stepID string, output interface{}) error
+	NotifyResourceDeleted(ctx context.Context, resourceType string, resourceID uuid.UUID) error
 	BroadcastToAgents(ctx context.Context, agentIDs []string, message interface{}) error
 	BroadcastToWorkspace(ctx context.Context, workspaceID uuid.UUID, message interface{}) error
 }

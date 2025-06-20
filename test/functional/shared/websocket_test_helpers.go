@@ -8,10 +8,10 @@ import (
 	"sync"
 	"time"
 
+	ws "github.com/S-Corkum/devops-mcp/pkg/models/websocket"
 	"github.com/coder/websocket"
 	"github.com/coder/websocket/wsjson"
 	"github.com/google/uuid"
-	ws "github.com/S-Corkum/devops-mcp/pkg/models/websocket"
 )
 
 // StreamingTestClient handles streaming responses from tools
@@ -92,11 +92,11 @@ func (c *StreamingTestClient) Close() error {
 
 // ContextWindowManager simulates token counting and window management
 type ContextWindowManager struct {
-	maxTokens       int
-	currentTokens   int
-	messages        []ContextMessage
+	maxTokens           int
+	currentTokens       int
+	messages            []ContextMessage
 	importanceThreshold int
-	mu             sync.RWMutex
+	mu                  sync.RWMutex
 }
 
 // ContextMessage represents a message with token count and importance
@@ -138,20 +138,20 @@ func (m *ContextWindowManager) AddMessage(msg ContextMessage) (truncated bool, r
 
 func (m *ContextWindowManager) truncateMessages() int {
 	removed := 0
-	
+
 	// Always preserve system messages
 	// Remove low-importance messages first
 	for m.currentTokens > m.maxTokens && len(m.messages) > 1 {
 		lowestIdx := -1
 		lowestImportance := 101
-		
+
 		for i, msg := range m.messages {
 			if msg.Role != "system" && msg.Importance < lowestImportance {
 				lowestImportance = msg.Importance
 				lowestIdx = i
 			}
 		}
-		
+
 		if lowestIdx >= 0 {
 			m.currentTokens -= m.messages[lowestIdx].Tokens
 			m.messages = append(m.messages[:lowestIdx], m.messages[lowestIdx+1:]...)
@@ -160,28 +160,28 @@ func (m *ContextWindowManager) truncateMessages() int {
 			break // No more messages to remove
 		}
 	}
-	
+
 	return removed
 }
 
 // WorkflowOrchestrator manages multi-step tool execution
 type WorkflowOrchestrator struct {
-	conn       *websocket.Conn
-	steps      []WorkflowStep
-	state      map[string]interface{}
-	mu         sync.Mutex
+	conn  *websocket.Conn
+	steps []WorkflowStep
+	state map[string]interface{}
+	mu    sync.Mutex
 }
 
 // WorkflowStep represents a step in a workflow
 type WorkflowStep struct {
-	ID          string
-	ToolName    string
-	Arguments   map[string]interface{}
-	DependsOn   []string // IDs of steps that must complete first
-	Condition   func(state map[string]interface{}) bool
-	OnSuccess   func(result interface{}, state map[string]interface{})
-	OnError     func(err error, state map[string]interface{})
-	Parallel    bool // Can run in parallel with other parallel steps
+	ID        string
+	ToolName  string
+	Arguments map[string]interface{}
+	DependsOn []string // IDs of steps that must complete first
+	Condition func(state map[string]interface{}) bool
+	OnSuccess func(result interface{}, state map[string]interface{})
+	OnError   func(err error, state map[string]interface{})
+	Parallel  bool // Can run in parallel with other parallel steps
 }
 
 // NewWorkflowOrchestrator creates an orchestrator for testing workflows
@@ -202,32 +202,32 @@ func (o *WorkflowOrchestrator) AddStep(step WorkflowStep) {
 func (o *WorkflowOrchestrator) Execute(ctx context.Context) error {
 	completed := make(map[string]bool)
 	results := make(map[string]interface{})
-	
+
 	for len(completed) < len(o.steps) {
 		// Find steps that can be executed
 		readySteps := o.findReadySteps(completed)
-		
+
 		if len(readySteps) == 0 {
 			return fmt.Errorf("no steps ready to execute, possible circular dependency")
 		}
-		
+
 		// Execute ready steps
 		var wg sync.WaitGroup
 		errors := make(chan error, len(readySteps))
-		
+
 		for _, step := range readySteps {
 			if step.Condition != nil && !step.Condition(o.state) {
 				completed[step.ID] = true
 				continue
 			}
-			
+
 			wg.Add(1)
 			go func(s WorkflowStep) {
 				defer wg.Done()
-				
+
 				// Prepare arguments with state substitution
 				args := o.substituteArguments(s.Arguments, results)
-				
+
 				// Execute tool
 				msg := ws.Message{
 					ID:     uuid.New().String(),
@@ -238,18 +238,18 @@ func (o *WorkflowOrchestrator) Execute(ctx context.Context) error {
 						"arguments": args,
 					},
 				}
-				
+
 				if err := wsjson.Write(ctx, o.conn, msg); err != nil {
 					errors <- err
 					return
 				}
-				
+
 				var response ws.Message
 				if err := wsjson.Read(ctx, o.conn, &response); err != nil {
 					errors <- err
 					return
 				}
-				
+
 				if response.Error != nil {
 					if s.OnError != nil {
 						s.OnError(fmt.Errorf(response.Error.Message), o.state)
@@ -261,18 +261,18 @@ func (o *WorkflowOrchestrator) Execute(ctx context.Context) error {
 						s.OnSuccess(response.Result, o.state)
 					}
 				}
-				
+
 				completed[s.ID] = true
 			}(step)
-			
+
 			// If not parallel, wait for completion
 			if !step.Parallel {
 				wg.Wait()
 			}
 		}
-		
+
 		wg.Wait()
-		
+
 		// Check for errors
 		select {
 		case err := <-errors:
@@ -280,18 +280,18 @@ func (o *WorkflowOrchestrator) Execute(ctx context.Context) error {
 		default:
 		}
 	}
-	
+
 	return nil
 }
 
 func (o *WorkflowOrchestrator) findReadySteps(completed map[string]bool) []WorkflowStep {
 	ready := make([]WorkflowStep, 0)
-	
+
 	for _, step := range o.steps {
 		if completed[step.ID] {
 			continue
 		}
-		
+
 		// Check dependencies
 		allDepsComplete := true
 		for _, dep := range step.DependsOn {
@@ -300,18 +300,18 @@ func (o *WorkflowOrchestrator) findReadySteps(completed map[string]bool) []Workf
 				break
 			}
 		}
-		
+
 		if allDepsComplete {
 			ready = append(ready, step)
 		}
 	}
-	
+
 	return ready
 }
 
 func (o *WorkflowOrchestrator) substituteArguments(args map[string]interface{}, results map[string]interface{}) map[string]interface{} {
 	substituted := make(map[string]interface{})
-	
+
 	for k, v := range args {
 		if str, ok := v.(string); ok && len(str) > 2 && str[0] == '$' {
 			// Variable reference like $step1.output
@@ -325,7 +325,7 @@ func (o *WorkflowOrchestrator) substituteArguments(args map[string]interface{}, 
 			substituted[k] = v
 		}
 	}
-	
+
 	return substituted
 }
 
@@ -350,21 +350,21 @@ func NewSubscriptionManager(conn *websocket.Conn) *SubscriptionManager {
 		conn:          conn,
 		subscriptions: make(map[string]chan interface{}),
 	}
-	
+
 	// Start event reader
 	go sm.readEvents()
-	
+
 	return sm
 }
 
 func (sm *SubscriptionManager) Subscribe(ctx context.Context, resource string, filter map[string]interface{}) (chan interface{}, error) {
 	sm.mu.Lock()
 	defer sm.mu.Unlock()
-	
+
 	subID := uuid.New().String()
 	eventChan := make(chan interface{}, 100)
 	sm.subscriptions[subID] = eventChan
-	
+
 	// Send subscription request
 	msg := ws.Message{
 		ID:     uuid.New().String(),
@@ -376,31 +376,31 @@ func (sm *SubscriptionManager) Subscribe(ctx context.Context, resource string, f
 			"filter":          filter,
 		},
 	}
-	
+
 	if err := wsjson.Write(ctx, sm.conn, msg); err != nil {
 		delete(sm.subscriptions, subID)
 		return nil, err
 	}
-	
+
 	// Wait for confirmation
 	var response ws.Message
 	if err := wsjson.Read(ctx, sm.conn, &response); err != nil {
 		delete(sm.subscriptions, subID)
 		return nil, err
 	}
-	
+
 	if response.Error != nil {
 		delete(sm.subscriptions, subID)
 		return nil, fmt.Errorf("subscription failed: %s", response.Error.Message)
 	}
-	
+
 	return eventChan, nil
 }
 
 func (sm *SubscriptionManager) Unsubscribe(ctx context.Context, eventChan chan interface{}) error {
 	sm.mu.Lock()
 	defer sm.mu.Unlock()
-	
+
 	// Find subscription ID
 	var subID string
 	for id, ch := range sm.subscriptions {
@@ -409,11 +409,11 @@ func (sm *SubscriptionManager) Unsubscribe(ctx context.Context, eventChan chan i
 			break
 		}
 	}
-	
+
 	if subID == "" {
 		return fmt.Errorf("subscription not found")
 	}
-	
+
 	// Send unsubscribe request
 	msg := ws.Message{
 		ID:     uuid.New().String(),
@@ -423,14 +423,14 @@ func (sm *SubscriptionManager) Unsubscribe(ctx context.Context, eventChan chan i
 			"subscription_id": subID,
 		},
 	}
-	
+
 	if err := wsjson.Write(ctx, sm.conn, msg); err != nil {
 		return err
 	}
-	
+
 	delete(sm.subscriptions, subID)
 	close(eventChan)
-	
+
 	return nil
 }
 
@@ -441,7 +441,7 @@ func (sm *SubscriptionManager) readEvents() {
 		if err != nil {
 			return
 		}
-		
+
 		if msg.Type == ws.MessageTypeNotification && msg.Method == "event" {
 			if params, ok := msg.Params.(map[string]interface{}); ok {
 				if subID, ok := params["subscription_id"].(string); ok {
@@ -486,7 +486,7 @@ func NewSessionStore() *SessionStore {
 func (s *SessionStore) CreateSession(agentID string) *Session {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	
+
 	session := &Session{
 		ID:           uuid.New().String(),
 		AgentID:      agentID,
@@ -494,7 +494,7 @@ func (s *SessionStore) CreateSession(agentID string) *Session {
 		State:        make(map[string]interface{}),
 		LastActivity: time.Now(),
 	}
-	
+
 	s.sessions[session.ID] = session
 	return session
 }
@@ -502,7 +502,7 @@ func (s *SessionStore) CreateSession(agentID string) *Session {
 func (s *SessionStore) GetSession(id string) (*Session, bool) {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
-	
+
 	session, found := s.sessions[id]
 	return session, found
 }
@@ -510,7 +510,7 @@ func (s *SessionStore) GetSession(id string) (*Session, bool) {
 func (s *SessionStore) SaveSession(session *Session) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	
+
 	session.LastActivity = time.Now()
 	s.sessions[session.ID] = session
 }
@@ -518,17 +518,17 @@ func (s *SessionStore) SaveSession(session *Session) {
 func (s *SessionStore) CleanupInactive(timeout time.Duration) int {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	
+
 	removed := 0
 	cutoff := time.Now().Add(-timeout)
-	
+
 	for id, session := range s.sessions {
 		if session.LastActivity.Before(cutoff) {
 			delete(s.sessions, id)
 			removed++
 		}
 	}
-	
+
 	return removed
 }
 
@@ -550,7 +550,7 @@ func (c *BinaryProtocolCodec) Encode(msg interface{}) ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
-	
+
 	// TODO: Implement actual binary encoding
 	// For now, return JSON (actual implementation would use protobuf or similar)
 	return jsonData, nil
@@ -601,11 +601,11 @@ func (c *MultiAgentCoordinator) SendToAgent(fromID, toID string, message interfa
 	c.mu.RLock()
 	toAgent, found := c.agents[toID]
 	c.mu.RUnlock()
-	
+
 	if !found {
 		return fmt.Errorf("agent %s not found", toID)
 	}
-	
+
 	msg := ws.Message{
 		ID:     uuid.New().String(),
 		Type:   ws.MessageTypeNotification,
@@ -615,19 +615,19 @@ func (c *MultiAgentCoordinator) SendToAgent(fromID, toID string, message interfa
 			"message": message,
 		},
 	}
-	
+
 	return wsjson.Write(context.Background(), toAgent.Conn, msg)
 }
 
 func (c *MultiAgentCoordinator) BroadcastToAgents(fromID string, message interface{}, capability string) error {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
-	
+
 	for id, agent := range c.agents {
 		if id == fromID {
 			continue
 		}
-		
+
 		// Check capability filter
 		if capability != "" {
 			hasCapability := false
@@ -641,13 +641,13 @@ func (c *MultiAgentCoordinator) BroadcastToAgents(fromID string, message interfa
 				continue
 			}
 		}
-		
+
 		// Send message
 		if err := c.SendToAgent(fromID, id, message); err != nil {
 			return err
 		}
 	}
-	
+
 	return nil
 }
 
@@ -657,18 +657,18 @@ func (c *MultiAgentCoordinator) BroadcastToAgents(fromID string, message interfa
 func EstablishConnection(wsURL, apiKey string) (*websocket.Conn, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
-	
+
 	opts := &websocket.DialOptions{
 		HTTPHeader: http.Header{
 			"Authorization": []string{"Bearer " + apiKey},
 		},
 	}
-	
+
 	conn, _, err := websocket.Dial(ctx, wsURL, opts)
 	if err != nil {
 		return nil, err
 	}
-	
+
 	// Initialize connection
 	initMsg := ws.Message{
 		ID:     uuid.New().String(),
@@ -679,23 +679,23 @@ func EstablishConnection(wsURL, apiKey string) (*websocket.Conn, error) {
 			"version": "1.0.0",
 		},
 	}
-	
+
 	if err := wsjson.Write(ctx, conn, initMsg); err != nil {
 		conn.Close(websocket.StatusNormalClosure, "")
 		return nil, err
 	}
-	
+
 	var response ws.Message
 	if err := wsjson.Read(ctx, conn, &response); err != nil {
 		conn.Close(websocket.StatusNormalClosure, "")
 		return nil, err
 	}
-	
+
 	if response.Error != nil {
 		conn.Close(websocket.StatusNormalClosure, "")
 		return nil, fmt.Errorf("initialization failed: %s", response.Error.Message)
 	}
-	
+
 	return conn, nil
 }
 
@@ -711,10 +711,10 @@ func GenerateLargeContext(tokens int) string {
 	chars := tokens * 4
 	result := ""
 	template := "This is a sample message for testing context windows. "
-	
+
 	for len(result) < chars {
 		result += template
 	}
-	
+
 	return result[:chars]
 }

@@ -306,10 +306,10 @@ func TestHandleSearchSimilar(t *testing.T) {
 
 			require.NoError(t, err)
 			t.Cleanup(func() {
-			if err := resp.Body.Close(); err != nil {
-				t.Errorf("Failed to close response body: %v", err)
-			}
-		})
+				if err := resp.Body.Close(); err != nil {
+					t.Errorf("Failed to close response body: %v", err)
+				}
+			})
 
 			// Check response
 			assert.Equal(t, http.StatusOK, resp.StatusCode)

@@ -37,7 +37,7 @@ type WorkflowService interface {
 	ResumeExecution(ctx context.Context, executionID uuid.UUID) error
 	CancelExecution(ctx context.Context, executionID uuid.UUID, reason string) error
 	RetryExecution(ctx context.Context, executionID uuid.UUID, fromStep string) error
-	
+
 	// Step management
 	CompleteStep(ctx context.Context, executionID uuid.UUID, stepID string, output map[string]interface{}) error
 	FailStep(ctx context.Context, executionID uuid.UUID, stepID string, reason string, details map[string]interface{}) error

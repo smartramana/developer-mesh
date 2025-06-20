@@ -38,7 +38,7 @@ const (
 type Manager struct {
 	db            *database.Database
 	pkgDb         *database.Database // New field for pkg/database implementation
-	usingPkgDb    bool            // Flag to track which implementation is being used
+	usingPkgDb    bool               // Flag to track which implementation is being used
 	cache         cache.Cache
 	storage       providers.ContextStorage
 	eventBus      *system.EventBus

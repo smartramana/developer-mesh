@@ -3,12 +3,12 @@ package proxies
 import (
 	"context"
 
-	"github.com/google/uuid"
 	"github.com/S-Corkum/devops-mcp/pkg/client/rest"
 	"github.com/S-Corkum/devops-mcp/pkg/models"
 	"github.com/S-Corkum/devops-mcp/pkg/observability"
 	"github.com/S-Corkum/devops-mcp/pkg/repository"
 	"github.com/S-Corkum/devops-mcp/pkg/repository/agent"
+	"github.com/google/uuid"
 )
 
 // AgentAPIProxy implements the agent repository interface but delegates to the REST API
@@ -118,14 +118,14 @@ func (p *AgentAPIProxy) GetByStatus(ctx context.Context, status models.AgentStat
 	p.logger.Debug("Getting agents by status via REST API proxy", map[string]interface{}{
 		"status": status,
 	})
-	
+
 	// Since the REST API doesn't have a direct GetByStatus method,
 	// we need to list all agents and filter locally
 	agents, err := p.client.ListAgents(ctx, "")
 	if err != nil {
 		return nil, err
 	}
-	
+
 	// Filter by status
 	var result []*models.Agent
 	for _, agent := range agents {
@@ -133,7 +133,7 @@ func (p *AgentAPIProxy) GetByStatus(ctx context.Context, status models.AgentStat
 			result = append(result, agent)
 		}
 	}
-	
+
 	return result, nil
 }
 
@@ -142,7 +142,7 @@ func (p *AgentAPIProxy) GetWorkload(ctx context.Context, agentID uuid.UUID) (*mo
 	p.logger.Debug("Getting agent workload via REST API proxy", map[string]interface{}{
 		"agent_id": agentID,
 	})
-	
+
 	// Since the REST API doesn't have a direct GetWorkload method,
 	// return a default workload for now
 	return &models.AgentWorkload{
@@ -160,7 +160,7 @@ func (p *AgentAPIProxy) UpdateWorkload(ctx context.Context, workload *models.Age
 	p.logger.Debug("Updating agent workload via REST API proxy", map[string]interface{}{
 		"agent_id": workload.AgentID,
 	})
-	
+
 	// Since the REST API doesn't have a direct UpdateWorkload method,
 	// this is a no-op for now
 	return nil
@@ -171,14 +171,14 @@ func (p *AgentAPIProxy) GetLeastLoadedAgent(ctx context.Context, capability mode
 	p.logger.Debug("Getting least loaded agent via REST API proxy", map[string]interface{}{
 		"capability": capability,
 	})
-	
+
 	// Since the REST API doesn't have a direct GetLeastLoadedAgent method,
 	// we need to list all agents and find the least loaded one
 	agents, err := p.client.ListAgents(ctx, "")
 	if err != nil {
 		return nil, err
 	}
-	
+
 	// Filter by capability and status
 	var candidateAgents []*models.Agent
 	for _, agent := range agents {
@@ -192,11 +192,11 @@ func (p *AgentAPIProxy) GetLeastLoadedAgent(ctx context.Context, capability mode
 			}
 		}
 	}
-	
+
 	if len(candidateAgents) == 0 {
 		return nil, nil
 	}
-	
+
 	// Return the first active agent for now
 	// In a real implementation, we would check workload
 	return candidateAgents[0], nil

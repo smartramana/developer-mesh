@@ -1,10 +1,11 @@
 package tools
 
 import (
+	githubtools "mcp-server/internal/api/tools/github"
+
 	"github.com/S-Corkum/devops-mcp/pkg/adapters/github"
 	"github.com/S-Corkum/devops-mcp/pkg/observability"
 	"github.com/gin-gonic/gin"
-	githubtools "mcp-server/internal/api/tools/github"
 )
 
 // MCPToolsServer represents a Model Context Protocol tools server

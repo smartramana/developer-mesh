@@ -1,10 +1,10 @@
 package shared
 
 import (
-	"os"
 	"fmt"
+	"os"
 	"time"
-	
+
 	"github.com/S-Corkum/devops-mcp/pkg/observability"
 )
 
@@ -19,21 +19,21 @@ type ServiceConfig struct {
 // GetTestConfig returns test configuration following CLAUDE.md patterns
 func GetTestConfig() *ServiceConfig {
 	logger := observability.NewLogger("test-config")
-	
+
 	config := &ServiceConfig{
 		WebSocketURL:  getEnvOrDefault("MCP_WEBSOCKET_URL", "ws://localhost:8080/ws"),
 		RestAPIURL:    getEnvOrDefault("REST_API_URL", "http://localhost:8081"),
 		MockServerURL: getEnvOrDefault("MOCKSERVER_URL", "http://localhost:8082"),
 		logger:        logger,
 	}
-	
+
 	// Log configuration for debugging (following CLAUDE.md)
 	logger.Info("Test configuration loaded", map[string]interface{}{
 		"websocket_url": config.WebSocketURL,
 		"rest_api_url":  config.RestAPIURL,
 		"mock_server":   config.MockServerURL,
 	})
-	
+
 	return config
 }
 
@@ -48,7 +48,7 @@ func getEnvOrDefault(key, defaultValue string) string {
 func GetAuthHeaders(apiKey string) map[string]string {
 	return map[string]string{
 		"Authorization": fmt.Sprintf("Bearer %s", apiKey),
-		"Content-Type": "application/json",
+		"Content-Type":  "application/json",
 	}
 }
 
@@ -58,15 +58,15 @@ func GetTestAPIKey(tenantID string) string {
 	keys := map[string]string{
 		"test-tenant-1": "test-key-tenant-1",
 		"test-tenant-2": "test-key-tenant-2",
-		"dev-tenant": "dev-admin-key-1234567890",
-		"agent-1": "test-key-agent-1",  // Same tenant, different user
-		"agent-2": "test-key-agent-2",  // Same tenant, different user
+		"dev-tenant":    "dev-admin-key-1234567890",
+		"agent-1":       "test-key-agent-1", // Same tenant, different user
+		"agent-2":       "test-key-agent-2", // Same tenant, different user
 	}
-	
+
 	if key, exists := keys[tenantID]; exists {
 		return key
 	}
-	
+
 	// Default key for unknown tenants
 	return "test-key-default"
 }

@@ -5,37 +5,37 @@ import (
 	"fmt"
 	"sync"
 	"time"
-	
-	"github.com/google/uuid"
+
 	"github.com/S-Corkum/devops-mcp/pkg/collaboration/crdt"
+	"github.com/google/uuid"
 )
 
 // StateCRDT implements a CRDT for workspace state synchronization
 type StateCRDT struct {
-	mu       sync.RWMutex
-	stateID  uuid.UUID
-	nodeID   crdt.NodeID
-	clock    crdt.VectorClock
-	
+	mu      sync.RWMutex
+	stateID uuid.UUID
+	nodeID  crdt.NodeID
+	clock   crdt.VectorClock
+
 	// State fields using different CRDT types
-	counters  map[string]*crdt.PNCounter    // For numeric values
-	registers map[string]*crdt.LWWRegister  // For single values
-	sets      map[string]*crdt.ORSet        // For collections
-	
+	counters  map[string]*crdt.PNCounter   // For numeric values
+	registers map[string]*crdt.LWWRegister // For single values
+	sets      map[string]*crdt.ORSet       // For collections
+
 	// Operation log for synchronization
 	operations []StateOperation
 }
 
 // StateOperation represents an operation on the state
 type StateOperation struct {
-	ID        uuid.UUID           `json:"id"`
-	Type      string              `json:"type"` // set, increment, decrement, add_to_set, remove_from_set
-	Path      string              `json:"path"`
-	Value     interface{}         `json:"value,omitempty"`
-	Delta     int64               `json:"delta,omitempty"`
-	NodeID    crdt.NodeID         `json:"node_id"`
-	Clock     crdt.VectorClock    `json:"clock"`
-	Timestamp time.Time           `json:"timestamp"`
+	ID        uuid.UUID        `json:"id"`
+	Type      string           `json:"type"` // set, increment, decrement, add_to_set, remove_from_set
+	Path      string           `json:"path"`
+	Value     interface{}      `json:"value,omitempty"`
+	Delta     int64            `json:"delta,omitempty"`
+	NodeID    crdt.NodeID      `json:"node_id"`
+	Clock     crdt.VectorClock `json:"clock"`
+	Timestamp time.Time        `json:"timestamp"`
 }
 
 // NewStateCRDT creates a new state CRDT
@@ -55,10 +55,10 @@ func NewStateCRDT(stateID uuid.UUID, nodeID crdt.NodeID) *StateCRDT {
 func (s *StateCRDT) Set(path string, value interface{}) (*StateOperation, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	
+
 	// Increment clock
 	s.clock.Increment(s.nodeID)
-	
+
 	// Create operation
 	op := StateOperation{
 		ID:        uuid.New(),
@@ -69,13 +69,13 @@ func (s *StateCRDT) Set(path string, value interface{}) (*StateOperation, error)
 		Clock:     s.clock.Clone(),
 		Timestamp: time.Now(),
 	}
-	
+
 	// Apply to LWW register
 	if s.registers[path] == nil {
 		s.registers[path] = crdt.NewLWWRegister()
 	}
 	s.registers[path].Set(value, op.Timestamp, op.NodeID)
-	
+
 	s.operations = append(s.operations, op)
 	return &op, nil
 }
@@ -84,23 +84,23 @@ func (s *StateCRDT) Set(path string, value interface{}) (*StateOperation, error)
 func (s *StateCRDT) Get(path string) (interface{}, bool) {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
-	
+
 	// Check registers first
 	if reg, exists := s.registers[path]; exists {
 		value := reg.Get()
 		return value, value != nil
 	}
-	
+
 	// Check counters
 	if counter, exists := s.counters[path]; exists {
 		return counter.Value(), true
 	}
-	
+
 	// Check sets
 	if set, exists := s.sets[path]; exists {
 		return set.Elements(), true
 	}
-	
+
 	return nil, false
 }
 
@@ -108,10 +108,10 @@ func (s *StateCRDT) Get(path string) (interface{}, bool) {
 func (s *StateCRDT) IncrementCounter(path string, delta uint64) (*StateOperation, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	
+
 	// Increment clock
 	s.clock.Increment(s.nodeID)
-	
+
 	// Create operation
 	op := StateOperation{
 		ID:        uuid.New(),
@@ -122,13 +122,13 @@ func (s *StateCRDT) IncrementCounter(path string, delta uint64) (*StateOperation
 		Clock:     s.clock.Clone(),
 		Timestamp: time.Now(),
 	}
-	
+
 	// Apply to counter
 	if s.counters[path] == nil {
 		s.counters[path] = crdt.NewPNCounter()
 	}
 	s.counters[path].Increment(op.NodeID, delta)
-	
+
 	s.operations = append(s.operations, op)
 	return &op, nil
 }
@@ -137,10 +137,10 @@ func (s *StateCRDT) IncrementCounter(path string, delta uint64) (*StateOperation
 func (s *StateCRDT) DecrementCounter(path string, delta uint64) (*StateOperation, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	
+
 	// Increment clock
 	s.clock.Increment(s.nodeID)
-	
+
 	// Create operation
 	op := StateOperation{
 		ID:        uuid.New(),
@@ -151,13 +151,13 @@ func (s *StateCRDT) DecrementCounter(path string, delta uint64) (*StateOperation
 		Clock:     s.clock.Clone(),
 		Timestamp: time.Now(),
 	}
-	
+
 	// Apply to counter
 	if s.counters[path] == nil {
 		s.counters[path] = crdt.NewPNCounter()
 	}
 	s.counters[path].Decrement(op.NodeID, delta)
-	
+
 	s.operations = append(s.operations, op)
 	return &op, nil
 }
@@ -166,10 +166,10 @@ func (s *StateCRDT) DecrementCounter(path string, delta uint64) (*StateOperation
 func (s *StateCRDT) AddToSet(path string, element string) (*StateOperation, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	
+
 	// Increment clock
 	s.clock.Increment(s.nodeID)
-	
+
 	// Create operation
 	op := StateOperation{
 		ID:        uuid.New(),
@@ -180,13 +180,13 @@ func (s *StateCRDT) AddToSet(path string, element string) (*StateOperation, erro
 		Clock:     s.clock.Clone(),
 		Timestamp: time.Now(),
 	}
-	
+
 	// Apply to set
 	if s.sets[path] == nil {
 		s.sets[path] = crdt.NewORSet()
 	}
 	s.sets[path].Add(element)
-	
+
 	s.operations = append(s.operations, op)
 	return &op, nil
 }
@@ -195,10 +195,10 @@ func (s *StateCRDT) AddToSet(path string, element string) (*StateOperation, erro
 func (s *StateCRDT) RemoveFromSet(path string, element string) (*StateOperation, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	
+
 	// Increment clock
 	s.clock.Increment(s.nodeID)
-	
+
 	// Create operation
 	op := StateOperation{
 		ID:        uuid.New(),
@@ -209,12 +209,12 @@ func (s *StateCRDT) RemoveFromSet(path string, element string) (*StateOperation,
 		Clock:     s.clock.Clone(),
 		Timestamp: time.Now(),
 	}
-	
+
 	// Apply to set
 	if s.sets[path] != nil {
 		s.sets[path].Remove(element)
 	}
-	
+
 	s.operations = append(s.operations, op)
 	return &op, nil
 }
@@ -223,29 +223,29 @@ func (s *StateCRDT) RemoveFromSet(path string, element string) (*StateOperation,
 func (s *StateCRDT) ApplyOperation(op *StateOperation) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	
+
 	// Update vector clock
 	s.clock.Update(op.Clock)
-	
+
 	switch op.Type {
 	case "set":
 		if s.registers[op.Path] == nil {
 			s.registers[op.Path] = crdt.NewLWWRegister()
 		}
 		s.registers[op.Path].Set(op.Value, op.Timestamp, op.NodeID)
-		
+
 	case "increment":
 		if s.counters[op.Path] == nil {
 			s.counters[op.Path] = crdt.NewPNCounter()
 		}
 		s.counters[op.Path].Increment(op.NodeID, uint64(op.Delta))
-		
+
 	case "decrement":
 		if s.counters[op.Path] == nil {
 			s.counters[op.Path] = crdt.NewPNCounter()
 		}
 		s.counters[op.Path].Decrement(op.NodeID, uint64(op.Delta))
-		
+
 	case "add_to_set":
 		if s.sets[op.Path] == nil {
 			s.sets[op.Path] = crdt.NewORSet()
@@ -253,18 +253,18 @@ func (s *StateCRDT) ApplyOperation(op *StateOperation) error {
 		if element, ok := op.Value.(string); ok {
 			s.sets[op.Path].Add(element)
 		}
-		
+
 	case "remove_from_set":
 		if s.sets[op.Path] != nil {
 			if element, ok := op.Value.(string); ok {
 				s.sets[op.Path].Remove(element)
 			}
 		}
-		
+
 	default:
 		return fmt.Errorf("unknown operation type: %s", op.Type)
 	}
-	
+
 	s.operations = append(s.operations, *op)
 	return nil
 }
@@ -273,26 +273,26 @@ func (s *StateCRDT) ApplyOperation(op *StateOperation) error {
 func (s *StateCRDT) GetState() map[string]interface{} {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
-	
+
 	state := make(map[string]interface{})
-	
+
 	// Add registers
 	for path, reg := range s.registers {
 		if value := reg.Get(); value != nil {
 			state[path] = value
 		}
 	}
-	
+
 	// Add counters
 	for path, counter := range s.counters {
 		state[path] = counter.Value()
 	}
-	
+
 	// Add sets
 	for path, set := range s.sets {
 		state[path] = set.Elements()
 	}
-	
+
 	return state
 }
 
@@ -302,40 +302,46 @@ func (s *StateCRDT) Merge(other crdt.CRDT) error {
 	if !ok {
 		return fmt.Errorf("cannot merge StateCRDT with %T", other)
 	}
-	
+
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	
+
 	otherState.mu.RLock()
 	defer otherState.mu.RUnlock()
-	
+
 	// Merge registers
 	for path, otherReg := range otherState.registers {
 		if s.registers[path] == nil {
 			s.registers[path] = crdt.NewLWWRegister()
 		}
-		s.registers[path].Merge(otherReg)
+		if err := s.registers[path].Merge(otherReg); err != nil {
+			return fmt.Errorf("failed to merge register at path %s: %w", path, err)
+		}
 	}
-	
+
 	// Merge counters
 	for path, otherCounter := range otherState.counters {
 		if s.counters[path] == nil {
 			s.counters[path] = crdt.NewPNCounter()
 		}
-		s.counters[path].Merge(otherCounter)
+		if err := s.counters[path].Merge(otherCounter); err != nil {
+			return fmt.Errorf("failed to merge counter at path %s: %w", path, err)
+		}
 	}
-	
+
 	// Merge sets
 	for path, otherSet := range otherState.sets {
 		if s.sets[path] == nil {
 			s.sets[path] = crdt.NewORSet()
 		}
-		s.sets[path].Merge(otherSet)
+		if err := s.sets[path].Merge(otherSet); err != nil {
+			return fmt.Errorf("failed to merge set at path %s: %w", path, err)
+		}
 	}
-	
+
 	// Update clock
 	s.clock.Update(otherState.clock)
-	
+
 	return nil
 }
 
@@ -343,29 +349,29 @@ func (s *StateCRDT) Merge(other crdt.CRDT) error {
 func (s *StateCRDT) Clone() crdt.CRDT {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
-	
+
 	clone := NewStateCRDT(s.stateID, s.nodeID)
 	clone.clock = s.clock.Clone()
-	
+
 	// Clone registers
 	for path, reg := range s.registers {
 		clone.registers[path] = reg.Clone().(*crdt.LWWRegister)
 	}
-	
+
 	// Clone counters
 	for path, counter := range s.counters {
 		clone.counters[path] = counter.Clone().(*crdt.PNCounter)
 	}
-	
+
 	// Clone sets
 	for path, set := range s.sets {
 		clone.sets[path] = set.Clone().(*crdt.ORSet)
 	}
-	
+
 	// Clone operations
 	clone.operations = make([]StateOperation, len(s.operations))
 	copy(clone.operations, s.operations)
-	
+
 	return clone
 }
 
@@ -384,7 +390,7 @@ func (s *StateCRDT) ToJSON() ([]byte, error) {
 func (s *StateCRDT) GetOperationsSince(since crdt.VectorClock) []StateOperation {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
-	
+
 	var ops []StateOperation
 	for _, op := range s.operations {
 		if !since.HappensBefore(op.Clock) && !since.Concurrent(op.Clock) {
@@ -392,6 +398,6 @@ func (s *StateCRDT) GetOperationsSince(since crdt.VectorClock) []StateOperation 
 		}
 		ops = append(ops, op)
 	}
-	
+
 	return ops
 }

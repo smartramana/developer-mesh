@@ -218,7 +218,7 @@ func TestValidateConfig(t *testing.T) {
 func TestGetHardwareAcceleration(t *testing.T) {
 	info := GetHardwareAcceleration()
 	assert.NotNil(t, info)
-	
+
 	// Just verify the function returns a map with expected keys
 	// The actual values depend on the hardware
 	t.Logf("Hardware acceleration info: %+v", info)
@@ -226,7 +226,7 @@ func TestGetHardwareAcceleration(t *testing.T) {
 
 func TestDefaultConfig(t *testing.T) {
 	cfg := DefaultConfig()
-	
+
 	assert.True(t, cfg.Enabled)
 	assert.Equal(t, DefaultMinVersion, cfg.MinVersion)
 	assert.True(t, cfg.VerifyCertificates)

@@ -7,7 +7,7 @@ import (
 
 // RetryPolicy defines retry behavior
 type RetryPolicy struct {
-	MaxAttempts int
+	MaxAttempts  int
 	InitialDelay time.Duration
 	MaxDelay     time.Duration
 	Multiplier   float64

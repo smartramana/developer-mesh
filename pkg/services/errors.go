@@ -22,10 +22,10 @@ var (
 	ErrWorkflowNotActive       = errors.New("workflow is not active")
 	ErrDocumentLocked          = errors.New("document is locked")
 	ErrMergeConflict           = errors.New("merge conflict detected")
-	
+
 	// Additional errors
-	ErrInvalidID               = errors.New("invalid ID format")
-	ErrResourceNotFound        = errors.New("resource not found")
+	ErrInvalidID        = errors.New("invalid ID format")
+	ErrResourceNotFound = errors.New("resource not found")
 )
 
 // ValidationError represents a validation failure
@@ -199,6 +199,6 @@ type VersionMismatchError struct {
 }
 
 func (e VersionMismatchError) Error() string {
-	return fmt.Sprintf("version mismatch for document %s: expected %d, got %d", 
+	return fmt.Sprintf("version mismatch for document %s: expected %d, got %d",
 		e.DocumentID, e.ExpectedVersion, e.ActualVersion)
 }

@@ -14,7 +14,7 @@ import (
 	"github.com/stretchr/testify/suite"
 
 	"github.com/jmoiron/sqlx"
-	
+
 	"github.com/S-Corkum/devops-mcp/pkg/cache"
 	"github.com/S-Corkum/devops-mcp/pkg/collaboration"
 	"github.com/S-Corkum/devops-mcp/pkg/models"
@@ -57,7 +57,7 @@ func (s *MultiAgentIntegrationSuite) SetupSuite() {
 
 	// Create sqlx DB
 	sqlxDB := sqlx.NewDb(db, "postgres")
-	
+
 	// Create mock cache
 	mockCache := &mockCache{data: make(map[string]interface{})}
 
@@ -77,11 +77,11 @@ func (s *MultiAgentIntegrationSuite) SetupSuite() {
 
 	// Create notification service
 	notificationService := services.NewNotificationService(serviceConfig)
-	
+
 	// Create agent repository and service
 	agentRepo := repository.NewAgentRepository(sqlxDB)
 	agentService := services.NewAgentService(serviceConfig, agentRepo)
-	
+
 	// Create services with proper constructor signatures
 	s.taskService = services.NewTaskService(serviceConfig, taskRepo, nil, nil)
 	s.workflowService = services.NewWorkflowService(serviceConfig, workflowRepo, s.taskService, agentService, notificationService)
@@ -90,13 +90,13 @@ func (s *MultiAgentIntegrationSuite) SetupSuite() {
 
 	// Create test agents
 	s.agents = map[string]uuid.UUID{
-		"coordinator":  uuid.New(),
-		"developer1":   uuid.New(),
-		"developer2":   uuid.New(),
-		"tester1":      uuid.New(),
-		"tester2":      uuid.New(),
-		"reviewer":     uuid.New(),
-		"documenter":   uuid.New(),
+		"coordinator": uuid.New(),
+		"developer1":  uuid.New(),
+		"developer2":  uuid.New(),
+		"tester1":     uuid.New(),
+		"tester2":     uuid.New(),
+		"reviewer":    uuid.New(),
+		"documenter":  uuid.New(),
 	}
 }
 
@@ -105,15 +105,15 @@ func (s *MultiAgentIntegrationSuite) TearDownSuite() {
 	s.cancel()
 	if s.db != nil {
 		// Clean up test data
-		shared.CleanupTestData(s.db, s.tenantID)
-		s.db.Close()
+		_ = shared.CleanupTestData(s.db, s.tenantID)
+		_ = s.db.Close()
 	}
 }
 
 // SetupTest runs before each test
 func (s *MultiAgentIntegrationSuite) SetupTest() {
 	// Clean up any data from previous test
-	shared.CleanupTestData(s.db, s.tenantID)
+	_ = shared.CleanupTestData(s.db, s.tenantID)
 }
 
 // TestMultiAgentTaskDelegation tests complex task delegation scenarios
@@ -128,7 +128,7 @@ func (s *MultiAgentIntegrationSuite) TestMultiAgentTaskDelegation() {
 		Title:       "Implement User Authentication Feature",
 		Description: "Complete implementation including backend, frontend, and tests",
 		Parameters: models.JSONMap{
-			"feature_id":    "AUTH-001",
+			"feature_id":      "AUTH-001",
 			"estimated_hours": 40,
 			"requirements": []string{
 				"OAuth 2.0 support",
@@ -301,64 +301,64 @@ func (s *MultiAgentIntegrationSuite) TestMultiAgentWorkflowCoordination() {
 		Steps: map[string]interface{}{
 			"steps": []map[string]interface{}{
 				{
-					"id":     "submit_pr",
-					"name":   "Submit Pull Request",
-					"type":   "task",
-					"order":  1,
+					"id":    "submit_pr",
+					"name":  "Submit Pull Request",
+					"type":  "task",
+					"order": 1,
 					"config": map[string]interface{}{
 						"assignee": s.agents["developer1"].String(),
 					},
 				},
 				{
-					"id":     "code_review",
-					"name":   "Code Review",
-					"type":   "task",
-					"order":  2,
+					"id":    "code_review",
+					"name":  "Code Review",
+					"type":  "task",
+					"order": 2,
 					"config": map[string]interface{}{
-						"assignee":      s.agents["reviewer"].String(),
-						"review_type":   "technical",
+						"assignee":           s.agents["reviewer"].String(),
+						"review_type":        "technical",
 						"required_approvals": 1,
 					},
 				},
 				{
-					"id":     "security_review",
-					"name":   "Security Review",
-					"type":   "task",
-					"order":  3,
+					"id":       "security_review",
+					"name":     "Security Review",
+					"type":     "task",
+					"order":    3,
 					"parallel": true,
 					"config": map[string]interface{}{
-						"assignee":    s.agents["tester1"].String(),
-						"scan_type":   "security",
+						"assignee":  s.agents["tester1"].String(),
+						"scan_type": "security",
 					},
 				},
 				{
-					"id":     "performance_review",
-					"name":   "Performance Review",
-					"type":   "task",
-					"order":  3,
+					"id":       "performance_review",
+					"name":     "Performance Review",
+					"type":     "task",
+					"order":    3,
 					"parallel": true,
 					"config": map[string]interface{}{
-						"assignee":    s.agents["tester2"].String(),
-						"benchmark":   true,
+						"assignee":  s.agents["tester2"].String(),
+						"benchmark": true,
 					},
 				},
 				{
-					"id":     "documentation",
-					"name":   "Update Documentation",
-					"type":   "task",
-					"order":  4,
+					"id":    "documentation",
+					"name":  "Update Documentation",
+					"type":  "task",
+					"order": 4,
 					"config": map[string]interface{}{
 						"assignee": s.agents["documenter"].String(),
 					},
 				},
 				{
-					"id":     "merge",
-					"name":   "Merge to Main",
-					"type":   "task",
-					"order":  5,
+					"id":    "merge",
+					"name":  "Merge to Main",
+					"type":  "task",
+					"order": 5,
 					"config": map[string]interface{}{
-						"assignee":     s.agents["developer1"].String(),
-						"auto_merge":   false,
+						"assignee":   s.agents["developer1"].String(),
+						"auto_merge": false,
 					},
 				},
 			},
@@ -374,8 +374,8 @@ func (s *MultiAgentIntegrationSuite) TestMultiAgentWorkflowCoordination() {
 
 	// Start workflow execution
 	execution, err := s.workflowService.StartWorkflow(s.ctx, workflow.ID, s.agents["developer1"].String(), map[string]interface{}{
-		"pr_number":    "PR-123",
-		"branch":       "feature/auth",
+		"pr_number":     "PR-123",
+		"branch":        "feature/auth",
 		"files_changed": 25,
 		"lines_added":   450,
 		"lines_removed": 120,
@@ -385,7 +385,7 @@ func (s *MultiAgentIntegrationSuite) TestMultiAgentWorkflowCoordination() {
 	// Execute workflow steps
 	// Complete submit_pr
 	err = s.workflowService.CompleteStep(s.ctx, execution.ID, "submit_pr", map[string]interface{}{
-		"pr_url": "https://github.com/org/repo/pull/123",
+		"pr_url":      "https://github.com/org/repo/pull/123",
 		"commit_hash": "abc123def456",
 	})
 	require.NoError(s.T(), err)
@@ -412,8 +412,8 @@ func (s *MultiAgentIntegrationSuite) TestMultiAgentWorkflowCoordination() {
 		time.Sleep(100 * time.Millisecond) // Simulate work
 		err := s.workflowService.CompleteStep(s.ctx, execution.ID, "security_review", map[string]interface{}{
 			"vulnerabilities": 0,
-			"warnings":       2,
-			"scan_duration":  "5m30s",
+			"warnings":        2,
+			"scan_duration":   "5m30s",
 		})
 		results <- err
 	}()
@@ -493,7 +493,7 @@ func (s *MultiAgentIntegrationSuite) TestMultiAgentWorkspaceCollaboration() {
 				"version_control": true,
 			},
 		},
-		Status:      models.WorkspaceStatusActive,
+		Status: models.WorkspaceStatusActive,
 	}
 
 	err := s.workspaceService.Create(s.ctx, workspace)
@@ -571,7 +571,7 @@ func (s *MultiAgentIntegrationSuite) TestMultiAgentWorkspaceCollaboration() {
 				VectorClock: map[string]int{
 					s.agents[name].String(): 1,
 				},
-				AppliedAt:  time.Now(),
+				AppliedAt: time.Now(),
 			}
 
 			err = s.documentService.ApplyOperation(s.ctx, planDoc.ID, operation)
@@ -608,10 +608,10 @@ func (s *MultiAgentIntegrationSuite) TestMultiAgentWorkspaceCollaboration() {
 		Type: "set",
 		Path: "/counters",
 		Value: map[string]interface{}{
-			"tasks_completed":  0,
-			"reviews_pending":  0,
-			"bugs_found":       0,
-			"docs_updated":     0,
+			"tasks_completed": 0,
+			"reviews_pending": 0,
+			"bugs_found":      0,
+			"docs_updated":    0,
 		},
 	})
 	require.NoError(s.T(), err)
@@ -761,8 +761,8 @@ func (s *MultiAgentIntegrationSuite) TestMultiAgentFailoverScenario() {
 
 	// Complete with urgency
 	err = s.taskService.CompleteTask(s.ctx, criticalTask.ID, s.agents["developer2"].String(), map[string]interface{}{
-		"fix_applied":     true,
-		"users_affected":  0,
+		"fix_applied":      true,
+		"users_affected":   0,
 		"downtime_minutes": 0,
 		"failover_success": true,
 	})
@@ -898,7 +898,7 @@ func (s *MultiAgentIntegrationSuite) TestMultiAgentPerformance() {
 
 	// Test concurrent state updates
 	startTime = time.Now()
-	
+
 	// Initialize counter
 	err = s.workspaceService.UpdateState(s.ctx, perfWorkspace.ID, &models.StateOperation{
 		Type:  "set",
@@ -939,7 +939,7 @@ func (s *MultiAgentIntegrationSuite) TestMultiAgentPerformance() {
 	// Verify final counter value
 	finalState, err := s.workspaceService.GetState(s.ctx, perfWorkspace.ID)
 	require.NoError(s.T(), err)
-	
+
 	// Access the Data field of WorkspaceState
 	stateData := finalState.Data
 	counterValue, ok := stateData["performance_counter"].(float64)
@@ -965,7 +965,7 @@ type mockCache struct {
 func (m *mockCache) Get(ctx context.Context, key string, value interface{}) error {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
-	
+
 	if v, ok := m.data[key]; ok {
 		// In real implementation, would unmarshal into value
 		_ = v
@@ -977,7 +977,7 @@ func (m *mockCache) Get(ctx context.Context, key string, value interface{}) erro
 func (m *mockCache) Set(ctx context.Context, key string, value interface{}, ttl time.Duration) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	
+
 	m.data[key] = value
 	return nil
 }
@@ -985,7 +985,7 @@ func (m *mockCache) Set(ctx context.Context, key string, value interface{}, ttl 
 func (m *mockCache) Delete(ctx context.Context, key string) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	
+
 	delete(m.data, key)
 	return nil
 }
@@ -993,7 +993,7 @@ func (m *mockCache) Delete(ctx context.Context, key string) error {
 func (m *mockCache) Exists(ctx context.Context, key string) (bool, error) {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
-	
+
 	_, ok := m.data[key]
 	return ok, nil
 }
@@ -1001,7 +1001,7 @@ func (m *mockCache) Exists(ctx context.Context, key string) (bool, error) {
 func (m *mockCache) Flush(ctx context.Context) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	
+
 	m.data = make(map[string]interface{})
 	return nil
 }

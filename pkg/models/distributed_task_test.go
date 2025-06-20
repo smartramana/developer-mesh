@@ -22,7 +22,7 @@ func TestCoordinationModeIsValid(t *testing.T) {
 		{"LeaderElect mode", CoordinationModeLeaderElect, true},
 		{"Invalid mode", CoordinationMode("invalid"), false},
 	}
-	
+
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			assert.Equal(t, tt.expected, tt.mode.IsValid())
@@ -43,7 +43,7 @@ func TestCompletionModeIsValid(t *testing.T) {
 		{"BestOf mode", CompletionModeBestOf, true},
 		{"Invalid mode", CompletionMode("invalid"), false},
 	}
-	
+
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			assert.Equal(t, tt.expected, tt.mode.IsValid())
@@ -54,7 +54,7 @@ func TestCompletionModeIsValid(t *testing.T) {
 func TestDistributedTaskSetDefaults(t *testing.T) {
 	dt := &DistributedTask{}
 	dt.SetDefaults()
-	
+
 	assert.Equal(t, CoordinationModeParallel, dt.CoordinationMode)
 	assert.Equal(t, CompletionModeAll, dt.CompletionMode)
 	assert.Equal(t, TaskPriorityNormal, dt.Priority)
@@ -143,7 +143,7 @@ func TestDistributedTaskValidate(t *testing.T) {
 			wantErr: false,
 		},
 	}
-	
+
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			err := tt.task.Validate()
@@ -196,7 +196,7 @@ func TestDistributedTaskCalculateProgress(t *testing.T) {
 			expected: 100.0,
 		},
 	}
-	
+
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			progress := tt.task.CalculateProgress()
@@ -207,7 +207,7 @@ func TestDistributedTaskCalculateProgress(t *testing.T) {
 
 func TestDistributedTaskIsComplete(t *testing.T) {
 	subtaskIDs := []uuid.UUID{uuid.New(), uuid.New(), uuid.New(), uuid.New()}
-	
+
 	tests := []struct {
 		name             string
 		completionMode   CompletionMode
@@ -220,31 +220,31 @@ func TestDistributedTaskIsComplete(t *testing.T) {
 		{"All mode - none complete", CompletionModeAll, subtaskIDs, 0, 0, false},
 		{"All mode - some complete", CompletionModeAll, subtaskIDs, 2, 0, false},
 		{"All mode - all complete", CompletionModeAll, subtaskIDs, 4, 0, true},
-		
+
 		// CompletionModeAny tests
 		{"Any mode - none complete", CompletionModeAny, subtaskIDs, 0, 0, false},
 		{"Any mode - one complete", CompletionModeAny, subtaskIDs, 1, 0, true},
 		{"Any mode - all complete", CompletionModeAny, subtaskIDs, 4, 0, true},
-		
+
 		// CompletionModeMajority tests
 		{"Majority mode - none complete", CompletionModeMajority, subtaskIDs, 0, 0, false},
 		{"Majority mode - minority complete", CompletionModeMajority, subtaskIDs, 2, 0, false},
 		{"Majority mode - majority complete", CompletionModeMajority, subtaskIDs, 3, 0, true},
-		
+
 		// CompletionModeThreshold tests
 		{"Threshold mode - below threshold", CompletionModeThreshold, subtaskIDs, 1, 2, false},
 		{"Threshold mode - at threshold", CompletionModeThreshold, subtaskIDs, 2, 2, true},
 		{"Threshold mode - above threshold", CompletionModeThreshold, subtaskIDs, 3, 2, true},
 		{"Threshold mode - no threshold set", CompletionModeThreshold, subtaskIDs, 4, 0, true},
-		
+
 		// CompletionModeBestOf tests
 		{"BestOf mode - below threshold", CompletionModeBestOf, subtaskIDs, 2, 3, false},
 		{"BestOf mode - at threshold", CompletionModeBestOf, subtaskIDs, 3, 3, true},
-		
+
 		// Empty subtasks
 		{"Empty subtasks", CompletionModeAll, []uuid.UUID{}, 0, 0, true},
 	}
-	
+
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			dt := &DistributedTask{
@@ -261,11 +261,11 @@ func TestDistributedTaskIsComplete(t *testing.T) {
 func TestDistributedTaskGetEstimatedCompletion(t *testing.T) {
 	now := time.Now()
 	duration := 2 * time.Hour
-	
+
 	tests := []struct {
-		name     string
-		task     *DistributedTask
-		hasTime  bool
+		name    string
+		task    *DistributedTask
+		hasTime bool
 	}{
 		{
 			name: "Not started",
@@ -290,7 +290,7 @@ func TestDistributedTaskGetEstimatedCompletion(t *testing.T) {
 			hasTime: true,
 		},
 	}
-	
+
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			estimated := tt.task.GetEstimatedCompletion()
@@ -308,7 +308,7 @@ func TestDistributedTaskFullExample(t *testing.T) {
 	// Create a complete distributed task with all fields
 	taskID := uuid.New()
 	now := time.Now()
-	
+
 	dt := &DistributedTask{
 		ID:          taskID,
 		Type:        "data_analysis",
@@ -327,7 +327,7 @@ func TestDistributedTaskFullExample(t *testing.T) {
 			Timeout:    3600,
 		},
 		SubtaskIDs: []uuid.UUID{uuid.New(), uuid.New(), uuid.New(), uuid.New()},
-		
+
 		// Phase 3 fields
 		Task: &Task{
 			ID:     taskID,
@@ -336,7 +336,7 @@ func TestDistributedTaskFullExample(t *testing.T) {
 		CoordinationMode:    CoordinationModeMapReduce,
 		CompletionMode:      CompletionModeAll,
 		CompletionThreshold: 0,
-		
+
 		ExecutionPlan: &ExecutionPlan{
 			Phases: []ExecutionPhase{
 				{
@@ -365,24 +365,24 @@ func TestDistributedTaskFullExample(t *testing.T) {
 			},
 			Timeout: 2 * time.Hour,
 		},
-		
+
 		Partitions: []TaskPartition{
 			{ID: "north", RangeStart: 0, RangeEnd: 1000000, Weight: 0.25},
 			{ID: "south", RangeStart: 1000001, RangeEnd: 2000000, Weight: 0.25},
 			{ID: "east", RangeStart: 2000001, RangeEnd: 3000000, Weight: 0.25},
 			{ID: "west", RangeStart: 3000001, RangeEnd: 4000000, Weight: 0.25},
 		},
-		
+
 		Progress: &TaskProgress{
-			TaskID:          taskID,
-			TotalSteps:      4,
-			CompletedSteps:  2,
-			CurrentStep:     "Processing East region",
-			PercentComplete: 50.0,
+			TaskID:                 taskID,
+			TotalSteps:             4,
+			CompletedSteps:         2,
+			CurrentStep:            "Processing East region",
+			PercentComplete:        50.0,
 			EstimatedTimeRemaining: 1 * time.Hour,
-			LastUpdated:     now,
+			LastUpdated:            now,
 		},
-		
+
 		ResourceUsage: &ResourceUsage{
 			TaskID:      taskID,
 			CPUPercent:  75.5,
@@ -392,7 +392,7 @@ func TestDistributedTaskFullExample(t *testing.T) {
 			StartTime:   now.Add(-1 * time.Hour),
 			LastUpdated: now,
 		},
-		
+
 		StartedAt:         &now,
 		EstimatedDuration: 2 * time.Hour,
 		ResultsCollected:  2,
@@ -401,20 +401,20 @@ func TestDistributedTaskFullExample(t *testing.T) {
 			map[string]interface{}{"region": "south", "total": 175000},
 		},
 	}
-	
+
 	// Validate the distributed task
 	dt.SetDefaults() // Should not override existing values
 	err := dt.Validate()
 	require.NoError(t, err)
-	
+
 	// Test calculations
 	assert.Equal(t, 50.0, dt.CalculateProgress())
 	assert.False(t, dt.IsComplete())
-	
+
 	estimated := dt.GetEstimatedCompletion()
 	require.NotNil(t, estimated)
 	assert.Equal(t, now.Add(2*time.Hour).Unix(), estimated.Unix())
-	
+
 	// Verify coordination and completion modes remain as set
 	assert.Equal(t, CoordinationModeMapReduce, dt.CoordinationMode)
 	assert.Equal(t, CompletionModeAll, dt.CompletionMode)

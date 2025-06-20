@@ -159,8 +159,8 @@ func TestProtocolCompliance(t *testing.T) {
 		}
 
 		body, err := json.Marshal(request)
-			require.NoError(t, err)
-			req := httptest.NewRequest("POST", "/mcp/v1/rpc", bytes.NewReader(body))
+		require.NoError(t, err)
+		req := httptest.NewRequest("POST", "/mcp/v1/rpc", bytes.NewReader(body))
 		req.Header.Set("Content-Type", "application/json")
 		req.Header.Set("X-MCP-Version", "1.0")
 
@@ -202,8 +202,8 @@ func TestProtocolCompliance(t *testing.T) {
 		}
 
 		body, err := json.Marshal(requests)
-			require.NoError(t, err)
-			req := httptest.NewRequest("POST", "/mcp/v1/rpc", bytes.NewReader(body))
+		require.NoError(t, err)
+		req := httptest.NewRequest("POST", "/mcp/v1/rpc", bytes.NewReader(body))
 		req.Header.Set("Content-Type", "application/json")
 		req.Header.Set("X-MCP-Version", "1.0")
 
@@ -231,8 +231,8 @@ func TestProtocolCompliance(t *testing.T) {
 		}
 
 		body, err := json.Marshal(request)
-			require.NoError(t, err)
-			req := httptest.NewRequest("POST", "/mcp/v1/rpc", bytes.NewReader(body))
+		require.NoError(t, err)
+		req := httptest.NewRequest("POST", "/mcp/v1/rpc", bytes.NewReader(body))
 		req.Header.Set("Content-Type", "application/json")
 		req.Header.Set("X-MCP-Version", "1.0")
 
@@ -269,8 +269,8 @@ func TestProtocolCompliance(t *testing.T) {
 		}
 
 		body, err := json.Marshal(notification)
-			require.NoError(t, err)
-			req := httptest.NewRequest("POST", "/mcp/v1/rpc", bytes.NewReader(body))
+		require.NoError(t, err)
+		req := httptest.NewRequest("POST", "/mcp/v1/rpc", bytes.NewReader(body))
 		req.Header.Set("Content-Type", "application/json")
 		req.Header.Set("X-MCP-Version", "1.0")
 
@@ -367,7 +367,7 @@ func TestMessageFormats(t *testing.T) {
 
 				var response map[string]interface{}
 				err := json.Unmarshal(w.Body.Bytes(), &response)
-			require.NoError(t, err)
+				require.NoError(t, err)
 
 				if tc.expectedError != "" {
 					assert.Contains(t, response, "error")
@@ -394,8 +394,8 @@ func TestVersionCompatibility(t *testing.T) {
 		}
 
 		body, err := json.Marshal(request)
-			require.NoError(t, err)
-			req := httptest.NewRequest("POST", "/mcp/v1/rpc", bytes.NewReader(body))
+		require.NoError(t, err)
+		req := httptest.NewRequest("POST", "/mcp/v1/rpc", bytes.NewReader(body))
 		req.Header.Set("Content-Type", "application/json")
 		req.Header.Set("X-MCP-Version", "1.0")
 
@@ -414,8 +414,8 @@ func TestVersionCompatibility(t *testing.T) {
 		}
 
 		body, err := json.Marshal(request)
-			require.NoError(t, err)
-			req := httptest.NewRequest("POST", "/mcp/v1/rpc", bytes.NewReader(body))
+		require.NoError(t, err)
+		req := httptest.NewRequest("POST", "/mcp/v1/rpc", bytes.NewReader(body))
 		req.Header.Set("Content-Type", "application/json")
 		req.Header.Set("X-MCP-Version", "99.0") // Unsupported version
 
@@ -475,8 +475,8 @@ func TestStreamingResponses(t *testing.T) {
 		}
 
 		body, err := json.Marshal(request)
-			require.NoError(t, err)
-			req := httptest.NewRequest("POST", "/mcp/v1/rpc", bytes.NewReader(body))
+		require.NoError(t, err)
+		req := httptest.NewRequest("POST", "/mcp/v1/rpc", bytes.NewReader(body))
 		req.Header.Set("Content-Type", "application/json")
 		req.Header.Set("X-MCP-Version", "1.0")
 		req.Header.Set("Accept", "text/event-stream")
@@ -637,8 +637,8 @@ func TestEventProtocol(t *testing.T) {
 		}
 
 		body, err := json.Marshal(event)
-			require.NoError(t, err)
-			req := httptest.NewRequest("POST", "/mcp/v1/rpc", bytes.NewReader(body))
+		require.NoError(t, err)
+		req := httptest.NewRequest("POST", "/mcp/v1/rpc", bytes.NewReader(body))
 		req.Header.Set("Content-Type", "application/json")
 		req.Header.Set("X-MCP-Version", "1.0")
 

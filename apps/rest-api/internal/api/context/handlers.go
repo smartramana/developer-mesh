@@ -6,12 +6,13 @@ import (
 	"strings"
 	"time"
 
+	"rest-api/internal/core"
+	"rest-api/internal/repository"
+
 	"github.com/S-Corkum/devops-mcp/pkg/models"
 	"github.com/S-Corkum/devops-mcp/pkg/observability"
 	"github.com/gin-gonic/gin"
 	"github.com/jmoiron/sqlx"
-	"rest-api/internal/core"
-	"rest-api/internal/repository"
 )
 
 // contextResponse wraps a context with HATEOAS links for API responses

@@ -5,6 +5,7 @@ package observability
 import (
 	"context"
 	"sync"
+
 	"go.opentelemetry.io/otel/attribute"
 )
 
@@ -26,8 +27,8 @@ var (
 
 // Additional context keys for storing observability components
 const (
-	loggerKey contextKey = "observability_logger"
-	metricsKey contextKey = "observability_metrics"  
+	loggerKey    contextKey = "observability_logger"
+	metricsKey   contextKey = "observability_metrics"
 	startSpanKey contextKey = "observability_startspan"
 )
 
@@ -80,7 +81,7 @@ func Initialize(cfg Config) error {
 // Shutdown gracefully shuts down all observability components
 func ObservabilityShutdown() error {
 	var shutdownErrors []error
-	
+
 	// Close metrics client if it exists
 	if DefaultMetricsClient != nil {
 		if err := DefaultMetricsClient.Close(); err != nil {
@@ -97,7 +98,7 @@ func ObservabilityShutdown() error {
 	copy(funcs, shutdownFuncs)
 	shutdownFuncs = nil // Clear the list
 	shutdownMutex.Unlock()
-	
+
 	for _, fn := range funcs {
 		if err := fn(); err != nil {
 			shutdownErrors = append(shutdownErrors, err)
@@ -133,7 +134,7 @@ func FromContext(ctx context.Context) (Logger, MetricsClient, StartSpanFunc) {
 	logger := DefaultLogger
 	metrics := DefaultMetricsClient
 	startSpan := DefaultStartSpan
-	
+
 	if l, ok := ctx.Value(loggerKey).(Logger); ok && l != nil {
 		logger = l
 	}
@@ -143,7 +144,7 @@ func FromContext(ctx context.Context) (Logger, MetricsClient, StartSpanFunc) {
 	if s, ok := ctx.Value(startSpanKey).(StartSpanFunc); ok && s != nil {
 		startSpan = s
 	}
-	
+
 	return logger, metrics, startSpan
 }
 
@@ -152,7 +153,7 @@ func registerShutdownFunc(fn func() error) {
 	if fn == nil {
 		return
 	}
-	
+
 	shutdownMutex.Lock()
 	defer shutdownMutex.Unlock()
 	shutdownFuncs = append(shutdownFuncs, fn)

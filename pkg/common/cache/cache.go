@@ -43,7 +43,7 @@ func NewRedisCache(cfg RedisConfig) (*RedisCache, error) {
 		MinIdleConns: cfg.MinIdleConns,
 		PoolTimeout:  time.Duration(cfg.PoolTimeout) * time.Second,
 	}
-	
+
 	// Configure TLS if enabled
 	if cfg.TLS != nil && cfg.TLS.Enabled {
 		tlsConfig, err := cfg.TLS.BuildTLSConfig()
@@ -54,7 +54,7 @@ func NewRedisCache(cfg RedisConfig) (*RedisCache, error) {
 			options.TLSConfig = tlsConfig
 		}
 	}
-	
+
 	client := redis.NewClient(options)
 
 	// Test connection

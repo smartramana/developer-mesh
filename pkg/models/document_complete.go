@@ -3,6 +3,7 @@ package models
 import (
 	"fmt"
 	"time"
+
 	"github.com/google/uuid"
 )
 
@@ -10,30 +11,30 @@ import (
 type DocumentType string
 
 const (
-	DocumentTypeMarkdown  DocumentType = "markdown"
-	DocumentTypeJSON      DocumentType = "json"
-	DocumentTypeYAML      DocumentType = "yaml"
-	DocumentTypeCode      DocumentType = "code"
-	DocumentTypeDiagram   DocumentType = "diagram"
-	DocumentTypeRunbook   DocumentType = "runbook"
-	DocumentTypePlaybook  DocumentType = "playbook"
-	DocumentTypeTemplate  DocumentType = "template"
-	DocumentTypeConfig    DocumentType = "config"
+	DocumentTypeMarkdown DocumentType = "markdown"
+	DocumentTypeJSON     DocumentType = "json"
+	DocumentTypeYAML     DocumentType = "yaml"
+	DocumentTypeCode     DocumentType = "code"
+	DocumentTypeDiagram  DocumentType = "diagram"
+	DocumentTypeRunbook  DocumentType = "runbook"
+	DocumentTypePlaybook DocumentType = "playbook"
+	DocumentTypeTemplate DocumentType = "template"
+	DocumentTypeConfig   DocumentType = "config"
 )
 
 // DocumentUpdate represents a document update operation
 type DocumentUpdate struct {
-	ID                 uuid.UUID              `json:"id" db:"id"`
-	DocumentID         uuid.UUID              `json:"document_id" db:"document_id"`
-	Version            int                    `json:"version" db:"version"`
-	UpdateType         UpdateType             `json:"update_type" db:"update_type"`
-	Path               string                 `json:"path" db:"path"`
-	OldValue           interface{}            `json:"old_value" db:"old_value"`
-	NewValue           interface{}            `json:"new_value" db:"new_value"`
-	UpdatedBy          string                 `json:"updated_by" db:"updated_by"`
-	UpdatedAt          time.Time              `json:"updated_at" db:"updated_at"`
-	Metadata           map[string]interface{} `json:"metadata" db:"metadata"`
-	Checksum           string                 `json:"checksum" db:"checksum"`
+	ID                 uuid.UUID                  `json:"id" db:"id"`
+	DocumentID         uuid.UUID                  `json:"document_id" db:"document_id"`
+	Version            int                        `json:"version" db:"version"`
+	UpdateType         UpdateType                 `json:"update_type" db:"update_type"`
+	Path               string                     `json:"path" db:"path"`
+	OldValue           interface{}                `json:"old_value" db:"old_value"`
+	NewValue           interface{}                `json:"new_value" db:"new_value"`
+	UpdatedBy          string                     `json:"updated_by" db:"updated_by"`
+	UpdatedAt          time.Time                  `json:"updated_at" db:"updated_at"`
+	Metadata           map[string]interface{}     `json:"metadata" db:"metadata"`
+	Checksum           string                     `json:"checksum" db:"checksum"`
 	ConflictResolution DocumentConflictResolution `json:"conflict_resolution,omitempty" db:"conflict_resolution"`
 }
 
@@ -105,17 +106,17 @@ func (r WorkspaceMemberRole) CanTransitionTo(target WorkspaceMemberRole) bool {
 	if r != WorkspaceMemberRoleOwner && r != WorkspaceMemberRoleAdmin {
 		return false
 	}
-	
+
 	// Owner can change to any role
 	if r == WorkspaceMemberRoleOwner {
 		return true
 	}
-	
+
 	// Admin can't promote to owner
 	if r == WorkspaceMemberRoleAdmin && target == WorkspaceMemberRoleOwner {
 		return false
 	}
-	
+
 	return true
 }
 
@@ -129,14 +130,14 @@ func (r WorkspaceMemberRole) IsHigherThan(other WorkspaceMemberRole) bool {
 		WorkspaceMemberRoleViewer:    2,
 		WorkspaceMemberRoleGuest:     1,
 	}
-	
+
 	rLevel, rExists := hierarchy[r]
 	oLevel, oExists := hierarchy[other]
-	
+
 	if !rExists || !oExists {
 		return false
 	}
-	
+
 	return rLevel > oLevel
 }
 

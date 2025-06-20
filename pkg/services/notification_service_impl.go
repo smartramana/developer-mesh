@@ -54,9 +54,9 @@ func (s *notificationService) processNotifications() {
 
 func (s *notificationService) NotifyTaskAssigned(ctx context.Context, agentID string, task interface{}) error {
 	n := &notification{
-		ID:        uuid.New(),
-		Type:      "task.assigned",
-		Target:    agentID,
+		ID:     uuid.New(),
+		Type:   "task.assigned",
+		Target: agentID,
 		Message: map[string]interface{}{
 			"task":     task,
 			"agent_id": agentID,
@@ -74,9 +74,9 @@ func (s *notificationService) NotifyTaskAssigned(ctx context.Context, agentID st
 
 func (s *notificationService) NotifyTaskCompleted(ctx context.Context, agentID string, task interface{}) error {
 	n := &notification{
-		ID:        uuid.New(),
-		Type:      "task.completed",
-		Target:    agentID,
+		ID:     uuid.New(),
+		Type:   "task.completed",
+		Target: agentID,
 		Message: map[string]interface{}{
 			"task":     task,
 			"agent_id": agentID,
@@ -94,9 +94,9 @@ func (s *notificationService) NotifyTaskCompleted(ctx context.Context, agentID s
 
 func (s *notificationService) NotifyTaskFailed(ctx context.Context, taskID uuid.UUID, agentID string, reason string) error {
 	n := &notification{
-		ID:        uuid.New(),
-		Type:      "task.failed",
-		Target:    agentID,
+		ID:     uuid.New(),
+		Type:   "task.failed",
+		Target: agentID,
 		Message: map[string]interface{}{
 			"task_id":  taskID.String(),
 			"agent_id": agentID,
@@ -115,9 +115,9 @@ func (s *notificationService) NotifyTaskFailed(ctx context.Context, taskID uuid.
 
 func (s *notificationService) NotifyWorkflowStarted(ctx context.Context, workflow interface{}) error {
 	n := &notification{
-		ID:        uuid.New(),
-		Type:      "workflow.started",
-		Target:    "broadcast",
+		ID:     uuid.New(),
+		Type:   "workflow.started",
+		Target: "broadcast",
 		Message: map[string]interface{}{
 			"workflow": workflow,
 		},
@@ -134,9 +134,9 @@ func (s *notificationService) NotifyWorkflowStarted(ctx context.Context, workflo
 
 func (s *notificationService) NotifyWorkflowCompleted(ctx context.Context, workflow interface{}) error {
 	n := &notification{
-		ID:        uuid.New(),
-		Type:      "workflow.completed",
-		Target:    "broadcast",
+		ID:     uuid.New(),
+		Type:   "workflow.completed",
+		Target: "broadcast",
 		Message: map[string]interface{}{
 			"workflow": workflow,
 		},
@@ -153,9 +153,9 @@ func (s *notificationService) NotifyWorkflowCompleted(ctx context.Context, workf
 
 func (s *notificationService) NotifyWorkflowFailed(ctx context.Context, workflowID uuid.UUID, reason string) error {
 	n := &notification{
-		ID:        uuid.New(),
-		Type:      "workflow.failed",
-		Target:    "broadcast",
+		ID:     uuid.New(),
+		Type:   "workflow.failed",
+		Target: "broadcast",
 		Message: map[string]interface{}{
 			"workflow_id": workflowID.String(),
 			"reason":      reason,
@@ -197,9 +197,9 @@ func (s *notificationService) BroadcastToAgents(ctx context.Context, agentIDs []
 // NotifyStepStarted notifies when a workflow step starts
 func (s *notificationService) NotifyStepStarted(ctx context.Context, executionID uuid.UUID, stepID string) error {
 	n := &notification{
-		ID:        uuid.New(),
-		Type:      "step.started",
-		Target:    "broadcast",
+		ID:     uuid.New(),
+		Type:   "step.started",
+		Target: "broadcast",
 		Message: map[string]interface{}{
 			"execution_id": executionID.String(),
 			"step_id":      stepID,
@@ -218,9 +218,9 @@ func (s *notificationService) NotifyStepStarted(ctx context.Context, executionID
 // NotifyStepCompleted notifies when a workflow step completes
 func (s *notificationService) NotifyStepCompleted(ctx context.Context, executionID uuid.UUID, stepID string, output interface{}) error {
 	n := &notification{
-		ID:        uuid.New(),
-		Type:      "step.completed",
-		Target:    "broadcast",
+		ID:     uuid.New(),
+		Type:   "step.completed",
+		Target: "broadcast",
 		Message: map[string]interface{}{
 			"execution_id": executionID.String(),
 			"step_id":      stepID,
@@ -244,6 +244,45 @@ func (s *notificationService) BroadcastToWorkspace(ctx context.Context, workspac
 		Type:      "workspace.broadcast",
 		Target:    workspaceID.String(),
 		Message:   message,
+		Timestamp: time.Now(),
+	}
+
+	select {
+	case s.notifications <- n:
+		return nil
+	case <-time.After(5 * time.Second):
+		return fmt.Errorf("notification queue full")
+	}
+}
+
+// NotifyWorkflowUpdated notifies when a workflow is updated
+func (s *notificationService) NotifyWorkflowUpdated(ctx context.Context, workflow interface{}) error {
+	n := &notification{
+		ID:        uuid.New(),
+		Type:      "workflow.updated",
+		Target:    "broadcast",
+		Message:   workflow,
+		Timestamp: time.Now(),
+	}
+
+	select {
+	case s.notifications <- n:
+		return nil
+	case <-time.After(5 * time.Second):
+		return fmt.Errorf("notification queue full")
+	}
+}
+
+// NotifyResourceDeleted notifies when a resource is deleted
+func (s *notificationService) NotifyResourceDeleted(ctx context.Context, resourceType string, resourceID uuid.UUID) error {
+	n := &notification{
+		ID:     uuid.New(),
+		Type:   fmt.Sprintf("%s.deleted", resourceType),
+		Target: "broadcast",
+		Message: map[string]interface{}{
+			"resource_type": resourceType,
+			"resource_id":   resourceID.String(),
+		},
 		Timestamp: time.Now(),
 	}
 

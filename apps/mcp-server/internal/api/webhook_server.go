@@ -3,8 +3,9 @@ package api
 import (
 	"net/http"
 
-	"github.com/gorilla/mux"
 	"mcp-server/internal/api/webhooks"
+
+	"github.com/gorilla/mux"
 )
 
 // WebhookProvider represents a webhook provider's registration logic

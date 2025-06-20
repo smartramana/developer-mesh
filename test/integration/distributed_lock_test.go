@@ -27,7 +27,7 @@ func TestDistributedDocumentLocking(t *testing.T) {
 		Addr: "127.0.0.1:6379", // Use SSH tunnel
 		DB:   1,                // Use DB 1 for tests
 	})
-	defer redisClient.Close()
+	defer func() { _ = redisClient.Close() }()
 
 	// Clear test data
 	ctx := context.Background()
@@ -40,7 +40,7 @@ func TestDistributedDocumentLocking(t *testing.T) {
 	config := services.ServiceConfig{
 		Logger:  logger,
 		Metrics: metrics,
-		Tracer: observability.NoopStartSpan,
+		Tracer:  observability.NoopStartSpan,
 	}
 
 	// Create lock service
@@ -90,7 +90,8 @@ func TestDistributedDocumentLocking(t *testing.T) {
 		assert.Contains(t, err.Error(), "locked by")
 
 		// Clean up
-		lockService.UnlockDocument(ctx, docID, agent1)
+		err = lockService.UnlockDocument(ctx, docID, agent1)
+		assert.NoError(t, err)
 	})
 
 	t.Run("Lock Extension", func(t *testing.T) {
@@ -116,7 +117,8 @@ func TestDistributedDocumentLocking(t *testing.T) {
 		assert.True(t, lockInfo.ExpiresAt.After(originalExpiry))
 
 		// Clean up
-		lockService.UnlockDocument(ctx, docID, agentID)
+		err = lockService.UnlockDocument(ctx, docID, agentID)
+		assert.NoError(t, err)
 	})
 
 	t.Run("Section Level Locking", func(t *testing.T) {
@@ -150,8 +152,8 @@ func TestDistributedDocumentLocking(t *testing.T) {
 		assert.Len(t, locks, 2)
 
 		// Clean up
-		lockService.UnlockSection(ctx, docID, section1, agent1)
-		lockService.UnlockSection(ctx, docID, section2, agent2)
+		_ = lockService.UnlockSection(ctx, docID, section1, agent1)
+		_ = lockService.UnlockSection(ctx, docID, section2, agent2)
 	})
 
 	t.Run("Concurrent Lock Attempts - Performance Test", func(t *testing.T) {
@@ -169,19 +171,19 @@ func TestDistributedDocumentLocking(t *testing.T) {
 			go func(agentNum int) {
 				defer wg.Done()
 				agentID := fmt.Sprintf("agent-%d", agentNum)
-				
+
 				// Try to acquire lock
 				_, err := lockService.LockDocument(ctx, docID, agentID, 5*time.Minute)
 				if err == nil {
 					mu.Lock()
 					successCount++
 					mu.Unlock()
-					
+
 					// Hold lock briefly
 					time.Sleep(10 * time.Millisecond)
-					
+
 					// Release lock
-					lockService.UnlockDocument(ctx, docID, agentID)
+					_ = lockService.UnlockDocument(ctx, docID, agentID)
 				}
 			}(i)
 		}
@@ -191,14 +193,14 @@ func TestDistributedDocumentLocking(t *testing.T) {
 
 		// Only one agent should succeed
 		assert.Equal(t, 1, successCount, "Only one agent should acquire the lock")
-		
+
 		// Performance check - should handle 100 concurrent attempts quickly
 		assert.Less(t, elapsed, 1*time.Second, "Should handle 100 concurrent lock attempts in under 1 second")
-		
+
 		// Average latency per attempt
 		avgLatency := elapsed / time.Duration(numAgents)
 		assert.Less(t, avgLatency, 10*time.Millisecond, "Average latency should be under 10ms")
-		
+
 		logger.Info("Concurrent lock performance", map[string]interface{}{
 			"total_agents":   numAgents,
 			"success_count":  successCount,
@@ -223,14 +225,14 @@ func TestDistributedDocumentLocking(t *testing.T) {
 		isLocked, lockInfo, err := lockService.IsDocumentLocked(ctx, docID)
 		require.NoError(t, err)
 		assert.True(t, isLocked)
-		
+
 		// The lock should have been auto-refreshed if expiry was approaching
 		if time.Until(originalExpiry) < 30*time.Second {
 			assert.True(t, lockInfo.ExpiresAt.After(originalExpiry), "Lock should have been auto-refreshed")
 		}
 
 		// Clean up
-		lockService.UnlockDocument(ctx, docID, agentID)
+		_ = lockService.UnlockDocument(ctx, docID, agentID)
 	})
 
 	t.Run("Lock Expiration Cleanup", func(t *testing.T) {
@@ -256,7 +258,7 @@ func TestDistributedDocumentLocking(t *testing.T) {
 		assert.NotNil(t, lock2)
 
 		// Clean up
-		lockService.UnlockDocument(ctx, docID, "agent-2")
+		_ = lockService.UnlockDocument(ctx, docID, "agent-2")
 	})
 
 	t.Run("Performance Benchmark - 1000 Concurrent Locks", func(t *testing.T) {
@@ -273,10 +275,10 @@ func TestDistributedDocumentLocking(t *testing.T) {
 			wg.Add(1)
 			go func(docNum int) {
 				defer wg.Done()
-				
+
 				docID := uuid.New()
 				agentID := fmt.Sprintf("agent-%d", docNum)
-				
+
 				// Acquire lock
 				_, err := lockService.LockDocument(ctx, docID, agentID, 5*time.Minute)
 				if err != nil {
@@ -292,14 +294,14 @@ func TestDistributedDocumentLocking(t *testing.T) {
 
 		// All locks should succeed (different documents)
 		assert.Equal(t, 0, errors, "All lock attempts should succeed")
-		
+
 		// Performance requirements
 		assert.Less(t, elapsed, 10*time.Second, "Should handle 1000 locks in under 10 seconds")
-		
+
 		// Average latency per lock
 		avgLatency := elapsed / time.Duration(numDocs)
 		assert.Less(t, avgLatency, 10*time.Millisecond, "Average latency should be under 10ms")
-		
+
 		logger.Info("1000 concurrent locks performance", map[string]interface{}{
 			"total_locks":    numDocs,
 			"errors":         errors,
@@ -316,7 +318,7 @@ func BenchmarkLockAcquisition(b *testing.B) {
 		Addr: "127.0.0.1:6379",
 		DB:   2, // Use different DB for benchmarks
 	})
-	defer redisClient.Close()
+	defer func() { _ = redisClient.Close() }()
 
 	ctx := context.Background()
 	redisClient.FlushDB(ctx)
@@ -327,7 +329,7 @@ func BenchmarkLockAcquisition(b *testing.B) {
 	config := services.ServiceConfig{
 		Logger:  logger,
 		Metrics: metrics,
-		Tracer: observability.NoopStartSpan,
+		Tracer:  observability.NoopStartSpan,
 	}
 
 	lockService := services.NewDocumentLockService(config, redisClient)
@@ -339,13 +341,13 @@ func BenchmarkLockAcquisition(b *testing.B) {
 		for pb.Next() {
 			docID := uuid.New()
 			agentID := uuid.New().String()
-			
+
 			// Acquire and release lock
 			_, err := lockService.LockDocument(ctx, docID, agentID, 1*time.Minute)
 			if err != nil {
 				b.Fatal(err)
 			}
-			
+
 			err = lockService.UnlockDocument(ctx, docID, agentID)
 			if err != nil {
 				b.Fatal(err)

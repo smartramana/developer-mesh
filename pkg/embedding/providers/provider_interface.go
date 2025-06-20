@@ -83,16 +83,16 @@ type RateLimitInfo struct {
 
 // ModelInfo contains information about an embedding model
 type ModelInfo struct {
-	Name                     string   `json:"name"`
-	DisplayName              string   `json:"display_name"`
-	Dimensions               int      `json:"dimensions"`
-	MaxTokens                int      `json:"max_tokens"`
-	CostPer1MTokens          float64  `json:"cost_per_1m_tokens"`
-	SupportedTaskTypes       []string `json:"supported_task_types"`
-	SupportsDimensionReduction bool   `json:"supports_dimension_reduction"`
-	MinDimensions            int      `json:"min_dimensions,omitempty"`
-	IsActive                 bool     `json:"is_active"`
-	DeprecatedAt             *time.Time `json:"deprecated_at,omitempty"`
+	Name                       string     `json:"name"`
+	DisplayName                string     `json:"display_name"`
+	Dimensions                 int        `json:"dimensions"`
+	MaxTokens                  int        `json:"max_tokens"`
+	CostPer1MTokens            float64    `json:"cost_per_1m_tokens"`
+	SupportedTaskTypes         []string   `json:"supported_task_types"`
+	SupportsDimensionReduction bool       `json:"supports_dimension_reduction"`
+	MinDimensions              int        `json:"min_dimensions,omitempty"`
+	IsActive                   bool       `json:"is_active"`
+	DeprecatedAt               *time.Time `json:"deprecated_at,omitempty"`
 }
 
 // ProviderConfig contains common configuration for providers
@@ -101,23 +101,23 @@ type ProviderConfig struct {
 	APIKey          string `json:"api_key,omitempty"`
 	AccessKeyID     string `json:"access_key_id,omitempty"`
 	SecretAccessKey string `json:"secret_access_key,omitempty"`
-	
+
 	// Endpoints and regions
 	Endpoint string `json:"endpoint,omitempty"`
 	Region   string `json:"region,omitempty"`
-	
+
 	// Rate limiting
 	MaxRequestsPerMinute int `json:"max_requests_per_minute,omitempty"`
 	MaxTokensPerMinute   int `json:"max_tokens_per_minute,omitempty"`
-	
+
 	// Timeouts
 	RequestTimeout time.Duration `json:"request_timeout,omitempty"`
-	
+
 	// Retry configuration
-	MaxRetries         int           `json:"max_retries,omitempty"`
-	RetryDelayBase     time.Duration `json:"retry_delay_base,omitempty"`
-	RetryDelayMax      time.Duration `json:"retry_delay_max,omitempty"`
-	
+	MaxRetries     int           `json:"max_retries,omitempty"`
+	RetryDelayBase time.Duration `json:"retry_delay_base,omitempty"`
+	RetryDelayMax  time.Duration `json:"retry_delay_max,omitempty"`
+
 	// Custom headers or parameters
 	CustomHeaders map[string]string      `json:"custom_headers,omitempty"`
 	ExtraParams   map[string]interface{} `json:"extra_params,omitempty"`
@@ -125,12 +125,12 @@ type ProviderConfig struct {
 
 // ProviderError represents an error from a provider
 type ProviderError struct {
-	Provider    string `json:"provider"`
-	Code        string `json:"code"`
-	Message     string `json:"message"`
-	StatusCode  int    `json:"status_code,omitempty"`
+	Provider    string         `json:"provider"`
+	Code        string         `json:"code"`
+	Message     string         `json:"message"`
+	StatusCode  int            `json:"status_code,omitempty"`
 	RetryAfter  *time.Duration `json:"retry_after,omitempty"`
-	IsRetryable bool   `json:"is_retryable"`
+	IsRetryable bool           `json:"is_retryable"`
 }
 
 func (e *ProviderError) Error() string {

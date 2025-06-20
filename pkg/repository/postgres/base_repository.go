@@ -40,9 +40,9 @@ type BaseRepository struct {
 
 // BaseRepositoryConfig holds configuration for BaseRepository
 type BaseRepositoryConfig struct {
-	QueryTimeout time.Duration
-	MaxRetries   int
-	CacheTimeout time.Duration
+	QueryTimeout   time.Duration
+	MaxRetries     int
+	CacheTimeout   time.Duration
 	CircuitBreaker *resilience.CircuitBreaker
 }
 
@@ -99,7 +99,7 @@ func (r *BaseRepository) WithTransaction(ctx context.Context, fn func(tx *sqlx.T
 
 	defer func() {
 		if p := recover(); p != nil {
-			tx.Rollback()
+			_ = tx.Rollback()
 			panic(p) // Re-throw panic after rollback
 		}
 	}()
@@ -156,7 +156,7 @@ func (r *BaseRepository) WithTransactionOptions(ctx context.Context, opts *types
 
 	defer func() {
 		if p := recover(); p != nil {
-			tx.Rollback()
+			_ = tx.Rollback()
 			panic(p)
 		}
 	}()
@@ -405,7 +405,7 @@ func (r *BaseRepository) ExecuteQuery(ctx context.Context, operation string, fn 
 // ExecuteQueryWithRetry executes a query with retry logic
 func (r *BaseRepository) ExecuteQueryWithRetry(ctx context.Context, operation string, fn func(ctx context.Context) error) error {
 	var lastErr error
-	
+
 	for attempt := 0; attempt < r.maxRetries; attempt++ {
 		err := r.ExecuteQuery(ctx, operation, fn)
 		if err == nil {
@@ -445,7 +445,7 @@ func (r *BaseRepository) ExecuteQueryWithRetry(ctx context.Context, operation st
 
 // InvalidateCachePattern invalidates cache entries matching a pattern
 func (r *BaseRepository) InvalidateCachePattern(ctx context.Context, pattern string) error {
-	ctx, span := r.tracer(ctx, "BaseRepository.InvalidateCachePattern")
+	_, span := r.tracer(ctx, "BaseRepository.InvalidateCachePattern")
 	defer span.End()
 
 	// Most cache implementations don't support pattern deletion

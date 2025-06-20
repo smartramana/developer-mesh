@@ -30,7 +30,6 @@ func (l *testEventListener) Handle(ctx context.Context, event *models.Event) err
 	return nil
 }
 
-
 func TestGitHubAdapter_ExecuteAction(t *testing.T) {
 	// Verify no goroutine leaks after test completes
 	defer goleak.VerifyNone(t,
@@ -550,7 +549,7 @@ func TestGitHubAdapter_ExecuteAction(t *testing.T) {
 		assert.Equal(t, true, response["success"])
 		assert.Equal(t, "new-feature", response["branch"])
 	})
-	
+
 	// Give time for any async event handlers to complete
 	time.Sleep(100 * time.Millisecond)
 }
@@ -692,7 +691,7 @@ func TestGitHubAdapter_WebhookHandling(t *testing.T) {
 		handlers := listResponse["handlers"].([]string)
 		assert.NotContains(t, handlers, "test-push-handler")
 	})
-	
+
 	// Give time for any async event handlers to complete
 	time.Sleep(100 * time.Millisecond)
 }

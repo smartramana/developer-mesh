@@ -54,12 +54,12 @@ func (s AgentStatus) TransitionTo(target AgentStatus, metrics MetricsClient) (Ag
 		})
 		return s, fmt.Errorf("invalid transition from %s to %s", s, target)
 	}
-	
+
 	metrics.IncrementCounter("agent.status.transition.success", 1, map[string]string{
 		"from": string(s),
 		"to":   string(target),
 	})
-	
+
 	return target, nil
 }
 
@@ -67,8 +67,8 @@ func (s AgentStatus) TransitionTo(target AgentStatus, metrics MetricsClient) (Ag
 func (s AgentStatus) Validate() error {
 	switch s {
 	case AgentStatusActive, AgentStatusInactive, AgentStatusMaintenance,
-		 AgentStatusDraining, AgentStatusError, AgentStatusOffline,
-		 AgentStatusStarting, AgentStatusStopping:
+		AgentStatusDraining, AgentStatusError, AgentStatusOffline,
+		AgentStatusStarting, AgentStatusStopping:
 		return nil
 	default:
 		return fmt.Errorf("invalid agent status: %s", s)
@@ -90,25 +90,25 @@ const (
 
 // AgentMetrics tracks real-time agent performance
 type AgentMetrics struct {
-	CPUUsage      float64   `json:"cpu_usage"`      // 0-100
-	MemoryUsage   float64   `json:"memory_usage"`   // 0-100
-	DiskUsage     float64   `json:"disk_usage"`     // 0-100
-	NetworkIO     float64   `json:"network_io"`     // bytes/sec
+	CPUUsage      float64   `json:"cpu_usage"`    // 0-100
+	MemoryUsage   float64   `json:"memory_usage"` // 0-100
+	DiskUsage     float64   `json:"disk_usage"`   // 0-100
+	NetworkIO     float64   `json:"network_io"`   // bytes/sec
 	TasksActive   int       `json:"tasks_active"`
 	TasksQueued   int       `json:"tasks_queued"`
 	TasksComplete int64     `json:"tasks_complete"`
-	ErrorRate     float64   `json:"error_rate"`     // errors per minute
-	ResponseTime  float64   `json:"response_time"`  // milliseconds
+	ErrorRate     float64   `json:"error_rate"`    // errors per minute
+	ResponseTime  float64   `json:"response_time"` // milliseconds
 	LastUpdated   time.Time `json:"last_updated"`
 }
 
 // AgentHealth represents health check results
 type AgentHealth struct {
-	Status       HealthStatus           `json:"status"`
-	LastCheck    time.Time              `json:"last_check"`
-	NextCheck    time.Time              `json:"next_check"`
-	Checks       map[string]CheckResult `json:"checks"`
-	Message      string                 `json:"message,omitempty"`
+	Status    HealthStatus           `json:"status"`
+	LastCheck time.Time              `json:"last_check"`
+	NextCheck time.Time              `json:"next_check"`
+	Checks    map[string]CheckResult `json:"checks"`
+	Message   string                 `json:"message,omitempty"`
 }
 
 type HealthStatus string
@@ -146,9 +146,9 @@ func (w *WorkloadInfo) Calculate() {
 	if taskScore > 100 {
 		taskScore = 100
 	}
-	
+
 	resourceScore := (w.CPUUsage + w.MemoryUsage) / 2
-	
+
 	// 60% weight on tasks, 40% on resources
 	w.WorkloadScore = (taskScore * 0.6) + (resourceScore * 0.4)
 }

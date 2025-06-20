@@ -4,10 +4,10 @@ import (
 	"context"
 	"database/sql"
 
-	"github.com/google/uuid"
 	"github.com/S-Corkum/devops-mcp/pkg/models"
 	"github.com/S-Corkum/devops-mcp/pkg/repository/agent"
 	"github.com/S-Corkum/devops-mcp/pkg/repository/model"
+	"github.com/google/uuid"
 	"github.com/jmoiron/sqlx"
 )
 

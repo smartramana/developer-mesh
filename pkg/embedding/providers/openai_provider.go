@@ -188,14 +188,14 @@ func (p *OpenAIProvider) GenerateEmbedding(ctx context.Context, req GenerateEmbe
 	}
 
 	return &EmbeddingResponse{
-		Embedding:   resp.Data[0].Embedding,
-		Model:       resp.Model,
-		Dimensions:  dimensions,
-		TokensUsed:  resp.Usage.TotalTokens,
-		Metadata:    req.Metadata,
+		Embedding:  resp.Data[0].Embedding,
+		Model:      resp.Model,
+		Dimensions: dimensions,
+		TokensUsed: resp.Usage.TotalTokens,
+		Metadata:   req.Metadata,
 		ProviderInfo: ProviderMetadata{
-			Provider:  "openai",
-			LatencyMs: latency.Milliseconds(),
+			Provider:      "openai",
+			LatencyMs:     latency.Milliseconds(),
 			RateLimitInfo: p.extractRateLimitInfo(nil), // Would need response headers
 		},
 	}, nil
@@ -340,7 +340,7 @@ func (p *OpenAIProvider) doRequest(ctx context.Context, reqBody openAIRequest) (
 
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("Authorization", "Bearer "+p.config.APIKey)
-	
+
 	// Add custom headers if any
 	for k, v := range p.config.CustomHeaders {
 		req.Header.Set(k, v)
@@ -378,7 +378,7 @@ func (p *OpenAIProvider) doRequest(ctx context.Context, reqBody openAIRequest) (
 		}
 
 		retryAfter := p.parseRetryAfter(resp.Header.Get("Retry-After"))
-		
+
 		return nil, &ProviderError{
 			Provider:    "openai",
 			Code:        errResp.Error.Code,
@@ -451,7 +451,7 @@ func (p *OpenAIProvider) parseRetryAfter(header string) *time.Duration {
 
 func (p *OpenAIProvider) extractRateLimitInfo(headers http.Header) RateLimitInfo {
 	info := RateLimitInfo{}
-	
+
 	// OpenAI rate limit headers (would need actual response headers)
 	// x-ratelimit-limit-requests
 	// x-ratelimit-limit-tokens
@@ -459,7 +459,7 @@ func (p *OpenAIProvider) extractRateLimitInfo(headers http.Header) RateLimitInfo
 	// x-ratelimit-remaining-tokens
 	// x-ratelimit-reset-requests
 	// x-ratelimit-reset-tokens
-	
+
 	return info
 }
 

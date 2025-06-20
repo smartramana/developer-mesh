@@ -77,7 +77,7 @@ func (da *DimensionAdapter) padEmbedding(embedding []float32, targetDim int) []f
 
 	padded := make([]float32, targetDim)
 	copy(padded, embedding)
-	
+
 	// Initialize padding values with small random values to avoid all zeros
 	// In production, use a more sophisticated padding strategy
 	for i := len(embedding); i < targetDim; i++ {
@@ -121,7 +121,7 @@ func (da *DimensionAdapter) applyProjection(embedding []float32, matrix *Project
 	// Simple matrix multiplication
 	// In production, use optimized linear algebra libraries
 	result := make([]float32, matrix.ToDimensions)
-	
+
 	for i := 0; i < matrix.ToDimensions; i++ {
 		sum := float32(0)
 		for j := 0; j < len(embedding); j++ {
@@ -164,11 +164,11 @@ func (da *DimensionAdapter) TrainProjectionMatrix(fromDim, toDim int, provider, 
 	// This would use PCA, autoencoders, or other dimensionality reduction techniques
 	// For now, we'll use a simple random projection
 	key := fmt.Sprintf("%s:%s:%d:%d", provider, model, fromDim, toDim)
-	
+
 	// Create random projection matrix
 	matrixSize := toDim * fromDim
 	matrix := make([]float32, matrixSize)
-	
+
 	// Initialize with random values (in production, use proper initialization)
 	for i := range matrix {
 		matrix[i] = float32(math.Sin(float64(i))) * 0.1
@@ -195,13 +195,13 @@ func (da *DimensionAdapter) GetProjectionQuality(fromDim, toDim int, provider, m
 	if matrix, ok := da.projectionMatrices[key]; ok {
 		return matrix.QualityScore
 	}
-	
+
 	// Estimate quality based on dimension difference
 	ratio := float64(toDim) / float64(fromDim)
 	if ratio > 1 {
 		return 1.0 // Padding doesn't lose information
 	}
-	
+
 	// More dimensions lost = lower quality
 	return math.Max(0.5, ratio)
 }

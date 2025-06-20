@@ -7,9 +7,9 @@ import (
 
 // PNCounter is a counter that supports both increment and decrement
 type PNCounter struct {
-	mu        sync.RWMutex
-	positive  *GCounter
-	negative  *GCounter
+	mu       sync.RWMutex
+	positive *GCounter
+	negative *GCounter
 }
 
 // NewPNCounter creates a new PN-Counter
@@ -24,7 +24,7 @@ func NewPNCounter() *PNCounter {
 func (p *PNCounter) Increment(nodeID NodeID, delta uint64) {
 	p.mu.Lock()
 	defer p.mu.Unlock()
-	
+
 	p.positive.Increment(nodeID, delta)
 }
 
@@ -32,7 +32,7 @@ func (p *PNCounter) Increment(nodeID NodeID, delta uint64) {
 func (p *PNCounter) Decrement(nodeID NodeID, delta uint64) {
 	p.mu.Lock()
 	defer p.mu.Unlock()
-	
+
 	p.negative.Increment(nodeID, delta)
 }
 
@@ -40,7 +40,7 @@ func (p *PNCounter) Decrement(nodeID NodeID, delta uint64) {
 func (p *PNCounter) Value() int64 {
 	p.mu.RLock()
 	defer p.mu.RUnlock()
-	
+
 	return int64(p.positive.Value()) - int64(p.negative.Value())
 }
 
@@ -50,18 +50,18 @@ func (p *PNCounter) Merge(other CRDT) error {
 	if !ok {
 		return fmt.Errorf("cannot merge PNCounter with %T", other)
 	}
-	
+
 	p.mu.Lock()
 	defer p.mu.Unlock()
-	
+
 	if err := p.positive.Merge(otherCounter.positive); err != nil {
 		return fmt.Errorf("failed to merge positive counters: %w", err)
 	}
-	
+
 	if err := p.negative.Merge(otherCounter.negative); err != nil {
 		return fmt.Errorf("failed to merge negative counters: %w", err)
 	}
-	
+
 	return nil
 }
 
@@ -69,7 +69,7 @@ func (p *PNCounter) Merge(other CRDT) error {
 func (p *PNCounter) Clone() CRDT {
 	p.mu.RLock()
 	defer p.mu.RUnlock()
-	
+
 	return &PNCounter{
 		positive: p.positive.Clone().(*GCounter),
 		negative: p.negative.Clone().(*GCounter),

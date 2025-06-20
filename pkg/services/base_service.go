@@ -126,7 +126,8 @@ func (s *BaseService) WithTransaction(ctx context.Context, fn func(ctx context.C
 
 	// Setup compensation
 	compensator := NewCompensator(s.config.Logger)
-	ctx = context.WithValue(ctx, "compensator", compensator)
+	type compensatorKey struct{}
+	ctx = context.WithValue(ctx, compensatorKey{}, compensator)
 
 	// Execute function
 	err = fn(ctx, tx)

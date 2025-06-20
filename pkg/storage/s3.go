@@ -7,11 +7,12 @@ import (
 	"os"
 	"time"
 
+	"io"
+
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/feature/s3/manager"
 	"github.com/aws/aws-sdk-go-v2/service/s3"
-	"io"
 )
 
 // S3ClientInterface abstracts S3 operations for real and mock clients

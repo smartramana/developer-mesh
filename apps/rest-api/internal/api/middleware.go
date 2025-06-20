@@ -421,7 +421,7 @@ func ExtractTenantContext() gin.HandlerFunc {
 				return
 			}
 		}
-		
+
 		// Try to get from user context (backward compatibility)
 		if userVal, userExists := c.Get("user"); userExists {
 			if userMap, ok := userVal.(map[string]interface{}); ok {
@@ -431,7 +431,7 @@ func ExtractTenantContext() gin.HandlerFunc {
 				}
 			}
 		}
-		
+
 		c.Next()
 	}
 }
@@ -468,7 +468,7 @@ func InitAPIKeys(keyMap map[string]string) {
 	fmt.Println("DEPRECATED: InitAPIKeys called - use centralized auth service")
 }
 
-// InitJWT - Kept for test compatibility only  
+// InitJWT - Kept for test compatibility only
 // DEPRECATED: JWT configuration is handled by auth.Service
 func InitJWT(secret string) {
 	// No-op for compatibility

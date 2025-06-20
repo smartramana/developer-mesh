@@ -189,7 +189,7 @@ func TestGenerateEmbedding(t *testing.T) {
 				t.Logf("Failed to close database: %v", err)
 			}
 		}()
-		
+
 		// Expect the insert query using stored procedure
 		mockDB.ExpectQuery("SELECT mcp.insert_embedding").
 			WithArgs(
@@ -204,9 +204,9 @@ func TestGenerateEmbedding(t *testing.T) {
 				sqlmock.AnyArg(), // configured_dimensions
 			).
 			WillReturnRows(sqlmock.NewRows([]string{"id"}).AddRow(uuid.New()))
-		
+
 		repo := NewRepository(db)
-		
+
 		config := ServiceV2Config{
 			Providers: map[string]providers.Provider{
 				"openai": mockProvider,
@@ -423,7 +423,7 @@ func TestBatchGenerateEmbeddings(t *testing.T) {
 				t.Logf("Failed to close database: %v", err)
 			}
 		}()
-		
+
 		// Expect the insert query using stored procedure for both requests
 		for i := 0; i < 2; i++ {
 			mockDB.ExpectQuery("SELECT mcp.insert_embedding").
@@ -440,9 +440,9 @@ func TestBatchGenerateEmbeddings(t *testing.T) {
 				).
 				WillReturnRows(sqlmock.NewRows([]string{"id"}).AddRow(uuid.New()))
 		}
-		
+
 		repo := NewRepository(db)
-		
+
 		config := ServiceV2Config{
 			Providers: map[string]providers.Provider{
 				"openai": mockProvider,
@@ -546,7 +546,7 @@ func TestBatchGenerateEmbeddings(t *testing.T) {
 				t.Logf("Failed to close database: %v", err)
 			}
 		}()
-		
+
 		// Expect the insert query using stored procedure for the valid request
 		mockDB.ExpectQuery("SELECT mcp.insert_embedding").
 			WithArgs(
@@ -561,7 +561,7 @@ func TestBatchGenerateEmbeddings(t *testing.T) {
 				sqlmock.AnyArg(), // configured_dimensions
 			).
 			WillReturnRows(sqlmock.NewRows([]string{"id"}).AddRow(uuid.New()))
-		
+
 		repo := NewRepository(db)
 		service.repository = repo
 
@@ -647,7 +647,7 @@ func TestGenerateCacheKey(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			key := service.generateCacheKey(tt.req)
 			assert.NotEmpty(t, key)
-			
+
 			// Same request should produce same key
 			key2 := service.generateCacheKey(tt.req)
 			assert.Equal(t, key, key2)

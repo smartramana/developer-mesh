@@ -291,7 +291,7 @@ func (p *GoogleProvider) doRequest(ctx context.Context, model string, reqBody go
 
 	// Set headers
 	req.Header.Set("Content-Type", "application/json")
-	
+
 	// Add authentication
 	if p.config.APIKey != "" {
 		req.Header.Set("Authorization", "Bearer "+p.config.APIKey)

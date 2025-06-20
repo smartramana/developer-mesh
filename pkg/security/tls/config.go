@@ -37,34 +37,34 @@ var tls12SecureCipherSuites = []uint16{
 
 // Config represents TLS configuration options
 type Config struct {
-	Enabled              bool     `mapstructure:"enabled" json:"enabled"`
-	MinVersion           string   `mapstructure:"min_version" json:"min_version"`
-	MaxVersion           string   `mapstructure:"max_version" json:"max_version"`
-	CipherSuites         []string `mapstructure:"cipher_suites" json:"cipher_suites"`
-	InsecureSkipVerify   bool     `mapstructure:"insecure_skip_verify" json:"insecure_skip_verify"`
-	VerifyCertificates   bool     `mapstructure:"verify_certificates" json:"verify_certificates"`
-	ServerName           string   `mapstructure:"server_name" json:"server_name"`
-	ClientAuth           string   `mapstructure:"client_auth" json:"client_auth"`
-	
+	Enabled            bool     `mapstructure:"enabled" json:"enabled"`
+	MinVersion         string   `mapstructure:"min_version" json:"min_version"`
+	MaxVersion         string   `mapstructure:"max_version" json:"max_version"`
+	CipherSuites       []string `mapstructure:"cipher_suites" json:"cipher_suites"`
+	InsecureSkipVerify bool     `mapstructure:"insecure_skip_verify" json:"insecure_skip_verify"`
+	VerifyCertificates bool     `mapstructure:"verify_certificates" json:"verify_certificates"`
+	ServerName         string   `mapstructure:"server_name" json:"server_name"`
+	ClientAuth         string   `mapstructure:"client_auth" json:"client_auth"`
+
 	// Certificate files
-	CertFile             string   `mapstructure:"cert_file" json:"cert_file"`
-	KeyFile              string   `mapstructure:"key_file" json:"key_file"`
-	CAFile               string   `mapstructure:"ca_file" json:"ca_file"`
-	ClientCAFile         string   `mapstructure:"client_ca_file" json:"client_ca_file"`
-	
+	CertFile     string `mapstructure:"cert_file" json:"cert_file"`
+	KeyFile      string `mapstructure:"key_file" json:"key_file"`
+	CAFile       string `mapstructure:"ca_file" json:"ca_file"`
+	ClientCAFile string `mapstructure:"client_ca_file" json:"client_ca_file"`
+
 	// Performance optimizations
-	SessionTickets       bool     `mapstructure:"session_tickets" json:"session_tickets"`
-	SessionCacheSize     int      `mapstructure:"session_cache_size" json:"session_cache_size"`
-	Enable0RTT           bool     `mapstructure:"enable_0rtt" json:"enable_0rtt"`
-	ReuseSessionState    bool     `mapstructure:"reuse_session_state" json:"reuse_session_state"`
-	
+	SessionTickets    bool `mapstructure:"session_tickets" json:"session_tickets"`
+	SessionCacheSize  int  `mapstructure:"session_cache_size" json:"session_cache_size"`
+	Enable0RTT        bool `mapstructure:"enable_0rtt" json:"enable_0rtt"`
+	ReuseSessionState bool `mapstructure:"reuse_session_state" json:"reuse_session_state"`
+
 	// Connection optimization
-	KeepAlive            bool     `mapstructure:"keepalive" json:"keepalive"`
-	KeepAliveTimeout     string   `mapstructure:"keepalive_timeout" json:"keepalive_timeout"`
-	
+	KeepAlive        bool   `mapstructure:"keepalive" json:"keepalive"`
+	KeepAliveTimeout string `mapstructure:"keepalive_timeout" json:"keepalive_timeout"`
+
 	// Monitoring
-	LogHandshakeDuration bool     `mapstructure:"log_handshake_duration" json:"log_handshake_duration"`
-	TrackCipherUsage     bool     `mapstructure:"track_cipher_usage" json:"track_cipher_usage"`
+	LogHandshakeDuration bool `mapstructure:"log_handshake_duration" json:"log_handshake_duration"`
+	TrackCipherUsage     bool `mapstructure:"track_cipher_usage" json:"track_cipher_usage"`
 }
 
 // DefaultConfig returns a secure default TLS configuration
@@ -89,12 +89,12 @@ func (c *Config) BuildTLSConfig() (*tls.Config, error) {
 
 	tlsConfig := &tls.Config{
 		// InsecureSkipVerify is configurable but should only be used in development
-		// environments (e.g., with self-signed certs or SSH tunnels). Production 
+		// environments (e.g., with self-signed certs or SSH tunnels). Production
 		// deployments should ALWAYS verify certificates.
-		InsecureSkipVerify: c.InsecureSkipVerify, // #nosec G402 - Configurable for dev environments
-		ServerName:         c.ServerName,
-		SessionTicketsDisabled: !c.SessionTickets, // Invert for Go 1.18+
-		Renegotiation:      tls.RenegotiateNever, // Security best practice
+		InsecureSkipVerify:     c.InsecureSkipVerify, // #nosec G402 - Configurable for dev environments
+		ServerName:             c.ServerName,
+		SessionTicketsDisabled: !c.SessionTickets,    // Invert for Go 1.18+
+		Renegotiation:          tls.RenegotiateNever, // Security best practice
 	}
 
 	// Set minimum TLS version
@@ -250,10 +250,10 @@ type PerformanceConfig struct {
 	MaxIdleConns        int           `mapstructure:"max_idle_conns"`
 	MaxIdleConnsPerHost int           `mapstructure:"max_idle_conns_per_host"`
 	IdleConnTimeout     time.Duration `mapstructure:"idle_conn_timeout"`
-	
+
 	// TLS session management
-	SessionCacheSize    int           `mapstructure:"session_cache_size"`
-	SessionTimeout      time.Duration `mapstructure:"session_timeout"`
+	SessionCacheSize int           `mapstructure:"session_cache_size"`
+	SessionTimeout   time.Duration `mapstructure:"session_timeout"`
 }
 
 // DefaultPerformanceConfig returns optimized performance settings

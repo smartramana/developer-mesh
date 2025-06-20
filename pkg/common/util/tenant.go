@@ -10,7 +10,7 @@ func GetTenantIDFromContext(c *gin.Context) string {
 			return tid
 		}
 	}
-	
+
 	// Fallback to user object for backward compatibility
 	if user, exists := c.Get("user"); exists {
 		if u, ok := user.(map[string]any); ok {

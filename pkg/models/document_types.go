@@ -19,9 +19,9 @@ type DocumentVersion struct {
 
 // DocumentDiff represents the difference between two document versions
 type DocumentDiff struct {
-	FromVersion int      `json:"from_version"`
-	ToVersion   int      `json:"to_version"`
-	Changes     []Change `json:"changes"`
+	FromVersion int       `json:"from_version"`
+	ToVersion   int       `json:"to_version"`
+	Changes     []Change  `json:"changes"`
 	CreatedAt   time.Time `json:"created_at"`
 }
 
@@ -36,14 +36,14 @@ type Change struct {
 
 // DocumentStats represents statistics about a document
 type DocumentStats struct {
-	DocumentID     uuid.UUID `json:"document_id"`
-	TotalVersions  int       `json:"total_versions"`
-	TotalEdits     int       `json:"total_edits"`
-	UniqueEditors  int       `json:"unique_editors"`
-	LastEditedAt   time.Time `json:"last_edited_at"`
-	LastEditedBy   string    `json:"last_edited_by"`
-	ContentLength  int       `json:"content_length"`
-	CreatedAt      time.Time `json:"created_at"`
+	DocumentID    uuid.UUID `json:"document_id"`
+	TotalVersions int       `json:"total_versions"`
+	TotalEdits    int       `json:"total_edits"`
+	UniqueEditors int       `json:"unique_editors"`
+	LastEditedAt  time.Time `json:"last_edited_at"`
+	LastEditedBy  string    `json:"last_edited_by"`
+	ContentLength int       `json:"content_length"`
+	CreatedAt     time.Time `json:"created_at"`
 }
 
 // WorkspaceCollaborator represents a collaborator in a workspace

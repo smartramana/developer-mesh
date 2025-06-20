@@ -22,7 +22,7 @@ func NewGCounter() *GCounter {
 func (g *GCounter) Increment(nodeID NodeID, delta uint64) {
 	g.mu.Lock()
 	defer g.mu.Unlock()
-	
+
 	g.counters[nodeID] += delta
 }
 
@@ -30,7 +30,7 @@ func (g *GCounter) Increment(nodeID NodeID, delta uint64) {
 func (g *GCounter) Value() uint64 {
 	g.mu.RLock()
 	defer g.mu.RUnlock()
-	
+
 	var total uint64
 	for _, count := range g.counters {
 		total += count
@@ -44,20 +44,20 @@ func (g *GCounter) Merge(other CRDT) error {
 	if !ok {
 		return fmt.Errorf("cannot merge GCounter with %T", other)
 	}
-	
+
 	g.mu.Lock()
 	defer g.mu.Unlock()
-	
+
 	otherCounter.mu.RLock()
 	defer otherCounter.mu.RUnlock()
-	
+
 	// Take the maximum count for each node
 	for nodeID, count := range otherCounter.counters {
 		if count > g.counters[nodeID] {
 			g.counters[nodeID] = count
 		}
 	}
-	
+
 	return nil
 }
 
@@ -65,7 +65,7 @@ func (g *GCounter) Merge(other CRDT) error {
 func (g *GCounter) Clone() CRDT {
 	g.mu.RLock()
 	defer g.mu.RUnlock()
-	
+
 	clone := NewGCounter()
 	for nodeID, count := range g.counters {
 		clone.counters[nodeID] = count
@@ -82,7 +82,7 @@ func (g *GCounter) GetType() string {
 func (g *GCounter) GetState() map[NodeID]uint64 {
 	g.mu.RLock()
 	defer g.mu.RUnlock()
-	
+
 	state := make(map[NodeID]uint64)
 	for k, v := range g.counters {
 		state[k] = v

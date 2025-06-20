@@ -70,37 +70,37 @@ type NotificationSettings struct {
 
 // CollaborationSettings defines collaboration preferences
 type CollaborationSettings struct {
-	AllowGuestAccess    bool     `json:"allow_guest_access"`
-	RequireApproval     bool     `json:"require_approval"`
-	DefaultMemberRole   string   `json:"default_member_role"`
-	AllowedDomains      []string `json:"allowed_domains,omitempty"`
-	MaxMembers          int      `json:"max_members,omitempty"`
-	EnablePresence      bool     `json:"enable_presence"`
-	EnableTypingStatus  bool     `json:"enable_typing_status"`
-	ConflictResolution  string   `json:"conflict_resolution"` // manual, auto_merge, last_write_wins
+	AllowGuestAccess   bool     `json:"allow_guest_access"`
+	RequireApproval    bool     `json:"require_approval"`
+	DefaultMemberRole  string   `json:"default_member_role"`
+	AllowedDomains     []string `json:"allowed_domains,omitempty"`
+	MaxMembers         int      `json:"max_members,omitempty"`
+	EnablePresence     bool     `json:"enable_presence"`
+	EnableTypingStatus bool     `json:"enable_typing_status"`
+	ConflictResolution string   `json:"conflict_resolution"` // manual, auto_merge, last_write_wins
 }
 
 // SecuritySettings defines security preferences
 type SecuritySettings struct {
-	RequireMFA           bool     `json:"require_mfa"`
-	AllowAPIAccess       bool     `json:"allow_api_access"`
-	IPWhitelist          []string `json:"ip_whitelist,omitempty"`
-	SessionTimeout       int      `json:"session_timeout"` // minutes
-	DataEncryption       bool     `json:"data_encryption"`
-	AuditLogging         bool     `json:"audit_logging"`
-	ComplianceMode       string   `json:"compliance_mode,omitempty"` // HIPAA, SOC2, etc.
-	RetentionDays        int      `json:"retention_days,omitempty"`
+	RequireMFA     bool     `json:"require_mfa"`
+	AllowAPIAccess bool     `json:"allow_api_access"`
+	IPWhitelist    []string `json:"ip_whitelist,omitempty"`
+	SessionTimeout int      `json:"session_timeout"` // minutes
+	DataEncryption bool     `json:"data_encryption"`
+	AuditLogging   bool     `json:"audit_logging"`
+	ComplianceMode string   `json:"compliance_mode,omitempty"` // HIPAA, SOC2, etc.
+	RetentionDays  int      `json:"retention_days,omitempty"`
 }
 
 // AutomationRule defines an automation rule for the workspace
 type AutomationRule struct {
-	ID          string                 `json:"id"`
-	Name        string                 `json:"name"`
-	Enabled     bool                   `json:"enabled"`
-	Trigger     string                 `json:"trigger"` // event type
-	Conditions  []RuleCondition        `json:"conditions,omitempty"`
-	Actions     []RuleAction           `json:"actions"`
-	Metadata    map[string]interface{} `json:"metadata,omitempty"`
+	ID         string                 `json:"id"`
+	Name       string                 `json:"name"`
+	Enabled    bool                   `json:"enabled"`
+	Trigger    string                 `json:"trigger"` // event type
+	Conditions []RuleCondition        `json:"conditions,omitempty"`
+	Actions    []RuleAction           `json:"actions"`
+	Metadata   map[string]interface{} `json:"metadata,omitempty"`
 }
 
 // RuleCondition defines a condition for an automation rule

@@ -64,12 +64,12 @@ var _ = Describe("MCP REST API Tests", func() {
 		if baseURL == "" {
 			baseURL = "http://localhost:8080"
 		}
-		
+
 		apiKey = os.Getenv("MCP_API_KEY")
 		if apiKey == "" {
 			apiKey = "dev-admin-key-1234567890"
 		}
-		
+
 		httpClient = &http.Client{
 			Timeout: 30 * time.Second,
 		}
@@ -94,7 +94,7 @@ var _ = Describe("MCP REST API Tests", func() {
 		// Set default headers
 		req.Header.Set("Content-Type", "application/json")
 		req.Header.Set("X-API-Key", apiKey)
-		
+
 		// Set custom headers
 		for k, v := range headers {
 			req.Header.Set(k, v)
@@ -144,7 +144,7 @@ var _ = Describe("MCP REST API Tests", func() {
 			// Use context endpoint which exists on MCP server
 			req, err := http.NewRequest("GET", baseURL+"/api/v1/mcp/contexts", nil)
 			Expect(err).NotTo(HaveOccurred())
-			
+
 			resp, err := httpClient.Do(req)
 			Expect(err).NotTo(HaveOccurred())
 			defer func() {
@@ -207,14 +207,14 @@ var _ = Describe("MCP REST API Tests", func() {
 			var tools []ToolDefinition
 			err = json.NewDecoder(resp.Body).Decode(&tools)
 			Expect(err).NotTo(HaveOccurred())
-			
+
 			// Verify tool structure
 			for _, tool := range tools {
 				Expect(tool.Name).NotTo(BeEmpty())
 				Expect(tool.Description).NotTo(BeEmpty())
 				Expect(tool.InputSchema).NotTo(BeNil())
 			}
-			
+
 			GinkgoWriter.Printf("Found %d tools\n", len(tools))
 		})
 
@@ -250,9 +250,9 @@ var _ = Describe("MCP REST API Tests", func() {
 			toolCall := ToolCallRequest{
 				Name: "github_list_repos",
 				Arguments: map[string]interface{}{
-					"org":     "test-org",
-					"limit":   5,
-					"sort":    "updated",
+					"org":   "test-org",
+					"limit": 5,
+					"sort":  "updated",
 				},
 			}
 
@@ -276,7 +276,7 @@ var _ = Describe("MCP REST API Tests", func() {
 			var result ToolCallResponse
 			err = json.NewDecoder(resp.Body).Decode(&result)
 			Expect(err).NotTo(HaveOccurred())
-			
+
 			GinkgoWriter.Printf("Tool execution response: %+v\n", result)
 		})
 
@@ -348,15 +348,15 @@ var _ = Describe("MCP REST API Tests", func() {
 			var response map[string]interface{}
 			err = json.NewDecoder(resp.Body).Decode(&response)
 			Expect(err).NotTo(HaveOccurred())
-			
+
 			// Check response has message and id
 			Expect(response).To(HaveKey("message"))
 			Expect(response).To(HaveKey("id"))
-			
+
 			if id, ok := response["id"].(string); ok && id != "" {
 				createdContextID = id
 			}
-			
+
 			GinkgoWriter.Printf("Created context: %s\n", createdContextID)
 		})
 
@@ -379,10 +379,10 @@ var _ = Describe("MCP REST API Tests", func() {
 			var response map[string]interface{}
 			err = json.NewDecoder(resp.Body).Decode(&response)
 			Expect(err).NotTo(HaveOccurred())
-			
+
 			// Check that contexts key exists
 			Expect(response).To(HaveKey("contexts"))
-			
+
 			// Get the contexts array
 			if contextsRaw, ok := response["contexts"].([]interface{}); ok {
 				GinkgoWriter.Printf("Found %d contexts\n", len(contextsRaw))
@@ -413,7 +413,7 @@ var _ = Describe("MCP REST API Tests", func() {
 			var context ContextResponse
 			err = json.NewDecoder(resp.Body).Decode(&context)
 			Expect(err).NotTo(HaveOccurred())
-			
+
 			Expect(context.ID).To(Equal(createdContextID))
 		})
 
@@ -447,7 +447,7 @@ var _ = Describe("MCP REST API Tests", func() {
 			var context ContextResponse
 			err = json.NewDecoder(resp.Body).Decode(&context)
 			Expect(err).NotTo(HaveOccurred())
-			
+
 			Expect(context.Content).To(Equal(updateReq.Content))
 		})
 
@@ -478,7 +478,7 @@ var _ = Describe("MCP REST API Tests", func() {
 					GinkgoWriter.Printf("Error closing response body: %v\n", err)
 				}
 			}()
-			
+
 			Expect(resp.StatusCode).To(Equal(http.StatusNotFound))
 		})
 	})
@@ -502,13 +502,13 @@ var _ = Describe("MCP REST API Tests", func() {
 			var resources []map[string]interface{}
 			err = json.NewDecoder(resp.Body).Decode(&resources)
 			Expect(err).NotTo(HaveOccurred())
-			
+
 			GinkgoWriter.Printf("Found %d resources\n", len(resources))
 		})
 
 		It("should read a resource", func() {
 			resourceURI := "github://repos/test-org/test-repo/README.md"
-			
+
 			resp, err := makeRequest("GET", fmt.Sprintf("/api/v1/mcp/resources?uri=%s", resourceURI), nil, nil)
 			Expect(err).NotTo(HaveOccurred())
 			defer func() {
@@ -546,13 +546,13 @@ var _ = Describe("MCP REST API Tests", func() {
 			var prompts []map[string]interface{}
 			err = json.NewDecoder(resp.Body).Decode(&prompts)
 			Expect(err).NotTo(HaveOccurred())
-			
+
 			GinkgoWriter.Printf("Found %d prompts\n", len(prompts))
 		})
 
 		It("should get a specific prompt", func() {
 			promptName := "github_pr_review"
-			
+
 			resp, err := makeRequest("GET", fmt.Sprintf("/api/v1/mcp/prompts/%s", promptName), nil, nil)
 			Expect(err).NotTo(HaveOccurred())
 			defer func() {
@@ -612,7 +612,7 @@ var _ = Describe("MCP REST API Tests", func() {
 			var batchResponse map[string]interface{}
 			err = json.NewDecoder(resp.Body).Decode(&batchResponse)
 			Expect(err).NotTo(HaveOccurred())
-			
+
 			if responses, ok := batchResponse["responses"].([]interface{}); ok {
 				Expect(responses).To(HaveLen(2))
 			}
@@ -639,10 +639,10 @@ var _ = Describe("MCP REST API Tests", func() {
 		})
 
 		It("should handle malformed JSON requests", func() {
-			req, err := http.NewRequest("POST", baseURL+"/api/v1/mcp/tools/call", 
+			req, err := http.NewRequest("POST", baseURL+"/api/v1/mcp/tools/call",
 				strings.NewReader("invalid json"))
 			Expect(err).NotTo(HaveOccurred())
-			
+
 			req.Header.Set("Content-Type", "application/json")
 			req.Header.Set("X-API-Key", apiKey)
 
@@ -666,7 +666,7 @@ var _ = Describe("MCP REST API Tests", func() {
 				if err != nil {
 					continue
 				}
-				
+
 				if resp.StatusCode == http.StatusTooManyRequests {
 					// Rate limiting is enforced
 					var rateLimitInfo map[string]interface{}
@@ -674,18 +674,18 @@ var _ = Describe("MCP REST API Tests", func() {
 						GinkgoWriter.Printf("Error decoding rate limit info: %v\n", err)
 					}
 					if err := resp.Body.Close(); err != nil {
-				GinkgoWriter.Printf("Error closing response body: %v\n", err)
-			}
-					
+						GinkgoWriter.Printf("Error closing response body: %v\n", err)
+					}
+
 					GinkgoWriter.Printf("Rate limit hit after %d requests: %+v\n", i+1, rateLimitInfo)
 					return
 				}
-				
+
 				if err := resp.Body.Close(); err != nil {
-				GinkgoWriter.Printf("Error closing response body: %v\n", err)
+					GinkgoWriter.Printf("Error closing response body: %v\n", err)
+				}
 			}
-			}
-			
+
 			// If we get here, rate limiting might not be enabled
 			GinkgoWriter.Printf("Rate limiting not detected after 100 requests\n")
 		})
@@ -697,8 +697,8 @@ var _ = Describe("MCP REST API Tests", func() {
 			resp, err := makeRequest("GET", "/api/v1/mcp/tools", nil, nil)
 			if err == nil {
 				if err := resp.Body.Close(); err != nil {
-				GinkgoWriter.Printf("Error closing response body: %v\n", err)
-			}
+					GinkgoWriter.Printf("Error closing response body: %v\n", err)
+				}
 			}
 
 			// Measure latency
@@ -707,21 +707,21 @@ var _ = Describe("MCP REST API Tests", func() {
 
 			for i := 0; i < iterations; i++ {
 				start := time.Now()
-				
+
 				resp, err := makeRequest("GET", "/api/v1/mcp/tools", nil, nil)
 				if err != nil {
 					Skip("Server not responding consistently")
 				}
-				
+
 				if err := resp.Body.Close(); err != nil {
-				GinkgoWriter.Printf("Error closing response body: %v\n", err)
-			}
+					GinkgoWriter.Printf("Error closing response body: %v\n", err)
+				}
 				totalDuration += time.Since(start)
 			}
 
 			avgLatency := totalDuration / time.Duration(iterations)
 			GinkgoWriter.Printf("Average latency over %d requests: %v\n", iterations, avgLatency)
-			
+
 			// Assert reasonable latency (adjust based on requirements)
 			Expect(avgLatency).To(BeNumerically("<", 200*time.Millisecond))
 		})
@@ -729,7 +729,7 @@ var _ = Describe("MCP REST API Tests", func() {
 		It("should handle concurrent requests", func() {
 			concurrency := 10
 			requestsPerClient := 5
-			
+
 			errorChan := make(chan error, concurrency*requestsPerClient)
 			doneChan := make(chan bool, concurrency)
 
@@ -744,8 +744,8 @@ var _ = Describe("MCP REST API Tests", func() {
 							continue
 						}
 						if err := resp.Body.Close(); err != nil {
-				GinkgoWriter.Printf("Error closing response body: %v\n", err)
-			}
+							GinkgoWriter.Printf("Error closing response body: %v\n", err)
+						}
 					}
 					doneChan <- true
 				}(i)
@@ -758,9 +758,9 @@ var _ = Describe("MCP REST API Tests", func() {
 
 			duration := time.Since(start)
 			totalRequests := concurrency * requestsPerClient
-			
+
 			GinkgoWriter.Printf("Processed %d concurrent requests in %v\n", totalRequests, duration)
-			
+
 			// Check for errors
 			close(errorChan)
 			errorCount := 0
@@ -768,7 +768,7 @@ var _ = Describe("MCP REST API Tests", func() {
 				errorCount++
 				GinkgoWriter.Printf("Concurrent request error: %v\n", err)
 			}
-			
+
 			Expect(errorCount).To(BeNumerically("<", totalRequests/10)) // Less than 10% error rate
 		})
 	})
@@ -798,7 +798,7 @@ var _ = Describe("MCP REST API Tests", func() {
 				if err := json.NewDecoder(resp.Body).Decode(&context); err != nil {
 					GinkgoWriter.Printf("Error decoding context: %v\n", err)
 				}
-				
+
 				// Use context in MCP operation
 				toolCall := ToolCallRequest{
 					Name: "analyze_context",
@@ -817,9 +817,9 @@ var _ = Describe("MCP REST API Tests", func() {
 
 		It("should integrate with vector search", func() {
 			searchRequest := map[string]interface{}{
-				"query":      "test query",
-				"limit":      10,
-				"threshold":  0.7,
+				"query":     "test query",
+				"limit":     10,
+				"threshold": 0.7,
 			}
 
 			resp, err := makeRequest("POST", "/api/v1/search/semantic", searchRequest, nil)

@@ -35,7 +35,6 @@ const (
 	WorkflowExecutionStatusTimeout   = WorkflowStatusTimeout
 )
 
-
 // Add WorkflowTypeStandard to existing types
 const (
 	WorkflowTypeStandard     WorkflowType = "standard"
@@ -151,13 +150,13 @@ func (s StepExecutionStatus) TransitionTo(target StepExecutionStatus, metrics Me
 
 // WorkflowExecutionMetrics tracks workflow performance
 type WorkflowExecutionMetrics struct {
-	ExecutionID   uuid.UUID                 `json:"execution_id"`
-	TotalDuration time.Duration             `json:"total_duration"`
-	StepDurations map[string]time.Duration  `json:"step_durations"`
-	QueueTime     time.Duration             `json:"queue_time"`
-	RetryCount    int                       `json:"retry_count"`
-	ResourceUsage ResourceMetrics           `json:"resource_usage"`
-	CostEstimate  float64                   `json:"cost_estimate"`
+	ExecutionID   uuid.UUID                `json:"execution_id"`
+	TotalDuration time.Duration            `json:"total_duration"`
+	StepDurations map[string]time.Duration `json:"step_durations"`
+	QueueTime     time.Duration            `json:"queue_time"`
+	RetryCount    int                      `json:"retry_count"`
+	ResourceUsage ResourceMetrics          `json:"resource_usage"`
+	CostEstimate  float64                  `json:"cost_estimate"`
 }
 
 type ResourceMetrics struct {

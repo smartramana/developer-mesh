@@ -5,11 +5,12 @@ package integration
 
 import (
 	"fmt"
-	"github.com/jmoiron/sqlx"
-	_ "github.com/lib/pq"
 	"os"
 	"testing"
 	"time"
+
+	"github.com/jmoiron/sqlx"
+	_ "github.com/lib/pq"
 )
 
 // getTestDatabaseDSN returns the database DSN from environment variables

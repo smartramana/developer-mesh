@@ -3,7 +3,7 @@ package crdt
 import (
 	"fmt"
 	"sync"
-	
+
 	"github.com/google/uuid"
 )
 
@@ -24,14 +24,14 @@ func NewORSet() *ORSet {
 func (s *ORSet) Add(element string) uuid.UUID {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	
+
 	tag := uuid.New()
-	
+
 	if s.elements[element] == nil {
 		s.elements[element] = make(map[uuid.UUID]bool)
 	}
 	s.elements[element][tag] = true
-	
+
 	return tag
 }
 
@@ -39,7 +39,7 @@ func (s *ORSet) Add(element string) uuid.UUID {
 func (s *ORSet) Remove(element string) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	
+
 	// Remove all tags for this element
 	delete(s.elements, element)
 }
@@ -48,7 +48,7 @@ func (s *ORSet) Remove(element string) {
 func (s *ORSet) Contains(element string) bool {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
-	
+
 	tags, exists := s.elements[element]
 	return exists && len(tags) > 0
 }
@@ -57,7 +57,7 @@ func (s *ORSet) Contains(element string) bool {
 func (s *ORSet) Elements() []string {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
-	
+
 	var result []string
 	for element, tags := range s.elements {
 		if len(tags) > 0 {
@@ -73,13 +73,13 @@ func (s *ORSet) Merge(other CRDT) error {
 	if !ok {
 		return fmt.Errorf("cannot merge ORSet with %T", other)
 	}
-	
+
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	
+
 	otherSet.mu.RLock()
 	defer otherSet.mu.RUnlock()
-	
+
 	// Union of all tags for each element
 	for element, otherTags := range otherSet.elements {
 		if s.elements[element] == nil {
@@ -89,7 +89,7 @@ func (s *ORSet) Merge(other CRDT) error {
 			s.elements[element][tag] = true
 		}
 	}
-	
+
 	return nil
 }
 
@@ -97,7 +97,7 @@ func (s *ORSet) Merge(other CRDT) error {
 func (s *ORSet) Clone() CRDT {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
-	
+
 	clone := NewORSet()
 	for element, tags := range s.elements {
 		clone.elements[element] = make(map[uuid.UUID]bool)
@@ -117,7 +117,7 @@ func (s *ORSet) GetType() string {
 func (s *ORSet) Size() int {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
-	
+
 	count := 0
 	for _, tags := range s.elements {
 		if len(tags) > 0 {

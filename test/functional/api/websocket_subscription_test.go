@@ -12,8 +12,9 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
-	ws "github.com/S-Corkum/devops-mcp/pkg/models/websocket"
 	"functional-tests/shared"
+
+	ws "github.com/S-Corkum/devops-mcp/pkg/models/websocket"
 )
 
 var _ = Describe("WebSocket Real-Time Subscriptions", func() {
@@ -27,12 +28,12 @@ var _ = Describe("WebSocket Real-Time Subscriptions", func() {
 
 	BeforeEach(func() {
 		ctx, cancel = context.WithTimeout(context.Background(), 30*time.Second)
-		
+
 		// Get test configuration
 		config := shared.GetTestConfig()
 		wsURL = config.WebSocketURL
 		apiKey = shared.GetTestAPIKey("test-tenant-1")
-		
+
 		var err error
 		conn, err = shared.EstablishConnection(wsURL, apiKey)
 		Expect(err).NotTo(HaveOccurred())
@@ -122,7 +123,7 @@ var _ = Describe("WebSocket Real-Time Subscriptions", func() {
 
 			// Verify events
 			Expect(len(events)).To(BeNumerically(">", 0), "Should receive subscription events")
-			
+
 			// Check event types
 			eventTypes := make(map[string]int)
 			for _, event := range events {
@@ -130,7 +131,7 @@ var _ = Describe("WebSocket Real-Time Subscriptions", func() {
 					eventTypes[eventType]++
 				}
 			}
-			
+
 			Expect(eventTypes).To(HaveKey("tool.started"))
 			Expect(eventTypes).To(HaveKey("tool.completed"))
 
@@ -226,11 +227,11 @@ var _ = Describe("WebSocket Real-Time Subscriptions", func() {
 					}
 				}
 			}
-			done:
+		done:
 
 			// Verify received events from all tools
 			for _, tool := range tools {
-				Expect(eventsPerTool[tool]).To(BeNumerically(">", 0), 
+				Expect(eventsPerTool[tool]).To(BeNumerically(">", 0),
 					fmt.Sprintf("Should receive events for tool %s", tool))
 			}
 		})
@@ -376,7 +377,7 @@ var _ = Describe("WebSocket Real-Time Subscriptions", func() {
 					}
 				}
 			}
-			done:
+		done:
 
 			// Should receive ~3 metric updates (one per second)
 			Expect(len(metrics)).To(BeNumerically("~", 3, 1))
@@ -428,9 +429,9 @@ var _ = Describe("WebSocket Real-Time Subscriptions", func() {
 				Type:   ws.MessageTypeRequest,
 				Method: "test.generate_events",
 				Params: map[string]interface{}{
-					"event_type":    "log.stream",
-					"source":        "high-volume-app",
-					"rate_per_second": 100, // 100 events/sec
+					"event_type":       "log.stream",
+					"source":           "high-volume-app",
+					"rate_per_second":  100, // 100 events/sec
 					"duration_seconds": 2,
 				},
 			}
@@ -459,12 +460,12 @@ var _ = Describe("WebSocket Real-Time Subscriptions", func() {
 					}
 				}
 			}
-			done:
+		done:
 
 			duration := time.Since(start).Seconds()
 			eventsPerSecond := float64(eventsReceived) / duration
 
-			GinkgoWriter.Printf("Received %d events in %.1fs (%.1f/sec)\n", 
+			GinkgoWriter.Printf("Received %d events in %.1fs (%.1f/sec)\n",
 				eventsReceived, duration, eventsPerSecond)
 
 			// Should be rate limited to ~10/sec (with some burst)
@@ -508,9 +509,9 @@ var _ = Describe("WebSocket Real-Time Subscriptions", func() {
 				Params: map[string]interface{}{
 					"status": "busy",
 					"activity": map[string]interface{}{
-						"type":        "tool_execution",
-						"tool":        "code_reviewer",
-						"started_at":  time.Now().Format(time.RFC3339),
+						"type":       "tool_execution",
+						"tool":       "code_reviewer",
+						"started_at": time.Now().Format(time.RFC3339),
 					},
 				},
 			}
@@ -700,9 +701,9 @@ var _ = Describe("WebSocket Real-Time Subscriptions", func() {
 						"metrics": []string{"request_count", "error_count", "response_time"},
 					},
 					"aggregation": map[string]interface{}{
-						"window_ms":   5000, // 5 second windows
-						"functions":   []string{"sum", "avg", "max", "min", "count"},
-						"group_by":    []string{"endpoint", "method"},
+						"window_ms": 5000, // 5 second windows
+						"functions": []string{"sum", "avg", "max", "min", "count"},
+						"group_by":  []string{"endpoint", "method"},
 					},
 				},
 			}
@@ -760,7 +761,7 @@ var _ = Describe("WebSocket Real-Time Subscriptions", func() {
 								Expect(agg).To(HaveKey("window_start"))
 								Expect(agg).To(HaveKey("window_end"))
 								Expect(agg).To(HaveKey("groups"))
-								
+
 								if groups, ok := agg["groups"].([]interface{}); ok {
 									Expect(len(groups)).To(BeNumerically(">", 0))
 									for _, group := range groups {
@@ -772,7 +773,7 @@ var _ = Describe("WebSocket Real-Time Subscriptions", func() {
 										}
 									}
 								}
-								
+
 								aggregatedReceived = true
 							}
 						}
@@ -790,8 +791,8 @@ var _ = Describe("WebSocket Real-Time Subscriptions", func() {
 				Type:   ws.MessageTypeRequest,
 				Method: "subscribe",
 				Params: map[string]interface{}{
-					"resource": "tool.events",
-					"filter":   map[string]interface{}{},
+					"resource":   "tool.events",
+					"filter":     map[string]interface{}{},
 					"persistent": true, // Survive reconnection
 				},
 			}

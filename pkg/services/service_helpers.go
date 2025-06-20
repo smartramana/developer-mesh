@@ -19,10 +19,10 @@ import (
 // NoOpSpan implements a no-op span for tracing
 type NoOpSpan struct{}
 
-func (s NoOpSpan) End() {}
-func (s NoOpSpan) SetAttribute(key string, value interface{}) {}
-func (s NoOpSpan) SetStatus(code int, message string) {}
-func (s NoOpSpan) RecordError(err error) {}
+func (s NoOpSpan) End()                                                    {}
+func (s NoOpSpan) SetAttribute(key string, value interface{})              {}
+func (s NoOpSpan) SetStatus(code int, message string)                      {}
+func (s NoOpSpan) RecordError(err error)                                   {}
 func (s NoOpSpan) AddEvent(name string, attributes map[string]interface{}) {}
 
 // ExponentialBackoff creates an exponential backoff function
@@ -41,16 +41,16 @@ func ExponentialBackoff(base time.Duration, factor float64) func(attempt int) ti
 
 // InMemoryRateLimiter implements a production-grade in-memory rate limiter
 type InMemoryRateLimiter struct {
-	mu       sync.RWMutex
-	limits   map[string]*rateLimitEntry
-	rate     int
-	window   time.Duration
+	mu              sync.RWMutex
+	limits          map[string]*rateLimitEntry
+	rate            int
+	window          time.Duration
 	cleanupInterval time.Duration
-	stopCh   chan struct{}
+	stopCh          chan struct{}
 }
 
 type rateLimitEntry struct {
-	count      int
+	count       int
 	windowStart time.Time
 }
 
@@ -63,20 +63,20 @@ func NewInMemoryRateLimiter(rate int, window time.Duration) RateLimiter {
 		cleanupInterval: window * 2,
 		stopCh:          make(chan struct{}),
 	}
-	
+
 	// Start cleanup goroutine
 	go rl.cleanup()
-	
+
 	return rl
 }
 
 func (rl *InMemoryRateLimiter) Check(ctx context.Context, key string) error {
 	rl.mu.Lock()
 	defer rl.mu.Unlock()
-	
+
 	now := time.Now()
 	entry, exists := rl.limits[key]
-	
+
 	if !exists || now.Sub(entry.windowStart) > rl.window {
 		rl.limits[key] = &rateLimitEntry{
 			count:       1,
@@ -84,12 +84,12 @@ func (rl *InMemoryRateLimiter) Check(ctx context.Context, key string) error {
 		}
 		return nil
 	}
-	
+
 	if entry.count < rl.rate {
 		entry.count++
 		return nil
 	}
-	
+
 	return ErrRateLimitExceeded
 }
 
@@ -101,12 +101,12 @@ func (rl *InMemoryRateLimiter) CheckWithLimit(ctx context.Context, key string, l
 func (rl *InMemoryRateLimiter) GetRemaining(ctx context.Context, key string) (int, error) {
 	rl.mu.RLock()
 	defer rl.mu.RUnlock()
-	
+
 	entry, exists := rl.limits[key]
 	if !exists {
 		return rl.rate, nil
 	}
-	
+
 	remaining := rl.rate - entry.count
 	if remaining < 0 {
 		remaining = 0
@@ -124,7 +124,7 @@ func (rl *InMemoryRateLimiter) Reset(ctx context.Context, key string) error {
 func (rl *InMemoryRateLimiter) cleanup() {
 	ticker := time.NewTicker(rl.cleanupInterval)
 	defer ticker.Stop()
-	
+
 	for {
 		select {
 		case <-ticker.C:
@@ -169,36 +169,36 @@ func NewInMemoryQuotaManager() QuotaManager {
 func (qm *InMemoryQuotaManager) GetQuota(ctx context.Context, tenantID uuid.UUID, resource string) (int64, error) {
 	qm.mu.RLock()
 	defer qm.mu.RUnlock()
-	
+
 	quota, exists := qm.quotas[resource]
 	if !exists {
 		return 0, ErrResourceNotFound
 	}
-	
+
 	return int64(quota.limit), nil
 }
 
 func (qm *InMemoryQuotaManager) GetUsage(ctx context.Context, tenantID uuid.UUID, resource string) (int64, error) {
 	qm.mu.RLock()
 	defer qm.mu.RUnlock()
-	
+
 	quota, exists := qm.quotas[resource]
 	if !exists {
 		return 0, ErrResourceNotFound
 	}
-	
+
 	return int64(quota.used), nil
 }
 
 func (qm *InMemoryQuotaManager) IncrementUsage(ctx context.Context, tenantID uuid.UUID, resource string, amount int64) error {
 	qm.mu.Lock()
 	defer qm.mu.Unlock()
-	
+
 	quota, exists := qm.quotas[resource]
 	if !exists {
 		return ErrResourceNotFound
 	}
-	
+
 	newUsed := quota.used + int(amount)
 	if newUsed > quota.limit {
 		return &QuotaExceededError{
@@ -207,7 +207,7 @@ func (qm *InMemoryQuotaManager) IncrementUsage(ctx context.Context, tenantID uui
 			Limit:    int64(quota.limit),
 		}
 	}
-	
+
 	quota.used = newUsed
 	return nil
 }
@@ -215,7 +215,7 @@ func (qm *InMemoryQuotaManager) IncrementUsage(ctx context.Context, tenantID uui
 func (qm *InMemoryQuotaManager) SetQuota(ctx context.Context, tenantID uuid.UUID, resource string, limit int64) error {
 	qm.mu.Lock()
 	defer qm.mu.Unlock()
-	
+
 	quota, exists := qm.quotas[resource]
 	if !exists {
 		qm.quotas[resource] = &quotaEntry{
@@ -225,19 +225,19 @@ func (qm *InMemoryQuotaManager) SetQuota(ctx context.Context, tenantID uuid.UUID
 	} else {
 		quota.limit = int(limit)
 	}
-	
+
 	return nil
 }
 
 func (qm *InMemoryQuotaManager) GetQuotaStatus(ctx context.Context, tenantID uuid.UUID) (*QuotaStatus, error) {
 	qm.mu.RLock()
 	defer qm.mu.RUnlock()
-	
+
 	status := &QuotaStatus{
 		TenantID: tenantID,
 		Quotas:   make(map[string]QuotaInfo),
 	}
-	
+
 	for resource, quota := range qm.quotas {
 		status.Quotas[resource] = QuotaInfo{
 			Resource:  resource,
@@ -247,7 +247,7 @@ func (qm *InMemoryQuotaManager) GetQuotaStatus(ctx context.Context, tenantID uui
 			Period:    "monthly",
 		}
 	}
-	
+
 	return status, nil
 }
 
@@ -374,12 +374,12 @@ func (s *AESEncryptionService) DecryptString(ctx context.Context, ciphertext str
 	if err != nil {
 		return "", fmt.Errorf("failed to decode base64: %w", err)
 	}
-	
+
 	decrypted, err := s.Decrypt(ctx, data)
 	if err != nil {
 		return "", err
 	}
-	
+
 	return string(decrypted), nil
 }
 

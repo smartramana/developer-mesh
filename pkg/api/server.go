@@ -10,6 +10,7 @@ import (
 	contextAPI "github.com/S-Corkum/devops-mcp/pkg/api/context"
 	"github.com/S-Corkum/devops-mcp/pkg/config"
 	"github.com/S-Corkum/devops-mcp/pkg/core"
+
 	// Keep internal/database for backward compatibility
 	"github.com/S-Corkum/devops-mcp/pkg/database"
 	"github.com/S-Corkum/devops-mcp/pkg/observability"
@@ -309,14 +310,14 @@ func (s *Server) StartTLS(certFile, keyFile string) error {
 	if err != nil {
 		return fmt.Errorf("failed to build TLS config: %w", err)
 	}
-	
+
 	// Apply TLS config to server
 	s.server.TLSConfig = tlsConfig
-	
+
 	// Use cert and key files from TLS config
 	certPath := s.config.TLS.CertFile
 	keyPath := s.config.TLS.KeyFile
-	
+
 	// Override with provided files if any
 	if certFile != "" {
 		certPath = certFile
@@ -324,11 +325,11 @@ func (s *Server) StartTLS(certFile, keyFile string) error {
 	if keyFile != "" {
 		keyPath = keyFile
 	}
-	
+
 	if certPath == "" || keyPath == "" {
 		return fmt.Errorf("TLS certificate and key files must be configured")
 	}
-	
+
 	return s.server.ListenAndServeTLS(certPath, keyPath)
 }
 

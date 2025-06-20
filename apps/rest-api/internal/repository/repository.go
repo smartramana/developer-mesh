@@ -6,8 +6,9 @@ package repository
 import (
 	"context"
 
-	"github.com/S-Corkum/devops-mcp/pkg/models"
 	"rest-api/internal/types"
+
+	"github.com/S-Corkum/devops-mcp/pkg/models"
 )
 
 // Embedding is an alias for types.Embedding

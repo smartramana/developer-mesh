@@ -6,9 +6,9 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/google/uuid"
 	"github.com/S-Corkum/devops-mcp/pkg/models"
 	"github.com/S-Corkum/devops-mcp/pkg/repository/agent"
+	"github.com/google/uuid"
 	"github.com/jmoiron/sqlx"
 )
 
@@ -267,7 +267,9 @@ func (r *AgentRepositoryImpl) GetWorkload(ctx context.Context, agentID uuid.UUID
 	if err != nil {
 		return nil, fmt.Errorf("failed to get tasks by type: %w", err)
 	}
-	defer rows.Close()
+	defer func() {
+		_ = rows.Close()
+	}()
 
 	tasksByType := make(map[string]int)
 	for rows.Next() {

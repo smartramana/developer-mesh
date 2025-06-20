@@ -289,7 +289,7 @@ func (r *MockAgentRepository) DeleteAgent(ctx context.Context, id string) error 
 func (r *MockAgentRepository) GetByStatus(ctx context.Context, status models.AgentStatus) ([]*models.Agent, error) {
 	r.mutex.RLock()
 	defer r.mutex.RUnlock()
-	
+
 	var result []*models.Agent
 	for _, agent := range r.agents {
 		if agent.Status == string(status) {
@@ -322,7 +322,7 @@ func (r *MockAgentRepository) UpdateWorkload(ctx context.Context, workload *mode
 func (r *MockAgentRepository) GetLeastLoadedAgent(ctx context.Context, capability models.AgentCapability) (*models.Agent, error) {
 	r.mutex.RLock()
 	defer r.mutex.RUnlock()
-	
+
 	// Return the first active agent for simplicity
 	for _, agent := range r.agents {
 		if agent.Status == string(models.AgentStatusActive) {

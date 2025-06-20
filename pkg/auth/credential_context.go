@@ -2,6 +2,7 @@ package auth
 
 import (
 	"context"
+
 	"github.com/S-Corkum/devops-mcp/pkg/models"
 )
 
@@ -25,7 +26,7 @@ func GetToolCredentials(ctx context.Context) (*models.ToolCredentials, bool) {
 	if ctx == nil {
 		return nil, false
 	}
-	
+
 	creds, ok := ctx.Value(userCredentialsKey).(*models.ToolCredentials)
 	return creds, ok
 }
@@ -36,7 +37,7 @@ func GetToolCredential(ctx context.Context, tool string) (*models.TokenCredentia
 	if !ok || creds == nil {
 		return nil, false
 	}
-	
+
 	credential := creds.GetCredentialFor(tool)
 	return credential, credential != nil
 }
@@ -47,7 +48,7 @@ func HasToolCredential(ctx context.Context, tool string) bool {
 	if !ok || creds == nil {
 		return false
 	}
-	
+
 	return creds.HasCredentialFor(tool)
 }
 

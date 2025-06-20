@@ -61,9 +61,9 @@ func TestWebSocketTaskDelegation(t *testing.T) {
 		Type: "task.delegate",
 		ID:   uuid.New().String(),
 		Data: map[string]interface{}{
-			"task_id":    taskID.String(),
-			"to_agent":   "agent2",
-			"reason":     "Agent 2 has better testing expertise",
+			"task_id":         taskID.String(),
+			"to_agent":        "agent2",
+			"reason":          "Agent 2 has better testing expertise",
 			"delegation_type": "manual",
 		},
 	}
@@ -75,7 +75,7 @@ func TestWebSocketTaskDelegation(t *testing.T) {
 	msg, err = agent2.ReadMessage(ctx)
 	require.NoError(t, err)
 	assert.Equal(t, "task.delegated", msg.Type)
-	
+
 	data := msg.Data.(map[string]interface{})
 	assert.Equal(t, taskID.String(), data["task_id"])
 	assert.Equal(t, "agent1", data["from_agent"])
@@ -304,7 +304,7 @@ func TestWebSocketWorkspaceCollaboration(t *testing.T) {
 	// All agents should receive document creation notification
 	var wg sync.WaitGroup
 	wg.Add(numAgents)
-	
+
 	for i := range agents {
 		go func(agent *shared.WebSocketClient) {
 			defer wg.Done()
@@ -313,12 +313,12 @@ func TestWebSocketWorkspaceCollaboration(t *testing.T) {
 			assert.Equal(t, "document.created", msg.Type)
 		}(agents[i])
 	}
-	
+
 	wg.Wait()
 
 	// Test concurrent edits with CRDT
 	edits := make(chan bool, numAgents-1)
-	
+
 	for i := 1; i < numAgents; i++ {
 		go func(agentIndex int) {
 			editMsg := shared.WebSocketMessage{
@@ -360,7 +360,7 @@ func TestWebSocketWorkspaceCollaboration(t *testing.T) {
 	msg, err = agents[0].ReadMessage(ctx)
 	require.NoError(t, err)
 	assert.Equal(t, "document.state", msg.Type)
-	
+
 	// Verify all edits were applied
 	docData := msg.Data.(map[string]interface{})
 	content := docData["content"].(string)
@@ -392,8 +392,8 @@ func TestWebSocketConflictResolution(t *testing.T) {
 		ID:   uuid.New().String(),
 		Data: map[string]interface{}{
 			"state": map[string]interface{}{
-				"id":   stateID.String(),
-				"type": "counter",
+				"id":    stateID.String(),
+				"type":  "counter",
 				"value": 0,
 			},
 		},
@@ -519,27 +519,27 @@ func TestWebSocketCapabilityMatching(t *testing.T) {
 
 	// Create tasks requiring specific capabilities
 	tasks := []struct {
-		id           string
-		title        string
-		capabilities []string
+		id            string
+		title         string
+		capabilities  []string
 		expectedAgent string
 	}{
 		{
-			id:           uuid.New().String(),
-			title:        "Implement React Component",
-			capabilities: []string{"react", "javascript"},
+			id:            uuid.New().String(),
+			title:         "Implement React Component",
+			capabilities:  []string{"react", "javascript"},
 			expectedAgent: "frontend-dev",
 		},
 		{
-			id:           uuid.New().String(),
-			title:        "Optimize Database Queries",
-			capabilities: []string{"postgresql"},
+			id:            uuid.New().String(),
+			title:         "Optimize Database Queries",
+			capabilities:  []string{"postgresql"},
 			expectedAgent: "backend-dev",
 		},
 		{
-			id:           uuid.New().String(),
-			title:        "Deploy to Kubernetes",
-			capabilities: []string{"kubernetes"},
+			id:            uuid.New().String(),
+			title:         "Deploy to Kubernetes",
+			capabilities:  []string{"kubernetes"},
 			expectedAgent: "devops",
 		},
 	}
@@ -551,8 +551,8 @@ func TestWebSocketCapabilityMatching(t *testing.T) {
 			ID:   uuid.New().String(),
 			Data: map[string]interface{}{
 				"task": map[string]interface{}{
-					"id":               task.id,
-					"title":            task.title,
+					"id":                    task.id,
+					"title":                 task.title,
 					"required_capabilities": task.capabilities,
 				},
 				"assignment_strategy": "capability_match",
@@ -606,7 +606,7 @@ func TestWebSocketMultiAgentPerformance(t *testing.T) {
 
 	numAgents := 10
 	numTasksPerAgent := 20
-	
+
 	// Track metrics
 	var totalTasks int32
 	var completedTasks atomic.Int32
@@ -643,7 +643,7 @@ func TestWebSocketMultiAgentPerformance(t *testing.T) {
 	// All agents join workspace
 	var joinWg sync.WaitGroup
 	joinWg.Add(numAgents - 1)
-	
+
 	for i := 1; i < numAgents; i++ {
 		go func(agentIndex int) {
 			defer joinWg.Done()
@@ -658,7 +658,7 @@ func TestWebSocketMultiAgentPerformance(t *testing.T) {
 			assert.NoError(t, err)
 		}(i)
 	}
-	
+
 	joinWg.Wait()
 
 	// Each agent creates and processes tasks
@@ -668,7 +668,7 @@ func TestWebSocketMultiAgentPerformance(t *testing.T) {
 	for i := 0; i < numAgents; i++ {
 		go func(agentIndex int) {
 			defer taskWg.Done()
-			
+
 			for j := 0; j < numTasksPerAgent; j++ {
 				// Create task
 				taskID := uuid.New()
@@ -677,8 +677,8 @@ func TestWebSocketMultiAgentPerformance(t *testing.T) {
 					ID:   uuid.New().String(),
 					Data: map[string]interface{}{
 						"task": map[string]interface{}{
-							"id":          taskID.String(),
-							"title":       fmt.Sprintf("Task %d-%d", agentIndex, j),
+							"id":           taskID.String(),
+							"title":        fmt.Sprintf("Task %d-%d", agentIndex, j),
 							"workspace_id": workspaceID.String(),
 						},
 					},
@@ -702,7 +702,7 @@ func TestWebSocketMultiAgentPerformance(t *testing.T) {
 
 				err = agents[agentIndex].SendMessage(completeMsg)
 				assert.NoError(t, err)
-				
+
 				completedTasks.Add(1)
 			}
 		}(i)

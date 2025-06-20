@@ -48,20 +48,20 @@ type WebhookEvent struct {
 
 // Error types
 var (
-	ErrInvalidSignature         = fmt.Errorf("invalid webhook signature")
-	ErrReplayAttack             = fmt.Errorf("webhook replay attack detected")
-	ErrRateLimitExceeded        = fmt.Errorf("github API rate limit exceeded")
-	ErrUnauthorized             = fmt.Errorf("unauthorized github API request")
-	ErrForbidden                = fmt.Errorf("forbidden github API request")
-	ErrNotFound                 = fmt.Errorf("github resource not found")
-	ErrOperationNotSupported    = fmt.Errorf("operation not supported")
-	ErrInvalidParameters        = fmt.Errorf("invalid parameters")
-	ErrInvalidAuthentication    = fmt.Errorf("invalid authentication configuration")
-	ErrWebhookDisabled          = fmt.Errorf("webhooks are disabled")
-	ErrWebhookHandlerNotFound   = fmt.Errorf("webhook handler not found")
-	ErrWebhookQueueFull         = fmt.Errorf("webhook queue is full")
-	ErrInvalidWebhookSignature  = fmt.Errorf("invalid webhook signature")
-	ErrInvalidWebhookRequest    = fmt.Errorf("invalid webhook request")
+	ErrInvalidSignature        = fmt.Errorf("invalid webhook signature")
+	ErrReplayAttack            = fmt.Errorf("webhook replay attack detected")
+	ErrRateLimitExceeded       = fmt.Errorf("github API rate limit exceeded")
+	ErrUnauthorized            = fmt.Errorf("unauthorized github API request")
+	ErrForbidden               = fmt.Errorf("forbidden github API request")
+	ErrNotFound                = fmt.Errorf("github resource not found")
+	ErrOperationNotSupported   = fmt.Errorf("operation not supported")
+	ErrInvalidParameters       = fmt.Errorf("invalid parameters")
+	ErrInvalidAuthentication   = fmt.Errorf("invalid authentication configuration")
+	ErrWebhookDisabled         = fmt.Errorf("webhooks are disabled")
+	ErrWebhookHandlerNotFound  = fmt.Errorf("webhook handler not found")
+	ErrWebhookQueueFull        = fmt.Errorf("webhook queue is full")
+	ErrInvalidWebhookSignature = fmt.Errorf("invalid webhook signature")
+	ErrInvalidWebhookRequest   = fmt.Errorf("invalid webhook request")
 )
 
 // Ensure GitHubAdapter implements WebhookValidator at compile time
@@ -86,7 +86,7 @@ type GitHubAdapter struct {
 	rateLimiter         *resilience.RateLimiterManager
 	mu                  sync.RWMutex
 	closed              bool
-	shutdownCh          chan struct{}            // Channel for signaling worker shutdown
+	shutdownCh          chan struct{}             // Channel for signaling worker shutdown
 	wg                  sync.WaitGroup            // WaitGroup for webhook workers
 	registeredHandlers  map[string]map[string]any // Map of handler IDs to handler details
 }
@@ -149,7 +149,7 @@ func New(config *Config, logger observability.Logger, metricsClient observabilit
 		webhookQueue:       make(chan WebhookEvent, config.WebhookQueueSize),
 		registeredHandlers: make(map[string]map[string]any),
 		shutdownCh:         make(chan struct{}),
-		mu:                sync.RWMutex{},
+		mu:                 sync.RWMutex{},
 	}
 
 	// Setup authentication provider
@@ -356,7 +356,7 @@ func (a *GitHubAdapter) Close() error {
 
 	// Signal all webhook workers to stop
 	close(a.shutdownCh)
-	
+
 	// Close webhook queue channel if it exists and safely handle potential panic
 	if a.webhookQueue != nil {
 		func() {
@@ -374,28 +374,28 @@ func (a *GitHubAdapter) Close() error {
 	a.mu.Unlock()
 
 	// Create a context with timeout to ensure we don't block indefinitely
-	ctx, cancel := context.WithTimeout(context.Background(), 2 * time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 	defer cancel()
 
 	// Create a channel with buffer to receive the wait result
 	waiterDone := make(chan struct{}, 1)
-	
+
 	// Create a separate WaitGroup for our waiter goroutine
 	var waiterWg sync.WaitGroup
 	waiterWg.Add(1)
-	
+
 	// Start a goroutine that will wait for all webhook workers to complete
 	go func() {
-		defer waiterWg.Done() // Always mark this goroutine as done when exiting
+		defer waiterWg.Done()   // Always mark this goroutine as done when exiting
 		defer close(waiterDone) // Always close the channel when exiting
-		
+
 		// Use a channel to signal WaitGroup completion to avoid blocking forever
 		waitCh := make(chan struct{})
 		go func() {
 			defer close(waitCh)
 			a.wg.Wait()
 		}()
-		
+
 		// Wait for either the WaitGroup to complete or context to be canceled
 		select {
 		case <-waitCh:
@@ -406,7 +406,7 @@ func (a *GitHubAdapter) Close() error {
 			return
 		}
 	}()
-	
+
 	// Wait for completion or timeout
 	select {
 	case <-waiterDone:
@@ -422,14 +422,14 @@ func (a *GitHubAdapter) Close() error {
 		})
 		// Wait for our waiter goroutine to complete properly to avoid leaks
 		waiterWg.Wait()
-		
+
 		// Force terminate any remaining workers in tests
 		// This is a safety measure for testing environments
 		if a.config != nil && a.config.ForceTerminateWorkersOnTimeout {
 			a.logger.Warn("Force terminating webhook workers for testing purposes", nil)
 			return nil
 		}
-		
+
 		return fmt.Errorf("timeout waiting for webhook workers to exit")
 	}
 }
@@ -541,8 +541,6 @@ func (a *GitHubAdapter) Health() string {
 	return "healthy"
 }
 
-
-
 // VerifySignature verifies the signature of a webhook payload against the secret
 func (a *GitHubAdapter) VerifySignature(payload []byte, signature string) error {
 	if a.webhookValidator == nil {
@@ -586,4 +584,3 @@ func (a *GitHubAdapter) ValidateWebhookWithIP(eventType string, payload []byte, 
 	}
 	return a.webhookValidator.ValidateWithIP(eventType, payload, headers, remoteAddr)
 }
-

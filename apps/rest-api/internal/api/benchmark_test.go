@@ -7,12 +7,13 @@ import (
 	"testing"
 	"time"
 
+	"rest-api/internal/core"
+
 	"github.com/S-Corkum/devops-mcp/pkg/config"
 	"github.com/S-Corkum/devops-mcp/pkg/models"
 	"github.com/S-Corkum/devops-mcp/pkg/observability"
 	"github.com/gin-gonic/gin"
 	"github.com/jmoiron/sqlx"
-	"rest-api/internal/core"
 )
 
 // mockBenchmarkEngine is no longer used - using core.NewEngine directly

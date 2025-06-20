@@ -4,8 +4,8 @@ import (
 	"context"
 	"testing"
 
-	"github.com/google/uuid"
 	"github.com/S-Corkum/devops-mcp/pkg/models"
+	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
 )
 

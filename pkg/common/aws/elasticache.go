@@ -12,26 +12,26 @@ import (
 
 // ElastiCacheConfig holds configuration for ElastiCache
 type ElastiCacheConfig struct {
-	AuthConfig         AuthConfig    `mapstructure:"auth"`
-	PrimaryEndpoint    string        `mapstructure:"primary_endpoint"`
-	Port               int           `mapstructure:"port"`
-	Username           string        `mapstructure:"username"` // For Redis auth
-	Password           string        `mapstructure:"password"` // For Redis auth
-	UseIAMAuth         bool          `mapstructure:"use_iam_auth"`
-	ClusterMode        bool          `mapstructure:"cluster_mode"`
-	ReaderEndpoint     string        `mapstructure:"reader_endpoint"`   // Used for cluster mode
-	CacheNodes         []string      `mapstructure:"cache_nodes"`       // List of nodes for cluster mode
-	ClusterDiscovery   bool                  `mapstructure:"cluster_discovery"` // Use API to discover nodes
-	ClusterName        string                `mapstructure:"cluster_name"`
-	TLS                *securitytls.Config   `mapstructure:"tls"`          // TLS configuration
-	MaxRetries         int                   `mapstructure:"max_retries"`
-	MinIdleConnections int           `mapstructure:"min_idle_connections"`
-	PoolSize           int           `mapstructure:"pool_size"`
-	DialTimeout        time.Duration `mapstructure:"dial_timeout"`
-	ReadTimeout        time.Duration `mapstructure:"read_timeout"`
-	WriteTimeout       time.Duration `mapstructure:"write_timeout"`
-	PoolTimeout        int           `mapstructure:"pool_timeout"`
-	TokenExpiration    int           `mapstructure:"token_expiration"`
+	AuthConfig         AuthConfig          `mapstructure:"auth"`
+	PrimaryEndpoint    string              `mapstructure:"primary_endpoint"`
+	Port               int                 `mapstructure:"port"`
+	Username           string              `mapstructure:"username"` // For Redis auth
+	Password           string              `mapstructure:"password"` // For Redis auth
+	UseIAMAuth         bool                `mapstructure:"use_iam_auth"`
+	ClusterMode        bool                `mapstructure:"cluster_mode"`
+	ReaderEndpoint     string              `mapstructure:"reader_endpoint"`   // Used for cluster mode
+	CacheNodes         []string            `mapstructure:"cache_nodes"`       // List of nodes for cluster mode
+	ClusterDiscovery   bool                `mapstructure:"cluster_discovery"` // Use API to discover nodes
+	ClusterName        string              `mapstructure:"cluster_name"`
+	TLS                *securitytls.Config `mapstructure:"tls"` // TLS configuration
+	MaxRetries         int                 `mapstructure:"max_retries"`
+	MinIdleConnections int                 `mapstructure:"min_idle_connections"`
+	PoolSize           int                 `mapstructure:"pool_size"`
+	DialTimeout        time.Duration       `mapstructure:"dial_timeout"`
+	ReadTimeout        time.Duration       `mapstructure:"read_timeout"`
+	WriteTimeout       time.Duration       `mapstructure:"write_timeout"`
+	PoolTimeout        int                 `mapstructure:"pool_timeout"`
+	TokenExpiration    int                 `mapstructure:"token_expiration"`
 }
 
 // ElastiCacheClient is a client for AWS ElastiCache

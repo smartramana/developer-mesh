@@ -14,9 +14,9 @@ import (
 
 // BedrockProvider implements Provider interface for AWS Bedrock
 type BedrockProvider struct {
-	config    ProviderConfig
-	client    *bedrockruntime.Client
-	models    map[string]ModelInfo
+	config ProviderConfig
+	client *bedrockruntime.Client
+	models map[string]ModelInfo
 }
 
 // BedrockRequest/Response types for different models
@@ -27,8 +27,8 @@ type titanEmbeddingRequest struct {
 }
 
 type titanEmbeddingResponse struct {
-	Embedding     []float32 `json:"embedding"`
-	InputTextTokenCount int `json:"inputTextTokenCount"`
+	Embedding           []float32 `json:"embedding"`
+	InputTextTokenCount int       `json:"inputTextTokenCount"`
 }
 
 // Cohere embedding request
@@ -38,10 +38,10 @@ type cohereEmbeddingRequest struct {
 }
 
 type cohereEmbeddingResponse struct {
-	Embeddings [][]float32 `json:"embeddings"`
-	ID         string      `json:"id"`
-	ResponseType string   `json:"response_type"`
-	Meta       struct {
+	Embeddings   [][]float32 `json:"embeddings"`
+	ID           string      `json:"id"`
+	ResponseType string      `json:"response_type"`
+	Meta         struct {
 		BilledUnits struct {
 			InputTokens int `json:"input_tokens"`
 		} `json:"billed_units"`
@@ -235,14 +235,14 @@ func (p *BedrockProvider) HealthCheck(ctx context.Context) error {
 		ContentType: aws.String("application/json"),
 		Body:        []byte(`{"inputText":"health check"}`),
 	})
-	
+
 	if err != nil {
 		// Check if it's a real error or just model invocation issue
 		if contains(err.Error(), "AccessDenied") || contains(err.Error(), "UnauthorizedClient") {
 			return fmt.Errorf("bedrock access denied: check AWS credentials and permissions")
 		}
 	}
-	
+
 	return nil
 }
 
@@ -414,7 +414,7 @@ func isRetryableBedrockError(err error) bool {
 	if err == nil {
 		return false
 	}
-	
+
 	errStr := err.Error()
 	retryableErrors := []string{
 		"ThrottlingException",
@@ -424,13 +424,13 @@ func isRetryableBedrockError(err error) bool {
 		"ModelStreamErrorException",
 		"ModelTimeoutException",
 	}
-	
+
 	for _, retryable := range retryableErrors {
 		if bytes.Contains([]byte(errStr), []byte(retryable)) {
 			return true
 		}
 	}
-	
+
 	return false
 }
 

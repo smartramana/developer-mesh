@@ -40,10 +40,10 @@ func (p *EmbeddingProxy) RegisterRoutes(router *gin.RouterGroup) {
 		embeddings.POST("/batch", p.batchGenerateEmbeddings)
 		embeddings.POST("/search", p.searchEmbeddings)
 		embeddings.POST("/search/cross-model", p.crossModelSearch)
-		
+
 		// Provider health
 		embeddings.GET("/providers/health", p.getProviderHealth)
-		
+
 		// Agent configuration
 		agents := embeddings.Group("/agents")
 		{
@@ -114,12 +114,12 @@ func (p *EmbeddingProxy) getAgentCosts(c *gin.Context) {
 func (p *EmbeddingProxy) proxyRequest(c *gin.Context, path string, method string) {
 	// Build target URL
 	targetURL := p.restAPIURL + path
-	
+
 	// Add query parameters
 	if c.Request.URL.RawQuery != "" {
 		targetURL += "?" + c.Request.URL.RawQuery
 	}
-	
+
 	// Read request body
 	var body []byte
 	var err error
@@ -134,7 +134,7 @@ func (p *EmbeddingProxy) proxyRequest(c *gin.Context, path string, method string
 			return
 		}
 	}
-	
+
 	// Create request
 	req, err := http.NewRequestWithContext(c.Request.Context(), method, targetURL, bytes.NewReader(body))
 	if err != nil {
@@ -145,7 +145,7 @@ func (p *EmbeddingProxy) proxyRequest(c *gin.Context, path string, method string
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create request"})
 		return
 	}
-	
+
 	// Forward headers
 	for key, values := range c.Request.Header {
 		// Skip hop-by-hop headers
@@ -156,16 +156,16 @@ func (p *EmbeddingProxy) proxyRequest(c *gin.Context, path string, method string
 			req.Header.Add(key, value)
 		}
 	}
-	
+
 	// Inject tenant ID if available
 	if tenantID, exists := c.Get("tenant_id"); exists {
 		req.Header.Set("X-Tenant-ID", tenantID.(uuid.UUID).String())
 	}
-	
+
 	// Add request ID for tracing
 	requestID := uuid.New().String()
 	req.Header.Set("X-Request-ID", requestID)
-	
+
 	// Log proxy request
 	p.logger.Debug("Proxying embedding request", map[string]any{
 		"method":     method,
@@ -173,7 +173,7 @@ func (p *EmbeddingProxy) proxyRequest(c *gin.Context, path string, method string
 		"target_url": sanitizeLogValue(targetURL),
 		"request_id": requestID,
 	})
-	
+
 	// Execute request
 	resp, err := p.httpClient.Do(req)
 	if err != nil {
@@ -186,7 +186,7 @@ func (p *EmbeddingProxy) proxyRequest(c *gin.Context, path string, method string
 		return
 	}
 	defer func() { _ = resp.Body.Close() }()
-	
+
 	// Read response body
 	respBody, err := io.ReadAll(resp.Body)
 	if err != nil {
@@ -198,7 +198,7 @@ func (p *EmbeddingProxy) proxyRequest(c *gin.Context, path string, method string
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to read response"})
 		return
 	}
-	
+
 	// Forward response headers
 	for key, values := range resp.Header {
 		// Skip hop-by-hop headers
@@ -209,7 +209,7 @@ func (p *EmbeddingProxy) proxyRequest(c *gin.Context, path string, method string
 			c.Header(key, value)
 		}
 	}
-	
+
 	// Forward status code and body
 	c.Data(resp.StatusCode, resp.Header.Get("Content-Type"), respBody)
 }
@@ -226,7 +226,7 @@ func isHopByHopHeader(header string) bool {
 		"Transfer-Encoding",
 		"Upgrade",
 	}
-	
+
 	for _, h := range hopByHopHeaders {
 		if header == h {
 			return true

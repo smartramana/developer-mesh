@@ -5,21 +5,21 @@ import (
 	"sort"
 	"sync"
 	"time"
-	
-	"github.com/google/uuid"
+
 	"github.com/S-Corkum/devops-mcp/pkg/collaboration/crdt"
+	"github.com/google/uuid"
 )
 
 // CRDTOperation represents an operation on a collaborative document
 type CRDTOperation struct {
-	ID        uuid.UUID           `json:"id"`
-	Type      string              `json:"type"` // insert, delete, format
-	Position  int                 `json:"position"`
-	Content   string              `json:"content,omitempty"`
-	Length    int                 `json:"length,omitempty"`
-	NodeID    crdt.NodeID         `json:"node_id"`
-	Clock     crdt.VectorClock    `json:"clock"`
-	Timestamp time.Time           `json:"timestamp"`
+	ID        uuid.UUID              `json:"id"`
+	Type      string                 `json:"type"` // insert, delete, format
+	Position  int                    `json:"position"`
+	Content   string                 `json:"content,omitempty"`
+	Length    int                    `json:"length,omitempty"`
+	NodeID    crdt.NodeID            `json:"node_id"`
+	Clock     crdt.VectorClock       `json:"clock"`
+	Timestamp time.Time              `json:"timestamp"`
 	Metadata  map[string]interface{} `json:"metadata,omitempty"`
 }
 
@@ -30,10 +30,10 @@ type DocumentCRDT struct {
 	operations map[uuid.UUID]*CRDTOperation
 	clock      crdt.VectorClock
 	nodeID     crdt.NodeID
-	
+
 	// Tombstones for deleted content
 	tombstones map[uuid.UUID]bool
-	
+
 	// Character positions with unique IDs for ordering
 	characters []CharacterNode
 }
@@ -64,10 +64,10 @@ func NewDocumentCRDT(documentID uuid.UUID, nodeID crdt.NodeID) *DocumentCRDT {
 func (d *DocumentCRDT) Insert(position int, content string) (*CRDTOperation, error) {
 	d.mu.Lock()
 	defer d.mu.Unlock()
-	
+
 	// Increment vector clock
 	d.clock.Increment(d.nodeID)
-	
+
 	// Create operation
 	op := &CRDTOperation{
 		ID:        uuid.New(),
@@ -78,12 +78,12 @@ func (d *DocumentCRDT) Insert(position int, content string) (*CRDTOperation, err
 		Clock:     d.clock.Clone(),
 		Timestamp: time.Now(),
 	}
-	
+
 	// Apply operation locally
 	if err := d.applyInsert(op); err != nil {
 		return nil, err
 	}
-	
+
 	d.operations[op.ID] = op
 	return op, nil
 }
@@ -92,10 +92,10 @@ func (d *DocumentCRDT) Insert(position int, content string) (*CRDTOperation, err
 func (d *DocumentCRDT) Delete(position int, length int) (*CRDTOperation, error) {
 	d.mu.Lock()
 	defer d.mu.Unlock()
-	
+
 	// Increment vector clock
 	d.clock.Increment(d.nodeID)
-	
+
 	// Create operation
 	op := &CRDTOperation{
 		ID:        uuid.New(),
@@ -106,12 +106,12 @@ func (d *DocumentCRDT) Delete(position int, length int) (*CRDTOperation, error) 
 		Clock:     d.clock.Clone(),
 		Timestamp: time.Now(),
 	}
-	
+
 	// Apply operation locally
 	if err := d.applyDelete(op); err != nil {
 		return nil, err
 	}
-	
+
 	d.operations[op.ID] = op
 	return op, nil
 }
@@ -120,15 +120,15 @@ func (d *DocumentCRDT) Delete(position int, length int) (*CRDTOperation, error) 
 func (d *DocumentCRDT) ApplyOperation(op *CRDTOperation) error {
 	d.mu.Lock()
 	defer d.mu.Unlock()
-	
+
 	// Check if we've already seen this operation
 	if _, exists := d.operations[op.ID]; exists {
 		return nil // Idempotent
 	}
-	
+
 	// Update vector clock
 	d.clock.Update(op.Clock)
-	
+
 	// Apply based on operation type
 	var err error
 	switch op.Type {
@@ -139,11 +139,11 @@ func (d *DocumentCRDT) ApplyOperation(op *CRDTOperation) error {
 	default:
 		err = fmt.Errorf("unknown operation type: %s", op.Type)
 	}
-	
+
 	if err != nil {
 		return err
 	}
-	
+
 	d.operations[op.ID] = op
 	return nil
 }
@@ -152,7 +152,7 @@ func (d *DocumentCRDT) ApplyOperation(op *CRDTOperation) error {
 func (d *DocumentCRDT) GetContent() string {
 	d.mu.RLock()
 	defer d.mu.RUnlock()
-	
+
 	// Sort characters by position
 	chars := make([]CharacterNode, 0, len(d.characters))
 	for _, char := range d.characters {
@@ -160,17 +160,17 @@ func (d *DocumentCRDT) GetContent() string {
 			chars = append(chars, char)
 		}
 	}
-	
+
 	sort.Slice(chars, func(i, j int) bool {
 		return chars[i].Position < chars[j].Position
 	})
-	
+
 	// Build string
 	result := make([]rune, len(chars))
 	for i, char := range chars {
 		result[i] = char.Character
 	}
-	
+
 	return string(result)
 }
 
@@ -180,13 +180,13 @@ func (d *DocumentCRDT) Merge(other crdt.CRDT) error {
 	if !ok {
 		return fmt.Errorf("cannot merge DocumentCRDT with %T", other)
 	}
-	
+
 	d.mu.Lock()
 	defer d.mu.Unlock()
-	
+
 	otherDoc.mu.RLock()
 	defer otherDoc.mu.RUnlock()
-	
+
 	// Apply all operations we haven't seen
 	for opID, op := range otherDoc.operations {
 		if _, exists := d.operations[opID]; !exists {
@@ -197,7 +197,7 @@ func (d *DocumentCRDT) Merge(other crdt.CRDT) error {
 			}
 		}
 	}
-	
+
 	return nil
 }
 
@@ -205,27 +205,27 @@ func (d *DocumentCRDT) Merge(other crdt.CRDT) error {
 func (d *DocumentCRDT) Clone() crdt.CRDT {
 	d.mu.RLock()
 	defer d.mu.RUnlock()
-	
+
 	clone := NewDocumentCRDT(d.documentID, d.nodeID)
-	
+
 	// Copy operations
 	for id, op := range d.operations {
 		opCopy := *op
 		clone.operations[id] = &opCopy
 	}
-	
+
 	// Copy clock
 	clone.clock = d.clock.Clone()
-	
+
 	// Copy characters
 	clone.characters = make([]CharacterNode, len(d.characters))
 	copy(clone.characters, d.characters)
-	
+
 	// Copy tombstones
 	for id := range d.tombstones {
 		clone.tombstones[id] = true
 	}
-	
+
 	return clone
 }
 
@@ -239,7 +239,7 @@ func (d *DocumentCRDT) GetType() string {
 func (d *DocumentCRDT) applyInsert(op *CRDTOperation) error {
 	// Calculate fractional position for the new characters
 	startPos := d.calculatePosition(op.Position)
-	
+
 	// Insert each character
 	for i, char := range op.Content {
 		charNode := CharacterNode{
@@ -252,23 +252,23 @@ func (d *DocumentCRDT) applyInsert(op *CRDTOperation) error {
 		}
 		d.characters = append(d.characters, charNode)
 	}
-	
+
 	return nil
 }
 
 func (d *DocumentCRDT) applyDelete(op *CRDTOperation) error {
 	// Mark characters as deleted (tombstone approach)
 	visibleChars := d.getVisibleCharacters()
-	
+
 	if op.Position >= len(visibleChars) {
 		return fmt.Errorf("delete position %d out of bounds", op.Position)
 	}
-	
+
 	endPos := op.Position + op.Length
 	if endPos > len(visibleChars) {
 		endPos = len(visibleChars)
 	}
-	
+
 	// Mark characters as deleted
 	for i := op.Position; i < endPos; i++ {
 		for j := range d.characters {
@@ -279,24 +279,24 @@ func (d *DocumentCRDT) applyDelete(op *CRDTOperation) error {
 			}
 		}
 	}
-	
+
 	return nil
 }
 
 func (d *DocumentCRDT) calculatePosition(index int) float64 {
 	visibleChars := d.getVisibleCharacters()
-	
+
 	if index <= 0 {
 		return 0.0
 	}
-	
+
 	if index >= len(visibleChars) {
 		if len(visibleChars) == 0 {
 			return 1.0
 		}
 		return visibleChars[len(visibleChars)-1].Position + 1.0
 	}
-	
+
 	// Insert between two characters
 	prevPos := visibleChars[index-1].Position
 	nextPos := visibleChars[index].Position
@@ -310,11 +310,11 @@ func (d *DocumentCRDT) getVisibleCharacters() []CharacterNode {
 			visible = append(visible, char)
 		}
 	}
-	
+
 	sort.Slice(visible, func(i, j int) bool {
 		return visible[i].Position < visible[j].Position
 	})
-	
+
 	return visible
 }
 
@@ -322,7 +322,7 @@ func (d *DocumentCRDT) getVisibleCharacters() []CharacterNode {
 func (d *DocumentCRDT) GetOperationsSince(since crdt.VectorClock) []*CRDTOperation {
 	d.mu.RLock()
 	defer d.mu.RUnlock()
-	
+
 	var ops []*CRDTOperation
 	for _, op := range d.operations {
 		if !since.HappensBefore(op.Clock) && !since.Concurrent(op.Clock) {
@@ -330,11 +330,11 @@ func (d *DocumentCRDT) GetOperationsSince(since crdt.VectorClock) []*CRDTOperati
 		}
 		ops = append(ops, op)
 	}
-	
+
 	// Sort by timestamp for consistent ordering
 	sort.Slice(ops, func(i, j int) bool {
 		return ops[i].Timestamp.Before(ops[j].Timestamp)
 	})
-	
+
 	return ops
 }

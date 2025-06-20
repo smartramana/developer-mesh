@@ -43,17 +43,17 @@ func GetMockTools() []MockTool {
 				if d, ok := args["depth"].(string); ok {
 					depth = d
 				}
-				
+
 				// Simulate long-running operation with progress
 				steps := map[string]int{
 					"shallow": 3,
 					"medium":  5,
 					"deep":    10,
 				}
-				
+
 				totalSteps := steps[depth]
 				results := make([]string, 0)
-				
+
 				for i := 1; i <= totalSteps; i++ {
 					select {
 					case <-ctx.Done():
@@ -63,7 +63,7 @@ func GetMockTools() []MockTool {
 						results = append(results, fmt.Sprintf("Step %d: Analyzed %d bytes", i, len(data)/totalSteps))
 					}
 				}
-				
+
 				return map[string]interface{}{
 					"summary":     fmt.Sprintf("Analyzed %d bytes at %s depth", len(data), depth),
 					"findings":    results,
@@ -93,10 +93,10 @@ func GetMockTools() []MockTool {
 			Handler: func(ctx context.Context, args map[string]interface{}) (interface{}, error) {
 				input := args["input"].(string)
 				format := args["format"].(string)
-				
+
 				// Simulate transformation
 				transformed := fmt.Sprintf("<%s>%s</%s>", format, input, format)
-				
+
 				return map[string]interface{}{
 					"output":      transformed,
 					"input_size":  len(input),
@@ -133,11 +133,11 @@ func GetMockTools() []MockTool {
 				if lang, ok := args["language"].(string); ok {
 					language = lang
 				}
-				
+
 				// Simulate code review
 				lines := strings.Split(code, "\n")
 				issues := make([]map[string]interface{}, 0)
-				
+
 				for i, line := range lines {
 					if strings.Contains(line, "TODO") {
 						issues = append(issues, map[string]interface{}{
@@ -154,7 +154,7 @@ func GetMockTools() []MockTool {
 						})
 					}
 				}
-				
+
 				return map[string]interface{}{
 					"language":    language,
 					"total_lines": len(lines),
@@ -191,7 +191,7 @@ func GetMockTools() []MockTool {
 				if i, ok := args["interval_ms"].(float64); ok {
 					interval = int(i)
 				}
-				
+
 				// This would emit events in a real implementation
 				return map[string]interface{}{
 					"monitoring": true,
@@ -226,12 +226,12 @@ func GetMockTools() []MockTool {
 			Handler: func(ctx context.Context, args map[string]interface{}) (interface{}, error) {
 				step := args["step"].(string)
 				input := args["input"]
-				
+
 				// Simulate workflow execution
 				if step == "fail" {
 					return nil, fmt.Errorf("step %s failed intentionally", step)
 				}
-				
+
 				return map[string]interface{}{
 					"step":   step,
 					"status": "completed",
@@ -272,7 +272,7 @@ func GetMockTools() []MockTool {
 				docID := args["document_id"].(string)
 				operation := args["operation"].(string)
 				agentID := args["agent_id"].(string)
-				
+
 				switch operation {
 				case "lock":
 					return map[string]interface{}{
@@ -297,9 +297,9 @@ func GetMockTools() []MockTool {
 					}, nil
 				case "read":
 					return map[string]interface{}{
-						"content":  fmt.Sprintf("Document %s content", docID),
-						"version":  time.Now().Unix() - 100,
-						"read_by":  agentID,
+						"content": fmt.Sprintf("Document %s content", docID),
+						"version": time.Now().Unix() - 100,
+						"read_by": agentID,
 					}, nil
 				default:
 					return nil, fmt.Errorf("unknown operation: %s", operation)
@@ -333,19 +333,19 @@ func GetMockTools() []MockTool {
 				if p, ok := args["parallel"].(bool); ok {
 					parallel = p
 				}
-				
+
 				// Simulate test execution
 				tests := rand.Intn(10) + 5
 				passed := tests - rand.Intn(3)
-				
+
 				return map[string]interface{}{
-					"suite":     suite,
-					"total":     tests,
-					"passed":    passed,
-					"failed":    tests - passed,
-					"duration":  rand.Intn(5000) + 1000,
-					"parallel":  parallel,
-					"coverage":  75 + rand.Intn(20),
+					"suite":    suite,
+					"total":    tests,
+					"passed":   passed,
+					"failed":   tests - passed,
+					"duration": rand.Intn(5000) + 1000,
+					"parallel": parallel,
+					"coverage": 75 + rand.Intn(20),
 				}, nil
 			},
 		},
@@ -379,12 +379,12 @@ func GetMockTools() []MockTool {
 				app := args["application"].(string)
 				env := args["environment"].(string)
 				version := args["version"].(string)
-				
+
 				// Simulate deployment
 				if env == "prod" && rand.Float32() < 0.1 {
 					return nil, fmt.Errorf("deployment to %s failed: health check failed", env)
 				}
-				
+
 				return map[string]interface{}{
 					"deployed":    true,
 					"application": app,
@@ -407,12 +407,12 @@ type StreamingTool struct {
 
 // StreamUpdate represents a streaming update
 type StreamUpdate struct {
-	Type       string      // "progress", "data", "complete", "error"
-	Progress   int         // 0-100 for progress updates
-	Message    string      // Human-readable message
-	Data       interface{} // Actual data chunk
-	Error      error       // Error if any
-	Timestamp  time.Time
+	Type      string      // "progress", "data", "complete", "error"
+	Progress  int         // 0-100 for progress updates
+	Message   string      // Human-readable message
+	Data      interface{} // Actual data chunk
+	Error     error       // Error if any
+	Timestamp time.Time
 }
 
 // GetStreamingTools returns tools that support streaming
@@ -439,7 +439,7 @@ func GetStreamingTools() []StreamingTool {
 			StreamHandler: func(ctx context.Context, args map[string]interface{}, stream chan<- StreamUpdate) error {
 				filePath := args["file_path"].(string)
 				operation := args["operation"].(string)
-				
+
 				// Simulate file processing with progress
 				totalChunks := 10
 				for i := 0; i < totalChunks; i++ {
@@ -462,7 +462,7 @@ func GetStreamingTools() []StreamingTool {
 						}
 					}
 				}
-				
+
 				// Send completion
 				stream <- StreamUpdate{
 					Type:    "complete",
@@ -474,7 +474,7 @@ func GetStreamingTools() []StreamingTool {
 					},
 					Timestamp: time.Now(),
 				}
-				
+
 				return nil
 			},
 		},
@@ -504,7 +504,7 @@ func GetStreamingTools() []StreamingTool {
 				if f, ok := args["follow"].(bool); ok {
 					follow = f
 				}
-				
+
 				// Simulate log streaming
 				logLevels := []string{"INFO", "DEBUG", "WARN", "ERROR"}
 				messages := []string{
@@ -514,7 +514,7 @@ func GetStreamingTools() []StreamingTool {
 					"Cache hit",
 					"Request completed",
 				}
-				
+
 				count := 0
 				for {
 					select {
@@ -529,14 +529,14 @@ func GetStreamingTools() []StreamingTool {
 							"message":   messages[rand.Intn(len(messages))],
 							"count":     count,
 						}
-						
+
 						stream <- StreamUpdate{
 							Type:      "data",
 							Message:   "New log entry",
 							Data:      logEntry,
 							Timestamp: time.Now(),
 						}
-						
+
 						// Stop after some entries if not following
 						if !follow && count >= 20 {
 							stream <- StreamUpdate{

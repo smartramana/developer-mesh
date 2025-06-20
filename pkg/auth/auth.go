@@ -149,8 +149,8 @@ func (s *Service) ValidateAPIKey(ctx context.Context, apiKey string) (*User, err
 	if s.logger != nil {
 		s.logger.Info("Checking API key", map[string]interface{}{
 			"provided_key_suffix": truncateKey(apiKey, 8),
-			"exists": exists,
-			"total_keys_loaded": len(s.apiKeys),
+			"exists":              exists,
+			"total_keys_loaded":   len(s.apiKeys),
 		})
 	}
 	s.mu.RUnlock()
@@ -196,24 +196,24 @@ func (s *Service) ValidateAPIKey(ctx context.Context, apiKey string) (*User, err
 		hasher := sha256.New()
 		hasher.Write([]byte(apiKey))
 		keyHash := hex.EncodeToString(hasher.Sum(nil))
-		
+
 		// Extract key prefix for additional validation
 		keyPrefix := apiKey
 		if len(keyPrefix) > 8 {
 			keyPrefix = keyPrefix[:8]
 		}
-		
+
 		var dbKey struct {
-			ID         string         `db:"id"`
-			KeyPrefix  string         `db:"key_prefix"`
-			TenantID   string         `db:"tenant_id"`
-			UserID     *string        `db:"user_id"`
-			Name       string         `db:"name"`
-			Scopes     pq.StringArray `db:"scopes"`
-			ExpiresAt  *time.Time     `db:"expires_at"`
-			IsActive   bool           `db:"is_active"`
+			ID        string         `db:"id"`
+			KeyPrefix string         `db:"key_prefix"`
+			TenantID  string         `db:"tenant_id"`
+			UserID    *string        `db:"user_id"`
+			Name      string         `db:"name"`
+			Scopes    pq.StringArray `db:"scopes"`
+			ExpiresAt *time.Time     `db:"expires_at"`
+			IsActive  bool           `db:"is_active"`
 		}
-		
+
 		query := `
 			SELECT id, key_prefix, tenant_id, user_id, name, scopes, expires_at, is_active
 			FROM mcp.api_keys
@@ -273,20 +273,20 @@ func (s *Service) storeAPIKeyInDB(rawKey string, apiKey *APIKey) error {
 	hasher := sha256.New()
 	hasher.Write([]byte(rawKey))
 	keyHash := hex.EncodeToString(hasher.Sum(nil))
-	
+
 	// Extract key prefix
 	keyPrefix := rawKey
 	if len(keyPrefix) > 8 {
 		keyPrefix = keyPrefix[:8]
 	}
-	
+
 	// Check if key already exists
 	var exists bool
 	checkQuery := `SELECT EXISTS(SELECT 1 FROM mcp.api_keys WHERE key_hash = $1)`
 	if err := s.db.Get(&exists, checkQuery, keyHash); err != nil {
 		return fmt.Errorf("failed to check existing key: %w", err)
 	}
-	
+
 	if exists {
 		// Update the existing key
 		updateQuery := `
@@ -297,7 +297,7 @@ func (s *Service) storeAPIKeyInDB(rawKey string, apiKey *APIKey) error {
 		_, err := s.db.Exec(updateQuery, keyHash, apiKey.Name, pq.Array(apiKey.Scopes), apiKey.Active)
 		return err
 	}
-	
+
 	// Insert new key
 	insertQuery := `
 		INSERT INTO mcp.api_keys (
@@ -307,17 +307,17 @@ func (s *Service) storeAPIKeyInDB(rawKey string, apiKey *APIKey) error {
 			uuid_generate_v4(), $1, $2, $3, $4, $5, $6, $7, $8, $8
 		)
 	`
-	
+
 	// Handle user_id - use NULL if it's "system" or empty
 	var userID sql.NullString
 	if apiKey.UserID != "" && apiKey.UserID != "system" {
 		userID = sql.NullString{String: apiKey.UserID, Valid: true}
 	}
-	
-	_, err := s.db.Exec(insertQuery, 
-		keyHash, keyPrefix, apiKey.TenantID, userID, 
+
+	_, err := s.db.Exec(insertQuery,
+		keyHash, keyPrefix, apiKey.TenantID, userID,
 		apiKey.Name, pq.Array(apiKey.Scopes), apiKey.Active, time.Now())
-	
+
 	return err
 }
 
@@ -541,7 +541,7 @@ func (s *Service) InitializeAPIKeysWithConfig(keysConfig map[string]interface{})
 
 	for key, config := range keysConfig {
 		var apiKey *APIKey
-		
+
 		switch v := config.(type) {
 		case string:
 			// Simple role string - use defaults
@@ -556,7 +556,7 @@ func (s *Service) InitializeAPIKeysWithConfig(keysConfig map[string]interface{})
 			default:
 				scopes = []string{"read"}
 			}
-			
+
 			apiKey = &APIKey{
 				Key:       key,
 				TenantID:  "default",
@@ -566,7 +566,7 @@ func (s *Service) InitializeAPIKeysWithConfig(keysConfig map[string]interface{})
 				CreatedAt: time.Now(),
 				Active:    true,
 			}
-			
+
 		case map[string]interface{}:
 			// Full configuration with tenant_id, scopes, etc.
 			role, _ := v["role"].(string)
@@ -574,7 +574,7 @@ func (s *Service) InitializeAPIKeysWithConfig(keysConfig map[string]interface{})
 			if tenantID == "" {
 				tenantID = "default"
 			}
-			
+
 			// Get scopes from config or derive from role
 			var scopes []string
 			if scopesInterface, ok := v["scopes"].([]interface{}); ok {
@@ -596,7 +596,7 @@ func (s *Service) InitializeAPIKeysWithConfig(keysConfig map[string]interface{})
 					scopes = []string{"read"}
 				}
 			}
-			
+
 			// Check if user_id is provided in config
 			userID, _ := v["user_id"].(string)
 			if userID == "" {
@@ -604,7 +604,7 @@ func (s *Service) InitializeAPIKeysWithConfig(keysConfig map[string]interface{})
 				// This ensures each API key has a unique agent ID
 				userID = fmt.Sprintf("user-%s", key)
 			}
-			
+
 			apiKey = &APIKey{
 				Key:       key,
 				TenantID:  tenantID,
@@ -615,7 +615,7 @@ func (s *Service) InitializeAPIKeysWithConfig(keysConfig map[string]interface{})
 				Active:    true,
 			}
 		}
-		
+
 		if apiKey != nil {
 			s.apiKeys[key] = apiKey
 			s.logger.Info("Initialized API key with config", map[string]interface{}{
@@ -629,76 +629,76 @@ func (s *Service) InitializeAPIKeysWithConfig(keysConfig map[string]interface{})
 
 // AddAPIKey adds an API key to the service at runtime (thread-safe)
 func (s *Service) AddAPIKey(key string, settings APIKeySettings) error {
-    // Validation
-    if key == "" {
-        return fmt.Errorf("API key cannot be empty")
-    }
-    if len(key) < 16 {
-        return fmt.Errorf("API key too short (minimum 16 characters)")
-    }
-    
-    s.mu.Lock()
-    defer s.mu.Unlock()
-    
-    // Create API key object
-    apiKey := &APIKey{
-        Key:       key,
-        TenantID:  settings.TenantID,
-        UserID:    "system",
-        Name:      fmt.Sprintf("%s API key", settings.Role),
-        Scopes:    settings.Scopes,
-        Active:    true,
-        CreatedAt: time.Now(),
-    }
-    
-    // Apply defaults
-    if apiKey.TenantID == "" {
-        apiKey.TenantID = "default"
-    }
-    if len(apiKey.Scopes) == 0 {
-        apiKey.Scopes = []string{"read"} // Minimum scope
-    }
-    
-    // Handle expiration
-    if settings.ExpiresIn != "" {
-        duration, err := time.ParseDuration(settings.ExpiresIn)
-        if err != nil {
-            return fmt.Errorf("invalid expiration duration %q: %w", settings.ExpiresIn, err)
-        }
-        if duration < 0 {
-            return fmt.Errorf("expiration duration cannot be negative")
-        }
-        expiresAt := time.Now().Add(duration)
-        apiKey.ExpiresAt = &expiresAt
-    }
-    
-    // Store in memory
-    s.apiKeys[key] = apiKey
-    
-    // Persist to database if available
-    if s.db != nil {
-        if err := s.persistAPIKey(context.Background(), apiKey); err != nil {
-            // Log but don't fail - memory storage sufficient for operation
-            s.logger.Warn("Failed to persist API key", map[string]interface{}{
-                "key_suffix": lastN(key, 4),
-                "error":      err.Error(),
-            })
-        }
-    }
-    
-    s.logger.Info("API key added", map[string]interface{}{
-        "key_suffix": lastN(key, 4),
-        "role":       settings.Role,
-        "scopes":     settings.Scopes,
-        "tenant_id":  apiKey.TenantID,
-    })
-    
-    return nil
+	// Validation
+	if key == "" {
+		return fmt.Errorf("API key cannot be empty")
+	}
+	if len(key) < 16 {
+		return fmt.Errorf("API key too short (minimum 16 characters)")
+	}
+
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	// Create API key object
+	apiKey := &APIKey{
+		Key:       key,
+		TenantID:  settings.TenantID,
+		UserID:    "system",
+		Name:      fmt.Sprintf("%s API key", settings.Role),
+		Scopes:    settings.Scopes,
+		Active:    true,
+		CreatedAt: time.Now(),
+	}
+
+	// Apply defaults
+	if apiKey.TenantID == "" {
+		apiKey.TenantID = "default"
+	}
+	if len(apiKey.Scopes) == 0 {
+		apiKey.Scopes = []string{"read"} // Minimum scope
+	}
+
+	// Handle expiration
+	if settings.ExpiresIn != "" {
+		duration, err := time.ParseDuration(settings.ExpiresIn)
+		if err != nil {
+			return fmt.Errorf("invalid expiration duration %q: %w", settings.ExpiresIn, err)
+		}
+		if duration < 0 {
+			return fmt.Errorf("expiration duration cannot be negative")
+		}
+		expiresAt := time.Now().Add(duration)
+		apiKey.ExpiresAt = &expiresAt
+	}
+
+	// Store in memory
+	s.apiKeys[key] = apiKey
+
+	// Persist to database if available
+	if s.db != nil {
+		if err := s.persistAPIKey(context.Background(), apiKey); err != nil {
+			// Log but don't fail - memory storage sufficient for operation
+			s.logger.Warn("Failed to persist API key", map[string]interface{}{
+				"key_suffix": lastN(key, 4),
+				"error":      err.Error(),
+			})
+		}
+	}
+
+	s.logger.Info("API key added", map[string]interface{}{
+		"key_suffix": lastN(key, 4),
+		"role":       settings.Role,
+		"scopes":     settings.Scopes,
+		"tenant_id":  apiKey.TenantID,
+	})
+
+	return nil
 }
 
 // persistAPIKey saves to database with upsert semantics
 func (s *Service) persistAPIKey(ctx context.Context, apiKey *APIKey) error {
-    query := `
+	query := `
         INSERT INTO api_keys (
             key, tenant_id, user_id, name, scopes, 
             expires_at, created_at, active
@@ -709,17 +709,17 @@ func (s *Service) persistAPIKey(ctx context.Context, apiKey *APIKey) error {
             active = EXCLUDED.active,
             updated_at = NOW()
     `
-    
-    _, err := s.db.ExecContext(ctx, query,
-        apiKey.Key,
-        apiKey.TenantID,
-        apiKey.UserID,
-        apiKey.Name,
-        apiKey.Scopes,
-        apiKey.ExpiresAt,
-        apiKey.CreatedAt,
-        apiKey.Active,
-    )
-    
-    return err
+
+	_, err := s.db.ExecContext(ctx, query,
+		apiKey.Key,
+		apiKey.TenantID,
+		apiKey.UserID,
+		apiKey.Name,
+		apiKey.Scopes,
+		apiKey.ExpiresAt,
+		apiKey.CreatedAt,
+		apiKey.Active,
+	)
+
+	return err
 }

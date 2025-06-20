@@ -11,8 +11,9 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
-	ws "github.com/S-Corkum/devops-mcp/pkg/models/websocket"
 	"functional-tests/shared"
+
+	ws "github.com/S-Corkum/devops-mcp/pkg/models/websocket"
 )
 
 var _ = Describe("WebSocket Session Management", func() {
@@ -26,12 +27,12 @@ var _ = Describe("WebSocket Session Management", func() {
 
 	BeforeEach(func() {
 		ctx, cancel = context.WithTimeout(context.Background(), 30*time.Second)
-		
+
 		// Get test configuration
 		config := shared.GetTestConfig()
 		wsURL = config.WebSocketURL
 		apiKey = shared.GetTestAPIKey("test-tenant-1")
-		
+
 		var err error
 		conn, err = shared.EstablishConnection(wsURL, apiKey)
 		Expect(err).NotTo(HaveOccurred())
@@ -124,16 +125,16 @@ var _ = Describe("WebSocket Session Management", func() {
 			// Verify session data
 			if result, ok := getResp.Result.(map[string]interface{}); ok {
 				Expect(result["session_id"]).To(Equal(sessionID))
-				
+
 				if state, ok := result["state"].(map[string]interface{}); ok {
 					Expect(state["current_project"]).To(Equal("devops-mcp"))
 					Expect(state["context_tokens"]).To(Equal(float64(1500)))
-					
+
 					if files, ok := state["active_files"].([]interface{}); ok {
 						Expect(len(files)).To(Equal(2))
 					}
 				}
-				
+
 				if profile, ok := result["agent_profile"].(map[string]interface{}); ok {
 					Expect(profile["name"]).To(Equal("test-agent"))
 				}
@@ -220,7 +221,7 @@ var _ = Describe("WebSocket Session Management", func() {
 			if result, ok := historyResp.Result.(map[string]interface{}); ok {
 				if history, ok := result["messages"].([]interface{}); ok {
 					Expect(len(history)).To(Equal(len(messages)))
-					
+
 					// Verify message order and content
 					for i, msg := range history {
 						if m, ok := msg.(map[string]interface{}); ok {
@@ -456,12 +457,12 @@ var _ = Describe("WebSocket Session Management", func() {
 			// Verify session recovered successfully
 			if result, ok := recoverResp.Result.(map[string]interface{}); ok {
 				Expect(result["recovered"]).To(BeTrue())
-				
+
 				if state, ok := result["state"].(map[string]interface{}); ok {
 					Expect(state["important_data"]).To(Equal("must not lose this"))
 					Expect(state["progress"]).To(Equal(float64(50)))
 				}
-				
+
 				if history, ok := result["message_count"].(float64); ok {
 					Expect(int(history)).To(Equal(3))
 				}
@@ -476,7 +477,7 @@ var _ = Describe("WebSocket Session Management", func() {
 				Type:   ws.MessageTypeRequest,
 				Method: "session.create",
 				Params: map[string]interface{}{
-					"session_id": sessionID,
+					"session_id":  sessionID,
 					"ttl_seconds": 2, // 2 second TTL
 				},
 			}
@@ -520,14 +521,14 @@ var _ = Describe("WebSocket Session Management", func() {
 	Describe("Session Analytics", func() {
 		It("should track session metrics", func() {
 			sessionID := uuid.New().String()
-			
+
 			// Create session
 			createMsg := ws.Message{
 				ID:     uuid.New().String(),
 				Type:   ws.MessageTypeRequest,
 				Method: "session.create",
 				Params: map[string]interface{}{
-					"session_id": sessionID,
+					"session_id":    sessionID,
 					"track_metrics": true,
 				},
 			}
@@ -599,11 +600,11 @@ var _ = Describe("WebSocket Session Management", func() {
 				Expect(result).To(HaveKey("duration_seconds"))
 				Expect(result).To(HaveKey("operation_count"))
 				Expect(result).To(HaveKey("token_usage"))
-				
+
 				if opCount, ok := result["operation_count"].(float64); ok {
 					Expect(int(opCount)).To(BeNumerically(">=", len(operations)))
 				}
-				
+
 				if toolUsage, ok := result["tool_usage"].(map[string]interface{}); ok {
 					Expect(toolUsage).To(HaveKey("code_reviewer"))
 					Expect(toolUsage).To(HaveKey("test_runner"))
@@ -613,7 +614,7 @@ var _ = Describe("WebSocket Session Management", func() {
 
 		It("should export session data", func() {
 			sessionID := uuid.New().String()
-			
+
 			// Create session with data
 			createMsg := ws.Message{
 				ID:     uuid.New().String(),
@@ -644,7 +645,7 @@ var _ = Describe("WebSocket Session Management", func() {
 				if i%2 == 1 {
 					role = "assistant"
 				}
-				
+
 				addMsg := ws.Message{
 					ID:     uuid.New().String(),
 					Type:   ws.MessageTypeRequest,
@@ -696,18 +697,18 @@ var _ = Describe("WebSocket Session Management", func() {
 					Expect(export).To(HaveKey("session_id"))
 					Expect(export).To(HaveKey("messages"))
 					Expect(export).To(HaveKey("metadata"))
-					
+
 					if msgs, ok := export["messages"].([]interface{}); ok {
 						Expect(len(msgs)).To(Equal(len(messages)))
 					}
-					
+
 					if metadata, ok := export["metadata"].(map[string]interface{}); ok {
 						Expect(metadata).To(HaveKey("created_at"))
 						Expect(metadata).To(HaveKey("last_activity"))
 						Expect(metadata).To(HaveKey("message_count"))
 					}
 				}
-				
+
 				// Should also provide download info
 				Expect(result).To(HaveKey("download_url"))
 				Expect(result).To(HaveKey("expires_at"))
@@ -722,7 +723,7 @@ var _ = Describe("WebSocket Session Management", func() {
 			for i := 0; i < 3; i++ {
 				sessionID := uuid.New().String()
 				sessionIDs[i] = sessionID
-				
+
 				createMsg := ws.Message{
 					ID:     uuid.New().String(),
 					Type:   ws.MessageTypeRequest,
@@ -767,13 +768,13 @@ var _ = Describe("WebSocket Session Management", func() {
 			if result, ok := listResp.Result.(map[string]interface{}); ok {
 				if sessions, ok := result["sessions"].([]interface{}); ok {
 					Expect(len(sessions)).To(Equal(3))
-					
+
 					for i, session := range sessions {
 						if s, ok := session.(map[string]interface{}); ok {
 							Expect(s).To(HaveKey("session_id"))
 							Expect(s).To(HaveKey("name"))
 							Expect(s["name"]).To(Equal(fmt.Sprintf("Session %d", i+1)))
-							
+
 							if tags, ok := s["tags"].([]interface{}); ok {
 								Expect(tags).To(ContainElement("test"))
 							}
@@ -787,7 +788,7 @@ var _ = Describe("WebSocket Session Management", func() {
 			// Create two sessions
 			session1ID := uuid.New().String()
 			session2ID := uuid.New().String()
-			
+
 			for i, sessionID := range []string{session1ID, session2ID} {
 				createMsg := ws.Message{
 					ID:     uuid.New().String(),
@@ -832,7 +833,7 @@ var _ = Describe("WebSocket Session Management", func() {
 				Type:   ws.MessageTypeRequest,
 				Method: "tool.execute",
 				Params: map[string]interface{}{
-					"name": "echo_context",
+					"name":      "echo_context",
 					"arguments": map[string]interface{}{},
 				},
 			}
@@ -872,7 +873,7 @@ var _ = Describe("WebSocket Session Management", func() {
 				Type:   ws.MessageTypeRequest,
 				Method: "tool.execute",
 				Params: map[string]interface{}{
-					"name": "echo_context",
+					"name":      "echo_context",
 					"arguments": map[string]interface{}{},
 				},
 			}

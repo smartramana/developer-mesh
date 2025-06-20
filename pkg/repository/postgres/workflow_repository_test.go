@@ -30,16 +30,16 @@ func (m *workflowMockCache) Get(ctx context.Context, key string, dest interface{
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	m.getCalls++
-	
+
 	if m.getErr != nil {
 		return m.getErr
 	}
-	
+
 	val, exists := m.data[key]
 	if !exists {
 		return cache.ErrNotFound
 	}
-	
+
 	// Handle workflow types
 	switch d := dest.(type) {
 	case *models.Workflow:
@@ -63,7 +63,7 @@ func (m *workflowMockCache) Get(ctx context.Context, key string, dest interface{
 	case *int:
 		*d = val.(int)
 	}
-	
+
 	return nil
 }
 
@@ -76,16 +76,16 @@ func newWorkflowMockCache() *workflowMockCache {
 func setupWorkflowRepository(t *testing.T) (*workflowRepository, sqlmock.Sqlmock, *workflowMockCache, *mockMetricsClient) {
 	db, mock, err := sqlmock.New()
 	require.NoError(t, err)
-	
+
 	sqlxDB := sqlx.NewDb(db, "postgres")
-	
+
 	cache := newWorkflowMockCache()
 	logger := observability.NewStandardLogger("test")
 	tracer := observability.NoopStartSpan
 	metrics := newMockMetricsClient()
-	
+
 	repo := NewWorkflowRepository(sqlxDB, sqlxDB, cache, logger, tracer, metrics).(*workflowRepository)
-	
+
 	return repo, mock, cache, metrics
 }
 
@@ -113,9 +113,9 @@ func TestWorkflowRepository_Create(t *testing.T) {
 			},
 			setupMock: func(mock sqlmock.Sqlmock) {
 				mock.ExpectQuery("INSERT INTO workflows").
-					WithArgs(sqlmock.AnyArg(), sqlmock.AnyArg(), "Test Workflow", "Test description", 
-						models.WorkflowTypeSequential, 1, "user1", sqlmock.AnyArg(), sqlmock.AnyArg(), 
-						sqlmock.AnyArg(), pq.StringArray{"test", "workflow"}, true, 
+					WithArgs(sqlmock.AnyArg(), sqlmock.AnyArg(), "Test Workflow", "Test description",
+						models.WorkflowTypeSequential, 1, "user1", sqlmock.AnyArg(), sqlmock.AnyArg(),
+						sqlmock.AnyArg(), pq.StringArray{"test", "workflow"}, true,
 						sqlmock.AnyArg(), sqlmock.AnyArg()).
 					WillReturnRows(sqlmock.NewRows([]string{"id"}).AddRow(uuid.New()))
 			},
@@ -141,16 +141,16 @@ func TestWorkflowRepository_Create(t *testing.T) {
 			expectedErr: interfaces.ErrDuplicate,
 		},
 	}
-	
+
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			repo, mock, cache, _ := setupWorkflowRepository(t)
-			defer repo.writeDB.Close()
-			
+			defer func() { _ = repo.writeDB.Close() }()
+
 			tt.setupMock(mock)
-			
+
 			err := repo.Create(context.Background(), tt.workflow)
-			
+
 			if tt.wantErr {
 				assert.Error(t, err)
 				if tt.expectedErr != nil {
@@ -163,11 +163,11 @@ func TestWorkflowRepository_Create(t *testing.T) {
 				assert.NotZero(t, tt.workflow.UpdatedAt)
 				assert.Equal(t, 1, tt.workflow.Version)
 			}
-			
+
 			if tt.checkCache != nil {
 				tt.checkCache(t, cache)
 			}
-			
+
 			assert.NoError(t, mock.ExpectationsWereMet())
 		})
 	}
@@ -177,7 +177,7 @@ func TestWorkflowRepository_Get(t *testing.T) {
 	workflowID := uuid.New()
 	tenantID := uuid.New()
 	now := time.Now()
-	
+
 	tests := []struct {
 		name        string
 		id          uuid.UUID
@@ -215,7 +215,7 @@ func TestWorkflowRepository_Get(t *testing.T) {
 				agentsJSON, _ := json.Marshal(models.JSONMap{"agent1": "config"})
 				stepsJSON, _ := json.Marshal(models.JSONMap{"step1": "config"})
 				configJSON, _ := json.Marshal(models.JSONMap{"key": "value"})
-				
+
 				mock.ExpectQuery("SELECT .* FROM workflows WHERE").
 					WithArgs(workflowID).
 					WillReturnRows(sqlmock.NewRows([]string{
@@ -261,21 +261,21 @@ func TestWorkflowRepository_Get(t *testing.T) {
 			expectedErr: interfaces.ErrNotFound,
 		},
 	}
-	
+
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			repo, mock, cache, metrics := setupWorkflowRepository(t)
-			defer repo.writeDB.Close()
-			
+			defer func() { _ = repo.writeDB.Close() }()
+
 			if tt.setupCache != nil {
 				tt.setupCache(cache)
 			}
 			if tt.setupMock != nil {
 				tt.setupMock(mock)
 			}
-			
+
 			got, err := repo.Get(context.Background(), tt.id)
-			
+
 			if tt.wantErr {
 				assert.Error(t, err)
 				if tt.expectedErr != nil {
@@ -287,16 +287,17 @@ func TestWorkflowRepository_Get(t *testing.T) {
 				assert.Equal(t, tt.want.Name, got.Name)
 				assert.Equal(t, tt.want.TenantID, got.TenantID)
 			}
-			
+
 			// Check metrics
 			if !tt.wantErr {
-				if tt.name == "cache hit" {
+				switch tt.name {
+				case "cache hit":
 					assert.Equal(t, float64(1), metrics.counters["workflow_cache_hits"])
-				} else if tt.name == "cache miss - database hit" {
+				case "cache miss - database hit":
 					assert.Equal(t, float64(1), metrics.counters["workflow_cache_misses"])
 				}
 			}
-			
+
 			assert.NoError(t, mock.ExpectationsWereMet())
 		})
 	}
@@ -305,7 +306,7 @@ func TestWorkflowRepository_Get(t *testing.T) {
 func TestWorkflowRepository_Update(t *testing.T) {
 	workflowID := uuid.New()
 	tenantID := uuid.New()
-	
+
 	tests := []struct {
 		name        string
 		workflow    *models.Workflow
@@ -327,9 +328,9 @@ func TestWorkflowRepository_Update(t *testing.T) {
 			setupMock: func(mock sqlmock.Sqlmock) {
 				mock.ExpectExec("UPDATE workflows SET").
 					WithArgs("Updated Workflow", "Updated description", models.WorkflowTypeParallel,
-						sqlmock.AnyArg(), sqlmock.AnyArg(), sqlmock.AnyArg(), 
+						sqlmock.AnyArg(), sqlmock.AnyArg(), sqlmock.AnyArg(),
 						sqlmock.AnyArg(), // tags
-						true, // is_active
+						true,             // is_active
 						sqlmock.AnyArg(), 2, workflowID, 1).
 					WillReturnResult(sqlmock.NewResult(0, 1))
 			},
@@ -370,17 +371,17 @@ func TestWorkflowRepository_Update(t *testing.T) {
 			expectedErr: interfaces.ErrNotFound,
 		},
 	}
-	
+
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			repo, mock, _, _ := setupWorkflowRepository(t)
-			defer repo.writeDB.Close()
-			
+			defer func() { _ = repo.writeDB.Close() }()
+
 			tt.setupMock(mock)
-			
+
 			oldVersion := tt.workflow.Version
 			err := repo.Update(context.Background(), tt.workflow)
-			
+
 			if tt.wantErr {
 				assert.Error(t, err)
 				if tt.expectedErr != nil {
@@ -391,7 +392,7 @@ func TestWorkflowRepository_Update(t *testing.T) {
 				assert.Equal(t, oldVersion+1, tt.workflow.Version)
 				assert.NotZero(t, tt.workflow.UpdatedAt)
 			}
-			
+
 			assert.NoError(t, mock.ExpectationsWereMet())
 		})
 	}
@@ -400,7 +401,7 @@ func TestWorkflowRepository_Update(t *testing.T) {
 func TestWorkflowRepository_Delete(t *testing.T) {
 	workflowID := uuid.New()
 	tenantID := uuid.New()
-	
+
 	tests := []struct {
 		name        string
 		id          uuid.UUID
@@ -461,16 +462,16 @@ func TestWorkflowRepository_Delete(t *testing.T) {
 			expectedErr: interfaces.ErrNotFound,
 		},
 	}
-	
+
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			repo, mock, _, _ := setupWorkflowRepository(t)
-			defer repo.writeDB.Close()
-			
+			defer func() { _ = repo.writeDB.Close() }()
+
 			tt.setupMock(mock)
-			
+
 			err := repo.Delete(context.Background(), tt.id)
-			
+
 			if tt.wantErr {
 				assert.Error(t, err)
 				if tt.expectedErr != nil {
@@ -479,7 +480,7 @@ func TestWorkflowRepository_Delete(t *testing.T) {
 			} else {
 				assert.NoError(t, err)
 			}
-			
+
 			assert.NoError(t, mock.ExpectationsWereMet())
 		})
 	}
@@ -488,7 +489,7 @@ func TestWorkflowRepository_Delete(t *testing.T) {
 func TestWorkflowRepository_CreateExecution(t *testing.T) {
 	workflowID := uuid.New()
 	tenantID := uuid.New()
-	
+
 	tests := []struct {
 		name        string
 		execution   *models.WorkflowExecution
@@ -530,16 +531,16 @@ func TestWorkflowRepository_CreateExecution(t *testing.T) {
 			expectedErr: interfaces.ErrDuplicate,
 		},
 	}
-	
+
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			repo, mock, _, _ := setupWorkflowRepository(t)
-			defer repo.writeDB.Close()
-			
+			defer func() { _ = repo.writeDB.Close() }()
+
 			tt.setupMock(mock)
-			
+
 			err := repo.CreateExecution(context.Background(), tt.execution)
-			
+
 			if tt.wantErr {
 				assert.Error(t, err)
 				if tt.expectedErr != nil {
@@ -550,7 +551,7 @@ func TestWorkflowRepository_CreateExecution(t *testing.T) {
 				assert.NotEqual(t, uuid.Nil, tt.execution.ID)
 				assert.NotZero(t, tt.execution.StartedAt)
 			}
-			
+
 			assert.NoError(t, mock.ExpectationsWereMet())
 		})
 	}
@@ -559,7 +560,7 @@ func TestWorkflowRepository_CreateExecution(t *testing.T) {
 func TestWorkflowRepository_GetWorkflowStats(t *testing.T) {
 	workflowID := uuid.New()
 	period := 24 * time.Hour
-	
+
 	tests := []struct {
 		name       string
 		workflowID uuid.UUID
@@ -578,13 +579,13 @@ func TestWorkflowRepository_GetWorkflowStats(t *testing.T) {
 					WithArgs(workflowID, sqlmock.AnyArg()).
 					WillReturnRows(sqlmock.NewRows([]string{"total_runs", "successful_runs", "failed_runs"}).
 						AddRow(100, 85, 15))
-				
+
 				// Timing query
 				mock.ExpectQuery("SELECT.*AVG.*PERCENTILE_CONT").
 					WithArgs(workflowID, sqlmock.AnyArg()).
 					WillReturnRows(sqlmock.NewRows([]string{"avg_runtime", "p95_runtime"}).
 						AddRow(45.5, 120.8))
-				
+
 				// Status breakdown query
 				mock.ExpectQuery("SELECT status, COUNT\\(\\*\\) as count").
 					WithArgs(workflowID, sqlmock.AnyArg()).
@@ -608,16 +609,16 @@ func TestWorkflowRepository_GetWorkflowStats(t *testing.T) {
 			wantErr: false,
 		},
 	}
-	
+
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			repo, mock, _, _ := setupWorkflowRepository(t)
-			defer repo.writeDB.Close()
-			
+			defer func() { _ = repo.writeDB.Close() }()
+
 			tt.setupMock(mock)
-			
+
 			got, err := repo.GetWorkflowStats(context.Background(), tt.workflowID, tt.period)
-			
+
 			if tt.wantErr {
 				assert.Error(t, err)
 			} else {
@@ -627,7 +628,7 @@ func TestWorkflowRepository_GetWorkflowStats(t *testing.T) {
 				assert.Equal(t, tt.want.FailedRuns, got.FailedRuns)
 				assert.Equal(t, len(tt.want.ByStatus), len(got.ByStatus))
 			}
-			
+
 			assert.NoError(t, mock.ExpectationsWereMet())
 		})
 	}
@@ -635,12 +636,12 @@ func TestWorkflowRepository_GetWorkflowStats(t *testing.T) {
 
 func TestWorkflowRepository_ConcurrentOperations(t *testing.T) {
 	repo, mock, cache, _ := setupWorkflowRepository(t)
-	defer repo.writeDB.Close()
-	
+	defer func() { _ = repo.writeDB.Close() }()
+
 	workflowID := uuid.New()
 	tenantID := uuid.New()
 	now := time.Now()
-	
+
 	// Pre-cache the workflow to test concurrent cache reads
 	workflow := &models.Workflow{
 		ID:          workflowID,
@@ -659,7 +660,7 @@ func TestWorkflowRepository_ConcurrentOperations(t *testing.T) {
 		UpdatedAt:   now,
 	}
 	cache.data["workflow:"+workflowID.String()] = workflow
-	
+
 	// Run concurrent operations - they should all hit the cache
 	errCh := make(chan error, 5)
 	for i := 0; i < 5; i++ {
@@ -671,16 +672,16 @@ func TestWorkflowRepository_ConcurrentOperations(t *testing.T) {
 			errCh <- err
 		}()
 	}
-	
+
 	// Check results
 	for i := 0; i < 5; i++ {
 		err := <-errCh
 		assert.NoError(t, err)
 	}
-	
+
 	// Verify all operations hit the cache
 	assert.Equal(t, 5, cache.getCalls)
-	
+
 	// No database queries should have been made
 	assert.NoError(t, mock.ExpectationsWereMet())
 }
@@ -688,8 +689,8 @@ func TestWorkflowRepository_ConcurrentOperations(t *testing.T) {
 // Benchmark tests
 func BenchmarkWorkflowRepository_Get(b *testing.B) {
 	repo, _, cache, _ := setupWorkflowRepository(&testing.T{})
-	defer repo.writeDB.Close()
-	
+	defer func() { _ = repo.writeDB.Close() }()
+
 	workflowID := uuid.New()
 	workflow := &models.Workflow{
 		ID:       workflowID,
@@ -697,9 +698,9 @@ func BenchmarkWorkflowRepository_Get(b *testing.B) {
 		TenantID: uuid.New(),
 	}
 	cache.data["workflow:"+workflowID.String()] = workflow
-	
+
 	ctx := context.Background()
-	
+
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		_, _ = repo.Get(ctx, workflowID)
@@ -709,8 +710,8 @@ func BenchmarkWorkflowRepository_Get(b *testing.B) {
 func BenchmarkWorkflowRepository_Create(b *testing.B) {
 	db, mock, err := sqlmock.New()
 	require.NoError(b, err)
-	defer db.Close()
-	
+	defer func() { _ = db.Close() }()
+
 	sqlxDB := sqlx.NewDb(db, "postgres")
 	repo := NewWorkflowRepository(
 		sqlxDB, sqlxDB,
@@ -719,15 +720,15 @@ func BenchmarkWorkflowRepository_Create(b *testing.B) {
 		observability.NoopStartSpan,
 		newMockMetricsClient(),
 	).(*workflowRepository)
-	
+
 	// Set up expectations for all iterations
 	for i := 0; i < b.N; i++ {
 		mock.ExpectQuery("INSERT INTO workflows").
 			WillReturnRows(sqlmock.NewRows([]string{"id"}).AddRow(uuid.New()))
 	}
-	
+
 	ctx := context.Background()
-	
+
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		workflow := &models.Workflow{

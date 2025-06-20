@@ -42,7 +42,7 @@ var _ = Describe("TLS Configuration Tests", func() {
 			client := &http.Client{
 				Transport: &http.Transport{
 					TLSClientConfig: &tls.Config{
-						MaxVersion: tls.VersionTLS11,
+						MaxVersion:         tls.VersionTLS11,
 						InsecureSkipVerify: true, // For self-signed certs in testing
 					},
 				},
@@ -60,8 +60,8 @@ var _ = Describe("TLS Configuration Tests", func() {
 			client := &http.Client{
 				Transport: &http.Transport{
 					TLSClientConfig: &tls.Config{
-						MinVersion: tls.VersionTLS12,
-						MaxVersion: tls.VersionTLS12,
+						MinVersion:         tls.VersionTLS12,
+						MaxVersion:         tls.VersionTLS12,
 						InsecureSkipVerify: true, // For self-signed certs in testing
 					},
 				},
@@ -80,7 +80,7 @@ var _ = Describe("TLS Configuration Tests", func() {
 			client := &http.Client{
 				Transport: &http.Transport{
 					TLSClientConfig: &tls.Config{
-						MinVersion: tls.VersionTLS13,
+						MinVersion:         tls.VersionTLS13,
 						InsecureSkipVerify: true, // For self-signed certs in testing
 					},
 				},
@@ -91,7 +91,7 @@ var _ = Describe("TLS Configuration Tests", func() {
 			resp, err := client.Get(tlsAPIURL + "/health")
 			Expect(err).NotTo(HaveOccurred())
 			Expect(resp.StatusCode).To(Equal(http.StatusOK))
-			
+
 			// Verify we're using TLS 1.3
 			if resp.TLS != nil {
 				Expect(resp.TLS.Version).To(Equal(uint16(tls.VersionTLS13)))

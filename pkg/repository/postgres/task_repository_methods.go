@@ -19,17 +19,15 @@ import (
 	"github.com/S-Corkum/devops-mcp/pkg/repository/types"
 )
 
-
 // SoftDelete marks a task as deleted
 func (r *taskRepository) SoftDelete(ctx context.Context, id uuid.UUID) error {
 	ctx, span := r.tracer(ctx, "TaskRepository.SoftDelete")
 	defer span.End()
 
-	// TODO: Wrap with circuit breaker when implemented
-	// return r.circuitBreaker.Execute(ctx, func(ctx context.Context) error {
-	// 	return r.doSoftDelete(ctx, id)
-	// })
-	return r.doSoftDelete(ctx, id)
+	_, err := r.ExecuteWithCircuitBreaker(ctx, "task_soft_delete", func() (interface{}, error) {
+		return nil, r.doSoftDelete(ctx, id)
+	})
+	return err
 }
 
 func (r *taskRepository) doSoftDelete(ctx context.Context, id uuid.UUID) error {
@@ -37,7 +35,7 @@ func (r *taskRepository) doSoftDelete(ctx context.Context, id uuid.UUID) error {
 
 	result, err := r.writeDB.ExecContext(ctx, query, id)
 	if err != nil {
-		r.metrics.IncrementCounterWithLabels("repository_errors", 1, map[string]string{"operation": "soft_delete", "error_type": classifyError(err)})
+		r.metrics.IncrementCounterWithLabels("repository_errors", 1, map[string]string{"operation": "soft_delete", "error_type": classifyDBError(err)})
 		return errors.Wrap(err, "failed to soft delete task")
 	}
 
@@ -51,7 +49,7 @@ func (r *taskRepository) doSoftDelete(ctx context.Context, id uuid.UUID) error {
 	}
 
 	// Invalidate cache
-	r.cache.Delete(ctx, fmt.Sprintf("task:%s", id))
+	_ = r.cache.Delete(ctx, fmt.Sprintf("task:%s", id))
 
 	r.metrics.IncrementCounterWithLabels("repository_queries", 1, map[string]string{"operation": "soft_delete", "result": "success"})
 	return nil
@@ -94,10 +92,7 @@ func (r *taskRepository) ListByTenant(ctx context.Context, tenantID uuid.UUID, f
 	}
 
 	// Determine if there are more results
-	hasMore := false
-	if filters.Limit > 0 && len(tasks) == filters.Limit {
-		hasMore = true
-	}
+	hasMore := filters.Limit > 0 && len(tasks) == filters.Limit
 
 	// Generate next cursor
 	var nextCursor string
@@ -275,7 +270,7 @@ func (r *taskRepository) AssignToAgent(ctx context.Context, taskID uuid.UUID, ag
 	}
 
 	// Invalidate cache
-	r.cache.Delete(ctx, fmt.Sprintf("task:%s", taskID))
+	_ = r.cache.Delete(ctx, fmt.Sprintf("task:%s", taskID))
 
 	return nil
 }
@@ -309,7 +304,7 @@ func (r *taskRepository) UnassignTask(ctx context.Context, taskID uuid.UUID, rea
 	}
 
 	// Invalidate cache
-	r.cache.Delete(ctx, fmt.Sprintf("task:%s", taskID))
+	_ = r.cache.Delete(ctx, fmt.Sprintf("task:%s", taskID))
 
 	return nil
 }
@@ -385,7 +380,7 @@ func (r *taskRepository) UpdateStatus(ctx context.Context, taskID uuid.UUID, sta
 				return errors.Wrap(err, "failed to marshal metadata")
 			}
 
-			_, err = r.writeDB.ExecContext(ctx, 
+			_, err = r.writeDB.ExecContext(ctx,
 				"UPDATE tasks SET result = $2 WHERE id = $1",
 				taskID, metadataJSON)
 			if err != nil {
@@ -444,7 +439,11 @@ func (r *taskRepository) BulkUpdateStatus(ctx context.Context, updates []interfa
 	if err != nil {
 		return errors.Wrap(err, "failed to begin transaction")
 	}
-	defer tx.Rollback()
+	defer func() {
+		if err := tx.Rollback(); err != nil && err != sql.ErrTxDone {
+			r.logger.Error("Failed to rollback transaction", map[string]interface{}{"error": err.Error()})
+		}
+	}()
 
 	stmt, err := tx.PrepareContext(ctx, `
 		UPDATE tasks 
@@ -455,7 +454,7 @@ func (r *taskRepository) BulkUpdateStatus(ctx context.Context, updates []interfa
 	if err != nil {
 		return errors.Wrap(err, "failed to prepare statement")
 	}
-	defer stmt.Close()
+	defer func() { _ = stmt.Close() }()
 
 	for _, update := range updates {
 		_, err = stmt.ExecContext(ctx, update.TaskID, update.Status)
@@ -464,7 +463,7 @@ func (r *taskRepository) BulkUpdateStatus(ctx context.Context, updates []interfa
 		}
 
 		// Invalidate cache
-		r.cache.Delete(ctx, fmt.Sprintf("task:%s", update.TaskID))
+		_ = r.cache.Delete(ctx, fmt.Sprintf("task:%s", update.TaskID))
 	}
 
 	if err = tx.Commit(); err != nil {
@@ -497,7 +496,7 @@ func (r *taskRepository) IncrementRetryCount(ctx context.Context, taskID uuid.UU
 	}
 
 	// Invalidate cache
-	r.cache.Delete(ctx, fmt.Sprintf("task:%s", taskID))
+	_ = r.cache.Delete(ctx, fmt.Sprintf("task:%s", taskID))
 
 	return newCount, nil
 }
@@ -680,7 +679,6 @@ func (r *taskRepository) buildTaskQuery(tenantID uuid.UUID, filters types.TaskFi
 	if filters.ParentTaskID != nil {
 		conditions = append(conditions, fmt.Sprintf("parent_task_id = $%d", argCount))
 		args = append(args, *filters.ParentTaskID)
-		argCount++
 	}
 
 	// Add conditions to query
@@ -711,8 +709,11 @@ func (r *taskRepository) buildTaskQuery(tenantID uuid.UUID, filters types.TaskFi
 }
 
 func (r *taskRepository) listTasks(ctx context.Context, filters types.TaskFilters) (*interfaces.TaskPage, error) {
-	// For now, use simple implementation
-	// TODO: Implement cursor-based pagination
+	// Use cursor-based pagination if cursor is provided
+	if filters.Cursor != "" {
+		return r.listTasksWithCursor(ctx, filters)
+	}
+	// Otherwise use offset-based pagination
 	return r.ListByTenant(ctx, uuid.Nil, filters)
 }
 
@@ -720,7 +721,7 @@ func (r *taskRepository) listTasksWithCursor(ctx context.Context, filters types.
 	// Parse cursor if provided
 	var cursorTime time.Time
 	var cursorID uuid.UUID
-	
+
 	if filters.Cursor != "" {
 		parts := strings.Split(filters.Cursor, "_")
 		if len(parts) == 2 {
@@ -744,7 +745,6 @@ func (r *taskRepository) listTasksWithCursor(ctx context.Context, filters types.
 	if filters.AssignedTo != nil {
 		conditions = append(conditions, fmt.Sprintf("assigned_to = $%d", argCount))
 		args = append(args, *filters.AssignedTo)
-		argCount++
 	}
 
 	conditions = append(conditions, "deleted_at IS NULL")
@@ -826,7 +826,7 @@ func (r *taskRepository) BulkUpdate(ctx context.Context, updates []interfaces.Ta
 			}
 
 			// Invalidate cache
-			r.CacheDelete(ctx, fmt.Sprintf("task:%s", update.TaskID))
+			_ = r.CacheDelete(ctx, fmt.Sprintf("task:%s", update.TaskID))
 		}
 
 		return nil
@@ -998,7 +998,7 @@ func (r *taskRepository) LockTaskForExecution(ctx context.Context, taskID uuid.U
 		}
 
 		// Invalidate cache
-		r.CacheDelete(ctx, fmt.Sprintf("task:%s", taskID))
+		_ = r.CacheDelete(ctx, fmt.Sprintf("task:%s", taskID))
 
 		return nil
 	})
@@ -1144,7 +1144,7 @@ func (r *taskRepository) GetTaskStats(ctx context.Context, tenantID uuid.UUID, p
 	}
 
 	// Cache the result
-	r.CacheSet(ctx, cacheKey, &stats, 5*time.Minute)
+	_ = r.CacheSet(ctx, cacheKey, &stats, 5*time.Minute)
 
 	return &stats, nil
 }
@@ -1173,7 +1173,7 @@ func (r *taskRepository) GetAgentWorkload(ctx context.Context, agentIDs []string
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to get agent workload")
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 
 	result := make(map[string]*interfaces.AgentWorkload)
 	for _, agentID := range agentIDs {
@@ -1243,7 +1243,7 @@ func (r *taskRepository) GetTaskTimeline(ctx context.Context, taskID uuid.UUID) 
 		if err != nil {
 			return err
 		}
-		defer rows.Close()
+		defer func() { _ = rows.Close() }()
 
 		for rows.Next() {
 			var event interfaces.TaskEvent
@@ -1406,7 +1406,6 @@ func (r *taskRepository) SearchTasks(ctx context.Context, query string, filters 
 	if filters.AssignedTo != nil {
 		searchQuery += fmt.Sprintf(" AND assigned_to = $%d", argCount)
 		args = append(args, *filters.AssignedTo)
-		argCount++
 	}
 
 	searchQuery += " ORDER BY rank DESC"
@@ -1537,8 +1536,8 @@ func (r *taskRepository) ValidateTaskIntegrity(ctx context.Context) (*types.Inte
 	defer span.End()
 
 	report := &types.IntegrityReport{
-		CheckedAt:   time.Now(),
-		Issues:      []types.IntegrityIssue{},
+		CheckedAt:    time.Now(),
+		Issues:       []types.IntegrityIssue{},
 		TotalChecked: 0,
 		IssuesFound:  0,
 	}
@@ -1589,7 +1588,7 @@ func (r *taskRepository) ValidateTaskIntegrity(ctx context.Context) (*types.Inte
 
 	// Update counts
 	report.IssuesFound = int64(len(report.Issues))
-	
+
 	// Get total task count
 	var totalCount int64
 	err = r.readDB.GetContext(ctx, &totalCount, "SELECT COUNT(*) FROM tasks WHERE deleted_at IS NULL")

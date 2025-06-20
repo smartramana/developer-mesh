@@ -23,9 +23,9 @@ const (
 
 // Circuit breaker errors
 var (
-	ErrCircuitBreakerOpen     = errors.New("circuit breaker is open")
-	ErrCircuitBreakerTimeout  = errors.New("circuit breaker timeout")
-	ErrMaxRequestsExceeded    = errors.New("max requests exceeded in half-open state")
+	ErrCircuitBreakerOpen    = errors.New("circuit breaker is open")
+	ErrCircuitBreakerTimeout = errors.New("circuit breaker timeout")
+	ErrMaxRequestsExceeded   = errors.New("max requests exceeded in half-open state")
 )
 
 // String returns the string representation of the circuit breaker state
@@ -42,16 +42,15 @@ func (s CircuitBreakerState) String() string {
 	}
 }
 
-
 // CircuitBreakerConfig holds configuration for a circuit breaker
 type CircuitBreakerConfig struct {
-	FailureThreshold     int           // Number of failures before tripping
-	FailureRatio         float64       // Failure ratio threshold (0.0-1.0)
-	ResetTimeout         time.Duration // Time before attempting retry
-	SuccessThreshold     int           // Number of successes needed to close circuit
-	TimeoutThreshold     time.Duration // Request timeout threshold
-	MaxRequestsHalfOpen  int           // Max requests in half-open state
-	MinimumRequestCount  int           // Minimum requests before evaluating failure ratio
+	FailureThreshold    int           // Number of failures before tripping
+	FailureRatio        float64       // Failure ratio threshold (0.0-1.0)
+	ResetTimeout        time.Duration // Time before attempting retry
+	SuccessThreshold    int           // Number of successes needed to close circuit
+	TimeoutThreshold    time.Duration // Request timeout threshold
+	MaxRequestsHalfOpen int           // Max requests in half-open state
+	MinimumRequestCount int           // Minimum requests before evaluating failure ratio
 }
 
 // CircuitBreaker implements the circuit breaker pattern with production features
@@ -62,16 +61,16 @@ type CircuitBreaker struct {
 	counts          atomic.Value // *Counts
 	lastFailureTime atomic.Value // time.Time
 	lastStateChange atomic.Value // time.Time
-	
+
 	// Concurrent request tracking for half-open state
 	halfOpenRequests atomic.Int32
-	
+
 	// Synchronization
-	mutex           sync.RWMutex
-	
+	mutex sync.RWMutex
+
 	// Observability
-	logger          observability.Logger
-	metrics         observability.MetricsClient
+	logger  observability.Logger
+	metrics observability.MetricsClient
 }
 
 // NewCircuitBreaker creates a new circuit breaker with the given configuration
@@ -98,31 +97,31 @@ func NewCircuitBreaker(name string, config CircuitBreakerConfig, logger observab
 	if config.MinimumRequestCount == 0 {
 		config.MinimumRequestCount = 10
 	}
-	
+
 	cb := &CircuitBreaker{
-		name:            name,
-		config:          config,
-		logger:          logger,
-		metrics:         metrics,
+		name:    name,
+		config:  config,
+		logger:  logger,
+		metrics: metrics,
 	}
-	
+
 	// Initialize atomic values
 	cb.state.Store(CircuitBreakerClosed)
 	initialCounts := NewCounts()
 	cb.counts.Store(&initialCounts)
 	cb.lastFailureTime.Store(time.Time{})
 	cb.lastStateChange.Store(time.Now())
-	
+
 	// Record initial state metric
 	cb.recordStateMetric(CircuitBreakerClosed)
-	
+
 	return cb
 }
 
 // Execute executes a function with circuit breaker protection
 func (cb *CircuitBreaker) Execute(ctx context.Context, fn func() (interface{}, error)) (interface{}, error) {
 	start := time.Now()
-	
+
 	// Check if we can execute based on current state
 	if err := cb.canExecute(); err != nil {
 		cb.recordFailure()
@@ -134,38 +133,38 @@ func (cb *CircuitBreaker) Execute(ctx context.Context, fn func() (interface{}, e
 		})
 		return nil, errors.Wrap(err, "circuit breaker execution failed")
 	}
-	
+
 	// For half-open state, track concurrent requests
 	if cb.getState() == CircuitBreakerHalfOpen {
 		cb.halfOpenRequests.Add(1)
 		defer cb.halfOpenRequests.Add(-1)
 	}
-	
+
 	// Create a channel for the result
 	type result struct {
 		value interface{}
 		err   error
 	}
 	resultChan := make(chan result, 1)
-	
+
 	// Execute function with timeout
 	go func() {
 		value, err := fn()
 		resultChan <- result{value: value, err: err}
 	}()
-	
+
 	// Wait for result or timeout
 	select {
 	case <-ctx.Done():
 		cb.recordFailure()
 		cb.recordMetrics("timeout", false, time.Since(start))
 		return nil, errors.Wrap(ctx.Err(), "context cancelled")
-		
+
 	case <-time.After(cb.config.TimeoutThreshold):
 		cb.recordFailure()
 		cb.recordMetrics("timeout", false, time.Since(start))
 		return nil, ErrCircuitBreakerTimeout
-		
+
 	case res := <-resultChan:
 		if res.err != nil {
 			cb.recordFailure()
@@ -177,7 +176,7 @@ func (cb *CircuitBreaker) Execute(ctx context.Context, fn func() (interface{}, e
 			})
 			return nil, errors.Wrap(res.err, "circuit breaker execution failed")
 		}
-		
+
 		cb.recordSuccess()
 		cb.recordMetrics("success", true, time.Since(start))
 		return res.value, nil
@@ -187,11 +186,11 @@ func (cb *CircuitBreaker) Execute(ctx context.Context, fn func() (interface{}, e
 // canExecute checks if the circuit breaker allows execution
 func (cb *CircuitBreaker) canExecute() error {
 	state := cb.getState()
-	
+
 	switch state {
 	case CircuitBreakerClosed:
 		return nil
-		
+
 	case CircuitBreakerOpen:
 		// Check if we should transition to half-open
 		lastFailure := cb.lastFailureTime.Load().(time.Time)
@@ -200,14 +199,14 @@ func (cb *CircuitBreaker) canExecute() error {
 			return nil
 		}
 		return ErrCircuitBreakerOpen
-		
+
 	case CircuitBreakerHalfOpen:
 		// Check if we've exceeded max requests in half-open state
 		if int(cb.halfOpenRequests.Load()) >= cb.config.MaxRequestsHalfOpen {
 			return ErrMaxRequestsExceeded
 		}
 		return nil
-		
+
 	default:
 		return fmt.Errorf("unknown circuit breaker state: %v", state)
 	}
@@ -217,13 +216,13 @@ func (cb *CircuitBreaker) canExecute() error {
 func (cb *CircuitBreaker) recordSuccess() {
 	cb.mutex.Lock()
 	defer cb.mutex.Unlock()
-	
+
 	counts := cb.getCounts()
 	counts.RecordSuccess()
 	cb.counts.Store(counts)
-	
+
 	state := cb.getState()
-	
+
 	// Check if we should transition states
 	switch state {
 	case CircuitBreakerHalfOpen:
@@ -237,14 +236,14 @@ func (cb *CircuitBreaker) recordSuccess() {
 func (cb *CircuitBreaker) recordFailure() {
 	cb.mutex.Lock()
 	defer cb.mutex.Unlock()
-	
+
 	counts := cb.getCounts()
 	counts.RecordFailure()
 	cb.counts.Store(counts)
 	cb.lastFailureTime.Store(time.Now())
-	
+
 	state := cb.getState()
-	
+
 	// Check if we should transition states
 	switch state {
 	case CircuitBreakerClosed:
@@ -258,7 +257,7 @@ func (cb *CircuitBreaker) recordFailure() {
 				cb.transitionTo(CircuitBreakerOpen)
 			}
 		}
-		
+
 	case CircuitBreakerHalfOpen:
 		// Any failure in half-open state trips the breaker
 		cb.transitionTo(CircuitBreakerOpen)
@@ -271,24 +270,24 @@ func (cb *CircuitBreaker) transitionTo(newState CircuitBreakerState) {
 	if oldState == newState {
 		return
 	}
-	
+
 	cb.state.Store(newState)
 	cb.lastStateChange.Store(time.Now())
-	
+
 	// Reset counts when transitioning to half-open
 	if newState == CircuitBreakerHalfOpen {
 		newCounts := NewCounts()
 		cb.counts.Store(&newCounts)
 		cb.halfOpenRequests.Store(0)
 	}
-	
+
 	// Log state change
 	cb.logger.Info("Circuit breaker state changed", map[string]interface{}{
-		"name":      cb.name,
-		"from":      oldState.String(),
-		"to":        newState.String(),
+		"name": cb.name,
+		"from": oldState.String(),
+		"to":   newState.String(),
 	})
-	
+
 	// Record metrics
 	cb.recordStateChangeMetric(oldState, newState)
 	cb.recordStateMetric(newState)
@@ -328,13 +327,13 @@ func (cb *CircuitBreaker) recordMetrics(result string, success bool, duration ti
 		"state":  cb.getState().String(),
 		"status": result,
 	}
-	
+
 	// Record request count
 	cb.metrics.IncrementCounterWithLabels("circuit_breaker_requests_total", 1, labels)
-	
+
 	// Record duration
 	cb.metrics.RecordHistogram("circuit_breaker_request_duration_seconds", duration.Seconds(), labels)
-	
+
 	// Record success/failure
 	if success {
 		cb.metrics.IncrementCounterWithLabels("circuit_breaker_successes_total", 1, labels)
@@ -366,22 +365,22 @@ func (cb *CircuitBreaker) GetMetrics() map[string]interface{} {
 	state := cb.getState()
 	lastStateChange := cb.lastStateChange.Load().(time.Time)
 	lastFailure := cb.lastFailureTime.Load().(time.Time)
-	
+
 	return map[string]interface{}{
-		"name":                  cb.name,
-		"state":                 state.String(),
-		"requests":              counts.Requests,
-		"successes":             counts.Successes,
-		"failures":              counts.Failures,
-		"total_successes":       counts.TotalSuccesses,
-		"total_failures":        counts.TotalFailures,
-		"consecutive_successes": counts.ConsecutiveSuccesses,
-		"consecutive_failures":  counts.ConsecutiveFailures,
-		"timeout":               counts.Timeout,
-		"rejected":              counts.Rejected,
-		"short_circuited":       counts.ShortCircuited,
-		"last_state_change":     lastStateChange,
-		"last_failure":          lastFailure,
+		"name":                    cb.name,
+		"state":                   state.String(),
+		"requests":                counts.Requests,
+		"successes":               counts.Successes,
+		"failures":                counts.Failures,
+		"total_successes":         counts.TotalSuccesses,
+		"total_failures":          counts.TotalFailures,
+		"consecutive_successes":   counts.ConsecutiveSuccesses,
+		"consecutive_failures":    counts.ConsecutiveFailures,
+		"timeout":                 counts.Timeout,
+		"rejected":                counts.Rejected,
+		"short_circuited":         counts.ShortCircuited,
+		"last_state_change":       lastStateChange,
+		"last_failure":            lastFailure,
 		"time_since_last_failure": time.Since(lastFailure).Seconds(),
 	}
 }
@@ -390,12 +389,12 @@ func (cb *CircuitBreaker) GetMetrics() map[string]interface{} {
 func (cb *CircuitBreaker) Reset() {
 	cb.mutex.Lock()
 	defer cb.mutex.Unlock()
-	
+
 	cb.transitionTo(CircuitBreakerClosed)
 	resetCounts := NewCounts()
 	cb.counts.Store(&resetCounts)
 	cb.halfOpenRequests.Store(0)
-	
+
 	cb.logger.Info("Circuit breaker manually reset", map[string]interface{}{
 		"name": cb.name,
 	})
@@ -472,12 +471,12 @@ func (m *CircuitBreakerManager) Execute(ctx context.Context, name string, fn fun
 func (m *CircuitBreakerManager) GetAllMetrics() map[string]map[string]interface{} {
 	m.mutex.RLock()
 	defer m.mutex.RUnlock()
-	
+
 	metrics := make(map[string]map[string]interface{})
 	for name, breaker := range m.breakers {
 		metrics[name] = breaker.GetMetrics()
 	}
-	
+
 	return metrics
 }
 
@@ -485,7 +484,7 @@ func (m *CircuitBreakerManager) GetAllMetrics() map[string]map[string]interface{
 func (m *CircuitBreakerManager) ResetAll() {
 	m.mutex.RLock()
 	defer m.mutex.RUnlock()
-	
+
 	for _, breaker := range m.breakers {
 		breaker.Reset()
 	}

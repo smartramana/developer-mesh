@@ -18,10 +18,10 @@ type WorkspaceState struct {
 
 // StateOperation represents an operation to modify workspace state
 type StateOperation struct {
-	Type   string      `json:"type"`   // set, increment, add_to_set, remove_from_set
-	Path   string      `json:"path"`   // JSON path to the field
-	Value  interface{} `json:"value"`  // Value to set/add
-	Delta  int         `json:"delta"`  // For increment operations
+	Type  string      `json:"type"`  // set, increment, add_to_set, remove_from_set
+	Path  string      `json:"path"`  // JSON path to the field
+	Value interface{} `json:"value"` // Value to set/add
+	Delta int         `json:"delta"` // For increment operations
 }
 
 // StateSnapshot represents a snapshot of workspace state
@@ -68,12 +68,12 @@ type WorkspaceStats struct {
 
 // ConflictInfo represents information about a detected conflict
 type ConflictInfo struct {
-	ID              uuid.UUID              `json:"id"`
-	DocumentID      uuid.UUID              `json:"document_id"`
-	Type            string                 `json:"type"` // concurrent_edit, schema_mismatch, etc.
-	LocalVersion    interface{}            `json:"local_version"`
-	RemoteVersion   interface{}            `json:"remote_version"`
-	AffectedPath    string                 `json:"affected_path"`
-	DetectedAt      time.Time              `json:"detected_at"`
-	Metadata        map[string]interface{} `json:"metadata"`
+	ID            uuid.UUID              `json:"id"`
+	DocumentID    uuid.UUID              `json:"document_id"`
+	Type          string                 `json:"type"` // concurrent_edit, schema_mismatch, etc.
+	LocalVersion  interface{}            `json:"local_version"`
+	RemoteVersion interface{}            `json:"remote_version"`
+	AffectedPath  string                 `json:"affected_path"`
+	DetectedAt    time.Time              `json:"detected_at"`
+	Metadata      map[string]interface{} `json:"metadata"`
 }
