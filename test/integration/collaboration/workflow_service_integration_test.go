@@ -8,12 +8,14 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/jmoiron/sqlx"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/stretchr/testify/suite"
 
 	"github.com/S-Corkum/devops-mcp/pkg/models"
 	"github.com/S-Corkum/devops-mcp/pkg/observability"
+	"github.com/S-Corkum/devops-mcp/pkg/repository"
 	"github.com/S-Corkum/devops-mcp/pkg/repository/postgres"
 	"github.com/S-Corkum/devops-mcp/pkg/services"
 	"github.com/S-Corkum/devops-mcp/test/integration/shared"
@@ -46,18 +48,30 @@ func (s *WorkflowServiceIntegrationSuite) SetupSuite() {
 	err = shared.RunMigrations(s.db)
 	require.NoError(s.T(), err)
 
+	// Create sqlx DB
+	sqlxDB := sqlx.NewDb(db, "postgres")
+
+	// Create mock cache
+	mockCache := &mockCache{data: make(map[string]interface{})}
+
 	// Create repositories
-	workflowRepo := postgres.NewWorkflowRepository(db, s.logger)
-	taskRepo := postgres.NewTaskRepository(db, s.logger)
+	metrics := observability.NewNoOpMetricsClient()
+	workflowRepo := postgres.NewWorkflowRepository(sqlxDB, sqlxDB, mockCache, s.logger, observability.NoopStartSpan, metrics)
+	taskRepo := postgres.NewTaskRepository(sqlxDB, sqlxDB, mockCache, s.logger, observability.NoopStartSpan, metrics)
+	agentRepo := repository.NewAgentRepository(sqlxDB)
+
+	// Create service config
+	serviceConfig := services.ServiceConfig{
+		Logger:  s.logger,
+		Metrics: metrics,
+		Tracer:  observability.NoopStartSpan,
+	}
 
 	// Create services
-	s.taskService = services.NewTaskServiceImpl(taskRepo, nil, s.logger)
-	s.workflowService = services.NewWorkflowServiceImpl(
-		workflowRepo,
-		s.taskService,
-		nil, // event service
-		s.logger,
-	)
+	agentService := services.NewAgentService(serviceConfig, agentRepo)
+	s.taskService = services.NewTaskService(serviceConfig, taskRepo, nil, nil)
+	notificationService := services.NewNotificationService(serviceConfig)
+	s.workflowService = services.NewWorkflowService(serviceConfig, workflowRepo, s.taskService, agentService, notificationService)
 }
 
 // TearDownSuite runs once after all tests
@@ -158,7 +172,6 @@ func (s *WorkflowServiceIntegrationSuite) TestWorkflowExecution() {
 	require.NoError(s.T(), err)
 
 	// Start workflow execution
-	executionID := uuid.New().String()
 	initiatorID := uuid.New().String()
 	execution, err := s.workflowService.StartWorkflow(s.ctx, workflow.ID, initiatorID, map[string]interface{}{
 		"input_data": "test data",
@@ -172,10 +185,10 @@ func (s *WorkflowServiceIntegrationSuite) TestWorkflowExecution() {
 	currentStep, err := s.workflowService.GetCurrentStep(s.ctx, execution.ID)
 	require.NoError(s.T(), err)
 	assert.NotNil(s.T(), currentStep)
-	assert.Equal(s.T(), "data_prep", currentStep.StepID)
+	assert.Equal(s.T(), "data_prep", currentStep.StepName)
 
 	// Complete first step
-	err = s.workflowService.CompleteStep(s.ctx, execution.ID, currentStep.StepID, map[string]interface{}{
+	err = s.workflowService.CompleteStep(s.ctx, execution.ID, currentStep.StepName, map[string]interface{}{
 		"prepared_data": "processed test data",
 		"record_count":  100,
 	})
@@ -184,7 +197,7 @@ func (s *WorkflowServiceIntegrationSuite) TestWorkflowExecution() {
 	// Verify workflow moved to next step
 	currentStep, err = s.workflowService.GetCurrentStep(s.ctx, execution.ID)
 	require.NoError(s.T(), err)
-	assert.Equal(s.T(), "processing", currentStep.StepID)
+	assert.Equal(s.T(), "processing", currentStep.StepName)
 
 	// Complete remaining steps
 	err = s.workflowService.CompleteStep(s.ctx, execution.ID, "processing", map[string]interface{}{
@@ -285,7 +298,7 @@ func (s *WorkflowServiceIntegrationSuite) TestParallelWorkflowExecution() {
 			if err != nil {
 				errors <- err
 			}
-		}(step.StepID)
+		}(step.StepName)
 	}
 
 	wg.Wait()
@@ -299,7 +312,7 @@ func (s *WorkflowServiceIntegrationSuite) TestParallelWorkflowExecution() {
 	// Verify workflow moved to final step
 	currentStep, err := s.workflowService.GetCurrentStep(s.ctx, execution.ID)
 	require.NoError(s.T(), err)
-	assert.Equal(s.T(), "finalize", currentStep.StepID)
+	assert.Equal(s.T(), "finalize", currentStep.StepName)
 
 	// Complete final step
 	err = s.workflowService.CompleteStep(s.ctx, execution.ID, "finalize", map[string]interface{}{"status": "done"})
@@ -557,10 +570,10 @@ func (s *WorkflowServiceIntegrationSuite) TestWorkflowMetrics() {
 	metrics, err := s.workflowService.GetWorkflowMetrics(s.ctx, workflow.ID)
 	require.NoError(s.T(), err)
 	assert.NotNil(s.T(), metrics)
-	assert.Equal(s.T(), 1, metrics.TotalExecutions)
-	assert.Equal(s.T(), 1, metrics.SuccessfulExecutions)
-	assert.Equal(s.T(), 0, metrics.FailedExecutions)
-	assert.Greater(s.T(), metrics.AverageDuration, time.Duration(0))
+	assert.Equal(s.T(), int64(1), metrics.TotalExecutions)
+	assert.Equal(s.T(), int64(1), metrics.SuccessfulRuns)
+	assert.Equal(s.T(), int64(0), metrics.FailedRuns)
+	assert.Greater(s.T(), metrics.AverageRunTime, time.Duration(0))
 }
 
 // TestWorkflowServiceIntegration runs the test suite

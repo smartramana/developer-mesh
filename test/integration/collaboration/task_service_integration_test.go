@@ -6,12 +6,14 @@ import (
 	"testing"
 
 	"github.com/google/uuid"
+	"github.com/jmoiron/sqlx"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/stretchr/testify/suite"
 
 	"github.com/S-Corkum/devops-mcp/pkg/models"
 	"github.com/S-Corkum/devops-mcp/pkg/observability"
+	"github.com/S-Corkum/devops-mcp/pkg/repository/interfaces"
 	"github.com/S-Corkum/devops-mcp/pkg/repository/postgres"
 	"github.com/S-Corkum/devops-mcp/pkg/services"
 	"github.com/S-Corkum/devops-mcp/test/integration/shared"
@@ -43,11 +45,25 @@ func (s *TaskServiceIntegrationSuite) SetupSuite() {
 	err = shared.RunMigrations(s.db)
 	require.NoError(s.T(), err)
 
+	// Create sqlx DB
+	sqlxDB := sqlx.NewDb(db, "postgres")
+
+	// Create mock cache
+	mockCache := &mockCache{data: make(map[string]interface{})}
+
 	// Create repositories
-	taskRepo := postgres.NewTaskRepository(db, s.logger)
+	metrics := observability.NewNoOpMetricsClient()
+	taskRepo := postgres.NewTaskRepository(sqlxDB, sqlxDB, mockCache, s.logger, observability.NoopStartSpan, metrics)
+
+	// Create service config
+	serviceConfig := services.ServiceConfig{
+		Logger:  s.logger,
+		Metrics: metrics,
+		Tracer:  observability.NoopStartSpan,
+	}
 
 	// Create service
-	s.taskService = services.NewTaskServiceImpl(taskRepo, nil, s.logger)
+	s.taskService = services.NewTaskService(serviceConfig, taskRepo, nil, nil)
 }
 
 // TearDownSuite runs once after all tests
@@ -348,17 +364,14 @@ func (s *TaskServiceIntegrationSuite) TestTaskFiltering() {
 	}
 
 	// Test: Get tasks by agent
-	agentTasks, err := s.taskService.GetAgentTasks(s.ctx, agent1, services.TaskFilters{
-		TenantID: s.tenantID,
-	})
+	agentTasks, err := s.taskService.GetAgentTasks(s.ctx, agent1, interfaces.TaskFilters{})
 	require.NoError(s.T(), err)
 	assert.GreaterOrEqual(s.T(), len(agentTasks), 1)
 
 	// Test: Search tasks
-	searchResults, err := s.taskService.SearchTasks(s.ctx, "Coding", services.TaskFilters{
-		TenantID: s.tenantID,
-		Types:    []string{"coding"},
-		Statuses: []models.TaskStatus{models.TaskStatusPending},
+	searchResults, err := s.taskService.SearchTasks(s.ctx, "Coding", interfaces.TaskFilters{
+		Types:  []string{"coding"},
+		Status: []string{string(models.TaskStatusPending)},
 	})
 	require.NoError(s.T(), err)
 	assert.Len(s.T(), searchResults, 1)
@@ -416,7 +429,7 @@ func (s *TaskServiceIntegrationSuite) TestTaskRetryMechanism() {
 func (s *TaskServiceIntegrationSuite) TestDistributedTaskCreation() {
 	// Create parent task with subtasks
 	parentTask := &models.DistributedTask{
-		Task: models.Task{
+		Task: &models.Task{
 			TenantID:    s.tenantID,
 			Type:        "parent_task",
 			Status:      models.TaskStatusPending,
@@ -425,24 +438,21 @@ func (s *TaskServiceIntegrationSuite) TestDistributedTaskCreation() {
 			Title:       "Parent Task with Subtasks",
 			Description: "This task will be split into subtasks",
 		},
-		Subtasks: []models.Task{
+		Subtasks: []models.Subtask{
 			{
-				Type:        "subtask",
-				Title:       "Subtask 1",
+				ID:          "subtask-1",
 				Description: "First subtask",
-				Priority:    models.TaskPriorityNormal,
+				Parameters:  map[string]interface{}{"step": 1},
 			},
 			{
-				Type:        "subtask",
-				Title:       "Subtask 2",
+				ID:          "subtask-2",
 				Description: "Second subtask",
-				Priority:    models.TaskPriorityNormal,
+				Parameters:  map[string]interface{}{"step": 2},
 			},
 			{
-				Type:        "subtask",
-				Title:       "Subtask 3",
+				ID:          "subtask-3",
 				Description: "Third subtask",
-				Priority:    models.TaskPriorityNormal,
+				Parameters:  map[string]interface{}{"step": 3},
 			},
 		},
 		CoordinationMode: "parallel",

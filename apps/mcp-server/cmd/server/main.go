@@ -481,8 +481,8 @@ func initializeServices(ctx context.Context, cfg *commonconfig.Config, db *datab
 	sqlxDB := db.GetDB()
 	
 	// Create repositories with proper parameters
-	taskRepo := postgres.NewTaskRepository(sqlxDB, sqlxDB, cacheClient, logger, observability.NoopStartSpan)
-	workflowRepo := postgres.NewWorkflowRepository(sqlxDB, sqlxDB, cacheClient, logger, observability.NoopStartSpan)
+	taskRepo := postgres.NewTaskRepository(sqlxDB, sqlxDB, cacheClient, logger, observability.NoopStartSpan, metricsClient)
+	workflowRepo := postgres.NewWorkflowRepository(sqlxDB, sqlxDB, cacheClient, logger, observability.NoopStartSpan, metricsClient)
 	workspaceRepo := postgres.NewWorkspaceRepository(sqlxDB, sqlxDB, cacheClient, logger, observability.NoopStartSpan)
 	documentRepo := postgres.NewDocumentRepository(sqlxDB, sqlxDB, cacheClient, logger, observability.NoopStartSpan)
 	agentRepo := repository.NewAgentRepository(sqlxDB)

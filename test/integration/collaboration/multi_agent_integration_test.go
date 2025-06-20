@@ -16,8 +16,10 @@ import (
 	"github.com/jmoiron/sqlx"
 	
 	"github.com/S-Corkum/devops-mcp/pkg/cache"
+	"github.com/S-Corkum/devops-mcp/pkg/collaboration"
 	"github.com/S-Corkum/devops-mcp/pkg/models"
 	"github.com/S-Corkum/devops-mcp/pkg/observability"
+	"github.com/S-Corkum/devops-mcp/pkg/repository"
 	"github.com/S-Corkum/devops-mcp/pkg/repository/postgres"
 	"github.com/S-Corkum/devops-mcp/pkg/services"
 	"github.com/S-Corkum/devops-mcp/test/integration/shared"
@@ -60,8 +62,9 @@ func (s *MultiAgentIntegrationSuite) SetupSuite() {
 	mockCache := &mockCache{data: make(map[string]interface{})}
 
 	// Create repositories with proper parameters
-	taskRepo := postgres.NewTaskRepository(sqlxDB, sqlxDB, mockCache, s.logger, observability.NoopStartSpan)
-	workflowRepo := postgres.NewWorkflowRepository(sqlxDB, sqlxDB, mockCache, s.logger, observability.NoopStartSpan)
+	metrics := observability.NewNoOpMetricsClient()
+	taskRepo := postgres.NewTaskRepository(sqlxDB, sqlxDB, mockCache, s.logger, observability.NoopStartSpan, metrics)
+	workflowRepo := postgres.NewWorkflowRepository(sqlxDB, sqlxDB, mockCache, s.logger, observability.NoopStartSpan, metrics)
 	workspaceRepo := postgres.NewWorkspaceRepository(sqlxDB, sqlxDB, mockCache, s.logger, observability.NoopStartSpan)
 	documentRepo := postgres.NewDocumentRepository(sqlxDB, sqlxDB, mockCache, s.logger, observability.NoopStartSpan)
 
@@ -76,8 +79,8 @@ func (s *MultiAgentIntegrationSuite) SetupSuite() {
 	notificationService := services.NewNotificationService(serviceConfig)
 	
 	// Create agent repository and service
-	agentRepo := postgres.NewAgentRepository(sqlxDB, sqlxDB, mockCache, s.logger, observability.NoopStartSpan)
-	agentService := services.NewAgentService(serviceConfig, agentRepo, nil)
+	agentRepo := repository.NewAgentRepository(sqlxDB)
+	agentService := services.NewAgentService(serviceConfig, agentRepo)
 	
 	// Create services with proper constructor signatures
 	s.taskService = services.NewTaskService(serviceConfig, taskRepo, nil, nil)
@@ -499,14 +502,16 @@ func (s *MultiAgentIntegrationSuite) TestMultiAgentWorkspaceCollaboration() {
 	// Add all team members
 	for name, agentID := range s.agents {
 		if name != "coordinator" { // Owner is already a member
-			role := models.WorkspaceMemberRoleEditor
+			role := models.MemberRole("member")
 			if name == "reviewer" {
-				role = models.WorkspaceMemberRoleAdmin
+				role = models.MemberRole("admin")
 			}
 			member := &models.WorkspaceMember{
 				WorkspaceID: workspace.ID,
 				AgentID:     agentID.String(),
-				Role:        string(role),
+				Role:        role,
+				TenantID:    s.tenantID,
+				JoinedAt:    time.Now(),
 			}
 			err = s.workspaceService.AddMember(s.ctx, member)
 			require.NoError(s.T(), err)
@@ -514,17 +519,19 @@ func (s *MultiAgentIntegrationSuite) TestMultiAgentWorkspaceCollaboration() {
 	}
 
 	// Create shared document
-	planDoc := &models.Document{
+	workspaceID := workspace.ID
+	planDoc := &models.SharedDocument{
 		TenantID:    s.tenantID,
-		WorkspaceID: workspace.ID,
+		WorkspaceID: workspaceID,
 		Title:       "Q1 Project Plan",
 		Content:     "# Q1 Project Plan\n\n## Overview\nInitial project planning document.\n\n## Goals\n- TBD\n\n## Timeline\n- TBD\n",
-		Type:        models.DocumentTypeMarkdown,
+		Type:        string(models.DocumentTypeMarkdown),
+		ContentType: "text/markdown",
 		CreatedBy:   s.agents["coordinator"].String(),
-		Tags:        []string{"planning", "q1", "draft"},
+		Metadata:    models.JSONMap{"tags": []string{"planning", "q1", "draft"}},
 	}
 
-	err = s.documentService.CreateDocument(s.ctx, planDoc)
+	err = s.documentService.Create(s.ctx, planDoc)
 	require.NoError(s.T(), err)
 
 	// Simulate concurrent edits from multiple agents
@@ -547,19 +554,27 @@ func (s *MultiAgentIntegrationSuite) TestMultiAgentWorkspaceCollaboration() {
 			defer editWg.Done()
 
 			// Get current document
-			doc, err := s.documentService.GetDocument(s.ctx, planDoc.ID)
+			doc, err := s.documentService.Get(s.ctx, planDoc.ID)
 			if err != nil {
 				editErrors <- err
 				return
 			}
 
-			// Apply edit
-			update := &models.DocumentUpdate{
-				Content: doc.Content + editContent,
-				Tags:    append(doc.Tags, name),
+			// Apply edit using document operation
+			operation := &collaboration.DocumentOperation{
+				ID:         uuid.New(),
+				DocumentID: planDoc.ID,
+				Type:       "insert",
+				Path:       "/content",
+				Value:      doc.Content + editContent,
+				AgentID:    s.agents[name].String(),
+				VectorClock: map[string]int{
+					s.agents[name].String(): 1,
+				},
+				AppliedAt:  time.Now(),
 			}
 
-			err = s.workspaceService.UpdateDocument(s.ctx, workspace.ID, planDoc.ID, update)
+			err = s.documentService.ApplyOperation(s.ctx, planDoc.ID, operation)
 			editErrors <- err
 
 			// Small delay to simulate real work
@@ -576,7 +591,7 @@ func (s *MultiAgentIntegrationSuite) TestMultiAgentWorkspaceCollaboration() {
 	}
 
 	// Verify final document contains all edits
-	finalDoc, err := s.documentService.GetDocument(s.ctx, planDoc.ID)
+	finalDoc, err := s.documentService.Get(s.ctx, planDoc.ID)
 	require.NoError(s.T(), err)
 
 	// Check that all sections were added
@@ -668,18 +683,20 @@ func (s *MultiAgentIntegrationSuite) TestMultiAgentWorkspaceCollaboration() {
 	finalState, err := s.workspaceService.GetState(s.ctx, workspace.ID)
 	require.NoError(s.T(), err)
 
-	stateMap := finalState.(map[string]interface{})
-	counters := stateMap["counters"].(map[string]interface{})
+	// Access the Data field of WorkspaceState
+	stateData := finalState.Data
+	counters, ok := stateData["counters"].(map[string]interface{})
+	require.True(s.T(), ok, "counters should be a map")
 
 	assert.Equal(s.T(), float64(5), counters["tasks_completed"])
 	assert.Equal(s.T(), float64(10), counters["reviews_pending"])
 	assert.Equal(s.T(), float64(15), counters["bugs_found"])
 	assert.Equal(s.T(), float64(5), counters["docs_updated"])
 
-	// Test activity tracking
-	activities, err := s.workspaceService.GetActivities(s.ctx, workspace.ID, 50, 0)
+	// Test member activity tracking
+	memberActivity, err := s.workspaceService.GetMemberActivity(s.ctx, workspace.ID)
 	require.NoError(s.T(), err)
-	assert.GreaterOrEqual(s.T(), len(activities), 10) // At least member additions and document updates
+	assert.GreaterOrEqual(s.T(), len(memberActivity), 5) // At least 5 active members
 }
 
 // TestMultiAgentFailoverScenario tests agent failure and task reassignment
@@ -700,8 +717,8 @@ func (s *MultiAgentIntegrationSuite) TestMultiAgentFailoverScenario() {
 	err := s.taskService.Create(s.ctx, criticalTask, uuid.New().String())
 	require.NoError(s.T(), err)
 
-	// Auto-assign using capability matching
-	err = s.taskService.AutoAssignTask(s.ctx, criticalTask.ID, services.AssignmentStrategyLeastLoaded)
+	// Use AssignTask to assign to developer1
+	err = s.taskService.AssignTask(s.ctx, criticalTask.ID, s.agents["developer1"].String())
 	require.NoError(s.T(), err)
 
 	// Get assigned agent
@@ -768,7 +785,7 @@ func (s *MultiAgentIntegrationSuite) TestMultiAgentPerformance() {
 		OwnerID:     s.agents["coordinator"].String(),
 	}
 
-	err := s.workspaceService.CreateWorkspace(s.ctx, perfWorkspace)
+	err := s.workspaceService.Create(s.ctx, perfWorkspace)
 	require.NoError(s.T(), err)
 
 	// Create many virtual agents
@@ -776,7 +793,14 @@ func (s *MultiAgentIntegrationSuite) TestMultiAgentPerformance() {
 	virtualAgents := make([]uuid.UUID, numAgents)
 	for i := 0; i < numAgents; i++ {
 		virtualAgents[i] = uuid.New()
-		err = s.workspaceService.AddMember(s.ctx, perfWorkspace.ID, virtualAgents[i], models.WorkspaceMemberRoleEditor)
+		member := &models.WorkspaceMember{
+			WorkspaceID: perfWorkspace.ID,
+			AgentID:     virtualAgents[i].String(),
+			Role:        models.MemberRole("member"),
+			TenantID:    s.tenantID,
+			JoinedAt:    time.Now(),
+		}
+		err = s.workspaceService.AddMember(s.ctx, member)
 		require.NoError(s.T(), err)
 	}
 
@@ -916,8 +940,10 @@ func (s *MultiAgentIntegrationSuite) TestMultiAgentPerformance() {
 	finalState, err := s.workspaceService.GetState(s.ctx, perfWorkspace.ID)
 	require.NoError(s.T(), err)
 	
-	stateMap := finalState.(map[string]interface{})
-	counterValue := stateMap["performance_counter"].(float64)
+	// Access the Data field of WorkspaceState
+	stateData := finalState.Data
+	counterValue, ok := stateData["performance_counter"].(float64)
+	require.True(s.T(), ok, "performance_counter should be a float64")
 	assert.Equal(s.T(), float64(numIncrements), counterValue)
 }
 

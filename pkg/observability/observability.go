@@ -4,6 +4,7 @@ package observability
 
 import (
 	"context"
+	"sync"
 	"go.opentelemetry.io/otel/attribute"
 )
 
@@ -17,6 +18,17 @@ var (
 
 	// DefaultStartSpan is the default function for starting new spans
 	DefaultStartSpan StartSpanFunc
+
+	// shutdownFuncs stores cleanup functions to be called during shutdown
+	shutdownFuncs []func() error
+	shutdownMutex sync.Mutex
+)
+
+// Additional context keys for storing observability components
+const (
+	loggerKey contextKey = "observability_logger"
+	metricsKey contextKey = "observability_metrics"  
+	startSpanKey contextKey = "observability_startspan"
 )
 
 // Initialize initializes the observability system with the given configuration.
@@ -50,8 +62,11 @@ func Initialize(cfg Config) error {
 					return returnCtx, returnSpan
 				}
 
-				// TODO: Store shutdown function to be called during Shutdown()
-				_ = shutdownFunc
+				// Store shutdown function to be called during Shutdown()
+				registerShutdownFunc(func() error {
+					shutdownFunc()
+					return nil
+				})
 			}
 		} else {
 			// Tracing not enabled, use no-op implementation
@@ -64,28 +79,81 @@ func Initialize(cfg Config) error {
 
 // Shutdown gracefully shuts down all observability components
 func ObservabilityShutdown() error {
+	var shutdownErrors []error
+	
 	// Close metrics client if it exists
 	if DefaultMetricsClient != nil {
 		if err := DefaultMetricsClient.Close(); err != nil {
+			shutdownErrors = append(shutdownErrors, err)
 			if DefaultLogger != nil {
 				DefaultLogger.Error("Error shutting down metrics client", map[string]interface{}{"error": err.Error()})
 			}
 		}
 	}
 
-	// TODO: Call shutdown function for tracing when implemented
+	// Call all registered shutdown functions
+	shutdownMutex.Lock()
+	funcs := make([]func() error, len(shutdownFuncs))
+	copy(funcs, shutdownFuncs)
+	shutdownFuncs = nil // Clear the list
+	shutdownMutex.Unlock()
+	
+	for _, fn := range funcs {
+		if err := fn(); err != nil {
+			shutdownErrors = append(shutdownErrors, err)
+			if DefaultLogger != nil {
+				DefaultLogger.Error("Error during observability shutdown", map[string]interface{}{"error": err.Error()})
+			}
+		}
+	}
 
+	// Return the first error if any occurred
+	if len(shutdownErrors) > 0 {
+		return shutdownErrors[0]
+	}
 	return nil
 }
 
 // With creates a new context that contains the provided observability components
 func With(ctx context.Context, logger Logger, metrics MetricsClient, startSpan StartSpanFunc) context.Context {
-	// TODO: Implement context storage using context values
+	if logger != nil {
+		ctx = context.WithValue(ctx, loggerKey, logger)
+	}
+	if metrics != nil {
+		ctx = context.WithValue(ctx, metricsKey, metrics)
+	}
+	if startSpan != nil {
+		ctx = context.WithValue(ctx, startSpanKey, startSpan)
+	}
 	return ctx
 }
 
 // FromContext extracts the observability components from the provided context
 func FromContext(ctx context.Context) (Logger, MetricsClient, StartSpanFunc) {
-	// TODO: Implement context retrieval using context values
-	return DefaultLogger, DefaultMetricsClient, DefaultStartSpan
+	logger := DefaultLogger
+	metrics := DefaultMetricsClient
+	startSpan := DefaultStartSpan
+	
+	if l, ok := ctx.Value(loggerKey).(Logger); ok && l != nil {
+		logger = l
+	}
+	if m, ok := ctx.Value(metricsKey).(MetricsClient); ok && m != nil {
+		metrics = m
+	}
+	if s, ok := ctx.Value(startSpanKey).(StartSpanFunc); ok && s != nil {
+		startSpan = s
+	}
+	
+	return logger, metrics, startSpan
+}
+
+// registerShutdownFunc registers a function to be called during shutdown
+func registerShutdownFunc(fn func() error) {
+	if fn == nil {
+		return
+	}
+	
+	shutdownMutex.Lock()
+	defer shutdownMutex.Unlock()
+	shutdownFuncs = append(shutdownFuncs, fn)
 }

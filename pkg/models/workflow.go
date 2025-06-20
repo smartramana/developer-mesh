@@ -4,6 +4,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/lib/pq"
 )
 
 // Workflow represents a multi-agent workflow definition
@@ -18,7 +19,7 @@ type Workflow struct {
 	Steps       JSONMap       `json:"steps" db:"steps"`
 	Config      JSONMap       `json:"config" db:"config"`
 	Description string        `json:"description,omitempty" db:"description"`
-	Tags        []string      `json:"tags,omitempty" db:"tags"`
+	Tags        pq.StringArray `json:"tags,omitempty" db:"tags"`
 	IsActive    bool          `json:"is_active" db:"is_active"`
 	CreatedAt   time.Time     `json:"created_at" db:"created_at"`
 	UpdatedAt   time.Time     `json:"updated_at" db:"updated_at"`

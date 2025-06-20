@@ -2,6 +2,7 @@ package postgres_test
 
 import (
 	"context"
+	"sync"
 	"testing"
 	"time"
 
@@ -18,6 +19,48 @@ import (
 	"github.com/S-Corkum/devops-mcp/pkg/repository/types"
 )
 
+// mockMetricsClient implements observability.MetricsClient for testing
+type mockMetricsClient struct {
+	counters   map[string]float64
+	timers     map[string]time.Duration
+	mu         sync.Mutex
+}
+
+func newMockMetricsClient() *mockMetricsClient {
+	return &mockMetricsClient{
+		counters: make(map[string]float64),
+		timers:   make(map[string]time.Duration),
+	}
+}
+
+func (m *mockMetricsClient) RecordEvent(source, eventType string) {}
+func (m *mockMetricsClient) RecordLatency(operation string, duration time.Duration) {}
+func (m *mockMetricsClient) RecordCounter(name string, value float64, labels map[string]string) {}
+func (m *mockMetricsClient) RecordGauge(name string, value float64, labels map[string]string) {}
+func (m *mockMetricsClient) RecordHistogram(name string, value float64, labels map[string]string) {}
+func (m *mockMetricsClient) RecordTimer(name string, duration time.Duration, labels map[string]string) {}
+func (m *mockMetricsClient) RecordCacheOperation(operation string, success bool, durationSeconds float64) {}
+func (m *mockMetricsClient) RecordOperation(component string, operation string, success bool, durationSeconds float64, labels map[string]string) {}
+func (m *mockMetricsClient) RecordAPIOperation(api string, operation string, success bool, durationSeconds float64) {}
+func (m *mockMetricsClient) RecordDatabaseOperation(operation string, success bool, durationSeconds float64) {}
+func (m *mockMetricsClient) StartTimer(name string, labels map[string]string) func() {
+	return func() {
+		m.mu.Lock()
+		defer m.mu.Unlock()
+		m.timers[name] = time.Since(time.Now())
+	}
+}
+func (m *mockMetricsClient) IncrementCounter(name string, value float64) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.counters[name] += value
+}
+func (m *mockMetricsClient) IncrementCounterWithLabels(name string, value float64, labels map[string]string) {
+	m.IncrementCounter(name, value)
+}
+func (m *mockMetricsClient) RecordDuration(name string, duration time.Duration) {}
+func (m *mockMetricsClient) Close() error { return nil }
+
 func TestTaskRepository_Create(t *testing.T) {
 	// Create mock database
 	db, mock, err := sqlmock.New()
@@ -29,6 +72,9 @@ func TestTaskRepository_Create(t *testing.T) {
 	// Create mock cache
 	mockCache := &mockCache{}
 
+	// Create mock metrics client
+	metrics := newMockMetricsClient()
+
 	// Create repository
 	repo := postgres.NewTaskRepository(
 		sqlxDB,
@@ -36,6 +82,7 @@ func TestTaskRepository_Create(t *testing.T) {
 		mockCache,
 		observability.NewNoopLogger(),
 		observability.NoopStartSpan,
+		metrics,
 	)
 
 	ctx := context.Background()
@@ -105,6 +152,7 @@ func TestTaskRepository_Get(t *testing.T) {
 		mockCache,
 		observability.NewNoopLogger(),
 		observability.NoopStartSpan,
+		newMockMetricsClient(),
 	)
 
 	ctx := context.Background()
@@ -137,7 +185,7 @@ func TestTaskRepository_Get(t *testing.T) {
 					"Test Description",
 					`{"key": "value"}`,
 					nil,
-					nil,
+					"", // error field - empty string instead of nil
 					3,
 					0,
 					3600,
@@ -181,6 +229,7 @@ func TestTaskRepository_UpdateWithVersion(t *testing.T) {
 		mockCache,
 		observability.NewNoopLogger(),
 		observability.NoopStartSpan,
+		newMockMetricsClient(),
 	)
 
 	ctx := context.Background()
@@ -251,13 +300,15 @@ func TestTaskRepository_Transaction(t *testing.T) {
 		mockCache,
 		observability.NewNoopLogger(),
 		observability.NoopStartSpan,
+		newMockMetricsClient(),
 	)
 
 	ctx := context.Background()
 
 	// Expect transaction operations
 	mock.ExpectBegin()
-	mock.ExpectExec("SET LOCAL statement_timeout = 5000").
+	mock.ExpectExec("SET LOCAL statement_timeout =").
+		WithArgs(5000).
 		WillReturnResult(sqlmock.NewResult(0, 0))
 	mock.ExpectCommit()
 

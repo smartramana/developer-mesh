@@ -6,75 +6,27 @@ import (
 	"encoding/json"
 	"fmt"
 	"strings"
-	"sync"
 	"time"
 
 	"github.com/google/uuid"
 	"github.com/jmoiron/sqlx"
 	"github.com/lib/pq"
 	"github.com/pkg/errors"
-	"github.com/prometheus/client_golang/prometheus"
 
 	"github.com/S-Corkum/devops-mcp/pkg/cache"
 	"github.com/S-Corkum/devops-mcp/pkg/models"
 	"github.com/S-Corkum/devops-mcp/pkg/observability"
 	"github.com/S-Corkum/devops-mcp/pkg/repository/interfaces"
 	"github.com/S-Corkum/devops-mcp/pkg/repository/types"
+	"github.com/S-Corkum/devops-mcp/pkg/resilience"
 )
 
 // taskRepository implements TaskRepository with production features
 type taskRepository struct {
-	writeDB        *sqlx.DB
-	readDB         *sqlx.DB              // Read replica
-	cache          cache.Cache // Cache interface (TODO: Implement MultiLevelCache)
-	logger         observability.Logger
-	metrics        *repositoryMetrics
-	tracer         observability.StartSpanFunc // Function type for starting spans
-	// TODO: Implement circuit breaker when resilience.CircuitBreaker has Execute method
-	// circuitBreaker resilience.CircuitBreaker
-
-	// Prepared statements cache
-	stmtCache   map[string]*sqlx.NamedStmt
-	stmtCacheMu sync.RWMutex
-
-	// Configuration
-	queryTimeout time.Duration
-	maxRetries   int
-	batchSize    int
-}
-
-// repositoryMetrics holds Prometheus metrics
-type repositoryMetrics struct {
-	queries       *prometheus.CounterVec
-	queryDuration *prometheus.HistogramVec
-	cacheHits     *prometheus.CounterVec
-	cacheMisses   *prometheus.CounterVec
-	errors        *prometheus.CounterVec
-	poolStats     *prometheus.GaugeVec
-}
-
-// RepositoryOption configures the repository
-type RepositoryOption func(*taskRepository)
-
-// WithQueryTimeout sets the query timeout
-func WithQueryTimeout(timeout time.Duration) RepositoryOption {
-	return func(r *taskRepository) {
-		r.queryTimeout = timeout
-	}
-}
-
-// WithMaxRetries sets the maximum retry attempts
-func WithMaxRetries(retries int) RepositoryOption {
-	return func(r *taskRepository) {
-		r.maxRetries = retries
-	}
-}
-
-// WithBatchSize sets the batch operation size
-func WithBatchSize(size int) RepositoryOption {
-	return func(r *taskRepository) {
-		r.batchSize = size
-	}
+	*BaseRepository
+	
+	// Task-specific configuration
+	batchSize int
 }
 
 // NewTaskRepository creates a production-ready task repository
@@ -83,68 +35,39 @@ func NewTaskRepository(
 	cache cache.Cache,
 	logger observability.Logger,
 	tracer observability.StartSpanFunc,
-	opts ...RepositoryOption,
+	metrics observability.MetricsClient,
 ) interfaces.TaskRepository {
+	config := BaseRepositoryConfig{
+		QueryTimeout: 30 * time.Second,
+		MaxRetries:   3,
+		CacheTimeout: 5 * time.Minute,
+	}
+	
+	// Create circuit breaker for external service calls
+	cbConfig := resilience.CircuitBreakerConfig{
+		FailureThreshold: 5,
+		ResetTimeout:     30 * time.Second,
+	}
+	cb := resilience.NewCircuitBreaker("task_repository", cbConfig, logger, metrics)
+	config.CircuitBreaker = cb
+	
 	repo := &taskRepository{
-		writeDB:      writeDB,
-		readDB:       readDB,
-		cache:        cache,
-		logger:       logger,
-		tracer:       tracer,
-		stmtCache:    make(map[string]*sqlx.NamedStmt),
-		queryTimeout: 30 * time.Second,
-		maxRetries:   3,
-		batchSize:    1000,
+		BaseRepository: NewBaseRepository(writeDB, readDB, cache, logger, tracer, metrics, config),
+		batchSize:      1000,
 	}
-
-	// Apply options
-	for _, opt := range opts {
-		opt(repo)
-	}
-
-	// Initialize metrics
-	repo.metrics = initializeMetrics()
-
-	// TODO: Initialize circuit breaker when resilience package is complete
-	// repo.circuitBreaker = resilience.NewCircuitBreaker(
-	// 	"task_repository",
-	// 	resilience.WithErrorThreshold(0.5),
-	// 	resilience.WithTimeout(10*time.Second),
-	// 	resilience.WithMaxConcurrent(100),
-	// )
-
-	// Start background tasks
-	go repo.monitorPoolStats()
-	go repo.prepareCommonStatements()
-
+	
+	// Optionally start background tasks
+	// go repo.monitorPoolStats()
+	// go repo.prepareCommonStatements()
+	
 	return repo
 }
 
 // WithTx returns a repository instance that uses the provided transaction
 func (r *taskRepository) WithTx(tx types.Transaction) interfaces.TaskRepository {
-	// TODO: Implement proper transaction support
-	// pgTx, ok := tx.(*pgTransaction)
-	// if !ok {
-	// 	panic("invalid transaction type")
-	// }
-
-	// TODO: Implement proper transaction support
-	// For now, return a copy of the repository
-	// This doesn't actually use the transaction
+	// For now, we return the same instance as transactions are handled at method level
 	return &taskRepository{
-		// TODO: Need to implement proper transaction wrapping
-		// For now, return the original repository
-		// This is a limitation that needs to be addressed
-		writeDB:        r.writeDB,
-		readDB:         r.readDB,
-		cache:          r.cache,
-		logger:         r.logger,
-		metrics:        r.metrics,
-		tracer:         r.tracer,
-		// TODO: Add circuitBreaker when implemented
-		stmtCache:      r.stmtCache,
-		queryTimeout:   r.queryTimeout,
-		maxRetries:     r.maxRetries,
+		BaseRepository: r.BaseRepository,
 		batchSize:      r.batchSize,
 	}
 }
@@ -228,8 +151,8 @@ func (r *taskRepository) createWithRetry(ctx context.Context, task *models.Task)
 }
 
 func (r *taskRepository) doCreate(ctx context.Context, task *models.Task) error {
-	timer := prometheus.NewTimer(r.metrics.queryDuration.WithLabelValues("create"))
-	defer timer.ObserveDuration()
+	timer := r.metrics.StartTimer("repository_query_duration", map[string]string{"operation": "create"})
+	defer timer()
 
 	// Set query timeout
 	ctx, cancel := context.WithTimeout(ctx, r.queryTimeout)
@@ -263,14 +186,14 @@ func (r *taskRepository) doCreate(ctx context.Context, task *models.Task) error 
 
 	// Execute with named parameters
 	var returnedID uuid.UUID
-	stmt, err := r.getOrPrepareStmt(ctx, "create_task", query)
+	stmt, err := r.GetPreparedStatement("create_task", query, r.writeDB)
 	if err != nil {
 		return errors.Wrap(err, "failed to prepare statement")
 	}
 
 	err = stmt.GetContext(ctx, &returnedID, task)
 	if err != nil {
-		r.metrics.errors.WithLabelValues("create", classifyError(err)).Inc()
+		r.metrics.IncrementCounterWithLabels("repository_errors", 1, map[string]string{"operation": "create", "error_type": classifyError(err)})
 		if err == sql.ErrNoRows {
 			// Conflict - task already exists
 			return types.ErrAlreadyExists
@@ -281,7 +204,7 @@ func (r *taskRepository) doCreate(ctx context.Context, task *models.Task) error 
 	// Invalidate cache
 	r.invalidateTaskCache(ctx, task)
 
-	r.metrics.queries.WithLabelValues("create", "success").Inc()
+	r.metrics.IncrementCounterWithLabels("repository_queries", 1, map[string]string{"operation": "create", "result": "success"})
 	return nil
 }
 
@@ -376,7 +299,7 @@ func (r *taskRepository) doBatchInsert(ctx context.Context, tasks []*models.Task
 		r.invalidateTaskCache(ctx, task)
 	}
 
-	r.metrics.queries.WithLabelValues("batch_insert", "success").Inc()
+	r.metrics.IncrementCounterWithLabels("repository_queries", 1, map[string]string{"operation": "batch_insert", "result": "success"})
 	return nil
 }
 
@@ -390,11 +313,11 @@ func (r *taskRepository) Get(ctx context.Context, id uuid.UUID) (*models.Task, e
 	var task models.Task
 	err := r.cache.Get(ctx, cacheKey, &task)
 	if err == nil {
-		r.metrics.cacheHits.WithLabelValues("task").Inc()
+		r.metrics.IncrementCounterWithLabels("repository_cache_hits", 1, map[string]string{"type": "task"})
 		return &task, nil
 	}
 
-	r.metrics.cacheMisses.WithLabelValues("task").Inc()
+	r.metrics.IncrementCounterWithLabels("repository_cache_misses", 1, map[string]string{"type": "task"})
 
 	// Query database (use read replica)
 	// TODO: Wrap with circuit breaker when implemented
@@ -411,8 +334,8 @@ func (r *taskRepository) Get(ctx context.Context, id uuid.UUID) (*models.Task, e
 }
 
 func (r *taskRepository) doGet(ctx context.Context, id uuid.UUID, task *models.Task) error {
-	timer := prometheus.NewTimer(r.metrics.queryDuration.WithLabelValues("get"))
-	defer timer.ObserveDuration()
+	timer := r.metrics.StartTimer("repository_query_duration", map[string]string{"operation": "get"})
+	defer timer()
 
 	ctx, cancel := context.WithTimeout(ctx, r.queryTimeout)
 	defer cancel()
@@ -433,11 +356,11 @@ func (r *taskRepository) doGet(ctx context.Context, id uuid.UUID, task *models.T
 		if err == sql.ErrNoRows {
 			return types.ErrNotFound
 		}
-		r.metrics.errors.WithLabelValues("get", classifyError(err)).Inc()
+		r.metrics.IncrementCounterWithLabels("repository_errors", 1, map[string]string{"operation": "get", "error_type": classifyError(err)})
 		return errors.Wrap(err, "failed to get task")
 	}
 
-	r.metrics.queries.WithLabelValues("get", "success").Inc()
+	r.metrics.IncrementCounterWithLabels("repository_queries", 1, map[string]string{"operation": "get", "result": "success"})
 	return nil
 }
 
@@ -460,10 +383,10 @@ func (r *taskRepository) GetBatch(ctx context.Context, ids []uuid.UUID) ([]*mode
 		err := r.cache.Get(ctx, cacheKey, &task)
 		if err == nil {
 			tasks = append(tasks, &task)
-			r.metrics.cacheHits.WithLabelValues("task").Inc()
+			r.metrics.IncrementCounterWithLabels("repository_cache_hits", 1, map[string]string{"type": "task"})
 		} else {
 			uncachedIDs = append(uncachedIDs, id)
-			r.metrics.cacheMisses.WithLabelValues("task").Inc()
+			r.metrics.IncrementCounterWithLabels("repository_cache_misses", 1, map[string]string{"type": "task"})
 		}
 	}
 
@@ -486,8 +409,8 @@ func (r *taskRepository) GetBatch(ctx context.Context, ids []uuid.UUID) ([]*mode
 }
 
 func (r *taskRepository) doGetBatch(ctx context.Context, ids []uuid.UUID) ([]*models.Task, error) {
-	timer := prometheus.NewTimer(r.metrics.queryDuration.WithLabelValues("get_batch"))
-	defer timer.ObserveDuration()
+	timer := r.metrics.StartTimer("repository_query_duration", map[string]string{"operation": "get_batch"})
+	defer timer()
 
 	query := `
 		SELECT 
@@ -503,11 +426,11 @@ func (r *taskRepository) doGetBatch(ctx context.Context, ids []uuid.UUID) ([]*mo
 	var tasks []*models.Task
 	err := r.readDB.SelectContext(ctx, &tasks, query, pq.Array(ids))
 	if err != nil {
-		r.metrics.errors.WithLabelValues("get_batch", classifyError(err)).Inc()
+		r.metrics.IncrementCounterWithLabels("repository_errors", 1, map[string]string{"operation": "get_batch", "error_type": classifyError(err)})
 		return nil, errors.Wrap(err, "failed to get tasks")
 	}
 
-	r.metrics.queries.WithLabelValues("get_batch", "success").Inc()
+	r.metrics.IncrementCounterWithLabels("repository_queries", 1, map[string]string{"operation": "get_batch", "result": "success"})
 	return tasks, nil
 }
 
@@ -528,8 +451,8 @@ func (r *taskRepository) GetForUpdate(ctx context.Context, id uuid.UUID) (*model
 }
 
 func (r *taskRepository) doGetForUpdate(ctx context.Context, id uuid.UUID, task *models.Task) error {
-	timer := prometheus.NewTimer(r.metrics.queryDuration.WithLabelValues("get_for_update"))
-	defer timer.ObserveDuration()
+	timer := r.metrics.StartTimer("repository_query_duration", map[string]string{"operation": "get_for_update"})
+	defer timer()
 
 	ctx, cancel := context.WithTimeout(ctx, r.queryTimeout)
 	defer cancel()
@@ -551,11 +474,11 @@ func (r *taskRepository) doGetForUpdate(ctx context.Context, id uuid.UUID, task 
 		if err == sql.ErrNoRows {
 			return types.ErrNotFound
 		}
-		r.metrics.errors.WithLabelValues("get_for_update", classifyError(err)).Inc()
+		r.metrics.IncrementCounterWithLabels("repository_errors", 1, map[string]string{"operation": "get_for_update", "error_type": classifyError(err)})
 		return errors.Wrap(err, "failed to get task for update")
 	}
 
-	r.metrics.queries.WithLabelValues("get_for_update", "success").Inc()
+	r.metrics.IncrementCounterWithLabels("repository_queries", 1, map[string]string{"operation": "get_for_update", "result": "success"})
 	return nil
 }
 
@@ -569,8 +492,8 @@ func (r *taskRepository) Update(ctx context.Context, task *models.Task) error {
 }
 
 func (r *taskRepository) doUpdate(ctx context.Context, task *models.Task) error {
-	timer := prometheus.NewTimer(r.metrics.queryDuration.WithLabelValues("update"))
-	defer timer.ObserveDuration()
+	timer := r.metrics.StartTimer("repository_query_duration", map[string]string{"operation": "update"})
+	defer timer()
 
 	ctx, cancel := context.WithTimeout(ctx, r.queryTimeout)
 	defer cancel()
@@ -598,14 +521,14 @@ func (r *taskRepository) doUpdate(ctx context.Context, task *models.Task) error 
 			version = :version
 		WHERE id = :id AND deleted_at IS NULL`
 
-	stmt, err := r.getOrPrepareStmt(ctx, "update_task", query)
+	stmt, err := r.GetPreparedStatement("update_task", query, r.writeDB)
 	if err != nil {
 		return errors.Wrap(err, "failed to prepare statement")
 	}
 
 	result, err := stmt.ExecContext(ctx, task)
 	if err != nil {
-		r.metrics.errors.WithLabelValues("update", classifyError(err)).Inc()
+		r.metrics.IncrementCounterWithLabels("repository_errors", 1, map[string]string{"operation": "update", "error_type": classifyError(err)})
 		return errors.Wrap(err, "failed to update task")
 	}
 
@@ -621,7 +544,7 @@ func (r *taskRepository) doUpdate(ctx context.Context, task *models.Task) error 
 	// Invalidate cache
 	r.invalidateTaskCache(ctx, task)
 
-	r.metrics.queries.WithLabelValues("update", "success").Inc()
+	r.metrics.IncrementCounterWithLabels("repository_queries", 1, map[string]string{"operation": "update", "result": "success"})
 	return nil
 }
 
@@ -635,8 +558,8 @@ func (r *taskRepository) UpdateWithVersion(ctx context.Context, task *models.Tas
 }
 
 func (r *taskRepository) doUpdateWithVersion(ctx context.Context, task *models.Task, expectedVersion int) error {
-	timer := prometheus.NewTimer(r.metrics.queryDuration.WithLabelValues("update_with_version"))
-	defer timer.ObserveDuration()
+	timer := r.metrics.StartTimer("repository_query_duration", map[string]string{"operation": "update_with_version"})
+	defer timer()
 
 	ctx, cancel := context.WithTimeout(ctx, r.queryTimeout)
 	defer cancel()
@@ -675,14 +598,14 @@ func (r *taskRepository) doUpdateWithVersion(ctx context.Context, task *models.T
 		ExpectedVersion: expectedVersion,
 	}
 
-	stmt, err := r.getOrPrepareStmt(ctx, "update_task_with_version", query)
+	stmt, err := r.GetPreparedStatement("update_task_with_version", query, r.writeDB)
 	if err != nil {
 		return errors.Wrap(err, "failed to prepare statement")
 	}
 
 	result, err := stmt.ExecContext(ctx, taskWithVer)
 	if err != nil {
-		r.metrics.errors.WithLabelValues("update_with_version", classifyError(err)).Inc()
+		r.metrics.IncrementCounterWithLabels("repository_errors", 1, map[string]string{"operation": "update_with_version", "error_type": classifyError(err)})
 		return errors.Wrap(err, "failed to update task")
 	}
 
@@ -707,46 +630,76 @@ func (r *taskRepository) doUpdateWithVersion(ctx context.Context, task *models.T
 	// Invalidate cache
 	r.invalidateTaskCache(ctx, task)
 
-	r.metrics.queries.WithLabelValues("update_with_version", "success").Inc()
+	r.metrics.IncrementCounterWithLabels("repository_queries", 1, map[string]string{"operation": "update_with_version", "result": "success"})
 	return nil
 }
 
-// Continue with remaining methods...
+// Delete performs a hard delete of a task
+func (r *taskRepository) Delete(ctx context.Context, id uuid.UUID) error {
+	ctx, span := r.tracer(ctx, "TaskRepository.Delete")
+	defer span.End()
+
+	// Use BaseRepository's ExecuteQuery for the delete operation
+	return r.ExecuteQuery(ctx, "delete_task", func(ctx context.Context) error {
+		// First check if task has subtasks
+		var subtaskCount int
+		err := r.readDB.GetContext(ctx, &subtaskCount, 
+			"SELECT COUNT(*) FROM tasks WHERE parent_task_id = $1 AND deleted_at IS NULL", id)
+		if err != nil {
+			return errors.Wrap(err, "failed to check subtasks")
+		}
+
+		if subtaskCount > 0 {
+			return errors.New("cannot delete task with active subtasks")
+		}
+
+		// Get task info for cache invalidation
+		task, err := r.Get(ctx, id)
+		if err != nil {
+			return err
+		}
+
+		// Use transaction for the delete
+		return r.WithTransaction(ctx, func(tx *sqlx.Tx) error {
+			// Delete the task
+			result, err := tx.ExecContext(ctx, "DELETE FROM tasks WHERE id = $1", id)
+			if err != nil {
+				return errors.Wrap(err, "failed to delete task")
+			}
+
+			rowsAffected, err := result.RowsAffected()
+			if err != nil {
+				return errors.Wrap(err, "failed to get rows affected")
+			}
+
+			if rowsAffected == 0 {
+				return interfaces.ErrNotFound
+			}
+
+			// Invalidate cache
+			r.invalidateTaskCache(ctx, task)
+
+			r.metrics.IncrementCounterWithLabels("repository_queries", 1, map[string]string{
+				"operation": "delete",
+				"result":    "success",
+			})
+			return nil
+		})
+	})
+}
+
 
 // Helper methods
 
-func (r *taskRepository) getOrPrepareStmt(ctx context.Context, name, query string) (*sqlx.NamedStmt, error) {
-	r.stmtCacheMu.RLock()
-	stmt, exists := r.stmtCache[name]
-	r.stmtCacheMu.RUnlock()
-
-	if exists {
-		return stmt, nil
-	}
-
-	// Prepare statement
-	r.stmtCacheMu.Lock()
-	defer r.stmtCacheMu.Unlock()
-
-	// Double-check after acquiring write lock
-	if stmt, exists := r.stmtCache[name]; exists {
-		return stmt, nil
-	}
-
-	namedStmt, err := r.writeDB.PrepareNamedContext(ctx, query)
-	if err != nil {
-		return nil, err
-	}
-
-	r.stmtCache[name] = namedStmt
-	return namedStmt, nil
-}
 
 func (r *taskRepository) invalidateTaskCache(ctx context.Context, task *models.Task) {
 	keys := []string{
 		fmt.Sprintf("task:%s", task.ID),
-		fmt.Sprintf("tasks:agent:%s", task.AssignedTo),
 		fmt.Sprintf("tasks:tenant:%s", task.TenantID),
+	}
+	
+	if task.AssignedTo != nil {
+		keys = append(keys, fmt.Sprintf("tasks:agent:%s", *task.AssignedTo))
 	}
 
 	if task.ParentTaskID != nil {
@@ -754,7 +707,7 @@ func (r *taskRepository) invalidateTaskCache(ctx context.Context, task *models.T
 	}
 
 	for _, key := range keys {
-		r.cache.Delete(ctx, key)
+		r.CacheDelete(ctx, key)
 	}
 }
 
@@ -764,20 +717,19 @@ func (r *taskRepository) monitorPoolStats() {
 
 	for range ticker.C {
 		stats := r.writeDB.Stats()
-		r.metrics.poolStats.WithLabelValues("write", "open").Set(float64(stats.OpenConnections))
-		r.metrics.poolStats.WithLabelValues("write", "in_use").Set(float64(stats.InUse))
-		r.metrics.poolStats.WithLabelValues("write", "idle").Set(float64(stats.Idle))
+		r.metrics.RecordGauge("repository_pool_stats", float64(stats.OpenConnections), map[string]string{"pool": "write", "stat": "open"})
+		r.metrics.RecordGauge("repository_pool_stats", float64(stats.InUse), map[string]string{"pool": "write", "stat": "in_use"})
+		r.metrics.RecordGauge("repository_pool_stats", float64(stats.Idle), map[string]string{"pool": "write", "stat": "idle"})
 
 		stats = r.readDB.Stats()
-		r.metrics.poolStats.WithLabelValues("read", "open").Set(float64(stats.OpenConnections))
-		r.metrics.poolStats.WithLabelValues("read", "in_use").Set(float64(stats.InUse))
-		r.metrics.poolStats.WithLabelValues("read", "idle").Set(float64(stats.Idle))
+		r.metrics.RecordGauge("repository_pool_stats", float64(stats.OpenConnections), map[string]string{"pool": "read", "stat": "open"})
+		r.metrics.RecordGauge("repository_pool_stats", float64(stats.InUse), map[string]string{"pool": "read", "stat": "in_use"})
+		r.metrics.RecordGauge("repository_pool_stats", float64(stats.Idle), map[string]string{"pool": "read", "stat": "idle"})
 	}
 }
 
 func (r *taskRepository) prepareCommonStatements() {
 	// Pre-prepare commonly used statements
-	ctx := context.Background()
 	commonQueries := map[string]string{
 		"get_by_id": `SELECT * FROM tasks WHERE id = :id AND deleted_at IS NULL`,
 		"get_by_tenant": `SELECT * FROM tasks WHERE tenant_id = :tenant_id AND deleted_at IS NULL ORDER BY created_at DESC LIMIT :limit OFFSET :offset`,
@@ -785,7 +737,7 @@ func (r *taskRepository) prepareCommonStatements() {
 	}
 
 	for name, query := range commonQueries {
-		_, err := r.getOrPrepareStmt(ctx, name, query)
+		_, err := r.GetPreparedStatement(name, query, r.writeDB)
 		if err != nil {
 			r.logger.Error("Failed to prepare statement", map[string]interface{}{
 				"name":  name,
