@@ -1,6 +1,7 @@
 package api
 
 import (
+	"encoding/json"
 	"net/http"
 	"strconv"
 	"strings"
@@ -145,12 +146,33 @@ func (api *EmbeddingAPI) searchEmbeddings(c *gin.Context) {
 		return
 	}
 
-	// For now, perform search directly using the embedding service
-	// TODO: Create a proper search service when ServiceV2 exposes the necessary components
+	// Create search service adapter
+	searchService := NewSearchServiceAdapter(api.embeddingService, api.logger)
+	
+	// Inject tenant ID from auth context if not provided
+	if req.TenantID == uuid.Nil {
+		if tenantID, exists := c.Get("tenant_id"); exists {
+			req.TenantID = tenantID.(uuid.UUID)
+		}
+	}
+	
+	// Perform search
+	results, err := searchService.Search(c.Request.Context(), req)
+	if err != nil {
+		api.logger.Error("Search failed", map[string]any{
+			"error": err.Error(),
+			"tenant_id": req.TenantID,
+		})
+		c.JSON(http.StatusInternalServerError, ErrorResponse{
+			Code:    ErrInternalServer,
+			Message: "Search operation failed",
+		})
+		return
+	}
 
-	c.JSON(http.StatusNotImplemented, ErrorResponse{
-		Code:    ErrInternalServer,
-		Message: "Search functionality not yet implemented",
+	c.JSON(http.StatusOK, gin.H{
+		"results": results,
+		"count":   len(results),
 	})
 }
 
@@ -165,12 +187,45 @@ func (api *EmbeddingAPI) crossModelSearch(c *gin.Context) {
 		return
 	}
 
-	// For now, perform search directly using the embedding service
-	// TODO: Create a proper search service when ServiceV2 exposes the necessary components
+	// Create search service adapter
+	searchService := NewSearchServiceAdapter(api.embeddingService, api.logger)
+	
+	// Convert to standard search request for adapter
+	searchReq := embedding.SearchRequest{
+		QueryEmbedding: req.QueryEmbedding,
+		ModelName:      req.SearchModel,
+		TenantID:       req.TenantID,
+		ContextID:      req.ContextID,
+		Limit:          req.Limit,
+		Threshold:      req.MinSimilarity,
+	}
+	
+	// Add metadata filter if provided
+	if len(req.MetadataFilter) > 0 {
+		filterJSON, err := json.Marshal(req.MetadataFilter)
+		if err == nil {
+			searchReq.MetadataFilter = filterJSON
+		}
+	}
+	
+	// Perform search
+	results, err := searchService.Search(c.Request.Context(), searchReq)
+	if err != nil {
+		api.logger.Error("Cross-model search failed", map[string]any{
+			"error": err.Error(),
+			"tenant_id": req.TenantID,
+		})
+		c.JSON(http.StatusInternalServerError, ErrorResponse{
+			Code:    ErrInternalServer,
+			Message: "Cross-model search operation failed",
+		})
+		return
+	}
 
-	c.JSON(http.StatusNotImplemented, ErrorResponse{
-		Code:    ErrInternalServer,
-		Message: "Cross-model search functionality not yet implemented",
+	c.JSON(http.StatusOK, gin.H{
+		"results": results,
+		"count":   len(results),
+		"search_model": req.SearchModel,
 	})
 }
 
@@ -288,7 +343,7 @@ func (api *EmbeddingAPI) getAgentModels(c *gin.Context) {
 
 // getAgentCosts handles GET /api/embeddings/agents/:agentId/costs
 func (api *EmbeddingAPI) getAgentCosts(c *gin.Context) {
-	_ = c.Param("agentId") // Will be used when metrics are implemented
+	agentID := c.Param("agentId")
 	periodDays := c.DefaultQuery("period_days", "30")
 
 	// Convert to duration
@@ -298,14 +353,24 @@ func (api *EmbeddingAPI) getAgentCosts(c *gin.Context) {
 	}
 	period := time.Duration(days) * 24 * time.Hour
 
-	// TODO: Implement metrics when ServiceV2 exposes MetricsRepository
-	c.JSON(http.StatusNotImplemented, ErrorResponse{
-		Code:    ErrServiceUnavailable,
-		Message: "Cost metrics not yet implemented",
-	})
+	// Create metrics adapter
+	metricsAdapter := NewMetricsRepositoryAdapter(api.embeddingService, api.logger)
+	
+	// Get cost summary
+	costs, err := metricsAdapter.GetAgentCosts(c.Request.Context(), agentID, period)
+	if err != nil {
+		api.logger.Error("Failed to get agent costs", map[string]any{
+			"error": err.Error(),
+			"agent_id": sanitizeLogValue(agentID),
+		})
+		c.JSON(http.StatusInternalServerError, ErrorResponse{
+			Code:    ErrInternalServer,
+			Message: "Failed to retrieve cost metrics",
+		})
+		return
+	}
 
-	// Placeholder for future implementation
-	_ = period
+	c.JSON(http.StatusOK, costs)
 }
 
 // Use the common ErrorResponse from errors.go

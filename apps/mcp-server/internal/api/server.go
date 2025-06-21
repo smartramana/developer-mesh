@@ -6,7 +6,9 @@ import (
 	"net/http"
 	"time"
 
+	"mcp-server/internal/api/events"
 	"mcp-server/internal/api/proxies"
+	"mcp-server/internal/api/tools"
 	"mcp-server/internal/api/websocket"
 	"mcp-server/internal/core"
 
@@ -239,7 +241,25 @@ func NewServer(engine *core.Engine, cfg Config, db *sqlx.DB, cacheClient cache.C
 			// Use adapter to bridge the interface differences
 			contextAdapter := websocket.NewContextManagerAdapter(engine.GetContextManager())
 			s.wsServer.SetContextManager(contextAdapter)
-			// TODO: Set tool registry and event bus when available
+			
+			// Initialize and set tool registry
+			toolRegistry := tools.NewRegistry(observability.DefaultLogger)
+			if err := toolRegistry.RegisterBuiltinTools(); err != nil {
+				observability.DefaultLogger.Error("Failed to register builtin tools", map[string]interface{}{
+					"error": err.Error(),
+				})
+			}
+			toolRegistryAdapter := NewToolRegistryAdapter(toolRegistry)
+			s.wsServer.SetToolRegistry(toolRegistryAdapter)
+			
+			// Initialize and set event bus
+			eventBus := events.NewBus(observability.DefaultLogger, metrics)
+			eventBusAdapter := NewEventBusAdapter(eventBus)
+			s.wsServer.SetEventBus(eventBusAdapter)
+			
+			observability.DefaultLogger.Info("Tool registry and event bus initialized", map[string]interface{}{
+				"tools_count": len(toolRegistry.List()),
+			})
 		}
 
 		observability.DefaultLogger.Info("WebSocket server initialized", map[string]interface{}{
