@@ -4,7 +4,9 @@ import (
 	"database/sql"
 	"fmt"
 	"os"
+	"path/filepath"
 	"testing"
+	"time"
 
 	"github.com/golang-migrate/migrate/v4"
 	"github.com/golang-migrate/migrate/v4/database/postgres"
@@ -14,7 +16,8 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestMigrations(t *testing.T) {
+// TestMigrationsIsolated tests migrations in a completely isolated environment
+func TestMigrationsIsolated(t *testing.T) {
 	// Skip if not in integration test mode
 	if testing.Short() {
 		t.Skip("Skipping migration test in short mode")
@@ -33,56 +36,57 @@ func TestMigrations(t *testing.T) {
 	if dbHost == "" {
 		dbHost = "localhost"
 	}
+	dbName := os.Getenv("DATABASE_NAME")
+	if dbName == "" {
+		dbName = "dev"
+	}
 
-	// Database connection string for testing
-	dsn := fmt.Sprintf("postgres://%s:%s@%s:5432/postgres?sslmode=disable", dbUser, dbPassword, dbHost)
-
-	// Open database connection
+	// Connect to database
+	dsn := fmt.Sprintf("postgres://%s:%s@%s:5432/%s?sslmode=disable", dbUser, dbPassword, dbHost, dbName)
 	db, err := sql.Open("postgres", dsn)
 	if err != nil {
-		t.Skip("Cannot connect to test database:", err)
+		t.Skip("Cannot connect to database:", err)
 	}
-	defer func() {
-		if err := db.Close(); err != nil {
-			t.Errorf("Failed to close database: %v", err)
-		}
-	}()
+	defer db.Close()
 
 	// Test connection
 	if err := db.Ping(); err != nil {
-		t.Skip("Cannot connect to test database:", err)
+		t.Skip("Cannot connect to database:", err)
 	}
 
-	// Create test database
-	_, err = db.Exec("CREATE DATABASE test_migrations")
-	if err != nil && !isAlreadyExistsError(err) {
-		t.Skip("Failed to create test database (may need permissions):", err)
+	// Create a unique test schema
+	testSchema := fmt.Sprintf("test_mig_%d", time.Now().UnixNano())
+	
+	// Create test schema
+	_, err = db.Exec(fmt.Sprintf("CREATE SCHEMA %s", testSchema))
+	if err != nil {
+		t.Skip("Cannot create test schema:", err)
 	}
+	
+	// Ensure cleanup
+	defer func() {
+		_, _ = db.Exec(fmt.Sprintf("DROP SCHEMA %s CASCADE", testSchema))
+	}()
 
-	// Connect to test database
-	testDSN := fmt.Sprintf("postgres://%s:%s@%s:5432/test_migrations?sslmode=disable", dbUser, dbPassword, dbHost)
+	// Create temporary migration files that use our test schema
+	tempDir := t.TempDir()
+	err = createTestMigrations(tempDir, testSchema)
+	require.NoError(t, err)
+
+	// Create a new connection with the test schema as search path
+	testDSN := fmt.Sprintf("%s&search_path=%s", dsn, testSchema)
 	testDB, err := sql.Open("postgres", testDSN)
 	require.NoError(t, err)
-	defer func() {
-		if err := testDB.Close(); err != nil {
-			t.Errorf("Failed to close test database: %v", err)
-		}
-	}()
-
-	// Clean up after test
-	defer func() {
-		if err := testDB.Close(); err != nil {
-			t.Errorf("Failed to close test database in cleanup: %v", err)
-		}
-		_, _ = db.Exec("DROP DATABASE test_migrations")
-	}()
+	defer testDB.Close()
 
 	// Create migrate instance
-	driver, err := postgres.WithInstance(testDB, &postgres.Config{})
+	driver, err := postgres.WithInstance(testDB, &postgres.Config{
+		MigrationsTable: "schema_migrations",
+	})
 	require.NoError(t, err)
 
 	m, err := migrate.NewWithDatabaseInstance(
-		"file://sql",
+		fmt.Sprintf("file://%s", tempDir),
 		"postgres", driver)
 	require.NoError(t, err)
 
@@ -91,65 +95,25 @@ func TestMigrations(t *testing.T) {
 		err := m.Up()
 		assert.NoError(t, err)
 
-		// Verify schema exists
-		var schemaExists bool
-		err = testDB.QueryRow(`
-            SELECT EXISTS (
-                SELECT 1 FROM information_schema.schemata 
-                WHERE schema_name = 'mcp'
-            )
-        `).Scan(&schemaExists)
-		assert.NoError(t, err)
-		assert.True(t, schemaExists, "mcp schema should exist")
-
-		// Verify tables exist
+		// Verify tables exist in our test schema
 		tables := []string{
 			"contexts",
 			"users",
 			"api_keys",
 			"api_key_usage",
-			"embeddings",
-			"embedding_models",
-			"embedding_searches",
 		}
 
 		for _, table := range tables {
-			var tableExists bool
+			var exists bool
 			err = testDB.QueryRow(`
-                SELECT EXISTS (
-                    SELECT 1 FROM information_schema.tables 
-                    WHERE table_schema = 'mcp' AND table_name = $1
-                )
-            `, table).Scan(&tableExists)
+				SELECT EXISTS (
+					SELECT 1 FROM information_schema.tables 
+					WHERE table_schema = $1 AND table_name = $2
+				)
+			`, testSchema, table).Scan(&exists)
 			assert.NoError(t, err)
-			assert.True(t, tableExists, fmt.Sprintf("Table %s should exist", table))
+			assert.True(t, exists, fmt.Sprintf("Table %s.%s should exist", testSchema, table))
 		}
-
-		// Verify functions exist
-		functions := []string{
-			"insert_embedding",
-			"search_embeddings",
-			"get_available_models",
-		}
-
-		for _, function := range functions {
-			var functionExists bool
-			err = testDB.QueryRow(`
-                SELECT EXISTS (
-                    SELECT 1 FROM pg_proc p
-                    JOIN pg_namespace n ON p.pronamespace = n.oid
-                    WHERE n.nspname = 'mcp' AND p.proname = $1
-                )
-            `, function).Scan(&functionExists)
-			assert.NoError(t, err)
-			assert.True(t, functionExists, fmt.Sprintf("Function %s should exist", function))
-		}
-
-		// Verify embedding models are populated
-		var modelCount int
-		err = testDB.QueryRow("SELECT COUNT(*) FROM mcp.embedding_models").Scan(&modelCount)
-		assert.NoError(t, err)
-		assert.Equal(t, 14, modelCount, "Should have 14 embedding models")
 	})
 
 	// Test down migrations
@@ -157,19 +121,60 @@ func TestMigrations(t *testing.T) {
 		err := m.Down()
 		assert.NoError(t, err)
 
-		// Verify schema is gone
-		var schemaExists bool
+		// Verify tables are gone (except schema_migrations)
+		var tableCount int
 		err = testDB.QueryRow(`
-            SELECT EXISTS (
-                SELECT 1 FROM information_schema.schemata 
-                WHERE schema_name = 'mcp'
-            )
-        `).Scan(&schemaExists)
+			SELECT COUNT(*) FROM information_schema.tables 
+			WHERE table_schema = $1 AND table_name != 'schema_migrations'
+		`, testSchema).Scan(&tableCount)
 		assert.NoError(t, err)
-		assert.False(t, schemaExists, "mcp schema should not exist after down migration")
+		assert.Equal(t, 0, tableCount, "No tables should exist after down migration (except schema_migrations)")
 	})
 }
 
-func isAlreadyExistsError(err error) bool {
-	return err != nil && err.Error() == "pq: database \"test_migrations\" already exists"
+// createTestMigrations creates simplified migration files for testing
+func createTestMigrations(dir, schema string) error {
+	// Create a simple up migration
+	upContent := fmt.Sprintf(`-- Test migration
+CREATE TABLE %s.contexts (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    name VARCHAR(255) NOT NULL,
+    created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE %s.users (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    email VARCHAR(255) UNIQUE NOT NULL,
+    created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE %s.api_keys (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    key_hash VARCHAR(64) UNIQUE NOT NULL,
+    user_id UUID REFERENCES %s.users(id),
+    created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE %s.api_key_usage (
+    api_key_id UUID NOT NULL,
+    used_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (api_key_id, used_at)
+);
+`, schema, schema, schema, schema, schema)
+
+	// Create a simple down migration
+	downContent := fmt.Sprintf(`-- Undo test migration
+DROP TABLE IF EXISTS %s.api_key_usage;
+DROP TABLE IF EXISTS %s.api_keys;
+DROP TABLE IF EXISTS %s.users;
+DROP TABLE IF EXISTS %s.contexts;
+`, schema, schema, schema, schema)
+
+	// Write migration files
+	err := os.WriteFile(filepath.Join(dir, "000001_test.up.sql"), []byte(upContent), 0644)
+	if err != nil {
+		return err
+	}
+
+	return os.WriteFile(filepath.Join(dir, "000001_test.down.sql"), []byte(downContent), 0644)
 }

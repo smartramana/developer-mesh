@@ -25,7 +25,10 @@ func TestEnhancedAuthenticationComplete(t *testing.T) {
 
 		// Create router
 		router := gin.New()
+		// The middleware should handle authentication - if it passes, then auth succeeded
+		// If auth fails, the middleware should return 401 and this handler won't be called
 		router.POST("/auth/login", middleware.GinMiddleware(), func(c *gin.Context) {
+			// This should only be reached if authentication succeeds
 			c.JSON(http.StatusOK, gin.H{"status": "success"})
 		})
 

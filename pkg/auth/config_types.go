@@ -14,7 +14,8 @@ type AuthSystemConfig struct {
 // TestRateLimiterConfig returns test-friendly defaults
 func TestRateLimiterConfig() *RateLimiterConfig {
 	return &RateLimiterConfig{
-		MaxAttempts:   3, // Lower for faster tests
+		Enabled:       true, // Enable rate limiting for tests
+		MaxAttempts:   3,    // Lower for faster tests
 		WindowSize:    1 * time.Minute,
 		LockoutPeriod: 5 * time.Minute,
 	}

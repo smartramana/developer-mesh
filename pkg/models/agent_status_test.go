@@ -178,7 +178,7 @@ func TestWorkloadInfo_Calculate(t *testing.T) {
 				CPUUsage:    50,
 				MemoryUsage: 40,
 			},
-			expectedScore: 48, // (3*2+2)*10*0.6 + (50+40)/2*0.4 = 48
+			expectedScore: 66, // (3*2+2)*10*0.6 + (50+40)/2*0.4 = 48 + 18 = 66
 		},
 		{
 			name: "high workload",

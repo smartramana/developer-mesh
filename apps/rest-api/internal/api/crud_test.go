@@ -31,7 +31,7 @@ func TestContextCRUD(t *testing.T) {
 	server := setupTestServer(t)
 	router := setupTestRouter(server)
 
-	tenantID := "test-tenant-" + uuid.New().String()
+	tenantID := uuid.New().String()
 	var contextID string
 	modelID := "test-model-" + uuid.New().String()
 
@@ -212,7 +212,7 @@ func TestAgentCRUD(t *testing.T) {
 	server := setupTestServer(t)
 	router := setupTestRouter(server)
 
-	tenantID := "test-tenant-" + uuid.New().String()
+	tenantID := uuid.New().String()
 	var agentID string
 
 	// Create
@@ -310,7 +310,7 @@ func TestModelCRUD(t *testing.T) {
 	server := setupTestServer(t)
 	router := setupTestRouter(server)
 
-	tenantID := "test-tenant-" + uuid.New().String()
+	tenantID := uuid.New().String()
 	var modelID string
 
 	// Create
@@ -383,7 +383,7 @@ func TestConcurrentWrites(t *testing.T) {
 	server := setupTestServer(t)
 	router := setupTestRouter(server)
 
-	tenantID := "test-tenant-" + uuid.New().String()
+	tenantID := uuid.New().String()
 
 	// Create initial context
 	contextID := createTestContext(t, router, tenantID)

@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"reflect"
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -26,15 +27,19 @@ func NewTestCache() *TestCache {
 	}
 }
 
-// Get retrieves a value from cache, returns zero value if not found
+// Get retrieves a value from cache, returns error if not found
 func (c *TestCache) Get(ctx context.Context, key string, value interface{}) error {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
 
 	stored, exists := c.data[key]
 	if !exists {
-		// Return zero value instead of error - critical for rate limiter
-		return c.setZeroValue(value)
+		// For rate limiter keys, return zero value without error
+		// For other keys (like auth keys), return an error
+		if isRateLimiterKey(key) {
+			return c.setZeroValue(value)
+		}
+		return fmt.Errorf("key not found: %s", key)
 	}
 
 	// Handle different type conversions
@@ -84,6 +89,21 @@ func (c *TestCache) Close() error {
 }
 
 // Helper methods
+
+// isRateLimiterKey checks if a key is used by the rate limiter
+func isRateLimiterKey(key string) bool {
+	// Rate limiter keys typically have patterns like:
+	// "auth:ratelimit:ip:192.168.1.1:count"
+	// "auth:ratelimit:ip:192.168.1.1:lockout"
+	// "rate_limit:ip:192.168.1.1"
+	// "failed_attempts:ip:192.168.1.1"
+	return strings.HasPrefix(key, "auth:ratelimit:") ||
+		strings.HasPrefix(key, "rate_limit:") ||
+		strings.HasPrefix(key, "failed_attempts:") ||
+		strings.Contains(key, ":attempts:") ||
+		strings.Contains(key, ":count") ||
+		strings.Contains(key, ":lockout")
+}
 
 func (c *TestCache) setZeroValue(value interface{}) error {
 	v := reflect.ValueOf(value)

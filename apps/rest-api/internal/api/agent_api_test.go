@@ -50,7 +50,7 @@ func setupAgentAPI(repo repository.AgentRepository, withTenant bool) *gin.Engine
 	r := gin.New()
 	if withTenant {
 		r.Use(func(c *gin.Context) {
-			c.Set("user", map[string]interface{}{"tenant_id": "tenant1"})
+			c.Set("user", map[string]interface{}{"tenant_id": "00000000-0000-0000-0000-000000000001"})
 			c.Next()
 		})
 	}
@@ -87,7 +87,7 @@ func TestCreateAgent_MissingTenant(t *testing.T) {
 func TestListAgents_Success(t *testing.T) {
 	repo := new(MockAgentRepository)
 	agents := []*models.Agent{{ID: "a1", TenantID: uuid.MustParse("00000000-0000-0000-0000-000000000001"), Name: "Agent1"}}
-	repo.On("ListAgents", mock.Anything, "tenant1").Return(agents, nil)
+	repo.On("ListAgents", mock.Anything, "00000000-0000-0000-0000-000000000001").Return(agents, nil)
 
 	r := setupAgentAPI(repo, true)
 	w := httptest.NewRecorder()
@@ -99,7 +99,7 @@ func TestListAgents_Success(t *testing.T) {
 
 func TestUpdateAgent_NotFound(t *testing.T) {
 	repo := new(MockAgentRepository)
-	repo.On("GetAgentByID", mock.Anything, "tenant1", "a1").Return((*models.Agent)(nil), errors.New("not found"))
+	repo.On("GetAgentByID", mock.Anything, "00000000-0000-0000-0000-000000000001", "a1").Return((*models.Agent)(nil), errors.New("not found"))
 
 	r := setupAgentAPI(repo, true)
 	w := httptest.NewRecorder()

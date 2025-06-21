@@ -17,6 +17,7 @@ type RateLimiter struct {
 	localLimits sync.Map // fallback for when cache is unavailable
 
 	// Configuration
+	enabled       bool
 	maxAttempts   int
 	windowSize    time.Duration
 	lockoutPeriod time.Duration
@@ -49,6 +50,7 @@ func NewRateLimiter(cache cache.Cache, logger observability.Logger, config *Rate
 	return &RateLimiter{
 		cache:         cache,
 		logger:        logger,
+		enabled:       config.Enabled,
 		maxAttempts:   config.MaxAttempts,
 		windowSize:    config.WindowSize,
 		lockoutPeriod: config.LockoutPeriod,
@@ -57,6 +59,11 @@ func NewRateLimiter(cache cache.Cache, logger observability.Logger, config *Rate
 
 // CheckLimit checks if the identifier has exceeded rate limits
 func (rl *RateLimiter) CheckLimit(ctx context.Context, identifier string) error {
+	// If rate limiting is disabled, always allow
+	if !rl.enabled {
+		return nil
+	}
+
 	key := fmt.Sprintf("auth:ratelimit:%s", identifier)
 
 	// Try cache first
@@ -70,6 +77,11 @@ func (rl *RateLimiter) CheckLimit(ctx context.Context, identifier string) error 
 
 // RecordAttempt records an authentication attempt
 func (rl *RateLimiter) RecordAttempt(ctx context.Context, identifier string, success bool) {
+	// If rate limiting is disabled, do nothing
+	if !rl.enabled {
+		return
+	}
+
 	key := fmt.Sprintf("auth:ratelimit:%s", identifier)
 
 	if rl.cache != nil {

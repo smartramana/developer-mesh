@@ -125,7 +125,7 @@ func setupAgentAPI(repo repository.AgentRepository, withTenant bool) *gin.Engine
 	r := gin.New()
 	if withTenant {
 		r.Use(func(c *gin.Context) {
-			c.Set("user", map[string]interface{}{"tenant_id": "tenant1"})
+			c.Set("user", map[string]interface{}{"tenant_id": "00000000-0000-0000-0000-000000000001"})
 			c.Next()
 		})
 	}
@@ -140,8 +140,9 @@ func TestCreateAgent_Success(t *testing.T) {
 
 	r := setupAgentAPI(repo, true)
 	w := httptest.NewRecorder()
-	body := []byte(`{"name":"Test Agent"}`)
+	body := []byte(`{"name":"Test Agent","model_id":"gpt-4","type":"assistant"}`)
 	req, _ := http.NewRequest("POST", "/agents", bytes.NewBuffer(body))
+	req.Header.Set("Content-Type", "application/json")
 
 	r.ServeHTTP(w, req)
 	assert.Equal(t, http.StatusCreated, w.Code)
@@ -162,7 +163,7 @@ func TestCreateAgent_MissingTenant(t *testing.T) {
 func TestListAgents_Success(t *testing.T) {
 	repo := new(MockAgentRepository)
 	agents := []*models.Agent{{ID: "a1", TenantID: uuid.MustParse("00000000-0000-0000-0000-000000000001"), Name: "Agent1"}}
-	repo.On("ListAgents", mock.Anything, "tenant1").Return(agents, nil)
+	repo.On("ListAgents", mock.Anything, "00000000-0000-0000-0000-000000000001").Return(agents, nil)
 
 	r := setupAgentAPI(repo, true)
 	w := httptest.NewRecorder()
@@ -186,7 +187,7 @@ func TestUpdateAgent_NotFound(t *testing.T) {
 	req.Header.Set("Content-Type", "application/json")
 
 	r.ServeHTTP(w, req)
-	assert.Equal(t, http.StatusInternalServerError, w.Code) // UpdateAgent error returns 500, not 404
+	assert.Equal(t, http.StatusInternalServerError, w.Code)
 }
 
 // More tests can be added for error cases, unauthorized, etc.
