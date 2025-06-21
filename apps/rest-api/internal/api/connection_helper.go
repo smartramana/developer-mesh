@@ -33,7 +33,11 @@ func (h *ConnectionHelper) ConnectToDatabase(ctx context.Context, config databas
 
 	for attempt := range maxRetries {
 		if attempt > 0 {
-			delay := min(baseDelay*time.Duration(1<<uint(attempt-1)), maxDelay)
+			calculatedDelay := baseDelay * time.Duration(1<<uint(attempt-1))
+			delay := calculatedDelay
+			if calculatedDelay > maxDelay {
+				delay = maxDelay
+			}
 			h.logger.Info("Retrying database connection", map[string]any{
 				"attempt": attempt + 1,
 				"delay":   delay.String(),

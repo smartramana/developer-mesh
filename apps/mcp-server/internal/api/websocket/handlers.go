@@ -12,6 +12,17 @@ import (
 	"github.com/google/uuid"
 )
 
+// Define context key types to avoid collisions
+type contextKey string
+
+const (
+	contextKeyTenantID  contextKey = "tenant_id"
+	contextKeyUserID    contextKey = "user_id"
+	contextKeyClaims    contextKey = "claims"
+	contextKeyRequestID contextKey = "request_id"
+	contextKeyMethod    contextKey = "method"
+)
+
 // MessageHandler processes a specific message type
 type MessageHandler func(ctx context.Context, conn *Connection, params json.RawMessage) (interface{}, error)
 
@@ -161,9 +172,9 @@ func (s *Server) processMessage(ctx context.Context, conn *Connection, msg *ws.M
 	// Check authorization
 	if conn.state != nil && conn.state.Claims != nil {
 		// Add claims to context
-		ctx = context.WithValue(ctx, "tenant_id", conn.state.Claims.TenantID)
-		ctx = context.WithValue(ctx, "user_id", conn.state.Claims.UserID)
-		ctx = context.WithValue(ctx, "claims", conn.state.Claims)
+		ctx = context.WithValue(ctx, contextKeyTenantID, conn.state.Claims.TenantID)
+		ctx = context.WithValue(ctx, contextKeyUserID, conn.state.Claims.UserID)
+		ctx = context.WithValue(ctx, contextKeyClaims, conn.state.Claims)
 
 		// Check method-specific permissions
 		if err := s.checkMethodPermission(conn.state.Claims, msg.Method); err != nil {
@@ -190,8 +201,8 @@ func (s *Server) processMessage(ctx context.Context, conn *Connection, msg *ws.M
 	}
 
 	// Add request metadata to context
-	ctx = context.WithValue(ctx, "request_id", msg.ID)
-	ctx = context.WithValue(ctx, "method", msg.Method)
+	ctx = context.WithValue(ctx, contextKeyRequestID, msg.ID)
+	ctx = context.WithValue(ctx, contextKeyMethod, msg.Method)
 
 	// Record method call metric
 	if s.metricsCollector != nil {

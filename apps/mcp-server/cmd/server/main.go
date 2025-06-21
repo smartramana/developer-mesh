@@ -1300,7 +1300,13 @@ func runMigrations(ctx context.Context, db *database.Database, logger observabil
 	if err != nil {
 		return fmt.Errorf("failed to create migrator: %w", err)
 	}
-	defer m.Close()
+	defer func() {
+		if _, err := m.Close(); err != nil {
+			logger.Error("Failed to close migrator", map[string]interface{}{
+				"error": err.Error(),
+			})
+		}
+	}()
 
 	// Get current version
 	version, dirty, err := m.Version()

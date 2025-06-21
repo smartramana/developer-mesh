@@ -197,7 +197,7 @@ func (api *EmbeddingAPI) crossModelSearch(c *gin.Context) {
 		TenantID:       req.TenantID,
 		ContextID:      req.ContextID,
 		Limit:          req.Limit,
-		Threshold:      req.MinSimilarity,
+		Threshold:      float64(req.MinSimilarity),
 	}
 
 	// Add metadata filter if provided

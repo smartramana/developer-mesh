@@ -130,7 +130,12 @@ func (l *DatabaseRuleLoader) LoadRules(ctx context.Context) ([]Rule, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to query rules: %w", err)
 	}
-	defer rows.Close()
+	defer func() {
+		if err := rows.Close(); err != nil {
+			// Log error if logger is available
+			_ = err
+		}
+	}()
 
 	var rules []Rule
 	for rows.Next() {
@@ -290,7 +295,12 @@ func (l *DatabasePolicyLoader) LoadPolicies(ctx context.Context) ([]Policy, erro
 	if err != nil {
 		return nil, fmt.Errorf("failed to query policies: %w", err)
 	}
-	defer rows.Close()
+	defer func() {
+		if err := rows.Close(); err != nil {
+			// Log error if logger is available
+			_ = err
+		}
+	}()
 
 	var policies []Policy
 	for rows.Next() {

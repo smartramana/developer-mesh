@@ -180,11 +180,17 @@ func TestContextOperations(t *testing.T) {
 		ctx := context.Background()
 
 		// Set values with string keys directly
+		// nolint:staticcheck // Testing backwards compatibility with string keys
 		ctx = context.WithValue(ctx, "correlation_id", "corr-string")
+		// nolint:staticcheck // Testing backwards compatibility with string keys
 		ctx = context.WithValue(ctx, "causation_id", "caus-string")
+		// nolint:staticcheck // Testing backwards compatibility with string keys
 		ctx = context.WithValue(ctx, "tenant_id", "tenant-string")
+		// nolint:staticcheck // Testing backwards compatibility with string keys
 		ctx = context.WithValue(ctx, "user_id", "user-string")
+		// nolint:staticcheck // Testing backwards compatibility with string keys
 		ctx = context.WithValue(ctx, "request_id", "req-string")
+		// nolint:staticcheck // Testing backwards compatibility with string keys
 		ctx = context.WithValue(ctx, "operation", "op-string")
 
 		// Getters should still work

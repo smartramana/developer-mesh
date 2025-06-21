@@ -9,6 +9,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/S-Corkum/devops-mcp/pkg/observability"
 	"github.com/jmoiron/sqlx"
 )
 
@@ -25,13 +26,15 @@ type SQLRepository struct {
 	db               *sqlx.DB
 	embeddingService EmbeddingService
 	defaultModel     string
+	logger           observability.Logger
 }
 
 // NewRepository creates a new search repository with the given database
 func NewRepository(db *sqlx.DB) Repository {
 	return &SQLRepository{
 		db:           db,
-		defaultModel: "amazon.titan-embed-text-v1", // Default Bedrock model
+		defaultModel: "amazon.titan-embed-text-v1",  // Default Bedrock model
+		logger:       observability.NewNoopLogger(), // Default no-op logger
 	}
 }
 
@@ -41,6 +44,7 @@ func NewRepositoryWithEmbedding(db *sqlx.DB, embeddingService EmbeddingService, 
 		db:               db,
 		embeddingService: embeddingService,
 		defaultModel:     defaultModel,
+		logger:           observability.NewNoopLogger(), // Default no-op logger
 	}
 }
 
@@ -325,7 +329,13 @@ func (r *SQLRepository) SearchByVector(ctx context.Context, vector []float32, op
 	if err != nil {
 		return nil, fmt.Errorf("vector search query failed: %w", err)
 	}
-	defer rows.Close()
+	defer func() {
+		if err := rows.Close(); err != nil {
+			r.logger.Error("Failed to close rows", map[string]interface{}{
+				"error": err.Error(),
+			})
+		}
+	}()
 
 	// Process results
 	results := []*SearchResult{}

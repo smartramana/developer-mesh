@@ -859,46 +859,6 @@ func (s *PerformanceBasedStrategy) GetName() string {
 	return "performance_based"
 }
 
-// calculateAgentPerformance calculates performance metrics from agent data
-func (s *PerformanceBasedStrategy) calculateAgentPerformance(ctx context.Context, agent *models.Agent, taskType string) *models.AgentPerformance {
-	perf := &models.AgentPerformance{
-		AgentID:     agent.ID,
-		SuccessRate: 0.8, // Default 80%
-		SpeedScore:  0.7, // Default 70%
-		LoadFactor:  0.5, // Default 50%
-	}
-
-	if agent.Metadata != nil {
-		// Extract historical performance data
-		if successRate, ok := agent.Metadata["success_rate"].(float64); ok {
-			perf.SuccessRate = successRate
-		}
-		if speedScore, ok := agent.Metadata["speed_score"].(float64); ok {
-			perf.SpeedScore = speedScore
-		}
-
-		// Calculate from task history
-		if tasksCompleted, ok := agent.Metadata["tasks_completed"].(float64); ok {
-			perf.TasksCompleted = int64(tasksCompleted)
-		}
-		if tasksFailed, ok := agent.Metadata["tasks_failed"].(float64); ok {
-			perf.TasksFailed = int64(tasksFailed)
-		}
-
-		// Recalculate success rate from task counts
-		if perf.TasksCompleted > 0 {
-			perf.SuccessRate = float64(perf.TasksCompleted-perf.TasksFailed) / float64(perf.TasksCompleted)
-		}
-	}
-
-	// Get current workload
-	if workload, err := s.agentService.GetAgentWorkload(ctx, agent.ID); err == nil {
-		perf.LoadFactor = workload.LoadScore
-	}
-
-	return perf
-}
-
 // CostOptimizedStrategy assigns tasks based on cost optimization
 type CostOptimizedStrategy struct {
 	logger  observability.Logger
@@ -1062,69 +1022,6 @@ func extractRequiredCapabilities(task *models.Task) []string {
 	}
 
 	return caps
-}
-
-func calculateCapabilityScore(agentCaps []string, requiredCaps []string) float64 {
-	if len(requiredCaps) == 0 {
-		return 1.0
-	}
-
-	// Create a set of agent capabilities
-	capSet := make(map[string]bool)
-	for _, cap := range agentCaps {
-		capSet[cap] = true
-	}
-
-	// Calculate match percentage
-	matches := 0
-	for _, req := range requiredCaps {
-		if capSet[req] {
-			matches++
-		}
-	}
-
-	return float64(matches) / float64(len(requiredCaps))
-}
-
-func calculateAgentPerformance(ctx context.Context, agentID string, taskType string) models.AgentPerformance {
-	// In a production system, this would query historical performance data
-	// from a metrics repository. For now, we calculate based on some heuristics.
-
-	// Default performance metrics
-	perf := models.AgentPerformance{
-		AgentID:               agentID,
-		TasksCompleted:        100,  // Assume 100 tasks completed
-		TasksFailed:           5,    // 5 failures
-		AverageCompletionTime: 300,  // 5 minutes average
-		SuccessRate:           0.95, // 95% success rate
-		LoadFactor:            0.5,  // 50% loaded
-		SpeedScore:            0.8,  // 80% speed efficiency
-		TaskTypeMetrics:       make(map[string]models.TaskMetrics),
-	}
-
-	// Adjust based on task type
-	switch taskType {
-	case "build":
-		perf.AverageCompletionTime = 600 // Builds take longer
-		perf.SpeedScore = 0.7
-	case "test":
-		perf.AverageCompletionTime = 300
-		perf.SpeedScore = 0.85
-	case "deploy":
-		perf.AverageCompletionTime = 180
-		perf.SuccessRate = 0.98 // Deploys should be highly reliable
-	case "monitor":
-		perf.AverageCompletionTime = 60
-		perf.SpeedScore = 0.95 // Monitoring should be fast
-	}
-
-	// In production, we would also:
-	// 1. Query recent task completion rates for this agent
-	// 2. Calculate actual average completion times
-	// 3. Check current workload from agent service
-	// 4. Factor in recent failures or timeouts
-
-	return perf
 }
 
 // extractRequiredCapabilities extracts required capabilities from the task

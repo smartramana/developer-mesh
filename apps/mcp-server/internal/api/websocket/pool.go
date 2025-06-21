@@ -219,6 +219,7 @@ func NewConnectionPoolManager(size int) *ConnectionPoolManager {
 	}
 
 	// Pre-allocate minimum connections
+preAllocateLoop:
 	for i := 0; i < minSize; i++ {
 		conn := &Connection{
 			send: make(chan []byte, 256),
@@ -228,7 +229,7 @@ func NewConnectionPoolManager(size int) *ConnectionPoolManager {
 			manager.created++
 		default:
 			// Pool is full, stop pre-filling
-			break
+			break preAllocateLoop
 		}
 	}
 
@@ -369,6 +370,7 @@ func (m *ConnectionPoolManager) cleanupIdleConnections() {
 		tempConns := make([]*Connection, 0, poolSize)
 
 		// Drain the pool
+	drainLoop:
 		for i := 0; i < poolSize; i++ {
 			select {
 			case c := <-m.pool:
@@ -385,7 +387,7 @@ func (m *ConnectionPoolManager) cleanupIdleConnections() {
 					tempConns = append(tempConns, c)
 				}
 			default:
-				break
+				break drainLoop
 			}
 		}
 
@@ -421,6 +423,7 @@ func (m *ConnectionPoolManager) maintain() {
 		// Ensure minimum pool size
 		if currentSize < m.minSize {
 			toCreate := m.minSize - currentSize
+		createLoop:
 			for i := 0; i < toCreate; i++ {
 				conn := &Connection{
 					send: make(chan []byte, 256),
@@ -433,7 +436,7 @@ func (m *ConnectionPoolManager) maintain() {
 					m.mu.Unlock()
 				default:
 					// Pool is full
-					break
+					break createLoop
 				}
 			}
 		}

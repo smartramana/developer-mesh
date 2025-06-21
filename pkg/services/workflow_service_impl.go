@@ -5965,14 +5965,16 @@ func (s *workflowService) executeWebhookStep(ctx context.Context, execution *mod
 				"attempt": attempt + 1,
 				"status":  resp.StatusCode,
 			})
-			resp.Body.Close()
+			_ = resp.Body.Close()
 		}
 	}
 
 	if err != nil {
 		return nil, errors.Wrap(err, "webhook request failed after retries")
 	}
-	defer resp.Body.Close()
+	defer func() {
+		_ = resp.Body.Close()
+	}()
 
 	// Read response body
 	responseBody, err := io.ReadAll(resp.Body)

@@ -436,7 +436,7 @@ func (e *engine) removeFromCategory(rule *Rule) {
 
 // matchesFilters checks if rule matches the given filters
 func (e *engine) matchesFilters(rule *Rule, filters map[string]interface{}) bool {
-	if filters == nil || len(filters) == 0 {
+	if len(filters) == 0 {
 		return true
 	}
 

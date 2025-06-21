@@ -154,7 +154,7 @@ func (s *Server) ValidateJWT(tokenString string) (*auth.Claims, error) {
 	}
 
 	// Check expiration
-	if claims.ExpiresAt != nil && claims.ExpiresAt.Time.Before(time.Now()) {
+	if claims.ExpiresAt != nil && claims.ExpiresAt.Before(time.Now()) {
 		return nil, errors.New("token expired")
 	}
 

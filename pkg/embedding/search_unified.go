@@ -479,10 +479,8 @@ func (s *UnifiedSearchService) convertToRepoOptions(options *SearchOptions) *rep
 
 	// Determine ranking algorithm from weight factors
 	rankingAlgorithm := "cosine"
-	if options.WeightFactors != nil {
-		// WeightFactors is map[string]float32, so we can't store algorithm there
-		// Default to cosine for now
-	}
+	// WeightFactors is map[string]float32, so we can't store algorithm there
+	// Default to cosine for now
 
 	return &repositorySearch.SearchOptions{
 		Limit:               options.Limit,
@@ -668,23 +666,23 @@ func (s *UnifiedSearchService) processCrossModelResults(rows *sql.Rows, req Cros
 		}
 
 		// Calculate normalized score
-		result.NormalizedScore = s.normalizeScore(
-			result.RawSimilarity,
+		result.Similarity = float32(s.normalizeScore(
+			float64(result.RawSimilarity),
 			result.OriginalModel,
 			req.SearchModel,
 			result.OriginalDimension,
 			targetDimension,
-		)
+		))
 
 		// Get model quality score
-		result.ModelQualityScore = s.getModelQualityScore(result.OriginalModel)
+		result.ModelQualityScore = float32(s.getModelQualityScore(result.OriginalModel))
 
 		// Calculate final score
-		result.FinalScore = s.calculateFinalScore(
-			result.NormalizedScore,
-			result.ModelQualityScore,
+		result.FinalScore = float32(s.calculateFinalScore(
+			float64(result.Similarity),
+			float64(result.ModelQualityScore),
 			req.TaskType,
-		)
+		))
 
 		results = append(results, result)
 	}
@@ -801,7 +799,7 @@ func (s *UnifiedSearchService) keywordSearch(ctx context.Context, req HybridSear
 		}
 
 		// Normalize keyword score to 0-1 range
-		r.KeywordScore = math.Min(1.0, rank/4.0)
+		r.KeywordScore = float32(math.Min(1.0, rank/4.0))
 		results = append(results, r)
 	}
 
@@ -815,7 +813,7 @@ func (s *UnifiedSearchService) mergeHybridResults(semantic, keyword []HybridSear
 	// Add semantic results
 	for i := range semantic {
 		r := semantic[i]
-		r.HybridScore = weight * r.SemanticScore
+		r.HybridScore = float32(weight) * r.SemanticScore
 		resultMap[r.ID] = &r
 	}
 
@@ -825,10 +823,10 @@ func (s *UnifiedSearchService) mergeHybridResults(semantic, keyword []HybridSear
 		if existing, ok := resultMap[k.ID]; ok {
 			// Combine scores
 			existing.KeywordScore = k.KeywordScore
-			existing.HybridScore = weight*existing.SemanticScore + (1-weight)*k.KeywordScore
+			existing.HybridScore = float32(weight)*existing.SemanticScore + float32(1-weight)*k.KeywordScore
 		} else {
 			// Add new result
-			k.HybridScore = (1 - weight) * k.KeywordScore
+			k.HybridScore = float32(1-weight) * k.KeywordScore
 			resultMap[k.ID] = &k
 		}
 	}
@@ -882,6 +880,22 @@ func (s *UnifiedSearchService) getModelQualityScore(model string) float64 {
 		return score
 	}
 	return 0.80 // Default score for unknown models
+}
+
+func getModelFamily(model string) string {
+	if strings.Contains(model, "text-embedding-ada") || strings.Contains(model, "text-embedding-3") {
+		return "openai"
+	}
+	if strings.Contains(model, "voyage") {
+		return "voyage"
+	}
+	if strings.Contains(model, "amazon.titan") || strings.Contains(model, "cohere") {
+		return "bedrock"
+	}
+	if strings.Contains(model, "embed-") {
+		return "cohere"
+	}
+	return "unknown"
 }
 
 func (s *UnifiedSearchService) getModelCalibration(sourceModel, targetModel string) float64 {

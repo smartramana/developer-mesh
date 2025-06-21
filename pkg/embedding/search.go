@@ -151,16 +151,22 @@ type HybridSearchRequest struct {
 	MetadataFilter map[string]interface{} `json:"metadata_filter,omitempty"`
 	// Options for additional search parameters
 	Options *SearchOptions `json:"options,omitempty"`
+	// QueryEmbedding allows pre-computed embedding to be passed
+	QueryEmbedding []float32 `json:"query_embedding,omitempty"`
 }
 
 // HybridSearchResult represents a result from hybrid search
 type HybridSearchResult struct {
+	// Embed the cross-model search result
+	CrossModelSearchResult
 	// Result is the combined search result
 	Result *SearchResult `json:"result"`
 	// SemanticScore is the semantic similarity score
 	SemanticScore float32 `json:"semantic_score"`
 	// KeywordScore is the keyword relevance score
 	KeywordScore float32 `json:"keyword_score"`
+	// HybridScore is the combined score
+	HybridScore float32 `json:"hybrid_score"`
 }
 
 // AdvancedSearchService extends SearchService with cross-model and hybrid search capabilities
