@@ -191,6 +191,10 @@ type ConnectionPoolManager struct {
 	destroyed uint64
 	borrowed  uint64
 	returned  uint64
+	
+	// Track idle connections
+	idleTracker map[*Connection]time.Time
+	trackerMu   sync.RWMutex
 }
 
 // NewConnectionPoolManager creates a new connection pool manager
@@ -211,6 +215,7 @@ func NewConnectionPoolManager(size int) *ConnectionPoolManager {
 		minSize:     minSize,
 		maxSize:     maxSize,
 		idleTimeout: 5 * time.Minute,
+		idleTracker: make(map[*Connection]time.Time),
 	}
 
 	// Pre-allocate minimum connections
@@ -241,6 +246,10 @@ func (m *ConnectionPoolManager) Get() *Connection {
 	
 	select {
 	case conn := <-m.pool:
+		// Remove from idle tracker since it's now in use
+		m.trackerMu.Lock()
+		delete(m.idleTracker, conn)
+		m.trackerMu.Unlock()
 		return conn
 	default:
 		// Create new connection if pool is empty
@@ -279,6 +288,10 @@ func (m *ConnectionPoolManager) Put(conn *Connection) {
 		select {
 		case m.pool <- conn:
 			// Successfully returned to pool
+			// Track when this connection became idle
+			m.trackerMu.Lock()
+			m.idleTracker[conn] = time.Now()
+			m.trackerMu.Unlock()
 		default:
 			// Pool is full, destroy the connection
 			m.mu.Lock()
@@ -333,6 +346,68 @@ func (m *ConnectionPoolManager) DetailedStats() map[string]interface{} {
 	}
 }
 
+// cleanupIdleConnections removes connections that have been idle too long
+func (m *ConnectionPoolManager) cleanupIdleConnections() {
+	m.trackerMu.Lock()
+	defer m.trackerMu.Unlock()
+	
+	now := time.Now()
+	toRemove := make([]*Connection, 0)
+	
+	// Find connections that have been idle too long
+	for conn, idleTime := range m.idleTracker {
+		if now.Sub(idleTime) > m.idleTimeout {
+			toRemove = append(toRemove, conn)
+		}
+	}
+	
+	// Remove idle connections from the pool
+	for _, conn := range toRemove {
+		// Try to remove from pool by draining it temporarily
+		removed := false
+		poolSize := len(m.pool)
+		tempConns := make([]*Connection, 0, poolSize)
+		
+		// Drain the pool
+		for i := 0; i < poolSize; i++ {
+			select {
+			case c := <-m.pool:
+				if c == conn {
+					removed = true
+					// Destroy this connection
+					if c.send != nil {
+						close(c.send)
+					}
+					m.mu.Lock()
+					m.destroyed++
+					m.mu.Unlock()
+				} else {
+					tempConns = append(tempConns, c)
+				}
+			default:
+				break
+			}
+		}
+		
+		// Put non-idle connections back
+		for _, c := range tempConns {
+			select {
+			case m.pool <- c:
+			default:
+				// This shouldn't happen but handle gracefully
+				if c.send != nil {
+					close(c.send)
+				}
+			}
+		}
+		
+		// Remove from tracker if we found and removed it
+		if removed {
+			delete(m.idleTracker, conn)
+		}
+	}
+}
+
 // maintain performs periodic pool maintenance
 func (m *ConnectionPoolManager) maintain() {
 	ticker := time.NewTicker(30 * time.Second)
@@ -363,9 +438,8 @@ func (m *ConnectionPoolManager) maintain() {
 			}
 		}
 		
-		// TODO: Implement idle connection cleanup
-		// This would involve tracking connection creation time
-		// and removing connections that have been idle too long
+		// Clean up idle connections
+		m.cleanupIdleConnections()
 	}
 }
 

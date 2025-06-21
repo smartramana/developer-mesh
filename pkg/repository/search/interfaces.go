@@ -21,13 +21,18 @@ func FilterFromContentHash(contentHash string) Filter {
 
 // SearchOptions defines options for search operations
 type SearchOptions struct {
-	Limit         int
-	Offset        int
-	MinSimilarity float32
-	Filters       []SearchFilter
-	Sorts         []SearchSort
-	ContentTypes  []string
-	WeightFactors map[string]float32
+	Limit               int                       // Maximum number of results to return
+	Offset              int                       // Number of results to skip
+	MinSimilarity       float32                   // Minimum similarity score (0-1)
+	SimilarityThreshold float32                   // Alias for MinSimilarity for backward compatibility
+	MetadataFilters     map[string]interface{}    // JSONB metadata filters
+	HybridSearch        bool                      // Combine text + vector search
+	RankingAlgorithm    string                    // "cosine", "euclidean", "dot_product"
+	MaxResults          int                       // Alias for Limit for backward compatibility
+	Filters             []SearchFilter            // Structured filters
+	Sorts               []SearchSort              // Sort criteria
+	ContentTypes        []string                  // Filter by content types
+	WeightFactors       map[string]float32        // Weights for hybrid search
 }
 
 // SearchFilter defines a filter for search operations

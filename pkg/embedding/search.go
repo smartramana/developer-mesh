@@ -71,3 +71,14 @@ type SearchService interface {
 	// SearchByContentID performs a "more like this" search based on an existing content ID
 	SearchByContentID(ctx context.Context, contentID string, options *SearchOptions) (*SearchResults, error)
 }
+
+// AdvancedSearchService extends SearchService with cross-model and hybrid search capabilities
+type AdvancedSearchService interface {
+	SearchService
+	
+	// CrossModelSearch performs search across embeddings from different models
+	CrossModelSearch(ctx context.Context, req CrossModelSearchRequest) ([]CrossModelSearchResult, error)
+	
+	// HybridSearch performs hybrid search combining semantic and keyword search
+	HybridSearch(ctx context.Context, req HybridSearchRequest) ([]HybridSearchResult, error)
+}
