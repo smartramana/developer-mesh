@@ -97,7 +97,7 @@ func (s *Server) ValidateConnection(token string) (*auth.Claims, error) {
 	if err == nil {
 		return claims, nil
 	}
-	
+
 	// If JWT fails, try API key validation
 	if s.ValidateAPIKey(token) {
 		// Create claims for API key auth
@@ -110,7 +110,7 @@ func (s *Server) ValidateConnection(token string) (*auth.Claims, error) {
 			Scopes:   []string{"api:access"}, // Default scopes for API keys
 		}, nil
 	}
-	
+
 	// If we have an auth service, use it as fallback
 	if s.auth != nil {
 		user, err := s.auth.ValidateJWT(context.Background(), token)
@@ -143,32 +143,32 @@ func (s *Server) ValidateJWT(tokenString string) (*auth.Claims, error) {
 		}
 		return s.getSigningKey(), nil
 	})
-	
+
 	if err != nil {
 		return nil, errors.New("invalid token")
 	}
-	
+
 	claims, ok := token.Claims.(*auth.Claims)
 	if !ok || !token.Valid {
 		return nil, errors.New("invalid token claims")
 	}
-	
+
 	// Check expiration
 	if claims.ExpiresAt != nil && claims.ExpiresAt.Time.Before(time.Now()) {
 		return nil, errors.New("token expired")
 	}
-	
+
 	// Validate standard claims
 	if claims.UserID == "" || claims.TenantID == "" {
 		return nil, errors.New("missing required claims")
 	}
-	
+
 	s.logger.Debug("JWT validated successfully", map[string]interface{}{
 		"user_id":   claims.UserID,
 		"tenant_id": claims.TenantID,
 		"scopes":    claims.Scopes,
 	})
-	
+
 	return claims, nil
 }
 
@@ -177,7 +177,7 @@ func (s *Server) ValidateAPIKey(key string) bool {
 	if len(s.config.Security.APIKeys) == 0 {
 		return false
 	}
-	
+
 	// Check if the key exists in our allowed list
 	for _, validKey := range s.config.Security.APIKeys {
 		if validKey == key {
@@ -185,7 +185,7 @@ func (s *Server) ValidateAPIKey(key string) bool {
 			return true
 		}
 	}
-	
+
 	return false
 }
 
@@ -195,18 +195,18 @@ func (s *Server) CheckIPWhitelist(ip string) bool {
 	if len(s.config.Security.IPWhitelist) == 0 {
 		return true
 	}
-	
+
 	// Check if IP is in whitelist
 	for _, allowedIP := range s.config.Security.IPWhitelist {
 		if allowedIP == ip {
 			return true
 		}
 	}
-	
+
 	s.logger.Warn("IP not in whitelist", map[string]interface{}{
 		"ip": ip,
 	})
-	
+
 	return false
 }
 
@@ -217,50 +217,50 @@ func (s *Server) EnhancedAuth(ctx context.Context, token string, clientIP string
 		s.metricsCollector.RecordError("auth_ip_blocked")
 		return nil, errors.New("IP address not allowed")
 	}
-	
+
 	// Check IP rate limiting
 	if s.ipRateLimiter != nil && !s.ipRateLimiter.Allow(clientIP) {
 		s.metricsCollector.RecordError("auth_rate_limit_ip")
 		return nil, errors.New("rate limit exceeded for IP")
 	}
-	
+
 	// Validate authentication token
 	claims, err := s.ValidateConnection(token)
 	if err != nil {
 		s.metricsCollector.RecordError("auth_failed")
 		return nil, err
 	}
-	
+
 	// Check user/tenant rate limiting
 	userKey := fmt.Sprintf("user:%s", claims.UserID)
 	tenantKey := fmt.Sprintf("tenant:%s", claims.TenantID)
-	
+
 	// User rate limiting
 	if s.ipRateLimiter != nil && !s.ipRateLimiter.Allow(userKey) {
 		s.metricsCollector.RecordError("auth_rate_limit_user")
 		return nil, errors.New("rate limit exceeded for user")
 	}
-	
+
 	// Tenant rate limiting
 	if s.ipRateLimiter != nil && !s.ipRateLimiter.Allow(tenantKey) {
 		s.metricsCollector.RecordError("auth_rate_limit_tenant")
 		return nil, errors.New("rate limit exceeded for tenant")
 	}
-	
+
 	// Check role-based connection limits
 	if err := s.checkConnectionLimits(claims); err != nil {
 		return nil, err
 	}
-	
+
 	// Audit log authentication event
 	s.logger.Info("Authentication successful", map[string]interface{}{
-		"user_id":    claims.UserID,
-		"tenant_id":  claims.TenantID,
-		"client_ip":  clientIP,
-		"auth_type":  "enhanced",
-		"timestamp":  time.Now().UTC(),
+		"user_id":   claims.UserID,
+		"tenant_id": claims.TenantID,
+		"client_ip": clientIP,
+		"auth_type": "enhanced",
+		"timestamp": time.Now().UTC(),
 	})
-	
+
 	// Record success metrics
 	if s.metrics != nil {
 		s.metrics.IncrementCounterWithLabels("auth_success", 1, map[string]string{
@@ -268,7 +268,7 @@ func (s *Server) EnhancedAuth(ctx context.Context, token string, clientIP string
 			"auth_type": "enhanced",
 		})
 	}
-	
+
 	return claims, nil
 }
 
@@ -277,7 +277,7 @@ func (s *Server) checkConnectionLimits(claims *auth.Claims) error {
 	// Count current connections for this user
 	userConnections := 0
 	tenantConnections := 0
-	
+
 	s.mu.RLock()
 	for _, conn := range s.connections {
 		if conn.state != nil && conn.state.Claims != nil {
@@ -290,11 +290,11 @@ func (s *Server) checkConnectionLimits(claims *auth.Claims) error {
 		}
 	}
 	s.mu.RUnlock()
-	
+
 	// Define role-based limits
 	userLimit := 5    // Default user limit
 	tenantLimit := 50 // Default tenant limit
-	
+
 	// Check for admin role
 	for _, scope := range claims.Scopes {
 		if scope == "admin" {
@@ -303,19 +303,19 @@ func (s *Server) checkConnectionLimits(claims *auth.Claims) error {
 			break
 		}
 	}
-	
+
 	// Check user limit
 	if userConnections >= userLimit {
 		s.metricsCollector.RecordError("auth_user_connection_limit")
 		return fmt.Errorf("user connection limit exceeded (%d/%d)", userConnections, userLimit)
 	}
-	
+
 	// Check tenant limit
 	if tenantConnections >= tenantLimit {
 		s.metricsCollector.RecordError("auth_tenant_connection_limit")
 		return fmt.Errorf("tenant connection limit exceeded (%d/%d)", tenantConnections, tenantLimit)
 	}
-	
+
 	return nil
 }
 
@@ -335,22 +335,22 @@ type AuthAuditLog struct {
 func (s *Server) LogAuthEvent(event AuthAuditLog) {
 	// Convert to structured log
 	s.logger.Info("Authentication audit event", map[string]interface{}{
-		"event":      event.EventType,
-		"user_id":    event.UserID,
-		"tenant_id":  event.TenantID,
-		"client_ip":  event.ClientIP,
-		"success":    event.Success,
-		"error":      event.ErrorReason,
-		"metadata":   event.Metadata,
-		"timestamp":  event.Timestamp,
+		"event":     event.EventType,
+		"user_id":   event.UserID,
+		"tenant_id": event.TenantID,
+		"client_ip": event.ClientIP,
+		"success":   event.Success,
+		"error":     event.ErrorReason,
+		"metadata":  event.Metadata,
+		"timestamp": event.Timestamp,
 	})
-	
+
 	// Record metrics
 	successStr := "false"
 	if event.Success {
 		successStr = "true"
 	}
-	
+
 	if s.metrics != nil {
 		s.metrics.IncrementCounterWithLabels("auth_audit_events", 1, map[string]string{
 			"event_type": event.EventType,
@@ -366,7 +366,7 @@ func (s *Server) getSigningKey() []byte {
 	if s.config.Security.JWTSecret != "" {
 		return []byte(s.config.Security.JWTSecret)
 	}
-	
+
 	// Fallback to environment variable or default
 	// This should be properly configured in production
 	return []byte("devops-mcp-jwt-secret-key")
@@ -514,7 +514,7 @@ func (c *AntiReplayCache) cleanup() {
 
 // Enhanced auth features are already integrated into the Server struct in server.go:
 // - sessionManager  *SessionManager
-// - ipRateLimiter   *IPRateLimiter  
+// - ipRateLimiter   *IPRateLimiter
 // - antiReplayCache *AntiReplayCache
 
 // ValidateMessageAuth validates authentication for a single message

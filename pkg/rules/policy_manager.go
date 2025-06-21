@@ -23,14 +23,14 @@ type PolicyManagerConfig struct {
 
 // policyManager implements the PolicyManager interface
 type policyManager struct {
-	mu         sync.RWMutex
-	policies   map[string]*Policy
-	cache      cache.Cache
-	config     PolicyManagerConfig
-	logger     observability.Logger
-	metrics    observability.MetricsClient
-	loadFunc   func() ([]Policy, error)
-	stopChan   chan struct{}
+	mu       sync.RWMutex
+	policies map[string]*Policy
+	cache    cache.Cache
+	config   PolicyManagerConfig
+	logger   observability.Logger
+	metrics  observability.MetricsClient
+	loadFunc func() ([]Policy, error)
+	stopChan chan struct{}
 }
 
 // NewPolicyManager creates a new policy manager
@@ -100,13 +100,13 @@ func (pm *policyManager) SetPolicyLoader(loader PolicyLoader) error {
 	if loader == nil {
 		return fmt.Errorf("policy loader cannot be nil")
 	}
-	
+
 	pm.mu.Lock()
 	pm.loadFunc = func() ([]Policy, error) {
 		return loader.LoadPolicies(context.Background())
 	}
 	pm.mu.Unlock()
-	
+
 	return nil
 }
 
@@ -115,7 +115,7 @@ func (pm *policyManager) StartHotReload(ctx context.Context) error {
 	if !pm.config.HotReload {
 		return fmt.Errorf("hot reload is disabled")
 	}
-	
+
 	pm.mu.Lock()
 	if pm.loadFunc == nil {
 		pm.mu.Unlock()
@@ -147,7 +147,7 @@ func (pm *policyManager) StartHotReload(ctx context.Context) error {
 			}
 		}
 	}()
-	
+
 	return nil
 }
 

@@ -521,11 +521,11 @@ func (s *ServiceV2) BatchGenerateEmbeddings(ctx context.Context, reqs []Generate
 // GenerateBatch generates embeddings for multiple texts with progress tracking
 func (s *ServiceV2) GenerateBatch(ctx context.Context, texts []string, model string) ([][]float32, error) {
 	const batchSize = 100
-	
+
 	if len(texts) == 0 {
 		return [][]float32{}, nil
 	}
-	
+
 	// Use default model if not specified
 	if model == "" {
 		// Find first available model
@@ -540,7 +540,7 @@ func (s *ServiceV2) GenerateBatch(ctx context.Context, texts []string, model str
 			return nil, fmt.Errorf("no active models available")
 		}
 	}
-	
+
 	// Find provider that supports the model
 	var provider providers.Provider
 	var providerName string
@@ -557,29 +557,29 @@ func (s *ServiceV2) GenerateBatch(ctx context.Context, texts []string, model str
 			break
 		}
 	}
-	
+
 	if provider == nil {
 		return nil, fmt.Errorf("no provider found for model %s", model)
 	}
-	
+
 	// Process in batches
 	var results [][]float32
 	totalBatches := (len(texts) + batchSize - 1) / batchSize
-	
+
 	for i := 0; i < len(texts); i += batchSize {
 		end := i + batchSize
 		if end > len(texts) {
 			end = len(texts)
 		}
 		batch := texts[i:end]
-		
+
 		// Create batch request
 		batchReq := providers.BatchGenerateEmbeddingRequest{
 			Texts:     batch,
 			Model:     model,
 			RequestID: uuid.New().String(),
 		}
-		
+
 		// Generate embeddings with retry using circuit breaker pattern
 		var embeddings [][]float32
 		err := s.generateWithRetry(ctx, func() error {
@@ -599,7 +599,7 @@ func (s *ServiceV2) GenerateBatch(ctx context.Context, texts []string, model str
 					})
 				}
 			}()
-			
+
 			// Call provider
 			resp, err := provider.BatchGenerateEmbeddings(ctx, batchReq)
 			if err != nil {
@@ -617,29 +617,29 @@ func (s *ServiceV2) GenerateBatch(ctx context.Context, texts []string, model str
 				}
 				return err
 			}
-			
+
 			embeddings = resp.Embeddings
 			return nil
 		})
-		
+
 		if err != nil {
 			return nil, fmt.Errorf("batch %d/%d failed: %w", (i/batchSize)+1, totalBatches, err)
 		}
-		
+
 		results = append(results, embeddings...)
-		
+
 		// Progress callback if available
 		if s.progressFunc != nil {
 			progress := float64(end) / float64(len(texts))
 			s.progressFunc(progress)
 		}
-		
+
 		// Add small delay between batches to avoid rate limiting
 		if end < len(texts) {
 			time.Sleep(100 * time.Millisecond)
 		}
 	}
-	
+
 	return results, nil
 }
 
@@ -647,25 +647,25 @@ func (s *ServiceV2) GenerateBatch(ctx context.Context, texts []string, model str
 func (s *ServiceV2) generateWithRetry(ctx context.Context, fn func() error) error {
 	const maxRetries = 3
 	baseDelay := 1 * time.Second
-	
+
 	var lastErr error
 	for attempt := 0; attempt < maxRetries; attempt++ {
 		if err := fn(); err == nil {
 			return nil
 		} else {
 			lastErr = err
-			
+
 			// Check if error is retryable
 			if provErr, ok := err.(*providers.ProviderError); ok && !provErr.IsRetryable {
 				return err
 			}
-			
+
 			// Calculate backoff delay
 			delay := baseDelay * time.Duration(1<<uint(attempt))
 			if delay > 30*time.Second {
-				delay = 30*time.Second
+				delay = 30 * time.Second
 			}
-			
+
 			// Wait before retry
 			select {
 			case <-ctx.Done():
@@ -675,7 +675,7 @@ func (s *ServiceV2) generateWithRetry(ctx context.Context, fn func() error) erro
 			}
 		}
 	}
-	
+
 	return fmt.Errorf("failed after %d retries: %w", maxRetries, lastErr)
 }
 

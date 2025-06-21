@@ -78,10 +78,10 @@ func TestExecuteSequentialStep(t *testing.T) {
 					ID:     uuid.New(),
 					Status: models.TaskStatusPending,
 				}
-				
+
 				ts.On("CreateWorkflowTask", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(task1, nil).Once()
 				ts.On("CreateWorkflowTask", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(task2, nil).Once()
-				
+
 				// Mock task completion
 				completedTask1 := &models.Task{
 					ID:     task1.ID,
@@ -93,7 +93,7 @@ func TestExecuteSequentialStep(t *testing.T) {
 					Status: models.TaskStatusCompleted,
 					Result: map[string]interface{}{"output": "world"},
 				}
-				
+
 				ts.On("Get", mock.Anything, task1.ID).Return(completedTask1, nil)
 				ts.On("Get", mock.Anything, task2.ID).Return(completedTask2, nil)
 			},
@@ -134,7 +134,7 @@ func TestExecuteSequentialStep(t *testing.T) {
 					Status: models.TaskStatusPending,
 				}
 				ts.On("CreateWorkflowTask", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(task1, nil).Once()
-				
+
 				// First task fails
 				failedTask := &models.Task{
 					ID:     task1.ID,
@@ -169,29 +169,29 @@ func TestExecuteSequentialStep(t *testing.T) {
 			// Create mock services
 			mockTS := new(mockTaskService)
 			tt.setupMocks(mockTS)
-			
+
 			// Create workflow service with mocks
 			logger := observability.NewNoopLogger()
 			metrics := observability.NewNoOpMetricsClient()
 			tracer := observability.NoopStartSpan
-			
+
 			config := ServiceConfig{
 				Logger:  logger,
 				Metrics: metrics,
 				Tracer:  tracer,
 			}
-			
+
 			service := &workflowService{
 				BaseService: BaseService{
 					config: config,
 				},
 				taskService: mockTS,
 			}
-			
+
 			// Execute test
 			ctx := context.Background()
 			output, err := service.executeSequentialStep(ctx, tt.execution, tt.step)
-			
+
 			// Verify results
 			if tt.expectedError {
 				assert.Error(t, err)
@@ -201,7 +201,7 @@ func TestExecuteSequentialStep(t *testing.T) {
 					assert.Equal(t, tt.expectedOutput["steps_executed"], output["steps_executed"])
 				}
 			}
-			
+
 			mockTS.AssertExpectations(t)
 		})
 	}
@@ -375,39 +375,38 @@ func TestExecuteScriptStep(t *testing.T) {
 			if os.Getenv("CI") == "true" {
 				t.Skip("Skipping script execution test in CI")
 			}
-			
+
 			// Create workflow service
 			logger := observability.NewNoopLogger()
 			metrics := observability.NewNoOpMetricsClient()
 			tracer := observability.NoopStartSpan
-			
+
 			config := ServiceConfig{
 				Logger:  logger,
 				Metrics: metrics,
 				Tracer:  tracer,
 			}
-			
+
 			service := &workflowService{
 				BaseService: BaseService{
 					config: config,
 				},
 			}
-			
+
 			// Execute test
 			ctx := context.Background()
 			output, err := service.executeScriptStep(ctx, tt.execution, tt.step)
-			
+
 			// Verify results
 			if tt.expectedError {
 				assert.Error(t, err)
 			} else {
 				assert.NoError(t, err)
 			}
-			
+
 			if tt.validateOutput != nil && output != nil {
 				tt.validateOutput(t, output)
 			}
 		})
 	}
 }
-

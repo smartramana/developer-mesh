@@ -2,6 +2,9 @@ package embedding
 
 import (
 	"context"
+	"time"
+
+	"github.com/google/uuid"
 )
 
 // SearchFilter defines a filter for metadata fields
@@ -72,13 +75,101 @@ type SearchService interface {
 	SearchByContentID(ctx context.Context, contentID string, options *SearchOptions) (*SearchResults, error)
 }
 
+// CrossModelSearchRequest defines parameters for cross-model search
+type CrossModelSearchRequest struct {
+	// Query is the search query text
+	Query string `json:"query"`
+	// QueryEmbedding is the pre-computed query embedding (optional)
+	QueryEmbedding []float32 `json:"query_embedding,omitempty"`
+	// SearchModel is the model to use for generating query embeddings
+	SearchModel string `json:"search_model"`
+	// IncludeModels limits results to specific models (empty means all)
+	IncludeModels []string `json:"include_models,omitempty"`
+	// ExcludeModels excludes results from specific models
+	ExcludeModels []string `json:"exclude_models,omitempty"`
+	// TenantID is the tenant to search within
+	TenantID uuid.UUID `json:"tenant_id"`
+	// ContextID optionally limits search to a specific context
+	ContextID *uuid.UUID `json:"context_id,omitempty"`
+	// Limit is the maximum number of results to return
+	Limit int `json:"limit"`
+	// MinSimilarity is the minimum similarity threshold
+	MinSimilarity float32 `json:"min_similarity"`
+	// MetadataFilter is a JSONB filter for metadata
+	MetadataFilter map[string]interface{} `json:"metadata_filter,omitempty"`
+	// TaskType optionally specifies the type of task for scoring
+	TaskType string `json:"task_type,omitempty"`
+	// Options for additional search parameters
+	Options *SearchOptions `json:"options,omitempty"`
+}
+
+// CrossModelSearchResult represents a result from cross-model search
+type CrossModelSearchResult struct {
+	// ID is the embedding ID
+	ID uuid.UUID `json:"id"`
+	// ContextID is the context this embedding belongs to
+	ContextID *uuid.UUID `json:"context_id,omitempty"`
+	// Content is the text content
+	Content string `json:"content"`
+	// OriginalModel is the model that created this embedding
+	OriginalModel string `json:"original_model"`
+	// OriginalDimension is the original embedding dimension
+	OriginalDimension int `json:"original_dimension"`
+	// Similarity is the normalized similarity score
+	Similarity float32 `json:"similarity"`
+	// RawSimilarity is the raw similarity score before normalization
+	RawSimilarity float32 `json:"raw_similarity"`
+	// AgentID is the agent that created this content
+	AgentID string `json:"agent_id,omitempty"`
+	// Metadata contains additional information
+	Metadata map[string]interface{} `json:"metadata,omitempty"`
+	// CreatedAt is when the embedding was created
+	CreatedAt time.Time `json:"created_at"`
+	// ModelQualityScore is the quality score for this model
+	ModelQualityScore float32 `json:"model_quality_score"`
+	// FinalScore is the final weighted score
+	FinalScore float32 `json:"final_score"`
+}
+
+// HybridSearchRequest defines parameters for hybrid search
+type HybridSearchRequest struct {
+	// Query is the main search query for semantic search
+	Query string `json:"query"`
+	// Keywords are additional keywords for keyword-based search
+	Keywords []string `json:"keywords,omitempty"`
+	// HybridWeight determines the balance between semantic and keyword results (0.0 to 1.0)
+	HybridWeight float32 `json:"hybrid_weight"`
+	// TenantID is the tenant to search within
+	TenantID uuid.UUID `json:"tenant_id"`
+	// ModelName is the embedding model to use
+	ModelName string `json:"model_name"`
+	// Limit is the maximum number of results
+	Limit int `json:"limit"`
+	// MinSimilarity is the minimum similarity threshold
+	MinSimilarity float32 `json:"min_similarity"`
+	// MetadataFilter is a JSONB filter for metadata
+	MetadataFilter map[string]interface{} `json:"metadata_filter,omitempty"`
+	// Options for additional search parameters
+	Options *SearchOptions `json:"options,omitempty"`
+}
+
+// HybridSearchResult represents a result from hybrid search
+type HybridSearchResult struct {
+	// Result is the combined search result
+	Result *SearchResult `json:"result"`
+	// SemanticScore is the semantic similarity score
+	SemanticScore float32 `json:"semantic_score"`
+	// KeywordScore is the keyword relevance score
+	KeywordScore float32 `json:"keyword_score"`
+}
+
 // AdvancedSearchService extends SearchService with cross-model and hybrid search capabilities
 type AdvancedSearchService interface {
 	SearchService
-	
+
 	// CrossModelSearch performs search across embeddings from different models
 	CrossModelSearch(ctx context.Context, req CrossModelSearchRequest) ([]CrossModelSearchResult, error)
-	
+
 	// HybridSearch performs hybrid search combining semantic and keyword search
 	HybridSearch(ctx context.Context, req HybridSearchRequest) ([]HybridSearchResult, error)
 }

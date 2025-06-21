@@ -168,7 +168,7 @@ func (m *MonitoringEndpoints) handleMetrics(c *gin.Context) {
 		formatMetric("websocket_errors_total{type=\"auth\"}", float64(stats.AuthErrors)),
 		formatMetric("websocket_errors_total{type=\"rate_limit\"}", float64(stats.RateLimitErrors)),
 		formatMetric("websocket_errors_total{type=\"protocol\"}", float64(stats.ProtocolErrors)),
-		
+
 		"# HELP websocket_server_uptime_seconds Server uptime in seconds",
 		"# TYPE websocket_server_uptime_seconds gauge",
 		formatMetric("websocket_server_uptime_seconds", time.Since(m.server.startTime).Seconds()),

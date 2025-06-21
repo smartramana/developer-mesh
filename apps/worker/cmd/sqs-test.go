@@ -26,7 +26,7 @@ func main() {
 	// Set up signal handling for graceful shutdown
 	sigChan := make(chan os.Signal, 1)
 	signal.Notify(sigChan, os.Interrupt, syscall.SIGTERM)
-	
+
 	go func() {
 		<-sigChan
 		log.Println("Received shutdown signal, cancelling operations...")
@@ -85,7 +85,7 @@ func main() {
 	// Use exponential backoff for retries
 	backoffConfig := backoff.NewExponentialBackOff()
 	backoffConfig.MaxElapsedTime = 30 * time.Second
-	
+
 	if err := backoff.Retry(queueURLOperation, backoff.WithContext(backoffConfig, ctx)); err != nil {
 		log.Fatalf("Failed to get queue URL after retries: %v", err)
 	}
@@ -94,11 +94,11 @@ func main() {
 
 	// Try to send a test message with retry
 	messageBody := fmt.Sprintf("Test message sent at %s", time.Now().Format(time.RFC3339))
-	
+
 	sendOperation := func() error {
 		sendCtx, sendCancel := context.WithTimeout(ctx, 10*time.Second)
 		defer sendCancel()
-		
+
 		_, err := client.SendMessage(sendCtx, &sqs.SendMessageInput{
 			QueueUrl:    queueURL,
 			MessageBody: aws.String(messageBody),
@@ -116,7 +116,7 @@ func main() {
 
 	backoffConfig = backoff.NewExponentialBackOff()
 	backoffConfig.MaxElapsedTime = 30 * time.Second
-	
+
 	if err := backoff.Retry(sendOperation, backoff.WithContext(backoffConfig, ctx)); err != nil {
 		log.Fatalf("Failed to send message after retries: %v", err)
 	}
@@ -128,7 +128,7 @@ func main() {
 	receiveOperation := func() error {
 		receiveCtx, receiveCancel := context.WithTimeout(ctx, 30*time.Second)
 		defer receiveCancel()
-		
+
 		output, err := client.ReceiveMessage(receiveCtx, &sqs.ReceiveMessageInput{
 			QueueUrl:            queueURL,
 			MaxNumberOfMessages: 1,
@@ -146,7 +146,7 @@ func main() {
 
 	backoffConfig = backoff.NewExponentialBackOff()
 	backoffConfig.MaxElapsedTime = 60 * time.Second
-	
+
 	if err := backoff.Retry(receiveOperation, backoff.WithContext(backoffConfig, ctx)); err != nil {
 		log.Printf("Failed to receive message after retries: %v", err)
 		// Don't fatally exit here, as no messages is acceptable
@@ -161,7 +161,7 @@ func main() {
 		deleteOperation := func() error {
 			deleteCtx, deleteCancel := context.WithTimeout(ctx, 5*time.Second)
 			defer deleteCancel()
-			
+
 			_, err := client.DeleteMessage(deleteCtx, &sqs.DeleteMessageInput{
 				QueueUrl:      queueURL,
 				ReceiptHandle: messages[0].ReceiptHandle,
@@ -177,7 +177,7 @@ func main() {
 
 		backoffConfig = backoff.NewExponentialBackOff()
 		backoffConfig.MaxElapsedTime = 15 * time.Second
-		
+
 		if err := backoff.Retry(deleteOperation, backoff.WithContext(backoffConfig, ctx)); err != nil {
 			log.Printf("Failed to delete message after retries: %v", err)
 		} else {

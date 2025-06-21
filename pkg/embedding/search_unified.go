@@ -148,10 +148,10 @@ func (s *UnifiedSearchService) SearchByVector(ctx context.Context, vector []floa
 	correlationID := observability.GetCorrelationID(ctx)
 
 	s.logger.Info("Performing vector search", map[string]interface{}{
-		"tenant_id":        tenantID.String(),
-		"correlation_id":   correlationID,
+		"tenant_id":         tenantID.String(),
+		"correlation_id":    correlationID,
 		"vector_dimensions": len(vector),
-		"has_options":      options != nil,
+		"has_options":       options != nil,
 	})
 
 	// Track metrics
@@ -354,7 +354,7 @@ func (s *UnifiedSearchService) CrossModelSearch(ctx context.Context, req CrossMo
 
 	// Build and execute query
 	query, args := s.buildCrossModelQuery(req, targetDimension)
-	
+
 	rows, err := s.db.QueryContext(ctx, query, args...)
 	if err != nil {
 		s.metrics.IncrementCounter("search.unified.cross_model.error", 1.0)
@@ -435,7 +435,7 @@ func (s *UnifiedSearchService) HybridSearch(ctx context.Context, req HybridSearc
 	}
 
 	// Merge and rank results
-	merged := s.mergeHybridResults(semanticResults, keywordResults, req.HybridWeight)
+	merged := s.mergeHybridResults(semanticResults, keywordResults, float64(req.HybridWeight))
 
 	// Apply limit
 	if req.Limit > 0 && len(merged) > req.Limit {
@@ -638,7 +638,7 @@ func (s *UnifiedSearchService) buildCrossModelQuery(req CrossModelSearchRequest,
 
 func (s *UnifiedSearchService) processCrossModelResults(rows *sql.Rows, req CrossModelSearchRequest, targetDimension int) ([]CrossModelSearchResult, error) {
 	var results []CrossModelSearchResult
-	
+
 	for rows.Next() {
 		var result CrossModelSearchResult
 		var metadataJSON []byte

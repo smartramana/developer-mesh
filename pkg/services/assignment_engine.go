@@ -23,9 +23,9 @@ type AssignmentEngine struct {
 	metrics      observability.MetricsClient
 
 	// Metrics and caching
-	assignments     map[string]int
-	workloadCache   sync.Map // Cache agent workloads for 30 seconds
-	cacheDuration   time.Duration
+	assignments   map[string]int
+	workloadCache sync.Map // Cache agent workloads for 30 seconds
+	cacheDuration time.Duration
 }
 
 // NewAssignmentEngine creates a new assignment engine
@@ -168,15 +168,15 @@ func (e *AssignmentEngine) getEligibleAgents(ctx context.Context, task *models.T
 		filtered := make([]*models.Agent, 0, len(eligibleAgents))
 		for _, agent := range eligibleAgents {
 			eligible := true
-			
+
 			// Get agent capabilities for rule evaluation
 			agentCaps, _ := e.agentService.GetAgentCapabilities(ctx, agent.ID)
-			
+
 			for _, rule := range rules {
 				// Evaluate rule against agent and task context
 				decision, err := e.ruleEngine.Evaluate(ctx, rule.ID.String(), map[string]interface{}{
-					"agent": agent,
-					"task":  task,
+					"agent":              agent,
+					"task":               task,
 					"agent_capabilities": agentCaps,
 				})
 				if err != nil {
@@ -216,11 +216,11 @@ func (e *AssignmentEngine) getEligibleAgents(ctx context.Context, task *models.T
 
 	// Log assignment decision
 	e.logger.Info("Agent filtering completed", map[string]interface{}{
-		"task_id":          task.ID,
-		"task_type":        task.Type,
-		"total_agents":     totalAgents,
-		"eligible_agents":  len(eligibleAgents),
-		"filtered_out":     filteredOut,
+		"task_id":         task.ID,
+		"task_type":       task.Type,
+		"total_agents":    totalAgents,
+		"eligible_agents": len(eligibleAgents),
+		"filtered_out":    filteredOut,
 	})
 
 	return eligibleAgents, nil
@@ -286,7 +286,7 @@ func (e *AssignmentEngine) determineStrategy(ctx context.Context, task *models.T
 			"task_type": task.Type,
 		})
 		return e.strategies["least_loaded"]
-		
+
 	case "test":
 		// For tests, use capability match to ensure proper environment
 		e.logger.Debug("Using capability-match strategy for test task", map[string]interface{}{
@@ -294,7 +294,7 @@ func (e *AssignmentEngine) determineStrategy(ctx context.Context, task *models.T
 			"task_type": task.Type,
 		})
 		return e.strategies["capability_match"]
-		
+
 	case "monitor", "health_check":
 		// For monitoring, use round robin for even distribution
 		e.logger.Debug("Using round-robin strategy for monitoring task", map[string]interface{}{
@@ -302,7 +302,7 @@ func (e *AssignmentEngine) determineStrategy(ctx context.Context, task *models.T
 			"task_type": task.Type,
 		})
 		return e.strategies["round_robin"]
-		
+
 	case "backup", "restore":
 		// For backups, use performance based to complete quickly
 		e.logger.Debug("Using performance-based strategy for backup/restore task", map[string]interface{}{
@@ -310,7 +310,7 @@ func (e *AssignmentEngine) determineStrategy(ctx context.Context, task *models.T
 			"task_type": task.Type,
 		})
 		return e.strategies["performance_based"]
-		
+
 	case "data_processing", "analysis":
 		// For data tasks, consider cost if large
 		if task.Parameters != nil {
@@ -323,7 +323,7 @@ func (e *AssignmentEngine) determineStrategy(ctx context.Context, task *models.T
 			}
 		}
 		return e.strategies["least_loaded"]
-		
+
 	default:
 		// Default to capability match for safety and correctness
 		e.logger.Debug("Using default capability-match strategy", map[string]interface{}{
@@ -392,7 +392,7 @@ func (s *LeastLoadedStrategy) Assign(ctx context.Context, task *models.Task, age
 
 		// Calculate load score: activeTasks * 0.7 + queuedTasks * 0.3
 		loadScore := float64(workload.ActiveTasks)*0.7 + float64(workload.QueuedTasks)*0.3
-		
+
 		// Factor in the existing load score if available
 		if workload.LoadScore > 0 {
 			loadScore = (loadScore + workload.LoadScore*100) / 2 // Average with scaled LoadScore
@@ -467,10 +467,10 @@ func (s *CapabilityMatchStrategy) Assign(ctx context.Context, task *models.Task,
 
 	// Score agents based on capability match
 	type agentScore struct {
-		agent        *models.Agent
-		score        float64
-		matchedCaps  []string
-		missingCaps  []string
+		agent       *models.Agent
+		score       float64
+		matchedCaps []string
+		missingCaps []string
 	}
 
 	scores := make([]agentScore, 0, len(agents))
@@ -479,7 +479,7 @@ func (s *CapabilityMatchStrategy) Assign(ctx context.Context, task *models.Task,
 		// Calculate detailed capability matching
 		matched, missing := s.getCapabilityDetails(agent.Capabilities, requiredCaps)
 		score := float64(len(matched)) / float64(len(requiredCaps))
-		
+
 		// Bonus for agents with extra relevant capabilities
 		extraScore := 0.0
 		for _, cap := range agent.Capabilities {
@@ -487,12 +487,12 @@ func (s *CapabilityMatchStrategy) Assign(ctx context.Context, task *models.Task,
 				extraScore += 0.1
 			}
 		}
-		
+
 		// Cap extra score at 0.3
 		if extraScore > 0.3 {
 			extraScore = 0.3
 		}
-		
+
 		totalScore := score + extraScore
 
 		scores = append(scores, agentScore{
@@ -519,11 +519,11 @@ func (s *CapabilityMatchStrategy) Assign(ctx context.Context, task *models.Task,
 	if len(eligibleScores) == 0 {
 		if s.logger != nil {
 			s.logger.Warn("No agent with all required capabilities", map[string]interface{}{
-				"task_id":           task.ID,
-				"required_caps":     requiredCaps,
-				"best_match_score":  scores[0].score,
-				"best_match_agent":  scores[0].agent.ID,
-				"missing_caps":      scores[0].missingCaps,
+				"task_id":          task.ID,
+				"required_caps":    requiredCaps,
+				"best_match_score": scores[0].score,
+				"best_match_agent": scores[0].agent.ID,
+				"missing_caps":     scores[0].missingCaps,
 			})
 		}
 		return nil, ErrNoCapableAgent
@@ -630,7 +630,7 @@ func (s *PerformanceBasedStrategy) Assign(ctx context.Context, task *models.Task
 	for _, agent := range agents {
 		// Get performance metrics with caching
 		perf := s.getAgentPerformance(ctx, agent.ID, task.Type)
-		
+
 		// Calculate comprehensive performance score
 		score := s.calculatePerformance(perf, task)
 
@@ -674,7 +674,7 @@ func (s *PerformanceBasedStrategy) Assign(ctx context.Context, task *models.Task
 // getAgentPerformance retrieves cached or fresh performance metrics
 func (s *PerformanceBasedStrategy) getAgentPerformance(ctx context.Context, agentID string, taskType string) *models.AgentPerformance {
 	cacheKey := fmt.Sprintf("perf_%s_%s", agentID, taskType)
-	
+
 	// Check cache with expiry
 	if cached, ok := s.performanceCache.Load(cacheKey); ok {
 		entry := cached.(*performanceCacheEntry)
@@ -687,7 +687,7 @@ func (s *PerformanceBasedStrategy) getAgentPerformance(ctx context.Context, agen
 	perf := &models.AgentPerformance{
 		AgentID: agentID,
 	}
-	
+
 	// Get current workload to determine load factor
 	workload, err := s.agentService.GetAgentWorkload(ctx, agentID)
 	if err == nil {
@@ -704,7 +704,7 @@ func (s *PerformanceBasedStrategy) getAgentPerformance(ctx context.Context, agen
 		perf.LoadFactor = 0.5 // Default 50% load
 		perf.SpeedScore = 0.7 // Default speed
 	}
-	
+
 	// Get agent details for metadata-based performance metrics
 	agent, err := s.agentService.GetAgent(ctx, agentID)
 	if err == nil && agent.Metadata != nil {
@@ -715,21 +715,21 @@ func (s *PerformanceBasedStrategy) getAgentPerformance(ctx context.Context, agen
 		if tasksFailed, ok := agent.Metadata["tasks_failed"].(float64); ok {
 			perf.TasksFailed = int64(tasksFailed)
 		}
-		
+
 		// Calculate success rate
 		if perf.TasksCompleted > 0 {
 			perf.SuccessRate = float64(perf.TasksCompleted-perf.TasksFailed) / float64(perf.TasksCompleted)
 		} else {
 			perf.SuccessRate = 0.8 // Default 80%
 		}
-		
+
 		// Get average completion time
 		if avgTime, ok := agent.Metadata["avg_completion_time"].(float64); ok {
 			perf.AverageCompletionTime = avgTime
 		} else {
 			perf.AverageCompletionTime = 300 // Default 5 minutes
 		}
-		
+
 		// Get task-type specific metrics
 		if taskTypeMetrics, ok := agent.Metadata["task_type_metrics"].(map[string]interface{}); ok {
 			perf.TaskTypeMetrics = make(map[string]models.TaskMetrics)
@@ -760,7 +760,7 @@ func (s *PerformanceBasedStrategy) getAgentPerformance(ctx context.Context, agen
 			LoadFactor:            0.5, // 50% default load
 			SpeedScore:            0.7, // 70% default speed
 		}
-		
+
 		if s.logger != nil {
 			s.logger.Warn("Failed to get agent performance, using defaults", map[string]interface{}{
 				"agent_id": agentID,
@@ -808,7 +808,7 @@ func (s *PerformanceBasedStrategy) calculatePerformance(perf *models.AgentPerfor
 	if task.TimeoutSeconds > 0 {
 		expectedTime = float64(task.TimeoutSeconds)
 	}
-	
+
 	speedScore := perf.SpeedScore
 	if perf.AverageCompletionTime > 0 {
 		// Calculate speed score based on how fast agent completes vs expected
@@ -862,10 +862,10 @@ func (s *PerformanceBasedStrategy) GetName() string {
 // calculateAgentPerformance calculates performance metrics from agent data
 func (s *PerformanceBasedStrategy) calculateAgentPerformance(ctx context.Context, agent *models.Agent, taskType string) *models.AgentPerformance {
 	perf := &models.AgentPerformance{
-		AgentID:      agent.ID,
-		SuccessRate:  0.8, // Default 80%
-		SpeedScore:   0.7, // Default 70%
-		LoadFactor:   0.5, // Default 50%
+		AgentID:     agent.ID,
+		SuccessRate: 0.8, // Default 80%
+		SpeedScore:  0.7, // Default 70%
+		LoadFactor:  0.5, // Default 50%
 	}
 
 	if agent.Metadata != nil {
@@ -876,7 +876,7 @@ func (s *PerformanceBasedStrategy) calculateAgentPerformance(ctx context.Context
 		if speedScore, ok := agent.Metadata["speed_score"].(float64); ok {
 			perf.SpeedScore = speedScore
 		}
-		
+
 		// Calculate from task history
 		if tasksCompleted, ok := agent.Metadata["tasks_completed"].(float64); ok {
 			perf.TasksCompleted = int64(tasksCompleted)
@@ -884,7 +884,7 @@ func (s *PerformanceBasedStrategy) calculateAgentPerformance(ctx context.Context
 		if tasksFailed, ok := agent.Metadata["tasks_failed"].(float64); ok {
 			perf.TasksFailed = int64(tasksFailed)
 		}
-		
+
 		// Recalculate success rate from task counts
 		if perf.TasksCompleted > 0 {
 			perf.SuccessRate = float64(perf.TasksCompleted-perf.TasksFailed) / float64(perf.TasksCompleted)
@@ -919,7 +919,7 @@ func (s *CostOptimizedStrategy) Assign(ctx context.Context, task *models.Task, a
 	}
 
 	costs := make([]agentCost, 0, len(agents))
-	
+
 	// Get estimated task duration from task parameters if available
 	defaultEstimatedHours := 1.0 // Default 1 hour
 	if task.Parameters != nil {
@@ -953,7 +953,7 @@ func (s *CostOptimizedStrategy) Assign(ctx context.Context, task *models.Task, a
 				// Fall back to general average
 				estimatedHours = avgTime / 3600 // Convert seconds to hours
 			}
-			
+
 			// Apply performance factor if available
 			if perfFactor, ok := agent.Metadata["performance_factor"].(float64); ok {
 				estimatedHours = estimatedHours / perfFactor // Higher performance = less time
@@ -965,13 +965,13 @@ func (s *CostOptimizedStrategy) Assign(ctx context.Context, task *models.Task, a
 
 		// Add additional cost factors
 		totalCost := baseCost
-		
+
 		// Add overhead costs if any
 		if agent.Metadata != nil {
 			if overhead, ok := agent.Metadata["overhead_cost"].(float64); ok {
 				totalCost += overhead
 			}
-			
+
 			// Add setup cost for first-time task types
 			if setupCost, ok := agent.Metadata["setup_cost"].(float64); ok {
 				if isFirstTimeTaskType(agent, task.Type) {
@@ -1003,7 +1003,7 @@ func (s *CostOptimizedStrategy) Assign(ctx context.Context, task *models.Task, a
 	// Check if we need to consider capabilities as well
 	// The cheapest agent must still have required capabilities
 	selected := costs[0]
-	
+
 	if s.logger != nil {
 		s.logger.Info("Cost-optimized agent selected", map[string]interface{}{
 			"task_id":         task.ID,
@@ -1144,7 +1144,7 @@ func (e *AssignmentEngine) hasRequiredCapabilities(agent *models.Agent, agentCap
 	for _, cap := range agentCaps {
 		capSet[cap] = true
 	}
-	
+
 	// Also include agent's built-in capabilities
 	for _, cap := range agent.Capabilities {
 		capSet[cap] = true
@@ -1208,20 +1208,20 @@ func isFirstTimeTaskType(agent *models.Agent, taskType string) bool {
 	if agent.Metadata == nil {
 		return true
 	}
-	
+
 	// Check if agent has task history
 	if history, ok := agent.Metadata["task_history"].(map[string]interface{}); ok {
 		if _, hasType := history[taskType]; hasType {
 			return false
 		}
 	}
-	
+
 	// Check if agent has completed tasks of this type
 	taskCountKey := fmt.Sprintf("%s_completed", taskType)
 	if count, ok := agent.Metadata[taskCountKey].(int); ok && count > 0 {
 		return false
 	}
-	
+
 	return true
 }
 

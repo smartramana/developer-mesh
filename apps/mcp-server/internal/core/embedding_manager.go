@@ -241,40 +241,40 @@ func (m *EmbeddingManager) ProcessRepositoryWithURL(ctx context.Context, owner s
 	// Clone/pull repository using go-git
 	localPath := fmt.Sprintf("/tmp/repos/%s/%s", owner, repo)
 	repoURL := fmt.Sprintf("%s/%s/%s.git", gitHostURL, owner, repo)
-	
+
 	log.Printf("Processing repository %s/%s from %s", owner, repo, repoURL)
-	
+
 	// Clone or update repository
 	_, err := m.cloneOrUpdateRepository(ctx, repoURL, localPath)
 	if err != nil {
 		return fmt.Errorf("failed to clone/update repository: %w", err)
 	}
-	
+
 	// Walk file tree and process code files
 	processedFiles := 0
 	err = filepath.Walk(localPath, func(path string, info os.FileInfo, err error) error {
 		if err != nil {
 			return err
 		}
-		
+
 		// Skip directories and non-code files
 		if info.IsDir() || !m.shouldProcessFile(path) {
 			return nil
 		}
-		
+
 		// Read file content
 		content, err := os.ReadFile(path)
 		if err != nil {
 			log.Printf("Failed to read file %s: %v", path, err)
 			return nil // Continue with other files
 		}
-		
+
 		// Calculate relative path
 		relPath, err := filepath.Rel(localPath, path)
 		if err != nil {
 			relPath = path
 		}
-		
+
 		// Process code file
 		if err := m.CreateEmbeddingsFromCodeFile(ctx, owner, repo, relPath, content); err != nil {
 			log.Printf("Failed to process file %s: %v", relPath, err)
@@ -285,21 +285,21 @@ func (m *EmbeddingManager) ProcessRepositoryWithURL(ctx context.Context, owner s
 				log.Printf("Processed %d files from %s/%s", processedFiles, owner, repo)
 			}
 		}
-		
+
 		return nil
 	})
-	
+
 	if err != nil {
 		return fmt.Errorf("failed to walk repository files: %w", err)
 	}
-	
+
 	log.Printf("Successfully processed %d files from repository %s/%s", processedFiles, owner, repo)
-	
+
 	// Note: GitHub API integration for issues and discussions would require
 	// the GitHub adapter/client to be injected into the EmbeddingManager.
 	// Since we don't have that dependency here, we'll skip processing issues
 	// and discussions in this implementation.
-	
+
 	return nil
 }
 
@@ -459,13 +459,13 @@ func (m *EmbeddingManager) cloneOrUpdateRepository(ctx context.Context, repoURL,
 		if err != nil {
 			return nil, fmt.Errorf("failed to open existing repository: %w", err)
 		}
-		
+
 		// Get the working directory
 		w, err := repo.Worktree()
 		if err != nil {
 			return nil, fmt.Errorf("failed to get worktree: %w", err)
 		}
-		
+
 		// Pull latest changes
 		err = w.Pull(&git.PullOptions{
 			RemoteName: "origin",
@@ -474,20 +474,20 @@ func (m *EmbeddingManager) cloneOrUpdateRepository(ctx context.Context, repoURL,
 		if err != nil && err != git.NoErrAlreadyUpToDate {
 			return nil, fmt.Errorf("failed to pull latest changes: %w", err)
 		}
-		
+
 		log.Printf("Updated existing repository at %s", localPath)
 		return repo, nil
 	}
-	
+
 	// Repository doesn't exist, clone it
 	log.Printf("Cloning repository from %s to %s", repoURL, localPath)
-	
+
 	// Create parent directory if it doesn't exist
 	parentDir := filepath.Dir(localPath)
 	if err := os.MkdirAll(parentDir, 0755); err != nil {
 		return nil, fmt.Errorf("failed to create parent directory: %w", err)
 	}
-	
+
 	// Clone the repository
 	repo, err := git.PlainCloneContext(ctx, localPath, false, &git.CloneOptions{
 		URL:      repoURL,
@@ -497,7 +497,7 @@ func (m *EmbeddingManager) cloneOrUpdateRepository(ctx context.Context, repoURL,
 	if err != nil {
 		return nil, fmt.Errorf("failed to clone repository: %w", err)
 	}
-	
+
 	log.Printf("Successfully cloned repository to %s", localPath)
 	return repo, nil
 }
@@ -506,7 +506,7 @@ func (m *EmbeddingManager) cloneOrUpdateRepository(ctx context.Context, repoURL,
 func (m *EmbeddingManager) shouldProcessFile(path string) bool {
 	// Get file extension
 	ext := strings.ToLower(filepath.Ext(path))
-	
+
 	// List of code file extensions to process
 	codeExtensions := map[string]bool{
 		".go":     true,
@@ -567,12 +567,12 @@ func (m *EmbeddingManager) shouldProcessFile(path string) bool {
 		".vhd":    true,
 		".vhdl":   true,
 	}
-	
+
 	// Check if file should be processed
 	if _, ok := codeExtensions[ext]; ok {
 		// Additional checks to skip certain files
 		base := filepath.Base(path)
-		
+
 		// Skip vendor, node_modules, and other dependency directories
 		if strings.Contains(path, "/vendor/") ||
 			strings.Contains(path, "/node_modules/") ||
@@ -585,22 +585,22 @@ func (m *EmbeddingManager) shouldProcessFile(path string) bool {
 			strings.Contains(path, "/.pytest_cache/") {
 			return false
 		}
-		
+
 		// Skip minified files
 		if strings.HasSuffix(base, ".min.js") ||
 			strings.HasSuffix(base, ".min.css") {
 			return false
 		}
-		
+
 		// Skip generated files
 		if strings.HasSuffix(base, ".pb.go") ||
 			strings.HasSuffix(base, "_generated.go") ||
 			strings.HasSuffix(base, ".generated.go") {
 			return false
 		}
-		
+
 		return true
 	}
-	
+
 	return false
 }

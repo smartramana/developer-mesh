@@ -44,7 +44,7 @@ func (r *Repository) InsertEmbedding(ctx context.Context, req InsertRequest) (uu
 	// Start span for tracing
 	ctx, span := observability.StartSpan(ctx, "embedding.repository.insert")
 	defer span.End()
-	
+
 	span.SetAttribute("operation", "insert_embedding")
 	span.SetAttribute("model", req.ModelName)
 	span.SetAttribute("tenant_id", req.TenantID.String())
@@ -54,7 +54,7 @@ func (r *Repository) InsertEmbedding(ctx context.Context, req InsertRequest) (uu
 	tenantID := auth.GetTenantID(ctx)
 	userID := auth.GetUserID(ctx)
 	correlationID := observability.GetCorrelationID(ctx)
-	
+
 	// Log the operation with context
 	r.logger.Info("Inserting embedding", map[string]interface{}{
 		"tenant_id":      tenantID,
@@ -127,7 +127,7 @@ func (r *Repository) SearchEmbeddings(ctx context.Context, req SearchRequest) ([
 	// Start span for tracing
 	ctx, span := observability.StartSpan(ctx, "embedding.repository.search")
 	defer span.End()
-	
+
 	span.SetAttribute("operation", "search_embeddings")
 	span.SetAttribute("model", req.ModelName)
 	span.SetAttribute("tenant_id", req.TenantID.String())
@@ -137,15 +137,15 @@ func (r *Repository) SearchEmbeddings(ctx context.Context, req SearchRequest) ([
 	// Extract context for logging
 	tenantID := auth.GetTenantID(ctx)
 	correlationID := observability.GetCorrelationID(ctx)
-	
+
 	// Log the operation
 	r.logger.Info("Searching embeddings", map[string]interface{}{
-		"tenant_id":        tenantID,
-		"correlation_id":   correlationID,
-		"model":            req.ModelName,
-		"limit":            req.Limit,
-		"threshold":        req.Threshold,
-		"has_context_id":   req.ContextID != nil,
+		"tenant_id":           tenantID,
+		"correlation_id":      correlationID,
+		"model":               req.ModelName,
+		"limit":               req.Limit,
+		"threshold":           req.Threshold,
+		"has_context_id":      req.ContextID != nil,
 		"has_metadata_filter": req.MetadataFilter != nil,
 	})
 

@@ -46,11 +46,11 @@ func WithCausationID(ctx context.Context, causationID string) context.Context {
 
 // Context storage keys for additional metadata
 const (
-	tenantIDKey     contextKey = "tenant_id"
-	userIDKey       contextKey = "user_id"
-	requestIDKey    contextKey = "request_id"
-	spanContextKey  contextKey = "span_context"
-	operationKey    contextKey = "operation"
+	tenantIDKey    contextKey = "tenant_id"
+	userIDKey      contextKey = "user_id"
+	requestIDKey   contextKey = "request_id"
+	spanContextKey contextKey = "span_context"
+	operationKey   contextKey = "operation"
 )
 
 // WithTenantID adds tenant ID to context
@@ -120,7 +120,7 @@ func GetOperation(ctx context.Context) string {
 // ExtractMetadata extracts all observability metadata from context
 func ExtractMetadata(ctx context.Context) map[string]string {
 	metadata := make(map[string]string)
-	
+
 	if correlationID := GetCorrelationID(ctx); correlationID != "" {
 		metadata["correlation_id"] = correlationID
 	}
@@ -139,7 +139,7 @@ func ExtractMetadata(ctx context.Context) map[string]string {
 	if operation := GetOperation(ctx); operation != "" {
 		metadata["operation"] = operation
 	}
-	
+
 	return metadata
 }
 

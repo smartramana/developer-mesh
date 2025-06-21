@@ -213,7 +213,7 @@ func (r *SQLRepository) SearchByVector(ctx context.Context, vector []float32, op
 		options = &SearchOptions{
 			MaxResults:          10,
 			SimilarityThreshold: 0.7,
-			RankingAlgorithm:   "cosine",
+			RankingAlgorithm:    "cosine",
 		}
 	}
 
@@ -240,13 +240,13 @@ func (r *SQLRepository) SearchByVector(ctx context.Context, vector []float32, op
 	var distanceOp string
 	switch options.RankingAlgorithm {
 	case "euclidean":
-		distanceOp = "<->"  // L2 distance
+		distanceOp = "<->" // L2 distance
 	case "dot_product":
-		distanceOp = "<#>"  // Negative inner product
+		distanceOp = "<#>" // Negative inner product
 	case "cosine":
 		fallthrough
 	default:
-		distanceOp = "<=>"  // Cosine distance
+		distanceOp = "<=>" // Cosine distance
 	}
 
 	// Build the base query
@@ -271,7 +271,7 @@ func (r *SQLRepository) SearchByVector(ctx context.Context, vector []float32, op
 			query += fmt.Sprintf(" AND id != $%d", argIndex)
 			args = append(args, excludeID)
 			argIndex++
-			
+
 			// Remove exclude_id from metadata filters
 			filteredMeta := make(map[string]interface{})
 			for k, v := range options.MetadataFilters {
@@ -279,7 +279,7 @@ func (r *SQLRepository) SearchByVector(ctx context.Context, vector []float32, op
 					filteredMeta[k] = v
 				}
 			}
-			
+
 			// Add remaining metadata filters if any
 			if len(filteredMeta) > 0 {
 				query += fmt.Sprintf(" AND metadata @> $%d::jsonb", argIndex)
@@ -335,7 +335,7 @@ func (r *SQLRepository) SearchByVector(ctx context.Context, vector []float32, op
 
 		err := rows.Scan(
 			&result.ID,
-			&result.Score,  // Using content_index as score temporarily
+			&result.Score, // Using content_index as score temporarily
 			&result.Content,
 			&metadata,
 			&result.Type,
@@ -374,7 +374,7 @@ func (r *SQLRepository) SearchByVector(ctx context.Context, vector []float32, op
 			SELECT 1 FROM mcp.embeddings 
 			WHERE 1 - (embedding %s $1::vector) > $2 
 			LIMIT 1 OFFSET %d`, distanceOp, options.Offset+options.Limit)
-		
+
 		var exists int
 		err = r.db.QueryRowContext(ctx, checkQuery, vector, options.MinSimilarity).Scan(&exists)
 		hasMore = err == nil
@@ -396,9 +396,9 @@ func (r *SQLRepository) SearchByContentID(ctx context.Context, contentID string,
 	// Retrieve the embedding vector for the given content ID
 	var vector []float32
 	var model string
-	
+
 	query := `SELECT embedding, model_id FROM mcp.embeddings WHERE id = $1`
-	
+
 	row := r.db.QueryRowContext(ctx, query, contentID)
 	err := row.Scan(&vector, &model)
 	if err != nil {
@@ -412,7 +412,7 @@ func (r *SQLRepository) SearchByContentID(ctx context.Context, contentID string,
 	if options == nil {
 		options = &SearchOptions{}
 	}
-	
+
 	// Add a filter to exclude the source content
 	if options.MetadataFilters == nil {
 		options.MetadataFilters = make(map[string]interface{})

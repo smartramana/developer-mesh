@@ -24,15 +24,15 @@ type Config struct {
 
 // engine implements the Engine interface
 type engine struct {
-	mu             sync.RWMutex
-	rules          map[string]*Rule
+	mu              sync.RWMutex
+	rules           map[string]*Rule
 	rulesByCategory map[string][]*Rule
-	evaluator      map[string]func(map[string]interface{}) (interface{}, error)
-	config         Config
-	logger         observability.Logger
-	metrics        observability.MetricsClient
-	loadFunc       func() ([]Rule, error)
-	stopChan       chan struct{}
+	evaluator       map[string]func(map[string]interface{}) (interface{}, error)
+	config          Config
+	logger          observability.Logger
+	metrics         observability.MetricsClient
+	loadFunc        func() ([]Rule, error)
+	stopChan        chan struct{}
 }
 
 // NewEngine creates a new rule engine
@@ -96,13 +96,13 @@ func (e *engine) SetRuleLoader(loader RuleLoader) error {
 	if loader == nil {
 		return fmt.Errorf("rule loader cannot be nil")
 	}
-	
+
 	e.mu.Lock()
 	e.loadFunc = func() ([]Rule, error) {
 		return loader.LoadRules(context.Background())
 	}
 	e.mu.Unlock()
-	
+
 	return nil
 }
 
@@ -111,7 +111,7 @@ func (e *engine) StartHotReload(ctx context.Context) error {
 	if !e.config.HotReload {
 		return fmt.Errorf("hot reload is disabled")
 	}
-	
+
 	e.mu.Lock()
 	if e.loadFunc == nil {
 		e.mu.Unlock()
@@ -143,7 +143,7 @@ func (e *engine) StartHotReload(ctx context.Context) error {
 			}
 		}
 	}()
-	
+
 	return nil
 }
 
@@ -486,7 +486,7 @@ func (e *engine) parseExpression(expression string) (func(map[string]interface{}
 	// Production implementation with basic expression support
 	// Supports: ==, !=, <, >, <=, >=, &&, ||
 	// Examples: "status == 'active'", "priority > 3", "workload < 10"
-	
+
 	return func(params map[string]interface{}) (interface{}, error) {
 		// Simple expression parser for MVP
 		result, err := e.evaluateExpression(expression, params)
@@ -501,7 +501,7 @@ func (e *engine) parseExpression(expression string) (func(map[string]interface{}
 func (e *engine) evaluateExpression(expr string, params map[string]interface{}) (interface{}, error) {
 	// Remove spaces
 	expr = strings.TrimSpace(expr)
-	
+
 	// Handle AND operations
 	if strings.Contains(expr, " && ") {
 		parts := strings.Split(expr, " && ")
@@ -516,7 +516,7 @@ func (e *engine) evaluateExpression(expr string, params map[string]interface{}) 
 		}
 		return true, nil
 	}
-	
+
 	// Handle OR operations
 	if strings.Contains(expr, " || ") {
 		parts := strings.Split(expr, " || ")
@@ -531,7 +531,7 @@ func (e *engine) evaluateExpression(expr string, params map[string]interface{}) 
 		}
 		return false, nil
 	}
-	
+
 	// Parse comparison operations
 	var field, op, value string
 	if strings.Contains(expr, " == ") {
@@ -555,17 +555,17 @@ func (e *engine) evaluateExpression(expr string, params map[string]interface{}) 
 	} else {
 		return false, fmt.Errorf("unsupported expression: %s", expr)
 	}
-	
+
 	// Clean field and value
 	field = strings.TrimSpace(field)
 	value = strings.TrimSpace(value)
-	
+
 	// Get field value from params
 	fieldValue, exists := params[field]
 	if !exists {
 		return false, nil
 	}
-	
+
 	// Parse value (handle strings and numbers)
 	var parsedValue interface{}
 	if strings.HasPrefix(value, "'") && strings.HasSuffix(value, "'") {
@@ -584,7 +584,7 @@ func (e *engine) evaluateExpression(expr string, params map[string]interface{}) 
 		// Default to string
 		parsedValue = value
 	}
-	
+
 	// Perform comparison
 	return e.compare(fieldValue, op, parsedValue)
 }
@@ -625,7 +625,7 @@ func (e *engine) equals(left, right interface{}) bool {
 	if leftIsNum && rightIsNum {
 		return leftNum == rightNum
 	}
-	
+
 	// String comparison
 	return fmt.Sprintf("%v", left) == fmt.Sprintf("%v", right)
 }

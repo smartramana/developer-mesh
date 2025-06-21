@@ -12,7 +12,7 @@ type Engine interface {
 	GetRules(ctx context.Context, category string, filters map[string]interface{}) ([]Rule, error)
 	RegisterRule(ctx context.Context, rule Rule) error
 	UpdateRule(ctx context.Context, ruleID uuid.UUID, updates map[string]interface{}) error
-	
+
 	// Production methods for dynamic rule management
 	LoadRules(ctx context.Context, rules []Rule) error
 	StartHotReload(ctx context.Context) error
@@ -51,7 +51,7 @@ type PolicyManager interface {
 	GetRules(ctx context.Context, policyName string) ([]Rule, error)
 	UpdatePolicy(ctx context.Context, policy *Policy) error
 	ValidatePolicy(ctx context.Context, policy *Policy) error
-	
+
 	// Production methods for dynamic policy management
 	LoadPolicies(ctx context.Context, policies []Policy) error
 	StartHotReload(ctx context.Context) error

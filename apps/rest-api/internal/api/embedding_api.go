@@ -148,19 +148,19 @@ func (api *EmbeddingAPI) searchEmbeddings(c *gin.Context) {
 
 	// Create search service adapter
 	searchService := NewSearchServiceAdapter(api.embeddingService, api.logger)
-	
+
 	// Inject tenant ID from auth context if not provided
 	if req.TenantID == uuid.Nil {
 		if tenantID, exists := c.Get("tenant_id"); exists {
 			req.TenantID = tenantID.(uuid.UUID)
 		}
 	}
-	
+
 	// Perform search
 	results, err := searchService.Search(c.Request.Context(), req)
 	if err != nil {
 		api.logger.Error("Search failed", map[string]any{
-			"error": err.Error(),
+			"error":     err.Error(),
 			"tenant_id": req.TenantID,
 		})
 		c.JSON(http.StatusInternalServerError, ErrorResponse{
@@ -189,7 +189,7 @@ func (api *EmbeddingAPI) crossModelSearch(c *gin.Context) {
 
 	// Create search service adapter
 	searchService := NewSearchServiceAdapter(api.embeddingService, api.logger)
-	
+
 	// Convert to standard search request for adapter
 	searchReq := embedding.SearchRequest{
 		QueryEmbedding: req.QueryEmbedding,
@@ -199,7 +199,7 @@ func (api *EmbeddingAPI) crossModelSearch(c *gin.Context) {
 		Limit:          req.Limit,
 		Threshold:      req.MinSimilarity,
 	}
-	
+
 	// Add metadata filter if provided
 	if len(req.MetadataFilter) > 0 {
 		filterJSON, err := json.Marshal(req.MetadataFilter)
@@ -207,12 +207,12 @@ func (api *EmbeddingAPI) crossModelSearch(c *gin.Context) {
 			searchReq.MetadataFilter = filterJSON
 		}
 	}
-	
+
 	// Perform search
 	results, err := searchService.Search(c.Request.Context(), searchReq)
 	if err != nil {
 		api.logger.Error("Cross-model search failed", map[string]any{
-			"error": err.Error(),
+			"error":     err.Error(),
 			"tenant_id": req.TenantID,
 		})
 		c.JSON(http.StatusInternalServerError, ErrorResponse{
@@ -223,8 +223,8 @@ func (api *EmbeddingAPI) crossModelSearch(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, gin.H{
-		"results": results,
-		"count":   len(results),
+		"results":      results,
+		"count":        len(results),
 		"search_model": req.SearchModel,
 	})
 }
@@ -355,12 +355,12 @@ func (api *EmbeddingAPI) getAgentCosts(c *gin.Context) {
 
 	// Create metrics adapter
 	metricsAdapter := NewMetricsRepositoryAdapter(api.embeddingService, api.logger)
-	
+
 	// Get cost summary
 	costs, err := metricsAdapter.GetAgentCosts(c.Request.Context(), agentID, period)
 	if err != nil {
 		api.logger.Error("Failed to get agent costs", map[string]any{
-			"error": err.Error(),
+			"error":    err.Error(),
 			"agent_id": sanitizeLogValue(agentID),
 		})
 		c.JSON(http.StatusInternalServerError, ErrorResponse{

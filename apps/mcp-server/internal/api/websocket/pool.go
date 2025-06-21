@@ -161,19 +161,19 @@ func PutConnection(conn *Connection) {
 	if conn == nil {
 		return
 	}
-	
+
 	// Close the websocket connection if it exists
 	if conn.conn != nil {
 		_ = conn.conn.Close(websocket.StatusNormalClosure, "")
 	}
-	
+
 	// Reset the connection state
 	conn.Connection = nil
 	conn.conn = nil
 	conn.hub = nil
 	conn.state = nil
 	// Keep the send channel for reuse
-	
+
 	connectionPool.Put(conn)
 }
 
@@ -185,13 +185,13 @@ type ConnectionPoolManager struct {
 	minSize     int
 	idleTimeout time.Duration
 	mu          sync.Mutex
-	
+
 	// Metrics
 	created   uint64
 	destroyed uint64
 	borrowed  uint64
 	returned  uint64
-	
+
 	// Track idle connections
 	idleTracker map[*Connection]time.Time
 	trackerMu   sync.RWMutex
@@ -203,12 +203,12 @@ func NewConnectionPoolManager(size int) *ConnectionPoolManager {
 	if minSize < 10 {
 		minSize = 10
 	}
-	
+
 	maxSize := size * 2
 	if maxSize > 10000 {
 		maxSize = 10000
 	}
-	
+
 	manager := &ConnectionPoolManager{
 		pool:        make(chan *Connection, size),
 		size:        size,
@@ -231,7 +231,7 @@ func NewConnectionPoolManager(size int) *ConnectionPoolManager {
 			break
 		}
 	}
-	
+
 	// Start pool maintenance goroutine
 	go manager.maintain()
 
@@ -243,7 +243,7 @@ func (m *ConnectionPoolManager) Get() *Connection {
 	m.mu.Lock()
 	m.borrowed++
 	m.mu.Unlock()
-	
+
 	select {
 	case conn := <-m.pool:
 		// Remove from idle tracker since it's now in use
@@ -256,7 +256,7 @@ func (m *ConnectionPoolManager) Get() *Connection {
 		m.mu.Lock()
 		m.created++
 		m.mu.Unlock()
-		
+
 		return &Connection{
 			send: make(chan []byte, 256),
 		}
@@ -269,7 +269,7 @@ func (m *ConnectionPoolManager) Put(conn *Connection) {
 	m.returned++
 	currentSize := len(m.pool)
 	m.mu.Unlock()
-	
+
 	// Close the underlying websocket connection if it exists
 	if conn.conn != nil {
 		// Ignore error as connection might already be closed
@@ -282,7 +282,7 @@ func (m *ConnectionPoolManager) Put(conn *Connection) {
 	conn.hub = nil
 	conn.state = nil
 	// Don't reset the send channel, reuse it
-	
+
 	// Check if we should return to pool or destroy
 	if currentSize < m.maxSize {
 		select {
@@ -297,7 +297,7 @@ func (m *ConnectionPoolManager) Put(conn *Connection) {
 			m.mu.Lock()
 			m.destroyed++
 			m.mu.Unlock()
-			
+
 			// Close the send channel to free resources
 			if conn.send != nil {
 				close(conn.send)
@@ -308,7 +308,7 @@ func (m *ConnectionPoolManager) Put(conn *Connection) {
 		m.mu.Lock()
 		m.destroyed++
 		m.mu.Unlock()
-		
+
 		if conn.send != nil {
 			close(conn.send)
 		}
@@ -324,13 +324,13 @@ func (m *ConnectionPoolManager) Stats() (available, size int) {
 func (m *ConnectionPoolManager) DetailedStats() map[string]interface{} {
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	
+
 	available := len(m.pool)
 	inUse := int(m.borrowed - m.returned)
 	if inUse < 0 {
 		inUse = 0
 	}
-	
+
 	return map[string]interface{}{
 		"size":         m.size,
 		"min_size":     m.minSize,
@@ -350,24 +350,24 @@ func (m *ConnectionPoolManager) DetailedStats() map[string]interface{} {
 func (m *ConnectionPoolManager) cleanupIdleConnections() {
 	m.trackerMu.Lock()
 	defer m.trackerMu.Unlock()
-	
+
 	now := time.Now()
 	toRemove := make([]*Connection, 0)
-	
+
 	// Find connections that have been idle too long
 	for conn, idleTime := range m.idleTracker {
 		if now.Sub(idleTime) > m.idleTimeout {
 			toRemove = append(toRemove, conn)
 		}
 	}
-	
+
 	// Remove idle connections from the pool
 	for _, conn := range toRemove {
 		// Try to remove from pool by draining it temporarily
 		removed := false
 		poolSize := len(m.pool)
 		tempConns := make([]*Connection, 0, poolSize)
-		
+
 		// Drain the pool
 		for i := 0; i < poolSize; i++ {
 			select {
@@ -388,7 +388,7 @@ func (m *ConnectionPoolManager) cleanupIdleConnections() {
 				break
 			}
 		}
-		
+
 		// Put non-idle connections back
 		for _, c := range tempConns {
 			select {
@@ -400,7 +400,7 @@ func (m *ConnectionPoolManager) cleanupIdleConnections() {
 				}
 			}
 		}
-		
+
 		// Remove from tracker if we found and removed it
 		if removed {
 			delete(m.idleTracker, conn)
@@ -412,12 +412,12 @@ func (m *ConnectionPoolManager) cleanupIdleConnections() {
 func (m *ConnectionPoolManager) maintain() {
 	ticker := time.NewTicker(30 * time.Second)
 	defer ticker.Stop()
-	
+
 	for range ticker.C {
 		m.mu.Lock()
 		currentSize := len(m.pool)
 		m.mu.Unlock()
-		
+
 		// Ensure minimum pool size
 		if currentSize < m.minSize {
 			toCreate := m.minSize - currentSize
@@ -425,7 +425,7 @@ func (m *ConnectionPoolManager) maintain() {
 				conn := &Connection{
 					send: make(chan []byte, 256),
 				}
-				
+
 				select {
 				case m.pool <- conn:
 					m.mu.Lock()
@@ -437,7 +437,7 @@ func (m *ConnectionPoolManager) maintain() {
 				}
 			}
 		}
-		
+
 		// Clean up idle connections
 		m.cleanupIdleConnections()
 	}
@@ -447,7 +447,7 @@ func (m *ConnectionPoolManager) maintain() {
 func (m *ConnectionPoolManager) Shutdown() {
 	// Close all connections in the pool
 	close(m.pool)
-	
+
 	for conn := range m.pool {
 		if conn.conn != nil {
 			_ = conn.conn.Close(websocket.StatusGoingAway, "server shutdown")

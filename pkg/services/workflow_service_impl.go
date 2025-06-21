@@ -5513,7 +5513,7 @@ func (s *workflowService) executeSequentialStep(ctx context.Context, execution *
 					return nil, fmt.Errorf("sequential step %s timed out", stepID)
 				}
 				results[stepID] = map[string]interface{}{
-					"error":   "timeout",
+					"error":    "timeout",
 					"duration": time.Since(startTime).String(),
 				}
 				taskCompleted = true
@@ -5728,11 +5728,11 @@ func (s *workflowService) executeScriptStep(ctx context.Context, execution *mode
 
 	// Prepare output
 	output := map[string]interface{}{
-		"stdout":       stdout.String(),
-		"stderr":       stderr.String(),
-		"duration":     duration.String(),
-		"script_type":  scriptType,
-		"working_dir":  workDir,
+		"stdout":      stdout.String(),
+		"stderr":      stderr.String(),
+		"duration":    duration.String(),
+		"script_type": scriptType,
+		"working_dir": workDir,
 	}
 
 	// Handle execution result
@@ -5740,7 +5740,7 @@ func (s *workflowService) executeScriptStep(ctx context.Context, execution *mode
 		var exitError *exec.ExitError
 		if errors.As(err, &exitError) {
 			output["exit_code"] = exitError.ExitCode()
-			
+
 			s.config.Metrics.IncrementCounterWithLabels("workflow.script.error", 1, map[string]string{
 				"workflow_id": execution.WorkflowID.String(),
 				"step_id":     step.ID,
@@ -6314,7 +6314,7 @@ func (s *workflowService) executeCompensation(ctx context.Context, execution *mo
 			ID          string
 			CompletedAt time.Time
 		}
-		
+
 		var sortedSteps []stepInfo
 		for _, stepID := range targetSteps {
 			if status, ok := execution.StepStatuses[stepID]; ok && status.CompletedAt != nil {
@@ -6324,7 +6324,7 @@ func (s *workflowService) executeCompensation(ctx context.Context, execution *mo
 				})
 			}
 		}
-		
+
 		// Sort by completion time (descending)
 		for i := 0; i < len(sortedSteps); i++ {
 			for j := i + 1; j < len(sortedSteps); j++ {
@@ -6404,9 +6404,9 @@ func (s *workflowService) executeCompensation(ctx context.Context, execution *mo
 	execution.State["compensation_results"] = compensationResults
 
 	output := map[string]interface{}{
-		"strategy":         strategy,
+		"strategy":          strategy,
 		"compensated_steps": targetSteps,
-		"results":          compensationResults,
+		"results":           compensationResults,
 	}
 
 	if len(compensationErrors) > 0 {
@@ -6456,7 +6456,7 @@ func (s *workflowService) compensateStep(ctx context.Context, execution *models.
 			compensation = comp
 		}
 	}
-	
+
 	if compensation == nil {
 		return map[string]interface{}{
 			"status":  "skipped",
@@ -6479,9 +6479,9 @@ func (s *workflowService) compensateStep(ctx context.Context, execution *models.
 			Description: fmt.Sprintf("Compensation task for step %s in execution %s", stepID, execution.ID),
 			Priority:    models.TaskPriorityHigh,
 			Parameters: map[string]interface{}{
-				"original_step":   stepID,
-				"execution_id":    execution.ID,
-				"compensation":    compensation,
+				"original_step": stepID,
+				"execution_id":  execution.ID,
+				"compensation":  compensation,
 			},
 		}
 
@@ -6497,7 +6497,7 @@ func (s *workflowService) compensateStep(ctx context.Context, execution *models.
 		// Poll for task completion
 		ticker := time.NewTicker(2 * time.Second)
 		defer ticker.Stop()
-		
+
 		for {
 			select {
 			case <-ctx.Done():
@@ -6507,7 +6507,7 @@ func (s *workflowService) compensateStep(ctx context.Context, execution *models.
 				if err != nil {
 					return nil, errors.Wrap(err, "failed to get compensation task status")
 				}
-				
+
 				switch task.Status {
 				case models.TaskStatusCompleted:
 					return map[string]interface{}{
@@ -6532,8 +6532,8 @@ func (s *workflowService) compensateStep(ctx context.Context, execution *models.
 			})
 
 			return map[string]interface{}{
-				"status":  "completed",
-				"type":    "script",
+				"status": "completed",
+				"type":   "script",
 			}, nil
 		}
 

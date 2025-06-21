@@ -41,10 +41,10 @@ import (
 
 	// Import auth package for production authorizer
 	"github.com/S-Corkum/devops-mcp/pkg/auth"
-	
+
 	// Import rules package for rule engine and policy manager
 	"github.com/S-Corkum/devops-mcp/pkg/rules"
-	
+
 	// Import golang-migrate for database migrations
 	"github.com/golang-migrate/migrate/v4"
 	migratepg "github.com/golang-migrate/migrate/v4/database/postgres"
@@ -659,7 +659,7 @@ func createRuleEngine(cacheClient cache.Cache, logger observability.Logger, metr
 
 	// Determine rule loader based on configuration
 	var loader rules.RuleLoader
-	
+
 	// Check for rules configuration path
 	rulesPath := os.Getenv("RULES_CONFIG_PATH")
 	if rulesPath == "" {
@@ -780,7 +780,7 @@ func createPolicyManager(cacheClient cache.Cache, logger observability.Logger, m
 
 	// Determine policy loader based on configuration
 	var loader rules.PolicyLoader
-	
+
 	// Check for policies configuration path
 	policiesPath := os.Getenv("POLICIES_CONFIG_PATH")
 	if policiesPath == "" {
@@ -871,9 +871,9 @@ func (l *defaultPolicyLoader) LoadPolicies(ctx context.Context) ([]rules.Policy,
 				},
 			},
 			Defaults: map[string]interface{}{
-				"timeout":       3600,
-				"max_retries":   3,
-				"priority":      "medium",
+				"timeout":     3600,
+				"max_retries": 3,
+				"priority":    "medium",
 			},
 		},
 		{
