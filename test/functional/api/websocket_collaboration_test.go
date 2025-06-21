@@ -8,13 +8,63 @@ import (
 	"testing"
 	"time"
 
+	"github.com/coder/websocket"
+	"github.com/coder/websocket/wsjson"
 	"github.com/google/uuid"
-	"github.com/gorilla/websocket"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-
-	"github.com/S-Corkum/devops-mcp/test/functional/shared"
 )
+
+// WebSocketClient is a test client wrapper
+type WebSocketClient struct {
+	AgentID string
+	Conn    *websocket.Conn
+	t       *testing.T
+}
+
+// WebSocketMessage represents a message for testing
+type WebSocketMessage struct {
+	Type string                 `json:"type"`
+	ID   string                 `json:"id"`
+	Data map[string]interface{} `json:"data,omitempty"`
+}
+
+// NewWebSocketClient creates a new test WebSocket client
+func NewWebSocketClient(t *testing.T, agentID string, capabilities []string) *WebSocketClient {
+	// For now, return a stub implementation
+	// TODO: Implement proper connection logic
+	return &WebSocketClient{
+		AgentID: agentID,
+		t:       t,
+	}
+}
+
+// SendMessage sends a message through the WebSocket
+func (c *WebSocketClient) SendMessage(msg WebSocketMessage) error {
+	if c.Conn == nil {
+		return fmt.Errorf("connection not established")
+	}
+	ctx := context.Background()
+	return wsjson.Write(ctx, c.Conn, msg)
+}
+
+// ReadMessage reads a message from the WebSocket
+func (c *WebSocketClient) ReadMessage(ctx context.Context) (*WebSocketMessage, error) {
+	if c.Conn == nil {
+		return nil, fmt.Errorf("connection not established")
+	}
+	var msg WebSocketMessage
+	err := wsjson.Read(ctx, c.Conn, &msg)
+	return &msg, err
+}
+
+// Close closes the WebSocket connection
+func (c *WebSocketClient) Close() error {
+	if c.Conn != nil {
+		return c.Conn.Close(websocket.StatusNormalClosure, "")
+	}
+	return nil
+}
 
 // Test task delegation between multiple agents
 func TestWebSocketTaskDelegation(t *testing.T) {
@@ -26,15 +76,15 @@ func TestWebSocketTaskDelegation(t *testing.T) {
 	defer cancel()
 
 	// Connect two agents
-	agent1 := shared.NewWebSocketClient(t, "agent1", []string{"coding", "testing"})
+	agent1 := NewWebSocketClient(t, "agent1", []string{"coding", "testing"})
 	defer agent1.Close()
 
-	agent2 := shared.NewWebSocketClient(t, "agent2", []string{"documentation", "testing"})
+	agent2 := NewWebSocketClient(t, "agent2", []string{"documentation", "testing"})
 	defer agent2.Close()
 
 	// Agent 1 creates a task
 	taskID := uuid.New()
-	createTaskMsg := shared.WebSocketMessage{
+	createTaskMsg := WebSocketMessage{
 		Type: "task.create",
 		ID:   uuid.New().String(),
 		Data: map[string]interface{}{
@@ -57,7 +107,7 @@ func TestWebSocketTaskDelegation(t *testing.T) {
 	assert.Equal(t, "task.created", msg.Type)
 
 	// Agent 1 delegates task to Agent 2
-	delegateMsg := shared.WebSocketMessage{
+	delegateMsg := WebSocketMessage{
 		Type: "task.delegate",
 		ID:   uuid.New().String(),
 		Data: map[string]interface{}{
@@ -76,12 +126,11 @@ func TestWebSocketTaskDelegation(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, "task.delegated", msg.Type)
 
-	data := msg.Data.(map[string]interface{})
-	assert.Equal(t, taskID.String(), data["task_id"])
-	assert.Equal(t, "agent1", data["from_agent"])
+	assert.Equal(t, taskID.String(), msg.Data["task_id"])
+	assert.Equal(t, "agent1", msg.Data["from_agent"])
 
 	// Agent 2 accepts the task
-	acceptMsg := shared.WebSocketMessage{
+	acceptMsg := WebSocketMessage{
 		Type: "task.accept",
 		ID:   uuid.New().String(),
 		Data: map[string]interface{}{
@@ -108,18 +157,18 @@ func TestWebSocketWorkflowCoordination(t *testing.T) {
 	defer cancel()
 
 	// Connect three agents with different capabilities
-	coder := shared.NewWebSocketClient(t, "coder", []string{"coding", "debugging"})
+	coder := NewWebSocketClient(t, "coder", []string{"coding", "debugging"})
 	defer coder.Close()
 
-	tester := shared.NewWebSocketClient(t, "tester", []string{"testing", "qa"})
+	tester := NewWebSocketClient(t, "tester", []string{"testing", "qa"})
 	defer tester.Close()
 
-	reviewer := shared.NewWebSocketClient(t, "reviewer", []string{"review", "documentation"})
+	reviewer := NewWebSocketClient(t, "reviewer", []string{"review", "documentation"})
 	defer reviewer.Close()
 
 	// Create a workflow
 	workflowID := uuid.New()
-	createWorkflowMsg := shared.WebSocketMessage{
+	createWorkflowMsg := WebSocketMessage{
 		Type: "workflow.create",
 		ID:   uuid.New().String(),
 		Data: map[string]interface{}{
@@ -169,7 +218,7 @@ func TestWebSocketWorkflowCoordination(t *testing.T) {
 	assert.Equal(t, "workflow.created", msg.Type)
 
 	// Start workflow execution
-	startMsg := shared.WebSocketMessage{
+	startMsg := WebSocketMessage{
 		Type: "workflow.start",
 		ID:   uuid.New().String(),
 		Data: map[string]interface{}{
@@ -186,10 +235,10 @@ func TestWebSocketWorkflowCoordination(t *testing.T) {
 	assert.Equal(t, "task.assigned", msg.Type)
 
 	// Simulate step completion by each agent
-	agents := []*shared.WebSocketClient{coder, tester, reviewer}
+	agents := []*WebSocketClient{coder, tester, reviewer}
 	for i, agent := range agents {
 		// Complete current step
-		completeMsg := shared.WebSocketMessage{
+		completeMsg := WebSocketMessage{
 			Type: "workflow.step.complete",
 			ID:   uuid.New().String(),
 			Data: map[string]interface{}{
@@ -230,15 +279,15 @@ func TestWebSocketWorkspaceCollaboration(t *testing.T) {
 
 	// Connect multiple agents
 	numAgents := 3
-	agents := make([]*shared.WebSocketClient, numAgents)
+	agents := make([]*WebSocketClient, numAgents)
 	for i := 0; i < numAgents; i++ {
-		agents[i] = shared.NewWebSocketClient(t, fmt.Sprintf("agent%d", i+1), []string{"collaboration"})
+		agents[i] = NewWebSocketClient(t, fmt.Sprintf("agent%d", i+1), []string{"collaboration"})
 		defer agents[i].Close()
 	}
 
 	// First agent creates workspace
 	workspaceID := uuid.New()
-	createWorkspaceMsg := shared.WebSocketMessage{
+	createWorkspaceMsg := WebSocketMessage{
 		Type: "workspace.create",
 		ID:   uuid.New().String(),
 		Data: map[string]interface{}{
@@ -259,7 +308,7 @@ func TestWebSocketWorkspaceCollaboration(t *testing.T) {
 
 	// Join other agents to workspace
 	for i := 1; i < numAgents; i++ {
-		joinMsg := shared.WebSocketMessage{
+		joinMsg := WebSocketMessage{
 			Type: "workspace.join",
 			ID:   uuid.New().String(),
 			Data: map[string]interface{}{
@@ -285,7 +334,7 @@ func TestWebSocketWorkspaceCollaboration(t *testing.T) {
 
 	// Test real-time document collaboration
 	documentID := uuid.New()
-	createDocMsg := shared.WebSocketMessage{
+	createDocMsg := WebSocketMessage{
 		Type: "document.create",
 		ID:   uuid.New().String(),
 		Data: map[string]interface{}{
@@ -306,7 +355,7 @@ func TestWebSocketWorkspaceCollaboration(t *testing.T) {
 	wg.Add(numAgents)
 
 	for i := range agents {
-		go func(agent *shared.WebSocketClient) {
+		go func(agent *WebSocketClient) {
 			defer wg.Done()
 			msg, err := agent.ReadMessage(ctx)
 			require.NoError(t, err)
@@ -321,7 +370,7 @@ func TestWebSocketWorkspaceCollaboration(t *testing.T) {
 
 	for i := 1; i < numAgents; i++ {
 		go func(agentIndex int) {
-			editMsg := shared.WebSocketMessage{
+			editMsg := WebSocketMessage{
 				Type: "document.edit",
 				ID:   uuid.New().String(),
 				Data: map[string]interface{}{
@@ -346,7 +395,7 @@ func TestWebSocketWorkspaceCollaboration(t *testing.T) {
 	}
 
 	// Request final document state
-	getDocMsg := shared.WebSocketMessage{
+	getDocMsg := WebSocketMessage{
 		Type: "document.get",
 		ID:   uuid.New().String(),
 		Data: map[string]interface{}{
@@ -362,8 +411,7 @@ func TestWebSocketWorkspaceCollaboration(t *testing.T) {
 	assert.Equal(t, "document.state", msg.Type)
 
 	// Verify all edits were applied
-	docData := msg.Data.(map[string]interface{})
-	content := docData["content"].(string)
+	content := msg.Data["content"].(string)
 	for i := 1; i < numAgents; i++ {
 		assert.Contains(t, content, fmt.Sprintf("Edit from agent%d", i+1))
 	}
@@ -379,15 +427,15 @@ func TestWebSocketConflictResolution(t *testing.T) {
 	defer cancel()
 
 	// Connect two agents
-	agent1 := shared.NewWebSocketClient(t, "agent1", []string{"editing"})
+	agent1 := NewWebSocketClient(t, "agent1", []string{"editing"})
 	defer agent1.Close()
 
-	agent2 := shared.NewWebSocketClient(t, "agent2", []string{"editing"})
+	agent2 := NewWebSocketClient(t, "agent2", []string{"editing"})
 	defer agent2.Close()
 
 	// Create shared state
 	stateID := uuid.New()
-	createStateMsg := shared.WebSocketMessage{
+	createStateMsg := WebSocketMessage{
 		Type: "state.create",
 		ID:   uuid.New().String(),
 		Data: map[string]interface{}{
@@ -408,7 +456,7 @@ func TestWebSocketConflictResolution(t *testing.T) {
 	assert.Equal(t, "state.created", msg1.Type)
 
 	// Agent2 subscribes to state
-	subscribeMsg := shared.WebSocketMessage{
+	subscribeMsg := WebSocketMessage{
 		Type: "state.subscribe",
 		ID:   uuid.New().String(),
 		Data: map[string]interface{}{
@@ -430,7 +478,7 @@ func TestWebSocketConflictResolution(t *testing.T) {
 	go func() {
 		defer wg.Done()
 		for i := 0; i < 5; i++ {
-			incrementMsg := shared.WebSocketMessage{
+			incrementMsg := WebSocketMessage{
 				Type: "state.increment",
 				ID:   uuid.New().String(),
 				Data: map[string]interface{}{
@@ -447,7 +495,7 @@ func TestWebSocketConflictResolution(t *testing.T) {
 	go func() {
 		defer wg.Done()
 		for i := 0; i < 5; i++ {
-			incrementMsg := shared.WebSocketMessage{
+			incrementMsg := WebSocketMessage{
 				Type: "state.increment",
 				ID:   uuid.New().String(),
 				Data: map[string]interface{}{
@@ -467,7 +515,7 @@ func TestWebSocketConflictResolution(t *testing.T) {
 	time.Sleep(100 * time.Millisecond)
 
 	// Query final state
-	queryMsg := shared.WebSocketMessage{
+	queryMsg := WebSocketMessage{
 		Type: "state.get",
 		ID:   uuid.New().String(),
 		Data: map[string]interface{}{
@@ -486,8 +534,7 @@ func TestWebSocketConflictResolution(t *testing.T) {
 			break
 		}
 		if msg.Type == "state.value" {
-			data := msg.Data.(map[string]interface{})
-			finalValue = int(data["value"].(float64))
+			finalValue = int(msg.Data["value"].(float64))
 			break
 		}
 	}
@@ -506,11 +553,11 @@ func TestWebSocketCapabilityMatching(t *testing.T) {
 	defer cancel()
 
 	// Connect agents with different capabilities
-	agents := []*shared.WebSocketClient{
-		shared.NewWebSocketClient(t, "frontend-dev", []string{"javascript", "react", "css"}),
-		shared.NewWebSocketClient(t, "backend-dev", []string{"golang", "postgresql", "redis"}),
-		shared.NewWebSocketClient(t, "ml-engineer", []string{"python", "tensorflow", "data-analysis"}),
-		shared.NewWebSocketClient(t, "devops", []string{"kubernetes", "terraform", "monitoring"}),
+	agents := []*WebSocketClient{
+		NewWebSocketClient(t, "frontend-dev", []string{"javascript", "react", "css"}),
+		NewWebSocketClient(t, "backend-dev", []string{"golang", "postgresql", "redis"}),
+		NewWebSocketClient(t, "ml-engineer", []string{"python", "tensorflow", "data-analysis"}),
+		NewWebSocketClient(t, "devops", []string{"kubernetes", "terraform", "monitoring"}),
 	}
 
 	for _, agent := range agents {
@@ -546,7 +593,7 @@ func TestWebSocketCapabilityMatching(t *testing.T) {
 
 	// Create and auto-assign tasks
 	for _, task := range tasks {
-		createMsg := shared.WebSocketMessage{
+		createMsg := WebSocketMessage{
 			Type: "task.create.auto_assign",
 			ID:   uuid.New().String(),
 			Data: map[string]interface{}{
@@ -568,12 +615,11 @@ func TestWebSocketCapabilityMatching(t *testing.T) {
 		assignWg.Add(len(agents))
 
 		for _, agent := range agents {
-			go func(a *shared.WebSocketClient) {
+			go func(a *WebSocketClient) {
 				defer assignWg.Done()
 				msg, err := a.ReadMessage(ctx)
 				if err == nil && msg.Type == "task.assigned" {
-					data := msg.Data.(map[string]interface{})
-					if data["task_id"] == task.id {
+					if msg.Data["task_id"] == task.id {
 						assigned <- a.AgentID
 					}
 				}
@@ -613,15 +659,15 @@ func TestWebSocketMultiAgentPerformance(t *testing.T) {
 	startTime := time.Now()
 
 	// Connect multiple agents
-	agents := make([]*shared.WebSocketClient, numAgents)
+	agents := make([]*WebSocketClient, numAgents)
 	for i := 0; i < numAgents; i++ {
-		agents[i] = shared.NewWebSocketClient(t, fmt.Sprintf("perf-agent-%d", i), []string{"processing"})
+		agents[i] = NewWebSocketClient(t, fmt.Sprintf("perf-agent-%d", i), []string{"processing"})
 		defer agents[i].Close()
 	}
 
 	// Create shared workspace
 	workspaceID := uuid.New()
-	createWorkspaceMsg := shared.WebSocketMessage{
+	createWorkspaceMsg := WebSocketMessage{
 		Type: "workspace.create",
 		ID:   uuid.New().String(),
 		Data: map[string]interface{}{
@@ -647,7 +693,7 @@ func TestWebSocketMultiAgentPerformance(t *testing.T) {
 	for i := 1; i < numAgents; i++ {
 		go func(agentIndex int) {
 			defer joinWg.Done()
-			joinMsg := shared.WebSocketMessage{
+			joinMsg := WebSocketMessage{
 				Type: "workspace.join",
 				ID:   uuid.New().String(),
 				Data: map[string]interface{}{
@@ -672,7 +718,7 @@ func TestWebSocketMultiAgentPerformance(t *testing.T) {
 			for j := 0; j < numTasksPerAgent; j++ {
 				// Create task
 				taskID := uuid.New()
-				createTaskMsg := shared.WebSocketMessage{
+				createTaskMsg := WebSocketMessage{
 					Type: "task.create",
 					ID:   uuid.New().String(),
 					Data: map[string]interface{}{
@@ -691,7 +737,7 @@ func TestWebSocketMultiAgentPerformance(t *testing.T) {
 				time.Sleep(time.Duration(10+j%20) * time.Millisecond)
 
 				// Complete task
-				completeMsg := shared.WebSocketMessage{
+				completeMsg := WebSocketMessage{
 					Type: "task.complete",
 					ID:   uuid.New().String(),
 					Data: map[string]interface{}{
@@ -727,19 +773,20 @@ func TestWebSocketMultiAgentPerformance(t *testing.T) {
 }
 
 // Helper function to drain messages
-func drainMessages(client *shared.WebSocketClient, duration time.Duration) {
+func drainMessages(client *WebSocketClient, duration time.Duration) {
 	timeout := time.After(duration)
 	for {
 		select {
 		case <-timeout:
 			return
 		default:
-			client.Conn.SetReadDeadline(time.Now().Add(100 * time.Millisecond))
-			_, _, err := client.Conn.ReadMessage()
+			ctx, cancel := context.WithTimeout(context.Background(), 100*time.Millisecond)
+			var msg WebSocketMessage
+			err := wsjson.Read(ctx, client.Conn, &msg)
+			cancel()
 			if err != nil {
-				if websocket.IsUnexpectedCloseError(err, websocket.CloseGoingAway, websocket.CloseAbnormalClosure) {
-					return
-				}
+				// Connection closed or timeout, exit drain
+				return
 			}
 		}
 	}
