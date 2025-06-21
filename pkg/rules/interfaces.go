@@ -12,6 +12,17 @@ type Engine interface {
 	GetRules(ctx context.Context, category string, filters map[string]interface{}) ([]Rule, error)
 	RegisterRule(ctx context.Context, rule Rule) error
 	UpdateRule(ctx context.Context, ruleID uuid.UUID, updates map[string]interface{}) error
+	
+	// Production methods for dynamic rule management
+	LoadRules(ctx context.Context, rules []Rule) error
+	StartHotReload(ctx context.Context) error
+	StopHotReload() error
+	SetRuleLoader(loader RuleLoader) error
+}
+
+// RuleLoader defines how rules are loaded from external sources
+type RuleLoader interface {
+	LoadRules(ctx context.Context) ([]Rule, error)
 }
 
 // Rule represents a business rule
@@ -40,6 +51,17 @@ type PolicyManager interface {
 	GetRules(ctx context.Context, policyName string) ([]Rule, error)
 	UpdatePolicy(ctx context.Context, policy *Policy) error
 	ValidatePolicy(ctx context.Context, policy *Policy) error
+	
+	// Production methods for dynamic policy management
+	LoadPolicies(ctx context.Context, policies []Policy) error
+	StartHotReload(ctx context.Context) error
+	StopHotReload() error
+	SetPolicyLoader(loader PolicyLoader) error
+}
+
+// PolicyLoader defines how policies are loaded from external sources
+type PolicyLoader interface {
+	LoadPolicies(ctx context.Context) ([]Policy, error)
 }
 
 // Policy represents a business policy

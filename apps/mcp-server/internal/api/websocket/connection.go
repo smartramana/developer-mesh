@@ -9,6 +9,7 @@ import (
 	"github.com/coder/websocket/wsjson"
 	"github.com/google/uuid"
 
+	"github.com/S-Corkum/devops-mcp/pkg/auth"
 	ws "github.com/S-Corkum/devops-mcp/pkg/models/websocket"
 )
 
@@ -23,6 +24,7 @@ type ConnectionState struct {
 	SystemPromptTokens   int
 	ConversationTokens   int
 	ToolTokens           int
+	Claims               *auth.Claims // Authentication claims
 }
 
 // RateLimiter implements token bucket algorithm

@@ -3,6 +3,7 @@ package websocket
 import (
 	"bytes"
 	"sync"
+	"time"
 
 	ws "github.com/S-Corkum/devops-mcp/pkg/models/websocket"
 	"github.com/coder/websocket"
@@ -25,14 +26,13 @@ var (
 	}
 
 	// Connection pool for reusing connection objects
-	// TODO: Uncomment when implementing connection pooling
-	// connectionPool = sync.Pool{
-	//     New: func() interface{} {
-	//         return &Connection{
-	//             send: make(chan []byte, 256),
-	//         }
-	//     },
-	// }
+	connectionPool = sync.Pool{
+		New: func() interface{} {
+			return &Connection{
+				send: make(chan []byte, 256),
+			}
+		},
+	}
 
 	// Binary header pool
 	binaryHeaderPool = sync.Pool{
@@ -144,44 +144,110 @@ func PutByteSlice(b *[]byte) {
 	}
 }
 
+// GetConnection retrieves a connection from the sync.Pool
+func GetConnection() *Connection {
+	conn := connectionPool.Get().(*Connection)
+	// Reset state but keep the send channel
+	conn.Connection = nil
+	conn.conn = nil
+	conn.hub = nil
+	conn.state = nil
+	conn.mu = sync.RWMutex{}
+	return conn
+}
+
+// PutConnection returns a connection to the sync.Pool
+func PutConnection(conn *Connection) {
+	if conn == nil {
+		return
+	}
+	
+	// Close the websocket connection if it exists
+	if conn.conn != nil {
+		_ = conn.conn.Close(websocket.StatusNormalClosure, "")
+	}
+	
+	// Reset the connection state
+	conn.Connection = nil
+	conn.conn = nil
+	conn.hub = nil
+	conn.state = nil
+	// Keep the send channel for reuse
+	
+	connectionPool.Put(conn)
+}
+
 // ConnectionPoolManager manages a pool of pre-allocated connections
 type ConnectionPoolManager struct {
-	pool chan *Connection
-	size int
-	// mu field reserved for future thread-safe operations
-	// mu   sync.Mutex
+	pool        chan *Connection
+	size        int
+	maxSize     int
+	minSize     int
+	idleTimeout time.Duration
+	mu          sync.Mutex
+	
+	// Metrics
+	created   uint64
+	destroyed uint64
+	borrowed  uint64
+	returned  uint64
 }
 
 // NewConnectionPoolManager creates a new connection pool manager
 func NewConnectionPoolManager(size int) *ConnectionPoolManager {
+	minSize := size / 4
+	if minSize < 10 {
+		minSize = 10
+	}
+	
+	maxSize := size * 2
+	if maxSize > 10000 {
+		maxSize = 10000
+	}
+	
 	manager := &ConnectionPoolManager{
-		pool: make(chan *Connection, size),
-		size: size,
+		pool:        make(chan *Connection, size),
+		size:        size,
+		minSize:     minSize,
+		maxSize:     maxSize,
+		idleTimeout: 5 * time.Minute,
 	}
 
-	// Pre-allocate connections
-	for i := 0; i < size/2; i++ {
+	// Pre-allocate minimum connections
+	for i := 0; i < minSize; i++ {
 		conn := &Connection{
 			send: make(chan []byte, 256),
 		}
 		select {
 		case manager.pool <- conn:
+			manager.created++
 		default:
 			// Pool is full, stop pre-filling
-			return manager
+			break
 		}
 	}
+	
+	// Start pool maintenance goroutine
+	go manager.maintain()
 
 	return manager
 }
 
 // Get retrieves a connection from the pool
 func (m *ConnectionPoolManager) Get() *Connection {
+	m.mu.Lock()
+	m.borrowed++
+	m.mu.Unlock()
+	
 	select {
 	case conn := <-m.pool:
 		return conn
 	default:
 		// Create new connection if pool is empty
+		m.mu.Lock()
+		m.created++
+		m.mu.Unlock()
+		
 		return &Connection{
 			send: make(chan []byte, 256),
 		}
@@ -190,6 +256,11 @@ func (m *ConnectionPoolManager) Get() *Connection {
 
 // Put returns a connection to the pool
 func (m *ConnectionPoolManager) Put(conn *Connection) {
+	m.mu.Lock()
+	m.returned++
+	currentSize := len(m.pool)
+	m.mu.Unlock()
+	
 	// Close the underlying websocket connection if it exists
 	if conn.conn != nil {
 		// Ignore error as connection might already be closed
@@ -199,18 +270,118 @@ func (m *ConnectionPoolManager) Put(conn *Connection) {
 	// Reset connection state
 	conn.Connection = nil
 	conn.conn = nil
+	conn.hub = nil
+	conn.state = nil
 	// Don't reset the send channel, reuse it
-
-	select {
-	case m.pool <- conn:
-	default:
-		// Pool is full, let GC handle it
+	
+	// Check if we should return to pool or destroy
+	if currentSize < m.maxSize {
+		select {
+		case m.pool <- conn:
+			// Successfully returned to pool
+		default:
+			// Pool is full, destroy the connection
+			m.mu.Lock()
+			m.destroyed++
+			m.mu.Unlock()
+			
+			// Close the send channel to free resources
+			if conn.send != nil {
+				close(conn.send)
+			}
+		}
+	} else {
+		// Pool is at max capacity, destroy the connection
+		m.mu.Lock()
+		m.destroyed++
+		m.mu.Unlock()
+		
+		if conn.send != nil {
+			close(conn.send)
+		}
 	}
 }
 
 // Stats returns pool statistics
 func (m *ConnectionPoolManager) Stats() (available, size int) {
 	return len(m.pool), m.size
+}
+
+// DetailedStats returns detailed pool statistics
+func (m *ConnectionPoolManager) DetailedStats() map[string]interface{} {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	
+	available := len(m.pool)
+	inUse := int(m.borrowed - m.returned)
+	if inUse < 0 {
+		inUse = 0
+	}
+	
+	return map[string]interface{}{
+		"size":         m.size,
+		"min_size":     m.minSize,
+		"max_size":     m.maxSize,
+		"available":    available,
+		"in_use":       inUse,
+		"created":      m.created,
+		"destroyed":    m.destroyed,
+		"borrowed":     m.borrowed,
+		"returned":     m.returned,
+		"idle_timeout": m.idleTimeout.String(),
+		"utilization":  float64(inUse) / float64(m.size),
+	}
+}
+
+// maintain performs periodic pool maintenance
+func (m *ConnectionPoolManager) maintain() {
+	ticker := time.NewTicker(30 * time.Second)
+	defer ticker.Stop()
+	
+	for range ticker.C {
+		m.mu.Lock()
+		currentSize := len(m.pool)
+		m.mu.Unlock()
+		
+		// Ensure minimum pool size
+		if currentSize < m.minSize {
+			toCreate := m.minSize - currentSize
+			for i := 0; i < toCreate; i++ {
+				conn := &Connection{
+					send: make(chan []byte, 256),
+				}
+				
+				select {
+				case m.pool <- conn:
+					m.mu.Lock()
+					m.created++
+					m.mu.Unlock()
+				default:
+					// Pool is full
+					break
+				}
+			}
+		}
+		
+		// TODO: Implement idle connection cleanup
+		// This would involve tracking connection creation time
+		// and removing connections that have been idle too long
+	}
+}
+
+// Shutdown gracefully shuts down the pool
+func (m *ConnectionPoolManager) Shutdown() {
+	// Close all connections in the pool
+	close(m.pool)
+	
+	for conn := range m.pool {
+		if conn.conn != nil {
+			_ = conn.conn.Close(websocket.StatusGoingAway, "server shutdown")
+		}
+		if conn.send != nil {
+			close(conn.send)
+		}
+	}
 }
 
 // Memory pool for reducing GC pressure

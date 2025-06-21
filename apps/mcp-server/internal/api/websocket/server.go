@@ -73,6 +73,11 @@ type Config struct {
 	// Security settings
 	Security  SecurityConfig    `mapstructure:"security"`
 	RateLimit RateLimiterConfig `mapstructure:"rate_limit"`
+	
+	// Version information
+	Version   string `mapstructure:"-"`
+	BuildTime string `mapstructure:"-"`
+	GitCommit string `mapstructure:"-"`
 }
 
 // Connection wraps the WebSocket connection and adds our metadata

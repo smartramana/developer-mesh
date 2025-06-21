@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/S-Corkum/devops-mcp/pkg/auth"
 	"github.com/S-Corkum/devops-mcp/pkg/models"
 	ws "github.com/S-Corkum/devops-mcp/pkg/models/websocket"
 	"github.com/google/uuid"
@@ -128,17 +129,11 @@ func (s *Server) RegisterHandlers() {
 	}
 }
 
-// Add handlers field to Server struct (this would be added to server.go)
-// TODO: Uncomment when implementing message handlers
-// type ServerWithHandlers struct {
-//     *Server
-//     handlers map[string]MessageHandler
-//
-//     // Dependencies (these will be set in Task 7)
-//     toolRegistry   ToolRegistry
-//     contextManager ContextManager
-//     eventBus       EventBus
-// }
+// Handler dependencies are already integrated into the Server struct in server.go:
+// - handlers map[string]MessageHandler
+// - toolRegistry ToolRegistry
+// - contextManager ContextManager  
+// - eventBus EventBus
 
 // processMessage handles incoming WebSocket messages
 func (s *Server) processMessage(ctx context.Context, conn *Connection, msg *ws.Message) ([]byte, error) {
@@ -146,11 +141,42 @@ func (s *Server) processMessage(ctx context.Context, conn *Connection, msg *ws.M
 	if msg.Type != ws.MessageTypeRequest {
 		return nil, fmt.Errorf("invalid message type: %d", msg.Type)
 	}
+	
+	// Validate message ID
+	if msg.ID == "" {
+		return s.createErrorResponse("", ws.ErrCodeInvalidMessage, "Message ID is required")
+	}
+	
+	// Validate method
+	if msg.Method == "" {
+		return s.createErrorResponse(msg.ID, ws.ErrCodeInvalidMessage, "Method is required")
+	}
 
 	// Get handler
 	handler, ok := s.handlers[msg.Method]
 	if !ok {
 		return s.createErrorResponse(msg.ID, ws.ErrCodeMethodNotFound, "Method not found")
+	}
+	
+	// Check authorization
+	if conn.state != nil && conn.state.Claims != nil {
+		// Add claims to context
+		ctx = context.WithValue(ctx, "tenant_id", conn.state.Claims.TenantID)
+		ctx = context.WithValue(ctx, "user_id", conn.state.Claims.UserID)
+		ctx = context.WithValue(ctx, "claims", conn.state.Claims)
+		
+		// Check method-specific permissions
+		if err := s.checkMethodPermission(conn.state.Claims, msg.Method); err != nil {
+			s.logger.Warn("Authorization failed", map[string]interface{}{
+				"method": msg.Method,
+				"user_id": conn.state.Claims.UserID,
+				"error": err.Error(),
+			})
+			return s.createErrorResponse(msg.ID, ws.ErrCodeAuthFailed, "Unauthorized")
+		}
+	} else if s.config.Security.RequireAuth {
+		// If auth is required but no claims present
+		return s.createErrorResponse(msg.ID, ws.ErrCodeAuthFailed, "Authentication required")
 	}
 
 	// Convert params to json.RawMessage if needed
@@ -162,10 +188,27 @@ func (s *Server) processMessage(ctx context.Context, conn *Connection, msg *ws.M
 		}
 		params = paramBytes
 	}
+	
+	// Add request metadata to context
+	ctx = context.WithValue(ctx, "request_id", msg.ID)
+	ctx = context.WithValue(ctx, "method", msg.Method)
+	
+	// Record method call metric
+	if s.metricsCollector != nil {
+		start := time.Now()
+		defer func() {
+			s.metricsCollector.RecordMessage("processed", msg.Method, conn.TenantID, time.Since(start))
+		}()
+	}
 
 	// Execute handler
 	result, err := handler(ctx, conn, params)
 	if err != nil {
+		s.logger.Error("Handler error", map[string]interface{}{
+			"method": msg.Method,
+			"error": err.Error(),
+			"connection_id": conn.ID,
+		})
 		return s.createErrorResponse(msg.ID, ws.ErrCodeServerError, err.Error())
 	}
 
@@ -178,6 +221,68 @@ func (s *Server) processMessage(ctx context.Context, conn *Connection, msg *ws.M
 	response.Result = result
 
 	return json.Marshal(response)
+}
+
+// checkMethodPermission checks if the user has permission to call a method
+func (s *Server) checkMethodPermission(claims *auth.Claims, method string) error {
+	// Define method permission mappings
+	readOnlyMethods := map[string]bool{
+		"echo": true,
+		"ping": true,
+		"protocol.get_info": true,
+		"context.get": true,
+		"context.get_limits": true,
+		"context.get_stats": true,
+		"tool.list": true,
+		"session.get": true,
+		"session.get_history": true,
+		"session.list": true,
+		"subscription.list": true,
+		"subscription.status": true,
+		"workflow.status": true,
+		"workflow.list": true,
+		"workflow.get": true,
+		"agent.status": true,
+		"task.status": true,
+		"task.list": true,
+		"workspace.list_members": true,
+		"workspace.get_state": true,
+		"window.getTokenUsage": true,
+		"session.get_metrics": true,
+		"vector_clock.get": true,
+	}
+	
+	adminOnlyMethods := map[string]bool{
+		"agent.register": true,
+		"metrics.record": true,
+	}
+	
+	// Check admin-only methods
+	if adminOnlyMethods[method] {
+		for _, scope := range claims.Scopes {
+			if scope == "admin" {
+				return nil
+			}
+		}
+		return fmt.Errorf("admin permission required for method: %s", method)
+	}
+	
+	// Check if user has write permission for write methods
+	if !readOnlyMethods[method] {
+		// Check for write scope
+		hasWriteScope := false
+		for _, scope := range claims.Scopes {
+			if scope == "write" || scope == "admin" {
+				hasWriteScope = true
+				break
+			}
+		}
+		if !hasWriteScope {
+			return fmt.Errorf("write permission required for method: %s", method)
+		}
+	}
+	
+	return nil
 }
 
 // createErrorResponse creates an error response message

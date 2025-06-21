@@ -55,7 +55,7 @@ func NewTaskService(
 		repo:             repo,
 		agentService:     agentService,
 		notifier:         notifier,
-		assignmentEngine: NewAssignmentEngine(config.RuleEngine, agentService),
+		assignmentEngine: NewAssignmentEngine(config.RuleEngine, agentService, config.Logger, config.Metrics),
 		aggregator:       NewResultAggregator(),
 		taskCache:        cache.NewMemoryCache(10000, 5*time.Minute),
 		statsCache:       cache.NewMemoryCache(1000, 1*time.Minute),

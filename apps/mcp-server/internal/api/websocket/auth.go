@@ -92,32 +92,285 @@ func (sm *SessionManager) RemoveSessionKey(connectionID string) {
 
 // ValidateConnection performs initial authentication
 func (s *Server) ValidateConnection(token string) (*auth.Claims, error) {
-	// Use the auth service to validate JWT
-	user, err := s.auth.ValidateJWT(context.Background(), token)
+	// First, try JWT validation
+	claims, err := s.ValidateJWT(token)
+	if err == nil {
+		return claims, nil
+	}
+	
+	// If JWT fails, try API key validation
+	if s.ValidateAPIKey(token) {
+		// Create claims for API key auth
+		return &auth.Claims{
+			RegisteredClaims: jwt.RegisteredClaims{
+				Subject: "api-key-user",
+			},
+			TenantID: "default", // API keys could be mapped to tenants
+			UserID:   "api-key-user",
+			Scopes:   []string{"api:access"}, // Default scopes for API keys
+		}, nil
+	}
+	
+	// If we have an auth service, use it as fallback
+	if s.auth != nil {
+		user, err := s.auth.ValidateJWT(context.Background(), token)
+		if err != nil {
+			return nil, err
+		}
+
+		// Convert User to Claims
+		claims := &auth.Claims{
+			RegisteredClaims: jwt.RegisteredClaims{
+				Subject: user.ID,
+			},
+			TenantID: user.TenantID,
+			UserID:   user.ID,
+			Scopes:   user.Scopes,
+		}
+		return claims, nil
+	}
+
+	return nil, errors.New("authentication failed")
+}
+
+// ValidateJWT validates a JWT token
+func (s *Server) ValidateJWT(tokenString string) (*auth.Claims, error) {
+	// Parse and validate the token
+	token, err := jwt.ParseWithClaims(tokenString, &auth.Claims{}, func(token *jwt.Token) (interface{}, error) {
+		// Validate the signing method
+		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
+			return nil, fmt.Errorf("unexpected signing method: %v", token.Header["alg"])
+		}
+		return s.getSigningKey(), nil
+	})
+	
 	if err != nil {
-		return nil, err
+		return nil, errors.New("invalid token")
 	}
-
-	// Convert User to Claims
-	claims := &auth.Claims{
-		RegisteredClaims: jwt.RegisteredClaims{
-			Subject: user.ID,
-		},
-		TenantID: user.TenantID,
-		UserID:   user.ID,
-		Scopes:   user.Scopes,
+	
+	claims, ok := token.Claims.(*auth.Claims)
+	if !ok || !token.Valid {
+		return nil, errors.New("invalid token claims")
 	}
-
+	
+	// Check expiration
+	if claims.ExpiresAt != nil && claims.ExpiresAt.Time.Before(time.Now()) {
+		return nil, errors.New("token expired")
+	}
+	
+	// Validate standard claims
+	if claims.UserID == "" || claims.TenantID == "" {
+		return nil, errors.New("missing required claims")
+	}
+	
+	s.logger.Debug("JWT validated successfully", map[string]interface{}{
+		"user_id":   claims.UserID,
+		"tenant_id": claims.TenantID,
+		"scopes":    claims.Scopes,
+	})
+	
 	return claims, nil
 }
 
+// ValidateAPIKey validates an API key
+func (s *Server) ValidateAPIKey(key string) bool {
+	if len(s.config.Security.APIKeys) == 0 {
+		return false
+	}
+	
+	// Check if the key exists in our allowed list
+	for _, validKey := range s.config.Security.APIKeys {
+		if validKey == key {
+			s.logger.Debug("API key validated successfully", map[string]interface{}{})
+			return true
+		}
+	}
+	
+	return false
+}
+
+// CheckIPWhitelist validates IP address against whitelist
+func (s *Server) CheckIPWhitelist(ip string) bool {
+	// If no whitelist configured, allow all
+	if len(s.config.Security.IPWhitelist) == 0 {
+		return true
+	}
+	
+	// Check if IP is in whitelist
+	for _, allowedIP := range s.config.Security.IPWhitelist {
+		if allowedIP == ip {
+			return true
+		}
+	}
+	
+	s.logger.Warn("IP not in whitelist", map[string]interface{}{
+		"ip": ip,
+	})
+	
+	return false
+}
+
+// EnhancedAuth performs comprehensive authentication checks
+func (s *Server) EnhancedAuth(ctx context.Context, token string, clientIP string) (*auth.Claims, error) {
+	// Check IP whitelist first
+	if !s.CheckIPWhitelist(clientIP) {
+		s.metricsCollector.RecordError("auth_ip_blocked")
+		return nil, errors.New("IP address not allowed")
+	}
+	
+	// Check IP rate limiting
+	if s.ipRateLimiter != nil && !s.ipRateLimiter.Allow(clientIP) {
+		s.metricsCollector.RecordError("auth_rate_limit_ip")
+		return nil, errors.New("rate limit exceeded for IP")
+	}
+	
+	// Validate authentication token
+	claims, err := s.ValidateConnection(token)
+	if err != nil {
+		s.metricsCollector.RecordError("auth_failed")
+		return nil, err
+	}
+	
+	// Check user/tenant rate limiting
+	userKey := fmt.Sprintf("user:%s", claims.UserID)
+	tenantKey := fmt.Sprintf("tenant:%s", claims.TenantID)
+	
+	// User rate limiting
+	if s.ipRateLimiter != nil && !s.ipRateLimiter.Allow(userKey) {
+		s.metricsCollector.RecordError("auth_rate_limit_user")
+		return nil, errors.New("rate limit exceeded for user")
+	}
+	
+	// Tenant rate limiting
+	if s.ipRateLimiter != nil && !s.ipRateLimiter.Allow(tenantKey) {
+		s.metricsCollector.RecordError("auth_rate_limit_tenant")
+		return nil, errors.New("rate limit exceeded for tenant")
+	}
+	
+	// Check role-based connection limits
+	if err := s.checkConnectionLimits(claims); err != nil {
+		return nil, err
+	}
+	
+	// Audit log authentication event
+	s.logger.Info("Authentication successful", map[string]interface{}{
+		"user_id":    claims.UserID,
+		"tenant_id":  claims.TenantID,
+		"client_ip":  clientIP,
+		"auth_type":  "enhanced",
+		"timestamp":  time.Now().UTC(),
+	})
+	
+	// Record success metrics
+	if s.metrics != nil {
+		s.metrics.IncrementCounterWithLabels("auth_success", 1, map[string]string{
+			"tenant_id": claims.TenantID,
+			"auth_type": "enhanced",
+		})
+	}
+	
+	return claims, nil
+}
+
+// checkConnectionLimits verifies role-based connection limits
+func (s *Server) checkConnectionLimits(claims *auth.Claims) error {
+	// Count current connections for this user
+	userConnections := 0
+	tenantConnections := 0
+	
+	s.mu.RLock()
+	for _, conn := range s.connections {
+		if conn.state != nil && conn.state.Claims != nil {
+			if conn.state.Claims.UserID == claims.UserID {
+				userConnections++
+			}
+			if conn.state.Claims.TenantID == claims.TenantID {
+				tenantConnections++
+			}
+		}
+	}
+	s.mu.RUnlock()
+	
+	// Define role-based limits
+	userLimit := 5    // Default user limit
+	tenantLimit := 50 // Default tenant limit
+	
+	// Check for admin role
+	for _, scope := range claims.Scopes {
+		if scope == "admin" {
+			userLimit = 20    // Higher limit for admins
+			tenantLimit = 200 // Higher tenant limit
+			break
+		}
+	}
+	
+	// Check user limit
+	if userConnections >= userLimit {
+		s.metricsCollector.RecordError("auth_user_connection_limit")
+		return fmt.Errorf("user connection limit exceeded (%d/%d)", userConnections, userLimit)
+	}
+	
+	// Check tenant limit
+	if tenantConnections >= tenantLimit {
+		s.metricsCollector.RecordError("auth_tenant_connection_limit")
+		return fmt.Errorf("tenant connection limit exceeded (%d/%d)", tenantConnections, tenantLimit)
+	}
+	
+	return nil
+}
+
+// AuditLog records authentication events
+type AuthAuditLog struct {
+	Timestamp   time.Time              `json:"timestamp"`
+	EventType   string                 `json:"event_type"`
+	UserID      string                 `json:"user_id"`
+	TenantID    string                 `json:"tenant_id"`
+	ClientIP    string                 `json:"client_ip"`
+	Success     bool                   `json:"success"`
+	ErrorReason string                 `json:"error_reason,omitempty"`
+	Metadata    map[string]interface{} `json:"metadata,omitempty"`
+}
+
+// LogAuthEvent logs authentication events for audit trail
+func (s *Server) LogAuthEvent(event AuthAuditLog) {
+	// Convert to structured log
+	s.logger.Info("Authentication audit event", map[string]interface{}{
+		"event":      event.EventType,
+		"user_id":    event.UserID,
+		"tenant_id":  event.TenantID,
+		"client_ip":  event.ClientIP,
+		"success":    event.Success,
+		"error":      event.ErrorReason,
+		"metadata":   event.Metadata,
+		"timestamp":  event.Timestamp,
+	})
+	
+	// Record metrics
+	successStr := "false"
+	if event.Success {
+		successStr = "true"
+	}
+	
+	if s.metrics != nil {
+		s.metrics.IncrementCounterWithLabels("auth_audit_events", 1, map[string]string{
+			"event_type": event.EventType,
+			"success":    successStr,
+		})
+	}
+}
+
 // getSigningKey retrieves the JWT signing key
-// TODO: Uncomment when JWT validation is implemented
-// func (s *Server) getSigningKey() []byte {
-//     // In production, this would come from secure configuration
-//     // For now, use a placeholder
-//     return []byte("your-secret-key")
-// }
+func (s *Server) getSigningKey() []byte {
+	// In production, this would come from secure configuration
+	// Check for configured JWT secret
+	if s.config.Security.JWTSecret != "" {
+		return []byte(s.config.Security.JWTSecret)
+	}
+	
+	// Fallback to environment variable or default
+	// This should be properly configured in production
+	return []byte("devops-mcp-jwt-secret-key")
+}
 
 // SignMessage creates HMAC signature for a message
 func (c *Connection) SignMessage(msg []byte) string {
@@ -259,14 +512,10 @@ func (c *AntiReplayCache) cleanup() {
 	}
 }
 
-// Add these to the Server struct (would be added in server.go)
-// TODO: Uncomment when implementing enhanced auth features
-// type ServerWithAuth struct {
-//     *Server
-//     sessionManager  *SessionManager
-//     ipRateLimiter  *IPRateLimiter
-//     antiReplayCache *AntiReplayCache
-// }
+// Enhanced auth features are already integrated into the Server struct in server.go:
+// - sessionManager  *SessionManager
+// - ipRateLimiter   *IPRateLimiter  
+// - antiReplayCache *AntiReplayCache
 
 // ValidateMessageAuth validates authentication for a single message
 func (s *Server) ValidateMessageAuth(conn *Connection, msg *AuthenticatedMessage) error {
@@ -305,4 +554,7 @@ type SecurityConfig struct {
 	MaxFrameSize   int64    // Maximum WebSocket frame size
 	EnableTLS      bool     // Require TLS
 	MinTLSVersion  string   // Minimum TLS version
+	JWTSecret      string   // JWT signing secret
+	APIKeys        []string // Valid API keys
+	IPWhitelist    []string // Allowed IP addresses (empty = allow all)
 }

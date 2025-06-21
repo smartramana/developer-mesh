@@ -41,6 +41,14 @@ import (
 
 	// Import auth package for production authorizer
 	"github.com/S-Corkum/devops-mcp/pkg/auth"
+	
+	// Import rules package for rule engine and policy manager
+	"github.com/S-Corkum/devops-mcp/pkg/rules"
+	
+	// Import golang-migrate for database migrations
+	"github.com/golang-migrate/migrate/v4"
+	migratepg "github.com/golang-migrate/migrate/v4/database/postgres"
+	_ "github.com/golang-migrate/migrate/v4/source/file"
 )
 
 // Version information (set via ldflags during build)
@@ -522,8 +530,8 @@ func initializeServices(ctx context.Context, cfg *commonconfig.Config, db *datab
 		Tracer:  observability.NoopStartSpan,
 
 		// Business Rules
-		RuleEngine:    nil, // TODO: Implement rules engine
-		PolicyManager: nil, // TODO: Implement policy manager
+		RuleEngine:    createRuleEngine(cacheClient, logger, metricsClient),
+		PolicyManager: createPolicyManager(cacheClient, logger, metricsClient),
 	}
 
 	// Create notification service
@@ -634,6 +642,286 @@ func createEncryptionService(logger observability.Logger) services.EncryptionSer
 
 	logger.Info("Production AES-256-GCM encryption service initialized", nil)
 	return encryptionService
+}
+
+// createRuleEngine creates the rule engine
+func createRuleEngine(cacheClient cache.Cache, logger observability.Logger, metrics observability.MetricsClient) rules.Engine {
+	// Create rule engine configuration
+	config := rules.Config{
+		HotReload:      true,
+		ReloadInterval: 30 * time.Second,
+		CacheDuration:  5 * time.Minute,
+		MaxRules:       1000,
+	}
+
+	// Create rule engine
+	engine := rules.NewEngine(config, logger, metrics)
+
+	// Determine rule loader based on configuration
+	var loader rules.RuleLoader
+	
+	// Check for rules configuration path
+	rulesPath := os.Getenv("RULES_CONFIG_PATH")
+	if rulesPath == "" {
+		rulesPath = "/etc/devops-mcp/rules"
+	}
+
+	// Check if rules directory/file exists
+	if _, err := os.Stat(rulesPath); err == nil {
+		// Use file-based loader
+		loader = rules.NewConfigFileRuleLoader(rulesPath, logger)
+		logger.Info("Using configuration file rule loader", map[string]interface{}{
+			"path": rulesPath,
+		})
+	} else {
+		// Use database loader if available
+		// For MVP, create default rules in memory
+		loader = &defaultRuleLoader{logger: logger}
+		logger.Info("Using default rule loader (no config path found)", nil)
+	}
+
+	// Set the loader
+	if err := engine.SetRuleLoader(loader); err != nil {
+		logger.Error("Failed to set rule loader", map[string]interface{}{
+			"error": err.Error(),
+		})
+	}
+
+	// Load initial rules
+	ctx := context.Background()
+	initialRules, err := loader.LoadRules(ctx)
+	if err != nil {
+		logger.Warn("Failed to load initial rules", map[string]interface{}{
+			"error": err.Error(),
+		})
+	} else {
+		if err := engine.LoadRules(ctx, initialRules); err != nil {
+			logger.Error("Failed to load rules into engine", map[string]interface{}{
+				"error": err.Error(),
+			})
+		}
+	}
+
+	// Start hot reload if enabled
+	if config.HotReload {
+		if err := engine.StartHotReload(ctx); err != nil {
+			logger.Warn("Failed to start rule hot reload", map[string]interface{}{
+				"error": err.Error(),
+			})
+		} else {
+			logger.Info("Rule hot reload started", map[string]interface{}{
+				"interval": config.ReloadInterval,
+			})
+		}
+	}
+
+	logger.Info("Rule engine initialized successfully", map[string]interface{}{
+		"hot_reload":   config.HotReload,
+		"interval":     config.ReloadInterval,
+		"rules_loaded": len(initialRules),
+	})
+
+	return engine
+}
+
+// defaultRuleLoader provides default rules when no external source is configured
+type defaultRuleLoader struct {
+	logger observability.Logger
+}
+
+func (l *defaultRuleLoader) LoadRules(ctx context.Context) ([]rules.Rule, error) {
+	return []rules.Rule{
+		{
+			Name:       "task_assignment_priority",
+			Category:   "assignment",
+			Expression: "priority >= 3",
+			Priority:   1,
+			Enabled:    true,
+			Metadata: map[string]interface{}{
+				"description": "High priority tasks require immediate assignment",
+			},
+		},
+		{
+			Name:       "agent_workload_limit",
+			Category:   "assignment",
+			Expression: "workload < 10",
+			Priority:   2,
+			Enabled:    true,
+			Metadata: map[string]interface{}{
+				"description": "Agents should not exceed 10 concurrent tasks",
+			},
+		},
+		{
+			Name:       "task_timeout_check",
+			Category:   "task_lifecycle",
+			Expression: "elapsed_time > timeout",
+			Priority:   3,
+			Enabled:    true,
+			Metadata: map[string]interface{}{
+				"description": "Check if task has exceeded its timeout",
+			},
+		},
+	}, nil
+}
+
+// createPolicyManager creates the policy manager
+func createPolicyManager(cacheClient cache.Cache, logger observability.Logger, metrics observability.MetricsClient) rules.PolicyManager {
+	// Create policy manager configuration
+	config := rules.PolicyManagerConfig{
+		CacheDuration:  5 * time.Minute,
+		MaxPolicies:    1000,
+		EnableCaching:  true,
+		HotReload:      true,
+		ReloadInterval: 30 * time.Second,
+	}
+
+	// Create policy manager
+	manager := rules.NewPolicyManager(config, cacheClient, logger, metrics)
+
+	// Determine policy loader based on configuration
+	var loader rules.PolicyLoader
+	
+	// Check for policies configuration path
+	policiesPath := os.Getenv("POLICIES_CONFIG_PATH")
+	if policiesPath == "" {
+		policiesPath = "/etc/devops-mcp/policies"
+	}
+
+	// Check if policies directory/file exists
+	if _, err := os.Stat(policiesPath); err == nil {
+		// Use file-based loader
+		loader = rules.NewConfigFilePolicyLoader(policiesPath, logger)
+		logger.Info("Using configuration file policy loader", map[string]interface{}{
+			"path": policiesPath,
+		})
+	} else {
+		// Use database loader if available
+		// For MVP, create default policies in memory
+		loader = &defaultPolicyLoader{logger: logger}
+		logger.Info("Using default policy loader (no config path found)", nil)
+	}
+
+	// Set the loader
+	if err := manager.SetPolicyLoader(loader); err != nil {
+		logger.Error("Failed to set policy loader", map[string]interface{}{
+			"error": err.Error(),
+		})
+	}
+
+	// Load initial policies
+	ctx := context.Background()
+	initialPolicies, err := loader.LoadPolicies(ctx)
+	if err != nil {
+		logger.Warn("Failed to load initial policies", map[string]interface{}{
+			"error": err.Error(),
+		})
+	} else {
+		if err := manager.LoadPolicies(ctx, initialPolicies); err != nil {
+			logger.Error("Failed to load policies into manager", map[string]interface{}{
+				"error": err.Error(),
+			})
+		}
+	}
+
+	// Start hot reload if enabled
+	if config.HotReload {
+		if err := manager.StartHotReload(ctx); err != nil {
+			logger.Warn("Failed to start policy hot reload", map[string]interface{}{
+				"error": err.Error(),
+			})
+		} else {
+			logger.Info("Policy hot reload started", map[string]interface{}{
+				"interval": config.ReloadInterval,
+			})
+		}
+	}
+
+	logger.Info("Policy manager initialized successfully", map[string]interface{}{
+		"caching":         config.EnableCaching,
+		"hot_reload":      config.HotReload,
+		"interval":        config.ReloadInterval,
+		"policies_loaded": len(initialPolicies),
+	})
+
+	return manager
+}
+
+// defaultPolicyLoader provides default policies when no external source is configured
+type defaultPolicyLoader struct {
+	logger observability.Logger
+}
+
+func (l *defaultPolicyLoader) LoadPolicies(ctx context.Context) ([]rules.Policy, error) {
+	return []rules.Policy{
+		{
+			Name:     "task_lifecycle",
+			Resource: "task",
+			Rules: []rules.PolicyRule{
+				{
+					Condition: "status == 'pending'",
+					Effect:    "allow",
+					Actions:   []string{"assign", "cancel"},
+					Resources: []string{"task:*"},
+				},
+				{
+					Condition: "status == 'in_progress'",
+					Effect:    "allow",
+					Actions:   []string{"update", "complete", "fail"},
+					Resources: []string{"task:*"},
+				},
+			},
+			Defaults: map[string]interface{}{
+				"timeout":       3600,
+				"max_retries":   3,
+				"priority":      "medium",
+			},
+		},
+		{
+			Name:     "agent_management",
+			Resource: "agent",
+			Rules: []rules.PolicyRule{
+				{
+					Condition: "role == 'admin'",
+					Effect:    "allow",
+					Actions:   []string{"create", "update", "delete"},
+					Resources: []string{"agent:*"},
+				},
+				{
+					Condition: "role == 'operator'",
+					Effect:    "allow",
+					Actions:   []string{"read", "update"},
+					Resources: []string{"agent:*"},
+				},
+			},
+			Defaults: map[string]interface{}{
+				"max_concurrent_tasks": 10,
+				"idle_timeout":         300,
+			},
+		},
+		{
+			Name:     "workspace_access",
+			Resource: "workspace",
+			Rules: []rules.PolicyRule{
+				{
+					Condition: "is_public == true",
+					Effect:    "allow",
+					Actions:   []string{"read"},
+					Resources: []string{"workspace:*"},
+				},
+				{
+					Condition: "is_member == true",
+					Effect:    "allow",
+					Actions:   []string{"read", "update"},
+					Resources: []string{"workspace:*"},
+				},
+			},
+			Defaults: map[string]interface{}{
+				"max_members":        100,
+				"retention_days":     90,
+				"default_visibility": "private",
+			},
+		},
+	}, nil
 }
 
 // initializeServer creates and configures the API server
@@ -985,13 +1273,66 @@ func runMigrations(ctx context.Context, db *database.Database, logger observabil
 		"path": migrationDir,
 	})
 
-	// TODO: Implement migration logic using the migration tool
-	// For now, just check if migrations directory exists
+	// Check if migrations directory exists
 	if _, err := os.Stat(migrationDir); os.IsNotExist(err) {
 		logger.Warn("Migration directory not found, skipping migrations", map[string]interface{}{
 			"path": migrationDir,
 		})
 		return nil
+	}
+
+	// Get the underlying sql.DB
+	sqlDB := db.GetDB().DB
+
+	// Create postgres driver instance
+	driver, err := migratepg.WithInstance(sqlDB, &migratepg.Config{})
+	if err != nil {
+		return fmt.Errorf("failed to create migration driver: %w", err)
+	}
+
+	// Create migrator
+	sourceURL := fmt.Sprintf("file://%s", migrationDir)
+	m, err := migrate.NewWithDatabaseInstance(
+		sourceURL,
+		"postgres",
+		driver,
+	)
+	if err != nil {
+		return fmt.Errorf("failed to create migrator: %w", err)
+	}
+	defer m.Close()
+
+	// Get current version
+	version, dirty, err := m.Version()
+	if err != nil && err != migrate.ErrNilVersion {
+		return fmt.Errorf("failed to get migration version: %w", err)
+	}
+
+	logger.Info("Current migration state", map[string]interface{}{
+		"version": version,
+		"dirty":   dirty,
+	})
+
+	// Run migrations
+	if err := m.Up(); err != nil {
+		if err == migrate.ErrNoChange {
+			logger.Info("No new migrations to apply", nil)
+			return nil
+		}
+		return fmt.Errorf("failed to run migrations: %w", err)
+	}
+
+	// Get new version
+	newVersion, _, err := m.Version()
+	if err != nil {
+		logger.Warn("Failed to get new migration version", map[string]interface{}{
+			"error": err.Error(),
+		})
+	} else {
+		logger.Info("Migrations completed successfully", map[string]interface{}{
+			"old_version": version,
+			"new_version": newVersion,
+		})
 	}
 
 	return nil

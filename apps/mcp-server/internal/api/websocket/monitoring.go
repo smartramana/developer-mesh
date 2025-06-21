@@ -38,11 +38,17 @@ func (m *MonitoringEndpoints) handleStats(c *gin.Context) {
 	stats := m.server.metricsCollector.GetStats()
 
 	// Add server-level stats
+	uptime := time.Since(m.server.startTime)
 	response := gin.H{
 		"server": gin.H{
 			"active_connections": m.server.ConnectionCount(),
 			"max_connections":    m.server.config.MaxConnections,
-			"uptime":             time.Since(m.server.startTime).String(),
+			"uptime":             uptime.String(),
+			"uptime_seconds":     uptime.Seconds(),
+			"started_at":         m.server.startTime.Format(time.RFC3339),
+			"version":            m.server.config.Version,
+			"build_time":         m.server.config.BuildTime,
+			"git_commit":         m.server.config.GitCommit,
 		},
 		"connections": gin.H{
 			"total":        stats.TotalConnections,
@@ -101,6 +107,12 @@ func (m *MonitoringEndpoints) handleConnections(c *gin.Context) {
 func (m *MonitoringEndpoints) handleHealth(c *gin.Context) {
 	health := gin.H{
 		"status": "healthy",
+		"version": gin.H{
+			"version":    m.server.config.Version,
+			"build_time": m.server.config.BuildTime,
+			"git_commit": m.server.config.GitCommit,
+		},
+		"uptime": time.Since(m.server.startTime).String(),
 		"checks": gin.H{
 			"connections":     m.checkConnectionHealth(),
 			"rate_limiter":    m.checkRateLimiterHealth(),
@@ -156,6 +168,10 @@ func (m *MonitoringEndpoints) handleMetrics(c *gin.Context) {
 		formatMetric("websocket_errors_total{type=\"auth\"}", float64(stats.AuthErrors)),
 		formatMetric("websocket_errors_total{type=\"rate_limit\"}", float64(stats.RateLimitErrors)),
 		formatMetric("websocket_errors_total{type=\"protocol\"}", float64(stats.ProtocolErrors)),
+		
+		"# HELP websocket_server_uptime_seconds Server uptime in seconds",
+		"# TYPE websocket_server_uptime_seconds gauge",
+		formatMetric("websocket_server_uptime_seconds", time.Since(m.server.startTime).Seconds()),
 	}
 
 	// Add pool stats
@@ -345,9 +361,6 @@ func (h *DashboardHub) run() {
 	}
 }
 
-// Add startTime to Server struct
-// TODO: Uncomment when implementing server uptime tracking
-// type ServerWithStartTime struct {
-//     *Server
-//     startTime time.Time
-// }
+// Server uptime tracking is already implemented:
+// - Server struct has startTime field initialized in NewServer()
+// - Uptime is calculated as time.Since(m.server.startTime) in handleStats()
