@@ -47,7 +47,11 @@ func TestMigrationsIsolated(t *testing.T) {
 	if err != nil {
 		t.Skip("Cannot connect to database:", err)
 	}
-	defer db.Close()
+	defer func() {
+		if err := db.Close(); err != nil {
+			t.Errorf("Failed to close database: %v", err)
+		}
+	}()
 
 	// Test connection
 	if err := db.Ping(); err != nil {
@@ -56,13 +60,13 @@ func TestMigrationsIsolated(t *testing.T) {
 
 	// Create a unique test schema
 	testSchema := fmt.Sprintf("test_mig_%d", time.Now().UnixNano())
-	
+
 	// Create test schema
 	_, err = db.Exec(fmt.Sprintf("CREATE SCHEMA %s", testSchema))
 	if err != nil {
 		t.Skip("Cannot create test schema:", err)
 	}
-	
+
 	// Ensure cleanup
 	defer func() {
 		_, _ = db.Exec(fmt.Sprintf("DROP SCHEMA %s CASCADE", testSchema))
@@ -77,7 +81,11 @@ func TestMigrationsIsolated(t *testing.T) {
 	testDSN := fmt.Sprintf("%s&search_path=%s", dsn, testSchema)
 	testDB, err := sql.Open("postgres", testDSN)
 	require.NoError(t, err)
-	defer testDB.Close()
+	defer func() {
+		if err := testDB.Close(); err != nil {
+			t.Errorf("Failed to close test database: %v", err)
+		}
+	}()
 
 	// Create migrate instance
 	driver, err := postgres.WithInstance(testDB, &postgres.Config{
