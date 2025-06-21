@@ -1,0 +1,148 @@
+name: CI
+
+on:
+  push:
+    branches: [ main ]
+    tags: [ 'v*.*.*' ]
+  pull_request:
+    branches: [ main ]
+
+env:
+  GO_VERSION: '1.24'
+
+jobs:
+  # Combined lint and test job to reduce parallel jobs
+  test:
+    name: Test & Lint
+    runs-on: ubuntu-latest
+    
+    services:
+      postgres:
+        image: postgres:16-alpine  # Use smaller alpine image
+        env:
+          POSTGRES_USER: test
+          POSTGRES_PASSWORD: test
+          POSTGRES_DB: devops_mcp_test
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 5432:5432
+      
+      redis:
+        image: redis:7-alpine
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 6379:6379
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache: false
+
+      - name: Cache Go modules
+        uses: actions/cache@v3
+        with:
+          path: ~/go/pkg/mod
+          key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
+          restore-keys: |
+            ${{ runner.os }}-go-
+
+      - name: Install tools
+        run: |
+          go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest
+
+      - name: Setup test environment
+        run: |
+          # Create test database
+          PGPASSWORD=test psql -h localhost -U test -d devops_mcp_test -c "CREATE EXTENSION IF NOT EXISTS \"uuid-ossp\";"
+          
+          # Create minimal test env file
+          cat > .env.test <<EOF
+          DATABASE_HOST=localhost
+          DATABASE_PORT=5432
+          DATABASE_USER=test
+          DATABASE_PASSWORD=test
+          DATABASE_NAME=devops_mcp_test
+          DATABASE_SSL_MODE=disable
+          REDIS_ADDR=localhost:6379
+          JWT_SECRET=test-jwt-secret-for-ci-testing-minimum-32-chars
+          EOF
+
+      - name: Run linter
+        run: |
+          golangci-lint run --timeout=5m ./...
+
+      - name: Run tests
+        run: |
+          go test -v -short -race -coverprofile=coverage.out ./...
+        env:
+          DATABASE_DSN: postgres://test:test@localhost:5432/devops_mcp_test?sslmode=disable
+          REDIS_ADDR: localhost:6379
+
+      - name: Check coverage
+        run: |
+          go tool cover -func=coverage.out | grep total | awk '{print "Total coverage: " $3}'
+
+  build:
+    name: Build
+    runs-on: ubuntu-latest
+    needs: test
+    if: github.event_name == 'push'  # Only build on push, not PRs
+    
+    strategy:
+      matrix:
+        app: [mcp-server, rest-api, worker]
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache: false
+
+      - name: Build ${{ matrix.app }}
+        run: |
+          cd apps/${{ matrix.app }}
+          go build -ldflags="-w -s" -o ${{ matrix.app }} ./cmd/*
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.app }}-binary
+          path: apps/${{ matrix.app }}/${{ matrix.app }}
+          retention-days: 1  # Reduce retention for free tier
+
+  # Simple PR checks (lightweight)
+  pr-checks:
+    name: PR Checks
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request'
+    
+    steps:
+      - name: Check PR title
+        uses: amannn/action-semantic-pull-request@v5
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          types: |
+            feat
+            fix
+            docs
+            chore
+            test
+          requireScope: false
