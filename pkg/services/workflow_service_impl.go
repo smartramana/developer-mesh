@@ -6,10 +6,17 @@ import (
 	"encoding/csv"
 	"encoding/json"
 	"fmt"
+	"io"
+	"math/rand"
+	"net/http"
+	"os"
+	"os/exec"
+	"path/filepath"
 	"regexp"
 	"sort"
 	"strings"
 	"sync"
+	"syscall"
 	"time"
 
 	"github.com/google/uuid"
@@ -299,6 +306,16 @@ func (s *workflowService) ExecuteWorkflowStep(ctx context.Context, executionID u
 		output, stepErr = s.executeParallelStep(ctx, execution, step)
 	case "conditional":
 		output, stepErr = s.executeConditionalStep(ctx, execution, step)
+	case "sequential":
+		output, stepErr = s.executeSequentialStep(ctx, execution, step)
+	case "script":
+		output, stepErr = s.executeScriptStep(ctx, execution, step)
+	case "webhook":
+		output, stepErr = s.executeWebhookStep(ctx, execution, step)
+	case "branching":
+		output, stepErr = s.handleBranching(ctx, execution, step)
+	case "compensation":
+		output, stepErr = s.executeCompensation(ctx, execution, step)
 	default:
 		stepErr = fmt.Errorf("unsupported step type: %s", step.Type)
 	}
@@ -5371,6 +5388,432 @@ func (s *workflowService) deepCopyWithSubstitution(value interface{}, params map
 	}
 }
 
+func (s *workflowService) executeSequentialStep(ctx context.Context, execution *models.WorkflowExecution, step *models.WorkflowStep) (map[string]interface{}, error) {
+	ctx, span := s.config.Tracer(ctx, "WorkflowService.executeSequentialStep")
+	defer span.End()
+
+	// Extract sequential configuration
+	sequentialConfig := make(map[string]interface{})
+	if step.Config != nil {
+		sequentialConfig = step.Config
+	}
+
+	// Get steps to execute
+	steps := []map[string]interface{}{}
+	if stepsData, ok := sequentialConfig["steps"].([]interface{}); ok {
+		for _, stepData := range stepsData {
+			if stepMap, ok := stepData.(map[string]interface{}); ok {
+				steps = append(steps, stepMap)
+			}
+		}
+	}
+
+	if len(steps) == 0 {
+		return nil, ValidationError{
+			Field:   "steps",
+			Message: "at least one step required for sequential execution",
+		}
+	}
+
+	// Get fail fast setting (default true - stop on first failure)
+	failFast := true
+	if ff, ok := sequentialConfig["fail_fast"].(bool); ok {
+		failFast = ff
+	}
+
+	// Execute steps in sequence
+	results := make(map[string]interface{})
+	var lastOutput map[string]interface{}
+
+	for i, stepConfig := range steps {
+		stepID := fmt.Sprintf("%s_seq_%d", step.ID, i)
+		if id, ok := stepConfig["id"].(string); ok {
+			stepID = id
+		}
+
+		// Record step start
+		s.config.Metrics.IncrementCounterWithLabels("workflow.sequential.step.start", 1, map[string]string{
+			"workflow_id": execution.WorkflowID.String(),
+			"parent_step": step.ID,
+			"step_id":     stepID,
+		})
+
+		startTime := time.Now()
+
+		// Get timeout for this step
+		stepTimeout := 30 * time.Minute // default
+		if timeoutMinutes, ok := stepConfig["timeout_minutes"].(float64); ok {
+			stepTimeout = time.Duration(timeoutMinutes) * time.Minute
+		}
+
+		// Create timeout context
+		stepCtx, cancel := context.WithTimeout(ctx, stepTimeout)
+		defer cancel()
+
+		// Create and execute task for this step
+		subTask := &models.Task{
+			ID:             uuid.New(),
+			TenantID:       execution.TenantID,
+			Title:          fmt.Sprintf("Sequential step: %s", stepID),
+			Type:           "workflow_sequential_step",
+			Priority:       models.TaskPriorityNormal,
+			Status:         models.TaskStatusPending,
+			CreatedBy:      execution.InitiatedBy,
+			Parameters:     stepConfig,
+			MaxRetries:     3,
+			TimeoutSeconds: int(stepTimeout.Seconds()),
+		}
+
+		// Pass previous step output as input if available
+		if lastOutput != nil {
+			if subTask.Parameters == nil {
+				subTask.Parameters = make(map[string]interface{})
+			}
+			subTask.Parameters["previous_output"] = lastOutput
+		}
+
+		// Create task
+		createdTask, err := s.taskService.CreateWorkflowTask(stepCtx, execution.WorkflowID, uuid.MustParse(step.ID), subTask.Parameters)
+		if err != nil {
+			s.config.Metrics.IncrementCounterWithLabels("workflow.sequential.step.error", 1, map[string]string{
+				"workflow_id": execution.WorkflowID.String(),
+				"parent_step": step.ID,
+				"step_id":     stepID,
+				"error":       "create_failed",
+			})
+
+			if failFast {
+				return nil, errors.Wrapf(err, "failed to create sequential step %s", stepID)
+			}
+			// Store error and continue
+			results[stepID] = map[string]interface{}{
+				"error":   err.Error(),
+				"skipped": false,
+			}
+			continue
+		}
+
+		// Wait for task completion
+		ticker := time.NewTicker(2 * time.Second)
+		defer ticker.Stop()
+
+		taskCompleted := false
+
+		for !taskCompleted {
+			select {
+			case <-stepCtx.Done():
+				s.config.Metrics.IncrementCounterWithLabels("workflow.sequential.step.error", 1, map[string]string{
+					"workflow_id": execution.WorkflowID.String(),
+					"parent_step": step.ID,
+					"step_id":     stepID,
+					"error":       "timeout",
+				})
+
+				if failFast {
+					return nil, fmt.Errorf("sequential step %s timed out", stepID)
+				}
+				results[stepID] = map[string]interface{}{
+					"error":   "timeout",
+					"duration": time.Since(startTime).String(),
+				}
+				taskCompleted = true
+
+			case <-ticker.C:
+				task, err := s.taskService.Get(stepCtx, createdTask.ID)
+				if err != nil {
+					continue // Try again
+				}
+
+				switch task.Status {
+				case models.TaskStatusCompleted:
+					taskCompleted = true
+					lastOutput = task.Result
+
+					s.config.Metrics.IncrementCounterWithLabels("workflow.sequential.step.complete", 1, map[string]string{
+						"workflow_id": execution.WorkflowID.String(),
+						"parent_step": step.ID,
+						"step_id":     stepID,
+					})
+					s.config.Metrics.RecordHistogram("workflow.sequential.step.duration", time.Since(startTime).Seconds(), map[string]string{
+						"workflow_id": execution.WorkflowID.String(),
+						"parent_step": step.ID,
+					})
+
+					results[stepID] = map[string]interface{}{
+						"task_id":  task.ID,
+						"result":   task.Result,
+						"duration": time.Since(startTime).String(),
+					}
+
+				case models.TaskStatusFailed:
+					taskCompleted = true
+
+					s.config.Metrics.IncrementCounterWithLabels("workflow.sequential.step.error", 1, map[string]string{
+						"workflow_id": execution.WorkflowID.String(),
+						"parent_step": step.ID,
+						"step_id":     stepID,
+						"error":       "task_failed",
+					})
+
+					if failFast {
+						return nil, fmt.Errorf("sequential step %s failed: %s", stepID, task.Error)
+					}
+					results[stepID] = map[string]interface{}{
+						"task_id":  task.ID,
+						"error":    task.Error,
+						"duration": time.Since(startTime).String(),
+					}
+				}
+			}
+		}
+	}
+
+	// Build final output
+	output := map[string]interface{}{
+		"steps_executed": len(results),
+		"results":        results,
+	}
+
+	// Include final output if available
+	if lastOutput != nil {
+		output["final_output"] = lastOutput
+	}
+
+	return output, nil
+}
+
+func (s *workflowService) executeScriptStep(ctx context.Context, execution *models.WorkflowExecution, step *models.WorkflowStep) (map[string]interface{}, error) {
+	ctx, span := s.config.Tracer(ctx, "WorkflowService.executeScriptStep")
+	defer span.End()
+
+	// Extract script configuration
+	scriptConfig := make(map[string]interface{})
+	if step.Config != nil {
+		scriptConfig = step.Config
+	}
+
+	// Get script content
+	scriptContent, ok := scriptConfig["script"].(string)
+	if !ok || scriptContent == "" {
+		return nil, ValidationError{
+			Field:   "script",
+			Message: "script content is required",
+		}
+	}
+
+	// Get script type (default to bash)
+	scriptType := "bash"
+	if st, ok := scriptConfig["type"].(string); ok {
+		scriptType = st
+	}
+
+	// Validate allowed script types
+	allowedTypes := map[string]string{
+		"bash":   "/bin/bash",
+		"sh":     "/bin/sh",
+		"python": "/usr/bin/python3",
+		"node":   "/usr/bin/node",
+	}
+
+	interpreter, allowed := allowedTypes[scriptType]
+	if !allowed {
+		return nil, ValidationError{
+			Field:   "type",
+			Message: fmt.Sprintf("unsupported script type: %s", scriptType),
+		}
+	}
+
+	// Get timeout (default 5 minutes)
+	timeout := 5 * time.Minute
+	if timeoutMinutes, ok := scriptConfig["timeout_minutes"].(float64); ok {
+		timeout = time.Duration(timeoutMinutes) * time.Minute
+	}
+
+	// Get environment variables
+	env := os.Environ()
+	if envVars, ok := scriptConfig["env"].(map[string]interface{}); ok {
+		for k, v := range envVars {
+			env = append(env, fmt.Sprintf("%s=%v", k, v))
+		}
+	}
+
+	// Add workflow context to environment
+	env = append(env,
+		fmt.Sprintf("WORKFLOW_ID=%s", execution.WorkflowID),
+		fmt.Sprintf("WORKFLOW_EXECUTION_ID=%s", execution.ID),
+		fmt.Sprintf("WORKFLOW_STEP_ID=%s", step.ID),
+		fmt.Sprintf("TENANT_ID=%s", execution.TenantID),
+	)
+
+	// Get working directory
+	workDir := "/tmp"
+	if wd, ok := scriptConfig["working_directory"].(string); ok {
+		// Validate working directory
+		if !filepath.IsAbs(wd) {
+			return nil, ValidationError{
+				Field:   "working_directory",
+				Message: "working directory must be an absolute path",
+			}
+		}
+		// Ensure directory exists
+		if _, err := os.Stat(wd); os.IsNotExist(err) {
+			return nil, ValidationError{
+				Field:   "working_directory",
+				Message: fmt.Sprintf("working directory does not exist: %s", wd),
+			}
+		}
+		workDir = wd
+	}
+
+	// Create temporary script file
+	tmpFile, err := os.CreateTemp("", fmt.Sprintf("workflow-script-%s-*.%s", step.ID, scriptType))
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to create temporary script file")
+	}
+	defer func() {
+		_ = os.Remove(tmpFile.Name())
+	}()
+
+	// Write script content
+	if _, err := tmpFile.WriteString(scriptContent); err != nil {
+		_ = tmpFile.Close()
+		return nil, errors.Wrap(err, "failed to write script content")
+	}
+	if err := tmpFile.Close(); err != nil {
+		return nil, errors.Wrap(err, "failed to close script file")
+	}
+
+	// Make script executable
+	if err := os.Chmod(tmpFile.Name(), 0700); err != nil {
+		return nil, errors.Wrap(err, "failed to make script executable")
+	}
+
+	// Record script execution start
+	s.config.Metrics.IncrementCounterWithLabels("workflow.script.start", 1, map[string]string{
+		"workflow_id": execution.WorkflowID.String(),
+		"step_id":     step.ID,
+		"script_type": scriptType,
+	})
+
+	startTime := time.Now()
+
+	// Create command with timeout
+	ctx, cancel := context.WithTimeout(ctx, timeout)
+	defer cancel()
+
+	cmd := exec.CommandContext(ctx, interpreter, tmpFile.Name())
+	cmd.Dir = workDir
+	cmd.Env = env
+
+	// Capture output
+	var stdout, stderr bytes.Buffer
+	cmd.Stdout = &stdout
+	cmd.Stderr = &stderr
+
+	// Set resource limits
+	cmd.SysProcAttr = &syscall.SysProcAttr{
+		Setpgid: true, // Create new process group for cleanup
+	}
+
+	// Execute script
+	err = cmd.Run()
+
+	// Record metrics
+	duration := time.Since(startTime)
+	s.config.Metrics.RecordHistogram("workflow.script.duration", duration.Seconds(), map[string]string{
+		"workflow_id": execution.WorkflowID.String(),
+		"step_id":     step.ID,
+		"script_type": scriptType,
+	})
+
+	// Prepare output
+	output := map[string]interface{}{
+		"stdout":       stdout.String(),
+		"stderr":       stderr.String(),
+		"duration":     duration.String(),
+		"script_type":  scriptType,
+		"working_dir":  workDir,
+	}
+
+	// Handle execution result
+	if err != nil {
+		var exitError *exec.ExitError
+		if errors.As(err, &exitError) {
+			output["exit_code"] = exitError.ExitCode()
+			
+			s.config.Metrics.IncrementCounterWithLabels("workflow.script.error", 1, map[string]string{
+				"workflow_id": execution.WorkflowID.String(),
+				"step_id":     step.ID,
+				"script_type": scriptType,
+				"error":       "non_zero_exit",
+			})
+
+			// Check if we should fail on non-zero exit
+			failOnError := true
+			if foe, ok := scriptConfig["fail_on_error"].(bool); ok {
+				failOnError = foe
+			}
+
+			if failOnError {
+				return output, fmt.Errorf("script exited with code %d", exitError.ExitCode())
+			}
+		} else if ctx.Err() == context.DeadlineExceeded {
+			output["exit_code"] = -1
+			output["error"] = "timeout"
+
+			s.config.Metrics.IncrementCounterWithLabels("workflow.script.error", 1, map[string]string{
+				"workflow_id": execution.WorkflowID.String(),
+				"step_id":     step.ID,
+				"script_type": scriptType,
+				"error":       "timeout",
+			})
+
+			return output, fmt.Errorf("script execution timed out after %v", timeout)
+		} else {
+			output["exit_code"] = -1
+			output["error"] = err.Error()
+
+			s.config.Metrics.IncrementCounterWithLabels("workflow.script.error", 1, map[string]string{
+				"workflow_id": execution.WorkflowID.String(),
+				"step_id":     step.ID,
+				"script_type": scriptType,
+				"error":       "execution_error",
+			})
+
+			return output, errors.Wrap(err, "script execution failed")
+		}
+	} else {
+		output["exit_code"] = 0
+
+		s.config.Metrics.IncrementCounterWithLabels("workflow.script.complete", 1, map[string]string{
+			"workflow_id": execution.WorkflowID.String(),
+			"step_id":     step.ID,
+			"script_type": scriptType,
+		})
+	}
+
+	// Parse output if JSON expected
+	if parseJSON, ok := scriptConfig["parse_json_output"].(bool); ok && parseJSON {
+		var jsonOutput interface{}
+		if err := json.Unmarshal(stdout.Bytes(), &jsonOutput); err == nil {
+			output["parsed_output"] = jsonOutput
+		}
+	}
+
+	// Log script execution
+	s.config.Logger.Info("Script execution completed", map[string]interface{}{
+		"workflow_id":  execution.WorkflowID,
+		"step_id":      step.ID,
+		"script_type":  scriptType,
+		"exit_code":    output["exit_code"],
+		"duration":     duration.String(),
+		"stdout_lines": strings.Count(stdout.String(), "\n"),
+		"stderr_lines": strings.Count(stderr.String(), "\n"),
+	})
+
+	return output, nil
+}
+
 // ExecuteWithCircuitBreaker executes a function with circuit breaker protection
 func (s *workflowService) ExecuteWithCircuitBreaker(ctx context.Context, operation string, fn func() (interface{}, error)) (interface{}, error) {
 	// If no circuit breaker settings configured, execute directly
@@ -5400,4 +5843,724 @@ func (s *workflowService) ExecuteWithCircuitBreaker(ctx context.Context, operati
 	}
 
 	return result, nil
+}
+
+// executeWebhookStep executes a webhook step by making an HTTP request
+func (s *workflowService) executeWebhookStep(ctx context.Context, execution *models.WorkflowExecution, step *models.WorkflowStep) (map[string]interface{}, error) {
+	ctx, span := s.config.Tracer(ctx, "WorkflowService.executeWebhookStep")
+	defer span.End()
+
+	s.config.Logger.Info("Executing webhook step", map[string]interface{}{
+		"execution_id": execution.ID,
+		"step_id":      step.ID,
+	})
+
+	// Extract webhook configuration
+	config := step.Config
+	if config == nil {
+		return nil, errors.New("invalid webhook configuration")
+	}
+
+	// Get URL
+	urlStr, ok := config["url"].(string)
+	if !ok || urlStr == "" {
+		return nil, errors.New("webhook URL is required")
+	}
+
+	// Get method (default to POST)
+	method := "POST"
+	if m, ok := config["method"].(string); ok {
+		method = strings.ToUpper(m)
+	}
+
+	// Get timeout (default to 30 seconds)
+	timeout := 30 * time.Second
+	if t, ok := config["timeout_seconds"].(float64); ok && t > 0 {
+		timeout = time.Duration(t) * time.Second
+	}
+
+	// Prepare request body
+	var requestBody []byte
+	if body, ok := config["body"]; ok {
+		switch v := body.(type) {
+		case string:
+			requestBody = []byte(v)
+		case map[string]interface{}, []interface{}:
+			b, err := json.Marshal(v)
+			if err != nil {
+				return nil, errors.Wrap(err, "failed to marshal request body")
+			}
+			requestBody = b
+		}
+	}
+
+	// Create HTTP client with timeout
+	client := &http.Client{
+		Timeout: timeout,
+	}
+
+	// Create request
+	req, err := http.NewRequestWithContext(ctx, method, urlStr, strings.NewReader(string(requestBody)))
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to create request")
+	}
+
+	// Set headers
+	if headers, ok := config["headers"].(map[string]interface{}); ok {
+		for key, value := range headers {
+			if strValue, ok := value.(string); ok {
+				req.Header.Set(key, strValue)
+			}
+		}
+	}
+
+	// Default Content-Type if not set
+	if req.Header.Get("Content-Type") == "" && len(requestBody) > 0 {
+		req.Header.Set("Content-Type", "application/json")
+	}
+
+	// Add authentication if configured
+	if auth, ok := config["authentication"].(map[string]interface{}); ok {
+		authType, _ := auth["type"].(string)
+		switch authType {
+		case "bearer":
+			if token, ok := auth["token"].(string); ok {
+				req.Header.Set("Authorization", "Bearer "+token)
+			}
+		case "basic":
+			if username, ok := auth["username"].(string); ok {
+				if password, ok := auth["password"].(string); ok {
+					req.SetBasicAuth(username, password)
+				}
+			}
+		}
+	}
+
+	// Execute request with retries
+	var resp *http.Response
+	maxRetries := 3
+	if r, ok := config["max_retries"].(float64); ok {
+		maxRetries = int(r)
+	}
+
+	for attempt := 0; attempt <= maxRetries; attempt++ {
+		if attempt > 0 {
+			// Exponential backoff
+			backoff := time.Duration(attempt) * time.Second
+			time.Sleep(backoff)
+		}
+
+		resp, err = client.Do(req)
+		if err == nil && resp.StatusCode < 500 {
+			break // Success or client error - don't retry
+		}
+
+		if err != nil {
+			s.config.Logger.Warn("Webhook request failed", map[string]interface{}{
+				"attempt": attempt + 1,
+				"error":   err.Error(),
+			})
+		} else if resp != nil {
+			s.config.Logger.Warn("Webhook request failed with status", map[string]interface{}{
+				"attempt": attempt + 1,
+				"status":  resp.StatusCode,
+			})
+			resp.Body.Close()
+		}
+	}
+
+	if err != nil {
+		return nil, errors.Wrap(err, "webhook request failed after retries")
+	}
+	defer resp.Body.Close()
+
+	// Read response body
+	responseBody, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to read response body")
+	}
+
+	// Check for success status codes
+	successCodes := []int{200, 201, 202, 204}
+	if codes, ok := config["success_codes"].([]interface{}); ok {
+		successCodes = make([]int, 0, len(codes))
+		for _, code := range codes {
+			if c, ok := code.(float64); ok {
+				successCodes = append(successCodes, int(c))
+			}
+		}
+	}
+
+	isSuccess := false
+	for _, code := range successCodes {
+		if resp.StatusCode == code {
+			isSuccess = true
+			break
+		}
+	}
+
+	if !isSuccess {
+		return nil, errors.Errorf("webhook returned status %d: %s", resp.StatusCode, string(responseBody))
+	}
+
+	// Parse response
+	output := map[string]interface{}{
+		"status_code": resp.StatusCode,
+		"headers":     resp.Header,
+		"body":        string(responseBody),
+	}
+
+	// Try to parse JSON response
+	var jsonResponse interface{}
+	if err := json.Unmarshal(responseBody, &jsonResponse); err == nil {
+		output["parsed_body"] = jsonResponse
+	}
+
+	s.config.Logger.Info("Webhook step completed", map[string]interface{}{
+		"execution_id": execution.ID,
+		"step_id":      step.ID,
+		"status_code":  resp.StatusCode,
+	})
+
+	return output, nil
+}
+
+// handleBranching executes a branching step that can split execution into multiple paths
+func (s *workflowService) handleBranching(ctx context.Context, execution *models.WorkflowExecution, step *models.WorkflowStep) (map[string]interface{}, error) {
+	ctx, span := s.config.Tracer(ctx, "WorkflowService.handleBranching")
+	defer span.End()
+
+	s.config.Logger.Info("Handling branching step", map[string]interface{}{
+		"execution_id": execution.ID,
+		"step_id":      step.ID,
+	})
+
+	// Extract branching configuration
+	config := step.Config
+	if config == nil {
+		return nil, errors.New("invalid branching configuration")
+	}
+
+	// Get branches
+	branchesConfig, ok := config["branches"].([]interface{})
+	if !ok || len(branchesConfig) == 0 {
+		return nil, errors.New("branches are required for branching step")
+	}
+
+	// Get strategy (default to "all")
+	strategy := "all"
+	if s, ok := config["strategy"].(string); ok {
+		strategy = s
+	}
+
+	// Parse branches
+	type branch struct {
+		Name      string
+		Condition string
+		NextStep  string
+		Weight    float64
+	}
+
+	branches := make([]branch, 0, len(branchesConfig))
+	for _, bc := range branchesConfig {
+		branchMap, ok := bc.(map[string]interface{})
+		if !ok {
+			continue
+		}
+
+		b := branch{
+			Name:     branchMap["name"].(string),
+			NextStep: branchMap["next_step"].(string),
+			Weight:   1.0,
+		}
+
+		if cond, ok := branchMap["condition"].(string); ok {
+			b.Condition = cond
+		}
+
+		if weight, ok := branchMap["weight"].(float64); ok {
+			b.Weight = weight
+		}
+
+		branches = append(branches, b)
+	}
+
+	// Determine which branches to execute based on strategy
+	var selectedBranches []branch
+
+	switch strategy {
+	case "all":
+		// Execute all branches
+		selectedBranches = branches
+
+	case "conditional":
+		// Execute branches where conditions are true
+		for _, b := range branches {
+			if b.Condition != "" {
+				// Evaluate condition
+				// Parse condition string to map
+				conditionMap := map[string]interface{}{
+					"type":       "expression",
+					"expression": b.Condition,
+				}
+				result, err := s.evaluateCondition(ctx, execution, conditionMap)
+				if err != nil {
+					s.config.Logger.Warn("Failed to evaluate branch condition", map[string]interface{}{
+						"branch": b.Name,
+						"error":  err.Error(),
+					})
+					continue
+				}
+				if result == "true" {
+					selectedBranches = append(selectedBranches, b)
+				}
+			}
+		}
+
+	case "weighted":
+		// Select one branch based on weights
+		if len(branches) > 0 {
+			totalWeight := 0.0
+			for _, b := range branches {
+				totalWeight += b.Weight
+			}
+
+			// Random selection based on weights
+			r := rand.Float64() * totalWeight
+			cumulative := 0.0
+			for _, b := range branches {
+				cumulative += b.Weight
+				if r <= cumulative {
+					selectedBranches = []branch{b}
+					break
+				}
+			}
+		}
+
+	case "first":
+		// Execute only the first matching branch
+		for _, b := range branches {
+			if b.Condition == "" {
+				selectedBranches = []branch{b}
+				break
+			}
+			conditionMap := map[string]interface{}{
+				"type":       "expression",
+				"expression": b.Condition,
+			}
+			result, err := s.evaluateCondition(ctx, execution, conditionMap)
+			if err == nil && result == "true" {
+				selectedBranches = []branch{b}
+				break
+			}
+		}
+
+	default:
+		return nil, errors.New(fmt.Sprintf("unsupported branching strategy: %s", strategy))
+	}
+
+	// Execute selected branches
+	results := make(map[string]interface{})
+	errors := make([]string, 0)
+
+	// Update execution state to track branches
+	if execution.State == nil {
+		execution.State = make(models.JSONMap)
+	}
+	activeBranches := make([]string, 0, len(selectedBranches))
+	for _, b := range selectedBranches {
+		activeBranches = append(activeBranches, b.Name)
+	}
+	execution.State["active_branches"] = activeBranches
+
+	// For parallel execution of branches
+	if strategy == "all" || strategy == "conditional" {
+		// Create a wait group for parallel execution
+		type branchResult struct {
+			Name   string
+			Result interface{}
+			Error  error
+		}
+
+		resultChan := make(chan branchResult, len(selectedBranches))
+
+		for _, branch := range selectedBranches {
+			go func(b struct {
+				Name      string
+				Condition string
+				NextStep  string
+				Weight    float64
+			}) {
+				// Queue next step for execution
+				if b.NextStep != "" {
+					err := s.queueStepForExecution(ctx, execution, b.NextStep)
+					if err != nil {
+						resultChan <- branchResult{
+							Name:  b.Name,
+							Error: err,
+						}
+						return
+					}
+				}
+
+				resultChan <- branchResult{
+					Name: b.Name,
+					Result: map[string]interface{}{
+						"branch":    b.Name,
+						"next_step": b.NextStep,
+						"queued":    true,
+					},
+				}
+			}(branch)
+		}
+
+		// Collect results
+		for i := 0; i < len(selectedBranches); i++ {
+			result := <-resultChan
+			if result.Error != nil {
+				errors = append(errors, fmt.Sprintf("%s: %v", result.Name, result.Error))
+			} else {
+				results[result.Name] = result.Result
+			}
+		}
+	} else {
+		// Sequential execution for single branch strategies
+		for _, branch := range selectedBranches {
+			if branch.NextStep != "" {
+				err := s.queueStepForExecution(ctx, execution, branch.NextStep)
+				if err != nil {
+					errors = append(errors, fmt.Sprintf("%s: %v", branch.Name, err))
+				} else {
+					results[branch.Name] = map[string]interface{}{
+						"branch":    branch.Name,
+						"next_step": branch.NextStep,
+						"queued":    true,
+					}
+				}
+			}
+		}
+	}
+
+	// Check for errors
+	if len(errors) > 0 {
+		return results, fmt.Errorf("branch execution errors: %s", strings.Join(errors, "; "))
+	}
+
+	output := map[string]interface{}{
+		"strategy":          strategy,
+		"selected_branches": activeBranches,
+		"results":           results,
+	}
+
+	s.config.Logger.Info("Branching step completed", map[string]interface{}{
+		"execution_id":      execution.ID,
+		"step_id":           step.ID,
+		"selected_branches": activeBranches,
+	})
+
+	return output, nil
+}
+
+// executeCompensation executes compensation/rollback logic for failed workflows
+func (s *workflowService) executeCompensation(ctx context.Context, execution *models.WorkflowExecution, step *models.WorkflowStep) (map[string]interface{}, error) {
+	ctx, span := s.config.Tracer(ctx, "WorkflowService.executeCompensation")
+	defer span.End()
+
+	s.config.Logger.Info("Executing compensation step", map[string]interface{}{
+		"execution_id": execution.ID,
+		"step_id":      step.ID,
+	})
+
+	// Extract compensation configuration
+	config := step.Config
+	if config == nil {
+		return nil, errors.New("invalid compensation configuration")
+	}
+
+	// Get compensation strategy
+	strategy := "reverse"
+	if s, ok := config["strategy"].(string); ok {
+		strategy = s
+	}
+
+	// Get target steps to compensate
+	var targetSteps []string
+	if targets, ok := config["target_steps"].([]interface{}); ok {
+		for _, t := range targets {
+			if stepID, ok := t.(string); ok {
+				targetSteps = append(targetSteps, stepID)
+			}
+		}
+	}
+
+	// If no specific targets, compensate all completed steps
+	if len(targetSteps) == 0 {
+		for stepID, status := range execution.StepStatuses {
+			if status.Status == models.StepStatusCompleted {
+				targetSteps = append(targetSteps, stepID)
+			}
+		}
+	}
+
+	// Execute compensation based on strategy
+	compensationResults := make(map[string]interface{})
+	var compensationErrors []string
+
+	switch strategy {
+	case "reverse":
+		// Compensate in reverse order of execution
+		// Sort steps by completion time (newest first)
+		type stepInfo struct {
+			ID          string
+			CompletedAt time.Time
+		}
+		
+		var sortedSteps []stepInfo
+		for _, stepID := range targetSteps {
+			if status, ok := execution.StepStatuses[stepID]; ok && status.CompletedAt != nil {
+				sortedSteps = append(sortedSteps, stepInfo{
+					ID:          stepID,
+					CompletedAt: *status.CompletedAt,
+				})
+			}
+		}
+		
+		// Sort by completion time (descending)
+		for i := 0; i < len(sortedSteps); i++ {
+			for j := i + 1; j < len(sortedSteps); j++ {
+				if sortedSteps[i].CompletedAt.Before(sortedSteps[j].CompletedAt) {
+					sortedSteps[i], sortedSteps[j] = sortedSteps[j], sortedSteps[i]
+				}
+			}
+		}
+
+		// Execute compensation for each step
+		for _, stepInfo := range sortedSteps {
+			result, err := s.compensateStep(ctx, execution, stepInfo.ID)
+			if err != nil {
+				compensationErrors = append(compensationErrors, fmt.Sprintf("%s: %v", stepInfo.ID, err))
+				compensationResults[stepInfo.ID] = map[string]interface{}{
+					"status": "failed",
+					"error":  err.Error(),
+				}
+			} else {
+				compensationResults[stepInfo.ID] = result
+			}
+		}
+
+	case "parallel":
+		// Compensate all steps in parallel
+		type compensationResult struct {
+			StepID string
+			Result map[string]interface{}
+			Error  error
+		}
+
+		resultChan := make(chan compensationResult, len(targetSteps))
+
+		for _, stepID := range targetSteps {
+			go func(sid string) {
+				result, err := s.compensateStep(ctx, execution, sid)
+				resultChan <- compensationResult{
+					StepID: sid,
+					Result: result,
+					Error:  err,
+				}
+			}(stepID)
+		}
+
+		// Collect results
+		for i := 0; i < len(targetSteps); i++ {
+			result := <-resultChan
+			if result.Error != nil {
+				compensationErrors = append(compensationErrors, fmt.Sprintf("%s: %v", result.StepID, result.Error))
+				compensationResults[result.StepID] = map[string]interface{}{
+					"status": "failed",
+					"error":  result.Error.Error(),
+				}
+			} else {
+				compensationResults[result.StepID] = result.Result
+			}
+		}
+
+	case "custom":
+		// Execute custom compensation logic
+		if compensationFunc, ok := config["function"].(string); ok {
+			// In production, this would invoke a registered compensation function
+			// For now, we'll use a simple implementation
+			result := map[string]interface{}{
+				"function": compensationFunc,
+				"status":   "executed",
+			}
+			compensationResults["custom"] = result
+		}
+
+	default:
+		return nil, errors.Errorf("unsupported compensation strategy: %s", strategy)
+	}
+
+	// Update execution state
+	execution.State["compensation_executed"] = true
+	execution.State["compensation_results"] = compensationResults
+
+	output := map[string]interface{}{
+		"strategy":         strategy,
+		"compensated_steps": targetSteps,
+		"results":          compensationResults,
+	}
+
+	if len(compensationErrors) > 0 {
+		output["errors"] = compensationErrors
+		s.config.Logger.Error("Compensation completed with errors", map[string]interface{}{
+			"execution_id": execution.ID,
+			"step_id":      step.ID,
+			"errors":       compensationErrors,
+		})
+	} else {
+		s.config.Logger.Info("Compensation completed successfully", map[string]interface{}{
+			"execution_id": execution.ID,
+			"step_id":      step.ID,
+		})
+	}
+
+	return output, nil
+}
+
+// compensateStep executes compensation logic for a single step
+func (s *workflowService) compensateStep(ctx context.Context, execution *models.WorkflowExecution, stepID string) (map[string]interface{}, error) {
+	// Get the original step definition
+	workflow, err := s.getWorkflow(ctx, execution.WorkflowID)
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to get workflow")
+	}
+
+	// Find the step
+	var originalStep *models.WorkflowStep
+	for id, stepData := range workflow.Steps {
+		if id == stepID {
+			if step, ok := stepData.(models.WorkflowStep); ok {
+				originalStep = &step
+			}
+			break
+		}
+	}
+
+	if originalStep == nil {
+		return nil, errors.Errorf("step %s not found in workflow", stepID)
+	}
+
+	// Check if step has compensation defined in config
+	var compensation map[string]interface{}
+	if originalStep.Config != nil {
+		if comp, ok := originalStep.Config["compensation"].(map[string]interface{}); ok {
+			compensation = comp
+		}
+	}
+	
+	if compensation == nil {
+		return map[string]interface{}{
+			"status":  "skipped",
+			"message": "no compensation defined for step",
+		}, nil
+	}
+
+	// Execute compensation based on type
+	compensationType := "task"
+	if t, ok := compensation["type"].(string); ok {
+		compensationType = t
+	}
+
+	switch compensationType {
+	case "task":
+		// Create a compensation task
+		compensationTask := &models.Task{
+			Type:        "compensation",
+			Title:       fmt.Sprintf("Compensate: %s", stepID),
+			Description: fmt.Sprintf("Compensation task for step %s in execution %s", stepID, execution.ID),
+			Priority:    models.TaskPriorityHigh,
+			Parameters: map[string]interface{}{
+				"original_step":   stepID,
+				"execution_id":    execution.ID,
+				"compensation":    compensation,
+			},
+		}
+
+		// Create and wait for compensation task
+		ctx, cancel := context.WithTimeout(ctx, 5*time.Minute)
+		defer cancel()
+
+		createdTask, err := s.taskService.CreateWorkflowTask(ctx, execution.WorkflowID, uuid.MustParse(stepID), compensationTask.Parameters)
+		if err != nil {
+			return nil, errors.Wrap(err, "failed to create compensation task")
+		}
+
+		// Poll for task completion
+		ticker := time.NewTicker(2 * time.Second)
+		defer ticker.Stop()
+		
+		for {
+			select {
+			case <-ctx.Done():
+				return nil, errors.New("compensation task timed out")
+			case <-ticker.C:
+				task, err := s.taskService.Get(ctx, createdTask.ID)
+				if err != nil {
+					return nil, errors.Wrap(err, "failed to get compensation task status")
+				}
+				
+				switch task.Status {
+				case models.TaskStatusCompleted:
+					return map[string]interface{}{
+						"status":  "completed",
+						"task_id": createdTask.ID,
+						"result":  task.Result,
+					}, nil
+				case models.TaskStatusFailed:
+					return nil, errors.New("compensation task failed")
+				}
+			}
+		}
+
+	case "script":
+		// Execute compensation script
+		if script, ok := compensation["script"].(string); ok {
+			// For security, we should validate and sandbox the script
+			// For now, we'll just log it
+			s.config.Logger.Info("Would execute compensation script", map[string]interface{}{
+				"step_id": stepID,
+				"script":  script,
+			})
+
+			return map[string]interface{}{
+				"status":  "completed",
+				"type":    "script",
+			}, nil
+		}
+
+	case "noop":
+		// No operation - just mark as compensated
+		return map[string]interface{}{
+			"status": "completed",
+			"type":   "noop",
+		}, nil
+	}
+
+	return nil, errors.Errorf("unsupported compensation type: %s", compensationType)
+}
+
+// queueStepForExecution queues a step for execution
+func (s *workflowService) queueStepForExecution(ctx context.Context, execution *models.WorkflowExecution, stepID string) error {
+	// In a production system, this would add the step to a queue for processing
+	// For now, we'll execute it directly in a goroutine
+	go func() {
+		if err := s.ExecuteWorkflowStep(ctx, execution.ID, stepID); err != nil {
+			s.config.Logger.Error("Failed to execute queued step", map[string]interface{}{
+				"execution_id": execution.ID,
+				"step_id":      stepID,
+				"error":        err.Error(),
+			})
+		}
+	}()
+
+	return nil
 }

@@ -3,6 +3,7 @@ package services
 import (
 	"context"
 	"fmt"
+	"sync"
 	"time"
 
 	"github.com/google/uuid"
@@ -252,28 +253,294 @@ func (s *BaseService) CheckQuota(ctx context.Context, resource string, amount in
 
 // startDistributedTransaction starts a new distributed transaction
 func (s *BaseService) startDistributedTransaction(ctx context.Context) (Transaction, error) {
-	// TODO: Implement distributed transaction start
-	// For now, return a mock transaction
-	return &mockTransaction{
-		id: uuid.New(),
-	}, nil
+	// Create a distributed transaction coordinator
+	txID := uuid.New()
+	
+	// Record transaction start
+	s.config.Logger.Info("Starting distributed transaction", map[string]interface{}{
+		"transaction_id": txID,
+		"tenant_id":      auth.GetTenantID(ctx),
+	})
+	
+	// Create transaction with proper implementation
+	dtx := &distributedTransaction{
+		id:            txID,
+		participants:  make(map[string]TransactionParticipant),
+		state:         TxStateActive,
+		logger:        s.config.Logger,
+		metrics:       s.config.Metrics,
+		timeout:       5 * time.Minute,
+		createdAt:     time.Now(),
+		compensations: make([]func() error, 0),
+	}
+	
+	// Set context deadline for transaction
+	dtx.ctx, dtx.cancel = context.WithTimeout(ctx, dtx.timeout)
+	
+	// Record metric
+	s.config.Metrics.IncrementCounterWithLabels("distributed_transaction.started", 1, map[string]string{
+		"tenant_id": auth.GetTenantID(ctx).String(),
+	})
+	
+	return dtx, nil
 }
 
-// mockTransaction is a temporary implementation
-type mockTransaction struct {
-	id uuid.UUID
+// Transaction states
+type TransactionState int
+
+const (
+	TxStateActive TransactionState = iota
+	TxStatePreparing
+	TxStateCommitting
+	TxStateAborting
+	TxStateCommitted
+	TxStateAborted
+)
+
+// TransactionParticipant represents a participant in a distributed transaction
+type TransactionParticipant interface {
+	Prepare(ctx context.Context) error
+	Commit(ctx context.Context) error
+	Rollback(ctx context.Context) error
+	GetID() string
 }
 
-func (t *mockTransaction) Commit() error {
-	return nil
+// distributedTransaction implements a simplified 2PC distributed transaction
+type distributedTransaction struct {
+	id            uuid.UUID
+	participants  map[string]TransactionParticipant
+	state         TransactionState
+	logger        observability.Logger
+	metrics       observability.MetricsClient
+	timeout       time.Duration
+	createdAt     time.Time
+	ctx           context.Context
+	cancel        context.CancelFunc
+	compensations []func() error
+	mu            sync.Mutex
 }
 
-func (t *mockTransaction) Rollback() error {
-	return nil
-}
-
-func (t *mockTransaction) GetID() uuid.UUID {
+func (t *distributedTransaction) GetID() uuid.UUID {
 	return t.id
+}
+
+func (t *distributedTransaction) RegisterParticipant(participant TransactionParticipant) error {
+	t.mu.Lock()
+	defer t.mu.Unlock()
+	
+	if t.state != TxStateActive {
+		return fmt.Errorf("cannot register participant: transaction not active")
+	}
+	
+	participantID := participant.GetID()
+	if _, exists := t.participants[participantID]; exists {
+		return fmt.Errorf("participant already registered: %s", participantID)
+	}
+	
+	t.participants[participantID] = participant
+	
+	t.logger.Info("Participant registered", map[string]interface{}{
+		"transaction_id": t.id,
+		"participant_id": participantID,
+		"total_participants": len(t.participants),
+	})
+	
+	return nil
+}
+
+func (t *distributedTransaction) AddCompensation(compensation func() error) {
+	t.mu.Lock()
+	defer t.mu.Unlock()
+	
+	t.compensations = append(t.compensations, compensation)
+}
+
+func (t *distributedTransaction) Commit() error {
+	t.mu.Lock()
+	defer t.mu.Unlock()
+	
+	if t.state != TxStateActive {
+		return fmt.Errorf("cannot commit: transaction not in active state")
+	}
+	
+	startTime := time.Now()
+	
+	// Phase 1: Prepare
+	t.state = TxStatePreparing
+	t.logger.Info("Starting prepare phase", map[string]interface{}{
+		"transaction_id": t.id,
+		"participants": len(t.participants),
+	})
+	
+	prepareErrors := make(map[string]error)
+	var wg sync.WaitGroup
+	var prepareMu sync.Mutex
+	
+	for id, participant := range t.participants {
+		wg.Add(1)
+		go func(pID string, p TransactionParticipant) {
+			defer wg.Done()
+			
+			if err := p.Prepare(t.ctx); err != nil {
+				prepareMu.Lock()
+				prepareErrors[pID] = err
+				prepareMu.Unlock()
+				
+				t.logger.Error("Participant prepare failed", map[string]interface{}{
+					"transaction_id": t.id,
+					"participant_id": pID,
+					"error": err.Error(),
+				})
+			}
+		}(id, participant)
+	}
+	
+	wg.Wait()
+	
+	// Check prepare results
+	if len(prepareErrors) > 0 {
+		t.logger.Warn("Prepare phase failed, rolling back", map[string]interface{}{
+			"transaction_id": t.id,
+			"failed_count": len(prepareErrors),
+		})
+		
+		// Abort transaction
+		t.state = TxStateAborting
+		t.doRollback()
+		t.state = TxStateAborted
+		
+		return fmt.Errorf("prepare phase failed: %d participants failed", len(prepareErrors))
+	}
+	
+	// Phase 2: Commit
+	t.state = TxStateCommitting
+	t.logger.Info("Starting commit phase", map[string]interface{}{
+		"transaction_id": t.id,
+	})
+	
+	commitErrors := make(map[string]error)
+	wg = sync.WaitGroup{}
+	var commitMu sync.Mutex
+	
+	for id, participant := range t.participants {
+		wg.Add(1)
+		go func(pID string, p TransactionParticipant) {
+			defer wg.Done()
+			
+			if err := p.Commit(t.ctx); err != nil {
+				commitMu.Lock()
+				commitErrors[pID] = err
+				commitMu.Unlock()
+				
+				t.logger.Error("Participant commit failed", map[string]interface{}{
+					"transaction_id": t.id,
+					"participant_id": pID,
+					"error": err.Error(),
+				})
+			}
+		}(id, participant)
+	}
+	
+	wg.Wait()
+	
+	// Even if some commits fail, transaction is considered committed
+	// Failed participants need to handle recovery
+	if len(commitErrors) > 0 {
+		t.logger.Warn("Some participants failed to commit", map[string]interface{}{
+			"transaction_id": t.id,
+			"failed_count": len(commitErrors),
+		})
+	}
+	
+	t.state = TxStateCommitted
+	
+	// Record metrics
+	duration := time.Since(startTime)
+	t.metrics.RecordHistogram("distributed_transaction.duration", duration.Seconds(), map[string]string{
+		"phase": "commit",
+		"success": fmt.Sprintf("%t", len(commitErrors) == 0),
+	})
+	
+	t.logger.Info("Distributed transaction committed", map[string]interface{}{
+		"transaction_id": t.id,
+		"duration": duration.String(),
+		"participants": len(t.participants),
+		"failures": len(commitErrors),
+	})
+	
+	// Clean up
+	t.cancel()
+	
+	return nil
+}
+
+func (t *distributedTransaction) Rollback() error {
+	t.mu.Lock()
+	defer t.mu.Unlock()
+	
+	if t.state == TxStateAborted || t.state == TxStateCommitted {
+		return fmt.Errorf("cannot rollback: transaction already %v", t.state)
+	}
+	
+	t.state = TxStateAborting
+	t.doRollback()
+	t.state = TxStateAborted
+	
+	// Clean up
+	t.cancel()
+	
+	return nil
+}
+
+func (t *distributedTransaction) doRollback() {
+	startTime := time.Now()
+	
+	t.logger.Info("Starting rollback", map[string]interface{}{
+		"transaction_id": t.id,
+		"participants": len(t.participants),
+		"compensations": len(t.compensations),
+	})
+	
+	// Rollback all participants
+	var wg sync.WaitGroup
+	for id, participant := range t.participants {
+		wg.Add(1)
+		go func(pID string, p TransactionParticipant) {
+			defer wg.Done()
+			
+			if err := p.Rollback(t.ctx); err != nil {
+				t.logger.Error("Participant rollback failed", map[string]interface{}{
+					"transaction_id": t.id,
+					"participant_id": pID,
+					"error": err.Error(),
+				})
+			}
+		}(id, participant)
+	}
+	
+	wg.Wait()
+	
+	// Execute compensations in reverse order
+	for i := len(t.compensations) - 1; i >= 0; i-- {
+		if err := t.compensations[i](); err != nil {
+			t.logger.Error("Compensation failed", map[string]interface{}{
+				"transaction_id": t.id,
+				"compensation_index": i,
+				"error": err.Error(),
+			})
+		}
+	}
+	
+	// Record metrics
+	duration := time.Since(startTime)
+	t.metrics.RecordHistogram("distributed_transaction.duration", duration.Seconds(), map[string]string{
+		"phase": "rollback",
+	})
+	
+	t.logger.Info("Distributed transaction rolled back", map[string]interface{}{
+		"transaction_id": t.id,
+		"duration": duration.String(),
+	})
 }
 
 // timePtr returns a pointer to a time
