@@ -8,6 +8,16 @@ echo "Starting functional test environment with AWS services..."
 # Source environment
 source .env
 
+# Set test mode environment variables
+export MCP_TEST_MODE=true
+export TEST_AUTH_ENABLED=true
+export ENVIRONMENT=test
+
+echo "Test mode configuration:"
+echo "  MCP_TEST_MODE=$MCP_TEST_MODE"
+echo "  TEST_AUTH_ENABLED=$TEST_AUTH_ENABLED"
+echo "  ENVIRONMENT=$ENVIRONMENT"
+
 # Check AWS connectivity
 echo "Checking AWS services..."
 if aws s3api head-bucket --bucket $S3_BUCKET &>/dev/null; then
@@ -107,15 +117,15 @@ echo "DEBUG: MCP_DATABASE_SSL_MODE=$MCP_DATABASE_SSL_MODE"
 export MCP_DB_USER="$DB_USER"
 export MCP_DB_PASSWORD="$DB_PASSWORD"
 export MCP_DATABASE_SSL_MODE="$DATABASE_SSL_MODE"
-MCP_CONFIG_FILE=configs/config.development.yaml ./apps/mcp-server/mcp-server &> logs/mcp-server.log &
+MCP_TEST_MODE=$MCP_TEST_MODE TEST_AUTH_ENABLED=$TEST_AUTH_ENABLED ENVIRONMENT=$ENVIRONMENT MCP_CONFIG_FILE=configs/config.development.yaml ./apps/mcp-server/mcp-server &> logs/mcp-server.log &
 MCP_PID=$!
 
 echo "Starting REST API..."
-MCP_CONFIG_FILE=configs/config.development.yaml MCP_API_LISTEN_ADDRESS=:8081 ./apps/rest-api/rest-api &> logs/rest-api.log &
+MCP_TEST_MODE=$MCP_TEST_MODE TEST_AUTH_ENABLED=$TEST_AUTH_ENABLED ENVIRONMENT=$ENVIRONMENT MCP_CONFIG_FILE=configs/config.development.yaml MCP_API_LISTEN_ADDRESS=:8081 ./apps/rest-api/rest-api &> logs/rest-api.log &
 API_PID=$!
 
 echo "Starting Worker..."
-./apps/worker/worker &> logs/worker.log &
+MCP_TEST_MODE=$MCP_TEST_MODE TEST_AUTH_ENABLED=$TEST_AUTH_ENABLED ENVIRONMENT=$ENVIRONMENT ./apps/worker/worker &> logs/worker.log &
 WORKER_PID=$!
 
 # Create PID file

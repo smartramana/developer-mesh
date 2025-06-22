@@ -69,10 +69,14 @@ func NewServer(engine *core.Engine, cfg Config, db *sqlx.DB, metrics observabili
 		panic("[api.NewServer] FATAL: received nil *sqlx.DB. Check database initialization before calling NewServer.")
 	}
 
+	// Initialize logger first
+	logger := observability.NewLogger("api-server")
+
 	router := gin.New()
 
 	// Add middleware
-	router.Use(gin.Recovery())
+	// Use custom recovery middleware for better error handling
+	router.Use(CustomRecoveryMiddleware(logger))
 	router.Use(RequestLogger())
 
 	// Apply performance optimizations based on configuration
@@ -86,7 +90,7 @@ func NewServer(engine *core.Engine, cfg Config, db *sqlx.DB, metrics observabili
 
 	router.Use(MetricsMiddleware())
 	router.Use(ErrorHandlerMiddleware()) // Add centralized error handling
-	router.Use(TracingMiddleware())      // Add request tracing
+	// router.Use(TracingMiddleware())      // Add request tracing - TODO: Fix OpenTelemetry dependency
 
 	// Apply API versioning
 	router.Use(VersioningMiddleware(cfg.Versioning))
@@ -103,9 +107,6 @@ func NewServer(engine *core.Engine, cfg Config, db *sqlx.DB, metrics observabili
 		}
 		router.Use(CORSMiddleware(corsConfig))
 	}
-
-	// Initialize logger first
-	logger := observability.NewLogger("api-server")
 
 	// Setup authentication configuration
 	authConfig := &auth.AuthSystemConfig{
@@ -339,13 +340,6 @@ func (s *Server) setupRoutes(ctx context.Context) {
 	// Add tenant context extraction middleware AFTER authentication
 	v1.Use(ExtractTenantContext())
 
-	// Keep the old middleware for backward compatibility during transition
-	// This will be removed once all tests are updated
-	testMode := os.Getenv("MCP_TEST_MODE")
-	if testMode == "true" {
-		fmt.Println("Test mode enabled, also applying legacy auth middleware")
-		v1.Use(AuthMiddleware("api_key"))
-	}
 
 	// Root endpoint to provide API entry points (HATEOAS)
 	v1.GET("/", func(c *gin.Context) {

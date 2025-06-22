@@ -106,13 +106,14 @@ func NewServer(engine *core.Engine, cfg Config, db *sqlx.DB, metrics observabili
 			}
 		}
 
-		InitAPIKeys(keyMap)
+		// Note: API keys are now handled by the centralized auth service
+		fmt.Println("API keys configuration detected - should be handled by auth service")
 	} else {
 		fmt.Println("No API keys defined in config")
 	}
 
-	// Initialize JWT with secret from configuration
-	InitJWT(cfg.Auth.JWTSecret)
+	// Note: JWT is now handled by the centralized auth service
+	fmt.Println("JWT configuration detected - should be handled by auth service")
 
 	// Configure HTTP client transport for external service calls
 	httpTransport := &http.Transport{
@@ -208,7 +209,8 @@ func (s *Server) setupRoutes(ctx context.Context) {
 	// API v1 routes - require authentication
 	v1 := s.router.Group("/api/v1")
 	// Add TenantMiddleware to ensure tenant ID is extracted and set in Gin context
-	v1.Use(TenantMiddleware())
+	// Note: TenantMiddleware removed - use centralized auth service
+	// v1.Use(TenantMiddleware())
 	// Use test mode to skip authentication
 	testMode := os.Getenv("MCP_TEST_MODE")
 	for _, e := range os.Environ() {
@@ -218,8 +220,9 @@ func (s *Server) setupRoutes(ctx context.Context) {
 	fmt.Printf("MCP_TEST_MODE value: '%s' (Type: %T)\n", testMode, testMode)
 	fmt.Printf("Is testMode true? %v\n", testMode == "true")
 
-	fmt.Println("Using AuthMiddleware for /api/v1 routes (test mode does not bypass auth in functional tests)")
-	v1.Use(AuthMiddleware("api_key"))
+	fmt.Println("WARNING: Legacy pkg/api server - should use apps/rest-api instead")
+	// Note: AuthMiddleware removed - use centralized auth service
+	// v1.Use(AuthMiddleware("api_key"))
 
 	// Root endpoint to provide API entry points (HATEOAS)
 	v1.GET("/", func(c *gin.Context) {

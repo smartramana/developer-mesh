@@ -26,16 +26,26 @@ set -a
 source .env
 set +a
 
+# Display AWS services configuration
+echo -e "\n${YELLOW}AWS Services Configuration:${NC}"
+echo "  • RDS PostgreSQL: $RDS_ENDPOINT (via SSH tunnel on localhost:5432)"
+echo "  • ElastiCache Redis: $ELASTICACHE_ENDPOINT (via SSH tunnel on localhost:6379)"
+echo "  • S3 Bucket: $S3_BUCKET"
+echo "  • SQS Queue: $SQS_QUEUE_URL"
+echo "  • Bedrock: ${BEDROCK_ENABLED:-false} (Region: ${AWS_REGION})"
+echo "  • NAT Instance: $NAT_INSTANCE_IP (for SSH tunneling)"
+
 # Check prerequisites
 echo -e "\n${YELLOW}Checking prerequisites...${NC}"
 
-# Check if PostgreSQL is running
-if ! docker ps | grep -q devops-postgres; then
-    echo -e "${RED}✗ PostgreSQL container is not running${NC}"
-    echo "  Run: docker start devops-postgres"
+# Check if RDS is accessible via SSH tunnel
+if ! nc -zv localhost 5432 2>&1 | grep -q succeeded; then
+    echo -e "${RED}✗ RDS PostgreSQL is not accessible on localhost:5432${NC}"
+    echo "  Ensure SSH tunnel is active for RDS"
+    echo "  Run: ./setup-ssh-tunnels.sh"
     exit 1
 else
-    echo -e "${GREEN}✓ PostgreSQL is running${NC}"
+    echo -e "${GREEN}✓ RDS PostgreSQL is accessible${NC}"
 fi
 
 # Check if SSH tunnel is active (for ElastiCache)
@@ -71,7 +81,7 @@ check_service "REST API" "http://localhost:8081/health" || services_ok=false
 
 if [ "$services_ok" = "false" ]; then
     echo -e "\n${RED}Services are not running!${NC}"
-    echo "Run: ./scripts/start-functional-test-env.sh"
+    echo "Run: ./scripts/start-functional-env-aws.sh"
     exit 1
 fi
 
@@ -90,6 +100,15 @@ if aws sqs get-queue-attributes --queue-url $SQS_QUEUE_URL --attribute-names All
     echo -e "${GREEN}✓ SQS queue accessible${NC}"
 else
     echo -e "${RED}✗ SQS queue not accessible${NC}"
+fi
+
+# Check Bedrock (if enabled)
+if [ "$BEDROCK_ENABLED" = "true" ]; then
+    if aws bedrock list-foundation-models --region $AWS_REGION >/dev/null 2>&1; then
+        echo -e "${GREEN}✓ AWS Bedrock accessible${NC}"
+    else
+        echo -e "${YELLOW}⚠ AWS Bedrock not accessible (embeddings may fail)${NC}"
+    fi
 fi
 
 # Change to functional test directory
