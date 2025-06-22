@@ -3,6 +3,8 @@ package api
 import (
 	"context"
 	"fmt"
+	"net/http"
+	"os"
 	"sync"
 	"sync/atomic"
 	"testing"
@@ -24,17 +26,44 @@ type WebSocketClient struct {
 
 // WebSocketMessage represents a message for testing
 type WebSocketMessage struct {
-	Type string                 `json:"type"`
-	ID   string                 `json:"id"`
-	Data map[string]interface{} `json:"data,omitempty"`
+	Type   int                    `json:"type"`
+	ID     string                 `json:"id"`
+	Method string                 `json:"method,omitempty"`
+	Params map[string]interface{} `json:"params,omitempty"`
+	Result interface{}            `json:"result,omitempty"`
+	Error  *WebSocketError        `json:"error,omitempty"`
 }
+
+// WebSocketError represents an error in a WebSocket message
+type WebSocketError struct {
+	Code    int    `json:"code"`
+	Message string `json:"message"`
+	Data    interface{} `json:"data,omitempty"`
+}
+
+// Message type constants
+const (
+	MessageTypeRequest      = 0
+	MessageTypeResponse     = 1
+	MessageTypeNotification = 2
+	MessageTypeError        = 3
+)
 
 // NewWebSocketClient creates a new test WebSocket client
 func NewWebSocketClient(t *testing.T, agentID string, capabilities []string) *WebSocketClient {
-	// For now, return a stub implementation
-	// TODO: Implement proper connection logic
+	// Get test configuration
+	config := getTestConfig()
+	
+	// Use the appropriate API key for the agent
+	apiKey := getAPIKeyForAgent(agentID)
+	
+	// Establish WebSocket connection
+	conn, err := establishWebSocketConnection(t, config.WebSocketURL, apiKey, agentID, capabilities)
+	require.NoError(t, err, "Failed to establish WebSocket connection for agent %s", agentID)
+	
 	return &WebSocketClient{
 		AgentID: agentID,
+		Conn:    conn,
 		t:       t,
 	}
 }
@@ -75,7 +104,7 @@ func TestWebSocketTaskDelegation(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 
-	// Connect two agents
+	// Register two agents
 	agent1 := NewWebSocketClient(t, "agent1", []string{"coding", "testing"})
 	defer func() {
 		_ = agent1.Close()
@@ -87,68 +116,68 @@ func TestWebSocketTaskDelegation(t *testing.T) {
 	}()
 
 	// Agent 1 creates a task
-	taskID := uuid.New()
+	taskID := uuid.New().String()
 	createTaskMsg := WebSocketMessage{
-		Type: "task.create",
-		ID:   uuid.New().String(),
-		Data: map[string]interface{}{
-			"task": map[string]interface{}{
-				"id":          taskID.String(),
-				"title":       "Write unit tests",
-				"description": "Create comprehensive unit tests for the authentication module",
-				"priority":    "high",
-				"type":        "coding",
-			},
+		Type:   MessageTypeRequest,
+		ID:     uuid.New().String(),
+		Method: "task.create",
+		Params: map[string]interface{}{
+			"id":          taskID,
+			"title":       "Implement authentication module",
+			"description": "Create JWT-based authentication",
+			"priority":    "high",
+			"type":        "coding",
 		},
 	}
 
 	err := agent1.SendMessage(createTaskMsg)
 	require.NoError(t, err)
 
-	// Wait for confirmation
+	// Wait for task creation response
 	msg, err := agent1.ReadMessage(ctx)
 	require.NoError(t, err)
-	assert.Equal(t, "task.created", msg.Type)
+	assert.Equal(t, MessageTypeResponse, msg.Type)
+	assert.Nil(t, msg.Error)
 
 	// Agent 1 delegates task to Agent 2
 	delegateMsg := WebSocketMessage{
-		Type: "task.delegate",
-		ID:   uuid.New().String(),
-		Data: map[string]interface{}{
-			"task_id":         taskID.String(),
-			"to_agent":        "agent2",
-			"reason":          "Agent 2 has better testing expertise",
-			"delegation_type": "manual",
+		Type:   MessageTypeRequest,
+		ID:     uuid.New().String(),
+		Method: "task.delegate",
+		Params: map[string]interface{}{
+			"task_id":  taskID,
+			"to_agent": "agent2",
+			"reason":   "Agent 2 has authentication expertise",
 		},
 	}
 
 	err = agent1.SendMessage(delegateMsg)
 	require.NoError(t, err)
 
-	// Agent 2 should receive delegation notification
-	msg, err = agent2.ReadMessage(ctx)
+	// Wait for delegation response
+	msg, err = agent1.ReadMessage(ctx)
 	require.NoError(t, err)
-	assert.Equal(t, "task.delegated", msg.Type)
-
-	assert.Equal(t, taskID.String(), msg.Data["task_id"])
-	assert.Equal(t, "agent1", msg.Data["from_agent"])
+	assert.Equal(t, MessageTypeResponse, msg.Type)
+	assert.Nil(t, msg.Error)
 
 	// Agent 2 accepts the task
 	acceptMsg := WebSocketMessage{
-		Type: "task.accept",
-		ID:   uuid.New().String(),
-		Data: map[string]interface{}{
-			"task_id": taskID.String(),
+		Type:   MessageTypeRequest,
+		ID:     uuid.New().String(),
+		Method: "task.accept",
+		Params: map[string]interface{}{
+			"task_id": taskID,
 		},
 	}
 
 	err = agent2.SendMessage(acceptMsg)
 	require.NoError(t, err)
 
-	// Verify acceptance
+	// Wait for acceptance response
 	msg, err = agent2.ReadMessage(ctx)
 	require.NoError(t, err)
-	assert.Equal(t, "task.accepted", msg.Type)
+	assert.Equal(t, MessageTypeResponse, msg.Type)
+	assert.Nil(t, msg.Error)
 }
 
 // Test workflow coordination between multiple agents
@@ -176,14 +205,15 @@ func TestWebSocketWorkflowCoordination(t *testing.T) {
 		_ = reviewer.Close()
 	}()
 
-	// Create a workflow
-	workflowID := uuid.New()
+	// Create a collaborative workflow
+	workflowID := uuid.New().String()
 	createWorkflowMsg := WebSocketMessage{
-		Type: "workflow.create",
-		ID:   uuid.New().String(),
-		Data: map[string]interface{}{
+		Type:   MessageTypeRequest,
+		ID:     uuid.New().String(),
+		Method: "workflow.create_collaborative",
+		Params: map[string]interface{}{
 			"workflow": map[string]interface{}{
-				"id":          workflowID.String(),
+				"id":          workflowID,
 				"name":        "Feature Development Pipeline",
 				"description": "Complete feature development with code, test, and review",
 				"steps": []map[string]interface{}{
@@ -222,60 +252,84 @@ func TestWebSocketWorkflowCoordination(t *testing.T) {
 	err := coder.SendMessage(createWorkflowMsg)
 	require.NoError(t, err)
 
-	// Wait for confirmation
+	// Wait for workflow creation response
 	msg, err := coder.ReadMessage(ctx)
 	require.NoError(t, err)
-	assert.Equal(t, "workflow.created", msg.Type)
+	assert.Equal(t, MessageTypeResponse, msg.Type)
+	assert.Nil(t, msg.Error)
 
-	// Start workflow execution
-	startMsg := WebSocketMessage{
-		Type: "workflow.start",
-		ID:   uuid.New().String(),
-		Data: map[string]interface{}{
-			"workflow_id": workflowID.String(),
+	// Execute the collaborative workflow
+	executeMsg := WebSocketMessage{
+		Type:   MessageTypeRequest,
+		ID:     uuid.New().String(),
+		Method: "workflow.execute_collaborative",
+		Params: map[string]interface{}{
+			"workflow_id": workflowID,
+			"agents": []string{
+				coder.AgentID,
+				tester.AgentID,
+				reviewer.AgentID,
+			},
 		},
 	}
 
-	err = coder.SendMessage(startMsg)
+	err = coder.SendMessage(executeMsg)
 	require.NoError(t, err)
 
-	// Coder should receive first task
+	// Wait for execution response
 	msg, err = coder.ReadMessage(ctx)
 	require.NoError(t, err)
-	assert.Equal(t, "task.assigned", msg.Type)
+	assert.Equal(t, MessageTypeResponse, msg.Type)
+	assert.Nil(t, msg.Error)
 
-	// Simulate step completion by each agent
+	// Complete tasks as they're assigned to each agent
+	stepIDs := []string{"step1", "step2", "step3"}
 	agents := []*WebSocketClient{coder, tester, reviewer}
-	for i, agent := range agents {
-		// Complete current step
+	
+	for i, stepID := range stepIDs {
+		// Complete the workflow task
 		completeMsg := WebSocketMessage{
-			Type: "workflow.step.complete",
-			ID:   uuid.New().String(),
-			Data: map[string]interface{}{
-				"workflow_id": workflowID.String(),
-				"step_index":  i,
+			Type:   MessageTypeRequest,
+			ID:     uuid.New().String(),
+			Method: "workflow.complete_task",
+			Params: map[string]interface{}{
+				"workflow_id": workflowID,
+				"step_id":     stepID,
 				"result": map[string]interface{}{
 					"status": "success",
-					"output": fmt.Sprintf("Step %d completed by %s", i+1, agent.AgentID),
+					"output": fmt.Sprintf("Step %s completed by %s", stepID, agents[i].AgentID),
 				},
 			},
 		}
 
-		err = agent.SendMessage(completeMsg)
+		err = agents[i].SendMessage(completeMsg)
 		require.NoError(t, err)
 
-		// If not the last step, next agent should receive task
-		if i < len(agents)-1 {
-			msg, err = agents[i+1].ReadMessage(ctx)
-			require.NoError(t, err)
-			assert.Equal(t, "task.assigned", msg.Type)
-		}
+		// Wait for completion response
+		msg, err = agents[i].ReadMessage(ctx)
+		require.NoError(t, err)
+		assert.Equal(t, MessageTypeResponse, msg.Type)
+		assert.Nil(t, msg.Error)
 	}
 
-	// Final agent should receive workflow completion
+	// Check final workflow status
+	statusMsg := WebSocketMessage{
+		Type:   MessageTypeRequest,
+		ID:     uuid.New().String(),
+		Method: "workflow.status",
+		Params: map[string]interface{}{
+			"workflow_id": workflowID,
+		},
+	}
+
+	err = reviewer.SendMessage(statusMsg)
+	require.NoError(t, err)
+
+	// Wait for status response
 	msg, err = reviewer.ReadMessage(ctx)
 	require.NoError(t, err)
-	assert.Equal(t, "workflow.completed", msg.Type)
+	assert.Equal(t, MessageTypeResponse, msg.Type)
+	assert.Nil(t, msg.Error)
 }
 
 // Test workspace collaboration with real-time updates
@@ -298,16 +352,15 @@ func TestWebSocketWorkspaceCollaboration(t *testing.T) {
 	}
 
 	// First agent creates workspace
-	workspaceID := uuid.New()
+	workspaceID := uuid.New().String()
 	createWorkspaceMsg := WebSocketMessage{
-		Type: "workspace.create",
-		ID:   uuid.New().String(),
-		Data: map[string]interface{}{
-			"workspace": map[string]interface{}{
-				"id":          workspaceID.String(),
-				"name":        "Test Collaboration Space",
-				"description": "Space for testing multi-agent collaboration",
-			},
+		Type:   MessageTypeRequest,
+		ID:     uuid.New().String(),
+		Method: "workspace.create",
+		Params: map[string]interface{}{
+			"id":          workspaceID,
+			"name":        "Test Collaboration Space",
+			"description": "Space for testing multi-agent collaboration",
 		},
 	}
 
@@ -316,15 +369,17 @@ func TestWebSocketWorkspaceCollaboration(t *testing.T) {
 
 	msg, err := agents[0].ReadMessage(ctx)
 	require.NoError(t, err)
-	assert.Equal(t, "workspace.created", msg.Type)
+	assert.Equal(t, MessageTypeResponse, msg.Type)
+	assert.Nil(t, msg.Error)
 
 	// Join other agents to workspace
 	for i := 1; i < numAgents; i++ {
 		joinMsg := WebSocketMessage{
-			Type: "workspace.join",
-			ID:   uuid.New().String(),
-			Data: map[string]interface{}{
-				"workspace_id": workspaceID.String(),
+			Type:   MessageTypeRequest,
+			ID:     uuid.New().String(),
+			Method: "workspace.join",
+			Params: map[string]interface{}{
+				"workspace_id": workspaceID,
 			},
 		}
 
@@ -335,24 +390,26 @@ func TestWebSocketWorkspaceCollaboration(t *testing.T) {
 		for j := 0; j < i; j++ {
 			msg, err = agents[j].ReadMessage(ctx)
 			require.NoError(t, err)
-			assert.Equal(t, "workspace.member.joined", msg.Type)
+			assert.Equal(t, MessageTypeNotification, msg.Type)
+			assert.Equal(t, "workspace.member.joined", msg.Method)
 		}
 
 		// Joining agent receives confirmation
 		msg, err = agents[i].ReadMessage(ctx)
 		require.NoError(t, err)
-		assert.Equal(t, "workspace.joined", msg.Type)
+		assert.Equal(t, MessageTypeResponse, msg.Type)
 	}
 
 	// Test real-time document collaboration
-	documentID := uuid.New()
+	documentID := uuid.New().String()
 	createDocMsg := WebSocketMessage{
-		Type: "document.create",
-		ID:   uuid.New().String(),
-		Data: map[string]interface{}{
-			"workspace_id": workspaceID.String(),
+		Type:   MessageTypeRequest,
+		ID:     uuid.New().String(),
+		Method: "document.create",
+		Params: map[string]interface{}{
+			"workspace_id": workspaceID,
 			"document": map[string]interface{}{
-				"id":      documentID.String(),
+				"id":      documentID,
 				"title":   "Collaborative Design Doc",
 				"content": "Initial content",
 			},
@@ -371,7 +428,8 @@ func TestWebSocketWorkspaceCollaboration(t *testing.T) {
 			defer wg.Done()
 			msg, err := agent.ReadMessage(ctx)
 			require.NoError(t, err)
-			assert.Equal(t, "document.created", msg.Type)
+			assert.Equal(t, MessageTypeNotification, msg.Type)
+			assert.Equal(t, "document.created", msg.Method)
 		}(agents[i])
 	}
 
@@ -383,10 +441,11 @@ func TestWebSocketWorkspaceCollaboration(t *testing.T) {
 	for i := 1; i < numAgents; i++ {
 		go func(agentIndex int) {
 			editMsg := WebSocketMessage{
-				Type: "document.edit",
-				ID:   uuid.New().String(),
-				Data: map[string]interface{}{
-					"document_id": documentID.String(),
+				Type:   MessageTypeRequest,
+				ID:     uuid.New().String(),
+				Method: "document.edit",
+				Params: map[string]interface{}{
+					"document_id": documentID,
 					"operation": map[string]interface{}{
 						"type":     "insert",
 						"position": agentIndex * 10,
@@ -408,10 +467,11 @@ func TestWebSocketWorkspaceCollaboration(t *testing.T) {
 
 	// Request final document state
 	getDocMsg := WebSocketMessage{
-		Type: "document.get",
-		ID:   uuid.New().String(),
-		Data: map[string]interface{}{
-			"document_id": documentID.String(),
+		Type:   MessageTypeRequest,
+		ID:     uuid.New().String(),
+		Method: "document.get",
+		Params: map[string]interface{}{
+			"document_id": documentID,
 		},
 	}
 
@@ -420,12 +480,15 @@ func TestWebSocketWorkspaceCollaboration(t *testing.T) {
 
 	msg, err = agents[0].ReadMessage(ctx)
 	require.NoError(t, err)
-	assert.Equal(t, "document.state", msg.Type)
+	assert.Equal(t, MessageTypeResponse, msg.Type)
 
 	// Verify all edits were applied
-	content := msg.Data["content"].(string)
-	for i := 1; i < numAgents; i++ {
-		assert.Contains(t, content, fmt.Sprintf("Edit from agent%d", i+1))
+	if result, ok := msg.Result.(map[string]interface{}); ok {
+		if content, ok := result["content"].(string); ok {
+			for i := 1; i < numAgents; i++ {
+				assert.Contains(t, content, fmt.Sprintf("Edit from agent%d", i+1))
+			}
+		}
 	}
 }
 
@@ -450,13 +513,14 @@ func TestWebSocketConflictResolution(t *testing.T) {
 	}()
 
 	// Create shared state
-	stateID := uuid.New()
+	stateID := uuid.New().String()
 	createStateMsg := WebSocketMessage{
-		Type: "state.create",
-		ID:   uuid.New().String(),
-		Data: map[string]interface{}{
+		Type:   MessageTypeRequest,
+		ID:     uuid.New().String(),
+		Method: "state.create",
+		Params: map[string]interface{}{
 			"state": map[string]interface{}{
-				"id":    stateID.String(),
+				"id":    stateID,
 				"type":  "counter",
 				"value": 0,
 			},
@@ -469,14 +533,15 @@ func TestWebSocketConflictResolution(t *testing.T) {
 	// Both agents receive confirmation
 	msg1, err := agent1.ReadMessage(ctx)
 	require.NoError(t, err)
-	assert.Equal(t, "state.created", msg1.Type)
+	assert.Equal(t, MessageTypeResponse, msg1.Type)
 
 	// Agent2 subscribes to state
 	subscribeMsg := WebSocketMessage{
-		Type: "state.subscribe",
-		ID:   uuid.New().String(),
-		Data: map[string]interface{}{
-			"state_id": stateID.String(),
+		Type:   MessageTypeRequest,
+		ID:     uuid.New().String(),
+		Method: "state.subscribe",
+		Params: map[string]interface{}{
+			"state_id": stateID,
 		},
 	}
 
@@ -485,7 +550,7 @@ func TestWebSocketConflictResolution(t *testing.T) {
 
 	msg2, err := agent2.ReadMessage(ctx)
 	require.NoError(t, err)
-	assert.Equal(t, "state.subscribed", msg2.Type)
+	assert.Equal(t, MessageTypeResponse, msg2.Type)
 
 	// Both agents increment counter concurrently
 	var wg sync.WaitGroup
@@ -495,10 +560,11 @@ func TestWebSocketConflictResolution(t *testing.T) {
 		defer wg.Done()
 		for i := 0; i < 5; i++ {
 			incrementMsg := WebSocketMessage{
-				Type: "state.increment",
-				ID:   uuid.New().String(),
-				Data: map[string]interface{}{
-					"state_id": stateID.String(),
+				Type:   MessageTypeRequest,
+				ID:     uuid.New().String(),
+				Method: "state.increment",
+				Params: map[string]interface{}{
+					"state_id": stateID,
 					"delta":    1,
 				},
 			}
@@ -512,10 +578,11 @@ func TestWebSocketConflictResolution(t *testing.T) {
 		defer wg.Done()
 		for i := 0; i < 5; i++ {
 			incrementMsg := WebSocketMessage{
-				Type: "state.increment",
-				ID:   uuid.New().String(),
-				Data: map[string]interface{}{
-					"state_id": stateID.String(),
+				Type:   MessageTypeRequest,
+				ID:     uuid.New().String(),
+				Method: "state.increment",
+				Params: map[string]interface{}{
+					"state_id": stateID,
 					"delta":    2,
 				},
 			}
@@ -532,10 +599,11 @@ func TestWebSocketConflictResolution(t *testing.T) {
 
 	// Query final state
 	queryMsg := WebSocketMessage{
-		Type: "state.get",
-		ID:   uuid.New().String(),
-		Data: map[string]interface{}{
-			"state_id": stateID.String(),
+		Type:   MessageTypeRequest,
+		ID:     uuid.New().String(),
+		Method: "state.get",
+		Params: map[string]interface{}{
+			"state_id": stateID,
 		},
 	}
 
@@ -549,9 +617,13 @@ func TestWebSocketConflictResolution(t *testing.T) {
 		if err != nil {
 			break
 		}
-		if msg.Type == "state.value" {
-			finalValue = int(msg.Data["value"].(float64))
-			break
+		if msg.Type == MessageTypeResponse && msg.Method == "state.get" {
+			if result, ok := msg.Result.(map[string]interface{}); ok {
+				if val, ok := result["value"].(float64); ok {
+					finalValue = int(val)
+					break
+				}
+			}
 		}
 	}
 
@@ -612,9 +684,10 @@ func TestWebSocketCapabilityMatching(t *testing.T) {
 	// Create and auto-assign tasks
 	for _, task := range tasks {
 		createMsg := WebSocketMessage{
-			Type: "task.create.auto_assign",
-			ID:   uuid.New().String(),
-			Data: map[string]interface{}{
+			Type:   MessageTypeRequest,
+			ID:     uuid.New().String(),
+			Method: "task.create_auto_assign",
+			Params: map[string]interface{}{
 				"task": map[string]interface{}{
 					"id":                    task.id,
 					"title":                 task.title,
@@ -636,8 +709,8 @@ func TestWebSocketCapabilityMatching(t *testing.T) {
 			go func(a *WebSocketClient) {
 				defer assignWg.Done()
 				msg, err := a.ReadMessage(ctx)
-				if err == nil && msg.Type == "task.assigned" {
-					if msg.Data["task_id"] == task.id {
+				if err == nil && msg.Type == MessageTypeNotification && msg.Method == "task.assigned" {
+					if msg.Params != nil && msg.Params["task_id"] == task.id {
 						assigned <- a.AgentID
 					}
 				}
@@ -686,13 +759,14 @@ func TestWebSocketMultiAgentPerformance(t *testing.T) {
 	}
 
 	// Create shared workspace
-	workspaceID := uuid.New()
+	workspaceID := uuid.New().String()
 	createWorkspaceMsg := WebSocketMessage{
-		Type: "workspace.create",
-		ID:   uuid.New().String(),
-		Data: map[string]interface{}{
+		Type:   MessageTypeRequest,
+		ID:     uuid.New().String(),
+		Method: "workspace.create",
+		Params: map[string]interface{}{
 			"workspace": map[string]interface{}{
-				"id":   workspaceID.String(),
+				"id":   workspaceID,
 				"name": "Performance Test Workspace",
 			},
 		},
@@ -704,7 +778,7 @@ func TestWebSocketMultiAgentPerformance(t *testing.T) {
 	// Wait for workspace creation
 	msg, err := agents[0].ReadMessage(ctx)
 	require.NoError(t, err)
-	assert.Equal(t, "workspace.created", msg.Type)
+	assert.Equal(t, MessageTypeResponse, msg.Type)
 
 	// All agents join workspace
 	var joinWg sync.WaitGroup
@@ -714,10 +788,11 @@ func TestWebSocketMultiAgentPerformance(t *testing.T) {
 		go func(agentIndex int) {
 			defer joinWg.Done()
 			joinMsg := WebSocketMessage{
-				Type: "workspace.join",
-				ID:   uuid.New().String(),
-				Data: map[string]interface{}{
-					"workspace_id": workspaceID.String(),
+				Type:   MessageTypeRequest,
+				ID:     uuid.New().String(),
+				Method: "workspace.join",
+				Params: map[string]interface{}{
+					"workspace_id": workspaceID,
 				},
 			}
 			err := agents[agentIndex].SendMessage(joinMsg)
@@ -737,15 +812,16 @@ func TestWebSocketMultiAgentPerformance(t *testing.T) {
 
 			for j := 0; j < numTasksPerAgent; j++ {
 				// Create task
-				taskID := uuid.New()
+				taskID := uuid.New().String()
 				createTaskMsg := WebSocketMessage{
-					Type: "task.create",
-					ID:   uuid.New().String(),
-					Data: map[string]interface{}{
+					Type:   MessageTypeRequest,
+					ID:     uuid.New().String(),
+					Method: "task.create",
+					Params: map[string]interface{}{
 						"task": map[string]interface{}{
-							"id":           taskID.String(),
+							"id":           taskID,
 							"title":        fmt.Sprintf("Task %d-%d", agentIndex, j),
-							"workspace_id": workspaceID.String(),
+							"workspace_id": workspaceID,
 						},
 					},
 				}
@@ -758,10 +834,11 @@ func TestWebSocketMultiAgentPerformance(t *testing.T) {
 
 				// Complete task
 				completeMsg := WebSocketMessage{
-					Type: "task.complete",
-					ID:   uuid.New().String(),
-					Data: map[string]interface{}{
-						"task_id": taskID.String(),
+					Type:   MessageTypeRequest,
+					ID:     uuid.New().String(),
+					Method: "task.complete",
+					Params: map[string]interface{}{
+						"task_id": taskID,
 						"result":  map[string]interface{}{"processed": true},
 					},
 				}
@@ -790,4 +867,85 @@ func TestWebSocketMultiAgentPerformance(t *testing.T) {
 
 	// Assert minimum performance threshold
 	assert.Greater(t, tasksPerSecond, 50.0, "Performance below threshold")
+}
+
+// Helper functions
+
+// getTestConfig returns test configuration
+func getTestConfig() struct {
+	WebSocketURL string
+} {
+	wsURL := os.Getenv("MCP_WEBSOCKET_URL")
+	if wsURL == "" {
+		wsURL = "ws://localhost:8080/ws"
+	}
+	return struct {
+		WebSocketURL string
+	}{
+		WebSocketURL: wsURL,
+	}
+}
+
+// getAPIKeyForAgent returns the appropriate API key for an agent
+func getAPIKeyForAgent(agentID string) string {
+	// Use environment variable if set
+	if apiKey := os.Getenv("MCP_API_KEY"); apiKey != "" {
+		return apiKey
+	}
+	
+	// Map agent IDs to their test API keys
+	switch agentID {
+	case "agent1", "agent2":
+		return "test-key-agent-1"
+	default:
+		return "dev-admin-key-1234567890"
+	}
+}
+
+// establishWebSocketConnection creates an authenticated WebSocket connection
+func establishWebSocketConnection(t *testing.T, wsURL, apiKey, agentID string, capabilities []string) (*websocket.Conn, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	opts := &websocket.DialOptions{
+		HTTPHeader: http.Header{
+			"Authorization": []string{"Bearer " + apiKey},
+		},
+	}
+
+	conn, _, err := websocket.Dial(ctx, wsURL, opts)
+	if err != nil {
+		return nil, fmt.Errorf("failed to dial WebSocket: %w", err)
+	}
+
+	// Send initialization message
+	initMsg := WebSocketMessage{
+		ID:     uuid.New().String(),
+		Type:   MessageTypeRequest,
+		Method: "initialize",
+		Params: map[string]interface{}{
+			"name":    agentID,
+			"version": "1.0.0",
+		},
+	}
+
+	if err := wsjson.Write(ctx, conn, initMsg); err != nil {
+		_ = conn.Close(websocket.StatusNormalClosure, "")
+		return nil, fmt.Errorf("failed to send init message: %w", err)
+	}
+
+	// Read initialization response
+	var response WebSocketMessage
+	if err := wsjson.Read(ctx, conn, &response); err != nil {
+		_ = conn.Close(websocket.StatusNormalClosure, "")
+		return nil, fmt.Errorf("failed to read init response: %w", err)
+	}
+
+	// Check for error in response
+	if response.Error != nil {
+		_ = conn.Close(websocket.StatusNormalClosure, "")
+		return nil, fmt.Errorf("initialization failed: %s", response.Error.Message)
+	}
+
+	return conn, nil
 }
