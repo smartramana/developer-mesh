@@ -40,7 +40,7 @@ var _ = Describe("WebSocket Multi-Step Workflows", func() {
 
 	AfterEach(func() {
 		if conn != nil {
-			conn.Close(websocket.StatusNormalClosure, "")
+			_ = conn.Close(websocket.StatusNormalClosure, "")
 		}
 		cancel()
 	})

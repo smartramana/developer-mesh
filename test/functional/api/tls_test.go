@@ -72,7 +72,9 @@ var _ = Describe("TLS Configuration Tests", func() {
 			resp, err := client.Get(tlsAPIURL + "/health")
 			Expect(err).NotTo(HaveOccurred())
 			Expect(resp.StatusCode).To(Equal(http.StatusOK))
-			resp.Body.Close()
+			defer func() {
+				_ = resp.Body.Close()
+			}()
 		})
 
 		It("should prefer TLS 1.3 connections", func() {
@@ -91,12 +93,14 @@ var _ = Describe("TLS Configuration Tests", func() {
 			resp, err := client.Get(tlsAPIURL + "/health")
 			Expect(err).NotTo(HaveOccurred())
 			Expect(resp.StatusCode).To(Equal(http.StatusOK))
+			defer func() {
+				_ = resp.Body.Close()
+			}()
 
 			// Verify we're using TLS 1.3
 			if resp.TLS != nil {
 				Expect(resp.TLS.Version).To(Equal(uint16(tls.VersionTLS13)))
 			}
-			resp.Body.Close()
 		})
 
 		It("should use secure cipher suites only", func() {
@@ -143,7 +147,9 @@ var _ = Describe("TLS Configuration Tests", func() {
 			resp, err := client.Get(tlsAPIURL + "/health")
 			Expect(err).NotTo(HaveOccurred())
 			Expect(resp.StatusCode).To(Equal(http.StatusOK))
-			resp.Body.Close()
+			defer func() {
+				_ = resp.Body.Close()
+			}()
 		})
 	})
 

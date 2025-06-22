@@ -41,7 +41,7 @@ var _ = Describe("WebSocket Context Window Management", func() {
 
 	AfterEach(func() {
 		if conn != nil {
-			conn.Close(websocket.StatusNormalClosure, "")
+			_ = conn.Close(websocket.StatusNormalClosure, "")
 		}
 		cancel()
 	})
@@ -507,7 +507,7 @@ var _ = Describe("WebSocket Context Window Management", func() {
 						},
 					}
 
-					wsjson.Write(ctx, conn, appendMsg)
+					_ = wsjson.Write(ctx, conn, appendMsg)
 					time.Sleep(50 * time.Millisecond)
 				}
 			}()
@@ -609,7 +609,7 @@ var _ = Describe("WebSocket Context Window Management", func() {
 					select {
 					case <-timeout:
 						var resp ws.Message
-						wsjson.Read(ctx, conn, &resp) // Clear response
+						_ = wsjson.Read(ctx, conn, &resp) // Clear response
 					default:
 						var msg ws.Message
 						err := wsjson.Read(ctx, conn, &msg)

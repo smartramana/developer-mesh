@@ -41,7 +41,7 @@ var _ = Describe("WebSocket Streaming Operations", func() {
 
 	AfterEach(func() {
 		if conn != nil {
-			conn.Close(websocket.StatusNormalClosure, "")
+			_ = conn.Close(websocket.StatusNormalClosure, "")
 		}
 		cancel()
 	})
@@ -459,7 +459,9 @@ var _ = Describe("WebSocket Streaming Operations", func() {
 						errors <- err
 						return
 					}
-					defer conn.Close(websocket.StatusNormalClosure, "")
+					defer func() {
+						_ = conn.Close(websocket.StatusNormalClosure, "")
+					}()
 
 					// Execute streaming operation
 					execMsg := ws.Message{

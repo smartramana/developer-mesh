@@ -40,7 +40,7 @@ var _ = Describe("WebSocket Session Management", func() {
 
 	AfterEach(func() {
 		if conn != nil {
-			conn.Close(websocket.StatusNormalClosure, "")
+			_ = conn.Close(websocket.StatusNormalClosure, "")
 		}
 		cancel()
 	})
@@ -427,7 +427,7 @@ var _ = Describe("WebSocket Session Management", func() {
 			}
 
 			// Simulate disconnection
-			conn.Close(websocket.StatusGoingAway, "simulating disconnect")
+			_ = conn.Close(websocket.StatusGoingAway, "simulating disconnect")
 
 			// Wait a bit
 			time.Sleep(500 * time.Millisecond)
@@ -435,7 +435,9 @@ var _ = Describe("WebSocket Session Management", func() {
 			// Reconnect
 			newConn, err := shared.EstablishConnection(wsURL, apiKey)
 			Expect(err).NotTo(HaveOccurred())
-			defer newConn.Close(websocket.StatusNormalClosure, "")
+			defer func() {
+				_ = newConn.Close(websocket.StatusNormalClosure, "")
+			}()
 
 			// Recover session
 			recoverMsg := ws.Message{

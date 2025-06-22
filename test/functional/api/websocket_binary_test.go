@@ -72,7 +72,7 @@ var _ = Describe("WebSocket Binary Protocol", func() {
 
 	AfterEach(func() {
 		if conn != nil {
-			conn.Close(websocket.StatusNormalClosure, "")
+			_ = conn.Close(websocket.StatusNormalClosure, "")
 		}
 		cancel()
 	})
@@ -433,11 +433,15 @@ func encodeBinaryMessage(msg ws.Message) ([]byte, error) {
 
 	// Header (version + flags)
 	header := uint16(0x0100) // Version 1.0, no compression
-	binary.Write(buf, binary.BigEndian, header)
+	if err := binary.Write(buf, binary.BigEndian, header); err != nil {
+		return nil, err
+	}
 
 	// Length
 	length := uint32(len(jsonData))
-	binary.Write(buf, binary.BigEndian, length)
+	if err := binary.Write(buf, binary.BigEndian, length); err != nil {
+		return nil, err
+	}
 
 	// Data
 	buf.Write(jsonData)
@@ -463,17 +467,23 @@ func encodeBinaryMessageWithCompression(msg ws.Message) ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
-	gz.Close()
+	if err := gz.Close(); err != nil {
+		return nil, err
+	}
 
 	buf := bytes.NewBuffer(nil)
 
 	// Header with compression flag
 	header := uint16(0x8100) // Version 1.0, compressed
-	binary.Write(buf, binary.BigEndian, header)
+	if err := binary.Write(buf, binary.BigEndian, header); err != nil {
+		return nil, err
+	}
 
 	// Length of compressed data
 	length := uint32(compressed.Len())
-	binary.Write(buf, binary.BigEndian, length)
+	if err := binary.Write(buf, binary.BigEndian, length); err != nil {
+		return nil, err
+	}
 
 	// Compressed data
 	buf.Write(compressed.Bytes())
@@ -503,7 +513,9 @@ func decodeBinaryMessage(data []byte, msg *ws.Message) error {
 		if err != nil {
 			return err
 		}
-		defer gz.Close()
+		defer func() {
+			_ = gz.Close()
+		}()
 
 		var decompressed bytes.Buffer
 		_, err = decompressed.ReadFrom(gz)

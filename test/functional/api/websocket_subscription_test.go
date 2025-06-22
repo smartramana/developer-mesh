@@ -41,7 +41,7 @@ var _ = Describe("WebSocket Real-Time Subscriptions", func() {
 
 	AfterEach(func() {
 		if conn != nil {
-			conn.Close(websocket.StatusNormalClosure, "")
+			_ = conn.Close(websocket.StatusNormalClosure, "")
 		}
 		cancel()
 	})
@@ -479,7 +479,9 @@ var _ = Describe("WebSocket Real-Time Subscriptions", func() {
 			// Create two connections (two agents)
 			conn2, err := shared.EstablishConnection(wsURL, apiKey)
 			Expect(err).NotTo(HaveOccurred())
-			defer conn2.Close(websocket.StatusNormalClosure, "")
+			defer func() {
+				_ = conn2.Close(websocket.StatusNormalClosure, "")
+			}()
 
 			// Agent 1 subscribes to agent status
 			subMsg := ws.Message{
@@ -810,13 +812,15 @@ var _ = Describe("WebSocket Real-Time Subscriptions", func() {
 			}
 
 			// Simulate connection interruption
-			conn.Close(websocket.StatusGoingAway, "simulating disconnect")
+			_ = conn.Close(websocket.StatusGoingAway, "simulating disconnect")
 
 			// Reconnect
 			time.Sleep(500 * time.Millisecond)
 			newConn, err := shared.EstablishConnection(wsURL, apiKey)
 			Expect(err).NotTo(HaveOccurred())
-			defer newConn.Close(websocket.StatusNormalClosure, "")
+			defer func() {
+				_ = newConn.Close(websocket.StatusNormalClosure, "")
+			}()
 
 			// Restore subscription
 			restoreMsg := ws.Message{

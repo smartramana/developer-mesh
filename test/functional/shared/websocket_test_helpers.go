@@ -20,7 +20,6 @@ type StreamingTestClient struct {
 	progressChan   chan ProgressUpdate
 	completionChan chan interface{}
 	errorChan      chan error
-	mu             sync.Mutex
 }
 
 // ProgressUpdate represents a progress notification
@@ -252,7 +251,7 @@ func (o *WorkflowOrchestrator) Execute(ctx context.Context) error {
 
 				if response.Error != nil {
 					if s.OnError != nil {
-						s.OnError(fmt.Errorf(response.Error.Message), o.state)
+						s.OnError(fmt.Errorf("%s", response.Error.Message), o.state)
 					}
 					errors <- fmt.Errorf("step %s failed: %s", s.ID, response.Error.Message)
 				} else {
@@ -473,7 +472,6 @@ type Session struct {
 	Context      []ContextMessage
 	State        map[string]interface{}
 	LastActivity time.Time
-	mu           sync.RWMutex
 }
 
 // NewSessionStore creates a store for testing session management
@@ -575,7 +573,6 @@ type AgentConnection struct {
 	Capabilities []string
 	Conn         *websocket.Conn
 	SharedState  map[string]interface{}
-	mu           sync.RWMutex
 }
 
 // NewMultiAgentCoordinator creates a coordinator for multi-agent testing
@@ -681,18 +678,18 @@ func EstablishConnection(wsURL, apiKey string) (*websocket.Conn, error) {
 	}
 
 	if err := wsjson.Write(ctx, conn, initMsg); err != nil {
-		conn.Close(websocket.StatusNormalClosure, "")
+		_ = conn.Close(websocket.StatusNormalClosure, "")
 		return nil, err
 	}
 
 	var response ws.Message
 	if err := wsjson.Read(ctx, conn, &response); err != nil {
-		conn.Close(websocket.StatusNormalClosure, "")
+		_ = conn.Close(websocket.StatusNormalClosure, "")
 		return nil, err
 	}
 
 	if response.Error != nil {
-		conn.Close(websocket.StatusNormalClosure, "")
+		_ = conn.Close(websocket.StatusNormalClosure, "")
 		return nil, fmt.Errorf("initialization failed: %s", response.Error.Message)
 	}
 

@@ -66,7 +66,9 @@ var _ = Describe("WebSocket Multi-Agent Collaboration", func() {
 				conn, err := shared.EstablishConnection(wsURL, apiKey)
 				Expect(err).NotTo(HaveOccurred())
 				agents[i].conn = conn
-				defer conn.Close(websocket.StatusNormalClosure, "")
+				defer func(c *websocket.Conn) {
+					_ = c.Close(websocket.StatusNormalClosure, "")
+				}(conn)
 
 				// Register agent
 				registerMsg := ws.Message{
@@ -135,12 +137,16 @@ var _ = Describe("WebSocket Multi-Agent Collaboration", func() {
 			apiKey1 := shared.GetTestAPIKey("agent-1")
 			agent1, err := shared.EstablishConnection(wsURL, apiKey1)
 			Expect(err).NotTo(HaveOccurred())
-			defer agent1.Close(websocket.StatusNormalClosure, "")
+			defer func() {
+				_ = agent1.Close(websocket.StatusNormalClosure, "")
+			}()
 
 			apiKey2 := shared.GetTestAPIKey("agent-2")
 			agent2, err := shared.EstablishConnection(wsURL, apiKey2)
 			Expect(err).NotTo(HaveOccurred())
-			defer agent2.Close(websocket.StatusNormalClosure, "")
+			defer func() {
+				_ = agent2.Close(websocket.StatusNormalClosure, "")
+			}()
 
 			// Register both agents
 			for i, conn := range []*websocket.Conn{agent1, agent2} {
@@ -229,12 +235,16 @@ var _ = Describe("WebSocket Multi-Agent Collaboration", func() {
 			apiKey1 := shared.GetTestAPIKey("agent-1")
 			coordinator, err := shared.EstablishConnection(wsURL, apiKey1)
 			Expect(err).NotTo(HaveOccurred())
-			defer coordinator.Close(websocket.StatusNormalClosure, "")
+			defer func() {
+				_ = coordinator.Close(websocket.StatusNormalClosure, "")
+			}()
 
 			apiKey2 := shared.GetTestAPIKey("agent-2")
 			worker, err := shared.EstablishConnection(wsURL, apiKey2)
 			Expect(err).NotTo(HaveOccurred())
-			defer worker.Close(websocket.StatusNormalClosure, "")
+			defer func() {
+				_ = worker.Close(websocket.StatusNormalClosure, "")
+			}()
 
 			// Register coordinator
 			registerCoordMsg := ws.Message{
@@ -399,7 +409,9 @@ var _ = Describe("WebSocket Multi-Agent Collaboration", func() {
 			// Create coordinator and multiple workers
 			coordinator, err := shared.EstablishConnection(wsURL, apiKey)
 			Expect(err).NotTo(HaveOccurred())
-			defer coordinator.Close(websocket.StatusNormalClosure, "")
+			defer func() {
+				_ = coordinator.Close(websocket.StatusNormalClosure, "")
+			}()
 
 			numWorkers := 3
 			workers := make([]*websocket.Conn, numWorkers)
@@ -409,7 +421,9 @@ var _ = Describe("WebSocket Multi-Agent Collaboration", func() {
 				worker, err := shared.EstablishConnection(wsURL, apiKey)
 				Expect(err).NotTo(HaveOccurred())
 				workers[i] = worker
-				defer worker.Close(websocket.StatusNormalClosure, "")
+				defer func(w *websocket.Conn) {
+					_ = w.Close(websocket.StatusNormalClosure, "")
+				}(worker)
 
 				// Register worker
 				registerMsg := ws.Message{
@@ -567,7 +581,9 @@ var _ = Describe("WebSocket Multi-Agent Collaboration", func() {
 				conn, err := shared.EstablishConnection(wsURL, apiKey)
 				Expect(err).NotTo(HaveOccurred())
 				agents[spec] = conn
-				defer conn.Close(websocket.StatusNormalClosure, "")
+				defer func(c *websocket.Conn) {
+					_ = c.Close(websocket.StatusNormalClosure, "")
+				}(conn)
 
 				// Register with specialization
 				registerMsg := ws.Message{
@@ -697,7 +713,7 @@ var _ = Describe("WebSocket Multi-Agent Collaboration", func() {
 										},
 									}
 
-									wsjson.Write(ctx, c, completeMsg)
+									_ = wsjson.Write(ctx, c, completeMsg)
 								}
 							}
 						}
@@ -720,11 +736,15 @@ var _ = Describe("WebSocket Multi-Agent Collaboration", func() {
 			// Create primary and backup agents
 			primary, err := shared.EstablishConnection(wsURL, apiKey)
 			Expect(err).NotTo(HaveOccurred())
-			defer primary.Close(websocket.StatusNormalClosure, "")
+			defer func() {
+				_ = primary.Close(websocket.StatusNormalClosure, "")
+			}()
 
 			backup, err := shared.EstablishConnection(wsURL, apiKey)
 			Expect(err).NotTo(HaveOccurred())
-			defer backup.Close(websocket.StatusNormalClosure, "")
+			defer func() {
+				_ = backup.Close(websocket.StatusNormalClosure, "")
+			}()
 
 			// Register both with same capabilities
 			for i, conn := range []*websocket.Conn{primary, backup} {
@@ -799,7 +819,7 @@ var _ = Describe("WebSocket Multi-Agent Collaboration", func() {
 							},
 						}
 
-						wsjson.Write(ctx, primary, failMsg)
+						_ = wsjson.Write(ctx, primary, failMsg)
 						return
 					}
 				}
@@ -854,11 +874,15 @@ var _ = Describe("WebSocket Multi-Agent Collaboration", func() {
 			// Create two agents
 			agent1, err := shared.EstablishConnection(wsURL, apiKey)
 			Expect(err).NotTo(HaveOccurred())
-			defer agent1.Close(websocket.StatusNormalClosure, "")
+			defer func() {
+				_ = agent1.Close(websocket.StatusNormalClosure, "")
+			}()
 
 			agent2, err := shared.EstablishConnection(wsURL, apiKey)
 			Expect(err).NotTo(HaveOccurred())
-			defer agent2.Close(websocket.StatusNormalClosure, "")
+			defer func() {
+				_ = agent2.Close(websocket.StatusNormalClosure, "")
+			}()
 
 			// Both agents join a shared workspace
 			workspaceID := uuid.New().String()
@@ -978,11 +1002,15 @@ var _ = Describe("WebSocket Multi-Agent Collaboration", func() {
 			// Create two agents
 			agent1, err := shared.EstablishConnection(wsURL, apiKey)
 			Expect(err).NotTo(HaveOccurred())
-			defer agent1.Close(websocket.StatusNormalClosure, "")
+			defer func() {
+				_ = agent1.Close(websocket.StatusNormalClosure, "")
+			}()
 
 			agent2, err := shared.EstablishConnection(wsURL, apiKey)
 			Expect(err).NotTo(HaveOccurred())
-			defer agent2.Close(websocket.StatusNormalClosure, "")
+			defer func() {
+				_ = agent2.Close(websocket.StatusNormalClosure, "")
+			}()
 
 			// Create shared document
 			docID := uuid.New().String()
