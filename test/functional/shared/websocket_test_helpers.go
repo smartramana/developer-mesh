@@ -68,7 +68,8 @@ func (c *StreamingTestClient) readMessages() {
 		}
 
 		// Handle different message types
-		if msg.Type == ws.MessageTypeProgress {
+		switch msg.Type {
+		case ws.MessageTypeProgress:
 			if progress, ok := msg.Result.(map[string]interface{}); ok {
 				update := ProgressUpdate{
 					Percentage: int(progress["percentage"].(float64)),
@@ -77,9 +78,9 @@ func (c *StreamingTestClient) readMessages() {
 				}
 				c.progressChan <- update
 			}
-		} else if msg.Type == ws.MessageTypeResponse {
+		case ws.MessageTypeResponse:
 			c.completionChan <- msg.Result
-		} else if msg.Type == ws.MessageTypeError {
+		case ws.MessageTypeError:
 			c.errorChan <- fmt.Errorf("error response: %v", msg.Error)
 		}
 	}

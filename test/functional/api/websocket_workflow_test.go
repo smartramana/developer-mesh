@@ -333,13 +333,14 @@ var _ = Describe("WebSocket Multi-Step Workflows", func() {
 					GinkgoWriter.Printf("Notification %d: Type=%s, Method=%s\n", messageCount, msg.Type, msg.Method)
 
 					if msg.Type == ws.MessageTypeNotification {
-						if msg.Method == "workflow.step_completed" {
+						switch msg.Method {
+						case "workflow.step_completed":
 							if params, ok := msg.Params.(map[string]interface{}); ok {
 								stepID := params["step_id"].(string)
 								executedSteps[stepID] = true
 								GinkgoWriter.Printf("Step completed: %s\n", stepID)
 							}
-						} else if msg.Method == "workflow.step_started" {
+						case "workflow.step_started":
 							if params, ok := msg.Params.(map[string]interface{}); ok {
 								stepID := params["step_id"].(string)
 								startedSteps[stepID] = true
@@ -457,19 +458,21 @@ var _ = Describe("WebSocket Multi-Step Workflows", func() {
 				err := wsjson.Read(ctx, conn, &msg)
 				Expect(err).NotTo(HaveOccurred())
 
-				if msg.Type == ws.MessageTypeNotification {
-					if msg.Method == "workflow.step_started" {
+				switch msg.Type {
+				case ws.MessageTypeNotification:
+					switch msg.Method {
+					case "workflow.step_started":
 						if params, ok := msg.Params.(map[string]interface{}); ok {
 							stepID := params["step_id"].(string)
 							stepStartTimes[stepID] = time.Now()
 						}
-					} else if msg.Method == "workflow.step_completed" {
+					case "workflow.step_completed":
 						if params, ok := msg.Params.(map[string]interface{}); ok {
 							stepID := params["step_id"].(string)
 							stepEndTimes[stepID] = time.Now()
 						}
 					}
-				} else if msg.Type == ws.MessageTypeResponse {
+				case ws.MessageTypeResponse:
 					completed = true
 				}
 			}
@@ -596,7 +599,8 @@ var _ = Describe("WebSocket Multi-Step Workflows", func() {
 						continue
 					}
 
-					if msg.Type == ws.MessageTypeNotification {
+					switch msg.Type {
+					case ws.MessageTypeNotification:
 						if msg.Method == "workflow.transaction_event" {
 							if params, ok := msg.Params.(map[string]interface{}); ok {
 								event := params["event"].(string)
@@ -604,7 +608,7 @@ var _ = Describe("WebSocket Multi-Step Workflows", func() {
 								GinkgoWriter.Printf("Transaction event: %s\n", event)
 							}
 						}
-					} else if msg.Type == ws.MessageTypeResponse {
+					case ws.MessageTypeResponse:
 						done = true
 
 						// Verify transaction completed successfully
@@ -692,21 +696,23 @@ var _ = Describe("WebSocket Multi-Step Workflows", func() {
 						continue
 					}
 
-					if msg.Type == ws.MessageTypeNotification {
-						if msg.Method == "workflow.transaction_event" {
+					switch msg.Type {
+					case ws.MessageTypeNotification:
+						switch msg.Method {
+						case "workflow.transaction_event":
 							if params, ok := msg.Params.(map[string]interface{}); ok {
 								event := params["event"].(string)
 								if event == "rollback" {
 									rollbackOccurred = true
 								}
 							}
-						} else if msg.Method == "workflow.compensating_action" {
+						case "workflow.compensating_action":
 							if params, ok := msg.Params.(map[string]interface{}); ok {
 								action := params["action"].(string)
 								compensatingActions = append(compensatingActions, action)
 							}
 						}
-					} else if msg.Type == ws.MessageTypeResponse || msg.Type == ws.MessageTypeError {
+					case ws.MessageTypeResponse, ws.MessageTypeError:
 						done = true
 					}
 				}
@@ -985,20 +991,22 @@ var _ = Describe("WebSocket Multi-Step Workflows", func() {
 				err := wsjson.Read(ctx, conn, &msg)
 				Expect(err).NotTo(HaveOccurred())
 
-				if msg.Type == ws.MessageTypeNotification {
-					if msg.Method == "workflow.sub_workflow_started" {
+				switch msg.Type {
+				case ws.MessageTypeNotification:
+					switch msg.Method {
+					case "workflow.sub_workflow_started":
 						if params, ok := msg.Params.(map[string]interface{}); ok {
 							subID := params["sub_workflow_id"].(string)
 							subWorkflowsStarted[subID] = true
 							GinkgoWriter.Printf("Sub-workflow started: %s\n", subID)
 						}
-					} else if msg.Method == "workflow.sub_workflow_completed" {
+					case "workflow.sub_workflow_completed":
 						if params, ok := msg.Params.(map[string]interface{}); ok {
 							subID := params["sub_workflow_id"].(string)
 							subWorkflowsCompleted[subID] = true
 						}
 					}
-				} else if msg.Type == ws.MessageTypeResponse {
+				case ws.MessageTypeResponse:
 					completed = true
 				}
 			}

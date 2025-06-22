@@ -298,7 +298,8 @@ var _ = Describe("WebSocket Context Window Management", func() {
 							goto next
 						}
 
-						if msg.Type == ws.MessageTypeNotification {
+						switch msg.Type {
+						case ws.MessageTypeNotification:
 							if msg.Method == "context.truncation_warning" {
 								truncationWarningReceived = true
 								if params, ok := msg.Params.(map[string]interface{}); ok {
@@ -307,7 +308,7 @@ var _ = Describe("WebSocket Context Window Management", func() {
 										currentTokens, maxTokens)
 								}
 							}
-						} else if msg.Type == ws.MessageTypeResponse {
+						case ws.MessageTypeResponse:
 							// Append response
 							if result, ok := msg.Result.(map[string]interface{}); ok {
 								if tokens, ok := result["total_tokens"].(float64); ok {
