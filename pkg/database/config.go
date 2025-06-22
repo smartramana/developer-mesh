@@ -99,6 +99,9 @@ func buildPostgresDSN(c *Config) string {
 		c.Host = "localhost"
 	}
 
+	// Debug logging to see what SSL mode is being used
+	fmt.Printf("DEBUG: Building DSN with SSLMode=%s\n", c.SSLMode)
+
 	dsn := "postgres://"
 	if c.Username != "" {
 		dsn += c.Username

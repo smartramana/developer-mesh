@@ -177,38 +177,15 @@ test-functional: ## Run functional tests (Docker)
 .PHONY: test-functional-local
 test-functional-local: ## Run functional tests with local services and real AWS
 	@set -a; [ -f .env ] && . ./.env; set +a; \
-	export MCP_TEST_MODE=true && ./scripts/aws/connect-elasticache.sh && ./test/scripts/run_functional_tests_local.sh
+	export MCP_TEST_MODE=true &&  ./test/scripts/run_functional_tests_local.sh
 
 .PHONY: start-functional-env
 start-functional-env: ## Start functional test environment (PostgreSQL + services)
-	./scripts/aws/connect-elasticache.sh && \
-	./scripts/aws/test-aws-services.sh && \
 	./scripts/start-functional-test-env.sh
 
-.PHONY: test-websocket
-test-websocket: ## Run all WebSocket tests
-	@echo "Running WebSocket tests..."
-	@$(MAKE) test-websocket-unit
-	@$(MAKE) test-websocket-functional
-	@$(MAKE) test-websocket-integration
-
-.PHONY: test-websocket-unit
-test-websocket-unit: ## Run WebSocket unit tests
-	$(GOTEST) -v -short ./apps/mcp-server/internal/api/websocket/... ./pkg/models/websocket/...
-
-.PHONY: test-websocket-functional
-test-websocket-functional: ## Run WebSocket functional tests
-	@set -a; [ -f .env ] && . ./.env; set +a; \
-	cd test/functional && ginkgo -v --focus "WebSocket" ./api
-
-.PHONY: test-websocket-integration
-test-websocket-integration: ## Run WebSocket integration tests
-	@set -a; [ -f .env ] && . ./.env; set +a; \
-	$(GOTEST) -v -tags=integration ./test/integration -run TestWebSocket
-
-.PHONY: test-websocket-load
-test-websocket-load: ## Run WebSocket load tests
-	./scripts/websocket-load-test.sh
+.PHONY: start-functional-env-aws
+start-functional-env-aws: ## Start functional test environment with AWS services
+	./scripts/start-functional-env-aws.sh
 
 .PHONY: bench
 bench: ## Run benchmarks (PACKAGE=./pkg/embedding)

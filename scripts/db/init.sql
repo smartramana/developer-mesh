@@ -7,6 +7,15 @@ CREATE SCHEMA IF NOT EXISTS mcp;
 -- Enable UUID extension
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 
+-- Update trigger function for updated_at columns
+CREATE OR REPLACE FUNCTION update_updated_at_column()
+RETURNS TRIGGER AS $$
+BEGIN
+    NEW.updated_at = CURRENT_TIMESTAMP;
+    RETURN NEW;
+END;
+$$ language 'plpgsql';
+
 -- Events table
 CREATE TABLE IF NOT EXISTS mcp.events (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
@@ -30,7 +39,7 @@ CREATE INDEX IF NOT EXISTS idx_events_timestamp ON mcp.events(timestamp);
 -- Context tables
 -- Create contexts table
 CREATE TABLE IF NOT EXISTS mcp.contexts (
-    id VARCHAR(36) PRIMARY KEY,
+    id VARCHAR(36) PRIMARY KEY DEFAULT gen_random_uuid()::text,
     name VARCHAR(255),
     description TEXT,
     agent_id VARCHAR(255) NOT NULL,
@@ -38,10 +47,15 @@ CREATE TABLE IF NOT EXISTS mcp.contexts (
     session_id VARCHAR(255),
     current_tokens INTEGER NOT NULL DEFAULT 0,
     max_tokens INTEGER NOT NULL DEFAULT 4000,
-    metadata JSONB,
-    created_at TIMESTAMP WITH TIME ZONE NOT NULL,
-    updated_at TIMESTAMP WITH TIME ZONE NOT NULL,
-    expires_at TIMESTAMP WITH TIME ZONE
+    metadata JSONB DEFAULT '{}',
+    created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    expires_at TIMESTAMP WITH TIME ZONE,
+    -- Additional fields for migration compatibility
+    tenant_id UUID,
+    created_by UUID,
+    updated_by UUID,
+    deleted_at TIMESTAMP WITH TIME ZONE
 );
 
 -- Create context_items table
@@ -63,6 +77,15 @@ CREATE INDEX IF NOT EXISTS idx_contexts_updated_at ON mcp.contexts(updated_at);
 CREATE INDEX IF NOT EXISTS idx_context_items_context_id ON mcp.context_items(context_id);
 CREATE INDEX IF NOT EXISTS idx_context_items_role ON mcp.context_items(role);
 CREATE INDEX IF NOT EXISTS idx_context_items_timestamp ON mcp.context_items(timestamp);
+-- Additional indexes for migration compatibility
+CREATE INDEX IF NOT EXISTS idx_contexts_tenant_id ON mcp.contexts(tenant_id) WHERE deleted_at IS NULL;
+CREATE INDEX IF NOT EXISTS idx_contexts_created_at ON mcp.contexts(created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_contexts_metadata ON mcp.contexts USING gin(metadata);
+
+-- Create update trigger for contexts table
+DROP TRIGGER IF EXISTS update_contexts_updated_at ON mcp.contexts;
+CREATE TRIGGER update_contexts_updated_at BEFORE UPDATE
+ON mcp.contexts FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 
 -- Integrations table
 CREATE TABLE IF NOT EXISTS mcp.integrations (
@@ -131,6 +154,29 @@ BEGIN
         -- Create vector extension for semantic search
         CREATE EXTENSION IF NOT EXISTS vector;
         
+        -- Model registry table (for tracking available models)
+        CREATE TABLE IF NOT EXISTS mcp.embedding_models (
+            id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+            provider VARCHAR(50) NOT NULL,
+            model_name VARCHAR(100) NOT NULL,
+            model_version VARCHAR(20),
+            dimensions INTEGER NOT NULL,
+            max_tokens INTEGER,
+            supports_binary BOOLEAN DEFAULT false,
+            supports_dimensionality_reduction BOOLEAN DEFAULT false,
+            min_dimensions INTEGER,
+            cost_per_million_tokens DECIMAL(10, 4),
+            model_id VARCHAR(255),
+            model_type VARCHAR(50),
+            is_active BOOLEAN DEFAULT true,
+            deprecated_at TIMESTAMP WITH TIME ZONE,
+            sunset_at TIMESTAMP WITH TIME ZONE,
+            capabilities JSONB DEFAULT '{}',
+            created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            CONSTRAINT unique_model_provider UNIQUE(provider, model_name, model_version),
+            CONSTRAINT valid_dimensions CHECK (dimensions > 0 AND dimensions <= 4096)
+        );
+        
         -- Create vector table for context items
         CREATE TABLE IF NOT EXISTS mcp.context_item_vectors (
             id VARCHAR(36) PRIMARY KEY,
@@ -149,14 +195,27 @@ BEGIN
         
         -- Create flexible embeddings table that tracks model and dimensions
         CREATE TABLE IF NOT EXISTS mcp.embeddings (
-            id VARCHAR(36) PRIMARY KEY,
+            id VARCHAR(36) PRIMARY KEY DEFAULT gen_random_uuid()::text,
             context_id VARCHAR(36) NOT NULL,
-            content_index INTEGER NOT NULL,
-            text TEXT NOT NULL,
+            content_index INTEGER NOT NULL DEFAULT 0,
+            chunk_index INTEGER NOT NULL DEFAULT 0,
+            content TEXT NOT NULL,  -- renamed from 'text' to match migrations
+            content_hash VARCHAR(64),
+            content_tokens INTEGER,
             embedding vector,  -- Dynamic dimensions
             vector_dimensions INTEGER NOT NULL,  -- Track dimensions
             model_id VARCHAR(255) NOT NULL,  -- Track model used
+            model_provider VARCHAR(50),
+            model_name VARCHAR(100),
+            model_dimensions INTEGER,
+            configured_dimensions INTEGER,
+            processing_time_ms INTEGER,
+            embedding_created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+            magnitude FLOAT,
+            tenant_id UUID,
+            metadata JSONB NOT NULL DEFAULT '{}',
             created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
             FOREIGN KEY (context_id) REFERENCES mcp.contexts(id) ON DELETE CASCADE
         );
 
@@ -167,6 +226,12 @@ BEGIN
         -- Create index on model_id for filtering
         CREATE INDEX IF NOT EXISTS idx_embeddings_model_id
         ON mcp.embeddings(model_id);
+        
+        -- Create additional indexes for migration 004 compatibility
+        CREATE INDEX IF NOT EXISTS idx_embeddings_model_dims ON mcp.embeddings(model_name, model_dimensions);
+        CREATE INDEX IF NOT EXISTS idx_embeddings_provider_dims ON mcp.embeddings(model_provider, model_dimensions);
+        CREATE INDEX IF NOT EXISTS idx_embeddings_tenant_model ON mcp.embeddings(tenant_id, model_name);
+        CREATE INDEX IF NOT EXISTS idx_embeddings_context_model ON mcp.embeddings(context_id, model_name) WHERE context_id IS NOT NULL;
         
         -- We'll create indices dynamically when needed since we can't create them now
         -- without knowing the dimensions of the vector column

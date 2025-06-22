@@ -11,7 +11,7 @@ SET search_path TO mcp, public;
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 
 -- Base contexts table
-CREATE TABLE contexts (
+CREATE TABLE IF NOT EXISTS contexts (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     tenant_id UUID NOT NULL,
     name VARCHAR(255) NOT NULL,
@@ -34,9 +34,9 @@ CREATE TABLE contexts (
 );
 
 -- Indexes for contexts
-CREATE INDEX idx_contexts_tenant_id ON contexts(tenant_id) WHERE deleted_at IS NULL;
-CREATE INDEX idx_contexts_created_at ON contexts(created_at DESC);
-CREATE INDEX idx_contexts_metadata ON contexts USING gin(metadata);
+CREATE INDEX IF NOT EXISTS idx_contexts_tenant_id ON contexts(tenant_id) WHERE deleted_at IS NULL;
+CREATE INDEX IF NOT EXISTS idx_contexts_created_at ON contexts(created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_contexts_metadata ON contexts USING gin(metadata);
 
 -- Update trigger for updated_at
 CREATE OR REPLACE FUNCTION update_updated_at_column()
@@ -47,6 +47,8 @@ BEGIN
 END;
 $$ language 'plpgsql';
 
+-- Drop trigger if exists and recreate
+DROP TRIGGER IF EXISTS update_contexts_updated_at ON contexts;
 CREATE TRIGGER update_contexts_updated_at BEFORE UPDATE
 ON contexts FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 

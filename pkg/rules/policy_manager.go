@@ -351,6 +351,17 @@ func (pm *policyManager) UpdatePolicy(ctx context.Context, policy *Policy) error
 
 // ValidatePolicy validates a policy
 func (pm *policyManager) ValidatePolicy(ctx context.Context, policy *Policy) error {
+	// Check policy count limit with lock
+	pm.mu.RLock()
+	policyCount := len(pm.policies)
+	policyExists := pm.policyExistsInternal(policy.Name)
+	pm.mu.RUnlock()
+
+	return pm.validatePolicyInternal(policy, policyCount, policyExists)
+}
+
+// validatePolicyInternal validates a policy without acquiring locks
+func (pm *policyManager) validatePolicyInternal(policy *Policy, policyCount int, policyExists bool) error {
 	if policy == nil {
 		return fmt.Errorf("policy is nil")
 	}
@@ -382,21 +393,20 @@ func (pm *policyManager) ValidatePolicy(ctx context.Context, policy *Policy) err
 		}
 	}
 
-	// Check policy count limit
-	pm.mu.RLock()
-	policyCount := len(pm.policies)
-	pm.mu.RUnlock()
-
-	if policyCount >= pm.config.MaxPolicies && !pm.policyExists(policy.Name) {
+	if policyCount >= pm.config.MaxPolicies && !policyExists {
 		return fmt.Errorf("maximum number of policies (%d) reached", pm.config.MaxPolicies)
 	}
 
 	return nil
 }
 
-// addPolicyInternal adds a policy internally
+// addPolicyInternal adds a policy internally (called with lock already held)
 func (pm *policyManager) addPolicyInternal(policy Policy) error {
-	if err := pm.ValidatePolicy(context.Background(), &policy); err != nil {
+	// Validate without acquiring locks since we're already holding the write lock
+	policyCount := len(pm.policies)
+	policyExists := pm.policyExistsInternal(policy.Name)
+	
+	if err := pm.validatePolicyInternal(&policy, policyCount, policyExists); err != nil {
 		return err
 	}
 
@@ -408,8 +418,9 @@ func (pm *policyManager) addPolicyInternal(policy Policy) error {
 	return nil
 }
 
-// policyExists checks if a policy exists
-func (pm *policyManager) policyExists(name string) bool {
+
+// policyExistsInternal checks if a policy exists without acquiring locks
+func (pm *policyManager) policyExistsInternal(name string) bool {
 	_, exists := pm.policies[name]
 	return exists
 }

@@ -103,6 +103,11 @@ func main() {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
+	// Create startup context with timeout
+	startupTimeout := 30 * time.Second
+	startupCtx, startupCancel := context.WithTimeout(ctx, startupTimeout)
+	defer startupCancel()
+
 	// Load configuration
 	cfg, err := loadConfiguration(*configFile)
 	if err != nil {
@@ -140,7 +145,7 @@ func main() {
 	logAWSConfiguration(logger)
 
 	// Initialize database
-	db, err := initializeDatabase(ctx, cfg, logger)
+	db, err := initializeDatabase(startupCtx, cfg, logger)
 	if err != nil {
 		logger.Error("Failed to initialize database", map[string]interface{}{
 			"error": err.Error(),
@@ -180,7 +185,7 @@ func main() {
 	}
 
 	// Initialize cache
-	cacheClient, err := initializeCache(ctx, cfg, logger)
+	cacheClient, err := initializeCache(startupCtx, cfg, logger)
 	if err != nil {
 		logger.Error("Failed to initialize cache", map[string]interface{}{
 			"error": err.Error(),
@@ -196,7 +201,7 @@ func main() {
 	}()
 
 	// Initialize core engine
-	engine, err := initializeEngine(ctx, cfg, db, cacheClient, metricsClient, logger)
+	engine, err := initializeEngine(startupCtx, cfg, db, cacheClient, metricsClient, logger)
 	if err != nil {
 		logger.Error("Failed to initialize core engine", map[string]interface{}{
 			"error": err.Error(),
@@ -214,7 +219,7 @@ func main() {
 	}()
 
 	// Initialize services for multi-agent collaboration
-	services, err := initializeServices(ctx, cfg, db, cacheClient, metricsClient, logger)
+	services, err := initializeServices(startupCtx, cfg, db, cacheClient, metricsClient, logger)
 	if err != nil {
 		logger.Error("Failed to initialize services", map[string]interface{}{
 			"error": err.Error(),
@@ -223,7 +228,7 @@ func main() {
 	}
 
 	// Initialize and start API server
-	server, err := initializeServer(ctx, cfg, engine, db, cacheClient, metricsClient, logger)
+	server, err := initializeServer(startupCtx, cfg, engine, db, cacheClient, metricsClient, logger)
 	if err != nil {
 		logger.Error("Failed to initialize server", map[string]interface{}{
 			"error": err.Error(),
@@ -234,6 +239,22 @@ func main() {
 	// Inject services into WebSocket server
 	if services != nil {
 		server.InjectServices(services)
+	}
+
+	// Check if startup completed within timeout
+	select {
+	case <-startupCtx.Done():
+		if startupCtx.Err() == context.DeadlineExceeded {
+			logger.Error("Server startup timed out", map[string]interface{}{
+				"timeout": startupTimeout.String(),
+			})
+			os.Exit(1)
+		}
+	default:
+		// Startup completed successfully
+		logger.Info("Server startup completed successfully", map[string]interface{}{
+			"duration": time.Since(time.Now().Add(-startupTimeout)).String(),
+		})
 	}
 
 	// Start server in a goroutine
@@ -431,7 +452,10 @@ func initializeCache(ctx context.Context, cfg *commonconfig.Config, logger obser
 		}
 
 		// Convert TLS config if present AND enabled
-		if cfg.Cache.TLS != nil && cfg.Cache.TLS.Enabled {
+		// BUT: If we're connecting to localhost/127.0.0.1 (SSH tunnel), disable TLS
+		isSSHTunnel := cfg.Cache.Address == "127.0.0.1:6379" || cfg.Cache.Address == "localhost:6379"
+		
+		if cfg.Cache.TLS != nil && cfg.Cache.TLS.Enabled && !isSSHTunnel {
 			logger.Info("Converting TLS config", map[string]interface{}{
 				"enabled":     cfg.Cache.TLS.Enabled,
 				"skip_verify": cfg.Cache.TLS.InsecureSkipVerify,
@@ -443,6 +467,10 @@ func initializeCache(ctx context.Context, cfg *commonconfig.Config, logger obser
 					MinVersion:         cfg.Cache.TLS.MinVersion,
 				},
 			}
+		} else if isSSHTunnel && cfg.Cache.TLS != nil && cfg.Cache.TLS.Enabled {
+			logger.Info("Disabling TLS for SSH tunnel connection", map[string]interface{}{
+				"address": cfg.Cache.Address,
+			})
 		}
 	}
 

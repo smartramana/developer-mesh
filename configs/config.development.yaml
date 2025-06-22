@@ -46,30 +46,30 @@ api:
         "dev-admin-key-1234567890": 
           role: "admin"
           scopes: ["read", "write", "admin"]
-          tenant_id: "test-tenant-1"
+          tenant_id: "00000000-0000-0000-0000-000000000001"
         "dev-readonly-key-1234567890":
           role: "reader"
           scopes: ["read"]
-          tenant_id: "test-tenant-1"
+          tenant_id: "00000000-0000-0000-0000-000000000001"
         # Test-specific API keys for tenant isolation testing
         "test-key-tenant-1":
           role: "user"
           scopes: ["read", "write"]
-          tenant_id: "test-tenant-1"
+          tenant_id: "00000000-0000-0000-0000-000000000001"
         "test-key-tenant-2":
           role: "user"
           scopes: ["read", "write"]
-          tenant_id: "test-tenant-2"
+          tenant_id: "00000000-0000-0000-0000-000000000002"
         # Additional keys for multi-agent collaboration within same tenant
         "test-key-agent-1":
           role: "user"
           scopes: ["read", "write"]
-          tenant_id: "test-tenant-1"
+          tenant_id: "00000000-0000-0000-0000-000000000001"
           user_id: "agent-1"
         "test-key-agent-2":
           role: "user"
           scopes: ["read", "write"]
-          tenant_id: "test-tenant-1"
+          tenant_id: "00000000-0000-0000-0000-000000000001"
           user_id: "agent-2"
 
 # Authentication - Development settings (Note: API keys are configured in api.auth.api_keys above)

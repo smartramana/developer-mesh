@@ -26,6 +26,8 @@ go.work.sum
 .env.*
 !.env.example
 !.env.*.example
+aws-infrastructure-ids.txt
+s3-bucket-policy.json
 
 # Local configuration overrides
 configs/*.local.yaml
