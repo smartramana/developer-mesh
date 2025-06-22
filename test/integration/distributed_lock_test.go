@@ -3,6 +3,7 @@ package integration
 import (
 	"context"
 	"fmt"
+	"os"
 	"sync"
 	"testing"
 	"time"
@@ -23,9 +24,13 @@ func TestDistributedDocumentLocking(t *testing.T) {
 	}
 
 	// Setup Redis client
+	redisAddr := os.Getenv("TEST_REDIS_ADDR")
+	if redisAddr == "" {
+		redisAddr = "127.0.0.1:6380" // Default to test Redis port
+	}
 	redisClient := redis.NewClient(&redis.Options{
-		Addr: "127.0.0.1:6379", // Use SSH tunnel
-		DB:   1,                // Use DB 1 for tests
+		Addr: redisAddr,
+		DB:   1, // Use DB 1 for tests
 	})
 	defer func() { _ = redisClient.Close() }()
 

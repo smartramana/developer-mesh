@@ -327,6 +327,7 @@ func TestAuthenticationIntegration(t *testing.T) {
 
 	// Create rate limiter
 	rateLimiter := auth.NewRateLimiter(testCache, logger, &auth.RateLimiterConfig{
+		Enabled:       true,
 		MaxAttempts:   3,
 		WindowSize:    1 * time.Minute,
 		LockoutPeriod: 5 * time.Minute,

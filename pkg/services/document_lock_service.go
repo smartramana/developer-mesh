@@ -166,11 +166,18 @@ func (s *documentLockService) LockDocument(ctx context.Context, documentID uuid.
 			if err := s.tryAcquireExpiredLock(ctx, key, lock, duration); err != nil {
 				return nil, err
 			}
-		} else {
+		} else if existingLock != nil {
 			return nil, &LockConflictError{
 				DocumentID:    documentID,
 				CurrentHolder: existingLock.AgentID,
 				ExpiresAt:     existingLock.ExpiresAt,
+			}
+		} else {
+			// Couldn't get existing lock info, but lock exists
+			return nil, &LockConflictError{
+				DocumentID:    documentID,
+				CurrentHolder: "unknown",
+				ExpiresAt:     time.Now().Add(duration),
 			}
 		}
 	}

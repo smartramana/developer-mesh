@@ -136,8 +136,10 @@ clean: ## Clean build artifacts
 # ==============================================================================
 
 .PHONY: test
-test: ## Run all unit tests
-	$(GOTEST) -v -short ./apps/mcp-server/... ./apps/rest-api/... ./apps/worker/... ./pkg/...
+test: start-test-env ## Run all unit tests
+	@echo "Running unit tests with Docker services..."
+	@$(GOTEST) -v -short ./apps/mcp-server/... ./apps/rest-api/... ./apps/worker/... ./pkg/... || (make stop-test-env && exit 1)
+	@make stop-test-env
 
 .PHONY: test-coverage
 test-coverage: ## Run tests with coverage report
@@ -148,9 +150,24 @@ test-coverage: ## Run tests with coverage report
 test-coverage-html: test-coverage ## Generate HTML coverage report
 	$(GOCMD) tool cover -html=coverage.out
 
+.PHONY: start-test-env
+start-test-env: ## Start test environment (Redis + PostgreSQL in Docker)
+	@echo "Starting test environment..."
+	@docker-compose -f docker-compose.test.yml up -d
+	@echo "Waiting for services to be ready..."
+	@sleep 3
+	@docker-compose -f docker-compose.test.yml ps
+
+.PHONY: stop-test-env
+stop-test-env: ## Stop test environment
+	@echo "Stopping test environment..."
+	@docker-compose -f docker-compose.test.yml down -v
+
 .PHONY: test-integration
-test-integration: ## Run integration tests
-	ENABLE_INTEGRATION_TESTS=true $(GOTEST) -tags=integration -v ./pkg/tests/integration ./test/integration
+test-integration: start-test-env ## Run integration tests
+	@echo "Running integration tests with Docker services..."
+	@ENABLE_INTEGRATION_TESTS=true TEST_REDIS_ADDR=127.0.0.1:6380 $(GOTEST) -tags=integration -v ./pkg/tests/integration ./test/integration || (make stop-test-env && exit 1)
+	@make stop-test-env
 
 .PHONY: test-functional
 test-functional: ## Run functional tests (Docker)
@@ -160,10 +177,12 @@ test-functional: ## Run functional tests (Docker)
 .PHONY: test-functional-local
 test-functional-local: ## Run functional tests with local services and real AWS
 	@set -a; [ -f .env ] && . ./.env; set +a; \
-	export MCP_TEST_MODE=true && ./test/scripts/run_functional_tests_local.sh
+	export MCP_TEST_MODE=true && ./scripts/aws/connect-elasticache.sh && ./test/scripts/run_functional_tests_local.sh
 
 .PHONY: start-functional-env
 start-functional-env: ## Start functional test environment (PostgreSQL + services)
+	./scripts/aws/connect-elasticache.sh && \
+	./scripts/aws/test-aws-services.sh && \
 	./scripts/start-functional-test-env.sh
 
 .PHONY: test-websocket
