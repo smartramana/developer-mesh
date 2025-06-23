@@ -1577,22 +1577,74 @@ func (s *Server) handleWorkflowStatus(ctx context.Context, conn *Connection, par
 		return nil, err
 	}
 
-	status, err := s.workflowEngine.GetExecutionStatus(ctx, statusParams.ExecutionID)
-	if err != nil {
-		return nil, err
+	// Try workflowService first (for collaborative workflows)
+	if s.workflowService != nil {
+		executionID, err := uuid.Parse(statusParams.ExecutionID)
+		if err == nil {
+			status, err := s.workflowService.GetExecutionStatus(ctx, executionID)
+			if err == nil {
+				// Convert from models.ExecutionStatus to response format
+				completedAt := ""
+				estimatedEnd := ""
+				if status.EstimatedEnd != nil {
+					estimatedEnd = status.EstimatedEnd.Format(time.RFC3339)
+				}
+				
+				executionTime := time.Since(status.StartedAt).Seconds()
+				
+				// Get current step from array
+				currentStep := ""
+				if len(status.CurrentSteps) > 0 {
+					currentStep = status.CurrentSteps[0]
+				}
+
+				return map[string]interface{}{
+					"execution_id":    status.ExecutionID.String(),
+					"workflow_id":     status.WorkflowID.String(),
+					"status":          status.Status,
+					"current_step":    currentStep,
+					"current_steps":   status.CurrentSteps,
+					"total_steps":     status.TotalSteps,
+					"completed_steps": status.CompletedSteps,
+					"progress":        status.Progress,
+					"started_at":      status.StartedAt.Format(time.RFC3339),
+					"completed_at":    completedAt,
+					"estimated_end":   estimatedEnd,
+					"execution_time":  executionTime,
+					"metrics":         status.Metrics,
+				}, nil
+			}
+			// If workflowService couldn't find it, log and continue to workflowEngine
+			if s.logger != nil {
+				s.logger.Debug("Execution not found in workflowService", map[string]interface{}{
+					"execution_id": executionID.String(),
+					"error":        err.Error(),
+				})
+			}
+		}
 	}
 
-	return map[string]interface{}{
-		"execution_id":   status.ID,
-		"workflow_id":    status.WorkflowID,
-		"status":         status.Status,
-		"current_step":   status.CurrentStep,
-		"total_steps":    status.TotalSteps,
-		"started_at":     status.StartedAt.Format(time.RFC3339),
-		"completed_at":   status.CompletedAt.Format(time.RFC3339),
-		"execution_time": status.ExecutionTime.Seconds(),
-		"step_results":   status.StepResults,
-	}, nil
+	// Fall back to workflowEngine for non-collaborative workflows
+	if s.workflowEngine != nil {
+		status, err := s.workflowEngine.GetExecutionStatus(ctx, statusParams.ExecutionID)
+		if err != nil {
+			return nil, err
+		}
+
+		return map[string]interface{}{
+			"execution_id":   status.ID,
+			"workflow_id":    status.WorkflowID,
+			"status":         status.Status,
+			"current_step":   status.CurrentStep,
+			"total_steps":    status.TotalSteps,
+			"started_at":     status.StartedAt.Format(time.RFC3339),
+			"completed_at":   status.CompletedAt.Format(time.RFC3339),
+			"execution_time": status.ExecutionTime.Seconds(),
+			"step_results":   status.StepResults,
+		}, nil
+	}
+
+	return nil, fmt.Errorf("execution not found: %s", statusParams.ExecutionID)
 }
 
 func (s *Server) handleWorkflowCancel(ctx context.Context, conn *Connection, params json.RawMessage) (interface{}, error) {
