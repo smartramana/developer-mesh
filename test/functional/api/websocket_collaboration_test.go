@@ -206,46 +206,56 @@ func TestWebSocketWorkflowCoordination(t *testing.T) {
 	}()
 
 	// Create a collaborative workflow
-	workflowID := uuid.New().String()
+	// Generate step IDs that we'll use later
+	stepID1 := uuid.New().String()
+	stepID2 := uuid.New().String()
+	stepID3 := uuid.New().String()
+	
 	createWorkflowMsg := WebSocketMessage{
 		Type:   MessageTypeRequest,
 		ID:     uuid.New().String(),
 		Method: "workflow.create_collaborative",
 		Params: map[string]interface{}{
-			"workflow": map[string]interface{}{
-				"id":          workflowID,
-				"name":        "Feature Development Pipeline",
-				"description": "Complete feature development with code, test, and review",
-				"steps": []map[string]interface{}{
-					{
-						"id":    uuid.New().String(),
-						"name":  "Code Implementation",
-						"type":  "task",
-						"order": 1,
-						"config": map[string]interface{}{
-							"required_capability": "coding",
-						},
+			"name":        "Feature Development Pipeline",
+			"description": "Complete feature development with code, test, and review",
+			"steps": []map[string]interface{}{
+				{
+					"id":    stepID1,
+					"name":  "Code Implementation",
+					"type":  "task",
+					"order": 1,
+					"config": map[string]interface{}{
+						"required_capability": "coding",
 					},
-					{
-						"id":    uuid.New().String(),
-						"name":  "Write Tests",
-						"type":  "task",
-						"order": 2,
-						"config": map[string]interface{}{
-							"required_capability": "testing",
-						},
+				},
+				{
+					"id":    stepID2,
+					"name":  "Write Tests",
+					"type":  "task",
+					"order": 2,
+					"config": map[string]interface{}{
+						"required_capability": "testing",
 					},
-					{
-						"id":    uuid.New().String(),
-						"name":  "Code Review",
-						"type":  "task",
-						"order": 3,
-						"config": map[string]interface{}{
-							"required_capability": "review",
-						},
+				},
+				{
+					"id":    stepID3,
+					"name":  "Code Review",
+					"type":  "task",
+					"order": 3,
+					"config": map[string]interface{}{
+						"required_capability": "review",
 					},
 				},
 			},
+			"agents": []string{
+				coder.AgentID,
+				tester.AgentID,
+				reviewer.AgentID,
+			},
+			"coordination_mode": "centralized",
+			"decision_strategy": "majority",
+			"timeout_seconds":   300,
+			"max_retries":       3,
 		},
 	}
 
@@ -257,6 +267,15 @@ func TestWebSocketWorkflowCoordination(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, MessageTypeResponse, msg.Type)
 	assert.Nil(t, msg.Error)
+
+	// Extract workflow ID from response
+	var workflowID string
+	if result, ok := msg.Result.(map[string]interface{}); ok {
+		if wfID, ok := result["workflow_id"].(string); ok {
+			workflowID = wfID
+		}
+	}
+	require.NotEmpty(t, workflowID, "Expected workflow_id in response")
 
 	// Execute the collaborative workflow
 	executeMsg := WebSocketMessage{
@@ -282,8 +301,17 @@ func TestWebSocketWorkflowCoordination(t *testing.T) {
 	assert.Equal(t, MessageTypeResponse, msg.Type)
 	assert.Nil(t, msg.Error)
 
+	// Extract execution ID from response
+	var executionID string
+	if result, ok := msg.Result.(map[string]interface{}); ok {
+		if execID, ok := result["execution_id"].(string); ok {
+			executionID = execID
+		}
+	}
+	require.NotEmpty(t, executionID, "Expected execution_id in response")
+
 	// Complete tasks as they're assigned to each agent
-	stepIDs := []string{"step1", "step2", "step3"}
+	stepIDs := []string{stepID1, stepID2, stepID3}
 	agents := []*WebSocketClient{coder, tester, reviewer}
 	
 	for i, stepID := range stepIDs {
@@ -293,8 +321,8 @@ func TestWebSocketWorkflowCoordination(t *testing.T) {
 			ID:     uuid.New().String(),
 			Method: "workflow.complete_task",
 			Params: map[string]interface{}{
-				"workflow_id": workflowID,
-				"step_id":     stepID,
+				"execution_id": executionID,
+				"step_id":      stepID,
 				"result": map[string]interface{}{
 					"status": "success",
 					"output": fmt.Sprintf("Step %s completed by %s", stepID, agents[i].AgentID),
@@ -318,7 +346,7 @@ func TestWebSocketWorkflowCoordination(t *testing.T) {
 		ID:     uuid.New().String(),
 		Method: "workflow.status",
 		Params: map[string]interface{}{
-			"workflow_id": workflowID,
+			"execution_id": executionID,
 		},
 	}
 

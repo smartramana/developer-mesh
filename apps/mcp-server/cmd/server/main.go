@@ -501,11 +501,11 @@ func initializeEngine(ctx context.Context, cfg *commonconfig.Config, db *databas
 
 // ServicesBundle holds all the services needed for multi-agent collaboration
 type ServicesBundle struct {
-	TaskService      interface{}
-	WorkflowService  interface{}
-	WorkspaceService interface{}
-	DocumentService  interface{}
-	ConflictService  interface{}
+	TaskService      services.TaskService
+	WorkflowService  services.WorkflowService
+	WorkspaceService services.WorkspaceService
+	DocumentService  services.DocumentService
+	ConflictService  services.ConflictResolutionService
 }
 
 // initializeServices creates all services for multi-agent collaboration

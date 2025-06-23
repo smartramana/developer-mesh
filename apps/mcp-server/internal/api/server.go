@@ -20,6 +20,7 @@ import (
 	"github.com/S-Corkum/devops-mcp/pkg/observability"
 	"github.com/S-Corkum/devops-mcp/pkg/repository"
 	"github.com/S-Corkum/devops-mcp/pkg/repository/agent"
+	pgservices "github.com/S-Corkum/devops-mcp/pkg/services"
 	"github.com/gin-gonic/gin"
 	"github.com/jmoiron/sqlx"
 	swaggerFiles "github.com/swaggo/files"
@@ -535,10 +536,84 @@ func (s *Server) InjectServices(services interface{}) {
 		return
 	}
 
-	// The services parameter should be a *ServicesBundle from main.go
-	// We'll need to do type assertion and then inject into WebSocket server
-	s.logger.Info("Services injection requested - implementation needed", map[string]interface{}{
-		"has_services": services != nil,
+	// Type assert to ServicesBundle
+	type ServicesBundle struct {
+		TaskService      interface{}
+		WorkflowService  interface{}
+		WorkspaceService interface{}
+		DocumentService  interface{}
+		ConflictService  interface{}
+	}
+
+	bundle, ok := services.(*ServicesBundle)
+	if !ok {
+		s.logger.Error("Failed to inject services: invalid services type", map[string]interface{}{
+			"type": fmt.Sprintf("%T", services),
+		})
+		return
+	}
+
+	// Type assert each service to its proper interface
+	var taskService pgservices.TaskService
+	var workflowService pgservices.WorkflowService
+	var workspaceService pgservices.WorkspaceService
+	var documentService pgservices.DocumentService
+	var conflictService pgservices.ConflictResolutionService
+
+	if bundle.TaskService != nil {
+		taskService, ok = bundle.TaskService.(pgservices.TaskService)
+		if !ok {
+			s.logger.Error("Failed to type assert TaskService", map[string]interface{}{
+				"type": fmt.Sprintf("%T", bundle.TaskService),
+			})
+		}
+	}
+
+	if bundle.WorkflowService != nil {
+		workflowService, ok = bundle.WorkflowService.(pgservices.WorkflowService)
+		if !ok {
+			s.logger.Error("Failed to type assert WorkflowService", map[string]interface{}{
+				"type": fmt.Sprintf("%T", bundle.WorkflowService),
+			})
+		}
+	}
+
+	if bundle.WorkspaceService != nil {
+		workspaceService, ok = bundle.WorkspaceService.(pgservices.WorkspaceService)
+		if !ok {
+			s.logger.Error("Failed to type assert WorkspaceService", map[string]interface{}{
+				"type": fmt.Sprintf("%T", bundle.WorkspaceService),
+			})
+		}
+	}
+
+	if bundle.DocumentService != nil {
+		documentService, ok = bundle.DocumentService.(pgservices.DocumentService)
+		if !ok {
+			s.logger.Error("Failed to type assert DocumentService", map[string]interface{}{
+				"type": fmt.Sprintf("%T", bundle.DocumentService),
+			})
+		}
+	}
+
+	if bundle.ConflictService != nil {
+		conflictService, ok = bundle.ConflictService.(pgservices.ConflictResolutionService)
+		if !ok {
+			s.logger.Error("Failed to type assert ConflictResolutionService", map[string]interface{}{
+				"type": fmt.Sprintf("%T", bundle.ConflictService),
+			})
+		}
+	}
+
+	// Inject services into WebSocket server
+	s.wsServer.SetServices(taskService, workflowService, workspaceService, documentService, conflictService)
+	
+	s.logger.Info("Services successfully injected into WebSocket server", map[string]interface{}{
+		"has_task_service":      taskService != nil,
+		"has_workflow_service":  workflowService != nil,
+		"has_workspace_service": workspaceService != nil,
+		"has_document_service":  documentService != nil,
+		"has_conflict_service":  conflictService != nil,
 	})
 }
 
