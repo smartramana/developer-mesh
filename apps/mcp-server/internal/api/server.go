@@ -531,6 +531,11 @@ func (s *Server) healthHandler(c *gin.Context) {
 
 // InjectServices injects services into the WebSocket server
 func (s *Server) InjectServices(services interface{}) {
+	s.logger.Info("InjectServices called", map[string]interface{}{
+		"services_type": fmt.Sprintf("%T", services),
+		"ws_server_nil": s.wsServer == nil,
+	})
+	
 	if s.wsServer == nil {
 		s.logger.Warn("Cannot inject services: WebSocket server is not initialized", nil)
 		return
@@ -609,6 +614,11 @@ func (s *Server) InjectServices(services interface{}) {
 	s.wsServer.SetServices(taskService, workflowService, workspaceService, documentService, conflictService)
 	
 	s.logger.Info("Services successfully injected into WebSocket server", map[string]interface{}{
+		"task_service_nil": taskService == nil,
+		"workflow_service_nil": workflowService == nil,
+		"workspace_service_nil": workspaceService == nil,
+		"document_service_nil": documentService == nil,
+		"conflict_service_nil": conflictService == nil,
 		"has_task_service":      taskService != nil,
 		"has_workflow_service":  workflowService != nil,
 		"has_workspace_service": workspaceService != nil,

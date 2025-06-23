@@ -248,6 +248,11 @@ func (s *workflowService) ExecuteWorkflow(ctx context.Context, workflowID uuid.U
 		if err := tx.Commit(); err != nil {
 			return errors.Wrap(err, "failed to commit transaction")
 		}
+		
+		s.config.Logger.Info("Transaction committed for workflow execution", map[string]interface{}{
+			"execution_id": execution.ID,
+			"workflow_id": workflowID,
+		})
 
 		// Publish event after commit
 		if err := s.PublishEvent(ctx, "WorkflowExecutionStarted", workflow, execution); err != nil {
@@ -545,10 +550,15 @@ func (s *workflowService) getExecution(ctx context.Context, id uuid.UUID) (*mode
 	})
 	execution, err := s.repo.GetExecution(ctx, id)
 	if err != nil {
-		s.config.Logger.Error("Failed to get execution", map[string]interface{}{
+		s.config.Logger.Error("Failed to get execution from repository", map[string]interface{}{
 			"execution_id": id,
 			"error": err.Error(),
+			"error_type": fmt.Sprintf("%T", err),
 		})
+		// Check if it's a not found error
+		if errors.Is(err, interfaces.ErrNotFound) {
+			return nil, fmt.Errorf("execution not found: %s", id)
+		}
 		return nil, err
 	}
 
