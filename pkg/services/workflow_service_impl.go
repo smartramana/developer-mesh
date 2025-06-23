@@ -215,6 +215,12 @@ func (s *workflowService) ExecuteWorkflow(ctx context.Context, workflowID uuid.U
 		if err := s.repo.CreateExecution(ctx, execution); err != nil {
 			return errors.Wrap(err, "failed to create execution")
 		}
+		
+		s.config.Logger.Info("Created workflow execution", map[string]interface{}{
+			"execution_id": execution.ID,
+			"workflow_id": workflowID,
+			"status": execution.Status,
+		})
 
 		// Store idempotency key
 		if idempotencyKey != "" {
@@ -505,11 +511,21 @@ func (s *workflowService) getExecution(ctx context.Context, id uuid.UUID) (*mode
 	cacheKey := fmt.Sprintf("execution:%s", id)
 	var cached models.WorkflowExecution
 	if err := s.executionCache.Get(ctx, cacheKey, &cached); err == nil {
+		s.config.Logger.Debug("Found execution in cache", map[string]interface{}{
+			"execution_id": id,
+		})
 		return &cached, nil
 	}
 
+	s.config.Logger.Debug("Getting execution from repository", map[string]interface{}{
+		"execution_id": id,
+	})
 	execution, err := s.repo.GetExecution(ctx, id)
 	if err != nil {
+		s.config.Logger.Error("Failed to get execution", map[string]interface{}{
+			"execution_id": id,
+			"error": err.Error(),
+		})
 		return nil, err
 	}
 

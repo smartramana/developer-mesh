@@ -304,11 +304,13 @@ func TestWebSocketWorkflowCoordination(t *testing.T) {
 	// Extract execution ID from response
 	var executionID string
 	if result, ok := msg.Result.(map[string]interface{}); ok {
+		t.Logf("Execute response: %+v", result)
 		if execID, ok := result["execution_id"].(string); ok {
 			executionID = execID
 		}
 	}
 	require.NotEmpty(t, executionID, "Expected execution_id in response")
+	t.Logf("Using execution ID: %s", executionID)
 
 	// Complete tasks as they're assigned to each agent
 	stepIDs := []string{stepID1, stepID2, stepID3}
@@ -337,6 +339,9 @@ func TestWebSocketWorkflowCoordination(t *testing.T) {
 		msg, err = agents[i].ReadMessage(ctx)
 		require.NoError(t, err)
 		assert.Equal(t, MessageTypeResponse, msg.Type)
+		if msg.Error != nil {
+			t.Logf("Complete task error for step %s: %+v", stepID, msg.Error)
+		}
 		assert.Nil(t, msg.Error)
 	}
 
