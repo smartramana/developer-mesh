@@ -209,10 +209,19 @@ func (s *workflowService) ExecuteWorkflow(ctx context.Context, workflowID uuid.U
 		}
 	}
 
-	// Start execution in transaction
-	err = s.WithTransaction(ctx, func(ctx context.Context, tx Transaction) error {
+	// Use repository transaction for database operations
+	tx, err := s.repo.BeginTx(ctx, nil)
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to begin transaction")
+	}
+	
+	// Create repository with transaction
+	txRepo := s.repo.WithTx(tx)
+	
+	// Execute in transaction
+	err = func() error {
 		// Create execution record
-		if err := s.repo.CreateExecution(ctx, execution); err != nil {
+		if err := txRepo.CreateExecution(ctx, execution); err != nil {
 			return errors.Wrap(err, "failed to create execution")
 		}
 		
@@ -231,19 +240,33 @@ func (s *workflowService) ExecuteWorkflow(ctx context.Context, workflowID uuid.U
 
 		// Update workflow last executed
 		workflow.SetLastExecutedAt(execution.StartedAt)
-		if err := s.repo.Update(ctx, workflow); err != nil {
+		if err := txRepo.Update(ctx, workflow); err != nil {
 			return err
 		}
 
-		// Publish event
+		// Commit transaction
+		if err := tx.Commit(); err != nil {
+			return errors.Wrap(err, "failed to commit transaction")
+		}
+
+		// Publish event after commit
 		if err := s.PublishEvent(ctx, "WorkflowExecutionStarted", workflow, execution); err != nil {
-			return err
+			// Log but don't fail - execution already committed
+			s.config.Logger.Warn("Failed to publish event", map[string]interface{}{
+				"event": "WorkflowExecutionStarted",
+				"error": err.Error(),
+			})
 		}
 
 		return nil
-	})
-
+	}()
+	
 	if err != nil {
+		if rbErr := tx.Rollback(); rbErr != nil {
+			s.config.Logger.Error("Failed to rollback transaction", map[string]interface{}{
+				"error": rbErr.Error(),
+			})
+		}
 		return nil, err
 	}
 
