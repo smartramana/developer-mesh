@@ -405,7 +405,7 @@ func (pm *policyManager) addPolicyInternal(policy Policy) error {
 	// Validate without acquiring locks since we're already holding the write lock
 	policyCount := len(pm.policies)
 	policyExists := pm.policyExistsInternal(policy.Name)
-	
+
 	if err := pm.validatePolicyInternal(&policy, policyCount, policyExists); err != nil {
 		return err
 	}
@@ -417,7 +417,6 @@ func (pm *policyManager) addPolicyInternal(policy Policy) error {
 	pm.policies[policy.Name] = &policy
 	return nil
 }
-
 
 // policyExistsInternal checks if a policy exists without acquiring locks
 func (pm *policyManager) policyExistsInternal(name string) bool {

@@ -214,21 +214,21 @@ func (s *workflowService) ExecuteWorkflow(ctx context.Context, workflowID uuid.U
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to begin transaction")
 	}
-	
+
 	// Create repository with transaction
 	txRepo := s.repo.WithTx(tx)
-	
+
 	// Execute in transaction
 	err = func() error {
 		// Create execution record
 		if err := txRepo.CreateExecution(ctx, execution); err != nil {
 			return errors.Wrap(err, "failed to create execution")
 		}
-		
+
 		s.config.Logger.Info("Created workflow execution", map[string]interface{}{
 			"execution_id": execution.ID,
-			"workflow_id": workflowID,
-			"status": execution.Status,
+			"workflow_id":  workflowID,
+			"status":       execution.Status,
 		})
 
 		// Store idempotency key
@@ -248,10 +248,10 @@ func (s *workflowService) ExecuteWorkflow(ctx context.Context, workflowID uuid.U
 		if err := tx.Commit(); err != nil {
 			return errors.Wrap(err, "failed to commit transaction")
 		}
-		
+
 		s.config.Logger.Info("Transaction committed for workflow execution", map[string]interface{}{
 			"execution_id": execution.ID,
-			"workflow_id": workflowID,
+			"workflow_id":  workflowID,
 		})
 
 		// Publish event after commit
@@ -265,7 +265,7 @@ func (s *workflowService) ExecuteWorkflow(ctx context.Context, workflowID uuid.U
 
 		return nil
 	}()
-	
+
 	if err != nil {
 		if rbErr := tx.Rollback(); rbErr != nil {
 			s.config.Logger.Error("Failed to rollback transaction", map[string]interface{}{
@@ -401,7 +401,17 @@ func (s *workflowService) validateWorkflow(ctx context.Context, workflow *models
 		return ValidationError{Field: "type", Message: "required"}
 	}
 
+	// Debug logging
+	s.config.Logger.Info("Validating workflow steps", map[string]interface{}{
+		"workflow_id": workflow.ID,
+		"steps_count": len(workflow.Steps),
+		"steps_type":  fmt.Sprintf("%T", workflow.Steps),
+	})
+
 	workflowSteps := workflow.GetSteps()
+	s.config.Logger.Info("GetSteps result", map[string]interface{}{
+		"step_count": len(workflowSteps),
+	})
 	if len(workflowSteps) == 0 {
 		return ValidationError{Field: "steps", Message: "at least one step required"}
 	}
@@ -552,8 +562,8 @@ func (s *workflowService) getExecution(ctx context.Context, id uuid.UUID) (*mode
 	if err != nil {
 		s.config.Logger.Error("Failed to get execution from repository", map[string]interface{}{
 			"execution_id": id,
-			"error": err.Error(),
-			"error_type": fmt.Sprintf("%T", err),
+			"error":        err.Error(),
+			"error_type":   fmt.Sprintf("%T", err),
 		})
 		// Check if it's a not found error
 		if errors.Is(err, interfaces.ErrNotFound) {
@@ -3155,17 +3165,22 @@ func (s *workflowService) CreateWorkflowTemplate(ctx context.Context, template *
 
 		// Store template (using workflow repository for now)
 		// In production, you'd have a separate template repository
+		// Since templates have a different structure, we store the definition in Config
 		workflowFromTemplate := &models.Workflow{
 			ID:          template.ID,
 			TenantID:    auth.GetTenantID(ctx),
 			Name:        fmt.Sprintf("TEMPLATE:%s", template.Name),
 			Type:        models.WorkflowTypeSequential, // Templates stored as sequential workflows
 			Description: template.Description,
-			Steps:       models.JSONMap{"definition": template.Definition},
-			Config:      models.JSONMap{"template": true, "parameters": template.Parameters},
-			CreatedBy:   template.CreatedBy,
-			IsActive:    false,
-			Tags:        []string{"template", template.Category},
+			Steps:       models.WorkflowSteps{}, // Empty steps for template workflows
+			Config: models.JSONMap{
+				"template":   true,
+				"parameters": template.Parameters,
+				"definition": template.Definition, // Store template definition in config
+			},
+			CreatedBy: template.CreatedBy,
+			IsActive:  false,
+			Tags:      []string{"template", template.Category},
 		}
 
 		if err := s.repo.Create(ctx, workflowFromTemplate); err != nil {
@@ -3206,12 +3221,21 @@ func (s *workflowService) GetWorkflowTemplate(ctx context.Context, templateID uu
 	}
 
 	// Convert to template
+	// Extract template definition from config for template workflows
+	var definition map[string]interface{}
+	if def, ok := workflow.Config["definition"].(map[string]interface{}); ok {
+		definition = def
+	} else {
+		// Fallback for backward compatibility
+		definition = make(map[string]interface{})
+	}
+
 	template := &models.WorkflowTemplate{
 		ID:          workflow.ID,
 		Name:        strings.TrimPrefix(workflow.Name, "TEMPLATE:"),
 		Description: workflow.Description,
 		Category:    s.extractTemplateCategory(workflow.Tags),
-		Definition:  workflow.Steps["definition"].(map[string]interface{}),
+		Definition:  definition,
 		CreatedBy:   workflow.CreatedBy,
 		CreatedAt:   workflow.CreatedAt,
 		UpdatedAt:   workflow.UpdatedAt,
@@ -3266,12 +3290,21 @@ func (s *workflowService) ListWorkflowTemplates(ctx context.Context) ([]*models.
 	templates := make([]*models.WorkflowTemplate, 0, len(workflows))
 	for _, workflow := range workflows {
 		if config, ok := workflow.Config["template"].(bool); ok && config {
+			// Extract template definition from config for template workflows
+			var definition map[string]interface{}
+			if def, ok := workflow.Config["definition"].(map[string]interface{}); ok {
+				definition = def
+			} else {
+				// Fallback for backward compatibility
+				definition = make(map[string]interface{})
+			}
+
 			template := &models.WorkflowTemplate{
 				ID:          workflow.ID,
 				Name:        strings.TrimPrefix(workflow.Name, "TEMPLATE:"),
 				Description: workflow.Description,
 				Category:    s.extractTemplateCategory(workflow.Tags),
-				Definition:  workflow.Steps["definition"].(map[string]interface{}),
+				Definition:  definition,
 				CreatedBy:   workflow.CreatedBy,
 				CreatedAt:   workflow.CreatedAt,
 				UpdatedAt:   workflow.UpdatedAt,
@@ -5397,15 +5430,94 @@ func (s *workflowService) extractWorkflowType(definition map[string]interface{})
 }
 
 // instantiateTemplateSteps creates workflow steps from template
-func (s *workflowService) instantiateTemplateSteps(definition map[string]interface{}, params map[string]interface{}) models.JSONMap {
-	steps := models.JSONMap{}
+func (s *workflowService) instantiateTemplateSteps(definition map[string]interface{}, params map[string]interface{}) models.WorkflowSteps {
+	// Extract steps array from definition
+	var stepsData []interface{}
+	if stepsRaw, ok := definition["steps"]; ok {
+		if stepsArray, ok := stepsRaw.([]interface{}); ok {
+			stepsData = stepsArray
+		}
+	}
 
-	// Deep copy the definition
-	for k, v := range definition {
-		steps[k] = s.deepCopyWithSubstitution(v, params)
+	// Convert to WorkflowSteps
+	steps := make(models.WorkflowSteps, 0, len(stepsData))
+	for _, stepData := range stepsData {
+		// Substitute parameters in step data
+		substitutedStep := s.deepCopyWithSubstitution(stepData, params)
+		
+		// Convert to WorkflowStep
+		if stepMap, ok := substitutedStep.(map[string]interface{}); ok {
+			step := models.WorkflowStep{
+				ID:              s.getStringValue(stepMap, "id"),
+				Name:            s.getStringValue(stepMap, "name"),
+				Description:     s.getStringValue(stepMap, "description"),
+				Type:            s.getStringValue(stepMap, "type"),
+				Action:          s.getStringValue(stepMap, "action"),
+				AgentID:         s.getStringValue(stepMap, "agent_id"),
+				ContinueOnError: s.getBoolValue(stepMap, "continue_on_error"),
+			}
+
+			// Extract input
+			if input, ok := stepMap["input"].(map[string]interface{}); ok {
+				step.Input = input
+			} else {
+				step.Input = make(map[string]interface{})
+			}
+
+			// Extract config
+			if config, ok := stepMap["config"].(map[string]interface{}); ok {
+				step.Config = config
+			} else {
+				step.Config = make(map[string]interface{})
+			}
+
+			// Extract dependencies
+			if deps, ok := stepMap["dependencies"].([]interface{}); ok {
+				step.Dependencies = make([]string, 0, len(deps))
+				for _, dep := range deps {
+					if depStr, ok := dep.(string); ok {
+						step.Dependencies = append(step.Dependencies, depStr)
+					}
+				}
+			}
+
+			// Extract timeout
+			if timeout, ok := stepMap["timeout"].(float64); ok {
+				step.Timeout = time.Duration(timeout) * time.Second
+			}
+			if timeoutSec, ok := stepMap["timeout_seconds"].(float64); ok {
+				step.TimeoutSeconds = int(timeoutSec)
+			}
+
+			// Extract retries
+			if retries, ok := stepMap["retries"].(float64); ok {
+				step.Retries = int(retries)
+			}
+
+			// Extract on_failure
+			step.OnFailure = s.getStringValue(stepMap, "on_failure")
+
+			steps = append(steps, step)
+		}
 	}
 
 	return steps
+}
+
+// Helper method to extract string value from map
+func (s *workflowService) getStringValue(m map[string]interface{}, key string) string {
+	if val, ok := m[key].(string); ok {
+		return val
+	}
+	return ""
+}
+
+// Helper method to extract bool value from map
+func (s *workflowService) getBoolValue(m map[string]interface{}, key string) bool {
+	if val, ok := m[key].(bool); ok {
+		return val
+	}
+	return false
 }
 
 // deepCopyWithSubstitution performs deep copy with parameter substitution
@@ -6487,11 +6599,9 @@ func (s *workflowService) compensateStep(ctx context.Context, execution *models.
 
 	// Find the step
 	var originalStep *models.WorkflowStep
-	for id, stepData := range workflow.Steps {
-		if id == stepID {
-			if step, ok := stepData.(models.WorkflowStep); ok {
-				originalStep = &step
-			}
+	for i := range workflow.Steps {
+		if workflow.Steps[i].ID == stepID {
+			originalStep = &workflow.Steps[i]
 			break
 		}
 	}

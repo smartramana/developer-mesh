@@ -391,9 +391,14 @@ func TestBaseRepository_TranslateError(t *testing.T) {
 			expected: errors.Wrap(interfaces.ErrValidation, "required field missing"),
 		},
 		{
-			name:     "check violation",
+			name:     "check violation with constraint name",
+			err:      &pq.Error{Code: "23514", Constraint: "workflows_valid_steps_check"},
+			expected: errors.Wrap(interfaces.ErrValidation, "check constraint violation: workflows_valid_steps_check"),
+		},
+		{
+			name:     "check violation without constraint name",
 			err:      &pq.Error{Code: "23514"},
-			expected: errors.Wrap(interfaces.ErrValidation, "check constraint violation"),
+			expected: errors.Wrap(interfaces.ErrValidation, "check constraint violation: "),
 		},
 		{
 			name:     "serialization failure",

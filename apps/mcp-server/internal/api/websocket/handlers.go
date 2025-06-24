@@ -1589,9 +1589,9 @@ func (s *Server) handleWorkflowStatus(ctx context.Context, conn *Connection, par
 				if status.EstimatedEnd != nil {
 					estimatedEnd = status.EstimatedEnd.Format(time.RFC3339)
 				}
-				
+
 				executionTime := time.Since(status.StartedAt).Seconds()
-				
+
 				// Get current step from array
 				currentStep := ""
 				if len(status.CurrentSteps) > 0 {

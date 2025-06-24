@@ -36,8 +36,8 @@ type WebSocketMessage struct {
 
 // WebSocketError represents an error in a WebSocket message
 type WebSocketError struct {
-	Code    int    `json:"code"`
-	Message string `json:"message"`
+	Code    int         `json:"code"`
+	Message string      `json:"message"`
 	Data    interface{} `json:"data,omitempty"`
 }
 
@@ -53,14 +53,14 @@ const (
 func NewWebSocketClient(t *testing.T, agentID string, capabilities []string) *WebSocketClient {
 	// Get test configuration
 	config := getTestConfig()
-	
+
 	// Use the appropriate API key for the agent
 	apiKey := getAPIKeyForAgent(agentID)
-	
+
 	// Establish WebSocket connection
 	conn, err := establishWebSocketConnection(t, config.WebSocketURL, apiKey, agentID, capabilities)
 	require.NoError(t, err, "Failed to establish WebSocket connection for agent %s", agentID)
-	
+
 	return &WebSocketClient{
 		AgentID: agentID,
 		Conn:    conn,
@@ -210,7 +210,7 @@ func TestWebSocketWorkflowCoordination(t *testing.T) {
 	stepID1 := uuid.New().String()
 	stepID2 := uuid.New().String()
 	stepID3 := uuid.New().String()
-	
+
 	createWorkflowMsg := WebSocketMessage{
 		Type:   MessageTypeRequest,
 		ID:     uuid.New().String(),
@@ -315,7 +315,7 @@ func TestWebSocketWorkflowCoordination(t *testing.T) {
 	// Complete tasks as they're assigned to each agent
 	stepIDs := []string{stepID1, stepID2, stepID3}
 	agents := []*WebSocketClient{coder, tester, reviewer}
-	
+
 	for i, stepID := range stepIDs {
 		// Complete the workflow task
 		completeMsg := WebSocketMessage{
@@ -402,7 +402,7 @@ func TestWebSocketWorkspaceCollaboration(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, MessageTypeResponse, msg.Type)
 	assert.Nil(t, msg.Error)
-	
+
 	// Extract workspace ID from response
 	var workspaceID string
 	if result, ok := msg.Result.(map[string]interface{}); ok {
@@ -469,7 +469,7 @@ func TestWebSocketWorkspaceCollaboration(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, MessageTypeResponse, createResp.Type)
 	assert.Nil(t, createResp.Error)
-	
+
 	// Extract document ID from response
 	if result, ok := createResp.Result.(map[string]interface{}); ok {
 		if docID, ok := result["document_id"].(string); ok {
@@ -523,7 +523,7 @@ func TestWebSocketWorkspaceCollaboration(t *testing.T) {
 	for i := 1; i < numAgents; i++ {
 		<-edits
 	}
-	
+
 	// Give time for all edits to be processed
 	time.Sleep(100 * time.Millisecond)
 }
@@ -928,7 +928,7 @@ func getAPIKeyForAgent(agentID string) string {
 	if apiKey := os.Getenv("MCP_API_KEY"); apiKey != "" {
 		return apiKey
 	}
-	
+
 	// Map agent IDs to their test API keys
 	switch agentID {
 	case "agent1":

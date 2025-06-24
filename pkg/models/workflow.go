@@ -16,7 +16,7 @@ type Workflow struct {
 	Version     int            `json:"version" db:"version"`
 	CreatedBy   string         `json:"created_by" db:"created_by"`
 	Agents      JSONMap        `json:"agents" db:"agents"`
-	Steps       JSONMap        `json:"steps" db:"steps"`
+	Steps       WorkflowSteps  `json:"steps" db:"steps"`
 	Config      JSONMap        `json:"config" db:"config"`
 	Description string         `json:"description,omitempty" db:"description"`
 	Tags        pq.StringArray `json:"tags,omitempty" db:"tags"`

@@ -340,29 +340,8 @@ func (w *Workflow) GetSteps() []WorkflowStep {
 	if w.Steps == nil {
 		return nil
 	}
-
-	// Convert from JSONMap to []WorkflowStep
-	if stepsArray, ok := w.Steps["steps"].([]interface{}); ok {
-		result := make([]WorkflowStep, 0, len(stepsArray))
-		for _, stepInterface := range stepsArray {
-			if stepMap, ok := stepInterface.(map[string]interface{}); ok {
-				step := WorkflowStep{
-					ID:             getStringField(stepMap, "id"),
-					Name:           getStringField(stepMap, "name"),
-					Description:    getStringField(stepMap, "description"),
-					Type:           getStringField(stepMap, "type"),
-					Dependencies:   getStringSliceField(stepMap, "dependencies"),
-					TimeoutSeconds: getIntField(stepMap, "timeout_seconds"),
-					RetryPolicy:    getRetryPolicy(stepMap),
-					Config:         getMapField(stepMap, "config"),
-				}
-				result = append(result, step)
-			}
-		}
-		return result
-	}
-
-	return nil
+	// Steps is now directly a WorkflowSteps type
+	return []WorkflowStep(w.Steps)
 }
 
 // StepStatus extended methods

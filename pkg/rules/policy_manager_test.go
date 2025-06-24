@@ -100,7 +100,7 @@ func TestPolicyManagerConcurrentLoadPolicies(t *testing.T) {
 	// Test concurrent ValidatePolicy during LoadPolicies
 	t.Run("concurrent ValidatePolicy during LoadPolicies", func(t *testing.T) {
 		ctx := context.Background()
-		
+
 		// Start LoadPolicies in background
 		go func() {
 			policies := createTestPolicies("background", 50)
@@ -156,7 +156,7 @@ func TestPolicyManagerConcurrentLoadPolicies(t *testing.T) {
 	// Test policy count limit enforcement
 	t.Run("policy count limit", func(t *testing.T) {
 		ctx := context.Background()
-		
+
 		// Create a manager with low limit
 		limitedConfig := config
 		limitedConfig.MaxPolicies = 5

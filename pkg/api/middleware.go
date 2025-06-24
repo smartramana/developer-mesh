@@ -94,7 +94,7 @@ func DefaultRateLimiterConfig() RateLimiterConfig {
 func NewRateLimiterConfigFromConfig(cfg RateLimitConfig) RateLimiterConfig {
 	// Convert limit per period to requests per second
 	requestsPerSecond := float64(cfg.Limit) / cfg.Period.Seconds()
-	
+
 	return RateLimiterConfig{
 		RequestsPerSecond: requestsPerSecond,
 		Burst:             cfg.Limit * cfg.BurstFactor,
@@ -122,7 +122,6 @@ func getLimiter(key string, cfg RateLimiterConfig) *rate.Limiter {
 
 	return limiter
 }
-
 
 // RateLimiter middleware implements rate limiting per IP address
 func RateLimiter(cfg RateLimiterConfig) gin.HandlerFunc {

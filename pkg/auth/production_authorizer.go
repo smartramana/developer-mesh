@@ -509,15 +509,28 @@ func (a *ProductionAuthorizer) loadPolicies() error {
 		{Subject: "user", Resource: "document", Action: "create", Effect: "allow"},
 		{Subject: "user", Resource: "task", Action: "read", Effect: "allow"},
 		{Subject: "user", Resource: "task", Action: "create", Effect: "allow"},
+		{Subject: "user", Resource: "workflow", Action: "read", Effect: "allow"},
+		{Subject: "user", Resource: "workflow", Action: "create", Effect: "allow"},
+		{Subject: "user", Resource: "workflow", Action: "update", Effect: "allow"},
+		{Subject: "user", Resource: "workflow", Action: "delete", Effect: "allow"},
 
 		// Viewer policies
 		{Subject: "viewer", Resource: "workspace", Action: "read", Effect: "allow"},
 		{Subject: "viewer", Resource: "document", Action: "read", Effect: "allow"},
 		{Subject: "viewer", Resource: "task", Action: "read", Effect: "allow"},
+		{Subject: "viewer", Resource: "workflow", Action: "read", Effect: "allow"},
 	}
 
 	a.mu.Lock()
 	a.policies = defaultPolicies
+
+	// Add default role bindings for known test users
+	// In production, these would come from a database
+	a.roleBindings["user-dev-admin-key-1234567890"] = []string{"admin"}
+	a.roleBindings["user-test-key-agent-1"] = []string{"user"}
+	a.roleBindings["user-test-key-agent-2"] = []string{"user"}
+	a.roleBindings["user-dev-readonly-key-1234567890"] = []string{"viewer"}
+
 	a.mu.Unlock()
 
 	return nil

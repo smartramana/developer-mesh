@@ -14,7 +14,7 @@ import (
 
 func TestNewAuthorizer(t *testing.T) {
 	logger := observability.NewLogger("test")
-	
+
 	tests := []struct {
 		name          string
 		config        auth.FactoryConfig
@@ -66,7 +66,7 @@ func TestNewAuthorizer(t *testing.T) {
 				_ = os.Unsetenv("MCP_TEST_MODE")
 				_ = os.Unsetenv("TEST_AUTH_ENABLED")
 			},
-			cleanupEnv: func() {},
+			cleanupEnv:  func() {},
 			expectError: false,
 			checkResult: func(t *testing.T, authorizer auth.Authorizer) {
 				assert.NotNil(t, authorizer)
@@ -140,16 +140,16 @@ func TestNewAuthorizer(t *testing.T) {
 			errorContains: "production config is required",
 		},
 	}
-	
+
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			tt.setupEnv()
 			defer tt.cleanupEnv()
-			
+
 			// Skip tracer validation for now
 			if tt.name != "fails when tracer is nil" {
 				authorizer, err := auth.NewAuthorizer(tt.config)
-				
+
 				if tt.expectError {
 					require.Error(t, err)
 					if tt.errorContains != "" {
@@ -158,7 +158,7 @@ func TestNewAuthorizer(t *testing.T) {
 				} else {
 					require.NoError(t, err)
 					require.NotNil(t, authorizer)
-					
+
 					if tt.checkResult != nil {
 						tt.checkResult(t, authorizer)
 					}
@@ -209,12 +209,12 @@ func TestDetermineAuthMode(t *testing.T) {
 			expected:   auth.AuthModeProduction,
 		},
 	}
-	
+
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			tt.setupEnv()
 			defer tt.cleanupEnv()
-			
+
 			// We can't directly test the private function, but we can test
 			// the behavior through NewAuthorizer with empty mode
 			config := auth.FactoryConfig{
@@ -228,7 +228,7 @@ func TestDetermineAuthMode(t *testing.T) {
 					AuditLogger: auth.NewAuditLogger(observability.NewLogger("test")),
 				},
 			}
-			
+
 			// The factory will determine the mode based on environment
 			_, _ = auth.NewAuthorizer(config)
 			// We can't check the exact mode used, but the test ensures no panic
@@ -238,7 +238,7 @@ func TestDetermineAuthMode(t *testing.T) {
 
 func TestValidateAuthConfiguration(t *testing.T) {
 	logger := observability.NewLogger("test")
-	
+
 	tests := []struct {
 		name          string
 		setupEnv      func()
@@ -306,14 +306,14 @@ func TestValidateAuthConfiguration(t *testing.T) {
 			expectError: false,
 		},
 	}
-	
+
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			tt.setupEnv()
 			defer tt.cleanupEnv()
-			
+
 			err := auth.ValidateAuthConfiguration(logger)
-			
+
 			if tt.expectError {
 				require.Error(t, err)
 				if tt.errorContains != "" {

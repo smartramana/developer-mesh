@@ -22,6 +22,7 @@ import (
 type BaseRepository struct {
 	writeDB *sqlx.DB
 	readDB  *sqlx.DB
+	tx      *sqlx.Tx // Transaction, if operating within one
 	cache   cache.Cache
 	logger  observability.Logger
 	tracer  observability.StartSpanFunc
@@ -68,6 +69,7 @@ func NewBaseRepository(
 	return &BaseRepository{
 		writeDB:      writeDB,
 		readDB:       readDB,
+		tx:           nil,
 		cache:        cache,
 		logger:       logger,
 		tracer:       tracer,
@@ -77,6 +79,24 @@ func NewBaseRepository(
 		queryTimeout: config.QueryTimeout,
 		maxRetries:   config.MaxRetries,
 		cacheTimeout: config.CacheTimeout,
+	}
+}
+
+// WithTx creates a new repository instance that uses the provided transaction
+func (r *BaseRepository) WithTx(tx *sqlx.Tx) *BaseRepository {
+	return &BaseRepository{
+		writeDB:      r.writeDB,
+		readDB:       r.readDB,
+		tx:           tx,
+		cache:        r.cache,
+		logger:       r.logger,
+		tracer:       r.tracer,
+		metrics:      r.metrics,
+		cb:           r.cb,
+		stmtCache:    r.stmtCache,
+		queryTimeout: r.queryTimeout,
+		maxRetries:   r.maxRetries,
+		cacheTimeout: r.cacheTimeout,
 	}
 }
 
@@ -338,7 +358,8 @@ func (r *BaseRepository) TranslateError(err error, entity string) error {
 		case "23502": // not_null_violation
 			return errors.Wrap(interfaces.ErrValidation, "required field missing")
 		case "23514": // check_violation
-			return errors.Wrap(interfaces.ErrValidation, "check constraint violation")
+			// Include the constraint name in the error for debugging
+			return errors.Wrapf(interfaces.ErrValidation, "check constraint violation: %s", pqErr.Constraint)
 		case "40001": // serialization_failure
 			return interfaces.ErrOptimisticLock
 		}

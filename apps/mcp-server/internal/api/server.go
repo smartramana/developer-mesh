@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"net/http"
+	"reflect"
 	"time"
 
 	"mcp-server/internal/api/events"
@@ -535,90 +536,63 @@ func (s *Server) InjectServices(services interface{}) {
 		"services_type": fmt.Sprintf("%T", services),
 		"ws_server_nil": s.wsServer == nil,
 	})
-	
+
 	if s.wsServer == nil {
 		s.logger.Warn("Cannot inject services: WebSocket server is not initialized", nil)
 		return
 	}
 
-	// Type assert to ServicesBundle
-	type ServicesBundle struct {
-		TaskService      interface{}
-		WorkflowService  interface{}
-		WorkspaceService interface{}
-		DocumentService  interface{}
-		ConflictService  interface{}
-	}
+	// Extract fields from the services struct using reflection
+	// This allows us to handle any struct with the required service fields
+	servicesValue := reflect.ValueOf(services).Elem()
+	servicesType := servicesValue.Type()
 
-	bundle, ok := services.(*ServicesBundle)
-	if !ok {
-		s.logger.Error("Failed to inject services: invalid services type", map[string]interface{}{
-			"type": fmt.Sprintf("%T", services),
-		})
-		return
-	}
-
-	// Type assert each service to its proper interface
 	var taskService pgservices.TaskService
 	var workflowService pgservices.WorkflowService
 	var workspaceService pgservices.WorkspaceService
 	var documentService pgservices.DocumentService
 	var conflictService pgservices.ConflictResolutionService
 
-	if bundle.TaskService != nil {
-		taskService, ok = bundle.TaskService.(pgservices.TaskService)
-		if !ok {
-			s.logger.Error("Failed to type assert TaskService", map[string]interface{}{
-				"type": fmt.Sprintf("%T", bundle.TaskService),
-			})
-		}
-	}
+	// Find and extract each service field
+	for i := 0; i < servicesType.NumField(); i++ {
+		field := servicesType.Field(i)
+		fieldValue := servicesValue.Field(i)
 
-	if bundle.WorkflowService != nil {
-		workflowService, ok = bundle.WorkflowService.(pgservices.WorkflowService)
-		if !ok {
-			s.logger.Error("Failed to type assert WorkflowService", map[string]interface{}{
-				"type": fmt.Sprintf("%T", bundle.WorkflowService),
-			})
-		}
-	}
-
-	if bundle.WorkspaceService != nil {
-		workspaceService, ok = bundle.WorkspaceService.(pgservices.WorkspaceService)
-		if !ok {
-			s.logger.Error("Failed to type assert WorkspaceService", map[string]interface{}{
-				"type": fmt.Sprintf("%T", bundle.WorkspaceService),
-			})
-		}
-	}
-
-	if bundle.DocumentService != nil {
-		documentService, ok = bundle.DocumentService.(pgservices.DocumentService)
-		if !ok {
-			s.logger.Error("Failed to type assert DocumentService", map[string]interface{}{
-				"type": fmt.Sprintf("%T", bundle.DocumentService),
-			})
-		}
-	}
-
-	if bundle.ConflictService != nil {
-		conflictService, ok = bundle.ConflictService.(pgservices.ConflictResolutionService)
-		if !ok {
-			s.logger.Error("Failed to type assert ConflictResolutionService", map[string]interface{}{
-				"type": fmt.Sprintf("%T", bundle.ConflictService),
-			})
+		if !fieldValue.IsNil() {
+			switch field.Name {
+			case "TaskService":
+				if ts, ok := fieldValue.Interface().(pgservices.TaskService); ok {
+					taskService = ts
+				}
+			case "WorkflowService":
+				if ws, ok := fieldValue.Interface().(pgservices.WorkflowService); ok {
+					workflowService = ws
+				}
+			case "WorkspaceService":
+				if ws, ok := fieldValue.Interface().(pgservices.WorkspaceService); ok {
+					workspaceService = ws
+				}
+			case "DocumentService":
+				if ds, ok := fieldValue.Interface().(pgservices.DocumentService); ok {
+					documentService = ds
+				}
+			case "ConflictService":
+				if cs, ok := fieldValue.Interface().(pgservices.ConflictResolutionService); ok {
+					conflictService = cs
+				}
+			}
 		}
 	}
 
 	// Inject services into WebSocket server
 	s.wsServer.SetServices(taskService, workflowService, workspaceService, documentService, conflictService)
-	
+
 	s.logger.Info("Services successfully injected into WebSocket server", map[string]interface{}{
-		"task_service_nil": taskService == nil,
-		"workflow_service_nil": workflowService == nil,
+		"task_service_nil":      taskService == nil,
+		"workflow_service_nil":  workflowService == nil,
 		"workspace_service_nil": workspaceService == nil,
-		"document_service_nil": documentService == nil,
-		"conflict_service_nil": conflictService == nil,
+		"document_service_nil":  documentService == nil,
+		"conflict_service_nil":  conflictService == nil,
 		"has_task_service":      taskService != nil,
 		"has_workflow_service":  workflowService != nil,
 		"has_workspace_service": workspaceService != nil,

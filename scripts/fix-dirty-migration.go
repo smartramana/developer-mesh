@@ -44,20 +44,20 @@ func main() {
 	if dirty {
 		// Fix the dirty state
 		log.Println("Fixing dirty migration state...")
-		
+
 		// Force the migration version to clean state
 		_, err = db.Exec("DELETE FROM schema_migrations WHERE version = $1", version)
 		if err != nil {
 			log.Fatal("Failed to delete dirty migration:", err)
 		}
-		
+
 		// Insert clean version (version-1 so it will retry the failed migration)
 		newVersion := version - 1
 		_, err = db.Exec("INSERT INTO schema_migrations (version, dirty) VALUES ($1, false)", newVersion)
 		if err != nil {
 			log.Fatal("Failed to insert clean migration state:", err)
 		}
-		
+
 		log.Printf("Reset migration state to version %d (clean) to retry migration %d\n", newVersion, version)
 	} else {
 		log.Println("Migration is not dirty, no action needed")

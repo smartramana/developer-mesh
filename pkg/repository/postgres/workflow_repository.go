@@ -55,11 +55,17 @@ func NewWorkflowRepository(
 
 // WithTx returns a repository instance that uses the provided transaction
 func (r *workflowRepository) WithTx(tx types.Transaction) interfaces.WorkflowRepository {
-	// Create a new repository instance with the same configuration but using the transaction
-	// For now, we return the same instance as transactions are handled at method level
-	return &workflowRepository{
-		BaseRepository: r.BaseRepository,
+	// Extract the actual sqlx.Tx from the pgTransaction
+	if pgTx, ok := tx.(*pgTransaction); ok {
+		return &workflowRepository{
+			BaseRepository: r.BaseRepository.WithTx(pgTx.tx),
+		}
 	}
+	// If it's not a pgTransaction, log error and return original
+	r.logger.Error("WithTx called with non-pgTransaction type", map[string]interface{}{
+		"type": fmt.Sprintf("%T", tx),
+	})
+	return r
 }
 
 // BeginTx starts a new transaction with options
@@ -135,6 +141,19 @@ func (r *workflowRepository) Create(ctx context.Context, workflow *models.Workfl
 
 		// Execute the query
 		var returnedID uuid.UUID
+
+		// Debug logging to see what we're inserting
+		r.logger.Debug("Creating workflow with values", map[string]interface{}{
+			"id":        workflow.ID,
+			"tenant_id": workflow.TenantID,
+			"name":      workflow.Name,
+			"type":      workflow.Type,
+			"agents":    workflow.Agents,
+			"steps":     workflow.Steps,
+			"config":    workflow.Config,
+			"tags":      workflow.Tags,
+		})
+
 		err := r.writeDB.QueryRowContext(ctx, query,
 			workflow.ID,
 			workflow.TenantID,
@@ -778,18 +797,34 @@ func (r *workflowRepository) CreateExecution(ctx context.Context, execution *mod
 
 		// Execute the query
 		var returnedID uuid.UUID
-		err = r.writeDB.QueryRowContext(ctx, query,
-			execution.ID,
-			execution.WorkflowID,
-			execution.TenantID,
-			execution.Status,
-			contextJSON,
-			stateJSON,
-			execution.InitiatedBy,
-			execution.Error,
-			execution.StartedAt,
-			execution.UpdatedAt,
-		).Scan(&returnedID)
+		// Use transaction if available, otherwise use writeDB
+		if r.tx != nil {
+			err = r.tx.QueryRowContext(ctx, query,
+				execution.ID,
+				execution.WorkflowID,
+				execution.TenantID,
+				execution.Status,
+				contextJSON,
+				stateJSON,
+				execution.InitiatedBy,
+				execution.Error,
+				execution.StartedAt,
+				execution.UpdatedAt,
+			).Scan(&returnedID)
+		} else {
+			err = r.writeDB.QueryRowContext(ctx, query,
+				execution.ID,
+				execution.WorkflowID,
+				execution.TenantID,
+				execution.Status,
+				contextJSON,
+				stateJSON,
+				execution.InitiatedBy,
+				execution.Error,
+				execution.StartedAt,
+				execution.UpdatedAt,
+			).Scan(&returnedID)
+		}
 
 		if err != nil {
 			if err == sql.ErrNoRows {
@@ -844,6 +879,10 @@ func (r *workflowRepository) GetExecution(ctx context.Context, id uuid.UUID) (*m
 			FROM workflow_executions
 			WHERE id = $1`
 
+		// Use transaction if available, otherwise use readDB
+		if r.tx != nil {
+			return r.tx.GetContext(ctx, &execution, query, id)
+		}
 		return r.readDB.GetContext(ctx, &execution, query, id)
 	})
 
@@ -1505,17 +1544,28 @@ func (r *workflowRepository) ValidateWorkflowIntegrity(ctx context.Context, work
 		}
 
 		// Validate step references
-		for stepID, stepData := range workflow.Steps {
-			if step, ok := stepData.(map[string]interface{}); ok {
-				// Check if step has required fields
-				if _, hasType := step["type"]; !hasType {
-					return errors.Errorf("step %s missing type", stepID)
-				}
+		for _, step := range workflow.Steps {
+			// Check if step has required fields
+			if step.Type == "" {
+				return errors.Errorf("step %s missing type", step.ID)
+			}
 
-				// Check agent reference
-				if agentID, hasAgent := step["agent_id"].(string); hasAgent {
-					if _, agentExists := workflow.Agents[agentID]; !agentExists {
-						return errors.Errorf("step %s references non-existent agent %s", stepID, agentID)
+			// Check agent reference if AgentID field exists
+			if step.AgentID != "" {
+				if _, agentExists := workflow.Agents[step.AgentID]; !agentExists {
+					return errors.Errorf("step %s references non-existent agent %s", step.ID, step.AgentID)
+				}
+			}
+
+			// Check assigned agents in config
+			if step.Config != nil {
+				if agents, ok := step.Config["assigned_agents"].([]interface{}); ok {
+					for _, agentInterface := range agents {
+						if agentID, ok := agentInterface.(string); ok {
+							if _, agentExists := workflow.Agents[agentID]; !agentExists {
+								return errors.Errorf("step %s references non-existent agent %s", step.ID, agentID)
+							}
+						}
 					}
 				}
 			}

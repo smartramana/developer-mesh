@@ -340,7 +340,6 @@ func (s *Server) setupRoutes(ctx context.Context) {
 	// Add tenant context extraction middleware AFTER authentication
 	v1.Use(ExtractTenantContext())
 
-
 	// Root endpoint to provide API entry points (HATEOAS)
 	v1.GET("/", func(c *gin.Context) {
 		// Check for authentication result set by AuthMiddleware

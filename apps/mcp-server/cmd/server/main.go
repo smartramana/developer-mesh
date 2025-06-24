@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"crypto/rand"
+	"database/sql"
 	"encoding/base64"
 	"encoding/json"
 	"flag"
@@ -144,8 +145,9 @@ func main() {
 	// Log AWS configuration
 	logAWSConfiguration(logger)
 
-	// Initialize database
-	db, err := initializeDatabase(startupCtx, cfg, logger)
+	// Initialize database with root context, not startup context
+	// Database connection must outlive the startup phase
+	db, err := initializeDatabase(ctx, cfg, logger)
 	if err != nil {
 		logger.Error("Failed to initialize database", map[string]interface{}{
 			"error": err.Error(),
@@ -184,8 +186,9 @@ func main() {
 		}
 	}
 
-	// Initialize cache
-	cacheClient, err := initializeCache(startupCtx, cfg, logger)
+	// Initialize cache with root context
+	// Cache connection must outlive the startup phase
+	cacheClient, err := initializeCache(ctx, cfg, logger)
 	if err != nil {
 		logger.Error("Failed to initialize cache", map[string]interface{}{
 			"error": err.Error(),
@@ -200,8 +203,8 @@ func main() {
 		}
 	}()
 
-	// Initialize core engine
-	engine, err := initializeEngine(startupCtx, cfg, db, cacheClient, metricsClient, logger)
+	// Initialize core engine with root context
+	engine, err := initializeEngine(ctx, cfg, db, cacheClient, metricsClient, logger)
 	if err != nil {
 		logger.Error("Failed to initialize core engine", map[string]interface{}{
 			"error": err.Error(),
@@ -218,8 +221,8 @@ func main() {
 		}
 	}()
 
-	// Initialize services for multi-agent collaboration
-	services, err := initializeServices(startupCtx, cfg, db, cacheClient, metricsClient, logger)
+	// Initialize services for multi-agent collaboration with root context
+	services, err := initializeServices(ctx, cfg, db, cacheClient, metricsClient, logger)
 	if err != nil {
 		logger.Error("Failed to initialize services", map[string]interface{}{
 			"error": err.Error(),
@@ -227,8 +230,8 @@ func main() {
 		os.Exit(1)
 	}
 
-	// Initialize and start API server
-	server, err := initializeServer(startupCtx, cfg, engine, db, cacheClient, metricsClient, logger)
+	// Initialize and start API server with root context
+	server, err := initializeServer(ctx, cfg, engine, db, cacheClient, metricsClient, logger)
 	if err != nil {
 		logger.Error("Failed to initialize server", map[string]interface{}{
 			"error": err.Error(),
@@ -359,18 +362,23 @@ func initializeDatabase(ctx context.Context, cfg *commonconfig.Config, logger ob
 		"db":   cfg.Database.Database,
 	})
 
-	// Create database configuration
+	// Create database configuration with proper connection pool settings
 	dbConfig := database.Config{
-		Driver:   "postgres",
-		DSN:      connStr,
-		Host:     cfg.Database.Host,
-		Port:     cfg.Database.Port,
-		Database: cfg.Database.Database,
-		Username: cfg.Database.Username,
-		Password: cfg.Database.Password,
-		SSLMode:  cfg.Database.SSLMode,
-		UseAWS:   cfg.Database.UseIAMAuth,
-		UseIAM:   cfg.Database.UseIAMAuth,
+		Driver:          "postgres",
+		DSN:             connStr,
+		Host:            cfg.Database.Host,
+		Port:            cfg.Database.Port,
+		Database:        cfg.Database.Database,
+		Username:        cfg.Database.Username,
+		Password:        cfg.Database.Password,
+		SSLMode:         cfg.Database.SSLMode,
+		UseAWS:          cfg.Database.UseIAMAuth,
+		UseIAM:          cfg.Database.UseIAMAuth,
+		MaxOpenConns:    25,               // Maintain a healthy connection pool
+		MaxIdleConns:    10,               // Keep more idle connections
+		ConnMaxLifetime: 30 * time.Minute, // Longer lifetime to avoid frequent reconnects
+		QueryTimeout:    30 * time.Second,
+		ConnectTimeout:  10 * time.Second,
 	}
 
 	// Create database instance
@@ -454,7 +462,7 @@ func initializeCache(ctx context.Context, cfg *commonconfig.Config, logger obser
 		// Convert TLS config if present AND enabled
 		// BUT: If we're connecting to localhost/127.0.0.1 (SSH tunnel), disable TLS
 		isSSHTunnel := cfg.Cache.Address == "127.0.0.1:6379" || cfg.Cache.Address == "localhost:6379"
-		
+
 		if cfg.Cache.TLS != nil && cfg.Cache.TLS.Enabled && !isSSHTunnel {
 			logger.Info("Converting TLS config", map[string]interface{}{
 				"enabled":     cfg.Cache.TLS.Enabled,
@@ -1309,11 +1317,27 @@ func runMigrations(ctx context.Context, db *database.Database, logger observabil
 		return nil
 	}
 
-	// Get the underlying sql.DB
-	sqlDB := db.GetDB().DB
+	// Create a separate database connection for migrations
+	// This prevents the migration tool from closing our main database connection
+	cfg, err := loadConfiguration("")
+	if err != nil {
+		return fmt.Errorf("failed to load config for migrations: %w", err)
+	}
+	migrationDSN := buildDatabaseURL(cfg)
+	migrationDB, err := sql.Open("postgres", migrationDSN)
+	if err != nil {
+		return fmt.Errorf("failed to open migration database: %w", err)
+	}
+	defer func() {
+		if closeErr := migrationDB.Close(); closeErr != nil {
+			logger.Error("Failed to close migration database", map[string]interface{}{
+				"error": closeErr.Error(),
+			})
+		}
+	}()
 
-	// Create postgres driver instance
-	driver, err := migratepg.WithInstance(sqlDB, &migratepg.Config{})
+	// Create postgres driver instance with the separate connection
+	driver, err := migratepg.WithInstance(migrationDB, &migratepg.Config{})
 	if err != nil {
 		return fmt.Errorf("failed to create migration driver: %w", err)
 	}
