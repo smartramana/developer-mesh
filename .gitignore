@@ -73,3 +73,13 @@ certs/
 *.crt
 *.key
 *.csr
+
+# Production deployment plans and scripts (contain sensitive info)
+PRODUCTION_READINESS_COMPLETE_PLAN.md
+ENCRYPTION_AND_SECRETS_IMPLEMENTATION.md
+AWS_ALB_ACM_DEPLOYMENT_PLAN.md
+AWS_ONLY_ZERO_COST_DEPLOYMENT_PLAN.md
+ZERO_COST_PRODUCTION_DEPLOYMENT_PLAN.md
+register-domain.sh
+setup-alb-with-domain.sh
+domain-contact.json
