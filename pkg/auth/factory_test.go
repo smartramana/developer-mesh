@@ -14,6 +14,7 @@ import (
 
 func TestNewAuthorizer(t *testing.T) {
 	logger := observability.NewLogger("test")
+	tracer := observability.NoopStartSpan
 
 	tests := []struct {
 		name          string
@@ -29,7 +30,7 @@ func TestNewAuthorizer(t *testing.T) {
 			config: auth.FactoryConfig{
 				Mode:   auth.AuthModeTest,
 				Logger: logger,
-				Tracer: nil,
+				Tracer: tracer,
 			},
 			setupEnv: func() {
 				_ = os.Setenv("MCP_TEST_MODE", "true")
@@ -53,7 +54,7 @@ func TestNewAuthorizer(t *testing.T) {
 			name: "creates production authorizer when mode not specified",
 			config: auth.FactoryConfig{
 				Logger: logger,
-				Tracer: nil,
+				Tracer: tracer,
 				ProductionConfig: &auth.AuthConfig{
 					ModelPath:   "test-model.conf",
 					PolicyPath:  "test-policies.csv",
@@ -77,7 +78,7 @@ func TestNewAuthorizer(t *testing.T) {
 			config: auth.FactoryConfig{
 				Mode:   auth.AuthModeTest,
 				Logger: nil,
-				Tracer: nil,
+				Tracer: tracer,
 			},
 			setupEnv:      func() {},
 			cleanupEnv:    func() {},
@@ -89,7 +90,7 @@ func TestNewAuthorizer(t *testing.T) {
 			config: auth.FactoryConfig{
 				Mode:   auth.AuthModeTest,
 				Logger: logger,
-				Tracer: nil,
+				Tracer: tracer,
 			},
 			setupEnv:      func() {},
 			cleanupEnv:    func() {},
@@ -101,7 +102,7 @@ func TestNewAuthorizer(t *testing.T) {
 			config: auth.FactoryConfig{
 				Mode:   "unknown",
 				Logger: logger,
-				Tracer: nil,
+				Tracer: tracer,
 			},
 			setupEnv:      func() {},
 			cleanupEnv:    func() {},
@@ -113,7 +114,7 @@ func TestNewAuthorizer(t *testing.T) {
 			config: auth.FactoryConfig{
 				Mode:   auth.AuthModeTest,
 				Logger: logger,
-				Tracer: nil,
+				Tracer: tracer,
 			},
 			setupEnv: func() {
 				_ = os.Setenv("MCP_TEST_MODE", "false")
@@ -131,7 +132,7 @@ func TestNewAuthorizer(t *testing.T) {
 			config: auth.FactoryConfig{
 				Mode:             auth.AuthModeProduction,
 				Logger:           logger,
-				Tracer:           nil,
+				Tracer:           tracer,
 				ProductionConfig: nil,
 			},
 			setupEnv:      func() {},
@@ -219,7 +220,7 @@ func TestDetermineAuthMode(t *testing.T) {
 			// the behavior through NewAuthorizer with empty mode
 			config := auth.FactoryConfig{
 				Logger: observability.NewLogger("test"),
-				Tracer: nil,
+				Tracer: observability.NoopStartSpan,
 				ProductionConfig: &auth.AuthConfig{
 					ModelPath:   "test-model.conf",
 					PolicyPath:  "test-policies.csv",

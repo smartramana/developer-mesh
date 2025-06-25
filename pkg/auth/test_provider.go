@@ -68,14 +68,14 @@ func NewTestProvider(logger observability.Logger, tracer observability.StartSpan
 		logger:       logger,
 		tracer:       tracer,
 		jwtSecret:    secret,
-		rateLimiter:  rate.NewLimiter(rate.Limit(100.0/60.0), 10), // 100 requests/minute with burst of 10
+		rateLimiter:  rate.NewLimiter(rate.Limit(1000.0/60.0), 100), // 1000 requests/minute with burst of 100
 		auditLog:     &testAuditLogger{logger: logger},
 		enabled:      true,
 		issuedTokens: make(map[string]tokenInfo),
 	}
 
 	logger.Info("Test authentication provider initialized", map[string]interface{}{
-		"rate_limit": "100/minute",
+		"rate_limit": "1000/minute",
 		"jwt_expiry": "1h",
 		"mode":       "test",
 	})
@@ -90,8 +90,8 @@ func (tp *TestProvider) Authorize(ctx context.Context, permission Permission) De
 		defer span.End()
 	}
 
-	// Rate limiting
-	if err := tp.rateLimiter.Wait(ctx); err != nil {
+	// Rate limiting - use Allow() for immediate non-blocking check
+	if !tp.rateLimiter.Allow() {
 		tp.auditLog.logFailure(permission.Resource, permission.Action, "rate_limit_exceeded")
 		return Decision{Allowed: false, Reason: "rate limit exceeded"}
 	}
@@ -118,8 +118,8 @@ func (tp *TestProvider) CheckPermission(ctx context.Context, resource, action st
 		defer span.End()
 	}
 
-	// Rate limiting
-	if err := tp.rateLimiter.Wait(ctx); err != nil {
+	// Rate limiting - use Allow() for immediate non-blocking check
+	if !tp.rateLimiter.Allow() {
 		tp.auditLog.logFailure(resource, action, "rate_limit_exceeded")
 		return false
 	}

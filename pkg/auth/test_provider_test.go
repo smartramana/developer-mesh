@@ -116,9 +116,13 @@ func TestTestProviderAuthorize(t *testing.T) {
 	})
 
 	t.Run("respects rate limiting", func(t *testing.T) {
-		// Make many rapid requests to trigger rate limiting
+		// The rate limiter allows 1000/minute (16.67/second) with burst of 100
+		// Make more than burst limit requests to trigger rate limiting
 		var rateLimited bool
-		for i := 0; i < 150; i++ {
+		var successCount int
+		
+		// Make 200 requests - should trigger rate limiting after burst of 100
+		for i := 0; i < 200; i++ {
 			permission := auth.Permission{
 				Resource: "test-resource",
 				Action:   "test-action",
@@ -127,11 +131,18 @@ func TestTestProviderAuthorize(t *testing.T) {
 			decision := provider.Authorize(ctx, permission)
 			if !decision.Allowed && decision.Reason == "rate limit exceeded" {
 				rateLimited = true
+				t.Logf("Rate limiting triggered after %d successful requests", successCount)
 				break
+			}
+			if decision.Allowed {
+				successCount++
 			}
 		}
 
-		assert.True(t, rateLimited, "Expected rate limiting to trigger")
+		assert.True(t, rateLimited, "Expected rate limiting to trigger after burst limit")
+		// We should allow approximately the burst size before rate limiting
+		assert.GreaterOrEqual(t, successCount, 90, "Should allow at least 90 requests (close to burst limit)")
+		assert.LessOrEqual(t, successCount, 110, "Should not allow much more than burst limit of 100")
 	})
 }
 
