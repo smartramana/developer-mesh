@@ -1586,7 +1586,6 @@ func (s *Server) handleWorkflowExecute(ctx context.Context, conn *Connection, pa
 			StepResults: make(map[string]interface{}),
 			StartedAt:   workflowExecution.StartedAt,
 		}
-		err = nil
 	} else {
 		// Fall back to workflow engine if service not available
 		execution, err = s.workflowEngine.ExecuteWorkflow(ctx, execParams.WorkflowID, execParams.Input)
