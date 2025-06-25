@@ -6,10 +6,11 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/google/uuid"
+
 	"github.com/S-Corkum/devops-mcp/pkg/auth"
 	"github.com/S-Corkum/devops-mcp/pkg/models"
 	ws "github.com/S-Corkum/devops-mcp/pkg/models/websocket"
-	"github.com/google/uuid"
 )
 
 // Define context key types to avoid collisions
@@ -171,10 +172,17 @@ func (s *Server) processMessage(ctx context.Context, conn *Connection, msg *ws.M
 
 	// Check authorization
 	if conn.state != nil && conn.state.Claims != nil {
-		// Add claims to context
-		ctx = context.WithValue(ctx, contextKeyTenantID, conn.state.Claims.TenantID)
-		ctx = context.WithValue(ctx, contextKeyUserID, conn.state.Claims.UserID)
+		// Add claims to context using auth package functions
+		ctx = auth.WithTenantID(ctx, uuid.MustParse(conn.state.Claims.TenantID))
+		ctx = auth.WithUserID(ctx, conn.state.Claims.UserID)
 		ctx = context.WithValue(ctx, contextKeyClaims, conn.state.Claims)
+		
+		// Debug logging
+		s.logger.Info("Context enriched with auth", map[string]interface{}{
+			"user_id":   conn.state.Claims.UserID,
+			"tenant_id": conn.state.Claims.TenantID,
+			"method":    msg.Method,
+		})
 
 		// Check method-specific permissions
 		if err := s.checkMethodPermission(conn.state.Claims, msg.Method); err != nil {
@@ -1505,9 +1513,47 @@ func (s *Server) handleWorkflowExecute(ctx context.Context, conn *Connection, pa
 		s.notificationManager.Subscribe(conn.ID, "execution:"+execParams.WorkflowID)
 	}
 
-	execution, err := s.workflowEngine.ExecuteWorkflow(ctx, execParams.WorkflowID, execParams.Input)
-	if err != nil {
-		return nil, err
+	// Use workflow service if available (it has proper authorization)
+	var execution *WorkflowExecution
+	var err error
+	
+	if s.workflowService != nil {
+		// Parse workflow ID as UUID for the service
+		workflowID, parseErr := uuid.Parse(execParams.WorkflowID)
+		if parseErr != nil {
+			return nil, fmt.Errorf("invalid workflow ID: %w", parseErr)
+		}
+		
+		// Prepare context for workflow execution
+		executionContext := models.JSONMap(execParams.Input)
+		if executionContext == nil {
+			executionContext = make(models.JSONMap)
+		}
+		
+		// Execute using workflow service with proper authorization
+		workflowExecution, execErr := s.workflowService.ExecuteWorkflow(ctx, workflowID, executionContext, uuid.New().String())
+		if execErr != nil {
+			return nil, execErr
+		}
+		
+		// Convert to expected format
+		execution = &WorkflowExecution{
+			ID:          workflowExecution.ID.String(),
+			WorkflowID:  workflowExecution.WorkflowID.String(),
+			Status:      string(workflowExecution.Status),
+			CurrentStep: 0,
+			TotalSteps:  0,
+			Input:       execParams.Input,
+			StepResults: make(map[string]interface{}),
+			StartedAt:   workflowExecution.StartedAt,
+		}
+		err = nil
+	} else {
+		// Fall back to workflow engine if service not available
+		execution, err = s.workflowEngine.ExecuteWorkflow(ctx, execParams.WorkflowID, execParams.Input)
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	// Get workflow to extract step order

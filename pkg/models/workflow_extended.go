@@ -366,53 +366,6 @@ func (s *StepStatus) GetCreatedAt() time.Time {
 	return time.Time{}
 }
 
-// Helper functions for field extraction
-func getStringField(m map[string]interface{}, key string) string {
-	if val, ok := m[key].(string); ok {
-		return val
-	}
-	return ""
-}
-
-func getIntField(m map[string]interface{}, key string) int {
-	if val, ok := m[key].(int); ok {
-		return val
-	}
-	if val, ok := m[key].(float64); ok {
-		return int(val)
-	}
-	return 0
-}
-
-func getStringSliceField(m map[string]interface{}, key string) []string {
-	if val, ok := m[key].([]interface{}); ok {
-		result := make([]string, 0, len(val))
-		for _, v := range val {
-			if s, ok := v.(string); ok {
-				result = append(result, s)
-			}
-		}
-		return result
-	}
-	return nil
-}
-
-func getMapField(m map[string]interface{}, key string) map[string]interface{} {
-	if val, ok := m[key].(map[string]interface{}); ok {
-		return val
-	}
-	return nil
-}
-
-func getRetryPolicy(m map[string]interface{}) WorkflowRetryPolicy {
-	if retryMap, ok := m["retry_policy"].(map[string]interface{}); ok {
-		return WorkflowRetryPolicy{
-			MaxAttempts: getIntField(retryMap, "max_attempts"),
-			BackoffType: getStringField(retryMap, "backoff_type"),
-		}
-	}
-	return WorkflowRetryPolicy{}
-}
 
 // Step status constants
 const (

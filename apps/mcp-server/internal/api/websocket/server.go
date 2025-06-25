@@ -204,6 +204,12 @@ func (s *Server) HandleWebSocket(w http.ResponseWriter, r *http.Request) {
 
 	// Set initial state
 	connection.SetState(ws.ConnectionStateConnecting)
+	
+	// Initialize connection state with authentication claims
+	if connection.state == nil {
+		connection.state = &ConnectionState{}
+	}
+	connection.state.Claims = claims
 
 	// Register connection
 	s.addConnection(connection)

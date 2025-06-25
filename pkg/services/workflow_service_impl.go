@@ -703,6 +703,15 @@ func (s *workflowService) authorizeWorkflowExecution(ctx context.Context, workfl
 		return nil
 	}
 
+	// Debug logging
+	userID := auth.GetUserID(ctx)
+	tenantID := auth.GetTenantID(ctx)
+	s.config.Logger.Info("Authorizing workflow execution", map[string]interface{}{
+		"user_id":     userID,
+		"tenant_id":   tenantID,
+		"workflow_id": workflow.ID,
+	})
+
 	decision := s.config.Authorizer.Authorize(ctx, auth.Permission{
 		Resource: "workflow",
 		Action:   "execute",

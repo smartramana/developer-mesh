@@ -100,20 +100,16 @@ func (s *WorkflowServiceIntegrationSuite) TestCreateAndRetrieveWorkflow() {
 		Type:        models.WorkflowTypeStandard,
 		IsActive:    true,
 		CreatedBy:   uuid.New().String(),
-		Steps: map[string]interface{}{
-			"steps": []map[string]interface{}{
-				{
-					"id":    "step1",
-					"name":  "First Step",
-					"type":  "task",
-					"order": 1,
-				},
-				{
-					"id":    "step2",
-					"name":  "Second Step",
-					"type":  "task",
-					"order": 2,
-				},
+		Steps: models.WorkflowSteps{
+			{
+				ID:   "step1",
+				Name: "First Step",
+				Type: "task",
+			},
+			{
+				ID:   "step2",
+				Name: "Second Step",
+				Type: "task",
 			},
 		},
 	}
@@ -141,29 +137,24 @@ func (s *WorkflowServiceIntegrationSuite) TestWorkflowExecution() {
 		Type:        models.WorkflowTypeCollaborative,
 		IsActive:    true,
 		CreatedBy:   uuid.New().String(),
-		Steps: map[string]interface{}{
-			"steps": []map[string]interface{}{
-				{
-					"id":     "data_prep",
-					"name":   "Data Preparation",
-					"type":   "task",
-					"order":  1,
-					"config": map[string]interface{}{"timeout": 300},
-				},
-				{
-					"id":     "processing",
-					"name":   "Data Processing",
-					"type":   "task",
-					"order":  2,
-					"config": map[string]interface{}{"parallel": true},
-				},
-				{
-					"id":     "validation",
-					"name":   "Result Validation",
-					"type":   "task",
-					"order":  3,
-					"config": map[string]interface{}{"required": true},
-				},
+		Steps: models.WorkflowSteps{
+			{
+				ID:     "data_prep",
+				Name:   "Data Preparation",
+				Type:   "task",
+				Config: map[string]interface{}{"timeout": 300},
+			},
+			{
+				ID:     "processing",
+				Name:   "Data Processing",
+				Type:   "task",
+				Config: map[string]interface{}{"parallel": true},
+			},
+			{
+				ID:     "validation",
+				Name:   "Result Validation",
+				Type:   "task",
+				Config: map[string]interface{}{"required": true},
 			},
 		},
 	}
@@ -228,41 +219,34 @@ func (s *WorkflowServiceIntegrationSuite) TestParallelWorkflowExecution() {
 		Type:      models.WorkflowTypeCollaborative,
 		IsActive:  true,
 		CreatedBy: uuid.New().String(),
-		Steps: map[string]interface{}{
-			"steps": []map[string]interface{}{
-				{
-					"id":    "setup",
-					"name":  "Setup",
-					"type":  "task",
-					"order": 1,
-				},
-				{
-					"id":       "parallel1",
-					"name":     "Parallel Task 1",
-					"type":     "task",
-					"order":    2,
-					"parallel": true,
-				},
-				{
-					"id":       "parallel2",
-					"name":     "Parallel Task 2",
-					"type":     "task",
-					"order":    2,
-					"parallel": true,
-				},
-				{
-					"id":       "parallel3",
-					"name":     "Parallel Task 3",
-					"type":     "task",
-					"order":    2,
-					"parallel": true,
-				},
-				{
-					"id":    "finalize",
-					"name":  "Finalize",
-					"type":  "task",
-					"order": 3,
-				},
+		Steps: models.WorkflowSteps{
+			{
+				ID:   "setup",
+				Name: "Setup",
+				Type: "task",
+			},
+			{
+				ID:     "parallel1",
+				Name:   "Parallel Task 1",
+				Type:   "task",
+				Config: map[string]interface{}{"parallel": true},
+			},
+			{
+				ID:     "parallel2",
+				Name:   "Parallel Task 2",
+				Type:   "task",
+				Config: map[string]interface{}{"parallel": true},
+			},
+			{
+				ID:     "parallel3",
+				Name:   "Parallel Task 3",
+				Type:   "task",
+				Config: map[string]interface{}{"parallel": true},
+			},
+			{
+				ID:   "finalize",
+				Name: "Finalize",
+				Type: "task",
 			},
 		},
 	}
@@ -333,21 +317,17 @@ func (s *WorkflowServiceIntegrationSuite) TestWorkflowErrorHandling() {
 		Type:      models.WorkflowTypeStandard,
 		IsActive:  true,
 		CreatedBy: uuid.New().String(),
-		Steps: map[string]interface{}{
-			"steps": []map[string]interface{}{
-				{
-					"id":     "step1",
-					"name":   "Step 1",
-					"type":   "task",
-					"order":  1,
-					"config": map[string]interface{}{"required": true},
-				},
-				{
-					"id":    "step2",
-					"name":  "Step 2",
-					"type":  "task",
-					"order": 2,
-				},
+		Steps: models.WorkflowSteps{
+			{
+				ID:     "step1",
+				Name:   "Step 1",
+				Type:   "task",
+				Config: map[string]interface{}{"required": true},
+			},
+			{
+				ID:   "step2",
+				Name: "Step 2",
+				Type: "task",
 			},
 		},
 	}
@@ -378,11 +358,9 @@ func (s *WorkflowServiceIntegrationSuite) TestWorkflowErrorHandling() {
 		Type:      models.WorkflowTypeStandard,
 		IsActive:  true,
 		CreatedBy: uuid.New().String(),
-		Steps: map[string]interface{}{
-			"steps": []map[string]interface{}{
-				{"id": "step1", "name": "Step 1", "type": "task", "order": 1},
-				{"id": "step2", "name": "Step 2", "type": "task", "order": 2},
-			},
+		Steps: models.WorkflowSteps{
+			{ID: "step1", Name: "Step 1", Type: "task"},
+			{ID: "step2", Name: "Step 2", Type: "task"},
 		},
 	}
 
@@ -429,16 +407,13 @@ func (s *WorkflowServiceIntegrationSuite) TestWorkflowRetryMechanism() {
 		Type:      models.WorkflowTypeStandard,
 		IsActive:  true,
 		CreatedBy: uuid.New().String(),
-		Steps: map[string]interface{}{
-			"steps": []map[string]interface{}{
-				{
-					"id":         "retry_step",
-					"name":       "Retry Step",
-					"type":       "task",
-					"order":      1,
-					"maxRetries": 3,
-					"config":     map[string]interface{}{"timeout": 60},
-				},
+		Steps: models.WorkflowSteps{
+			{
+				ID:      "retry_step",
+				Name:    "Retry Step",
+				Type:    "task",
+				Retries: 3,
+				Config:  map[string]interface{}{"timeout": 60},
 			},
 		},
 	}
@@ -485,11 +460,9 @@ func (s *WorkflowServiceIntegrationSuite) TestWorkflowHistory() {
 		Type:      models.WorkflowTypeStandard,
 		IsActive:  true,
 		CreatedBy: uuid.New().String(),
-		Steps: map[string]interface{}{
-			"steps": []map[string]interface{}{
-				{"id": "step1", "name": "Step 1", "type": "task", "order": 1},
-				{"id": "step2", "name": "Step 2", "type": "task", "order": 2},
-			},
+		Steps: models.WorkflowSteps{
+			{ID: "step1", Name: "Step 1", Type: "task"},
+			{ID: "step2", Name: "Step 2", Type: "task"},
 		},
 	}
 
@@ -537,11 +510,9 @@ func (s *WorkflowServiceIntegrationSuite) TestWorkflowMetrics() {
 		Type:      models.WorkflowTypeStandard,
 		IsActive:  true,
 		CreatedBy: uuid.New().String(),
-		Steps: map[string]interface{}{
-			"steps": []map[string]interface{}{
-				{"id": "quick_step", "name": "Quick Step", "type": "task", "order": 1},
-				{"id": "slow_step", "name": "Slow Step", "type": "task", "order": 2},
-			},
+		Steps: models.WorkflowSteps{
+			{ID: "quick_step", Name: "Quick Step", Type: "task"},
+			{ID: "slow_step", Name: "Slow Step", Type: "task"},
 		},
 	}
 

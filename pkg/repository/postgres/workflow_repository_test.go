@@ -107,7 +107,13 @@ func TestWorkflowRepository_Create(t *testing.T) {
 				Description: "Test description",
 				CreatedBy:   "user1",
 				Agents:      models.JSONMap{"agent1": map[string]interface{}{"type": "test"}},
-				Steps:       models.JSONMap{"step1": map[string]interface{}{"type": "action"}},
+				Steps:       models.WorkflowSteps{
+					{
+						ID:   "step1",
+						Name: "Test Step",
+						Type: "action",
+					},
+				},
 				Config:      models.JSONMap{"timeout": 300},
 				Tags:        pq.StringArray{"test", "workflow"},
 			},
@@ -237,7 +243,13 @@ func TestWorkflowRepository_Get(t *testing.T) {
 				Version:     1,
 				CreatedBy:   "user1",
 				Agents:      models.JSONMap{"agent1": "config"},
-				Steps:       models.JSONMap{"step1": "config"},
+				Steps:       models.WorkflowSteps{
+					{
+						ID:   "step1",
+						Name: "Test Step",
+						Type: "task",
+					},
+				},
 				Config:      models.JSONMap{"key": "value"},
 				Tags:        pq.StringArray{"test"},
 				IsActive:    true,
@@ -652,7 +664,7 @@ func TestWorkflowRepository_ConcurrentOperations(t *testing.T) {
 		Version:     1,
 		CreatedBy:   "user1",
 		Agents:      models.JSONMap{},
-		Steps:       models.JSONMap{},
+		Steps:       models.WorkflowSteps{},
 		Config:      models.JSONMap{},
 		Tags:        pq.StringArray{},
 		IsActive:    true,

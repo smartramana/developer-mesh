@@ -298,70 +298,64 @@ func (s *MultiAgentIntegrationSuite) TestMultiAgentWorkflowCoordination() {
 		Type:        models.WorkflowTypeCollaborative,
 		IsActive:    true,
 		CreatedBy:   s.agents["coordinator"].String(),
-		Steps: map[string]interface{}{
-			"steps": []map[string]interface{}{
-				{
-					"id":    "submit_pr",
-					"name":  "Submit Pull Request",
-					"type":  "task",
-					"order": 1,
-					"config": map[string]interface{}{
-						"assignee": s.agents["developer1"].String(),
-					},
-				},
-				{
-					"id":    "code_review",
-					"name":  "Code Review",
-					"type":  "task",
-					"order": 2,
-					"config": map[string]interface{}{
-						"assignee":           s.agents["reviewer"].String(),
-						"review_type":        "technical",
-						"required_approvals": 1,
-					},
-				},
-				{
-					"id":       "security_review",
-					"name":     "Security Review",
-					"type":     "task",
-					"order":    3,
-					"parallel": true,
-					"config": map[string]interface{}{
-						"assignee":  s.agents["tester1"].String(),
-						"scan_type": "security",
-					},
-				},
-				{
-					"id":       "performance_review",
-					"name":     "Performance Review",
-					"type":     "task",
-					"order":    3,
-					"parallel": true,
-					"config": map[string]interface{}{
-						"assignee":  s.agents["tester2"].String(),
-						"benchmark": true,
-					},
-				},
-				{
-					"id":    "documentation",
-					"name":  "Update Documentation",
-					"type":  "task",
-					"order": 4,
-					"config": map[string]interface{}{
-						"assignee": s.agents["documenter"].String(),
-					},
-				},
-				{
-					"id":    "merge",
-					"name":  "Merge to Main",
-					"type":  "task",
-					"order": 5,
-					"config": map[string]interface{}{
-						"assignee":   s.agents["developer1"].String(),
-						"auto_merge": false,
-					},
+		Steps: models.WorkflowSteps{
+			{
+				ID:     "submit_pr",
+				Name:   "Submit Pull Request",
+				Type:   "task",
+				Config: map[string]interface{}{
+					"assignee": s.agents["developer1"].String(),
 				},
 			},
+			{
+				ID:   "code_review",
+				Name: "Code Review",
+				Type: "task",
+				Config: map[string]interface{}{
+					"assignee":           s.agents["reviewer"].String(),
+					"review_type":        "technical",
+					"required_approvals": 1,
+				},
+			},
+			{
+				ID:   "security_review",
+				Name: "Security Review",
+				Type: "task",
+				Config: map[string]interface{}{
+					"assignee":  s.agents["tester1"].String(),
+					"scan_type": "security",
+					"parallel":  true,
+				},
+			},
+			{
+				ID:   "performance_review",
+				Name: "Performance Review",
+				Type: "task",
+				Config: map[string]interface{}{
+					"assignee":  s.agents["tester2"].String(),
+					"benchmark": true,
+					"parallel":  true,
+				},
+			},
+			{
+				ID:   "documentation",
+				Name: "Update Documentation",
+				Type: "task",
+				Config: map[string]interface{}{
+					"assignee": s.agents["documenter"].String(),
+				},
+			},
+			{
+				ID:   "merge",
+				Name: "Merge to Main",
+				Type: "task",
+				Config: map[string]interface{}{
+					"assignee":   s.agents["developer1"].String(),
+					"auto_merge": false,
+				},
+			},
+		},
+		Config: models.JSONMap{
 			"coordination": map[string]interface{}{
 				"mode":     "distributed",
 				"strategy": "consensus",
