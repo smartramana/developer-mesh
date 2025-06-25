@@ -2070,15 +2070,23 @@ func (s *Server) handleWorkspaceJoin(ctx context.Context, conn *Connection, para
 		return nil, err
 	}
 
-	// Subscribe connection to workspace events
-	_ = s.subscriptionManager.SubscribeToWorkspace(conn.ID, joinParams.WorkspaceID)
-
-	return map[string]interface{}{
+	// Prepare response first
+	response := map[string]interface{}{
 		"workspace_id": joinParams.WorkspaceID,
 		"member_id":    member.ID,
 		"role":         member.Role,
 		"joined_at":    member.JoinedAt.Format(time.RFC3339),
-	}, nil
+	}
+
+	// Subscribe to workspace events in a goroutine after a small delay
+	// This ensures the response is sent before any notifications
+	go func() {
+		// Small delay to ensure response is processed first
+		time.Sleep(10 * time.Millisecond)
+		_ = s.subscriptionManager.SubscribeToWorkspace(conn.ID, joinParams.WorkspaceID)
+	}()
+
+	return response, nil
 }
 
 func (s *Server) handleWorkspaceLeave(ctx context.Context, conn *Connection, params json.RawMessage) (interface{}, error) {

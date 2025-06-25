@@ -430,6 +430,7 @@ func TestWebSocketWorkspaceCollaboration(t *testing.T) {
 		// Wait for join response first
 		msg, err = agents[i].ReadMessage(ctx)
 		require.NoError(t, err)
+		t.Logf("Agent %s received message type=%d method=%s params=%+v", agents[i].AgentID, msg.Type, msg.Method, msg.Params)
 		assert.Equal(t, MessageTypeResponse, msg.Type)
 		if msg.Error != nil {
 			t.Logf("Join error: %+v", msg.Error)
