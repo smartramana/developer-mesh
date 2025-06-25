@@ -102,6 +102,7 @@ func (s *Server) RegisterHandlers() {
 
 		// Task management
 		"task.create":             s.handleTaskCreate,
+		"task.create_auto_assign": s.handleTaskCreateAutoAssign,
 		"task.create_distributed": s.handleTaskCreateDistributed,
 		"task.status":             s.handleTaskStatus,
 		"task.cancel":             s.handleTaskCancel,
@@ -387,12 +388,50 @@ func (s *Server) handleBenchmark(ctx context.Context, conn *Connection, params j
 // handleInitialize handles the initialize method
 func (s *Server) handleInitialize(ctx context.Context, conn *Connection, params json.RawMessage) (interface{}, error) {
 	var initParams struct {
-		Version string `json:"version"`
-		Name    string `json:"name"`
+		Version      string   `json:"version"`
+		Name         string   `json:"name"`
+		Capabilities []string `json:"capabilities"`
 	}
 
 	if err := json.Unmarshal(params, &initParams); err != nil {
 		return nil, err
+	}
+
+	// Store agent capabilities if provided
+	if len(initParams.Capabilities) > 0 && s.agentRegistry != nil {
+		s.logger.Debug("Registering agent with capabilities", map[string]interface{}{
+			"agent_id":     conn.AgentID,
+			"agent_name":   initParams.Name,
+			"capabilities": initParams.Capabilities,
+			"tenant_id":    conn.TenantID,
+		})
+		
+		// Register agent with capabilities
+		registration := &AgentRegistration{
+			ID:           conn.AgentID,
+			Name:         initParams.Name,
+			Capabilities: initParams.Capabilities,
+			ConnectionID: conn.ID,
+			TenantID:     conn.TenantID,
+		}
+		if _, err := s.agentRegistry.RegisterAgent(ctx, registration); err != nil {
+			s.logger.Warn("Failed to register agent capabilities", map[string]interface{}{
+				"agent_id":     conn.AgentID,
+				"capabilities": initParams.Capabilities,
+				"error":        err.Error(),
+			})
+		} else {
+			s.logger.Debug("Successfully registered agent", map[string]interface{}{
+				"agent_id":     conn.AgentID,
+				"capabilities": initParams.Capabilities,
+			})
+		}
+	} else {
+		s.logger.Debug("No capabilities to register", map[string]interface{}{
+			"agent_id":              conn.AgentID,
+			"has_capabilities":      len(initParams.Capabilities) > 0,
+			"has_agent_registry":    s.agentRegistry != nil,
+		})
 	}
 
 	// Return server capabilities

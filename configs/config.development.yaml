@@ -71,6 +71,27 @@ api:
           scopes: ["read", "write"]
           tenant_id: "00000000-0000-0000-0000-000000000001"
           user_id: "agent-2"
+        # Keys for capability matching test agents
+        "test-key-frontend-dev":
+          role: "user"
+          scopes: ["read", "write"]
+          tenant_id: "00000000-0000-0000-0000-000000000001"
+          user_id: "frontend-dev"
+        "test-key-backend-dev":
+          role: "user"
+          scopes: ["read", "write"]
+          tenant_id: "00000000-0000-0000-0000-000000000001"
+          user_id: "backend-dev"
+        "test-key-ml-engineer":
+          role: "user"
+          scopes: ["read", "write"]
+          tenant_id: "00000000-0000-0000-0000-000000000001"
+          user_id: "ml-engineer"
+        "test-key-devops":
+          role: "user"
+          scopes: ["read", "write"]
+          tenant_id: "00000000-0000-0000-0000-000000000001"
+          user_id: "devops"
 
 # Authentication - Development settings (Note: API keys are configured in api.auth.api_keys above)
 auth:

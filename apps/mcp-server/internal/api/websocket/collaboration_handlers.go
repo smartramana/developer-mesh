@@ -13,6 +13,153 @@ import (
 
 // Multi-agent collaboration handlers
 
+// handleTaskCreateAutoAssign creates a task and automatically assigns it based on agent capabilities
+func (s *Server) handleTaskCreateAutoAssign(ctx context.Context, conn *Connection, params json.RawMessage) (interface{}, error) {
+	var createParams struct {
+		Task struct {
+			ID                   string   `json:"id"`
+			Title                string   `json:"title"`
+			Description          string   `json:"description"`
+			Type                 string   `json:"type"`
+			Priority             string   `json:"priority"`
+			RequiredCapabilities []string `json:"required_capabilities"`
+			Parameters           map[string]interface{} `json:"parameters"`
+		} `json:"task"`
+		AssignmentStrategy string `json:"assignment_strategy"` // capability_match, load_balance, round_robin
+	}
+
+	if err := json.Unmarshal(params, &createParams); err != nil {
+		return nil, err
+	}
+
+	// Find agent with matching capabilities
+	var bestAgent string
+	if s.agentRegistry != nil && len(createParams.Task.RequiredCapabilities) > 0 {
+		s.logger.Info("Looking for agents with capabilities", map[string]interface{}{
+			"required_capabilities": createParams.Task.RequiredCapabilities,
+			"tenant_id":            conn.TenantID,
+			"requesting_agent":     conn.AgentID,
+		})
+		
+		// Use DiscoverAgents to find agents with required capabilities
+		// Don't exclude self - an agent should be able to assign tasks to itself if it has the capabilities
+		agents, err := s.agentRegistry.DiscoverAgents(
+			ctx,
+			conn.TenantID,
+			createParams.Task.RequiredCapabilities,
+			false,  // include self - agent can assign to itself if it has the capabilities
+			conn.AgentID,
+		)
+		
+		s.logger.Info("DiscoverAgents result", map[string]interface{}{
+			"agent_count": len(agents),
+			"error":       err,
+			"agents":      agents,
+		})
+		if err == nil && len(agents) > 0 {
+			// Select best agent based on assignment strategy
+			switch createParams.AssignmentStrategy {
+			case "load_balance":
+				// Pick agent with least active tasks
+				minTasks := int(^uint(0) >> 1) // Max int
+				for _, agent := range agents {
+					if activeTasks, ok := agent["active_tasks"].(int); ok && activeTasks < minTasks {
+						if agentID, ok := agent["id"].(string); ok {
+							bestAgent = agentID
+							minTasks = activeTasks
+						}
+					}
+				}
+			case "round_robin":
+				// For round robin, we'd need to track last assigned agent
+				// For now, pick randomly from available agents
+				if len(agents) > 0 {
+					// Use task ID as seed for consistent assignment
+					idx := 0
+					if createParams.Task.ID != "" {
+						// Simple hash of task ID to get index
+						for _, c := range createParams.Task.ID {
+							idx += int(c)
+						}
+						idx = idx % len(agents)
+					}
+					if agentID, ok := agents[idx]["id"].(string); ok {
+						bestAgent = agentID
+					}
+				}
+			default: // capability_match or fallback
+				// Pick agent with most matching capabilities (best fit)
+				maxCapScore := 0
+				for _, agent := range agents {
+					if caps, ok := agent["capabilities"].([]string); ok {
+						// Count how many capabilities beyond required ones
+						score := len(caps)
+						if score > maxCapScore {
+							if agentID, ok := agent["id"].(string); ok {
+								bestAgent = agentID
+								maxCapScore = score
+							}
+						}
+					}
+				}
+				// If no scoring worked, fall back to first available
+				if bestAgent == "" && len(agents) > 0 {
+					if agentID, ok := agents[0]["id"].(string); ok {
+						bestAgent = agentID
+					}
+				}
+			}
+		}
+	}
+
+	// If no agent found with capabilities, return error
+	if bestAgent == "" {
+		return nil, fmt.Errorf("no agent found with required capabilities: %v", createParams.Task.RequiredCapabilities)
+	}
+
+	// Mock task creation
+	taskID := createParams.Task.ID
+	if taskID == "" {
+		taskID = uuid.New().String()
+	}
+
+	// Send assignment notification to the selected agent
+	s.mu.RLock()
+	for _, c := range s.connections {
+		if c.AgentID == bestAgent {
+			notification := map[string]interface{}{
+				"task_id":      taskID,
+				"title":        createParams.Task.Title,
+				"capabilities": createParams.Task.RequiredCapabilities,
+				"assigned_at":  time.Now().Format(time.RFC3339),
+			}
+			
+			// Send directly as a notification
+			msg := struct {
+				Type   int                    `json:"type"`
+				Method string                 `json:"method"`
+				Params map[string]interface{} `json:"params"`
+			}{
+				Type:   2, // MessageTypeNotification
+				Method: "task.assigned",
+				Params: notification,
+			}
+			
+			msgBytes, _ := json.Marshal(msg)
+			c.send <- msgBytes
+			break
+		}
+	}
+	s.mu.RUnlock()
+
+	return map[string]interface{}{
+		"task_id":      taskID,
+		"assigned_to":  bestAgent,
+		"status":       "assigned",
+		"created_at":   time.Now().Format(time.RFC3339),
+	}, nil
+}
+
 // handleTaskCreateDistributed creates a distributed task that can be split across agents
 func (s *Server) handleTaskCreateDistributed(ctx context.Context, conn *Connection, params json.RawMessage) (interface{}, error) {
 	startTime := time.Now()

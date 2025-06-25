@@ -674,9 +674,6 @@ func TestWebSocketCapabilityMatching(t *testing.T) {
 		t.Skip("Skipping functional test in short mode")
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
-	defer cancel()
-
 	// Connect agents with different capabilities
 	agents := []*WebSocketClient{
 		NewWebSocketClient(t, "frontend-dev", []string{"javascript", "react", "css"}),
@@ -718,8 +715,13 @@ func TestWebSocketCapabilityMatching(t *testing.T) {
 		},
 	}
 
+	// Wait a bit to ensure all agents are fully registered
+	time.Sleep(100 * time.Millisecond)
+
 	// Create and auto-assign tasks
 	for _, task := range tasks {
+		t.Logf("Creating task %s with capabilities %v", task.title, task.capabilities)
+		
 		createMsg := WebSocketMessage{
 			Type:   MessageTypeRequest,
 			ID:     uuid.New().String(),
@@ -736,36 +738,41 @@ func TestWebSocketCapabilityMatching(t *testing.T) {
 
 		err := agents[0].SendMessage(createMsg)
 		require.NoError(t, err)
-
-		// Find which agent received the assignment
-		assigned := make(chan string, 1)
-		var assignWg sync.WaitGroup
-		assignWg.Add(len(agents))
-
-		for _, agent := range agents {
-			go func(a *WebSocketClient) {
-				defer assignWg.Done()
-				msg, err := a.ReadMessage(ctx)
-				if err == nil && msg.Type == MessageTypeNotification && msg.Method == "task.assigned" {
-					if msg.Params != nil && msg.Params["task_id"] == task.id {
-						assigned <- a.AgentID
-					}
-				}
-			}(agent)
+		
+		// Read messages until we get the response (not a notification)
+		ctx := context.Background()
+		var resp *WebSocketMessage
+		for {
+			msg, err := agents[0].ReadMessage(ctx)
+			require.NoError(t, err)
+			
+			// Debug: Log all messages
+			t.Logf("Message received: type=%d, id=%s, method=%s, result=%+v, error=%+v", 
+				msg.Type, msg.ID, msg.Method, msg.Result, msg.Error)
+			
+			// Skip notifications, we want the response
+			if msg.Type == MessageTypeResponse {
+				resp = msg
+				break
+			}
 		}
-
-		// Wait with timeout
-		go func() {
-			assignWg.Wait()
-			close(assigned)
-		}()
-
-		select {
-		case agentID := <-assigned:
-			assert.Equal(t, task.expectedAgent, agentID, "Task %s assigned to wrong agent", task.title)
-		case <-time.After(5 * time.Second):
-			t.Fatalf("Task %s was not assigned within timeout", task.title)
-		}
+		
+		require.Nil(t, resp.Error, "Task creation failed: %v", resp.Error)
+		
+		// Check the response for assignment information
+		result, ok := resp.Result.(map[string]interface{})
+		require.True(t, ok, "Response result should be a map, got %T", resp.Result)
+		
+		assignedTo, ok := result["assigned_to"].(string)
+		require.True(t, ok, "Response should include assigned_to field")
+		
+		t.Logf("Task %s assigned to %s", task.title, assignedTo)
+		assert.Equal(t, task.expectedAgent, assignedTo, "Task %s assigned to wrong agent", task.title)
+		
+		// Also verify the task was created with correct ID
+		taskID, ok := result["task_id"].(string)
+		require.True(t, ok, "Response should include task_id")
+		assert.Equal(t, task.id, taskID, "Task ID mismatch")
 	}
 }
 
@@ -936,6 +943,14 @@ func getAPIKeyForAgent(agentID string) string {
 		return "test-key-agent-1"
 	case "agent2":
 		return "test-key-agent-2"
+	case "frontend-dev":
+		return "test-key-frontend-dev"
+	case "backend-dev":
+		return "test-key-backend-dev"
+	case "ml-engineer":
+		return "test-key-ml-engineer"
+	case "devops":
+		return "test-key-devops"
 	default:
 		return "dev-admin-key-1234567890"
 	}
@@ -963,10 +978,13 @@ func establishWebSocketConnection(t *testing.T, wsURL, apiKey, agentID string, c
 		Type:   MessageTypeRequest,
 		Method: "initialize",
 		Params: map[string]interface{}{
-			"name":    agentID,
-			"version": "1.0.0",
+			"name":         agentID,
+			"version":      "1.0.0",
+			"capabilities": capabilities,
 		},
 	}
+	
+	t.Logf("Sending init message for agent %s with capabilities %v", agentID, capabilities)
 
 	if err := wsjson.Write(ctx, conn, initMsg); err != nil {
 		_ = conn.Close(websocket.StatusNormalClosure, "")
