@@ -101,6 +101,10 @@ func TestWebSocketTaskDelegation(t *testing.T) {
 		t.Skip("Skipping functional test in short mode")
 	}
 
+	// Setup test data
+	_, cleanup := SetupTestData(t)
+	defer cleanup()
+
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 
@@ -114,6 +118,9 @@ func TestWebSocketTaskDelegation(t *testing.T) {
 	defer func() {
 		_ = agent2.Close()
 	}()
+
+	// Wait for agents to be fully registered
+	time.Sleep(500 * time.Millisecond)
 
 	// Agent 1 creates a task
 	taskID := uuid.New().String()
@@ -138,6 +145,17 @@ func TestWebSocketTaskDelegation(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, MessageTypeResponse, msg.Type)
 	assert.Nil(t, msg.Error)
+	
+	// Extract the actual task ID from the response
+	if result, ok := msg.Result.(map[string]interface{}); ok {
+		if id, ok := result["id"].(string); ok {
+			taskID = id
+			t.Logf("Created task with ID: %s", taskID)
+		}
+	}
+
+	// Small delay to ensure task is persisted
+	time.Sleep(100 * time.Millisecond)
 
 	// Agent 1 delegates task to Agent 2
 	delegateMsg := WebSocketMessage{
