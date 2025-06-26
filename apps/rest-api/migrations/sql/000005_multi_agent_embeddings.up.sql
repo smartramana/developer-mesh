@@ -173,7 +173,7 @@ $$ LANGUAGE plpgsql;
 CREATE TABLE IF NOT EXISTS embedding_cache (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     cache_key VARCHAR(255) NOT NULL UNIQUE,
-    embedding_id VARCHAR(36) REFERENCES embeddings(id) ON DELETE CASCADE,
+    embedding_id UUID REFERENCES embeddings(id) ON DELETE CASCADE,
     
     -- Cache metadata
     hit_count INTEGER DEFAULT 0,

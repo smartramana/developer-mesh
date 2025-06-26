@@ -249,7 +249,7 @@ ps: ## Show running Docker services
 
 .PHONY: db-shell
 db-shell: ## Open PostgreSQL shell
-	$(DOCKER_COMPOSE) exec database psql -U dev -d dev
+	psql "postgresql://${DB_USER:-postgres}:${DB_PASSWORD:-postgres}@${DB_HOST:-localhost}:${DB_PORT:-5432}/${DATABASE_NAME:-devops_mcp_dev}?sslmode=${DATABASE_SSL_MODE:-disable}"
 
 .PHONY: migrate-create
 migrate-create: ## Create new migration (name=migration_name)
@@ -259,17 +259,17 @@ migrate-create: ## Create new migration (name=migration_name)
 .PHONY: migrate-up
 migrate-up: ## Run all pending migrations
 	@which migrate > /dev/null || (echo "Error: golang-migrate not installed. Run: brew install golang-migrate" && exit 1)
-	migrate -database "postgresql://dev:dev@localhost:5432/dev?sslmode=disable" -path apps/rest-api/migrations/sql up
+	migrate -database "postgresql://${DB_USER:-postgres}:${DB_PASSWORD:-postgres}@${DB_HOST:-localhost}:${DB_PORT:-5432}/${DATABASE_NAME:-devops_mcp_dev}?sslmode=${DATABASE_SSL_MODE:-disable}" -path apps/rest-api/migrations/sql up
 
 .PHONY: migrate-down
 migrate-down: ## Rollback last migration
 	@which migrate > /dev/null || (echo "Error: golang-migrate not installed. Run: brew install golang-migrate" && exit 1)
-	migrate -database "postgresql://dev:dev@localhost:5432/dev?sslmode=disable" -path apps/rest-api/migrations/sql down 1
+	migrate -database "postgresql://${DB_USER:-postgres}:${DB_PASSWORD:-postgres}@${DB_HOST:-localhost}:${DB_PORT:-5432}/${DATABASE_NAME:-devops_mcp_dev}?sslmode=${DATABASE_SSL_MODE:-disable}" -path apps/rest-api/migrations/sql down 1
 
 .PHONY: migrate-status
 migrate-status: ## Show migration status
 	@which migrate > /dev/null || (echo "Error: golang-migrate not installed. Run: brew install golang-migrate" && exit 1)
-	migrate -database "postgresql://dev:dev@localhost:5432/dev?sslmode=disable" -path apps/rest-api/migrations/sql version
+	migrate -database "postgresql://${DB_USER:-postgres}:${DB_PASSWORD:-postgres}@${DB_HOST:-localhost}:${DB_PORT:-5432}/${DATABASE_NAME:-devops_mcp_dev}?sslmode=${DATABASE_SSL_MODE:-disable}" -path apps/rest-api/migrations/sql version
 
 # ==============================================================================
 # Development Helpers
