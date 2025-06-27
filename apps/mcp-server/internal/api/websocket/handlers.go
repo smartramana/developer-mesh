@@ -11,6 +11,7 @@ import (
 	"github.com/S-Corkum/devops-mcp/pkg/auth"
 	"github.com/S-Corkum/devops-mcp/pkg/models"
 	ws "github.com/S-Corkum/devops-mcp/pkg/models/websocket"
+	"github.com/S-Corkum/devops-mcp/pkg/repository/interfaces"
 )
 
 // Define context key types to avoid collisions
@@ -1949,24 +1950,56 @@ func (s *Server) handleTaskCreate(ctx context.Context, conn *Connection, params 
 		return nil, err
 	}
 
-	task, err := s.taskManager.CreateTask(ctx, &TaskDefinition{
-		Type:       taskParams.Type,
-		Parameters: taskParams.Parameters,
-		Priority:   taskParams.Priority,
-		MaxRetries: taskParams.MaxRetries,
-		Timeout:    time.Duration(taskParams.TimeoutSecs) * time.Second,
-		AgentID:    conn.AgentID,
-		TenantID:   conn.TenantID,
-	})
+	// Check if taskService is available
+	if s.taskService == nil {
+		return nil, fmt.Errorf("task service not initialized")
+	}
+
+	// Parse tenant ID
+	tenantUUID, err := uuid.Parse(conn.TenantID)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("invalid tenant ID: %w", err)
+	}
+
+	// Convert priority string to TaskPriority
+	priority := models.TaskPriorityNormal
+	switch taskParams.Priority {
+	case "low":
+		priority = models.TaskPriorityLow
+	case "high":
+		priority = models.TaskPriorityHigh
+	case "critical":
+		priority = models.TaskPriorityCritical
+	}
+
+	// Create task using the service
+	task := &models.Task{
+		ID:             uuid.New(),
+		Type:           taskParams.Type,
+		Parameters:     models.JSONMap(taskParams.Parameters),
+		Priority:       priority,
+		Status:         models.TaskStatusPending,
+		CreatedBy:      conn.AgentID,
+		TenantID:       tenantUUID,
+		CreatedAt:      time.Now(),
+		UpdatedAt:      time.Now(),
+		MaxRetries:     taskParams.MaxRetries,
+		TimeoutSeconds: taskParams.TimeoutSecs,
+		Version:        1,
+	}
+
+	// Generate idempotency key from task ID
+	idempotencyKey := fmt.Sprintf("task-create-%s", task.ID.String())
+	err = s.taskService.Create(ctx, task, idempotencyKey)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create task: %w", err)
 	}
 
 	return map[string]interface{}{
-		"task_id":    task.ID,
+		"task_id":    task.ID.String(),
 		"type":       task.Type,
-		"status":     task.Status,
-		"priority":   task.Priority,
+		"status":     string(task.Status),
+		"priority":   string(task.Priority),
 		"created_at": task.CreatedAt.Format(time.RFC3339),
 	}, nil
 }
@@ -1980,23 +2013,42 @@ func (s *Server) handleTaskStatus(ctx context.Context, conn *Connection, params 
 		return nil, err
 	}
 
-	task, err := s.taskManager.GetTask(ctx, statusParams.TaskID)
-	if err != nil {
-		return nil, err
+	// Check if taskService is available
+	if s.taskService == nil {
+		return nil, fmt.Errorf("task service not initialized")
 	}
 
-	return map[string]interface{}{
-		"task_id":      task.ID,
-		"type":         task.Type,
-		"status":       task.Status,
-		"progress":     task.Progress,
-		"result":       task.Result,
-		"error":        task.Error,
-		"created_at":   task.CreatedAt.Format(time.RFC3339),
-		"started_at":   task.StartedAt.Format(time.RFC3339),
-		"completed_at": task.CompletedAt.Format(time.RFC3339),
-		"attempts":     task.Attempts,
-	}, nil
+	// Parse task ID
+	taskUUID, err := uuid.Parse(statusParams.TaskID)
+	if err != nil {
+		return nil, fmt.Errorf("invalid task ID: %w", err)
+	}
+
+	task, err := s.taskService.Get(ctx, taskUUID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get task: %w", err)
+	}
+
+	result := map[string]interface{}{
+		"task_id":    task.ID.String(),
+		"type":       task.Type,
+		"status":     string(task.Status),
+		"priority":   string(task.Priority),
+		"result":     task.Result,
+		"error":      task.Error,
+		"created_at": task.CreatedAt.Format(time.RFC3339),
+		"attempts":   task.RetryCount,
+	}
+
+	// Add optional timestamps only if they exist
+	if task.StartedAt != nil {
+		result["started_at"] = task.StartedAt.Format(time.RFC3339)
+	}
+	if task.CompletedAt != nil {
+		result["completed_at"] = task.CompletedAt.Format(time.RFC3339)
+	}
+
+	return result, nil
 }
 
 func (s *Server) handleTaskCancel(ctx context.Context, conn *Connection, params json.RawMessage) (interface{}, error) {
@@ -2009,16 +2061,40 @@ func (s *Server) handleTaskCancel(ctx context.Context, conn *Connection, params 
 		return nil, err
 	}
 
-	err := s.taskManager.CancelTask(ctx, cancelParams.TaskID, cancelParams.Reason)
+	// Check if taskService is available
+	if s.taskService == nil {
+		return nil, fmt.Errorf("task service not initialized")
+	}
+
+	// Parse task ID
+	taskUUID, err := uuid.Parse(cancelParams.TaskID)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("invalid task ID: %w", err)
+	}
+
+	// Get task first to update its status
+	task, err := s.taskService.Get(ctx, taskUUID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get task: %w", err)
+	}
+
+	// Update task status to cancelled
+	now := time.Now()
+	task.Status = models.TaskStatusCancelled
+	task.Error = cancelParams.Reason
+	task.CompletedAt = &now
+	task.UpdatedAt = now
+
+	err = s.taskService.Update(ctx, task)
+	if err != nil {
+		return nil, fmt.Errorf("failed to cancel task: %w", err)
 	}
 
 	return map[string]interface{}{
 		"task_id":      cancelParams.TaskID,
 		"status":       "cancelled",
 		"reason":       cancelParams.Reason,
-		"cancelled_at": time.Now().Format(time.RFC3339),
+		"cancelled_at": task.CompletedAt.Format(time.RFC3339),
 	}, nil
 }
 
@@ -2034,21 +2110,58 @@ func (s *Server) handleTaskList(ctx context.Context, conn *Connection, params js
 		return nil, err
 	}
 
-	tasks, total, err := s.taskManager.ListTasks(
-		ctx,
-		conn.AgentID,
-		listParams.Status,
-		listParams.Type,
-		listParams.Limit,
-		listParams.Offset,
-	)
+	// Check if taskService is available
+	if s.taskService == nil {
+		return nil, fmt.Errorf("task service not initialized")
+	}
+
+	// Set defaults
+	if listParams.Limit == 0 {
+		listParams.Limit = 20
+	}
+
+	// Build filters
+	filters := interfaces.TaskFilters{
+		Limit:  listParams.Limit,
+		Offset: listParams.Offset,
+	}
+
+	if listParams.Status != "" {
+		filters.Status = []string{listParams.Status}
+	}
+
+	if listParams.Type != "" {
+		filters.Types = []string{listParams.Type}
+	}
+
+	// Get tasks for this agent
+	tasks, err := s.taskService.GetAgentTasks(ctx, conn.AgentID, filters)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to list tasks: %w", err)
+	}
+
+	// Convert tasks to response format
+	var taskList []interface{}
+	for _, task := range tasks {
+		taskData := map[string]interface{}{
+			"task_id":    task.ID.String(),
+			"type":       task.Type,
+			"status":     string(task.Status),
+			"priority":   string(task.Priority),
+			"created_at": task.CreatedAt.Format(time.RFC3339),
+			"created_by": task.CreatedBy,
+		}
+		
+		if task.AssignedTo != nil {
+			taskData["assigned_to"] = *task.AssignedTo
+		}
+		
+		taskList = append(taskList, taskData)
 	}
 
 	return map[string]interface{}{
-		"tasks":  tasks,
-		"total":  total,
+		"tasks":  taskList,
+		"total":  len(taskList),
 		"limit":  listParams.Limit,
 		"offset": listParams.Offset,
 	}, nil

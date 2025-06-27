@@ -526,10 +526,13 @@ func (a *ProductionAuthorizer) loadPolicies() error {
 
 	// Add default role bindings for known test users
 	// In production, these would come from a database
-	a.roleBindings["user-dev-admin-key-1234567890"] = []string{"admin"}
-	a.roleBindings["user-test-key-agent-1"] = []string{"user"}
-	a.roleBindings["user-test-key-agent-2"] = []string{"user"}
-	a.roleBindings["user-dev-readonly-key-1234567890"] = []string{"viewer"}
+	a.roleBindings["system"] = []string{"admin"} // For admin keys without explicit user_id
+	a.roleBindings["agent-1"] = []string{"user"}
+	a.roleBindings["agent-2"] = []string{"user"}
+	a.roleBindings["backend-dev"] = []string{"user"}
+	a.roleBindings["frontend-dev"] = []string{"user"}
+	a.roleBindings["devops"] = []string{"user"}
+	a.roleBindings["ml-engineer"] = []string{"user"}
 
 	a.mu.Unlock()
 

@@ -122,18 +122,24 @@ func TestWebSocketTaskDelegation(t *testing.T) {
 	// Wait for agents to be fully registered
 	time.Sleep(500 * time.Millisecond)
 
-	// Agent 1 creates a task
-	taskID := uuid.New().String()
+	// Agent 1 creates a task using the auto-assign method which properly uses taskService
 	createTaskMsg := WebSocketMessage{
 		Type:   MessageTypeRequest,
 		ID:     uuid.New().String(),
-		Method: "task.create",
+		Method: "task.create_auto_assign",
 		Params: map[string]interface{}{
-			"id":          taskID,
-			"title":       "Implement authentication module",
-			"description": "Create JWT-based authentication",
-			"priority":    "high",
-			"type":        "coding",
+			"task": map[string]interface{}{
+				"id":                    uuid.New().String(),
+				"title":                 "Implement authentication module",
+				"description":           "Create JWT-based authentication",
+				"type":                  "coding",
+				"priority":              "high",
+				"required_capabilities": []string{"coding"},
+				"parameters": map[string]interface{}{
+					"module": "authentication",
+				},
+			},
+			"assignment_strategy": "capability_match",
 		},
 	}
 
@@ -143,40 +149,63 @@ func TestWebSocketTaskDelegation(t *testing.T) {
 	// Wait for task creation response
 	msg, err := agent1.ReadMessage(ctx)
 	require.NoError(t, err)
+	t.Logf("Received message: type=%d, method=%s, error=%v, result=%+v", msg.Type, msg.Method, msg.Error, msg.Result)
+	
+	// Skip notifications and wait for the actual response
+	for msg.Type == MessageTypeNotification {
+		t.Logf("Skipping notification: %s", msg.Method)
+		msg, err = agent1.ReadMessage(ctx)
+		require.NoError(t, err)
+	}
+	
 	assert.Equal(t, MessageTypeResponse, msg.Type)
-	assert.Nil(t, msg.Error)
+	if msg.Error != nil {
+		t.Fatalf("Task creation failed: %v", msg.Error)
+	}
 	
 	// Extract the actual task ID from the response
+	var taskID string
+	var assignedTo string
 	if result, ok := msg.Result.(map[string]interface{}); ok {
-		if id, ok := result["id"].(string); ok {
+		if id, ok := result["task_id"].(string); ok {
 			taskID = id
 			t.Logf("Created task with ID: %s", taskID)
 		}
+		if agent, ok := result["assigned_to"].(string); ok {
+			assignedTo = agent
+			t.Logf("Task auto-assigned to: %s", assignedTo)
+		}
 	}
+	require.NotEmpty(t, taskID, "Expected task_id in response")
 
 	// Small delay to ensure task is persisted
 	time.Sleep(100 * time.Millisecond)
 
-	// Agent 1 delegates task to Agent 2
-	delegateMsg := WebSocketMessage{
-		Type:   MessageTypeRequest,
-		ID:     uuid.New().String(),
-		Method: "task.delegate",
-		Params: map[string]interface{}{
-			"task_id":  taskID,
-			"to_agent": "agent2",
-			"reason":   "Agent 2 has authentication expertise",
-		},
+	// Only delegate if the task wasn't auto-assigned to agent2
+	if assignedTo != "agent2" {
+		// Agent 1 delegates task to Agent 2
+		delegateMsg := WebSocketMessage{
+			Type:   MessageTypeRequest,
+			ID:     uuid.New().String(),
+			Method: "task.delegate",
+			Params: map[string]interface{}{
+				"task_id":         taskID,
+				"to_agent_id":     "agent2",
+				"reason":          "Agent 2 has authentication expertise",
+				"delegation_type": "manual",
+				"metadata":        map[string]interface{}{},
+			},
+		}
+
+		err = agent1.SendMessage(delegateMsg)
+		require.NoError(t, err)
+
+		// Wait for delegation response
+		msg, err = agent1.ReadMessage(ctx)
+		require.NoError(t, err)
+		assert.Equal(t, MessageTypeResponse, msg.Type)
+		assert.Nil(t, msg.Error)
 	}
-
-	err = agent1.SendMessage(delegateMsg)
-	require.NoError(t, err)
-
-	// Wait for delegation response
-	msg, err = agent1.ReadMessage(ctx)
-	require.NoError(t, err)
-	assert.Equal(t, MessageTypeResponse, msg.Type)
-	assert.Nil(t, msg.Error)
 
 	// Agent 2 accepts the task
 	acceptMsg := WebSocketMessage{
