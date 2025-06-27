@@ -1,3 +1,6 @@
+// Copyright 2025 S-Corkum
+// SPDX-License-Identifier: MIT
+
 package websocket
 
 import (
