@@ -38,7 +38,6 @@ type transactionManagerImpl struct {
 	
 	// Transaction tracking
 	activeTransactions sync.Map
-	mu                sync.RWMutex
 }
 
 // NewTransactionManager creates a new transaction manager

@@ -18,11 +18,13 @@ import (
 type contextKey string
 
 const (
-	contextKeyTenantID  contextKey = "tenant_id"
-	contextKeyUserID    contextKey = "user_id"
-	contextKeyClaims    contextKey = "claims"
-	contextKeyRequestID contextKey = "request_id"
-	contextKeyMethod    contextKey = "method"
+	contextKeyTenantID     contextKey = "tenant_id"
+	contextKeyUserID       contextKey = "user_id"
+	contextKeyClaims       contextKey = "claims"
+	contextKeyRequestID    contextKey = "request_id"
+	contextKeyMethod       contextKey = "method"
+	contextKeyConnectionID contextKey = "connection_id"
+	contextKeyAgentID      contextKey = "agent_id"
 )
 
 // MessageHandler processes a specific message type
@@ -213,8 +215,8 @@ func (s *Server) processMessage(ctx context.Context, conn *Connection, msg *ws.M
 	// Add request metadata to context
 	ctx = context.WithValue(ctx, contextKeyRequestID, msg.ID)
 	ctx = context.WithValue(ctx, contextKeyMethod, msg.Method)
-	ctx = context.WithValue(ctx, "connection_id", conn.ID)
-	ctx = context.WithValue(ctx, "agent_id", conn.AgentID)
+	ctx = context.WithValue(ctx, contextKeyConnectionID, conn.ID)
+	ctx = context.WithValue(ctx, contextKeyAgentID, conn.AgentID)
 
 	// Record method call metric
 	if s.metricsCollector != nil {

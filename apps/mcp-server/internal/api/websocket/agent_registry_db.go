@@ -34,7 +34,6 @@ type DBAgentRegistry struct {
 	
 	// In-memory cache for real-time operations
 	onlineAgents sync.Map // connection ID -> agent ID for fast lookup
-	mu           sync.RWMutex
 }
 
 // NewDBAgentRegistry creates a new database-backed agent registry
@@ -78,7 +77,12 @@ func (ar *DBAgentRegistry) RegisterAgent(ctx context.Context, reg *AgentRegistra
 	// Cache the agent
 	cacheKey := fmt.Sprintf("agent:%s", agent.ID)
 	if ar.cache != nil {
-		ar.cache.Set(ctx, cacheKey, agent, 5*time.Minute)
+		if err := ar.cache.Set(ctx, cacheKey, agent, 5*time.Minute); err != nil {
+			ar.logger.Error("Failed to cache agent", map[string]interface{}{
+				"agent_id": agent.ID,
+				"error":    err.Error(),
+			})
+		}
 	}
 
 	// Track online status in memory
@@ -332,7 +336,12 @@ func (ar *DBAgentRegistry) GetAgentStatus(ctx context.Context, agentID string) (
 
 	// Cache the agent
 	if ar.cache != nil {
-		ar.cache.Set(ctx, cacheKey, agent, 5*time.Minute)
+		if err := ar.cache.Set(ctx, cacheKey, agent, 5*time.Minute); err != nil {
+			ar.logger.Error("Failed to cache agent", map[string]interface{}{
+				"agent_id": agent.ID,
+				"error":    err.Error(),
+			})
+		}
 	}
 
 	return ar.modelToAgentInfo(agent), nil
@@ -377,7 +386,12 @@ func (ar *DBAgentRegistry) UpdateAgentStatus(ctx context.Context, agentID, statu
 	// Invalidate cache
 	cacheKey := fmt.Sprintf("agent:%s", agentID)
 	if ar.cache != nil {
-		ar.cache.Delete(ctx, cacheKey)
+		if err := ar.cache.Delete(ctx, cacheKey); err != nil {
+			ar.logger.Error("Failed to delete agent from cache", map[string]interface{}{
+				"agent_id": agentID,
+				"error":    err.Error(),
+			})
+		}
 	}
 
 	ar.metrics.IncrementCounter(fmt.Sprintf("agent_status_%s", status), 1)
@@ -405,7 +419,12 @@ func (ar *DBAgentRegistry) RemoveAgent(agentID string) error {
 	// Invalidate cache
 	cacheKey := fmt.Sprintf("agent:%s", agentID)
 	if ar.cache != nil {
-		ar.cache.Delete(ctx, cacheKey)
+		if err := ar.cache.Delete(ctx, cacheKey); err != nil {
+			ar.logger.Error("Failed to delete agent from cache", map[string]interface{}{
+				"agent_id": agentID,
+				"error":    err.Error(),
+			})
+		}
 	}
 
 	ar.metrics.IncrementCounter("agents_removed", 1)

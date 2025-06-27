@@ -133,7 +133,9 @@ func makeAPIRequest(t *testing.T, method, url, apiKey string, body interface{}) 
 	if err != nil {
 		return nil, fmt.Errorf("request failed: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() {
+		_ = resp.Body.Close()
+	}()
 
 	var result map[string]interface{}
 	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
@@ -175,7 +177,9 @@ func CreateTestModel(ctx context.Context, apiURL, apiKey, tenantID string) (map[
 	if err != nil {
 		return nil, fmt.Errorf("request failed: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() {
+		_ = resp.Body.Close()
+	}()
 
 	if resp.StatusCode != http.StatusOK && resp.StatusCode != http.StatusCreated {
 		return nil, fmt.Errorf("API request failed with status %d", resp.StatusCode)
@@ -218,7 +222,9 @@ func CreateTestAgent(ctx context.Context, apiURL, apiKey, tenantID, modelID, nam
 	if err != nil {
 		return nil, fmt.Errorf("request failed: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() {
+		_ = resp.Body.Close()
+	}()
 
 	if resp.StatusCode != http.StatusOK && resp.StatusCode != http.StatusCreated {
 		return nil, fmt.Errorf("API request failed with status %d", resp.StatusCode)
