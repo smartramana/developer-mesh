@@ -332,6 +332,9 @@ func (s *Server) setupRoutes() {
 		c.JSON(http.StatusOK, gin.H{"status": "MCP REST API is running"})
 	})
 	s.router.GET("/health", s.healthHandler)
+	
+	// Metrics endpoint - public (no authentication required)
+	s.router.GET("/metrics", s.metricsHandler)
 
 	// Setup WebSocket endpoint
 	s.logger.Info("WebSocket route registration check", map[string]interface{}{
@@ -624,6 +627,13 @@ func (s *Server) InjectServices(services interface{}) {
 // RegisterShutdownHook registers a function to be called during server shutdown
 func RegisterShutdownHook(hook func()) {
 	shutdownHooks = append(shutdownHooks, hook)
+}
+
+// metricsHandler returns metrics for Prometheus
+func (s *Server) metricsHandler(c *gin.Context) {
+	// Use the Prometheus handler
+	handler := SetupPrometheusHandler()
+	handler(c)
 }
 
 // SetMultiAgentServices sets the multi-agent collaboration services on the server

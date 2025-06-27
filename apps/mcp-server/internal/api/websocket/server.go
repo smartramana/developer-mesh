@@ -1,6 +1,7 @@
 package websocket
 
 import (
+	"context"
 	"net/http"
 	"strings"
 	"sync"
@@ -16,6 +17,7 @@ import (
 	"github.com/S-Corkum/devops-mcp/pkg/observability"
 	agentRepository "github.com/S-Corkum/devops-mcp/pkg/repository/agent"
 	"github.com/S-Corkum/devops-mcp/pkg/services"
+	"go.opentelemetry.io/otel/attribute"
 )
 
 type Server struct {
@@ -26,6 +28,7 @@ type Server struct {
 	auth    *auth.Service
 	metrics observability.MetricsClient
 	logger  observability.Logger
+	tracingHandler *TracingHandler
 
 	config Config
 
@@ -93,12 +96,20 @@ type Connection struct {
 }
 
 func NewServer(auth *auth.Service, metrics observability.MetricsClient, logger observability.Logger, config Config) *Server {
+	// Create tracer function for tracing handler
+	var tracerFunc observability.StartSpanFunc = func(ctx context.Context, name string, attrs ...attribute.KeyValue) (context.Context, observability.Span) {
+		// This would use the global tracer or one passed in config
+		// For now, using a no-op implementation
+		return ctx, &NoOpSpan{}
+	}
+	
 	s := &Server{
 		connections: make(map[string]*Connection),
 		handlers:    make(map[string]MessageHandler),
 		auth:        auth,
 		metrics:     metrics,
 		logger:      logger,
+		tracingHandler: NewTracingHandler(tracerFunc, metrics, logger),
 		config:      config,
 		startTime:   time.Now(),
 	}

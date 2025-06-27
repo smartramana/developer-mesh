@@ -171,6 +171,16 @@ func (s *Server) processMessage(ctx context.Context, conn *Connection, msg *ws.M
 	if !ok {
 		return s.createErrorResponse(msg.ID, ws.ErrCodeMethodNotFound, "Method not found")
 	}
+	
+	// Convert params to json.RawMessage if needed
+	var params json.RawMessage
+	if msg.Params != nil {
+		paramBytes, err := json.Marshal(msg.Params)
+		if err != nil {
+			return s.createErrorResponse(msg.ID, ws.ErrCodeInvalidParams, "Invalid parameters")
+		}
+		params = paramBytes
+	}
 
 	// Check authorization
 	if conn.state != nil && conn.state.Claims != nil {
@@ -200,19 +210,11 @@ func (s *Server) processMessage(ctx context.Context, conn *Connection, msg *ws.M
 		return s.createErrorResponse(msg.ID, ws.ErrCodeAuthFailed, "Authentication required")
 	}
 
-	// Convert params to json.RawMessage if needed
-	var params json.RawMessage
-	if msg.Params != nil {
-		paramBytes, err := json.Marshal(msg.Params)
-		if err != nil {
-			return s.createErrorResponse(msg.ID, ws.ErrCodeInvalidParams, "Invalid parameters")
-		}
-		params = paramBytes
-	}
-
 	// Add request metadata to context
 	ctx = context.WithValue(ctx, contextKeyRequestID, msg.ID)
 	ctx = context.WithValue(ctx, contextKeyMethod, msg.Method)
+	ctx = context.WithValue(ctx, "connection_id", conn.ID)
+	ctx = context.WithValue(ctx, "agent_id", conn.AgentID)
 
 	// Record method call metric
 	if s.metricsCollector != nil {
@@ -222,8 +224,22 @@ func (s *Server) processMessage(ctx context.Context, conn *Connection, msg *ws.M
 		}()
 	}
 
-	// Execute handler
-	result, err := handler(ctx, conn, params)
+	// Execute handler with tracing
+	var result interface{}
+	var err error
+	
+	if s.tracingHandler != nil {
+		// Use tracing handler to wrap individual method execution
+		err = s.tracingHandler.HandleWithTracing(ctx, msg.Method, func(tracedCtx context.Context) error {
+			var execErr error
+			result, execErr = handler(tracedCtx, conn, params)
+			return execErr
+		})
+	} else {
+		// Execute handler without tracing
+		result, err = handler(ctx, conn, params)
+	}
+	
 	if err != nil {
 		s.logger.Error("Handler error", map[string]interface{}{
 			"method":        msg.Method,

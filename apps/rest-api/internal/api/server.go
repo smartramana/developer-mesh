@@ -461,8 +461,9 @@ func (s *Server) Shutdown(ctx context.Context) error {
 
 // metricsHandler returns metrics for Prometheus
 func (s *Server) metricsHandler(c *gin.Context) {
-	// Implementation depends on metrics client
-	c.String(http.StatusOK, "# metrics data will be here")
+	// Use the Prometheus handler
+	handler := SetupPrometheusHandler()
+	handler(c)
 }
 
 // getBaseURL extracts the base URL from the request for HATEOAS links

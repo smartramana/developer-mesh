@@ -389,8 +389,9 @@ func (s *Server) healthHandler(c *gin.Context) {
 
 // metricsHandler returns metrics for Prometheus
 func (s *Server) metricsHandler(c *gin.Context) {
-	// Implementation depends on metrics client
-	c.String(http.StatusOK, "# metrics data will be here")
+	// Use the Prometheus handler
+	handler := SetupMetricsHandler()
+	handler(c)
 }
 
 // getBaseURL extracts the base URL from the request for HATEOAS links
