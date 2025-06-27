@@ -27,21 +27,21 @@ ARG VERSION
 ARG COMMIT_SHA
 ARG BUILD_DATE
 
-# Build the application
-WORKDIR /app/apps/rest-api
+# Build the application from workspace root
+WORKDIR /app
 RUN --mount=type=cache,target=/go/pkg/mod \
     --mount=type=cache,target=/root/.cache/go-build \
     go mod download && \
     CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build \
     -ldflags="-w -s -extldflags '-static' -X main.Version=${VERSION} -X main.GitCommit=${COMMIT_SHA} -X main.BuildDate=${BUILD_DATE}" \
     -a -installsuffix cgo \
-    -o rest-api ./cmd/api
+    -o rest-api ./apps/rest-api/cmd/api
 
 # Runtime stage - using distroless for security
 FROM gcr.io/distroless/static:nonroot
 
 # Copy binary from builder stage
-COPY --from=builder --chown=nonroot:nonroot /app/apps/rest-api/rest-api /app/rest-api
+COPY --from=builder --chown=nonroot:nonroot /app/rest-api /app/rest-api
 
 # Copy configs with proper permissions
 COPY --from=builder --chown=nonroot:nonroot /app/apps/rest-api/configs /app/configs

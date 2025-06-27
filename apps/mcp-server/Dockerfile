@@ -31,13 +31,13 @@ ARG VERSION
 ARG COMMIT_SHA
 ARG BUILD_DATE
 
-# Build the application
-WORKDIR /build/apps/mcp-server
+# Build the application from workspace root
+WORKDIR /build
 RUN go mod download && \
     CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build \
     -ldflags="-w -s -extldflags '-static' -X main.Version=${VERSION} -X main.GitCommit=${COMMIT_SHA} -X main.BuildDate=${BUILD_DATE}" \
     -a -installsuffix cgo \
-    -o mcp-server ./cmd/server
+    -o mcp-server ./apps/mcp-server/cmd/server
 
 # Create minimal runtime stage using distroless
 FROM gcr.io/distroless/static:nonroot
@@ -47,7 +47,7 @@ COPY --from=builder /usr/share/zoneinfo /usr/share/zoneinfo
 COPY --from=builder /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/
 
 # Copy the binary from builder
-COPY --from=builder /build/apps/mcp-server/mcp-server /app/mcp-server
+COPY --from=builder /build/mcp-server /app/mcp-server
 
 # Copy configuration files
 COPY --chown=nonroot:nonroot apps/mcp-server/configs /app/configs

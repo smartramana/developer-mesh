@@ -27,8 +27,8 @@ ARG VERSION
 ARG COMMIT_SHA
 ARG BUILD_DATE
 
-# Build the application
-WORKDIR /build/apps/mockserver
+# Build the application from workspace root
+WORKDIR /build
 
 RUN --mount=type=cache,target=/go/pkg/mod \
     --mount=type=cache,target=/root/.cache/go-build \
@@ -36,7 +36,7 @@ RUN --mount=type=cache,target=/go/pkg/mod \
     CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build \
     -ldflags="-w -s -extldflags '-static' -X main.Version=${VERSION} -X main.GitCommit=${COMMIT_SHA} -X main.BuildDate=${BUILD_DATE}" \
     -a -installsuffix cgo \
-    -o mockserver ./cmd/main.go
+    -o mockserver ./apps/mockserver/cmd/main.go
 
 # Runtime stage - using distroless for security
 FROM gcr.io/distroless/static:nonroot
@@ -46,7 +46,7 @@ COPY --from=builder /usr/share/zoneinfo /usr/share/zoneinfo
 COPY --from=builder /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/
 
 # Copy the binary from builder
-COPY --from=builder /build/apps/mockserver/mockserver /app/mockserver
+COPY --from=builder /build/mockserver /app/mockserver
 
 # Set working directory
 WORKDIR /app
