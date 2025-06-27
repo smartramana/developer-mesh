@@ -23,6 +23,9 @@ WORKDIR /build
 # Copy entire project for Go workspace support
 COPY . .
 
+# Verify go.work was copied
+RUN ls -la /build/go.work* || echo "WARNING: go.work files not found!"
+
 # Enable go workspace
 ENV GOWORK=/build/go.work
 
