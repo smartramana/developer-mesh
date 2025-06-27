@@ -270,7 +270,6 @@ migrate-down: ## Rollback last migration
 migrate-status: ## Show migration status
 	@which migrate > /dev/null || (echo "Error: golang-migrate not installed. Run: brew install golang-migrate" && exit 1)
 	migrate -database "postgresql://${DB_USER:-postgres}:${DB_PASSWORD:-postgres}@${DB_HOST:-localhost}:${DB_PORT:-5432}/${DATABASE_NAME:-devops_mcp_dev}?sslmode=${DATABASE_SSL_MODE:-disable}" -path apps/rest-api/migrations/sql version
-sh
 # ==============================================================================
 # Development Helpers
 # ==============================================================================

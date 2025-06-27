@@ -30,6 +30,8 @@ ARG VERSION
 ARG COMMIT_SHA
 ARG BUILD_DATE
 
+# Sync go workspace
+RUN go work sync
 
 # Build the application
 WORKDIR /build/apps/mcp-server
