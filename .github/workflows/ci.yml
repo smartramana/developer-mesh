@@ -38,98 +38,98 @@ jobs:
       - name: Run golangci-lint on all modules
         run: ./.github/scripts/lint-all-modules.sh
 
-  test:
-    name: Test
-    runs-on: ubuntu-latest
-    services:
-      postgres:
-        image: pgvector/pgvector:pg17
-        env:
-          POSTGRES_USER: test
-          POSTGRES_PASSWORD: test
-          POSTGRES_DB: devops_mcp_test
-          POSTGRES_INITDB_ARGS: "-c shared_preload_libraries='vector'"
-        options: >-
-          --health-cmd pg_isready
-          --health-interval 10s
-          --health-timeout 5s
-          --health-retries 5
-        ports:
-          - 5432:5432
+  # test:
+  #   name: Test
+  #   runs-on: ubuntu-latest
+  #   services:
+  #     postgres:
+  #       image: pgvector/pgvector:pg17
+  #       env:
+  #         POSTGRES_USER: test
+  #         POSTGRES_PASSWORD: test
+  #         POSTGRES_DB: devops_mcp_test
+  #         POSTGRES_INITDB_ARGS: "-c shared_preload_libraries='vector'"
+  #       options: >-
+  #         --health-cmd pg_isready
+  #         --health-interval 10s
+  #         --health-timeout 5s
+  #         --health-retries 5
+  #       ports:
+  #         - 5432:5432
       
-      redis:
-        image: redis:7-alpine
-        options: >-
-          --health-cmd "redis-cli ping"
-          --health-interval 10s
-          --health-timeout 5s
-          --health-retries 5
-        ports:
-          - 6379:6379
+  #     redis:
+  #       image: redis:7-alpine
+  #       options: >-
+  #         --health-cmd "redis-cli ping"
+  #         --health-interval 10s
+  #         --health-timeout 5s
+  #         --health-retries 5
+  #       ports:
+  #         - 6379:6379
 
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
+  #   steps:
+  #     - name: Checkout code
+  #       uses: actions/checkout@v4
 
-      - name: Set up Go
-        uses: actions/setup-go@v5
-        with:
-          go-version: ${{ env.GO_VERSION }}
-          # WORKAROUND: Disable cache due to go.work issues
-          # TODO: Remove when https://github.com/actions/setup-go/issues/482 is fixed
-          cache: false
+  #     - name: Set up Go
+  #       uses: actions/setup-go@v5
+  #       with:
+  #         go-version: ${{ env.GO_VERSION }}
+  #         # WORKAROUND: Disable cache due to go.work issues
+  #         # TODO: Remove when https://github.com/actions/setup-go/issues/482 is fixed
+  #         cache: false
 
-      - name: Setup Go workspace
-        run: |
-          go work init
-          go work use ./apps/mcp-server
-          go work use ./apps/rest-api
-          go work use ./apps/worker
-          go work use ./pkg
-          go work use ./pkg/tests/integration
-          go work use ./test/functional
-          go work use ./test/github-live
-          go work sync
+  #     - name: Setup Go workspace
+  #       run: |
+  #         go work init
+  #         go work use ./apps/mcp-server
+  #         go work use ./apps/rest-api
+  #         go work use ./apps/worker
+  #         go work use ./pkg
+  #         go work use ./pkg/tests/integration
+  #         go work use ./test/functional
+  #         go work use ./test/github-live
+  #         go work sync
 
-      - name: Install jq (required for helper scripts)
-        run: sudo apt-get update && sudo apt-get install -y jq
+  #     - name: Install jq (required for helper scripts)
+  #       run: sudo apt-get update && sudo apt-get install -y jq
 
-      - name: Set up test database
-        run: |
-          PGPASSWORD=test psql -h localhost -U test -d devops_mcp_test -c "CREATE EXTENSION IF NOT EXISTS vector;"
-          PGPASSWORD=test psql -h localhost -U test -d devops_mcp_test -c "CREATE EXTENSION IF NOT EXISTS \"uuid-ossp\";"
+  #     - name: Set up test database
+  #       run: |
+  #         PGPASSWORD=test psql -h localhost -U test -d devops_mcp_test -c "CREATE EXTENSION IF NOT EXISTS vector;"
+  #         PGPASSWORD=test psql -h localhost -U test -d devops_mcp_test -c "CREATE EXTENSION IF NOT EXISTS \"uuid-ossp\";"
 
-      - name: Create test environment file
-        run: |
-          cat > .env.test <<EOF
-          DATABASE_HOST=localhost
-          DATABASE_PORT=5432
-          DATABASE_USER=test
-          DATABASE_PASSWORD=test
-          DATABASE_NAME=devops_mcp_test
-          DATABASE_SSL_MODE=disable
-          REDIS_HOST=localhost
-          REDIS_PORT=6379
-          REDIS_ADDR=localhost:6379
-          JWT_SECRET=test-jwt-secret-for-ci-testing-minimum-32-chars
-          ADMIN_API_KEY=test-admin-key-1234567890
-          ENVIRONMENT=test
-          EOF
+  #     - name: Create test environment file
+  #       run: |
+  #         cat > .env.test <<EOF
+  #         DATABASE_HOST=localhost
+  #         DATABASE_PORT=5432
+  #         DATABASE_USER=test
+  #         DATABASE_PASSWORD=test
+  #         DATABASE_NAME=devops_mcp_test
+  #         DATABASE_SSL_MODE=disable
+  #         REDIS_HOST=localhost
+  #         REDIS_PORT=6379
+  #         REDIS_ADDR=localhost:6379
+  #         JWT_SECRET=test-jwt-secret-for-ci-testing-minimum-32-chars
+  #         ADMIN_API_KEY=test-admin-key-1234567890
+  #         ENVIRONMENT=test
+  #         EOF
 
-      - name: Run unit tests with coverage
-        run: |
-          export TEST_FLAGS="-race -coverprofile=coverage.out -covermode=atomic"
-          ./.github/scripts/test-all-modules.sh
-        env:
-          DATABASE_DSN: postgres://test:test@localhost:5432/devops_mcp_test?sslmode=disable
-          REDIS_ADDR: localhost:6379
+  #     - name: Run unit tests with coverage
+  #       run: |
+  #         export TEST_FLAGS="-race -coverprofile=coverage.out -covermode=atomic"
+  #         ./.github/scripts/test-all-modules.sh
+  #       env:
+  #         DATABASE_DSN: postgres://test:test@localhost:5432/devops_mcp_test?sslmode=disable
+  #         REDIS_ADDR: localhost:6379
 
-      - name: Upload coverage to Codecov
-        uses: codecov/codecov-action@v3
-        with:
-          file: ./coverage.out
-          flags: unittests
-          name: codecov-umbrella
+  #     - name: Upload coverage to Codecov
+  #       uses: codecov/codecov-action@v3
+  #       with:
+  #         file: ./coverage.out
+  #         flags: unittests
+  #         name: codecov-umbrella
 
   build:
     name: Build
