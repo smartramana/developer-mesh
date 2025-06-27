@@ -15,7 +15,7 @@ jobs:
       
       - uses: actions/setup-go@v5
         with:
-          go-version: '1.24'
+          go-version: '1.24.4'
           
       - name: Run linter
         run: |
@@ -30,7 +30,7 @@ jobs:
       
       - uses: actions/setup-go@v5
         with:
-          go-version: '1.24'
+          go-version: '1.24.4'
           
       - name: Run gosec
         run: |
@@ -46,6 +46,19 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       
+      - name: Debug environment
+        run: |
+          echo "=== Go environment ==="
+          which go || echo "Go not installed"
+          go version || echo "Go version failed"
+          echo "=== Directory structure ==="
+          ls -la
+          ls -la apps/
+          echo "=== go.work contents ==="
+          cat go.work
+          echo "=== go.mod files ==="
+          find . -name "go.mod" -type f
+          
       - name: Build Docker image
         run: |
-          docker build -f apps/${{ matrix.app }}/Dockerfile -t ${{ matrix.app }}:test .
+          docker build --progress=plain -f apps/${{ matrix.app }}/Dockerfile -t ${{ matrix.app }}:test .

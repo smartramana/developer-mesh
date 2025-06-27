@@ -7,7 +7,7 @@ ARG COMMIT_SHA=unknown
 ARG BUILD_DATE
 
 # Build stage
-FROM golang:1.24-alpine AS builder
+FROM golang:1.24.4-alpine AS builder
 
 # Install security updates and build dependencies
 RUN apk update && apk upgrade && \
@@ -23,15 +23,14 @@ WORKDIR /build
 # Copy entire project for Go workspace support
 COPY . .
 
+# Enable go workspace
+ENV GOWORK=/build/go.work
 # Set up Go workspace and build
 WORKDIR /build
 # Re-declare build args for use in this stage
 ARG VERSION
 ARG COMMIT_SHA
 ARG BUILD_DATE
-
-# Sync go workspace
-RUN go work sync
 
 # Build the application
 WORKDIR /build/apps/worker

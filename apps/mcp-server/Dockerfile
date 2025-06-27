@@ -7,7 +7,7 @@ ARG COMMIT_SHA=unknown
 ARG BUILD_DATE
 
 # Build stage
-FROM golang:1.24-alpine AS builder
+FROM golang:1.24.4-alpine AS builder
 
 # Install security updates and build dependencies
 RUN apk update && apk upgrade && \
@@ -23,21 +23,17 @@ WORKDIR /build
 # Copy entire project for Go workspace support
 COPY . .
 
-# Set up Go workspace and build
-WORKDIR /build
+# Enable go workspace
+ENV GOWORK=/build/go.work
+
 # Re-declare build args for use in this stage
 ARG VERSION
 ARG COMMIT_SHA
 ARG BUILD_DATE
 
-# Sync go workspace
-RUN go work sync
-
 # Build the application
 WORKDIR /build/apps/mcp-server
-RUN --mount=type=cache,target=/go/pkg/mod \
-    --mount=type=cache,target=/root/.cache/go-build \
-    go mod download && \
+RUN go mod download && \
     CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build \
     -ldflags="-w -s -extldflags '-static' -X main.Version=${VERSION} -X main.GitCommit=${COMMIT_SHA} -X main.BuildDate=${BUILD_DATE}" \
     -a -installsuffix cgo \
