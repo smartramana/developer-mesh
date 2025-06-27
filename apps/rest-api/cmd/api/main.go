@@ -10,8 +10,8 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/S-Corkum/devops-mcp/apps/rest-api/internal/api"
-	"github.com/S-Corkum/devops-mcp/apps/rest-api/internal/core"
+	"rest-api/internal/api"
+	"rest-api/internal/core"
 
 	"github.com/S-Corkum/devops-mcp/pkg/common/aws"
 	"github.com/S-Corkum/devops-mcp/pkg/common/cache"

@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 
-	internalRepo "github.com/S-Corkum/devops-mcp/apps/rest-api/internal/repository"
+	internalRepo "rest-api/internal/repository"
 
 	pkgRepo "github.com/S-Corkum/devops-mcp/pkg/repository"
 	"github.com/S-Corkum/devops-mcp/pkg/repository/vector"

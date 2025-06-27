@@ -7,7 +7,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/S-Corkum/devops-mcp/apps/rest-api/internal/core"
+	"rest-api/internal/core"
 
 	"github.com/S-Corkum/devops-mcp/pkg/config"
 	"github.com/S-Corkum/devops-mcp/pkg/models"

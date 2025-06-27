@@ -1,4 +1,4 @@
-module github.com/S-Corkum/devops-mcp/apps/worker
+module worker
 
 go 1.24.2
 

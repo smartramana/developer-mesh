@@ -11,7 +11,7 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/S-Corkum/devops-mcp/apps/worker/internal/worker"
+	"worker/internal/worker"
 
 	"github.com/S-Corkum/devops-mcp/pkg/queue"
 	redis "github.com/go-redis/redis/v8"

@@ -1,4 +1,4 @@
-module github.com/S-Corkum/devops-mcp/apps/rest-api
+module rest-api
 
 go 1.24.2
 
