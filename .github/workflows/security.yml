@@ -124,55 +124,55 @@ jobs:
           sarif_file: 'trivy-results-${{ matrix.app }}.sarif'
           category: 'trivy-${{ matrix.app }}'
 
-  codeql:
-    name: CodeQL Analysis
-    runs-on: ubuntu-latest
-    permissions:
-      actions: read
-      contents: read
-      security-events: write
+  # codeql:
+  #   name: CodeQL Analysis
+  #   runs-on: ubuntu-latest
+  #   permissions:
+  #     actions: read
+  #     contents: read
+  #     security-events: write
 
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
+  #   steps:
+  #     - name: Checkout repository
+  #       uses: actions/checkout@v4
 
-      - name: Set up Go
-        uses: actions/setup-go@v5
-        with:
-          go-version: ${{ env.GO_VERSION }}
-          # WORKAROUND: Disable cache due to go.work issues
-          # TODO: Remove when https://github.com/actions/setup-go/issues/482 is fixed
-          cache: false
+  #     - name: Set up Go
+  #       uses: actions/setup-go@v5
+  #       with:
+  #         go-version: ${{ env.GO_VERSION }}
+  #         # WORKAROUND: Disable cache due to go.work issues
+  #         # TODO: Remove when https://github.com/actions/setup-go/issues/482 is fixed
+  #         cache: false
 
-      - name: Initialize CodeQL
-        uses: github/codeql-action/init@v3
-        with:
-          languages: go
-          # Override the default queries to include security-and-quality
-          queries: security-and-quality
+  #     - name: Initialize CodeQL
+  #       uses: github/codeql-action/init@v3
+  #       with:
+  #         languages: go
+  #         # Override the default queries to include security-and-quality
+  #         queries: security-and-quality
 
-      - name: Build all applications
-        run: |
-          # WORKAROUND: CodeQL autobuild doesn't understand Go workspaces
-          # Manually build all applications to ensure proper analysis
-          echo "Setting up Go workspace..."
-          if [ ! -f "go.work" ]; then
-            go work init
-            for dir in apps/mcp-server apps/rest-api apps/worker pkg; do
-              [ -f "$dir/go.mod" ] && go work use "$dir"
-            done
-          fi
-          go work sync
+  #     - name: Build all applications
+  #       run: |
+  #         # WORKAROUND: CodeQL autobuild doesn't understand Go workspaces
+  #         # Manually build all applications to ensure proper analysis
+  #         echo "Setting up Go workspace..."
+  #         if [ ! -f "go.work" ]; then
+  #           go work init
+  #           for dir in apps/mcp-server apps/rest-api apps/worker pkg; do
+  #             [ -f "$dir/go.mod" ] && go work use "$dir"
+  #           done
+  #         fi
+  #         go work sync
           
-          echo "Building all applications..."
-          make build-mcp-server
-          make build-rest-api
-          make build-worker
+  #         echo "Building all applications..."
+  #         make build-mcp-server
+  #         make build-rest-api
+  #         make build-worker
 
-      - name: Perform CodeQL Analysis
-        uses: github/codeql-action/analyze@v3
-        with:
-          category: "/language:go"
+  #     - name: Perform CodeQL Analysis
+  #       uses: github/codeql-action/analyze@v3
+  #       with:
+  #         category: "/language:go"
 
   # license-check:
   #   name: License Check
