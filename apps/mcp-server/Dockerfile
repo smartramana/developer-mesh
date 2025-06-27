@@ -32,13 +32,20 @@ ARG BUILD_DATE
 
 # Initialize Go workspace if needed
 RUN if [ ! -f "go.work" ]; then \
+        echo "Creating go.work file..." && \
         go work init && \
-        go work use ./apps/mcp-server && \
-        go work use ./apps/rest-api && \
-        go work use ./apps/worker && \
-        go work use ./pkg && \
+        for dir in ./apps/mcp-server ./apps/rest-api ./apps/worker ./apps/mockserver ./pkg; do \
+            if [ -f "$dir/go.mod" ]; then \
+                echo "Adding $dir to workspace" && \
+                go work use "$dir"; \
+            else \
+                echo "Skipping $dir - no go.mod found"; \
+            fi; \
+        done && \
         go work sync; \
-    fi
+    fi && \
+    echo "go.work contents:" && \
+    cat go.work
 
 # Build the application
 WORKDIR /build/apps/mcp-server
