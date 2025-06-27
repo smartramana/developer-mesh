@@ -57,6 +57,12 @@ type Server struct {
 	// WebSocket server
 	wsServer        *websocket.Server
 	webhookAPIProxy proxies.WebhookRepository // Proxy for webhook operations
+	// Multi-agent services
+	taskService      pgservices.TaskService
+	workflowService  pgservices.WorkflowService
+	workspaceService pgservices.WorkspaceService
+	documentService  pgservices.DocumentService
+	conflictService  pgservices.ConflictResolutionService
 }
 
 // NewServer creates a new API server
@@ -552,6 +558,8 @@ func (s *Server) InjectServices(services interface{}) {
 	var workspaceService pgservices.WorkspaceService
 	var documentService pgservices.DocumentService
 	var conflictService pgservices.ConflictResolutionService
+	var agentRepo agent.Repository
+	var cacheClient cache.Cache
 
 	// Find and extract each service field
 	for i := 0; i < servicesType.NumField(); i++ {
@@ -580,12 +588,20 @@ func (s *Server) InjectServices(services interface{}) {
 				if cs, ok := fieldValue.Interface().(pgservices.ConflictResolutionService); ok {
 					conflictService = cs
 				}
+			case "AgentRepository":
+				if ar, ok := fieldValue.Interface().(agent.Repository); ok {
+					agentRepo = ar
+				}
+			case "Cache":
+				if cc, ok := fieldValue.Interface().(cache.Cache); ok {
+					cacheClient = cc
+				}
 			}
 		}
 	}
 
 	// Inject services into WebSocket server
-	s.wsServer.SetServices(taskService, workflowService, workspaceService, documentService, conflictService)
+	s.wsServer.SetServices(taskService, workflowService, workspaceService, documentService, conflictService, agentRepo, cacheClient)
 
 	s.logger.Info("Services successfully injected into WebSocket server", map[string]interface{}{
 		"task_service_nil":      taskService == nil,
@@ -593,15 +609,50 @@ func (s *Server) InjectServices(services interface{}) {
 		"workspace_service_nil": workspaceService == nil,
 		"document_service_nil":  documentService == nil,
 		"conflict_service_nil":  conflictService == nil,
+		"agent_repo_nil":        agentRepo == nil,
+		"cache_nil":             cacheClient == nil,
 		"has_task_service":      taskService != nil,
 		"has_workflow_service":  workflowService != nil,
 		"has_workspace_service": workspaceService != nil,
 		"has_document_service":  documentService != nil,
 		"has_conflict_service":  conflictService != nil,
+		"has_agent_repo":        agentRepo != nil,
+		"has_cache":             cacheClient != nil,
 	})
 }
 
 // RegisterShutdownHook registers a function to be called during server shutdown
 func RegisterShutdownHook(hook func()) {
 	shutdownHooks = append(shutdownHooks, hook)
+}
+
+// SetMultiAgentServices sets the multi-agent collaboration services on the server
+func (s *Server) SetMultiAgentServices(
+	taskService pgservices.TaskService,
+	workflowService pgservices.WorkflowService,
+	workspaceService pgservices.WorkspaceService,
+	documentService pgservices.DocumentService,
+	conflictService pgservices.ConflictResolutionService,
+) {
+	s.taskService = taskService
+	s.workflowService = workflowService
+	s.workspaceService = workspaceService
+	s.documentService = documentService
+	s.conflictService = conflictService
+
+	// Pass services to WebSocket server if it exists
+	if s.wsServer != nil {
+		// Pass nil for agent repository and cache since they're not available in this method
+		// They should be passed through InjectServices instead
+		s.wsServer.SetServices(taskService, workflowService, workspaceService, documentService, conflictService, nil, nil)
+		s.logger.Info("Multi-agent services set on WebSocket server", map[string]interface{}{
+			"taskService_nil": taskService == nil,
+			"workflowService_nil": workflowService == nil,
+			"workspaceService_nil": workspaceService == nil,
+			"documentService_nil": documentService == nil,
+			"conflictService_nil": conflictService == nil,
+		})
+	} else {
+		s.logger.Warn("WebSocket server is nil, cannot set services", nil)
+	}
 }

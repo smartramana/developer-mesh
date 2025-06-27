@@ -514,6 +514,8 @@ type ServicesBundle struct {
 	WorkspaceService services.WorkspaceService
 	DocumentService  services.DocumentService
 	ConflictService  services.ConflictResolutionService
+	AgentRepository  repository.AgentRepository
+	Cache            cache.Cache
 }
 
 // initializeServices creates all services for multi-agent collaboration
@@ -613,6 +615,8 @@ func initializeServices(ctx context.Context, cfg *commonconfig.Config, db *datab
 		WorkspaceService: workspaceService,
 		DocumentService:  documentService,
 		ConflictService:  conflictService,
+		AgentRepository:  agentRepo,
+		Cache:            cacheClient,
 	}, nil
 }
 

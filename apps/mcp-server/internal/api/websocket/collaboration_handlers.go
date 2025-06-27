@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/S-Corkum/devops-mcp/pkg/auth"
+	"github.com/S-Corkum/devops-mcp/pkg/collaboration"
 	"github.com/S-Corkum/devops-mcp/pkg/models"
 	"github.com/google/uuid"
 )
@@ -117,10 +118,88 @@ func (s *Server) handleTaskCreateAutoAssign(ctx context.Context, conn *Connectio
 		return nil, fmt.Errorf("no agent found with required capabilities: %v", createParams.Task.RequiredCapabilities)
 	}
 
-	// Mock task creation
-	taskID := createParams.Task.ID
-	if taskID == "" {
-		taskID = uuid.New().String()
+	// Check if taskService is available
+	if s.taskService == nil {
+		s.logger.Error("Task service not initialized", map[string]interface{}{
+			"method": "handleTaskCreateAutoAssign",
+		})
+		return nil, fmt.Errorf("task service not initialized")
+	}
+
+	// Parse task ID if provided, otherwise generate new one
+	var taskUUID uuid.UUID
+	if createParams.Task.ID != "" {
+		var err error
+		taskUUID, err = uuid.Parse(createParams.Task.ID)
+		if err != nil {
+			taskUUID = uuid.New()
+		}
+	} else {
+		taskUUID = uuid.New()
+	}
+
+	// Parse tenant ID
+	tenantUUID, err := uuid.Parse(conn.TenantID)
+	if err != nil {
+		return nil, fmt.Errorf("invalid tenant ID: %w", err)
+	}
+
+	// Convert priority string to TaskPriority
+	priority := models.TaskPriorityNormal
+	switch createParams.Task.Priority {
+	case "low":
+		priority = models.TaskPriorityLow
+	case "high":
+		priority = models.TaskPriorityHigh
+	case "critical":
+		priority = models.TaskPriorityCritical
+	}
+
+	// Create task in database
+	task := &models.Task{
+		ID:          taskUUID,
+		Type:        createParams.Task.Type,
+		Title:       createParams.Task.Title,
+		Description: createParams.Task.Description,
+		Parameters:  models.JSONMap(createParams.Task.Parameters),
+		Priority:    priority,
+		Status:      models.TaskStatusPending,
+		CreatedBy:   conn.AgentID,
+		TenantID:    tenantUUID,
+		CreatedAt:   time.Now(),
+		UpdatedAt:   time.Now(),
+		Version:     1,
+	}
+
+	// Add required capabilities to tags
+	if len(createParams.Task.RequiredCapabilities) > 0 {
+		task.Tags = createParams.Task.RequiredCapabilities
+	}
+
+	// Create task with idempotency key
+	idempotencyKey := fmt.Sprintf("task-create-auto-%s", task.ID.String())
+	s.logger.Info("Creating task in database", map[string]interface{}{
+		"task_id": task.ID.String(),
+		"type": task.Type,
+		"title": task.Title,
+		"assigned_to": bestAgent,
+	})
+	err = s.taskService.Create(ctx, task, idempotencyKey)
+	if err != nil {
+		s.logger.Error("Failed to create task", map[string]interface{}{
+			"task_id": task.ID.String(),
+			"error": err.Error(),
+		})
+		return nil, fmt.Errorf("failed to create task: %w", err)
+	}
+	s.logger.Info("Task created successfully", map[string]interface{}{
+		"task_id": task.ID.String(),
+	})
+
+	// Auto-assign the task
+	err = s.taskService.AssignTask(ctx, task.ID, bestAgent)
+	if err != nil {
+		return nil, fmt.Errorf("failed to assign task: %w", err)
 	}
 
 	// Send assignment notification to the selected agent
@@ -128,8 +207,8 @@ func (s *Server) handleTaskCreateAutoAssign(ctx context.Context, conn *Connectio
 	for _, c := range s.connections {
 		if c.AgentID == bestAgent {
 			notification := map[string]interface{}{
-				"task_id":      taskID,
-				"title":        createParams.Task.Title,
+				"task_id":      task.ID.String(),
+				"title":        task.Title,
 				"capabilities": createParams.Task.RequiredCapabilities,
 				"assigned_at":  time.Now().Format(time.RFC3339),
 			}
@@ -153,10 +232,10 @@ func (s *Server) handleTaskCreateAutoAssign(ctx context.Context, conn *Connectio
 	s.mu.RUnlock()
 
 	return map[string]interface{}{
-		"task_id":      taskID,
+		"task_id":      task.ID.String(),
 		"assigned_to":  bestAgent,
-		"status":       "assigned",
-		"created_at":   time.Now().Format(time.RFC3339),
+		"status":       string(models.TaskStatusAssigned),
+		"created_at":   task.CreatedAt.Format(time.RFC3339),
 	}, nil
 }
 
@@ -269,18 +348,8 @@ func (s *Server) handleTaskCreateDistributed(ctx context.Context, conn *Connecti
 		}, nil
 	}
 
-	// Mock response if service not available
-	taskID := uuid.New()
-	return map[string]interface{}{
-		"task_id":       taskID.String(),
-		"type":          createParams.Type,
-		"status":        "pending",
-		"priority":      createParams.Priority,
-		"subtask_count": len(createParams.Subtasks),
-		"strategy":      createParams.Strategy,
-		"target_agents": createParams.TargetAgents,
-		"created_at":    time.Now().Format(time.RFC3339),
-	}, nil
+	// Service not initialized
+	return nil, fmt.Errorf("task service not initialized")
 }
 
 // handleTaskDelegate delegates a task to another agent
@@ -311,6 +380,17 @@ func (s *Server) handleTaskDelegate(ctx context.Context, conn *Connection, param
 	}
 
 	if s.taskService != nil {
+		// Get task first to ensure it exists and get its CreatedAt for partitioned FK
+		task, err := s.taskService.Get(ctx, taskID)
+		if err != nil {
+			return nil, fmt.Errorf("failed to get task: %w", err)
+		}
+
+		// Verify the current agent owns the task or has permission to delegate
+		if task.AssignedTo != nil && *task.AssignedTo != conn.AgentID && task.CreatedBy != conn.AgentID {
+			return nil, fmt.Errorf("agent %s is not authorized to delegate task %s", conn.AgentID, taskID)
+		}
+
 		// Parse delegation type
 		var delegationType models.DelegationType
 		switch delegateParams.DelegationType {
@@ -327,6 +407,7 @@ func (s *Server) handleTaskDelegate(ctx context.Context, conn *Connection, param
 		delegation := &models.TaskDelegation{
 			ID:             uuid.New(),
 			TaskID:         taskID,
+			TaskCreatedAt:  task.CreatedAt,  // Required for partitioned table FK
 			FromAgentID:    conn.AgentID,
 			ToAgentID:      delegateParams.ToAgentID,
 			Reason:         delegateParams.Reason,
@@ -373,15 +454,8 @@ func (s *Server) handleTaskDelegate(ctx context.Context, conn *Connection, param
 		}, nil
 	}
 
-	// Mock response
-	return map[string]interface{}{
-		"delegation_id":   uuid.New().String(),
-		"task_id":         taskID.String(),
-		"from_agent":      conn.AgentID,
-		"to_agent":        delegateParams.ToAgentID,
-		"delegation_type": delegateParams.DelegationType,
-		"delegated_at":    time.Now().Format(time.RFC3339),
-	}, nil
+	// Service not initialized
+	return nil, fmt.Errorf("task service not initialized")
 }
 
 // handleTaskAccept accepts a delegated task
@@ -436,13 +510,8 @@ func (s *Server) handleTaskAccept(ctx context.Context, conn *Connection, params 
 		}, nil
 	}
 
-	// Mock response
-	return map[string]interface{}{
-		"task_id":     taskID.String(),
-		"status":      "accepted",
-		"accepted_by": conn.AgentID,
-		"accepted_at": time.Now().Format(time.RFC3339),
-	}, nil
+	// Service not initialized
+	return nil, fmt.Errorf("task service not initialized")
 }
 
 // handleTaskComplete marks a task as completed
@@ -517,13 +586,8 @@ func (s *Server) handleTaskComplete(ctx context.Context, conn *Connection, param
 		}, nil
 	}
 
-	// Mock response
-	return map[string]interface{}{
-		"task_id":      taskID.String(),
-		"status":       "completed",
-		"completed_by": conn.AgentID,
-		"completed_at": time.Now().Format(time.RFC3339),
-	}, nil
+	// Service not initialized
+	return nil, fmt.Errorf("task service not initialized")
 }
 
 // handleTaskFail marks a task as failed
@@ -582,14 +646,8 @@ func (s *Server) handleTaskFail(ctx context.Context, conn *Connection, params js
 		}, nil
 	}
 
-	// Mock response
-	return map[string]interface{}{
-		"task_id":   taskID.String(),
-		"status":    "failed",
-		"error":     failParams.Error,
-		"retry":     failParams.Retry,
-		"failed_at": time.Now().Format(time.RFC3339),
-	}, nil
+	// Service not initialized
+	return nil, fmt.Errorf("task service not initialized")
 }
 
 // handleTaskSubmitResult submits partial results for a long-running task
@@ -660,7 +718,12 @@ func (s *Server) handleWorkflowCreateCollaborative(ctx context.Context, conn *Co
 		return nil, err
 	}
 
-	if s.workflowService != nil {
+	// Check if workflowService is available
+	if s.workflowService == nil {
+		return nil, fmt.Errorf("workflow service not initialized")
+	}
+
+	{
 		// Convert agents array to object with agent IDs as keys
 		agentsMap := make(models.JSONMap)
 		for _, agentID := range workflowParams.Agents {
@@ -785,19 +848,6 @@ func (s *Server) handleWorkflowCreateCollaborative(ctx context.Context, conn *Co
 			"created_at":        workflow.CreatedAt.Format(time.RFC3339),
 		}, nil
 	}
-
-	// Mock response
-	workflowID := uuid.New()
-	return map[string]interface{}{
-		"workflow_id":       workflowID.String(),
-		"name":              workflowParams.Name,
-		"type":              "collaborative",
-		"status":            "active",
-		"coordination_mode": workflowParams.CoordinationMode,
-		"agents":            workflowParams.Agents,
-		"step_count":        len(workflowParams.Steps),
-		"created_at":        time.Now().Format(time.RFC3339),
-	}, nil
 }
 
 // handleWorkflowExecuteCollaborative executes a collaborative workflow
@@ -822,7 +872,12 @@ func (s *Server) handleWorkflowExecuteCollaborative(ctx context.Context, conn *C
 		return nil, fmt.Errorf("invalid workflow ID: %w", err)
 	}
 
-	if s.workflowService != nil {
+	// Check if workflowService is available
+	if s.workflowService == nil {
+		return nil, fmt.Errorf("workflow service not initialized")
+	}
+
+	{
 		// Prepare context for workflow execution
 		executionContext := models.JSONMap(execParams.Context)
 		if executionContext == nil {
@@ -850,17 +905,6 @@ func (s *Server) handleWorkflowExecuteCollaborative(ctx context.Context, conn *C
 			"streaming":    execParams.Stream,
 		}, nil
 	}
-
-	// Mock response
-	executionID := uuid.New()
-	return map[string]interface{}{
-		"execution_id": executionID.String(),
-		"workflow_id":  workflowID.String(),
-		"status":       "running",
-		"initiated_by": conn.AgentID,
-		"started_at":   time.Now().Format(time.RFC3339),
-		"streaming":    execParams.Stream,
-	}, nil
 }
 
 // handleWorkflowGet retrieves workflow details
@@ -882,7 +926,12 @@ func (s *Server) handleWorkflowGet(ctx context.Context, conn *Connection, params
 		return nil, fmt.Errorf("invalid workflow ID: %w", err)
 	}
 
-	if s.workflowService != nil {
+	// Check if workflowService is available
+	if s.workflowService == nil {
+		return nil, fmt.Errorf("workflow service not initialized")
+	}
+
+	{
 		workflow, err := s.workflowService.GetWorkflow(ctx, workflowID)
 		if err != nil {
 			return nil, fmt.Errorf("failed to get workflow: %w", err)
@@ -917,16 +966,6 @@ func (s *Server) handleWorkflowGet(ctx context.Context, conn *Connection, params
 			"updated_at":  workflow.UpdatedAt.Format(time.RFC3339),
 		}, nil
 	}
-
-	// Mock response
-	return map[string]interface{}{
-		"workflow_id": workflowID.String(),
-		"name":        "Mock Workflow",
-		"type":        "collaborative",
-		"status":      "active",
-		"steps":       []map[string]interface{}{},
-		"created_at":  time.Now().Format(time.RFC3339),
-	}, nil
 }
 
 // handleWorkflowResume resumes a paused workflow execution
@@ -950,7 +989,12 @@ func (s *Server) handleWorkflowResume(ctx context.Context, conn *Connection, par
 		return nil, fmt.Errorf("invalid execution ID: %w", err)
 	}
 
-	if s.workflowService != nil {
+	// Check if workflowService is available
+	if s.workflowService == nil {
+		return nil, fmt.Errorf("workflow service not initialized")
+	}
+
+	{
 		if err := s.workflowService.ResumeExecution(ctx, executionID); err != nil {
 			return nil, fmt.Errorf("failed to resume workflow: %w", err)
 		}
@@ -969,14 +1013,6 @@ func (s *Server) handleWorkflowResume(ctx context.Context, conn *Connection, par
 			"resumed_by":   conn.AgentID,
 		}, nil
 	}
-
-	// Mock response
-	return map[string]interface{}{
-		"execution_id": executionID.String(),
-		"status":       "running",
-		"resumed_at":   time.Now().Format(time.RFC3339),
-		"resumed_by":   conn.AgentID,
-	}, nil
 }
 
 // handleWorkflowCompleteTask completes a specific task in a workflow
@@ -1001,7 +1037,12 @@ func (s *Server) handleWorkflowCompleteTask(ctx context.Context, conn *Connectio
 		return nil, fmt.Errorf("invalid execution ID: %w", err)
 	}
 
-	if s.workflowService != nil {
+	// Check if workflowService is available
+	if s.workflowService == nil {
+		return nil, fmt.Errorf("workflow service not initialized")
+	}
+
+	{
 		// Get execution and update step status
 		execution, err := s.workflowService.GetExecution(ctx, executionID)
 		if err != nil {
@@ -1054,14 +1095,6 @@ func (s *Server) handleWorkflowCompleteTask(ctx context.Context, conn *Connectio
 			"completed_at": time.Now().Format(time.RFC3339),
 		}, nil
 	}
-
-	// Mock response
-	return map[string]interface{}{
-		"execution_id": executionID.String(),
-		"step_id":      completeParams.StepID,
-		"completed_by": conn.AgentID,
-		"completed_at": time.Now().Format(time.RFC3339),
-	}, nil
 }
 
 // handleAgentUpdateStatus updates an agent's status
@@ -1122,17 +1155,23 @@ func (s *Server) handleDocumentCreateShared(ctx context.Context, conn *Connectio
 		return nil, err
 	}
 
-	// Mock implementation - document service methods not yet implemented
+	// Check if documentService is available
+	if s.documentService == nil {
+		return nil, fmt.Errorf("document service not initialized")
+	}
+
 	// Support both "workspace" and "workspace_id" fields
 	workspaceStr := docParams.Workspace
 	if workspaceStr == "" {
 		workspaceStr = docParams.WorkspaceID
 	}
-	workspaceID, _ := uuid.Parse(workspaceStr)
-	docID := uuid.New()
+	workspaceID, err := uuid.Parse(workspaceStr)
+	if err != nil {
+		return nil, fmt.Errorf("invalid workspace ID: %w", err)
+	}
 
 	doc := &models.Document{
-		ID:          docID,
+		ID:          uuid.New(),
 		TenantID:    conn.GetTenantUUID(),
 		WorkspaceID: &workspaceID,
 		Title:       docParams.Title,
@@ -1143,6 +1182,26 @@ func (s *Server) handleDocumentCreateShared(ctx context.Context, conn *Connectio
 		Permissions: models.JSONMap(docParams.Permissions),
 		CreatedAt:   time.Now(),
 		UpdatedAt:   time.Now(),
+	}
+
+	// Convert to SharedDocument for the service
+	sharedDoc := &models.SharedDocument{
+		ID:          doc.ID,
+		TenantID:    doc.TenantID,
+		WorkspaceID: *doc.WorkspaceID,
+		Title:       doc.Title,
+		Type:        doc.Type,
+		Content:     doc.Content,
+		CreatedBy:   doc.CreatedBy,
+		Metadata:    doc.Permissions, // Store permissions in metadata
+		CreatedAt:   doc.CreatedAt,
+		UpdatedAt:   doc.UpdatedAt,
+		Version:     1,
+	}
+
+	// Create document using the service
+	if err := s.documentService.Create(ctx, sharedDoc); err != nil {
+		return nil, fmt.Errorf("failed to create document: %w", err)
 	}
 
 	// Notify workspace members (excluding the creator)
@@ -1185,9 +1244,25 @@ func (s *Server) handleDocumentUpdate(ctx context.Context, conn *Connection, par
 		return nil, fmt.Errorf("invalid document ID: %w", err)
 	}
 
-	// Mock implementation - document service methods not yet implemented
-	version := 2 // Mock version increment
-	updatedAt := time.Now()
+	// Check if documentService is available
+	if s.documentService == nil {
+		return nil, fmt.Errorf("document service not initialized")
+	}
+
+	// Get the existing document first
+	doc, err := s.documentService.Get(ctx, docID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get document: %w", err)
+	}
+
+	// Update the content
+	doc.Content = updateParams.Content
+	doc.UpdatedAt = time.Now()
+
+	// Update document using the service
+	if err := s.documentService.Update(ctx, doc); err != nil {
+		return nil, fmt.Errorf("failed to update document: %w", err)
+	}
 
 	// Notify collaborators
 	if s.notificationManager != nil {
@@ -1195,17 +1270,17 @@ func (s *Server) handleDocumentUpdate(ctx context.Context, conn *Connection, par
 			"type":        "document.updated",
 			"document_id": docID.String(),
 			"updated_by":  conn.AgentID,
-			"version":     version,
-			"timestamp":   updatedAt.Format(time.RFC3339),
+			"version":     doc.Version,
+			"timestamp":   doc.UpdatedAt.Format(time.RFC3339),
 		}
 		s.notificationManager.BroadcastNotification(ctx, fmt.Sprintf("document:%s", docID), "document.updated", notification)
 	}
 
 	return map[string]interface{}{
 		"document_id": docID.String(),
-		"version":     version,
+		"version":     doc.Version,
 		"updated_by":  conn.AgentID,
-		"updated_at":  updatedAt.Format(time.RFC3339),
+		"updated_at":  doc.UpdatedAt.Format(time.RFC3339),
 	}, nil
 }
 
@@ -1229,29 +1304,53 @@ func (s *Server) handleDocumentApplyChange(ctx context.Context, conn *Connection
 		return nil, fmt.Errorf("invalid document ID: %w", err)
 	}
 
-	// Apply change through document service
-	changeID := uuid.New()
+	// Check if documentService is available
+	if s.documentService == nil {
+		return nil, fmt.Errorf("document service not initialized")
+	}
+
+	// Create a document operation for collaborative editing
+	// Map the change parameters to the DocumentOperation structure
+	operationData := map[string]interface{}{
+		"position": changeParams.Position,
+		"content":  changeParams.Content,
+		"length":   changeParams.Length,
+		"metadata": changeParams.Metadata,
+	}
+
+	operation := &collaboration.DocumentOperation{
+		ID:         uuid.New(),
+		DocumentID: docID,
+		AgentID:    conn.AgentID,
+		Type:       changeParams.ChangeType,
+		Value:      operationData,
+		AppliedAt:  time.Now(),
+	}
+
+	if err := s.documentService.ApplyOperation(ctx, docID, operation); err != nil {
+		return nil, fmt.Errorf("failed to apply document operation: %w", err)
+	}
 
 	// Broadcast change to all collaborators for real-time sync
 	if s.notificationManager != nil {
 		notification := map[string]interface{}{
 			"type":        "document.change",
 			"document_id": docID.String(),
-			"change_id":   changeID.String(),
-			"change_type": changeParams.ChangeType,
+			"change_id":   operation.ID.String(),
+			"change_type": operation.Type,
 			"position":    changeParams.Position,
 			"content":     changeParams.Content,
 			"length":      changeParams.Length,
 			"agent_id":    conn.AgentID,
-			"timestamp":   time.Now().Format(time.RFC3339),
+			"timestamp":   operation.AppliedAt.Format(time.RFC3339),
 		}
 		s.notificationManager.BroadcastNotification(ctx, fmt.Sprintf("document:%s", docID), "document.change", notification)
 	}
 
 	return map[string]interface{}{
 		"document_id": docID.String(),
-		"change_id":   changeID.String(),
-		"applied_at":  time.Now().Format(time.RFC3339),
+		"change_id":   operation.ID.String(),
+		"applied_at":  operation.AppliedAt.Format(time.RFC3339),
 		"applied_by":  conn.AgentID,
 	}, nil
 }
@@ -1271,18 +1370,25 @@ func (s *Server) handleWorkspaceGetState(ctx context.Context, conn *Connection, 
 		return nil, fmt.Errorf("invalid workspace ID: %w", err)
 	}
 
-	// Mock implementation - workspace service methods not yet fully implemented
-	// Return mock workspace state
+	// Check if workspaceService is available
+	if s.workspaceService == nil {
+		return nil, fmt.Errorf("workspace service not initialized")
+	}
 
-	// Mock response
+	// Get workspace state
+	workspace, err := s.workspaceService.Get(ctx, workspaceID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get workspace: %w", err)
+	}
+
 	return map[string]interface{}{
-		"workspace_id":   workspaceID.String(),
-		"name":           "Mock Workspace",
-		"type":           "collaborative",
-		"state":          map[string]interface{}{},
-		"active_members": 1,
-		"documents":      0,
-		"updated_at":     time.Now().Format(time.RFC3339),
+		"workspace_id":   workspace.ID.String(),
+		"name":           workspace.Name,
+		"type":           workspace.Type,
+		"state":          workspace.Metadata, // Assuming state is stored in metadata
+		"active_members": len(workspace.Members),
+		"documents":      0, // Would need to query documents separately
+		"updated_at":     workspace.UpdatedAt.Format(time.RFC3339),
 	}, nil
 }
 
@@ -1339,16 +1445,10 @@ func (s *Server) handleWorkspaceUpdateState(ctx context.Context, conn *Connectio
 			"state":        updateParams.State,
 			"updated_by":   conn.AgentID,
 			"updated_at":   time.Now().Format(time.RFC3339),
-			"version":      1, // Mock version
+			"version":      1, // TODO: Implement proper versioning
 		}, nil
 	}
 
-	// Mock response
-	return map[string]interface{}{
-		"workspace_id": workspaceID.String(),
-		"state":        updateParams.State,
-		"updated_by":   conn.AgentID,
-		"updated_at":   time.Now().Format(time.RFC3339),
-		"version":      1,
-	}, nil
+	// Service not initialized
+	return nil, fmt.Errorf("workspace service not initialized")
 }

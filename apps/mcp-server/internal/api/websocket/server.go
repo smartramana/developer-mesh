@@ -11,8 +11,10 @@ import (
 	"github.com/google/uuid"
 
 	"github.com/S-Corkum/devops-mcp/pkg/auth"
+	"github.com/S-Corkum/devops-mcp/pkg/cache"
 	ws "github.com/S-Corkum/devops-mcp/pkg/models/websocket"
 	"github.com/S-Corkum/devops-mcp/pkg/observability"
+	agentRepository "github.com/S-Corkum/devops-mcp/pkg/repository/agent"
 	"github.com/S-Corkum/devops-mcp/pkg/services"
 )
 
@@ -34,7 +36,7 @@ type Server struct {
 	conversationManager *ConversationSessionManager
 	subscriptionManager *SubscriptionManager
 	workflowEngine      *WorkflowEngine
-	agentRegistry       *AgentRegistry
+	agentRegistry       AgentRegistryInterface
 	taskManager         *TaskManager
 	workspaceManager    *WorkspaceManager
 	notificationManager *NotificationManager
@@ -394,12 +396,21 @@ func (s *Server) SetTaskService(service services.TaskService) {
 // SetServices sets all the services at once
 func (s *Server) SetServices(taskService services.TaskService, workflowService services.WorkflowService,
 	workspaceService services.WorkspaceService, documentService services.DocumentService,
-	conflictService services.ConflictResolutionService) {
+	conflictService services.ConflictResolutionService, agentRepo agentRepository.Repository,
+	cache cache.Cache) {
 	s.taskService = taskService
 	s.workflowService = workflowService
 	s.workspaceService = workspaceService
 	s.documentService = documentService
 	s.conflictService = conflictService
+
+	// Replace in-memory agent registry with database-backed one if repository is available
+	if agentRepo != nil && cache != nil {
+		s.agentRegistry = NewDBAgentRegistry(agentRepo, cache, s.logger, s.metrics)
+		s.logger.Info("Using database-backed agent registry", nil)
+	} else {
+		s.logger.Warn("Agent repository or cache not available, using in-memory agent registry", nil)
+	}
 
 	// Reinitialize workflow engine with real services
 	if workflowService != nil && taskService != nil {
