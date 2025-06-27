@@ -1,0 +1,8 @@
+go 1.24.4
+
+use (
+	./apps/mcp-server
+	./apps/mockserver
+	./apps/rest-api
+	./apps/worker
+)
