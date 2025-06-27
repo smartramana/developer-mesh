@@ -18,13 +18,25 @@ WORKDIR /app
 # Copy entire project (Go workspace requires full context)
 COPY . .
 
-# Download dependencies and build with cache mounts
-WORKDIR /app/apps/rest-api
+# Set up Go workspace and build
+WORKDIR /app
 # Re-declare build args for use in this stage
 ARG VERSION
 ARG COMMIT_SHA
 ARG BUILD_DATE
 
+# Initialize Go workspace if needed
+RUN if [ ! -f "go.work" ]; then \
+        go work init && \
+        go work use ./apps/mcp-server && \
+        go work use ./apps/rest-api && \
+        go work use ./apps/worker && \
+        go work use ./pkg && \
+        go work sync; \
+    fi
+
+# Build the application
+WORKDIR /app/apps/rest-api
 RUN --mount=type=cache,target=/go/pkg/mod \
     --mount=type=cache,target=/root/.cache/go-build \
     go mod download && \
