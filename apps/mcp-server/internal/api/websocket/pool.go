@@ -327,9 +327,18 @@ func (m *ConnectionPoolManager) DetailedStats() map[string]interface{} {
 	defer m.mu.Unlock()
 
 	available := len(m.pool)
-	inUse := int(m.borrowed - m.returned)
-	if inUse < 0 {
-		inUse = 0
+	
+	// Calculate in-use count safely
+	var inUse int64
+	if m.borrowed >= m.returned {
+		diff := m.borrowed - m.returned
+		// Check if diff fits in int64
+		const maxInt64 = 9223372036854775807 // math.MaxInt64
+		if diff <= maxInt64 {
+			inUse = int64(diff)
+		} else {
+			inUse = maxInt64
+		}
 	}
 
 	return map[string]interface{}{

@@ -3,6 +3,7 @@ package auth
 import (
 	"fmt"
 	"os"
+	"path/filepath"
 	"strings"
 	"time"
 
@@ -237,7 +238,15 @@ func getRoleScopes(role string) []string {
 
 // LoadAuthConfigFromFile loads auth configuration from a YAML file
 func LoadAuthConfigFromFile(filename string) (*APIKeyConfig, error) {
-	file, err := os.Open(filename)
+	// Clean and validate the file path to prevent path traversal
+	cleanPath := filepath.Clean(filename)
+	
+	// Ensure the path is not trying to escape to parent directories
+	if strings.Contains(cleanPath, "..") {
+		return nil, fmt.Errorf("invalid file path: %s", filename)
+	}
+	
+	file, err := os.Open(cleanPath)
 	if err != nil {
 		return nil, err
 	}

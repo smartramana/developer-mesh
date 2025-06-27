@@ -71,7 +71,13 @@ func (cl *ConfigLoader) LoadEnvironment(environment string) error {
 
 // loadEnvFile loads environment variables from a file
 func (cl *ConfigLoader) loadEnvFile(filename string) error {
-	file, err := os.Open(filename)
+	// Clean and validate the file path
+	cleanPath := filepath.Clean(filename)
+	if strings.Contains(cleanPath, "..") {
+		return fmt.Errorf("invalid file path: %s", filename)
+	}
+	
+	file, err := os.Open(cleanPath)
 	if err != nil {
 		return err
 	}
@@ -118,7 +124,13 @@ func (cl *ConfigLoader) loadEnvFile(filename string) error {
 
 // loadConfigFile loads a configuration file
 func (cl *ConfigLoader) loadConfigFile(filename string) error {
-	data, err := os.ReadFile(filename)
+	// Clean and validate the file path
+	cleanPath := filepath.Clean(filename)
+	if strings.Contains(cleanPath, "..") {
+		return fmt.Errorf("invalid file path: %s", filename)
+	}
+	
+	data, err := os.ReadFile(cleanPath)
 	if err != nil {
 		return err
 	}

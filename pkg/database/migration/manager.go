@@ -218,6 +218,12 @@ func (m *Manager) ForceVersion(version uint) error {
 		}
 	}
 
+	// Check for integer overflow before conversion
+	const maxInt = int(^uint(0) >> 1)
+	if version > uint(maxInt) {
+		return fmt.Errorf("version %d exceeds maximum int value", version)
+	}
+
 	return m.migrator.Force(int(version))
 }
 
