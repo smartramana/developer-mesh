@@ -10,7 +10,7 @@ import (
 
 const (
 	// userCredentialsKey is the context key for user tool credentials
-	userCredentialsKey contextKey = "user_tool_credentials"
+	userCredentialsKey contextKey = "user_tool_credentials" // #nosec G101 - This is a context key name, not a credential
 )
 
 // WithToolCredentials adds tool credentials to context
