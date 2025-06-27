@@ -3,8 +3,8 @@ package core
 import (
 	"context"
 
-	"mcp-server/internal/config"
-	contextManager "mcp-server/internal/core/context"
+	"github.com/S-Corkum/devops-mcp/apps/mcp-server/internal/config"
+	contextManager "github.com/S-Corkum/devops-mcp/apps/mcp-server/internal/core/context"
 
 	"github.com/S-Corkum/devops-mcp/pkg/common/cache"
 	"github.com/S-Corkum/devops-mcp/pkg/common/events/system"

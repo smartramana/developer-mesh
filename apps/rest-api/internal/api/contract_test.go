@@ -11,8 +11,8 @@ import (
 	"testing"
 	"time"
 
-	"rest-api/internal/adapters"
-	"rest-api/internal/core"
+	"github.com/S-Corkum/devops-mcp/apps/rest-api/internal/adapters"
+	"github.com/S-Corkum/devops-mcp/apps/rest-api/internal/core"
 
 	"github.com/S-Corkum/devops-mcp/pkg/models"
 	"github.com/gin-gonic/gin"

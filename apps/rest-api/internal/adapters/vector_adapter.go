@@ -4,7 +4,7 @@ package adapters
 import (
 	"context"
 
-	"rest-api/internal/repository"
+	"github.com/S-Corkum/devops-mcp/apps/rest-api/internal/repository"
 
 	"github.com/S-Corkum/devops-mcp/pkg/database"
 	corerepo "github.com/S-Corkum/devops-mcp/pkg/repository"

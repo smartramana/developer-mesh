@@ -29,7 +29,7 @@ ARG BUILD_DATE
 RUN if [ ! -f "go.work" ]; then \
         echo "Creating go.work file..." && \
         go work init && \
-        for dir in ./apps/mcp-server ./apps/rest-api ./apps/worker ./apps/mockserver ./pkg; do \
+        for dir in ./apps/mcp-server ./apps/rest-api ./apps/worker ./apps/mockserver; do \
             if [ -f "$dir/go.mod" ]; then \
                 echo "Adding $dir to workspace" && \
                 go work use "$dir"; \

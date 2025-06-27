@@ -7,7 +7,7 @@ import (
 	"sync"
 	"time"
 
-	"mcp-server/internal/config"
+	"github.com/S-Corkum/devops-mcp/apps/mcp-server/internal/config"
 
 	"github.com/S-Corkum/devops-mcp/pkg/models"
 	"github.com/S-Corkum/devops-mcp/pkg/observability"

@@ -2,7 +2,7 @@
 package adapters
 
 import (
-	"rest-api/internal/repository"
+	"github.com/S-Corkum/devops-mcp/apps/rest-api/internal/repository"
 
 	corerepo "github.com/S-Corkum/devops-mcp/pkg/repository"
 	"github.com/jmoiron/sqlx"

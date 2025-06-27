@@ -3,7 +3,7 @@ package api
 import (
 	"net/http"
 
-	"rest-api/internal/repository"
+	"github.com/S-Corkum/devops-mcp/apps/rest-api/internal/repository"
 
 	"github.com/S-Corkum/devops-mcp/pkg/common/util"
 	"github.com/S-Corkum/devops-mcp/pkg/models"

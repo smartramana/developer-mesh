@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"net/http"
 
-	"mcp-server/internal/core/tool"
+	"github.com/S-Corkum/devops-mcp/apps/mcp-server/internal/core/tool"
 
 	"github.com/S-Corkum/devops-mcp/pkg/adapters/github"
 	"github.com/S-Corkum/devops-mcp/pkg/observability"
