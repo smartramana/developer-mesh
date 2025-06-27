@@ -15,14 +15,28 @@ RUN apk add --no-cache git gcc musl-dev ca-certificates tzdata
 # Set working directory
 WORKDIR /build
 
-# Copy only the mockserver app since it's self-contained
-COPY apps/mockserver/ ./
+# Copy entire project for Go workspace support
+COPY . .
 
-# Download dependencies and build with cache mounts
+# Set up Go workspace and build
+WORKDIR /build
 # Re-declare build args for use in this stage
 ARG VERSION
 ARG COMMIT_SHA
 ARG BUILD_DATE
+
+# Initialize Go workspace if needed
+RUN if [ ! -f "go.work" ]; then \
+        go work init && \
+        go work use ./apps/mcp-server && \
+        go work use ./apps/rest-api && \
+        go work use ./apps/worker && \
+        go work use ./pkg && \
+        go work sync; \
+    fi
+
+# Build the application
+WORKDIR /build/apps/mockserver
 
 RUN --mount=type=cache,target=/go/pkg/mod \
     --mount=type=cache,target=/root/.cache/go-build \
@@ -40,7 +54,7 @@ COPY --from=builder /usr/share/zoneinfo /usr/share/zoneinfo
 COPY --from=builder /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/
 
 # Copy the binary from builder
-COPY --from=builder /build/mockserver /app/mockserver
+COPY --from=builder /build/apps/mockserver/mockserver /app/mockserver
 
 # Set working directory
 WORKDIR /app
