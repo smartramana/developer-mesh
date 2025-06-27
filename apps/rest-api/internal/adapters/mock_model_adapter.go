@@ -2,6 +2,7 @@ package adapters
 
 import (
 	"context"
+
 	"github.com/S-Corkum/devops-mcp/pkg/models"
 	"github.com/stretchr/testify/mock"
 )

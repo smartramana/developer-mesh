@@ -42,12 +42,12 @@ func TestAWSIntegration(t *testing.T) {
 			Region:   os.Getenv("AWS_REGION"),
 			Endpoint: endpoint,
 		}
-		
+
 		// Use test credentials if not specified in environment
 		if authConfig.Region == "" {
 			authConfig.Region = "us-east-1"
 		}
-		
+
 		// Set test credentials if not provided
 		if os.Getenv("AWS_ACCESS_KEY_ID") == "" {
 			t.Logf("Using test AWS credentials")
@@ -57,7 +57,7 @@ func TestAWSIntegration(t *testing.T) {
 		}
 
 		awsConfig, err := aws.GetAWSConfig(ctx, authConfig)
-		
+
 		// Fail test rather than skip - in CI we want this to work
 		require.NoError(t, err, "Failed to get AWS config: %v", err)
 		require.NotNil(t, awsConfig, "AWS config should not be nil")
@@ -73,7 +73,7 @@ func TestAWSIntegration(t *testing.T) {
 			Region:   os.Getenv("AWS_REGION"),
 			Endpoint: endpoint,
 		}
-		
+
 		if authConfig.Region == "" {
 			authConfig.Region = "us-east-1"
 		}
@@ -85,7 +85,7 @@ func TestAWSIntegration(t *testing.T) {
 		// with the AWS SDK and our observability stack
 		s3Client := s3.NewFromConfig(mockConfig)
 		require.NotNil(t, s3Client, "S3 client should not be nil")
-		
+
 		// Try a basic S3 operation to ensure the client works
 		_, err = s3Client.ListBuckets(ctx, &s3.ListBucketsInput{})
 		require.NoError(t, err, "Failed to list S3 buckets with localstack")

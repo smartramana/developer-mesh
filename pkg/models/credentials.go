@@ -6,13 +6,13 @@ import (
 
 // ToolCredentials represents user-provided credentials for backend tools
 type ToolCredentials struct {
-	GitHub      *TokenCredential           `json:"github,omitempty"`
-	Jira        *TokenCredential           `json:"jira,omitempty"`
-	SonarQube   *TokenCredential           `json:"sonarqube,omitempty"`
-	Artifactory *TokenCredential           `json:"artifactory,omitempty"`
-	Jenkins     *TokenCredential           `json:"jenkins,omitempty"`
-	GitLab      *TokenCredential           `json:"gitlab,omitempty"`
-	Bitbucket   *TokenCredential           `json:"bitbucket,omitempty"`
+	GitHub      *TokenCredential `json:"github,omitempty"`
+	Jira        *TokenCredential `json:"jira,omitempty"`
+	SonarQube   *TokenCredential `json:"sonarqube,omitempty"`
+	Artifactory *TokenCredential `json:"artifactory,omitempty"`
+	Jenkins     *TokenCredential `json:"jenkins,omitempty"`
+	GitLab      *TokenCredential `json:"gitlab,omitempty"`
+	Bitbucket   *TokenCredential `json:"bitbucket,omitempty"`
 	// Extensible for more tools
 	Custom map[string]*TokenCredential `json:"custom,omitempty"`
 }
@@ -20,7 +20,7 @@ type ToolCredentials struct {
 // TokenCredential represents a single credential
 type TokenCredential struct {
 	Token     string    `json:"token"`
-	Type      string    `json:"type,omitempty"` // "pat", "oauth", "basic", "bearer"
+	Type      string    `json:"type,omitempty"`     // "pat", "oauth", "basic", "bearer"
 	Username  string    `json:"username,omitempty"` // For basic auth
 	BaseURL   string    `json:"base_url,omitempty"` // For self-hosted instances
 	ExpiresAt time.Time `json:"expires_at,omitempty"`
@@ -40,7 +40,7 @@ func (tc *ToolCredentials) SanitizedForLogging() map[string]interface{} {
 	}
 
 	result := make(map[string]interface{})
-	
+
 	if tc.GitHub != nil {
 		result["github"] = tc.GitHub.SanitizedForLogging()
 	}
@@ -62,7 +62,7 @@ func (tc *ToolCredentials) SanitizedForLogging() map[string]interface{} {
 	if tc.Bitbucket != nil {
 		result["bitbucket"] = tc.Bitbucket.SanitizedForLogging()
 	}
-	
+
 	if len(tc.Custom) > 0 {
 		custom := make(map[string]interface{})
 		for k, v := range tc.Custom {
@@ -70,7 +70,7 @@ func (tc *ToolCredentials) SanitizedForLogging() map[string]interface{} {
 		}
 		result["custom"] = custom
 	}
-	
+
 	return result
 }
 
@@ -79,24 +79,24 @@ func (tc *TokenCredential) SanitizedForLogging() map[string]interface{} {
 	if tc == nil {
 		return nil
 	}
-	
+
 	result := map[string]interface{}{
-		"type":       tc.Type,
-		"has_token":  tc.Token != "",
+		"type":         tc.Type,
+		"has_token":    tc.Token != "",
 		"has_username": tc.Username != "",
-		"base_url":   tc.BaseURL,
+		"base_url":     tc.BaseURL,
 	}
-	
+
 	// Show last 4 characters of token for identification
 	if len(tc.Token) >= 4 {
 		result["token_hint"] = "..." + tc.Token[len(tc.Token)-4:]
 	}
-	
+
 	if !tc.ExpiresAt.IsZero() {
 		result["expires_at"] = tc.ExpiresAt.Format(time.RFC3339)
 		result["is_expired"] = tc.ExpiresAt.Before(time.Now())
 	}
-	
+
 	return result
 }
 
@@ -121,7 +121,7 @@ func (tc *ToolCredentials) HasCredentialFor(tool string) bool {
 	if tc == nil {
 		return false
 	}
-	
+
 	switch tool {
 	case "github":
 		return tc.GitHub != nil && tc.GitHub.Token != ""
@@ -151,7 +151,7 @@ func (tc *ToolCredentials) GetCredentialFor(tool string) *TokenCredential {
 	if tc == nil {
 		return nil
 	}
-	
+
 	switch tool {
 	case "github":
 		return tc.GitHub

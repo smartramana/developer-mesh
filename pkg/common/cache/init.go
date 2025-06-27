@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/S-Corkum/devops-mcp/pkg/common/aws"
+	securitytls "github.com/S-Corkum/devops-mcp/pkg/security/tls"
 )
 
 // RedisConfig holds configuration for Redis
@@ -31,15 +32,14 @@ type RedisConfig struct {
 	UseAWS            bool                   `mapstructure:"use_aws"`      // Use AWS ElastiCache
 	ClusterMode       bool                   `mapstructure:"cluster_mode"` // Use ElastiCache in cluster mode
 	ElastiCacheConfig *aws.ElastiCacheConfig `mapstructure:"elasticache"`  // ElastiCache configuration
-	
+
 	// TLS configuration
 	TLS *TLSConfig `mapstructure:"tls"` // TLS configuration
 }
 
 // TLSConfig holds TLS configuration
 type TLSConfig struct {
-	Enabled            bool `mapstructure:"enabled"`              // Enable TLS
-	InsecureSkipVerify bool `mapstructure:"insecure_skip_verify"` // Skip certificate verification (dev only)
+	securitytls.Config `mapstructure:",squash"` // Embed secure TLS configuration (non-pointer)
 }
 
 // NewCache creates a new cache based on the configuration
@@ -79,7 +79,7 @@ func NewCache(ctx context.Context, cfg any) (Cache, error) {
 			PoolSize:     config.PoolSize,
 			MinIdleConns: config.MinIdleConns,
 			PoolTimeout:  config.PoolTimeout,
-			TLS:          config.TLS,  // Pass TLS configuration
+			TLS:          config.TLS, // Pass TLS configuration
 		})
 	default:
 		return nil, fmt.Errorf("unsupported cache type: %T", cfg)
@@ -106,9 +106,13 @@ func newRedisClusterClient(config RedisConfig) (Cache, error) {
 
 	// Add TLS if configured
 	if config.TLS != nil && config.TLS.Enabled {
-		clusterConfig.UseTLS = true
-		clusterConfig.TLSConfig = &tls.Config{
-			InsecureSkipVerify: config.TLS.InsecureSkipVerify,
+		tlsConfig, err := config.TLS.BuildTLSConfig()
+		if err != nil {
+			return nil, fmt.Errorf("failed to build TLS config: %w", err)
+		}
+		if tlsConfig != nil {
+			clusterConfig.UseTLS = true
+			clusterConfig.TLSConfig = tlsConfig
 		}
 	}
 
@@ -200,8 +204,11 @@ func newAWSElastiCacheClient(ctx context.Context, config RedisConfig) (Cache, er
 			// For standard Redis, we need to enable TLS
 			// Since the config doesn't have a UseTLS field, we check if TLS config exists
 			redisConfig.TLS = &TLSConfig{
-				Enabled:            true,
-				InsecureSkipVerify: tlsConfig.InsecureSkipVerify,
+				securitytls.Config{
+					Enabled:            true,
+					InsecureSkipVerify: tlsConfig.InsecureSkipVerify,
+					MinVersion:         securitytls.DefaultMinVersion,
+				},
 			}
 		}
 

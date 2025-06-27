@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -36,6 +37,7 @@ func TestAuthMiddlewareRateLimiting(t *testing.T) {
 
 	// Setup enhanced auth with rate limiting
 	rateLimiter := auth.NewRateLimiter(mockCache, observability.NewNoopLogger(), &auth.RateLimiterConfig{
+		Enabled:       true,
 		MaxAttempts:   3,
 		WindowSize:    1 * time.Minute,
 		LockoutPeriod: 5 * time.Minute,
@@ -198,6 +200,16 @@ func TestAuthMiddlewareConcurrency(t *testing.T) {
 	}
 }
 
+// isRateLimiterKey checks if a key is used by the rate limiter
+func isRateLimiterKey(key string) bool {
+	// Rate limiter keys typically have patterns like:
+	// "auth:ratelimit:ip:192.168.1.1:count"
+	// "auth:ratelimit:ip:192.168.1.1:lockout"
+	return strings.HasPrefix(key, "auth:ratelimit:") ||
+		strings.Contains(key, ":count") ||
+		strings.Contains(key, ":lockout")
+}
+
 // mockCache implements a simple thread-safe cache for testing
 type mockCache struct {
 	mu   sync.RWMutex
@@ -207,7 +219,7 @@ type mockCache struct {
 func (m *mockCache) Get(ctx context.Context, key string, value interface{}) error {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
-	
+
 	if v, ok := m.data[key]; ok {
 		// Simple assignment for testing
 		switch dst := value.(type) {
@@ -223,6 +235,19 @@ func (m *mockCache) Get(ctx context.Context, key string, value interface{}) erro
 			}
 		}
 	}
+
+	// For rate limiter keys, return zero value instead of error
+	if isRateLimiterKey(key) {
+		switch dst := value.(type) {
+		case *int:
+			*dst = 0
+			return nil
+		case *bool:
+			*dst = false
+			return nil
+		}
+	}
+
 	return fmt.Errorf("key not found")
 }
 

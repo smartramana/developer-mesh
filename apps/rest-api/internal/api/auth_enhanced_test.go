@@ -181,7 +181,7 @@ func TestEnhancedAuthConcurrency(t *testing.T) {
 	testCache := newTestCache()
 	logger := observability.NewNoopLogger()
 	metrics := observability.NewNoOpMetricsClient()
-	
+
 	// Create auth configuration with API keys
 	config := &auth.AuthSystemConfig{
 		Service: &auth.ServiceConfig{
@@ -375,7 +375,7 @@ func newTestCache() *testCache {
 func (c *testCache) Get(ctx context.Context, key string, value interface{}) error {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
-	
+
 	if v, ok := c.data[key]; ok {
 		switch dst := value.(type) {
 		case *int:

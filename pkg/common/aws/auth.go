@@ -59,12 +59,12 @@ func GetAWSConfig(ctx context.Context, cfg AuthConfig) (aws.Config, error) {
 	if err != nil {
 		return aws.Config{}, err
 	}
-	
+
 	// Store the endpoint in the config context for service clients to use
 	if cfg.Endpoint != "" {
 		awsCfg.BaseEndpoint = aws.String(cfg.Endpoint)
 	}
-	
+
 	return awsCfg, nil
 }
 

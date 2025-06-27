@@ -6,7 +6,7 @@ SET search_path TO mcp, public;
 CREATE EXTENSION IF NOT EXISTS vector;
 
 -- Model registry table (for tracking available models)
-CREATE TABLE embedding_models (
+CREATE TABLE IF NOT EXISTS embedding_models (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     provider VARCHAR(50) NOT NULL,     -- 'openai', 'voyage', 'amazon', 'google', 'cohere'
     model_name VARCHAR(100) NOT NULL,  -- 'text-embedding-3-large'
@@ -59,21 +59,56 @@ INSERT INTO embedding_models (provider, model_name, model_version, dimensions, m
 ('google', 'gemini-embedding-001', 'v1', 3072, 2048, 0.025, 'text', false, NULL),
 ('google', 'text-embedding-004', 'v4', 768, 2048, 0.025, 'text', true, NULL),
 ('google', 'text-multilingual-embedding-002', 'v2', 768, 2048, 0.025, 'text', true, NULL),
-('google', 'multimodal-embedding', 'v1', 1408, NULL, 0.025, 'multimodal', false, NULL);
+('google', 'multimodal-embedding', 'v1', 1408, NULL, 0.025, 'multimodal', false, NULL)
+ON CONFLICT (provider, model_name, model_version) DO NOTHING;
 
 -- Update model_id for Bedrock models
 UPDATE embedding_models SET model_id = 'amazon.titan-embed-text-v2:0' WHERE provider = 'amazon' AND model_name = 'titan-embed-text-v2';
 UPDATE embedding_models SET model_id = 'cohere.embed-english-v3' WHERE provider = 'cohere' AND model_name = 'embed-english-v3';
 UPDATE embedding_models SET model_id = 'cohere.embed-multilingual-v3' WHERE provider = 'cohere' AND model_name = 'embed-multilingual-v3';
 
--- Main embeddings table with industry best practices
-CREATE TABLE embeddings (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    
-    -- Content relationship
-    context_id UUID NOT NULL REFERENCES contexts(id) ON DELETE CASCADE,
-    content_index INTEGER NOT NULL DEFAULT 0,
-    chunk_index INTEGER NOT NULL DEFAULT 0,
+-- Handle embeddings table - either alter existing or create new
+DO $$
+BEGIN
+    IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_schema = 'mcp' AND table_name = 'embeddings') THEN
+        -- Table exists in mcp schema (created by vector.go), alter it to add missing columns
+        RAISE NOTICE 'Table mcp.embeddings already exists, adding missing columns';
+        
+        -- Add missing columns to match migration schema
+        ALTER TABLE mcp.embeddings ADD COLUMN IF NOT EXISTS chunk_index INTEGER NOT NULL DEFAULT 0;
+        ALTER TABLE mcp.embeddings ADD COLUMN IF NOT EXISTS content_hash VARCHAR(64);
+        ALTER TABLE mcp.embeddings ADD COLUMN IF NOT EXISTS content_tokens INTEGER;
+        ALTER TABLE mcp.embeddings ADD COLUMN IF NOT EXISTS model_provider VARCHAR(50);
+        ALTER TABLE mcp.embeddings ADD COLUMN IF NOT EXISTS model_name VARCHAR(100);
+        ALTER TABLE mcp.embeddings ADD COLUMN IF NOT EXISTS model_dimensions INTEGER;
+        ALTER TABLE mcp.embeddings ADD COLUMN IF NOT EXISTS configured_dimensions INTEGER;
+        ALTER TABLE mcp.embeddings ADD COLUMN IF NOT EXISTS processing_time_ms INTEGER;
+        ALTER TABLE mcp.embeddings ADD COLUMN IF NOT EXISTS embedding_created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP;
+        ALTER TABLE mcp.embeddings ADD COLUMN IF NOT EXISTS magnitude FLOAT;
+        ALTER TABLE mcp.embeddings ADD COLUMN IF NOT EXISTS tenant_id UUID;
+        ALTER TABLE mcp.embeddings ADD COLUMN IF NOT EXISTS metadata JSONB NOT NULL DEFAULT '{}';
+        ALTER TABLE mcp.embeddings ADD COLUMN IF NOT EXISTS updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP;
+        
+        -- Rename 'text' column to 'content' if it exists
+        IF EXISTS (SELECT 1 FROM information_schema.columns 
+                  WHERE table_schema = 'mcp' AND table_name = 'embeddings' AND column_name = 'text') THEN
+            ALTER TABLE mcp.embeddings RENAME COLUMN text TO content;
+        END IF;
+        
+        -- Update model_name from model_id if needed
+        UPDATE mcp.embeddings SET model_name = model_id WHERE model_name IS NULL;
+        
+        -- Set search path to work with mcp schema
+        SET search_path TO mcp, public;
+    ELSE
+        -- Create new table in public schema
+        CREATE TABLE embeddings (
+            id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+            
+            -- Content relationship
+            context_id UUID NOT NULL REFERENCES contexts(id) ON DELETE CASCADE,
+            content_index INTEGER NOT NULL DEFAULT 0,
+            chunk_index INTEGER NOT NULL DEFAULT 0,
     
     -- Content
     content TEXT NOT NULL,
@@ -110,22 +145,31 @@ CREATE TABLE embeddings (
     -- Constraints
     CONSTRAINT valid_dimensions CHECK (model_dimensions > 0 AND model_dimensions <= 4096),
     CONSTRAINT valid_content CHECK (length(content) > 0),
-    CONSTRAINT valid_indices CHECK (content_index >= 0 AND chunk_index >= 0)
-);
+            CONSTRAINT valid_indices CHECK (content_index >= 0 AND chunk_index >= 0)
+        );
+    END IF;
+END $$;
 
--- Create compound indexes for common access patterns
-CREATE INDEX idx_embeddings_context_content ON embeddings(context_id, content_index, chunk_index);
-CREATE INDEX idx_embeddings_tenant_model ON embeddings(tenant_id, model_name);
-CREATE INDEX idx_embeddings_content_hash ON embeddings(content_hash);
-CREATE INDEX idx_embeddings_created_at ON embeddings(embedding_created_at DESC);
-CREATE INDEX idx_embeddings_provider ON embeddings(model_provider, tenant_id);
-
--- Trigger for updated_at
-CREATE TRIGGER update_embeddings_updated_at BEFORE UPDATE
-ON embeddings FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+-- Create compound indexes for common access patterns (only if we created the table)
+DO $$
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM information_schema.tables WHERE table_schema = 'mcp' AND table_name = 'embeddings') THEN
+        -- Only create indexes if we created the table in public schema
+        CREATE INDEX IF NOT EXISTS idx_embeddings_context_content ON embeddings(context_id, content_index, chunk_index);
+        CREATE INDEX IF NOT EXISTS idx_embeddings_tenant_model ON embeddings(tenant_id, model_name);
+        CREATE INDEX IF NOT EXISTS idx_embeddings_content_hash ON embeddings(content_hash);
+        CREATE INDEX IF NOT EXISTS idx_embeddings_created_at ON embeddings(embedding_created_at DESC);
+        CREATE INDEX IF NOT EXISTS idx_embeddings_provider ON embeddings(model_provider, tenant_id);
+        
+        -- Trigger for public.embeddings
+        DROP TRIGGER IF EXISTS update_embeddings_updated_at ON embeddings;
+        CREATE TRIGGER update_embeddings_updated_at BEFORE UPDATE
+        ON embeddings FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+    END IF;
+END $$;
 
 -- Embedding search history for analytics
-CREATE TABLE embedding_searches (
+CREATE TABLE IF NOT EXISTS embedding_searches (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     tenant_id UUID NOT NULL,
     model_provider VARCHAR(50) NOT NULL,
@@ -146,10 +190,19 @@ CREATE TABLE embedding_searches (
 );
 
 -- Comments for documentation
-COMMENT ON TABLE embeddings IS 'Stores vector embeddings with full model metadata for multi-provider support';
-COMMENT ON COLUMN embeddings.content_hash IS 'SHA-256 hash for deduplication';
-COMMENT ON COLUMN embeddings.magnitude IS 'L2 norm of the embedding vector for quality checks';
-COMMENT ON COLUMN embeddings.metadata IS 'Flexible storage for model-specific parameters, chunking info, provider-specific data';
-COMMENT ON COLUMN embeddings.configured_dimensions IS 'Actual embedding dimensions if reduced from model default';
+DO $$
+BEGIN
+    IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_schema = 'mcp' AND table_name = 'embeddings') THEN
+        -- Comment on existing mcp.embeddings table (different schema from vector.go)
+        COMMENT ON TABLE mcp.embeddings IS 'Stores vector embeddings (legacy schema from vector.go)';
+    ELSE
+        -- Comment on newly created public.embeddings table
+        COMMENT ON TABLE embeddings IS 'Stores vector embeddings with full model metadata for multi-provider support';
+        COMMENT ON COLUMN embeddings.content_hash IS 'SHA-256 hash for deduplication';
+        COMMENT ON COLUMN embeddings.magnitude IS 'L2 norm of the embedding vector for quality checks';
+        COMMENT ON COLUMN embeddings.metadata IS 'Flexible storage for model-specific parameters, chunking info, provider-specific data';
+        COMMENT ON COLUMN embeddings.configured_dimensions IS 'Actual embedding dimensions if reduced from model default';
+    END IF;
+END $$;
 
 COMMIT;

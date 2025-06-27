@@ -6,10 +6,11 @@ import (
 	"strconv"
 	"strings"
 
+	"mcp-server/internal/api/responses"
+
 	"github.com/S-Corkum/devops-mcp/pkg/models"
 	"github.com/S-Corkum/devops-mcp/pkg/models/relationship"
 	"github.com/gorilla/mux"
-	"mcp-server/internal/api/responses"
 )
 
 // RelationshipHandler handles API requests related to entity relationships

@@ -47,7 +47,7 @@ func TestCircuitBreakerStates(t *testing.T) {
 		cb.RecordFailure()
 		assert.Equal(t, StateClosed, cb.state)
 		cb.RecordFailure()
-		
+
 		// Should transition to open
 		assert.Equal(t, StateOpen, cb.state)
 		assert.False(t, cb.CanRequest())
@@ -56,7 +56,7 @@ func TestCircuitBreakerStates(t *testing.T) {
 	t.Run("transitions to half-open after timeout", func(t *testing.T) {
 		// Wait for timeout
 		time.Sleep(config.Timeout + 10*time.Millisecond)
-		
+
 		// Should allow request and transition to half-open
 		assert.True(t, cb.CanRequest())
 		assert.Equal(t, StateHalfOpen, cb.state)
@@ -70,10 +70,10 @@ func TestCircuitBreakerStates(t *testing.T) {
 		// Should allow up to HalfOpenMaxRequests
 		assert.True(t, cb.CanRequest())
 		assert.Equal(t, 1, cb.halfOpenRequests)
-		
+
 		assert.True(t, cb.CanRequest())
 		assert.Equal(t, 2, cb.halfOpenRequests)
-		
+
 		// Should deny after limit
 		assert.False(t, cb.CanRequest())
 	})
@@ -82,12 +82,12 @@ func TestCircuitBreakerStates(t *testing.T) {
 		// Reset to half-open
 		cb.state = StateHalfOpen
 		cb.successCount = 0
-		
+
 		// Record successes
 		cb.RecordSuccess()
 		assert.Equal(t, StateHalfOpen, cb.state)
 		cb.RecordSuccess()
-		
+
 		// Should transition to closed
 		assert.Equal(t, StateClosed, cb.state)
 		assert.Equal(t, 0, cb.failureCount)
@@ -97,7 +97,7 @@ func TestCircuitBreakerStates(t *testing.T) {
 		// Reset to half-open
 		cb.state = StateHalfOpen
 		cb.successCount = 0
-		
+
 		// Any failure should transition to open
 		cb.RecordFailure()
 		assert.Equal(t, StateOpen, cb.state)

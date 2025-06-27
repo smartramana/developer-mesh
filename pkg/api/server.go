@@ -10,6 +10,7 @@ import (
 	contextAPI "github.com/S-Corkum/devops-mcp/pkg/api/context"
 	"github.com/S-Corkum/devops-mcp/pkg/config"
 	"github.com/S-Corkum/devops-mcp/pkg/core"
+
 	// Keep internal/database for backward compatibility
 	"github.com/S-Corkum/devops-mcp/pkg/database"
 	"github.com/S-Corkum/devops-mcp/pkg/observability"
@@ -105,13 +106,14 @@ func NewServer(engine *core.Engine, cfg Config, db *sqlx.DB, metrics observabili
 			}
 		}
 
-		InitAPIKeys(keyMap)
+		// Note: API keys are now handled by the centralized auth service
+		fmt.Println("API keys configuration detected - should be handled by auth service")
 	} else {
 		fmt.Println("No API keys defined in config")
 	}
 
-	// Initialize JWT with secret from configuration
-	InitJWT(cfg.Auth.JWTSecret)
+	// Note: JWT is now handled by the centralized auth service
+	fmt.Println("JWT configuration detected - should be handled by auth service")
 
 	// Configure HTTP client transport for external service calls
 	httpTransport := &http.Transport{
@@ -207,7 +209,8 @@ func (s *Server) setupRoutes(ctx context.Context) {
 	// API v1 routes - require authentication
 	v1 := s.router.Group("/api/v1")
 	// Add TenantMiddleware to ensure tenant ID is extracted and set in Gin context
-	v1.Use(TenantMiddleware())
+	// Note: TenantMiddleware removed - use centralized auth service
+	// v1.Use(TenantMiddleware())
 	// Use test mode to skip authentication
 	testMode := os.Getenv("MCP_TEST_MODE")
 	for _, e := range os.Environ() {
@@ -217,8 +220,9 @@ func (s *Server) setupRoutes(ctx context.Context) {
 	fmt.Printf("MCP_TEST_MODE value: '%s' (Type: %T)\n", testMode, testMode)
 	fmt.Printf("Is testMode true? %v\n", testMode == "true")
 
-	fmt.Println("Using AuthMiddleware for /api/v1 routes (test mode does not bypass auth in functional tests)")
-	v1.Use(AuthMiddleware("api_key"))
+	fmt.Println("WARNING: Legacy pkg/api server - should use apps/rest-api instead")
+	// Note: AuthMiddleware removed - use centralized auth service
+	// v1.Use(AuthMiddleware("api_key"))
 
 	// Root endpoint to provide API entry points (HATEOAS)
 	v1.GET("/", func(c *gin.Context) {
@@ -299,18 +303,37 @@ func (s *Server) Start() error {
 
 // StartTLS starts the API server with TLS
 func (s *Server) StartTLS(certFile, keyFile string) error {
-	// If specific files are provided, use those
-	if certFile != "" && keyFile != "" {
-		return s.server.ListenAndServeTLS(certFile, keyFile)
+	// Check if TLS config is available
+	if s.config.TLS == nil || !s.config.TLS.Enabled {
+		return fmt.Errorf("TLS is not enabled in configuration")
 	}
 
-	// Otherwise use the ones from config
-	if s.config.TLSCertFile != "" && s.config.TLSKeyFile != "" {
-		return s.server.ListenAndServeTLS(s.config.TLSCertFile, s.config.TLSKeyFile)
+	// Build TLS configuration
+	tlsConfig, err := s.config.TLS.BuildTLSConfig()
+	if err != nil {
+		return fmt.Errorf("failed to build TLS config: %w", err)
 	}
 
-	// If no TLS files are available, return an error
-	return nil
+	// Apply TLS config to server
+	s.server.TLSConfig = tlsConfig
+
+	// Use cert and key files from TLS config
+	certPath := s.config.TLS.CertFile
+	keyPath := s.config.TLS.KeyFile
+
+	// Override with provided files if any
+	if certFile != "" {
+		certPath = certFile
+	}
+	if keyFile != "" {
+		keyPath = keyFile
+	}
+
+	if certPath == "" || keyPath == "" {
+		return fmt.Errorf("TLS certificate and key files must be configured")
+	}
+
+	return s.server.ListenAndServeTLS(certPath, keyPath)
 }
 
 // Shutdown gracefully shuts down the API server
@@ -366,8 +389,9 @@ func (s *Server) healthHandler(c *gin.Context) {
 
 // metricsHandler returns metrics for Prometheus
 func (s *Server) metricsHandler(c *gin.Context) {
-	// Implementation depends on metrics client
-	c.String(http.StatusOK, "# metrics data will be here")
+	// Use the Prometheus handler
+	handler := SetupMetricsHandler()
+	handler(c)
 }
 
 // getBaseURL extracts the base URL from the request for HATEOAS links

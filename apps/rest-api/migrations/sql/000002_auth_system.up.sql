@@ -2,8 +2,17 @@ BEGIN;
 
 SET search_path TO mcp, public;
 
+-- Ensure the trigger function exists (in case it's not in the search path)
+CREATE OR REPLACE FUNCTION update_updated_at_column()
+RETURNS TRIGGER AS $$
+BEGIN
+    NEW.updated_at = CURRENT_TIMESTAMP;
+    RETURN NEW;
+END;
+$$ language 'plpgsql';
+
 -- Users table (if needed)
-CREATE TABLE users (
+CREATE TABLE IF NOT EXISTS users (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     email VARCHAR(255) UNIQUE NOT NULL,
     tenant_id UUID NOT NULL,
@@ -21,7 +30,7 @@ CREATE TABLE users (
 );
 
 -- API Keys table with production features
-CREATE TABLE api_keys (
+CREATE TABLE IF NOT EXISTS api_keys (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     key_hash VARCHAR(64) UNIQUE NOT NULL, -- SHA-256 hash of the key
     key_prefix VARCHAR(8) NOT NULL,       -- First 8 chars for identification
@@ -64,13 +73,13 @@ CREATE TABLE api_keys (
 );
 
 -- Indexes for API keys
-CREATE INDEX idx_api_keys_key_prefix ON api_keys(key_prefix) WHERE is_active = true;
-CREATE INDEX idx_api_keys_tenant_id ON api_keys(tenant_id) WHERE is_active = true;
-CREATE INDEX idx_api_keys_user_id ON api_keys(user_id) WHERE is_active = true;
-CREATE INDEX idx_api_keys_expires_at ON api_keys(expires_at) WHERE is_active = true AND expires_at IS NOT NULL;
+CREATE INDEX IF NOT EXISTS idx_api_keys_key_prefix ON api_keys(key_prefix) WHERE is_active = true;
+CREATE INDEX IF NOT EXISTS idx_api_keys_tenant_id ON api_keys(tenant_id) WHERE is_active = true;
+CREATE INDEX IF NOT EXISTS idx_api_keys_user_id ON api_keys(user_id) WHERE is_active = true;
+CREATE INDEX IF NOT EXISTS idx_api_keys_expires_at ON api_keys(expires_at) WHERE is_active = true AND expires_at IS NOT NULL;
 
 -- API key usage tracking for analytics
-CREATE TABLE api_key_usage (
+CREATE TABLE IF NOT EXISTS api_key_usage (
     api_key_id UUID NOT NULL REFERENCES api_keys(id) ON DELETE CASCADE,
     used_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
     ip_address INET,
@@ -104,9 +113,11 @@ BEGIN
 END $$;
 
 -- Triggers
+DROP TRIGGER IF EXISTS update_users_updated_at ON users;
 CREATE TRIGGER update_users_updated_at BEFORE UPDATE
 ON users FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 
+DROP TRIGGER IF EXISTS update_api_keys_updated_at ON api_keys;
 CREATE TRIGGER update_api_keys_updated_at BEFORE UPDATE
 ON api_keys FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 

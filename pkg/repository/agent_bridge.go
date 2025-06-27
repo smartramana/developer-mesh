@@ -7,6 +7,7 @@ import (
 
 	"github.com/S-Corkum/devops-mcp/pkg/models"
 	"github.com/S-Corkum/devops-mcp/pkg/repository/agent"
+	"github.com/google/uuid"
 	"github.com/jmoiron/sqlx"
 )
 
@@ -66,7 +67,13 @@ func (m *mockAgentRepository) List(ctx context.Context, filter agent.Filter) ([]
 		for key, value := range filter {
 			switch key {
 			case "tenant_id":
-				if agent.TenantID != value.(string) {
+				tenantStr, ok := value.(string)
+				if !ok {
+					matches = false
+					break
+				}
+				tenantUUID, err := uuid.Parse(tenantStr)
+				if err != nil || agent.TenantID != tenantUUID {
 					matches = false
 				}
 			case "id":
@@ -109,8 +116,14 @@ func (m *mockAgentRepository) CreateAgent(ctx context.Context, agent *models.Age
 // GetAgentByID implements the API-specific method
 func (m *mockAgentRepository) GetAgentByID(ctx context.Context, id string, tenantID string) (*models.Agent, error) {
 	agent, _ := m.Get(ctx, id)
-	if agent != nil && agent.TenantID != tenantID {
-		return nil, nil
+	if agent != nil && tenantID != "" {
+		tenantUUID, err := uuid.Parse(tenantID)
+		if err != nil {
+			return nil, err
+		}
+		if agent.TenantID != tenantUUID {
+			return nil, nil
+		}
 	}
 	return agent, nil
 }
@@ -129,4 +142,52 @@ func (m *mockAgentRepository) UpdateAgent(ctx context.Context, agent *models.Age
 // DeleteAgent implements the API-specific method
 func (m *mockAgentRepository) DeleteAgent(ctx context.Context, id string) error {
 	return m.Delete(ctx, id)
+}
+
+// GetByStatus implements the Repository interface
+func (m *mockAgentRepository) GetByStatus(ctx context.Context, status models.AgentStatus) ([]*models.Agent, error) {
+	var result []*models.Agent
+	if m.agents == nil {
+		return result, nil
+	}
+
+	for _, agent := range m.agents {
+		if agent.Status == string(status) {
+			result = append(result, agent)
+		}
+	}
+	return result, nil
+}
+
+// GetWorkload implements the Repository interface
+func (m *mockAgentRepository) GetWorkload(ctx context.Context, agentID uuid.UUID) (*models.AgentWorkload, error) {
+	return &models.AgentWorkload{
+		AgentID:       agentID.String(),
+		ActiveTasks:   0,
+		QueuedTasks:   0,
+		TasksByType:   make(map[string]int),
+		LoadScore:     0.0,
+		EstimatedTime: 0,
+	}, nil
+}
+
+// UpdateWorkload implements the Repository interface
+func (m *mockAgentRepository) UpdateWorkload(ctx context.Context, workload *models.AgentWorkload) error {
+	// Mock implementation - do nothing
+	return nil
+}
+
+// GetLeastLoadedAgent implements the Repository interface
+func (m *mockAgentRepository) GetLeastLoadedAgent(ctx context.Context, capability models.AgentCapability) (*models.Agent, error) {
+	// Return first active agent in mock
+	if m.agents == nil {
+		return nil, nil
+	}
+
+	for _, agent := range m.agents {
+		if agent.Status == string(models.AgentStatusActive) {
+			return agent, nil
+		}
+	}
+	return nil, nil
 }

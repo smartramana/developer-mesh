@@ -41,11 +41,14 @@ if [ "$USE_SSH_TUNNEL_FOR_REDIS" = "true" ]; then
     fi
 fi
 
-# Source environment
+# Source environment and export all variables
+set -a
 source .env
+set +a
 
 # Start services
 echo "Starting MCP Server..."
+# The .env was already sourced above, so variables should be available
 MCP_CONFIG_FILE=configs/config.development.yaml ./apps/mcp-server/mcp-server &> logs/mcp-server.log &
 MCP_PID=$!
 

@@ -96,7 +96,7 @@ func GitHubWebhookHandler(config WebhookConfig, logger observability.Logger) htt
 		// In test mode, provide maximum debugging and use the test secret consistently
 		if isTestMode {
 			// Override with the known test value from config.test.yaml
-			secret = "test-github-webhook-secret"
+			secret = "test-github-webhook-secret" // #nosec G101 - Test-only hardcoded value
 			fmt.Printf("[DEBUG] TEST MODE: Using fixed test secret: '%s' (length: %d)\n", secret, len(secret))
 			fmt.Printf("[DEBUG] TEST MODE: Received signature: %s\n", signature)
 			fmt.Printf("[DEBUG] TEST MODE: First 100 bytes of payload: %s\n", string(bodyBytes[:min(100, len(bodyBytes))]))

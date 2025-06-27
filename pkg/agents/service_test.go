@@ -135,7 +135,7 @@ func TestService_CreateConfig(t *testing.T) {
 		service := NewService(mockRepo, WithEventPublisher(mockPublisher))
 
 		config := createTestConfig("agent-001")
-		
+
 		// Mock expectations
 		mockRepo.On("GetConfig", ctx, "agent-001").Return(nil, errors.New("not found"))
 		mockRepo.On("CreateConfig", ctx, config).Return(nil)
@@ -175,7 +175,7 @@ func TestService_CreateConfig(t *testing.T) {
 		mockRepo := new(MockRepository)
 		service := NewService(mockRepo)
 
-		config := createTestConfig("")  // Empty agent ID
+		config := createTestConfig("") // Empty agent ID
 
 		err := service.CreateConfig(ctx, config)
 		assert.Error(t, err)
@@ -411,7 +411,7 @@ func TestAgentConfig_Clone(t *testing.T) {
 	// Verify deep copy
 	assert.Equal(t, original.AgentID, clone.AgentID)
 	assert.Equal(t, original.ModelPreferences, clone.ModelPreferences)
-	
+
 	// Modify clone
 	clone.ModelPreferences[0].PrimaryModels[0] = "modified"
 	clone.Metadata["key1"] = "modified"

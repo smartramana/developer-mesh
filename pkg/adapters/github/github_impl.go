@@ -251,7 +251,7 @@ func (g *GitHubAdapter) getRepository(ctx context.Context, owner, repo string) (
 		})
 		if err := g.eventBus.Emit(ctx, event); err != nil {
 			g.logger.Warn("Failed to emit event", map[string]interface{}{
-				"error": err,
+				"error":      err,
 				"event_type": event.EventType,
 			})
 		}
@@ -280,7 +280,7 @@ func (g *GitHubAdapter) listIssues(ctx context.Context, owner, repo string) ([]a
 		})
 		if err := g.eventBus.Emit(ctx, event); err != nil {
 			g.logger.Warn("Failed to emit event", map[string]interface{}{
-				"error": err,
+				"error":      err,
 				"event_type": event.EventType,
 			})
 		}

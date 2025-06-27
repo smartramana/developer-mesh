@@ -7,10 +7,11 @@ import (
 	"net/http/httptest"
 	"testing"
 
+	"mcp-server/internal/core"
+
 	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
-	"mcp-server/internal/core"
 )
 
 // MockAdapterContextBridge mocks the AdapterContextBridge for testing

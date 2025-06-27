@@ -13,7 +13,7 @@ type DatabaseConfig struct {
 	Username        string               `yaml:"username" mapstructure:"username"`
 	Password        string               `yaml:"password" mapstructure:"password"`
 	Database        string               `yaml:"database" mapstructure:"database"`
-	SSLMode         string               `yaml:"ssl_mode" mapstructure:"sslmode"`
+	SSLMode         string               `yaml:"ssl_mode" mapstructure:"ssl_mode"`
 	MaxOpenConns    int                  `yaml:"max_open_conns" mapstructure:"max_open_conns"`
 	MaxIdleConns    int                  `yaml:"max_idle_conns" mapstructure:"max_idle_conns"`
 	ConnMaxLifetime time.Duration        `yaml:"conn_max_lifetime" mapstructure:"conn_max_lifetime"`

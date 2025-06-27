@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/S-Corkum/devops-mcp/pkg/common/aws"
+	securitytls "github.com/S-Corkum/devops-mcp/pkg/security/tls"
 )
 
 // ErrNotFound is returned when a key is not found in the cache
@@ -35,15 +36,14 @@ type RedisConfig struct {
 	UseAWS            bool                   `mapstructure:"use_aws"`      // Use AWS ElastiCache
 	ClusterMode       bool                   `mapstructure:"cluster_mode"` // Use ElastiCache in cluster mode
 	ElastiCacheConfig *aws.ElastiCacheConfig `mapstructure:"elasticache"`  // ElastiCache configuration
-	
+
 	// TLS configuration
 	TLS *TLSConfig `mapstructure:"tls"` // TLS configuration
 }
 
 // TLSConfig holds TLS configuration
 type TLSConfig struct {
-	Enabled            bool `mapstructure:"enabled"`              // Enable TLS
-	InsecureSkipVerify bool `mapstructure:"insecure_skip_verify"` // Skip certificate verification (dev only)
+	*securitytls.Config `mapstructure:",squash"` // Embed secure TLS configuration
 }
 
 // NewCache creates a new cache based on the configuration
@@ -199,7 +199,7 @@ func newAWSElastiCacheClient(ctx context.Context, config RedisConfig) (Cache, er
 
 		// Add TLS if enabled
 		if tlsConfig, ok := options["tls"].(*tls.Config); ok && tlsConfig != nil {
-			redisConfig.UseIAMAuth = true  // If TLS is present, enable it
+			redisConfig.UseIAMAuth = true // If TLS is present, enable it
 		}
 
 		return NewRedisCache(redisConfig)

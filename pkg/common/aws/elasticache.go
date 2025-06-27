@@ -2,36 +2,36 @@ package aws
 
 import (
 	"context"
-	"crypto/tls"
 	"fmt"
 	"log"
 	"strings"
 	"time"
+
+	securitytls "github.com/S-Corkum/devops-mcp/pkg/security/tls"
 )
 
 // ElastiCacheConfig holds configuration for ElastiCache
 type ElastiCacheConfig struct {
-	AuthConfig         AuthConfig    `mapstructure:"auth"`
-	PrimaryEndpoint    string        `mapstructure:"primary_endpoint"`
-	Port               int           `mapstructure:"port"`
-	Username           string        `mapstructure:"username"` // For Redis auth
-	Password           string        `mapstructure:"password"` // For Redis auth
-	UseIAMAuth         bool          `mapstructure:"use_iam_auth"`
-	ClusterMode        bool          `mapstructure:"cluster_mode"`
-	ReaderEndpoint     string        `mapstructure:"reader_endpoint"`   // Used for cluster mode
-	CacheNodes         []string      `mapstructure:"cache_nodes"`       // List of nodes for cluster mode
-	ClusterDiscovery   bool          `mapstructure:"cluster_discovery"` // Use API to discover nodes
-	ClusterName        string        `mapstructure:"cluster_name"`
-	UseTLS             bool          `mapstructure:"use_tls"`
-	InsecureSkipVerify bool          `mapstructure:"insecure_skip_verify"`
-	MaxRetries         int           `mapstructure:"max_retries"`
-	MinIdleConnections int           `mapstructure:"min_idle_connections"`
-	PoolSize           int           `mapstructure:"pool_size"`
-	DialTimeout        time.Duration `mapstructure:"dial_timeout"`
-	ReadTimeout        time.Duration `mapstructure:"read_timeout"`
-	WriteTimeout       time.Duration `mapstructure:"write_timeout"`
-	PoolTimeout        int           `mapstructure:"pool_timeout"`
-	TokenExpiration    int           `mapstructure:"token_expiration"`
+	AuthConfig         AuthConfig          `mapstructure:"auth"`
+	PrimaryEndpoint    string              `mapstructure:"primary_endpoint"`
+	Port               int                 `mapstructure:"port"`
+	Username           string              `mapstructure:"username"` // For Redis auth
+	Password           string              `mapstructure:"password"` // For Redis auth
+	UseIAMAuth         bool                `mapstructure:"use_iam_auth"`
+	ClusterMode        bool                `mapstructure:"cluster_mode"`
+	ReaderEndpoint     string              `mapstructure:"reader_endpoint"`   // Used for cluster mode
+	CacheNodes         []string            `mapstructure:"cache_nodes"`       // List of nodes for cluster mode
+	ClusterDiscovery   bool                `mapstructure:"cluster_discovery"` // Use API to discover nodes
+	ClusterName        string              `mapstructure:"cluster_name"`
+	TLS                *securitytls.Config `mapstructure:"tls"` // TLS configuration
+	MaxRetries         int                 `mapstructure:"max_retries"`
+	MinIdleConnections int                 `mapstructure:"min_idle_connections"`
+	PoolSize           int                 `mapstructure:"pool_size"`
+	DialTimeout        time.Duration       `mapstructure:"dial_timeout"`
+	ReadTimeout        time.Duration       `mapstructure:"read_timeout"`
+	WriteTimeout       time.Duration       `mapstructure:"write_timeout"`
+	PoolTimeout        int                 `mapstructure:"pool_timeout"`
+	TokenExpiration    int                 `mapstructure:"token_expiration"`
 }
 
 // ElastiCacheClient is a client for AWS ElastiCache
@@ -175,10 +175,13 @@ func (c *ElastiCacheClient) BuildRedisOptions(ctx context.Context) (map[string]a
 	}
 
 	// TLS configuration
-	if c.config.UseTLS {
-		options["tls"] = &tls.Config{
-			InsecureSkipVerify: c.config.InsecureSkipVerify,
+	if c.config.TLS != nil && c.config.TLS.Enabled {
+		// Use TLS configuration
+		tlsConfig, err := c.config.TLS.BuildTLSConfig()
+		if err != nil {
+			return nil, fmt.Errorf("failed to build TLS config: %w", err)
 		}
+		options["tls"] = tlsConfig
 	}
 
 	// Connection pool settings

@@ -1,3 +1,4 @@
+//go:build integration
 // +build integration
 
 package integration
@@ -30,21 +31,21 @@ func TestMultiAgentEmbeddingFlow(t *testing.T) {
 
 	// Create services
 	sqlxDB := sqlx.NewDb(db, "postgres")
-	
+
 	// Agent repository and service
 	agentRepo := agents.NewPostgresRepository(sqlxDB, "mcp")
 	agentService := agents.NewService(agentRepo)
-	
+
 	// Embedding repository
 	embeddingRepo := embedding.NewRepository(sqlxDB)
-	
+
 	// Create providers
 	providerMap := map[string]providers.Provider{
 		"mock-openai":  providers.NewMockProvider("mock-openai"),
 		"mock-bedrock": providers.NewMockProvider("mock-bedrock"),
 		"mock-google":  providers.NewMockProvider("mock-google"),
 	}
-	
+
 	// Create embedding service
 	embeddingConfig := embedding.ServiceV2Config{
 		Providers:    providerMap,
@@ -52,12 +53,12 @@ func TestMultiAgentEmbeddingFlow(t *testing.T) {
 		Repository:   embeddingRepo,
 		RouterConfig: embedding.DefaultRouterConfig(),
 	}
-	
+
 	embeddingService, err := embedding.NewServiceV2(embeddingConfig)
 	require.NoError(t, err)
-	
+
 	ctx := context.Background()
-	
+
 	t.Run("complete multi-agent workflow", func(t *testing.T) {
 		// Step 1: Create agent configurations
 		agents := []struct {
@@ -70,7 +71,7 @@ func TestMultiAgentEmbeddingFlow(t *testing.T) {
 			{"agent-cost", agents.StrategyCost, agents.TaskTypeGeneralQA},
 			{"agent-balanced", agents.StrategyBalanced, agents.TaskTypeCodeAnalysis},
 		}
-		
+
 		for _, agent := range agents {
 			config := &agents.AgentConfig{
 				AgentID:           agent.id,
@@ -110,15 +111,15 @@ func TestMultiAgentEmbeddingFlow(t *testing.T) {
 				},
 				CreatedBy: "integration-test",
 			}
-			
+
 			err := agentService.CreateConfig(ctx, config)
 			require.NoError(t, err)
 		}
-		
+
 		// Step 2: Generate embeddings for each agent
 		tenantID := uuid.New()
 		contextID := uuid.New()
-		
+
 		embeddings := []struct {
 			agentID  string
 			text     string
@@ -129,9 +130,9 @@ func TestMultiAgentEmbeddingFlow(t *testing.T) {
 			{"agent-cost", "What is the weather today?", agents.TaskTypeGeneralQA},
 			{"agent-balanced", "func authenticate(user User) error { return bcrypt.Compare(user.Password, user.Hash) }", agents.TaskTypeCodeAnalysis},
 		}
-		
+
 		generatedEmbeddings := make([]embedding.GenerateEmbeddingResponse, 0)
-		
+
 		for _, emb := range embeddings {
 			req := embedding.GenerateEmbeddingRequest{
 				AgentID:   emb.agentID,
@@ -144,10 +145,10 @@ func TestMultiAgentEmbeddingFlow(t *testing.T) {
 					"timestamp": time.Now().Unix(),
 				},
 			}
-			
+
 			resp, err := embeddingService.GenerateEmbedding(ctx, req)
 			require.NoError(t, err)
-			
+
 			// Verify response
 			assert.NotNil(t, resp)
 			assert.NotEmpty(t, resp.EmbeddingID)
@@ -157,13 +158,13 @@ func TestMultiAgentEmbeddingFlow(t *testing.T) {
 			assert.Greater(t, resp.Dimensions, 0)
 			assert.GreaterOrEqual(t, resp.CostUSD, 0.0)
 			assert.Greater(t, resp.GenerationTimeMs, int64(0))
-			
+
 			generatedEmbeddings = append(generatedEmbeddings, *resp)
 		}
-		
+
 		// Step 3: Test cross-model search
 		searchService := embedding.NewSearchServiceV2(db, embeddingRepo, embedding.NewDimensionAdapter())
-		
+
 		searchReq := embedding.CrossModelSearchRequest{
 			Query:         "password security authentication",
 			TenantID:      tenantID,
@@ -172,7 +173,7 @@ func TestMultiAgentEmbeddingFlow(t *testing.T) {
 			MinSimilarity: 0.5,
 			TaskType:      "code_analysis",
 		}
-		
+
 		// Generate query embedding using one of the providers
 		queryEmbReq := embedding.GenerateEmbeddingRequest{
 			AgentID:  "agent-balanced",
@@ -180,28 +181,28 @@ func TestMultiAgentEmbeddingFlow(t *testing.T) {
 			TaskType: agents.TaskTypeCodeAnalysis,
 			TenantID: tenantID,
 		}
-		
+
 		queryResp, err := embeddingService.GenerateEmbedding(ctx, queryEmbReq)
 		require.NoError(t, err)
-		
+
 		// Perform cross-model search
 		// Note: This would require loading the actual embedding from the database
 		// For integration test purposes, we verify the flow works
-		
+
 		// Step 4: Test provider health monitoring
 		health := embeddingService.GetProviderHealth(ctx)
 		assert.NotNil(t, health)
 		assert.Len(t, health, 3) // 3 mock providers
-		
+
 		for provider, status := range health {
 			assert.NotEmpty(t, provider)
 			assert.Equal(t, "healthy", status.Status)
 		}
-		
+
 		// Step 5: Test circuit breaker behavior
 		// Force failures on one provider
 		failingProvider := providers.NewMockProvider("failing", providers.WithFailureRate(1.0))
-		
+
 		failingConfig := embedding.ServiceV2Config{
 			Providers: map[string]providers.Provider{
 				"failing": failingProvider,
@@ -218,10 +219,10 @@ func TestMultiAgentEmbeddingFlow(t *testing.T) {
 				},
 			},
 		}
-		
+
 		failingService, err := embedding.NewServiceV2(failingConfig)
 		require.NoError(t, err)
-		
+
 		// Create agent that uses the failing provider
 		failoverConfig := &agents.AgentConfig{
 			AgentID:           "agent-failover",
@@ -235,21 +236,21 @@ func TestMultiAgentEmbeddingFlow(t *testing.T) {
 			},
 			CreatedBy: "integration-test",
 		}
-		
+
 		err = agentService.CreateConfig(ctx, failoverConfig)
 		require.NoError(t, err)
-		
+
 		// Should succeed using backup provider
 		failoverReq := embedding.GenerateEmbeddingRequest{
 			AgentID:  "agent-failover",
 			Text:     "This should work with failover",
 			TenantID: tenantID,
 		}
-		
+
 		failoverResp, err := failingService.GenerateEmbedding(ctx, failoverReq)
 		require.NoError(t, err)
 		assert.Equal(t, "backup", failoverResp.Provider)
-		
+
 		// Step 6: Test batch operations
 		batchReqs := make([]embedding.GenerateEmbeddingRequest, 5)
 		for i := range batchReqs {
@@ -260,26 +261,26 @@ func TestMultiAgentEmbeddingFlow(t *testing.T) {
 				TenantID: tenantID,
 			}
 		}
-		
+
 		batchResps, err := embeddingService.BatchGenerateEmbeddings(ctx, batchReqs)
 		require.NoError(t, err)
 		assert.Len(t, batchResps, 5)
-		
+
 		for _, resp := range batchResps {
 			assert.NotNil(t, resp)
 			assert.NotEmpty(t, resp.EmbeddingID)
 		}
 	})
-	
+
 	t.Run("dimension normalization", func(t *testing.T) {
 		// Test that embeddings from different dimensions are properly normalized
 		adapter := embedding.NewDimensionAdapter()
-		
+
 		testCases := []struct {
-			name     string
-			fromDim  int
-			toDim    int
-			input    []float32
+			name    string
+			fromDim int
+			toDim   int
+			input   []float32
 		}{
 			{
 				name:    "768 to 1536 (padding)",
@@ -300,12 +301,12 @@ func TestMultiAgentEmbeddingFlow(t *testing.T) {
 				input:   generateTestEmbedding(1536),
 			},
 		}
-		
+
 		for _, tc := range testCases {
 			t.Run(tc.name, func(t *testing.T) {
 				result := adapter.Normalize(tc.input, tc.fromDim, tc.toDim)
 				assert.Len(t, result, tc.toDim)
-				
+
 				// Verify the result maintains reasonable values
 				for _, val := range result {
 					assert.False(t, isNaN(float64(val)))
@@ -324,11 +325,11 @@ func setupTestDatabase(t *testing.T) *sql.DB {
 	helper := &database.TestHelper{}
 	db, err := helper.SetupTestDB()
 	require.NoError(t, err)
-	
+
 	// Run migrations
 	err = runMigrations(db)
 	require.NoError(t, err)
-	
+
 	return db
 }
 
@@ -339,7 +340,7 @@ func cleanupTestDatabase(t *testing.T, db *sql.DB) {
 		DELETE FROM mcp.agent_configs WHERE created_by = 'integration-test';
 	`)
 	require.NoError(t, err)
-	
+
 	db.Close()
 }
 

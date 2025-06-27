@@ -5,10 +5,11 @@ import (
 	"strconv"
 	"strings"
 
+	"mcp-server/internal/core"
+
 	"github.com/S-Corkum/devops-mcp/pkg/models"
 	"github.com/S-Corkum/devops-mcp/pkg/observability"
 	"github.com/gin-gonic/gin"
-	"mcp-server/internal/core"
 )
 
 // API handles context-related API endpoints

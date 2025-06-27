@@ -4,7 +4,14 @@ import (
 	"context"
 	"fmt"
 	"net/http"
+	"reflect"
 	"time"
+
+	"mcp-server/internal/api/events"
+	"mcp-server/internal/api/proxies"
+	"mcp-server/internal/api/tools"
+	"mcp-server/internal/api/websocket"
+	"mcp-server/internal/core"
 
 	"github.com/S-Corkum/devops-mcp/pkg/auth"
 	"github.com/S-Corkum/devops-mcp/pkg/cache"
@@ -14,13 +21,11 @@ import (
 	"github.com/S-Corkum/devops-mcp/pkg/observability"
 	"github.com/S-Corkum/devops-mcp/pkg/repository"
 	"github.com/S-Corkum/devops-mcp/pkg/repository/agent"
+	pgservices "github.com/S-Corkum/devops-mcp/pkg/services"
 	"github.com/gin-gonic/gin"
 	"github.com/jmoiron/sqlx"
 	swaggerFiles "github.com/swaggo/files"
 	ginSwagger "github.com/swaggo/gin-swagger"
-	"mcp-server/internal/api/proxies"
-	"mcp-server/internal/api/websocket"
-	"mcp-server/internal/core"
 )
 
 // Global shutdown hooks
@@ -51,7 +56,13 @@ type Server struct {
 	searchAPIProxy  repository.SearchRepository    // Proxy for search operations
 	// WebSocket server
 	wsServer        *websocket.Server
-	webhookAPIProxy proxies.WebhookRepository      // Proxy for webhook operations
+	webhookAPIProxy proxies.WebhookRepository // Proxy for webhook operations
+	// Multi-agent services
+	taskService      pgservices.TaskService
+	workflowService  pgservices.WorkflowService
+	workspaceService pgservices.WorkspaceService
+	documentService  pgservices.DocumentService
+	conflictService  pgservices.ConflictResolutionService
 }
 
 // NewServer creates a new API server
@@ -105,7 +116,7 @@ func NewServer(engine *core.Engine, cfg Config, db *sqlx.DB, cacheClient cache.C
 	if observability.DefaultLogger == nil {
 		observability.DefaultLogger = observability.NewStandardLogger("mcp-server")
 	}
-	
+
 	// Initialize auth service with cache
 	authConfig := auth.DefaultConfig()
 	authConfig.JWTSecret = cfg.Auth.JWTSecret
@@ -114,7 +125,7 @@ func NewServer(engine *core.Engine, cfg Config, db *sqlx.DB, cacheClient cache.C
 
 	// Create auth service with cache
 	authService := auth.NewService(authConfig, db, cacheClient, observability.DefaultLogger)
-	
+
 	// Setup enhanced authentication with rate limiting, metrics, and audit logging
 	authMiddleware, err := auth.SetupAuthentication(db, cacheClient, observability.DefaultLogger, metrics)
 	if err != nil {
@@ -194,10 +205,13 @@ func NewServer(engine *core.Engine, cfg Config, db *sqlx.DB, cacheClient cache.C
 
 	// Create the server instance
 	s := &Server{
-		router:            router,
-		server:            &http.Server{Handler: router},
+		router: router,
+		server: &http.Server{
+			Handler:           router,
+			ReadHeaderTimeout: 5 * time.Second, // Prevent Slowloris attacks
+		},
 		engine:            engine,
-		config:            cfg,  // Set the API config
+		config:            cfg, // Set the API config
 		logger:            observability.DefaultLogger,
 		loggerAdapter:     loggerAdapter,
 		loggerObsAdapter:  loggerObsAdapter,
@@ -214,7 +228,7 @@ func NewServer(engine *core.Engine, cfg Config, db *sqlx.DB, cacheClient cache.C
 		agentAPIProxy:  agentProxy,
 		modelAPIProxy:  modelProxy,
 	}
-	
+
 	// Initialize WebSocket server if enabled
 	if cfg.WebSocket.Enabled {
 		wsConfig := websocket.Config{
@@ -227,23 +241,41 @@ func NewServer(engine *core.Engine, cfg Config, db *sqlx.DB, cacheClient cache.C
 			Security:        cfg.WebSocket.Security,
 			RateLimit:       cfg.WebSocket.RateLimit,
 		}
-		
+
 		s.wsServer = websocket.NewServer(authService, metrics, observability.DefaultLogger, wsConfig)
-		
+
 		// Set dependencies (will be properly implemented in full integration)
 		if engine != nil {
 			// Use adapter to bridge the interface differences
 			contextAdapter := websocket.NewContextManagerAdapter(engine.GetContextManager())
 			s.wsServer.SetContextManager(contextAdapter)
-			// TODO: Set tool registry and event bus when available
+
+			// Initialize and set tool registry
+			toolRegistry := tools.NewRegistry(observability.DefaultLogger)
+			if err := toolRegistry.RegisterBuiltinTools(); err != nil {
+				observability.DefaultLogger.Error("Failed to register builtin tools", map[string]interface{}{
+					"error": err.Error(),
+				})
+			}
+			toolRegistryAdapter := NewToolRegistryAdapter(toolRegistry)
+			s.wsServer.SetToolRegistry(toolRegistryAdapter)
+
+			// Initialize and set event bus
+			eventBus := events.NewBus(observability.DefaultLogger, metrics)
+			eventBusAdapter := NewEventBusAdapter(eventBus)
+			s.wsServer.SetEventBus(eventBusAdapter)
+
+			observability.DefaultLogger.Info("Tool registry and event bus initialized", map[string]interface{}{
+				"tools_count": len(toolRegistry.List()),
+			})
 		}
-		
+
 		observability.DefaultLogger.Info("WebSocket server initialized", map[string]interface{}{
 			"enabled":         true,
 			"max_connections": cfg.WebSocket.MaxConnections,
 		})
 	}
-	
+
 	s.server.Addr = cfg.ListenAddress
 	s.server.ReadTimeout = cfg.ReadTimeout
 	s.server.WriteTimeout = cfg.WriteTimeout
@@ -257,8 +289,9 @@ func (s *Server) Initialize(ctx context.Context) error {
 	// Setup HTTP server if not done already
 	if s.server == nil {
 		s.server = &http.Server{
-			Addr:    s.config.ListenAddress,
-			Handler: s.router,
+			Addr:              s.config.ListenAddress,
+			Handler:           s.router,
+			ReadHeaderTimeout: 5 * time.Second, // Prevent Slowloris attacks
 		}
 	}
 
@@ -300,12 +333,15 @@ func (s *Server) setupRoutes() {
 	})
 	s.router.GET("/health", s.healthHandler)
 	
+	// Metrics endpoint - public (no authentication required)
+	s.router.GET("/metrics", s.metricsHandler)
+
 	// Setup WebSocket endpoint
 	s.logger.Info("WebSocket route registration check", map[string]interface{}{
-		"enabled": s.config.WebSocket.Enabled,
+		"enabled":      s.config.WebSocket.Enabled,
 		"wsServer_nil": s.wsServer == nil,
 	})
-	
+
 	if s.config.WebSocket.Enabled && s.wsServer != nil {
 		// Convert gin handler to http.HandlerFunc
 		s.router.GET("/ws", func(c *gin.Context) {
@@ -316,7 +352,7 @@ func (s *Server) setupRoutes() {
 		})
 	} else {
 		s.logger.Warn("WebSocket endpoint NOT enabled", map[string]interface{}{
-			"enabled": s.config.WebSocket.Enabled,
+			"enabled":      s.config.WebSocket.Enabled,
 			"wsServer_nil": s.wsServer == nil,
 		})
 	}
@@ -356,7 +392,7 @@ func (s *Server) setupRoutes() {
 			"apis":    []string{"agent", "model", "vector", "embeddings", "mcp"},
 		})
 	})
-	
+
 	// Register MCP API routes
 	if s.engine != nil && s.engine.GetContextManager() != nil {
 		mcpAPI := NewMCPAPI(s.engine.GetContextManager())
@@ -365,14 +401,14 @@ func (s *Server) setupRoutes() {
 	} else {
 		s.logger.Warn("MCP API not available - context manager not initialized", nil)
 	}
-	
+
 	// Register WebSocket monitoring routes
 	if s.config.WebSocket.Enabled && s.wsServer != nil {
 		wsMonitoring := websocket.NewMonitoringEndpoints(s.wsServer)
 		wsMonitoring.RegisterRoutes(v1)
 		s.logger.Info("WebSocket monitoring routes registered", nil)
 	}
-	
+
 	// Register Embedding Proxy routes
 	if s.config.RestAPI.Enabled && s.config.RestAPI.BaseURL != "" {
 		embeddingProxy := proxies.NewEmbeddingProxy(s.config.RestAPI.BaseURL, s.logger)
@@ -494,16 +530,139 @@ func (s *Server) healthHandler(c *gin.Context) {
 // 	if c.Request.TLS != nil || c.GetHeader("X-Forwarded-Proto") == "https" {
 // 		scheme = "https"
 // 	}
-// 
+//
 // 	host := c.Request.Host
 // 	if forwardedHost := c.GetHeader("X-Forwarded-Host"); forwardedHost != "" {
 // 		host = forwardedHost
 // 	}
-// 
+//
 // 	return scheme + "://" + host
 // }
+
+// InjectServices injects services into the WebSocket server
+func (s *Server) InjectServices(services interface{}) {
+	s.logger.Info("InjectServices called", map[string]interface{}{
+		"services_type": fmt.Sprintf("%T", services),
+		"ws_server_nil": s.wsServer == nil,
+	})
+
+	if s.wsServer == nil {
+		s.logger.Warn("Cannot inject services: WebSocket server is not initialized", nil)
+		return
+	}
+
+	// Extract fields from the services struct using reflection
+	// This allows us to handle any struct with the required service fields
+	servicesValue := reflect.ValueOf(services).Elem()
+	servicesType := servicesValue.Type()
+
+	var taskService pgservices.TaskService
+	var workflowService pgservices.WorkflowService
+	var workspaceService pgservices.WorkspaceService
+	var documentService pgservices.DocumentService
+	var conflictService pgservices.ConflictResolutionService
+	var agentRepo agent.Repository
+	var cacheClient cache.Cache
+
+	// Find and extract each service field
+	for i := 0; i < servicesType.NumField(); i++ {
+		field := servicesType.Field(i)
+		fieldValue := servicesValue.Field(i)
+
+		if !fieldValue.IsNil() {
+			switch field.Name {
+			case "TaskService":
+				if ts, ok := fieldValue.Interface().(pgservices.TaskService); ok {
+					taskService = ts
+				}
+			case "WorkflowService":
+				if ws, ok := fieldValue.Interface().(pgservices.WorkflowService); ok {
+					workflowService = ws
+				}
+			case "WorkspaceService":
+				if ws, ok := fieldValue.Interface().(pgservices.WorkspaceService); ok {
+					workspaceService = ws
+				}
+			case "DocumentService":
+				if ds, ok := fieldValue.Interface().(pgservices.DocumentService); ok {
+					documentService = ds
+				}
+			case "ConflictService":
+				if cs, ok := fieldValue.Interface().(pgservices.ConflictResolutionService); ok {
+					conflictService = cs
+				}
+			case "AgentRepository":
+				if ar, ok := fieldValue.Interface().(agent.Repository); ok {
+					agentRepo = ar
+				}
+			case "Cache":
+				if cc, ok := fieldValue.Interface().(cache.Cache); ok {
+					cacheClient = cc
+				}
+			}
+		}
+	}
+
+	// Inject services into WebSocket server
+	s.wsServer.SetServices(taskService, workflowService, workspaceService, documentService, conflictService, agentRepo, cacheClient)
+
+	s.logger.Info("Services successfully injected into WebSocket server", map[string]interface{}{
+		"task_service_nil":      taskService == nil,
+		"workflow_service_nil":  workflowService == nil,
+		"workspace_service_nil": workspaceService == nil,
+		"document_service_nil":  documentService == nil,
+		"conflict_service_nil":  conflictService == nil,
+		"agent_repo_nil":        agentRepo == nil,
+		"cache_nil":             cacheClient == nil,
+		"has_task_service":      taskService != nil,
+		"has_workflow_service":  workflowService != nil,
+		"has_workspace_service": workspaceService != nil,
+		"has_document_service":  documentService != nil,
+		"has_conflict_service":  conflictService != nil,
+		"has_agent_repo":        agentRepo != nil,
+		"has_cache":             cacheClient != nil,
+	})
+}
 
 // RegisterShutdownHook registers a function to be called during server shutdown
 func RegisterShutdownHook(hook func()) {
 	shutdownHooks = append(shutdownHooks, hook)
+}
+
+// metricsHandler returns metrics for Prometheus
+func (s *Server) metricsHandler(c *gin.Context) {
+	// Use the Prometheus handler
+	handler := SetupPrometheusHandler()
+	handler(c)
+}
+
+// SetMultiAgentServices sets the multi-agent collaboration services on the server
+func (s *Server) SetMultiAgentServices(
+	taskService pgservices.TaskService,
+	workflowService pgservices.WorkflowService,
+	workspaceService pgservices.WorkspaceService,
+	documentService pgservices.DocumentService,
+	conflictService pgservices.ConflictResolutionService,
+) {
+	s.taskService = taskService
+	s.workflowService = workflowService
+	s.workspaceService = workspaceService
+	s.documentService = documentService
+	s.conflictService = conflictService
+
+	// Pass services to WebSocket server if it exists
+	if s.wsServer != nil {
+		// Pass nil for agent repository and cache since they're not available in this method
+		// They should be passed through InjectServices instead
+		s.wsServer.SetServices(taskService, workflowService, workspaceService, documentService, conflictService, nil, nil)
+		s.logger.Info("Multi-agent services set on WebSocket server", map[string]interface{}{
+			"taskService_nil": taskService == nil,
+			"workflowService_nil": workflowService == nil,
+			"workspaceService_nil": workspaceService == nil,
+			"documentService_nil": documentService == nil,
+			"conflictService_nil": conflictService == nil,
+		})
+	} else {
+		s.logger.Warn("WebSocket server is nil, cannot set services", nil)
+	}
 }

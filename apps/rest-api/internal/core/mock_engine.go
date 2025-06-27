@@ -2,9 +2,10 @@ package core
 
 import (
 	"context"
+	"rest-api/internal/types"
+
 	"github.com/S-Corkum/devops-mcp/pkg/models"
 	"github.com/stretchr/testify/mock"
-	"rest-api/internal/types"
 )
 
 // MockEngine is a mock implementation of Engine for testing

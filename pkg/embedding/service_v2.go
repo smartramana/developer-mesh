@@ -23,24 +23,25 @@ type AgentService interface {
 
 // ServiceV2 is the enhanced embedding service with multi-agent support
 type ServiceV2 struct {
-	providers       map[string]providers.Provider
-	agentService    AgentService
-	repository      *Repository
-	metricsRepo     MetricsRepository
-	router          *SmartRouter
+	providers        map[string]providers.Provider
+	agentService     AgentService
+	repository       *Repository
+	metricsRepo      MetricsRepository
+	router           *SmartRouter
 	dimensionAdapter *DimensionAdapter
-	cache           EmbeddingCache
-	mu              sync.RWMutex
+	cache            EmbeddingCache
+	progressFunc     func(float64) // Progress callback for batch operations
+	mu               sync.RWMutex
 }
 
 // ServiceV2Config contains configuration for the service
 type ServiceV2Config struct {
-	Providers       map[string]providers.Provider
-	AgentService    AgentService
-	Repository      *Repository
-	MetricsRepo     MetricsRepository
-	Cache           EmbeddingCache
-	RouterConfig    *RouterConfig
+	Providers    map[string]providers.Provider
+	AgentService AgentService
+	Repository   *Repository
+	MetricsRepo  MetricsRepository
+	Cache        EmbeddingCache
+	RouterConfig *RouterConfig
 }
 
 // EmbeddingCache defines the interface for caching embeddings
@@ -52,12 +53,12 @@ type EmbeddingCache interface {
 
 // CachedEmbedding represents a cached embedding
 type CachedEmbedding struct {
-	Embedding    []float32              `json:"embedding"`
-	Model        string                 `json:"model"`
-	Provider     string                 `json:"provider"`
-	Dimensions   int                    `json:"dimensions"`
-	Metadata     map[string]interface{} `json:"metadata"`
-	CachedAt     time.Time              `json:"cached_at"`
+	Embedding  []float32              `json:"embedding"`
+	Model      string                 `json:"model"`
+	Provider   string                 `json:"provider"`
+	Dimensions int                    `json:"dimensions"`
+	Metadata   map[string]interface{} `json:"metadata"`
+	CachedAt   time.Time              `json:"cached_at"`
 }
 
 // MetricsRepository stores embedding metrics
@@ -69,34 +70,34 @@ type MetricsRepository interface {
 
 // EmbeddingMetric represents a single metric entry
 type EmbeddingMetric struct {
-	ID                   uuid.UUID              `json:"id" db:"id"`
-	AgentID              string                 `json:"agent_id" db:"agent_id"`
-	ModelProvider        string                 `json:"model_provider" db:"model_provider"`
-	ModelName            string                 `json:"model_name" db:"model_name"`
-	ModelDimensions      int                    `json:"model_dimensions" db:"model_dimensions"`
-	RequestID            uuid.UUID              `json:"request_id" db:"request_id"`
-	TokenCount           int                    `json:"token_count" db:"token_count"`
-	TotalLatencyMs       int                    `json:"total_latency_ms" db:"total_latency_ms"`
-	ProviderLatencyMs    int                    `json:"provider_latency_ms" db:"provider_latency_ms"`
-	NormalizationLatencyMs int                  `json:"normalization_latency_ms" db:"normalization_latency_ms"`
-	CostUSD              float64                `json:"cost_usd" db:"cost_usd"`
-	Status               string                 `json:"status" db:"status"`
-	ErrorMessage         string                 `json:"error_message" db:"error_message"`
-	RetryCount           int                    `json:"retry_count" db:"retry_count"`
-	FinalProvider        string                 `json:"final_provider" db:"final_provider"`
-	TenantID             uuid.UUID              `json:"tenant_id" db:"tenant_id"`
-	Timestamp            time.Time              `json:"timestamp" db:"timestamp"`
+	ID                     uuid.UUID `json:"id" db:"id"`
+	AgentID                string    `json:"agent_id" db:"agent_id"`
+	ModelProvider          string    `json:"model_provider" db:"model_provider"`
+	ModelName              string    `json:"model_name" db:"model_name"`
+	ModelDimensions        int       `json:"model_dimensions" db:"model_dimensions"`
+	RequestID              uuid.UUID `json:"request_id" db:"request_id"`
+	TokenCount             int       `json:"token_count" db:"token_count"`
+	TotalLatencyMs         int       `json:"total_latency_ms" db:"total_latency_ms"`
+	ProviderLatencyMs      int       `json:"provider_latency_ms" db:"provider_latency_ms"`
+	NormalizationLatencyMs int       `json:"normalization_latency_ms" db:"normalization_latency_ms"`
+	CostUSD                float64   `json:"cost_usd" db:"cost_usd"`
+	Status                 string    `json:"status" db:"status"`
+	ErrorMessage           string    `json:"error_message" db:"error_message"`
+	RetryCount             int       `json:"retry_count" db:"retry_count"`
+	FinalProvider          string    `json:"final_provider" db:"final_provider"`
+	TenantID               uuid.UUID `json:"tenant_id" db:"tenant_id"`
+	Timestamp              time.Time `json:"timestamp" db:"timestamp"`
 }
 
 // GenerateEmbeddingRequest represents a request to generate an embedding
 type GenerateEmbeddingRequest struct {
-	AgentID      string                 `json:"agent_id" validate:"required"`
-	Text         string                 `json:"text" validate:"required,max=50000"`
-	TaskType     agents.TaskType        `json:"task_type"`
-	Metadata     map[string]interface{} `json:"metadata"`
-	RequestID    string                 `json:"request_id"`
-	TenantID     uuid.UUID              `json:"tenant_id"`
-	ContextID    uuid.UUID              `json:"context_id"`
+	AgentID   string                 `json:"agent_id" validate:"required"`
+	Text      string                 `json:"text" validate:"required,max=50000"`
+	TaskType  agents.TaskType        `json:"task_type"`
+	Metadata  map[string]interface{} `json:"metadata"`
+	RequestID string                 `json:"request_id"`
+	TenantID  uuid.UUID              `json:"tenant_id"`
+	ContextID uuid.UUID              `json:"context_id"`
 }
 
 // GenerateEmbeddingResponse represents the response from generating an embedding
@@ -154,7 +155,7 @@ func (s *ServiceV2) GenerateEmbedding(ctx context.Context, req GenerateEmbedding
 	if err := s.validateEmbeddingRequest(req); err != nil {
 		return nil, fmt.Errorf("invalid request: %w", err)
 	}
-	
+
 	start := time.Now()
 	requestID := req.RequestID
 	if requestID == "" {
@@ -341,19 +342,348 @@ func (s *ServiceV2) GenerateEmbedding(ctx context.Context, req GenerateEmbedding
 
 // BatchGenerateEmbeddings generates embeddings for multiple texts
 func (s *ServiceV2) BatchGenerateEmbeddings(ctx context.Context, reqs []GenerateEmbeddingRequest) ([]*GenerateEmbeddingResponse, error) {
-	// For now, process sequentially
-	// TODO: Implement proper batching with provider support
-	responses := make([]*GenerateEmbeddingResponse, len(reqs))
-	
-	for i, req := range reqs {
-		resp, err := s.GenerateEmbedding(ctx, req)
-		if err != nil {
-			return nil, fmt.Errorf("failed to generate embedding %d: %w", i, err)
-		}
-		responses[i] = resp
+	if len(reqs) == 0 {
+		return []*GenerateEmbeddingResponse{}, nil
 	}
-	
+
+	// Group requests by agent and task type for optimal batching
+	type batchKey struct {
+		agentID  string
+		taskType agents.TaskType
+	}
+	batches := make(map[batchKey][]int)
+
+	for i, req := range reqs {
+		taskType := req.TaskType
+		if taskType == "" {
+			taskType = agents.TaskTypeGeneralQA
+		}
+		key := batchKey{
+			agentID:  req.AgentID,
+			taskType: taskType,
+		}
+		batches[key] = append(batches[key], i)
+	}
+
+	// Process each batch concurrently
+	responses := make([]*GenerateEmbeddingResponse, len(reqs))
+	var wg sync.WaitGroup
+	errCh := make(chan error, len(batches))
+
+	for key, indices := range batches {
+		wg.Add(1)
+		go func(bk batchKey, reqIndices []int) {
+			defer wg.Done()
+
+			// Get agent configuration
+			agentConfig, err := s.agentService.GetConfig(ctx, bk.agentID)
+			if err != nil {
+				errCh <- fmt.Errorf("failed to get config for agent %s: %w", bk.agentID, err)
+				return
+			}
+
+			// Get models for this agent and task type
+			primaryModels, _, err := s.agentService.GetModelsForAgent(ctx, bk.agentID, bk.taskType)
+			if err != nil {
+				errCh <- fmt.Errorf("failed to get models for agent %s: %w", bk.agentID, err)
+				return
+			}
+
+			if len(primaryModels) == 0 {
+				errCh <- fmt.Errorf("no models configured for agent %s task %s", bk.agentID, bk.taskType)
+				return
+			}
+
+			// Find a provider that supports the model
+			modelName := primaryModels[0]
+			var provider providers.Provider
+			var providerName string
+
+			for pName, p := range s.providers {
+				models := p.GetSupportedModels()
+				for _, m := range models {
+					if m.Name == modelName {
+						provider = p
+						providerName = pName
+						break
+					}
+				}
+				if provider != nil {
+					break
+				}
+			}
+
+			if provider == nil {
+				errCh <- fmt.Errorf("no provider found for model %s", modelName)
+				return
+			}
+
+			// Extract texts for this batch
+			texts := make([]string, len(reqIndices))
+			for i, idx := range reqIndices {
+				texts[i] = reqs[idx].Text
+			}
+
+			// Create batch request
+			batchReq := providers.BatchGenerateEmbeddingRequest{
+				Texts:     texts,
+				Model:     modelName,
+				Metadata:  agentConfig.Metadata,
+				RequestID: uuid.New().String(),
+			}
+
+			// Generate embeddings
+			start := time.Now()
+			batchResp, err := provider.BatchGenerateEmbeddings(ctx, batchReq)
+			if err != nil {
+				// Fall back to sequential processing
+				for _, idx := range reqIndices {
+					resp, err := s.GenerateEmbedding(ctx, reqs[idx])
+					if err != nil {
+						errCh <- fmt.Errorf("failed to generate embedding for request %d: %w", idx, err)
+						return
+					}
+					responses[idx] = resp
+				}
+				return
+			}
+
+			generationTime := time.Since(start).Milliseconds()
+
+			// Process responses
+			for i, idx := range reqIndices {
+				if i >= len(batchResp.Embeddings) {
+					errCh <- fmt.Errorf("missing embedding for request %d", idx)
+					return
+				}
+
+				// Convert metadata to JSON
+				metadataJSON, err := json.Marshal(reqs[idx].Metadata)
+				if err != nil {
+					errCh <- fmt.Errorf("failed to marshal metadata for request %d: %w", idx, err)
+					return
+				}
+
+				// Store embedding
+				dims := batchResp.Dimensions
+				insertReq := InsertRequest{
+					ContextID:            reqs[idx].ContextID,
+					Content:              texts[i],
+					Embedding:            batchResp.Embeddings[i],
+					ModelName:            modelName,
+					TenantID:             reqs[idx].TenantID,
+					Metadata:             json.RawMessage(metadataJSON),
+					ContentIndex:         idx,
+					ChunkIndex:           0,
+					ConfiguredDimensions: &dims,
+				}
+
+				embeddingID, err := s.repository.InsertEmbedding(ctx, insertReq)
+				if err != nil {
+					errCh <- fmt.Errorf("failed to store embedding %d: %w", idx, err)
+					return
+				}
+
+				// Create response
+				responses[idx] = &GenerateEmbeddingResponse{
+					EmbeddingID:          embeddingID,
+					RequestID:            reqs[idx].RequestID,
+					ModelUsed:            modelName,
+					Provider:             providerName,
+					Dimensions:           batchResp.Dimensions,
+					NormalizedDimensions: StandardDimension,
+					GenerationTimeMs:     generationTime / int64(len(reqIndices)),
+					Cached:               false,
+					Metadata:             reqs[idx].Metadata,
+				}
+			}
+		}(key, indices)
+	}
+
+	wg.Wait()
+	close(errCh)
+
+	// Collect errors
+	var errs []error
+	for err := range errCh {
+		if err != nil {
+			errs = append(errs, err)
+		}
+	}
+
+	if len(errs) > 0 {
+		return nil, fmt.Errorf("batch processing failed with %d errors: %v", len(errs), errs)
+	}
+
 	return responses, nil
+}
+
+// GenerateBatch generates embeddings for multiple texts with progress tracking
+func (s *ServiceV2) GenerateBatch(ctx context.Context, texts []string, model string) ([][]float32, error) {
+	const batchSize = 100
+
+	if len(texts) == 0 {
+		return [][]float32{}, nil
+	}
+
+	// Use default model if not specified
+	if model == "" {
+		// Find first available model
+		for _, provider := range s.providers {
+			models := provider.GetSupportedModels()
+			if len(models) > 0 && models[0].IsActive {
+				model = models[0].Name
+				break
+			}
+		}
+		if model == "" {
+			return nil, fmt.Errorf("no active models available")
+		}
+	}
+
+	// Find provider that supports the model
+	var provider providers.Provider
+	var providerName string
+	for name, p := range s.providers {
+		models := p.GetSupportedModels()
+		for _, m := range models {
+			if m.Name == model && m.IsActive {
+				provider = p
+				providerName = name
+				break
+			}
+		}
+		if provider != nil {
+			break
+		}
+	}
+
+	if provider == nil {
+		return nil, fmt.Errorf("no provider found for model %s", model)
+	}
+
+	// Process in batches
+	var results [][]float32
+	totalBatches := (len(texts) + batchSize - 1) / batchSize
+
+	for i := 0; i < len(texts); i += batchSize {
+		end := i + batchSize
+		if end > len(texts) {
+			end = len(texts)
+		}
+		batch := texts[i:end]
+
+		// Create batch request
+		batchReq := providers.BatchGenerateEmbeddingRequest{
+			Texts:     batch,
+			Model:     model,
+			RequestID: uuid.New().String(),
+		}
+
+		// Generate embeddings with retry using circuit breaker pattern
+		var embeddings [][]float32
+		err := s.generateWithRetry(ctx, func() error {
+			// Record metrics
+			start := time.Now()
+			defer func() {
+				if s.metricsRepo != nil {
+					s.recordMetric(ctx, &EmbeddingMetric{
+						ID:                uuid.New(),
+						ModelProvider:     providerName,
+						ModelName:         model,
+						TokenCount:        len(batch),
+						TotalLatencyMs:    int(time.Since(start).Milliseconds()),
+						ProviderLatencyMs: int(time.Since(start).Milliseconds()),
+						Status:            "success",
+						Timestamp:         time.Now(),
+					})
+				}
+			}()
+
+			// Call provider
+			resp, err := provider.BatchGenerateEmbeddings(ctx, batchReq)
+			if err != nil {
+				// Record error metric
+				if s.metricsRepo != nil {
+					s.recordMetric(ctx, &EmbeddingMetric{
+						ID:            uuid.New(),
+						ModelProvider: providerName,
+						ModelName:     model,
+						TokenCount:    len(batch),
+						Status:        "error",
+						ErrorMessage:  err.Error(),
+						Timestamp:     time.Now(),
+					})
+				}
+				return err
+			}
+
+			embeddings = resp.Embeddings
+			return nil
+		})
+
+		if err != nil {
+			return nil, fmt.Errorf("batch %d/%d failed: %w", (i/batchSize)+1, totalBatches, err)
+		}
+
+		results = append(results, embeddings...)
+
+		// Progress callback if available
+		if s.progressFunc != nil {
+			progress := float64(end) / float64(len(texts))
+			s.progressFunc(progress)
+		}
+
+		// Add small delay between batches to avoid rate limiting
+		if end < len(texts) {
+			time.Sleep(100 * time.Millisecond)
+		}
+	}
+
+	return results, nil
+}
+
+// generateWithRetry implements retry logic with exponential backoff
+func (s *ServiceV2) generateWithRetry(ctx context.Context, fn func() error) error {
+	const maxRetries = 3
+	baseDelay := 1 * time.Second
+
+	var lastErr error
+	for attempt := 0; attempt < maxRetries; attempt++ {
+		if err := fn(); err == nil {
+			return nil
+		} else {
+			lastErr = err
+
+			// Check if error is retryable
+			if provErr, ok := err.(*providers.ProviderError); ok && !provErr.IsRetryable {
+				return err
+			}
+
+			// Calculate backoff delay
+			delay := baseDelay * time.Duration(1<<uint(attempt))
+			if delay > 30*time.Second {
+				delay = 30 * time.Second
+			}
+
+			// Wait before retry
+			select {
+			case <-ctx.Done():
+				return ctx.Err()
+			case <-time.After(delay):
+				// Continue to next attempt
+			}
+		}
+	}
+
+	return fmt.Errorf("failed after %d retries: %w", maxRetries, lastErr)
+}
+
+// SetProgressCallback sets the progress callback function
+func (s *ServiceV2) SetProgressCallback(fn func(float64)) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.progressFunc = fn
 }
 
 // GetProviderHealth returns health status of all providers
@@ -362,27 +692,27 @@ func (s *ServiceV2) GetProviderHealth(ctx context.Context) map[string]ProviderHe
 	defer s.mu.RUnlock()
 
 	health := make(map[string]ProviderHealth)
-	
+
 	for name, provider := range s.providers {
 		status := ProviderHealth{
 			Name:   name,
 			Status: "healthy",
 		}
-		
+
 		if err := provider.HealthCheck(ctx); err != nil {
 			status.Status = "unhealthy"
 			status.Error = err.Error()
 		}
-		
+
 		// Get circuit breaker status from router
 		if cbStatus := s.router.GetCircuitBreakerStatus(name); cbStatus != nil {
 			status.CircuitBreakerState = cbStatus.State
 			status.FailureCount = cbStatus.FailureCount
 		}
-		
+
 		health[name] = status
 	}
-	
+
 	return health
 }
 
@@ -411,7 +741,7 @@ func (s *ServiceV2) validateEmbeddingRequest(req GenerateEmbeddingRequest) error
 	if len(req.AgentID) > 255 {
 		return fmt.Errorf("agent ID too long")
 	}
-	
+
 	// Validate text
 	if req.Text == "" {
 		return fmt.Errorf("text is required")
@@ -420,10 +750,10 @@ func (s *ServiceV2) validateEmbeddingRequest(req GenerateEmbeddingRequest) error
 	if len(req.Text) > maxTextLength {
 		return fmt.Errorf("text exceeds maximum length of %d characters", maxTextLength)
 	}
-	
+
 	// Validate tenant ID if provided
 	// UUID validation is implicit in the type when TenantID != uuid.Nil
-	
+
 	// Validate metadata if provided
 	if req.Metadata != nil {
 		// Ensure metadata doesn't contain sensitive keys
@@ -437,7 +767,7 @@ func (s *ServiceV2) validateEmbeddingRequest(req GenerateEmbeddingRequest) error
 			}
 		}
 	}
-	
+
 	return nil
 }
 
@@ -450,11 +780,11 @@ func calculateCost(tokens int, model string) float64 {
 		"amazon.titan-embed-text-v2:0": 0.02,
 		"voyage-code-2":                0.10,
 	}
-	
+
 	if cost, ok := costPer1MTokens[model]; ok {
 		return float64(tokens) * cost / 1_000_000
 	}
-	
+
 	// Default cost
 	return float64(tokens) * 0.05 / 1_000_000
 }
@@ -495,22 +825,22 @@ type ProviderHealth struct {
 }
 
 type MetricsFilter struct {
-	AgentID       string
-	Provider      string
-	StartTime     time.Time
-	EndTime       time.Time
-	Status        string
-	Limit         int
+	AgentID   string
+	Provider  string
+	StartTime time.Time
+	EndTime   time.Time
+	Status    string
+	Limit     int
 }
 
 type CostSummary struct {
-	AgentID      string              `json:"agent_id"`
-	Period       string              `json:"period"`
-	TotalCostUSD float64             `json:"total_cost_usd"`
-	ByProvider   map[string]float64  `json:"by_provider"`
-	ByModel      map[string]float64  `json:"by_model"`
-	RequestCount int                 `json:"request_count"`
-	TokensUsed   int                 `json:"tokens_used"`
+	AgentID      string             `json:"agent_id"`
+	Period       string             `json:"period"`
+	TotalCostUSD float64            `json:"total_cost_usd"`
+	ByProvider   map[string]float64 `json:"by_provider"`
+	ByModel      map[string]float64 `json:"by_model"`
+	RequestCount int                `json:"request_count"`
+	TokensUsed   int                `json:"tokens_used"`
 }
 
 const StandardDimension = 1536 // OpenAI standard for cross-model compatibility

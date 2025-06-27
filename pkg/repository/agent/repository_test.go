@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"github.com/S-Corkum/devops-mcp/pkg/models"
+	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -36,7 +37,7 @@ func TestMockRepository(t *testing.T) {
 	agent := &models.Agent{
 		ID:       "test-id",
 		Name:     "Test Agent",
-		TenantID: "test-tenant",
+		TenantID: uuid.MustParse("00000000-0000-0000-0000-000000000001"),
 		ModelID:  "test-model",
 	}
 
@@ -49,7 +50,7 @@ func TestMockRepository(t *testing.T) {
 	assert.Equal(t, agent.ID, retrieved.ID, "Retrieved agent should have the correct ID")
 
 	// Test List
-	filter := FilterFromTenantID(agent.TenantID)
+	filter := FilterFromTenantID(agent.TenantID.String())
 	agents, err := repo.List(context.Background(), filter)
 	assert.NoError(t, err, "List should not return an error")
 	assert.GreaterOrEqual(t, len(agents), 0, "List should return at least an empty slice")
@@ -58,10 +59,10 @@ func TestMockRepository(t *testing.T) {
 	err = repo.CreateAgent(context.Background(), agent)
 	assert.NoError(t, err, "CreateAgent should not return an error")
 
-	retrieved, err = repo.GetAgentByID(context.Background(), agent.ID, agent.TenantID)
+	retrieved, err = repo.GetAgentByID(context.Background(), agent.ID, agent.TenantID.String())
 	assert.NoError(t, err, "GetAgentByID should not return an error")
 	assert.NotNil(t, retrieved, "Retrieved agent should not be nil")
 
-	_, err = repo.ListAgents(context.Background(), agent.TenantID)
+	_, err = repo.ListAgents(context.Background(), agent.TenantID.String())
 	assert.NoError(t, err, "ListAgents should not return an error")
 }

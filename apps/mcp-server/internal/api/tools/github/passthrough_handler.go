@@ -13,11 +13,11 @@ import (
 
 // PassthroughAdapterFactory creates GitHub adapters with user credentials
 type PassthroughAdapterFactory struct {
-	logger          observability.Logger
-	serviceAdapter  *github.GitHubAdapter // Fallback service account adapter
-	adapterCache    sync.Map              // Cache of user adapters
-	metricsClient   observability.MetricsClient
-	allowFallback   bool
+	logger         observability.Logger
+	serviceAdapter *github.GitHubAdapter // Fallback service account adapter
+	adapterCache   sync.Map              // Cache of user adapters
+	metricsClient  observability.MetricsClient
+	allowFallback  bool
 }
 
 // NewPassthroughAdapterFactory creates a new factory for pass-through authentication
@@ -50,11 +50,11 @@ func (f *PassthroughAdapterFactory) GetAdapter(ctx context.Context) (*github.Git
 			"has_credentials":  creds != nil,
 			"has_github_cred":  creds != nil && creds.GitHub != nil,
 		})
-		
+
 		f.metricsClient.IncrementCounterWithLabels("github_auth_method", 1, map[string]string{
 			"method": "service_account",
 		})
-		
+
 		return f.serviceAdapter, nil
 	}
 
@@ -82,7 +82,7 @@ func (f *PassthroughAdapterFactory) createUserAdapter(ctx context.Context, cred 
 
 	// Create new adapter configuration
 	config := github.DefaultConfig()
-	
+
 	// Set authentication based on credential type
 	switch cred.Type {
 	case "pat", "":
@@ -150,7 +150,7 @@ func (f *PassthroughAdapterFactory) ClearCache() {
 		count++
 		return true
 	})
-	
+
 	f.logger.Info("Cleared adapter cache", map[string]interface{}{
 		"cleared_count": count,
 	})
@@ -171,9 +171,9 @@ func (f *PassthroughAdapterFactory) ValidateCredential(ctx context.Context, cred
 	// Test the credential with a simple API call
 	// For now, we'll just verify the adapter was created successfully
 	// In a real implementation, you would call a GitHub API method through the adapter
-	
+
 	f.logger.Info("Credential validated successfully", map[string]interface{}{
-		"type":       cred.Type,
+		"type":         cred.Type,
 		"has_base_url": cred.BaseURL != "",
 	})
 
@@ -190,7 +190,7 @@ func (f *PassthroughAdapterFactory) GetAuthenticatedUser(ctx context.Context) (m
 	// Check if this is a service account or user credential
 	isServiceAccount := false
 	var authMethod string
-	
+
 	if creds, ok := auth.GetToolCredentials(ctx); !ok || creds == nil || creds.GitHub == nil {
 		isServiceAccount = true
 		authMethod = "service_account"

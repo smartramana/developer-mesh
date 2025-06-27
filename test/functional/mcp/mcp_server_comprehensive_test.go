@@ -9,10 +9,10 @@ import (
 	"sync"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/gorilla/websocket"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/google/uuid"
 )
 
 // MCPMessage represents a standard MCP protocol message
@@ -28,8 +28,8 @@ type MCPMessage struct {
 
 // MCPError represents an error in the MCP protocol
 type MCPError struct {
-	Code    int    `json:"code"`
-	Message string `json:"message"`
+	Code    int         `json:"code"`
+	Message string      `json:"message"`
 	Data    interface{} `json:"data,omitempty"`
 }
 
@@ -51,8 +51,8 @@ type MCPTool struct {
 
 var _ = Describe("MCP Server Comprehensive WebSocket Tests", func() {
 	var (
-		wsURL      string
-		apiKey     string
+		wsURL  string
+		apiKey string
 	)
 
 	BeforeEach(func() {
@@ -61,7 +61,7 @@ var _ = Describe("MCP Server Comprehensive WebSocket Tests", func() {
 		if baseURL == "" {
 			baseURL = "http://localhost:8080"
 		}
-		
+
 		// Convert HTTP URL to WebSocket URL
 		if strings.HasPrefix(baseURL, "http://") {
 			wsURL = strings.Replace(baseURL, "http://", "ws://", 1)
@@ -70,9 +70,9 @@ var _ = Describe("MCP Server Comprehensive WebSocket Tests", func() {
 		} else {
 			wsURL = "ws://localhost:8080"
 		}
-		
+
 		wsURL = wsURL + "/ws"
-		
+
 		apiKey = os.Getenv("MCP_API_KEY")
 		if apiKey == "" {
 			apiKey = "docker-admin-api-key"
@@ -84,10 +84,10 @@ var _ = Describe("MCP Server Comprehensive WebSocket Tests", func() {
 			dialer := websocket.Dialer{
 				HandshakeTimeout: 10 * time.Second,
 			}
-			
+
 			header := http.Header{}
 			header.Set("X-API-Key", apiKey)
-			
+
 			conn, resp, err := dialer.Dial(wsURL, header)
 			if err != nil {
 				if resp != nil {
@@ -100,13 +100,13 @@ var _ = Describe("MCP Server Comprehensive WebSocket Tests", func() {
 					GinkgoWriter.Printf("Error closing connection: %v\n", err)
 				}
 			}()
-			
+
 			Expect(resp.StatusCode).To(Equal(http.StatusSwitchingProtocols))
-			
+
 			// Test ping/pong
 			err = conn.WriteMessage(websocket.PingMessage, []byte("ping"))
 			Expect(err).NotTo(HaveOccurred())
-			
+
 			// Set read deadline for pong
 			if err := conn.SetReadDeadline(time.Now().Add(5 * time.Second)); err != nil {
 				GinkgoWriter.Printf("Error setting read deadline: %v\n", err)
@@ -123,16 +123,16 @@ var _ = Describe("MCP Server Comprehensive WebSocket Tests", func() {
 			dialer := websocket.Dialer{
 				HandshakeTimeout: 10 * time.Second,
 			}
-			
+
 			conn, resp, err := dialer.Dial(wsURL, nil)
 			if conn != nil {
 				defer func() {
-				if err := conn.Close(); err != nil {
-					GinkgoWriter.Printf("Error closing connection: %v\n", err)
-				}
-			}()
+					if err := conn.Close(); err != nil {
+						GinkgoWriter.Printf("Error closing connection: %v\n", err)
+					}
+				}()
 			}
-			
+
 			// Either connection should fail or we should get unauthorized
 			if err == nil {
 				Expect(resp.StatusCode).To(Equal(http.StatusUnauthorized))
@@ -148,14 +148,14 @@ var _ = Describe("MCP Server Comprehensive WebSocket Tests", func() {
 
 		BeforeEach(func() {
 			_, cancel = context.WithTimeout(context.Background(), 30*time.Second)
-			
+
 			dialer := websocket.Dialer{
 				HandshakeTimeout: 10 * time.Second,
 			}
-			
+
 			header := http.Header{}
 			header.Set("X-API-Key", apiKey)
-			
+
 			var resp *http.Response
 			var err error
 			conn, resp, err = dialer.Dial(wsURL, header)
@@ -206,17 +206,17 @@ var _ = Describe("MCP Server Comprehensive WebSocket Tests", func() {
 			var response MCPMessage
 			err = conn.ReadJSON(&response)
 			Expect(err).NotTo(HaveOccurred())
-			
+
 			// Verify response
 			Expect(response.Type).To(Equal("response"))
 			Expect(response.ID).To(Equal(initMsg.ID))
 			Expect(response.Error).To(BeNil())
-			
+
 			// Check server capabilities
 			if response.Result != nil {
 				result, ok := response.Result.(map[string]interface{})
 				Expect(ok).To(BeTrue())
-				
+
 				if capabilities, ok := result["capabilities"]; ok {
 					GinkgoWriter.Printf("Server capabilities: %+v\n", capabilities)
 				}
@@ -242,7 +242,7 @@ var _ = Describe("MCP Server Comprehensive WebSocket Tests", func() {
 			var response MCPMessage
 			err = conn.ReadJSON(&response)
 			Expect(err).NotTo(HaveOccurred())
-			
+
 			// Server should either negotiate down or return error
 			Expect(response.Type).To(Equal("response"))
 			Expect(response.ID).To(Equal(initMsg.ID))
@@ -257,10 +257,10 @@ var _ = Describe("MCP Server Comprehensive WebSocket Tests", func() {
 			dialer := websocket.Dialer{
 				HandshakeTimeout: 10 * time.Second,
 			}
-			
+
 			header := http.Header{}
 			header.Set("X-API-Key", apiKey)
-			
+
 			var err error
 			conn, _, err = dialer.Dial(wsURL, header)
 			if err != nil {
@@ -279,7 +279,7 @@ var _ = Describe("MCP Server Comprehensive WebSocket Tests", func() {
 			}
 			err = conn.WriteJSON(initMsg)
 			Expect(err).NotTo(HaveOccurred())
-			
+
 			var initResp MCPMessage
 			err = conn.ReadJSON(&initResp)
 			Expect(err).NotTo(HaveOccurred())
@@ -317,12 +317,12 @@ var _ = Describe("MCP Server Comprehensive WebSocket Tests", func() {
 			if response.Result != nil {
 				result, ok := response.Result.(map[string]interface{})
 				Expect(ok).To(BeTrue())
-				
+
 				if tools, ok := result["tools"]; ok {
 					toolsList, ok := tools.([]interface{})
 					Expect(ok).To(BeTrue())
 					GinkgoWriter.Printf("Available tools: %d\n", len(toolsList))
-					
+
 					// Verify each tool has required fields
 					for _, tool := range toolsList {
 						toolMap, ok := tool.(map[string]interface{})
@@ -345,11 +345,11 @@ var _ = Describe("MCP Server Comprehensive WebSocket Tests", func() {
 			}
 			err := conn.WriteJSON(toolsMsg)
 			Expect(err).NotTo(HaveOccurred())
-			
+
 			var toolsResp MCPMessage
 			err = conn.ReadJSON(&toolsResp)
 			Expect(err).NotTo(HaveOccurred())
-			
+
 			// Execute a simple tool if available
 			callMsg := MCPMessage{
 				Type:   "request",
@@ -372,7 +372,7 @@ var _ = Describe("MCP Server Comprehensive WebSocket Tests", func() {
 
 			Expect(response.Type).To(Equal("response"))
 			Expect(response.ID).To(Equal(callMsg.ID))
-			
+
 			// Tool might not exist or might fail - that's OK for this test
 			if response.Error != nil {
 				GinkgoWriter.Printf("Tool call error: %+v\n", response.Error)
@@ -390,10 +390,10 @@ var _ = Describe("MCP Server Comprehensive WebSocket Tests", func() {
 			dialer := websocket.Dialer{
 				HandshakeTimeout: 10 * time.Second,
 			}
-			
+
 			header := http.Header{}
 			header.Set("X-API-Key", apiKey)
-			
+
 			var err error
 			conn, _, err = dialer.Dial(wsURL, header)
 			if err != nil {
@@ -412,7 +412,7 @@ var _ = Describe("MCP Server Comprehensive WebSocket Tests", func() {
 			}
 			err = conn.WriteJSON(initMsg)
 			Expect(err).NotTo(HaveOccurred())
-			
+
 			var initResp MCPMessage
 			err = conn.ReadJSON(&initResp)
 			Expect(err).NotTo(HaveOccurred())
@@ -474,10 +474,10 @@ var _ = Describe("MCP Server Comprehensive WebSocket Tests", func() {
 			dialer := websocket.Dialer{
 				HandshakeTimeout: 10 * time.Second,
 			}
-			
+
 			header := http.Header{}
 			header.Set("X-API-Key", apiKey)
-			
+
 			var err error
 			conn, _, err = dialer.Dial(wsURL, header)
 			if err != nil {
@@ -496,7 +496,7 @@ var _ = Describe("MCP Server Comprehensive WebSocket Tests", func() {
 			}
 			err = conn.WriteJSON(initMsg)
 			Expect(err).NotTo(HaveOccurred())
-			
+
 			var initResp MCPMessage
 			err = conn.ReadJSON(&initResp)
 			Expect(err).NotTo(HaveOccurred())
@@ -536,14 +536,14 @@ var _ = Describe("MCP Server Comprehensive WebSocket Tests", func() {
 				wg.Add(1)
 				go func(index int) {
 					defer wg.Done()
-					
+
 					msg := MCPMessage{
 						Type:   "request",
 						ID:     fmt.Sprintf("req-%d", index),
 						Method: "tools/list",
 						Params: map[string]interface{}{},
 					}
-					
+
 					err := conn.WriteJSON(msg)
 					if err != nil {
 						errors <- err
@@ -557,7 +557,7 @@ var _ = Describe("MCP Server Comprehensive WebSocket Tests", func() {
 			// Collect responses
 			receivedResponses := make(map[string]bool)
 			timeout := time.After(10 * time.Second)
-			
+
 			for i := 0; i < 5; i++ {
 				select {
 				case resp := <-responses:
@@ -584,10 +584,10 @@ var _ = Describe("MCP Server Comprehensive WebSocket Tests", func() {
 			dialer := websocket.Dialer{
 				HandshakeTimeout: 10 * time.Second,
 			}
-			
+
 			header := http.Header{}
 			header.Set("X-API-Key", apiKey)
-			
+
 			var err error
 			conn, _, err = dialer.Dial(wsURL, header)
 			if err != nil {
@@ -643,10 +643,10 @@ var _ = Describe("MCP Server Comprehensive WebSocket Tests", func() {
 			dialer := websocket.Dialer{
 				HandshakeTimeout: 10 * time.Second,
 			}
-			
+
 			header := http.Header{}
 			header.Set("X-API-Key", apiKey)
-			
+
 			conn, _, err := dialer.Dial(wsURL, header)
 			if err != nil {
 				Skip("WebSocket server not available")
@@ -663,7 +663,7 @@ var _ = Describe("MCP Server Comprehensive WebSocket Tests", func() {
 				ID:     uuid.New().String(),
 				Method: "tools/list",
 			}
-			
+
 			err = conn.WriteJSON(msg)
 			Expect(err).To(HaveOccurred())
 		})
@@ -672,10 +672,10 @@ var _ = Describe("MCP Server Comprehensive WebSocket Tests", func() {
 			dialer := websocket.Dialer{
 				HandshakeTimeout: 10 * time.Second,
 			}
-			
+
 			header := http.Header{}
 			header.Set("X-API-Key", apiKey)
-			
+
 			// First connection
 			conn1, _, err := dialer.Dial(wsURL, header)
 			if err != nil {
@@ -717,10 +717,10 @@ var _ = Describe("MCP Server Comprehensive WebSocket Tests", func() {
 			dialer := websocket.Dialer{
 				HandshakeTimeout: 10 * time.Second,
 			}
-			
+
 			header := http.Header{}
 			header.Set("X-API-Key", apiKey)
-			
+
 			var err error
 			conn, _, err = dialer.Dial(wsURL, header)
 			if err != nil {
@@ -739,7 +739,7 @@ var _ = Describe("MCP Server Comprehensive WebSocket Tests", func() {
 			}
 			err = conn.WriteJSON(initMsg)
 			Expect(err).NotTo(HaveOccurred())
-			
+
 			var initResp MCPMessage
 			err = conn.ReadJSON(&initResp)
 			Expect(err).NotTo(HaveOccurred())
@@ -776,10 +776,10 @@ var _ = Describe("MCP Server Comprehensive WebSocket Tests", func() {
 
 			duration := time.Since(startTime)
 			avgLatency := duration / time.Duration(messageCount)
-			
-			GinkgoWriter.Printf("Processed %d messages in %v (avg: %v per message)\n", 
+
+			GinkgoWriter.Printf("Processed %d messages in %v (avg: %v per message)\n",
 				messageCount, duration, avgLatency)
-			
+
 			// Performance assertion - adjust based on requirements
 			Expect(avgLatency).To(BeNumerically("<", 100*time.Millisecond))
 		})

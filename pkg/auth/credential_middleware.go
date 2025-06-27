@@ -141,7 +141,7 @@ func CredentialValidationMiddleware(requiredTools []string, logger observability
 			// Check if we have a service account fallback
 			if !hasServiceAccountFallback(c) {
 				c.JSON(401, gin.H{
-					"error": "Missing required credentials",
+					"error":          "Missing required credentials",
 					"required_tools": requiredTools,
 				})
 				c.Abort()
@@ -165,7 +165,7 @@ func CredentialValidationMiddleware(requiredTools []string, logger observability
 
 		if len(missingTools) > 0 {
 			c.JSON(401, gin.H{
-				"error": "Missing credentials for required tools",
+				"error":         "Missing credentials for required tools",
 				"missing_tools": missingTools,
 			})
 			c.Abort()
@@ -184,7 +184,7 @@ func hasServiceAccountFallback(c *gin.Context) bool {
 	if !exists {
 		return false
 	}
-	
+
 	enabled, ok := fallback.(bool)
 	return ok && enabled
 }
@@ -196,12 +196,12 @@ func hasServiceAccountForTool(c *gin.Context, tool string) bool {
 	if !exists {
 		return false
 	}
-	
+
 	accounts, ok := serviceAccounts.(map[string]bool)
 	if !ok {
 		return false
 	}
-	
+
 	return accounts[tool]
 }
 

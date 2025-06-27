@@ -421,7 +421,7 @@ func ExtractTenantContext() gin.HandlerFunc {
 				return
 			}
 		}
-		
+
 		// Try to get from user context (backward compatibility)
 		if userVal, userExists := c.Get("user"); userExists {
 			if userMap, ok := userVal.(map[string]interface{}); ok {
@@ -431,46 +431,7 @@ func ExtractTenantContext() gin.HandlerFunc {
 				}
 			}
 		}
-		
+
 		c.Next()
 	}
-}
-
-// AuthMiddleware - Kept for test compatibility only
-// DEPRECATED: This function is maintained only for backward compatibility with tests.
-// Production code should use auth.Service.GinMiddleware() or auth.AuthMiddleware.GinMiddleware()
-func AuthMiddleware(authType string) gin.HandlerFunc {
-	return func(c *gin.Context) {
-		// Check if we're in test mode with proper flag
-		testMode := os.Getenv("MCP_TEST_MODE")
-		if testMode == "true" && c.Request.Header.Get("X-Test-Bypass-Auth") == "true" {
-			fmt.Println("Test mode with bypass header active, allowing request")
-			// Set minimal user context for tests
-			c.Set("user", map[string]any{
-				"api_key":   "test-key",
-				"auth_type": "test",
-			})
-			c.Next()
-			return
-		}
-
-		// For non-test scenarios, this should not be used
-		c.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{
-			"error": "Deprecated AuthMiddleware called outside of test mode. Use centralized auth service.",
-		})
-	}
-}
-
-// InitAPIKeys - Kept for test compatibility only
-// DEPRECATED: Use auth.Service.InitializeDefaultAPIKeys() or auth.Service.LoadAPIKeys()
-func InitAPIKeys(keyMap map[string]string) {
-	// No-op for compatibility
-	fmt.Println("DEPRECATED: InitAPIKeys called - use centralized auth service")
-}
-
-// InitJWT - Kept for test compatibility only  
-// DEPRECATED: JWT configuration is handled by auth.Service
-func InitJWT(secret string) {
-	// No-op for compatibility
-	fmt.Println("DEPRECATED: InitJWT called - use centralized auth service")
 }

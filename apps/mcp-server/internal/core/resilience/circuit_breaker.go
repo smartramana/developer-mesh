@@ -6,8 +6,9 @@ import (
 	"sync"
 	"time"
 
-	"github.com/S-Corkum/devops-mcp/pkg/observability"
 	"mcp-server/internal/config"
+
+	"github.com/S-Corkum/devops-mcp/pkg/observability"
 )
 
 // State represents the circuit breaker state

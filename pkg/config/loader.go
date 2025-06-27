@@ -32,7 +32,7 @@ func (cl *ConfigLoader) LoadEnvironment(environment string) error {
 	if environment == "development" || environment == "" {
 		envFile = ".env"
 	}
-	
+
 	if _, err := os.Stat(envFile); err == nil {
 		if err := cl.loadEnvFile(envFile); err != nil {
 			return fmt.Errorf("error loading env file %s: %w", envFile, err)
@@ -43,7 +43,7 @@ func (cl *ConfigLoader) LoadEnvironment(environment string) error {
 	cl.viper.SetConfigType("yaml")
 	cl.viper.AutomaticEnv()
 	cl.viper.SetEnvKeyReplacer(strings.NewReplacer(".", "_"))
-	
+
 	// Load base configuration first
 	baseConfig := filepath.Join(cl.configPath, "config.base.yaml")
 	if err := cl.loadConfigFile(baseConfig); err != nil {
@@ -71,7 +71,13 @@ func (cl *ConfigLoader) LoadEnvironment(environment string) error {
 
 // loadEnvFile loads environment variables from a file
 func (cl *ConfigLoader) loadEnvFile(filename string) error {
-	file, err := os.Open(filename)
+	// Clean and validate the file path
+	cleanPath := filepath.Clean(filename)
+	if strings.Contains(cleanPath, "..") {
+		return fmt.Errorf("invalid file path: %s", filename)
+	}
+	
+	file, err := os.Open(cleanPath)
 	if err != nil {
 		return err
 	}
@@ -89,43 +95,49 @@ func (cl *ConfigLoader) loadEnvFile(filename string) error {
 		if line == "" || strings.HasPrefix(line, "#") {
 			continue
 		}
-		
+
 		// Parse key=value
 		parts := strings.SplitN(line, "=", 2)
 		if len(parts) != 2 {
 			continue
 		}
-		
+
 		key := strings.TrimSpace(parts[0])
 		value := strings.TrimSpace(parts[1])
-		
+
 		// Remove quotes if present
 		if len(value) >= 2 {
 			if (value[0] == '"' && value[len(value)-1] == '"') ||
-			   (value[0] == '\'' && value[len(value)-1] == '\'') {
+				(value[0] == '\'' && value[len(value)-1] == '\'') {
 				value = value[1 : len(value)-1]
 			}
 		}
-		
+
 		// Set environment variable
 		if err := os.Setenv(key, value); err != nil {
 			return fmt.Errorf("failed to set environment variable %s: %w", key, err)
 		}
 	}
-	
+
 	return scanner.Err()
 }
 
 // loadConfigFile loads a configuration file
 func (cl *ConfigLoader) loadConfigFile(filename string) error {
-	data, err := os.ReadFile(filename)
+	// Clean and validate the file path
+	cleanPath := filepath.Clean(filename)
+	if strings.Contains(cleanPath, "..") {
+		return fmt.Errorf("invalid file path: %s", filename)
+	}
+	
+	data, err := os.ReadFile(cleanPath)
 	if err != nil {
 		return err
 	}
 
 	// Expand environment variables
 	expanded := os.ExpandEnv(string(data))
-	
+
 	// Parse YAML to handle _base directive
 	var rawConfig map[string]interface{}
 	if err := yaml.Unmarshal([]byte(expanded), &rawConfig); err != nil {
@@ -230,7 +242,7 @@ func ValidateConfig(loader *ConfigLoader, environment string) error {
 	// Environment-specific required fields
 	switch environment {
 	case "production", "staging":
-		required = append(required, 
+		required = append(required,
 			"auth.jwt.secret",
 			"database.host",
 			"cache.distributed.address",

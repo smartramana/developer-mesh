@@ -24,20 +24,20 @@ func TestCredentialPassthrough(t *testing.T) {
 				Type:  "pat",
 			},
 		}
-		
+
 		assert.NotNil(t, creds)
 		assert.True(t, creds.HasCredentialFor("github"))
 	})
-	
+
 	// Test fallback to service account
 	t.Run("Fallback to service account", func(t *testing.T) {
 		// Test without credentials - should use service account
 		var creds *models.ToolCredentials
-		
+
 		assert.Nil(t, creds)
 		assert.False(t, creds.HasCredentialFor("github"))
 	})
-	
+
 	// Test invalid credentials
 	t.Run("Invalid credentials", func(t *testing.T) {
 		creds := &models.ToolCredentials{
@@ -45,7 +45,7 @@ func TestCredentialPassthrough(t *testing.T) {
 				Token: "invalid-token",
 			},
 		}
-		
+
 		assert.NotNil(t, creds)
 		assert.True(t, creds.HasCredentialFor("github"))
 		// In a real test, this would fail when trying to use the token

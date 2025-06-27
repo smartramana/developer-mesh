@@ -62,28 +62,28 @@ type RestAPIConfig struct {
 
 // MCPServerConfig holds MCP-specific configuration overrides
 type MCPServerConfig struct {
-	ListenAddress string         `mapstructure:"listen_address"`
-	RestAPI       RestAPIConfig  `mapstructure:"rest_api"`
+	ListenAddress string        `mapstructure:"listen_address"`
+	RestAPI       RestAPIConfig `mapstructure:"rest_api"`
 }
 
 // WebSocketConfig holds WebSocket server configuration
 type WebSocketConfig struct {
-	Enabled         bool                     `mapstructure:"enabled"`
-	MaxConnections  int                      `mapstructure:"max_connections"`
-	ReadBufferSize  int                      `mapstructure:"read_buffer_size"`
-	WriteBufferSize int                      `mapstructure:"write_buffer_size"`
-	PingInterval    time.Duration            `mapstructure:"ping_interval"`
-	PongTimeout     time.Duration            `mapstructure:"pong_timeout"`
-	MaxMessageSize  int64                    `mapstructure:"max_message_size"`
-	Security        *WebSocketSecurityConfig `mapstructure:"security"`
+	Enabled         bool                      `mapstructure:"enabled"`
+	MaxConnections  int                       `mapstructure:"max_connections"`
+	ReadBufferSize  int                       `mapstructure:"read_buffer_size"`
+	WriteBufferSize int                       `mapstructure:"write_buffer_size"`
+	PingInterval    time.Duration             `mapstructure:"ping_interval"`
+	PongTimeout     time.Duration             `mapstructure:"pong_timeout"`
+	MaxMessageSize  int64                     `mapstructure:"max_message_size"`
+	Security        *WebSocketSecurityConfig  `mapstructure:"security"`
 	RateLimit       *WebSocketRateLimitConfig `mapstructure:"rate_limit"`
 }
 
 // WebSocketSecurityConfig holds WebSocket security configuration
 type WebSocketSecurityConfig struct {
-	RequireAuth     bool     `mapstructure:"require_auth"`
-	HMACSignatures  bool     `mapstructure:"hmac_signatures"`
-	AllowedOrigins  []string `mapstructure:"allowed_origins"`
+	RequireAuth    bool     `mapstructure:"require_auth"`
+	HMACSignatures bool     `mapstructure:"hmac_signatures"`
+	AllowedOrigins []string `mapstructure:"allowed_origins"`
 }
 
 // WebSocketRateLimitConfig holds WebSocket rate limiting configuration
@@ -121,10 +121,10 @@ func Load() (*Config, error) {
 	v.SetEnvPrefix("MCP")
 	v.SetEnvKeyReplacer(strings.NewReplacer(".", "_"))
 	v.AutomaticEnv()
-	
+
 	// Bind specific environment variables that don't follow the MCP_ prefix
 	// These are commonly used in Docker environments
-	_ = v.BindEnv("cache.address", "REDIS_ADDR") // Best effort - viper handles errors internally
+	_ = v.BindEnv("cache.address", "REDIS_ADDR")    // Best effort - viper handles errors internally
 	_ = v.BindEnv("cache.address", "REDIS_ADDRESS") // Best effort - viper handles errors internally
 	_ = v.BindEnv("cache.address", "CACHE_ADDRESS") // Best effort - viper handles errors internally
 

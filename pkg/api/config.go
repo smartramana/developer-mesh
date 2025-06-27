@@ -4,6 +4,7 @@ import (
 	"time"
 
 	"github.com/S-Corkum/devops-mcp/pkg/interfaces"
+	securitytls "github.com/S-Corkum/devops-mcp/pkg/security/tls"
 )
 
 // Config holds configuration for the API server
@@ -14,8 +15,7 @@ type Config struct {
 	IdleTimeout   time.Duration            `mapstructure:"idle_timeout"`
 	EnableCORS    bool                     `mapstructure:"enable_cors"`
 	EnableSwagger bool                     `mapstructure:"enable_swagger"`
-	TLSCertFile   string                   `mapstructure:"tls_cert_file"`
-	TLSKeyFile    string                   `mapstructure:"tls_key_file"`
+	TLS           *securitytls.Config      `mapstructure:"tls"` // TLS configuration
 	Auth          AuthConfig               `mapstructure:"auth"`
 	RateLimit     RateLimitConfig          `mapstructure:"rate_limit"`
 	Versioning    VersioningConfig         `mapstructure:"versioning"`

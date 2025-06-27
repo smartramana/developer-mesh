@@ -3,13 +3,14 @@ package core
 import (
 	"context"
 
+	"mcp-server/internal/config"
+	contextManager "mcp-server/internal/core/context"
+
 	"github.com/S-Corkum/devops-mcp/pkg/common/cache"
 	"github.com/S-Corkum/devops-mcp/pkg/common/events/system"
 	"github.com/S-Corkum/devops-mcp/pkg/database"
 	"github.com/S-Corkum/devops-mcp/pkg/observability"
 	"github.com/S-Corkum/devops-mcp/pkg/storage/providers"
-	"mcp-server/internal/config"
-	contextManager "mcp-server/internal/core/context"
 )
 
 // CreateContextManager creates either an optimized or standard context manager based on configuration

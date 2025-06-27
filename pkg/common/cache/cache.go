@@ -2,9 +2,9 @@ package cache
 
 import (
 	"context"
-	"crypto/tls"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"time"
 
 	"github.com/go-redis/redis/v8"
@@ -43,14 +43,18 @@ func NewRedisCache(cfg RedisConfig) (*RedisCache, error) {
 		MinIdleConns: cfg.MinIdleConns,
 		PoolTimeout:  time.Duration(cfg.PoolTimeout) * time.Second,
 	}
-	
+
 	// Configure TLS if enabled
 	if cfg.TLS != nil && cfg.TLS.Enabled {
-		options.TLSConfig = &tls.Config{
-			InsecureSkipVerify: cfg.TLS.InsecureSkipVerify,
+		tlsConfig, err := cfg.TLS.BuildTLSConfig()
+		if err != nil {
+			return nil, fmt.Errorf("failed to build TLS config: %w", err)
+		}
+		if tlsConfig != nil {
+			options.TLSConfig = tlsConfig
 		}
 	}
-	
+
 	client := redis.NewClient(options)
 
 	// Test connection

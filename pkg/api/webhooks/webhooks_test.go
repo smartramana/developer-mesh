@@ -8,6 +8,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"testing"
 
 	"github.com/S-Corkum/devops-mcp/pkg/observability"
@@ -94,6 +95,15 @@ func TestGitHubWebhookHandler_MissingSignature(t *testing.T) {
 }
 
 func TestGitHubWebhookHandler_InvalidSignature(t *testing.T) {
+	// Save and clear MCP_TEST_MODE to ensure production behavior
+	oldTestMode := os.Getenv("MCP_TEST_MODE")
+	_ = os.Unsetenv("MCP_TEST_MODE")
+	defer func() {
+		if oldTestMode != "" {
+			_ = os.Setenv("MCP_TEST_MODE", oldTestMode)
+		}
+	}()
+
 	config := new(mockConfig)
 	config.On("GitHubAllowedEvents").Return([]string{"push"})
 	config.On("GitHubSecret").Return("testsecret")

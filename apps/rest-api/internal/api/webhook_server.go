@@ -4,8 +4,9 @@ import (
 	"fmt"
 	"net/http"
 
-	"github.com/gorilla/mux"
 	"rest-api/internal/api/webhooks"
+
+	"github.com/gorilla/mux"
 )
 
 // WebhookProvider represents a webhook provider's registration logic

@@ -68,7 +68,6 @@ func createMockStorage(t *testing.T) (*GitHubMockS3Client, *GitHubContentStorage
 	return mockS3Client, storage
 }
 
-
 // Test the GitHubContentStorage constructor
 func TestNewGitHubContentStorage(t *testing.T) {
 	mockS3Client := &GitHubMockS3Client{

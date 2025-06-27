@@ -33,7 +33,7 @@ func (a *AgentAdapter) GetAgentByID(ctx context.Context, tenantID, id string) (*
 	}
 
 	// If tenantID is provided, verify that the agent belongs to the tenant
-	if tenantID != "" && agent.TenantID != tenantID {
+	if tenantID != "" && agent.TenantID.String() != tenantID {
 		return nil, nil // Not found for this tenant
 	}
 

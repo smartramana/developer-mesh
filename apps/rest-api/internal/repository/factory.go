@@ -62,7 +62,7 @@ func (a *AgentRepositoryAdapter) GetAgentByID(ctx context.Context, tenantID, id 
 	}
 
 	// Verify this agent belongs to the requested tenant
-	if agent != nil && agent.TenantID != tenantID {
+	if agent != nil && agent.TenantID.String() != tenantID {
 		return nil, nil // Not found for this tenant
 	}
 

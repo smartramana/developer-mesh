@@ -4,11 +4,12 @@ import (
 	"fmt"
 	"strconv"
 
+	"net/http"
+	"rest-api/internal/repository"
+
 	"github.com/S-Corkum/devops-mcp/pkg/common/util"
 	"github.com/S-Corkum/devops-mcp/pkg/models"
 	"github.com/gin-gonic/gin"
-	"net/http"
-	"rest-api/internal/repository"
 )
 
 // ModelAPI handles model management endpoints

@@ -8,6 +8,7 @@ import (
 	"github.com/S-Corkum/devops-mcp/pkg/observability"
 	"github.com/S-Corkum/devops-mcp/pkg/repository"
 	"github.com/S-Corkum/devops-mcp/pkg/repository/agent"
+	"github.com/google/uuid"
 )
 
 // AgentAPIProxy implements the agent repository interface but delegates to the REST API
@@ -110,6 +111,95 @@ func (p *AgentAPIProxy) Update(ctx context.Context, agent *models.Agent) error {
 // It delegates to DeleteAgent for API compatibility
 func (p *AgentAPIProxy) Delete(ctx context.Context, id string) error {
 	return p.DeleteAgent(ctx, id)
+}
+
+// GetByStatus retrieves agents by status
+func (p *AgentAPIProxy) GetByStatus(ctx context.Context, status models.AgentStatus) ([]*models.Agent, error) {
+	p.logger.Debug("Getting agents by status via REST API proxy", map[string]interface{}{
+		"status": status,
+	})
+
+	// Since the REST API doesn't have a direct GetByStatus method,
+	// we need to list all agents and filter locally
+	agents, err := p.client.ListAgents(ctx, "")
+	if err != nil {
+		return nil, err
+	}
+
+	// Filter by status
+	var result []*models.Agent
+	for _, agent := range agents {
+		if agent.Status == string(status) {
+			result = append(result, agent)
+		}
+	}
+
+	return result, nil
+}
+
+// GetWorkload retrieves agent workload
+func (p *AgentAPIProxy) GetWorkload(ctx context.Context, agentID uuid.UUID) (*models.AgentWorkload, error) {
+	p.logger.Debug("Getting agent workload via REST API proxy", map[string]interface{}{
+		"agent_id": agentID,
+	})
+
+	// Since the REST API doesn't have a direct GetWorkload method,
+	// return a default workload for now
+	return &models.AgentWorkload{
+		AgentID:       agentID.String(),
+		ActiveTasks:   0,
+		QueuedTasks:   0,
+		TasksByType:   make(map[string]int),
+		LoadScore:     0.0,
+		EstimatedTime: 0,
+	}, nil
+}
+
+// UpdateWorkload updates agent workload
+func (p *AgentAPIProxy) UpdateWorkload(ctx context.Context, workload *models.AgentWorkload) error {
+	p.logger.Debug("Updating agent workload via REST API proxy", map[string]interface{}{
+		"agent_id": workload.AgentID,
+	})
+
+	// Since the REST API doesn't have a direct UpdateWorkload method,
+	// this is a no-op for now
+	return nil
+}
+
+// GetLeastLoadedAgent retrieves the least loaded agent with a capability
+func (p *AgentAPIProxy) GetLeastLoadedAgent(ctx context.Context, capability models.AgentCapability) (*models.Agent, error) {
+	p.logger.Debug("Getting least loaded agent via REST API proxy", map[string]interface{}{
+		"capability": capability,
+	})
+
+	// Since the REST API doesn't have a direct GetLeastLoadedAgent method,
+	// we need to list all agents and find the least loaded one
+	agents, err := p.client.ListAgents(ctx, "")
+	if err != nil {
+		return nil, err
+	}
+
+	// Filter by capability and status
+	var candidateAgents []*models.Agent
+	for _, agent := range agents {
+		if agent.Status == string(models.AgentStatusActive) {
+			// Check if agent has the capability
+			for _, cap := range agent.Capabilities {
+				if cap == string(capability) {
+					candidateAgents = append(candidateAgents, agent)
+					break
+				}
+			}
+		}
+	}
+
+	if len(candidateAgents) == 0 {
+		return nil, nil
+	}
+
+	// Return the first active agent for now
+	// In a real implementation, we would check workload
+	return candidateAgents[0], nil
 }
 
 // Ensure that AgentAPIProxy implements repository.AgentRepository

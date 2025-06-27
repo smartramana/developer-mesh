@@ -63,11 +63,11 @@ type EmbeddingProviderSelector struct {
 	// Explicit configuration overrides
 	PreferredProvider string
 	PreferredModel    string
-	
+
 	// Auto-detection settings
 	EnableAutoDetection bool
 	ValidationMode      string // "strict" or "permissive"
-	
+
 	// Available credentials
 	availableProviders map[string]bool
 }
@@ -79,7 +79,7 @@ func NewEmbeddingProviderSelector() *EmbeddingProviderSelector {
 		ValidationMode:      "strict",
 		availableProviders:  make(map[string]bool),
 	}
-	
+
 	// Check environment for overrides
 	if provider := os.Getenv("EMBEDDING_PROVIDER"); provider != "" {
 		selector.PreferredProvider = provider
@@ -87,10 +87,10 @@ func NewEmbeddingProviderSelector() *EmbeddingProviderSelector {
 	if model := os.Getenv("EMBEDDING_MODEL"); model != "" {
 		selector.PreferredModel = model
 	}
-	
+
 	// Detect available providers
 	selector.detectAvailableProviders()
-	
+
 	return selector
 }
 
@@ -100,17 +100,17 @@ func (s *EmbeddingProviderSelector) detectAvailableProviders() {
 	if os.Getenv("OPENAI_API_KEY") != "" {
 		s.availableProviders["openai"] = true
 	}
-	
+
 	// AWS Bedrock (check multiple credential sources)
 	if s.hasAWSCredentials() {
 		s.availableProviders["bedrock"] = true
 	}
-	
+
 	// Voyage AI
 	if os.Getenv("VOYAGE_API_KEY") != "" {
 		s.availableProviders["voyage"] = true
 	}
-	
+
 	// Google Vertex AI
 	if os.Getenv("GOOGLE_PROJECT_ID") != "" && os.Getenv("GOOGLE_API_KEY") != "" {
 		s.availableProviders["google"] = true
@@ -123,22 +123,22 @@ func (s *EmbeddingProviderSelector) hasAWSCredentials() bool {
 	if os.Getenv("AWS_ACCESS_KEY_ID") != "" && os.Getenv("AWS_SECRET_ACCESS_KEY") != "" {
 		return true
 	}
-	
+
 	// Check for IAM role (EC2/ECS/Lambda)
 	if os.Getenv("AWS_EXECUTION_ENV") != "" || os.Getenv("AWS_CONTAINER_CREDENTIALS_RELATIVE_URI") != "" {
 		return true
 	}
-	
+
 	// Check for AWS profile
 	if os.Getenv("AWS_PROFILE") != "" {
 		return true
 	}
-	
+
 	// Check for credentials file
 	if _, err := os.Stat(os.ExpandEnv("$HOME/.aws/credentials")); err == nil {
 		return true
 	}
-	
+
 	return false
 }
 
@@ -147,23 +147,23 @@ func (s *EmbeddingProviderSelector) SelectProvider() (provider string, model str
 	// 1. Check if explicit provider is set and valid
 	if s.PreferredProvider != "" {
 		provider = s.PreferredProvider
-		
+
 		// Validate provider exists
 		capability, exists := ProviderCapabilities[provider]
 		if !exists {
 			return "", "", 0, fmt.Errorf("unknown provider: %s", provider)
 		}
-		
+
 		// Check if it supports embeddings
 		if !capability.SupportsEmbeddings {
 			return "", "", 0, fmt.Errorf("provider %s does not support embeddings", provider)
 		}
-		
+
 		// Check if credentials are available
 		if s.ValidationMode == "strict" && !s.availableProviders[provider] {
 			return "", "", 0, fmt.Errorf("provider %s specified but credentials not found", provider)
 		}
-		
+
 		// Select model
 		if s.PreferredModel != "" {
 			model = s.PreferredModel
@@ -177,18 +177,18 @@ func (s *EmbeddingProviderSelector) SelectProvider() (provider string, model str
 			model = capability.DefaultModel
 			dimensions = s.getModelDimensions(provider, model)
 		}
-		
+
 		return provider, model, dimensions, nil
 	}
-	
+
 	// 2. Auto-detection mode
 	if !s.EnableAutoDetection {
 		return "", "", 0, fmt.Errorf("no provider specified and auto-detection disabled")
 	}
-	
+
 	// 3. Priority order for auto-detection
 	priorityOrder := []string{"openai", "bedrock", "voyage", "google"}
-	
+
 	for _, p := range priorityOrder {
 		if s.availableProviders[p] {
 			capability := ProviderCapabilities[p]
@@ -199,7 +199,7 @@ func (s *EmbeddingProviderSelector) SelectProvider() (provider string, model str
 			}
 		}
 	}
-	
+
 	return "", "", 0, fmt.Errorf("no embedding provider available. Please set OPENAI_API_KEY, configure AWS credentials, or set EMBEDDING_PROVIDER explicitly")
 }
 
@@ -209,13 +209,13 @@ func (s *EmbeddingProviderSelector) validateAndGetDimensions(provider, model str
 	if !exists {
 		return 0
 	}
-	
+
 	for _, m := range capability.EmbeddingModels {
 		if m.ModelID == model {
 			return m.Dimensions
 		}
 	}
-	
+
 	return 0
 }
 
@@ -233,9 +233,9 @@ func (s *EmbeddingProviderSelector) getModelDimensions(provider, model string) i
 // GetProviderSummary returns a summary of available providers
 func (s *EmbeddingProviderSelector) GetProviderSummary() string {
 	var summary strings.Builder
-	
+
 	summary.WriteString("=== Embedding Provider Configuration ===\n")
-	
+
 	// Show detected providers
 	summary.WriteString("\nDetected Providers:\n")
 	for provider := range s.availableProviders {
@@ -244,7 +244,7 @@ func (s *EmbeddingProviderSelector) GetProviderSummary() string {
 			summary.WriteString(fmt.Sprintf("  - %s (default: %s)\n", provider, capability.DefaultModel))
 		}
 	}
-	
+
 	// Show current configuration
 	if s.PreferredProvider != "" {
 		summary.WriteString(fmt.Sprintf("\nConfigured Provider: %s\n", s.PreferredProvider))
@@ -254,7 +254,7 @@ func (s *EmbeddingProviderSelector) GetProviderSummary() string {
 	} else {
 		summary.WriteString("\nUsing auto-detection\n")
 	}
-	
+
 	// Show recommendation
 	provider, model, dimensions, err := s.SelectProvider()
 	if err == nil {
@@ -265,6 +265,6 @@ func (s *EmbeddingProviderSelector) GetProviderSummary() string {
 	} else {
 		summary.WriteString(fmt.Sprintf("\nError: %s\n", err.Error()))
 	}
-	
+
 	return summary.String()
 }

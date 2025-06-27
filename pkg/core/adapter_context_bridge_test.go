@@ -62,7 +62,7 @@ func TestGetToolData(t *testing.T) {
 
 func TestHandleToolWebhook(t *testing.T) {
 	t.Skip("Skipping webhook test due to mock expectation issues - to be fixed in a follow-up PR")
-	
+
 	// Set up mocks
 	mockContextManager := new(MockInterfacesContextManager)
 	mockAdapter := new(MockInterfacesAdapter)
@@ -111,18 +111,13 @@ func TestHandleToolWebhook(t *testing.T) {
 		UpdatedAt: time.Now(),
 	}
 
-	// This test requires specific mock signature matching for UpdateContext
-	// Let's skip this test for now and mark it as a TODO
-	t.Skip("Skipping webhook test due to mock expectation issues - to be fixed in a follow-up PR")
-
 	// Set up expectations for context manager
 	mockContextManager.On("GetContext", ctx, "context-1").Return(testContext1, nil)
 	mockContextManager.On("GetContext", ctx, "context-2").Return(testContext2, nil)
 
-	// This is where the mismatch occurs - the actual implementation likely uses a specific context type
-	// in the test we'd need to match that exactly
-	mockContextManager.On("UpdateContext", ctx, "context-1", mock.Anything, mock.Anything).Return(testContext1, nil)
-	mockContextManager.On("UpdateContext", ctx, "context-2", mock.Anything, mock.Anything).Return(testContext2, nil)
+	// UpdateContext doesn't return a value, only an error
+	mockContextManager.On("UpdateContext", ctx, "context-1", mock.Anything).Return(nil)
+	mockContextManager.On("UpdateContext", ctx, "context-2", mock.Anything).Return(nil)
 
 	// Set up expectations for adapter
 	mockAdapter.On("Type").Return("test-tool").Once()

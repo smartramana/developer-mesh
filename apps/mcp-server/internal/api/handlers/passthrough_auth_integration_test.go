@@ -187,7 +187,7 @@ func TestCredentialExtractionMiddleware(t *testing.T) {
 			// Verify credential extraction
 			if tt.shouldExtract {
 				require.NotNil(t, extractedCreds, "Expected credentials to be extracted")
-				
+
 				// Compare credentials
 				if tt.expectedCredential.GitHub != nil {
 					require.NotNil(t, extractedCreds.GitHub)
@@ -197,7 +197,7 @@ func TestCredentialExtractionMiddleware(t *testing.T) {
 						assert.Equal(t, tt.expectedCredential.GitHub.BaseURL, extractedCreds.GitHub.BaseURL)
 					}
 				}
-				
+
 				if tt.expectedCredential.Jira != nil {
 					require.NotNil(t, extractedCreds.Jira)
 					assert.Equal(t, tt.expectedCredential.Jira.Token, extractedCreds.Jira.Token)
@@ -218,12 +218,12 @@ func TestPassThroughAuthenticationFlow(t *testing.T) {
 
 	// Test scenarios
 	scenarios := []struct {
-		name           string
-		setupRequest   func() *http.Request
+		name            string
+		setupRequest    func() *http.Request
 		setupMiddleware func(*gin.Engine)
-		expectedStatus int
-		expectedError  string
-		verifyContext  func(*testing.T, *gin.Context)
+		expectedStatus  int
+		expectedError   string
+		verifyContext   func(*testing.T, *gin.Context)
 	}{
 		{
 			name: "Successful pass-through authentication",
@@ -289,7 +289,7 @@ func TestPassThroughAuthenticationFlow(t *testing.T) {
 				creds, ok := auth.GetToolCredentials(c.Request.Context())
 				assert.False(t, ok)
 				assert.Nil(t, creds)
-				
+
 				// Verify service account flags are set
 				fallback, _ := c.Get("service_account_fallback_enabled")
 				assert.True(t, fallback.(bool))
@@ -354,10 +354,10 @@ func TestPassThroughAuthenticationFlow(t *testing.T) {
 		t.Run(scenario.name, func(t *testing.T) {
 			// Setup router
 			router := gin.New()
-			
+
 			// Apply middleware
 			scenario.setupMiddleware(router)
-			
+
 			// Test handler
 			router.POST("/api/v1/tools/:tool/actions/:action", func(c *gin.Context) {
 				// Run verification if provided
@@ -390,23 +390,23 @@ func TestPassThroughAuthenticationFlow(t *testing.T) {
 func TestMetricsRecording(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	logger := observability.NewLogger("test")
-	
+
 	// Create mock metrics client
 	metricsRecorded := make(map[string]int)
-	
+
 	// Setup router with metrics middleware
 	router := gin.New()
 	router.Use(auth.CredentialExtractionMiddleware(logger))
 	router.Use(func(c *gin.Context) {
 		// Record metrics based on auth method
 		creds, hasCreds := auth.GetToolCredentials(c.Request.Context())
-		
+
 		if hasCreds && creds != nil && creds.GitHub != nil {
 			metricsRecorded["user_credential"]++
 		} else {
 			metricsRecorded["service_account"]++
 		}
-		
+
 		c.Next()
 	})
 
@@ -428,10 +428,10 @@ func TestMetricsRecording(t *testing.T) {
 		bodyBytes, _ := json.Marshal(body)
 		req := httptest.NewRequest("POST", "/api/v1/tools/github/actions/test", bytes.NewReader(bodyBytes))
 		req.Header.Set("Content-Type", "application/json")
-		
+
 		w := httptest.NewRecorder()
 		router.ServeHTTP(w, req)
-		
+
 		assert.Equal(t, http.StatusOK, w.Code)
 		assert.Equal(t, 1, metricsRecorded["user_credential"])
 	})
@@ -446,10 +446,10 @@ func TestMetricsRecording(t *testing.T) {
 		bodyBytes, _ := json.Marshal(body)
 		req := httptest.NewRequest("POST", "/api/v1/tools/github/actions/test", bytes.NewReader(bodyBytes))
 		req.Header.Set("Content-Type", "application/json")
-		
+
 		w := httptest.NewRecorder()
 		router.ServeHTTP(w, req)
-		
+
 		assert.Equal(t, http.StatusOK, w.Code)
 		assert.Equal(t, 1, metricsRecorded["service_account"])
 	})
@@ -470,7 +470,7 @@ func TestCredentialSanitization(t *testing.T) {
 	}
 
 	sanitized := creds.SanitizedForLogging()
-	
+
 	// Verify GitHub token is sanitized
 	if githubVal, ok := sanitized["github"]; ok {
 		githubSanitized := githubVal.(map[string]interface{})
@@ -481,8 +481,8 @@ func TestCredentialSanitization(t *testing.T) {
 		}
 		assert.Equal(t, "pat", githubSanitized["type"])
 	}
-	
-	// Verify Jira token is sanitized  
+
+	// Verify Jira token is sanitized
 	if jiraVal, ok := sanitized["jira"]; ok {
 		jiraSanitized := jiraVal.(map[string]interface{})
 		if tokenHint, ok := jiraSanitized["token_hint"].(string); ok {
@@ -503,10 +503,10 @@ func TestContextPropagation(t *testing.T) {
 			Type:  "pat",
 		},
 	}
-	
+
 	ctx := context.Background()
 	ctx = auth.WithToolCredentials(ctx, creds)
-	
+
 	// Test retrieval
 	t.Run("Direct retrieval", func(t *testing.T) {
 		retrieved, ok := auth.GetToolCredentials(ctx)
@@ -514,39 +514,39 @@ func TestContextPropagation(t *testing.T) {
 		assert.NotNil(t, retrieved)
 		assert.Equal(t, "test-token", retrieved.GitHub.Token)
 	})
-	
+
 	// Test specific tool retrieval
 	t.Run("Tool-specific retrieval", func(t *testing.T) {
 		githubCred, ok := auth.GetToolCredential(ctx, "github")
 		assert.True(t, ok)
 		assert.NotNil(t, githubCred)
 		assert.Equal(t, "test-token", githubCred.Token)
-		
+
 		// Non-existent tool
 		jiraCred, ok := auth.GetToolCredential(ctx, "jira")
 		assert.False(t, ok)
 		assert.Nil(t, jiraCred)
 	})
-	
+
 	// Test credential check
 	t.Run("Has credential check", func(t *testing.T) {
 		assert.True(t, auth.HasToolCredential(ctx, "github"))
 		assert.False(t, auth.HasToolCredential(ctx, "jira"))
 	})
-	
+
 	// Test with wrapper
 	t.Run("CredentialContext wrapper", func(t *testing.T) {
 		cc := auth.NewCredentialContext(context.Background())
 		cc = cc.WithCredentials(creds)
-		
+
 		retrieved, ok := cc.GetCredentials()
 		assert.True(t, ok)
 		assert.NotNil(t, retrieved)
-		
+
 		githubCred, ok := cc.GetCredential("github")
 		assert.True(t, ok)
 		assert.Equal(t, "test-token", githubCred.Token)
-		
+
 		assert.True(t, cc.HasCredential("github"))
 		assert.False(t, cc.HasCredential("gitlab"))
 	})

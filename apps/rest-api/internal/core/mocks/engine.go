@@ -2,9 +2,10 @@
 package mocks
 
 import (
-	"github.com/stretchr/testify/mock"
 	"rest-api/internal/core"
 	"rest-api/internal/repository"
+
+	"github.com/stretchr/testify/mock"
 )
 
 // MockEngine is a mock implementation that mimics the core.Engine type

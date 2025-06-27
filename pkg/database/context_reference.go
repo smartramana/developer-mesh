@@ -319,7 +319,7 @@ func (d *Database) RunTransaction(ctx context.Context, fn func(*sqlx.Tx) error) 
 	defer func() {
 		if p := recover(); p != nil {
 			_ = tx.Rollback() // Ignore error in panic recovery
-			panic(p) // re-throw panic after Rollback
+			panic(p)          // re-throw panic after Rollback
 		}
 	}()
 

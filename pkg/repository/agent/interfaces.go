@@ -5,6 +5,7 @@ import (
 	"context"
 
 	"github.com/S-Corkum/devops-mcp/pkg/models"
+	"github.com/google/uuid"
 )
 
 // Filter defines a filter map for repository operations
@@ -41,6 +42,12 @@ type Repository interface {
 	ListAgents(ctx context.Context, tenantID string) ([]*models.Agent, error)
 	UpdateAgent(ctx context.Context, agent *models.Agent) error
 	DeleteAgent(ctx context.Context, id string) error
+
+	// Enhanced repository methods for production
+	GetByStatus(ctx context.Context, status models.AgentStatus) ([]*models.Agent, error)
+	GetWorkload(ctx context.Context, agentID uuid.UUID) (*models.AgentWorkload, error)
+	UpdateWorkload(ctx context.Context, workload *models.AgentWorkload) error
+	GetLeastLoadedAgent(ctx context.Context, capability models.AgentCapability) (*models.Agent, error)
 }
 
 // These functions are now defined above with the Filter type

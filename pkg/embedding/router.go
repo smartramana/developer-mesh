@@ -35,9 +35,9 @@ type RouterConfig struct {
 func DefaultRouterConfig() *RouterConfig {
 	return &RouterConfig{
 		CircuitBreakerConfig: CircuitBreakerConfig{
-			FailureThreshold:   5,
-			SuccessThreshold:   2,
-			Timeout:            30 * time.Second,
+			FailureThreshold:    5,
+			SuccessThreshold:    2,
+			Timeout:             30 * time.Second,
 			HalfOpenMaxRequests: 3,
 		},
 		LoadBalancerConfig: LoadBalancerConfig{
@@ -138,7 +138,7 @@ func (r *SmartRouter) scoreCandidates(req *RoutingRequest, models []string) []Pr
 		// Find which provider supports this model
 		for providerName, provider := range r.providers {
 			supportedModels := provider.GetSupportedModels()
-			
+
 			for _, supported := range supportedModels {
 				if supported.Name == model {
 					score, reasons := r.scoreProviderModel(req, providerName, supported)
@@ -294,9 +294,9 @@ func (r *SmartRouter) GetCircuitBreakerStatus(provider string) *CircuitBreakerSt
 
 // LoadBalancer tracks provider load
 type LoadBalancer struct {
-	config   LoadBalancerConfig
-	loads    map[string]*ProviderLoad
-	mu       sync.RWMutex
+	config LoadBalancerConfig
+	loads  map[string]*ProviderLoad
+	mu     sync.RWMutex
 }
 
 type LoadBalancerConfig struct {
@@ -360,9 +360,9 @@ func NewCostOptimizer(config CostOptimizerConfig) *CostOptimizer {
 
 // QualityTracker tracks provider quality
 type QualityTracker struct {
-	config  QualityConfig
-	scores  map[string]*QualityScore
-	mu      sync.RWMutex
+	config QualityConfig
+	scores map[string]*QualityScore
+	mu     sync.RWMutex
 }
 
 type QualityConfig struct {

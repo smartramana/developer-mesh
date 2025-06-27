@@ -55,7 +55,7 @@ CREATE INDEX idx_agent_configs_active ON agent_configs(agent_id, version DESC)
 
 -- Real-time metrics table for cost tracking and performance monitoring
 CREATE TABLE IF NOT EXISTS embedding_metrics (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    id UUID DEFAULT uuid_generate_v4(),
     agent_id VARCHAR(255) NOT NULL,
     
     -- Model information
@@ -87,7 +87,10 @@ CREATE TABLE IF NOT EXISTS embedding_metrics (
     tenant_id UUID NOT NULL,
     
     -- Timestamp
-    timestamp TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP
+    timestamp TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    
+    -- Composite primary key including partition column
+    PRIMARY KEY (id, timestamp)
 ) PARTITION BY RANGE (timestamp);
 
 -- Create monthly partitions for metrics (example for first few months of 2025)

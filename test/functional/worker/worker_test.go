@@ -105,4 +105,3 @@ func TestSQSQueueSecurity(t *testing.T) {
 
 	t.Log("SQS queue security configuration verified successfully")
 }
-

@@ -5,6 +5,8 @@ import (
 	"os"
 	"testing"
 	"time"
+
+	securitytls "github.com/S-Corkum/devops-mcp/pkg/security/tls"
 )
 
 func TestNewElastiCacheClient(t *testing.T) {
@@ -20,8 +22,7 @@ func TestNewElastiCacheClient(t *testing.T) {
 		UseIAMAuth:         false,
 		ClusterMode:        false,
 		ClusterDiscovery:   false,
-		UseTLS:             false,
-		InsecureSkipVerify: true,
+		TLS:                nil, // TLS disabled for this test
 		MaxRetries:         3,
 		MinIdleConnections: 5,
 		PoolSize:           10,
@@ -89,8 +90,7 @@ func TestBuildRedisOptions(t *testing.T) {
 		UseIAMAuth:         false,
 		ClusterMode:        false,
 		ClusterDiscovery:   false,
-		UseTLS:             false,
-		InsecureSkipVerify: true,
+		TLS:                nil, // TLS disabled for this test
 		MaxRetries:         3,
 		MinIdleConnections: 5,
 		PoolSize:           10,
@@ -172,16 +172,19 @@ func TestElastiCacheClusterMode(t *testing.T) {
 			Region:   "us-west-2",
 			Endpoint: "http://localhost:4566", // LocalStack endpoint
 		},
-		PrimaryEndpoint:    "primary.cache.amazonaws.com",
-		ReaderEndpoint:     "reader.cache.amazonaws.com",
-		Port:               6379,
-		Username:           "default",
-		Password:           "password",
-		UseIAMAuth:         false,
-		ClusterMode:        true,
-		ClusterDiscovery:   false,
-		UseTLS:             true,
-		InsecureSkipVerify: false,
+		PrimaryEndpoint:  "primary.cache.amazonaws.com",
+		ReaderEndpoint:   "reader.cache.amazonaws.com",
+		Port:             6379,
+		Username:         "default",
+		Password:         "password",
+		UseIAMAuth:       false,
+		ClusterMode:      true,
+		ClusterDiscovery: false,
+		TLS: &securitytls.Config{
+			Enabled:            true,
+			InsecureSkipVerify: false,
+			MinVersion:         "1.3",
+		},
 		MaxRetries:         3,
 		MinIdleConnections: 5,
 		PoolSize:           10,

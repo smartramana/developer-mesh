@@ -1,0 +1,111 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*.*.*'
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    name: Create Release
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.24'
+          cache: false
+
+      - name: Extract version
+        id: version
+        run: |
+          VERSION=${GITHUB_REF#refs/tags/}
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+
+      - name: Build binaries
+        run: |
+          # Build for common platforms only (reduce matrix overhead)
+          for app in mcp-server rest-api worker; do
+            echo "Building $app..."
+            cd apps/$app
+            
+            # Linux AMD64
+            GOOS=linux GOARCH=amd64 go build -ldflags="-w -s -X main.Version=${{ steps.version.outputs.version }}" \
+              -o ${app}-linux-amd64 ./cmd/*
+            tar czf ${app}-linux-amd64.tar.gz ${app}-linux-amd64
+            
+            # Darwin AMD64 (Intel Mac)
+            GOOS=darwin GOARCH=amd64 go build -ldflags="-w -s -X main.Version=${{ steps.version.outputs.version }}" \
+              -o ${app}-darwin-amd64 ./cmd/*
+            tar czf ${app}-darwin-amd64.tar.gz ${app}-darwin-amd64
+            
+            # Darwin ARM64 (Apple Silicon)
+            GOOS=darwin GOARCH=arm64 go build -ldflags="-w -s -X main.Version=${{ steps.version.outputs.version }}" \
+              -o ${app}-darwin-arm64 ./cmd/*
+            tar czf ${app}-darwin-arm64.tar.gz ${app}-darwin-arm64
+            
+            # Windows AMD64
+            GOOS=windows GOARCH=amd64 go build -ldflags="-w -s -X main.Version=${{ steps.version.outputs.version }}" \
+              -o ${app}-windows-amd64.exe ./cmd/*
+            zip ${app}-windows-amd64.zip ${app}-windows-amd64.exe
+            
+            cd ../..
+          done
+
+      - name: Generate changelog
+        id: changelog
+        run: |
+          # Simple changelog from commits
+          PREV_TAG=$(git describe --tags --abbrev=0 HEAD^ 2>/dev/null || echo "")
+          
+          if [ -n "$PREV_TAG" ]; then
+            CHANGELOG=$(git log --pretty=format:"- %s" "$PREV_TAG"..HEAD | head -20)
+          else
+            CHANGELOG=$(git log --pretty=format:"- %s" --max-count=20)
+          fi
+          
+          echo "changelog<<EOF" >> $GITHUB_OUTPUT
+          echo "$CHANGELOG" >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v1
+        with:
+          name: Release ${{ steps.version.outputs.version }}
+          body: |
+            ## Changes in ${{ steps.version.outputs.version }}
+            
+            ${{ steps.changelog.outputs.changelog }}
+            
+            ## Installation
+            
+            Download the appropriate binary for your platform below.
+            
+            ### Quick Start
+            ```bash
+            # Linux/macOS
+            tar -xzf <app>-<platform>-<arch>.tar.gz
+            ./<app>-<platform>-<arch>
+            
+            # Windows
+            unzip <app>-windows-amd64.zip
+            <app>-windows-amd64.exe
+            ```
+          files: |
+            apps/mcp-server/*.tar.gz
+            apps/mcp-server/*.zip
+            apps/rest-api/*.tar.gz
+            apps/rest-api/*.zip
+            apps/worker/*.tar.gz
+            apps/worker/*.zip
+          draft: false
+          prerelease: ${{ contains(steps.version.outputs.version, '-') }}

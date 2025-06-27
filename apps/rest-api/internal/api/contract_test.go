@@ -11,13 +11,14 @@ import (
 	"testing"
 	"time"
 
+	"rest-api/internal/adapters"
+	"rest-api/internal/core"
+
 	"github.com/S-Corkum/devops-mcp/pkg/models"
 	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
-	"rest-api/internal/adapters"
-	"rest-api/internal/core"
 )
 
 // ContractTestServer encapsulates the test server and its dependencies

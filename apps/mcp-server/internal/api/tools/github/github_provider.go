@@ -5,8 +5,9 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/S-Corkum/devops-mcp/pkg/adapters/github"
 	"mcp-server/internal/core/tool"
+
+	"github.com/S-Corkum/devops-mcp/pkg/adapters/github"
 )
 
 // GitHubToolProvider provides GitHub tools for the MCP

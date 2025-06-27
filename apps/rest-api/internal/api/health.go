@@ -34,7 +34,7 @@ func NewHealthChecker(db *sqlx.DB) *HealthChecker {
 
 	// Register default checks
 	hc.RegisterCheck("database", hc.checkDatabase)
-	
+
 	return hc
 }
 
@@ -128,11 +128,11 @@ func (h *HealthChecker) HealthHandler(c *gin.Context) {
 	defer cancel()
 
 	health := gin.H{
-		"status": "healthy",
-		"ready":  h.IsReady(),
-		"time":   time.Now().UTC().Format(time.RFC3339),
+		"status":     "healthy",
+		"ready":      h.IsReady(),
+		"time":       time.Now().UTC().Format(time.RFC3339),
 		"components": make(map[string]string),
-		"checks": make(map[string]string), // Keep for backward compatibility
+		"checks":     make(map[string]string), // Keep for backward compatibility
 	}
 
 	// Run all health checks

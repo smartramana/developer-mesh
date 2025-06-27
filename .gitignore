@@ -26,6 +26,8 @@ go.work.sum
 .env.*
 !.env.example
 !.env.*.example
+aws-infrastructure-ids.txt
+s3-bucket-policy.json
 
 # Local configuration overrides
 configs/*.local.yaml
@@ -42,13 +44,6 @@ CLAUDE.md
 /server
 /simplified-mcp
 /api
-/apps/rest-api/rest-api
-/apps/rest-api/rest-api-linux
-/apps/rest-api/api
-/apps/mcp-server/mcp-server
-/apps/mcp-server/server
-/apps/worker/worker
-/apps/mockserver/mockserver
 /bin/
 # Any file without extension in app directories (likely binaries)
 /apps/*/[!.]*
@@ -62,3 +57,22 @@ CLAUDE.md
 # Functional test artifacts
 logs/
 .test-pids
+
+# Development certificates
+certs/
+*.pem
+*.p12
+*.jks
+*.crt
+*.key
+*.csr
+
+# Production deployment plans and scripts (contain sensitive info)
+PRODUCTION_READINESS_COMPLETE_PLAN.md
+ENCRYPTION_AND_SECRETS_IMPLEMENTATION.md
+AWS_ALB_ACM_DEPLOYMENT_PLAN.md
+AWS_ONLY_ZERO_COST_DEPLOYMENT_PLAN.md
+ZERO_COST_PRODUCTION_DEPLOYMENT_PLAN.md
+register-domain.sh
+setup-alb-with-domain.sh
+domain-contact.json

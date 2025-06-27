@@ -15,25 +15,25 @@ import (
 type Repository interface {
 	// CreateConfig creates a new agent configuration
 	CreateConfig(ctx context.Context, config *AgentConfig) error
-	
+
 	// GetConfig retrieves the active configuration for an agent
 	GetConfig(ctx context.Context, agentID string) (*AgentConfig, error)
-	
+
 	// GetConfigByID retrieves a specific configuration by ID
 	GetConfigByID(ctx context.Context, id uuid.UUID) (*AgentConfig, error)
-	
+
 	// GetConfigHistory retrieves configuration history for an agent
 	GetConfigHistory(ctx context.Context, agentID string, limit int) ([]*AgentConfig, error)
-	
+
 	// UpdateConfig creates a new version of the configuration
 	UpdateConfig(ctx context.Context, agentID string, update *ConfigUpdateRequest) (*AgentConfig, error)
-	
+
 	// ListConfigs lists configurations based on filter
 	ListConfigs(ctx context.Context, filter ConfigFilter) ([]*AgentConfig, error)
-	
+
 	// DeactivateConfig deactivates a configuration
 	DeactivateConfig(ctx context.Context, agentID string) error
-	
+
 	// DeleteConfig deletes a configuration (soft delete)
 	DeleteConfig(ctx context.Context, id uuid.UUID) error
 }
@@ -60,35 +60,35 @@ func (r *PostgresRepository) CreateConfig(ctx context.Context, config *AgentConf
 	if err := config.Validate(); err != nil {
 		return fmt.Errorf("invalid configuration: %w", err)
 	}
-	
+
 	// Set defaults
 	config.ID = uuid.New()
 	config.Version = 1
 	config.IsActive = true
 	config.CreatedAt = time.Now()
 	config.UpdatedAt = config.CreatedAt
-	
+
 	// Convert to JSON for storage
 	modelPrefsJSON, err := json.Marshal(config.ModelPreferences)
 	if err != nil {
 		return fmt.Errorf("failed to marshal model preferences: %w", err)
 	}
-	
+
 	constraintsJSON, err := json.Marshal(config.Constraints)
 	if err != nil {
 		return fmt.Errorf("failed to marshal constraints: %w", err)
 	}
-	
+
 	fallbackJSON, err := json.Marshal(config.FallbackBehavior)
 	if err != nil {
 		return fmt.Errorf("failed to marshal fallback behavior: %w", err)
 	}
-	
+
 	metadataJSON, err := json.Marshal(config.Metadata)
 	if err != nil {
 		return fmt.Errorf("failed to marshal metadata: %w", err)
 	}
-	
+
 	query := fmt.Sprintf(`
 		INSERT INTO %s.agent_configs (
 			id, agent_id, version, embedding_strategy,
@@ -98,7 +98,7 @@ func (r *PostgresRepository) CreateConfig(ctx context.Context, config *AgentConf
 			$1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12
 		)
 	`, r.schema)
-	
+
 	_, err = r.db.ExecContext(ctx, query,
 		config.ID,
 		config.AgentID,
@@ -113,11 +113,11 @@ func (r *PostgresRepository) CreateConfig(ctx context.Context, config *AgentConf
 		config.UpdatedAt,
 		config.CreatedBy,
 	)
-	
+
 	if err != nil {
 		return fmt.Errorf("failed to insert configuration: %w", err)
 	}
-	
+
 	return nil
 }
 
@@ -133,10 +133,10 @@ func (r *PostgresRepository) GetConfig(ctx context.Context, agentID string) (*Ag
 		ORDER BY version DESC
 		LIMIT 1
 	`, r.schema)
-	
+
 	var config AgentConfig
 	var modelPrefsJSON, constraintsJSON, fallbackJSON, metadataJSON []byte
-	
+
 	err := r.db.QueryRowContext(ctx, query, agentID).Scan(
 		&config.ID,
 		&config.AgentID,
@@ -151,31 +151,31 @@ func (r *PostgresRepository) GetConfig(ctx context.Context, agentID string) (*Ag
 		&config.UpdatedAt,
 		&config.CreatedBy,
 	)
-	
+
 	if err == sql.ErrNoRows {
 		return nil, fmt.Errorf("configuration not found for agent: %s", agentID)
 	}
 	if err != nil {
 		return nil, fmt.Errorf("failed to query configuration: %w", err)
 	}
-	
+
 	// Unmarshal JSON fields
 	if err := json.Unmarshal(modelPrefsJSON, &config.ModelPreferences); err != nil {
 		return nil, fmt.Errorf("failed to unmarshal model preferences: %w", err)
 	}
-	
+
 	if err := json.Unmarshal(constraintsJSON, &config.Constraints); err != nil {
 		return nil, fmt.Errorf("failed to unmarshal constraints: %w", err)
 	}
-	
+
 	if err := json.Unmarshal(fallbackJSON, &config.FallbackBehavior); err != nil {
 		return nil, fmt.Errorf("failed to unmarshal fallback behavior: %w", err)
 	}
-	
+
 	if err := json.Unmarshal(metadataJSON, &config.Metadata); err != nil {
 		return nil, fmt.Errorf("failed to unmarshal metadata: %w", err)
 	}
-	
+
 	return &config, nil
 }
 
@@ -189,10 +189,10 @@ func (r *PostgresRepository) GetConfigByID(ctx context.Context, id uuid.UUID) (*
 		FROM %s.agent_configs
 		WHERE id = $1
 	`, r.schema)
-	
+
 	var config AgentConfig
 	var modelPrefsJSON, constraintsJSON, fallbackJSON, metadataJSON []byte
-	
+
 	err := r.db.QueryRowContext(ctx, query, id).Scan(
 		&config.ID,
 		&config.AgentID,
@@ -207,31 +207,31 @@ func (r *PostgresRepository) GetConfigByID(ctx context.Context, id uuid.UUID) (*
 		&config.UpdatedAt,
 		&config.CreatedBy,
 	)
-	
+
 	if err == sql.ErrNoRows {
 		return nil, fmt.Errorf("configuration not found: %s", id)
 	}
 	if err != nil {
 		return nil, fmt.Errorf("failed to query configuration: %w", err)
 	}
-	
+
 	// Unmarshal JSON fields
 	if err := json.Unmarshal(modelPrefsJSON, &config.ModelPreferences); err != nil {
 		return nil, fmt.Errorf("failed to unmarshal model preferences: %w", err)
 	}
-	
+
 	if err := json.Unmarshal(constraintsJSON, &config.Constraints); err != nil {
 		return nil, fmt.Errorf("failed to unmarshal constraints: %w", err)
 	}
-	
+
 	if err := json.Unmarshal(fallbackJSON, &config.FallbackBehavior); err != nil {
 		return nil, fmt.Errorf("failed to unmarshal fallback behavior: %w", err)
 	}
-	
+
 	if err := json.Unmarshal(metadataJSON, &config.Metadata); err != nil {
 		return nil, fmt.Errorf("failed to unmarshal metadata: %w", err)
 	}
-	
+
 	return &config, nil
 }
 
@@ -240,7 +240,7 @@ func (r *PostgresRepository) GetConfigHistory(ctx context.Context, agentID strin
 	if limit <= 0 {
 		limit = 10
 	}
-	
+
 	query := fmt.Sprintf(`
 		SELECT 
 			id, agent_id, version, embedding_strategy,
@@ -251,7 +251,7 @@ func (r *PostgresRepository) GetConfigHistory(ctx context.Context, agentID strin
 		ORDER BY version DESC
 		LIMIT $2
 	`, r.schema)
-	
+
 	rows, err := r.db.QueryContext(ctx, query, agentID, limit)
 	if err != nil {
 		return nil, fmt.Errorf("failed to query configuration history: %w", err)
@@ -259,13 +259,13 @@ func (r *PostgresRepository) GetConfigHistory(ctx context.Context, agentID strin
 	defer func() {
 		_ = rows.Close()
 	}()
-	
+
 	var configs []*AgentConfig
-	
+
 	for rows.Next() {
 		var config AgentConfig
 		var modelPrefsJSON, constraintsJSON, fallbackJSON, metadataJSON []byte
-		
+
 		err := rows.Scan(
 			&config.ID,
 			&config.AgentID,
@@ -283,31 +283,31 @@ func (r *PostgresRepository) GetConfigHistory(ctx context.Context, agentID strin
 		if err != nil {
 			return nil, fmt.Errorf("failed to scan configuration: %w", err)
 		}
-		
+
 		// Unmarshal JSON fields
 		if err := json.Unmarshal(modelPrefsJSON, &config.ModelPreferences); err != nil {
 			return nil, fmt.Errorf("failed to unmarshal model preferences: %w", err)
 		}
-		
+
 		if err := json.Unmarshal(constraintsJSON, &config.Constraints); err != nil {
 			return nil, fmt.Errorf("failed to unmarshal constraints: %w", err)
 		}
-		
+
 		if err := json.Unmarshal(fallbackJSON, &config.FallbackBehavior); err != nil {
 			return nil, fmt.Errorf("failed to unmarshal fallback behavior: %w", err)
 		}
-		
+
 		if err := json.Unmarshal(metadataJSON, &config.Metadata); err != nil {
 			return nil, fmt.Errorf("failed to unmarshal metadata: %w", err)
 		}
-		
+
 		configs = append(configs, &config)
 	}
-	
+
 	if err := rows.Err(); err != nil {
 		return nil, fmt.Errorf("error iterating configurations: %w", err)
 	}
-	
+
 	return configs, nil
 }
 
@@ -321,24 +321,24 @@ func (r *PostgresRepository) UpdateConfig(ctx context.Context, agentID string, u
 	defer func() {
 		_ = tx.Rollback() // Rollback is a no-op if transaction was committed
 	}()
-	
+
 	// Get current configuration
 	current, err := r.GetConfig(ctx, agentID)
 	if err != nil {
 		return nil, err
 	}
-	
+
 	// Deactivate current configuration
 	deactivateQuery := fmt.Sprintf(`
 		UPDATE %s.agent_configs
 		SET is_active = false, updated_at = $1
 		WHERE agent_id = $2 AND is_active = true
 	`, r.schema)
-	
+
 	if _, err := tx.ExecContext(ctx, deactivateQuery, time.Now(), agentID); err != nil {
 		return nil, fmt.Errorf("failed to deactivate current configuration: %w", err)
 	}
-	
+
 	// Create new configuration based on current + updates
 	newConfig := current.Clone()
 	newConfig.ID = uuid.New()
@@ -346,7 +346,7 @@ func (r *PostgresRepository) UpdateConfig(ctx context.Context, agentID string, u
 	newConfig.CreatedAt = time.Now()
 	newConfig.UpdatedAt = newConfig.CreatedAt
 	newConfig.CreatedBy = update.UpdatedBy
-	
+
 	// Apply updates
 	if update.EmbeddingStrategy != nil {
 		newConfig.EmbeddingStrategy = *update.EmbeddingStrategy
@@ -368,18 +368,18 @@ func (r *PostgresRepository) UpdateConfig(ctx context.Context, agentID string, u
 			newConfig.Metadata[k] = v
 		}
 	}
-	
+
 	// Validate new configuration
 	if err := newConfig.Validate(); err != nil {
 		return nil, fmt.Errorf("invalid updated configuration: %w", err)
 	}
-	
+
 	// Insert new configuration
 	modelPrefsJSON, _ := json.Marshal(newConfig.ModelPreferences)
 	constraintsJSON, _ := json.Marshal(newConfig.Constraints)
 	fallbackJSON, _ := json.Marshal(newConfig.FallbackBehavior)
 	metadataJSON, _ := json.Marshal(newConfig.Metadata)
-	
+
 	insertQuery := fmt.Sprintf(`
 		INSERT INTO %s.agent_configs (
 			id, agent_id, version, embedding_strategy,
@@ -389,7 +389,7 @@ func (r *PostgresRepository) UpdateConfig(ctx context.Context, agentID string, u
 			$1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12
 		)
 	`, r.schema)
-	
+
 	_, err = tx.ExecContext(ctx, insertQuery,
 		newConfig.ID,
 		newConfig.AgentID,
@@ -404,16 +404,16 @@ func (r *PostgresRepository) UpdateConfig(ctx context.Context, agentID string, u
 		newConfig.UpdatedAt,
 		newConfig.CreatedBy,
 	)
-	
+
 	if err != nil {
 		return nil, fmt.Errorf("failed to insert new configuration: %w", err)
 	}
-	
+
 	// Commit transaction
 	if err := tx.Commit(); err != nil {
 		return nil, fmt.Errorf("failed to commit transaction: %w", err)
 	}
-	
+
 	return newConfig, nil
 }
 
@@ -428,48 +428,48 @@ func (r *PostgresRepository) ListConfigs(ctx context.Context, filter ConfigFilte
 		FROM %s.agent_configs
 		WHERE 1=1
 	`, r.schema)
-	
+
 	args := []interface{}{}
 	argCount := 0
-	
+
 	if filter.AgentID != nil {
 		argCount++
 		query += fmt.Sprintf(" AND agent_id = $%d", argCount)
 		args = append(args, *filter.AgentID)
 	}
-	
+
 	if filter.IsActive != nil {
 		argCount++
 		query += fmt.Sprintf(" AND is_active = $%d", argCount)
 		args = append(args, *filter.IsActive)
 	}
-	
+
 	if filter.Strategy != nil {
 		argCount++
 		query += fmt.Sprintf(" AND embedding_strategy = $%d", argCount)
 		args = append(args, *filter.Strategy)
 	}
-	
+
 	if filter.CreatedBy != nil {
 		argCount++
 		query += fmt.Sprintf(" AND created_by = $%d", argCount)
 		args = append(args, *filter.CreatedBy)
 	}
-	
+
 	query += " ORDER BY created_at DESC"
-	
+
 	if filter.Limit > 0 {
 		argCount++
 		query += fmt.Sprintf(" LIMIT $%d", argCount)
 		args = append(args, filter.Limit)
 	}
-	
+
 	if filter.Offset > 0 {
 		argCount++
 		query += fmt.Sprintf(" OFFSET $%d", argCount)
 		args = append(args, filter.Offset)
 	}
-	
+
 	rows, err := r.db.QueryContext(ctx, query, args...)
 	if err != nil {
 		return nil, fmt.Errorf("failed to query configurations: %w", err)
@@ -477,13 +477,13 @@ func (r *PostgresRepository) ListConfigs(ctx context.Context, filter ConfigFilte
 	defer func() {
 		_ = rows.Close()
 	}()
-	
+
 	var configs []*AgentConfig
-	
+
 	for rows.Next() {
 		var config AgentConfig
 		var modelPrefsJSON, constraintsJSON, fallbackJSON, metadataJSON []byte
-		
+
 		err := rows.Scan(
 			&config.ID,
 			&config.AgentID,
@@ -501,7 +501,7 @@ func (r *PostgresRepository) ListConfigs(ctx context.Context, filter ConfigFilte
 		if err != nil {
 			return nil, fmt.Errorf("failed to scan configuration: %w", err)
 		}
-		
+
 		// Unmarshal JSON fields
 		if err := json.Unmarshal(modelPrefsJSON, &config.ModelPreferences); err != nil {
 			return nil, fmt.Errorf("failed to unmarshal model preferences: %w", err)
@@ -515,10 +515,10 @@ func (r *PostgresRepository) ListConfigs(ctx context.Context, filter ConfigFilte
 		if err := json.Unmarshal(metadataJSON, &config.Metadata); err != nil {
 			return nil, fmt.Errorf("failed to unmarshal metadata: %w", err)
 		}
-		
+
 		configs = append(configs, &config)
 	}
-	
+
 	return configs, nil
 }
 
@@ -529,21 +529,21 @@ func (r *PostgresRepository) DeactivateConfig(ctx context.Context, agentID strin
 		SET is_active = false, updated_at = $1
 		WHERE agent_id = $2 AND is_active = true
 	`, r.schema)
-	
+
 	result, err := r.db.ExecContext(ctx, query, time.Now(), agentID)
 	if err != nil {
 		return fmt.Errorf("failed to deactivate configuration: %w", err)
 	}
-	
+
 	rows, err := result.RowsAffected()
 	if err != nil {
 		return fmt.Errorf("failed to get rows affected: %w", err)
 	}
-	
+
 	if rows == 0 {
 		return fmt.Errorf("no active configuration found for agent: %s", agentID)
 	}
-	
+
 	return nil
 }
 
@@ -554,20 +554,20 @@ func (r *PostgresRepository) DeleteConfig(ctx context.Context, id uuid.UUID) err
 		SET is_active = false, updated_at = $1
 		WHERE id = $2
 	`, r.schema)
-	
+
 	result, err := r.db.ExecContext(ctx, query, time.Now(), id)
 	if err != nil {
 		return fmt.Errorf("failed to delete configuration: %w", err)
 	}
-	
+
 	rows, err := result.RowsAffected()
 	if err != nil {
 		return fmt.Errorf("failed to get rows affected: %w", err)
 	}
-	
+
 	if rows == 0 {
 		return fmt.Errorf("configuration not found: %s", id)
 	}
-	
+
 	return nil
 }

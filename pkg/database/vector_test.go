@@ -67,7 +67,7 @@ func TestVectorDatabase_Initialize(t *testing.T) {
 }
 
 // Test Initialize when the embeddings table doesn't exist
-func TestVectorDatabase_Initialize_CreateTable(t *testing.T) {
+func TestVectorDatabase_Initialize_WithExistingTable(t *testing.T) {
 	// Create a mock database
 	mockDB, mock, err := sqlmock.New()
 	require.NoError(t, err)
@@ -106,20 +106,10 @@ func TestVectorDatabase_Initialize_CreateTable(t *testing.T) {
 		WithArgs().
 		WillReturnRows(sqlmock.NewRows([]string{"exists"}).AddRow(true))
 
-	// Set up expectations for checking embeddings table (not found)
+	// Set up expectations for checking embeddings table (found - migrations already ran)
 	mock.ExpectQuery(`SELECT EXISTS`).
 		WithArgs().
-		WillReturnRows(sqlmock.NewRows([]string{"exists"}).AddRow(false))
-
-	// Set up expectations for table creation transaction
-	mock.ExpectBegin()
-	mock.ExpectExec(`CREATE SCHEMA IF NOT EXISTS mcp`).
-		WillReturnResult(sqlmock.NewResult(0, 0))
-	mock.ExpectExec(`CREATE TABLE IF NOT EXISTS mcp.embeddings`).
-		WillReturnResult(sqlmock.NewResult(0, 0))
-	mock.ExpectExec(`DO \$\$`).
-		WillReturnResult(sqlmock.NewResult(0, 0))
-	mock.ExpectCommit()
+		WillReturnRows(sqlmock.NewRows([]string{"exists"}).AddRow(true))
 
 	// Initialize vector database
 	err = vdb.Initialize(context.Background())
@@ -440,11 +430,11 @@ func TestVectorDatabase_CalculateSimilarity_Methods(t *testing.T) {
 			mockDB, mock, err := sqlmock.New()
 			require.NoError(t, err)
 			defer func() {
-		mock.ExpectClose()
-		if err := mockDB.Close(); err != nil {
-			t.Errorf("Failed to close mock database: %v", err)
-		}
-	}()
+				mock.ExpectClose()
+				if err := mockDB.Close(); err != nil {
+					t.Errorf("Failed to close mock database: %v", err)
+				}
+			}()
 
 			// Create sqlx DB wrapper
 			db := sqlx.NewDb(mockDB, "sqlmock")

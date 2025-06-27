@@ -4,20 +4,21 @@ import (
 	"context"
 	"fmt"
 
+	"functional-tests/client"
+
+	"github.com/S-Corkum/devops-mcp/pkg/models"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"functional-tests/client"
-	"github.com/S-Corkum/devops-mcp/pkg/models"
 )
 
 var _ = Describe("Tenant Isolation", func() {
 	var (
-		ctx               context.Context
-		tenant1Client     *client.MCPClient
-		tenant2Client     *client.MCPClient
-		tenant1Model      *models.Model
-		tenant2Model      *models.Model
-		testLogger        *client.TestLogger
+		ctx           context.Context
+		tenant1Client *client.MCPClient
+		tenant2Client *client.MCPClient
+		tenant1Model  *models.Model
+		tenant2Model  *models.Model
+		testLogger    *client.TestLogger
 	)
 
 	BeforeEach(func() {
@@ -48,7 +49,7 @@ var _ = Describe("Tenant Isolation", func() {
 				Name:     "Tenant 1 Isolated Model",
 				TenantID: "test-tenant-1",
 			}
-			
+
 			createdModel1, err := tenant1Client.CreateModel(ctx, model1)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(createdModel1.TenantID).To(Equal("test-tenant-1"))
@@ -59,7 +60,7 @@ var _ = Describe("Tenant Isolation", func() {
 				Name:     "Tenant 2 Isolated Model",
 				TenantID: "test-tenant-2",
 			}
-			
+
 			createdModel2, err := tenant2Client.CreateModel(ctx, model2)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(createdModel2.TenantID).To(Equal("test-tenant-2"))
@@ -72,7 +73,7 @@ var _ = Describe("Tenant Isolation", func() {
 
 		It("should prevent cross-tenant access", func() {
 			Skip("Depends on previous test creating models")
-			
+
 			// Tenant 1 should NOT be able to access tenant 2's model
 			_, err := tenant1Client.GetModel(ctx, tenant2Model.ID)
 			Expect(err).To(HaveOccurred())
@@ -90,7 +91,7 @@ var _ = Describe("Tenant Isolation", func() {
 				Name:     "Wrong Tenant ID Test Model",
 				TenantID: "wrong-tenant-id", // This should be overridden
 			}
-			
+
 			createdModel1, err := tenant1Client.CreateModel(ctx, model1)
 			Expect(err).NotTo(HaveOccurred())
 			// Should use tenant ID from API key, not from request body
@@ -101,7 +102,7 @@ var _ = Describe("Tenant Isolation", func() {
 				Name:     "Another Wrong Tenant ID Test Model",
 				TenantID: "another-wrong-id", // This should be overridden
 			}
-			
+
 			createdModel2, err := tenant2Client.CreateModel(ctx, model2)
 			Expect(err).NotTo(HaveOccurred())
 			// Should use tenant ID from API key, not from request body
@@ -135,7 +136,7 @@ var _ = Describe("Tenant Isolation", func() {
 			}
 			createdContext1, err := tenant1Client.CreateContext(ctx, context1)
 			Expect(err).NotTo(HaveOccurred())
-			
+
 			// Verify tenant ID (contexts might not return tenant_id in response)
 			contextID1, ok := createdContext1["id"].(string)
 			Expect(ok).To(BeTrue())
@@ -149,7 +150,7 @@ var _ = Describe("Tenant Isolation", func() {
 			}
 			createdContext2, err := tenant2Client.CreateContext(ctx, context2)
 			Expect(err).NotTo(HaveOccurred())
-			
+
 			contextID2, ok := createdContext2["id"].(string)
 			Expect(ok).To(BeTrue())
 

@@ -97,7 +97,7 @@ func TestIsIRSAEnabled(t *testing.T) {
 	// Clean up environment variables when the test completes
 	defer func() {
 		_ = os.Unsetenv("AWS_WEB_IDENTITY_TOKEN_FILE") // Ignore error in cleanup
-		_ = os.Unsetenv("AWS_ROLE_ARN") // Ignore error in cleanup
+		_ = os.Unsetenv("AWS_ROLE_ARN")                // Ignore error in cleanup
 
 		// Restore original environment variables if they existed
 		if hasWebIdentityTokenFile {
@@ -169,7 +169,7 @@ func TestGetAWSConfig(t *testing.T) {
 	// Clean up environment variables when the test completes
 	defer func() {
 		_ = os.Unsetenv("AWS_WEB_IDENTITY_TOKEN_FILE") // Ignore error in cleanup
-		_ = os.Unsetenv("AWS_ROLE_ARN") // Ignore error in cleanup
+		_ = os.Unsetenv("AWS_ROLE_ARN")                // Ignore error in cleanup
 
 		// Restore original environment variables if they existed
 		if hasWebIdentityTokenFile {

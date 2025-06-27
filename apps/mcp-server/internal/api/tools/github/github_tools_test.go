@@ -9,11 +9,12 @@ import (
 	"net/http/httptest"
 	"testing"
 
+	"mcp-server/internal/core/tool"
+
 	"github.com/S-Corkum/devops-mcp/pkg/observability"
 	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
-	"mcp-server/internal/core/tool"
 )
 
 // MockGitHubAdapter is a mock implementation of the GitHub API for testing

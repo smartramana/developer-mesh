@@ -8,10 +8,11 @@ import (
 	"testing"
 	"time"
 
+	coremocks "mcp-server/internal/core/mocks"
+
 	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	coremocks "mcp-server/internal/core/mocks"
 )
 
 // MockServer is a lightweight test server for testing API routes

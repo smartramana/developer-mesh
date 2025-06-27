@@ -21,6 +21,11 @@ if [ -f .test-pids ]; then
         echo "Stopped Worker (PID: $WORKER_PID)"
     fi
     
+    if [ ! -z "$SSH_TUNNEL_PID" ]; then
+        kill $SSH_TUNNEL_PID 2>/dev/null || true
+        echo "Stopped SSH tunnels (PID: $SSH_TUNNEL_PID)"
+    fi
+    
     rm .test-pids
 else
     echo "No PID file found. Trying to find processes..."

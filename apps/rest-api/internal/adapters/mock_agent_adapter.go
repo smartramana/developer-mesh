@@ -2,9 +2,10 @@ package adapters
 
 import (
 	"context"
+	"rest-api/internal/types"
+
 	"github.com/S-Corkum/devops-mcp/pkg/models"
 	"github.com/stretchr/testify/mock"
-	"rest-api/internal/types"
 )
 
 // MockAgentAdapter is a mock implementation of AgentAdapter for testing

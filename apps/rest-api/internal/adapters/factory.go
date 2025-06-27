@@ -2,9 +2,10 @@
 package adapters
 
 import (
+	"rest-api/internal/repository"
+
 	corerepo "github.com/S-Corkum/devops-mcp/pkg/repository"
 	"github.com/jmoiron/sqlx"
-	"rest-api/internal/repository"
 )
 
 // RepositoryFactory creates repository instances with the appropriate adapters

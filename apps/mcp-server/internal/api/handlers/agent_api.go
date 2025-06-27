@@ -7,6 +7,7 @@ import (
 	"github.com/S-Corkum/devops-mcp/pkg/repository/agent"
 	"github.com/S-Corkum/devops-mcp/pkg/util"
 	"github.com/gin-gonic/gin"
+	"github.com/google/uuid"
 )
 
 // AgentAPI handles agent management endpoints
@@ -41,8 +42,13 @@ func (a *AgentAPI) createAgent(c *gin.Context) {
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "missing tenant id"})
 		return
 	}
-	// Set the tenant ID (string) on the agent model
-	agent.TenantID = tenantID
+	// Set the tenant ID (uuid) on the agent model
+	tenantUUID, err := uuid.Parse(tenantID)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid tenant id format"})
+		return
+	}
+	agent.TenantID = tenantUUID
 	if agent.ID == "" {
 		agent.ID = util.GenerateUUID() // Assume a UUID generator utility exists
 	}
@@ -96,7 +102,12 @@ func (a *AgentAPI) updateAgent(c *gin.Context) {
 
 	// Ensure the ID and tenant ID match what's in the URL and token
 	agent.ID = id
-	agent.TenantID = tenantID
+	tenantUUID, err := uuid.Parse(tenantID)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid tenant id format"})
+		return
+	}
+	agent.TenantID = tenantUUID
 
 	if err := a.repo.Update(c.Request.Context(), &agent); err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})

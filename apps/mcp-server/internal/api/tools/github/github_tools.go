@@ -5,10 +5,11 @@ import (
 	"fmt"
 	"net/http"
 
+	"mcp-server/internal/core/tool"
+
 	"github.com/S-Corkum/devops-mcp/pkg/adapters/github"
 	"github.com/S-Corkum/devops-mcp/pkg/observability"
 	"github.com/gin-gonic/gin"
-	"mcp-server/internal/core/tool"
 )
 
 // GitHubToolsHandler handles GitHub tool endpoints

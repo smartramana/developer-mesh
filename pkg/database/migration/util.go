@@ -20,8 +20,14 @@ func CreateMigration(dir, name string) error {
 		return errors.New("migration name cannot be empty")
 	}
 
-	// Create directory if it doesn't exist
-	if err := os.MkdirAll(dir, 0755); err != nil {
+	// Clean and validate the directory path
+	cleanDir := filepath.Clean(dir)
+	if strings.Contains(cleanDir, "..") {
+		return fmt.Errorf("invalid directory path: %s", dir)
+	}
+	
+	// Create directory if it doesn't exist with secure permissions
+	if err := os.MkdirAll(cleanDir, 0750); err != nil {
 		return fmt.Errorf("failed to create migration directory: %w", err)
 	}
 
@@ -94,7 +100,13 @@ func getNextVersion(dir string) (int, error) {
 
 // createFile creates a new file with the given content
 func createFile(path, content string) error {
-	file, err := os.Create(path)
+	// Clean and validate the file path
+	cleanPath := filepath.Clean(path)
+	if strings.Contains(cleanPath, "..") {
+		return fmt.Errorf("invalid file path: %s", path)
+	}
+	
+	file, err := os.Create(cleanPath)
 	if err != nil {
 		return err
 	}
