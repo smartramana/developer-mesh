@@ -7,7 +7,7 @@ ARG COMMIT_SHA=unknown
 ARG BUILD_DATE
 
 # Build stage
-FROM golang:1.24.4-alpine AS builder
+FROM golang:1.24.4-alpine3.22 AS builder
 
 # Install build dependencies
 RUN apk add --no-cache git ca-certificates tzdata
