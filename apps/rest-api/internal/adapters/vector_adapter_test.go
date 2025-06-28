@@ -4,7 +4,7 @@ import (
 	"context"
 	"testing"
 
-	"github.com/S-Corkum/devops-mcp/apps/rest-api/internal/repository"
+	"rest-api/internal/repository"
 
 	"github.com/stretchr/testify/assert"
 )

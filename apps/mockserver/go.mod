@@ -1,4 +1,4 @@
-module github.com/S-Corkum/devops-mcp/apps/mockserver
+module mockserver
 
 go 1.24.2
 

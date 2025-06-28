@@ -2,7 +2,7 @@ package core
 
 import (
 	"context"
-	"github.com/S-Corkum/devops-mcp/apps/rest-api/internal/types"
+	"rest-api/internal/types"
 
 	"github.com/S-Corkum/devops-mcp/pkg/models"
 	"github.com/stretchr/testify/mock"

@@ -1,7 +1,7 @@
 package tools
 
 import (
-	githubtools "github.com/S-Corkum/devops-mcp/apps/mcp-server/internal/api/tools/github"
+	githubtools "mcp-server/internal/api/tools/github"
 
 	"github.com/S-Corkum/devops-mcp/pkg/adapters/github"
 	"github.com/S-Corkum/devops-mcp/pkg/observability"

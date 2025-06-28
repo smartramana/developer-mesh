@@ -18,7 +18,7 @@ WORKDIR /workspace
 # Copy everything - simple and reliable
 COPY . .
 
-# Set GOWORK to off to ignore go.work file in production builds
+# Set GOWORK=off to ensure we don't use workspace file in production
 ENV GOWORK=off
 
 # Change to the app directory and build

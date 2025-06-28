@@ -8,8 +8,8 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	api "github.com/S-Corkum/devops-mcp/apps/rest-api/internal/api"
-	"github.com/S-Corkum/devops-mcp/apps/rest-api/internal/repository"
+	api "rest-api/internal/api"
+	"rest-api/internal/repository"
 
 	"github.com/S-Corkum/devops-mcp/pkg/models"
 	"github.com/gin-gonic/gin"

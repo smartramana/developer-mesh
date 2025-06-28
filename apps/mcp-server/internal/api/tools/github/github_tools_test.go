@@ -9,7 +9,7 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"github.com/S-Corkum/devops-mcp/apps/mcp-server/internal/core/tool"
+	"mcp-server/internal/core/tool"
 
 	"github.com/S-Corkum/devops-mcp/pkg/observability"
 	"github.com/gin-gonic/gin"
