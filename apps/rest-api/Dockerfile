@@ -1,7 +1,7 @@
 # syntax=docker/dockerfile:1
-# Multi-stage build for optimal image size and security
+# Simple, reliable Dockerfile for rest-api
 
-# Build arguments for metadata
+# Build arguments
 ARG VERSION=dev
 ARG COMMIT_SHA=unknown
 ARG BUILD_DATE
@@ -10,44 +10,35 @@ ARG BUILD_DATE
 FROM golang:1.24.4-alpine AS builder
 
 # Install build dependencies
-RUN apk add --no-cache git gcc musl-dev ca-certificates tzdata
+RUN apk add --no-cache git ca-certificates tzdata
 
 # Set working directory
-WORKDIR /app
+WORKDIR /workspace
 
-# Copy entire project (Go workspace requires full context)
+# Copy everything - simple and reliable
 COPY . .
 
-# Enable go workspace
-ENV GOWORK=/app/go.work
-# Set up Go workspace and build
-WORKDIR /app
-# Re-declare build args for use in this stage
-ARG VERSION
-ARG COMMIT_SHA
-ARG BUILD_DATE
+# Set GOWORK to off to ignore go.work file in production builds
+ENV GOWORK=off
 
-# Build the application from workspace root
-WORKDIR /app
-RUN --mount=type=cache,target=/go/pkg/mod \
-    --mount=type=cache,target=/root/.cache/go-build \
-    go mod download && \
+# Change to the app directory and build
+WORKDIR /workspace/apps/rest-api
+RUN go mod download && \
     CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build \
-    -ldflags="-w -s -extldflags '-static' -X main.Version=${VERSION} -X main.GitCommit=${COMMIT_SHA} -X main.BuildDate=${BUILD_DATE}" \
-    -a -installsuffix cgo \
-    -o rest-api ./apps/rest-api/cmd/api
+    -ldflags="-w -s -X main.Version=${VERSION} -X main.GitCommit=${COMMIT_SHA} -X main.BuildDate=${BUILD_DATE}" \
+    -o /tmp/rest-api ./cmd/api
 
-# Runtime stage - using distroless for security
+# Final stage
 FROM gcr.io/distroless/static:nonroot
 
-# Copy binary from builder stage
-COPY --from=builder --chown=nonroot:nonroot /app/rest-api /app/rest-api
+# Copy binary
+COPY --from=builder /tmp/rest-api /app/rest-api
 
-# Copy configs with proper permissions
-COPY --from=builder --chown=nonroot:nonroot /app/apps/rest-api/configs /app/configs
+# Copy configuration files
+COPY --chown=nonroot:nonroot apps/rest-api/configs /app/configs
 
 # Copy migrations if needed
-COPY --from=builder --chown=nonroot:nonroot /app/apps/rest-api/migrations/sql /app/migrations
+COPY --chown=nonroot:nonroot apps/rest-api/migrations/sql /app/migrations
 
 # Set working directory
 WORKDIR /app
@@ -58,18 +49,17 @@ USER nonroot
 # Expose port
 EXPOSE 8080
 
-# Set environment variables
-ENV MCP_CONFIG_FILE=/app/configs/config.docker.yaml
-ENV GIN_MODE=release
-ENV PORT=8080
-
 # Health check
 HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
     CMD ["/app/rest-api", "-health-check"]
 
-# Add metadata labels
+# Minimal environment variables
+ENV PORT=8080 \
+    GIN_MODE=release
+
+# Metadata labels
 ARG VERSION
-ARG COMMIT_SHA
+ARG COMMIT_SHA  
 ARG BUILD_DATE
 LABEL org.opencontainers.image.version="${VERSION}" \
       org.opencontainers.image.revision="${COMMIT_SHA}" \

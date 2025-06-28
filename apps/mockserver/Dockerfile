@@ -1,7 +1,7 @@
 # syntax=docker/dockerfile:1
-# Multi-stage build for optimal image size and security
+# Simple, reliable Dockerfile for mockserver
 
-# Build arguments for metadata
+# Build arguments
 ARG VERSION=dev
 ARG COMMIT_SHA=unknown
 ARG BUILD_DATE
@@ -10,43 +10,29 @@ ARG BUILD_DATE
 FROM golang:1.24.4-alpine AS builder
 
 # Install build dependencies
-RUN apk add --no-cache git gcc musl-dev ca-certificates tzdata
+RUN apk add --no-cache git ca-certificates tzdata
 
 # Set working directory
-WORKDIR /build
+WORKDIR /workspace
 
-# Copy entire project for Go workspace support
+# Copy everything - simple and reliable
 COPY . .
 
-# Enable go workspace
-ENV GOWORK=/build/go.work
-# Set up Go workspace and build
-WORKDIR /build
-# Re-declare build args for use in this stage
-ARG VERSION
-ARG COMMIT_SHA
-ARG BUILD_DATE
+# Set GOWORK to off to ignore go.work file in production builds
+ENV GOWORK=off
 
-# Build the application from workspace root
-WORKDIR /build
-
-RUN --mount=type=cache,target=/go/pkg/mod \
-    --mount=type=cache,target=/root/.cache/go-build \
-    go mod download && \
+# Change to the app directory and build
+WORKDIR /workspace/apps/mockserver
+RUN go mod download && \
     CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build \
-    -ldflags="-w -s -extldflags '-static' -X main.Version=${VERSION} -X main.GitCommit=${COMMIT_SHA} -X main.BuildDate=${BUILD_DATE}" \
-    -a -installsuffix cgo \
-    -o mockserver ./apps/mockserver/cmd/main.go
+    -ldflags="-w -s -X main.Version=${VERSION} -X main.GitCommit=${COMMIT_SHA} -X main.BuildDate=${BUILD_DATE}" \
+    -o /tmp/mockserver ./cmd/main.go
 
-# Runtime stage - using distroless for security
+# Final stage
 FROM gcr.io/distroless/static:nonroot
 
-# Copy timezone data and SSL certificates from builder
-COPY --from=builder /usr/share/zoneinfo /usr/share/zoneinfo
-COPY --from=builder /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/
-
-# Copy the binary from builder
-COPY --from=builder /build/mockserver /app/mockserver
+# Copy binary
+COPY --from=builder /tmp/mockserver /app/mockserver
 
 # Set working directory
 WORKDIR /app
@@ -57,16 +43,13 @@ USER nonroot
 # Expose port
 EXPOSE 8081
 
-# Health check is handled by docker-compose or Kubernetes
-# The mockserver provides a /health endpoint on the configured port
+# Minimal environment variables
+ENV PORT=8081 \
+    GIN_MODE=release
 
-# Environment variables
-ENV GIN_MODE=release \
-    PORT=8081
-
-# Add metadata labels
+# Metadata labels
 ARG VERSION
-ARG COMMIT_SHA
+ARG COMMIT_SHA  
 ARG BUILD_DATE
 LABEL org.opencontainers.image.version="${VERSION}" \
       org.opencontainers.image.revision="${COMMIT_SHA}" \

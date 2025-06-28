@@ -1,7 +1,7 @@
 # syntax=docker/dockerfile:1
-# Multi-stage build for optimal image size and security
+# Simple, reliable Dockerfile for worker
 
-# Build arguments for metadata
+# Build arguments
 ARG VERSION=dev
 ARG COMMIT_SHA=unknown
 ARG BUILD_DATE
@@ -9,52 +9,33 @@ ARG BUILD_DATE
 # Build stage
 FROM golang:1.24.4-alpine AS builder
 
-# Install security updates and build dependencies
-RUN apk update && apk upgrade && \
-    apk add --no-cache git gcc musl-dev ca-certificates tzdata && \
-    update-ca-certificates
-
-# Create non-root user for build
-RUN adduser -D -g '' appuser
+# Install build dependencies
+RUN apk add --no-cache git ca-certificates tzdata
 
 # Set working directory
-WORKDIR /build
+WORKDIR /workspace
 
-# Copy entire project for Go workspace support
+# Copy everything - simple and reliable
 COPY . .
 
-# Enable go workspace
-ENV GOWORK=/build/go.work
-# Set up Go workspace and build
-WORKDIR /build
-# Re-declare build args for use in this stage
-ARG VERSION
-ARG COMMIT_SHA
-ARG BUILD_DATE
+# Set GOWORK to off to ignore go.work file in production builds
+ENV GOWORK=off
 
-# Build the application from workspace root
-WORKDIR /build
-RUN --mount=type=cache,target=/go/pkg/mod \
-    --mount=type=cache,target=/root/.cache/go-build \
-    go mod download && \
+# Change to the app directory and build
+WORKDIR /workspace/apps/worker
+RUN go mod download && \
     CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build \
-    -ldflags="-w -s -extldflags '-static' -X main.Version=${VERSION} -X main.GitCommit=${COMMIT_SHA} -X main.BuildDate=${BUILD_DATE}" \
-    -a -installsuffix cgo \
-    -o worker ./apps/worker/cmd/worker
+    -ldflags="-w -s -X main.Version=${VERSION} -X main.GitCommit=${COMMIT_SHA} -X main.BuildDate=${BUILD_DATE}" \
+    -o /tmp/worker ./cmd/worker
 
-# Create minimal runtime stage using distroless
+# Final stage
 FROM gcr.io/distroless/static:nonroot
 
-# Copy timezone data and SSL certificates from builder
-COPY --from=builder /usr/share/zoneinfo /usr/share/zoneinfo
-COPY --from=builder /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/
-
-# Copy the binary from builder
-COPY --from=builder /build/worker /app/worker
+# Copy binary
+COPY --from=builder /tmp/worker /app/worker
 
 # Copy configuration files
 COPY --chown=nonroot:nonroot apps/worker/configs /app/configs
-COPY --chown=nonroot:nonroot configs /app/base-configs
 
 # Set working directory
 WORKDIR /app
@@ -62,37 +43,16 @@ WORKDIR /app
 # Use non-root user
 USER nonroot
 
-# Health check for worker (checks if process is running)
+# Health check
 HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
     CMD ["/app/worker", "-health-check"]
 
-# Environment variables
-ENV MCP_CONFIG_FILE=/app/configs/config.docker.yaml \
-    GIN_MODE=release \
-    # Redis configuration
-    REDIS_ADDR="redis:6379" \
-    REDIS_ADDRESS="redis:6379" \
-    REDIS_HOST="redis" \
-    REDIS_PORT="6379" \
-    REDIS_URL="redis://redis:6379" \
-    # AWS/SQS settings
-    USE_LOCALSTACK="true" \
-    AWS_ENDPOINT_URL="http://localstack:4566" \
-    AWS_REGION="us-east-1" \
-    SQS_QUEUE_NAME="tasks" \
-    AWS_ACCESS_KEY_ID="test" \
-    AWS_SECRET_ACCESS_KEY="test" \
-    # Worker configuration
-    WORKER_CONCURRENCY="10" \
-    WORKER_POLL_INTERVAL="5s" \
-    WORKER_VISIBILITY_TIMEOUT="300s" \
-    # Observability
-    OTEL_SERVICE_NAME="worker" \
-    OTEL_EXPORTER_OTLP_ENDPOINT="http://otel-collector:4317"
+# Minimal environment variables
+ENV GIN_MODE=release
 
-# Add metadata labels
+# Metadata labels
 ARG VERSION
-ARG COMMIT_SHA
+ARG COMMIT_SHA  
 ARG BUILD_DATE
 LABEL org.opencontainers.image.version="${VERSION}" \
       org.opencontainers.image.revision="${COMMIT_SHA}" \
