@@ -3,7 +3,7 @@ package websocket
 import (
 	"context"
 
-	"mcp-server/internal/core"
+	"github.com/S-Corkum/devops-mcp/apps/mcp-server/internal/core"
 
 	"github.com/S-Corkum/devops-mcp/pkg/models"
 )

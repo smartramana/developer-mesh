@@ -1,4 +1,4 @@
-module mcp-server
+module github.com/S-Corkum/devops-mcp/apps/mcp-server
 
 go 1.24.2
 

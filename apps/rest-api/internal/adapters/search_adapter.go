@@ -4,7 +4,7 @@ package adapters
 import (
 	"context"
 
-	"rest-api/internal/repository"
+	"github.com/S-Corkum/devops-mcp/apps/rest-api/internal/repository"
 )
 
 // MockSearchAdapter implements the API's search repository interface

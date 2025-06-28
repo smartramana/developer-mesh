@@ -6,7 +6,7 @@ import (
 	"strconv"
 	"strings"
 
-	"mcp-server/internal/api/responses"
+	"github.com/S-Corkum/devops-mcp/apps/mcp-server/internal/api/responses"
 
 	"github.com/S-Corkum/devops-mcp/pkg/models"
 	"github.com/S-Corkum/devops-mcp/pkg/models/relationship"

@@ -2,7 +2,7 @@
 package github
 
 import (
-	"mcp-server/internal/core/tool"
+	"github.com/S-Corkum/devops-mcp/apps/mcp-server/internal/core/tool"
 )
 
 // Issue tools

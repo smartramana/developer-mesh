@@ -19,10 +19,10 @@ import (
 	"time"
 
 	// Internal application-specific imports
-	"mcp-server/internal/api"
-	"mcp-server/internal/api/websocket"
-	"mcp-server/internal/config"
-	"mcp-server/internal/core"
+	"github.com/S-Corkum/devops-mcp/apps/mcp-server/internal/api"
+	"github.com/S-Corkum/devops-mcp/apps/mcp-server/internal/api/websocket"
+	"github.com/S-Corkum/devops-mcp/apps/mcp-server/internal/config"
+	"github.com/S-Corkum/devops-mcp/apps/mcp-server/internal/core"
 
 	// Shared package imports
 	"github.com/S-Corkum/devops-mcp/pkg/cache"

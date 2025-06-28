@@ -8,10 +8,10 @@ import (
 	"strings"
 	"time"
 
-	"rest-api/internal/adapters"
-	contextAPI "rest-api/internal/api/context"
-	"rest-api/internal/core"
-	"rest-api/internal/repository"
+	"github.com/S-Corkum/devops-mcp/apps/rest-api/internal/adapters"
+	contextAPI "github.com/S-Corkum/devops-mcp/apps/rest-api/internal/api/context"
+	"github.com/S-Corkum/devops-mcp/apps/rest-api/internal/core"
+	"github.com/S-Corkum/devops-mcp/apps/rest-api/internal/repository"
 
 	"github.com/S-Corkum/devops-mcp/pkg/agents"
 	"github.com/S-Corkum/devops-mcp/pkg/auth"
