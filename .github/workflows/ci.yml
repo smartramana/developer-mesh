@@ -61,4 +61,15 @@ jobs:
           
       - name: Build Docker image
         run: |
-          docker build --progress=plain -f apps/${{ matrix.app }}/Dockerfile -t ${{ matrix.app }}:test .
+          echo "=== Building ${{ matrix.app }} ==="
+          echo "Current directory: $(pwd)"
+          echo "=== Dockerfile contents ==="
+          cat apps/${{ matrix.app }}/Dockerfile | head -35
+          echo "=== Building with verbose output ==="
+          docker build --no-cache --progress=plain -f apps/${{ matrix.app }}/Dockerfile -t ${{ matrix.app }}:test . 2>&1 || {
+            echo "=== Build failed, checking go.mod ==="
+            cat apps/${{ matrix.app }}/go.mod | head -20
+            echo "=== Checking if go.work is being copied ==="
+            docker run --rm -v $(pwd):/workspace alpine:latest sh -c "cd /workspace && ls -la go.work*"
+            exit 1
+          }
