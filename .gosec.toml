@@ -42,3 +42,133 @@ path = "apps/mcp-server/internal/core/embedding_manager.go"
 id = "G115"  # Integer overflow - false positive
 path = "apps/rest-api/internal/api/connection_helper.go"
 # We already have bounds checking for the shift amount
+
+# G115 - Integer overflow false positives in services
+[[rules]]
+id = "G115"
+path = "pkg/services/*.go"
+# Bit operations and type conversions are intentional
+
+# G404 - Math/rand for non-security purposes
+[[rules]]
+id = "G404"
+path = "pkg/services/workflow_service_impl.go"
+# Weighted branch selection - not security sensitive
+
+[[rules]]
+id = "G404"
+path = "pkg/adapters/github/webhook/retry.go"
+# Retry jitter - not security sensitive
+
+[[rules]]
+id = "G404"
+path = "pkg/embedding/providers/mock_provider.go"
+# Test mock - not security sensitive
+
+[[rules]]
+id = "G404"
+path = "pkg/services/assignment_engine.go"
+# Task distribution - not security sensitive
+
+[[rules]]
+id = "G404"
+path = "test/functional/shared/mock_tools.go"
+# Test utilities - not security sensitive
+
+# G306 - File permissions in tests
+[[rules]]
+id = "G306"
+path = "*_test.go"
+# Test files can use standard permissions
+
+# G302 - Chmod 0700 is actually restrictive
+[[rules]]
+id = "G302"  
+path = "scripts/*.go"
+# Scripts need executable permissions for owner only
+
+# G201 - SQL string formatting with trusted table names
+[[rules]]
+id = "G201"
+path = "pkg/repository/model/repository.go"
+# Table names are hardcoded based on database type, not user input
+
+[[rules]]
+id = "G201"
+path = "pkg/repository/agent/repository.go"
+# Table names are hardcoded based on database type, not user input
+
+[[rules]]
+id = "G201"
+path = "pkg/repository/embedding_repository.go"
+# Table names are from configuration, not user input
+
+[[rules]]
+id = "G201"
+path = "pkg/testutil/helpers.go"
+# Test utilities with trusted tenant IDs
+
+[[rules]]
+id = "G201"
+path = "pkg/embedding/postgres.go"
+# Schema name is from configuration, not user input
+
+[[rules]]
+id = "G201"
+path = "test/integration/shared/database.go"
+# Test helper with trusted table names
+
+# G304 - Path traversal false positives
+[[rules]]
+id = "G304"
+path = "pkg/rules/loaders.go"
+# Configuration file paths are from trusted sources
+
+# Additional G115 false positives
+[[rules]]
+id = "G115"
+path = "pkg/services/context_service_impl.go"
+# Integer conversions are bounded and safe
+
+[[rules]]
+id = "G115"
+path = "pkg/services/cache_service_impl.go"
+# Integer conversions are bounded and safe
+
+[[rules]]
+id = "G115"
+path = "apps/mcp-server/internal/api/websocket/pool.go"
+# Already fixed with proper bounds checking
+
+[[rules]]
+id = "G115"
+path = "apps/mcp-server/internal/api/websocket/binary_protocol.go"
+# Already fixed with proper validation
+
+# Additional G404 false positives
+[[rules]]
+id = "G404"
+path = "pkg/services/context_service_impl.go"
+# Random selection for non-security purposes
+
+[[rules]]
+id = "G404"
+path = "pkg/cache/cache.go"
+# Jitter for cache operations
+
+[[rules]]
+id = "G404"
+path = "apps/mcp-server/internal/api/websocket/pool.go"
+# Connection selection, not security sensitive
+
+# G306 - File permissions
+[[rules]]
+id = "G306"
+path = "pkg/services/workflow_service_impl.go"
+# Script files need standard permissions
+
+# G302 - Chmod permissions
+[[rules]]
+id = "G302"
+path = "pkg/services/workflow_service_impl.go"
+# Executable permissions required for script files

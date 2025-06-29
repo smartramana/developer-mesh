@@ -600,7 +600,9 @@ func (s *taskService) GetBatch(ctx context.Context, ids []uuid.UUID) ([]*models.
 		cacheKey := fmt.Sprintf("task:%s", id.String())
 		var task models.Task
 		if err := s.taskCache.Get(ctx, cacheKey, &task); err == nil {
-			tasks = append(tasks, &task)
+			// Create a copy to avoid G601 implicit memory aliasing
+			taskCopy := task
+			tasks = append(tasks, &taskCopy)
 		} else {
 			uncachedIDs = append(uncachedIDs, id)
 		}

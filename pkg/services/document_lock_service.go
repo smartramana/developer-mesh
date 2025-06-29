@@ -536,7 +536,9 @@ func (s *documentLockService) GetSectionLocks(ctx context.Context, documentID uu
 
 		// Skip expired locks
 		if time.Now().Before(lock.ExpiresAt) {
-			locks = append(locks, &lock)
+			// Create a copy to avoid G601 implicit memory aliasing
+			lockCopy := lock
+			locks = append(locks, &lockCopy)
 		}
 	}
 
@@ -584,7 +586,9 @@ func (s *documentLockService) GetActiveLocks(ctx context.Context, agentID string
 		}
 
 		if sectionLock.AgentID == agentID && time.Now().Before(sectionLock.ExpiresAt) {
-			locks = append(locks, &sectionLock.DocumentLock)
+			// Create a copy to avoid G601 implicit memory aliasing
+			docLockCopy := sectionLock.DocumentLock
+			locks = append(locks, &docLockCopy)
 		}
 	}
 

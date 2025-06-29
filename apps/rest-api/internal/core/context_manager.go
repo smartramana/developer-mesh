@@ -580,7 +580,9 @@ func (cm *ContextManager) ListContexts(ctx context.Context, agentID, sessionID s
 				})
 				continue
 			}
-			results = append(results, &context)
+			// Create a copy to avoid G601 implicit memory aliasing
+			contextCopy := context
+			results = append(results, &contextCopy)
 		}
 
 		// Check for errors during iteration

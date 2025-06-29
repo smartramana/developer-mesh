@@ -387,7 +387,9 @@ func (r *taskRepository) GetBatch(ctx context.Context, ids []uuid.UUID) ([]*mode
 		var task models.Task
 		err := r.cache.Get(ctx, cacheKey, &task)
 		if err == nil {
-			tasks = append(tasks, &task)
+			// Create a copy to avoid G601 implicit memory aliasing
+			taskCopy := task
+			tasks = append(tasks, &taskCopy)
 			r.metrics.IncrementCounterWithLabels("repository_cache_hits", 1, map[string]string{"type": "task"})
 		} else {
 			uncachedIDs = append(uncachedIDs, id)
