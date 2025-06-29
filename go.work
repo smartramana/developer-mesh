@@ -5,4 +5,5 @@ use (
 	./apps/mockserver
 	./apps/rest-api
 	./apps/worker
+	./pkg
 )
