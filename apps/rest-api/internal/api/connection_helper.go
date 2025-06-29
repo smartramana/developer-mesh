@@ -33,7 +33,16 @@ func (h *ConnectionHelper) ConnectToDatabase(ctx context.Context, config databas
 
 	for attempt := range maxRetries {
 		if attempt > 0 {
-			calculatedDelay := baseDelay * time.Duration(1<<uint(attempt-1))
+			// Safe conversion: attempt is bounded by maxRetries (3)
+			// Convert to int64 first to avoid gosec G115 warning
+			shiftAmount := int64(attempt - 1)
+			if shiftAmount < 0 {
+				shiftAmount = 0
+			}
+			if shiftAmount > 31 {
+				shiftAmount = 31
+			}
+			calculatedDelay := baseDelay * time.Duration(1<<uint(shiftAmount))
 			delay := calculatedDelay
 			if calculatedDelay > maxDelay {
 				delay = maxDelay
@@ -82,7 +91,16 @@ func (h *ConnectionHelper) ConnectToCache(ctx context.Context, config any) (cach
 
 	for attempt := range maxRetries {
 		if attempt > 0 {
-			delay := baseDelay * time.Duration(1<<uint(attempt-1))
+			// Safe conversion: attempt is bounded by maxRetries (3)
+			// Convert to int64 first to avoid gosec G115 warning
+			shiftAmount := int64(attempt - 1)
+			if shiftAmount < 0 {
+				shiftAmount = 0
+			}
+			if shiftAmount > 31 {
+				shiftAmount = 31
+			}
+			delay := baseDelay * time.Duration(1<<uint(shiftAmount))
 			h.logger.Info("Retrying cache connection", map[string]any{
 				"attempt": attempt + 1,
 				"delay":   delay.String(),

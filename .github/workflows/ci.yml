@@ -35,11 +35,13 @@ jobs:
       - name: Run gosec
         run: |
           go install github.com/securego/gosec/v2/cmd/gosec@latest
-          make gosec
+          make security-checks
 
   docker-build:
     name: Docker Build
     runs-on: ubuntu-latest
+    # Only run Docker builds on push, not on PRs
+    if: github.event_name == 'push'
     strategy:
       matrix:
         app: [mcp-server, rest-api, worker, mockserver]
