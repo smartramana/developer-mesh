@@ -52,6 +52,7 @@ require (
 	github.com/prometheus/common v0.62.0 // indirect
 	github.com/prometheus/procfs v0.15.1 // indirect
 	github.com/rogpeppe/go-internal v1.14.1 // indirect
+	golang.org/x/oauth2 v0.30.0 // indirect
 	google.golang.org/grpc v1.71.1 // indirect
 )
 
@@ -150,3 +151,5 @@ require (
 )
 
 replace github.com/pkg/errors => github.com/pkg/errors v0.9.1
+
+replace golang.org/x/oauth2 => golang.org/x/oauth2 v0.30.0

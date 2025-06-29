@@ -136,3 +136,5 @@ require (
 	google.golang.org/protobuf v1.36.5 // indirect
 	gopkg.in/ini.v1 v1.67.0 // indirect
 )
+
+replace golang.org/x/oauth2 => golang.org/x/oauth2 v0.30.0
