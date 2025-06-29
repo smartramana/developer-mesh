@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"net/http"
 
-	"rest-api/internal/api/webhooks"
+	"github.com/S-Corkum/devops-mcp/apps/rest-api/internal/api/webhooks"
 
 	"github.com/gorilla/mux"
 )

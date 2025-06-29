@@ -7,11 +7,11 @@ import (
 	"reflect"
 	"time"
 
-	"mcp-server/internal/api/events"
-	"mcp-server/internal/api/proxies"
-	"mcp-server/internal/api/tools"
-	"mcp-server/internal/api/websocket"
-	"mcp-server/internal/core"
+	"github.com/S-Corkum/devops-mcp/apps/mcp-server/internal/api/events"
+	"github.com/S-Corkum/devops-mcp/apps/mcp-server/internal/api/proxies"
+	"github.com/S-Corkum/devops-mcp/apps/mcp-server/internal/api/tools"
+	"github.com/S-Corkum/devops-mcp/apps/mcp-server/internal/api/websocket"
+	"github.com/S-Corkum/devops-mcp/apps/mcp-server/internal/core"
 
 	"github.com/S-Corkum/devops-mcp/pkg/auth"
 	"github.com/S-Corkum/devops-mcp/pkg/cache"

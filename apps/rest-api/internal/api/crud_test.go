@@ -18,9 +18,9 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	contextAPI "rest-api/internal/api/context"
-	"rest-api/internal/core"
-	"rest-api/internal/repository"
+	contextAPI "github.com/S-Corkum/devops-mcp/apps/rest-api/internal/api/context"
+	"github.com/S-Corkum/devops-mcp/apps/rest-api/internal/core"
+	"github.com/S-Corkum/devops-mcp/apps/rest-api/internal/repository"
 )
 
 // TestContextCRUD tests full CRUD cycle for contexts using HTTP requests
