@@ -126,7 +126,10 @@ func createLocalStackSQSClient(ctx context.Context, config *SQSAdapterConfig) (*
 
 	// Custom HTTP client to allow insecure connections for LocalStack
 	customTransport := http.DefaultTransport.(*http.Transport).Clone()
-	customTransport.TLSClientConfig = &tls.Config{InsecureSkipVerify: true}
+	customTransport.TLSClientConfig = &tls.Config{
+		MinVersion:         tls.VersionTLS12,
+		InsecureSkipVerify: true, // #nosec G402 - LocalStack development only
+	}
 	customHTTPClient := &http.Client{
 		Transport: customTransport,
 		Timeout:   30 * time.Second,

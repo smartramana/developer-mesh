@@ -143,7 +143,8 @@ func runWorker(ctx context.Context) error {
 	if os.Getenv("REDIS_TLS_ENABLED") == "true" {
 		log.Printf("Redis TLS enabled")
 		redisOptions.TLSConfig = &tls.Config{
-			InsecureSkipVerify: os.Getenv("REDIS_TLS_SKIP_VERIFY") == "true",
+			MinVersion:         tls.VersionTLS12,
+			InsecureSkipVerify: os.Getenv("REDIS_TLS_SKIP_VERIFY") == "true", // #nosec G402 - Configurable for dev
 		}
 	}
 
@@ -182,7 +183,8 @@ func performHealthCheck() error {
 	// Check if TLS is enabled
 	if os.Getenv("REDIS_TLS_ENABLED") == "true" {
 		redisOptions.TLSConfig = &tls.Config{
-			InsecureSkipVerify: os.Getenv("REDIS_TLS_SKIP_VERIFY") == "true",
+			MinVersion:         tls.VersionTLS12,
+			InsecureSkipVerify: os.Getenv("REDIS_TLS_SKIP_VERIFY") == "true", // #nosec G402 - Configurable for dev
 		}
 	}
 

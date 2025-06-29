@@ -211,8 +211,7 @@ vet: ## Run go vet
 
 .PHONY: security-check
 security-check: ## Run security checks
-	@which gosec > /dev/null || go install github.com/securego/gosec/v2/cmd/gosec@latest
-	gosec ./...
+	@./.github/scripts/security-check.sh
 
 # ==============================================================================
 # Docker Commands

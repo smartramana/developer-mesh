@@ -52,9 +52,12 @@ func NewRedisCache(cfg RedisConfig) (*RedisCache, error) {
 
 	// Add TLS if needed
 	if cfg.UseIAMAuth {
-		options.TLSConfig = &tls.Config{}
+		options.TLSConfig = &tls.Config{
+			MinVersion: tls.VersionTLS12,
+		}
 	} else if cfg.TLS != nil && cfg.TLS.Enabled {
 		options.TLSConfig = &tls.Config{
+			MinVersion:         tls.VersionTLS12,
 			InsecureSkipVerify: cfg.TLS.InsecureSkipVerify,
 		}
 	}

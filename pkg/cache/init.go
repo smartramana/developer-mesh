@@ -111,7 +111,9 @@ func newRedisClusterClient(config RedisConfig) (Cache, error) {
 	// Add TLS if IAM auth is enabled
 	if config.UseIAMAuth {
 		clusterConfig.UseTLS = true
-		clusterConfig.TLSConfig = &tls.Config{}
+		clusterConfig.TLSConfig = &tls.Config{
+			MinVersion: tls.VersionTLS12,
+		}
 	}
 
 	return NewRedisClusterCache(clusterConfig)
