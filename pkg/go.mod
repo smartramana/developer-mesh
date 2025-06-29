@@ -5,7 +5,7 @@ go 1.24
 require (
 	github.com/DATA-DOG/go-sqlmock v1.5.2
 	github.com/alicebob/miniredis/v2 v2.34.0
-	github.com/aws/aws-sdk-go-v2 v1.36.3
+	github.com/aws/aws-sdk-go-v2 v1.36.5
 	github.com/aws/aws-sdk-go-v2/config v1.29.14
 	github.com/aws/aws-sdk-go-v2/credentials v1.17.67
 	github.com/aws/aws-sdk-go-v2/feature/s3/manager v1.17.72
@@ -63,7 +63,7 @@ require (
 	github.com/aws/aws-sdk-go-v2/service/internal/s3shared v1.18.15 // indirect
 	github.com/aws/aws-sdk-go-v2/service/sso v1.25.3 // indirect
 	github.com/aws/aws-sdk-go-v2/service/ssooidc v1.30.1 // indirect
-	github.com/aws/smithy-go v1.22.3 // indirect
+	github.com/aws/smithy-go v1.22.4 // indirect
 	github.com/beorn7/perks v1.0.1 // indirect
 	github.com/bytedance/sonic v1.10.1 // indirect
 	github.com/cespare/xxhash/v2 v2.3.0 // indirect
