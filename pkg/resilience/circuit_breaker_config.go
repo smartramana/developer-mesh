@@ -8,137 +8,137 @@ import (
 
 // CircuitBreakerServiceConfig defines circuit breaker configuration for a specific service
 type CircuitBreakerServiceConfig struct {
-	Enabled              bool          `mapstructure:"enabled" json:"enabled"`
-	MaxRequests          uint32        `mapstructure:"max_requests" json:"max_requests"`
-	Interval             time.Duration `mapstructure:"interval" json:"interval"`
-	Timeout              time.Duration `mapstructure:"timeout" json:"timeout"`
-	FailureThreshold     float64       `mapstructure:"failure_threshold" json:"failure_threshold"`
-	SuccessThreshold     uint32        `mapstructure:"success_threshold" json:"success_threshold"`
-	MinimumRequestCount  uint32        `mapstructure:"minimum_request_count" json:"minimum_request_count"`
-	MaxRequestsHalfOpen  uint32        `mapstructure:"max_requests_half_open" json:"max_requests_half_open"`
+	Enabled             bool          `mapstructure:"enabled" json:"enabled"`
+	MaxRequests         uint32        `mapstructure:"max_requests" json:"max_requests"`
+	Interval            time.Duration `mapstructure:"interval" json:"interval"`
+	Timeout             time.Duration `mapstructure:"timeout" json:"timeout"`
+	FailureThreshold    float64       `mapstructure:"failure_threshold" json:"failure_threshold"`
+	SuccessThreshold    uint32        `mapstructure:"success_threshold" json:"success_threshold"`
+	MinimumRequestCount uint32        `mapstructure:"minimum_request_count" json:"minimum_request_count"`
+	MaxRequestsHalfOpen uint32        `mapstructure:"max_requests_half_open" json:"max_requests_half_open"`
 }
 
 // DefaultCircuitBreakerConfigs provides default configurations for all services
 var DefaultCircuitBreakerConfigs = map[string]CircuitBreakerServiceConfig{
 	"task_service": {
-		Enabled:              true,
-		MaxRequests:          100,
-		Interval:             10 * time.Second,
-		Timeout:              30 * time.Second,
-		FailureThreshold:     0.5,
-		SuccessThreshold:     5,
-		MinimumRequestCount:  10,
-		MaxRequestsHalfOpen:  10,
+		Enabled:             true,
+		MaxRequests:         100,
+		Interval:            10 * time.Second,
+		Timeout:             30 * time.Second,
+		FailureThreshold:    0.5,
+		SuccessThreshold:    5,
+		MinimumRequestCount: 10,
+		MaxRequestsHalfOpen: 10,
 	},
 	"workflow_service": {
-		Enabled:              true,
-		MaxRequests:          50,
-		Interval:             10 * time.Second,
-		Timeout:              45 * time.Second,
-		FailureThreshold:     0.6,
-		SuccessThreshold:     3,
-		MinimumRequestCount:  5,
-		MaxRequestsHalfOpen:  5,
+		Enabled:             true,
+		MaxRequests:         50,
+		Interval:            10 * time.Second,
+		Timeout:             45 * time.Second,
+		FailureThreshold:    0.6,
+		SuccessThreshold:    3,
+		MinimumRequestCount: 5,
+		MaxRequestsHalfOpen: 5,
 	},
 	"agent_service": {
-		Enabled:              true,
-		MaxRequests:          200,
-		Interval:             5 * time.Second,
-		Timeout:              15 * time.Second,
-		FailureThreshold:     0.5,
-		SuccessThreshold:     5,
-		MinimumRequestCount:  20,
-		MaxRequestsHalfOpen:  20,
+		Enabled:             true,
+		MaxRequests:         200,
+		Interval:            5 * time.Second,
+		Timeout:             15 * time.Second,
+		FailureThreshold:    0.5,
+		SuccessThreshold:    5,
+		MinimumRequestCount: 20,
+		MaxRequestsHalfOpen: 20,
 	},
 	"context_service": {
-		Enabled:              true,
-		MaxRequests:          150,
-		Interval:             10 * time.Second,
-		Timeout:              20 * time.Second,
-		FailureThreshold:     0.4,
-		SuccessThreshold:     5,
-		MinimumRequestCount:  15,
-		MaxRequestsHalfOpen:  15,
+		Enabled:             true,
+		MaxRequests:         150,
+		Interval:            10 * time.Second,
+		Timeout:             20 * time.Second,
+		FailureThreshold:    0.4,
+		SuccessThreshold:    5,
+		MinimumRequestCount: 15,
+		MaxRequestsHalfOpen: 15,
 	},
 	"document_service": {
-		Enabled:              true,
-		MaxRequests:          100,
-		Interval:             10 * time.Second,
-		Timeout:              25 * time.Second,
-		FailureThreshold:     0.5,
-		SuccessThreshold:     5,
-		MinimumRequestCount:  10,
-		MaxRequestsHalfOpen:  10,
+		Enabled:             true,
+		MaxRequests:         100,
+		Interval:            10 * time.Second,
+		Timeout:             25 * time.Second,
+		FailureThreshold:    0.5,
+		SuccessThreshold:    5,
+		MinimumRequestCount: 10,
+		MaxRequestsHalfOpen: 10,
 	},
 	"workspace_service": {
-		Enabled:              true,
-		MaxRequests:          100,
-		Interval:             10 * time.Second,
-		Timeout:              20 * time.Second,
-		FailureThreshold:     0.5,
-		SuccessThreshold:     5,
-		MinimumRequestCount:  10,
-		MaxRequestsHalfOpen:  10,
+		Enabled:             true,
+		MaxRequests:         100,
+		Interval:            10 * time.Second,
+		Timeout:             20 * time.Second,
+		FailureThreshold:    0.5,
+		SuccessThreshold:    5,
+		MinimumRequestCount: 10,
+		MaxRequestsHalfOpen: 10,
 	},
 	"embedding_service": {
-		Enabled:              true,
-		MaxRequests:          30,
-		Interval:             30 * time.Second,
-		Timeout:              60 * time.Second,
-		FailureThreshold:     0.3,
-		SuccessThreshold:     2,
-		MinimumRequestCount:  3,
-		MaxRequestsHalfOpen:  3,
+		Enabled:             true,
+		MaxRequests:         30,
+		Interval:            30 * time.Second,
+		Timeout:             60 * time.Second,
+		FailureThreshold:    0.3,
+		SuccessThreshold:    2,
+		MinimumRequestCount: 3,
+		MaxRequestsHalfOpen: 3,
 	},
 	"github_adapter": {
-		Enabled:              true,
-		MaxRequests:          100,
-		Interval:             10 * time.Second,
-		Timeout:              30 * time.Second,
-		FailureThreshold:     0.5,
-		SuccessThreshold:     3,
-		MinimumRequestCount:  10,
-		MaxRequestsHalfOpen:  10,
+		Enabled:             true,
+		MaxRequests:         100,
+		Interval:            10 * time.Second,
+		Timeout:             30 * time.Second,
+		FailureThreshold:    0.5,
+		SuccessThreshold:    3,
+		MinimumRequestCount: 10,
+		MaxRequestsHalfOpen: 10,
 	},
 	"aws_s3": {
-		Enabled:              true,
-		MaxRequests:          200,
-		Interval:             10 * time.Second,
-		Timeout:              30 * time.Second,
-		FailureThreshold:     0.3,
-		SuccessThreshold:     3,
-		MinimumRequestCount:  10,
-		MaxRequestsHalfOpen:  20,
+		Enabled:             true,
+		MaxRequests:         200,
+		Interval:            10 * time.Second,
+		Timeout:             30 * time.Second,
+		FailureThreshold:    0.3,
+		SuccessThreshold:    3,
+		MinimumRequestCount: 10,
+		MaxRequestsHalfOpen: 20,
 	},
 	"aws_sqs": {
-		Enabled:              true,
-		MaxRequests:          500,
-		Interval:             5 * time.Second,
-		Timeout:              10 * time.Second,
-		FailureThreshold:     0.3,
-		SuccessThreshold:     5,
-		MinimumRequestCount:  20,
-		MaxRequestsHalfOpen:  50,
+		Enabled:             true,
+		MaxRequests:         500,
+		Interval:            5 * time.Second,
+		Timeout:             10 * time.Second,
+		FailureThreshold:    0.3,
+		SuccessThreshold:    5,
+		MinimumRequestCount: 20,
+		MaxRequestsHalfOpen: 50,
 	},
 	"redis_cache": {
-		Enabled:              true,
-		MaxRequests:          1000,
-		Interval:             5 * time.Second,
-		Timeout:              5 * time.Second,
-		FailureThreshold:     0.2,
-		SuccessThreshold:     10,
-		MinimumRequestCount:  50,
-		MaxRequestsHalfOpen:  100,
+		Enabled:             true,
+		MaxRequests:         1000,
+		Interval:            5 * time.Second,
+		Timeout:             5 * time.Second,
+		FailureThreshold:    0.2,
+		SuccessThreshold:    10,
+		MinimumRequestCount: 50,
+		MaxRequestsHalfOpen: 100,
 	},
 	"postgres_db": {
-		Enabled:              true,
-		MaxRequests:          200,
-		Interval:             10 * time.Second,
-		Timeout:              10 * time.Second,
-		FailureThreshold:     0.1,
-		SuccessThreshold:     5,
-		MinimumRequestCount:  20,
-		MaxRequestsHalfOpen:  20,
+		Enabled:             true,
+		MaxRequests:         200,
+		Interval:            10 * time.Second,
+		Timeout:             10 * time.Second,
+		FailureThreshold:    0.1,
+		SuccessThreshold:    5,
+		MinimumRequestCount: 20,
+		MaxRequestsHalfOpen: 20,
 	},
 }
 
@@ -182,12 +182,12 @@ func NewCircuitBreakerRegistry(logger observability.Logger, metrics observabilit
 		logger:   logger,
 		metrics:  metrics,
 	}
-	
+
 	// Initialize with default configurations
 	for service, config := range DefaultCircuitBreakerConfigs {
 		registry.configs[service] = config
 	}
-	
+
 	return registry
 }
 
@@ -196,32 +196,32 @@ func (r *CircuitBreakerRegistry) GetOrCreate(serviceName string) *CircuitBreaker
 	if breaker, exists := r.breakers[serviceName]; exists {
 		return breaker
 	}
-	
+
 	config, exists := r.configs[serviceName]
 	if !exists {
 		// Use a default configuration if service not configured
 		config = CircuitBreakerServiceConfig{
-			Enabled:              true,
-			MaxRequests:          100,
-			Interval:             10 * time.Second,
-			Timeout:              30 * time.Second,
-			FailureThreshold:     0.5,
-			SuccessThreshold:     5,
-			MinimumRequestCount:  10,
-			MaxRequestsHalfOpen:  10,
+			Enabled:             true,
+			MaxRequests:         100,
+			Interval:            10 * time.Second,
+			Timeout:             30 * time.Second,
+			FailureThreshold:    0.5,
+			SuccessThreshold:    5,
+			MinimumRequestCount: 10,
+			MaxRequestsHalfOpen: 10,
 		}
 	}
-	
+
 	breaker := NewCircuitBreaker(serviceName, config.ToCircuitBreakerConfig(), r.logger, r.metrics)
 	r.breakers[serviceName] = breaker
-	
+
 	return breaker
 }
 
 // UpdateConfig updates the configuration for a service
 func (r *CircuitBreakerRegistry) UpdateConfig(serviceName string, config CircuitBreakerServiceConfig) {
 	r.configs[serviceName] = config
-	
+
 	// If a breaker exists, recreate it with new config
 	if _, exists := r.breakers[serviceName]; exists {
 		r.breakers[serviceName] = NewCircuitBreaker(serviceName, config.ToCircuitBreakerConfig(), r.logger, r.metrics)

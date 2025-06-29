@@ -107,15 +107,15 @@ func TestWorkflowRepository_Create(t *testing.T) {
 				Description: "Test description",
 				CreatedBy:   "user1",
 				Agents:      models.JSONMap{"agent1": map[string]interface{}{"type": "test"}},
-				Steps:       models.WorkflowSteps{
+				Steps: models.WorkflowSteps{
 					{
 						ID:   "step1",
 						Name: "Test Step",
 						Type: "action",
 					},
 				},
-				Config:      models.JSONMap{"timeout": 300},
-				Tags:        pq.StringArray{"test", "workflow"},
+				Config: models.JSONMap{"timeout": 300},
+				Tags:   pq.StringArray{"test", "workflow"},
 			},
 			setupMock: func(mock sqlmock.Sqlmock) {
 				mock.ExpectQuery("INSERT INTO workflows").
@@ -243,18 +243,18 @@ func TestWorkflowRepository_Get(t *testing.T) {
 				Version:     1,
 				CreatedBy:   "user1",
 				Agents:      models.JSONMap{"agent1": "config"},
-				Steps:       models.WorkflowSteps{
+				Steps: models.WorkflowSteps{
 					{
 						ID:   "step1",
 						Name: "Test Step",
 						Type: "task",
 					},
 				},
-				Config:      models.JSONMap{"key": "value"},
-				Tags:        pq.StringArray{"test"},
-				IsActive:    true,
-				CreatedAt:   now,
-				UpdatedAt:   now,
+				Config:    models.JSONMap{"key": "value"},
+				Tags:      pq.StringArray{"test"},
+				IsActive:  true,
+				CreatedAt: now,
+				UpdatedAt: now,
 			},
 			wantErr: false,
 		},

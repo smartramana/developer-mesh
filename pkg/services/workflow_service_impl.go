@@ -5453,7 +5453,7 @@ func (s *workflowService) instantiateTemplateSteps(definition map[string]interfa
 	for _, stepData := range stepsData {
 		// Substitute parameters in step data
 		substitutedStep := s.deepCopyWithSubstitution(stepData, params)
-		
+
 		// Convert to WorkflowStep
 		if stepMap, ok := substitutedStep.(map[string]interface{}); ok {
 			step := models.WorkflowStep{

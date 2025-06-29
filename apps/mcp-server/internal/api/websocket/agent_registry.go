@@ -134,7 +134,7 @@ func (ar *AgentRegistry) DiscoverAgents(ctx context.Context, tenantID string, re
 		"exclude_self":          excludeSelf,
 		"self_id":               selfID,
 	})
-	
+
 	// Debug: Print all registered agents
 	ar.agents.Range(func(key, value interface{}) bool {
 		agent := value.(*AgentInfo)
@@ -146,7 +146,7 @@ func (ar *AgentRegistry) DiscoverAgents(ctx context.Context, tenantID string, re
 		})
 		return true
 	})
-	
+
 	// Find agents with all required capabilities
 	agentMap := make(map[string]*AgentInfo)
 
@@ -154,13 +154,13 @@ func (ar *AgentRegistry) DiscoverAgents(ctx context.Context, tenantID string, re
 		ar.logger.Info("Looking up capability", map[string]interface{}{
 			"capability": capability,
 		})
-		
+
 		val, ok := ar.capabilities.Load(capability)
 		if !ok {
 			ar.logger.Info("No agents found with capability", map[string]interface{}{
 				"capability": capability,
 			})
-			
+
 			// Debug: Print all capability indexes
 			ar.logger.Info("Current capability index:", map[string]interface{}{})
 			ar.capabilities.Range(func(key, value interface{}) bool {
@@ -170,7 +170,7 @@ func (ar *AgentRegistry) DiscoverAgents(ctx context.Context, tenantID string, re
 				})
 				return true
 			})
-			
+
 			return []map[string]interface{}{}, nil // No agents with this capability
 		}
 
@@ -179,7 +179,7 @@ func (ar *AgentRegistry) DiscoverAgents(ctx context.Context, tenantID string, re
 			"capability": capability,
 			"agents":     agentIDs,
 		})
-		
+
 		for _, agentID := range agentIDs {
 			if excludeSelf && agentID == selfID {
 				ar.logger.Debug("Excluding self", map[string]interface{}{
@@ -293,19 +293,19 @@ func (ar *AgentRegistry) InitiateCollaboration(ctx context.Context, initiatorID 
 
 	// Create collaboration session
 	now := time.Now()
-	
+
 	// Extract priority from task metadata if provided, default to "medium"
 	priority := "medium"
 	if p, ok := task["priority"].(string); ok {
 		priority = p
 	}
-	
+
 	// Extract initial status from task metadata if provided, default to "active"
 	status := "active"
 	if s, ok := task["status"].(string); ok {
 		status = s
 	}
-	
+
 	session := &CollaborationSession{
 		ID:          uuid.New().String(),
 		InitiatorID: initiatorID,
@@ -418,8 +418,8 @@ func (ar *AgentRegistry) addCapability(capability, agentID string) {
 		agentIDs = append(agentIDs, agentID)
 		ar.capabilities.Store(capability, agentIDs)
 		ar.logger.Info("Added agent to capability index", map[string]interface{}{
-			"capability": capability,
-			"agent_id":   agentID,
+			"capability":   capability,
+			"agent_id":     agentID,
 			"total_agents": len(agentIDs),
 		})
 	}

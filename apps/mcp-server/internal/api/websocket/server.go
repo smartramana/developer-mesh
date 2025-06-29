@@ -25,9 +25,9 @@ type Server struct {
 	mu          sync.RWMutex
 	handlers    map[string]MessageHandler
 
-	auth    *auth.Service
-	metrics observability.MetricsClient
-	logger  observability.Logger
+	auth           *auth.Service
+	metrics        observability.MetricsClient
+	logger         observability.Logger
 	tracingHandler *TracingHandler
 
 	config Config
@@ -102,16 +102,16 @@ func NewServer(auth *auth.Service, metrics observability.MetricsClient, logger o
 		// For now, using a no-op implementation
 		return ctx, &NoOpSpan{}
 	}
-	
+
 	s := &Server{
-		connections: make(map[string]*Connection),
-		handlers:    make(map[string]MessageHandler),
-		auth:        auth,
-		metrics:     metrics,
-		logger:      logger,
+		connections:    make(map[string]*Connection),
+		handlers:       make(map[string]MessageHandler),
+		auth:           auth,
+		metrics:        metrics,
+		logger:         logger,
 		tracingHandler: NewTracingHandler(tracerFunc, metrics, logger),
-		config:      config,
-		startTime:   time.Now(),
+		config:         config,
+		startTime:      time.Now(),
 	}
 
 	// Initialize security components
@@ -217,7 +217,7 @@ func (s *Server) HandleWebSocket(w http.ResponseWriter, r *http.Request) {
 
 	// Set initial state
 	connection.SetState(ws.ConnectionStateConnecting)
-	
+
 	// Initialize connection state with authentication claims
 	if connection.state == nil {
 		connection.state = &ConnectionState{}

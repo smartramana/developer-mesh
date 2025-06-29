@@ -6,12 +6,12 @@ import (
 
 // BaseEvent contains common fields for all events
 type BaseEvent struct {
-	ID        string    `json:"id"`
-	Type      string    `json:"type"`
-	Timestamp time.Time `json:"timestamp"`
-	TenantID  string    `json:"tenant_id"`
-	AgentID   string    `json:"agent_id"`
-	Version   string    `json:"version"`
+	ID        string                 `json:"id"`
+	Type      string                 `json:"type"`
+	Timestamp time.Time              `json:"timestamp"`
+	TenantID  string                 `json:"tenant_id"`
+	AgentID   string                 `json:"agent_id"`
+	Version   string                 `json:"version"`
 	Metadata  map[string]interface{} `json:"metadata,omitempty"`
 }
 
@@ -72,9 +72,9 @@ type TaskCompletedEvent struct {
 // TaskFailedEvent is published when a task fails
 type TaskFailedEvent struct {
 	BaseEvent
-	TaskID   string `json:"task_id"`
-	AgentID  string `json:"agent_id"`
-	Error    string `json:"error"`
+	TaskID   string    `json:"task_id"`
+	AgentID  string    `json:"agent_id"`
+	Error    string    `json:"error"`
 	FailedAt time.Time `json:"failed_at"`
 }
 
@@ -115,7 +115,7 @@ type WorkspaceMemberRoleChangedEvent struct {
 }
 
 // Implement common event methods for BaseEvent
-func (e BaseEvent) GetID() string         { return e.ID }
-func (e BaseEvent) GetType() string       { return e.Type }
+func (e BaseEvent) GetID() string           { return e.ID }
+func (e BaseEvent) GetType() string         { return e.Type }
 func (e BaseEvent) GetTimestamp() time.Time { return e.Timestamp }
-func (e BaseEvent) GetTenantID() string   { return e.TenantID }
+func (e BaseEvent) GetTenantID() string     { return e.TenantID }

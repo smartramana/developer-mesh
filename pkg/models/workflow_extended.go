@@ -366,7 +366,6 @@ func (s *StepStatus) GetCreatedAt() time.Time {
 	return time.Time{}
 }
 
-
 // Step status constants
 const (
 	StepStatusPending          = "pending"

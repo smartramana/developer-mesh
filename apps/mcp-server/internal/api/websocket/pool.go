@@ -327,7 +327,7 @@ func (m *ConnectionPoolManager) DetailedStats() map[string]interface{} {
 	defer m.mu.Unlock()
 
 	available := len(m.pool)
-	
+
 	// Calculate in-use count safely
 	var inUse int64
 	if m.borrowed >= m.returned {

@@ -26,14 +26,14 @@ const (
 
 // WorkspaceMember represents a member of a workspace with their role
 type WorkspaceMember struct {
-	WorkspaceID uuid.UUID                `json:"workspace_id" db:"workspace_id"`
-	AgentID     string                   `json:"agent_id" db:"agent_id"`
-	Role        WorkspaceMemberRole      `json:"role" db:"role"`
-	Permissions map[string]interface{}   `json:"permissions" db:"permissions"`
-	JoinedAt    time.Time                `json:"joined_at" db:"joined_at"`
-	JoinedBy    string                   `json:"joined_by" db:"joined_by"`
-	LastActive  time.Time                `json:"last_active" db:"last_active"`
-	Metadata    map[string]interface{}   `json:"metadata" db:"metadata"`
+	WorkspaceID uuid.UUID              `json:"workspace_id" db:"workspace_id"`
+	AgentID     string                 `json:"agent_id" db:"agent_id"`
+	Role        WorkspaceMemberRole    `json:"role" db:"role"`
+	Permissions map[string]interface{} `json:"permissions" db:"permissions"`
+	JoinedAt    time.Time              `json:"joined_at" db:"joined_at"`
+	JoinedBy    string                 `json:"joined_by" db:"joined_by"`
+	LastActive  time.Time              `json:"last_active" db:"last_active"`
+	Metadata    map[string]interface{} `json:"metadata" db:"metadata"`
 }
 
 // WorkspaceActivity represents an activity log entry
@@ -59,15 +59,15 @@ type WorkspaceMemberService interface {
 	RemoveMember(ctx context.Context, workspaceID uuid.UUID, agentID string) error
 	GetMember(ctx context.Context, workspaceID uuid.UUID, agentID string) (*WorkspaceMember, error)
 	ListMembers(ctx context.Context, workspaceID uuid.UUID) ([]*WorkspaceMember, error)
-	
+
 	// Role-based access control
 	CheckPermission(ctx context.Context, workspaceID uuid.UUID, agentID string, permission string) (bool, error)
 	GetMemberRole(ctx context.Context, workspaceID uuid.UUID, agentID string) (WorkspaceMemberRole, error)
-	
+
 	// Activity tracking
 	LogActivity(ctx context.Context, activity *WorkspaceActivity) error
 	GetActivities(ctx context.Context, workspaceID uuid.UUID, limit int) ([]*WorkspaceActivity, error)
-	
+
 	// Workspace quotas
 	CheckMemberQuota(ctx context.Context, workspaceID uuid.UUID) error
 	UpdateLastActive(ctx context.Context, workspaceID uuid.UUID, agentID string) error
@@ -100,10 +100,10 @@ func NewWorkspaceMemberService(
 func (s *workspaceMemberService) AddMember(ctx context.Context, workspaceID uuid.UUID, agentID string, role WorkspaceMemberRole) error {
 	ctx, span := s.config.Tracer(ctx, "WorkspaceMemberService.AddMember")
 	defer span.End()
-	
+
 	// Get current user
 	currentAgentID := auth.GetAgentID(ctx)
-	
+
 	// Check authorization
 	decision := s.authorizer.Authorize(ctx, auth.Permission{
 		Resource: "workspace:" + workspaceID.String(),
@@ -112,19 +112,19 @@ func (s *workspaceMemberService) AddMember(ctx context.Context, workspaceID uuid
 	if !decision.Allowed {
 		return errors.New("authorization failed: " + decision.Reason)
 	}
-	
+
 	return s.txManager.WithTransaction(ctx, func(ctx context.Context, tx database.Transaction) error {
 		// Check member quota
 		if err := s.checkMemberQuotaInTx(ctx, tx, workspaceID); err != nil {
 			return err
 		}
-		
+
 		// Check if member already exists
 		existingMember, err := s.getMemberInTx(ctx, tx, workspaceID, agentID)
 		if err == nil && existingMember != nil {
 			return errors.New("member already exists in workspace")
 		}
-		
+
 		// Add member
 		query := `
 			INSERT INTO workspace_members (
@@ -133,7 +133,7 @@ func (s *workspaceMemberService) AddMember(ctx context.Context, workspaceID uuid
 				$1, $2, $3, $4, $5, $6, $7, $8
 			)
 		`
-		
+
 		now := time.Now()
 		_, err = tx.ExecContext(ctx, query,
 			workspaceID, agentID, role, models.JSONMap{}, now, currentAgentID, now, models.JSONMap{},
@@ -141,7 +141,7 @@ func (s *workspaceMemberService) AddMember(ctx context.Context, workspaceID uuid
 		if err != nil {
 			return errors.Wrap(err, "failed to add member")
 		}
-		
+
 		// Log activity
 		if err := s.logActivityInTx(ctx, tx, &WorkspaceActivity{
 			ID:           uuid.New(),
@@ -152,17 +152,17 @@ func (s *workspaceMemberService) AddMember(ctx context.Context, workspaceID uuid
 			ResourceID:   agentID,
 			Action:       "add",
 			Metadata: map[string]interface{}{
-				"role":      role,
-				"added_by":  currentAgentID,
+				"role":     role,
+				"added_by": currentAgentID,
 			},
-			CreatedAt:    now,
+			CreatedAt: now,
 		}); err != nil {
 			s.config.Logger.Error("Failed to log activity", map[string]interface{}{
 				"error": err.Error(),
 			})
 		}
-		
-		// Publish event  
+
+		// Publish event
 		event := &events.WorkspaceMemberAddedEvent{
 			BaseEvent: events.BaseEvent{
 				ID:        uuid.New().String(),
@@ -176,16 +176,16 @@ func (s *workspaceMemberService) AddMember(ctx context.Context, workspaceID uuid
 			Role:        string(role),
 			AddedBy:     currentAgentID,
 		}
-		
+
 		if err := s.eventPublisher.Publish(ctx, event); err != nil {
 			s.config.Logger.Error("Failed to publish member added event", map[string]interface{}{
 				"error": err.Error(),
 			})
 		}
-		
+
 		// Update metrics
 		s.config.Metrics.IncrementCounter("workspace_members_added", 1)
-		
+
 		return nil
 	})
 }
@@ -194,9 +194,9 @@ func (s *workspaceMemberService) AddMember(ctx context.Context, workspaceID uuid
 func (s *workspaceMemberService) UpdateMemberRole(ctx context.Context, workspaceID uuid.UUID, agentID string, newRole WorkspaceMemberRole) error {
 	ctx, span := s.config.Tracer(ctx, "WorkspaceMemberService.UpdateMemberRole")
 	defer span.End()
-	
+
 	currentAgentID := auth.GetAgentID(ctx)
-	
+
 	// Check authorization
 	decision := s.authorizer.Authorize(ctx, auth.Permission{
 		Resource: "workspace:" + workspaceID.String(),
@@ -205,16 +205,16 @@ func (s *workspaceMemberService) UpdateMemberRole(ctx context.Context, workspace
 	if !decision.Allowed {
 		return errors.New("authorization failed: " + decision.Reason)
 	}
-	
+
 	return s.txManager.WithTransaction(ctx, func(ctx context.Context, tx database.Transaction) error {
 		// Get current member
 		member, err := s.getMemberInTx(ctx, tx, workspaceID, agentID)
 		if err != nil {
 			return errors.Wrap(err, "failed to get member")
 		}
-		
+
 		oldRole := member.Role
-		
+
 		// Prevent demoting the last owner
 		if oldRole == WorkspaceMemberRoleOwner && newRole != WorkspaceMemberRoleOwner {
 			ownerCount, err := s.getOwnerCountInTx(ctx, tx, workspaceID)
@@ -225,19 +225,19 @@ func (s *workspaceMemberService) UpdateMemberRole(ctx context.Context, workspace
 				return errors.New("cannot demote the last owner")
 			}
 		}
-		
+
 		// Update role
 		query := `
 			UPDATE workspace_members 
 			SET role = $1, metadata = jsonb_set(metadata, '{previous_role}', to_jsonb($2::text))
 			WHERE workspace_id = $3 AND agent_id = $4
 		`
-		
+
 		_, err = tx.ExecContext(ctx, query, newRole, oldRole, workspaceID, agentID)
 		if err != nil {
 			return errors.Wrap(err, "failed to update member role")
 		}
-		
+
 		// Log activity
 		if err := s.logActivityInTx(ctx, tx, &WorkspaceActivity{
 			ID:           uuid.New(),
@@ -248,20 +248,20 @@ func (s *workspaceMemberService) UpdateMemberRole(ctx context.Context, workspace
 			ResourceID:   agentID,
 			Action:       "update",
 			Metadata: map[string]interface{}{
-				"old_role":    oldRole,
-				"new_role":    newRole,
-				"updated_by":  currentAgentID,
+				"old_role":   oldRole,
+				"new_role":   newRole,
+				"updated_by": currentAgentID,
 			},
-			CreatedAt:    time.Now(),
+			CreatedAt: time.Now(),
 		}); err != nil {
 			s.config.Logger.Error("Failed to log activity", map[string]interface{}{
 				"error": err.Error(),
 			})
 		}
-		
+
 		// Update metrics
 		s.config.Metrics.IncrementCounter("workspace_member_role_changes", 1)
-		
+
 		return nil
 	})
 }
@@ -270,9 +270,9 @@ func (s *workspaceMemberService) UpdateMemberRole(ctx context.Context, workspace
 func (s *workspaceMemberService) RemoveMember(ctx context.Context, workspaceID uuid.UUID, agentID string) error {
 	ctx, span := s.config.Tracer(ctx, "WorkspaceMemberService.RemoveMember")
 	defer span.End()
-	
+
 	currentAgentID := auth.GetAgentID(ctx)
-	
+
 	// Check authorization
 	decision := s.authorizer.Authorize(ctx, auth.Permission{
 		Resource: "workspace:" + workspaceID.String(),
@@ -281,14 +281,14 @@ func (s *workspaceMemberService) RemoveMember(ctx context.Context, workspaceID u
 	if !decision.Allowed {
 		return errors.New("authorization failed: " + decision.Reason)
 	}
-	
+
 	return s.txManager.WithTransaction(ctx, func(ctx context.Context, tx database.Transaction) error {
 		// Get member to check role
 		member, err := s.getMemberInTx(ctx, tx, workspaceID, agentID)
 		if err != nil {
 			return errors.Wrap(err, "failed to get member")
 		}
-		
+
 		// Prevent removing the last owner
 		if member.Role == WorkspaceMemberRoleOwner {
 			ownerCount, err := s.getOwnerCountInTx(ctx, tx, workspaceID)
@@ -299,19 +299,19 @@ func (s *workspaceMemberService) RemoveMember(ctx context.Context, workspaceID u
 				return errors.New("cannot remove the last owner")
 			}
 		}
-		
+
 		// Remove member
 		query := `DELETE FROM workspace_members WHERE workspace_id = $1 AND agent_id = $2`
 		result, err := tx.ExecContext(ctx, query, workspaceID, agentID)
 		if err != nil {
 			return errors.Wrap(err, "failed to remove member")
 		}
-		
+
 		rowsAffected, _ := result.RowsAffected()
 		if rowsAffected == 0 {
 			return errors.New("member not found")
 		}
-		
+
 		// Log activity
 		if err := s.logActivityInTx(ctx, tx, &WorkspaceActivity{
 			ID:           uuid.New(),
@@ -325,16 +325,16 @@ func (s *workspaceMemberService) RemoveMember(ctx context.Context, workspaceID u
 				"removed_role": member.Role,
 				"removed_by":   currentAgentID,
 			},
-			CreatedAt:    time.Now(),
+			CreatedAt: time.Now(),
 		}); err != nil {
 			s.config.Logger.Error("Failed to log activity", map[string]interface{}{
 				"error": err.Error(),
 			})
 		}
-		
+
 		// Update metrics
 		s.config.Metrics.IncrementCounter("workspace_members_removed", 1)
-		
+
 		return nil
 	})
 }
@@ -343,7 +343,7 @@ func (s *workspaceMemberService) RemoveMember(ctx context.Context, workspaceID u
 func (s *workspaceMemberService) GetMember(ctx context.Context, workspaceID uuid.UUID, agentID string) (*WorkspaceMember, error) {
 	ctx, span := s.config.Tracer(ctx, "WorkspaceMemberService.GetMember")
 	defer span.End()
-	
+
 	// Check authorization
 	decision := s.authorizer.Authorize(ctx, auth.Permission{
 		Resource: "workspace:" + workspaceID.String(),
@@ -352,7 +352,7 @@ func (s *workspaceMemberService) GetMember(ctx context.Context, workspaceID uuid
 	if !decision.Allowed {
 		return nil, errors.New("authorization failed: " + decision.Reason)
 	}
-	
+
 	return s.getMemberInTx(ctx, nil, workspaceID, agentID)
 }
 
@@ -360,7 +360,7 @@ func (s *workspaceMemberService) GetMember(ctx context.Context, workspaceID uuid
 func (s *workspaceMemberService) ListMembers(ctx context.Context, workspaceID uuid.UUID) ([]*WorkspaceMember, error) {
 	ctx, span := s.config.Tracer(ctx, "WorkspaceMemberService.ListMembers")
 	defer span.End()
-	
+
 	// Check authorization
 	decision := s.authorizer.Authorize(ctx, auth.Permission{
 		Resource: "workspace:" + workspaceID.String(),
@@ -369,7 +369,7 @@ func (s *workspaceMemberService) ListMembers(ctx context.Context, workspaceID uu
 	if !decision.Allowed {
 		return nil, errors.New("authorization failed: " + decision.Reason)
 	}
-	
+
 	var members []*WorkspaceMember
 	// This would need proper database access through repository
 	// For now, returning empty slice
@@ -380,12 +380,12 @@ func (s *workspaceMemberService) ListMembers(ctx context.Context, workspaceID uu
 func (s *workspaceMemberService) CheckPermission(ctx context.Context, workspaceID uuid.UUID, agentID string, permission string) (bool, error) {
 	ctx, span := s.config.Tracer(ctx, "WorkspaceMemberService.CheckPermission")
 	defer span.End()
-	
+
 	member, err := s.getMemberInTx(ctx, nil, workspaceID, agentID)
 	if err != nil {
 		return false, err
 	}
-	
+
 	// Check role-based permissions
 	switch member.Role {
 	case WorkspaceMemberRoleOwner:
@@ -407,14 +407,14 @@ func (s *workspaceMemberService) CheckPermission(ctx context.Context, workspaceI
 			return true, nil
 		}
 	}
-	
+
 	// Check custom permissions
 	if perms, ok := member.Permissions[permission]; ok {
 		if allowed, ok := perms.(bool); ok {
 			return allowed, nil
 		}
 	}
-	
+
 	return false, nil
 }
 
@@ -431,7 +431,7 @@ func (s *workspaceMemberService) GetMemberRole(ctx context.Context, workspaceID 
 func (s *workspaceMemberService) LogActivity(ctx context.Context, activity *WorkspaceActivity) error {
 	ctx, span := s.config.Tracer(ctx, "WorkspaceMemberService.LogActivity")
 	defer span.End()
-	
+
 	return s.logActivityInTx(ctx, nil, activity)
 }
 
@@ -439,7 +439,7 @@ func (s *workspaceMemberService) LogActivity(ctx context.Context, activity *Work
 func (s *workspaceMemberService) GetActivities(ctx context.Context, workspaceID uuid.UUID, limit int) ([]*WorkspaceActivity, error) {
 	ctx, span := s.config.Tracer(ctx, "WorkspaceMemberService.GetActivities")
 	defer span.End()
-	
+
 	// Check authorization
 	decision := s.authorizer.Authorize(ctx, auth.Permission{
 		Resource: "workspace:" + workspaceID.String(),
@@ -448,14 +448,14 @@ func (s *workspaceMemberService) GetActivities(ctx context.Context, workspaceID 
 	if !decision.Allowed {
 		return nil, errors.New("authorization failed: " + decision.Reason)
 	}
-	
+
 	query := `
 		SELECT * FROM workspace_activities 
 		WHERE workspace_id = $1 
 		ORDER BY created_at DESC 
 		LIMIT $2
 	`
-	
+
 	var activities []*WorkspaceActivity
 	// This would need proper database access
 	// For now, returning empty slice
@@ -476,10 +476,10 @@ func (s *workspaceMemberService) UpdateLastActive(ctx context.Context, workspace
 		SET last_active = $1 
 		WHERE workspace_id = $2 AND agent_id = $3
 	`
-	
+
 	// This would need proper database access
 	_ = query
-	
+
 	return nil
 }
 
@@ -496,7 +496,7 @@ func (s *workspaceMemberService) getOwnerCountInTx(ctx context.Context, tx datab
 		SELECT COUNT(*) FROM workspace_members 
 		WHERE workspace_id = $1 AND role = 'owner'
 	`
-	
+
 	var count int
 	// This would need proper database access
 	_ = query
@@ -512,10 +512,10 @@ func (s *workspaceMemberService) checkMemberQuotaInTx(ctx context.Context, tx da
 		WHERE w.id = $1
 		GROUP BY w.max_members
 	`
-	
+
 	// This would need proper database access
 	_ = query
-	
+
 	// For now, assume quota is not exceeded
 	return nil
 }
@@ -529,7 +529,7 @@ func (s *workspaceMemberService) logActivityInTx(ctx context.Context, tx databas
 			$1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11
 		)
 	`
-	
+
 	// Get request metadata if available
 	ipAddress := ""
 	userAgent := ""
@@ -537,12 +537,12 @@ func (s *workspaceMemberService) logActivityInTx(ctx context.Context, tx databas
 		ipAddress = reqInfo["ip_address"]
 		userAgent = reqInfo["user_agent"]
 	}
-	
+
 	activity.IPAddress = ipAddress
 	activity.UserAgent = userAgent
-	
+
 	// This would need proper database access
 	_ = query
-	
+
 	return nil
 }

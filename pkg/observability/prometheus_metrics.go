@@ -13,16 +13,16 @@ import (
 type PrometheusMetricsClient struct {
 	namespace string
 	subsystem string
-	
+
 	// Metric collectors
 	counters   map[string]*prometheus.CounterVec
 	gauges     map[string]*prometheus.GaugeVec
 	histograms map[string]*prometheus.HistogramVec
 	summaries  map[string]*prometheus.SummaryVec
-	
+
 	// Mutex for thread-safe operations
 	mu sync.RWMutex
-	
+
 	// Common labels
 	commonLabels prometheus.Labels
 }
@@ -33,7 +33,7 @@ func NewPrometheusMetricsClient(namespace, subsystem string, commonLabels map[st
 	for k, v := range commonLabels {
 		labels[k] = v
 	}
-	
+
 	client := &PrometheusMetricsClient{
 		namespace:    namespace,
 		subsystem:    subsystem,
@@ -43,10 +43,10 @@ func NewPrometheusMetricsClient(namespace, subsystem string, commonLabels map[st
 		summaries:    make(map[string]*prometheus.SummaryVec),
 		commonLabels: labels,
 	}
-	
+
 	// Register default metrics
 	client.registerDefaultMetrics()
-	
+
 	return client
 }
 
@@ -55,19 +55,19 @@ func (c *PrometheusMetricsClient) registerDefaultMetrics() {
 	// API operation metrics
 	c.getOrCreateCounter("api_requests_total", "Total API requests", []string{"method", "endpoint", "status"})
 	c.getOrCreateHistogram("api_request_duration_seconds", "API request duration", []string{"method", "endpoint"}, prometheus.DefBuckets)
-	
+
 	// Database operation metrics
 	c.getOrCreateCounter("database_operations_total", "Total database operations", []string{"operation", "table", "status"})
 	c.getOrCreateHistogram("database_operation_duration_seconds", "Database operation duration", []string{"operation", "table"}, prometheus.DefBuckets)
-	
+
 	// Cache operation metrics
 	c.getOrCreateCounter("cache_operations_total", "Total cache operations", []string{"operation", "result"})
 	c.getOrCreateHistogram("cache_operation_duration_seconds", "Cache operation duration", []string{"operation"}, prometheus.DefBuckets)
-	
+
 	// Circuit breaker metrics
 	c.getOrCreateCounter("circuit_breaker_state_changes_total", "Circuit breaker state changes", []string{"name", "from", "to"})
 	c.getOrCreateGauge("circuit_breaker_state", "Current circuit breaker state", []string{"name"})
-	
+
 	// Health check metrics
 	c.getOrCreateGauge("health_check_status", "Health check status (1=healthy, 0=unhealthy)", []string{"component"})
 	c.getOrCreateHistogram("health_check_duration_seconds", "Health check duration", []string{"component"}, prometheus.DefBuckets)
@@ -97,7 +97,7 @@ func (c *PrometheusMetricsClient) RecordTimer(name string, labels map[string]str
 		histogram := c.getOrCreateHistogram(name, fmt.Sprintf("Timer for %s", name), c.getLabelNames(labels), prometheus.DefBuckets)
 		histogram.With(c.mergeLabelValues(labels)).Observe(v)
 	}))
-	
+
 	return func() {
 		timer.ObserveDuration()
 	}
@@ -132,12 +132,12 @@ func (c *PrometheusMetricsClient) RecordCacheOperation(operation string, hit boo
 	if hit {
 		result = "hit"
 	}
-	
+
 	c.IncrementCounterWithLabels("cache_operations_total", 1, map[string]string{
 		"operation": operation,
 		"result":    result,
 	})
-	
+
 	c.RecordDuration("cache_operation_duration_seconds", duration, map[string]string{
 		"operation": operation,
 	})
@@ -150,7 +150,7 @@ func (c *PrometheusMetricsClient) RecordAPIOperation(method, endpoint string, st
 		"endpoint": endpoint,
 		"status":   fmt.Sprintf("%d", statusCode),
 	}
-	
+
 	c.IncrementCounterWithLabels("api_requests_total", 1, labels)
 	c.RecordDuration("api_request_duration_seconds", duration, map[string]string{
 		"method":   method,
@@ -164,13 +164,13 @@ func (c *PrometheusMetricsClient) RecordDatabaseOperation(operation, table strin
 	if err != nil {
 		status = "error"
 	}
-	
+
 	labels := map[string]string{
 		"operation": operation,
 		"table":     table,
 		"status":    status,
 	}
-	
+
 	c.IncrementCounterWithLabels("database_operations_total", 1, labels)
 	c.RecordDuration("database_operation_duration_seconds", duration, map[string]string{
 		"operation": operation,
@@ -187,22 +187,22 @@ func (c *PrometheusMetricsClient) getOrCreateCounter(name, help string, labels [
 		return counter
 	}
 	c.mu.RUnlock()
-	
+
 	c.mu.Lock()
 	defer c.mu.Unlock()
-	
+
 	// Double-check after acquiring write lock
 	if counter, exists := c.counters[name]; exists {
 		return counter
 	}
-	
+
 	counter := promauto.NewCounterVec(prometheus.CounterOpts{
 		Namespace: c.namespace,
 		Subsystem: c.subsystem,
 		Name:      name,
 		Help:      help,
 	}, labels)
-	
+
 	c.counters[name] = counter
 	return counter
 }
@@ -214,22 +214,22 @@ func (c *PrometheusMetricsClient) getOrCreateGauge(name, help string, labels []s
 		return gauge
 	}
 	c.mu.RUnlock()
-	
+
 	c.mu.Lock()
 	defer c.mu.Unlock()
-	
+
 	// Double-check after acquiring write lock
 	if gauge, exists := c.gauges[name]; exists {
 		return gauge
 	}
-	
+
 	gauge := promauto.NewGaugeVec(prometheus.GaugeOpts{
 		Namespace: c.namespace,
 		Subsystem: c.subsystem,
 		Name:      name,
 		Help:      help,
 	}, labels)
-	
+
 	c.gauges[name] = gauge
 	return gauge
 }
@@ -241,15 +241,15 @@ func (c *PrometheusMetricsClient) getOrCreateHistogram(name, help string, labels
 		return histogram
 	}
 	c.mu.RUnlock()
-	
+
 	c.mu.Lock()
 	defer c.mu.Unlock()
-	
+
 	// Double-check after acquiring write lock
 	if histogram, exists := c.histograms[name]; exists {
 		return histogram
 	}
-	
+
 	histogram := promauto.NewHistogramVec(prometheus.HistogramOpts{
 		Namespace: c.namespace,
 		Subsystem: c.subsystem,
@@ -257,7 +257,7 @@ func (c *PrometheusMetricsClient) getOrCreateHistogram(name, help string, labels
 		Help:      help,
 		Buckets:   buckets,
 	}, labels)
-	
+
 	c.histograms[name] = histogram
 	return histogram
 }
@@ -266,7 +266,7 @@ func (c *PrometheusMetricsClient) getLabelNames(labels map[string]string) []stri
 	if labels == nil {
 		return []string{}
 	}
-	
+
 	names := make([]string, 0, len(labels))
 	for name := range labels {
 		names = append(names, name)
@@ -276,17 +276,17 @@ func (c *PrometheusMetricsClient) getLabelNames(labels map[string]string) []stri
 
 func (c *PrometheusMetricsClient) mergeLabelValues(labels map[string]string) prometheus.Labels {
 	merged := prometheus.Labels{}
-	
+
 	// Add common labels first
 	for k, v := range c.commonLabels {
 		merged[k] = v
 	}
-	
+
 	// Override with specific labels
 	for k, v := range labels {
 		merged[k] = v
 	}
-	
+
 	return merged
 }
 

@@ -18,12 +18,12 @@ import (
 func (s *Server) handleTaskCreateAutoAssign(ctx context.Context, conn *Connection, params json.RawMessage) (interface{}, error) {
 	var createParams struct {
 		Task struct {
-			ID                   string   `json:"id"`
-			Title                string   `json:"title"`
-			Description          string   `json:"description"`
-			Type                 string   `json:"type"`
-			Priority             string   `json:"priority"`
-			RequiredCapabilities []string `json:"required_capabilities"`
+			ID                   string                 `json:"id"`
+			Title                string                 `json:"title"`
+			Description          string                 `json:"description"`
+			Type                 string                 `json:"type"`
+			Priority             string                 `json:"priority"`
+			RequiredCapabilities []string               `json:"required_capabilities"`
 			Parameters           map[string]interface{} `json:"parameters"`
 		} `json:"task"`
 		AssignmentStrategy string `json:"assignment_strategy"` // capability_match, load_balance, round_robin
@@ -38,20 +38,20 @@ func (s *Server) handleTaskCreateAutoAssign(ctx context.Context, conn *Connectio
 	if s.agentRegistry != nil && len(createParams.Task.RequiredCapabilities) > 0 {
 		s.logger.Info("Looking for agents with capabilities", map[string]interface{}{
 			"required_capabilities": createParams.Task.RequiredCapabilities,
-			"tenant_id":            conn.TenantID,
-			"requesting_agent":     conn.AgentID,
+			"tenant_id":             conn.TenantID,
+			"requesting_agent":      conn.AgentID,
 		})
-		
+
 		// Use DiscoverAgents to find agents with required capabilities
 		// Don't exclude self - an agent should be able to assign tasks to itself if it has the capabilities
 		agents, err := s.agentRegistry.DiscoverAgents(
 			ctx,
 			conn.TenantID,
 			createParams.Task.RequiredCapabilities,
-			false,  // include self - agent can assign to itself if it has the capabilities
+			false, // include self - agent can assign to itself if it has the capabilities
 			conn.AgentID,
 		)
-		
+
 		s.logger.Info("DiscoverAgents result", map[string]interface{}{
 			"agent_count": len(agents),
 			"error":       err,
@@ -179,16 +179,16 @@ func (s *Server) handleTaskCreateAutoAssign(ctx context.Context, conn *Connectio
 	// Create task with idempotency key
 	idempotencyKey := fmt.Sprintf("task-create-auto-%s", task.ID.String())
 	s.logger.Info("Creating task in database", map[string]interface{}{
-		"task_id": task.ID.String(),
-		"type": task.Type,
-		"title": task.Title,
+		"task_id":     task.ID.String(),
+		"type":        task.Type,
+		"title":       task.Title,
 		"assigned_to": bestAgent,
 	})
 	err = s.taskService.Create(ctx, task, idempotencyKey)
 	if err != nil {
 		s.logger.Error("Failed to create task", map[string]interface{}{
 			"task_id": task.ID.String(),
-			"error": err.Error(),
+			"error":   err.Error(),
 		})
 		return nil, fmt.Errorf("failed to create task: %w", err)
 	}
@@ -212,7 +212,7 @@ func (s *Server) handleTaskCreateAutoAssign(ctx context.Context, conn *Connectio
 				"capabilities": createParams.Task.RequiredCapabilities,
 				"assigned_at":  time.Now().Format(time.RFC3339),
 			}
-			
+
 			// Send directly as a notification
 			msg := struct {
 				Type   int                    `json:"type"`
@@ -223,7 +223,7 @@ func (s *Server) handleTaskCreateAutoAssign(ctx context.Context, conn *Connectio
 				Method: "task.assigned",
 				Params: notification,
 			}
-			
+
 			msgBytes, _ := json.Marshal(msg)
 			c.send <- msgBytes
 			break
@@ -232,10 +232,10 @@ func (s *Server) handleTaskCreateAutoAssign(ctx context.Context, conn *Connectio
 	s.mu.RUnlock()
 
 	return map[string]interface{}{
-		"task_id":      task.ID.String(),
-		"assigned_to":  bestAgent,
-		"status":       string(models.TaskStatusAssigned),
-		"created_at":   task.CreatedAt.Format(time.RFC3339),
+		"task_id":     task.ID.String(),
+		"assigned_to": bestAgent,
+		"status":      string(models.TaskStatusAssigned),
+		"created_at":  task.CreatedAt.Format(time.RFC3339),
 	}, nil
 }
 
@@ -407,7 +407,7 @@ func (s *Server) handleTaskDelegate(ctx context.Context, conn *Connection, param
 		delegation := &models.TaskDelegation{
 			ID:             uuid.New(),
 			TaskID:         taskID,
-			TaskCreatedAt:  task.CreatedAt,  // Required for partitioned table FK
+			TaskCreatedAt:  task.CreatedAt, // Required for partitioned table FK
 			FromAgentID:    conn.AgentID,
 			ToAgentID:      delegateParams.ToAgentID,
 			Reason:         delegateParams.Reason,
@@ -769,7 +769,6 @@ func (s *Server) handleWorkflowCreateCollaborative(ctx context.Context, conn *Co
 				stepID = uuid.New().String()
 			}
 
-
 			step := models.WorkflowStep{
 				ID:          stepID,
 				Name:        stepData["name"].(string),
@@ -855,7 +854,7 @@ func (s *Server) handleWorkflowExecuteCollaborative(ctx context.Context, conn *C
 	// Add user context for authorization
 	ctx = auth.WithUserID(ctx, conn.AgentID)
 	ctx = auth.WithTenantID(ctx, conn.GetTenantUUID())
-	
+
 	var execParams struct {
 		WorkflowID string                 `json:"workflow_id"`
 		Input      map[string]interface{} `json:"input"`
@@ -912,7 +911,7 @@ func (s *Server) handleWorkflowGet(ctx context.Context, conn *Connection, params
 	// Add user context for authorization
 	ctx = auth.WithUserID(ctx, conn.AgentID)
 	ctx = auth.WithTenantID(ctx, conn.GetTenantUUID())
-	
+
 	var getParams struct {
 		WorkflowID string `json:"workflow_id"`
 	}
@@ -973,7 +972,7 @@ func (s *Server) handleWorkflowResume(ctx context.Context, conn *Connection, par
 	// Add user context for authorization
 	ctx = auth.WithUserID(ctx, conn.AgentID)
 	ctx = auth.WithTenantID(ctx, conn.GetTenantUUID())
-	
+
 	var resumeParams struct {
 		ExecutionID string                 `json:"execution_id"`
 		Input       map[string]interface{} `json:"input"`
@@ -1020,7 +1019,7 @@ func (s *Server) handleWorkflowCompleteTask(ctx context.Context, conn *Connectio
 	// Add user context for authorization
 	ctx = auth.WithUserID(ctx, conn.AgentID)
 	ctx = auth.WithTenantID(ctx, conn.GetTenantUUID())
-	
+
 	var completeParams struct {
 		ExecutionID string                 `json:"execution_id"`
 		StepID      string                 `json:"step_id"`

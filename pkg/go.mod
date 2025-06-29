@@ -1,6 +1,6 @@
 module github.com/S-Corkum/devops-mcp/pkg
 
-go 1.24.4
+go 1.24
 
 require (
 	github.com/DATA-DOG/go-sqlmock v1.5.2

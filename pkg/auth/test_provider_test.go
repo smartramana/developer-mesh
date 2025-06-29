@@ -120,7 +120,7 @@ func TestTestProviderAuthorize(t *testing.T) {
 		// Make more than burst limit requests to trigger rate limiting
 		var rateLimited bool
 		var successCount int
-		
+
 		// Make 200 requests - should trigger rate limiting after burst of 100
 		for i := 0; i < 200; i++ {
 			permission := auth.Permission{

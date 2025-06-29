@@ -76,7 +76,7 @@ func (cl *ConfigLoader) loadEnvFile(filename string) error {
 	if strings.Contains(cleanPath, "..") {
 		return fmt.Errorf("invalid file path: %s", filename)
 	}
-	
+
 	file, err := os.Open(cleanPath)
 	if err != nil {
 		return err
@@ -129,7 +129,7 @@ func (cl *ConfigLoader) loadConfigFile(filename string) error {
 	if strings.Contains(cleanPath, "..") {
 		return fmt.Errorf("invalid file path: %s", filename)
 	}
-	
+
 	data, err := os.ReadFile(cleanPath)
 	if err != nil {
 		return err

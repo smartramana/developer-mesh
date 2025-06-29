@@ -46,10 +46,10 @@ type HealthChecker struct {
 	checks  map[string]HealthCheck
 	results map[string]*Check
 	mu      sync.RWMutex
-	
+
 	metrics observability.MetricsClient
 	logger  observability.Logger
-	
+
 	// Configuration
 	checkInterval time.Duration
 	timeout       time.Duration
@@ -71,7 +71,7 @@ func NewHealthChecker(logger observability.Logger, metrics observability.Metrics
 func (h *HealthChecker) RegisterCheck(name string, check HealthCheck) {
 	h.mu.Lock()
 	defer h.mu.Unlock()
-	
+
 	h.checks[name] = check
 	h.logger.Info("Registered health check", map[string]interface{}{
 		"check": name,
@@ -86,64 +86,64 @@ func (h *HealthChecker) RunChecks(ctx context.Context) map[string]*Check {
 		checks[name] = check
 	}
 	h.mu.RUnlock()
-	
+
 	results := make(map[string]*Check)
 	var wg sync.WaitGroup
 	resultsChan := make(chan struct {
-		name string
+		name  string
 		check *Check
 	}, len(checks))
-	
+
 	for name, check := range checks {
 		wg.Add(1)
 		go func(n string, c HealthCheck) {
 			defer wg.Done()
-			
+
 			checkCtx, cancel := context.WithTimeout(ctx, h.timeout)
 			defer cancel()
-			
+
 			start := time.Now()
 			err := c.Check(checkCtx)
 			duration := time.Since(start)
-			
+
 			result := &Check{
 				Name:        n,
 				LastChecked: time.Now(),
 				Duration:    duration,
 				Metadata:    make(map[string]interface{}),
 			}
-			
+
 			if err != nil {
 				result.Status = StatusUnhealthy
 				result.Message = err.Error()
 			} else {
 				result.Status = StatusHealthy
 			}
-			
+
 			// Record metrics
 			h.recordMetrics(n, result)
-			
+
 			resultsChan <- struct {
-				name string
+				name  string
 				check *Check
 			}{name: n, check: result}
 		}(name, check)
 	}
-	
+
 	go func() {
 		wg.Wait()
 		close(resultsChan)
 	}()
-	
+
 	for r := range resultsChan {
 		results[r.name] = r.check
 	}
-	
+
 	// Update cached results
 	h.mu.Lock()
 	h.results = results
 	h.mu.Unlock()
-	
+
 	return results
 }
 
@@ -151,7 +151,7 @@ func (h *HealthChecker) RunChecks(ctx context.Context) map[string]*Check {
 func (h *HealthChecker) GetResults() map[string]*Check {
 	h.mu.RLock()
 	defer h.mu.RUnlock()
-	
+
 	results := make(map[string]*Check, len(h.results))
 	for k, v := range h.results {
 		results[k] = v
@@ -163,7 +163,7 @@ func (h *HealthChecker) GetResults() map[string]*Check {
 func (h *HealthChecker) IsHealthy() bool {
 	h.mu.RLock()
 	defer h.mu.RUnlock()
-	
+
 	for _, check := range h.results {
 		if check.Status != StatusHealthy {
 			return false
@@ -176,10 +176,10 @@ func (h *HealthChecker) IsHealthy() bool {
 func (h *HealthChecker) StartBackgroundChecks(ctx context.Context) {
 	ticker := time.NewTicker(h.checkInterval)
 	defer ticker.Stop()
-	
+
 	// Run initial check
 	h.RunChecks(ctx)
-	
+
 	for {
 		select {
 		case <-ctx.Done():
@@ -196,11 +196,11 @@ func (h *HealthChecker) recordMetrics(name string, check *Check) {
 	if check.Status == StatusHealthy {
 		statusValue = 1.0
 	}
-	
+
 	h.metrics.RecordGauge("health_check_status", statusValue, map[string]string{
 		"component": name,
 	})
-	
+
 	// Record check duration
 	h.metrics.RecordHistogram("health_check_duration_seconds", check.Duration.Seconds(), map[string]string{
 		"component": name,
@@ -230,18 +230,18 @@ func (d *DatabaseHealthCheck) Check(ctx context.Context) error {
 	if err := d.db.PingContext(ctx); err != nil {
 		return errors.Wrap(err, "database ping failed")
 	}
-	
+
 	// Check pgvector extension
 	var extensionExists bool
 	query := `SELECT EXISTS(SELECT 1 FROM pg_extension WHERE extname = 'vector')`
 	if err := d.db.QueryRowContext(ctx, query).Scan(&extensionExists); err != nil {
 		return errors.Wrap(err, "failed to check pgvector extension")
 	}
-	
+
 	if !extensionExists {
 		return errors.New("pgvector extension not installed")
 	}
-	
+
 	return nil
 }
 
@@ -268,18 +268,18 @@ func (r *RedisHealthCheck) Check(ctx context.Context) error {
 	if err := r.client.Ping(ctx).Err(); err != nil {
 		return errors.Wrap(err, "redis ping failed")
 	}
-	
+
 	// Check memory usage
 	info, err := r.client.Info(ctx, "memory").Result()
 	if err != nil {
 		return errors.Wrap(err, "failed to get redis info")
 	}
-	
+
 	// Basic check that we got some info back
 	if len(info) == 0 {
 		return errors.New("redis returned empty info")
 	}
-	
+
 	return nil
 }
 
@@ -308,11 +308,11 @@ func (s *S3HealthCheck) Check(ctx context.Context) error {
 	_, err := s.client.HeadBucket(ctx, &s3.HeadBucketInput{
 		Bucket: &s.bucket,
 	})
-	
+
 	if err != nil {
 		return errors.Wrapf(err, "failed to access S3 bucket %s", s.bucket)
 	}
-	
+
 	return nil
 }
 
@@ -339,20 +339,20 @@ func (s *SQSHealthCheck) Name() string {
 func (s *SQSHealthCheck) Check(ctx context.Context) error {
 	// Get queue attributes
 	result, err := s.client.GetQueueAttributes(ctx, &sqs.GetQueueAttributesInput{
-		QueueUrl: &s.queueURL,
+		QueueUrl:       &s.queueURL,
 		AttributeNames: []types.QueueAttributeName{types.QueueAttributeNameApproximateNumberOfMessages},
 	})
-	
+
 	if err != nil {
 		return errors.Wrapf(err, "failed to get queue attributes for %s", s.queueURL)
 	}
-	
+
 	// Check if queue depth is reasonable (warn if > 10000)
 	if msgCount, ok := result.Attributes["ApproximateNumberOfMessages"]; ok {
 		// Just log if queue depth is high, don't fail the health check
 		fmt.Printf("SQS queue depth: %s messages\n", msgCount)
 	}
-	
+
 	return nil
 }
 
@@ -381,15 +381,15 @@ func (b *BedrockHealthCheck) Check(ctx context.Context) error {
 	if b.endpoint == "" {
 		return errors.New("bedrock endpoint not configured")
 	}
-	
+
 	// TODO: Add actual Bedrock API health check when client is available
 	return nil
 }
 
 // ServiceHealthCheck checks if a dependent service is healthy
 type ServiceHealthCheck struct {
-	name        string
-	checkFunc   func(ctx context.Context) error
+	name      string
+	checkFunc func(ctx context.Context) error
 }
 
 // NewServiceHealthCheck creates a new service health check
@@ -410,22 +410,22 @@ func (s *ServiceHealthCheck) Check(ctx context.Context) error {
 
 // AggregatedHealth represents the overall health status
 type AggregatedHealth struct {
-	Status      Status             `json:"status"`
-	Message     string             `json:"message,omitempty"`
-	Checks      map[string]*Check  `json:"checks"`
-	LastChecked time.Time          `json:"last_checked"`
-	Version     string             `json:"version,omitempty"`
-	Uptime      time.Duration      `json:"uptime_seconds,omitempty"`
+	Status      Status            `json:"status"`
+	Message     string            `json:"message,omitempty"`
+	Checks      map[string]*Check `json:"checks"`
+	LastChecked time.Time         `json:"last_checked"`
+	Version     string            `json:"version,omitempty"`
+	Uptime      time.Duration     `json:"uptime_seconds,omitempty"`
 }
 
 // GetAggregatedHealth returns the aggregated health status
 func (h *HealthChecker) GetAggregatedHealth() *AggregatedHealth {
 	checks := h.GetResults()
-	
+
 	status := StatusHealthy
 	var unhealthyCount int
 	var degradedCount int
-	
+
 	for _, check := range checks {
 		switch check.Status {
 		case StatusUnhealthy:
@@ -434,7 +434,7 @@ func (h *HealthChecker) GetAggregatedHealth() *AggregatedHealth {
 			degradedCount++
 		}
 	}
-	
+
 	message := ""
 	if unhealthyCount > 0 {
 		status = StatusUnhealthy
@@ -443,7 +443,7 @@ func (h *HealthChecker) GetAggregatedHealth() *AggregatedHealth {
 		status = StatusDegraded
 		message = fmt.Sprintf("%d components degraded", degradedCount)
 	}
-	
+
 	return &AggregatedHealth{
 		Status:      status,
 		Message:     message,
