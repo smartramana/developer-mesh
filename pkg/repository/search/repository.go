@@ -369,7 +369,8 @@ func (r *SQLRepository) SearchByVector(ctx context.Context, vector []float32, op
 		// Store actual distance
 		result.Distance = 1 - result.Distance
 
-		results = append(results, &result)
+		resultCopy := result
+		results = append(results, &resultCopy)
 	}
 
 	if err = rows.Err(); err != nil {
