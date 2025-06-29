@@ -11,7 +11,7 @@ if [ ! -f "go.work" ]; then
     echo "No go.work file found, creating one..."
     go work init
     # Add all modules
-    for dir in apps/mcp-server apps/rest-api apps/worker pkg; do
+    for dir in apps/mcp-server apps/rest-api apps/worker apps/mockserver pkg; do
         if [ -f "$dir/go.mod" ]; then
             go work use "$dir"
         fi
