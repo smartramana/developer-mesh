@@ -18,9 +18,6 @@ WORKDIR /workspace
 # Copy everything - simple and reliable
 COPY . .
 
-# Set GOWORK=off to ensure we don't use workspace file in production
-ENV GOWORK=off
-
 # Change to the app directory and build
 WORKDIR /workspace/apps/mcp-server
 RUN go mod download && \
