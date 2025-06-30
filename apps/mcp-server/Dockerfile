@@ -15,6 +15,9 @@ RUN apk add --no-cache git ca-certificates tzdata
 # Set working directory
 WORKDIR /workspace
 
+# Copy go.work files first to enable workspace
+COPY go.work go.work.sum ./
+
 # Copy everything - simple and reliable
 COPY . .
 
