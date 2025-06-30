@@ -2,7 +2,7 @@ module github.com/S-Corkum/devops-mcp/apps/rest-api
 
 go 1.24
 
-replace github.com/S-Corkum/devops-mcp => ../..
+replace github.com/S-Corkum/devops-mcp/pkg => ../../pkg
 
 require (
 	github.com/gin-gonic/gin v1.9.1

@@ -2,7 +2,7 @@ module github.com/S-Corkum/devops-mcp/apps/mcp-server
 
 go 1.24
 
-replace github.com/S-Corkum/devops-mcp => ../..
+replace github.com/S-Corkum/devops-mcp/pkg => ../../pkg
 
 require (
 	github.com/coder/websocket v1.8.13
