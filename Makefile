@@ -197,7 +197,7 @@ bench: ## Run benchmarks (PACKAGE=./pkg/embedding)
 
 .PHONY: lint
 lint: ## Run linters
-	@./.github/scripts/lint-simple.sh
+	@./.github/scripts/lint.sh
 
 .PHONY: fmt
 fmt: ## Format code
