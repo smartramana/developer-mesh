@@ -15,23 +15,14 @@ RUN apk add --no-cache git ca-certificates tzdata
 # Set working directory
 WORKDIR /workspace
 
-# Copy go.work files first to enable workspace
-COPY go.work go.work.sum ./
-
-# Copy everything - simple and reliable
+# Copy everything
 COPY . .
 
-# Build from workspace root (required for Go workspaces)
-# Set GOWORK explicitly to the workspace file
-ENV GOWORK=/workspace/go.work
-
-# Download all dependencies first
-RUN go mod download -x
-
-# Build the binary
-RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build \
+# Build the binary (Go will auto-detect workspace mode)
+RUN cd apps/rest-api && \
+    CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build \
     -ldflags="-w -s -X main.Version=${VERSION} -X main.GitCommit=${COMMIT_SHA} -X main.BuildDate=${BUILD_DATE}" \
-    -o /tmp/rest-api ./apps/rest-api/cmd/api
+    -o /tmp/rest-api ./cmd/api
 
 # Final stage
 FROM gcr.io/distroless/static:nonroot
@@ -42,9 +33,6 @@ COPY --from=builder /tmp/rest-api /app/rest-api
 # Copy configuration files
 COPY --chown=nonroot:nonroot apps/rest-api/configs /app/configs
 
-# Copy migrations if needed
-COPY --chown=nonroot:nonroot apps/rest-api/migrations/sql /app/migrations
-
 # Set working directory
 WORKDIR /app
 
@@ -52,14 +40,14 @@ WORKDIR /app
 USER nonroot
 
 # Expose port
-EXPOSE 8080
+EXPOSE 8081
 
 # Health check
 HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
     CMD ["/app/rest-api", "-health-check"]
 
 # Minimal environment variables
-ENV PORT=8080 \
+ENV PORT=8081 \
     GIN_MODE=release
 
 # Metadata labels

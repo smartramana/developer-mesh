@@ -15,23 +15,14 @@ RUN apk add --no-cache git ca-certificates tzdata
 # Set working directory
 WORKDIR /workspace
 
-# Copy go.work files first to enable workspace
-COPY go.work go.work.sum ./
-
-# Copy everything - simple and reliable
+# Copy everything
 COPY . .
 
-# Build from workspace root (required for Go workspaces)
-# Set GOWORK explicitly to the workspace file
-ENV GOWORK=/workspace/go.work
-
-# Download all dependencies first
-RUN go mod download -x
-
-# Build the binary
-RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build \
+# Build the binary (Go will auto-detect workspace mode)
+RUN cd apps/mcp-server && \
+    CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build \
     -ldflags="-w -s -X main.Version=${VERSION} -X main.GitCommit=${COMMIT_SHA} -X main.BuildDate=${BUILD_DATE}" \
-    -o /tmp/mcp-server ./apps/mcp-server/cmd/server
+    -o /tmp/mcp-server ./cmd/server
 
 # Final stage
 FROM gcr.io/distroless/static:nonroot
