@@ -21,12 +21,12 @@ COPY go.work go.work.sum ./
 # Copy everything - simple and reliable
 COPY . .
 
-# Change to the app directory and build
-WORKDIR /workspace/apps/worker
-RUN go mod download && \
+# Build from workspace root (required for Go workspaces)
+RUN cd apps/worker && go mod download && \
+    cd /workspace && \
     CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build \
     -ldflags="-w -s -X main.Version=${VERSION} -X main.GitCommit=${COMMIT_SHA} -X main.BuildDate=${BUILD_DATE}" \
-    -o /tmp/worker ./cmd/worker
+    -o /tmp/worker ./apps/worker/cmd/worker
 
 # Final stage
 FROM gcr.io/distroless/static:nonroot

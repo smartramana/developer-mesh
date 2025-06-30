@@ -21,12 +21,12 @@ COPY go.work go.work.sum ./
 # Copy everything - simple and reliable
 COPY . .
 
-# Change to the app directory and build
-WORKDIR /workspace/apps/rest-api
-RUN go mod download && \
+# Build from workspace root (required for Go workspaces)
+RUN cd apps/rest-api && go mod download && \
+    cd /workspace && \
     CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build \
     -ldflags="-w -s -X main.Version=${VERSION} -X main.GitCommit=${COMMIT_SHA} -X main.BuildDate=${BUILD_DATE}" \
-    -o /tmp/rest-api ./cmd/api
+    -o /tmp/rest-api ./apps/rest-api/cmd/api
 
 # Final stage
 FROM gcr.io/distroless/static:nonroot
