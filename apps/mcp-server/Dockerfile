@@ -22,6 +22,9 @@ COPY go.work go.work.sum ./
 COPY . .
 
 # Build from workspace root (required for Go workspaces)
+# Set GOWORK explicitly to the workspace file
+ENV GOWORK=/workspace/go.work
+
 # Download all dependencies first
 RUN go mod download -x
 
