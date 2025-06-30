@@ -22,11 +22,11 @@ COPY go.work go.work.sum ./
 COPY . .
 
 # Build from workspace root (required for Go workspaces)
-ENV GOWORK=auto
-RUN go work sync && \
-    cd apps/mcp-server && go mod download && \
-    cd /workspace && \
-    CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build \
+# Download all dependencies first
+RUN go mod download -x
+
+# Build the binary
+RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build \
     -ldflags="-w -s -X main.Version=${VERSION} -X main.GitCommit=${COMMIT_SHA} -X main.BuildDate=${BUILD_DATE}" \
     -o /tmp/mcp-server ./apps/mcp-server/cmd/server
 
