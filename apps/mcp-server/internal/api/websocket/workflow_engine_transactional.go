@@ -32,8 +32,8 @@ func NewTransactionalWorkflowEngine(
 ) *TransactionalWorkflowEngine {
 	return &TransactionalWorkflowEngine{
 		WorkflowEngine:  baseEngine,
-		uow:            uow,
-		txManager:      txManager,
+		uow:             uow,
+		txManager:       txManager,
 		compensationMgr: compensationMgr,
 	}
 }
@@ -74,7 +74,7 @@ func (we *TransactionalWorkflowEngine) ExecuteWorkflow(ctx context.Context, work
 		} else {
 			// Create idempotency key based on workflow and input
 			idempotencyKey := fmt.Sprintf("ws_%s_%d", workflowID, time.Now().Unix())
-			
+
 			// Execute through service for proper transaction handling
 			serviceExecution, err := we.workflowService.ExecuteWorkflow(ctx, workflowUUID, input, idempotencyKey)
 			if err != nil {
@@ -381,9 +381,9 @@ func (we *TransactionalWorkflowEngine) executeConditionalStep(ctx context.Contex
 	}
 
 	return map[string]interface{}{
-		"status":         "completed",
-		"condition_met":  conditionMet,
-		"action_taken":   conditionMet,
+		"status":        "completed",
+		"condition_met": conditionMet,
+		"action_taken":  conditionMet,
 	}, nil
 }
 

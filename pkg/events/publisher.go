@@ -8,10 +8,10 @@ import (
 type Publisher interface {
 	// Publish publishes an event
 	Publish(ctx context.Context, event interface{}) error
-	
+
 	// PublishBatch publishes multiple events
 	PublishBatch(ctx context.Context, events []interface{}) error
-	
+
 	// Close closes the publisher
 	Close() error
 }

@@ -18,9 +18,9 @@ import (
 // TransactionalWorkflowService extends the workflow service with proper transaction management
 type TransactionalWorkflowService struct {
 	*workflowService
-	uow               database.UnitOfWork
-	txManager         repository.TransactionManager
-	compensationMgr   repository.CompensationManager
+	uow             database.UnitOfWork
+	txManager       repository.TransactionManager
+	compensationMgr repository.CompensationManager
 }
 
 // NewTransactionalWorkflowService creates a workflow service with transaction support
@@ -31,10 +31,10 @@ func NewTransactionalWorkflowService(
 	compensationMgr repository.CompensationManager,
 ) WorkflowService {
 	return &TransactionalWorkflowService{
-		workflowService:   baseService,
-		uow:              uow,
-		txManager:        txManager,
-		compensationMgr:  compensationMgr,
+		workflowService: baseService,
+		uow:             uow,
+		txManager:       txManager,
+		compensationMgr: compensationMgr,
 	}
 }
 
@@ -57,7 +57,7 @@ func (s *TransactionalWorkflowService) ExecuteWorkflow(ctx context.Context, work
 	}
 
 	var execution *models.WorkflowExecution
-	
+
 	// Execute within transaction with proper isolation
 	err := s.txManager.WithTransactionOptions(ctx, &sql.TxOptions{
 		Isolation: sql.LevelReadCommitted,
@@ -164,7 +164,7 @@ func (s *TransactionalWorkflowService) ExecuteWorkflowStep(ctx context.Context, 
 	// Get or create transaction
 	var tx database.Transaction
 	existingTx, hasTx := s.txManager.GetCurrentTransaction(ctx)
-	
+
 	if hasTx {
 		tx = existingTx
 	} else {
@@ -283,7 +283,7 @@ func (s *TransactionalWorkflowService) executeStepInTransaction(ctx context.Cont
 func (s *TransactionalWorkflowService) executeWorkflowAsync(ctx context.Context, execution *models.WorkflowExecution) {
 	// Create compensation list for rollback
 	compensations := make([]string, 0)
-	
+
 	// Execute workflow with compensation support
 	err := s.compensationMgr.ExecuteWithCompensation(ctx, func(ctx context.Context) error {
 		// Get workflow
@@ -335,10 +335,10 @@ func (s *TransactionalWorkflowService) executeWorkflowAsync(ctx context.Context,
 			_ = s.notifier.NotifyWorkflowFailed(context.Background(), execution.WorkflowID, fmt.Sprintf("Execution failed: %v", err))
 		} else {
 			_ = s.notifier.NotifyWorkflowCompleted(context.Background(), map[string]interface{}{
-				"workflow_id":   execution.WorkflowID,
-				"execution_id":  execution.ID,
-				"status":        execution.Status,
-				"completed_at":  execution.CompletedAt,
+				"workflow_id":  execution.WorkflowID,
+				"execution_id": execution.ID,
+				"status":       execution.Status,
+				"completed_at": execution.CompletedAt,
 			})
 		}
 	}

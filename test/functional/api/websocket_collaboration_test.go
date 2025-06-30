@@ -150,19 +150,19 @@ func TestWebSocketTaskDelegation(t *testing.T) {
 	msg, err := agent1.ReadMessage(ctx)
 	require.NoError(t, err)
 	t.Logf("Received message: type=%d, method=%s, error=%v, result=%+v", msg.Type, msg.Method, msg.Error, msg.Result)
-	
+
 	// Skip notifications and wait for the actual response
 	for msg.Type == MessageTypeNotification {
 		t.Logf("Skipping notification: %s", msg.Method)
 		msg, err = agent1.ReadMessage(ctx)
 		require.NoError(t, err)
 	}
-	
+
 	assert.Equal(t, MessageTypeResponse, msg.Type)
 	if msg.Error != nil {
 		t.Fatalf("Task creation failed: %v", msg.Error)
 	}
-	
+
 	// Extract the actual task ID from the response
 	var taskID string
 	var assignedTo string
@@ -579,7 +579,7 @@ func TestWebSocketWorkspaceCollaboration(t *testing.T) {
 // Test conflict resolution with vector clocks
 func TestWebSocketConflictResolution(t *testing.T) {
 	t.Skip("Skipping test - state management methods (state.create, state.subscribe, state.increment) not yet implemented")
-	
+
 	if testing.Short() {
 		t.Skip("Skipping functional test in short mode")
 	}
@@ -776,7 +776,7 @@ func TestWebSocketCapabilityMatching(t *testing.T) {
 	// Create and auto-assign tasks
 	for _, task := range tasks {
 		t.Logf("Creating task %s with capabilities %v", task.title, task.capabilities)
-		
+
 		createMsg := WebSocketMessage{
 			Type:   MessageTypeRequest,
 			ID:     uuid.New().String(),
@@ -793,37 +793,37 @@ func TestWebSocketCapabilityMatching(t *testing.T) {
 
 		err := agents[0].SendMessage(createMsg)
 		require.NoError(t, err)
-		
+
 		// Read messages until we get the response (not a notification)
 		ctx := context.Background()
 		var resp *WebSocketMessage
 		for {
 			msg, err := agents[0].ReadMessage(ctx)
 			require.NoError(t, err)
-			
+
 			// Debug: Log all messages
-			t.Logf("Message received: type=%d, id=%s, method=%s, result=%+v, error=%+v", 
+			t.Logf("Message received: type=%d, id=%s, method=%s, result=%+v, error=%+v",
 				msg.Type, msg.ID, msg.Method, msg.Result, msg.Error)
-			
+
 			// Skip notifications, we want the response
 			if msg.Type == MessageTypeResponse {
 				resp = msg
 				break
 			}
 		}
-		
+
 		require.Nil(t, resp.Error, "Task creation failed: %v", resp.Error)
-		
+
 		// Check the response for assignment information
 		result, ok := resp.Result.(map[string]interface{})
 		require.True(t, ok, "Response result should be a map, got %T", resp.Result)
-		
+
 		assignedTo, ok := result["assigned_to"].(string)
 		require.True(t, ok, "Response should include assigned_to field")
-		
+
 		t.Logf("Task %s assigned to %s", task.title, assignedTo)
 		assert.Equal(t, task.expectedAgent, assignedTo, "Task %s assigned to wrong agent", task.title)
-		
+
 		// Also verify the task was created with correct ID
 		taskID, ok := result["task_id"].(string)
 		require.True(t, ok, "Response should include task_id")
@@ -1038,7 +1038,7 @@ func establishWebSocketConnection(t *testing.T, wsURL, apiKey, agentID string, c
 			"capabilities": capabilities,
 		},
 	}
-	
+
 	t.Logf("Sending init message for agent %s with capabilities %v", agentID, capabilities)
 
 	if err := wsjson.Write(ctx, conn, initMsg); err != nil {

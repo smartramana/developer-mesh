@@ -3,8 +3,8 @@ package api
 import (
 	"time"
 
-	"mcp-server/internal/api/websocket"
-	"mcp-server/internal/config"
+	"github.com/S-Corkum/devops-mcp/apps/mcp-server/internal/api/websocket"
+	"github.com/S-Corkum/devops-mcp/apps/mcp-server/internal/config"
 )
 
 // Config holds configuration for the API server

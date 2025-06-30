@@ -7,7 +7,7 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"mcp-server/internal/core"
+	"github.com/S-Corkum/devops-mcp/apps/mcp-server/internal/core"
 
 	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/assert"

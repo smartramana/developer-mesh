@@ -16,22 +16,22 @@ import (
 // Constants for agent types and statuses that align with the database model
 const (
 	// Agent types
-	AgentTypeStandard = "standard"
+	AgentTypeStandard    = "standard"
 	AgentTypeSpecialized = "specialized"
-	
+
 	// Agent statuses - these map to the database model expectations
 	AgentStatusAvailable = "available" // Agent is online and ready for tasks
-	AgentStatusBusy = "busy"           // Agent is working on tasks
-	AgentStatusOffline = "offline"     // Agent is not connected
+	AgentStatusBusy      = "busy"      // Agent is working on tasks
+	AgentStatusOffline   = "offline"   // Agent is not connected
 )
 
 // DBAgentRegistry is a database-backed implementation of agent registry
 type DBAgentRegistry struct {
-	repo        agentRepo.Repository
-	cache       cache.Cache
-	logger      observability.Logger
-	metrics     observability.MetricsClient
-	
+	repo    agentRepo.Repository
+	cache   cache.Cache
+	logger  observability.Logger
+	metrics observability.MetricsClient
+
 	// In-memory cache for real-time operations
 	onlineAgents sync.Map // connection ID -> agent ID for fast lookup
 }

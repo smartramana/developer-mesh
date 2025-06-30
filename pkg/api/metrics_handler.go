@@ -8,7 +8,7 @@ import (
 // SetupMetricsHandler sets up the Prometheus metrics handler
 func SetupMetricsHandler() gin.HandlerFunc {
 	h := promhttp.Handler()
-	
+
 	return func(c *gin.Context) {
 		h.ServeHTTP(c.Writer, c.Request)
 	}

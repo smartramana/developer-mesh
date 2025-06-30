@@ -7,11 +7,11 @@ import (
 	"reflect"
 	"time"
 
-	"mcp-server/internal/api/events"
-	"mcp-server/internal/api/proxies"
-	"mcp-server/internal/api/tools"
-	"mcp-server/internal/api/websocket"
-	"mcp-server/internal/core"
+	"github.com/S-Corkum/devops-mcp/apps/mcp-server/internal/api/events"
+	"github.com/S-Corkum/devops-mcp/apps/mcp-server/internal/api/proxies"
+	"github.com/S-Corkum/devops-mcp/apps/mcp-server/internal/api/tools"
+	"github.com/S-Corkum/devops-mcp/apps/mcp-server/internal/api/websocket"
+	"github.com/S-Corkum/devops-mcp/apps/mcp-server/internal/core"
 
 	"github.com/S-Corkum/devops-mcp/pkg/auth"
 	"github.com/S-Corkum/devops-mcp/pkg/cache"
@@ -332,7 +332,7 @@ func (s *Server) setupRoutes() {
 		c.JSON(http.StatusOK, gin.H{"status": "MCP REST API is running"})
 	})
 	s.router.GET("/health", s.healthHandler)
-	
+
 	// Metrics endpoint - public (no authentication required)
 	s.router.GET("/metrics", s.metricsHandler)
 
@@ -656,11 +656,11 @@ func (s *Server) SetMultiAgentServices(
 		// They should be passed through InjectServices instead
 		s.wsServer.SetServices(taskService, workflowService, workspaceService, documentService, conflictService, nil, nil)
 		s.logger.Info("Multi-agent services set on WebSocket server", map[string]interface{}{
-			"taskService_nil": taskService == nil,
-			"workflowService_nil": workflowService == nil,
+			"taskService_nil":      taskService == nil,
+			"workflowService_nil":  workflowService == nil,
 			"workspaceService_nil": workspaceService == nil,
-			"documentService_nil": documentService == nil,
-			"conflictService_nil": conflictService == nil,
+			"documentService_nil":  documentService == nil,
+			"conflictService_nil":  conflictService == nil,
 		})
 	} else {
 		s.logger.Warn("WebSocket server is nil, cannot set services", nil)

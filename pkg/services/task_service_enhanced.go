@@ -37,16 +37,16 @@ func NewTaskStateMachine() *TaskStateMachine {
 				models.TaskStatusInProgress,
 				models.TaskStatusAccepted,
 				models.TaskStatusRejected,
-				models.TaskStatusPending,     // Unassign
+				models.TaskStatusPending, // Unassign
 				models.TaskStatusCancelled,
 			},
 			models.TaskStatusAccepted: {
 				models.TaskStatusInProgress,
-				models.TaskStatusAssigned,    // Re-assign
+				models.TaskStatusAssigned, // Re-assign
 				models.TaskStatusCancelled,
 			},
 			models.TaskStatusRejected: {
-				models.TaskStatusAssigned,    // Re-assign
+				models.TaskStatusAssigned, // Re-assign
 				models.TaskStatusCancelled,
 			},
 			models.TaskStatusInProgress: {
@@ -58,14 +58,14 @@ func NewTaskStateMachine() *TaskStateMachine {
 				// Terminal state - no transitions
 			},
 			models.TaskStatusFailed: {
-				models.TaskStatusPending,     // Retry
+				models.TaskStatusPending, // Retry
 				models.TaskStatusCancelled,
 			},
 			models.TaskStatusCancelled: {
 				// Terminal state - no transitions
 			},
 			models.TaskStatusTimeout: {
-				models.TaskStatusPending,     // Retry
+				models.TaskStatusPending, // Retry
 				models.TaskStatusFailed,
 				models.TaskStatusCancelled,
 			},
@@ -79,7 +79,7 @@ func (sm *TaskStateMachine) CanTransition(from, to models.TaskStatus) bool {
 	if !exists {
 		return false
 	}
-	
+
 	for _, valid := range validTransitions {
 		if valid == to {
 			return true
@@ -91,14 +91,14 @@ func (sm *TaskStateMachine) CanTransition(from, to models.TaskStatus) bool {
 // EnhancedTaskService implements TaskService with production features
 type EnhancedTaskService struct {
 	*taskService // Embed base service
-	
+
 	// Additional dependencies
-	txManager       repository.TransactionManager
-	uow             database.UnitOfWork
-	eventPublisher  events.Publisher
-	stateMachine    *TaskStateMachine
-	circuitBreaker  *gobreaker.CircuitBreaker
-	
+	txManager      repository.TransactionManager
+	uow            database.UnitOfWork
+	eventPublisher events.Publisher
+	stateMachine   *TaskStateMachine
+	circuitBreaker *gobreaker.CircuitBreaker
+
 	// Caches
 	idempotencyCache cache.Cache
 	delegationCache  cache.Cache
@@ -129,7 +129,7 @@ func NewEnhancedTaskService(
 			})
 		},
 	}
-	
+
 	return &EnhancedTaskService{
 		taskService:      baseService,
 		txManager:        txManager,
@@ -146,13 +146,13 @@ func NewEnhancedTaskService(
 func (s *EnhancedTaskService) Create(ctx context.Context, task *models.Task, idempotencyKey string) error {
 	ctx, span := s.config.Tracer(ctx, "EnhancedTaskService.Create")
 	defer span.End()
-	
+
 	// Record metrics
 	startTime := time.Now()
 	defer func() {
 		s.config.Metrics.RecordHistogram("task_create_duration", time.Since(startTime).Seconds(), nil)
 	}()
-	
+
 	// Check idempotency if key provided
 	if idempotencyKey != "" {
 		existingID, err := s.checkIdempotency(ctx, idempotencyKey, "create", task)
@@ -162,7 +162,7 @@ func (s *EnhancedTaskService) Create(ctx context.Context, task *models.Task, ide
 			return nil
 		}
 	}
-	
+
 	// Execute with circuit breaker
 	_, err := s.circuitBreaker.Execute(func() (interface{}, error) {
 		return nil, s.txManager.WithTransaction(ctx, func(ctx context.Context, tx database.Transaction) error {
@@ -170,39 +170,39 @@ func (s *EnhancedTaskService) Create(ctx context.Context, task *models.Task, ide
 			if err := s.validateTask(task); err != nil {
 				return errors.Wrap(err, "task validation failed")
 			}
-			
+
 			// Set initial status
 			if task.Status == "" {
 				task.Status = models.TaskStatusPending
 			}
-			
+
 			// Generate ID if not set
 			if task.ID == uuid.Nil {
 				task.ID = uuid.New()
 			}
-			
+
 			// Set timestamps
 			now := time.Now()
 			task.CreatedAt = now
 			task.UpdatedAt = now
-			
+
 			// Create task in database
 			if err := s.createTaskInTx(ctx, tx, task); err != nil {
 				return errors.Wrap(err, "failed to create task")
 			}
-			
+
 			// Record state transition
 			if err := s.recordStateTransition(ctx, tx, task.ID, "", task.Status, auth.GetAgentID(ctx), "Task created"); err != nil {
 				return errors.Wrap(err, "failed to record state transition")
 			}
-			
+
 			// Store idempotency key
 			if idempotencyKey != "" {
 				if err := s.storeIdempotencyKey(ctx, tx, idempotencyKey, "create", task); err != nil {
 					return errors.Wrap(err, "failed to store idempotency key")
 				}
 			}
-			
+
 			// Publish event
 			event := &events.TaskCreatedEvent{
 				BaseEvent: events.BaseEvent{
@@ -212,13 +212,13 @@ func (s *EnhancedTaskService) Create(ctx context.Context, task *models.Task, ide
 					TenantID:  task.TenantID.String(),
 					AgentID:   auth.GetAgentID(ctx),
 				},
-				TaskID:      task.ID.String(),
-				TaskType:    task.Type,
-				Title:       task.Title,
-				Priority:    string(task.Priority),
-				AssignedTo:  task.AssignedTo,
+				TaskID:     task.ID.String(),
+				TaskType:   task.Type,
+				Title:      task.Title,
+				Priority:   string(task.Priority),
+				AssignedTo: task.AssignedTo,
 			}
-			
+
 			if err := s.eventPublisher.Publish(ctx, event); err != nil {
 				s.config.Logger.Error("Failed to publish task created event", map[string]interface{}{
 					"error":   err.Error(),
@@ -226,19 +226,19 @@ func (s *EnhancedTaskService) Create(ctx context.Context, task *models.Task, ide
 				})
 				// Don't fail the operation for event publishing errors
 			}
-			
+
 			return nil
 		})
 	})
-	
+
 	if err != nil {
 		return err
 	}
-	
+
 	// Update metrics
 	s.config.Metrics.IncrementCounter("tasks_created", 1)
 	s.config.Metrics.IncrementCounter("task_status_"+string(task.Status), 1)
-	
+
 	return nil
 }
 
@@ -246,34 +246,34 @@ func (s *EnhancedTaskService) Create(ctx context.Context, task *models.Task, ide
 func (s *EnhancedTaskService) UpdateStatus(ctx context.Context, taskID uuid.UUID, newStatus models.TaskStatus, reason string) error {
 	ctx, span := s.config.Tracer(ctx, "EnhancedTaskService.UpdateStatus")
 	defer span.End()
-	
+
 	return s.txManager.WithTransaction(ctx, func(ctx context.Context, tx database.Transaction) error {
 		// Get current task
 		task, err := s.getTaskInTx(ctx, tx, taskID)
 		if err != nil {
 			return errors.Wrap(err, "failed to get task")
 		}
-		
+
 		// Validate state transition
 		if !s.stateMachine.CanTransition(task.Status, newStatus) {
 			return errors.Errorf("invalid state transition from %s to %s", task.Status, newStatus)
 		}
-		
+
 		// Update status
 		oldStatus := task.Status
 		task.Status = newStatus
 		task.UpdatedAt = time.Now()
-		
+
 		// Update task
 		if err := s.updateTaskInTx(ctx, tx, task); err != nil {
 			return errors.Wrap(err, "failed to update task")
 		}
-		
+
 		// Record state transition
 		if err := s.recordStateTransition(ctx, tx, taskID, oldStatus, newStatus, auth.GetAgentID(ctx), reason); err != nil {
 			return errors.Wrap(err, "failed to record state transition")
 		}
-		
+
 		// Publish event
 		event := &events.TaskStatusChangedEvent{
 			BaseEvent: events.BaseEvent{
@@ -283,25 +283,25 @@ func (s *EnhancedTaskService) UpdateStatus(ctx context.Context, taskID uuid.UUID
 				TenantID:  task.TenantID.String(),
 				AgentID:   auth.GetAgentID(ctx),
 			},
-			TaskID:      taskID.String(),
-			OldStatus:   string(oldStatus),
-			NewStatus:   string(newStatus),
-			Reason:      reason,
+			TaskID:    taskID.String(),
+			OldStatus: string(oldStatus),
+			NewStatus: string(newStatus),
+			Reason:    reason,
 		}
-		
+
 		if err := s.eventPublisher.Publish(ctx, event); err != nil {
 			s.config.Logger.Error("Failed to publish task status changed event", map[string]interface{}{
 				"error":   err.Error(),
 				"task_id": taskID,
 			})
 		}
-		
+
 		// Update metrics
 		s.config.Metrics.IncrementCounter("task_state_transitions", 1)
 		// Update counters instead of gauges
 		s.config.Metrics.IncrementCounter("task_status_transitions_from_"+string(oldStatus), 1)
 		s.config.Metrics.IncrementCounter("task_status_transitions_to_"+string(newStatus), 1)
-		
+
 		return nil
 	})
 }
@@ -310,19 +310,19 @@ func (s *EnhancedTaskService) UpdateStatus(ctx context.Context, taskID uuid.UUID
 func (s *EnhancedTaskService) DelegateTask(ctx context.Context, delegation *models.TaskDelegation) error {
 	ctx, span := s.config.Tracer(ctx, "EnhancedTaskService.DelegateTask")
 	defer span.End()
-	
+
 	taskID := delegation.TaskID
 	fromAgentID := delegation.FromAgentID
 	toAgentID := delegation.ToAgentID
 	reason := delegation.Reason
-	
+
 	return s.txManager.WithTransaction(ctx, func(ctx context.Context, tx database.Transaction) error {
 		// Get task
 		task, err := s.getTaskInTx(ctx, tx, taskID)
 		if err != nil {
 			return errors.Wrap(err, "failed to get task")
 		}
-		
+
 		// Check delegation limit from history
 		delegationCount, err := s.getDelegationCount(ctx, tx, taskID)
 		if err != nil {
@@ -331,32 +331,32 @@ func (s *EnhancedTaskService) DelegateTask(ctx context.Context, delegation *mode
 		if delegationCount >= 5 { // Default max delegations
 			return errors.New("task has reached maximum delegation limit")
 		}
-		
+
 		// Validate state transition - delegated tasks should be assigned
 		if !s.stateMachine.CanTransition(task.Status, models.TaskStatusAssigned) {
 			return errors.Errorf("cannot delegate task in status %s", task.Status)
 		}
-		
+
 		// Create delegation history record
 		if err := s.recordDelegation(ctx, tx, delegation.ID, taskID, fromAgentID, toAgentID, string(delegation.DelegationType), reason); err != nil {
 			return errors.Wrap(err, "failed to record delegation")
 		}
-		
+
 		// Update task
 		oldStatus := task.Status
 		task.Status = models.TaskStatusAssigned // Use assigned status for delegated tasks
 		task.AssignedTo = &toAgentID
 		task.UpdatedAt = time.Now()
-		
+
 		if err := s.updateTaskInTx(ctx, tx, task); err != nil {
 			return errors.Wrap(err, "failed to update task")
 		}
-		
+
 		// Record state transition
 		if err := s.recordStateTransition(ctx, tx, taskID, oldStatus, models.TaskStatusAssigned, fromAgentID, fmt.Sprintf("Delegated to %s: %s", toAgentID, reason)); err != nil {
 			return errors.Wrap(err, "failed to record state transition")
 		}
-		
+
 		// Publish event
 		event := &events.TaskDelegatedEvent{
 			BaseEvent: events.BaseEvent{
@@ -372,23 +372,23 @@ func (s *EnhancedTaskService) DelegateTask(ctx context.Context, delegation *mode
 			DelegationID: delegation.ID.String(),
 			Reason:       reason,
 		}
-		
+
 		if err := s.eventPublisher.Publish(ctx, event); err != nil {
 			s.config.Logger.Error("Failed to publish task delegated event", map[string]interface{}{
 				"error":   err.Error(),
 				"task_id": taskID,
 			})
 		}
-		
+
 		// Update metrics
 		s.config.Metrics.IncrementCounter("tasks_delegated", 1)
 		s.config.Metrics.RecordHistogram("task_delegation_count", float64(delegationCount+1), nil)
-		
+
 		// Notify the assigned agent
 		if s.notifier != nil {
 			_ = s.notifier.NotifyTaskAssigned(ctx, toAgentID, task)
 		}
-		
+
 		return nil
 	})
 }
@@ -397,42 +397,42 @@ func (s *EnhancedTaskService) DelegateTask(ctx context.Context, delegation *mode
 func (s *EnhancedTaskService) AcceptTask(ctx context.Context, taskID uuid.UUID, agentID string) error {
 	ctx, span := s.config.Tracer(ctx, "EnhancedTaskService.AcceptTask")
 	defer span.End()
-	
+
 	return s.txManager.WithTransaction(ctx, func(ctx context.Context, tx database.Transaction) error {
 		// Get task
 		task, err := s.getTaskInTx(ctx, tx, taskID)
 		if err != nil {
 			return errors.Wrap(err, "failed to get task")
 		}
-		
+
 		// Validate task is delegated to this agent
 		if task.AssignedTo == nil || *task.AssignedTo != agentID {
 			return errors.New("task is not delegated to this agent")
 		}
-		
+
 		// Validate status
 		if task.Status != models.TaskStatusAssigned {
 			return errors.Errorf("cannot accept task in status %s", task.Status)
 		}
-		
+
 		// Update delegation history
 		if err := s.acceptDelegation(ctx, tx, taskID, agentID); err != nil {
 			return errors.Wrap(err, "failed to update delegation history")
 		}
-		
+
 		// Update task status
 		task.Status = models.TaskStatusAccepted
 		task.UpdatedAt = time.Now()
-		
+
 		if err := s.updateTaskInTx(ctx, tx, task); err != nil {
 			return errors.Wrap(err, "failed to update task")
 		}
-		
+
 		// Record state transition
 		if err := s.recordStateTransition(ctx, tx, taskID, models.TaskStatusAssigned, models.TaskStatusAccepted, agentID, "Task accepted"); err != nil {
 			return errors.Wrap(err, "failed to record state transition")
 		}
-		
+
 		// Publish event
 		event := &events.TaskAcceptedEvent{
 			BaseEvent: events.BaseEvent{
@@ -442,20 +442,20 @@ func (s *EnhancedTaskService) AcceptTask(ctx context.Context, taskID uuid.UUID, 
 				TenantID:  task.TenantID.String(),
 				AgentID:   agentID,
 			},
-			TaskID:   taskID.String(),
-			AgentID:  agentID,
+			TaskID:  taskID.String(),
+			AgentID: agentID,
 		}
-		
+
 		if err := s.eventPublisher.Publish(ctx, event); err != nil {
 			s.config.Logger.Error("Failed to publish task accepted event", map[string]interface{}{
 				"error":   err.Error(),
 				"task_id": taskID,
 			})
 		}
-		
+
 		// Update metrics
 		s.config.Metrics.IncrementCounter("tasks_accepted", 1)
-		
+
 		return nil
 	})
 }
@@ -464,45 +464,45 @@ func (s *EnhancedTaskService) AcceptTask(ctx context.Context, taskID uuid.UUID, 
 func (s *EnhancedTaskService) CompleteTask(ctx context.Context, taskID uuid.UUID, agentID string, result interface{}) error {
 	ctx, span := s.config.Tracer(ctx, "EnhancedTaskService.CompleteTask")
 	defer span.End()
-	
+
 	return s.txManager.WithTransaction(ctx, func(ctx context.Context, tx database.Transaction) error {
 		// Get task
 		task, err := s.getTaskInTx(ctx, tx, taskID)
 		if err != nil {
 			return errors.Wrap(err, "failed to get task")
 		}
-		
+
 		// Validate agent
 		if task.AssignedTo == nil || *task.AssignedTo != agentID {
 			return errors.New("task is not assigned to this agent")
 		}
-		
+
 		// Validate state transition
 		if !s.stateMachine.CanTransition(task.Status, models.TaskStatusCompleted) {
 			return errors.Errorf("cannot complete task in status %s", task.Status)
 		}
-		
+
 		// Store result
 		if result != nil {
 			task.Result = models.JSONMap{"data": result}
 		}
-		
+
 		// Update task
 		oldStatus := task.Status
 		task.Status = models.TaskStatusCompleted
 		now := time.Now()
 		task.CompletedAt = &now
 		task.UpdatedAt = now
-		
+
 		if err := s.updateTaskInTx(ctx, tx, task); err != nil {
 			return errors.Wrap(err, "failed to update task")
 		}
-		
+
 		// Record state transition
 		if err := s.recordStateTransition(ctx, tx, taskID, oldStatus, models.TaskStatusCompleted, agentID, "Task completed"); err != nil {
 			return errors.Wrap(err, "failed to record state transition")
 		}
-		
+
 		// Publish event
 		event := &events.TaskCompletedEvent{
 			BaseEvent: events.BaseEvent{
@@ -517,14 +517,14 @@ func (s *EnhancedTaskService) CompleteTask(ctx context.Context, taskID uuid.UUID
 			Result:      result,
 			CompletedAt: now,
 		}
-		
+
 		if err := s.eventPublisher.Publish(ctx, event); err != nil {
 			s.config.Logger.Error("Failed to publish task completed event", map[string]interface{}{
 				"error":   err.Error(),
 				"task_id": taskID,
 			})
 		}
-		
+
 		// Update metrics
 		s.config.Metrics.IncrementCounter("tasks_completed", 1)
 		if task.StartedAt != nil {
@@ -534,12 +534,12 @@ func (s *EnhancedTaskService) CompleteTask(ctx context.Context, taskID uuid.UUID
 				"priority":  string(task.Priority),
 			})
 		}
-		
+
 		// Notify completion
 		if s.notifier != nil {
 			_ = s.notifier.NotifyTaskCompleted(ctx, agentID, task)
 		}
-		
+
 		return nil
 	})
 }
@@ -550,13 +550,13 @@ func (s *EnhancedTaskService) checkIdempotency(ctx context.Context, key, operati
 	// Create hash of the request
 	hash := s.createRequestHash(operation, task)
 	cacheKey := fmt.Sprintf("idempotency:%s:%s", key, hash)
-	
+
 	// Check cache first
 	var cachedID uuid.UUID
 	if err := s.idempotencyCache.Get(ctx, cacheKey, &cachedID); err == nil {
 		return cachedID, nil
 	}
-	
+
 	// For now, return not found - this would need a proper repository method
 	// TODO: Implement GetByIdempotencyKey in repository
 	return uuid.Nil, errors.New("no existing task found")
@@ -564,18 +564,18 @@ func (s *EnhancedTaskService) checkIdempotency(ctx context.Context, key, operati
 
 func (s *EnhancedTaskService) storeIdempotencyKey(ctx context.Context, tx database.Transaction, key, operation string, task *models.Task) error {
 	hash := s.createRequestHash(operation, task)
-	
+
 	query := `
 		INSERT INTO task_idempotency_keys (idempotency_key, task_id, operation, request_hash, response, expires_at)
 		VALUES ($1, $2, $3, $4, $5, $6)
 		ON CONFLICT (idempotency_key) DO NOTHING
 	`
-	
+
 	response, _ := json.Marshal(map[string]interface{}{
 		"task_id": task.ID,
 		"status":  task.Status,
 	})
-	
+
 	_, err := tx.ExecContext(ctx, query, key, task.ID, operation, hash, response, time.Now().Add(24*time.Hour))
 	return err
 }
@@ -591,12 +591,12 @@ func (s *EnhancedTaskService) recordStateTransition(ctx context.Context, tx data
 		INSERT INTO task_state_transitions (task_id, from_status, to_status, agent_id, reason, metadata)
 		VALUES ($1, $2, $3, $4, $5, $6)
 	`
-	
+
 	metadata := map[string]interface{}{
 		"timestamp": time.Now().Unix(),
 	}
 	metadataJSON, _ := json.Marshal(metadata)
-	
+
 	_, err := tx.ExecContext(ctx, query, taskID, from, to, agentID, reason, metadataJSON)
 	return err
 }
@@ -606,7 +606,7 @@ func (s *EnhancedTaskService) recordDelegation(ctx context.Context, tx database.
 		INSERT INTO task_delegation_history (id, task_id, from_agent_id, to_agent_id, delegation_type, reason)
 		VALUES ($1, $2, $3, $4, $5, $6)
 	`
-	
+
 	_, err := tx.ExecContext(ctx, query, delegationID, taskID, fromAgent, toAgent, delegationType, reason)
 	return err
 }
@@ -619,7 +619,7 @@ func (s *EnhancedTaskService) acceptDelegation(ctx context.Context, tx database.
 		ORDER BY delegated_at DESC
 		LIMIT 1
 	`
-	
+
 	_, err := tx.ExecContext(ctx, query, time.Now(), taskID, agentID)
 	return err
 }
@@ -643,7 +643,7 @@ func (s *EnhancedTaskService) createTaskInTx(ctx context.Context, tx database.Tr
 			$1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15
 		)
 	`
-	
+
 	_, err := tx.ExecContext(ctx, query,
 		task.ID, task.TenantID, task.Type, task.Title, task.Description,
 		task.Status, task.Priority, task.AssignedTo, nil, // delegated_from will be tracked in history
@@ -661,7 +661,7 @@ func (s *EnhancedTaskService) updateTaskInTx(ctx context.Context, tx database.Tr
 			updated_at = $9
 		WHERE id = $10
 	`
-	
+
 	_, err := tx.ExecContext(ctx, query,
 		task.Status, task.AssignedTo, nil, 0, // delegated_from and delegation_count tracked separately
 		task.Result, task.StartedAt, task.CompletedAt, task.AssignedAt, // use AssignedAt instead of AcceptedAt

@@ -1,6 +1,6 @@
 module pkg-integration-tests
 
-go 1.24.2
+go 1.24
 
 require (
 	github.com/S-Corkum/devops-mcp v0.0.0

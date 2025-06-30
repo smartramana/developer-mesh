@@ -197,7 +197,7 @@ bench: ## Run benchmarks (PACKAGE=./pkg/embedding)
 
 .PHONY: lint
 lint: ## Run linters
-	@./.github/scripts/lint-all-modules.sh
+	@./.github/scripts/lint.sh
 
 .PHONY: fmt
 fmt: ## Format code
@@ -211,8 +211,7 @@ vet: ## Run go vet
 
 .PHONY: security-check
 security-check: ## Run security checks
-	@which gosec > /dev/null || go install github.com/securego/gosec/v2/cmd/gosec@latest
-	gosec ./...
+	@./.github/scripts/security-check.sh
 
 # ==============================================================================
 # Docker Commands
@@ -270,7 +269,6 @@ migrate-down: ## Rollback last migration
 migrate-status: ## Show migration status
 	@which migrate > /dev/null || (echo "Error: golang-migrate not installed. Run: brew install golang-migrate" && exit 1)
 	migrate -database "postgresql://${DB_USER:-postgres}:${DB_PASSWORD:-postgres}@${DB_HOST:-localhost}:${DB_PORT:-5432}/${DATABASE_NAME:-devops_mcp_dev}?sslmode=${DATABASE_SSL_MODE:-disable}" -path apps/rest-api/migrations/sql version
-
 # ==============================================================================
 # Development Helpers
 # ==============================================================================

@@ -25,7 +25,7 @@ func CreateMigration(dir, name string) error {
 	if strings.Contains(cleanDir, "..") {
 		return fmt.Errorf("invalid directory path: %s", dir)
 	}
-	
+
 	// Create directory if it doesn't exist with secure permissions
 	if err := os.MkdirAll(cleanDir, 0750); err != nil {
 		return fmt.Errorf("failed to create migration directory: %w", err)
@@ -105,7 +105,7 @@ func createFile(path, content string) error {
 	if strings.Contains(cleanPath, "..") {
 		return fmt.Errorf("invalid file path: %s", path)
 	}
-	
+
 	file, err := os.Create(cleanPath)
 	if err != nil {
 		return err

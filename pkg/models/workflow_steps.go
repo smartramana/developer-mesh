@@ -48,7 +48,7 @@ func (s *WorkflowSteps) Scan(value interface{}) error {
 		if err := json.Unmarshal(data, &obj); err != nil {
 			return fmt.Errorf("failed to unmarshal WorkflowSteps: %w", err)
 		}
-		
+
 		// Check if it has a "steps" key with an array
 		if stepsData, ok := obj["steps"].([]interface{}); ok {
 			steps = make([]WorkflowStep, 0, len(stepsData))
@@ -92,7 +92,7 @@ func (s *WorkflowSteps) UnmarshalJSON(data []byte) error {
 		if err := json.Unmarshal(data, &obj); err != nil {
 			return fmt.Errorf("failed to unmarshal WorkflowSteps: %w", err)
 		}
-		
+
 		if stepsData, ok := obj["steps"]; ok {
 			if err := json.Unmarshal(stepsData, &steps); err != nil {
 				return fmt.Errorf("failed to unmarshal steps array: %w", err)

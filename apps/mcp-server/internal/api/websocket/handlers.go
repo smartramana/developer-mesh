@@ -173,7 +173,7 @@ func (s *Server) processMessage(ctx context.Context, conn *Connection, msg *ws.M
 	if !ok {
 		return s.createErrorResponse(msg.ID, ws.ErrCodeMethodNotFound, "Method not found")
 	}
-	
+
 	// Convert params to json.RawMessage if needed
 	var params json.RawMessage
 	if msg.Params != nil {
@@ -190,7 +190,7 @@ func (s *Server) processMessage(ctx context.Context, conn *Connection, msg *ws.M
 		ctx = auth.WithTenantID(ctx, uuid.MustParse(conn.state.Claims.TenantID))
 		ctx = auth.WithUserID(ctx, conn.state.Claims.UserID)
 		ctx = context.WithValue(ctx, contextKeyClaims, conn.state.Claims)
-		
+
 		// Debug logging
 		s.logger.Info("Context enriched with auth", map[string]interface{}{
 			"user_id":   conn.state.Claims.UserID,
@@ -229,7 +229,7 @@ func (s *Server) processMessage(ctx context.Context, conn *Connection, msg *ws.M
 	// Execute handler with tracing
 	var result interface{}
 	var err error
-	
+
 	if s.tracingHandler != nil {
 		// Use tracing handler to wrap individual method execution
 		err = s.tracingHandler.HandleWithTracing(ctx, msg.Method, func(tracedCtx context.Context) error {
@@ -241,7 +241,7 @@ func (s *Server) processMessage(ctx context.Context, conn *Connection, msg *ws.M
 		// Execute handler without tracing
 		result, err = handler(ctx, conn, params)
 	}
-	
+
 	if err != nil {
 		s.logger.Error("Handler error", map[string]interface{}{
 			"method":        msg.Method,
@@ -424,7 +424,7 @@ func (s *Server) handleInitialize(ctx context.Context, conn *Connection, params 
 			"capabilities": initParams.Capabilities,
 			"tenant_id":    conn.TenantID,
 		})
-		
+
 		// Register agent with capabilities
 		registration := &AgentRegistration{
 			ID:           conn.AgentID,
@@ -447,9 +447,9 @@ func (s *Server) handleInitialize(ctx context.Context, conn *Connection, params 
 		}
 	} else {
 		s.logger.Debug("No capabilities to register", map[string]interface{}{
-			"agent_id":              conn.AgentID,
-			"has_capabilities":      len(initParams.Capabilities) > 0,
-			"has_agent_registry":    s.agentRegistry != nil,
+			"agent_id":           conn.AgentID,
+			"has_capabilities":   len(initParams.Capabilities) > 0,
+			"has_agent_registry": s.agentRegistry != nil,
 		})
 	}
 
@@ -1574,26 +1574,26 @@ func (s *Server) handleWorkflowExecute(ctx context.Context, conn *Connection, pa
 	// Use workflow service if available (it has proper authorization)
 	var execution *WorkflowExecution
 	var err error
-	
+
 	if s.workflowService != nil {
 		// Parse workflow ID as UUID for the service
 		workflowID, parseErr := uuid.Parse(execParams.WorkflowID)
 		if parseErr != nil {
 			return nil, fmt.Errorf("invalid workflow ID: %w", parseErr)
 		}
-		
+
 		// Prepare context for workflow execution
 		executionContext := models.JSONMap(execParams.Input)
 		if executionContext == nil {
 			executionContext = make(models.JSONMap)
 		}
-		
+
 		// Execute using workflow service with proper authorization
 		workflowExecution, execErr := s.workflowService.ExecuteWorkflow(ctx, workflowID, executionContext, uuid.New().String())
 		if execErr != nil {
 			return nil, execErr
 		}
-		
+
 		// Convert to expected format
 		execution = &WorkflowExecution{
 			ID:          workflowExecution.ID.String(),
@@ -2169,11 +2169,11 @@ func (s *Server) handleTaskList(ctx context.Context, conn *Connection, params js
 			"created_at": task.CreatedAt.Format(time.RFC3339),
 			"created_by": task.CreatedBy,
 		}
-		
+
 		if task.AssignedTo != nil {
 			taskData["assigned_to"] = *task.AssignedTo
 		}
-		
+
 		taskList = append(taskList, taskData)
 	}
 

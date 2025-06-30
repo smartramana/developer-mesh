@@ -300,9 +300,9 @@ func (s *MultiAgentIntegrationSuite) TestMultiAgentWorkflowCoordination() {
 		CreatedBy:   s.agents["coordinator"].String(),
 		Steps: models.WorkflowSteps{
 			{
-				ID:     "submit_pr",
-				Name:   "Submit Pull Request",
-				Type:   "task",
+				ID:   "submit_pr",
+				Name: "Submit Pull Request",
+				Type: "task",
 				Config: map[string]interface{}{
 					"assignee": s.agents["developer1"].String(),
 				},

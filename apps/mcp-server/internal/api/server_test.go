@@ -8,7 +8,7 @@ import (
 	"testing"
 	"time"
 
-	coremocks "mcp-server/internal/core/mocks"
+	coremocks "github.com/S-Corkum/devops-mcp/apps/mcp-server/internal/core/mocks"
 
 	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/assert"

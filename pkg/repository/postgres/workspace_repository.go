@@ -1221,7 +1221,8 @@ func (r *workspaceRepository) GetMemberActivity(ctx context.Context, workspaceID
 
 		activity.WorkspaceID = workspaceID
 
-		activities = append(activities, &activity)
+		activityCopy := activity
+		activities = append(activities, &activityCopy)
 	}
 
 	return activities, nil
@@ -1476,7 +1477,8 @@ func (r *workspaceRepository) GetPresence(ctx context.Context, workspaceID uuid.
 			presence.Location = currentDocumentID.String
 		}
 
-		presences = append(presences, &presence)
+		presenceCopy := presence
+		presences = append(presences, &presenceCopy)
 	}
 
 	return presences, nil

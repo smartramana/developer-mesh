@@ -13,11 +13,11 @@ import (
 
 // TestData holds references to test entities
 type TestData struct {
-	TenantID   string
-	ModelIDs   []string
-	AgentIDs   []string
-	TaskIDs    []string
-	WorkflowIDs []string
+	TenantID     string
+	ModelIDs     []string
+	AgentIDs     []string
+	TaskIDs      []string
+	WorkflowIDs  []string
 	WorkspaceIDs []string
 }
 
@@ -48,7 +48,7 @@ func SetupTestData(t *testing.T) (*TestData, func()) {
 		"model_type":  "language",
 		"metadata":    map[string]interface{}{},
 	}
-	
+
 	modelResp, err := makeAPIRequest(t, http.MethodPost, apiURL+"/api/v1/models", apiKey, modelReq)
 	if err != nil {
 		t.Logf("Failed to create model via API: %v", err)
@@ -77,7 +77,7 @@ func SetupTestData(t *testing.T) (*TestData, func()) {
 		if len(testData.ModelIDs) > 0 {
 			modelID = testData.ModelIDs[0]
 		}
-		
+
 		agentReq := map[string]interface{}{
 			"name":         agent.Name,
 			"description":  fmt.Sprintf("Test agent %s", agent.Name),
@@ -86,7 +86,7 @@ func SetupTestData(t *testing.T) (*TestData, func()) {
 			"config":       map[string]interface{}{},
 			"metadata":     map[string]interface{}{},
 		}
-		
+
 		agentResp, err := makeAPIRequest(t, http.MethodPost, apiURL+"/api/v1/agents", apiKey, agentReq)
 		if err != nil {
 			t.Logf("Failed to create agent %s via API: %v", agent.Name, err)
@@ -112,7 +112,7 @@ func SetupTestData(t *testing.T) (*TestData, func()) {
 func makeAPIRequest(t *testing.T, method, url, apiKey string, body interface{}) (map[string]interface{}, error) {
 	var reqBody []byte
 	var err error
-	
+
 	if body != nil {
 		reqBody, err = json.Marshal(body)
 		if err != nil {

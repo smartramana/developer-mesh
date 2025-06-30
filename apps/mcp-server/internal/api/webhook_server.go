@@ -3,7 +3,7 @@ package api
 import (
 	"net/http"
 
-	"mcp-server/internal/api/webhooks"
+	"github.com/S-Corkum/devops-mcp/apps/mcp-server/internal/api/webhooks"
 
 	"github.com/gorilla/mux"
 )
