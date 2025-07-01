@@ -103,10 +103,10 @@ jobs:
       - name: Run go mod download for all modules
         run: |
           go mod download
-          cd apps/mcp-server && go mod download
-          cd ../rest-api && go mod download
-          cd ../worker && go mod download
-          cd ../../pkg && go mod download
+          (cd apps/mcp-server && go mod download)
+          (cd apps/rest-api && go mod download)
+          (cd apps/worker && go mod download)
+          (cd pkg && go mod download)
 
       - name: Run go fmt
         run: |
