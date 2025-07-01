@@ -81,6 +81,9 @@ jobs:
         uses: actions/setup-go@v5
         with:
           go-version: ${{ env.GO_VERSION }}
+      
+      - name: Set GOWORK environment variable
+        run: echo "GOWORK=${{ github.workspace }}/go.work" >> $GITHUB_ENV
 
       - name: Cache Go modules
         uses: actions/cache@v4
@@ -98,15 +101,15 @@ jobs:
           go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest
 
       - name: Run go work sync
-        run: go work sync
+        run: |
+          go version
+          go env GOWORK
+          go work sync
 
       - name: Run go mod download for all modules
         run: |
           go mod download
-          (cd apps/mcp-server && go mod download)
-          (cd apps/rest-api && go mod download)
-          (cd apps/worker && go mod download)
-          (cd pkg && go mod download)
+          go work use -r .
 
       - name: Run go fmt
         run: |
@@ -119,21 +122,15 @@ jobs:
 
       - name: Run go vet
         run: |
-          go vet ./apps/mcp-server/...
-          go vet ./apps/rest-api/...
-          go vet ./apps/worker/...
-          go vet ./pkg/...
+          go vet ./...
 
       - name: Run golangci-lint
         run: |
-          golangci-lint run --timeout=10m ./apps/mcp-server/...
-          golangci-lint run --timeout=10m ./apps/rest-api/...
-          golangci-lint run --timeout=10m ./apps/worker/...
-          golangci-lint run --timeout=10m ./pkg/...
+          golangci-lint run --timeout=10m ./...
 
       - name: Run tests with coverage
         run: |
-          go test -v -race -coverprofile=coverage.out -covermode=atomic ./apps/mcp-server/... ./apps/rest-api/... ./apps/worker/... ./pkg/...
+          go test -v -race -coverprofile=coverage.out -covermode=atomic ./...
           go tool cover -func=coverage.out
         env:
           DB_HOST: localhost
