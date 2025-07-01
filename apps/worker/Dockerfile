@@ -18,7 +18,10 @@ WORKDIR /workspace
 # Copy everything
 COPY . .
 
-# Build the binary (Go will auto-detect workspace mode)
+# Explicitly set GOWORK to use workspace mode
+ENV GOWORK=/workspace/go.work
+
+# Build the binary
 RUN cd apps/worker && \
     CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build \
     -ldflags="-w -s -X main.Version=${VERSION} -X main.GitCommit=${COMMIT_SHA} -X main.BuildDate=${BUILD_DATE}" \
