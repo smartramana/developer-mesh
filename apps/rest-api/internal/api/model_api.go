@@ -35,7 +35,20 @@ func (m *ModelAPI) RegisterRoutes(router *gin.RouterGroup) {
 	models.DELETE("/:id", m.deleteModel)
 }
 
-// createModel creates a new model (tenant-scoped)
+// createModel godoc
+// @Summary Create a new AI model
+// @Description Register a new AI model configuration for tenant
+// @Tags models
+// @Accept json
+// @Produce json
+// @Param model body models.Model true "Model configuration with name, provider, type"
+// @Success 201 {object} models.Model "Created model"
+// @Failure 400 {object} map[string]interface{} "Invalid request body"
+// @Failure 401 {object} map[string]interface{} "Unauthorized or missing tenant ID"
+// @Failure 500 {object} map[string]interface{} "Internal server error"
+// @Security ApiKeyAuth
+// @Security BearerAuth
+// @Router /models [post]
 func (m *ModelAPI) createModel(c *gin.Context) {
 	var model models.Model
 	if err := c.ShouldBindJSON(&model); err != nil {
@@ -68,7 +81,20 @@ func (m *ModelAPI) testModel(c *gin.Context) {
 	c.JSON(http.StatusOK, testModel)
 }
 
-// listModels lists all models for the authenticated tenant
+// listModels godoc
+// @Summary List all models
+// @Description List all AI models for the authenticated tenant with pagination
+// @Tags models
+// @Accept json
+// @Produce json
+// @Param limit query integer false "Results per page (max: 100, default: 20)"
+// @Param offset query integer false "Pagination offset (default: 0)"
+// @Success 200 {object} map[string]interface{} "List of models with pagination info"
+// @Failure 401 {object} map[string]interface{} "Unauthorized or missing tenant ID"
+// @Failure 500 {object} map[string]interface{} "Internal server error"
+// @Security ApiKeyAuth
+// @Security BearerAuth
+// @Router /models [get]
 func (m *ModelAPI) listModels(c *gin.Context) {
 	tenantID := util.GetTenantIDFromContext(c)
 	if tenantID == "" {
@@ -137,7 +163,23 @@ func (m *ModelAPI) listModels(c *gin.Context) {
 	c.JSON(http.StatusOK, response)
 }
 
-// updateModel updates model metadata (tenant-scoped)
+// updateModel godoc
+// @Summary Update a model
+// @Description Update model configuration and metadata
+// @Tags models
+// @Accept json
+// @Produce json
+// @Param id path string true "Model ID"
+// @Param model body models.Model true "Updated model configuration"
+// @Success 200 {object} models.Model "Updated model"
+// @Failure 400 {object} map[string]interface{} "Invalid request body or missing model ID"
+// @Failure 401 {object} map[string]interface{} "Unauthorized or missing tenant ID"
+// @Failure 403 {object} map[string]interface{} "Forbidden - model belongs to different tenant"
+// @Failure 404 {object} map[string]interface{} "Model not found"
+// @Failure 500 {object} map[string]interface{} "Internal server error"
+// @Security ApiKeyAuth
+// @Security BearerAuth
+// @Router /models/{id} [put]
 func (m *ModelAPI) updateModel(c *gin.Context) {
 	id := c.Param("id")
 	if id == "" {
@@ -181,7 +223,22 @@ func (m *ModelAPI) updateModel(c *gin.Context) {
 	c.JSON(http.StatusOK, update)
 }
 
-// getModel retrieves a specific model by ID (tenant-scoped)
+// getModel godoc
+// @Summary Get a model by ID
+// @Description Retrieve a specific AI model configuration by ID
+// @Tags models
+// @Accept json
+// @Produce json
+// @Param id path string true "Model ID"
+// @Success 200 {object} models.Model "Model details"
+// @Failure 400 {object} map[string]interface{} "Missing model ID"
+// @Failure 401 {object} map[string]interface{} "Unauthorized or missing tenant ID"
+// @Failure 403 {object} map[string]interface{} "Forbidden - model belongs to different tenant"
+// @Failure 404 {object} map[string]interface{} "Model not found"
+// @Failure 500 {object} map[string]interface{} "Internal server error"
+// @Security ApiKeyAuth
+// @Security BearerAuth
+// @Router /models/{id} [get]
 func (m *ModelAPI) getModel(c *gin.Context) {
 	id := c.Param("id")
 	if id == "" {
@@ -219,7 +276,22 @@ func (m *ModelAPI) getModel(c *gin.Context) {
 	c.JSON(http.StatusOK, model)
 }
 
-// deleteModel deletes a model by ID (tenant-scoped)
+// deleteModel godoc
+// @Summary Delete a model
+// @Description Delete an AI model configuration
+// @Tags models
+// @Accept json
+// @Produce json
+// @Param id path string true "Model ID"
+// @Success 200 {object} map[string]interface{} "Deletion confirmation"
+// @Failure 400 {object} map[string]interface{} "Missing model ID"
+// @Failure 401 {object} map[string]interface{} "Unauthorized or missing tenant ID"
+// @Failure 403 {object} map[string]interface{} "Forbidden - model belongs to different tenant"
+// @Failure 404 {object} map[string]interface{} "Model not found"
+// @Failure 500 {object} map[string]interface{} "Internal server error"
+// @Security ApiKeyAuth
+// @Security BearerAuth
+// @Router /models/{id} [delete]
 func (m *ModelAPI) deleteModel(c *gin.Context) {
 	id := c.Param("id")
 	if id == "" {
@@ -263,7 +335,20 @@ func (m *ModelAPI) deleteModel(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"message": "model deleted successfully"})
 }
 
-// searchModels searches for models based on query parameters (tenant-scoped)
+// searchModels godoc
+// @Summary Search models
+// @Description Search for AI models based on query parameters
+// @Tags models
+// @Accept json
+// @Produce json
+// @Param request body object true "Search request with query, limit, and offset"
+// @Success 200 {object} map[string]interface{} "Search results with matching models"
+// @Failure 400 {object} map[string]interface{} "Invalid request body"
+// @Failure 401 {object} map[string]interface{} "Unauthorized or missing tenant ID"
+// @Failure 500 {object} map[string]interface{} "Internal server error"
+// @Security ApiKeyAuth
+// @Security BearerAuth
+// @Router /models/search [post]
 func (m *ModelAPI) searchModels(c *gin.Context) {
 	tenantID := util.GetTenantIDFromContext(c)
 	if tenantID == "" {

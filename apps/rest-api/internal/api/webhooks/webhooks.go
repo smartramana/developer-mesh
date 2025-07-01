@@ -23,8 +23,23 @@ import (
 	"github.com/S-Corkum/devops-mcp/pkg/queue"
 )
 
-// GitHubWebhookHandler creates an HTTP handler for GitHub webhook events
-// It validates the webhook signature and processes the payload
+// GitHubWebhookHandler godoc
+// @Summary Receive GitHub webhook events
+// @Description Process incoming GitHub webhook events with signature validation
+// @Tags webhooks
+// @Accept json
+// @Produce json
+// @Param X-GitHub-Event header string true "GitHub event type"
+// @Param X-Hub-Signature-256 header string true "HMAC signature for validation"
+// @Param X-GitHub-Delivery header string true "Unique delivery ID"
+// @Param payload body object true "GitHub webhook payload"
+// @Success 200 {object} map[string]interface{} "Webhook processed successfully"
+// @Failure 400 {object} map[string]interface{} "Invalid request"
+// @Failure 401 {object} map[string]interface{} "Invalid signature"
+// @Failure 403 {object} map[string]interface{} "Event type not allowed"
+// @Failure 405 {object} map[string]interface{} "Method not allowed"
+// @Failure 500 {object} map[string]interface{} "Internal server error"
+// @Router /api/webhooks/github [post]
 func GitHubWebhookHandler(config interfaces.WebhookConfigInterface, logger observability.Logger) http.HandlerFunc {
 	if logger == nil {
 		logger = observability.NewLogger("webhooks")

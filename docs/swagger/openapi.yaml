@@ -2,15 +2,19 @@ openapi: 3.0.3
 info:
   title: DevOps MCP Platform API
   description: |
-    The DevOps MCP (Model Context Protocol) Platform provides a unified API for AI agents to interact with various DevOps tools.
+    The DevOps MCP (Model Context Protocol) Platform is an AI Agent Orchestration Platform that enables intelligent routing and coordination of multiple AI agents for DevOps workflows.
     
     ## Overview
     This API enables:
-    - **Context Management**: Store and retrieve conversation contexts for AI agents
-    - **Tool Integration**: Execute actions across multiple DevOps platforms
-    - **Multi-Agent Embeddings**: Agent-specific embedding generation with intelligent provider routing
+    - **AI Agent Orchestration**: Register, manage, and coordinate multiple AI agents
+    - **Context Management**: Store and retrieve conversation contexts with S3 persistence
+    - **Tool Integration**: Execute actions across GitHub, Harness, SonarQube, and more
+    - **Multi-Agent Embeddings**: Agent-specific embedding generation with smart provider routing
     - **Cross-Model Search**: Semantic search across embeddings from different models
-    - **Agent Management**: Configure and manage AI agents with custom embedding preferences
+    - **Binary WebSocket Protocol**: High-performance real-time communication
+    - **CRDT Collaboration**: Real-time collaborative features with conflict resolution
+    - **Workflow Orchestration**: Multi-step workflows with agent task assignment
+    - **Webhook Processing**: Real-time event processing from external services
     
     ## Authentication
     All API requests require authentication using one of the following methods:
@@ -40,12 +44,12 @@ info:
     url: https://opensource.org/licenses/MIT
 
 servers:
-  - url: https://api.mcp-server.example.com/api/v1
-    description: Production MCP Server
-  - url: https://api.rest.example.com/api/v1
-    description: Production REST API Server
+  - url: https://api.devops-mcp.com/api/v1
+    description: Production API Server
+  - url: https://staging-api.devops-mcp.com/api/v1
+    description: Staging API Server
   - url: http://localhost:8080/api/v1
-    description: Local MCP Server
+    description: Local MCP Server (WebSocket)
   - url: http://localhost:8081/api/v1
     description: Local REST API Server
 
@@ -76,17 +80,29 @@ tags:
   - name: Tools
     description: DevOps tool integration endpoints
   - name: Agents
-    description: AI agent management
+    description: AI agent management and orchestration
   - name: Models
-    description: AI model configuration
+    description: AI model configuration and comparison
   - name: Embeddings
     description: Multi-agent embedding generation and search operations
+  - name: Vectors
+    description: Vector storage and similarity search
   - name: Search
-    description: Semantic search endpoints
+    description: Semantic and hybrid search endpoints
   - name: Webhooks
     description: Webhook endpoints for external integrations
   - name: GitHub
     description: GitHub-specific tool operations
+  - name: Relationships
+    description: Entity relationship management
+  - name: Workflows
+    description: Multi-step workflow orchestration
+  - name: Tasks
+    description: Task creation and assignment
+  - name: Collaboration
+    description: Multi-agent collaboration features
+  - name: Monitoring
+    description: System monitoring and metrics
 
 paths:
   # Authentication endpoints
@@ -210,3 +226,90 @@ paths:
   /search/similar:
     $ref: './core/search.yaml#/paths/~1search~1similar'
   
+  /search/hybrid:
+    $ref: './core/search.yaml#/paths/~1search~1hybrid'
+  
+  # Vector Operations
+  /vectors:
+    $ref: './core/vectors.yaml#/paths/~1vectors'
+  
+  /vectors/search:
+    $ref: './core/vectors.yaml#/paths/~1vectors~1search'
+  
+  # Webhook Operations
+  /webhooks/github:
+    $ref: './core/webhooks.yaml#/paths/~1webhooks~1github'
+  
+  /webhooks/github/config:
+    $ref: './core/webhooks.yaml#/paths/~1webhooks~1github~1config'
+  
+  /webhooks/events:
+    $ref: './core/webhooks.yaml#/paths/~1webhooks~1events'
+  
+  /webhooks/events/{id}:
+    $ref: './core/webhooks.yaml#/paths/~1webhooks~1events~1{id}'
+  
+  /webhooks/events/{id}/retry:
+    $ref: './core/webhooks.yaml#/paths/~1webhooks~1events~1{id}~1retry'
+  
+  /webhooks/secrets/rotate:
+    $ref: './core/webhooks.yaml#/paths/~1webhooks~1secrets~1rotate'
+  
+  # Relationship Operations
+  /relationships:
+    $ref: './core/relationships.yaml#/paths/~1relationships'
+  
+  /relationships/{id}:
+    $ref: './core/relationships.yaml#/paths/~1relationships~1{id}'
+  
+  /entities/{type}/{owner}/{repo}/{id}/relationships:
+    $ref: './core/relationships.yaml#/paths/~1entities~1{type}~1{owner}~1{repo}~1{id}~1relationships'
+  
+  /entities/{type}/{owner}/{repo}/{id}/graph:
+    $ref: './core/relationships.yaml#/paths/~1entities~1{type}~1{owner}~1{repo}~1{id}~1graph'
+  
+  # Workflow & Task Operations
+  /workflows:
+    $ref: './core/workflows.yaml#/paths/~1workflows'
+  
+  /workflows/{id}:
+    $ref: './core/workflows.yaml#/paths/~1workflows~1{id}'
+  
+  /workflows/{id}/executions:
+    $ref: './core/workflows.yaml#/paths/~1workflows~1{id}~1executions'
+  
+  /tasks:
+    $ref: './core/tasks.yaml#/paths/~1tasks'
+  
+  /tasks/{id}:
+    $ref: './core/tasks.yaml#/paths/~1tasks~1{id}'
+  
+  /tasks/assign:
+    $ref: './core/tasks.yaml#/paths/~1tasks~1assign'
+  
+  # Agent Extended Operations
+  /agents/{id}/workload:
+    $ref: './core/agents.yaml#/paths/~1agents~1{id}~1workload'
+  
+  /agents/{id}/heartbeat:
+    $ref: './core/agents.yaml#/paths/~1agents~1{id}~1heartbeat'
+  
+  # Model Extended Operations
+  /models/compare:
+    $ref: './core/models.yaml#/paths/~1models~1compare'
+  
+  # Embedding Extended Operations
+  /embeddings/usage:
+    $ref: './core/embeddings_v2.yaml#/paths/~1embeddings~1usage'
+  
+  # Collaboration Operations
+  /collaborations:
+    $ref: './core/collaborations.yaml#/paths/~1collaborations'
+  
+  # Monitoring Operations
+  /monitoring/dashboard:
+    $ref: './core/monitoring.yaml#/paths/~1monitoring~1dashboard'
+  
+  # Metrics
+  /metrics:
+    $ref: './core/metrics.yaml#/paths/~1metrics'

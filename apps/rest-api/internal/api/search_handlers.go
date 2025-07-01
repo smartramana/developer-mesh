@@ -227,7 +227,23 @@ func (h *SearchHandler) HandleSearchByVector(w http.ResponseWriter, r *http.Requ
 	_ = json.NewEncoder(w).Encode(response)
 }
 
-// HandleSearchSimilar handles "more like this" search requests
+// HandleSearchSimilar godoc
+// @Summary Find similar content
+// @Description Find content similar to a given content ID
+// @Tags search
+// @Accept json
+// @Produce json
+// @Param content_id query string true "Content ID to find similar items for"
+// @Param limit query integer false "Maximum number of results"
+// @Param offset query integer false "Pagination offset"
+// @Param min_similarity query number false "Minimum similarity threshold (0.0-1.0)"
+// @Success 200 {object} SearchResponse "Similar content results"
+// @Failure 400 {object} map[string]interface{} "Invalid request"
+// @Failure 401 {object} map[string]interface{} "Unauthorized"
+// @Failure 500 {object} map[string]interface{} "Internal server error"
+// @Security ApiKeyAuth
+// @Security BearerAuth
+// @Router /search/similar [get]
 func (h *SearchHandler) HandleSearchSimilar(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost && r.Method != http.MethodGet {
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)

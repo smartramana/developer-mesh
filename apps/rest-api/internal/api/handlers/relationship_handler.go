@@ -70,7 +70,18 @@ type CreateBidirectionalRequest struct {
 	Metadata map[string]interface{}  `json:"metadata,omitempty"`
 }
 
-// GetRelationship retrieves a relationship by ID
+// GetRelationship godoc
+// @Summary Get a relationship by ID
+// @Description Retrieve a specific relationship between entities
+// @Tags relationships
+// @Accept json
+// @Produce json
+// @Param id path string true "Relationship ID"
+// @Success 200 {object} models.EntityRelationship "Relationship details"
+// @Failure 404 {object} map[string]interface{} "Relationship not found"
+// @Security ApiKeyAuth
+// @Security BearerAuth
+// @Router /relationships/{id} [get]
 func (h *RelationshipHandler) GetRelationship(w http.ResponseWriter, r *http.Request) {
 	// Extract relationship ID from URL
 	vars := mux.Vars(r)
@@ -87,7 +98,19 @@ func (h *RelationshipHandler) GetRelationship(w http.ResponseWriter, r *http.Req
 	responses.WriteJSONResponse(w, http.StatusOK, relationship)
 }
 
-// CreateRelationship creates a new relationship
+// CreateRelationship godoc
+// @Summary Create a new relationship
+// @Description Create a new relationship between two entities
+// @Tags relationships
+// @Accept json
+// @Produce json
+// @Param request body CreateRelationshipRequest true "Relationship details"
+// @Success 201 {object} models.EntityRelationship "Created relationship"
+// @Failure 400 {object} map[string]interface{} "Invalid request"
+// @Failure 500 {object} map[string]interface{} "Internal server error"
+// @Security ApiKeyAuth
+// @Security BearerAuth
+// @Router /relationships [post]
 func (h *RelationshipHandler) CreateRelationship(w http.ResponseWriter, r *http.Request) {
 	// Parse request body
 	var req CreateRelationshipRequest
@@ -146,7 +169,19 @@ func (h *RelationshipHandler) CreateRelationship(w http.ResponseWriter, r *http.
 	responses.WriteJSONResponse(w, http.StatusCreated, relationship)
 }
 
-// CreateBidirectionalRelationship creates a bidirectional relationship
+// CreateBidirectionalRelationship godoc
+// @Summary Create a bidirectional relationship
+// @Description Create a bidirectional relationship between two entities
+// @Tags relationships
+// @Accept json
+// @Produce json
+// @Param request body CreateBidirectionalRequest true "Bidirectional relationship details"
+// @Success 201 {object} map[string]interface{} "Created relationships"
+// @Failure 400 {object} map[string]interface{} "Invalid request"
+// @Failure 500 {object} map[string]interface{} "Internal server error"
+// @Security ApiKeyAuth
+// @Security BearerAuth
+// @Router /relationships/bidirectional [post]
 func (h *RelationshipHandler) CreateBidirectionalRelationship(w http.ResponseWriter, r *http.Request) {
 	// Parse request body
 	var req CreateBidirectionalRequest
@@ -192,7 +227,18 @@ func (h *RelationshipHandler) CreateBidirectionalRelationship(w http.ResponseWri
 	})
 }
 
-// DeleteRelationship deletes a relationship by ID
+// DeleteRelationship godoc
+// @Summary Delete a relationship
+// @Description Delete an existing relationship by ID
+// @Tags relationships
+// @Accept json
+// @Produce json
+// @Param id path string true "Relationship ID"
+// @Success 200 {object} map[string]interface{} "Deletion confirmation"
+// @Failure 404 {object} map[string]interface{} "Relationship not found"
+// @Security ApiKeyAuth
+// @Security BearerAuth
+// @Router /relationships/{id} [delete]
 func (h *RelationshipHandler) DeleteRelationship(w http.ResponseWriter, r *http.Request) {
 	// Extract relationship ID from URL
 	vars := mux.Vars(r)
@@ -212,7 +258,23 @@ func (h *RelationshipHandler) DeleteRelationship(w http.ResponseWriter, r *http.
 	})
 }
 
-// GetEntityRelationships retrieves relationships for an entity
+// GetEntityRelationships godoc
+// @Summary Get relationships for an entity
+// @Description Retrieve all relationships for a specific entity
+// @Tags relationships
+// @Accept json
+// @Produce json
+// @Param type path string true "Entity type"
+// @Param owner path string true "Repository owner"
+// @Param repo path string true "Repository name"
+// @Param id path string true "Entity ID"
+// @Param direction query string false "Relationship direction (incoming, outgoing, bidirectional)"
+// @Param types query string false "Comma-separated relationship types"
+// @Success 200 {array} models.EntityRelationship "List of relationships"
+// @Failure 500 {object} map[string]interface{} "Internal server error"
+// @Security ApiKeyAuth
+// @Security BearerAuth
+// @Router /entities/{type}/{owner}/{repo}/{id}/relationships [get]
 func (h *RelationshipHandler) GetEntityRelationships(w http.ResponseWriter, r *http.Request) {
 	// Extract entity details from URL
 	vars := mux.Vars(r)
@@ -257,7 +319,23 @@ func (h *RelationshipHandler) GetEntityRelationships(w http.ResponseWriter, r *h
 	responses.WriteJSONResponse(w, http.StatusOK, relationships)
 }
 
-// GetRelatedEntities retrieves entities related to the specified entity
+// GetRelatedEntities godoc
+// @Summary Get related entities
+// @Description Retrieve entities related to a specific entity
+// @Tags relationships
+// @Accept json
+// @Produce json
+// @Param type path string true "Entity type"
+// @Param owner path string true "Repository owner"
+// @Param repo path string true "Repository name"
+// @Param id path string true "Entity ID"
+// @Param types query string false "Comma-separated relationship types"
+// @Param depth query integer false "Maximum traversal depth (default: 1)"
+// @Success 200 {array} models.EntityID "List of related entities"
+// @Failure 500 {object} map[string]interface{} "Internal server error"
+// @Security ApiKeyAuth
+// @Security BearerAuth
+// @Router /entities/{type}/{owner}/{repo}/{id}/related [get]
 func (h *RelationshipHandler) GetRelatedEntities(w http.ResponseWriter, r *http.Request) {
 	// Extract entity details from URL
 	vars := mux.Vars(r)
@@ -304,7 +382,23 @@ func (h *RelationshipHandler) GetRelatedEntities(w http.ResponseWriter, r *http.
 	responses.WriteJSONResponse(w, http.StatusOK, entities)
 }
 
-// GetRelationshipGraph retrieves the relationship graph for an entity
+// GetRelationshipGraph godoc
+// @Summary Get relationship graph
+// @Description Retrieve the complete relationship graph for an entity
+// @Tags relationships
+// @Accept json
+// @Produce json
+// @Param type path string true "Entity type"
+// @Param owner path string true "Repository owner"
+// @Param repo path string true "Repository name"
+// @Param id path string true "Entity ID"
+// @Param depth query integer false "Maximum traversal depth (default: 2)"
+// @Param types query string false "Comma-separated relationship types"
+// @Success 200 {object} map[string]interface{} "Relationship graph"
+// @Failure 500 {object} map[string]interface{} "Internal server error"
+// @Security ApiKeyAuth
+// @Security BearerAuth
+// @Router /entities/{type}/{owner}/{repo}/{id}/graph [get]
 func (h *RelationshipHandler) GetRelationshipGraph(w http.ResponseWriter, r *http.Request) {
 	// Extract entity details from URL
 	vars := mux.Vars(r)

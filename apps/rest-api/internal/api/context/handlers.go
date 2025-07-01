@@ -65,7 +65,20 @@ func (api *API) RegisterRoutes(router *gin.RouterGroup) {
 	}
 }
 
-// CreateContext creates a new context
+// CreateContext godoc
+// @Summary Create a new context
+// @Description Create a new conversation context for an AI agent with optional metadata and initial content
+// @Tags contexts
+// @Accept json
+// @Produce json
+// @Param context body models.Context true "Context data including agent_id, session_id, content, and metadata"
+// @Success 201 {object} map[string]interface{} "Created context with HATEOAS links and request tracing"
+// @Failure 400 {object} map[string]interface{} "Invalid request body"
+// @Failure 401 {object} map[string]interface{} "Unauthorized"
+// @Failure 500 {object} map[string]interface{} "Internal server error"
+// @Security ApiKeyAuth
+// @Security BearerAuth
+// @Router /contexts [post]
 func (api *API) CreateContext(c *gin.Context) {
 	var contextData models.Context
 
@@ -112,7 +125,22 @@ func (api *API) CreateContext(c *gin.Context) {
 	})
 }
 
-// GetContext retrieves a context by ID
+// GetContext godoc
+// @Summary Get a context by ID
+// @Description Retrieve an existing context by its ID with optional content inclusion
+// @Tags contexts
+// @Accept json
+// @Produce json
+// @Param contextID path string true "Context ID"
+// @Param include_content query boolean false "Include full content in response (default: true)"
+// @Success 200 {object} map[string]interface{} "Context data with HATEOAS links"
+// @Failure 400 {object} map[string]interface{} "Invalid parameters"
+// @Failure 401 {object} map[string]interface{} "Unauthorized or tenant mismatch"
+// @Failure 404 {object} map[string]interface{} "Context not found"
+// @Failure 500 {object} map[string]interface{} "Internal server error"
+// @Security ApiKeyAuth
+// @Security BearerAuth
+// @Router /contexts/{contextID} [get]
 func (api *API) GetContext(c *gin.Context) {
 	contextID := c.Param("contextID")
 
@@ -212,7 +240,22 @@ func (api *API) GetContext(c *gin.Context) {
 	})
 }
 
-// UpdateContext updates an existing context
+// UpdateContext godoc
+// @Summary Update an existing context
+// @Description Update an existing context with new messages or replace content entirely
+// @Tags contexts
+// @Accept json
+// @Produce json
+// @Param contextID path string true "Context ID"
+// @Param request body object true "Update request with content array and optional options"
+// @Success 200 {object} map[string]interface{} "Updated context with HATEOAS links"
+// @Failure 400 {object} map[string]interface{} "Invalid request body or missing content"
+// @Failure 401 {object} map[string]interface{} "Unauthorized"
+// @Failure 404 {object} map[string]interface{} "Context not found"
+// @Failure 500 {object} map[string]interface{} "Internal server error"
+// @Security ApiKeyAuth
+// @Security BearerAuth
+// @Router /contexts/{contextID} [put]
 func (api *API) UpdateContext(c *gin.Context) {
 	contextID := c.Param("contextID")
 
@@ -280,7 +323,20 @@ func (api *API) UpdateContext(c *gin.Context) {
 	})
 }
 
-// DeleteContext deletes a context
+// DeleteContext godoc
+// @Summary Delete a context
+// @Description Delete an existing context and all associated data
+// @Tags contexts
+// @Accept json
+// @Produce json
+// @Param contextID path string true "Context ID"
+// @Success 200 {object} map[string]interface{} "Deletion confirmation"
+// @Failure 401 {object} map[string]interface{} "Unauthorized"
+// @Failure 404 {object} map[string]interface{} "Context not found"
+// @Failure 500 {object} map[string]interface{} "Internal server error"
+// @Security ApiKeyAuth
+// @Security BearerAuth
+// @Router /contexts/{contextID} [delete]
 func (api *API) DeleteContext(c *gin.Context) {
 	contextID := c.Param("contextID")
 
@@ -305,7 +361,22 @@ func (api *API) DeleteContext(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"message": "context deleted"})
 }
 
-// ListContexts lists contexts for an agent
+// ListContexts godoc
+// @Summary List contexts for an agent
+// @Description List all contexts for a specific agent with optional session filtering
+// @Tags contexts
+// @Accept json
+// @Produce json
+// @Param agent_id query string true "Agent ID"
+// @Param session_id query string false "Filter by session ID"
+// @Param limit query integer false "Maximum number of contexts to return"
+// @Success 200 {array} map[string]interface{} "List of contexts with HATEOAS links"
+// @Failure 400 {object} map[string]interface{} "Invalid parameters"
+// @Failure 401 {object} map[string]interface{} "Unauthorized"
+// @Failure 500 {object} map[string]interface{} "Internal server error"
+// @Security ApiKeyAuth
+// @Security BearerAuth
+// @Router /contexts [get]
 func (api *API) ListContexts(c *gin.Context) {
 	agentID := c.Query("agent_id")
 	if agentID == "" {
@@ -366,7 +437,20 @@ func (api *API) ListContexts(c *gin.Context) {
 	c.JSON(http.StatusOK, response)
 }
 
-// SummarizeContext generates a summary of a context
+// SummarizeContext godoc
+// @Summary Generate a summary of a context
+// @Description Generate an AI-powered summary of the conversation context
+// @Tags contexts
+// @Accept json
+// @Produce json
+// @Param contextID path string true "Context ID"
+// @Success 200 {object} map[string]interface{} "Summary of the context"
+// @Failure 401 {object} map[string]interface{} "Unauthorized"
+// @Failure 404 {object} map[string]interface{} "Context not found"
+// @Failure 500 {object} map[string]interface{} "Internal server error"
+// @Security ApiKeyAuth
+// @Security BearerAuth
+// @Router /contexts/{contextID}/summary [get]
 func (api *API) SummarizeContext(c *gin.Context) {
 	contextID := c.Param("contextID")
 
@@ -398,7 +482,22 @@ func (api *API) SummarizeContext(c *gin.Context) {
 	})
 }
 
-// SearchInContext searches for text within a context
+// SearchInContext godoc
+// @Summary Search within a context
+// @Description Search for specific content within a conversation context
+// @Tags contexts
+// @Accept json
+// @Produce json
+// @Param contextID path string true "Context ID"
+// @Param request body object true "Search query"
+// @Success 200 {object} map[string]interface{} "Search results with matched messages"
+// @Failure 400 {object} map[string]interface{} "Invalid request body"
+// @Failure 401 {object} map[string]interface{} "Unauthorized"
+// @Failure 404 {object} map[string]interface{} "Context not found"
+// @Failure 500 {object} map[string]interface{} "Internal server error"
+// @Security ApiKeyAuth
+// @Security BearerAuth
+// @Router /contexts/{contextID}/search [post]
 func (api *API) SearchInContext(c *gin.Context) {
 	contextID := c.Param("contextID")
 

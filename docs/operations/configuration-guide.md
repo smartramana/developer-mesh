@@ -636,6 +636,397 @@ export LOG_LEVEL=debug
 ./devops-mcp config validate
 ```
 
+## Performance Configuration
+
+### Performance Tuning Settings
+
+Configure application performance characteristics:
+
+```yaml
+performance:
+  # Goroutine settings
+  go:
+    max_procs: 0  # 0 = use all CPUs
+    gc_percent: 100  # GC aggressiveness
+
+  # HTTP server performance
+  http:
+    max_connections: 10000
+    max_concurrent_streams: 1000
+    enable_http2: true
+    enable_compression: true
+    compression_level: 6
+    
+  # Connection pooling
+  pools:
+    database:
+      max_open: 100
+      max_idle: 25
+      lifetime: 30m
+    redis:
+      pool_size: 200
+      min_idle: 10
+      
+  # Worker pools
+  workers:
+    pool_size: 50
+    queue_size: 1000
+    prefetch_count: 10
+```
+
+### Caching Configuration
+
+Multi-level caching for optimal performance:
+
+```yaml
+caching:
+  # L1: In-memory cache
+  memory:
+    enabled: true
+    size: "1GB"
+    ttl: 5m
+    eviction: "lru"
+    
+  # L2: Redis cache
+  redis:
+    enabled: true
+    ttl: 1h
+    pipeline_window: 100ms
+    
+  # L3: S3 cache
+  s3:
+    enabled: true
+    bucket: "${CACHE_BUCKET}"
+    ttl: 24h
+    
+  # Cache warming
+  warming:
+    enabled: true
+    interval: 5m
+    items:
+      - "active_agents"
+      - "model_configs"
+      - "popular_embeddings"
+```
+
+### Resource Limits
+
+Prevent resource exhaustion:
+
+```yaml
+limits:
+  # Request limits
+  request:
+    max_size: "50MB"
+    timeout: 30s
+    max_headers: 100
+    
+  # Rate limiting
+  rate:
+    enabled: true
+    default_rps: 100
+    burst: 200
+    
+  # Memory limits
+  memory:
+    heap_limit: "4GB"
+    stack_size: "10MB"
+    
+  # Concurrent operations
+  concurrency:
+    max_websocket_connections: 10000
+    max_db_connections: 500
+    max_parallel_tasks: 100
+```
+
+## Cost Management Configuration
+
+### Cost Control Settings
+
+Manage and limit costs across services:
+
+```yaml
+cost_management:
+  # Global limits
+  limits:
+    daily_limit: 100.00
+    monthly_limit: 3000.00
+    session_limit: 1.00
+    
+  # Service-specific limits
+  services:
+    bedrock:
+      enabled: true
+      session_limit: 0.10
+      daily_limit: 50.00
+      models:
+        - name: "claude-3-opus"
+          max_cost_per_day: 20.00
+        - name: "claude-3-sonnet"
+          max_cost_per_day: 10.00
+          
+  # Cost tracking
+  tracking:
+    enabled: true
+    interval: 1m
+    storage: "database"
+    retention_days: 90
+    
+  # Alerts
+  alerts:
+    enabled: true
+    thresholds:
+      - level: "warning"
+        percent: 80
+      - level: "critical"
+        percent: 95
+```
+
+### Model Selection Strategy
+
+Configure how models are selected based on cost and performance:
+
+```yaml
+ai_models:
+  # Selection strategy
+  selection:
+    strategy: "balanced"  # cheapest, balanced, performance
+    
+  # Model preferences
+  preferences:
+    embeddings:
+      primary: "amazon.titan-embed-text-v1"
+      fallback: ["text-embedding-3-small"]
+      
+    inference:
+      simple_tasks: "claude-3-haiku"
+      complex_tasks: "claude-3-sonnet"
+      critical_tasks: "claude-3-opus"
+      
+  # Cost optimization
+  optimization:
+    cache_embeddings: true
+    batch_requests: true
+    use_cheaper_models_off_peak: true
+    off_peak_hours: "22:00-06:00"
+```
+
+### Resource Optimization
+
+Configure resource usage for cost efficiency:
+
+```yaml
+resource_optimization:
+  # Auto-scaling
+  scaling:
+    enabled: true
+    min_instances: 1
+    max_instances: 10
+    target_cpu: 70
+    scale_down_cooldown: 300s
+    
+  # Scheduled scaling
+  schedules:
+    - name: "business_hours"
+      schedule: "0 8 * * MON-FRI"
+      min_instances: 3
+      max_instances: 20
+      
+    - name: "off_hours"
+      schedule: "0 18 * * MON-FRI"
+      min_instances: 1
+      max_instances: 5
+      
+    - name: "weekend"
+      schedule: "0 0 * * SAT,SUN"
+      min_instances: 0
+      max_instances: 3
+      
+  # Spot instances
+  spot:
+    enabled: true
+    max_price: 0.05
+    percentage: 80
+```
+
+## Monitoring Configuration
+
+### Metrics and Observability
+
+Configure comprehensive monitoring:
+
+```yaml
+monitoring:
+  # Metrics
+  metrics:
+    enabled: true
+    provider: "prometheus"
+    interval: 60s
+    detailed: true
+    
+    # Custom metrics
+    custom:
+      - name: "cost_per_request"
+        type: "histogram"
+      - name: "model_latency"
+        type: "summary"
+        
+  # Tracing
+  tracing:
+    enabled: true
+    provider: "jaeger"
+    sampling_rate: 0.01  # 1% in production
+    
+    # Span attributes
+    attributes:
+      - "user_id"
+      - "agent_id"
+      - "model_name"
+      - "cost"
+      
+  # Logging
+  logging:
+    level: "info"
+    format: "json"
+    sampling:
+      initial: 100
+      thereafter: 100
+```
+
+### Health Checks
+
+Configure comprehensive health monitoring:
+
+```yaml
+health:
+  # Liveness probe
+  liveness:
+    endpoint: "/health/live"
+    interval: 10s
+    timeout: 5s
+    
+  # Readiness probe
+  readiness:
+    endpoint: "/health/ready"
+    interval: 5s
+    timeout: 3s
+    checks:
+      - database
+      - redis
+      - s3
+      
+  # Startup probe
+  startup:
+    endpoint: "/health/startup"
+    initial_delay: 10s
+    period: 5s
+    failure_threshold: 30
+```
+
+## Environment-Specific Performance Tuning
+
+### Development Performance Config
+
+```yaml
+# config.development.yaml
+performance:
+  go:
+    gc_percent: 100  # Default GC
+  http:
+    max_connections: 100
+  pools:
+    database:
+      max_open: 10
+      
+cost_management:
+  limits:
+    daily_limit: 1.00  # $1 limit for dev
+```
+
+### Production Performance Config
+
+```yaml
+# config.production.yaml
+performance:
+  go:
+    max_procs: 0  # Use all CPUs
+    gc_percent: 200  # Less frequent GC
+  http:
+    max_connections: 50000
+    enable_http2: true
+  pools:
+    database:
+      max_open: 500
+      max_idle: 100
+      
+cost_management:
+  limits:
+    daily_limit: 5000.00
+    alerts:
+      enabled: true
+      channels: ["slack", "pagerduty"]
+```
+
+## Configuration Scenarios
+
+For detailed configuration examples for different use cases, see:
+- [Configuration Scenarios Guide](../guides/configuration-scenarios.md)
+
+### Quick Reference
+
+- **Small Team**: Focus on simplicity and cost
+- **Enterprise**: High availability and compliance
+- **High Performance**: Maximum speed, cost secondary
+- **Cost Optimized**: Minimum cost, acceptable performance
+- **Multi-Region**: Global deployment with data residency
+
+## Performance Monitoring
+
+Monitor configuration effectiveness:
+
+```yaml
+performance_monitoring:
+  # Track config changes impact
+  track_changes: true
+  
+  # Baseline metrics
+  baselines:
+    response_time_p99: 100ms
+    throughput_rps: 1000
+    error_rate: 0.01
+    
+  # Alert on degradation
+  alerts:
+    response_time_increase: 50%
+    throughput_decrease: 30%
+    error_rate_increase: 100%
+```
+
+## Cost Monitoring
+
+Track cost impact of configuration:
+
+```yaml
+cost_monitoring:
+  # Budget tracking
+  budgets:
+    - name: "ai_models"
+      monthly_limit: 1000.00
+      alert_threshold: 80%
+      
+    - name: "infrastructure"
+      monthly_limit: 2000.00
+      alert_threshold: 90%
+      
+  # Cost attribution
+  tags:
+    required:
+      - environment
+      - team
+      - project
+      - cost_center
+```
+
 ## Best Practices Summary
 
 1. **Use hierarchical configuration** - Base → Environment → Local
@@ -648,3 +1039,8 @@ export LOG_LEVEL=debug
 8. **Test configuration changes** - Especially for production
 9. **Use feature flags** - For gradual rollouts
 10. **Monitor configuration drift** - Ensure deployed config matches expected
+11. **Optimize for your use case** - Balance performance vs cost
+12. **Set resource limits** - Prevent runaway costs and resource exhaustion
+13. **Enable monitoring** - Track the impact of configuration changes
+14. **Use caching strategically** - Reduce costs and improve performance
+15. **Schedule resource scaling** - Match capacity to demand

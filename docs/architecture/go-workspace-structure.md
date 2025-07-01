@@ -2,7 +2,7 @@
 
 ## Overview
 
-DevOps MCP uses Go 1.24's workspace feature to organize the codebase as a monorepo with multiple modules. This architecture provides strong module boundaries while enabling code sharing, making it ideal for microservices development.
+DevOps MCP uses Go 1.24's workspace feature to organize the codebase as a monorepo with multiple modules. This architecture provides strong module boundaries while enabling code sharing, making it ideal for the AI agent orchestration platform's microservices architecture.
 
 ## Why Go Workspaces?
 
@@ -22,30 +22,47 @@ devops-mcp/
 ├── go.work.sum               # Workspace checksums
 ├── Makefile                  # Build automation
 ├── apps/                     # Application modules
-│   ├── mcp-server/          # MCP protocol server
+│   ├── mcp-server/          # AI Agent orchestration server
 │   │   ├── go.mod           # Module: mcp-server
 │   │   ├── cmd/server/      # Entry point
 │   │   └── internal/        # Private packages
-│   │       ├── adapters/    # External adapters
-│   │       ├── api/         # API handlers
+│   │       ├── api/         # WebSocket & HTTP handlers
+│   │       │   └── websocket/ # Binary protocol, agent registry
 │   │       ├── config/      # Configuration
-│   │       └── core/        # Business logic
+│   │       └── core/        # Agent orchestration logic
 │   ├── rest-api/            # REST API service
 │   │   ├── go.mod           # Module: rest-api
 │   │   ├── cmd/api/         # Entry point
 │   │   └── internal/        # Private packages
-│   └── worker/              # Event processor
-│       ├── go.mod           # Module: worker
-│       ├── cmd/worker/      # Entry point
-│       └── internal/        # Private packages
-└── pkg/                     # Shared packages
-    ├── adapters/            # Common adapters
-    ├── common/              # Utilities
-    ├── database/            # DB abstractions
-    ├── embedding/           # Vector operations
+│   ├── worker/              # Distributed task processor
+│   │   ├── go.mod           # Module: worker
+│   │   ├── cmd/worker/      # Entry point
+│   │   └── internal/        # Private packages
+│   └── mockserver/          # Testing mock server
+│       ├── go.mod           # Module: mockserver
+│       └── cmd/mockserver/  # Entry point
+└── pkg/                     # Shared packages (35 total)
+    ├── adapters/            # Tool integrations (GitHub, etc.)
+    ├── agents/              # Agent management interfaces
+    ├── api/                 # API types and handlers
+    ├── auth/                # Authentication/authorization
+    ├── aws/                 # AWS service clients
+    ├── cache/               # Multi-level caching
+    ├── chunking/            # Code-aware content chunking
+    ├── collaboration/       # CRDT implementations
+    ├── common/              # Shared utilities
+    ├── config/              # Configuration management
+    ├── core/                # Core business logic
+    ├── database/            # Database abstractions
+    ├── embedding/           # Vector embeddings (Bedrock)
+    ├── events/              # Event-driven architecture
     ├── models/              # Domain models
-    ├── observability/       # Logging/metrics
-    └── repository/          # Data patterns
+    ├── observability/       # Logging, metrics, tracing
+    ├── queue/               # SQS integration
+    ├── repository/          # Data access patterns
+    ├── resilience/          # Circuit breakers, retries
+    ├── services/            # Business services
+    └── ...                  # 14 more packages
 ```
 
 ## Workspace Configuration
@@ -57,6 +74,7 @@ go 1.24
 
 use (
     ./apps/mcp-server
+    ./apps/mockserver
     ./apps/rest-api
     ./apps/worker
     ./pkg
@@ -182,25 +200,64 @@ apps/service-name/
 
 ### Shared Packages (`pkg/*`)
 
-Shared packages are organized by functionality:
+The 35 shared packages provide comprehensive functionality for AI orchestration:
 
+#### Core AI Orchestration Packages
 ```
 pkg/
-├── adapters/           # Interface adapters
-│   ├── github/        # GitHub integration
-│   ├── events/        # Event bus
-│   └── resilience/    # Circuit breakers
-├── common/            # Common utilities
-│   ├── config/        # Config structs
-│   ├── errors/        # Error types
-│   └── utils/         # Helpers
-├── models/            # Domain models
-│   ├── context.go     # Context entity
-│   ├── agent.go       # Agent entity
-│   └── ...
-└── repository/        # Data access
-    ├── interfaces.go  # Repository contracts
-    └── ...
+├── agents/              # Agent management
+│   └── interfaces.go   # AgentManager interface
+├── services/           # Business services
+│   ├── interfaces.go   # Service contracts
+│   ├── assignment_engine.go # Task routing algorithms
+│   └── notification_service.go # Real-time updates
+├── collaboration/      # Real-time collaboration
+│   ├── crdt/          # CRDT implementations
+│   │   ├── gcounter.go    # Grow-only counter
+│   │   ├── pncounter.go   # PN counter
+│   │   ├── lwwregister.go # LWW register
+│   │   └── orset.go       # OR-Set
+│   ├── document_crdt.go   # Collaborative editing
+│   └── state_crdt.go      # State synchronization
+└── embedding/         # Vector embeddings
+    ├── bedrock/       # AWS Bedrock provider
+    ├── embedder.go    # Embedding interface
+    └── router.go      # Multi-provider routing
+```
+
+#### Infrastructure Packages
+```
+pkg/
+├── aws/               # AWS service clients
+│   ├── bedrock.go    # Bedrock AI models
+│   ├── s3.go         # Context storage
+│   └── sqs.go        # Task queuing
+├── cache/            # Multi-level caching
+│   ├── memory.go     # In-memory cache
+│   ├── redis.go      # Distributed cache
+│   └── multi.go      # Cache hierarchy
+├── resilience/       # Fault tolerance
+│   ├── circuitbreaker.go # Circuit breaker
+│   ├── retry.go          # Retry logic
+│   └── ratelimit.go      # Rate limiting
+└── observability/    # Monitoring
+    ├── logger.go     # Structured logging
+    ├── metrics.go    # Prometheus metrics
+    └── tracer.go     # OpenTelemetry tracing
+```
+
+#### Domain Model Packages
+```
+pkg/
+├── models/           # Core domain models
+│   ├── agent.go     # AI agent entities
+│   ├── task.go      # Task definitions
+│   ├── workflow.go  # Workflow orchestration
+│   └── embedding.go # Vector embeddings
+└── repository/      # Data access layer
+    ├── agent/       # Agent repository
+    ├── task/        # Task repository
+    └── vector/      # Vector storage
 ```
 
 ## Best Practices
@@ -256,46 +313,58 @@ cfg, err := config.Load()
 
 ## Common Patterns
 
-### Adapter Pattern
+### Service Interface Pattern
 
-Bridge interface differences:
+Define contracts for AI services:
 
 ```go
-// pkg expects one interface
-type PkgRepository interface {
-    Store(ctx context.Context, item Item) error
+// pkg/services/interfaces.go
+type AssignmentEngine interface {
+    AssignTask(ctx context.Context, task *models.Task) (*models.Agent, error)
+    GetStrategy() AssignmentStrategy
 }
 
-// app has different interface
-type AppRepository interface {
-    Save(ctx context.Context, item Item) error
-}
-
-// Adapter bridges the gap
-type RepositoryAdapter struct {
-    app AppRepository
-}
-
-func (a *RepositoryAdapter) Store(ctx context.Context, item Item) error {
-    return a.app.Save(ctx, item)
+type NotificationService interface {
+    NotifyTaskAssigned(ctx context.Context, agentID string, task interface{}) error
+    BroadcastToAgents(ctx context.Context, agentIDs []string, message interface{}) error
 }
 ```
 
-### Factory Pattern
+### Repository Pattern for Agents
 
-Create module-specific implementations:
+Manage AI agent persistence:
 
 ```go
-// pkg/adapters/factory.go
-func NewAdapter(cfg Config) (Adapter, error) {
-    switch cfg.Type {
-    case "github":
-        return github.NewAdapter(cfg)
-    case "gitlab":
-        return gitlab.NewAdapter(cfg)
-    default:
-        return nil, errors.New("unknown adapter type")
-    }
+// pkg/repository/agent/interfaces.go
+type Repository interface {
+    Create(ctx context.Context, agent *models.Agent) error
+    GetByStatus(ctx context.Context, status models.AgentStatus) ([]*models.Agent, error)
+    GetWorkload(ctx context.Context, agentID uuid.UUID) (*models.AgentWorkload, error)
+    GetLeastLoadedAgent(ctx context.Context, capability models.AgentCapability) (*models.Agent, error)
+}
+```
+
+### Provider Pattern for Embeddings
+
+Support multiple AI providers:
+
+```go
+// pkg/embedding/provider.go
+type Provider interface {
+    GenerateEmbedding(ctx context.Context, text string) ([]float32, error)
+    GetModel() string
+    GetCost() float64
+}
+
+// pkg/embedding/router.go
+type Router struct {
+    providers []Provider
+    strategy  RoutingStrategy
+}
+
+func (r *Router) Route(ctx context.Context, text string) ([]float32, error) {
+    provider := r.strategy.SelectProvider(r.providers)
+    return provider.GenerateEmbedding(ctx, text)
 }
 ```
 
@@ -341,10 +410,25 @@ go mod graph | grep circular
 
 ## Future Considerations
 
-1. **Module Versioning**: Consider semantic versioning for pkg
-2. **Module Publishing**: Potentially publish pkg as separate module
-3. **Workspace Tooling**: Leverage Go 1.24+ workspace improvements
-4. **Build Optimization**: Use module-aware build caching
+1. **AI-Specific Packages**: 
+   - Separate module for agent SDK (`sdk/agent`)
+   - Provider-specific modules for different AI models
+   - Shared AI utilities package
+
+2. **Performance Optimization**:
+   - Module-aware build caching for faster CI/CD
+   - Selective module testing based on changes
+   - Binary size optimization per service
+
+3. **Extensibility**:
+   - Plugin system for new AI providers
+   - Dynamic module loading for agents
+   - Standardized adapter interfaces
+
+4. **Developer Experience**:
+   - Code generation for new adapters
+   - Module templates for common patterns
+   - Automated dependency updates
 
 ## References
 
