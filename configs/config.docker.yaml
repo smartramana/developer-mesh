@@ -116,14 +116,15 @@ cache:
 # Storage Configuration for Docker
 storage:
   context:
-    provider: "s3"  # Use LocalStack in Docker
+    provider: "s3"  # Use real AWS S3
     
   s3:
-    endpoint: "${S3_ENDPOINT}"  # http://localstack:4566
-    region: "${AWS_REGION}"     # us-west-2
-    bucket: "${S3_BUCKET}"      # mcp-contexts
-    force_path_style: true      # Required for LocalStack
-    disable_ssl: true           # LocalStack doesn't use SSL
+    # Leave endpoint empty to use real AWS S3
+    region: "${AWS_REGION}"     # us-east-1
+    bucket: "${S3_BUCKET}"      # sean-mcp-dev-contexts
+    # Standard AWS S3 settings
+    force_path_style: false
+    disable_ssl: false
 
 # Monitoring Configuration
 monitoring:
@@ -151,9 +152,9 @@ adapters:
       enabled: ${MOCK_RESPONSES_ENABLED:-true}
       url: "${MOCKSERVER_URL}"  # http://mockserver:8081
       
-  # LocalStack AWS services
+  # Real AWS services configuration
   aws:
-    endpoint: "${AWS_ENDPOINT_URL}"  # http://localstack:4566
+    # Leave endpoint empty to use real AWS services
     region: "${AWS_REGION}"
     access_key_id: "${AWS_ACCESS_KEY_ID}"
     secret_access_key: "${AWS_SECRET_ACCESS_KEY}"
@@ -164,7 +165,7 @@ worker:
   concurrency: ${WORKER_CONCURRENCY:-5}
   
   sqs:
-    queue_url: "${SQS_QUEUE_URL}"  # LocalStack SQS URL
+    queue_url: "${SQS_QUEUE_URL}"  # Real AWS SQS URL
     
 # Feature Flags for Docker
 features:

@@ -75,8 +75,8 @@ make docker-compose-logs
 # Note: This command runs:
 # - PostgreSQL 17 with pgvector extension
 # - Redis 7 Alpine
-# - LocalStack for AWS services (SQS)
-# - Automatic SQS queue creation
+# - Connects to real AWS services (SQS, S3, Bedrock)
+# - Requires AWS credentials configured
 ```
 
 Then continue with the appropriate steps:
@@ -122,11 +122,11 @@ make run-worker
 
 ```bash
 # Build and run all services
-make local-dev
+make dev
 
 # This automatically:
 # - Builds all service containers
-# - Starts PostgreSQL, Redis, LocalStack
+# - Starts PostgreSQL, Redis
 # - Creates SQS queues
 # - Runs all three services
 # - Exposes ports 8080 (MCP) and 8081 (REST API)
@@ -415,14 +415,16 @@ go version
 # Linux: Follow https://golang.org/doc/install
 ```
 
-### LocalStack/SQS Issues
+### AWS SQS Issues
 
 ```bash
-# Check LocalStack is running
-docker-compose -f docker-compose.local.yml ps localstack
+# Check SQS connectivity (real AWS)
+aws sqs list-queues --region us-east-1
 
-# Manually create SQS queue if needed
-aws --endpoint-url=http://localhost:4566 sqs create-queue --queue-name tasks
+# Verify queue exists
+aws sqs get-queue-attributes \
+  --queue-url https://sqs.us-east-1.amazonaws.com/594992249511/sean-mcp-test \
+  --attribute-names All
 ```
 
 ## 📚 Next Steps

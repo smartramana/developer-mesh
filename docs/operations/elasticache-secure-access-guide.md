@@ -1,20 +1,50 @@
 # AWS ElastiCache Secure Access Guide for Local Development
 
-This guide provides comprehensive instructions for configuring secure access to AWS ElastiCache Redis from a local development machine, with a focus on security best practices.
+> **Last Updated**: December 2024
+> **Purpose**: Comprehensive guide for secure ElastiCache access during development
+> **Focus**: SSH tunnel setup, security best practices, and troubleshooting
+
+This guide provides comprehensive instructions for configuring secure access to AWS ElastiCache Redis from a local development machine using the DevOps MCP platform's SSH tunnel approach.
 
 ## Table of Contents
-1. [Security Group Configuration](#security-group-configuration)
-2. [VPC and Network Configuration](#vpc-and-network-configuration)
-3. [ElastiCache Security Best Practices](#elasticache-security-best-practices)
-4. [Local Development Setup](#local-development-setup)
-5. [Testing and Validation](#testing-and-validation)
-6. [Troubleshooting](#troubleshooting)
+1. [Quick Start](#quick-start)
+2. [Security Group Configuration](#security-group-configuration)
+3. [VPC and Network Configuration](#vpc-and-network-configuration)
+4. [SSH Tunnel Setup](#ssh-tunnel-setup)
+5. [ElastiCache Security Best Practices](#elasticache-security-best-practices)
+6. [Local Development Setup](#local-development-setup)
+7. [Testing and Validation](#testing-and-validation)
+8. [Troubleshooting](#troubleshooting)
+9. [Production Considerations](#production-considerations)
 
 ## Prerequisites
 - AWS CLI configured with appropriate credentials
 - SSH client installed
 - Redis CLI tools installed (`redis-cli`)
 - VPC ID and subnet information for your ElastiCache cluster
+- Bastion host SSH key file
+- Environment variables configured in `.env`
+
+## Quick Start
+
+The DevOps MCP platform includes a ready-to-use SSH tunnel script:
+
+```bash
+# 1. Ensure your .env file contains:
+BASTION_HOST_IP=<your-bastion-ip>
+ELASTICACHE_ENDPOINT=<your-redis-endpoint>
+BASTION_KEY_FILE=~/.ssh/dev-bastion-key.pem
+
+# 2. Run the tunnel script (keep it running)
+./scripts/aws/connect-elasticache.sh
+
+# 3. In another terminal, test the connection
+redis-cli -h localhost -p 6379 ping
+
+# 4. Configure your application
+REDIS_ADDR=127.0.0.1:6379  # Use 127.0.0.1, NOT localhost
+USE_SSH_TUNNEL_FOR_REDIS=true
+```
 
 ## Security Group Configuration
 
@@ -87,15 +117,105 @@ aws elasticache modify-replication-group \
 
 ElastiCache clusters run within a VPC and are not directly accessible from the internet. You have three main options for secure access:
 
-1. **SSH Tunnel through Bastion Host** (Recommended)
-2. **AWS Client VPN**
-3. **Site-to-Site VPN**
+1. **SSH Tunnel through Bastion Host** (Recommended for development)
+2. **AWS Client VPN** (Better for teams)
+3. **Site-to-Site VPN** (Enterprise solution)
 
-### Option 1: SSH Tunnel through Bastion Host (Recommended)
+## SSH Tunnel Setup
 
-This is the most secure and easiest to implement for development purposes.
+The DevOps MCP platform uses SSH tunneling as the primary method for local ElastiCache access. This approach is secure, simple, and doesn't require VPN configuration.
 
-#### Step 1: Launch a Bastion Host
+### Using the Platform's SSH Tunnel Script
+
+The platform includes `scripts/aws/connect-elasticache.sh` which handles tunnel management:
+
+```bash
+#!/bin/bash
+# Key features of the script:
+# - Reads configuration from .env file
+# - Validates all required environment variables
+# - Creates secure SSH tunnel with proper options
+# - Provides clear connection information
+
+# Required environment variables:
+BASTION_HOST_IP=54.123.456.789         # Your bastion host's public IP
+ELASTICACHE_ENDPOINT=redis.abc123.cache.amazonaws.com  # Redis endpoint
+BASTION_KEY_FILE=~/.ssh/dev-bastion-key.pem          # Path to SSH key
+REDIS_TUNNEL_PORT=6379                 # Local port (optional, defaults to 6379)
+```
+
+### Setting Up the Tunnel
+
+1. **Configure Environment Variables**:
+   ```bash
+   # Add to your .env file
+   BASTION_HOST_IP=54.123.456.789
+   ELASTICACHE_ENDPOINT=sean-mcp-test-qem3fz.serverless.use1.cache.amazonaws.com
+   BASTION_KEY_FILE=$HOME/.ssh/dev-bastion-key.pem
+   ```
+
+2. **Ensure Key Permissions**:
+   ```bash
+   chmod 400 $HOME/.ssh/dev-bastion-key.pem
+   ```
+
+3. **Start the Tunnel**:
+   ```bash
+   ./scripts/aws/connect-elasticache.sh
+   ```
+
+4. **Keep the Tunnel Running**:
+   - The script runs in the foreground
+   - Keep the terminal window open
+   - Press Ctrl+C to close the tunnel
+
+### Advanced Tunnel Management
+
+For background operation or automatic management:
+
+```bash
+# Run tunnel in background
+nohup ./scripts/aws/connect-elasticache.sh > tunnel.log 2>&1 &
+
+# Check if tunnel is running
+ps aux | grep "[s]sh.*6379"
+
+# Kill tunnel
+pkill -f "ssh.*6379:.*cache.amazonaws.com"
+```
+
+### Creating a Systemd Service (Linux/macOS)
+
+Create `/etc/systemd/system/elasticache-tunnel.service`:
+
+```ini
+[Unit]
+Description=ElastiCache SSH Tunnel
+After=network.target
+
+[Service]
+Type=simple
+User=your-username
+Environment="PATH=/usr/local/bin:/usr/bin:/bin"
+WorkingDirectory=/path/to/devops-mcp
+ExecStart=/path/to/devops-mcp/scripts/aws/connect-elasticache.sh
+Restart=always
+RestartSec=10
+
+[Install]
+WantedBy=multi-user.target
+```
+
+Enable and start:
+```bash
+sudo systemctl enable elasticache-tunnel
+sudo systemctl start elasticache-tunnel
+sudo systemctl status elasticache-tunnel
+```
+
+### Bastion Host Setup
+
+If you need to create a bastion host:
 
 ```bash
 # Create a key pair for the bastion host
@@ -245,47 +365,77 @@ aws elasticache modify-replication-group \
 
 ## Local Development Setup
 
-### SSH Tunnel Configuration
+### Platform Configuration
 
-#### Step 1: Create SSH Config
+The DevOps MCP platform is pre-configured to work with ElastiCache through SSH tunnels. Here's how to set it up:
 
-Create or update `~/.ssh/config`:
+#### Step 1: Environment Configuration
 
-```
-Host elasticache-tunnel
-    HostName <bastion-public-ip>
-    User ec2-user
-    IdentityFile ~/.ssh/elasticache-bastion-key.pem
-    LocalForward 6379 sean-mcp-test-qem3fz.serverless.use1.cache.amazonaws.com:6379
-    ServerAliveInterval 60
-    ServerAliveCountMax 3
-```
-
-#### Step 2: Establish SSH Tunnel
+Create or update your `.env` file:
 
 ```bash
-# Start the SSH tunnel
-ssh -N elasticache-tunnel
+# AWS Configuration
+AWS_REGION=us-east-1
+AWS_PROFILE=default  # Or your specific profile
 
-# Or run in background
-ssh -N -f elasticache-tunnel
+# ElastiCache Configuration
+REDIS_ADDR=127.0.0.1:6379              # IMPORTANT: Use 127.0.0.1, not localhost
+USE_SSH_TUNNEL_FOR_REDIS=true          # Enable tunnel mode
+ELASTICACHE_ENDPOINT=sean-mcp-test-qem3fz.serverless.use1.cache.amazonaws.com
+REDIS_PASSWORD=                        # Add if AUTH is enabled
+
+# SSH Tunnel Configuration
+BASTION_HOST_IP=54.123.456.789        # Your bastion's public IP
+BASTION_KEY_FILE=~/.ssh/dev-bastion-key.pem
+REDIS_TUNNEL_PORT=6379                # Local port for tunnel
+
+# Cost Controls (for production)
+BEDROCK_SESSION_LIMIT=0.10
+GLOBAL_COST_LIMIT=10.0
 ```
 
-#### Step 3: Configure Environment Variables
+#### Step 2: Application Configuration
 
-Create `.env.local` for your application:
+The platform automatically detects tunnel mode from `USE_SSH_TUNNEL_FOR_REDIS`:
+
+```go
+// In pkg/common/aws_clients.go
+if os.Getenv("USE_SSH_TUNNEL_FOR_REDIS") == "true" {
+    // Uses REDIS_ADDR (127.0.0.1:6379) for tunneled connection
+    // No TLS since tunnel handles encryption
+} else {
+    // Direct connection with TLS (for production)
+}
+```
+
+#### Step 3: Running with SSH Tunnel
 
 ```bash
-# Redis connection via SSH tunnel
-REDIS_HOST=localhost
-REDIS_PORT=6379
-REDIS_PASSWORD=<your-auth-token>
-REDIS_TLS_ENABLED=false  # TLS termination happens at the tunnel
+# Terminal 1: Start and keep the SSH tunnel running
+./scripts/aws/connect-elasticache.sh
 
-# Direct connection (when running in AWS)
-REDIS_ENDPOINT=sean-mcp-test-qem3fz.serverless.use1.cache.amazonaws.com
-REDIS_DIRECT_PORT=6379
-REDIS_DIRECT_TLS_ENABLED=true
+# Terminal 2: Run your application
+make dev-native
+
+# Or run specific services
+go run apps/mcp-server/cmd/main.go
+go run apps/rest-api/cmd/main.go
+go run apps/worker/cmd/main.go
+```
+
+#### Step 4: Docker Development
+
+For Docker-based development, ensure the tunnel is accessible:
+
+```yaml
+# docker-compose.yml adjustments
+services:
+  mcp-server:
+    environment:
+      - REDIS_ADDR=host.docker.internal:6379  # Access host's tunnel
+      - USE_SSH_TUNNEL_FOR_REDIS=true
+    extra_hosts:
+      - "host.docker.internal:host-gateway"   # For Linux compatibility
 ```
 
 ### Automated Tunnel Script
@@ -513,9 +663,75 @@ aws elasticache describe-events \
 9. **Use VPN solutions for production environments**
 10. **Document all access patterns and maintain audit trails**
 
+## Production Considerations
+
+### Moving Beyond SSH Tunnels
+
+While SSH tunnels are perfect for development, production environments should use:
+
+1. **Direct VPC Access**:
+   ```bash
+   # Production configuration
+   USE_SSH_TUNNEL_FOR_REDIS=false
+   REDIS_ADDR=redis-cluster.abc123.cache.amazonaws.com:6379
+   REDIS_TLS_ENABLED=true
+   ```
+
+2. **AWS PrivateLink** for cross-VPC access
+3. **VPC Peering** for multi-region setups
+4. **Transit Gateway** for complex network topologies
+
+### Production Security Checklist
+
+- [ ] Remove all bastion hosts from production
+- [ ] Enable AWS ElastiCache encryption at rest
+- [ ] Enable TLS/SSL for all connections
+- [ ] Configure Redis AUTH with AWS Secrets Manager rotation
+- [ ] Set up CloudWatch alarms for suspicious activity
+- [ ] Enable AWS GuardDuty for threat detection
+- [ ] Configure VPC Flow Logs
+- [ ] Implement least-privilege IAM policies
+- [ ] Use AWS Systems Manager Session Manager instead of SSH
+- [ ] Enable AWS Config rules for compliance
+
+### Cost Optimization
+
+1. **Right-size your ElastiCache nodes**:
+   ```bash
+   # Monitor usage patterns
+   aws cloudwatch get-metric-statistics \
+     --namespace AWS/ElastiCache \
+     --metric-name CPUUtilization \
+     --dimensions Name=CacheClusterId,Value=your-cluster-id \
+     --statistics Average \
+     --start-time 2024-12-01T00:00:00Z \
+     --end-time 2024-12-25T00:00:00Z \
+     --period 3600
+   ```
+
+2. **Use Reserved Instances** for predictable workloads
+3. **Enable automatic backups** during low-traffic windows
+4. **Consider ElastiCache Serverless** for variable workloads
+
+## Platform-Specific Notes
+
+The DevOps MCP platform is designed to work seamlessly with ElastiCache:
+
+- **Automatic failover** handling in `pkg/common/aws_clients.go`
+- **Connection pooling** for optimal performance
+- **Retry logic** with exponential backoff
+- **Metrics collection** for monitoring
+- **Cost tracking** per operation
+
+For platform-specific issues, check:
+- `pkg/common/aws_clients.go` - Redis client configuration
+- `pkg/cache/redis_cache.go` - Caching implementation
+- `scripts/aws/connect-elasticache.sh` - SSH tunnel script
+
 ## Additional Resources
 
 - [AWS ElastiCache Security Best Practices](https://docs.aws.amazon.com/AmazonElastiCache/latest/red-ug/elasticache-security.html)
 - [VPC Security Best Practices](https://docs.aws.amazon.com/vpc/latest/userguide/vpc-security-best-practices.html)
 - [Redis Security Guide](https://redis.io/topics/security)
 - [AWS Well-Architected Framework - Security Pillar](https://docs.aws.amazon.com/wellarchitected/latest/security-pillar/welcome.html)
+- [DevOps MCP Production Deployment Guide](./production-deployment.md)

@@ -2,60 +2,65 @@
 
 ## Overview
 
-DevOps MCP (Model Context Protocol) is a production-ready platform that bridges AI agents with DevOps tools. Built using Go workspaces for modularity, it provides a unified API for tool integration, context management, and semantic search capabilities.
+DevOps MCP is an AI Agent Orchestration Platform that enables intelligent routing and coordination of multiple AI agents for DevOps workflows. Built using Go workspaces for modularity, it provides sophisticated multi-agent orchestration, real-time collaboration features, and production-ready AWS integrations.
 
 ## Architecture Principles
 
 - **Microservices Architecture**: Three independent services communicating via APIs and events
+- **AI-Native Design**: Built from the ground up for multi-agent orchestration and coordination
 - **Clean Architecture**: Clear separation between business logic, adapters, and infrastructure
-- **Event-Driven Design**: Asynchronous processing for scalability and resilience
+- **Event-Driven Design**: Real-time WebSocket communication with asynchronous task processing
 - **Go Workspace**: Monorepo with multiple modules for code sharing and independent deployment
-- **Cloud-Native**: Designed for containerized deployment with AWS service integration
+- **Cloud-Native**: Production AWS integration with Bedrock, SQS, S3, and ElastiCache
 
 ## System Components
 
 ### 🔵 MCP Server (`apps/mcp-server`)
 
-The MCP Server implements the Model Context Protocol specification:
+The MCP Server is the core AI agent orchestration hub:
 
-- **Protocol Implementation**: Handles MCP protocol messages and routing
-- **Tool Management**: Registers and manages available DevOps tools
-- **Context Coordination**: Manages conversation contexts across tools
-- **Event Publishing**: Publishes events for asynchronous processing
+- **Agent Registry**: Manages AI agent registration, capabilities, and real-time status
+- **Task Assignment Engine**: Intelligent routing with multiple strategies (capability-match, least-loaded, cost-optimized)
+- **Binary WebSocket Protocol**: High-performance communication with compression support
+- **Multi-Agent Collaboration**: Orchestrates complex workflows across multiple AI agents
 
 Key Features:
-- WebSocket support for real-time communication
-- Tool discovery and capability negotiation
-- Session management with context persistence
+- Binary WebSocket protocol with automatic gzip compression (>1KB messages)
+- Real-time agent discovery and capability-based routing
+- Workload tracking and dynamic load balancing
+- Task delegation and collaboration patterns (MapReduce, parallel, pipeline)
+- Circuit breaker pattern for resilient agent communication
 
 ### 🟢 REST API Service (`apps/rest-api`)
 
 The REST API provides HTTP endpoints for external integrations:
 
-- **Resource Management**: CRUD operations for contexts, agents, and models
-- **Vector Operations**: Semantic search and embedding management
-- **Webhook Handling**: Processes GitHub and other tool webhooks
-- **API Gateway**: Unified entry point for all HTTP-based operations
+- **Agent Management**: Register agents, query capabilities, monitor workload
+- **Task Submission**: Submit tasks with routing preferences and requirements
+- **Embedding Operations**: Generate and search embeddings via AWS Bedrock
+- **Tool Integration**: GitHub adapter for DevOps workflow automation
 
 Key Features:
-- OpenAPI 3.0 specification
-- Rate limiting and authentication
-- CORS support for browser-based clients
-- Pagination and filtering
+- All endpoints use `/api/v1/*` path prefix
+- Multi-model embedding support (Titan, Cohere, Claude)
+- Cost tracking and optimization for AI operations
+- JWT and API key authentication
+- Comprehensive Swagger/OpenAPI documentation
 
 ### 🟠 Worker Service (`apps/worker`)
 
-The Worker processes asynchronous tasks:
+The Worker handles distributed task processing:
 
-- **Event Processing**: Consumes events from SQS queues
-- **Background Jobs**: Long-running operations and batch processing
-- **Retry Logic**: Exponential backoff for failed operations
-- **Idempotency**: Ensures operations are processed exactly once
+- **Task Distribution**: Processes tasks assigned to AI agents
+- **Embedding Pipeline**: Batch processing for vector embeddings
+- **Notification Delivery**: Sends real-time updates via WebSocket
+- **Workflow Coordination**: Manages multi-step AI workflows
 
 Key Features:
-- Dead letter queue handling
-- Concurrent processing with configurable workers
-- Circuit breaker pattern for external services
+- SQS integration for reliable task delivery
+- Concurrent processing with agent workload awareness
+- Cost tracking for AI model usage
+- Dead letter queue for failed task handling
 
 ### 📦 Shared Libraries (`pkg/`)
 
@@ -103,32 +108,80 @@ pkg/
 - Dead letter queues
 - FIFO support
 
+## Collaboration Features
+
+### CRDT-Based Collaborative Editing
+
+The platform includes advanced CRDT (Conflict-free Replicated Data Type) implementations for real-time collaboration:
+
+- **DocumentCRDT**: Collaborative text editing with fractional indexing
+- **StateCRDT**: Distributed state management with path-based updates
+- **Vector Clocks**: Causality tracking for distributed operations
+- **Implemented CRDTs**:
+  - GCounter (grow-only counter)
+  - PNCounter (increment/decrement counter)
+  - LWWRegister (last-write-wins register)
+  - ORSet (observed-remove set)
+
+### Binary WebSocket Protocol
+
+High-performance binary protocol for agent communication:
+
+```
+Header (12 bytes):
+┌─────────┬───────┬──────────────┬──────────────┬──────────┐
+│ Version │ Flags │ Message Type │ Payload Size │ Reserved │
+│ 1 byte  │ 1 byte│   2 bytes    │   4 bytes    │  4 bytes │
+└─────────┴───────┴──────────────┴──────────────┴──────────┘
+
+Features:
+- Automatic gzip compression for messages > 1KB
+- Message batching for improved throughput
+- Buffer pooling for reduced GC pressure
+- Max payload size: ~4GB
+- Max decompressed size: 10MB (security limit)
+```
+
 ## Data Flow Patterns
 
-### 1. Synchronous Request Flow
+### 1. AI Agent Registration Flow
 
 ```
-Client → REST API → Repository → Database
-         ↓
-         Response ← Adapter ← Repository
-```
-
-### 2. Event-Driven Flow
-
-```
-API → Event Bus → SQS → Worker → External Service
+Agent → WebSocket → MCP Server → Agent Registry
                          ↓
-                    Database Update
+                    Capability Index
+                         ↓
+                    Task Router Update
 ```
 
-### 3. Vector Search Flow
+### 2. Task Assignment Flow
 
 ```
-Query → Embedding Service → Vector DB (pgvector)
+Task Request → REST API → Assignment Engine → Agent Selection
+                                    ↓
+                            WebSocket Notification
+                                    ↓
+                               Agent Processing
+```
+
+### 3. Multi-Agent Collaboration Flow
+
+```
+Initiator Agent → Task Delegation → Agent Discovery
+                         ↓
+                  Capability Matching
+                         ↓
+                  Parallel Execution → Result Aggregation
+```
+
+### 4. Vector Embedding Flow
+
+```
+Content → Bedrock API → Embedding Generation
                               ↓
-                         Similarity Search
+                         Cost Tracking
                               ↓
-                         Ranked Results
+                    pgvector Storage → Similarity Search
 ```
 
 ## Integration Patterns
@@ -210,7 +263,7 @@ type Repository[T any] interface {
 docker-compose:
   - postgres (with pgvector)
   - redis
-  - localstack (SQS)
+  - AWS SQS (production)
   - Services (hot reload)
 ```
 
@@ -236,23 +289,33 @@ docker-compose:
 
 ## Performance Considerations
 
-### Caching Strategy
+### AI Agent Performance
 
-1. **Redis Cache**: Frequently accessed data
-2. **Application Cache**: In-memory LRU cache
-3. **CDN**: Static assets and API responses
+1. **Task Routing**: Sub-100ms routing decisions with cached capabilities
+2. **Binary Protocol**: Up to 70% message size reduction with compression
+3. **Connection Pooling**: Reusable WebSocket connections per agent
+4. **Workload Balancing**: Real-time load distribution across agents
 
-### Database Optimization
+### Multi-Level Caching
 
-1. **Connection Pooling**: Configurable pool sizes
-2. **Query Optimization**: Explain plans and indexes
-3. **Partitioning**: Time-based partitions for events
+1. **Memory Cache**: Hot embeddings and agent capabilities
+2. **Redis Cache**: Distributed cache for agent state and embeddings
+3. **Database Cache**: Persistent storage with pgvector indexes
+4. **Cost Cache**: Model pricing data for routing decisions
+
+### Embedding Optimization
+
+1. **Batch Processing**: Reduce API calls to Bedrock
+2. **Provider Failover**: Automatic switching on rate limits
+3. **Quality/Cost Trade-offs**: Configurable routing strategies
+4. **Cache Hit Rates**: Minimize regeneration costs
 
 ### Scalability
 
-1. **Horizontal Scaling**: All services are stateless
-2. **Queue-Based Decoupling**: Async processing
-3. **Rate Limiting**: Protect against overload
+1. **Agent Scaling**: Support for 1000+ concurrent AI agents
+2. **Task Parallelization**: MapReduce patterns for large workloads
+3. **Circuit Breakers**: Prevent cascade failures
+4. **Queue Sharding**: Distribute load across SQS queues
 
 ## Resilience Patterns
 
@@ -270,11 +333,35 @@ Liveness and readiness probes
 
 ## Future Architecture Considerations
 
-1. **GraphQL Gateway**: Unified query interface
-2. **Event Sourcing**: Complete audit trail
-3. **CQRS**: Separate read/write models
-4. **Multi-Region**: Geographic distribution
-5. **Service Mesh**: Advanced traffic management
+1. **Advanced AI Orchestration**:
+   - Hierarchical agent organizations
+   - Learning-based task routing
+   - Agent capability evolution
+   - Multi-modal agent support
+
+2. **Enhanced Collaboration**:
+   - Full CRDT delta synchronization
+   - Conflict resolution strategies
+   - Real-time collaborative debugging
+   - Agent consensus mechanisms
+
+3. **Enterprise Features**:
+   - Casbin RBAC implementation
+   - OAuth provider integrations
+   - Advanced audit logging
+   - Multi-tenant agent isolation
+
+4. **Performance Enhancements**:
+   - GPU-accelerated embeddings
+   - Edge agent deployment
+   - Predictive task scheduling
+   - Adaptive compression algorithms
+
+5. **Integration Expansion**:
+   - Additional DevOps tool adapters
+   - Cloud provider agnostic design
+   - Kubernetes operator for agents
+   - GitOps workflow automation
 
 ## References
 

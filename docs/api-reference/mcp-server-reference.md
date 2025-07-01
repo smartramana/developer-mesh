@@ -34,6 +34,8 @@ The MCP Server API implements the Model Context Protocol specification, providin
 - **Multi-Agent Embeddings**: Agent-specific embedding generation with intelligent provider routing
 - **Real-time Updates**: WebSocket support for streaming responses
 - **Multi-tenancy**: Built-in tenant isolation for enterprise deployments
+- **Binary Protocol**: High-performance WebSocket communication with automatic compression
+- **AI Agent Orchestration**: Support for multiple concurrent AI agents with task routing
 
 ## Base URL and Versioning
 
@@ -1006,33 +1008,221 @@ POST /api/v1/relationships
 
 ## WebSocket Support
 
-The MCP Server supports WebSocket connections for real-time communication:
+The MCP Server provides WebSocket connections for real-time AI agent communication with an optimized binary protocol for high-performance message exchange.
+
+### Connection Establishment
 
 ```javascript
 const ws = new WebSocket('wss://api.mcp-server.example.com/ws');
 
 ws.on('open', () => {
+  // Send MCP initialization
   ws.send(JSON.stringify({
-    type: 'authenticate',
-    token: 'your-api-key'
+    jsonrpc: "2.0",
+    method: "initialize",
+    params: {
+      protocolVersion: "0.1.0",
+      capabilities: {
+        tools: {},
+        prompts: {},
+        resources: {}
+      },
+      clientInfo: {
+        name: "devops-agent",
+        version: "1.0.0"
+      }
+    },
+    id: 1
   }));
 });
+```
 
+### Binary Protocol (High Performance)
+
+For messages larger than 1KB, the MCP Server automatically uses a binary protocol for improved performance:
+
+#### Binary Message Format
+
+```
+┌─────────────┬─────────┬──────────┬─────────────┬──────────┬──────────────┬──────────────┬────────────┐
+│ Magic (4B)  │ Ver (1B)│ Type(1B) │ Method (2B) │ Flags(1B)│ Reserved(3B) │ Payload(4B)  │ ReqID (8B) │
+├─────────────┼─────────┼──────────┼─────────────┼──────────┼──────────────┼──────────────┼────────────┤
+│ "DMCP"      │ 0x01    │ 0x01-0x07│ 0x0000-FFFF │ 0bXXXXXXXX│ 0x000000     │ Size (uint32)│ ID (uint64)│
+└─────────────┴─────────┴──────────┴─────────────┴──────────┴──────────────┴──────────────┴────────────┘
+```
+
+**Header Fields (24 bytes):**
+- **Magic** (4 bytes): "DMCP" identifier
+- **Version** (1 byte): Protocol version (currently 0x01)
+- **Type** (1 byte): Message type
+  - 0x01: Request
+  - 0x02: Response
+  - 0x03: Notification
+  - 0x04: Error
+  - 0x05: Ping
+  - 0x06: Pong
+  - 0x07: Close
+- **Method** (2 bytes): Method enum for fast routing
+- **Flags** (1 byte): 
+  - Bit 0: Compression enabled (gzip)
+  - Bit 1: Encryption enabled
+  - Bit 2-7: Reserved
+- **Reserved** (3 bytes): Future use
+- **PayloadLen** (4 bytes): Payload size (max ~4GB)
+- **RequestID** (8 bytes): Request identifier for correlation
+
+#### Method Enums (Common Operations)
+
+```go
+const (
+    MethodInitialize      uint16 = 0x0001
+    MethodListTools       uint16 = 0x0002
+    MethodCallTool        uint16 = 0x0003
+    MethodListResources   uint16 = 0x0004
+    MethodReadResource    uint16 = 0x0005
+    MethodListPrompts     uint16 = 0x0006
+    MethodGetPrompt       uint16 = 0x0007
+    MethodSetLogLevel     uint16 = 0x0008
+    MethodGetCompletion   uint16 = 0x0009
+    MethodCreateContext   uint16 = 0x000A
+    MethodAgentRegister   uint16 = 0x0100
+    MethodAgentHeartbeat  uint16 = 0x0101
+    MethodTaskAssign      uint16 = 0x0102
+    MethodTaskUpdate      uint16 = 0x0103
+)
+```
+
+### Performance Features
+
+1. **Automatic Compression**: Messages >1KB are automatically gzip compressed
+2. **Binary Encoding**: ~70% smaller than JSON for typical messages
+3. **Connection Pooling**: Reusable connections per agent
+4. **Message Batching**: Multiple operations in single message
+5. **Zero-Copy Parsing**: Direct memory access for performance
+
+### WebSocket Message Flow
+
+```javascript
+// Client sends binary message for large payloads
+if (payload.length > 1024) {
+  const binaryMsg = encodeDBinaryMessage({
+    type: MessageType.Request,
+    method: MethodCallTool,
+    payload: payload,
+    requestId: generateRequestId()
+  });
+  ws.send(binaryMsg);
+} else {
+  // Small messages use JSON
+  ws.send(JSON.stringify(message));
+}
+
+// Server automatically handles both formats
 ws.on('message', (data) => {
-  const message = JSON.parse(data);
-  if (message.type === 'tool_update') {
-    console.log('Tool execution update:', message.data);
+  if (data[0] === 0x44 && data[1] === 0x4D) { // "DM" magic
+    const msg = decodeBinaryMessage(data);
+    handleBinaryMessage(msg);
+  } else {
+    const msg = JSON.parse(data);
+    handleJSONMessage(msg);
   }
+});
+```
+
+### Real-time Features
+
+#### Agent Registration
+```json
+{
+  "method": "agent.register",
+  "params": {
+    "name": "code-analyzer",
+    "capabilities": ["code_analysis", "security_scan"],
+    "model": "gpt-4"
+  }
+}
+```
+
+#### Task Assignment Notification
+```json
+{
+  "method": "notification",
+  "params": {
+    "type": "task.assigned",
+    "task": {
+      "id": "task-123",
+      "type": "code_review",
+      "priority": "high"
+    }
+  }
+}
+```
+
+#### Collaborative Workspace Updates
+```json
+{
+  "method": "workspace.update",
+  "params": {
+    "type": "document.changed",
+    "document_id": "doc-456",
+    "changes": [...] // CRDT operations
+  }
+}
+```
+
+### Connection Management
+
+```javascript
+// Heartbeat for connection health
+setInterval(() => {
+  if (ws.readyState === WebSocket.OPEN) {
+    ws.send(new Uint8Array([
+      0x44, 0x4D, 0x43, 0x50, // Magic "DMCP"
+      0x01,                   // Version
+      0x05,                   // Type: Ping
+      0x00, 0x00,            // Method (unused)
+      0x00,                   // Flags
+      0x00, 0x00, 0x00,      // Reserved
+      0x00, 0x00, 0x00, 0x00, // No payload
+      ...BigInt(Date.now()).toString(16).padStart(16, '0').match(/.{2}/g).map(b => parseInt(b, 16))
+    ]));
+  }
+}, 30000);
+
+// Handle connection errors
+ws.on('error', (error) => {
+  console.error('WebSocket error:', error);
+  // Implement exponential backoff reconnection
 });
 ```
 
 ### WebSocket Message Types
 
-- `authenticate`: Authenticate the connection
-- `subscribe`: Subscribe to updates (context, tool_execution, etc.)
-- `unsubscribe`: Unsubscribe from updates
-- `tool_update`: Real-time tool execution updates
-- `context_update`: Context change notifications
+#### MCP Protocol Messages
+- `initialize`: Initialize MCP session
+- `initialized`: Confirmation of initialization
+- `tools/list`: List available tools
+- `tools/call`: Execute a tool
+- `resources/list`: List available resources
+- `resources/read`: Read a resource
+- `prompts/list`: List available prompts
+- `prompts/get`: Get a specific prompt
+- `completion/create`: Create a completion
+
+#### Agent Orchestration Messages
+- `agent.register`: Register new agent
+- `agent.status`: Update agent status
+- `agent.heartbeat`: Keep-alive signal
+- `task.assign`: Assign task to agent
+- `task.update`: Update task progress
+- `task.complete`: Mark task complete
+
+#### Collaboration Messages
+- `workspace.join`: Join collaborative workspace
+- `document.lock`: Lock document for editing
+- `document.update`: CRDT-based document update
+- `cursor.position`: Share cursor position
+- `selection.change`: Share selection changes
 
 ## SDK Support
 

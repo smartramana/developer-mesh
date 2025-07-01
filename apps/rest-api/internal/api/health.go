@@ -70,8 +70,14 @@ func (h *HealthChecker) checkDatabase(ctx context.Context) error {
 	return h.db.PingContext(ctx)
 }
 
-// LivenessHandler handles liveness probe requests
-// Returns 200 if the service is alive
+// LivenessHandler godoc
+// @Summary Liveness probe
+// @Description Check if the service is alive (for Kubernetes liveness probe)
+// @Tags health
+// @Accept json
+// @Produce json
+// @Success 200 {object} map[string]interface{} "Service is alive"
+// @Router /healthz [get]
 func (h *HealthChecker) LivenessHandler(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{
 		"status": "alive",
@@ -79,8 +85,15 @@ func (h *HealthChecker) LivenessHandler(c *gin.Context) {
 	})
 }
 
-// ReadinessHandler handles readiness probe requests
-// Returns 200 if the service is ready to accept traffic
+// ReadinessHandler godoc
+// @Summary Readiness probe
+// @Description Check if the service is ready to accept traffic (for Kubernetes readiness probe)
+// @Tags health
+// @Accept json
+// @Produce json
+// @Success 200 {object} map[string]interface{} "Service is ready"
+// @Failure 503 {object} map[string]interface{} "Service is not ready"
+// @Router /readyz [get]
 func (h *HealthChecker) ReadinessHandler(c *gin.Context) {
 	if !h.IsReady() {
 		c.JSON(http.StatusServiceUnavailable, gin.H{
@@ -122,7 +135,15 @@ func (h *HealthChecker) ReadinessHandler(c *gin.Context) {
 	})
 }
 
-// HealthHandler provides combined health status
+// HealthHandler godoc
+// @Summary Health check
+// @Description Get comprehensive health status of all components
+// @Tags health
+// @Accept json
+// @Produce json
+// @Success 200 {object} map[string]interface{} "All components healthy"
+// @Failure 503 {object} map[string]interface{} "One or more components unhealthy"
+// @Router /health [get]
 func (h *HealthChecker) HealthHandler(c *gin.Context) {
 	ctx, cancel := context.WithTimeout(c.Request.Context(), 5*time.Second)
 	defer cancel()

@@ -572,4 +572,74 @@ cb.OnStateChange = func(from, to gobreaker.State) {
 [Any other relevant information]
 ```
 
+## Advanced Debugging Techniques
+
+### Correlation IDs Across Services
+
+```go
+// Generate correlation ID at edge
+func GenerateCorrelationID(ctx context.Context) context.Context {
+    correlationID := uuid.New().String()
+    ctx = context.WithValue(ctx, "correlation_id", correlationID)
+    
+    // Add to trace baggage
+    bag, _ := baggage.Parse(fmt.Sprintf("correlation_id=%s", correlationID))
+    ctx = baggage.ContextWithBaggage(ctx, bag)
+    
+    return ctx
+}
+
+// Extract in downstream services
+func GetCorrelationID(ctx context.Context) string {
+    // Try context value first
+    if id, ok := ctx.Value("correlation_id").(string); ok {
+        return id
+    }
+    
+    // Try baggage
+    if bag := baggage.FromContext(ctx); bag != nil {
+        if member := bag.Member("correlation_id"); member.Key() != "" {
+            return member.Value()
+        }
+    }
+    
+    // Try trace ID as fallback
+    span := trace.SpanFromContext(ctx)
+    return span.SpanContext().TraceID().String()
+}
+```
+
+### Debug Endpoints
+
+```go
+// Add comprehensive debug endpoints
+func RegisterDebugEndpoints(router *gin.Engine) {
+    debug := router.Group("/debug")
+    debug.Use(RequireDebugMode())
+    
+    // WebSocket debugging
+    debug.GET("/websocket/connections", handleWebSocketConnections)
+    debug.GET("/websocket/stats", handleWebSocketStats)
+    debug.GET("/websocket/messages/:agent_id", handleWebSocketMessages)
+    
+    // Trace debugging
+    debug.GET("/traces/current", handleCurrentTraces)
+    debug.GET("/traces/slow", handleSlowTraces)
+    debug.POST("/traces/analyze", handleTraceAnalysis)
+    
+    // AWS service debugging
+    debug.GET("/aws/costs", handleAWSCosts)
+    debug.GET("/aws/quotas", handleAWSQuotas)
+    debug.GET("/aws/errors", handleAWSErrors)
+    
+    // System debugging
+    debug.GET("/goroutines", handleGoroutines)
+    debug.GET("/connections", handleConnections)
+    debug.GET("/cache/stats", handleCacheStats)
+}
+```
+
 ---
+
+Last Updated: 2024-01-10
+Version: 2.0.0

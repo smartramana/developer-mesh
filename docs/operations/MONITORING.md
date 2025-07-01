@@ -34,6 +34,24 @@ docker-compose -f docker-compose.monitoring.yml up -d
 - `mcp_auth_attempts_total` - Authentication attempts by method
 - `mcp_api_keys_active` - Number of active API keys
 
+#### WebSocket Metrics
+- `mcp_websocket_connections_active` - Current active WebSocket connections
+- `mcp_websocket_connections_total` - Total WebSocket connections established
+- `mcp_websocket_messages_sent_total` - Messages sent by type and compression
+- `mcp_websocket_messages_received_total` - Messages received by type
+- `mcp_websocket_message_size_bytes` - Message size distribution
+- `mcp_websocket_compression_ratio` - Compression effectiveness
+- `mcp_websocket_protocol_version` - Protocol version in use
+- `mcp_websocket_errors_total` - WebSocket errors by type
+- `mcp_websocket_ping_latency_seconds` - Ping/pong latency
+
+#### Agent Metrics
+- `mcp_agents_registered` - Number of registered agents by type
+- `mcp_agent_workload_current` - Current workload per agent
+- `mcp_agent_tasks_completed_total` - Tasks completed by agent
+- `mcp_agent_task_duration_seconds` - Task processing time by agent
+- `mcp_agent_capabilities` - Agent capabilities matrix
+
 #### System Metrics
 - `go_goroutines` - Number of goroutines
 - `go_memstats_alloc_bytes` - Memory allocation
@@ -98,6 +116,187 @@ func CreateContext(ctx context.Context, content string) error {
     contextsCreated.WithLabelValues(tenantID, "manual").Inc()
     contextSize.Observe(float64(len(content)))
     // ... rest of implementation
+}
+```
+
+### WebSocket Metrics Implementation
+```go
+// WebSocket-specific metrics
+package metrics
+
+import (
+    "github.com/prometheus/client_golang/prometheus"
+    "github.com/prometheus/client_golang/prometheus/promauto"
+)
+
+var (
+    // Connection metrics
+    wsConnectionsActive = promauto.NewGaugeVec(
+        prometheus.GaugeOpts{
+            Name: "mcp_websocket_connections_active",
+            Help: "Number of active WebSocket connections",
+        },
+        []string{"protocol_version", "agent_type"},
+    )
+    
+    wsConnectionsTotal = promauto.NewCounterVec(
+        prometheus.CounterOpts{
+            Name: "mcp_websocket_connections_total",
+            Help: "Total WebSocket connections established",
+        },
+        []string{"protocol_version", "status"},
+    )
+    
+    // Message metrics
+    wsMessagesSent = promauto.NewCounterVec(
+        prometheus.CounterOpts{
+            Name: "mcp_websocket_messages_sent_total",
+            Help: "Total messages sent via WebSocket",
+        },
+        []string{"message_type", "compressed", "protocol_version"},
+    )
+    
+    wsMessagesReceived = promauto.NewCounterVec(
+        prometheus.CounterOpts{
+            Name: "mcp_websocket_messages_received_total",
+            Help: "Total messages received via WebSocket",
+        },
+        []string{"message_type", "protocol_version"},
+    )
+    
+    wsMessageSize = promauto.NewHistogramVec(
+        prometheus.HistogramOpts{
+            Name: "mcp_websocket_message_size_bytes",
+            Help: "Size of WebSocket messages in bytes",
+            Buckets: prometheus.ExponentialBuckets(128, 2, 12), // 128B to 256KB
+        },
+        []string{"direction", "message_type", "compressed"},
+    )
+    
+    wsCompressionRatio = promauto.NewHistogram(
+        prometheus.HistogramOpts{
+            Name: "mcp_websocket_compression_ratio",
+            Help: "Compression ratio for WebSocket messages",
+            Buckets: prometheus.LinearBuckets(0, 0.1, 11), // 0% to 100%
+        },
+    )
+    
+    wsPingLatency = promauto.NewHistogram(
+        prometheus.HistogramOpts{
+            Name: "mcp_websocket_ping_latency_seconds",
+            Help: "WebSocket ping/pong latency",
+            Buckets: prometheus.ExponentialBuckets(0.001, 2, 10), // 1ms to 1s
+        },
+    )
+)
+
+// Track WebSocket connection
+func TrackWSConnection(protocolVersion, agentType string, connected bool) {
+    if connected {
+        wsConnectionsActive.WithLabelValues(protocolVersion, agentType).Inc()
+        wsConnectionsTotal.WithLabelValues(protocolVersion, "established").Inc()
+    } else {
+        wsConnectionsActive.WithLabelValues(protocolVersion, agentType).Dec()
+        wsConnectionsTotal.WithLabelValues(protocolVersion, "closed").Inc()
+    }
+}
+
+// Track WebSocket message
+func TrackWSMessage(direction string, msg *WSMessage) {
+    compressed := "false"
+    if msg.Flags&FlagCompressed != 0 {
+        compressed = "true"
+    }
+    
+    labels := []string{msg.Type.String(), compressed, msg.Version.String()}
+    
+    if direction == "sent" {
+        wsMessagesSent.WithLabelValues(labels...).Inc()
+    } else {
+        wsMessagesReceived.WithLabelValues(msg.Type.String(), msg.Version.String()).Inc()
+    }
+    
+    wsMessageSize.WithLabelValues(direction, msg.Type.String(), compressed).
+        Observe(float64(len(msg.Payload)))
+    
+    // Track compression ratio if compressed
+    if compressed == "true" && msg.OriginalSize > 0 {
+        ratio := float64(len(msg.Payload)) / float64(msg.OriginalSize)
+        wsCompressionRatio.Observe(1 - ratio) // Savings percentage
+    }
+}
+
+// Track ping latency
+func TrackPingLatency(latency time.Duration) {
+    wsPingLatency.Observe(latency.Seconds())
+}
+```
+
+### Agent Metrics Implementation
+```go
+// Agent-specific metrics
+var (
+    agentsRegistered = promauto.NewGaugeVec(
+        prometheus.GaugeOpts{
+            Name: "mcp_agents_registered",
+            Help: "Number of registered agents",
+        },
+        []string{"agent_type", "model", "status"},
+    )
+    
+    agentWorkload = promauto.NewGaugeVec(
+        prometheus.GaugeOpts{
+            Name: "mcp_agent_workload_current",
+            Help: "Current workload percentage per agent",
+        },
+        []string{"agent_id", "agent_type"},
+    )
+    
+    agentTasksCompleted = promauto.NewCounterVec(
+        prometheus.CounterOpts{
+            Name: "mcp_agent_tasks_completed_total",
+            Help: "Total tasks completed by agent",
+        },
+        []string{"agent_id", "agent_type", "task_type", "status"},
+    )
+    
+    agentTaskDuration = promauto.NewHistogramVec(
+        prometheus.HistogramOpts{
+            Name: "mcp_agent_task_duration_seconds",
+            Help: "Task processing duration by agent",
+            Buckets: prometheus.ExponentialBuckets(0.1, 2, 10), // 100ms to 100s
+        },
+        []string{"agent_type", "task_type"},
+    )
+)
+
+// Track agent registration
+func TrackAgentRegistration(agent *Agent) {
+    agentsRegistered.WithLabelValues(
+        agent.Type, 
+        agent.Model, 
+        agent.Status.String(),
+    ).Inc()
+}
+
+// Update agent workload
+func UpdateAgentWorkload(agentID, agentType string, workload float64) {
+    agentWorkload.WithLabelValues(agentID, agentType).Set(workload)
+}
+
+// Track task completion
+func TrackTaskCompletion(agent *Agent, task *Task, duration time.Duration, status string) {
+    agentTasksCompleted.WithLabelValues(
+        agent.ID,
+        agent.Type,
+        task.Type,
+        status,
+    ).Inc()
+    
+    agentTaskDuration.WithLabelValues(
+        agent.Type,
+        task.Type,
+    ).Observe(duration.Seconds())
 }
 ```
 
@@ -219,6 +418,153 @@ func HandleRequest(ctx context.Context) {
         attribute.Int("request.size", len(body)),
     )
 }
+
+// WebSocket tracing with custom attributes
+func HandleWebSocketMessage(ctx context.Context, msg *Message) {
+    tracer := otel.Tracer("mcp-websocket")
+    ctx, span := tracer.Start(ctx, "HandleWebSocketMessage",
+        trace.WithSpanKind(trace.SpanKindServer))
+    defer span.End()
+    
+    // Custom WebSocket attributes
+    span.SetAttributes(
+        attribute.String("ws.connection_id", msg.ConnectionID),
+        attribute.String("ws.message_type", msg.Type.String()),
+        attribute.Int("ws.sequence_id", int(msg.SequenceID)),
+        attribute.Int("ws.protocol_version", int(msg.Version)),
+        attribute.Bool("ws.compressed", msg.IsCompressed()),
+        attribute.Int("ws.message_size", len(msg.Payload)),
+        attribute.String("ws.encoding", msg.Encoding),
+    )
+    
+    // Agent-specific attributes
+    if msg.AgentID != "" {
+        span.SetAttributes(
+            attribute.String("agent.id", msg.AgentID),
+            attribute.String("agent.type", msg.AgentType),
+            attribute.StringSlice("agent.capabilities", msg.Capabilities),
+            attribute.Float64("agent.workload", msg.CurrentWorkload),
+        )
+    }
+    
+    // Task routing attributes
+    if msg.TaskID != "" {
+        span.SetAttributes(
+            attribute.String("task.id", msg.TaskID),
+            attribute.String("task.type", msg.TaskType),
+            attribute.String("task.routing_strategy", msg.RoutingStrategy),
+            attribute.Float64("task.priority", msg.Priority),
+            attribute.Float64("task.estimated_cost", msg.EstimatedCost),
+        )
+    }
+}
+
+// Custom span attributes for different operations
+var CustomSpanAttributes = struct {
+    // WebSocket attributes
+    WebSocket struct {
+        ConnectionID    attribute.Key
+        MessageType     attribute.Key
+        ProtocolVersion attribute.Key
+        Compressed      attribute.Key
+        MessageSize     attribute.Key
+        PingLatency     attribute.Key
+    }
+    
+    // Agent attributes
+    Agent struct {
+        ID           attribute.Key
+        Type         attribute.Key
+        Model        attribute.Key
+        Capabilities attribute.Key
+        Workload     attribute.Key
+        Status       attribute.Key
+    }
+    
+    // Task attributes
+    Task struct {
+        ID               attribute.Key
+        Type             attribute.Key
+        RoutingStrategy  attribute.Key
+        Priority         attribute.Key
+        EstimatedCost    attribute.Key
+        ActualCost       attribute.Key
+        ProcessingTime   attribute.Key
+    }
+    
+    // Cost tracking attributes
+    Cost struct {
+        Model         attribute.Key
+        InputTokens   attribute.Key
+        OutputTokens  attribute.Key
+        TotalCost     attribute.Key
+        SessionLimit  attribute.Key
+        RemainingBudget attribute.Key
+    }
+}{
+    WebSocket: struct {
+        ConnectionID    attribute.Key
+        MessageType     attribute.Key
+        ProtocolVersion attribute.Key
+        Compressed      attribute.Key
+        MessageSize     attribute.Key
+        PingLatency     attribute.Key
+    }{
+        ConnectionID:    attribute.Key("ws.connection_id"),
+        MessageType:     attribute.Key("ws.message_type"),
+        ProtocolVersion: attribute.Key("ws.protocol_version"),
+        Compressed:      attribute.Key("ws.compressed"),
+        MessageSize:     attribute.Key("ws.message_size"),
+        PingLatency:     attribute.Key("ws.ping_latency_ms"),
+    },
+    Agent: struct {
+        ID           attribute.Key
+        Type         attribute.Key
+        Model        attribute.Key
+        Capabilities attribute.Key
+        Workload     attribute.Key
+        Status       attribute.Key
+    }{
+        ID:           attribute.Key("agent.id"),
+        Type:         attribute.Key("agent.type"),
+        Model:        attribute.Key("agent.model"),
+        Capabilities: attribute.Key("agent.capabilities"),
+        Workload:     attribute.Key("agent.workload"),
+        Status:       attribute.Key("agent.status"),
+    },
+    Task: struct {
+        ID               attribute.Key
+        Type             attribute.Key
+        RoutingStrategy  attribute.Key
+        Priority         attribute.Key
+        EstimatedCost    attribute.Key
+        ActualCost       attribute.Key
+        ProcessingTime   attribute.Key
+    }{
+        ID:              attribute.Key("task.id"),
+        Type:            attribute.Key("task.type"),
+        RoutingStrategy: attribute.Key("task.routing_strategy"),
+        Priority:        attribute.Key("task.priority"),
+        EstimatedCost:   attribute.Key("task.estimated_cost_usd"),
+        ActualCost:      attribute.Key("task.actual_cost_usd"),
+        ProcessingTime:  attribute.Key("task.processing_time_ms"),
+    },
+    Cost: struct {
+        Model         attribute.Key
+        InputTokens   attribute.Key
+        OutputTokens  attribute.Key
+        TotalCost     attribute.Key
+        SessionLimit  attribute.Key
+        RemainingBudget attribute.Key
+    }{
+        Model:           attribute.Key("cost.model"),
+        InputTokens:     attribute.Key("cost.input_tokens"),
+        OutputTokens:     attribute.Key("cost.output_tokens"),
+        TotalCost:       attribute.Key("cost.total_usd"),
+        SessionLimit:    attribute.Key("cost.session_limit_usd"),
+        RemainingBudget: attribute.Key("cost.remaining_budget_usd"),
+    },
+}
 ```
 
 ## Grafana Dashboards
@@ -255,6 +601,106 @@ func HandleRequest(ctx context.Context) {
         "gridPos": {"h": 8, "w": 12, "x": 12, "y": 8},
         "targets": [{
           "expr": "sum(mcp_contexts_active) by (tenant_id)"
+        }]
+      }
+    ]
+  }
+}
+```
+
+### WebSocket Dashboard
+```json
+{
+  "dashboard": {
+    "title": "WebSocket Monitoring",
+    "panels": [
+      {
+        "title": "Active WebSocket Connections",
+        "gridPos": {"h": 8, "w": 12, "x": 0, "y": 0},
+        "targets": [{
+          "expr": "sum(mcp_websocket_connections_active) by (protocol_version, agent_type)"
+        }]
+      },
+      {
+        "title": "WebSocket Message Rate",
+        "gridPos": {"h": 8, "w": 12, "x": 12, "y": 0},
+        "targets": [{
+          "expr": "sum(rate(mcp_websocket_messages_sent_total[5m])) by (message_type)",
+          "legendFormat": "Sent - {{message_type}}"
+        }, {
+          "expr": "sum(rate(mcp_websocket_messages_received_total[5m])) by (message_type)",
+          "legendFormat": "Received - {{message_type}}"
+        }]
+      },
+      {
+        "title": "Message Size Distribution",
+        "gridPos": {"h": 8, "w": 12, "x": 0, "y": 8},
+        "targets": [{
+          "expr": "histogram_quantile(0.95, sum(rate(mcp_websocket_message_size_bytes_bucket[5m])) by (message_type, le))"
+        }]
+      },
+      {
+        "title": "Compression Effectiveness",
+        "gridPos": {"h": 8, "w": 12, "x": 12, "y": 8},
+        "targets": [{
+          "expr": "histogram_quantile(0.5, sum(rate(mcp_websocket_compression_ratio_bucket[5m])) by (le)) * 100",
+          "legendFormat": "Median Compression %"
+        }]
+      },
+      {
+        "title": "WebSocket Ping Latency",
+        "gridPos": {"h": 8, "w": 12, "x": 0, "y": 16},
+        "targets": [{
+          "expr": "histogram_quantile(0.99, sum(rate(mcp_websocket_ping_latency_seconds_bucket[5m])) by (le)) * 1000",
+          "legendFormat": "P99 Latency (ms)"
+        }]
+      },
+      {
+        "title": "Protocol Version Distribution",
+        "gridPos": {"h": 8, "w": 12, "x": 12, "y": 16},
+        "targets": [{
+          "expr": "sum(mcp_websocket_connections_active) by (protocol_version)"
+        }],
+        "type": "piechart"
+      }
+    ]
+  }
+}
+```
+
+### Agent Performance Dashboard
+```json
+{
+  "dashboard": {
+    "title": "Agent Performance",
+    "panels": [
+      {
+        "title": "Registered Agents",
+        "gridPos": {"h": 8, "w": 12, "x": 0, "y": 0},
+        "targets": [{
+          "expr": "sum(mcp_agents_registered) by (agent_type, model)"
+        }]
+      },
+      {
+        "title": "Agent Workload Distribution",
+        "gridPos": {"h": 8, "w": 12, "x": 12, "y": 0},
+        "targets": [{
+          "expr": "mcp_agent_workload_current",
+          "legendFormat": "{{agent_id}} ({{agent_type}})"
+        }]
+      },
+      {
+        "title": "Task Completion Rate",
+        "gridPos": {"h": 8, "w": 12, "x": 0, "y": 8},
+        "targets": [{
+          "expr": "sum(rate(mcp_agent_tasks_completed_total[5m])) by (agent_type, status)"
+        }]
+      },
+      {
+        "title": "Task Processing Time (P95)",
+        "gridPos": {"h": 8, "w": 12, "x": 12, "y": 8},
+        "targets": [{
+          "expr": "histogram_quantile(0.95, sum(rate(mcp_agent_task_duration_seconds_bucket[5m])) by (agent_type, task_type, le))"
         }]
       }
     ]

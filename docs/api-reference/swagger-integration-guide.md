@@ -400,7 +400,7 @@ jobs:
       
       - name: Generate Swagger
         run: |
-          make swagger-init
+          make swagger
           
       - name: Check for changes
         run: |

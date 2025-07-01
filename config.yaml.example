@@ -123,18 +123,18 @@ aws:
   # S3 for context storage
   s3:
     bucket: "mcp-dev-contexts"  # Or use ${S3_BUCKET}
-    # Empty endpoint uses real AWS S3
-    # endpoint: "http://localhost:4566"  # For LocalStack testing
+    # Endpoint is only set for custom S3-compatible services
+    # Leave empty to use real AWS S3
     
   # SQS for async processing
   sqs:
     queue_url: "https://sqs.us-east-1.amazonaws.com/594992249511/sean-mcp-test"
-    # endpoint: "http://localhost:4566"  # For LocalStack testing
+    # Leave endpoint empty to use real AWS SQS
     
   # Bedrock for embeddings
   bedrock:
     enabled: true
-    # endpoint: "http://localhost:4566"  # For LocalStack testing
+    # Leave endpoint empty to use real AWS Bedrock
 
 # Worker Configuration (for async processing)
 worker:
@@ -149,8 +149,8 @@ storage:
     # filesystem:
     #   base_path: "./data/contexts"
       
-# To use local services instead of AWS:
-# 1. Set cache.address to "localhost:6379" 
-# 2. Set storage.context.provider to "filesystem"
-# 3. Set worker.queue_type to "memory"
-# 4. Comment out the aws section
+# Production AWS Configuration:
+# 1. Ensure cache uses ElastiCache endpoint (via SSH tunnel if needed)
+# 2. Set storage.context.provider to "s3" for production storage
+# 3. Set worker.queue_type to "sqs" for distributed processing
+# 4. Configure all AWS services with real endpoints (no LocalStack)

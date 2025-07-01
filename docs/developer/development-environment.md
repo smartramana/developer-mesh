@@ -1,53 +1,63 @@
 # Development Environment Setup
 
-This guide provides a comprehensive setup for developing on the DevOps MCP platform with modern tooling and best practices.
+This guide provides a comprehensive setup for developing on the DevOps MCP AI Agent Orchestration Platform.
 
 ## Prerequisites
 
 ### Required Tools
-- **Go 1.24+** - Required for workspace support
+- **Go 1.24.3+** - Required for workspace support
 - **Docker 24+** & **Docker Compose v2** - For local services
 - **Git 2.40+** - For version control
 - **Make** - For build automation
+- **AWS CLI v2** - For real AWS services (LocalStack not used)
+- **PostgreSQL client** - For database access
 
 ### Recommended Tools
 - **VS Code** or **GoLand** - IDE with Go support
 - **golangci-lint 1.61+** - For code quality
-- **go-task** - Alternative to Make
+- **ripgrep (rg)** - For fast searching
+- **jq** - For JSON processing
 - **direnv** - For environment management
 - **k9s** - For Kubernetes development
+- **air** - For hot reload during development
 
 ## Quick Start (5 minutes)
 
-### Option 1: Using Pre-built Images
+### Option 1: Local Development with Real AWS
 
 ```bash
 # Clone the repository
 git clone https://github.com/S-Corkum/devops-mcp.git
 cd devops-mcp
 
-# Pull pre-built images
-GITHUB_USERNAME=your-github-username ./scripts/pull-images.sh
+# Setup environment
+cp .env.example .env
+# Edit .env with your AWS credentials and settings
 
-# Start services
-docker-compose -f docker-compose.prod.yml up -d
+# One-command setup (starts PostgreSQL, Redis, runs migrations)
+make dev-native
 
-# Verify
-curl http://localhost:8080/health
+# Start ElastiCache tunnel (required for Redis)
+./scripts/aws/connect-elasticache.sh  # Keep running in separate terminal
+
+# Verify everything works
+make health
+make test-coverage  # Should be >85%
 ```
 
-### Option 2: Building from Source
+### Option 2: Docker Development
 
 ```bash
 # Clone and setup
 git clone https://github.com/S-Corkum/devops-mcp.git
 cd devops-mcp
 
-# One-command setup
-make dev-setup
+# Setup with Docker
+make dev  # Starts all services in Docker
 
-# Verify everything works
-make test-quick
+# Verify services
+curl http://localhost:8080/health  # MCP Server
+curl http://localhost:8081/health  # REST API
 ```
 
 ## Detailed Setup
@@ -67,84 +77,140 @@ chmod +x .git/hooks/*
 ### 2. Environment Configuration
 
 ```bash
-# Copy configuration template
-cp config.example.yaml config.yaml
-# Or use the more detailed template:
-# cp configs/config.yaml.template config.yaml
+# Copy environment template
+cp .env.example .env
 
-# Edit with your settings
-vim config.yaml
+# Edit with your AWS credentials and settings
+vim .env
 
-# Required environment variables
-export MCP_ENV=development
-export DATABASE_URL=postgres://dev:dev@localhost:5432/dev?sslmode=disable
-export DATABASE_DSN=postgresql://dev:dev@localhost:5432/dev?sslmode=disable
-export REDIS_URL=redis://localhost:6379
-export AWS_ENDPOINT=http://localhost:4566  # LocalStack
+# Required environment variables (from .env)
+AWS_REGION=us-east-1
+AWS_ACCESS_KEY_ID=your-access-key
+AWS_SECRET_ACCESS_KEY=your-secret-key
+
+# S3 Configuration (IP-restricted bucket)
+S3_BUCKET=sean-mcp-dev-contexts
+
+# SQS Configuration
+SQS_QUEUE_URL=https://sqs.us-east-1.amazonaws.com/594992249511/sean-mcp-test
+
+# Database (local PostgreSQL)
+DATABASE_HOST=localhost
+DATABASE_PORT=5432
+DATABASE_NAME=devops_mcp
+DATABASE_USER=postgres
+DATABASE_PASSWORD=postgres
+
+# Redis (via SSH tunnel to ElastiCache)
+REDIS_ADDR=127.0.0.1:6379  # Use 127.0.0.1, NOT localhost!
+USE_SSH_TUNNEL_FOR_REDIS=true
+
+# AI Models
+BEDROCK_ENABLED=true
+BEDROCK_SESSION_LIMIT=0.10  # $0.10 per session limit
+GLOBAL_COST_LIMIT=10.0      # $10 daily limit
+
+# Security
+JWT_SECRET=dev-secret-change-in-prod
+ADMIN_API_KEY=dev-admin-key
 ```
 
 ### 3. Go Workspace Setup
 
 ```bash
 # Verify Go version
-go version  # Should be 1.24+
+go version  # Should be 1.24.3+
 
-# Initialize workspace
+# The workspace is already configured (go.work exists)
+# Sync workspace modules
 go work sync
 
-# Download dependencies
+# Download all dependencies
 go mod download -x
 
-# Verify workspace
+# Verify workspace structure
 go work edit -json | jq .
+
+# Build all services to verify setup
+make b  # Short alias for build
 ```
 
-### 4. Local Services
+### 4. AWS Services Setup
 
 ```bash
-# Start all services
-make dev-setup
+# Configure AWS credentials
+aws configure
+# Enter your AWS Access Key ID, Secret Access Key, and region (us-east-1)
 
-# Or start individually:
-docker-compose -f docker-compose.local.yml up -d postgres
-docker-compose -f docker-compose.local.yml up -d redis
-docker-compose -f docker-compose.local.yml up -d localstack
+# Test AWS connectivity
+./scripts/aws/test-aws-services.sh
 
-# Verify services
-make health-check
+# Start ElastiCache tunnel (REQUIRED for Redis)
+# Keep this running in a separate terminal!
+./scripts/aws/connect-elasticache.sh
 
-# View logs
-make logs service=postgres
+# Verify S3 access (IP-restricted bucket)
+aws s3 ls s3://sean-mcp-dev-contexts/
+
+# Verify SQS access
+aws sqs get-queue-attributes --queue-url https://sqs.us-east-1.amazonaws.com/594992249511/sean-mcp-test --attribute-names All
+
+# Start local PostgreSQL
+docker run -d \
+  --name postgres \
+  -p 5432:5432 \
+  -e POSTGRES_USER=postgres \
+  -e POSTGRES_PASSWORD=postgres \
+  -e POSTGRES_DB=devops_mcp \
+  postgres:15-alpine
 ```
 
 ### 5. Database Setup
 
 ```bash
-# Run migrations
-make migrate-local
-# Or with custom DSN:
-# make migrate-up dsn="postgres://dev:dev@localhost:5432/dev?sslmode=disable"
+# Install migrate tool if needed
+go install -tags 'postgres' github.com/golang-migrate/migrate/v4/cmd/migrate@latest
 
-# Note: Migrations are located in apps/rest-api/migrations/sql/
+# Run migrations
+migrate -path migrations -database "postgresql://postgres:postgres@localhost:5432/devops_mcp?sslmode=disable" up
 
 # Verify database
-make db-shell
-# Then run: \dt to list tables
+psql -h localhost -U postgres -d devops_mcp -c '\dt'
+
+# Should see tables:
+# - schema_migrations
+# - users
+# - api_keys
+# - contexts
+# - tools
+# - And more...
 ```
 
 ### 6. Build & Run
 
 ```bash
-# Build all services
-make build
+# Build all services (using short aliases)
+make b
 
-# Run services (after building)
-make run-mcp-server   # Port 8080
-make run-rest-api     # Port 8081
-make run-worker       # SQS worker
+# Run tests to ensure everything works
+make t              # Run all tests
+make test-coverage  # Must be >85%
 
-# Or run all with Docker Compose
-make local-dev
+# Lint code (must pass with 0 errors)
+make lint
+
+# Run services locally
+# Terminal 1: MCP Server (WebSocket)
+cd apps/mcp-server && go run cmd/server/main.go
+
+# Terminal 2: REST API
+cd apps/rest-api && go run cmd/api/main.go
+
+# Terminal 3: Worker
+cd apps/worker && go run cmd/worker/main.go
+
+# Or use the all-in-one command
+make dev-native  # Runs all services
 ```
 
 ## IDE Setup
@@ -230,7 +296,26 @@ go work use ./apps/new-service
 
 ## Development Workflow
 
-### 1. Feature Development
+### 1. Essential Commands (from CLAUDE.md)
+
+```bash
+# Pre-session setup (REQUIRED)
+./scripts/aws/connect-elasticache.sh      # Keep running in separate terminal
+./scripts/aws/test-aws-services.sh        # Verify AWS connectivity
+
+# Development workflow
+make b                   # Build all services
+make t                   # Run tests (must pass)
+make test-coverage       # Test coverage (must be >85%)
+make lint                # Must show 0 errors
+make pre-commit          # Run before EVERY commit
+
+# Quick checks
+grep -r "TODO" pkg/ apps/ --include="*.go"  # Must return NOTHING
+make health              # Check service health
+```
+
+### 2. Feature Development
 
 ```bash
 # Create feature branch
@@ -243,21 +328,17 @@ vim internal/feature_test.go
 # 2. Run test (should fail)
 go test ./internal -run TestFeature
 
-# 3. Implement feature
+# 3. Implement feature (NO TODOs!)
 vim internal/feature.go
 
 # 4. Run test (should pass)
 go test ./internal -run TestFeature
 
-# 5. Run all tests
-make test
-
-# 6. Lint and format
-make lint
-make fmt
+# 5. Run all checks
+make pre-commit  # Must pass before commit!
 ```
 
-### 2. Debugging
+### 3. Debugging
 
 ```bash
 # Run with debug logging
@@ -266,31 +347,37 @@ LOG_LEVEL=debug go run ./cmd/server
 # Use delve debugger
 dlv debug ./cmd/server
 
-# Attach to running process
-dlv attach $(pgrep mcp-server)
+# Debug WebSocket connections
+wscat -c ws://localhost:8080/v1/mcp
 
-# Debug tests
-dlv test ./internal/... -- -test.run TestSpecific
+# View structured logs with jq
+go run ./cmd/server 2>&1 | jq '.'
+
+# Debug with distributed tracing
+# 1. Start Jaeger
+docker run -d -p 16686:16686 jaegertracing/all-in-one
+# 2. Enable tracing
+ENABLE_TRACING=true TRACE_SAMPLING_RATE=1.0 go run ./cmd/server
+# 3. View traces at http://localhost:16686
 ```
 
-### 3. Testing Pyramid
+### 4. Testing Requirements
 
 ```bash
-# Unit tests (fast, isolated)
-go test ./internal/...
+# Unit tests (must have >85% coverage)
+go test -cover ./...
 
-# Integration tests (with dependencies)
-go test ./... -tags=integration
+# Integration tests with real AWS
+make test-integration
 
-# E2E tests (full stack)
-cd test/functional
-go test ./...
+# Test with cost limits
+BEDROCK_SESSION_LIMIT=0.01 go test ./pkg/services/...
 
-# Benchmarks
-go test -bench=. -benchmem ./...
+# Benchmark WebSocket performance
+go test -bench=BenchmarkWebSocket ./pkg/api/websocket/...
 
-# Fuzzing
-go test -fuzz=FuzzParser -fuzztime=10s ./internal/parser
+# No TODOs allowed!
+! grep -r "TODO" pkg/ apps/ --include="*.go"
 ```
 
 ## Code Standards
@@ -373,32 +460,88 @@ func TestAdapter_Execute(t *testing.T) {
 
 ## Local Development Tips
 
+### Critical Requirements (NO EXCEPTIONS)
+
+```bash
+# 1. ALWAYS use real AWS services
+# LocalStack is NOT supported - use real S3, SQS, Bedrock
+
+# 2. ElastiCache tunnel MUST be running
+./scripts/aws/connect-elasticache.sh  # Keep open!
+
+# 3. Use 127.0.0.1 for Redis, NOT localhost
+REDIS_ADDR=127.0.0.1:6379  # Correct
+REDIS_ADDR=localhost:6379   # WRONG!
+
+# 4. No TODOs in code
+grep -r "TODO" pkg/ apps/ --include="*.go"  # Must be empty
+
+# 5. No nil services
+# Bad:  authorizer := nil
+# Good: authorizer := auth.NewProductionAuthorizer(config)
+```
+
 ### Hot Reload
 
 ```bash
 # Install air for hot reload
 go install github.com/cosmtrek/air@latest
 
-# Run with hot reload (create .air.toml in each app directory)
+# Create .air.toml in each app directory
+cat > apps/mcp-server/.air.toml << 'EOF'
+root = "."
+tmp_dir = "tmp"
+
+[build]
+  bin = "./tmp/main"
+  cmd = "go build -o ./tmp/main ./cmd/server"
+  delay = 1000
+  exclude_dir = ["tmp", "vendor"]
+  exclude_file = []
+  exclude_regex = ["_test.go"]
+  exclude_unchanged = false
+  follow_symlink = false
+  full_bin = ""
+  include_dir = []
+  include_ext = ["go", "tpl", "tmpl", "html"]
+  kill_delay = "0s"
+  log = "build-errors.log"
+  send_interrupt = false
+  stop_on_error = true
+
+[color]
+  app = ""
+  build = "yellow"
+  main = "magenta"
+  runner = "green"
+  watcher = "cyan"
+
+[log]
+  time = false
+
+[misc]
+  clean_on_exit = false
+EOF
+
+# Run with hot reload
 cd apps/mcp-server && air
-cd apps/rest-api && air
-cd apps/worker && air
 ```
 
 ### Database Management
 
 ```bash
 # Connect to local database
-make db-shell
+psql -h localhost -U postgres -d devops_mcp
 
-# Run SQL migrations
-make migrate-up
+# Common queries
+-- List all contexts
+SELECT id, name, created_at FROM contexts ORDER BY created_at DESC LIMIT 10;
 
-# Rollback last migration
-make migrate-down
+-- Check API keys
+SELECT key_hash, name, last_used_at FROM api_keys;
 
-# Reset database
-make db-reset
+-- View embeddings
+SELECT id, model, dimensions, created_at FROM embeddings LIMIT 5;
 ```
 
 ### Working with Docker Images
@@ -470,21 +613,34 @@ go tool trace trace.out
 ### Troubleshooting Common Issues
 
 ```bash
+# ElastiCache connection issues
+# Error: dial tcp [::1]:6379: connect: connection refused
+# Fix: Use 127.0.0.1:6379, NOT localhost:6379
+
+# AWS credentials issues
+# Error: NoCredentialProviders
+# Fix:
+aws configure list  # Check configuration
+aws sts get-caller-identity  # Verify credentials
+
+# S3 access denied
+# Error: AccessDenied for bucket sean-mcp-dev-contexts
+# Fix: Ensure your IP is whitelisted in bucket policy
+
 # Module issues
 go clean -modcache
-go mod download
-
-# Workspace issues
 go work sync
-go work use -r .
-
-# Docker issues
-docker system prune -a
-make clean-docker
+go mod download -x
 
 # Port conflicts
 lsof -i :8080
 kill -9 $(lsof -t -i:8080)
+
+# Database connection issues
+# Check PostgreSQL is running
+docker ps | grep postgres
+# Restart if needed
+docker restart postgres
 ```
 
 ## Security Considerations
@@ -509,25 +665,55 @@ direnv allow
 # Check for vulnerabilities
 go list -json -m all | nancy sleuth
 
+# Or use govulncheck
+go install golang.org/x/vuln/cmd/govulncheck@latest
+govulncheck ./...
+
 # Update dependencies safely (per module)
 cd apps/mcp-server && go get -u ./... && go mod tidy
 cd apps/rest-api && go get -u ./... && go mod tidy
 cd apps/worker && go get -u ./... && go mod tidy
 
-# Sync workspace
+# Sync workspace after updates
 go work sync
 
-# Run tests
-make test
+# Run all tests to verify updates
+make test-coverage  # Must maintain >85%
 ```
 
 ## Next Steps
 
-1. **Run Tests**: `make test` to ensure everything works
-2. **Explore Code**: Start with `cmd/server/main.go`
-3. **Read Docs**: Check [architecture docs](../architecture/)
-4. **Contribute**: See [CONTRIBUTING.md](../../CONTRIBUTING.md)
+1. **Verify Setup**: Run `make pre-commit` to ensure everything is configured correctly
+2. **Run Integration Tests**: `make test-integration` with real AWS services
+3. **Review Architecture**: See [System Overview](../architecture/system-overview.md)
+4. **Understand AI Features**: Read [AI Agent Orchestration](../ai-agents/ai-agent-orchestration.md)
+5. **Check WebSocket Protocol**: See [MCP Server Reference](../api/mcp-server-reference.md)
+
+## Important References
+
+- [CLAUDE.md](../../CLAUDE.md) - Essential implementation rules and commands
+- [Configuration Guide](../operations/configuration-guide.md) - Environment setup details
+- [Production Deployment](../deployment/production-deployment.md) - AWS deployment guide
+- [Observability Architecture](../guides/observability-architecture.md) - Monitoring setup
+
+## Frequently Encountered Issues
+
+1. **Redis Connection Refused**
+   - Ensure ElastiCache tunnel is running: `./scripts/aws/connect-elasticache.sh`
+   - Use `127.0.0.1:6379` not `localhost:6379`
+
+2. **S3 Access Denied**
+   - Check IP whitelist in bucket policy
+   - Verify AWS credentials: `aws sts get-caller-identity`
+
+3. **Test Coverage Below 85%**
+   - Run `make test-coverage` to see uncovered code
+   - Add tests before implementing features
+
+4. **Lint Errors**
+   - Run `make lint` to see all issues
+   - Fix all errors before committing
 
 ---
 
-*Questions? Join our [Discord](https://discord.gg/devops-mcp) or open an [issue](https://github.com/S-Corkum/devops-mcp/issues)*
+*For production deployment, see [Production Deployment Guide](../deployment/production-deployment.md)*

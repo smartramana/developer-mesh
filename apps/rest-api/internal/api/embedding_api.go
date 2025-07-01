@@ -55,7 +55,20 @@ func (api *EmbeddingAPI) RegisterRoutes(router *gin.RouterGroup) {
 	}
 }
 
-// generateEmbedding handles POST /api/embeddings
+// generateEmbedding godoc
+// @Summary Generate an embedding
+// @Description Generate a vector embedding for the provided text using agent-specific model selection
+// @Tags embeddings
+// @Accept json
+// @Produce json
+// @Param request body embedding.GenerateEmbeddingRequest true "Embedding request with text, agent_id, and optional parameters"
+// @Success 200 {object} embedding.GenerateEmbeddingResponse "Generated embedding with metadata"
+// @Failure 400 {object} ErrorResponse "Invalid request"
+// @Failure 401 {object} ErrorResponse "Unauthorized"
+// @Failure 500 {object} ErrorResponse "Internal server error"
+// @Security ApiKeyAuth
+// @Security BearerAuth
+// @Router /embeddings [post]
 func (api *EmbeddingAPI) generateEmbedding(c *gin.Context) {
 	var req embedding.GenerateEmbeddingRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -94,7 +107,20 @@ func (api *EmbeddingAPI) generateEmbedding(c *gin.Context) {
 	c.JSON(http.StatusOK, resp)
 }
 
-// batchGenerateEmbeddings handles POST /api/embeddings/batch
+// batchGenerateEmbeddings godoc
+// @Summary Generate embeddings in batch
+// @Description Generate multiple embeddings in a single request for efficiency
+// @Tags embeddings
+// @Accept json
+// @Produce json
+// @Param requests body []embedding.GenerateEmbeddingRequest true "Array of embedding requests"
+// @Success 200 {object} map[string]interface{} "Batch generation results"
+// @Failure 400 {object} ErrorResponse "Invalid request"
+// @Failure 401 {object} ErrorResponse "Unauthorized"
+// @Failure 500 {object} ErrorResponse "Internal server error"
+// @Security ApiKeyAuth
+// @Security BearerAuth
+// @Router /embeddings/batch [post]
 func (api *EmbeddingAPI) batchGenerateEmbeddings(c *gin.Context) {
 	var reqs []embedding.GenerateEmbeddingRequest
 	if err := c.ShouldBindJSON(&reqs); err != nil {
@@ -135,7 +161,20 @@ func (api *EmbeddingAPI) batchGenerateEmbeddings(c *gin.Context) {
 	})
 }
 
-// searchEmbeddings handles POST /api/embeddings/search
+// searchEmbeddings godoc
+// @Summary Search embeddings
+// @Description Perform semantic search using vector similarity
+// @Tags embeddings
+// @Accept json
+// @Produce json
+// @Param request body embedding.SearchRequest true "Search query with text and optional filters"
+// @Success 200 {object} embedding.SearchResponse "Search results with similarity scores"
+// @Failure 400 {object} ErrorResponse "Invalid request"
+// @Failure 401 {object} ErrorResponse "Unauthorized"
+// @Failure 500 {object} ErrorResponse "Internal server error"
+// @Security ApiKeyAuth
+// @Security BearerAuth
+// @Router /embeddings/search [post]
 func (api *EmbeddingAPI) searchEmbeddings(c *gin.Context) {
 	var req embedding.SearchRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -176,7 +215,20 @@ func (api *EmbeddingAPI) searchEmbeddings(c *gin.Context) {
 	})
 }
 
-// crossModelSearch handles POST /api/embeddings/search/cross-model
+// crossModelSearch godoc
+// @Summary Cross-model semantic search
+// @Description Search across embeddings from different models using unified similarity
+// @Tags embeddings
+// @Accept json
+// @Produce json
+// @Param request body embedding.CrossModelSearchRequest true "Cross-model search request"
+// @Success 200 {object} map[string]interface{} "Cross-model search results"
+// @Failure 400 {object} ErrorResponse "Invalid request"
+// @Failure 401 {object} ErrorResponse "Unauthorized"
+// @Failure 500 {object} ErrorResponse "Internal server error"
+// @Security ApiKeyAuth
+// @Security BearerAuth
+// @Router /embeddings/search/cross-model [post]
 func (api *EmbeddingAPI) crossModelSearch(c *gin.Context) {
 	var req embedding.CrossModelSearchRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -229,7 +281,17 @@ func (api *EmbeddingAPI) crossModelSearch(c *gin.Context) {
 	})
 }
 
-// getProviderHealth handles GET /api/embeddings/providers/health
+// getProviderHealth godoc
+// @Summary Get embedding provider health
+// @Description Check the health status of all configured embedding providers
+// @Tags embeddings
+// @Accept json
+// @Produce json
+// @Success 200 {object} map[string]interface{} "Provider health status"
+// @Failure 401 {object} ErrorResponse "Unauthorized"
+// @Security ApiKeyAuth
+// @Security BearerAuth
+// @Router /embeddings/providers/health [get]
 func (api *EmbeddingAPI) getProviderHealth(c *gin.Context) {
 	health := api.embeddingService.GetProviderHealth(c.Request.Context())
 
@@ -241,7 +303,20 @@ func (api *EmbeddingAPI) getProviderHealth(c *gin.Context) {
 
 // Agent configuration endpoints
 
-// createAgentConfig handles POST /api/embeddings/agents
+// createAgentConfig godoc
+// @Summary Create agent embedding configuration
+// @Description Configure embedding preferences for a specific AI agent
+// @Tags embeddings
+// @Accept json
+// @Produce json
+// @Param config body agents.AgentConfig true "Agent configuration with model preferences"
+// @Success 201 {object} agents.AgentConfig "Created agent configuration"
+// @Failure 400 {object} ErrorResponse "Invalid request"
+// @Failure 401 {object} ErrorResponse "Unauthorized"
+// @Failure 500 {object} ErrorResponse "Internal server error"
+// @Security ApiKeyAuth
+// @Security BearerAuth
+// @Router /embeddings/agents [post]
 func (api *EmbeddingAPI) createAgentConfig(c *gin.Context) {
 	var config agents.AgentConfig
 	if err := c.ShouldBindJSON(&config); err != nil {
@@ -273,7 +348,18 @@ func (api *EmbeddingAPI) createAgentConfig(c *gin.Context) {
 	c.JSON(http.StatusCreated, config)
 }
 
-// getAgentConfig handles GET /api/embeddings/agents/:agentId
+// getAgentConfig godoc
+// @Summary Get agent embedding configuration
+// @Description Retrieve embedding configuration for a specific agent
+// @Tags embeddings
+// @Accept json
+// @Produce json
+// @Param agentId path string true "Agent ID"
+// @Success 200 {object} agents.AgentConfig "Agent configuration"
+// @Failure 404 {object} ErrorResponse "Agent configuration not found"
+// @Security ApiKeyAuth
+// @Security BearerAuth
+// @Router /embeddings/agents/{agentId} [get]
 func (api *EmbeddingAPI) getAgentConfig(c *gin.Context) {
 	agentID := c.Param("agentId")
 
@@ -289,7 +375,20 @@ func (api *EmbeddingAPI) getAgentConfig(c *gin.Context) {
 	c.JSON(http.StatusOK, config)
 }
 
-// updateAgentConfig handles PUT /api/embeddings/agents/:agentId
+// updateAgentConfig godoc
+// @Summary Update agent embedding configuration
+// @Description Update embedding preferences and model selection for an agent
+// @Tags embeddings
+// @Accept json
+// @Produce json
+// @Param agentId path string true "Agent ID"
+// @Param update body agents.ConfigUpdateRequest true "Configuration updates"
+// @Success 200 {object} agents.AgentConfig "Updated agent configuration"
+// @Failure 400 {object} ErrorResponse "Invalid request"
+// @Failure 500 {object} ErrorResponse "Internal server error"
+// @Security ApiKeyAuth
+// @Security BearerAuth
+// @Router /embeddings/agents/{agentId} [put]
 func (api *EmbeddingAPI) updateAgentConfig(c *gin.Context) {
 	agentID := c.Param("agentId")
 
@@ -318,7 +417,19 @@ func (api *EmbeddingAPI) updateAgentConfig(c *gin.Context) {
 	c.JSON(http.StatusOK, config)
 }
 
-// getAgentModels handles GET /api/embeddings/agents/:agentId/models
+// getAgentModels godoc
+// @Summary Get agent model assignments
+// @Description Get primary and fallback models for an agent based on task type
+// @Tags embeddings
+// @Accept json
+// @Produce json
+// @Param agentId path string true "Agent ID"
+// @Param task_type query string false "Task type (default: general_qa)"
+// @Success 200 {object} map[string]interface{} "Model assignments"
+// @Failure 404 {object} ErrorResponse "Agent configuration not found"
+// @Security ApiKeyAuth
+// @Security BearerAuth
+// @Router /embeddings/agents/{agentId}/models [get]
 func (api *EmbeddingAPI) getAgentModels(c *gin.Context) {
 	agentID := c.Param("agentId")
 	taskTypeStr := c.DefaultQuery("task_type", string(agents.TaskTypeGeneralQA))
@@ -341,7 +452,19 @@ func (api *EmbeddingAPI) getAgentModels(c *gin.Context) {
 	})
 }
 
-// getAgentCosts handles GET /api/embeddings/agents/:agentId/costs
+// getAgentCosts godoc
+// @Summary Get agent embedding costs
+// @Description Retrieve cost metrics for agent's embedding usage
+// @Tags embeddings
+// @Accept json
+// @Produce json
+// @Param agentId path string true "Agent ID"
+// @Param period_days query string false "Period in days (default: 30, max: 365)"
+// @Success 200 {object} map[string]interface{} "Cost metrics"
+// @Failure 500 {object} ErrorResponse "Internal server error"
+// @Security ApiKeyAuth
+// @Security BearerAuth
+// @Router /embeddings/agents/{agentId}/costs [get]
 func (api *EmbeddingAPI) getAgentCosts(c *gin.Context) {
 	agentID := c.Param("agentId")
 	periodDays := c.DefaultQuery("period_days", "30")
