@@ -105,7 +105,20 @@ jobs:
 
       - name: Run tests with coverage
         run: |
-          go test -v -short -race -coverprofile=coverage.out -covermode=atomic ./...
+          # Create coverage directory
+          mkdir -p coverage
+          
+          # Run tests for each module and collect coverage
+          go test -v -short -race -coverprofile=coverage/mcp-server.out -covermode=atomic ./apps/mcp-server/...
+          go test -v -short -race -coverprofile=coverage/rest-api.out -covermode=atomic ./apps/rest-api/...
+          go test -v -short -race -coverprofile=coverage/worker.out -covermode=atomic ./apps/worker/...
+          go test -v -short -race -coverprofile=coverage/pkg.out -covermode=atomic ./pkg/...
+          
+          # Merge coverage files
+          echo "mode: atomic" > coverage.out
+          tail -q -n +2 coverage/*.out >> coverage.out
+          
+          # Display coverage
           go tool cover -func=coverage.out
         env:
           AWS_REGION: us-east-1
@@ -124,8 +137,18 @@ jobs:
 
       - name: Check test coverage
         run: |
+          # Get coverage percentage
           coverage=$(go tool cover -func=coverage.out | grep total | awk '{print $3}' | sed 's/%//')
+          
+          # Handle empty coverage
+          if [ -z "$coverage" ]; then
+            echo "Error: Could not determine coverage percentage"
+            exit 1
+          fi
+          
           echo "Total coverage: $coverage%"
+          
+          # Check if coverage meets threshold
           if (( $(echo "$coverage < 85" | bc -l) )); then
             echo "Coverage is below 85%"
             exit 1
