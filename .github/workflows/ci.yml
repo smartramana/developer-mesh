@@ -105,18 +105,16 @@ jobs:
 
       - name: Run tests with coverage
         run: |
-          # Create coverage directory
-          mkdir -p coverage
+          # Run all tests with workspace context
+          go test -v -short -race -coverprofile=coverage.tmp -covermode=atomic \
+            ./apps/mcp-server/... \
+            ./apps/rest-api/... \
+            ./apps/worker/... \
+            ./pkg/...
           
-          # Run tests for each module and collect coverage
-          go test -v -short -race -coverprofile=coverage/mcp-server.out -covermode=atomic ./apps/mcp-server/...
-          go test -v -short -race -coverprofile=coverage/rest-api.out -covermode=atomic ./apps/rest-api/...
-          go test -v -short -race -coverprofile=coverage/worker.out -covermode=atomic ./apps/worker/...
-          go test -v -short -race -coverprofile=coverage/pkg.out -covermode=atomic ./pkg/...
-          
-          # Merge coverage files
-          echo "mode: atomic" > coverage.out
-          tail -q -n +2 coverage/*.out >> coverage.out
+          # Fix the coverage paths to be relative to the workspace root
+          # This is needed because go test with workspaces produces absolute paths
+          sed 's|'$PWD'/||g' coverage.tmp > coverage.out
           
           # Display coverage
           go tool cover -func=coverage.out
