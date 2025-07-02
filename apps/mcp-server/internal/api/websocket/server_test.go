@@ -15,6 +15,7 @@ import (
 
 	"github.com/S-Corkum/devops-mcp/pkg/auth"
 	ws "github.com/S-Corkum/devops-mcp/pkg/models/websocket"
+	"github.com/S-Corkum/devops-mcp/pkg/observability"
 )
 
 // MockAuthService mocks the auth service
@@ -159,7 +160,9 @@ func TestConnectionLifecycle(t *testing.T) {
 func TestMessageProcessing(t *testing.T) {
 	mockLogger := NewTestLogger()
 
-	server := NewServer(&auth.Service{}, nil, mockLogger, Config{})
+	// Use NoOp metrics client to avoid nil pointer
+	metricsClient := observability.NewNoOpMetricsClient()
+	server := NewServer(&auth.Service{}, metricsClient, mockLogger, Config{})
 
 	conn := NewConnection("test-conn", nil, server)
 	conn.AgentID = "agent-1"
