@@ -43,8 +43,11 @@ CLAUDE.md
 /simplified-mcp
 /api
 /bin/
-# Any file without extension in app directories (likely binaries)
-/apps/*/[!.]*
+# Binary files in app directories (without extensions, but not directories)
+/apps/*/mcp-server
+/apps/*/rest-api
+/apps/*/worker
+/apps/*/mockserver
 !/apps/*/Dockerfile
 !/apps/*/Makefile
 

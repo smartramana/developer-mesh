@@ -13,40 +13,8 @@ env:
   DOCKER_IMAGE_PREFIX: ${{ github.repository_owner }}
 
 jobs:
-  lint:
-    name: Lint
-    runs-on: ubuntu-latest
-    permissions:
-      contents: read
-      packages: read
-      statuses: write
-    steps:
-      - name: Checkout Code
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-
-      - name: Super-Linter
-        uses: super-linter/super-linter@v6
-        env:
-          DEFAULT_BRANCH: main
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          VALIDATE_ALL_CODEBASE: false
-          VALIDATE_GO_MODULES: true
-          VALIDATE_GO: true
-          VALIDATE_DOCKERFILE_HADOLINT: true
-          VALIDATE_YAML: true
-          VALIDATE_JSON: true
-          VALIDATE_MARKDOWN: true
-          VALIDATE_BASH: true
-          VALIDATE_SHELL_SHFMT: true
-          GO_FILE_NAME: go.mod
-          FILTER_REGEX_EXCLUDE: .*test.*
-          SUPPRESS_POSSUM: true
-          MULTI_STATUS: true
-
-  test:
-    name: Test
+  lint-and-test:
+    name: Lint and Test
     runs-on: ubuntu-latest
     steps:
       - name: Checkout Code
@@ -117,7 +85,7 @@ jobs:
   build:
     name: Build and Push Docker Images
     runs-on: ubuntu-latest
-    needs: [lint, test]
+    needs: [lint-and-test]
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     permissions:
       contents: read
