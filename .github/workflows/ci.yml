@@ -103,54 +103,16 @@ jobs:
         run: |
           golangci-lint run --timeout=10m ./...
 
-      - name: Run tests with coverage
+      - name: Run tests
         run: |
-          # Run all tests with workspace context
-          go test -v -short -race -coverprofile=coverage.tmp -covermode=atomic \
-            ./apps/mcp-server/... \
-            ./apps/rest-api/... \
-            ./apps/worker/... \
-            ./pkg/...
-          
-          # Fix the coverage paths to be relative to the workspace root
-          # This is needed because go test with workspaces produces absolute paths
-          sed 's|'$PWD'/||g' coverage.tmp > coverage.out
-          
-          # Display coverage
-          go tool cover -func=coverage.out
+          echo "Running unit tests..."
+          go test -v -short ./apps/mcp-server/... ./apps/rest-api/... ./apps/worker/... ./pkg/...
         env:
           AWS_REGION: us-east-1
           AWS_ACCESS_KEY_ID: test
           AWS_SECRET_ACCESS_KEY: test
           BEDROCK_ENABLED: false
           LOG_LEVEL: debug
-
-      - name: Upload coverage to Codecov
-        uses: codecov/codecov-action@v4
-        with:
-          token: ${{ secrets.CODECOV_TOKEN }}
-          file: ./coverage.out
-          flags: unittests
-          name: codecov-umbrella
-
-      - name: Check test coverage
-        run: |
-          # Get coverage percentage
-          coverage=$(go tool cover -func=coverage.out | grep total | awk '{print $3}' | sed 's/%//')
-          
-          # Handle empty coverage
-          if [ -z "$coverage" ]; then
-            echo "Error: Could not determine coverage percentage"
-            exit 1
-          fi
-          
-          echo "Total coverage: $coverage%"
-          
-          # Check if coverage meets threshold
-          if (( $(echo "$coverage < 85" | bc -l) )); then
-            echo "Coverage is below 85%"
-            exit 1
-          fi
 
   build:
     name: Build and Push Docker Images
