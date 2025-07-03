@@ -151,9 +151,9 @@ func runWorker(ctx context.Context) error {
 	redisClient := redis.NewClient(redisOptions)
 
 	// Test Redis connection
-	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
-	defer cancel()
-	if err := redisClient.Ping(ctx).Err(); err != nil {
+	pingCtx, pingCancel := context.WithTimeout(ctx, 5*time.Second)
+	defer pingCancel()
+	if err := redisClient.Ping(pingCtx).Err(); err != nil {
 		return fmt.Errorf("failed to connect to Redis: %w", err)
 	}
 
