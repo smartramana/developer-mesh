@@ -1,0 +1,310 @@
+name: Deploy to Production
+
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch:
+    inputs:
+      skip_migrations:
+        description: 'Skip database migrations'
+        required: false
+        default: 'false'
+        type: boolean
+
+env:
+  AWS_REGION: us-east-1
+  EC2_INSTANCE_IP: 44.211.47.174
+  DEPLOYMENT_TIMEOUT: 600  # 10 minutes
+
+jobs:
+  pre-deployment:
+    name: Pre-Deployment Checks
+    runs-on: ubuntu-latest
+    outputs:
+      deploy_id: ${{ steps.deployment.outputs.deployment_id }}
+    steps:
+      - name: Create GitHub Deployment
+        id: deployment
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const deployment = await github.rest.repos.createDeployment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              ref: context.sha,
+              environment: 'production',
+              description: 'Deploying to production EC2',
+              auto_merge: false,
+              required_contexts: []
+            });
+            core.setOutput('deployment_id', deployment.data.id);
+            return deployment.data.id;
+
+      - name: Check CI Status
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const checks = await github.rest.checks.listForRef({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              ref: context.sha
+            });
+            
+            const ciCheck = checks.data.check_runs.find(run => run.name === 'Lint and Test');
+            if (!ciCheck || ciCheck.conclusion !== 'success') {
+              core.setFailed('CI checks have not passed');
+            }
+
+      - name: Verify Docker Images Exist
+        run: |
+          for service in mcp-server rest-api worker; do
+            echo "Checking image: ghcr.io/${{ github.repository_owner }}/devops-mcp-${service}:main-${{ github.sha }}"
+            docker manifest inspect "ghcr.io/${{ github.repository_owner }}/devops-mcp-${service}:main-${{ github.sha }}" || exit 1
+          done
+
+  deploy:
+    name: Deploy Services
+    needs: pre-deployment
+    runs-on: ubuntu-latest
+    environment: production
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Setup SSH Key
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.EC2_SSH_PRIVATE_KEY }}" > ~/.ssh/ec2-key.pem
+          chmod 600 ~/.ssh/ec2-key.pem
+          ssh-keyscan -t rsa ${{ env.EC2_INSTANCE_IP }} >> ~/.ssh/known_hosts
+
+      - name: Create Deployment Package
+        run: |
+          mkdir -p deployment
+          cp docker-compose.production.yml deployment/docker-compose.yml
+          cp -r configs deployment/
+          
+          # Create .env file with secrets
+          cat > deployment/.env << EOF
+          # Database
+          DATABASE_HOST=${{ secrets.DATABASE_HOST }}
+          DATABASE_PORT=5432
+          DATABASE_USER=dbadmin
+          DATABASE_PASSWORD=${{ secrets.DATABASE_PASSWORD }}
+          DATABASE_NAME=devops_mcp
+          DATABASE_SSL_MODE=require
+          
+          # Redis
+          REDIS_ADDR=${{ secrets.REDIS_ENDPOINT }}
+          REDIS_TLS_ENABLED=true
+          
+          # AWS
+          AWS_REGION=${{ env.AWS_REGION }}
+          AWS_ACCESS_KEY_ID=${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY=${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          S3_BUCKET=${{ secrets.S3_BUCKET }}
+          SQS_QUEUE_URL=${{ secrets.SQS_QUEUE_URL }}
+          
+          # Application
+          ENVIRONMENT=production
+          ADMIN_API_KEY=${{ secrets.ADMIN_API_KEY }}
+          GITHUB_TOKEN=${{ secrets.GITHUB_TOKEN }}
+          MCP_SERVER_URL=http://mcp-server:8080
+          
+          # Image Tags
+          IMAGE_TAG=main-${{ github.sha }}
+          EOF
+          
+          # Update docker-compose with new image tags
+          sed -i "s|:latest|:main-${{ github.sha }}|g" deployment/docker-compose.yml
+
+      - name: Transfer Deployment Package
+        run: |
+          scp -i ~/.ssh/ec2-key.pem -r deployment/* ec2-user@${{ env.EC2_INSTANCE_IP }}:/home/ec2-user/devops-mcp/
+
+      - name: Run Database Migrations
+        if: ${{ github.event.inputs.skip_migrations != 'true' }}
+        run: |
+          ssh -i ~/.ssh/ec2-key.pem ec2-user@${{ env.EC2_INSTANCE_IP }} << 'EOF'
+            cd /home/ec2-user/devops-mcp
+            
+            # Pull migration image
+            docker pull migrate/migrate:latest
+            
+            # Run migrations
+            docker run --rm \
+              -v /home/ec2-user/devops-mcp/migrations:/migrations \
+              migrate/migrate \
+              -database "postgresql://dbadmin:${DATABASE_PASSWORD}@${DATABASE_HOST}:5432/devops_mcp?sslmode=require" \
+              -path /migrations \
+              up
+          EOF
+
+      - name: Deploy Services (Blue-Green)
+        id: deploy
+        run: |
+          ssh -i ~/.ssh/ec2-key.pem ec2-user@${{ env.EC2_INSTANCE_IP }} << 'EOF'
+            set -e
+            cd /home/ec2-user/devops-mcp
+            
+            # Pull new images
+            export IMAGE_TAG="main-${{ github.sha }}"
+            docker-compose pull
+            
+            # Start new containers with blue suffix
+            docker-compose -p devops-mcp-blue up -d
+            
+            # Wait for health checks
+            echo "Waiting for services to be healthy..."
+            sleep 30
+            
+            # Check health
+            for service in mcp-server rest-api worker; do
+              container_name="devops-mcp-blue_${service}_1"
+              if ! docker inspect $container_name --format='{{.State.Health.Status}}' | grep -q healthy; then
+                echo "Service $service is not healthy"
+                docker logs $container_name --tail 50
+                exit 1
+              fi
+            done
+            
+            echo "All services are healthy"
+          EOF
+
+      - name: Switch Traffic
+        run: |
+          ssh -i ~/.ssh/ec2-key.pem ec2-user@${{ env.EC2_INSTANCE_IP }} << 'EOF'
+            set -e
+            cd /home/ec2-user/devops-mcp
+            
+            # Update Nginx upstream to point to blue containers
+            sudo sed -i 's/localhost:8080/localhost:8082/g' /etc/nginx/conf.d/mcp.conf
+            sudo sed -i 's/localhost:8081/localhost:8083/g' /etc/nginx/conf.d/mcp.conf
+            
+            # Reload Nginx
+            sudo nginx -t && sudo systemctl reload nginx
+            
+            # Stop old containers
+            docker-compose -p devops-mcp down || true
+            
+            # Rename blue to production
+            docker-compose -p devops-mcp-blue down
+            docker-compose -p devops-mcp up -d
+            
+            # Restore Nginx config
+            sudo sed -i 's/localhost:8082/localhost:8080/g' /etc/nginx/conf.d/mcp.conf
+            sudo sed -i 's/localhost:8083/localhost:8081/g' /etc/nginx/conf.d/mcp.conf
+            sudo systemctl reload nginx
+          EOF
+
+      - name: Run Smoke Tests
+        run: |
+          # Test endpoints
+          for url in https://mcp.dev-mesh.io/health https://api.dev-mesh.io/health; do
+            echo "Testing $url"
+            response=$(curl -s -o /dev/null -w "%{http_code}" $url)
+            if [ $response -ne 200 ]; then
+              echo "Health check failed for $url (HTTP $response)"
+              exit 1
+            fi
+          done
+          
+          # Test functionality
+          echo "Running API smoke tests..."
+          # Add more comprehensive tests here
+
+      - name: Update Deployment Status
+        if: always()
+        uses: actions/github-script@v7
+        with:
+          script: |
+            await github.rest.repos.createDeploymentStatus({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              deployment_id: ${{ needs.pre-deployment.outputs.deploy_id }},
+              state: '${{ job.status }}',
+              environment_url: 'https://mcp.dev-mesh.io',
+              description: 'Deployment ${{ job.status }}'
+            });
+
+  rollback:
+    name: Rollback on Failure
+    needs: [pre-deployment, deploy]
+    if: failure()
+    runs-on: ubuntu-latest
+    steps:
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Setup SSH Key
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.EC2_SSH_PRIVATE_KEY }}" > ~/.ssh/ec2-key.pem
+          chmod 600 ~/.ssh/ec2-key.pem
+          ssh-keyscan -t rsa ${{ env.EC2_INSTANCE_IP }} >> ~/.ssh/known_hosts
+
+      - name: Perform Rollback
+        run: |
+          ssh -i ~/.ssh/ec2-key.pem ec2-user@${{ env.EC2_INSTANCE_IP }} << 'EOF'
+            cd /home/ec2-user/devops-mcp
+            
+            # Stop blue containers if they exist
+            docker-compose -p devops-mcp-blue down || true
+            
+            # Revert to latest tag
+            sed -i "s|:main-.*|:latest|g" docker-compose.yml
+            docker-compose pull
+            docker-compose up -d
+            
+            echo "Rollback completed"
+          EOF
+
+      - name: Send Rollback Notification
+        uses: 8398a7/action-slack@v3
+        with:
+          status: custom
+          custom_payload: |
+            {
+              text: "Production deployment rolled back",
+              attachments: [{
+                color: 'danger',
+                text: 'Deployment of ${{ github.sha }} failed and was rolled back'
+              }]
+            }
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK }}
+
+  post-deployment:
+    name: Post-Deployment Tasks
+    needs: deploy
+    runs-on: ubuntu-latest
+    steps:
+      - name: Clean Old Images
+        run: |
+          ssh -i ~/.ssh/ec2-key.pem ec2-user@${{ env.EC2_INSTANCE_IP }} << 'EOF'
+            # Remove unused Docker images
+            docker image prune -a -f --filter "until=24h"
+          EOF
+
+      - name: Send Success Notification
+        uses: 8398a7/action-slack@v3
+        with:
+          status: success
+          text: |
+            Production deployment successful!
+            • MCP Server: https://mcp.dev-mesh.io
+            • REST API: https://api.dev-mesh.io
+            • Commit: ${{ github.sha }}
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK }}

@@ -1,0 +1,74 @@
+version: '3.8'
+
+services:
+  mcp-server:
+    image: ghcr.io/s-corkum/devops-mcp-mcp-server:latest
+    container_name: mcp-server
+    restart: unless-stopped
+    mem_limit: 200m
+    mem_reservation: 150m
+    ports:
+      - "8080:8080"
+    env_file:
+      - .env
+    volumes:
+      - ./configs/config.yaml:/app/configs/config.yaml:ro
+      - ./logs:/app/logs
+    healthcheck:
+      test: ["CMD", "/app/mcp-server", "-health-check"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    networks:
+      - mcp-network
+
+  rest-api:
+    image: ghcr.io/s-corkum/devops-mcp-rest-api:latest
+    container_name: rest-api
+    restart: unless-stopped
+    mem_limit: 200m
+    mem_reservation: 150m
+    ports:
+      - "8081:8081"
+    env_file:
+      - .env
+    environment:
+      - MCP_SERVER_URL=http://mcp-server:8080
+      - PORT=8081
+      - API_LISTEN_ADDRESS=:8081
+    volumes:
+      - ./configs/config.rest-api.yaml:/app/configs/config.yaml:ro
+      - ./logs:/app/logs
+    depends_on:
+      mcp-server:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "/app/rest-api", "-health-check"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    networks:
+      - mcp-network
+
+  worker:
+    image: ghcr.io/s-corkum/devops-mcp-worker:latest
+    container_name: worker
+    restart: unless-stopped
+    mem_limit: 200m
+    mem_reservation: 150m
+    env_file:
+      - .env
+    volumes:
+      - ./configs/config.yaml:/app/configs/config.yaml:ro
+      - ./logs:/app/logs
+    depends_on:
+      mcp-server:
+        condition: service_healthy
+    networks:
+      - mcp-network
+
+networks:
+  mcp-network:
+    driver: bridge
