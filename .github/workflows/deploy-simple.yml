@@ -63,6 +63,9 @@ jobs:
           ssh -i ~/.ssh/id_rsa ec2-user@${{ env.EC2_HOST }} << 'ENDSSH'
             cd /home/ec2-user/devops-mcp
             
+            # Login to GHCR
+            echo "${{ github.token }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
+            
             # Pull latest images
             docker-compose pull
             
