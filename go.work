@@ -6,4 +6,5 @@ use (
 	./apps/rest-api
 	./apps/worker
 	./pkg
+	./test/e2e
 )

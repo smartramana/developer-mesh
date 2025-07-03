@@ -1,0 +1,222 @@
+name: E2E Tests
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+  schedule:
+    # Run nightly at 2 AM UTC
+    - cron: '0 2 * * *'
+  workflow_dispatch:
+    inputs:
+      test_suite:
+        description: 'Test suite to run'
+        required: false
+        default: 'all'
+        type: choice
+        options:
+          - all
+          - single
+          - multi
+          - performance
+      debug:
+        description: 'Enable debug logging'
+        required: false
+        default: false
+        type: boolean
+
+env:
+  GO_VERSION: '1.24.3'
+  MCP_BASE_URL: 'mcp.dev-mesh.io'
+  API_BASE_URL: 'api.dev-mesh.io'
+  E2E_REPORT_DIR: 'test-results'
+
+jobs:
+  e2e-tests:
+    name: Run E2E Tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    
+    strategy:
+      matrix:
+        suite: 
+          - single
+          - multi
+          - performance
+      fail-fast: false
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v3
+
+    - name: Set up Go
+      uses: actions/setup-go@v4
+      with:
+        go-version: ${{ env.GO_VERSION }}
+
+    - name: Cache Go modules
+      uses: actions/cache@v3
+      with:
+        path: |
+          ~/go/pkg/mod
+          ~/.cache/go-build
+        key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
+        restore-keys: |
+          ${{ runner.os }}-go-
+
+    - name: Install dependencies
+      run: |
+        go mod download
+        go install github.com/onsi/ginkgo/v2/ginkgo@latest
+
+    - name: Configure test environment
+      run: |
+        echo "E2E_API_KEY=${{ secrets.E2E_API_KEY }}" >> $GITHUB_ENV
+        echo "E2E_TENANT_ID=${{ secrets.E2E_TENANT_ID }}" >> $GITHUB_ENV
+        echo "E2E_DEBUG=${{ github.event.inputs.debug || 'false' }}" >> $GITHUB_ENV
+        echo "E2E_PARALLEL_TESTS=3" >> $GITHUB_ENV
+
+    - name: Run E2E tests
+      id: test
+      run: |
+        suite="${{ github.event.inputs.test_suite || matrix.suite }}"
+        echo "Running test suite: $suite"
+        
+        cd test/e2e
+        ginkgo -v \
+          --timeout=30m \
+          --flake-attempts=2 \
+          --json-report=report.json \
+          --junit-report=junit.xml \
+          -- \
+          -suite="$suite" \
+          -parallel=3 \
+          -debug=${{ env.E2E_DEBUG }}
+
+    - name: Upload test results
+      if: always()
+      uses: actions/upload-artifact@v3
+      with:
+        name: test-results-${{ matrix.suite }}
+        path: |
+          test/e2e/report.json
+          test/e2e/junit.xml
+          test/e2e/${{ env.E2E_REPORT_DIR }}/**
+
+    - name: Publish test report
+      if: always()
+      uses: dorny/test-reporter@v1
+      with:
+        name: E2E Test Results - ${{ matrix.suite }}
+        path: 'test/e2e/junit.xml'
+        reporter: java-junit
+        fail-on-error: false
+
+    - name: Comment on PR
+      if: github.event_name == 'pull_request' && always()
+      uses: actions/github-script@v6
+      with:
+        script: |
+          const suite = '${{ matrix.suite }}';
+          const status = '${{ steps.test.outcome }}';
+          const emoji = status === 'success' ? '✅' : '❌';
+          
+          const comment = `## ${emoji} E2E Test Results - ${suite}
+          
+          **Status**: ${status}
+          **Suite**: ${suite}
+          **Duration**: ${{ steps.test.outputs.duration || 'N/A' }}
+          
+          [View detailed results](https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }})`;
+          
+          github.rest.issues.createComment({
+            issue_number: context.issue.number,
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            body: comment
+          });
+
+  performance-monitoring:
+    name: Performance Monitoring
+    runs-on: ubuntu-latest
+    needs: e2e-tests
+    if: github.ref == 'refs/heads/main'
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v3
+
+    - name: Download test results
+      uses: actions/download-artifact@v3
+      with:
+        name: test-results-performance
+
+    - name: Process performance metrics
+      run: |
+        # Extract performance metrics from test results
+        # This would parse the JSON report and extract metrics
+        echo "Processing performance metrics..."
+        
+        # Example: Extract throughput and latency metrics
+        if [ -f "report.json" ]; then
+          jq '.testsuite[] | select(.name | contains("performance")) | .metrics' report.json > metrics.json
+        fi
+
+    - name: Upload to monitoring system
+      if: env.MONITORING_ENABLED == 'true'
+      run: |
+        # Upload metrics to monitoring system (e.g., CloudWatch, Datadog)
+        echo "Uploading metrics to monitoring system..."
+
+  summary:
+    name: Test Summary
+    runs-on: ubuntu-latest
+    needs: e2e-tests
+    if: always()
+    
+    steps:
+    - name: Download all test results
+      uses: actions/download-artifact@v3
+      with:
+        path: test-results
+
+    - name: Generate summary report
+      run: |
+        echo "# E2E Test Summary" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "| Suite | Status | Duration |" >> $GITHUB_STEP_SUMMARY
+        echo "|-------|--------|----------|" >> $GITHUB_STEP_SUMMARY
+        
+        # Process results from each suite
+        for suite in single multi performance; do
+          if [ -d "test-results/test-results-$suite" ]; then
+            status="✅ Passed"
+            # Check if tests failed
+            if grep -q '"failed":true' "test-results/test-results-$suite/report.json" 2>/dev/null; then
+              status="❌ Failed"
+            fi
+            echo "| $suite | $status | - |" >> $GITHUB_STEP_SUMMARY
+          fi
+        done
+
+    - name: Notify on failure
+      if: failure() && github.ref == 'refs/heads/main'
+      uses: 8398a7/action-slack@v3
+      with:
+        status: ${{ job.status }}
+        text: 'E2E tests failed on main branch!'
+        webhook_url: ${{ secrets.SLACK_WEBHOOK }}
+
+  cleanup:
+    name: Cleanup Test Resources
+    runs-on: ubuntu-latest
+    needs: [e2e-tests, performance-monitoring, summary]
+    if: always()
+    
+    steps:
+    - name: Cleanup test data
+      run: |
+        echo "Cleaning up test resources..."
+        # This would call an API or script to clean up any test data
+        # created during the E2E tests

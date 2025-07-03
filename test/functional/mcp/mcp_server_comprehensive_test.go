@@ -10,7 +10,8 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/gorilla/websocket"
+	"github.com/coder/websocket"
+	"github.com/coder/websocket/wsjson"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 )
