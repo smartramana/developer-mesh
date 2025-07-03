@@ -277,5 +277,7 @@ jobs:
             • MCP Server: https://mcp.dev-mesh.io
             • REST API: https://api.dev-mesh.io
             • Commit: ${{ github.sha }}
+            
+            E2E tests will run automatically after this deployment.
         env:
           SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK }}
