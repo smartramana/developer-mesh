@@ -72,7 +72,7 @@ var _ = Describe("Single Agent E2E Tests", func() {
 			err = testAgent.Connect(ctx)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(testAgent.IsConnected()).To(BeTrue())
-			defer testAgent.Close()
+			defer func() { _ = testAgent.Close() }()
 			
 			// Register capabilities
 			logger.Info("Registering capabilities")
@@ -141,7 +141,7 @@ var _ = Describe("Single Agent E2E Tests", func() {
 			// Reconnect
 			err = testAgent.Connect(ctx)
 			Expect(err).NotTo(HaveOccurred())
-			defer testAgent.Close()
+			defer func() { _ = testAgent.Close() }()
 			
 			// Attempt session recovery
 			resp, err := testAgent.ExecuteMethod(ctx, "session.recover", map[string]interface{}{
@@ -181,7 +181,7 @@ var _ = Describe("Single Agent E2E Tests", func() {
 			ctx := context.Background()
 			err = testAgent.Connect(ctx)
 			Expect(err).NotTo(HaveOccurred())
-			defer testAgent.Close()
+			defer func() { _ = testAgent.Close() }()
 			
 			// List tools
 			resp, err := testAgent.ExecuteMethod(ctx, "tool.list", nil)
@@ -232,7 +232,7 @@ var _ = Describe("Single Agent E2E Tests", func() {
 			ctx := context.Background()
 			err = devopsAgent.Connect(ctx)
 			Expect(err).NotTo(HaveOccurred())
-			defer devopsAgent.Close()
+			defer func() { _ = devopsAgent.Close() }()
 			
 			// Execute GitHub tool
 			resp, err := devopsAgent.ExecuteMethod(ctx, "tool.execute", map[string]interface{}{
@@ -283,7 +283,7 @@ var _ = Describe("Single Agent E2E Tests", func() {
 			ctx := context.Background()
 			err = testAgent.Connect(ctx)
 			Expect(err).NotTo(HaveOccurred())
-			defer testAgent.Close()
+			defer func() { _ = testAgent.Close() }()
 			
 			// Create context
 			contextData := testData.CreateTestContext("test-context", 100)
@@ -345,7 +345,7 @@ var _ = Describe("Single Agent E2E Tests", func() {
 			ctx := context.Background()
 			err = testAgent.Connect(ctx)
 			Expect(err).NotTo(HaveOccurred())
-			defer testAgent.Close()
+			defer func() { _ = testAgent.Close() }()
 			
 			// Create session
 			createResp, err := testAgent.ExecuteMethod(ctx, "session.create", map[string]interface{}{
@@ -446,7 +446,7 @@ var _ = Describe("Single Agent E2E Tests", func() {
 			ctx := context.Background()
 			err = testAgent.Connect(ctx)
 			Expect(err).NotTo(HaveOccurred())
-			defer testAgent.Close()
+			defer func() { _ = testAgent.Close() }()
 			
 			// Call non-existent method
 			resp, err := testAgent.ExecuteMethod(ctx, "non.existent.method", map[string]interface{}{
@@ -486,7 +486,7 @@ var _ = Describe("Single Agent E2E Tests", func() {
 			ctx := context.Background()
 			err = testAgent.Connect(ctx)
 			Expect(err).NotTo(HaveOccurred())
-			defer testAgent.Close()
+			defer func() { _ = testAgent.Close() }()
 			
 			// Create a very short timeout context
 			timeoutCtx, cancel := context.WithTimeout(ctx, 1*time.Millisecond)

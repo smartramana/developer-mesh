@@ -55,12 +55,13 @@ var _ = BeforeSuite(func() {
 	config := utils.LoadConfig()
 	if *configFile != "" {
 		// Override with config file if provided
-		// Implementation would load from file
+		// TODO: Implementation would load from file
+		_ = config // suppress unused warning for now
 	}
 	
 	// Set debug mode
 	if *debug {
-		os.Setenv("E2E_DEBUG", "true")
+		_ = os.Setenv("E2E_DEBUG", "true")
 	}
 	
 	// Verify connectivity

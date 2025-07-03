@@ -309,7 +309,7 @@ var _ = Describe("Performance and Stress E2E Tests", func() {
 			
 			err = perfAgent.Connect(ctx)
 			Expect(err).NotTo(HaveOccurred())
-			defer perfAgent.Close()
+			defer func() { _ = perfAgent.Close() }()
 			
 			// Test parameters
 			messageCount := 1000
@@ -426,7 +426,7 @@ var _ = Describe("Performance and Stress E2E Tests", func() {
 			
 			err = largeAgent.Connect(ctx)
 			Expect(err).NotTo(HaveOccurred())
-			defer largeAgent.Close()
+			defer func() { _ = largeAgent.Close() }()
 			
 			// Test different payload sizes
 			payloadSizes := []int{
@@ -648,11 +648,11 @@ var _ = Describe("Performance and Stress E2E Tests", func() {
 			// Connect both agents
 			err = textAgent.Connect(ctx)
 			Expect(err).NotTo(HaveOccurred())
-			defer textAgent.Close()
+			defer func() { _ = textAgent.Close() }()
 			
 			err = binaryAgent.Connect(ctx)
 			Expect(err).NotTo(HaveOccurred())
-			defer binaryAgent.Close()
+			defer func() { _ = binaryAgent.Close() }()
 			
 			// Enable binary protocol for binary agent
 			_, err = binaryAgent.ExecuteMethod(ctx, "protocol.set_binary", map[string]interface{}{

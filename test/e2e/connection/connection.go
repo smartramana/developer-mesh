@@ -264,7 +264,9 @@ func TestConnection(ctx context.Context, config *ConnectionConfig) error {
 	if err != nil {
 		return fmt.Errorf("connection failed: %w", err)
 	}
-	defer conn.Close(websocket.StatusNormalClosure, "test complete")
+	defer func() {
+		_ = conn.Close(websocket.StatusNormalClosure, "test complete")
+	}()
 	
 	// Send initialization message
 	initMsg := ws.Message{

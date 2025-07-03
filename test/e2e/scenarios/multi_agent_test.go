@@ -51,7 +51,9 @@ var _ = Describe("Multi-Agent Collaboration E2E Tests", func() {
 			
 			namespace, err := isolation.CreateNamespace("multi-agent-connection")
 			Expect(err).NotTo(HaveOccurred())
-			defer isolation.DeleteNamespace(namespace.ID)
+			defer func() {
+				_ = isolation.DeleteNamespace(namespace.ID)
+			}()
 			
 			ctx := context.Background()
 			
@@ -76,19 +78,19 @@ var _ = Describe("Multi-Agent Collaboration E2E Tests", func() {
 					case *agent.CodeAnalysisAgent:
 						err = a.Connect(ctx)
 						if err == nil {
-							defer a.Close()
+							defer func() { _ = a.Close() }()
 							err = a.RegisterCapabilities(ctx)
 						}
 					case *agent.DevOpsAutomationAgent:
 						err = a.Connect(ctx)
 						if err == nil {
-							defer a.Close()
+							defer func() { _ = a.Close() }()
 							err = a.RegisterCapabilities(ctx)
 						}
 					case *agent.SecurityScannerAgent:
 						err = a.Connect(ctx)
 						if err == nil {
-							defer a.Close()
+							defer func() { _ = a.Close() }()
 							err = a.RegisterCapabilities(ctx)
 						}
 					}
@@ -132,7 +134,9 @@ var _ = Describe("Multi-Agent Collaboration E2E Tests", func() {
 			
 			namespace, err := isolation.CreateNamespace("code-review-workflow")
 			Expect(err).NotTo(HaveOccurred())
-			defer isolation.DeleteNamespace(namespace.ID)
+			defer func() {
+				_ = isolation.DeleteNamespace(namespace.ID)
+			}()
 			
 			ctx := context.Background()
 			
@@ -143,11 +147,11 @@ var _ = Describe("Multi-Agent Collaboration E2E Tests", func() {
 			// Connect both agents
 			err = codeAgent.Connect(ctx)
 			Expect(err).NotTo(HaveOccurred())
-			defer codeAgent.Close()
+			defer func() { _ = codeAgent.Close() }()
 			
 			err = securityAgent.Connect(ctx)
 			Expect(err).NotTo(HaveOccurred())
-			defer securityAgent.Close()
+			defer func() { _ = securityAgent.Close() }()
 			
 			// Register capabilities
 			err = codeAgent.RegisterCapabilities(ctx)
@@ -260,7 +264,9 @@ var _ = Describe("Multi-Agent Collaboration E2E Tests", func() {
 			
 			namespace, err := isolation.CreateNamespace("parallel-tasks")
 			Expect(err).NotTo(HaveOccurred())
-			defer isolation.DeleteNamespace(namespace.ID)
+			defer func() {
+				_ = isolation.DeleteNamespace(namespace.ID)
+			}()
 			
 			ctx := context.Background()
 			
@@ -276,7 +282,7 @@ var _ = Describe("Multi-Agent Collaboration E2E Tests", func() {
 				
 				err := agents[i].Connect(ctx)
 				Expect(err).NotTo(HaveOccurred())
-				defer agents[i].Close()
+				defer func() { _ = agents[i].Close() }()
 				
 				err = agents[i].RegisterCapabilities(ctx)
 				Expect(err).NotTo(HaveOccurred())
@@ -361,7 +367,9 @@ var _ = Describe("Multi-Agent Collaboration E2E Tests", func() {
 			
 			namespace, err := isolation.CreateNamespace("consensus")
 			Expect(err).NotTo(HaveOccurred())
-			defer isolation.DeleteNamespace(namespace.ID)
+			defer func() {
+				_ = isolation.DeleteNamespace(namespace.ID)
+			}()
 			
 			ctx := context.Background()
 			
@@ -377,7 +385,7 @@ var _ = Describe("Multi-Agent Collaboration E2E Tests", func() {
 				
 				err := votingAgents[i].Connect(ctx)
 				Expect(err).NotTo(HaveOccurred())
-				defer votingAgents[i].Close()
+				defer func() { _ = votingAgents[i].Close() }()
 			}
 			
 			// Create consensus proposal
@@ -454,7 +462,9 @@ var _ = Describe("Multi-Agent Collaboration E2E Tests", func() {
 			
 			namespace, err := isolation.CreateNamespace("mapreduce")
 			Expect(err).NotTo(HaveOccurred())
-			defer isolation.DeleteNamespace(namespace.ID)
+			defer func() {
+				_ = isolation.DeleteNamespace(namespace.ID)
+			}()
 			
 			ctx := context.Background()
 			
@@ -470,7 +480,7 @@ var _ = Describe("Multi-Agent Collaboration E2E Tests", func() {
 				
 				err := mappers[i].Connect(ctx)
 				Expect(err).NotTo(HaveOccurred())
-				defer mappers[i].Close()
+				defer func() { _ = mappers[i].Close() }()
 			}
 			
 			// Create reducer agent
@@ -483,7 +493,7 @@ var _ = Describe("Multi-Agent Collaboration E2E Tests", func() {
 			
 			err = reducer.Connect(ctx)
 			Expect(err).NotTo(HaveOccurred())
-			defer reducer.Close()
+			defer func() { _ = reducer.Close() }()
 			
 			// Create MapReduce job
 			jobResp, err := mappers[0].ExecuteMethod(ctx, "mapreduce.create", map[string]interface{}{
@@ -562,7 +572,9 @@ var _ = Describe("Multi-Agent Collaboration E2E Tests", func() {
 			
 			namespace, err := isolation.CreateNamespace("deployment-pipeline")
 			Expect(err).NotTo(HaveOccurred())
-			defer isolation.DeleteNamespace(namespace.ID)
+			defer func() {
+				_ = isolation.DeleteNamespace(namespace.ID)
+			}()
 			
 			ctx := context.Background()
 			

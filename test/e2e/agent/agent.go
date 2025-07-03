@@ -81,7 +81,7 @@ func (ta *TestAgent) Connect(ctx context.Context) error {
 	
 	// Initialize connection
 	if err := ta.initialize(ctx); err != nil {
-		ta.Close()
+		_ = ta.Close()
 		return fmt.Errorf("initialization failed: %w", err)
 	}
 	

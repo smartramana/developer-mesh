@@ -285,7 +285,9 @@ func (r *Reporter) generateJUnitReport() error {
 	if err != nil {
 		return err
 	}
-	defer file.Close()
+	defer func() {
+		_ = file.Close()
+	}()
 	
 	encoder := xml.NewEncoder(file)
 	encoder.Indent("", "  ")
@@ -431,7 +433,9 @@ func (r *Reporter) generateHTMLReport() error {
 	if err != nil {
 		return err
 	}
-	defer file.Close()
+	defer func() {
+		_ = file.Close()
+	}()
 	
 	data := struct {
 		Suites      []TestSuite
@@ -487,14 +491,14 @@ func (sr *StreamingReporter) LogTest(result TestResult) {
 		statusColor, statusSymbol, result.Name, result.Duration)
 	
 	for _, w := range sr.writers {
-		fmt.Fprint(w, message)
+		_, _ = fmt.Fprint(w, message)
 	}
 	
 	// Log error details if failed
 	if result.Status == TestStatusFailed && result.Error != nil {
 		errorMsg := fmt.Sprintf("  Error: %v\n", result.Error)
 		for _, w := range sr.writers {
-			fmt.Fprint(w, errorMsg)
+			_, _ = fmt.Fprint(w, errorMsg)
 		}
 	}
 }
@@ -505,19 +509,19 @@ func (sr *StreamingReporter) PrintSummary() {
 	defer sr.mu.RUnlock()
 	
 	for _, w := range sr.writers {
-		fmt.Fprintln(w, strings.Repeat("=", 80))
-		fmt.Fprintln(w, "TEST SUMMARY")
-		fmt.Fprintln(w, strings.Repeat("=", 80))
+		_, _ = fmt.Fprintln(w, strings.Repeat("=", 80))
+		_, _ = fmt.Fprintln(w, "TEST SUMMARY")
+		_, _ = fmt.Fprintln(w, strings.Repeat("=", 80))
 		
 		totalSummary := TestSummary{}
 		
 		for _, suite := range sr.suites {
-			fmt.Fprintf(w, "\nSuite: %s\n", suite.Name)
-			fmt.Fprintf(w, "  Total:   %d\n", suite.Summary.Total)
-			fmt.Fprintf(w, "  Passed:  %d\n", suite.Summary.Passed)
-			fmt.Fprintf(w, "  Failed:  %d\n", suite.Summary.Failed)
-			fmt.Fprintf(w, "  Skipped: %d\n", suite.Summary.Skipped)
-			fmt.Fprintf(w, "  Duration: %v\n", suite.Summary.Duration)
+			_, _ = fmt.Fprintf(w, "\nSuite: %s\n", suite.Name)
+			_, _ = fmt.Fprintf(w, "  Total:   %d\n", suite.Summary.Total)
+			_, _ = fmt.Fprintf(w, "  Passed:  %d\n", suite.Summary.Passed)
+			_, _ = fmt.Fprintf(w, "  Failed:  %d\n", suite.Summary.Failed)
+			_, _ = fmt.Fprintf(w, "  Skipped: %d\n", suite.Summary.Skipped)
+			_, _ = fmt.Fprintf(w, "  Duration: %v\n", suite.Summary.Duration)
 			
 			totalSummary.Total += suite.Summary.Total
 			totalSummary.Passed += suite.Summary.Passed
@@ -526,10 +530,10 @@ func (sr *StreamingReporter) PrintSummary() {
 			totalSummary.Duration += suite.Summary.Duration
 		}
 		
-		fmt.Fprintln(w, strings.Repeat("-", 80))
-		fmt.Fprintf(w, "TOTAL: %d tests, %d passed, %d failed, %d skipped\n",
+		_, _ = fmt.Fprintln(w, strings.Repeat("-", 80))
+		_, _ = fmt.Fprintf(w, "TOTAL: %d tests, %d passed, %d failed, %d skipped\n",
 			totalSummary.Total, totalSummary.Passed, totalSummary.Failed, totalSummary.Skipped)
-		fmt.Fprintf(w, "Duration: %v\n", totalSummary.Duration)
-		fmt.Fprintln(w, strings.Repeat("=", 80))
+		_, _ = fmt.Fprintf(w, "Duration: %v\n", totalSummary.Duration)
+		_, _ = fmt.Fprintln(w, strings.Repeat("=", 80))
 	}
 }
