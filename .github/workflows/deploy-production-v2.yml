@@ -13,7 +13,7 @@ on:
 
 env:
   AWS_REGION: us-east-1
-  EC2_INSTANCE_IP: 44.211.47.174
+  EC2_INSTANCE_IP: ${{ secrets.EC2_INSTANCE_IP }}
   DEPLOYMENT_TIMEOUT: 600  # 10 minutes
 
 jobs:

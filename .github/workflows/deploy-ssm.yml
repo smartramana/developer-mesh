@@ -10,7 +10,7 @@ on:
 
 env:
   AWS_REGION: us-east-1
-  INSTANCE_ID: i-08a9a59532aad9879
+  INSTANCE_ID: ${{ secrets.EC2_INSTANCE_ID }}
 
 jobs:
   deploy:

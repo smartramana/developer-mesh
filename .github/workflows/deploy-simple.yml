@@ -4,7 +4,7 @@ on:
   workflow_dispatch:  # Manual trigger only for safety
 
 env:
-  EC2_HOST: 44.211.47.174
+  EC2_HOST: ${{ secrets.EC2_INSTANCE_IP }}
 
 jobs:
   deploy:

@@ -24,7 +24,9 @@ AWS_SECRET_ACCESS_KEY     # IAM user secret key
 
 ### 2. EC2 Access
 ```bash
-EC2_SSH_PRIVATE_KEY       # Private key for EC2 access
+EC2_SSH_PRIVATE_KEY       # Private key for EC2 access (for SSH-based deployments)
+EC2_INSTANCE_IP           # Public IP address of EC2 instance
+EC2_INSTANCE_ID           # Instance ID for SSM-based deployments
 ```
 
 **Setup:**
@@ -81,7 +83,8 @@ gh secret set REDIS_ENDPOINT -b "master.devops-mcp-redis-encrypted.qem3fz.use1.c
 gh secret set S3_BUCKET -b "sean-mcp-dev-contexts"
 gh secret set SQS_QUEUE_URL -b "https://sqs.us-east-1.amazonaws.com/594992249511/sean-mcp-test"
 gh secret set ADMIN_API_KEY -b "your-admin-key"
-gh secret set GITHUB_TOKEN -b "ghp_your_token"
+gh secret set EC2_INSTANCE_IP -b "54.86.185.227"
+gh secret set EC2_INSTANCE_ID -b "i-08a9a59532aad9879"
 ```
 
 ## Environment Configuration
