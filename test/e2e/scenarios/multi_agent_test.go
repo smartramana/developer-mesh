@@ -11,7 +11,7 @@ import (
 	"github.com/S-Corkum/devops-mcp/test/e2e/data"
 	"github.com/S-Corkum/devops-mcp/test/e2e/reporting"
 	"github.com/S-Corkum/devops-mcp/test/e2e/utils"
-	
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 )
@@ -31,7 +31,7 @@ var _ = Describe("Multi-Agent Collaboration E2E Tests", func() {
 		testData = data.DefaultTestData()
 		isolation = utils.NewTestIsolation()
 		logger = utils.NewTestLogger("multi-agent", config.EnableDebug)
-		
+
 		reporter.StartSuite("Multi-Agent Collaboration Tests")
 	})
 
@@ -48,31 +48,31 @@ var _ = Describe("Multi-Agent Collaboration E2E Tests", func() {
 				Suite:     "multi_agent",
 				StartTime: time.Now(),
 			}
-			
+
 			namespace, err := isolation.CreateNamespace("multi-agent-connection")
 			Expect(err).NotTo(HaveOccurred())
 			defer func() {
 				_ = isolation.DeleteNamespace(namespace.ID)
 			}()
-			
+
 			ctx := context.Background()
-			
+
 			// Create different agent types
 			agents := []interface{}{
 				agent.NewCodeAnalysisAgent(testData.APIKeys["admin"], config.MCPBaseURL),
 				agent.NewDevOpsAutomationAgent(testData.APIKeys["admin"], config.MCPBaseURL),
 				agent.NewSecurityScannerAgent(testData.APIKeys["admin"], config.MCPBaseURL),
 			}
-			
+
 			// Connect all agents concurrently
 			var wg sync.WaitGroup
 			errors := make(chan error, len(agents))
-			
+
 			for i, ag := range agents {
 				wg.Add(1)
 				go func(idx int, testAgent interface{}) {
 					defer wg.Done()
-					
+
 					var err error
 					switch a := testAgent.(type) {
 					case *agent.CodeAnalysisAgent:
@@ -94,7 +94,7 @@ var _ = Describe("Multi-Agent Collaboration E2E Tests", func() {
 							err = a.RegisterCapabilities(ctx)
 						}
 					}
-					
+
 					if err != nil {
 						errors <- err
 					} else {
@@ -102,24 +102,24 @@ var _ = Describe("Multi-Agent Collaboration E2E Tests", func() {
 					}
 				}(i, ag)
 			}
-			
+
 			wg.Wait()
 			close(errors)
-			
+
 			// Check for errors
 			errorCount := 0
 			for err := range errors {
 				errorCount++
 				logger.Error("Connection error: %v", err)
 			}
-			
+
 			Expect(errorCount).To(Equal(0))
-			
+
 			testResult.Status = reporting.TestStatusPassed
 			testResult.EndTime = time.Now()
 			testResult.Duration = testResult.EndTime.Sub(testResult.StartTime)
 			testResult.Message = fmt.Sprintf("Connected %d agents successfully", len(agents))
-			
+
 			reporter.LogTest(testResult)
 		})
 	})
@@ -131,35 +131,35 @@ var _ = Describe("Multi-Agent Collaboration E2E Tests", func() {
 				Suite:     "multi_agent",
 				StartTime: time.Now(),
 			}
-			
+
 			namespace, err := isolation.CreateNamespace("code-review-workflow")
 			Expect(err).NotTo(HaveOccurred())
 			defer func() {
 				_ = isolation.DeleteNamespace(namespace.ID)
 			}()
-			
+
 			ctx := context.Background()
-			
+
 			// Create specialized agents
 			codeAgent := agent.NewCodeAnalysisAgent(testData.APIKeys["admin"], config.MCPBaseURL)
 			securityAgent := agent.NewSecurityScannerAgent(testData.APIKeys["admin"], config.MCPBaseURL)
-			
+
 			// Connect both agents
 			err = codeAgent.Connect(ctx)
 			Expect(err).NotTo(HaveOccurred())
 			defer func() { _ = codeAgent.Close() }()
-			
+
 			err = securityAgent.Connect(ctx)
 			Expect(err).NotTo(HaveOccurred())
 			defer func() { _ = securityAgent.Close() }()
-			
+
 			// Register capabilities
 			err = codeAgent.RegisterCapabilities(ctx)
 			Expect(err).NotTo(HaveOccurred())
-			
+
 			err = securityAgent.RegisterCapabilities(ctx)
 			Expect(err).NotTo(HaveOccurred())
-			
+
 			// Create collaborative workflow
 			workflowResp, err := codeAgent.ExecuteMethod(ctx, "workflow.create_collaborative", map[string]interface{}{
 				"name":        "code-review-workflow",
@@ -178,10 +178,10 @@ var _ = Describe("Multi-Agent Collaboration E2E Tests", func() {
 				},
 				"strategy": "sequential",
 			})
-			
+
 			Expect(err).NotTo(HaveOccurred())
 			Expect(workflowResp.Error).To(BeNil())
-			
+
 			var workflowID string
 			if result, ok := workflowResp.Result.(map[string]interface{}); ok {
 				if id, ok := result["id"].(string); ok {
@@ -189,7 +189,7 @@ var _ = Describe("Multi-Agent Collaboration E2E Tests", func() {
 				}
 			}
 			Expect(workflowID).NotTo(BeEmpty())
-			
+
 			// Execute workflow
 			execResp, err := codeAgent.ExecuteMethod(ctx, "workflow.execute_collaborative", map[string]interface{}{
 				"workflow_id": workflowID,
@@ -198,9 +198,9 @@ var _ = Describe("Multi-Agent Collaboration E2E Tests", func() {
 					"pr_number":  testData.Repositories["backend-api"].PRNumbers[0],
 				},
 			})
-			
+
 			Expect(err).NotTo(HaveOccurred())
-			
+
 			if execResp.Error != nil {
 				// Workflow might not be fully implemented
 				testResult.Status = reporting.TestStatusSkipped
@@ -213,7 +213,7 @@ var _ = Describe("Multi-Agent Collaboration E2E Tests", func() {
 						executionID = id
 					}
 				}
-				
+
 				if executionID != "" {
 					// Poll for completion
 					completed := false
@@ -221,7 +221,7 @@ var _ = Describe("Multi-Agent Collaboration E2E Tests", func() {
 						statusResp, err := codeAgent.ExecuteMethod(ctx, "workflow.status", map[string]interface{}{
 							"execution_id": executionID,
 						})
-						
+
 						if err == nil && statusResp.Error == nil {
 							if result, ok := statusResp.Result.(map[string]interface{}); ok {
 								if status, ok := result["status"].(string); ok && (status == "completed" || status == "failed") {
@@ -230,10 +230,10 @@ var _ = Describe("Multi-Agent Collaboration E2E Tests", func() {
 								}
 							}
 						}
-						
+
 						time.Sleep(1 * time.Second)
 					}
-					
+
 					if completed {
 						testResult.Status = reporting.TestStatusPassed
 						testResult.Message = "Code review workflow completed"
@@ -246,10 +246,10 @@ var _ = Describe("Multi-Agent Collaboration E2E Tests", func() {
 					testResult.Message = "Workflow created successfully"
 				}
 			}
-			
+
 			testResult.EndTime = time.Now()
 			testResult.Duration = testResult.EndTime.Sub(testResult.StartTime)
-			
+
 			reporter.LogTest(testResult)
 		})
 	})
@@ -261,15 +261,15 @@ var _ = Describe("Multi-Agent Collaboration E2E Tests", func() {
 				Suite:     "multi_agent",
 				StartTime: time.Now(),
 			}
-			
+
 			namespace, err := isolation.CreateNamespace("parallel-tasks")
 			Expect(err).NotTo(HaveOccurred())
 			defer func() {
 				_ = isolation.DeleteNamespace(namespace.ID)
 			}()
-			
+
 			ctx := context.Background()
-			
+
 			// Create multiple agents of the same type
 			agents := make([]*agent.TestAgent, 3)
 			for i := 0; i < 3; i++ {
@@ -279,15 +279,15 @@ var _ = Describe("Multi-Agent Collaboration E2E Tests", func() {
 					testData.APIKeys["admin"],
 					config.MCPBaseURL,
 				)
-				
+
 				err := agents[i].Connect(ctx)
 				Expect(err).NotTo(HaveOccurred())
 				defer func() { _ = agents[i].Close() }()
-				
+
 				err = agents[i].RegisterCapabilities(ctx)
 				Expect(err).NotTo(HaveOccurred())
 			}
-			
+
 			// Create parallel task batch
 			batchResp, err := agents[0].ExecuteMethod(ctx, "task.create_batch", map[string]interface{}{
 				"tasks": []map[string]interface{}{
@@ -306,7 +306,7 @@ var _ = Describe("Multi-Agent Collaboration E2E Tests", func() {
 				},
 				"strategy": "parallel",
 			})
-			
+
 			if err != nil || batchResp.Error != nil {
 				testResult.Status = reporting.TestStatusSkipped
 				testResult.Message = "Batch task creation not supported"
@@ -314,7 +314,7 @@ var _ = Describe("Multi-Agent Collaboration E2E Tests", func() {
 				// Wait for task assignments
 				taskCount := 0
 				timeout := time.After(10 * time.Second)
-				
+
 				for taskCount < 3 {
 					select {
 					case <-timeout:
@@ -324,7 +324,7 @@ var _ = Describe("Multi-Agent Collaboration E2E Tests", func() {
 							task, err := ag.WaitForTask(ctx, 100*time.Millisecond)
 							if err == nil && task != nil {
 								taskCount++
-								
+
 								// Accept and complete task
 								if params, ok := task.Params.(map[string]interface{}); ok {
 									if taskID, ok := params["taskId"].(string); ok {
@@ -339,7 +339,7 @@ var _ = Describe("Multi-Agent Collaboration E2E Tests", func() {
 						}
 					}
 				}
-				
+
 			done:
 				if taskCount >= 3 {
 					testResult.Status = reporting.TestStatusPassed
@@ -349,10 +349,10 @@ var _ = Describe("Multi-Agent Collaboration E2E Tests", func() {
 					testResult.Message = fmt.Sprintf("Only %d tasks completed", taskCount)
 				}
 			}
-			
+
 			testResult.EndTime = time.Now()
 			testResult.Duration = testResult.EndTime.Sub(testResult.StartTime)
-			
+
 			reporter.LogTest(testResult)
 		})
 	})
@@ -364,15 +364,15 @@ var _ = Describe("Multi-Agent Collaboration E2E Tests", func() {
 				Suite:     "multi_agent",
 				StartTime: time.Now(),
 			}
-			
+
 			namespace, err := isolation.CreateNamespace("consensus")
 			Expect(err).NotTo(HaveOccurred())
 			defer func() {
 				_ = isolation.DeleteNamespace(namespace.ID)
 			}()
-			
+
 			ctx := context.Background()
-			
+
 			// Create voting agents
 			votingAgents := make([]*agent.TestAgent, 5)
 			for i := 0; i < 5; i++ {
@@ -382,12 +382,12 @@ var _ = Describe("Multi-Agent Collaboration E2E Tests", func() {
 					testData.APIKeys["admin"],
 					config.MCPBaseURL,
 				)
-				
+
 				err := votingAgents[i].Connect(ctx)
 				Expect(err).NotTo(HaveOccurred())
 				defer func() { _ = votingAgents[i].Close() }()
 			}
-			
+
 			// Create consensus proposal
 			proposalResp, err := votingAgents[0].ExecuteMethod(ctx, "consensus.propose", map[string]interface{}{
 				"proposal": map[string]interface{}{
@@ -396,10 +396,10 @@ var _ = Describe("Multi-Agent Collaboration E2E Tests", func() {
 					"version":     "v1.2.3",
 					"environment": "production",
 				},
-				"timeout":        30, // 30 seconds
-				"quorum":         3,  // Need 3 votes
+				"timeout": 30, // 30 seconds
+				"quorum":  3,  // Need 3 votes
 			})
-			
+
 			if err != nil || proposalResp.Error != nil {
 				testResult.Status = reporting.TestStatusSkipped
 				testResult.Message = "Consensus mechanism not implemented"
@@ -410,7 +410,7 @@ var _ = Describe("Multi-Agent Collaboration E2E Tests", func() {
 						proposalID = id
 					}
 				}
-				
+
 				if proposalID != "" {
 					// Have agents vote
 					votes := 0
@@ -421,17 +421,17 @@ var _ = Describe("Multi-Agent Collaboration E2E Tests", func() {
 							"vote":        vote,
 							"reason":      fmt.Sprintf("Agent %d vote", i),
 						})
-						
+
 						if err == nil && voteResp.Error == nil {
 							votes++
 						}
 					}
-					
+
 					// Check consensus result
 					resultResp, err := votingAgents[0].ExecuteMethod(ctx, "consensus.result", map[string]interface{}{
 						"proposal_id": proposalID,
 					})
-					
+
 					if err == nil && resultResp.Error == nil {
 						testResult.Status = reporting.TestStatusPassed
 						testResult.Message = fmt.Sprintf("Consensus reached with %d votes", votes)
@@ -444,10 +444,10 @@ var _ = Describe("Multi-Agent Collaboration E2E Tests", func() {
 					testResult.Message = "Failed to create proposal"
 				}
 			}
-			
+
 			testResult.EndTime = time.Now()
 			testResult.Duration = testResult.EndTime.Sub(testResult.StartTime)
-			
+
 			reporter.LogTest(testResult)
 		})
 	})
@@ -459,15 +459,15 @@ var _ = Describe("Multi-Agent Collaboration E2E Tests", func() {
 				Suite:     "multi_agent",
 				StartTime: time.Now(),
 			}
-			
+
 			namespace, err := isolation.CreateNamespace("mapreduce")
 			Expect(err).NotTo(HaveOccurred())
 			defer func() {
 				_ = isolation.DeleteNamespace(namespace.ID)
 			}()
-			
+
 			ctx := context.Background()
-			
+
 			// Create mapper agents
 			mappers := make([]*agent.TestAgent, 3)
 			for i := 0; i < 3; i++ {
@@ -477,12 +477,12 @@ var _ = Describe("Multi-Agent Collaboration E2E Tests", func() {
 					testData.APIKeys["admin"],
 					config.MCPBaseURL,
 				)
-				
+
 				err := mappers[i].Connect(ctx)
 				Expect(err).NotTo(HaveOccurred())
 				defer func() { _ = mappers[i].Close() }()
 			}
-			
+
 			// Create reducer agent
 			reducer := agent.NewTestAgent(
 				"reducer",
@@ -490,11 +490,11 @@ var _ = Describe("Multi-Agent Collaboration E2E Tests", func() {
 				testData.APIKeys["admin"],
 				config.MCPBaseURL,
 			)
-			
+
 			err = reducer.Connect(ctx)
 			Expect(err).NotTo(HaveOccurred())
 			defer func() { _ = reducer.Close() }()
-			
+
 			// Create MapReduce job
 			jobResp, err := mappers[0].ExecuteMethod(ctx, "mapreduce.create", map[string]interface{}{
 				"job_type": "log_analysis",
@@ -505,11 +505,11 @@ var _ = Describe("Multi-Agent Collaboration E2E Tests", func() {
 						"end":   time.Now().Unix(),
 					},
 				},
-				"map_function": "count_errors",
+				"map_function":    "count_errors",
 				"reduce_function": "sum_counts",
-				"partitions": 3,
+				"partitions":      3,
 			})
-			
+
 			if err != nil || jobResp.Error != nil {
 				testResult.Status = reporting.TestStatusSkipped
 				testResult.Message = "MapReduce not implemented"
@@ -521,7 +521,7 @@ var _ = Describe("Multi-Agent Collaboration E2E Tests", func() {
 						jobID = id
 					}
 				}
-				
+
 				if jobID != "" {
 					// Wait for completion
 					completed := false
@@ -529,7 +529,7 @@ var _ = Describe("Multi-Agent Collaboration E2E Tests", func() {
 						statusResp, err := mappers[0].ExecuteMethod(ctx, "mapreduce.status", map[string]interface{}{
 							"job_id": jobID,
 						})
-						
+
 						if err == nil && statusResp.Error == nil {
 							if result, ok := statusResp.Result.(map[string]interface{}); ok {
 								if status, ok := result["status"].(string); ok && status == "completed" {
@@ -538,10 +538,10 @@ var _ = Describe("Multi-Agent Collaboration E2E Tests", func() {
 								}
 							}
 						}
-						
+
 						time.Sleep(500 * time.Millisecond)
 					}
-					
+
 					if completed {
 						testResult.Status = reporting.TestStatusPassed
 						testResult.Message = "MapReduce job completed successfully"
@@ -554,10 +554,10 @@ var _ = Describe("Multi-Agent Collaboration E2E Tests", func() {
 					testResult.Message = "Failed to create MapReduce job"
 				}
 			}
-			
+
 			testResult.EndTime = time.Now()
 			testResult.Duration = testResult.EndTime.Sub(testResult.StartTime)
-			
+
 			reporter.LogTest(testResult)
 		})
 	})
@@ -569,22 +569,22 @@ var _ = Describe("Multi-Agent Collaboration E2E Tests", func() {
 				Suite:     "multi_agent",
 				StartTime: time.Now(),
 			}
-			
+
 			namespace, err := isolation.CreateNamespace("deployment-pipeline")
 			Expect(err).NotTo(HaveOccurred())
 			defer func() {
 				_ = isolation.DeleteNamespace(namespace.ID)
 			}()
-			
+
 			ctx := context.Background()
-			
+
 			// Create specialized agents for deployment pipeline
 			codeAgent := agent.NewCodeAnalysisAgent(testData.APIKeys["admin"], config.MCPBaseURL)
 			devopsAgent := agent.NewDevOpsAutomationAgent(testData.APIKeys["admin"], config.MCPBaseURL)
 			securityAgent := agent.NewSecurityScannerAgent(testData.APIKeys["admin"], config.MCPBaseURL)
 			infraAgent := agent.NewInfrastructureAgent(testData.APIKeys["admin"], config.MCPBaseURL)
 			monitoringAgent := agent.NewMonitoringAgent(testData.APIKeys["admin"], config.MCPBaseURL)
-			
+
 			// Connect all agents
 			agents := []interface{}{codeAgent, devopsAgent, securityAgent, infraAgent, monitoringAgent}
 			for _, ag := range agents {
@@ -611,7 +611,7 @@ var _ = Describe("Multi-Agent Collaboration E2E Tests", func() {
 					defer a.Close()
 				}
 			}
-			
+
 			// Create deployment pipeline
 			pipelineResp, err := devopsAgent.ExecuteMethod(ctx, "pipeline.create", map[string]interface{}{
 				"name": "full-deployment-pipeline",
@@ -643,7 +643,7 @@ var _ = Describe("Multi-Agent Collaboration E2E Tests", func() {
 					},
 				},
 			})
-			
+
 			if err != nil || pipelineResp.Error != nil {
 				testResult.Status = reporting.TestStatusSkipped
 				testResult.Message = "Pipeline coordination not fully implemented"
@@ -651,10 +651,10 @@ var _ = Describe("Multi-Agent Collaboration E2E Tests", func() {
 				testResult.Status = reporting.TestStatusPassed
 				testResult.Message = "Deployment pipeline created successfully"
 			}
-			
+
 			testResult.EndTime = time.Now()
 			testResult.Duration = testResult.EndTime.Sub(testResult.StartTime)
-			
+
 			reporter.LogTest(testResult)
 		})
 	})

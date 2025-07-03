@@ -23,16 +23,16 @@ type TestAgent struct {
 	apiKey       string
 	baseURL      string
 	sessionID    string
-	
+
 	// Connection state
 	connected bool
 	mu        sync.RWMutex
-	
+
 	// Message handling
-	responses  chan *ws.Message
-	errors     chan error
-	stopCh     chan struct{}
-	
+	responses chan *ws.Message
+	errors    chan error
+	stopCh    chan struct{}
+
 	// Metrics
 	messagesSent     int64
 	messagesReceived int64
@@ -56,7 +56,7 @@ func NewTestAgent(name string, capabilities []string, apiKey, baseURL string) *T
 // Connect establishes WebSocket connection to the MCP server
 func (ta *TestAgent) Connect(ctx context.Context) error {
 	wsURL := fmt.Sprintf("wss://%s/v1/ws", ta.baseURL)
-	
+
 	opts := &websocket.DialOptions{
 		HTTPHeader: http.Header{
 			"Authorization": []string{"Bearer " + ta.apiKey},
@@ -64,27 +64,27 @@ func (ta *TestAgent) Connect(ctx context.Context) error {
 			"X-Agent-Name":  []string{ta.name},
 		},
 	}
-	
+
 	conn, _, err := websocket.Dial(ctx, wsURL, opts)
 	if err != nil {
 		return fmt.Errorf("failed to connect: %w", err)
 	}
-	
+
 	ta.mu.Lock()
 	ta.conn = conn
 	ta.connected = true
 	ta.lastActivity = time.Now()
 	ta.mu.Unlock()
-	
+
 	// Start message reader
 	go ta.readMessages()
-	
+
 	// Initialize connection
 	if err := ta.initialize(ctx); err != nil {
 		_ = ta.Close()
 		return fmt.Errorf("initialization failed: %w", err)
 	}
-	
+
 	return nil
 }
 
@@ -105,23 +105,23 @@ func (ta *TestAgent) initialize(ctx context.Context) error {
 			},
 		},
 	}
-	
+
 	response, err := ta.sendAndWait(ctx, &initMsg, 10*time.Second)
 	if err != nil {
 		return err
 	}
-	
+
 	if response.Error != nil {
 		return fmt.Errorf("initialization error: %s", response.Error.Message)
 	}
-	
+
 	// Extract session ID if provided
 	if result, ok := response.Result.(map[string]interface{}); ok {
 		if sessionID, ok := result["sessionId"].(string); ok {
 			ta.sessionID = sessionID
 		}
 	}
-	
+
 	return nil
 }
 
@@ -129,7 +129,7 @@ func (ta *TestAgent) initialize(ctx context.Context) error {
 func (ta *TestAgent) readMessages() {
 	defer close(ta.responses)
 	defer close(ta.errors)
-	
+
 	for {
 		select {
 		case <-ta.stopCh:
@@ -151,12 +151,12 @@ func (ta *TestAgent) readMessages() {
 				}
 				continue
 			}
-			
+
 			ta.mu.Lock()
 			ta.messagesReceived++
 			ta.lastActivity = time.Now()
 			ta.mu.Unlock()
-			
+
 			select {
 			case ta.responses <- &msg:
 			case <-ta.stopCh:
@@ -171,10 +171,10 @@ func (ta *TestAgent) sendAndWait(ctx context.Context, msg *ws.Message, timeout t
 	if err := ta.SendMessage(ctx, msg); err != nil {
 		return nil, err
 	}
-	
+
 	ctx, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
-	
+
 	for {
 		select {
 		case response := <-ta.responses:
@@ -202,16 +202,16 @@ func (ta *TestAgent) SendMessage(ctx context.Context, msg *ws.Message) error {
 		return fmt.Errorf("not connected")
 	}
 	ta.mu.RUnlock()
-	
+
 	if err := wsjson.Write(ctx, ta.conn, msg); err != nil {
 		return fmt.Errorf("failed to send message: %w", err)
 	}
-	
+
 	ta.mu.Lock()
 	ta.messagesSent++
 	ta.lastActivity = time.Now()
 	ta.mu.Unlock()
-	
+
 	return nil
 }
 
@@ -223,7 +223,7 @@ func (ta *TestAgent) ExecuteMethod(ctx context.Context, method string, params in
 		Method: method,
 		Params: params,
 	}
-	
+
 	return ta.sendAndWait(ctx, &msg, 30*time.Second)
 }
 
@@ -237,15 +237,15 @@ func (ta *TestAgent) RegisterCapabilities(ctx context.Context) error {
 			"preferredTaskTypes": ta.capabilities,
 		},
 	})
-	
+
 	if err != nil {
 		return err
 	}
-	
+
 	if resp.Error != nil {
 		return fmt.Errorf("registration error: %s", resp.Error.Message)
 	}
-	
+
 	return nil
 }
 
@@ -255,11 +255,11 @@ func (ta *TestAgent) Heartbeat(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	
+
 	if resp.Error != nil {
 		return fmt.Errorf("heartbeat error: %s", resp.Error.Message)
 	}
-	
+
 	return nil
 }
 
@@ -268,15 +268,15 @@ func (ta *TestAgent) AcceptTask(ctx context.Context, taskID string) error {
 	resp, err := ta.ExecuteMethod(ctx, "task.accept", map[string]interface{}{
 		"taskId": taskID,
 	})
-	
+
 	if err != nil {
 		return err
 	}
-	
+
 	if resp.Error != nil {
 		return fmt.Errorf("accept task error: %s", resp.Error.Message)
 	}
-	
+
 	return nil
 }
 
@@ -287,15 +287,15 @@ func (ta *TestAgent) CompleteTask(ctx context.Context, taskID string, result int
 		"result": result,
 		"status": "completed",
 	})
-	
+
 	if err != nil {
 		return err
 	}
-	
+
 	if resp.Error != nil {
 		return fmt.Errorf("complete task error: %s", resp.Error.Message)
 	}
-	
+
 	return nil
 }
 
@@ -303,7 +303,7 @@ func (ta *TestAgent) CompleteTask(ctx context.Context, taskID string, result int
 func (ta *TestAgent) WaitForTask(ctx context.Context, timeout time.Duration) (*ws.Message, error) {
 	ctx, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
-	
+
 	for {
 		select {
 		case msg := <-ta.responses:
@@ -325,14 +325,14 @@ func (ta *TestAgent) WaitForTask(ctx context.Context, timeout time.Duration) (*w
 func (ta *TestAgent) Close() error {
 	ta.mu.Lock()
 	defer ta.mu.Unlock()
-	
+
 	if !ta.connected {
 		return nil
 	}
-	
+
 	close(ta.stopCh)
 	ta.connected = false
-	
+
 	if ta.conn != nil {
 		// Send disconnect message
 		disconnectMsg := ws.Message{
@@ -343,15 +343,15 @@ func (ta *TestAgent) Close() error {
 				"reason": "test completed",
 			},
 		}
-		
+
 		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 		defer cancel()
-		
+
 		_ = wsjson.Write(ctx, ta.conn, disconnectMsg)
-		
+
 		return ta.conn.Close(websocket.StatusNormalClosure, "Test completed")
 	}
-	
+
 	return nil
 }
 

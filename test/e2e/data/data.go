@@ -53,11 +53,11 @@ type TestContext struct {
 
 // TestWorkflow represents a test workflow
 type TestWorkflow struct {
-	ID          string
-	Name        string
-	Steps       []WorkflowStep
-	Strategy    string
-	CreatedAt   time.Time
+	ID        string
+	Name      string
+	Steps     []WorkflowStep
+	Strategy  string
+	CreatedAt time.Time
 }
 
 // WorkflowStep represents a step in a workflow
@@ -74,7 +74,7 @@ func NewTestData(tenantID string) *TestData {
 	if tenantID == "" {
 		tenantID = "test-tenant-" + uuid.New().String()[:8]
 	}
-	
+
 	return &TestData{
 		TenantID:     tenantID,
 		APIKeys:      make(map[string]string),
@@ -102,7 +102,7 @@ func (td *TestData) CreateTestAccount(name string, permissions []string) *TestAc
 		Permissions: permissions,
 		CreatedAt:   time.Now(),
 	}
-	
+
 	td.TestAccounts[name] = account
 	return account
 }
@@ -117,7 +117,7 @@ func (td *TestData) CreateTestRepository(name string) *TestRepository {
 		PRNumbers:   []int{rand.Intn(1000) + 1, rand.Intn(1000) + 1},
 		Description: fmt.Sprintf("Test repository for %s", name),
 	}
-	
+
 	td.Repositories[name] = repo
 	return repo
 }
@@ -125,19 +125,19 @@ func (td *TestData) CreateTestRepository(name string) *TestRepository {
 // CreateTestContext creates a test context
 func (td *TestData) CreateTestContext(name string, size int) *TestContext {
 	content := GenerateLargeContext(size)
-	
+
 	ctx := &TestContext{
 		ID:      uuid.New().String(),
 		Name:    name,
 		Content: content,
 		Metadata: map[string]interface{}{
-			"type":        "test",
+			"type":       "test",
 			"importance": rand.Intn(100),
 			"tokens":     size * 4, // Approximate tokens
 		},
 		Size: len(content),
 	}
-	
+
 	td.Contexts[name] = ctx
 	return ctx
 }
@@ -151,7 +151,7 @@ func (td *TestData) CreateTestWorkflow(name string, steps []WorkflowStep, strate
 		Strategy:  strategy,
 		CreatedAt: time.Now(),
 	}
-	
+
 	td.Workflows[name] = workflow
 	return workflow
 }
@@ -162,11 +162,11 @@ func (td *TestData) LoadFromFile(filename string) error {
 	if err != nil {
 		return fmt.Errorf("failed to read file: %w", err)
 	}
-	
+
 	if err := json.Unmarshal(data, td); err != nil {
 		return fmt.Errorf("failed to unmarshal data: %w", err)
 	}
-	
+
 	return nil
 }
 
@@ -176,23 +176,23 @@ func (td *TestData) SaveToFile(filename string) error {
 	if err != nil {
 		return fmt.Errorf("failed to marshal data: %w", err)
 	}
-	
+
 	dir := filepath.Dir(filename)
 	if err := os.MkdirAll(dir, 0755); err != nil {
 		return fmt.Errorf("failed to create directory: %w", err)
 	}
-	
+
 	if err := os.WriteFile(filename, data, 0644); err != nil {
 		return fmt.Errorf("failed to write file: %w", err)
 	}
-	
+
 	return nil
 }
 
 // GenerateLargeContext generates a large text context for testing
 func GenerateLargeContext(lines int) string {
 	var sb strings.Builder
-	
+
 	// Sample text patterns
 	patterns := []string{
 		"The quick brown fox jumps over the lazy dog.",
@@ -204,21 +204,21 @@ func GenerateLargeContext(lines int) string {
 		"Microservices architecture provides scalability and flexibility.",
 		"Security is a critical aspect of modern application development.",
 	}
-	
+
 	for i := 0; i < lines; i++ {
 		pattern := patterns[i%len(patterns)]
 		sb.WriteString(fmt.Sprintf("Line %d: %s\n", i+1, pattern))
-		
+
 		// Add some variation
 		if i%10 == 0 {
 			sb.WriteString(fmt.Sprintf("Timestamp: %s\n", time.Now().Format(time.RFC3339)))
 		}
-		
+
 		if i%20 == 0 {
 			sb.WriteString(fmt.Sprintf("Random UUID: %s\n", uuid.New().String()))
 		}
 	}
-	
+
 	return sb.String()
 }
 
@@ -253,21 +253,21 @@ func (g *TestDataGenerator) GenerateTaskPayload(taskType string) map[string]inte
 			"branch":     "main",
 			"checks":     []string{"style", "bugs", "security"},
 		}
-	
+
 	case "deployment":
 		return map[string]interface{}{
 			"application": fmt.Sprintf("app-%d", g.rand.Intn(10)),
 			"environment": []string{"dev", "staging", "prod"}[g.rand.Intn(3)],
 			"version":     fmt.Sprintf("v1.%d.%d", g.rand.Intn(10), g.rand.Intn(100)),
 		}
-	
+
 	case "security_scan":
 		return map[string]interface{}{
 			"target":     fmt.Sprintf("service-%d", g.rand.Intn(20)),
 			"scan_types": []string{"vulnerabilities", "compliance", "secrets"},
 			"severity":   []string{"low", "medium", "high", "critical"}[g.rand.Intn(4)],
 		}
-	
+
 	default:
 		return map[string]interface{}{
 			"type":      taskType,
@@ -292,22 +292,22 @@ func (g *TestDataGenerator) GenerateMetrics() map[string]interface{} {
 // DefaultTestData creates default test data for common scenarios
 func DefaultTestData() *TestData {
 	td := NewTestData("e2e-test-tenant")
-	
+
 	// Create test accounts
 	td.CreateTestAccount("admin", []string{"*"})
 	td.CreateTestAccount("developer", []string{"read", "write", "execute"})
 	td.CreateTestAccount("viewer", []string{"read"})
-	
+
 	// Create test repositories
 	td.CreateTestRepository("frontend-app")
 	td.CreateTestRepository("backend-api")
 	td.CreateTestRepository("infrastructure")
-	
+
 	// Create test contexts
 	td.CreateTestContext("small-context", 100)
 	td.CreateTestContext("medium-context", 1000)
 	td.CreateTestContext("large-context", 5000)
-	
+
 	// Create test workflows
 	td.CreateTestWorkflow("code-review", []WorkflowStep{
 		{
@@ -323,6 +323,6 @@ func DefaultTestData() *TestData {
 			Timeout:    10 * time.Minute,
 		},
 	}, "sequential")
-	
+
 	return td
 }

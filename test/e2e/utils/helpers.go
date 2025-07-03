@@ -12,15 +12,15 @@ import (
 
 // Config holds E2E test configuration
 type Config struct {
-	MCPBaseURL     string
-	APIBaseURL     string
-	APIKey         string
-	TenantID       string
-	TestTimeout    time.Duration
-	MaxRetries     int
-	EnableDebug    bool
-	ReportDir      string
-	ParallelTests  int
+	MCPBaseURL    string
+	APIBaseURL    string
+	APIKey        string
+	TenantID      string
+	TestTimeout   time.Duration
+	MaxRetries    int
+	EnableDebug   bool
+	ReportDir     string
+	ParallelTests int
 }
 
 // LoadConfig loads configuration from environment variables
@@ -36,12 +36,12 @@ func LoadConfig() *Config {
 		ReportDir:     getEnvOrDefault("E2E_REPORT_DIR", "test-results"),
 		ParallelTests: parseIntOrDefault(getEnvOrDefault("E2E_PARALLEL_TESTS", "5"), 5),
 	}
-	
+
 	// Generate API key if not provided
 	if config.APIKey == "" {
 		config.APIKey = fmt.Sprintf("e2e-test-key-%s", uuid.New().String())
 	}
-	
+
 	return config
 }
 
@@ -72,7 +72,7 @@ func parseIntOrDefault(value string, defaultInt int) int {
 
 // RetryConfig configures retry behavior
 type RetryConfig struct {
-	MaxAttempts int
+	MaxAttempts  int
 	InitialDelay time.Duration
 	MaxDelay     time.Duration
 	Multiplier   float64
@@ -92,7 +92,7 @@ func DefaultRetryConfig() RetryConfig {
 func Retry(ctx context.Context, config RetryConfig, fn func() error) error {
 	var lastErr error
 	delay := config.InitialDelay
-	
+
 	for attempt := 0; attempt < config.MaxAttempts; attempt++ {
 		if attempt > 0 {
 			select {
@@ -100,22 +100,22 @@ func Retry(ctx context.Context, config RetryConfig, fn func() error) error {
 				return ctx.Err()
 			case <-time.After(delay):
 			}
-			
+
 			// Exponential backoff
 			delay = time.Duration(float64(delay) * config.Multiplier)
 			if delay > config.MaxDelay {
 				delay = config.MaxDelay
 			}
 		}
-		
+
 		if err := fn(); err != nil {
 			lastErr = err
 			continue
 		}
-		
+
 		return nil
 	}
-	
+
 	return fmt.Errorf("failed after %d attempts: %w", config.MaxAttempts, lastErr)
 }
 
@@ -123,7 +123,7 @@ func Retry(ctx context.Context, config RetryConfig, fn func() error) error {
 func WaitFor(ctx context.Context, interval time.Duration, condition func() (bool, error)) error {
 	ticker := time.NewTicker(interval)
 	defer ticker.Stop()
-	
+
 	for {
 		select {
 		case <-ctx.Done():
@@ -144,7 +144,7 @@ func WaitFor(ctx context.Context, interval time.Duration, condition func() (bool
 func Eventually(fn func() error, timeout time.Duration, interval time.Duration) error {
 	ctx, cancel := context.WithTimeout(context.Background(), timeout)
 	defer cancel()
-	
+
 	return WaitFor(ctx, interval, func() (bool, error) {
 		err := fn()
 		return err == nil, nil
@@ -167,27 +167,27 @@ func NewTestLogger(prefix string, debug bool) *TestLogger {
 
 // Info logs an info message
 func (tl *TestLogger) Info(format string, args ...interface{}) {
-	fmt.Printf("[%s] [INFO] %s: %s\n", 
-		time.Now().Format("15:04:05"), 
-		tl.prefix, 
+	fmt.Printf("[%s] [INFO] %s: %s\n",
+		time.Now().Format("15:04:05"),
+		tl.prefix,
 		fmt.Sprintf(format, args...))
 }
 
 // Debug logs a debug message
 func (tl *TestLogger) Debug(format string, args ...interface{}) {
 	if tl.debug {
-		fmt.Printf("[%s] [DEBUG] %s: %s\n", 
-			time.Now().Format("15:04:05"), 
-			tl.prefix, 
+		fmt.Printf("[%s] [DEBUG] %s: %s\n",
+			time.Now().Format("15:04:05"),
+			tl.prefix,
 			fmt.Sprintf(format, args...))
 	}
 }
 
 // Error logs an error message
 func (tl *TestLogger) Error(format string, args ...interface{}) {
-	fmt.Printf("[%s] [ERROR] %s: %s\n", 
-		time.Now().Format("15:04:05"), 
-		tl.prefix, 
+	fmt.Printf("[%s] [ERROR] %s: %s\n",
+		time.Now().Format("15:04:05"),
+		tl.prefix,
 		fmt.Sprintf(format, args...))
 }
 
@@ -201,14 +201,14 @@ func GenerateTestName(prefix string) string {
 // AssertEventually asserts that a condition becomes true within timeout
 func AssertEventually(t TestingT, condition func() bool, timeout time.Duration, interval time.Duration, msgAndArgs ...interface{}) {
 	deadline := time.Now().Add(timeout)
-	
+
 	for time.Now().Before(deadline) {
 		if condition() {
 			return
 		}
 		time.Sleep(interval)
 	}
-	
+
 	if len(msgAndArgs) > 0 {
 		t.Errorf("Condition not met within %v: %v", timeout, msgAndArgs[0])
 	} else {
@@ -235,31 +235,31 @@ func MeasureTime(name string, fn func() error) (time.Duration, error) {
 func Parallel(fns ...func() error) []error {
 	errors := make([]error, len(fns))
 	done := make(chan int, len(fns))
-	
+
 	for i, fn := range fns {
 		go func(index int, f func() error) {
 			errors[index] = f()
 			done <- index
 		}(i, fn)
 	}
-	
+
 	for i := 0; i < len(fns); i++ {
 		<-done
 	}
-	
+
 	return errors
 }
 
 // CaptureMetrics captures performance metrics during test execution
 type MetricsCapture struct {
-	StartTime      time.Time
-	EndTime        time.Time
-	MessagesSent   int64
-	MessagesRecv   int64
-	BytesSent      int64
-	BytesRecv      int64
-	Errors         int64
-	Latencies      []time.Duration
+	StartTime    time.Time
+	EndTime      time.Time
+	MessagesSent int64
+	MessagesRecv int64
+	BytesSent    int64
+	BytesRecv    int64
+	Errors       int64
+	Latencies    []time.Duration
 }
 
 // NewMetricsCapture creates a new metrics capture
@@ -290,12 +290,12 @@ func (mc *MetricsCapture) AverageLatency() time.Duration {
 	if len(mc.Latencies) == 0 {
 		return 0
 	}
-	
+
 	var total time.Duration
 	for _, l := range mc.Latencies {
 		total += l
 	}
-	
+
 	return total / time.Duration(len(mc.Latencies))
 }
 
@@ -304,12 +304,12 @@ func (mc *MetricsCapture) P99Latency() time.Duration {
 	if len(mc.Latencies) == 0 {
 		return 0
 	}
-	
+
 	// Simple implementation - in production use proper percentile calculation
 	index := int(float64(len(mc.Latencies)) * 0.99)
 	if index >= len(mc.Latencies) {
 		index = len(mc.Latencies) - 1
 	}
-	
+
 	return mc.Latencies[index]
 }

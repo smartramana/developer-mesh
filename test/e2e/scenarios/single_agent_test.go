@@ -11,9 +11,9 @@ import (
 	"github.com/S-Corkum/devops-mcp/test/e2e/data"
 	"github.com/S-Corkum/devops-mcp/test/e2e/reporting"
 	"github.com/S-Corkum/devops-mcp/test/e2e/utils"
-	
+
 	ws "github.com/S-Corkum/devops-mcp/pkg/models/websocket"
-	
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 )
@@ -33,7 +33,7 @@ var _ = Describe("Single Agent E2E Tests", func() {
 		testData = data.DefaultTestData()
 		isolation = utils.NewTestIsolation()
 		logger = utils.NewTestLogger("single-agent", config.EnableDebug)
-		
+
 		reporter.StartSuite("Single Agent Tests")
 	})
 
@@ -50,12 +50,12 @@ var _ = Describe("Single Agent E2E Tests", func() {
 				Suite:     "single_agent",
 				StartTime: time.Now(),
 			}
-			
+
 			// Create test namespace
 			namespace, err := isolation.CreateNamespace("agent-lifecycle")
 			Expect(err).NotTo(HaveOccurred())
 			defer isolation.DeleteNamespace(namespace.ID)
-			
+
 			// Create test agent
 			testAgent := agent.NewTestAgent(
 				"lifecycle-test-agent",
@@ -63,44 +63,44 @@ var _ = Describe("Single Agent E2E Tests", func() {
 				testData.APIKeys["admin"],
 				config.MCPBaseURL,
 			)
-			
+
 			ctx, cancel := context.WithTimeout(context.Background(), config.TestTimeout)
 			defer cancel()
-			
+
 			// Connect
 			logger.Info("Connecting agent %s", testAgent.GetID())
 			err = testAgent.Connect(ctx)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(testAgent.IsConnected()).To(BeTrue())
 			defer func() { _ = testAgent.Close() }()
-			
+
 			// Register capabilities
 			logger.Info("Registering capabilities")
 			err = testAgent.RegisterCapabilities(ctx)
 			Expect(err).NotTo(HaveOccurred())
-			
+
 			// Send heartbeat
 			logger.Info("Sending heartbeat")
 			err = testAgent.Heartbeat(ctx)
 			Expect(err).NotTo(HaveOccurred())
-			
+
 			// Check metrics
 			sent, received, lastActivity := testAgent.GetMetrics()
 			Expect(sent).To(BeNumerically(">", 0))
 			Expect(received).To(BeNumerically(">", 0))
 			Expect(lastActivity).To(BeTemporally("~", time.Now(), 5*time.Second))
-			
+
 			// Graceful disconnect
 			logger.Info("Disconnecting agent")
 			err = testAgent.Close()
 			Expect(err).NotTo(HaveOccurred())
 			Expect(testAgent.IsConnected()).To(BeFalse())
-			
+
 			testResult.Status = reporting.TestStatusPassed
 			testResult.EndTime = time.Now()
 			testResult.Duration = testResult.EndTime.Sub(testResult.StartTime)
 			testResult.Message = "Agent lifecycle completed successfully"
-			
+
 			reporter.LogTest(testResult)
 		})
 
@@ -110,51 +110,51 @@ var _ = Describe("Single Agent E2E Tests", func() {
 				Suite:     "single_agent",
 				StartTime: time.Now(),
 			}
-			
+
 			namespace, err := isolation.CreateNamespace("agent-reconnection")
 			Expect(err).NotTo(HaveOccurred())
 			defer isolation.DeleteNamespace(namespace.ID)
-			
+
 			testAgent := agent.NewTestAgent(
 				"reconnection-test-agent",
 				[]string{"monitoring"},
 				testData.APIKeys["admin"],
 				config.MCPBaseURL,
 			)
-			
+
 			ctx := context.Background()
-			
+
 			// Initial connection
 			err = testAgent.Connect(ctx)
 			Expect(err).NotTo(HaveOccurred())
-			
+
 			sessionID := testAgent.GetSessionID()
 			Expect(sessionID).NotTo(BeEmpty())
-			
+
 			// Disconnect
 			err = testAgent.Close()
 			Expect(err).NotTo(HaveOccurred())
-			
+
 			// Wait before reconnecting
 			time.Sleep(2 * time.Second)
-			
+
 			// Reconnect
 			err = testAgent.Connect(ctx)
 			Expect(err).NotTo(HaveOccurred())
 			defer func() { _ = testAgent.Close() }()
-			
+
 			// Attempt session recovery
 			resp, err := testAgent.ExecuteMethod(ctx, "session.recover", map[string]interface{}{
 				"sessionId": sessionID,
 			})
 			Expect(err).NotTo(HaveOccurred())
 			Expect(resp.Error).To(BeNil())
-			
+
 			testResult.Status = reporting.TestStatusPassed
 			testResult.EndTime = time.Now()
 			testResult.Duration = testResult.EndTime.Sub(testResult.StartTime)
 			testResult.Message = "Reconnection handled successfully"
-			
+
 			reporter.LogTest(testResult)
 		})
 	})
@@ -166,35 +166,35 @@ var _ = Describe("Single Agent E2E Tests", func() {
 				Suite:     "single_agent",
 				StartTime: time.Now(),
 			}
-			
+
 			namespace, err := isolation.CreateNamespace("tool-discovery")
 			Expect(err).NotTo(HaveOccurred())
 			defer isolation.DeleteNamespace(namespace.ID)
-			
+
 			testAgent := agent.NewTestAgent(
 				"tool-discovery-agent",
 				[]string{"devops"},
 				testData.APIKeys["developer"],
 				config.MCPBaseURL,
 			)
-			
+
 			ctx := context.Background()
 			err = testAgent.Connect(ctx)
 			Expect(err).NotTo(HaveOccurred())
 			defer func() { _ = testAgent.Close() }()
-			
+
 			// List tools
 			resp, err := testAgent.ExecuteMethod(ctx, "tool.list", nil)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(resp.Error).To(BeNil())
-			
+
 			// Verify tools structure
 			tools, ok := resp.Result.([]interface{})
 			Expect(ok).To(BeTrue())
 			Expect(len(tools)).To(BeNumerically(">", 0))
-			
+
 			logger.Info("Discovered %d tools", len(tools))
-			
+
 			// Check each tool has required fields
 			for _, tool := range tools {
 				toolMap, ok := tool.(map[string]interface{})
@@ -203,12 +203,12 @@ var _ = Describe("Single Agent E2E Tests", func() {
 				Expect(toolMap).To(HaveKey("description"))
 				Expect(toolMap).To(HaveKey("inputSchema"))
 			}
-			
+
 			testResult.Status = reporting.TestStatusPassed
 			testResult.EndTime = time.Now()
 			testResult.Duration = testResult.EndTime.Sub(testResult.StartTime)
 			testResult.Message = fmt.Sprintf("Discovered %d tools", len(tools))
-			
+
 			reporter.LogTest(testResult)
 		})
 
@@ -218,33 +218,33 @@ var _ = Describe("Single Agent E2E Tests", func() {
 				Suite:     "single_agent",
 				StartTime: time.Now(),
 			}
-			
+
 			namespace, err := isolation.CreateNamespace("github-tool")
 			Expect(err).NotTo(HaveOccurred())
 			defer isolation.DeleteNamespace(namespace.ID)
-			
+
 			// Use specialized DevOps agent
 			devopsAgent := agent.NewDevOpsAutomationAgent(
 				testData.APIKeys["developer"],
 				config.MCPBaseURL,
 			)
-			
+
 			ctx := context.Background()
 			err = devopsAgent.Connect(ctx)
 			Expect(err).NotTo(HaveOccurred())
 			defer func() { _ = devopsAgent.Close() }()
-			
+
 			// Execute GitHub tool
 			resp, err := devopsAgent.ExecuteMethod(ctx, "tool.execute", map[string]interface{}{
 				"tool":      "github",
 				"operation": "list_repositories",
 				"params": map[string]interface{}{
-					"org":     "test-org",
-					"limit":   5,
-					"sort":    "updated",
+					"org":   "test-org",
+					"limit": 5,
+					"sort":  "updated",
 				},
 			})
-			
+
 			if err != nil || resp.Error != nil {
 				// Tool might not be available or might fail - that's OK
 				testResult.Status = reporting.TestStatusSkipped
@@ -253,10 +253,10 @@ var _ = Describe("Single Agent E2E Tests", func() {
 				testResult.Status = reporting.TestStatusPassed
 				testResult.Message = "GitHub tool executed successfully"
 			}
-			
+
 			testResult.EndTime = time.Now()
 			testResult.Duration = testResult.EndTime.Sub(testResult.StartTime)
-			
+
 			reporter.LogTest(testResult)
 		})
 	})
@@ -268,35 +268,35 @@ var _ = Describe("Single Agent E2E Tests", func() {
 				Suite:     "single_agent",
 				StartTime: time.Now(),
 			}
-			
+
 			namespace, err := isolation.CreateNamespace("context-mgmt")
 			Expect(err).NotTo(HaveOccurred())
 			defer isolation.DeleteNamespace(namespace.ID)
-			
+
 			testAgent := agent.NewTestAgent(
 				"context-agent",
 				[]string{"context_management"},
 				testData.APIKeys["developer"],
 				config.MCPBaseURL,
 			)
-			
+
 			ctx := context.Background()
 			err = testAgent.Connect(ctx)
 			Expect(err).NotTo(HaveOccurred())
 			defer func() { _ = testAgent.Close() }()
-			
+
 			// Create context
 			contextData := testData.CreateTestContext("test-context", 100)
-			
+
 			createResp, err := testAgent.ExecuteMethod(ctx, "context.create", map[string]interface{}{
-				"name":    contextData.Name,
-				"content": contextData.Content,
+				"name":     contextData.Name,
+				"content":  contextData.Content,
 				"metadata": contextData.Metadata,
 			})
-			
+
 			Expect(err).NotTo(HaveOccurred())
 			Expect(createResp.Error).To(BeNil())
-			
+
 			// Extract context ID
 			var contextID string
 			if result, ok := createResp.Result.(map[string]interface{}); ok {
@@ -305,20 +305,20 @@ var _ = Describe("Single Agent E2E Tests", func() {
 				}
 			}
 			Expect(contextID).NotTo(BeEmpty())
-			
+
 			// Retrieve context
 			getResp, err := testAgent.ExecuteMethod(ctx, "context.get", map[string]interface{}{
 				"id": contextID,
 			})
-			
+
 			Expect(err).NotTo(HaveOccurred())
 			Expect(getResp.Error).To(BeNil())
-			
+
 			testResult.Status = reporting.TestStatusPassed
 			testResult.EndTime = time.Now()
 			testResult.Duration = testResult.EndTime.Sub(testResult.StartTime)
 			testResult.Message = "Context created and retrieved successfully"
-			
+
 			reporter.LogTest(testResult)
 		})
 	})
@@ -330,33 +330,33 @@ var _ = Describe("Single Agent E2E Tests", func() {
 				Suite:     "single_agent",
 				StartTime: time.Now(),
 			}
-			
+
 			namespace, err := isolation.CreateNamespace("session-mgmt")
 			Expect(err).NotTo(HaveOccurred())
 			defer isolation.DeleteNamespace(namespace.ID)
-			
+
 			testAgent := agent.NewTestAgent(
 				"session-agent",
 				[]string{"session_management"},
 				testData.APIKeys["developer"],
 				config.MCPBaseURL,
 			)
-			
+
 			ctx := context.Background()
 			err = testAgent.Connect(ctx)
 			Expect(err).NotTo(HaveOccurred())
 			defer func() { _ = testAgent.Close() }()
-			
+
 			// Create session
 			createResp, err := testAgent.ExecuteMethod(ctx, "session.create", map[string]interface{}{
 				"name":        "test-session",
 				"description": "E2E test session",
 				"ttl":         3600, // 1 hour
 			})
-			
+
 			Expect(err).NotTo(HaveOccurred())
 			Expect(createResp.Error).To(BeNil())
-			
+
 			var sessionID string
 			if result, ok := createResp.Result.(map[string]interface{}); ok {
 				if id, ok := result["id"].(string); ok {
@@ -364,15 +364,15 @@ var _ = Describe("Single Agent E2E Tests", func() {
 				}
 			}
 			Expect(sessionID).NotTo(BeEmpty())
-			
+
 			// Get session info
 			getResp, err := testAgent.ExecuteMethod(ctx, "session.get", map[string]interface{}{
 				"id": sessionID,
 			})
-			
+
 			Expect(err).NotTo(HaveOccurred())
 			Expect(getResp.Error).To(BeNil())
-			
+
 			// Update session
 			updateResp, err := testAgent.ExecuteMethod(ctx, "session.update", map[string]interface{}{
 				"id": sessionID,
@@ -381,15 +381,15 @@ var _ = Describe("Single Agent E2E Tests", func() {
 					"status":       "active",
 				},
 			})
-			
+
 			Expect(err).NotTo(HaveOccurred())
 			Expect(updateResp.Error).To(BeNil())
-			
+
 			testResult.Status = reporting.TestStatusPassed
 			testResult.EndTime = time.Now()
 			testResult.Duration = testResult.EndTime.Sub(testResult.StartTime)
 			testResult.Message = "Session management successful"
-			
+
 			reporter.LogTest(testResult)
 		})
 	})
@@ -401,7 +401,7 @@ var _ = Describe("Single Agent E2E Tests", func() {
 				Suite:     "single_agent",
 				StartTime: time.Now(),
 			}
-			
+
 			// Try to connect with invalid API key
 			connConfig := &connection.ConnectionConfig{
 				BaseURL:    config.MCPBaseURL,
@@ -410,18 +410,18 @@ var _ = Describe("Single Agent E2E Tests", func() {
 				MaxRetries: 1,
 				Timeout:    10 * time.Second,
 			}
-			
+
 			manager := connection.NewConnectionManager(connConfig)
 			ctx := context.Background()
-			
+
 			_, err := manager.EstablishConnection(ctx)
 			Expect(err).To(HaveOccurred())
-			
+
 			testResult.Status = reporting.TestStatusPassed
 			testResult.EndTime = time.Now()
 			testResult.Duration = testResult.EndTime.Sub(testResult.StartTime)
 			testResult.Message = "Authentication error handled correctly"
-			
+
 			reporter.LogTest(testResult)
 		})
 
@@ -431,37 +431,37 @@ var _ = Describe("Single Agent E2E Tests", func() {
 				Suite:     "single_agent",
 				StartTime: time.Now(),
 			}
-			
+
 			namespace, err := isolation.CreateNamespace("invalid-method")
 			Expect(err).NotTo(HaveOccurred())
 			defer isolation.DeleteNamespace(namespace.ID)
-			
+
 			testAgent := agent.NewTestAgent(
 				"error-test-agent",
 				[]string{"testing"},
 				testData.APIKeys["developer"],
 				config.MCPBaseURL,
 			)
-			
+
 			ctx := context.Background()
 			err = testAgent.Connect(ctx)
 			Expect(err).NotTo(HaveOccurred())
 			defer func() { _ = testAgent.Close() }()
-			
+
 			// Call non-existent method
 			resp, err := testAgent.ExecuteMethod(ctx, "non.existent.method", map[string]interface{}{
 				"param": "value",
 			})
-			
+
 			Expect(err).NotTo(HaveOccurred()) // Connection should stay alive
 			Expect(resp.Error).NotTo(BeNil())
 			Expect(resp.Error.Code).To(Equal(ws.ErrCodeMethodNotFound))
-			
+
 			testResult.Status = reporting.TestStatusPassed
 			testResult.EndTime = time.Now()
 			testResult.Duration = testResult.EndTime.Sub(testResult.StartTime)
 			testResult.Message = "Invalid method error handled correctly"
-			
+
 			reporter.LogTest(testResult)
 		})
 
@@ -471,41 +471,41 @@ var _ = Describe("Single Agent E2E Tests", func() {
 				Suite:     "single_agent",
 				StartTime: time.Now(),
 			}
-			
+
 			namespace, err := isolation.CreateNamespace("timeout-test")
 			Expect(err).NotTo(HaveOccurred())
 			defer isolation.DeleteNamespace(namespace.ID)
-			
+
 			testAgent := agent.NewTestAgent(
 				"timeout-test-agent",
 				[]string{"testing"},
 				testData.APIKeys["developer"],
 				config.MCPBaseURL,
 			)
-			
+
 			ctx := context.Background()
 			err = testAgent.Connect(ctx)
 			Expect(err).NotTo(HaveOccurred())
 			defer func() { _ = testAgent.Close() }()
-			
+
 			// Create a very short timeout context
 			timeoutCtx, cancel := context.WithTimeout(ctx, 1*time.Millisecond)
 			defer cancel()
-			
+
 			// Try to execute with timeout
 			_, err = testAgent.ExecuteMethod(timeoutCtx, "tool.list", nil)
 			Expect(err).To(HaveOccurred())
 			Expect(err).To(MatchError(context.DeadlineExceeded))
-			
+
 			// Verify connection is still alive
 			err = testAgent.Heartbeat(ctx)
 			Expect(err).NotTo(HaveOccurred())
-			
+
 			testResult.Status = reporting.TestStatusPassed
 			testResult.EndTime = time.Now()
 			testResult.Duration = testResult.EndTime.Sub(testResult.StartTime)
 			testResult.Message = "Timeout scenarios handled correctly"
-			
+
 			reporter.LogTest(testResult)
 		})
 	})

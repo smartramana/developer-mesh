@@ -58,39 +58,39 @@ func (cm *ConnectionManager) EstablishConnection(ctx context.Context) (*websocke
 	if err != nil {
 		return nil, err
 	}
-	
+
 	opts := cm.buildDialOptions()
-	
+
 	var conn *websocket.Conn
 	var lastErr error
-	
+
 	for attempt := 0; attempt <= cm.config.MaxRetries; attempt++ {
 		if attempt > 0 {
 			time.Sleep(cm.config.RetryDelay)
 		}
-		
+
 		dialCtx, cancel := context.WithTimeout(ctx, cm.config.Timeout)
 		conn, _, lastErr = websocket.Dial(dialCtx, wsURL, opts)
 		cancel()
-		
+
 		if lastErr == nil {
 			return conn, nil
 		}
 	}
-	
+
 	return nil, fmt.Errorf("failed after %d attempts: %w", cm.config.MaxRetries+1, lastErr)
 }
 
 // buildWebSocketURL constructs the WebSocket URL
 func (cm *ConnectionManager) buildWebSocketURL() (string, error) {
 	baseURL := cm.config.BaseURL
-	
+
 	// Parse the base URL
 	u, err := url.Parse(baseURL)
 	if err != nil {
 		return "", fmt.Errorf("invalid base URL: %w", err)
 	}
-	
+
 	// Convert HTTP(S) to WS(S)
 	switch u.Scheme {
 	case "http":
@@ -102,47 +102,47 @@ func (cm *ConnectionManager) buildWebSocketURL() (string, error) {
 	default:
 		return "", fmt.Errorf("unsupported scheme: %s", u.Scheme)
 	}
-	
+
 	// Ensure path ends with /v1/ws
 	if !strings.HasSuffix(u.Path, "/v1/ws") {
 		u.Path = strings.TrimSuffix(u.Path, "/") + "/v1/ws"
 	}
-	
+
 	return u.String(), nil
 }
 
 // buildDialOptions constructs WebSocket dial options
 func (cm *ConnectionManager) buildDialOptions() *websocket.DialOptions {
 	headers := http.Header{}
-	
+
 	// Add authorization
 	if cm.config.APIKey != "" {
 		headers.Set("Authorization", "Bearer "+cm.config.APIKey)
 	}
-	
+
 	// Add tenant ID
 	if cm.config.TenantID != "" {
 		headers.Set("X-Tenant-ID", cm.config.TenantID)
 	}
-	
+
 	// Add custom headers
 	for key, value := range cm.config.Headers {
 		headers.Set(key, value)
 	}
-	
+
 	// Add default headers
 	headers.Set("X-Client-Type", "e2e-test")
 	headers.Set("X-Client-Version", "1.0.0")
-	
+
 	opts := &websocket.DialOptions{
 		HTTPHeader: headers,
 	}
-	
+
 	// Configure compression
 	if cm.config.CompressionLevel > 0 {
 		opts.CompressionMode = websocket.CompressionContextTakeover
 	}
-	
+
 	// Configure TLS if provided
 	if cm.config.TLSConfig != nil {
 		opts.HTTPClient = &http.Client{
@@ -151,7 +151,7 @@ func (cm *ConnectionManager) buildDialOptions() *websocket.DialOptions {
 			},
 		}
 	}
-	
+
 	return opts
 }
 
@@ -186,11 +186,11 @@ func (ch *ConnectionHelper) ReadBinary(ctx context.Context) ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
-	
+
 	if msgType != websocket.MessageBinary {
 		return nil, fmt.Errorf("expected binary message, got %v", msgType)
 	}
-	
+
 	return data, nil
 }
 
@@ -225,7 +225,7 @@ func (cp *ConnectionPool) Get(ctx context.Context) (*websocket.Conn, error) {
 	if len(cp.connections) > 0 {
 		conn := cp.connections[len(cp.connections)-1]
 		cp.connections = cp.connections[:len(cp.connections)-1]
-		
+
 		// Test if connection is still alive
 		if err := conn.Ping(ctx); err == nil {
 			return conn, nil
@@ -233,7 +233,7 @@ func (cp *ConnectionPool) Get(ctx context.Context) (*websocket.Conn, error) {
 		// Connection is dead, create a new one
 		_ = conn.Close(websocket.StatusGoingAway, "connection dead")
 	}
-	
+
 	// Create new connection
 	return cp.manager.EstablishConnection(ctx)
 }
@@ -259,7 +259,7 @@ func (cp *ConnectionPool) Close() {
 // TestConnection tests a connection with initialization
 func TestConnection(ctx context.Context, config *ConnectionConfig) error {
 	manager := NewConnectionManager(config)
-	
+
 	conn, err := manager.EstablishConnection(ctx)
 	if err != nil {
 		return fmt.Errorf("connection failed: %w", err)
@@ -267,7 +267,7 @@ func TestConnection(ctx context.Context, config *ConnectionConfig) error {
 	defer func() {
 		_ = conn.Close(websocket.StatusNormalClosure, "test complete")
 	}()
-	
+
 	// Send initialization message
 	initMsg := ws.Message{
 		ID:     uuid.New().String(),
@@ -278,20 +278,20 @@ func TestConnection(ctx context.Context, config *ConnectionConfig) error {
 			"version": "1.0.0",
 		},
 	}
-	
+
 	if err := wsjson.Write(ctx, conn, initMsg); err != nil {
 		return fmt.Errorf("failed to send init: %w", err)
 	}
-	
+
 	// Read response
 	var response ws.Message
 	if err := wsjson.Read(ctx, conn, &response); err != nil {
 		return fmt.Errorf("failed to read response: %w", err)
 	}
-	
+
 	if response.Error != nil {
 		return fmt.Errorf("initialization error: %s", response.Error.Message)
 	}
-	
+
 	return nil
 }

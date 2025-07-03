@@ -22,7 +22,7 @@ func NewCodeAnalysisAgent(apiKey, baseURL string) *CodeAnalysisAgent {
 		"code_review",
 		"refactoring_suggestions",
 	}
-	
+
 	return &CodeAnalysisAgent{
 		TestAgent: NewTestAgent("code-analysis-agent", capabilities, apiKey, baseURL),
 	}
@@ -31,28 +31,28 @@ func NewCodeAnalysisAgent(apiKey, baseURL string) *CodeAnalysisAgent {
 // AnalyzeCode performs code analysis on a repository
 func (ca *CodeAnalysisAgent) AnalyzeCode(ctx context.Context, repoURL string, options map[string]interface{}) (*ws.Message, error) {
 	params := map[string]interface{}{
-		"tool": "code_analyzer",
+		"tool":      "code_analyzer",
 		"operation": "analyze",
 		"params": map[string]interface{}{
 			"repository": repoURL,
 			"options":    options,
 		},
 	}
-	
+
 	return ca.ExecuteMethod(ctx, "tool.execute", params)
 }
 
 // ReviewPullRequest reviews a pull request
 func (ca *CodeAnalysisAgent) ReviewPullRequest(ctx context.Context, prURL string) (*ws.Message, error) {
 	params := map[string]interface{}{
-		"tool": "github",
+		"tool":      "github",
 		"operation": "review_pr",
 		"params": map[string]interface{}{
 			"pr_url": prURL,
 			"checks": []string{"style", "bugs", "security", "performance"},
 		},
 	}
-	
+
 	return ca.ExecuteMethod(ctx, "tool.execute", params)
 }
 
@@ -70,7 +70,7 @@ func NewDevOpsAutomationAgent(apiKey, baseURL string) *DevOpsAutomationAgent {
 		"infrastructure_as_code",
 		"container_orchestration",
 	}
-	
+
 	return &DevOpsAutomationAgent{
 		TestAgent: NewTestAgent("devops-automation-agent", capabilities, apiKey, baseURL),
 	}
@@ -87,7 +87,7 @@ func (da *DevOpsAutomationAgent) TriggerPipeline(ctx context.Context, pipelineID
 // DeployApplication deploys an application
 func (da *DevOpsAutomationAgent) DeployApplication(ctx context.Context, appName, environment string) (*ws.Message, error) {
 	params := map[string]interface{}{
-		"tool": "deployment",
+		"tool":      "deployment",
 		"operation": "deploy",
 		"params": map[string]interface{}{
 			"application": appName,
@@ -95,7 +95,7 @@ func (da *DevOpsAutomationAgent) DeployApplication(ctx context.Context, appName,
 			"strategy":    "rolling",
 		},
 	}
-	
+
 	return da.ExecuteMethod(ctx, "tool.execute", params)
 }
 
@@ -113,7 +113,7 @@ func NewSecurityScannerAgent(apiKey, baseURL string) *SecurityScannerAgent {
 		"penetration_testing",
 		"secret_scanning",
 	}
-	
+
 	return &SecurityScannerAgent{
 		TestAgent: NewTestAgent("security-scanner-agent", capabilities, apiKey, baseURL),
 	}
@@ -122,28 +122,28 @@ func NewSecurityScannerAgent(apiKey, baseURL string) *SecurityScannerAgent {
 // ScanRepository performs security scan on a repository
 func (sa *SecurityScannerAgent) ScanRepository(ctx context.Context, repoURL string) (*ws.Message, error) {
 	params := map[string]interface{}{
-		"tool": "security_scanner",
+		"tool":      "security_scanner",
 		"operation": "scan_repository",
 		"params": map[string]interface{}{
 			"repository": repoURL,
 			"scan_types": []string{"vulnerabilities", "secrets", "dependencies", "compliance"},
 		},
 	}
-	
+
 	return sa.ExecuteMethod(ctx, "tool.execute", params)
 }
 
 // AuditInfrastructure performs security audit on infrastructure
 func (sa *SecurityScannerAgent) AuditInfrastructure(ctx context.Context, targetEnv string) (*ws.Message, error) {
 	params := map[string]interface{}{
-		"tool": "infrastructure_audit",
+		"tool":      "infrastructure_audit",
 		"operation": "audit",
 		"params": map[string]interface{}{
 			"environment": targetEnv,
 			"checks":      []string{"access_control", "encryption", "network_security", "compliance"},
 		},
 	}
-	
+
 	return sa.ExecuteMethod(ctx, "tool.execute", params)
 }
 
@@ -161,7 +161,7 @@ func NewInfrastructureAgent(apiKey, baseURL string) *InfrastructureAgent {
 		"kubernetes",
 		"aws_services",
 	}
-	
+
 	return &InfrastructureAgent{
 		TestAgent: NewTestAgent("infrastructure-agent", capabilities, apiKey, baseURL),
 	}
@@ -179,14 +179,14 @@ func (ia *InfrastructureAgent) ProvisionResources(ctx context.Context, template 
 // ScaleService scales a service
 func (ia *InfrastructureAgent) ScaleService(ctx context.Context, serviceName string, replicas int) (*ws.Message, error) {
 	params := map[string]interface{}{
-		"tool": "kubernetes",
+		"tool":      "kubernetes",
 		"operation": "scale",
 		"params": map[string]interface{}{
 			"service":  serviceName,
 			"replicas": replicas,
 		},
 	}
-	
+
 	return ia.ExecuteMethod(ctx, "tool.execute", params)
 }
 
@@ -204,7 +204,7 @@ func NewMonitoringAgent(apiKey, baseURL string) *MonitoringAgent {
 		"metrics_collection",
 		"performance_analysis",
 	}
-	
+
 	return &MonitoringAgent{
 		TestAgent: NewTestAgent("monitoring-agent", capabilities, apiKey, baseURL),
 	}
@@ -213,29 +213,29 @@ func NewMonitoringAgent(apiKey, baseURL string) *MonitoringAgent {
 // CheckServiceHealth checks the health of a service
 func (ma *MonitoringAgent) CheckServiceHealth(ctx context.Context, serviceName string) (*ws.Message, error) {
 	params := map[string]interface{}{
-		"tool": "health_check",
+		"tool":      "health_check",
 		"operation": "check",
 		"params": map[string]interface{}{
 			"service": serviceName,
 			"checks":  []string{"availability", "latency", "error_rate", "resource_usage"},
 		},
 	}
-	
+
 	return ma.ExecuteMethod(ctx, "tool.execute", params)
 }
 
 // AnalyzeLogs analyzes logs for patterns
 func (ma *MonitoringAgent) AnalyzeLogs(ctx context.Context, query string, timeRange time.Duration) (*ws.Message, error) {
 	params := map[string]interface{}{
-		"tool": "log_analyzer",
+		"tool":      "log_analyzer",
 		"operation": "analyze",
 		"params": map[string]interface{}{
-			"query":      query,
-			"time_range": timeRange.String(),
+			"query":        query,
+			"time_range":   timeRange.String(),
 			"aggregations": []string{"errors", "warnings", "patterns"},
 		},
 	}
-	
+
 	return ma.ExecuteMethod(ctx, "tool.execute", params)
 }
 
@@ -284,7 +284,7 @@ func (af *AgentFactory) CreateAgent(agentType string) (interface{}, error) {
 // CreateMultipleAgents creates multiple agents of different types
 func (af *AgentFactory) CreateMultipleAgents(types []string) ([]interface{}, error) {
 	agents := make([]interface{}, 0, len(types))
-	
+
 	for _, agentType := range types {
 		agent, err := af.CreateAgent(agentType)
 		if err != nil {
@@ -292,6 +292,6 @@ func (af *AgentFactory) CreateMultipleAgents(types []string) ([]interface{}, err
 		}
 		agents = append(agents, agent)
 	}
-	
+
 	return agents, nil
 }

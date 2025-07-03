@@ -36,7 +36,7 @@ func NewTestIsolation() *TestIsolation {
 func (ti *TestIsolation) CreateNamespace(name string) (*TestNamespace, error) {
 	ti.mu.Lock()
 	defer ti.mu.Unlock()
-	
+
 	ns := &TestNamespace{
 		ID:        uuid.New().String(),
 		Name:      name,
@@ -44,7 +44,7 @@ func (ti *TestIsolation) CreateNamespace(name string) (*TestNamespace, error) {
 		Resources: make(map[string]interface{}),
 		CreatedAt: time.Now(),
 	}
-	
+
 	ti.namespaces[ns.ID] = ns
 	return ns, nil
 }
@@ -53,7 +53,7 @@ func (ti *TestIsolation) CreateNamespace(name string) (*TestNamespace, error) {
 func (ti *TestIsolation) GetNamespace(id string) (*TestNamespace, bool) {
 	ti.mu.RLock()
 	defer ti.mu.RUnlock()
-	
+
 	ns, exists := ti.namespaces[id]
 	return ns, exists
 }
@@ -62,19 +62,19 @@ func (ti *TestIsolation) GetNamespace(id string) (*TestNamespace, bool) {
 func (ti *TestIsolation) DeleteNamespace(id string) error {
 	ti.mu.Lock()
 	defer ti.mu.Unlock()
-	
+
 	ns, exists := ti.namespaces[id]
 	if !exists {
 		return fmt.Errorf("namespace %s not found", id)
 	}
-	
+
 	// Execute cleanup function if provided
 	if ns.CleanupFunc != nil {
 		if err := ns.CleanupFunc(); err != nil {
 			return fmt.Errorf("cleanup failed: %w", err)
 		}
 	}
-	
+
 	delete(ti.namespaces, id)
 	return nil
 }
@@ -83,9 +83,9 @@ func (ti *TestIsolation) DeleteNamespace(id string) error {
 func (ti *TestIsolation) CleanupAll() error {
 	ti.mu.Lock()
 	defer ti.mu.Unlock()
-	
+
 	var errors []error
-	
+
 	for id, ns := range ti.namespaces {
 		if ns.CleanupFunc != nil {
 			if err := ns.CleanupFunc(); err != nil {
@@ -94,11 +94,11 @@ func (ti *TestIsolation) CleanupAll() error {
 		}
 		delete(ti.namespaces, id)
 	}
-	
+
 	if len(errors) > 0 {
 		return fmt.Errorf("cleanup errors: %v", errors)
 	}
-	
+
 	return nil
 }
 
@@ -123,10 +123,10 @@ func NewResourceManager() *ResourceManager {
 	rm := &ResourceManager{
 		resources: make(map[string]*Resource),
 	}
-	
+
 	// Start cleanup goroutine for TTL resources
 	go rm.cleanupExpiredResources()
-	
+
 	return rm
 }
 
@@ -134,7 +134,7 @@ func NewResourceManager() *ResourceManager {
 func (rm *ResourceManager) CreateResource(namespaceID, resourceType string, data interface{}, ttl time.Duration) *Resource {
 	rm.mu.Lock()
 	defer rm.mu.Unlock()
-	
+
 	resource := &Resource{
 		ID:          uuid.New().String(),
 		Type:        resourceType,
@@ -143,7 +143,7 @@ func (rm *ResourceManager) CreateResource(namespaceID, resourceType string, data
 		CreatedAt:   time.Now(),
 		TTL:         ttl,
 	}
-	
+
 	rm.resources[resource.ID] = resource
 	return resource
 }
@@ -152,7 +152,7 @@ func (rm *ResourceManager) CreateResource(namespaceID, resourceType string, data
 func (rm *ResourceManager) GetResource(id string) (*Resource, bool) {
 	rm.mu.RLock()
 	defer rm.mu.RUnlock()
-	
+
 	resource, exists := rm.resources[id]
 	return resource, exists
 }
@@ -161,14 +161,14 @@ func (rm *ResourceManager) GetResource(id string) (*Resource, bool) {
 func (rm *ResourceManager) GetResourcesByNamespace(namespaceID string) []*Resource {
 	rm.mu.RLock()
 	defer rm.mu.RUnlock()
-	
+
 	var resources []*Resource
 	for _, r := range rm.resources {
 		if r.NamespaceID == namespaceID {
 			resources = append(resources, r)
 		}
 	}
-	
+
 	return resources
 }
 
@@ -176,11 +176,11 @@ func (rm *ResourceManager) GetResourcesByNamespace(namespaceID string) []*Resour
 func (rm *ResourceManager) DeleteResource(id string) error {
 	rm.mu.Lock()
 	defer rm.mu.Unlock()
-	
+
 	if _, exists := rm.resources[id]; !exists {
 		return fmt.Errorf("resource %s not found", id)
 	}
-	
+
 	delete(rm.resources, id)
 	return nil
 }
@@ -189,13 +189,13 @@ func (rm *ResourceManager) DeleteResource(id string) error {
 func (rm *ResourceManager) DeleteNamespaceResources(namespaceID string) error {
 	rm.mu.Lock()
 	defer rm.mu.Unlock()
-	
+
 	for id, r := range rm.resources {
 		if r.NamespaceID == namespaceID {
 			delete(rm.resources, id)
 		}
 	}
-	
+
 	return nil
 }
 
@@ -203,35 +203,35 @@ func (rm *ResourceManager) DeleteNamespaceResources(namespaceID string) error {
 func (rm *ResourceManager) cleanupExpiredResources() {
 	ticker := time.NewTicker(1 * time.Minute)
 	defer ticker.Stop()
-	
+
 	for range ticker.C {
 		rm.mu.Lock()
 		now := time.Now()
-		
+
 		for id, r := range rm.resources {
 			if r.TTL > 0 && now.Sub(r.CreatedAt) > r.TTL {
 				delete(rm.resources, id)
 			}
 		}
-		
+
 		rm.mu.Unlock()
 	}
 }
 
 // TestContext provides an isolated context for test execution
 type TestContext struct {
-	ctx        context.Context
-	cancel     context.CancelFunc
-	namespace  *TestNamespace
-	resources  *ResourceManager
-	values     map[string]interface{}
-	mu         sync.RWMutex
+	ctx       context.Context
+	cancel    context.CancelFunc
+	namespace *TestNamespace
+	resources *ResourceManager
+	values    map[string]interface{}
+	mu        sync.RWMutex
 }
 
 // NewTestContext creates a new test context
 func NewTestContext(parent context.Context, namespace *TestNamespace) *TestContext {
 	ctx, cancel := context.WithCancel(parent)
-	
+
 	return &TestContext{
 		ctx:       ctx,
 		cancel:    cancel,
@@ -316,23 +316,23 @@ func (itr *IsolatedTestRunner) RunTest(ctx context.Context, name string, testFun
 	if err != nil {
 		return fmt.Errorf("failed to create namespace: %w", err)
 	}
-	
+
 	// Set cleanup function
 	namespace.CleanupFunc = func() error {
 		// Add cleanup delay to ensure resources are released
 		time.Sleep(itr.options.CleanupDelay)
 		return nil
 	}
-	
+
 	// Create test context
 	testCtx := NewTestContext(ctx, namespace)
-	
+
 	// Ensure cleanup happens
 	defer func() {
 		_ = testCtx.Cleanup()
 		_ = itr.isolation.DeleteNamespace(namespace.ID)
 	}()
-	
+
 	// Run the test
 	return testFunc(testCtx)
 }
@@ -341,29 +341,29 @@ func (itr *IsolatedTestRunner) RunTest(ctx context.Context, name string, testFun
 func (itr *IsolatedTestRunner) RunParallelTests(ctx context.Context, tests map[string]func(*TestContext) error) map[string]error {
 	results := make(map[string]error)
 	resultsMu := sync.Mutex{}
-	
+
 	semaphore := make(chan struct{}, itr.options.MaxParallel)
 	wg := sync.WaitGroup{}
-	
+
 	for name, testFunc := range tests {
 		wg.Add(1)
 		go func(testName string, fn func(*TestContext) error) {
 			defer wg.Done()
-			
+
 			// Acquire semaphore
 			semaphore <- struct{}{}
 			defer func() { <-semaphore }()
-			
+
 			// Run test in isolation
 			err := itr.RunTest(ctx, testName, fn)
-			
+
 			// Store result
 			resultsMu.Lock()
 			results[testName] = err
 			resultsMu.Unlock()
 		}(name, testFunc)
 	}
-	
+
 	wg.Wait()
 	return results
 }

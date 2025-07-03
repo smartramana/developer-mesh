@@ -70,11 +70,11 @@ type TestSummary struct {
 
 // Reporter handles test reporting
 type Reporter struct {
-	suites     []TestSuite
+	suites       []TestSuite
 	currentSuite *TestSuite
-	mu         sync.RWMutex
-	outputDir  string
-	formats    []string
+	mu           sync.RWMutex
+	outputDir    string
+	formats      []string
 }
 
 // NewReporter creates a new test reporter
@@ -82,11 +82,11 @@ func NewReporter(outputDir string, formats []string) *Reporter {
 	if outputDir == "" {
 		outputDir = "test-results"
 	}
-	
+
 	if len(formats) == 0 {
 		formats = []string{"json", "junit", "html"}
 	}
-	
+
 	return &Reporter{
 		suites:    make([]TestSuite, 0),
 		outputDir: outputDir,
@@ -98,7 +98,7 @@ func NewReporter(outputDir string, formats []string) *Reporter {
 func (r *Reporter) StartSuite(name string) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
-	
+
 	r.currentSuite = &TestSuite{
 		Name:      name,
 		StartTime: time.Now(),
@@ -110,11 +110,11 @@ func (r *Reporter) StartSuite(name string) {
 func (r *Reporter) EndSuite() {
 	r.mu.Lock()
 	defer r.mu.Unlock()
-	
+
 	if r.currentSuite == nil {
 		return
 	}
-	
+
 	r.currentSuite.EndTime = time.Now()
 	r.currentSuite.Summary = r.calculateSummary(r.currentSuite.Tests)
 	r.suites = append(r.suites, *r.currentSuite)
@@ -125,7 +125,7 @@ func (r *Reporter) EndSuite() {
 func (r *Reporter) RecordTest(result TestResult) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
-	
+
 	if r.currentSuite != nil {
 		r.currentSuite.Tests = append(r.currentSuite.Tests, result)
 	}
@@ -136,17 +136,17 @@ func (r *Reporter) calculateSummary(tests []TestResult) TestSummary {
 	summary := TestSummary{
 		Total: len(tests),
 	}
-	
+
 	if len(tests) == 0 {
 		return summary
 	}
-	
+
 	summary.StartTime = tests[0].StartTime
 	summary.EndTime = tests[len(tests)-1].EndTime
-	
+
 	for _, test := range tests {
 		summary.Duration += test.Duration
-		
+
 		switch test.Status {
 		case TestStatusPassed:
 			summary.Passed++
@@ -157,7 +157,7 @@ func (r *Reporter) calculateSummary(tests []TestResult) TestSummary {
 		case TestStatusPending:
 			summary.Pending++
 		}
-		
+
 		if test.StartTime.Before(summary.StartTime) {
 			summary.StartTime = test.StartTime
 		}
@@ -165,7 +165,7 @@ func (r *Reporter) calculateSummary(tests []TestResult) TestSummary {
 			summary.EndTime = test.EndTime
 		}
 	}
-	
+
 	return summary
 }
 
@@ -173,12 +173,12 @@ func (r *Reporter) calculateSummary(tests []TestResult) TestSummary {
 func (r *Reporter) GenerateReports() error {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
-	
+
 	// Create output directory
 	if err := os.MkdirAll(r.outputDir, 0755); err != nil {
 		return fmt.Errorf("failed to create output directory: %w", err)
 	}
-	
+
 	// Generate reports in each format
 	for _, format := range r.formats {
 		switch format {
@@ -198,26 +198,26 @@ func (r *Reporter) GenerateReports() error {
 			return fmt.Errorf("unsupported format: %s", format)
 		}
 	}
-	
+
 	return nil
 }
 
 // generateJSONReport generates a JSON report
 func (r *Reporter) generateJSONReport() error {
 	filename := filepath.Join(r.outputDir, "report.json")
-	
+
 	data, err := json.MarshalIndent(r.suites, "", "  ")
 	if err != nil {
 		return err
 	}
-	
+
 	return os.WriteFile(filename, data, 0644)
 }
 
 // generateJUnitReport generates a JUnit XML report
 func (r *Reporter) generateJUnitReport() error {
 	filename := filepath.Join(r.outputDir, "junit.xml")
-	
+
 	type JUnitTestCase struct {
 		XMLName   xml.Name `xml:"testcase"`
 		Name      string   `xml:"name,attr"`
@@ -226,7 +226,7 @@ func (r *Reporter) generateJUnitReport() error {
 		Failure   *string  `xml:"failure,omitempty"`
 		Skipped   *string  `xml:"skipped,omitempty"`
 	}
-	
+
 	type JUnitTestSuite struct {
 		XMLName   xml.Name        `xml:"testsuite"`
 		Name      string          `xml:"name,attr"`
@@ -236,16 +236,16 @@ func (r *Reporter) generateJUnitReport() error {
 		Time      float64         `xml:"time,attr"`
 		TestCases []JUnitTestCase `xml:"testcase"`
 	}
-	
+
 	type JUnitTestSuites struct {
 		XMLName xml.Name         `xml:"testsuites"`
 		Suites  []JUnitTestSuite `xml:"testsuite"`
 	}
-	
+
 	junitSuites := JUnitTestSuites{
 		Suites: make([]JUnitTestSuite, 0, len(r.suites)),
 	}
-	
+
 	for _, suite := range r.suites {
 		junitSuite := JUnitTestSuite{
 			Name:      suite.Name,
@@ -255,14 +255,14 @@ func (r *Reporter) generateJUnitReport() error {
 			Time:      suite.Summary.Duration.Seconds(),
 			TestCases: make([]JUnitTestCase, 0, len(suite.Tests)),
 		}
-		
+
 		for _, test := range suite.Tests {
 			tc := JUnitTestCase{
 				Name:      test.Name,
 				ClassName: suite.Name,
 				Time:      test.Duration.Seconds(),
 			}
-			
+
 			switch test.Status {
 			case TestStatusFailed:
 				msg := test.Message
@@ -274,13 +274,13 @@ func (r *Reporter) generateJUnitReport() error {
 				msg := "Test skipped"
 				tc.Skipped = &msg
 			}
-			
+
 			junitSuite.TestCases = append(junitSuite.TestCases, tc)
 		}
-		
+
 		junitSuites.Suites = append(junitSuites.Suites, junitSuite)
 	}
-	
+
 	file, err := os.Create(filename)
 	if err != nil {
 		return err
@@ -288,21 +288,21 @@ func (r *Reporter) generateJUnitReport() error {
 	defer func() {
 		_ = file.Close()
 	}()
-	
+
 	encoder := xml.NewEncoder(file)
 	encoder.Indent("", "  ")
-	
+
 	if _, err := file.WriteString(xml.Header); err != nil {
 		return err
 	}
-	
+
 	return encoder.Encode(junitSuites)
 }
 
 // generateHTMLReport generates an HTML report
 func (r *Reporter) generateHTMLReport() error {
 	filename := filepath.Join(r.outputDir, "report.html")
-	
+
 	htmlTemplate := `<!DOCTYPE html>
 <html>
 <head>
@@ -423,12 +423,12 @@ func (r *Reporter) generateHTMLReport() error {
     </div>
 </body>
 </html>`
-	
+
 	tmpl, err := template.New("report").Parse(htmlTemplate)
 	if err != nil {
 		return err
 	}
-	
+
 	file, err := os.Create(filename)
 	if err != nil {
 		return err
@@ -436,7 +436,7 @@ func (r *Reporter) generateHTMLReport() error {
 	defer func() {
 		_ = file.Close()
 	}()
-	
+
 	data := struct {
 		Suites      []TestSuite
 		GeneratedAt string
@@ -444,7 +444,7 @@ func (r *Reporter) generateHTMLReport() error {
 		Suites:      r.suites,
 		GeneratedAt: time.Now().Format("2006-01-02 15:04:05"),
 	}
-	
+
 	return tmpl.Execute(file, data)
 }
 
@@ -459,7 +459,7 @@ func NewStreamingReporter(outputDir string, formats []string, writers ...io.Writ
 	if len(writers) == 0 {
 		writers = []io.Writer{os.Stdout}
 	}
-	
+
 	return &StreamingReporter{
 		Reporter: NewReporter(outputDir, formats),
 		writers:  writers,
@@ -470,11 +470,11 @@ func NewStreamingReporter(outputDir string, formats []string, writers ...io.Writ
 func (sr *StreamingReporter) LogTest(result TestResult) {
 	// Record in parent reporter
 	sr.RecordTest(result)
-	
+
 	// Stream to writers
 	statusSymbol := "✓"
 	statusColor := "\033[32m" // green
-	
+
 	switch result.Status {
 	case TestStatusFailed:
 		statusSymbol = "✗"
@@ -486,14 +486,14 @@ func (sr *StreamingReporter) LogTest(result TestResult) {
 		statusSymbol = "◌"
 		statusColor = "\033[36m" // cyan
 	}
-	
-	message := fmt.Sprintf("%s%s\033[0m %s (%v)\n", 
+
+	message := fmt.Sprintf("%s%s\033[0m %s (%v)\n",
 		statusColor, statusSymbol, result.Name, result.Duration)
-	
+
 	for _, w := range sr.writers {
 		_, _ = fmt.Fprint(w, message)
 	}
-	
+
 	// Log error details if failed
 	if result.Status == TestStatusFailed && result.Error != nil {
 		errorMsg := fmt.Sprintf("  Error: %v\n", result.Error)
@@ -507,14 +507,14 @@ func (sr *StreamingReporter) LogTest(result TestResult) {
 func (sr *StreamingReporter) PrintSummary() {
 	sr.mu.RLock()
 	defer sr.mu.RUnlock()
-	
+
 	for _, w := range sr.writers {
 		_, _ = fmt.Fprintln(w, strings.Repeat("=", 80))
 		_, _ = fmt.Fprintln(w, "TEST SUMMARY")
 		_, _ = fmt.Fprintln(w, strings.Repeat("=", 80))
-		
+
 		totalSummary := TestSummary{}
-		
+
 		for _, suite := range sr.suites {
 			_, _ = fmt.Fprintf(w, "\nSuite: %s\n", suite.Name)
 			_, _ = fmt.Fprintf(w, "  Total:   %d\n", suite.Summary.Total)
@@ -522,14 +522,14 @@ func (sr *StreamingReporter) PrintSummary() {
 			_, _ = fmt.Fprintf(w, "  Failed:  %d\n", suite.Summary.Failed)
 			_, _ = fmt.Fprintf(w, "  Skipped: %d\n", suite.Summary.Skipped)
 			_, _ = fmt.Fprintf(w, "  Duration: %v\n", suite.Summary.Duration)
-			
+
 			totalSummary.Total += suite.Summary.Total
 			totalSummary.Passed += suite.Summary.Passed
 			totalSummary.Failed += suite.Summary.Failed
 			totalSummary.Skipped += suite.Summary.Skipped
 			totalSummary.Duration += suite.Summary.Duration
 		}
-		
+
 		_, _ = fmt.Fprintln(w, strings.Repeat("-", 80))
 		_, _ = fmt.Fprintf(w, "TOTAL: %d tests, %d passed, %d failed, %d skipped\n",
 			totalSummary.Total, totalSummary.Passed, totalSummary.Failed, totalSummary.Skipped)
