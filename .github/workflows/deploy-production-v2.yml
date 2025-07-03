@@ -31,9 +31,10 @@ jobs:
           # Login to GHCR
           echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
           
+          OWNER=$(echo "${{ github.repository_owner }}" | tr '[:upper:]' '[:lower:]')
           for service in mcp-server rest-api worker; do
-            echo "Checking image: ghcr.io/${{ github.repository_owner }}/devops-mcp-${service}:main-${{ github.sha }}"
-            docker pull "ghcr.io/${{ github.repository_owner }}/devops-mcp-${service}:main-${{ github.sha }}" || exit 1
+            echo "Checking image: ghcr.io/${OWNER}/devops-mcp-${service}:main-${{ github.sha }}"
+            docker pull "ghcr.io/${OWNER}/devops-mcp-${service}:main-${{ github.sha }}" || exit 1
           done
 
   deploy:
