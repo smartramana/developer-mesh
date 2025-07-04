@@ -88,7 +88,7 @@ jobs:
             cp deployments/nginx/mcp.conf deployment/nginx/
           fi
           
-          # Create .env file with all necessary variables
+          # Create .env file with secrets
           cat > deployment/.env << EOF
           # Database
           DATABASE_HOST=${{ secrets.DATABASE_HOST }}
@@ -136,7 +136,7 @@ jobs:
           aws s3 cp deployment.tar.gz "s3://${{ secrets.S3_BUCKET }}/${DEPLOYMENT_KEY}"
           
           # Use SSM to download and extract on EC2
-          COMMAND_ID=$(aws ssm send-command \
+          aws ssm send-command \
             --instance-ids "${{ steps.get-instance.outputs.instance_id }}" \
             --document-name "AWS-RunShellScript" \
             --parameters "commands=[
@@ -145,131 +145,125 @@ jobs:
               'tar -xzf deployment.tar.gz --strip-components=1',
               'rm deployment.tar.gz'
             ]" \
-            --query "Command.CommandId" \
-            --output text)
+            --command-id "${{ github.run_id }}-transfer" \
+            --output json
           
           # Wait for command to complete
           aws ssm wait command-executed \
-            --command-id "${COMMAND_ID}" \
+            --command-id "${{ github.run_id }}-transfer" \
             --instance-id "${{ steps.get-instance.outputs.instance_id }}"
           
       - name: Update Nginx Configuration
         run: |
-          COMMAND_ID=$(aws ssm send-command \
-            --instance-ids "${{ steps.get-instance.outputs.instance_id }}" \
-            --document-name "AWS-RunShellScript" \
-            --parameters 'commands=[
-              "if [ -f /home/ec2-user/devops-mcp/nginx/mcp.conf ]; then",
-              "  echo \"Updating nginx configuration...\"",
-              "  sudo cp /etc/nginx/conf.d/mcp.conf /etc/nginx/conf.d/mcp.conf.backup.$(date +%Y%m%d_%H%M%S)",
-              "  sudo cp /home/ec2-user/devops-mcp/nginx/mcp.conf /etc/nginx/conf.d/mcp.conf",
-              "  if sudo nginx -t; then",
-              "    sudo systemctl reload nginx",
-              "    echo \"Nginx configuration updated successfully\"",
-              "  else",
-              "    echo \"Nginx configuration test failed, reverting...\"",
-              "    sudo cp /etc/nginx/conf.d/mcp.conf.backup.$(ls -t /etc/nginx/conf.d/mcp.conf.backup.* | head -1 | xargs basename) /etc/nginx/conf.d/mcp.conf",
-              "    exit 1",
-              "  fi",
-              "fi"
-            ]' \
-            --query "Command.CommandId" \
-            --output text)
-          
-          aws ssm wait command-executed \
-            --command-id "${COMMAND_ID}" \
-            --instance-id "${{ steps.get-instance.outputs.instance_id }}"
+          ssh -i ~/.ssh/ec2-key.pem ec2-user@${{ env.EC2_INSTANCE_IP }} << 'EOF'
+            # Update nginx configuration if provided
+            if [ -f /home/ec2-user/devops-mcp/nginx/mcp.conf ]; then
+              echo "Updating nginx configuration..."
+              sudo cp /etc/nginx/conf.d/mcp.conf /etc/nginx/conf.d/mcp.conf.backup.$(date +%Y%m%d_%H%M%S)
+              sudo cp /home/ec2-user/devops-mcp/nginx/mcp.conf /etc/nginx/conf.d/mcp.conf
+              
+              # Test nginx configuration
+              if sudo nginx -t; then
+                sudo systemctl reload nginx
+                echo "Nginx configuration updated successfully"
+              else
+                echo "Nginx configuration test failed, reverting..."
+                sudo cp /etc/nginx/conf.d/mcp.conf.backup.$(ls -t /etc/nginx/conf.d/mcp.conf.backup.* | head -1 | cut -d. -f4) /etc/nginx/conf.d/mcp.conf
+                exit 1
+              fi
+            fi
+          EOF
 
       - name: Run Database Migrations
         if: ${{ github.event.inputs.skip_migrations != 'true' }}
         run: |
-          COMMAND_ID=$(aws ssm send-command \
-            --instance-ids "${{ steps.get-instance.outputs.instance_id }}" \
-            --document-name "AWS-RunShellScript" \
-            --parameters 'commands=[
-              "cd /home/ec2-user/devops-mcp",
-              "source .env",
-              "docker pull migrate/migrate:latest",
-              "docker run --rm -v /home/ec2-user/devops-mcp/migrations:/migrations migrate/migrate -database \"postgresql://dbadmin:${DATABASE_PASSWORD}@${DATABASE_HOST}:5432/devops_mcp?sslmode=require\" -path /migrations up"
-            ]' \
-            --query "Command.CommandId" \
-            --output text)
-          
-          aws ssm wait command-executed \
-            --command-id "${COMMAND_ID}" \
-            --instance-id "${{ steps.get-instance.outputs.instance_id }}"
+          ssh -i ~/.ssh/ec2-key.pem ec2-user@${{ env.EC2_INSTANCE_IP }} << 'EOF'
+            cd /home/ec2-user/devops-mcp
+            
+            # Pull migration image
+            docker pull migrate/migrate:latest
+            
+            # Run migrations
+            docker run --rm \
+              -v /home/ec2-user/devops-mcp/migrations:/migrations \
+              migrate/migrate \
+              -database "postgresql://dbadmin:${DATABASE_PASSWORD}@${DATABASE_HOST}:5432/devops_mcp?sslmode=require" \
+              -path /migrations \
+              up
+          EOF
 
       - name: Deploy Services (Blue-Green)
         id: deploy
         run: |
-          SHORT_SHA=$(echo "${{ github.sha }}" | cut -c1-7)
-          
-          COMMAND_ID=$(aws ssm send-command \
-            --instance-ids "${{ steps.get-instance.outputs.instance_id }}" \
-            --document-name "AWS-RunShellScript" \
-            --parameters 'commands=[
-              "set -e",
-              "cd /home/ec2-user/devops-mcp",
-              "export IMAGE_TAG=main-'$SHORT_SHA'",
-              "docker-compose pull",
-              "docker-compose -p devops-mcp-blue up -d",
-              "echo \"Waiting for services to be healthy...\"",
-              "sleep 30",
-              "for service in mcp-server rest-api worker; do container_name=\"devops-mcp-blue_${service}_1\"; if ! docker inspect $container_name --format=\"{{.State.Health.Status}}\" | grep -q healthy; then echo \"Service $service is not healthy\"; docker logs $container_name --tail 50; exit 1; fi; done",
-              "echo \"All services are healthy\""
-            ]' \
-            --query "Command.CommandId" \
-            --output text)
-          
-          aws ssm wait command-executed \
-            --command-id "${COMMAND_ID}" \
-            --instance-id "${{ steps.get-instance.outputs.instance_id }}"
+          ssh -i ~/.ssh/ec2-key.pem ec2-user@${{ env.EC2_INSTANCE_IP }} << 'EOF'
+            set -e
+            cd /home/ec2-user/devops-mcp
+            
+            # Pull new images (using shortened SHA)
+            SHORT_SHA=$(echo "${{ github.sha }}" | cut -c1-7)
+            export IMAGE_TAG="main-${SHORT_SHA}"
+            docker-compose pull
+            
+            # Start new containers with blue suffix
+            docker-compose -p devops-mcp-blue up -d
+            
+            # Wait for health checks
+            echo "Waiting for services to be healthy..."
+            sleep 30
+            
+            # Check health
+            for service in mcp-server rest-api worker; do
+              container_name="devops-mcp-blue_${service}_1"
+              if ! docker inspect $container_name --format='{{.State.Health.Status}}' | grep -q healthy; then
+                echo "Service $service is not healthy"
+                docker logs $container_name --tail 50
+                exit 1
+              fi
+            done
+            
+            echo "All services are healthy"
+          EOF
 
       - name: Switch Traffic
         run: |
-          COMMAND_ID=$(aws ssm send-command \
-            --instance-ids "${{ steps.get-instance.outputs.instance_id }}" \
-            --document-name "AWS-RunShellScript" \
-            --parameters 'commands=[
-              "cd /home/ec2-user/devops-mcp",
-              "docker-compose down || true",
-              "docker-compose -p devops-mcp-blue ps -q | xargs -I {} docker rename {} $(echo {} | sed \"s/blue/prod/g\") || true",
-              "docker-compose -p devops-mcp up -d",
-              "docker image prune -f"
-            ]' \
-            --query "Command.CommandId" \
-            --output text)
-          
-          aws ssm wait command-executed \
-            --command-id "${COMMAND_ID}" \
-            --instance-id "${{ steps.get-instance.outputs.instance_id }}"
+          ssh -i ~/.ssh/ec2-key.pem ec2-user@${{ env.EC2_INSTANCE_IP }} << 'EOF'
+            set -e
+            cd /home/ec2-user/devops-mcp
+            
+            # Update Nginx upstream to point to blue containers
+            sudo sed -i 's/localhost:8080/localhost:8082/g' /etc/nginx/conf.d/mcp.conf
+            sudo sed -i 's/localhost:8081/localhost:8083/g' /etc/nginx/conf.d/mcp.conf
+            
+            # Reload Nginx
+            sudo nginx -t && sudo systemctl reload nginx
+            
+            # Stop old containers
+            docker-compose -p devops-mcp down || true
+            
+            # Rename blue to production
+            docker-compose -p devops-mcp-blue down
+            docker-compose -p devops-mcp up -d
+            
+            # Restore Nginx config
+            sudo sed -i 's/localhost:8082/localhost:8080/g' /etc/nginx/conf.d/mcp.conf
+            sudo sed -i 's/localhost:8083/localhost:8081/g' /etc/nginx/conf.d/mcp.conf
+            sudo systemctl reload nginx
+          EOF
 
-      - name: Smoke Test
+      - name: Run Smoke Tests
         run: |
-          echo "Running smoke tests..."
-          sleep 10  # Give services time to stabilize
-          
-          # Test REST API health endpoint
-          echo "Testing REST API health endpoint..."
-          for i in {1..5}; do
-            if curl -f -s "https://api.dev-mesh.io/health"; then
-              echo "✓ REST API is healthy"
-              break
+          # Test endpoints
+          for url in https://mcp.dev-mesh.io/health https://api.dev-mesh.io/health; do
+            echo "Testing $url"
+            response=$(curl -s -o /dev/null -w "%{http_code}" $url)
+            if [ $response -ne 200 ]; then
+              echo "Health check failed for $url (HTTP $response)"
+              exit 1
             fi
-            echo "Attempt $i failed, retrying..."
-            sleep 5
           done
           
-          # Test MCP health endpoint
-          echo "Testing MCP health endpoint..."
-          for i in {1..5}; do
-            if curl -f -s "https://mcp.dev-mesh.io/health"; then
-              echo "✓ MCP Server is healthy"
-              break
-            fi
-            echo "Attempt $i failed, retrying..."
-            sleep 5
-          done
+          # Test functionality
+          echo "Running API smoke tests..."
           
           # Test WebSocket endpoint
           echo "Testing WebSocket endpoint..."
@@ -322,20 +316,57 @@ jobs:
 
       - name: Perform Rollback
         run: |
-          COMMAND_ID=$(aws ssm send-command \
-            --instance-ids "${{ steps.get-instance.outputs.instance_id }}" \
-            --document-name "AWS-RunShellScript" \
-            --parameters 'commands=[
-              "cd /home/ec2-user/devops-mcp",
-              "echo \"Starting rollback...\"",
-              "docker-compose -p devops-mcp-blue down || true",
-              "docker-compose restart",
-              "docker-compose ps",
-              "echo \"Rollback completed\""
-            ]' \
-            --query "Command.CommandId" \
-            --output text)
-          
-          aws ssm wait command-executed \
-            --command-id "${COMMAND_ID}" \
-            --instance-id "${{ steps.get-instance.outputs.instance_id }}"
+          ssh -i ~/.ssh/ec2-key.pem ec2-user@${{ env.EC2_INSTANCE_IP }} << 'EOF'
+            cd /home/ec2-user/devops-mcp
+            
+            # Stop blue containers if they exist
+            docker-compose -p devops-mcp-blue down || true
+            
+            # Revert to latest tag
+            sed -i "s|:main-.*|:latest|g" docker-compose.yml
+            docker-compose pull
+            docker-compose up -d
+            
+            echo "Rollback completed"
+          EOF
+
+      - name: Send Rollback Notification
+        uses: 8398a7/action-slack@v3
+        with:
+          status: custom
+          custom_payload: |
+            {
+              text: "Production deployment rolled back",
+              attachments: [{
+                color: 'danger',
+                text: 'Deployment of ${{ github.sha }} failed and was rolled back'
+              }]
+            }
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK }}
+
+  post-deployment:
+    name: Post-Deployment Tasks
+    needs: deploy
+    runs-on: ubuntu-latest
+    steps:
+      - name: Clean Old Images
+        run: |
+          ssh -i ~/.ssh/ec2-key.pem ec2-user@${{ env.EC2_INSTANCE_IP }} << 'EOF'
+            # Remove unused Docker images
+            docker image prune -a -f --filter "until=24h"
+          EOF
+
+      - name: Send Success Notification
+        uses: 8398a7/action-slack@v3
+        with:
+          status: success
+          text: |
+            Production deployment successful!
+            • MCP Server: https://mcp.dev-mesh.io
+            • REST API: https://api.dev-mesh.io
+            • Commit: ${{ github.sha }}
+            
+            E2E tests will run automatically after this deployment.
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK }}
