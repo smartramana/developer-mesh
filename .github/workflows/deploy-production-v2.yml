@@ -133,13 +133,17 @@ jobs:
             --parameters "commands=[
               'cd /home/ec2-user/devops-mcp',
               'echo \"Fetching latest deployment configuration...\"',
-              'git fetch origin main',
-              'git checkout origin/main -- docker-compose.production.yml',
-              'git checkout origin/main -- configs/',
+              'git fetch origin main || { echo \"Git fetch failed\"; exit 1; }',
+              'git checkout origin/main -- docker-compose.production.yml || { echo \"Failed to checkout docker-compose.production.yml\"; exit 1; }',
+              'if [ ! -f docker-compose.production.yml ]; then echo \"ERROR: docker-compose.production.yml not found after checkout\"; exit 1; fi',
+              'git checkout origin/main -- configs/ || echo \"Warning: configs checkout failed\"',
               'cp docker-compose.production.yml docker-compose.yml',
+              'if [ ! -s docker-compose.yml ]; then echo \"ERROR: docker-compose.yml is empty after copy\"; exit 1; fi',
               'SHORT_SHA=\$(echo \"${{ github.sha }}\" | cut -c1-7)',
               'sed -i \"s|:latest|:main-\${SHORT_SHA}|g\" docker-compose.yml',
-              'echo \"Docker compose updated with image tags: main-\${SHORT_SHA}\"'
+              'echo \"Docker compose updated with image tags: main-\${SHORT_SHA}\"',
+              'echo \"Final docker-compose.yml images:\"',
+              'grep \"image:\" docker-compose.yml'
             ]" \
             --query "Command.CommandId" \
             --output text)
