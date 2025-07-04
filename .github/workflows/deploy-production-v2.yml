@@ -136,7 +136,10 @@ jobs:
               'git fetch origin main || { echo \"Git fetch failed\"; exit 1; }',
               'git checkout origin/main -- docker-compose.production.yml || { echo \"Failed to checkout docker-compose.production.yml\"; exit 1; }',
               'if [ ! -f docker-compose.production.yml ]; then echo \"ERROR: docker-compose.production.yml not found after checkout\"; exit 1; fi',
+              'rm -rf configs.old || true',
+              'if [ -d configs ]; then mv configs configs.old; fi',
               'git checkout origin/main -- configs/ || echo \"Warning: configs checkout failed\"',
+              'if [ ! -d configs ]; then echo \"Restoring old configs\"; mv configs.old configs 2>/dev/null || mkdir -p configs; fi',
               'cp docker-compose.production.yml docker-compose.yml',
               'if [ ! -s docker-compose.yml ]; then echo \"ERROR: docker-compose.yml is empty after copy\"; exit 1; fi',
               'SHORT_SHA=\$(echo \"${{ github.sha }}\" | cut -c1-7)',
@@ -158,6 +161,7 @@ jobs:
             --document-name "AWS-RunShellScript" \
             --parameters 'commands=[
               "cd /home/ec2-user/devops-mcp",
+              "echo \"Creating .env file with production secrets...\"",
               "cat > .env << '\''EOF'\''",
               "# Database",
               "DATABASE_HOST=${{ secrets.DATABASE_HOST }}",
@@ -185,7 +189,8 @@ jobs:
               "MCP_SERVER_URL=http://mcp-server:8080",
               "EOF",
               "chmod 600 .env",
-              "echo \"Environment file created\""
+              "chown ec2-user:ec2-user .env",
+              "echo \"Environment file created successfully\""
             ]' \
             --query "Command.CommandId" \
             --output text)
@@ -244,6 +249,10 @@ jobs:
               set +a
               echo "Running database migrations..."
               echo "Database host: ${DATABASE_HOST}"
+              if [ -z "${DATABASE_PASSWORD}" ]; then
+                echo "ERROR: DATABASE_PASSWORD is not set"
+                exit 1
+              fi
               docker pull migrate/migrate:latest
               docker run --rm \
                 -v /home/ec2-user/devops-mcp/migrations:/migrations \
