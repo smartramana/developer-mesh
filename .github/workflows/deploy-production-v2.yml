@@ -32,9 +32,23 @@ jobs:
           echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
           
           OWNER=$(echo "${{ github.repository_owner }}" | tr '[:upper:]' '[:lower:]')
+          # Docker metadata action creates shortened SHA tags (7 chars)
+          SHORT_SHA=$(echo "${{ github.sha }}" | cut -c1-7)
+          
           for service in mcp-server rest-api worker; do
-            echo "Checking image: ghcr.io/${OWNER}/devops-mcp-${service}:main-${{ github.sha }}"
-            docker pull "ghcr.io/${OWNER}/devops-mcp-${service}:main-${{ github.sha }}" || exit 1
+            # Try both latest and SHA-based tags
+            IMAGE_BASE="ghcr.io/${OWNER}/devops-mcp-${service}"
+            echo "Checking image: ${IMAGE_BASE}:latest"
+            
+            if docker pull "${IMAGE_BASE}:latest"; then
+              echo "✓ Found ${IMAGE_BASE}:latest"
+            else
+              echo "Trying SHA-based tag: ${IMAGE_BASE}:main-${SHORT_SHA}"
+              docker pull "${IMAGE_BASE}:main-${SHORT_SHA}" || {
+                echo "ERROR: Could not find image for ${service}"
+                exit 1
+              }
+            fi
           done
 
   deploy:
@@ -98,12 +112,14 @@ jobs:
           GITHUB_TOKEN=${{ github.token }}
           MCP_SERVER_URL=http://mcp-server:8080
           
-          # Image Tags
-          IMAGE_TAG=main-${{ github.sha }}
+          # Image Tags (use shortened SHA to match what Docker metadata creates)
+          SHORT_SHA=$(echo "${{ github.sha }}" | cut -c1-7)
+          IMAGE_TAG=main-${SHORT_SHA}
           EOF
           
-          # Update docker-compose with new image tags
-          sed -i "s|:latest|:main-${{ github.sha }}|g" deployment/docker-compose.yml
+          # Update docker-compose with new image tags (using shortened SHA)
+          SHORT_SHA=$(echo "${{ github.sha }}" | cut -c1-7)
+          sed -i "s|:latest|:main-${SHORT_SHA}|g" deployment/docker-compose.yml
 
       - name: Transfer Deployment Package
         run: |
@@ -155,8 +171,9 @@ jobs:
             set -e
             cd /home/ec2-user/devops-mcp
             
-            # Pull new images
-            export IMAGE_TAG="main-${{ github.sha }}"
+            # Pull new images (using shortened SHA)
+            SHORT_SHA=$(echo "${{ github.sha }}" | cut -c1-7)
+            export IMAGE_TAG="main-${SHORT_SHA}"
             docker-compose pull
             
             # Start new containers with blue suffix
