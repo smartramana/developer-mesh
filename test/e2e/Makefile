@@ -1,5 +1,11 @@
 .PHONY: all test test-single test-multi test-performance test-local test-ci install-deps clean help
 
+# Load .env file if it exists
+ifneq (,$(wildcard ./.env))
+    include .env
+    export
+endif
+
 # Variables
 GINKGO := $(shell which ginkgo 2>/dev/null)
 GO := go

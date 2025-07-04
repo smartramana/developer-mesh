@@ -77,3 +77,4 @@ ZERO_COST_PRODUCTION_DEPLOYMENT_PLAN.md
 register-domain.sh
 setup-alb-with-domain.sh
 domain-contact.json
+test/e2e/.env

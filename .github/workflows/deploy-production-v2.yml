@@ -65,6 +65,12 @@ jobs:
           cp docker-compose.production.yml deployment/docker-compose.yml
           cp -r configs deployment/
           
+          # Copy nginx configuration if it exists
+          if [ -f deployments/nginx/mcp.conf ]; then
+            mkdir -p deployment/nginx
+            cp deployments/nginx/mcp.conf deployment/nginx/
+          fi
+          
           # Create .env file with secrets
           cat > deployment/.env << EOF
           # Database
@@ -102,6 +108,27 @@ jobs:
       - name: Transfer Deployment Package
         run: |
           scp -i ~/.ssh/ec2-key.pem -r deployment/* ec2-user@${{ env.EC2_INSTANCE_IP }}:/home/ec2-user/devops-mcp/
+          
+      - name: Update Nginx Configuration
+        run: |
+          ssh -i ~/.ssh/ec2-key.pem ec2-user@${{ env.EC2_INSTANCE_IP }} << 'EOF'
+            # Update nginx configuration if provided
+            if [ -f /home/ec2-user/devops-mcp/nginx/mcp.conf ]; then
+              echo "Updating nginx configuration..."
+              sudo cp /etc/nginx/conf.d/mcp.conf /etc/nginx/conf.d/mcp.conf.backup.$(date +%Y%m%d_%H%M%S)
+              sudo cp /home/ec2-user/devops-mcp/nginx/mcp.conf /etc/nginx/conf.d/mcp.conf
+              
+              # Test nginx configuration
+              if sudo nginx -t; then
+                sudo systemctl reload nginx
+                echo "Nginx configuration updated successfully"
+              else
+                echo "Nginx configuration test failed, reverting..."
+                sudo cp /etc/nginx/conf.d/mcp.conf.backup.$(ls -t /etc/nginx/conf.d/mcp.conf.backup.* | head -1 | cut -d. -f4) /etc/nginx/conf.d/mcp.conf
+                exit 1
+              fi
+            fi
+          EOF
 
       - name: Run Database Migrations
         if: ${{ github.event.inputs.skip_migrations != 'true' }}
@@ -192,7 +219,21 @@ jobs:
           
           # Test functionality
           echo "Running API smoke tests..."
-          # Add more comprehensive tests here
+          
+          # Test WebSocket endpoint
+          echo "Testing WebSocket endpoint..."
+          ws_response=$(curl -s -o /dev/null -w "%{http_code}" \
+            -H "Connection: Upgrade" \
+            -H "Upgrade: websocket" \
+            -H "Sec-WebSocket-Version: 13" \
+            -H "Sec-WebSocket-Key: dGhlIHNhbXBsZSBub25jZQ==" \
+            "https://mcp.dev-mesh.io/ws")
+          
+          if [ "$ws_response" = "101" ] || [ "$ws_response" = "400" ] || [ "$ws_response" = "401" ]; then
+            echo "WebSocket endpoint accessible (HTTP $ws_response)"
+          else
+            echo "Warning: WebSocket endpoint returned HTTP $ws_response"
+          fi
 
       - name: Report Deployment Status
         if: always()

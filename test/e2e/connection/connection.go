@@ -103,9 +103,9 @@ func (cm *ConnectionManager) buildWebSocketURL() (string, error) {
 		return "", fmt.Errorf("unsupported scheme: %s", u.Scheme)
 	}
 
-	// Ensure path ends with /v1/ws
-	if !strings.HasSuffix(u.Path, "/v1/ws") {
-		u.Path = strings.TrimSuffix(u.Path, "/") + "/v1/ws"
+	// Ensure path ends with /ws
+	if !strings.HasSuffix(u.Path, "/ws") {
+		u.Path = strings.TrimSuffix(u.Path, "/") + "/ws"
 	}
 
 	return u.String(), nil

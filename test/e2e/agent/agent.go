@@ -55,7 +55,7 @@ func NewTestAgent(name string, capabilities []string, apiKey, baseURL string) *T
 
 // Connect establishes WebSocket connection to the MCP server
 func (ta *TestAgent) Connect(ctx context.Context) error {
-	wsURL := fmt.Sprintf("wss://%s/v1/ws", ta.baseURL)
+	wsURL := fmt.Sprintf("wss://%s/ws", ta.baseURL)
 
 	opts := &websocket.DialOptions{
 		HTTPHeader: http.Header{
