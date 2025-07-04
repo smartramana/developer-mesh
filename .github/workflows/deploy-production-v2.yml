@@ -124,64 +124,71 @@ jobs:
           SHORT_SHA=$(echo "${{ github.sha }}" | cut -c1-7)
           sed -i "s|:latest|:main-${SHORT_SHA}|g" deployment/docker-compose.yml
 
-      - name: Transfer Deployment Files
+      - name: Update Deployment Files on EC2
         run: |
-          # Transfer docker-compose.yml content via SSM Parameter Store
-          COMPOSE_CONTENT=$(cat deployment/docker-compose.yml | base64 -w 0)
-          aws ssm put-parameter \
-            --name "/devops-mcp/deployment/docker-compose-${{ github.sha }}" \
-            --value "$COMPOSE_CONTENT" \
-            --type "String" \
-            --overwrite || true
-          
-          # Transfer .env content
-          ENV_CONTENT=$(cat deployment/.env | base64 -w 0)
-          aws ssm put-parameter \
-            --name "/devops-mcp/deployment/env-${{ github.sha }}" \
-            --value "$ENV_CONTENT" \
-            --type "SecureString" \
-            --overwrite || true
-          
-          # Transfer config files
-          for file in deployment/configs/*.yaml; do
-            if [ -f "$file" ]; then
-              filename=$(basename "$file")
-              CONTENT=$(cat "$file" | base64 -w 0)
-              aws ssm put-parameter \
-                --name "/devops-mcp/deployment/config-${filename}-${{ github.sha }}" \
-                --value "$CONTENT" \
-                --type "String" \
-                --overwrite || true
-            fi
-          done
-          
-          # Use SSM to retrieve and apply files on EC2
+          # Create a script that will update the deployment files
           COMMAND_ID=$(aws ssm send-command \
             --instance-ids "${{ steps.get-instance.outputs.instance_id }}" \
             --document-name "AWS-RunShellScript" \
             --parameters "commands=[
               'cd /home/ec2-user/devops-mcp',
-              'mkdir -p configs',
-              'aws ssm get-parameter --name /devops-mcp/deployment/docker-compose-${{ github.sha }} --query Parameter.Value --output text | base64 -d > docker-compose.yml',
-              'aws ssm get-parameter --name /devops-mcp/deployment/env-${{ github.sha }} --with-decryption --query Parameter.Value --output text | base64 -d > .env',
-              'for param in $(aws ssm describe-parameters --parameter-filters Key=Name,Values=/devops-mcp/deployment/config-*-${{ github.sha }} --query Parameters[].Name --output text); do filename=$(echo $param | sed \"s|/devops-mcp/deployment/config-||g\" | sed \"s|-${{ github.sha }}||g\"); aws ssm get-parameter --name $param --query Parameter.Value --output text | base64 -d > configs/$filename; done',
-              'chmod 600 .env',
-              'echo \"Deployment files transferred successfully\"'
+              'echo \"Fetching latest deployment configuration...\"',
+              'git fetch origin main',
+              'git checkout origin/main -- docker-compose.production.yml',
+              'git checkout origin/main -- configs/',
+              'cp docker-compose.production.yml docker-compose.yml',
+              'SHORT_SHA=\$(echo \"${{ github.sha }}\" | cut -c1-7)',
+              'sed -i \"s|:latest|:main-\${SHORT_SHA}|g\" docker-compose.yml',
+              'echo \"Docker compose updated with image tags: main-\${SHORT_SHA}\"'
             ]" \
             --query "Command.CommandId" \
             --output text)
           
-          # Wait for command to complete
           aws ssm wait command-executed \
             --command-id "${COMMAND_ID}" \
             --instance-id "${{ steps.get-instance.outputs.instance_id }}"
           
-          # Clean up parameters after successful transfer
-          aws ssm delete-parameter --name "/devops-mcp/deployment/docker-compose-${{ github.sha }}" || true
-          aws ssm delete-parameter --name "/devops-mcp/deployment/env-${{ github.sha }}" || true
-          for param in $(aws ssm describe-parameters --parameter-filters "Key=Name,Values=/devops-mcp/deployment/config-*-${{ github.sha }}" --query 'Parameters[].Name' --output text); do
-            aws ssm delete-parameter --name "$param" || true
-          done
+          # Create .env file directly on EC2 with proper escaping
+          COMMAND_ID=$(aws ssm send-command \
+            --instance-ids "${{ steps.get-instance.outputs.instance_id }}" \
+            --document-name "AWS-RunShellScript" \
+            --parameters 'commands=[
+              "cd /home/ec2-user/devops-mcp",
+              "cat > .env << '\''EOF'\''",
+              "# Database",
+              "DATABASE_HOST=${{ secrets.DATABASE_HOST }}",
+              "DATABASE_PORT=5432",
+              "DATABASE_USER=dbadmin",
+              "DATABASE_PASSWORD=${{ secrets.DATABASE_PASSWORD }}",
+              "DATABASE_NAME=devops_mcp",
+              "DATABASE_SSL_MODE=require",
+              "",
+              "# Redis",
+              "REDIS_ADDR=${{ secrets.REDIS_ENDPOINT }}",
+              "REDIS_TLS_ENABLED=true",
+              "",
+              "# AWS",
+              "AWS_REGION=${{ env.AWS_REGION }}",
+              "AWS_ACCESS_KEY_ID=${{ secrets.AWS_ACCESS_KEY_ID }}",
+              "AWS_SECRET_ACCESS_KEY=${{ secrets.AWS_SECRET_ACCESS_KEY }}",
+              "S3_BUCKET=${{ secrets.S3_BUCKET }}",
+              "SQS_QUEUE_URL=${{ secrets.SQS_QUEUE_URL }}",
+              "",
+              "# Application",
+              "ENVIRONMENT=production",
+              "ADMIN_API_KEY=${{ secrets.ADMIN_API_KEY }}",
+              "GITHUB_TOKEN=${{ github.token }}",
+              "MCP_SERVER_URL=http://mcp-server:8080",
+              "EOF",
+              "chmod 600 .env",
+              "echo \"Environment file created\""
+            ]' \
+            --query "Command.CommandId" \
+            --output text)
+          
+          aws ssm wait command-executed \
+            --command-id "${COMMAND_ID}" \
+            --instance-id "${{ steps.get-instance.outputs.instance_id }}"
           
       - name: Update Nginx Configuration
         run: |
