@@ -124,26 +124,49 @@ jobs:
           SHORT_SHA=$(echo "${{ github.sha }}" | cut -c1-7)
           sed -i "s|:latest|:main-${SHORT_SHA}|g" deployment/docker-compose.yml
 
-      - name: Transfer Deployment Package via S3
+      - name: Transfer Deployment Files
         run: |
-          # Create a unique S3 key for this deployment
-          DEPLOYMENT_KEY="deployments/${{ github.sha }}/deployment.tar.gz"
+          # Transfer docker-compose.yml content via SSM Parameter Store
+          COMPOSE_CONTENT=$(cat deployment/docker-compose.yml | base64 -w 0)
+          aws ssm put-parameter \
+            --name "/devops-mcp/deployment/docker-compose-${{ github.sha }}" \
+            --value "$COMPOSE_CONTENT" \
+            --type "String" \
+            --overwrite || true
           
-          # Create tarball of deployment directory
-          tar -czf deployment.tar.gz deployment/
+          # Transfer .env content
+          ENV_CONTENT=$(cat deployment/.env | base64 -w 0)
+          aws ssm put-parameter \
+            --name "/devops-mcp/deployment/env-${{ github.sha }}" \
+            --value "$ENV_CONTENT" \
+            --type "SecureString" \
+            --overwrite || true
           
-          # Upload to S3
-          aws s3 cp deployment.tar.gz "s3://${{ secrets.S3_BUCKET }}/${DEPLOYMENT_KEY}"
+          # Transfer config files
+          for file in deployment/configs/*.yaml; do
+            if [ -f "$file" ]; then
+              filename=$(basename "$file")
+              CONTENT=$(cat "$file" | base64 -w 0)
+              aws ssm put-parameter \
+                --name "/devops-mcp/deployment/config-${filename}-${{ github.sha }}" \
+                --value "$CONTENT" \
+                --type "String" \
+                --overwrite || true
+            fi
+          done
           
-          # Use SSM to download and extract on EC2
+          # Use SSM to retrieve and apply files on EC2
           COMMAND_ID=$(aws ssm send-command \
             --instance-ids "${{ steps.get-instance.outputs.instance_id }}" \
             --document-name "AWS-RunShellScript" \
             --parameters "commands=[
               'cd /home/ec2-user/devops-mcp',
-              'aws s3 cp s3://${{ secrets.S3_BUCKET }}/${DEPLOYMENT_KEY} deployment.tar.gz',
-              'tar -xzf deployment.tar.gz --strip-components=1',
-              'rm deployment.tar.gz'
+              'mkdir -p configs',
+              'aws ssm get-parameter --name /devops-mcp/deployment/docker-compose-${{ github.sha }} --query Parameter.Value --output text | base64 -d > docker-compose.yml',
+              'aws ssm get-parameter --name /devops-mcp/deployment/env-${{ github.sha }} --with-decryption --query Parameter.Value --output text | base64 -d > .env',
+              'for param in $(aws ssm describe-parameters --parameter-filters Key=Name,Values=/devops-mcp/deployment/config-*-${{ github.sha }} --query Parameters[].Name --output text); do filename=$(echo $param | sed \"s|/devops-mcp/deployment/config-||g\" | sed \"s|-${{ github.sha }}||g\"); aws ssm get-parameter --name $param --query Parameter.Value --output text | base64 -d > configs/$filename; done',
+              'chmod 600 .env',
+              'echo \"Deployment files transferred successfully\"'
             ]" \
             --query "Command.CommandId" \
             --output text)
@@ -152,6 +175,13 @@ jobs:
           aws ssm wait command-executed \
             --command-id "${COMMAND_ID}" \
             --instance-id "${{ steps.get-instance.outputs.instance_id }}"
+          
+          # Clean up parameters after successful transfer
+          aws ssm delete-parameter --name "/devops-mcp/deployment/docker-compose-${{ github.sha }}" || true
+          aws ssm delete-parameter --name "/devops-mcp/deployment/env-${{ github.sha }}" || true
+          for param in $(aws ssm describe-parameters --parameter-filters "Key=Name,Values=/devops-mcp/deployment/config-*-${{ github.sha }}" --query 'Parameters[].Name' --output text); do
+            aws ssm delete-parameter --name "$param" || true
+          done
           
       - name: Update Nginx Configuration
         run: |
