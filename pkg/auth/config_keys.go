@@ -106,7 +106,7 @@ func (s *Service) loadProductionKeys(source string) error {
 // loadKeysFromEnv loads API keys from environment variables
 func (s *Service) loadKeysFromEnv() error {
 	s.logger.Info("Loading API keys from environment variables", nil)
-	
+
 	// Look for API_KEY_* environment variables
 	foundKeys := 0
 
@@ -216,7 +216,7 @@ func (s *Service) loadKeysFromEnv() error {
 		s.logger.Warn("No API keys found in environment variables", map[string]interface{}{})
 	} else {
 		s.logger.Info("Successfully loaded API keys from environment", map[string]interface{}{
-			"count":            foundKeys,
+			"count":             foundKeys,
 			"total_keys_loaded": len(s.apiKeys),
 		})
 	}
