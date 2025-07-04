@@ -12,7 +12,7 @@ services:
     env_file:
       - .env
     volumes:
-      - ./configs/config.yaml:/app/configs/config.yaml:ro
+      - ./configs/config.production.yaml:/app/configs/config.yaml:ro
       - ./configs/auth.production.yaml:/app/configs/auth.production.yaml:ro
       - ./logs:/app/logs
     healthcheck:
@@ -63,7 +63,7 @@ services:
     env_file:
       - .env
     volumes:
-      - ./configs/config.yaml:/app/configs/config.yaml:ro
+      - ./configs/config.production.yaml:/app/configs/config.yaml:ro
       - ./configs/auth.production.yaml:/app/configs/auth.production.yaml:ro
       - ./logs:/app/logs
     depends_on:

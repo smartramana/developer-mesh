@@ -122,11 +122,11 @@ websocket:
 # Database - Production RDS
 database:
   # AWS RDS Configuration
-  host: "${RDS_HOST}"
-  port: ${RDS_PORT:-5432}
-  username: "${RDS_USERNAME}"
-  password: "${RDS_PASSWORD}"
-  database: "${RDS_DATABASE}"
+  host: "${DATABASE_HOST}"
+  port: ${DATABASE_PORT:-5432}
+  username: "${DATABASE_USER}"
+  password: "${DATABASE_PASSWORD}"
+  database: "${DATABASE_NAME}"
   ssl_mode: "require"
   
   # TLS Configuration
@@ -137,7 +137,7 @@ database:
     ca_file: "${RDS_CA_CERT:-/opt/certs/rds-ca-cert.pem}"
   
   # IAM Authentication
-  use_iam_auth: ${USE_IAM_AUTH:-true}
+  use_iam_auth: ${USE_IAM_AUTH:-false}
   aws_region: "${AWS_REGION}"
   
   # Connection pooling for high load
