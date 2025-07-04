@@ -1,7 +1,6 @@
 package auth
 
 import (
-	"fmt"
 	"os"
 	"time"
 
@@ -27,15 +26,6 @@ func SetupAuthentication(db *sqlx.DB, cache cache.Cache, logger observability.Lo
 
 	baseService := NewService(config, db, cache, logger)
 
-	// Load API keys based on environment
-	keyConfig := &APIKeyConfig{
-		ProductionKeySource: getEnvOrDefault("API_KEY_SOURCE", "env"),
-	}
-
-	if err := baseService.LoadAPIKeys(keyConfig); err != nil {
-		return nil, fmt.Errorf("failed to load API keys: %w", err)
-	}
-
 	// Create rate limiter
 	rateLimiter := NewRateLimiter(cache, logger, nil)
 
@@ -46,7 +36,7 @@ func SetupAuthentication(db *sqlx.DB, cache cache.Cache, logger observability.Lo
 	// Create auth middleware
 	authMiddleware := NewAuthMiddleware(baseService, rateLimiter, metricsCollector, auditLogger)
 
-	// Load auth configuration based on environment
+	// Load auth configuration based on environment - this handles both config file and env vars
 	if err := baseService.LoadAuthConfigBasedOnEnvironment(); err != nil {
 		logger.Warn("Failed to load auth configuration from file", map[string]interface{}{
 			"error": err.Error(),

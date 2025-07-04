@@ -105,6 +105,8 @@ func (s *Service) loadProductionKeys(source string) error {
 
 // loadKeysFromEnv loads API keys from environment variables
 func (s *Service) loadKeysFromEnv() error {
+	s.logger.Info("Loading API keys from environment variables", nil)
+	
 	// Look for API_KEY_* environment variables
 	foundKeys := 0
 
@@ -120,7 +122,12 @@ func (s *Service) loadKeysFromEnv() error {
 	}
 
 	for _, sk := range standardKeys {
-		if keyValue := os.Getenv(sk.envVar); keyValue != "" {
+		keyValue := os.Getenv(sk.envVar)
+		s.logger.Debug("Checking environment variable", map[string]interface{}{
+			"env_var": sk.envVar,
+			"found":   keyValue != "",
+		})
+		if keyValue != "" {
 			// Use a fixed UUID for default tenant in docker environment
 			defaultTenantID := getEnvOrDefault("DEFAULT_TENANT_ID", "00000000-0000-0000-0000-000000000001")
 
@@ -207,6 +214,11 @@ func (s *Service) loadKeysFromEnv() error {
 
 	if foundKeys == 0 {
 		s.logger.Warn("No API keys found in environment variables", map[string]interface{}{})
+	} else {
+		s.logger.Info("Successfully loaded API keys from environment", map[string]interface{}{
+			"count":            foundKeys,
+			"total_keys_loaded": len(s.apiKeys),
+		})
 	}
 
 	return nil
@@ -276,6 +288,10 @@ func (s *Service) LoadAuthConfigBasedOnEnvironment() error {
 		env = "development"
 	}
 
+	s.logger.Info("Loading auth config based on environment", map[string]interface{}{
+		"environment": env,
+	})
+
 	var configFile string
 	switch env {
 	case "production":
@@ -290,9 +306,14 @@ func (s *Service) LoadAuthConfigBasedOnEnvironment() error {
 	if err != nil {
 		// Don't fail if file doesn't exist, just log
 		if os.IsNotExist(err) {
-			s.logger.Info("Auth config file not found, using defaults", map[string]interface{}{
-				"file": configFile,
+			s.logger.Info("Auth config file not found, loading from environment", map[string]interface{}{
+				"file":        configFile,
+				"environment": env,
 			})
+			// In production, still try to load from env vars even if config file missing
+			if env == "production" {
+				return s.loadKeysFromEnv()
+			}
 			return nil
 		}
 		return fmt.Errorf("failed to load auth config: %w", err)
