@@ -221,38 +221,54 @@ jobs:
         if: ${{ github.event.inputs.skip_migrations != 'true' }}
         run: |
           echo "Checking if migrations directory exists on EC2..."
+          
+          # Use base64 encoding to avoid escaping issues
+          MIGRATION_SCRIPT=$(cat << 'SCRIPT_END' | base64 -w 0
+          #!/bin/bash
+          cd /home/ec2-user/devops-mcp
+          
+          if [ ! -d migrations ]; then
+            echo "No migrations directory found, pulling from git..."
+            git checkout origin/main -- migrations/ || echo "Failed to checkout migrations"
+          fi
+          
+          if [ -d migrations ] && [ "$(ls -A migrations/)" ]; then
+            echo "Migrations directory found with files"
+            if [ -f .env ]; then
+              set -a
+              source .env
+              set +a
+              echo "Running database migrations..."
+              echo "Database host: ${DATABASE_HOST}"
+              docker pull migrate/migrate:latest
+              docker run --rm \
+                -v /home/ec2-user/devops-mcp/migrations:/migrations \
+                --network host \
+                migrate/migrate \
+                -database "postgresql://dbadmin:${DATABASE_PASSWORD}@${DATABASE_HOST}:5432/devops_mcp?sslmode=require" \
+                -path /migrations up || {
+                  echo "Migration failed, but continuing deployment..."
+                  echo "This might be because migrations are already applied"
+                }
+            else
+              echo "ERROR: .env file not found"
+              exit 1
+            fi
+          else
+            echo "No migrations to run"
+          fi
+          SCRIPT_END
+          )
+          
           COMMAND_ID=$(aws ssm send-command \
             --instance-ids "${{ steps.get-instance.outputs.instance_id }}" \
             --document-name "AWS-RunShellScript" \
-            --parameters 'commands=[
-              "cd /home/ec2-user/devops-mcp",
-              "if [ ! -d migrations ]; then",
-              "  echo \"No migrations directory found, pulling from git...\"",
-              "  git checkout origin/main -- migrations/ || echo \"Failed to checkout migrations\"",
-              "fi",
-              "if [ -d migrations ] && [ \"$(ls -A migrations/)\" ]; then",
-              "  echo \"Migrations directory found with files\"",
-              "  if [ -f .env ]; then",
-              "    set -a; source .env; set +a",
-              "    echo \"Running database migrations...\"",
-              "    docker pull migrate/migrate:latest",
-              "    docker run --rm \\",
-              "      -v /home/ec2-user/devops-mcp/migrations:/migrations \\",
-              "      --network host \\",
-              "      migrate/migrate \\",
-              "      -database \"postgresql://dbadmin:${DATABASE_PASSWORD}@${DATABASE_HOST}:5432/devops_mcp?sslmode=require\" \\",
-              "      -path /migrations up || {",
-              "        echo \"Migration failed, but continuing deployment...\"",
-              "        echo \"This might be because migrations are already applied\"",
-              "      }",
-              "  else",
-              "    echo \"ERROR: .env file not found\"",
-              "    exit 1",
-              "  fi",
-              "else",
-              "  echo \"No migrations to run\"",
-              "fi"
-            ]' \
+            --parameters "commands=[
+              \"echo '${MIGRATION_SCRIPT}' | base64 -d > /tmp/run-migrations.sh\",
+              \"chmod +x /tmp/run-migrations.sh\",
+              \"bash /tmp/run-migrations.sh\",
+              \"rm -f /tmp/run-migrations.sh\"
+            ]" \
             --query "Command.CommandId" \
             --output text)
           
