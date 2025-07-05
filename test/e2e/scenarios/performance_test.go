@@ -21,8 +21,8 @@ import (
 
 var _ = Describe("Performance and Stress E2E Tests", func() {
 	var (
-		config    *utils.Config
-		reporter  *reporting.StreamingReporter
+		config   *utils.Config
+		reporter *reporting.StreamingReporter
 		// testData  *data.TestData // Not needed - using config.APIKey directly
 		isolation *utils.TestIsolation
 		logger    *utils.TestLogger
