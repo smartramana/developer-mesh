@@ -119,6 +119,7 @@ func (s *Service) loadKeysFromEnv() error {
 		{"ADMIN_API_KEY", "admin", "admin"},
 		{"READER_API_KEY", "reader", "read"},
 		{"MCP_API_KEY", "mcp", "admin"},
+		{"E2E_API_KEY", "e2e", "admin"}, // Support E2E testing
 	}
 
 	for _, sk := range standardKeys {

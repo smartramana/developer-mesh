@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"net/http"
+	"strings"
 	"sync"
 	"time"
 
@@ -55,7 +56,15 @@ func NewTestAgent(name string, capabilities []string, apiKey, baseURL string) *T
 
 // Connect establishes WebSocket connection to the MCP server
 func (ta *TestAgent) Connect(ctx context.Context) error {
-	wsURL := fmt.Sprintf("wss://%s/ws", ta.baseURL)
+	// Parse base URL and construct WebSocket URL
+	baseURL := ta.baseURL
+	if !strings.HasPrefix(baseURL, "http://") && !strings.HasPrefix(baseURL, "https://") {
+		baseURL = "https://" + baseURL
+	}
+	// Convert https to wss, http to ws
+	wsURL := strings.Replace(baseURL, "https://", "wss://", 1)
+	wsURL = strings.Replace(wsURL, "http://", "ws://", 1)
+	wsURL = strings.TrimRight(wsURL, "/") + "/ws"
 
 	opts := &websocket.DialOptions{
 		HTTPHeader: http.Header{

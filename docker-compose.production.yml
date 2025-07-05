@@ -2,7 +2,7 @@ version: '3.8'
 
 services:
   mcp-server:
-    image: ghcr.io/s-corkum/devops-mcp-mcp-server:latest
+    image: ghcr.io/s-corkum/devops-mcp-mcp-server:${IMAGE_TAG:-latest}
     container_name: mcp-server
     restart: unless-stopped
     mem_limit: 200m
@@ -12,11 +12,12 @@ services:
     env_file:
       - .env
     volumes:
-      - ./configs/config.production.yaml:/app/configs/config.yaml:ro
+      - ./configs/config.base.yaml:/app/configs/config.base.yaml:ro
+      - ./configs/config.production.yaml:/app/configs/config.production.yaml:ro
       - ./configs/auth.production.yaml:/app/configs/auth.production.yaml:ro
       - ./logs:/app/logs
     healthcheck:
-      test: ["CMD", "/app/mcp-server", "-health-check"]
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:8080/health"]
       interval: 30s
       timeout: 10s
       retries: 3
@@ -25,7 +26,7 @@ services:
       - mcp-network
 
   rest-api:
-    image: ghcr.io/s-corkum/devops-mcp-rest-api:latest
+    image: ghcr.io/s-corkum/devops-mcp-rest-api:${IMAGE_TAG:-latest}
     container_name: rest-api
     restart: unless-stopped
     mem_limit: 200m
@@ -39,14 +40,15 @@ services:
       - PORT=8081
       - API_LISTEN_ADDRESS=:8081
     volumes:
-      - ./configs/config.rest-api.yaml:/app/configs/config.yaml:ro
+      - ./configs/config.base.yaml:/app/configs/config.base.yaml:ro
+      - ./configs/config.rest-api.yaml:/app/configs/config.rest-api.yaml:ro
       - ./configs/auth.production.yaml:/app/configs/auth.production.yaml:ro
       - ./logs:/app/logs
     depends_on:
       mcp-server:
         condition: service_healthy
     healthcheck:
-      test: ["CMD", "/app/rest-api", "-health-check"]
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:8081/health"]
       interval: 30s
       timeout: 10s
       retries: 3
@@ -55,7 +57,7 @@ services:
       - mcp-network
 
   worker:
-    image: ghcr.io/s-corkum/devops-mcp-worker:latest
+    image: ghcr.io/s-corkum/devops-mcp-worker:${IMAGE_TAG:-latest}
     container_name: worker
     restart: unless-stopped
     mem_limit: 200m
@@ -63,7 +65,8 @@ services:
     env_file:
       - .env
     volumes:
-      - ./configs/config.production.yaml:/app/configs/config.yaml:ro
+      - ./configs/config.base.yaml:/app/configs/config.base.yaml:ro
+      - ./configs/config.production.yaml:/app/configs/config.production.yaml:ro
       - ./configs/auth.production.yaml:/app/configs/auth.production.yaml:ro
       - ./logs:/app/logs
     depends_on:

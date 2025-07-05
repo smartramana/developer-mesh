@@ -10,11 +10,11 @@
       "TotalSpecs": 0,
       "SpecsThatWillRun": 0
     },
-    "StartTime": "2025-07-04T08:37:51.681618-05:00",
-    "EndTime": "2025-07-04T08:37:51.681713-05:00",
-    "RunTime": 95235,
+    "StartTime": "2025-07-05T16:48:15.569381-05:00",
+    "EndTime": "2025-07-05T16:48:15.56945-05:00",
+    "RunTime": 69160,
     "SuiteConfig": {
-      "RandomSeed": 1751636270,
+      "RandomSeed": 1751752092,
       "RandomizeAllSpecs": false,
       "FocusStrings": [
         "Single Agent"
@@ -31,7 +31,7 @@
       "DryRun": false,
       "PollProgressAfter": 0,
       "PollProgressInterval": 0,
-      "Timeout": 1798908443664,
+      "Timeout": 1797592001198,
       "EmitSpecProgress": false,
       "OutputInterceptorMode": "",
       "SourceRoots": null,
@@ -53,11 +53,11 @@
       "TotalSpecs": 21,
       "SpecsThatWillRun": 9
     },
-    "StartTime": "2025-07-04T08:37:52.952288-05:00",
-    "EndTime": "2025-07-04T08:37:53.552988-05:00",
-    "RunTime": 600696658,
+    "StartTime": "2025-07-05T16:48:17.166405-05:00",
+    "EndTime": "2025-07-05T16:48:17.830133-05:00",
+    "RunTime": 663722056,
     "SuiteConfig": {
-      "RandomSeed": 1751636270,
+      "RandomSeed": 1751752092,
       "RandomizeAllSpecs": false,
       "FocusStrings": [
         "Single Agent"
@@ -74,7 +74,7 @@
       "DryRun": false,
       "PollProgressAfter": 0,
       "PollProgressInterval": 0,
-      "Timeout": 1797537720081,
+      "Timeout": 1795881191141,
       "EmitSpecProgress": false,
       "OutputInterceptorMode": "",
       "SourceRoots": null,
@@ -84,216 +84,6 @@
       "ParallelHost": ""
     },
     "SpecReports": [
-      {
-        "ContainerHierarchyTexts": [
-          "Multi-Agent Collaboration E2E Tests",
-          "Basic Multi-Agent Setup"
-        ],
-        "ContainerHierarchyLocations": [
-          {
-            "FileName": "/Users/seancorkum/projects/devops-mcp/test/e2e/scenarios/multi_agent_test.go",
-            "LineNumber": 19
-          },
-          {
-            "FileName": "/Users/seancorkum/projects/devops-mcp/test/e2e/scenarios/multi_agent_test.go",
-            "LineNumber": 44
-          }
-        ],
-        "ContainerHierarchyLabels": [
-          [],
-          []
-        ],
-        "LeafNodeType": "It",
-        "LeafNodeLocation": {
-          "FileName": "/Users/seancorkum/projects/devops-mcp/test/e2e/scenarios/multi_agent_test.go",
-          "LineNumber": 45
-        },
-        "LeafNodeLabels": [],
-        "LeafNodeText": "should connect multiple agents simultaneously",
-        "State": "skipped",
-        "StartTime": "2025-07-04T08:37:52.952416-05:00",
-        "EndTime": "0001-01-01T00:00:00Z",
-        "RunTime": 0,
-        "ParallelProcess": 1,
-        "NumAttempts": 0,
-        "MaxFlakeAttempts": 0,
-        "MaxMustPassRepeatedly": 0
-      },
-      {
-        "ContainerHierarchyTexts": [
-          "Multi-Agent Collaboration E2E Tests",
-          "Code Review Workflow"
-        ],
-        "ContainerHierarchyLocations": [
-          {
-            "FileName": "/Users/seancorkum/projects/devops-mcp/test/e2e/scenarios/multi_agent_test.go",
-            "LineNumber": 19
-          },
-          {
-            "FileName": "/Users/seancorkum/projects/devops-mcp/test/e2e/scenarios/multi_agent_test.go",
-            "LineNumber": 127
-          }
-        ],
-        "ContainerHierarchyLabels": [
-          [],
-          []
-        ],
-        "LeafNodeType": "It",
-        "LeafNodeLocation": {
-          "FileName": "/Users/seancorkum/projects/devops-mcp/test/e2e/scenarios/multi_agent_test.go",
-          "LineNumber": 128
-        },
-        "LeafNodeLabels": [],
-        "LeafNodeText": "should coordinate code review between multiple agents",
-        "State": "skipped",
-        "StartTime": "2025-07-04T08:37:52.952427-05:00",
-        "EndTime": "0001-01-01T00:00:00Z",
-        "RunTime": 0,
-        "ParallelProcess": 1,
-        "NumAttempts": 0,
-        "MaxFlakeAttempts": 0,
-        "MaxMustPassRepeatedly": 0
-      },
-      {
-        "ContainerHierarchyTexts": [
-          "Multi-Agent Collaboration E2E Tests",
-          "Parallel Task Execution"
-        ],
-        "ContainerHierarchyLocations": [
-          {
-            "FileName": "/Users/seancorkum/projects/devops-mcp/test/e2e/scenarios/multi_agent_test.go",
-            "LineNumber": 19
-          },
-          {
-            "FileName": "/Users/seancorkum/projects/devops-mcp/test/e2e/scenarios/multi_agent_test.go",
-            "LineNumber": 257
-          }
-        ],
-        "ContainerHierarchyLabels": [
-          [],
-          []
-        ],
-        "LeafNodeType": "It",
-        "LeafNodeLocation": {
-          "FileName": "/Users/seancorkum/projects/devops-mcp/test/e2e/scenarios/multi_agent_test.go",
-          "LineNumber": 258
-        },
-        "LeafNodeLabels": [],
-        "LeafNodeText": "should execute tasks in parallel across multiple agents",
-        "State": "skipped",
-        "StartTime": "2025-07-04T08:37:52.952436-05:00",
-        "EndTime": "0001-01-01T00:00:00Z",
-        "RunTime": 0,
-        "ParallelProcess": 1,
-        "NumAttempts": 0,
-        "MaxFlakeAttempts": 0,
-        "MaxMustPassRepeatedly": 0
-      },
-      {
-        "ContainerHierarchyTexts": [
-          "Multi-Agent Collaboration E2E Tests",
-          "Consensus Mechanism"
-        ],
-        "ContainerHierarchyLocations": [
-          {
-            "FileName": "/Users/seancorkum/projects/devops-mcp/test/e2e/scenarios/multi_agent_test.go",
-            "LineNumber": 19
-          },
-          {
-            "FileName": "/Users/seancorkum/projects/devops-mcp/test/e2e/scenarios/multi_agent_test.go",
-            "LineNumber": 360
-          }
-        ],
-        "ContainerHierarchyLabels": [
-          [],
-          []
-        ],
-        "LeafNodeType": "It",
-        "LeafNodeLocation": {
-          "FileName": "/Users/seancorkum/projects/devops-mcp/test/e2e/scenarios/multi_agent_test.go",
-          "LineNumber": 361
-        },
-        "LeafNodeLabels": [],
-        "LeafNodeText": "should reach consensus among multiple agents",
-        "State": "skipped",
-        "StartTime": "2025-07-04T08:37:52.952442-05:00",
-        "EndTime": "0001-01-01T00:00:00Z",
-        "RunTime": 0,
-        "ParallelProcess": 1,
-        "NumAttempts": 0,
-        "MaxFlakeAttempts": 0,
-        "MaxMustPassRepeatedly": 0
-      },
-      {
-        "ContainerHierarchyTexts": [
-          "Multi-Agent Collaboration E2E Tests",
-          "MapReduce Pattern"
-        ],
-        "ContainerHierarchyLocations": [
-          {
-            "FileName": "/Users/seancorkum/projects/devops-mcp/test/e2e/scenarios/multi_agent_test.go",
-            "LineNumber": 19
-          },
-          {
-            "FileName": "/Users/seancorkum/projects/devops-mcp/test/e2e/scenarios/multi_agent_test.go",
-            "LineNumber": 455
-          }
-        ],
-        "ContainerHierarchyLabels": [
-          [],
-          []
-        ],
-        "LeafNodeType": "It",
-        "LeafNodeLocation": {
-          "FileName": "/Users/seancorkum/projects/devops-mcp/test/e2e/scenarios/multi_agent_test.go",
-          "LineNumber": 456
-        },
-        "LeafNodeLabels": [],
-        "LeafNodeText": "should execute MapReduce workflow across agents",
-        "State": "skipped",
-        "StartTime": "2025-07-04T08:37:52.952451-05:00",
-        "EndTime": "0001-01-01T00:00:00Z",
-        "RunTime": 0,
-        "ParallelProcess": 1,
-        "NumAttempts": 0,
-        "MaxFlakeAttempts": 0,
-        "MaxMustPassRepeatedly": 0
-      },
-      {
-        "ContainerHierarchyTexts": [
-          "Multi-Agent Collaboration E2E Tests",
-          "Agent Coordination"
-        ],
-        "ContainerHierarchyLocations": [
-          {
-            "FileName": "/Users/seancorkum/projects/devops-mcp/test/e2e/scenarios/multi_agent_test.go",
-            "LineNumber": 19
-          },
-          {
-            "FileName": "/Users/seancorkum/projects/devops-mcp/test/e2e/scenarios/multi_agent_test.go",
-            "LineNumber": 565
-          }
-        ],
-        "ContainerHierarchyLabels": [
-          [],
-          []
-        ],
-        "LeafNodeType": "It",
-        "LeafNodeLocation": {
-          "FileName": "/Users/seancorkum/projects/devops-mcp/test/e2e/scenarios/multi_agent_test.go",
-          "LineNumber": 566
-        },
-        "LeafNodeLabels": [],
-        "LeafNodeText": "should coordinate deployment pipeline across agents",
-        "State": "skipped",
-        "StartTime": "2025-07-04T08:37:52.952461-05:00",
-        "EndTime": "0001-01-01T00:00:00Z",
-        "RunTime": 0,
-        "ParallelProcess": 1,
-        "NumAttempts": 0,
-        "MaxFlakeAttempts": 0,
-        "MaxMustPassRepeatedly": 0
-      },
       {
         "ContainerHierarchyTexts": [
           "Single Agent E2E Tests",
@@ -321,20 +111,20 @@
         "LeafNodeLabels": [],
         "LeafNodeText": "should complete full agent lifecycle",
         "State": "failed",
-        "StartTime": "2025-07-04T08:37:52.952496-05:00",
-        "EndTime": "2025-07-04T08:37:53.184134-05:00",
-        "RunTime": 231636409,
+        "StartTime": "2025-07-05T16:48:17.166599-05:00",
+        "EndTime": "2025-07-05T16:48:17.392871-05:00",
+        "RunTime": 226270201,
         "ParallelProcess": 1,
         "Failure": {
-          "Message": "Unexpected error:\n    \u003c*fmt.wrapError | 0xc00007c900\u003e: \n    failed to connect: failed to WebSocket dial: expected handshake response status code 101 but got 401\n    {\n        msg: \"failed to connect: failed to WebSocket dial: expected handshake response status code 101 but got 401\",\n        err: \u003c*fmt.wrapError | 0xc00007c8e0\u003e{\n            msg: \"failed to WebSocket dial: expected handshake response status code 101 but got 401\",\n            err: \u003c*errors.errorString | 0xc0002ae000\u003e{\n                s: \"expected handshake response status code 101 but got 401\",\n            },\n        },\n    }\noccurred",
+          "Message": "Unexpected error:\n    \u003c*fmt.wrapError | 0xc0001fa0a0\u003e: \n    failed to connect: failed to WebSocket dial: expected handshake response status code 101 but got 426\n    {\n        msg: \"failed to connect: failed to WebSocket dial: expected handshake response status code 101 but got 426\",\n        err: \u003c*fmt.wrapError | 0xc0001fa080\u003e{\n            msg: \"failed to WebSocket dial: expected handshake response status code 101 but got 426\",\n            err: \u003c*errors.errorString | 0xc000208000\u003e{\n                s: \"expected handshake response status code 101 but got 426\",\n            },\n        },\n    }\noccurred",
           "Location": {
             "FileName": "/Users/seancorkum/projects/devops-mcp/test/e2e/scenarios/single_agent_test.go",
             "LineNumber": 73,
-            "FullStackTrace": "github.com/S-Corkum/devops-mcp/test/e2e/scenarios.init.func3.3.1()\n\t/Users/seancorkum/projects/devops-mcp/test/e2e/scenarios/single_agent_test.go:73 +0x363"
+            "FullStackTrace": "github.com/S-Corkum/devops-mcp/test/e2e/scenarios.init.func3.3.1()\n\t/Users/seancorkum/projects/devops-mcp/test/e2e/scenarios/single_agent_test.go:73 +0x323"
           },
           "TimelineLocation": {
             "Order": 5,
-            "Time": "2025-07-04T08:37:53.176194-05:00"
+            "Time": "2025-07-05T16:48:17.391282-05:00"
           },
           "FailureNodeContext": "leaf-node",
           "FailureNodeType": "It",
@@ -366,7 +156,7 @@
             },
             "TimelineLocation": {
               "Order": 1,
-              "Time": "2025-07-04T08:37:52.952503-05:00"
+              "Time": "2025-07-05T16:48:17.166606-05:00"
             },
             "Message": "Single Agent E2E Tests",
             "NodeType": "BeforeEach"
@@ -379,10 +169,10 @@
             },
             "TimelineLocation": {
               "Order": 3,
-              "Time": "2025-07-04T08:37:52.955802-05:00"
+              "Time": "2025-07-05T16:48:17.170094-05:00"
             },
             "Message": "Single Agent E2E Tests",
-            "Duration": 3299137,
+            "Duration": 3487701,
             "NodeType": "BeforeEach"
           },
           {
@@ -393,7 +183,7 @@
             },
             "TimelineLocation": {
               "Order": 4,
-              "Time": "2025-07-04T08:37:52.955804-05:00"
+              "Time": "2025-07-05T16:48:17.170098-05:00"
             },
             "Message": "should complete full agent lifecycle",
             "NodeType": "It"
@@ -406,10 +196,10 @@
             },
             "TimelineLocation": {
               "Order": 6,
-              "Time": "2025-07-04T08:37:53.176261-05:00"
+              "Time": "2025-07-05T16:48:17.391324-05:00"
             },
             "Message": "should complete full agent lifecycle",
-            "Duration": 220456295,
+            "Duration": 221223980,
             "NodeType": "It"
           },
           {
@@ -420,7 +210,7 @@
             },
             "TimelineLocation": {
               "Order": 7,
-              "Time": "2025-07-04T08:37:53.176273-05:00"
+              "Time": "2025-07-05T16:48:17.391334-05:00"
             },
             "Message": "Single Agent E2E Tests",
             "NodeType": "AfterEach"
@@ -433,10 +223,10 @@
             },
             "TimelineLocation": {
               "Order": 9,
-              "Time": "2025-07-04T08:37:53.184128-05:00"
+              "Time": "2025-07-05T16:48:17.392868-05:00"
             },
             "Message": "Single Agent E2E Tests",
-            "Duration": 7855409,
+            "Duration": 1533912,
             "NodeType": "AfterEach"
           }
         ]
@@ -468,20 +258,20 @@
         "LeafNodeLabels": [],
         "LeafNodeText": "should handle reconnection",
         "State": "failed",
-        "StartTime": "2025-07-04T08:37:53.184291-05:00",
-        "EndTime": "2025-07-04T08:37:53.236874-05:00",
-        "RunTime": 52582939,
+        "StartTime": "2025-07-05T16:48:17.393063-05:00",
+        "EndTime": "2025-07-05T16:48:17.442659-05:00",
+        "RunTime": 49594854,
         "ParallelProcess": 1,
         "Failure": {
-          "Message": "Unexpected error:\n    \u003c*fmt.wrapError | 0xc00007c060\u003e: \n    failed to connect: failed to WebSocket dial: expected handshake response status code 101 but got 401\n    {\n        msg: \"failed to connect: failed to WebSocket dial: expected handshake response status code 101 but got 401\",\n        err: \u003c*fmt.wrapError | 0xc00007c000\u003e{\n            msg: \"failed to WebSocket dial: expected handshake response status code 101 but got 401\",\n            err: \u003c*errors.errorString | 0xc0002ae000\u003e{\n                s: \"expected handshake response status code 101 but got 401\",\n            },\n        },\n    }\noccurred",
+          "Message": "Unexpected error:\n    \u003c*fmt.wrapError | 0xc0000ba3e0\u003e: \n    failed to connect: failed to WebSocket dial: expected handshake response status code 101 but got 426\n    {\n        msg: \"failed to connect: failed to WebSocket dial: expected handshake response status code 101 but got 426\",\n        err: \u003c*fmt.wrapError | 0xc0000ba320\u003e{\n            msg: \"failed to WebSocket dial: expected handshake response status code 101 but got 426\",\n            err: \u003c*errors.errorString | 0xc000130000\u003e{\n                s: \"expected handshake response status code 101 but got 426\",\n            },\n        },\n    }\noccurred",
           "Location": {
             "FileName": "/Users/seancorkum/projects/devops-mcp/test/e2e/scenarios/single_agent_test.go",
             "LineNumber": 129,
-            "FullStackTrace": "github.com/S-Corkum/devops-mcp/test/e2e/scenarios.init.func3.3.2()\n\t/Users/seancorkum/projects/devops-mcp/test/e2e/scenarios/single_agent_test.go:129 +0x278"
+            "FullStackTrace": "github.com/S-Corkum/devops-mcp/test/e2e/scenarios.init.func3.3.2()\n\t/Users/seancorkum/projects/devops-mcp/test/e2e/scenarios/single_agent_test.go:129 +0x225"
           },
           "TimelineLocation": {
             "Order": 14,
-            "Time": "2025-07-04T08:37:53.233557-05:00"
+            "Time": "2025-07-05T16:48:17.440425-05:00"
           },
           "FailureNodeContext": "leaf-node",
           "FailureNodeType": "It",
@@ -513,7 +303,7 @@
             },
             "TimelineLocation": {
               "Order": 10,
-              "Time": "2025-07-04T08:37:53.184294-05:00"
+              "Time": "2025-07-05T16:48:17.393067-05:00"
             },
             "Message": "Single Agent E2E Tests",
             "NodeType": "BeforeEach"
@@ -526,10 +316,10 @@
             },
             "TimelineLocation": {
               "Order": 12,
-              "Time": "2025-07-04T08:37:53.188424-05:00"
+              "Time": "2025-07-05T16:48:17.396325-05:00"
             },
             "Message": "Single Agent E2E Tests",
-            "Duration": 4130247,
+            "Duration": 3257893,
             "NodeType": "BeforeEach"
           },
           {
@@ -540,7 +330,7 @@
             },
             "TimelineLocation": {
               "Order": 13,
-              "Time": "2025-07-04T08:37:53.188427-05:00"
+              "Time": "2025-07-05T16:48:17.396327-05:00"
             },
             "Message": "should handle reconnection",
             "NodeType": "It"
@@ -553,10 +343,10 @@
             },
             "TimelineLocation": {
               "Order": 15,
-              "Time": "2025-07-04T08:37:53.233614-05:00"
+              "Time": "2025-07-05T16:48:17.440457-05:00"
             },
             "Message": "should handle reconnection",
-            "Duration": 45187526,
+            "Duration": 44129621,
             "NodeType": "It"
           },
           {
@@ -567,7 +357,7 @@
             },
             "TimelineLocation": {
               "Order": 16,
-              "Time": "2025-07-04T08:37:53.233623-05:00"
+              "Time": "2025-07-05T16:48:17.440555-05:00"
             },
             "Message": "Single Agent E2E Tests",
             "NodeType": "AfterEach"
@@ -580,10 +370,10 @@
             },
             "TimelineLocation": {
               "Order": 18,
-              "Time": "2025-07-04T08:37:53.23687-05:00"
+              "Time": "2025-07-05T16:48:17.442654-05:00"
             },
             "Message": "Single Agent E2E Tests",
-            "Duration": 3246798,
+            "Duration": 2099303,
             "NodeType": "AfterEach"
           }
         ]
@@ -615,20 +405,20 @@
         "LeafNodeLabels": [],
         "LeafNodeText": "should discover available tools",
         "State": "failed",
-        "StartTime": "2025-07-04T08:37:53.236984-05:00",
-        "EndTime": "2025-07-04T08:37:53.287882-05:00",
-        "RunTime": 50898421,
+        "StartTime": "2025-07-05T16:48:17.442739-05:00",
+        "EndTime": "2025-07-05T16:48:17.489825-05:00",
+        "RunTime": 47085754,
         "ParallelProcess": 1,
         "Failure": {
-          "Message": "Unexpected error:\n    \u003c*fmt.wrapError | 0xc00007c340\u003e: \n    failed to connect: failed to WebSocket dial: expected handshake response status code 101 but got 401\n    {\n        msg: \"failed to connect: failed to WebSocket dial: expected handshake response status code 101 but got 401\",\n        err: \u003c*fmt.wrapError | 0xc00007c0a0\u003e{\n            msg: \"failed to WebSocket dial: expected handshake response status code 101 but got 401\",\n            err: \u003c*errors.errorString | 0xc000142000\u003e{\n                s: \"expected handshake response status code 101 but got 401\",\n            },\n        },\n    }\noccurred",
+          "Message": "Unexpected error:\n    \u003c*fmt.wrapError | 0xc00007c0c0\u003e: \n    failed to connect: failed to WebSocket dial: expected handshake response status code 101 but got 426\n    {\n        msg: \"failed to connect: failed to WebSocket dial: expected handshake response status code 101 but got 426\",\n        err: \u003c*fmt.wrapError | 0xc00007c0a0\u003e{\n            msg: \"failed to WebSocket dial: expected handshake response status code 101 but got 426\",\n            err: \u003c*errors.errorString | 0xc00021e000\u003e{\n                s: \"expected handshake response status code 101 but got 426\",\n            },\n        },\n    }\noccurred",
           "Location": {
             "FileName": "/Users/seancorkum/projects/devops-mcp/test/e2e/scenarios/single_agent_test.go",
             "LineNumber": 183,
-            "FullStackTrace": "github.com/S-Corkum/devops-mcp/test/e2e/scenarios.init.func3.4.1()\n\t/Users/seancorkum/projects/devops-mcp/test/e2e/scenarios/single_agent_test.go:183 +0x278"
+            "FullStackTrace": "github.com/S-Corkum/devops-mcp/test/e2e/scenarios.init.func3.4.1()\n\t/Users/seancorkum/projects/devops-mcp/test/e2e/scenarios/single_agent_test.go:183 +0x243"
           },
           "TimelineLocation": {
             "Order": 23,
-            "Time": "2025-07-04T08:37:53.284424-05:00"
+            "Time": "2025-07-05T16:48:17.487463-05:00"
           },
           "FailureNodeContext": "leaf-node",
           "FailureNodeType": "It",
@@ -660,7 +450,7 @@
             },
             "TimelineLocation": {
               "Order": 19,
-              "Time": "2025-07-04T08:37:53.236987-05:00"
+              "Time": "2025-07-05T16:48:17.442748-05:00"
             },
             "Message": "Single Agent E2E Tests",
             "NodeType": "BeforeEach"
@@ -673,10 +463,10 @@
             },
             "TimelineLocation": {
               "Order": 21,
-              "Time": "2025-07-04T08:37:53.239795-05:00"
+              "Time": "2025-07-05T16:48:17.445243-05:00"
             },
             "Message": "Single Agent E2E Tests",
-            "Duration": 2807708,
+            "Duration": 2495266,
             "NodeType": "BeforeEach"
           },
           {
@@ -687,7 +477,7 @@
             },
             "TimelineLocation": {
               "Order": 22,
-              "Time": "2025-07-04T08:37:53.239797-05:00"
+              "Time": "2025-07-05T16:48:17.445245-05:00"
             },
             "Message": "should discover available tools",
             "NodeType": "It"
@@ -700,10 +490,10 @@
             },
             "TimelineLocation": {
               "Order": 24,
-              "Time": "2025-07-04T08:37:53.284485-05:00"
+              "Time": "2025-07-05T16:48:17.487492-05:00"
             },
             "Message": "should discover available tools",
-            "Duration": 44687666,
+            "Duration": 42246122,
             "NodeType": "It"
           },
           {
@@ -714,7 +504,7 @@
             },
             "TimelineLocation": {
               "Order": 25,
-              "Time": "2025-07-04T08:37:53.284493-05:00"
+              "Time": "2025-07-05T16:48:17.487498-05:00"
             },
             "Message": "Single Agent E2E Tests",
             "NodeType": "AfterEach"
@@ -727,10 +517,10 @@
             },
             "TimelineLocation": {
               "Order": 27,
-              "Time": "2025-07-04T08:37:53.287849-05:00"
+              "Time": "2025-07-05T16:48:17.489822-05:00"
             },
             "Message": "Single Agent E2E Tests",
-            "Duration": 3356427,
+            "Duration": 2323865,
             "NodeType": "AfterEach"
           }
         ]
@@ -762,20 +552,20 @@
         "LeafNodeLabels": [],
         "LeafNodeText": "should execute GitHub tool",
         "State": "failed",
-        "StartTime": "2025-07-04T08:37:53.288055-05:00",
-        "EndTime": "2025-07-04T08:37:53.339027-05:00",
-        "RunTime": 50971517,
+        "StartTime": "2025-07-05T16:48:17.489904-05:00",
+        "EndTime": "2025-07-05T16:48:17.540065-05:00",
+        "RunTime": 50160895,
         "ParallelProcess": 1,
         "Failure": {
-          "Message": "Unexpected error:\n    \u003c*fmt.wrapError | 0xc0002a40a0\u003e: \n    failed to connect: failed to WebSocket dial: expected handshake response status code 101 but got 401\n    {\n        msg: \"failed to connect: failed to WebSocket dial: expected handshake response status code 101 but got 401\",\n        err: \u003c*fmt.wrapError | 0xc0002a4080\u003e{\n            msg: \"failed to WebSocket dial: expected handshake response status code 101 but got 401\",\n            err: \u003c*errors.errorString | 0xc00020e000\u003e{\n                s: \"expected handshake response status code 101 but got 401\",\n            },\n        },\n    }\noccurred",
+          "Message": "Unexpected error:\n    \u003c*fmt.wrapError | 0xc0000ba400\u003e: \n    failed to connect: failed to WebSocket dial: expected handshake response status code 101 but got 426\n    {\n        msg: \"failed to connect: failed to WebSocket dial: expected handshake response status code 101 but got 426\",\n        err: \u003c*fmt.wrapError | 0xc0000ba3e0\u003e{\n            msg: \"failed to WebSocket dial: expected handshake response status code 101 but got 426\",\n            err: \u003c*errors.errorString | 0xc0004a0010\u003e{\n                s: \"expected handshake response status code 101 but got 426\",\n            },\n        },\n    }\noccurred",
           "Location": {
             "FileName": "/Users/seancorkum/projects/devops-mcp/test/e2e/scenarios/single_agent_test.go",
             "LineNumber": 234,
-            "FullStackTrace": "github.com/S-Corkum/devops-mcp/test/e2e/scenarios.init.func3.4.2()\n\t/Users/seancorkum/projects/devops-mcp/test/e2e/scenarios/single_agent_test.go:234 +0x2f8"
+            "FullStackTrace": "github.com/S-Corkum/devops-mcp/test/e2e/scenarios.init.func3.4.2()\n\t/Users/seancorkum/projects/devops-mcp/test/e2e/scenarios/single_agent_test.go:234 +0x2b8"
           },
           "TimelineLocation": {
             "Order": 32,
-            "Time": "2025-07-04T08:37:53.335541-05:00"
+            "Time": "2025-07-05T16:48:17.537353-05:00"
           },
           "FailureNodeContext": "leaf-node",
           "FailureNodeType": "It",
@@ -807,7 +597,7 @@
             },
             "TimelineLocation": {
               "Order": 28,
-              "Time": "2025-07-04T08:37:53.288058-05:00"
+              "Time": "2025-07-05T16:48:17.489907-05:00"
             },
             "Message": "Single Agent E2E Tests",
             "NodeType": "BeforeEach"
@@ -820,10 +610,10 @@
             },
             "TimelineLocation": {
               "Order": 30,
-              "Time": "2025-07-04T08:37:53.290834-05:00"
+              "Time": "2025-07-05T16:48:17.492172-05:00"
             },
             "Message": "Single Agent E2E Tests",
-            "Duration": 2775864,
+            "Duration": 2265034,
             "NodeType": "BeforeEach"
           },
           {
@@ -834,7 +624,7 @@
             },
             "TimelineLocation": {
               "Order": 31,
-              "Time": "2025-07-04T08:37:53.290836-05:00"
+              "Time": "2025-07-05T16:48:17.492174-05:00"
             },
             "Message": "should execute GitHub tool",
             "NodeType": "It"
@@ -847,10 +637,10 @@
             },
             "TimelineLocation": {
               "Order": 33,
-              "Time": "2025-07-04T08:37:53.3356-05:00"
+              "Time": "2025-07-05T16:48:17.537393-05:00"
             },
             "Message": "should execute GitHub tool",
-            "Duration": 44763180,
+            "Duration": 45218741,
             "NodeType": "It"
           },
           {
@@ -861,7 +651,7 @@
             },
             "TimelineLocation": {
               "Order": 34,
-              "Time": "2025-07-04T08:37:53.335608-05:00"
+              "Time": "2025-07-05T16:48:17.537401-05:00"
             },
             "Message": "Single Agent E2E Tests",
             "NodeType": "AfterEach"
@@ -874,10 +664,10 @@
             },
             "TimelineLocation": {
               "Order": 36,
-              "Time": "2025-07-04T08:37:53.339013-05:00"
+              "Time": "2025-07-05T16:48:17.540058-05:00"
             },
             "Message": "Single Agent E2E Tests",
-            "Duration": 3404872,
+            "Duration": 2656117,
             "NodeType": "AfterEach"
           }
         ]
@@ -909,20 +699,20 @@
         "LeafNodeLabels": [],
         "LeafNodeText": "should create and retrieve context",
         "State": "failed",
-        "StartTime": "2025-07-04T08:37:53.33913-05:00",
-        "EndTime": "2025-07-04T08:37:53.38936-05:00",
-        "RunTime": 50229996,
+        "StartTime": "2025-07-05T16:48:17.540149-05:00",
+        "EndTime": "2025-07-05T16:48:17.587587-05:00",
+        "RunTime": 47437393,
         "ParallelProcess": 1,
         "Failure": {
-          "Message": "Unexpected error:\n    \u003c*fmt.wrapError | 0xc0002a40c0\u003e: \n    failed to connect: failed to WebSocket dial: expected handshake response status code 101 but got 401\n    {\n        msg: \"failed to connect: failed to WebSocket dial: expected handshake response status code 101 but got 401\",\n        err: \u003c*fmt.wrapError | 0xc0002a40a0\u003e{\n            msg: \"failed to WebSocket dial: expected handshake response status code 101 but got 401\",\n            err: \u003c*errors.errorString | 0xc000252000\u003e{\n                s: \"expected handshake response status code 101 but got 401\",\n            },\n        },\n    }\noccurred",
+          "Message": "Unexpected error:\n    \u003c*fmt.wrapError | 0xc00007c0c0\u003e: \n    failed to connect: failed to WebSocket dial: expected handshake response status code 101 but got 426\n    {\n        msg: \"failed to connect: failed to WebSocket dial: expected handshake response status code 101 but got 426\",\n        err: \u003c*fmt.wrapError | 0xc00007c000\u003e{\n            msg: \"failed to WebSocket dial: expected handshake response status code 101 but got 426\",\n            err: \u003c*errors.errorString | 0xc0001d0010\u003e{\n                s: \"expected handshake response status code 101 but got 426\",\n            },\n        },\n    }\noccurred",
           "Location": {
             "FileName": "/Users/seancorkum/projects/devops-mcp/test/e2e/scenarios/single_agent_test.go",
             "LineNumber": 285,
-            "FullStackTrace": "github.com/S-Corkum/devops-mcp/test/e2e/scenarios.init.func3.5.1()\n\t/Users/seancorkum/projects/devops-mcp/test/e2e/scenarios/single_agent_test.go:285 +0x278"
+            "FullStackTrace": "github.com/S-Corkum/devops-mcp/test/e2e/scenarios.init.func3.5.1()\n\t/Users/seancorkum/projects/devops-mcp/test/e2e/scenarios/single_agent_test.go:285 +0x243"
           },
           "TimelineLocation": {
             "Order": 41,
-            "Time": "2025-07-04T08:37:53.38583-05:00"
+            "Time": "2025-07-05T16:48:17.584897-05:00"
           },
           "FailureNodeContext": "leaf-node",
           "FailureNodeType": "It",
@@ -954,7 +744,7 @@
             },
             "TimelineLocation": {
               "Order": 37,
-              "Time": "2025-07-04T08:37:53.339133-05:00"
+              "Time": "2025-07-05T16:48:17.540153-05:00"
             },
             "Message": "Single Agent E2E Tests",
             "NodeType": "BeforeEach"
@@ -967,10 +757,10 @@
             },
             "TimelineLocation": {
               "Order": 39,
-              "Time": "2025-07-04T08:37:53.34219-05:00"
+              "Time": "2025-07-05T16:48:17.542592-05:00"
             },
             "Message": "Single Agent E2E Tests",
-            "Duration": 3057486,
+            "Duration": 2438998,
             "NodeType": "BeforeEach"
           },
           {
@@ -981,7 +771,7 @@
             },
             "TimelineLocation": {
               "Order": 40,
-              "Time": "2025-07-04T08:37:53.342193-05:00"
+              "Time": "2025-07-05T16:48:17.542594-05:00"
             },
             "Message": "should create and retrieve context",
             "NodeType": "It"
@@ -994,10 +784,10 @@
             },
             "TimelineLocation": {
               "Order": 42,
-              "Time": "2025-07-04T08:37:53.385884-05:00"
+              "Time": "2025-07-05T16:48:17.584936-05:00"
             },
             "Message": "should create and retrieve context",
-            "Duration": 43690899,
+            "Duration": 42341620,
             "NodeType": "It"
           },
           {
@@ -1008,7 +798,7 @@
             },
             "TimelineLocation": {
               "Order": 43,
-              "Time": "2025-07-04T08:37:53.385892-05:00"
+              "Time": "2025-07-05T16:48:17.584943-05:00"
             },
             "Message": "Single Agent E2E Tests",
             "NodeType": "AfterEach"
@@ -1021,10 +811,10 @@
             },
             "TimelineLocation": {
               "Order": 45,
-              "Time": "2025-07-04T08:37:53.389355-05:00"
+              "Time": "2025-07-05T16:48:17.587583-05:00"
             },
             "Message": "Single Agent E2E Tests",
-            "Duration": 3462633,
+            "Duration": 2639862,
             "NodeType": "AfterEach"
           }
         ]
@@ -1056,20 +846,20 @@
         "LeafNodeLabels": [],
         "LeafNodeText": "should manage sessions correctly",
         "State": "failed",
-        "StartTime": "2025-07-04T08:37:53.38948-05:00",
-        "EndTime": "2025-07-04T08:37:53.439853-05:00",
-        "RunTime": 50372919,
+        "StartTime": "2025-07-05T16:48:17.587694-05:00",
+        "EndTime": "2025-07-05T16:48:17.638066-05:00",
+        "RunTime": 50371860,
         "ParallelProcess": 1,
         "Failure": {
-          "Message": "Unexpected error:\n    \u003c*fmt.wrapError | 0xc0002a40a0\u003e: \n    failed to connect: failed to WebSocket dial: expected handshake response status code 101 but got 401\n    {\n        msg: \"failed to connect: failed to WebSocket dial: expected handshake response status code 101 but got 401\",\n        err: \u003c*fmt.wrapError | 0xc0002a4080\u003e{\n            msg: \"failed to WebSocket dial: expected handshake response status code 101 but got 401\",\n            err: \u003c*errors.errorString | 0xc000380050\u003e{\n                s: \"expected handshake response status code 101 but got 401\",\n            },\n        },\n    }\noccurred",
+          "Message": "Unexpected error:\n    \u003c*fmt.wrapError | 0xc0001fa0c0\u003e: \n    failed to connect: failed to WebSocket dial: expected handshake response status code 101 but got 426\n    {\n        msg: \"failed to connect: failed to WebSocket dial: expected handshake response status code 101 but got 426\",\n        err: \u003c*fmt.wrapError | 0xc0001fa0a0\u003e{\n            msg: \"failed to WebSocket dial: expected handshake response status code 101 but got 426\",\n            err: \u003c*errors.errorString | 0xc0000b8460\u003e{\n                s: \"expected handshake response status code 101 but got 426\",\n            },\n        },\n    }\noccurred",
           "Location": {
             "FileName": "/Users/seancorkum/projects/devops-mcp/test/e2e/scenarios/single_agent_test.go",
             "LineNumber": 347,
-            "FullStackTrace": "github.com/S-Corkum/devops-mcp/test/e2e/scenarios.init.func3.6.1()\n\t/Users/seancorkum/projects/devops-mcp/test/e2e/scenarios/single_agent_test.go:347 +0x278"
+            "FullStackTrace": "github.com/S-Corkum/devops-mcp/test/e2e/scenarios.init.func3.6.1()\n\t/Users/seancorkum/projects/devops-mcp/test/e2e/scenarios/single_agent_test.go:347 +0x225"
           },
           "TimelineLocation": {
             "Order": 50,
-            "Time": "2025-07-04T08:37:53.436599-05:00"
+            "Time": "2025-07-05T16:48:17.635942-05:00"
           },
           "FailureNodeContext": "leaf-node",
           "FailureNodeType": "It",
@@ -1101,7 +891,7 @@
             },
             "TimelineLocation": {
               "Order": 46,
-              "Time": "2025-07-04T08:37:53.389484-05:00"
+              "Time": "2025-07-05T16:48:17.587698-05:00"
             },
             "Message": "Single Agent E2E Tests",
             "NodeType": "BeforeEach"
@@ -1114,10 +904,10 @@
             },
             "TimelineLocation": {
               "Order": 48,
-              "Time": "2025-07-04T08:37:53.392268-05:00"
+              "Time": "2025-07-05T16:48:17.590473-05:00"
             },
             "Message": "Single Agent E2E Tests",
-            "Duration": 2784346,
+            "Duration": 2775603,
             "NodeType": "BeforeEach"
           },
           {
@@ -1128,7 +918,7 @@
             },
             "TimelineLocation": {
               "Order": 49,
-              "Time": "2025-07-04T08:37:53.392271-05:00"
+              "Time": "2025-07-05T16:48:17.590476-05:00"
             },
             "Message": "should manage sessions correctly",
             "NodeType": "It"
@@ -1141,10 +931,10 @@
             },
             "TimelineLocation": {
               "Order": 51,
-              "Time": "2025-07-04T08:37:53.436649-05:00"
+              "Time": "2025-07-05T16:48:17.635975-05:00"
             },
             "Message": "should manage sessions correctly",
-            "Duration": 44378790,
+            "Duration": 45498628,
             "NodeType": "It"
           },
           {
@@ -1155,7 +945,7 @@
             },
             "TimelineLocation": {
               "Order": 52,
-              "Time": "2025-07-04T08:37:53.436658-05:00"
+              "Time": "2025-07-05T16:48:17.635982-05:00"
             },
             "Message": "Single Agent E2E Tests",
             "NodeType": "AfterEach"
@@ -1168,10 +958,10 @@
             },
             "TimelineLocation": {
               "Order": 54,
-              "Time": "2025-07-04T08:37:53.439849-05:00"
+              "Time": "2025-07-05T16:48:17.638063-05:00"
             },
             "Message": "Single Agent E2E Tests",
-            "Duration": 3190988,
+            "Duration": 2081098,
             "NodeType": "AfterEach"
           }
         ]
@@ -1203,9 +993,9 @@
         "LeafNodeLabels": [],
         "LeafNodeText": "should handle authentication errors",
         "State": "passed",
-        "StartTime": "2025-07-04T08:37:53.439957-05:00",
-        "EndTime": "2025-07-04T08:37:53.445396-05:00",
-        "RunTime": 5438851,
+        "StartTime": "2025-07-05T16:48:17.638136-05:00",
+        "EndTime": "2025-07-05T16:48:17.732033-05:00",
+        "RunTime": 93896018,
         "ParallelProcess": 1,
         "NumAttempts": 1,
         "MaxFlakeAttempts": 0,
@@ -1219,7 +1009,7 @@
             },
             "TimelineLocation": {
               "Order": 55,
-              "Time": "2025-07-04T08:37:53.43996-05:00"
+              "Time": "2025-07-05T16:48:17.638139-05:00"
             },
             "Message": "Single Agent E2E Tests",
             "NodeType": "BeforeEach"
@@ -1232,10 +1022,10 @@
             },
             "TimelineLocation": {
               "Order": 57,
-              "Time": "2025-07-04T08:37:53.443129-05:00"
+              "Time": "2025-07-05T16:48:17.640816-05:00"
             },
             "Message": "Single Agent E2E Tests",
-            "Duration": 3168297,
+            "Duration": 2676704,
             "NodeType": "BeforeEach"
           },
           {
@@ -1246,7 +1036,7 @@
             },
             "TimelineLocation": {
               "Order": 58,
-              "Time": "2025-07-04T08:37:53.443131-05:00"
+              "Time": "2025-07-05T16:48:17.640819-05:00"
             },
             "Message": "should handle authentication errors",
             "NodeType": "It"
@@ -1259,10 +1049,10 @@
             },
             "TimelineLocation": {
               "Order": 60,
-              "Time": "2025-07-04T08:37:53.443167-05:00"
+              "Time": "2025-07-05T16:48:17.729785-05:00"
             },
             "Message": "should handle authentication errors",
-            "Duration": 36044,
+            "Duration": 88965150,
             "NodeType": "It"
           },
           {
@@ -1273,7 +1063,7 @@
             },
             "TimelineLocation": {
               "Order": 61,
-              "Time": "2025-07-04T08:37:53.44317-05:00"
+              "Time": "2025-07-05T16:48:17.729792-05:00"
             },
             "Message": "Single Agent E2E Tests",
             "NodeType": "AfterEach"
@@ -1286,10 +1076,10 @@
             },
             "TimelineLocation": {
               "Order": 63,
-              "Time": "2025-07-04T08:37:53.445393-05:00"
+              "Time": "2025-07-05T16:48:17.732029-05:00"
             },
             "Message": "Single Agent E2E Tests",
-            "Duration": 2223098,
+            "Duration": 2237517,
             "NodeType": "AfterEach"
           }
         ]
@@ -1321,20 +1111,20 @@
         "LeafNodeLabels": [],
         "LeafNodeText": "should handle invalid method calls",
         "State": "failed",
-        "StartTime": "2025-07-04T08:37:53.445451-05:00",
-        "EndTime": "2025-07-04T08:37:53.50187-05:00",
-        "RunTime": 56418967,
+        "StartTime": "2025-07-05T16:48:17.732117-05:00",
+        "EndTime": "2025-07-05T16:48:17.78034-05:00",
+        "RunTime": 48222244,
         "ParallelProcess": 1,
         "Failure": {
-          "Message": "Unexpected error:\n    \u003c*fmt.wrapError | 0xc0002a4020\u003e: \n    failed to connect: failed to WebSocket dial: expected handshake response status code 101 but got 401\n    {\n        msg: \"failed to connect: failed to WebSocket dial: expected handshake response status code 101 but got 401\",\n        err: \u003c*fmt.wrapError | 0xc0002a4000\u003e{\n            msg: \"failed to WebSocket dial: expected handshake response status code 101 but got 401\",\n            err: \u003c*errors.errorString | 0xc00027c010\u003e{\n                s: \"expected handshake response status code 101 but got 401\",\n            },\n        },\n    }\noccurred",
+          "Message": "Unexpected error:\n    \u003c*fmt.wrapError | 0xc00007c0a0\u003e: \n    failed to connect: failed to WebSocket dial: expected handshake response status code 101 but got 426\n    {\n        msg: \"failed to connect: failed to WebSocket dial: expected handshake response status code 101 but got 426\",\n        err: \u003c*fmt.wrapError | 0xc00007c060\u003e{\n            msg: \"failed to WebSocket dial: expected handshake response status code 101 but got 426\",\n            err: \u003c*errors.errorString | 0xc000514000\u003e{\n                s: \"expected handshake response status code 101 but got 426\",\n            },\n        },\n    }\noccurred",
           "Location": {
             "FileName": "/Users/seancorkum/projects/devops-mcp/test/e2e/scenarios/single_agent_test.go",
             "LineNumber": 448,
-            "FullStackTrace": "github.com/S-Corkum/devops-mcp/test/e2e/scenarios.init.func3.7.2()\n\t/Users/seancorkum/projects/devops-mcp/test/e2e/scenarios/single_agent_test.go:448 +0x278"
+            "FullStackTrace": "github.com/S-Corkum/devops-mcp/test/e2e/scenarios.init.func3.7.2()\n\t/Users/seancorkum/projects/devops-mcp/test/e2e/scenarios/single_agent_test.go:448 +0x225"
           },
           "TimelineLocation": {
             "Order": 68,
-            "Time": "2025-07-04T08:37:53.498382-05:00"
+            "Time": "2025-07-05T16:48:17.778182-05:00"
           },
           "FailureNodeContext": "leaf-node",
           "FailureNodeType": "It",
@@ -1366,7 +1156,7 @@
             },
             "TimelineLocation": {
               "Order": 64,
-              "Time": "2025-07-04T08:37:53.445454-05:00"
+              "Time": "2025-07-05T16:48:17.73212-05:00"
             },
             "Message": "Single Agent E2E Tests",
             "NodeType": "BeforeEach"
@@ -1379,10 +1169,10 @@
             },
             "TimelineLocation": {
               "Order": 66,
-              "Time": "2025-07-04T08:37:53.448064-05:00"
+              "Time": "2025-07-05T16:48:17.734574-05:00"
             },
             "Message": "Single Agent E2E Tests",
-            "Duration": 2609776,
+            "Duration": 2453464,
             "NodeType": "BeforeEach"
           },
           {
@@ -1393,7 +1183,7 @@
             },
             "TimelineLocation": {
               "Order": 67,
-              "Time": "2025-07-04T08:37:53.448066-05:00"
+              "Time": "2025-07-05T16:48:17.734576-05:00"
             },
             "Message": "should handle invalid method calls",
             "NodeType": "It"
@@ -1406,10 +1196,10 @@
             },
             "TimelineLocation": {
               "Order": 69,
-              "Time": "2025-07-04T08:37:53.49844-05:00"
+              "Time": "2025-07-05T16:48:17.778251-05:00"
             },
             "Message": "should handle invalid method calls",
-            "Duration": 50374226,
+            "Duration": 43674797,
             "NodeType": "It"
           },
           {
@@ -1420,7 +1210,7 @@
             },
             "TimelineLocation": {
               "Order": 70,
-              "Time": "2025-07-04T08:37:53.498449-05:00"
+              "Time": "2025-07-05T16:48:17.778263-05:00"
             },
             "Message": "Single Agent E2E Tests",
             "NodeType": "AfterEach"
@@ -1433,10 +1223,10 @@
             },
             "TimelineLocation": {
               "Order": 72,
-              "Time": "2025-07-04T08:37:53.501865-05:00"
+              "Time": "2025-07-05T16:48:17.780336-05:00"
             },
             "Message": "Single Agent E2E Tests",
-            "Duration": 3416353,
+            "Duration": 2073340,
             "NodeType": "AfterEach"
           }
         ]
@@ -1468,20 +1258,20 @@
         "LeafNodeLabels": [],
         "LeafNodeText": "should handle timeout scenarios",
         "State": "failed",
-        "StartTime": "2025-07-04T08:37:53.501973-05:00",
-        "EndTime": "2025-07-04T08:37:53.552862-05:00",
-        "RunTime": 50889154,
+        "StartTime": "2025-07-05T16:48:17.780434-05:00",
+        "EndTime": "2025-07-05T16:48:17.829979-05:00",
+        "RunTime": 49545307,
         "ParallelProcess": 1,
         "Failure": {
-          "Message": "Unexpected error:\n    \u003c*fmt.wrapError | 0xc00012e0c0\u003e: \n    failed to connect: failed to WebSocket dial: expected handshake response status code 101 but got 401\n    {\n        msg: \"failed to connect: failed to WebSocket dial: expected handshake response status code 101 but got 401\",\n        err: \u003c*fmt.wrapError | 0xc00012e080\u003e{\n            msg: \"failed to WebSocket dial: expected handshake response status code 101 but got 401\",\n            err: \u003c*errors.errorString | 0xc00009a010\u003e{\n                s: \"expected handshake response status code 101 but got 401\",\n            },\n        },\n    }\noccurred",
+          "Message": "Unexpected error:\n    \u003c*fmt.wrapError | 0xc0001fa0c0\u003e: \n    failed to connect: failed to WebSocket dial: expected handshake response status code 101 but got 426\n    {\n        msg: \"failed to connect: failed to WebSocket dial: expected handshake response status code 101 but got 426\",\n        err: \u003c*fmt.wrapError | 0xc0001fa0a0\u003e{\n            msg: \"failed to WebSocket dial: expected handshake response status code 101 but got 426\",\n            err: \u003c*errors.errorString | 0xc0004a0010\u003e{\n                s: \"expected handshake response status code 101 but got 426\",\n            },\n        },\n    }\noccurred",
           "Location": {
             "FileName": "/Users/seancorkum/projects/devops-mcp/test/e2e/scenarios/single_agent_test.go",
             "LineNumber": 488,
-            "FullStackTrace": "github.com/S-Corkum/devops-mcp/test/e2e/scenarios.init.func3.7.3()\n\t/Users/seancorkum/projects/devops-mcp/test/e2e/scenarios/single_agent_test.go:488 +0x278"
+            "FullStackTrace": "github.com/S-Corkum/devops-mcp/test/e2e/scenarios.init.func3.7.3()\n\t/Users/seancorkum/projects/devops-mcp/test/e2e/scenarios/single_agent_test.go:488 +0x243"
           },
           "TimelineLocation": {
             "Order": 77,
-            "Time": "2025-07-04T08:37:53.549335-05:00"
+            "Time": "2025-07-05T16:48:17.82799-05:00"
           },
           "FailureNodeContext": "leaf-node",
           "FailureNodeType": "It",
@@ -1513,7 +1303,7 @@
             },
             "TimelineLocation": {
               "Order": 73,
-              "Time": "2025-07-04T08:37:53.501976-05:00"
+              "Time": "2025-07-05T16:48:17.780437-05:00"
             },
             "Message": "Single Agent E2E Tests",
             "NodeType": "BeforeEach"
@@ -1526,10 +1316,10 @@
             },
             "TimelineLocation": {
               "Order": 75,
-              "Time": "2025-07-04T08:37:53.504572-05:00"
+              "Time": "2025-07-05T16:48:17.782848-05:00"
             },
             "Message": "Single Agent E2E Tests",
-            "Duration": 2596236,
+            "Duration": 2411620,
             "NodeType": "BeforeEach"
           },
           {
@@ -1540,7 +1330,7 @@
             },
             "TimelineLocation": {
               "Order": 76,
-              "Time": "2025-07-04T08:37:53.504574-05:00"
+              "Time": "2025-07-05T16:48:17.782851-05:00"
             },
             "Message": "should handle timeout scenarios",
             "NodeType": "It"
@@ -1553,10 +1343,10 @@
             },
             "TimelineLocation": {
               "Order": 78,
-              "Time": "2025-07-04T08:37:53.54939-05:00"
+              "Time": "2025-07-05T16:48:17.828022-05:00"
             },
             "Message": "should handle timeout scenarios",
-            "Duration": 44815379,
+            "Duration": 45171354,
             "NodeType": "It"
           },
           {
@@ -1567,7 +1357,7 @@
             },
             "TimelineLocation": {
               "Order": 79,
-              "Time": "2025-07-04T08:37:53.549399-05:00"
+              "Time": "2025-07-05T16:48:17.82803-05:00"
             },
             "Message": "Single Agent E2E Tests",
             "NodeType": "AfterEach"
@@ -1580,10 +1370,10 @@
             },
             "TimelineLocation": {
               "Order": 81,
-              "Time": "2025-07-04T08:37:53.552858-05:00"
+              "Time": "2025-07-05T16:48:17.829976-05:00"
             },
             "Message": "Single Agent E2E Tests",
-            "Duration": 3458989,
+            "Duration": 1946301,
             "NodeType": "AfterEach"
           }
         ]
@@ -1615,7 +1405,7 @@
         "LeafNodeLabels": [],
         "LeafNodeText": "should handle 50 concurrent agents",
         "State": "skipped",
-        "StartTime": "2025-07-04T08:37:53.552948-05:00",
+        "StartTime": "2025-07-05T16:48:17.830062-05:00",
         "EndTime": "0001-01-01T00:00:00Z",
         "RunTime": 0,
         "ParallelProcess": 1,
@@ -1650,7 +1440,7 @@
         "LeafNodeLabels": [],
         "LeafNodeText": "should handle agent churn",
         "State": "skipped",
-        "StartTime": "2025-07-04T08:37:53.552955-05:00",
+        "StartTime": "2025-07-05T16:48:17.830073-05:00",
         "EndTime": "0001-01-01T00:00:00Z",
         "RunTime": 0,
         "ParallelProcess": 1,
@@ -1685,7 +1475,7 @@
         "LeafNodeLabels": [],
         "LeafNodeText": "should handle high message throughput",
         "State": "skipped",
-        "StartTime": "2025-07-04T08:37:53.552966-05:00",
+        "StartTime": "2025-07-05T16:48:17.830079-05:00",
         "EndTime": "0001-01-01T00:00:00Z",
         "RunTime": 0,
         "ParallelProcess": 1,
@@ -1720,7 +1510,7 @@
         "LeafNodeLabels": [],
         "LeafNodeText": "should handle large message payloads",
         "State": "skipped",
-        "StartTime": "2025-07-04T08:37:53.552972-05:00",
+        "StartTime": "2025-07-05T16:48:17.830084-05:00",
         "EndTime": "0001-01-01T00:00:00Z",
         "RunTime": 0,
         "ParallelProcess": 1,
@@ -1755,7 +1545,7 @@
         "LeafNodeLabels": [],
         "LeafNodeText": "should maintain stable performance under sustained load",
         "State": "skipped",
-        "StartTime": "2025-07-04T08:37:53.552978-05:00",
+        "StartTime": "2025-07-05T16:48:17.830089-05:00",
         "EndTime": "0001-01-01T00:00:00Z",
         "RunTime": 0,
         "ParallelProcess": 1,
@@ -1790,7 +1580,217 @@
         "LeafNodeLabels": [],
         "LeafNodeText": "should demonstrate binary protocol efficiency",
         "State": "skipped",
-        "StartTime": "2025-07-04T08:37:53.552984-05:00",
+        "StartTime": "2025-07-05T16:48:17.830096-05:00",
+        "EndTime": "0001-01-01T00:00:00Z",
+        "RunTime": 0,
+        "ParallelProcess": 1,
+        "NumAttempts": 0,
+        "MaxFlakeAttempts": 0,
+        "MaxMustPassRepeatedly": 0
+      },
+      {
+        "ContainerHierarchyTexts": [
+          "Multi-Agent Collaboration E2E Tests",
+          "Basic Multi-Agent Setup"
+        ],
+        "ContainerHierarchyLocations": [
+          {
+            "FileName": "/Users/seancorkum/projects/devops-mcp/test/e2e/scenarios/multi_agent_test.go",
+            "LineNumber": 19
+          },
+          {
+            "FileName": "/Users/seancorkum/projects/devops-mcp/test/e2e/scenarios/multi_agent_test.go",
+            "LineNumber": 44
+          }
+        ],
+        "ContainerHierarchyLabels": [
+          [],
+          []
+        ],
+        "LeafNodeType": "It",
+        "LeafNodeLocation": {
+          "FileName": "/Users/seancorkum/projects/devops-mcp/test/e2e/scenarios/multi_agent_test.go",
+          "LineNumber": 45
+        },
+        "LeafNodeLabels": [],
+        "LeafNodeText": "should connect multiple agents simultaneously",
+        "State": "skipped",
+        "StartTime": "2025-07-05T16:48:17.830102-05:00",
+        "EndTime": "0001-01-01T00:00:00Z",
+        "RunTime": 0,
+        "ParallelProcess": 1,
+        "NumAttempts": 0,
+        "MaxFlakeAttempts": 0,
+        "MaxMustPassRepeatedly": 0
+      },
+      {
+        "ContainerHierarchyTexts": [
+          "Multi-Agent Collaboration E2E Tests",
+          "Code Review Workflow"
+        ],
+        "ContainerHierarchyLocations": [
+          {
+            "FileName": "/Users/seancorkum/projects/devops-mcp/test/e2e/scenarios/multi_agent_test.go",
+            "LineNumber": 19
+          },
+          {
+            "FileName": "/Users/seancorkum/projects/devops-mcp/test/e2e/scenarios/multi_agent_test.go",
+            "LineNumber": 127
+          }
+        ],
+        "ContainerHierarchyLabels": [
+          [],
+          []
+        ],
+        "LeafNodeType": "It",
+        "LeafNodeLocation": {
+          "FileName": "/Users/seancorkum/projects/devops-mcp/test/e2e/scenarios/multi_agent_test.go",
+          "LineNumber": 128
+        },
+        "LeafNodeLabels": [],
+        "LeafNodeText": "should coordinate code review between multiple agents",
+        "State": "skipped",
+        "StartTime": "2025-07-05T16:48:17.830107-05:00",
+        "EndTime": "0001-01-01T00:00:00Z",
+        "RunTime": 0,
+        "ParallelProcess": 1,
+        "NumAttempts": 0,
+        "MaxFlakeAttempts": 0,
+        "MaxMustPassRepeatedly": 0
+      },
+      {
+        "ContainerHierarchyTexts": [
+          "Multi-Agent Collaboration E2E Tests",
+          "Parallel Task Execution"
+        ],
+        "ContainerHierarchyLocations": [
+          {
+            "FileName": "/Users/seancorkum/projects/devops-mcp/test/e2e/scenarios/multi_agent_test.go",
+            "LineNumber": 19
+          },
+          {
+            "FileName": "/Users/seancorkum/projects/devops-mcp/test/e2e/scenarios/multi_agent_test.go",
+            "LineNumber": 257
+          }
+        ],
+        "ContainerHierarchyLabels": [
+          [],
+          []
+        ],
+        "LeafNodeType": "It",
+        "LeafNodeLocation": {
+          "FileName": "/Users/seancorkum/projects/devops-mcp/test/e2e/scenarios/multi_agent_test.go",
+          "LineNumber": 258
+        },
+        "LeafNodeLabels": [],
+        "LeafNodeText": "should execute tasks in parallel across multiple agents",
+        "State": "skipped",
+        "StartTime": "2025-07-05T16:48:17.830115-05:00",
+        "EndTime": "0001-01-01T00:00:00Z",
+        "RunTime": 0,
+        "ParallelProcess": 1,
+        "NumAttempts": 0,
+        "MaxFlakeAttempts": 0,
+        "MaxMustPassRepeatedly": 0
+      },
+      {
+        "ContainerHierarchyTexts": [
+          "Multi-Agent Collaboration E2E Tests",
+          "Consensus Mechanism"
+        ],
+        "ContainerHierarchyLocations": [
+          {
+            "FileName": "/Users/seancorkum/projects/devops-mcp/test/e2e/scenarios/multi_agent_test.go",
+            "LineNumber": 19
+          },
+          {
+            "FileName": "/Users/seancorkum/projects/devops-mcp/test/e2e/scenarios/multi_agent_test.go",
+            "LineNumber": 360
+          }
+        ],
+        "ContainerHierarchyLabels": [
+          [],
+          []
+        ],
+        "LeafNodeType": "It",
+        "LeafNodeLocation": {
+          "FileName": "/Users/seancorkum/projects/devops-mcp/test/e2e/scenarios/multi_agent_test.go",
+          "LineNumber": 361
+        },
+        "LeafNodeLabels": [],
+        "LeafNodeText": "should reach consensus among multiple agents",
+        "State": "skipped",
+        "StartTime": "2025-07-05T16:48:17.830121-05:00",
+        "EndTime": "0001-01-01T00:00:00Z",
+        "RunTime": 0,
+        "ParallelProcess": 1,
+        "NumAttempts": 0,
+        "MaxFlakeAttempts": 0,
+        "MaxMustPassRepeatedly": 0
+      },
+      {
+        "ContainerHierarchyTexts": [
+          "Multi-Agent Collaboration E2E Tests",
+          "MapReduce Pattern"
+        ],
+        "ContainerHierarchyLocations": [
+          {
+            "FileName": "/Users/seancorkum/projects/devops-mcp/test/e2e/scenarios/multi_agent_test.go",
+            "LineNumber": 19
+          },
+          {
+            "FileName": "/Users/seancorkum/projects/devops-mcp/test/e2e/scenarios/multi_agent_test.go",
+            "LineNumber": 455
+          }
+        ],
+        "ContainerHierarchyLabels": [
+          [],
+          []
+        ],
+        "LeafNodeType": "It",
+        "LeafNodeLocation": {
+          "FileName": "/Users/seancorkum/projects/devops-mcp/test/e2e/scenarios/multi_agent_test.go",
+          "LineNumber": 456
+        },
+        "LeafNodeLabels": [],
+        "LeafNodeText": "should execute MapReduce workflow across agents",
+        "State": "skipped",
+        "StartTime": "2025-07-05T16:48:17.830125-05:00",
+        "EndTime": "0001-01-01T00:00:00Z",
+        "RunTime": 0,
+        "ParallelProcess": 1,
+        "NumAttempts": 0,
+        "MaxFlakeAttempts": 0,
+        "MaxMustPassRepeatedly": 0
+      },
+      {
+        "ContainerHierarchyTexts": [
+          "Multi-Agent Collaboration E2E Tests",
+          "Agent Coordination"
+        ],
+        "ContainerHierarchyLocations": [
+          {
+            "FileName": "/Users/seancorkum/projects/devops-mcp/test/e2e/scenarios/multi_agent_test.go",
+            "LineNumber": 19
+          },
+          {
+            "FileName": "/Users/seancorkum/projects/devops-mcp/test/e2e/scenarios/multi_agent_test.go",
+            "LineNumber": 565
+          }
+        ],
+        "ContainerHierarchyLabels": [
+          [],
+          []
+        ],
+        "LeafNodeType": "It",
+        "LeafNodeLocation": {
+          "FileName": "/Users/seancorkum/projects/devops-mcp/test/e2e/scenarios/multi_agent_test.go",
+          "LineNumber": 566
+        },
+        "LeafNodeLabels": [],
+        "LeafNodeText": "should coordinate deployment pipeline across agents",
+        "State": "skipped",
+        "StartTime": "2025-07-05T16:48:17.830129-05:00",
         "EndTime": "0001-01-01T00:00:00Z",
         "RunTime": 0,
         "ParallelProcess": 1,

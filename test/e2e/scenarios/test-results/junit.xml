@@ -1,4 +1,4 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <testsuites>
-  <testsuite name="Single Agent Tests" tests="0" failures="0" skipped="0" time="0"></testsuite>
+  <testsuite name="Performance and Stress Tests" tests="0" failures="0" skipped="0" time="0"></testsuite>
 </testsuites>

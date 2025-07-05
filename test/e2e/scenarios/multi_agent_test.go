@@ -59,9 +59,9 @@ var _ = Describe("Multi-Agent Collaboration E2E Tests", func() {
 
 			// Create different agent types
 			agents := []interface{}{
-				agent.NewCodeAnalysisAgent(testData.APIKeys["admin"], config.MCPBaseURL),
-				agent.NewDevOpsAutomationAgent(testData.APIKeys["admin"], config.MCPBaseURL),
-				agent.NewSecurityScannerAgent(testData.APIKeys["admin"], config.MCPBaseURL),
+				agent.NewCodeAnalysisAgent(config.APIKey, config.MCPBaseURL),
+				agent.NewDevOpsAutomationAgent(config.APIKey, config.MCPBaseURL),
+				agent.NewSecurityScannerAgent(config.APIKey, config.MCPBaseURL),
 			}
 
 			// Connect all agents concurrently
@@ -141,8 +141,8 @@ var _ = Describe("Multi-Agent Collaboration E2E Tests", func() {
 			ctx := context.Background()
 
 			// Create specialized agents
-			codeAgent := agent.NewCodeAnalysisAgent(testData.APIKeys["admin"], config.MCPBaseURL)
-			securityAgent := agent.NewSecurityScannerAgent(testData.APIKeys["admin"], config.MCPBaseURL)
+			codeAgent := agent.NewCodeAnalysisAgent(config.APIKey, config.MCPBaseURL)
+			securityAgent := agent.NewSecurityScannerAgent(config.APIKey, config.MCPBaseURL)
 
 			// Connect both agents
 			err = codeAgent.Connect(ctx)
@@ -276,7 +276,7 @@ var _ = Describe("Multi-Agent Collaboration E2E Tests", func() {
 				agents[i] = agent.NewTestAgent(
 					fmt.Sprintf("parallel-agent-%d", i),
 					[]string{"task_processor"},
-					testData.APIKeys["admin"],
+					config.APIKey,
 					config.MCPBaseURL,
 				)
 
@@ -379,7 +379,7 @@ var _ = Describe("Multi-Agent Collaboration E2E Tests", func() {
 				votingAgents[i] = agent.NewTestAgent(
 					fmt.Sprintf("voting-agent-%d", i),
 					[]string{"consensus_participant"},
-					testData.APIKeys["admin"],
+					config.APIKey,
 					config.MCPBaseURL,
 				)
 
@@ -474,7 +474,7 @@ var _ = Describe("Multi-Agent Collaboration E2E Tests", func() {
 				mappers[i] = agent.NewTestAgent(
 					fmt.Sprintf("mapper-%d", i),
 					[]string{"data_mapper"},
-					testData.APIKeys["admin"],
+					config.APIKey,
 					config.MCPBaseURL,
 				)
 
@@ -487,7 +487,7 @@ var _ = Describe("Multi-Agent Collaboration E2E Tests", func() {
 			reducer := agent.NewTestAgent(
 				"reducer",
 				[]string{"data_reducer"},
-				testData.APIKeys["admin"],
+				config.APIKey,
 				config.MCPBaseURL,
 			)
 
@@ -579,11 +579,11 @@ var _ = Describe("Multi-Agent Collaboration E2E Tests", func() {
 			ctx := context.Background()
 
 			// Create specialized agents for deployment pipeline
-			codeAgent := agent.NewCodeAnalysisAgent(testData.APIKeys["admin"], config.MCPBaseURL)
-			devopsAgent := agent.NewDevOpsAutomationAgent(testData.APIKeys["admin"], config.MCPBaseURL)
-			securityAgent := agent.NewSecurityScannerAgent(testData.APIKeys["admin"], config.MCPBaseURL)
-			infraAgent := agent.NewInfrastructureAgent(testData.APIKeys["admin"], config.MCPBaseURL)
-			monitoringAgent := agent.NewMonitoringAgent(testData.APIKeys["admin"], config.MCPBaseURL)
+			codeAgent := agent.NewCodeAnalysisAgent(config.APIKey, config.MCPBaseURL)
+			devopsAgent := agent.NewDevOpsAutomationAgent(config.APIKey, config.MCPBaseURL)
+			securityAgent := agent.NewSecurityScannerAgent(config.APIKey, config.MCPBaseURL)
+			infraAgent := agent.NewInfrastructureAgent(config.APIKey, config.MCPBaseURL)
+			monitoringAgent := agent.NewMonitoringAgent(config.APIKey, config.MCPBaseURL)
 
 			// Connect all agents
 			agents := []interface{}{codeAgent, devopsAgent, securityAgent, infraAgent, monitoringAgent}

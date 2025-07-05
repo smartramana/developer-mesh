@@ -60,7 +60,7 @@ var _ = Describe("Single Agent E2E Tests", func() {
 			testAgent := agent.NewTestAgent(
 				"lifecycle-test-agent",
 				[]string{"code_analysis"},
-				testData.APIKeys["admin"],
+				config.APIKey,
 				config.MCPBaseURL,
 			)
 
@@ -118,7 +118,7 @@ var _ = Describe("Single Agent E2E Tests", func() {
 			testAgent := agent.NewTestAgent(
 				"reconnection-test-agent",
 				[]string{"monitoring"},
-				testData.APIKeys["admin"],
+				config.APIKey,
 				config.MCPBaseURL,
 			)
 
@@ -174,7 +174,7 @@ var _ = Describe("Single Agent E2E Tests", func() {
 			testAgent := agent.NewTestAgent(
 				"tool-discovery-agent",
 				[]string{"devops"},
-				testData.APIKeys["developer"],
+				config.APIKey,
 				config.MCPBaseURL,
 			)
 
@@ -225,7 +225,7 @@ var _ = Describe("Single Agent E2E Tests", func() {
 
 			// Use specialized DevOps agent
 			devopsAgent := agent.NewDevOpsAutomationAgent(
-				testData.APIKeys["developer"],
+				config.APIKey,
 				config.MCPBaseURL,
 			)
 
@@ -276,7 +276,7 @@ var _ = Describe("Single Agent E2E Tests", func() {
 			testAgent := agent.NewTestAgent(
 				"context-agent",
 				[]string{"context_management"},
-				testData.APIKeys["developer"],
+				config.APIKey,
 				config.MCPBaseURL,
 			)
 
@@ -338,7 +338,7 @@ var _ = Describe("Single Agent E2E Tests", func() {
 			testAgent := agent.NewTestAgent(
 				"session-agent",
 				[]string{"session_management"},
-				testData.APIKeys["developer"],
+				config.APIKey,
 				config.MCPBaseURL,
 			)
 
@@ -439,7 +439,7 @@ var _ = Describe("Single Agent E2E Tests", func() {
 			testAgent := agent.NewTestAgent(
 				"error-test-agent",
 				[]string{"testing"},
-				testData.APIKeys["developer"],
+				config.APIKey,
 				config.MCPBaseURL,
 			)
 
@@ -479,7 +479,7 @@ var _ = Describe("Single Agent E2E Tests", func() {
 			testAgent := agent.NewTestAgent(
 				"timeout-test-agent",
 				[]string{"testing"},
-				testData.APIKeys["developer"],
+				config.APIKey,
 				config.MCPBaseURL,
 			)
 

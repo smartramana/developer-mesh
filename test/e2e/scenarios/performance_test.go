@@ -23,7 +23,7 @@ var _ = Describe("Performance and Stress E2E Tests", func() {
 	var (
 		config    *utils.Config
 		reporter  *reporting.StreamingReporter
-		testData  *data.TestData
+		// testData  *data.TestData // Not needed - using config.APIKey directly
 		isolation *utils.TestIsolation
 		logger    *utils.TestLogger
 	)
@@ -31,7 +31,7 @@ var _ = Describe("Performance and Stress E2E Tests", func() {
 	BeforeEach(func() {
 		config = utils.LoadConfig()
 		reporter = reporting.NewStreamingReporter(config.ReportDir, []string{"json", "html", "junit"})
-		testData = data.DefaultTestData()
+		// testData = data.DefaultTestData() // Not needed - using config.APIKey directly
 		isolation = utils.NewTestIsolation()
 		logger = utils.NewTestLogger("performance", config.EnableDebug)
 
@@ -79,7 +79,7 @@ var _ = Describe("Performance and Stress E2E Tests", func() {
 					ag := agent.NewTestAgent(
 						fmt.Sprintf("swarm-agent-%d", idx),
 						[]string{"test_capability"},
-						testData.APIKeys["admin"],
+						config.APIKey,
 						config.MCPBaseURL,
 					)
 
@@ -215,7 +215,7 @@ var _ = Describe("Performance and Stress E2E Tests", func() {
 							ag := agent.NewTestAgent(
 								fmt.Sprintf("churn-agent-%d-%d", workerID, time.Now().UnixNano()),
 								[]string{"churn_test"},
-								testData.APIKeys["admin"],
+								config.APIKey,
 								config.MCPBaseURL,
 							)
 
@@ -303,7 +303,7 @@ var _ = Describe("Performance and Stress E2E Tests", func() {
 			perfAgent := agent.NewTestAgent(
 				"perf-test-agent",
 				[]string{"performance_test"},
-				testData.APIKeys["admin"],
+				config.APIKey,
 				config.MCPBaseURL,
 			)
 
@@ -420,7 +420,7 @@ var _ = Describe("Performance and Stress E2E Tests", func() {
 			largeAgent := agent.NewTestAgent(
 				"large-payload-agent",
 				[]string{"data_processing"},
-				testData.APIKeys["admin"],
+				config.APIKey,
 				config.MCPBaseURL,
 			)
 
@@ -515,7 +515,7 @@ var _ = Describe("Performance and Stress E2E Tests", func() {
 				agents[i] = agent.NewTestAgent(
 					fmt.Sprintf("load-agent-%d", i),
 					[]string{"load_test"},
-					testData.APIKeys["admin"],
+					config.APIKey,
 					config.MCPBaseURL,
 				)
 
@@ -634,14 +634,14 @@ var _ = Describe("Performance and Stress E2E Tests", func() {
 			textAgent := agent.NewTestAgent(
 				"text-protocol-agent",
 				[]string{"benchmark"},
-				testData.APIKeys["admin"],
+				config.APIKey,
 				config.MCPBaseURL,
 			)
 
 			binaryAgent := agent.NewTestAgent(
 				"binary-protocol-agent",
 				[]string{"benchmark"},
-				testData.APIKeys["admin"],
+				config.APIKey,
 				config.MCPBaseURL,
 			)
 

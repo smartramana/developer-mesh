@@ -101,6 +101,7 @@ jobs:
           # Redis
           REDIS_ADDR=${{ secrets.REDIS_ENDPOINT }}
           REDIS_TLS_ENABLED=true
+          USE_SSH_TUNNEL_FOR_REDIS=false
           
           # AWS
           AWS_REGION=${{ env.AWS_REGION }}
@@ -109,15 +110,34 @@ jobs:
           S3_BUCKET=${{ secrets.S3_BUCKET }}
           SQS_QUEUE_URL=${{ secrets.SQS_QUEUE_URL }}
           
+          # AWS Bedrock
+          BEDROCK_ENABLED=true
+          BEDROCK_SESSION_LIMIT=0.10
+          GLOBAL_COST_LIMIT=10.0
+          
           # Application
           ENVIRONMENT=production
+          CONFIG_PATH=/app/configs/config.production.yaml
           ADMIN_API_KEY=${{ secrets.ADMIN_API_KEY }}
           GITHUB_TOKEN=${{ github.token }}
           MCP_SERVER_URL=http://mcp-server:8080
+          PORT=8081
+          API_LISTEN_ADDRESS=:8081
+          
+          # Logging
+          LOG_LEVEL=info
+          LOG_FORMAT=json
+          
+          # Worker Configuration
+          WORKER_CONCURRENCY=10
+          WORKER_POLL_INTERVAL=5s
           
           # Image Tags (use shortened SHA to match what Docker metadata creates)
           SHORT_SHA=$(echo "${{ github.sha }}" | cut -c1-7)
           IMAGE_TAG=main-${SHORT_SHA}
+          
+          # Export IMAGE_TAG so docker-compose can use it
+          export IMAGE_TAG=main-${SHORT_SHA}
           EOF
           
           # Update docker-compose with new image tags (using shortened SHA)
@@ -133,12 +153,6 @@ jobs:
             --parameters "commands=[
               'cd /home/ec2-user/devops-mcp',
               'echo \"Fetching latest deployment configuration...\"',
-              'if [ ! -d .git ]; then',
-              '  echo \"Initializing git repository...\"',
-              '  git init',
-              '  git remote add origin https://github.com/S-Corkum/devops-mcp.git || true',
-              'fi',
-              'git fetch origin main || { echo \"Git fetch failed, trying direct download\"; }',
               'echo \"Downloading docker-compose.production.yml...\"',
               'curl -sL https://raw.githubusercontent.com/S-Corkum/devops-mcp/main/docker-compose.production.yml -o docker-compose.production.yml',
               'if [ ! -f docker-compose.production.yml ] || [ ! -s docker-compose.production.yml ]; then',
@@ -147,14 +161,20 @@ jobs:
               'fi',
               'echo \"Downloading config files...\"',
               'mkdir -p configs',
-              'curl -sL https://raw.githubusercontent.com/S-Corkum/devops-mcp/main/configs/config.yaml -o configs/config.yaml',
+              'curl -sL https://raw.githubusercontent.com/S-Corkum/devops-mcp/main/configs/config.base.yaml -o configs/config.base.yaml',
+              'curl -sL https://raw.githubusercontent.com/S-Corkum/devops-mcp/main/configs/config.production.yaml -o configs/config.production.yaml',
+              'curl -sL https://raw.githubusercontent.com/S-Corkum/devops-mcp/main/configs/config.rest-api.yaml -o configs/config.rest-api.yaml',
               'curl -sL https://raw.githubusercontent.com/S-Corkum/devops-mcp/main/configs/auth.production.yaml -o configs/auth.production.yaml',
+              'echo \"Verifying downloaded files...\"',
+              'for file in docker-compose.production.yml configs/config.base.yaml configs/config.production.yaml configs/config.rest-api.yaml configs/auth.production.yaml; do',
+              '  if [ ! -f \"\$file\" ] || [ ! -s \"\$file\" ]; then',
+              '    echo \"ERROR: File \$file is missing or empty\"',
+              '    exit 1',
+              '  fi',
+              '  echo \"✓ \$file (\$(wc -c < \"\$file\") bytes)\"',
+              'done',
               'cp docker-compose.production.yml docker-compose.yml',
-              'SHORT_SHA=\$(echo \"${{ github.sha }}\" | cut -c1-7)',
-              'sed -i \"s|:latest|:main-\${SHORT_SHA}|g\" docker-compose.yml',
-              'echo \"Docker compose updated with image tags: main-\${SHORT_SHA}\"',
-              'echo \"Final docker-compose.yml images:\"',
-              'grep \"image:\" docker-compose.yml'
+              'echo \"Docker compose file ready\"'
             ]" \
             --query "Command.CommandId" \
             --output text)
@@ -182,6 +202,7 @@ jobs:
               "# Redis",
               "REDIS_ADDR=${{ secrets.REDIS_ENDPOINT }}",
               "REDIS_TLS_ENABLED=true",
+              "USE_SSH_TUNNEL_FOR_REDIS=false",
               "",
               "# AWS",
               "AWS_REGION=${{ env.AWS_REGION }}",
@@ -190,11 +211,27 @@ jobs:
               "S3_BUCKET=${{ secrets.S3_BUCKET }}",
               "SQS_QUEUE_URL=${{ secrets.SQS_QUEUE_URL }}",
               "",
+              "# AWS Bedrock",
+              "BEDROCK_ENABLED=true",
+              "BEDROCK_SESSION_LIMIT=0.10",
+              "GLOBAL_COST_LIMIT=10.0",
+              "",
               "# Application",
               "ENVIRONMENT=production",
+              "CONFIG_PATH=/app/configs/config.production.yaml",
               "ADMIN_API_KEY=${{ secrets.ADMIN_API_KEY }}",
               "GITHUB_TOKEN=${{ github.token }}",
               "MCP_SERVER_URL=http://mcp-server:8080",
+              "PORT=8081",
+              "API_LISTEN_ADDRESS=:8081",
+              "",
+              "# Logging",
+              "LOG_LEVEL=info",
+              "LOG_FORMAT=json",
+              "",
+              "# Worker Configuration",
+              "WORKER_CONCURRENCY=10",
+              "WORKER_POLL_INTERVAL=5s",
               "EOF",
               "chmod 600 .env",
               "chown ec2-user:ec2-user .env",
@@ -328,8 +365,18 @@ jobs:
             exit 1
           fi
           
-          # Pull images
-          echo "Pulling Docker images..."
+          # Verify config files exist
+          echo "Verifying configuration files..."
+          for file in configs/config.base.yaml configs/config.production.yaml configs/config.rest-api.yaml configs/auth.production.yaml; do
+            if [ ! -f "$file" ]; then
+              echo "ERROR: Configuration file $file not found"
+              exit 1
+            fi
+          done
+          
+          # Pull images with tag specified
+          echo "Pulling Docker images with tag ${IMAGE_TAG}..."
+          export IMAGE_TAG="main-${SHORT_SHA}"
           docker-compose pull || {
             echo "Failed to pull images. Checking docker-compose config:"
             docker-compose config
