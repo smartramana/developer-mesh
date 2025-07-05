@@ -143,11 +143,13 @@ sudo systemctl reload nginx
 echo -e "\nTesting WebSocket endpoints..."
 for endpoint in "/ws"; do
     echo -n "Testing wss://mcp.dev-mesh.io${endpoint}... "
+    # Generate a random WebSocket key (16 bytes base64 encoded)
+    ws_key=$(openssl rand -base64 16)
     response=$(curl -s -o /dev/null -w "%{http_code}" \
         -H "Connection: Upgrade" \
         -H "Upgrade: websocket" \
         -H "Sec-WebSocket-Version: 13" \
-        -H "Sec-WebSocket-Key: dGhlIHNhbXBsZSBub25jZQ==" \
+        -H "Sec-WebSocket-Key: $ws_key" \
         "https://mcp.dev-mesh.io${endpoint}")
     
     if [ "$response" = "101" ] || [ "$response" = "400" ] || [ "$response" = "401" ]; then

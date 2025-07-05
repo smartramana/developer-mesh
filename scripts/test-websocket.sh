@@ -7,11 +7,13 @@ echo "=============================================="
 echo -e "\n1. Testing with curl (expecting 101 Switching Protocols or 400/401):"
 for endpoint in "/ws" "/v1/ws"; do
     echo -n "  Testing wss://mcp.dev-mesh.io${endpoint}... "
+    # Generate a random WebSocket key (16 bytes base64 encoded)
+    ws_key=$(openssl rand -base64 16)
     response=$(curl -s -o /dev/null -w "%{http_code}" \
         -H "Connection: Upgrade" \
         -H "Upgrade: websocket" \
         -H "Sec-WebSocket-Version: 13" \
-        -H "Sec-WebSocket-Key: dGhlIHNhbXBsZSBub25jZQ==" \
+        -H "Sec-WebSocket-Key: $ws_key" \
         "https://mcp.dev-mesh.io${endpoint}")
     echo "HTTP $response"
 done
