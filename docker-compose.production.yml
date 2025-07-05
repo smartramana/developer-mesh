@@ -11,6 +11,8 @@ services:
       - "8080:8080"
     env_file:
       - .env
+    command: >
+      sh -c "ln -sf /app/configs/config.production.yaml /app/configs/config.yaml && /app/mcp-server"
     volumes:
       - ./configs/config.base.yaml:/app/configs/config.base.yaml:ro
       - ./configs/config.production.yaml:/app/configs/config.production.yaml:ro

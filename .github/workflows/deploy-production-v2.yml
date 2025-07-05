@@ -118,6 +118,7 @@ jobs:
           # Application
           ENVIRONMENT=production
           CONFIG_PATH=/app/configs/config.production.yaml
+          MCP_CONFIG_FILE=/app/configs/config.production.yaml
           ADMIN_API_KEY=${{ secrets.ADMIN_API_KEY }}
           GITHUB_TOKEN=${{ github.token }}
           MCP_SERVER_URL=http://mcp-server:8080
@@ -219,6 +220,7 @@ jobs:
               "# Application",
               "ENVIRONMENT=production",
               "CONFIG_PATH=/app/configs/config.production.yaml",
+              "MCP_CONFIG_FILE=/app/configs/config.production.yaml",
               "ADMIN_API_KEY=${{ secrets.ADMIN_API_KEY }}",
               "GITHUB_TOKEN=${{ github.token }}",
               "MCP_SERVER_URL=http://mcp-server:8080",
