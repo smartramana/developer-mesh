@@ -45,6 +45,7 @@ services:
       - API_LISTEN_ADDRESS=:8081
     volumes:
       - ./configs/config.base.yaml:/app/configs/config.base.yaml:ro
+      - ./configs/config.production.yaml:/app/configs/config.production.yaml:ro
       - ./configs/config.rest-api.yaml:/app/configs/config.rest-api.yaml:ro
       - ./configs/auth.production.yaml:/app/configs/auth.production.yaml:ro
       - ./logs:/app/logs
