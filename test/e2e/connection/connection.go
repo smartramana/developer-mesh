@@ -135,7 +135,8 @@ func (cm *ConnectionManager) buildDialOptions() *websocket.DialOptions {
 	headers.Set("X-Client-Version", "1.0.0")
 
 	opts := &websocket.DialOptions{
-		HTTPHeader: headers,
+		HTTPHeader:   headers,
+		Subprotocols: []string{"mcp.v1"}, // MCP server expects this subprotocol
 	}
 
 	// Configure compression

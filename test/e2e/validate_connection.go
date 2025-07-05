@@ -104,6 +104,7 @@ func testWebSocketEndpoint(url, apiKey string) bool {
 	req.Header.Set("Upgrade", "websocket")
 	req.Header.Set("Sec-WebSocket-Version", "13")
 	req.Header.Set("Sec-WebSocket-Key", "dGVzdCBrZXkgZm9yIHZhbGlkYXRpb24=")
+	req.Header.Set("Sec-WebSocket-Protocol", "mcp.v1")
 
 	client := &http.Client{Timeout: 10 * time.Second}
 	resp, err := client.Do(req)
