@@ -28,7 +28,13 @@ func main() {
 	fmt.Println("=================================")
 	fmt.Printf("MCP Base URL: %s\n", mcpBaseURL)
 	fmt.Printf("API Base URL: %s\n", apiBaseURL)
-	fmt.Printf("API Key: %s...%s (length: %d)\n", apiKey[:8], apiKey[len(apiKey)-8:], len(apiKey))
+	if len(apiKey) > 16 {
+		fmt.Printf("API Key: %s...%s (length: %d)\n", apiKey[:8], apiKey[len(apiKey)-8:], len(apiKey))
+	} else if apiKey != "" {
+		fmt.Printf("API Key: [REDACTED] (length: %d)\n", len(apiKey))
+	} else {
+		fmt.Printf("API Key: not set\n")
+	}
 	fmt.Println()
 
 	// Test API health endpoint

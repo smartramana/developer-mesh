@@ -26,8 +26,8 @@ type Config struct {
 // LoadConfig loads configuration from environment variables
 func LoadConfig() *Config {
 	config := &Config{
-		MCPBaseURL:    getEnvOrDefault("MCP_BASE_URL", "mcp.dev-mesh.io"),
-		APIBaseURL:    getEnvOrDefault("API_BASE_URL", "api.dev-mesh.io"),
+		MCPBaseURL:    getEnvOrDefault("MCP_BASE_URL", "https://mcp.dev-mesh.io"),
+		APIBaseURL:    getEnvOrDefault("API_BASE_URL", "https://api.dev-mesh.io"),
 		APIKey:        getEnvOrDefault("E2E_API_KEY", ""),
 		TenantID:      getEnvOrDefault("E2E_TENANT_ID", "e2e-test-tenant"),
 		TestTimeout:   parseDurationOrDefault(getEnvOrDefault("E2E_TEST_TIMEOUT", "5m"), 5*time.Minute),
