@@ -210,15 +210,10 @@ func (s *Service) ValidateAPIKey(ctx context.Context, apiKey string) (*User, err
 	// Check database if available
 	if s.db != nil {
 		// Hash the API key for database lookup
-		hasher := sha256.New()
-		hasher.Write([]byte(apiKey))
-		keyHash := hex.EncodeToString(hasher.Sum(nil))
+		keyHash := s.hashAPIKey(apiKey)
 
 		// Extract key prefix for additional validation
-		keyPrefix := apiKey
-		if len(keyPrefix) > 8 {
-			keyPrefix = keyPrefix[:8]
-		}
+		keyPrefix := getKeyPrefix(apiKey)
 
 		var dbKey struct {
 			ID              string         `db:"id"`
@@ -271,12 +266,8 @@ func (s *Service) ValidateAPIKey(ctx context.Context, apiKey string) (*User, err
 			},
 		}
 
-		// Update last used timestamp
-		updateQuery := `UPDATE mcp.api_keys SET last_used_at = $1 WHERE key_hash = $2`
-		if _, err := s.db.ExecContext(ctx, updateQuery, time.Now(), keyHash); err != nil {
-			// Log warning but don't fail the auth - last_used is not critical
-			s.logger.Warn("Failed to update API key last used timestamp", map[string]interface{}{"error": err})
-		}
+		// Update last used timestamp asynchronously
+		go s.updateLastUsed(context.Background(), keyHash)
 
 		// Cache the result
 		if s.config.CacheEnabled && s.cache != nil {
