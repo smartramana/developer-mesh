@@ -481,6 +481,12 @@ func (s *Server) Shutdown(ctx context.Context) error {
 	// Log that we're shutting down the server
 	s.logger.Info("Shutting down MCP server", nil)
 
+	// Close WebSocket server if enabled
+	if s.wsServer != nil {
+		s.logger.Info("Closing WebSocket connections", nil)
+		s.wsServer.Close()
+	}
+
 	return s.server.Shutdown(ctx)
 }
 

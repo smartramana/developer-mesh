@@ -93,6 +93,11 @@ type Connection struct {
 	hub   *Server
 	mu    sync.RWMutex
 	state *ConnectionState
+
+	// Connection lifecycle management
+	closeOnce sync.Once
+	closed    chan struct{}
+	wg        sync.WaitGroup
 }
 
 func NewServer(auth *auth.Service, metrics observability.MetricsClient, logger observability.Logger, config Config) *Server {
@@ -214,6 +219,7 @@ func (s *Server) HandleWebSocket(w http.ResponseWriter, r *http.Request) {
 	}
 	connection.conn = conn
 	connection.hub = s
+	connection.closed = make(chan struct{})
 
 	// Set initial state
 	connection.SetState(ws.ConnectionStateConnecting)
@@ -433,21 +439,27 @@ func (s *Server) SetServices(taskService services.TaskService, workflowService s
 // Close gracefully shuts down the server
 func (s *Server) Close() error {
 	s.mu.Lock()
-	defer s.mu.Unlock()
 
-	// Close all connections
+	// Collect all connections to close
+	conns := make([]*Connection, 0, len(s.connections))
 	for _, conn := range s.connections {
-		conn.SetState(ws.ConnectionStateClosing)
-		if err := conn.conn.Close(websocket.StatusNormalClosure, "Server shutting down"); err != nil {
-			s.logger.Debug("Error closing connection during shutdown", map[string]interface{}{
-				"error":         err.Error(),
-				"connection_id": conn.ID,
-			})
-		}
+		conns = append(conns, conn)
 	}
 
-	// Clear connections map
+	// Clear connections map early to prevent new operations
 	s.connections = make(map[string]*Connection)
+	s.mu.Unlock()
+
+	// Close all connections (without holding the lock)
+	for _, conn := range conns {
+		// This will trigger the graceful close process
+		conn.Close()
+	}
+
+	// Stop the connection pool maintenance goroutine
+	if s.connectionPool != nil {
+		s.connectionPool.Stop()
+	}
 
 	return nil
 }

@@ -66,20 +66,10 @@ func (r *RateLimiter) Allow() bool {
 
 // readPump pumps messages from the websocket connection to the hub
 func (c *Connection) readPump() {
+	c.wg.Add(1)
 	defer func() {
-		c.SetState(ws.ConnectionStateClosing)
-		c.hub.removeConnection(c)
-		if c.conn != nil {
-			if err := c.conn.Close(websocket.StatusNormalClosure, ""); err != nil {
-				// Log error but don't fail - connection is already being closed
-				if c.hub.logger != nil {
-					c.hub.logger.Debug("Error closing WebSocket connection", map[string]interface{}{
-						"error":         err.Error(),
-						"connection_id": c.ID,
-					})
-				}
-			}
-		}
+		c.wg.Done()
+		c.Close()
 	}()
 
 	ctx := context.Background()
@@ -97,7 +87,39 @@ func (c *Connection) readPump() {
 		msg := GetMessage()
 		defer PutMessage(msg)
 
-		err := wsjson.Read(ctx, c.conn, msg)
+		// Protect conn access
+		c.mu.RLock()
+		conn := c.conn
+		c.mu.RUnlock()
+
+		if conn == nil {
+			return
+		}
+
+		var err error
+		if c.IsBinaryMode() {
+			// Read binary frame
+			msgType, data, readErr := conn.Read(ctx)
+			if readErr != nil {
+				err = readErr
+			} else if msgType == websocket.MessageBinary {
+				// Decode binary message
+				encoder := NewBinaryEncoder(1024)
+				decodedMsg, decodeErr := encoder.Decode(data)
+				if decodeErr != nil {
+					err = decodeErr
+				} else {
+					*msg = *decodedMsg
+					PutMessage(decodedMsg)
+				}
+			} else {
+				// Fall back to JSON for non-binary messages
+				err = json.Unmarshal(data, msg)
+			}
+		} else {
+			// Read JSON message
+			err = wsjson.Read(ctx, conn, msg)
+		}
 		if err != nil {
 			if websocket.CloseStatus(err) == websocket.StatusNormalClosure {
 				return
@@ -141,39 +163,24 @@ func (c *Connection) readPump() {
 
 // writePump pumps messages from the hub to the websocket connection
 func (c *Connection) writePump() {
+	c.wg.Add(1)
 	ticker := time.NewTicker(c.hub.config.PingInterval)
 	defer func() {
 		ticker.Stop()
-		if c.conn != nil {
-			if err := c.conn.Close(websocket.StatusNormalClosure, ""); err != nil {
-				// Log error but don't fail - connection is already being closed
-				if c.hub.logger != nil {
-					c.hub.logger.Debug("Error closing WebSocket connection in writePump", map[string]interface{}{
-						"error":         err.Error(),
-						"connection_id": c.ID,
-					})
-				}
-			}
-		}
+		c.wg.Done()
+		c.Close()
 	}()
 
 	ctx := context.Background()
 
 	for {
 		select {
+		case <-c.closed:
+			// Connection is closing
+			return
 		case message, ok := <-c.send:
 			if !ok {
 				// The hub closed the channel
-				if c.conn != nil {
-					if err := c.conn.Close(websocket.StatusNormalClosure, ""); err != nil {
-						if c.hub.logger != nil {
-							c.hub.logger.Debug("Error closing connection when hub closed channel", map[string]interface{}{
-								"error":         err.Error(),
-								"connection_id": c.ID,
-							})
-						}
-					}
-				}
 				return
 			}
 
@@ -181,16 +188,42 @@ func (c *Connection) writePump() {
 			writeCtx, cancel := context.WithTimeout(ctx, 10*time.Second)
 			defer cancel()
 
-			if c.conn != nil {
-				if err := c.conn.Write(writeCtx, websocket.MessageText, message); err != nil {
-					c.hub.logger.Error("Write error", map[string]interface{}{
-						"error":         err.Error(),
-						"connection_id": c.ID,
-					})
-					return
+			// Protect conn access
+			c.mu.RLock()
+			conn := c.conn
+			c.mu.RUnlock()
+
+			if conn == nil {
+				c.hub.logger.Error("Connection is nil", map[string]interface{}{
+					"connection_id": c.ID,
+				})
+				return
+			}
+
+			var err error
+			if c.IsBinaryMode() {
+				// For binary mode, we need to parse the JSON message first
+				var msg ws.Message
+				if jsonErr := json.Unmarshal(message, &msg); jsonErr == nil {
+					encoder := NewBinaryEncoder(1024)
+					if binaryData, encodeErr := encoder.Encode(&msg); encodeErr == nil {
+						err = conn.Write(writeCtx, websocket.MessageBinary, binaryData)
+					} else {
+						// Fall back to text on encoding error
+						err = conn.Write(writeCtx, websocket.MessageText, message)
+					}
+				} else {
+					// Fall back to text on parse error
+					err = conn.Write(writeCtx, websocket.MessageText, message)
 				}
 			} else {
-				c.hub.logger.Error("Connection is nil", map[string]interface{}{
+				// Send as text
+				err = conn.Write(writeCtx, websocket.MessageText, message)
+			}
+
+			if err != nil {
+				c.hub.logger.Error("Write error", map[string]interface{}{
+					"error":         err.Error(),
 					"connection_id": c.ID,
 				})
 				return
@@ -201,9 +234,13 @@ func (c *Connection) writePump() {
 
 		case <-ticker.C:
 			// Send ping to detect disconnected clients
-			if c.conn != nil {
+			c.mu.RLock()
+			conn := c.conn
+			c.mu.RUnlock()
+
+			if conn != nil {
 				pingCtx, cancel := context.WithTimeout(ctx, 10*time.Second)
-				if err := c.conn.Ping(pingCtx); err != nil {
+				if err := conn.Ping(pingCtx); err != nil {
 					cancel()
 					c.hub.logger.Error("Ping error", map[string]interface{}{
 						"error":         err.Error(),
@@ -279,8 +316,32 @@ func (c *Connection) SendNotification(method string, params interface{}) error {
 
 // Close closes the connection gracefully
 func (c *Connection) Close() error {
-	c.SetState(ws.ConnectionStateClosing)
-	return c.conn.Close(websocket.StatusNormalClosure, "Connection closed by server")
+	var closeErr error
+	c.closeOnce.Do(func() {
+		// Signal closure to all goroutines
+		close(c.closed)
+
+		// Set state to closing
+		c.SetState(ws.ConnectionStateClosing)
+
+		// Remove from hub
+		c.hub.removeConnection(c)
+
+		// Close the websocket connection
+		c.mu.Lock()
+		if c.conn != nil {
+			closeErr = c.conn.Close(websocket.StatusNormalClosure, "Connection closed by server")
+			c.conn = nil
+		}
+		c.mu.Unlock()
+
+		// Wait for goroutines to finish
+		c.wg.Wait()
+
+		// Set final state
+		c.SetState(ws.ConnectionStateClosed)
+	})
+	return closeErr
 }
 
 // GetTenantUUID returns the tenant ID as a UUID

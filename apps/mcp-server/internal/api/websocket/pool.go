@@ -147,12 +147,19 @@ func PutByteSlice(b *[]byte) {
 // GetConnection retrieves a connection from the sync.Pool
 func GetConnection() *Connection {
 	conn := connectionPool.Get().(*Connection)
-	// Reset state but keep the send channel
+	// Reset all state
 	conn.Connection = nil
 	conn.conn = nil
 	conn.hub = nil
 	conn.state = nil
 	conn.mu = sync.RWMutex{}
+	conn.closeOnce = sync.Once{}
+	conn.wg = sync.WaitGroup{}
+
+	// Create new channels for each connection
+	conn.send = make(chan []byte, 256)
+	conn.closed = make(chan struct{})
+
 	return conn
 }
 
@@ -167,12 +174,25 @@ func PutConnection(conn *Connection) {
 		_ = conn.conn.Close(websocket.StatusNormalClosure, "")
 	}
 
+	// Close channels if they're open
+	select {
+	case <-conn.closed:
+		// Already closed
+	default:
+		close(conn.closed)
+	}
+
+	// Drain and close send channel
+	close(conn.send)
+	for range conn.send {
+		// Drain any remaining messages
+	}
+
 	// Reset the connection state
 	conn.Connection = nil
 	conn.conn = nil
 	conn.hub = nil
 	conn.state = nil
-	// Keep the send channel for reuse
 
 	connectionPool.Put(conn)
 }
@@ -185,6 +205,8 @@ type ConnectionPoolManager struct {
 	minSize     int
 	idleTimeout time.Duration
 	mu          sync.Mutex
+	done        chan struct{}
+	stopOnce    sync.Once
 
 	// Metrics
 	created   uint64
@@ -216,6 +238,7 @@ func NewConnectionPoolManager(size int) *ConnectionPoolManager {
 		maxSize:     maxSize,
 		idleTimeout: 5 * time.Minute,
 		idleTracker: make(map[*Connection]time.Time),
+		done:        make(chan struct{}),
 	}
 
 	// Pre-allocate minimum connections
@@ -424,35 +447,48 @@ func (m *ConnectionPoolManager) maintain() {
 	ticker := time.NewTicker(30 * time.Second)
 	defer ticker.Stop()
 
-	for range ticker.C {
-		m.mu.Lock()
-		currentSize := len(m.pool)
-		m.mu.Unlock()
+	for {
+		select {
+		case <-m.done:
+			return
+		case <-ticker.C:
+			m.mu.Lock()
+			currentSize := len(m.pool)
+			m.mu.Unlock()
 
-		// Ensure minimum pool size
-		if currentSize < m.minSize {
-			toCreate := m.minSize - currentSize
-		createLoop:
-			for i := 0; i < toCreate; i++ {
-				conn := &Connection{
-					send: make(chan []byte, 256),
-				}
+			// Ensure minimum pool size
+			if currentSize < m.minSize {
+				toCreate := m.minSize - currentSize
+			createLoop:
+				for i := 0; i < toCreate; i++ {
+					conn := &Connection{
+						send: make(chan []byte, 256),
+					}
 
-				select {
-				case m.pool <- conn:
-					m.mu.Lock()
-					m.created++
-					m.mu.Unlock()
-				default:
-					// Pool is full
-					break createLoop
+					select {
+					case m.pool <- conn:
+						m.mu.Lock()
+						m.created++
+						m.mu.Unlock()
+					default:
+						// Pool is full
+						break createLoop
+					}
 				}
 			}
-		}
 
-		// Clean up idle connections
-		m.cleanupIdleConnections()
+			// Clean up idle connections
+			m.cleanupIdleConnections()
+		}
 	}
+}
+
+// Stop gracefully stops the pool maintenance
+func (m *ConnectionPoolManager) Stop() {
+	m.stopOnce.Do(func() {
+		close(m.done)
+		m.Shutdown()
+	})
 }
 
 // Shutdown gracefully shuts down the pool

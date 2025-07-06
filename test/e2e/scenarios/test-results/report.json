@@ -1,33 +1,18 @@
 [
   {
     "Name": "Performance and Stress Tests",
-    "StartTime": "2025-07-05T19:17:58.526499-05:00",
-    "EndTime": "2025-07-05T19:18:31.704239-05:00",
-    "Tests": [
-      {
-        "Name": "agent_churn",
-        "Suite": "performance",
-        "Status": "passed",
-        "Duration": 33176045600,
-        "StartTime": "2025-07-05T19:17:58.52684-05:00",
-        "EndTime": "2025-07-05T19:18:31.703881-05:00",
-        "Message": "Handled 60 connections with 3.2% error rate",
-        "Error": null,
-        "Logs": null,
-        "Metrics": null,
-        "Screenshots": null,
-        "Artifacts": null
-      }
-    ],
+    "StartTime": "2025-07-05T21:09:20.406148-05:00",
+    "EndTime": "2025-07-05T21:09:20.724901-05:00",
+    "Tests": [],
     "Summary": {
-      "Total": 1,
-      "Passed": 1,
+      "Total": 0,
+      "Passed": 0,
       "Failed": 0,
       "Skipped": 0,
       "Pending": 0,
-      "Duration": 33176045600,
-      "StartTime": "2025-07-05T19:17:58.52684-05:00",
-      "EndTime": "2025-07-05T19:18:31.703881-05:00"
+      "Duration": 0,
+      "StartTime": "0001-01-01T00:00:00Z",
+      "EndTime": "0001-01-01T00:00:00Z"
     }
   }
 ]

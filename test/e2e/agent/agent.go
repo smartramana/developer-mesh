@@ -72,6 +72,7 @@ func (ta *TestAgent) Connect(ctx context.Context) error {
 			"X-Agent-ID":    []string{ta.agentID},
 			"X-Agent-Name":  []string{ta.name},
 		},
+		Subprotocols: []string{"mcp.v1"},
 	}
 
 	conn, _, err := websocket.Dial(ctx, wsURL, opts)
