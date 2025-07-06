@@ -348,22 +348,27 @@ const (
 ### 1. Connection Establishment
 
 ```sequence
-Agent -> Server: WebSocket Upgrade Request
-Server -> Agent: 101 Switching Protocols
+Agent -> Server: WebSocket Upgrade Request (Sec-WebSocket-Protocol: mcp.v1)
+Server -> Agent: 101 Switching Protocols (Sec-WebSocket-Protocol: mcp.v1)
 Agent -> Server: agent.register
 Server -> Agent: registration.confirmed
 Agent -> Server: agent.heartbeat (periodic)
 ```
 
+**IMPORTANT**: All WebSocket clients MUST request the `mcp.v1` subprotocol during the handshake. Connections without this subprotocol will be rejected with a 426 Upgrade Required error.
+
 ### 2. Authentication Flow
 
 ```go
-// Initial connection headers
-headers := http.Header{
-    "Authorization": []string{"Bearer " + apiKey},
-    "X-Agent-ID":    []string{agentID},
-    "X-Agent-Type":  []string{agentType},
-    "X-Protocol":    []string{"mcpw-binary-v1"},
+// WebSocket dial options with required subprotocol
+dialOpts := &websocket.DialOptions{
+    Subprotocols: []string{"mcp.v1"}, // REQUIRED
+    HTTPHeader: http.Header{
+        "Authorization": []string{"Bearer " + apiKey},
+        "X-Agent-ID":    []string{agentID},
+        "X-Agent-Type":  []string{agentType},
+        "X-Protocol":    []string{"mcpw-binary-v1"},
+    },
 }
 
 // TLS configuration

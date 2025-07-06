@@ -204,6 +204,20 @@ defer codeAgent.Close()
 resp, err := codeAgent.AnalyzeCode(ctx, repoURL, options)
 ```
 
+### WebSocket Connection Requirements
+
+**IMPORTANT**: All WebSocket connections to the MCP server MUST specify the `mcp.v1` subprotocol. Failure to do so will result in a 426 Upgrade Required error.
+
+```go
+// Correct WebSocket connection
+dialOpts := &websocket.DialOptions{
+    Subprotocols: []string{"mcp.v1"},  // REQUIRED
+    HTTPHeader: http.Header{
+        "Authorization": []string{"Bearer " + apiKey},
+    },
+}
+```
+
 ### 3. Use Test Isolation
 
 ```go
