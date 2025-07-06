@@ -2,6 +2,7 @@ package websocket
 
 import (
 	"context"
+	"sync"
 	"time"
 
 	"github.com/coder/websocket"
@@ -124,6 +125,9 @@ func NewConnection(id string, conn *websocket.Conn, hub *Server) *Connection {
 		conn:       conn,
 		hub:        hub,
 		send:       make(chan []byte, 256),
+		closed:     make(chan struct{}),
+		closeOnce:  sync.Once{},
+		wg:         sync.WaitGroup{},
 	}
 
 	return c
