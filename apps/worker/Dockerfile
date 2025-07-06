@@ -46,7 +46,7 @@ USER nonroot
 EXPOSE 8082
 
 # Health check
-HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
+HEALTHCHECK --interval=30s --timeout=5s --start-period=30s --retries=3 \
     CMD ["/app/worker", "-health-check"]
 
 # Minimal environment variables

@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/golang-jwt/jwt/v4"
+	"github.com/google/uuid"
 
 	"github.com/S-Corkum/devops-mcp/pkg/auth"
 	ws "github.com/S-Corkum/devops-mcp/pkg/models/websocket"
@@ -100,13 +101,16 @@ func (s *Server) ValidateConnection(token string) (*auth.Claims, error) {
 
 	// If JWT fails, try API key validation
 	if s.ValidateAPIKey(token) {
+		// Generate a unique UUID for this API key session
+		userID := uuid.New().String()
+
 		// Create claims for API key auth
 		return &auth.Claims{
 			RegisteredClaims: jwt.RegisteredClaims{
-				Subject: "api-key-user",
+				Subject: userID,
 			},
 			TenantID: "default", // API keys could be mapped to tenants
-			UserID:   "api-key-user",
+			UserID:   userID,
 			Scopes:   []string{"api:access"}, // Default scopes for API keys
 		}, nil
 	}
