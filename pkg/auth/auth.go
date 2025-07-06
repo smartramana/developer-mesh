@@ -179,7 +179,7 @@ func (s *Service) ValidateAPIKey(ctx context.Context, apiKey string) (*User, err
 			Scopes:   key.Scopes,
 			AuthType: TypeAPIKey,
 			Metadata: map[string]interface{}{
-				"key_type":         key.KeyType,
+				"key_type":         string(key.KeyType),
 				"key_name":         key.Name,
 				"allowed_services": key.AllowedServices,
 			},

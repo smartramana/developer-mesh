@@ -236,7 +236,7 @@ func (g *GitHubAdapter) getRepository(ctx context.Context, owner, repo string) (
 	path := fmt.Sprintf("/repos/%s/%s", owner, repo)
 
 	var result map[string]any
-	err := g.restClient.Request(ctx, "GET", path, nil, &result)
+	err := g.contextRestClient.Request(ctx, "GET", path, nil, &result)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get repository: %w", err)
 	}
@@ -265,7 +265,7 @@ func (g *GitHubAdapter) listIssues(ctx context.Context, owner, repo string) ([]a
 	path := fmt.Sprintf("/repos/%s/%s/issues", owner, repo)
 
 	var result []any
-	err := g.restClient.Request(ctx, "GET", path, nil, &result)
+	err := g.contextRestClient.Request(ctx, "GET", path, nil, &result)
 	if err != nil {
 		return nil, fmt.Errorf("failed to list issues: %w", err)
 	}
@@ -298,7 +298,7 @@ func (g *GitHubAdapter) createIssue(ctx context.Context, owner, repo, title, bod
 	}
 
 	var result map[string]any
-	err := g.restClient.Request(ctx, "POST", path, payload, &result)
+	err := g.contextRestClient.Request(ctx, "POST", path, payload, &result)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create issue: %w", err)
 	}
@@ -321,7 +321,7 @@ func (g *GitHubAdapter) updateIssue(ctx context.Context, owner, repo string, num
 	}
 
 	var result map[string]any
-	err := g.restClient.Request(ctx, "PATCH", path, payload, &result)
+	err := g.contextRestClient.Request(ctx, "PATCH", path, payload, &result)
 	if err != nil {
 		return nil, fmt.Errorf("failed to update issue: %w", err)
 	}
@@ -334,7 +334,7 @@ func (g *GitHubAdapter) listPullRequests(ctx context.Context, owner, repo string
 	path := fmt.Sprintf("/repos/%s/%s/pulls", owner, repo)
 
 	var result []any
-	err := g.restClient.Request(ctx, "GET", path, nil, &result)
+	err := g.contextRestClient.Request(ctx, "GET", path, nil, &result)
 	if err != nil {
 		return nil, fmt.Errorf("failed to list pull requests: %w", err)
 	}
@@ -353,7 +353,7 @@ func (g *GitHubAdapter) createPullRequest(ctx context.Context, owner, repo, titl
 	}
 
 	var result map[string]any
-	err := g.restClient.Request(ctx, "POST", path, payload, &result)
+	err := g.contextRestClient.Request(ctx, "POST", path, payload, &result)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create pull request: %w", err)
 	}
@@ -398,7 +398,7 @@ func (g *GitHubAdapter) createBranch(ctx context.Context, owner, repo, branch, s
 	}
 
 	var result map[string]any
-	err := g.restClient.Request(ctx, "POST", path, payload, &result)
+	err := g.contextRestClient.Request(ctx, "POST", path, payload, &result)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create branch: %w", err)
 	}

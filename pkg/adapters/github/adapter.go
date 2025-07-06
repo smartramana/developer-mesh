@@ -72,6 +72,7 @@ type GitHubAdapter struct {
 	config              *Config
 	client              *http.Client
 	restClient          *api.RESTClient
+	contextRestClient   *api.ContextAwareRESTClient // Context-aware REST client
 	graphQLClient       *api.GraphQLClient
 	authProvider        auth.AuthProvider
 	authFactory         *auth.AuthProviderFactory
@@ -170,6 +171,13 @@ func New(config *Config, logger observability.Logger, metricsClient observabilit
 		client,
 		authProvider,
 		adapter.handleRateLimiting,
+		logger,
+	)
+
+	// Create context-aware REST client
+	adapter.contextRestClient = api.NewContextAwareRESTClient(
+		adapter.restClient,
+		authProvider,
 		logger,
 	)
 
