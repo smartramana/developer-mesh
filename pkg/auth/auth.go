@@ -52,23 +52,35 @@ type Claims struct {
 // APIKey represents an API key
 type APIKey struct {
 	Key       string     `db:"key"`
+	KeyHash   string     `db:"key_hash"`
+	KeyPrefix string     `db:"key_prefix"`
 	TenantID  string     `db:"tenant_id"`
 	UserID    string     `db:"user_id"`
 	Name      string     `db:"name"`
+	KeyType   KeyType    `db:"key_type"` // NEW
 	Scopes    []string   `db:"scopes"`
 	ExpiresAt *time.Time `db:"expires_at"`
 	CreatedAt time.Time  `db:"created_at"`
 	LastUsed  *time.Time `db:"last_used"`
-	Active    bool       `db:"active"`
+	Active    bool       `db:"is_active"`
+
+	// Gateway-specific fields
+	ParentKeyID     *string  `db:"parent_key_id"`    // NEW
+	AllowedServices []string `db:"allowed_services"` // NEW
+
+	// Rate limiting
+	RateLimitRequests      int `db:"rate_limit_requests"`
+	RateLimitWindowSeconds int `db:"rate_limit_window_seconds"`
 }
 
 // User represents an authenticated user
 type User struct {
-	ID       string   `json:"id"`
-	TenantID string   `json:"tenant_id"`
-	Email    string   `json:"email,omitempty"`
-	Scopes   []string `json:"scopes,omitempty"`
-	AuthType Type     `json:"auth_type"`
+	ID       string                 `json:"id"`
+	TenantID string                 `json:"tenant_id"`
+	Email    string                 `json:"email,omitempty"`
+	Scopes   []string               `json:"scopes,omitempty"`
+	AuthType Type                   `json:"auth_type"`
+	Metadata map[string]interface{} `json:"metadata,omitempty"`
 }
 
 // ServiceConfig represents auth configuration
@@ -166,6 +178,11 @@ func (s *Service) ValidateAPIKey(ctx context.Context, apiKey string) (*User, err
 			TenantID: key.TenantID,
 			Scopes:   key.Scopes,
 			AuthType: TypeAPIKey,
+			Metadata: map[string]interface{}{
+				"key_type":         key.KeyType,
+				"key_name":         key.Name,
+				"allowed_services": key.AllowedServices,
+			},
 		}
 
 		// Update last used timestamp asynchronously
@@ -204,18 +221,22 @@ func (s *Service) ValidateAPIKey(ctx context.Context, apiKey string) (*User, err
 		}
 
 		var dbKey struct {
-			ID        string         `db:"id"`
-			KeyPrefix string         `db:"key_prefix"`
-			TenantID  string         `db:"tenant_id"`
-			UserID    *string        `db:"user_id"`
-			Name      string         `db:"name"`
-			Scopes    pq.StringArray `db:"scopes"`
-			ExpiresAt *time.Time     `db:"expires_at"`
-			IsActive  bool           `db:"is_active"`
+			ID              string         `db:"id"`
+			KeyPrefix       string         `db:"key_prefix"`
+			TenantID        string         `db:"tenant_id"`
+			UserID          *string        `db:"user_id"`
+			Name            string         `db:"name"`
+			KeyType         KeyType        `db:"key_type"`
+			Scopes          pq.StringArray `db:"scopes"`
+			ExpiresAt       *time.Time     `db:"expires_at"`
+			IsActive        bool           `db:"is_active"`
+			ParentKeyID     *string        `db:"parent_key_id"`
+			AllowedServices pq.StringArray `db:"allowed_services"`
 		}
 
 		query := `
-			SELECT id, key_prefix, tenant_id, user_id, name, scopes, expires_at, is_active
+			SELECT id, key_prefix, tenant_id, user_id, name, key_type, scopes, 
+			       expires_at, is_active, parent_key_id, allowed_services
 			FROM mcp.api_keys
 			WHERE key_hash = $1 AND key_prefix = $2 AND is_active = true
 		`
@@ -243,6 +264,11 @@ func (s *Service) ValidateAPIKey(ctx context.Context, apiKey string) (*User, err
 			TenantID: dbKey.TenantID,
 			Scopes:   dbKey.Scopes,
 			AuthType: TypeAPIKey,
+			Metadata: map[string]interface{}{
+				"key_type":         dbKey.KeyType,
+				"key_name":         dbKey.Name,
+				"allowed_services": dbKey.AllowedServices,
+			},
 		}
 
 		// Update last used timestamp
@@ -291,20 +317,20 @@ func (s *Service) storeAPIKeyInDB(rawKey string, apiKey *APIKey) error {
 		// Update the existing key
 		updateQuery := `
 			UPDATE mcp.api_keys 
-			SET name = $2, scopes = $3, is_active = $4, updated_at = CURRENT_TIMESTAMP
+			SET name = $2, scopes = $3, is_active = $4, key_type = $5, updated_at = CURRENT_TIMESTAMP
 			WHERE key_hash = $1
 		`
-		_, err := s.db.Exec(updateQuery, keyHash, apiKey.Name, pq.Array(apiKey.Scopes), apiKey.Active)
+		_, err := s.db.Exec(updateQuery, keyHash, apiKey.Name, pq.Array(apiKey.Scopes), apiKey.Active, apiKey.KeyType)
 		return err
 	}
 
 	// Insert new key
 	insertQuery := `
 		INSERT INTO mcp.api_keys (
-			id, key_hash, key_prefix, tenant_id, user_id, name, scopes, 
+			id, key_hash, key_prefix, tenant_id, user_id, name, key_type, scopes, 
 			is_active, created_at, updated_at
 		) VALUES (
-			uuid_generate_v4(), $1, $2, $3, $4, $5, $6, $7, $8, $8
+			uuid_generate_v4(), $1, $2, $3, $4, $5, $6, $7, $8, $9, $9
 		)
 	`
 
@@ -316,7 +342,7 @@ func (s *Service) storeAPIKeyInDB(rawKey string, apiKey *APIKey) error {
 
 	_, err := s.db.Exec(insertQuery,
 		keyHash, keyPrefix, apiKey.TenantID, userID,
-		apiKey.Name, pq.Array(apiKey.Scopes), apiKey.Active, time.Now())
+		apiKey.Name, apiKey.KeyType, pq.Array(apiKey.Scopes), apiKey.Active, time.Now())
 
 	return err
 }
