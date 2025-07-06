@@ -1,4 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <testsuites>
-  <testsuite name="Single Agent Tests" tests="0" failures="0" skipped="0" time="0"></testsuite>
+  <testsuite name="Performance and Stress Tests" tests="1" failures="0" skipped="0" time="33.1760456">
+    <testcase name="agent_churn" classname="Performance and Stress Tests" time="33.1760456"></testcase>
+  </testsuite>
 </testsuites>

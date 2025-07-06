@@ -3,8 +3,10 @@ package e2e
 import (
 	"flag"
 	"fmt"
+	"net/http"
 	"os"
 	"testing"
+	"time"
 
 	_ "github.com/S-Corkum/devops-mcp/test/e2e/scenarios"
 	"github.com/S-Corkum/devops-mcp/test/e2e/utils"
@@ -68,6 +70,9 @@ var _ = BeforeSuite(func() {
 	fmt.Printf("Testing connectivity to MCP: %s\n", config.MCPBaseURL)
 	fmt.Printf("Testing connectivity to API: %s\n", config.APIBaseURL)
 
+	// Wait for services to be ready
+	waitForServices(config)
+
 	// Create test directories
 	if err := os.MkdirAll(config.ReportDir, 0755); err != nil {
 		Fail(fmt.Sprintf("Failed to create report directory: %v", err))
@@ -91,3 +96,49 @@ var _ = AfterSuite(func() {
 
 	fmt.Println("=== Teardown Complete ===")
 })
+
+// waitForServices waits for all services to be ready before running tests
+func waitForServices(config *utils.Config) {
+	maxRetries := 30
+	retryInterval := 2 * time.Second
+
+	services := []struct {
+		name string
+		url  string
+	}{
+		{"MCP Server", fmt.Sprintf("http://%s/health", config.MCPBaseURL)},
+		{"REST API", fmt.Sprintf("http://%s/health", config.APIBaseURL)},
+	}
+
+	for _, service := range services {
+		fmt.Printf("Waiting for %s to be ready...\n", service.name)
+
+		ready := false
+		for i := 0; i < maxRetries; i++ {
+			resp, err := http.Get(service.url)
+			if err == nil && resp.StatusCode == http.StatusOK {
+				resp.Body.Close()
+				ready = true
+				fmt.Printf("✓ %s is ready\n", service.name)
+				break
+			}
+
+			if resp != nil {
+				resp.Body.Close()
+			}
+
+			if i < maxRetries-1 {
+				fmt.Printf("  Attempt %d/%d failed, retrying in %v...\n", i+1, maxRetries, retryInterval)
+				time.Sleep(retryInterval)
+			}
+		}
+
+		if !ready {
+			Fail(fmt.Sprintf("%s did not become ready after %v", service.name, time.Duration(maxRetries)*retryInterval))
+		}
+	}
+
+	// Additional delay to ensure all internal components are initialized
+	fmt.Println("Waiting 5 seconds for internal components to initialize...")
+	time.Sleep(5 * time.Second)
+}

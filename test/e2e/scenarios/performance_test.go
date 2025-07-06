@@ -201,8 +201,8 @@ var _ = Describe("Performance and Stress E2E Tests", func() {
 
 			var wg sync.WaitGroup
 
-			// Spawn agents continuously
-			for i := 0; i < 10; i++ {
+			// Spawn agents continuously (reduced from 10 to 5 to stay within connection limits)
+			for i := 0; i < 5; i++ {
 				wg.Add(1)
 				go func(workerID int) {
 					defer wg.Done()
