@@ -166,10 +166,9 @@ func (s *Service) GinMiddlewareWithPassthrough(authTypes ...Type) gin.HandlerFun
 			}
 
 			c.Request = c.Request.WithContext(ctx)
-			
+
 			// Also store in Gin context for easier access
 			c.Set("passthrough_token", passthroughToken)
-			
 
 			s.logger.Info("Passthrough token added to context", map[string]interface{}{
 				"user_id":  user.ID,

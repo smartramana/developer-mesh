@@ -79,22 +79,22 @@ func GetPassthroughTokenFromGin(c interface{}) (*PassthroughToken, bool) {
 	type ginContext interface {
 		Get(key string) (value interface{}, exists bool)
 	}
-	
+
 	gc, ok := c.(ginContext)
 	if !ok {
 		return nil, false
 	}
-	
+
 	tokenInterface, exists := gc.Get("passthrough_token")
 	if !exists {
 		return nil, false
 	}
-	
+
 	token, ok := tokenInterface.(PassthroughToken)
 	if !ok {
 		return nil, false
 	}
-	
+
 	return &token, true
 }
 

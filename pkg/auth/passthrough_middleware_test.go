@@ -121,7 +121,7 @@ func TestGinMiddlewareWithPassthrough(t *testing.T) {
 			router.GET("/test", func(c *gin.Context) {
 				// Check if passthrough token is in context
 				passthroughToken, hasPassthrough := GetPassthroughToken(c.Request.Context())
-				
+
 				// If not found in request context, check Gin context
 				if !hasPassthrough {
 					if tokenInterface, exists := c.Get("passthrough_token"); exists {
@@ -131,7 +131,6 @@ func TestGinMiddlewareWithPassthrough(t *testing.T) {
 						}
 					}
 				}
-				
 
 				c.JSON(http.StatusOK, gin.H{
 					"has_passthrough": hasPassthrough,
