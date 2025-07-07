@@ -197,7 +197,8 @@ bench: ## Run benchmarks (PACKAGE=./pkg/embedding)
 
 .PHONY: lint
 lint: ## Run linters
-	@./.github/scripts/lint.sh
+	@which golangci-lint > /dev/null || (echo "Installing golangci-lint..." && go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest)
+	golangci-lint run ./pkg/... ./apps/... ./cmd/...
 
 .PHONY: fmt
 fmt: ## Format code

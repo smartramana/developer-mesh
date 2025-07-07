@@ -29,7 +29,7 @@ func TestNewTenantConfigRepository(t *testing.T) {
 func TestTenantConfigRepository_GetByTenantID(t *testing.T) {
 	db, mock, err := sqlmock.New()
 	require.NoError(t, err)
-	defer db.Close()
+	defer func() { _ = db.Close() }()
 
 	sqlxDB := sqlx.NewDb(db, "postgres")
 	logger := observability.NewLogger("test")
@@ -123,7 +123,7 @@ func TestTenantConfigRepository_GetByTenantID(t *testing.T) {
 func TestTenantConfigRepository_Create(t *testing.T) {
 	db, mock, err := sqlmock.New()
 	require.NoError(t, err)
-	defer db.Close()
+	defer func() { _ = db.Close() }()
 
 	sqlxDB := sqlx.NewDb(db, "postgres")
 	logger := observability.NewLogger("test")
@@ -219,7 +219,7 @@ func TestTenantConfigRepository_Create(t *testing.T) {
 func TestTenantConfigRepository_Update(t *testing.T) {
 	db, mock, err := sqlmock.New()
 	require.NoError(t, err)
-	defer db.Close()
+	defer func() { _ = db.Close() }()
 
 	sqlxDB := sqlx.NewDb(db, "postgres")
 	logger := observability.NewLogger("test")
@@ -295,7 +295,7 @@ func TestTenantConfigRepository_Update(t *testing.T) {
 func TestTenantConfigRepository_Delete(t *testing.T) {
 	db, mock, err := sqlmock.New()
 	require.NoError(t, err)
-	defer db.Close()
+	defer func() { _ = db.Close() }()
 
 	sqlxDB := sqlx.NewDb(db, "postgres")
 	logger := observability.NewLogger("test")
@@ -342,7 +342,7 @@ func TestTenantConfigRepository_Delete(t *testing.T) {
 func TestTenantConfigRepository_Exists(t *testing.T) {
 	db, mock, err := sqlmock.New()
 	require.NoError(t, err)
-	defer db.Close()
+	defer func() { _ = db.Close() }()
 
 	sqlxDB := sqlx.NewDb(db, "postgres")
 	logger := observability.NewLogger("test")
@@ -391,4 +391,3 @@ func TestTenantConfigRepository_Exists(t *testing.T) {
 		require.NoError(t, mock.ExpectationsWereMet())
 	})
 }
-

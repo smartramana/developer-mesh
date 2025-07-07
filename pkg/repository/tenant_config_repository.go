@@ -253,4 +253,3 @@ func (r *tenantConfigRepository) Exists(ctx context.Context, tenantID string) (b
 
 	return exists, nil
 }
-

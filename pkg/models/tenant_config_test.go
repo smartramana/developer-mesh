@@ -378,4 +378,3 @@ func TestTenantConfig_CompleteScenario(t *testing.T) {
 
 	assert.Contains(t, tc.AllowedOrigins, "https://app.example.com")
 }
-

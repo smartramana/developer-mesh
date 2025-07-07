@@ -1,29 +1,32 @@
-package auth
+package services
 
 import (
 	"context"
 
+	"github.com/S-Corkum/devops-mcp/pkg/auth"
 	"github.com/S-Corkum/devops-mcp/pkg/models"
-	"github.com/S-Corkum/devops-mcp/pkg/services"
+	"github.com/S-Corkum/devops-mcp/pkg/observability"
 	"github.com/pkg/errors"
 )
 
-// TenantAwareService extends the auth service with tenant configuration support
-type TenantAwareService struct {
-	*Service
-	tenantConfigService services.TenantConfigService
+// TenantAwareAuthService extends the auth service with tenant configuration support
+type TenantAwareAuthService struct {
+	*auth.Service
+	tenantConfigService TenantConfigService
+	logger              observability.Logger
 }
 
-// NewTenantAwareService creates a new tenant-aware auth service
-func NewTenantAwareService(authService *Service, tenantConfigService services.TenantConfigService) *TenantAwareService {
-	return &TenantAwareService{
+// NewTenantAwareAuthService creates a new tenant-aware auth service
+func NewTenantAwareAuthService(authService *auth.Service, tenantConfigService TenantConfigService, logger observability.Logger) *TenantAwareAuthService {
+	return &TenantAwareAuthService{
 		Service:             authService,
 		tenantConfigService: tenantConfigService,
+		logger:              logger,
 	}
 }
 
 // ValidateAPIKeyWithTenantConfig validates an API key and returns both user and tenant configuration
-func (s *TenantAwareService) ValidateAPIKeyWithTenantConfig(ctx context.Context, apiKey string) (*User, *models.TenantConfig, error) {
+func (s *TenantAwareAuthService) ValidateAPIKeyWithTenantConfig(ctx context.Context, apiKey string) (*auth.User, *models.TenantConfig, error) {
 	// Validate API key using base service
 	user, err := s.ValidateAPIKey(ctx, apiKey)
 	if err != nil {
@@ -56,12 +59,12 @@ func (s *TenantAwareService) ValidateAPIKeyWithTenantConfig(ctx context.Context,
 }
 
 // CheckFeatureEnabled checks if a feature is enabled for a tenant
-func (s *TenantAwareService) CheckFeatureEnabled(ctx context.Context, tenantID, feature string) (bool, error) {
+func (s *TenantAwareAuthService) CheckFeatureEnabled(ctx context.Context, tenantID, feature string) (bool, error) {
 	return s.tenantConfigService.IsFeatureEnabled(ctx, tenantID, feature)
 }
 
 // GetServiceToken retrieves a decrypted service token for a tenant and provider
-func (s *TenantAwareService) GetServiceToken(ctx context.Context, tenantID, provider string) (string, error) {
+func (s *TenantAwareAuthService) GetServiceToken(ctx context.Context, tenantID, provider string) (string, error) {
 	config, err := s.tenantConfigService.GetConfig(ctx, tenantID)
 	if err != nil {
 		return "", errors.Wrap(err, "failed to get tenant config")
@@ -76,7 +79,7 @@ func (s *TenantAwareService) GetServiceToken(ctx context.Context, tenantID, prov
 }
 
 // ValidateWithEndpointRateLimit validates an API key and checks endpoint-specific rate limits
-func (s *TenantAwareService) ValidateWithEndpointRateLimit(ctx context.Context, apiKey, endpoint string) (*User, *models.EndpointRateLimit, error) {
+func (s *TenantAwareAuthService) ValidateWithEndpointRateLimit(ctx context.Context, apiKey, endpoint string) (*auth.User, *models.EndpointRateLimit, error) {
 	// Validate API key and get tenant config
 	user, config, err := s.ValidateAPIKeyWithTenantConfig(ctx, apiKey)
 	if err != nil {
@@ -93,7 +96,7 @@ func (s *TenantAwareService) ValidateWithEndpointRateLimit(ctx context.Context, 
 }
 
 // GetAllowedOrigins returns the allowed CORS origins for a tenant
-func (s *TenantAwareService) GetAllowedOrigins(ctx context.Context, tenantID string) ([]string, error) {
+func (s *TenantAwareAuthService) GetAllowedOrigins(ctx context.Context, tenantID string) ([]string, error) {
 	config, err := s.tenantConfigService.GetConfig(ctx, tenantID)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to get tenant config")
@@ -101,4 +104,3 @@ func (s *TenantAwareService) GetAllowedOrigins(ctx context.Context, tenantID str
 
 	return config.AllowedOrigins, nil
 }
-

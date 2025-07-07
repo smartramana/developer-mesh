@@ -421,4 +421,3 @@ func (s *tenantConfigService) decryptServiceTokens(ctx context.Context, config *
 
 	return nil
 }
-

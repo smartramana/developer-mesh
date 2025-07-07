@@ -143,4 +143,3 @@ func (tc *TenantConfig) GetServiceToken(provider string) (string, bool) {
 	token, exists := tc.ServiceTokens[provider]
 	return token, exists
 }
-

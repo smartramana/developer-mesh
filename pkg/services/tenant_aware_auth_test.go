@@ -1,4 +1,4 @@
-package auth_test
+package services_test
 
 import (
 	"context"
@@ -7,6 +7,7 @@ import (
 
 	"github.com/S-Corkum/devops-mcp/pkg/auth"
 	"github.com/S-Corkum/devops-mcp/pkg/models"
+	"github.com/S-Corkum/devops-mcp/pkg/observability"
 	"github.com/S-Corkum/devops-mcp/pkg/services"
 	"github.com/lib/pq"
 	"github.com/stretchr/testify/assert"
@@ -74,15 +75,16 @@ func (m *mockTenantConfigService) SetRateLimitForEndpoint(ctx context.Context, t
 // Ensure mock implements the interface
 var _ services.TenantConfigService = (*mockTenantConfigService)(nil)
 
-func TestNewTenantAwareService(t *testing.T) {
+func TestNewTenantAwareAuthService(t *testing.T) {
 	authService := &auth.Service{}
 	tenantConfigService := &mockTenantConfigService{}
+	logger := observability.NewLogger("test")
 
-	tas := auth.NewTenantAwareService(authService, tenantConfigService)
+	tas := services.NewTenantAwareAuthService(authService, tenantConfigService, logger)
 	assert.NotNil(t, tas)
 }
 
-func TestTenantAwareService_CheckFeatureEnabled(t *testing.T) {
+func TestTenantAwareAuthService_CheckFeatureEnabled(t *testing.T) {
 	ctx := context.Background()
 	tenantID := "tenant-123"
 	feature := "advanced_analytics"
@@ -90,7 +92,7 @@ func TestTenantAwareService_CheckFeatureEnabled(t *testing.T) {
 	t.Run("feature enabled", func(t *testing.T) {
 		mockTenantConfig := &mockTenantConfigService{}
 		authService := &auth.Service{}
-		tas := auth.NewTenantAwareService(authService, mockTenantConfig)
+		tas := services.NewTenantAwareAuthService(authService, mockTenantConfig, observability.NewLogger("test"))
 
 		mockTenantConfig.On("IsFeatureEnabled", ctx, tenantID, feature).Return(true, nil)
 
@@ -104,7 +106,7 @@ func TestTenantAwareService_CheckFeatureEnabled(t *testing.T) {
 	t.Run("feature disabled", func(t *testing.T) {
 		mockTenantConfig := &mockTenantConfigService{}
 		authService := &auth.Service{}
-		tas := auth.NewTenantAwareService(authService, mockTenantConfig)
+		tas := services.NewTenantAwareAuthService(authService, mockTenantConfig, observability.NewLogger("test"))
 
 		mockTenantConfig.On("IsFeatureEnabled", ctx, tenantID, feature).Return(false, nil)
 
@@ -118,7 +120,7 @@ func TestTenantAwareService_CheckFeatureEnabled(t *testing.T) {
 	t.Run("error checking feature", func(t *testing.T) {
 		mockTenantConfig := &mockTenantConfigService{}
 		authService := &auth.Service{}
-		tas := auth.NewTenantAwareService(authService, mockTenantConfig)
+		tas := services.NewTenantAwareAuthService(authService, mockTenantConfig, observability.NewLogger("test"))
 
 		mockTenantConfig.On("IsFeatureEnabled", ctx, tenantID, feature).
 			Return(false, errors.New("service error"))
@@ -131,7 +133,7 @@ func TestTenantAwareService_CheckFeatureEnabled(t *testing.T) {
 	})
 }
 
-func TestTenantAwareService_GetServiceToken(t *testing.T) {
+func TestTenantAwareAuthService_GetServiceToken(t *testing.T) {
 	ctx := context.Background()
 	tenantID := "tenant-123"
 	provider := "github"
@@ -140,7 +142,7 @@ func TestTenantAwareService_GetServiceToken(t *testing.T) {
 	t.Run("token exists", func(t *testing.T) {
 		mockTenantConfig := &mockTenantConfigService{}
 		authService := &auth.Service{}
-		tas := auth.NewTenantAwareService(authService, mockTenantConfig)
+		tas := services.NewTenantAwareAuthService(authService, mockTenantConfig, observability.NewLogger("test"))
 
 		config := &models.TenantConfig{
 			TenantID: tenantID,
@@ -161,7 +163,7 @@ func TestTenantAwareService_GetServiceToken(t *testing.T) {
 	t.Run("token not found", func(t *testing.T) {
 		mockTenantConfig := &mockTenantConfigService{}
 		authService := &auth.Service{}
-		tas := auth.NewTenantAwareService(authService, mockTenantConfig)
+		tas := services.NewTenantAwareAuthService(authService, mockTenantConfig, observability.NewLogger("test"))
 
 		config := &models.TenantConfig{
 			TenantID:      tenantID,
@@ -181,7 +183,7 @@ func TestTenantAwareService_GetServiceToken(t *testing.T) {
 	t.Run("config load error", func(t *testing.T) {
 		mockTenantConfig := &mockTenantConfigService{}
 		authService := &auth.Service{}
-		tas := auth.NewTenantAwareService(authService, mockTenantConfig)
+		tas := services.NewTenantAwareAuthService(authService, mockTenantConfig, observability.NewLogger("test"))
 
 		mockTenantConfig.On("GetConfig", ctx, tenantID).
 			Return(nil, errors.New("config error"))
@@ -195,7 +197,7 @@ func TestTenantAwareService_GetServiceToken(t *testing.T) {
 	})
 }
 
-func TestTenantAwareService_GetAllowedOrigins(t *testing.T) {
+func TestTenantAwareAuthService_GetAllowedOrigins(t *testing.T) {
 	ctx := context.Background()
 	tenantID := "tenant-123"
 	allowedOrigins := []string{"https://app.example.com", "https://dev.example.com"}
@@ -203,7 +205,7 @@ func TestTenantAwareService_GetAllowedOrigins(t *testing.T) {
 	t.Run("get allowed origins successfully", func(t *testing.T) {
 		mockTenantConfig := &mockTenantConfigService{}
 		authService := &auth.Service{}
-		tas := auth.NewTenantAwareService(authService, mockTenantConfig)
+		tas := services.NewTenantAwareAuthService(authService, mockTenantConfig, observability.NewLogger("test"))
 
 		config := &models.TenantConfig{
 			TenantID:       tenantID,
@@ -222,7 +224,7 @@ func TestTenantAwareService_GetAllowedOrigins(t *testing.T) {
 	t.Run("config load error", func(t *testing.T) {
 		mockTenantConfig := &mockTenantConfigService{}
 		authService := &auth.Service{}
-		tas := auth.NewTenantAwareService(authService, mockTenantConfig)
+		tas := services.NewTenantAwareAuthService(authService, mockTenantConfig, observability.NewLogger("test"))
 
 		mockTenantConfig.On("GetConfig", ctx, tenantID).
 			Return(nil, errors.New("config error"))
@@ -239,4 +241,3 @@ func TestTenantAwareService_GetAllowedOrigins(t *testing.T) {
 // Integration tests for ValidateAPIKeyWithTenantConfig and ValidateWithEndpointRateLimit
 // would require a full auth service setup with database, which is beyond the scope
 // of unit tests. These should be tested in integration tests instead.
-

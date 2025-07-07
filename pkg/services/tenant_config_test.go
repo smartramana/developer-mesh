@@ -576,4 +576,3 @@ func TestTenantConfigService_SetRateLimitForKeyType(t *testing.T) {
 		encryption.AssertExpectations(t)
 	})
 }
-
