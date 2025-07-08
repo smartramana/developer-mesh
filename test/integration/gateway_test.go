@@ -36,7 +36,7 @@ func TestGatewayKeyPassthrough(t *testing.T) {
 
 	// Initialize components
 	ctx := context.Background()
-	logger := observability.NewLogger("test", nil)
+	logger := observability.NewLogger("test")
 	encryptionKey := os.Getenv("ENCRYPTION_KEY")
 	if encryptionKey == "" {
 		encryptionKey = "test-encryption-key-32-bytes-long"
@@ -61,12 +61,15 @@ func TestGatewayKeyPassthrough(t *testing.T) {
 
 	authService := auth.NewService(authConfig, apiKeyRepo, tenantRepo, logger, nil)
 
+	// Create encryption service
+	encryptionService := services.NewAESEncryptionService(encryptionKey, logger)
+
 	// Create tenant config service
 	tenantConfigService := services.NewTenantConfigService(
 		tenantConfigRepo,
-		logger,
 		nil, // no cache for test
-		encryptionKey,
+		encryptionService,
+		logger,
 	)
 
 	// Create tenant-aware auth service
@@ -298,7 +301,7 @@ func TestGatewayKeyPassthrough(t *testing.T) {
 		require.NoError(t, err)
 
 		// Verify feature flags
-		config, err := tenantConfigService.GetByTenantID(ctx, tenant.ID)
+		config, err := tenantConfigService.GetConfig(ctx, tenant.ID)
 		require.NoError(t, err)
 		require.True(t, config.IsFeatureEnabled("github_integration"))
 		require.True(t, config.IsFeatureEnabled("token_passthrough"))
@@ -343,7 +346,7 @@ func TestGatewayKeyPassthrough(t *testing.T) {
 		require.NoError(t, err)
 
 		// Verify rate limits for different key types
-		config, err := tenantConfigService.GetByTenantID(ctx, tenant.ID)
+		config, err := tenantConfigService.GetConfig(ctx, tenant.ID)
 		require.NoError(t, err)
 
 		gatewayLimits := config.GetRateLimitForKeyType("gateway")
@@ -379,7 +382,7 @@ func TestGatewayKeyValidation(t *testing.T) {
 
 	// Initialize components
 	ctx := context.Background()
-	logger := observability.NewLogger("test", nil)
+	logger := observability.NewLogger("test")
 
 	// Create repositories
 	apiKeyRepo := repository.NewAPIKeyRepository(db, logger)
@@ -455,16 +458,17 @@ func BenchmarkGatewayKeyPassthrough(b *testing.B) {
 	defer db.Close()
 
 	ctx := context.Background()
-	logger := observability.NewLogger("benchmark", nil)
+	logger := observability.NewLogger("benchmark")
 	encryptionKey := "benchmark-encryption-key-32bytes"
 
 	// Create services
 	tenantConfigRepo := repository.NewTenantConfigRepository(db, logger)
+	encryptionService := services.NewAESEncryptionService(encryptionKey, logger)
 	tenantConfigService := services.NewTenantConfigService(
 		tenantConfigRepo,
+		nil, // no cache
+		encryptionService,
 		logger,
-		nil,
-		encryptionKey,
 	)
 
 	// Create test data
@@ -485,7 +489,7 @@ func BenchmarkGatewayKeyPassthrough(b *testing.B) {
 	b.ResetTimer()
 	b.Run("GetServiceToken", func(b *testing.B) {
 		for i := 0; i < b.N; i++ {
-			config, _ := tenantConfigService.GetByTenantID(ctx, tenantID)
+			config, _ := tenantConfigService.GetConfig(ctx, tenantID)
 			if config != nil {
 				config.GetServiceToken("github")
 			}
