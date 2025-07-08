@@ -163,12 +163,12 @@ main() {
     
     # Set environment variables
     if [ "$LOCAL" = "true" ]; then
-        export MCP_BASE_URL="localhost:8080"
-        export API_BASE_URL="localhost:8081"
+        export MCP_BASE_URL="http://localhost:8080"
+        export API_BASE_URL="http://localhost:8081"
         print_info "Running against local environment"
     else
-        export MCP_BASE_URL="${MCP_BASE_URL:-$DEFAULT_MCP_URL}"
-        export API_BASE_URL="${API_BASE_URL:-$DEFAULT_API_URL}"
+        export MCP_BASE_URL="${MCP_BASE_URL:-https://$DEFAULT_MCP_URL}"
+        export API_BASE_URL="${API_BASE_URL:-https://$DEFAULT_API_URL}"
         print_info "Running against production environment"
     fi
     

@@ -73,6 +73,7 @@ func (s *Service) loadDevelopmentKeys(keys map[string]APIKeySettings) error {
 			TenantID:  settings.TenantID,
 			UserID:    "dev-user",
 			Name:      fmt.Sprintf("Development %s key", settings.Role),
+			KeyType:   getKeyTypeFromRole(settings.Role),
 			Scopes:    settings.Scopes,
 			CreatedAt: time.Now(),
 			Active:    true,
@@ -137,6 +138,7 @@ func (s *Service) loadKeysFromEnv() error {
 				TenantID:  defaultTenantID,
 				UserID:    "system",
 				Name:      sk.name,
+				KeyType:   getKeyTypeFromRole(sk.role),
 				Scopes:    getRoleScopes(sk.role),
 				CreatedAt: time.Now(),
 				Active:    true,
@@ -196,6 +198,7 @@ func (s *Service) loadKeysFromEnv() error {
 				TenantID:  defaultTenantID,
 				UserID:    "system",
 				Name:      name,
+				KeyType:   getKeyTypeFromRole(role),
 				Scopes:    getRoleScopes(role),
 				CreatedAt: time.Now(),
 				Active:    true,
@@ -246,6 +249,20 @@ func getRoleScopes(role string) []string {
 		return []string{"read"}
 	default:
 		return []string{"read"}
+	}
+}
+
+// getKeyTypeFromRole returns the key type based on role
+func getKeyTypeFromRole(role string) KeyType {
+	switch role {
+	case "admin":
+		return KeyTypeAdmin
+	case "agent":
+		return KeyTypeAgent
+	case "gateway":
+		return KeyTypeGateway
+	default:
+		return KeyTypeUser
 	}
 }
 

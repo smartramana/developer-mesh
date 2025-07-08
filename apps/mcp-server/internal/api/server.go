@@ -484,7 +484,11 @@ func (s *Server) Shutdown(ctx context.Context) error {
 	// Close WebSocket server if enabled
 	if s.wsServer != nil {
 		s.logger.Info("Closing WebSocket connections", nil)
-		s.wsServer.Close()
+		if err := s.wsServer.Close(); err != nil {
+			s.logger.Error("Failed to close WebSocket server", map[string]interface{}{
+				"error": err.Error(),
+			})
+		}
 	}
 
 	return s.server.Shutdown(ctx)

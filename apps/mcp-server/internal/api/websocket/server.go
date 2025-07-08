@@ -453,7 +453,7 @@ func (s *Server) Close() error {
 	// Close all connections (without holding the lock)
 	for _, conn := range conns {
 		// This will trigger the graceful close process
-		conn.Close()
+		_ = conn.Close()
 	}
 
 	// Stop the connection pool maintenance goroutine

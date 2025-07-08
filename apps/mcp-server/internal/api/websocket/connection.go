@@ -69,7 +69,7 @@ func (c *Connection) readPump() {
 	c.wg.Add(1)
 	defer func() {
 		c.wg.Done()
-		c.Close()
+		_ = c.Close()
 	}()
 
 	ctx := context.Background()
@@ -168,7 +168,7 @@ func (c *Connection) writePump() {
 	defer func() {
 		ticker.Stop()
 		c.wg.Done()
-		c.Close()
+		_ = c.Close()
 	}()
 
 	ctx := context.Background()
