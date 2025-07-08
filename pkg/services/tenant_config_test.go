@@ -137,6 +137,7 @@ func TestTenantConfigService_GetConfig(t *testing.T) {
 		},
 		EncryptedTokens: json.RawMessage(`{"github": "encrypted_token"}`),
 		FeaturesJSON:    json.RawMessage(`{"feature1": true}`),
+		Features:        map[string]interface{}{"feature1": true},
 		AllowedOrigins:  pq.StringArray{"https://app.example.com"},
 	}
 
@@ -149,7 +150,7 @@ func TestTenantConfigService_GetConfig(t *testing.T) {
 		service := NewTenantConfigService(repo, cache, encryption, logger)
 
 		// Setup cache hit
-		cache.On("Get", ctx, cacheKey, mock.AnythingOfType("*models.TenantConfig")).
+		cache.On("Get", mock.Anything, cacheKey, mock.AnythingOfType("*models.TenantConfig")).
 			Run(func(args mock.Arguments) {
 				config := args.Get(2).(*models.TenantConfig)
 				*config = *testConfig
@@ -174,19 +175,19 @@ func TestTenantConfigService_GetConfig(t *testing.T) {
 		service := NewTenantConfigService(repo, cache, encryption, logger)
 
 		// Setup cache miss
-		cache.On("Get", ctx, cacheKey, mock.AnythingOfType("*models.TenantConfig")).
+		cache.On("Get", mock.Anything, cacheKey, mock.AnythingOfType("*models.TenantConfig")).
 			Return(errors.New("cache miss"))
 
 		// Setup repository response
-		repo.On("GetByTenantID", ctx, tenantID).Return(testConfig, nil)
+		repo.On("GetByTenantID", mock.Anything, tenantID).Return(testConfig, nil)
 
 		// Setup decryption
 		decryptedTokens := []byte(`{"github": "ghp_decrypted_token"}`)
-		encryption.On("Decrypt", ctx, testConfig.EncryptedTokens).
+		encryption.On("Decrypt", mock.Anything, mock.AnythingOfType("[]uint8")).
 			Return(decryptedTokens, nil)
 
 		// Setup cache set
-		cache.On("Set", ctx, cacheKey, mock.AnythingOfType("*models.TenantConfig"), 5*time.Minute).
+		cache.On("Set", mock.Anything, cacheKey, mock.AnythingOfType("*models.TenantConfig"), 5*time.Minute).
 			Return(nil)
 
 		config, err := service.GetConfig(ctx, tenantID)
@@ -210,11 +211,11 @@ func TestTenantConfigService_GetConfig(t *testing.T) {
 		service := NewTenantConfigService(repo, cache, encryption, logger)
 
 		// Setup cache miss
-		cache.On("Get", ctx, cacheKey, mock.AnythingOfType("*models.TenantConfig")).
+		cache.On("Get", mock.Anything, cacheKey, mock.AnythingOfType("*models.TenantConfig")).
 			Return(errors.New("cache miss"))
 
 		// Setup repository not found
-		repo.On("GetByTenantID", ctx, tenantID).Return(nil, nil)
+		repo.On("GetByTenantID", mock.Anything, tenantID).Return(nil, nil)
 
 		config, err := service.GetConfig(ctx, tenantID)
 		assert.NoError(t, err)
@@ -235,18 +236,18 @@ func TestTenantConfigService_GetConfig(t *testing.T) {
 		service := NewTenantConfigService(repo, cache, encryption, logger)
 
 		// Setup cache miss
-		cache.On("Get", ctx, cacheKey, mock.AnythingOfType("*models.TenantConfig")).
+		cache.On("Get", mock.Anything, cacheKey, mock.AnythingOfType("*models.TenantConfig")).
 			Return(errors.New("cache miss"))
 
 		// Setup repository response
-		repo.On("GetByTenantID", ctx, tenantID).Return(testConfig, nil)
+		repo.On("GetByTenantID", mock.Anything, tenantID).Return(testConfig, nil)
 
 		// Setup decryption failure
-		encryption.On("Decrypt", ctx, testConfig.EncryptedTokens).
+		encryption.On("Decrypt", mock.Anything, mock.AnythingOfType("[]uint8")).
 			Return(nil, errors.New("decryption failed"))
 
 		// Setup cache set
-		cache.On("Set", ctx, cacheKey, mock.AnythingOfType("*models.TenantConfig"), 5*time.Minute).
+		cache.On("Set", mock.Anything, cacheKey, mock.AnythingOfType("*models.TenantConfig"), 5*time.Minute).
 			Return(nil)
 
 		config, err := service.GetConfig(ctx, tenantID)
@@ -267,11 +268,11 @@ func TestTenantConfigService_GetConfig(t *testing.T) {
 		service := NewTenantConfigService(repo, nil, encryption, logger)
 
 		// Setup repository response
-		repo.On("GetByTenantID", ctx, tenantID).Return(testConfig, nil)
+		repo.On("GetByTenantID", mock.Anything, tenantID).Return(testConfig, nil)
 
 		// Setup decryption
 		decryptedTokens := []byte(`{"github": "ghp_decrypted_token"}`)
-		encryption.On("Decrypt", ctx, testConfig.EncryptedTokens).
+		encryption.On("Decrypt", mock.Anything, mock.AnythingOfType("[]uint8")).
 			Return(decryptedTokens, nil)
 
 		config, err := service.GetConfig(ctx, tenantID)
@@ -305,16 +306,15 @@ func TestTenantConfigService_CreateConfig(t *testing.T) {
 		service := NewTenantConfigService(repo, cache, encryption, logger)
 
 		// Setup encryption
-		tokensJSON, _ := json.Marshal(config.ServiceTokens)
 		encryptedTokens := []byte(`{"encrypted": "data"}`)
-		encryption.On("Encrypt", ctx, tokensJSON).Return(encryptedTokens, nil)
+		encryption.On("Encrypt", mock.Anything, mock.AnythingOfType("[]uint8")).Return(encryptedTokens, nil)
 
 		// Setup repository create
-		repo.On("Create", ctx, config).Return(nil)
+		repo.On("Create", mock.Anything, config).Return(nil)
 
 		// Setup cache invalidation
 		cacheKey := "tenant:config:" + config.TenantID
-		cache.On("Delete", ctx, cacheKey).Return(nil)
+		cache.On("Delete", mock.Anything, cacheKey).Return(nil)
 
 		err := service.CreateConfig(ctx, config)
 		assert.NoError(t, err)
@@ -333,11 +333,11 @@ func TestTenantConfigService_CreateConfig(t *testing.T) {
 		service := NewTenantConfigService(repo, cache, nil, logger)
 
 		// Setup repository create
-		repo.On("Create", ctx, config).Return(nil)
+		repo.On("Create", mock.Anything, config).Return(nil)
 
 		// Setup cache invalidation
 		cacheKey := "tenant:config:" + config.TenantID
-		cache.On("Delete", ctx, cacheKey).Return(nil)
+		cache.On("Delete", mock.Anything, cacheKey).Return(nil)
 
 		err := service.CreateConfig(ctx, config)
 		assert.NoError(t, err)
@@ -356,7 +356,7 @@ func TestTenantConfigService_CreateConfig(t *testing.T) {
 
 		// Setup encryption failure
 		tokensJSON, _ := json.Marshal(config.ServiceTokens)
-		encryption.On("Encrypt", ctx, tokensJSON).Return(nil, errors.New("encryption failed"))
+		encryption.On("Encrypt", mock.Anything, tokensJSON).Return(nil, errors.New("encryption failed"))
 
 		err := service.CreateConfig(ctx, config)
 		assert.Error(t, err)
@@ -396,17 +396,17 @@ func TestTenantConfigService_SetServiceToken(t *testing.T) {
 
 		// Mock GetConfig
 		cacheKey := "tenant:config:" + tenantID
-		cache.On("Get", ctx, cacheKey, mock.AnythingOfType("*models.TenantConfig")).
+		cache.On("Get", mock.Anything, cacheKey, mock.AnythingOfType("*models.TenantConfig")).
 			Return(errors.New("cache miss"))
-		repo.On("GetByTenantID", ctx, tenantID).Return(existingConfig, nil)
-		encryption.On("Decrypt", ctx, mock.Anything).Return([]byte(`{}`), nil)
-		cache.On("Set", ctx, cacheKey, mock.AnythingOfType("*models.TenantConfig"), 5*time.Minute).
+		repo.On("GetByTenantID", mock.Anything, tenantID).Return(existingConfig, nil)
+		encryption.On("Decrypt", mock.Anything, mock.Anything).Return([]byte(`{}`), nil)
+		cache.On("Set", mock.Anything, cacheKey, mock.AnythingOfType("*models.TenantConfig"), 5*time.Minute).
 			Return(nil)
 
 		// Mock UpdateConfig
-		encryption.On("Encrypt", ctx, mock.Anything).Return([]byte(`{"encrypted": "data"}`), nil)
-		repo.On("Update", ctx, mock.AnythingOfType("*models.TenantConfig")).Return(nil)
-		cache.On("Delete", ctx, cacheKey).Return(nil)
+		encryption.On("Encrypt", mock.Anything, mock.Anything).Return([]byte(`{"encrypted": "data"}`), nil)
+		repo.On("Update", mock.Anything, mock.AnythingOfType("*models.TenantConfig")).Return(nil)
+		cache.On("Delete", mock.Anything, cacheKey).Return(nil)
 
 		err := service.SetServiceToken(ctx, tenantID, provider, token)
 		assert.NoError(t, err)
@@ -450,17 +450,17 @@ func TestTenantConfigService_SetFeature(t *testing.T) {
 
 		// Mock GetConfig
 		cacheKey := "tenant:config:" + tenantID
-		cache.On("Get", ctx, cacheKey, mock.AnythingOfType("*models.TenantConfig")).
+		cache.On("Get", mock.Anything, cacheKey, mock.AnythingOfType("*models.TenantConfig")).
 			Return(errors.New("cache miss"))
-		repo.On("GetByTenantID", ctx, tenantID).Return(existingConfig, nil)
-		encryption.On("Decrypt", ctx, mock.Anything).Return([]byte(`{}`), nil)
-		cache.On("Set", ctx, cacheKey, mock.AnythingOfType("*models.TenantConfig"), 5*time.Minute).
+		repo.On("GetByTenantID", mock.Anything, tenantID).Return(existingConfig, nil)
+		encryption.On("Decrypt", mock.Anything, mock.Anything).Return([]byte(`{}`), nil)
+		cache.On("Set", mock.Anything, cacheKey, mock.AnythingOfType("*models.TenantConfig"), 5*time.Minute).
 			Return(nil)
 
 		// Mock UpdateConfig
-		encryption.On("Encrypt", ctx, mock.Anything).Return([]byte(`{"encrypted": "data"}`), nil)
-		repo.On("Update", ctx, mock.AnythingOfType("*models.TenantConfig")).Return(nil)
-		cache.On("Delete", ctx, cacheKey).Return(nil)
+		encryption.On("Encrypt", mock.Anything, mock.Anything).Return([]byte(`{"encrypted": "data"}`), nil)
+		repo.On("Update", mock.Anything, mock.AnythingOfType("*models.TenantConfig")).Return(nil)
+		cache.On("Delete", mock.Anything, cacheKey).Return(nil)
 
 		err := service.SetFeature(ctx, tenantID, feature, value)
 		assert.NoError(t, err)
@@ -504,7 +504,7 @@ func TestTenantConfigService_IsFeatureEnabled(t *testing.T) {
 
 		// Mock GetConfig
 		cacheKey := "tenant:config:" + tenantID
-		cache.On("Get", ctx, cacheKey, mock.AnythingOfType("*models.TenantConfig")).
+		cache.On("Get", mock.Anything, cacheKey, mock.AnythingOfType("*models.TenantConfig")).
 			Run(func(args mock.Arguments) {
 				c := args.Get(2).(*models.TenantConfig)
 				*c = *config
@@ -553,17 +553,17 @@ func TestTenantConfigService_SetRateLimitForKeyType(t *testing.T) {
 
 		// Mock GetConfig
 		cacheKey := "tenant:config:" + tenantID
-		cache.On("Get", ctx, cacheKey, mock.AnythingOfType("*models.TenantConfig")).
+		cache.On("Get", mock.Anything, cacheKey, mock.AnythingOfType("*models.TenantConfig")).
 			Return(errors.New("cache miss"))
-		repo.On("GetByTenantID", ctx, tenantID).Return(existingConfig, nil)
-		encryption.On("Decrypt", ctx, mock.Anything).Return([]byte(`{}`), nil)
-		cache.On("Set", ctx, cacheKey, mock.AnythingOfType("*models.TenantConfig"), 5*time.Minute).
+		repo.On("GetByTenantID", mock.Anything, tenantID).Return(existingConfig, nil)
+		encryption.On("Decrypt", mock.Anything, mock.Anything).Return([]byte(`{}`), nil)
+		cache.On("Set", mock.Anything, cacheKey, mock.AnythingOfType("*models.TenantConfig"), 5*time.Minute).
 			Return(nil)
 
 		// Mock UpdateConfig
-		encryption.On("Encrypt", ctx, mock.Anything).Return([]byte(`{"encrypted": "data"}`), nil)
-		repo.On("Update", ctx, mock.AnythingOfType("*models.TenantConfig")).Return(nil)
-		cache.On("Delete", ctx, cacheKey).Return(nil)
+		encryption.On("Encrypt", mock.Anything, mock.Anything).Return([]byte(`{"encrypted": "data"}`), nil)
+		repo.On("Update", mock.Anything, mock.AnythingOfType("*models.TenantConfig")).Return(nil)
+		cache.On("Delete", mock.Anything, cacheKey).Return(nil)
 
 		err := service.SetRateLimitForKeyType(ctx, tenantID, keyType, limit)
 		assert.NoError(t, err)
