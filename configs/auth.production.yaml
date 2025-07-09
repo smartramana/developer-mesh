@@ -1,3 +1,4 @@
 auth:
-  # No hardcoded keys in production
-  production_key_source: env  # or "vault" or "aws-secrets"
+  # Production loads API keys from database only
+  # This enables dynamic key management without restarts
+  production_key_source: database  # Keys are stored in mcp.api_keys table

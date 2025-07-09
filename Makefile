@@ -259,22 +259,22 @@ db-shell: ## Open PostgreSQL shell
 .PHONY: migrate-create
 migrate-create: ## Create new migration (name=migration_name)
 	@which migrate > /dev/null || (echo "Error: golang-migrate not installed. Run: brew install golang-migrate" && exit 1)
-	cd apps/rest-api && migrate create -ext sql -dir migrations/sql -seq $(name)
+	migrate create -ext sql -dir migrations -seq $(name)
 
 .PHONY: migrate-up
 migrate-up: ## Run all pending migrations
 	@which migrate > /dev/null || (echo "Error: golang-migrate not installed. Run: brew install golang-migrate" && exit 1)
-	migrate -database "postgresql://${DB_USER:-postgres}:${DB_PASSWORD:-postgres}@${DB_HOST:-localhost}:${DB_PORT:-5432}/${DATABASE_NAME:-devops_mcp_dev}?sslmode=${DATABASE_SSL_MODE:-disable}" -path apps/rest-api/migrations/sql up
+	migrate -database "postgresql://${DB_USER:-postgres}:${DB_PASSWORD:-postgres}@${DB_HOST:-localhost}:${DB_PORT:-5432}/${DATABASE_NAME:-devops_mcp_dev}?sslmode=${DATABASE_SSL_MODE:-disable}" -path migrations up
 
 .PHONY: migrate-down
 migrate-down: ## Rollback last migration
 	@which migrate > /dev/null || (echo "Error: golang-migrate not installed. Run: brew install golang-migrate" && exit 1)
-	migrate -database "postgresql://${DB_USER:-postgres}:${DB_PASSWORD:-postgres}@${DB_HOST:-localhost}:${DB_PORT:-5432}/${DATABASE_NAME:-devops_mcp_dev}?sslmode=${DATABASE_SSL_MODE:-disable}" -path apps/rest-api/migrations/sql down 1
+	migrate -database "postgresql://${DB_USER:-postgres}:${DB_PASSWORD:-postgres}@${DB_HOST:-localhost}:${DB_PORT:-5432}/${DATABASE_NAME:-devops_mcp_dev}?sslmode=${DATABASE_SSL_MODE:-disable}" -path migrations down 1
 
 .PHONY: migrate-status
 migrate-status: ## Show migration status
 	@which migrate > /dev/null || (echo "Error: golang-migrate not installed. Run: brew install golang-migrate" && exit 1)
-	migrate -database "postgresql://${DB_USER:-postgres}:${DB_PASSWORD:-postgres}@${DB_HOST:-localhost}:${DB_PORT:-5432}/${DATABASE_NAME:-devops_mcp_dev}?sslmode=${DATABASE_SSL_MODE:-disable}" -path apps/rest-api/migrations/sql version
+	migrate -database "postgresql://${DB_USER:-postgres}:${DB_PASSWORD:-postgres}@${DB_HOST:-localhost}:${DB_PORT:-5432}/${DATABASE_NAME:-devops_mcp_dev}?sslmode=${DATABASE_SSL_MODE:-disable}" -path migrations version
 # ==============================================================================
 # Development Helpers
 # ==============================================================================

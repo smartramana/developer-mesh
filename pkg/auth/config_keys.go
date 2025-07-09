@@ -93,6 +93,11 @@ func (s *Service) loadDevelopmentKeys(keys map[string]APIKeySettings) error {
 // loadProductionKeys loads keys from secure sources
 func (s *Service) loadProductionKeys(source string) error {
 	switch source {
+	case "database":
+		// In production, keys are loaded on-demand from database
+		// This enables dynamic key management without restarts
+		s.logger.Info("Production mode: API keys will be loaded from database on demand", nil)
+		return nil
 	case "env":
 		return s.loadKeysFromEnv()
 	case "vault":
