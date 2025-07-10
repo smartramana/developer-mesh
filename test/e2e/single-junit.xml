@@ -1,0 +1,146 @@
+<?xml version="1.0" encoding="UTF-8"?>
+  <testsuites tests="31" disabled="22" errors="0" failures="6" time="0.474939924">
+      <testsuite name="DevOps MCP E2E Test Suite" package="/Users/seancorkum/projects/devops-mcp/test/e2e" tests="0" disabled="0" skipped="0" errors="0" failures="0" time="9.1759e-05" timestamp="2025-07-10T13:50:06">
+          <properties>
+              <property name="SuiteSucceeded" value="true"></property>
+              <property name="SuiteHasProgrammaticFocus" value="false"></property>
+              <property name="SpecialSuiteFailureReason" value=""></property>
+              <property name="SuiteLabels" value="[]"></property>
+              <property name="RandomSeed" value="1752169804"></property>
+              <property name="RandomizeAllSpecs" value="false"></property>
+              <property name="LabelFilter" value=""></property>
+              <property name="FocusStrings" value="Single Agent"></property>
+              <property name="SkipStrings" value=""></property>
+              <property name="FocusFiles" value=""></property>
+              <property name="SkipFiles" value=""></property>
+              <property name="FailOnPending" value="false"></property>
+              <property name="FailOnEmpty" value="false"></property>
+              <property name="FailFast" value="false"></property>
+              <property name="FlakeAttempts" value="0"></property>
+              <property name="DryRun" value="false"></property>
+              <property name="ParallelTotal" value="1"></property>
+              <property name="OutputInterceptorMode" value=""></property>
+          </properties>
+      </testsuite>
+      <testsuite name="Multi-Agent Collaboration E2E Test Suite" package="/Users/seancorkum/projects/devops-mcp/test/e2e/scenarios" tests="31" disabled="0" skipped="22" errors="0" failures="6" time="0.474848165" timestamp="2025-07-10T13:50:09">
+          <properties>
+              <property name="SuiteSucceeded" value="false"></property>
+              <property name="SuiteHasProgrammaticFocus" value="false"></property>
+              <property name="SpecialSuiteFailureReason" value=""></property>
+              <property name="SuiteLabels" value="[]"></property>
+              <property name="RandomSeed" value="1752169804"></property>
+              <property name="RandomizeAllSpecs" value="false"></property>
+              <property name="LabelFilter" value=""></property>
+              <property name="FocusStrings" value="Single Agent"></property>
+              <property name="SkipStrings" value=""></property>
+              <property name="FocusFiles" value=""></property>
+              <property name="SkipFiles" value=""></property>
+              <property name="FailOnPending" value="false"></property>
+              <property name="FailOnEmpty" value="false"></property>
+              <property name="FailFast" value="false"></property>
+              <property name="FlakeAttempts" value="0"></property>
+              <property name="DryRun" value="false"></property>
+              <property name="ParallelTotal" value="1"></property>
+              <property name="OutputInterceptorMode" value=""></property>
+          </properties>
+          <testcase name="[It] Multi-Agent Collaboration E2E Tests Basic Multi-Agent Setup should connect multiple agents simultaneously" classname="Multi-Agent Collaboration E2E Test Suite" status="skipped" time="0">
+              <skipped message="skipped"></skipped>
+          </testcase>
+          <testcase name="[It] Multi-Agent Collaboration E2E Tests Code Review Workflow should coordinate code review between multiple agents" classname="Multi-Agent Collaboration E2E Test Suite" status="skipped" time="0">
+              <skipped message="skipped"></skipped>
+          </testcase>
+          <testcase name="[It] Multi-Agent Collaboration E2E Tests Parallel Task Execution should execute tasks in parallel across multiple agents" classname="Multi-Agent Collaboration E2E Test Suite" status="skipped" time="0">
+              <skipped message="skipped"></skipped>
+          </testcase>
+          <testcase name="[It] Multi-Agent Collaboration E2E Tests Consensus Mechanism should reach consensus among multiple agents" classname="Multi-Agent Collaboration E2E Test Suite" status="skipped" time="0">
+              <skipped message="skipped"></skipped>
+          </testcase>
+          <testcase name="[It] Multi-Agent Collaboration E2E Tests MapReduce Pattern should execute MapReduce workflow across agents" classname="Multi-Agent Collaboration E2E Test Suite" status="skipped" time="0">
+              <skipped message="skipped"></skipped>
+          </testcase>
+          <testcase name="[It] Multi-Agent Collaboration E2E Tests Agent Coordination should coordinate deployment pipeline across agents" classname="Multi-Agent Collaboration E2E Test Suite" status="skipped" time="0">
+              <skipped message="skipped"></skipped>
+          </testcase>
+          <testcase name="[It] Performance and Stress E2E Tests Agent Swarm Tests should handle 50 concurrent agents" classname="Multi-Agent Collaboration E2E Test Suite" status="skipped" time="0">
+              <skipped message="skipped"></skipped>
+          </testcase>
+          <testcase name="[It] Performance and Stress E2E Tests Agent Swarm Tests should handle agent churn" classname="Multi-Agent Collaboration E2E Test Suite" status="skipped" time="0">
+              <skipped message="skipped"></skipped>
+          </testcase>
+          <testcase name="[It] Performance and Stress E2E Tests Message Throughput Tests should handle high message throughput" classname="Multi-Agent Collaboration E2E Test Suite" status="skipped" time="0">
+              <skipped message="skipped"></skipped>
+          </testcase>
+          <testcase name="[It] Performance and Stress E2E Tests Message Throughput Tests should handle large message payloads" classname="Multi-Agent Collaboration E2E Test Suite" status="skipped" time="0">
+              <skipped message="skipped"></skipped>
+          </testcase>
+          <testcase name="[It] Performance and Stress E2E Tests Resource Utilization Tests should maintain stable performance under sustained load" classname="Multi-Agent Collaboration E2E Test Suite" status="skipped" time="0">
+              <skipped message="skipped"></skipped>
+          </testcase>
+          <testcase name="[It] Performance and Stress E2E Tests Binary Protocol Performance should demonstrate binary protocol efficiency" classname="Multi-Agent Collaboration E2E Test Suite" status="skipped" time="0">
+              <skipped message="skipped"></skipped>
+          </testcase>
+          <testcase name="[It] Multi-Tenant E2E Tests Rate Limiting should enforce rate limits per API key type" classname="Multi-Agent Collaboration E2E Test Suite" status="skipped" time="0">
+              <skipped message="skipped"></skipped>
+          </testcase>
+          <testcase name="[It] Multi-Tenant E2E Tests Rate Limiting should apply different rate limits for different key types" classname="Multi-Agent Collaboration E2E Test Suite" status="skipped" time="0">
+              <skipped message="skipped"></skipped>
+          </testcase>
+          <testcase name="[It] Multi-Tenant E2E Tests Token Passthrough should pass through service tokens for gateway keys" classname="Multi-Agent Collaboration E2E Test Suite" status="skipped" time="0">
+              <skipped message="skipped"></skipped>
+          </testcase>
+          <testcase name="[It] Multi-Tenant E2E Tests Tenant Isolation should enforce tenant isolation for API keys" classname="Multi-Agent Collaboration E2E Test Suite" status="skipped" time="0">
+              <skipped message="skipped"></skipped>
+          </testcase>
+          <testcase name="[It] Multi-Tenant E2E Tests Feature Flags should respect tenant-specific feature flags" classname="Multi-Agent Collaboration E2E Test Suite" status="skipped" time="0">
+              <skipped message="skipped"></skipped>
+          </testcase>
+          <testcase name="[It] Multi-Tenant E2E Tests API Key Hierarchy should enforce parent-child key relationships" classname="Multi-Agent Collaboration E2E Test Suite" status="skipped" time="0">
+              <skipped message="skipped"></skipped>
+          </testcase>
+          <testcase name="[It] Multi-Tenant E2E Tests Load Testing should handle concurrent multi-tenant operations" classname="Multi-Agent Collaboration E2E Test Suite" status="skipped" time="0">
+              <skipped message="skipped"></skipped>
+          </testcase>
+          <testcase name="[It] Multi-Tenant E2E Tests Security should prevent cross-tenant access" classname="Multi-Agent Collaboration E2E Test Suite" status="skipped" time="0">
+              <skipped message="skipped"></skipped>
+          </testcase>
+          <testcase name="[It] Multi-Tenant E2E Tests Security should validate API key permissions" classname="Multi-Agent Collaboration E2E Test Suite" status="skipped" time="0">
+              <skipped message="skipped"></skipped>
+          </testcase>
+          <testcase name="[It] Multi-Tenant E2E Tests Performance should maintain performance with tenant configuration caching" classname="Multi-Agent Collaboration E2E Test Suite" status="skipped" time="0">
+              <skipped message="skipped"></skipped>
+          </testcase>
+          <testcase name="[It] Single Agent E2E Tests Basic Agent Lifecycle should complete full agent lifecycle" classname="Multi-Agent Collaboration E2E Test Suite" status="failed" time="0.075821709">
+              <failure message="Unexpected error:&#xA;    &lt;*errors.errorString | 0xc000697a20&gt;: &#xA;    registration error: failed to register agent: failed to create agent: pq: invalid input syntax for type uuid: &#34;system&#34;&#xA;    {&#xA;        s: &#34;registration error: failed to register agent: failed to create agent: pq: invalid input syntax for type uuid: \&#34;system\&#34;&#34;,&#xA;    }&#xA;occurred" type="failed">[FAILED] Unexpected error:&#xA;    &lt;*errors.errorString | 0xc000697a20&gt;: &#xA;    registration error: failed to register agent: failed to create agent: pq: invalid input syntax for type uuid: &#34;system&#34;&#xA;    {&#xA;        s: &#34;registration error: failed to register agent: failed to create agent: pq: invalid input syntax for type uuid: \&#34;system\&#34;&#34;,&#xA;    }&#xA;occurred&#xA;In [It] at: /Users/seancorkum/projects/devops-mcp/test/e2e/scenarios/single_agent_test.go:80 @ 07/10/25 13:50:09.216&#xA;</failure>
+              <system-err>&gt; Enter [BeforeEach] Single Agent E2E Tests - /Users/seancorkum/projects/devops-mcp/test/e2e/scenarios/single_agent_test.go:30 @ 07/10/25 13:50:09.142&#xA;&lt; Exit [BeforeEach] Single Agent E2E Tests - /Users/seancorkum/projects/devops-mcp/test/e2e/scenarios/single_agent_test.go:30 @ 07/10/25 13:50:09.146 (4ms)&#xA;&gt; Enter [It] should complete full agent lifecycle - /Users/seancorkum/projects/devops-mcp/test/e2e/scenarios/single_agent_test.go:47 @ 07/10/25 13:50:09.146&#xA;[FAILED] Unexpected error:&#xA;    &lt;*errors.errorString | 0xc000697a20&gt;: &#xA;    registration error: failed to register agent: failed to create agent: pq: invalid input syntax for type uuid: &#34;system&#34;&#xA;    {&#xA;        s: &#34;registration error: failed to register agent: failed to create agent: pq: invalid input syntax for type uuid: \&#34;system\&#34;&#34;,&#xA;    }&#xA;occurred&#xA;In [It] at: /Users/seancorkum/projects/devops-mcp/test/e2e/scenarios/single_agent_test.go:80 @ 07/10/25 13:50:09.216&#xA;&lt; Exit [It] should complete full agent lifecycle - /Users/seancorkum/projects/devops-mcp/test/e2e/scenarios/single_agent_test.go:47 @ 07/10/25 13:50:09.216 (70ms)&#xA;&gt; Enter [AfterEach] Single Agent E2E Tests - /Users/seancorkum/projects/devops-mcp/test/e2e/scenarios/single_agent_test.go:40 @ 07/10/25 13:50:09.216&#xA;&lt; Exit [AfterEach] Single Agent E2E Tests - /Users/seancorkum/projects/devops-mcp/test/e2e/scenarios/single_agent_test.go:40 @ 07/10/25 13:50:09.218 (3ms)&#xA;</system-err>
+          </testcase>
+          <testcase name="[It] Single Agent E2E Tests Basic Agent Lifecycle should handle reconnection" classname="Multi-Agent Collaboration E2E Test Suite" status="failed" time="0.044407714">
+              <failure message="Expected&#xA;    &lt;string&gt;: &#xA;not to be empty" type="failed">[FAILED] Expected&#xA;    &lt;string&gt;: &#xA;not to be empty&#xA;In [It] at: /Users/seancorkum/projects/devops-mcp/test/e2e/scenarios/single_agent_test.go:132 @ 07/10/25 13:50:09.26&#xA;</failure>
+              <system-err>&gt; Enter [BeforeEach] Single Agent E2E Tests - /Users/seancorkum/projects/devops-mcp/test/e2e/scenarios/single_agent_test.go:30 @ 07/10/25 13:50:09.218&#xA;&lt; Exit [BeforeEach] Single Agent E2E Tests - /Users/seancorkum/projects/devops-mcp/test/e2e/scenarios/single_agent_test.go:30 @ 07/10/25 13:50:09.222 (4ms)&#xA;&gt; Enter [It] should handle reconnection - /Users/seancorkum/projects/devops-mcp/test/e2e/scenarios/single_agent_test.go:107 @ 07/10/25 13:50:09.222&#xA;[FAILED] Expected&#xA;    &lt;string&gt;: &#xA;not to be empty&#xA;In [It] at: /Users/seancorkum/projects/devops-mcp/test/e2e/scenarios/single_agent_test.go:132 @ 07/10/25 13:50:09.26&#xA;&lt; Exit [It] should handle reconnection - /Users/seancorkum/projects/devops-mcp/test/e2e/scenarios/single_agent_test.go:107 @ 07/10/25 13:50:09.26 (38ms)&#xA;&gt; Enter [AfterEach] Single Agent E2E Tests - /Users/seancorkum/projects/devops-mcp/test/e2e/scenarios/single_agent_test.go:40 @ 07/10/25 13:50:09.26&#xA;&lt; Exit [AfterEach] Single Agent E2E Tests - /Users/seancorkum/projects/devops-mcp/test/e2e/scenarios/single_agent_test.go:40 @ 07/10/25 13:50:09.263 (2ms)&#xA;</system-err>
+          </testcase>
+          <testcase name="[It] Single Agent E2E Tests Tool Discovery and Execution should discover available tools" classname="Multi-Agent Collaboration E2E Test Suite" status="failed" time="0.054522477">
+              <failure message="Expected&#xA;    &lt;bool&gt;: false&#xA;to be true" type="failed">[FAILED] Expected&#xA;    &lt;bool&gt;: false&#xA;to be true&#xA;In [It] at: /Users/seancorkum/projects/devops-mcp/test/e2e/scenarios/single_agent_test.go:193 @ 07/10/25 13:50:09.314&#xA;</failure>
+              <system-err>&gt; Enter [BeforeEach] Single Agent E2E Tests - /Users/seancorkum/projects/devops-mcp/test/e2e/scenarios/single_agent_test.go:30 @ 07/10/25 13:50:09.263&#xA;&lt; Exit [BeforeEach] Single Agent E2E Tests - /Users/seancorkum/projects/devops-mcp/test/e2e/scenarios/single_agent_test.go:30 @ 07/10/25 13:50:09.266 (3ms)&#xA;&gt; Enter [It] should discover available tools - /Users/seancorkum/projects/devops-mcp/test/e2e/scenarios/single_agent_test.go:163 @ 07/10/25 13:50:09.266&#xA;[FAILED] Expected&#xA;    &lt;bool&gt;: false&#xA;to be true&#xA;In [It] at: /Users/seancorkum/projects/devops-mcp/test/e2e/scenarios/single_agent_test.go:193 @ 07/10/25 13:50:09.314&#xA;&lt; Exit [It] should discover available tools - /Users/seancorkum/projects/devops-mcp/test/e2e/scenarios/single_agent_test.go:163 @ 07/10/25 13:50:09.314 (48ms)&#xA;&gt; Enter [AfterEach] Single Agent E2E Tests - /Users/seancorkum/projects/devops-mcp/test/e2e/scenarios/single_agent_test.go:40 @ 07/10/25 13:50:09.314&#xA;&lt; Exit [AfterEach] Single Agent E2E Tests - /Users/seancorkum/projects/devops-mcp/test/e2e/scenarios/single_agent_test.go:40 @ 07/10/25 13:50:09.317 (3ms)&#xA;</system-err>
+          </testcase>
+          <testcase name="[It] Single Agent E2E Tests Tool Discovery and Execution should execute GitHub tool" classname="Multi-Agent Collaboration E2E Test Suite" status="passed" time="0.050251472">
+              <system-err>&gt; Enter [BeforeEach] Single Agent E2E Tests - /Users/seancorkum/projects/devops-mcp/test/e2e/scenarios/single_agent_test.go:30 @ 07/10/25 13:50:09.318&#xA;&lt; Exit [BeforeEach] Single Agent E2E Tests - /Users/seancorkum/projects/devops-mcp/test/e2e/scenarios/single_agent_test.go:30 @ 07/10/25 13:50:09.321 (3ms)&#xA;&gt; Enter [It] should execute GitHub tool - /Users/seancorkum/projects/devops-mcp/test/e2e/scenarios/single_agent_test.go:215 @ 07/10/25 13:50:09.321&#xA;&lt; Exit [It] should execute GitHub tool - /Users/seancorkum/projects/devops-mcp/test/e2e/scenarios/single_agent_test.go:215 @ 07/10/25 13:50:09.365 (44ms)&#xA;&gt; Enter [AfterEach] Single Agent E2E Tests - /Users/seancorkum/projects/devops-mcp/test/e2e/scenarios/single_agent_test.go:40 @ 07/10/25 13:50:09.365&#xA;&lt; Exit [AfterEach] Single Agent E2E Tests - /Users/seancorkum/projects/devops-mcp/test/e2e/scenarios/single_agent_test.go:40 @ 07/10/25 13:50:09.368 (3ms)&#xA;</system-err>
+          </testcase>
+          <testcase name="[It] Single Agent E2E Tests Context Management should create and retrieve context" classname="Multi-Agent Collaboration E2E Test Suite" status="failed" time="0.048919732">
+              <failure message="Expected&#xA;    &lt;*websocket.Error | 0xc0003c0180&gt;: &#xA;    model_id is required&#xA;    {&#xA;        Code: 4003,&#xA;        Message: &#34;model_id is required&#34;,&#xA;        Data: nil,&#xA;    }&#xA;to be nil" type="failed">[FAILED] Expected&#xA;    &lt;*websocket.Error | 0xc0003c0180&gt;: &#xA;    model_id is required&#xA;    {&#xA;        Code: 4003,&#xA;        Message: &#34;model_id is required&#34;,&#xA;        Data: nil,&#xA;    }&#xA;to be nil&#xA;In [It] at: /Users/seancorkum/projects/devops-mcp/test/e2e/scenarios/single_agent_test.go:298 @ 07/10/25 13:50:09.415&#xA;</failure>
+              <system-err>&gt; Enter [BeforeEach] Single Agent E2E Tests - /Users/seancorkum/projects/devops-mcp/test/e2e/scenarios/single_agent_test.go:30 @ 07/10/25 13:50:09.368&#xA;&lt; Exit [BeforeEach] Single Agent E2E Tests - /Users/seancorkum/projects/devops-mcp/test/e2e/scenarios/single_agent_test.go:30 @ 07/10/25 13:50:09.371 (3ms)&#xA;&gt; Enter [It] should create and retrieve context - /Users/seancorkum/projects/devops-mcp/test/e2e/scenarios/single_agent_test.go:265 @ 07/10/25 13:50:09.371&#xA;[FAILED] Expected&#xA;    &lt;*websocket.Error | 0xc0003c0180&gt;: &#xA;    model_id is required&#xA;    {&#xA;        Code: 4003,&#xA;        Message: &#34;model_id is required&#34;,&#xA;        Data: nil,&#xA;    }&#xA;to be nil&#xA;In [It] at: /Users/seancorkum/projects/devops-mcp/test/e2e/scenarios/single_agent_test.go:298 @ 07/10/25 13:50:09.415&#xA;&lt; Exit [It] should create and retrieve context - /Users/seancorkum/projects/devops-mcp/test/e2e/scenarios/single_agent_test.go:265 @ 07/10/25 13:50:09.415 (44ms)&#xA;&gt; Enter [AfterEach] Single Agent E2E Tests - /Users/seancorkum/projects/devops-mcp/test/e2e/scenarios/single_agent_test.go:40 @ 07/10/25 13:50:09.415&#xA;&lt; Exit [AfterEach] Single Agent E2E Tests - /Users/seancorkum/projects/devops-mcp/test/e2e/scenarios/single_agent_test.go:40 @ 07/10/25 13:50:09.417 (2ms)&#xA;</system-err>
+          </testcase>
+          <testcase name="[It] Single Agent E2E Tests Session Management should manage sessions correctly" classname="Multi-Agent Collaboration E2E Test Suite" status="failed" time="0.04923421">
+              <failure message="Expected&#xA;    &lt;string&gt;: &#xA;not to be empty" type="failed">[FAILED] Expected&#xA;    &lt;string&gt;: &#xA;not to be empty&#xA;In [It] at: /Users/seancorkum/projects/devops-mcp/test/e2e/scenarios/single_agent_test.go:366 @ 07/10/25 13:50:09.461&#xA;</failure>
+              <system-err>&gt; Enter [BeforeEach] Single Agent E2E Tests - /Users/seancorkum/projects/devops-mcp/test/e2e/scenarios/single_agent_test.go:30 @ 07/10/25 13:50:09.417&#xA;&lt; Exit [BeforeEach] Single Agent E2E Tests - /Users/seancorkum/projects/devops-mcp/test/e2e/scenarios/single_agent_test.go:30 @ 07/10/25 13:50:09.419 (2ms)&#xA;&gt; Enter [It] should manage sessions correctly - /Users/seancorkum/projects/devops-mcp/test/e2e/scenarios/single_agent_test.go:327 @ 07/10/25 13:50:09.419&#xA;[FAILED] Expected&#xA;    &lt;string&gt;: &#xA;not to be empty&#xA;In [It] at: /Users/seancorkum/projects/devops-mcp/test/e2e/scenarios/single_agent_test.go:366 @ 07/10/25 13:50:09.461&#xA;&lt; Exit [It] should manage sessions correctly - /Users/seancorkum/projects/devops-mcp/test/e2e/scenarios/single_agent_test.go:327 @ 07/10/25 13:50:09.461 (42ms)&#xA;&gt; Enter [AfterEach] Single Agent E2E Tests - /Users/seancorkum/projects/devops-mcp/test/e2e/scenarios/single_agent_test.go:40 @ 07/10/25 13:50:09.461&#xA;&lt; Exit [AfterEach] Single Agent E2E Tests - /Users/seancorkum/projects/devops-mcp/test/e2e/scenarios/single_agent_test.go:40 @ 07/10/25 13:50:09.466 (5ms)&#xA;</system-err>
+          </testcase>
+          <testcase name="[It] Single Agent E2E Tests Error Handling should handle authentication errors" classname="Multi-Agent Collaboration E2E Test Suite" status="passed" time="0.044292739">
+              <system-err>&gt; Enter [BeforeEach] Single Agent E2E Tests - /Users/seancorkum/projects/devops-mcp/test/e2e/scenarios/single_agent_test.go:30 @ 07/10/25 13:50:09.466&#xA;&lt; Exit [BeforeEach] Single Agent E2E Tests - /Users/seancorkum/projects/devops-mcp/test/e2e/scenarios/single_agent_test.go:30 @ 07/10/25 13:50:09.47 (3ms)&#xA;&gt; Enter [It] should handle authentication errors - /Users/seancorkum/projects/devops-mcp/test/e2e/scenarios/single_agent_test.go:398 @ 07/10/25 13:50:09.47&#xA;&lt; Exit [It] should handle authentication errors - /Users/seancorkum/projects/devops-mcp/test/e2e/scenarios/single_agent_test.go:398 @ 07/10/25 13:50:09.507 (38ms)&#xA;&gt; Enter [AfterEach] Single Agent E2E Tests - /Users/seancorkum/projects/devops-mcp/test/e2e/scenarios/single_agent_test.go:40 @ 07/10/25 13:50:09.507&#xA;&lt; Exit [AfterEach] Single Agent E2E Tests - /Users/seancorkum/projects/devops-mcp/test/e2e/scenarios/single_agent_test.go:40 @ 07/10/25 13:50:09.511 (3ms)&#xA;</system-err>
+          </testcase>
+          <testcase name="[It] Single Agent E2E Tests Error Handling should handle invalid method calls" classname="Multi-Agent Collaboration E2E Test Suite" status="passed" time="0.024662106">
+              <system-err>&gt; Enter [BeforeEach] Single Agent E2E Tests - /Users/seancorkum/projects/devops-mcp/test/e2e/scenarios/single_agent_test.go:30 @ 07/10/25 13:50:09.511&#xA;&lt; Exit [BeforeEach] Single Agent E2E Tests - /Users/seancorkum/projects/devops-mcp/test/e2e/scenarios/single_agent_test.go:30 @ 07/10/25 13:50:09.514 (3ms)&#xA;&gt; Enter [It] should handle invalid method calls - /Users/seancorkum/projects/devops-mcp/test/e2e/scenarios/single_agent_test.go:428 @ 07/10/25 13:50:09.514&#xA;&lt; Exit [It] should handle invalid method calls - /Users/seancorkum/projects/devops-mcp/test/e2e/scenarios/single_agent_test.go:428 @ 07/10/25 13:50:09.533 (19ms)&#xA;&gt; Enter [AfterEach] Single Agent E2E Tests - /Users/seancorkum/projects/devops-mcp/test/e2e/scenarios/single_agent_test.go:40 @ 07/10/25 13:50:09.533&#xA;&lt; Exit [AfterEach] Single Agent E2E Tests - /Users/seancorkum/projects/devops-mcp/test/e2e/scenarios/single_agent_test.go:40 @ 07/10/25 13:50:09.535 (3ms)&#xA;</system-err>
+          </testcase>
+          <testcase name="[It] Single Agent E2E Tests Error Handling should handle timeout scenarios" classname="Multi-Agent Collaboration E2E Test Suite" status="failed" time="0.081474803">
+              <failure message="Expected&#xA;    &lt;*errors.errorString | 0xc00038a2c0&gt;: &#xA;    timeout waiting for response to message 88f869bb-4c7e-475a-aeed-9b9a28ecd7d4&#xA;    {&#xA;        s: &#34;timeout waiting for response to message 88f869bb-4c7e-475a-aeed-9b9a28ecd7d4&#34;,&#xA;    }&#xA;to match error&#xA;    &lt;context.deadlineExceededError&gt;: &#xA;    context deadline exceeded&#xA;    {}" type="failed">[FAILED] Expected&#xA;    &lt;*errors.errorString | 0xc00038a2c0&gt;: &#xA;    timeout waiting for response to message 88f869bb-4c7e-475a-aeed-9b9a28ecd7d4&#xA;    {&#xA;        s: &#34;timeout waiting for response to message 88f869bb-4c7e-475a-aeed-9b9a28ecd7d4&#34;,&#xA;    }&#xA;to match error&#xA;    &lt;context.deadlineExceededError&gt;: &#xA;    context deadline exceeded&#xA;    {}&#xA;In [It] at: /Users/seancorkum/projects/devops-mcp/test/e2e/scenarios/single_agent_test.go:498 @ 07/10/25 13:50:09.613&#xA;</failure>
+              <system-err>&gt; Enter [BeforeEach] Single Agent E2E Tests - /Users/seancorkum/projects/devops-mcp/test/e2e/scenarios/single_agent_test.go:30 @ 07/10/25 13:50:09.535&#xA;&lt; Exit [BeforeEach] Single Agent E2E Tests - /Users/seancorkum/projects/devops-mcp/test/e2e/scenarios/single_agent_test.go:30 @ 07/10/25 13:50:09.538 (3ms)&#xA;&gt; Enter [It] should handle timeout scenarios - /Users/seancorkum/projects/devops-mcp/test/e2e/scenarios/single_agent_test.go:468 @ 07/10/25 13:50:09.538&#xA;[FAILED] Expected&#xA;    &lt;*errors.errorString | 0xc00038a2c0&gt;: &#xA;    timeout waiting for response to message 88f869bb-4c7e-475a-aeed-9b9a28ecd7d4&#xA;    {&#xA;        s: &#34;timeout waiting for response to message 88f869bb-4c7e-475a-aeed-9b9a28ecd7d4&#34;,&#xA;    }&#xA;to match error&#xA;    &lt;context.deadlineExceededError&gt;: &#xA;    context deadline exceeded&#xA;    {}&#xA;In [It] at: /Users/seancorkum/projects/devops-mcp/test/e2e/scenarios/single_agent_test.go:498 @ 07/10/25 13:50:09.613&#xA;&lt; Exit [It] should handle timeout scenarios - /Users/seancorkum/projects/devops-mcp/test/e2e/scenarios/single_agent_test.go:468 @ 07/10/25 13:50:09.613 (75ms)&#xA;&gt; Enter [AfterEach] Single Agent E2E Tests - /Users/seancorkum/projects/devops-mcp/test/e2e/scenarios/single_agent_test.go:40 @ 07/10/25 13:50:09.613&#xA;&lt; Exit [AfterEach] Single Agent E2E Tests - /Users/seancorkum/projects/devops-mcp/test/e2e/scenarios/single_agent_test.go:40 @ 07/10/25 13:50:09.617 (4ms)&#xA;</system-err>
+          </testcase>
+      </testsuite>
+  </testsuites>

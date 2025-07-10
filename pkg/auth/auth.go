@@ -248,8 +248,8 @@ func (s *Service) ValidateAPIKey(ctx context.Context, apiKey string) (*User, err
 			return nil, ErrInvalidAPIKey
 		}
 
-		// Default user ID if not set
-		userID := "system"
+		// Default user ID if not set - use a system user UUID
+		userID := "00000000-0000-0000-0000-000000000000" // System user UUID
 		if dbKey.UserID != nil {
 			userID = *dbKey.UserID
 		}
