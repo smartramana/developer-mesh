@@ -142,13 +142,13 @@ func (s *Service) ValidateAPIKey(ctx context.Context, apiKey string) (*User, err
 	if apiKey == "" {
 		return nil, ErrNoAPIKey
 	}
-	
+
 	s.logger.Debug("ValidateAPIKey called", map[string]interface{}{
-		"key_prefix": getKeyPrefix(apiKey),
-		"has_db": s.db != nil,
-		"cache_enabled": s.config != nil && s.config.CacheEnabled,
+		"key_prefix":         getKeyPrefix(apiKey),
+		"has_db":             s.db != nil,
+		"cache_enabled":      s.config != nil && s.config.CacheEnabled,
 		"api_keys_in_memory": len(s.apiKeys),
-		"db_type": fmt.Sprintf("%T", s.db),
+		"db_type":            fmt.Sprintf("%T", s.db),
 	})
 
 	// Check cache first if enabled
@@ -222,13 +222,13 @@ func (s *Service) ValidateAPIKey(ctx context.Context, apiKey string) (*User, err
 
 		// Extract key prefix for additional validation
 		keyPrefix := getKeyPrefix(apiKey)
-		
+
 		s.logger.Debug("Querying database for API key", map[string]interface{}{
-			"key_prefix": keyPrefix,
+			"key_prefix":   keyPrefix,
 			"key_hash_len": len(keyHash),
 			"db_connected": s.db != nil,
-			"db_type": fmt.Sprintf("%T", s.db),
-			"key_hash": keyHash,
+			"db_type":      fmt.Sprintf("%T", s.db),
+			"key_hash":     keyHash,
 		})
 
 		var dbKey struct {
@@ -256,7 +256,7 @@ func (s *Service) ValidateAPIKey(ctx context.Context, apiKey string) (*User, err
 			if err == sql.ErrNoRows {
 				s.logger.Debug("API key not found in database", map[string]interface{}{
 					"key_prefix": keyPrefix,
-					"error": "no rows",
+					"error":      "no rows",
 				})
 				return nil, ErrInvalidAPIKey
 			}
@@ -266,11 +266,11 @@ func (s *Service) ValidateAPIKey(ctx context.Context, apiKey string) (*User, err
 			})
 			return nil, fmt.Errorf("database error: %w", err)
 		}
-		
+
 		s.logger.Debug("API key found in database", map[string]interface{}{
 			"key_prefix": keyPrefix,
-			"tenant_id": dbKey.TenantID,
-			"is_active": dbKey.IsActive,
+			"tenant_id":  dbKey.TenantID,
+			"is_active":  dbKey.IsActive,
 		})
 
 		// Check expiration
@@ -310,10 +310,10 @@ func (s *Service) ValidateAPIKey(ctx context.Context, apiKey string) (*User, err
 
 		return user, nil
 	}
-	
+
 	s.logger.Warn("API key validation failed - no database connection", map[string]interface{}{
 		"key_prefix": getKeyPrefix(apiKey),
-		"has_db": s.db != nil,
+		"has_db":     s.db != nil,
 	})
 
 	return nil, ErrInvalidAPIKey
