@@ -142,6 +142,13 @@ func (s *Service) ValidateAPIKey(ctx context.Context, apiKey string) (*User, err
 	if apiKey == "" {
 		return nil, ErrNoAPIKey
 	}
+	
+	s.logger.Debug("ValidateAPIKey called", map[string]interface{}{
+		"key_prefix": getKeyPrefix(apiKey),
+		"has_db": s.db != nil,
+		"cache_enabled": s.config != nil && s.config.CacheEnabled,
+		"api_keys_in_memory": len(s.apiKeys),
+	})
 
 	// Check cache first if enabled
 	if s.config != nil && s.config.CacheEnabled && s.cache != nil {
@@ -214,6 +221,12 @@ func (s *Service) ValidateAPIKey(ctx context.Context, apiKey string) (*User, err
 
 		// Extract key prefix for additional validation
 		keyPrefix := getKeyPrefix(apiKey)
+		
+		s.logger.Debug("Querying database for API key", map[string]interface{}{
+			"key_prefix": keyPrefix,
+			"key_hash_len": len(keyHash),
+			"db_connected": s.db != nil,
+		})
 
 		var dbKey struct {
 			ID              string         `db:"id"`
@@ -238,10 +251,24 @@ func (s *Service) ValidateAPIKey(ctx context.Context, apiKey string) (*User, err
 		err := s.db.GetContext(ctx, &dbKey, query, keyHash, keyPrefix)
 		if err != nil {
 			if err == sql.ErrNoRows {
+				s.logger.Debug("API key not found in database", map[string]interface{}{
+					"key_prefix": keyPrefix,
+					"error": "no rows",
+				})
 				return nil, ErrInvalidAPIKey
 			}
+			s.logger.Error("Database query error", map[string]interface{}{
+				"error": err.Error(),
+				"query": query,
+			})
 			return nil, fmt.Errorf("database error: %w", err)
 		}
+		
+		s.logger.Debug("API key found in database", map[string]interface{}{
+			"key_prefix": keyPrefix,
+			"tenant_id": dbKey.TenantID,
+			"is_active": dbKey.IsActive,
+		})
 
 		// Check expiration
 		if dbKey.ExpiresAt != nil && time.Now().After(*dbKey.ExpiresAt) {
@@ -280,6 +307,11 @@ func (s *Service) ValidateAPIKey(ctx context.Context, apiKey string) (*User, err
 
 		return user, nil
 	}
+	
+	s.logger.Warn("API key validation failed - no database connection", map[string]interface{}{
+		"key_prefix": getKeyPrefix(apiKey),
+		"has_db": s.db != nil,
+	})
 
 	return nil, ErrInvalidAPIKey
 }
