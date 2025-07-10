@@ -148,6 +148,7 @@ func (s *Service) ValidateAPIKey(ctx context.Context, apiKey string) (*User, err
 		"has_db": s.db != nil,
 		"cache_enabled": s.config != nil && s.config.CacheEnabled,
 		"api_keys_in_memory": len(s.apiKeys),
+		"db_type": fmt.Sprintf("%T", s.db),
 	})
 
 	// Check cache first if enabled
@@ -226,6 +227,8 @@ func (s *Service) ValidateAPIKey(ctx context.Context, apiKey string) (*User, err
 			"key_prefix": keyPrefix,
 			"key_hash_len": len(keyHash),
 			"db_connected": s.db != nil,
+			"db_type": fmt.Sprintf("%T", s.db),
+			"key_hash": keyHash,
 		})
 
 		var dbKey struct {
