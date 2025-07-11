@@ -475,12 +475,12 @@ func (s *Server) authenticateRequest(r *http.Request) (*auth.Claims, error) {
 
 	// Check Authorization header first
 	authHeader := r.Header.Get("Authorization")
-	
+
 	// If no Authorization header, check custom API key header (e.g., X-API-Key)
 	if authHeader == "" && s.auth.GetConfig() != nil && s.auth.GetConfig().APIKeyHeader != "" {
 		authHeader = r.Header.Get(s.auth.GetConfig().APIKeyHeader)
 	}
-	
+
 	if authHeader == "" {
 		return nil, auth.ErrNoAPIKey
 	}
