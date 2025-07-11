@@ -20,8 +20,14 @@ import (
 // unnecessary copying and ensure the same auth service instance is used throughout
 // the application.
 func TestWebSocketAuthServicePointerRegression(t *testing.T) {
-	// Create an auth service with minimal initialization
-	authService := &auth.Service{}
+	// Create a minimal auth config
+	authConfig := &auth.ServiceConfig{
+		EnableAPIKeys: true,
+		APIKeyHeader:  "X-API-Key",
+	}
+
+	// Create an auth service with proper initialization
+	authService := auth.NewService(authConfig, nil, nil, nil)
 
 	// Create WebSocket server - this should not panic even with uninitialized auth service
 	logger := NewTestLogger()
@@ -54,20 +60,18 @@ func TestWebSocketAuthServicePointerRegression(t *testing.T) {
 // TestAuthServiceDefensiveProgramming verifies that the auth service
 // handles nil fields gracefully to prevent panics.
 func TestAuthServiceDefensiveProgramming(t *testing.T) {
-	// Create auth service with nil config and logger
-	authService := &auth.Service{
-		// config: nil,
-		// logger: nil,
-	}
+	// Create auth service with nil config, db, cache, and logger
+	// This simulates edge cases where services might not be fully initialized
+	authService := auth.NewService(nil, nil, nil, nil)
 
 	ctx := testContext()
 
-	// ValidateAPIKey should not panic even with nil config
+	// ValidateAPIKey should not panic even with nil dependencies
 	user, err := authService.ValidateAPIKey(ctx, "test-key")
 	assert.Error(t, err)
 	assert.Nil(t, user)
 
-	// ValidateJWT should also handle nil config
+	// ValidateJWT should also handle nil dependencies
 	claims, err := authService.ValidateJWT(ctx, "test-token")
 	assert.Error(t, err)
 	assert.Nil(t, claims)
