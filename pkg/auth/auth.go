@@ -196,7 +196,7 @@ func (s *Service) ValidateAPIKey(ctx context.Context, apiKey string) (*User, err
 	// Always log for debugging auth issues
 	if s.logger != nil {
 		s.logInfo("Checking API key", map[string]interface{}{
-			"provided_key_suffix": truncateKey(apiKey, 8),
+			"provided_key_suffix": getKeyPrefix(apiKey),
 			"exists":              exists,
 			"total_keys_loaded":   len(s.apiKeys),
 		})
