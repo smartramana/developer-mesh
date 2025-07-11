@@ -166,18 +166,38 @@ func NewServer(engine *core.Engine, cfg Config, db *sqlx.DB, metrics observabili
 		}
 	}
 
+	// Initialize cache before auth setup so auth can use caching
+	var cacheImpl cache.Cache
+	if config != nil && config.Cache != nil {
+		// Initialize cache with context
+		var cacheErr error
+		cacheImpl, cacheErr = cache.NewCache(context.Background(), config.Cache)
+		if cacheErr != nil {
+			logger.Warn("Failed to initialize cache, using no-op cache", map[string]any{
+				"error": cacheErr.Error(),
+			})
+			// Fall back to no-op cache
+			cacheImpl = cache.NewNoOpCache()
+		}
+	} else {
+		// Use no-op cache if not configured
+		cacheImpl = cache.NewNoOpCache()
+	}
+
 	// Use the enhanced setup that gives us control over configuration
-	authMiddleware, err := auth.SetupAuthenticationWithConfig(authConfig, db, nil, logger, metrics)
+	authMiddleware, err := auth.SetupAuthenticationWithConfig(authConfig, db, cacheImpl, logger, metrics)
 	if err != nil {
 		logger.Error("Failed to setup enhanced authentication", map[string]interface{}{
 			"error": err.Error(),
 		})
+		// Still panic as the function signature doesn't support error return
 		panic("Failed to setup authentication: " + err.Error())
 	}
 
 	logger.Info("Enhanced authentication initialized", map[string]interface{}{
 		"environment":    os.Getenv("ENVIRONMENT"),
 		"api_key_source": os.Getenv("API_KEY_SOURCE"),
+		"cache_enabled":  cacheImpl != nil && config.Cache != nil,
 	})
 
 	// Configure HTTP client transport for external service calls
@@ -201,24 +221,6 @@ func NewServer(engine *core.Engine, cfg Config, db *sqlx.DB, metrics observabili
 
 	// Initialize health checker
 	healthChecker := NewHealthChecker(db)
-
-	// Initialize cache based on configuration
-	var cacheImpl cache.Cache
-	if config != nil && config.Cache != nil {
-		// Initialize cache with context
-		var err error
-		cacheImpl, err = cache.NewCache(context.Background(), config.Cache)
-		if err != nil {
-			logger.Warn("Failed to initialize cache, using no-op cache", map[string]any{
-				"error": err.Error(),
-			})
-			// Fall back to no-op cache
-			cacheImpl = cache.NewNoOpCache()
-		}
-	} else {
-		// Use no-op cache if not configured
-		cacheImpl = cache.NewNoOpCache()
-	}
 
 	server := &Server{
 		router:         router,
