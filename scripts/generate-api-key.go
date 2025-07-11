@@ -28,12 +28,12 @@ func main() {
 
 	// Create key string: prefix + base64(random)
 	keyString := fmt.Sprintf("%s_%s", prefix, base64.URLEncoding.EncodeToString(keyBytes))
-	
+
 	// Generate SHA256 hash
 	hasher := sha256.New()
 	hasher.Write([]byte(keyString))
 	keyHash := hex.EncodeToString(hasher.Sum(nil))
-	
+
 	// Get key prefix (first 8 chars)
 	keyPrefix := keyString
 	if len(keyPrefix) > 8 {

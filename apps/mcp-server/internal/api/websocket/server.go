@@ -183,9 +183,9 @@ func (s *Server) HandleWebSocket(w http.ResponseWriter, r *http.Request) {
 	claims, err := s.authenticateRequest(r)
 	if err != nil {
 		s.logger.Error("WebSocket authentication failed", map[string]interface{}{
-			"error":      err.Error(),
+			"error":       err.Error(),
 			"remote_addr": r.RemoteAddr,
-			"path":       r.URL.Path,
+			"path":        r.URL.Path,
 		})
 		s.metricsCollector.RecordConnectionFailure("auth_failed")
 		http.Error(w, "Unauthorized", http.StatusUnauthorized)
@@ -535,8 +535,8 @@ func (s *Server) authenticateRequest(r *http.Request) (*auth.Claims, error) {
 			keyPrefix = keyPrefix[:8]
 		}
 		s.logger.Warn("API key validation failed", map[string]interface{}{
-			"error":       err.Error(),
-			"key_prefix":  keyPrefix,
+			"error":      err.Error(),
+			"key_prefix": keyPrefix,
 		})
 		return nil, err
 	}
