@@ -2,6 +2,7 @@ package websocket
 
 import (
 	"context"
+	"errors"
 	"net/http"
 	"strings"
 	"sync"
@@ -466,6 +467,12 @@ func (s *Server) Close() error {
 
 // authenticateRequest validates the request and returns auth claims
 func (s *Server) authenticateRequest(r *http.Request) (*auth.Claims, error) {
+	// Check if auth service is available
+	if s.auth == nil {
+		s.logger.Error("Auth service not initialized", nil)
+		return nil, errors.New("authentication service unavailable")
+	}
+
 	// Check Authorization header
 	authHeader := r.Header.Get("Authorization")
 	if authHeader == "" {

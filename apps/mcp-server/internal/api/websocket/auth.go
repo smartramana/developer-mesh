@@ -8,6 +8,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"strings"
 	"sync"
 	"time"
 
@@ -93,45 +94,62 @@ func (sm *SessionManager) RemoveSessionKey(connectionID string) {
 
 // ValidateConnection performs initial authentication
 func (s *Server) ValidateConnection(token string) (*auth.Claims, error) {
-	// First, try JWT validation
-	claims, err := s.ValidateJWT(token)
-	if err == nil {
-		return claims, nil
-	}
-
-	// If JWT fails, try API key validation
-	if s.ValidateAPIKey(token) {
-		// Generate a unique UUID for this API key session
-		userID := uuid.New().String()
-
-		// Create claims for API key auth
-		return &auth.Claims{
-			RegisteredClaims: jwt.RegisteredClaims{
-				Subject: userID,
-			},
-			TenantID: "default", // API keys could be mapped to tenants
-			UserID:   userID,
-			Scopes:   []string{"api:access"}, // Default scopes for API keys
-		}, nil
-	}
-
-	// If we have an auth service, use it as fallback
-	if s.auth != nil {
-		user, err := s.auth.ValidateJWT(context.Background(), token)
-		if err != nil {
-			return nil, err
+	// Check if auth service is available
+	if s.auth == nil {
+		// Fall back to local JWT validation if no auth service
+		claims, err := s.ValidateJWT(token)
+		if err == nil {
+			return claims, nil
 		}
 
+		// Try local API key validation
+		if s.ValidateAPIKey(token) {
+			// Generate a unique UUID for this API key session
+			userID := uuid.New().String()
+
+			// Create claims for API key auth
+			return &auth.Claims{
+				RegisteredClaims: jwt.RegisteredClaims{
+					Subject: userID,
+				},
+				TenantID: "default", // API keys could be mapped to tenants
+				UserID:   userID,
+				Scopes:   []string{"api:access"}, // Default scopes for API keys
+			}, nil
+		}
+
+		return nil, errors.New("authentication failed")
+	}
+
+	// Use auth service for validation
+	// Try to validate as JWT first
+	if strings.Count(token, ".") == 2 { // Looks like a JWT
+		user, err := s.auth.ValidateJWT(context.Background(), token)
+		if err == nil {
+			// Convert User to Claims
+			return &auth.Claims{
+				RegisteredClaims: jwt.RegisteredClaims{
+					Subject: user.ID,
+				},
+				TenantID: user.TenantID,
+				UserID:   user.ID,
+				Scopes:   user.Scopes,
+			}, nil
+		}
+	}
+
+	// Try as API key
+	user, err := s.auth.ValidateAPIKey(context.Background(), token)
+	if err == nil {
 		// Convert User to Claims
-		claims := &auth.Claims{
+		return &auth.Claims{
 			RegisteredClaims: jwt.RegisteredClaims{
 				Subject: user.ID,
 			},
 			TenantID: user.TenantID,
 			UserID:   user.ID,
 			Scopes:   user.Scopes,
-		}
-		return claims, nil
+		}, nil
 	}
 
 	return nil, errors.New("authentication failed")
