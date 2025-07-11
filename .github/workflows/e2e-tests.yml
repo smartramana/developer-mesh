@@ -141,15 +141,42 @@ jobs:
         echo "Running test suite: $suite"
         
         cd test/e2e
-        ginkgo -v \
-          --timeout=30m \
-          --flake-attempts=2 \
-          --json-report=report.json \
-          --junit-report=junit.xml \
-          -- \
-          -suite="$suite" \
-          -parallel=3 \
-          -debug=${{ env.E2E_DEBUG }}
+        
+        # Map suite names to ginkgo focus patterns
+        case "$suite" in
+          "single")
+            focus_pattern="Single Agent"
+            ;;
+          "multi")
+            focus_pattern="Multi-Agent"
+            ;;
+          "performance")
+            focus_pattern="Performance"
+            ;;
+          "all")
+            focus_pattern=""
+            ;;
+          *)
+            echo "Unknown suite: $suite"
+            exit 1
+            ;;
+        esac
+        
+        # Build ginkgo command
+        if [ -n "$focus_pattern" ]; then
+          ginkgo -v \
+            --timeout=30m \
+            --flake-attempts=2 \
+            --json-report=report.json \
+            --junit-report=junit.xml \
+            --focus="$focus_pattern"
+        else
+          ginkgo -v \
+            --timeout=30m \
+            --flake-attempts=2 \
+            --json-report=report.json \
+            --junit-report=junit.xml
+        fi
 
     - name: Upload test results
       if: always()
