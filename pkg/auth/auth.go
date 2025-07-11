@@ -577,6 +577,11 @@ func generateAPIKey() string {
 	return fmt.Sprintf("mcp_%s_%d", strings.ReplaceAll(time.Now().Format("20060102"), "-", ""), time.Now().UnixNano())
 }
 
+// GetConfig returns the service configuration
+func (s *Service) GetConfig() *ServiceConfig {
+	return s.config
+}
+
 // InitializeDefaultAPIKeys initializes default API keys from configuration
 func (s *Service) InitializeDefaultAPIKeys(keys map[string]string) {
 	s.mu.Lock()

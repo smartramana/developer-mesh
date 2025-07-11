@@ -473,23 +473,28 @@ func (s *Server) authenticateRequest(r *http.Request) (*auth.Claims, error) {
 		return nil, errors.New("authentication service unavailable")
 	}
 
-	// Check Authorization header
+	// Check Authorization header first
 	authHeader := r.Header.Get("Authorization")
+	
+	// If no Authorization header, check custom API key header (e.g., X-API-Key)
+	if authHeader == "" && s.auth.GetConfig() != nil && s.auth.GetConfig().APIKeyHeader != "" {
+		authHeader = r.Header.Get(s.auth.GetConfig().APIKeyHeader)
+	}
+	
 	if authHeader == "" {
 		return nil, auth.ErrNoAPIKey
 	}
 
-	// Handle Bearer token
+	// Extract token (with or without Bearer prefix)
+	token := authHeader
 	if strings.HasPrefix(authHeader, "Bearer ") {
-		token := strings.TrimPrefix(authHeader, "Bearer ")
+		token = strings.TrimPrefix(authHeader, "Bearer ")
+	}
 
-		// Try to validate as JWT first
-		if strings.Count(token, ".") == 2 { // Looks like a JWT
-			user, err := s.auth.ValidateJWT(r.Context(), token)
-			if err != nil {
-				return nil, err
-			}
-
+	// Try to validate as JWT first (has two dots)
+	if strings.Count(token, ".") == 2 {
+		user, err := s.auth.ValidateJWT(r.Context(), token)
+		if err == nil {
 			// Convert User to Claims
 			return &auth.Claims{
 				RegisteredClaims: jwt.RegisteredClaims{
@@ -500,25 +505,24 @@ func (s *Server) authenticateRequest(r *http.Request) (*auth.Claims, error) {
 				Scopes:   user.Scopes,
 			}, nil
 		}
-
-		// Otherwise try as API key
-		user, err := s.auth.ValidateAPIKey(r.Context(), token)
-		if err != nil {
-			return nil, err
-		}
-
-		// Convert User to Claims
-		return &auth.Claims{
-			RegisteredClaims: jwt.RegisteredClaims{
-				Subject: user.ID,
-			},
-			TenantID: user.TenantID,
-			UserID:   user.ID,
-			Scopes:   user.Scopes,
-		}, nil
+		// If JWT validation fails, fall through to try as API key
 	}
 
-	return nil, auth.ErrInvalidToken
+	// Try as API key
+	user, err := s.auth.ValidateAPIKey(r.Context(), token)
+	if err != nil {
+		return nil, err
+	}
+
+	// Convert User to Claims
+	return &auth.Claims{
+		RegisteredClaims: jwt.RegisteredClaims{
+			Subject: user.ID,
+		},
+		TenantID: user.TenantID,
+		UserID:   user.ID,
+		Scopes:   user.Scopes,
+	}, nil
 }
 
 // getClientIP extracts the client IP address from the request
