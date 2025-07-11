@@ -78,3 +78,6 @@ register-domain.sh
 setup-alb-with-domain.sh
 domain-contact.json
 test/e2e/.env
+
+# SSH connection scripts (contain IP addresses)
+scripts/ssh-to-ec2.sh
