@@ -145,13 +145,13 @@ jobs:
         # Map suite names to ginkgo focus patterns
         case "$suite" in
           "single")
-            focus_pattern="Single Agent"
+            focus_pattern="Single Agent E2E Tests"
             ;;
           "multi")
-            focus_pattern="Multi-Agent"
+            focus_pattern="Multi-Agent Collaboration E2E Tests"
             ;;
           "performance")
-            focus_pattern="Performance"
+            focus_pattern="Performance and Stress E2E Tests"
             ;;
           "all")
             focus_pattern=""
