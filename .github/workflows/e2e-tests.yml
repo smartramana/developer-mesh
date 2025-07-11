@@ -164,18 +164,20 @@ jobs:
         
         # Build ginkgo command
         if [ -n "$focus_pattern" ]; then
-          ginkgo -v \
+          ginkgo -v -r \
             --timeout=30m \
             --flake-attempts=2 \
             --json-report=report.json \
             --junit-report=junit.xml \
-            --focus="$focus_pattern"
+            --focus="$focus_pattern" \
+            .
         else
-          ginkgo -v \
+          ginkgo -v -r \
             --timeout=30m \
             --flake-attempts=2 \
             --json-report=report.json \
-            --junit-report=junit.xml
+            --junit-report=junit.xml \
+            .
         fi
 
     - name: Upload test results
