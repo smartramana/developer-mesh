@@ -137,13 +137,41 @@ func NewService(config *ServiceConfig, db *sqlx.DB, cache cache.Cache, logger ob
 	}
 }
 
+// logDebug logs a debug message if logger is available
+func (s *Service) logDebug(msg string, fields map[string]interface{}) {
+	if s.logger != nil {
+		s.logger.Debug(msg, fields)
+	}
+}
+
+// logInfo logs an info message if logger is available
+func (s *Service) logInfo(msg string, fields map[string]interface{}) {
+	if s.logger != nil {
+		s.logger.Info(msg, fields)
+	}
+}
+
+// logWarn logs a warning message if logger is available
+func (s *Service) logWarn(msg string, fields map[string]interface{}) {
+	if s.logger != nil {
+		s.logger.Warn(msg, fields)
+	}
+}
+
+// logError logs an error message if logger is available
+func (s *Service) logError(msg string, fields map[string]interface{}) {
+	if s.logger != nil {
+		s.logger.Error(msg, fields)
+	}
+}
+
 // ValidateAPIKey validates an API key and returns the associated user
 func (s *Service) ValidateAPIKey(ctx context.Context, apiKey string) (*User, error) {
 	if apiKey == "" {
 		return nil, ErrNoAPIKey
 	}
 
-	s.logger.Debug("ValidateAPIKey called", map[string]interface{}{
+	s.logDebug("ValidateAPIKey called", map[string]interface{}{
 		"key_prefix":         getKeyPrefix(apiKey),
 		"has_db":             s.db != nil,
 		"cache_enabled":      s.config != nil && s.config.CacheEnabled,
@@ -167,7 +195,7 @@ func (s *Service) ValidateAPIKey(ctx context.Context, apiKey string) (*User, err
 	key, exists := s.apiKeys[apiKey]
 	// Always log for debugging auth issues
 	if s.logger != nil {
-		s.logger.Info("Checking API key", map[string]interface{}{
+		s.logInfo("Checking API key", map[string]interface{}{
 			"provided_key_suffix": truncateKey(apiKey, 8),
 			"exists":              exists,
 			"total_keys_loaded":   len(s.apiKeys),
@@ -208,7 +236,7 @@ func (s *Service) ValidateAPIKey(ctx context.Context, apiKey string) (*User, err
 			cacheKey := fmt.Sprintf("auth:apikey:%s", apiKey)
 			// Cache the entire user object for proper retrieval
 			if err := s.cache.Set(ctx, cacheKey, user, s.config.CacheTTL); err != nil {
-				s.logger.Warn("Failed to cache API key validation", map[string]interface{}{"error": err})
+				s.logWarn("Failed to cache API key validation", map[string]interface{}{"error": err})
 			}
 		}
 
@@ -223,7 +251,7 @@ func (s *Service) ValidateAPIKey(ctx context.Context, apiKey string) (*User, err
 		// Extract key prefix for additional validation
 		keyPrefix := getKeyPrefix(apiKey)
 
-		s.logger.Debug("Querying database for API key", map[string]interface{}{
+		s.logDebug("Querying database for API key", map[string]interface{}{
 			"key_prefix":   keyPrefix,
 			"key_hash_len": len(keyHash),
 			"db_connected": s.db != nil,
@@ -254,20 +282,20 @@ func (s *Service) ValidateAPIKey(ctx context.Context, apiKey string) (*User, err
 		err := s.db.GetContext(ctx, &dbKey, query, keyHash, keyPrefix)
 		if err != nil {
 			if err == sql.ErrNoRows {
-				s.logger.Debug("API key not found in database", map[string]interface{}{
+				s.logDebug("API key not found in database", map[string]interface{}{
 					"key_prefix": keyPrefix,
 					"error":      "no rows",
 				})
 				return nil, ErrInvalidAPIKey
 			}
-			s.logger.Error("Database query error", map[string]interface{}{
+			s.logError("Database query error", map[string]interface{}{
 				"error": err.Error(),
 				"query": query,
 			})
 			return nil, fmt.Errorf("database error: %w", err)
 		}
 
-		s.logger.Debug("API key found in database", map[string]interface{}{
+		s.logDebug("API key found in database", map[string]interface{}{
 			"key_prefix": keyPrefix,
 			"tenant_id":  dbKey.TenantID,
 			"is_active":  dbKey.IsActive,
@@ -304,14 +332,14 @@ func (s *Service) ValidateAPIKey(ctx context.Context, apiKey string) (*User, err
 			cacheKey := fmt.Sprintf("auth:apikey:%s", apiKey)
 			// Cache the entire user object for proper retrieval
 			if err := s.cache.Set(ctx, cacheKey, user, s.config.CacheTTL); err != nil {
-				s.logger.Warn("Failed to cache API key from database", map[string]interface{}{"error": err})
+				s.logWarn("Failed to cache API key from database", map[string]interface{}{"error": err})
 			}
 		}
 
 		return user, nil
 	}
 
-	s.logger.Warn("API key validation failed - no database connection", map[string]interface{}{
+	s.logWarn("API key validation failed - no database connection", map[string]interface{}{
 		"key_prefix": getKeyPrefix(apiKey),
 		"has_db":     s.db != nil,
 	})
@@ -498,7 +526,7 @@ func (s *Service) RevokeAPIKey(ctx context.Context, apiKey string) error {
 	if s.config.CacheEnabled && s.cache != nil {
 		cacheKey := fmt.Sprintf("auth:apikey:%s", apiKey)
 		if err := s.cache.Delete(ctx, cacheKey); err != nil {
-			s.logger.Warn("Failed to delete API key from cache", map[string]interface{}{"error": err})
+			s.logWarn("Failed to delete API key from cache", map[string]interface{}{"error": err})
 		}
 	}
 
@@ -578,7 +606,7 @@ func (s *Service) InitializeDefaultAPIKeys(keys map[string]string) {
 			Active:    true,
 		}
 
-		s.logger.Info("Initialized default API key", map[string]interface{}{
+		s.logInfo("Initialized default API key", map[string]interface{}{
 			"key_suffix": key[len(key)-4:], // Log only last 4 chars for security
 			"role":       role,
 			"scopes":     scopes,
@@ -670,7 +698,7 @@ func (s *Service) InitializeAPIKeysWithConfig(keysConfig map[string]interface{})
 
 		if apiKey != nil {
 			s.apiKeys[key] = apiKey
-			s.logger.Info("Initialized API key with config", map[string]interface{}{
+			s.logInfo("Initialized API key with config", map[string]interface{}{
 				"key_suffix": key[len(key)-4:], // Log only last 4 chars for security
 				"tenant_id":  apiKey.TenantID,
 				"scopes":     apiKey.Scopes,
@@ -731,14 +759,14 @@ func (s *Service) AddAPIKey(key string, settings APIKeySettings) error {
 	if s.db != nil {
 		if err := s.persistAPIKey(context.Background(), apiKey); err != nil {
 			// Log but don't fail - memory storage sufficient for operation
-			s.logger.Warn("Failed to persist API key", map[string]interface{}{
+			s.logWarn("Failed to persist API key", map[string]interface{}{
 				"key_suffix": lastN(key, 4),
 				"error":      err.Error(),
 			})
 		}
 	}
 
-	s.logger.Info("API key added", map[string]interface{}{
+	s.logInfo("API key added", map[string]interface{}{
 		"key_suffix": lastN(key, 4),
 		"role":       settings.Role,
 		"scopes":     settings.Scopes,
