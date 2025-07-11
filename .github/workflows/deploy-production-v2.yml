@@ -191,6 +191,7 @@ jobs:
             --instance-id "${{ steps.get-instance.outputs.instance_id }}"
           
           # Create .env file directly on EC2 with proper escaping
+          SHORT_SHA=$(echo "${{ github.sha }}" | cut -c1-7)
           COMMAND_ID=$(aws ssm send-command \
             --instance-ids "${{ steps.get-instance.outputs.instance_id }}" \
             --document-name "AWS-RunShellScript" \
@@ -228,6 +229,7 @@ jobs:
               "LOG_FORMAT=json",
               "WORKER_CONCURRENCY=10",
               "WORKER_POLL_INTERVAL=5s",
+              "IMAGE_TAG=main-'"$SHORT_SHA"'",
               "EOF",
               "chmod 600 .env",
               "chown ec2-user:ec2-user .env",
@@ -345,15 +347,22 @@ jobs:
           echo "Deploying with image tag: main-${SHORT_SHA}"
           
           # Create simple deployment script
-          DEPLOY_SCRIPT=$(cat << 'SCRIPT_END' | base64 -w 0
+          DEPLOY_SCRIPT=$(cat << SCRIPT_END | base64 -w 0
           #!/bin/bash
           set -e
           cd /home/ec2-user/devops-mcp
           
           # Set image tag
-          SHORT_SHA=$(echo "${{ github.sha }}" | cut -c1-7)
-          export IMAGE_TAG="main-${SHORT_SHA}"
-          echo "Using image tag: ${IMAGE_TAG}"
+          SHORT_SHA="${SHORT_SHA}"
+          export IMAGE_TAG="main-\${SHORT_SHA}"
+          echo "Using image tag: \${IMAGE_TAG}"
+          
+          # Also persist to .env for future restarts
+          if ! grep -q "IMAGE_TAG=" .env; then
+            echo "IMAGE_TAG=main-\${SHORT_SHA}" >> .env
+          else
+            sed -i "s/IMAGE_TAG=.*/IMAGE_TAG=main-\${SHORT_SHA}/" .env
+          fi
           
           # Stop existing containers
           echo "Stopping existing containers..."
