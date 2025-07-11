@@ -182,6 +182,11 @@ func (s *Server) HandleWebSocket(w http.ResponseWriter, r *http.Request) {
 	// Authenticate request
 	claims, err := s.authenticateRequest(r)
 	if err != nil {
+		s.logger.Error("WebSocket authentication failed", map[string]interface{}{
+			"error":      err.Error(),
+			"remote_addr": r.RemoteAddr,
+			"path":       r.URL.Path,
+		})
 		s.metricsCollector.RecordConnectionFailure("auth_failed")
 		http.Error(w, "Unauthorized", http.StatusUnauthorized)
 		return
@@ -473,15 +478,29 @@ func (s *Server) authenticateRequest(r *http.Request) (*auth.Claims, error) {
 		return nil, errors.New("authentication service unavailable")
 	}
 
+	// Log incoming headers for debugging
+	s.logger.Debug("WebSocket auth request headers", map[string]interface{}{
+		"authorization": r.Header.Get("Authorization"),
+		"x-api-key":     r.Header.Get("X-API-Key"),
+		"user-agent":    r.Header.Get("User-Agent"),
+	})
+
 	// Check Authorization header first
 	authHeader := r.Header.Get("Authorization")
 
 	// If no Authorization header, check custom API key header (e.g., X-API-Key)
 	if authHeader == "" && s.auth.GetConfig() != nil && s.auth.GetConfig().APIKeyHeader != "" {
-		authHeader = r.Header.Get(s.auth.GetConfig().APIKeyHeader)
+		customHeader := s.auth.GetConfig().APIKeyHeader
+		authHeader = r.Header.Get(customHeader)
+		if authHeader != "" {
+			s.logger.Debug("Using custom API key header", map[string]interface{}{
+				"header": customHeader,
+			})
+		}
 	}
 
 	if authHeader == "" {
+		s.logger.Warn("No authentication header found", nil)
 		return nil, auth.ErrNoAPIKey
 	}
 
@@ -511,6 +530,14 @@ func (s *Server) authenticateRequest(r *http.Request) (*auth.Claims, error) {
 	// Try as API key
 	user, err := s.auth.ValidateAPIKey(r.Context(), token)
 	if err != nil {
+		keyPrefix := token
+		if len(keyPrefix) > 8 {
+			keyPrefix = keyPrefix[:8]
+		}
+		s.logger.Warn("API key validation failed", map[string]interface{}{
+			"error":       err.Error(),
+			"key_prefix":  keyPrefix,
+		})
 		return nil, err
 	}
 
