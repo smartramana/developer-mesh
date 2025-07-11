@@ -6,7 +6,7 @@ First, generate a new API key using the provided tool:
 
 ```bash
 cd scripts
-go run generate-api-key.go admin
+go run generate-api-key/main.go admin
 ```
 
 This will output:

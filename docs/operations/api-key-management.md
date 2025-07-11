@@ -29,7 +29,7 @@ API keys in DevOps MCP are stored in the PostgreSQL database in the `mcp.api_key
 
 1. Generate a new API key:
 ```bash
-go run scripts/generate-api-key.go admin
+go run scripts/generate-api-key/main.go admin
 ```
 
 2. This will output:
