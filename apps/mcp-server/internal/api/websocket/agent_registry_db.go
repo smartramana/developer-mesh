@@ -48,6 +48,22 @@ func NewDBAgentRegistry(repo agentRepo.Repository, cache cache.Cache, logger obs
 
 // RegisterAgent registers a new agent in the database
 func (ar *DBAgentRegistry) RegisterAgent(ctx context.Context, reg *AgentRegistration) (*AgentInfo, error) {
+	// Validate agent ID
+	if reg.ID == "" {
+		return nil, fmt.Errorf("agent ID cannot be empty")
+	}
+	
+	// Ensure we don't use zero UUID
+	zeroUUID := "00000000-0000-0000-0000-000000000000"
+	if reg.ID == zeroUUID {
+		// Generate a new UUID instead
+		reg.ID = uuid.New().String()
+		ar.logger.Info("Replaced zero UUID with new agent ID", map[string]interface{}{
+			"new_agent_id": reg.ID,
+			"name":         reg.Name,
+		})
+	}
+	
 	// Parse tenant UUID
 	tenantUUID, err := uuid.Parse(reg.TenantID)
 	if err != nil {

@@ -87,6 +87,16 @@ func (r *AgentRepositoryImpl) Create(ctx context.Context, agent *models.Agent) e
 		return errors.New("agent cannot be nil")
 	}
 
+	// Validate agent ID is a valid UUID
+	if agent.ID == "" {
+		return errors.New("agent ID cannot be empty")
+	}
+	
+	// Ensure agent ID is a valid UUID format
+	if _, err := uuid.Parse(agent.ID); err != nil {
+		return fmt.Errorf("invalid agent ID format: %w", err)
+	}
+
 	query := `INSERT INTO agents (id, name, tenant_id, model_id, created_at, updated_at)
               VALUES ($1, $2, $3, $4, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)`
 

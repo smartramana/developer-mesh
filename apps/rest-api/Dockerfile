@@ -36,6 +36,9 @@ COPY --from=builder /tmp/rest-api /app/rest-api
 # Copy configuration files
 COPY --chown=nonroot:nonroot apps/rest-api/configs /app/configs
 
+# Copy migrations
+COPY --chown=nonroot:nonroot migrations /app/migrations
+
 # Set working directory
 WORKDIR /app
 

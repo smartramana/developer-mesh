@@ -36,6 +36,9 @@ COPY --from=builder /tmp/mcp-server /app/mcp-server
 # Copy configuration files
 COPY --chown=nonroot:nonroot apps/mcp-server/configs /app/configs
 
+# Copy migrations
+COPY --chown=nonroot:nonroot migrations /app/migrations
+
 # Set working directory
 WORKDIR /app
 

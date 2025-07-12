@@ -1390,13 +1390,21 @@ func runMigrations(ctx context.Context, db *database.Database, logger observabil
 
 // getMigrationDir returns the path to the migrations directory
 func getMigrationDir() string {
+	// Check environment variable first
+	if envPath := os.Getenv("MIGRATIONS_PATH"); envPath != "" {
+		return envPath
+	}
+	
 	// Check multiple possible locations
 	possiblePaths := []string{
-		"migrations/sql",
-		"../../migrations/sql",
-		"../rest-api/migrations/sql",
+		"/app/migrations",           // Production Docker path
+		"migrations",                // Local development
+		"../../migrations",          // From apps/mcp-server directory
+		"migrations/sql",            // Legacy path
+		"../../migrations/sql",      // Legacy path
+		"../rest-api/migrations/sql", // Old location
 		"apps/rest-api/migrations/sql",
-		filepath.Join(os.Getenv("PROJECT_ROOT"), "apps/rest-api/migrations/sql"),
+		filepath.Join(os.Getenv("PROJECT_ROOT"), "migrations"),
 	}
 
 	for _, path := range possiblePaths {
@@ -1405,7 +1413,7 @@ func getMigrationDir() string {
 		}
 	}
 
-	return "migrations/sql" // Default
+	return "migrations" // Default
 }
 
 // Helper functions
