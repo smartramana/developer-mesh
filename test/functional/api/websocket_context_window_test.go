@@ -58,6 +58,7 @@ var _ = Describe("WebSocket Context Window Management", func() {
 				Params: map[string]interface{}{
 					"name":         "token-test-context",
 					"content":      testContent,
+					"model_id":     "gpt-4", // Default model for tests
 					"return_stats": true, // Request token statistics
 				},
 			}
@@ -117,8 +118,9 @@ var _ = Describe("WebSocket Context Window Management", func() {
 				Type:   ws.MessageTypeRequest,
 				Method: "context.create",
 				Params: map[string]interface{}{
-					"name":    "oversized-context",
-					"content": largeContent,
+					"name":     "oversized-context",
+					"content":  largeContent,
+					"model_id": "gpt-4", // Default model for tests
 				},
 			}
 
@@ -150,9 +152,10 @@ var _ = Describe("WebSocket Context Window Management", func() {
 				Type:   ws.MessageTypeRequest,
 				Method: "context.create",
 				Params: map[string]interface{}{
-					"id":      contextID,
-					"name":    "conversation-context",
-					"content": "System: You are a helpful assistant.",
+					"id":       contextID,
+					"name":     "conversation-context",
+					"content":  "System: You are a helpful assistant.",
+					"model_id": "gpt-4", // Default model for tests
 				},
 			}
 
@@ -232,6 +235,7 @@ var _ = Describe("WebSocket Context Window Management", func() {
 					"id":               contextID,
 					"name":             "truncation-test",
 					"content":          "System: Test assistant",
+					"model_id":         "gpt-4", // Default model for tests
 					"max_tokens":       maxTokens,
 					"truncation_mode":  "sliding_window",
 					"notify_threshold": 0.8, // Notify at 80% capacity
@@ -339,6 +343,7 @@ var _ = Describe("WebSocket Context Window Management", func() {
 					"id":         contextID,
 					"name":       "system-preserve-test",
 					"content":    systemPrompt,
+					"model_id":   "gpt-4", // Default model for tests
 					"max_tokens": 500,
 					"messages": []map[string]interface{}{
 						{
@@ -456,6 +461,7 @@ var _ = Describe("WebSocket Context Window Management", func() {
 				Params: map[string]interface{}{
 					"id":              contextID,
 					"name":            "sliding-window-test",
+					"model_id":        "gpt-4", // Default model for tests
 					"max_tokens":      1000,
 					"window_overlap":  200, // Keep 200 tokens from previous window
 					"truncation_mode": "sliding_window",
@@ -564,6 +570,7 @@ var _ = Describe("WebSocket Context Window Management", func() {
 				Params: map[string]interface{}{
 					"id":                    contextID,
 					"name":                  "compression-test",
+					"model_id":              "gpt-4", // Default model for tests
 					"max_tokens":            2000,
 					"compression_enabled":   true,
 					"compression_threshold": 0.7, // Compress at 70% capacity
@@ -667,6 +674,7 @@ var _ = Describe("WebSocket Context Window Management", func() {
 				Params: map[string]interface{}{
 					"id":             contextID,
 					"name":           "importance-test",
+					"model_id":       "gpt-4", // Default model for tests
 					"max_tokens":     500,
 					"retention_mode": "importance_based",
 				},

@@ -225,9 +225,10 @@ var _ = Describe("WebSocket Streaming Operations", func() {
 				Type:   ws.MessageTypeRequest,
 				Method: "context.create",
 				Params: map[string]interface{}{
-					"name":    "large-context",
-					"content": largeContent,
-					"stream":  true, // Stream the content
+					"name":     "large-context",
+					"content":  largeContent,
+					"model_id": "gpt-4", // Default model for tests
+					"stream":   true, // Stream the content
 				},
 			}
 
@@ -299,6 +300,7 @@ var _ = Describe("WebSocket Streaming Operations", func() {
 				Params: map[string]interface{}{
 					"name":     "compressible-context",
 					"content":  repetitiveContent,
+					"model_id": "gpt-4", // Default model for tests
 					"compress": true,
 				},
 			}

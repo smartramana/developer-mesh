@@ -291,6 +291,7 @@ var _ = Describe("Single Agent E2E Tests", func() {
 			createResp, err := testAgent.ExecuteMethod(ctx, "context.create", map[string]interface{}{
 				"name":     contextData.Name,
 				"content":  contextData.Content,
+				"model_id": "gpt-4", // Default model for tests
 				"metadata": contextData.Metadata,
 			})
 

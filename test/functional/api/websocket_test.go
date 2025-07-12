@@ -246,8 +246,9 @@ var _ = Describe("WebSocket API Functional Tests", func() {
 				Type:   ws.MessageTypeRequest,
 				Method: "context.create",
 				Params: map[string]interface{}{
-					"name":    "test-context-" + uuid.New().String(),
-					"content": "This is a test context",
+					"name":     "test-context-" + uuid.New().String(),
+					"content":  "This is a test context",
+					"model_id": "gpt-4", // Default model for tests
 				},
 			}
 

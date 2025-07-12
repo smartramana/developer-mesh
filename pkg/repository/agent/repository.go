@@ -4,12 +4,15 @@ package agent
 import (
 	"context"
 	"database/sql"
+	"encoding/json"
 	"errors"
 	"fmt"
+	"time"
 
 	"github.com/S-Corkum/devops-mcp/pkg/models"
 	"github.com/google/uuid"
 	"github.com/jmoiron/sqlx"
+	"github.com/lib/pq"
 )
 
 // RepositoryImpl implements the Repository interface for agents
@@ -87,13 +90,45 @@ func (r *RepositoryImpl) Create(ctx context.Context, agent *models.Agent) error 
 	// Use appropriate placeholders based on database type
 	var placeholders string
 	if isSQLite(r.db) {
-		placeholders = "?, ?, ?, ?"
+		placeholders = "?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?"
 	} else {
-		placeholders = "$1, $2, $3, $4"
+		placeholders = "$1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11"
 	}
 
-	query := fmt.Sprintf("INSERT INTO %s (id, name, tenant_id, model_id) VALUES (%s)",
+	query := fmt.Sprintf("INSERT INTO %s (id, name, tenant_id, model_id, type, status, capabilities, metadata, created_at, updated_at, last_seen_at) VALUES (%s)",
 		r.tableName, placeholders)
+
+	// Set default values if not provided
+	if agent.Type == "" {
+		agent.Type = "standard"
+	}
+	if agent.Status == "" {
+		agent.Status = "offline"
+	}
+	if agent.ModelID == "" {
+		agent.ModelID = "default-model" // Temporary default for MVP
+	}
+
+	// Convert capabilities to PostgreSQL array format
+	// For SQLite, we'll store as JSON string
+	var capabilitiesValue interface{}
+	if isSQLite(r.db) {
+		// SQLite doesn't support arrays, store as JSON
+		capBytes, _ := json.Marshal(agent.Capabilities)
+		capabilitiesValue = string(capBytes)
+	} else {
+		// PostgreSQL supports arrays directly
+		capabilitiesValue = pq.Array(agent.Capabilities)
+	}
+
+	// Convert metadata to JSON
+	var metadataValue interface{}
+	if agent.Metadata != nil {
+		metaBytes, _ := json.Marshal(agent.Metadata)
+		metadataValue = string(metaBytes)
+	} else {
+		metadataValue = "{}"
+	}
 
 	// Use transaction if available
 	var err error
@@ -103,6 +138,13 @@ func (r *RepositoryImpl) Create(ctx context.Context, agent *models.Agent) error 
 			agent.Name,
 			agent.TenantID,
 			agent.ModelID,
+			agent.Type,
+			agent.Status,
+			capabilitiesValue,
+			metadataValue,
+			agent.CreatedAt,
+			agent.UpdatedAt,
+			agent.LastSeenAt,
 		)
 	} else {
 		_, err = r.db.ExecContext(ctx, query,
@@ -110,6 +152,13 @@ func (r *RepositoryImpl) Create(ctx context.Context, agent *models.Agent) error 
 			agent.Name,
 			agent.TenantID,
 			agent.ModelID,
+			agent.Type,
+			agent.Status,
+			capabilitiesValue,
+			metadataValue,
+			agent.CreatedAt,
+			agent.UpdatedAt,
+			agent.LastSeenAt,
 		)
 	}
 
@@ -142,17 +191,55 @@ func (r *RepositoryImpl) Get(ctx context.Context, id string) (*models.Agent, err
 		placeholder = "$1"
 	}
 
-	query := fmt.Sprintf("SELECT id, name, tenant_id, model_id FROM %s WHERE id = %s",
+	query := fmt.Sprintf("SELECT id, name, tenant_id, model_id, type, status, capabilities, metadata, created_at, updated_at, last_seen_at FROM %s WHERE id = %s",
 		r.tableName, placeholder)
 
 	var agent models.Agent
+	var metadataJSON string
 	var err error
 
-	// Use transaction if available
+	// We need to manually scan because of the array and JSON types
+	var row *sql.Row
 	if ok && tx != nil {
-		err = tx.GetContext(ctx, &agent, query, id)
+		row = tx.QueryRowContext(ctx, query, id)
 	} else {
-		err = r.db.GetContext(ctx, &agent, query, id)
+		row = r.db.QueryRowContext(ctx, query, id)
+	}
+
+	if isSQLite(r.db) {
+		// SQLite stores capabilities as JSON string
+		var capabilitiesJSON string
+		err = row.Scan(
+			&agent.ID,
+			&agent.Name,
+			&agent.TenantID,
+			&agent.ModelID,
+			&agent.Type,
+			&agent.Status,
+			&capabilitiesJSON,
+			&metadataJSON,
+			&agent.CreatedAt,
+			&agent.UpdatedAt,
+			&agent.LastSeenAt,
+		)
+		if err == nil && capabilitiesJSON != "" {
+			json.Unmarshal([]byte(capabilitiesJSON), &agent.Capabilities)
+		}
+	} else {
+		// PostgreSQL with array support
+		err = row.Scan(
+			&agent.ID,
+			&agent.Name,
+			&agent.TenantID,
+			&agent.ModelID,
+			&agent.Type,
+			&agent.Status,
+			pq.Array(&agent.Capabilities),
+			&metadataJSON,
+			&agent.CreatedAt,
+			&agent.UpdatedAt,
+			&agent.LastSeenAt,
+		)
 	}
 
 	if err != nil {
@@ -162,12 +249,22 @@ func (r *RepositoryImpl) Get(ctx context.Context, id string) (*models.Agent, err
 		return nil, fmt.Errorf("failed to get agent: %w", err)
 	}
 
+	// Parse metadata JSON
+	if metadataJSON != "" && metadataJSON != "{}" {
+		if err := json.Unmarshal([]byte(metadataJSON), &agent.Metadata); err != nil {
+			// Log but don't fail on metadata parse error
+			agent.Metadata = make(map[string]interface{})
+		}
+	} else {
+		agent.Metadata = make(map[string]interface{})
+	}
+
 	return &agent, nil
 }
 
 // List retrieves agents based on filter criteria
 func (r *RepositoryImpl) List(ctx context.Context, filter Filter) ([]*models.Agent, error) {
-	baseQuery := fmt.Sprintf("SELECT id, name, tenant_id, model_id FROM %s", r.tableName)
+	baseQuery := fmt.Sprintf("SELECT id, name, tenant_id, model_id, type, status, capabilities, metadata, created_at, updated_at, last_seen_at FROM %s", r.tableName)
 
 	// Build the WHERE clause based on filters
 	whereClause := ""
@@ -205,18 +302,81 @@ func (r *RepositoryImpl) List(ctx context.Context, filter Filter) ([]*models.Age
 	// Order by name as a default sort
 	query := baseQuery + whereClause + " ORDER BY name ASC"
 
-	var agents []*models.Agent
+	var rows *sql.Rows
 	var err error
 
 	// Use transaction if available
 	if ok && tx != nil {
-		err = tx.SelectContext(ctx, &agents, query, args...)
+		rows, err = tx.QueryContext(ctx, query, args...)
 	} else {
-		err = r.db.SelectContext(ctx, &agents, query, args...)
+		rows, err = r.db.QueryContext(ctx, query, args...)
 	}
 
 	if err != nil {
 		return nil, fmt.Errorf("failed to list agents: %w", err)
+	}
+	defer rows.Close()
+
+	var agents []*models.Agent
+	for rows.Next() {
+		agent := &models.Agent{}
+		var metadataJSON string
+
+		if isSQLite(r.db) {
+			// SQLite stores capabilities as JSON string
+			var capabilitiesJSON string
+			err = rows.Scan(
+				&agent.ID,
+				&agent.Name,
+				&agent.TenantID,
+				&agent.ModelID,
+				&agent.Type,
+				&agent.Status,
+				&capabilitiesJSON,
+				&metadataJSON,
+				&agent.CreatedAt,
+				&agent.UpdatedAt,
+				&agent.LastSeenAt,
+			)
+			if err == nil && capabilitiesJSON != "" {
+				json.Unmarshal([]byte(capabilitiesJSON), &agent.Capabilities)
+			}
+		} else {
+			// PostgreSQL with array support
+			err = rows.Scan(
+				&agent.ID,
+				&agent.Name,
+				&agent.TenantID,
+				&agent.ModelID,
+				&agent.Type,
+				&agent.Status,
+				pq.Array(&agent.Capabilities),
+				&metadataJSON,
+				&agent.CreatedAt,
+				&agent.UpdatedAt,
+				&agent.LastSeenAt,
+			)
+		}
+
+		if err != nil {
+			return nil, fmt.Errorf("failed to scan agent row: %w", err)
+		}
+
+		// Parse metadata JSON
+		if metadataJSON != "" && metadataJSON != "{}" {
+			if err := json.Unmarshal([]byte(metadataJSON), &agent.Metadata); err != nil {
+				// Log but don't fail on metadata parse error
+				agent.Metadata = make(map[string]interface{})
+			}
+		} else {
+			agent.Metadata = make(map[string]interface{})
+		}
+
+		agents = append(agents, agent)
+	}
+
+	if err = rows.Err(); err != nil {
+		return nil, fmt.Errorf("error iterating agent rows: %w", err)
 	}
 
 	return agents, nil
@@ -240,23 +400,44 @@ func (r *RepositoryImpl) Update(ctx context.Context, agent *models.Agent) error 
 		tx, ok = ctx.Value("TransactionKey").(*sqlx.Tx)
 	}
 
+	// Convert capabilities to appropriate format
+	var capabilitiesValue interface{}
+	if isSQLite(r.db) {
+		capBytes, _ := json.Marshal(agent.Capabilities)
+		capabilitiesValue = string(capBytes)
+	} else {
+		capabilitiesValue = pq.Array(agent.Capabilities)
+	}
+
+	// Convert metadata to JSON
+	var metadataValue interface{}
+	if agent.Metadata != nil {
+		metaBytes, _ := json.Marshal(agent.Metadata)
+		metadataValue = string(metaBytes)
+	} else {
+		metadataValue = "{}"
+	}
+
 	// Choose the appropriate placeholders based on database type
 	var placeholders string
 	if isSQLite(r.db) {
-		placeholders = "name = ?, tenant_id = ?, model_id = ? WHERE id = ?"
+		placeholders = "name = ?, tenant_id = ?, model_id = ?, type = ?, status = ?, capabilities = ?, metadata = ?, updated_at = ?, last_seen_at = ? WHERE id = ?"
 	} else {
-		placeholders = "name = $2, tenant_id = $3, model_id = $4 WHERE id = $1"
+		placeholders = "name = $2, tenant_id = $3, model_id = $4, type = $5, status = $6, capabilities = $7, metadata = $8, updated_at = $9, last_seen_at = $10 WHERE id = $1"
 	}
 
 	query := fmt.Sprintf("UPDATE %s SET %s", r.tableName, placeholders)
 
+	// Set updated_at to current time
+	agent.UpdatedAt = time.Now()
+
 	var args []any
 	if isSQLite(r.db) {
 		// SQLite uses placeholders in order of appearance
-		args = []any{agent.Name, agent.TenantID, agent.ModelID, agent.ID}
+		args = []any{agent.Name, agent.TenantID, agent.ModelID, agent.Type, agent.Status, capabilitiesValue, metadataValue, agent.UpdatedAt, agent.LastSeenAt, agent.ID}
 	} else {
-		// PostgreSQL uses numbered placeholders, maintain same order as original
-		args = []any{agent.ID, agent.Name, agent.TenantID, agent.ModelID}
+		// PostgreSQL uses numbered placeholders
+		args = []any{agent.ID, agent.Name, agent.TenantID, agent.ModelID, agent.Type, agent.Status, capabilitiesValue, metadataValue, agent.UpdatedAt, agent.LastSeenAt}
 	}
 
 	var result sql.Result
@@ -398,21 +579,84 @@ func (r *RepositoryImpl) GetByStatus(ctx context.Context, status models.AgentSta
 		placeholder = "$1"
 	}
 
-	query := fmt.Sprintf("SELECT id, name, tenant_id, model_id FROM %s WHERE status = %s ORDER BY created_at DESC",
+	query := fmt.Sprintf("SELECT id, name, tenant_id, model_id, type, status, capabilities, metadata, created_at, updated_at, last_seen_at FROM %s WHERE status = %s ORDER BY created_at DESC",
 		r.tableName, placeholder)
 
-	var agents []*models.Agent
+	var rows *sql.Rows
 	var err error
 
 	// Use transaction if available
 	if ok && tx != nil {
-		err = tx.SelectContext(ctx, &agents, query, string(status))
+		rows, err = tx.QueryContext(ctx, query, string(status))
 	} else {
-		err = r.db.SelectContext(ctx, &agents, query, string(status))
+		rows, err = r.db.QueryContext(ctx, query, string(status))
 	}
 
 	if err != nil {
 		return nil, fmt.Errorf("failed to get agents by status: %w", err)
+	}
+	defer rows.Close()
+
+	var agents []*models.Agent
+	for rows.Next() {
+		agent := &models.Agent{}
+		var metadataJSON string
+
+		if isSQLite(r.db) {
+			// SQLite stores capabilities as JSON string
+			var capabilitiesJSON string
+			err = rows.Scan(
+				&agent.ID,
+				&agent.Name,
+				&agent.TenantID,
+				&agent.ModelID,
+				&agent.Type,
+				&agent.Status,
+				&capabilitiesJSON,
+				&metadataJSON,
+				&agent.CreatedAt,
+				&agent.UpdatedAt,
+				&agent.LastSeenAt,
+			)
+			if err == nil && capabilitiesJSON != "" {
+				json.Unmarshal([]byte(capabilitiesJSON), &agent.Capabilities)
+			}
+		} else {
+			// PostgreSQL with array support
+			err = rows.Scan(
+				&agent.ID,
+				&agent.Name,
+				&agent.TenantID,
+				&agent.ModelID,
+				&agent.Type,
+				&agent.Status,
+				pq.Array(&agent.Capabilities),
+				&metadataJSON,
+				&agent.CreatedAt,
+				&agent.UpdatedAt,
+				&agent.LastSeenAt,
+			)
+		}
+
+		if err != nil {
+			return nil, fmt.Errorf("failed to scan agent row: %w", err)
+		}
+
+		// Parse metadata JSON
+		if metadataJSON != "" && metadataJSON != "{}" {
+			if err := json.Unmarshal([]byte(metadataJSON), &agent.Metadata); err != nil {
+				// Log but don't fail on metadata parse error
+				agent.Metadata = make(map[string]interface{})
+			}
+		} else {
+			agent.Metadata = make(map[string]interface{})
+		}
+
+		agents = append(agents, agent)
+	}
+
+	if err = rows.Err(); err != nil {
+		return nil, fmt.Errorf("error iterating agent rows: %w", err)
 	}
 
 	return agents, nil
@@ -458,17 +702,55 @@ func (r *RepositoryImpl) GetLeastLoadedAgent(ctx context.Context, capability mod
 		placeholder = "$1"
 	}
 
-	query := fmt.Sprintf("SELECT id, name, tenant_id, model_id FROM %s WHERE status = %s ORDER BY name ASC LIMIT 1",
+	query := fmt.Sprintf("SELECT id, name, tenant_id, model_id, type, status, capabilities, metadata, created_at, updated_at, last_seen_at FROM %s WHERE status = %s ORDER BY name ASC LIMIT 1",
 		r.tableName, placeholder)
 
 	var agent models.Agent
+	var metadataJSON string
 	var err error
 
-	// Use transaction if available
+	// We need to manually scan because of the array and JSON types
+	var row *sql.Row
 	if ok && tx != nil {
-		err = tx.GetContext(ctx, &agent, query, string(models.AgentStatusActive))
+		row = tx.QueryRowContext(ctx, query, string(models.AgentStatusActive))
 	} else {
-		err = r.db.GetContext(ctx, &agent, query, string(models.AgentStatusActive))
+		row = r.db.QueryRowContext(ctx, query, string(models.AgentStatusActive))
+	}
+
+	if isSQLite(r.db) {
+		// SQLite stores capabilities as JSON string
+		var capabilitiesJSON string
+		err = row.Scan(
+			&agent.ID,
+			&agent.Name,
+			&agent.TenantID,
+			&agent.ModelID,
+			&agent.Type,
+			&agent.Status,
+			&capabilitiesJSON,
+			&metadataJSON,
+			&agent.CreatedAt,
+			&agent.UpdatedAt,
+			&agent.LastSeenAt,
+		)
+		if err == nil && capabilitiesJSON != "" {
+			json.Unmarshal([]byte(capabilitiesJSON), &agent.Capabilities)
+		}
+	} else {
+		// PostgreSQL with array support
+		err = row.Scan(
+			&agent.ID,
+			&agent.Name,
+			&agent.TenantID,
+			&agent.ModelID,
+			&agent.Type,
+			&agent.Status,
+			pq.Array(&agent.Capabilities),
+			&metadataJSON,
+			&agent.CreatedAt,
+			&agent.UpdatedAt,
+			&agent.LastSeenAt,
+		)
 	}
 
 	if err != nil {
@@ -476,6 +758,16 @@ func (r *RepositoryImpl) GetLeastLoadedAgent(ctx context.Context, capability mod
 			return nil, fmt.Errorf("no available agent with capability %s", capability)
 		}
 		return nil, fmt.Errorf("failed to get least loaded agent: %w", err)
+	}
+
+	// Parse metadata JSON
+	if metadataJSON != "" && metadataJSON != "{}" {
+		if err := json.Unmarshal([]byte(metadataJSON), &agent.Metadata); err != nil {
+			// Log but don't fail on metadata parse error
+			agent.Metadata = make(map[string]interface{})
+		}
+	} else {
+		agent.Metadata = make(map[string]interface{})
 	}
 
 	return &agent, nil

@@ -85,8 +85,9 @@ func TestWebSocketMCPIntegration(t *testing.T) {
 			Type:   ws.MessageTypeRequest,
 			Method: "context.create",
 			Params: map[string]interface{}{
-				"name":    contextName,
-				"content": "Integration test context content",
+				"name":     contextName,
+				"content":  "Integration test context content",
+				"model_id": "gpt-4", // Default model for tests
 				"metadata": map[string]interface{}{
 					"source": "websocket",
 					"test":   true,
@@ -316,8 +317,9 @@ func TestWebSocketMCPIntegration(t *testing.T) {
 			Type:   ws.MessageTypeRequest,
 			Method: "context.create",
 			Params: map[string]interface{}{
-				"name":    "event-test-context",
-				"content": "This should trigger an event",
+				"name":     "event-test-context",
+				"content":  "This should trigger an event",
+				"model_id": "gpt-4", // Default model for tests
 			},
 		}
 

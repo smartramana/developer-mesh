@@ -536,10 +536,15 @@ func setupTestDB(t *testing.T) *sqlx.DB {
 		tenant_id TEXT NOT NULL,
 		name TEXT,
 		model_id TEXT,
+		type TEXT DEFAULT 'standard',
+		status TEXT DEFAULT 'offline',
+		capabilities TEXT,
+		metadata TEXT,
 		description TEXT,
 		config TEXT,
 		created_at TIMESTAMP,
-		updated_at TIMESTAMP
+		updated_at TIMESTAMP,
+		last_seen_at TIMESTAMP
 	);
 	
 	CREATE TABLE IF NOT EXISTS models (

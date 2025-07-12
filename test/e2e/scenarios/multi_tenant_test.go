@@ -219,6 +219,7 @@ var _ = Describe("Multi-Tenant E2E Tests", func() {
 			createResp, err := tenant1Agent.ExecuteMethod(ctx, "context.create", map[string]interface{}{
 				"name":      contextData.Name,
 				"content":   contextData.Content,
+				"model_id":  "gpt-4", // Default model for tests
 				"metadata":  contextData.Metadata,
 				"namespace": tenant1NS.ID,
 			})
@@ -395,6 +396,7 @@ var _ = Describe("Multi-Tenant E2E Tests", func() {
 						resp, err := agents[agentIndex].ExecuteMethod(ctx, "context.create", map[string]interface{}{
 							"name":      contextData.Name,
 							"content":   contextData.Content,
+							"model_id":  "gpt-4", // Default model for tests
 							"metadata":  contextData.Metadata,
 							"namespace": namespace.ID,
 						})

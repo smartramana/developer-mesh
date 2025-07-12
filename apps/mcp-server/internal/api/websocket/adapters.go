@@ -81,11 +81,12 @@ func (a *contextManagerAdapter) TruncateContext(ctx context.Context, contextID s
 }
 
 // CreateContext implements websocket.ContextManager
-func (a *contextManagerAdapter) CreateContext(ctx context.Context, agentID, tenantID, name, content string) (*models.Context, error) {
+func (a *contextManagerAdapter) CreateContext(ctx context.Context, agentID, tenantID, name, content, modelID string) (*models.Context, error) {
 	// Create a new context
 	newContext := &models.Context{
 		Name:    name,
 		AgentID: agentID,
+		ModelID: modelID,
 		Content: []models.ContextItem{
 			{
 				Content: content,

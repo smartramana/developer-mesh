@@ -177,8 +177,9 @@ var _ = Describe("WebSocket Binary Protocol", func() {
 				Type:   ws.MessageTypeRequest,
 				Method: "context.create",
 				Params: map[string]interface{}{
-					"content": largeData,
-					"name":    "large-context",
+					"content":  largeData,
+					"name":     "large-context",
+					"model_id": "gpt-4", // Default model for tests
 				},
 			}
 

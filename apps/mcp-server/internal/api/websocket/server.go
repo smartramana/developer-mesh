@@ -243,7 +243,19 @@ func (s *Server) HandleWebSocket(w http.ResponseWriter, r *http.Request) {
 	// Update connection properties
 	connection.ID = connectionID
 	connection.AgentID = agentID
-	connection.TenantID = claims.TenantID
+	
+	// Ensure we have a valid tenant ID
+	if claims != nil && claims.TenantID != "" {
+		connection.TenantID = claims.TenantID
+	} else {
+		// Use a default tenant ID for development/testing
+		connection.TenantID = "00000000-0000-0000-0000-000000000001"
+		s.logger.Warn("No tenant ID in claims, using default", map[string]interface{}{
+			"connection_id": connectionID,
+			"agent_id":      agentID,
+		})
+	}
+	
 	connection.CreatedAt = time.Now()
 	connection.LastPing = time.Now()
 

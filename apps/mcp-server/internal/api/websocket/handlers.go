@@ -665,6 +665,7 @@ func (s *Server) handleContextCreate(ctx context.Context, conn *Connection, para
 	var createParams struct {
 		Name        string `json:"name"`
 		Content     string `json:"content"`
+		ModelID     string `json:"model_id"`     // Optional model ID for context
 		ReturnStats bool   `json:"return_stats"`
 	}
 
@@ -694,12 +695,19 @@ func (s *Server) handleContextCreate(ctx context.Context, conn *Connection, para
 		return result, nil
 	}
 
+	// Use provided model ID or default
+	modelID := createParams.ModelID
+	if modelID == "" {
+		modelID = "default-model"
+	}
+
 	context, err := s.contextManager.CreateContext(
 		ctx,
 		conn.AgentID,
 		conn.TenantID,
 		createParams.Name,
 		createParams.Content,
+		modelID,
 	)
 	if err != nil {
 		return nil, err
@@ -2410,7 +2418,7 @@ type ContextManager interface {
 	GetContext(ctx context.Context, contextID string) (*models.Context, error)
 	UpdateContext(ctx context.Context, contextID string, content string) (*models.Context, error)
 	TruncateContext(ctx context.Context, contextID string, maxTokens int, preserveRecent bool) (*TruncatedContext, int, error)
-	CreateContext(ctx context.Context, agentID, tenantID, name, content string) (*models.Context, error)
+	CreateContext(ctx context.Context, agentID, tenantID, name, content, modelID string) (*models.Context, error)
 	AppendToContext(ctx context.Context, contextID string, content string) (*models.Context, error)
 	GetContextStats(ctx context.Context, contextID string) (*ContextStats, error)
 }

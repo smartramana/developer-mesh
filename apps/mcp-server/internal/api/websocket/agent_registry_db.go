@@ -53,6 +53,11 @@ func (ar *DBAgentRegistry) RegisterAgent(ctx context.Context, reg *AgentRegistra
 		return nil, fmt.Errorf("agent ID cannot be empty")
 	}
 
+	// Validate tenant ID
+	if reg.TenantID == "" {
+		return nil, fmt.Errorf("tenant ID cannot be empty")
+	}
+
 	// Ensure we don't use zero UUID
 	zeroUUID := "00000000-0000-0000-0000-000000000000"
 	if reg.ID == zeroUUID {
@@ -67,7 +72,11 @@ func (ar *DBAgentRegistry) RegisterAgent(ctx context.Context, reg *AgentRegistra
 	// Parse tenant UUID
 	tenantUUID, err := uuid.Parse(reg.TenantID)
 	if err != nil {
-		return nil, fmt.Errorf("invalid tenant ID: %w", err)
+		ar.logger.Error("Failed to parse tenant ID", map[string]interface{}{
+			"tenant_id": reg.TenantID,
+			"error":     err.Error(),
+		})
+		return nil, fmt.Errorf("invalid tenant ID '%s': %w", reg.TenantID, err)
 	}
 
 	// Create agent model

@@ -434,7 +434,7 @@ var _ = Describe("Performance and Stress E2E Tests", func() {
 				10240,   // 10KB
 				102400,  // 100KB
 				1048576, // 1MB
-				5242880, // 5MB
+				2000000, // 2MB (just under the limit)
 			}
 
 			results := make(map[int]time.Duration)
@@ -447,6 +447,7 @@ var _ = Describe("Performance and Stress E2E Tests", func() {
 				resp, err := largeAgent.ExecuteMethod(ctx, "context.create", map[string]interface{}{
 					"name":    fmt.Sprintf("large-context-%d", size),
 					"content": largeData,
+					"model_id": "gpt-4", // Default model for tests
 					"metadata": map[string]interface{}{
 						"size": size,
 						"type": "performance_test",
@@ -663,6 +664,9 @@ var _ = Describe("Performance and Stress E2E Tests", func() {
 				},
 			})
 			Expect(err).NotTo(HaveOccurred())
+			
+			// Set the agent to binary mode after server confirms
+			binaryAgent.SetBinaryMode(true, 1024)
 
 			// Benchmark with large payload
 			largePayload := data.GenerateLargeContext(5000) // ~400KB

@@ -1,8 +1,13 @@
 package agent
 
 import (
+	"bytes"
+	"compress/gzip"
 	"context"
+	"encoding/binary"
+	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
 	"strings"
 	"sync"
@@ -13,6 +18,14 @@ import (
 	"github.com/google/uuid"
 
 	ws "github.com/S-Corkum/devops-mcp/pkg/models/websocket"
+)
+
+// Binary protocol constants (must match server implementation)
+const (
+	BinaryProtocolVersion = 1
+	HeaderSize            = 12 // version(1) + flags(1) + messageType(2) + payloadSize(4) + reserved(4)
+	FlagCompressed        = 1 << 0
+	FlagEncrypted         = 1 << 1
 )
 
 // TestAgent represents a test AI agent for E2E testing
@@ -38,6 +51,10 @@ type TestAgent struct {
 	messagesSent     int64
 	messagesReceived int64
 	lastActivity     time.Time
+
+	// Binary protocol
+	binaryMode           bool
+	compressionThreshold int
 }
 
 // NewTestAgent creates a new test agent instance
@@ -146,7 +163,35 @@ func (ta *TestAgent) readMessages() {
 			return
 		default:
 			var msg ws.Message
-			err := wsjson.Read(context.Background(), ta.conn, &msg)
+			var err error
+			
+			// Check if we're in binary mode
+			ta.mu.RLock()
+			binaryMode := ta.binaryMode
+			ta.mu.RUnlock()
+			
+			if binaryMode {
+				// Read binary message
+				msgType, data, readErr := ta.conn.Read(context.Background())
+				if readErr != nil {
+					err = readErr
+				} else if msgType == websocket.MessageBinary {
+					// Decode binary message
+					decodedMsg, decodeErr := ta.decodeBinaryMessage(data)
+					if decodeErr != nil {
+						err = decodeErr
+					} else {
+						msg = *decodedMsg
+					}
+				} else {
+					// In binary mode but received non-binary message
+					err = fmt.Errorf("expected binary message, got type %v", msgType)
+				}
+			} else {
+				// Standard JSON mode
+				err = wsjson.Read(context.Background(), ta.conn, &msg)
+			}
+			
 			if err != nil {
 				if websocket.CloseStatus(err) != -1 {
 					ta.mu.Lock()
@@ -211,10 +256,24 @@ func (ta *TestAgent) SendMessage(ctx context.Context, msg *ws.Message) error {
 		ta.mu.RUnlock()
 		return fmt.Errorf("not connected")
 	}
+	binaryMode := ta.binaryMode
+	compressionThreshold := ta.compressionThreshold
 	ta.mu.RUnlock()
 
-	if err := wsjson.Write(ctx, ta.conn, msg); err != nil {
-		return fmt.Errorf("failed to send message: %w", err)
+	// If binary mode is enabled, encode as binary
+	if binaryMode {
+		data, err := ta.encodeBinaryMessage(msg, compressionThreshold)
+		if err != nil {
+			return fmt.Errorf("failed to encode binary message: %w", err)
+		}
+		if err := ta.conn.Write(ctx, websocket.MessageBinary, data); err != nil {
+			return fmt.Errorf("failed to send binary message: %w", err)
+		}
+	} else {
+		// Standard JSON mode
+		if err := wsjson.Write(ctx, ta.conn, msg); err != nil {
+			return fmt.Errorf("failed to send message: %w", err)
+		}
 	}
 
 	ta.mu.Lock()
@@ -387,4 +446,129 @@ func (ta *TestAgent) GetID() string {
 // GetSessionID returns the session ID
 func (ta *TestAgent) GetSessionID() string {
 	return ta.sessionID
+}
+
+// SetBinaryMode enables or disables binary protocol
+func (ta *TestAgent) SetBinaryMode(enabled bool, compressionThreshold int) {
+	ta.mu.Lock()
+	defer ta.mu.Unlock()
+	ta.binaryMode = enabled
+	ta.compressionThreshold = compressionThreshold
+}
+
+// encodeBinaryMessage encodes a message to binary format
+func (ta *TestAgent) encodeBinaryMessage(msg *ws.Message, compressionThreshold int) ([]byte, error) {
+	// Marshal message to JSON
+	payload, err := json.Marshal(msg)
+	if err != nil {
+		return nil, fmt.Errorf("failed to marshal message: %w", err)
+	}
+
+	// Check if compression is needed
+	var flags byte
+	if len(payload) > compressionThreshold && compressionThreshold > 0 {
+		compressed, err := compressPayload(payload)
+		if err != nil {
+			return nil, fmt.Errorf("failed to compress payload: %w", err)
+		}
+		payload = compressed
+		flags |= FlagCompressed
+	}
+
+	// Create header
+	header := make([]byte, HeaderSize)
+	header[0] = BinaryProtocolVersion // version
+	header[1] = flags                  // flags
+
+	// Message type (2 bytes)
+	msgType := getMessageTypeCode(msg.Type)
+	binary.BigEndian.PutUint16(header[2:4], msgType)
+
+	// Payload size (4 bytes)
+	binary.BigEndian.PutUint32(header[4:8], uint32(len(payload)))
+
+	// Reserved (4 bytes) - leave as zeros
+
+	// Combine header and payload
+	return append(header, payload...), nil
+}
+
+// decodeBinaryMessage decodes a binary message
+func (ta *TestAgent) decodeBinaryMessage(data []byte) (*ws.Message, error) {
+	if len(data) < HeaderSize {
+		return nil, fmt.Errorf("message too short: %d bytes", len(data))
+	}
+
+	// Parse header
+	version := data[0]
+	if version != BinaryProtocolVersion {
+		return nil, fmt.Errorf("unsupported protocol version: %d", version)
+	}
+
+	flags := data[1]
+	// msgType := binary.BigEndian.Uint16(data[2:4]) // Not used in decoding
+	payloadSize := binary.BigEndian.Uint32(data[4:8])
+
+	// Validate payload size
+	if len(data) < HeaderSize+int(payloadSize) {
+		return nil, fmt.Errorf("incomplete payload: expected %d bytes, got %d", payloadSize, len(data)-HeaderSize)
+	}
+
+	payload := data[HeaderSize : HeaderSize+payloadSize]
+
+	// Decompress if needed
+	if flags&FlagCompressed != 0 {
+		decompressed, err := decompressPayload(payload)
+		if err != nil {
+			return nil, fmt.Errorf("failed to decompress payload: %w", err)
+		}
+		payload = decompressed
+	}
+
+	// Unmarshal JSON
+	var msg ws.Message
+	if err := json.Unmarshal(payload, &msg); err != nil {
+		return nil, fmt.Errorf("failed to unmarshal message: %w", err)
+	}
+
+	return &msg, nil
+}
+
+// Helper functions for binary protocol
+
+func compressPayload(data []byte) ([]byte, error) {
+	var buf bytes.Buffer
+	gz := gzip.NewWriter(&buf)
+	if _, err := gz.Write(data); err != nil {
+		return nil, err
+	}
+	if err := gz.Close(); err != nil {
+		return nil, err
+	}
+	return buf.Bytes(), nil
+}
+
+func decompressPayload(data []byte) ([]byte, error) {
+	gz, err := gzip.NewReader(bytes.NewReader(data))
+	if err != nil {
+		return nil, err
+	}
+	defer gz.Close()
+
+	return io.ReadAll(gz)
+}
+
+func getMessageTypeCode(msgType ws.MessageType) uint16 {
+	switch msgType {
+	case ws.MessageTypeRequest:
+		return 1
+	case ws.MessageTypeResponse:
+		return 2
+	case ws.MessageTypeNotification:
+		return 3
+	case ws.MessageTypeError:
+		return 4
+	default:
+		return 0
+	}
 }
