@@ -13,6 +13,7 @@ services:
       - .env
     environment:
       - PORT=8080  # Override any global PORT setting
+      - MIGRATIONS_PATH=/app/migrations/sql  # Set migrations path
     command: >
       sh -c "ln -sf /app/configs/config.production.yaml /app/configs/config.yaml && /app/mcp-server"
     volumes:
@@ -20,6 +21,7 @@ services:
       - ./configs/config.production.yaml:/app/configs/config.production.yaml:ro
       - ./configs/auth.production.yaml:/app/configs/auth.production.yaml:ro
       - ./logs:/app/logs
+      - ./migrations:/app/migrations:ro
     healthcheck:
       test: ["CMD", "/app/mcp-server", "-health-check"]
       interval: 30s

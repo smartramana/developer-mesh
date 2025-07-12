@@ -36,9 +36,6 @@ COPY --from=builder /tmp/worker /app/worker
 # Copy configuration files
 COPY --chown=nonroot:nonroot apps/worker/configs /app/configs
 
-# Copy migrations
-COPY --chown=nonroot:nonroot migrations /app/migrations
-
 # Set working directory
 WORKDIR /app
 

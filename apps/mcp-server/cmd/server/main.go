@@ -1397,14 +1397,12 @@ func getMigrationDir() string {
 
 	// Check multiple possible locations
 	possiblePaths := []string{
-		"/app/migrations",            // Production Docker path
-		"migrations",                 // Local development
-		"../../migrations",           // From apps/mcp-server directory
-		"migrations/sql",             // Legacy path
-		"../../migrations/sql",       // Legacy path
-		"../rest-api/migrations/sql", // Old location
-		"apps/rest-api/migrations/sql",
-		filepath.Join(os.Getenv("PROJECT_ROOT"), "migrations"),
+		"/app/migrations/sql",            // Production Docker path (when mounted)
+		"migrations/sql",                 // Local path (when mounted)
+		"../rest-api/migrations/sql",    // REST API migrations directory
+		"apps/rest-api/migrations/sql",  // From project root
+		"../../apps/rest-api/migrations/sql", // From apps/mcp-server directory
+		filepath.Join(os.Getenv("PROJECT_ROOT"), "apps/rest-api/migrations/sql"),
 	}
 
 	for _, path := range possiblePaths {
