@@ -1397,10 +1397,10 @@ func getMigrationDir() string {
 
 	// Check multiple possible locations
 	possiblePaths := []string{
-		"/app/migrations/sql",            // Production Docker path (when mounted)
-		"migrations/sql",                 // Local path (when mounted)
-		"../rest-api/migrations/sql",    // REST API migrations directory
-		"apps/rest-api/migrations/sql",  // From project root
+		"/app/migrations/sql",                // Production Docker path (when mounted)
+		"migrations/sql",                     // Local path (when mounted)
+		"../rest-api/migrations/sql",         // REST API migrations directory
+		"apps/rest-api/migrations/sql",       // From project root
 		"../../apps/rest-api/migrations/sql", // From apps/mcp-server directory
 		filepath.Join(os.Getenv("PROJECT_ROOT"), "apps/rest-api/migrations/sql"),
 	}
