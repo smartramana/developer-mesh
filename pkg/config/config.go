@@ -16,7 +16,6 @@ type Config struct {
 	AWS         interface{}            `mapstructure:"aws"`
 	Environment string                 `mapstructure:"environment"`
 	Adapters    map[string]interface{} `mapstructure:"adapters"`
-	Embedding   EmbeddingConfig        `mapstructure:"embedding"`
 }
 
 // APIConfig defines the API server configuration
@@ -92,24 +91,4 @@ func (c *Config) IsStaging() bool {
 func (c *Config) GetListenPort() int {
 	// Default port
 	return 8080
-}
-
-// EmbeddingConfig contains configuration for the embedding system
-type EmbeddingConfig struct {
-	Providers struct {
-		OpenAI struct {
-			Enabled bool   `mapstructure:"enabled"`
-			APIKey  string `mapstructure:"api_key"`
-		} `mapstructure:"openai"`
-		Bedrock struct {
-			Enabled  bool   `mapstructure:"enabled"`
-			Region   string `mapstructure:"region"`
-			Endpoint string `mapstructure:"endpoint"`
-		} `mapstructure:"bedrock"`
-		Google struct {
-			Enabled  bool   `mapstructure:"enabled"`
-			APIKey   string `mapstructure:"api_key"`
-			Endpoint string `mapstructure:"endpoint"`
-		} `mapstructure:"google"`
-	} `mapstructure:"providers"`
 }

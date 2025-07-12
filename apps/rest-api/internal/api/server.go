@@ -16,7 +16,7 @@ import (
 	"github.com/S-Corkum/devops-mcp/pkg/agents"
 	"github.com/S-Corkum/devops-mcp/pkg/auth"
 	"github.com/S-Corkum/devops-mcp/pkg/common/cache"
-	"github.com/S-Corkum/devops-mcp/pkg/config"
+	"github.com/S-Corkum/devops-mcp/pkg/common/config"
 	"github.com/S-Corkum/devops-mcp/pkg/database"
 	"github.com/S-Corkum/devops-mcp/pkg/observability"
 	"github.com/gin-gonic/gin"
@@ -63,7 +63,7 @@ type Server struct {
 }
 
 // NewServer creates a new API server
-func NewServer(engine *core.Engine, cfg Config, db *sqlx.DB, metrics observability.MetricsClient, config *config.Config) *Server {
+func NewServer(engine *core.Engine, cfg Config, db *sqlx.DB, metrics observability.MetricsClient, config *config.Config, cacheClient cache.Cache) *Server {
 	// Defensive: fail fast if db is nil
 	if db == nil {
 		panic("[api.NewServer] FATAL: received nil *sqlx.DB. Check database initialization before calling NewServer.")
@@ -166,21 +166,10 @@ func NewServer(engine *core.Engine, cfg Config, db *sqlx.DB, metrics observabili
 		}
 	}
 
-	// Initialize cache before auth setup so auth can use caching
-	var cacheImpl cache.Cache
-	if config != nil && config.Cache != nil {
-		// Initialize cache with context
-		var cacheErr error
-		cacheImpl, cacheErr = cache.NewCache(context.Background(), config.Cache)
-		if cacheErr != nil {
-			logger.Warn("Failed to initialize cache, using no-op cache", map[string]any{
-				"error": cacheErr.Error(),
-			})
-			// Fall back to no-op cache
-			cacheImpl = cache.NewNoOpCache()
-		}
-	} else {
-		// Use no-op cache if not configured
+	// Use the cache client passed from main.go
+	var cacheImpl cache.Cache = cacheClient
+	if cacheImpl == nil {
+		logger.Warn("No cache client provided, using no-op cache", map[string]interface{}{})
 		cacheImpl = cache.NewNoOpCache()
 	}
 
@@ -197,7 +186,7 @@ func NewServer(engine *core.Engine, cfg Config, db *sqlx.DB, metrics observabili
 	logger.Info("Enhanced authentication initialized", map[string]interface{}{
 		"environment":    os.Getenv("ENVIRONMENT"),
 		"api_key_source": os.Getenv("API_KEY_SOURCE"),
-		"cache_enabled":  cacheImpl != nil && config.Cache != nil,
+		"cache_enabled":  cacheImpl != nil,
 	})
 
 	// Configure HTTP client transport for external service calls

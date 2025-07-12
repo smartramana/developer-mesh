@@ -49,6 +49,7 @@ type Config struct {
 	Adapters    map[string]any    `mapstructure:"adapters"`
 	WebSocket   *WebSocketConfig  `mapstructure:"websocket"`
 	MCPServer   *MCPServerConfig  `mapstructure:"mcp_server"`
+	Embedding   EmbeddingConfig   `mapstructure:"embedding"`
 }
 
 // RestAPIConfig holds configuration for connecting to REST API service
@@ -99,6 +100,38 @@ type AWSConfig struct {
 	RDS         aws.RDSConfig         `mapstructure:"rds"`
 	ElastiCache aws.ElastiCacheConfig `mapstructure:"elasticache"`
 	S3          aws.S3Config          `mapstructure:"s3"`
+}
+
+// EmbeddingConfig contains configuration for the embedding system
+type EmbeddingConfig struct {
+	Providers ProvidersConfig `mapstructure:"providers"`
+}
+
+// ProvidersConfig contains configuration for embedding providers
+type ProvidersConfig struct {
+	OpenAI  OpenAIConfig  `mapstructure:"openai"`
+	Bedrock BedrockConfig `mapstructure:"bedrock"`
+	Google  GoogleConfig  `mapstructure:"google"`
+}
+
+// OpenAIConfig contains OpenAI provider configuration
+type OpenAIConfig struct {
+	Enabled bool   `mapstructure:"enabled"`
+	APIKey  string `mapstructure:"api_key"`
+}
+
+// BedrockConfig contains AWS Bedrock provider configuration
+type BedrockConfig struct {
+	Enabled  bool   `mapstructure:"enabled"`
+	Region   string `mapstructure:"region"`
+	Endpoint string `mapstructure:"endpoint"`
+}
+
+// GoogleConfig contains Google provider configuration
+type GoogleConfig struct {
+	Enabled  bool   `mapstructure:"enabled"`
+	APIKey   string `mapstructure:"api_key"`
+	Endpoint string `mapstructure:"endpoint"`
 }
 
 // Load loads configuration from file and environment variables

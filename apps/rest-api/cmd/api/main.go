@@ -209,8 +209,8 @@ func main() {
 	obsMetricsClient := observability.NewMetricsClient()
 
 	// Initialize API server
-	// Note: Passing nil for the old config type as it's only used for vector DB which we configure separately
-	server := api.NewServer(engine, apiConfig, db.GetDB(), obsMetricsClient, nil)
+	// Pass both config and cache client
+	server := api.NewServer(engine, apiConfig, db.GetDB(), obsMetricsClient, cfg, cacheClient)
 
 	// Initialize server components
 	if err := server.Initialize(ctx); err != nil {
