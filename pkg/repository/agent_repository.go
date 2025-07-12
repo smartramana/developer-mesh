@@ -91,7 +91,7 @@ func (r *AgentRepositoryImpl) Create(ctx context.Context, agent *models.Agent) e
 	if agent.ID == "" {
 		return errors.New("agent ID cannot be empty")
 	}
-	
+
 	// Ensure agent ID is a valid UUID format
 	if _, err := uuid.Parse(agent.ID); err != nil {
 		return fmt.Errorf("invalid agent ID format: %w", err)

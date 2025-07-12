@@ -103,7 +103,7 @@ func TestConnectionNilSafety(t *testing.T) {
 			conn.SetState(ws.ConnectionStateConnected)
 			assert.Equal(t, ws.ConnectionStateClosed, conn.GetState())
 		})
-		
+
 		PutConnection(conn)
 	})
 }
@@ -112,7 +112,7 @@ func TestConnectionNilSafety(t *testing.T) {
 func TestConnectionPoolInitialization(t *testing.T) {
 	// Get multiple connections from pool and verify they're all properly initialized
 	conns := make([]*Connection, 20)
-	
+
 	for i := 0; i < 20; i++ {
 		conn := connectionPool.Get().(*Connection)
 		assert.NotNil(t, conn)
@@ -120,19 +120,19 @@ func TestConnectionPoolInitialization(t *testing.T) {
 		// The important thing is that the pool creates valid connections when New is called
 		assert.NotNil(t, conn.send)
 		assert.NotNil(t, conn.closed)
-		
+
 		// If Connection is not nil, verify state is initialized
 		if conn.Connection != nil {
 			assert.Equal(t, ws.ConnectionStateClosed, conn.GetState())
 		}
 		conns[i] = conn
 	}
-	
+
 	// Return all connections to pool
 	for _, conn := range conns {
 		connectionPool.Put(conn)
 	}
-	
+
 	// Test the pool's New function directly
 	newConn := connectionPool.New().(*Connection)
 	assert.NotNil(t, newConn)

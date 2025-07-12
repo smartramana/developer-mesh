@@ -1394,14 +1394,14 @@ func getMigrationDir() string {
 	if envPath := os.Getenv("MIGRATIONS_PATH"); envPath != "" {
 		return envPath
 	}
-	
+
 	// Check multiple possible locations
 	possiblePaths := []string{
-		"/app/migrations",           // Production Docker path
-		"migrations",                // Local development
-		"../../migrations",          // From apps/mcp-server directory
-		"migrations/sql",            // Legacy path
-		"../../migrations/sql",      // Legacy path
+		"/app/migrations",            // Production Docker path
+		"migrations",                 // Local development
+		"../../migrations",           // From apps/mcp-server directory
+		"migrations/sql",             // Legacy path
+		"../../migrations/sql",       // Legacy path
 		"../rest-api/migrations/sql", // Old location
 		"apps/rest-api/migrations/sql",
 		filepath.Join(os.Getenv("PROJECT_ROOT"), "migrations"),

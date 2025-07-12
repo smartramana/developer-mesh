@@ -344,7 +344,7 @@ func TestConnectionClose(t *testing.T) {
 			connections: make(map[string]*Connection),
 			mu:          sync.RWMutex{},
 		}
-		
+
 		testConn := NewConnection("test-conn", conn, mockHub)
 		testConn.SetState(ws.ConnectionStateConnected)
 

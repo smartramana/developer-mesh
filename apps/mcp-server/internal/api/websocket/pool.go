@@ -38,7 +38,7 @@ var (
 			}
 			// Initialize state to prevent nil pointer
 			wsConn.State.Store(ws.ConnectionStateClosed)
-			
+
 			return &Connection{
 				Connection: wsConn,
 				send:       make(chan []byte, 256),
@@ -266,7 +266,7 @@ preAllocateLoop:
 			LastPing:  time.Time{},
 		}
 		wsConn.State.Store(ws.ConnectionStateClosed)
-		
+
 		conn := &Connection{
 			Connection: wsConn,
 			send:       make(chan []byte, 256),
@@ -507,7 +507,7 @@ func (m *ConnectionPoolManager) maintain() {
 						LastPing:  time.Time{},
 					}
 					wsConn.State.Store(ws.ConnectionStateClosed)
-					
+
 					conn := &Connection{
 						Connection: wsConn,
 						send:       make(chan []byte, 256),

@@ -52,7 +52,7 @@ func (ar *DBAgentRegistry) RegisterAgent(ctx context.Context, reg *AgentRegistra
 	if reg.ID == "" {
 		return nil, fmt.Errorf("agent ID cannot be empty")
 	}
-	
+
 	// Ensure we don't use zero UUID
 	zeroUUID := "00000000-0000-0000-0000-000000000000"
 	if reg.ID == zeroUUID {
@@ -63,7 +63,7 @@ func (ar *DBAgentRegistry) RegisterAgent(ctx context.Context, reg *AgentRegistra
 			"name":         reg.Name,
 		})
 	}
-	
+
 	// Parse tenant UUID
 	tenantUUID, err := uuid.Parse(reg.TenantID)
 	if err != nil {

@@ -9,8 +9,8 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/S-Corkum/devops-mcp/pkg/auth"
-	"github.com/S-Corkum/devops-mcp/pkg/observability"
 	ws "github.com/S-Corkum/devops-mcp/pkg/models/websocket"
+	"github.com/S-Corkum/devops-mcp/pkg/observability"
 )
 
 // TestConnectionInitializationWithEmptyAgentID tests connection initialization when claims have empty UserID
@@ -70,32 +70,32 @@ func TestConnectionInitializationWithEmptyAgentID(t *testing.T) {
 			if connection.Connection == nil {
 				// This should not happen with properly initialized pool, but handle it gracefully
 				connection.Connection = &ws.Connection{}
-				connection.Connection.State.Store(ws.ConnectionStateClosed)
+				connection.State.Store(ws.ConnectionStateClosed)
 			}
 
 			// Update connection properties
-			connection.Connection.ID = connectionID
-			connection.Connection.AgentID = agentID
-			connection.Connection.TenantID = claims.TenantID
-			connection.Connection.CreatedAt = time.Now()
-			connection.Connection.LastPing = time.Now()
+			connection.ID = connectionID
+			connection.AgentID = agentID
+			connection.TenantID = claims.TenantID
+			connection.CreatedAt = time.Now()
+			connection.LastPing = time.Now()
 
 			// Verify agent ID is not empty
-			assert.NotEmpty(t, connection.Connection.AgentID)
+			assert.NotEmpty(t, connection.AgentID)
 
 			// If we expected generation, verify it's a valid UUID
 			if tt.expectGenerated {
-				_, err := uuid.Parse(connection.Connection.AgentID)
+				_, err := uuid.Parse(connection.AgentID)
 				assert.NoError(t, err, "Generated agent ID should be a valid UUID")
 			} else {
 				// Should use the provided UserID
-				assert.Equal(t, tt.userID, connection.Connection.AgentID)
+				assert.Equal(t, tt.userID, connection.AgentID)
 			}
 
 			// Verify connection is properly initialized
 			assert.NotNil(t, connection.Connection)
-			assert.NotEmpty(t, connection.Connection.ID)
-			assert.NotEmpty(t, connection.Connection.TenantID)
+			assert.NotEmpty(t, connection.ID)
+			assert.NotEmpty(t, connection.TenantID)
 
 			// Return connection to pool
 			server.connectionPool.Put(connection)
@@ -107,7 +107,7 @@ func TestConnectionInitializationWithEmptyAgentID(t *testing.T) {
 func TestAgentIDPersistenceInHandlers(t *testing.T) {
 	// Create server
 	server := NewServer(&auth.Service{}, observability.NewNoOpMetricsClient(), NewTestLogger(), Config{})
-	
+
 	// Create connection with specific agent ID
 	agentID := uuid.New().String()
 	conn := &Connection{
@@ -122,12 +122,12 @@ func TestAgentIDPersistenceInHandlers(t *testing.T) {
 		closed: make(chan struct{}),
 		hub:    server,
 	}
-	conn.Connection.State.Store(ws.ConnectionStateConnected)
-	
+	conn.State.Store(ws.ConnectionStateConnected)
+
 	// Verify agent ID is preserved in connection
 	assert.Equal(t, agentID, conn.AgentID)
-	assert.Equal(t, agentID, conn.Connection.AgentID)
-	
+	assert.Equal(t, agentID, conn.AgentID)
+
 	// Test that GetTenantUUID handles the tenant ID properly
 	tenantUUID := conn.GetTenantUUID()
 	assert.Equal(t, uuid.Nil, tenantUUID) // Should return zero UUID for invalid format "test-tenant"
