@@ -321,11 +321,15 @@ func (c *Connection) Close() error {
 		// Signal closure to all goroutines
 		close(c.closed)
 
-		// Set state to closing
-		c.SetState(ws.ConnectionStateClosing)
+		// Set state to closing (with nil check)
+		if c.Connection != nil {
+			c.SetState(ws.ConnectionStateClosing)
+		}
 
-		// Remove from hub
-		c.hub.removeConnection(c)
+		// Remove from hub (with nil check)
+		if c.hub != nil {
+			c.hub.removeConnection(c)
+		}
 
 		// Close the websocket connection
 		c.mu.Lock()
@@ -338,8 +342,10 @@ func (c *Connection) Close() error {
 		// Wait for goroutines to finish
 		c.wg.Wait()
 
-		// Set final state
-		c.SetState(ws.ConnectionStateClosed)
+		// Set final state (with nil check)
+		if c.Connection != nil {
+			c.SetState(ws.ConnectionStateClosed)
+		}
 	})
 	return closeErr
 }
@@ -513,4 +519,34 @@ func (c *Connection) GetPreviousSession() string {
 		return ""
 	}
 	return c.state.PreviousSessionID
+}
+
+// IsActive safely checks if the connection is active
+func (c *Connection) IsActive() bool {
+	// Check if connection is nil first
+	if c == nil || c.Connection == nil {
+		return false
+	}
+	// Use the embedded Connection's IsActive method
+	return c.Connection.IsActive()
+}
+
+// SetState safely sets the connection state
+func (c *Connection) SetState(state ws.ConnectionState) {
+	// Check if connection is nil first
+	if c == nil || c.Connection == nil {
+		return
+	}
+	// Use the embedded Connection's SetState method
+	c.Connection.SetState(state)
+}
+
+// GetState safely gets the connection state
+func (c *Connection) GetState() ws.ConnectionState {
+	// Check if connection is nil first
+	if c == nil || c.Connection == nil {
+		return ws.ConnectionStateClosed
+	}
+	// Use the embedded Connection's GetState method
+	return c.Connection.GetState()
 }

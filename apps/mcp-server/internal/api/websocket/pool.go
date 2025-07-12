@@ -28,8 +28,21 @@ var (
 	// Connection pool for reusing connection objects
 	connectionPool = sync.Pool{
 		New: func() interface{} {
+			// Create a connection with initialized embedded ws.Connection
+			wsConn := &ws.Connection{
+				ID:        "", // Will be set when connection is used
+				AgentID:   "",
+				TenantID:  "",
+				CreatedAt: time.Time{},
+				LastPing:  time.Time{},
+			}
+			// Initialize state to prevent nil pointer
+			wsConn.State.Store(ws.ConnectionStateClosed)
+			
 			return &Connection{
-				send: make(chan []byte, 256),
+				Connection: wsConn,
+				send:       make(chan []byte, 256),
+				closed:     make(chan struct{}),
 			}
 		},
 	}
@@ -244,8 +257,20 @@ func NewConnectionPoolManager(size int) *ConnectionPoolManager {
 	// Pre-allocate minimum connections
 preAllocateLoop:
 	for i := 0; i < minSize; i++ {
+		// Create a connection with initialized embedded ws.Connection
+		wsConn := &ws.Connection{
+			ID:        "",
+			AgentID:   "",
+			TenantID:  "",
+			CreatedAt: time.Time{},
+			LastPing:  time.Time{},
+		}
+		wsConn.State.Store(ws.ConnectionStateClosed)
+		
 		conn := &Connection{
-			send: make(chan []byte, 256),
+			Connection: wsConn,
+			send:       make(chan []byte, 256),
+			closed:     make(chan struct{}),
 		}
 		select {
 		case manager.pool <- conn:
@@ -281,8 +306,20 @@ func (m *ConnectionPoolManager) Get() *Connection {
 		m.created++
 		m.mu.Unlock()
 
+		// Create a connection with initialized embedded ws.Connection
+		wsConn := &ws.Connection{
+			ID:        "",
+			AgentID:   "",
+			TenantID:  "",
+			CreatedAt: time.Time{},
+			LastPing:  time.Time{},
+		}
+		wsConn.State.Store(ws.ConnectionStateClosed)
+
 		return &Connection{
-			send: make(chan []byte, 256),
+			Connection: wsConn,
+			send:       make(chan []byte, 256),
+			closed:     make(chan struct{}),
 		}
 	}
 }
@@ -461,8 +498,20 @@ func (m *ConnectionPoolManager) maintain() {
 				toCreate := m.minSize - currentSize
 			createLoop:
 				for i := 0; i < toCreate; i++ {
+					// Create a connection with initialized embedded ws.Connection
+					wsConn := &ws.Connection{
+						ID:        "",
+						AgentID:   "",
+						TenantID:  "",
+						CreatedAt: time.Time{},
+						LastPing:  time.Time{},
+					}
+					wsConn.State.Store(ws.ConnectionStateClosed)
+					
 					conn := &Connection{
-						send: make(chan []byte, 256),
+						Connection: wsConn,
+						send:       make(chan []byte, 256),
+						closed:     make(chan struct{}),
 					}
 
 					select {

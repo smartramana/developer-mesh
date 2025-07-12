@@ -216,16 +216,42 @@ func (s *Server) HandleWebSocket(w http.ResponseWriter, r *http.Request) {
 	// Get connection from pool
 	connection := s.connectionPool.Get()
 
-	// Initialize connection
-	connection.Connection = &ws.Connection{
-		ID:        uuid.New().String(),
-		AgentID:   claims.UserID, // Using UserID as AgentID for now
-		TenantID:  claims.TenantID,
-		CreatedAt: time.Now(),
+	// Generate a unique connection ID
+	connectionID := uuid.New().String()
+	
+	// Generate agent ID - use UserID if available, otherwise generate new UUID
+	agentID := claims.UserID
+	if agentID == "" {
+		// Generate a new UUID for agents without explicit user ID
+		agentID = uuid.New().String()
+		s.logger.Warn("No UserID in claims, generating new agent ID", map[string]interface{}{
+			"connection_id": connectionID,
+			"agent_id":      agentID,
+			"tenant_id":     claims.TenantID,
+		})
 	}
+	
+	// Initialize connection - reuse existing ws.Connection if available
+	if connection.Connection == nil {
+		// This should not happen with properly initialized pool, but handle it gracefully
+		connection.Connection = &ws.Connection{}
+		connection.Connection.State.Store(ws.ConnectionStateClosed)
+	}
+	
+	// Update connection properties
+	connection.Connection.ID = connectionID
+	connection.Connection.AgentID = agentID
+	connection.Connection.TenantID = claims.TenantID
+	connection.Connection.CreatedAt = time.Now()
+	connection.Connection.LastPing = time.Now()
+	
 	connection.conn = conn
 	connection.hub = s
-	connection.closed = make(chan struct{})
+	
+	// Ensure closed channel is initialized
+	if connection.closed == nil {
+		connection.closed = make(chan struct{})
+	}
 
 	// Set initial state
 	connection.SetState(ws.ConnectionStateConnecting)
