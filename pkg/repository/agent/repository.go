@@ -348,9 +348,9 @@ func (r *RepositoryImpl) List(ctx context.Context, filter Filter) ([]*models.Age
 			)
 			if err == nil && capabilitiesJSON != "" {
 				if err := json.Unmarshal([]byte(capabilitiesJSON), &agent.Capabilities); err != nil {
-				// Log error but continue - capabilities are optional
-				fmt.Printf("failed to unmarshal capabilities for agent %s: %v\n", agent.ID, err)
-			}
+					// Log error but continue - capabilities are optional
+					fmt.Printf("failed to unmarshal capabilities for agent %s: %v\n", agent.ID, err)
+				}
 			}
 		} else {
 			// PostgreSQL with array support
@@ -636,9 +636,9 @@ func (r *RepositoryImpl) GetByStatus(ctx context.Context, status models.AgentSta
 			)
 			if err == nil && capabilitiesJSON != "" {
 				if err := json.Unmarshal([]byte(capabilitiesJSON), &agent.Capabilities); err != nil {
-				// Log error but continue - capabilities are optional
-				fmt.Printf("failed to unmarshal capabilities for agent %s: %v\n", agent.ID, err)
-			}
+					// Log error but continue - capabilities are optional
+					fmt.Printf("failed to unmarshal capabilities for agent %s: %v\n", agent.ID, err)
+				}
 			}
 		} else {
 			// PostgreSQL with array support
