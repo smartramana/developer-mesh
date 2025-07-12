@@ -223,7 +223,10 @@ func (r *RepositoryImpl) Get(ctx context.Context, id string) (*models.Agent, err
 			&agent.LastSeenAt,
 		)
 		if err == nil && capabilitiesJSON != "" {
-			json.Unmarshal([]byte(capabilitiesJSON), &agent.Capabilities)
+			if err := json.Unmarshal([]byte(capabilitiesJSON), &agent.Capabilities); err != nil {
+				// Log error but continue - capabilities are optional
+				fmt.Printf("failed to unmarshal capabilities for agent %s: %v\n", agent.ID, err)
+			}
 		}
 	} else {
 		// PostgreSQL with array support
@@ -315,7 +318,12 @@ func (r *RepositoryImpl) List(ctx context.Context, filter Filter) ([]*models.Age
 	if err != nil {
 		return nil, fmt.Errorf("failed to list agents: %w", err)
 	}
-	defer rows.Close()
+	defer func() {
+		if err := rows.Close(); err != nil {
+			// Log the error but don't fail the operation
+			fmt.Printf("failed to close rows: %v\n", err)
+		}
+	}()
 
 	var agents []*models.Agent
 	for rows.Next() {
@@ -339,7 +347,10 @@ func (r *RepositoryImpl) List(ctx context.Context, filter Filter) ([]*models.Age
 				&agent.LastSeenAt,
 			)
 			if err == nil && capabilitiesJSON != "" {
-				json.Unmarshal([]byte(capabilitiesJSON), &agent.Capabilities)
+				if err := json.Unmarshal([]byte(capabilitiesJSON), &agent.Capabilities); err != nil {
+				// Log error but continue - capabilities are optional
+				fmt.Printf("failed to unmarshal capabilities for agent %s: %v\n", agent.ID, err)
+			}
 			}
 		} else {
 			// PostgreSQL with array support
@@ -595,7 +606,12 @@ func (r *RepositoryImpl) GetByStatus(ctx context.Context, status models.AgentSta
 	if err != nil {
 		return nil, fmt.Errorf("failed to get agents by status: %w", err)
 	}
-	defer rows.Close()
+	defer func() {
+		if err := rows.Close(); err != nil {
+			// Log the error but don't fail the operation
+			fmt.Printf("failed to close rows: %v\n", err)
+		}
+	}()
 
 	var agents []*models.Agent
 	for rows.Next() {
@@ -619,7 +635,10 @@ func (r *RepositoryImpl) GetByStatus(ctx context.Context, status models.AgentSta
 				&agent.LastSeenAt,
 			)
 			if err == nil && capabilitiesJSON != "" {
-				json.Unmarshal([]byte(capabilitiesJSON), &agent.Capabilities)
+				if err := json.Unmarshal([]byte(capabilitiesJSON), &agent.Capabilities); err != nil {
+				// Log error but continue - capabilities are optional
+				fmt.Printf("failed to unmarshal capabilities for agent %s: %v\n", agent.ID, err)
+			}
 			}
 		} else {
 			// PostgreSQL with array support
@@ -734,7 +753,10 @@ func (r *RepositoryImpl) GetLeastLoadedAgent(ctx context.Context, capability mod
 			&agent.LastSeenAt,
 		)
 		if err == nil && capabilitiesJSON != "" {
-			json.Unmarshal([]byte(capabilitiesJSON), &agent.Capabilities)
+			if err := json.Unmarshal([]byte(capabilitiesJSON), &agent.Capabilities); err != nil {
+				// Log error but continue - capabilities are optional
+				fmt.Printf("failed to unmarshal capabilities for agent %s: %v\n", agent.ID, err)
+			}
 		}
 	} else {
 		// PostgreSQL with array support

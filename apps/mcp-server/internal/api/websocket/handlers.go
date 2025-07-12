@@ -665,7 +665,7 @@ func (s *Server) handleContextCreate(ctx context.Context, conn *Connection, para
 	var createParams struct {
 		Name        string `json:"name"`
 		Content     string `json:"content"`
-		ModelID     string `json:"model_id"`     // Optional model ID for context
+		ModelID     string `json:"model_id"` // Optional model ID for context
 		ReturnStats bool   `json:"return_stats"`
 	}
 

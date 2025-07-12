@@ -228,7 +228,7 @@ var _ = Describe("WebSocket Streaming Operations", func() {
 					"name":     "large-context",
 					"content":  largeContent,
 					"model_id": "gpt-4", // Default model for tests
-					"stream":   true, // Stream the content
+					"stream":   true,    // Stream the content
 				},
 			}
 

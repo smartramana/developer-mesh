@@ -445,8 +445,8 @@ var _ = Describe("Performance and Stress E2E Tests", func() {
 
 				start := time.Now()
 				resp, err := largeAgent.ExecuteMethod(ctx, "context.create", map[string]interface{}{
-					"name":    fmt.Sprintf("large-context-%d", size),
-					"content": largeData,
+					"name":     fmt.Sprintf("large-context-%d", size),
+					"content":  largeData,
 					"model_id": "gpt-4", // Default model for tests
 					"metadata": map[string]interface{}{
 						"size": size,
@@ -664,7 +664,7 @@ var _ = Describe("Performance and Stress E2E Tests", func() {
 				},
 			})
 			Expect(err).NotTo(HaveOccurred())
-			
+
 			// Set the agent to binary mode after server confirms
 			binaryAgent.SetBinaryMode(true, 1024)
 

@@ -164,12 +164,12 @@ func (ta *TestAgent) readMessages() {
 		default:
 			var msg ws.Message
 			var err error
-			
+
 			// Check if we're in binary mode
 			ta.mu.RLock()
 			binaryMode := ta.binaryMode
 			ta.mu.RUnlock()
-			
+
 			if binaryMode {
 				// Read binary message
 				msgType, data, readErr := ta.conn.Read(context.Background())
@@ -191,7 +191,7 @@ func (ta *TestAgent) readMessages() {
 				// Standard JSON mode
 				err = wsjson.Read(context.Background(), ta.conn, &msg)
 			}
-			
+
 			if err != nil {
 				if websocket.CloseStatus(err) != -1 {
 					ta.mu.Lock()
@@ -478,7 +478,7 @@ func (ta *TestAgent) encodeBinaryMessage(msg *ws.Message, compressionThreshold i
 	// Create header
 	header := make([]byte, HeaderSize)
 	header[0] = BinaryProtocolVersion // version
-	header[1] = flags                  // flags
+	header[1] = flags                 // flags
 
 	// Message type (2 bytes)
 	msgType := getMessageTypeCode(msg.Type)

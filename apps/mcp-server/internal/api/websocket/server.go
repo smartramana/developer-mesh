@@ -243,7 +243,7 @@ func (s *Server) HandleWebSocket(w http.ResponseWriter, r *http.Request) {
 	// Update connection properties
 	connection.ID = connectionID
 	connection.AgentID = agentID
-	
+
 	// Ensure we have a valid tenant ID
 	if claims != nil && claims.TenantID != "" {
 		connection.TenantID = claims.TenantID
@@ -255,7 +255,7 @@ func (s *Server) HandleWebSocket(w http.ResponseWriter, r *http.Request) {
 			"agent_id":      agentID,
 		})
 	}
-	
+
 	connection.CreatedAt = time.Now()
 	connection.LastPing = time.Now()
 

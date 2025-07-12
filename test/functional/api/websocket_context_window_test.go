@@ -59,7 +59,7 @@ var _ = Describe("WebSocket Context Window Management", func() {
 					"name":         "token-test-context",
 					"content":      testContent,
 					"model_id":     "gpt-4", // Default model for tests
-					"return_stats": true, // Request token statistics
+					"return_stats": true,    // Request token statistics
 				},
 			}
 
