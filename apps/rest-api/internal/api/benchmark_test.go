@@ -9,7 +9,8 @@ import (
 
 	"github.com/S-Corkum/devops-mcp/apps/rest-api/internal/core"
 
-	"github.com/S-Corkum/devops-mcp/pkg/config"
+	"github.com/S-Corkum/devops-mcp/pkg/common/cache"
+	"github.com/S-Corkum/devops-mcp/pkg/common/config"
 	"github.com/S-Corkum/devops-mcp/pkg/models"
 	"github.com/S-Corkum/devops-mcp/pkg/observability"
 	"github.com/gin-gonic/gin"
@@ -135,14 +136,15 @@ func setupBenchmarkServer(_ *testing.B) *Server {
 	// Create config for vector DB (disabled)
 	appConfig := &config.Config{
 		Database: config.DatabaseConfig{
-			Vector: map[string]any{
-				"enabled": false,
+			Vector: config.DatabaseVectorConfig{
+				Enabled: false,
 			},
 		},
 	}
 
-	// Create server
-	server := NewServer(engine, cfg, db, metrics, appConfig)
+	// Create server with cache (using no-op cache for tests)
+	cacheClient := cache.NewNoOpCache()
+	server := NewServer(engine, cfg, db, metrics, appConfig, cacheClient)
 
 	// Initialize routes
 	_ = server.Initialize(context.Background())

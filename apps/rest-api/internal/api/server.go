@@ -167,7 +167,7 @@ func NewServer(engine *core.Engine, cfg Config, db *sqlx.DB, metrics observabili
 	}
 
 	// Use the cache client passed from main.go
-	var cacheImpl cache.Cache = cacheClient
+	cacheImpl := cacheClient
 	if cacheImpl == nil {
 		logger.Warn("No cache client provided, using no-op cache", map[string]interface{}{})
 		cacheImpl = cache.NewNoOpCache()

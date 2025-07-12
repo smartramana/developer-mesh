@@ -9,7 +9,8 @@ import (
 	"sync"
 	"testing"
 
-	"github.com/S-Corkum/devops-mcp/pkg/config"
+	"github.com/S-Corkum/devops-mcp/pkg/common/cache"
+	"github.com/S-Corkum/devops-mcp/pkg/common/config"
 	"github.com/S-Corkum/devops-mcp/pkg/observability"
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
@@ -466,8 +467,9 @@ func setupTestServer(t *testing.T) *Server {
 
 	metrics := observability.NewNoOpMetricsClient()
 	appConfig := &config.Config{}
+	cacheClient := cache.NewNoOpCache()
 
-	server := NewServer(engine, cfg, db, metrics, appConfig)
+	server := NewServer(engine, cfg, db, metrics, appConfig, cacheClient)
 	server.logger = observability.NewLogger("test")
 
 	return server

@@ -28,7 +28,6 @@ import (
 	"github.com/S-Corkum/devops-mcp/pkg/cache"
 	"github.com/S-Corkum/devops-mcp/pkg/common/aws"
 	commonconfig "github.com/S-Corkum/devops-mcp/pkg/common/config"
-	pkgconfig "github.com/S-Corkum/devops-mcp/pkg/config"
 	"github.com/S-Corkum/devops-mcp/pkg/database"
 	"github.com/S-Corkum/devops-mcp/pkg/observability"
 	"github.com/S-Corkum/devops-mcp/pkg/repository"
@@ -977,19 +976,8 @@ func initializeServer(ctx context.Context, cfg *commonconfig.Config, engine *cor
 		"enable_swagger": apiConfig.EnableSwagger,
 	})
 
-	// Create pkg/config.Config for the server
-	pkgConfig := &pkgconfig.Config{
-		Environment: cfg.Environment,
-		API: pkgconfig.APIConfig{
-			BaseURL: cfg.API.BaseURL,
-		},
-		Database: pkgconfig.DatabaseConfig{
-			DSN: buildDatabaseURL(cfg),
-		},
-	}
-
 	// Create server - pass db.GetDB() to get the *sqlx.DB
-	server := api.NewServer(engine, apiConfig, db.GetDB(), cacheClient, metricsClient, pkgConfig)
+	server := api.NewServer(engine, apiConfig, db.GetDB(), cacheClient, metricsClient, cfg)
 
 	// Initialize server components
 	if err := server.Initialize(ctx); err != nil {
