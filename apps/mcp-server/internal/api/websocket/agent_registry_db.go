@@ -52,7 +52,7 @@ func (ar *DBAgentRegistry) RegisterAgent(ctx context.Context, reg *AgentRegistra
 	if reg.ID == "" {
 		return nil, fmt.Errorf("agent ID cannot be empty")
 	}
-	
+
 	// Validate agent ID is a valid UUID
 	if _, err := uuid.Parse(reg.ID); err != nil {
 		ar.logger.Warn("Invalid agent ID format, generating new UUID", map[string]interface{}{

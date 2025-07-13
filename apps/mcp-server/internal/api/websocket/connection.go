@@ -176,14 +176,14 @@ func (c *Connection) readPump() {
 // writePump pumps messages from the hub to the websocket connection
 func (c *Connection) writePump() {
 	c.wg.Add(1)
-	
+
 	// Set default ping interval if hub is nil or config is missing
 	pingInterval := 30 * time.Second
 	if c.hub != nil && c.hub.config.PingInterval > 0 {
 		pingInterval = c.hub.config.PingInterval
 	}
 	ticker := time.NewTicker(pingInterval)
-	
+
 	defer func() {
 		ticker.Stop()
 		c.wg.Done()
