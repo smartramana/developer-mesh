@@ -52,6 +52,15 @@ func (ar *DBAgentRegistry) RegisterAgent(ctx context.Context, reg *AgentRegistra
 	if reg.ID == "" {
 		return nil, fmt.Errorf("agent ID cannot be empty")
 	}
+	
+	// Validate agent ID is a valid UUID
+	if _, err := uuid.Parse(reg.ID); err != nil {
+		ar.logger.Warn("Invalid agent ID format, generating new UUID", map[string]interface{}{
+			"original_id": reg.ID,
+			"error":       err.Error(),
+		})
+		reg.ID = uuid.New().String()
+	}
 
 	// Validate tenant ID
 	if reg.TenantID == "" {
@@ -193,7 +202,14 @@ func (ar *DBAgentRegistry) DiscoverAgents(ctx context.Context, tenantID string, 
 
 		if hasAll {
 			// Get workload info
-			agentUUID, _ := uuid.Parse(agent.ID)
+			agentUUID, err := uuid.Parse(agent.ID)
+			if err != nil {
+				ar.logger.Error("Failed to parse agent ID", map[string]interface{}{
+					"agent_id": agent.ID,
+					"error":    err.Error(),
+				})
+				continue
+			}
 			workload, _ := ar.repo.GetWorkload(ctx, agentUUID)
 			activeTasks := 0
 			if workload != nil {
@@ -247,7 +263,10 @@ func (ar *DBAgentRegistry) DelegateTask(ctx context.Context, fromAgentID, toAgen
 	}
 
 	// Update agent workload
-	agentUUID, _ := uuid.Parse(agent.ID)
+	agentUUID, err := uuid.Parse(agent.ID)
+	if err != nil {
+		return nil, fmt.Errorf("invalid agent ID '%s': %w", agent.ID, err)
+	}
 	workload, err := ar.repo.GetWorkload(ctx, agentUUID)
 	if err != nil {
 		// Create new workload entry
@@ -496,11 +515,19 @@ func (ar *DBAgentRegistry) modelToAgentInfo(agent *models.Agent) *AgentInfo {
 	}
 
 	// Get workload info
-	agentUUID, _ := uuid.Parse(agent.ID)
-	workload, _ := ar.repo.GetWorkload(context.Background(), agentUUID)
 	activeTasks := 0
-	if workload != nil {
-		activeTasks = workload.ActiveTasks
+	agentUUID, err := uuid.Parse(agent.ID)
+	if err != nil {
+		ar.logger.Error("Failed to parse agent ID in modelToAgentInfo", map[string]interface{}{
+			"agent_id": agent.ID,
+			"error":    err.Error(),
+		})
+		// Use zero value for activeTasks if we can't parse the ID
+	} else {
+		workload, _ := ar.repo.GetWorkload(context.Background(), agentUUID)
+		if workload != nil {
+			activeTasks = workload.ActiveTasks
+		}
 	}
 
 	return &AgentInfo{

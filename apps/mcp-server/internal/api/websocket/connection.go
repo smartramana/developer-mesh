@@ -96,38 +96,40 @@ func (c *Connection) readPump() {
 			return
 		}
 
-		var err error
+		var readErr error
 		if c.IsBinaryMode() {
 			// Read binary frame
-			msgType, data, readErr := conn.Read(ctx)
-			if readErr != nil {
-				err = readErr
+			msgType, data, err := conn.Read(ctx)
+			if err != nil {
+				readErr = err
 			} else if msgType == websocket.MessageBinary {
 				// Decode binary message
 				encoder := NewBinaryEncoder(1024)
 				decodedMsg, decodeErr := encoder.Decode(data)
 				if decodeErr != nil {
-					err = decodeErr
+					readErr = decodeErr
 				} else {
 					*msg = *decodedMsg
 					PutMessage(decodedMsg)
 				}
 			} else {
 				// Fall back to JSON for non-binary messages
-				err = json.Unmarshal(data, msg)
+				readErr = json.Unmarshal(data, msg)
 			}
 		} else {
 			// Read JSON message
-			err = wsjson.Read(ctx, conn, msg)
+			readErr = wsjson.Read(ctx, conn, msg)
 		}
-		if err != nil {
-			if websocket.CloseStatus(err) == websocket.StatusNormalClosure {
+		if readErr != nil {
+			if websocket.CloseStatus(readErr) == websocket.StatusNormalClosure {
 				return
 			}
-			c.hub.logger.Error("Read error", map[string]interface{}{
-				"error":         err.Error(),
-				"connection_id": c.ID,
-			})
+			if c.hub != nil && c.hub.logger != nil {
+				c.hub.logger.Error("Read error", map[string]interface{}{
+					"error":         readErr.Error(),
+					"connection_id": c.ID,
+				})
+			}
 			return
 		}
 
@@ -136,18 +138,28 @@ func (c *Connection) readPump() {
 
 		// Rate limiting
 		if !rateLimiter.Allow() {
-			c.hub.metricsCollector.RecordError("rate_limit")
+			if c.hub != nil && c.hub.metricsCollector != nil {
+				c.hub.metricsCollector.RecordError("rate_limit")
+			}
 			c.sendError(msg.ID, ws.ErrCodeRateLimited, "Rate limit exceeded", nil)
 			continue
 		}
 
 		// Process message
 		start := time.Now()
-		response, err := c.hub.processMessage(ctx, c, msg)
+		var response []byte
+		var err error
+		if c.hub != nil {
+			response, err = c.hub.processMessage(ctx, c, msg)
+		} else {
+			err = ws.NewError(ws.ErrCodeServerError, "Server not available", nil)
+		}
 		latency := time.Since(start)
 
 		// Record message metrics
-		c.hub.metricsCollector.RecordMessage("received", msg.Method, c.TenantID, latency)
+		if c.hub != nil && c.hub.metricsCollector != nil {
+			c.hub.metricsCollector.RecordMessage("received", msg.Method, c.TenantID, latency)
+		}
 
 		if err != nil {
 			c.sendError(msg.ID, ws.ErrCodeServerError, err.Error(), nil)
@@ -164,7 +176,14 @@ func (c *Connection) readPump() {
 // writePump pumps messages from the hub to the websocket connection
 func (c *Connection) writePump() {
 	c.wg.Add(1)
-	ticker := time.NewTicker(c.hub.config.PingInterval)
+	
+	// Set default ping interval if hub is nil or config is missing
+	pingInterval := 30 * time.Second
+	if c.hub != nil && c.hub.config.PingInterval > 0 {
+		pingInterval = c.hub.config.PingInterval
+	}
+	ticker := time.NewTicker(pingInterval)
+	
 	defer func() {
 		ticker.Stop()
 		c.wg.Done()
@@ -194,9 +213,11 @@ func (c *Connection) writePump() {
 			c.mu.RUnlock()
 
 			if conn == nil {
-				c.hub.logger.Error("Connection is nil", map[string]interface{}{
-					"connection_id": c.ID,
-				})
+				if c.hub != nil && c.hub.logger != nil {
+					c.hub.logger.Error("Connection is nil", map[string]interface{}{
+						"connection_id": c.ID,
+					})
+				}
 				return
 			}
 
@@ -222,15 +243,19 @@ func (c *Connection) writePump() {
 			}
 
 			if err != nil {
-				c.hub.logger.Error("Write error", map[string]interface{}{
-					"error":         err.Error(),
-					"connection_id": c.ID,
-				})
+				if c.hub != nil && c.hub.logger != nil {
+					c.hub.logger.Error("Write error", map[string]interface{}{
+						"error":         err.Error(),
+						"connection_id": c.ID,
+					})
+				}
 				return
 			}
 
 			// Record sent message
-			c.hub.metricsCollector.RecordMessage("sent", "response", c.TenantID, 0)
+			if c.hub != nil && c.hub.metricsCollector != nil {
+				c.hub.metricsCollector.RecordMessage("sent", "response", c.TenantID, 0)
+			}
 
 		case <-ticker.C:
 			// Send ping to detect disconnected clients
@@ -242,10 +267,12 @@ func (c *Connection) writePump() {
 				pingCtx, cancel := context.WithTimeout(ctx, 10*time.Second)
 				if err := conn.Ping(pingCtx); err != nil {
 					cancel()
-					c.hub.logger.Error("Ping error", map[string]interface{}{
-						"error":         err.Error(),
-						"connection_id": c.ID,
-					})
+					if c.hub != nil && c.hub.logger != nil {
+						c.hub.logger.Error("Ping error", map[string]interface{}{
+							"error":         err.Error(),
+							"connection_id": c.ID,
+						})
+					}
 					return
 				}
 				cancel()
@@ -269,9 +296,11 @@ func (c *Connection) sendError(requestID string, code int, message string, data 
 
 	response, err := json.Marshal(errorMsg)
 	if err != nil {
-		c.hub.logger.Error("Failed to marshal error message", map[string]interface{}{
-			"error": err.Error(),
-		})
+		if c.hub != nil && c.hub.logger != nil {
+			c.hub.logger.Error("Failed to marshal error message", map[string]interface{}{
+				"error": err.Error(),
+			})
+		}
 		return
 	}
 
@@ -279,10 +308,14 @@ func (c *Connection) sendError(requestID string, code int, message string, data 
 	case c.send <- response:
 	default:
 		// Channel full, log and drop
-		c.hub.logger.Warn("Failed to send error message - channel full", map[string]interface{}{
-			"connection_id": c.ID,
-		})
-		c.hub.metricsCollector.RecordMessageDropped("channel_full")
+		if c.hub != nil && c.hub.logger != nil {
+			c.hub.logger.Warn("Failed to send error message - channel full", map[string]interface{}{
+				"connection_id": c.ID,
+			})
+		}
+		if c.hub != nil && c.hub.metricsCollector != nil {
+			c.hub.metricsCollector.RecordMessageDropped("channel_full")
+		}
 	}
 }
 
