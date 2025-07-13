@@ -1823,8 +1823,20 @@ func (s *Server) handleAgentRegister(ctx context.Context, conn *Connection, para
 		return nil, err
 	}
 
+	// Ensure we have a valid agent ID
+	agentID := conn.AgentID
+	if agentID == "" {
+		// Generate a new UUID if AgentID is empty
+		agentID = uuid.New().String()
+		conn.AgentID = agentID
+		s.logger.Warn("Empty agent ID during registration, generated new UUID", map[string]interface{}{
+			"connection_id": conn.ID,
+			"new_agent_id":  agentID,
+		})
+	}
+
 	agent, err := s.agentRegistry.RegisterAgent(ctx, &AgentRegistration{
-		ID:           conn.AgentID,
+		ID:           agentID,
 		Name:         registerParams.Name,
 		Capabilities: registerParams.Capabilities,
 		Metadata:     registerParams.Metadata,

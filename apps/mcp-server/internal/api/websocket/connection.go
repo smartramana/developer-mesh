@@ -124,7 +124,7 @@ func (c *Connection) readPump() {
 			if websocket.CloseStatus(readErr) == websocket.StatusNormalClosure {
 				return
 			}
-			if c.hub != nil && c.hub.logger != nil {
+			if c.hub != nil && c.hub.logger != nil && c.Connection != nil {
 				c.hub.logger.Error("Read error", map[string]interface{}{
 					"error":         readErr.Error(),
 					"connection_id": c.ID,
@@ -157,7 +157,7 @@ func (c *Connection) readPump() {
 		latency := time.Since(start)
 
 		// Record message metrics
-		if c.hub != nil && c.hub.metricsCollector != nil {
+		if c.hub != nil && c.hub.metricsCollector != nil && c.Connection != nil {
 			c.hub.metricsCollector.RecordMessage("received", msg.Method, c.TenantID, latency)
 		}
 
@@ -213,7 +213,7 @@ func (c *Connection) writePump() {
 			c.mu.RUnlock()
 
 			if conn == nil {
-				if c.hub != nil && c.hub.logger != nil {
+				if c.hub != nil && c.hub.logger != nil && c.Connection != nil {
 					c.hub.logger.Error("Connection is nil", map[string]interface{}{
 						"connection_id": c.ID,
 					})
@@ -243,7 +243,7 @@ func (c *Connection) writePump() {
 			}
 
 			if err != nil {
-				if c.hub != nil && c.hub.logger != nil {
+				if c.hub != nil && c.hub.logger != nil && c.Connection != nil {
 					c.hub.logger.Error("Write error", map[string]interface{}{
 						"error":         err.Error(),
 						"connection_id": c.ID,
@@ -253,7 +253,7 @@ func (c *Connection) writePump() {
 			}
 
 			// Record sent message
-			if c.hub != nil && c.hub.metricsCollector != nil {
+			if c.hub != nil && c.hub.metricsCollector != nil && c.Connection != nil {
 				c.hub.metricsCollector.RecordMessage("sent", "response", c.TenantID, 0)
 			}
 
@@ -267,7 +267,7 @@ func (c *Connection) writePump() {
 				pingCtx, cancel := context.WithTimeout(ctx, 10*time.Second)
 				if err := conn.Ping(pingCtx); err != nil {
 					cancel()
-					if c.hub != nil && c.hub.logger != nil {
+					if c.hub != nil && c.hub.logger != nil && c.Connection != nil {
 						c.hub.logger.Error("Ping error", map[string]interface{}{
 							"error":         err.Error(),
 							"connection_id": c.ID,
@@ -308,7 +308,7 @@ func (c *Connection) sendError(requestID string, code int, message string, data 
 	case c.send <- response:
 	default:
 		// Channel full, log and drop
-		if c.hub != nil && c.hub.logger != nil {
+		if c.hub != nil && c.hub.logger != nil && c.Connection != nil {
 			c.hub.logger.Warn("Failed to send error message - channel full", map[string]interface{}{
 				"connection_id": c.ID,
 			})
