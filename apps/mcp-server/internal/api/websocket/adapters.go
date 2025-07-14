@@ -84,9 +84,10 @@ func (a *contextManagerAdapter) TruncateContext(ctx context.Context, contextID s
 func (a *contextManagerAdapter) CreateContext(ctx context.Context, agentID, tenantID, name, content, modelID string) (*models.Context, error) {
 	// Create a new context
 	newContext := &models.Context{
-		Name:    name,
-		AgentID: agentID,
-		ModelID: modelID,
+		Name:     name,
+		AgentID:  agentID,
+		TenantID: tenantID,
+		ModelID:  modelID,
 		Content: []models.ContextItem{
 			{
 				Content: content,

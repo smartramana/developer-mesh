@@ -447,7 +447,7 @@ var _ = Describe("Performance and Stress E2E Tests", func() {
 				resp, err := largeAgent.ExecuteMethod(ctx, "context.create", map[string]interface{}{
 					"name":     fmt.Sprintf("large-context-%d", size),
 					"content":  largeData,
-					"model_id": "gpt-4", // Default model for tests
+					"model_id": "claude-sonnet-4", // Default model for tests
 					"metadata": map[string]interface{}{
 						"size": size,
 						"type": "performance_test",
