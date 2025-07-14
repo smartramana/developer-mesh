@@ -847,8 +847,23 @@ func (s *Server) handleSetBinaryProtocol(ctx context.Context, conn *Connection, 
 		} `json:"compression"`
 	}
 
+	// Handle empty params case
+	if len(params) == 0 || string(params) == "null" || string(params) == "{}" {
+		// Default to disabling binary mode if no params provided
+		conn.SetBinaryMode(false)
+		return map[string]interface{}{
+			"binary_enabled":      false,
+			"compression_enabled": false,
+			"status":              "protocol_updated",
+		}, nil
+	}
+
 	if err := json.Unmarshal(params, &binaryParams); err != nil {
-		return nil, err
+		s.logger.Warn("Failed to unmarshal binary protocol params", map[string]interface{}{
+			"error":  err.Error(),
+			"params": string(params),
+		})
+		return nil, fmt.Errorf("invalid binary protocol params: %w", err)
 	}
 
 	// Update connection settings

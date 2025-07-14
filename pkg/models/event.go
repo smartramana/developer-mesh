@@ -64,6 +64,9 @@ type Context struct {
 	// AgentID is the identifier for the AI agent that owns this context
 	AgentID string `json:"agent_id" db:"agent_id"`
 
+	// TenantID is the tenant this context belongs to
+	TenantID string `json:"tenant_id" db:"tenant_id"`
+
 	// ModelID identifies which AI model this context is for
 	ModelID string `json:"model_id" db:"model_id"`
 

@@ -201,8 +201,16 @@ func PutConnection(conn *Connection) {
 		// Drain any remaining messages
 	}
 
-	// Reset the connection state
-	conn.Connection = nil
+	// Reset the connection state but keep the embedded Connection structure
+	if conn.Connection != nil {
+		// Reset the embedded connection fields but keep the structure
+		conn.Connection.SetState(ws.ConnectionStateClosed)
+		conn.ID = ""
+		conn.AgentID = ""
+		conn.TenantID = ""
+		conn.CreatedAt = time.Time{}
+		conn.LastPing = time.Time{}
+	}
 	conn.conn = nil
 	conn.hub = nil
 	conn.state = nil

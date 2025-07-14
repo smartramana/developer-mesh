@@ -47,13 +47,15 @@ func (db *Database) createContext(ctx context.Context, tx *Tx, contextData *mode
 	// Insert context record
 	_, err = tx.tx.ExecContext(ctx, `
 		INSERT INTO mcp.contexts (
-			id, agent_id, model_id, session_id, current_tokens, max_tokens,
+			id, name, tenant_id, agent_id, model_id, session_id, current_tokens, max_tokens,
 			metadata, created_at, updated_at, expires_at
 		) VALUES (
-			$1, $2, $3, $4, $5, $6, $7, $8, $9, $10
+			$1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12
 		)
 	`,
 		contextData.ID,
+		contextData.Name,
+		contextData.TenantID,
 		contextData.AgentID,
 		contextData.ModelID,
 		contextData.SessionID,
@@ -146,6 +148,8 @@ func (db *Database) GetContext(ctx context.Context, contextID string) (*models.C
 func (db *Database) getContext(ctx context.Context, tx *Tx, contextID string) (*models.Context, error) {
 	// Get context metadata
 	var (
+		name          string
+		tenantID      string
 		agentID       string
 		modelID       string
 		sessionID     sql.NullString
@@ -158,11 +162,13 @@ func (db *Database) getContext(ctx context.Context, tx *Tx, contextID string) (*
 	)
 
 	err := tx.tx.QueryRowContext(ctx, `
-		SELECT agent_id, model_id, session_id, current_tokens, max_tokens,
+		SELECT name, tenant_id, agent_id, model_id, session_id, current_tokens, max_tokens,
 		       metadata, created_at, updated_at, expires_at
 		FROM mcp.contexts
 		WHERE id = $1
 	`, contextID).Scan(
+		&name,
+		&tenantID,
 		&agentID,
 		&modelID,
 		&sessionID,
@@ -192,6 +198,8 @@ func (db *Database) getContext(ctx context.Context, tx *Tx, contextID string) (*
 	// Create context object
 	contextData := &models.Context{
 		ID:            contextID,
+		Name:          name,
+		TenantID:      tenantID,
 		AgentID:       agentID,
 		ModelID:       modelID,
 		CurrentTokens: currentTokens,
@@ -377,7 +385,7 @@ func (db *Database) ListContexts(ctx context.Context, agentID string, sessionID 
 // listContexts is the internal implementation to list contexts within a transaction
 func (db *Database) listContexts(ctx context.Context, tx *Tx, agentID string, sessionID string, options map[string]any) ([]*models.Context, error) {
 	query := `
-		SELECT id, agent_id, model_id, session_id, current_tokens, max_tokens,
+		SELECT id, name, tenant_id, agent_id, model_id, session_id, current_tokens, max_tokens,
 		       metadata, created_at, updated_at, expires_at
 		FROM mcp.contexts
 		WHERE agent_id = $1
@@ -421,6 +429,8 @@ func (db *Database) listContexts(ctx context.Context, tx *Tx, agentID string, se
 	for rows.Next() {
 		var (
 			id            string
+			name          string
+			tenantID      string
 			agentID       string
 			modelID       string
 			sessionIDVal  sql.NullString
@@ -434,6 +444,8 @@ func (db *Database) listContexts(ctx context.Context, tx *Tx, agentID string, se
 
 		if err := rows.Scan(
 			&id,
+			&name,
+			&tenantID,
 			&agentID,
 			&modelID,
 			&sessionIDVal,
@@ -458,6 +470,8 @@ func (db *Database) listContexts(ctx context.Context, tx *Tx, agentID string, se
 		// Create context object
 		contextData := &models.Context{
 			ID:            id,
+			Name:          name,
+			TenantID:      tenantID,
 			AgentID:       agentID,
 			ModelID:       modelID,
 			CurrentTokens: currentTokens,
