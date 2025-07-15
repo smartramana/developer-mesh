@@ -698,7 +698,7 @@ func (s *Server) handleContextCreate(ctx context.Context, conn *Connection, para
 	// Use provided model ID or default
 	modelID := createParams.ModelID
 	if modelID == "" {
-		modelID = "default-model"
+		modelID = "claude-sonnet-4"
 	}
 
 	context, err := s.contextManager.CreateContext(

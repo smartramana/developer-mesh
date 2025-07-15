@@ -13,7 +13,6 @@ services:
       - .env
     environment:
       - PORT=8080  # Override any global PORT setting
-      - MIGRATIONS_PATH=/app/migrations/sql  # Set migrations path
     command: >
       sh -c "ln -sf /app/configs/config.production.yaml /app/configs/config.yaml && /app/mcp-server"
     volumes:
@@ -21,7 +20,6 @@ services:
       - ./configs/config.production.yaml:/app/configs/config.production.yaml:ro
       - ./configs/auth.production.yaml:/app/configs/auth.production.yaml:ro
       - ./logs:/app/logs
-      - ./migrations:/app/migrations:ro
     healthcheck:
       test: ["CMD", "/app/mcp-server", "-health-check"]
       interval: 30s
@@ -45,6 +43,7 @@ services:
       - MCP_SERVER_URL=http://mcp-server:8080
       - PORT=8081  # REST API should use port 8081
       - API_LISTEN_ADDRESS=:8081
+      - MIGRATIONS_PATH=/app/migrations/sql  # Set migrations path for REST API
     volumes:
       - ./configs/config.base.yaml:/app/configs/config.base.yaml:ro
       - ./configs/config.production.yaml:/app/configs/config.production.yaml:ro
