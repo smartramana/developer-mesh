@@ -786,8 +786,9 @@ func (m *Manager) createContextInDB(ctx context.Context, tx *sqlx.Tx, contextDat
 	}
 	_, err = tx.ExecContext(
 		ctx,
-		"INSERT INTO mcp.contexts (id, name, description, agent_id, model_id, session_id, current_tokens, max_tokens, metadata, created_at, updated_at, expires_at) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)",
+		"INSERT INTO mcp.contexts (id, tenant_id, name, description, agent_id, model_id, session_id, current_tokens, max_tokens, metadata, created_at, updated_at, expires_at) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)",
 		contextData.ID,
+		contextData.TenantID,
 		contextData.Name,
 		contextData.Description,
 		contextData.AgentID,
