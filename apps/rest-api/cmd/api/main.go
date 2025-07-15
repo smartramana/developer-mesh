@@ -2,10 +2,12 @@ package main
 
 import (
 	"context"
+	"flag"
 	"fmt"
 	"log"
 	"os"
 	"os/signal"
+	"path/filepath"
 	"strings"
 	"syscall"
 	"time"
@@ -23,9 +25,22 @@ import (
 
 	// Import PostgreSQL driver
 	_ "github.com/lib/pq"
+
+	// Import golang-migrate for database migrations
+	"github.com/golang-migrate/migrate/v4"
+	migratepg "github.com/golang-migrate/migrate/v4/database/postgres"
+	_ "github.com/golang-migrate/migrate/v4/source/file"
+)
+
+// Command-line flags
+var (
+	skipMigration = flag.Bool("skip-migration", false, "Skip database migration on startup")
+	migrateOnly   = flag.Bool("migrate", false, "Run database migrations and exit")
 )
 
 func main() {
+	flag.Parse()
+
 	// Initialize secure random seed
 	initSecureRandom()
 
@@ -160,6 +175,27 @@ func main() {
 			})
 		}
 	}()
+
+	// Run migrations unless explicitly skipped
+	// Check environment variable first, then flag
+	runMigrations := os.Getenv("SKIP_MIGRATIONS") != "true" && !*skipMigration
+
+	if runMigrations && db != nil {
+		if err := runDatabaseMigrations(ctx, db, logger); err != nil {
+			logger.Error("Failed to run migrations", map[string]any{
+				"error": err.Error(),
+			})
+			if os.Getenv("MIGRATIONS_FAIL_FAST") == "true" {
+				log.Fatalf("Migration failure with MIGRATIONS_FAIL_FAST=true: %v", err)
+			}
+		}
+	}
+
+	// If migrate-only flag was set, exit after migrations
+	if *migrateOnly {
+		logger.Info("Migrations completed, exiting (--migrate flag)", nil)
+		os.Exit(0)
+	}
 
 	// Initialize context manager based on environment configuration
 	useMock := os.Getenv("USE_MOCK_CONTEXT_MANAGER")
@@ -353,4 +389,110 @@ func parseRateLimitConfig(input any) api.RateLimitConfig {
 		fmt.Printf("Warning: unexpected type for rate_limit configuration: %T\n", input)
 		return config
 	}
+}
+
+// runDatabaseMigrations runs database migrations
+func runDatabaseMigrations(_ context.Context, db *database.Database, logger observability.Logger) error {
+	logger.Info("Running database migrations", nil)
+
+	// Get the migration directory path
+	migrationDir := getMigrationDir()
+
+	logger.Info("Migration directory", map[string]any{
+		"path": migrationDir,
+	})
+
+	// Check if migrations directory exists
+	if _, err := os.Stat(migrationDir); os.IsNotExist(err) {
+		logger.Warn("Migration directory not found, skipping migrations", map[string]any{
+			"path": migrationDir,
+		})
+		return nil
+	}
+
+	// Create migration instance using the database connection
+	driver, err := migratepg.WithInstance(db.GetDB().DB, &migratepg.Config{})
+	if err != nil {
+		return fmt.Errorf("failed to create migration driver: %w", err)
+	}
+
+	// Create migrate instance
+	m, err := migrate.NewWithDatabaseInstance(
+		fmt.Sprintf("file://%s", migrationDir),
+		"postgres",
+		driver,
+	)
+	if err != nil {
+		return fmt.Errorf("failed to create migration instance: %w", err)
+	}
+
+	// Get current version
+	version, dirty, err := m.Version()
+	if err != nil && err != migrate.ErrNilVersion {
+		return fmt.Errorf("failed to get current migration version: %w", err)
+	}
+
+	if dirty {
+		logger.Warn("Database is in dirty state", map[string]any{
+			"version": version,
+		})
+		// Optionally force to a specific version if needed
+		// m.Force(int(version))
+	}
+
+	logger.Info("Current migration version", map[string]any{
+		"version": version,
+		"dirty":   dirty,
+	})
+
+	// Run migrations
+	if err := m.Up(); err != nil {
+		if err == migrate.ErrNoChange {
+			logger.Info("No new migrations to apply", nil)
+			return nil
+		}
+		return fmt.Errorf("failed to run migrations: %w", err)
+	}
+
+	// Get new version after migration
+	newVersion, _, err := m.Version()
+	if err != nil {
+		logger.Warn("Failed to get new migration version", map[string]any{
+			"error": err.Error(),
+		})
+	} else {
+		logger.Info("Migrations completed successfully", map[string]any{
+			"old_version": version,
+			"new_version": newVersion,
+		})
+	}
+
+	return nil
+}
+
+// getMigrationDir returns the path to the migrations directory
+func getMigrationDir() string {
+	// Check environment variable first
+	if envPath := os.Getenv("MIGRATIONS_PATH"); envPath != "" {
+		return envPath
+	}
+
+	// Check multiple possible locations
+	possiblePaths := []string{
+		"/app/migrations/sql",                // Production Docker path
+		"migrations/sql",                     // Local path relative to binary
+		"apps/rest-api/migrations/sql",       // From project root
+		"../../apps/rest-api/migrations/sql", // Relative to cmd/api
+		filepath.Join(os.Getenv("PROJECT_ROOT"), "apps/rest-api/migrations/sql"),
+	}
+
+	// Find the first existing directory
+	for _, path := range possiblePaths {
+		if _, err := os.Stat(path); err == nil {
+			return path
+		}
+	}
+
+	// Default to the most likely production path
+	return "/app/migrations/sql"
 }
