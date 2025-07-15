@@ -82,9 +82,18 @@ func (h *ConnectionHelper) ConnectToDatabase(ctx context.Context, config databas
 }
 
 // ConnectToCache establishes cache connection with retry logic and graceful degradation
-func (h *ConnectionHelper) ConnectToCache(ctx context.Context, config any) (cache.Cache, error) {
+func (h *ConnectionHelper) ConnectToCache(ctx context.Context, cfg cache.RedisConfig) (cache.Cache, error) {
 	maxRetries := 3
 	baseDelay := 500 * time.Millisecond
+
+	// Use the config directly since it's already a cache.RedisConfig
+	cacheConfig := cfg
+
+	h.logger.Info("Initializing cache", map[string]any{
+		"type":        cacheConfig.Type,
+		"address":     cacheConfig.Address,
+		"tls_enabled": cacheConfig.TLS != nil && cacheConfig.TLS.Enabled,
+	})
 
 	var cacheClient cache.Cache
 	var err error
@@ -113,8 +122,8 @@ func (h *ConnectionHelper) ConnectToCache(ctx context.Context, config any) (cach
 			}
 		}
 
-		// Try to create cache connection
-		cacheClient, err = cache.NewCache(ctx, config)
+		// Try to create cache connection with the properly converted config
+		cacheClient, err = cache.NewCache(ctx, cacheConfig)
 
 		if err == nil && cacheClient != nil {
 			// Test connection

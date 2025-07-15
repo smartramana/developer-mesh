@@ -146,8 +146,40 @@ func main() {
 
 	// Prepare cache config with AWS integration if needed
 	var cacheClient cache.Cache
-	// Initialize cache using the cache config from the configuration
-	cacheConfig := cfg.Cache
+
+	// Convert cache configuration similar to MCP server
+	var cacheConfig cache.RedisConfig
+
+	// Check if we should use AWS ElastiCache
+	if cfg.AWS.ElastiCache.UseIAMAuth && aws.IsIRSAEnabled() {
+		logger.Info("Using IAM authentication for ElastiCache", nil)
+		cacheConfig = cache.RedisConfig{
+			Type:              "redis_cluster",
+			UseAWS:            true,
+			ClusterMode:       cfg.AWS.ElastiCache.ClusterMode,
+			ElastiCacheConfig: &cfg.AWS.ElastiCache,
+			MaxRetries:        cfg.AWS.ElastiCache.MaxRetries,
+			DialTimeout:       cfg.AWS.ElastiCache.DialTimeout,
+			ReadTimeout:       cfg.AWS.ElastiCache.ReadTimeout,
+			WriteTimeout:      cfg.AWS.ElastiCache.WriteTimeout,
+			PoolSize:          cfg.AWS.ElastiCache.PoolSize,
+			MinIdleConns:      cfg.AWS.ElastiCache.MinIdleConnections,
+			PoolTimeout:       cfg.AWS.ElastiCache.PoolTimeout,
+		}
+	} else {
+		// Use standard Redis configuration from cfg.Cache
+		// Note: cfg.Cache is already a cache.RedisConfig, so we use it directly
+		cacheConfig = cfg.Cache
+
+		// The TLS config should already be properly set in cfg.Cache
+		// Just log for debugging
+		if cacheConfig.TLS != nil && cacheConfig.TLS.Enabled {
+			logger.Info("Cache TLS is enabled", map[string]any{
+				"address":              cacheConfig.Address,
+				"insecure_skip_verify": cacheConfig.TLS.InsecureSkipVerify,
+			})
+		}
+	}
 
 	// Initialize cache with retry logic and graceful degradation
 	cacheClient, err = connHelper.ConnectToCache(ctx, cacheConfig)
