@@ -84,7 +84,22 @@ func TestGitHubWebhookHandler_MissingSignature(t *testing.T) {
 	logger := observability.NewLogger("test-webhooks")
 	handler := GitHubWebhookHandler(config, logger)
 
-	req := httptest.NewRequest("POST", "/", bytes.NewBuffer([]byte(`{"repository":{"full_name":"repo"},"sender":{"login":"user"}}`)))
+	// Create a proper GitHub push event payload
+	payload := map[string]interface{}{
+		"ref":        "refs/heads/main",
+		"repository": map[string]interface{}{"full_name": "repo"},
+		"sender":     map[string]interface{}{"login": "user"},
+		"head_commit": map[string]interface{}{
+			"id":      "abc123",
+			"message": "Test commit",
+			"author": map[string]interface{}{
+				"name":  "Test Author",
+				"email": "test@example.com",
+			},
+		},
+	}
+	body, _ := json.Marshal(payload)
+	req := httptest.NewRequest("POST", "/", bytes.NewBuffer(body))
 	req.Header.Set("X-GitHub-Event", "push")
 	w := httptest.NewRecorder()
 
@@ -112,7 +127,21 @@ func TestGitHubWebhookHandler_InvalidSignature(t *testing.T) {
 	logger := observability.NewLogger("test-webhooks")
 	handler := GitHubWebhookHandler(config, logger)
 
-	body := []byte(`{"repository":{"full_name":"repo"},"sender":{"login":"user"}}`)
+	// Create a proper GitHub push event payload
+	payload := map[string]interface{}{
+		"ref":        "refs/heads/main",
+		"repository": map[string]interface{}{"full_name": "repo"},
+		"sender":     map[string]interface{}{"login": "user"},
+		"head_commit": map[string]interface{}{
+			"id":      "abc123",
+			"message": "Test commit",
+			"author": map[string]interface{}{
+				"name":  "Test Author",
+				"email": "test@example.com",
+			},
+		},
+	}
+	body, _ := json.Marshal(payload)
 	req := httptest.NewRequest("POST", "/", bytes.NewBuffer(body))
 	req.Header.Set("X-GitHub-Event", "push")
 	req.Header.Set("X-Hub-Signature-256", "sha256=invalidsig")
@@ -133,8 +162,17 @@ func TestGitHubWebhookHandler_ValidEventAndSignature(t *testing.T) {
 	handler := GitHubWebhookHandler(config, logger)
 
 	payload := map[string]interface{}{
+		"ref":        "refs/heads/main",
 		"repository": map[string]interface{}{"full_name": "repo"},
 		"sender":     map[string]interface{}{"login": "user"},
+		"head_commit": map[string]interface{}{
+			"id":      "abc123",
+			"message": "Test commit",
+			"author": map[string]interface{}{
+				"name":  "Test Author",
+				"email": "test@example.com",
+			},
+		},
 	}
 	body, _ := json.Marshal(payload)
 	mac := hmac.New(sha256.New, []byte("testsecret"))

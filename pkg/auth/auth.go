@@ -203,6 +203,96 @@ func (s *Service) ValidateAPIKey(ctx context.Context, apiKey string) (*User, err
 	}
 	s.mu.RUnlock()
 
+	// If not found in memory and we have a database connection (production mode)
+	if !exists && s.db != nil {
+		s.logDebug("API key not in memory, checking database", map[string]interface{}{
+			"key_prefix": getKeyPrefix(apiKey),
+		})
+
+		// Hash the API key to match stored hash
+		keyHash := s.hashAPIKey(apiKey)
+
+		// Query database for the API key
+		query := `
+			SELECT tenant_id, user_id, name, key_type, scopes, is_active, 
+			       expires_at, rate_limit_requests, allowed_services
+			FROM mcp.api_keys 
+			WHERE key_hash = $1 AND is_active = true
+		`
+
+		var dbKey struct {
+			TenantID        string         `db:"tenant_id"`
+			UserID          sql.NullString `db:"user_id"`
+			Name            string         `db:"name"`
+			KeyType         string         `db:"key_type"`
+			Scopes          pq.StringArray `db:"scopes"`
+			Active          bool           `db:"is_active"`
+			ExpiresAt       *time.Time     `db:"expires_at"`
+			RateLimit       *int           `db:"rate_limit_requests"`
+			AllowedServices pq.StringArray `db:"allowed_services"`
+		}
+
+		err := s.db.Get(&dbKey, query, keyHash)
+		if err != nil {
+			if err == sql.ErrNoRows {
+				s.logInfo("API key not found in database", map[string]interface{}{
+					"key_prefix": getKeyPrefix(apiKey),
+				})
+				return nil, ErrInvalidAPIKey
+			}
+			s.logError("Failed to query API key from database", map[string]interface{}{
+				"error": err.Error(),
+			})
+			return nil, fmt.Errorf("database error: %w", err)
+		}
+
+		// Check expiration
+		if dbKey.ExpiresAt != nil && time.Now().After(*dbKey.ExpiresAt) {
+			s.logInfo("API key expired", map[string]interface{}{
+				"key_prefix": getKeyPrefix(apiKey),
+				"expired_at": dbKey.ExpiresAt.Format(time.RFC3339),
+			})
+			return nil, ErrInvalidAPIKey
+		}
+
+		// Build user object
+		userID := ""
+		if dbKey.UserID.Valid {
+			userID = dbKey.UserID.String
+		}
+
+		user := &User{
+			ID:       userID,
+			TenantID: dbKey.TenantID,
+			Scopes:   []string(dbKey.Scopes),
+			AuthType: TypeAPIKey,
+			Metadata: map[string]interface{}{
+				"key_type":         dbKey.KeyType,
+				"key_name":         dbKey.Name,
+				"allowed_services": []string(dbKey.AllowedServices),
+			},
+		}
+
+		// Update last used timestamp asynchronously
+		go s.updateLastUsed(ctx, keyHash)
+
+		// Cache the result
+		if s.config.CacheEnabled && s.cache != nil {
+			cacheKey := fmt.Sprintf("auth:apikey:%s", apiKey)
+			if err := s.cache.Set(ctx, cacheKey, user, s.config.CacheTTL); err != nil {
+				s.logWarn("Failed to cache API key validation", map[string]interface{}{"error": err})
+			}
+		}
+
+		s.logInfo("API key validated from database", map[string]interface{}{
+			"key_prefix": getKeyPrefix(apiKey),
+			"tenant_id":  user.TenantID,
+			"key_type":   dbKey.KeyType,
+		})
+
+		return user, nil
+	}
+
 	if exists && key.Active {
 		// Check expiration
 		if key.ExpiresAt != nil && time.Now().After(*key.ExpiresAt) {
