@@ -21,6 +21,27 @@ The binary WebSocket protocol provides:
 +-----------------------------------+
 ```
 
+## Enabling Binary Protocol
+
+To enable binary protocol on your WebSocket connection, use the `protocol.set_binary` method:
+
+```json
+{
+  "jsonrpc": "2.0",
+  "method": "protocol.set_binary",
+  "params": {
+    "enabled": true,
+    "compression": {
+      "enabled": true,
+      "threshold": 1024
+    }
+  },
+  "id": "1"
+}
+```
+
+**Important**: The correct method name is `protocol.set_binary`, not `set_binary_protocol`.
+
 ## Client Implementation Examples
 
 ### 1. JavaScript/TypeScript Client
@@ -42,6 +63,24 @@ class BinaryWebSocketExample {
     
     // Set up event handlers
     this.setupHandlers();
+  }
+  
+  async connect() {
+    await this.client.connect();
+    
+    // Enable binary protocol after connection
+    await this.client.send({
+      jsonrpc: "2.0",
+      method: "protocol.set_binary",
+      params: {
+        enabled: true,
+        compression: {
+          enabled: true,
+          threshold: 1024
+        }
+      },
+      id: "1"
+    });
   }
   
   private setupHandlers() {
