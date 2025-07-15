@@ -555,14 +555,27 @@ func (s *Server) authenticateRequest(r *http.Request) (*auth.Claims, error) {
 		user, err := s.auth.ValidateJWT(r.Context(), token)
 		if err == nil {
 			// Convert User to Claims
-			return &auth.Claims{
+			claims := &auth.Claims{
 				RegisteredClaims: jwt.RegisteredClaims{
 					Subject: user.ID,
 				},
 				TenantID: user.TenantID,
 				UserID:   user.ID,
 				Scopes:   user.Scopes,
-			}, nil
+			}
+
+			// If TenantID is empty, check X-Tenant-ID header (for e2e tests)
+			if claims.TenantID == "" {
+				if tenantID := r.Header.Get("X-Tenant-ID"); tenantID != "" {
+					claims.TenantID = tenantID
+					s.logger.Debug("Using X-Tenant-ID header for JWT", map[string]interface{}{
+						"tenant_id": tenantID,
+						"user_id":   user.ID,
+					})
+				}
+			}
+
+			return claims, nil
 		}
 		// If JWT validation fails, fall through to try as API key
 	}
@@ -582,14 +595,27 @@ func (s *Server) authenticateRequest(r *http.Request) (*auth.Claims, error) {
 	}
 
 	// Convert User to Claims
-	return &auth.Claims{
+	claims := &auth.Claims{
 		RegisteredClaims: jwt.RegisteredClaims{
 			Subject: user.ID,
 		},
 		TenantID: user.TenantID,
 		UserID:   user.ID,
 		Scopes:   user.Scopes,
-	}, nil
+	}
+
+	// If TenantID is empty, check X-Tenant-ID header (for e2e tests)
+	if claims.TenantID == "" {
+		if tenantID := r.Header.Get("X-Tenant-ID"); tenantID != "" {
+			claims.TenantID = tenantID
+			s.logger.Debug("Using X-Tenant-ID header", map[string]interface{}{
+				"tenant_id": tenantID,
+				"user_id":   user.ID,
+			})
+		}
+	}
+
+	return claims, nil
 }
 
 // getClientIP extracts the client IP address from the request

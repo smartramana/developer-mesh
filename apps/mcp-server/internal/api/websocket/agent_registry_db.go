@@ -94,7 +94,7 @@ func (ar *DBAgentRegistry) RegisterAgent(ctx context.Context, reg *AgentRegistra
 		ID:           reg.ID,
 		TenantID:     tenantUUID,
 		Name:         reg.Name,
-		ModelID:      "claude-sonnet-4",   // Default model ID - Latest Anthropic Sonnet (May 2025)
+		ModelID:      "claude-sonnet-4", // Default model ID - Latest Anthropic Sonnet (May 2025)
 		Type:         AgentTypeStandard, // Default type
 		Status:       AgentStatusAvailable,
 		Capabilities: reg.Capabilities,
