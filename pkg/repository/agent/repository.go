@@ -106,7 +106,7 @@ func (r *RepositoryImpl) Create(ctx context.Context, agent *models.Agent) error 
 		agent.Status = "offline"
 	}
 	if agent.ModelID == "" {
-		agent.ModelID = "default-model" // Temporary default for MVP
+		agent.ModelID = "claude-sonnet-4" // Default to Claude Sonnet 4
 	}
 
 	// Convert capabilities to PostgreSQL array format
