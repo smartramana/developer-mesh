@@ -181,9 +181,10 @@ func (s *Server) ValidateJWT(tokenString string) (*auth.Claims, error) {
 	}
 
 	// Validate standard claims
-	if claims.UserID == "" || claims.TenantID == "" {
-		return nil, errors.New("missing required claims")
+	if claims.UserID == "" {
+		return nil, errors.New("missing required user ID claim")
 	}
+	// Note: TenantID can be empty here as it may come from X-Tenant-ID header
 
 	s.logger.Debug("JWT validated successfully", map[string]interface{}{
 		"user_id":   claims.UserID,

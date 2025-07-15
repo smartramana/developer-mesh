@@ -90,6 +90,31 @@ func (api *API) CreateContext(c *gin.Context) {
 		return
 	}
 
+	// Extract tenant ID from the request context
+	userInfo, exists := c.Get("user")
+	if !exists {
+		api.logger.Warn("No user info in context", nil)
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
+		return
+	}
+
+	userMap, ok := userInfo.(map[string]any)
+	if !ok {
+		api.logger.Warn("Invalid user info format", nil)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "internal error"})
+		return
+	}
+
+	tenantID, ok := userMap["tenant_id"].(string)
+	if !ok || tenantID == "" {
+		api.logger.Warn("No tenant ID in user info", nil)
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "missing tenant id"})
+		return
+	}
+
+	// Set the tenant ID in the context data
+	contextData.TenantID = tenantID
+
 	result, err := api.contextManager.CreateContext(c.Request.Context(), &contextData)
 	if err != nil {
 		api.logger.Error("Failed to create context", map[string]any{

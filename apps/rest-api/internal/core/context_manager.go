@@ -101,12 +101,13 @@ func (cm *ContextManager) CreateContext(ctx context.Context, context *models.Con
 		}
 
 		// Create insert query for context
-		q := `INSERT INTO mcp.contexts (id, name, description, agent_id, model_id, session_id, current_tokens, max_tokens, metadata, created_at, updated_at, expires_at) 
-		      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)`
+		q := `INSERT INTO mcp.contexts (id, tenant_id, name, description, agent_id, model_id, session_id, current_tokens, max_tokens, metadata, created_at, updated_at, expires_at) 
+		      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)`
 
 		// Use standard Exec with explicit parameters
 		_, err := cm.db.ExecContext(ctx, q,
 			context.ID,
+			context.TenantID,
 			context.Name,
 			context.Description,
 			context.AgentID,
