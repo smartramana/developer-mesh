@@ -468,7 +468,7 @@ func initializeCache(ctx context.Context, cfg *commonconfig.Config, logger obser
 				"skip_verify": cfg.Cache.TLS.InsecureSkipVerify,
 			})
 			cacheConfig.TLS = &cache.TLSConfig{
-				Config: &securitytls.Config{
+				Config: securitytls.Config{
 					Enabled:            cfg.Cache.TLS.Enabled,
 					InsecureSkipVerify: cfg.Cache.TLS.InsecureSkipVerify,
 					MinVersion:         cfg.Cache.TLS.MinVersion,
