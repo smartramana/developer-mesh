@@ -43,7 +43,7 @@ type RedisConfig struct {
 
 // TLSConfig holds TLS configuration
 type TLSConfig struct {
-	*securitytls.Config `mapstructure:",squash"` // Embed secure TLS configuration
+	securitytls.Config `mapstructure:",squash"` // Embed secure TLS configuration
 }
 
 // NewCache creates a new cache based on the configuration
