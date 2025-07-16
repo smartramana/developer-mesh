@@ -988,8 +988,8 @@ func (m *mockCache) Exists(ctx context.Context, key string) (bool, error) {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
 
-	_, ok := m.data[key]
-	return ok, nil
+	_, exists := m.data[key]
+	return exists, nil
 }
 
 func (m *mockCache) Flush(ctx context.Context) error {
