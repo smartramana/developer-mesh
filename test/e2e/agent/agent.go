@@ -299,6 +299,7 @@ func (ta *TestAgent) ExecuteMethod(ctx context.Context, method string, params in
 // RegisterCapabilities registers agent capabilities with the server
 func (ta *TestAgent) RegisterCapabilities(ctx context.Context) error {
 	resp, err := ta.ExecuteMethod(ctx, "agent.register", map[string]interface{}{
+		"name":         ta.name,
 		"capabilities": ta.capabilities,
 		"status":       "available",
 		"metadata": map[string]interface{}{
