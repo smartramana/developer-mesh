@@ -7,7 +7,7 @@ import (
 	"testing"
 	"time"
 
-	_ "github.com/S-Corkum/devops-mcp/pkg/cache"
+	_ "github.com/S-Corkum/devops-mcp/pkg/common/cache"
 	"github.com/S-Corkum/devops-mcp/pkg/models"
 	"github.com/S-Corkum/devops-mcp/pkg/observability"
 	"github.com/google/uuid"

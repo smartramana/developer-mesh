@@ -13,7 +13,7 @@ import (
 	"github.com/google/uuid"
 
 	"github.com/S-Corkum/devops-mcp/pkg/auth"
-	"github.com/S-Corkum/devops-mcp/pkg/cache"
+	"github.com/S-Corkum/devops-mcp/pkg/common/cache"
 	ws "github.com/S-Corkum/devops-mcp/pkg/models/websocket"
 	"github.com/S-Corkum/devops-mcp/pkg/observability"
 	agentRepository "github.com/S-Corkum/devops-mcp/pkg/repository/agent"

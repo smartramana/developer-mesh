@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/S-Corkum/devops-mcp/pkg/models"
+	"github.com/S-Corkum/devops-mcp/pkg/observability"
 	lru "github.com/hashicorp/golang-lru/v2"
 )
 
@@ -20,7 +21,7 @@ type MultiLevelCache struct {
 
 	// Configuration
 	ttl           time.Duration
-	metricsClient *MetricsClient
+	metricsClient observability.MetricsClient
 
 	// Prefetch queue
 	prefetchQueue   chan prefetchRequest
@@ -31,7 +32,7 @@ type MultiLevelCache struct {
 type prefetchRequest struct {
 	key      string
 	context  *models.Context
-	metadata map[string]any
+	metadata map[string]interface{}
 }
 
 // MultiLevelCacheConfig holds configuration for the multi-level cache
@@ -69,7 +70,7 @@ func NewMultiLevelCache(l2Cache Cache, config MultiLevelCacheConfig) (*MultiLeve
 		l1Cache:         l1Cache,
 		l2Cache:         l2Cache,
 		ttl:             config.DefaultTTL,
-		metricsClient:   NewMetricsClient(),
+		metricsClient:   observability.NewMetricsClient(),
 		prefetchQueue:   make(chan prefetchRequest, config.PrefetchQueueSize),
 		prefetchWorkers: config.PrefetchWorkers,
 	}
@@ -98,7 +99,7 @@ func (c *MultiLevelCache) prefetchWorker() {
 }
 
 // queuePrefetch adds a prefetch request to the queue
-func (c *MultiLevelCache) queuePrefetch(key string, context *models.Context, metadata map[string]any) {
+func (c *MultiLevelCache) queuePrefetch(key string, context *models.Context, metadata map[string]interface{}) {
 	// Skip if prefetch queue is full
 	select {
 	case c.prefetchQueue <- prefetchRequest{key: key, context: context, metadata: metadata}:
@@ -109,7 +110,7 @@ func (c *MultiLevelCache) queuePrefetch(key string, context *models.Context, met
 }
 
 // Set stores a value in the cache
-func (c *MultiLevelCache) Set(ctx context.Context, key string, value any, ttl time.Duration) error {
+func (c *MultiLevelCache) Set(ctx context.Context, key string, value interface{}, ttl time.Duration) error {
 	startTime := time.Now()
 
 	// Marshal value to JSON
@@ -135,7 +136,7 @@ func (c *MultiLevelCache) Set(ctx context.Context, key string, value any, ttl ti
 }
 
 // Get retrieves a value from the cache
-func (c *MultiLevelCache) Get(ctx context.Context, key string, value any) (bool, error) {
+func (c *MultiLevelCache) Get(ctx context.Context, key string, value interface{}) (bool, error) {
 	startTime := time.Now()
 
 	// Try L1 cache first
@@ -246,7 +247,7 @@ func (c *MultiLevelCache) prefetchRelatedContexts(context models.Context) {
 	// Prefetch contexts from the same agent
 	if context.AgentID != "" {
 		key := fmt.Sprintf("contexts:agent:%s", context.AgentID)
-		c.queuePrefetch(key, &context, map[string]any{
+		c.queuePrefetch(key, &context, map[string]interface{}{
 			"type":     "agent_contexts",
 			"agent_id": context.AgentID,
 		})
@@ -255,7 +256,7 @@ func (c *MultiLevelCache) prefetchRelatedContexts(context models.Context) {
 	// Prefetch contexts from the same session
 	if context.SessionID != "" {
 		key := fmt.Sprintf("contexts:session:%s", context.SessionID)
-		c.queuePrefetch(key, &context, map[string]any{
+		c.queuePrefetch(key, &context, map[string]interface{}{
 			"type":       "session_contexts",
 			"session_id": context.SessionID,
 		})
@@ -264,7 +265,7 @@ func (c *MultiLevelCache) prefetchRelatedContexts(context models.Context) {
 	// Prefetch contexts from the same model
 	if context.ModelID != "" {
 		key := fmt.Sprintf("contexts:model:%s", context.ModelID)
-		c.queuePrefetch(key, &context, map[string]any{
+		c.queuePrefetch(key, &context, map[string]interface{}{
 			"type":     "model_contexts",
 			"model_id": context.ModelID,
 		})

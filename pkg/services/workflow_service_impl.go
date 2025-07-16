@@ -23,7 +23,7 @@ import (
 	"github.com/pkg/errors"
 
 	"github.com/S-Corkum/devops-mcp/pkg/auth"
-	"github.com/S-Corkum/devops-mcp/pkg/cache"
+	"github.com/S-Corkum/devops-mcp/pkg/common/cache"
 	"github.com/S-Corkum/devops-mcp/pkg/models"
 	"github.com/S-Corkum/devops-mcp/pkg/repository/interfaces"
 	"github.com/S-Corkum/devops-mcp/pkg/repository/types"

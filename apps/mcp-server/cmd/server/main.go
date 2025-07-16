@@ -25,8 +25,8 @@ import (
 	"github.com/S-Corkum/devops-mcp/apps/mcp-server/internal/core"
 
 	// Shared package imports
-	"github.com/S-Corkum/devops-mcp/pkg/cache"
 	"github.com/S-Corkum/devops-mcp/pkg/common/aws"
+	"github.com/S-Corkum/devops-mcp/pkg/common/cache"
 	commonconfig "github.com/S-Corkum/devops-mcp/pkg/common/config"
 	"github.com/S-Corkum/devops-mcp/pkg/database"
 	"github.com/S-Corkum/devops-mcp/pkg/observability"

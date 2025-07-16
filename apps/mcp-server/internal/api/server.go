@@ -14,8 +14,8 @@ import (
 	"github.com/S-Corkum/devops-mcp/apps/mcp-server/internal/core"
 
 	"github.com/S-Corkum/devops-mcp/pkg/auth"
-	"github.com/S-Corkum/devops-mcp/pkg/cache"
 	"github.com/S-Corkum/devops-mcp/pkg/client/rest"
+	"github.com/S-Corkum/devops-mcp/pkg/common/cache"
 	"github.com/S-Corkum/devops-mcp/pkg/common/config"
 	commonLogging "github.com/S-Corkum/devops-mcp/pkg/common/logging"
 	"github.com/S-Corkum/devops-mcp/pkg/observability"

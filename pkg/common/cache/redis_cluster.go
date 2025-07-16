@@ -81,7 +81,7 @@ func NewRedisClusterCache(cfg RedisClusterConfig) (*RedisClusterCache, error) {
 }
 
 // Get retrieves a value from cache
-func (c *RedisClusterCache) Get(ctx context.Context, key string, value any) error {
+func (c *RedisClusterCache) Get(ctx context.Context, key string, value interface{}) error {
 	data, err := c.client.Get(ctx, key).Bytes()
 	if err != nil {
 		if err == redis.Nil {
@@ -94,7 +94,7 @@ func (c *RedisClusterCache) Get(ctx context.Context, key string, value any) erro
 }
 
 // Set stores a value in cache with TTL
-func (c *RedisClusterCache) Set(ctx context.Context, key string, value any, ttl time.Duration) error {
+func (c *RedisClusterCache) Set(ctx context.Context, key string, value interface{}, ttl time.Duration) error {
 	data, err := json.Marshal(value)
 	if err != nil {
 		return err

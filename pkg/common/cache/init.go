@@ -3,6 +3,7 @@ package cache
 import (
 	"context"
 	"crypto/tls"
+	"errors"
 	"fmt"
 	"os"
 	"time"
@@ -10,6 +11,9 @@ import (
 	"github.com/S-Corkum/devops-mcp/pkg/common/aws"
 	securitytls "github.com/S-Corkum/devops-mcp/pkg/security/tls"
 )
+
+// ErrNotFound is returned when a key is not found in the cache
+var ErrNotFound = errors.New("key not found in cache")
 
 // RedisConfig holds configuration for Redis
 type RedisConfig struct {
@@ -39,11 +43,11 @@ type RedisConfig struct {
 
 // TLSConfig holds TLS configuration
 type TLSConfig struct {
-	securitytls.Config `mapstructure:",squash"` // Embed secure TLS configuration (non-pointer)
+	*securitytls.Config `mapstructure:",squash"` // Embed secure TLS configuration
 }
 
 // NewCache creates a new cache based on the configuration
-func NewCache(ctx context.Context, cfg any) (Cache, error) {
+func NewCache(ctx context.Context, cfg interface{}) (Cache, error) {
 	switch config := cfg.(type) {
 	case RedisConfig:
 		// Default to AWS ElastiCache with IAM auth in production environments
@@ -79,7 +83,7 @@ func NewCache(ctx context.Context, cfg any) (Cache, error) {
 			PoolSize:     config.PoolSize,
 			MinIdleConns: config.MinIdleConns,
 			PoolTimeout:  config.PoolTimeout,
-			TLS:          config.TLS, // Pass TLS configuration
+			TLS:          config.TLS,
 		})
 	default:
 		return nil, fmt.Errorf("unsupported cache type: %T", cfg)
@@ -104,15 +108,11 @@ func newRedisClusterClient(config RedisConfig) (Cache, error) {
 		RouteByLatency: true,
 	}
 
-	// Add TLS if configured
-	if config.TLS != nil && config.TLS.Enabled {
-		tlsConfig, err := config.TLS.BuildTLSConfig()
-		if err != nil {
-			return nil, fmt.Errorf("failed to build TLS config: %w", err)
-		}
-		if tlsConfig != nil {
-			clusterConfig.UseTLS = true
-			clusterConfig.TLSConfig = tlsConfig
+	// Add TLS if IAM auth is enabled
+	if config.UseIAMAuth {
+		clusterConfig.UseTLS = true
+		clusterConfig.TLSConfig = &tls.Config{
+			MinVersion: tls.VersionTLS12,
 		}
 	}
 
@@ -201,15 +201,7 @@ func newAWSElastiCacheClient(ctx context.Context, config RedisConfig) (Cache, er
 
 		// Add TLS if enabled
 		if tlsConfig, ok := options["tls"].(*tls.Config); ok && tlsConfig != nil {
-			// For standard Redis, we need to enable TLS
-			// Since the config doesn't have a UseTLS field, we check if TLS config exists
-			redisConfig.TLS = &TLSConfig{
-				securitytls.Config{
-					Enabled:            true,
-					InsecureSkipVerify: tlsConfig.InsecureSkipVerify,
-					MinVersion:         securitytls.DefaultMinVersion,
-				},
-			}
+			redisConfig.UseIAMAuth = true // If TLS is present, enable it
 		}
 
 		return NewRedisCache(redisConfig)

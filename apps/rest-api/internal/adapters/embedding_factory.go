@@ -6,7 +6,7 @@ import (
 	"time"
 
 	"github.com/S-Corkum/devops-mcp/pkg/agents"
-	"github.com/S-Corkum/devops-mcp/pkg/cache"
+	"github.com/S-Corkum/devops-mcp/pkg/common/cache"
 	"github.com/S-Corkum/devops-mcp/pkg/common/config"
 	"github.com/S-Corkum/devops-mcp/pkg/database"
 	"github.com/S-Corkum/devops-mcp/pkg/embedding"

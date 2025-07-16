@@ -8,7 +8,7 @@ import (
 	"time"
 
 	"github.com/S-Corkum/devops-mcp/pkg/agents"
-	"github.com/S-Corkum/devops-mcp/pkg/cache"
+	"github.com/S-Corkum/devops-mcp/pkg/common/cache"
 	"github.com/S-Corkum/devops-mcp/pkg/embedding"
 	"github.com/S-Corkum/devops-mcp/pkg/observability"
 	"github.com/google/uuid"
