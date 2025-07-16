@@ -14,13 +14,13 @@ on:
       test_suite:
         description: 'Test suite to run'
         required: false
-        default: 'all'
+        default: 'single'
         type: choice
         options:
-          - all
           - single
           - multi
           - performance
+          - all
       debug:
         description: 'Enable debug logging'
         required: false
@@ -59,11 +59,63 @@ jobs:
             echo "❌ Deployment failed, skipping E2E tests"
           fi
 
+  # Determine which test suites to run
+  determine-suites:
+    name: Determine Test Suites
+    runs-on: ubuntu-latest
+    needs: [check-deployment]
+    if: |
+      always() && (
+        github.event_name == 'workflow_dispatch' || 
+        github.event_name == 'schedule' ||
+        (github.event_name == 'workflow_run' && needs.check-deployment.outputs.should_run == 'true')
+      )
+    outputs:
+      matrix: ${{ steps.set-matrix.outputs.matrix }}
+    steps:
+      - name: Set test matrix
+        id: set-matrix
+        run: |
+          # Default behavior based on trigger
+          if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
+            # Manual trigger - use the input
+            suite="${{ github.event.inputs.test_suite }}"
+          elif [[ "${{ github.event_name }}" == "schedule" ]]; then
+            # Scheduled run - run all tests
+            suite="all"
+          else
+            # Deployment trigger - only run single agent tests
+            suite="single"
+          fi
+          
+          # Build the matrix based on the suite
+          case "$suite" in
+            "single")
+              matrix='{"suite":["single"]}'
+              ;;
+            "multi")
+              matrix='{"suite":["multi"]}'
+              ;;
+            "performance")
+              matrix='{"suite":["performance"]}'
+              ;;
+            "all")
+              matrix='{"suite":["single","multi","performance"]}'
+              ;;
+            *)
+              echo "Unknown suite: $suite"
+              exit 1
+              ;;
+          esac
+          
+          echo "matrix=$matrix" >> $GITHUB_OUTPUT
+          echo "Selected test suites: $matrix"
+
   e2e-tests:
     name: Run E2E Tests
     runs-on: ubuntu-latest
     timeout-minutes: 60
-    needs: [check-deployment]
+    needs: [check-deployment, determine-suites]
     # Run if triggered manually, scheduled, or deployment was successful
     if: |
       always() && (
@@ -73,11 +125,7 @@ jobs:
       )
     
     strategy:
-      matrix:
-        suite: 
-          - single
-          - multi
-          - performance
+      matrix: ${{fromJson(needs.determine-suites.outputs.matrix)}}
       fail-fast: false
 
     steps:
@@ -137,7 +185,7 @@ jobs:
     - name: Run E2E tests
       id: test
       run: |
-        suite="${{ github.event.inputs.test_suite || matrix.suite }}"
+        suite="${{ matrix.suite }}"
         echo "Running test suite: $suite"
         
         cd test/e2e
