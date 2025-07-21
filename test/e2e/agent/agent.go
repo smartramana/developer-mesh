@@ -73,6 +73,16 @@ func NewTestAgent(name string, capabilities []string, apiKey, baseURL string) *T
 
 // Connect establishes WebSocket connection to the MCP server
 func (ta *TestAgent) Connect(ctx context.Context) error {
+	ta.mu.Lock()
+	// If stopCh was closed from a previous connection, create a new one
+	select {
+	case <-ta.stopCh:
+		ta.stopCh = make(chan struct{})
+	default:
+		// stopCh is still open, good to use
+	}
+	ta.mu.Unlock()
+
 	// Parse base URL and construct WebSocket URL
 	baseURL := ta.baseURL
 	if !strings.HasPrefix(baseURL, "http://") && !strings.HasPrefix(baseURL, "https://") {
@@ -154,8 +164,8 @@ func (ta *TestAgent) initialize(ctx context.Context) error {
 
 // readMessages continuously reads messages from the WebSocket
 func (ta *TestAgent) readMessages() {
-	defer close(ta.responses)
-	defer close(ta.errors)
+	// Don't close channels here - they may be reused for reconnection
+	// Channels will be garbage collected when TestAgent is no longer referenced
 
 	for {
 		select {
@@ -400,7 +410,15 @@ func (ta *TestAgent) Close() error {
 		return nil
 	}
 
-	close(ta.stopCh)
+	// Signal the readMessages goroutine to stop
+	// Don't close stopCh here to allow for reconnection
+	select {
+	case <-ta.stopCh:
+		// Already closed
+	default:
+		close(ta.stopCh)
+	}
+
 	ta.connected = false
 
 	if ta.conn != nil {
@@ -419,7 +437,9 @@ func (ta *TestAgent) Close() error {
 
 		_ = wsjson.Write(ctx, ta.conn, disconnectMsg)
 
-		return ta.conn.Close(websocket.StatusNormalClosure, "Test completed")
+		err := ta.conn.Close(websocket.StatusNormalClosure, "Test completed")
+		ta.conn = nil // Clear the connection reference
+		return err
 	}
 
 	return nil

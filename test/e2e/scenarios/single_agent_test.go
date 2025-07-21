@@ -146,7 +146,7 @@ var _ = Describe("Single Agent E2E Tests", func() {
 
 			// Attempt session recovery
 			resp, err := testAgent.ExecuteMethod(ctx, "session.recover", map[string]interface{}{
-				"sessionId": sessionID,
+				"session_id": sessionID,
 			})
 			Expect(err).NotTo(HaveOccurred())
 			Expect(resp.Error).To(BeNil())
