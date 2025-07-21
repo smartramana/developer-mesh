@@ -114,17 +114,17 @@ func (ar *DBAgentRegistry) RegisterAgent(ctx context.Context, reg *AgentRegistra
 		existingAgent.Status = agent.Status
 		existingAgent.LastSeenAt = agent.LastSeenAt
 		existingAgent.UpdatedAt = agent.UpdatedAt
-		
+
 		if err := ar.repo.Update(ctx, existingAgent); err != nil {
 			return nil, fmt.Errorf("failed to update agent: %w", err)
 		}
-		
+
 		ar.logger.Info("Agent updated", map[string]interface{}{
 			"agent_id":     agent.ID,
 			"name":         agent.Name,
 			"capabilities": agent.Capabilities,
 		})
-		
+
 		// Use the updated agent for the rest of the method
 		agent = existingAgent
 	} else {
