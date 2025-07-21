@@ -455,7 +455,8 @@ func (s *Server) handleInitialize(ctx context.Context, conn *Connection, params 
 
 	// Return server capabilities
 	return map[string]interface{}{
-		"version": "1.0.0",
+		"version":   "1.0.0",
+		"sessionId": conn.ID, // Return connection ID as session ID for reconnection
 		"capabilities": map[string]interface{}{
 			"tools":            true,
 			"context":          true,
@@ -487,13 +488,13 @@ func (s *Server) handleToolList(ctx context.Context, conn *Connection, params js
 		}
 
 		// Convert tools to response format
-		var toolList []map[string]interface{}
+		toolList := make([]map[string]interface{}, 0) // Initialize as empty array, not nil
 		for _, tool := range tools {
 			toolList = append(toolList, map[string]interface{}{
 				"id":          tool.ID,
 				"name":        tool.Name,
 				"description": tool.Description,
-				"parameters":  tool.Parameters,
+				"inputSchema": tool.Parameters, // E2E tests expect "inputSchema" field
 			})
 		}
 

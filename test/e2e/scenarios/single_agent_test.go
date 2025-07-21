@@ -369,7 +369,7 @@ var _ = Describe("Single Agent E2E Tests", func() {
 
 			var sessionID string
 			if result, ok := createResp.Result.(map[string]interface{}); ok {
-				if id, ok := result["id"].(string); ok {
+				if id, ok := result["session_id"].(string); ok {
 					sessionID = id
 				}
 			}
@@ -377,16 +377,16 @@ var _ = Describe("Single Agent E2E Tests", func() {
 
 			// Get session info
 			getResp, err := testAgent.ExecuteMethod(ctx, "session.get", map[string]interface{}{
-				"id": sessionID,
+				"session_id": sessionID,
 			})
 
 			Expect(err).NotTo(HaveOccurred())
 			Expect(getResp.Error).To(BeNil())
 
 			// Update session
-			updateResp, err := testAgent.ExecuteMethod(ctx, "session.update", map[string]interface{}{
-				"id": sessionID,
-				"metadata": map[string]interface{}{
+			updateResp, err := testAgent.ExecuteMethod(ctx, "session.update_state", map[string]interface{}{
+				"session_id": sessionID,
+				"state": map[string]interface{}{
 					"lastActivity": time.Now().Unix(),
 					"status":       "active",
 				},

@@ -244,7 +244,7 @@ func (ta *TestAgent) sendAndWait(ctx context.Context, msg *ws.Message, timeout t
 		case err := <-ta.errors:
 			return nil, err
 		case <-ctx.Done():
-			return nil, fmt.Errorf("timeout waiting for response to message %s", msg.ID)
+			return nil, ctx.Err() // Return the actual context error (DeadlineExceeded or Canceled)
 		}
 	}
 }
