@@ -182,6 +182,41 @@ jobs:
         echo "⏳ Waiting 30s for deployment to stabilize after deployment..."
         sleep 30
 
+    - name: Check service availability
+      run: |
+        echo "🔍 Checking if services are available..."
+        max_retries=30
+        retry_interval=10
+        
+        # Function to check URL
+        check_url() {
+          local url=$1
+          local service=$2
+          
+          echo "Checking $service at $url..."
+          for i in $(seq 1 $max_retries); do
+            if curl -f -s -o /dev/null -w "%{http_code}" "$url" | grep -E "^(200|301|302|401|403)$" > /dev/null; then
+              echo "✅ $service is responding"
+              return 0
+            fi
+            
+            if [ $i -lt $max_retries ]; then
+              echo "  Attempt $i/$max_retries failed, retrying in ${retry_interval}s..."
+              sleep $retry_interval
+            fi
+          done
+          
+          echo "❌ $service did not become available after $((max_retries * retry_interval)) seconds"
+          return 1
+        }
+        
+        # Check both services
+        check_url "https://${{ env.MCP_BASE_URL }}/health" "MCP Server" || true
+        check_url "https://${{ env.API_BASE_URL }}/health" "REST API" || true
+        
+        # Always proceed even if health checks fail - the tests will provide better error messages
+        echo "Proceeding with tests..."
+
     - name: Run E2E tests
       id: test
       run: |
