@@ -291,7 +291,8 @@ func (g *TestDataGenerator) GenerateMetrics() map[string]interface{} {
 
 // DefaultTestData creates default test data for common scenarios
 func DefaultTestData() *TestData {
-	td := NewTestData("e2e-test-tenant")
+	// Use the development tenant ID that matches the API key configuration
+	td := NewTestData("00000000-0000-0000-0000-000000000001")
 
 	// Create test accounts
 	td.CreateTestAccount("admin", []string{"*"})

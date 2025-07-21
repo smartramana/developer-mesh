@@ -407,13 +407,27 @@ func (s *Server) handleBenchmark(ctx context.Context, conn *Connection, params j
 // handleInitialize handles the initialize method
 func (s *Server) handleInitialize(ctx context.Context, conn *Connection, params json.RawMessage) (interface{}, error) {
 	var initParams struct {
-		Version      string   `json:"version"`
-		Name         string   `json:"name"`
-		Capabilities []string `json:"capabilities"`
+		Version      string                 `json:"version"`
+		Name         string                 `json:"name"`
+		AgentID      string                 `json:"agentId"`
+		Capabilities []string               `json:"capabilities"`
+		Metadata     map[string]interface{} `json:"metadata"`
 	}
 
 	if err := json.Unmarshal(params, &initParams); err != nil {
 		return nil, err
+	}
+
+	// If client provided an agent ID, update the connection
+	if initParams.AgentID != "" && initParams.AgentID != conn.AgentID {
+		s.logger.Info("Client provided agent ID, updating connection", map[string]interface{}{
+			"old_agent_id":  conn.AgentID,
+			"new_agent_id":  initParams.AgentID,
+			"connection_id": conn.ID,
+		})
+		conn.mu.Lock()
+		conn.AgentID = initParams.AgentID
+		conn.mu.Unlock()
 	}
 
 	// Store agent capabilities if provided
@@ -432,6 +446,7 @@ func (s *Server) handleInitialize(ctx context.Context, conn *Connection, params 
 			Capabilities: initParams.Capabilities,
 			ConnectionID: conn.ID,
 			TenantID:     conn.TenantID,
+			Metadata:     initParams.Metadata,
 		}
 		if _, err := s.agentRegistry.RegisterAgent(ctx, registration); err != nil {
 			s.logger.Warn("Failed to register agent capabilities", map[string]interface{}{
