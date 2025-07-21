@@ -46,7 +46,7 @@ func NewDBAgentRegistry(repo agentRepo.Repository, cache cache.Cache, logger obs
 	}
 }
 
-// RegisterAgent registers a new agent in the database
+// RegisterAgent registers a new agent in the database or updates an existing one
 func (ar *DBAgentRegistry) RegisterAgent(ctx context.Context, reg *AgentRegistration) (*AgentInfo, error) {
 	// Validate agent ID
 	if reg.ID == "" {
@@ -104,9 +104,34 @@ func (ar *DBAgentRegistry) RegisterAgent(ctx context.Context, reg *AgentRegistra
 		UpdatedAt:    now,
 	}
 
-	// Store in database
-	if err := ar.repo.Create(ctx, agent); err != nil {
-		return nil, fmt.Errorf("failed to register agent: %w", err)
+	// Check if agent already exists
+	existingAgent, getErr := ar.repo.Get(ctx, agent.ID)
+	if getErr == nil && existingAgent != nil {
+		// Agent exists, update it
+		existingAgent.Name = agent.Name
+		existingAgent.Capabilities = agent.Capabilities
+		existingAgent.Metadata = agent.Metadata
+		existingAgent.Status = agent.Status
+		existingAgent.LastSeenAt = agent.LastSeenAt
+		existingAgent.UpdatedAt = agent.UpdatedAt
+		
+		if err := ar.repo.Update(ctx, existingAgent); err != nil {
+			return nil, fmt.Errorf("failed to update agent: %w", err)
+		}
+		
+		ar.logger.Info("Agent updated", map[string]interface{}{
+			"agent_id":     agent.ID,
+			"name":         agent.Name,
+			"capabilities": agent.Capabilities,
+		})
+		
+		// Use the updated agent for the rest of the method
+		agent = existingAgent
+	} else {
+		// Agent doesn't exist, create it
+		if err := ar.repo.Create(ctx, agent); err != nil {
+			return nil, fmt.Errorf("failed to register agent: %w", err)
+		}
 	}
 
 	// Cache the agent
@@ -138,12 +163,16 @@ func (ar *DBAgentRegistry) RegisterAgent(ctx context.Context, reg *AgentRegistra
 		Health:       "healthy",
 	}
 
-	ar.metrics.IncrementCounter("agents_registered", 1)
-	ar.logger.Info("Agent registered in database", map[string]interface{}{
-		"agent_id":     agent.ID,
-		"name":         agent.Name,
-		"capabilities": agent.Capabilities,
-	})
+	if getErr == nil && existingAgent != nil {
+		ar.metrics.IncrementCounter("agents_updated", 1)
+	} else {
+		ar.metrics.IncrementCounter("agents_registered", 1)
+		ar.logger.Info("Agent registered in database", map[string]interface{}{
+			"agent_id":     agent.ID,
+			"name":         agent.Name,
+			"capabilities": agent.Capabilities,
+		})
+	}
 
 	return agentInfo, nil
 }
