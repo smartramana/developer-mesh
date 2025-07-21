@@ -32,23 +32,7 @@ func (s *Server) RegisterWebhookRoutes(router *mux.Router) {
 
 	if !enabledValue {
 		s.logger.Info("Webhook support is disabled", nil)
-		// Force registration for testing purposes
-		s.logger.Info("FORCING WEBHOOK REGISTRATION FOR TESTING", nil)
-		// We'll override the config for test purposes
-		s.config.Webhook.EnabledField = true
-		s.config.Webhook.GitHubEndpointField = "/api/webhooks/github"
-		s.config.Webhook.GitHubSecretField = "test-github-webhook-secret"
-		s.config.Webhook.GitHubIPValidationField = false
-		s.config.Webhook.GitHubAllowedEventsField = []string{"issues", "push"}
-
-		// Print debug info after override
-		s.logger.Info("Webhook configuration overridden for testing", map[string]interface{}{
-			"enabled":         s.config.Webhook.Enabled(),
-			"github_endpoint": s.config.Webhook.GitHubEndpoint(),
-			"secret_length":   len(s.config.Webhook.GitHubSecret()),
-			"allowed_events":  s.config.Webhook.GitHubAllowedEvents(),
-		})
-		// Don't return - continue with registration
+		return
 	}
 
 	providers := []WebhookProvider{
