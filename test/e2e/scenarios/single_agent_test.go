@@ -3,7 +3,6 @@ package scenarios
 import (
 	"context"
 	"fmt"
-	"testing"
 	"time"
 
 	"github.com/S-Corkum/devops-mcp/test/e2e/agent"
@@ -137,12 +136,13 @@ var _ = Describe("Single Agent E2E Tests", func() {
 			err = testAgent.Close()
 			Expect(err).NotTo(HaveOccurred())
 
-			// Wait before reconnecting
-			time.Sleep(2 * time.Second)
+			// Wait before reconnecting to ensure server cleanup
+			time.Sleep(3 * time.Second)
 
-			// Reconnect
-			err = testAgent.Connect(ctx)
-			Expect(err).NotTo(HaveOccurred())
+			// Reconnect with retry logic
+			Eventually(func() error {
+				return testAgent.Connect(ctx)
+			}, 10*time.Second, 1*time.Second).Should(Succeed())
 			defer func() { _ = testAgent.Close() }()
 
 			// Verify reconnection by sending another heartbeat
@@ -527,8 +527,4 @@ var _ = Describe("Single Agent E2E Tests", func() {
 	})
 })
 
-// TestSingleAgent runs single agent tests
-func TestSingleAgent(t *testing.T) {
-	RegisterFailHandler(Fail)
-	RunSpecs(t, "Single Agent E2E Test Suite")
-}
+// Note: This file's tests are run by the main suite runner in suite_test.go

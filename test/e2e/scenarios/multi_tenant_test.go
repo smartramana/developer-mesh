@@ -553,11 +553,7 @@ var _ = Describe("Multi-Tenant E2E Tests", func() {
 	})
 })
 
-// TestMultiTenant runs multi-tenant tests
-func TestMultiTenant(t *testing.T) {
-	RegisterFailHandler(Fail)
-	RunSpecs(t, "Multi-Tenant E2E Test Suite")
-}
+// Note: This file's tests are run by the main suite runner in suite_test.go
 
 // BenchmarkMultiTenantOperations benchmarks multi-tenant operations
 func BenchmarkMultiTenantOperations(b *testing.B) {
