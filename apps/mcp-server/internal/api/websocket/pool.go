@@ -159,26 +159,28 @@ func PutByteSlice(b *[]byte) {
 
 // GetConnection retrieves a connection from the sync.Pool
 func GetConnection() *Connection {
-	conn := connectionPool.Get().(*Connection)
-	// Reset all state
-	conn.conn = nil
-	conn.hub = nil
-	conn.state = nil
-	conn.mu = sync.RWMutex{}
-	conn.closeOnce = sync.Once{}
-	conn.wg = sync.WaitGroup{}
-
-	// Initialize the embedded ws.Connection if it's nil
-	if conn.Connection == nil {
-		conn.Connection = &ws.Connection{}
-		conn.State.Store(ws.ConnectionStateClosed)
+	// Always create a new connection for WebSocket
+	// WebSocket connections are stateful and should not be reused
+	wsConn := &ws.Connection{
+		ID:        "",
+		AgentID:   "",
+		TenantID:  "",
+		CreatedAt: time.Time{},
+		LastPing:  time.Time{},
 	}
+	wsConn.State.Store(ws.ConnectionStateClosed)
 
-	// Create new channels for each connection
-	conn.send = make(chan []byte, 256)
-	conn.closed = make(chan struct{})
-
-	return conn
+	return &Connection{
+		Connection: wsConn,
+		conn:       nil,
+		hub:        nil,
+		state:      nil,
+		send:       make(chan []byte, 256),
+		closed:     make(chan struct{}),
+		mu:         sync.RWMutex{},
+		closeOnce:  sync.Once{},
+		wg:         sync.WaitGroup{},
+	}
 }
 
 // PutConnection returns a connection to the sync.Pool
@@ -193,34 +195,25 @@ func PutConnection(conn *Connection) {
 	}
 
 	// Close channels if they're open
-	select {
-	case <-conn.closed:
-		// Already closed
-	default:
-		close(conn.closed)
+	if conn.closed != nil {
+		select {
+		case <-conn.closed:
+			// Already closed
+		default:
+			close(conn.closed)
+		}
 	}
 
-	// Drain and close send channel
-	close(conn.send)
-	for range conn.send {
+	// Close send channel
+	if conn.send != nil {
+		close(conn.send)
 		// Drain any remaining messages
+		for range conn.send {
+		}
 	}
 
-	// Reset the connection state but keep the embedded Connection structure
-	if conn.Connection != nil {
-		// Reset the embedded connection fields but keep the structure
-		conn.Connection.SetState(ws.ConnectionStateClosed)
-		conn.ID = ""
-		conn.AgentID = ""
-		conn.TenantID = ""
-		conn.CreatedAt = time.Time{}
-		conn.LastPing = time.Time{}
-	}
-	conn.conn = nil
-	conn.hub = nil
-	conn.state = nil
-
-	connectionPool.Put(conn)
+	// Don't return to pool - WebSocket connections should not be reused
+	// The connection will be garbage collected
 }
 
 // ConnectionPoolManager manages a pool of pre-allocated connections
@@ -267,32 +260,7 @@ func NewConnectionPoolManager(size int) *ConnectionPoolManager {
 		done:        make(chan struct{}),
 	}
 
-	// Pre-allocate minimum connections
-preAllocateLoop:
-	for i := 0; i < minSize; i++ {
-		// Create a connection with initialized embedded ws.Connection
-		wsConn := &ws.Connection{
-			ID:        "",
-			AgentID:   "",
-			TenantID:  "",
-			CreatedAt: time.Time{},
-			LastPing:  time.Time{},
-		}
-		wsConn.State.Store(ws.ConnectionStateClosed)
-
-		conn := &Connection{
-			Connection: wsConn,
-			send:       make(chan []byte, 256),
-			closed:     make(chan struct{}),
-		}
-		select {
-		case manager.pool <- conn:
-			manager.created++
-		default:
-			// Pool is full, stop pre-filling
-			break preAllocateLoop
-		}
-	}
+	// Don't pre-allocate connections since WebSocket connections should not be reused
 
 	// Start pool maintenance goroutine
 	go manager.maintain()
@@ -304,36 +272,24 @@ preAllocateLoop:
 func (m *ConnectionPoolManager) Get() *Connection {
 	m.mu.Lock()
 	m.borrowed++
+	m.created++
 	m.mu.Unlock()
 
-	select {
-	case conn := <-m.pool:
-		// Remove from idle tracker since it's now in use
-		m.trackerMu.Lock()
-		delete(m.idleTracker, conn)
-		m.trackerMu.Unlock()
-		return conn
-	default:
-		// Create new connection if pool is empty
-		m.mu.Lock()
-		m.created++
-		m.mu.Unlock()
+	// ALWAYS create a new connection for WebSocket
+	// WebSocket connections are stateful and should never be reused
+	wsConn := &ws.Connection{
+		ID:        "",
+		AgentID:   "",
+		TenantID:  "",
+		CreatedAt: time.Time{},
+		LastPing:  time.Time{},
+	}
+	wsConn.State.Store(ws.ConnectionStateClosed)
 
-		// Create a connection with initialized embedded ws.Connection
-		wsConn := &ws.Connection{
-			ID:        "",
-			AgentID:   "",
-			TenantID:  "",
-			CreatedAt: time.Time{},
-			LastPing:  time.Time{},
-		}
-		wsConn.State.Store(ws.ConnectionStateClosed)
-
-		return &Connection{
-			Connection: wsConn,
-			send:       make(chan []byte, 256),
-			closed:     make(chan struct{}),
-		}
+	return &Connection{
+		Connection: wsConn,
+		send:       make(chan []byte, 256),
+		closed:     make(chan struct{}),
 	}
 }
 
@@ -341,7 +297,7 @@ func (m *ConnectionPoolManager) Get() *Connection {
 func (m *ConnectionPoolManager) Put(conn *Connection) {
 	m.mu.Lock()
 	m.returned++
-	currentSize := len(m.pool)
+	m.destroyed++
 	m.mu.Unlock()
 
 	// Close the underlying websocket connection if it exists
@@ -350,43 +306,25 @@ func (m *ConnectionPoolManager) Put(conn *Connection) {
 		_ = conn.conn.Close(websocket.StatusNormalClosure, "")
 	}
 
-	// Reset connection state but keep the embedded ws.Connection
-	// conn.Connection should NOT be set to nil as it contains the atomic State
+	// Always destroy WebSocket connections - they should never be reused
+	// Close channels to free resources
+	if conn.send != nil {
+		close(conn.send)
+	}
+	if conn.closed != nil {
+		select {
+		case <-conn.closed:
+			// Already closed
+		default:
+			close(conn.closed)
+		}
+	}
+
+	// Clear all references
 	conn.conn = nil
 	conn.hub = nil
 	conn.state = nil
-	// Don't reset the send channel, reuse it
-
-	// Check if we should return to pool or destroy
-	if currentSize < m.maxSize {
-		select {
-		case m.pool <- conn:
-			// Successfully returned to pool
-			// Track when this connection became idle
-			m.trackerMu.Lock()
-			m.idleTracker[conn] = time.Now()
-			m.trackerMu.Unlock()
-		default:
-			// Pool is full, destroy the connection
-			m.mu.Lock()
-			m.destroyed++
-			m.mu.Unlock()
-
-			// Close the send channel to free resources
-			if conn.send != nil {
-				close(conn.send)
-			}
-		}
-	} else {
-		// Pool is at max capacity, destroy the connection
-		m.mu.Lock()
-		m.destroyed++
-		m.mu.Unlock()
-
-		if conn.send != nil {
-			close(conn.send)
-		}
-	}
+	conn.Connection = nil
 }
 
 // Stats returns pool statistics
@@ -502,44 +440,8 @@ func (m *ConnectionPoolManager) maintain() {
 		case <-m.done:
 			return
 		case <-ticker.C:
-			m.mu.Lock()
-			currentSize := len(m.pool)
-			m.mu.Unlock()
-
-			// Ensure minimum pool size
-			if currentSize < m.minSize {
-				toCreate := m.minSize - currentSize
-			createLoop:
-				for i := 0; i < toCreate; i++ {
-					// Create a connection with initialized embedded ws.Connection
-					wsConn := &ws.Connection{
-						ID:        "",
-						AgentID:   "",
-						TenantID:  "",
-						CreatedAt: time.Time{},
-						LastPing:  time.Time{},
-					}
-					wsConn.State.Store(ws.ConnectionStateClosed)
-
-					conn := &Connection{
-						Connection: wsConn,
-						send:       make(chan []byte, 256),
-						closed:     make(chan struct{}),
-					}
-
-					select {
-					case m.pool <- conn:
-						m.mu.Lock()
-						m.created++
-						m.mu.Unlock()
-					default:
-						// Pool is full
-						break createLoop
-					}
-				}
-			}
-
-			// Clean up idle connections
+			// Don't maintain a minimum pool size - WebSocket connections should not be reused
+			// Just clean up idle connections
 			m.cleanupIdleConnections()
 		}
 	}

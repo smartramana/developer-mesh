@@ -83,29 +83,34 @@ func TestConnectionPoolManager(t *testing.T) {
 	// Check initial stats
 	available, size := manager.Stats()
 	assert.Equal(t, poolSize, size)
-	assert.GreaterOrEqual(t, available, poolSize/2) // Pre-allocated at least half
+	assert.GreaterOrEqual(t, available, 0) // Pool may pre-allocate but won't be used
 
-	// Get connections
+	// Get connections - always creates new ones
 	conns := make([]*Connection, 0, poolSize)
 	for i := 0; i < poolSize; i++ {
 		conn := manager.Get()
 		assert.NotNil(t, conn)
 		assert.NotNil(t, conn.send)
+		assert.NotNil(t, conn.closed)
+		assert.NotNil(t, conn.Connection)
 		conns = append(conns, conn)
 	}
 
-	// Pool should be empty now
-	available, _ = manager.Stats()
-	assert.Equal(t, 0, available)
+	// Check that each connection is unique
+	for i := 0; i < len(conns); i++ {
+		for j := i + 1; j < len(conns); j++ {
+			assert.NotSame(t, conns[i], conns[j], "connections should be unique")
+		}
+	}
 
-	// Put connections back
+	// Put connections back - they should be destroyed, not pooled
 	for _, conn := range conns {
 		manager.Put(conn)
 	}
 
-	// Pool should have connections again
+	// Pool should remain empty since we don't reuse WebSocket connections
 	available, _ = manager.Stats()
-	assert.Greater(t, available, 0)
+	assert.Equal(t, 0, available)
 }
 
 func TestMemoryPoolStats(t *testing.T) {

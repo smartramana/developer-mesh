@@ -262,7 +262,10 @@ func (s *Server) HandleWebSocket(w http.ResponseWriter, r *http.Request) {
 	connection.conn = conn
 	connection.hub = s
 
-	// Ensure closed channel is initialized
+	// Ensure channels are initialized
+	if connection.send == nil {
+		connection.send = make(chan []byte, 256)
+	}
 	if connection.closed == nil {
 		connection.closed = make(chan struct{})
 	}
