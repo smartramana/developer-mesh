@@ -3,6 +3,7 @@ package scenarios
 import (
 	"context"
 	"fmt"
+	"testing"
 	"time"
 
 	"github.com/S-Corkum/devops-mcp/test/e2e/agent"
@@ -527,4 +528,8 @@ var _ = Describe("Single Agent E2E Tests", func() {
 	})
 })
 
-// Note: This file's tests are run by the main suite runner in suite_test.go
+// TestSingleAgent runs single agent tests
+func TestSingleAgent(t *testing.T) {
+	RegisterFailHandler(Fail)
+	// Don't call RunSpecs here - it's handled by the suite
+}

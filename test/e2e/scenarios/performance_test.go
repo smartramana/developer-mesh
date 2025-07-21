@@ -7,6 +7,7 @@ import (
 	"sort"
 	"sync"
 	"sync/atomic"
+	"testing"
 	"time"
 
 	"github.com/S-Corkum/devops-mcp/test/e2e/agent"
@@ -719,4 +720,8 @@ var _ = Describe("Performance and Stress E2E Tests", func() {
 	})
 })
 
-// Note: This file's tests are run by the main suite runner in suite_test.go
+// TestPerformance runs performance and stress tests
+func TestPerformance(t *testing.T) {
+	RegisterFailHandler(Fail)
+	// Don't call RunSpecs here - it's handled by the suite
+}
