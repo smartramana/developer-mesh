@@ -455,8 +455,8 @@ func (s *Server) handleInitialize(ctx context.Context, conn *Connection, params 
 
 	// Return server capabilities
 	return map[string]interface{}{
-		"version":   "1.0.0",
-		"sessionId": conn.ID, // Return connection ID as session ID for reconnection
+		"version":    "1.0.0",
+		"session_id": conn.ID, // Return connection ID as session ID for reconnection
 		"capabilities": map[string]interface{}{
 			"tools":            true,
 			"context":          true,

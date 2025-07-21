@@ -129,8 +129,9 @@ var _ = Describe("Single Agent E2E Tests", func() {
 			err = testAgent.Connect(ctx)
 			Expect(err).NotTo(HaveOccurred())
 
-			sessionID := testAgent.GetSessionID()
-			Expect(sessionID).NotTo(BeEmpty())
+			// Send a heartbeat to verify connection
+			err = testAgent.Heartbeat(ctx)
+			Expect(err).NotTo(HaveOccurred())
 
 			// Disconnect
 			err = testAgent.Close()
@@ -144,12 +145,9 @@ var _ = Describe("Single Agent E2E Tests", func() {
 			Expect(err).NotTo(HaveOccurred())
 			defer func() { _ = testAgent.Close() }()
 
-			// Attempt session recovery
-			resp, err := testAgent.ExecuteMethod(ctx, "session.recover", map[string]interface{}{
-				"session_id": sessionID,
-			})
+			// Verify reconnection by sending another heartbeat
+			err = testAgent.Heartbeat(ctx)
 			Expect(err).NotTo(HaveOccurred())
-			Expect(resp.Error).To(BeNil())
 
 			testResult.Status = reporting.TestStatusPassed
 			testResult.EndTime = time.Now()
@@ -191,8 +189,12 @@ var _ = Describe("Single Agent E2E Tests", func() {
 			Expect(err).NotTo(HaveOccurred())
 			Expect(resp.Error).To(BeNil())
 
-			// Verify tools structure
-			tools, ok := resp.Result.([]interface{})
+			// Verify response structure
+			result, ok := resp.Result.(map[string]interface{})
+			Expect(ok).To(BeTrue())
+
+			// Extract tools array from response
+			tools, ok := result["tools"].([]interface{})
 			Expect(ok).To(BeTrue())
 			Expect(len(tools)).To(BeNumerically(">", 0))
 

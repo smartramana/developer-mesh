@@ -93,15 +93,15 @@ func TestConnectionNilSafety(t *testing.T) {
 		// Test the sync.Pool directly
 		conn := GetConnection()
 		assert.NotNil(t, conn)
-		assert.Nil(t, conn.Connection, "GetConnection resets embedded Connection to nil")
+		assert.NotNil(t, conn.Connection, "GetConnection now ensures embedded Connection is never nil")
 		assert.NotNil(t, conn.send)
 		assert.NotNil(t, conn.closed)
 
-		// Even with nil Connection, our safe methods should work
+		// With non-nil Connection, our methods should work properly
 		assert.NotPanics(t, func() {
 			assert.False(t, conn.IsActive())
 			conn.SetState(ws.ConnectionStateConnected)
-			assert.Equal(t, ws.ConnectionStateClosed, conn.GetState())
+			assert.Equal(t, ws.ConnectionStateConnected, conn.GetState())
 		})
 
 		PutConnection(conn)

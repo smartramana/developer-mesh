@@ -213,9 +213,13 @@ func (c *Connection) writePump() {
 			c.mu.RUnlock()
 
 			if conn == nil {
-				if c.hub != nil && c.hub.logger != nil && c.Connection != nil {
+				if c.hub != nil && c.hub.logger != nil {
+					connID := "unknown"
+					if c.Connection != nil {
+						connID = c.ID
+					}
 					c.hub.logger.Error("Connection is nil", map[string]interface{}{
-						"connection_id": c.ID,
+						"connection_id": connID,
 					})
 				}
 				return
@@ -243,10 +247,14 @@ func (c *Connection) writePump() {
 			}
 
 			if err != nil {
-				if c.hub != nil && c.hub.logger != nil && c.Connection != nil {
+				if c.hub != nil && c.hub.logger != nil {
+					connID := "unknown"
+					if c.Connection != nil {
+						connID = c.ID
+					}
 					c.hub.logger.Error("Write error", map[string]interface{}{
 						"error":         err.Error(),
-						"connection_id": c.ID,
+						"connection_id": connID,
 					})
 				}
 				return

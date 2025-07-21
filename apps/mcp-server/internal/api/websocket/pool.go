@@ -161,13 +161,18 @@ func PutByteSlice(b *[]byte) {
 func GetConnection() *Connection {
 	conn := connectionPool.Get().(*Connection)
 	// Reset all state
-	conn.Connection = nil
 	conn.conn = nil
 	conn.hub = nil
 	conn.state = nil
 	conn.mu = sync.RWMutex{}
 	conn.closeOnce = sync.Once{}
 	conn.wg = sync.WaitGroup{}
+
+	// Initialize the embedded ws.Connection if it's nil
+	if conn.Connection == nil {
+		conn.Connection = &ws.Connection{}
+		conn.State.Store(ws.ConnectionStateClosed)
+	}
 
 	// Create new channels for each connection
 	conn.send = make(chan []byte, 256)
@@ -345,8 +350,8 @@ func (m *ConnectionPoolManager) Put(conn *Connection) {
 		_ = conn.conn.Close(websocket.StatusNormalClosure, "")
 	}
 
-	// Reset connection state
-	conn.Connection = nil
+	// Reset connection state but keep the embedded ws.Connection
+	// conn.Connection should NOT be set to nil as it contains the atomic State
 	conn.conn = nil
 	conn.hub = nil
 	conn.state = nil

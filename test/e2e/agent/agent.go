@@ -154,7 +154,10 @@ func (ta *TestAgent) initialize(ctx context.Context) error {
 
 	// Extract session ID if provided
 	if result, ok := response.Result.(map[string]interface{}); ok {
-		if sessionID, ok := result["sessionId"].(string); ok {
+		// Try both session_id (snake_case) and sessionId (camelCase) for compatibility
+		if sessionID, ok := result["session_id"].(string); ok {
+			ta.sessionID = sessionID
+		} else if sessionID, ok := result["sessionId"].(string); ok {
 			ta.sessionID = sessionID
 		}
 	}
