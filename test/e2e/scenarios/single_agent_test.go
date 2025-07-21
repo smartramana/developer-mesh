@@ -122,7 +122,8 @@ var _ = Describe("Single Agent E2E Tests", func() {
 				config.MCPBaseURL,
 			)
 
-			ctx := context.Background()
+			ctx, cancel := context.WithTimeout(context.Background(), config.TestTimeout)
+			defer cancel()
 
 			// Initial connection
 			err = testAgent.Connect(ctx)
@@ -178,7 +179,9 @@ var _ = Describe("Single Agent E2E Tests", func() {
 				config.MCPBaseURL,
 			)
 
-			ctx := context.Background()
+			ctx, cancel := context.WithTimeout(context.Background(), config.TestTimeout)
+			defer cancel()
+
 			err = testAgent.Connect(ctx)
 			Expect(err).NotTo(HaveOccurred())
 			defer func() { _ = testAgent.Close() }()
@@ -229,19 +232,21 @@ var _ = Describe("Single Agent E2E Tests", func() {
 				config.MCPBaseURL,
 			)
 
-			ctx := context.Background()
+			ctx, cancel := context.WithTimeout(context.Background(), config.TestTimeout)
+			defer cancel()
+
 			err = devopsAgent.Connect(ctx)
 			Expect(err).NotTo(HaveOccurred())
 			defer func() { _ = devopsAgent.Close() }()
 
 			// Execute GitHub tool
 			resp, err := devopsAgent.ExecuteMethod(ctx, "tool.execute", map[string]interface{}{
-				"tool":      "github",
-				"operation": "list_repositories",
-				"params": map[string]interface{}{
-					"org":   "test-org",
-					"limit": 5,
-					"sort":  "updated",
+				"tool": "github",
+				"args": map[string]interface{}{
+					"action": "list_repositories",
+					"org":    "test-org",
+					"limit":  5,
+					"sort":   "updated",
 				},
 			})
 
@@ -280,7 +285,9 @@ var _ = Describe("Single Agent E2E Tests", func() {
 				config.MCPBaseURL,
 			)
 
-			ctx := context.Background()
+			ctx, cancel := context.WithTimeout(context.Background(), config.TestTimeout)
+			defer cancel()
+
 			err = testAgent.Connect(ctx)
 			Expect(err).NotTo(HaveOccurred())
 			defer func() { _ = testAgent.Close() }()
@@ -309,7 +316,7 @@ var _ = Describe("Single Agent E2E Tests", func() {
 
 			// Retrieve context
 			getResp, err := testAgent.ExecuteMethod(ctx, "context.get", map[string]interface{}{
-				"id": contextID,
+				"context_id": contextID,
 			})
 
 			Expect(err).NotTo(HaveOccurred())
@@ -343,7 +350,9 @@ var _ = Describe("Single Agent E2E Tests", func() {
 				config.MCPBaseURL,
 			)
 
-			ctx := context.Background()
+			ctx, cancel := context.WithTimeout(context.Background(), config.TestTimeout)
+			defer cancel()
+
 			err = testAgent.Connect(ctx)
 			Expect(err).NotTo(HaveOccurred())
 			defer func() { _ = testAgent.Close() }()
@@ -444,7 +453,9 @@ var _ = Describe("Single Agent E2E Tests", func() {
 				config.MCPBaseURL,
 			)
 
-			ctx := context.Background()
+			ctx, cancel := context.WithTimeout(context.Background(), config.TestTimeout)
+			defer cancel()
+
 			err = testAgent.Connect(ctx)
 			Expect(err).NotTo(HaveOccurred())
 			defer func() { _ = testAgent.Close() }()
@@ -484,7 +495,9 @@ var _ = Describe("Single Agent E2E Tests", func() {
 				config.MCPBaseURL,
 			)
 
-			ctx := context.Background()
+			ctx, cancel := context.WithTimeout(context.Background(), config.TestTimeout)
+			defer cancel()
+
 			err = testAgent.Connect(ctx)
 			Expect(err).NotTo(HaveOccurred())
 			defer func() { _ = testAgent.Close() }()
