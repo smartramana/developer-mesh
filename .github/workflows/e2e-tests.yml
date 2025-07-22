@@ -250,16 +250,16 @@ jobs:
           ginkgo -v \
             --timeout=30m \
             --flake-attempts=2 \
-            --json-report=../report.json \
-            --junit-report=../junit.xml \
+            --json-report=report.json \
+            --junit-report=junit.xml \
             --focus="$focus_pattern" \
             scenarios
         else
           ginkgo -v \
             --timeout=30m \
             --flake-attempts=2 \
-            --json-report=../report.json \
-            --junit-report=../junit.xml \
+            --json-report=report.json \
+            --junit-report=junit.xml \
             scenarios
         fi
 
@@ -320,6 +320,7 @@ jobs:
       uses: actions/download-artifact@v4
       with:
         name: test-results-performance
+      continue-on-error: true
 
     - name: Process performance metrics
       run: |
@@ -369,7 +370,7 @@ jobs:
           if [ -d "test-results/test-results-$suite" ]; then
             status="✅ Passed"
             # Check if tests failed
-            if grep -q '"failed":true' "test-results/test-results-$suite/report.json" 2>/dev/null; then
+            if [ -f "test-results/test-results-$suite/report.json" ] && grep -q '"failed":true' "test-results/test-results-$suite/report.json" 2>/dev/null; then
               status="❌ Failed"
             fi
             echo "| $suite | $status | - |" >> $GITHUB_STEP_SUMMARY
