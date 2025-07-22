@@ -14,7 +14,6 @@ import (
 	"time"
 
 	"github.com/coder/websocket"
-	"github.com/coder/websocket/wsjson"
 	"github.com/google/uuid"
 
 	ws "github.com/S-Corkum/devops-mcp/pkg/models/websocket"
@@ -181,31 +180,28 @@ func (ta *TestAgent) readMessages() {
 			var msg ws.Message
 			var err error
 
-			// Check if we're in binary mode
-			ta.mu.RLock()
-			binaryMode := ta.binaryMode
-			ta.mu.RUnlock()
-
-			if binaryMode {
-				// Read binary message
-				msgType, data, readErr := ta.conn.Read(context.Background())
-				if readErr != nil {
-					err = readErr
-				} else if msgType == websocket.MessageBinary {
-					// Decode binary message
+			// Always read the raw message first to handle protocol transitions
+			msgType, data, readErr := ta.conn.Read(context.Background())
+			if readErr != nil {
+				err = readErr
+			} else {
+				// Determine how to parse based on message type
+				switch msgType {
+				case websocket.MessageBinary:
+					// Binary message - decode it
 					decodedMsg, decodeErr := ta.decodeBinaryMessage(data)
 					if decodeErr != nil {
 						err = decodeErr
 					} else {
 						msg = *decodedMsg
 					}
-				} else {
-					// In binary mode but received non-binary message
-					err = fmt.Errorf("expected binary message, got type %v", msgType)
+				case websocket.MessageText:
+					// Text message - parse as JSON
+					err = json.Unmarshal(data, &msg)
+				default:
+					// Unsupported message type
+					err = fmt.Errorf("unsupported message type: %v", msgType)
 				}
-			} else {
-				// Standard JSON mode
-				err = wsjson.Read(context.Background(), ta.conn, &msg)
 			}
 
 			if err != nil {
@@ -287,7 +283,11 @@ func (ta *TestAgent) SendMessage(ctx context.Context, msg *ws.Message) error {
 		}
 	} else {
 		// Standard JSON mode
-		if err := wsjson.Write(ctx, ta.conn, msg); err != nil {
+		data, err := json.Marshal(msg)
+		if err != nil {
+			return fmt.Errorf("failed to marshal message: %w", err)
+		}
+		if err := ta.conn.Write(ctx, websocket.MessageText, data); err != nil {
 			return fmt.Errorf("failed to send message: %w", err)
 		}
 	}
@@ -441,7 +441,8 @@ func (ta *TestAgent) Close() error {
 		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 		defer cancel()
 
-		_ = wsjson.Write(ctx, ta.conn, disconnectMsg)
+		data, _ := json.Marshal(disconnectMsg)
+		_ = ta.conn.Write(ctx, websocket.MessageText, data)
 
 		err := ta.conn.Close(websocket.StatusNormalClosure, "Test completed")
 		ta.conn = nil // Clear the connection reference
