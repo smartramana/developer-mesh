@@ -24,7 +24,7 @@ import (
 type Server struct {
 	connections map[string]*Connection
 	mu          sync.RWMutex
-	handlers    map[string]MessageHandler
+	handlers    map[string]interface{} // Can be MessageHandler or MessageHandlerWithPostAction
 
 	auth           *auth.Service
 	metrics        observability.MetricsClient
@@ -89,11 +89,12 @@ type Config struct {
 // Connection wraps the WebSocket connection and adds our metadata
 type Connection struct {
 	*ws.Connection
-	conn  *websocket.Conn
-	send  chan []byte
-	hub   *Server
-	mu    sync.RWMutex
-	state *ConnectionState
+	conn      *websocket.Conn
+	send      chan []byte
+	afterSend chan func() // Channel for post-response actions
+	hub       *Server
+	mu        sync.RWMutex
+	state     *ConnectionState
 
 	// Connection lifecycle management
 	closeOnce sync.Once
@@ -111,7 +112,7 @@ func NewServer(auth *auth.Service, metrics observability.MetricsClient, logger o
 
 	s := &Server{
 		connections:    make(map[string]*Connection),
-		handlers:       make(map[string]MessageHandler),
+		handlers:       make(map[string]interface{}),
 		auth:           auth,
 		metrics:        metrics,
 		logger:         logger,
@@ -265,6 +266,9 @@ func (s *Server) HandleWebSocket(w http.ResponseWriter, r *http.Request) {
 	// Ensure channels are initialized
 	if connection.send == nil {
 		connection.send = make(chan []byte, 256)
+	}
+	if connection.afterSend == nil {
+		connection.afterSend = make(chan func(), 32) // Buffered to prevent blocking
 	}
 	if connection.closed == nil {
 		connection.closed = make(chan struct{})

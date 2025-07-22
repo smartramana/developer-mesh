@@ -116,7 +116,7 @@ func TestConnectionLifecycle(t *testing.T) {
 	authService := &auth.Service{}
 	server := &Server{
 		connections:      make(map[string]*Connection),
-		handlers:         make(map[string]MessageHandler),
+		handlers:         make(map[string]interface{}),
 		auth:             authService,
 		metrics:          &MockMetricsClient{}, // Use simple mock
 		logger:           mockLogger,
@@ -181,9 +181,10 @@ func TestMessageProcessing(t *testing.T) {
 			},
 		}
 
-		response, err := server.processMessage(ctx, conn, msg)
+		response, postAction, err := server.processMessage(ctx, conn, msg)
 		assert.NoError(t, err)
 		assert.NotNil(t, response)
+		assert.Nil(t, postAction) // Initialize handler doesn't have post-action
 
 		// Verify response
 		var respMsg ws.Message
@@ -202,9 +203,10 @@ func TestMessageProcessing(t *testing.T) {
 		}
 
 		// Unknown method returns error response, not error
-		response, err := server.processMessage(ctx, conn, msg)
+		response, postAction, err := server.processMessage(ctx, conn, msg)
 		assert.NoError(t, err)
 		assert.NotNil(t, response)
+		assert.Nil(t, postAction)
 
 		// Verify error response
 		var respMsg ws.Message

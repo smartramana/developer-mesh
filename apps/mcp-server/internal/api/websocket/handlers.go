@@ -30,9 +30,13 @@ const (
 // MessageHandler processes a specific message type
 type MessageHandler func(ctx context.Context, conn *Connection, params json.RawMessage) (interface{}, error)
 
+// MessageHandlerWithPostAction is an enhanced handler that can return a post-response action
+type MessageHandlerWithPostAction func(ctx context.Context, conn *Connection, params json.RawMessage) (interface{}, func(), error)
+
 // RegisterHandlers sets up all message handlers
 func (s *Server) RegisterHandlers() {
-	s.handlers = map[string]MessageHandler{
+	// Initialize handlers as MessageHandler type
+	handlers := map[string]MessageHandler{
 		// Core protocol
 		"initialize":          s.handleInitialize,
 		"protocol.set_binary": s.handleSetBinaryProtocol,
@@ -143,6 +147,14 @@ func (s *Server) RegisterHandlers() {
 		"vector_clock.get":    s.handleVectorClockGet,
 		"vector_clock.update": s.handleVectorClockUpdate,
 	}
+
+	// Convert all handlers to interface{} and assign to s.handlers
+	for method, handler := range handlers {
+		s.handlers[method] = handler
+	}
+
+	// Override specific handlers with post-action support
+	s.handlers["protocol.set_binary"] = MessageHandlerWithPostAction(s.handleSetBinaryProtocolWithPostAction)
 }
 
 // Handler dependencies are already integrated into the Server struct in server.go:
@@ -152,26 +164,29 @@ func (s *Server) RegisterHandlers() {
 // - eventBus EventBus
 
 // processMessage handles incoming WebSocket messages
-func (s *Server) processMessage(ctx context.Context, conn *Connection, msg *ws.Message) ([]byte, error) {
+func (s *Server) processMessage(ctx context.Context, conn *Connection, msg *ws.Message) ([]byte, func(), error) {
 	// Validate message
 	if msg.Type != ws.MessageTypeRequest {
-		return nil, fmt.Errorf("invalid message type: %d", msg.Type)
+		return nil, nil, fmt.Errorf("invalid message type: %d", msg.Type)
 	}
 
 	// Validate message ID
 	if msg.ID == "" {
-		return s.createErrorResponse("", ws.ErrCodeInvalidMessage, "Message ID is required")
+		resp, _ := s.createErrorResponse("", ws.ErrCodeInvalidMessage, "Message ID is required")
+		return resp, nil, nil
 	}
 
 	// Validate method
 	if msg.Method == "" {
-		return s.createErrorResponse(msg.ID, ws.ErrCodeInvalidMessage, "Method is required")
+		resp, _ := s.createErrorResponse(msg.ID, ws.ErrCodeInvalidMessage, "Method is required")
+		return resp, nil, nil
 	}
 
 	// Get handler
-	handler, ok := s.handlers[msg.Method]
+	handlerInterface, ok := s.handlers[msg.Method]
 	if !ok {
-		return s.createErrorResponse(msg.ID, ws.ErrCodeMethodNotFound, "Method not found")
+		resp, _ := s.createErrorResponse(msg.ID, ws.ErrCodeMethodNotFound, "Method not found")
+		return resp, nil, nil
 	}
 
 	// Convert params to json.RawMessage if needed
@@ -179,7 +194,8 @@ func (s *Server) processMessage(ctx context.Context, conn *Connection, msg *ws.M
 	if msg.Params != nil {
 		paramBytes, err := json.Marshal(msg.Params)
 		if err != nil {
-			return s.createErrorResponse(msg.ID, ws.ErrCodeInvalidParams, "Invalid parameters")
+			resp, _ := s.createErrorResponse(msg.ID, ws.ErrCodeInvalidParams, "Invalid parameters")
+			return resp, nil, nil
 		}
 		params = paramBytes
 	}
@@ -205,11 +221,13 @@ func (s *Server) processMessage(ctx context.Context, conn *Connection, msg *ws.M
 				"user_id": conn.state.Claims.UserID,
 				"error":   err.Error(),
 			})
-			return s.createErrorResponse(msg.ID, ws.ErrCodeAuthFailed, "Unauthorized")
+			resp, _ := s.createErrorResponse(msg.ID, ws.ErrCodeAuthFailed, "Unauthorized")
+			return resp, nil, nil
 		}
 	} else if s.config.Security.RequireAuth {
 		// If auth is required but no claims present
-		return s.createErrorResponse(msg.ID, ws.ErrCodeAuthFailed, "Authentication required")
+		resp, _ := s.createErrorResponse(msg.ID, ws.ErrCodeAuthFailed, "Authentication required")
+		return resp, nil, nil
 	}
 
 	// Add request metadata to context
@@ -228,18 +246,40 @@ func (s *Server) processMessage(ctx context.Context, conn *Connection, msg *ws.M
 
 	// Execute handler with tracing
 	var result interface{}
+	var postAction func()
 	var err error
 
-	if s.tracingHandler != nil {
-		// Use tracing handler to wrap individual method execution
-		err = s.tracingHandler.HandleWithTracing(ctx, msg.Method, func(tracedCtx context.Context) error {
-			var execErr error
-			result, execErr = handler(tracedCtx, conn, params)
-			return execErr
-		})
+	// Check if this is a handler with post-action support
+	if handlerWithPost, ok := handlerInterface.(MessageHandlerWithPostAction); ok {
+		// Handler supports post-action
+		if s.tracingHandler != nil {
+			// Use tracing handler to wrap individual method execution
+			err = s.tracingHandler.HandleWithTracing(ctx, msg.Method, func(tracedCtx context.Context) error {
+				var execErr error
+				result, postAction, execErr = handlerWithPost(tracedCtx, conn, params)
+				return execErr
+			})
+		} else {
+			// Execute handler without tracing
+			result, postAction, err = handlerWithPost(ctx, conn, params)
+		}
+	} else if handler, ok := handlerInterface.(MessageHandler); ok {
+		// Regular handler without post-action support
+		if s.tracingHandler != nil {
+			// Use tracing handler to wrap individual method execution
+			err = s.tracingHandler.HandleWithTracing(ctx, msg.Method, func(tracedCtx context.Context) error {
+				var execErr error
+				result, execErr = handler(tracedCtx, conn, params)
+				return execErr
+			})
+		} else {
+			// Execute handler without tracing
+			result, err = handler(ctx, conn, params)
+		}
 	} else {
-		// Execute handler without tracing
-		result, err = handler(ctx, conn, params)
+		// Invalid handler type
+		resp, _ := s.createErrorResponse(msg.ID, ws.ErrCodeServerError, "Invalid handler type")
+		return resp, nil, nil
 	}
 
 	if err != nil {
@@ -248,7 +288,8 @@ func (s *Server) processMessage(ctx context.Context, conn *Connection, msg *ws.M
 			"error":         err.Error(),
 			"connection_id": conn.ID,
 		})
-		return s.createErrorResponse(msg.ID, ws.ErrCodeServerError, err.Error())
+		resp, _ := s.createErrorResponse(msg.ID, ws.ErrCodeServerError, err.Error())
+		return resp, nil, nil
 	}
 
 	// Create response using pooled object
@@ -259,7 +300,12 @@ func (s *Server) processMessage(ctx context.Context, conn *Connection, msg *ws.M
 	response.Type = ws.MessageTypeResponse
 	response.Result = result
 
-	return json.Marshal(response)
+	responseBytes, err := json.Marshal(response)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	return responseBytes, postAction, nil
 }
 
 // checkMethodPermission checks if the user has permission to call a method
@@ -853,8 +899,8 @@ func (s *Server) handleEventSubscribe(ctx context.Context, conn *Connection, par
 	}, nil
 }
 
-// handleSetBinaryProtocol enables/disables binary protocol
-func (s *Server) handleSetBinaryProtocol(ctx context.Context, conn *Connection, params json.RawMessage) (interface{}, error) {
+// handleSetBinaryProtocolWithPostAction enables/disables binary protocol with deferred mode switching
+func (s *Server) handleSetBinaryProtocolWithPostAction(ctx context.Context, conn *Connection, params json.RawMessage) (interface{}, func(), error) {
 	var binaryParams struct {
 		Enabled     bool `json:"enabled"`
 		Compression struct {
@@ -866,12 +912,19 @@ func (s *Server) handleSetBinaryProtocol(ctx context.Context, conn *Connection, 
 	// Handle empty params case
 	if len(params) == 0 || string(params) == "null" || string(params) == "{}" {
 		// Default to disabling binary mode if no params provided
-		conn.SetBinaryMode(false)
+		postAction := func() {
+			conn.SetBinaryMode(false)
+			if s.logger != nil {
+				s.logger.Info("Binary mode disabled (deferred)", map[string]interface{}{
+					"connection_id": conn.ID,
+				})
+			}
+		}
 		return map[string]interface{}{
 			"binary_enabled":      false,
 			"compression_enabled": false,
 			"status":              "protocol_updated",
-		}, nil
+		}, postAction, nil
 	}
 
 	if err := json.Unmarshal(params, &binaryParams); err != nil {
@@ -879,20 +932,40 @@ func (s *Server) handleSetBinaryProtocol(ctx context.Context, conn *Connection, 
 			"error":  err.Error(),
 			"params": string(params),
 		})
-		return nil, fmt.Errorf("invalid binary protocol params: %w", err)
+		return nil, nil, fmt.Errorf("invalid binary protocol params: %w", err)
 	}
 
-	// Update connection settings
-	conn.SetBinaryMode(binaryParams.Enabled)
-	if binaryParams.Compression.Enabled {
-		conn.SetCompressionThreshold(binaryParams.Compression.Threshold)
+	// Create post-action to update connection settings after response is sent
+	postAction := func() {
+		conn.SetBinaryMode(binaryParams.Enabled)
+		if binaryParams.Compression.Enabled {
+			conn.SetCompressionThreshold(binaryParams.Compression.Threshold)
+		}
+		if s.logger != nil {
+			s.logger.Info("Binary protocol settings updated (deferred)", map[string]interface{}{
+				"connection_id":       conn.ID,
+				"binary_enabled":      binaryParams.Enabled,
+				"compression_enabled": binaryParams.Compression.Enabled,
+				"threshold":           binaryParams.Compression.Threshold,
+			})
+		}
 	}
 
 	return map[string]interface{}{
 		"binary_enabled":      binaryParams.Enabled,
 		"compression_enabled": binaryParams.Compression.Enabled,
 		"status":              "protocol_updated",
-	}, nil
+	}, postAction, nil
+}
+
+// handleSetBinaryProtocol is a wrapper for backward compatibility
+func (s *Server) handleSetBinaryProtocol(ctx context.Context, conn *Connection, params json.RawMessage) (interface{}, error) {
+	result, postAction, err := s.handleSetBinaryProtocolWithPostAction(ctx, conn, params)
+	// Execute post action immediately for backward compatibility
+	if postAction != nil && err == nil {
+		postAction()
+	}
+	return result, err
 }
 
 // Context window management handlers

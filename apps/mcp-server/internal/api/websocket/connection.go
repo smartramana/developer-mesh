@@ -3,6 +3,7 @@ package websocket
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"time"
 
 	"github.com/coder/websocket"
@@ -148,9 +149,10 @@ func (c *Connection) readPump() {
 		// Process message
 		start := time.Now()
 		var response []byte
+		var postAction func()
 		var err error
 		if c.hub != nil {
-			response, err = c.hub.processMessage(ctx, c, msg)
+			response, postAction, err = c.hub.processMessage(ctx, c, msg)
 		} else {
 			err = ws.NewError(ws.ErrCodeServerError, "Server not available", nil)
 		}
@@ -169,6 +171,29 @@ func (c *Connection) readPump() {
 		// Send response if any
 		if response != nil {
 			c.send <- response
+
+			// Queue post-action if any
+			if postAction != nil {
+				select {
+				case c.afterSend <- postAction:
+					// Successfully queued
+				default:
+					// Channel full, execute immediately but in goroutine to avoid blocking
+					go func() {
+						defer func() {
+							if r := recover(); r != nil {
+								if c.hub != nil && c.hub.logger != nil {
+									c.hub.logger.Error("Post-action panic", map[string]interface{}{
+										"error":         fmt.Sprintf("%v", r),
+										"connection_id": c.ID,
+									})
+								}
+							}
+						}()
+						postAction()
+					}()
+				}
+			}
 		}
 	}
 }
@@ -263,6 +288,29 @@ func (c *Connection) writePump() {
 			// Record sent message
 			if c.hub != nil && c.hub.metricsCollector != nil && c.Connection != nil {
 				c.hub.metricsCollector.RecordMessage("sent", "response", c.TenantID, 0)
+			}
+
+			// Check for any post-send actions (non-blocking)
+			select {
+			case action := <-c.afterSend:
+				if action != nil {
+					// Execute in a goroutine to avoid blocking the write pump
+					go func() {
+						defer func() {
+							if r := recover(); r != nil {
+								if c.hub != nil && c.hub.logger != nil {
+									c.hub.logger.Error("Post-send action panic", map[string]interface{}{
+										"error":         fmt.Sprintf("%v", r),
+										"connection_id": c.ID,
+									})
+								}
+							}
+						}()
+						action()
+					}()
+				}
+			default:
+				// No action to execute
 			}
 
 		case <-ticker.C:
@@ -382,6 +430,11 @@ func (c *Connection) Close() error {
 
 		// Wait for goroutines to finish
 		c.wg.Wait()
+
+		// Close afterSend channel
+		if c.afterSend != nil {
+			close(c.afterSend)
+		}
 
 		// Set final state (with nil check)
 		if c.Connection != nil {
