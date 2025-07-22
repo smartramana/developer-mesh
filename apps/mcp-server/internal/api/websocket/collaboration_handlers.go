@@ -769,11 +769,42 @@ func (s *Server) handleWorkflowCreateCollaborative(ctx context.Context, conn *Co
 				stepID = uuid.New().String()
 			}
 
+			// Safely extract required fields with defaults
+			name, ok := stepData["name"].(string)
+			if !ok || name == "" {
+				s.logger.Error("Step missing required name field", map[string]interface{}{
+					"step_index": i,
+					"step_data":  stepData,
+				})
+				return nil, fmt.Errorf("step %d missing required name field", i)
+			}
+
+			// Type can default based on agent_capability if not provided
+			stepType, ok := stepData["type"].(string)
+			if !ok || stepType == "" {
+				// Check if agent_capability is provided (for E2E test compatibility)
+				if agentCap, ok := stepData["agent_capability"].(string); ok {
+					stepType = agentCap
+				} else {
+					stepType = "task" // Default type
+				}
+			}
+
+			// Config can be empty map if not provided
+			config, ok := stepData["config"].(map[string]interface{})
+			if !ok {
+				config = make(map[string]interface{})
+				// If timeout is provided at step level, add it to config
+				if timeout, ok := stepData["timeout"].(float64); ok {
+					config["timeout"] = int(timeout)
+				}
+			}
+
 			step := models.WorkflowStep{
 				ID:          stepID,
-				Name:        stepData["name"].(string),
-				Type:        stepData["type"].(string),
-				Config:      stepData["config"].(map[string]interface{}),
+				Name:        name,
+				Type:        stepType,
+				Config:      config,
 				Description: "", // Optional field
 			}
 
@@ -781,7 +812,9 @@ func (s *Server) handleWorkflowCreateCollaborative(ctx context.Context, conn *Co
 			if deps, ok := stepData["dependencies"].([]interface{}); ok {
 				dependencies := make([]string, 0, len(deps))
 				for _, dep := range deps {
-					dependencies = append(dependencies, dep.(string))
+					if depStr, ok := dep.(string); ok {
+						dependencies = append(dependencies, depStr)
+					}
 				}
 				step.Dependencies = dependencies
 			}
@@ -791,7 +824,9 @@ func (s *Server) handleWorkflowCreateCollaborative(ctx context.Context, conn *Co
 			if agents, ok := stepData["agents"].([]interface{}); ok {
 				assignedAgents := make([]string, 0, len(agents))
 				for _, agent := range agents {
-					assignedAgents = append(assignedAgents, agent.(string))
+					if agentStr, ok := agent.(string); ok {
+						assignedAgents = append(assignedAgents, agentStr)
+					}
 				}
 				if step.Config == nil {
 					step.Config = make(map[string]interface{})

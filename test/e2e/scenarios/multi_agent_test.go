@@ -125,7 +125,7 @@ var _ = Describe("Multi-Agent Collaboration E2E Tests", func() {
 	})
 
 	Describe("Code Review Workflow", func() {
-		It("should coordinate code review between multiple agents", func() {
+		It("should coordinate code review between multiple agents", NodeTimeout(5*time.Minute), func(specCtx SpecContext) {
 			testResult := reporting.TestResult{
 				Name:      "code_review_workflow",
 				Suite:     "multi_agent",
@@ -138,6 +138,7 @@ var _ = Describe("Multi-Agent Collaboration E2E Tests", func() {
 				_ = isolation.DeleteNamespace(namespace.ID)
 			}()
 
+			// Create context for API calls
 			ctx := context.Background()
 
 			// Create specialized agents
@@ -161,6 +162,7 @@ var _ = Describe("Multi-Agent Collaboration E2E Tests", func() {
 			Expect(err).NotTo(HaveOccurred())
 
 			// Create collaborative workflow
+			logger.Info("Creating collaborative workflow")
 			workflowResp, err := codeAgent.ExecuteMethod(ctx, "workflow.create_collaborative", map[string]interface{}{
 				"name":        "code-review-workflow",
 				"description": "Multi-agent code review process",
@@ -180,8 +182,12 @@ var _ = Describe("Multi-Agent Collaboration E2E Tests", func() {
 			})
 
 			Expect(err).NotTo(HaveOccurred())
+			if workflowResp.Error != nil {
+				logger.Error("Workflow creation failed: %v", workflowResp.Error)
+			}
 			Expect(workflowResp.Error).To(BeNil())
 
+			logger.Info("Workflow created successfully")
 			var workflowID string
 			if result, ok := workflowResp.Result.(map[string]interface{}); ok {
 				if id, ok := result["id"].(string); ok {
@@ -217,6 +223,7 @@ var _ = Describe("Multi-Agent Collaboration E2E Tests", func() {
 				if executionID != "" {
 					// Poll for completion
 					completed := false
+					logger.Info("Polling for workflow completion, execution ID: %s", executionID)
 					for i := 0; i < 30; i++ { // 30 seconds max
 						statusResp, err := codeAgent.ExecuteMethod(ctx, "workflow.status", map[string]interface{}{
 							"execution_id": executionID,
