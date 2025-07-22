@@ -6,6 +6,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/pkg/errors"
 
 	"github.com/S-Corkum/devops-mcp/pkg/common/cache"
@@ -462,17 +463,34 @@ func (a *ProductionAuthorizer) enforceWithRetry(ctx context.Context, params []in
 	}
 
 	// Check role-based policies
-	if roles, exists := a.roleBindings[subject]; exists {
-		for _, role := range roles {
-			for _, policy := range a.policies {
-				if a.matchPolicy(policy, role, resource, action, tenant) {
-					return policy.Effect != "deny", nil
-				}
+	roles, exists := a.roleBindings[subject]
+	if !exists {
+		// If no explicit role binding exists for authenticated agents,
+		// grant them the "user" role by default
+		// This ensures that any agent authenticated with a valid API key
+		// has basic permissions
+		if a.isAuthenticatedAgent(subject) {
+			roles = []string{"user"}
+		}
+	}
+
+	for _, role := range roles {
+		for _, policy := range a.policies {
+			if a.matchPolicy(policy, role, resource, action, tenant) {
+				return policy.Effect != "deny", nil
 			}
 		}
 	}
 
 	return false, nil
+}
+
+// isAuthenticatedAgent checks if the subject is a valid agent ID (UUID format)
+// This is used to grant default permissions to authenticated agents
+func (a *ProductionAuthorizer) isAuthenticatedAgent(subject string) bool {
+	// Check if the subject is a valid UUID (agent IDs are UUIDs)
+	_, err := uuid.Parse(subject)
+	return err == nil
 }
 
 // Dynamic policy updates

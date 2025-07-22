@@ -557,7 +557,7 @@ func initializeServices(ctx context.Context, cfg *commonconfig.Config, db *datab
 		QuotaManager: services.NewInMemoryQuotaManager(),
 
 		// Security
-		Authorizer:        createProductionAuthorizer(cacheClient, logger, metricsClient),
+		Authorizer:        createAuthorizer(cacheClient, logger, metricsClient),
 		Sanitizer:         services.NewDefaultSanitizer(),
 		EncryptionService: createEncryptionService(logger),
 
@@ -619,7 +619,51 @@ func initializeServices(ctx context.Context, cfg *commonconfig.Config, db *datab
 	}, nil
 }
 
-// createProductionAuthorizer creates the production authorizer
+// createAuthorizer creates the appropriate authorizer based on environment
+func createAuthorizer(cacheClient cache.Cache, logger observability.Logger, metrics observability.MetricsClient) auth.Authorizer {
+	// Create audit logger
+	auditLogger := auth.NewAuditLogger(logger)
+
+	// Create auth configuration for production mode
+	productionConfig := &auth.AuthConfig{
+		Cache:         cacheClient,
+		Logger:        logger,
+		Metrics:       metrics,
+		Tracer:        observability.NoopStartSpan,
+		AuditLogger:   auditLogger,
+		CacheEnabled:  true,
+		CacheDuration: 5 * time.Minute,
+		ModelPath:     "pkg/auth/rbac_model.conf",
+		PolicyPath:    "", // Policies will be loaded from memory for now
+	}
+
+	// Create factory configuration
+	factoryConfig := auth.FactoryConfig{
+		ProductionConfig: productionConfig,
+		Logger:           logger,
+		Tracer:           observability.NoopStartSpan,
+		// Mode will be determined automatically based on environment
+	}
+
+	// Create authorizer using factory
+	authorizer, err := auth.NewAuthorizer(factoryConfig)
+	if err != nil {
+		// If we can't create the authorizer, log the error and return nil
+		// This ensures the service can still start, just without authorization
+		logger.Error("Failed to create authorizer", map[string]interface{}{
+			"error": err.Error(),
+			"mode":  factoryConfig.Mode,
+		})
+		return nil
+	}
+
+	logger.Info("Authorizer initialized", map[string]interface{}{
+		"mode": factoryConfig.Mode,
+	})
+	return authorizer
+}
+
+// createProductionAuthorizer creates the production authorizer (deprecated - use createAuthorizer)
 func createProductionAuthorizer(cacheClient cache.Cache, logger observability.Logger, metrics observability.MetricsClient) auth.Authorizer {
 	// Create audit logger
 	auditLogger := auth.NewAuditLogger(logger)
