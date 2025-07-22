@@ -110,6 +110,17 @@ func NewServer(auth *auth.Service, metrics observability.MetricsClient, logger o
 		return ctx, &NoOpSpan{}
 	}
 
+	// Set default MaxMessageSize if not configured
+	if config.MaxMessageSize <= 0 {
+		config.MaxMessageSize = 1048576 // 1MB default
+		if logger != nil {
+			logger.Warn("MaxMessageSize not configured, using default", map[string]interface{}{
+				"default_size": config.MaxMessageSize,
+				"size_kb":      config.MaxMessageSize / 1024,
+			})
+		}
+	}
+
 	s := &Server{
 		connections:    make(map[string]*Connection),
 		handlers:       make(map[string]interface{}),
@@ -219,6 +230,12 @@ func (s *Server) HandleWebSocket(w http.ResponseWriter, r *http.Request) {
 
 	// Generate a unique connection ID
 	connectionID := uuid.New().String()
+	
+	s.logger.Debug("WebSocket connection configured", map[string]interface{}{
+		"connection_id":     connectionID,
+		"max_message_size":  s.config.MaxMessageSize,
+		"max_message_kb":    s.config.MaxMessageSize / 1024,
+	})
 
 	// Generate agent ID - use UserID if available and not zero UUID
 	agentID := claims.UserID
