@@ -190,7 +190,7 @@ var _ = Describe("Multi-Agent Collaboration E2E Tests", func() {
 			logger.Info("Workflow created successfully")
 			var workflowID string
 			if result, ok := workflowResp.Result.(map[string]interface{}); ok {
-				if id, ok := result["id"].(string); ok {
+				if id, ok := result["workflow_id"].(string); ok {
 					workflowID = id
 				}
 			}
