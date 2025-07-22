@@ -230,11 +230,11 @@ func (s *Server) HandleWebSocket(w http.ResponseWriter, r *http.Request) {
 
 	// Generate a unique connection ID
 	connectionID := uuid.New().String()
-	
+
 	s.logger.Debug("WebSocket connection configured", map[string]interface{}{
-		"connection_id":     connectionID,
-		"max_message_size":  s.config.MaxMessageSize,
-		"max_message_kb":    s.config.MaxMessageSize / 1024,
+		"connection_id":    connectionID,
+		"max_message_size": s.config.MaxMessageSize,
+		"max_message_kb":   s.config.MaxMessageSize / 1024,
 	})
 
 	// Generate agent ID - use UserID if available and not zero UUID
