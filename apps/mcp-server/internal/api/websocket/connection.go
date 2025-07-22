@@ -149,7 +149,7 @@ func (c *Connection) readPump() {
 		// Process message
 		start := time.Now()
 		var response []byte
-		var postAction func()
+		var postAction *PostActionConfig
 		var err error
 		if c.hub != nil {
 			response, postAction, err = c.hub.processMessage(ctx, c, msg)
@@ -173,25 +173,31 @@ func (c *Connection) readPump() {
 			c.send <- response
 
 			// Queue post-action if any
-			if postAction != nil {
+			if postAction != nil && postAction.Action != nil {
 				select {
 				case c.afterSend <- postAction:
 					// Successfully queued
 				default:
-					// Channel full, execute immediately but in goroutine to avoid blocking
-					go func() {
-						defer func() {
-							if r := recover(); r != nil {
-								if c.hub != nil && c.hub.logger != nil {
-									c.hub.logger.Error("Post-action panic", map[string]interface{}{
-										"error":         fmt.Sprintf("%v", r),
-										"connection_id": c.ID,
-									})
+					// Channel full, execute immediately
+					if postAction.Synchronous {
+						// For synchronous actions, execute immediately (blocking)
+						postAction.Action()
+					} else {
+						// For async actions, execute in goroutine to avoid blocking
+						go func() {
+							defer func() {
+								if r := recover(); r != nil {
+									if c.hub != nil && c.hub.logger != nil {
+										c.hub.logger.Error("Post-action panic", map[string]interface{}{
+											"error":         fmt.Sprintf("%v", r),
+											"connection_id": c.ID,
+										})
+									}
 								}
-							}
+							}()
+							postAction.Action()
 						}()
-						postAction()
-					}()
+					}
 				}
 			}
 		}
@@ -292,22 +298,45 @@ func (c *Connection) writePump() {
 
 			// Check for any post-send actions (non-blocking)
 			select {
-			case action := <-c.afterSend:
-				if action != nil {
-					// Execute in a goroutine to avoid blocking the write pump
-					go func() {
-						defer func() {
-							if r := recover(); r != nil {
-								if c.hub != nil && c.hub.logger != nil {
-									c.hub.logger.Error("Post-send action panic", map[string]interface{}{
-										"error":         fmt.Sprintf("%v", r),
-										"connection_id": c.ID,
-									})
+			case postAction := <-c.afterSend:
+				if postAction != nil && postAction.Action != nil {
+					if postAction.Synchronous {
+						// Execute synchronously for protocol switching
+						if c.hub != nil && c.hub.logger != nil {
+							c.hub.logger.Debug("Executing synchronous post-action", map[string]interface{}{
+								"connection_id": c.ID,
+							})
+						}
+						// Execute with panic recovery
+						func() {
+							defer func() {
+								if r := recover(); r != nil {
+									if c.hub != nil && c.hub.logger != nil {
+										c.hub.logger.Error("Synchronous post-action panic", map[string]interface{}{
+											"error":         fmt.Sprintf("%v", r),
+											"connection_id": c.ID,
+										})
+									}
 								}
-							}
+							}()
+							postAction.Action()
 						}()
-						action()
-					}()
+					} else {
+						// Execute asynchronously in a goroutine
+						go func() {
+							defer func() {
+								if r := recover(); r != nil {
+									if c.hub != nil && c.hub.logger != nil {
+										c.hub.logger.Error("Async post-action panic", map[string]interface{}{
+											"error":         fmt.Sprintf("%v", r),
+											"connection_id": c.ID,
+										})
+									}
+								}
+							}()
+							postAction.Action()
+						}()
+					}
 				}
 			default:
 				// No action to execute

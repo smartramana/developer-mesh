@@ -42,7 +42,7 @@ var (
 			return &Connection{
 				Connection: wsConn,
 				send:       make(chan []byte, 256),
-				afterSend:  make(chan func(), 32), // Buffered to prevent blocking
+				afterSend:  make(chan *PostActionConfig, 32), // Buffered to prevent blocking
 				closed:     make(chan struct{}),
 			}
 		},
@@ -177,7 +177,7 @@ func GetConnection() *Connection {
 		hub:        nil,
 		state:      nil,
 		send:       make(chan []byte, 256),
-		afterSend:  make(chan func(), 32), // Buffered to prevent blocking
+		afterSend:  make(chan *PostActionConfig, 32), // Buffered to prevent blocking
 		closed:     make(chan struct{}),
 		mu:         sync.RWMutex{},
 		closeOnce:  sync.Once{},
@@ -291,7 +291,7 @@ func (m *ConnectionPoolManager) Get() *Connection {
 	return &Connection{
 		Connection: wsConn,
 		send:       make(chan []byte, 256),
-		afterSend:  make(chan func(), 32), // Buffered to prevent blocking
+		afterSend:  make(chan *PostActionConfig, 32), // Buffered to prevent blocking
 		closed:     make(chan struct{}),
 	}
 }

@@ -27,11 +27,17 @@ const (
 	contextKeyAgentID      contextKey = "agent_id"
 )
 
+// PostActionConfig defines how a post-response action should be executed
+type PostActionConfig struct {
+	Action      func()
+	Synchronous bool // If true, execute synchronously; if false, execute in goroutine
+}
+
 // MessageHandler processes a specific message type
 type MessageHandler func(ctx context.Context, conn *Connection, params json.RawMessage) (interface{}, error)
 
 // MessageHandlerWithPostAction is an enhanced handler that can return a post-response action
-type MessageHandlerWithPostAction func(ctx context.Context, conn *Connection, params json.RawMessage) (interface{}, func(), error)
+type MessageHandlerWithPostAction func(ctx context.Context, conn *Connection, params json.RawMessage) (interface{}, *PostActionConfig, error)
 
 // RegisterHandlers sets up all message handlers
 func (s *Server) RegisterHandlers() {
@@ -164,7 +170,7 @@ func (s *Server) RegisterHandlers() {
 // - eventBus EventBus
 
 // processMessage handles incoming WebSocket messages
-func (s *Server) processMessage(ctx context.Context, conn *Connection, msg *ws.Message) ([]byte, func(), error) {
+func (s *Server) processMessage(ctx context.Context, conn *Connection, msg *ws.Message) ([]byte, *PostActionConfig, error) {
 	// Validate message
 	if msg.Type != ws.MessageTypeRequest {
 		return nil, nil, fmt.Errorf("invalid message type: %d", msg.Type)
@@ -246,7 +252,7 @@ func (s *Server) processMessage(ctx context.Context, conn *Connection, msg *ws.M
 
 	// Execute handler with tracing
 	var result interface{}
-	var postAction func()
+	var postAction *PostActionConfig
 	var err error
 
 	// Check if this is a handler with post-action support
@@ -900,7 +906,7 @@ func (s *Server) handleEventSubscribe(ctx context.Context, conn *Connection, par
 }
 
 // handleSetBinaryProtocolWithPostAction enables/disables binary protocol with deferred mode switching
-func (s *Server) handleSetBinaryProtocolWithPostAction(ctx context.Context, conn *Connection, params json.RawMessage) (interface{}, func(), error) {
+func (s *Server) handleSetBinaryProtocolWithPostAction(ctx context.Context, conn *Connection, params json.RawMessage) (interface{}, *PostActionConfig, error) {
 	var binaryParams struct {
 		Enabled     bool `json:"enabled"`
 		Compression struct {
@@ -912,13 +918,16 @@ func (s *Server) handleSetBinaryProtocolWithPostAction(ctx context.Context, conn
 	// Handle empty params case
 	if len(params) == 0 || string(params) == "null" || string(params) == "{}" {
 		// Default to disabling binary mode if no params provided
-		postAction := func() {
-			conn.SetBinaryMode(false)
-			if s.logger != nil {
-				s.logger.Info("Binary mode disabled (deferred)", map[string]interface{}{
-					"connection_id": conn.ID,
-				})
-			}
+		postAction := &PostActionConfig{
+			Action: func() {
+				conn.SetBinaryMode(false)
+				if s.logger != nil {
+					s.logger.Info("Binary mode disabled (synchronous)", map[string]interface{}{
+						"connection_id": conn.ID,
+					})
+				}
+			},
+			Synchronous: true, // Protocol switching must be synchronous
 		}
 		return map[string]interface{}{
 			"binary_enabled":      false,
@@ -936,19 +945,22 @@ func (s *Server) handleSetBinaryProtocolWithPostAction(ctx context.Context, conn
 	}
 
 	// Create post-action to update connection settings after response is sent
-	postAction := func() {
-		conn.SetBinaryMode(binaryParams.Enabled)
-		if binaryParams.Compression.Enabled {
-			conn.SetCompressionThreshold(binaryParams.Compression.Threshold)
-		}
-		if s.logger != nil {
-			s.logger.Info("Binary protocol settings updated (deferred)", map[string]interface{}{
-				"connection_id":       conn.ID,
-				"binary_enabled":      binaryParams.Enabled,
-				"compression_enabled": binaryParams.Compression.Enabled,
-				"threshold":           binaryParams.Compression.Threshold,
-			})
-		}
+	postAction := &PostActionConfig{
+		Action: func() {
+			conn.SetBinaryMode(binaryParams.Enabled)
+			if binaryParams.Compression.Enabled {
+				conn.SetCompressionThreshold(binaryParams.Compression.Threshold)
+			}
+			if s.logger != nil {
+				s.logger.Info("Binary protocol settings updated (synchronous)", map[string]interface{}{
+					"connection_id":       conn.ID,
+					"binary_enabled":      binaryParams.Enabled,
+					"compression_enabled": binaryParams.Compression.Enabled,
+					"threshold":           binaryParams.Compression.Threshold,
+				})
+			}
+		},
+		Synchronous: true, // Protocol switching must be synchronous
 	}
 
 	return map[string]interface{}{
@@ -962,8 +974,8 @@ func (s *Server) handleSetBinaryProtocolWithPostAction(ctx context.Context, conn
 func (s *Server) handleSetBinaryProtocol(ctx context.Context, conn *Connection, params json.RawMessage) (interface{}, error) {
 	result, postAction, err := s.handleSetBinaryProtocolWithPostAction(ctx, conn, params)
 	// Execute post action immediately for backward compatibility
-	if postAction != nil && err == nil {
-		postAction()
+	if postAction != nil && postAction.Action != nil && err == nil {
+		postAction.Action()
 	}
 	return result, err
 }

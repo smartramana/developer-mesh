@@ -125,7 +125,7 @@ func NewConnection(id string, conn *websocket.Conn, hub *Server) *Connection {
 		conn:       conn,
 		hub:        hub,
 		send:       make(chan []byte, 256),
-		afterSend:  make(chan func(), 32), // Buffered to prevent blocking
+		afterSend:  make(chan *PostActionConfig, 32), // Buffered to prevent blocking
 		closed:     make(chan struct{}),
 		closeOnce:  sync.Once{},
 		wg:         sync.WaitGroup{},

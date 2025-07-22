@@ -662,6 +662,7 @@ var _ = Describe("Performance and Stress E2E Tests", func() {
 			defer func() { _ = binaryAgent.Close() }()
 
 			// Enable binary protocol for binary agent
+			// First send the request
 			resp, err := binaryAgent.ExecuteMethod(ctx, "protocol.set_binary", map[string]interface{}{
 				"enabled": true,
 				"compression": map[string]interface{}{
@@ -677,11 +678,9 @@ var _ = Describe("Performance and Stress E2E Tests", func() {
 			Expect(ok).To(BeTrue())
 			Expect(result["binary_enabled"]).To(Equal(true))
 
-			// Set the agent to binary mode after server confirms
+			// Now that we've received the response confirming the server has switched,
+			// we can safely switch the client to binary mode
 			binaryAgent.SetBinaryMode(true, 1024)
-
-			// Give server a moment to fully switch modes
-			time.Sleep(100 * time.Millisecond)
 
 			// Benchmark with large payload
 			largePayload := data.GenerateLargeContext(5000) // ~400KB

@@ -91,7 +91,7 @@ type Connection struct {
 	*ws.Connection
 	conn      *websocket.Conn
 	send      chan []byte
-	afterSend chan func() // Channel for post-response actions
+	afterSend chan *PostActionConfig // Channel for post-response actions
 	hub       *Server
 	mu        sync.RWMutex
 	state     *ConnectionState
@@ -285,7 +285,7 @@ func (s *Server) HandleWebSocket(w http.ResponseWriter, r *http.Request) {
 		connection.send = make(chan []byte, 256)
 	}
 	if connection.afterSend == nil {
-		connection.afterSend = make(chan func(), 32) // Buffered to prevent blocking
+		connection.afterSend = make(chan *PostActionConfig, 32) // Buffered to prevent blocking
 	}
 	if connection.closed == nil {
 		connection.closed = make(chan struct{})
