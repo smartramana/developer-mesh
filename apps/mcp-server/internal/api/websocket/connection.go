@@ -7,7 +7,6 @@ import (
 	"time"
 
 	"github.com/coder/websocket"
-	"github.com/coder/websocket/wsjson"
 	"github.com/google/uuid"
 
 	"github.com/S-Corkum/devops-mcp/pkg/auth"
@@ -97,14 +96,13 @@ func (c *Connection) readPump() {
 			return
 		}
 
-		var readErr error
-		if c.IsBinaryMode() {
-			// Read binary frame
-			msgType, data, err := conn.Read(ctx)
-			if err != nil {
-				readErr = err
-			} else if msgType == websocket.MessageBinary {
-				// Decode binary message
+		// Always read the raw message first to handle protocol transitions
+		msgType, data, readErr := conn.Read(ctx)
+		if readErr == nil {
+			// Determine how to parse based on message type
+			switch msgType {
+			case websocket.MessageBinary:
+				// Binary message - decode it
 				encoder := NewBinaryEncoder(1024)
 				decodedMsg, decodeErr := encoder.Decode(data)
 				if decodeErr != nil {
@@ -113,13 +111,13 @@ func (c *Connection) readPump() {
 					*msg = *decodedMsg
 					PutMessage(decodedMsg)
 				}
-			} else {
-				// Fall back to JSON for non-binary messages
+			case websocket.MessageText:
+				// Text message - parse as JSON
 				readErr = json.Unmarshal(data, msg)
+			default:
+				// Unsupported message type
+				readErr = fmt.Errorf("unsupported message type: %v", msgType)
 			}
-		} else {
-			// Read JSON message
-			readErr = wsjson.Read(ctx, conn, msg)
 		}
 		if readErr != nil {
 			if websocket.CloseStatus(readErr) == websocket.StatusNormalClosure {
