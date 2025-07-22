@@ -107,6 +107,9 @@ func (ta *TestAgent) Connect(ctx context.Context) error {
 		return fmt.Errorf("failed to connect: %w", err)
 	}
 
+	// Set read limit to match server's capability (1MB)
+	conn.SetReadLimit(1048576) // 1MB
+
 	ta.mu.Lock()
 	ta.conn = conn
 	ta.connected = true
