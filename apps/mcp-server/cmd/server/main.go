@@ -663,39 +663,6 @@ func createAuthorizer(cacheClient cache.Cache, logger observability.Logger, metr
 	return authorizer
 }
 
-// createProductionAuthorizer creates the production authorizer (deprecated - use createAuthorizer)
-func createProductionAuthorizer(cacheClient cache.Cache, logger observability.Logger, metrics observability.MetricsClient) auth.Authorizer {
-	// Create audit logger
-	auditLogger := auth.NewAuditLogger(logger)
-
-	// Create auth configuration
-	authConfig := auth.AuthConfig{
-		Cache:         cacheClient,
-		Logger:        logger,
-		Metrics:       metrics,
-		Tracer:        observability.NoopStartSpan,
-		AuditLogger:   auditLogger,
-		CacheEnabled:  true,
-		CacheDuration: 5 * time.Minute,
-		ModelPath:     "pkg/auth/rbac_model.conf",
-		PolicyPath:    "", // Policies will be loaded from memory for now
-	}
-
-	// Create production authorizer
-	authorizer, err := auth.NewProductionAuthorizer(authConfig)
-	if err != nil {
-		// If we can't create the production authorizer, log the error and return nil
-		// This ensures the service can still start, just without authorization
-		logger.Error("Failed to create production authorizer", map[string]interface{}{
-			"error": err.Error(),
-		})
-		return nil
-	}
-
-	logger.Info("Production authorizer initialized successfully", nil)
-	return authorizer
-}
-
 // createEncryptionService creates the appropriate encryption service
 func createEncryptionService(logger observability.Logger) services.EncryptionService {
 	// Check for encryption key in environment
