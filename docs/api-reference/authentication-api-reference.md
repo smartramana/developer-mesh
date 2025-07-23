@@ -2,7 +2,7 @@
 
 ## Overview
 
-The DevOps MCP Authentication API provides comprehensive authentication and authorization services with enhanced features including rate limiting, metrics collection, and audit logging.
+The DevOps MCP uses middleware-based authentication for API access. Authentication is handled through API keys and JWT tokens validated on each request, with basic rate limiting support.
 
 ## Table of Contents
 
@@ -14,89 +14,62 @@ The DevOps MCP Authentication API provides comprehensive authentication and auth
 6. [Metrics API](#metrics-api)
 7. [Error Codes](#error-codes)
 
-## Authentication Endpoints
+## Authentication Methods
 
-### POST /auth/login
-Authenticate with API key or credentials.
+Authentication is handled through middleware on all protected endpoints. There are no dedicated authentication endpoints.
 
-**Request Headers:**
+### API Key Authentication
+
+API keys can be provided in two ways:
+
+**Authorization Header:**
 ```
 Authorization: Bearer <api-key>
+```
+
+**X-API-Key Header:**
+```
 X-API-Key: <api-key>
-Content-Type: application/json
 ```
 
-**Request Body (for OAuth):**
+### JWT Token Authentication
+
+JWT tokens are validated when provided:
+
+```
+Authorization: Bearer <jwt-token>
+```
+
+**Note**: The system validates JWT tokens but does not provide endpoints to generate them. JWT tokens must be obtained through external means.
+
+### Rate Limiting
+
+When rate limited, the following headers are returned:
+
+```
+X-RateLimit-Remaining: 0
+Retry-After: <seconds>
+```
+
+**Status Code**: 429 Too Many Requests
+
+### Authentication Errors
+
+**Missing Authentication (401):**
 ```json
 {
-  "client_id": "string",
-  "client_secret": "string",
-  "grant_type": "client_credentials"
+  "error": "unauthorized"
 }
 ```
 
-**Response:**
+**Invalid API Key (401):**
 ```json
 {
-  "token": "eyJ...",
-  "expires_at": "2024-01-01T00:00:00Z",
-  "user": {
-    "id": "user-123",
-    "tenant_id": "tenant-456",
-    "scopes": ["read", "write"]
-  }
+  "error": "Invalid API key"
 }
 ```
 
-**Rate Limit Headers:**
-```
-X-RateLimit-Limit: 100
-X-RateLimit-Remaining: 99
-X-RateLimit-Reset: 1704067200
-Retry-After: 300 (only when rate limited)
-```
-
-### POST /auth/token
-Generate JWT token from API key.
-
-**Request:**
-```
-POST /auth/token
-Authorization: Bearer <api-key>
-```
-
-**Response:**
-```json
-{
-  "access_token": "eyJ...",
-  "token_type": "Bearer",
-  "expires_in": 3600
-}
-```
-
-### POST /auth/refresh
-Refresh JWT token.
-
-**Request:**
-```json
-{
-  "refresh_token": "string"
-}
-```
-
-**Response:**
-```json
-{
-  "access_token": "eyJ...",
-  "refresh_token": "string",
-  "expires_in": 3600
-}
-```
-
-### POST /auth/revoke
-Revoke API key or token.
-
-**Request:**
+**Rate Limited (429):**
 ```json
 {
   "token": "string",

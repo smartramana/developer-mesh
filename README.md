@@ -116,7 +116,7 @@ cp .env.example .env
 # Edit .env with your AWS credentials and settings
 
 # Start all services
-docker-compose up -d
+docker-compose -f docker-compose.local.yml up -d
 
 # Verify health
 curl http://localhost:8080/health
@@ -142,15 +142,8 @@ make migrate-up
 # Start services
 make dev
 
-# In another terminal, register an AI agent
-curl -X POST http://localhost:8080/api/v1/agents/register \
-  -H "Content-Type: application/json" \
-  -d '{
-    "id": "agent-001",
-    "name": "Code Analyzer",
-    "capabilities": ["code-review", "security-scan"],
-    "model_id": "amazon.titan-embed-text-v1"
-  }'
+# Agent registration is done via WebSocket connection
+# See the usage examples section for WebSocket registration
 ```
 
 ## 🎮 Usage Examples
@@ -177,28 +170,23 @@ websocket.JSON.Send(ws, msg)
 ### Submit a Task
 
 ```bash
-# Submit task via REST API
-curl -X POST http://localhost:8081/api/v1/tasks \
-  -H "Content-Type: application/json" \
-  -d '{
-    "type": "code-review",
-    "priority": "high",
-    "repository": "github.com/org/repo",
-    "capabilities_required": ["security", "code-review"]
-  }'
+# Tasks are submitted through WebSocket messages to agents
+# The MCP server coordinates task distribution based on agent capabilities
+# See the WebSocket protocol documentation for message formats
 ```
 
-### Monitor Agent Performance
+### Monitor System Health
 
 ```bash
-# Get agent metrics
-curl http://localhost:8081/api/v1/agents/agent-001/metrics
+# Check MCP server health
+curl http://localhost:8080/health
 
-# Response shows:
-# - Active tasks: 3
-# - Completed tasks: 147
-# - Average response time: 1.2s
-# - Cost per task: $0.0003
+# Check REST API health
+curl http://localhost:8081/health
+
+# View metrics via Prometheus/Grafana
+# Grafana: http://localhost:3000
+# Prometheus: http://localhost:9090
 ```
 
 ## 📈 Performance Metrics
@@ -212,7 +200,7 @@ curl http://localhost:8081/api/v1/agents/agent-001/metrics
 ## 🛠️ Technology Stack
 
 - **Language**: Go 1.24+ with workspace support
-- **Databases**: PostgreSQL 14+ (pgvector), Redis 6.2+
+- **Databases**: PostgreSQL 14+ (pgvector), Redis 7+
 - **AI/ML**: AWS Bedrock (Titan, Cohere, Claude)
 - **Queue**: AWS SQS
 - **Storage**: AWS S3

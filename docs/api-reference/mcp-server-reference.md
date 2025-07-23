@@ -1047,12 +1047,12 @@ For messages larger than 1KB, the MCP Server automatically uses a binary protoco
 ┌─────────────┬─────────┬──────────┬─────────────┬──────────┬──────────────┬──────────────┬────────────┐
 │ Magic (4B)  │ Ver (1B)│ Type(1B) │ Method (2B) │ Flags(1B)│ Reserved(3B) │ Payload(4B)  │ ReqID (8B) │
 ├─────────────┼─────────┼──────────┼─────────────┼──────────┼──────────────┼──────────────┼────────────┤
-│ "DMCP"      │ 0x01    │ 0x01-0x07│ 0x0000-FFFF │ 0bXXXXXXXX│ 0x000000     │ Size (uint32)│ ID (uint64)│
+│ "MCPW"      │ 0x01    │ 0x01-0x07│ 0x0000-FFFF │ 0bXXXXXXXX│ 0x000000     │ Size (uint32)│ ID (uint64)│
 └─────────────┴─────────┴──────────┴─────────────┴──────────┴──────────────┴──────────────┴────────────┘
 ```
 
 **Header Fields (24 bytes):**
-- **Magic** (4 bytes): "DMCP" identifier
+- **Magic** (4 bytes): "MCPW" identifier (0x4D435057)
 - **Version** (1 byte): Protocol version (currently 0x01)
 - **Type** (1 byte): Message type
   - 0x01: Request
@@ -1071,30 +1071,23 @@ For messages larger than 1KB, the MCP Server automatically uses a binary protoco
 - **PayloadLen** (4 bytes): Payload size (max ~4GB)
 - **RequestID** (8 bytes): Request identifier for correlation
 
-#### Method Enums (Common Operations)
+#### Method Enums (Implemented Operations)
 
 ```go
 const (
     MethodInitialize      uint16 = 0x0001
-    MethodListTools       uint16 = 0x0002
-    MethodCallTool        uint16 = 0x0003
-    MethodListResources   uint16 = 0x0004
-    MethodReadResource    uint16 = 0x0005
-    MethodListPrompts     uint16 = 0x0006
-    MethodGetPrompt       uint16 = 0x0007
-    MethodSetLogLevel     uint16 = 0x0008
-    MethodGetCompletion   uint16 = 0x0009
-    MethodCreateContext   uint16 = 0x000A
-    MethodAgentRegister   uint16 = 0x0100
-    MethodAgentHeartbeat  uint16 = 0x0101
-    MethodTaskAssign      uint16 = 0x0102
-    MethodTaskUpdate      uint16 = 0x0103
+    MethodToolList        uint16 = 0x0002  // List tools
+    MethodToolExecute     uint16 = 0x0003  // Execute tool
+    MethodContextGet      uint16 = 0x0004  // Get context
+    MethodContextSet      uint16 = 0x0005  // Set context
+    MethodLogMessage      uint16 = 0x0006  // Log message
+    // Additional methods may be added in future versions
 )
 ```
 
 ### Performance Features
 
-1. **Automatic Compression**: Messages >1KB are automatically gzip compressed
+1. **Compression Support**: Messages can be gzip compressed (configurable threshold)
 2. **Binary Encoding**: ~70% smaller than JSON for typical messages
 3. **Connection Pooling**: Reusable connections per agent
 4. **Message Batching**: Multiple operations in single message
@@ -1119,7 +1112,7 @@ if (payload.length > 1024) {
 
 // Server automatically handles both formats
 ws.on('message', (data) => {
-  if (data[0] === 0x44 && data[1] === 0x4D) { // "DM" magic
+  if (data[0] === 0x4D && data[1] === 0x43 && data[2] === 0x50 && data[3] === 0x57) { // "MCPW" magic
     const msg = decodeBinaryMessage(data);
     handleBinaryMessage(msg);
   } else {
@@ -1177,7 +1170,7 @@ ws.on('message', (data) => {
 setInterval(() => {
   if (ws.readyState === WebSocket.OPEN) {
     ws.send(new Uint8Array([
-      0x44, 0x4D, 0x43, 0x50, // Magic "DMCP"
+      0x4D, 0x43, 0x50, 0x57, // Magic "MCPW"
       0x01,                   // Version
       0x05,                   // Type: Ping
       0x00, 0x00,            // Method (unused)

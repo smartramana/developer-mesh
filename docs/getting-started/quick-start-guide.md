@@ -91,8 +91,12 @@ Skip to the [Verify Installation](#verify-installation) section below.
 ### 3. Initialize Database
 
 ```bash
+# Install golang-migrate if not already installed
+# macOS: brew install golang-migrate
+# Linux: see https://github.com/golang-migrate/migrate
+
 # Run database migrations
-make migrate-local
+make migrate-up
 
 # This creates tables and indexes including pgvector
 # Migrations are located in apps/rest-api/migrations/sql/

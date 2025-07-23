@@ -1,8 +1,12 @@
 # Services Package
 
+> **Purpose**: Business logic layer for the DevOps MCP platform
+> **Status**: MVP Implementation with Production Architecture  
+> **Dependencies**: Base service framework, repositories, domain models
+
 ## Overview
 
-The `services` package implements the business logic layer for the DevOps MCP platform. It provides production-ready service implementations with built-in resilience, security, observability, and distributed systems support. All services inherit from a common base that provides enterprise-grade features out of the box.
+The `services` package implements the business logic layer for the DevOps MCP platform. It provides a production-ready architecture with MVP implementations. All services inherit from a common base that provides enterprise-grade patterns. Some features use simplified in-memory implementations suitable for development/MVP.
 
 ## Architecture
 
@@ -53,7 +57,7 @@ type BaseService struct {
 
 ### Built-in Capabilities
 
-1. **Distributed Transactions**
+1. **Distributed Transactions** (Local implementation, distributed-ready interface)
 ```go
 // Two-phase commit support
 tx, err := service.BeginDistributedTransaction(ctx, &TxOptions{
@@ -71,14 +75,14 @@ err = tx.Execute(func() error {
 err = tx.Commit()
 ```
 
-2. **Rate Limiting & Quotas**
+2. **Rate Limiting & Quotas** (In-memory implementation, Redis-ready interface)
 ```go
-// Check rate limits
+// Check rate limits (currently in-memory, not distributed)
 if err := service.CheckRateLimit(ctx, userID, "api_calls", 100); err != nil {
     return ErrRateLimitExceeded
 }
 
-// Check quotas
+// Check quotas (currently with hardcoded limits)
 if err := service.CheckQuota(ctx, workspaceID, "storage", 1024*1024); err != nil {
     return ErrQuotaExceeded
 }
@@ -356,7 +360,7 @@ engine.AddRule(&AssignmentRule{
 
 ## Distributed Lock Service
 
-Redis-based locking for distributed systems:
+Redis-based locking for distributed systems (requires Redis connection):
 
 ```go
 // Initialize service
@@ -389,11 +393,11 @@ err = lockService.ForceUnlock(ctx, "doc-123")
 ```
 
 **Features:**
-- Distributed locking with TTL
+- Distributed locking with TTL (when Redis connected)
 - Auto-refresh mechanism
-- Deadlock detection
-- Lock queuing
+- Lock timeout handling
 - Metrics and monitoring
+- Note: Requires Redis connection for distributed functionality
 
 ## Notification Service
 
@@ -588,8 +592,33 @@ func TestTaskServiceIntegration(t *testing.T) {
 - **Async Processing**: Use background workers for long operations
 - **Circuit Breakers**: Prevent cascade failures
 
+## Implementation Notes
+
+### MVP Implementations
+The following features have simplified implementations suitable for development:
+
+1. **Rate Limiting**: In-memory only, resets on restart
+2. **Quota Management**: Hardcoded limits, not per-tenant
+3. **Sanitization**: Basic pass-through, needs proper HTML/XSS protection
+4. **Distributed Transactions**: Local coordinator, not truly distributed
+
+### Production-Ready Features
+The following are fully implemented:
+
+1. **Encryption Service**: AES-GCM encryption
+2. **Event Publishing**: Full event bus integration
+3. **Service Architecture**: Clean interfaces and patterns
+4. **Observability**: Logging, metrics, and tracing hooks
+
 ## Future Enhancements
 
+### To Complete MVP
+- [ ] Redis-based distributed rate limiting
+- [ ] Per-tenant quota management
+- [ ] HTML/XSS sanitization implementation
+- [ ] Distributed transaction coordinator
+
+### Post-MVP Features
 - [ ] GraphQL API support
 - [ ] Event sourcing for audit trail
 - [ ] CQRS pattern implementation

@@ -1,13 +1,14 @@
 # Performance Tuning Guide
 
-> **Purpose**: Comprehensive guide for optimizing DevOps MCP platform performance
-> **Audience**: Platform engineers, DevOps teams, and performance specialists
-> **Scope**: Application optimization, infrastructure tuning, database performance, and monitoring
+> **Purpose**: Guide for optimizing DevOps MCP platform performance
+> **Audience**: Platform engineers and DevOps teams
+> **Scope**: Application optimization, database performance, caching, and monitoring
+> **Status**: CONCEPTUAL - Many optimizations shown are not yet implemented
 
 ## Table of Contents
 
 1. [Overview](#overview)
-2. [Performance Architecture](#performance-architecture)
+2. [Current Architecture](#current-architecture)
 3. [Application Performance](#application-performance)
 4. [Database Optimization](#database-optimization)
 5. [Caching Strategy](#caching-strategy)
@@ -20,56 +21,56 @@
 
 ## Overview
 
-The DevOps MCP platform is designed for high performance with:
-- **Sub-second response times** for most operations
-- **10,000+ concurrent WebSocket connections**
-- **1,000+ requests per second** throughput
-- **< 100ms p99 latency** for API calls
-- **Horizontal scaling** for all components
+**IMPORTANT**: This guide contains both implemented optimizations and theoretical performance improvements. The actual deployment is a single EC2 instance with Docker Compose, not a highly-optimized distributed system.
 
-### Performance Goals
+### Current Reality
+- Single EC2 instance deployment
+- Docker Compose orchestration
+- Basic connection handling
+- No CDN, ALB, or auto-scaling
+- Limited performance optimizations implemented
+
+### Theoretical Performance Goals (Not Measured)
 
 | Metric | Target | Current | Status |
 |--------|--------|---------|--------|
-| API Response Time (p50) | < 50ms | 45ms | ✅ |
-| API Response Time (p99) | < 200ms | 180ms | ✅ |
-| WebSocket Latency | < 10ms | 8ms | ✅ |
-| Task Processing | < 5s | 4.2s | ✅ |
-| Embedding Generation | < 500ms | 450ms | ✅ |
-| Database Query Time | < 10ms | 12ms | ⚠️ |
+| API Response Time (p50) | < 50ms | Unknown | ❓ |
+| API Response Time (p99) | < 200ms | Unknown | ❓ |
+| WebSocket Latency | < 10ms | Unknown | ❓ |
+| Task Processing | < 5s | Unknown | ❓ |
+| Embedding Generation | < 500ms | Varies by model | ⚠️ |
+| Database Query Time | < 10ms | Not optimized | ❌ |
 
-## Performance Architecture
+## Current Architecture
 
-### System Architecture for Performance
+### Actual Deployment Architecture
 
 ```
 ┌─────────────────────────────────────────────────────────┐
-│                   CDN (CloudFront)                      │
-│              (Static assets, caching)                   │
+│                    EC2 Instance                          │
+│                 (Single t3.large)                        │
 └───────────────────────┬─────────────────────────────────┘
                         │
 ┌───────────────────────┴─────────────────────────────────┐
-│              Application Load Balancer                   │
-│         (Connection pooling, SSL termination)           │
+│                 Docker Compose                           │
+│        (All services on single host)                     │
+├──────────────────────────────────────────────────────────┤
+│  - mcp-server (port 8080)                                │
+│  - rest-api (port 8081)                                  │
+│  - worker (background tasks)                             │
 └───────────────────────┬─────────────────────────────────┘
                         │
-        ┌───────────────┴───────────────┐
-        │                               │
-┌───────┴──────┐               ┌───────┴──────┐
-│  WebSocket   │               │   REST API    │
-│   Servers    │               │   Servers     │
-│ (Sticky LB)  │               │ (Round Robin) │
-└───────┬──────┘               └───────┬──────┘
-        │                               │
-        └───────────┬───────────────────┘
-                    │
-    ┌───────────────┴────────────────────┐
-    │                                    │
-┌───┴─────┐  ┌────────────┐  ┌─────────┴───┐
-│  Redis  │  │ PostgreSQL │  │     SQS     │
-│ Cluster │  │  + pgvector│  │   Queues    │
-└─────────┘  └────────────┘  └─────────────┘
+    ┌───────────────────┴────────────────────┐
+    │                                        │
+┌───┴─────────┐  ┌──────────────┐  ┌────────┴───┐
+│ElastiCache  │  │RDS PostgreSQL│  │    SQS     │
+│(SSH tunnel) │  │ + pgvector   │  │            │
+└─────────────┘  └──────────────┘  └────────────┘
 ```
+
+### Theoretical High-Performance Architecture (NOT IMPLEMENTED)
+
+The following architecture represents potential future improvements:
 
 ### Performance-Critical Paths
 
@@ -81,12 +82,30 @@ The DevOps MCP platform is designed for high performance with:
 
 ## Application Performance
 
-### 1. Go Performance Optimization
+### Current Implementation Status
 
-#### Memory Management
+**What's Actually Implemented:**
+- Basic WebSocket binary protocol (24-byte header)
+- Simple connection pooling in `apps/mcp-server/internal/api/websocket/pool.go`
+- Standard Go HTTP server
+- Basic database queries without optimization
+
+**What's NOT Implemented:**
+- Worker pools for controlled concurrency
+- Request batching
+- Advanced memory management
+- Performance profiling endpoints
+- Optimized caching layers
+
+### 1. Go Performance Optimization (EXAMPLES ONLY)
+
+The following are examples of optimizations that COULD be implemented:
+
+#### Memory Management (NOT IMPLEMENTED)
 
 ```go
-// Use sync.Pool for frequent allocations
+// EXAMPLE: Use sync.Pool for frequent allocations
+// This pattern is NOT currently used in MCP
 var bufferPool = sync.Pool{
     New: func() interface{} {
         return make([]byte, 0, 4096)
@@ -120,10 +139,11 @@ func buildResponse(items []string) string {
 }
 ```
 
-#### Goroutine Management
+#### Goroutine Management (NOT IMPLEMENTED)
 
 ```go
-// Worker pool pattern for controlled concurrency
+// EXAMPLE: Worker pool pattern for controlled concurrency
+// MCP does NOT have a WorkerPool implementation
 type WorkerPool struct {
     workers   int
     taskQueue chan Task
@@ -473,66 +493,106 @@ CREATE INDEX ON mv_document_embeddings USING ivfflat (vector vector_l2_ops);
 
 ## Caching Strategy
 
-### 1. Multi-Level Cache Architecture
+### Current Implementation
+
+MCP HAS a multi-level caching implementation in `pkg/common/cache/`:
+- **Multi-level cache**: `multilevel_cache.go` with L1 (in-memory LRU) and L2 (Redis)
+- **Redis cache**: Full Redis integration with connection pooling
+- **Memory cache**: Simple in-memory cache implementation
+- **Prefetch workers**: Background workers for cache warming
+
+### 1. Actual Multi-Level Cache Architecture
 
 ```go
-// Three-tier caching system
-type CacheManager struct {
-    l1Cache *ristretto.Cache  // In-memory (microseconds)
-    l2Cache *redis.Client     // Redis (milliseconds)
-    l3Cache *s3.Client        // S3 (seconds)
+// From pkg/common/cache/multilevel_cache.go
+type MultiLevelCache struct {
+    // L1 cache (in-memory using hashicorp/golang-lru)
+    l1Cache *lru.Cache[string, []byte]
+    
+    // L2 cache (Redis)
+    l2Cache Cache
+    
+    // Configuration
+    ttl           time.Duration
+    metricsClient observability.MetricsClient
+    
+    // Prefetch queue for cache warming
+    prefetchQueue   chan prefetchRequest
+    prefetchWorkers int
 }
 
-func (cm *CacheManager) Get(ctx context.Context, key string) (interface{}, error) {
-    // L1: In-memory cache
-    if val, found := cm.l1Cache.Get(key); found {
-        metrics.CacheHit("l1")
-        return val, nil
-    }
+// Actual implementation from multilevel_cache.go
+func (c *MultiLevelCache) Get(ctx context.Context, key string, value interface{}) (bool, error) {
+    startTime := time.Now()
     
-    // L2: Redis cache
-    val, err := cm.l2Cache.Get(ctx, key).Result()
-    if err == nil {
-        metrics.CacheHit("l2")
-        cm.l1Cache.Set(key, val, 1) // Populate L1
-        return val, nil
-    }
-    
-    // L3: S3 cache for large objects
-    if isLargeObject(key) {
-        obj, err := cm.l3Cache.GetObject(ctx, &s3.GetObjectInput{
-            Bucket: aws.String("mcp-cache"),
-            Key:    aws.String(key),
-        })
-        if err == nil {
-            metrics.CacheHit("l3")
-            // Read and cache in L2/L1
-            data, _ := io.ReadAll(obj.Body)
-            cm.l2Cache.Set(ctx, key, data, time.Hour)
-            cm.l1Cache.Set(key, data, 1)
-            return data, nil
+    // Try L1 cache first (LRU in-memory)
+    if data, ok := c.l1Cache.Get(key); ok {
+        // Unmarshal value
+        err := json.Unmarshal(data, value)
+        if err != nil {
+            return false, fmt.Errorf("failed to unmarshal value from L1 cache: %w", err)
         }
+        
+        // Record metrics
+        duration := time.Since(startTime)
+        c.metricsClient.RecordCacheOperation("get", true, duration.Seconds())
+        
+        return true, nil
     }
     
-    metrics.CacheMiss()
-    return nil, ErrCacheMiss
+    // Try L2 cache (Redis)
+    var data []byte
+    err := c.l2Cache.Get(ctx, key, &data)
+    if err != nil {
+        // Record metrics
+        duration := time.Since(startTime)
+        c.metricsClient.RecordCacheOperation("get", false, duration.Seconds())
+        
+        // If it's a not found error, return false with no error
+        if err == ErrNotFound {
+            return false, nil
+        }
+        
+        return false, err
+    }
+    
+    // Add to L1 cache for future hits
+    c.l1Cache.Add(key, data)
+    
+    // Unmarshal value
+    err = json.Unmarshal(data, value)
+    
+    return true, nil
 }
 ```
 
 ### 2. Cache Configuration
 
 ```go
-// Optimized Ristretto configuration
-func NewL1Cache() (*ristretto.Cache, error) {
-    return ristretto.NewCache(&ristretto.Config{
-        NumCounters: 1e7,     // 10 million
-        MaxCost:     1 << 30, // 1GB
-        BufferItems: 64,
-        Metrics:     true,
-        OnEvict: func(item *ristretto.Item) {
-            metrics.CacheEviction("l1", item.Key)
-        },
-    })
+// Actual configuration from multilevel_cache.go
+type MultiLevelCacheConfig struct {
+    L1MaxSize         int           `mapstructure:"l1_max_size"`
+    DefaultTTL        time.Duration `mapstructure:"default_ttl"`
+    PrefetchWorkers   int           `mapstructure:"prefetch_workers"`
+    PrefetchQueueSize int           `mapstructure:"prefetch_queue_size"`
+}
+
+// Default configuration values
+func NewMultiLevelCache(l2Cache Cache, config MultiLevelCacheConfig) (*MultiLevelCache, error) {
+    // Apply defaults
+    if config.L1MaxSize <= 0 {
+        config.L1MaxSize = 1000 // Default to 1000 entries
+    }
+    if config.DefaultTTL <= 0 {
+        config.DefaultTTL = 15 * time.Minute // Default to 15 minutes
+    }
+    if config.PrefetchWorkers <= 0 {
+        config.PrefetchWorkers = 2 // Default to 2 workers
+    }
+    
+    // Create L1 cache using LRU
+    l1Cache, err := lru.New[string, []byte](config.L1MaxSize)
+    // ...
 }
 
 // Redis configuration for performance
@@ -557,27 +617,42 @@ func NewRedisCache() *redis.Client {
 }
 ```
 
-### 3. Cache Warming
+### 3. Cache Warming and Prefetching
 
 ```go
-// Proactive cache warming
-type CacheWarmer struct {
-    cache    CacheManager
-    db       *Database
-    interval time.Duration
+// Actual implementation uses prefetch workers
+func (c *MultiLevelCache) prefetchWorker() {
+    for req := range c.prefetchQueue {
+        // Skip if already in L1 cache to avoid unnecessary work
+        if _, ok := c.l1Cache.Get(req.key); ok {
+            continue
+        }
+        
+        // Get from L2 cache
+        _, _ = c.GetContext(context.Background(), req.key)
+        
+        // Don't block the worker if there's an error
+    }
 }
 
-func (w *CacheWarmer) Start(ctx context.Context) {
-    ticker := time.NewTicker(w.interval)
-    defer ticker.Stop()
+// Automatic prefetching of related contexts
+func (c *MultiLevelCache) prefetchRelatedContexts(context models.Context) {
+    // Prefetch contexts from the same agent
+    if context.AgentID != "" {
+        key := fmt.Sprintf("contexts:agent:%s", context.AgentID)
+        c.queuePrefetch(key, &context, map[string]interface{}{
+            "type":     "agent_contexts",
+            "agent_id": context.AgentID,
+        })
+    }
     
-    for {
-        select {
-        case <-ticker.C:
-            w.warmCache(ctx)
-        case <-ctx.Done():
-            return
-        }
+    // Prefetch contexts from the same session
+    if context.SessionID != "" {
+        key := fmt.Sprintf("contexts:session:%s", context.SessionID)
+        c.queuePrefetch(key, &context, map[string]interface{}{
+            "type":       "session_contexts",
+            "session_id": context.SessionID,
+        })
     }
 }
 
@@ -666,17 +741,33 @@ spec:
 
 ## AI Model Performance
 
-### 1. Request Batching
+### Current Implementation
+
+MCP HAS batch processing for embeddings:
+- **Batch API endpoint**: `/api/v2/embeddings/batch`
+- **Service implementation**: `BatchGenerateEmbeddings` in `service_v2.go`
+- **Provider support**: OpenAI, Bedrock, and Google providers support batching
+- **Pipeline batching**: `BatchProcessContent` with configurable batch size
+
+### 1. Actual Request Batching Implementation
 
 ```go
-// Batch multiple embedding requests
-type EmbeddingBatcher struct {
-    batch    []string
-    results  map[int]chan EmbeddingResult
-    mu       sync.Mutex
-    timer    *time.Timer
-    maxBatch int
-    maxWait  time.Duration
+// From pkg/embedding/service_v2.go
+func (s *ServiceV2) BatchGenerateEmbeddings(ctx context.Context, reqs []GenerateEmbeddingRequest) ([]*GenerateEmbeddingResponse, error) {
+    // Groups requests by tenant and model for efficient processing
+    requestsByAgent := make(map[string][]int)
+    
+    for i, req := range reqs {
+        agentKey := fmt.Sprintf("%s:%s", req.TenantID, req.AgentID)
+        requestsByAgent[agentKey] = append(requestsByAgent[agentKey], i)
+    }
+    
+    // Process each group with the appropriate provider
+    for agentKey, reqIndices := range requestsByAgent {
+        // ... batch processing logic
+        batchResp, err := provider.BatchGenerateEmbeddings(ctx, batchReq)
+        // ...
+    }
 }
 
 func (b *EmbeddingBatcher) AddRequest(text string) <-chan EmbeddingResult {
@@ -859,19 +950,32 @@ func (db *DBManager) Query(ctx context.Context, query string, args ...interface{
 
 ## Monitoring and Profiling
 
-### 1. Application Metrics
+### Current Implementation
+
+MCP HAS comprehensive monitoring:
+- **Prometheus metrics**: Full implementation in `pkg/observability/prometheus_metrics.go`
+- **Metrics client interface**: Abstraction for different metric backends
+- **OpenTelemetry tracing**: Support for distributed tracing
+- **Structured logging**: JSON-formatted logs with context
+
+### 1. Actual Application Metrics
 
 ```go
-// Custom performance metrics
-var (
-    requestDuration = prometheus.NewHistogramVec(
-        prometheus.HistogramOpts{
-            Name:    "http_request_duration_seconds",
-            Help:    "HTTP request latencies",
-            Buckets: []float64{.005, .01, .025, .05, .1, .25, .5, 1, 2.5, 5, 10},
-        },
-        []string{"method", "endpoint", "status"},
-    )
+// From pkg/observability/prometheus_metrics.go
+type PrometheusMetricsClient struct {
+    namespace string
+    subsystem string
+    
+    // Metric collectors
+    counters   map[string]*prometheus.CounterVec
+    gauges     map[string]*prometheus.GaugeVec
+    histograms map[string]*prometheus.HistogramVec
+    summaries  map[string]*prometheus.SummaryVec
+}
+
+// Actual metrics being recorded (from multilevel_cache.go)
+c.metricsClient.RecordCacheOperation("get", true, duration.Seconds())
+c.metricsClient.RecordCacheOperation("set", true, duration.Seconds())
     
     dbQueryDuration = prometheus.NewHistogramVec(
         prometheus.HistogramOpts{
@@ -1059,34 +1163,51 @@ func BenchmarkDatabaseQuery(b *testing.B) {
 }
 ```
 
+## What's Actually Implemented vs Theoretical
+
+### Actually Implemented Performance Features ✅
+
+1. **Multi-level caching** with LRU (L1) and Redis (L2)
+2. **Cache prefetching** with background workers
+3. **Batch embedding processing** via API and pipeline
+4. **Prometheus metrics** for monitoring
+5. **WebSocket binary protocol** with compression
+6. **Basic connection pooling** for WebSocket
+7. **Structured logging** with JSON format
+8. **OpenTelemetry tracing** support
+
+### NOT Implemented (Theoretical Only) ❌
+
+1. **Worker pools** for controlled goroutine concurrency
+2. **Advanced memory management** with sync.Pool
+3. **CDN, ALB, Auto-scaling** - single EC2 instance only
+4. **Database query optimization** - no prepared statements or read replicas
+5. **Ristretto cache** - uses simpler LRU instead
+6. **HTTP/2 server configuration**
+7. **Performance profiling endpoints** (pprof)
+8. **Load testing infrastructure**
+
 ## Best Practices
 
-### 1. Code-Level Optimization
+### 1. Code-Level Optimization (EXAMPLES - Not All Implemented)
 
 ```go
-// Pre-allocate slices
+// These are EXAMPLES of optimizations that COULD be done
+// Not all are implemented in MCP
+
+// Pre-allocate slices (good practice)
 agents := make([]Agent, 0, expectedCount)
 
-// Reuse buffers
+// Reuse buffers (NOT implemented in MCP)
 var bufferPool = sync.Pool{
     New: func() interface{} {
         return new(bytes.Buffer)
     },
 }
 
-// Avoid defer in hot paths
-func hotPath() {
-    mu.Lock()
-    // Do work
-    mu.Unlock() // Don't use defer here
-}
-
-// Use atomic operations
-var counter int64
-atomic.AddInt64(&counter, 1)
-
-// Batch database operations
+// Batch database operations (NOT implemented)
 func BatchInsert(items []Item) error {
+    // This is an example - MCP doesn't use CopyFrom
     copyCount, err := db.CopyFrom(
         context.Background(),
         pgx.Identifier{"items"},
@@ -1103,42 +1224,36 @@ func BatchInsert(items []Item) error {
 }
 ```
 
-### 2. Infrastructure Best Practices
+### 2. Current Infrastructure Reality
 
-1. **Use CDN for static assets**
-2. **Enable compression at all levels**
-3. **Implement circuit breakers**
-4. **Use connection pooling**
-5. **Cache aggressively but intelligently**
-6. **Monitor everything**
-7. **Profile regularly**
-8. **Test under load**
+1. **Single EC2 instance** - no CDN or load balancing
+2. **Docker Compose** - not Kubernetes or ECS
+3. **Basic monitoring** - not comprehensive APM
+4. **Manual scaling** - no auto-scaling
+5. **SSH tunnel for Redis** - not direct VPC access
 
-### 3. Monitoring Checklist
+### 3. Monitoring Available
 
-- [ ] Response time percentiles (p50, p95, p99)
-- [ ] Error rates by endpoint
+- [x] Cache operation metrics (hit/miss)
+- [x] Basic Prometheus metrics
+- [x] Structured JSON logs
+- [ ] Response time percentiles
 - [ ] Database query performance
-- [ ] Cache hit rates
-- [ ] Memory usage and GC pressure
-- [ ] CPU utilization
-- [ ] Network I/O
-- [ ] Disk I/O
-- [ ] Queue depths
-- [ ] Connection pool usage
+- [ ] Detailed error tracking
+- [ ] Infrastructure metrics
 
-## Performance Targets
+## Realistic Performance Expectations
 
-### SLA Targets
+### Current Setup (Single EC2)
 
-| Component | Metric | Target | Measurement |
-|-----------|--------|--------|-------------|
-| API Gateway | p99 latency | < 100ms | CloudWatch |
-| WebSocket | Message latency | < 10ms | Custom metrics |
-| Database | Query time | < 10ms | pg_stat_statements |
-| Cache | Hit rate | > 90% | Redis INFO |
-| AI Models | Inference time | < 500ms | Custom metrics |
-| Overall | Availability | 99.9% | Uptime monitoring |
+| Component | Realistic Expectation | Notes |
+|-----------|---------------------|-------|
+| API Response | 50-200ms | Depends on operation |
+| WebSocket Latency | 10-50ms | Network dependent |
+| Database Queries | 10-100ms | No optimization |
+| Cache Hit Rate | 70-90% | With multi-level cache |
+| Concurrent Users | 100-500 | Single instance limit |
+| Availability | 95-99% | No redundancy |
 
 ## Next Steps
 

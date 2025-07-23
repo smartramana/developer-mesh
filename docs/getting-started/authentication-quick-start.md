@@ -4,7 +4,7 @@ Get up and running with DevOps MCP authentication in 5 minutes.
 
 ## Prerequisites
 
-- Go 1.21+
+- Go 1.24+
 - Docker and Docker Compose
 - Access to PostgreSQL and Redis (or use Docker Compose)
 
@@ -21,7 +21,7 @@ cd devops-mcp
 docker-compose up -d postgres redis
 
 # Run database migrations
-make migrate-local
+make migrate-up
 ```
 
 ### 2. Basic Authentication Setup
@@ -55,7 +55,7 @@ func main() {
     
     // Create Gin router with auth
     router := gin.Default()
-    router.Use(authService.GinMiddleware(auth.TypeAPIKey))
+    router.Use(authService.GinMiddleware())
     
     // Protected endpoint
     router.GET("/api/v1/hello", func(c *gin.Context) {
@@ -86,6 +86,8 @@ curl -H "Authorization: Bearer test-key-1234567890" \
 ```
 
 ## Enhanced Authentication Setup
+
+**Note**: The authentication system is middleware-based. There are no dedicated auth endpoints like `/auth/login` or `/auth/token` in the current implementation. Authentication happens through API key or JWT validation on each request.
 
 ### 1. Full Configuration
 
@@ -147,10 +149,9 @@ func main() {
     router := gin.Default()
     
     // Apply enhanced auth middleware
-    router.Use(authMiddleware.GinMiddleware())
+    router.Use(authMiddleware)
     
-    // Add routes
-    setupRoutes(router)
+    // Add your application routes here
     
     // Start server
     log.Fatal(router.Run(":8080"))
@@ -159,20 +160,21 @@ func main() {
 func setupRoutes(router *gin.Engine) {
     v1 := router.Group("/api/v1")
     
-    // Public endpoints
-    v1.POST("/auth/login", handleLogin)
-    v1.POST("/auth/token", handleGetToken)
-    
-    // Protected endpoints
+    // All endpoints are protected by default
     v1.GET("/profile", func(c *gin.Context) {
         user, _ := auth.GetUserFromContext(c)
         c.JSON(200, user)
     })
     
-    // Admin endpoints (require admin scope)
-    admin := v1.Group("/admin")
-    admin.Use(requireScopes("admin"))
-    admin.GET("/users", handleListUsers)
+    // Example: Check user role
+    v1.GET("/admin/users", func(c *gin.Context) {
+        user, _ := auth.GetUserFromContext(c)
+        if user.Role != "admin" {
+            c.JSON(403, gin.H{"error": "insufficient permissions"})
+            return
+        }
+        // Handle admin request
+    })
 }
 ```
 
@@ -189,16 +191,14 @@ done
 # Check rate limit headers
 curl -i -H "Authorization: Bearer prod-key-minimum-16-chars" \
      http://localhost:8080/api/v1/profile
-# Headers:
-# X-RateLimit-Limit: 100
-# X-RateLimit-Remaining: 99
-# X-RateLimit-Reset: 1704067200
+# When rate limited, you'll see:
+# X-RateLimit-Remaining: 0
+# Retry-After: 900
 
-# Test JWT authentication
-TOKEN=$(curl -X POST -H "Authorization: Bearer prod-key-minimum-16-chars" \
-             http://localhost:8080/api/v1/auth/token | jq -r .access_token)
-
-curl -H "Authorization: Bearer $TOKEN" \
+# JWT tokens must be generated programmatically
+# as there is no token generation endpoint.
+# Once you have a JWT token, use it like this:
+curl -H "Authorization: Bearer <your-jwt-token>" \
      http://localhost:8080/api/v1/profile
 ```
 

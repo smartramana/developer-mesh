@@ -2,15 +2,14 @@
 
 ## Overview
 
-The Webhook API enables the DevOps MCP platform to receive and process real-time events from external services. It provides secure webhook endpoints, event processing, and automatic AI agent notifications for DevOps workflow automation.
+The Webhook API enables the DevOps MCP platform to receive and process real-time events from GitHub. It provides secure webhook endpoints with signature validation and asynchronous event processing via AWS SQS.
 
 ## Webhook Endpoints
 
 ### Base URL
 ```
-Production: https://api.devops-mcp.com/api/v1/webhooks
-Staging:    https://staging-api.devops-mcp.com/api/v1/webhooks
-Local:      http://localhost:8081/api/v1/webhooks
+Production: https://api.dev-mesh.io/api/webhooks
+Local:      http://localhost:8081/api/webhooks
 ```
 
 ## GitHub Webhooks
@@ -20,7 +19,7 @@ Local:      http://localhost:8081/api/v1/webhooks
 Process incoming GitHub webhook events.
 
 ```http
-POST /api/v1/webhooks/github
+POST /api/webhooks/github
 ```
 
 #### Headers
@@ -34,14 +33,13 @@ POST /api/v1/webhooks/github
 
 #### Supported Events
 
-- **Issues**: `opened`, `closed`, `edited`, `labeled`, `assigned`
-- **Pull Requests**: `opened`, `closed`, `merged`, `synchronize`, `review_requested`
+- **Issues**: GitHub issue events
+- **Issue Comment**: Comments on issues
+- **Pull Requests**: Pull request events
 - **Push**: Code pushes to branches
-- **Release**: `published`, `created`, `edited`
-- **Workflow**: GitHub Actions workflow events
-- **Repository**: `created`, `deleted`, `archived`
-- **Star**: Repository starred/unstarred
-- **Fork**: Repository forked
+- **Release**: Release events
+
+**Note**: The webhook handler is configured to accept only these event types. Other GitHub events will be rejected.
 
 #### Request Body Examples
 
@@ -175,26 +173,11 @@ POST /api/v1/webhooks/github
 #### Response
 
 **Success (200 OK):**
-```json
-{
-  "status": "accepted",
-  "message": "Webhook processed successfully",
-  "event_id": "evt-550e8400-e29b-41d4-a716-446655440000",
-  "event_type": "issues",
-  "action": "opened",
-  "processing": {
-    "stored": true,
-    "embeddings_generated": true,
-    "relationships_extracted": true,
-    "agents_notified": 3
-  },
-  "metadata": {
-    "repository": "octocat/hello-world",
-    "issue_number": 42,
-    "processing_time_ms": 145
-  }
-}
 ```
+Webhook received successfully
+```
+
+**Note**: The webhook handler returns a simple text response and queues the event for asynchronous processing via AWS SQS.
 
 **Validation Error (400 Bad Request):**
 ```json
@@ -210,13 +193,9 @@ POST /api/v1/webhooks/github
 }
 ```
 
-### Configure GitHub Webhook
+### Configure GitHub Webhook (Not Implemented)
 
-Configure webhook processing options for a repository.
-
-```http
-PUT /api/v1/webhooks/github/config
-```
+**Note**: Webhook configuration endpoints are planned but not yet implemented. Webhook processing options are currently configured via environment variables.
 
 #### Request Body
 ```json
@@ -253,7 +232,7 @@ PUT /api/v1/webhooks/github/config
 ```json
 {
   "repository": "octocat/hello-world",
-  "webhook_url": "https://api.devops-mcp.com/api/v1/webhooks/github",
+  "webhook_url": "https://api.dev-mesh.io/api/webhooks/github",
   "secret": "webhook-secret-123",
   "config": {
     "events": ["issues", "pull_request", "push", "release"],
@@ -266,15 +245,9 @@ PUT /api/v1/webhooks/github/config
 }
 ```
 
-## Webhook Event Management
+## Webhook Event Management (Not Implemented)
 
-### List Webhook Events
-
-Retrieve processed webhook events with filtering.
-
-```http
-GET /api/v1/webhooks/events
-```
+**Note**: Webhook event management endpoints are planned but not yet implemented. Events are currently processed asynchronously via SQS without a query interface.
 
 #### Query Parameters
 

@@ -6,7 +6,7 @@
 
 ## Overview
 
-This guide covers testing strategies, tools, and best practices for DevOps MCP with emphasis on testing against real AWS services (S3, SQS, Bedrock, ElastiCache).
+This guide covers testing strategies, tools, and best practices for DevOps MCP with emphasis on testing against real AWS services (S3, SQS, Bedrock, ElastiCache). Note that many advanced testing tools mentioned (Cypress, Playwright, Gatling, Pact) are not currently implemented but shown as examples of potential testing approaches.
 
 ## Testing Pyramid
 
@@ -205,6 +205,9 @@ func (s *AWSIntegrationTestSuite) SetupSuite() {
     if os.Getenv("RUN_AWS_INTEGRATION_TESTS") != "true" {
         s.T().Skip("AWS integration tests disabled")
     }
+    
+    // Note: Some tests may use LocalStack if configured
+    // Check AWS_ENDPOINT_URL environment variable
     
     s.ctx = context.Background()
     
@@ -534,10 +537,15 @@ func TestAPIWithAWSIntegration(t *testing.T) {
 
 ## E2E Testing
 
-### Cypress Tests
+### Frontend Testing (Not Currently Implemented)
+
+**Note**: DevOps MCP is currently a backend-only platform with no frontend. The examples below show potential testing approaches if a frontend were added.
+
+#### Cypress Example (Theoretical)
 
 ```javascript
 // cypress/integration/user_journey.spec.js
+// THEORETICAL: No frontend exists in current implementation
 describe('User Journey: Create and Search Context', () => {
   before(() => {
     cy.task('db:seed'); // Seed test data
@@ -569,10 +577,11 @@ describe('User Journey: Create and Search Context', () => {
 });
 ```
 
-### Playwright Tests
+#### Playwright Example (Theoretical)
 
 ```typescript
 // tests/e2e/api.spec.ts
+// THEORETICAL: While API testing is possible, Playwright is not currently used
 import { test, expect } from '@playwright/test';
 
 test.describe('API E2E Tests', () => {
@@ -649,17 +658,18 @@ test.describe('API E2E Tests', () => {
 });
 ```
 
-### ElastiCache Integration Tests
+### Redis/ElastiCache Integration Tests
 
 ```go
 // tests/integration/redis_test.go
 // +build integration
 
-func TestElastiCacheIntegration(t *testing.T) {
-    // Ensure SSH tunnel is running
+func TestRedisIntegration(t *testing.T) {
+    // For local development: SSH tunnel to ElastiCache
+    // For CI: May use local Redis container
     redisAddr := os.Getenv("REDIS_ADDR")
-    if redisAddr != "127.0.0.1:6379" {
-        t.Skip("ElastiCache tunnel not configured")
+    if redisAddr == "" {
+        redisAddr = "localhost:6379" // Default for CI
     }
     
     // Connect to Redis via tunnel
@@ -805,10 +815,13 @@ export default function () {
 }
 ```
 
-### Gatling Load Tests
+### Alternative Load Testing Tools (Not Implemented)
+
+#### Gatling Example (Theoretical)
 
 ```scala
 // tests/load/BasicSimulation.scala
+// THEORETICAL: Gatling is not currently used in the project
 import io.gatling.core.Predef._
 import io.gatling.http.Predef._
 import scala.concurrent.duration._
@@ -848,12 +861,15 @@ class BasicSimulation extends Simulation {
 }
 ```
 
-## Chaos Engineering
+## Chaos Engineering (Not Implemented)
 
-### Litmus Chaos Tests
+**Note**: Chaos engineering tools are not currently implemented in DevOps MCP, which runs on a single EC2 instance with Docker Compose.
+
+### Litmus Chaos Example (Theoretical)
 
 ```yaml
 # chaos/network-delay.yaml
+# THEORETICAL: Kubernetes-based chaos testing not applicable to current Docker Compose deployment
 apiVersion: litmuschaos.io/v1alpha1
 kind: ChaosEngine
 metadata:
@@ -878,9 +894,10 @@ spec:
               value: "50" # Affect 50% of pods
 ```
 
-### Chaos Toolkit Tests
+### Chaos Toolkit Example (Theoretical)
 
 ```json
+// THEORETICAL: Not implemented in current single-instance deployment
 {
   "title": "Verify system handles database failure",
   "description": "Kill database and ensure graceful degradation",
@@ -923,9 +940,11 @@ spec:
 }
 ```
 
-## Contract Testing
+## Contract Testing (Not Implemented)
 
-### Pact Consumer Tests
+**Note**: Contract testing with Pact is not currently implemented but could be valuable for API versioning.
+
+### Pact Consumer Example (Theoretical)
 
 ```javascript
 // tests/contract/consumer.pact.test.js
@@ -1085,7 +1104,7 @@ export TEST_SQS_QUEUE=https://sqs.us-east-1.amazonaws.com/594992249511/sean-mcp-
 export BEDROCK_ENABLED=true
 export BEDROCK_SESSION_LIMIT=0.10  # $0.10 per test session
 
-# Start ElastiCache tunnel (REQUIRED)
+# Start ElastiCache tunnel (REQUIRED for local development)
 ./scripts/aws/connect-elasticache.sh
 
 # Verify AWS connectivity
@@ -1094,6 +1113,9 @@ export BEDROCK_SESSION_LIMIT=0.10  # $0.10 per test session
 # Run integration tests
 export RUN_AWS_INTEGRATION_TESTS=true
 make test-integration
+
+# Note: Integration tests may use LocalStack for some AWS services
+# Check docker-compose.local.yml for LocalStack configuration
 ```
 
 ### Local Test Database
@@ -1126,7 +1148,7 @@ on:
     branches: [main]
 
 env:
-  GO_VERSION: '1.24.3'
+  GO_VERSION: '1.24.4'  # Current version used in CI
   AWS_REGION: us-east-1
   TEST_S3_BUCKET: sean-mcp-dev-contexts
   TEST_SQS_QUEUE: https://sqs.us-east-1.amazonaws.com/594992249511/sean-mcp-test
@@ -1308,8 +1330,15 @@ func TestSQSWorker(t *testing.T) {
     }
     
     // Use test queue with proper cleanup
+    // Note: May use LocalStack SQS in local development
+    queueURL := os.Getenv("TEST_SQS_QUEUE")
+    if os.Getenv("AWS_ENDPOINT_URL") != "" {
+        // Using LocalStack or other local AWS mock
+        queueURL = strings.Replace(queueURL, "amazonaws.com", "localhost:4566", 1)
+    }
+    
     worker := NewWorker(WorkerConfig{
-        QueueURL: os.Getenv("TEST_SQS_QUEUE"),
+        QueueURL: queueURL,
         VisibilityTimeout: 30,
         MaxMessages: 1,
     })

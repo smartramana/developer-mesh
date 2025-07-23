@@ -69,6 +69,8 @@ This release transforms DevOps MCP into a comprehensive AI Agent Orchestration P
 
 ### Security
 - API key and JWT authentication fully implemented
+- Casbin RBAC integration planned (interfaces prepared, not yet implemented)
+- OAuth provider interfaces defined (concrete implementations pending)
 - Tenant isolation for multi-tenant deployments
 - Secure WebSocket connections with authentication
 - Cost controls to prevent runaway AI expenses

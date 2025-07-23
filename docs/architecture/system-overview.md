@@ -87,7 +87,7 @@ pkg/
 - JSONB for flexible schemas
 - Row-level security support
 
-**Redis 6.2+**
+**Redis 7+**
 - Response caching
 - Session management
 - Distributed locks
@@ -221,10 +221,10 @@ type Repository[T any] interface {
 
 ### Authentication & Authorization
 
-- **JWT Tokens**: Stateless authentication
-- **API Keys**: Service-to-service communication
-- **OAuth 2.0**: Third-party integrations
-- **RBAC**: Role-based access control
+- **JWT Tokens**: Stateless authentication (implemented)
+- **API Keys**: Service-to-service communication (implemented)
+- **OAuth 2.0**: Third-party integrations (interface defined, providers pending)
+- **RBAC**: Role-based access control (Casbin planned, not yet implemented)
 
 ### Data Protection
 
@@ -291,8 +291,8 @@ docker-compose:
 
 ### AI Agent Performance
 
-1. **Task Routing**: Sub-100ms routing decisions with cached capabilities
-2. **Binary Protocol**: Up to 70% message size reduction with compression
+1. **Task Routing**: Optimized routing decisions with cached capabilities
+2. **Binary Protocol**: Significant message size reduction with compression
 3. **Connection Pooling**: Reusable WebSocket connections per agent
 4. **Workload Balancing**: Real-time load distribution across agents
 
@@ -312,7 +312,7 @@ docker-compose:
 
 ### Scalability
 
-1. **Agent Scaling**: Support for 1000+ concurrent AI agents
+1. **Agent Scaling**: Designed for high concurrency with multiple AI agents
 2. **Task Parallelization**: MapReduce patterns for large workloads
 3. **Circuit Breakers**: Prevent cascade failures
 4. **Queue Sharding**: Distribute load across SQS queues
@@ -346,8 +346,8 @@ Liveness and readiness probes
    - Agent consensus mechanisms
 
 3. **Enterprise Features**:
-   - Casbin RBAC implementation
-   - OAuth provider integrations
+   - Casbin RBAC implementation (planned)
+   - OAuth provider integrations (pending implementation)
    - Advanced audit logging
    - Multi-tenant agent isolation
 

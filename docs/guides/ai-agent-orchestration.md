@@ -1,42 +1,46 @@
 # AI Agent Orchestration Guide
 
-> **Purpose**: Comprehensive guide for multi-agent neural network coordination in DevOps MCP
-> **Audience**: Engineers building AI-powered DevOps automation systems
-> **Scope**: Agent architecture, coordination patterns, neural network integration
+> **Purpose**: Guide for AI agent task assignment and routing in DevOps MCP
+> **Audience**: Engineers implementing AI-powered DevOps automation
+> **Scope**: Agent registration, task assignment strategies, and workload management
 
 ## Overview
 
-DevOps MCP provides a sophisticated orchestration layer for coordinating multiple AI agents, each potentially powered by different neural networks. This guide explains how to design, implement, and optimize multi-agent systems that work together to solve complex DevOps challenges.
+DevOps MCP provides a task assignment and routing system for AI agents. This guide explains the current implementation of agent management, task routing strategies, and workload tracking. 
+
+**Note**: This document reflects the current implementation. Some advanced orchestration patterns described later in this document are design proposals for future development.
 
 ## Core Concepts
 
-### Agent Definition
+### Agent Definition (Current Implementation)
 
-An agent in MCP is an autonomous entity with:
-- **Identity**: Unique identifier and metadata
-- **Capabilities**: Specific skills and specializations
-- **Model**: Associated neural network (GPT-4, Claude, Bedrock, etc.)
-- **State**: Current workload and availability
-- **Constraints**: Operational limits (cost, latency, quality)
+An agent in MCP is represented by a simpler structure focused on task assignment:
 
 ```go
+// From pkg/models/agent.go
 type Agent struct {
-    ID           string
-    Name         string
-    Type         AgentType
-    Capabilities []Capability
-    Model        ModelConfig
-    State        AgentState
-    Constraints  AgentConstraints
+    ID           uuid.UUID              `json:"id"`
+    TenantID     uuid.UUID              `json:"tenant_id"`
+    Name         string                 `json:"name"`
+    Type         string                 `json:"type"`
+    Status       AgentStatus            `json:"status"`
+    Capabilities []AgentCapability      `json:"capabilities"`
+    Endpoint     string                 `json:"endpoint,omitempty"`
+    ModelID      string                 `json:"model_id,omitempty"`
+    Metadata     map[string]interface{} `json:"metadata,omitempty"`
+    CreatedAt    time.Time              `json:"created_at"`
+    UpdatedAt    time.Time              `json:"updated_at"`
 }
 
-type Capability struct {
-    Name        string
-    Confidence  float64
-    TaskTypes   []TaskType
-    Languages   []string
-    Specialties []string
-}
+type AgentCapability string
+
+// Current statuses
+type AgentStatus string
+const (
+    AgentStatusActive   AgentStatus = "active"
+    AgentStatusInactive AgentStatus = "inactive"
+    AgentStatusDraining AgentStatus = "draining"
+)
 ```
 
 ## Architecture Overview
@@ -154,7 +158,28 @@ type PerformanceAgent struct {
 
 ## Coordination Patterns
 
-### 1. MapReduce Pattern
+**Note**: The following coordination patterns are defined as enums in the codebase but not yet implemented. They represent planned functionality.
+
+### Currently Defined Coordination Modes
+
+```go
+// From pkg/models/distributed_task_complete.go
+type CoordinationMode string
+
+const (
+    CoordinationModeParallel    CoordinationMode = "parallel"
+    CoordinationModeSequential  CoordinationMode = "sequential" 
+    CoordinationModePipeline    CoordinationMode = "pipeline"
+    CoordinationModeMapReduce   CoordinationMode = "map_reduce"
+    CoordinationModeLeaderElect CoordinationMode = "leader_elect"
+)
+```
+
+### Future Implementation Designs
+
+The following patterns show how these coordination modes could be implemented:
+
+### 1. MapReduce Pattern (Planned)
 
 Distribute work across multiple agents and aggregate results.
 
@@ -503,9 +528,111 @@ func (a *AgentStateCRDT) Merge(update StateUpdate) {
 }
 ```
 
-## Task Routing Algorithms
+## Task Routing Algorithms (Implemented)
 
-### 1. Capability-Based Routing
+The system implements five task routing strategies in `pkg/services/assignment_engine.go`:
+
+### 1. Round Robin
+Distributes tasks evenly across all active agents.
+
+```go
+type RoundRobinStrategy struct {
+    counter atomic.Uint64
+}
+
+func (s *RoundRobinStrategy) SelectAgent(agents []*models.Agent, task *models.Task) (*models.Agent, error) {
+    if len(agents) == 0 {
+        return nil, ErrNoAgentsAvailable
+    }
+    index := s.counter.Add(1) % uint64(len(agents))
+    return agents[index], nil
+}
+```
+
+### 2. Least Loaded
+Assigns tasks to the agent with the lowest current workload.
+
+```go
+func (s *LeastLoadedStrategy) SelectAgent(agents []*models.Agent, task *models.Task) (*models.Agent, error) {
+    workloads := s.workloadSvc.GetAgentWorkloads(agentIDs)
+    
+    var leastLoadedAgent *models.Agent
+    minWorkload := int(^uint(0) >> 1) // Max int
+    
+    for _, agent := range agents {
+        workload := workloads[agent.ID]
+        if workload.CurrentTasks < minWorkload {
+            minWorkload = workload.CurrentTasks
+            leastLoadedAgent = agent
+        }
+    }
+    return leastLoadedAgent, nil
+}
+```
+
+### 3. Capability Match
+Routes tasks to agents with matching capabilities.
+
+```go
+func (s *CapabilityMatchStrategy) SelectAgent(agents []*models.Agent, task *models.Task) (*models.Agent, error) {
+    var capableAgents []*models.Agent
+    
+    for _, agent := range agents {
+        if s.hasRequiredCapabilities(agent, task) {
+            capableAgents = append(capableAgents, agent)
+        }
+    }
+    
+    if len(capableAgents) == 0 {
+        return nil, ErrNoCapableAgent
+    }
+    
+    // Select randomly from capable agents
+    return capableAgents[rand.Intn(len(capableAgents))], nil
+}
+```
+
+### 4. Performance Based
+Selects agents based on historical performance metrics.
+
+```go
+func (s *PerformanceBasedStrategy) SelectAgent(agents []*models.Agent, task *models.Task) (*models.Agent, error) {
+    metrics := s.metricsRepo.GetAgentMetrics(agentIDs, task.Type)
+    
+    var bestAgent *models.Agent
+    bestScore := 0.0
+    
+    for _, agent := range agents {
+        score := s.calculatePerformanceScore(metrics[agent.ID])
+        if score > bestScore {
+            bestScore = score
+            bestAgent = agent
+        }
+    }
+    return bestAgent, nil
+}
+```
+
+### 5. Cost Optimized
+Minimizes cost while maintaining quality thresholds.
+
+```go
+func (s *CostOptimizedStrategy) SelectAgent(agents []*models.Agent, task *models.Task) (*models.Agent, error) {
+    var lowestCostAgent *models.Agent
+    lowestCost := float64(math.MaxFloat64)
+    
+    for _, agent := range agents {
+        cost := s.costService.EstimateTaskCost(agent, task)
+        if cost < lowestCost && s.meetsQualityThreshold(agent, task) {
+            lowestCost = cost
+            lowestCostAgent = agent
+        }
+    }
+    return lowestCostAgent, nil
+}
+```
+
+### Original Capability-Based Routing (Design Proposal)
 
 ```go
 type CapabilityRouter struct {

@@ -2,7 +2,7 @@
 
 ## Overview
 
-DevOps MCP uses Go 1.24's workspace feature to organize the codebase as a monorepo with multiple modules. This architecture provides strong module boundaries while enabling code sharing, making it ideal for the AI agent orchestration platform's microservices architecture.
+DevOps MCP uses Go 1.24.4's workspace feature to organize the codebase as a monorepo with multiple modules. This architecture provides strong module boundaries while enabling code sharing, making it ideal for the AI agent orchestration platform's microservices architecture.
 
 ## Why Go Workspaces?
 
@@ -41,7 +41,7 @@ devops-mcp/
 │   └── mockserver/          # Testing mock server
 │       ├── go.mod           # Module: mockserver
 │       └── cmd/mockserver/  # Entry point
-└── pkg/                     # Shared packages (35 total)
+└── pkg/                     # Shared packages (33 total)
     ├── adapters/            # Tool integrations (GitHub, etc.)
     ├── agents/              # Agent management interfaces
     ├── api/                 # API types and handlers
@@ -70,7 +70,7 @@ devops-mcp/
 ### go.work File
 
 ```go
-go 1.24
+go 1.24.4
 
 use (
     ./apps/mcp-server
@@ -78,25 +78,27 @@ use (
     ./apps/rest-api
     ./apps/worker
     ./pkg
+    ./test/e2e
 )
 ```
 
 ### Module Names
 
-Post-refactor, modules use simple names instead of full GitHub paths:
+Modules use full GitHub paths with replace directives:
 
 ```go
 // apps/mcp-server/go.mod
-module mcp-server
+module github.com/S-Corkum/devops-mcp/apps/mcp-server
 
 // apps/rest-api/go.mod
-module rest-api
+module github.com/S-Corkum/devops-mcp/apps/rest-api
 
 // apps/worker/go.mod
-module worker
-```
+module github.com/S-Corkum/devops-mcp/apps/worker
 
-This prevents module resolution conflicts in workspace mode.
+// Each module includes:
+replace github.com/S-Corkum/devops-mcp/pkg => ../../pkg
+```
 
 ## Dependency Flow
 
@@ -200,7 +202,7 @@ apps/service-name/
 
 ### Shared Packages (`pkg/*`)
 
-The 35 shared packages provide comprehensive functionality for AI orchestration:
+The 33 shared packages provide comprehensive functionality for AI orchestration:
 
 #### Core AI Orchestration Packages
 ```
@@ -232,10 +234,11 @@ pkg/
 │   ├── bedrock.go    # Bedrock AI models
 │   ├── s3.go         # Context storage
 │   └── sqs.go        # Task queuing
-├── cache/            # Multi-level caching
-│   ├── memory.go     # In-memory cache
-│   ├── redis.go      # Distributed cache
-│   └── multi.go      # Cache hierarchy
+├── common/
+│   └── cache/        # Multi-level caching
+│       ├── memory.go # In-memory cache
+│       ├── redis.go  # Distributed cache
+│       └── multi.go  # Cache hierarchy
 ├── resilience/       # Fault tolerance
 │   ├── circuitbreaker.go # Circuit breaker
 │   ├── retry.go          # Retry logic

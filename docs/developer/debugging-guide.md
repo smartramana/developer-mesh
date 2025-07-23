@@ -427,10 +427,18 @@ http -v POST localhost:8081/api/embeddings \
   agent_id=test-agent \
   text="Sample text to embed"
 
-# Using grpcurl for MCP
-grpcurl -plaintext \
-  -d '{"tool": "github.create_issue", "input": {"repo": "test"}}' \
-  localhost:8080 mcp.MCP/ExecuteTool
+# Test WebSocket connection with wscat
+wscat -c ws://localhost:8080/v1/mcp -s mcp.v1 \
+  -H "Authorization: Bearer $API_KEY"
+
+# Test with cURL (WebSocket upgrade)
+curl -i -N \
+  -H "Connection: Upgrade" \
+  -H "Upgrade: websocket" \
+  -H "Sec-WebSocket-Version: 13" \
+  -H "Sec-WebSocket-Key: SGVsbG8sIHdvcmxkIQ==" \
+  -H "Sec-WebSocket-Protocol: mcp.v1" \
+  http://localhost:8080/v1/mcp
 ```
 
 ### 2. Load Testing

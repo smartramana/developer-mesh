@@ -1,22 +1,52 @@
-# Repository Package Migration Guide
+# Repository Package
+
+> **Purpose**: Data access layer with repository pattern implementation for the DevOps MCP platform
+> **Status**: Modular Architecture with Subpackages
+> **Dependencies**: PostgreSQL, sqlx, database/sql
 
 ## Overview
 
-This package has been migrated from a flat structure to a more modular approach using subpackages. The migration resolves issues with multiple redeclarations of interfaces and types while maintaining backward compatibility with existing API code.
+The repository package provides a data access layer using the repository pattern. It has been organized into modular subpackages for different entity types while maintaining backward compatibility through adapters and type aliases.
 
-## Repository Structure
+## Architecture
 
-The repository package now consists of:
+```
+┌─────────────────────────────────────────────────────────────┐
+│                   Repository Package                         │
+├─────────────────────────────────────────────────────────────┤
+│                                                             │
+│  Factory ──► Subpackages ──► Database                      │
+│     │            │                                          │
+│     │            ├── agent/    (Agent operations)          │
+│     │            ├── model/    (Model operations)          │
+│     │            ├── vector/   (Embedding operations)      │
+│     │            ├── search/   (Search operations)         │
+│     │            └── postgres/ (Base repository)           │
+│     │                                                       │
+│     └──► Legacy Adapters (Backward compatibility)          │
+│                                                             │
+└─────────────────────────────────────────────────────────────┘
+```
 
-- `pkg/repository/` - Root package containing factory methods and adapter interfaces
-  - `pkg/repository/agent/` - Subpackage for agent entity operations
-  - `pkg/repository/model/` - Subpackage for model entity operations
-  - `pkg/repository/vector/` - Subpackage for vector embedding operations
+## Package Structure
 
-Each subpackage follows a consistent structure:
-- `interfaces.go` - Defines the core interfaces and types
-- `repository.go` - Contains the implementation of the interfaces
-- `mock.go` - Provides mock implementations for testing
+- `pkg/repository/` - Root package with factory and adapters
+  - `factory.go` - Repository factory for creating instances
+  - `interfaces.go` - Type aliases for backward compatibility
+  - `*_bridge.go` - Adapter implementations
+  
+- Subpackages:
+  - `agent/` - Agent entity repository
+  - `model/` - Model entity repository  
+  - `vector/` - Vector embedding repository
+  - `search/` - Search functionality
+  - `postgres/` - Base PostgreSQL repository
+  - `interfaces/` - Shared interfaces
+
+Each subpackage contains:
+- `interfaces.go` - Repository interface definition
+- `repository.go` - PostgreSQL implementation
+- `mock.go` - Mock implementation for testing
 
 ## Usage Examples
 
@@ -41,9 +71,19 @@ vectorRepo := factory.GetVectorRepository()
 agent, err := agentRepo.Get(ctx, "agent-id")
 ```
 
-### Direct Repository Access
+### Direct Repository Access (V2)
 
-For code that needs direct access to the underlying implementations:
+For new code, use the V2 methods that return the actual subpackage types:
+
+```go
+// Get V2 repositories (recommended for new code)
+agentRepoV2 := factory.GetAgentRepositoryV2()  // Returns agent.Repository
+modelRepoV2 := factory.GetModelRepositoryV2()  // Returns model.Repository
+vectorRepoV2 := factory.GetVectorRepositoryV2() // Returns vector.Repository
+searchRepo := factory.GetSearchRepository()     // Returns search.Repository
+```
+
+### Direct Instantiation
 
 ```go
 import (
@@ -62,11 +102,44 @@ modelRepo := model.NewRepository(db)
 vectorRepo := vector.NewRepository(db)
 ```
 
-## Key Features and Implementation Details
+## Repository Interfaces
 
-### VectorAPIRepository Interface
+### Agent Repository
 
-The Vector Repository supports the following operations:
+```go
+type AgentRepository interface {
+    // CRUD operations
+    CreateAgent(ctx context.Context, agent *models.Agent) error
+    GetAgent(ctx context.Context, agentID string) (*models.Agent, error)
+    UpdateAgent(ctx context.Context, agent *models.Agent) error
+    DeleteAgent(ctx context.Context, agentID string) error
+    
+    // List operations
+    ListAgents(ctx context.Context, tenantID uuid.UUID) ([]*models.Agent, error)
+    ListAgentsByStatus(ctx context.Context, tenantID uuid.UUID, status string) ([]*models.Agent, error)
+    
+    // Capability operations
+    GetAgentsByCapability(ctx context.Context, tenantID uuid.UUID, capability string) ([]*models.Agent, error)
+}
+```
+
+### Model Repository
+
+```go
+type ModelRepository interface {
+    // CRUD operations
+    CreateModel(ctx context.Context, model *models.Model) error
+    GetModel(ctx context.Context, modelID string) (*models.Model, error)
+    UpdateModel(ctx context.Context, model *models.Model) error
+    DeleteModel(ctx context.Context, modelID string) error
+    
+    // List operations
+    ListModels(ctx context.Context, tenantID uuid.UUID) ([]*models.Model, error)
+    ListEnabledModels(ctx context.Context, tenantID uuid.UUID) ([]*models.Model, error)
+}
+```
+
+### Vector Repository
 
 ```go
 type VectorAPIRepository interface {
@@ -74,112 +147,206 @@ type VectorAPIRepository interface {
     StoreEmbedding(ctx context.Context, embedding *Embedding) error
     
     // Search embeddings with various filter options
-    SearchEmbeddings(ctx context.Context, queryVector []float32, contextID string, modelID string, limit int, similarityThreshold float64) ([]*Embedding, error)
+    SearchEmbeddings(ctx context.Context, queryVector []float32, contextID string, 
+                     modelID string, limit int, similarityThreshold float64) ([]*Embedding, error)
     
-    // Legacy search method for backward compatibility
-    SearchEmbeddings_Legacy(ctx context.Context, queryVector []float32, contextID string, limit int) ([]*Embedding, error)
-    
-    // Get all embeddings for a context
+    // Context operations
     GetContextEmbeddings(ctx context.Context, contextID string) ([]*Embedding, error)
-    
-    // Delete all embeddings for a context
     DeleteContextEmbeddings(ctx context.Context, contextID string) error
     
-    // Get all embeddings for a specific model in a context
+    // Model operations
     GetEmbeddingsByModel(ctx context.Context, contextID string, modelID string) ([]*Embedding, error)
-    
-    // Get list of unique model IDs with stored embeddings
-    GetSupportedModels(ctx context.Context) ([]string, error)
-    
-    // Delete all embeddings for a specific model in a context
     DeleteModelEmbeddings(ctx context.Context, contextID string, modelID string) error
+    GetSupportedModels(ctx context.Context) ([]string, error)
 }
 ```
 
-### DeleteModelEmbeddings Implementation
-
-The `DeleteModelEmbeddings` method has been implemented across all repository layers to provide fine-grained control over vector embeddings storage:
+### Search Repository
 
 ```go
-// SQL implementation in EmbeddingRepositoryImpl
-func (r *EmbeddingRepositoryImpl) DeleteModelEmbeddings(ctx context.Context, contextID string, modelID string) error {
-    query := `DELETE FROM embeddings WHERE context_id = $1 AND model_id = $2`
-    _, err := r.db.ExecContext(ctx, query, contextID, modelID)
-    return err
+type SearchRepository interface {
+    // Search with options
+    Search(ctx context.Context, query string, options SearchOptions) (*SearchResults, error)
+    
+    // Type-specific searches
+    SearchAgents(ctx context.Context, query string, tenantID uuid.UUID) ([]*models.Agent, error)
+    SearchModels(ctx context.Context, query string, tenantID uuid.UUID) ([]*models.Model, error)
+    SearchTasks(ctx context.Context, query string, tenantID uuid.UUID) ([]*models.Task, error)
 }
 
-// In-memory implementation in MockRepository
-func (m *MockVectorRepository) DeleteModelEmbeddings(ctx context.Context, contextID string, modelID string) error {
-    // Filter out embeddings for the specified model
-    filtered := make([]*repository.Embedding, 0)
-    for _, emb := range m.embeddings[contextID] {
-        if emb.ModelID != modelID {
-            filtered = append(filtered, emb)
-        }
-    }
-    m.embeddings[contextID] = filtered
-    return nil
+```
+
+## Design Patterns
+
+### Repository Pattern
+
+Each repository follows the repository pattern for data access:
+
+```go
+// Generic repository interface
+type Repository[T any] interface {
+    Create(ctx context.Context, entity T) error
+    Get(ctx context.Context, id string) (T, error)
+    Update(ctx context.Context, entity T) error
+    Delete(ctx context.Context, id string) error
+    List(ctx context.Context, opts ...interface{}) ([]T, error)
 }
 ```
 
-## Migration Design Patterns
+### Adapter Pattern for Backward Compatibility
 
-### Adapter Pattern
-
-We've implemented the adapter pattern to reconcile the API expectations with our refactored repository interfaces. For example:
-
-- API code expects `CreateAgent`, `ListAgents`, etc.
-- Core repository uses `Create`, `List`, etc.
-
-The adapters bridge this gap:
+Legacy adapters maintain compatibility with existing API code:
 
 ```go
-// API expectation
-agentRepo.CreateAgent(ctx, agent)
+// Legacy adapter bridges old and new interfaces
+type LegacyAgentAdapter struct {
+    repo agent.Repository
+}
 
-// Adapter implementation
+// API expects CreateAgent, adapter calls Create
 func (a *LegacyAgentAdapter) CreateAgent(ctx context.Context, agent *models.Agent) error {
-    return a.Create(ctx, agent)
-}
-
-// Repository implementation
-func (r *RepositoryImpl) Create(ctx context.Context, agent *models.Agent) error {
-    // Implementation details
+    return a.repo.Create(ctx, agent)
 }
 ```
 
-### Multi-layer Adapters
+### Factory Pattern
 
-For the Vector API repository, we use multiple layers of adaptation:
-
-1. **Direct Repository Implementation**: `pkg/repository/vector/repository.go`
-2. **Bridge Adapter**: `pkg/repository/vector_bridge.go` - Links pkg interfaces to implementation
-3. **API Adapter**: `apps/rest-api/internal/adapters/repository_shim.go` - Adapts between API and repository types
-
-### Type Aliases
-
-When necessary, we've used type aliases to maintain compatibility:
+The factory provides a centralized way to create repositories:
 
 ```go
-// In vector_bridge.go
-type Embedding = vector.Embedding
+factory := repository.NewFactory(db)
+
+// Legacy methods for backward compatibility
+agentRepo := factory.GetAgentRepository()
+
+// V2 methods for new code
+agentRepoV2 := factory.GetAgentRepositoryV2()
 ```
 
 ## Testing
 
-Each subpackage includes a mock implementation for testing purposes:
+### Using Mock Repositories
+
+Each subpackage provides mock implementations:
 
 ```go
 import (
     "testing"
+    "github.com/S-Corkum/devops-mcp/pkg/repository"
     "github.com/S-Corkum/devops-mcp/pkg/repository/agent"
 )
 
-func TestAgentOperations(t *testing.T) {
-    // Use the mock repository for testing
-    repo := agent.NewMockRepository()
+func TestWithFactory(t *testing.T) {
+    // Factory returns mocks when created with nil DB
+    factory := repository.NewFactory(nil)
     
-    // Test against the mock
-    agent, err := repo.Get(ctx, "test-id")
+    agentRepo := factory.GetAgentRepositoryV2()
+    // agentRepo is now a mock implementation
+}
+
+func TestDirectMock(t *testing.T) {
+    // Create mock directly
+    mockRepo := agent.NewMockRepository()
+    
+    // Add test data
+    testAgent := &models.Agent{ID: "test-123"}
+    mockRepo.Create(ctx, testAgent)
+    
+    // Test operations
+    agent, err := mockRepo.Get(ctx, "test-123")
+    assert.NoError(t, err)
+    assert.Equal(t, testAgent.ID, agent.ID)
 }
 ```
+
+### Mock Features
+
+- In-memory storage
+- Full interface compliance
+- Thread-safe operations
+- Configurable behavior
+
+## Additional Repositories
+
+### PostgreSQL Base Repository
+
+The `postgres/` subpackage provides:
+
+```go
+// BaseRepository provides common database operations
+type BaseRepository struct {
+    db *sqlx.DB
+}
+
+// Transaction support
+func (r *BaseRepository) WithTx(ctx context.Context, fn func(*sqlx.Tx) error) error
+
+// Common query builders
+func (r *BaseRepository) BuildInsertQuery(table string, fields []string) string
+func (r *BaseRepository) BuildUpdateQuery(table string, fields []string) string
+```
+
+### Document Repository
+
+For document operations:
+
+```go
+type DocumentRepository interface {
+    // Document CRUD
+    CreateDocument(ctx context.Context, doc *models.Document) error
+    GetDocument(ctx context.Context, id uuid.UUID) (*models.Document, error)
+    UpdateDocument(ctx context.Context, doc *models.Document) error
+    DeleteDocument(ctx context.Context, id uuid.UUID) error
+    
+    // Workspace operations
+    ListWorkspaceDocuments(ctx context.Context, workspaceID uuid.UUID) ([]*models.Document, error)
+}
+```
+
+### Task Repository
+
+For task management:
+
+```go
+type TaskRepository interface {
+    // Task CRUD
+    CreateTask(ctx context.Context, task *models.Task) error
+    GetTask(ctx context.Context, id uuid.UUID) (*models.Task, error)
+    UpdateTask(ctx context.Context, task *models.Task) error
+    DeleteTask(ctx context.Context, id uuid.UUID) error
+    
+    // Queue operations
+    GetPendingTasks(ctx context.Context, limit int) ([]*models.Task, error)
+    ClaimTask(ctx context.Context, taskID uuid.UUID, agentID string) error
+}
+```
+
+## Implementation Status
+
+**Implemented:**
+- Modular subpackage architecture
+- Factory pattern for repository creation
+- Legacy adapters for backward compatibility
+- Mock implementations for all repositories
+- PostgreSQL implementations
+- Type aliases for smooth migration
+
+**Features:**
+- Thread-safe operations
+- Context support
+- Transaction support (in postgres subpackage)
+- Comprehensive error handling
+- pgvector support for embeddings
+
+## Best Practices
+
+1. **Use Factory**: Create repositories through the factory for consistency
+2. **V2 for New Code**: Use V2 methods that return actual subpackage types
+3. **Context**: Always pass context for cancellation support
+4. **Transactions**: Use postgres.BaseRepository for transaction support
+5. **Testing**: Use mock repositories for unit tests
+
+---
+
+Package Version: 2.0.0 (Modular Architecture)
+Last Updated: 2024-01-23

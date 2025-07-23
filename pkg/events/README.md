@@ -1,14 +1,43 @@
 # Events Package
 
 > **Purpose**: Event-driven architecture and pub/sub infrastructure for the DevOps MCP platform
-> **Status**: Production Ready
-> **Dependencies**: Redis pub/sub, WebSocket events, domain event system
+> **Status**: Basic Implementation
+> **Dependencies**: In-memory event bus, basic domain events
+
+**Note**: This README describes an aspirational event-driven architecture. The actual implementation is much simpler with only basic in-memory event publishing.
 
 ## Overview
 
-The events package provides a robust event-driven architecture that enables loose coupling between services, real-time notifications, and asynchronous processing. It supports multiple event transports including in-memory, Redis pub/sub, and WebSocket broadcasts.
+The events package provides a basic event system for the DevOps MCP platform. Currently, only an in-memory event bus is implemented (`EventBusImpl`), which provides simple publish/subscribe functionality.
 
-## Architecture
+**Implemented Features**:
+- Basic in-memory event bus
+- Simple publish/subscribe pattern
+- Domain event structures
+- Basic event interfaces
+
+**Not Yet Implemented** (but documented below):
+- Event sourcing and event store
+- Redis event bus
+- WebSocket integration  
+- Sagas and process managers
+- Event persistence
+- Distributed event handling
+
+## Current Architecture (Actual Implementation)
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                  Simple Event System                         │
+├─────────────────────────────────────────────────────────────┤
+│                                                             │
+│  Publishers ──► EventBusImpl ──► Handlers (async)          │
+│                  (in-memory)                                │
+│                                                             │
+└─────────────────────────────────────────────────────────────┘
+```
+
+## Planned Architecture (Not Yet Implemented)
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
@@ -25,7 +54,47 @@ The events package provides a robust event-driven architecture that enables loos
 └─────────────────────────────────────────────────────────────┘
 ```
 
-## Core Components
+## Actual Implementation
+
+### EventBusImpl (event_bus_impl.go)
+
+```go
+// Simple in-memory event bus
+type EventBusImpl struct {
+    handlers     map[EventType][]Handler
+    mutex        sync.RWMutex
+    maxQueueSize int
+    queue        chan *models.Event
+}
+
+// Basic publish - calls handlers asynchronously
+func (b *EventBusImpl) Publish(ctx context.Context, event *models.Event) {
+    handlers := b.handlers[EventType(event.Type)]
+    for _, handler := range handlers {
+        go handler(ctx, event)
+    }
+}
+
+// Subscribe to event type
+func (b *EventBusImpl) Subscribe(eventType EventType, handler Handler)
+```
+
+### Domain Event Structure (interfaces.go)
+
+```go
+type DomainEvent struct {
+    ID            uuid.UUID
+    Type          string
+    AggregateID   uuid.UUID
+    AggregateType string
+    Version       int
+    Timestamp     time.Time
+    Data          interface{}
+    Metadata      Metadata
+}
+```
+
+## Planned Components (Documentation for Future Implementation)
 
 ### 1. Event Interface
 
@@ -274,38 +343,33 @@ func NewNotificationHandler(notifier Notifier) EventHandler {
 }
 ```
 
-## Event Bus Implementations
+## Usage Examples
 
-### 1. In-Memory Event Bus
+### Current Implementation Usage
 
 ```go
-// InMemoryEventBus for single-instance deployments
-type InMemoryEventBus struct {
-    mu          sync.RWMutex
-    subscribers map[string][]EventHandler
-    buffer      chan Event
-    workers     int
-}
+// Create event bus
+eventBus := events.NewEventBus(1000)
 
-func NewInMemoryEventBus(bufferSize, workers int) *InMemoryEventBus {
-    return &InMemoryEventBus{
-        subscribers: make(map[string][]EventHandler),
-        buffer:      make(chan Event, bufferSize),
-        workers:     workers,
-    }
-}
+// Subscribe to events
+eventBus.Subscribe("task.created", func(ctx context.Context, event *models.Event) error {
+    // Handle event
+    fmt.Printf("Task created: %v\n", event.Data)
+    return nil
+})
 
-func (b *InMemoryEventBus) Publish(ctx context.Context, event Event) error {
-    select {
-    case b.buffer <- event:
-        return nil
-    case <-ctx.Done():
-        return ctx.Err()
-    default:
-        return ErrEventBufferFull
-    }
+// Publish event
+event := &models.Event{
+    Type: "task.created",
+    Data: map[string]interface{}{
+        "task_id": "123",
+        "name":    "Process data",
+    },
 }
+eventBus.Publish(ctx, event)
 ```
+
+## Planned Event Bus Implementations (Not Yet Implemented)
 
 ### 2. Redis Event Bus
 
@@ -819,18 +883,46 @@ events:
         - metrics_collector
 ```
 
-## Best Practices
+## Implementation Status Summary
 
-1. **Event Design**: Make events immutable and self-contained
-2. **Versioning**: Include version in events for schema evolution
-3. **Idempotency**: Ensure handlers can safely process events multiple times
-4. **Ordering**: Don't rely on strict ordering across aggregates
-5. **Error Handling**: Use dead letter queues for failed events
-6. **Performance**: Batch events when possible, use async processing
-7. **Testing**: Use event fixtures and in-memory bus for tests
-8. **Monitoring**: Track event flow and processing times
+### ✅ Implemented
+- Basic EventBusImpl with in-memory publish/subscribe
+- DomainEvent structure with metadata
+- EventStore and EventPublisher interfaces
+- Simple async handler execution
+- Basic event types in models package
+
+### ❌ Not Implemented (Documented Above)
+- Event sourcing and aggregate patterns
+- Redis event bus
+- Event persistence/store
+- WebSocket integration
+- Sagas and process managers
+- Event choreography patterns
+- Monitoring and metrics
+- Dead letter queues
+- Event replay functionality
+
+## Best Practices (For Current Implementation)
+
+1. **Error Handling**: Handlers should not panic as they run in goroutines
+2. **Context Usage**: Always pass context to handlers for cancellation
+3. **Memory Usage**: Be aware that all events are in-memory
+4. **Testing**: Use the simple EventBusImpl for unit tests
+5. **Async Nature**: Remember handlers execute asynchronously
+
+## Future Development
+
+To implement the full event-driven architecture described in this README:
+
+1. Add Redis event bus implementation for distributed systems
+2. Implement event store with PostgreSQL
+3. Add WebSocket event bridge
+4. Implement saga orchestration
+5. Add event sourcing aggregates
+6. Integrate with monitoring/metrics
 
 ---
 
-Package Version: 1.0.0
-Last Updated: 2024-01-10
+Package Version: 0.1.0 (Basic Implementation)
+Last Updated: 2024-01-23

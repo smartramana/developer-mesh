@@ -1,12 +1,27 @@
 # Health Package
 
-> **Purpose**: Comprehensive health check system for monitoring service readiness and liveness
-> **Status**: Production Ready
-> **Dependencies**: HTTP/gRPC health endpoints, dependency checks, circuit breakers
+> **Purpose**: Health check system for monitoring service readiness and liveness
+> **Status**: Basic Implementation
+> **Dependencies**: Database, Redis, AWS service checks
 
 ## Overview
 
-The health package provides a standardized health check system that monitors service dependencies, tracks component status, and exposes health endpoints for orchestration platforms like Kubernetes and AWS ELB.
+The health package provides a basic health check system that monitors service dependencies and tracks component status. The actual implementation is simpler than the comprehensive system described in this documentation.
+
+**Implemented Features**:
+- Basic health checker with concurrent check execution
+- Database, Redis, S3, SQS health checks
+- Simple aggregated health status
+- Background periodic checks
+- Basic metrics recording
+
+**Not Yet Implemented** (but documented below):
+- Separate liveness/readiness/startup check types
+- Health check caching
+- Circuit breaker integration
+- HTTP/gRPC health endpoints
+- Kubernetes integration
+- Advanced monitoring and metrics
 
 ## Architecture
 
@@ -27,34 +42,25 @@ The health package provides a standardized health check system that monitors ser
 └─────────────────────────────────────────────────────────────┘
 ```
 
-## Core Components
+## Actual Implementation
 
-### 1. Health Check Interface
+### 1. Health Check Interface (Simplified)
 
 ```go
-// HealthChecker defines health check operations
-type HealthChecker interface {
-    // Check performs a health check
-    Check(ctx context.Context) *CheckResult
-    
-    // Name returns the check name
+// HealthCheck interface for individual health checks
+type HealthCheck interface {
     Name() string
-    
-    // Type returns the check type (liveness/readiness)
-    Type() CheckType
-    
-    // Critical indicates if this check failure should mark service unhealthy
-    Critical() bool
+    Check(ctx context.Context) error
 }
 
-// CheckResult contains health check results
-type CheckResult struct {
+// Check represents a single health check result
+type Check struct {
+    Name        string                 `json:"name"`
     Status      Status                 `json:"status"`
     Message     string                 `json:"message,omitempty"`
-    Timestamp   time.Time              `json:"timestamp"`
-    Duration    time.Duration          `json:"duration"`
-    Details     map[string]interface{} `json:"details,omitempty"`
-    Error       error                  `json:"-"`
+    LastChecked time.Time              `json:"last_checked"`
+    Duration    time.Duration          `json:"duration_ms"`
+    Metadata    map[string]interface{} `json:"metadata,omitempty"`
 }
 
 // Status represents health status
@@ -62,133 +68,58 @@ type Status string
 
 const (
     StatusHealthy   Status = "healthy"
-    StatusDegraded  Status = "degraded"
     StatusUnhealthy Status = "unhealthy"
+    StatusDegraded  Status = "degraded"
 )
 
-// CheckType defines health check categories
-type CheckType string
-
-const (
-    CheckTypeLiveness  CheckType = "liveness"
-    CheckTypeReadiness CheckType = "readiness"
-    CheckTypeStartup   CheckType = "startup"
-)
+// Note: CheckType (liveness/readiness/startup) is NOT implemented
 ```
 
-### 2. Health Manager
+### 2. Health Checker (Actual Implementation)
 
 ```go
-// HealthManager coordinates health checks
-type HealthManager struct {
-    checks      map[string]HealthChecker
-    mu          sync.RWMutex
-    cache       *CheckCache
-    config      *HealthConfig
-    metrics     *Metrics
-    circuitBreaker *CircuitBreaker
+// HealthChecker manages and executes health checks
+type HealthChecker struct {
+    checks  map[string]HealthCheck
+    results map[string]*Check
+    mu      sync.RWMutex
+
+    metrics observability.MetricsClient
+    logger  observability.Logger
+
+    // Configuration
+    checkInterval time.Duration
+    timeout       time.Duration
 }
 
-// NewHealthManager creates a health manager
-func NewHealthManager(config *HealthConfig) *HealthManager {
-    return &HealthManager{
-        checks:  make(map[string]HealthChecker),
-        cache:   NewCheckCache(config.CacheDuration),
-        config:  config,
-        metrics: NewMetrics(),
+// NewHealthChecker creates a new health checker
+func NewHealthChecker(logger observability.Logger, metrics observability.MetricsClient) *HealthChecker {
+    return &HealthChecker{
+        checks:        make(map[string]HealthCheck),
+        results:       make(map[string]*Check),
+        metrics:       metrics,
+        logger:        logger,
+        checkInterval: 30 * time.Second,
+        timeout:       5 * time.Second,
     }
 }
 
-// Register adds a health check
-func (m *HealthManager) Register(check HealthChecker) {
-    m.mu.Lock()
-    defer m.mu.Unlock()
-    
-    m.checks[check.Name()] = check
-    logger.Info("registered health check", 
-        "name", check.Name(),
-        "type", check.Type(),
-        "critical", check.Critical(),
-    )
-}
+// RegisterCheck registers a new health check
+func (h *HealthChecker) RegisterCheck(name string, check HealthCheck)
 
-// GetHealth returns aggregated health status
-func (m *HealthManager) GetHealth(ctx context.Context, checkType CheckType) *HealthStatus {
-    m.mu.RLock()
-    checks := m.filterChecks(checkType)
-    m.mu.RUnlock()
-    
-    results := make(map[string]*CheckResult)
-    status := StatusHealthy
-    
-    // Run checks in parallel
-    var wg sync.WaitGroup
-    resultsChan := make(chan struct {
-        name   string
-        result *CheckResult
-    }, len(checks))
-    
-    for name, check := range checks {
-        wg.Add(1)
-        go func(n string, c HealthChecker) {
-            defer wg.Done()
-            
-            // Check cache first
-            if cached := m.cache.Get(n); cached != nil {
-                resultsChan <- struct {
-                    name   string
-                    result *CheckResult
-                }{n, cached}
-                return
-            }
-            
-            // Run check with timeout
-            checkCtx, cancel := context.WithTimeout(ctx, m.config.CheckTimeout)
-            defer cancel()
-            
-            start := time.Now()
-            result := c.Check(checkCtx)
-            result.Duration = time.Since(start)
-            
-            // Cache result
-            m.cache.Set(n, result)
-            
-            // Update metrics
-            m.metrics.RecordCheck(n, result)
-            
-            resultsChan <- struct {
-                name   string
-                result *CheckResult
-            }{n, result}
-        }(name, check)
-    }
-    
-    // Collect results
-    go func() {
-        wg.Wait()
-        close(resultsChan)
-    }()
-    
-    for r := range resultsChan {
-        results[r.name] = r.result
-        
-        // Update overall status
-        if r.result.Status == StatusUnhealthy && checks[r.name].Critical() {
-            status = StatusUnhealthy
-        } else if r.result.Status == StatusDegraded && status == StatusHealthy {
-            status = StatusDegraded
-        }
-    }
-    
-    return &HealthStatus{
-        Status:    status,
-        Checks:    results,
-        Timestamp: time.Now(),
-    }
-}
+// RunChecks executes all registered health checks concurrently
+func (h *HealthChecker) RunChecks(ctx context.Context) map[string]*Check
+
+// IsHealthy returns true if all checks are healthy
+func (h *HealthChecker) IsHealthy() bool
+
+// GetAggregatedHealth returns the overall health status
+func (h *HealthChecker) GetAggregatedHealth() *AggregatedHealth
 ```
 
-### 3. Built-in Health Checks
+**Note**: No caching, circuit breakers, or check type filtering is implemented.
+
+### 3. Implemented Health Checks
 
 #### Database Health Check
 
@@ -501,215 +432,106 @@ func RegisterCustomChecks(manager *HealthManager) {
 }
 ```
 
-## HTTP Health Endpoints
+## Using Health Checks
 
-### 1. HTTP Handler
+### Basic Usage
 
 ```go
-// HTTPHandler provides health endpoints
-type HTTPHandler struct {
-    manager *HealthManager
-}
+// Create health checker
+healthChecker := health.NewHealthChecker(logger, metrics)
 
-func NewHTTPHandler(manager *HealthManager) *HTTPHandler {
-    return &HTTPHandler{manager: manager}
-}
+// Register checks
+healthChecker.RegisterCheck("database", 
+    health.NewDatabaseHealthCheck("postgres", db))
+healthChecker.RegisterCheck("redis", 
+    health.NewRedisHealthCheck("redis", redisClient))
+healthChecker.RegisterCheck("s3", 
+    health.NewS3HealthCheck("s3", s3Client, bucketName))
 
-// RegisterRoutes adds health endpoints
-func (h *HTTPHandler) RegisterRoutes(router *gin.Engine) {
-    router.GET("/health", h.handleHealth)
-    router.GET("/health/live", h.handleLiveness)
-    router.GET("/health/ready", h.handleReadiness)
-    router.GET("/health/startup", h.handleStartup)
-}
+// Run checks manually
+results := healthChecker.RunChecks(ctx)
 
-func (h *HTTPHandler) handleHealth(c *gin.Context) {
-    verbose := c.Query("verbose") == "true"
-    
-    health := h.manager.GetHealth(c.Request.Context(), CheckTypeReadiness)
-    
-    response := gin.H{
-        "status":    health.Status,
-        "timestamp": health.Timestamp,
-    }
-    
-    if verbose {
-        response["checks"] = health.Checks
-    }
+// Or start background checks
+go healthChecker.StartBackgroundChecks(ctx)
+
+// Get aggregated health
+health := healthChecker.GetAggregatedHealth()
+if health.Status == health.StatusUnhealthy {
+    // Handle unhealthy state
+}
+```
+
+### HTTP Endpoint Integration (Manual)
+
+The package doesn't include HTTP handlers. You need to create them:
+
+```go
+// Example Gin handler
+router.GET("/health", func(c *gin.Context) {
+    health := healthChecker.GetAggregatedHealth()
     
     statusCode := http.StatusOK
-    if health.Status == StatusUnhealthy {
+    if health.Status == health.StatusUnhealthy {
         statusCode = http.StatusServiceUnavailable
     }
     
-    c.JSON(statusCode, response)
-}
-
-func (h *HTTPHandler) handleLiveness(c *gin.Context) {
-    health := h.manager.GetHealth(c.Request.Context(), CheckTypeLiveness)
-    
-    if health.Status == StatusHealthy {
-        c.JSON(http.StatusOK, gin.H{"status": "ok"})
-    } else {
-        c.JSON(http.StatusServiceUnavailable, gin.H{
-            "status": "unhealthy",
-            "checks": health.Checks,
-        })
-    }
-}
-
-func (h *HTTPHandler) handleReadiness(c *gin.Context) {
-    health := h.manager.GetHealth(c.Request.Context(), CheckTypeReadiness)
-    
-    response := gin.H{
-        "status": health.Status,
-        "checks": make(map[string]string),
-    }
-    
-    // Simplified check results
-    for name, result := range health.Checks {
-        response["checks"].(map[string]string)[name] = string(result.Status)
-    }
-    
-    statusCode := http.StatusOK
-    if health.Status != StatusHealthy {
-        statusCode = http.StatusServiceUnavailable
-    }
-    
-    c.JSON(statusCode, response)
-}
+    c.JSON(statusCode, health)
+})
 ```
 
-### 2. Kubernetes Integration
+## Planned Features (Not Yet Implemented)
 
-```yaml
-# Kubernetes deployment with health checks
-apiVersion: apps/v1
-kind: Deployment
-metadata:
-  name: mcp-server
-spec:
-  template:
-    spec:
-      containers:
-      - name: mcp-server
-        livenessProbe:
-          httpGet:
-            path: /health/live
-            port: 8080
-          initialDelaySeconds: 30
-          periodSeconds: 10
-          timeoutSeconds: 5
-          failureThreshold: 3
-          
-        readinessProbe:
-          httpGet:
-            path: /health/ready
-            port: 8080
-          initialDelaySeconds: 10
-          periodSeconds: 5
-          timeoutSeconds: 3
-          failureThreshold: 2
-          
-        startupProbe:
-          httpGet:
-            path: /health/startup
-            port: 8080
-          initialDelaySeconds: 0
-          periodSeconds: 10
-          timeoutSeconds: 3
-          failureThreshold: 30
-```
+The following sections describe planned features that are not yet implemented:
 
-## Circuit Breaker Integration
+### HTTP Health Endpoints
+- Separate liveness/readiness/startup endpoints
+- Verbose mode with detailed check results
+- Kubernetes-compatible responses
+
+### Advanced Health Checks
+- Circuit breaker integration
+- Disk space and memory checks
+- Custom threshold configuration
+- Check result caching
+
+### Monitoring Integration
+- Prometheus metrics with detailed labels
+- Health check duration histograms
+- Error tracking and alerting
+
+## Current Implementation Limitations
+
+1. **No Check Types**: All checks are treated the same (no liveness vs readiness)
+2. **No Caching**: Each check runs every time without caching
+3. **No HTTP Handlers**: Must implement your own HTTP endpoints
+4. **Basic Metrics**: Only records status and duration
+5. **No Circuit Breakers**: No integration with circuit breaker patterns
+6. **Fixed Timeouts**: 5-second timeout for all checks
+7. **No Critical Flag**: All failing checks are treated equally
+
+## Basic Metrics (Actual Implementation)
 
 ```go
-// CircuitBreakerHealthCheck monitors circuit breaker status
-type CircuitBreakerHealthCheck struct {
-    breakers map[string]*gobreaker.CircuitBreaker
-}
+func (h *HealthChecker) recordMetrics(name string, check *Check) {
+    // Record check status (1.0 for healthy, 0.0 for unhealthy)
+    statusValue := 0.0
+    if check.Status == StatusHealthy {
+        statusValue = 1.0
+    }
 
-func (c *CircuitBreakerHealthCheck) Check(ctx context.Context) *CheckResult {
-    result := &CheckResult{
-        Timestamp: time.Now(),
-        Status:    StatusHealthy,
-        Details:   make(map[string]interface{}),
-    }
-    
-    unhealthyCount := 0
-    breakerStatus := make(map[string]string)
-    
-    for name, breaker := range c.breakers {
-        state := breaker.State()
-        breakerStatus[name] = state.String()
-        
-        if state == gobreaker.StateOpen {
-            unhealthyCount++
-        }
-    }
-    
-    result.Details["circuit_breakers"] = breakerStatus
-    result.Details["open_breakers"] = unhealthyCount
-    
-    if unhealthyCount > 0 {
-        result.Status = StatusDegraded
-        result.Message = fmt.Sprintf("%d circuit breakers open", unhealthyCount)
-    }
-    
-    return result
+    h.metrics.RecordGauge("health_check_status", statusValue, map[string]string{
+        "component": name,
+    })
+
+    // Record check duration
+    h.metrics.RecordHistogram("health_check_duration_seconds", 
+        check.Duration.Seconds(), map[string]string{
+        "component": name,
+    })
 }
 ```
 
-## Monitoring & Metrics
-
-```go
-var (
-    healthCheckDuration = promauto.NewHistogramVec(
-        prometheus.HistogramOpts{
-            Name:    "mcp_health_check_duration_seconds",
-            Help:    "Health check duration",
-            Buckets: prometheus.ExponentialBuckets(0.001, 2, 10),
-        },
-        []string{"check_name", "check_type"},
-    )
-    
-    healthCheckStatus = promauto.NewGaugeVec(
-        prometheus.GaugeOpts{
-            Name: "mcp_health_check_status",
-            Help: "Health check status (0=healthy, 1=degraded, 2=unhealthy)",
-        },
-        []string{"check_name", "check_type"},
-    )
-    
-    healthCheckErrors = promauto.NewCounterVec(
-        prometheus.CounterOpts{
-            Name: "mcp_health_check_errors_total",
-            Help: "Total number of health check errors",
-        },
-        []string{"check_name", "check_type"},
-    )
-)
-
-// Metrics records health check metrics
-type Metrics struct{}
-
-func (m *Metrics) RecordCheck(name string, result *CheckResult) {
-    status := 0.0
-    switch result.Status {
-    case StatusDegraded:
-        status = 1.0
-    case StatusUnhealthy:
-        status = 2.0
-    }
-    
-    healthCheckStatus.WithLabelValues(name, "readiness").Set(status)
-    healthCheckDuration.WithLabelValues(name, "readiness").Observe(result.Duration.Seconds())
-    
-    if result.Error != nil {
-        healthCheckErrors.WithLabelValues(name, "readiness").Inc()
-    }
-}
-```
+**Note**: The actual metrics are much simpler than the comprehensive Prometheus metrics shown in the planned features.
 
 ## Configuration
 
@@ -770,18 +592,27 @@ health:
     queue_depth: 1000
 ```
 
-## Best Practices
+## Best Practices (For Current Implementation)
 
-1. **Granular Checks**: Separate liveness and readiness checks
-2. **Timeouts**: Set appropriate timeouts for each check
-3. **Caching**: Cache results to avoid overloading dependencies
-4. **Critical vs Non-Critical**: Mark only essential dependencies as critical
-5. **Graceful Degradation**: Continue operating with degraded status when possible
-6. **Detailed Responses**: Include helpful details for debugging
-7. **Circuit Breaking**: Integrate with circuit breakers for failing dependencies
-8. **Monitoring**: Export metrics for all health checks
+1. **Timeouts**: All checks use a 5-second timeout
+2. **Background Checks**: Use `StartBackgroundChecks` for periodic monitoring
+3. **Custom Checks**: Use `ServiceHealthCheck` for custom logic
+4. **Error Handling**: Health checks should return errors, not panic
+5. **Metrics**: Ensure metrics client is provided for monitoring
+
+## Future Development
+
+To implement the full health system described in this README:
+
+1. Add check types (liveness, readiness, startup)
+2. Implement result caching
+3. Add HTTP handler with multiple endpoints
+4. Integrate circuit breakers
+5. Add more detailed metrics
+6. Support critical vs non-critical checks
+7. Add Kubernetes-compatible responses
 
 ---
 
-Package Version: 1.0.0
-Last Updated: 2024-01-10
+Package Version: 0.1.0 (Basic Implementation)
+Last Updated: 2024-01-23

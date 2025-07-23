@@ -4,6 +4,8 @@
 
 This runbook provides operational procedures for managing DevOps MCP in production. It covers daily operations, incident response, maintenance tasks, and emergency procedures.
 
+**Note**: DevOps MCP currently runs on Docker Compose on EC2 instances, not Kubernetes. Many procedures in this document represent future goals rather than current implementation.
+
 ## Table of Contents
 
 1. [Daily Operations](#daily-operations)
@@ -35,12 +37,12 @@ else
     echo "✗ FAIL - Investigate immediately"
 fi
 
-# 2. Check database connections
-echo -n "2. Database Connection... "
-if curl -s http://localhost:8080/health/db | jq -r '.status' | grep -q "connected"; then
+# 2. Check REST API health
+echo -n "2. REST API Health... "
+if curl -s http://localhost:8081/health | jq -r '.status' | grep -q "healthy"; then
     echo "✓ PASS"
 else
-    echo "✗ FAIL - Check database status"
+    echo "✗ FAIL - Check REST API status"
 fi
 
 # 3. Check Redis connection
@@ -85,17 +87,19 @@ echo "=== Checklist Complete ==="
 ### Service Status Monitoring
 
 ```bash
-# Check all services
-kubectl get pods -n mcp-prod -o wide
+# Check all services (Docker Compose)
+docker-compose -f docker-compose.production.yml ps
 
 # Check service logs
-kubectl logs -n mcp-prod deployment/mcp-server --tail=100
-kubectl logs -n mcp-prod deployment/rest-api --tail=100
-kubectl logs -n mcp-prod deployment/worker --tail=100
+docker-compose -f docker-compose.production.yml logs --tail=100 mcp-server
+docker-compose -f docker-compose.production.yml logs --tail=100 rest-api
+docker-compose -f docker-compose.production.yml logs --tail=100 worker
 
 # Check resource usage
-kubectl top pods -n mcp-prod
-kubectl top nodes
+docker stats
+
+# Check container health
+docker inspect mcp-server | jq '.[0].State.Health'
 ```
 
 ### Database Operations
@@ -130,16 +134,23 @@ LIMIT 20;
 
 ## Deployment Procedures
 
-### Using Pre-built Docker Images
+### Current Deployment Method
 
-DevOps MCP provides pre-built Docker images through GitHub Container Registry (ghcr.io). This is the recommended approach for production deployments.
+DevOps MCP is deployed using Docker Compose on EC2 instances. The deployment uses GitHub Actions to SSH into the EC2 instance and update containers.
+
+#### Deployment Process
+
+1. Code is pushed to main branch
+2. GitHub Actions builds Docker images
+3. Images are pushed to GitHub Container Registry
+4. GitHub Actions SSHs to EC2 and runs deployment script
+5. Docker Compose pulls new images and restarts services
 
 #### Available Images
 
 - `ghcr.io/{github-username}/devops-mcp-mcp-server` - MCP protocol server
 - `ghcr.io/{github-username}/devops-mcp-rest-api` - REST API service  
 - `ghcr.io/{github-username}/devops-mcp-worker` - Event processing worker
-- `ghcr.io/{github-username}/devops-mcp-mockserver` - Mock server for testing
 
 All images:
 - Support multiple architectures (amd64, arm64)
@@ -210,48 +221,35 @@ docker-compose -f docker-compose.prod.yml logs --tail=100
 ./scripts/health-check.sh
 ```
 
-#### Kubernetes Deployment
+#### Docker Compose Deployment (Current)
+
+```bash
+# SSH to EC2 instance
+ssh -i your-key.pem ec2-user@your-ec2-instance
+
+# Navigate to deployment directory
+cd /home/ec2-user/devops-mcp
+
+# Pull latest images
+docker-compose -f docker-compose.production.yml pull
+
+# Restart services with new images
+docker-compose -f docker-compose.production.yml up -d
+
+# Verify deployment
+docker-compose -f docker-compose.production.yml ps
+
+# Check logs
+docker-compose -f docker-compose.production.yml logs --tail=50
+```
+
+#### Future: Kubernetes Deployment (Not Implemented)
+
+**Note**: Kubernetes deployment is planned but not currently implemented. The YAML below represents future architecture:
 
 ```yaml
-# kubernetes/deployments/mcp-server.yaml
-apiVersion: apps/v1
-kind: Deployment
-metadata:
-  name: mcp-server
-  namespace: mcp-prod
-spec:
-  replicas: 3
-  selector:
-    matchLabels:
-      app: mcp-server
-  template:
-    metadata:
-      labels:
-        app: mcp-server
-    spec:
-      containers:
-      - name: mcp-server
-        # Replace {github-username} with actual username
-        image: ghcr.io/{github-username}/devops-mcp-mcp-server:v1.2.3
-        imagePullPolicy: Always
-        ports:
-        - containerPort: 8080
-        env:
-        - name: MCP_CONFIG_FILE
-          value: /app/configs/config.yaml
-        livenessProbe:
-          httpGet:
-            path: /health
-            port: 8080
-          initialDelaySeconds: 30
-          periodSeconds: 30
-        readinessProbe:
-          httpGet:
-            path: /health
-            port: 8080
-          initialDelaySeconds: 10
-          periodSeconds: 10
-```
+# FUTURE: kubernetes/deployments/mcp-server.yaml
+# This is aspirational - not currently used
 
 #### Image Verification
 
@@ -318,32 +316,39 @@ kubectl rollout status deployment/${SERVICE} -n mcp-prod
 
 ## Backup and Restore
 
-### Automated Backup Schedule
+### Manual Backup (Current Process)
+
+**Note**: Automated backups are not currently implemented. Use these manual procedures:
+
+```bash
+# SSH to EC2 instance
+ssh -i your-key.pem ec2-user@your-ec2-instance
+
+# Create backup directory
+TIMESTAMP=$(date +%Y%m%d_%H%M%S)
+mkdir -p /tmp/backup_${TIMESTAMP}
+
+# Backup PostgreSQL (RDS)
+PGPASSWORD=$DB_PASSWORD pg_dump \
+  -h your-rds-endpoint.rds.amazonaws.com \
+  -U $DB_USER \
+  -d $DB_NAME \
+  -f /tmp/backup_${TIMESTAMP}/database.sql
+
+# Backup application configuration
+cp -r /home/ec2-user/devops-mcp/.env* /tmp/backup_${TIMESTAMP}/
+cp -r /home/ec2-user/devops-mcp/configs /tmp/backup_${TIMESTAMP}/
+
+# Upload to S3
+aws s3 cp /tmp/backup_${TIMESTAMP}/ \
+  s3://your-backup-bucket/backups/${TIMESTAMP}/ \
+  --recursive
+```
+
+### Future: Automated Backups (Not Implemented)
 
 ```yaml
-# kubernetes/cronjobs/backup.yaml
-apiVersion: batch/v1
-kind: CronJob
-metadata:
-  name: mcp-backup
-  namespace: mcp-prod
-spec:
-  schedule: "0 2 * * *"  # Daily at 2 AM
-  jobTemplate:
-    spec:
-      template:
-        spec:
-          containers:
-          - name: backup
-            image: devops-mcp/backup:latest
-            env:
-            - name: BACKUP_TYPE
-              value: "full"
-            - name: S3_BUCKET
-              value: "mcp-backups-prod"
-            command: ["/scripts/backup.sh"]
-          restartPolicy: OnFailure
-```
+# FUTURE: This CronJob does not exist yet
 
 ### Manual Backup Procedure
 
@@ -450,41 +455,72 @@ echo "Restore completed"
 
 ## Disaster Recovery
 
-### RTO/RPO Targets
+### Current DR Capabilities
+
+**Warning**: Comprehensive disaster recovery is not fully implemented. Current capabilities:
+
+- RDS automated backups (7-day retention)
+- S3 cross-region replication (if configured)
+- Manual EC2 snapshots (if taken)
+- No automated failover
+- No multi-region deployment
+
+### Realistic Recovery Targets (Current State)
 
 | Component | RTO (Recovery Time) | RPO (Point) | Priority |
 |-----------|-------------------|-------------|----------|
-| API Services | 15 minutes | 1 hour | Critical |
-| PostgreSQL | 30 minutes | 15 minutes | Critical |
-| Redis Cache | 5 minutes | 1 hour | High |
+| API Services | 2-4 hours | 24 hours | Critical |
+| PostgreSQL | 1-2 hours | 24 hours | Critical |
+| Redis Cache | 30 minutes | Data loss likely | High |
 | S3 Storage | N/A | 0 (replicated) | High |
-| Worker Services | 1 hour | 1 hour | Medium |
+| Worker Services | 2-4 hours | 24 hours | Medium |
 
 ### Disaster Recovery Procedures
 
-#### 1. Total System Failure
+#### 1. Total System Failure (Manual Process)
 
 ```bash
 #!/bin/bash
-# Full disaster recovery procedure
+# Manual disaster recovery procedure
 
 echo "=== DevOps MCP Disaster Recovery ==="
 echo "Starting recovery at $(date)"
 
-# 1. Provision new infrastructure
-echo "Step 1: Provisioning infrastructure..."
-terraform apply -var-file=disaster-recovery.tfvars -auto-approve
+# 1. Launch new EC2 instance (manual)
+echo "Step 1: Launch new EC2 instance from AWS Console"
+echo "  - Use AMI: ami-xxxxxxxxx (your base AMI)"
+echo "  - Instance type: t3.xlarge or larger"
+echo "  - Security group: Allow ports 22, 80, 443, 8080, 8081"
+echo "  - Key pair: Use existing or create new"
 
-# 2. Restore database from latest backup
-echo "Step 2: Restoring database..."
-LATEST_BACKUP=$(aws s3 ls s3://mcp-backups-prod/ | sort | tail -n 1 | awk '{print $2}')
-./restore.sh ${LATEST_BACKUP%/}
+# 2. Restore RDS from snapshot
+echo "Step 2: Restore RDS from snapshot"
+echo "  - Use AWS Console to restore latest RDS snapshot"
+echo "  - Update new RDS endpoint in .env file"
 
-# 3. Deploy applications
-echo "Step 3: Deploying applications..."
-kubectl apply -f kubernetes/namespaces/
-kubectl apply -f kubernetes/configs/
-kubectl apply -f kubernetes/deployments/
+# 3. Setup application on new EC2
+echo "Step 3: Install application"
+ssh -i your-key.pem ec2-user@new-instance-ip << 'EOF'
+  # Install Docker and Docker Compose
+  sudo yum update -y
+  sudo yum install -y docker git
+  sudo service docker start
+  sudo usermod -a -G docker ec2-user
+  
+  # Install Docker Compose
+  sudo curl -L "https://github.com/docker/compose/releases/latest/download/docker-compose-$(uname -s)-$(uname -m)" -o /usr/local/bin/docker-compose
+  sudo chmod +x /usr/local/bin/docker-compose
+  
+  # Clone repository
+  git clone https://github.com/your-org/devops-mcp.git
+  cd devops-mcp
+  
+  # Copy .env file (you'll need to create this)
+  # Copy configs
+  
+  # Start services
+  docker-compose -f docker-compose.production.yml up -d
+EOF
 
 # 4. Restore Redis from backup
 echo "Step 4: Restoring Redis..."
@@ -567,18 +603,23 @@ data:
 
 ## Performance Tuning
 
-### Database Optimization
+### Current Performance Considerations
+
+**Note**: DevOps MCP runs on a single EC2 instance, limiting scaling options. Performance tuning focuses on optimizing the single instance.
+
+### Database Optimization (RDS)
 
 ```sql
--- Performance tuning queries
-
--- Find missing indexes
-SELECT schemaname, tablename, attname, n_distinct, correlation
-FROM pg_stats
-WHERE schemaname NOT IN ('pg_catalog', 'information_schema')
-  AND n_distinct > 100
-  AND correlation < 0.1
-ORDER BY n_distinct DESC;
+-- Check slow queries
+SELECT 
+    calls,
+    total_time,
+    mean_time,
+    query
+FROM pg_stat_statements
+WHERE mean_time > 100
+ORDER BY mean_time DESC
+LIMIT 10;
 
 -- Optimize vacuum settings
 ALTER TABLE contexts SET (autovacuum_vacuum_scale_factor = 0.1);
@@ -592,32 +633,35 @@ ANALYZE api_keys;
 
 ### Application Tuning
 
-```yaml
-# kubernetes/configs/performance.yaml
-apiVersion: v1
-kind: ConfigMap
-metadata:
-  name: performance-config
-data:
-  mcp-server.yaml: |
-    performance:
-      connection_pool:
-        max_size: 100
-        min_size: 10
-        max_lifetime: 30m
+```bash
+# Update docker-compose.production.yml environment variables
+services:
+  mcp-server:
+    environment:
+      # Connection pool settings
+      DB_MAX_CONNECTIONS: 50  # Adjust based on RDS instance
+      DB_MAX_IDLE_CONNECTIONS: 10
       
-      cache:
-        ttl: 5m
-        max_entries: 10000
-        
-      http:
-        read_timeout: 30s
-        write_timeout: 30s
-        max_header_bytes: 1048576
-        
-      concurrency:
-        max_goroutines: 1000
-        worker_pool_size: 50
+      # Redis settings
+      REDIS_POOL_SIZE: 20
+      REDIS_MAX_RETRIES: 3
+      
+      # Server settings
+      SERVER_READ_TIMEOUT: 30s
+      SERVER_WRITE_TIMEOUT: 30s
+      
+      # Worker settings
+      WORKER_POOL_SIZE: 10  # Limited by single instance
+      
+  # Resource limits (prevent OOM)
+  deploy:
+    resources:
+      limits:
+        memory: 4G
+        cpus: '2'
+      reservations:
+        memory: 2G
+        cpus: '1'
 ```
 
 ### Redis Optimization
@@ -677,27 +721,35 @@ export default function() {
 
 ## Capacity Planning
 
-### Resource Monitoring
+### Resource Monitoring (Current Single-Instance)
 
 ```bash
 #!/bin/bash
-# Capacity monitoring script
+# Capacity monitoring for Docker Compose deployment
 
 echo "=== MCP Capacity Report ==="
 echo "Generated: $(date)"
 
-# CPU Usage
-echo -e "\n## CPU Usage"
-kubectl top nodes | awk '{print $1, $3}'
+# System resources
+echo -e "\n## System Resources"
+echo "CPU Cores: $(nproc)"
+echo "Total Memory: $(free -h | grep Mem | awk '{print $2}')"
+echo "Disk Space: $(df -h / | tail -1 | awk '{print $4}' ) available"
 
-# Memory Usage
-echo -e "\n## Memory Usage"
-kubectl top nodes | awk '{print $1, $5}'
+# Docker resource usage
+echo -e "\n## Container Resources"
+docker stats --no-stream --format "table {{.Container}}\t{{.CPUPerc}}\t{{.MemUsage}}"
 
-# Pod Resource Usage
-echo -e "\n## Pod Resources"
-kubectl top pods -n mcp-prod --sort-by=cpu
-kubectl top pods -n mcp-prod --sort-by=memory
+# EC2 instance metrics
+echo -e "\n## EC2 Metrics"
+aws cloudwatch get-metric-statistics \
+  --namespace AWS/EC2 \
+  --metric-name CPUUtilization \
+  --dimensions Name=InstanceId,Value=$(ec2-metadata --instance-id | cut -d' ' -f2) \
+  --statistics Average \
+  --start-time $(date -u -d '1 hour ago' +%Y-%m-%dT%H:%M:%S) \
+  --end-time $(date -u +%Y-%m-%dT%H:%M:%S) \
+  --period 300
 
 # Database Size
 echo -e "\n## Database Growth"
@@ -721,21 +773,31 @@ echo "- Storage: +50GB expected"
 echo "- Database: +10GB expected"
 ```
 
-### Scaling Triggers
+### Scaling Options (Limited by Single Instance)
+
+```bash
+# Current scaling options:
+
+1. Vertical Scaling (Resize EC2)
+   - Stop instance
+   - Change instance type (e.g., t3.xlarge -> t3.2xlarge)
+   - Start instance
+   - Downtime: ~5-10 minutes
+
+2. Optimize Container Resources
+   - Adjust memory limits in docker-compose
+   - Tune worker pool sizes
+   - Optimize database connections
+
+3. Future: Horizontal Scaling
+   - Requires migration to ECS/Kubernetes
+   - Or manual load balancer + multiple EC2 instances
+```
+
+### Future: Auto-scaling (Not Implemented)
 
 ```yaml
-# kubernetes/hpa/autoscaling.yaml
-apiVersion: autoscaling/v2
-kind: HorizontalPodAutoscaler
-metadata:
-  name: mcp-server-hpa
-spec:
-  scaleTargetRef:
-    apiVersion: apps/v1
-    kind: Deployment
-    name: mcp-server
-  minReplicas: 3
-  maxReplicas: 20
+# FUTURE: This HPA configuration is aspirational
   metrics:
   - type: Resource
     resource:
@@ -927,7 +989,7 @@ fi
 
 ## Emergency Procedures
 
-### Service Degradation
+### Service Degradation (Docker Compose)
 
 ```bash
 #!/bin/bash
@@ -938,24 +1000,28 @@ ALERT_TYPE=$1
 case $ALERT_TYPE in
     "high_latency")
         echo "Responding to high latency alert..."
-        # Increase resources
-        kubectl scale deployment mcp-server --replicas=10 -n mcp-prod
-        # Clear cache
-        redis-cli FLUSHALL
-        # Notify team
-        ./notify-oncall.sh "High latency detected, scaled up services"
+        # Restart services (limited options on single instance)
+        docker-compose -f docker-compose.production.yml restart mcp-server
+        # Clear Redis cache
+        docker exec redis redis-cli FLUSHALL
+        # Check memory usage
+        free -h
+        docker system prune -f
+        # Notify team (manual process)
+        echo "ALERT: High latency detected, services restarted"
         ;;
         
     "high_error_rate")
         echo "Responding to high error rate..."
-        # Enable debug logging
-        kubectl set env deployment/mcp-server LOG_LEVEL=debug -n mcp-prod
-        # Capture error samples
-        kubectl logs deployment/mcp-server -n mcp-prod --tail=1000 > /tmp/error-logs.txt
+        # Check logs
+        docker-compose -f docker-compose.production.yml logs --tail=1000 > /tmp/error-logs.txt
         # Roll back if recent deployment
-        if [ $(kubectl rollout history deployment/mcp-server -n mcp-prod | tail -2 | grep -c "CHANGE-CAUSE") -gt 1 ]; then
-            kubectl rollout undo deployment/mcp-server -n mcp-prod
-        fi
+        CURRENT_VERSION=$(docker inspect mcp-server | jq -r '.[0].Config.Labels.version')
+        echo "Current version: $CURRENT_VERSION"
+        echo "To rollback: docker-compose pull with previous version tags"
+        # Restart with increased logging
+        docker-compose -f docker-compose.production.yml down
+        LOG_LEVEL=debug docker-compose -f docker-compose.production.yml up -d
         ;;
         
     "database_connection_pool_exhausted")
@@ -1100,7 +1166,7 @@ check_endpoint() {
 echo -e "\n## API Health"
 check_endpoint "MCP Server Health" "http://localhost:8080/health" "200"
 check_endpoint "REST API Health" "http://localhost:8081/health" "200"
-check_endpoint "Worker Health" "http://localhost:8082/health" "200"
+# Note: Worker service typically doesn't expose health endpoint
 
 # Database Health
 echo -e "\n## Database Health"
@@ -1133,14 +1199,14 @@ else
     echo "✗ Redis: FAILED"
 fi
 
-# Service Mesh Health
-echo -e "\n## Service Mesh"
-PODS=$(kubectl get pods -n mcp-prod -o json | jq -r '.items[] | select(.status.phase != "Running") | .metadata.name')
-if [ -z "$PODS" ]; then
-    echo "✓ All pods running"
+# Docker Service Health
+echo -e "\n## Docker Services"
+UNHEALTHY=$(docker-compose -f docker-compose.production.yml ps | grep -v "Up" | grep -v "State" | wc -l)
+if [ $UNHEALTHY -eq 0 ]; then
+    echo "✓ All containers running"
 else
-    echo "✗ Pods not running:"
-    echo "$PODS"
+    echo "✗ Unhealthy containers:"
+    docker-compose -f docker-compose.production.yml ps | grep -v "Up" | grep -v "State"
 fi
 
 # Metrics Health
@@ -1156,17 +1222,27 @@ fi
 echo -e "\n=== Health Check Complete ==="
 ```
 
-### Monitoring Dashboard Verification
+### Monitoring Status (If Configured)
 
 ```bash
-# Verify Grafana dashboards
-curl -s -u admin:admin http://localhost:3000/api/dashboards/uid/mcp-overview | jq '.dashboard.title'
+# Check if monitoring stack is running
+if docker-compose -f docker-compose.production.yml ps | grep -q prometheus; then
+    echo "✓ Prometheus is running"
+    # Verify Prometheus targets
+    curl -s http://localhost:9090/api/v1/targets | jq '.data.activeTargets[] | {job: .job, health: .health}'
+else
+    echo "✗ Prometheus not configured"
+fi
 
-# Verify Prometheus targets
-curl -s http://localhost:9090/api/v1/targets | jq '.data.activeTargets[] | {job: .job, health: .health}'
+if docker-compose -f docker-compose.production.yml ps | grep -q grafana; then
+    echo "✓ Grafana is running"
+    # Verify Grafana
+    curl -s http://localhost:3000/api/health | jq '.database'
+else
+    echo "✗ Grafana not configured"
+fi
 
-# Verify Jaeger traces
-curl -s http://localhost:16686/api/services | jq '.data[]'
+# Note: Jaeger is not implemented
 ```
 
 ## Runbook Maintenance
@@ -1179,8 +1255,11 @@ This runbook should be reviewed and updated:
 - **On New Releases**: Update deployment procedures and image versions
 
 ### Version History
+- **v2.0.0**: Updated to reflect actual Docker Compose deployment (not Kubernetes)
 - **v1.1.0**: Added Docker registry deployment procedures
 - **v1.0.0**: Initial runbook creation
 
-Last Updated: $(date)
-Version: 1.1.0
+Last Updated: 2024-01-23
+Version: 2.0.0
+
+**Important**: This runbook contains both current procedures (Docker Compose on EC2) and future aspirations (Kubernetes, automated backups, etc.). Sections marked as "FUTURE" or "Not Implemented" represent planned functionality.

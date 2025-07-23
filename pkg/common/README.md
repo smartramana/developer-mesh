@@ -22,23 +22,28 @@ common/
 
 ## AWS Integration
 
+**Implementation Status**: Basic AWS client support is implemented. The unified client interface shown in some examples is simplified in the actual implementation.
+
 ### Client Interface
 
-The AWS package provides a unified client for all AWS services:
+The AWS package provides client creation methods:
 
 ```go
-// Client provides access to AWS services
-type Client interface {
-    S3() S3Client
-    SQS() SQSClient
-    Bedrock() BedrockClient
-    RDS() RDSClient
-    ElastiCache() ElastiCacheClient
+// AWSClient interface provides factory methods
+type AWSClient interface {
+    CreateS3Client() S3Client
+    CreateSQSClient() SQSClient
 }
 
 // Initialize with configuration
 client, err := aws.NewClient(cfg)
+
+// Create specific clients
+s3Client := client.CreateS3Client()
+sqsClient := client.CreateSQSClient()
 ```
+
+**Note**: Bedrock, RDS, and ElastiCache clients are implemented separately but not through the unified interface.
 
 ### Authentication
 
@@ -119,10 +124,21 @@ type Cache interface {
     Exists(ctx context.Context, key string) (bool, error)
 }
 
-// Initialize multi-level cache
+// Initialize multi-level cache with configuration
+config := MultiLevelCacheConfig{
+    L1Size:               10000,
+    L1TTL:                5 * time.Minute,
+    L2TTL:                1 * time.Hour,
+    CompressionThreshold: 1024, // Compress values > 1KB
+    PrefetchThreshold:    0.8,  // Prefetch when 80% through TTL
+}
+
 cache := cache.NewMultiLevelCache(
-    cache.NewMemoryCache(1000),     // L1: In-memory
-    cache.NewRedisCache(redisClient), // L2: Redis
+    cache.NewInMemoryLRUCache(config.L1Size),
+    redisCache,
+    config,
+    logger,
+    metrics,
 )
 ```
 
@@ -241,14 +257,19 @@ var (
 )
 ```
 
-### Error Wrapping
+### Error Creation and Checking
 
 ```go
-// Wrap with context
-err := WrapError(originalErr, "failed to process task",
-    "task_id", taskID,
-    "retry_count", retryCount,
-)
+// Create an error with context
+err := &AdapterError{
+    Code:    "PROCESSING_FAILED",
+    Message: "failed to process task",
+    Details: map[string]interface{}{
+        "task_id":     taskID,
+        "retry_count": retryCount,
+    },
+    Retryable: true,
+}
 
 // Check error type
 if IsNotFound(err) {
@@ -259,34 +280,46 @@ if IsNotFound(err) {
 if IsRetryable(err) {
     // Retry operation
 }
+
+// Common predefined errors
+var (
+    ErrNotFound         = NewAdapterError("NOT_FOUND", "Resource not found", http.StatusNotFound)
+    ErrUnauthorized     = NewAdapterError("UNAUTHORIZED", "Unauthorized", http.StatusUnauthorized)
+    ErrRateLimitExceeded = NewAdapterError("RATE_LIMIT_EXCEEDED", "Rate limit exceeded", http.StatusTooManyRequests)
+)
 ```
 
 ## Event System
 
 ### Event Bus
 
-Asynchronous event processing with typed events:
+Asynchronous event processing:
 
 ```go
-// Initialize event bus
-bus := events.NewEventBus()
+// Initialize event bus (system implementation)
+bus := events.NewSimpleEventBus(logger)
 
-// Register handler
-bus.Subscribe("task.completed", func(ctx context.Context, event Event) error {
-    task := event.Data.(*Task)
-    // Process completed task
-    return nil
+// Subscribe to events
+unsubscribe := bus.Subscribe(func(event Event) {
+    if event.Type == "task.completed" {
+        // Process completed task
+        logger.Info("Task completed", "id", event.ID)
+    }
 })
 
 // Publish event
-err := bus.Publish(ctx, Event{
-    Type: "task.completed",
-    Data: task,
-    Metadata: map[string]interface{}{
-        "duration": time.Since(startTime),
-    },
+bus.Publish(Event{
+    ID:        uuid.New().String(),
+    Type:      "task.completed",
+    Timestamp: time.Now(),
+    Payload:   map[string]interface{}{"task_id": taskID},
 })
+
+// Unsubscribe when done
+unsubscribe()
 ```
+
+**Note**: The system event bus in `events/system/` provides a simpler API than shown in some examples.
 
 ### System Events
 
@@ -401,18 +434,18 @@ Operations for embedding vectors:
 
 ```go
 // Normalize vector to unit length
-normalized := NormalizeL2(vector)
+normalized := NormalizeVectorL2(vector)
 
 // Calculate similarity
 dotProduct := DotProduct(vec1, vec2)
 cosineDist := CosineDistance(vec1, vec2)
 euclideanDist := EuclideanDistance(vec1, vec2)
 
-// Convert to pgvector format
-pgVector := ToPGVector(embeddings)
+// Format for pgvector storage
+pgVector := FormatVectorForPgVector(embeddings)
 
 // Parse from pgvector format
-embeddings, err := FromPGVector(pgVector)
+embeddings, err := ParseVectorFromPgVector(pgVector)
 ```
 
 ## Utilities

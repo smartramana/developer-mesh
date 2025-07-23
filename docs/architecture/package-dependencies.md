@@ -37,7 +37,7 @@ graph TD
     subgraph "Infrastructure Layer"
         AWS[aws]
         DB[database]
-        CACHE[cache]
+        CACHE[common/cache]
         QUEUE[queue]
         EMB[embedding]
     end
@@ -80,6 +80,8 @@ graph TD
 
 ## Package Dependency Matrix
 
+**Note**: The pkg/ directory contains 33 packages. This section covers the main packages and their relationships.
+
 ### Application Dependencies
 
 | Package | Direct Dependencies | Purpose |
@@ -111,7 +113,7 @@ graph TD
 |---------|-------------------|----------|
 | **aws** | config, observability | AWS service clients |
 | **database** | config, observability | Database connections |
-| **cache** | config, observability | Caching implementations |
+| **common/cache** | config, observability | Caching implementations |
 | **queue** | aws, models, observability | SQS integration |
 | **embedding** | aws, cache, models, resilience | Vector embeddings |
 | **collaboration** | models, observability | CRDT implementations |
@@ -161,11 +163,11 @@ services  events
 ### Key Interface Definitions
 
 ```go
-// pkg/services/interfaces.go
-- AssignmentEngine
-- NotificationService
-- AgentService
-- WorkflowService
+// pkg/services/
+- AssignmentStrategy (in assignment_engine.go)
+- NotificationService (in notification_service.go)
+- AgentService (in task_service.go)
+- WorkflowService (in workflow_service.go)
 
 // pkg/repository/interfaces.go
 - Repository[T]
@@ -235,10 +237,10 @@ go list -f '{{.ImportPath}} {{len .Imports}}' ./pkg/... | sort -k2 -n
 ## Package Metrics
 
 ### Most Depended Upon
-1. **models** - Used by 15+ packages
-2. **observability** - Used by 12+ packages
-3. **common** - Used by 10+ packages
-4. **config** - Used by 8+ packages
+1. **models** - Core domain entities
+2. **observability** - Cross-cutting logging/metrics
+3. **common** - Shared utilities and cache
+4. **config** - Configuration management
 
 ### Most Dependencies
 1. **services** - Depends on 8+ packages

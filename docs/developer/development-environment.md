@@ -5,11 +5,11 @@ This guide provides a comprehensive setup for developing on the DevOps MCP AI Ag
 ## Prerequisites
 
 ### Required Tools
-- **Go 1.24.3+** - Required for workspace support
+- **Go 1.24+** - Required for workspace support (uses toolchain 1.24.2)
 - **Docker 24+** & **Docker Compose v2** - For local services
 - **Git 2.40+** - For version control
 - **Make** - For build automation
-- **AWS CLI v2** - For real AWS services (LocalStack not used)
+- **AWS CLI v2** - For real AWS services
 - **PostgreSQL client** - For database access
 
 ### Recommended Tools
@@ -17,9 +17,9 @@ This guide provides a comprehensive setup for developing on the DevOps MCP AI Ag
 - **golangci-lint 1.61+** - For code quality
 - **ripgrep (rg)** - For fast searching
 - **jq** - For JSON processing
-- **direnv** - For environment management
-- **k9s** - For Kubernetes development
-- **air** - For hot reload during development
+- **direnv** - For environment management (optional)
+- **k9s** - For Kubernetes development (optional, not used in current deployment)
+- **air** - For hot reload during development (optional)
 
 ## Quick Start (5 minutes)
 
@@ -119,7 +119,7 @@ ADMIN_API_KEY=dev-admin-key
 
 ```bash
 # Verify Go version
-go version  # Should be 1.24.3+
+go version  # Should be 1.24+
 
 # The workspace is already configured (go.work exists)
 # Sync workspace modules
@@ -463,8 +463,8 @@ func TestAdapter_Execute(t *testing.T) {
 ### Critical Requirements (NO EXCEPTIONS)
 
 ```bash
-# 1. ALWAYS use real AWS services
-# LocalStack is NOT supported - use real S3, SQS, Bedrock
+# 1. ALWAYS use real AWS services in production
+# LocalStack exists for local testing but production requires real S3, SQS, Bedrock
 
 # 2. ElastiCache tunnel MUST be running
 ./scripts/aws/connect-elasticache.sh  # Keep open!
@@ -481,10 +481,10 @@ grep -r "TODO" pkg/ apps/ --include="*.go"  # Must be empty
 # Good: authorizer := auth.NewProductionAuthorizer(config)
 ```
 
-### Hot Reload
+### Hot Reload (Optional)
 
 ```bash
-# Install air for hot reload
+# Install air for hot reload (not currently configured in project)
 go install github.com/cosmtrek/air@latest
 
 # Create .air.toml in each app directory
@@ -654,7 +654,7 @@ echo '.env' >> .gitignore
 # Use environment variables
 export GITHUB_TOKEN=$(pass show github/token)
 
-# Or use direnv
+# Or use direnv (if installed)
 echo 'export GITHUB_TOKEN="..."' >> .envrc
 direnv allow
 ```
@@ -687,7 +687,7 @@ make test-coverage  # Must maintain >85%
 2. **Run Integration Tests**: `make test-integration` with real AWS services
 3. **Review Architecture**: See [System Overview](../architecture/system-overview.md)
 4. **Understand AI Features**: Read [AI Agent Orchestration](../ai-agents/ai-agent-orchestration.md)
-5. **Check WebSocket Protocol**: See [MCP Server Reference](../api/mcp-server-reference.md)
+5. **Check WebSocket Protocol**: See [MCP Protocol Reference](../api/mcp-protocol-reference.md)
 
 ## Important References
 

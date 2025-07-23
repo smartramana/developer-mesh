@@ -1,8 +1,9 @@
 # Production Deployment Guide
 
-> **Purpose**: Complete guide for deploying DevOps MCP platform to AWS production environment
+> **Purpose**: Guide for deploying DevOps MCP platform to AWS using EC2 and Docker Compose
 > **Audience**: DevOps engineers and system administrators deploying to production
-> **Scope**: AWS infrastructure, deployment process, monitoring, scaling, and maintenance
+> **Scope**: EC2 deployment, Docker Compose setup, AWS service configuration
+> **Status**: Current deployment method uses EC2 with Docker Compose
 
 ## Table of Contents
 
@@ -25,18 +26,18 @@
 # AWS CLI v2
 aws --version  # Should be 2.x or higher
 
-# Terraform (for infrastructure as code)
-terraform --version  # 1.5+ recommended
-
 # Docker and Docker Compose
 docker --version     # 24.0+
 docker-compose --version  # 2.20+
 
-# kubectl (for EKS deployment)
-kubectl version --client  # 1.28+
+# SSH client for EC2 access
+ssh -V
 
 # Go (for building from source)
-go version  # 1.24.3 required
+go version  # 1.24 required
+
+# Note: No Terraform or Kubernetes required
+# Deployment uses Docker Compose on EC2
 ```
 
 ### AWS Account Setup
@@ -68,36 +69,38 @@ aws sts get-caller-identity --profile production
 
 ## Architecture Overview
 
-### Production Architecture
+### Current Production Architecture
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
-│                         Route 53                                 │
-│                    (mcp.yourdomain.com)                         │
+│                    Route 53 (Optional)                           │
+│                    (dev-mesh.io or your domain)                  │
 └────────────────────────┬────────────────────────────────────────┘
                          │
 ┌────────────────────────┴────────────────────────────────────────┐
-│                    CloudFront CDN                                │
-│                  (Global Distribution)                           │
+│                   Elastic IP (54.86.185.227)                     │
+│                    (Static IP for EC2)                           │
 └────────────────────────┬────────────────────────────────────────┘
                          │
 ┌────────────────────────┴────────────────────────────────────────┐
-│                Application Load Balancer                         │
-│                    (Multi-AZ, SSL)                              │
-└────────────────────────┬────────────────────────────────────────┘
-                         │
-        ┌────────────────┴────────────────┐
-        │                                 │
-┌───────┴──────────┐            ┌────────┴──────────┐
-│   Auto Scaling   │            │   Auto Scaling    │
-│   Group (AZ-1)   │            │   Group (AZ-2)    │
-├──────────────────┤            ├───────────────────┤
-│ MCP Server       │            │ MCP Server        │
-│ REST API         │            │ REST API          │
-│ Worker           │            │ Worker            │
-└──────┬───────────┘            └────────┬──────────┘
-       │                                  │
-       └────────────┬─────────────────────┘
+│                    EC2 Instance (t3.large)                       │
+│                       Docker Host                                │
+├──────────────────────────────────────────────────────────────────┤
+│  Docker Compose Services:                                        │
+│  - mcp-server (port 8080)                                        │
+│  - rest-api (port 8081)                                          │
+│  - worker (background processing)                                │
+│  - nginx (reverse proxy, if used)                               │
+└──────┬───────────────────────────────────────────────────────────┘
+       │
+       ├─── RDS PostgreSQL (with pgvector)                        
+       ├─── ElastiCache Redis (via SSH tunnel from bastion)       
+       ├─── S3 Bucket (sean-mcp-dev-contexts)                     
+       ├─── SQS Queue (sean-mcp-test)                             
+       └─── AWS Bedrock (embedding models)                        
+```
+
+**Note**: Current deployment does not use CloudFront, ALB, or Auto Scaling Groups. It's a single EC2 instance running Docker Compose.
                     │
     ┌───────────────┴─────────────────────────┐
     │                                         │
@@ -129,201 +132,175 @@ VPC:
 
 ## AWS Infrastructure Setup
 
-### 1. VPC and Networking
+**Note**: Infrastructure is currently set up manually via AWS Console. No Terraform code exists in the project.
+
+### 1. EC2 Instance Setup
 
 ```bash
-# Create VPC using Terraform
-cd infrastructure/terraform/production
+# Current production EC2 instance
+Instance Type: t3.large (or appropriate size)
+AMI: Amazon Linux 2023 or Ubuntu 22.04
+Security Group: Allow ports 8080, 8081, 22
+Elastic IP: Assigned for stable access
 
-# Initialize Terraform
-terraform init
+# SSH access (from CLAUDE.md)
+export SSH_KEY_PATH=/path/to/your/key.pem
+./scripts/ssh-to-ec2.sh
 
-# Plan infrastructure
-terraform plan -var-file=production.tfvars
-
-# Apply infrastructure
-terraform apply -var-file=production.tfvars
+# On the EC2 instance
+cd /home/ec2-user/devops-mcp
+docker-compose ps
 ```
 
-**Terraform VPC Module** (`infrastructure/terraform/modules/vpc/main.tf`):
+### 2. Manual VPC Configuration
 
-```hcl
-module "vpc" {
-  source = "terraform-aws-modules/vpc/aws"
-  version = "5.0.0"
+If setting up a new environment:
 
-  name = "mcp-production-vpc"
-  cidr = "10.0.0.0/16"
+1. Create VPC with CIDR 10.0.0.0/16
+2. Create public subnet for EC2
+3. Create private subnets for RDS and ElastiCache
+4. Set up Internet Gateway for public subnet
+5. Configure security groups:
+   - EC2: Allow 22 (SSH), 8080 (MCP), 8081 (API)
+   - RDS: Allow 5432 from EC2 security group
+   - ElastiCache: Allow 6379 from bastion/EC2
 
-  azs             = ["us-east-1a", "us-east-1b"]
-  private_subnets = ["10.0.10.0/24", "10.0.20.0/24"]
-  public_subnets  = ["10.0.1.0/24", "10.0.2.0/24"]
-  database_subnets = ["10.0.100.0/24", "10.0.200.0/24"]
+### 3. RDS PostgreSQL Setup (Manual)
 
-  enable_nat_gateway = true
-  enable_vpn_gateway = false
-  enable_dns_hostnames = true
-  enable_dns_support = true
+Create RDS instance via AWS Console:
 
-  tags = {
-    Environment = "production"
-    Project = "devops-mcp"
-  }
-}
+```
+Engine: PostgreSQL 15.x
+Instance class: db.t3.medium or larger
+Storage: 100 GB gp3
+Multi-AZ: Yes (for production)
+Database name: mcp
+Master username: mcp_admin
+
+Security:
+- VPC: Your production VPC
+- Subnet group: Private subnets
+- Security group: Allow 5432 from EC2
+
+Backup:
+- Retention: 7-30 days
+- Backup window: 03:00-04:00 UTC
 ```
 
-### 2. RDS PostgreSQL Setup
+After creation, enable pgvector:
 
-```hcl
-resource "aws_db_instance" "mcp_postgres" {
-  identifier = "mcp-production-db"
-  
-  engine         = "postgres"
-  engine_version = "15.4"
-  instance_class = "db.r6g.xlarge"  # 4 vCPU, 32 GB RAM
-  
-  allocated_storage     = 100
-  storage_type         = "gp3"
-  storage_encrypted    = true
-  kms_key_id          = aws_kms_key.rds.arn
-  
-  db_name  = "mcp"
-  username = "mcp_admin"
-  password = random_password.db_password.result
-  
-  vpc_security_group_ids = [aws_security_group.rds.id]
-  db_subnet_group_name   = aws_db_subnet_group.main.name
-  
-  backup_retention_period = 30
-  backup_window          = "03:00-04:00"
-  maintenance_window     = "sun:04:00-sun:05:00"
-  
-  multi_az               = true
-  deletion_protection    = true
-  skip_final_snapshot    = false
-  
-  enabled_cloudwatch_logs_exports = ["postgresql"]
-  
-  tags = {
-    Name = "mcp-production-db"
-    Environment = "production"
-  }
-}
+```sql
+-- Connect to RDS instance
+psql -h your-rds-endpoint.rds.amazonaws.com -U mcp_admin -d mcp
 
-# Enable pgvector extension
-resource "null_resource" "enable_pgvector" {
-  depends_on = [aws_db_instance.mcp_postgres]
-  
-  provisioner "local-exec" {
-    command = <<-EOT
-      PGPASSWORD=${random_password.db_password.result} psql \
-        -h ${aws_db_instance.mcp_postgres.endpoint} \
-        -U mcp_admin \
-        -d mcp \
-        -c "CREATE EXTENSION IF NOT EXISTS vector;"
-    EOT
-  }
-}
+-- Enable pgvector extension
+CREATE EXTENSION IF NOT EXISTS vector;
+
+-- Run migrations
+cd /path/to/devops-mcp
+make migrate-up
+```
 ```
 
-### 3. ElastiCache Redis Setup
+### 4. ElastiCache Redis Setup (Manual)
 
-```hcl
-resource "aws_elasticache_replication_group" "mcp_redis" {
-  replication_group_id       = "mcp-production-redis"
-  replication_group_description = "MCP Production Redis Cluster"
-  
-  engine               = "redis"
-  engine_version       = "7.1"
-  node_type           = "cache.r7g.large"
-  number_cache_clusters = 2  # Multi-AZ
-  
-  parameter_group_name = aws_elasticache_parameter_group.redis.name
-  subnet_group_name    = aws_elasticache_subnet_group.main.name
-  security_group_ids   = [aws_security_group.redis.id]
-  
-  at_rest_encryption_enabled = true
-  transit_encryption_enabled = true
-  auth_token_enabled        = true
-  auth_token                = random_password.redis_auth_token.result
-  
-  automatic_failover_enabled = true
-  multi_az_enabled          = true
-  
-  snapshot_retention_limit = 7
-  snapshot_window         = "03:00-05:00"
-  
-  tags = {
-    Name = "mcp-production-redis"
-    Environment = "production"
-  }
-}
+Create ElastiCache cluster via AWS Console:
+
+```
+Engine: Redis 7.x
+Node type: cache.t3.micro or larger
+Number of replicas: 1 (for Multi-AZ)
+Subnet group: Private subnets
+Security group: Allow 6379 from bastion
+
+Security:
+- Encryption at rest: Yes
+- Encryption in transit: Yes (if needed)
+- AUTH token: Optional
+
+Backup:
+- Retention: 1-7 days
+- Backup window: 03:00-05:00 UTC
 ```
 
-### 4. S3 Buckets
+**Important**: ElastiCache requires SSH tunnel for access:
 
-```hcl
-resource "aws_s3_bucket" "contexts" {
-  bucket = "mcp-production-contexts"
-  
-  tags = {
-    Name = "MCP Context Storage"
-    Environment = "production"
-  }
-}
+```bash
+# Run this before starting services
+./scripts/aws/connect-elasticache.sh
 
-resource "aws_s3_bucket_versioning" "contexts" {
-  bucket = aws_s3_bucket.contexts.id
-  
-  versioning_configuration {
-    status = "Enabled"
-  }
-}
+# This creates SSH tunnel through bastion
+# Local port 6379 -> ElastiCache endpoint
+```
+```
 
-resource "aws_s3_bucket_server_side_encryption_configuration" "contexts" {
-  bucket = aws_s3_bucket.contexts.id
-  
-  rule {
-    apply_server_side_encryption_by_default {
-      sse_algorithm = "AES256"
+### 5. S3 Bucket Setup (Manual)
+
+Create S3 bucket via AWS Console:
+
+```
+Bucket name: your-mcp-contexts (must be globally unique)
+Region: us-east-1 (or your preferred region)
+
+Settings:
+- Versioning: Enabled
+- Encryption: SSE-S3 (default)
+- Public access: Block all public access
+
+Bucket policy (example for IP restriction):
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Effect": "Allow",
+      "Principal": {
+        "AWS": "arn:aws:iam::YOUR-ACCOUNT:role/YOUR-EC2-ROLE"
+      },
+      "Action": "s3:*",
+      "Resource": [
+        "arn:aws:s3:::your-mcp-contexts/*",
+        "arn:aws:s3:::your-mcp-contexts"
+      ],
+      "Condition": {
+        "IpAddress": {
+          "aws:SourceIp": ["YOUR-EC2-IP/32"]
+        }
+      }
     }
-  }
-}
-
-resource "aws_s3_bucket_lifecycle_configuration" "contexts" {
-  bucket = aws_s3_bucket.contexts.id
-  
-  rule {
-    id     = "archive-old-contexts"
-    status = "Enabled"
-    
-    transition {
-      days          = 30
-      storage_class = "STANDARD_IA"
-    }
-    
-    transition {
-      days          = 90
-      storage_class = "GLACIER"
-    }
-  }
+  ]
 }
 ```
+```
 
-### 5. SQS Queues
+### 6. SQS Queue Setup (Manual)
 
-```hcl
-resource "aws_sqs_queue" "task_queue" {
-  name = "mcp-production-tasks"
-  
-  delay_seconds             = 0
-  max_message_size         = 262144  # 256 KB
-  message_retention_seconds = 1209600 # 14 days
-  receive_wait_time_seconds = 20      # Long polling
-  
-  redrive_policy = jsonencode({
-    deadLetterTargetArn = aws_sqs_queue.dlq.arn
-    maxReceiveCount     = 3
+Create SQS queue via AWS Console:
+
+```
+Queue name: mcp-production-tasks
+Type: Standard queue
+
+Configuration:
+- Visibility timeout: 30 seconds
+- Message retention: 4 days (default)
+- Maximum message size: 256 KB
+- Receive message wait time: 20 seconds (long polling)
+
+Access policy:
+- Allow your EC2 instance role to send/receive/delete messages
+```
+
+### 7. AWS Bedrock Access
+
+Ensure your AWS account has access to Bedrock:
+
+```bash
+# Request access to models in AWS Console
+# Go to Bedrock > Model access
+# Request access to:
+- Amazon Titan Embeddings V1
+- Amazon Titan Embeddings V2
+- Cohere Embed models (if needed)
   })
   
   kms_master_key_id = "alias/aws/sqs"
@@ -348,130 +325,157 @@ resource "aws_sqs_queue" "dlq" {
 
 ## Service Deployment
 
-### 1. Container Registry Setup
+### 1. Building and Deploying to EC2
 
 ```bash
-# Create ECR repositories
-aws ecr create-repository --repository-name mcp/server --region us-east-1
-aws ecr create-repository --repository-name mcp/api --region us-east-1
-aws ecr create-repository --repository-name mcp/worker --region us-east-1
+# On your local machine
+# Build Docker images
+make docker-build
 
-# Get login token
-aws ecr get-login-password --region us-east-1 | docker login --username AWS --password-stdin $ECR_REGISTRY
+# Tag images for deployment
+docker tag mcp-server:latest mcp-server:production
+docker tag rest-api:latest rest-api:production
+docker tag worker:latest worker:production
 
-# Build and push images
-make docker-build-all
-make docker-push-all ECR_REGISTRY=$ECR_REGISTRY
+# Save images (if transferring manually)
+docker save mcp-server:production | gzip > mcp-server.tar.gz
+docker save rest-api:production | gzip > rest-api.tar.gz
+docker save worker:production | gzip > worker.tar.gz
+
+# Transfer to EC2 (if not using registry)
+scp -i $SSH_KEY_PATH *.tar.gz ec2-user@54.86.185.227:/home/ec2-user/
 ```
 
-### 2. ECS Task Definitions
+### 2. Docker Compose Configuration
 
-**MCP Server Task** (`infrastructure/ecs/task-definitions/mcp-server.json`):
+**Production docker-compose.yml**:
 
-```json
-{
-  "family": "mcp-server",
-  "networkMode": "awsvpc",
-  "requiresCompatibilities": ["FARGATE"],
-  "cpu": "2048",
-  "memory": "4096",
-  "containerDefinitions": [
-    {
-      "name": "mcp-server",
-      "image": "${ECR_REGISTRY}/mcp/server:latest",
-      "essential": true,
-      "portMappings": [
-        {
-          "containerPort": 8080,
-          "protocol": "tcp"
-        }
-      ],
-      "environment": [
-        {"name": "ENV", "value": "production"},
-        {"name": "LOG_LEVEL", "value": "info"},
-        {"name": "METRICS_ENABLED", "value": "true"}
-      ],
-      "secrets": [
-        {
-          "name": "DATABASE_URL",
-          "valueFrom": "arn:aws:secretsmanager:us-east-1:123456789012:secret:mcp/production/db-url"
-        },
-        {
-          "name": "REDIS_URL",
-          "valueFrom": "arn:aws:secretsmanager:us-east-1:123456789012:secret:mcp/production/redis-url"
-        }
-      ],
-      "logConfiguration": {
-        "logDriver": "awslogs",
-        "options": {
-          "awslogs-group": "/ecs/mcp-server",
-          "awslogs-region": "us-east-1",
-          "awslogs-stream-prefix": "ecs"
-        }
-      },
-      "healthCheck": {
-        "command": ["CMD-SHELL", "curl -f http://localhost:8080/health || exit 1"],
-        "interval": 30,
-        "timeout": 5,
-        "retries": 3,
-        "startPeriod": 60
-      }
-    }
-  ]
-}
+```yaml
+version: '3.8'
+
+services:
+  mcp-server:
+    image: mcp-server:production
+    ports:
+      - "8080:8080"
+    environment:
+      - ENVIRONMENT=production
+      - DATABASE_HOST=${RDS_ENDPOINT}
+      - DATABASE_PASSWORD=${DB_PASSWORD}
+      - REDIS_ADDR=127.0.0.1:6379  # Via SSH tunnel
+      - S3_BUCKET=${S3_BUCKET}
+      - AWS_REGION=us-east-1
+      - JWT_SECRET=${JWT_SECRET}
+      - BEDROCK_ENABLED=true
+    restart: unless-stopped
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  rest-api:
+    image: rest-api:production
+    ports:
+      - "8081:8081"
+    environment:
+      # Similar to mcp-server
+    restart: unless-stopped
+
+  worker:
+    image: worker:production
+    environment:
+      - SQS_QUEUE_URL=${SQS_QUEUE_URL}
+      # Other env vars
+    restart: unless-stopped
 ```
 
-### 3. ECS Service Deployment
+### 3. Deployment Process
 
 ```bash
-# Create ECS cluster
-aws ecs create-cluster --cluster-name mcp-production
+# SSH to EC2 instance
+./scripts/ssh-to-ec2.sh
 
-# Register task definitions
-aws ecs register-task-definition --cli-input-json file://infrastructure/ecs/task-definitions/mcp-server.json
-aws ecs register-task-definition --cli-input-json file://infrastructure/ecs/task-definitions/rest-api.json
-aws ecs register-task-definition --cli-input-json file://infrastructure/ecs/task-definitions/worker.json
+# On EC2 instance
+cd /home/ec2-user/devops-mcp
 
-# Create services
-aws ecs create-service \
-  --cluster mcp-production \
-  --service-name mcp-server \
-  --task-definition mcp-server:1 \
-  --desired-count 3 \
-  --launch-type FARGATE \
-  --platform-version LATEST \
-  --network-configuration "awsvpcConfiguration={subnets=[subnet-xxx,subnet-yyy],securityGroups=[sg-xxx]}" \
-  --load-balancers "targetGroupArn=arn:aws:elasticloadbalancing:...,containerName=mcp-server,containerPort=8080"
+# Load images (if transferred manually)
+docker load < mcp-server.tar.gz
+docker load < rest-api.tar.gz
+docker load < worker.tar.gz
+
+# Create .env file with production values
+cat > .env << EOF
+# Database
+DATABASE_HOST=your-rds-endpoint.rds.amazonaws.com
+DATABASE_PASSWORD=your-secure-password
+
+# Redis (via SSH tunnel)
+REDIS_ADDR=127.0.0.1:6379
+
+# AWS
+S3_BUCKET=your-mcp-contexts
+SQS_QUEUE_URL=https://sqs.us-east-1.amazonaws.com/YOUR-ACCOUNT/your-queue
+
+# Secrets
+JWT_SECRET=your-jwt-secret
+ADMIN_API_KEY=your-admin-key
+EOF
+
+# Start services
+docker-compose up -d
+
+# Check status
+docker-compose ps
+docker-compose logs -f
 ```
 
-### 4. Auto Scaling Configuration
+### 4. Health Checks and Monitoring
 
-```hcl
-resource "aws_appautoscaling_target" "mcp_server" {
-  max_capacity       = 10
-  min_capacity       = 2
-  resource_id        = "service/mcp-production/mcp-server"
-  scalable_dimension = "ecs:service:DesiredCount"
-  service_namespace  = "ecs"
-}
+```bash
+# Check service health
+curl http://localhost:8080/health
+curl http://localhost:8081/health
 
-resource "aws_appautoscaling_policy" "cpu_scaling" {
-  name               = "mcp-server-cpu-scaling"
-  policy_type        = "TargetTrackingScaling"
-  resource_id        = aws_appautoscaling_target.mcp_server.resource_id
-  scalable_dimension = aws_appautoscaling_target.mcp_server.scalable_dimension
-  service_namespace  = aws_appautoscaling_target.mcp_server.service_namespace
-  
-  target_tracking_scaling_policy_configuration {
-    predefined_metric_specification {
-      predefined_metric_type = "ECSServiceAverageCPUUtilization"
-    }
-    
-    target_value = 70.0
-    scale_in_cooldown  = 300
-    scale_out_cooldown = 60
-  }
-}
+# Monitor logs
+docker-compose logs -f mcp-server
+docker-compose logs -f worker
+
+# Check resource usage
+docker stats
+
+# Setup CloudWatch agent (optional)
+sudo yum install -y amazon-cloudwatch-agent
+sudo /opt/aws/amazon-cloudwatch-agent/bin/amazon-cloudwatch-agent-config-wizard
+```
+
+### 5. Systemd Service (Optional)
+
+For automatic startup on reboot:
+
+```bash
+# Create systemd service
+sudo tee /etc/systemd/system/devops-mcp.service << EOF
+[Unit]
+Description=DevOps MCP Docker Compose
+Requires=docker.service
+After=docker.service
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+WorkingDirectory=/home/ec2-user/devops-mcp
+ExecStart=/usr/local/bin/docker-compose up -d
+ExecStop=/usr/local/bin/docker-compose down
+User=ec2-user
+
+[Install]
+WantedBy=multi-user.target
+EOF
+
+# Enable service
+sudo systemctl enable devops-mcp
+sudo systemctl start devops-mcp
 ```
 
 ## Configuration Management
@@ -479,47 +483,56 @@ resource "aws_appautoscaling_policy" "cpu_scaling" {
 ### 1. Environment Variables
 
 ```bash
-# Production environment file (.env.production)
-ENV=production
+# Production environment file (.env)
+ENVIRONMENT=production
 LOG_LEVEL=info
 LOG_FORMAT=json
 
-# Service URLs
-MCP_SERVER_URL=wss://mcp.yourdomain.com/ws
-REST_API_URL=https://api.yourdomain.com
+# Database
+DATABASE_HOST=your-rds.rds.amazonaws.com
+DATABASE_PORT=5432
+DATABASE_NAME=mcp
+DATABASE_USER=mcp_admin
+DATABASE_PASSWORD=${DB_PASSWORD}
+DATABASE_SSL_MODE=require
+
+# Redis (via SSH tunnel)
+REDIS_ADDR=127.0.0.1:6379
+USE_SSH_TUNNEL_FOR_REDIS=true
 
 # AWS Services
 AWS_REGION=us-east-1
-S3_BUCKET=mcp-production-contexts
-SQS_QUEUE_URL=https://sqs.us-east-1.amazonaws.com/123456789012/mcp-production-tasks
+S3_BUCKET=your-mcp-contexts
+SQS_QUEUE_URL=https://sqs.us-east-1.amazonaws.com/YOUR-ACCOUNT/your-queue
 
 # Bedrock Configuration
 BEDROCK_ENABLED=true
-BEDROCK_SESSION_LIMIT=1.00
-GLOBAL_COST_LIMIT=100.0
-
-# Performance Settings
-MAX_CONNECTIONS=1000
-CONNECTION_TIMEOUT=30s
-REQUEST_TIMEOUT=300s
-WORKER_CONCURRENCY=10
+BEDROCK_SESSION_LIMIT=0.10
+GLOBAL_COST_LIMIT=10.0
 
 # Security
-JWT_SECRET_NAME=mcp/production/jwt-secret
-API_KEY_SECRET_NAME=mcp/production/api-keys
+JWT_SECRET=${JWT_SECRET}
+ADMIN_API_KEY=${ADMIN_API_KEY}
+READER_API_KEY=${READER_API_KEY}
 ```
 
 ### 2. Secrets Management
 
 ```bash
-# Store secrets in AWS Secrets Manager
-aws secretsmanager create-secret \
-  --name mcp/production/db-url \
-  --secret-string "postgresql://user:pass@rds-endpoint:5432/mcp?sslmode=require"
+# Option 1: Environment file on EC2 (current method)
+# Store .env file with restricted permissions
+chmod 600 .env
 
+# Option 2: AWS Secrets Manager (future enhancement)
+# Store sensitive values in Secrets Manager
 aws secretsmanager create-secret \
-  --name mcp/production/redis-url \
-  --secret-string "rediss://default:auth-token@redis-endpoint:6379"
+  --name mcp/production/db-password \
+  --secret-string "your-secure-password"
+
+# Retrieve in application
+DB_PASSWORD=$(aws secretsmanager get-secret-value \
+  --secret-id mcp/production/db-password \
+  --query SecretString --output text)
 
 aws secretsmanager create-secret \
   --name mcp/production/jwt-secret \
@@ -531,453 +544,298 @@ aws secretsmanager rotate-secret \
   --rotation-lambda-arn arn:aws:lambda:us-east-1:123456789012:function:SecretsManagerRotation
 ```
 
-### 3. Parameter Store
+### 3. Configuration Files
 
 ```bash
-# Store configuration in Parameter Store
-aws ssm put-parameter \
-  --name /mcp/production/config/max-connections \
-  --value "1000" \
-  --type String
+# Use configs/config.production.yaml
+cp configs/config.production.yaml.example configs/config.production.yaml
 
-aws ssm put-parameter \
-  --name /mcp/production/config/bedrock-models \
-  --value '["amazon.titan-embed-text-v1","cohere.embed-english-v3"]' \
-  --type StringList
+# Update with production values
+vim configs/config.production.yaml
+
+# Key configuration sections:
+# - database connection details
+# - redis connection (via SSH tunnel)
+# - AWS service endpoints
+# - authentication keys
 ```
 
 ## Security Hardening
 
-### 1. Network Security
-
-```hcl
-# ALB Security Group
-resource "aws_security_group" "alb" {
-  name_prefix = "mcp-alb-"
-  vpc_id      = module.vpc.vpc_id
-  
-  ingress {
-    from_port   = 443
-    to_port     = 443
-    protocol    = "tcp"
-    cidr_blocks = ["0.0.0.0/0"]
-  }
-  
-  ingress {
-    from_port   = 80
-    to_port     = 80
-    protocol    = "tcp"
-    cidr_blocks = ["0.0.0.0/0"]
-  }
-  
-  egress {
-    from_port   = 0
-    to_port     = 0
-    protocol    = "-1"
-    cidr_blocks = ["0.0.0.0/0"]
-  }
-}
-
-# Application Security Group
-resource "aws_security_group" "app" {
-  name_prefix = "mcp-app-"
-  vpc_id      = module.vpc.vpc_id
-  
-  ingress {
-    from_port       = 8080
-    to_port         = 8081
-    protocol        = "tcp"
-    security_groups = [aws_security_group.alb.id]
-  }
-  
-  egress {
-    from_port   = 0
-    to_port     = 0
-    protocol    = "-1"
-    cidr_blocks = ["0.0.0.0/0"]
-  }
-}
-```
-
-### 2. IAM Roles and Policies
-
-```hcl
-# ECS Task Role
-resource "aws_iam_role" "ecs_task_role" {
-  name = "mcp-production-ecs-task-role"
-  
-  assume_role_policy = jsonencode({
-    Version = "2012-10-17"
-    Statement = [
-      {
-        Action = "sts:AssumeRole"
-        Effect = "Allow"
-        Principal = {
-          Service = "ecs-tasks.amazonaws.com"
-        }
-      }
-    ]
-  })
-}
-
-# Task Role Policy
-resource "aws_iam_role_policy" "ecs_task_policy" {
-  name = "mcp-production-ecs-task-policy"
-  role = aws_iam_role.ecs_task_role.id
-  
-  policy = jsonencode({
-    Version = "2012-10-17"
-    Statement = [
-      {
-        Effect = "Allow"
-        Action = [
-          "s3:GetObject",
-          "s3:PutObject",
-          "s3:DeleteObject"
-        ]
-        Resource = "${aws_s3_bucket.contexts.arn}/*"
-      },
-      {
-        Effect = "Allow"
-        Action = [
-          "sqs:SendMessage",
-          "sqs:ReceiveMessage",
-          "sqs:DeleteMessage"
-        ]
-        Resource = aws_sqs_queue.task_queue.arn
-      },
-      {
-        Effect = "Allow"
-        Action = [
-          "bedrock:InvokeModel"
-        ]
-        Resource = "*"
-      },
-      {
-        Effect = "Allow"
-        Action = [
-          "secretsmanager:GetSecretValue"
-        ]
-        Resource = "arn:aws:secretsmanager:us-east-1:*:secret:mcp/production/*"
-      }
-    ]
-  })
-}
-```
-
-### 3. SSL/TLS Configuration
+### 1. EC2 Security Group Configuration
 
 ```bash
-# Request SSL certificate
-aws acm request-certificate \
-  --domain-name mcp.yourdomain.com \
-  --subject-alternative-names "*.mcp.yourdomain.com" \
-  --validation-method DNS
+# Security group for EC2 instance
+# Inbound rules:
+- Port 22 (SSH): Your IP only
+- Port 8080 (MCP Server): 0.0.0.0/0 or specific IPs
+- Port 8081 (REST API): 0.0.0.0/0 or specific IPs
 
-# Configure ALB listener
-aws elbv2 create-listener \
-  --load-balancer-arn $ALB_ARN \
-  --protocol HTTPS \
-  --port 443 \
-  --certificates CertificateArn=$CERT_ARN \
-  --ssl-policy ELBSecurityPolicy-TLS13-1-2-2021-06 \
-  --default-actions Type=forward,TargetGroupArn=$TARGET_GROUP_ARN
+# AWS CLI commands
+aws ec2 authorize-security-group-ingress \
+  --group-id sg-xxx \
+  --protocol tcp \
+  --port 22 \
+  --cidr YOUR-IP/32
+
+aws ec2 authorize-security-group-ingress \
+  --group-id sg-xxx \
+  --protocol tcp \
+  --port 8080-8081 \
+  --cidr 0.0.0.0/0
 ```
 
-### 4. WAF Configuration
-
-```hcl
-resource "aws_wafv2_web_acl" "main" {
-  name  = "mcp-production-waf"
-  scope = "REGIONAL"
-  
-  default_action {
-    allow {}
-  }
-  
-  rule {
-    name     = "RateLimitRule"
-    priority = 1
-    
-    action {
-      block {}
-    }
-    
-    statement {
-      rate_based_statement {
-        limit              = 2000
-        aggregate_key_type = "IP"
-      }
-    }
-    
-    visibility_config {
-      cloudwatch_metrics_enabled = true
-      metric_name               = "RateLimitRule"
-      sampled_requests_enabled   = true
-    }
-  }
-  
-  rule {
-    name     = "CommonRuleSet"
-    priority = 2
-    
-    override_action {
-      none {}
-    }
-    
-    statement {
-      managed_rule_group_statement {
-        vendor_name = "AWS"
-        name        = "AWSManagedRulesCommonRuleSet"
-      }
-    }
-    
-    visibility_config {
-      cloudwatch_metrics_enabled = true
-      metric_name               = "CommonRuleSet"
-      sampled_requests_enabled   = true
-    }
-  }
-}
-```
-
-## Monitoring and Alerts
-
-### 1. CloudWatch Dashboards
+### 2. IAM Role for EC2 Instance
 
 ```json
 {
-  "widgets": [
+  "Version": "2012-10-17",
+  "Statement": [
     {
-      "type": "metric",
-      "properties": {
-        "metrics": [
-          ["AWS/ECS", "CPUUtilization", "ServiceName", "mcp-server"],
-          [".", "MemoryUtilization", ".", "."]
-        ],
-        "period": 300,
-        "stat": "Average",
-        "region": "us-east-1",
-        "title": "ECS Service Metrics"
-      }
+      "Effect": "Allow",
+      "Action": [
+        "s3:GetObject",
+        "s3:PutObject",
+        "s3:DeleteObject",
+        "s3:ListBucket"
+      ],
+      "Resource": [
+        "arn:aws:s3:::your-mcp-contexts/*",
+        "arn:aws:s3:::your-mcp-contexts"
+      ]
     },
     {
-      "type": "metric",
-      "properties": {
-        "metrics": [
-          ["AWS/ApplicationELB", "TargetResponseTime", "LoadBalancer", "mcp-alb"],
-          [".", "RequestCount", ".", "."],
-          [".", "HTTPCode_Target_4XX_Count", ".", "."],
-          [".", "HTTPCode_Target_5XX_Count", ".", "."]
-        ],
-        "period": 300,
-        "stat": "Sum",
-        "region": "us-east-1",
-        "title": "ALB Metrics"
-      }
+      "Effect": "Allow",
+      "Action": [
+        "sqs:SendMessage",
+        "sqs:ReceiveMessage",
+        "sqs:DeleteMessage",
+        "sqs:GetQueueAttributes"
+      ],
+      "Resource": "arn:aws:sqs:us-east-1:*:your-queue"
+    },
+    {
+      "Effect": "Allow",
+      "Action": [
+        "bedrock:InvokeModel"
+      ],
+      "Resource": "*"
     }
   ]
 }
 ```
 
-### 2. CloudWatch Alarms
+### 3. SSL/TLS Configuration (Optional)
 
-```hcl
-resource "aws_cloudwatch_metric_alarm" "high_cpu" {
-  alarm_name          = "mcp-production-high-cpu"
-  comparison_operator = "GreaterThanThreshold"
-  evaluation_periods  = 2
-  metric_name        = "CPUUtilization"
-  namespace          = "AWS/ECS"
-  period             = 300
-  statistic          = "Average"
-  threshold          = 80
-  alarm_description  = "Triggers when CPU utilization is above 80%"
-  
-  dimensions = {
-    ServiceName = "mcp-server"
-    ClusterName = "mcp-production"
-  }
-  
-  alarm_actions = [aws_sns_topic.alerts.arn]
-}
-
-resource "aws_cloudwatch_metric_alarm" "high_error_rate" {
-  alarm_name          = "mcp-production-high-error-rate"
-  comparison_operator = "GreaterThanThreshold"
-  evaluation_periods  = 2
-  threshold          = 10
-  
-  metric_query {
-    id          = "error_rate"
-    expression  = "(m1/m2)*100"
-    label       = "Error Rate"
-    return_data = true
-  }
-  
-  metric_query {
-    id = "m1"
-    metric {
-      metric_name = "HTTPCode_Target_5XX_Count"
-      namespace   = "AWS/ApplicationELB"
-      period      = 300
-      stat        = "Sum"
-      dimensions = {
-        LoadBalancer = aws_lb.main.arn_suffix
-      }
-    }
-  }
-  
-  metric_query {
-    id = "m2"
-    metric {
-      metric_name = "RequestCount"
-      namespace   = "AWS/ApplicationELB"
-      period      = 300
-      stat        = "Sum"
-      dimensions = {
-        LoadBalancer = aws_lb.main.arn_suffix
-      }
-    }
-  }
-}
-```
-
-### 3. Application Metrics
-
-```go
-// Custom CloudWatch metrics
-func initMetrics() {
-    // Create CloudWatch client
-    sess := session.Must(session.NewSession())
-    svc := cloudwatch.New(sess)
-    
-    // Task processing metrics
-    go func() {
-        ticker := time.NewTicker(60 * time.Second)
-        for range ticker.C {
-            // Send custom metrics
-            svc.PutMetricData(&cloudwatch.PutMetricDataInput{
-                Namespace: aws.String("MCP/Production"),
-                MetricData: []*cloudwatch.MetricDatum{
-                    {
-                        MetricName: aws.String("TasksProcessed"),
-                        Value:      aws.Float64(float64(tasksProcessed)),
-                        Unit:       aws.String("Count"),
-                        Dimensions: []*cloudwatch.Dimension{
-                            {
-                                Name:  aws.String("Environment"),
-                                Value: aws.String("production"),
-                            },
-                        },
-                    },
-                    {
-                        MetricName: aws.String("ActiveAgents"),
-                        Value:      aws.Float64(float64(activeAgents)),
-                        Unit:       aws.String("Count"),
-                    },
-                },
-            })
-        }
-    }()
-}
-```
-
-### 4. Log Aggregation
+For HTTPS access, use a reverse proxy like nginx:
 
 ```bash
-# Configure CloudWatch Logs Insights queries
+# Install nginx on EC2
+sudo yum install -y nginx
 
-# Error analysis query
-fields @timestamp, @message
-| filter @message like /ERROR/
-| stats count() by bin(5m)
+# Configure nginx as reverse proxy
+sudo tee /etc/nginx/conf.d/mcp.conf << EOF
+server {
+    listen 443 ssl;
+    server_name your-domain.com;
+    
+    ssl_certificate /etc/nginx/ssl/cert.pem;
+    ssl_certificate_key /etc/nginx/ssl/key.pem;
+    
+    location / {
+        proxy_pass http://localhost:8080;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade \$http_upgrade;
+        proxy_set_header Connection "upgrade";
+        proxy_set_header Host \$host;
+        proxy_set_header X-Real-IP \$remote_addr;
+    }
+    
+    location /api/ {
+        proxy_pass http://localhost:8081/;
+    }
+}
+EOF
 
-# Request latency analysis
-fields @timestamp, duration
-| filter @type = "REQUEST"
-| stats avg(duration), max(duration), min(duration) by bin(5m)
+# Use Let's Encrypt for free SSL
+sudo certbot --nginx -d your-domain.com
+```
 
-# Agent activity monitoring
-fields @timestamp, agent_id, action
-| filter @type = "AGENT_EVENT"
-| stats count() by agent_id, action
+### 4. Application Security
+
+```bash
+# Use environment variables for secrets
+export JWT_SECRET=$(openssl rand -hex 32)
+export ADMIN_API_KEY=$(uuidgen)
+export READER_API_KEY=$(uuidgen)
+
+# Secure file permissions
+chmod 600 .env
+chmod 600 configs/config.production.yaml
+
+# Regular security updates
+sudo yum update -y
+docker system prune -a
+
+# Monitor for vulnerabilities
+docker scan mcp-server:production
+```
+
+## Monitoring and Alerts
+
+### 1. CloudWatch Monitoring
+
+```bash
+# Install CloudWatch agent
+wget https://s3.amazonaws.com/amazoncloudwatch-agent/amazon_linux/amd64/latest/amazon-cloudwatch-agent.rpm
+sudo rpm -U ./amazon-cloudwatch-agent.rpm
+
+# Configure to send Docker logs
+sudo /opt/aws/amazon-cloudwatch-agent/bin/amazon-cloudwatch-agent-config-wizard
+
+# Basic CloudWatch dashboard for EC2
+# Monitor these metrics:
+- EC2 CPU Utilization
+- EC2 Network In/Out
+- EC2 Disk Usage
+- RDS CPU and connections
+- ElastiCache CPU and evictions
+- SQS messages and age
+```
+
+### 2. CloudWatch Alarms
+
+```bash
+# Create basic alarms via CLI
+
+# EC2 CPU alarm
+aws cloudwatch put-metric-alarm \
+  --alarm-name ec2-high-cpu \
+  --alarm-description "Alert when EC2 CPU exceeds 80%" \
+  --metric-name CPUUtilization \
+  --namespace AWS/EC2 \
+  --statistic Average \
+  --period 300 \
+  --threshold 80 \
+  --comparison-operator GreaterThanThreshold \
+  --dimensions Name=InstanceId,Value=i-xxx \
+  --evaluation-periods 2
+
+# RDS CPU alarm
+aws cloudwatch put-metric-alarm \
+  --alarm-name rds-high-cpu \
+  --alarm-description "Alert when RDS CPU exceeds 80%" \
+  --metric-name CPUUtilization \
+  --namespace AWS/RDS \
+  --statistic Average \
+  --period 300 \
+  --threshold 80 \
+  --comparison-operator GreaterThanThreshold \
+  --dimensions Name=DBInstanceIdentifier,Value=mcp-production-db
+```
+
+### 3. Application Monitoring
+
+```bash
+# Monitor application logs
+docker-compose logs -f --tail=100
+
+# Check application metrics
+curl http://localhost:8080/metrics
+curl http://localhost:8081/metrics
+
+# Monitor WebSocket connections
+docker exec mcp-server sh -c 'netstat -an | grep :8080 | grep ESTABLISHED | wc -l'
+
+# Database connections
+docker exec -it postgres psql -U mcp_admin -d mcp -c "SELECT count(*) FROM pg_stat_activity;"
+```
+
+### 4. Log Management
+
+```bash
+# Docker logs configuration
+# In docker-compose.yml:
+logging:
+  driver: json-file
+  options:
+    max-size: "100m"
+    max-file: "10"
+
+# Log rotation on host
+sudo tee /etc/logrotate.d/docker-mcp << EOF
+/var/lib/docker/containers/*/*.log {
+  rotate 7
+  daily
+  compress
+  size=100M
+  missingok
+  delaycompress
+  copytruncate
+}
+EOF
+
+# Search logs
+docker-compose logs --tail=1000 | grep ERROR
+docker-compose logs --since=1h | grep "agent_id"
 ```
 
 ## Scaling Strategy
 
-### 1. Horizontal Scaling
-
-```yaml
-# Kubernetes HPA configuration
-apiVersion: autoscaling/v2
-kind: HorizontalPodAutoscaler
-metadata:
-  name: mcp-server-hpa
-spec:
-  scaleTargetRef:
-    apiVersion: apps/v1
-    kind: Deployment
-    name: mcp-server
-  minReplicas: 3
-  maxReplicas: 20
-  metrics:
-  - type: Resource
-    resource:
-      name: cpu
-      target:
-        type: Utilization
-        averageUtilization: 70
-  - type: Resource
-    resource:
-      name: memory
-      target:
-        type: Utilization
-        averageUtilization: 80
-  - type: Pods
-    pods:
-      metric:
-        name: websocket_connections_per_pod
-      target:
-        type: AverageValue
-        averageValue: "100"
-```
-
-### 2. Database Scaling
+### 1. Vertical Scaling (Current Approach)
 
 ```bash
-# Read replica configuration
+# Resize EC2 instance when needed
+# Stop instance
+aws ec2 stop-instances --instance-ids i-xxx
+
+# Change instance type
+aws ec2 modify-instance-attribute \
+  --instance-id i-xxx \
+  --instance-type '{"Value": "t3.xlarge"}'
+
+# Start instance
+aws ec2 start-instances --instance-ids i-xxx
+```
+
+### 2. Future Horizontal Scaling
+
+For horizontal scaling, consider:
+- Multiple EC2 instances behind ALB
+- Docker Swarm or manual container distribution
+- Shared Redis/RDS for state
+- SQS for work distribution
+
+### 3. Database Scaling
+
+```bash
+# Scale RDS instance
+aws rds modify-db-instance \
+  --db-instance-identifier mcp-production-db \
+  --db-instance-class db.t3.large \
+  --apply-immediately
+
+# Add read replica for reporting
 aws rds create-db-instance-read-replica \
-  --db-instance-identifier mcp-production-read-1 \
-  --source-db-instance-identifier mcp-production-db \
-  --availability-zone us-east-1b
+  --db-instance-identifier mcp-production-read \
+  --source-db-instance-identifier mcp-production-db
 
-# Connection pooling with PgBouncer
-[databases]
-mcp = host=rds-endpoint.amazonaws.com port=5432 dbname=mcp
-
-[pgbouncer]
-pool_mode = transaction
-max_client_conn = 1000
-default_pool_size = 25
-min_pool_size = 10
-reserve_pool_size = 5
+# Monitor connections
+SELECT count(*) FROM pg_stat_activity;
 ```
 
-### 3. Cache Scaling
+### 4. Cache Scaling
 
 ```bash
-# Redis cluster scaling
-aws elasticache modify-replication-group \
-  --replication-group-id mcp-production-redis \
-  --cache-node-type cache.r7g.xlarge \
+# Scale ElastiCache
+aws elasticache modify-cache-cluster \
+  --cache-cluster-id mcp-production-redis \
+  --cache-node-type cache.t3.medium \
   --apply-immediately
 
-# Add read replicas
-aws elasticache increase-replica-count \
-  --replication-group-id mcp-production-redis \
-  --new-replica-count 3 \
-  --apply-immediately
+# Monitor cache performance
+redis-cli INFO stats
+redis-cli INFO memory
 ```
 
 ## Disaster Recovery
@@ -985,215 +843,275 @@ aws elasticache increase-replica-count \
 ### 1. Backup Strategy
 
 ```bash
-# Automated RDS backups
-aws rds modify-db-instance \
+# RDS automated backups (configured in console)
+# Retention: 7-30 days
+# Backup window: 03:00-04:00 UTC
+
+# Manual RDS snapshot
+aws rds create-db-snapshot \
   --db-instance-identifier mcp-production-db \
-  --backup-retention-period 30 \
-  --preferred-backup-window "03:00-04:00"
+  --db-snapshot-identifier mcp-manual-$(date +%Y%m%d)
 
-# S3 cross-region replication
-aws s3api put-bucket-replication \
-  --bucket mcp-production-contexts \
-  --replication-configuration file://s3-replication.json
+# S3 bucket versioning (enable in console)
+# Lifecycle rules for cost optimization
 
-# ElastiCache snapshots
+# ElastiCache backup
 aws elasticache create-snapshot \
-  --replication-group-id mcp-production-redis \
-  --snapshot-name mcp-redis-$(date +%Y%m%d-%H%M%S)
+  --cache-cluster-id mcp-production-redis \
+  --snapshot-name redis-$(date +%Y%m%d)
+
+# EC2 AMI backup
+aws ec2 create-image \
+  --instance-id i-xxx \
+  --name "mcp-backup-$(date +%Y%m%d)" \
+  --no-reboot
 ```
 
 ### 2. Recovery Procedures
 
 ```bash
-# RDS recovery from snapshot
+# RDS recovery
 aws rds restore-db-instance-from-db-snapshot \
-  --db-instance-identifier mcp-production-db-restored \
-  --db-snapshot-identifier mcp-production-snapshot-20241225
+  --db-instance-identifier mcp-production-restored \
+  --db-snapshot-identifier mcp-manual-20241225
+
+# Update connection string in .env
+vim .env
+# Update DATABASE_HOST
 
 # Redis recovery
-aws elasticache create-replication-group \
-  --replication-group-id mcp-production-redis-restored \
-  --replication-group-description "Restored Redis cluster" \
-  --snapshot-name mcp-redis-20241225-120000
+aws elasticache create-cache-cluster \
+  --cache-cluster-id mcp-redis-restored \
+  --snapshot-name redis-20241225
 
-# Application failover
-kubectl set image deployment/mcp-server \
-  mcp-server=$ECR_REGISTRY/mcp/server:rollback-version \
-  --record
+# EC2 recovery from AMI
+aws ec2 run-instances \
+  --image-id ami-xxx \
+  --instance-type t3.large \
+  --key-name your-key \
+  --security-group-ids sg-xxx \
+  --subnet-id subnet-xxx
 ```
 
-### 3. Multi-Region Setup
+### 3. Backup Validation
 
-```hcl
-# Secondary region resources
-module "dr_region" {
-  source = "./modules/dr-region"
-  
-  providers = {
-    aws = aws.us_west_2
-  }
-  
-  primary_region = "us-east-1"
-  enable_replication = true
-  
-  rds_snapshot_identifier = aws_db_snapshot_copy.dr_snapshot.id
-  s3_replica_bucket = "mcp-dr-contexts"
-}
+```bash
+# Test restore procedure quarterly
+# 1. Create test RDS instance from snapshot
+# 2. Verify data integrity
+# 3. Test application connectivity
+# 4. Document recovery time
+
+# Backup checklist
+- [ ] RDS automated backups enabled
+- [ ] S3 versioning enabled
+- [ ] ElastiCache snapshots scheduled
+- [ ] EC2 AMI created monthly
+- [ ] Configuration files backed up
+- [ ] Recovery procedures documented
 ```
 
 ## Maintenance Procedures
 
-### 1. Rolling Updates
+### 1. Application Updates
 
 ```bash
-# ECS rolling update
-aws ecs update-service \
-  --cluster mcp-production \
-  --service mcp-server \
-  --task-definition mcp-server:new-version \
-  --desired-count 3 \
-  --deployment-configuration "maximumPercent=200,minimumHealthyPercent=100"
+# Build new images
+make docker-build
 
-# Monitor deployment
-aws ecs describe-services \
-  --cluster mcp-production \
-  --services mcp-server \
-  --query 'services[0].deployments'
+# Tag for production
+docker tag mcp-server:latest mcp-server:v1.2.0
+docker tag rest-api:latest rest-api:v1.2.0
+docker tag worker:latest worker:v1.2.0
+
+# Backup current state
+docker-compose exec postgres pg_dump -U mcp_admin mcp > backup-$(date +%Y%m%d).sql
+
+# Update with minimal downtime
+docker-compose pull
+docker-compose up -d --no-deps mcp-server
+docker-compose up -d --no-deps rest-api
+docker-compose up -d --no-deps worker
+
+# Verify
+docker-compose ps
+curl http://localhost:8080/health
 ```
 
 ### 2. Database Maintenance
 
-```sql
--- Vacuum and analyze tables
-VACUUM ANALYZE agents;
-VACUUM ANALYZE tasks;
-VACUUM ANALYZE contexts;
+```bash
+# Connect to RDS
+psql -h your-rds.amazonaws.com -U mcp_admin -d mcp
 
--- Update statistics
-ANALYZE;
+# Run maintenance
+VACUUM ANALYZE;
 
--- Check for bloat
+# Check table sizes
 SELECT 
   schemaname,
   tablename,
-  pg_size_pretty(pg_total_relation_size(schemaname||'.'||tablename)) AS size,
-  pg_size_pretty(pg_total_relation_size(schemaname||'.'||tablename) - pg_relation_size(schemaname||'.'||tablename)) AS external_size
+  pg_size_pretty(pg_total_relation_size(schemaname||'.'||tablename)) AS size
 FROM pg_tables
-WHERE schemaname NOT IN ('pg_catalog', 'information_schema')
+WHERE schemaname = 'public'
 ORDER BY pg_total_relation_size(schemaname||'.'||tablename) DESC;
+
+# Monitor connections
+SELECT count(*), state 
+FROM pg_stat_activity 
+GROUP BY state;
 ```
 
 ### 3. Security Updates
 
 ```bash
-# Update base images
-docker pull public.ecr.aws/lambda/go:1.24.3
-docker build --no-cache -t mcp/server:latest .
+# System updates
+sudo yum update -y
+sudo reboot  # if kernel updated
+
+# Docker updates
+sudo yum update docker -y
+sudo systemctl restart docker
 
 # Rotate secrets
-aws secretsmanager rotate-secret \
-  --secret-id mcp/production/jwt-secret \
-  --rotation-lambda-arn $ROTATION_LAMBDA_ARN
+export JWT_SECRET=$(openssl rand -hex 32)
+export ADMIN_API_KEY=$(uuidgen)
+# Update .env file
 
-# Update security groups
-aws ec2 revoke-security-group-ingress \
-  --group-id sg-xxx \
-  --ip-permissions file://old-rules.json
-
-aws ec2 authorize-security-group-ingress \
-  --group-id sg-xxx \
-  --ip-permissions file://new-rules.json
+# Update Go dependencies
+cd /home/ec2-user/devops-mcp
+go get -u ./...
+go mod tidy
+make docker-build
 ```
 
 ### 4. Performance Tuning
 
 ```bash
-# RDS parameter group optimization
-aws rds modify-db-parameter-group \
-  --db-parameter-group-name mcp-postgres15 \
-  --parameters "ParameterName=shared_buffers,ParameterValue=8GB,ApplyMethod=pending-reboot" \
-               "ParameterName=effective_cache_size,ParameterValue=24GB,ApplyMethod=immediate" \
-               "ParameterName=work_mem,ParameterValue=64MB,ApplyMethod=immediate"
+# Monitor resource usage
+docker stats
+htop
+iostat -x 1
 
-# Redis optimization
-CONFIG SET maxmemory-policy allkeys-lru
-CONFIG SET timeout 300
-CONFIG SET tcp-keepalive 60
+# Tune Docker
+sudo tee /etc/docker/daemon.json << EOF
+{
+  "log-driver": "json-file",
+  "log-opts": {
+    "max-size": "100m",
+    "max-file": "10"
+  },
+  "storage-driver": "overlay2"
+}
+EOF
+
+sudo systemctl restart docker
+
+# Database connection pooling in app config
+# Adjust in configs/config.production.yaml
+database:
+  max_open_conns: 25
+  max_idle_conns: 5
+  conn_max_lifetime: 5m
 ```
 
 ## Troubleshooting
 
 ### Common Issues
 
-1. **High Database CPU**
-   ```sql
-   -- Find slow queries
-   SELECT query, mean_exec_time, calls
-   FROM pg_stat_statements
-   ORDER BY mean_exec_time DESC
-   LIMIT 10;
+1. **ElastiCache Connection Failed**
+   ```bash
+   # Ensure SSH tunnel is running
+   ./scripts/aws/connect-elasticache.sh
+   # Check: lsof -i :6379
    ```
 
-2. **WebSocket Connection Drops**
+2. **High Memory Usage**
    ```bash
-   # Check ALB timeout settings
-   aws elbv2 modify-target-group-attributes \
-     --target-group-arn $TG_ARN \
-     --attributes Key=deregistration_delay.timeout_seconds,Value=30
+   # Check container memory
+   docker stats
+   # Restart specific service
+   docker-compose restart mcp-server
    ```
 
-3. **Memory Leaks**
+3. **Database Connection Errors**
    ```bash
-   # Enable memory profiling
-   kubectl exec -it mcp-server-xxx -- /bin/sh
-   curl http://localhost:6060/debug/pprof/heap > heap.prof
-   go tool pprof heap.prof
+   # Check connection count
+   psql -h RDS-ENDPOINT -U mcp_admin -d mcp
+   SELECT count(*) FROM pg_stat_activity;
+   # Terminate idle connections if needed
+   ```
+
+4. **SQS Processing Issues**
+   ```bash
+   # Check queue metrics in AWS Console
+   # Restart worker if stuck
+   docker-compose restart worker
    ```
 
 ## Cost Optimization
 
-### 1. Reserved Instances
+### 1. Right-Sizing
 
 ```bash
-# Purchase RDS reserved instances
-aws rds purchase-reserved-db-instances-offering \
-  --reserved-db-instances-offering-id offering-id \
-  --reserved-db-instance-id mcp-production-ri \
-  --instance-count 1
+# Monitor actual usage
+# EC2: Check CloudWatch CPU/Memory
+# RDS: Check performance insights
+# ElastiCache: Check memory usage
 
-# ECS Fargate Savings Plans
-# Configure through AWS Console for commitment discounts
+# Downsize if overprovisioned
+aws ec2 modify-instance-attribute \
+  --instance-id i-xxx \
+  --instance-type '{"Value": "t3.medium"}'
 ```
 
-### 2. Spot Instances for Workers
+### 2. Cost Saving Tips
 
-```hcl
-resource "aws_ecs_capacity_provider" "spot" {
-  name = "mcp-spot-capacity"
-  
-  auto_scaling_group_provider {
-    auto_scaling_group_arn = aws_autoscaling_group.spot.arn
-    
-    managed_scaling {
-      status                    = "ENABLED"
-      target_capacity           = 100
-      minimum_scaling_step_size = 1
-      maximum_scaling_step_size = 10
-    }
-  }
-}
+```bash
+# 1. Use Reserved Instances for steady workloads
+# 2. Enable S3 lifecycle policies
+# 3. Set Bedrock cost limits in config
+# 4. Use CloudWatch to identify unused resources
+# 5. Schedule dev/test environments to stop outside hours
+
+# Stop EC2 instance when not needed (dev/test)
+aws ec2 stop-instances --instance-ids i-xxx
 ```
 
 ## Next Steps
 
-1. Review [Monitoring Guide](../monitoring/MONITORING.md) for detailed observability setup
-2. Check [Security Best Practices](./security-best-practices.md) for additional hardening
-3. See [Performance Tuning Guide](./performance-tuning-guide.md) for optimization
-4. Explore [Cost Management Guide](./cost-management.md) for budget controls
+1. Set up monitoring and alerting
+2. Implement backup automation
+3. Document your specific configuration
+4. Plan for scaling needs
+5. Review security posture regularly
 
 ## Resources
 
-- [AWS Well-Architected Framework](https://aws.amazon.com/architecture/well-architected/)
-- [ECS Best Practices Guide](https://docs.aws.amazon.com/AmazonECS/latest/bestpracticesguide/)
+### Project-Specific
+- [CLAUDE.md](../../CLAUDE.md) - Production deployment notes
+- [Docker Compose Reference](https://docs.docker.com/compose/)
+- SSH script: `./scripts/ssh-to-ec2.sh`
+- ElastiCache script: `./scripts/aws/connect-elasticache.sh`
+
+### AWS Documentation
+- [EC2 User Guide](https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/)
 - [RDS Best Practices](https://docs.aws.amazon.com/AmazonRDS/latest/UserGuide/CHAP_BestPractices.html)
 - [ElastiCache Best Practices](https://docs.aws.amazon.com/AmazonElastiCache/latest/red-ug/BestPractices.html)
+- [S3 Security Best Practices](https://docs.aws.amazon.com/AmazonS3/latest/userguide/security-best-practices.html)
+
+## Summary
+
+This guide covers deploying DevOps MCP to AWS using:
+- Single EC2 instance with Docker Compose
+- RDS PostgreSQL with pgvector
+- ElastiCache Redis (via SSH tunnel)
+- S3 for object storage
+- SQS for task queuing
+- AWS Bedrock for embeddings
+
+For high availability and scaling, consider future migration to:
+- Multiple EC2 instances with load balancing
+- Container orchestration (ECS/EKS)
+- Auto-scaling groups
+- Multi-region deployment

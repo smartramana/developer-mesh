@@ -1,23 +1,43 @@
 # Monitoring and Observability Guide
 
 ## Overview
-This guide covers the complete observability stack for DevOps MCP, including metrics, logging, tracing, and alerting.
+This guide covers the monitoring capabilities of DevOps MCP. While the codebase has comprehensive metrics and tracing instrumentation, the full observability stack deployment is optional.
 
-## Quick Start
+## Current Implementation Status
 
-### 1. Deploy Monitoring Stack
+### ✅ Implemented
+- Prometheus metrics collection in code
+- OpenTelemetry tracing (disabled by default)
+- Structured JSON logging
+- Metrics endpoints at `/metrics`
+
+### ⚠️ Optional/Manual Setup
+- Prometheus server deployment
+- Grafana dashboards
+- Jaeger tracing backend
+
+### ❌ Not Implemented
+- docker-compose.monitoring.yml (referenced but doesn't exist)
+- AlertManager integration
+- Loki/Promtail log aggregation
+- pprof profiling endpoints
+- SLO/SLI tracking
+
+## Quick Start (Manual Setup)
+
+### 1. Enable Monitoring in Production
 ```bash
-# Deploy Prometheus, Grafana, and Jaeger
-kubectl apply -f kubernetes/monitoring/
+# Edit docker-compose.production.yml to uncomment monitoring services
+# Look for the "Optional monitoring" section
 
-# Or use Docker Compose
-docker-compose -f docker-compose.monitoring.yml up -d
+# Start with monitoring enabled
+docker-compose -f docker-compose.production.yml up -d prometheus grafana
 ```
 
-### 2. Access Dashboards
+### 2. Access Dashboards (if deployed)
 - Grafana: http://localhost:3000 (admin/admin)
 - Prometheus: http://localhost:9090
-- Jaeger: http://localhost:16686
+- Jaeger: Not configured (would need manual setup)
 
 ## Metrics Collection
 
@@ -83,40 +103,43 @@ scrape_configs:
       - targets: ['worker:8080']
 ```
 
-### Custom Metrics Implementation
+### Actually Implemented Metrics
+
+The following metrics are available at the `/metrics` endpoint:
+
 ```go
-// Example: Adding custom metrics
-package metrics
+// From pkg/observability/prometheus_metrics.go
+// These metrics are actually implemented and exposed:
 
-import (
-    "github.com/prometheus/client_golang/prometheus"
-    "github.com/prometheus/client_golang/prometheus/promauto"
-)
+// API Metrics
+- api_request_duration_seconds (histogram)
+- api_request_total (counter)
+- api_request_size_bytes (histogram)
+- api_response_size_bytes (histogram)
+- api_concurrent_requests (gauge)
 
-var (
-    contextsCreated = promauto.NewCounterVec(
-        prometheus.CounterOpts{
-            Name: "mcp_contexts_created_total",
-            Help: "Total number of contexts created",
-        },
-        []string{"tenant_id", "type"},
-    )
-    
-    contextSize = promauto.NewHistogram(
-        prometheus.HistogramOpts{
-            Name: "mcp_context_size_bytes",
-            Help: "Size of contexts in bytes",
-            Buckets: prometheus.ExponentialBuckets(1024, 2, 10), // 1KB to 1MB
-        },
-    )
-)
+// Database Metrics  
+- db_query_duration_seconds (histogram)
+- db_query_total (counter)
+- db_connection_pool_size (gauge)
+- db_connection_pool_used (gauge)
 
-// Use in your code
-func CreateContext(ctx context.Context, content string) error {
-    contextsCreated.WithLabelValues(tenantID, "manual").Inc()
-    contextSize.Observe(float64(len(content)))
-    // ... rest of implementation
-}
+// Cache Metrics
+- cache_hits_total (counter)
+- cache_misses_total (counter)
+- cache_evictions_total (counter)
+- cache_size_bytes (gauge)
+
+// WebSocket Metrics
+- websocket_connections_total (counter)
+- websocket_active_connections (gauge)
+- websocket_messages_received_total (counter)
+- websocket_messages_sent_total (counter)
+- websocket_errors_total (counter)
+
+// Health Check Metrics
+- health_check_duration_seconds (histogram)
+- health_check_total (counter)
 ```
 
 ### WebSocket Metrics Implementation
@@ -300,26 +323,29 @@ func TrackTaskCompletion(agent *Agent, task *Task, duration time.Duration, statu
 }
 ```
 
-## Logging Configuration
+## Logging Configuration (Implemented)
 
 ### Structured Logging
-```yaml
-# config.yaml
-monitoring:
-  logging:
-    level: info
-    format: json
-    output: stdout
-    fields:
-      - service
-      - version
-      - environment
-      - trace_id
+DevOps MCP uses structured JSON logging. Configure via environment variables:
+
+```bash
+# Set log level
+LOG_LEVEL=debug  # debug, info, warn, error
+
+# Logs are written to stdout in JSON format
+# Example log output:
+{"level":"info","ts":"2024-01-23T10:00:00Z","caller":"main.go:42","msg":"Server started","port":8080}
 ```
 
-### Log Aggregation with Loki
+### Log Aggregation (Not Implemented)
+
+**Note**: Loki and Promtail are mentioned in docs but not implemented. For log aggregation, you would need to:
+1. Deploy Loki/Promtail separately
+2. Configure them to scrape container logs
+3. This is not included in DevOps MCP
+
 ```yaml
-# loki/config.yaml
+# THEORETICAL: loki/config.yaml does not exist
 auth_enabled: false
 
 server:
@@ -372,14 +398,33 @@ scrape_configs:
           service:
 ```
 
-## Distributed Tracing
+## Distributed Tracing (Optional)
 
-### Jaeger Integration
+### OpenTelemetry Integration (Implemented but Disabled)
+
+**Note**: Tracing code exists but is disabled by default. To enable:
+
+1. Set environment variables:
+```bash
+ENABLE_TRACING=true
+OTEL_EXPORTER_OTLP_ENDPOINT=http://your-jaeger:4317
+```
+
+2. Deploy Jaeger (not included):
+```bash
+# Example Jaeger deployment (not part of DevOps MCP)
+docker run -d --name jaeger \
+  -p 16686:16686 \
+  -p 4317:4317 \
+  jaegertracing/all-in-one:latest
+```
+
+### Actual Implementation
 ```go
-// Initialize tracing
+// From pkg/observability/tracer.go
 import (
     "go.opentelemetry.io/otel"
-    "go.opentelemetry.io/otel/exporters/jaeger"
+    "go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracegrpc"
     "go.opentelemetry.io/otel/sdk/trace"
 )
 
@@ -567,13 +612,20 @@ var CustomSpanAttributes = struct {
 }
 ```
 
-## Grafana Dashboards
+## Grafana Dashboards (Configuration Only)
 
-### MCP Overview Dashboard
+**Note**: Dashboard JSON files exist in `configs/grafana/dashboards/` but Grafana deployment is optional. To use:
+
+1. Uncomment Grafana in docker-compose.production.yml
+2. Start Grafana container
+3. Import dashboards manually or configure auto-provisioning
+
+### Available Dashboard Configuration
 ```json
+// From configs/grafana/dashboards/mcp-dashboard.json
 {
   "dashboard": {
-    "title": "MCP Overview",
+    "title": "MCP Metrics Dashboard",
     "panels": [
       {
         "title": "Request Rate",
@@ -716,11 +768,14 @@ curl -X POST http://admin:admin@localhost:3000/api/dashboards/db \
   -d @dashboards/mcp-overview.json
 ```
 
-## Alerting Rules
+## Alerting (Not Implemented)
 
-### Prometheus Alert Rules
+**Note**: No AlertManager integration exists. The following shows how you could set up alerting:
+
+### Theoretical Prometheus Alert Rules
 ```yaml
-# alerts/rules.yml
+# THEORETICAL: No alerts/rules.yml exists
+# You would need to create this and configure AlertManager separately
 groups:
   - name: mcp_critical
     interval: 30s
@@ -803,11 +858,13 @@ receivers:
       - service_key: ${PAGERDUTY_SERVICE_KEY}
 ```
 
-## SLI/SLO Definitions
+## SLI/SLO Monitoring (Not Implemented)
 
-### Service Level Indicators
+**Note**: No SLI/SLO tracking is implemented. This section shows what could be built:
+
+### Theoretical Service Level Indicators
 ```yaml
-# SLI definitions
+# THEORETICAL: No SLI/SLO implementation exists
 slis:
   availability:
     description: "Percentage of successful requests"
@@ -901,10 +958,10 @@ redis-cli SLOWLOG GET 10
 
 ### Enable Debug Logging
 ```bash
-# Temporarily enable debug logging
-curl -X PUT http://localhost:8080/admin/log-level \
-  -H "Authorization: Bearer $ADMIN_TOKEN" \
-  -d '{"level": "debug"}'
+# Set environment variable and restart service
+LOG_LEVEL=debug docker-compose -f docker-compose.production.yml up -d
+
+# Note: No runtime log level API exists
 ```
 
 ### Trace Specific Request
@@ -918,25 +975,51 @@ curl -H "X-Debug-Trace: true" \
 open http://localhost:16686/trace/debug-123
 ```
 
-### Memory Profiling
-```bash
-# Get heap profile
-curl http://localhost:8080/debug/pprof/heap > heap.prof
-go tool pprof -http=:8081 heap.prof
+### Memory Profiling (Not Available)
 
-# Get goroutine profile
-curl http://localhost:8080/debug/pprof/goroutine > goroutine.prof
+**Note**: pprof endpoints are not exposed. To enable profiling:
+
+1. Modify the application to add pprof handlers:
+```go
+import _ "net/http/pprof"
+// Add to your router:
+// router.PathPrefix("/debug/").Handler(http.DefaultServeMux)
 ```
+
+2. Rebuild and redeploy
+3. Access pprof endpoints
+
+Currently, no profiling endpoints are available in production.
 
 ## Best Practices
 
-1. **Use structured logging** with consistent field names
-2. **Add trace IDs** to all log entries
-3. **Set up alerts** before issues occur
-4. **Monitor SLOs** not just system metrics
-5. **Use sampling** for high-volume tracing
-6. **Implement custom metrics** for business KPIs
-7. **Regular review** of dashboard effectiveness
+1. **Use the built-in metrics** - Comprehensive metrics are already implemented
+2. **Enable JSON logging** - Already configured for structured logs
+3. **Monitor the /metrics endpoint** - Available on both services
+4. **Set up external monitoring** - Deploy Prometheus/Grafana separately if needed
+5. **Use correlation IDs** - Pass X-Request-ID headers for request tracking
+6. **Check health endpoints** - Use /health for basic monitoring
+7. **Consider enabling tracing** - Code exists but needs configuration
+
+## What's Actually Available
+
+### Without Additional Setup
+- Metrics at http://localhost:8080/metrics
+- Health checks at http://localhost:8080/health
+- JSON structured logs to stdout
+- Correlation ID tracking via X-Request-ID
+
+### With Manual Setup
+- Prometheus scraping (uncomment in docker-compose)
+- Grafana dashboards (import from configs/)
+- OpenTelemetry tracing (set environment variables)
+
+### Not Available
+- pprof profiling endpoints
+- Log aggregation (Loki/Promtail)
+- Alerting (AlertManager)
+- SLO tracking
+- Jaeger UI (unless manually deployed)
 
 ## Troubleshooting
 
@@ -953,6 +1036,11 @@ curl http://localhost:8080/debug/pprof/goroutine > goroutine.prof
 4. Analyze trace data
 
 ### Missing Metrics
-1. Verify Prometheus targets: http://localhost:9090/targets
-2. Check service discovery
-3. Verify metrics endpoint: `curl http://service:8080/metrics`
+1. Ensure service is running: `docker-compose ps`
+2. Check metrics endpoint directly: `curl http://localhost:8080/metrics`
+3. If using Prometheus, verify scrape config matches service names
+4. Check logs for metric registration errors
+
+## Summary
+
+DevOps MCP has solid monitoring foundations with comprehensive metrics instrumentation. However, the full observability stack (Prometheus, Grafana, Jaeger, etc.) requires manual setup and is not deployed by default. The documentation above reflects what's actually implemented versus what would need additional configuration.

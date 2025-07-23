@@ -378,8 +378,11 @@ POST /api/v1/tools/:tool/queries
 
 The Agent API manages AI agent lifecycle, capabilities, and workload tracking.
 
-### Register Agent
-Register a new AI agent with the orchestration platform.
+### Agent Management
+**Note**: Agent registration is done via WebSocket connection to the MCP server (port 8080), not through the REST API. The REST API provides agent management capabilities after registration.
+
+### Create Agent (Management)
+Create agent configuration after WebSocket registration.
 
 ```http
 POST /api/v1/agents
@@ -1114,34 +1117,9 @@ POST /api/v1/search/similar
 }
 ```
 
-## MCP Protocol API
+## MCP Protocol Support
 
-The MCP protocol endpoints follow the Model Context Protocol specification.
-
-### Create MCP Context
-```http
-POST /api/v1/mcp/context
-```
-
-### Get MCP Context
-```http
-GET /api/v1/mcp/context/:id
-```
-
-### Update MCP Context
-```http
-PUT /api/v1/mcp/context/:id
-```
-
-### List MCP Contexts
-```http
-GET /api/v1/mcp/contexts
-```
-
-### Search MCP Context
-```http
-POST /api/v1/mcp/context/:id/search
-```
+The REST API implements the Model Context Protocol through the standard context endpoints. MCP-specific functionality is integrated into the existing context management API rather than being a separate endpoint set.
 
 ## Webhook API
 
@@ -1151,7 +1129,7 @@ The Webhook API receives and processes events from external services.
 Receive GitHub webhook events.
 
 ```http
-POST /api/v1/webhooks/github
+POST /api/webhooks/github
 ```
 
 **Headers:**
@@ -1204,7 +1182,7 @@ Content-Type: application/json
 Configure webhook settings for an organization/repository.
 
 ```http
-PUT /api/v1/webhooks/github/config
+PUT /api/webhooks/github/config
 ```
 
 **Request Body:**
@@ -1229,7 +1207,7 @@ PUT /api/v1/webhooks/github/config
 Get processed webhook events.
 
 ```http
-GET /api/v1/webhooks/events?repository=octocat/hello-world&limit=20
+GET /api/webhooks/events?repository=octocat/hello-world&limit=20
 ```
 
 **Response:**
@@ -1256,11 +1234,13 @@ GET /api/v1/webhooks/events?repository=octocat/hello-world&limit=20
 }
 ```
 
-## Relationship API
+## Relationship API (Planned)
 
-The Relationship API tracks connections between entities (issues, PRs, commits, etc.).
+**Note**: The Relationship API is designed but not yet implemented.
 
-### Create Relationship
+The Relationship API will track connections between entities (issues, PRs, commits, etc.).
+
+### Future: Create Relationship
 Create a relationship between entities.
 
 ```http
@@ -1447,9 +1427,11 @@ All errors follow a consistent format:
 | `RATE_LIMIT_EXCEEDED` | 429 | Too many requests |
 | `INTERNAL_ERROR` | 500 | Server error |
 
-## Workflow & Task API
+## Workflow & Task API (Planned)
 
-### Create Workflow
+**Note**: The workflow and task APIs are designed but not yet implemented. Task assignment currently happens through WebSocket messages to the MCP server.
+
+### Future: Create Workflow
 Define a multi-step workflow for AI agents.
 
 ```http

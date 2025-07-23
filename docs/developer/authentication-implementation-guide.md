@@ -16,12 +16,13 @@ This guide provides comprehensive documentation for implementing authentication 
 
 The DevOps MCP platform uses a centralized authentication service (`pkg/auth`) that provides:
 
-- Multiple authentication methods (API keys, JWT, OAuth, GitHub App)
+- Two authentication methods (API keys, JWT)
+- OAuth interfaces (not implemented)
 - Middleware for both Gin and standard HTTP handlers
 - Rate limiting integration
 - Metrics collection
 - Caching for performance
-- Tenant-based access control
+- Basic tenant-based access control (not Casbin RBAC)
 
 ### Key Components
 
@@ -100,14 +101,17 @@ token, err := authService.GenerateJWT(ctx, user)
 router.Use(authService.GinMiddleware(auth.TypeJWT))
 ```
 
-### 3. GitHub App Authentication
+### 3. GitHub App Authentication (Adapter-specific)
 
-For GitHub API integration using app installations.
+**Note**: GitHub App authentication is implemented separately in the GitHub adapter, not as part of the core auth package.
 
 #### Implementation
 
 ```go
 // pkg/adapters/github/auth/provider.go
+// This is NOT part of the main auth package
+import "github.com/S-Corkum/devops-mcp/pkg/adapters/github/auth"
+
 appProvider, err := auth.NewAppProvider(
     appID,
     privateKeyPEM,
@@ -130,17 +134,20 @@ err := appProvider.SetAuthHeaders(req)
 4. Cache token until expiry
 5. Automatically refresh before expiry
 
-### 4. OAuth Authentication
+### 4. OAuth Authentication (Not Implemented)
 
-Standard OAuth flow for third-party integrations.
+**Status**: Only interfaces exist, no concrete OAuth providers are implemented.
 
 ```go
-oauthProvider := auth.NewOAuthProvider(
-    token,
-    clientID,
-    clientSecret,
-    logger,
-)
+// Interface exists but no implementations
+type OAuthProvider interface {
+    GetAuthorizationURL(state string) (string, error)
+    ExchangeCode(ctx context.Context, code string) (*OAuthToken, error)
+    RefreshToken(ctx context.Context, refreshToken string) (*OAuthToken, error)
+    ValidateToken(ctx context.Context, token string) (*User, error)
+}
+
+// No Google, GitHub OAuth, or other providers implemented
 ```
 
 ## Rate Limiting
@@ -283,6 +290,9 @@ router.POST("/api/v1/admin/users",
     authService.RequireScopes("admin", "write"),
     handleCreateUser,
 )
+
+// Note: Authorization uses simple in-memory policies,
+// not Casbin RBAC as might be mentioned elsewhere
 
 // Check scopes in handler
 func handleCreateUser(c *gin.Context) {
@@ -572,16 +582,24 @@ logger.SetLevel("debug")
 authService = auth.NewService(config, db, cache, logger)
 ```
 
-## Migration Guide
+## Current Limitations and Future Work
 
-For migrating from older authentication systems:
+### Not Yet Implemented:
+1. **OAuth Providers**: Only interfaces exist, no concrete implementations
+2. **Casbin RBAC**: Currently uses simple in-memory authorization
+3. **External Identity Providers**: No SAML, OIDC, or external IdP support
+4. **Token Revocation**: JWT tokens cannot be revoked before expiry
+5. **Multi-factor Authentication**: Not supported
 
-1. Audit existing API keys and permissions
-2. Create mapping of old keys to new scopes
-3. Implement backward compatibility layer
-4. Gradually migrate clients to new auth
-5. Monitor usage and deprecate old keys
+### What Works Today:
+1. **API Key Authentication**: Full support with database backing
+2. **JWT Authentication**: Token generation and validation
+3. **Basic Authorization**: Scope-based access control
+4. **Rate Limiting**: Per-tenant and per-endpoint limits
+5. **Metrics and Monitoring**: Authentication metrics via Prometheus
 
 ## Conclusion
 
-This guide provides a comprehensive overview of authentication implementation in the DevOps MCP platform. Follow these patterns and best practices to ensure secure, scalable authentication for your services.
+This guide documents the current authentication implementation in DevOps MCP. While the foundation is solid with API key and JWT support, several advanced features (OAuth, Casbin RBAC, external IdPs) remain unimplemented. Always verify feature availability in the actual codebase before relying on documentation.
+
+For the most accurate implementation status, see `docs/guides/auth-implementation-status.md`.

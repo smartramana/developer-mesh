@@ -2,7 +2,9 @@
 
 ## Overview
 
-The `core` package implements the central engine for the DevOps MCP platform. It orchestrates context management, GitHub integration, embedding processing, and adapter coordination. The package provides the foundation for AI-powered DevOps automation with conversation context awareness and comprehensive GitHub content analysis.
+The `core` package implements the central engine for the DevOps MCP platform. It orchestrates context management, GitHub integration, and adapter coordination. The package provides the foundation for AI-powered DevOps automation with conversation context awareness.
+
+**Implementation Status**: The core engine provides basic orchestration. Many features shown in the examples (like `ExecuteWithContext`, `ProcessGitHubContent`) are documented but not implemented in the current codebase.
 
 ## Architecture
 
@@ -34,25 +36,19 @@ engine := core.NewEngine(
     logger,            // Structured logging
 )
 
-// Execute tool action with context
-result, err := engine.ExecuteWithContext(ctx, &ExecuteRequest{
-    Tool:   "github",
-    Action: "create_issue",
-    Params: map[string]interface{}{
+// Execute adapter action (actual method signature)
+result, err := engine.ExecuteAdapterAction(ctx, contextID, "github", "create_issue", 
+    map[string]interface{}{
         "title": "Fix memory leak",
         "body":  "Description...",
     },
-    ContextID: contextID,
-})
+)
 
-// Process GitHub content
-err = engine.ProcessGitHubContent(ctx, &GitHubContent{
-    Type:       "issue",
-    Owner:      "S-Corkum",
-    Repo:       "devops-mcp",
-    Number:     123,
-    Content:    issueData,
-})
+// Handle adapter webhook
+err = engine.HandleAdapterWebhook(ctx, "github", "issue.created", payload)
+
+// Note: ExecuteWithContext and ProcessGitHubContent methods shown in examples
+// are not implemented in the current Engine struct
 ```
 
 ## Context Management
@@ -62,8 +58,11 @@ err = engine.ProcessGitHubContent(ctx, &GitHubContent{
 Manages conversation contexts with persistence:
 
 ```go
-// Create context
-context, err := contextManager.CreateContext(ctx, &CreateContextRequest{
+// Get context manager from engine
+contextManager := engine.GetContextManager()
+
+// Create context (actual method signature from context/manager.go)
+context, err := contextManager.CreateContext(ctx, &models.MCPContext{
     Name:    "deployment-planning",
     Content: "Planning production deployment...",
     Type:    "conversation",
@@ -155,40 +154,18 @@ manager := NewContextManager(
 Store and index GitHub content:
 
 ```go
-// Store GitHub issue
-err = engine.StoreGitHubContent(ctx, &GitHubIssue{
-    Owner:     "S-Corkum",
-    Repo:      "devops-mcp",
-    Number:    123,
-    Title:     "Memory leak in worker",
-    Body:      "Description...",
-    State:     "open",
-    Labels:    []string{"bug", "performance"},
-    CreatedAt: time.Now(),
-})
+// Get GitHub content manager from engine
+githubManager := engine.GetGitHubContentManager()
 
-// Store pull request
-err = engine.StoreGitHubPR(ctx, &GitHubPullRequest{
-    Owner:      "S-Corkum",
-    Repo:       "devops-mcp",
-    Number:     456,
-    Title:      "Fix memory leak",
-    Body:       "This PR fixes...",
-    State:      "open",
-    BaseRef:    "main",
-    HeadRef:    "fix/memory-leak",
-    Commits:    3,
-    Additions:  45,
-    Deletions:  12,
-})
+// Store content using the storage manager
+// Note: The specific StoreGitHubContent, StoreGitHubPR methods shown in examples
+// are not implemented. The actual implementation uses a different API.
 
-// Query stored content
-issues, err := engine.GetGitHubIssues(ctx, &IssueQuery{
-    Owner:  "S-Corkum",
-    Repo:   "devops-mcp",
-    State:  "open",
-    Labels: []string{"bug"},
-})
+// The GitHubContentManager provides:
+// - Storage of GitHub content to S3
+// - Database persistence
+// - Relationship management
+```
 ```
 
 ### Relationship Management
@@ -235,20 +212,16 @@ err = engine.ProcessGitHubContent(ctx, content)
 
 ## Embedding Management
 
-### Embedding Interface
+**Note**: The embedding management interface shown is not implemented in the current core package. Embedding functionality is handled by the embedding package and REST API.
+
+### Planned Interface
 
 ```go
+// This interface is documented but not yet implemented
 type EmbeddingManager interface {
-    // Generate embedding for text
     GenerateEmbedding(ctx context.Context, text string, model string) ([]float32, error)
-    
-    // Batch generate embeddings
     BatchGenerateEmbeddings(ctx context.Context, texts []string, model string) ([][]float32, error)
-    
-    // Store embedding
     StoreEmbedding(ctx context.Context, embedding *Embedding) error
-    
-    // Search similar embeddings
     SearchSimilar(ctx context.Context, query []float32, limit int) ([]*Embedding, error)
 }
 ```
@@ -282,61 +255,26 @@ embeddings, err := embeddingManager.ProcessDiscussion(ctx, &DiscussionRequest{
 
 ## Adapter Context Bridge
 
-Integrates tools with context awareness:
+The adapter context bridge is implemented in `adapter_context_bridge.go` but with a different API:
 
 ```go
-// Execute tool with context recording
-bridge := NewAdapterContextBridge(adapters, contextManager)
+// The bridge wraps adapter execution with context recording
+// Actual implementation differs from the documented example
 
-result, err := bridge.ExecuteWithContext(ctx, &ExecuteRequest{
-    Tool:      "github",
-    Action:    "create_issue",
-    Params:    params,
-    ContextID: contextID,
-})
-
-// Automatic context updates:
-// 1. Records tool request in context
-// 2. Executes tool action
-// 3. Records tool response in context
-// 4. Updates token count
-// 5. Applies truncation if needed
+// The engine provides webhook recording for context:
+err = engine.RecordWebhookInContext(ctx, agentID, "github", "issue.created", payload)
 ```
 
 ## Event System
 
-Publish/subscribe for system events:
+The package uses the events system from `pkg/events`:
 
 ```go
-// Initialize event bus
-eventBus := NewSystemEventBus()
+// The engine has an internal eventBus (*events.EventBusImpl)
+// Event publishing happens internally during operations
 
-// Subscribe to events
-sub := eventBus.Subscribe("github.issue.created", func(event Event) error {
-    issue := event.Data.(*GitHubIssue)
-    // Process new issue
-    return nil
-})
-defer sub.Unsubscribe()
-
-// Publish events
-err = eventBus.Publish(&Event{
-    Type: "github.issue.created",
-    Data: issue,
-    Metadata: map[string]interface{}{
-        "source": "webhook",
-    },
-})
-
-// Event types
-const (
-    EventContextCreated    = "context.created"
-    EventContextUpdated    = "context.updated"
-    EventGitHubIssue       = "github.issue.*"
-    EventGitHubPR          = "github.pr.*"
-    EventEmbeddingCreated  = "embedding.created"
-    EventToolExecuted      = "tool.executed"
-)
+// System events are defined in pkg/events/system/
+// The actual event bus implementation differs from the examples shown
 ```
 
 ## Fallback Service
@@ -497,8 +435,21 @@ When migrating from internal to pkg:
 3. Test thoroughly at each step
 4. Remove adapters when complete
 
+## Implementation Gaps
+
+The following features are documented but not yet implemented:
+
+- ExecuteWithContext method on Engine
+- ProcessGitHubContent method on Engine  
+- StoreGitHubContent/StoreGitHubPR methods
+- EmbeddingManager interface and implementation
+- Full event system as documented
+- Many of the content processing pipeline features
+
 ## Future Enhancements
 
+- [ ] Implement missing Engine methods
+- [ ] Add embedding management
 - [ ] GraphQL support for GitHub
 - [ ] Real-time context sync
 - [ ] Advanced relationship analysis

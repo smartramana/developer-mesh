@@ -1,886 +1,396 @@
 # Agent Registration Guide
 
 > **Purpose**: Step-by-step guide for registering AI agents with the DevOps MCP platform
-> **Audience**: Developers integrating AI agents with different neural network models
-> **Scope**: Registration process, configuration, model selection, capability declaration
+> **Audience**: Developers integrating AI agents
+> **Scope**: WebSocket connection and agent registration
 
 ## Overview
 
-This guide explains how to register AI agents with the DevOps MCP platform. Agents can be powered by various neural networks (GPT-4, Claude, Bedrock models, custom models) and specialized for different tasks (code analysis, documentation, DevOps automation, performance optimization).
+This guide explains how to register AI agents with the DevOps MCP platform. The registration process is straightforward:
 
-## Quick Start
+1. **Connect via WebSocket** with authentication (API key or JWT token)
+2. **Agent ID is assigned automatically** by the server based on your authentication
+3. **Register your agent's capabilities** through WebSocket messages
 
-### Basic Agent Registration
+## Important: WebSocket Client Requirements
 
-```go
-// Register a simple agent
-agent := &agents.Agent{
-    ID:      "my-code-agent",
-    Name:    "Code Analysis Agent",
-    Type:    agents.AgentTypeCodeAnalysis,
-    Model:   agents.ModelGPT4,
-    Status:  agents.StatusActive,
-}
+⚠️ **Critical**: All WebSocket clients MUST request the `mcp.v1` subprotocol during connection. Without this, the server will reject your connection with HTTP 426 Upgrade Required.
 
-// Connect and register
-client := mcp.NewClient("ws://localhost:8080/ws")
-err := client.RegisterAgent(context.Background(), agent)
-```
+### No Official SDK Yet
 
-## Agent Architecture
+The DevOps MCP project doesn't provide an official client SDK yet. This guide shows how to connect using standard WebSocket libraries following the patterns used in the project's test suite.
 
-### Agent Components
+## How Agent IDs Work
 
-```
-┌─────────────────────────────────────────────────────────┐
-│                    Agent Instance                        │
-├─────────────────────────────────────────────────────────┤
-│  ┌─────────────┐  ┌──────────────┐  ┌──────────────┐  │
-│  │   Identity  │  │ Capabilities │  │    Model     │  │
-│  │  - ID       │  │  - Tasks     │  │  - Provider  │  │
-│  │  - Name     │  │  - Skills    │  │  - Version   │  │
-│  │  - Type     │  │  - Languages │  │  - Config    │  │
-│  └─────────────┘  └──────────────┘  └──────────────┘  │
-├─────────────────────────────────────────────────────────┤
-│  ┌─────────────┐  ┌──────────────┐  ┌──────────────┐  │
-│  │ Connection  │  │    State     │  │ Constraints  │  │
-│  │  - WebSocket│  │  - Workload  │  │  - Cost      │  │
-│  │  - Protocol │  │  - Health    │  │  - Latency   │  │
-│  │  - Auth     │  │  - Metrics   │  │  - Quality   │  │
-│  └─────────────┘  └──────────────┘  └──────────────┘  │
-└─────────────────────────────────────────────────────────┘
-```
+When you connect to the MCP server:
+- **With JWT token**: Your agent ID will be your user ID from the JWT
+- **With API key**: A new UUID will be generated as your agent ID
+- **No manual ID required**: The server handles ID assignment automatically
 
-## Registration Process
+## Quick Start (Go)
 
-### 1. Define Agent Configuration
+Using `github.com/coder/websocket` (the library used by DevOps MCP):
 
 ```go
-// Complete agent configuration
-config := &agents.AgentConfig{
-    AgentID:           "code-reviewer-001",
-    Version:           1,
-    EmbeddingStrategy: agents.StrategyBalanced,
-    ModelPreferences: []agents.ModelPreference{
-        {
-            TaskType:       agents.TaskTypeCodeAnalysis,
-            PrimaryModels:  []string{"gpt-4", "claude-2"},
-            FallbackModels: []string{"gpt-3.5-turbo"},
-            Weight:         0.8,
-        },
-        {
-            TaskType:       agents.TaskTypeGeneralQA,
-            PrimaryModels:  []string{"claude-2"},
-            FallbackModels: []string{"gpt-3.5-turbo"},
-            Weight:         0.2,
-        },
-    },
-    Constraints: agents.AgentConstraints{
-        MaxCostPerMonthUSD: 100.0,
-        MaxLatencyP99Ms:    5000,
-        MinAvailabilitySLA: 0.99,
-        RateLimits: agents.RateLimitConfig{
-            RequestsPerMinute:  60,
-            TokensPerHour:      100000,
-            ConcurrentRequests: 10,
-        },
-        QualityThresholds: agents.QualityConfig{
-            MinCosineSimilarity:   0.8,
-            MinEmbeddingMagnitude: 0.5,
-            AcceptableErrorRate:   0.01,
-        },
-    },
-    FallbackBehavior: agents.FallbackConfig{
-        MaxRetries:      3,
-        InitialDelayMs:  1000,
-        MaxDelayMs:      10000,
-        ExponentialBase: 2.0,
-        QueueOnFailure:  true,
-        CircuitBreaker: agents.CircuitConfig{
-            Enabled:          true,
-            FailureThreshold: 5,
-            SuccessThreshold: 2,
-            TimeoutSeconds:   30,
-        },
-    },
-    Metadata: map[string]interface{}{
-        "team":        "platform",
-        "environment": "production",
-        "region":      "us-east-1",
-    },
-    IsActive:  true,
-    CreatedBy: "platform-team",
-}
-```
+package main
 
-### 2. Declare Agent Capabilities
-
-```go
-// Define what the agent can do
-capabilities := []agents.Capability{
-    {
-        Name:       "syntax_analysis",
-        Confidence: 0.95,
-        TaskTypes:  []agents.TaskType{agents.TaskTypeCodeReview, agents.TaskTypeBugDetection},
-        Languages:  []string{"go", "python", "javascript", "typescript"},
-        Specialties: []string{"error-handling", "concurrency", "performance"},
-    },
-    {
-        Name:       "security_scanning",
-        Confidence: 0.88,
-        TaskTypes:  []agents.TaskType{agents.TaskTypeSecurityAudit},
-        Specialties: []string{"OWASP", "dependency-check", "secret-detection"},
-    },
-    {
-        Name:       "code_documentation",
-        Confidence: 0.92,
-        TaskTypes:  []agents.TaskType{agents.TaskTypeDocGeneration},
-        Languages:  []string{"go", "python"},
-        Specialties: []string{"API-docs", "inline-comments", "README"},
-    },
-}
-
-// Attach to agent
-agent := &agents.Agent{
-    ID:           config.AgentID,
-    Capabilities: capabilities,
-    Config:       config,
-}
-```
-
-### 3. Connect via WebSocket
-
-```go
-// WebSocket connection with authentication
-type AgentClient struct {
-    conn   *websocket.Conn
-    agent  *agents.Agent
-    config *agents.AgentConfig
-}
-
-func NewAgentClient(url, apiKey string) (*AgentClient, error) {
-    // Setup headers
-    headers := http.Header{
-        "Authorization": []string{fmt.Sprintf("Bearer %s", apiKey)},
-        "X-Agent-ID":    []string{agent.ID},
-    }
+import (
+    "context"
+    "fmt"
+    "log"
+    "net/http"
     
-    // Connect
-    conn, _, err := websocket.DefaultDialer.Dial(url, headers)
-    if err != nil {
-        return nil, fmt.Errorf("websocket dial failed: %w", err)
-    }
-    
-    return &AgentClient{
-        conn: conn,
-    }, nil
-}
-```
-
-### 4. Send Registration Message
-
-```go
-// Registration message format
-type RegistrationMessage struct {
-    Type         string                 `json:"type"`
-    AgentID      string                 `json:"agent_id"`
-    Capabilities []agents.Capability    `json:"capabilities"`
-    Config       *agents.AgentConfig    `json:"config"`
-    Metadata     map[string]interface{} `json:"metadata"`
-}
-
-func (c *AgentClient) Register(ctx context.Context) error {
-    // Create registration message
-    msg := RegistrationMessage{
-        Type:         "agent.register",
-        AgentID:      c.agent.ID,
-        Capabilities: c.agent.Capabilities,
-        Config:       c.config,
-        Metadata: map[string]interface{}{
-            "version":    "1.0.0",
-            "sdk":        "go",
-            "timestamp":  time.Now().Unix(),
-        },
-    }
-    
-    // Send registration
-    if err := c.conn.WriteJSON(msg); err != nil {
-        return fmt.Errorf("registration send failed: %w", err)
-    }
-    
-    // Wait for acknowledgment
-    var response map[string]interface{}
-    if err := c.conn.ReadJSON(&response); err != nil {
-        return fmt.Errorf("registration response failed: %w", err)
-    }
-    
-    if response["type"] != "agent.registered" {
-        return fmt.Errorf("registration failed: %v", response["error"])
-    }
-    
-    return nil
-}
-```
-
-## Model Integration
-
-### 1. OpenAI Models (GPT-4, GPT-3.5)
-
-```go
-// OpenAI model configuration
-type OpenAIAgent struct {
-    BaseAgent
-    client *openai.Client
-    model  string
-}
-
-func NewOpenAIAgent(apiKey string, model string) *OpenAIAgent {
-    return &OpenAIAgent{
-        client: openai.NewClient(apiKey),
-        model:  model, // "gpt-4", "gpt-3.5-turbo"
-    }
-}
-
-func (a *OpenAIAgent) Process(ctx context.Context, task Task) (*Result, error) {
-    // Build messages
-    messages := []openai.ChatCompletionMessage{
-        {
-            Role:    openai.ChatMessageRoleSystem,
-            Content: a.buildSystemPrompt(),
-        },
-        {
-            Role:    openai.ChatMessageRoleUser,
-            Content: task.Content,
-        },
-    }
-    
-    // Create completion
-    resp, err := a.client.CreateChatCompletion(ctx, openai.ChatCompletionRequest{
-        Model:       a.model,
-        Messages:    messages,
-        Temperature: 0.7,
-        MaxTokens:   2000,
-    })
-    
-    if err != nil {
-        return nil, err
-    }
-    
-    return &Result{
-        Content: resp.Choices[0].Message.Content,
-        Model:   a.model,
-        Usage:   resp.Usage,
-    }, nil
-}
-```
-
-### 2. Anthropic Models (Claude)
-
-```go
-// Claude model configuration
-type ClaudeAgent struct {
-    BaseAgent
-    client *anthropic.Client
-    model  string
-}
-
-func NewClaudeAgent(apiKey string, model string) *ClaudeAgent {
-    return &ClaudeAgent{
-        client: anthropic.NewClient(apiKey),
-        model:  model, // "claude-2", "claude-instant-1"
-    }
-}
-
-func (a *ClaudeAgent) Process(ctx context.Context, task Task) (*Result, error) {
-    // Create completion
-    resp, err := a.client.CreateMessage(ctx, anthropic.MessageRequest{
-        Model:     a.model,
-        Messages:  a.buildMessages(task),
-        MaxTokens: 2000,
-        System:    a.buildSystemPrompt(),
-    })
-    
-    if err != nil {
-        return nil, err
-    }
-    
-    return &Result{
-        Content: resp.Content[0].Text,
-        Model:   a.model,
-        Usage:   resp.Usage,
-    }, nil
-}
-```
-
-### 3. AWS Bedrock Models
-
-```go
-// Bedrock model configuration
-type BedrockAgent struct {
-    BaseAgent
-    client   *bedrockruntime.Client
-    modelID  string
-    provider string
-}
-
-func NewBedrockAgent(cfg aws.Config, modelID string) *BedrockAgent {
-    return &BedrockAgent{
-        client:   bedrockruntime.NewFromConfig(cfg),
-        modelID:  modelID,
-        provider: extractProvider(modelID),
-    }
-}
-
-func (a *BedrockAgent) Process(ctx context.Context, task Task) (*Result, error) {
-    // Build request based on provider
-    var payload []byte
-    var err error
-    
-    switch a.provider {
-    case "amazon":
-        payload, err = a.buildTitanRequest(task)
-    case "anthropic":
-        payload, err = a.buildClaudeRequest(task)
-    case "cohere":
-        payload, err = a.buildCohereRequest(task)
-    default:
-        return nil, fmt.Errorf("unsupported provider: %s", a.provider)
-    }
-    
-    if err != nil {
-        return nil, err
-    }
-    
-    // Invoke model
-    resp, err := a.client.InvokeModel(ctx, &bedrockruntime.InvokeModelInput{
-        ModelId:     aws.String(a.modelID),
-        Body:        payload,
-        ContentType: aws.String("application/json"),
-    })
-    
-    if err != nil {
-        return nil, err
-    }
-    
-    // Parse response based on provider
-    return a.parseResponse(resp.Body, a.provider)
-}
-
-// Example model IDs:
-// - "amazon.titan-text-express-v1"
-// - "anthropic.claude-v2"
-// - "cohere.command-text-v14"
-```
-
-### 4. Custom Models
-
-```go
-// Custom model integration
-type CustomModelAgent struct {
-    BaseAgent
-    endpoint string
-    apiKey   string
-    client   *http.Client
-}
-
-func NewCustomModelAgent(endpoint, apiKey string) *CustomModelAgent {
-    return &CustomModelAgent{
-        endpoint: endpoint,
-        apiKey:   apiKey,
-        client: &http.Client{
-            Timeout: 30 * time.Second,
-        },
-    }
-}
-
-func (a *CustomModelAgent) Process(ctx context.Context, task Task) (*Result, error) {
-    // Build request
-    reqBody := map[string]interface{}{
-        "prompt":      task.Content,
-        "max_tokens":  2000,
-        "temperature": 0.7,
-        "metadata":    task.Metadata,
-    }
-    
-    body, err := json.Marshal(reqBody)
-    if err != nil {
-        return nil, err
-    }
-    
-    // Create HTTP request
-    req, err := http.NewRequestWithContext(ctx, "POST", a.endpoint, bytes.NewReader(body))
-    if err != nil {
-        return nil, err
-    }
-    
-    req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", a.apiKey))
-    req.Header.Set("Content-Type", "application/json")
-    
-    // Send request
-    resp, err := a.client.Do(req)
-    if err != nil {
-        return nil, err
-    }
-    defer resp.Body.Close()
-    
-    // Parse response
-    var result CustomModelResponse
-    if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
-        return nil, err
-    }
-    
-    return &Result{
-        Content: result.Text,
-        Model:   "custom",
-        Usage:   result.Usage,
-    }, nil
-}
-```
-
-## Advanced Registration
-
-### 1. Multi-Model Agent
-
-```go
-// Agent that can use multiple models
-type MultiModelAgent struct {
-    models   map[string]ModelProvider
-    selector ModelSelector
-    config   *agents.AgentConfig
-}
-
-func (m *MultiModelAgent) Register(ctx context.Context) error {
-    // Register with all supported models
-    capabilities := []agents.Capability{}
-    
-    for modelName, provider := range m.models {
-        caps := provider.GetCapabilities()
-        for i := range caps {
-            caps[i].Metadata = map[string]interface{}{
-                "model": modelName,
-            }
-        }
-        capabilities = append(capabilities, caps...)
-    }
-    
-    // Register agent with combined capabilities
-    return m.registerWithCapabilities(ctx, capabilities)
-}
-
-func (m *MultiModelAgent) Process(ctx context.Context, task Task) (*Result, error) {
-    // Select best model for task
-    model := m.selector.SelectModel(task, m.config.ModelPreferences)
-    provider := m.models[model]
-    
-    // Process with selected model
-    return provider.Process(ctx, task)
-}
-```
-
-### 2. Specialized Agent Registration
-
-```go
-// Code analysis specialist
-func RegisterCodeAnalysisAgent(mcp *MCPClient) error {
-    agent := &agents.Agent{
-        ID:   "code-specialist-001",
-        Name: "Code Analysis Specialist",
-        Type: agents.AgentTypeCodeAnalysis,
-        Capabilities: []agents.Capability{
-            {
-                Name:       "ast_analysis",
-                Confidence: 0.98,
-                TaskTypes:  []agents.TaskType{agents.TaskTypeCodeReview},
-                Languages:  []string{"go", "java", "python"},
-                Specialties: []string{"complexity", "patterns", "smells"},
-            },
-            {
-                Name:       "performance_profiling",
-                Confidence: 0.90,
-                TaskTypes:  []agents.TaskType{agents.TaskTypePerformance},
-                Specialties: []string{"cpu", "memory", "goroutines"},
-            },
-        },
-        Config: &agents.AgentConfig{
-            ModelPreferences: []agents.ModelPreference{
-                {
-                    TaskType:      agents.TaskTypeCodeAnalysis,
-                    PrimaryModels: []string{"gpt-4", "claude-2"},
-                },
-            },
-        },
-    }
-    
-    return mcp.RegisterAgent(context.Background(), agent)
-}
-
-// Documentation specialist
-func RegisterDocumentationAgent(mcp *MCPClient) error {
-    agent := &agents.Agent{
-        ID:   "docs-specialist-001",
-        Name: "Documentation Specialist",
-        Type: agents.AgentTypeDocumentation,
-        Capabilities: []agents.Capability{
-            {
-                Name:       "api_documentation",
-                Confidence: 0.95,
-                TaskTypes:  []agents.TaskType{agents.TaskTypeDocGeneration},
-                Specialties: []string{"openapi", "swagger", "rest"},
-            },
-            {
-                Name:       "tutorial_creation",
-                Confidence: 0.92,
-                TaskTypes:  []agents.TaskType{agents.TaskTypeDocGeneration},
-                Specialties: []string{"guides", "tutorials", "examples"},
-            },
-        },
-    }
-    
-    return mcp.RegisterAgent(context.Background(), agent)
-}
-```
-
-### 3. Dynamic Capability Updates
-
-```go
-// Update agent capabilities at runtime
-type DynamicAgent struct {
-    *AgentClient
-    capabilities []agents.Capability
-}
-
-func (d *DynamicAgent) UpdateCapabilities(ctx context.Context, newCaps []agents.Capability) error {
-    // Send capability update message
-    msg := map[string]interface{}{
-        "type":         "agent.capabilities.update",
-        "agent_id":     d.agent.ID,
-        "capabilities": newCaps,
-    }
-    
-    if err := d.conn.WriteJSON(msg); err != nil {
-        return err
-    }
-    
-    // Update local state
-    d.capabilities = newCaps
-    
-    return nil
-}
-
-// Example: Add new language support
-func (d *DynamicAgent) AddLanguageSupport(ctx context.Context, language string) error {
-    // Find code analysis capability
-    for i, cap := range d.capabilities {
-        if cap.Name == "syntax_analysis" {
-            // Add new language
-            d.capabilities[i].Languages = append(cap.Languages, language)
-            break
-        }
-    }
-    
-    return d.UpdateCapabilities(ctx, d.capabilities)
-}
-```
-
-## Health and Status Reporting
-
-### 1. Health Check Implementation
-
-```go
-// Agent health reporting
-func (c *AgentClient) StartHealthReporting(ctx context.Context, interval time.Duration) {
-    ticker := time.NewTicker(interval)
-    defer ticker.Stop()
-    
-    for {
-        select {
-        case <-ticker.C:
-            health := c.checkHealth()
-            msg := map[string]interface{}{
-                "type":      "agent.health",
-                "agent_id":  c.agent.ID,
-                "status":    health.Status,
-                "metrics":   health.Metrics,
-                "timestamp": time.Now().Unix(),
-            }
-            
-            if err := c.conn.WriteJSON(msg); err != nil {
-                // Handle error
-                c.handleHealthError(err)
-            }
-            
-        case <-ctx.Done():
-            return
-        }
-    }
-}
-
-type HealthStatus struct {
-    Status  string
-    Metrics map[string]interface{}
-}
-
-func (c *AgentClient) checkHealth() HealthStatus {
-    return HealthStatus{
-        Status: "healthy",
-        Metrics: map[string]interface{}{
-            "cpu_usage":        c.getCPUUsage(),
-            "memory_usage":     c.getMemoryUsage(),
-            "active_tasks":     c.getActiveTaskCount(),
-            "completed_tasks":  c.getCompletedTaskCount(),
-            "error_rate":       c.getErrorRate(),
-            "avg_latency_ms":   c.getAverageLatency(),
-        },
-    }
-}
-```
-
-### 2. Workload Reporting
-
-```go
-// Report current workload
-func (c *AgentClient) ReportWorkload(ctx context.Context) error {
-    workload := &WorkloadReport{
-        AgentID:      c.agent.ID,
-        ActiveTasks:  c.getActiveTasks(),
-        QueuedTasks:  c.getQueuedTasks(),
-        Capacity:     c.getCapacity(),
-        Utilization:  c.getUtilization(),
-    }
-    
-    msg := map[string]interface{}{
-        "type":     "agent.workload",
-        "agent_id": c.agent.ID,
-        "workload": workload,
-    }
-    
-    return c.conn.WriteJSON(msg)
-}
-```
-
-## Error Handling
-
-### 1. Registration Failures
-
-```go
-// Handle registration errors
-func (c *AgentClient) RegisterWithRetry(ctx context.Context, maxRetries int) error {
-    var lastErr error
-    
-    for i := 0; i < maxRetries; i++ {
-        err := c.Register(ctx)
-        if err == nil {
-            return nil
-        }
-        
-        lastErr = err
-        
-        // Check error type
-        switch {
-        case isAuthError(err):
-            return fmt.Errorf("authentication failed: %w", err)
-            
-        case isCapabilityError(err):
-            // Fix capabilities and retry
-            c.validateAndFixCapabilities()
-            
-        case isNetworkError(err):
-            // Exponential backoff
-            time.Sleep(time.Duration(math.Pow(2, float64(i))) * time.Second)
-            
-        default:
-            return err
-        }
-    }
-    
-    return fmt.Errorf("registration failed after %d retries: %w", maxRetries, lastErr)
-}
-```
-
-### 2. Connection Recovery
-
-```go
-// Automatic reconnection
-func (c *AgentClient) MaintainConnection(ctx context.Context) {
-    for {
-        select {
-        case <-ctx.Done():
-            return
-            
-        default:
-            // Check connection health
-            if err := c.ping(); err != nil {
-                // Reconnect
-                if err := c.reconnect(); err != nil {
-                    time.Sleep(5 * time.Second)
-                    continue
-                }
-                
-                // Re-register
-                if err := c.Register(ctx); err != nil {
-                    time.Sleep(5 * time.Second)
-                    continue
-                }
-            }
-            
-            time.Sleep(30 * time.Second)
-        }
-    }
-}
-```
-
-## Best Practices
-
-### 1. Registration Checklist
-
-- [ ] Define clear agent identity and purpose
-- [ ] Declare all capabilities with accurate confidence scores
-- [ ] Configure appropriate model preferences
-- [ ] Set realistic constraints (cost, latency, quality)
-- [ ] Implement proper error handling and retry logic
-- [ ] Setup health and workload reporting
-- [ ] Test failover behavior
-- [ ] Monitor registration success rate
-
-### 2. Security Considerations
-
-```go
-// Secure registration
-func SecureRegistration(agent *agents.Agent) error {
-    // 1. Validate API credentials
-    if err := validateAPIKey(agent.APIKey); err != nil {
-        return err
-    }
-    
-    // 2. Use TLS for WebSocket
-    url := "wss://mcp.example.com/ws" // Note: wss:// not ws://
-    
-    // 3. Implement rate limiting
-    limiter := rate.NewLimiter(rate.Every(time.Second), 10)
-    if !limiter.Allow() {
-        return ErrRateLimited
-    }
-    
-    // 4. Sign registration request
-    signature := signRequest(agent)
-    
-    // 5. Include security headers
-    headers := map[string]string{
-        "X-Agent-Signature": signature,
-        "X-Request-ID":      uuid.New().String(),
-    }
-    
-    return registerWithSecurity(url, agent, headers)
-}
-```
-
-### 3. Performance Optimization
-
-```go
-// Optimize agent performance
-type OptimizedAgent struct {
-    *BaseAgent
-    cache       *AgentCache
-    pool        *WorkerPool
-    batcher     *RequestBatcher
-}
-
-func (o *OptimizedAgent) Configure() {
-    // 1. Enable response caching
-    o.cache = NewAgentCache(1000, 1*time.Hour)
-    
-    // 2. Use worker pool for parallel processing
-    o.pool = NewWorkerPool(10)
-    
-    // 3. Batch similar requests
-    o.batcher = NewRequestBatcher(100, 100*time.Millisecond)
-    
-    // 4. Configure connection pooling
-    o.configureConnectionPool(20, 100)
-}
-```
-
-## Monitoring
-
-### 1. Registration Metrics
-
-```go
-var (
-    agentRegistrations = prometheus.NewCounterVec(
-        prometheus.CounterOpts{
-            Name: "agent_registrations_total",
-            Help: "Total number of agent registrations",
-        },
-        []string{"agent_type", "model", "status"},
-    )
-    
-    registrationDuration = prometheus.NewHistogramVec(
-        prometheus.HistogramOpts{
-            Name: "agent_registration_duration_seconds",
-            Help: "Time taken to register an agent",
-        },
-        []string{"agent_type"},
-    )
+    "github.com/coder/websocket"
 )
-```
 
-### 2. Capability Tracking
-
-```go
-// Track capability usage
-func TrackCapabilityUsage(agent *agents.Agent, capability string) {
-    capabilityUsage.WithLabelValues(
-        agent.ID,
-        agent.Type,
-        capability,
-    ).Inc()
+func main() {
+    ctx := context.Background()
+    
+    // CRITICAL: Include the mcp.v1 subprotocol
+    dialOpts := &websocket.DialOptions{
+        Subprotocols: []string{"mcp.v1"}, // REQUIRED!
+        HTTPHeader: http.Header{
+            "Authorization": []string{"Bearer " + apiKey},
+        },
+    }
+    
+    // For local development
+    conn, _, err := websocket.Dial(ctx, "ws://localhost:8080/ws", dialOpts)
+    // For production
+    // conn, _, err := websocket.Dial(ctx, "wss://mcp.dev-mesh.io/ws", dialOpts)
+    
+    if err != nil {
+        log.Fatal("dial failed:", err)
+    }
+    defer conn.Close(websocket.StatusNormalClosure, "")
+    
+    // Register agent capabilities
+    registration := map[string]interface{}{
+        "type":         "agent.register",
+        "name":         "My Agent",
+        "capabilities": []string{"code_analysis", "documentation"},
+        "metadata": map[string]interface{}{
+            "version": "1.0.0",
+        },
+    }
+    
+    // Send registration as JSON
+    if err := wsjson.Write(ctx, conn, registration); err != nil {
+        log.Fatal("send failed:", err)
+    }
+    
+    // Read response
+    var response map[string]interface{}
+    if err := wsjson.Read(ctx, conn, &response); err != nil {
+        log.Fatal("read failed:", err)
+    }
+    
+    if response["type"] == "agent.registered" {
+        fmt.Printf("Agent registered! ID: %s\n", response["agent_id"])
+    }
 }
 ```
 
-## Troubleshooting
+## Quick Start (Other Languages)
 
-### Common Issues
+### JavaScript/TypeScript
+```javascript
+// IMPORTANT: Include mcp.v1 in subprotocols array
+const ws = new WebSocket('wss://mcp.dev-mesh.io/ws', ['mcp.v1']);
 
-1. **Registration Timeout**
-   ```go
-   // Increase timeout
-   client.SetTimeout(30 * time.Second)
-   ```
+// Note: Authorization headers can't be set directly in browser WebSocket API
+// You may need to use a query parameter or handle auth after connection
+ws.onopen = () => {
+    ws.send(JSON.stringify({
+        type: 'agent.register',
+        name: 'My Agent',
+        capabilities: ['code_analysis', 'documentation'],
+        metadata: { version: '1.0.0' }
+    }));
+};
 
-2. **Invalid Capabilities**
-   ```go
-   // Validate before registration
-   if err := agent.ValidateCapabilities(); err != nil {
-       log.Printf("Invalid capabilities: %v", err)
-   }
-   ```
+ws.onmessage = (event) => {
+    const response = JSON.parse(event.data);
+    if (response.type === 'agent.registered') {
+        console.log('Agent registered! ID:', response.agent_id);
+    }
+};
+```
 
-3. **Model Not Available**
-   ```go
-   // Check model availability
-   models := client.GetAvailableModels()
-   if !contains(models, desiredModel) {
-       // Use fallback
-   }
-   ```
+### Python
+```python
+import asyncio
+import json
+import websockets
 
-4. **Authentication Failures**
-   ```go
-   // Refresh token
-   token, err := refreshAuthToken()
-   client.SetAuthToken(token)
-   ```
+async def register_agent():
+    headers = {
+        "Authorization": f"Bearer {api_key}"
+    }
+    
+    # IMPORTANT: Include mcp.v1 subprotocol
+    async with websockets.connect(
+        'wss://mcp.dev-mesh.io/ws',
+        subprotocols=['mcp.v1'],
+        extra_headers=headers
+    ) as websocket:
+        # Send registration
+        await websocket.send(json.dumps({
+            'type': 'agent.register',
+            'name': 'My Agent',
+            'capabilities': ['code_analysis', 'documentation'],
+            'metadata': {'version': '1.0.0'}
+        }))
+        
+        # Receive response
+        response = json.loads(await websocket.recv())
+        if response['type'] == 'agent.registered':
+            print(f"Agent registered! ID: {response['agent_id']}")
+
+asyncio.run(register_agent())
+```
+
+## Complete Go Example (Based on Test Agent)
+
+Here's a more complete example based on the project's test agent implementation:
+
+```go
+package main
+
+import (
+    "context"
+    "encoding/json"
+    "fmt"
+    "log"
+    "net/http"
+    "sync"
+    "time"
+    
+    "github.com/coder/websocket"
+    "github.com/coder/websocket/wsjson"
+)
+
+type Agent struct {
+    conn         *websocket.Conn
+    agentID      string
+    name         string
+    capabilities []string
+    
+    mu           sync.RWMutex
+    connected    bool
+}
+
+func NewAgent(name string, capabilities []string) *Agent {
+    return &Agent{
+        name:         name,
+        capabilities: capabilities,
+    }
+}
+
+func (a *Agent) Connect(ctx context.Context, wsURL, apiKey string) error {
+    dialOpts := &websocket.DialOptions{
+        Subprotocols: []string{"mcp.v1"}, // REQUIRED!
+        HTTPHeader: http.Header{
+            "Authorization": []string{"Bearer " + apiKey},
+        },
+    }
+    
+    conn, _, err := websocket.Dial(ctx, wsURL, dialOpts)
+    if err != nil {
+        return fmt.Errorf("websocket dial failed: %w", err)
+    }
+    
+    a.conn = conn
+    a.connected = true
+    
+    // Start message handler
+    go a.handleMessages(ctx)
+    
+    // Register agent
+    return a.register(ctx)
+}
+
+func (a *Agent) register(ctx context.Context) error {
+    msg := map[string]interface{}{
+        "type":         "agent.register",
+        "name":         a.name,
+        "capabilities": a.capabilities,
+        "metadata": map[string]interface{}{
+            "version":   "1.0.0",
+            "timestamp": time.Now().Unix(),
+        },
+    }
+    
+    if err := wsjson.Write(ctx, a.conn, msg); err != nil {
+        return fmt.Errorf("failed to send registration: %w", err)
+    }
+    
+    // Wait for registration response
+    var response map[string]interface{}
+    if err := wsjson.Read(ctx, a.conn, &response); err != nil {
+        return fmt.Errorf("failed to read response: %w", err)
+    }
+    
+    if response["type"] == "agent.registered" {
+        a.agentID = response["agent_id"].(string)
+        log.Printf("Agent registered successfully! ID: %s", a.agentID)
+        return nil
+    }
+    
+    return fmt.Errorf("registration failed: %v", response)
+}
+
+func (a *Agent) handleMessages(ctx context.Context) {
+    for {
+        var msg map[string]interface{}
+        err := wsjson.Read(ctx, a.conn, &msg)
+        if err != nil {
+            log.Printf("Read error: %v", err)
+            a.connected = false
+            return
+        }
+        
+        msgType, _ := msg["type"].(string)
+        switch msgType {
+        case "task.execute":
+            a.handleTask(ctx, msg)
+        case "ping":
+            a.sendPong(ctx)
+        default:
+            log.Printf("Received message type: %s", msgType)
+        }
+    }
+}
+
+func (a *Agent) handleTask(ctx context.Context, msg map[string]interface{}) {
+    taskID := msg["task_id"].(string)
+    content := msg["content"].(string)
+    
+    log.Printf("Processing task %s: %s", taskID, content)
+    
+    // Send task result
+    result := map[string]interface{}{
+        "type":    "task.result",
+        "task_id": taskID,
+        "result": map[string]interface{}{
+            "status": "completed",
+            "output": "Task processed successfully",
+        },
+    }
+    
+    if err := wsjson.Write(ctx, a.conn, result); err != nil {
+        log.Printf("Failed to send result: %v", err)
+    }
+}
+
+func (a *Agent) sendPong(ctx context.Context) {
+    pong := map[string]interface{}{"type": "pong"}
+    if err := wsjson.Write(ctx, a.conn, pong); err != nil {
+        log.Printf("Failed to send pong: %v", err)
+    }
+}
+
+func (a *Agent) Close() error {
+    if a.conn != nil {
+        return a.conn.Close(websocket.StatusNormalClosure, "")
+    }
+    return nil
+}
+
+func main() {
+    agent := NewAgent("Example Agent", []string{"code_analysis", "documentation"})
+    
+    ctx := context.Background()
+    
+    // Connect to local development server
+    err := agent.Connect(ctx, "ws://localhost:8080/ws", "your-api-key")
+    // For production: wss://mcp.dev-mesh.io/ws
+    
+    if err != nil {
+        log.Fatal("Failed to connect:", err)
+    }
+    defer agent.Close()
+    
+    log.Printf("Agent %s connected and ready!", agent.agentID)
+    
+    // Keep the agent running
+    select {}
+}
+```
+
+## WebSocket Message Protocol
+
+### Registration Message
+```json
+{
+    "type": "agent.register",
+    "name": "Agent Name",
+    "capabilities": ["capability1", "capability2"],
+    "metadata": {
+        "version": "1.0.0",
+        "custom_field": "value"
+    }
+}
+```
+
+### Registration Response
+```json
+{
+    "type": "agent.registered",
+    "agent_id": "generated-uuid",
+    "name": "Agent Name",
+    "capabilities": ["capability1", "capability2"],
+    "registered_at": "2024-01-20T10:00:00Z"
+}
+```
+
+### Error Response
+```json
+{
+    "type": "error",
+    "error": "Registration failed: reason",
+    "code": 400
+}
+```
+
+## Common Issues and Solutions
+
+### HTTP 426 Upgrade Required
+**Problem**: Connection rejected with 426 error  
+**Solution**: Ensure you're including `Subprotocols: ["mcp.v1"]` in your dial options
+
+### Authentication Failed
+**Problem**: 401 Unauthorized error  
+**Solution**: 
+- Verify your API key is valid
+- Ensure Authorization header format is `Bearer <token>`
+- For JWT tokens, check expiration
+
+### Connection Drops Immediately
+**Problem**: Connection established but closes immediately  
+**Solution**:
+- Check server logs for detailed error messages
+- Verify all required headers are being sent
+- Ensure the WebSocket endpoint URL is correct (`/ws`)
+
+### Using Wrong WebSocket Library
+**Problem**: Code examples from other sources use different libraries  
+**Solution**: While the server works with any compliant WebSocket client, this project's tests use `github.com/coder/websocket` for Go. You can use any library that supports:
+- Custom subprotocols
+- Custom headers for authentication
+- JSON message encoding/decoding
+
+## Binary Protocol Support
+
+The MCP server supports a binary protocol for improved performance. This is automatically negotiated based on message size and type. The test agent implementation includes binary protocol support if you need this feature.
 
 ## Next Steps
 
-1. Review [Task Routing Algorithms](./task-routing-algorithms.md) for task distribution
-2. Explore [Multi-Agent Collaboration](./multi-agent-collaboration.md) for coordination
-3. See [Agent Specialization Patterns](./agent-specialization-patterns.md) for design patterns
-4. Check [Agent WebSocket Protocol](./agent-websocket-protocol.md) for protocol details
+- Review [WebSocket Client Requirements](../WEBSOCKET_CLIENT_REQUIREMENTS.md) for detailed protocol requirements
+- See the [test agent implementation](../../test/e2e/agent/agent.go) for a complete example
+- Check [MCP Server API Reference](../api-reference/mcp-server-reference.md) for all message types
+- Learn about [Task Routing Algorithms](./task-routing-algorithms.md) for task distribution
 
-## Resources
+## Note on SDK Development
 
-- [AI Agent Orchestration Guide](./ai-agent-orchestration.md)
-- [Building Custom AI Agents](./building-custom-ai-agents.md)
-- [Agent Integration Examples](./agent-integration-examples.md)
-- [Agent SDK Guide](./agent-sdk-guide.md)
+The DevOps MCP project currently doesn't provide an official client SDK. The examples in this guide are based on the patterns used in the project's test suite. An official SDK may be developed in the future to simplify agent development.

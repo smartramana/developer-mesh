@@ -1,12 +1,24 @@
 # Task Routing Algorithms Guide
 
-> **Purpose**: Comprehensive guide to task routing strategies for multi-agent neural networks
-> **Audience**: Engineers implementing intelligent task distribution in AI systems
-> **Scope**: Routing algorithms, performance optimization, load balancing, failure handling
+> **Purpose**: Conceptual guide to task routing strategies for multi-agent systems
+> **Audience**: Engineers interested in task distribution algorithms
+> **Scope**: Algorithm concepts, theoretical approaches, future implementation ideas
+> **Status**: CONCEPTUAL - These algorithms are not yet implemented in DevOps MCP
 
 ## Overview
 
-Task routing is critical for efficient multi-agent AI systems. This guide covers algorithms and strategies for routing tasks to the most appropriate neural networks based on capabilities, performance, cost, and availability.
+**IMPORTANT**: This document describes conceptual task routing algorithms that are not currently implemented in the DevOps MCP platform. The actual implementation uses a simple round-robin approach for task distribution. These concepts are provided as a reference for potential future development.
+
+### Current Implementation Status
+
+The DevOps MCP platform currently implements:
+- Basic agent registration via WebSocket
+- Simple task assignment without sophisticated routing
+- No capability-based, cost-optimized, or performance-based routing
+
+### About This Document
+
+This guide presents theoretical algorithms and patterns for task routing in multi-agent systems. These concepts could be implemented in future versions of the platform but should not be considered as existing features.
 
 ## Core Concepts
 
@@ -36,11 +48,14 @@ Task routing is critical for efficient multi-agent AI systems. This guide covers
 
 ## Routing Algorithms
 
-### 1. Capability-Based Routing
+### 1. Capability-Based Routing (Conceptual)
 
-Routes tasks based on agent capabilities and specializations.
+**Status**: Not implemented - conceptual design only
+
+This algorithm would route tasks based on agent capabilities and specializations.
 
 ```go
+// CONCEPTUAL CODE - NOT IMPLEMENTED
 type CapabilityRouter struct {
     registry    AgentRegistry
     scorer      CapabilityScorer
@@ -98,11 +113,14 @@ func (s *CapabilityScorer) Score(capabilities []Capability, requirements TaskReq
 }
 ```
 
-### 2. Load-Balanced Routing
+### 2. Load-Balanced Routing (Conceptual)
 
-Distributes tasks evenly across agents to prevent overload.
+**Status**: Not implemented - conceptual design only
+
+This algorithm would distribute tasks evenly across agents to prevent overload.
 
 ```go
+// CONCEPTUAL CODE - NOT IMPLEMENTED
 type LoadBalancedRouter struct {
     agents      []Agent
     workloads   map[string]*AgentWorkload
@@ -217,11 +235,14 @@ func (r *LoadBalancedRouter) calculateDynamicWeights() []float64 {
 }
 ```
 
-### 3. Cost-Optimized Routing
+### 3. Cost-Optimized Routing (Conceptual)
 
-Routes tasks to minimize costs while meeting performance requirements.
+**Status**: Not implemented - conceptual design only
+
+This algorithm would route tasks to minimize costs while meeting performance requirements.
 
 ```go
+// CONCEPTUAL CODE - NOT IMPLEMENTED
 type CostOptimizedRouter struct {
     agents       []Agent
     costModels   map[string]CostModel
@@ -322,11 +343,14 @@ func (r *BudgetAwareRouter) Route(task Task) (Agent, error) {
 }
 ```
 
-### 4. Performance-Based Routing
+### 4. Performance-Based Routing (Conceptual)
 
-Routes based on historical performance metrics.
+**Status**: Not implemented - conceptual design only
+
+This algorithm would route based on historical performance metrics.
 
 ```go
+// CONCEPTUAL CODE - NOT IMPLEMENTED
 type PerformanceRouter struct {
     agents      []Agent
     metrics     *PerformanceMetrics
@@ -440,11 +464,14 @@ func (p *PerformancePredictor) Predict(agent Agent, task Task) PerformancePredic
 }
 ```
 
-### 5. Hybrid Routing Algorithm
+### 5. Hybrid Routing Algorithm (Conceptual)
 
-Combines multiple routing strategies for optimal results.
+**Status**: Not implemented - conceptual design only
+
+This algorithm would combine multiple routing strategies for optimal results.
 
 ```go
+// CONCEPTUAL CODE - NOT IMPLEMENTED
 type HybridRouter struct {
     strategies map[string]RoutingStrategy
     weights    map[string]float64
@@ -512,13 +539,16 @@ func (r *AdaptiveHybridRouter) OptimizeWeights() {
 }
 ```
 
-## Advanced Routing Patterns
+## Advanced Routing Patterns (Theoretical)
 
-### 1. Hierarchical Routing
+### 1. Hierarchical Routing (Theoretical)
 
-Routes through multiple levels for complex decisions.
+**Status**: Not implemented - theoretical concept
+
+This pattern would route through multiple levels for complex decisions.
 
 ```go
+// THEORETICAL CONCEPT - NOT IMPLEMENTED
 type HierarchicalRouter struct {
     levels []RoutingLevel
 }
@@ -584,11 +614,14 @@ func BuildDomainHierarchy() *HierarchicalRouter {
 }
 ```
 
-### 2. Context-Aware Routing
+### 2. Context-Aware Routing (Theoretical)
 
-Routes based on task context and session state.
+**Status**: Not implemented - theoretical concept
+
+This pattern would route based on task context and session state.
 
 ```go
+// THEORETICAL CONCEPT - NOT IMPLEMENTED
 type ContextAwareRouter struct {
     baseRouter Router
     context    *RoutingContext
@@ -645,11 +678,14 @@ func (r *ContextAwareRouter) routeWithPreference(
 }
 ```
 
-### 3. Predictive Routing
+### 3. Predictive Routing (Theoretical)
 
-Uses ML models to predict best routing decisions.
+**Status**: Not implemented - theoretical concept
+
+This pattern would use ML models to predict best routing decisions.
 
 ```go
+// THEORETICAL CONCEPT - NOT IMPLEMENTED
 type PredictiveRouter struct {
     model      RoutingModel
     features   FeatureExtractor
@@ -714,11 +750,14 @@ func (e *TaskFeatureExtractor) Extract(task Task) []float64 {
 }
 ```
 
-### 4. Consensus-Based Routing
+### 4. Consensus-Based Routing (Theoretical)
 
-Multiple routers vote on the best agent.
+**Status**: Not implemented - theoretical concept
+
+This pattern would have multiple routers vote on the best agent.
 
 ```go
+// THEORETICAL CONCEPT - NOT IMPLEMENTED
 type ConsensusRouter struct {
     routers    []Router
     voting     VotingStrategy
@@ -760,7 +799,7 @@ func (r *ConsensusRouter) Route(task Task) (Agent, error) {
 }
 ```
 
-## Performance Optimization
+## Performance Optimization (Future Considerations)
 
 ### 1. Caching Routing Decisions
 
@@ -902,7 +941,7 @@ func (r *PrecomputedRouter) Route(task Task) (Agent, error) {
 }
 ```
 
-## Monitoring and Analytics
+## Monitoring and Analytics (Future Considerations)
 
 ### 1. Routing Metrics
 
@@ -956,7 +995,7 @@ func (a *RouteAnalyzer) AnalyzeRoutes(timeRange TimeRange) RouteAnalysis {
 }
 ```
 
-## Best Practices
+## Best Practices (For Future Implementation)
 
 ### 1. Routing Strategy Selection
 
@@ -1034,7 +1073,31 @@ func (r *ResilientRouter) Route(task Task) (Agent, error) {
 }
 ```
 
-## Troubleshooting
+## Implementation Roadmap
+
+If these algorithms were to be implemented:
+
+1. **Phase 1**: Basic capability matching
+   - Agent capability registration
+   - Simple capability-based filtering
+   - Task requirement definitions
+
+2. **Phase 2**: Load balancing
+   - Agent workload tracking
+   - Basic load distribution
+   - Health monitoring
+
+3. **Phase 3**: Advanced routing
+   - Performance metrics collection
+   - Cost tracking
+   - ML-based predictions
+
+## Current Alternative
+
+For actual task routing in DevOps MCP, refer to:
+- [Agent Registration Guide](./agent-registration-guide.md) - How agents connect
+- [WebSocket API Reference](../api-reference/mcp-server-reference.md) - Task assignment protocol
+- Test implementation: `/test/e2e/agent/agent.go`
 
 ### Common Issues
 
@@ -1060,14 +1123,22 @@ func (r *ResilientRouter) Route(task Task) (Agent, error) {
 
 ## Next Steps
 
-1. Review [Multi-Agent Collaboration](./multi-agent-collaboration.md) for coordination
-2. Explore [Agent Specialization Patterns](./agent-specialization-patterns.md) 
-3. See [Performance Tuning Guide](./performance-tuning-guide.md)
-4. Check [Cost Optimization Guide](./cost-optimization-guide.md)
+1. Review the actual [Agent Registration Guide](./agent-registration-guide.md)
+2. Check the [WebSocket API Reference](../api-reference/mcp-server-reference.md)
+3. Study the test agent implementation for working examples
 
 ## Resources
 
+### Theoretical Background
 - [Load Balancing Algorithms](https://www.nginx.com/resources/glossary/load-balancing/)
 - [Distributed Systems Routing](https://martinfowler.com/articles/patterns-of-distributed-systems/)
 - [Multi-Armed Bandit Algorithms](https://en.wikipedia.org/wiki/Multi-armed_bandit)
 - [Consistent Hashing](https://www.toptal.com/big-data/consistent-hashing)
+
+### Current Implementation
+- DevOps MCP source code: `/pkg/services/orchestrator/`
+- Test implementations: `/test/e2e/`
+
+## Disclaimer
+
+This document describes theoretical algorithms and patterns that are not implemented in the current version of DevOps MCP. It serves as a reference for potential future development and should not be used as documentation of existing features.

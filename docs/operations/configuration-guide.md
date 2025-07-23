@@ -333,10 +333,12 @@ database:
   # SSL/TLS
   ssl_mode: "require"
   
-  # Read replicas
-  read_replicas:
+  # Vector extension (pgvector)
+  vector:
     enabled: true
-    hosts: ["replica1.example.com", "replica2.example.com"]
+    index_type: "ivfflat"
+    lists: 100
+    probes: 10
 ```
 
 #### Cache Configuration
@@ -349,16 +351,17 @@ cache:
     size: 10000
     ttl: 60s
     
-  # Distributed cache
-  distributed:
-    type: "redis-cluster"
-    cluster_endpoints: ["redis1:6379", "redis2:6379"]
-    password: "${REDIS_PASSWORD}"
-    
-    # TLS
-    tls:
-      enabled: true
-      ca_cert: "/path/to/ca.crt"
+  # Redis configuration (actual)
+  type: "redis"
+  address: "${REDIS_ADDR:-localhost:6379}"
+  password: "${REDIS_PASSWORD}"
+  database: 0
+  pool_size: 50
+  
+  # TLS
+  tls:
+    enabled: ${CACHE_TLS_ENABLED:-false}
+    insecure_skip_verify: false
 ```
 
 ## Embedding Configuration
@@ -674,40 +677,27 @@ performance:
     prefetch_count: 10
 ```
 
-### Caching Configuration
+### Caching Configuration (Actual Implementation)
 
-Multi-level caching for optimal performance:
+DevOps MCP implements multi-level caching with L1 (in-memory) and L2 (Redis):
 
 ```yaml
-caching:
-  # L1: In-memory cache
-  memory:
-    enabled: true
-    size: "1GB"
-    ttl: 5m
-    eviction: "lru"
+cache:
+  # Multi-level cache configuration
+  multilevel:
+    l1_size: 10000          # L1 LRU cache size
+    l1_ttl: 300s           # L1 TTL
+    l2_ttl: 3600s          # L2 (Redis) TTL
+    compression_threshold: 1024  # Compress values > 1KB
+    prefetch_threshold: 0.8      # Prefetch when 80% through TTL
     
-  # L2: Redis cache
-  redis:
-    enabled: true
-    ttl: 1h
-    pipeline_window: 100ms
-    
-  # L3: S3 cache
-  s3:
-    enabled: true
-    bucket: "${CACHE_BUCKET}"
-    ttl: 24h
-    
-  # Cache warming
-  warming:
-    enabled: true
-    interval: 5m
-    items:
-      - "active_agents"
-      - "model_configs"
-      - "popular_embeddings"
+  # Redis configuration
+  type: "redis"
+  address: "${REDIS_ADDR:-localhost:6379}"
+  pool_size: 50
 ```
+
+**Note**: S3 caching and cache warming are not implemented.
 
 ### Resource Limits
 
