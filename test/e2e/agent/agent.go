@@ -587,16 +587,6 @@ func decompressPayload(data []byte) ([]byte, error) {
 }
 
 func getMessageTypeCode(msgType ws.MessageType) uint16 {
-	switch msgType {
-	case ws.MessageTypeRequest:
-		return 1
-	case ws.MessageTypeResponse:
-		return 2
-	case ws.MessageTypeNotification:
-		return 3
-	case ws.MessageTypeError:
-		return 4
-	default:
-		return 0
-	}
+	// Return the actual enum value directly
+	return uint16(msgType)
 }
