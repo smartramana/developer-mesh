@@ -8,9 +8,9 @@ import (
 	"sync"
 	"time"
 
-	"github.com/S-Corkum/devops-mcp/pkg/models"
-	"github.com/S-Corkum/devops-mcp/pkg/observability"
-	"github.com/S-Corkum/devops-mcp/pkg/rules"
+	"github.com/developer-mesh/developer-mesh/pkg/models"
+	"github.com/developer-mesh/developer-mesh/pkg/observability"
+	"github.com/developer-mesh/developer-mesh/pkg/rules"
 	"github.com/pkg/errors"
 )
 

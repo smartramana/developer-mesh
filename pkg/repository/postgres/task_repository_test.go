@@ -12,11 +12,11 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/S-Corkum/devops-mcp/pkg/common/cache"
-	"github.com/S-Corkum/devops-mcp/pkg/models"
-	"github.com/S-Corkum/devops-mcp/pkg/observability"
-	"github.com/S-Corkum/devops-mcp/pkg/repository/postgres"
-	"github.com/S-Corkum/devops-mcp/pkg/repository/types"
+	"github.com/developer-mesh/developer-mesh/pkg/common/cache"
+	"github.com/developer-mesh/developer-mesh/pkg/models"
+	"github.com/developer-mesh/developer-mesh/pkg/observability"
+	"github.com/developer-mesh/developer-mesh/pkg/repository/postgres"
+	"github.com/developer-mesh/developer-mesh/pkg/repository/types"
 )
 
 // mockMetricsClient implements observability.MetricsClient for testing

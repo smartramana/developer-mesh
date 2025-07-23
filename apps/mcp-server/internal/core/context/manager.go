@@ -10,12 +10,12 @@ import (
 	"sync"
 	"time"
 
-	"github.com/S-Corkum/devops-mcp/pkg/common/cache"
-	"github.com/S-Corkum/devops-mcp/pkg/common/events/system"
-	"github.com/S-Corkum/devops-mcp/pkg/database"
-	"github.com/S-Corkum/devops-mcp/pkg/models"
-	"github.com/S-Corkum/devops-mcp/pkg/observability"
-	"github.com/S-Corkum/devops-mcp/pkg/storage/providers"
+	"github.com/developer-mesh/developer-mesh/pkg/common/cache"
+	"github.com/developer-mesh/developer-mesh/pkg/common/events/system"
+	"github.com/developer-mesh/developer-mesh/pkg/database"
+	"github.com/developer-mesh/developer-mesh/pkg/models"
+	"github.com/developer-mesh/developer-mesh/pkg/observability"
+	"github.com/developer-mesh/developer-mesh/pkg/storage/providers"
 	"github.com/google/uuid"
 	"github.com/jmoiron/sqlx"
 )

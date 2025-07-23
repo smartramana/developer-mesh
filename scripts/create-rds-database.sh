@@ -8,7 +8,7 @@ source .env
 
 # Get RDS password from Parameter Store
 echo "Retrieving RDS password from Parameter Store..."
-DB_PASSWORD=$(aws ssm get-parameter --name "/devops-mcp/rds/password" --with-decryption --query 'Parameter.Value' --output text --region us-east-1)
+DB_PASSWORD=$(aws ssm get-parameter --name "/developer-mesh/rds/password" --with-decryption --query 'Parameter.Value' --output text --region us-east-1)
 
 if [ -z "$DB_PASSWORD" ]; then
     echo "Failed to retrieve password from Parameter Store"

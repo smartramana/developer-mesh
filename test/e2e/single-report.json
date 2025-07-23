@@ -1,7 +1,7 @@
 [
   {
-    "SuitePath": "/Users/seancorkum/projects/devops-mcp/test/e2e",
-    "SuiteDescription": "DevOps MCP E2E Test Suite",
+    "SuitePath": "/Users/seancorkum/projects/developer-mesh/test/e2e",
+    "SuiteDescription": "Developer Mesh E2E Test Suite",
     "SuiteLabels": [],
     "SuiteSucceeded": true,
     "SuiteHasProgrammaticFocus": false,

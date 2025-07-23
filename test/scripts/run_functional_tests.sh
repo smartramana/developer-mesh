@@ -104,7 +104,7 @@ docker-compose -f $PROJECT_ROOT/docker-compose.local.yml down -v --remove-orphan
 if [ "${FORCE_BUILD}" = "true" ]; then
     echo "Building Docker images (forced)..."
     docker-compose -f $PROJECT_ROOT/docker-compose.local.yml build
-elif ! docker images | grep -q "devops-mcp_mcp-server\|devops-mcp_rest-api"; then
+elif ! docker images | grep -q "developer-mesh_mcp-server\|developer-mesh_rest-api"; then
     echo "Docker images not found, building..."
     docker-compose -f $PROJECT_ROOT/docker-compose.local.yml build
 else

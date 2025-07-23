@@ -13,10 +13,10 @@ import (
 	"sync"
 	"time"
 
-	"github.com/S-Corkum/devops-mcp/pkg/adapters/github/auth"
-	"github.com/S-Corkum/devops-mcp/pkg/adapters/resilience"
-	"github.com/S-Corkum/devops-mcp/pkg/common/errors"
-	"github.com/S-Corkum/devops-mcp/pkg/observability"
+	"github.com/developer-mesh/developer-mesh/pkg/adapters/github/auth"
+	"github.com/developer-mesh/developer-mesh/pkg/adapters/resilience"
+	"github.com/developer-mesh/developer-mesh/pkg/common/errors"
+	"github.com/developer-mesh/developer-mesh/pkg/observability"
 )
 
 // RESTClient provides a client for the GitHub REST API

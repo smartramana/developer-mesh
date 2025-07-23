@@ -5,10 +5,10 @@ import (
 	"fmt"
 	"sync"
 
-	"github.com/S-Corkum/devops-mcp/pkg/adapters/github"
-	"github.com/S-Corkum/devops-mcp/pkg/auth"
-	"github.com/S-Corkum/devops-mcp/pkg/models"
-	"github.com/S-Corkum/devops-mcp/pkg/observability"
+	"github.com/developer-mesh/developer-mesh/pkg/adapters/github"
+	"github.com/developer-mesh/developer-mesh/pkg/auth"
+	"github.com/developer-mesh/developer-mesh/pkg/models"
+	"github.com/developer-mesh/developer-mesh/pkg/observability"
 )
 
 // PassthroughAdapterFactory creates GitHub adapters with user credentials

@@ -6,9 +6,9 @@ import (
 	"sync"
 	"time"
 
-	"github.com/S-Corkum/devops-mcp/apps/mcp-server/internal/api/events"
-	"github.com/S-Corkum/devops-mcp/apps/mcp-server/internal/api/tools"
-	"github.com/S-Corkum/devops-mcp/apps/mcp-server/internal/api/websocket"
+	"github.com/developer-mesh/developer-mesh/apps/mcp-server/internal/api/events"
+	"github.com/developer-mesh/developer-mesh/apps/mcp-server/internal/api/tools"
+	"github.com/developer-mesh/developer-mesh/apps/mcp-server/internal/api/websocket"
 
 	"github.com/google/uuid"
 )

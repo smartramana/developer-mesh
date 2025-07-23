@@ -2,7 +2,7 @@
 
 ## Overview
 
-DevOps MCP uses Go 1.24.4's workspace feature to organize the codebase as a monorepo with multiple modules. This architecture provides strong module boundaries while enabling code sharing, making it ideal for the AI agent orchestration platform's microservices architecture.
+Developer Mesh uses Go 1.24.4's workspace feature to organize the codebase as a monorepo with multiple modules. This architecture provides strong module boundaries while enabling code sharing, making it ideal for the AI agent orchestration platform's microservices architecture.
 
 ## Why Go Workspaces?
 
@@ -17,7 +17,7 @@ Go workspaces solve several challenges in multi-module projects:
 ## Project Structure
 
 ```
-devops-mcp/
+developer-mesh/
 ├── go.work                    # Workspace definition
 ├── go.work.sum               # Workspace checksums
 ├── Makefile                  # Build automation
@@ -88,16 +88,16 @@ Modules use full GitHub paths with replace directives:
 
 ```go
 // apps/mcp-server/go.mod
-module github.com/S-Corkum/devops-mcp/apps/mcp-server
+module github.com/S-Corkum/developer-mesh/apps/mcp-server
 
 // apps/rest-api/go.mod
-module github.com/S-Corkum/devops-mcp/apps/rest-api
+module github.com/S-Corkum/developer-mesh/apps/rest-api
 
 // apps/worker/go.mod
-module github.com/S-Corkum/devops-mcp/apps/worker
+module github.com/S-Corkum/developer-mesh/apps/worker
 
 // Each module includes:
-replace github.com/S-Corkum/devops-mcp/pkg => ../../pkg
+replace github.com/S-Corkum/developer-mesh/pkg => ../../pkg
 ```
 
 ## Dependency Flow
@@ -126,8 +126,8 @@ Rules:
 
 ```bash
 # Clone repository
-git clone https://github.com/S-Corkum/devops-mcp.git
-cd devops-mcp
+git clone https://github.com/S-Corkum/developer-mesh.git
+cd developer-mesh
 
 # Sync workspace dependencies
 go work sync

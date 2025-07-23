@@ -1,9 +1,9 @@
-module github.com/S-Corkum/devops-mcp/test/e2e
+module github.com/developer-mesh/developer-mesh/test/e2e
 
 go 1.24
 
 require (
-	github.com/S-Corkum/devops-mcp/pkg v0.0.0-00010101000000-000000000000
+	github.com/developer-mesh/developer-mesh/pkg v0.0.0-00010101000000-000000000000
 	github.com/coder/websocket v1.8.13
 	github.com/google/uuid v1.6.0
 	github.com/jmoiron/sqlx v1.4.0
@@ -46,4 +46,4 @@ require (
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 )
 
-replace github.com/S-Corkum/devops-mcp/pkg => ../../pkg
+replace github.com/developer-mesh/developer-mesh/pkg => ../../pkg

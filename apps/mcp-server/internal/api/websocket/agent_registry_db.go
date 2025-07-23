@@ -6,10 +6,10 @@ import (
 	"sync"
 	"time"
 
-	"github.com/S-Corkum/devops-mcp/pkg/common/cache"
-	"github.com/S-Corkum/devops-mcp/pkg/models"
-	"github.com/S-Corkum/devops-mcp/pkg/observability"
-	agentRepo "github.com/S-Corkum/devops-mcp/pkg/repository/agent"
+	"github.com/developer-mesh/developer-mesh/pkg/common/cache"
+	"github.com/developer-mesh/developer-mesh/pkg/models"
+	"github.com/developer-mesh/developer-mesh/pkg/observability"
+	agentRepo "github.com/developer-mesh/developer-mesh/pkg/repository/agent"
 	"github.com/google/uuid"
 )
 

@@ -6,7 +6,7 @@
 
 ## Overview
 
-Agent specialization enables the creation of focused, expert AI agents that excel at specific tasks. This guide covers patterns for designing, implementing, and composing specialized agents in the DevOps MCP platform.
+Agent specialization enables the creation of focused, expert AI agents that excel at specific tasks. This guide covers patterns for designing, implementing, and composing specialized agents in the Developer Mesh platform.
 
 ## Core Concepts
 

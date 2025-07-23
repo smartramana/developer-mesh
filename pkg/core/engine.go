@@ -5,15 +5,15 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/S-Corkum/devops-mcp/pkg/adapters"
-	"github.com/S-Corkum/devops-mcp/pkg/common/cache"
-	contextManager "github.com/S-Corkum/devops-mcp/pkg/core/context"
-	"github.com/S-Corkum/devops-mcp/pkg/database"
-	"github.com/S-Corkum/devops-mcp/pkg/events"
-	"github.com/S-Corkum/devops-mcp/pkg/events/system"
-	"github.com/S-Corkum/devops-mcp/pkg/models"
-	"github.com/S-Corkum/devops-mcp/pkg/observability"
-	"github.com/S-Corkum/devops-mcp/pkg/storage/providers"
+	"github.com/developer-mesh/developer-mesh/pkg/adapters"
+	"github.com/developer-mesh/developer-mesh/pkg/common/cache"
+	contextManager "github.com/developer-mesh/developer-mesh/pkg/core/context"
+	"github.com/developer-mesh/developer-mesh/pkg/database"
+	"github.com/developer-mesh/developer-mesh/pkg/events"
+	"github.com/developer-mesh/developer-mesh/pkg/events/system"
+	"github.com/developer-mesh/developer-mesh/pkg/models"
+	"github.com/developer-mesh/developer-mesh/pkg/observability"
+	"github.com/developer-mesh/developer-mesh/pkg/storage/providers"
 )
 
 // MockMetricsClient is a mock implementation of observability.MetricsClient

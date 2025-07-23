@@ -7,8 +7,8 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/S-Corkum/devops-mcp/pkg/agents"
-	"github.com/S-Corkum/devops-mcp/pkg/embedding"
+	"github.com/developer-mesh/developer-mesh/pkg/agents"
+	"github.com/developer-mesh/developer-mesh/pkg/embedding"
 	"github.com/google/uuid"
 	"github.com/gorilla/mux"
 )

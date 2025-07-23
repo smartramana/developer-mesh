@@ -23,18 +23,18 @@ export PGPASSWORD=$DB_PASSWORD
 # Function to execute SQL
 execute_sql() {
     local sql=$1
-    docker exec -e PGPASSWORD=$DB_PASSWORD devops-mcp-database-1 psql -U $DB_USER -d $DB_NAME -c "$sql" > /dev/null 2>&1
+    docker exec -e PGPASSWORD=$DB_PASSWORD developer-mesh-database-1 psql -U $DB_USER -d $DB_NAME -c "$sql" > /dev/null 2>&1
 }
 
 # Function to execute SQL from file
 execute_sql_file() {
     local file=$1
-    docker exec -e PGPASSWORD=$DB_PASSWORD -i devops-mcp-database-1 psql -U $DB_USER -d $DB_NAME < "$file" > /dev/null 2>&1
+    docker exec -e PGPASSWORD=$DB_PASSWORD -i developer-mesh-database-1 psql -U $DB_USER -d $DB_NAME < "$file" > /dev/null 2>&1
 }
 
 # Wait for database to be ready using Docker
 echo -e "${YELLOW}Waiting for database to be ready...${NC}"
-until docker exec devops-mcp-database-1 pg_isready -U $DB_USER > /dev/null 2>&1; do
+until docker exec developer-mesh-database-1 pg_isready -U $DB_USER > /dev/null 2>&1; do
     echo -n "."
     sleep 1
 done
@@ -42,7 +42,7 @@ echo -e "\n${GREEN}Database is ready!${NC}"
 
 # Database should already exist (created by docker-compose), just verify
 echo -e "${YELLOW}Verifying database exists...${NC}"
-if docker exec devops-mcp-database-1 psql -U $DB_USER -lqt | grep -q "$DB_NAME"; then
+if docker exec developer-mesh-database-1 psql -U $DB_USER -lqt | grep -q "$DB_NAME"; then
     echo -e "${GREEN}Database '$DB_NAME' exists!${NC}"
 else
     echo -e "${RED}Database '$DB_NAME' does not exist!${NC}"
@@ -62,7 +62,7 @@ ON CONFLICT (id) DO NOTHING;
 "
 
 # Get model IDs for use in agents
-MODEL_ID=$(docker exec -e PGPASSWORD=$DB_PASSWORD devops-mcp-database-1 psql -U $DB_USER -d $DB_NAME -t -c "SELECT id FROM mcp.models WHERE name='GPT-4' LIMIT 1" | xargs)
+MODEL_ID=$(docker exec -e PGPASSWORD=$DB_PASSWORD developer-mesh-database-1 psql -U $DB_USER -d $DB_NAME -t -c "SELECT id FROM mcp.models WHERE name='GPT-4' LIMIT 1" | xargs)
 
 # Create test agents
 execute_sql "
@@ -74,7 +74,7 @@ ON CONFLICT (id) DO NOTHING;
 "
 
 # Get agent ID for use in contexts
-AGENT_ID=$(docker exec -e PGPASSWORD=$DB_PASSWORD devops-mcp-database-1 psql -U $DB_USER -d $DB_NAME -t -c "SELECT id FROM mcp.agents WHERE name='Test Agent 1' LIMIT 1" | xargs)
+AGENT_ID=$(docker exec -e PGPASSWORD=$DB_PASSWORD developer-mesh-database-1 psql -U $DB_USER -d $DB_NAME -t -c "SELECT id FROM mcp.agents WHERE name='Test Agent 1' LIMIT 1" | xargs)
 
 # Create test contexts
 execute_sql "
@@ -95,7 +95,7 @@ ON CONFLICT (id) DO NOTHING;
 "
 
 # Create test embeddings - check if table exists first
-if docker exec -e PGPASSWORD=$DB_PASSWORD devops-mcp-database-1 psql -U $DB_USER -d $DB_NAME -t -c "SELECT 1 FROM information_schema.tables WHERE table_schema='mcp' AND table_name='embeddings'" | grep -q 1; then
+if docker exec -e PGPASSWORD=$DB_PASSWORD developer-mesh-database-1 psql -U $DB_USER -d $DB_NAME -t -c "SELECT 1 FROM information_schema.tables WHERE table_schema='mcp' AND table_name='embeddings'" | grep -q 1; then
     execute_sql "
     INSERT INTO mcp.embeddings (id, context_id, content_index, text, vector_dimensions, model_id, created_at) VALUES 
         ('test-embedding-1', 'test-context-1', 0, 'Test text content', 1536, '$MODEL_ID', NOW()),

@@ -1,6 +1,6 @@
 # OpenAPI/Swagger Documentation
 
-This directory contains the comprehensive OpenAPI 3.0 specification for the DevOps MCP Platform API. The documentation is structured to support scalability as new tools and integrations are added.
+This directory contains the comprehensive OpenAPI 3.0 specification for the Developer Mesh Platform API. The documentation is structured to support scalability as new tools and integrations are added.
 
 ## Structure
 

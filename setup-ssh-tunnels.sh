@@ -6,8 +6,8 @@ source .env
 
 NAT_PUBLIC_IP=${NAT_INSTANCE_IP:-54.145.71.11}
 KEY_FILE=${SSH_KEY_PATH:-~/.ssh/dev-bastion-key.pem}
-RDS_HOST=${RDS_ENDPOINT:-devops-mcp-postgres.cshaq28kmnw8.us-east-1.rds.amazonaws.com}
-REDIS_HOST=${ELASTICACHE_ENDPOINT:-devops-mcp-redis.qem3fz.0001.use1.cache.amazonaws.com}
+RDS_HOST=${RDS_ENDPOINT:-developer-mesh-postgres.cshaq28kmnw8.us-east-1.rds.amazonaws.com}
+REDIS_HOST=${ELASTICACHE_ENDPOINT:-developer-mesh-redis.qem3fz.0001.use1.cache.amazonaws.com}
 
 echo "Setting up SSH tunnels through NAT instance..."
 echo "NAT Instance IP: $NAT_PUBLIC_IP"

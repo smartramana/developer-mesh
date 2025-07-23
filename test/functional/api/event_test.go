@@ -10,7 +10,7 @@ import (
 
 	"functional-tests/client"
 
-	"github.com/S-Corkum/devops-mcp/pkg/models"
+	"github.com/developer-mesh/developer-mesh/pkg/models"
 )
 
 var _ = Describe("Event Flow Tests", func() {

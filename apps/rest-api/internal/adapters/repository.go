@@ -5,7 +5,7 @@ import (
 	"context"
 	"time"
 
-	"github.com/S-Corkum/devops-mcp/pkg/models"
+	"github.com/developer-mesh/developer-mesh/pkg/models"
 )
 
 // Embedding represents a vector embedding stored in the database

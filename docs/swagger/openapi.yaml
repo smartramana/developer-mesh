@@ -1,8 +1,8 @@
 openapi: 3.0.3
 info:
-  title: DevOps MCP Platform API
+  title: Developer Mesh Platform API
   description: |
-    The DevOps MCP (Model Context Protocol) Platform is an AI Agent Orchestration Platform that enables intelligent routing and coordination of multiple AI agents for DevOps workflows.
+    The Developer Mesh (Model Context Protocol) Platform is an AI Agent Orchestration Platform that enables intelligent routing and coordination of multiple AI agents for DevOps workflows.
     
     ## Overview
     This API enables:
@@ -36,17 +36,17 @@ info:
     
   version: 1.0.0
   contact:
-    name: DevOps MCP Support
-    email: support@devops-mcp.com
-    url: https://github.com/S-Corkum/devops-mcp
+    name: Developer Mesh Support
+    email: support@developer-mesh.com
+    url: https://github.com/S-Corkum/developer-mesh
   license:
     name: MIT
     url: https://opensource.org/licenses/MIT
 
 servers:
-  - url: https://api.devops-mcp.com/api/v1
+  - url: https://api.developer-mesh.com/api/v1
     description: Production API Server
-  - url: https://staging-api.devops-mcp.com/api/v1
+  - url: https://staging-api.developer-mesh.com/api/v1
     description: Staging API Server
   - url: http://localhost:8080/api/v1
     description: Local MCP Server (WebSocket)

@@ -9,7 +9,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/S-Corkum/devops-mcp/test/integration/testutils"
+	"github.com/developer-mesh/developer-mesh/test/integration/testutils"
 )
 
 // TestHealthEndpoint verifies that the health endpoint returns a successful response

@@ -1,12 +1,12 @@
 # Testing Guide
 
-> **Purpose**: Comprehensive testing strategies and patterns for the DevOps MCP platform
+> **Purpose**: Comprehensive testing strategies and patterns for the Developer Mesh platform
 > **Audience**: Developers writing and maintaining tests
 > **Scope**: Unit, integration, E2E tests with real AWS services
 
 ## Overview
 
-This guide covers testing strategies, tools, and best practices for DevOps MCP with emphasis on testing against real AWS services (S3, SQS, Bedrock, ElastiCache). Note that many advanced testing tools mentioned (Cypress, Playwright, Gatling, Pact) are not currently implemented but shown as examples of potential testing approaches.
+This guide covers testing strategies, tools, and best practices for Developer Mesh with emphasis on testing against real AWS services (S3, SQS, Bedrock, ElastiCache). Note that many advanced testing tools mentioned (Cypress, Playwright, Gatling, Pact) are not currently implemented but shown as examples of potential testing approaches.
 
 ## Testing Pyramid
 
@@ -449,7 +449,7 @@ func TestAPIWithAWSIntegration(t *testing.T) {
         // Create context with content for embedding
         payload := `{
             "name":"AWS Integration Test",
-            "content":"This is a comprehensive test of the DevOps MCP platform including vector embeddings and search",
+            "content":"This is a comprehensive test of the Developer Mesh platform including vector embeddings and search",
             "metadata": {"test": true}
         }`
         
@@ -539,7 +539,7 @@ func TestAPIWithAWSIntegration(t *testing.T) {
 
 ### Frontend Testing (Not Currently Implemented)
 
-**Note**: DevOps MCP is currently a backend-only platform with no frontend. The examples below show potential testing approaches if a frontend were added.
+**Note**: Developer Mesh is currently a backend-only platform with no frontend. The examples below show potential testing approaches if a frontend were added.
 
 #### Cypress Example (Theoretical)
 
@@ -863,7 +863,7 @@ class BasicSimulation extends Simulation {
 
 ## Chaos Engineering (Not Implemented)
 
-**Note**: Chaos engineering tools are not currently implemented in DevOps MCP, which runs on a single EC2 instance with Docker Compose.
+**Note**: Chaos engineering tools are not currently implemented in Developer Mesh, which runs on a single EC2 instance with Docker Compose.
 
 ### Litmus Chaos Example (Theoretical)
 
@@ -1033,7 +1033,7 @@ func TestPactProvider(t *testing.T) {
 package fixtures
 
 import (
-    "github.com/S-Corkum/devops-mcp/pkg/models"
+    "github.com/S-Corkum/developer-mesh/pkg/models"
 )
 
 func ValidContext() *models.Context {

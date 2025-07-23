@@ -681,7 +681,7 @@ from langchain.embeddings.base import Embeddings
 from typing import List
 
 class DevOpsMCPEmbeddings(Embeddings):
-    """Custom LangChain embeddings using DevOps MCP"""
+    """Custom LangChain embeddings using Developer Mesh"""
     
     def __init__(self, base_url: str, api_key: str, agent_id: str):
         self.client = EmbeddingClient(base_url, api_key)

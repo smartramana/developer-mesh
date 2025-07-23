@@ -4,10 +4,10 @@ package adapters
 import (
 	"context"
 
-	"github.com/S-Corkum/devops-mcp/apps/rest-api/internal/repository"
+	"github.com/developer-mesh/developer-mesh/apps/rest-api/internal/repository"
 
-	"github.com/S-Corkum/devops-mcp/pkg/database"
-	corerepo "github.com/S-Corkum/devops-mcp/pkg/repository"
+	"github.com/developer-mesh/developer-mesh/pkg/database"
+	corerepo "github.com/developer-mesh/developer-mesh/pkg/repository"
 )
 
 // ServerEmbeddingAdapter adapts between the API's expected interface and the repository implementation

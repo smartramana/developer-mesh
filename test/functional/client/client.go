@@ -11,7 +11,7 @@ import (
 	"time"
 
 	// Import models package
-	"github.com/S-Corkum/devops-mcp/pkg/models"
+	"github.com/developer-mesh/developer-mesh/pkg/models"
 )
 
 // MCPClient provides methods to interact with the MCP server API

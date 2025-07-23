@@ -8,9 +8,9 @@ import (
 	"time"
 
 	// Import internal database which now forwards to pkg/database internally
-	"github.com/S-Corkum/devops-mcp/pkg/database"
-	"github.com/S-Corkum/devops-mcp/pkg/observability"
-	"github.com/S-Corkum/devops-mcp/pkg/storage"
+	"github.com/developer-mesh/developer-mesh/pkg/database"
+	"github.com/developer-mesh/developer-mesh/pkg/observability"
+	"github.com/developer-mesh/developer-mesh/pkg/storage"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 )

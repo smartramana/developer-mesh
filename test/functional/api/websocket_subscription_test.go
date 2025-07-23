@@ -14,7 +14,7 @@ import (
 
 	"functional-tests/shared"
 
-	ws "github.com/S-Corkum/devops-mcp/pkg/models/websocket"
+	ws "github.com/developer-mesh/developer-mesh/pkg/models/websocket"
 )
 
 var _ = Describe("WebSocket Real-Time Subscriptions", func() {

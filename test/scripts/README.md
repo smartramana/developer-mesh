@@ -1,6 +1,6 @@
 # Test Scripts Directory
 
-This directory contains scripts specifically for testing the DevOps MCP project.
+This directory contains scripts specifically for testing the Developer Mesh project.
 
 ## Functional Testing Scripts
 

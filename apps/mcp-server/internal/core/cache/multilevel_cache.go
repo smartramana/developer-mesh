@@ -7,10 +7,10 @@ import (
 	"sync"
 	"time"
 
-	"github.com/S-Corkum/devops-mcp/apps/mcp-server/internal/config"
+	"github.com/developer-mesh/developer-mesh/apps/mcp-server/internal/config"
 
-	"github.com/S-Corkum/devops-mcp/pkg/models"
-	"github.com/S-Corkum/devops-mcp/pkg/observability"
+	"github.com/developer-mesh/developer-mesh/pkg/models"
+	"github.com/developer-mesh/developer-mesh/pkg/observability"
 	redis "github.com/go-redis/redis/v8"
 	lru "github.com/hashicorp/golang-lru/v2"
 )

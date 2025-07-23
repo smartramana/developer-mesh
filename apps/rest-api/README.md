@@ -1,6 +1,6 @@
 # REST API Service
 
-The REST API service provides comprehensive data management and search capabilities for the DevOps MCP platform.
+The REST API service provides comprehensive data management and search capabilities for the Developer Mesh platform.
 
 ## Overview
 

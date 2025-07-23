@@ -1,5 +1,5 @@
 // Package observability provides unified logging, metrics, and tracing
-// capabilities for the devops-mcp workspace. It follows a consistent
+// capabilities for the developer-mesh workspace. It follows a consistent
 // approach to observability across all services and components.
 package observability
 
@@ -9,7 +9,7 @@ import (
 	"os"
 	"time"
 
-	commonLogging "github.com/S-Corkum/devops-mcp/pkg/common/logging"
+	commonLogging "github.com/developer-mesh/developer-mesh/pkg/common/logging"
 )
 
 // StandardLogger is a logger implementation that uses the standard log package

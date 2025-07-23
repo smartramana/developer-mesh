@@ -2,7 +2,7 @@
 
 ## Overview
 
-The DevOps MCP platform now has an integrated authentication system that provides:
+The Developer Mesh platform now has an integrated authentication system that provides:
 
 1. **Centralized Authentication**: Single auth package used by all services
 2. **Multi-Tenant Support**: Tenant isolation for data and operations

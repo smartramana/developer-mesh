@@ -10,7 +10,7 @@ import (
 
 	"github.com/jmoiron/sqlx"
 
-	"github.com/S-Corkum/devops-mcp/pkg/models"
+	"github.com/developer-mesh/developer-mesh/pkg/models"
 )
 
 // Tx represents a database transaction

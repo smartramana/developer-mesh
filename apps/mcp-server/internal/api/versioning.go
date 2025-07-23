@@ -19,8 +19,8 @@ const (
 )
 
 // acceptHeaderRegex is a regex to extract version from Accept header
-// Example: application/vnd.devops-mcp.v1+json
-var acceptHeaderRegex = regexp.MustCompile(`application/vnd\.devops-mcp\.v(\d+)(\+\w+)?`)
+// Example: application/vnd.developer-mesh.v1+json
+var acceptHeaderRegex = regexp.MustCompile(`application/vnd\.developer-mesh\.v(\d+)(\+\w+)?`)
 
 // VersioningMiddleware adds API versioning support
 func VersioningMiddleware(config VersioningConfig) gin.HandlerFunc {

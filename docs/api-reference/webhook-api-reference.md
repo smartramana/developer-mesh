@@ -2,7 +2,7 @@
 
 ## Overview
 
-The Webhook API enables the DevOps MCP platform to receive and process real-time events from GitHub. It provides secure webhook endpoints with signature validation and asynchronous event processing via AWS SQS.
+The Webhook API enables the Developer Mesh platform to receive and process real-time events from GitHub. It provides secure webhook endpoints with signature validation and asynchronous event processing via AWS SQS.
 
 ## Webhook Endpoints
 
@@ -462,8 +462,8 @@ app.post('/webhooks/github',
     const event = req.headers['x-github-event'];
     const payload = req.body;
     
-    // Forward to DevOps MCP
-    const response = await fetch('https://api.devops-mcp.com/api/v1/webhooks/github', {
+    // Forward to Developer Mesh
+    const response = await fetch('https://api.developer-mesh.com/api/v1/webhooks/github', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -511,9 +511,9 @@ def handle_github_webhook():
     ):
         return jsonify({'error': 'Invalid signature'}), 401
     
-    # Forward to DevOps MCP
+    # Forward to Developer Mesh
     response = requests.post(
-        'https://api.devops-mcp.com/api/v1/webhooks/github',
+        'https://api.developer-mesh.com/api/v1/webhooks/github',
         headers={
             'Content-Type': 'application/json',
             'X-GitHub-Event': request.headers.get('X-GitHub-Event'),
@@ -530,14 +530,14 @@ def handle_github_webhook():
 
 1. **In GitHub Repository Settings:**
    - Go to Settings → Webhooks → Add webhook
-   - Payload URL: `https://api.devops-mcp.com/api/v1/webhooks/github`
+   - Payload URL: `https://api.developer-mesh.com/api/v1/webhooks/github`
    - Content type: `application/json`
    - Secret: Use a strong, random secret
    - Events: Select individual events or "Send me everything"
 
-2. **Configure in DevOps MCP:**
+2. **Configure in Developer Mesh:**
    ```bash
-   curl -X PUT https://api.devops-mcp.com/api/v1/webhooks/github/config \
+   curl -X PUT https://api.developer-mesh.com/api/v1/webhooks/github/config \
      -H "Authorization: Bearer your-api-key" \
      -H "Content-Type: application/json" \
      -d '{
@@ -626,4 +626,4 @@ X-RateLimit-Reset: 1642521600
 
 ---
 
-*For more information, visit [docs.devops-mcp.com](https://docs.devops-mcp.com)*
+*For more information, visit [docs.developer-mesh.com](https://docs.developer-mesh.com)*

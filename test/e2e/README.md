@@ -1,6 +1,6 @@
-# DevOps MCP End-to-End Tests
+# Developer Mesh End-to-End Tests
 
-This directory contains comprehensive end-to-end tests for the DevOps MCP platform, designed to test real AI agent interactions with the production environment.
+This directory contains comprehensive end-to-end tests for the Developer Mesh platform, designed to test real AI agent interactions with the production environment.
 
 ## Overview
 
@@ -41,7 +41,7 @@ test/e2e/
 
 1. Go 1.24.3 or higher
 2. Ginkgo test framework
-3. Access to DevOps MCP production environment
+3. Access to Developer Mesh production environment
 4. Valid API credentials
 
 ## Installation

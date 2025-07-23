@@ -1,5 +1,5 @@
 #!/bin/bash
-# Script to pull DevOps MCP Docker images from GitHub Container Registry
+# Script to pull Developer Mesh Docker images from GitHub Container Registry
 
 set -e
 
@@ -22,7 +22,7 @@ SERVICES=(
     "mockserver"
 )
 
-echo -e "${GREEN}DevOps MCP Docker Image Pull Script${NC}"
+echo -e "${GREEN}Developer Mesh Docker Image Pull Script${NC}"
 echo "======================================"
 echo "Registry: $REGISTRY"
 echo "Username: $GITHUB_USERNAME"
@@ -39,7 +39,7 @@ fi
 # Function to pull image
 pull_image() {
     local service=$1
-    local image="${REGISTRY}/${GITHUB_USERNAME}/devops-mcp-${service}:${VERSION}"
+    local image="${REGISTRY}/${GITHUB_USERNAME}/developer-mesh-${service}:${VERSION}"
     
     echo -e "${YELLOW}Pulling ${service}...${NC}"
     if docker pull "$image"; then
@@ -80,4 +80,4 @@ fi
 # List pulled images
 echo ""
 echo "Pulled images:"
-docker images | grep -E "(REPOSITORY|devops-mcp)" | grep -v "<none>"
+docker images | grep -E "(REPOSITORY|developer-mesh)" | grep -v "<none>"

@@ -10,7 +10,7 @@ GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
 NC='\033[0m' # No Color
 
-echo -e "${YELLOW}DevOps MCP - Security Group IP Update${NC}"
+echo -e "${YELLOW}Developer Mesh - Security Group IP Update${NC}"
 echo "========================================"
 
 # Get current IP
@@ -76,17 +76,17 @@ update_security_group() {
 }
 
 # Find security groups
-echo -e "${YELLOW}Finding DevOps MCP security groups...${NC}"
+echo -e "${YELLOW}Finding Developer Mesh security groups...${NC}"
 
 # Get VPC ID
 VPC_ID=$(aws ec2 describe-vpcs \
-    --filters "Name=tag:Name,Values=devops-mcp-vpc" \
+    --filters "Name=tag:Name,Values=developer-mesh-vpc" \
     --query 'Vpcs[0].VpcId' \
     --output text \
     --region "$REGION")
 
 if [ "$VPC_ID" == "None" ] || [ -z "$VPC_ID" ]; then
-    echo -e "${RED}Error: Could not find DevOps MCP VPC${NC}"
+    echo -e "${RED}Error: Could not find Developer Mesh VPC${NC}"
     echo "Make sure the AWS infrastructure is set up first."
     exit 1
 fi
@@ -95,7 +95,7 @@ echo -e "Found VPC: ${GREEN}${VPC_ID}${NC}\n"
 
 # Get Application Security Group
 APP_SG_ID=$(aws ec2 describe-security-groups \
-    --filters "Name=vpc-id,Values=${VPC_ID}" "Name=group-name,Values=devops-mcp-app-sg" \
+    --filters "Name=vpc-id,Values=${VPC_ID}" "Name=group-name,Values=developer-mesh-app-sg" \
     --query 'SecurityGroups[0].GroupId' \
     --output text \
     --region "$REGION")

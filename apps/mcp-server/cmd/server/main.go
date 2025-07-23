@@ -19,31 +19,31 @@ import (
 	"time"
 
 	// Internal application-specific imports
-	"github.com/S-Corkum/devops-mcp/apps/mcp-server/internal/api"
-	"github.com/S-Corkum/devops-mcp/apps/mcp-server/internal/api/websocket"
-	"github.com/S-Corkum/devops-mcp/apps/mcp-server/internal/config"
-	"github.com/S-Corkum/devops-mcp/apps/mcp-server/internal/core"
+	"github.com/developer-mesh/developer-mesh/apps/mcp-server/internal/api"
+	"github.com/developer-mesh/developer-mesh/apps/mcp-server/internal/api/websocket"
+	"github.com/developer-mesh/developer-mesh/apps/mcp-server/internal/config"
+	"github.com/developer-mesh/developer-mesh/apps/mcp-server/internal/core"
 
 	// Shared package imports
-	"github.com/S-Corkum/devops-mcp/pkg/common/aws"
-	"github.com/S-Corkum/devops-mcp/pkg/common/cache"
-	commonconfig "github.com/S-Corkum/devops-mcp/pkg/common/config"
-	"github.com/S-Corkum/devops-mcp/pkg/database"
-	"github.com/S-Corkum/devops-mcp/pkg/observability"
-	"github.com/S-Corkum/devops-mcp/pkg/repository"
-	"github.com/S-Corkum/devops-mcp/pkg/repository/postgres"
-	"github.com/S-Corkum/devops-mcp/pkg/resilience"
-	securitytls "github.com/S-Corkum/devops-mcp/pkg/security/tls"
-	"github.com/S-Corkum/devops-mcp/pkg/services"
+	"github.com/developer-mesh/developer-mesh/pkg/common/aws"
+	"github.com/developer-mesh/developer-mesh/pkg/common/cache"
+	commonconfig "github.com/developer-mesh/developer-mesh/pkg/common/config"
+	"github.com/developer-mesh/developer-mesh/pkg/database"
+	"github.com/developer-mesh/developer-mesh/pkg/observability"
+	"github.com/developer-mesh/developer-mesh/pkg/repository"
+	"github.com/developer-mesh/developer-mesh/pkg/repository/postgres"
+	"github.com/developer-mesh/developer-mesh/pkg/resilience"
+	securitytls "github.com/developer-mesh/developer-mesh/pkg/security/tls"
+	"github.com/developer-mesh/developer-mesh/pkg/services"
 
 	// Import PostgreSQL driver
 	_ "github.com/lib/pq"
 
 	// Import auth package for production authorizer
-	"github.com/S-Corkum/devops-mcp/pkg/auth"
+	"github.com/developer-mesh/developer-mesh/pkg/auth"
 
 	// Import rules package for rule engine and policy manager
-	"github.com/S-Corkum/devops-mcp/pkg/rules"
+	"github.com/developer-mesh/developer-mesh/pkg/rules"
 
 	// Import golang-migrate for database migrations
 	"github.com/golang-migrate/migrate/v4"
@@ -713,7 +713,7 @@ func createRuleEngine(cacheClient cache.Cache, logger observability.Logger, metr
 	// Check for rules configuration path
 	rulesPath := os.Getenv("RULES_CONFIG_PATH")
 	if rulesPath == "" {
-		rulesPath = "/etc/devops-mcp/rules"
+		rulesPath = "/etc/developer-mesh/rules"
 	}
 
 	// Check if rules directory/file exists
@@ -834,7 +834,7 @@ func createPolicyManager(cacheClient cache.Cache, logger observability.Logger, m
 	// Check for policies configuration path
 	policiesPath := os.Getenv("POLICIES_CONFIG_PATH")
 	if policiesPath == "" {
-		policiesPath = "/etc/devops-mcp/policies"
+		policiesPath = "/etc/developer-mesh/policies"
 	}
 
 	// Check if policies directory/file exists

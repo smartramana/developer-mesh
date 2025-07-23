@@ -3,9 +3,9 @@ package handlers
 import (
 	"net/http"
 
-	"github.com/S-Corkum/devops-mcp/pkg/models"
-	"github.com/S-Corkum/devops-mcp/pkg/repository/agent"
-	"github.com/S-Corkum/devops-mcp/pkg/util"
+	"github.com/developer-mesh/developer-mesh/pkg/models"
+	"github.com/developer-mesh/developer-mesh/pkg/repository/agent"
+	"github.com/developer-mesh/developer-mesh/pkg/util"
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 )

@@ -1,4 +1,4 @@
-module github.com/S-Corkum/devops-mcp
+module github.com/developer-mesh/developer-mesh
 
 go 1.24
 
@@ -8,7 +8,6 @@ toolchain go1.24.2
 // Replace directives removed - using go workspaces instead
 
 require (
-	github.com/S-Corkum/devops-mcp/pkg v0.0.0-20250630205011-78836993db88
 	github.com/aws/aws-sdk-go-v2/config v1.29.14
 	github.com/aws/aws-sdk-go-v2/service/s3 v1.79.2
 	github.com/aws/aws-sdk-go-v2/service/sqs v1.38.6

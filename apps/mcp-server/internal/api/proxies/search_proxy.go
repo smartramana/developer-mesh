@@ -5,11 +5,11 @@ import (
 	"fmt"
 	"reflect"
 
-	"github.com/S-Corkum/devops-mcp/pkg/client/rest"
-	"github.com/S-Corkum/devops-mcp/pkg/embedding"
-	"github.com/S-Corkum/devops-mcp/pkg/observability"
-	"github.com/S-Corkum/devops-mcp/pkg/repository"
-	"github.com/S-Corkum/devops-mcp/pkg/repository/search"
+	"github.com/developer-mesh/developer-mesh/pkg/client/rest"
+	"github.com/developer-mesh/developer-mesh/pkg/embedding"
+	"github.com/developer-mesh/developer-mesh/pkg/observability"
+	"github.com/developer-mesh/developer-mesh/pkg/repository"
+	"github.com/developer-mesh/developer-mesh/pkg/repository/search"
 )
 
 // SearchAPIProxy implements the SearchRepository interface by delegating to a REST API client

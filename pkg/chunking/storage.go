@@ -5,7 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"github.com/S-Corkum/devops-mcp/pkg/storage"
+	"github.com/developer-mesh/developer-mesh/pkg/storage"
 )
 
 // GitHubContentStorageInterface defines the interface for GitHub content storage operations

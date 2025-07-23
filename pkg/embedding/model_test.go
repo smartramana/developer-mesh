@@ -3,7 +3,7 @@ package embedding_test
 import (
 	"testing"
 
-	"github.com/S-Corkum/devops-mcp/pkg/embedding"
+	"github.com/developer-mesh/developer-mesh/pkg/embedding"
 	"github.com/stretchr/testify/assert"
 )
 

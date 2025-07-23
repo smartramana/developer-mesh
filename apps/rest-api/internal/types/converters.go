@@ -4,7 +4,7 @@ package types
 import (
 	"time"
 
-	pkgrepo "github.com/S-Corkum/devops-mcp/pkg/repository"
+	pkgrepo "github.com/developer-mesh/developer-mesh/pkg/repository"
 )
 
 // ConvertToPkgEmbedding converts an internal embedding to pkg repository embedding

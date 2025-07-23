@@ -1,6 +1,6 @@
 # Rules Package
 
-> **Purpose**: Simple expression-based rules engine for the DevOps MCP platform
+> **Purpose**: Simple expression-based rules engine for the Developer Mesh platform
 > **Status**: Basic Implementation
 > **Dependencies**: Basic expression evaluation, rule storage
 

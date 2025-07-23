@@ -1,12 +1,12 @@
 # Agent Registration Guide
 
-> **Purpose**: Step-by-step guide for registering AI agents with the DevOps MCP platform
+> **Purpose**: Step-by-step guide for registering AI agents with the Developer Mesh platform
 > **Audience**: Developers integrating AI agents
 > **Scope**: WebSocket connection and agent registration
 
 ## Overview
 
-This guide explains how to register AI agents with the DevOps MCP platform. The registration process is straightforward:
+This guide explains how to register AI agents with the Developer Mesh platform. The registration process is straightforward:
 
 1. **Connect via WebSocket** with authentication (API key or JWT token)
 2. **Agent ID is assigned automatically** by the server based on your authentication
@@ -18,7 +18,7 @@ This guide explains how to register AI agents with the DevOps MCP platform. The 
 
 ### No Official SDK Yet
 
-The DevOps MCP project doesn't provide an official client SDK yet. This guide shows how to connect using standard WebSocket libraries following the patterns used in the project's test suite.
+The Developer Mesh project doesn't provide an official client SDK yet. This guide shows how to connect using standard WebSocket libraries following the patterns used in the project's test suite.
 
 ## How Agent IDs Work
 
@@ -29,7 +29,7 @@ When you connect to the MCP server:
 
 ## Quick Start (Go)
 
-Using `github.com/coder/websocket` (the library used by DevOps MCP):
+Using `github.com/coder/websocket` (the library used by Developer Mesh):
 
 ```go
 package main
@@ -393,4 +393,4 @@ The MCP server supports a binary protocol for improved performance. This is auto
 
 ## Note on SDK Development
 
-The DevOps MCP project currently doesn't provide an official client SDK. The examples in this guide are based on the patterns used in the project's test suite. An official SDK may be developed in the future to simplify agent development.
+The Developer Mesh project currently doesn't provide an official client SDK. The examples in this guide are based on the patterns used in the project's test suite. An official SDK may be developed in the future to simplify agent development.

@@ -16,7 +16,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
-	ws "github.com/S-Corkum/devops-mcp/pkg/models/websocket"
+	ws "github.com/developer-mesh/developer-mesh/pkg/models/websocket"
 )
 
 var _ = Describe("WebSocket Performance Tests", func() {

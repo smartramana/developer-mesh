@@ -12,7 +12,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/S-Corkum/devops-mcp/pkg/observability"
+	"github.com/developer-mesh/developer-mesh/pkg/observability"
 	"github.com/gorilla/mux"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -219,7 +219,7 @@ var _ = Describe("Mock GitHub Webhook Tests", func() {
 				"title":  "Test Issue",
 			},
 			"repository": map[string]interface{}{
-				"full_name": "S-Corkum/devops-mcp",
+				"full_name": "S-Corkum/developer-mesh",
 			},
 			"sender": map[string]interface{}{
 				"login": "testuser",
@@ -281,7 +281,7 @@ var _ = Describe("Mock GitHub Webhook Tests", func() {
 				"title":  "Idempotency Test",
 			},
 			"repository": map[string]interface{}{
-				"full_name": "S-Corkum/devops-mcp",
+				"full_name": "S-Corkum/developer-mesh",
 			},
 			"sender": map[string]interface{}{
 				"login": "testuser",
@@ -345,7 +345,7 @@ var _ = Describe("Mock GitHub Webhook Tests", func() {
 		payload := map[string]interface{}{
 			"action": "opened",
 			"repository": map[string]interface{}{
-				"full_name": "S-Corkum/devops-mcp",
+				"full_name": "S-Corkum/developer-mesh",
 			},
 		}
 		body, err := json.Marshal(payload)
@@ -386,7 +386,7 @@ var _ = Describe("Mock GitHub Webhook Tests", func() {
 				"title":  "Error Event Test",
 			},
 			"repository": map[string]interface{}{
-				"full_name": "S-Corkum/devops-mcp",
+				"full_name": "S-Corkum/developer-mesh",
 			},
 			"sender": map[string]interface{}{
 				"login": "testuser",

@@ -2,7 +2,7 @@
 
 ## Overview
 
-This guide provides solutions for common issues, debugging procedures, and error resolution strategies for DevOps MCP. It's organized by symptoms to help you quickly identify and resolve problems.
+This guide provides solutions for common issues, debugging procedures, and error resolution strategies for Developer Mesh. It's organized by symptoms to help you quickly identify and resolve problems.
 
 ## Table of Contents
 

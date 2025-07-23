@@ -5,10 +5,10 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/S-Corkum/devops-mcp/apps/mcp-server/internal/core"
+	"github.com/developer-mesh/developer-mesh/apps/mcp-server/internal/core"
 
-	"github.com/S-Corkum/devops-mcp/pkg/models"
-	"github.com/S-Corkum/devops-mcp/pkg/observability"
+	"github.com/developer-mesh/developer-mesh/pkg/models"
+	"github.com/developer-mesh/developer-mesh/pkg/observability"
 	"github.com/gin-gonic/gin"
 )
 

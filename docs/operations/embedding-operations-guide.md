@@ -52,7 +52,7 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: embedding-api
-  namespace: devops-mcp
+  namespace: developer-mesh
 spec:
   replicas: 3
   selector:
@@ -65,7 +65,7 @@ spec:
     spec:
       containers:
       - name: rest-api
-        image: devops-mcp/rest-api:latest
+        image: developer-mesh/rest-api:latest
         ports:
         - containerPort: 8081
         env:
@@ -102,7 +102,7 @@ apiVersion: v1
 kind: Service
 metadata:
   name: embedding-api
-  namespace: devops-mcp
+  namespace: developer-mesh
 spec:
   selector:
     app: embedding-api
@@ -115,7 +115,7 @@ apiVersion: autoscaling/v2
 kind: HorizontalPodAutoscaler
 metadata:
   name: embedding-api-hpa
-  namespace: devops-mcp
+  namespace: developer-mesh
 spec:
   scaleTargetRef:
     apiVersion: apps/v1
@@ -145,7 +145,7 @@ version: '3.8'
 
 services:
   rest-api:
-    image: ${DOCKER_REGISTRY}/devops-mcp/rest-api:${VERSION}
+    image: ${DOCKER_REGISTRY}/developer-mesh/rest-api:${VERSION}
     deploy:
       replicas: 3
       restart_policy:

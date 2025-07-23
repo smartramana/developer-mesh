@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/S-Corkum/devops-mcp/pkg/chunking"
+	"github.com/developer-mesh/developer-mesh/pkg/chunking"
 )
 
 // extractProperties extracts property declarations from Kotlin code

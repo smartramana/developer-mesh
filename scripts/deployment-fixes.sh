@@ -4,7 +4,7 @@
 set -e
 
 echo "==================================="
-echo "DevOps MCP Deployment Fixes"
+echo "Developer Mesh Deployment Fixes"
 echo "==================================="
 
 # Function to generate secure password without special characters
@@ -29,7 +29,7 @@ create_production_env() {
 ENVIRONMENT=production
 
 # Database Configuration
-DATABASE_HOST=devops-mcp-postgres.cshaq28kmnw8.us-east-1.rds.amazonaws.com
+DATABASE_HOST=developer-mesh-postgres.cshaq28kmnw8.us-east-1.rds.amazonaws.com
 DATABASE_PORT=5432
 DATABASE_NAME=devops_mcp
 DATABASE_USER=dbadmin
@@ -37,7 +37,7 @@ DATABASE_PASSWORD=${db_password}
 DATABASE_SSL_MODE=require
 
 # Cache/Redis Configuration
-REDIS_ADDR=master.devops-mcp-redis-encrypted.qem3fz.use1.cache.amazonaws.com:6379
+REDIS_ADDR=master.developer-mesh-redis-encrypted.qem3fz.use1.cache.amazonaws.com:6379
 REDIS_TLS_ENABLED=true
 CACHE_TYPE=redis
 CACHE_TLS_ENABLED=true

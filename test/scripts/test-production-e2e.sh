@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# Production E2E Test Runner for DevOps MCP
+# Production E2E Test Runner for Developer Mesh
 # This script runs E2E tests against the production environment at mcp.dev-mesh.io
 
 set -euo pipefail
@@ -11,7 +11,7 @@ RED='\033[0;31m'
 YELLOW='\033[1;33m'
 NC='\033[0m'
 
-echo -e "${GREEN}DevOps MCP Production E2E Tests${NC}"
+echo -e "${GREEN}Developer Mesh Production E2E Tests${NC}"
 echo "================================"
 
 # Check if API key is set

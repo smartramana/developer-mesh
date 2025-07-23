@@ -1,15 +1,15 @@
-# DevOps MCP (Model Context Protocol)
+# Developer Mesh (Model Context Protocol)
 
 ![Version](https://img.shields.io/badge/version-1.0.0-blue.svg)
 ![Go](https://img.shields.io/badge/go-1.24+-00ADD8.svg)
 ![License](https://img.shields.io/badge/license-MIT-green.svg)
-[![Go Report Card](https://goreportcard.com/badge/github.com/S-Corkum/devops-mcp)](https://goreportcard.com/report/github.com/S-Corkum/devops-mcp)
+[![Go Report Card](https://goreportcard.com/badge/github.com/S-Corkum/developer-mesh)](https://goreportcard.com/report/github.com/S-Corkum/developer-mesh)
 
 > A production-ready platform connecting AI agents to DevOps tools through a unified, standardized API
 
 ## Overview
 
-DevOps MCP (Model Context Protocol) provides a standardized, secure interface for AI agents to interact with DevOps tools, manage conversation contexts, and perform vector-based semantic search. Built with Go workspaces for modular architecture, it bridges the gap between Large Language Models (LLMs) and external DevOps tools.
+Developer Mesh (Model Context Protocol) provides a standardized, secure interface for AI agents to interact with DevOps tools, manage conversation contexts, and perform vector-based semantic search. Built with Go workspaces for modular architecture, it bridges the gap between Large Language Models (LLMs) and external DevOps tools.
 
 ### 🚀 Key Capabilities
 
@@ -37,8 +37,8 @@ The fastest way to get started - no build required!
 
 ```bash
 # Clone for configuration files
-git clone https://github.com/S-Corkum/devops-mcp.git
-cd devops-mcp
+git clone https://github.com/S-Corkum/developer-mesh.git
+cd developer-mesh
 
 # Copy environment configuration
 cp .env.example .env
@@ -72,8 +72,8 @@ For development or customization:
 
 ```bash
 # Clone the repository
-git clone https://github.com/S-Corkum/devops-mcp.git
-cd devops-mcp
+git clone https://github.com/S-Corkum/developer-mesh.git
+cd developer-mesh
 
 # Copy configuration template
 cp config.yaml.example config.yaml
@@ -118,7 +118,7 @@ curl http://localhost:8081/health
 ## 📁 Project Structure
 
 ```
-devops-mcp/
+developer-mesh/
 ├── apps/                      # Go workspace applications
 │   ├── mcp-server/           # Main MCP protocol server
 │   │   ├── cmd/server/       # Server entrypoint
@@ -159,10 +159,10 @@ devops-mcp/
 
 Pre-built Docker images are available on GitHub Container Registry:
 
-- `ghcr.io/{github-username}/devops-mcp-mcp-server` - MCP protocol server
-- `ghcr.io/{github-username}/devops-mcp-rest-api` - REST API service
-- `ghcr.io/{github-username}/devops-mcp-worker` - Event processing worker
-- `ghcr.io/{github-username}/devops-mcp-mockserver` - Mock server for testing
+- `ghcr.io/{github-username}/developer-mesh-mcp-server` - MCP protocol server
+- `ghcr.io/{github-username}/developer-mesh-rest-api` - REST API service
+- `ghcr.io/{github-username}/developer-mesh-worker` - Event processing worker
+- `ghcr.io/{github-username}/developer-mesh-mockserver` - Mock server for testing
 
 All images:
 - Support multiple architectures (amd64, arm64)

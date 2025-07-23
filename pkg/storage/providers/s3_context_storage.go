@@ -7,8 +7,8 @@ import (
 	"log"
 	"strings"
 
-	"github.com/S-Corkum/devops-mcp/pkg/models"
-	s3client "github.com/S-Corkum/devops-mcp/pkg/storage"
+	"github.com/developer-mesh/developer-mesh/pkg/models"
+	s3client "github.com/developer-mesh/developer-mesh/pkg/storage"
 )
 
 // S3ContextStorage implements context storage using AWS S3

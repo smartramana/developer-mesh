@@ -2,7 +2,7 @@
 
 ## Overview
 
-This guide explains how to keep the OpenAPI/Swagger documentation in sync with the actual API implementation in the DevOps MCP platform. Maintaining accurate API documentation is crucial for API consumers, SDK generation, and developer experience.
+This guide explains how to keep the OpenAPI/Swagger documentation in sync with the actual API implementation in the Developer Mesh platform. Maintaining accurate API documentation is crucial for API consumers, SDK generation, and developer experience.
 
 ## OpenAPI Structure
 
@@ -459,4 +459,4 @@ When releasing new API versions:
 
 ---
 
-*For more information, visit [docs.devops-mcp.com](https://docs.devops-mcp.com)*
+*For more information, visit [docs.developer-mesh.com](https://docs.developer-mesh.com)*

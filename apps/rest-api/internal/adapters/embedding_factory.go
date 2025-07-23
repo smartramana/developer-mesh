@@ -5,12 +5,12 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/S-Corkum/devops-mcp/pkg/agents"
-	"github.com/S-Corkum/devops-mcp/pkg/common/cache"
-	"github.com/S-Corkum/devops-mcp/pkg/common/config"
-	"github.com/S-Corkum/devops-mcp/pkg/database"
-	"github.com/S-Corkum/devops-mcp/pkg/embedding"
-	"github.com/S-Corkum/devops-mcp/pkg/embedding/providers"
+	"github.com/developer-mesh/developer-mesh/pkg/agents"
+	"github.com/developer-mesh/developer-mesh/pkg/common/cache"
+	"github.com/developer-mesh/developer-mesh/pkg/common/config"
+	"github.com/developer-mesh/developer-mesh/pkg/database"
+	"github.com/developer-mesh/developer-mesh/pkg/embedding"
+	"github.com/developer-mesh/developer-mesh/pkg/embedding/providers"
 )
 
 // CreateEmbeddingService creates the multi-agent embedding service

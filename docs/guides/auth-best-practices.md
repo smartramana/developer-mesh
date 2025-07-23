@@ -1,12 +1,12 @@
 # Authentication & Authorization Best Practices
 
-> **Purpose**: Security patterns and implementation guidelines for DevOps MCP
+> **Purpose**: Security patterns and implementation guidelines for Developer Mesh
 > **Audience**: Developers implementing auth features or using the auth system
 > **Scope**: API keys, JWT tokens, OAuth, session management, and security patterns
 
 ## Overview
 
-This guide provides comprehensive best practices for implementing and using authentication and authorization in the DevOps MCP platform. It covers security patterns, common pitfalls, and practical recommendations based on industry standards and real-world experience.
+This guide provides comprehensive best practices for implementing and using authentication and authorization in the Developer Mesh platform. It covers security patterns, common pitfalls, and practical recommendations based on industry standards and real-world experience.
 
 ## Core Principles
 

@@ -121,7 +121,7 @@ EOF
         id: meta
         uses: docker/metadata-action@v5
         with:
-          images: ${{ env.DOCKER_REGISTRY }}/${{ env.DOCKER_IMAGE_PREFIX }}/devops-mcp-${{ matrix.app }}
+          images: ${{ env.DOCKER_REGISTRY }}/${{ env.DOCKER_IMAGE_PREFIX }}/developer-mesh-${{ matrix.app }}
           tags: |
             type=raw,value=${{ needs.prepare-release.outputs.version }}
             type=raw,value=latest,enable=${{ !contains(needs.prepare-release.outputs.version, '-') }}
@@ -221,15 +221,15 @@ EOF
             ## 🚀 Release ${{ needs.prepare-release.outputs.version }} Published!
             
             ### Docker Images Published to GHCR:
-            - `ghcr.io/${{ env.DOCKER_IMAGE_PREFIX }}/devops-mcp-mcp-server:${{ needs.prepare-release.outputs.version }}`
-            - `ghcr.io/${{ env.DOCKER_IMAGE_PREFIX }}/devops-mcp-rest-api:${{ needs.prepare-release.outputs.version }}`
-            - `ghcr.io/${{ env.DOCKER_IMAGE_PREFIX }}/devops-mcp-worker:${{ needs.prepare-release.outputs.version }}`
+            - `ghcr.io/${{ env.DOCKER_IMAGE_PREFIX }}/developer-mesh-mcp-server:${{ needs.prepare-release.outputs.version }}`
+            - `ghcr.io/${{ env.DOCKER_IMAGE_PREFIX }}/developer-mesh-rest-api:${{ needs.prepare-release.outputs.version }}`
+            - `ghcr.io/${{ env.DOCKER_IMAGE_PREFIX }}/developer-mesh-worker:${{ needs.prepare-release.outputs.version }}`
             
             ### Pull Images:
             ```bash
-            docker pull ghcr.io/${{ env.DOCKER_IMAGE_PREFIX }}/devops-mcp-mcp-server:${{ needs.prepare-release.outputs.version }}
-            docker pull ghcr.io/${{ env.DOCKER_IMAGE_PREFIX }}/devops-mcp-rest-api:${{ needs.prepare-release.outputs.version }}
-            docker pull ghcr.io/${{ env.DOCKER_IMAGE_PREFIX }}/devops-mcp-worker:${{ needs.prepare-release.outputs.version }}
+            docker pull ghcr.io/${{ env.DOCKER_IMAGE_PREFIX }}/developer-mesh-mcp-server:${{ needs.prepare-release.outputs.version }}
+            docker pull ghcr.io/${{ env.DOCKER_IMAGE_PREFIX }}/developer-mesh-rest-api:${{ needs.prepare-release.outputs.version }}
+            docker pull ghcr.io/${{ env.DOCKER_IMAGE_PREFIX }}/developer-mesh-worker:${{ needs.prepare-release.outputs.version }}
             ```
             
             ### Release Notes:

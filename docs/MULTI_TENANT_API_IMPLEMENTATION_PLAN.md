@@ -31,7 +31,7 @@ Completed on 2025-07-06:
 
 ## 📋 Executive Summary
 
-This plan extends the current DevOps MCP authentication system to support:
+This plan extends the current Developer Mesh authentication system to support:
 - Multiple API key types (admin, agent, gateway, user)
 - Secure token passthrough for GitHub/GitLab/Bitbucket
 - Per-tenant rate limiting and configuration

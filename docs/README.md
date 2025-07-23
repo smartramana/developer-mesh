@@ -1,11 +1,11 @@
-# DevOps MCP Documentation
+# Developer Mesh Documentation
 
-Welcome to the DevOps MCP documentation. This guide provides comprehensive information for users, developers, and operators of the DevOps MCP platform.
+Welcome to the Developer Mesh documentation. This guide provides comprehensive information for users, developers, and operators of the Developer Mesh platform.
 
 ## 📖 Documentation Overview
 
 ### [Getting Started](getting-started/)
-Start here if you're new to DevOps MCP
+Start here if you're new to Developer Mesh
 - [Quick Start Guide](getting-started/quick-start-guide.md) - Get up and running in minutes
 - Installation & Configuration guides
 
@@ -122,8 +122,8 @@ Documentation improvements are always welcome! See our [Contributing Guide](../C
 Can't find what you need?
 
 1. Search the documentation
-2. Check [GitHub Issues](https://github.com/S-Corkum/devops-mcp/issues)
-3. Ask in [Discussions](https://github.com/S-Corkum/devops-mcp/discussions)
+2. Check [GitHub Issues](https://github.com/S-Corkum/developer-mesh/issues)
+3. Ask in [Discussions](https://github.com/S-Corkum/developer-mesh/discussions)
 4. Review [Examples](examples/README.md)
 
 ---

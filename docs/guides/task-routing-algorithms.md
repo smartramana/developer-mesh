@@ -3,15 +3,15 @@
 > **Purpose**: Conceptual guide to task routing strategies for multi-agent systems
 > **Audience**: Engineers interested in task distribution algorithms
 > **Scope**: Algorithm concepts, theoretical approaches, future implementation ideas
-> **Status**: CONCEPTUAL - These algorithms are not yet implemented in DevOps MCP
+> **Status**: CONCEPTUAL - These algorithms are not yet implemented in Developer Mesh
 
 ## Overview
 
-**IMPORTANT**: This document describes conceptual task routing algorithms that are not currently implemented in the DevOps MCP platform. The actual implementation uses a simple round-robin approach for task distribution. These concepts are provided as a reference for potential future development.
+**IMPORTANT**: This document describes conceptual task routing algorithms that are not currently implemented in the Developer Mesh platform. The actual implementation uses a simple round-robin approach for task distribution. These concepts are provided as a reference for potential future development.
 
 ### Current Implementation Status
 
-The DevOps MCP platform currently implements:
+The Developer Mesh platform currently implements:
 - Basic agent registration via WebSocket
 - Simple task assignment without sophisticated routing
 - No capability-based, cost-optimized, or performance-based routing
@@ -1094,7 +1094,7 @@ If these algorithms were to be implemented:
 
 ## Current Alternative
 
-For actual task routing in DevOps MCP, refer to:
+For actual task routing in Developer Mesh, refer to:
 - [Agent Registration Guide](./agent-registration-guide.md) - How agents connect
 - [WebSocket API Reference](../api-reference/mcp-server-reference.md) - Task assignment protocol
 - Test implementation: `/test/e2e/agent/agent.go`
@@ -1136,9 +1136,9 @@ For actual task routing in DevOps MCP, refer to:
 - [Consistent Hashing](https://www.toptal.com/big-data/consistent-hashing)
 
 ### Current Implementation
-- DevOps MCP source code: `/pkg/services/orchestrator/`
+- Developer Mesh source code: `/pkg/services/orchestrator/`
 - Test implementations: `/test/e2e/`
 
 ## Disclaimer
 
-This document describes theoretical algorithms and patterns that are not implemented in the current version of DevOps MCP. It serves as a reference for potential future development and should not be used as documentation of existing features.
+This document describes theoretical algorithms and patterns that are not implemented in the current version of Developer Mesh. It serves as a reference for potential future development and should not be used as documentation of existing features.

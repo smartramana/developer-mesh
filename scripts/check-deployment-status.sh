@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# Script to check deployment status of DevOps MCP services
+# Script to check deployment status of Developer Mesh services
 # Can be run locally or on the EC2 instance
 
 set -e
@@ -12,7 +12,7 @@ YELLOW='\033[1;33m'
 NC='\033[0m' # No Color
 
 echo "======================================="
-echo "DevOps MCP Deployment Status Check"
+echo "Developer Mesh Deployment Status Check"
 echo "======================================="
 echo ""
 
@@ -70,11 +70,11 @@ check_containers() {
     echo -e "\n${YELLOW}Docker Containers:${NC}"
     
     if command -v docker &> /dev/null; then
-        echo "Looking for DevOps MCP containers..."
+        echo "Looking for Developer Mesh containers..."
         containers=$(docker ps --format "table {{.Names}}\t{{.Status}}\t{{.Ports}}" | grep -E "mcp-server|rest-api|worker" || echo "")
         
         if [ -z "$containers" ]; then
-            echo -e "${RED}No DevOps MCP containers found running${NC}"
+            echo -e "${RED}No Developer Mesh containers found running${NC}"
             echo ""
             echo "To start the services:"
             echo "  docker-compose -f docker-compose.production.yml up -d"

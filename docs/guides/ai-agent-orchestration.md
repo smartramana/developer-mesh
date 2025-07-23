@@ -1,12 +1,12 @@
 # AI Agent Orchestration Guide
 
-> **Purpose**: Guide for AI agent task assignment and routing in DevOps MCP
+> **Purpose**: Guide for AI agent task assignment and routing in Developer Mesh
 > **Audience**: Engineers implementing AI-powered DevOps automation
 > **Scope**: Agent registration, task assignment strategies, and workload management
 
 ## Overview
 
-DevOps MCP provides a task assignment and routing system for AI agents. This guide explains the current implementation of agent management, task routing strategies, and workload tracking. 
+Developer Mesh provides a task assignment and routing system for AI agents. This guide explains the current implementation of agent management, task routing strategies, and workload tracking. 
 
 **Note**: This document reflects the current implementation. Some advanced orchestration patterns described later in this document are design proposals for future development.
 

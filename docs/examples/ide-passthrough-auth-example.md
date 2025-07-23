@@ -43,7 +43,7 @@ This example demonstrates how IDE plugins can use the pass-through authenticatio
 ### TypeScript/JavaScript Example
 
 ```typescript
-import { MCPClient } from '@devops-mcp/ide-client';
+import { MCPClient } from '@developer-mesh/ide-client';
 
 // Initialize client with configuration
 const client = new MCPClient({

@@ -55,7 +55,7 @@ linters-settings:
   misspell:
     locale: US
   goimports:
-    local-prefixes: github.com/devops-mcp
+    local-prefixes: github.com/developer-mesh
   gocritic:
     enabled-tags:
       - diagnostic

@@ -1,6 +1,6 @@
 # Configuration Scenarios Guide
 
-> **Purpose**: Practical configuration examples for different DevOps MCP deployment scenarios
+> **Purpose**: Practical configuration examples for different Developer Mesh deployment scenarios
 > **Audience**: Platform operators, DevOps engineers, and architects
 > **Scope**: Real-world configuration templates for various use cases
 
@@ -21,7 +21,7 @@
 
 ## Overview
 
-This guide provides battle-tested configuration templates for various DevOps MCP deployment scenarios. Each configuration is optimized for specific requirements and constraints.
+This guide provides battle-tested configuration templates for various Developer Mesh deployment scenarios. Each configuration is optimized for specific requirements and constraints.
 
 ### Configuration Philosophy
 

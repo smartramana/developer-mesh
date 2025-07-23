@@ -1,4 +1,4 @@
-module github.com/S-Corkum/devops-mcp/apps/mockserver
+module github.com/developer-mesh/developer-mesh/apps/mockserver
 
 go 1.24
 

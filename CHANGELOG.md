@@ -9,7 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### 🚀 Major Release: AI Agent Orchestration Platform
 
-This release transforms DevOps MCP into a comprehensive AI Agent Orchestration Platform, enabling intelligent routing and coordination of multiple AI agents for DevOps workflows.
+This release transforms Developer Mesh into a comprehensive AI Agent Orchestration Platform, enabling intelligent routing and coordination of multiple AI agents for DevOps workflows.
 
 ### Added
 - **AI Agent Orchestration**:

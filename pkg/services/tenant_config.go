@@ -6,10 +6,10 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/S-Corkum/devops-mcp/pkg/common/cache"
-	"github.com/S-Corkum/devops-mcp/pkg/models"
-	"github.com/S-Corkum/devops-mcp/pkg/observability"
-	"github.com/S-Corkum/devops-mcp/pkg/repository"
+	"github.com/developer-mesh/developer-mesh/pkg/common/cache"
+	"github.com/developer-mesh/developer-mesh/pkg/models"
+	"github.com/developer-mesh/developer-mesh/pkg/observability"
+	"github.com/developer-mesh/developer-mesh/pkg/repository"
 	"github.com/pkg/errors"
 )
 

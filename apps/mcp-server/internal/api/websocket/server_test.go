@@ -13,9 +13,9 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 
-	"github.com/S-Corkum/devops-mcp/pkg/auth"
-	ws "github.com/S-Corkum/devops-mcp/pkg/models/websocket"
-	"github.com/S-Corkum/devops-mcp/pkg/observability"
+	"github.com/developer-mesh/developer-mesh/pkg/auth"
+	ws "github.com/developer-mesh/developer-mesh/pkg/models/websocket"
+	"github.com/developer-mesh/developer-mesh/pkg/observability"
 )
 
 // MockAuthService mocks the auth service

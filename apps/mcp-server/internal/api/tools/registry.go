@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"sync"
 
-	"github.com/S-Corkum/devops-mcp/pkg/observability"
+	"github.com/developer-mesh/developer-mesh/pkg/observability"
 )
 
 // Tool represents a registered tool with its metadata
@@ -198,7 +198,7 @@ func (r *Registry) RegisterBuiltinTools() error {
 		Enabled:     true,
 		Metadata: map[string]interface{}{
 			"category": "version_control",
-			"author":   "devops-mcp",
+			"author":   "developer-mesh",
 		},
 	}
 
@@ -235,7 +235,7 @@ func (r *Registry) RegisterBuiltinTools() error {
 		Enabled:     true,
 		Metadata: map[string]interface{}{
 			"category": "issue_tracking",
-			"author":   "devops-mcp",
+			"author":   "developer-mesh",
 		},
 	}
 
@@ -271,7 +271,7 @@ func (r *Registry) RegisterBuiltinTools() error {
 		Enabled:     true,
 		Metadata: map[string]interface{}{
 			"category": "communication",
-			"author":   "devops-mcp",
+			"author":   "developer-mesh",
 		},
 	}
 

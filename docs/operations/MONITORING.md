@@ -1,7 +1,7 @@
 # Monitoring and Observability Guide
 
 ## Overview
-This guide covers the monitoring capabilities of DevOps MCP. While the codebase has comprehensive metrics and tracing instrumentation, the full observability stack deployment is optional.
+This guide covers the monitoring capabilities of Developer Mesh. While the codebase has comprehensive metrics and tracing instrumentation, the full observability stack deployment is optional.
 
 ## Current Implementation Status
 
@@ -326,7 +326,7 @@ func TrackTaskCompletion(agent *Agent, task *Task, duration time.Duration, statu
 ## Logging Configuration (Implemented)
 
 ### Structured Logging
-DevOps MCP uses structured JSON logging. Configure via environment variables:
+Developer Mesh uses structured JSON logging. Configure via environment variables:
 
 ```bash
 # Set log level
@@ -342,7 +342,7 @@ LOG_LEVEL=debug  # debug, info, warn, error
 **Note**: Loki and Promtail are mentioned in docs but not implemented. For log aggregation, you would need to:
 1. Deploy Loki/Promtail separately
 2. Configure them to scrape container logs
-3. This is not included in DevOps MCP
+3. This is not included in Developer Mesh
 
 ```yaml
 # THEORETICAL: loki/config.yaml does not exist
@@ -412,7 +412,7 @@ OTEL_EXPORTER_OTLP_ENDPOINT=http://your-jaeger:4317
 
 2. Deploy Jaeger (not included):
 ```bash
-# Example Jaeger deployment (not part of DevOps MCP)
+# Example Jaeger deployment (not part of Developer Mesh)
 docker run -d --name jaeger \
   -p 16686:16686 \
   -p 4317:4317 \
@@ -1043,4 +1043,4 @@ Currently, no profiling endpoints are available in production.
 
 ## Summary
 
-DevOps MCP has solid monitoring foundations with comprehensive metrics instrumentation. However, the full observability stack (Prometheus, Grafana, Jaeger, etc.) requires manual setup and is not deployed by default. The documentation above reflects what's actually implemented versus what would need additional configuration.
+Developer Mesh has solid monitoring foundations with comprehensive metrics instrumentation. However, the full observability stack (Prometheus, Grafana, Jaeger, etc.) requires manual setup and is not deployed by default. The documentation above reflects what's actually implemented versus what would need additional configuration.

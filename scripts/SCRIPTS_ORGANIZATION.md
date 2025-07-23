@@ -1,6 +1,6 @@
 # Scripts Organization
 
-This document describes the organization of scripts in the DevOps MCP project.
+This document describes the organization of scripts in the Developer Mesh project.
 
 ## Directory Structure
 

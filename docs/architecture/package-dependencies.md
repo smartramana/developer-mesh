@@ -2,7 +2,7 @@
 
 ## Overview
 
-This document maps the dependency relationships between packages in the DevOps MCP codebase. Understanding these dependencies is crucial for maintaining clean architecture and avoiding circular dependencies.
+This document maps the dependency relationships between packages in the Developer Mesh codebase. Understanding these dependencies is crucial for maintaining clean architecture and avoiding circular dependencies.
 
 ## Dependency Principles
 
@@ -225,7 +225,7 @@ When circular dependencies are detected:
 
 ```bash
 # Visualize dependencies
-go mod graph | grep "^github.com/S-Corkum/devops-mcp"
+go mod graph | grep "^github.com/S-Corkum/developer-mesh"
 
 # Check for circular dependencies
 go list -f '{{.ImportPath}} -> {{join .Imports " "}}' ./... | grep -E "pkg/.* -> .*pkg/"

@@ -1,4 +1,4 @@
-# DevOps MCP Deployment Configuration
+# Developer Mesh Deployment Configuration
 
 ## Service Ports
 - MCP Server: 8080 (uses configs/config.yaml)
@@ -53,7 +53,7 @@ The worker had a bug in `/apps/worker/cmd/worker/main.go` where it reused a 5-se
 
 ### Deployment Steps After Fix
 1. Wait for CI/CD to build new images
-2. Pull new worker image: `docker pull ghcr.io/s-corkum/devops-mcp-worker:latest`
+2. Pull new worker image: `docker pull ghcr.io/s-corkum/developer-mesh-worker:latest`
 3. Restart worker: `docker-compose up -d worker`
 
 ## TLS/SSL Setup with Route 53 and Let's Encrypt

@@ -1,6 +1,6 @@
 # Observability Best Practices
 
-> **Purpose**: Guidelines for implementing effective observability in the DevOps MCP platform
+> **Purpose**: Guidelines for implementing effective observability in the Developer Mesh platform
 > **Audience**: Developers adding instrumentation to services
 > **Scope**: When and how to add spans, metrics, and logs for maximum insight with minimal overhead
 
@@ -19,7 +19,7 @@
 
 ## Overview
 
-Effective observability is crucial for understanding system behavior, debugging issues, and optimizing performance. This guide provides practical guidelines for implementing observability in the DevOps MCP platform.
+Effective observability is crucial for understanding system behavior, debugging issues, and optimizing performance. This guide provides practical guidelines for implementing observability in the Developer Mesh platform.
 
 ### Core Principles
 

@@ -15,14 +15,14 @@ import (
 
 	"github.com/jmoiron/sqlx"
 
-	"github.com/S-Corkum/devops-mcp/pkg/collaboration"
-	"github.com/S-Corkum/devops-mcp/pkg/common/cache"
-	"github.com/S-Corkum/devops-mcp/pkg/models"
-	"github.com/S-Corkum/devops-mcp/pkg/observability"
-	"github.com/S-Corkum/devops-mcp/pkg/repository"
-	"github.com/S-Corkum/devops-mcp/pkg/repository/postgres"
-	"github.com/S-Corkum/devops-mcp/pkg/services"
-	"github.com/S-Corkum/devops-mcp/test/integration/shared"
+	"github.com/developer-mesh/developer-mesh/pkg/collaboration"
+	"github.com/developer-mesh/developer-mesh/pkg/common/cache"
+	"github.com/developer-mesh/developer-mesh/pkg/models"
+	"github.com/developer-mesh/developer-mesh/pkg/observability"
+	"github.com/developer-mesh/developer-mesh/pkg/repository"
+	"github.com/developer-mesh/developer-mesh/pkg/repository/postgres"
+	"github.com/developer-mesh/developer-mesh/pkg/services"
+	"github.com/developer-mesh/developer-mesh/test/integration/shared"
 )
 
 // MultiAgentIntegrationSuite tests multi-agent collaboration scenarios

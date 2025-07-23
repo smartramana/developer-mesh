@@ -7,7 +7,7 @@
 
 ## Overview
 
-This guide provides a comprehensive roadmap for integrating Casbin RBAC (Role-Based Access Control) into the DevOps MCP platform. Casbin is a powerful authorization library that supports various access control models including ACL, RBAC, ABAC, and more.
+This guide provides a comprehensive roadmap for integrating Casbin RBAC (Role-Based Access Control) into the Developer Mesh platform. Casbin is a powerful authorization library that supports various access control models including ACL, RBAC, ABAC, and more.
 
 ## Why Casbin?
 
@@ -88,7 +88,7 @@ import (
     
     "github.com/casbin/casbin/v2"
     gormadapter "github.com/casbin/gorm-adapter/v3"
-    "github.com/S-Corkum/devops-mcp/pkg/observability"
+    "github.com/S-Corkum/developer-mesh/pkg/observability"
 )
 
 type CasbinAuthorizer struct {

@@ -8,7 +8,7 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/S-Corkum/devops-mcp/pkg/observability"
+	"github.com/developer-mesh/developer-mesh/pkg/observability"
 )
 
 // Engine is the central component that coordinates between different subsystems

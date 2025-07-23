@@ -3,7 +3,7 @@ package mocks
 import (
 	"context"
 
-	"github.com/S-Corkum/devops-mcp/pkg/models"
+	"github.com/developer-mesh/developer-mesh/pkg/models"
 	"github.com/jmoiron/sqlx"
 	"github.com/stretchr/testify/mock"
 )

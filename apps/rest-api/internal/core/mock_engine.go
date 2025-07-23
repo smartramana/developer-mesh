@@ -3,9 +3,9 @@ package core
 import (
 	"context"
 
-	"github.com/S-Corkum/devops-mcp/apps/rest-api/internal/types"
+	"github.com/developer-mesh/developer-mesh/apps/rest-api/internal/types"
 
-	"github.com/S-Corkum/devops-mcp/pkg/models"
+	"github.com/developer-mesh/developer-mesh/pkg/models"
 	"github.com/stretchr/testify/mock"
 )
 

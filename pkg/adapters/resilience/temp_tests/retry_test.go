@@ -6,7 +6,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/S-Corkum/devops-mcp/pkg/adapters/resilience"
+	"github.com/developer-mesh/developer-mesh/pkg/adapters/resilience"
 	"github.com/stretchr/testify/assert"
 )
 

@@ -1,7 +1,7 @@
 # Authentication Patterns and Best Practices
 
 ## Overview
-This guide demonstrates common authentication patterns using the DevOps MCP enhanced authentication system.
+This guide demonstrates common authentication patterns using the Developer Mesh enhanced authentication system.
 
 ## Authentication Methods
 
@@ -218,7 +218,7 @@ jobs:
 ### 2. SDK Authentication
 ```typescript
 // TypeScript SDK example
-import { MCPClient } from '@devops-mcp/sdk';
+import { MCPClient } from '@developer-mesh/sdk';
 
 const client = new MCPClient({
   baseURL: 'https://api.mcp.example.com',

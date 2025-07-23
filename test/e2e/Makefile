@@ -162,7 +162,7 @@ validate:
 
 # Help
 help:
-	@echo "DevOps MCP E2E Test Suite"
+	@echo "Developer Mesh E2E Test Suite"
 	@echo ""
 	@echo "Usage: make [target]"
 	@echo ""

@@ -4,10 +4,10 @@ import (
 	"context"
 	"fmt"
 
-	internalRepo "github.com/S-Corkum/devops-mcp/apps/rest-api/internal/repository"
+	internalRepo "github.com/developer-mesh/developer-mesh/apps/rest-api/internal/repository"
 
-	pkgRepo "github.com/S-Corkum/devops-mcp/pkg/repository"
-	"github.com/S-Corkum/devops-mcp/pkg/repository/vector"
+	pkgRepo "github.com/developer-mesh/developer-mesh/pkg/repository"
+	"github.com/developer-mesh/developer-mesh/pkg/repository/vector"
 )
 
 // This file contains bridge code to make our adapters package compatible with

@@ -16,7 +16,7 @@ import (
 	"github.com/coder/websocket"
 	"github.com/google/uuid"
 
-	ws "github.com/S-Corkum/devops-mcp/pkg/models/websocket"
+	ws "github.com/developer-mesh/developer-mesh/pkg/models/websocket"
 )
 
 // Binary protocol constants (must match server implementation)

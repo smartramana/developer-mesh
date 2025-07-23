@@ -7,7 +7,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/S-Corkum/devops-mcp/pkg/adapters/events"
+	"github.com/developer-mesh/developer-mesh/pkg/adapters/events"
 )
 
 // This file contains the implementation of GitHub operations

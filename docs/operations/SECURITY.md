@@ -1,7 +1,7 @@
 # Security Guide
 
 ## Overview
-This guide covers the security features implemented in DevOps MCP and best practices for deployment.
+This guide covers the security features implemented in Developer Mesh and best practices for deployment.
 
 ## Implementation Status
 
@@ -431,7 +431,7 @@ gitleaks detect --source . -v
    ```bash
    # Scan Docker image
    docker run --rm -v /var/run/docker.sock:/var/run/docker.sock \
-     aquasec/trivy image devops-mcp:latest
+     aquasec/trivy image developer-mesh:latest
    ```
 
 ### Future: CI/CD Security Integration
@@ -552,7 +552,7 @@ EOF
 
 ### Current Security Controls
 
-DevOps MCP implements several security controls that support compliance:
+Developer Mesh implements several security controls that support compliance:
 
 1. **Access Control**
    - JWT and API key authentication ✅

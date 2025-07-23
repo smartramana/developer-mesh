@@ -54,14 +54,14 @@ jobs:
 
       - name: Copy files to EC2
         run: |
-          scp -i ~/.ssh/id_rsa .env.production ec2-user@${{ env.EC2_HOST }}:/home/ec2-user/devops-mcp/.env
-          scp -i ~/.ssh/id_rsa docker-compose.production.yml ec2-user@${{ env.EC2_HOST }}:/home/ec2-user/devops-mcp/docker-compose.yml
-          scp -i ~/.ssh/id_rsa -r configs ec2-user@${{ env.EC2_HOST }}:/home/ec2-user/devops-mcp/
+          scp -i ~/.ssh/id_rsa .env.production ec2-user@${{ env.EC2_HOST }}:/home/ec2-user/developer-mesh/.env
+          scp -i ~/.ssh/id_rsa docker-compose.production.yml ec2-user@${{ env.EC2_HOST }}:/home/ec2-user/developer-mesh/docker-compose.yml
+          scp -i ~/.ssh/id_rsa -r configs ec2-user@${{ env.EC2_HOST }}:/home/ec2-user/developer-mesh/
 
       - name: Deploy Services
         run: |
           ssh -i ~/.ssh/id_rsa ec2-user@${{ env.EC2_HOST }} << 'ENDSSH'
-            cd /home/ec2-user/devops-mcp
+            cd /home/ec2-user/developer-mesh
             
             # Login to GHCR
             echo "${{ github.token }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin

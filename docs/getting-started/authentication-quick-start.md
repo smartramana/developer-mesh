@@ -1,6 +1,6 @@
 # Authentication Quick Start Guide
 
-Get up and running with DevOps MCP authentication in 5 minutes.
+Get up and running with Developer Mesh authentication in 5 minutes.
 
 ## Prerequisites
 
@@ -14,8 +14,8 @@ Get up and running with DevOps MCP authentication in 5 minutes.
 
 ```bash
 # Clone the repository
-git clone https://github.com/S-Corkum/devops-mcp.git
-cd devops-mcp
+git clone https://github.com/S-Corkum/developer-mesh.git
+cd developer-mesh
 
 # Start dependencies
 docker-compose up -d postgres redis
@@ -34,8 +34,8 @@ package main
 import (
     "log"
     
-    "github.com/S-Corkum/devops-mcp/pkg/auth"
-    "github.com/S-Corkum/devops-mcp/pkg/observability"
+    "github.com/S-Corkum/developer-mesh/pkg/auth"
+    "github.com/S-Corkum/developer-mesh/pkg/observability"
     "github.com/gin-gonic/gin"
 )
 
@@ -98,9 +98,9 @@ import (
     "log"
     "time"
     
-    "github.com/S-Corkum/devops-mcp/pkg/auth"
-    "github.com/S-Corkum/devops-mcp/pkg/common/cache"
-    "github.com/S-Corkum/devops-mcp/pkg/observability"
+    "github.com/S-Corkum/developer-mesh/pkg/auth"
+    "github.com/S-Corkum/developer-mesh/pkg/common/cache"
+    "github.com/S-Corkum/developer-mesh/pkg/observability"
     "github.com/gin-gonic/gin"
     "github.com/jmoiron/sqlx"
 )
@@ -363,5 +363,5 @@ Before going to production:
 
 - Check the [troubleshooting guide](../operations/authentication-operations-guide.md#troubleshooting)
 - Review [example implementations](../examples/)
-- Submit issues at [GitHub Issues](https://github.com/S-Corkum/devops-mcp/issues)
-- Join our [community discussions](https://github.com/S-Corkum/devops-mcp/discussions)
+- Submit issues at [GitHub Issues](https://github.com/S-Corkum/developer-mesh/issues)
+- Join our [community discussions](https://github.com/S-Corkum/developer-mesh/discussions)

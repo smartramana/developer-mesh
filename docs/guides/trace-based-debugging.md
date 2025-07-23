@@ -1,7 +1,7 @@
 # Trace-Based Debugging Guide
 
 > **Purpose**: Practical guide for using distributed traces to debug complex issues in production
-> **Audience**: Developers, SREs, and support engineers debugging the DevOps MCP platform
+> **Audience**: Developers, SREs, and support engineers debugging the Developer Mesh platform
 > **Scope**: Real-world debugging scenarios using traces with Jaeger and OpenTelemetry
 
 ## Table of Contents

@@ -4,7 +4,7 @@ import (
 	"testing"
 
 	"github.com/DATA-DOG/go-sqlmock"
-	"github.com/S-Corkum/devops-mcp/pkg/chunking"
+	"github.com/developer-mesh/developer-mesh/pkg/chunking"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )

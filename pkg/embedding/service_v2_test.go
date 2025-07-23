@@ -7,8 +7,8 @@ import (
 	"time"
 
 	"github.com/DATA-DOG/go-sqlmock"
-	"github.com/S-Corkum/devops-mcp/pkg/agents"
-	"github.com/S-Corkum/devops-mcp/pkg/embedding/providers"
+	"github.com/developer-mesh/developer-mesh/pkg/agents"
+	"github.com/developer-mesh/developer-mesh/pkg/embedding/providers"
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"

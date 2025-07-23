@@ -1,11 +1,11 @@
-module github.com/S-Corkum/devops-mcp/apps/mcp-server
+module github.com/developer-mesh/developer-mesh/apps/mcp-server
 
 go 1.24
 
-replace github.com/S-Corkum/devops-mcp/pkg => ../../pkg
+replace github.com/developer-mesh/developer-mesh/pkg => ../../pkg
 
 require (
-	github.com/S-Corkum/devops-mcp/pkg v0.0.0-00010101000000-000000000000
+	github.com/developer-mesh/developer-mesh/pkg v0.0.0-00010101000000-000000000000
 	github.com/coder/websocket v1.8.13
 	github.com/gin-gonic/gin v1.9.1
 	github.com/go-git/go-git/v5 v5.16.2

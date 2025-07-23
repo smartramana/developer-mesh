@@ -5,8 +5,8 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"github.com/S-Corkum/devops-mcp/pkg/collaboration"
-	"github.com/S-Corkum/devops-mcp/pkg/collaboration/crdt"
+	"github.com/developer-mesh/developer-mesh/pkg/collaboration"
+	"github.com/developer-mesh/developer-mesh/pkg/collaboration/crdt"
 	"github.com/google/uuid"
 )
 

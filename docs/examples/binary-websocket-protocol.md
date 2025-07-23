@@ -1,6 +1,6 @@
 # Binary WebSocket Protocol Examples
 
-This guide demonstrates how to work with DevOps MCP's high-performance binary WebSocket protocol.
+This guide demonstrates how to work with Developer Mesh's high-performance binary WebSocket protocol.
 
 ## Overview
 
@@ -47,7 +47,7 @@ To enable binary protocol on your WebSocket connection, use the `protocol.set_bi
 ### 1. JavaScript/TypeScript Client
 
 ```typescript
-import { MCPBinaryClient } from '@devops-mcp/client';
+import { MCPBinaryClient } from '@developer-mesh/client';
 
 class BinaryWebSocketExample {
   private client: MCPBinaryClient;
@@ -242,7 +242,7 @@ class BinaryWebSocketExample {
 // Usage example
 async function main() {
   const client = new BinaryWebSocketExample(
-    'wss://api.devops-mcp.com/ws',
+    'wss://api.developer-mesh.com/ws',
     'your-api-key'
   );
   
@@ -643,7 +643,7 @@ class BinaryWebSocketClient:
 # Example usage
 async def example_usage():
     client = BinaryWebSocketClient(
-        "wss://api.devops-mcp.com/ws",
+        "wss://api.developer-mesh.com/ws",
         "your-api-key"
     )
     
@@ -791,4 +791,4 @@ var (
 
 ---
 
-*For more examples and support, visit our [GitHub repository](https://github.com/S-Corkum/devops-mcp)*
+*For more examples and support, visit our [GitHub repository](https://github.com/S-Corkum/developer-mesh)*

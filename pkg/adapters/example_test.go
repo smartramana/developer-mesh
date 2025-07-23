@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/S-Corkum/devops-mcp/pkg/adapters"
-	"github.com/S-Corkum/devops-mcp/pkg/observability"
+	"github.com/developer-mesh/developer-mesh/pkg/adapters"
+	"github.com/developer-mesh/developer-mesh/pkg/observability"
 )
 
 func ExampleManager() {

@@ -1,6 +1,6 @@
 # Cost Optimization Guide
 
-> **Purpose**: Practical strategies for reducing costs while maintaining performance in the DevOps MCP platform
+> **Purpose**: Practical strategies for reducing costs while maintaining performance in the Developer Mesh platform
 > **Audience**: Platform operators, finance teams, and engineering leadership
 > **Scope**: Cost reduction techniques, resource optimization, and ROI improvement
 > **Status**: Mix of implemented features and theoretical optimizations
@@ -38,7 +38,7 @@
 
 ## Overview
 
-Cost optimization is not just about spending less—it's about spending smart. The DevOps MCP platform implements various strategies to minimize costs while maximizing value.
+Cost optimization is not just about spending less—it's about spending smart. The Developer Mesh platform implements various strategies to minimize costs while maximizing value.
 
 ### Key Principles
 
@@ -321,7 +321,7 @@ func (po *PromptOptimizer) compressPrompt(prompt string) string {
 
 ### ❌ NOT IMPLEMENTED: Advanced Infrastructure Features
 
-**Current Reality**: DevOps MCP runs on a single EC2 instance with Docker Compose. No auto-scaling, spot instances, or multi-instance deployment.
+**Current Reality**: Developer Mesh runs on a single EC2 instance with Docker Compose. No auto-scaling, spot instances, or multi-instance deployment.
 
 ### Theoretical Infrastructure Optimizations
 
@@ -1161,7 +1161,7 @@ func (vt *ValueTracker) GetROIReport() map[string]ROIMetrics {
 
 ## Conclusion
 
-This guide presents both implemented and theoretical cost optimizations for DevOps MCP. Currently, the platform implements:
+This guide presents both implemented and theoretical cost optimizations for Developer Mesh. Currently, the platform implements:
 
 - **Embedding cost tracking**: Full visibility into AI model costs
 - **Batch processing**: Reduces API calls and costs

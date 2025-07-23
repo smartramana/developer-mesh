@@ -1,6 +1,6 @@
 # Observability Package
 
-The `observability` package provides unified logging, metrics, and tracing capabilities for the DevOps MCP platform.
+The `observability` package provides unified logging, metrics, and tracing capabilities for the Developer Mesh platform.
 
 ## Overview
 
@@ -20,7 +20,7 @@ This package implements observability features:
 ## Installation
 
 ```bash
-go get github.com/S-Corkum/devops-mcp/pkg/observability
+go get github.com/S-Corkum/developer-mesh/pkg/observability
 ```
 
 ## Quick Start
@@ -30,7 +30,7 @@ package main
 
 import (
     "context"
-    "github.com/S-Corkum/devops-mcp/pkg/observability"
+    "github.com/S-Corkum/developer-mesh/pkg/observability"
 )
 
 func main() {
@@ -392,7 +392,7 @@ Basic OpenTelemetry support when enabled:
 package main
 
 import (
-    "github.com/S-Corkum/devops-mcp/pkg/observability"
+    "github.com/S-Corkum/developer-mesh/pkg/observability"
 )
 
 func main() {
@@ -421,4 +421,4 @@ func main() {
 
 ## License
 
-This package is part of the DevOps MCP platform.
+This package is part of the Developer Mesh platform.

@@ -5,7 +5,7 @@ import (
 	"errors"
 	"testing"
 
-	"github.com/S-Corkum/devops-mcp/pkg/queue"
+	"github.com/developer-mesh/developer-mesh/pkg/queue"
 )
 
 func TestProcessSQSEvent_Success(t *testing.T) {

@@ -5,9 +5,9 @@ import (
 	"strconv"
 	"strings"
 
-	contextManager "github.com/S-Corkum/devops-mcp/pkg/core/context"
-	"github.com/S-Corkum/devops-mcp/pkg/models"
-	"github.com/S-Corkum/devops-mcp/pkg/observability"
+	contextManager "github.com/developer-mesh/developer-mesh/pkg/core/context"
+	"github.com/developer-mesh/developer-mesh/pkg/models"
+	"github.com/developer-mesh/developer-mesh/pkg/observability"
 	"github.com/gin-gonic/gin"
 )
 

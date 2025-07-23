@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# DevOps MCP E2E Test Runner
+# Developer Mesh E2E Test Runner
 # This script provides an easy way to run E2E tests against the production environment
 
 set -euo pipefail
@@ -60,7 +60,7 @@ check_prerequisites() {
 # Function to display help
 show_help() {
     cat << EOF
-DevOps MCP E2E Test Runner
+Developer Mesh E2E Test Runner
 
 Usage: $0 [OPTIONS]
 
@@ -155,7 +155,7 @@ done
 
 # Main execution
 main() {
-    print_info "DevOps MCP E2E Test Runner"
+    print_info "Developer Mesh E2E Test Runner"
     print_info "=========================="
     
     # Check prerequisites

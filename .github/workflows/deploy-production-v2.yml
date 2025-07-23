@@ -41,7 +41,7 @@ jobs:
           
           for service in mcp-server rest-api worker; do
             # Try both latest and SHA-based tags
-            IMAGE_BASE="ghcr.io/${OWNER}/devops-mcp-${service}"
+            IMAGE_BASE="ghcr.io/${OWNER}/developer-mesh-${service}"
             echo "Checking image: ${IMAGE_BASE}:latest"
             
             if docker pull "${IMAGE_BASE}:latest"; then
@@ -158,20 +158,20 @@ jobs:
             --instance-ids "${{ steps.get-instance.outputs.instance_id }}" \
             --document-name "AWS-RunShellScript" \
             --parameters "commands=[
-              'cd /home/ec2-user/devops-mcp',
+              'cd /home/ec2-user/developer-mesh',
               'echo \"Fetching latest deployment configuration...\"',
               'echo \"Downloading docker-compose.production.yml...\"',
-              'curl -sL https://raw.githubusercontent.com/S-Corkum/devops-mcp/main/docker-compose.production.yml -o docker-compose.production.yml',
+              'curl -sL https://raw.githubusercontent.com/S-Corkum/developer-mesh/main/docker-compose.production.yml -o docker-compose.production.yml',
               'if [ ! -f docker-compose.production.yml ] || [ ! -s docker-compose.production.yml ]; then',
               '  echo \"ERROR: Failed to download docker-compose.production.yml\"',
               '  exit 1',
               'fi',
               'echo \"Downloading config files...\"',
               'mkdir -p configs',
-              'curl -sL https://raw.githubusercontent.com/S-Corkum/devops-mcp/main/configs/config.base.yaml -o configs/config.base.yaml',
-              'curl -sL https://raw.githubusercontent.com/S-Corkum/devops-mcp/main/configs/config.production.yaml -o configs/config.production.yaml',
-              'curl -sL https://raw.githubusercontent.com/S-Corkum/devops-mcp/main/configs/config.rest-api.yaml -o configs/config.rest-api.yaml',
-              'curl -sL https://raw.githubusercontent.com/S-Corkum/devops-mcp/main/configs/auth.production.yaml -o configs/auth.production.yaml',
+              'curl -sL https://raw.githubusercontent.com/S-Corkum/developer-mesh/main/configs/config.base.yaml -o configs/config.base.yaml',
+              'curl -sL https://raw.githubusercontent.com/S-Corkum/developer-mesh/main/configs/config.production.yaml -o configs/config.production.yaml',
+              'curl -sL https://raw.githubusercontent.com/S-Corkum/developer-mesh/main/configs/config.rest-api.yaml -o configs/config.rest-api.yaml',
+              'curl -sL https://raw.githubusercontent.com/S-Corkum/developer-mesh/main/configs/auth.production.yaml -o configs/auth.production.yaml',
               'echo \"Verifying downloaded files...\"',
               'for file in docker-compose.production.yml configs/config.base.yaml configs/config.production.yaml configs/config.rest-api.yaml configs/auth.production.yaml; do',
               '  if [ ! -f \"\$file\" ] || [ ! -s \"\$file\" ]; then',
@@ -196,7 +196,7 @@ jobs:
             --instance-ids "${{ steps.get-instance.outputs.instance_id }}" \
             --document-name "AWS-RunShellScript" \
             --parameters 'commands=[
-              "cd /home/ec2-user/devops-mcp",
+              "cd /home/ec2-user/developer-mesh",
               "echo \"Creating .env file with production secrets...\"",
               "cat > .env << '\''EOF'\''",
               "DATABASE_HOST=${{ secrets.DATABASE_HOST }}",
@@ -248,10 +248,10 @@ jobs:
             --instance-ids "${{ steps.get-instance.outputs.instance_id }}" \
             --document-name "AWS-RunShellScript" \
             --parameters 'commands=[
-              "if [ -f /home/ec2-user/devops-mcp/nginx/mcp.conf ]; then",
+              "if [ -f /home/ec2-user/developer-mesh/nginx/mcp.conf ]; then",
               "  echo \"Updating nginx configuration...\"",
               "  sudo cp /etc/nginx/conf.d/mcp.conf /etc/nginx/conf.d/mcp.conf.backup.$(date +%Y%m%d_%H%M%S)",
-              "  sudo cp /home/ec2-user/devops-mcp/nginx/mcp.conf /etc/nginx/conf.d/mcp.conf",
+              "  sudo cp /home/ec2-user/developer-mesh/nginx/mcp.conf /etc/nginx/conf.d/mcp.conf",
               "  if sudo nginx -t; then",
               "    sudo systemctl reload nginx",
               "    echo \"Nginx configuration updated successfully\"",
@@ -277,7 +277,7 @@ jobs:
           # Use base64 encoding to avoid escaping issues
           MIGRATION_SCRIPT=$(cat << 'SCRIPT_END' | base64 -w 0
           #!/bin/bash
-          cd /home/ec2-user/devops-mcp
+          cd /home/ec2-user/developer-mesh
           
           if [ ! -d migrations ]; then
             echo "No migrations directory found, pulling from git..."
@@ -298,7 +298,7 @@ jobs:
               fi
               docker pull migrate/migrate:latest
               docker run --rm \
-                -v /home/ec2-user/devops-mcp/migrations:/migrations \
+                -v /home/ec2-user/developer-mesh/migrations:/migrations \
                 --network host \
                 migrate/migrate \
                 -database "postgresql://dbadmin:${DATABASE_PASSWORD}@${DATABASE_HOST}:5432/devops_mcp?sslmode=require" \
@@ -350,7 +350,7 @@ jobs:
           DEPLOY_SCRIPT=$(cat << SCRIPT_END | base64 -w 0
           #!/bin/bash
           set -e
-          cd /home/ec2-user/devops-mcp
+          cd /home/ec2-user/developer-mesh
           
           # Set image tag
           SHORT_SHA="${SHORT_SHA}"
@@ -504,9 +504,9 @@ jobs:
             --instance-ids "${{ steps.get-instance.outputs.instance_id }}" \
             --document-name "AWS-RunShellScript" \
             --parameters 'commands=[
-              "cd /home/ec2-user/devops-mcp",
+              "cd /home/ec2-user/developer-mesh",
               "echo \"Starting rollback...\"",
-              "docker-compose -p devops-mcp-blue down || true",
+              "docker-compose -p developer-mesh-blue down || true",
               "docker-compose restart",
               "docker-compose ps",
               "echo \"Rollback completed\""

@@ -7,9 +7,9 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	api "github.com/S-Corkum/devops-mcp/pkg/api"
-	"github.com/S-Corkum/devops-mcp/pkg/observability"
-	"github.com/S-Corkum/devops-mcp/pkg/repository"
+	api "github.com/developer-mesh/developer-mesh/pkg/api"
+	"github.com/developer-mesh/developer-mesh/pkg/observability"
+	"github.com/developer-mesh/developer-mesh/pkg/repository"
 	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"

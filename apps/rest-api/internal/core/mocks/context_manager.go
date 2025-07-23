@@ -5,9 +5,9 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/S-Corkum/devops-mcp/apps/rest-api/internal/core"
+	"github.com/developer-mesh/developer-mesh/apps/rest-api/internal/core"
 
-	"github.com/S-Corkum/devops-mcp/pkg/models"
+	"github.com/developer-mesh/developer-mesh/pkg/models"
 )
 
 // MockContextManager is a mock implementation of the ContextManagerInterface

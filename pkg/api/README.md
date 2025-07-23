@@ -2,7 +2,7 @@
 
 ## Overview
 
-The `api` package provides the HTTP and WebSocket API implementations for the DevOps MCP platform. It includes REST endpoints, WebSocket handlers for real-time communication, middleware components, and integration with various DevOps tools.
+The `api` package provides the HTTP and WebSocket API implementations for the Developer Mesh platform. It includes REST endpoints, WebSocket handlers for real-time communication, middleware components, and integration with various DevOps tools.
 
 > **Note**: This package is being migrated to the new monorepo structure. New REST endpoints should be implemented in `apps/rest-api/` and WebSocket functionality in `apps/mcp-server/`.
 
@@ -314,7 +314,7 @@ ws.onmessage = (event) => {
 
 ```go
 // Enhanced authentication middleware (production-ready)
-import "github.com/S-Corkum/devops-mcp/pkg/auth"
+import "github.com/S-Corkum/developer-mesh/pkg/auth"
 
 // Setup enhanced auth with rate limiting, metrics, and audit
 authMiddleware, err := auth.SetupAuthentication(db, cache, logger, metrics)

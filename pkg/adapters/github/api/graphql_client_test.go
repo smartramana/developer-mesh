@@ -5,8 +5,8 @@ import (
 	"net/http"
 	"testing"
 
-	"github.com/S-Corkum/devops-mcp/pkg/adapters/resilience"
-	"github.com/S-Corkum/devops-mcp/pkg/observability"
+	"github.com/developer-mesh/developer-mesh/pkg/adapters/resilience"
+	"github.com/developer-mesh/developer-mesh/pkg/observability"
 )
 
 func TestGraphQLClient_RateLimitHandling(t *testing.T) {

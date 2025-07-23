@@ -1,6 +1,6 @@
 # Events Package
 
-> **Purpose**: Event-driven architecture and pub/sub infrastructure for the DevOps MCP platform
+> **Purpose**: Event-driven architecture and pub/sub infrastructure for the Developer Mesh platform
 > **Status**: Basic Implementation
 > **Dependencies**: In-memory event bus, basic domain events
 
@@ -8,7 +8,7 @@
 
 ## Overview
 
-The events package provides a basic event system for the DevOps MCP platform. Currently, only an in-memory event bus is implemented (`EventBusImpl`), which provides simple publish/subscribe functionality.
+The events package provides a basic event system for the Developer Mesh platform. Currently, only an in-memory event bus is implemented (`EventBusImpl`), which provides simple publish/subscribe functionality.
 
 **Implemented Features**:
 - Basic in-memory event bus

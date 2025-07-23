@@ -11,7 +11,7 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/S-Corkum/devops-mcp/pkg/models"
+	"github.com/developer-mesh/developer-mesh/pkg/models"
 )
 
 // Client is the MCP client

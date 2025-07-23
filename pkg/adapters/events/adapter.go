@@ -5,7 +5,7 @@ import (
 	"context"
 	"time"
 
-	"github.com/S-Corkum/devops-mcp/pkg/models"
+	"github.com/developer-mesh/developer-mesh/pkg/models"
 )
 
 // AdapterEventType defines standard event types for adapters

@@ -4,8 +4,8 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/S-Corkum/devops-mcp/pkg/embedding"
-	"github.com/S-Corkum/devops-mcp/pkg/observability"
+	"github.com/developer-mesh/developer-mesh/pkg/embedding"
+	"github.com/developer-mesh/developer-mesh/pkg/observability"
 )
 
 // SearchClient provides methods for vector search operations

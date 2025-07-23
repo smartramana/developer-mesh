@@ -1,6 +1,6 @@
 # Performance Tuning Guide
 
-> **Purpose**: Guide for optimizing DevOps MCP platform performance
+> **Purpose**: Guide for optimizing Developer Mesh platform performance
 > **Audience**: Platform engineers and DevOps teams
 > **Scope**: Application optimization, database performance, caching, and monitoring
 > **Status**: CONCEPTUAL - Many optimizations shown are not yet implemented

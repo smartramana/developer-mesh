@@ -1,6 +1,6 @@
 # Swagger/OpenAPI Integration Guide
 
-This guide explains how the DevOps MCP Platform uses Swagger/OpenAPI for API documentation and how to maintain and extend it as new tools are integrated.
+This guide explains how the Developer Mesh Platform uses Swagger/OpenAPI for API documentation and how to maintain and extend it as new tools are integrated.
 
 ## Architecture Overview
 

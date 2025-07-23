@@ -5,8 +5,8 @@ import (
 	"io"
 	"time"
 
-	"github.com/S-Corkum/devops-mcp/pkg/models"
-	"github.com/S-Corkum/devops-mcp/pkg/repository/types"
+	"github.com/developer-mesh/developer-mesh/pkg/models"
+	"github.com/developer-mesh/developer-mesh/pkg/repository/types"
 	"github.com/google/uuid"
 )
 

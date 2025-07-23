@@ -79,28 +79,28 @@ run_ssm_command() {
 # Step 1: Check current container status
 echo "=== Step 1: Checking current container status ==="
 run_ssm_command "Checking Docker containers" \
-    "cd /home/ec2-user/devops-mcp && docker ps -a"
+    "cd /home/ec2-user/developer-mesh && docker ps -a"
 
 # Step 2: Check container logs for errors
 echo "=== Step 2: Checking container logs for errors ==="
 run_ssm_command "MCP Server logs" \
-    "cd /home/ec2-user/devops-mcp && docker logs mcp-server --tail 20 2>&1 || echo 'No logs available'"
+    "cd /home/ec2-user/developer-mesh && docker logs mcp-server --tail 20 2>&1 || echo 'No logs available'"
 
 # Step 3: Check if config files exist
 echo "=== Step 3: Checking config files ==="
 run_ssm_command "Listing config files" \
-    "cd /home/ec2-user/devops-mcp && ls -la configs/ 2>&1 || echo 'configs directory not found'"
+    "cd /home/ec2-user/developer-mesh && ls -la configs/ 2>&1 || echo 'configs directory not found'"
 
 # Step 4: Download missing config files
 echo "=== Step 4: Ensuring all config files are present ==="
 run_ssm_command "Creating configs directory and downloading files" \
-    "cd /home/ec2-user/devops-mcp && \
+    "cd /home/ec2-user/developer-mesh && \
     mkdir -p configs && \
     echo 'Downloading config files from GitHub...' && \
-    curl -sL https://raw.githubusercontent.com/S-Corkum/devops-mcp/main/configs/config.base.yaml -o configs/config.base.yaml && \
-    curl -sL https://raw.githubusercontent.com/S-Corkum/devops-mcp/main/configs/config.production.yaml -o configs/config.production.yaml && \
-    curl -sL https://raw.githubusercontent.com/S-Corkum/devops-mcp/main/configs/config.rest-api.yaml -o configs/config.rest-api.yaml && \
-    curl -sL https://raw.githubusercontent.com/S-Corkum/devops-mcp/main/configs/auth.production.yaml -o configs/auth.production.yaml && \
+    curl -sL https://raw.githubusercontent.com/S-Corkum/developer-mesh/main/configs/config.base.yaml -o configs/config.base.yaml && \
+    curl -sL https://raw.githubusercontent.com/S-Corkum/developer-mesh/main/configs/config.production.yaml -o configs/config.production.yaml && \
+    curl -sL https://raw.githubusercontent.com/S-Corkum/developer-mesh/main/configs/config.rest-api.yaml -o configs/config.rest-api.yaml && \
+    curl -sL https://raw.githubusercontent.com/S-Corkum/developer-mesh/main/configs/auth.production.yaml -o configs/auth.production.yaml && \
     echo 'Verifying downloaded files...' && \
     for file in config.base.yaml config.production.yaml config.rest-api.yaml auth.production.yaml; do \
         if [ -f \"configs/\$file\" ] && [ -s \"configs/\$file\" ]; then \
@@ -113,18 +113,18 @@ run_ssm_command "Creating configs directory and downloading files" \
 # Step 5: Check docker-compose.yml
 echo "=== Step 5: Checking docker-compose.yml ==="
 run_ssm_command "Checking docker-compose file" \
-    "cd /home/ec2-user/devops-mcp && \
+    "cd /home/ec2-user/developer-mesh && \
     if [ -f docker-compose.yml ]; then \
         echo 'docker-compose.yml exists'; \
     else \
         echo 'docker-compose.yml missing, downloading...'; \
-        curl -sL https://raw.githubusercontent.com/S-Corkum/devops-mcp/main/docker-compose.production.yml -o docker-compose.yml; \
+        curl -sL https://raw.githubusercontent.com/S-Corkum/developer-mesh/main/docker-compose.production.yml -o docker-compose.yml; \
     fi"
 
 # Step 6: Check .env file
 echo "=== Step 6: Checking .env file ==="
 run_ssm_command "Verifying .env file exists" \
-    "cd /home/ec2-user/devops-mcp && \
+    "cd /home/ec2-user/developer-mesh && \
     if [ -f .env ]; then \
         echo '.env file exists'; \
         echo 'Checking key environment variables:'; \
@@ -136,12 +136,12 @@ run_ssm_command "Verifying .env file exists" \
 # Step 7: Stop all containers
 echo "=== Step 7: Stopping all containers ==="
 run_ssm_command "Stopping containers" \
-    "cd /home/ec2-user/devops-mcp && docker-compose down"
+    "cd /home/ec2-user/developer-mesh && docker-compose down"
 
 # Step 8: Update docker-compose.yml to use correct image tags
 echo "=== Step 8: Fixing docker-compose.yml image tags ==="
 run_ssm_command "Updating image tags" \
-    "cd /home/ec2-user/devops-mcp && \
+    "cd /home/ec2-user/developer-mesh && \
     if [ -f docker-compose.yml ]; then \
         # First, try to get the latest SHA from git
         LATEST_SHA=\$(git rev-parse HEAD 2>/dev/null | cut -c1-7 || echo '') ; \
@@ -163,13 +163,13 @@ run_ssm_command "Updating image tags" \
 # Step 9: Pull latest images
 echo "=== Step 9: Pulling latest images ==="
 run_ssm_command "Pulling Docker images" \
-    "cd /home/ec2-user/devops-mcp && \
+    "cd /home/ec2-user/developer-mesh && \
     docker-compose pull"
 
 # Step 10: Start services
 echo "=== Step 10: Starting services ==="
 run_ssm_command "Starting containers" \
-    "cd /home/ec2-user/devops-mcp && \
+    "cd /home/ec2-user/developer-mesh && \
     docker-compose up -d"
 
 # Step 11: Wait for services to stabilize
@@ -180,7 +180,7 @@ sleep 30
 # Step 12: Check final status
 echo "=== Step 12: Checking final status ==="
 run_ssm_command "Final container status" \
-    "cd /home/ec2-user/devops-mcp && \
+    "cd /home/ec2-user/developer-mesh && \
     docker ps && \
     echo && \
     echo 'Container health status:' && \
@@ -193,7 +193,7 @@ run_ssm_command "Final container status" \
 # Step 13: Check logs again if any containers are unhealthy
 echo "=== Step 13: Checking logs for any issues ==="
 run_ssm_command "Checking recent logs" \
-    "cd /home/ec2-user/devops-mcp && \
+    "cd /home/ec2-user/developer-mesh && \
     for container in mcp-server rest-api worker; do \
         if docker ps | grep -q \"\$container\"; then \
             echo \"--- \$container logs (last 10 lines) ---\"; \

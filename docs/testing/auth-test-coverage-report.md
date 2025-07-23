@@ -1,7 +1,7 @@
 # Authentication Test Coverage Report
 
 ## Overview
-This report analyzes the current authentication test coverage in the DevOps MCP codebase and identifies gaps for the enhanced authentication integration.
+This report analyzes the current authentication test coverage in the Developer Mesh codebase and identifies gaps for the enhanced authentication integration.
 
 ## Existing Test Coverage
 

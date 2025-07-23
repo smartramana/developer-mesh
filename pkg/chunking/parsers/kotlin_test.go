@@ -4,7 +4,7 @@ import (
 	"context"
 	"testing"
 
-	"github.com/S-Corkum/devops-mcp/pkg/chunking"
+	"github.com/developer-mesh/developer-mesh/pkg/chunking"
 	"github.com/stretchr/testify/assert"
 )
 

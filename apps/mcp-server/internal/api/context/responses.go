@@ -3,7 +3,7 @@ package context
 import (
 	"fmt"
 
-	"github.com/S-Corkum/devops-mcp/pkg/models"
+	"github.com/developer-mesh/developer-mesh/pkg/models"
 )
 
 // ContextResponse wraps a context with HATEOAS links for REST API responses

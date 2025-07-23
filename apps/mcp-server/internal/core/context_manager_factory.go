@@ -3,14 +3,14 @@ package core
 import (
 	"context"
 
-	"github.com/S-Corkum/devops-mcp/apps/mcp-server/internal/config"
-	contextManager "github.com/S-Corkum/devops-mcp/apps/mcp-server/internal/core/context"
+	"github.com/developer-mesh/developer-mesh/apps/mcp-server/internal/config"
+	contextManager "github.com/developer-mesh/developer-mesh/apps/mcp-server/internal/core/context"
 
-	"github.com/S-Corkum/devops-mcp/pkg/common/cache"
-	"github.com/S-Corkum/devops-mcp/pkg/common/events/system"
-	"github.com/S-Corkum/devops-mcp/pkg/database"
-	"github.com/S-Corkum/devops-mcp/pkg/observability"
-	"github.com/S-Corkum/devops-mcp/pkg/storage/providers"
+	"github.com/developer-mesh/developer-mesh/pkg/common/cache"
+	"github.com/developer-mesh/developer-mesh/pkg/common/events/system"
+	"github.com/developer-mesh/developer-mesh/pkg/database"
+	"github.com/developer-mesh/developer-mesh/pkg/observability"
+	"github.com/developer-mesh/developer-mesh/pkg/storage/providers"
 )
 
 // CreateContextManager creates either an optimized or standard context manager based on configuration

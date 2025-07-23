@@ -6,9 +6,9 @@ import (
 	"net/url"
 	"testing"
 
-	"github.com/S-Corkum/devops-mcp/pkg/adapters/github/auth"
-	"github.com/S-Corkum/devops-mcp/pkg/adapters/resilience"
-	"github.com/S-Corkum/devops-mcp/pkg/observability"
+	"github.com/developer-mesh/developer-mesh/pkg/adapters/github/auth"
+	"github.com/developer-mesh/developer-mesh/pkg/adapters/resilience"
+	"github.com/developer-mesh/developer-mesh/pkg/observability"
 )
 
 func TestRESTClient_RateLimitHandling(t *testing.T) {

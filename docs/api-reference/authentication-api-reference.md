@@ -2,7 +2,7 @@
 
 ## Overview
 
-The DevOps MCP uses middleware-based authentication for API access. Authentication is handled through API keys and JWT tokens validated on each request, with basic rate limiting support.
+The Developer Mesh uses middleware-based authentication for API access. Authentication is handled through API keys and JWT tokens validated on each request, with basic rate limiting support.
 
 ## Table of Contents
 

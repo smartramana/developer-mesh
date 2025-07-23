@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/S-Corkum/devops-mcp/pkg/adapters"
+	"github.com/developer-mesh/developer-mesh/pkg/adapters"
 )
 
 // ResilienceDecorator adds resilience features to any adapter

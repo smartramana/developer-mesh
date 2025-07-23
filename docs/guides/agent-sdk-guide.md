@@ -6,7 +6,7 @@
 
 ## Current Status
 
-The DevOps MCP project **does not currently provide an official Agent SDK**. This guide serves as a placeholder and reference for future SDK development.
+The Developer Mesh project **does not currently provide an official Agent SDK**. This guide serves as a placeholder and reference for future SDK development.
 
 ## Current Agent Development Approach
 

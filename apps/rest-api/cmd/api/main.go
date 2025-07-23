@@ -12,16 +12,16 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/S-Corkum/devops-mcp/apps/rest-api/internal/api"
-	"github.com/S-Corkum/devops-mcp/apps/rest-api/internal/core"
+	"github.com/developer-mesh/developer-mesh/apps/rest-api/internal/api"
+	"github.com/developer-mesh/developer-mesh/apps/rest-api/internal/core"
 
-	"github.com/S-Corkum/devops-mcp/pkg/common/aws"
-	"github.com/S-Corkum/devops-mcp/pkg/common/cache"
-	"github.com/S-Corkum/devops-mcp/pkg/common/config"
-	"github.com/S-Corkum/devops-mcp/pkg/database"
-	"github.com/S-Corkum/devops-mcp/pkg/interfaces"
-	"github.com/S-Corkum/devops-mcp/pkg/metrics"
-	"github.com/S-Corkum/devops-mcp/pkg/observability"
+	"github.com/developer-mesh/developer-mesh/pkg/common/aws"
+	"github.com/developer-mesh/developer-mesh/pkg/common/cache"
+	"github.com/developer-mesh/developer-mesh/pkg/common/config"
+	"github.com/developer-mesh/developer-mesh/pkg/database"
+	"github.com/developer-mesh/developer-mesh/pkg/interfaces"
+	"github.com/developer-mesh/developer-mesh/pkg/metrics"
+	"github.com/developer-mesh/developer-mesh/pkg/observability"
 
 	// Import PostgreSQL driver
 	_ "github.com/lib/pq"

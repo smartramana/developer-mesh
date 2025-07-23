@@ -1,12 +1,12 @@
 # Services Package
 
-> **Purpose**: Business logic layer for the DevOps MCP platform
+> **Purpose**: Business logic layer for the Developer Mesh platform
 > **Status**: MVP Implementation with Production Architecture  
 > **Dependencies**: Base service framework, repositories, domain models
 
 ## Overview
 
-The `services` package implements the business logic layer for the DevOps MCP platform. It provides a production-ready architecture with MVP implementations. All services inherit from a common base that provides enterprise-grade patterns. Some features use simplified in-memory implementations suitable for development/MVP.
+The `services` package implements the business logic layer for the Developer Mesh platform. It provides a production-ready architecture with MVP implementations. All services inherit from a common base that provides enterprise-grade patterns. Some features use simplified in-memory implementations suitable for development/MVP.
 
 ## Architecture
 
@@ -120,7 +120,7 @@ task, err := taskService.CreateTask(ctx, &CreateTaskRequest{
     Type:     "code_review",
     Priority: PriorityHigh,
     Parameters: map[string]interface{}{
-        "repository": "devops-mcp",
+        "repository": "developer-mesh",
         "pr_number": 123,
     },
 })

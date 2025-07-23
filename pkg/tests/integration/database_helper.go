@@ -4,7 +4,7 @@ import (
 	"context"
 	"testing"
 
-	"github.com/S-Corkum/devops-mcp/pkg/database"
+	"github.com/developer-mesh/developer-mesh/pkg/database"
 	"github.com/jmoiron/sqlx"
 	"github.com/stretchr/testify/require"
 )

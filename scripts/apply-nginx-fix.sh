@@ -8,7 +8,7 @@ set -e
 # Configuration
 EC2_IP="${EC2_INSTANCE_IP:-54.86.185.227}"
 SSH_KEY="${SSH_KEY_PATH:-~/.ssh/ec2-key.pem}"
-NGINX_CONFIG_PATH="/Users/seancorkum/projects/devops-mcp/deployments/nginx/mcp.conf"
+NGINX_CONFIG_PATH="/Users/seancorkum/projects/developer-mesh/deployments/nginx/mcp.conf"
 
 echo "======================================="
 echo "Applying Nginx WebSocket Fix"

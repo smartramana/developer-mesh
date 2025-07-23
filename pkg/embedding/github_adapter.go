@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/S-Corkum/devops-mcp/pkg/core"
-	"github.com/S-Corkum/devops-mcp/pkg/storage"
+	"github.com/developer-mesh/developer-mesh/pkg/core"
+	"github.com/developer-mesh/developer-mesh/pkg/storage"
 )
 
 // Define local versions of these types for the adapter

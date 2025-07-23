@@ -9,9 +9,9 @@ import (
 	"sync"
 	"testing"
 
-	"github.com/S-Corkum/devops-mcp/pkg/common/cache"
-	"github.com/S-Corkum/devops-mcp/pkg/common/config"
-	"github.com/S-Corkum/devops-mcp/pkg/observability"
+	"github.com/developer-mesh/developer-mesh/pkg/common/cache"
+	"github.com/developer-mesh/developer-mesh/pkg/common/config"
+	"github.com/developer-mesh/developer-mesh/pkg/observability"
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 	"github.com/jmoiron/sqlx"
@@ -19,9 +19,9 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	contextAPI "github.com/S-Corkum/devops-mcp/apps/rest-api/internal/api/context"
-	"github.com/S-Corkum/devops-mcp/apps/rest-api/internal/core"
-	"github.com/S-Corkum/devops-mcp/apps/rest-api/internal/repository"
+	contextAPI "github.com/developer-mesh/developer-mesh/apps/rest-api/internal/api/context"
+	"github.com/developer-mesh/developer-mesh/apps/rest-api/internal/core"
+	"github.com/developer-mesh/developer-mesh/apps/rest-api/internal/repository"
 )
 
 // TestContextCRUD tests full CRUD cycle for contexts using HTTP requests

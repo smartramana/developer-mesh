@@ -4,8 +4,8 @@ package repository
 import (
 	"context"
 
-	"github.com/S-Corkum/devops-mcp/pkg/models"
-	"github.com/S-Corkum/devops-mcp/pkg/repository/model"
+	"github.com/developer-mesh/developer-mesh/pkg/models"
+	"github.com/developer-mesh/developer-mesh/pkg/repository/model"
 )
 
 // Using type alias to reference the interface defined in interfaces.go

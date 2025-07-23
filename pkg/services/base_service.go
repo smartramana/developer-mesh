@@ -10,11 +10,11 @@ import (
 	"github.com/pkg/errors"
 	"github.com/sony/gobreaker"
 
-	"github.com/S-Corkum/devops-mcp/pkg/auth"
-	"github.com/S-Corkum/devops-mcp/pkg/events"
-	"github.com/S-Corkum/devops-mcp/pkg/observability"
-	"github.com/S-Corkum/devops-mcp/pkg/resilience"
-	"github.com/S-Corkum/devops-mcp/pkg/rules"
+	"github.com/developer-mesh/developer-mesh/pkg/auth"
+	"github.com/developer-mesh/developer-mesh/pkg/events"
+	"github.com/developer-mesh/developer-mesh/pkg/observability"
+	"github.com/developer-mesh/developer-mesh/pkg/resilience"
+	"github.com/developer-mesh/developer-mesh/pkg/rules"
 )
 
 // ServiceConfig provides common configuration for all services

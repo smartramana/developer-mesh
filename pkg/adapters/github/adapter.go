@@ -8,12 +8,12 @@ import (
 	"sync"
 	"time"
 
-	"github.com/S-Corkum/devops-mcp/pkg/adapters/events"
-	"github.com/S-Corkum/devops-mcp/pkg/adapters/github/api"
-	"github.com/S-Corkum/devops-mcp/pkg/adapters/github/auth"
-	wh "github.com/S-Corkum/devops-mcp/pkg/adapters/github/webhook"
-	"github.com/S-Corkum/devops-mcp/pkg/adapters/resilience"
-	"github.com/S-Corkum/devops-mcp/pkg/observability"
+	"github.com/developer-mesh/developer-mesh/pkg/adapters/events"
+	"github.com/developer-mesh/developer-mesh/pkg/adapters/github/api"
+	"github.com/developer-mesh/developer-mesh/pkg/adapters/github/auth"
+	wh "github.com/developer-mesh/developer-mesh/pkg/adapters/github/webhook"
+	"github.com/developer-mesh/developer-mesh/pkg/adapters/resilience"
+	"github.com/developer-mesh/developer-mesh/pkg/observability"
 )
 
 // SimpleRateLimiter implements a simple rate limiter with the RateLimiter interface

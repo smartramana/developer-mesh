@@ -11,10 +11,10 @@ import (
 	"testing"
 	"time"
 
-	"github.com/S-Corkum/devops-mcp/apps/rest-api/internal/adapters"
-	"github.com/S-Corkum/devops-mcp/apps/rest-api/internal/core"
+	"github.com/developer-mesh/developer-mesh/apps/rest-api/internal/adapters"
+	"github.com/developer-mesh/developer-mesh/apps/rest-api/internal/core"
 
-	"github.com/S-Corkum/devops-mcp/pkg/models"
+	"github.com/developer-mesh/developer-mesh/pkg/models"
 	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"

@@ -3,7 +3,7 @@ package events
 import (
 	"context"
 
-	"github.com/S-Corkum/devops-mcp/pkg/models"
+	"github.com/developer-mesh/developer-mesh/pkg/models"
 )
 
 // EventType defines the type of event

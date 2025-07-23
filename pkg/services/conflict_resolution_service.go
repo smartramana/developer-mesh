@@ -9,10 +9,10 @@ import (
 	"github.com/google/uuid"
 	"github.com/pkg/errors"
 
-	"github.com/S-Corkum/devops-mcp/pkg/collaboration"
-	"github.com/S-Corkum/devops-mcp/pkg/collaboration/crdt"
-	"github.com/S-Corkum/devops-mcp/pkg/models"
-	"github.com/S-Corkum/devops-mcp/pkg/repository/interfaces"
+	"github.com/developer-mesh/developer-mesh/pkg/collaboration"
+	"github.com/developer-mesh/developer-mesh/pkg/collaboration/crdt"
+	"github.com/developer-mesh/developer-mesh/pkg/models"
+	"github.com/developer-mesh/developer-mesh/pkg/repository/interfaces"
 )
 
 // ConflictResolutionService manages conflict resolution for collaborative entities

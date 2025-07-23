@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/S-Corkum/devops-mcp/pkg/chunking"
+	"github.com/developer-mesh/developer-mesh/pkg/chunking"
 )
 
 // extractConsts extracts constant and static variable declarations from Rust code

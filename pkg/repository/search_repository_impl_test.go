@@ -4,8 +4,8 @@ import (
 	"context"
 	"testing"
 
-	"github.com/S-Corkum/devops-mcp/pkg/repository/search"
-	"github.com/S-Corkum/devops-mcp/pkg/repository/vector"
+	"github.com/developer-mesh/developer-mesh/pkg/repository/search"
+	"github.com/developer-mesh/developer-mesh/pkg/repository/vector"
 	"github.com/jmoiron/sqlx"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"

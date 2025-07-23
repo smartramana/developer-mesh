@@ -6,7 +6,7 @@
 
 ## Overview
 
-The DevOps MCP platform enhances traditional Retrieval-Augmented Generation (RAG) systems by providing a distributed orchestration layer that manages multiple AI agents, coordinates their interactions, and optimizes resource utilization. This document explains how MCP transforms RAG from a single-model pipeline into a sophisticated multi-agent system.
+The Developer Mesh platform enhances traditional Retrieval-Augmented Generation (RAG) systems by providing a distributed orchestration layer that manages multiple AI agents, coordinates their interactions, and optimizes resource utilization. This document explains how MCP transforms RAG from a single-model pipeline into a sophisticated multi-agent system.
 
 ## Traditional RAG vs MCP-Enhanced RAG
 

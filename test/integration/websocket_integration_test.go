@@ -16,7 +16,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	ws "github.com/S-Corkum/devops-mcp/pkg/models/websocket"
+	ws "github.com/developer-mesh/developer-mesh/pkg/models/websocket"
 )
 
 // TestWebSocketMCPIntegration tests WebSocket integration with MCP server components

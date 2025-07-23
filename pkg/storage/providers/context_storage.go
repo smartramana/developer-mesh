@@ -3,7 +3,7 @@ package providers
 import (
 	"context"
 
-	"github.com/S-Corkum/devops-mcp/pkg/models"
+	"github.com/developer-mesh/developer-mesh/pkg/models"
 )
 
 // ContextStorage defines the interface for context storage providers

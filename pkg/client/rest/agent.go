@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/S-Corkum/devops-mcp/pkg/models"
+	"github.com/developer-mesh/developer-mesh/pkg/models"
 )
 
 // AgentClient provides methods for interacting with the Agent API

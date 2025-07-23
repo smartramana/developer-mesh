@@ -10,9 +10,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/S-Corkum/devops-mcp/pkg/adapters/resilience"
-	"github.com/S-Corkum/devops-mcp/pkg/common/errors"
-	"github.com/S-Corkum/devops-mcp/pkg/observability"
+	"github.com/developer-mesh/developer-mesh/pkg/adapters/resilience"
+	"github.com/developer-mesh/developer-mesh/pkg/common/errors"
+	"github.com/developer-mesh/developer-mesh/pkg/observability"
 	"github.com/golang-jwt/jwt/v4"
 )
 

@@ -2,9 +2,9 @@
 
 ## Overview
 
-This runbook provides operational procedures for managing DevOps MCP in production. It covers daily operations, incident response, maintenance tasks, and emergency procedures.
+This runbook provides operational procedures for managing Developer Mesh in production. It covers daily operations, incident response, maintenance tasks, and emergency procedures.
 
-**Note**: DevOps MCP currently runs on Docker Compose on EC2 instances, not Kubernetes. Many procedures in this document represent future goals rather than current implementation.
+**Note**: Developer Mesh currently runs on Docker Compose on EC2 instances, not Kubernetes. Many procedures in this document represent future goals rather than current implementation.
 
 ## Table of Contents
 
@@ -26,7 +26,7 @@ This runbook provides operational procedures for managing DevOps MCP in producti
 #!/bin/bash
 # Daily operations checklist
 
-echo "=== DevOps MCP Daily Operations Checklist ==="
+echo "=== Developer Mesh Daily Operations Checklist ==="
 echo "Date: $(date)"
 
 # 1. Check system health
@@ -136,7 +136,7 @@ LIMIT 20;
 
 ### Current Deployment Method
 
-DevOps MCP is deployed using Docker Compose on EC2 instances. The deployment uses GitHub Actions to SSH into the EC2 instance and update containers.
+Developer Mesh is deployed using Docker Compose on EC2 instances. The deployment uses GitHub Actions to SSH into the EC2 instance and update containers.
 
 #### Deployment Process
 
@@ -148,9 +148,9 @@ DevOps MCP is deployed using Docker Compose on EC2 instances. The deployment use
 
 #### Available Images
 
-- `ghcr.io/{github-username}/devops-mcp-mcp-server` - MCP protocol server
-- `ghcr.io/{github-username}/devops-mcp-rest-api` - REST API service  
-- `ghcr.io/{github-username}/devops-mcp-worker` - Event processing worker
+- `ghcr.io/{github-username}/developer-mesh-mcp-server` - MCP protocol server
+- `ghcr.io/{github-username}/developer-mesh-rest-api` - REST API service  
+- `ghcr.io/{github-username}/developer-mesh-worker` - Event processing worker
 
 All images:
 - Support multiple architectures (amd64, arm64)
@@ -171,9 +171,9 @@ export GITHUB_USERNAME=your-github-username
 ./scripts/pull-images.sh
 
 # 3. Verify image signatures (optional but recommended)
-cosign verify ghcr.io/${GITHUB_USERNAME}/devops-mcp-mcp-server:latest
-cosign verify ghcr.io/${GITHUB_USERNAME}/devops-mcp-rest-api:latest
-cosign verify ghcr.io/${GITHUB_USERNAME}/devops-mcp-worker:latest
+cosign verify ghcr.io/${GITHUB_USERNAME}/developer-mesh-mcp-server:latest
+cosign verify ghcr.io/${GITHUB_USERNAME}/developer-mesh-rest-api:latest
+cosign verify ghcr.io/${GITHUB_USERNAME}/developer-mesh-worker:latest
 
 # 4. Deploy using production docker-compose
 docker-compose -f docker-compose.prod.yml up -d
@@ -196,13 +196,13 @@ if [ -z "$VERSION" ]; then
     exit 1
 fi
 
-echo "Updating DevOps MCP to version ${VERSION}"
+echo "Updating Developer Mesh to version ${VERSION}"
 
 # 1. Pull new version
 GITHUB_USERNAME=your-github-username ./scripts/pull-images.sh ${VERSION}
 
 # 2. Verify new images
-docker images | grep devops-mcp | grep ${VERSION}
+docker images | grep developer-mesh | grep ${VERSION}
 
 # 3. Update docker-compose file
 export VERSION=${VERSION}
@@ -228,7 +228,7 @@ docker-compose -f docker-compose.prod.yml logs --tail=100
 ssh -i your-key.pem ec2-user@your-ec2-instance
 
 # Navigate to deployment directory
-cd /home/ec2-user/devops-mcp
+cd /home/ec2-user/developer-mesh
 
 # Pull latest images
 docker-compose -f docker-compose.production.yml pull
@@ -301,14 +301,14 @@ echo "Rolling update of ${SERVICE} to ${VERSION}"
 
 # For Docker Swarm
 docker service update \
-    --image ghcr.io/${GITHUB_USERNAME}/devops-mcp-${SERVICE}:${VERSION} \
+    --image ghcr.io/${GITHUB_USERNAME}/developer-mesh-${SERVICE}:${VERSION} \
     --update-parallelism 1 \
     --update-delay 30s \
     mcp_${SERVICE}
 
 # For Kubernetes
 kubectl set image deployment/${SERVICE} \
-    ${SERVICE}=ghcr.io/${GITHUB_USERNAME}/devops-mcp-${SERVICE}:${VERSION} \
+    ${SERVICE}=ghcr.io/${GITHUB_USERNAME}/developer-mesh-${SERVICE}:${VERSION} \
     -n mcp-prod
 
 kubectl rollout status deployment/${SERVICE} -n mcp-prod
@@ -336,8 +336,8 @@ PGPASSWORD=$DB_PASSWORD pg_dump \
   -f /tmp/backup_${TIMESTAMP}/database.sql
 
 # Backup application configuration
-cp -r /home/ec2-user/devops-mcp/.env* /tmp/backup_${TIMESTAMP}/
-cp -r /home/ec2-user/devops-mcp/configs /tmp/backup_${TIMESTAMP}/
+cp -r /home/ec2-user/developer-mesh/.env* /tmp/backup_${TIMESTAMP}/
+cp -r /home/ec2-user/developer-mesh/configs /tmp/backup_${TIMESTAMP}/
 
 # Upload to S3
 aws s3 cp /tmp/backup_${TIMESTAMP}/ \
@@ -384,7 +384,7 @@ pg_dump -h localhost -U mcp_user -d mcp -t vector_embeddings -F c -f ${BACKUP_DI
 
 # 6. Record image versions
 echo "Recording deployed image versions..."
-docker images | grep devops-mcp | grep -v "<none>" > ${BACKUP_DIR}/image_versions.txt
+docker images | grep developer-mesh | grep -v "<none>" > ${BACKUP_DIR}/image_versions.txt
 docker-compose -f docker-compose.prod.yml ps --format json > ${BACKUP_DIR}/running_services.json
 
 # 7. Upload to S3
@@ -483,7 +483,7 @@ echo "Restore completed"
 #!/bin/bash
 # Manual disaster recovery procedure
 
-echo "=== DevOps MCP Disaster Recovery ==="
+echo "=== Developer Mesh Disaster Recovery ==="
 echo "Starting recovery at $(date)"
 
 # 1. Launch new EC2 instance (manual)
@@ -512,8 +512,8 @@ ssh -i your-key.pem ec2-user@new-instance-ip << 'EOF'
   sudo chmod +x /usr/local/bin/docker-compose
   
   # Clone repository
-  git clone https://github.com/your-org/devops-mcp.git
-  cd devops-mcp
+  git clone https://github.com/your-org/developer-mesh.git
+  cd developer-mesh
   
   # Copy .env file (you'll need to create this)
   # Copy configs
@@ -605,7 +605,7 @@ data:
 
 ### Current Performance Considerations
 
-**Note**: DevOps MCP runs on a single EC2 instance, limiting scaling options. Performance tuning focuses on optimizing the single instance.
+**Note**: Developer Mesh runs on a single EC2 instance, limiting scaling options. Performance tuning focuses on optimizing the single instance.
 
 ### Database Optimization (RDS)
 
@@ -865,7 +865,7 @@ metadata:
   namespace: mcp-prod
 data:
   enabled: "true"
-  message: "DevOps MCP is undergoing scheduled maintenance. We'll be back shortly."
+  message: "Developer Mesh is undergoing scheduled maintenance. We'll be back shortly."
   start_time: "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
   duration: "${MAINTENANCE_DURATION}m"
 EOF
@@ -916,14 +916,14 @@ echo "Deploying ${SERVICE} version ${VERSION}"
 
 # 1. Pull and verify new image
 echo "Pulling new image..."
-docker pull ghcr.io/${GITHUB_USERNAME}/devops-mcp-${SERVICE}:${VERSION}
+docker pull ghcr.io/${GITHUB_USERNAME}/developer-mesh-${SERVICE}:${VERSION}
 
 # 2. Verify image signature
 echo "Verifying image signature..."
-cosign verify ghcr.io/${GITHUB_USERNAME}/devops-mcp-${SERVICE}:${VERSION}
+cosign verify ghcr.io/${GITHUB_USERNAME}/developer-mesh-${SERVICE}:${VERSION}
 
 # 3. Update image in Kubernetes
-kubectl set image deployment/${SERVICE} ${SERVICE}=ghcr.io/${GITHUB_USERNAME}/devops-mcp-${SERVICE}:${VERSION} -n mcp-prod
+kubectl set image deployment/${SERVICE} ${SERVICE}=ghcr.io/${GITHUB_USERNAME}/developer-mesh-${SERVICE}:${VERSION} -n mcp-prod
 
 # 4. Check rollout status
 kubectl rollout status deployment/${SERVICE} -n mcp-prod
@@ -1143,7 +1143,7 @@ kubectl scale deployment mcp-server rest-api --replicas=3 -n mcp-prod
 #!/bin/bash
 # Comprehensive health check
 
-echo "=== DevOps MCP Health Check ==="
+echo "=== Developer Mesh Health Check ==="
 echo "Timestamp: $(date)"
 
 # Function to check endpoint

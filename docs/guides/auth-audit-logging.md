@@ -7,7 +7,7 @@
 
 ## Overview
 
-This guide provides comprehensive instructions for implementing audit logging for the DevOps MCP authentication and authorization system. Audit logging is crucial for security compliance, debugging authentication issues, and maintaining a forensic trail of all authentication events.
+This guide provides comprehensive instructions for implementing audit logging for the Developer Mesh authentication and authorization system. Audit logging is crucial for security compliance, debugging authentication issues, and maintaining a forensic trail of all authentication events.
 
 ## Current State
 
@@ -140,7 +140,7 @@ import (
     
     "github.com/google/uuid"
     "github.com/jmoiron/sqlx"
-    "github.com/S-Corkum/devops-mcp/pkg/observability"
+    "github.com/S-Corkum/developer-mesh/pkg/observability"
 )
 
 type AuditLogger interface {

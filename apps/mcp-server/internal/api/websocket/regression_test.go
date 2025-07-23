@@ -3,7 +3,7 @@ package websocket
 import (
 	"testing"
 
-	"github.com/S-Corkum/devops-mcp/pkg/auth"
+	"github.com/developer-mesh/developer-mesh/pkg/auth"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )

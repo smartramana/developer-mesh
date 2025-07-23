@@ -1,10 +1,10 @@
 # CRDT Collaboration Examples
 
-This guide demonstrates how to implement real-time collaboration using Conflict-free Replicated Data Types (CRDTs) in DevOps MCP.
+This guide demonstrates how to implement real-time collaboration using Conflict-free Replicated Data Types (CRDTs) in Developer Mesh.
 
 ## Overview
 
-DevOps MCP's CRDT implementation enables:
+Developer Mesh's CRDT implementation enables:
 - **🔄 Real-time collaboration** between multiple AI agents
 - **🌍 Distributed consensus** without central coordination
 - **⚡ Eventual consistency** with automatic conflict resolution
@@ -16,7 +16,7 @@ DevOps MCP's CRDT implementation enables:
 Perfect for metrics aggregation and vote counting.
 
 ```typescript
-import { GCounter, CRDTClient } from '@devops-mcp/crdt';
+import { GCounter, CRDTClient } from '@developer-mesh/crdt';
 
 class MetricsAggregator {
   private counter: GCounter;
@@ -89,7 +89,7 @@ For configuration management and state synchronization.
 package main
 
 import (
-    "github.com/S-Corkum/devops-mcp/pkg/crdt"
+    "github.com/S-Corkum/developer-mesh/pkg/crdt"
     "time"
 )
 
@@ -757,4 +757,4 @@ class CRDTDebugger {
 
 ---
 
-*For more advanced CRDT patterns and support, visit our [GitHub repository](https://github.com/S-Corkum/devops-mcp)*
+*For more advanced CRDT patterns and support, visit our [GitHub repository](https://github.com/S-Corkum/developer-mesh)*

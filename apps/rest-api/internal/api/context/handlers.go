@@ -6,11 +6,11 @@ import (
 	"strings"
 	"time"
 
-	"github.com/S-Corkum/devops-mcp/apps/rest-api/internal/core"
-	"github.com/S-Corkum/devops-mcp/apps/rest-api/internal/repository"
+	"github.com/developer-mesh/developer-mesh/apps/rest-api/internal/core"
+	"github.com/developer-mesh/developer-mesh/apps/rest-api/internal/repository"
 
-	"github.com/S-Corkum/devops-mcp/pkg/models"
-	"github.com/S-Corkum/devops-mcp/pkg/observability"
+	"github.com/developer-mesh/developer-mesh/pkg/models"
+	"github.com/developer-mesh/developer-mesh/pkg/observability"
 	"github.com/gin-gonic/gin"
 	"github.com/jmoiron/sqlx"
 )

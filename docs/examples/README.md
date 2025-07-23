@@ -1,13 +1,13 @@
-# DevOps MCP Usage Examples
+# Developer Mesh Usage Examples
 
-This directory contains practical examples demonstrating how to use the DevOps MCP platform in real-world scenarios. Each example includes code snippets, explanations, and step-by-step instructions.
+This directory contains practical examples demonstrating how to use the Developer Mesh platform in real-world scenarios. Each example includes code snippets, explanations, and step-by-step instructions.
 
 ## Available Examples
 
 ### Core Features
-- [AI Agent Integration](ai-agent-integration.md) - Integrate an AI agent with DevOps MCP
+- [AI Agent Integration](ai-agent-integration.md) - Integrate an AI agent with Developer Mesh
 - [Vector Search Implementation](vector-search-implementation.md) - Implement semantic search capabilities
-- [GitHub Integration](github-integration.md) - Use DevOps MCP to interact with GitHub
+- [GitHub Integration](github-integration.md) - Use Developer Mesh to interact with GitHub
 - [Custom Tool Integration](custom-tool-integration.md) - Add your own tool integrations
 
 ### Advanced Features

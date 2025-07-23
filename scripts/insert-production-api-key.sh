@@ -11,7 +11,7 @@ YELLOW='\033[0;33m'
 RED='\033[0;31m'
 NC='\033[0m' # No Color
 
-echo -e "${GREEN}DevOps MCP - Production API Key Insertion${NC}"
+echo -e "${GREEN}Developer Mesh - Production API Key Insertion${NC}"
 echo "=========================================="
 
 # Parse command line arguments

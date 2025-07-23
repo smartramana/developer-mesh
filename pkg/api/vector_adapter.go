@@ -5,8 +5,8 @@ import (
 	"time"
 
 	// Using pkg/database and adapting to the internal database models instead of importing them directly
-	pkgdb "github.com/S-Corkum/devops-mcp/pkg/database"
-	"github.com/S-Corkum/devops-mcp/pkg/observability"
+	pkgdb "github.com/developer-mesh/developer-mesh/pkg/database"
+	"github.com/developer-mesh/developer-mesh/pkg/observability"
 	"github.com/jmoiron/sqlx"
 )
 

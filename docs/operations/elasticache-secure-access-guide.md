@@ -4,7 +4,7 @@
 > **Purpose**: Comprehensive guide for secure ElastiCache access during development
 > **Focus**: SSH tunnel setup, security best practices, and troubleshooting
 
-This guide provides comprehensive instructions for configuring secure access to AWS ElastiCache Redis from a local development machine using the DevOps MCP platform's SSH tunnel approach.
+This guide provides comprehensive instructions for configuring secure access to AWS ElastiCache Redis from a local development machine using the Developer Mesh platform's SSH tunnel approach.
 
 ## Table of Contents
 1. [Quick Start](#quick-start)
@@ -27,7 +27,7 @@ This guide provides comprehensive instructions for configuring secure access to 
 
 ## Quick Start
 
-The DevOps MCP platform includes a ready-to-use SSH tunnel script:
+The Developer Mesh platform includes a ready-to-use SSH tunnel script:
 
 ```bash
 # 1. Ensure your .env file contains:
@@ -123,7 +123,7 @@ ElastiCache clusters run within a VPC and are not directly accessible from the i
 
 ## SSH Tunnel Setup
 
-The DevOps MCP platform uses SSH tunneling as the primary method for local ElastiCache access. This approach is secure, simple, and doesn't require VPN configuration.
+The Developer Mesh platform uses SSH tunneling as the primary method for local ElastiCache access. This approach is secure, simple, and doesn't require VPN configuration.
 
 ### Using the Platform's SSH Tunnel Script
 
@@ -197,8 +197,8 @@ After=network.target
 Type=simple
 User=your-username
 Environment="PATH=/usr/local/bin:/usr/bin:/bin"
-WorkingDirectory=/path/to/devops-mcp
-ExecStart=/path/to/devops-mcp/scripts/aws/connect-elasticache.sh
+WorkingDirectory=/path/to/developer-mesh
+ExecStart=/path/to/developer-mesh/scripts/aws/connect-elasticache.sh
 Restart=always
 RestartSec=10
 
@@ -367,7 +367,7 @@ aws elasticache modify-replication-group \
 
 ### Platform Configuration
 
-The DevOps MCP platform is pre-configured to work with ElastiCache through SSH tunnels. Here's how to set it up:
+The Developer Mesh platform is pre-configured to work with ElastiCache through SSH tunnels. Here's how to set it up:
 
 #### Step 1: Environment Configuration
 
@@ -715,7 +715,7 @@ While SSH tunnels are perfect for development, production environments should us
 
 ## Platform-Specific Notes
 
-The DevOps MCP platform is designed to work seamlessly with ElastiCache:
+The Developer Mesh platform is designed to work seamlessly with ElastiCache:
 
 - **Automatic failover** handling in `pkg/common/aws_clients.go`
 - **Connection pooling** for optimal performance
@@ -734,4 +734,4 @@ For platform-specific issues, check:
 - [VPC Security Best Practices](https://docs.aws.amazon.com/vpc/latest/userguide/vpc-security-best-practices.html)
 - [Redis Security Guide](https://redis.io/topics/security)
 - [AWS Well-Architected Framework - Security Pillar](https://docs.aws.amazon.com/wellarchitected/latest/security-pillar/welcome.html)
-- [DevOps MCP Production Deployment Guide](./production-deployment.md)
+- [Developer Mesh Production Deployment Guide](./production-deployment.md)

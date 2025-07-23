@@ -12,12 +12,12 @@ import (
 	"github.com/golang-jwt/jwt/v4"
 	"github.com/google/uuid"
 
-	"github.com/S-Corkum/devops-mcp/pkg/auth"
-	"github.com/S-Corkum/devops-mcp/pkg/common/cache"
-	ws "github.com/S-Corkum/devops-mcp/pkg/models/websocket"
-	"github.com/S-Corkum/devops-mcp/pkg/observability"
-	agentRepository "github.com/S-Corkum/devops-mcp/pkg/repository/agent"
-	"github.com/S-Corkum/devops-mcp/pkg/services"
+	"github.com/developer-mesh/developer-mesh/pkg/auth"
+	"github.com/developer-mesh/developer-mesh/pkg/common/cache"
+	ws "github.com/developer-mesh/developer-mesh/pkg/models/websocket"
+	"github.com/developer-mesh/developer-mesh/pkg/observability"
+	agentRepository "github.com/developer-mesh/developer-mesh/pkg/repository/agent"
+	"github.com/developer-mesh/developer-mesh/pkg/services"
 	"go.opentelemetry.io/otel/attribute"
 )
 

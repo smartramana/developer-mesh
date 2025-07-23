@@ -7,14 +7,14 @@ import (
 	"os"
 	"time"
 
-	contextAPI "github.com/S-Corkum/devops-mcp/pkg/api/context"
-	"github.com/S-Corkum/devops-mcp/pkg/config"
-	"github.com/S-Corkum/devops-mcp/pkg/core"
+	contextAPI "github.com/developer-mesh/developer-mesh/pkg/api/context"
+	"github.com/developer-mesh/developer-mesh/pkg/config"
+	"github.com/developer-mesh/developer-mesh/pkg/core"
 
 	// Keep internal/database for backward compatibility
-	"github.com/S-Corkum/devops-mcp/pkg/database"
-	"github.com/S-Corkum/devops-mcp/pkg/observability"
-	"github.com/S-Corkum/devops-mcp/pkg/repository"
+	"github.com/developer-mesh/developer-mesh/pkg/database"
+	"github.com/developer-mesh/developer-mesh/pkg/observability"
+	"github.com/developer-mesh/developer-mesh/pkg/repository"
 	"github.com/gin-gonic/gin"
 	"github.com/gorilla/mux"
 	"github.com/jmoiron/sqlx"

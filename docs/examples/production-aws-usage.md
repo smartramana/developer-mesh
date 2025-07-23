@@ -1,6 +1,6 @@
 # Production AWS Services Usage Examples
 
-This guide demonstrates how to use DevOps MCP with real AWS services in production.
+This guide demonstrates how to use Developer Mesh with real AWS services in production.
 
 ## Prerequisites
 
@@ -46,7 +46,7 @@ import (
     "context"
     "github.com/aws/aws-sdk-go-v2/config"
     "github.com/aws/aws-sdk-go-v2/service/s3"
-    "github.com/yourorg/devops-mcp/pkg/storage"
+    "github.com/yourorg/developer-mesh/pkg/storage"
 )
 
 func ExampleS3Storage() {
@@ -97,7 +97,7 @@ import (
     "encoding/json"
     "github.com/aws/aws-sdk-go-v2/config"
     "github.com/aws/aws-sdk-go-v2/service/sqs"
-    "github.com/yourorg/devops-mcp/pkg/queue"
+    "github.com/yourorg/developer-mesh/pkg/queue"
 )
 
 func ExampleSQSQueue() {
@@ -149,7 +149,7 @@ import (
     "encoding/json"
     "github.com/aws/aws-sdk-go-v2/config"
     "github.com/aws/aws-sdk-go-v2/service/bedrockruntime"
-    "github.com/yourorg/devops-mcp/pkg/embedding"
+    "github.com/yourorg/developer-mesh/pkg/embedding"
 )
 
 func ExampleBedrockEmbeddings() {
@@ -174,7 +174,7 @@ func ExampleBedrockEmbeddings() {
     })
     
     // Generate embeddings
-    text := "DevOps MCP is an AI agent orchestration platform"
+    text := "Developer Mesh is an AI agent orchestration platform"
     embeddings, err := embeddingService.GenerateEmbedding(ctx, text, "")
     if err != nil {
         panic(err)
@@ -204,7 +204,7 @@ package main
 import (
     "context"
     "github.com/redis/go-redis/v9"
-    "github.com/yourorg/devops-mcp/pkg/cache"
+    "github.com/yourorg/developer-mesh/pkg/cache"
 )
 
 func ExampleElastiCache() {

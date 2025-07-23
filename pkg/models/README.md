@@ -2,7 +2,7 @@
 
 ## Overview
 
-The `models` package contains all domain models for the DevOps MCP AI Agent Orchestration Platform. It provides type-safe data structures for multi-agent coordination and distributed task processing.
+The `models` package contains all domain models for the Developer Mesh AI Agent Orchestration Platform. It provides type-safe data structures for multi-agent coordination and distributed task processing.
 
 ## Core Domain Models
 

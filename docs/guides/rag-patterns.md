@@ -6,7 +6,7 @@
 
 ## Overview
 
-This guide documents proven patterns for implementing Retrieval-Augmented Generation (RAG) systems using the DevOps MCP platform. These patterns address common challenges and leverage MCP's multi-agent orchestration capabilities.
+This guide documents proven patterns for implementing Retrieval-Augmented Generation (RAG) systems using the Developer Mesh platform. These patterns address common challenges and leverage MCP's multi-agent orchestration capabilities.
 
 ## Core RAG Patterns
 

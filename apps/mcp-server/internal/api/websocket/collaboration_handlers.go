@@ -6,9 +6,9 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/S-Corkum/devops-mcp/pkg/auth"
-	"github.com/S-Corkum/devops-mcp/pkg/collaboration"
-	"github.com/S-Corkum/devops-mcp/pkg/models"
+	"github.com/developer-mesh/developer-mesh/pkg/auth"
+	"github.com/developer-mesh/developer-mesh/pkg/collaboration"
+	"github.com/developer-mesh/developer-mesh/pkg/models"
 	"github.com/google/uuid"
 )
 

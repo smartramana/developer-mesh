@@ -12,7 +12,7 @@ cd "$(dirname "$0")"
 PROJECT_ROOT=$(pwd)
 
 echo "==========================================================="
-echo "     DevOps MCP GitHub Integration Verification Script     "
+echo "     Developer Mesh GitHub Integration Verification Script     "
 echo "==========================================================="
 echo ""
 

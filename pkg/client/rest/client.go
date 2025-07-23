@@ -8,7 +8,7 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/S-Corkum/devops-mcp/pkg/observability"
+	"github.com/developer-mesh/developer-mesh/pkg/observability"
 )
 
 // RESTClient is a client for the REST API

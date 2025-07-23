@@ -1,15 +1,15 @@
 # REST API Reference
 
-Complete API reference for the DevOps MCP REST API service.
+Complete API reference for the Developer Mesh REST API service.
 
 ## Overview
 
-The REST API service provides comprehensive data management, AI agent orchestration, and search capabilities for the DevOps MCP platform. It serves as the HTTP gateway for AI agents, tool integrations, and multi-model embedding operations.
+The REST API service provides comprehensive data management, AI agent orchestration, and search capabilities for the Developer Mesh platform. It serves as the HTTP gateway for AI agents, tool integrations, and multi-model embedding operations.
 
 ### Base URL
 ```
-Production: https://api.devops-mcp.com/api/v1
-Staging:    https://staging-api.devops-mcp.com/api/v1
+Production: https://api.developer-mesh.com/api/v1
+Staging:    https://staging-api.developer-mesh.com/api/v1
 Local:      http://localhost:8081/api/v1
 ```
 
@@ -19,10 +19,10 @@ All API endpoints (except health checks) require authentication:
 
 ```bash
 # API Key Authentication
-curl -H "X-API-Key: your-api-key" https://api.devops-mcp.com/api/v1/contexts
+curl -H "X-API-Key: your-api-key" https://api.developer-mesh.com/api/v1/contexts
 
 # JWT Bearer Token
-curl -H "Authorization: Bearer eyJhbGc..." https://api.devops-mcp.com/api/v1/contexts
+curl -H "Authorization: Bearer eyJhbGc..." https://api.developer-mesh.com/api/v1/contexts
 ```
 
 ### Rate Limiting
@@ -727,7 +727,7 @@ POST /api/v1/models/compare
 
 ## Embedding Operations API
 
-The DevOps MCP provides a sophisticated multi-agent embedding system with intelligent routing, cross-model compatibility, and cost optimization.
+The Developer Mesh provides a sophisticated multi-agent embedding system with intelligent routing, cross-model compatibility, and cost optimization.
 
 ### Key Features
 
@@ -1563,11 +1563,11 @@ GET /api/v1/tasks/:id
 
 ### JavaScript/TypeScript
 ```typescript
-import { DevOpsMCPClient } from '@devops-mcp/rest-client';
+import { DevOpsMCPClient } from '@developer-mesh/rest-client';
 
 const client = new DevOpsMCPClient({
   apiKey: 'your-api-key',
-  baseURL: 'https://api.devops-mcp.com/api/v1'
+  baseURL: 'https://api.developer-mesh.com/api/v1'
 });
 
 // Register an agent
@@ -1604,7 +1604,7 @@ from devops_mcp import RestClient
 
 client = RestClient(
     api_key="your-api-key",
-    base_url="https://api.devops-mcp.com/api/v1"
+    base_url="https://api.developer-mesh.com/api/v1"
 )
 
 # Create context
@@ -1627,11 +1627,11 @@ result = client.tools.execute_action(
 
 ### Go
 ```go
-import "github.com/S-Corkum/devops-mcp/pkg/client/rest"
+import "github.com/S-Corkum/developer-mesh/pkg/client/rest"
 
 client := rest.NewClient(
     rest.WithAPIKey("your-api-key"),
-    rest.WithBaseURL("https://api.devops-mcp.com/api/v1"),
+    rest.WithBaseURL("https://api.developer-mesh.com/api/v1"),
 )
 
 // Create context
@@ -1721,4 +1721,4 @@ GET /api/v1/monitoring/dashboard
 
 ---
 
-*For more information, visit [docs.devops-mcp.com](https://docs.devops-mcp.com)*
+*For more information, visit [docs.developer-mesh.com](https://docs.developer-mesh.com)*

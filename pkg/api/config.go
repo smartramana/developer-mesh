@@ -3,8 +3,8 @@ package api
 import (
 	"time"
 
-	"github.com/S-Corkum/devops-mcp/pkg/interfaces"
-	securitytls "github.com/S-Corkum/devops-mcp/pkg/security/tls"
+	"github.com/developer-mesh/developer-mesh/pkg/interfaces"
+	securitytls "github.com/developer-mesh/developer-mesh/pkg/security/tls"
 )
 
 // Config holds configuration for the API server

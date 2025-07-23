@@ -1,6 +1,6 @@
 # Observability Architecture Guide
 
-> **Purpose**: Comprehensive guide to the DevOps MCP observability architecture
+> **Purpose**: Comprehensive guide to the Developer Mesh observability architecture
 > **Audience**: Platform engineers, SREs, and developers implementing monitoring
 > **Scope**: Metrics, logs, traces integration and best practices
 
@@ -21,7 +21,7 @@
 
 ## Overview
 
-The DevOps MCP platform implements a comprehensive observability architecture based on the three pillars: metrics, logs, and traces. This unified approach provides complete visibility into system behavior, performance, and issues.
+The Developer Mesh platform implements a comprehensive observability architecture based on the three pillars: metrics, logs, and traces. This unified approach provides complete visibility into system behavior, performance, and issues.
 
 ### Key Principles
 

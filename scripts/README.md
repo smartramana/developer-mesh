@@ -1,6 +1,6 @@
 # Scripts Directory
 
-This directory contains utility scripts, automation tools, and test helpers for the DevOps MCP project.
+This directory contains utility scripts, automation tools, and test helpers for the Developer Mesh project.
 
 ## Directory Structure
 

@@ -8,8 +8,8 @@ import (
 	"github.com/coder/websocket"
 	"github.com/stretchr/testify/mock"
 
-	ws "github.com/S-Corkum/devops-mcp/pkg/models/websocket"
-	"github.com/S-Corkum/devops-mcp/pkg/observability"
+	ws "github.com/developer-mesh/developer-mesh/pkg/models/websocket"
+	"github.com/developer-mesh/developer-mesh/pkg/observability"
 )
 
 // MockLogger implements observability.Logger for testing

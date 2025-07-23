@@ -9,8 +9,8 @@ import (
 	"github.com/coder/websocket"
 	"github.com/google/uuid"
 
-	"github.com/S-Corkum/devops-mcp/pkg/auth"
-	ws "github.com/S-Corkum/devops-mcp/pkg/models/websocket"
+	"github.com/developer-mesh/developer-mesh/pkg/auth"
+	ws "github.com/developer-mesh/developer-mesh/pkg/models/websocket"
 )
 
 // ConnectionState tracks additional connection state

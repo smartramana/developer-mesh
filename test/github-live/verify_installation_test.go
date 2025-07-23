@@ -9,9 +9,9 @@ import (
 	"strconv"
 	"testing"
 
-	adapterEvents "github.com/S-Corkum/devops-mcp/pkg/adapters/events"
-	"github.com/S-Corkum/devops-mcp/pkg/adapters/github"
-	"github.com/S-Corkum/devops-mcp/pkg/observability"
+	adapterEvents "github.com/developer-mesh/developer-mesh/pkg/adapters/events"
+	"github.com/developer-mesh/developer-mesh/pkg/adapters/github"
+	"github.com/developer-mesh/developer-mesh/pkg/observability"
 	"github.com/stretchr/testify/require"
 )
 
@@ -67,9 +67,9 @@ func TestVerifyInstallation(t *testing.T) {
 			owner string
 			repo  string
 		}{
-			{"S-Corkum", "devops-mcp"},
-			{"S-Corkum", "devops-mcp-test"},
-			{"S-Corkum-TEST", "devops-mcp-test"},
+			{"S-Corkum", "developer-mesh"},
+			{"S-Corkum", "developer-mesh-test"},
+			{"S-Corkum-TEST", "developer-mesh-test"},
 		}
 
 		foundRepo := false

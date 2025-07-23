@@ -6,7 +6,7 @@ import (
 	"sort"
 	"time"
 
-	"github.com/S-Corkum/devops-mcp/pkg/models"
+	"github.com/developer-mesh/developer-mesh/pkg/models"
 )
 
 // TruncationStrategy defines the strategy for truncating a context

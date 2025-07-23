@@ -26,7 +26,7 @@ MESSAGE_ID=$(aws sqs send-message \
     --message-body '{
         "event_type": "integration_test",
         "delivery_id": "test-'$(date +%s)'",
-        "repo_name": "devops-mcp",
+        "repo_name": "developer-mesh",
         "sender_name": "test-script",
         "payload": {"test": true, "timestamp": "'$(date -u +%Y-%m-%dT%H:%M:%SZ)'"}
     }' \

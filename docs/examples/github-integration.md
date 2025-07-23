@@ -1,10 +1,10 @@
 # GitHub Integration Guide
 
-This guide demonstrates how to leverage DevOps MCP's production-ready GitHub adapter for repository automation, webhook processing, and AI-powered workflows.
+This guide demonstrates how to leverage Developer Mesh's production-ready GitHub adapter for repository automation, webhook processing, and AI-powered workflows.
 
 ## Overview
 
-The DevOps MCP GitHub integration provides:
+The Developer Mesh GitHub integration provides:
 
 - **🔧 Comprehensive API Coverage**: Issues, PRs, branches, commits, workflows, and more
 - **📡 Real-time Webhooks**: Process GitHub events with automatic retry and idempotency
@@ -31,7 +31,7 @@ graph TB
 ## Prerequisites
 
 - GitHub personal access token or GitHub App installation
-- DevOps MCP deployment (Docker or Kubernetes)
+- Developer Mesh deployment (Docker or Kubernetes)
 - (Optional) AI service credentials for intelligent automation
 
 ## Quick Start
@@ -143,7 +143,7 @@ auth:
         """Create an issue with rich metadata"""
         
         # Format body with metadata
-        enriched_body = f"{body}\n\n---\n_Created via DevOps MCP at {datetime.utcnow().isoformat()}_"
+        enriched_body = f"{body}\n\n---\n_Created via Developer Mesh at {datetime.utcnow().isoformat()}_"
         
         result = await self.github.execute_tool("github.create_issue", {
             "repository": repo,
@@ -247,7 +247,7 @@ auth:
 - [ ] I have made corresponding changes to the documentation
 
 ---
-_Generated via DevOps MCP_
+_Generated via Developer Mesh_
 """
         return template.format(description=description)
     
@@ -434,7 +434,7 @@ class AutomatedWorkflows:
         
         ai_response = await self.ai.generate(prompt)
         
-        return f"{ai_response}\n\n---\n_Generated with AI assistance via DevOps MCP_"
+        return f"{ai_response}\n\n---\n_Generated with AI assistance via Developer Mesh_"
     
     def _sanitize_branch_name(self, name: str) -> str:
         """Sanitize branch name to be Git-compliant"""
@@ -526,7 +526,7 @@ async def main():
     
     # Fix a bug from issue
     result = await bug_fixer.fix_bug_from_issue(
-        repo="S-Corkum/devops-mcp",
+        repo="S-Corkum/developer-mesh",
         issue_number=42
     )
     
@@ -761,7 +761,7 @@ import asyncio
 from fastapi import FastAPI, Request, HTTPException
 from fastapi.responses import JSONResponse
 
-app = FastAPI(title="DevOps MCP GitHub Integration")
+app = FastAPI(title="Developer Mesh GitHub Integration")
 
 class GitHubIntegrationService:
     """Production GitHub integration service"""
@@ -1017,4 +1017,4 @@ async def health_check():
 
 ---
 
-*For support, join our [Discord community](https://discord.gg/devops-mcp) or open an issue on [GitHub](https://github.com/S-Corkum/devops-mcp)*
+*For support, join our [Discord community](https://discord.gg/developer-mesh) or open an issue on [GitHub](https://github.com/S-Corkum/developer-mesh)*

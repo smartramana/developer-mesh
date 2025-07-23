@@ -9,10 +9,10 @@ import (
 // @title MCP Server API
 // @version 1.0
 // @description Model Context Protocol (MCP) Server API for AI agents with advanced context management and DevOps tool integrations. Provides a RESTful interface for storing, retrieving, and manipulating conversation contexts, as well as interacting with DevOps tools such as GitHub.
-// @termsOfService https://github.com/S-Corkum/devops-mcp/blob/main/LICENSE
+// @termsOfService https://github.com/developer-mesh/developer-mesh/blob/main/LICENSE
 
 // @contact.name API Support
-// @contact.url https://github.com/S-Corkum/devops-mcp/issues
+// @contact.url https://github.com/developer-mesh/developer-mesh/issues
 // @contact.email support@example.com
 
 // @license.name MIT

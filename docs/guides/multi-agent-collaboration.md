@@ -3,15 +3,15 @@
 > **Purpose**: Conceptual guide for multi-agent coordination patterns
 > **Audience**: Engineers interested in collaborative AI system concepts
 > **Scope**: Theoretical patterns, future implementation ideas, architectural concepts
-> **Status**: CONCEPTUAL - These patterns are not yet implemented in DevOps MCP
+> **Status**: CONCEPTUAL - These patterns are not yet implemented in Developer Mesh
 
 ## Overview
 
-**IMPORTANT**: This document describes conceptual multi-agent collaboration patterns that are not currently implemented in the DevOps MCP platform. The actual implementation supports basic agent registration and simple task assignment strategies (round-robin, least-loaded, capability-match, performance-based, cost-optimized).
+**IMPORTANT**: This document describes conceptual multi-agent collaboration patterns that are not currently implemented in the Developer Mesh platform. The actual implementation supports basic agent registration and simple task assignment strategies (round-robin, least-loaded, capability-match, performance-based, cost-optimized).
 
 ### Current Implementation Status
 
-The DevOps MCP platform currently implements:
+The Developer Mesh platform currently implements:
 - Basic agent registration and management
 - Simple assignment strategies in `/pkg/services/assignment_engine.go`
 - CRDT for document collaboration (not agent coordination)
@@ -1192,7 +1192,7 @@ If these patterns were to be implemented:
 
 ## Current Alternative
 
-For actual multi-agent features in DevOps MCP:
+For actual multi-agent features in Developer Mesh:
 - Use the assignment engine strategies
 - Implement custom logic in task handlers
 - Use WebSocket for agent communication
@@ -1242,4 +1242,4 @@ For actual multi-agent features in DevOps MCP:
 
 ## Disclaimer
 
-This document describes theoretical multi-agent collaboration patterns that are not implemented in the current version of DevOps MCP. It serves as a reference for potential future development and should not be used as documentation of existing features.
+This document describes theoretical multi-agent collaboration patterns that are not implemented in the current version of Developer Mesh. It serves as a reference for potential future development and should not be used as documentation of existing features.

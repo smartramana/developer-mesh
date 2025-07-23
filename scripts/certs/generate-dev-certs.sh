@@ -1,5 +1,5 @@
 #!/bin/bash
-# Generate development TLS certificates for DevOps MCP
+# Generate development TLS certificates for Developer Mesh
 # These are self-signed certificates for development only!
 
 set -euo pipefail
@@ -17,9 +17,9 @@ KEY_SIZE=4096
 COUNTRY="US"
 STATE="Development"
 LOCALITY="DevCity"
-ORGANIZATION="DevOps MCP Development"
+ORGANIZATION="Developer Mesh Development"
 ORGANIZATIONAL_UNIT="Development"
-COMMON_NAME_CA="DevOps MCP Dev CA"
+COMMON_NAME_CA="Developer Mesh Dev CA"
 
 echo -e "${GREEN}🔐 Generating development TLS certificates...${NC}"
 
@@ -93,7 +93,7 @@ chmod 644 "$CERT_DIR/ca-cert.pem"
 generate_cert "server" "localhost" "DNS:localhost,DNS:*.localhost,DNS:127.0.0.1,DNS:host.docker.internal,DNS:mcp-server,DNS:rest-api,IP:127.0.0.1,IP:::1"
 
 # Generate client certificate for database connections
-generate_cert "client" "devops-mcp-client" "DNS:localhost,IP:127.0.0.1"
+generate_cert "client" "developer-mesh-client" "DNS:localhost,IP:127.0.0.1"
 
 # Generate certificate for Redis/ElastiCache connections
 # This is used when connecting through SSH tunnel
@@ -109,7 +109,7 @@ openssl pkcs12 -export \
     -inkey "$CERT_DIR/server-key.pem" \
     -in "$CERT_DIR/server-cert.pem" \
     -certfile "$CERT_DIR/ca-cert.pem" \
-    -passout pass:devops-mcp \
+    -passout pass:developer-mesh \
     2>/dev/null
 
 # Generate a truststore for Java applications
@@ -117,8 +117,8 @@ if command -v keytool &> /dev/null; then
     echo -e "${YELLOW}Creating Java truststore...${NC}"
     keytool -import -trustcacerts \
         -keystore "$CERT_DIR/truststore.jks" \
-        -storepass devops-mcp \
-        -alias devops-mcp-ca \
+        -storepass developer-mesh \
+        -alias developer-mesh-ca \
         -file "$CERT_DIR/ca-cert.pem" \
         -noprompt \
         2>/dev/null || true
@@ -156,7 +156,7 @@ export RDS_CA_CERT="$CERT_DIR/ca-cert.pem"
 
 # Java truststore (if needed)
 export TRUSTSTORE_PATH="$CERT_DIR/truststore.jks"
-export TRUSTSTORE_PASSWORD="devops-mcp"
+export TRUSTSTORE_PASSWORD="developer-mesh"
 EOF
 
 # Create .env additions file
@@ -200,9 +200,9 @@ echo "  - CA certificate: ca-cert.pem"
 echo "  - Server certificate: server-cert.pem, server-key.pem"
 echo "  - Client certificate: client-cert.pem, client-key.pem"
 echo "  - Redis certificate: redis-cert.pem, redis-key.pem"
-echo "  - PKCS12 bundle: server.p12 (password: devops-mcp)"
+echo "  - PKCS12 bundle: server.p12 (password: developer-mesh)"
 if [ -f "$CERT_DIR/truststore.jks" ]; then
-    echo "  - Java truststore: truststore.jks (password: devops-mcp)"
+    echo "  - Java truststore: truststore.jks (password: developer-mesh)"
 fi
 echo
 echo -e "${YELLOW}To use these certificates:${NC}"

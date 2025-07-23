@@ -1,6 +1,6 @@
 # TLS Certificate Management
 
-This directory contains scripts for managing TLS certificates in the DevOps MCP project.
+This directory contains scripts for managing TLS certificates in the Developer Mesh project.
 
 ## Development Certificates
 
@@ -103,17 +103,17 @@ Example cert-manager configuration:
 apiVersion: cert-manager.io/v1
 kind: Certificate
 metadata:
-  name: devops-mcp-tls
-  namespace: devops-mcp
+  name: developer-mesh-tls
+  namespace: developer-mesh
 spec:
-  secretName: devops-mcp-tls-secret
+  secretName: developer-mesh-tls-secret
   issuerRef:
     name: letsencrypt-prod
     kind: ClusterIssuer
-  commonName: api.devops-mcp.com
+  commonName: api.developer-mesh.com
   dnsNames:
-  - api.devops-mcp.com
-  - mcp.devops-mcp.com
+  - api.developer-mesh.com
+  - mcp.developer-mesh.com
 ```
 
 ## Security Notes

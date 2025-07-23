@@ -1,6 +1,6 @@
 # Docker Registry Publishing Guide
 
-This document describes how Docker images are built and published to GitHub Container Registry (ghcr.io) for the DevOps MCP project.
+This document describes how Docker images are built and published to GitHub Container Registry (ghcr.io) for the Developer Mesh project.
 
 ## Overview
 
@@ -9,20 +9,20 @@ The project automatically builds and publishes Docker images to GitHub Container
 ## Registry Information
 
 - **Registry**: `ghcr.io` (GitHub Container Registry)
-- **Image Namespace**: `ghcr.io/{github-username}/devops-mcp-{service}`
+- **Image Namespace**: `ghcr.io/{github-username}/developer-mesh-{service}`
 - **Services**: `mcp-server`, `rest-api`, `worker`, `mockserver`
 
 ## Image Naming Convention
 
 Images follow this naming pattern:
 ```
-ghcr.io/{github-username}/devops-mcp-{service}:{tag}
+ghcr.io/{github-username}/developer-mesh-{service}:{tag}
 ```
 
 Example:
 ```
-ghcr.io/s-corkum/devops-mcp-mcp-server:latest
-ghcr.io/s-corkum/devops-mcp-rest-api:v1.2.3
+ghcr.io/s-corkum/developer-mesh-mcp-server:latest
+ghcr.io/s-corkum/developer-mesh-rest-api:v1.2.3
 ```
 
 ## Tagging Strategy
@@ -47,17 +47,17 @@ The CI/CD pipeline automatically generates the following tags:
 
 ### Latest Stable Version
 ```bash
-docker pull ghcr.io/{github-username}/devops-mcp-mcp-server:latest
-docker pull ghcr.io/{github-username}/devops-mcp-rest-api:latest
-docker pull ghcr.io/{github-username}/devops-mcp-worker:latest
-docker pull ghcr.io/{github-username}/devops-mcp-mockserver:latest
+docker pull ghcr.io/{github-username}/developer-mesh-mcp-server:latest
+docker pull ghcr.io/{github-username}/developer-mesh-rest-api:latest
+docker pull ghcr.io/{github-username}/developer-mesh-worker:latest
+docker pull ghcr.io/{github-username}/developer-mesh-mockserver:latest
 ```
 
 ### Specific Version
 ```bash
-docker pull ghcr.io/{github-username}/devops-mcp-mcp-server:v1.2.3
-docker pull ghcr.io/{github-username}/devops-mcp-rest-api:v1.2.3
-docker pull ghcr.io/{github-username}/devops-mcp-worker:v1.2.3
+docker pull ghcr.io/{github-username}/developer-mesh-mcp-server:v1.2.3
+docker pull ghcr.io/{github-username}/developer-mesh-rest-api:v1.2.3
+docker pull ghcr.io/{github-username}/developer-mesh-worker:v1.2.3
 ```
 
 ### For ARM64 Architecture
@@ -78,15 +78,15 @@ Update your `docker-compose.yml` to use the published images:
 ```yaml
 services:
   mcp-server:
-    image: ghcr.io/{github-username}/devops-mcp-mcp-server:latest
+    image: ghcr.io/{github-username}/developer-mesh-mcp-server:latest
     # ... rest of configuration
 
   rest-api:
-    image: ghcr.io/{github-username}/devops-mcp-rest-api:latest
+    image: ghcr.io/{github-username}/developer-mesh-rest-api:latest
     # ... rest of configuration
 
   worker:
-    image: ghcr.io/{github-username}/devops-mcp-worker:latest
+    image: ghcr.io/{github-username}/developer-mesh-worker:latest
     # ... rest of configuration
 ```
 
@@ -101,7 +101,7 @@ All images include the following metadata:
 
 To inspect image metadata:
 ```bash
-docker inspect ghcr.io/{github-username}/devops-mcp-mcp-server:latest
+docker inspect ghcr.io/{github-username}/developer-mesh-mcp-server:latest
 ```
 
 ## Security Features
@@ -111,7 +111,7 @@ Image signing with Sigstore Cosign is temporarily disabled while we resolve GitH
 
 <!-- When re-enabled, verify signatures with:
 ```bash
-cosign verify ghcr.io/{github-username}/devops-mcp-mcp-server:latest
+cosign verify ghcr.io/{github-username}/developer-mesh-mcp-server:latest
 ```
 -->
 
@@ -151,14 +151,14 @@ If you get permission denied when pulling images, ensure:
 ### Wrong Architecture
 Docker should automatically select the correct architecture. To force a specific architecture:
 ```bash
-docker pull --platform linux/amd64 ghcr.io/{github-username}/devops-mcp-mcp-server:latest
+docker pull --platform linux/amd64 ghcr.io/{github-username}/developer-mesh-mcp-server:latest
 ```
 
 ### Old Image Versions
 To ensure you have the latest version:
 ```bash
-docker pull ghcr.io/{github-username}/devops-mcp-mcp-server:latest
-docker images | grep devops-mcp
+docker pull ghcr.io/{github-username}/developer-mesh-mcp-server:latest
+docker images | grep developer-mesh
 ```
 
 ## Best Practices
@@ -190,7 +190,7 @@ docker build \
   --build-arg VERSION=$(git describe --tags --always) \
   --build-arg COMMIT_SHA=$(git rev-parse HEAD) \
   --build-arg BUILD_DATE=$(date -u +"%Y-%m-%dT%H:%M:%SZ") \
-  -t devops-mcp-mcp-server:local \
+  -t developer-mesh-mcp-server:local \
   -f apps/mcp-server/Dockerfile .
 ```
 

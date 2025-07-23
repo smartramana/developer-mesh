@@ -1,6 +1,6 @@
 # Quick Start Guide
 
-Get DevOps MCP running locally in under 5 minutes.
+Get Developer Mesh running locally in under 5 minutes.
 
 ## Prerequisites
 
@@ -24,12 +24,12 @@ Choose one of the following options:
 
 ### Option A: Using Pre-built Images (Recommended) 🐳
 
-This is the fastest way to get started with DevOps MCP.
+This is the fastest way to get started with Developer Mesh.
 
 ```bash
 # Clone the repository for configuration files
-git clone https://github.com/S-Corkum/devops-mcp.git
-cd devops-mcp
+git clone https://github.com/S-Corkum/developer-mesh.git
+cd developer-mesh
 
 # Create environment file
 cp .env.example .env
@@ -58,8 +58,8 @@ For development or customization:
 
 ```bash
 # Clone the repository
-git clone https://github.com/S-Corkum/devops-mcp.git
-cd devops-mcp
+git clone https://github.com/S-Corkum/developer-mesh.git
+cd developer-mesh
 
 # Copy configuration template
 cp config.yaml.example config.yaml
@@ -177,7 +177,7 @@ curl -X POST http://localhost:8081/api/v1/contexts \
     "name": "My First Context",
     "type": "conversation",
     "metadata": {
-      "description": "Testing DevOps MCP"
+      "description": "Testing Developer Mesh"
     }
   }'
 
@@ -253,7 +253,7 @@ docker-compose -f docker-compose.prod.yml up -d
 ## 📁 Project Structure Overview
 
 ```
-devops-mcp/
+developer-mesh/
 ├── apps/               # Microservices (Go workspace modules)
 │   ├── mcp-server/     # MCP protocol implementation
 │   ├── rest-api/       # REST API endpoints  
@@ -433,7 +433,7 @@ aws sqs get-queue-attributes \
 
 ## 📚 Next Steps
 
-Now that you have DevOps MCP running:
+Now that you have Developer Mesh running:
 
 1. **Explore Examples**: Check out [integration examples](../examples/README.md)
 2. **Read Architecture**: Understand the [system design](../architecture/system-overview.md)
@@ -453,9 +453,9 @@ Now that you have DevOps MCP running:
 If you encounter issues:
 
 1. Check the [troubleshooting guide](../troubleshooting/)
-2. Search [GitHub Issues](https://github.com/S-Corkum/devops-mcp/issues)
-3. Ask in [Discussions](https://github.com/S-Corkum/devops-mcp/discussions)
+2. Search [GitHub Issues](https://github.com/S-Corkum/developer-mesh/issues)
+3. Ask in [Discussions](https://github.com/S-Corkum/developer-mesh/discussions)
 
 ---
 
-**Congratulations!** You now have a fully functional DevOps MCP development environment. 🎉
+**Congratulations!** You now have a fully functional Developer Mesh development environment. 🎉

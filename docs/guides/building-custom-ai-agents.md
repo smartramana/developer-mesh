@@ -6,7 +6,7 @@
 
 ## Overview
 
-This guide walks through the complete process of building custom AI agents for the DevOps MCP platform. You'll learn how to design, implement, test, and deploy agents that can leverage various AI models and collaborate with other agents.
+This guide walks through the complete process of building custom AI agents for the Developer Mesh platform. You'll learn how to design, implement, test, and deploy agents that can leverage various AI models and collaborate with other agents.
 
 ## Agent Architecture
 

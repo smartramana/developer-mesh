@@ -4,9 +4,9 @@ import (
 	"context"
 	"sync"
 
-	"github.com/S-Corkum/devops-mcp/pkg/events"
-	"github.com/S-Corkum/devops-mcp/pkg/interfaces"
-	"github.com/S-Corkum/devops-mcp/pkg/observability"
+	"github.com/developer-mesh/developer-mesh/pkg/events"
+	"github.com/developer-mesh/developer-mesh/pkg/interfaces"
+	"github.com/developer-mesh/developer-mesh/pkg/observability"
 )
 
 // AdapterEventBridge bridges adapter events to the main event bus

@@ -8,7 +8,7 @@ import (
 	"testing"
 	"time"
 
-	coremocks "github.com/S-Corkum/devops-mcp/apps/rest-api/internal/core/mocks"
+	coremocks "github.com/developer-mesh/developer-mesh/apps/rest-api/internal/core/mocks"
 
 	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/assert"

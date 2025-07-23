@@ -17,7 +17,7 @@ LOG_DIR="chaos-test-logs"
 HEALTH_CHECK_TIMEOUT=30
 RECOVERY_TIMEOUT=60
 
-echo "🌪️  DevOps MCP Chaos Testing Suite"
+echo "🌪️  Developer Mesh Chaos Testing Suite"
 echo "=================================="
 echo -e "${YELLOW}WARNING: This will intentionally break services!${NC}"
 echo "Press Ctrl+C to cancel, or wait 5 seconds to continue..."

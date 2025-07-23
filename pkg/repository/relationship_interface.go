@@ -3,7 +3,7 @@ package repository
 import (
 	"context"
 
-	"github.com/S-Corkum/devops-mcp/pkg/models"
+	"github.com/developer-mesh/developer-mesh/pkg/models"
 )
 
 // RelationshipRepositoryInterface defines the operations for managing entity relationships

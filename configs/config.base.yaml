@@ -3,7 +3,7 @@
 
 # Application metadata
 app:
-  name: "devops-mcp"
+  name: "developer-mesh"
   version: "${APP_VERSION:-1.0.0}"
 
 # API Server Configuration
@@ -80,7 +80,7 @@ auth:
     expiration: 24h
     refresh_enabled: true
     refresh_expiration: 7d
-    issuer: "devops-mcp"
+    issuer: "developer-mesh"
     
   # API Key Configuration
   api_keys:

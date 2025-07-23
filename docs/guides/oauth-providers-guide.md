@@ -7,7 +7,7 @@
 
 ## Overview
 
-This guide provides comprehensive instructions for implementing OAuth providers in the DevOps MCP platform. Currently, only the OAuth interface exists without concrete implementations. This guide covers implementing popular OAuth providers like Google, GitHub, Microsoft, and generic OIDC.
+This guide provides comprehensive instructions for implementing OAuth providers in the Developer Mesh platform. Currently, only the OAuth interface exists without concrete implementations. This guide covers implementing popular OAuth providers like Google, GitHub, Microsoft, and generic OIDC.
 
 ## Current State
 
@@ -46,8 +46,8 @@ import (
     "strings"
     "time"
     
-    "github.com/S-Corkum/devops-mcp/pkg/auth"
-    "github.com/S-Corkum/devops-mcp/pkg/observability"
+    "github.com/S-Corkum/developer-mesh/pkg/auth"
+    "github.com/S-Corkum/developer-mesh/pkg/observability"
 )
 
 type GoogleOAuthProvider struct {
@@ -625,7 +625,7 @@ const LoginPage: React.FC = () => {
     
     return (
         <div className="login-container">
-            <h1>Login to DevOps MCP</h1>
+            <h1>Login to Developer Mesh</h1>
             
             <button onClick={() => handleOAuthLogin('google')}>
                 Login with Google

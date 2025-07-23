@@ -2,9 +2,9 @@
 package adapters
 
 import (
-	"github.com/S-Corkum/devops-mcp/apps/rest-api/internal/repository"
+	"github.com/developer-mesh/developer-mesh/apps/rest-api/internal/repository"
 
-	corerepo "github.com/S-Corkum/devops-mcp/pkg/repository"
+	corerepo "github.com/developer-mesh/developer-mesh/pkg/repository"
 	"github.com/jmoiron/sqlx"
 )
 

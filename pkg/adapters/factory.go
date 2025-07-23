@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"sync"
 
-	"github.com/S-Corkum/devops-mcp/pkg/observability"
+	"github.com/developer-mesh/developer-mesh/pkg/observability"
 )
 
 // Factory creates adapters based on provider type

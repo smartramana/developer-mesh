@@ -40,7 +40,7 @@ version: '3.8'
 
 services:
   mcp-server:
-    image: ghcr.io/s-corkum/devops-mcp-mcp-server:${IMAGE_TAG:-latest}
+    image: ghcr.io/s-corkum/developer-mesh-mcp-server:${IMAGE_TAG:-latest}
     container_name: mcp-server
     restart: unless-stopped
     mem_limit: 200m
@@ -68,7 +68,7 @@ services:
       - mcp-network
 
   rest-api:
-    image: ghcr.io/s-corkum/devops-mcp-rest-api:${IMAGE_TAG:-latest}
+    image: ghcr.io/s-corkum/developer-mesh-rest-api:${IMAGE_TAG:-latest}
     container_name: rest-api
     restart: unless-stopped
     mem_limit: 200m
@@ -102,7 +102,7 @@ services:
       - mcp-network
 
   worker:
-    image: ghcr.io/s-corkum/devops-mcp-worker:${IMAGE_TAG:-latest}
+    image: ghcr.io/s-corkum/developer-mesh-worker:${IMAGE_TAG:-latest}
     container_name: worker
     restart: unless-stopped
     mem_limit: 200m
@@ -134,7 +134,7 @@ aws ssm send-command \
     --instance-ids "$INSTANCE_ID" \
     --document-name "AWS-RunShellScript" \
     --parameters "commands=[
-        'cd /home/ec2-user/devops-mcp',
+        'cd /home/ec2-user/developer-mesh',
         'cp docker-compose.yml docker-compose.yml.backup',
         'cat > docker-compose.yml << '\''COMPOSE_END'\''',
         '$(cat /tmp/docker-compose-fix.yml)',
@@ -157,7 +157,7 @@ aws ssm send-command \
     --instance-ids "$INSTANCE_ID" \
     --document-name "AWS-RunShellScript" \
     --parameters 'commands=[
-        "cd /home/ec2-user/devops-mcp",
+        "cd /home/ec2-user/developer-mesh",
         "echo \"Creating fallback config.yaml that imports production config...\"",
         "cat > configs/config.yaml << '\''EOF'\''",
         "# Fallback config that imports production config",
@@ -186,7 +186,7 @@ aws ssm send-command \
     --instance-ids "$INSTANCE_ID" \
     --document-name "AWS-RunShellScript" \
     --parameters 'commands=[
-        "cd /home/ec2-user/devops-mcp",
+        "cd /home/ec2-user/developer-mesh",
         "echo \"Updating .env file...\"",
         "# Remove old config path settings",
         "grep -v \"^MCP_CONFIG_FILE=\" .env > .env.tmp || true",
@@ -217,7 +217,7 @@ aws ssm send-command \
     --instance-ids "$INSTANCE_ID" \
     --document-name "AWS-RunShellScript" \
     --parameters 'commands=[
-        "cd /home/ec2-user/devops-mcp",
+        "cd /home/ec2-user/developer-mesh",
         "echo \"Stopping services...\"",
         "docker-compose down",
         "echo \"Starting services with fixed configuration...\"",
@@ -261,7 +261,7 @@ aws ssm send-command \
     --instance-ids "$INSTANCE_ID" \
     --document-name "AWS-RunShellScript" \
     --parameters 'commands=[
-        "cd /home/ec2-user/devops-mcp",
+        "cd /home/ec2-user/developer-mesh",
         "for container in mcp-server rest-api worker; do",
         "    echo \"--- $container logs (last 5 lines) ---\"",
         "    docker logs $container --tail 5 2>&1 || echo \"No logs available\"",

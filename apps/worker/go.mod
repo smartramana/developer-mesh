@@ -1,11 +1,11 @@
-module github.com/S-Corkum/devops-mcp/apps/worker
+module github.com/developer-mesh/developer-mesh/apps/worker
 
 go 1.24
 
-replace github.com/S-Corkum/devops-mcp/pkg => ../../pkg
+replace github.com/developer-mesh/developer-mesh/pkg => ../../pkg
 
 require (
-	github.com/S-Corkum/devops-mcp/pkg v0.0.0-00010101000000-000000000000
+	github.com/developer-mesh/developer-mesh/pkg v0.0.0-00010101000000-000000000000
 	github.com/aws/aws-sdk-go-v2 v1.36.5
 	github.com/aws/aws-sdk-go-v2/config v1.29.14
 	github.com/aws/aws-sdk-go-v2/service/sqs v1.38.6

@@ -13,7 +13,7 @@ import (
 
 	"functional-tests/shared"
 
-	ws "github.com/S-Corkum/devops-mcp/pkg/models/websocket"
+	ws "github.com/developer-mesh/developer-mesh/pkg/models/websocket"
 )
 
 var _ = Describe("WebSocket Session Management", func() {
@@ -87,7 +87,7 @@ var _ = Describe("WebSocket Session Management", func() {
 				Params: map[string]interface{}{
 					"session_id": sessionID,
 					"state": map[string]interface{}{
-						"current_project": "devops-mcp",
+						"current_project": "developer-mesh",
 						"active_files": []string{
 							"main.go",
 							"pkg/server/server.go",
@@ -127,7 +127,7 @@ var _ = Describe("WebSocket Session Management", func() {
 				Expect(result["session_id"]).To(Equal(sessionID))
 
 				if state, ok := result["state"].(map[string]interface{}); ok {
-					Expect(state["current_project"]).To(Equal("devops-mcp"))
+					Expect(state["current_project"]).To(Equal("developer-mesh"))
 					Expect(state["context_tokens"]).To(Equal(float64(1500)))
 
 					if files, ok := state["active_files"].([]interface{}); ok {

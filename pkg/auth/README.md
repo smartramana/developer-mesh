@@ -1,6 +1,6 @@
 # Auth Package
 
-The `auth` package provides centralized authentication and authorization services for the DevOps MCP platform.
+The `auth` package provides centralized authentication and authorization services for the Developer Mesh platform.
 
 ## Implementation Status
 
@@ -54,15 +54,15 @@ Manager (orchestrator)
 
 ```go
 import (
-    "github.com/S-Corkum/devops-mcp/pkg/auth"
-    "github.com/S-Corkum/devops-mcp/pkg/observability"
+    "github.com/S-Corkum/developer-mesh/pkg/auth"
+    "github.com/S-Corkum/developer-mesh/pkg/observability"
 )
 
 // Create auth manager with all providers
 config := &auth.Config{
     // JWT Configuration
     JWTSecret:    os.Getenv("JWT_SECRET"), // Required
-    JWTIssuer:    "devops-mcp",
+    JWTIssuer:    "developer-mesh",
     JWTExpiresIn: 15 * time.Minute,
     
     // API Key Configuration  
@@ -247,7 +247,7 @@ router.DELETE("/api/v1/users/:id", adminOnly, deleteUser)
 type Config struct {
     // JWT Settings
     JWTSecret    string        // Required: Min 32 bytes recommended
-    JWTIssuer    string        // Default: "devops-mcp"
+    JWTIssuer    string        // Default: "developer-mesh"
     JWTExpiresIn time.Duration // Default: 15 minutes
     
     // API Key Settings

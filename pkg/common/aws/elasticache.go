@@ -7,7 +7,7 @@ import (
 	"strings"
 	"time"
 
-	securitytls "github.com/S-Corkum/devops-mcp/pkg/security/tls"
+	securitytls "github.com/developer-mesh/developer-mesh/pkg/security/tls"
 )
 
 // ElastiCacheConfig holds configuration for ElastiCache

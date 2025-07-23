@@ -2,7 +2,7 @@ version: '3.8'
 
 services:
   mcp-server:
-    image: ghcr.io/s-corkum/devops-mcp-mcp-server:${IMAGE_TAG:-latest}
+    image: ghcr.io/s-corkum/developer-mesh-mcp-server:${IMAGE_TAG:-latest}
     container_name: mcp-server
     restart: unless-stopped
     mem_limit: 200m
@@ -30,7 +30,7 @@ services:
       - mcp-network
 
   rest-api:
-    image: ghcr.io/s-corkum/devops-mcp-rest-api:${IMAGE_TAG:-latest}
+    image: ghcr.io/s-corkum/developer-mesh-rest-api:${IMAGE_TAG:-latest}
     container_name: rest-api
     restart: unless-stopped
     mem_limit: 200m
@@ -63,7 +63,7 @@ services:
       - mcp-network
 
   worker:
-    image: ghcr.io/s-corkum/devops-mcp-worker:${IMAGE_TAG:-latest}
+    image: ghcr.io/s-corkum/developer-mesh-worker:${IMAGE_TAG:-latest}
     container_name: worker
     restart: unless-stopped
     mem_limit: 200m

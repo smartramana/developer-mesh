@@ -6,13 +6,13 @@ import (
 	"testing"
 	"time"
 
-	"github.com/S-Corkum/devops-mcp/test/e2e/agent"
-	"github.com/S-Corkum/devops-mcp/test/e2e/connection"
-	"github.com/S-Corkum/devops-mcp/test/e2e/data"
-	"github.com/S-Corkum/devops-mcp/test/e2e/reporting"
-	"github.com/S-Corkum/devops-mcp/test/e2e/utils"
+	"github.com/developer-mesh/developer-mesh/test/e2e/agent"
+	"github.com/developer-mesh/developer-mesh/test/e2e/connection"
+	"github.com/developer-mesh/developer-mesh/test/e2e/data"
+	"github.com/developer-mesh/developer-mesh/test/e2e/reporting"
+	"github.com/developer-mesh/developer-mesh/test/e2e/utils"
 
-	ws "github.com/S-Corkum/devops-mcp/pkg/models/websocket"
+	ws "github.com/developer-mesh/developer-mesh/pkg/models/websocket"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"

@@ -1,6 +1,6 @@
 # Configuration Guide
 
-This guide explains the DevOps MCP configuration system and best practices for managing configurations across different environments.
+This guide explains the Developer Mesh configuration system and best practices for managing configurations across different environments.
 
 ## Table of Contents
 
@@ -14,7 +14,7 @@ This guide explains the DevOps MCP configuration system and best practices for m
 
 ## Configuration Overview
 
-DevOps MCP uses a hierarchical configuration system that supports:
+Developer Mesh uses a hierarchical configuration system that supports:
 
 - **Base configuration** with sensible defaults
 - **Environment-specific overrides** (development, staging, production)
@@ -60,7 +60,7 @@ Optimized for local development:
 ```bash
 # Start with development config
 export ENVIRONMENT=development
-./devops-mcp server
+./developer-mesh server
 ```
 
 ### Staging Environment
@@ -77,7 +77,7 @@ Similar to production with relaxations:
 ```bash
 # Start with staging config
 export ENVIRONMENT=staging
-./devops-mcp server
+./developer-mesh server
 ```
 
 ### Production Environment
@@ -95,7 +95,7 @@ Hardened for production use:
 ```bash
 # Start with production config
 export ENVIRONMENT=production
-./devops-mcp server
+./developer-mesh server
 ```
 
 ### Test Environment
@@ -114,7 +114,7 @@ Optimized for automated testing:
 ### Using the Configuration Loader
 
 ```go
-import "github.com/S-Corkum/devops-mcp/pkg/config"
+import "github.com/S-Corkum/developer-mesh/pkg/config"
 
 // Load configuration
 loader, err := config.LoadConfig("./configs", "production")
@@ -230,7 +230,7 @@ security:
   secrets:
     provider: "aws-secrets-manager"
     aws_region: "${AWS_REGION}"
-    key_prefix: "devops-mcp/"
+    key_prefix: "developer-mesh/"
 ```
 
 ### 3. Rotate Secrets Regularly
@@ -238,7 +238,7 @@ security:
 ```bash
 # Rotate JWT secret
 aws secretsmanager put-secret-value \
-  --secret-id devops-mcp/jwt-secret \
+  --secret-id developer-mesh/jwt-secret \
   --secret-string "$(openssl rand -base64 32)"
 ```
 
@@ -433,7 +433,7 @@ When deploying with pre-built Docker images from GitHub Container Registry:
 # docker-compose.prod.yml
 services:
   mcp-server:
-    image: ghcr.io/${GITHUB_USERNAME}/devops-mcp-mcp-server:${VERSION:-latest}
+    image: ghcr.io/${GITHUB_USERNAME}/developer-mesh-mcp-server:${VERSION:-latest}
     environment:
       MCP_CONFIG_FILE: /app/configs/config.docker.yaml
       DATABASE_HOST: database
@@ -573,11 +573,11 @@ If migrating from the old configuration format:
 4. **Update deployment scripts**
    ```bash
    # Old
-   ./devops-mcp --config config.yaml
+   ./developer-mesh --config config.yaml
    
    # New
    export ENVIRONMENT=production
-   ./devops-mcp server
+   ./developer-mesh server
    ```
 
 ### Configuration Validation
@@ -633,10 +633,10 @@ monitoring:
 export LOG_LEVEL=debug
 
 # Show loaded configuration
-./devops-mcp config show
+./developer-mesh config show
 
 # Validate configuration
-./devops-mcp config validate
+./developer-mesh config validate
 ```
 
 ## Performance Configuration
@@ -679,7 +679,7 @@ performance:
 
 ### Caching Configuration (Actual Implementation)
 
-DevOps MCP implements multi-level caching with L1 (in-memory) and L2 (Redis):
+Developer Mesh implements multi-level caching with L1 (in-memory) and L2 (Redis):
 
 ```yaml
 cache:

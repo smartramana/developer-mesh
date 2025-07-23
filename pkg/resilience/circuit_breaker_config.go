@@ -3,7 +3,7 @@ package resilience
 import (
 	"time"
 
-	"github.com/S-Corkum/devops-mcp/pkg/observability"
+	"github.com/developer-mesh/developer-mesh/pkg/observability"
 )
 
 // CircuitBreakerServiceConfig defines circuit breaker configuration for a specific service

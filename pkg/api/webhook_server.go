@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"net/http"
 
-	"github.com/S-Corkum/devops-mcp/pkg/api/webhooks"
+	"github.com/developer-mesh/developer-mesh/pkg/api/webhooks"
 	"github.com/gorilla/mux"
 )
 

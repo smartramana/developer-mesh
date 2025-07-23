@@ -6,9 +6,9 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/S-Corkum/devops-mcp/pkg/api/responses"
-	"github.com/S-Corkum/devops-mcp/pkg/models"
-	"github.com/S-Corkum/devops-mcp/pkg/models/relationship"
+	"github.com/developer-mesh/developer-mesh/pkg/api/responses"
+	"github.com/developer-mesh/developer-mesh/pkg/models"
+	"github.com/developer-mesh/developer-mesh/pkg/models/relationship"
 	"github.com/gorilla/mux"
 )
 

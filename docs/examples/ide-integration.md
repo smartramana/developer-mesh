@@ -1,10 +1,10 @@
-# IDE Integration with DevOps MCP
+# IDE Integration with Developer Mesh
 
-This guide demonstrates how modern IDEs like Windsurf and Cursor can integrate with the DevOps MCP platform to enhance developer productivity by providing seamless access to DevOps tools directly from the coding environment.
+This guide demonstrates how modern IDEs like Windsurf and Cursor can integrate with the Developer Mesh platform to enhance developer productivity by providing seamless access to DevOps tools directly from the coding environment.
 
 ## Overview
 
-Modern AI-powered IDEs can leverage the DevOps MCP protocol to:
+Modern AI-powered IDEs can leverage the Developer Mesh protocol to:
 
 1. Perform DevOps operations without leaving the editor
 2. Get contextual information about repositories, CI/CD pipelines, and deployments
@@ -23,7 +23,7 @@ There are two primary approaches to IDE integration:
 Here's how Windsurf or Cursor could implement an MCP integration:
 
 ```javascript
-// IDE extension for DevOps MCP integration
+// IDE extension for Developer Mesh integration
 class MCPIntegration {
   constructor(apiKey, mcpUrl) {
     this.apiKey = apiKey;
@@ -125,7 +125,7 @@ async function activateExtension(context) {
   const mcpUrl = config.get('serverUrl');
   
   if (!apiKey) {
-    showNotification('DevOps MCP API key not configured');
+    showNotification('Developer Mesh API key not configured');
     return;
   }
   
@@ -134,7 +134,7 @@ async function activateExtension(context) {
   const initialized = await mcpClient.initialize();
   
   if (!initialized) {
-    showNotification('Failed to connect to DevOps MCP server');
+    showNotification('Failed to connect to Developer Mesh server');
     return;
   }
   
@@ -145,7 +145,7 @@ async function activateExtension(context) {
   
   // Add status bar items
   const statusBarItem = createStatusBarItem();
-  statusBarItem.text = 'DevOps MCP: Connected';
+  statusBarItem.text = 'Developer Mesh: Connected';
   statusBarItem.show();
   
   // Set up event handlers
@@ -271,7 +271,7 @@ export function activate(context: vscode.ExtensionContext) {
     vscode.commands.registerCommand('devopsMcp.openPanel', () => {
       const panel = vscode.window.createWebviewPanel(
         'devopsMcpPanel',
-        'DevOps MCP',
+        'Developer Mesh',
         vscode.ViewColumn.Beside,
         {}
       );
@@ -318,10 +318,10 @@ export function activate(context: vscode.ExtensionContext) {
   mcpClient.initialize().then(success => {
     if (success) {
       statusBarItem.text = '$(check) MCP';
-      vscode.window.showInformationMessage('Connected to DevOps MCP server');
+      vscode.window.showInformationMessage('Connected to Developer Mesh server');
     } else {
       statusBarItem.text = '$(error) MCP';
-      vscode.window.showErrorMessage('Failed to connect to DevOps MCP server');
+      vscode.window.showErrorMessage('Failed to connect to Developer Mesh server');
     }
   });
 }
@@ -655,9 +655,9 @@ IDE extensions should provide these configuration options:
 
 ## Getting Started
 
-To integrate your IDE with DevOps MCP:
+To integrate your IDE with Developer Mesh:
 
-1. **Set up the DevOps MCP server** following the [quick start guide](../getting-started/quick-start-guide.md)
+1. **Set up the Developer Mesh server** following the [quick start guide](../getting-started/quick-start-guide.md)
 2. **Generate an API key** for your IDE integration
 3. **Install or build the extension** for your target IDE
 4. **Configure the extension** with your MCP server URL and API key
@@ -665,6 +665,6 @@ To integrate your IDE with DevOps MCP:
 
 ## Conclusion
 
-By integrating DevOps MCP with modern IDEs like Windsurf and Cursor, developers gain seamless access to DevOps tools and contextual information without leaving their coding environment. This integration is particularly powerful for AI-assisted coding, as it enables the AI to incorporate DevOps context into its suggestions and automate routine DevOps tasks.
+By integrating Developer Mesh with modern IDEs like Windsurf and Cursor, developers gain seamless access to DevOps tools and contextual information without leaving their coding environment. This integration is particularly powerful for AI-assisted coding, as it enables the AI to incorporate DevOps context into its suggestions and automate routine DevOps tasks.
 
-The adapter pattern used throughout the DevOps MCP codebase makes it especially well-suited for IDE integration, as it provides a consistent interface that abstracts away the complexities of individual DevOps tools.
+The adapter pattern used throughout the Developer Mesh codebase makes it especially well-suited for IDE integration, as it provides a consistent interface that abstracts away the complexities of individual DevOps tools.

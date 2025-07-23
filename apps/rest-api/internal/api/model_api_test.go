@@ -8,10 +8,10 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	api "github.com/S-Corkum/devops-mcp/apps/rest-api/internal/api"
-	"github.com/S-Corkum/devops-mcp/apps/rest-api/internal/repository"
+	api "github.com/developer-mesh/developer-mesh/apps/rest-api/internal/api"
+	"github.com/developer-mesh/developer-mesh/apps/rest-api/internal/repository"
 
-	"github.com/S-Corkum/devops-mcp/pkg/models"
+	"github.com/developer-mesh/developer-mesh/pkg/models"
 	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"

@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/S-Corkum/devops-mcp/pkg/observability"
+	"github.com/developer-mesh/developer-mesh/pkg/observability"
 )
 
 // Manager manages the lifecycle of adapters

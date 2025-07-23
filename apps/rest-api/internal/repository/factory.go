@@ -6,8 +6,8 @@ import (
 	"database/sql"
 	"strings"
 
-	"github.com/S-Corkum/devops-mcp/pkg/models"
-	pkgrepo "github.com/S-Corkum/devops-mcp/pkg/repository"
+	"github.com/developer-mesh/developer-mesh/pkg/models"
+	pkgrepo "github.com/developer-mesh/developer-mesh/pkg/repository"
 )
 
 // NewAgentRepository creates a new agent repository using the adapter pattern

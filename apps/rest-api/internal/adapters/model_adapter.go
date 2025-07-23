@@ -4,8 +4,8 @@ package adapters
 import (
 	"context"
 
-	"github.com/S-Corkum/devops-mcp/pkg/models"
-	"github.com/S-Corkum/devops-mcp/pkg/repository"
+	"github.com/developer-mesh/developer-mesh/pkg/models"
+	"github.com/developer-mesh/developer-mesh/pkg/repository"
 )
 
 // ModelAdapter implements the legacy ModelRepository interface

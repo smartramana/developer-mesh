@@ -1,11 +1,11 @@
-module github.com/S-Corkum/devops-mcp/test/github-live
+module github.com/developer-mesh/developer-mesh/test/github-live
 
 go 1.24
 
 toolchain go1.24.2
 
 require (
-	github.com/S-Corkum/devops-mcp v0.0.0
+	github.com/developer-mesh/developer-mesh v0.0.0
 	github.com/stretchr/testify v1.10.0
 )
 
@@ -49,4 +49,4 @@ require (
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 )
 
-replace github.com/S-Corkum/devops-mcp => ../..
+replace github.com/developer-mesh/developer-mesh => ../..

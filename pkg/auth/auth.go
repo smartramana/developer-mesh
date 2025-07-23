@@ -1,4 +1,4 @@
-// Package auth provides centralized authentication and authorization for the DevOps MCP platform
+// Package auth provides centralized authentication and authorization for the Developer Mesh platform
 package auth
 
 import (
@@ -12,8 +12,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/S-Corkum/devops-mcp/pkg/common/cache"
-	"github.com/S-Corkum/devops-mcp/pkg/observability"
+	"github.com/developer-mesh/developer-mesh/pkg/common/cache"
+	"github.com/developer-mesh/developer-mesh/pkg/observability"
 	"github.com/golang-jwt/jwt/v4"
 	"github.com/jmoiron/sqlx"
 	"github.com/lib/pq"

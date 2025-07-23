@@ -1,7 +1,7 @@
 # Cross-Service Tracing Guide
 
 > **Purpose**: Comprehensive guide for implementing and maintaining trace propagation across distributed services
-> **Audience**: Backend developers and platform engineers working with the DevOps MCP microservices
+> **Audience**: Backend developers and platform engineers working with the Developer Mesh microservices
 > **Scope**: Trace context propagation, service boundaries, and distributed debugging patterns
 
 ## Table of Contents
@@ -19,7 +19,7 @@
 
 ## Overview
 
-Cross-service tracing enables end-to-end visibility across distributed systems by propagating trace context through service boundaries. This is essential for debugging complex interactions in the DevOps MCP platform.
+Cross-service tracing enables end-to-end visibility across distributed systems by propagating trace context through service boundaries. This is essential for debugging complex interactions in the Developer Mesh platform.
 
 ### Key Benefits
 
@@ -33,7 +33,7 @@ Cross-service tracing enables end-to-end visibility across distributed systems b
 
 ### W3C Trace Context Standard
 
-DevOps MCP uses the W3C Trace Context standard for propagation:
+Developer Mesh uses the W3C Trace Context standard for propagation:
 
 ```
 traceparent: 00-4bf92f3577b34da6a3ce929d0e0e4736-00f067aa0ba902b7-01

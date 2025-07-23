@@ -41,7 +41,7 @@ jobs:
           #!/bin/bash
           set -e
           
-          cd /home/ec2-user/devops-mcp
+          cd /home/ec2-user/developer-mesh
           
           # Create .env file
           cat > .env << 'ENVEOF'
@@ -96,7 +96,7 @@ jobs:
           aws ssm send-command \
             --instance-ids "${{ env.INSTANCE_ID }}" \
             --document-name "AWS-RunShellScript" \
-            --parameters 'commands=["cat > /home/ec2-user/devops-mcp/.env << '\''EOF'\''
+            --parameters 'commands=["cat > /home/ec2-user/developer-mesh/.env << '\''EOF'\''
 # Database
 DATABASE_HOST=${{ secrets.DATABASE_HOST }}
 DATABASE_PORT=5432
@@ -134,7 +134,7 @@ EOF"]' \
             --instance-ids "${{ env.INSTANCE_ID }}" \
             --document-name "AWS-RunShellScript" \
             --parameters 'commands=[
-              "cd /home/ec2-user/devops-mcp",
+              "cd /home/ec2-user/developer-mesh",
               "echo ${{ github.token }} | docker login ghcr.io -u ${{ github.actor }} --password-stdin",
               "docker-compose pull",
               "docker-compose down",

@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# This script runs key tests for the DevOps MCP Server
+# This script runs key tests for the Developer Mesh Server
 # focusing on core functionality
 
 set -e  # Exit on error

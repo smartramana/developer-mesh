@@ -111,7 +111,7 @@ jobs:
         id: meta
         uses: docker/metadata-action@v5
         with:
-          images: ${{ env.DOCKER_REGISTRY }}/${{ env.DOCKER_IMAGE_PREFIX }}/devops-mcp-${{ matrix.app }}
+          images: ${{ env.DOCKER_REGISTRY }}/${{ env.DOCKER_IMAGE_PREFIX }}/developer-mesh-${{ matrix.app }}
           tags: |
             type=raw,value=latest
             type=sha,prefix=main-

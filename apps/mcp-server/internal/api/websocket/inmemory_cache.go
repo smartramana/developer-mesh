@@ -5,7 +5,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/S-Corkum/devops-mcp/pkg/common/cache"
+	"github.com/developer-mesh/developer-mesh/pkg/common/cache"
 )
 
 // InMemoryCache provides a simple in-memory cache implementation

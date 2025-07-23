@@ -4,9 +4,9 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/S-Corkum/devops-mcp/pkg/adapters"
-	"github.com/S-Corkum/devops-mcp/pkg/adapters/events"
-	"github.com/S-Corkum/devops-mcp/pkg/observability"
+	"github.com/developer-mesh/developer-mesh/pkg/adapters"
+	"github.com/developer-mesh/developer-mesh/pkg/adapters/events"
+	"github.com/developer-mesh/developer-mesh/pkg/observability"
 )
 
 // Register registers the GitHub adapter with the factory

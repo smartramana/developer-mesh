@@ -3,9 +3,9 @@ package websocket
 import (
 	"context"
 
-	"github.com/S-Corkum/devops-mcp/apps/mcp-server/internal/core"
+	"github.com/developer-mesh/developer-mesh/apps/mcp-server/internal/core"
 
-	"github.com/S-Corkum/devops-mcp/pkg/models"
+	"github.com/developer-mesh/developer-mesh/pkg/models"
 )
 
 // contextManagerAdapter adapts core.ContextManagerInterface to websocket.ContextManager

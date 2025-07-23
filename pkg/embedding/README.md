@@ -2,7 +2,7 @@
 
 ## Overview
 
-The `embedding` package provides a sophisticated, production-ready system for generating, storing, and searching vector embeddings in the DevOps MCP platform. It supports multiple AI providers, intelligent routing, cost optimization, and fault tolerance with enterprise-grade features for multi-agent orchestration.
+The `embedding` package provides a sophisticated, production-ready system for generating, storing, and searching vector embeddings in the Developer Mesh platform. It supports multiple AI providers, intelligent routing, cost optimization, and fault tolerance with enterprise-grade features for multi-agent orchestration.
 
 ## Architecture
 
@@ -192,7 +192,7 @@ pipeline := embedding.NewPipeline(
 // Process GitHub issue
 err := pipeline.ProcessIssue(ctx, &IssueRequest{
     Owner: "S-Corkum",
-    Repo: "devops-mcp",
+    Repo: "developer-mesh",
     Number: 123,
 })
 

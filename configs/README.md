@@ -1,6 +1,6 @@
-# DevOps MCP Configuration
+# Developer Mesh Configuration
 
-This directory contains the configuration files for the DevOps MCP platform following industry best practices.
+This directory contains the configuration files for the Developer Mesh platform following industry best practices.
 
 ## Configuration Structure
 
@@ -42,7 +42,7 @@ configs/
    ```bash
    # Ensure PostgreSQL and Redis are running locally
    make local-native
-   # Or directly: ./devops-mcp server
+   # Or directly: ./developer-mesh server
    ```
    This uses localhost connections from your .env file
 
@@ -147,10 +147,10 @@ All configuration values can be overridden via environment variables:
 
 ```bash
 # Check which config file is being used
-./devops-mcp config show
+./developer-mesh config show
 
 # Validate configuration
-./devops-mcp config validate
+./developer-mesh config validate
 ```
 
 ### Environment Variables Not Working

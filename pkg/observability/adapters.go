@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"time"
 
-	commonLogging "github.com/S-Corkum/devops-mcp/pkg/common/logging"
+	commonLogging "github.com/developer-mesh/developer-mesh/pkg/common/logging"
 )
 
 // LoggingAdapter adapts from common/logging.Logger to observability.Logger

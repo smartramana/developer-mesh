@@ -18,7 +18,7 @@ import (
 	// This aligns with our forward-only migration strategy
 	"functional-tests/client"
 
-	"github.com/S-Corkum/devops-mcp/pkg/models"
+	"github.com/developer-mesh/developer-mesh/pkg/models"
 )
 
 // Import variables from the suite

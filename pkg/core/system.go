@@ -3,7 +3,7 @@ package core
 import (
 	"context"
 
-	"github.com/S-Corkum/devops-mcp/pkg/events/system"
+	"github.com/developer-mesh/developer-mesh/pkg/events/system"
 )
 
 // SystemEventBus implements the system.EventBus interface

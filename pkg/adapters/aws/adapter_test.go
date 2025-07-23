@@ -4,8 +4,8 @@ import (
 	"context"
 	"testing"
 
-	commonaws "github.com/S-Corkum/devops-mcp/pkg/common/aws"
-	"github.com/S-Corkum/devops-mcp/pkg/feature"
+	commonaws "github.com/developer-mesh/developer-mesh/pkg/common/aws"
+	"github.com/developer-mesh/developer-mesh/pkg/feature"
 )
 
 // MockAWSClient is a mock implementation of the common AWS client interface

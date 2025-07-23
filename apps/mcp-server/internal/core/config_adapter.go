@@ -1,8 +1,8 @@
 package core
 
 import (
-	"github.com/S-Corkum/devops-mcp/pkg/common/aws"
-	commonconfig "github.com/S-Corkum/devops-mcp/pkg/common/config"
+	"github.com/developer-mesh/developer-mesh/pkg/common/aws"
+	commonconfig "github.com/developer-mesh/developer-mesh/pkg/common/config"
 )
 
 // ConfigAdapter adapts commonconfig.Config to implement CoreConfig interface

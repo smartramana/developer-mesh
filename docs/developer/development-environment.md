@@ -1,6 +1,6 @@
 # Development Environment Setup
 
-This guide provides a comprehensive setup for developing on the DevOps MCP AI Agent Orchestration Platform.
+This guide provides a comprehensive setup for developing on the Developer Mesh AI Agent Orchestration Platform.
 
 ## Prerequisites
 
@@ -27,8 +27,8 @@ This guide provides a comprehensive setup for developing on the DevOps MCP AI Ag
 
 ```bash
 # Clone the repository
-git clone https://github.com/S-Corkum/devops-mcp.git
-cd devops-mcp
+git clone https://github.com/S-Corkum/developer-mesh.git
+cd developer-mesh
 
 # Setup environment
 cp .env.example .env
@@ -49,8 +49,8 @@ make test-coverage  # Should be >85%
 
 ```bash
 # Clone and setup
-git clone https://github.com/S-Corkum/devops-mcp.git
-cd devops-mcp
+git clone https://github.com/S-Corkum/developer-mesh.git
+cd developer-mesh
 
 # Setup with Docker
 make dev  # Starts all services in Docker
@@ -66,8 +66,8 @@ curl http://localhost:8081/health  # REST API
 
 ```bash
 # Clone with submodules if any
-git clone --recursive https://github.com/S-Corkum/devops-mcp.git
-cd devops-mcp
+git clone --recursive https://github.com/S-Corkum/developer-mesh.git
+cd developer-mesh
 
 # Setup git hooks
 cp scripts/hooks/* .git/hooks/
@@ -258,7 +258,7 @@ make dev-native  # Runs all services
 ## Project Structure
 
 ```
-devops-mcp/
+developer-mesh/
 ├── apps/                    # Application modules
 │   ├── mcp-server/         # MCP protocol server
 │   │   ├── cmd/            # Entry points
@@ -556,12 +556,12 @@ GITHUB_USERNAME=your-github-username ./scripts/pull-images.sh v1.2.3
 docker run -it --rm \
   -e DATABASE_URL=postgres://dev:dev@host.docker.internal:5432/dev \
   -p 8080:8080 \
-  ghcr.io/${GITHUB_USERNAME}/devops-mcp-mcp-server:latest
+  ghcr.io/${GITHUB_USERNAME}/developer-mesh-mcp-server:latest
 
 # Override configuration
 docker run -it --rm \
   -v $(pwd)/config.yaml:/app/config.yaml \
-  ghcr.io/${GITHUB_USERNAME}/devops-mcp-rest-api:latest
+  ghcr.io/${GITHUB_USERNAME}/developer-mesh-rest-api:latest
 ```
 
 #### Building Images Locally
@@ -578,7 +578,7 @@ docker build \
   --build-arg VERSION=$(git describe --tags --always) \
   --build-arg COMMIT_SHA=$(git rev-parse HEAD) \
   --build-arg BUILD_DATE=$(date -u +"%Y-%m-%dT%H:%M:%SZ") \
-  -t devops-mcp-local:dev \
+  -t developer-mesh-local:dev \
   -f apps/mcp-server/Dockerfile .
 ```
 

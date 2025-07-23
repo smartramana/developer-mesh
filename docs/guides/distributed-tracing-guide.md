@@ -1,6 +1,6 @@
 # Distributed Tracing Guide
 
-> **Purpose**: Complete guide for implementing and using distributed tracing in the DevOps MCP platform
+> **Purpose**: Complete guide for implementing and using distributed tracing in the Developer Mesh platform
 > **Audience**: Developers and SREs implementing observability and debugging distributed systems
 > **Scope**: OpenTelemetry setup, trace analysis, debugging patterns, and production best practices
 
@@ -19,7 +19,7 @@
 
 ## Overview
 
-Distributed tracing provides end-to-end visibility into request flows across all services in the DevOps MCP platform, enabling debugging of complex multi-service interactions, performance bottlenecks, and error propagation.
+Distributed tracing provides end-to-end visibility into request flows across all services in the Developer Mesh platform, enabling debugging of complex multi-service interactions, performance bottlenecks, and error propagation.
 
 ### Why Distributed Tracing?
 
@@ -157,7 +157,7 @@ func InitTracing(cfg TracingConfig) (*trace.TracerProvider, error) {
             semconv.ServiceNameKey.String(cfg.ServiceName),
             semconv.ServiceVersionKey.String(cfg.ServiceVersion),
             semconv.DeploymentEnvironmentKey.String(cfg.Environment),
-            attribute.String("service.namespace", "devops-mcp"),
+            attribute.String("service.namespace", "developer-mesh"),
         ),
     )
     if err != nil {

@@ -1,6 +1,6 @@
 # Cost Management Guide
 
-> **Purpose**: Comprehensive guide for managing and controlling costs in the DevOps MCP platform
+> **Purpose**: Comprehensive guide for managing and controlling costs in the Developer Mesh platform
 > **Audience**: Platform operators, finance teams, and developers concerned with cost optimization
 > **Scope**: Cost tracking, limits, monitoring, and optimization strategies
 
@@ -19,7 +19,7 @@
 
 ## Overview
 
-The DevOps MCP platform implements comprehensive cost controls to prevent unexpected charges and optimize resource usage. Key features include:
+The Developer Mesh platform implements comprehensive cost controls to prevent unexpected charges and optimize resource usage. Key features include:
 
 - **Real-time cost tracking** for AI model usage
 - **Session and global cost limits** with automatic cutoffs

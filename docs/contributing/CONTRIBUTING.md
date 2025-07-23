@@ -1,6 +1,6 @@
-# Contributing to DevOps MCP
+# Contributing to Developer Mesh
 
-Thank you for your interest in contributing to DevOps MCP! This document provides guidelines for contributing to the project.
+Thank you for your interest in contributing to Developer Mesh! This document provides guidelines for contributing to the project.
 
 ## 📋 Table of Contents
 
@@ -40,11 +40,11 @@ Harassment, offensive behavior, or discrimination of any kind will not be tolera
 1. **Fork and Clone**
    ```bash
    # Fork the repository on GitHub, then:
-   git clone https://github.com/YOUR-USERNAME/devops-mcp.git
-   cd devops-mcp
+   git clone https://github.com/YOUR-USERNAME/developer-mesh.git
+   cd developer-mesh
    
    # Add upstream remote
-   git remote add upstream https://github.com/S-Corkum/devops-mcp.git
+   git remote add upstream https://github.com/S-Corkum/developer-mesh.git
    ```
 
 2. **Create a Feature Branch**
@@ -223,7 +223,7 @@ golangci-lint run --fix
 ### Project Structure
 
 ```
-devops-mcp/
+developer-mesh/
 ├── apps/                    # Application modules (Go workspace)
 │   ├── mcp-server/         # MCP protocol server
 │   │   ├── cmd/            # Entry points
@@ -372,10 +372,10 @@ Check issues labeled `enhancement` for feature ideas:
 
 ### Current Priorities
 
-See our [project board](https://github.com/S-Corkum/devops-mcp/projects) for current priorities and roadmap.
+See our [project board](https://github.com/S-Corkum/developer-mesh/projects) for current priorities and roadmap.
 
 ## 🙏 Thank You!
 
-Your contributions make DevOps MCP better for everyone. We appreciate your time and effort!
+Your contributions make Developer Mesh better for everyone. We appreciate your time and effort!
 
 For any questions not covered here, please open an issue or start a discussion.

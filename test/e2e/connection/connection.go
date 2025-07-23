@@ -13,7 +13,7 @@ import (
 	"github.com/coder/websocket/wsjson"
 	"github.com/google/uuid"
 
-	ws "github.com/S-Corkum/devops-mcp/pkg/models/websocket"
+	ws "github.com/developer-mesh/developer-mesh/pkg/models/websocket"
 )
 
 // ConnectionConfig holds connection configuration

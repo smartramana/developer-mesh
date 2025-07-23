@@ -1,8 +1,8 @@
-# DevOps MCP System Architecture
+# Developer Mesh System Architecture
 
 ## Overview
 
-DevOps MCP is an AI Agent Orchestration Platform that enables intelligent routing and coordination of multiple AI agents for DevOps workflows. Built using Go workspaces for modularity, it provides sophisticated multi-agent orchestration, real-time collaboration features, and production-ready AWS integrations.
+Developer Mesh is an AI Agent Orchestration Platform that enables intelligent routing and coordination of multiple AI agents for DevOps workflows. Built using Go workspaces for modularity, it provides sophisticated multi-agent orchestration, real-time collaboration features, and production-ready AWS integrations.
 
 ## Architecture Principles
 

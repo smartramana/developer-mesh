@@ -8,8 +8,8 @@ import (
 	"testing"
 	"time"
 
-	_ "github.com/S-Corkum/devops-mcp/test/e2e/scenarios"
-	"github.com/S-Corkum/devops-mcp/test/e2e/utils"
+	_ "github.com/developer-mesh/developer-mesh/test/e2e/scenarios"
+	"github.com/developer-mesh/developer-mesh/test/e2e/utils"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -32,7 +32,7 @@ func TestE2E(t *testing.T) {
 	// Configure reporter
 	reporterConfig.Verbose = *debug
 
-	RunSpecs(t, "DevOps MCP E2E Test Suite", suiteConfig, reporterConfig)
+	RunSpecs(t, "Developer Mesh E2E Test Suite", suiteConfig, reporterConfig)
 }
 
 func init() {

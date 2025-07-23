@@ -6,9 +6,9 @@ import (
 	"fmt"
 	"log"
 
-	"github.com/S-Corkum/devops-mcp/pkg/common/aws"
-	"github.com/S-Corkum/devops-mcp/pkg/database/migration"
-	"github.com/S-Corkum/devops-mcp/pkg/models"
+	"github.com/developer-mesh/developer-mesh/pkg/common/aws"
+	"github.com/developer-mesh/developer-mesh/pkg/database/migration"
+	"github.com/developer-mesh/developer-mesh/pkg/models"
 	"github.com/jmoiron/sqlx"
 )
 

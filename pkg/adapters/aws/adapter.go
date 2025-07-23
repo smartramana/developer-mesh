@@ -5,8 +5,8 @@ package aws
 import (
 	"context"
 
-	commonaws "github.com/S-Corkum/devops-mcp/pkg/common/aws"
-	"github.com/S-Corkum/devops-mcp/pkg/feature"
+	commonaws "github.com/developer-mesh/developer-mesh/pkg/common/aws"
+	"github.com/developer-mesh/developer-mesh/pkg/feature"
 	"github.com/aws/aws-sdk-go-v2/config"
 )
 

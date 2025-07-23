@@ -86,7 +86,7 @@ fi
 # Get RDS password from Parameter Store if needed
 if [ -z "$DATABASE_PASSWORD" ] || [ "$DATABASE_PASSWORD" == "postgres" ]; then
     echo "Retrieving database password from Parameter Store..."
-    DB_PASSWORD=$(aws ssm get-parameter --name "/devops-mcp/rds/password" --with-decryption --query 'Parameter.Value' --output text --region us-east-1 2>/dev/null || echo "")
+    DB_PASSWORD=$(aws ssm get-parameter --name "/developer-mesh/rds/password" --with-decryption --query 'Parameter.Value' --output text --region us-east-1 2>/dev/null || echo "")
     if [ -n "$DB_PASSWORD" ]; then
         export DATABASE_PASSWORD="$DB_PASSWORD"
         export DB_PASSWORD="$DB_PASSWORD"

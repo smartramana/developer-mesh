@@ -1,10 +1,10 @@
-# DevOps MCP Makefile
+# Developer Mesh Makefile
 # Run 'make help' to see all available commands
 
 .DEFAULT_GOAL := help
 .PHONY: help
 help: ## Show this help message
-	@echo "DevOps MCP - Available Commands"
+	@echo "Developer Mesh - Available Commands"
 	@echo "==============================="
 	@echo ""
 	@echo "Common workflows:"

@@ -8,8 +8,8 @@ import (
 	"sync"
 	"time"
 
-	ws "github.com/S-Corkum/devops-mcp/pkg/models/websocket"
-	"github.com/S-Corkum/devops-mcp/pkg/observability"
+	ws "github.com/developer-mesh/developer-mesh/pkg/models/websocket"
+	"github.com/developer-mesh/developer-mesh/pkg/observability"
 )
 
 // BatchProcessor handles message batching for improved throughput

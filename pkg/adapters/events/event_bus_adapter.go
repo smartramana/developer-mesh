@@ -3,7 +3,7 @@ package events
 import (
 	"context"
 
-	"github.com/S-Corkum/devops-mcp/pkg/events"
+	"github.com/developer-mesh/developer-mesh/pkg/events"
 )
 
 // EventBusAdapter adapts between different event bus implementations

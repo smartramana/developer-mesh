@@ -268,7 +268,7 @@ security:
   secrets:
     provider: "${SECRETS_PROVIDER:-aws-secrets-manager}"
     aws_region: "${AWS_REGION}"
-    key_prefix: "${SECRETS_PREFIX:-devops-mcp/}"
+    key_prefix: "${SECRETS_PREFIX:-developer-mesh/}"
     
   # Network policies
   network:

@@ -12,7 +12,7 @@ Add IMAGE_TAG export before docker-compose commands:
       --instance-ids "${{ steps.get-instance.outputs.instance_id }}" \
       --document-name "AWS-RunShellScript" \
       --parameters 'commands=[
-        "cd /home/ec2-user/devops-mcp",
+        "cd /home/ec2-user/developer-mesh",
         "export IMAGE_TAG=main-${{ steps.short-sha.outputs.short_sha }}",
         "docker-compose -f docker-compose.production.yml pull",
         "docker-compose -f docker-compose.production.yml up -d"
@@ -82,12 +82,12 @@ Add a step to deploy all config files:
       --instance-ids "${{ steps.get-instance.outputs.instance_id }}" \
       --document-name "AWS-RunShellScript" \
       --parameters 'commands=[
-        "cd /home/ec2-user/devops-mcp",
+        "cd /home/ec2-user/developer-mesh",
         "mkdir -p configs",
-        "curl -s https://raw.githubusercontent.com/S-Corkum/devops-mcp/${{ github.sha }}/configs/config.base.yaml > configs/config.base.yaml",
-        "curl -s https://raw.githubusercontent.com/S-Corkum/devops-mcp/${{ github.sha }}/configs/config.production.yaml > configs/config.production.yaml",
-        "curl -s https://raw.githubusercontent.com/S-Corkum/devops-mcp/${{ github.sha }}/configs/auth.production.yaml > configs/auth.production.yaml",
-        "curl -s https://raw.githubusercontent.com/S-Corkum/devops-mcp/${{ github.sha }}/docker-compose.production.yml > docker-compose.production.yml",
+        "curl -s https://raw.githubusercontent.com/S-Corkum/developer-mesh/${{ github.sha }}/configs/config.base.yaml > configs/config.base.yaml",
+        "curl -s https://raw.githubusercontent.com/S-Corkum/developer-mesh/${{ github.sha }}/configs/config.production.yaml > configs/config.production.yaml",
+        "curl -s https://raw.githubusercontent.com/S-Corkum/developer-mesh/${{ github.sha }}/configs/auth.production.yaml > configs/auth.production.yaml",
+        "curl -s https://raw.githubusercontent.com/S-Corkum/developer-mesh/${{ github.sha }}/docker-compose.production.yml > docker-compose.production.yml",
         "chown -R ec2-user:ec2-user configs",
         "echo \"Configuration files deployed successfully\""
       ]'
@@ -110,7 +110,7 @@ Add a final step to verify deployment:
       --instance-ids "${{ steps.get-instance.outputs.instance_id }}" \
       --document-name "AWS-RunShellScript" \
       --parameters 'commands=[
-        "cd /home/ec2-user/devops-mcp",
+        "cd /home/ec2-user/developer-mesh",
         "echo \"Checking service health...\"",
         "sleep 30",
         "curl -f http://localhost:8080/health || exit 1",

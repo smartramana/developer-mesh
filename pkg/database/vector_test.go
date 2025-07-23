@@ -6,8 +6,8 @@ import (
 	"time"
 
 	"github.com/DATA-DOG/go-sqlmock"
-	commonConfig "github.com/S-Corkum/devops-mcp/pkg/common/config"
-	"github.com/S-Corkum/devops-mcp/pkg/observability"
+	commonConfig "github.com/developer-mesh/developer-mesh/pkg/common/config"
+	"github.com/developer-mesh/developer-mesh/pkg/observability"
 	"github.com/jmoiron/sqlx"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"

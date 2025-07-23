@@ -2,7 +2,7 @@
 
 ## Overview
 
-The Worker Module provides a standardized way to process SQS events within the devops-mcp system. This package has been fully migrated as part of the Go Workspace migration and follows the forward-only migration approach.
+The Worker Module provides a standardized way to process SQS events within the developer-mesh system. This package has been fully migrated as part of the Go Workspace migration and follows the forward-only migration approach.
 
 ## Key Components
 
@@ -48,8 +48,8 @@ import (
 	"log"
 	"time"
 
-	"github.com/S-Corkum/devops-mcp/pkg/queue"
-	"github.com/S-Corkum/devops-mcp/pkg/worker"
+	"github.com/S-Corkum/developer-mesh/pkg/queue"
+	"github.com/S-Corkum/developer-mesh/pkg/worker"
 	"github.com/go-redis/redis/v8"
 )
 
@@ -120,7 +120,7 @@ The worker module has been fully migrated from internal implementations to the p
 
 ## Best Practices
 
-1. **Always use pkg implementations**: Import and use `github.com/S-Corkum/devops-mcp/pkg/worker` and `github.com/S-Corkum/devops-mcp/pkg/queue`
+1. **Always use pkg implementations**: Import and use `github.com/S-Corkum/developer-mesh/pkg/worker` and `github.com/S-Corkum/developer-mesh/pkg/queue`
 2. **Idempotent Processing**: Always implement idempotent event processing to prevent duplicate processing
 3. **Error Handling**: Return errors from `ProcessSQSEvent` to trigger SQS retries, or nil to acknowledge successful processing
 4. **Observability**: Use the logger with appropriate context to ensure proper monitoring and debugging

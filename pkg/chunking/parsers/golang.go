@@ -12,7 +12,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/S-Corkum/devops-mcp/pkg/chunking"
+	"github.com/developer-mesh/developer-mesh/pkg/chunking"
 )
 
 // GoParser is a parser for Go code

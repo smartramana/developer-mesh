@@ -28,7 +28,7 @@ FIX_SCRIPT='#!/bin/bash
 set -e
 
 echo "Running on EC2 instance..."
-cd /home/ec2-user/devops-mcp
+cd /home/ec2-user/developer-mesh
 
 # Source the .env file to get database credentials
 if [ -f .env ]; then

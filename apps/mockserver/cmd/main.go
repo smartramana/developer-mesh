@@ -11,7 +11,7 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/S-Corkum/devops-mcp/apps/mockserver/internal/handlers"
+	"github.com/developer-mesh/developer-mesh/apps/mockserver/internal/handlers"
 )
 
 func main() {

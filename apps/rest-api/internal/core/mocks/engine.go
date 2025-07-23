@@ -2,8 +2,8 @@
 package mocks
 
 import (
-	"github.com/S-Corkum/devops-mcp/apps/rest-api/internal/core"
-	"github.com/S-Corkum/devops-mcp/apps/rest-api/internal/repository"
+	"github.com/developer-mesh/developer-mesh/apps/rest-api/internal/core"
+	"github.com/developer-mesh/developer-mesh/apps/rest-api/internal/repository"
 
 	"github.com/stretchr/testify/mock"
 )

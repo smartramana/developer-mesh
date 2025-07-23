@@ -7,7 +7,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/S-Corkum/devops-mcp/pkg/storage"
+	"github.com/developer-mesh/developer-mesh/pkg/storage"
 	"github.com/jmoiron/sqlx"
 )
 

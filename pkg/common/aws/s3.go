@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 
-	storage "github.com/S-Corkum/devops-mcp/pkg/storage"
+	storage "github.com/developer-mesh/developer-mesh/pkg/storage"
 )
 
 // S3Config is now an alias for storage.S3Config; see storage package for definition.

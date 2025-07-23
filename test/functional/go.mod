@@ -3,7 +3,7 @@ module functional-tests
 go 1.24
 
 require (
-	github.com/S-Corkum/devops-mcp/pkg v0.0.0-20250630205011-78836993db88
+	github.com/developer-mesh/developer-mesh/pkg v0.0.0-20250630205011-78836993db88
 	github.com/aws/aws-sdk-go-v2 v1.36.5
 	github.com/aws/aws-sdk-go-v2/config v1.29.14
 	github.com/aws/aws-sdk-go-v2/service/sqs v1.38.6
@@ -67,6 +67,6 @@ require (
 )
 
 replace (
-	github.com/S-Corkum/devops-mcp => ../..
-	github.com/S-Corkum/devops-mcp/test/functional/client => ./client
+	github.com/developer-mesh/developer-mesh => ../..
+	github.com/developer-mesh/developer-mesh/test/functional/client => ./client
 )

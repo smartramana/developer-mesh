@@ -3,7 +3,7 @@ package api_test
 import (
 	"context"
 
-	"github.com/S-Corkum/devops-mcp/pkg/repository/vector"
+	"github.com/developer-mesh/developer-mesh/pkg/repository/vector"
 	"github.com/stretchr/testify/mock"
 )
 

@@ -1,4 +1,4 @@
-module github.com/S-Corkum/devops-mcp/pkg
+module github.com/developer-mesh/developer-mesh/pkg
 
 go 1.24
 

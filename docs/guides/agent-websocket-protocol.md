@@ -6,7 +6,7 @@
 
 ## Overview
 
-The DevOps MCP platform uses a high-performance WebSocket protocol for real-time communication between AI agents and the orchestration server. The protocol supports both JSON and binary formats, with automatic compression and efficient message routing.
+The Developer Mesh platform uses a high-performance WebSocket protocol for real-time communication between AI agents and the orchestration server. The protocol supports both JSON and binary formats, with automatic compression and efficient message routing.
 
 ## Protocol Architecture
 

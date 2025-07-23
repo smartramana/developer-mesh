@@ -1,6 +1,6 @@
 # Repository Package
 
-> **Purpose**: Data access layer with repository pattern implementation for the DevOps MCP platform
+> **Purpose**: Data access layer with repository pattern implementation for the Developer Mesh platform
 > **Status**: Modular Architecture with Subpackages
 > **Dependencies**: PostgreSQL, sqlx, database/sql
 
@@ -55,7 +55,7 @@ Each subpackage contains:
 ```go
 import (
     "database/sql"
-    "github.com/S-Corkum/devops-mcp/pkg/repository"
+    "github.com/S-Corkum/developer-mesh/pkg/repository"
 )
 
 // Create a factory with an existing database connection
@@ -88,9 +88,9 @@ searchRepo := factory.GetSearchRepository()     // Returns search.Repository
 ```go
 import (
     "github.com/jmoiron/sqlx"
-    "github.com/S-Corkum/devops-mcp/pkg/repository/agent"
-    "github.com/S-Corkum/devops-mcp/pkg/repository/model"
-    "github.com/S-Corkum/devops-mcp/pkg/repository/vector"
+    "github.com/S-Corkum/developer-mesh/pkg/repository/agent"
+    "github.com/S-Corkum/developer-mesh/pkg/repository/model"
+    "github.com/S-Corkum/developer-mesh/pkg/repository/vector"
 )
 
 // Create database connection
@@ -232,8 +232,8 @@ Each subpackage provides mock implementations:
 ```go
 import (
     "testing"
-    "github.com/S-Corkum/devops-mcp/pkg/repository"
-    "github.com/S-Corkum/devops-mcp/pkg/repository/agent"
+    "github.com/S-Corkum/developer-mesh/pkg/repository"
+    "github.com/S-Corkum/developer-mesh/pkg/repository/agent"
 )
 
 func TestWithFactory(t *testing.T) {

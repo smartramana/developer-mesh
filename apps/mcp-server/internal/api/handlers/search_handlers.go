@@ -6,7 +6,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/S-Corkum/devops-mcp/pkg/embedding"
+	"github.com/developer-mesh/developer-mesh/pkg/embedding"
 	"github.com/gin-gonic/gin"
 )
 

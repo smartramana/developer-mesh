@@ -1,6 +1,6 @@
 # Test Suite Documentation
 
-This document describes the test setup and common patterns for the DevOps MCP project.
+This document describes the test setup and common patterns for the Developer Mesh project.
 
 ## Test Structure
 

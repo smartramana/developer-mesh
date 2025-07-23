@@ -1,10 +1,10 @@
 # AI Agent Integration
 
-This guide demonstrates how to integrate AI agents (LLMs, assistants, copilots) with the DevOps MCP platform to enable intelligent DevOps automation.
+This guide demonstrates how to integrate AI agents (LLMs, assistants, copilots) with the Developer Mesh platform to enable intelligent DevOps automation.
 
 ## Overview
 
-The DevOps MCP platform provides a production-ready interface for AI agents to:
+The Developer Mesh platform provides a production-ready interface for AI agents to:
 
 - **🧠 Context Management**: Store and retrieve conversation history with vector embeddings
 - **🔍 Semantic Search**: Find relevant information across all stored contexts
@@ -655,7 +655,7 @@ async def main():
     # Process messages
     response1 = await assistant.process_message(
         session_id,
-        "Hi, I need help with my GitHub project devops-mcp"
+        "Hi, I need help with my GitHub project developer-mesh"
     )
     print(f"Assistant: {response1['content']}")
     
@@ -679,13 +679,13 @@ asyncio.run(main())
 
 **Example Output:**
 ```
-Assistant: Hello! I'd be happy to help with your devops-mcp GitHub project. This looks like an interesting DevOps tool integration platform. What would you like to do?
+Assistant: Hello! I'd be happy to help with your developer-mesh GitHub project. This looks like an interesting DevOps tool integration platform. What would you like to do?
 
-Assistant: I'll search for TODO comments in your devops-mcp repository.
-Tool Results: [{'tool': 'search_github_code', 'args': {'query': 'TODO', 'repo': 'S-Corkum/devops-mcp'}, 'result': [...]}]
+Assistant: I'll search for TODO comments in your developer-mesh repository.
+Tool Results: [{'tool': 'search_github_code', 'args': {'query': 'TODO', 'repo': 'S-Corkum/developer-mesh'}, 'result': [...]}]
 
 Assistant: I've created an issue to track the TODO items we found in your codebase.
-Created Issue: https://github.com/S-Corkum/devops-mcp/issues/42
+Created Issue: https://github.com/S-Corkum/developer-mesh/issues/42
 ```
 
 ## Advanced Integrations
@@ -698,7 +698,7 @@ from typing import List, Dict, Any
 import asyncio
 
 class MCPOpenAIAssistant:
-    """OpenAI Assistant with DevOps MCP integration"""
+    """OpenAI Assistant with Developer Mesh integration"""
     
     def __init__(self, mcp_client: MCPClient, openai_key: str):
         self.mcp = mcp_client
@@ -726,7 +726,7 @@ class MCPOpenAIAssistant:
         
         # Create assistant
         self.assistant = self.client.beta.assistants.create(
-            name="DevOps MCP Assistant",
+            name="Developer Mesh Assistant",
             instructions="""You are a DevOps assistant powered by MCP.
             You have access to various DevOps tools including GitHub, Kubernetes, AWS, and more.
             Always provide clear explanations of what you're doing.
@@ -849,7 +849,7 @@ class MCPOpenAIAssistant:
 from anthropic import Anthropic
 
 class MCPClaudeAssistant:
-    """Claude assistant with DevOps MCP integration"""
+    """Claude assistant with Developer Mesh integration"""
     
     def __init__(self, mcp_client: MCPClient, anthropic_key: str):
         self.mcp = mcp_client
@@ -1017,4 +1017,4 @@ class MonitoredAssistant(DevOpsAIAssistant):
 
 ---
 
-*For questions and support, please open an issue on [GitHub](https://github.com/S-Corkum/devops-mcp)*
+*For questions and support, please open an issue on [GitHub](https://github.com/S-Corkum/developer-mesh)*

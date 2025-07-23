@@ -1,6 +1,6 @@
 # Functional Tests
 
-This directory contains functional tests for the DevOps MCP platform.
+This directory contains functional tests for the Developer Mesh platform.
 
 ## Setup
 

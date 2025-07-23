@@ -1,6 +1,6 @@
 # Agents Package
 
-> **Purpose**: Agent configuration and preferences management for the DevOps MCP platform
+> **Purpose**: Agent configuration and preferences management for the Developer Mesh platform
 > **Status**: Basic Implementation
 > **Dependencies**: Database models, configuration management
 
@@ -235,7 +235,7 @@ func (h *Handler) HandleAgentRegister(ctx context.Context, conn *websocket.Conn,
     return h.sendResponse(conn, "initialized", InitializedResponse{
         ProtocolVersion: "2024-11-05",
         ServerInfo: ServerInfo{
-            Name:    "devops-mcp",
+            Name:    "developer-mesh",
             Version: "1.0.0",
         },
     })

@@ -1,10 +1,10 @@
 package tools
 
 import (
-	githubtools "github.com/S-Corkum/devops-mcp/apps/mcp-server/internal/api/tools/github"
+	githubtools "github.com/developer-mesh/developer-mesh/apps/mcp-server/internal/api/tools/github"
 
-	"github.com/S-Corkum/devops-mcp/pkg/adapters/github"
-	"github.com/S-Corkum/devops-mcp/pkg/observability"
+	"github.com/developer-mesh/developer-mesh/pkg/adapters/github"
+	"github.com/developer-mesh/developer-mesh/pkg/observability"
 	"github.com/gin-gonic/gin"
 )
 

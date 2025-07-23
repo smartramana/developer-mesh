@@ -2,7 +2,7 @@
 
 ## Overview
 
-The `core` package implements the central engine for the DevOps MCP platform. It orchestrates context management, GitHub integration, and adapter coordination. The package provides the foundation for AI-powered DevOps automation with conversation context awareness.
+The `core` package implements the central engine for the Developer Mesh platform. It orchestrates context management, GitHub integration, and adapter coordination. The package provides the foundation for AI-powered DevOps automation with conversation context awareness.
 
 **Implementation Status**: The core engine provides basic orchestration. Many features shown in the examples (like `ExecuteWithContext`, `ProcessGitHubContent`) are documented but not implemented in the current codebase.
 
@@ -67,7 +67,7 @@ context, err := contextManager.CreateContext(ctx, &models.MCPContext{
     Content: "Planning production deployment...",
     Type:    "conversation",
     Metadata: map[string]interface{}{
-        "project": "devops-mcp",
+        "project": "developer-mesh",
         "phase":   "planning",
     },
 })
@@ -242,7 +242,7 @@ embeddings, err := embeddingManager.ProcessCodeChunks(ctx, &CodeChunkRequest{
 // Process GitHub issues
 embeddings, err := embeddingManager.ProcessIssue(ctx, &IssueRequest{
     Owner:  "S-Corkum",
-    Repo:   "devops-mcp",
+    Repo:   "developer-mesh",
     Number: 123,
 })
 

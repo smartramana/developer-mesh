@@ -10,9 +10,9 @@ import (
 	"testing"
 	"time"
 
-	adapterEvents "github.com/S-Corkum/devops-mcp/pkg/adapters/events"
-	"github.com/S-Corkum/devops-mcp/pkg/adapters/github"
-	"github.com/S-Corkum/devops-mcp/pkg/observability"
+	adapterEvents "github.com/developer-mesh/developer-mesh/pkg/adapters/events"
+	"github.com/developer-mesh/developer-mesh/pkg/adapters/github"
+	"github.com/developer-mesh/developer-mesh/pkg/observability"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )

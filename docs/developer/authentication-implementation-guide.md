@@ -1,6 +1,6 @@
 # Authentication Implementation Guide
 
-This guide provides comprehensive documentation for implementing authentication in the DevOps MCP platform, covering all authentication methods, rate limiting, metrics, and testing patterns.
+This guide provides comprehensive documentation for implementing authentication in the Developer Mesh platform, covering all authentication methods, rate limiting, metrics, and testing patterns.
 
 ## Table of Contents
 
@@ -14,7 +14,7 @@ This guide provides comprehensive documentation for implementing authentication 
 
 ## Architecture Overview
 
-The DevOps MCP platform uses a centralized authentication service (`pkg/auth`) that provides:
+The Developer Mesh platform uses a centralized authentication service (`pkg/auth`) that provides:
 
 - Two authentication methods (API keys, JWT)
 - OAuth interfaces (not implemented)
@@ -110,7 +110,7 @@ router.Use(authService.GinMiddleware(auth.TypeJWT))
 ```go
 // pkg/adapters/github/auth/provider.go
 // This is NOT part of the main auth package
-import "github.com/S-Corkum/devops-mcp/pkg/adapters/github/auth"
+import "github.com/S-Corkum/developer-mesh/pkg/adapters/github/auth"
 
 appProvider, err := auth.NewAppProvider(
     appID,
@@ -600,6 +600,6 @@ authService = auth.NewService(config, db, cache, logger)
 
 ## Conclusion
 
-This guide documents the current authentication implementation in DevOps MCP. While the foundation is solid with API key and JWT support, several advanced features (OAuth, Casbin RBAC, external IdPs) remain unimplemented. Always verify feature availability in the actual codebase before relying on documentation.
+This guide documents the current authentication implementation in Developer Mesh. While the foundation is solid with API key and JWT support, several advanced features (OAuth, Casbin RBAC, external IdPs) remain unimplemented. Always verify feature availability in the actual codebase before relying on documentation.
 
 For the most accurate implementation status, see `docs/guides/auth-implementation-status.md`.

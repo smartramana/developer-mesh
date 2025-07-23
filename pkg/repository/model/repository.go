@@ -7,7 +7,7 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/S-Corkum/devops-mcp/pkg/models"
+	"github.com/developer-mesh/developer-mesh/pkg/models"
 	"github.com/jmoiron/sqlx"
 )
 

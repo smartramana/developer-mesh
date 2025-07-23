@@ -3,8 +3,8 @@ package api
 import (
 	"context"
 
-	"github.com/S-Corkum/devops-mcp/pkg/adapters/github/auth"
-	"github.com/S-Corkum/devops-mcp/pkg/observability"
+	"github.com/developer-mesh/developer-mesh/pkg/adapters/github/auth"
+	"github.com/developer-mesh/developer-mesh/pkg/observability"
 )
 
 // ContextAwareRESTClient wraps RESTClient to support context-aware authentication

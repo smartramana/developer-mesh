@@ -3,7 +3,7 @@ package auth
 import (
 	"net/http"
 
-	"github.com/S-Corkum/devops-mcp/pkg/observability"
+	"github.com/developer-mesh/developer-mesh/pkg/observability"
 )
 
 // RateLimitMiddleware creates HTTP middleware for rate limiting

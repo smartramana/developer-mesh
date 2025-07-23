@@ -6,8 +6,8 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/S-Corkum/devops-mcp/pkg/interfaces"
-	"github.com/S-Corkum/devops-mcp/pkg/models"
+	"github.com/developer-mesh/developer-mesh/pkg/interfaces"
+	"github.com/developer-mesh/developer-mesh/pkg/models"
 )
 
 // AdapterContextBridge connects adapters with the context manager for managing context-aware tool interactions

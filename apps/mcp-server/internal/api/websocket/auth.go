@@ -15,8 +15,8 @@ import (
 	"github.com/golang-jwt/jwt/v4"
 	"github.com/google/uuid"
 
-	"github.com/S-Corkum/devops-mcp/pkg/auth"
-	ws "github.com/S-Corkum/devops-mcp/pkg/models/websocket"
+	"github.com/developer-mesh/developer-mesh/pkg/auth"
+	ws "github.com/developer-mesh/developer-mesh/pkg/models/websocket"
 )
 
 // AuthenticatedMessage adds authentication to messages
@@ -392,7 +392,7 @@ func (s *Server) getSigningKey() []byte {
 
 	// Fallback to environment variable or default
 	// This should be properly configured in production
-	return []byte("devops-mcp-jwt-secret-key")
+	return []byte("developer-mesh-jwt-secret-key")
 }
 
 // SignMessage creates HMAC signature for a message

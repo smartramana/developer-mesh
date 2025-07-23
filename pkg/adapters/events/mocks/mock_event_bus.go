@@ -4,8 +4,8 @@ import (
 	"context"
 	"sync"
 
-	"github.com/S-Corkum/devops-mcp/pkg/adapters/events"
-	"github.com/S-Corkum/devops-mcp/pkg/models"
+	"github.com/developer-mesh/developer-mesh/pkg/adapters/events"
+	"github.com/developer-mesh/developer-mesh/pkg/models"
 )
 
 // MockEventBus is a mock implementation of the events.EventBus interface for testing

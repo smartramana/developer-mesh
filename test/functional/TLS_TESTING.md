@@ -1,6 +1,6 @@
 # TLS Functional Testing Guide
 
-This guide explains how to test the TLS configuration in the DevOps MCP platform.
+This guide explains how to test the TLS configuration in the Developer Mesh platform.
 
 ## Overview
 

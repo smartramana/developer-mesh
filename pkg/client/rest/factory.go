@@ -1,7 +1,7 @@
 package rest
 
 import (
-	"github.com/S-Corkum/devops-mcp/pkg/observability"
+	"github.com/developer-mesh/developer-mesh/pkg/observability"
 )
 
 // Factory provides access to all REST API clients

@@ -1,9 +1,9 @@
-# DevOps MCP - AI Agent Orchestration Platform
+# Developer Mesh - AI Agent Orchestration Platform
 
 ![Version](https://img.shields.io/badge/version-1.0.0-blue.svg)
 ![Go](https://img.shields.io/badge/go-1.24+-00ADD8.svg)
 ![License](https://img.shields.io/badge/license-MIT-green.svg)
-[![Go Report Card](https://goreportcard.com/badge/github.com/S-Corkum/devops-mcp)](https://goreportcard.com/report/github.com/S-Corkum/devops-mcp)
+[![Go Report Card](https://goreportcard.com/badge/github.com/S-Corkum/developer-mesh)](https://goreportcard.com/report/github.com/S-Corkum/developer-mesh)
 
 > 🚀 The production-ready platform for orchestrating multiple AI agents in your DevOps workflows
 > 
@@ -11,9 +11,9 @@
 
 ## 🎯 Transform Your DevOps with AI Orchestration
 
-DevOps teams struggle to integrate AI effectively - managing multiple models, coordinating agents, and optimizing costs. DevOps MCP solves this with intelligent orchestration that routes tasks to the right AI agent at the right time.
+DevOps teams struggle to integrate AI effectively - managing multiple models, coordinating agents, and optimizing costs. Developer Mesh solves this with intelligent orchestration that routes tasks to the right AI agent at the right time.
 
-### Why DevOps MCP?
+### Why Developer Mesh?
 
 - **🤖 Multi-Agent Orchestration**: Register and coordinate multiple AI agents with different capabilities
 - **🧠 Intelligent Task Routing**: Automatically route tasks based on capability, performance, and cost
@@ -108,8 +108,8 @@ graph TD
 
 ```bash
 # Clone repository
-git clone https://github.com/S-Corkum/devops-mcp.git
-cd devops-mcp
+git clone https://github.com/S-Corkum/developer-mesh.git
+cd developer-mesh
 
 # Configure environment
 cp .env.example .env
@@ -127,8 +127,8 @@ curl http://localhost:8081/health
 
 ```bash
 # Clone and setup
-git clone https://github.com/S-Corkum/devops-mcp.git
-cd devops-mcp
+git clone https://github.com/S-Corkum/developer-mesh.git
+cd developer-mesh
 
 # Install dependencies
 make deps

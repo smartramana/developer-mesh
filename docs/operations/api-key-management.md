@@ -1,10 +1,10 @@
 # API Key Management Guide
 
-This guide explains how to create, manage, and configure API keys for the DevOps MCP platform.
+This guide explains how to create, manage, and configure API keys for the Developer Mesh platform.
 
 ## Overview
 
-API keys in DevOps MCP are stored in the PostgreSQL database in the `mcp.api_keys` table. In production, no static API keys are configured - all keys must be created in the database.
+API keys in Developer Mesh are stored in the PostgreSQL database in the `mcp.api_keys` table. In production, no static API keys are configured - all keys must be created in the database.
 
 ## Key Types
 

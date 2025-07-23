@@ -5,7 +5,7 @@ import (
 	"context"
 	"time"
 
-	"github.com/S-Corkum/devops-mcp/apps/rest-api/internal/repository"
+	"github.com/developer-mesh/developer-mesh/apps/rest-api/internal/repository"
 )
 
 // MockVectorRepository provides an in-memory implementation of the VectorAPIRepository

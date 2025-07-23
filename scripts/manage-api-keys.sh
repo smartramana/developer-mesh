@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# manage-api-keys.sh - Admin CLI tool for managing API keys in DevOps MCP
+# manage-api-keys.sh - Admin CLI tool for managing API keys in Developer Mesh
 # This script provides administrative functions for creating, listing, revoking,
 # and managing API keys for the multi-tenant system.
 
@@ -29,7 +29,7 @@ fi
 # Help function
 show_help() {
     cat << EOF
-DevOps MCP API Key Management Tool
+Developer Mesh API Key Management Tool
 
 Usage: $0 [command] [options]
 

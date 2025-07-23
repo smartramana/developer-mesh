@@ -1,4 +1,4 @@
-// Package models provides common data models used across the devops-mcp workspace.
+// Package models provides common data models used across the developer-mesh workspace.
 // It contains definitions for entity relationships and connection models that
 // represent relationships between various GitHub entities.
 //

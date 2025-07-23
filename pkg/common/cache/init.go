@@ -8,8 +8,8 @@ import (
 	"os"
 	"time"
 
-	"github.com/S-Corkum/devops-mcp/pkg/common/aws"
-	securitytls "github.com/S-Corkum/devops-mcp/pkg/security/tls"
+	"github.com/developer-mesh/developer-mesh/pkg/common/aws"
+	securitytls "github.com/developer-mesh/developer-mesh/pkg/security/tls"
 )
 
 // ErrNotFound is returned when a key is not found in the cache

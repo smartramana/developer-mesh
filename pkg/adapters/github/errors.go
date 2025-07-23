@@ -1,7 +1,7 @@
 package github
 
 import (
-	"github.com/S-Corkum/devops-mcp/pkg/common/errors"
+	"github.com/developer-mesh/developer-mesh/pkg/common/errors"
 )
 
 // GitHubErrorProvider interface defines methods for providing GitHub errors

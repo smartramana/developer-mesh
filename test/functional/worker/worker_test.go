@@ -7,7 +7,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/S-Corkum/devops-mcp/pkg/queue"
+	"github.com/developer-mesh/developer-mesh/pkg/queue"
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/service/sqs"
@@ -37,7 +37,7 @@ func TestWorkerSQSIntegration(t *testing.T) {
 	testEvent := queue.SQSEvent{
 		DeliveryID: "functional-test-" + time.Now().Format("20060102-150405"),
 		EventType:  "functional_test",
-		RepoName:   "devops-mcp",
+		RepoName:   "developer-mesh",
 		SenderName: "functional-test-suite",
 		Payload:    json.RawMessage(`{"test": true, "timestamp": "` + time.Now().UTC().Format(time.RFC3339) + `"}`),
 		AuthContext: &queue.EventAuthContext{

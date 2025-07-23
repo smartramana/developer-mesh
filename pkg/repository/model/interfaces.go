@@ -4,7 +4,7 @@ package model
 import (
 	"context"
 
-	"github.com/S-Corkum/devops-mcp/pkg/models"
+	"github.com/developer-mesh/developer-mesh/pkg/models"
 )
 
 // Filter defines a filter map for repository operations

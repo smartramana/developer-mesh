@@ -1,5 +1,5 @@
 # Test Environment Configuration
-# This file documents the necessary configuration for running tests in the DevOps MCP project
+# This file documents the necessary configuration for running tests in the Developer Mesh project
 
 # Authentication Configuration
 # Required for API tests and integration tests

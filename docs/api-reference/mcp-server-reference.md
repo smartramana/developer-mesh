@@ -1221,7 +1221,7 @@ ws.on('error', (error) => {
 
 Official SDKs are available for:
 
-- **Go**: `github.com/S-Corkum/devops-mcp/pkg/client`
+- **Go**: `github.com/S-Corkum/developer-mesh/pkg/client`
 - **Python**: `pip install mcp-server-sdk`
 - **JavaScript/TypeScript**: `npm install @mcp/server-sdk`
 - **Java**: `com.mcp:server-sdk:1.0.0`
@@ -1230,7 +1230,7 @@ Official SDKs are available for:
 
 ```go
 import (
-    "github.com/S-Corkum/devops-mcp/pkg/client/rest"
+    "github.com/S-Corkum/developer-mesh/pkg/client/rest"
 )
 
 // Create client
@@ -1285,5 +1285,5 @@ result = client.tools.execute(
 
 - [MCP Protocol Specification](https://github.com/anthropics/mcp)
 - [API Playground](https://api.mcp-server.example.com/swagger)
-- [Integration Examples](https://github.com/S-Corkum/devops-mcp/examples)
+- [Integration Examples](https://github.com/S-Corkum/developer-mesh/examples)
 - [Support Portal](https://support.mcp-server.example.com)

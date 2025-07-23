@@ -8,10 +8,10 @@ import (
 
 	"github.com/google/uuid"
 
-	"github.com/S-Corkum/devops-mcp/pkg/auth"
-	"github.com/S-Corkum/devops-mcp/pkg/models"
-	ws "github.com/S-Corkum/devops-mcp/pkg/models/websocket"
-	"github.com/S-Corkum/devops-mcp/pkg/repository/interfaces"
+	"github.com/developer-mesh/developer-mesh/pkg/auth"
+	"github.com/developer-mesh/developer-mesh/pkg/models"
+	ws "github.com/developer-mesh/developer-mesh/pkg/models/websocket"
+	"github.com/developer-mesh/developer-mesh/pkg/repository/interfaces"
 )
 
 // Define context key types to avoid collisions

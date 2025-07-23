@@ -1,6 +1,6 @@
 # Complete AI Agent Integration Guide
 
-> **Purpose**: Step-by-step guide for integrating AI agents with the DevOps MCP platform
+> **Purpose**: Step-by-step guide for integrating AI agents with the Developer Mesh platform
 > **Audience**: Developers implementing AI agent systems from start to finish
 > **Scope**: Full integration lifecycle, from setup to production deployment
 
@@ -54,8 +54,8 @@ aws bedrock list-foundation-models --region us-east-1
 
 ```bash
 # Clone the repository
-git clone https://github.com/S-Corkum/devops-mcp.git
-cd devops-mcp
+git clone https://github.com/S-Corkum/developer-mesh.git
+cd developer-mesh
 
 # Install dependencies
 make deps
@@ -108,8 +108,8 @@ AND table_name LIKE 'agent%';
 package myagent
 
 import (
-    "github.com/S-Corkum/devops-mcp/pkg/agents"
-    "github.com/S-Corkum/devops-mcp/pkg/models"
+    "github.com/S-Corkum/developer-mesh/pkg/agents"
+    "github.com/S-Corkum/developer-mesh/pkg/models"
 )
 
 // MyCustomAgent represents your AI agent
@@ -173,7 +173,7 @@ func defineCapabilities() []agents.Capability {
 package myagent
 
 import (
-    "github.com/S-Corkum/devops-mcp/pkg/agents"
+    "github.com/S-Corkum/developer-mesh/pkg/agents"
 )
 
 func createDefaultConfig() *agents.AgentConfig {
@@ -420,7 +420,7 @@ import (
     "context"
     "fmt"
     
-    "github.com/S-Corkum/devops-mcp/pkg/bedrock"
+    "github.com/S-Corkum/developer-mesh/pkg/bedrock"
 )
 
 type ModelIntegration struct {
@@ -497,7 +497,7 @@ import (
     "os/signal"
     "syscall"
     
-    "github.com/S-Corkum/devops-mcp/myagent"
+    "github.com/S-Corkum/developer-mesh/myagent"
 )
 
 func main() {

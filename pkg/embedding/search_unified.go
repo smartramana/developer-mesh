@@ -11,9 +11,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/S-Corkum/devops-mcp/pkg/auth"
-	"github.com/S-Corkum/devops-mcp/pkg/observability"
-	repositorySearch "github.com/S-Corkum/devops-mcp/pkg/repository/search"
+	"github.com/developer-mesh/developer-mesh/pkg/auth"
+	"github.com/developer-mesh/developer-mesh/pkg/observability"
+	repositorySearch "github.com/developer-mesh/developer-mesh/pkg/repository/search"
 	"github.com/google/uuid"
 	"github.com/lib/pq"
 )

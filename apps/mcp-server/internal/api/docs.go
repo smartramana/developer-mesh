@@ -60,11 +60,11 @@ func SetupSwaggerDocs(router *gin.Engine, basePath string) {
 // @title MCP Server API
 // @version 1.0.0
 // @description Model Context Protocol Server for AI-powered DevOps automation
-// @termsOfService https://github.com/S-Corkum/devops-mcp/blob/main/LICENSE
+// @termsOfService https://github.com/developer-mesh/developer-mesh/blob/main/LICENSE
 
 // @contact.name API Support
-// @contact.url https://github.com/S-Corkum/devops-mcp/issues
-// @contact.email support@devops-mcp.com
+// @contact.url https://github.com/developer-mesh/developer-mesh/issues
+// @contact.email support@developer-mesh.com
 
 // @license.name MIT
 // @license.url https://opensource.org/licenses/MIT

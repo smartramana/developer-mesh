@@ -1,6 +1,6 @@
 # Debugging Guide
 
-Comprehensive debugging strategies for the DevOps MCP platform, from development to production.
+Comprehensive debugging strategies for the Developer Mesh platform, from development to production.
 
 ## Quick Debugging Commands
 
@@ -280,7 +280,7 @@ for i := 0; i < len(embeddings); i += batchSize {
 ```bash
 # 1. Check container networking
 docker network ls
-docker network inspect devops-mcp_default
+docker network inspect developer-mesh_default
 
 # 2. Test connectivity
 docker exec mcp-server ping postgres

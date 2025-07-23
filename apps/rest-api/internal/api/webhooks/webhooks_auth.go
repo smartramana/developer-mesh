@@ -3,7 +3,7 @@ package webhooks
 import (
 	"fmt"
 
-	"github.com/S-Corkum/devops-mcp/pkg/queue"
+	"github.com/developer-mesh/developer-mesh/pkg/queue"
 )
 
 // extractAuthContext extracts authentication context from the webhook payload

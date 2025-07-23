@@ -1,6 +1,6 @@
 # Queue Package
 
-> **Purpose**: AWS SQS integration for event processing in the DevOps MCP platform
+> **Purpose**: AWS SQS integration for event processing in the Developer Mesh platform
 > **Status**: Basic Implementation
 > **Dependencies**: AWS SQS, LocalStack support, JSON serialization
 

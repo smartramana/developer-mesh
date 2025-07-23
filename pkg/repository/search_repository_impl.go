@@ -5,7 +5,7 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/S-Corkum/devops-mcp/pkg/repository/search"
+	"github.com/developer-mesh/developer-mesh/pkg/repository/search"
 	"github.com/jmoiron/sqlx"
 )
 

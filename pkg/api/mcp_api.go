@@ -4,7 +4,7 @@ import (
 	"context"
 	"net/http"
 
-	"github.com/S-Corkum/devops-mcp/pkg/models"
+	"github.com/developer-mesh/developer-mesh/pkg/models"
 	"github.com/gin-gonic/gin"
 )
 

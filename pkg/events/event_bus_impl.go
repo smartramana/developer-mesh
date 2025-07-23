@@ -4,7 +4,7 @@ import (
 	"context"
 	"sync"
 
-	"github.com/S-Corkum/devops-mcp/pkg/models"
+	"github.com/developer-mesh/developer-mesh/pkg/models"
 )
 
 // EventBusImpl is the implementation of the EventBus interface

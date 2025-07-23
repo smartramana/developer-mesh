@@ -60,7 +60,7 @@ echo "Then run: ./scripts/test-github-integration.sh"
 
 # Additional help
 echo -e "\n${YELLOW}Common Installation Locations:${NC}"
-echo "- Personal account: https://github.com/settings/apps/devops-mcp/installations"
+echo "- Personal account: https://github.com/settings/apps/developer-mesh/installations"
 echo "- Organization: https://github.com/organizations/YOUR_ORG/settings/installations"
 
 echo -e "\n${YELLOW}Still can't find it?${NC}"

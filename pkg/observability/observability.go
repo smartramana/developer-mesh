@@ -37,7 +37,7 @@ const (
 func Initialize(cfg Config) error {
 	// Set up default logger if not already set
 	if DefaultLogger == nil {
-		DefaultLogger = NewStandardLogger("devops-mcp")
+		DefaultLogger = NewStandardLogger("developer-mesh")
 	}
 
 	// Set up default metrics client if not already set

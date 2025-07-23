@@ -4,8 +4,8 @@ import (
 	"context"
 	"net/http"
 
-	"github.com/S-Corkum/devops-mcp/pkg/client/rest"
-	"github.com/S-Corkum/devops-mcp/pkg/observability"
+	"github.com/developer-mesh/developer-mesh/pkg/client/rest"
+	"github.com/developer-mesh/developer-mesh/pkg/observability"
 )
 
 // WebhookAPIProxy implements webhook handling via the REST API

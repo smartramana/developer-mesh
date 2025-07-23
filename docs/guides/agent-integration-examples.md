@@ -1,6 +1,6 @@
 # Agent Integration Examples
 
-> **Purpose**: Complete working examples of AI agent integrations with the DevOps MCP platform
+> **Purpose**: Complete working examples of AI agent integrations with the Developer Mesh platform
 > **Audience**: Developers implementing AI agents with practical, runnable code examples
 > **Scope**: Full implementations including GPT-4, Claude, Bedrock, and custom agents
 
@@ -1978,7 +1978,7 @@ func TestAgentReconnection(t *testing.T) {
 
 ## Resources
 
-- [Example Agent Repository](https://github.com/S-Corkum/devops-mcp-agents)
+- [Example Agent Repository](https://github.com/S-Corkum/developer-mesh-agents)
 - [Agent Testing Framework](https://github.com/S-Corkum/mcp-agent-test)
 - [Production Agent Templates](https://github.com/S-Corkum/mcp-agent-templates)
 - [Agent Monitoring Dashboard](https://grafana.mcp.dev/dashboard/agents)

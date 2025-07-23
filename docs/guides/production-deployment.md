@@ -1,6 +1,6 @@
 # Production Deployment Guide
 
-> **Purpose**: Guide for deploying DevOps MCP platform to AWS using EC2 and Docker Compose
+> **Purpose**: Guide for deploying Developer Mesh platform to AWS using EC2 and Docker Compose
 > **Audience**: DevOps engineers and system administrators deploying to production
 > **Scope**: EC2 deployment, Docker Compose setup, AWS service configuration
 > **Status**: Current deployment method uses EC2 with Docker Compose
@@ -148,7 +148,7 @@ export SSH_KEY_PATH=/path/to/your/key.pem
 ./scripts/ssh-to-ec2.sh
 
 # On the EC2 instance
-cd /home/ec2-user/devops-mcp
+cd /home/ec2-user/developer-mesh
 docker-compose ps
 ```
 
@@ -197,7 +197,7 @@ psql -h your-rds-endpoint.rds.amazonaws.com -U mcp_admin -d mcp
 CREATE EXTENSION IF NOT EXISTS vector;
 
 -- Run migrations
-cd /path/to/devops-mcp
+cd /path/to/developer-mesh
 make migrate-up
 ```
 ```
@@ -397,7 +397,7 @@ services:
 ./scripts/ssh-to-ec2.sh
 
 # On EC2 instance
-cd /home/ec2-user/devops-mcp
+cd /home/ec2-user/developer-mesh
 
 # Load images (if transferred manually)
 docker load < mcp-server.tar.gz
@@ -455,16 +455,16 @@ For automatic startup on reboot:
 
 ```bash
 # Create systemd service
-sudo tee /etc/systemd/system/devops-mcp.service << EOF
+sudo tee /etc/systemd/system/developer-mesh.service << EOF
 [Unit]
-Description=DevOps MCP Docker Compose
+Description=Developer Mesh Docker Compose
 Requires=docker.service
 After=docker.service
 
 [Service]
 Type=oneshot
 RemainAfterExit=yes
-WorkingDirectory=/home/ec2-user/devops-mcp
+WorkingDirectory=/home/ec2-user/developer-mesh
 ExecStart=/usr/local/bin/docker-compose up -d
 ExecStop=/usr/local/bin/docker-compose down
 User=ec2-user
@@ -474,8 +474,8 @@ WantedBy=multi-user.target
 EOF
 
 # Enable service
-sudo systemctl enable devops-mcp
-sudo systemctl start devops-mcp
+sudo systemctl enable developer-mesh
+sudo systemctl start developer-mesh
 ```
 
 ## Configuration Management
@@ -979,7 +979,7 @@ export ADMIN_API_KEY=$(uuidgen)
 # Update .env file
 
 # Update Go dependencies
-cd /home/ec2-user/devops-mcp
+cd /home/ec2-user/developer-mesh
 go get -u ./...
 go mod tidy
 make docker-build
@@ -1102,7 +1102,7 @@ aws ec2 stop-instances --instance-ids i-xxx
 
 ## Summary
 
-This guide covers deploying DevOps MCP to AWS using:
+This guide covers deploying Developer Mesh to AWS using:
 - Single EC2 instance with Docker Compose
 - RDS PostgreSQL with pgvector
 - ElastiCache Redis (via SSH tunnel)

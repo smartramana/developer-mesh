@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"time"
 
-	securitytls "github.com/S-Corkum/devops-mcp/pkg/security/tls"
+	securitytls "github.com/developer-mesh/developer-mesh/pkg/security/tls"
 )
 
 // Config defines what the database package needs - no external imports!

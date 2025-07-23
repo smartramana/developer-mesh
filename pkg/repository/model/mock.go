@@ -4,7 +4,7 @@ import (
 	"context"
 	"errors"
 
-	"github.com/S-Corkum/devops-mcp/pkg/models"
+	"github.com/developer-mesh/developer-mesh/pkg/models"
 )
 
 // MockRepository is a mock implementation of the Repository interface

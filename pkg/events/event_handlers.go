@@ -7,7 +7,7 @@ import (
 	"log"
 	"time"
 
-	"github.com/S-Corkum/devops-mcp/pkg/models"
+	"github.com/developer-mesh/developer-mesh/pkg/models"
 )
 
 // ContextEventHandler handles context-related events

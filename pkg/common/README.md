@@ -2,7 +2,7 @@
 
 ## Overview
 
-The `common` package provides shared utilities, AWS clients, and foundational components used throughout the DevOps MCP platform. It includes production-ready implementations for caching, configuration, error handling, observability, and AWS service integration.
+The `common` package provides shared utilities, AWS clients, and foundational components used throughout the Developer Mesh platform. It includes production-ready implementations for caching, configuration, error handling, observability, and AWS service integration.
 
 ## Package Structure
 
