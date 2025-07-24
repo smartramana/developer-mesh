@@ -248,6 +248,78 @@ paths:
         '500':
           $ref: '../common/responses.yaml#/components/responses/InternalServerError'
 
+  /models/compare:
+    post:
+      tags:
+        - Models
+      summary: Compare models
+      description: Compare performance and characteristics of multiple models
+      operationId: compareModels
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - model_ids
+              properties:
+                model_ids:
+                  type: array
+                  items:
+                    type: string
+                  minItems: 2
+                  description: List of model IDs to compare
+                test_prompts:
+                  type: array
+                  items:
+                    type: string
+                  description: Optional test prompts for comparison
+      responses:
+        '200':
+          description: Model comparison results
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  comparison:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        model_id:
+                          type: string
+                        performance:
+                          type: object
+                          properties:
+                            avg_response_time:
+                              type: number
+                            tokens_per_second:
+                              type: number
+                            error_rate:
+                              type: number
+                        cost:
+                          type: object
+                          properties:
+                            per_request:
+                              type: number
+                            per_1k_tokens:
+                              type: number
+                        quality_scores:
+                          type: object
+                          properties:
+                            coherence:
+                              type: number
+                            relevance:
+                              type: number
+                            accuracy:
+                              type: number
+        '400':
+          $ref: '../common/responses.yaml#/components/responses/BadRequest'
+        '404':
+          $ref: '../common/responses.yaml#/components/responses/NotFound'
+
 components:
   schemas:
     Model:

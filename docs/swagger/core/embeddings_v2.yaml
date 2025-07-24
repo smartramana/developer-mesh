@@ -5,7 +5,7 @@ info:
   description: API for multi-agent embedding generation with cross-model search capabilities
 
 paths:
-  /api/v2/embeddings:
+  /embeddings:
     post:
       summary: Generate embedding for agent
       description: Generate an embedding for the specified text using agent-specific configuration
@@ -32,7 +32,7 @@ paths:
         '500':
           $ref: '#/components/responses/InternalServerError'
 
-  /api/v2/embeddings/batch:
+  /embeddings/batch:
     post:
       summary: Generate multiple embeddings
       description: Generate embeddings for multiple texts in a single request
@@ -68,7 +68,7 @@ paths:
         '500':
           $ref: '#/components/responses/InternalServerError'
 
-  /api/v2/embeddings/providers/health:
+  /embeddings/providers/health:
     get:
       summary: Get provider health status
       description: Get the health status of all configured embedding providers
@@ -91,7 +91,7 @@ paths:
                     type: string
                     format: date-time
 
-  /api/v2/embeddings/agents:
+  /embeddings/agents:
     post:
       summary: Create agent configuration
       description: Create a new embedding configuration for an agent
@@ -116,7 +116,7 @@ paths:
         '409':
           description: Agent configuration already exists
 
-  /api/v2/embeddings/agents/{agentId}:
+  /embeddings/agents/{agentId}:
     get:
       summary: Get agent configuration
       description: Get the embedding configuration for a specific agent
@@ -161,7 +161,7 @@ paths:
         '404':
           $ref: '#/components/responses/NotFound'
 
-  /api/v2/embeddings/agents/{agentId}/models:
+  /embeddings/agents/{agentId}/models:
     get:
       summary: Get agent models
       description: Get the models configured for an agent for a specific task type
@@ -196,7 +196,7 @@ paths:
                     items:
                       type: string
 
-  /api/v2/embeddings/agents/{agentId}/costs:
+  /embeddings/agents/{agentId}/costs:
     get:
       summary: Get agent costs
       description: Get the embedding generation costs for a specific agent
@@ -221,7 +221,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/CostSummary'
 
-  /api/v2/embeddings/search:
+  /embeddings/search:
     post:
       summary: Search embeddings
       description: Search for similar embeddings using agent-specific models
@@ -251,7 +251,7 @@ paths:
                   query:
                     type: object
 
-  /api/v2/embeddings/search/cross-model:
+  /embeddings/search/cross-model:
     post:
       summary: Cross-model search
       description: Search across embeddings from different models using dimension normalization
@@ -284,6 +284,51 @@ paths:
                     type: array
                     items:
                       type: string
+
+  /embeddings/usage:
+    get:
+      summary: Get embedding usage statistics
+      description: Get usage statistics for embedding generation
+      operationId: getEmbeddingUsage
+      tags:
+        - embeddings
+      parameters:
+        - name: agent_id
+          in: query
+          schema:
+            type: string
+          description: Filter by agent ID
+        - name: period
+          in: query
+          schema:
+            type: string
+            enum: [hour, day, week, month]
+            default: day
+      responses:
+        '200':
+          description: Usage statistics
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  total_requests:
+                    type: integer
+                  total_tokens:
+                    type: integer
+                  total_cost:
+                    type: number
+                  by_model:
+                    type: object
+                    additionalProperties:
+                      type: object
+                      properties:
+                        requests:
+                          type: integer
+                        tokens:
+                          type: integer
+                        cost:
+                          type: number
 
 components:
   parameters:

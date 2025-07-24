@@ -186,6 +186,75 @@ paths:
         '500':
           $ref: '../common/responses.yaml#/components/responses/InternalServerError'
 
+  /search/hybrid:
+    post:
+      tags:
+        - Search
+      summary: Hybrid search
+      description: Perform hybrid search combining text and vector similarity
+      operationId: hybridSearch
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - query
+              properties:
+                query:
+                  type: string
+                  description: Search query text
+                vector_weight:
+                  type: number
+                  default: 0.5
+                  minimum: 0
+                  maximum: 1
+                  description: Weight for vector similarity (0-1)
+                text_weight:
+                  type: number
+                  default: 0.5
+                  minimum: 0
+                  maximum: 1
+                  description: Weight for text matching (0-1)
+                filters:
+                  $ref: '#/components/schemas/SearchFilters'
+                limit:
+                  type: integer
+                  default: 10
+                  maximum: 100
+      responses:
+        '200':
+          description: Hybrid search results
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  results:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        id:
+                          type: string
+                        content:
+                          type: string
+                        score:
+                          type: number
+                        vector_score:
+                          type: number
+                        text_score:
+                          type: number
+                        metadata:
+                          type: object
+                  total:
+                    type: integer
+        '400':
+          $ref: '../common/responses.yaml#/components/responses/BadRequest'
+        '500':
+          $ref: '../common/responses.yaml#/components/responses/InternalServerError'
+
 components:
   schemas:
     TextSearchRequest:

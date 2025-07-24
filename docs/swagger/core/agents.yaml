@@ -185,6 +185,68 @@ paths:
         '500':
           $ref: '../common/responses.yaml#/components/responses/InternalServerError'
 
+  /agents/{id}/workload:
+    get:
+      tags:
+        - Agents
+      summary: Get agent workload
+      description: Get current workload information for an agent
+      operationId: getAgentWorkload
+      responses:
+        '200':
+          description: Agent workload information
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  agent_id:
+                    type: string
+                  active_tasks:
+                    type: integer
+                  queued_tasks:
+                    type: integer
+                  capacity:
+                    type: integer
+                  utilization_percent:
+                    type: number
+        '404':
+          $ref: '../common/responses.yaml#/components/responses/NotFound'
+
+  /agents/{id}/heartbeat:
+    post:
+      tags:
+        - Agents
+      summary: Send agent heartbeat
+      description: Update agent heartbeat to maintain active status
+      operationId: sendAgentHeartbeat
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                status:
+                  type: string
+                  enum: [healthy, degraded, unhealthy]
+                metadata:
+                  type: object
+      responses:
+        '200':
+          description: Heartbeat acknowledged
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  acknowledged:
+                    type: boolean
+                  timestamp:
+                    type: string
+                    format: date-time
+        '404':
+          $ref: '../common/responses.yaml#/components/responses/NotFound'
+
 components:
   schemas:
     Agent:
