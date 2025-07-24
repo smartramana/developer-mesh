@@ -1,4 +1,4 @@
 auth:
-  # Production loads API keys from database only
-  # This enables dynamic key management without restarts
-  production_key_source: database  # Keys are stored in mcp.api_keys table
+  # Production loads API keys from environment variables
+  # Keys are automatically stored in database for persistence
+  production_key_source: env  # Load from environment variables
