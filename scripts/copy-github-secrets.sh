@@ -9,7 +9,7 @@ GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
 NC='\033[0m'
 
-OLD_REPO="developer-mesh/devops-mcp"
+OLD_REPO="developer-mesh/developer-mesh"
 NEW_REPO="developer-mesh/developer-mesh"
 
 echo "Copying secrets from $OLD_REPO to $NEW_REPO..."
@@ -95,7 +95,7 @@ for SECRET_NAME in "${SECRETS[@]}"; do
                     gh secret set "$SECRET_NAME" --repo "$NEW_REPO" --body "${MCP_API_KEY:-docker-mcp-api-key}"
                     ;;
                 "REDIS_ENDPOINT")
-                    gh secret set "$SECRET_NAME" --repo "$NEW_REPO" --body "${REDIS_ENDPOINT:-devops-mcp-redis.kqymov.ng.0001.use1.cache.amazonaws.com}"
+                    gh secret set "$SECRET_NAME" --repo "$NEW_REPO" --body "${REDIS_ENDPOINT:-master.devops-mcp-redis-encrypted.qem3fz.use1.cache.amazonaws.com}"
                     ;;
                 "S3_BUCKET")
                     gh secret set "$SECRET_NAME" --repo "$NEW_REPO" --body "${S3_BUCKET:-sean-mcp-dev-contexts}"

@@ -1,4 +1,4 @@
-# Root Makefile for devops-mcp workspace
+# Root Makefile for developer-mesh workspace
 .PHONY: all build test docker clean lint migrate
 
 # Discover all applications
