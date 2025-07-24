@@ -58,8 +58,10 @@ func main() {
 			log.Printf("Health check failed: %v", err)
 			os.Exit(1)
 		}
-		defer resp.Body.Close()
-		
+		defer func() {
+			_ = resp.Body.Close()
+		}()
+
 		if resp.StatusCode != http.StatusOK {
 			log.Printf("Health check failed with status: %d", resp.StatusCode)
 			os.Exit(1)
