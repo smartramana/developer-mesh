@@ -225,6 +225,7 @@ jobs:
               "GITHUB_TOKEN=${{ github.token }}",
               "GITHUB_WEBHOOK_SECRET=${{ secrets.MCP_WEBHOOK_SECRET }}",
               "MCP_WEBHOOK_ENABLED=true",
+              "MCP_GITHUB_IP_VALIDATION=false",
               "MCP_SERVER_URL=http://mcp-server:8080",
               "MCP_PORT=8080",
               "REST_API_PORT=8081",

@@ -402,11 +402,24 @@ func GitHubIPValidationMiddleware(validator *GitHubIPValidator, config interface
 				return
 			}
 
-			// Get the client IP
-			ip, _, err := net.SplitHostPort(r.RemoteAddr)
-			if err != nil {
-				// If we can't parse the remote address, assume it's the whole string
-				ip = r.RemoteAddr
+			// Get the client IP, checking proxy headers first
+			var ip string
+			
+			// Check X-Real-IP header first (set by nginx)
+			if realIP := r.Header.Get("X-Real-IP"); realIP != "" {
+				ip = realIP
+			} else if forwardedFor := r.Header.Get("X-Forwarded-For"); forwardedFor != "" {
+				// X-Forwarded-For can contain multiple IPs, take the first one
+				ips := strings.Split(forwardedFor, ",")
+				ip = strings.TrimSpace(ips[0])
+			} else {
+				// Fallback to RemoteAddr
+				var err error
+				ip, _, err = net.SplitHostPort(r.RemoteAddr)
+				if err != nil {
+					// If we can't parse the remote address, assume it's the whole string
+					ip = r.RemoteAddr
+				}
 			}
 
 			// Check if the IP is from GitHub

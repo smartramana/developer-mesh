@@ -110,7 +110,30 @@ For each organization:
 1. **Secret Strength**: Use strong, unique secrets for each organization (32+ characters)
 2. **Secret Rotation**: Regularly rotate webhook secrets
 3. **Environment Isolation**: Never commit secrets to version control
-4. **IP Validation**: Optional GitHub IP validation is available via `MCP_GITHUB_IP_VALIDATION`
+4. **IP Validation**: Configure IP allowlists for webhook sources
+
+### IP Validation Configuration
+
+IP validation can be configured via environment variables:
+
+```bash
+# Disable IP validation entirely (allow all IPs)
+MCP_GITHUB_IP_VALIDATION=false
+
+# Configure allowed IP ranges for different sources
+# Global allowlist (applies to all sources)
+IP_ALLOWED_RANGES=192.168.1.0/24,10.0.0.0/8
+
+# Source-specific allowlists
+IP_ALLOWED_RANGES_GITHUB=192.30.252.0/22,185.199.108.0/22,140.82.112.0/20
+IP_ALLOWED_RANGES_OFFICE=10.0.0.0/8,172.16.0.0/12
+IP_ALLOWED_RANGES_PARTNER=203.0.113.0/24
+
+# Single IPs are also supported
+IP_ALLOWED_RANGES_MONITORING=198.51.100.42
+```
+
+**Note**: If you're behind a load balancer or proxy, ensure X-Forwarded-For headers are properly configured.
 
 ## Troubleshooting
 
