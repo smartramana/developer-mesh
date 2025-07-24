@@ -244,7 +244,7 @@ webhooks:
   github:
     enabled: ${MCP_WEBHOOK_ENABLED:-true}
     path: "/github"
-    secret: "${MCP_GITHUB_WEBHOOK_SECRET}"
+    secret: "${GITHUB_WEBHOOK_SECRET}"
     # IP validation for additional security
     ip_validation: ${MCP_GITHUB_IP_VALIDATION:-true}
     # Allowed event types

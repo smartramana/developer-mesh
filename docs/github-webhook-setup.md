@@ -28,7 +28,7 @@ your-generated-webhook-secret-here-1234567890abcdef
 1. Go to: https://github.com/developer-mesh/developer-mesh/settings/secrets/actions
 2. Click "New repository secret"
 3. Add the following secret:
-   - **Name**: `GITHUB_WEBHOOK_SECRET`
+   - **Name**: `MCP_WEBHOOK_SECRET`
    - **Value**: `<your-generated-webhook-secret>`
 
 ### 3. Configure Organization Webhook
@@ -130,7 +130,7 @@ The implementation includes:
 
 The following environment variables are configured in production:
 
-- `MCP_GITHUB_WEBHOOK_SECRET`: The webhook secret
+- `GITHUB_WEBHOOK_SECRET`: The webhook secret (used for both webhook validation and GitHub adapter)
 - `MCP_WEBHOOK_ENABLED`: Set to `true`
 - `MCP_GITHUB_IP_VALIDATION`: Set to `true` for additional security
 - `MCP_GITHUB_ALLOWED_EVENTS`: Comma-separated list of allowed events

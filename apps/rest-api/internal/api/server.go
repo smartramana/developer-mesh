@@ -13,6 +13,8 @@ import (
 	"github.com/developer-mesh/developer-mesh/apps/rest-api/internal/core"
 	"github.com/developer-mesh/developer-mesh/apps/rest-api/internal/repository"
 
+	pkgrepository "github.com/developer-mesh/developer-mesh/pkg/repository"
+
 	"github.com/developer-mesh/developer-mesh/pkg/agents"
 	"github.com/developer-mesh/developer-mesh/pkg/auth"
 	"github.com/developer-mesh/developer-mesh/pkg/common/cache"
@@ -60,6 +62,7 @@ type Server struct {
 	authMiddleware *auth.AuthMiddleware // Enhanced auth with rate limiting, metrics, and audit
 	healthChecker  *HealthChecker
 	cache          cache.Cache
+	webhookRepo    pkgrepository.WebhookConfigRepository
 }
 
 // NewServer creates a new API server
@@ -211,6 +214,9 @@ func NewServer(engine *core.Engine, cfg Config, db *sqlx.DB, metrics observabili
 	// Initialize health checker
 	healthChecker := NewHealthChecker(db)
 
+	// Initialize webhook repository
+	webhookRepo := pkgrepository.NewWebhookConfigRepository(db)
+
 	server := &Server{
 		router:         router,
 		engine:         engine,
@@ -222,6 +228,7 @@ func NewServer(engine *core.Engine, cfg Config, db *sqlx.DB, metrics observabili
 		authMiddleware: authMiddleware,
 		healthChecker:  healthChecker,
 		cache:          cacheImpl,
+		webhookRepo:    webhookRepo,
 		server: &http.Server{
 			Addr:         cfg.ListenAddress,
 			Handler:      router,

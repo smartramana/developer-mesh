@@ -23,6 +23,8 @@ import (
 	"github.com/developer-mesh/developer-mesh/pkg/interfaces"
 	"github.com/developer-mesh/developer-mesh/pkg/metrics"
 	"github.com/developer-mesh/developer-mesh/pkg/observability"
+	"github.com/developer-mesh/developer-mesh/pkg/repository"
+	"github.com/developer-mesh/developer-mesh/pkg/services"
 
 	// Import PostgreSQL driver
 	_ "github.com/lib/pq"
@@ -239,6 +241,20 @@ func main() {
 		}
 	}
 
+	// Initialize webhook configurations from environment
+	if db != nil {
+		webhookRepo := repository.NewWebhookConfigRepository(db.GetDB())
+		webhookInitializer := services.NewWebhookInitializer(webhookRepo, logger)
+
+		// Initialize webhook configurations from environment variables
+		if err := webhookInitializer.InitializeFromEnvironment(ctx); err != nil {
+			logger.Error("Failed to initialize webhook configurations", map[string]any{
+				"error": err.Error(),
+			})
+			// Don't fail startup, but log the error
+		}
+	}
+
 	// If migrate-only flag was set, exit after migrations
 	if *migrateOnly {
 		logger.Info("Migrations completed, exiting (--migrate flag)", nil)
@@ -272,13 +288,13 @@ func main() {
 			APIKeys:   cfg.API.Auth["api_keys"],
 		},
 		RateLimit: parseRateLimitConfig(cfg.API.RateLimit),
-		// Use default webhook configuration
+		// Use webhook configuration from config file
 		Webhook: interfaces.WebhookConfig{
-			EnabledField:             false,
+			EnabledField:             true, // Enable webhooks
 			GitHubEndpointField:      "/api/webhooks/github",
-			GitHubSecretField:        "",
-			GitHubIPValidationField:  true,
-			GitHubAllowedEventsField: []string{"push", "pull_request"},
+			GitHubSecretField:        os.Getenv("GITHUB_WEBHOOK_SECRET"), // Get from env
+			GitHubIPValidationField:  getBoolFromEnv("MCP_GITHUB_IP_VALIDATION", true),
+			GitHubAllowedEventsField: parseAllowedEvents(os.Getenv("MCP_GITHUB_ALLOWED_EVENTS")),
 		},
 		// Default values for other fields
 		Versioning: api.VersioningConfig{
@@ -355,6 +371,29 @@ func initSecureRandom() {
 	// Go 1.20+ automatically seeds the global random number generator
 	// No manual seeding is required
 	log.Println("Random number generator is automatically seeded (Go 1.20+)")
+}
+
+// getBoolFromEnv gets a boolean value from environment variable with a default
+func getBoolFromEnv(key string, defaultValue bool) bool {
+	val := os.Getenv(key)
+	if val == "" {
+		return defaultValue
+	}
+	return strings.ToLower(val) == "true"
+}
+
+// parseAllowedEvents parses comma-separated allowed events
+func parseAllowedEvents(events string) []string {
+	if events == "" {
+		// Default allowed events
+		return []string{"issues", "issue_comment", "pull_request", "push", "release"}
+	}
+	// Split by comma and trim spaces
+	eventList := strings.Split(events, ",")
+	for i := range eventList {
+		eventList[i] = strings.TrimSpace(eventList[i])
+	}
+	return eventList
 }
 
 // validateConfiguration validates critical configuration settings
