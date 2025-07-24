@@ -5,6 +5,7 @@ import (
 	"flag"
 	"fmt"
 	"log"
+	"net/http"
 	"os"
 	"os/signal"
 	"path/filepath"
@@ -50,7 +51,19 @@ func main() {
 
 	// Handle health check flag
 	if len(os.Args) > 1 && os.Args[1] == "-health-check" {
-		// Simple health check for Docker HEALTHCHECK
+		// Perform actual health check by calling the health endpoint
+		client := &http.Client{Timeout: 5 * time.Second}
+		resp, err := client.Get("http://localhost:8081/health")
+		if err != nil {
+			log.Printf("Health check failed: %v", err)
+			os.Exit(1)
+		}
+		defer resp.Body.Close()
+		
+		if resp.StatusCode != http.StatusOK {
+			log.Printf("Health check failed with status: %d", resp.StatusCode)
+			os.Exit(1)
+		}
 		os.Exit(0)
 	}
 
