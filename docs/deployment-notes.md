@@ -83,16 +83,13 @@ The worker had a bug in `/apps/worker/cmd/worker/main.go` where it reused a 5-se
 ## GitHub Actions CD Pipeline
 
 ### Available Workflows
-1. **Simple Deploy** (`deploy-simple.yml`)
-   - Manual trigger only
-   - Basic deployment with health checks
-   - Good for getting started
-
-2. **Production Deploy** (`deploy-production-v2.yml`)
-   - Automatic on push to main
+1. **Production Deploy** (`deploy-production-v2.yml`)
+   - Automatic on push to main (after CI completes)
+   - Manual trigger available
    - Blue-green deployment
    - Database migrations
    - Automatic rollback on failure
+   - Integrated with E2E tests
 
 ### Required GitHub Secrets
 See `docs/GITHUB_ACTIONS_SETUP.md` for complete setup guide.
@@ -100,11 +97,14 @@ See `docs/GITHUB_ACTIONS_SETUP.md` for complete setup guide.
 ### Deployment Commands
 ```bash
 # Manual deployment via GitHub CLI
-gh workflow run deploy-simple.yml
+gh workflow run deploy-production-v2.yml
 
 # Monitor deployment
 gh run watch
 
 # View deployment history
-gh run list --workflow=deploy-simple.yml
+gh run list --workflow=deploy-production-v2.yml
+
+# View CI/CD pipeline status
+gh run list --workflow=ci.yml
 ```
