@@ -22,15 +22,15 @@ func NewIPValidator(logger observability.Logger) *IPValidator {
 	if logger == nil {
 		logger = observability.NewLogger("ip-validator")
 	}
-	
+
 	validator := &IPValidator{
 		allowedRanges: make(map[string][]net.IPNet),
 		logger:        logger,
 	}
-	
+
 	// Initialize from environment variables
 	validator.LoadFromEnvironment()
-	
+
 	return validator
 }
 
@@ -45,12 +45,12 @@ func NewIPValidator(logger observability.Logger) *IPValidator {
 func (v *IPValidator) LoadFromEnvironment() {
 	v.mu.Lock()
 	defer v.mu.Unlock()
-	
+
 	// Load global allowed ranges
 	if globalRanges := os.Getenv("IP_ALLOWED_RANGES"); globalRanges != "" {
 		v.loadRangesForSource("global", globalRanges)
 	}
-	
+
 	// Load source-specific ranges
 	for _, env := range os.Environ() {
 		if strings.HasPrefix(env, "IP_ALLOWED_RANGES_") {
@@ -58,14 +58,14 @@ func (v *IPValidator) LoadFromEnvironment() {
 			if len(parts) == 2 {
 				key := parts[0]
 				value := parts[1]
-				
+
 				// Extract source name from key
 				source := strings.ToLower(strings.TrimPrefix(key, "IP_ALLOWED_RANGES_"))
 				v.loadRangesForSource(source, value)
 			}
 		}
 	}
-	
+
 	// Log loaded configuration
 	totalRanges := 0
 	for source, ranges := range v.allowedRanges {
@@ -75,7 +75,7 @@ func (v *IPValidator) LoadFromEnvironment() {
 			"count":  len(ranges),
 		})
 	}
-	
+
 	v.logger.Info("IP validator initialized", map[string]any{
 		"sources":      len(v.allowedRanges),
 		"total_ranges": totalRanges,
@@ -86,13 +86,13 @@ func (v *IPValidator) LoadFromEnvironment() {
 func (v *IPValidator) loadRangesForSource(source string, rangesStr string) {
 	ranges := strings.Split(rangesStr, ",")
 	var validRanges []net.IPNet
-	
+
 	for _, cidr := range ranges {
 		cidr = strings.TrimSpace(cidr)
 		if cidr == "" {
 			continue
 		}
-		
+
 		// Parse CIDR notation
 		_, ipNet, err := net.ParseCIDR(cidr)
 		if err != nil {
@@ -106,7 +106,7 @@ func (v *IPValidator) loadRangesForSource(source string, rangesStr string) {
 				})
 				continue
 			}
-			
+
 			// Convert single IP to /32 or /128 CIDR
 			if ip.To4() != nil {
 				ipNet = &net.IPNet{IP: ip, Mask: net.CIDRMask(32, 32)}
@@ -114,10 +114,10 @@ func (v *IPValidator) loadRangesForSource(source string, rangesStr string) {
 				ipNet = &net.IPNet{IP: ip, Mask: net.CIDRMask(128, 128)}
 			}
 		}
-		
+
 		validRanges = append(validRanges, *ipNet)
 	}
-	
+
 	if len(validRanges) > 0 {
 		v.allowedRanges[source] = validRanges
 	}
@@ -129,17 +129,17 @@ func (v *IPValidator) AddRange(source string, cidr string) error {
 	if err != nil {
 		return fmt.Errorf("invalid CIDR notation: %w", err)
 	}
-	
+
 	v.mu.Lock()
 	defer v.mu.Unlock()
-	
+
 	v.allowedRanges[source] = append(v.allowedRanges[source], *ipNet)
-	
+
 	v.logger.Info("Added IP range", map[string]any{
 		"source": source,
 		"cidr":   cidr,
 	})
-	
+
 	return nil
 }
 
@@ -148,14 +148,14 @@ func (v *IPValidator) IsAllowed(ipStr string) bool {
 	// If no ranges are configured, allow all (open mode)
 	v.mu.RLock()
 	defer v.mu.RUnlock()
-	
+
 	if len(v.allowedRanges) == 0 {
 		v.logger.Debug("No IP ranges configured, allowing all", map[string]any{
 			"ip": ipStr,
 		})
 		return true
 	}
-	
+
 	ip := net.ParseIP(ipStr)
 	if ip == nil {
 		v.logger.Warn("Invalid IP address format", map[string]any{
@@ -163,7 +163,7 @@ func (v *IPValidator) IsAllowed(ipStr string) bool {
 		})
 		return false
 	}
-	
+
 	// Check all sources
 	for source, ranges := range v.allowedRanges {
 		for _, ipNet := range ranges {
@@ -177,7 +177,7 @@ func (v *IPValidator) IsAllowed(ipStr string) bool {
 			}
 		}
 	}
-	
+
 	v.logger.Debug("IP not in allowed ranges", map[string]any{
 		"ip": ipStr,
 	})
@@ -188,12 +188,12 @@ func (v *IPValidator) IsAllowed(ipStr string) bool {
 func (v *IPValidator) IsAllowedForSource(ipStr string, source string) bool {
 	v.mu.RLock()
 	defer v.mu.RUnlock()
-	
+
 	ip := net.ParseIP(ipStr)
 	if ip == nil {
 		return false
 	}
-	
+
 	// Check source-specific ranges
 	if ranges, ok := v.allowedRanges[source]; ok {
 		for _, ipNet := range ranges {
@@ -202,7 +202,7 @@ func (v *IPValidator) IsAllowedForSource(ipStr string, source string) bool {
 			}
 		}
 	}
-	
+
 	// Also check global ranges
 	if ranges, ok := v.allowedRanges["global"]; ok {
 		for _, ipNet := range ranges {
@@ -211,7 +211,7 @@ func (v *IPValidator) IsAllowedForSource(ipStr string, source string) bool {
 			}
 		}
 	}
-	
+
 	return false
 }
 
@@ -219,7 +219,7 @@ func (v *IPValidator) IsAllowedForSource(ipStr string, source string) bool {
 func (v *IPValidator) GetConfiguredSources() []string {
 	v.mu.RLock()
 	defer v.mu.RUnlock()
-	
+
 	sources := make([]string, 0, len(v.allowedRanges))
 	for source := range v.allowedRanges {
 		sources = append(sources, source)
@@ -231,7 +231,7 @@ func (v *IPValidator) GetConfiguredSources() []string {
 func (v *IPValidator) ClearRanges() {
 	v.mu.Lock()
 	defer v.mu.Unlock()
-	
+
 	v.allowedRanges = make(map[string][]net.IPNet)
 	v.logger.Info("Cleared all IP ranges", nil)
 }

@@ -406,7 +406,7 @@ func GitHubIPValidationMiddleware(validator *GitHubIPValidator, config WebhookCo
 
 			// Get the client IP, checking proxy headers first
 			var ip string
-			
+
 			// Check X-Real-IP header first (set by nginx)
 			if realIP := r.Header.Get("X-Real-IP"); realIP != "" {
 				ip = realIP
