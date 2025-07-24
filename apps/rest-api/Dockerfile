@@ -48,9 +48,7 @@ USER nonroot
 # Expose port
 EXPOSE 8081
 
-# Health check
-HEALTHCHECK --interval=30s --timeout=5s --start-period=30s --retries=3 \
-    CMD ["/app/rest-api", "-health-check"]
+# Health check - removed since we'll use docker-compose healthcheck
 
 # Minimal environment variables
 ENV PORT=8081 \

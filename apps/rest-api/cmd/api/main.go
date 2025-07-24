@@ -37,6 +37,7 @@ import (
 var (
 	skipMigration = flag.Bool("skip-migration", false, "Skip database migration on startup")
 	migrateOnly   = flag.Bool("migrate", false, "Run database migrations and exit")
+	healthCheck   = flag.Bool("health-check", false, "Run health check and exit")
 )
 
 func main() {
@@ -50,7 +51,7 @@ func main() {
 	defer cancel()
 
 	// Handle health check flag
-	if len(os.Args) > 1 && os.Args[1] == "-health-check" {
+	if *healthCheck {
 		// Perform actual health check by calling the health endpoint
 		client := &http.Client{Timeout: 5 * time.Second}
 		resp, err := client.Get("http://localhost:8081/health")
