@@ -481,3 +481,30 @@ components:
         total:
           type: integer
           description: Total similar items found
+    
+    SearchFilters:
+      type: object
+      properties:
+        agent_id:
+          type: string
+          description: Filter by agent ID
+        context_id:
+          type: string
+          description: Filter by context ID
+        start_date:
+          type: string
+          format: date-time
+          description: Filter by start date
+        end_date:
+          type: string
+          format: date-time
+          description: Filter by end date
+        tags:
+          type: array
+          items:
+            type: string
+          description: Filter by tags
+        metadata:
+          type: object
+          additionalProperties: true
+          description: Filter by metadata key-value pairs
