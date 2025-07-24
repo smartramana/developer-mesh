@@ -241,7 +241,7 @@ embeddings, err := embeddingManager.ProcessCodeChunks(ctx, &CodeChunkRequest{
 
 // Process GitHub issues
 embeddings, err := embeddingManager.ProcessIssue(ctx, &IssueRequest{
-    Owner:  "S-Corkum",
+    Owner:  "developer-mesh",
     Repo:   "developer-mesh",
     Number: 123,
 })

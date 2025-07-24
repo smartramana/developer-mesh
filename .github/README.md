@@ -3,7 +3,7 @@
 ![Version](https://img.shields.io/badge/version-1.0.0-blue.svg)
 ![Go](https://img.shields.io/badge/go-1.24+-00ADD8.svg)
 ![License](https://img.shields.io/badge/license-MIT-green.svg)
-[![Go Report Card](https://goreportcard.com/badge/github.com/S-Corkum/developer-mesh)](https://goreportcard.com/report/github.com/S-Corkum/developer-mesh)
+[![Go Report Card](https://goreportcard.com/badge/github.com/developer-mesh/developer-mesh)](https://goreportcard.com/report/github.com/developer-mesh/developer-mesh)
 
 > A production-ready platform connecting AI agents to DevOps tools through a unified, standardized API
 
@@ -37,7 +37,7 @@ The fastest way to get started - no build required!
 
 ```bash
 # Clone for configuration files
-git clone https://github.com/S-Corkum/developer-mesh.git
+git clone https://github.com/developer-mesh/developer-mesh.git
 cd developer-mesh
 
 # Copy environment configuration
@@ -72,7 +72,7 @@ For development or customization:
 
 ```bash
 # Clone the repository
-git clone https://github.com/S-Corkum/developer-mesh.git
+git clone https://github.com/developer-mesh/developer-mesh.git
 cd developer-mesh
 
 # Copy configuration template

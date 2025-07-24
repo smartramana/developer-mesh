@@ -88,16 +88,16 @@ Modules use full GitHub paths with replace directives:
 
 ```go
 // apps/mcp-server/go.mod
-module github.com/S-Corkum/developer-mesh/apps/mcp-server
+module github.com/developer-mesh/developer-mesh/apps/mcp-server
 
 // apps/rest-api/go.mod
-module github.com/S-Corkum/developer-mesh/apps/rest-api
+module github.com/developer-mesh/developer-mesh/apps/rest-api
 
 // apps/worker/go.mod
-module github.com/S-Corkum/developer-mesh/apps/worker
+module github.com/developer-mesh/developer-mesh/apps/worker
 
 // Each module includes:
-replace github.com/S-Corkum/developer-mesh/pkg => ../../pkg
+replace github.com/developer-mesh/developer-mesh/pkg => ../../pkg
 ```
 
 ## Dependency Flow
@@ -126,7 +126,7 @@ Rules:
 
 ```bash
 # Clone repository
-git clone https://github.com/S-Corkum/developer-mesh.git
+git clone https://github.com/developer-mesh/developer-mesh.git
 cd developer-mesh
 
 # Sync workspace dependencies

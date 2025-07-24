@@ -3,7 +3,7 @@
 ![Version](https://img.shields.io/badge/version-1.0.0-blue.svg)
 ![Go](https://img.shields.io/badge/go-1.24+-00ADD8.svg)
 ![License](https://img.shields.io/badge/license-MIT-green.svg)
-[![Go Report Card](https://goreportcard.com/badge/github.com/S-Corkum/developer-mesh)](https://goreportcard.com/report/github.com/S-Corkum/developer-mesh)
+[![Go Report Card](https://goreportcard.com/badge/github.com/developer-mesh/developer-mesh)](https://goreportcard.com/report/github.com/developer-mesh/developer-mesh)
 
 > 🚀 The production-ready platform for orchestrating multiple AI agents in your DevOps workflows
 > 
@@ -108,7 +108,7 @@ graph TD
 
 ```bash
 # Clone repository
-git clone https://github.com/S-Corkum/developer-mesh.git
+git clone https://github.com/developer-mesh/developer-mesh.git
 cd developer-mesh
 
 # Configure environment
@@ -127,7 +127,7 @@ curl http://localhost:8081/health
 
 ```bash
 # Clone and setup
-git clone https://github.com/S-Corkum/developer-mesh.git
+git clone https://github.com/developer-mesh/developer-mesh.git
 cd developer-mesh
 
 # Install dependencies

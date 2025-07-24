@@ -67,9 +67,9 @@ func TestVerifyInstallation(t *testing.T) {
 			owner string
 			repo  string
 		}{
-			{"S-Corkum", "developer-mesh"},
-			{"S-Corkum", "developer-mesh-test"},
-			{"S-Corkum-TEST", "developer-mesh-test"},
+			{"developer-mesh", "developer-mesh"},
+			{"developer-mesh", "developer-mesh-test"},
+			{"developer-mesh-TEST", "developer-mesh-test"},
 		}
 
 		foundRepo := false
@@ -103,8 +103,8 @@ func TestVerifyInstallation(t *testing.T) {
 			t.Logf("1. Your GitHub App is installed on installation ID %s", installationID)
 			t.Log("2. But it doesn't have access to the test repository")
 			t.Log("\nYou need to either:")
-			t.Log("- Install the GitHub App on the S-Corkum-TEST organization")
-			t.Log("- Create a test repository under your personal account S-Corkum")
+			t.Log("- Install the GitHub App on the developer-mesh-TEST organization")
+			t.Log("- Create a test repository under your personal account developer-mesh")
 			t.Log("- Or grant the existing installation access to the test repo")
 		}
 	})

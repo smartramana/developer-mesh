@@ -1627,7 +1627,7 @@ result = client.tools.execute_action(
 
 ### Go
 ```go
-import "github.com/S-Corkum/developer-mesh/pkg/client/rest"
+import "github.com/developer-mesh/developer-mesh/pkg/client/rest"
 
 client := rest.NewClient(
     rest.WithAPIKey("your-api-key"),

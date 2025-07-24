@@ -791,4 +791,4 @@ var (
 
 ---
 
-*For more examples and support, visit our [GitHub repository](https://github.com/S-Corkum/developer-mesh)*
+*For more examples and support, visit our [GitHub repository](https://github.com/developer-mesh/developer-mesh)*

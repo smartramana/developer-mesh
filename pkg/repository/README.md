@@ -55,7 +55,7 @@ Each subpackage contains:
 ```go
 import (
     "database/sql"
-    "github.com/S-Corkum/developer-mesh/pkg/repository"
+    "github.com/developer-mesh/developer-mesh/pkg/repository"
 )
 
 // Create a factory with an existing database connection
@@ -88,9 +88,9 @@ searchRepo := factory.GetSearchRepository()     // Returns search.Repository
 ```go
 import (
     "github.com/jmoiron/sqlx"
-    "github.com/S-Corkum/developer-mesh/pkg/repository/agent"
-    "github.com/S-Corkum/developer-mesh/pkg/repository/model"
-    "github.com/S-Corkum/developer-mesh/pkg/repository/vector"
+    "github.com/developer-mesh/developer-mesh/pkg/repository/agent"
+    "github.com/developer-mesh/developer-mesh/pkg/repository/model"
+    "github.com/developer-mesh/developer-mesh/pkg/repository/vector"
 )
 
 // Create database connection
@@ -232,8 +232,8 @@ Each subpackage provides mock implementations:
 ```go
 import (
     "testing"
-    "github.com/S-Corkum/developer-mesh/pkg/repository"
-    "github.com/S-Corkum/developer-mesh/pkg/repository/agent"
+    "github.com/developer-mesh/developer-mesh/pkg/repository"
+    "github.com/developer-mesh/developer-mesh/pkg/repository/agent"
 )
 
 func TestWithFactory(t *testing.T) {

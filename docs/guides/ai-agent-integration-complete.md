@@ -54,7 +54,7 @@ aws bedrock list-foundation-models --region us-east-1
 
 ```bash
 # Clone the repository
-git clone https://github.com/S-Corkum/developer-mesh.git
+git clone https://github.com/developer-mesh/developer-mesh.git
 cd developer-mesh
 
 # Install dependencies
@@ -108,8 +108,8 @@ AND table_name LIKE 'agent%';
 package myagent
 
 import (
-    "github.com/S-Corkum/developer-mesh/pkg/agents"
-    "github.com/S-Corkum/developer-mesh/pkg/models"
+    "github.com/developer-mesh/developer-mesh/pkg/agents"
+    "github.com/developer-mesh/developer-mesh/pkg/models"
 )
 
 // MyCustomAgent represents your AI agent
@@ -173,7 +173,7 @@ func defineCapabilities() []agents.Capability {
 package myagent
 
 import (
-    "github.com/S-Corkum/developer-mesh/pkg/agents"
+    "github.com/developer-mesh/developer-mesh/pkg/agents"
 )
 
 func createDefaultConfig() *agents.AgentConfig {
@@ -420,7 +420,7 @@ import (
     "context"
     "fmt"
     
-    "github.com/S-Corkum/developer-mesh/pkg/bedrock"
+    "github.com/developer-mesh/developer-mesh/pkg/bedrock"
 )
 
 type ModelIntegration struct {
@@ -497,7 +497,7 @@ import (
     "os/signal"
     "syscall"
     
-    "github.com/S-Corkum/developer-mesh/myagent"
+    "github.com/developer-mesh/developer-mesh/myagent"
 )
 
 func main() {

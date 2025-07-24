@@ -22,11 +22,11 @@ This directory contains guidelines and resources for contributing to the Develop
 
 1. Read the [Contributing Guide](CONTRIBUTING.md)
 2. Set up your [development environment](../developer/development-environment.md)
-3. Check the [issue tracker](https://github.com/S-Corkum/developer-mesh/issues) for tasks
+3. Check the [issue tracker](https://github.com/developer-mesh/developer-mesh/issues) for tasks
 4. Join our community discussions (coming soon)
 
 ## Need Help?
 
-- Open an [issue](https://github.com/S-Corkum/developer-mesh/issues) for bugs or feature requests
-- Check existing [pull requests](https://github.com/S-Corkum/developer-mesh/pulls) for similar work
+- Open an [issue](https://github.com/developer-mesh/developer-mesh/issues) for bugs or feature requests
+- Check existing [pull requests](https://github.com/developer-mesh/developer-mesh/pulls) for similar work
 - Review the [architecture documentation](../architecture/) for system design questions

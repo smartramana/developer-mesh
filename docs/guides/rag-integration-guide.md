@@ -32,8 +32,8 @@ package main
 
 import (
     "context"
-    "github.com/S-Corkum/developer-mesh/pkg/embedding"
-    "github.com/S-Corkum/developer-mesh/pkg/chunking"
+    "github.com/developer-mesh/developer-mesh/pkg/embedding"
+    "github.com/developer-mesh/developer-mesh/pkg/chunking"
 )
 
 func main() {
@@ -160,7 +160,7 @@ func ProcessDocumentsForRAG(ctx context.Context, pipeline *embedding.DefaultEmbe
 ```go
 // Example: Using MCP's actual vector repository for search
 import (
-    "github.com/S-Corkum/developer-mesh/pkg/repository/vector"
+    "github.com/developer-mesh/developer-mesh/pkg/repository/vector"
 )
 
 func QueryWithMCPSearch(ctx context.Context, vectorRepo vector.Repository, query string) ([]*vector.Embedding, error) {
@@ -357,7 +357,7 @@ CREATE TABLE IF NOT EXISTS embeddings (
 // Use the actual vector repository
 // (defined in pkg/repository/vector/repository.go)
 
-import "github.com/S-Corkum/developer-mesh/pkg/repository/vector"
+import "github.com/developer-mesh/developer-mesh/pkg/repository/vector"
 
 // The actual Repository interface in MCP
 type Repository interface {
@@ -408,7 +408,7 @@ func SearchForRAG(ctx context.Context, repo vector.Repository, queryVector []flo
 // MCP provides Redis caching via cache package
 // Use it for embedding caching in RAG
 
-import "github.com/S-Corkum/developer-mesh/pkg/cache"
+import "github.com/developer-mesh/developer-mesh/pkg/cache"
 
 // Create cache client
 cacheClient := cache.NewRedisCache(redisClient, logger)
@@ -619,7 +619,7 @@ func PrecomputeCommonEmbeddings(ctx context.Context, embeddingService embedding.
 // MCP provides built-in metrics for embeddings
 // Add your RAG-specific metrics
 
-import "github.com/S-Corkum/developer-mesh/pkg/observability"
+import "github.com/developer-mesh/developer-mesh/pkg/observability"
 
 func TrackRAGMetrics(metrics observability.MetricsClient) {
     // Use MCP's metrics client
@@ -646,7 +646,7 @@ func TrackRAGMetrics(metrics observability.MetricsClient) {
 
 ```go
 // MCP includes OpenTelemetry tracing
-import "github.com/S-Corkum/developer-mesh/pkg/observability"
+import "github.com/developer-mesh/developer-mesh/pkg/observability"
 
 func RAGQueryWithTracing(ctx context.Context, tracer observability.TracingClient, query string) error {
     // Start span using MCP's tracer

@@ -49,12 +49,12 @@ echo
 echo -e "${BLUE}Step 1: Updating Go module paths...${NC}"
 
 # Update main go.mod
-sed -i '' 's|github.com/S-Corkum/developer-mesh|github.com/developer-mesh/developer-mesh|g' go.mod
+sed -i '' 's|github.com/developer-mesh/developer-mesh|github.com/developer-mesh/developer-mesh|g' go.mod
 show_progress "Updated main go.mod"
 
 # Update all go.mod files in the workspace
 find . -name "go.mod" -type f | while read -r file; do
-    sed -i '' 's|github.com/S-Corkum/developer-mesh|github.com/developer-mesh/developer-mesh|g' "$file"
+    sed -i '' 's|github.com/developer-mesh/developer-mesh|github.com/developer-mesh/developer-mesh|g' "$file"
     show_progress "Updated $file"
 done
 
@@ -64,8 +64,8 @@ echo -e "${BLUE}Step 2: Updating Go import statements...${NC}"
 
 # Find all Go files and update imports
 find . -name "*.go" -type f | while read -r file; do
-    if grep -q "github.com/S-Corkum/developer-mesh" "$file"; then
-        sed -i '' 's|github.com/S-Corkum/developer-mesh|github.com/developer-mesh/developer-mesh|g' "$file"
+    if grep -q "github.com/developer-mesh/developer-mesh" "$file"; then
+        sed -i '' 's|github.com/developer-mesh/developer-mesh|github.com/developer-mesh/developer-mesh|g' "$file"
         show_progress "Updated imports in $file"
     fi
 done

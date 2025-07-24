@@ -44,7 +44,7 @@ Harassment, offensive behavior, or discrimination of any kind will not be tolera
    cd developer-mesh
    
    # Add upstream remote
-   git remote add upstream https://github.com/S-Corkum/developer-mesh.git
+   git remote add upstream https://github.com/developer-mesh/developer-mesh.git
    ```
 
 2. **Create a Feature Branch**
@@ -372,7 +372,7 @@ Check issues labeled `enhancement` for feature ideas:
 
 ### Current Priorities
 
-See our [project board](https://github.com/S-Corkum/developer-mesh/projects) for current priorities and roadmap.
+See our [project board](https://github.com/developer-mesh/developer-mesh/projects) for current priorities and roadmap.
 
 ## 🙏 Thank You!
 

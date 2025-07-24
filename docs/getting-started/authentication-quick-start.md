@@ -14,7 +14,7 @@ Get up and running with Developer Mesh authentication in 5 minutes.
 
 ```bash
 # Clone the repository
-git clone https://github.com/S-Corkum/developer-mesh.git
+git clone https://github.com/developer-mesh/developer-mesh.git
 cd developer-mesh
 
 # Start dependencies
@@ -34,8 +34,8 @@ package main
 import (
     "log"
     
-    "github.com/S-Corkum/developer-mesh/pkg/auth"
-    "github.com/S-Corkum/developer-mesh/pkg/observability"
+    "github.com/developer-mesh/developer-mesh/pkg/auth"
+    "github.com/developer-mesh/developer-mesh/pkg/observability"
     "github.com/gin-gonic/gin"
 )
 
@@ -98,9 +98,9 @@ import (
     "log"
     "time"
     
-    "github.com/S-Corkum/developer-mesh/pkg/auth"
-    "github.com/S-Corkum/developer-mesh/pkg/common/cache"
-    "github.com/S-Corkum/developer-mesh/pkg/observability"
+    "github.com/developer-mesh/developer-mesh/pkg/auth"
+    "github.com/developer-mesh/developer-mesh/pkg/common/cache"
+    "github.com/developer-mesh/developer-mesh/pkg/observability"
     "github.com/gin-gonic/gin"
     "github.com/jmoiron/sqlx"
 )
@@ -363,5 +363,5 @@ Before going to production:
 
 - Check the [troubleshooting guide](../operations/authentication-operations-guide.md#troubleshooting)
 - Review [example implementations](../examples/)
-- Submit issues at [GitHub Issues](https://github.com/S-Corkum/developer-mesh/issues)
-- Join our [community discussions](https://github.com/S-Corkum/developer-mesh/discussions)
+- Submit issues at [GitHub Issues](https://github.com/developer-mesh/developer-mesh/issues)
+- Join our [community discussions](https://github.com/developer-mesh/developer-mesh/discussions)

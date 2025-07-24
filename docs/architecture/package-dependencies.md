@@ -225,7 +225,7 @@ When circular dependencies are detected:
 
 ```bash
 # Visualize dependencies
-go mod graph | grep "^github.com/S-Corkum/developer-mesh"
+go mod graph | grep "^github.com/developer-mesh/developer-mesh"
 
 # Check for circular dependencies
 go list -f '{{.ImportPath}} -> {{join .Imports " "}}' ./... | grep -E "pkg/.* -> .*pkg/"

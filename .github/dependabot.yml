@@ -8,7 +8,7 @@
 #       day: "monday"
 #     open-pull-requests-limit: 5
 #     reviewers:
-#       - "S-Corkum"
+#       - "developer-mesh"
 #     labels:
 #       - "dependencies"
 #       - "go"
@@ -23,7 +23,7 @@
 #       day: "monday"
 #     open-pull-requests-limit: 5
 #     reviewers:
-#       - "S-Corkum"
+#       - "developer-mesh"
 #     labels:
 #       - "dependencies"
 #       - "go"
@@ -38,7 +38,7 @@
 #       day: "monday"
 #     open-pull-requests-limit: 5
 #     reviewers:
-#       - "S-Corkum"
+#       - "developer-mesh"
 #     labels:
 #       - "dependencies"
 #       - "go"
@@ -53,7 +53,7 @@
 #       day: "monday"
 #     open-pull-requests-limit: 5
 #     reviewers:
-#       - "S-Corkum"
+#       - "developer-mesh"
 #     labels:
 #       - "dependencies"
 #       - "go"
@@ -68,7 +68,7 @@
 #       interval: "weekly"
 #       day: "monday"
 #     reviewers:
-#       - "S-Corkum"
+#       - "developer-mesh"
 #     labels:
 #       - "dependencies"
 #       - "docker"
@@ -79,7 +79,7 @@
 #       interval: "weekly"
 #       day: "monday"
 #     reviewers:
-#       - "S-Corkum"
+#       - "developer-mesh"
 #     labels:
 #       - "dependencies"
 #       - "docker"
@@ -90,7 +90,7 @@
 #       interval: "weekly"
 #       day: "monday"
 #     reviewers:
-#       - "S-Corkum"
+#       - "developer-mesh"
 #     labels:
 #       - "dependencies"
 #       - "docker"
@@ -102,7 +102,7 @@
 #       interval: "weekly"
 #       day: "monday"
 #     reviewers:
-#       - "S-Corkum"
+#       - "developer-mesh"
 #     labels:
 #       - "dependencies"
 #       - "github-actions"

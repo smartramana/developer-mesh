@@ -84,10 +84,10 @@ Add a step to deploy all config files:
       --parameters 'commands=[
         "cd /home/ec2-user/developer-mesh",
         "mkdir -p configs",
-        "curl -s https://raw.githubusercontent.com/S-Corkum/developer-mesh/${{ github.sha }}/configs/config.base.yaml > configs/config.base.yaml",
-        "curl -s https://raw.githubusercontent.com/S-Corkum/developer-mesh/${{ github.sha }}/configs/config.production.yaml > configs/config.production.yaml",
-        "curl -s https://raw.githubusercontent.com/S-Corkum/developer-mesh/${{ github.sha }}/configs/auth.production.yaml > configs/auth.production.yaml",
-        "curl -s https://raw.githubusercontent.com/S-Corkum/developer-mesh/${{ github.sha }}/docker-compose.production.yml > docker-compose.production.yml",
+        "curl -s https://raw.githubusercontent.com/developer-mesh/developer-mesh/${{ github.sha }}/configs/config.base.yaml > configs/config.base.yaml",
+        "curl -s https://raw.githubusercontent.com/developer-mesh/developer-mesh/${{ github.sha }}/configs/config.production.yaml > configs/config.production.yaml",
+        "curl -s https://raw.githubusercontent.com/developer-mesh/developer-mesh/${{ github.sha }}/configs/auth.production.yaml > configs/auth.production.yaml",
+        "curl -s https://raw.githubusercontent.com/developer-mesh/developer-mesh/${{ github.sha }}/docker-compose.production.yml > docker-compose.production.yml",
         "chown -R ec2-user:ec2-user configs",
         "echo \"Configuration files deployed successfully\""
       ]'

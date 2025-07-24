@@ -25,7 +25,7 @@ echo "Directory structure created successfully."
 
 # Setup basic Go module
 if [ ! -f go.mod ]; then
-  go mod init github.com/S-Corkum/mcp-server
+  go mod init github.com/developer-mesh/mcp-server
   echo "Go module initialized."
 fi
 

@@ -4,7 +4,7 @@
 set -e
 
 MIGRATIONS_DIR="migrations"
-GITHUB_REPO="S-Corkum/developer-mesh"
+GITHUB_REPO="developer-mesh/developer-mesh"
 GITHUB_BRANCH="${GITHUB_BRANCH:-main}"
 
 echo "Downloading migrations from GitHub..."

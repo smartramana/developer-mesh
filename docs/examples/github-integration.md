@@ -526,7 +526,7 @@ async def main():
     
     # Fix a bug from issue
     result = await bug_fixer.fix_bug_from_issue(
-        repo="S-Corkum/developer-mesh",
+        repo="developer-mesh/developer-mesh",
         issue_number=42
     )
     
@@ -1017,4 +1017,4 @@ async def health_check():
 
 ---
 
-*For support, join our [Discord community](https://discord.gg/developer-mesh) or open an issue on [GitHub](https://github.com/S-Corkum/developer-mesh)*
+*For support, join our [Discord community](https://discord.gg/developer-mesh) or open an issue on [GitHub](https://github.com/developer-mesh/developer-mesh)*

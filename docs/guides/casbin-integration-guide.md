@@ -88,7 +88,7 @@ import (
     
     "github.com/casbin/casbin/v2"
     gormadapter "github.com/casbin/gorm-adapter/v3"
-    "github.com/S-Corkum/developer-mesh/pkg/observability"
+    "github.com/developer-mesh/developer-mesh/pkg/observability"
 )
 
 type CasbinAuthorizer struct {

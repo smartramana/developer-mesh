@@ -89,7 +89,7 @@ For configuration management and state synchronization.
 package main
 
 import (
-    "github.com/S-Corkum/developer-mesh/pkg/crdt"
+    "github.com/developer-mesh/developer-mesh/pkg/crdt"
     "time"
 )
 
@@ -757,4 +757,4 @@ class CRDTDebugger {
 
 ---
 
-*For more advanced CRDT patterns and support, visit our [GitHub repository](https://github.com/S-Corkum/developer-mesh)*
+*For more advanced CRDT patterns and support, visit our [GitHub repository](https://github.com/developer-mesh/developer-mesh)*

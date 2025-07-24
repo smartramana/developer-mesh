@@ -122,8 +122,8 @@ Documentation improvements are always welcome! See our [Contributing Guide](../C
 Can't find what you need?
 
 1. Search the documentation
-2. Check [GitHub Issues](https://github.com/S-Corkum/developer-mesh/issues)
-3. Ask in [Discussions](https://github.com/S-Corkum/developer-mesh/discussions)
+2. Check [GitHub Issues](https://github.com/developer-mesh/developer-mesh/issues)
+3. Ask in [Discussions](https://github.com/developer-mesh/developer-mesh/discussions)
 4. Review [Examples](examples/README.md)
 
 ---

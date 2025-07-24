@@ -114,7 +114,7 @@ Optimized for automated testing:
 ### Using the Configuration Loader
 
 ```go
-import "github.com/S-Corkum/developer-mesh/pkg/config"
+import "github.com/developer-mesh/developer-mesh/pkg/config"
 
 // Load configuration
 loader, err := config.LoadConfig("./configs", "production")

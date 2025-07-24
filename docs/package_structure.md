@@ -44,8 +44,8 @@ import (
     "github.com/gin-gonic/gin"
     
     // Internal packages - organized from most general to most specific
-    "github.com/S-Corkum/developer-mesh/pkg/config"
-    "github.com/S-Corkum/developer-mesh/pkg/observability"
-    "github.com/S-Corkum/developer-mesh/apps/rest-api/internal/core"
+    "github.com/developer-mesh/developer-mesh/pkg/config"
+    "github.com/developer-mesh/developer-mesh/pkg/observability"
+    "github.com/developer-mesh/developer-mesh/apps/rest-api/internal/core"
 )
 ```

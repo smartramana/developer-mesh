@@ -1164,7 +1164,7 @@ ws.opcode == 8  # Close frames
 
 2. **Check resources:**
    - [MCP Documentation](https://docs.mcp.dev)
-   - [Agent SDK Issues](https://github.com/S-Corkum/developer-mesh/issues)
+   - [Agent SDK Issues](https://github.com/developer-mesh/developer-mesh/issues)
    - [Community Forum](https://forum.mcp.dev)
    - [Status Page](https://status.mcp.dev)
 

@@ -116,7 +116,7 @@
           "Location": {
             "FileName": "/Users/seancorkum/projects/developer-mesh/test/e2e/scenarios/performance_test.go",
             "LineNumber": 311,
-            "FullStackTrace": "github.com/S-Corkum/developer-mesh/test/e2e/scenarios.init.func3.4.1()\n\t/Users/seancorkum/projects/developer-mesh/test/e2e/scenarios/performance_test.go:311 +0x243"
+            "FullStackTrace": "github.com/developer-mesh/developer-mesh/test/e2e/scenarios.init.func3.4.1()\n\t/Users/seancorkum/projects/developer-mesh/test/e2e/scenarios/performance_test.go:311 +0x243"
           },
           "TimelineLocation": {
             "Order": 15,
@@ -151,7 +151,7 @@
               "Location": {
                 "FileName": "/Users/seancorkum/projects/developer-mesh/test/e2e/scenarios/performance_test.go",
                 "LineNumber": 311,
-                "FullStackTrace": "github.com/S-Corkum/developer-mesh/test/e2e/scenarios.init.func3.4.1()\n\t/Users/seancorkum/projects/developer-mesh/test/e2e/scenarios/performance_test.go:311 +0x243"
+                "FullStackTrace": "github.com/developer-mesh/developer-mesh/test/e2e/scenarios.init.func3.4.1()\n\t/Users/seancorkum/projects/developer-mesh/test/e2e/scenarios/performance_test.go:311 +0x243"
               },
               "TimelineLocation": {
                 "Order": 5,
@@ -387,7 +387,7 @@
           "Location": {
             "FileName": "/Users/seancorkum/projects/developer-mesh/test/e2e/scenarios/multi_agent_test.go",
             "LineNumber": 150,
-            "FullStackTrace": "github.com/S-Corkum/developer-mesh/test/e2e/scenarios.init.func1.4.1({0x0?, 0x0?})\n\t/Users/seancorkum/projects/developer-mesh/test/e2e/scenarios/multi_agent_test.go:150 +0x3c8"
+            "FullStackTrace": "github.com/developer-mesh/developer-mesh/test/e2e/scenarios.init.func1.4.1({0x0?, 0x0?})\n\t/Users/seancorkum/projects/developer-mesh/test/e2e/scenarios/multi_agent_test.go:150 +0x3c8"
           },
           "TimelineLocation": {
             "Order": 34,
@@ -422,7 +422,7 @@
               "Location": {
                 "FileName": "/Users/seancorkum/projects/developer-mesh/test/e2e/scenarios/multi_agent_test.go",
                 "LineNumber": 150,
-                "FullStackTrace": "github.com/S-Corkum/developer-mesh/test/e2e/scenarios.init.func1.4.1({0xc000114070?, 0xc0000101e0?})\n\t/Users/seancorkum/projects/developer-mesh/test/e2e/scenarios/multi_agent_test.go:150 +0x3c8"
+                "FullStackTrace": "github.com/developer-mesh/developer-mesh/test/e2e/scenarios.init.func1.4.1({0xc000114070?, 0xc0000101e0?})\n\t/Users/seancorkum/projects/developer-mesh/test/e2e/scenarios/multi_agent_test.go:150 +0x3c8"
               },
               "TimelineLocation": {
                 "Order": 24,
@@ -658,7 +658,7 @@
           "Location": {
             "FileName": "/Users/seancorkum/projects/developer-mesh/test/e2e/scenarios/multi_agent_test.go",
             "LineNumber": 394,
-            "FullStackTrace": "github.com/S-Corkum/developer-mesh/test/e2e/scenarios.init.func1.6.1()\n\t/Users/seancorkum/projects/developer-mesh/test/e2e/scenarios/multi_agent_test.go:394 +0x323"
+            "FullStackTrace": "github.com/developer-mesh/developer-mesh/test/e2e/scenarios.init.func1.6.1()\n\t/Users/seancorkum/projects/developer-mesh/test/e2e/scenarios/multi_agent_test.go:394 +0x323"
           },
           "TimelineLocation": {
             "Order": 53,
@@ -693,7 +693,7 @@
               "Location": {
                 "FileName": "/Users/seancorkum/projects/developer-mesh/test/e2e/scenarios/multi_agent_test.go",
                 "LineNumber": 394,
-                "FullStackTrace": "github.com/S-Corkum/developer-mesh/test/e2e/scenarios.init.func1.6.1()\n\t/Users/seancorkum/projects/developer-mesh/test/e2e/scenarios/multi_agent_test.go:394 +0x323"
+                "FullStackTrace": "github.com/developer-mesh/developer-mesh/test/e2e/scenarios.init.func1.6.1()\n\t/Users/seancorkum/projects/developer-mesh/test/e2e/scenarios/multi_agent_test.go:394 +0x323"
               },
               "TimelineLocation": {
                 "Order": 43,
@@ -929,7 +929,7 @@
           "Location": {
             "FileName": "/Users/seancorkum/projects/developer-mesh/test/e2e/scenarios/multi_agent_test.go",
             "LineNumber": 601,
-            "FullStackTrace": "github.com/S-Corkum/developer-mesh/test/e2e/scenarios.init.func1.8.1()\n\t/Users/seancorkum/projects/developer-mesh/test/e2e/scenarios/multi_agent_test.go:601 +0x758"
+            "FullStackTrace": "github.com/developer-mesh/developer-mesh/test/e2e/scenarios.init.func1.8.1()\n\t/Users/seancorkum/projects/developer-mesh/test/e2e/scenarios/multi_agent_test.go:601 +0x758"
           },
           "TimelineLocation": {
             "Order": 72,
@@ -964,7 +964,7 @@
               "Location": {
                 "FileName": "/Users/seancorkum/projects/developer-mesh/test/e2e/scenarios/multi_agent_test.go",
                 "LineNumber": 601,
-                "FullStackTrace": "github.com/S-Corkum/developer-mesh/test/e2e/scenarios.init.func1.8.1()\n\t/Users/seancorkum/projects/developer-mesh/test/e2e/scenarios/multi_agent_test.go:601 +0x758"
+                "FullStackTrace": "github.com/developer-mesh/developer-mesh/test/e2e/scenarios.init.func1.8.1()\n\t/Users/seancorkum/projects/developer-mesh/test/e2e/scenarios/multi_agent_test.go:601 +0x758"
               },
               "TimelineLocation": {
                 "Order": 62,
@@ -1438,7 +1438,7 @@
           "Location": {
             "FileName": "/Users/seancorkum/projects/developer-mesh/test/e2e/scenarios/single_agent_test.go",
             "LineNumber": 73,
-            "FullStackTrace": "github.com/S-Corkum/developer-mesh/test/e2e/scenarios.init.func4.3.1()\n\t/Users/seancorkum/projects/developer-mesh/test/e2e/scenarios/single_agent_test.go:73 +0x323"
+            "FullStackTrace": "github.com/developer-mesh/developer-mesh/test/e2e/scenarios.init.func4.3.1()\n\t/Users/seancorkum/projects/developer-mesh/test/e2e/scenarios/single_agent_test.go:73 +0x323"
           },
           "TimelineLocation": {
             "Order": 109,
@@ -1474,7 +1474,7 @@
               "Location": {
                 "FileName": "/Users/seancorkum/projects/developer-mesh/test/e2e/scenarios/single_agent_test.go",
                 "LineNumber": 73,
-                "FullStackTrace": "github.com/S-Corkum/developer-mesh/test/e2e/scenarios.init.func4.3.1()\n\t/Users/seancorkum/projects/developer-mesh/test/e2e/scenarios/single_agent_test.go:73 +0x323"
+                "FullStackTrace": "github.com/developer-mesh/developer-mesh/test/e2e/scenarios.init.func4.3.1()\n\t/Users/seancorkum/projects/developer-mesh/test/e2e/scenarios/single_agent_test.go:73 +0x323"
               },
               "TimelineLocation": {
                 "Order": 99,
@@ -1710,7 +1710,7 @@
           "Location": {
             "FileName": "/Users/seancorkum/projects/developer-mesh/test/e2e/scenarios/single_agent_test.go",
             "LineNumber": 295,
-            "FullStackTrace": "github.com/S-Corkum/developer-mesh/test/e2e/scenarios.init.func4.5.1()\n\t/Users/seancorkum/projects/developer-mesh/test/e2e/scenarios/single_agent_test.go:295 +0x283"
+            "FullStackTrace": "github.com/developer-mesh/developer-mesh/test/e2e/scenarios.init.func4.5.1()\n\t/Users/seancorkum/projects/developer-mesh/test/e2e/scenarios/single_agent_test.go:295 +0x283"
           },
           "TimelineLocation": {
             "Order": 128,
@@ -1745,7 +1745,7 @@
               "Location": {
                 "FileName": "/Users/seancorkum/projects/developer-mesh/test/e2e/scenarios/single_agent_test.go",
                 "LineNumber": 295,
-                "FullStackTrace": "github.com/S-Corkum/developer-mesh/test/e2e/scenarios.init.func4.5.1()\n\t/Users/seancorkum/projects/developer-mesh/test/e2e/scenarios/single_agent_test.go:295 +0x283"
+                "FullStackTrace": "github.com/developer-mesh/developer-mesh/test/e2e/scenarios.init.func4.5.1()\n\t/Users/seancorkum/projects/developer-mesh/test/e2e/scenarios/single_agent_test.go:295 +0x283"
               },
               "TimelineLocation": {
                 "Order": 118,
@@ -1981,7 +1981,7 @@
           "Location": {
             "FileName": "/Users/seancorkum/projects/developer-mesh/test/e2e/scenarios/single_agent_test.go",
             "LineNumber": 505,
-            "FullStackTrace": "github.com/S-Corkum/developer-mesh/test/e2e/scenarios.init.func4.7.3()\n\t/Users/seancorkum/projects/developer-mesh/test/e2e/scenarios/single_agent_test.go:505 +0x283"
+            "FullStackTrace": "github.com/developer-mesh/developer-mesh/test/e2e/scenarios.init.func4.7.3()\n\t/Users/seancorkum/projects/developer-mesh/test/e2e/scenarios/single_agent_test.go:505 +0x283"
           },
           "TimelineLocation": {
             "Order": 147,
@@ -2016,7 +2016,7 @@
               "Location": {
                 "FileName": "/Users/seancorkum/projects/developer-mesh/test/e2e/scenarios/single_agent_test.go",
                 "LineNumber": 505,
-                "FullStackTrace": "github.com/S-Corkum/developer-mesh/test/e2e/scenarios.init.func4.7.3()\n\t/Users/seancorkum/projects/developer-mesh/test/e2e/scenarios/single_agent_test.go:505 +0x283"
+                "FullStackTrace": "github.com/developer-mesh/developer-mesh/test/e2e/scenarios.init.func4.7.3()\n\t/Users/seancorkum/projects/developer-mesh/test/e2e/scenarios/single_agent_test.go:505 +0x283"
               },
               "TimelineLocation": {
                 "Order": 137,
@@ -2252,7 +2252,7 @@
           "Location": {
             "FileName": "/Users/seancorkum/projects/developer-mesh/test/e2e/scenarios/performance_test.go",
             "LineNumber": 530,
-            "FullStackTrace": "github.com/S-Corkum/developer-mesh/test/e2e/scenarios.init.func3.5.1()\n\t/Users/seancorkum/projects/developer-mesh/test/e2e/scenarios/performance_test.go:530 +0x318"
+            "FullStackTrace": "github.com/developer-mesh/developer-mesh/test/e2e/scenarios.init.func3.5.1()\n\t/Users/seancorkum/projects/developer-mesh/test/e2e/scenarios/performance_test.go:530 +0x318"
           },
           "TimelineLocation": {
             "Order": 15,
@@ -2287,7 +2287,7 @@
               "Location": {
                 "FileName": "/Users/seancorkum/projects/developer-mesh/test/e2e/scenarios/performance_test.go",
                 "LineNumber": 530,
-                "FullStackTrace": "github.com/S-Corkum/developer-mesh/test/e2e/scenarios.init.func3.5.1()\n\t/Users/seancorkum/projects/developer-mesh/test/e2e/scenarios/performance_test.go:530 +0x318"
+                "FullStackTrace": "github.com/developer-mesh/developer-mesh/test/e2e/scenarios.init.func3.5.1()\n\t/Users/seancorkum/projects/developer-mesh/test/e2e/scenarios/performance_test.go:530 +0x318"
               },
               "TimelineLocation": {
                 "Order": 5,
@@ -2523,7 +2523,7 @@
           "Location": {
             "FileName": "/Users/seancorkum/projects/developer-mesh/test/e2e/scenarios/performance_test.go",
             "LineNumber": 657,
-            "FullStackTrace": "github.com/S-Corkum/developer-mesh/test/e2e/scenarios.init.func3.6.1()\n\t/Users/seancorkum/projects/developer-mesh/test/e2e/scenarios/performance_test.go:657 +0x2a3"
+            "FullStackTrace": "github.com/developer-mesh/developer-mesh/test/e2e/scenarios.init.func3.6.1()\n\t/Users/seancorkum/projects/developer-mesh/test/e2e/scenarios/performance_test.go:657 +0x2a3"
           },
           "TimelineLocation": {
             "Order": 34,
@@ -2558,7 +2558,7 @@
               "Location": {
                 "FileName": "/Users/seancorkum/projects/developer-mesh/test/e2e/scenarios/performance_test.go",
                 "LineNumber": 657,
-                "FullStackTrace": "github.com/S-Corkum/developer-mesh/test/e2e/scenarios.init.func3.6.1()\n\t/Users/seancorkum/projects/developer-mesh/test/e2e/scenarios/performance_test.go:657 +0x2a3"
+                "FullStackTrace": "github.com/developer-mesh/developer-mesh/test/e2e/scenarios.init.func3.6.1()\n\t/Users/seancorkum/projects/developer-mesh/test/e2e/scenarios/performance_test.go:657 +0x2a3"
               },
               "TimelineLocation": {
                 "Order": 24,
@@ -2794,7 +2794,7 @@
           "Location": {
             "FileName": "/Users/seancorkum/projects/developer-mesh/test/e2e/scenarios/multi_agent_test.go",
             "LineNumber": 291,
-            "FullStackTrace": "github.com/S-Corkum/developer-mesh/test/e2e/scenarios.init.func1.5.1()\n\t/Users/seancorkum/projects/developer-mesh/test/e2e/scenarios/multi_agent_test.go:291 +0x363"
+            "FullStackTrace": "github.com/developer-mesh/developer-mesh/test/e2e/scenarios.init.func1.5.1()\n\t/Users/seancorkum/projects/developer-mesh/test/e2e/scenarios/multi_agent_test.go:291 +0x363"
           },
           "TimelineLocation": {
             "Order": 53,
@@ -2829,7 +2829,7 @@
               "Location": {
                 "FileName": "/Users/seancorkum/projects/developer-mesh/test/e2e/scenarios/multi_agent_test.go",
                 "LineNumber": 291,
-                "FullStackTrace": "github.com/S-Corkum/developer-mesh/test/e2e/scenarios.init.func1.5.1()\n\t/Users/seancorkum/projects/developer-mesh/test/e2e/scenarios/multi_agent_test.go:291 +0x363"
+                "FullStackTrace": "github.com/developer-mesh/developer-mesh/test/e2e/scenarios.init.func1.5.1()\n\t/Users/seancorkum/projects/developer-mesh/test/e2e/scenarios/multi_agent_test.go:291 +0x363"
               },
               "TimelineLocation": {
                 "Order": 43,
@@ -3065,7 +3065,7 @@
           "Location": {
             "FileName": "/Users/seancorkum/projects/developer-mesh/test/e2e/scenarios/multi_agent_test.go",
             "LineNumber": 489,
-            "FullStackTrace": "github.com/S-Corkum/developer-mesh/test/e2e/scenarios.init.func1.7.1()\n\t/Users/seancorkum/projects/developer-mesh/test/e2e/scenarios/multi_agent_test.go:489 +0x323"
+            "FullStackTrace": "github.com/developer-mesh/developer-mesh/test/e2e/scenarios.init.func1.7.1()\n\t/Users/seancorkum/projects/developer-mesh/test/e2e/scenarios/multi_agent_test.go:489 +0x323"
           },
           "TimelineLocation": {
             "Order": 72,
@@ -3100,7 +3100,7 @@
               "Location": {
                 "FileName": "/Users/seancorkum/projects/developer-mesh/test/e2e/scenarios/multi_agent_test.go",
                 "LineNumber": 489,
-                "FullStackTrace": "github.com/S-Corkum/developer-mesh/test/e2e/scenarios.init.func1.7.1()\n\t/Users/seancorkum/projects/developer-mesh/test/e2e/scenarios/multi_agent_test.go:489 +0x323"
+                "FullStackTrace": "github.com/developer-mesh/developer-mesh/test/e2e/scenarios.init.func1.7.1()\n\t/Users/seancorkum/projects/developer-mesh/test/e2e/scenarios/multi_agent_test.go:489 +0x323"
               },
               "TimelineLocation": {
                 "Order": 62,
@@ -3336,7 +3336,7 @@
           "Location": {
             "FileName": "/Users/seancorkum/projects/developer-mesh/test/e2e/scenarios/multi_tenant_test.go",
             "LineNumber": 289,
-            "FullStackTrace": "github.com/S-Corkum/developer-mesh/test/e2e/scenarios.init.func2.6.1()\n\t/Users/seancorkum/projects/developer-mesh/test/e2e/scenarios/multi_tenant_test.go:289 +0x263"
+            "FullStackTrace": "github.com/developer-mesh/developer-mesh/test/e2e/scenarios.init.func2.6.1()\n\t/Users/seancorkum/projects/developer-mesh/test/e2e/scenarios/multi_tenant_test.go:289 +0x263"
           },
           "TimelineLocation": {
             "Order": 91,
@@ -3372,7 +3372,7 @@
               "Location": {
                 "FileName": "/Users/seancorkum/projects/developer-mesh/test/e2e/scenarios/multi_tenant_test.go",
                 "LineNumber": 289,
-                "FullStackTrace": "github.com/S-Corkum/developer-mesh/test/e2e/scenarios.init.func2.6.1()\n\t/Users/seancorkum/projects/developer-mesh/test/e2e/scenarios/multi_tenant_test.go:289 +0x263"
+                "FullStackTrace": "github.com/developer-mesh/developer-mesh/test/e2e/scenarios.init.func2.6.1()\n\t/Users/seancorkum/projects/developer-mesh/test/e2e/scenarios/multi_tenant_test.go:289 +0x263"
               },
               "TimelineLocation": {
                 "Order": 81,
@@ -3608,7 +3608,7 @@
           "Location": {
             "FileName": "/Users/seancorkum/projects/developer-mesh/test/e2e/scenarios/single_agent_test.go",
             "LineNumber": 130,
-            "FullStackTrace": "github.com/S-Corkum/developer-mesh/test/e2e/scenarios.init.func4.3.2()\n\t/Users/seancorkum/projects/developer-mesh/test/e2e/scenarios/single_agent_test.go:130 +0x283"
+            "FullStackTrace": "github.com/developer-mesh/developer-mesh/test/e2e/scenarios.init.func4.3.2()\n\t/Users/seancorkum/projects/developer-mesh/test/e2e/scenarios/single_agent_test.go:130 +0x283"
           },
           "TimelineLocation": {
             "Order": 110,
@@ -3643,7 +3643,7 @@
               "Location": {
                 "FileName": "/Users/seancorkum/projects/developer-mesh/test/e2e/scenarios/single_agent_test.go",
                 "LineNumber": 130,
-                "FullStackTrace": "github.com/S-Corkum/developer-mesh/test/e2e/scenarios.init.func4.3.2()\n\t/Users/seancorkum/projects/developer-mesh/test/e2e/scenarios/single_agent_test.go:130 +0x283"
+                "FullStackTrace": "github.com/developer-mesh/developer-mesh/test/e2e/scenarios.init.func4.3.2()\n\t/Users/seancorkum/projects/developer-mesh/test/e2e/scenarios/single_agent_test.go:130 +0x283"
               },
               "TimelineLocation": {
                 "Order": 100,
@@ -3879,7 +3879,7 @@
           "Location": {
             "FileName": "/Users/seancorkum/projects/developer-mesh/test/e2e/scenarios/single_agent_test.go",
             "LineNumber": 360,
-            "FullStackTrace": "github.com/S-Corkum/developer-mesh/test/e2e/scenarios.init.func4.6.1()\n\t/Users/seancorkum/projects/developer-mesh/test/e2e/scenarios/single_agent_test.go:360 +0x283"
+            "FullStackTrace": "github.com/developer-mesh/developer-mesh/test/e2e/scenarios.init.func4.6.1()\n\t/Users/seancorkum/projects/developer-mesh/test/e2e/scenarios/single_agent_test.go:360 +0x283"
           },
           "TimelineLocation": {
             "Order": 129,
@@ -3914,7 +3914,7 @@
               "Location": {
                 "FileName": "/Users/seancorkum/projects/developer-mesh/test/e2e/scenarios/single_agent_test.go",
                 "LineNumber": 360,
-                "FullStackTrace": "github.com/S-Corkum/developer-mesh/test/e2e/scenarios.init.func4.6.1()\n\t/Users/seancorkum/projects/developer-mesh/test/e2e/scenarios/single_agent_test.go:360 +0x283"
+                "FullStackTrace": "github.com/developer-mesh/developer-mesh/test/e2e/scenarios.init.func4.6.1()\n\t/Users/seancorkum/projects/developer-mesh/test/e2e/scenarios/single_agent_test.go:360 +0x283"
               },
               "TimelineLocation": {
                 "Order": 119,
@@ -4150,7 +4150,7 @@
           "Location": {
             "FileName": "/Users/seancorkum/projects/developer-mesh/test/e2e/scenarios/performance_test.go",
             "LineNumber": 158,
-            "FullStackTrace": "github.com/S-Corkum/developer-mesh/test/e2e/scenarios.init.func3.3.1()\n\t/Users/seancorkum/projects/developer-mesh/test/e2e/scenarios/performance_test.go:158 +0xa62"
+            "FullStackTrace": "github.com/developer-mesh/developer-mesh/test/e2e/scenarios.init.func3.3.1()\n\t/Users/seancorkum/projects/developer-mesh/test/e2e/scenarios/performance_test.go:158 +0xa62"
           },
           "TimelineLocation": {
             "Order": 15,
@@ -4186,7 +4186,7 @@
               "Location": {
                 "FileName": "/Users/seancorkum/projects/developer-mesh/test/e2e/scenarios/performance_test.go",
                 "LineNumber": 158,
-                "FullStackTrace": "github.com/S-Corkum/developer-mesh/test/e2e/scenarios.init.func3.3.1()\n\t/Users/seancorkum/projects/developer-mesh/test/e2e/scenarios/performance_test.go:158 +0xa62"
+                "FullStackTrace": "github.com/developer-mesh/developer-mesh/test/e2e/scenarios.init.func3.3.1()\n\t/Users/seancorkum/projects/developer-mesh/test/e2e/scenarios/performance_test.go:158 +0xa62"
               },
               "TimelineLocation": {
                 "Order": 5,
@@ -4660,7 +4660,7 @@
           "Location": {
             "FileName": "/Users/seancorkum/projects/developer-mesh/test/e2e/scenarios/multi_tenant_test.go",
             "LineNumber": 214,
-            "FullStackTrace": "github.com/S-Corkum/developer-mesh/test/e2e/scenarios.init.func2.5.1()\n\t/Users/seancorkum/projects/developer-mesh/test/e2e/scenarios/multi_tenant_test.go:214 +0x353"
+            "FullStackTrace": "github.com/developer-mesh/developer-mesh/test/e2e/scenarios.init.func2.5.1()\n\t/Users/seancorkum/projects/developer-mesh/test/e2e/scenarios/multi_tenant_test.go:214 +0x353"
           },
           "TimelineLocation": {
             "Order": 52,
@@ -4695,7 +4695,7 @@
               "Location": {
                 "FileName": "/Users/seancorkum/projects/developer-mesh/test/e2e/scenarios/multi_tenant_test.go",
                 "LineNumber": 214,
-                "FullStackTrace": "github.com/S-Corkum/developer-mesh/test/e2e/scenarios.init.func2.5.1()\n\t/Users/seancorkum/projects/developer-mesh/test/e2e/scenarios/multi_tenant_test.go:214 +0x353"
+                "FullStackTrace": "github.com/developer-mesh/developer-mesh/test/e2e/scenarios.init.func2.5.1()\n\t/Users/seancorkum/projects/developer-mesh/test/e2e/scenarios/multi_tenant_test.go:214 +0x353"
               },
               "TimelineLocation": {
                 "Order": 42,
@@ -4931,7 +4931,7 @@
           "Location": {
             "FileName": "/Users/seancorkum/projects/developer-mesh/test/e2e/scenarios/multi_tenant_test.go",
             "LineNumber": 371,
-            "FullStackTrace": "github.com/S-Corkum/developer-mesh/test/e2e/scenarios.init.func2.8.1()\n\t/Users/seancorkum/projects/developer-mesh/test/e2e/scenarios/multi_tenant_test.go:371 +0x393"
+            "FullStackTrace": "github.com/developer-mesh/developer-mesh/test/e2e/scenarios.init.func2.8.1()\n\t/Users/seancorkum/projects/developer-mesh/test/e2e/scenarios/multi_tenant_test.go:371 +0x393"
           },
           "TimelineLocation": {
             "Order": 71,
@@ -4966,7 +4966,7 @@
               "Location": {
                 "FileName": "/Users/seancorkum/projects/developer-mesh/test/e2e/scenarios/multi_tenant_test.go",
                 "LineNumber": 371,
-                "FullStackTrace": "github.com/S-Corkum/developer-mesh/test/e2e/scenarios.init.func2.8.1()\n\t/Users/seancorkum/projects/developer-mesh/test/e2e/scenarios/multi_tenant_test.go:371 +0x393"
+                "FullStackTrace": "github.com/developer-mesh/developer-mesh/test/e2e/scenarios.init.func2.8.1()\n\t/Users/seancorkum/projects/developer-mesh/test/e2e/scenarios/multi_tenant_test.go:371 +0x393"
               },
               "TimelineLocation": {
                 "Order": 61,
@@ -5202,7 +5202,7 @@
           "Location": {
             "FileName": "/Users/seancorkum/projects/developer-mesh/test/e2e/scenarios/single_agent_test.go",
             "LineNumber": 185,
-            "FullStackTrace": "github.com/S-Corkum/developer-mesh/test/e2e/scenarios.init.func4.4.1()\n\t/Users/seancorkum/projects/developer-mesh/test/e2e/scenarios/single_agent_test.go:185 +0x283"
+            "FullStackTrace": "github.com/developer-mesh/developer-mesh/test/e2e/scenarios.init.func4.4.1()\n\t/Users/seancorkum/projects/developer-mesh/test/e2e/scenarios/single_agent_test.go:185 +0x283"
           },
           "TimelineLocation": {
             "Order": 90,
@@ -5237,7 +5237,7 @@
               "Location": {
                 "FileName": "/Users/seancorkum/projects/developer-mesh/test/e2e/scenarios/single_agent_test.go",
                 "LineNumber": 185,
-                "FullStackTrace": "github.com/S-Corkum/developer-mesh/test/e2e/scenarios.init.func4.4.1()\n\t/Users/seancorkum/projects/developer-mesh/test/e2e/scenarios/single_agent_test.go:185 +0x283"
+                "FullStackTrace": "github.com/developer-mesh/developer-mesh/test/e2e/scenarios.init.func4.4.1()\n\t/Users/seancorkum/projects/developer-mesh/test/e2e/scenarios/single_agent_test.go:185 +0x283"
               },
               "TimelineLocation": {
                 "Order": 80,
@@ -5592,7 +5592,7 @@
           "Location": {
             "FileName": "/Users/seancorkum/projects/developer-mesh/test/e2e/scenarios/performance_test.go",
             "LineNumber": 434,
-            "FullStackTrace": "github.com/S-Corkum/developer-mesh/test/e2e/scenarios.init.func3.4.2()\n\t/Users/seancorkum/projects/developer-mesh/test/e2e/scenarios/performance_test.go:434 +0x243"
+            "FullStackTrace": "github.com/developer-mesh/developer-mesh/test/e2e/scenarios.init.func3.4.2()\n\t/Users/seancorkum/projects/developer-mesh/test/e2e/scenarios/performance_test.go:434 +0x243"
           },
           "TimelineLocation": {
             "Order": 15,
@@ -5627,7 +5627,7 @@
               "Location": {
                 "FileName": "/Users/seancorkum/projects/developer-mesh/test/e2e/scenarios/performance_test.go",
                 "LineNumber": 434,
-                "FullStackTrace": "github.com/S-Corkum/developer-mesh/test/e2e/scenarios.init.func3.4.2()\n\t/Users/seancorkum/projects/developer-mesh/test/e2e/scenarios/performance_test.go:434 +0x243"
+                "FullStackTrace": "github.com/developer-mesh/developer-mesh/test/e2e/scenarios.init.func3.4.2()\n\t/Users/seancorkum/projects/developer-mesh/test/e2e/scenarios/performance_test.go:434 +0x243"
               },
               "TimelineLocation": {
                 "Order": 5,
@@ -5863,7 +5863,7 @@
           "Location": {
             "FileName": "/Users/seancorkum/projects/developer-mesh/test/e2e/scenarios/multi_agent_test.go",
             "LineNumber": 116,
-            "FullStackTrace": "github.com/S-Corkum/developer-mesh/test/e2e/scenarios.init.func1.3.1()\n\t/Users/seancorkum/projects/developer-mesh/test/e2e/scenarios/multi_agent_test.go:116 +0x834"
+            "FullStackTrace": "github.com/developer-mesh/developer-mesh/test/e2e/scenarios.init.func1.3.1()\n\t/Users/seancorkum/projects/developer-mesh/test/e2e/scenarios/multi_agent_test.go:116 +0x834"
           },
           "TimelineLocation": {
             "Order": 34,
@@ -5899,7 +5899,7 @@
               "Location": {
                 "FileName": "/Users/seancorkum/projects/developer-mesh/test/e2e/scenarios/multi_agent_test.go",
                 "LineNumber": 116,
-                "FullStackTrace": "github.com/S-Corkum/developer-mesh/test/e2e/scenarios.init.func1.3.1()\n\t/Users/seancorkum/projects/developer-mesh/test/e2e/scenarios/multi_agent_test.go:116 +0x834"
+                "FullStackTrace": "github.com/developer-mesh/developer-mesh/test/e2e/scenarios.init.func1.3.1()\n\t/Users/seancorkum/projects/developer-mesh/test/e2e/scenarios/multi_agent_test.go:116 +0x834"
               },
               "TimelineLocation": {
                 "Order": 24,
@@ -6135,7 +6135,7 @@
           "Location": {
             "FileName": "/Users/seancorkum/projects/developer-mesh/test/e2e/scenarios/multi_tenant_test.go",
             "LineNumber": 72,
-            "FullStackTrace": "github.com/S-Corkum/developer-mesh/test/e2e/scenarios.init.func2.3.1()\n\t/Users/seancorkum/projects/developer-mesh/test/e2e/scenarios/multi_tenant_test.go:72 +0x283"
+            "FullStackTrace": "github.com/developer-mesh/developer-mesh/test/e2e/scenarios.init.func2.3.1()\n\t/Users/seancorkum/projects/developer-mesh/test/e2e/scenarios/multi_tenant_test.go:72 +0x283"
           },
           "TimelineLocation": {
             "Order": 53,
@@ -6170,7 +6170,7 @@
               "Location": {
                 "FileName": "/Users/seancorkum/projects/developer-mesh/test/e2e/scenarios/multi_tenant_test.go",
                 "LineNumber": 72,
-                "FullStackTrace": "github.com/S-Corkum/developer-mesh/test/e2e/scenarios.init.func2.3.1()\n\t/Users/seancorkum/projects/developer-mesh/test/e2e/scenarios/multi_tenant_test.go:72 +0x283"
+                "FullStackTrace": "github.com/developer-mesh/developer-mesh/test/e2e/scenarios.init.func2.3.1()\n\t/Users/seancorkum/projects/developer-mesh/test/e2e/scenarios/multi_tenant_test.go:72 +0x283"
               },
               "TimelineLocation": {
                 "Order": 43,
@@ -6525,7 +6525,7 @@
           "Location": {
             "FileName": "/Users/seancorkum/projects/developer-mesh/test/e2e/scenarios/multi_tenant_test.go",
             "LineNumber": 517,
-            "FullStackTrace": "github.com/S-Corkum/developer-mesh/test/e2e/scenarios.init.func2.10.1()\n\t/Users/seancorkum/projects/developer-mesh/test/e2e/scenarios/multi_tenant_test.go:517 +0x183"
+            "FullStackTrace": "github.com/developer-mesh/developer-mesh/test/e2e/scenarios.init.func2.10.1()\n\t/Users/seancorkum/projects/developer-mesh/test/e2e/scenarios/multi_tenant_test.go:517 +0x183"
           },
           "TimelineLocation": {
             "Order": 81,
@@ -6560,7 +6560,7 @@
               "Location": {
                 "FileName": "/Users/seancorkum/projects/developer-mesh/test/e2e/scenarios/multi_tenant_test.go",
                 "LineNumber": 517,
-                "FullStackTrace": "github.com/S-Corkum/developer-mesh/test/e2e/scenarios.init.func2.10.1()\n\t/Users/seancorkum/projects/developer-mesh/test/e2e/scenarios/multi_tenant_test.go:517 +0x183"
+                "FullStackTrace": "github.com/developer-mesh/developer-mesh/test/e2e/scenarios.init.func2.10.1()\n\t/Users/seancorkum/projects/developer-mesh/test/e2e/scenarios/multi_tenant_test.go:517 +0x183"
               },
               "TimelineLocation": {
                 "Order": 71,
@@ -6796,7 +6796,7 @@
           "Location": {
             "FileName": "/Users/seancorkum/projects/developer-mesh/test/e2e/scenarios/single_agent_test.go",
             "LineNumber": 242,
-            "FullStackTrace": "github.com/S-Corkum/developer-mesh/test/e2e/scenarios.init.func4.4.2()\n\t/Users/seancorkum/projects/developer-mesh/test/e2e/scenarios/single_agent_test.go:242 +0x313"
+            "FullStackTrace": "github.com/developer-mesh/developer-mesh/test/e2e/scenarios.init.func4.4.2()\n\t/Users/seancorkum/projects/developer-mesh/test/e2e/scenarios/single_agent_test.go:242 +0x313"
           },
           "TimelineLocation": {
             "Order": 100,
@@ -6831,7 +6831,7 @@
               "Location": {
                 "FileName": "/Users/seancorkum/projects/developer-mesh/test/e2e/scenarios/single_agent_test.go",
                 "LineNumber": 242,
-                "FullStackTrace": "github.com/S-Corkum/developer-mesh/test/e2e/scenarios.init.func4.4.2()\n\t/Users/seancorkum/projects/developer-mesh/test/e2e/scenarios/single_agent_test.go:242 +0x313"
+                "FullStackTrace": "github.com/developer-mesh/developer-mesh/test/e2e/scenarios.init.func4.4.2()\n\t/Users/seancorkum/projects/developer-mesh/test/e2e/scenarios/single_agent_test.go:242 +0x313"
               },
               "TimelineLocation": {
                 "Order": 90,
@@ -7067,7 +7067,7 @@
           "Location": {
             "FileName": "/Users/seancorkum/projects/developer-mesh/test/e2e/scenarios/single_agent_test.go",
             "LineNumber": 463,
-            "FullStackTrace": "github.com/S-Corkum/developer-mesh/test/e2e/scenarios.init.func4.7.2()\n\t/Users/seancorkum/projects/developer-mesh/test/e2e/scenarios/single_agent_test.go:463 +0x283"
+            "FullStackTrace": "github.com/developer-mesh/developer-mesh/test/e2e/scenarios.init.func4.7.2()\n\t/Users/seancorkum/projects/developer-mesh/test/e2e/scenarios/single_agent_test.go:463 +0x283"
           },
           "TimelineLocation": {
             "Order": 119,
@@ -7102,7 +7102,7 @@
               "Location": {
                 "FileName": "/Users/seancorkum/projects/developer-mesh/test/e2e/scenarios/single_agent_test.go",
                 "LineNumber": 463,
-                "FullStackTrace": "github.com/S-Corkum/developer-mesh/test/e2e/scenarios.init.func4.7.2()\n\t/Users/seancorkum/projects/developer-mesh/test/e2e/scenarios/single_agent_test.go:463 +0x283"
+                "FullStackTrace": "github.com/developer-mesh/developer-mesh/test/e2e/scenarios.init.func4.7.2()\n\t/Users/seancorkum/projects/developer-mesh/test/e2e/scenarios/single_agent_test.go:463 +0x283"
               },
               "TimelineLocation": {
                 "Order": 109,
@@ -7338,7 +7338,7 @@
           "Location": {
             "FileName": "/Users/seancorkum/projects/developer-mesh/test/e2e/scenarios/performance_test.go",
             "LineNumber": 275,
-            "FullStackTrace": "github.com/S-Corkum/developer-mesh/test/e2e/scenarios.init.func3.3.2()\n\t/Users/seancorkum/projects/developer-mesh/test/e2e/scenarios/performance_test.go:275 +0x6be"
+            "FullStackTrace": "github.com/developer-mesh/developer-mesh/test/e2e/scenarios.init.func3.3.2()\n\t/Users/seancorkum/projects/developer-mesh/test/e2e/scenarios/performance_test.go:275 +0x6be"
           },
           "TimelineLocation": {
             "Order": 15,
@@ -7374,7 +7374,7 @@
               "Location": {
                 "FileName": "/Users/seancorkum/projects/developer-mesh/test/e2e/scenarios/performance_test.go",
                 "LineNumber": 275,
-                "FullStackTrace": "github.com/S-Corkum/developer-mesh/test/e2e/scenarios.init.func3.3.2()\n\t/Users/seancorkum/projects/developer-mesh/test/e2e/scenarios/performance_test.go:275 +0x6be"
+                "FullStackTrace": "github.com/developer-mesh/developer-mesh/test/e2e/scenarios.init.func3.3.2()\n\t/Users/seancorkum/projects/developer-mesh/test/e2e/scenarios/performance_test.go:275 +0x6be"
               },
               "TimelineLocation": {
                 "Order": 5,

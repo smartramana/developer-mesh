@@ -46,8 +46,8 @@ import (
     "strings"
     "time"
     
-    "github.com/S-Corkum/developer-mesh/pkg/auth"
-    "github.com/S-Corkum/developer-mesh/pkg/observability"
+    "github.com/developer-mesh/developer-mesh/pkg/auth"
+    "github.com/developer-mesh/developer-mesh/pkg/observability"
 )
 
 type GoogleOAuthProvider struct {

@@ -1033,7 +1033,7 @@ func TestPactProvider(t *testing.T) {
 package fixtures
 
 import (
-    "github.com/S-Corkum/developer-mesh/pkg/models"
+    "github.com/developer-mesh/developer-mesh/pkg/models"
 )
 
 func ValidContext() *models.Context {

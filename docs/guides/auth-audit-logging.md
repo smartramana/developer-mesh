@@ -140,7 +140,7 @@ import (
     
     "github.com/google/uuid"
     "github.com/jmoiron/sqlx"
-    "github.com/S-Corkum/developer-mesh/pkg/observability"
+    "github.com/developer-mesh/developer-mesh/pkg/observability"
 )
 
 type AuditLogger interface {

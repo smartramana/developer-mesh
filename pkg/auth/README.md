@@ -54,8 +54,8 @@ Manager (orchestrator)
 
 ```go
 import (
-    "github.com/S-Corkum/developer-mesh/pkg/auth"
-    "github.com/S-Corkum/developer-mesh/pkg/observability"
+    "github.com/developer-mesh/developer-mesh/pkg/auth"
+    "github.com/developer-mesh/developer-mesh/pkg/observability"
 )
 
 // Create auth manager with all providers

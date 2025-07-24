@@ -1,4 +1,4 @@
-// Copyright 2025 S-Corkum
+// Copyright 2025 developer-mesh
 // SPDX-License-Identifier: MIT
 
 package websocket

@@ -95,7 +95,7 @@ package interfaces
 
 import (
     "context"
-    "github.com/S-Corkum/developer-mesh/pkg/models"
+    "github.com/developer-mesh/developer-mesh/pkg/models"
 )
 
 // CIAdapter defines the interface for CI/CD tool integrations
@@ -157,10 +157,10 @@ import (
     "fmt"
     "time"
     
-    "github.com/S-Corkum/developer-mesh/pkg/adapters/interfaces"
-    "github.com/S-Corkum/developer-mesh/pkg/adapters/resilience"
-    "github.com/S-Corkum/developer-mesh/pkg/models"
-    "github.com/S-Corkum/developer-mesh/pkg/observability"
+    "github.com/developer-mesh/developer-mesh/pkg/adapters/interfaces"
+    "github.com/developer-mesh/developer-mesh/pkg/adapters/resilience"
+    "github.com/developer-mesh/developer-mesh/pkg/models"
+    "github.com/developer-mesh/developer-mesh/pkg/observability"
 )
 
 // Config holds GitLab adapter configuration
@@ -463,11 +463,11 @@ package adapters
 import (
     "fmt"
     
-    "github.com/S-Corkum/developer-mesh/pkg/adapters/github"
-    "github.com/S-Corkum/developer-mesh/pkg/adapters/gitlab"
-    "github.com/S-Corkum/developer-mesh/pkg/adapters/interfaces"
-    "github.com/S-Corkum/developer-mesh/pkg/config"
-    "github.com/S-Corkum/developer-mesh/pkg/observability"
+    "github.com/developer-mesh/developer-mesh/pkg/adapters/github"
+    "github.com/developer-mesh/developer-mesh/pkg/adapters/gitlab"
+    "github.com/developer-mesh/developer-mesh/pkg/adapters/interfaces"
+    "github.com/developer-mesh/developer-mesh/pkg/config"
+    "github.com/developer-mesh/developer-mesh/pkg/observability"
 )
 
 // Factory creates adapters based on configuration
@@ -524,8 +524,8 @@ import (
     "context"
     "encoding/json"
     
-    "github.com/S-Corkum/developer-mesh/pkg/adapters/interfaces"
-    "github.com/S-Corkum/developer-mesh/pkg/models"
+    "github.com/developer-mesh/developer-mesh/pkg/adapters/interfaces"
+    "github.com/developer-mesh/developer-mesh/pkg/models"
 )
 
 // ToolProvider implements MCP tool provider for GitLab
@@ -662,8 +662,8 @@ import (
     "context"
     "encoding/json"
     
-    "github.com/S-Corkum/developer-mesh/pkg/events"
-    "github.com/S-Corkum/developer-mesh/pkg/models"
+    "github.com/developer-mesh/developer-mesh/pkg/events"
+    "github.com/developer-mesh/developer-mesh/pkg/models"
 )
 
 // GitLabEventHandler processes GitLab events
@@ -989,8 +989,8 @@ import (
     "github.com/stretchr/testify/assert"
     "github.com/stretchr/testify/mock"
     
-    "github.com/S-Corkum/developer-mesh/pkg/adapters/gitlab"
-    "github.com/S-Corkum/developer-mesh/pkg/models"
+    "github.com/developer-mesh/developer-mesh/pkg/adapters/gitlab"
+    "github.com/developer-mesh/developer-mesh/pkg/models"
 )
 
 type mockGitLabClient struct {
@@ -1064,8 +1064,8 @@ import (
     
     "github.com/stretchr/testify/suite"
     
-    "github.com/S-Corkum/developer-mesh/pkg/adapters/gitlab"
-    "github.com/S-Corkum/developer-mesh/pkg/models"
+    "github.com/developer-mesh/developer-mesh/pkg/adapters/gitlab"
+    "github.com/developer-mesh/developer-mesh/pkg/models"
 )
 
 type GitLabIntegrationSuite struct {
@@ -1282,4 +1282,4 @@ func (a *GitLabAdapter) BatchTriggerBuilds(ctx context.Context, requests []*mode
 
 ---
 
-*For more examples and support, visit [github.com/S-Corkum/developer-mesh](https://github.com/S-Corkum/developer-mesh)*
+*For more examples and support, visit [github.com/developer-mesh/developer-mesh](https://github.com/developer-mesh/developer-mesh)*

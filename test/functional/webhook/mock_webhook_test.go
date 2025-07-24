@@ -219,7 +219,7 @@ var _ = Describe("Mock GitHub Webhook Tests", func() {
 				"title":  "Test Issue",
 			},
 			"repository": map[string]interface{}{
-				"full_name": "S-Corkum/developer-mesh",
+				"full_name": "developer-mesh/developer-mesh",
 			},
 			"sender": map[string]interface{}{
 				"login": "testuser",
@@ -281,7 +281,7 @@ var _ = Describe("Mock GitHub Webhook Tests", func() {
 				"title":  "Idempotency Test",
 			},
 			"repository": map[string]interface{}{
-				"full_name": "S-Corkum/developer-mesh",
+				"full_name": "developer-mesh/developer-mesh",
 			},
 			"sender": map[string]interface{}{
 				"login": "testuser",
@@ -345,7 +345,7 @@ var _ = Describe("Mock GitHub Webhook Tests", func() {
 		payload := map[string]interface{}{
 			"action": "opened",
 			"repository": map[string]interface{}{
-				"full_name": "S-Corkum/developer-mesh",
+				"full_name": "developer-mesh/developer-mesh",
 			},
 		}
 		body, err := json.Marshal(payload)
@@ -386,7 +386,7 @@ var _ = Describe("Mock GitHub Webhook Tests", func() {
 				"title":  "Error Event Test",
 			},
 			"repository": map[string]interface{}{
-				"full_name": "S-Corkum/developer-mesh",
+				"full_name": "developer-mesh/developer-mesh",
 			},
 			"sender": map[string]interface{}{
 				"login": "testuser",

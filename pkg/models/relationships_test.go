@@ -5,14 +5,14 @@ import (
 )
 
 func TestNewEntityID(t *testing.T) {
-	entityID := NewEntityID(EntityTypeRepository, "S-Corkum", "developer-mesh", "123")
+	entityID := NewEntityID(EntityTypeRepository, "developer-mesh", "developer-mesh", "123")
 
 	if entityID.Type != EntityTypeRepository {
 		t.Errorf("Expected entity type %s, got %s", EntityTypeRepository, entityID.Type)
 	}
 
-	if entityID.Owner != "S-Corkum" {
-		t.Errorf("Expected owner S-Corkum, got %s", entityID.Owner)
+	if entityID.Owner != "developer-mesh" {
+		t.Errorf("Expected owner developer-mesh, got %s", entityID.Owner)
 	}
 
 	if entityID.Repo != "developer-mesh" {
@@ -30,7 +30,7 @@ func TestEntityID_WithQualifiers(t *testing.T) {
 		"path":   "pkg/models/relationships.go",
 	}
 
-	entityID := NewEntityID(EntityTypeRepository, "S-Corkum", "developer-mesh", "123").
+	entityID := NewEntityID(EntityTypeRepository, "developer-mesh", "developer-mesh", "123").
 		WithQualifiers(qualifiers)
 
 	if entityID.Qualifiers["branch"] != "main" {
@@ -71,8 +71,8 @@ func TestEntityIDFromContentMetadata(t *testing.T) {
 }
 
 func TestNewEntityRelationship(t *testing.T) {
-	source := NewEntityID(EntityTypeRepository, "S-Corkum", "developer-mesh", "123")
-	target := NewEntityID(EntityTypeIssue, "S-Corkum", "developer-mesh", "456")
+	source := NewEntityID(EntityTypeRepository, "developer-mesh", "developer-mesh", "123")
+	target := NewEntityID(EntityTypeIssue, "developer-mesh", "developer-mesh", "456")
 
 	relationship := NewEntityRelationship(
 		RelationshipTypeContains,
@@ -125,8 +125,8 @@ func TestNewEntityRelationship(t *testing.T) {
 }
 
 func TestEntityRelationship_WithContext(t *testing.T) {
-	source := NewEntityID(EntityTypeRepository, "S-Corkum", "developer-mesh", "123")
-	target := NewEntityID(EntityTypeIssue, "S-Corkum", "developer-mesh", "456")
+	source := NewEntityID(EntityTypeRepository, "developer-mesh", "developer-mesh", "123")
+	target := NewEntityID(EntityTypeIssue, "developer-mesh", "developer-mesh", "456")
 
 	relationship := NewEntityRelationship(
 		RelationshipTypeContains,
@@ -142,8 +142,8 @@ func TestEntityRelationship_WithContext(t *testing.T) {
 }
 
 func TestEntityRelationship_WithMetadata(t *testing.T) {
-	source := NewEntityID(EntityTypeRepository, "S-Corkum", "developer-mesh", "123")
-	target := NewEntityID(EntityTypeIssue, "S-Corkum", "developer-mesh", "456")
+	source := NewEntityID(EntityTypeRepository, "developer-mesh", "developer-mesh", "123")
+	target := NewEntityID(EntityTypeIssue, "developer-mesh", "developer-mesh", "456")
 
 	metadata := map[string]interface{}{
 		"key1": "value1",
@@ -177,8 +177,8 @@ func TestEntityRelationship_WithMetadata(t *testing.T) {
 }
 
 func TestGenerateRelationshipID(t *testing.T) {
-	source := NewEntityID(EntityTypeRepository, "S-Corkum", "developer-mesh", "123")
-	target := NewEntityID(EntityTypeIssue, "S-Corkum", "developer-mesh", "456")
+	source := NewEntityID(EntityTypeRepository, "developer-mesh", "developer-mesh", "123")
+	target := NewEntityID(EntityTypeIssue, "developer-mesh", "developer-mesh", "456")
 
 	id := GenerateRelationshipID(
 		RelationshipTypeContains,
@@ -187,7 +187,7 @@ func TestGenerateRelationshipID(t *testing.T) {
 		DirectionOutgoing,
 	)
 
-	expectedID := "repository:S-Corkum/developer-mesh/123-contains:outgoing-issue:S-Corkum/developer-mesh/456"
+	expectedID := "repository:developer-mesh/developer-mesh/123-contains:outgoing-issue:developer-mesh/developer-mesh/456"
 
 	if id != expectedID {
 		t.Errorf("Expected relationship ID '%s', got '%s'", expectedID, id)

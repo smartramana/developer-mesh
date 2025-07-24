@@ -314,7 +314,7 @@ ws.onmessage = (event) => {
 
 ```go
 // Enhanced authentication middleware (production-ready)
-import "github.com/S-Corkum/developer-mesh/pkg/auth"
+import "github.com/developer-mesh/developer-mesh/pkg/auth"
 
 // Setup enhanced auth with rate limiting, metrics, and audit
 authMiddleware, err := auth.SetupAuthentication(db, cache, logger, metrics)

@@ -682,10 +682,10 @@ asyncio.run(main())
 Assistant: Hello! I'd be happy to help with your developer-mesh GitHub project. This looks like an interesting DevOps tool integration platform. What would you like to do?
 
 Assistant: I'll search for TODO comments in your developer-mesh repository.
-Tool Results: [{'tool': 'search_github_code', 'args': {'query': 'TODO', 'repo': 'S-Corkum/developer-mesh'}, 'result': [...]}]
+Tool Results: [{'tool': 'search_github_code', 'args': {'query': 'TODO', 'repo': 'developer-mesh/developer-mesh'}, 'result': [...]}]
 
 Assistant: I've created an issue to track the TODO items we found in your codebase.
-Created Issue: https://github.com/S-Corkum/developer-mesh/issues/42
+Created Issue: https://github.com/developer-mesh/developer-mesh/issues/42
 ```
 
 ## Advanced Integrations
@@ -1017,4 +1017,4 @@ class MonitoredAssistant(DevOpsAIAssistant):
 
 ---
 
-*For questions and support, please open an issue on [GitHub](https://github.com/S-Corkum/developer-mesh)*
+*For questions and support, please open an issue on [GitHub](https://github.com/developer-mesh/developer-mesh)*

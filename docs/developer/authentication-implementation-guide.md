@@ -110,7 +110,7 @@ router.Use(authService.GinMiddleware(auth.TypeJWT))
 ```go
 // pkg/adapters/github/auth/provider.go
 // This is NOT part of the main auth package
-import "github.com/S-Corkum/developer-mesh/pkg/adapters/github/auth"
+import "github.com/developer-mesh/developer-mesh/pkg/adapters/github/auth"
 
 appProvider, err := auth.NewAppProvider(
     appID,

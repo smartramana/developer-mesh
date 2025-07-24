@@ -97,10 +97,10 @@ run_ssm_command "Creating configs directory and downloading files" \
     "cd /home/ec2-user/developer-mesh && \
     mkdir -p configs && \
     echo 'Downloading config files from GitHub...' && \
-    curl -sL https://raw.githubusercontent.com/S-Corkum/developer-mesh/main/configs/config.base.yaml -o configs/config.base.yaml && \
-    curl -sL https://raw.githubusercontent.com/S-Corkum/developer-mesh/main/configs/config.production.yaml -o configs/config.production.yaml && \
-    curl -sL https://raw.githubusercontent.com/S-Corkum/developer-mesh/main/configs/config.rest-api.yaml -o configs/config.rest-api.yaml && \
-    curl -sL https://raw.githubusercontent.com/S-Corkum/developer-mesh/main/configs/auth.production.yaml -o configs/auth.production.yaml && \
+    curl -sL https://raw.githubusercontent.com/developer-mesh/developer-mesh/main/configs/config.base.yaml -o configs/config.base.yaml && \
+    curl -sL https://raw.githubusercontent.com/developer-mesh/developer-mesh/main/configs/config.production.yaml -o configs/config.production.yaml && \
+    curl -sL https://raw.githubusercontent.com/developer-mesh/developer-mesh/main/configs/config.rest-api.yaml -o configs/config.rest-api.yaml && \
+    curl -sL https://raw.githubusercontent.com/developer-mesh/developer-mesh/main/configs/auth.production.yaml -o configs/auth.production.yaml && \
     echo 'Verifying downloaded files...' && \
     for file in config.base.yaml config.production.yaml config.rest-api.yaml auth.production.yaml; do \
         if [ -f \"configs/\$file\" ] && [ -s \"configs/\$file\" ]; then \
@@ -118,7 +118,7 @@ run_ssm_command "Checking docker-compose file" \
         echo 'docker-compose.yml exists'; \
     else \
         echo 'docker-compose.yml missing, downloading...'; \
-        curl -sL https://raw.githubusercontent.com/S-Corkum/developer-mesh/main/docker-compose.production.yml -o docker-compose.yml; \
+        curl -sL https://raw.githubusercontent.com/developer-mesh/developer-mesh/main/docker-compose.production.yml -o docker-compose.yml; \
     fi"
 
 # Step 6: Check .env file

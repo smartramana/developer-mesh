@@ -20,7 +20,7 @@ This package implements observability features:
 ## Installation
 
 ```bash
-go get github.com/S-Corkum/developer-mesh/pkg/observability
+go get github.com/developer-mesh/developer-mesh/pkg/observability
 ```
 
 ## Quick Start
@@ -30,7 +30,7 @@ package main
 
 import (
     "context"
-    "github.com/S-Corkum/developer-mesh/pkg/observability"
+    "github.com/developer-mesh/developer-mesh/pkg/observability"
 )
 
 func main() {
@@ -392,7 +392,7 @@ Basic OpenTelemetry support when enabled:
 package main
 
 import (
-    "github.com/S-Corkum/developer-mesh/pkg/observability"
+    "github.com/developer-mesh/developer-mesh/pkg/observability"
 )
 
 func main() {

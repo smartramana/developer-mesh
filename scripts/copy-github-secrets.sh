@@ -9,7 +9,7 @@ GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
 NC='\033[0m'
 
-OLD_REPO="S-Corkum/devops-mcp"
+OLD_REPO="developer-mesh/devops-mcp"
 NEW_REPO="developer-mesh/developer-mesh"
 
 echo "Copying secrets from $OLD_REPO to $NEW_REPO..."

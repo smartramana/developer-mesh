@@ -191,7 +191,7 @@ pipeline := embedding.NewPipeline(
 
 // Process GitHub issue
 err := pipeline.ProcessIssue(ctx, &IssueRequest{
-    Owner: "S-Corkum",
+    Owner: "developer-mesh",
     Repo: "developer-mesh",
     Number: 123,
 })

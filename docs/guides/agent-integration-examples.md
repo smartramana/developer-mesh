@@ -1978,7 +1978,7 @@ func TestAgentReconnection(t *testing.T) {
 
 ## Resources
 
-- [Example Agent Repository](https://github.com/S-Corkum/developer-mesh-agents)
-- [Agent Testing Framework](https://github.com/S-Corkum/mcp-agent-test)
-- [Production Agent Templates](https://github.com/S-Corkum/mcp-agent-templates)
+- [Example Agent Repository](https://github.com/developer-mesh/developer-mesh-agents)
+- [Agent Testing Framework](https://github.com/developer-mesh/mcp-agent-test)
+- [Production Agent Templates](https://github.com/developer-mesh/mcp-agent-templates)
 - [Agent Monitoring Dashboard](https://grafana.mcp.dev/dashboard/agents)

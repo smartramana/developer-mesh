@@ -28,7 +28,7 @@ This is the fastest way to get started with Developer Mesh.
 
 ```bash
 # Clone the repository for configuration files
-git clone https://github.com/S-Corkum/developer-mesh.git
+git clone https://github.com/developer-mesh/developer-mesh.git
 cd developer-mesh
 
 # Create environment file
@@ -58,7 +58,7 @@ For development or customization:
 
 ```bash
 # Clone the repository
-git clone https://github.com/S-Corkum/developer-mesh.git
+git clone https://github.com/developer-mesh/developer-mesh.git
 cd developer-mesh
 
 # Copy configuration template
@@ -453,8 +453,8 @@ Now that you have Developer Mesh running:
 If you encounter issues:
 
 1. Check the [troubleshooting guide](../troubleshooting/)
-2. Search [GitHub Issues](https://github.com/S-Corkum/developer-mesh/issues)
-3. Ask in [Discussions](https://github.com/S-Corkum/developer-mesh/discussions)
+2. Search [GitHub Issues](https://github.com/developer-mesh/developer-mesh/issues)
+3. Ask in [Discussions](https://github.com/developer-mesh/developer-mesh/discussions)
 
 ---
 

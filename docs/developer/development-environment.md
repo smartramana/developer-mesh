@@ -27,7 +27,7 @@ This guide provides a comprehensive setup for developing on the Developer Mesh A
 
 ```bash
 # Clone the repository
-git clone https://github.com/S-Corkum/developer-mesh.git
+git clone https://github.com/developer-mesh/developer-mesh.git
 cd developer-mesh
 
 # Setup environment
@@ -49,7 +49,7 @@ make test-coverage  # Should be >85%
 
 ```bash
 # Clone and setup
-git clone https://github.com/S-Corkum/developer-mesh.git
+git clone https://github.com/developer-mesh/developer-mesh.git
 cd developer-mesh
 
 # Setup with Docker
@@ -66,7 +66,7 @@ curl http://localhost:8081/health  # REST API
 
 ```bash
 # Clone with submodules if any
-git clone --recursive https://github.com/S-Corkum/developer-mesh.git
+git clone --recursive https://github.com/developer-mesh/developer-mesh.git
 cd developer-mesh
 
 # Setup git hooks
