@@ -8,9 +8,9 @@ import (
 	"sync"
 	"time"
 
-	ws "github.com/developer-mesh/developer-mesh/pkg/models/websocket"
 	"github.com/coder/websocket"
 	"github.com/coder/websocket/wsjson"
+	ws "github.com/developer-mesh/developer-mesh/pkg/models/websocket"
 	"github.com/google/uuid"
 )
 

@@ -9,9 +9,9 @@ import (
 	"testing"
 	"time"
 
+	"github.com/aws/aws-sdk-go-v2/service/s3"
 	"github.com/developer-mesh/developer-mesh/pkg/common/aws"
 	"github.com/developer-mesh/developer-mesh/pkg/observability"
-	"github.com/aws/aws-sdk-go-v2/service/s3"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )

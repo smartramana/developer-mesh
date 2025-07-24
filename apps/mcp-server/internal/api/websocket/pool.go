@@ -5,8 +5,8 @@ import (
 	"sync"
 	"time"
 
-	ws "github.com/developer-mesh/developer-mesh/pkg/models/websocket"
 	"github.com/coder/websocket"
+	ws "github.com/developer-mesh/developer-mesh/pkg/models/websocket"
 )
 
 // Object pools for zero-allocation design

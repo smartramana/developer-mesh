@@ -5,9 +5,9 @@ package aws
 import (
 	"context"
 
+	"github.com/aws/aws-sdk-go-v2/config"
 	commonaws "github.com/developer-mesh/developer-mesh/pkg/common/aws"
 	"github.com/developer-mesh/developer-mesh/pkg/feature"
-	"github.com/aws/aws-sdk-go-v2/config"
 )
 
 // LegacyAWSInterface represents the legacy interface expected by client code
