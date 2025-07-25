@@ -9,13 +9,6 @@ paths:
         monitoring and load balancer health checks. It does not require authentication.
       operationId: healthCheck
       security: []  # No authentication required
-      parameters:
-        - name: verbose
-          in: query
-          description: Include detailed component information
-          schema:
-            type: boolean
-            default: false
       responses:
         '200':
           description: System is healthy
@@ -28,15 +21,12 @@ paths:
                   summary: All components healthy
                   value:
                     status: "healthy"
-                    timestamp: "2024-01-15T10:00:00Z"
+                    ready: true
+                    time: "2024-01-15T10:00:00Z"
                     components:
                       database: "healthy"
-                      cache: "healthy"
-                      context_manager: "healthy"
-                      rest_api_client: "healthy"
-                      vector_database: "healthy"
-                    version: "1.0.0"
-                    uptime: 3600
+                    checks:
+                      database: "healthy"
         '503':
           description: System is unhealthy
           content:
@@ -48,18 +38,12 @@ paths:
                   summary: Some components unhealthy
                   value:
                     status: "unhealthy"
-                    timestamp: "2024-01-15T10:00:00Z"
+                    ready: false
+                    time: "2024-01-15T10:00:00Z"
                     components:
-                      database: "healthy"
-                      cache: "unhealthy"
-                      context_manager: "healthy"
-                      rest_api_client: "healthy"
-                      vector_database: "degraded"
-                    errors:
-                      - component: "cache"
-                        error: "Connection timeout"
-                      - component: "vector_database"
-                        error: "High latency detected"
+                      database: "unhealthy: connection refused"
+                    checks:
+                      database: "unhealthy: connection refused"
 
   /healthz:
     get:
@@ -78,22 +62,19 @@ paths:
             application/json:
               schema:
                 type: object
+                required:
+                  - status
+                  - time
                 properties:
                   status:
                     type: string
-                    enum: [ok]
-                    example: "ok"
-        '503':
-          description: Service is not alive
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  status:
+                    enum: [alive]
+                    example: "alive"
+                  time:
                     type: string
-                    enum: [error]
-                    example: "error"
+                    format: date-time
+                    description: Current time in RFC3339 format
+                    example: "2024-01-15T10:00:00Z"
 
   /readyz:
     get:
@@ -112,28 +93,56 @@ paths:
             application/json:
               schema:
                 type: object
+                required:
+                  - status
+                  - time
                 properties:
                   status:
                     type: string
                     enum: [ready]
                     example: "ready"
+                  time:
+                    type: string
+                    format: date-time
+                    description: Current time in RFC3339 format
+                    example: "2024-01-15T10:00:00Z"
         '503':
           description: Service is not ready
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  status:
-                    type: string
-                    enum: [not_ready]
-                    example: "not_ready"
-                  reason:
-                    type: string
-                    description: Reason for not being ready
-                    example: "Database connection not established"
+                oneOf:
+                  - type: object
+                    required:
+                      - status
+                      - error
+                    properties:
+                      status:
+                        type: string
+                        enum: [not_ready]
+                        example: "not_ready"
+                      error:
+                        type: string
+                        description: Error message when service is starting up
+                        example: "Service is starting up"
+                  - type: object
+                    required:
+                      - status
+                      - errors
+                    properties:
+                      status:
+                        type: string
+                        enum: [unhealthy]
+                        example: "unhealthy"
+                      errors:
+                        type: object
+                        additionalProperties:
+                          type: string
+                        description: Map of component names to error messages
+                        example:
+                          database: "connection refused"
 
-  /swagger/{proxy}:
+  /swagger/{any}:
     get:
       tags:
         - Health
@@ -144,7 +153,7 @@ paths:
       operationId: swaggerUI
       security: []  # No authentication required
       parameters:
-        - name: proxy
+        - name: any
           in: path
           required: true
           description: Path to swagger UI resources
@@ -164,41 +173,6 @@ paths:
               schema:
                 type: string
 
-  /redoc:
-    get:
-      tags:
-        - Health
-      summary: ReDoc documentation
-      description: |
-        Serves the ReDoc documentation interface as an alternative to Swagger UI.
-      operationId: redocUI
-      security: []  # No authentication required
-      responses:
-        '200':
-          description: ReDoc HTML page
-          content:
-            text/html:
-              schema:
-                type: string
-
-  /ws:
-    get:
-      tags:
-        - WebSocket
-      summary: WebSocket connection
-      description: |
-        Establishes a WebSocket connection for real-time bidirectional communication.
-        This endpoint is used for MCP (Model Context Protocol) communication.
-      operationId: websocket
-      security: []  # Authentication handled via WebSocket protocol
-      responses:
-        '101':
-          description: Switching Protocols - WebSocket connection established
-        '400':
-          description: Bad Request - Invalid WebSocket handshake
-        '401':
-          description: Unauthorized - Invalid authentication
-
   /metrics:
     get:
       tags:
@@ -209,8 +183,6 @@ paths:
         Prometheus scrapers and does not require authentication.
       operationId: getMetrics
       security: []  # No authentication required
-      produces:
-        - text/plain
       responses:
         '200':
           description: Metrics in Prometheus format
@@ -317,16 +289,25 @@ components:
       type: object
       required:
         - status
-        - timestamp
+        - ready
+        - time
         - components
+        - checks
       properties:
         status:
           type: string
-          enum: [healthy, unhealthy, degraded]
+          enum: [healthy, unhealthy]
           description: Overall system health
           example: "healthy"
-        timestamp:
-          $ref: '../common/schemas.yaml#/components/schemas/Timestamp'
+        ready:
+          type: boolean
+          description: Whether the service is ready to accept traffic
+          example: true
+        time:
+          type: string
+          format: date-time
+          description: Current time in RFC3339 format
+          example: "2024-01-15T10:00:00Z"
         components:
           type: object
           additionalProperties:
@@ -334,42 +315,11 @@ components:
           description: Individual component health status
           example:
             database: "healthy"
-            cache: "healthy"
-            context_manager: "healthy"
-        version:
-          type: string
-          description: API version
-          example: "1.0.0"
-        uptime:
-          type: integer
-          description: Service uptime in seconds
-          example: 3600
-        errors:
-          type: array
-          items:
-            type: object
-            properties:
-              component:
-                type: string
-              error:
-                type: string
-          description: Error details for unhealthy components
-        metrics:
+        checks:
           type: object
-          properties:
-            requests_per_second:
-              type: number
-              format: float
-            average_latency_ms:
-              type: number
-              format: float
-            active_connections:
-              type: integer
-            memory_usage_mb:
-              type: number
-              format: float
-            cpu_usage_percent:
-              type: number
-              format: float
-          description: Basic performance metrics (if verbose=true)
+          additionalProperties:
+            type: string
+          description: Same as components (kept for backward compatibility)
+          example:
+            database: "healthy"
 

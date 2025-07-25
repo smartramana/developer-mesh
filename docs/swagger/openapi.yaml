@@ -100,8 +100,6 @@ tags:
     description: Multi-agent collaboration features
   - name: Monitoring
     description: System monitoring and metrics
-  - name: WebSocket
-    description: WebSocket real-time communication
 
 paths:
   # Authentication endpoints
@@ -133,14 +131,8 @@ paths:
   /readyz:
     $ref: './core/health.yaml#/paths/~1readyz'
   
-  /swagger/{proxy}:
-    $ref: './core/health.yaml#/paths/~1swagger~1{proxy}'
-  
-  /redoc:
-    $ref: './core/health.yaml#/paths/~1redoc'
-  
-  /ws:
-    $ref: './core/health.yaml#/paths/~1ws'
+  /swagger/{any}:
+    $ref: './core/health.yaml#/paths/~1swagger~1{any}'
   
   # Context Management
   /contexts:
