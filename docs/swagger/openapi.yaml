@@ -37,21 +37,18 @@ info:
   version: 1.0.0
   contact:
     name: Developer Mesh Support
-    email: support@developer-mesh.com
-    url: https://github.com/developer-mesh/developer-mesh
+    url: https://github.com/developer-mesh/developer-mesh/issues
   license:
     name: MIT
     url: https://opensource.org/licenses/MIT
 
 servers:
-  - url: https://api.developer-mesh.com/api/v1
+  - url: https://api.dev-mesh.io/api/v1
     description: Production API Server
-  - url: https://staging-api.developer-mesh.com/api/v1
-    description: Staging API Server
-  - url: http://localhost:8080/api/v1
-    description: Local MCP Server (WebSocket)
   - url: http://localhost:8081/api/v1
     description: Local REST API Server
+  - url: http://localhost:8080/api/v1
+    description: Local MCP Server (WebSocket)
 
 security:
   - ApiKeyAuth: []
