@@ -9,36 +9,51 @@ paths:
         providers, and configurations available for agents.
       operationId: listModels
       parameters:
-        - $ref: '../common/parameters.yaml#/components/parameters/Page'
-        - $ref: '../common/parameters.yaml#/components/parameters/Limit'
-        - $ref: '../common/parameters.yaml#/components/parameters/Sort'
-        - name: provider
+        - name: limit
           in: query
-          description: Filter by provider
+          description: Results per page (max 100, default 20)
           schema:
-            type: string
-            enum: [openai, anthropic, bedrock, azure, google]
-          example: "openai"
-        - name: type
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 20
+        - name: offset
           in: query
-          description: Filter by model type
+          description: Pagination offset (default 0)
           schema:
-            type: string
-            enum: [chat, embedding, completion, vision, audio]
-          example: "chat"
-        - name: active
-          in: query
-          description: Filter by active status
-          schema:
-            type: boolean
-          example: true
+            type: integer
+            minimum: 0
+            default: 0
       responses:
         '200':
-          description: List of models
+          description: List of models with pagination info
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ListModelsResponse'
+                type: object
+                required:
+                  - models
+                  - total
+                  - limit
+                  - offset
+                properties:
+                  models:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Model'
+                  total:
+                    type: integer
+                  limit:
+                    type: integer
+                  offset:
+                    type: integer
+                  _links:
+                    type: object
+                    properties:
+                      next:
+                        type: string
+                      prev:
+                        type: string
         '401':
           $ref: '../common/responses.yaml#/components/responses/Unauthorized'
         '500':
@@ -57,7 +72,7 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/CreateModelRequest'
+              $ref: '#/components/schemas/Model'
             examples:
               openai_model:
                 summary: OpenAI GPT-4 model
@@ -96,12 +111,6 @@ paths:
       responses:
         '201':
           description: Model created successfully
-          headers:
-            Location:
-              description: URL of the created model
-              schema:
-                type: string
-                format: uri
           content:
             application/json:
               schema:
@@ -115,6 +124,21 @@ paths:
         '500':
           $ref: '../common/responses.yaml#/components/responses/InternalServerError'
 
+  /models/test:
+    get:
+      tags:
+        - Models
+      summary: Test model serialization
+      description: Test endpoint to debug model serialization
+      operationId: testModel
+      responses:
+        '200':
+          description: Test model response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Model'
+
   /models/{id}:
     parameters:
       - $ref: '../common/parameters.yaml#/components/parameters/ID'
@@ -125,13 +149,6 @@ paths:
       summary: Get model details
       description: Returns detailed information about a specific AI model
       operationId: getModel
-      parameters:
-        - name: include_stats
-          in: query
-          description: Include usage statistics
-          schema:
-            type: boolean
-            default: false
       responses:
         '200':
           description: Model details
@@ -159,7 +176,7 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/UpdateModelRequest'
+              $ref: '#/components/schemas/Model'
             example:
               configuration:
                 max_context_length: 200000
@@ -196,8 +213,18 @@ paths:
         currently in use by any agents.
       operationId: deleteModel
       responses:
-        '204':
+        '200':
           description: Model deleted successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - message
+                properties:
+                  message:
+                    type: string
+                    example: "model deleted successfully"
         '401':
           $ref: '../common/responses.yaml#/components/responses/Unauthorized'
         '404':
@@ -224,37 +251,44 @@ paths:
           application/json:
             schema:
               type: object
+              required:
+                - query
               properties:
                 query:
                   type: string
                   description: Search query
-                filters:
-                  type: object
-                  properties:
-                    provider:
-                      type: string
-                      enum: [openai, anthropic, bedrock, azure, google]
-                    type:
-                      type: string
-                      enum: [chat, embedding, completion, vision, audio]
-                    active:
-                      type: boolean
-                    capabilities:
-                      type: object
-                      properties:
-                        supports_functions:
-                          type: boolean
-                        supports_vision:
-                          type: boolean
-                        supports_streaming:
-                          type: boolean
+                limit:
+                  type: integer
+                  minimum: 1
+                  maximum: 100
+                  default: 20
+                offset:
+                  type: integer
+                  minimum: 0
+                  default: 0
       responses:
         '200':
           description: Search results
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ListModelsResponse'
+                type: object
+                required:
+                  - results
+                  - query
+                  - limit
+                  - offset
+                properties:
+                  results:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Model'
+                  query:
+                    type: string
+                  limit:
+                    type: integer
+                  offset:
+                    type: integer
         '400':
           $ref: '../common/responses.yaml#/components/responses/BadRequest'
         '401':
@@ -262,77 +296,6 @@ paths:
         '500':
           $ref: '../common/responses.yaml#/components/responses/InternalServerError'
 
-  /models/compare:
-    post:
-      tags:
-        - Models
-      summary: Compare models
-      description: Compare performance and characteristics of multiple models
-      operationId: compareModels
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              required:
-                - model_ids
-              properties:
-                model_ids:
-                  type: array
-                  items:
-                    type: string
-                  minItems: 2
-                  description: List of model IDs to compare
-                test_prompts:
-                  type: array
-                  items:
-                    type: string
-                  description: Optional test prompts for comparison
-      responses:
-        '200':
-          description: Model comparison results
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  comparison:
-                    type: array
-                    items:
-                      type: object
-                      properties:
-                        model_id:
-                          type: string
-                        performance:
-                          type: object
-                          properties:
-                            avg_response_time:
-                              type: number
-                            tokens_per_second:
-                              type: number
-                            error_rate:
-                              type: number
-                        cost:
-                          type: object
-                          properties:
-                            per_request:
-                              type: number
-                            per_1k_tokens:
-                              type: number
-                        quality_scores:
-                          type: object
-                          properties:
-                            coherence:
-                              type: number
-                            relevance:
-                              type: number
-                            accuracy:
-                              type: number
-        '400':
-          $ref: '../common/responses.yaml#/components/responses/BadRequest'
-        '404':
-          $ref: '../common/responses.yaml#/components/responses/NotFound'
 
 components:
   schemas:
@@ -389,47 +352,6 @@ components:
         _links:
           $ref: '../common/schemas.yaml#/components/schemas/Links'
 
-    CreateModelRequest:
-      type: object
-      required:
-        - name
-        - provider
-        - type
-        - configuration
-      properties:
-        name:
-          type: string
-          minLength: 1
-          maxLength: 100
-          description: Model name
-          example: "gpt-4-turbo"
-        provider:
-          type: string
-          enum: [openai, anthropic, bedrock, azure, google, custom]
-          description: Model provider
-        type:
-          type: string
-          enum: [chat, embedding, completion, vision, audio]
-          description: Model type
-        configuration:
-          $ref: '#/components/schemas/ModelConfiguration'
-        capabilities:
-          $ref: '#/components/schemas/ModelCapabilities'
-
-    UpdateModelRequest:
-      type: object
-      properties:
-        name:
-          type: string
-          minLength: 1
-          maxLength: 100
-        configuration:
-          $ref: '#/components/schemas/ModelConfiguration'
-        capabilities:
-          $ref: '#/components/schemas/ModelCapabilities'
-        status:
-          type: string
-          enum: [active, inactive]
 
     ModelConfiguration:
       type: object
@@ -551,32 +473,3 @@ components:
           description: Estimated cost in USD
           example: 125.50
 
-    ListModelsResponse:
-      type: object
-      required:
-        - models
-      properties:
-        models:
-          type: array
-          items:
-            $ref: '#/components/schemas/Model'
-        meta:
-          $ref: '../common/schemas.yaml#/components/schemas/PaginationMeta'
-        summary:
-          type: object
-          properties:
-            total_models:
-              type: integer
-            by_provider:
-              type: object
-              additionalProperties:
-                type: integer
-            by_type:
-              type: object
-              additionalProperties:
-                type: integer
-            active_models:
-              type: integer
-          description: Summary statistics
-        _links:
-          $ref: '../common/schemas.yaml#/components/schemas/Links'

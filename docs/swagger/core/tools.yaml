@@ -9,27 +9,36 @@ paths:
         and safety restrictions. This endpoint helps discover what tools are integrated and
         what capabilities they provide.
       operationId: listTools
-      parameters:
-        - name: category
-          in: query
-          description: Filter tools by category
-          schema:
-            type: string
-            enum: [scm, ci_cd, security, artifacts, monitoring]
-          example: "ci_cd"
-        - name: capability
-          in: query
-          description: Filter by capability (e.g., "create", "read", "update")
-          schema:
-            type: string
-          example: "create"
       responses:
         '200':
-          description: List of available tools
+          description: Tool list with HATEOAS links
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ListToolsResponse'
+                type: object
+                required:
+                  - tools
+                  - _links
+                properties:
+                  tools:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        name:
+                          type: string
+                        description:
+                          type: string
+                        actions:
+                          type: array
+                          items:
+                            type: string
+                        safety_notes:
+                          type: string
+                  _links:
+                    type: object
+                    additionalProperties:
+                      type: string
         '401':
           $ref: '../common/responses.yaml#/components/responses/Unauthorized'
         '500':
@@ -73,15 +82,6 @@ paths:
         Returns all available actions for a specific tool, including allowed and
         disallowed actions based on safety restrictions.
       operationId: listToolActions
-      parameters:
-        - name: safety_level
-          in: query
-          description: Filter by safety level
-          schema:
-            type: string
-            enum: [safe, moderate, restricted, all]
-            default: all
-          example: "safe"
       responses:
         '200':
           description: Tool actions
@@ -133,13 +133,6 @@ paths:
       operationId: executeToolAction
       parameters:
         - $ref: '../common/parameters.yaml#/components/parameters/ContextIDQuery'
-        - name: async
-          in: query
-          description: Execute action asynchronously
-          schema:
-            type: boolean
-            default: false
-          example: true
       requestBody:
         required: true
         content:
@@ -164,12 +157,6 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ActionExecutionResponse'
-        '202':
-          description: Action accepted for async execution
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/AsyncExecutionResponse'
         '400':
           $ref: '../common/responses.yaml#/components/responses/BadRequest'
         '401':
@@ -197,14 +184,14 @@ paths:
       operationId: queryToolData
       parameters:
         - $ref: '../common/parameters.yaml#/components/parameters/ContextIDQuery'
-        - $ref: '../common/parameters.yaml#/components/parameters/Page'
-        - $ref: '../common/parameters.yaml#/components/parameters/Limit'
       requestBody:
         required: true
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/ToolQueryRequest'
+              type: object
+              additionalProperties: true
+              description: Query parameters specific to the tool
             examples:
               list_repositories:
                 summary: List GitHub repositories
@@ -220,7 +207,20 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ToolQueryResponse'
+                type: object
+                properties:
+                  status:
+                    type: string
+                  message:
+                    type: string
+                  tool:
+                    type: string
+                  query_params:
+                    type: object
+                  data:
+                    type: array
+                    items:
+                      type: object
         '400':
           $ref: '../common/responses.yaml#/components/responses/BadRequest'
         '401':
@@ -232,27 +232,6 @@ paths:
 
 components:
   schemas:
-    ListToolsResponse:
-      type: object
-      required:
-        - tools
-      properties:
-        tools:
-          type: array
-          items:
-            $ref: '../common/schemas.yaml#/components/schemas/ToolCapability'
-        categories:
-          type: object
-          additionalProperties:
-            type: array
-            items:
-              type: string
-          description: Tools grouped by category
-          example:
-            scm: ["github"]
-            ci_cd: ["github_actions"]
-        _links:
-          $ref: '../common/schemas.yaml#/components/schemas/Links'
 
     ToolDetails:
       allOf:
@@ -414,83 +393,6 @@ components:
         _links:
           $ref: '../common/schemas.yaml#/components/schemas/Links'
 
-    AsyncExecutionResponse:
-      type: object
-      required:
-        - execution_id
-        - status
-      properties:
-        execution_id:
-          $ref: '../common/schemas.yaml#/components/schemas/UUID'
-        status:
-          type: string
-          enum: [accepted, queued]
-        estimated_completion:
-          type: integer
-          description: Estimated seconds until completion
-        _links:
-          type: object
-          properties:
-            self:
-              type: string
-              format: uri
-            status:
-              type: string
-              format: uri
-            cancel:
-              type: string
-              format: uri
-
-    ToolQueryRequest:
-      type: object
-      required:
-        - query_type
-      properties:
-        query_type:
-          type: string
-          description: Type of query to perform
-          example: "list_repositories"
-        filters:
-          type: object
-          additionalProperties: true
-          description: Query-specific filters
-        fields:
-          type: array
-          items:
-            type: string
-          description: Fields to include in response
-        sort:
-          type: object
-          properties:
-            field:
-              type: string
-            direction:
-              type: string
-              enum: [asc, desc]
-          description: Sort configuration
-
-    ToolQueryResponse:
-      type: object
-      required:
-        - status
-        - tool
-        - data
-      properties:
-        status:
-          type: string
-          enum: [success, partial, failure]
-        message:
-          type: string
-        tool:
-          type: string
-        query_params:
-          type: object
-          description: Query parameters used
-        data:
-          type: array
-          items:
-            type: object
-          description: Query results
         total:
           type: integer
           description: Total number of results

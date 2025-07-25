@@ -8,30 +8,20 @@ paths:
         Returns a list of all AI agents configured for the current tenant. Agents define
         the AI models, capabilities, and configurations used for DevOps automation.
       operationId: listAgents
-      parameters:
-        - $ref: '../common/parameters.yaml#/components/parameters/Page'
-        - $ref: '../common/parameters.yaml#/components/parameters/Limit'
-        - $ref: '../common/parameters.yaml#/components/parameters/Sort'
-        - name: status
-          in: query
-          description: Filter by agent status
-          schema:
-            type: string
-            enum: [active, inactive, pending]
-          example: "active"
-        - name: model
-          in: query
-          description: Filter by AI model
-          schema:
-            type: string
-          example: "gpt-4"
       responses:
         '200':
           description: List of agents
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ListAgentsResponse'
+                type: object
+                required:
+                  - agents
+                properties:
+                  agents:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Agent'
         '401':
           $ref: '../common/responses.yaml#/components/responses/Unauthorized'
         '500':
@@ -50,7 +40,7 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/CreateAgentRequest'
+              $ref: '#/components/schemas/Agent'
             examples:
               basic_agent:
                 summary: Basic agent
@@ -74,16 +64,18 @@ paths:
       responses:
         '201':
           description: Agent created successfully
-          headers:
-            Location:
-              description: URL of the created agent
-              schema:
-                type: string
-                format: uri
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Agent'
+                type: object
+                required:
+                  - id
+                  - agent
+                properties:
+                  id:
+                    type: string
+                  agent:
+                    $ref: '#/components/schemas/Agent'
         '400':
           $ref: '../common/responses.yaml#/components/responses/BadRequest'
         '401':
@@ -96,33 +88,6 @@ paths:
   /agents/{id}:
     parameters:
       - $ref: '../common/parameters.yaml#/components/parameters/ID'
-    
-    get:
-      tags:
-        - Agents
-      summary: Get agent
-      description: Returns detailed information about a specific agent
-      operationId: getAgent
-      parameters:
-        - name: include_stats
-          in: query
-          description: Include usage statistics
-          schema:
-            type: boolean
-            default: false
-      responses:
-        '200':
-          description: Agent details
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Agent'
-        '401':
-          $ref: '../common/responses.yaml#/components/responses/Unauthorized'
-        '404':
-          $ref: '../common/responses.yaml#/components/responses/NotFound'
-        '500':
-          $ref: '../common/responses.yaml#/components/responses/InternalServerError'
     
     put:
       tags:
@@ -137,7 +102,7 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/UpdateAgentRequest'
+              $ref: '#/components/schemas/Agent'
             example:
               name: "Production Deploy Agent v2"
               configuration:
@@ -149,7 +114,15 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Agent'
+                type: object
+                required:
+                  - id
+                  - agent
+                properties:
+                  id:
+                    type: string
+                  agent:
+                    $ref: '#/components/schemas/Agent'
         '400':
           $ref: '../common/responses.yaml#/components/responses/BadRequest'
         '401':
@@ -161,91 +134,7 @@ paths:
         '500':
           $ref: '../common/responses.yaml#/components/responses/InternalServerError'
     
-    delete:
-      tags:
-        - Agents
-      summary: Delete agent
-      description: |
-        Deletes an agent. This operation is irreversible. All contexts associated
-        with the agent will be preserved but marked as orphaned.
-      operationId: deleteAgent
-      responses:
-        '204':
-          description: Agent deleted successfully
-        '401':
-          $ref: '../common/responses.yaml#/components/responses/Unauthorized'
-        '404':
-          $ref: '../common/responses.yaml#/components/responses/NotFound'
-        '409':
-          description: Cannot delete agent with active contexts
-          content:
-            application/json:
-              schema:
-                $ref: '../common/schemas.yaml#/components/schemas/Error'
-        '500':
-          $ref: '../common/responses.yaml#/components/responses/InternalServerError'
 
-  /agents/{id}/workload:
-    get:
-      tags:
-        - Agents
-      summary: Get agent workload
-      description: Get current workload information for an agent
-      operationId: getAgentWorkload
-      responses:
-        '200':
-          description: Agent workload information
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  agent_id:
-                    type: string
-                  active_tasks:
-                    type: integer
-                  queued_tasks:
-                    type: integer
-                  capacity:
-                    type: integer
-                  utilization_percent:
-                    type: number
-        '404':
-          $ref: '../common/responses.yaml#/components/responses/NotFound'
-
-  /agents/{id}/heartbeat:
-    post:
-      tags:
-        - Agents
-      summary: Send agent heartbeat
-      description: Update agent heartbeat to maintain active status
-      operationId: sendAgentHeartbeat
-      requestBody:
-        content:
-          application/json:
-            schema:
-              type: object
-              properties:
-                status:
-                  type: string
-                  enum: [healthy, degraded, unhealthy]
-                metadata:
-                  type: object
-      responses:
-        '200':
-          description: Heartbeat acknowledged
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  acknowledged:
-                    type: boolean
-                  timestamp:
-                    type: string
-                    format: date-time
-        '404':
-          $ref: '../common/responses.yaml#/components/responses/NotFound'
 
 components:
   schemas:
@@ -302,64 +191,6 @@ components:
         _links:
           $ref: '../common/schemas.yaml#/components/schemas/Links'
 
-    CreateAgentRequest:
-      type: object
-      required:
-        - name
-        - model
-        - capabilities
-      properties:
-        name:
-          type: string
-          minLength: 1
-          maxLength: 100
-          description: Agent name
-          example: "DevOps Assistant"
-        description:
-          type: string
-          maxLength: 500
-          description: Agent description
-          example: "General purpose DevOps automation agent"
-        model:
-          type: string
-          description: AI model to use
-          example: "gpt-4"
-        capabilities:
-          type: array
-          items:
-            type: string
-          minItems: 1
-          description: Tool capabilities to enable
-          example: ["github"]
-        configuration:
-          $ref: '#/components/schemas/AgentConfiguration'
-
-    UpdateAgentRequest:
-      type: object
-      properties:
-        name:
-          type: string
-          minLength: 1
-          maxLength: 100
-          description: New agent name
-        description:
-          type: string
-          maxLength: 500
-          description: New description
-        model:
-          type: string
-          description: New AI model
-        capabilities:
-          type: array
-          items:
-            type: string
-          description: New capabilities list
-        configuration:
-          $ref: '#/components/schemas/AgentConfiguration'
-        status:
-          type: string
-          enum: [active, inactive]
-          description: New status
 
     AgentConfiguration:
       type: object
@@ -451,16 +282,3 @@ components:
           example:
             github: 500
 
-    ListAgentsResponse:
-      type: object
-      required:
-        - agents
-      properties:
-        agents:
-          type: array
-          items:
-            $ref: '#/components/schemas/Agent'
-        meta:
-          $ref: '../common/schemas.yaml#/components/schemas/PaginationMeta'
-        _links:
-          $ref: '../common/schemas.yaml#/components/schemas/Links'

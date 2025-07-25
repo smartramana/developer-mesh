@@ -17,10 +17,12 @@ info:
     - **Webhook Processing**: Real-time event processing from external services
     
     ## Authentication
-    All API requests require authentication using one of the following methods:
+    All API requests to /api/v1/* endpoints require authentication via headers:
     - **API Key**: Pass in `Authorization` header as `Bearer <key>` or in `X-API-Key` header
     - **JWT Bearer Token**: Pass as `Bearer <token>` in `Authorization` header
-    - **OAuth2**: Use client credentials flow
+    
+    Note: There are no dedicated authentication endpoints. Authentication is handled via middleware
+    that validates credentials passed in request headers.
     
     ### Enhanced Security Features
     - Minimum 16-character API keys
@@ -102,25 +104,6 @@ tags:
     description: System monitoring and metrics
 
 paths:
-  # Authentication endpoints
-  /auth/token:
-    $ref: './core/auth.yaml#/paths/~1auth~1token'
-  
-  /auth/refresh:
-    $ref: './core/auth.yaml#/paths/~1auth~1refresh'
-  
-  /auth/revoke:
-    $ref: './core/auth.yaml#/paths/~1auth~1revoke'
-  
-  /auth/validate:
-    $ref: './core/auth.yaml#/paths/~1auth~1validate'
-  
-  /auth/api-keys:
-    $ref: './core/auth.yaml#/paths/~1auth~1api-keys'
-  
-  /auth/api-keys/{key_id}:
-    $ref: './core/auth.yaml#/paths/~1auth~1api-keys~1{key_id}'
-  
   # Health endpoints
   /health:
     $ref: './core/health.yaml#/paths/~1health'
@@ -216,34 +199,11 @@ paths:
   /search/similar:
     $ref: './core/search.yaml#/paths/~1search~1similar'
   
-  /search/hybrid:
-    $ref: './core/search.yaml#/paths/~1search~1hybrid'
-  
-  # Vector Operations
-  /vectors:
-    $ref: './core/vectors.yaml#/paths/~1vectors'
-  
-  /vectors/search:
-    $ref: './core/vectors.yaml#/paths/~1vectors~1search'
   
   # Webhook Operations
   /webhooks/github:
     $ref: './core/webhooks.yaml#/paths/~1webhooks~1github'
   
-  /webhooks/github/config:
-    $ref: './core/webhooks.yaml#/paths/~1webhooks~1github~1config'
-  
-  /webhooks/events:
-    $ref: './core/webhooks.yaml#/paths/~1webhooks~1events'
-  
-  /webhooks/events/{id}:
-    $ref: './core/webhooks.yaml#/paths/~1webhooks~1events~1{id}'
-  
-  /webhooks/events/{id}/retry:
-    $ref: './core/webhooks.yaml#/paths/~1webhooks~1events~1{id}~1retry'
-  
-  /webhooks/secrets/rotate:
-    $ref: './core/webhooks.yaml#/paths/~1webhooks~1secrets~1rotate'
   
   # Relationship Operations
   /relationships:
@@ -258,24 +218,6 @@ paths:
   /entities/{type}/{owner}/{repo}/{id}/graph:
     $ref: './core/relationships.yaml#/paths/~1entities~1{type}~1{owner}~1{repo}~1{id}~1graph'
   
-  # Workflow & Task Operations
-  /workflows:
-    $ref: './core/workflows.yaml#/paths/~1workflows'
-  
-  /workflows/{id}:
-    $ref: './core/workflows.yaml#/paths/~1workflows~1{id}'
-  
-  /workflows/{id}/executions:
-    $ref: './core/workflows.yaml#/paths/~1workflows~1{id}~1executions'
-  
-  /tasks:
-    $ref: './core/tasks.yaml#/paths/~1tasks'
-  
-  /tasks/{id}:
-    $ref: './core/tasks.yaml#/paths/~1tasks~1{id}'
-  
-  /tasks/assign:
-    $ref: './core/tasks.yaml#/paths/~1tasks~1assign'
   
   # Agent Extended Operations
   /agents/{id}/workload:
@@ -288,20 +230,7 @@ paths:
   /models/search:
     $ref: './core/models.yaml#/paths/~1models~1search'
   
-  /models/compare:
-    $ref: './core/models.yaml#/paths/~1models~1compare'
-  
   # Embedding Extended Operations
-  /embeddings/usage:
-    $ref: './core/embeddings_v2.yaml#/paths/~1embeddings~1usage'
-  
-  # Collaboration Operations
-  /collaborations:
-    $ref: './core/collaborations.yaml#/paths/~1collaborations'
-  
-  # Monitoring Operations
-  /monitoring/dashboard:
-    $ref: './core/monitoring.yaml#/paths/~1monitoring~1dashboard'
   
   # Metrics
   /metrics:

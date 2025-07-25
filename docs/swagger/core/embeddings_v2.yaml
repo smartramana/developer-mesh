@@ -285,50 +285,6 @@ paths:
                     items:
                       type: string
 
-  /embeddings/usage:
-    get:
-      summary: Get embedding usage statistics
-      description: Get usage statistics for embedding generation
-      operationId: getEmbeddingUsage
-      tags:
-        - embeddings
-      parameters:
-        - name: agent_id
-          in: query
-          schema:
-            type: string
-          description: Filter by agent ID
-        - name: period
-          in: query
-          schema:
-            type: string
-            enum: [hour, day, week, month]
-            default: day
-      responses:
-        '200':
-          description: Usage statistics
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  total_requests:
-                    type: integer
-                  total_tokens:
-                    type: integer
-                  total_cost:
-                    type: number
-                  by_model:
-                    type: object
-                    additionalProperties:
-                      type: object
-                      properties:
-                        requests:
-                          type: integer
-                        tokens:
-                          type: integer
-                        cost:
-                          type: number
 
 components:
   parameters:
