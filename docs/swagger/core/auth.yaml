@@ -116,8 +116,8 @@ paths:
       description: List all API keys for the authenticated tenant
       operationId: listApiKeys
       parameters:
-        - $ref: '../common/parameters.yaml#/components/parameters/PageParam'
-        - $ref: '../common/parameters.yaml#/components/parameters/LimitParam'
+        - $ref: '../common/parameters.yaml#/components/parameters/Page'
+        - $ref: '../common/parameters.yaml#/components/parameters/Limit'
         - name: active
           in: query
           description: Filter by active status
