@@ -1,43 +1,4 @@
 paths:
-  /auth/login:
-    post:
-      tags:
-        - Authentication
-      summary: Authenticate with API key or credentials
-      description: |
-        Authenticate using various methods:
-        - API Key in Authorization header
-        - API Key in X-API-Key header
-        - OAuth2 client credentials
-      operationId: authLogin
-      security: []  # No auth required for login endpoint
-      requestBody:
-        description: OAuth2 client credentials (optional for API key auth)
-        required: false
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/LoginRequest'
-      responses:
-        '200':
-          description: Authentication successful
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/LoginResponse'
-          headers:
-            X-RateLimit-Limit:
-              $ref: '../common/parameters.yaml#/components/headers/RateLimitLimit'
-            X-RateLimit-Remaining:
-              $ref: '../common/parameters.yaml#/components/headers/RateLimitRemaining'
-            X-RateLimit-Reset:
-              $ref: '../common/parameters.yaml#/components/headers/RateLimitReset'
-        '401':
-          $ref: '../common/responses.yaml#/components/responses/Unauthorized'
-        '429':
-          $ref: '../common/responses.yaml#/components/responses/TooManyRequests'
-        '500':
-          $ref: '../common/responses.yaml#/components/responses/InternalServerError'
 
   /auth/token:
     post:
@@ -262,52 +223,6 @@ paths:
 
 components:
   schemas:
-    LoginRequest:
-      type: object
-      properties:
-        client_id:
-          type: string
-          description: OAuth2 client ID
-        client_secret:
-          type: string
-          description: OAuth2 client secret
-        grant_type:
-          type: string
-          enum: [client_credentials]
-          description: OAuth2 grant type
-      example:
-        client_id: "my-client-id"
-        client_secret: "my-client-secret"
-        grant_type: "client_credentials"
-
-    LoginResponse:
-      type: object
-      required:
-        - token
-        - expires_at
-        - user
-      properties:
-        token:
-          type: string
-          description: JWT access token
-        refresh_token:
-          type: string
-          description: Refresh token (if enabled)
-        expires_at:
-          type: string
-          format: date-time
-          description: Token expiration time
-        user:
-          $ref: '#/components/schemas/AuthUser'
-      example:
-        token: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
-        refresh_token: "refresh_token_string"
-        expires_at: "2024-01-16T10:00:00Z"
-        user:
-          id: "user-123"
-          tenant_id: "tenant-456"
-          scopes: ["read", "write"]
-
     TokenResponse:
       type: object
       required:

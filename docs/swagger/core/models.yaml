@@ -211,40 +211,54 @@ paths:
         '500':
           $ref: '../common/responses.yaml#/components/responses/InternalServerError'
 
-  /models/{id}/test:
-    parameters:
-      - $ref: '../common/parameters.yaml#/components/parameters/ID'
-    
+  /models/search:
     post:
       tags:
         - Models
-      summary: Test model
-      description: |
-        Tests a model configuration to ensure it's working correctly. This validates
-        API credentials, endpoints, and basic functionality.
-      operationId: testModel
+      summary: Search models
+      description: Search for models based on various criteria
+      operationId: searchModels
       requestBody:
-        required: false
+        required: true
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/TestModelRequest'
-            example:
-              test_prompt: "Hello, please respond with 'OK' if you can read this."
-              test_embedding_text: "This is a test for embedding generation."
+              type: object
+              properties:
+                query:
+                  type: string
+                  description: Search query
+                filters:
+                  type: object
+                  properties:
+                    provider:
+                      type: string
+                      enum: [openai, anthropic, bedrock, azure, google]
+                    type:
+                      type: string
+                      enum: [chat, embedding, completion, vision, audio]
+                    active:
+                      type: boolean
+                    capabilities:
+                      type: object
+                      properties:
+                        supports_functions:
+                          type: boolean
+                        supports_vision:
+                          type: boolean
+                        supports_streaming:
+                          type: boolean
       responses:
         '200':
-          description: Model test results
+          description: Search results
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/TestModelResponse'
+                $ref: '#/components/schemas/ListModelsResponse'
         '400':
           $ref: '../common/responses.yaml#/components/responses/BadRequest'
         '401':
           $ref: '../common/responses.yaml#/components/responses/Unauthorized'
-        '404':
-          $ref: '../common/responses.yaml#/components/responses/NotFound'
         '500':
           $ref: '../common/responses.yaml#/components/responses/InternalServerError'
 
@@ -536,71 +550,6 @@ components:
           format: float
           description: Estimated cost in USD
           example: 125.50
-
-    TestModelRequest:
-      type: object
-      properties:
-        test_prompt:
-          type: string
-          description: Test prompt for chat/completion models
-          example: "Hello, please respond with 'OK' if you can read this."
-        test_embedding_text:
-          type: string
-          description: Test text for embedding models
-          example: "This is a test for embedding generation."
-        test_image_url:
-          type: string
-          format: uri
-          description: Test image URL for vision models
-
-    TestModelResponse:
-      type: object
-      required:
-        - success
-        - tests
-      properties:
-        success:
-          type: boolean
-          description: Overall test success
-          example: true
-        tests:
-          type: array
-          items:
-            type: object
-            properties:
-              name:
-                type: string
-                example: "API Connection"
-              passed:
-                type: boolean
-                example: true
-              message:
-                type: string
-                example: "Successfully connected to API"
-              duration_ms:
-                type: integer
-                example: 245
-          description: Individual test results
-        model_info:
-          type: object
-          properties:
-            reported_model:
-              type: string
-              example: "gpt-4-0125-preview"
-            context_length:
-              type: integer
-              example: 128000
-            capabilities:
-              type: object
-          description: Model information from API
-        warnings:
-          type: array
-          items:
-            type: string
-          description: Non-fatal warnings
-          example:
-            - "Rate limit is lower than expected"
-            - "Response time is above recommended threshold"
 
     ListModelsResponse:
       type: object

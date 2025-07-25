@@ -61,24 +61,143 @@ paths:
                       - component: "vector_database"
                         error: "High latency detected"
 
-  /api-info:
+  /healthz:
     get:
       tags:
         - Health
-      summary: API information
+      summary: Kubernetes liveness probe
       description: |
-        Returns general information about the API including version, available endpoints,
-        and HATEOAS links for API discovery. This is the root endpoint for API navigation.
-      operationId: getApiInfo
+        Kubernetes liveness probe endpoint. Returns a simple 200 OK if the service
+        is alive. This endpoint does not require authentication.
+      operationId: healthzCheck
+      security: []  # No authentication required
       responses:
         '200':
-          description: API information
+          description: Service is alive
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ApiInfoResponse'
+                type: object
+                properties:
+                  status:
+                    type: string
+                    enum: [ok]
+                    example: "ok"
+        '503':
+          description: Service is not alive
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    enum: [error]
+                    example: "error"
+
+  /readyz:
+    get:
+      tags:
+        - Health
+      summary: Kubernetes readiness probe
+      description: |
+        Kubernetes readiness probe endpoint. Returns 200 OK when the service is ready
+        to accept traffic. This endpoint does not require authentication.
+      operationId: readyzCheck
+      security: []  # No authentication required
+      responses:
+        '200':
+          description: Service is ready
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    enum: [ready]
+                    example: "ready"
+        '503':
+          description: Service is not ready
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    enum: [not_ready]
+                    example: "not_ready"
+                  reason:
+                    type: string
+                    description: Reason for not being ready
+                    example: "Database connection not established"
+
+  /swagger/{proxy}:
+    get:
+      tags:
+        - Health
+      summary: Swagger UI
+      description: |
+        Serves the Swagger UI documentation interface. The {proxy} parameter catches
+        all sub-paths to serve static assets.
+      operationId: swaggerUI
+      security: []  # No authentication required
+      parameters:
+        - name: proxy
+          in: path
+          required: true
+          description: Path to swagger UI resources
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Swagger UI HTML or assets
+          content:
+            text/html:
+              schema:
+                type: string
+            application/javascript:
+              schema:
+                type: string
+            text/css:
+              schema:
+                type: string
+
+  /redoc:
+    get:
+      tags:
+        - Health
+      summary: ReDoc documentation
+      description: |
+        Serves the ReDoc documentation interface as an alternative to Swagger UI.
+      operationId: redocUI
+      security: []  # No authentication required
+      responses:
+        '200':
+          description: ReDoc HTML page
+          content:
+            text/html:
+              schema:
+                type: string
+
+  /ws:
+    get:
+      tags:
+        - WebSocket
+      summary: WebSocket connection
+      description: |
+        Establishes a WebSocket connection for real-time bidirectional communication.
+        This endpoint is used for MCP (Model Context Protocol) communication.
+      operationId: websocket
+      security: []  # Authentication handled via WebSocket protocol
+      responses:
+        '101':
+          description: Switching Protocols - WebSocket connection established
+        '400':
+          description: Bad Request - Invalid WebSocket handshake
         '401':
-          $ref: '../common/responses.yaml#/components/responses/Unauthorized'
+          description: Unauthorized - Invalid authentication
 
   /metrics:
     get:
@@ -254,48 +373,3 @@ components:
               format: float
           description: Basic performance metrics (if verbose=true)
 
-    ApiInfoResponse:
-      type: object
-      required:
-        - api_version
-        - description
-        - links
-      properties:
-        api_version:
-          type: string
-          description: API version
-          example: "1.0"
-        description:
-          type: string
-          description: API description
-          example: "MCP Server API for DevOps tool integration following Model Context Protocol"
-        server_time:
-          $ref: '../common/schemas.yaml#/components/schemas/Timestamp'
-        capabilities:
-          type: array
-          items:
-            type: string
-          description: Available API capabilities
-          example: ["contexts", "tools", "agents", "embeddings", "search"]
-        rate_limits:
-          type: object
-          properties:
-            requests_per_hour:
-              type: integer
-              example: 1000
-            burst:
-              type: integer
-              example: 50
-          description: Rate limit information
-        links:
-          type: object
-          additionalProperties:
-            type: string
-            format: uri
-          description: HATEOAS links for API navigation
-          example:
-            tools: "https://api.example.com/api/v1/tools"
-            contexts: "https://api.example.com/api/v1/contexts"
-            embeddings: "https://api.example.com/api/embeddings"
-            health: "https://api.example.com/health"
-            documentation: "https://api.example.com/swagger/index.html"

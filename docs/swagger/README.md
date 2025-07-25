@@ -13,21 +13,27 @@ docs/swagger/
 │   └── responses.yaml       # Standard HTTP responses
 ├── core/                    # Core API specifications
 │   ├── agents.yaml         # Agent management endpoints
-│   ├── contexts.yaml       # MCP context management
+│   ├── auth.yaml           # Authentication endpoints
+│   ├── collaborations.yaml # Collaboration features
+│   ├── contexts.yaml       # Context management
+│   ├── embeddings_v2.yaml  # Embedding operations
 │   ├── health.yaml         # Health and monitoring
+│   ├── metrics.yaml        # Metrics endpoints
 │   ├── models.yaml         # Model configuration
+│   ├── monitoring.yaml     # Monitoring endpoints
 │   ├── relationships.yaml  # Entity relationships
 │   ├── search.yaml         # Semantic search
+│   ├── tasks.yaml          # Task management
 │   ├── tools.yaml          # Generic tool endpoints
 │   ├── vectors.yaml        # Vector operations
-│   └── webhooks.yaml       # Webhook endpoints
+│   ├── webhooks.yaml       # Webhook endpoints
+│   └── workflows.yaml      # Workflow orchestration
 └── tools/                   # Tool-specific specifications
-    └── github/             # GitHub integration (currently implemented)
-        ├── api.yaml       # GitHub endpoints
-        └── schemas.yaml   # GitHub-specific models (future)
+    └── github/             # GitHub integration
+        └── api.yaml       # GitHub endpoints (ORPHANED - not implemented)
 ```
 
-**Note**: Additional tools (GitLab, Harness, SonarQube, Artifactory, Xray) are planned but not yet implemented. See the [Custom Tool Integration Guide](../examples/custom-tool-integration.md) for implementation examples.
+**Note**: GitHub, Harness, and SonarQube tools are implemented through the generic tool endpoints (`/api/v1/tools/{tool}/actions/{action}`). The tool-specific endpoints documented in `tools/github/api.yaml` are not implemented.
 
 ## Design Principles
 
@@ -51,45 +57,23 @@ docs/swagger/
 - Tool execution returns MCP-compliant responses
 - Error handling matches MCP protocol requirements
 
-## Adding a New Tool
+## How Tools Work
 
-When implementing a new tool integration (e.g., GitLab, Harness, SonarQube):
+Tools in the Developer Mesh Platform are accessed through generic endpoints:
 
-1. Create a new directory: `tools/<tool-name>/`
+- `GET /api/v1/tools` - List all available tools
+- `GET /api/v1/tools/{tool}` - Get tool details (e.g., `/api/v1/tools/github`)
+- `GET /api/v1/tools/{tool}/actions` - List available actions for a tool
+- `GET /api/v1/tools/{tool}/actions/{action}` - Get action details
+- `POST /api/v1/tools/{tool}/actions/{action}` - Execute a tool action
+- `POST /api/v1/tools/{tool}/queries` - Query tool data
 
-2. Create `api.yaml` with tool endpoints:
-```yaml
-paths:
-  /tools/<tool-name>:
-    get:
-      tags:
-        - <ToolName>
-      summary: List <tool> MCP tools
-      # ... endpoint definition
-```
+Currently implemented tools:
+- **github**: Repository management, issues, pull requests
+- **harness**: CI/CD pipeline operations
+- **sonarqube**: Code quality and security scanning
 
-3. Create `schemas.yaml` with tool-specific models:
-```yaml
-components:
-  schemas:
-    <ToolName>Config:
-      type: object
-      # ... schema definition
-```
-
-4. Update `openapi.yaml` to include the new tool:
-```yaml
-paths:
-  /tools/<tool-name>:
-    $ref: './tools/<tool-name>/api.yaml#/paths/~1tools~1<tool-name>'
-```
-
-5. Add appropriate tags in `openapi.yaml`:
-```yaml
-tags:
-  - name: <ToolName>
-    description: <Tool> integration operations
-```
+Tool-specific endpoint patterns (like `/tools/github/{tool_name}`) are not implemented.
 
 ## Viewing Documentation
 
@@ -133,6 +117,8 @@ npm install -g @apidevtools/swagger-cli
 # Validate
 swagger-cli validate docs/swagger/openapi.yaml
 ```
+
+**Note**: The validator may report warnings about external file references. These are expected when using modular file structure with `$ref` references.
 
 ## Code Generation
 
@@ -181,6 +167,15 @@ openapi-generator generate -i docs/swagger/openapi.yaml -g python -o sdk/python
 - Include artifact metadata schemas
 - Document search query formats
 
+## Current State
+
+As of the latest review:
+- All core API endpoints are properly documented
+- Authentication is handled through API keys and JWT tokens (no OAuth2 login endpoint)
+- Context endpoints use `/contexts` path (not `/mcp/context`)
+- Tools are accessed through generic endpoints, not tool-specific paths
+- The `tools/github/api.yaml` file documents endpoints that are not implemented
+
 ## Maintenance
 
 1. **Keep specs in sync**: Update OpenAPI specs when implementing changes
@@ -188,3 +183,4 @@ openapi-generator generate -i docs/swagger/openapi.yaml -g python -o sdk/python
 3. **Review process**: Include API documentation in code reviews
 4. **Breaking changes**: Document in CHANGELOG and migration guides
 5. **Deprecation**: Use OpenAPI deprecation markers with sunset dates
+6. **Regular audits**: Periodically verify that documentation matches implementation

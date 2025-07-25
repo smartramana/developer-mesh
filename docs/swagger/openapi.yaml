@@ -20,7 +20,7 @@ info:
     All API requests require authentication using one of the following methods:
     - **API Key**: Pass in `Authorization` header as `Bearer <key>` or in `X-API-Key` header
     - **JWT Bearer Token**: Pass as `Bearer <token>` in `Authorization` header
-    - **OAuth2**: Use client credentials flow via `/auth/login` endpoint
+    - **OAuth2**: Use client credentials flow
     
     ### Enhanced Security Features
     - Minimum 16-character API keys
@@ -103,12 +103,11 @@ tags:
     description: Multi-agent collaboration features
   - name: Monitoring
     description: System monitoring and metrics
+  - name: WebSocket
+    description: WebSocket real-time communication
 
 paths:
   # Authentication endpoints
-  /auth/login:
-    $ref: './core/auth.yaml#/paths/~1auth~1login'
-  
   /auth/token:
     $ref: './core/auth.yaml#/paths/~1auth~1token'
   
@@ -131,24 +130,33 @@ paths:
   /health:
     $ref: './core/health.yaml#/paths/~1health'
   
-  /:
-    $ref: './core/health.yaml#/paths/~1api-info'
+  /healthz:
+    $ref: './core/health.yaml#/paths/~1healthz'
+  
+  /readyz:
+    $ref: './core/health.yaml#/paths/~1readyz'
+  
+  /swagger/{proxy}:
+    $ref: './core/health.yaml#/paths/~1swagger~1{proxy}'
+  
+  /redoc:
+    $ref: './core/health.yaml#/paths/~1redoc'
+  
+  /ws:
+    $ref: './core/health.yaml#/paths/~1ws'
   
   # Context Management
-  /mcp/context:
-    $ref: './core/contexts.yaml#/paths/~1mcp~1context'
+  /contexts:
+    $ref: './core/contexts.yaml#/paths/~1contexts'
   
-  /mcp/context/{id}:
-    $ref: './core/contexts.yaml#/paths/~1mcp~1context~1{id}'
+  /contexts/{contextID}:
+    $ref: './core/contexts.yaml#/paths/~1contexts~1{contextID}'
   
-  /mcp/contexts:
-    $ref: './core/contexts.yaml#/paths/~1mcp~1contexts'
+  /contexts/{contextID}/search:
+    $ref: './core/contexts.yaml#/paths/~1contexts~1{contextID}~1search'
   
-  /mcp/context/{id}/search:
-    $ref: './core/contexts.yaml#/paths/~1mcp~1context~1{id}~1search'
-  
-  /mcp/context/{id}/summary:
-    $ref: './core/contexts.yaml#/paths/~1mcp~1context~1{id}~1summary'
+  /contexts/{contextID}/summary:
+    $ref: './core/contexts.yaml#/paths/~1contexts~1{contextID}~1summary'
   
   # Tool Management
   /tools:
@@ -165,13 +173,6 @@ paths:
   
   /tools/{tool}/queries:
     $ref: './core/tools.yaml#/paths/~1tools~1{tool}~1queries'
-  
-  # GitHub Tool Operations
-  /tools/github:
-    $ref: './tools/github/api.yaml#/paths/~1tools~1github'
-  
-  /tools/github/{tool_name}:
-    $ref: './tools/github/api.yaml#/paths/~1tools~1github~1{tool_name}'
   
   
   # Agent Management
@@ -295,6 +296,9 @@ paths:
     $ref: './core/agents.yaml#/paths/~1agents~1{id}~1heartbeat'
   
   # Model Extended Operations
+  /models/search:
+    $ref: './core/models.yaml#/paths/~1models~1search'
+  
   /models/compare:
     $ref: './core/models.yaml#/paths/~1models~1compare'
   
