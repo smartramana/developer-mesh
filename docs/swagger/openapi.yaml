@@ -219,12 +219,6 @@ paths:
     $ref: './core/relationships.yaml#/paths/~1entities~1{type}~1{owner}~1{repo}~1{id}~1graph'
   
   
-  # Agent Extended Operations
-  /agents/{id}/workload:
-    $ref: './core/agents.yaml#/paths/~1agents~1{id}~1workload'
-  
-  /agents/{id}/heartbeat:
-    $ref: './core/agents.yaml#/paths/~1agents~1{id}~1heartbeat'
   
   # Model Extended Operations
   /models/search:
