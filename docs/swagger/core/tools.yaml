@@ -392,11 +392,8 @@ components:
           description: Execution time in seconds
         _links:
           $ref: '../common/schemas.yaml#/components/schemas/Links'
-
         total:
           type: integer
           description: Total number of results
         meta:
           $ref: '../common/schemas.yaml#/components/schemas/PaginationMeta'
-        _links:
-          $ref: '../common/schemas.yaml#/components/schemas/Links'
