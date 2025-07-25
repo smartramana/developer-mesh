@@ -7,7 +7,14 @@ paths:
       description: |
         Returns the health status of all system components. This endpoint is used for
         monitoring and load balancer health checks. It does not require authentication.
+        
+        Note: This endpoint is available at the root path, not under /api/v1
       operationId: healthCheck
+      servers:
+        - url: https://api.dev-mesh.io
+          description: Production API Server
+        - url: http://localhost:8081
+          description: Local REST API Server
       security: []  # No authentication required
       responses:
         '200':
@@ -53,7 +60,14 @@ paths:
       description: |
         Kubernetes liveness probe endpoint. Returns a simple 200 OK if the service
         is alive. This endpoint does not require authentication.
+        
+        Note: This endpoint is available at the root path, not under /api/v1
       operationId: healthzCheck
+      servers:
+        - url: https://api.dev-mesh.io
+          description: Production API Server
+        - url: http://localhost:8081
+          description: Local REST API Server
       security: []  # No authentication required
       responses:
         '200':
@@ -84,7 +98,14 @@ paths:
       description: |
         Kubernetes readiness probe endpoint. Returns 200 OK when the service is ready
         to accept traffic. This endpoint does not require authentication.
+        
+        Note: This endpoint is available at the root path, not under /api/v1
       operationId: readyzCheck
+      servers:
+        - url: https://api.dev-mesh.io
+          description: Production API Server
+        - url: http://localhost:8081
+          description: Local REST API Server
       security: []  # No authentication required
       responses:
         '200':
@@ -150,7 +171,14 @@ paths:
       description: |
         Serves the Swagger UI documentation interface. The {proxy} parameter catches
         all sub-paths to serve static assets.
+        
+        Note: This endpoint is available at the root path, not under /api/v1
       operationId: swaggerUI
+      servers:
+        - url: https://api.dev-mesh.io
+          description: Production API Server
+        - url: http://localhost:8081
+          description: Local REST API Server
       security: []  # No authentication required
       parameters:
         - name: any
@@ -181,7 +209,14 @@ paths:
       description: |
         Returns metrics in Prometheus exposition format. This endpoint is used by
         Prometheus scrapers and does not require authentication.
+        
+        Note: This endpoint is available at the root path, not under /api/v1
       operationId: getMetrics
+      servers:
+        - url: https://api.dev-mesh.io
+          description: Production API Server
+        - url: http://localhost:8081
+          description: Local REST API Server
       security: []  # No authentication required
       responses:
         '200':
@@ -204,84 +239,6 @@ paths:
                 http_request_duration_seconds_sum 567.89
                 http_request_duration_seconds_count 1300
 
-  /ready:
-    get:
-      tags:
-        - Health
-      summary: Readiness check
-      description: |
-        Indicates if the service is ready to accept requests. Used by Kubernetes
-        for readiness probes. Returns 503 during startup or maintenance.
-      operationId: readinessCheck
-      security: []  # No authentication required
-      responses:
-        '200':
-          description: Service is ready
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  ready:
-                    type: boolean
-                    example: true
-                  message:
-                    type: string
-                    example: "Service is ready to accept requests"
-        '503':
-          description: Service not ready
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  ready:
-                    type: boolean
-                    example: false
-                  message:
-                    type: string
-                    example: "Service is starting up"
-                  retry_after:
-                    type: integer
-                    description: Seconds to wait before retry
-                    example: 5
-
-  /live:
-    get:
-      tags:
-        - Health
-      summary: Liveness check
-      description: |
-        Indicates if the service is alive and functioning. Used by Kubernetes
-        for liveness probes. Returns 503 if the service is in a broken state.
-      operationId: livenessCheck
-      security: []  # No authentication required
-      responses:
-        '200':
-          description: Service is alive
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  alive:
-                    type: boolean
-                    example: true
-                  timestamp:
-                    $ref: '../common/schemas.yaml#/components/schemas/Timestamp'
-        '503':
-          description: Service is not functioning properly
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  alive:
-                    type: boolean
-                    example: false
-                  error:
-                    type: string
-                    example: "Deadlock detected"
 
 components:
   schemas:
