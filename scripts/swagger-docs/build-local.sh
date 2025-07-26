@@ -91,6 +91,21 @@ cat > "$BUILD_DIR/index.html" << 'EOF'
         .swagger-ui .topbar .download-url-wrapper .download-url-button:hover {
             background: #45a049;
         }
+        /* Hide the confusing URL input field and only show the title */
+        .swagger-ui .topbar .download-url-wrapper {
+            display: none !important;
+        }
+        /* Add a custom header message */
+        .swagger-ui .topbar::after {
+            content: "Developer Mesh API Documentation";
+            color: white;
+            font-size: 20px;
+            font-weight: 600;
+            position: absolute;
+            left: 50%;
+            top: 50%;
+            transform: translate(-50%, -50%);
+        }
     </style>
 </head>
 <body>
