@@ -352,7 +352,6 @@ func (s *Server) setupRoutes(ctx context.Context) {
 			"api_version": "1.0",
 			"description": "MCP Server API for DevOps tool integration following Model Context Protocol",
 			"links": map[string]string{
-				"tools":         baseURL + "/api/v1/tools",
 				"contexts":      baseURL + "/api/v1/contexts",
 				"embeddings":    baseURL + "/api/embeddings",
 				"health":        baseURL + "/health",
@@ -371,17 +370,7 @@ func (s *Server) setupRoutes(ctx context.Context) {
 	s.router.Any("/api/webhooks/github", gin.WrapH(muxRouter))
 	s.router.Any("/api/webhooks/github/", gin.WrapH(muxRouter))
 
-	// Tool integration API - using resource-based approach
-	adapterBridge, err := s.engine.GetAdapter("adapter_bridge")
-	if err != nil {
-		s.logger.Warn("Failed to get adapter bridge, using mock implementation", map[string]any{
-			"error": err.Error(),
-		})
-		// Use a nil interface, the ToolAPI will use mock implementations
-		adapterBridge = nil
-	}
-	toolAPI := NewToolAPI(adapterBridge)
-	toolAPI.RegisterRoutes(v1)
+	// Tool integration API - removed legacy ToolAPI in favor of Dynamic Tools API
 
 	// Agent and Model APIs - create repositories first as they're needed by context API
 	agentRepo := repository.NewAgentRepository(s.db.DB)
