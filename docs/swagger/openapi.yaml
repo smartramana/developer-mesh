@@ -78,8 +78,6 @@ tags:
     description: MCP context management operations
   - name: Dynamic Tools
     description: Dynamic tool registration and management endpoints
-  - name: GitHub Tools
-    description: Pre-configured GitHub tool endpoints (legacy)
   - name: Agents
     description: AI agent management and orchestration
   - name: Models
@@ -92,8 +90,6 @@ tags:
     description: Semantic and hybrid search endpoints
   - name: Webhooks
     description: Webhook endpoints for external integrations
-  - name: GitHub
-    description: GitHub-specific tool operations
   - name: Relationships
     description: Entity relationship management
   - name: Workflows
@@ -162,13 +158,6 @@ paths:
   
   /tools/{toolId}/credentials:
     $ref: './core/dynamic_tools.yaml#/paths/~1tools~1{toolId}~1credentials'
-  
-  # GitHub Tools (Legacy)
-  /tools/github:
-    $ref: './core/tools.yaml#/paths/~1tools~1github'
-  
-  /tools/github/{tool_name}:
-    $ref: './core/tools.yaml#/paths/~1tools~1github~1{tool_name}'
   
   # Agent Management
   /agents:
