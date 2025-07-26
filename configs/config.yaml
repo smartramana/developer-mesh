@@ -95,14 +95,11 @@ api:
   
   # Note: Agent Webhook has been removed as it is no longer supported
   
-  # DevOps Tool Webhooks
+  # Webhook Configuration
+  # All webhooks are now configured per tool via the dynamic tools API
   webhooks:
-    github:
-      enabled: true
-      path: "/github"
-      secret: "change-this-to-a-secure-webhook-secret"
-    
-    # Note: Harness, SonarQube, Artifactory, and JFrog Xray webhook support has been removed
+    base_path: "/webhooks"
+    # Webhooks are dynamically registered when tools are added
 
 # Database Configuration
 database:
@@ -135,72 +132,29 @@ engine:
     safe_mode: true  # Enable safety checks for all operations
     audit_logging: true  # Log all adapter operations for audit purposes
 
-# DevOps Tool Adapters
-adapters:
-  github:
-    api_token: "your-github-api-token"
-    webhook_secret: "your-github-webhook-secret"
-    # enterprise_url: "https://github.yourdomain.com/api/v3" # For GitHub Enterprise
+# Dynamic Tool Configuration
+# Tools are now configured via the API, not in static config files
+# This section only contains system-wide defaults
+dynamic_tools:
+  defaults:
     request_timeout: 30s
     retry_max: 3
     retry_delay: 1s
-    mock_responses: true
-    mock_url: "http://mockserver:8081/mock-github"
+    health_check_interval: 5m
+    cache_duration: 5m
+  discovery:
+    timeout: 30s
+    allowed_schemes: ["https"]
+    max_redirects: 3
   
-  harness:
-    api_token: "your-harness-api-token"
-    account_id: "your-harness-account-id"
-    org_identifier: "default"
-    project_identifier: "your-project-id"
-    base_url: "https://app.harness.io"
-    api_url: "https://app.harness.io/ng/api"
-    graphql_url: "https://app.harness.io/gateway/api/graphql"
-    # CCM specific configurations
-    ccm_api_url: "https://app.harness.io/ccm/api"
-    ccm_graphql_url: "https://app.harness.io/ccm/graphql"
-    # Request configuration
-    request_timeout: 30s
-    retry_max: 3
-    retry_delay: 1s
-    # Mock server settings for testing
-    mock_responses: true
-    mock_url: "http://mockserver:8081/mock-harness"
-  
-  sonarqube:
-    base_url: "https://sonarqube.example.com/api"
-    token: "your-sonarqube-token"
-    # Or use username/password authentication
-    # username: "your-sonarqube-username"
-    # password: "your-sonarqube-password"
-    request_timeout: 30s
-    retry_max: 3
-    retry_delay: 1s
-    mock_responses: true
-    mock_url: "http://mockserver:8081/mock-sonarqube"
-  
-  artifactory:
-    base_url: "https://artifactory.example.com/artifactory/api"
-    token: "your-artifactory-token"
-    # Or use username/password authentication
-    # username: "your-artifactory-username"
-    # password: "your-artifactory-password"
-    request_timeout: 30s
-    retry_max: 3
-    retry_delay: 1s
-    mock_responses: true
-    mock_url: "http://mockserver:8081/mock-artifactory"
-  
-  xray:
-    base_url: "https://xray.example.com/api/v1"
-    token: "your-xray-token"
-    # Or use username/password authentication
-    # username: "your-xray-username"
-    # password: "your-xray-password"
-    request_timeout: 30s
-    retry_max: 3
-    retry_delay: 1s
-    mock_responses: true
-    mock_url: "http://mockserver:8081/mock-xray"
+  # Mock server configuration for testing
+  mock:
+    enabled: true
+    base_url: "http://mockserver:8081"
+
+# Legacy adapter configuration has been removed
+# All tools are now configured dynamically via the API
+# See /api/v1/tools endpoints for managing tools
 
 # Monitoring Configuration
 monitoring:
