@@ -69,18 +69,18 @@ func TestDynamicToolsPassthrough(t *testing.T) {
 		// Return different responses based on the token
 		switch authHeader {
 		case "Bearer user-token-123":
-			json.NewEncoder(w).Encode(map[string]interface{}{
+			_ = json.NewEncoder(w).Encode(map[string]interface{}{
 				"message": "Success with user token",
 				"user":    "john.doe",
 			})
 		case "Bearer service-token-456":
-			json.NewEncoder(w).Encode(map[string]interface{}{
+			_ = json.NewEncoder(w).Encode(map[string]interface{}{
 				"message": "Success with service token",
 				"user":    "service-account",
 			})
 		default:
 			w.WriteHeader(http.StatusUnauthorized)
-			json.NewEncoder(w).Encode(map[string]interface{}{
+			_ = json.NewEncoder(w).Encode(map[string]interface{}{
 				"error": "Unauthorized",
 			})
 		}
@@ -91,7 +91,7 @@ func TestDynamicToolsPassthrough(t *testing.T) {
 	// Setup test database
 	db, err := sql.Open("sqlite3", ":memory:")
 	require.NoError(t, err)
-	defer db.Close()
+	defer func() { _ = db.Close() }()
 
 	// Run migrations
 	err = runTestMigrations(db)

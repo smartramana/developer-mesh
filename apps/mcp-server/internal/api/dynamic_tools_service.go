@@ -597,7 +597,7 @@ func (s *DynamicToolService) ExecuteAction(ctx context.Context, tool *Tool, acti
 		if err != nil {
 			return nil, fmt.Errorf("failed to execute request: %w", err)
 		}
-		defer resp.Body.Close()
+		defer func() { _ = resp.Body.Close() }()
 
 		var responseData map[string]interface{}
 		if err := json.NewDecoder(resp.Body).Decode(&responseData); err != nil {
