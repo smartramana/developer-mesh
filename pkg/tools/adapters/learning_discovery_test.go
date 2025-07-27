@@ -152,7 +152,7 @@ func TestLearningDiscoveryService_LearnFromSuccess(t *testing.T) {
 func TestLearningDiscoveryService_GetSuggestedPaths(t *testing.T) {
 	t.Run("Direct domain match", func(t *testing.T) {
 		store := NewInMemoryPatternStore()
-		
+
 		// Seed with known pattern before creating service
 		pattern := &DiscoveryPattern{
 			Domain:          "api.example.com",
@@ -160,7 +160,7 @@ func TestLearningDiscoveryService_GetSuggestedPaths(t *testing.T) {
 			LastUpdated:     time.Now(),
 		}
 		store.SavePattern(pattern)
-		
+
 		service := NewLearningDiscoveryService(store)
 
 		paths := service.GetSuggestedPaths("https://api.example.com")
@@ -169,7 +169,7 @@ func TestLearningDiscoveryService_GetSuggestedPaths(t *testing.T) {
 
 	t.Run("Similar domain match", func(t *testing.T) {
 		store := NewInMemoryPatternStore()
-		
+
 		// Seed with patterns before creating service
 		patterns := []*DiscoveryPattern{
 			{
@@ -189,7 +189,7 @@ func TestLearningDiscoveryService_GetSuggestedPaths(t *testing.T) {
 		for _, p := range patterns {
 			store.SavePattern(p)
 		}
-		
+
 		service := NewLearningDiscoveryService(store)
 
 		// Should match all example.com subdomains
@@ -210,7 +210,7 @@ func TestLearningDiscoveryService_GetSuggestedPaths(t *testing.T) {
 
 	t.Run("Deduplicate paths", func(t *testing.T) {
 		store := NewInMemoryPatternStore()
-		
+
 		// Seed with patterns that have duplicate paths before creating service
 		patterns := []*DiscoveryPattern{
 			{
@@ -226,7 +226,7 @@ func TestLearningDiscoveryService_GetSuggestedPaths(t *testing.T) {
 		for _, p := range patterns {
 			store.SavePattern(p)
 		}
-		
+
 		service := NewLearningDiscoveryService(store)
 
 		paths := service.GetSuggestedPaths("https://new.example.com")
@@ -240,14 +240,14 @@ func TestLearningDiscoveryService_GetSuggestedPaths(t *testing.T) {
 func TestLearningDiscoveryService_GetLearnedAuthMethod(t *testing.T) {
 	t.Run("Known domain", func(t *testing.T) {
 		store := NewInMemoryPatternStore()
-		
+
 		// Save pattern before creating service
 		pattern := &DiscoveryPattern{
 			Domain:     "api.example.com",
 			AuthMethod: "oauth2",
 		}
 		store.SavePattern(pattern)
-		
+
 		service := NewLearningDiscoveryService(store)
 
 		authMethod := service.GetLearnedAuthMethod("https://api.example.com")
@@ -257,7 +257,7 @@ func TestLearningDiscoveryService_GetLearnedAuthMethod(t *testing.T) {
 	t.Run("Unknown domain", func(t *testing.T) {
 		store := NewInMemoryPatternStore()
 		service := NewLearningDiscoveryService(store)
-		
+
 		authMethod := service.GetLearnedAuthMethod("https://unknown.com")
 		assert.Empty(t, authMethod)
 	})
@@ -265,7 +265,7 @@ func TestLearningDiscoveryService_GetLearnedAuthMethod(t *testing.T) {
 
 func TestLearningDiscoveryService_GetPopularPatterns(t *testing.T) {
 	store := NewInMemoryPatternStore()
-	
+
 	// Seed with patterns before creating service
 	patterns := []*DiscoveryPattern{
 		{
@@ -285,7 +285,7 @@ func TestLearningDiscoveryService_GetPopularPatterns(t *testing.T) {
 	for _, p := range patterns {
 		store.SavePattern(p)
 	}
-	
+
 	// Now create service - it will load the patterns
 	service := NewLearningDiscoveryService(store)
 

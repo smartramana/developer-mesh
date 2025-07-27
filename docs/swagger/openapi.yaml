@@ -159,6 +159,12 @@ paths:
   /tools/{toolId}/credentials:
     $ref: './core/dynamic_tools.yaml#/paths/~1tools~1{toolId}~1credentials'
   
+  /tools/discover-multiple:
+    $ref: './core/dynamic_tools.yaml#/paths/~1tools~1discover-multiple'
+  
+  /tools/discover-multiple/create:
+    $ref: './core/dynamic_tools.yaml#/paths/~1tools~1discover-multiple~1create'
+  
   # Agent Management
   /agents:
     $ref: './core/agents.yaml#/paths/~1agents'
@@ -213,8 +219,8 @@ paths:
   
   
   # Webhook Operations
-  /webhooks/github:
-    $ref: './core/webhooks.yaml#/paths/~1webhooks~1github'
+  /api/webhooks/github:
+    $ref: './core/webhooks.yaml#/paths/~1api~1webhooks~1github'
   
   
   # Relationship Operations

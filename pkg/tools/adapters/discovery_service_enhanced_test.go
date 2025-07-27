@@ -25,18 +25,18 @@ func TestEnhancedDiscoveryService_Integration(t *testing.T) {
 	logger := &mockLogger{}
 	httpClient := &http.Client{Timeout: 10 * time.Second}
 	patternStore := NewInMemoryPatternStore()
-	
+
 	formatDetector := NewFormatDetector(httpClient)
 	learningService := NewLearningDiscoveryService(patternStore)
 	hintDiscovery := NewHintBasedDiscovery(formatDetector, nil)
-	
+
 	service := &DiscoveryService{
-		logger:           logger,
-		httpClient:       httpClient,
-		validator:        nil,
-		formatDetector:   formatDetector,
-		learningService:  learningService,
-		hintDiscovery:    hintDiscovery,
+		logger:          logger,
+		httpClient:      httpClient,
+		validator:       nil,
+		formatDetector:  formatDetector,
+		learningService: learningService,
+		hintDiscovery:   hintDiscovery,
 	}
 
 	t.Run("Full discovery flow with learning", func(t *testing.T) {
@@ -77,7 +77,7 @@ func TestEnhancedDiscoveryService_Integration(t *testing.T) {
 		result2, err := service.DiscoverOpenAPISpec(context.Background(), config2)
 		require.NoError(t, err)
 		assert.Equal(t, tools.DiscoveryStatusSuccess, result2.Status)
-		
+
 		// Should have found it faster (first try from learned paths)
 		assert.Contains(t, result2.SpecURL, "/v2/api-docs")
 	})

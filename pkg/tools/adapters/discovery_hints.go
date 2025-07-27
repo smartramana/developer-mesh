@@ -88,12 +88,12 @@ func (h *HintBasedDiscovery) DiscoverWithHints(ctx context.Context, config tools
 
 	// Store hints in metadata for future reference
 	result.Metadata["hints"] = hints
-	
+
 	// Store example endpoint if provided
 	if hints.ExampleEndpoint != "" {
 		result.Metadata["example_endpoint"] = hints.ExampleEndpoint
 	}
-	
+
 	// Store documentation URL if provided
 	if hints.DocumentationURL != "" {
 		result.Metadata["documentation_url"] = hints.DocumentationURL
@@ -109,13 +109,13 @@ func (h *HintBasedDiscovery) DiscoverWithHints(ctx context.Context, config tools
 			result.SuggestedActions = append(result.SuggestedActions, "The provided OpenAPI URL is invalid or not absolute")
 			return result, nil
 		}
-		
+
 		// Validate and fetch the OpenAPI spec
 		if h.validator == nil || h.validator.ValidateURL(ctx, hints.OpenAPIURL) == nil {
 			result.DiscoveredURLs = append(result.DiscoveredURLs, hints.OpenAPIURL)
 			result.Status = tools.DiscoveryStatusSuccess
 			result.SpecURL = hints.OpenAPIURL
-			
+
 			// Fetch and process the OpenAPI spec
 			if h.detector != nil && h.detector.httpClient != nil {
 				req, err := http.NewRequestWithContext(ctx, "GET", hints.OpenAPIURL, nil)
@@ -124,7 +124,7 @@ func (h *HintBasedDiscovery) DiscoverWithHints(ctx context.Context, config tools
 					for key, value := range hints.AuthHeaders {
 						req.Header.Set(key, value)
 					}
-					
+
 					// Add credentials from config if provided
 					if config.Credential != nil {
 						cred := config.Credential
@@ -136,7 +136,7 @@ func (h *HintBasedDiscovery) DiscoverWithHints(ctx context.Context, config tools
 							req.SetBasicAuth(cred.Username, cred.Password)
 						}
 					}
-					
+
 					resp, err := h.detector.httpClient.Do(req)
 					if err == nil && resp.StatusCode == http.StatusOK {
 						defer resp.Body.Close()
@@ -168,7 +168,7 @@ func (h *HintBasedDiscovery) DiscoverWithHints(ctx context.Context, config tools
 		for _, path := range hints.CustomPaths {
 			fullURL := strings.TrimRight(config.BaseURL, "/") + "/" + strings.TrimLeft(path, "/")
 			result.DiscoveredURLs = append(result.DiscoveredURLs, fullURL)
-			
+
 			// Try to fetch and detect format
 			if h.detector != nil && h.detector.httpClient != nil {
 				req, err := http.NewRequestWithContext(ctx, "GET", fullURL, nil)
@@ -177,7 +177,7 @@ func (h *HintBasedDiscovery) DiscoverWithHints(ctx context.Context, config tools
 					for key, value := range hints.AuthHeaders {
 						req.Header.Set(key, value)
 					}
-					
+
 					// Add credentials from config if provided
 					if config.Credential != nil {
 						cred := config.Credential
@@ -189,7 +189,7 @@ func (h *HintBasedDiscovery) DiscoverWithHints(ctx context.Context, config tools
 							req.SetBasicAuth(cred.Username, cred.Password)
 						}
 					}
-					
+
 					resp, err := h.detector.httpClient.Do(req)
 					if err == nil && resp.StatusCode == http.StatusOK {
 						defer resp.Body.Close()
@@ -233,15 +233,15 @@ func (h *HintBasedDiscovery) DiscoverWithHints(ctx context.Context, config tools
 
 	// Generate suggested actions based on hints
 	result.SuggestedActions = h.generateSuggestedActions(hints)
-	
+
 	// If no hints were effective, set status to manual needed
 	if result.Status == tools.DiscoveryStatusFailed && len(hints.OpenAPIURL) == 0 && len(hints.CustomPaths) == 0 {
 		result.Status = tools.DiscoveryStatusManualNeeded
 		result.RequiresManual = true
-		
+
 		// Add default suggestions when no hints provided
 		if len(result.SuggestedActions) == 0 {
-			result.SuggestedActions = append(result.SuggestedActions, 
+			result.SuggestedActions = append(result.SuggestedActions,
 				"Try providing the OpenAPI specification URL",
 				"Check the API documentation for specification links",
 				"Provide custom paths where the API specification might be located",

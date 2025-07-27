@@ -3,6 +3,7 @@ package security
 import (
 	"crypto/aes"
 	"crypto/cipher"
+	"crypto/hmac"
 	"crypto/rand"
 	"crypto/sha256"
 	"encoding/base64"
@@ -187,14 +188,44 @@ func GenerateSecureToken(length int) (string, error) {
 	return base64.URLEncoding.EncodeToString(bytes), nil
 }
 
-// HashPassword creates a secure hash of a password
-func HashPassword(password string) string {
-	hash := pbkdf2.Key([]byte(password), []byte("devops-mcp-salt"), 10000, 32, sha256.New)
-	return base64.StdEncoding.EncodeToString(hash)
+// HashPassword creates a secure hash of a password with a random salt
+func HashPassword(password string) (string, error) {
+	// Generate a random salt
+	salt := make([]byte, 32)
+	if _, err := io.ReadFull(rand.Reader, salt); err != nil {
+		return "", fmt.Errorf("failed to generate salt: %w", err)
+	}
+
+	// Generate hash
+	hash := pbkdf2.Key([]byte(password), salt, 10000, 32, sha256.New)
+
+	// Combine salt and hash for storage
+	combined := make([]byte, len(salt)+len(hash))
+	copy(combined, salt)
+	copy(combined[len(salt):], hash)
+
+	return base64.StdEncoding.EncodeToString(combined), nil
 }
 
 // VerifyPassword checks if a password matches a hash
-func VerifyPassword(password, hash string) bool {
-	expectedHash := HashPassword(password)
-	return expectedHash == hash
+func VerifyPassword(password, storedHash string) (bool, error) {
+	// Decode the stored hash
+	combined, err := base64.StdEncoding.DecodeString(storedHash)
+	if err != nil {
+		return false, fmt.Errorf("failed to decode hash: %w", err)
+	}
+
+	// Extract salt and hash
+	if len(combined) < 64 { // 32 bytes salt + 32 bytes hash
+		return false, fmt.Errorf("invalid hash format")
+	}
+
+	salt := combined[:32]
+	hash := combined[32:]
+
+	// Compute hash with extracted salt
+	computedHash := pbkdf2.Key([]byte(password), salt, 10000, 32, sha256.New)
+
+	// Compare hashes
+	return hmac.Equal(hash, computedHash), nil
 }

@@ -18,12 +18,13 @@ import (
 
 // DiscoveryService handles intelligent OpenAPI specification discovery
 type DiscoveryService struct {
-	logger          observability.Logger
-	httpClient      *http.Client
-	validator       *tools.URLValidator
-	formatDetector  *FormatDetector
-	hintDiscovery   *HintBasedDiscovery
-	learningService *LearningDiscoveryService
+	logger           observability.Logger
+	httpClient       *http.Client
+	validator        *tools.URLValidator
+	formatDetector   *FormatDetector
+	hintDiscovery    *HintBasedDiscovery
+	learningService  *LearningDiscoveryService
+	webhookExtractor *WebhookExtractor
 }
 
 // DiscoveryHint provides optional user-provided hints for discovering APIs
@@ -48,14 +49,16 @@ func NewDiscoveryService(logger observability.Logger) *DiscoveryService {
 	formatDetector := NewFormatDetector(httpClient)
 	hintDiscovery := NewHintBasedDiscovery(formatDetector, validator)
 	learningService := NewLearningDiscoveryService(NewInMemoryPatternStore())
+	webhookExtractor := NewWebhookExtractor()
 
 	return &DiscoveryService{
-		logger:          logger,
-		httpClient:      httpClient,
-		validator:       validator,
-		formatDetector:  formatDetector,
-		hintDiscovery:   hintDiscovery,
-		learningService: learningService,
+		logger:           logger,
+		httpClient:       httpClient,
+		validator:        validator,
+		formatDetector:   formatDetector,
+		hintDiscovery:    hintDiscovery,
+		learningService:  learningService,
+		webhookExtractor: webhookExtractor,
 	}
 }
 
@@ -84,6 +87,7 @@ func NewDiscoveryServiceWithStore(logger observability.Logger, httpClient *http.
 	// Initialize enhanced features
 	formatDetector := NewFormatDetector(httpClient)
 	hintDiscovery := NewHintBasedDiscovery(formatDetector, validator)
+	webhookExtractor := NewWebhookExtractor()
 
 	// Use provided pattern store or default to in-memory
 	if patternStore == nil {
@@ -92,12 +96,13 @@ func NewDiscoveryServiceWithStore(logger observability.Logger, httpClient *http.
 	learningService := NewLearningDiscoveryService(patternStore)
 
 	return &DiscoveryService{
-		logger:          logger,
-		httpClient:      httpClient,
-		validator:       validator,
-		formatDetector:  formatDetector,
-		hintDiscovery:   hintDiscovery,
-		learningService: learningService,
+		logger:           logger,
+		httpClient:       httpClient,
+		validator:        validator,
+		formatDetector:   formatDetector,
+		hintDiscovery:    hintDiscovery,
+		learningService:  learningService,
+		webhookExtractor: webhookExtractor,
 	}
 }
 
@@ -117,6 +122,12 @@ func (s *DiscoveryService) DiscoverOpenAPISpec(ctx context.Context, config tools
 			result.OpenAPISpec = spec
 			result.SpecURL = config.OpenAPIURL
 			result.DiscoveredURLs = append(result.DiscoveredURLs, config.OpenAPIURL)
+
+			// Extract webhook configuration
+			if s.webhookExtractor != nil {
+				result.WebhookConfig = s.webhookExtractor.ExtractWebhookConfig(spec, config.ID)
+			}
+
 			return result, nil
 		}
 		s.logger.Debug("Failed to fetch from configured OpenAPI URL", map[string]interface{}{
@@ -130,6 +141,11 @@ func (s *DiscoveryService) DiscoverOpenAPISpec(ctx context.Context, config tools
 	if err == nil && hints != nil && (hints.OpenAPIURL != "" || len(hints.CustomPaths) > 0) {
 		hintResult, err := s.hintDiscovery.DiscoverWithHints(ctx, config, hints)
 		if err == nil && hintResult.Status == tools.DiscoveryStatusSuccess {
+			// Extract webhook configuration from hint-based discovery
+			if s.webhookExtractor != nil && hintResult.OpenAPISpec != nil {
+				hintResult.WebhookConfig = s.webhookExtractor.ExtractWebhookConfig(hintResult.OpenAPISpec, config.ID)
+			}
+
 			// Learn from successful hint-based discovery
 			if s.learningService != nil {
 				if err := s.learningService.LearnFromSuccess(config, hintResult); err != nil {
@@ -182,6 +198,12 @@ func (s *DiscoveryService) DiscoverOpenAPISpec(ctx context.Context, config tools
 			result.SpecURL = fullURL
 			result.DiscoveredURLs = append(result.DiscoveredURLs, fullURL)
 			result.Metadata["api_format"] = "openapi"
+
+			// Extract webhook configuration
+			if s.webhookExtractor != nil {
+				result.WebhookConfig = s.webhookExtractor.ExtractWebhookConfig(spec, config.ID)
+			}
+
 			// Learn from success
 			if s.learningService != nil {
 				if err := s.learningService.LearnFromSuccess(config, result); err != nil {
@@ -208,6 +230,12 @@ func (s *DiscoveryService) DiscoverOpenAPISpec(ctx context.Context, config tools
 						result.DiscoveredURLs = append(result.DiscoveredURLs, fullURL)
 						result.Metadata["api_format"] = string(format)
 						result.Metadata["converted_from"] = string(format)
+
+						// Extract webhook configuration
+						if s.webhookExtractor != nil {
+							result.WebhookConfig = s.webhookExtractor.ExtractWebhookConfig(convertedSpec, config.ID)
+						}
+
 						// Learn from success
 						if err := s.learningService.LearnFromSuccess(config, result); err != nil {
 							s.logger.Warn("Failed to record discovery pattern", map[string]interface{}{
@@ -252,6 +280,12 @@ func (s *DiscoveryService) DiscoverOpenAPISpec(ctx context.Context, config tools
 				result.OpenAPISpec = spec
 				result.SpecURL = fullURL
 				result.DiscoveredURLs = append(result.DiscoveredURLs, fullURL)
+
+				// Extract webhook configuration
+				if s.webhookExtractor != nil {
+					result.WebhookConfig = s.webhookExtractor.ExtractWebhookConfig(spec, config.ID)
+				}
+
 				return result, nil
 			}
 		}
@@ -273,6 +307,12 @@ func (s *DiscoveryService) DiscoverOpenAPISpec(ctx context.Context, config tools
 				result.OpenAPISpec = spec
 				result.SpecURL = link
 				result.DiscoveredURLs = append(result.DiscoveredURLs, link)
+
+				// Extract webhook configuration
+				if s.webhookExtractor != nil {
+					result.WebhookConfig = s.webhookExtractor.ExtractWebhookConfig(spec, config.ID)
+				}
+
 				return result, nil
 			}
 			result.DiscoveredURLs = append(result.DiscoveredURLs, link)
@@ -297,6 +337,12 @@ func (s *DiscoveryService) DiscoverOpenAPISpec(ctx context.Context, config tools
 				result.OpenAPISpec = spec
 				result.SpecURL = fullURL
 				result.DiscoveredURLs = append(result.DiscoveredURLs, fullURL)
+
+				// Extract webhook configuration
+				if s.webhookExtractor != nil {
+					result.WebhookConfig = s.webhookExtractor.ExtractWebhookConfig(spec, config.ID)
+				}
+
 				return result, nil
 			}
 		}

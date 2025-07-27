@@ -109,8 +109,8 @@ func TestHintBasedDiscovery_DiscoverWithHints(t *testing.T) {
 		customSpec := map[string]interface{}{
 			"apis": []interface{}{
 				map[string]interface{}{
-					"name": "Test API",
-					"path": "/test",
+					"name":   "Test API",
+					"path":   "/test",
 					"method": "GET",
 				},
 			},

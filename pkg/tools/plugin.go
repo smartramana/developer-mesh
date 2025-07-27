@@ -97,14 +97,15 @@ type HealthStatus struct {
 
 // DiscoveryResult contains the results of API discovery
 type DiscoveryResult struct {
-	Status           DiscoveryStatus        `json:"status"`
-	OpenAPISpec      *openapi3.T            `json:"-"` // Don't serialize the full spec
-	SpecURL          string                 `json:"spec_url,omitempty"`
-	DiscoveredURLs   []string               `json:"discovered_urls"`
-	Capabilities     []Capability           `json:"capabilities"`
-	RequiresManual   bool                   `json:"requires_manual"`
-	SuggestedActions []string               `json:"suggested_actions,omitempty"`
-	Metadata         map[string]interface{} `json:"metadata,omitempty"`
+	Status           DiscoveryStatus           `json:"status"`
+	OpenAPISpec      *openapi3.T               `json:"-"` // Don't serialize the full spec
+	SpecURL          string                    `json:"spec_url,omitempty"`
+	DiscoveredURLs   []string                  `json:"discovered_urls"`
+	Capabilities     []Capability              `json:"capabilities"`
+	RequiresManual   bool                      `json:"requires_manual"`
+	SuggestedActions []string                  `json:"suggested_actions,omitempty"`
+	Metadata         map[string]interface{}    `json:"metadata,omitempty"`
+	WebhookConfig    *models.ToolWebhookConfig `json:"webhook_config,omitempty"`
 }
 
 // DiscoveryStatus represents the status of API discovery

@@ -441,6 +441,118 @@ paths:
         '500':
           $ref: '../common/responses.yaml#/components/responses/InternalServerError'
 
+  /tools/discover-multiple:
+    post:
+      tags:
+        - Dynamic Tools
+      summary: Discover multiple APIs from a portal
+      description: |
+        Discovers all available APIs from an API portal (e.g., Harness.io, AWS, Azure).
+        
+        **Supported Portals:**
+        - **Harness**: Automatically discovers Platform, CI/CD, Chaos, and Feature Flag APIs
+        - **AWS**: Discovers services from AWS documentation portals
+        - **Azure**: Finds Resource Manager and Data Plane APIs
+        - **Google Cloud**: Discovers GCP service APIs
+        - **Kubernetes**: Finds core and extension APIs
+        - **Generic**: Works with any portal following common patterns
+        
+        **Discovery Methods:**
+        - Pattern-based discovery using portal-specific URL patterns
+        - HTML crawling to find API documentation links
+        - Well-known paths checking (e.g., /openapi.json, /swagger.json)
+        - API catalog endpoints for portals with service registries
+        
+        **Features:**
+        - Concurrent discovery with rate limiting
+        - Automatic format detection and conversion to OpenAPI 3.0
+        - API categorization (Platform, CI/CD, etc.)
+        - Deduplication of discovered APIs
+      operationId: discoverMultipleAPIs
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MultiAPIDiscoveryRequest'
+      responses:
+        '200':
+          description: Discovery completed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MultiAPIDiscoveryResult'
+        '400':
+          $ref: '../common/responses.yaml#/components/responses/BadRequest'
+        '401':
+          $ref: '../common/responses.yaml#/components/responses/Unauthorized'
+        '500':
+          $ref: '../common/responses.yaml#/components/responses/InternalServerError'
+
+  /tools/discover-multiple/create:
+    post:
+      tags:
+        - Dynamic Tools
+      summary: Create tools from multiple discovered APIs
+      description: |
+        Creates multiple tools from APIs discovered from a portal.
+        This endpoint combines discovery and bulk tool creation in one operation.
+        
+        **Process:**
+        1. Discovers all APIs from the provided portal URL
+        2. Creates a tool for each discovered API
+        3. Applies the provided configuration to all tools
+        4. Returns both the discovery results and created tools
+        
+        **Benefits:**
+        - One-click integration with complex API ecosystems
+        - Automatic tool naming based on API names
+        - Consistent configuration across all tools
+        - Detailed error reporting for partial failures
+      operationId: createToolsFromMultipleAPIs
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateToolsFromMultipleAPIsRequest'
+      responses:
+        '201':
+          description: Tools created successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  tools_created:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/DynamicTool'
+                    description: Successfully created tools
+                  count:
+                    type: integer
+                    description: Number of tools created
+                  discovery_result:
+                    $ref: '#/components/schemas/MultiAPIDiscoveryResult'
+                    description: Full discovery results including any errors
+        '400':
+          $ref: '../common/responses.yaml#/components/responses/BadRequest'
+        '401':
+          $ref: '../common/responses.yaml#/components/responses/Unauthorized'
+        '404':
+          description: No APIs found at the portal URL
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+                  discovery_result:
+                    $ref: '#/components/schemas/MultiAPIDiscoveryResult'
+        '500':
+          $ref: '../common/responses.yaml#/components/responses/InternalServerError'
+
 components:
   schemas:
     DynamicTool:
@@ -974,3 +1086,137 @@ components:
             type: integer
           default: [200, 204]
           description: Expected HTTP status codes for healthy state
+
+    MultiAPIDiscoveryRequest:
+      type: object
+      required:
+        - portal_url
+      properties:
+        portal_url:
+          type: string
+          format: uri
+          description: URL of the API portal to discover APIs from
+          example: "https://apidocs.harness.io/"
+        discovery_timeout:
+          type: integer
+          minimum: 1
+          maximum: 600
+          description: Discovery timeout in seconds (default 300)
+          example: 300
+        credential:
+          $ref: '#/components/schemas/CredentialRequest'
+          description: Optional credentials for authenticated API discovery
+
+    CreateToolsFromMultipleAPIsRequest:
+      type: object
+      required:
+        - portal_url
+        - name_prefix
+      properties:
+        portal_url:
+          type: string
+          format: uri
+          description: URL of the API portal to discover APIs from
+          example: "https://apidocs.harness.io/"
+        name_prefix:
+          type: string
+          description: Prefix for created tool names
+          example: "Harness"
+          minLength: 1
+          maxLength: 30
+        auto_create:
+          type: boolean
+          description: Automatically create tools without manual confirmation
+          default: true
+        credential:
+          $ref: '#/components/schemas/CredentialRequest'
+          description: Credentials to use for all created tools
+        provider:
+          type: string
+          description: Provider name for passthrough authentication
+          example: "harness"
+        passthrough_config:
+          type: object
+          properties:
+            required:
+              type: boolean
+              description: Whether passthrough authentication is required
+            header_name:
+              type: string
+              description: Header name for passthrough token
+        config:
+          type: object
+          additionalProperties: true
+          description: Additional configuration applied to all tools
+
+    MultiAPIDiscoveryResult:
+      type: object
+      required:
+        - base_url
+        - discovered_apis
+        - status
+        - discovery_method
+        - timestamp
+      properties:
+        base_url:
+          type: string
+          format: uri
+          description: Portal URL that was searched
+        discovered_apis:
+          type: array
+          items:
+            $ref: '#/components/schemas/APIDefinition'
+          description: List of discovered APIs
+        status:
+          type: string
+          enum: [success, partial, manual_needed, failed]
+          description: Overall discovery status
+        discovery_method:
+          type: string
+          description: Portal type that was detected (e.g., "Harness", "AWS", "Generic")
+        timestamp:
+          type: string
+          format: date-time
+          description: When the discovery was performed
+        errors:
+          type: array
+          items:
+            type: string
+          description: Any errors encountered during discovery
+
+    APIDefinition:
+      type: object
+      required:
+        - name
+        - spec_url
+        - format
+        - discovered
+      properties:
+        name:
+          type: string
+          description: API name extracted from the specification
+          example: "Platform API"
+        description:
+          type: string
+          description: API description if available
+        spec_url:
+          type: string
+          format: uri
+          description: URL where the API specification was found
+          example: "https://api.harness.io/platform/swagger.json"
+        version:
+          type: string
+          description: API version
+          example: "1.0.0"
+        category:
+          type: string
+          description: API category based on portal patterns
+          example: "Platform"
+        format:
+          type: string
+          enum: [openapi3, openapi2, swagger, custom_json, raml, graphql, postman, unknown]
+          description: Detected API documentation format
+        discovered:
+          type: string
+          format: date-time
+          description: When this API was discovered

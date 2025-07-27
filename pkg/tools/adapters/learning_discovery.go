@@ -101,7 +101,7 @@ func (l *LearningDiscoveryService) GetSuggestedPaths(baseURL string) []string {
 	if l == nil {
 		return nil
 	}
-	
+
 	domain := l.extractDomain(baseURL)
 	if domain == "" {
 		return nil
@@ -131,7 +131,7 @@ func (l *LearningDiscoveryService) GetLearnedAuthMethod(baseURL string) string {
 	if l == nil {
 		return ""
 	}
-	
+
 	domain := l.extractDomain(baseURL)
 	if domain == "" {
 		return ""
@@ -224,7 +224,7 @@ func (l *LearningDiscoveryService) GetPopularPatterns() []DiscoveryPattern {
 	if l == nil {
 		return nil
 	}
-	
+
 	l.mu.RLock()
 	defer l.mu.RUnlock()
 

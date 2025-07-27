@@ -219,7 +219,7 @@ func TestFormatDetector_ConvertToOpenAPI(t *testing.T) {
 		spec, err := detector.ConvertToOpenAPI(content, FormatOpenAPI3, baseURL)
 		require.NoError(t, err)
 		require.NotNil(t, spec)
-		
+
 		// Verify it's a valid OpenAPI spec
 		assert.Equal(t, "3.0.0", spec.OpenAPI)
 		assert.Equal(t, "Test API", spec.Info.Title)
@@ -266,7 +266,7 @@ func TestFormatDetector_ConvertToOpenAPI(t *testing.T) {
 		spec, err := detector.ConvertToOpenAPI(content, FormatSwagger, baseURL)
 		require.NoError(t, err)
 		require.NotNil(t, spec)
-		
+
 		// Verify conversion
 		assert.NotEmpty(t, spec.Info)
 		assert.Equal(t, "Test API", spec.Info.Title)
@@ -305,7 +305,7 @@ func TestFormatDetector_ConvertToOpenAPI(t *testing.T) {
 		spec, err := detector.ConvertToOpenAPI(content, FormatCustomJSON, baseURL)
 		require.NoError(t, err)
 		require.NotNil(t, spec)
-		
+
 		// Verify conversion
 		assert.Equal(t, "Auto-discovered API", spec.Info.Title)
 		assert.NotNil(t, spec.Paths.Find("/api/issues/search"))
@@ -336,7 +336,7 @@ func TestFormatDetector_ConvertToOpenAPI(t *testing.T) {
 		spec, err := detector.ConvertToOpenAPI(content, FormatCustomJSON, baseURL)
 		require.NoError(t, err)
 		require.NotNil(t, spec)
-		
+
 		// Verify conversion
 		assert.NotNil(t, spec.Paths.Find("/users/{id}"))
 		assert.NotNil(t, spec.Paths.Find("/users/{id}").Get)
@@ -360,7 +360,6 @@ func TestFormatDetector_ConvertToOpenAPI(t *testing.T) {
 		assert.Error(t, err)
 		assert.Contains(t, err.Error(), "unsupported format")
 	})
-
 
 	t.Run("Postman conversion not implemented", func(t *testing.T) {
 		content := []byte(`{"info": {"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"}}`)
@@ -396,16 +395,13 @@ func TestFormatDetector_ConvertToOpenAPI(t *testing.T) {
 	})
 }
 
-
-
-
 func TestFormatDetector_EdgeCases(t *testing.T) {
 	detector := NewFormatDetector(&http.Client{})
 
 	t.Run("Detect format with BOM", func(t *testing.T) {
 		// UTF-8 BOM followed by JSON
 		contentWithBOM := append([]byte{0xEF, 0xBB, 0xBF}, []byte(`{"openapi":"3.0.0","info":{"title":"Test","version":"1.0"},"paths":{}}`)...)
-		
+
 		format, err := detector.DetectFormat(contentWithBOM)
 		assert.NoError(t, err)
 		assert.Equal(t, FormatOpenAPI3, format)
@@ -420,7 +416,7 @@ func TestFormatDetector_EdgeCases(t *testing.T) {
 				"paths": {}
 			}
 		`)
-		
+
 		format, err := detector.DetectFormat(content)
 		assert.NoError(t, err)
 		assert.Equal(t, FormatSwagger, format)
@@ -452,7 +448,7 @@ func TestFormatDetector_EdgeCases(t *testing.T) {
 		}
 
 		content, _ := json.Marshal(largeSpec)
-		
+
 		format, err := detector.DetectFormat(content)
 		assert.NoError(t, err)
 		assert.Equal(t, FormatOpenAPI3, format)
@@ -482,7 +478,7 @@ func TestFormatDetector_EdgeCases(t *testing.T) {
 	})
 }
 
-// Note: Validation tests for converted specs are omitted because the 
+// Note: Validation tests for converted specs are omitted because the
 // kin-openapi loader has known limitations when converting between formats.
 // The loader may leave artifacts from the source format (e.g., "swagger" field)
 // which can cause validation to fail. This is a third-party library issue,

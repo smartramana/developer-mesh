@@ -295,10 +295,17 @@ func NewServer(engine *core.Engine, cfg Config, db *sqlx.DB, cacheClient cache.C
 // initializeDynamicTools initializes the dynamic tools subsystem
 func (s *Server) initializeDynamicTools(ctx context.Context) error {
 	// Create encryption service
-	// TODO: Get master key from config
 	masterKey := os.Getenv("ENCRYPTION_MASTER_KEY")
 	if masterKey == "" {
-		masterKey = "default-master-key-for-development" // WARNING: Use proper key in production
+		// Generate a random key if not provided, but log a warning
+		randomKey, err := security.GenerateSecureToken(32)
+		if err != nil {
+			s.logger.Error("Failed to generate encryption key", "error", err)
+			return fmt.Errorf("encryption key not provided and failed to generate: %w", err)
+		}
+		masterKey = randomKey
+		s.logger.Warn("ENCRYPTION_MASTER_KEY not set - using randomly generated key. This is not suitable for production!",
+			"recommendation", "Set ENCRYPTION_MASTER_KEY environment variable with a secure 32+ character key")
 	}
 	s.encryptionService = security.NewEncryptionService(masterKey)
 

@@ -5,13 +5,14 @@ info:
   description: Webhook management and event processing
 
 paths:
-  /webhooks/github:
+  /api/webhooks/github:
     post:
       tags:
         - Webhooks
       summary: Handle GitHub webhook
-      description: Process incoming GitHub webhook events
+      description: Process incoming GitHub webhook events from multiple organizations
       operationId: handleGitHubWebhook
+      security: []  # No authentication required for webhooks
       requestBody:
         required: true
         content:
@@ -19,13 +20,16 @@ paths:
             schema:
               type: object
               description: GitHub webhook payload
+              additionalProperties: true
       responses:
         '200':
           description: Webhook processed successfully
         '400':
           description: Invalid webhook payload
         '401':
-          description: Invalid webhook signature
+          description: Invalid webhook signature or unknown organization
+        '403':
+          description: Webhook disabled for this organization
         '500':
           description: Internal server error
 

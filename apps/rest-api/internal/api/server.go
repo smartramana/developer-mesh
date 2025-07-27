@@ -10,6 +10,7 @@ import (
 
 	"github.com/developer-mesh/developer-mesh/apps/rest-api/internal/adapters"
 	contextAPI "github.com/developer-mesh/developer-mesh/apps/rest-api/internal/api/context"
+	webhooksAPI "github.com/developer-mesh/developer-mesh/apps/rest-api/internal/api/webhooks"
 	"github.com/developer-mesh/developer-mesh/apps/rest-api/internal/core"
 	"github.com/developer-mesh/developer-mesh/apps/rest-api/internal/repository"
 	"github.com/developer-mesh/developer-mesh/apps/rest-api/internal/services"
@@ -373,12 +374,43 @@ func (s *Server) setupRoutes(ctx context.Context) {
 	s.router.Any("/api/webhooks/github", gin.WrapH(muxRouter))
 	s.router.Any("/api/webhooks/github/", gin.WrapH(muxRouter))
 
+	// Dynamic webhook routes for dynamic tools
+	// Create webhook event repository
+	webhookEventRepo := repository.NewWebhookEventRepository(s.db.DB)
+
+	// Create dynamic webhook handler
+	dynamicWebhookHandler := webhooksAPI.NewDynamicWebhookHandler(
+		dynamicToolsService.GetDynamicToolRepository(),
+		webhookEventRepo,
+		s.logger,
+	)
+
+	// Register dynamic webhook routes - no authentication for webhooks
+	webhooks := s.router.Group("/api/webhooks")
+	// Add middleware to inject request time
+	webhooks.Use(func(c *gin.Context) {
+		c.Set("request_time", time.Now())
+		c.Next()
+	})
+	webhooks.POST("/tools/:toolId", dynamicWebhookHandler.HandleDynamicWebhook)
+
 	// Dynamic Tools API - Enhanced discovery and management
 	patternRepo := storage.NewDiscoveryPatternRepository(s.db.DB)
 	// Create encryption service with a secure key from environment or config
 	encryptionKey := os.Getenv("DEVMESH_ENCRYPTION_KEY")
 	if encryptionKey == "" {
-		encryptionKey = "default-insecure-key" // TODO: Replace with proper key management
+		// Generate a random key if not provided, but log a warning
+		randomKey, err := security.GenerateSecureToken(32)
+		if err != nil {
+			s.logger.Error("Failed to generate encryption key", map[string]interface{}{
+				"error": err.Error(),
+			})
+			return nil, fmt.Errorf("encryption key not provided and failed to generate: %w", err)
+		}
+		encryptionKey = randomKey
+		s.logger.Warn("DEVMESH_ENCRYPTION_KEY not set - using randomly generated key. This is not suitable for production!", map[string]interface{}{
+			"recommendation": "Set DEVMESH_ENCRYPTION_KEY environment variable with a secure 32+ character key",
+		})
 	}
 	encryptionService := security.NewEncryptionService(encryptionKey)
 	dynamicToolsService := services.NewDynamicToolsService(

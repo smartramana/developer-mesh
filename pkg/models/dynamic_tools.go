@@ -7,20 +7,23 @@ import (
 
 // DynamicTool represents a dynamically configured tool
 type DynamicTool struct {
-	ID                string                 `json:"id" db:"id"`
-	TenantID          string                 `json:"tenant_id" db:"tenant_id"`
-	ToolName          string                 `json:"tool_name" db:"tool_name"`
-	DisplayName       string                 `json:"display_name" db:"display_name"`
-	Config            map[string]interface{} `json:"config" db:"config"`
-	AuthType          string                 `json:"auth_type" db:"auth_type"`
-	Status            string                 `json:"status" db:"status"`
-	HealthStatus      json.RawMessage        `json:"health_status" db:"health_status"`
-	LastHealthCheck   *time.Time             `json:"last_health_check,omitempty" db:"last_health_check"`
-	CreatedAt         time.Time              `json:"created_at" db:"created_at"`
-	UpdatedAt         time.Time              `json:"updated_at" db:"updated_at"`
-	Provider          string                 `json:"provider,omitempty" db:"provider"`
-	RetryPolicy       *ToolRetryPolicy       `json:"retry_policy,omitempty" db:"retry_policy"`
-	PassthroughConfig *PassthroughConfig     `json:"passthrough_config,omitempty" db:"passthrough_config"`
+	ID                   string                 `json:"id" db:"id"`
+	TenantID             string                 `json:"tenant_id" db:"tenant_id"`
+	ToolName             string                 `json:"tool_name" db:"tool_name"`
+	DisplayName          string                 `json:"display_name" db:"display_name"`
+	BaseURL              string                 `json:"base_url" db:"base_url"`
+	Config               map[string]interface{} `json:"config" db:"config"`
+	AuthType             string                 `json:"auth_type" db:"auth_type"`
+	CredentialsEncrypted []byte                 `json:"-" db:"credentials_encrypted"`
+	Status               string                 `json:"status" db:"status"`
+	HealthStatus         json.RawMessage        `json:"health_status" db:"health_status"`
+	LastHealthCheck      *time.Time             `json:"last_health_check,omitempty" db:"last_health_check"`
+	CreatedAt            time.Time              `json:"created_at" db:"created_at"`
+	UpdatedAt            time.Time              `json:"updated_at" db:"updated_at"`
+	Provider             string                 `json:"provider,omitempty" db:"provider"`
+	RetryPolicy          *ToolRetryPolicy       `json:"retry_policy,omitempty" db:"retry_policy"`
+	PassthroughConfig    *PassthroughConfig     `json:"passthrough_config,omitempty" db:"passthrough_config"`
+	WebhookConfig        *ToolWebhookConfig     `json:"webhook_config,omitempty" db:"webhook_config"`
 }
 
 // DiscoverySession represents an active discovery session
@@ -123,4 +126,43 @@ type DiscoveryResult struct {
 	SuggestedActions []string               `json:"suggested_actions,omitempty"`
 	Capabilities     []string               `json:"capabilities,omitempty"`
 	Metadata         map[string]interface{} `json:"metadata,omitempty"`
+}
+
+// ToolWebhookConfig defines webhook configuration for a dynamic tool
+type ToolWebhookConfig struct {
+	Enabled            bool                   `json:"enabled"`
+	EndpointPath       string                 `json:"endpoint_path,omitempty"`       // e.g., /api/webhooks/tools/{toolId}
+	AuthType           string                 `json:"auth_type"`                     // hmac, bearer, basic, signature, none
+	AuthConfig         map[string]interface{} `json:"auth_config,omitempty"`         // Auth-specific config (e.g., secret, header names)
+	Events             []WebhookEventConfig   `json:"events,omitempty"`              // Supported events
+	Headers            map[string]string      `json:"headers,omitempty"`             // Expected headers
+	PayloadFormat      string                 `json:"payload_format,omitempty"`      // json, form, xml
+	SignatureHeader    string                 `json:"signature_header,omitempty"`    // Header containing signature
+	SignatureAlgorithm string                 `json:"signature_algorithm,omitempty"` // hmac-sha256, hmac-sha1, etc.
+	IPWhitelist        []string               `json:"ip_whitelist,omitempty"`        // Allowed source IPs
+}
+
+// WebhookEventConfig defines configuration for a specific webhook event type
+type WebhookEventConfig struct {
+	EventType      string                 `json:"event_type"`   // e.g., "push", "pull_request", "issue"
+	PayloadPath    string                 `json:"payload_path"` // JSON path to event type in payload
+	SchemaURL      string                 `json:"schema_url,omitempty"`
+	TransformRules map[string]interface{} `json:"transform_rules,omitempty"` // Rules to transform payload
+	RequiredFields []string               `json:"required_fields,omitempty"` // Required fields in payload
+}
+
+// WebhookEvent represents a received webhook event
+type WebhookEvent struct {
+	ID          string                 `json:"id" db:"id"`
+	ToolID      string                 `json:"tool_id" db:"tool_id"`
+	TenantID    string                 `json:"tenant_id" db:"tenant_id"`
+	EventType   string                 `json:"event_type" db:"event_type"`
+	Payload     json.RawMessage        `json:"payload" db:"payload"`
+	Headers     map[string][]string    `json:"headers" db:"headers"`
+	SourceIP    string                 `json:"source_ip" db:"source_ip"`
+	ReceivedAt  time.Time              `json:"received_at" db:"received_at"`
+	ProcessedAt *time.Time             `json:"processed_at,omitempty" db:"processed_at"`
+	Status      string                 `json:"status" db:"status"` // pending, processed, failed
+	Error       string                 `json:"error,omitempty" db:"error"`
+	Metadata    map[string]interface{} `json:"metadata,omitempty" db:"metadata"`
 }
