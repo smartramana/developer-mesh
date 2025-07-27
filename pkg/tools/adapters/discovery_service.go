@@ -18,9 +18,12 @@ import (
 
 // DiscoveryService handles intelligent OpenAPI specification discovery
 type DiscoveryService struct {
-	logger     observability.Logger
-	httpClient *http.Client
-	validator  *tools.URLValidator
+	logger          observability.Logger
+	httpClient      *http.Client
+	validator       *tools.URLValidator
+	formatDetector  *FormatDetector
+	hintDiscovery   *HintBasedDiscovery
+	learningService *LearningDiscoveryService
 }
 
 // DiscoveryHint provides optional user-provided hints for discovering APIs
@@ -32,23 +35,37 @@ type DiscoveryHint struct {
 
 // NewDiscoveryService creates a new discovery service
 func NewDiscoveryService(logger observability.Logger) *DiscoveryService {
-	return &DiscoveryService{
-		logger: logger,
-		httpClient: &http.Client{
-			Timeout: 10 * time.Second,
-			CheckRedirect: func(req *http.Request, via []*http.Request) error {
-				if len(via) >= 5 {
-					return fmt.Errorf("too many redirects")
-				}
-				return nil
-			},
+	httpClient := &http.Client{
+		Timeout: 10 * time.Second,
+		CheckRedirect: func(req *http.Request, via []*http.Request) error {
+			if len(via) >= 5 {
+				return fmt.Errorf("too many redirects")
+			}
+			return nil
 		},
-		validator: tools.NewURLValidator(),
+	}
+	validator := tools.NewURLValidator()
+	formatDetector := NewFormatDetector(httpClient)
+	hintDiscovery := NewHintBasedDiscovery(formatDetector, validator)
+	learningService := NewLearningDiscoveryService(NewInMemoryPatternStore())
+
+	return &DiscoveryService{
+		logger:          logger,
+		httpClient:      httpClient,
+		validator:       validator,
+		formatDetector:  formatDetector,
+		hintDiscovery:   hintDiscovery,
+		learningService: learningService,
 	}
 }
 
 // NewDiscoveryServiceWithOptions creates a new discovery service with custom options
 func NewDiscoveryServiceWithOptions(logger observability.Logger, httpClient *http.Client, validator *tools.URLValidator) *DiscoveryService {
+	return NewDiscoveryServiceWithStore(logger, httpClient, validator, nil)
+}
+
+// NewDiscoveryServiceWithStore creates a new discovery service with custom pattern store
+func NewDiscoveryServiceWithStore(logger observability.Logger, httpClient *http.Client, validator *tools.URLValidator, patternStore DiscoveryPatternStore) *DiscoveryService {
 	if httpClient == nil {
 		httpClient = &http.Client{
 			Timeout: 10 * time.Second,
@@ -63,10 +80,24 @@ func NewDiscoveryServiceWithOptions(logger observability.Logger, httpClient *htt
 	if validator == nil {
 		validator = tools.NewURLValidator()
 	}
+
+	// Initialize enhanced features
+	formatDetector := NewFormatDetector(httpClient)
+	hintDiscovery := NewHintBasedDiscovery(formatDetector, validator)
+
+	// Use provided pattern store or default to in-memory
+	if patternStore == nil {
+		patternStore = NewInMemoryPatternStore()
+	}
+	learningService := NewLearningDiscoveryService(patternStore)
+
 	return &DiscoveryService{
-		logger:     logger,
-		httpClient: httpClient,
-		validator:  validator,
+		logger:          logger,
+		httpClient:      httpClient,
+		validator:       validator,
+		formatDetector:  formatDetector,
+		hintDiscovery:   hintDiscovery,
+		learningService: learningService,
 	}
 }
 
@@ -94,14 +125,42 @@ func (s *DiscoveryService) DiscoverOpenAPISpec(ctx context.Context, config tools
 		})
 	}
 
+	// Try hint-based discovery first if hints are available
+	hints, err := ExtractHintsFromConfig(config)
+	if err == nil && hints != nil && (hints.OpenAPIURL != "" || len(hints.CustomPaths) > 0) {
+		hintResult, err := s.hintDiscovery.DiscoverWithHints(ctx, config, hints)
+		if err == nil && hintResult.Status == tools.DiscoveryStatusSuccess {
+			// Learn from successful hint-based discovery
+			if s.learningService != nil {
+				if err := s.learningService.LearnFromSuccess(config, hintResult); err != nil {
+					s.logger.Warn("Failed to record discovery pattern", map[string]interface{}{
+						"error": err.Error(),
+					})
+				}
+			}
+			return hintResult, nil
+		}
+	}
+
+	// Get learned paths from previous successful discoveries
+	var learnedPaths []string
+	if s.learningService != nil {
+		learnedPaths = s.learningService.GetSuggestedPaths(config.BaseURL)
+	}
+
 	// Get user-provided hints if any (optional)
-	hints := s.getUserProvidedHints(config)
+	discoveryHints := s.getUserProvidedHints(config)
 
 	// Strategy 2: Try common OpenAPI paths
 	openAPIPaths := s.getCommonOpenAPIPaths()
-	if len(hints.CommonPaths) > 0 {
+
+	// Prioritize learned paths, then hints, then common paths
+	if len(learnedPaths) > 0 {
+		openAPIPaths = append(learnedPaths, openAPIPaths...)
+	}
+	if len(discoveryHints.CommonPaths) > 0 {
 		// User provided additional paths to try
-		openAPIPaths = append(hints.CommonPaths, openAPIPaths...)
+		openAPIPaths = append(discoveryHints.CommonPaths, openAPIPaths...)
 	}
 	for _, path := range openAPIPaths {
 		fullURL := s.buildURL(config.BaseURL, path)
@@ -115,13 +174,50 @@ func (s *DiscoveryService) DiscoverOpenAPISpec(ctx context.Context, config tools
 			}
 		}
 
+		// First try as OpenAPI
 		spec, err := s.fetchAndParseSpec(ctx, fullURL, config.Credential)
 		if err == nil {
 			result.Status = tools.DiscoveryStatusSuccess
 			result.OpenAPISpec = spec
 			result.SpecURL = fullURL
 			result.DiscoveredURLs = append(result.DiscoveredURLs, fullURL)
+			result.Metadata["api_format"] = "openapi"
+			// Learn from success
+			if s.learningService != nil {
+				if err := s.learningService.LearnFromSuccess(config, result); err != nil {
+					s.logger.Warn("Failed to record discovery pattern", map[string]interface{}{
+						"error": err.Error(),
+					})
+				}
+			}
 			return result, nil
+		}
+
+		// Try format detection if OpenAPI parsing failed
+		if s.formatDetector != nil {
+			content, fetchErr := s.fetchContent(ctx, fullURL, config.Credential)
+			if fetchErr == nil {
+				format, _ := s.formatDetector.DetectFormat(content)
+				if format != FormatUnknown && format != FormatOpenAPI3 {
+					// Try to convert to OpenAPI
+					convertedSpec, convErr := s.formatDetector.ConvertToOpenAPI(content, format, config.BaseURL)
+					if convErr == nil {
+						result.Status = tools.DiscoveryStatusSuccess
+						result.OpenAPISpec = convertedSpec
+						result.SpecURL = fullURL
+						result.DiscoveredURLs = append(result.DiscoveredURLs, fullURL)
+						result.Metadata["api_format"] = string(format)
+						result.Metadata["converted_from"] = string(format)
+						// Learn from success
+						if err := s.learningService.LearnFromSuccess(config, result); err != nil {
+							s.logger.Warn("Failed to record discovery pattern", map[string]interface{}{
+								"error": err.Error(),
+							})
+						}
+						return result, nil
+					}
+				}
+			}
 		}
 		s.logger.Debug("Failed to fetch spec", map[string]interface{}{
 			"url":   fullURL,
@@ -132,9 +228,9 @@ func (s *DiscoveryService) DiscoverOpenAPISpec(ctx context.Context, config tools
 
 	// Strategy 3: Try subdomain discovery
 	subdomains := s.getCommonSubdomains()
-	if len(hints.Subdomains) > 0 {
+	if len(discoveryHints.Subdomains) > 0 {
 		// User provided additional subdomains to try
-		subdomains = append(hints.Subdomains, subdomains...)
+		subdomains = append(discoveryHints.Subdomains, subdomains...)
 	}
 	for _, subdomain := range subdomains {
 		subdomainURL := s.applySubdomain(config.BaseURL, subdomain)
@@ -247,6 +343,7 @@ func (s *DiscoveryService) getUserProvidedHints(config tools.ToolConfig) Discove
 // getCommonOpenAPIPaths returns common OpenAPI specification paths
 func (s *DiscoveryService) getCommonOpenAPIPaths() []string {
 	return []string{
+		// Generic paths
 		"/openapi.json",
 		"/openapi.yaml",
 		"/openapi.yml",
@@ -270,6 +367,55 @@ func (s *DiscoveryService) getCommonOpenAPIPaths() []string {
 		"/specification/openapi.json",
 		"/.well-known/openapi.json",
 		"/api-specification.json",
+
+		// Service-specific paths based on research
+		// Harness.io
+		"/gateway/api/openapi.json",
+		"/ng/api/openapi.json",
+		"/ccm/api/openapi.json",
+
+		// SonarQube
+		"/api/webservices/list",
+		"/web_api/api/webservices",
+
+		// JFrog Artifactory
+		"/artifactory/api/openapi.json",
+		"/artifactory/api/swagger.json",
+
+		// Nexus Repository
+		"/service/rest/swagger.json",
+
+		// Additional common patterns
+		"/rest/api/swagger.json",
+		"/rest/swagger.json",
+		"/api/swagger",
+		"/api/openapi",
+		"/v1/swagger",
+		"/v1/openapi",
+
+		// Framework-specific patterns
+		"/swagger-resources",
+		"/api-docs/swagger.json",
+		"/api/api-docs",
+		"/apidocs/swagger.json",
+		"/api/definition",
+		"/api/spec",
+		"/api/v1/spec",
+		"/api/v1/swagger",
+		"/docs/swagger.json",
+		"/swagger/docs/v1",
+		"/swagger/docs/v2",
+
+		// Cloud/Enterprise patterns
+		"/api/management/v1/openapi.json",
+		"/platform/api/openapi.json",
+		"/enterprise/api/swagger.json",
+		"/cloud/api/openapi.json",
+
+		// API Gateway patterns
+		"/gateway/swagger.json",
+		"/api-gateway/swagger.json",
+		"/proxy/api/swagger.json",
 	}
 }
 
@@ -343,10 +489,10 @@ func (s *DiscoveryService) applySubdomain(baseURL, subdomain string) string {
 	return ""
 }
 
-// fetchAndParseSpec fetches and parses an OpenAPI specification
-func (s *DiscoveryService) fetchAndParseSpec(ctx context.Context, specURL string, creds *models.TokenCredential) (*openapi3.T, error) {
+// fetchContent fetches raw content from a URL
+func (s *DiscoveryService) fetchContent(ctx context.Context, url string, creds *models.TokenCredential) ([]byte, error) {
 	// Create request
-	req, err := http.NewRequestWithContext(ctx, "GET", specURL, nil)
+	req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -387,6 +533,17 @@ func (s *DiscoveryService) fetchAndParseSpec(ctx context.Context, specURL string
 
 	// Read body with size limit
 	body, err := io.ReadAll(io.LimitReader(resp.Body, 10*1024*1024)) // 10MB limit
+	if err != nil {
+		return nil, err
+	}
+
+	return body, nil
+}
+
+// fetchAndParseSpec fetches and parses an OpenAPI specification
+func (s *DiscoveryService) fetchAndParseSpec(ctx context.Context, specURL string, creds *models.TokenCredential) (*openapi3.T, error) {
+	// Fetch content
+	body, err := s.fetchContent(ctx, specURL, creds)
 	if err != nil {
 		return nil, err
 	}

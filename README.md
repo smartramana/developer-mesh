@@ -53,12 +53,16 @@ DevOps teams struggle to integrate AI effectively - managing multiple models, co
 - **Connection Pooling**: Efficient resource utilization
 - **Heartbeat Monitoring**: Automatic reconnection handling
 
-### Dynamic Tool Integration
-- **Zero-Code Tool Addition**: Add any DevOps tool via OpenAPI spec
-- **Automatic Discovery**: Finds and imports tool capabilities
-- **Dynamic Authentication**: Supports OAuth, API keys, basic auth
-- **Health Monitoring**: Built-in health checks for all tools
-- **Supported Tools**: GitHub, GitLab, Harness, SonarQube, JFrog, Dynatrace, and any OpenAPI-compliant tool
+### Dynamic Tool Integration with Enhanced Discovery
+- **Zero-Code Tool Addition**: Add any DevOps tool without writing adapters
+- **Intelligent Discovery System**:
+  - **Format Detection**: Automatically detects OpenAPI, Swagger, custom JSON formats
+  - **Format Conversion**: Converts non-OpenAPI formats to OpenAPI 3.0
+  - **Learning System**: Learns from successful discoveries to improve future attempts
+  - **User-Guided Discovery**: Accept hints to speed up discovery for non-standard APIs
+- **Universal Authentication**: OAuth2, API keys, bearer tokens, basic auth, custom headers
+- **Health Monitoring**: Automatic health checks with configurable intervals
+- **Supported Tools**: ANY tool with an API - tested with GitHub, GitLab, Harness, SonarQube, JFrog, Nexus, and hundreds more
 
 ## 📊 Real-World Impact
 
@@ -202,6 +206,31 @@ curl -X POST http://localhost:8080/api/v1/tools \
 # and makes them available to your AI agents
 ```
 
+### Enhanced Tool Discovery Example
+
+```bash
+# Add a tool with non-standard API (e.g., SonarQube)
+curl -X POST http://localhost:8081/api/v1/tools \
+  -H "Authorization: Bearer $TOKEN" \
+  -d '{
+    "name": "sonarqube",
+    "base_url": "https://sonar.example.com",
+    "discovery_hints": {
+      "api_format": "custom_json",
+      "custom_paths": ["/api/webservices/list"],
+      "auth_headers": {
+        "Authorization": "Bearer squ_xxxxx"
+      }
+    }
+  }'
+
+# The discovery system will:
+# 1. Try the custom path and detect it's custom JSON
+# 2. Convert it to OpenAPI 3.0 format
+# 3. Learn the pattern for future SonarQube instances
+# 4. Make all endpoints available immediately
+```
+
 ### Monitor System Health
 
 ```bash
@@ -245,6 +274,11 @@ curl http://localhost:8081/health
 - [System Overview](docs/architecture/system-overview.md)
 - [AI Agent Orchestration](docs/architecture/ai-agent-orchestration.md)
 - [Multi-Agent Collaboration](docs/architecture/multi-agent-collaboration.md)
+
+### Features
+- [Enhanced Tool Discovery](docs/features/enhanced-discovery.md)
+- [Dynamic Tool Integration](docs/features/dynamic-tools.md)
+- [Multi-Provider Embeddings](docs/features/multi-provider-embeddings.md)
 
 ### API Reference
 - [WebSocket Protocol](docs/api-reference/agent-websocket-protocol.md)

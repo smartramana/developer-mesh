@@ -45,10 +45,25 @@ paths:
         - Dynamic Tools
       summary: Create a new dynamic tool
       description: |
-        Creates a new dynamic tool configuration. The tool can be configured with:
-        - Direct OpenAPI specification URL
-        - Automatic discovery from base URL
-        - Manual configuration with custom endpoints
+        Creates a new dynamic tool configuration with enhanced discovery capabilities:
+        
+        **Automatic Discovery Features:**
+        - Format detection: Automatically detects OpenAPI, Swagger, RAML, and custom JSON formats
+        - Format conversion: Converts non-OpenAPI formats to OpenAPI 3.0
+        - Learning system: Learns from successful discoveries to improve future attempts
+        - Pattern matching: Tries common OpenAPI paths and subdomain variations
+        
+        **User-Guided Discovery:**
+        - Provide discovery hints to speed up the process
+        - Specify custom paths, authentication examples, or API format
+        - Works with tools that don't expose standard OpenAPI endpoints
+        
+        **Supported Formats:**
+        - OpenAPI 3.x (JSON/YAML)
+        - Swagger/OpenAPI 2.0
+        - Custom JSON formats (e.g., SonarQube)
+        - RAML (detection only)
+        - Postman Collections (coming soon)
       operationId: createDynamicTool
       requestBody:
         required: true
@@ -533,6 +548,9 @@ components:
           $ref: '#/components/schemas/RetryPolicy'
         health_config:
           $ref: '#/components/schemas/HealthCheckConfig'
+        discovery_hints:
+          $ref: '#/components/schemas/DiscoveryHints'
+          description: Optional hints to assist with API discovery
 
     UpdateToolRequest:
       type: object
@@ -790,6 +808,76 @@ components:
         executed_at:
           type: string
           format: date-time
+
+    DiscoveryHints:
+      type: object
+      description: |
+        Hints to assist with API discovery. These hints help the discovery system
+        find and understand your API faster, especially for non-standard implementations.
+      properties:
+        openapi_url:
+          type: string
+          format: uri
+          description: Direct URL to OpenAPI/Swagger specification if known
+        auth_headers:
+          type: object
+          additionalProperties:
+            type: string
+          description: Example authentication headers that work with the API
+        api_key_name:
+          type: string
+          description: Name of the API key header/parameter (e.g., 'X-API-Key')
+        api_key_in:
+          type: string
+          enum: [header, query, cookie]
+          description: Where the API key should be sent
+        custom_paths:
+          type: array
+          items:
+            type: string
+          description: Custom paths to check for API documentation
+          example: ['/api/v2/spec', '/docs/api.json', '/api-docs']
+        api_format:
+          type: string
+          enum: [openapi3, openapi2, swagger, raml, custom_json, postman]
+          description: API documentation format if known
+        example_endpoint:
+          type: string
+          description: Example working endpoint to analyze
+          example: '/api/v1/users'
+        example_method:
+          type: string
+          enum: [GET, POST, PUT, DELETE, PATCH]
+          description: HTTP method for the example endpoint
+        example_headers:
+          type: object
+          additionalProperties:
+            type: string
+          description: Headers required for the example endpoint
+        documentation_url:
+          type: string
+          format: uri
+          description: URL to human-readable API documentation
+        response_format:
+          type: string
+          enum: [json, xml, yaml]
+          description: Expected response format
+        api_version:
+          type: string
+          description: API version if known
+        rate_limit_header:
+          type: string
+          description: Header that contains rate limit information
+        pagination_style:
+          type: string
+          enum: [offset, cursor, page, link_header]
+          description: Pagination style used by the API
+        page_param:
+          type: string
+          description: Query parameter name for page number
+        limit_param:
+          type: string
+          description: Query parameter name for page size
 
     HealthStatus:
       type: object

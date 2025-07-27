@@ -12,6 +12,8 @@ import (
 	contextAPI "github.com/developer-mesh/developer-mesh/apps/rest-api/internal/api/context"
 	"github.com/developer-mesh/developer-mesh/apps/rest-api/internal/core"
 	"github.com/developer-mesh/developer-mesh/apps/rest-api/internal/repository"
+	"github.com/developer-mesh/developer-mesh/apps/rest-api/internal/services"
+	"github.com/developer-mesh/developer-mesh/apps/rest-api/internal/storage"
 
 	pkgrepository "github.com/developer-mesh/developer-mesh/pkg/repository"
 
@@ -21,6 +23,7 @@ import (
 	"github.com/developer-mesh/developer-mesh/pkg/common/config"
 	"github.com/developer-mesh/developer-mesh/pkg/database"
 	"github.com/developer-mesh/developer-mesh/pkg/observability"
+	"github.com/developer-mesh/developer-mesh/pkg/security"
 	"github.com/gin-gonic/gin"
 	"github.com/gorilla/mux"
 	"github.com/jmoiron/sqlx"
@@ -370,7 +373,28 @@ func (s *Server) setupRoutes(ctx context.Context) {
 	s.router.Any("/api/webhooks/github", gin.WrapH(muxRouter))
 	s.router.Any("/api/webhooks/github/", gin.WrapH(muxRouter))
 
-	// Tool integration API - removed legacy ToolAPI in favor of Dynamic Tools API
+	// Dynamic Tools API - Enhanced discovery and management
+	patternRepo := storage.NewDiscoveryPatternRepository(s.db.DB)
+	// Create encryption service with a secure key from environment or config
+	encryptionKey := os.Getenv("DEVMESH_ENCRYPTION_KEY")
+	if encryptionKey == "" {
+		encryptionKey = "default-insecure-key" // TODO: Replace with proper key management
+	}
+	encryptionService := security.NewEncryptionService(encryptionKey)
+	dynamicToolsService := services.NewDynamicToolsService(
+		s.db,
+		s.logger,
+		s.metrics,
+		encryptionService,
+		patternRepo,
+	)
+	dynamicToolsAPI := NewDynamicToolsAPI(
+		dynamicToolsService,
+		s.logger,
+		s.metrics,
+		auth.NewAuditLogger(s.logger),
+	)
+	dynamicToolsAPI.RegisterRoutes(v1)
 
 	// Agent and Model APIs - create repositories first as they're needed by context API
 	agentRepo := repository.NewAgentRepository(s.db.DB)
