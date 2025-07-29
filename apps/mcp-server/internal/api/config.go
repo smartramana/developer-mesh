@@ -4,26 +4,24 @@ import (
 	"time"
 
 	"github.com/developer-mesh/developer-mesh/apps/mcp-server/internal/api/websocket"
-	"github.com/developer-mesh/developer-mesh/apps/mcp-server/internal/config"
 )
 
 // Config holds configuration for the API server
 type Config struct {
-	ListenAddress string                `mapstructure:"listen_address"`
-	ReadTimeout   time.Duration         `mapstructure:"read_timeout"`
-	WriteTimeout  time.Duration         `mapstructure:"write_timeout"`
-	IdleTimeout   time.Duration         `mapstructure:"idle_timeout"`
-	EnableCORS    bool                  `mapstructure:"enable_cors"`
-	EnableSwagger bool                  `mapstructure:"enable_swagger"`
-	TLSCertFile   string                `mapstructure:"tls_cert_file"`
-	TLSKeyFile    string                `mapstructure:"tls_key_file"`
-	Auth          AuthConfig            `mapstructure:"auth"`
-	RateLimit     RateLimitConfig       `mapstructure:"rate_limit"`
-	Versioning    VersioningConfig      `mapstructure:"versioning"`
-	Performance   PerformanceConfig     `mapstructure:"performance"`
-	Webhook       *config.WebhookConfig `mapstructure:"webhook"`
-	RestAPI       RestAPIConfig         `mapstructure:"rest_api"`
-	WebSocket     WebSocketConfig       `mapstructure:"websocket"`
+	ListenAddress string            `mapstructure:"listen_address"`
+	ReadTimeout   time.Duration     `mapstructure:"read_timeout"`
+	WriteTimeout  time.Duration     `mapstructure:"write_timeout"`
+	IdleTimeout   time.Duration     `mapstructure:"idle_timeout"`
+	EnableCORS    bool              `mapstructure:"enable_cors"`
+	EnableSwagger bool              `mapstructure:"enable_swagger"`
+	TLSCertFile   string            `mapstructure:"tls_cert_file"`
+	TLSKeyFile    string            `mapstructure:"tls_key_file"`
+	Auth          AuthConfig        `mapstructure:"auth"`
+	RateLimit     RateLimitConfig   `mapstructure:"rate_limit"`
+	Versioning    VersioningConfig  `mapstructure:"versioning"`
+	Performance   PerformanceConfig `mapstructure:"performance"`
+	RestAPI       RestAPIConfig     `mapstructure:"rest_api"`
+	WebSocket     WebSocketConfig   `mapstructure:"websocket"`
 }
 
 // VersioningConfig holds API versioning configuration
@@ -62,18 +60,10 @@ type PerformanceConfig struct {
 
 // AuthConfig holds authentication configuration
 type AuthConfig struct {
-	JWTSecret        string            `mapstructure:"jwt_secret"`
-	APIKeys          interface{}       `mapstructure:"api_keys"`
-	ServiceSecret    string            `mapstructure:"service_secret"`
-	DefaultRateLimit int               `mapstructure:"default_rate_limit"`
-	GitHubApps       []GitHubAppConfig `mapstructure:"github_apps"`
-}
-
-// GitHubAppConfig holds configuration for a GitHub App
-type GitHubAppConfig struct {
-	AppID          int64  `mapstructure:"app_id"`
-	PrivateKeyPath string `mapstructure:"private_key_path"`
-	WebhookSecret  string `mapstructure:"webhook_secret"`
+	JWTSecret        string      `mapstructure:"jwt_secret"`
+	APIKeys          interface{} `mapstructure:"api_keys"`
+	ServiceSecret    string      `mapstructure:"service_secret"`
+	DefaultRateLimit int         `mapstructure:"default_rate_limit"`
 }
 
 // RateLimitConfig holds rate limiting configuration
@@ -154,16 +144,6 @@ func DefaultConfig() Config {
 			CircuitBreakerTimeout: 30 * time.Second,
 			MaxRetries:            3,
 			RetryBackoff:          500 * time.Millisecond,
-		},
-		Webhook: &config.WebhookConfig{
-			Enabled: false, // Disabled by default, should be enabled through configuration
-			GitHub: config.GitHubWebhookConfig{
-				Enabled:       false,
-				Endpoint:      "/api/webhooks/github",
-				Secret:        "", // Must be provided through configuration
-				IPValidation:  true,
-				AllowedEvents: []string{},
-			},
 		},
 		RestAPI: RestAPIConfig{
 			Enabled:    true,

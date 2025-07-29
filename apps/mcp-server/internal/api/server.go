@@ -59,8 +59,7 @@ type Server struct {
 	contextAPIProxy repository.ContextRepository   // Proxy for context operations
 	searchAPIProxy  repository.SearchRepository    // Proxy for search operations
 	// WebSocket server
-	wsServer        *websocket.Server
-	webhookAPIProxy proxies.WebhookRepository // Proxy for webhook operations
+	wsServer *websocket.Server
 	// Multi-agent services
 	taskService      pgservices.TaskService
 	workflowService  pgservices.WorkflowService
@@ -69,6 +68,7 @@ type Server struct {
 	conflictService  pgservices.ConflictResolutionService
 	// Dynamic tools
 	dynamicToolsAPI      *DynamicToolsAPI
+	dynamicToolsV2       *DynamicToolsV2Wrapper // New implementation
 	healthCheckScheduler *pkgtools.HealthCheckScheduler
 	encryptionService    *security.EncryptionService
 }
@@ -300,12 +300,13 @@ func (s *Server) initializeDynamicTools(ctx context.Context) error {
 		// Generate a random key if not provided, but log a warning
 		randomKey, err := security.GenerateSecureToken(32)
 		if err != nil {
-			s.logger.Error("Failed to generate encryption key", "error", err)
+			s.logger.Error("Failed to generate encryption key", map[string]interface{}{"error": err})
 			return fmt.Errorf("encryption key not provided and failed to generate: %w", err)
 		}
 		masterKey = randomKey
-		s.logger.Warn("ENCRYPTION_MASTER_KEY not set - using randomly generated key. This is not suitable for production!",
-			"recommendation", "Set ENCRYPTION_MASTER_KEY environment variable with a secure 32+ character key")
+		s.logger.Warn("ENCRYPTION_MASTER_KEY not set - using randomly generated key. This is not suitable for production!", map[string]interface{}{
+			"recommendation": "Set ENCRYPTION_MASTER_KEY environment variable with a secure 32+ character key",
+		})
 	}
 	s.encryptionService = security.NewEncryptionService(masterKey)
 
@@ -388,12 +389,6 @@ func (s *Server) Initialize(ctx context.Context) error {
 			s.logger.Info("Initialized Mock Search Repository for temporary use", nil)
 		}
 
-		// Webhook repository initialization
-		if s.webhookAPIProxy == nil {
-			// Using mock implementation until rest client is fully integrated
-			s.webhookAPIProxy = proxies.NewMockWebhookRepository(s.logger)
-			s.logger.Info("Initialized Mock Webhook Repository for temporary use", nil)
-		}
 	}
 
 	// Initialize dynamic tools components
@@ -404,6 +399,19 @@ func (s *Server) Initialize(ctx context.Context) error {
 		// Don't fail server startup, but log the error
 	}
 
+	// Initialize new dynamic tools v2 implementation
+	if os.Getenv("ENABLE_DYNAMIC_TOOLS_V2") != "" {
+		dynamicToolsV2, err := InitializeDynamicToolsV2(ctx, s.db, s.logger)
+		if err != nil {
+			s.logger.Error("Failed to initialize dynamic tools v2", map[string]interface{}{
+				"error": err.Error(),
+			})
+		} else {
+			s.dynamicToolsV2 = NewDynamicToolsV2Wrapper(dynamicToolsV2, s.logger)
+			s.logger.Info("Dynamic Tools V2 initialized successfully", nil)
+		}
+	}
+
 	// Initialize routes
 	s.setupRoutes()
 
@@ -412,9 +420,13 @@ func (s *Server) Initialize(ctx context.Context) error {
 
 // setupRoutes sets up all API routes
 func (s *Server) setupRoutes() {
+	// MCP Server handles the Model Context Protocol (MCP) for AI agent interactions
+	// It does NOT handle webhooks - all webhook traffic should be directed to the REST API service
+	// All tools are dynamic and registered through the /api/v1/tools endpoints
+
 	// Setup base routes
 	s.router.GET("/", func(c *gin.Context) {
-		c.JSON(http.StatusOK, gin.H{"status": "MCP REST API is running"})
+		c.JSON(http.StatusOK, gin.H{"status": "MCP Server is running"})
 	})
 	s.router.GET("/health", s.healthHandler)
 
@@ -511,6 +523,12 @@ func (s *Server) setupRoutes() {
 		s.logger.Info("Dynamic Tools API routes registered", nil)
 	} else {
 		s.logger.Warn("Dynamic Tools API not available - initialization may have failed", nil)
+	}
+
+	// Register Dynamic Tools V2 routes if enabled
+	if s.dynamicToolsV2 != nil {
+		s.dynamicToolsV2.RegisterRoutes(v1)
+		s.logger.Info("Dynamic Tools V2 API routes registered", nil)
 	}
 
 	// Log API availability via proxies

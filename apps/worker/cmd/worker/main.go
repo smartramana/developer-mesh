@@ -12,8 +12,10 @@ import (
 	"time"
 
 	"github.com/developer-mesh/developer-mesh/apps/worker/internal/worker"
-
+	"github.com/developer-mesh/developer-mesh/pkg/database"
+	"github.com/developer-mesh/developer-mesh/pkg/observability"
 	"github.com/developer-mesh/developer-mesh/pkg/queue"
+	pkgworker "github.com/developer-mesh/developer-mesh/pkg/worker"
 	redis "github.com/go-redis/redis/v8"
 )
 
@@ -30,6 +32,7 @@ var (
 	healthCheck = flag.Bool("health-check", false, "Perform health check and exit")
 )
 
+// redisIdempotencyAdapter adapts Redis client to the worker interface
 type redisIdempotencyAdapter struct {
 	client *redis.Client
 }
@@ -37,30 +40,9 @@ type redisIdempotencyAdapter struct {
 func (r *redisIdempotencyAdapter) Exists(ctx context.Context, key string) (int64, error) {
 	return r.client.Exists(ctx, key).Result()
 }
+
 func (r *redisIdempotencyAdapter) Set(ctx context.Context, key string, value string, ttl time.Duration) error {
 	return r.client.Set(ctx, key, value, ttl).Err()
-}
-
-func run(ctx context.Context, sqsClient worker.SQSReceiverDeleter, redisClient worker.RedisIdempotency, processFunc func(queue.SQSEvent) error) error {
-	log.Println("Starting SQS worker...")
-	return worker.RunWorker(ctx, sqsClient, redisClient, processFunc)
-}
-
-// workerSQSAdapter is an adapter that makes our SQSClientAdapter compatible with worker.SQSReceiverDeleter
-type workerSQSAdapter struct {
-	adapter queue.SQSAdapter
-}
-
-// ReceiveEvents implements the worker.SQSReceiverDeleter interface
-func (w *workerSQSAdapter) ReceiveEvents(ctx context.Context, maxMessages int32, waitSeconds int32) ([]queue.SQSEvent, []string, error) {
-	log.Printf("workerSQSAdapter: Receiving events (max: %d, wait: %ds)", maxMessages, waitSeconds)
-	return w.adapter.ReceiveEvents(ctx, maxMessages, waitSeconds)
-}
-
-// DeleteMessage implements the worker.SQSReceiverDeleter interface
-func (w *workerSQSAdapter) DeleteMessage(ctx context.Context, receiptHandle string) error {
-	log.Printf("workerSQSAdapter: Deleting message")
-	return w.adapter.DeleteMessage(ctx, receiptHandle)
 }
 
 func main() {
@@ -78,10 +60,10 @@ func main() {
 			fmt.Fprintf(os.Stderr, "Health check failed: %v\n", err)
 			os.Exit(1)
 		}
+		fmt.Println("Health check passed")
 		os.Exit(0)
 	}
 
-	// Setup context with cancellation
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
@@ -112,22 +94,23 @@ func main() {
 }
 
 func runWorker(ctx context.Context) error {
-	// Load SQS adapter configuration from environment variables
-	sqsConfig := queue.LoadSQSConfigFromEnv()
-	log.Printf("SQS Configuration: mockMode=%v, useLocalStack=%v, endpoint=%s",
-		sqsConfig.MockMode, sqsConfig.UseLocalStack, sqsConfig.Endpoint)
+	// Initialize logger
+	logger := observability.NewNoopLogger()
 
-	// Initialize SQS client with the adapter pattern
-	// The adapter handles production, LocalStack, and mock environments transparently
-	sqsAdapter, err := queue.NewSQSClientAdapter(ctx, sqsConfig)
+	// Initialize Redis queue client
+	queueClient, err := queue.NewClient(ctx, &queue.Config{
+		Logger: logger,
+	})
 	if err != nil {
-		return fmt.Errorf("failed to initialize SQS client adapter: %w", err)
+		return fmt.Errorf("failed to initialize queue client: %w", err)
 	}
+	defer func() {
+		if err := queueClient.Close(); err != nil {
+			logger.Warn("Failed to close queue client", map[string]interface{}{"error": err.Error()})
+		}
+	}()
 
-	// Wrap our SQS adapter in the worker-compatible adapter
-	workerAdapter := &workerSQSAdapter{adapter: sqsAdapter}
-
-	// Initialize Redis client
+	// Initialize Redis client for idempotency
 	redisAddr := os.Getenv("REDIS_ADDR")
 	if redisAddr == "" {
 		redisAddr = "localhost:6379"
@@ -159,16 +142,120 @@ func runWorker(ctx context.Context) error {
 
 	redisAdapter := &redisIdempotencyAdapter{client: redisClient}
 
-	// Use the real event processing function
-	processFunc := worker.ProcessSQSEvent
+	// Get database connection
+	dbPort := 5432
+	if portStr := os.Getenv("DATABASE_PORT"); portStr != "" {
+		if _, err := fmt.Sscanf(portStr, "%d", &dbPort); err != nil {
+			logger.Error("Invalid database port", map[string]interface{}{
+				"port":  portStr,
+				"error": err.Error(),
+			})
+			dbPort = 5432 // Use default
+		}
+	}
 
-	log.Println("Starting worker with SQS adapter...")
-	return run(ctx, workerAdapter, redisAdapter, processFunc)
+	dbConfig := database.Config{
+		Host:     os.Getenv("DATABASE_HOST"),
+		Port:     dbPort,
+		Database: os.Getenv("DATABASE_NAME"),
+		Username: os.Getenv("DATABASE_USER"),
+		Password: os.Getenv("DATABASE_PASSWORD"),
+		SSLMode:  os.Getenv("DATABASE_SSL_MODE"),
+	}
+
+	if dbConfig.Host == "" {
+		dbConfig.Host = "localhost"
+	}
+	if dbConfig.SSLMode == "" {
+		dbConfig.SSLMode = "disable"
+	}
+
+	db, err := database.NewDatabase(ctx, dbConfig)
+	if err != nil {
+		return fmt.Errorf("failed to connect to database: %w", err)
+	}
+	defer func() {
+		if err := db.Close(); err != nil {
+			logger.Error("Failed to close database connection", map[string]interface{}{
+				"error": err.Error(),
+			})
+		}
+	}()
+
+	// Create event processor with retry and DLQ support
+	eventProcessor, err := worker.NewEventProcessor(logger, nil, db.GetDB(), queueClient)
+	if err != nil {
+		return fmt.Errorf("failed to create event processor: %w", err)
+	}
+
+	// Create processor function that uses the new event processor
+	processorFunc := func(event queue.Event) error {
+		return eventProcessor.ProcessEvent(ctx, event)
+	}
+
+	// Create Redis worker
+	redisWorker, err := pkgworker.NewRedisWorker(&pkgworker.Config{
+		QueueClient:    queueClient,
+		RedisClient:    redisAdapter,
+		Processor:      processorFunc,
+		Logger:         logger,
+		ConsumerName:   fmt.Sprintf("worker-%s", os.Getenv("HOSTNAME")),
+		IdempotencyTTL: 24 * time.Hour,
+	})
+	if err != nil {
+		return fmt.Errorf("failed to create worker: %w", err)
+	}
+
+	// Create DLQ handler for periodic processing
+	dlqHandler := worker.NewDLQHandler(db.GetDB(), logger, nil, queueClient)
+	dlqWorker := worker.NewDLQWorker(dlqHandler, logger, 5*time.Minute)
+
+	// Create metrics collector and performance monitor
+	tracer := observability.GetTracer()
+	metricsClient := observability.NewMetricsClient()
+	metricsCollector := worker.NewMetricsCollector(metricsClient, tracer)
+
+	// Create performance monitor
+	perfMonitor := worker.NewPerformanceMonitor(metricsCollector, logger, 30*time.Second)
+
+	// Create health checker
+	healthChecker := worker.NewHealthChecker(db, redisClient, queueClient, metricsCollector, logger)
+
+	// Start health endpoint in background
+	go func() {
+		healthAddr := os.Getenv("HEALTH_ENDPOINT")
+		if healthAddr == "" {
+			healthAddr = ":8088"
+		}
+		if err := healthChecker.StartHealthEndpoint(healthAddr); err != nil {
+			log.Printf("Health endpoint error: %v", err)
+		}
+	}()
+
+	// Start performance monitor in background
+	go func() {
+		if err := perfMonitor.Run(ctx); err != nil {
+			log.Printf("Performance monitor error: %v", err)
+		}
+	}()
+
+	// Start DLQ worker in background
+	go func() {
+		if err := dlqWorker.Run(ctx); err != nil {
+			log.Printf("DLQ worker error: %v", err)
+		}
+	}()
+
+	log.Println("Starting Redis worker with retry and DLQ support...")
+	log.Printf("Health endpoint available at %s/health", os.Getenv("HEALTH_ENDPOINT"))
+	return redisWorker.Run(ctx)
 }
 
 // performHealthCheck performs a basic health check
 func performHealthCheck() error {
-	// Basic health check - verify the application can start
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
 	// Check Redis connectivity
 	redisAddr := os.Getenv("REDIS_ADDR")
 	if redisAddr == "" {
@@ -184,22 +271,34 @@ func performHealthCheck() error {
 	if os.Getenv("REDIS_TLS_ENABLED") == "true" {
 		redisOptions.TLSConfig = &tls.Config{
 			MinVersion:         tls.VersionTLS12,
-			InsecureSkipVerify: os.Getenv("REDIS_TLS_SKIP_VERIFY") == "true", // #nosec G402 - Configurable for dev
+			InsecureSkipVerify: os.Getenv("REDIS_TLS_SKIP_VERIFY") == "true", // #nosec G402
 		}
 	}
 
-	client := redis.NewClient(redisOptions)
+	redisClient := redis.NewClient(redisOptions)
 	defer func() {
-		if err := client.Close(); err != nil {
-			log.Printf("Failed to close Redis client: %v", err)
+		if err := redisClient.Close(); err != nil {
+			log.Printf("Failed to close redis client: %v", err)
 		}
 	}()
 
-	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
-	defer cancel()
-
-	if err := client.Ping(ctx).Err(); err != nil {
+	if err := redisClient.Ping(ctx).Err(); err != nil {
 		return fmt.Errorf("redis health check failed: %w", err)
+	}
+
+	// Check queue connectivity
+	queueClient, err := queue.NewClient(ctx, &queue.Config{})
+	if err != nil {
+		return fmt.Errorf("queue client health check failed: %w", err)
+	}
+	defer func() {
+		if err := queueClient.Close(); err != nil {
+			log.Printf("Failed to close queue client: %v", err)
+		}
+	}()
+
+	if err := queueClient.Health(ctx); err != nil {
+		return fmt.Errorf("queue health check failed: %w", err)
 	}
 
 	return nil
