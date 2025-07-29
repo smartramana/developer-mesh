@@ -32,7 +32,7 @@ configs/*.local.yaml
 configs/config.*.local.yaml
 
 # Claude configuration
-CLAUDE.md   
+# CLAUDE.md - Now tracked for AI context   
 
 # Built binaries
 /mcp-server
