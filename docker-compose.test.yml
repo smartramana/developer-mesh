@@ -4,7 +4,7 @@ services:
   redis-test:
     image: redis:7-alpine
     ports:
-      - "6380:6379"
+      - "6379:6379"
     command: ["redis-server", "--requirepass", "", "--protected-mode", "no"]
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]

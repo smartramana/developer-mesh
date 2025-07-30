@@ -138,7 +138,7 @@ clean: ## Clean build artifacts
 .PHONY: test
 test: start-test-env ## Run all unit tests
 	@echo "Running unit tests with Docker services..."
-	@$(GOTEST) -v -short ./apps/mcp-server/... ./apps/rest-api/... ./apps/worker/... ./pkg/... || (make stop-test-env && exit 1)
+	@TEST_REDIS_ADDR=127.0.0.1:6379 $(GOTEST) -v -short ./apps/mcp-server/... ./apps/rest-api/... ./apps/worker/... ./pkg/... || (make stop-test-env && exit 1)
 	@make stop-test-env
 
 .PHONY: test-coverage
@@ -166,7 +166,7 @@ stop-test-env: ## Stop test environment
 .PHONY: test-integration
 test-integration: start-test-env ## Run integration tests
 	@echo "Running integration tests with Docker services..."
-	@ENABLE_INTEGRATION_TESTS=true TEST_REDIS_ADDR=127.0.0.1:6380 $(GOTEST) -tags=integration -v ./pkg/tests/integration ./test/integration || (make stop-test-env && exit 1)
+	@ENABLE_INTEGRATION_TESTS=true TEST_REDIS_ADDR=127.0.0.1:6379 $(GOTEST) -tags=integration -v ./pkg/tests/integration ./test/integration || (make stop-test-env && exit 1)
 	@make stop-test-env
 
 .PHONY: test-functional

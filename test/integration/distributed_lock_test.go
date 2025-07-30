@@ -26,7 +26,7 @@ func TestDistributedDocumentLocking(t *testing.T) {
 	// Setup Redis client
 	redisAddr := os.Getenv("TEST_REDIS_ADDR")
 	if redisAddr == "" {
-		redisAddr = "127.0.0.1:6380" // Default to test Redis port
+		redisAddr = "127.0.0.1:6379" // Default Redis port
 	}
 	redisClient := redis.NewClient(&redis.Options{
 		Addr: redisAddr,
