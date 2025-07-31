@@ -119,16 +119,34 @@ func (s *SemanticChunker) Chunk(ctx context.Context, text string, metadata map[s
 					// Finalize current chunk
 					currentChunk.Content = strings.Join(currentWords, " ")
 					currentChunk.EndChar = currentChar
+					currentChunk.TokenCount = s.tokenizer.CountTokens(currentChunk.Content)
 					chunks = append(chunks, s.finalizeChunk(currentChunk, len(chunks)))
 
-					// Start new chunk
-					currentWords = []string{word}
+					// Start new chunk with overlap
+					overlapText := s.getOverlapText(currentChunk.Content, s.config.OverlapSize)
+					currentWords = []string{}
 					currentChunk = &chunking.TextChunk{
-						Content:   word,
+						Content:   "",
 						Metadata:  copyMetadata(metadata),
 						StartChar: currentChar,
 					}
-					currentTokens = s.tokenizer.CountTokens(word)
+					// currentTokens will be recalculated below
+
+					// Add overlap if it fits
+					if overlapText != "" {
+						overlapTokens := s.tokenizer.CountTokens(overlapText)
+						wordTokens := s.tokenizer.CountTokens(word)
+						if overlapTokens+wordTokens <= s.config.MaxChunkSize {
+							currentWords = strings.Fields(overlapText)
+							currentChunk.Content = overlapText
+							// currentTokens will be recalculated below
+						}
+					}
+
+					// Add the current word
+					currentWords = append(currentWords, word)
+					currentChunk.Content = strings.Join(currentWords, " ")
+					currentTokens = s.tokenizer.CountTokens(currentChunk.Content)
 				} else {
 					currentWords = append(currentWords, word)
 					currentTokens = testTokens
@@ -147,20 +165,68 @@ func (s *SemanticChunker) Chunk(ctx context.Context, text string, metadata map[s
 			currentChunk.EndChar = currentChar
 			chunks = append(chunks, s.finalizeChunk(currentChunk, len(chunks)))
 
+			// Start new chunk with overlap (but don't include it in the chunk immediately)
+			overlapText := s.getOverlapText(currentChunk.Content, s.config.OverlapSize)
+			currentChunk = &chunking.TextChunk{
+				Content:   "",
+				Metadata:  copyMetadata(metadata),
+				StartChar: currentChar,
+			}
+			currentTokens = 0
+
+			// Only add overlap if it doesn't make the new chunk exceed max size
+			if overlapText != "" {
+				overlapTokens := s.tokenizer.CountTokens(overlapText)
+				if overlapTokens+sentenceTokens <= s.config.MaxChunkSize {
+					currentChunk.Content = overlapText
+					currentChunk.StartChar = currentChar - len(overlapText)
+					currentTokens = overlapTokens
+				}
+			}
+		}
+
+		// Check if adding this sentence would exceed max size
+		potentialTokens := currentTokens + sentenceTokens
+		if currentTokens > 0 { // Account for space between sentences
+			potentialTokens++
+		}
+		
+		// Debug logging
+		if i < 5 || i > len(sentences)-5 {
+			// fmt.Printf("[Sentence %d] current=%d, sentence=%d, potential=%d, max=%d\n", 
+			//     i, currentTokens, sentenceTokens, potentialTokens, s.config.MaxChunkSize)
+		}
+		
+		// If adding this sentence would exceed max size, finalize current chunk first
+		if potentialTokens > s.config.MaxChunkSize && currentTokens >= s.config.MinChunkSize {
+			currentChunk.EndChar = currentChar
+			chunks = append(chunks, s.finalizeChunk(currentChunk, len(chunks)))
+			
 			// Start new chunk with overlap
 			overlapText := s.getOverlapText(currentChunk.Content, s.config.OverlapSize)
 			currentChunk = &chunking.TextChunk{
-				Content:   overlapText,
+				Content:   "",
 				Metadata:  copyMetadata(metadata),
-				StartChar: currentChar - len(overlapText),
+				StartChar: currentChar,
 			}
-			currentTokens = s.tokenizer.CountTokens(overlapText)
+			currentTokens = 0
+			
+			// Only add overlap if it doesn't make the new chunk exceed max size with the sentence
+			if overlapText != "" {
+				overlapTokens := s.tokenizer.CountTokens(overlapText)
+				if overlapTokens+sentenceTokens <= s.config.MaxChunkSize {
+					currentChunk.Content = overlapText
+					currentChunk.StartChar = currentChar - len(overlapText)
+					currentTokens = overlapTokens
+				}
+			}
 		}
-
-		// Add sentence to current chunk
+		
+		// Now add the sentence to current chunk
 		if currentChunk.Content != "" {
 			currentChunk.Content += " "
 			currentChar++ // for the space
+			currentTokens++ // for the space token
 		}
 		currentChunk.Content += sentence
 		currentTokens += sentenceTokens
@@ -213,11 +279,21 @@ func (s *SemanticChunker) Chunk(ctx context.Context, text string, metadata map[s
 		currentChunk.EndChar = currentChar
 		chunks = append(chunks, s.finalizeChunk(currentChunk, len(chunks)))
 	} else if currentChunk != nil && len(chunks) > 0 && currentChunk.Content != "" {
-		// Merge with previous chunk if too small
+		// Check if we can merge with previous chunk without exceeding max size
 		lastChunk := chunks[len(chunks)-1]
-		lastChunk.Content += " " + currentChunk.Content
-		lastChunk.EndChar = currentChar
-		lastChunk.TokenCount = s.tokenizer.CountTokens(lastChunk.Content)
+		mergedContent := lastChunk.Content + " " + currentChunk.Content
+		mergedTokens := s.tokenizer.CountTokens(mergedContent)
+		
+		if mergedTokens <= s.config.MaxChunkSize {
+			// Safe to merge
+			lastChunk.Content = mergedContent
+			lastChunk.EndChar = currentChar
+			lastChunk.TokenCount = mergedTokens
+		} else {
+			// Can't merge, create a new chunk even if it's small
+			currentChunk.EndChar = currentChar
+			chunks = append(chunks, s.finalizeChunk(currentChunk, len(chunks)))
+		}
 	}
 
 	return chunks, nil
@@ -326,6 +402,22 @@ func (s *SemanticChunker) getOverlapText(content string, overlapTokens int) stri
 func (s *SemanticChunker) finalizeChunk(chunk *chunking.TextChunk, index int) *chunking.TextChunk {
 	chunk.Index = index
 	chunk.TokenCount = s.tokenizer.CountTokens(chunk.Content)
+	
+	// Ensure chunk doesn't exceed max size (safety check)
+	if chunk.TokenCount > s.config.MaxChunkSize {
+		// Trim chunk to max size by removing words from the end
+		words := strings.Fields(chunk.Content)
+		for len(words) > 0 {
+			testContent := strings.Join(words, " ")
+			testTokens := s.tokenizer.CountTokens(testContent)
+			if testTokens <= s.config.MaxChunkSize {
+				chunk.Content = testContent
+				chunk.TokenCount = testTokens
+				break
+			}
+			words = words[:len(words)-1]
+		}
+	}
 
 	if chunk.Metadata == nil {
 		chunk.Metadata = make(map[string]interface{})
