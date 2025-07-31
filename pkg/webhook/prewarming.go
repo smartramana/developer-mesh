@@ -77,6 +77,9 @@ type PrewarmingEngine struct {
 	// Control
 	stopCh chan struct{}
 	wg     sync.WaitGroup
+	
+	// Ensure Stop is only called once
+	stopOnce sync.Once
 }
 
 // PrewarmingMetrics tracks pre-warming statistics
@@ -186,10 +189,12 @@ func (e *PrewarmingEngine) Start() error {
 
 // Stop stops the pre-warming engine
 func (e *PrewarmingEngine) Stop() {
-	e.logger.Info("Stopping pre-warming engine", nil)
-	close(e.stopCh)
-	close(e.warmingQueue)
-	e.wg.Wait()
+	e.stopOnce.Do(func() {
+		e.logger.Info("Stopping pre-warming engine", nil)
+		close(e.stopCh)
+		close(e.warmingQueue)
+		e.wg.Wait()
+	})
 }
 
 // OnContextAccess handles context access events for pattern learning

@@ -1,6 +1,9 @@
 # This file configures golangci-lint
 # Run with: golangci-lint run
 
+# golangci-lint version configuration
+version: "2"
+
 run:
   timeout: 5m
 
