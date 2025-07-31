@@ -309,15 +309,15 @@ func TestEmbeddingService_GetMetrics(t *testing.T) {
 		require.NoError(t, err)
 
 		metrics := service.GetMetrics()
-		assert.Contains(t, metrics, "embeddings_generated")
-		assert.Contains(t, metrics, "cache_hits")
-		assert.Contains(t, metrics, "cache_misses")
-		assert.Contains(t, metrics, "avg_generation_time_ms")
-		assert.Contains(t, metrics, "errors_total")
+		assert.Contains(t, metrics, "total_generated")
+		assert.Contains(t, metrics, "total_cache_hits")
+		assert.Contains(t, metrics, "total_cache_misses")
+		assert.Contains(t, metrics, "average_generation_time")
+		assert.Contains(t, metrics, "total_errors")
 
-		assert.Greater(t, metrics["embeddings_generated"].(int64), int64(0))
-		assert.Greater(t, metrics["cache_hits"].(int64), int64(0))
-		assert.Greater(t, metrics["cache_misses"].(int64), int64(0))
+		assert.Greater(t, metrics["total_generated"].(int64), int64(0))
+		assert.Greater(t, metrics["total_cache_hits"].(int64), int64(0))
+		assert.Greater(t, metrics["total_cache_misses"].(int64), int64(0))
 	})
 }
 

@@ -65,6 +65,7 @@ func setupPrewarmingService(t *testing.T) (*PrewarmingEngine, *ContextLifecycleM
 		WarmingTimeout:      10 * time.Minute,
 		ModelUpdateInterval: 1 * time.Minute,
 		MinDataPoints:       2,
+		EnabledStrategies:   []string{"sequential", "similarity", "temporal"},
 	}
 
 	service, err := NewPrewarmingEngine(config, lifecycleManager, relevanceService, redisClient, logger)

@@ -166,8 +166,13 @@ stop-test-env: ## Stop test environment
 .PHONY: test-integration
 test-integration: start-test-env ## Run integration tests
 	@echo "Running integration tests with Docker services..."
-	@ENABLE_INTEGRATION_TESTS=true TEST_REDIS_ADDR=127.0.0.1:6379 $(GOTEST) -tags=integration -v ./pkg/tests/integration ./test/integration || (make stop-test-env && exit 1)
+	@ENABLE_INTEGRATION_TESTS=true TEST_REDIS_ADDR=127.0.0.1:6379 $(GOTEST) -tags=integration -v ./pkg/tests/integration ./test/integration ./pkg/webhook || (make stop-test-env && exit 1)
 	@make stop-test-env
+
+.PHONY: test-redis-lifecycle
+test-redis-lifecycle: ## Run Redis lifecycle integration tests with testcontainers
+	@echo "Running Redis lifecycle integration tests with testcontainers..."
+	@cd pkg/webhook && $(GOTEST) -tags=integration -v -run TestWithRealRedis ./...
 
 .PHONY: test-functional
 test-functional: ## Run functional tests (Docker)

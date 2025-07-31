@@ -459,6 +459,8 @@ func createSummarizationProvider(config *SummarizationConfig, logger observabili
 		return NewOpenAISummarizationProvider(config, logger)
 	case "anthropic":
 		return NewAnthropicSummarizationProvider(config, logger)
+	case "mock":
+		return NewMockSummarizationProvider(config, logger), nil
 	default:
 		return nil, fmt.Errorf("unsupported summarization provider: %s", config.Provider)
 	}
@@ -704,6 +706,40 @@ func (p *AnthropicSummarizationProvider) Summarize(ctx context.Context, text str
 // SummarizeConversation summarizes a conversation
 func (p *AnthropicSummarizationProvider) SummarizeConversation(ctx context.Context, messages []Message, options SummarizationOptions) (string, error) {
 	return fmt.Sprintf("Anthropic conversation summary with %d messages.", len(messages)), nil
+}
+
+// MockSummarizationProvider provides mock summarization for testing
+type MockSummarizationProvider struct {
+	config *SummarizationConfig
+	logger observability.Logger
+}
+
+// NewMockSummarizationProvider creates a new mock provider
+func NewMockSummarizationProvider(config *SummarizationConfig, logger observability.Logger) *MockSummarizationProvider {
+	return &MockSummarizationProvider{
+		config: config,
+		logger: logger,
+	}
+}
+
+// Summarize returns a mock summary
+func (p *MockSummarizationProvider) Summarize(ctx context.Context, text string, options SummarizationOptions) (string, error) {
+	return fmt.Sprintf("Mock summary of %d characters.", len(text)), nil
+}
+
+// SummarizeConversation returns a mock conversation summary
+func (p *MockSummarizationProvider) SummarizeConversation(ctx context.Context, messages []Message, options SummarizationOptions) (string, error) {
+	return fmt.Sprintf("Mock conversation summary with %d messages.", len(messages)), nil
+}
+
+// ExtractKeyPoints returns mock key points
+func (p *MockSummarizationProvider) ExtractKeyPoints(ctx context.Context, text string) ([]string, error) {
+	return []string{"Mock key point 1", "Mock key point 2"}, nil
+}
+
+// GetModelName returns the mock model name
+func (p *MockSummarizationProvider) GetModelName() string {
+	return "mock-model"
 }
 
 // ExtractKeyPoints extracts key points

@@ -143,7 +143,17 @@ func (d *Deduplicator) CheckDuplicate(ctx context.Context, messageID, toolType s
 	d.bloomMu.RUnlock()
 
 	if !inCurrent && !inPrevious {
-		// Definitely not a duplicate
+		// Definitely not a duplicate - but we still need to add to Redis!
+		// First add to Redis
+		window := d.getWindow(toolType)
+		redisKey := d.config.RedisKeyPrefix + messageID
+		client := d.redisClient.GetClient()
+		if err := client.Set(ctx, redisKey, time.Now().Unix(), window.Duration).Err(); err != nil {
+			d.logger.Warn("Failed to set Redis key for new event", map[string]interface{}{
+				"error": err.Error(),
+				"key":   redisKey,
+			})
+		}
 		d.recordUnique(messageID)
 		return false, "", nil
 	}
@@ -154,13 +164,13 @@ func (d *Deduplicator) CheckDuplicate(ctx context.Context, messageID, toolType s
 
 	// Try to set with NX (only if not exists) and expiration
 	client := d.redisClient.GetClient()
-	result := client.SetNX(ctx, redisKey, time.Now().Unix(), window.Duration)
-
-	if result.Err() != nil {
-		return false, "", fmt.Errorf("failed to check duplicate in Redis: %w", result.Err())
+	// First try SetNX
+	wasSet, err := client.SetNX(ctx, redisKey, time.Now().Unix(), window.Duration).Result()
+	if err != nil {
+		return false, "", fmt.Errorf("failed to check duplicate in Redis: %w", err)
 	}
 
-	isDuplicate := !result.Val() // SetNX returns false if key exists
+	isDuplicate := !wasSet // SetNX returns false if key already exists
 
 	if isDuplicate {
 		// It's a duplicate, get the original timestamp

@@ -63,8 +63,9 @@ type WebhookConsumer struct {
 	processor EventProcessor
 
 	// Worker management
-	workers sync.WaitGroup
-	stopCh  chan struct{}
+	workers  sync.WaitGroup
+	stopCh   chan struct{}
+	stopOnce sync.Once // Ensures Stop() can be called multiple times safely
 
 	// Metrics
 	metrics ConsumerMetrics
@@ -184,10 +185,12 @@ func (c *WebhookConsumer) Start() error {
 
 // Stop gracefully stops the consumer
 func (c *WebhookConsumer) Stop() {
-	c.logger.Info("Stopping webhook consumer", nil)
-	close(c.stopCh)
-	c.workers.Wait()
-	c.logger.Info("Webhook consumer stopped", nil)
+	c.stopOnce.Do(func() {
+		c.logger.Info("Stopping webhook consumer", nil)
+		close(c.stopCh)
+		c.workers.Wait()
+		c.logger.Info("Webhook consumer stopped", nil)
+	})
 }
 
 // worker is the main worker loop
