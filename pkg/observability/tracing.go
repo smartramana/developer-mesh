@@ -6,6 +6,7 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"sync"
 	"time"
 
 	"go.opentelemetry.io/otel"
@@ -204,6 +205,7 @@ func InitTracing(cfg TracingConfig) (func(), error) {
 var (
 	globalTracer     trace.Tracer
 	globalTracerInit bool
+	tracingWarnOnce  sync.Once
 )
 
 // SetTracer sets the global tracer
@@ -215,7 +217,9 @@ func SetTracer(t trace.Tracer) {
 // GetTracer returns the global tracer
 func GetTracer() trace.Tracer {
 	if !globalTracerInit {
-		log.Println("Warning: Tracing not initialized, operations will not be traced")
+		tracingWarnOnce.Do(func() {
+			log.Println("Warning: Tracing not initialized, operations will not be traced")
+		})
 		return noop.NewTracerProvider().Tracer("")
 	}
 	return globalTracer

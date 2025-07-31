@@ -43,9 +43,9 @@ func NewSensitiveDataRedactor() *SensitiveDataRedactor {
 		// Private keys
 		regexp.MustCompile(`(?i)(private[_-]?key|privatekey)\s*[:=]\s*["']?([^"'\s]+)["']?`),
 		// Bearer tokens in Authorization headers
-		regexp.MustCompile(`(?i)Bearer\s+([^\s]+)`),
+		regexp.MustCompile(`(?i)(Bearer)\s+([^\s]+)`),
 		// Basic auth
-		regexp.MustCompile(`(?i)Basic\s+([^\s]+)`),
+		regexp.MustCompile(`(?i)(Basic)\s+([^\s]+)`),
 		// Credit card patterns
 		regexp.MustCompile(`\b\d{4}[\s-]?\d{4}[\s-]?\d{4}[\s-]?\d{4}\b`),
 		// SSN patterns

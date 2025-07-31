@@ -35,12 +35,30 @@ func (s *DefaultSentenceSplitter) Split(text string) []string {
 	for i := 0; i < len(runes); i++ {
 		currentSentence.WriteRune(runes[i])
 
+		// Check for paragraph boundaries (double newline)
+		if i+1 < len(runes) && runes[i] == '\n' && runes[i+1] == '\n' {
+			// Add the second newline
+			currentSentence.WriteRune(runes[i+1])
+			i++ // skip the second newline in loop
+
+			sentence := currentSentence.String()
+			if strings.TrimSpace(sentence) != "" {
+				sentences = append(sentences, sentence)
+			}
+			currentSentence.Reset()
+			continue
+		}
+
 		// Check for sentence endings
 		if s.isSentenceEnd(runes, i) {
 			// Look ahead for continuation
 			if !s.isContinuation(runes, i) {
-				sentence := strings.TrimSpace(currentSentence.String())
-				if sentence != "" {
+				sentence := currentSentence.String()
+				// Trim leading space for non-first sentences
+				if len(sentences) > 0 {
+					sentence = strings.TrimLeft(sentence, " ")
+				}
+				if strings.TrimSpace(sentence) != "" {
 					sentences = append(sentences, sentence)
 				}
 				currentSentence.Reset()
@@ -50,8 +68,8 @@ func (s *DefaultSentenceSplitter) Split(text string) []string {
 
 	// Add any remaining text as a sentence
 	if currentSentence.Len() > 0 {
-		sentence := strings.TrimSpace(currentSentence.String())
-		if sentence != "" {
+		sentence := currentSentence.String()
+		if strings.TrimSpace(sentence) != "" {
 			sentences = append(sentences, sentence)
 		}
 	}

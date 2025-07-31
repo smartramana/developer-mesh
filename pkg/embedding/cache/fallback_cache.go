@@ -38,6 +38,9 @@ type FallbackCache struct {
 	// Stats
 	hits   int64
 	misses int64
+
+	// Lifecycle
+	stopCh chan struct{}
 }
 
 // FallbackEntry represents an in-memory cache entry
@@ -89,6 +92,7 @@ func NewFallbackCache(maxEntries int, ttl time.Duration, logger observability.Lo
 		logger:     logger,
 		metrics:    metrics,
 		accessList: &accessList{},
+		stopCh:     make(chan struct{}),
 	}
 
 	// Start cleanup routine
@@ -218,29 +222,39 @@ func (fc *FallbackCache) cleanupRoutine() {
 	ticker := time.NewTicker(1 * time.Minute)
 	defer ticker.Stop()
 
-	for range ticker.C {
-		now := time.Now()
-		var expiredKeys []string
+	for {
+		select {
+		case <-ticker.C:
+			now := time.Now()
+			var expiredKeys []string
 
-		fc.entries.Range(func(key, value interface{}) bool {
-			entry := value.(*FallbackEntry)
-			if now.After(entry.ExpiresAt) {
-				expiredKeys = append(expiredKeys, key.(string))
-			}
-			return true
-		})
-
-		for _, key := range expiredKeys {
-			fc.entries.Delete(key)
-			fc.accessList.remove(key)
-		}
-
-		if len(expiredKeys) > 0 {
-			fc.logger.Debug("Cleaned up expired entries", map[string]interface{}{
-				"count": len(expiredKeys),
+			fc.entries.Range(func(key, value interface{}) bool {
+				entry := value.(*FallbackEntry)
+				if now.After(entry.ExpiresAt) {
+					expiredKeys = append(expiredKeys, key.(string))
+				}
+				return true
 			})
+
+			for _, key := range expiredKeys {
+				fc.entries.Delete(key)
+				fc.accessList.remove(key)
+			}
+
+			if len(expiredKeys) > 0 {
+				fc.logger.Debug("Cleaned up expired entries", map[string]interface{}{
+					"count": len(expiredKeys),
+				})
+			}
+		case <-fc.stopCh:
+			return
 		}
 	}
+}
+
+// Stop stops the fallback cache cleanup routine
+func (fc *FallbackCache) Stop() {
+	close(fc.stopCh)
 }
 
 func (fc *FallbackCache) recordHit() {
@@ -434,6 +448,13 @@ func NewDegradedModeCache(primary *SemanticCache, logger observability.Logger) *
 		logger:      logger,
 		checkPeriod: 5 * time.Second,
 		degraded:    degraded,
+	}
+}
+
+// Stop stops the degraded mode cache
+func (dmc *DegradedModeCache) Stop() {
+	if dmc.fallback != nil {
+		dmc.fallback.Stop()
 	}
 }
 

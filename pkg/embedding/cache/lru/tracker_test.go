@@ -7,6 +7,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/alicebob/miniredis/v2"
+	"github.com/go-redis/redis/v8"
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
@@ -14,8 +16,17 @@ import (
 )
 
 func TestAsyncTracker_Track(t *testing.T) {
+	// Use miniredis for testing
+	mr, err := miniredis.Run()
+	require.NoError(t, err)
+	defer mr.Close()
 
-	mockRedis := &MockRedisClient{}
+	redisClient := redis.NewClient(&redis.Options{
+		Addr: mr.Addr(),
+	})
+	defer func() { _ = redisClient.Close() }()
+
+	mockRedis := &MockRedisClient{client: redisClient}
 	mockRedis.On("Execute", mock.Anything, mock.Anything).Return(nil, nil)
 
 	config := &Config{
@@ -40,11 +51,20 @@ func TestAsyncTracker_Track(t *testing.T) {
 }
 
 func TestAsyncTracker_BatchProcessing(t *testing.T) {
+	// Use miniredis for testing
+	mr, err := miniredis.Run()
+	require.NoError(t, err)
+	defer mr.Close()
+
+	redisClient := redis.NewClient(&redis.Options{
+		Addr: mr.Addr(),
+	})
+	defer func() { _ = redisClient.Close() }()
 
 	var flushCount int
 	var mu sync.Mutex
 
-	mockRedis := &MockRedisClient{}
+	mockRedis := &MockRedisClient{client: redisClient}
 	mockRedis.On("Execute", mock.Anything, mock.Anything).Return(nil, nil).Run(func(args mock.Arguments) {
 		mu.Lock()
 		flushCount++
@@ -86,11 +106,20 @@ func TestAsyncTracker_BatchProcessing(t *testing.T) {
 }
 
 func TestAsyncTracker_FlushInterval(t *testing.T) {
+	// Use miniredis for testing
+	mr, err := miniredis.Run()
+	require.NoError(t, err)
+	defer mr.Close()
+
+	redisClient := redis.NewClient(&redis.Options{
+		Addr: mr.Addr(),
+	})
+	defer func() { _ = redisClient.Close() }()
 
 	var flushCount int
 	var mu sync.Mutex
 
-	mockRedis := &MockRedisClient{}
+	mockRedis := &MockRedisClient{client: redisClient}
 	mockRedis.On("Execute", mock.Anything, mock.Anything).Return(nil, nil).Run(func(args mock.Arguments) {
 		mu.Lock()
 		flushCount++
@@ -120,7 +149,17 @@ func TestAsyncTracker_FlushInterval(t *testing.T) {
 }
 
 func TestAsyncTracker_ChannelFull(t *testing.T) {
-	mockRedis := &MockRedisClient{}
+	// Use miniredis for testing
+	mr, err := miniredis.Run()
+	require.NoError(t, err)
+	defer mr.Close()
+
+	redisClient := redis.NewClient(&redis.Options{
+		Addr: mr.Addr(),
+	})
+	defer func() { _ = redisClient.Close() }()
+
+	mockRedis := &MockRedisClient{client: redisClient}
 	mockRedis.On("Execute", mock.Anything, mock.Anything).Return(nil, nil)
 
 	config := &Config{

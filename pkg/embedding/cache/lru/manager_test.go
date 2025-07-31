@@ -6,10 +6,12 @@ import (
 	"testing"
 	"time"
 
+	"github.com/alicebob/miniredis/v2"
 	"github.com/go-redis/redis/v8"
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
+	"github.com/stretchr/testify/require"
 
 	"github.com/developer-mesh/developer-mesh/pkg/embedding/cache/eviction"
 	"github.com/developer-mesh/developer-mesh/pkg/observability"
@@ -85,11 +87,16 @@ func TestManager_EvictForTenant(t *testing.T) {
 	tenantID := uuid.New()
 	prefix := "test"
 
+	// Use miniredis for testing
+	mr, err := miniredis.Run()
+	require.NoError(t, err)
+	defer mr.Close()
+
 	// Setup Redis client mock
 	redisClient := redis.NewClient(&redis.Options{
-		Addr: "localhost:6379",
-		DB:   15,
+		Addr: mr.Addr(),
 	})
+	defer func() { _ = redisClient.Close() }()
 
 	mockRedis := &MockRedisClient{client: redisClient}
 	mockRedis.On("Execute", mock.Anything, mock.Anything).Return(nil, nil)

@@ -399,8 +399,9 @@ func (c *SemanticCache) Set(ctx context.Context, query string, queryEmbedding []
 		// Enter degraded mode on Redis errors
 		c.enterDegradedMode("Redis SET failed", err)
 
-		// If we have a degraded mode cache, use it as fallback
-		if c.degradedModeCache != nil {
+		// If we have a degraded mode cache and we're not already coming from degraded mode
+		fromDegraded, _ := ctx.Value(contextKeyFromDegraded).(bool)
+		if c.degradedModeCache != nil && !fromDegraded {
 			// Retry with degraded mode
 			return c.degradedModeCache.Set(ctx, query, queryEmbedding, results)
 		}
@@ -853,6 +854,11 @@ func (c *SemanticCache) Shutdown(ctx context.Context) error {
 		// Stop recovery checker
 		if c.recoveryStop != nil {
 			close(c.recoveryStop)
+		}
+
+		// Stop degraded mode cache
+		if c.degradedModeCache != nil {
+			c.degradedModeCache.Stop()
 		}
 
 		// Flush any pending metrics

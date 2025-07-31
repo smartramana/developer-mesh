@@ -77,7 +77,7 @@ type PrewarmingEngine struct {
 	// Control
 	stopCh chan struct{}
 	wg     sync.WaitGroup
-	
+
 	// Ensure Stop is only called once
 	stopOnce sync.Once
 }

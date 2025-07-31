@@ -32,6 +32,7 @@ func (m *MockAuthMiddleware) Middleware() gin.HandlerFunc {
 			Email:    "test@example.com",
 		}
 		c.Set("claims", claims)
+		c.Set("tenant_id", "test-tenant")
 		c.Next()
 	}
 }
@@ -98,6 +99,8 @@ func setupTestDB(t *testing.T) *sqlx.DB {
 
 func setupTestAPI(t *testing.T, db *sqlx.DB) (*gin.Engine, *handlers.DynamicToolAPI) {
 	gin.SetMode(gin.TestMode)
+	
+	router := gin.New()
 
 	// Create services
 	logger := observability.NewStandardLogger("test")
@@ -119,8 +122,7 @@ func setupTestAPI(t *testing.T, db *sqlx.DB) (*gin.Engine, *handlers.DynamicTool
 		logger,
 	)
 
-	// Setup router
-	router := gin.New()
+	// Setup router with middleware
 	router.Use(gin.Recovery())
 
 	// Add mock auth middleware

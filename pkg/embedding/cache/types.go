@@ -75,7 +75,7 @@ type Config struct {
 //
 // Adjust these values based on your specific use case and requirements.
 func DefaultConfig() *Config {
-	return &Config{
+	config := &Config{
 		SimilarityThreshold: 0.95,
 		TTL:                 24 * time.Hour,
 		MaxCandidates:       10,
@@ -86,6 +86,9 @@ func DefaultConfig() *Config {
 		RedisPoolConfig:     DefaultRedisPoolConfig(),
 		PerformanceConfig:   GetPerformanceProfile(ProfileBalanced),
 	}
+	// Apply the balanced profile settings
+	config.ApplyPerformanceProfile(ProfileBalanced)
+	return config
 }
 
 // CacheStats represents cache statistics at a point in time.

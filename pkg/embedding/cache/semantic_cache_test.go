@@ -93,7 +93,7 @@ func TestNewSemanticCache(t *testing.T) {
 		cache, err := NewSemanticCache(client, nil, nil)
 		require.NoError(t, err)
 
-		assert.Equal(t, float32(0.95), cache.config.SimilarityThreshold)
+		assert.Equal(t, float32(0.93), cache.config.SimilarityThreshold)
 		assert.Equal(t, 24*time.Hour, cache.config.TTL)
 		assert.Equal(t, 10, cache.config.MaxCandidates)
 		assert.Equal(t, "semantic_cache", cache.config.Prefix)

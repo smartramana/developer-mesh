@@ -94,7 +94,7 @@ In conclusion, this was a good example.`,
 				KeepSeparator: true,
 			},
 			minChunks: 3,
-			maxChunks: 6,
+			maxChunks: 7,
 		},
 	}
 

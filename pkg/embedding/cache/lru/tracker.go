@@ -51,11 +51,23 @@ func NewAsyncTracker(redis RedisClient, config *Config, logger observability.Log
 		bufferSize = 1000
 	}
 
+	// Use configured flush interval, default to 10 seconds if not set
+	flushInterval := config.FlushInterval
+	if flushInterval <= 0 {
+		flushInterval = 10 * time.Second
+	}
+
+	// Use configured batch size, default to 100 if not set
+	batchSize := config.TrackingBatchSize
+	if batchSize <= 0 {
+		batchSize = 100
+	}
+
 	t := &AsyncTracker{
 		updates:       make(chan accessUpdate, bufferSize),
 		batch:         make(map[string][]accessUpdate),
-		flushInterval: config.FlushInterval,
-		batchSize:     config.TrackingBatchSize,
+		flushInterval: flushInterval,
+		batchSize:     batchSize,
 		redis:         redis,
 		logger:        logger,
 		metrics:       metrics,
