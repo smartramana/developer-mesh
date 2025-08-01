@@ -117,7 +117,19 @@ jobs:
       - name: Run tests
         run: |
           echo "Running unit tests..."
-          go test -v -short ./apps/mcp-server/... ./apps/rest-api/... ./apps/worker/... ./pkg/...
+          set +e  # Don't exit immediately on error
+          go test -v -short ./apps/mcp-server/... ./apps/rest-api/... ./apps/worker/... ./pkg/... 2>&1 | tee test_output.log
+          TEST_EXIT_CODE=${PIPESTATUS[0]}
+          
+          # Check if tests actually failed (not just error logs)
+          if [ $TEST_EXIT_CODE -ne 0 ]; then
+            echo "Tests failed with exit code: $TEST_EXIT_CODE"
+            # Show actual test failures (not just error logs)
+            grep -E "^(FAIL:|--- FAIL:)" test_output.log || true
+            exit $TEST_EXIT_CODE
+          fi
+          
+          echo "All tests passed!"
         env:
           POSTGRES_HOST: localhost
           POSTGRES_PORT: 5433
@@ -129,7 +141,8 @@ jobs:
           REDIS_PASSWORD: ""
           REDIS_TLS_ENABLED: false
           BEDROCK_ENABLED: false
-          LOG_LEVEL: debug
+          LOG_LEVEL: fatal  # Only show fatal errors in CI to avoid false positives
+          CI: true
 
   build:
     name: Build and Push Docker Images
