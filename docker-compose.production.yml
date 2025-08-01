@@ -13,11 +13,12 @@ services:
       - .env
     environment:
       - PORT=8080  # Override any global PORT setting
-    command: >
-      sh -c "ln -sf /app/configs/config.production.yaml /app/configs/config.yaml && /app/mcp-server"
+      - MCP_CONFIG_FILE=/app/configs/config.production.yaml
+    command: /app/mcp-server
     volumes:
       - ./configs/config.base.yaml:/app/configs/config.base.yaml:ro
       - ./configs/config.production.yaml:/app/configs/config.production.yaml:ro
+      - ./configs/config.production.yaml:/app/configs/config.yaml:ro
       - ./configs/auth.production.yaml:/app/configs/auth.production.yaml:ro
       - ./logs:/app/logs
     healthcheck:
