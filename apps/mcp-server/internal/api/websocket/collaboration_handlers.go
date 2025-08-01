@@ -710,6 +710,7 @@ func (s *Server) handleWorkflowCreateCollaborative(ctx context.Context, conn *Co
 		Agents           []string                 `json:"agents"`
 		CoordinationMode string                   `json:"coordination_mode"` // centralized, distributed, consensus
 		DecisionStrategy string                   `json:"decision_strategy"` // majority, unanimous, weighted
+		Strategy         string                   `json:"strategy"`          // sequential, parallel, conditional, collaborative
 		TimeoutSeconds   int                      `json:"timeout_seconds"`
 		MaxRetries       int                      `json:"max_retries"`
 	}
@@ -733,12 +734,29 @@ func (s *Server) handleWorkflowCreateCollaborative(ctx context.Context, conn *Co
 			}
 		}
 
+		// Determine workflow type from strategy parameter
+		workflowType := models.WorkflowTypeCollaborative
+		if workflowParams.Strategy != "" {
+			switch workflowParams.Strategy {
+			case "sequential":
+				workflowType = models.WorkflowTypeSequential
+			case "parallel":
+				workflowType = models.WorkflowTypeParallel
+			case "conditional":
+				workflowType = models.WorkflowTypeConditional
+			case "collaborative":
+				workflowType = models.WorkflowTypeCollaborative
+			default:
+				// Keep default as collaborative
+			}
+		}
+
 		workflow := &models.Workflow{
 			ID:          uuid.New(),
 			TenantID:    conn.GetTenantUUID(),
 			Name:        workflowParams.Name,
 			Description: workflowParams.Description,
-			Type:        models.WorkflowTypeCollaborative,
+			Type:        workflowType,
 			IsActive:    true,
 			Agents:      agentsMap, // Initialize Agents as JSONMap object
 			Config: models.JSONMap{
@@ -747,6 +765,7 @@ func (s *Server) handleWorkflowCreateCollaborative(ctx context.Context, conn *Co
 				"agents":            workflowParams.Agents,
 				"timeout_seconds":   workflowParams.TimeoutSeconds,
 				"max_retries":       workflowParams.MaxRetries,
+				"strategy":          workflowParams.Strategy,
 			},
 			Steps:     models.WorkflowSteps{}, // Initialize Steps array
 			CreatedBy: conn.AgentID,
