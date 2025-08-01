@@ -117,19 +117,28 @@ jobs:
       - name: Run tests
         run: |
           echo "Running unit tests..."
-          set +e  # Don't exit immediately on error
-          go test -v -short ./apps/mcp-server/... ./apps/rest-api/... ./apps/worker/... ./pkg/... 2>&1 | tee test_output.log
-          TEST_EXIT_CODE=${PIPESTATUS[0]}
+          echo "Test environment:"
+          echo "  POSTGRES_HOST=$POSTGRES_HOST"
+          echo "  POSTGRES_PORT=$POSTGRES_PORT"
+          echo "  REDIS_ADDR=$REDIS_ADDR"
+          echo "  LOG_LEVEL=$LOG_LEVEL"
           
-          # Check if tests actually failed (not just error logs)
-          if [ $TEST_EXIT_CODE -ne 0 ]; then
-            echo "Tests failed with exit code: $TEST_EXIT_CODE"
-            # Show actual test failures (not just error logs)
-            grep -E "^(FAIL:|--- FAIL:)" test_output.log || true
-            exit $TEST_EXIT_CODE
-          fi
+          # Test database connectivity
+          PGPASSWORD=$POSTGRES_PASSWORD psql -h $POSTGRES_HOST -p $POSTGRES_PORT -U $POSTGRES_USER -d $POSTGRES_DB -c "SELECT 1" || echo "Warning: Could not connect to PostgreSQL"
           
-          echo "All tests passed!"
+          # Test Redis connectivity  
+          redis-cli -h localhost ping || echo "Warning: Could not connect to Redis"
+          
+          # Run tests with detailed output
+          go test -v -short ./apps/mcp-server/... ./apps/rest-api/... ./apps/worker/... ./pkg/... || {
+            echo "❌ Tests failed with exit code: $?"
+            echo "Checking for specific failures..."
+            # Run failing tests individually for better diagnostics
+            go test -v -short ./pkg/embedding/rerank/... || echo "rerank tests failed"
+            exit 1
+          }
+          
+          echo "✅ All tests passed!"
         env:
           POSTGRES_HOST: localhost
           POSTGRES_PORT: 5433
