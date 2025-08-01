@@ -16,6 +16,29 @@ jobs:
   lint-and-test:
     name: Lint and Test
     runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: pgvector/pgvector:pg17
+        env:
+          POSTGRES_USER: test
+          POSTGRES_PASSWORD: test
+          POSTGRES_DB: devmesh_test
+        ports:
+          - 5433:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4
@@ -84,11 +107,24 @@ jobs:
         run: |
           make lint
 
+      - name: Initialize database
+        run: |
+          PGPASSWORD=test psql -h localhost -p 5433 -U test -d devmesh_test -c "CREATE EXTENSION IF NOT EXISTS vector;"
+          PGPASSWORD=test psql -h localhost -p 5433 -U test -d devmesh_test -c "CREATE SCHEMA IF NOT EXISTS mcp;"
+        env:
+          PGPASSWORD: test
+
       - name: Run tests
         run: |
           echo "Running unit tests..."
           go test -v -short ./apps/mcp-server/... ./apps/rest-api/... ./apps/worker/... ./pkg/...
         env:
+          POSTGRES_HOST: localhost
+          POSTGRES_PORT: 5433
+          POSTGRES_USER: test
+          POSTGRES_PASSWORD: test
+          POSTGRES_DB: devmesh_test
+          DATABASE_URL: "postgres://test:test@localhost:5433/devmesh_test?sslmode=disable"
           REDIS_ADDR: localhost:6379
           REDIS_PASSWORD: ""
           REDIS_TLS_ENABLED: false
