@@ -904,15 +904,15 @@ func (s *Server) handleWorkflowCreateCollaborative(ctx context.Context, conn *Co
 
 		// Log complete workflow object before creation
 		s.logger.Info("Creating workflow with data", map[string]interface{}{
-			"workflow_id":   workflow.ID,
-			"tenant_id":     workflow.TenantID,
-			"name":          workflow.Name,
-			"type":          workflow.Type,
-			"agents_count":  len(workflow.Agents),
-			"agents":        workflow.Agents,
-			"steps_count":   len(workflow.Steps),
-			"config":        workflow.Config,
-			"created_by":    workflow.CreatedBy,
+			"workflow_id":  workflow.ID,
+			"tenant_id":    workflow.TenantID,
+			"name":         workflow.Name,
+			"type":         workflow.Type,
+			"agents_count": len(workflow.Agents),
+			"agents":       workflow.Agents,
+			"steps_count":  len(workflow.Steps),
+			"config":       workflow.Config,
+			"created_by":   workflow.CreatedBy,
 		})
 
 		if err := s.workflowService.CreateWorkflow(ctx, workflow); err != nil {
