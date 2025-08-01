@@ -190,18 +190,18 @@ func (s *SemanticChunker) Chunk(ctx context.Context, text string, metadata map[s
 		if currentTokens > 0 { // Account for space between sentences
 			potentialTokens++
 		}
-		
+
 		// Debug logging
-		if i < 5 || i > len(sentences)-5 {
-			// fmt.Printf("[Sentence %d] current=%d, sentence=%d, potential=%d, max=%d\n", 
-			//     i, currentTokens, sentenceTokens, potentialTokens, s.config.MaxChunkSize)
-		}
-		
+		// if i < 5 || i > len(sentences)-5 {
+		//     fmt.Printf("[Sentence %d] current=%d, sentence=%d, potential=%d, max=%d\n",
+		//         i, currentTokens, sentenceTokens, potentialTokens, s.config.MaxChunkSize)
+		// }
+
 		// If adding this sentence would exceed max size, finalize current chunk first
 		if potentialTokens > s.config.MaxChunkSize && currentTokens >= s.config.MinChunkSize {
 			currentChunk.EndChar = currentChar
 			chunks = append(chunks, s.finalizeChunk(currentChunk, len(chunks)))
-			
+
 			// Start new chunk with overlap
 			overlapText := s.getOverlapText(currentChunk.Content, s.config.OverlapSize)
 			currentChunk = &chunking.TextChunk{
@@ -210,7 +210,7 @@ func (s *SemanticChunker) Chunk(ctx context.Context, text string, metadata map[s
 				StartChar: currentChar,
 			}
 			currentTokens = 0
-			
+
 			// Only add overlap if it doesn't make the new chunk exceed max size with the sentence
 			if overlapText != "" {
 				overlapTokens := s.tokenizer.CountTokens(overlapText)
@@ -221,11 +221,11 @@ func (s *SemanticChunker) Chunk(ctx context.Context, text string, metadata map[s
 				}
 			}
 		}
-		
+
 		// Now add the sentence to current chunk
 		if currentChunk.Content != "" {
 			currentChunk.Content += " "
-			currentChar++ // for the space
+			currentChar++   // for the space
 			currentTokens++ // for the space token
 		}
 		currentChunk.Content += sentence
@@ -283,7 +283,7 @@ func (s *SemanticChunker) Chunk(ctx context.Context, text string, metadata map[s
 		lastChunk := chunks[len(chunks)-1]
 		mergedContent := lastChunk.Content + " " + currentChunk.Content
 		mergedTokens := s.tokenizer.CountTokens(mergedContent)
-		
+
 		if mergedTokens <= s.config.MaxChunkSize {
 			// Safe to merge
 			lastChunk.Content = mergedContent
@@ -402,7 +402,7 @@ func (s *SemanticChunker) getOverlapText(content string, overlapTokens int) stri
 func (s *SemanticChunker) finalizeChunk(chunk *chunking.TextChunk, index int) *chunking.TextChunk {
 	chunk.Index = index
 	chunk.TokenCount = s.tokenizer.CountTokens(chunk.Content)
-	
+
 	// Ensure chunk doesn't exceed max size (safety check)
 	if chunk.TokenCount > s.config.MaxChunkSize {
 		// Trim chunk to max size by removing words from the end

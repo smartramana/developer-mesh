@@ -74,7 +74,7 @@ type StreamsClient struct {
 // NewStreamsClient creates a new Redis Streams client
 func NewStreamsClient(config *StreamsConfig, logger observability.Logger) (*StreamsClient, error) {
 	if config == nil {
-		config = DefaultConfig()
+		return nil, fmt.Errorf("config is required")
 	}
 
 	client := &StreamsClient{

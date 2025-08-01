@@ -33,12 +33,20 @@ END;
 $$ language 'plpgsql';
 
 -- Set default search path to include mcp schema
-ALTER DATABASE devops_mcp_dev SET search_path TO mcp, public;
+-- Note: This needs to be run for each database after creation
+-- We can't use ALTER DATABASE here as we don't know the database name
+-- Instead, set it for the current session and let applications handle it
+SET search_path TO mcp, public;
 
--- Grant usage on schema to postgres user
-GRANT USAGE ON SCHEMA mcp TO postgres;
-GRANT CREATE ON SCHEMA mcp TO postgres;
+-- Grant usage on schema to current user
+-- Using CURRENT_USER to be environment-agnostic
+GRANT USAGE ON SCHEMA mcp TO CURRENT_USER;
+
+-- Grant CREATE on schema to the database owner (which is CURRENT_USER in init scripts)
+GRANT CREATE ON SCHEMA mcp TO CURRENT_USER;
 
 -- Ensure permissions for sequence generation
-GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA mcp TO postgres;
-GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA public TO postgres;
+GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA mcp TO CURRENT_USER;
+
+-- If we need to grant to additional users, they should be created first
+-- or these grants should be run after user creation

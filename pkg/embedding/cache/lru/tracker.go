@@ -25,8 +25,9 @@ type AsyncTracker struct {
 	logger  observability.Logger
 	metrics observability.MetricsClient
 
-	stopCh chan struct{}
-	wg     sync.WaitGroup
+	stopCh   chan struct{}
+	stopOnce sync.Once
+	wg       sync.WaitGroup
 }
 
 // accessUpdate represents a cache access event
@@ -98,12 +99,14 @@ func (t *AsyncTracker) Track(tenantID uuid.UUID, key string) {
 
 // Stop gracefully stops the tracker
 func (t *AsyncTracker) Stop() {
-	close(t.stopCh)
-	close(t.updates)
-	t.wg.Wait()
+	t.stopOnce.Do(func() {
+		close(t.stopCh)
+		close(t.updates)
+		t.wg.Wait()
 
-	// Final flush
-	t.flushAll()
+		// Final flush
+		t.flushAll()
+	})
 }
 
 func (t *AsyncTracker) processLoop() {

@@ -635,10 +635,16 @@ func extractHarnessCategory(specURL string) string {
 
 func extractAWSCategory(specURL string) string {
 	// Extract service name from URL
-	parts := strings.Split(specURL, "/")
-	for i, part := range parts {
-		if part == "latest" && i > 0 {
-			return strings.ToUpper(parts[i-1])
+	// URLs like: https://ec2.amazonaws.com/latest/api-reference.json
+	if strings.Contains(specURL, ".amazonaws.com") {
+		// Extract subdomain
+		parts := strings.Split(specURL, "//")
+		if len(parts) > 1 {
+			hostParts := strings.Split(parts[1], ".")
+			if len(hostParts) > 0 {
+				service := strings.ToUpper(hostParts[0])
+				return service
+			}
 		}
 	}
 	return "AWS Service"

@@ -51,6 +51,7 @@ type SemanticCache struct {
 	degradedModeCache *DegradedModeCache
 	degradedMode      atomic.Bool
 	recoveryStop      chan struct{}
+	recoveryStopOnce  sync.Once
 
 	// Audit logging
 	auditLogger *audit.Logger
@@ -853,7 +854,9 @@ func (c *SemanticCache) Shutdown(ctx context.Context) error {
 
 		// Stop recovery checker
 		if c.recoveryStop != nil {
-			close(c.recoveryStop)
+			c.recoveryStopOnce.Do(func() {
+				close(c.recoveryStop)
+			})
 		}
 
 		// Stop degraded mode cache

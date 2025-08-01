@@ -630,7 +630,7 @@ func (h *HybridSearchService) tokenizeQuery(query string) []string {
 		"is": true, "was": true, "are": true, "were": true,
 	}
 
-	var tokens []string
+	tokens := make([]string, 0)
 	for _, word := range words {
 		word = strings.Trim(word, ".,!?;:\"'")
 		if len(word) > 2 && !stopWords[word] {

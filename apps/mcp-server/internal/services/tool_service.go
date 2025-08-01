@@ -77,6 +77,9 @@ func (s *ToolService) CreateTool(ctx context.Context, tenantID string, config *t
 		if err != nil {
 			return fmt.Errorf("failed to marshal retry policy: %w", err)
 		}
+	} else {
+		// PostgreSQL requires valid JSON for JSONB columns, not null
+		retryPolicyJSON = json.RawMessage("null")
 	}
 
 	// Generate ID

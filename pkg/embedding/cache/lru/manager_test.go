@@ -288,8 +288,8 @@ func TestLRUManager_Integration(t *testing.T) {
 
 	// Mock vector store
 	mockVectorStore := &MockVectorStore{}
-	mockVectorStore.On("GetTenantsWithCache", ctx).Return([]uuid.UUID{tenantID}, nil)
-	mockVectorStore.On("GetTenantCacheStats", ctx, tenantID).Return(&eviction.TenantCacheStats{
+	mockVectorStore.On("GetTenantsWithCache", mock.Anything).Return([]uuid.UUID{tenantID}, nil)
+	mockVectorStore.On("GetTenantCacheStats", mock.Anything, tenantID).Return(&eviction.TenantCacheStats{
 		TenantID:   tenantID,
 		EntryCount: 15,
 		TotalHits:  100,
@@ -308,5 +308,5 @@ func TestLRUManager_Integration(t *testing.T) {
 	assert.NoError(t, err)
 
 	// Verify eviction was attempted
-	mockVectorStore.AssertCalled(t, "GetTenantCacheStats", ctx, tenantID)
+	mockVectorStore.AssertCalled(t, "GetTenantCacheStats", mock.Anything, tenantID)
 }

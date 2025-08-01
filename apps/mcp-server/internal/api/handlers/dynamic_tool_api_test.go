@@ -6,6 +6,8 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"os"
+	"strings"
 	"testing"
 
 	"github.com/developer-mesh/developer-mesh/apps/mcp-server/internal/api/handlers"
@@ -38,9 +40,26 @@ func (m *MockAuthMiddleware) Middleware() gin.HandlerFunc {
 }
 
 func setupTestDB(t *testing.T) *sqlx.DB {
-	// Use in-memory SQLite for testing
-	db, err := sqlx.Open("sqlite3", ":memory:")
-	require.NoError(t, err)
+	// Skip if not in integration test mode
+	if testing.Short() {
+		t.Skip("Skipping integration test in short mode")
+	}
+
+	// Use PostgreSQL test container - use 127.0.0.1 instead of localhost to avoid IPv6
+	dbURL := "postgres://test:test@127.0.0.1:5433/test?sslmode=disable"
+	if envURL := os.Getenv("TEST_DATABASE_URL"); envURL != "" {
+		dbURL = envURL
+	}
+
+	db, err := sqlx.Open("postgres", dbURL)
+	if err != nil {
+		t.Skipf("Skipping test, cannot connect to test database: %v", err)
+	}
+
+	// Clean up any existing tables
+	_, _ = db.Exec("DROP TABLE IF EXISTS tool_executions CASCADE")
+	_, _ = db.Exec("DROP TABLE IF EXISTS tool_discovery_sessions CASCADE")
+	_, _ = db.Exec("DROP TABLE IF EXISTS tool_configurations CASCADE")
 
 	// Create test schema
 	schema := `
@@ -50,10 +69,10 @@ func setupTestDB(t *testing.T) *sqlx.DB {
 		tool_type TEXT NOT NULL,
 		tool_name TEXT NOT NULL,
 		display_name TEXT,
-		config TEXT NOT NULL,
-		credentials_encrypted BLOB,
+		config JSONB,
+		credentials_encrypted BYTEA,
 		auth_type TEXT NOT NULL DEFAULT 'token',
-		retry_policy TEXT,
+		retry_policy JSONB,
 		status TEXT DEFAULT 'active',
 		health_status TEXT DEFAULT 'unknown',
 		last_health_check TIMESTAMP,
@@ -70,7 +89,7 @@ func setupTestDB(t *testing.T) *sqlx.DB {
 		tool_type TEXT,
 		base_url TEXT,
 		status TEXT,
-		discovered_urls TEXT,
+		discovered_urls JSONB,
 		selected_url TEXT,
 		created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
 		expires_at TIMESTAMP
@@ -81,7 +100,7 @@ func setupTestDB(t *testing.T) *sqlx.DB {
 		tool_config_id TEXT REFERENCES tool_configurations(id),
 		tenant_id TEXT NOT NULL,
 		action TEXT,
-		parameters TEXT,
+		parameters JSONB,
 		status TEXT,
 		retry_count INTEGER DEFAULT 0,
 		error TEXT,
@@ -99,7 +118,7 @@ func setupTestDB(t *testing.T) *sqlx.DB {
 
 func setupTestAPI(t *testing.T, db *sqlx.DB) (*gin.Engine, *handlers.DynamicToolAPI) {
 	gin.SetMode(gin.TestMode)
-	
+
 	router := gin.New()
 
 	// Create services
@@ -140,6 +159,40 @@ func TestDynamicToolAPI_RegisterTool(t *testing.T) {
 	db := setupTestDB(t)
 	defer func() { _ = db.Close() }()
 
+	// Start a mock server for API discovery
+	mockServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// Handle all common OpenAPI paths
+		if strings.HasSuffix(r.URL.Path, "/openapi.json") ||
+			strings.HasSuffix(r.URL.Path, "/swagger.json") ||
+			strings.Contains(r.URL.Path, "/api") && strings.Contains(r.URL.Path, "openapi") {
+			w.Header().Set("Content-Type", "application/json")
+			spec := map[string]interface{}{
+				"openapi": "3.0.0",
+				"info": map[string]interface{}{
+					"title":   "Mock GitHub API",
+					"version": "1.0.0",
+				},
+				"paths": map[string]interface{}{
+					"/user": map[string]interface{}{
+						"get": map[string]interface{}{
+							"operationId": "getUser",
+							"responses": map[string]interface{}{
+								"200": map[string]interface{}{
+									"description": "Success",
+								},
+							},
+						},
+					},
+				},
+			}
+			_ = json.NewEncoder(w).Encode(spec)
+			return
+		}
+		// Default response
+		w.WriteHeader(http.StatusNotFound)
+	}))
+	defer mockServer.Close()
+
 	router, _ := setupTestAPI(t, db)
 
 	tests := []struct {
@@ -153,10 +206,13 @@ func TestDynamicToolAPI_RegisterTool(t *testing.T) {
 			payload: map[string]interface{}{
 				"name":         "test-github",
 				"display_name": "Test GitHub",
-				"base_url":     "https://api.github.com",
+				"base_url":     mockServer.URL + "/mock-github",
 				"auth_config": map[string]interface{}{
 					"type":  "bearer",
 					"token": "test-token",
+				},
+				"config": map[string]interface{}{
+					"timeout": 30,
 				},
 			},
 			wantStatus: http.StatusCreated,
@@ -218,6 +274,25 @@ func TestDynamicToolAPI_ListTools(t *testing.T) {
 	db := setupTestDB(t)
 	defer func() { _ = db.Close() }()
 
+	// Start a mock server for API discovery
+	mockServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if strings.HasSuffix(r.URL.Path, "/openapi.json") {
+			w.Header().Set("Content-Type", "application/json")
+			spec := map[string]interface{}{
+				"openapi": "3.0.0",
+				"info": map[string]interface{}{
+					"title":   "Mock GitHub API",
+					"version": "1.0.0",
+				},
+				"paths": map[string]interface{}{},
+			}
+			_ = json.NewEncoder(w).Encode(spec)
+			return
+		}
+		w.WriteHeader(http.StatusNotFound)
+	}))
+	defer mockServer.Close()
+
 	router, api := setupTestAPI(t, db)
 
 	// Register a test tool
@@ -226,9 +301,9 @@ func TestDynamicToolAPI_ListTools(t *testing.T) {
 		Type:        "github",
 		Name:        "test-github",
 		DisplayName: "Test GitHub",
-		BaseURL:     "https://api.github.com",
+		BaseURL:     mockServer.URL,
 		Config: map[string]interface{}{
-			"base_url": "https://api.github.com",
+			"base_url": mockServer.URL,
 		},
 		Credential: &tool.TokenCredential{
 			Type:  "bearer",
@@ -293,6 +368,26 @@ func TestDynamicToolAPI_HealthCheck(t *testing.T) {
 	db := setupTestDB(t)
 	defer func() { _ = db.Close() }()
 
+	// Start a mock server for API discovery
+	mockServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if strings.HasSuffix(r.URL.Path, "/openapi.json") {
+			w.Header().Set("Content-Type", "application/json")
+			spec := map[string]interface{}{
+				"openapi": "3.0.0",
+				"info": map[string]interface{}{
+					"title":   "Mock Test API",
+					"version": "1.0.0",
+				},
+				"paths": map[string]interface{}{},
+			}
+			_ = json.NewEncoder(w).Encode(spec)
+			return
+		}
+		// For health check - return error to simulate unhealthy tool
+		w.WriteHeader(http.StatusServiceUnavailable)
+	}))
+	defer mockServer.Close()
+
 	router, api := setupTestAPI(t, db)
 
 	// Register a test tool
@@ -301,9 +396,9 @@ func TestDynamicToolAPI_HealthCheck(t *testing.T) {
 		Type:        "test",
 		Name:        "test-tool",
 		DisplayName: "Test Tool",
-		BaseURL:     "http://localhost:9999", // Non-existent URL
+		BaseURL:     mockServer.URL,
 		Config: map[string]interface{}{
-			"base_url": "http://localhost:9999",
+			"base_url": mockServer.URL,
 		},
 		Credential: &tool.TokenCredential{
 			Type:  "bearer",

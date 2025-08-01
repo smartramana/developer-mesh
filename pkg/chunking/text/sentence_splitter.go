@@ -39,7 +39,7 @@ func (s *DefaultSentenceSplitter) Split(text string) []string {
 			// Look at what's in the current sentence buffer
 			currentText := currentSentence.String()
 			trimmed := strings.TrimSpace(currentText)
-			
+
 			// If current buffer ends with punctuation + quote, split here
 			if len(trimmed) > 0 {
 				lastChar := trimmed[len(trimmed)-1]
@@ -52,7 +52,7 @@ func (s *DefaultSentenceSplitter) Split(text string) []string {
 				}
 			}
 		}
-		
+
 		currentSentence.WriteRune(runes[i])
 
 		// Check for paragraph boundaries (double newline)
@@ -75,13 +75,13 @@ func (s *DefaultSentenceSplitter) Split(text string) []string {
 			if !s.isContinuation(runes, i) {
 				// Check if we need to include following quotes/brackets/parentheses
 				endPos := i
-				for endPos+1 < len(runes) && (runes[endPos+1] == '"' || runes[endPos+1] == '\'' || 
-				    runes[endPos+1] == ')' || runes[endPos+1] == ']' || runes[endPos+1] == '}') {
+				for endPos+1 < len(runes) && (runes[endPos+1] == '"' || runes[endPos+1] == '\'' ||
+					runes[endPos+1] == ')' || runes[endPos+1] == ']' || runes[endPos+1] == '}') {
 					currentSentence.WriteRune(runes[endPos+1])
 					endPos++
 					i = endPos // Skip these characters in the main loop
 				}
-				
+
 				sentence := strings.TrimSpace(currentSentence.String())
 				if sentence != "" {
 					sentences = append(sentences, sentence)
@@ -152,7 +152,7 @@ func (s *DefaultSentenceSplitter) isSentenceEnd(runes []rune, pos int) bool {
 			if pos+1 < len(runes) && runes[pos+1] == '.' {
 				return false // Part of multi-period abbreviation
 			}
-			
+
 			// For single-period abbreviations, we need more context
 			// Check what follows to determine if it's really a sentence boundary
 			if pos+1 < len(runes) {
@@ -161,7 +161,7 @@ func (s *DefaultSentenceSplitter) isSentenceEnd(runes []rune, pos int) bool {
 				for nextPos < len(runes) && unicode.IsSpace(runes[nextPos]) {
 					nextPos++
 				}
-				
+
 				// If we have enough context, check if next word looks like sentence start
 				if nextPos < len(runes) {
 					// Check for pronouns and common sentence starters that indicate new sentence
@@ -171,18 +171,18 @@ func (s *DefaultSentenceSplitter) isSentenceEnd(runes []rune, pos int) bool {
 					}
 					// For titles (Dr., Mr., etc), don't split before names
 					lowerWord := strings.ToLower(word)
-					if lowerWord == "dr" || lowerWord == "mr" || lowerWord == "mrs" || lowerWord == "ms" || 
-					   lowerWord == "prof" || lowerWord == "sr" || lowerWord == "jr" {
+					if lowerWord == "dr" || lowerWord == "mr" || lowerWord == "mrs" || lowerWord == "ms" ||
+						lowerWord == "prof" || lowerWord == "sr" || lowerWord == "jr" {
 						return false // Don't split after titles
 					}
-					
+
 					// Also split if next word is capitalized and not an abbreviation itself
 					if nextWord != "" && unicode.IsUpper(runes[nextPos]) && !s.isAbbreviation(strings.ToLower(nextWord)) {
 						return true
 					}
 				}
 			}
-			
+
 			return false
 		}
 
@@ -191,14 +191,15 @@ func (s *DefaultSentenceSplitter) isSentenceEnd(runes []rune, pos int) bool {
 			pos+1 < len(runes) && unicode.IsDigit(runes[pos+1]) {
 			return false
 		}
-		
+
 		// Check if we're inside parentheses - don't split on period inside parens
 		// unless followed by closing paren
 		parenDepth := 0
 		for j := 0; j < pos; j++ {
-			if runes[j] == '(' {
+			switch runes[j] {
+			case '(':
 				parenDepth++
-			} else if runes[j] == ')' {
+			case ')':
 				parenDepth--
 			}
 		}
@@ -251,7 +252,7 @@ func (s *DefaultSentenceSplitter) isSentenceEnd(runes []rune, pos int) bool {
 			return false
 		}
 	}
-	
+
 	return unicode.IsUpper(runes[nextPos])
 }
 
@@ -287,13 +288,13 @@ func (s *DefaultSentenceSplitter) getNextWord(runes []rune, start int) string {
 	if start >= len(runes) {
 		return ""
 	}
-	
+
 	// Find end of word
 	end := start
 	for end < len(runes) && !unicode.IsSpace(runes[end]) && !unicode.IsPunct(runes[end]) {
 		end++
 	}
-	
+
 	return string(runes[start:end])
 }
 
@@ -309,7 +310,7 @@ func (s *DefaultSentenceSplitter) isSentenceStarter(word string) bool {
 		"although": true, "though": true, "while": true, "when": true, "where": true,
 		"if": true, "because": true, "since": true, "after": true, "before": true,
 	}
-	
+
 	return starters[strings.ToLower(word)]
 }
 
