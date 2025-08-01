@@ -727,7 +727,7 @@ func (s *Server) handleWorkflowCreateCollaborative(ctx context.Context, conn *Co
 	{
 		// Convert agents array to object with agent IDs as keys
 		agentsMap := make(models.JSONMap)
-		
+
 		// If no agents specified, use the creating agent as default
 		if len(workflowParams.Agents) == 0 {
 			// Add the creating agent as a participant
