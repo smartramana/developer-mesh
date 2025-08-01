@@ -85,12 +85,24 @@ func NewAsyncTracker(redis RedisClient, config *Config, logger observability.Log
 
 // Track records an access (non-blocking)
 func (t *AsyncTracker) Track(tenantID uuid.UUID, key string) {
+	// Check if we're stopped before trying to send
+	select {
+	case <-t.stopCh:
+		// Tracker is stopped, ignore the tracking request
+		return
+	default:
+		// Continue with tracking
+	}
+
 	select {
 	case t.updates <- accessUpdate{
 		TenantID:  tenantID,
 		Key:       key,
 		Timestamp: time.Now(),
 	}:
+	case <-t.stopCh:
+		// Stopped while waiting to send
+		return
 	default:
 		// Drop if channel full - tracking is best effort
 		t.metrics.IncrementCounterWithLabels("lru.tracker.dropped", 1, nil)
@@ -101,8 +113,10 @@ func (t *AsyncTracker) Track(tenantID uuid.UUID, key string) {
 func (t *AsyncTracker) Stop() {
 	t.stopOnce.Do(func() {
 		close(t.stopCh)
-		close(t.updates)
+		// Don't close updates channel here - let worker drain it first
 		t.wg.Wait()
+		// Now safe to close after worker stopped
+		close(t.updates)
 
 		// Final flush
 		t.flushAll()

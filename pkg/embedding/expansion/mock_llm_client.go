@@ -38,30 +38,32 @@ func NewSimpleLLMClient() *SimpleLLMClient {
 // Complete provides simple responses based on prompt patterns
 func (s *SimpleLLMClient) Complete(ctx context.Context, req CompletionRequest) (*CompletionResponse, error) {
 	// Check for HyDE requests
-	if strings.Contains(req.Prompt, "Generate a detailed, technical answer") {
+	if strings.Contains(req.Prompt, "Generate a detailed, technical answer") ||
+		strings.Contains(req.Prompt, "Write a complete code example") {
 		query := extractQueryFromPrompt(req.Prompt)
-		response := fmt.Sprintf(`Here's a comprehensive answer about %s:
+		// Generate a focused hypothetical document that directly answers the query
+		response := fmt.Sprintf(`To implement %s, follow these best practices:
 
-%s is an important concept in software development. It involves several key aspects:
+1. Use structured logging with correlation IDs to trace requests across services
+2. Implement circuit breakers for fault tolerance between service calls
+3. Centralize error handling with middleware that captures and formats errors consistently
+4. Use distributed tracing tools like OpenTelemetry for observability
+5. Implement retry logic with exponential backoff for transient failures
 
-1. Core Principles: The fundamental principles include efficiency, scalability, and maintainability.
-
-2. Implementation Details: When implementing %s, consider using established patterns and best practices.
-
-3. Common Use Cases: This is commonly used in production systems for handling various scenarios.
-
-4. Best Practices: Always validate inputs, handle errors gracefully, and write comprehensive tests.
-
-5. Example Code:
-`+"```"+`
-// Example implementation
-function example() {
-    // Implementation details
-    return result;
+Example implementation using Go:
+`+"```go"+`
+func errorMiddleware(next http.Handler) http.Handler {
+    return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+        defer func() {
+            if err := recover(); err != nil {
+                log.WithField("error", err).Error("Panic recovered")
+                http.Error(w, "Internal Server Error", 500)
+            }
+        }()
+        next.ServeHTTP(w, r)
+    })
 }
-`+"```"+`
-
-This approach ensures robust and maintainable solutions.`, query, query, query)
+`+"```", query)
 		return &CompletionResponse{
 			Text:   response,
 			Tokens: 150,

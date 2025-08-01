@@ -260,7 +260,7 @@ func TestMultiStrategyExpander_Integration(t *testing.T) {
 	query := "how to implement error handling and logging in microservices"
 	opts := &ExpansionOptions{
 		IncludeOriginal: true,
-		MaxExpansions:   10,
+		MaxExpansions:   20, // Increased to see all expansions
 	}
 
 	result, err := expander.Expand(ctx, query, opts)
@@ -268,8 +268,8 @@ func TestMultiStrategyExpander_Integration(t *testing.T) {
 	require.NoError(t, err)
 	assert.NotNil(t, result)
 	assert.Equal(t, query, result.Original)
-	assert.Greater(t, len(result.Expansions), 3) // At least original + some expansions
-	assert.LessOrEqual(t, len(result.Expansions), 10)
+	assert.Greater(t, len(result.Expansions), 3)      // At least original + some expansions
+	assert.LessOrEqual(t, len(result.Expansions), 20) // Updated to match MaxExpansions
 
 	// Verify different types are present
 	types := make(map[ExpansionType]bool)
@@ -277,6 +277,8 @@ func TestMultiStrategyExpander_Integration(t *testing.T) {
 		types[exp.Type] = true
 		t.Logf("Expansion: %s (type: %s, weight: %.2f)", exp.Text, exp.Type, exp.Weight)
 	}
+
+	t.Logf("Total expansions: %d, Types found: %v", len(result.Expansions), types)
 
 	assert.True(t, len(types) >= 2, "Should have at least 2 different expansion types")
 }

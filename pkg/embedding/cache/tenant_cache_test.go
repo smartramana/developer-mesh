@@ -184,7 +184,9 @@ func TestTenantFeatureDisabled(t *testing.T) {
 	tenantConfig := &models.TenantConfig{
 		TenantID: tenantID.String(),
 		Features: map[string]interface{}{
-			"semantic_cache": false,
+			"cache": map[string]interface{}{
+				"enabled": false,
+			},
 		},
 	}
 	mockRepo.On("GetByTenantID", mock.Anything, tenantID.String()).Return(tenantConfig, nil)

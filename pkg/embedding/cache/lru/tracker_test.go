@@ -160,30 +160,40 @@ func TestAsyncTracker_ChannelFull(t *testing.T) {
 	defer func() { _ = redisClient.Close() }()
 
 	mockRedis := &MockRedisClient{client: redisClient}
-	mockRedis.On("Execute", mock.Anything, mock.Anything).Return(nil, nil)
+	// Block the Execute method to prevent processing updates and fill the channel
+	blockChan := make(chan struct{})
+	mockRedis.On("Execute", mock.Anything, mock.Anything).Return(nil, nil).Run(func(args mock.Arguments) {
+		<-blockChan // Block until we're ready
+	})
 
 	config := &Config{
-		TrackingBatchSize: 1000,
+		TrackingBatchSize: 100,
 		FlushInterval:     10 * time.Second,
 	}
 
 	metrics := &mockMetricsClient{}
 	tracker := NewAsyncTracker(mockRedis, config, nil, metrics)
-
-	// Stop processing to fill channel
-	close(tracker.stopCh)
-	time.Sleep(10 * time.Millisecond)
+	defer tracker.Stop()
 
 	// Fill the channel
 	tenantID := uuid.New()
-	dropped := 0
-	for i := 0; i < 20000; i++ {
+
+	// Send enough updates to fill the channel buffer (default 10000)
+	// The first batch will block in Execute, subsequent ones will fill the channel
+	for i := 0; i < 11000; i++ {
 		tracker.Track(tenantID, fmt.Sprintf("key%d", i))
-		if metrics.droppedCount > 0 {
-			dropped = metrics.droppedCount
-			break
-		}
 	}
+
+	// Give it a moment to process
+	time.Sleep(50 * time.Millisecond)
+
+	// Check that some updates were dropped
+	metrics.mu.Lock()
+	dropped := metrics.droppedCount
+	metrics.mu.Unlock()
+
+	// Unblock processing
+	close(blockChan)
 
 	assert.Greater(t, dropped, 0, "Should drop some updates when channel is full")
 }

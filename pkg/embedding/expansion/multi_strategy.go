@@ -96,6 +96,14 @@ func (m *MultiStrategyExpander) Expand(ctx context.Context, query string, opts *
 			IncludeOriginal: true,
 			ExpansionTypes:  m.config.EnabledStrategies,
 		}
+	} else {
+		// Fill in missing fields with defaults
+		if opts.MaxExpansions == 0 {
+			opts.MaxExpansions = m.config.DefaultMaxExpansions
+		}
+		if len(opts.ExpansionTypes) == 0 {
+			opts.ExpansionTypes = m.config.EnabledStrategies
+		}
 	}
 
 	expanded := &ExpandedQuery{
