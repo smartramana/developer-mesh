@@ -829,10 +829,28 @@ func (s *Server) handleWorkflowCreateCollaborative(ctx context.Context, conn *Co
 				}
 			}
 
+			// Extract action or default to execute
+			action, ok := stepData["action"].(string)
+			if !ok || action == "" {
+				action = "execute" // Default action
+			}
+
+			// Extract input or default to empty map
+			input, ok := stepData["input"].(map[string]interface{})
+			if !ok {
+				input = make(map[string]interface{})
+			}
+
+			// Extract agent_id if provided
+			agentID, _ := stepData["agent_id"].(string)
+
 			step := models.WorkflowStep{
 				ID:          stepID,
 				Name:        name,
 				Type:        stepType,
+				Action:      action,
+				AgentID:     agentID,
+				Input:       input,
 				Config:      config,
 				Description: "", // Optional field
 			}
@@ -884,7 +902,25 @@ func (s *Server) handleWorkflowCreateCollaborative(ctx context.Context, conn *Co
 			"stored_count": len(workflow.Steps),
 		})
 
+		// Log complete workflow object before creation
+		s.logger.Info("Creating workflow with data", map[string]interface{}{
+			"workflow_id":   workflow.ID,
+			"tenant_id":     workflow.TenantID,
+			"name":          workflow.Name,
+			"type":          workflow.Type,
+			"agents_count":  len(workflow.Agents),
+			"agents":        workflow.Agents,
+			"steps_count":   len(workflow.Steps),
+			"config":        workflow.Config,
+			"created_by":    workflow.CreatedBy,
+		})
+
 		if err := s.workflowService.CreateWorkflow(ctx, workflow); err != nil {
+			s.logger.Error("Failed to create workflow", map[string]interface{}{
+				"error":         err.Error(),
+				"workflow_name": workflow.Name,
+				"workflow_type": workflow.Type,
+			})
 			return nil, fmt.Errorf("failed to create collaborative workflow: %w", err)
 		}
 
