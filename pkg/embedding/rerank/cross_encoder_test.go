@@ -190,7 +190,7 @@ func TestCrossEncoderReranker_Rerank(t *testing.T) {
 		// Check that original scores are preserved
 		assert.Equal(t, float32(0.6), reranked[0].Score)
 		assert.Equal(t, "2", reranked[0].ID)
-		
+
 		// Verify the mock was called (at least once)
 		mockProvider.AssertCalled(t, "Rerank", mock.Anything, mock.Anything)
 	})
