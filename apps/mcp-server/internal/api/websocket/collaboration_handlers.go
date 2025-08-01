@@ -727,10 +727,20 @@ func (s *Server) handleWorkflowCreateCollaborative(ctx context.Context, conn *Co
 	{
 		// Convert agents array to object with agent IDs as keys
 		agentsMap := make(models.JSONMap)
-		for _, agentID := range workflowParams.Agents {
-			agentsMap[agentID] = map[string]interface{}{
-				"id":   agentID,
+		
+		// If no agents specified, use the creating agent as default
+		if len(workflowParams.Agents) == 0 {
+			// Add the creating agent as a participant
+			agentsMap[conn.AgentID] = map[string]interface{}{
+				"id":   conn.AgentID,
 				"role": "participant",
+			}
+		} else {
+			for _, agentID := range workflowParams.Agents {
+				agentsMap[agentID] = map[string]interface{}{
+					"id":   agentID,
+					"role": "participant",
+				}
 			}
 		}
 
@@ -885,8 +895,13 @@ func (s *Server) handleWorkflowCreateCollaborative(ctx context.Context, conn *Co
 
 		// Subscribe all participating agents
 		if s.notificationManager != nil {
-			for _, agentID := range workflowParams.Agents {
-				s.notificationManager.Subscribe(agentID, fmt.Sprintf("workflow:%s", workflow.ID))
+			// If no agents were specified, subscribe the creating agent
+			if len(workflowParams.Agents) == 0 {
+				s.notificationManager.Subscribe(conn.AgentID, fmt.Sprintf("workflow:%s", workflow.ID))
+			} else {
+				for _, agentID := range workflowParams.Agents {
+					s.notificationManager.Subscribe(agentID, fmt.Sprintf("workflow:%s", workflow.ID))
+				}
 			}
 		}
 
