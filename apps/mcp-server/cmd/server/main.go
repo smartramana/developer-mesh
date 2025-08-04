@@ -3,7 +3,6 @@ package main
 import (
 	"context"
 	"crypto/rand"
-	"database/sql"
 	"encoding/base64"
 	"encoding/json"
 	"flag"
@@ -14,7 +13,6 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
-	"path/filepath"
 	"syscall"
 	"time"
 
@@ -43,11 +41,8 @@ import (
 
 	// Import rules package for rule engine and policy manager
 	"github.com/developer-mesh/developer-mesh/pkg/rules"
-
-	// Import golang-migrate for database migrations
-	"github.com/golang-migrate/migrate/v4"
-	migratepg "github.com/golang-migrate/migrate/v4/database/postgres"
-	_ "github.com/golang-migrate/migrate/v4/source/file"
+	// MCP server should not handle migrations - REST API handles them
+	// Removed migration imports
 )
 
 // Version information (set via ldflags during build)
@@ -59,12 +54,11 @@ var (
 
 // Command-line flags
 var (
-	configFile    = flag.String("config", "", "Path to configuration file (overrides default locations)")
-	showVersion   = flag.Bool("version", false, "Show version information and exit")
-	validateOnly  = flag.Bool("validate", false, "Validate configuration and exit")
-	migrateOnly   = flag.Bool("migrate", false, "Run database migrations and exit")
-	skipMigration = flag.Bool("skip-migration", false, "Skip database migration on startup")
-	healthCheck   = flag.Bool("health-check", false, "Perform health check and exit")
+	configFile   = flag.String("config", "", "Path to configuration file (overrides default locations)")
+	showVersion  = flag.Bool("version", false, "Show version information and exit")
+	validateOnly = flag.Bool("validate", false, "Validate configuration and exit")
+	// Migration flags removed - MCP server doesn't handle migrations
+	healthCheck = flag.Bool("health-check", false, "Perform health check and exit")
 )
 
 func main() {
@@ -166,27 +160,7 @@ func main() {
 		}()
 	}
 
-	// Run migrations if requested
-	if *migrateOnly {
-		if err := runMigrations(ctx, db, logger); err != nil {
-			logger.Error("Failed to run migrations", map[string]interface{}{
-				"error": err.Error(),
-			})
-			os.Exit(1)
-		}
-		logger.Info("Migrations completed successfully", nil)
-		os.Exit(0)
-	}
-
-	// Run migrations on startup unless skipped
-	if !*skipMigration && db != nil {
-		if err := runMigrations(ctx, db, logger); err != nil {
-			logger.Error("Failed to run migrations", map[string]interface{}{
-				"error": err.Error(),
-			})
-			os.Exit(1)
-		}
-	}
+	// MCP server should never run migrations - only the REST API should handle that
 
 	// Initialize cache with root context
 	// Cache connection must outlive the startup phase
@@ -374,6 +348,7 @@ func initializeDatabase(ctx context.Context, cfg *commonconfig.Config, logger ob
 		Username:        cfg.Database.Username,
 		Password:        cfg.Database.Password,
 		SSLMode:         cfg.Database.SSLMode,
+		SearchPath:      cfg.Database.SearchPath,
 		UseAWS:          cfg.Database.UseIAMAuth,
 		UseIAM:          cfg.Database.UseIAMAuth,
 		MaxOpenConns:    25,               // Maintain a healthy connection pool
@@ -381,6 +356,7 @@ func initializeDatabase(ctx context.Context, cfg *commonconfig.Config, logger ob
 		ConnMaxLifetime: 30 * time.Minute, // Longer lifetime to avoid frequent reconnects
 		QueryTimeout:    30 * time.Second,
 		ConnectTimeout:  10 * time.Second,
+		AutoMigrate:     false, // MCP server should never run migrations
 	}
 
 	// Create database instance
@@ -1231,128 +1207,8 @@ func waitForShutdown(ctx context.Context, server *api.Server, serverErrCh <-chan
 }
 
 // runMigrations runs database migrations
-func runMigrations(ctx context.Context, db *database.Database, logger observability.Logger) error {
-	logger.Info("Running database migrations", nil)
-
-	// Get the migration directory path
-	migrationDir := getMigrationDir()
-
-	logger.Info("Migration directory", map[string]interface{}{
-		"path": migrationDir,
-	})
-
-	// Check if migrations directory exists
-	if _, err := os.Stat(migrationDir); os.IsNotExist(err) {
-		logger.Warn("Migration directory not found, skipping migrations", map[string]interface{}{
-			"path": migrationDir,
-		})
-		return nil
-	}
-
-	// Create a separate database connection for migrations
-	// This prevents the migration tool from closing our main database connection
-	cfg, err := loadConfiguration("")
-	if err != nil {
-		return fmt.Errorf("failed to load config for migrations: %w", err)
-	}
-	migrationDSN := buildDatabaseURL(cfg)
-	migrationDB, err := sql.Open("postgres", migrationDSN)
-	if err != nil {
-		return fmt.Errorf("failed to open migration database: %w", err)
-	}
-	defer func() {
-		if closeErr := migrationDB.Close(); closeErr != nil {
-			logger.Error("Failed to close migration database", map[string]interface{}{
-				"error": closeErr.Error(),
-			})
-		}
-	}()
-
-	// Create postgres driver instance with the separate connection
-	driver, err := migratepg.WithInstance(migrationDB, &migratepg.Config{})
-	if err != nil {
-		return fmt.Errorf("failed to create migration driver: %w", err)
-	}
-
-	// Create migrator
-	sourceURL := fmt.Sprintf("file://%s", migrationDir)
-	m, err := migrate.NewWithDatabaseInstance(
-		sourceURL,
-		"postgres",
-		driver,
-	)
-	if err != nil {
-		return fmt.Errorf("failed to create migrator: %w", err)
-	}
-	defer func() {
-		if _, err := m.Close(); err != nil {
-			logger.Error("Failed to close migrator", map[string]interface{}{
-				"error": err.Error(),
-			})
-		}
-	}()
-
-	// Get current version
-	version, dirty, err := m.Version()
-	if err != nil && err != migrate.ErrNilVersion {
-		return fmt.Errorf("failed to get migration version: %w", err)
-	}
-
-	logger.Info("Current migration state", map[string]interface{}{
-		"version": version,
-		"dirty":   dirty,
-	})
-
-	// Run migrations
-	if err := m.Up(); err != nil {
-		if err == migrate.ErrNoChange {
-			logger.Info("No new migrations to apply", nil)
-			return nil
-		}
-		return fmt.Errorf("failed to run migrations: %w", err)
-	}
-
-	// Get new version
-	newVersion, _, err := m.Version()
-	if err != nil {
-		logger.Warn("Failed to get new migration version", map[string]interface{}{
-			"error": err.Error(),
-		})
-	} else {
-		logger.Info("Migrations completed successfully", map[string]interface{}{
-			"old_version": version,
-			"new_version": newVersion,
-		})
-	}
-
-	return nil
-}
 
 // getMigrationDir returns the path to the migrations directory
-func getMigrationDir() string {
-	// Check environment variable first
-	if envPath := os.Getenv("MIGRATIONS_PATH"); envPath != "" {
-		return envPath
-	}
-
-	// Check multiple possible locations
-	possiblePaths := []string{
-		"/app/migrations/sql",                // Production Docker path (when mounted)
-		"migrations/sql",                     // Local path (when mounted)
-		"../rest-api/migrations/sql",         // REST API migrations directory
-		"apps/rest-api/migrations/sql",       // From project root
-		"../../apps/rest-api/migrations/sql", // From apps/mcp-server directory
-		filepath.Join(os.Getenv("PROJECT_ROOT"), "apps/rest-api/migrations/sql"),
-	}
-
-	for _, path := range possiblePaths {
-		if _, err := os.Stat(path); err == nil {
-			return path
-		}
-	}
-
-	return "migrations" // Default
-}
 
 // Helper functions
 

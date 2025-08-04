@@ -62,4 +62,5 @@ LABEL org.opencontainers.image.version="${VERSION}" \
       org.opencontainers.image.created="${BUILD_DATE}"
 
 # Run the application
+# MCP server never runs migrations - only REST API handles them
 ENTRYPOINT ["/app/mcp-server"]

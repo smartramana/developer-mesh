@@ -10,6 +10,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/lib/pq"
 )
 
@@ -37,6 +38,23 @@ func (s *Service) CreateAPIKeyWithType(ctx context.Context, req CreateAPIKeyRequ
 		return nil, fmt.Errorf("invalid key type: %s", req.KeyType)
 	}
 
+	// Parse tenant ID
+	tenantUUID, err := uuid.Parse(req.TenantID)
+	if err != nil {
+		return nil, fmt.Errorf("invalid tenant ID: %w", err)
+	}
+
+	// Parse or generate user ID
+	var userUUID uuid.UUID
+	if req.UserID == "" || req.UserID == "system" {
+		userUUID = SystemUserID
+	} else {
+		userUUID, err = uuid.Parse(req.UserID)
+		if err != nil {
+			return nil, fmt.Errorf("invalid user ID: %w", err)
+		}
+	}
+
 	// Generate secure random key
 	keyBytes := make([]byte, 32)
 	if _, err := rand.Read(keyBytes); err != nil {
@@ -59,18 +77,13 @@ func (s *Service) CreateAPIKeyWithType(ctx context.Context, req CreateAPIKeyRequ
 		req.Scopes = req.KeyType.GetScopes()
 	}
 
-	// Set user ID if not provided
-	if req.UserID == "" {
-		req.UserID = "system"
-	}
-
 	// Insert into database if available
 	if s.db != nil {
 		query := `
 			INSERT INTO mcp.api_keys (
 				id, key_hash, key_prefix, tenant_id, user_id, name, key_type,
-				scopes, is_active, expires_at, rate_limit_requests,
-				rate_limit_window_seconds, parent_key_id, allowed_services,
+				scopes, is_active, expires_at, rate_limit,
+				rate_window, parent_key_id, allowed_services,
 				created_at, updated_at
 			) VALUES (
 				uuid_generate_v4(), $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $14
@@ -107,8 +120,8 @@ func (s *Service) CreateAPIKeyWithType(ctx context.Context, req CreateAPIKeyRequ
 		return &APIKey{
 			Key:                    keyString, // Only returned once
 			KeyPrefix:              keyPrefix,
-			TenantID:               req.TenantID,
-			UserID:                 req.UserID,
+			TenantID:               tenantUUID,
+			UserID:                 userUUID,
 			Name:                   req.Name,
 			KeyType:                req.KeyType,
 			Scopes:                 req.Scopes,
@@ -127,8 +140,8 @@ func (s *Service) CreateAPIKeyWithType(ctx context.Context, req CreateAPIKeyRequ
 		Key:                    keyString,
 		KeyHash:                keyHash,
 		KeyPrefix:              keyPrefix,
-		TenantID:               req.TenantID,
-		UserID:                 req.UserID,
+		TenantID:               tenantUUID,
+		UserID:                 userUUID,
 		Name:                   req.Name,
 		KeyType:                req.KeyType,
 		Scopes:                 req.Scopes,
