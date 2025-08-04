@@ -20,16 +20,23 @@ services:
       - MCP_API_KEY=${MCP_API_KEY:-dev-admin-key-1234567890}
       # Database (using service names)
       - DATABASE_HOST=database
+      - DB_HOST=database
       - DATABASE_PORT=5432
+      - DB_PORT=5432
       - DATABASE_NAME=devmesh_development
+      - DB_NAME=devmesh_development
       - DATABASE_USER=devmesh
+      - DB_USER=devmesh
       - DATABASE_PASSWORD=devmesh
+      - DB_PASSWORD=devmesh
       - DATABASE_SSL_MODE=disable
+      - DB_SSLMODE=disable
       - DATABASE_DSN=postgres://devmesh:devmesh@database:5432/devmesh_development?sslmode=disable&search_path=mcp,public
       # Redis (using service names)
       - REDIS_HOST=redis
       - REDIS_PORT=6379
       - REDIS_ADDR=redis:6379
+      - REDIS_ADDRESS=redis:6379
       - CACHE_TYPE=redis
       # ElastiCache configuration for functional tests
       - ELASTICACHE_ENDPOINT=redis
@@ -122,16 +129,23 @@ services:
       - MCP_API_KEY=${MCP_API_KEY:-dev-admin-key-1234567890}
       # Database (using service names)
       - DATABASE_HOST=database
+      - DB_HOST=database
       - DATABASE_PORT=5432
+      - DB_PORT=5432
       - DATABASE_NAME=devmesh_development
+      - DB_NAME=devmesh_development
       - DATABASE_USER=devmesh
+      - DB_USER=devmesh
       - DATABASE_PASSWORD=devmesh
+      - DB_PASSWORD=devmesh
       - DATABASE_SSL_MODE=disable
+      - DB_SSLMODE=disable
       - DATABASE_DSN=postgres://devmesh:devmesh@database:5432/devmesh_development?sslmode=disable&search_path=mcp,public
       # Redis (using service names)
       - REDIS_HOST=redis
       - REDIS_PORT=6379
       - REDIS_ADDR=redis:6379
+      - REDIS_ADDRESS=redis:6379
       - CACHE_TYPE=redis
       # ElastiCache configuration for functional tests
       - ELASTICACHE_ENDPOINT=redis
@@ -206,16 +220,22 @@ services:
       - APP_ENV=development
       # Database (using service names)
       - DATABASE_HOST=database
+      - DB_HOST=database
       - DATABASE_PORT=5432
+      - DB_PORT=5432
       - DATABASE_NAME=devmesh_development
+      - DB_NAME=devmesh_development
       - DATABASE_USER=devmesh
+      - DB_USER=devmesh
       - DATABASE_PASSWORD=devmesh
+      - DB_PASSWORD=devmesh
       - DATABASE_DSN=postgresql://devmesh:devmesh@database:5432/devmesh_development?sslmode=disable&search_path=mcp,public
       - DATABASE_SEARCH_PATH=mcp,public
       # Redis (using service names)
       - REDIS_HOST=redis
       - REDIS_PORT=6379
       - REDIS_ADDR=redis:6379
+      - REDIS_ADDRESS=redis:6379
       # AWS/LocalStack configuration
       - USE_LOCALSTACK=true
       - AWS_ENDPOINT_URL=http://localstack:4566
@@ -274,7 +294,7 @@ services:
     ports:
       - "5432:5432"
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U devmesh"]
+      test: ["CMD-SHELL", "pg_isready -U devmesh -d devmesh_development"]
       interval: 10s
       timeout: 5s
       retries: 3

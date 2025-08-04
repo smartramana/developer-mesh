@@ -279,7 +279,7 @@ CREATE INDEX idx_tool_configurations_tenant_active
     WHERE is_active = true;
 
 CREATE INDEX idx_tool_configurations_type 
-    ON mcp.tool_configurations(type, tenant_id) 
+    ON mcp.tool_configurations(tool_type, tenant_id) 
     WHERE is_active = true;
 
 CREATE INDEX idx_tool_configurations_health 
@@ -353,9 +353,19 @@ CREATE TABLE IF NOT EXISTS mcp.webhook_configs (
     updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
--- Add trigger for updated_at
-CREATE TRIGGER update_webhook_configs_updated_at BEFORE UPDATE ON mcp.webhook_configs
-    FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+-- Add trigger for updated_at (if it doesn't already exist)
+DO $$
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_trigger 
+        WHERE tgname = 'update_webhook_configs_updated_at' 
+        AND tgrelid = 'mcp.webhook_configs'::regclass
+    ) THEN
+        CREATE TRIGGER update_webhook_configs_updated_at BEFORE UPDATE ON mcp.webhook_configs
+            FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+    END IF;
+END;
+$$;
 
 -- Add indexes
 CREATE INDEX idx_webhook_configs_tenant ON mcp.webhook_configs(tenant_id);

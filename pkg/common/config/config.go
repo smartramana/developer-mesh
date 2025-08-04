@@ -160,6 +160,15 @@ func Load() (*Config, error) {
 	_ = v.BindEnv("cache.address", "REDIS_ADDR")    // Best effort - viper handles errors internally
 	_ = v.BindEnv("cache.address", "REDIS_ADDRESS") // Best effort - viper handles errors internally
 	_ = v.BindEnv("cache.address", "CACHE_ADDRESS") // Best effort - viper handles errors internally
+	
+	// Bind database environment variables used by Docker
+	_ = v.BindEnv("database.host", "DATABASE_HOST")
+	_ = v.BindEnv("database.port", "DATABASE_PORT")
+	_ = v.BindEnv("database.database", "DATABASE_NAME")
+	_ = v.BindEnv("database.username", "DATABASE_USER")
+	_ = v.BindEnv("database.password", "DATABASE_PASSWORD")
+	_ = v.BindEnv("database.ssl_mode", "DATABASE_SSL_MODE")
+	_ = v.BindEnv("database.dsn", "DATABASE_DSN")
 
 	// Enable environment variable interpolation in config values
 	v.AllowEmptyEnv(true)
