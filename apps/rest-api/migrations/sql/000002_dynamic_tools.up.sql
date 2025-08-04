@@ -33,17 +33,31 @@ $$;
 CREATE TABLE IF NOT EXISTS mcp.tool_configurations (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     tenant_id UUID NOT NULL,
-    name VARCHAR(255) NOT NULL,
-    type VARCHAR(50) NOT NULL,
+    tool_name VARCHAR(255) NOT NULL,  -- Changed from 'name' to 'tool_name'
+    tool_type VARCHAR(50) NOT NULL,    -- Changed from 'type' to 'tool_type'
+    display_name VARCHAR(255),
     base_url TEXT NOT NULL,
+    documentation_url TEXT,
+    openapi_url TEXT,
+    openapi_spec_url TEXT,
+    openapi_spec JSONB,
     
     -- Configuration fields
+    config JSONB NOT NULL DEFAULT '{}',
+    auth_type VARCHAR(50),
     auth_config JSONB NOT NULL DEFAULT '{}',
+    credential_config JSONB,
+    credentials_encrypted TEXT,
+    encrypted_credentials TEXT,
+    headers JSONB,
     api_spec JSONB,
     discovered_endpoints JSONB NOT NULL DEFAULT '[]',
     health_check_config JSONB NOT NULL DEFAULT '{}',
+    retry_policy JSONB,
+    health_config JSONB,
     
     -- Status fields
+    status VARCHAR(20) NOT NULL DEFAULT 'active',
     is_active BOOLEAN NOT NULL DEFAULT true,
     last_health_check TIMESTAMP WITH TIME ZONE,
     health_status VARCHAR(20),
@@ -61,11 +75,11 @@ CREATE TABLE IF NOT EXISTS mcp.tool_configurations (
     updated_by UUID,
     
     -- Constraints
-    CONSTRAINT uk_tool_configurations_tenant_name UNIQUE(tenant_id, name),
-    CONSTRAINT chk_tool_type CHECK (type IN ('rest', 'graphql', 'grpc', 'webhook', 'custom')),
+    CONSTRAINT uk_tool_configurations_tenant_name UNIQUE(tenant_id, tool_name),
+    CONSTRAINT chk_tool_type CHECK (tool_type IN ('rest', 'graphql', 'grpc', 'webhook', 'custom')),
     CONSTRAINT chk_health_status CHECK (health_status IS NULL OR health_status IN ('healthy', 'degraded', 'unhealthy', 'unknown')),
     CONSTRAINT chk_base_url_format CHECK (base_url ~ '^https?://.*'),
-    CONSTRAINT chk_name_format CHECK (name ~ '^[a-zA-Z0-9][a-zA-Z0-9-_]*$')
+    CONSTRAINT chk_name_format CHECK (tool_name ~ '^[a-zA-Z0-9][a-zA-Z0-9-_]*$')
 );
 
 -- Tool discovery sessions table
@@ -319,6 +333,34 @@ CREATE UNIQUE INDEX uk_tool_auth_active
     ON mcp.tool_auth_configs(tool_id) 
     WHERE is_active = true;
 
+-- ==============================================================================
+-- WEBHOOK CONFIGS TABLE (Missing from original migration)
+-- ==============================================================================
+
+CREATE TABLE IF NOT EXISTS mcp.webhook_configs (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    tenant_id UUID NOT NULL DEFAULT '00000000-0000-0000-0000-000000000001',
+    organization_name VARCHAR(255),
+    webhook_url TEXT,
+    webhook_path TEXT,
+    webhook_secret TEXT,
+    enabled BOOLEAN NOT NULL DEFAULT true,
+    allowed_events TEXT[] NOT NULL DEFAULT '{}',
+    validate_signature BOOLEAN NOT NULL DEFAULT true,
+    metadata JSONB,
+    config JSONB,
+    created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Add trigger for updated_at
+CREATE TRIGGER update_webhook_configs_updated_at BEFORE UPDATE ON mcp.webhook_configs
+    FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+
+-- Add indexes
+CREATE INDEX idx_webhook_configs_tenant ON mcp.webhook_configs(tenant_id);
+CREATE INDEX idx_webhook_configs_org ON mcp.webhook_configs(organization_name);
+
 CREATE INDEX idx_tool_health_checks_tool_time 
     ON mcp.tool_health_checks(tool_id, checked_at DESC);
 
@@ -485,8 +527,8 @@ CREATE OR REPLACE FUNCTION mcp.get_tool_by_name(
     p_name VARCHAR(255)
 ) RETURNS TABLE (
     id UUID,
-    name VARCHAR(255),
-    type VARCHAR(50),
+    tool_name VARCHAR(255),
+    tool_type VARCHAR(50),
     base_url TEXT,
     is_active BOOLEAN,
     health_status VARCHAR(20)
@@ -495,14 +537,14 @@ BEGIN
     RETURN QUERY
     SELECT 
         t.id,
-        t.name,
-        t.type,
+        t.tool_name,
+        t.tool_type,
         t.base_url,
         t.is_active,
         t.health_status
     FROM mcp.tool_configurations t
     WHERE t.tenant_id = p_tenant_id
-        AND t.name = p_name;
+        AND t.tool_name = p_name;
 END;
 $$ LANGUAGE plpgsql STABLE;
 

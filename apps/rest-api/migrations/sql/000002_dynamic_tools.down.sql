@@ -70,6 +70,9 @@ DROP INDEX IF EXISTS mcp.idx_tool_health_checks_tool_time;
 -- DROP TABLES (in reverse dependency order)
 -- ==============================================================================
 
+-- Drop webhook configs table
+DROP TABLE IF EXISTS mcp.webhook_configs;
+
 -- Drop dependent tables first
 DROP TABLE IF EXISTS mcp.tool_health_checks;
 DROP TABLE IF EXISTS mcp.tool_auth_configs;
