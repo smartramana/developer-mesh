@@ -688,7 +688,7 @@ func (s *EnhancedTaskService) validateTask(task *models.Task) error {
 }
 
 func (s *EnhancedTaskService) getDelegationCount(ctx context.Context, tx database.Transaction, taskID uuid.UUID) (int, error) {
-	query := `SELECT COUNT(*) FROM task_delegation_history WHERE task_id = $1`
+	query := `SELECT COUNT(*) FROM mcp.task_delegation_history WHERE task_id = $1`
 	var count int
 	if err := tx.Get(&count, query, taskID); err != nil {
 		return 0, err

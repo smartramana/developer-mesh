@@ -2,6 +2,7 @@ package worker
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 
 	"github.com/developer-mesh/developer-mesh/pkg/models"
@@ -52,7 +53,15 @@ func (e *ToolConfigExtractorImpl) ExtractToolConfig(ctx context.Context, event q
 	}
 
 	// Validate webhook config exists and is enabled
-	if tool.WebhookConfig == nil || !tool.WebhookConfig.Enabled {
+	var webhookEnabled bool
+	if tool.WebhookConfig != nil && len(*tool.WebhookConfig) > 0 {
+		var wc models.ToolWebhookConfig
+		if err := json.Unmarshal(*tool.WebhookConfig, &wc); err == nil {
+			webhookEnabled = wc.Enabled
+		}
+	}
+
+	if !webhookEnabled {
 		return nil, fmt.Errorf("webhook config is disabled for tool: %s", toolID)
 	}
 

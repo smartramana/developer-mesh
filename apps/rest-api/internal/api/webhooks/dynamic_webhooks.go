@@ -71,7 +71,21 @@ func (h *DynamicWebhookHandler) HandleDynamicWebhook(c *gin.Context) {
 	}
 
 	// Check if webhooks are enabled for this tool
-	if tool.WebhookConfig == nil || !tool.WebhookConfig.Enabled {
+	var webhookConfig *models.ToolWebhookConfig
+	if tool.WebhookConfig != nil && len(*tool.WebhookConfig) > 0 {
+		var wc models.ToolWebhookConfig
+		if err := json.Unmarshal(*tool.WebhookConfig, &wc); err != nil {
+			h.logger.Error("Failed to unmarshal webhook config", map[string]interface{}{
+				"tool_id": toolID,
+				"error":   err.Error(),
+			})
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Invalid webhook configuration"})
+			return
+		}
+		webhookConfig = &wc
+	}
+
+	if webhookConfig == nil || !webhookConfig.Enabled {
 		h.logger.Warn("Webhook received for tool with webhooks disabled", map[string]interface{}{
 			"tool_id": toolID,
 		})
@@ -91,7 +105,7 @@ func (h *DynamicWebhookHandler) HandleDynamicWebhook(c *gin.Context) {
 	}
 
 	// Validate the webhook based on auth type
-	if !h.validateWebhook(c.Request, bodyBytes, tool.WebhookConfig) {
+	if !h.validateWebhook(c.Request, bodyBytes, webhookConfig) {
 		h.logger.Warn("Webhook validation failed", map[string]interface{}{
 			"tool_id":   toolID,
 			"source_ip": c.ClientIP(),
@@ -101,7 +115,7 @@ func (h *DynamicWebhookHandler) HandleDynamicWebhook(c *gin.Context) {
 	}
 
 	// Extract event type from payload
-	eventType, err := h.extractEventType(bodyBytes, tool.WebhookConfig)
+	eventType, err := h.extractEventType(bodyBytes, webhookConfig)
 	if err != nil {
 		h.logger.Error("Failed to extract event type", map[string]interface{}{
 			"tool_id": toolID,

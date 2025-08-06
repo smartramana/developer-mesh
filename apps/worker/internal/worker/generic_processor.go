@@ -238,16 +238,27 @@ func (p *GenericWebhookProcessor) transformEvent(ctx context.Context, event queu
 		return event, nil
 	}
 
+	// Unmarshal webhook config if present
+	var webhookConfig *models.ToolWebhookConfig
+	if tool.WebhookConfig != nil && len(*tool.WebhookConfig) > 0 {
+		var wc models.ToolWebhookConfig
+		if err := json.Unmarshal(*tool.WebhookConfig, &wc); err == nil {
+			webhookConfig = &wc
+		}
+	}
+
 	// Find transformation rules for this event type
-	for _, eventConfig := range tool.WebhookConfig.Events {
-		if eventConfig.EventType == event.EventType && len(eventConfig.TransformRules) > 0 {
-			start := time.Now()
-			transformedEvent, err := p.transformer.Transform(event, eventConfig.TransformRules)
+	if webhookConfig != nil {
+		for _, eventConfig := range webhookConfig.Events {
+			if eventConfig.EventType == event.EventType && len(eventConfig.TransformRules) > 0 {
+				start := time.Now()
+				transformedEvent, err := p.transformer.Transform(event, eventConfig.TransformRules)
 
-			// Record transformation metrics
-			p.metricsCollector.RecordTransformation(ctx, event.EventID, len(eventConfig.TransformRules), time.Since(start))
+				// Record transformation metrics
+				p.metricsCollector.RecordTransformation(ctx, event.EventID, len(eventConfig.TransformRules), time.Since(start))
 
-			return transformedEvent, err
+				return transformedEvent, err
+			}
 		}
 	}
 
@@ -260,16 +271,29 @@ func (p *GenericWebhookProcessor) getProcessingMode(tool *models.DynamicTool, ev
 		return ModeStoreOnly
 	}
 
+	// Unmarshal webhook config if present
+	var webhookConfig *models.ToolWebhookConfig
+	if tool.WebhookConfig != nil && len(*tool.WebhookConfig) > 0 {
+		var wc models.ToolWebhookConfig
+		if err := json.Unmarshal(*tool.WebhookConfig, &wc); err == nil {
+			webhookConfig = &wc
+		}
+	}
+
+	if webhookConfig == nil {
+		return ModeStoreOnly
+	}
+
 	// Check event-specific mode
-	for _, event := range tool.WebhookConfig.Events {
+	for _, event := range webhookConfig.Events {
 		if event.EventType == eventType && event.ProcessingMode != "" {
 			return ProcessingMode(event.ProcessingMode)
 		}
 	}
 
 	// Use default mode from webhook config
-	if tool.WebhookConfig.DefaultProcessingMode != "" {
-		return ProcessingMode(tool.WebhookConfig.DefaultProcessingMode)
+	if webhookConfig.DefaultProcessingMode != "" {
+		return ProcessingMode(webhookConfig.DefaultProcessingMode)
 	}
 
 	return ModeStoreOnly

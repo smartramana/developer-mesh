@@ -95,11 +95,21 @@ func (h *HealthChecker) LivenessHandler(c *gin.Context) {
 // @Failure 503 {object} map[string]interface{} "Service is not ready"
 // @Router /readyz [get]
 func (h *HealthChecker) ReadinessHandler(c *gin.Context) {
-	if !h.IsReady() {
-		c.JSON(http.StatusServiceUnavailable, gin.H{
+	// Check both service readiness and migration status
+	migrationsReady := GlobalMigrationStatus.IsReady()
+
+	if !h.IsReady() || !migrationsReady {
+		response := gin.H{
 			"status": "not_ready",
 			"error":  "Service is starting up",
-		})
+		}
+
+		if !migrationsReady {
+			response["migrations"] = GlobalMigrationStatus.GetStatus()
+			response["error"] = "Database migrations in progress"
+		}
+
+		c.JSON(http.StatusServiceUnavailable, response)
 		return
 	}
 
@@ -148,10 +158,14 @@ func (h *HealthChecker) HealthHandler(c *gin.Context) {
 	ctx, cancel := context.WithTimeout(c.Request.Context(), 5*time.Second)
 	defer cancel()
 
+	// Check if migrations are complete
+	migrationsReady := GlobalMigrationStatus.IsReady()
+
 	health := gin.H{
 		"status":     "healthy",
-		"ready":      h.IsReady(),
+		"ready":      h.IsReady() && migrationsReady,
 		"time":       time.Now().UTC().Format(time.RFC3339),
+		"migrations": GlobalMigrationStatus.GetStatus(),
 		"components": make(map[string]string),
 		"checks":     make(map[string]string), // Keep for backward compatibility
 	}

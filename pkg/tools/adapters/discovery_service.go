@@ -25,6 +25,7 @@ type DiscoveryService struct {
 	hintDiscovery    *HintBasedDiscovery
 	learningService  *LearningDiscoveryService
 	webhookExtractor *WebhookExtractor
+	sanitizer        *OpenAPISanitizer
 }
 
 // DiscoveryHint provides optional user-provided hints for discovering APIs
@@ -36,8 +37,9 @@ type DiscoveryHint struct {
 
 // NewDiscoveryService creates a new discovery service
 func NewDiscoveryService(logger observability.Logger) *DiscoveryService {
+	// Increased timeout to 60s to handle large OpenAPI specs like GitHub
 	httpClient := &http.Client{
-		Timeout: 10 * time.Second,
+		Timeout: 60 * time.Second,
 		CheckRedirect: func(req *http.Request, via []*http.Request) error {
 			if len(via) >= 5 {
 				return fmt.Errorf("too many redirects")
@@ -59,6 +61,7 @@ func NewDiscoveryService(logger observability.Logger) *DiscoveryService {
 		hintDiscovery:    hintDiscovery,
 		learningService:  learningService,
 		webhookExtractor: webhookExtractor,
+		sanitizer:        NewOpenAPISanitizer(logger),
 	}
 }
 
@@ -70,8 +73,9 @@ func NewDiscoveryServiceWithOptions(logger observability.Logger, httpClient *htt
 // NewDiscoveryServiceWithStore creates a new discovery service with custom pattern store
 func NewDiscoveryServiceWithStore(logger observability.Logger, httpClient *http.Client, validator *tools.URLValidator, patternStore DiscoveryPatternStore) *DiscoveryService {
 	if httpClient == nil {
+		// Increased timeout to 60s to handle large OpenAPI specs like GitHub
 		httpClient = &http.Client{
-			Timeout: 10 * time.Second,
+			Timeout: 60 * time.Second,
 			CheckRedirect: func(req *http.Request, via []*http.Request) error {
 				if len(via) >= 5 {
 					return fmt.Errorf("too many redirects")
@@ -103,6 +107,7 @@ func NewDiscoveryServiceWithStore(logger observability.Logger, httpClient *http.
 		hintDiscovery:    hintDiscovery,
 		learningService:  learningService,
 		webhookExtractor: webhookExtractor,
+		sanitizer:        NewOpenAPISanitizer(logger),
 	}
 }
 
@@ -588,7 +593,8 @@ func (s *DiscoveryService) fetchContent(ctx context.Context, url string, creds *
 	}
 
 	// Read body with size limit
-	body, err := io.ReadAll(io.LimitReader(resp.Body, 10*1024*1024)) // 10MB limit
+	// Increased limit to 20MB to support large OpenAPI specs like GitHub
+	body, err := io.ReadAll(io.LimitReader(resp.Body, 20*1024*1024)) // 20MB limit
 	if err != nil {
 		return nil, err
 	}
@@ -604,6 +610,18 @@ func (s *DiscoveryService) fetchAndParseSpec(ctx context.Context, specURL string
 		return nil, err
 	}
 
+	// Pre-process JSON if sanitizer is available
+	if s.sanitizer != nil {
+		sanitized, fixes := s.sanitizer.SanitizeJSON(body)
+		if len(fixes) > 0 {
+			s.logger.Info("Applied JSON sanitization fixes", map[string]interface{}{
+				"url":   specURL,
+				"fixes": fixes,
+			})
+		}
+		body = sanitized
+	}
+
 	// Parse OpenAPI spec
 	loader := openapi3.NewLoader()
 	loader.IsExternalRefsAllowed = false // Security
@@ -616,9 +634,21 @@ func (s *DiscoveryService) fetchAndParseSpec(ctx context.Context, specURL string
 		return nil, fmt.Errorf("failed to parse OpenAPI spec: %w", err)
 	}
 
-	// Validate
-	if err := spec.Validate(ctx); err != nil {
-		return nil, fmt.Errorf("invalid OpenAPI spec: %w", err)
+	// Validate with sanitization
+	if s.sanitizer != nil {
+		// This will attempt to fix validation errors and continue even if some remain
+		if err := s.sanitizer.ValidateAndSanitize(ctx, spec); err != nil {
+			// This should rarely happen as ValidateAndSanitize returns nil for partial success
+			s.logger.Warn("OpenAPI spec validation failed even after sanitization", map[string]interface{}{
+				"url":   specURL,
+				"error": err.Error(),
+			})
+		}
+	} else {
+		// Fallback to standard validation
+		if err := spec.Validate(ctx); err != nil {
+			return nil, fmt.Errorf("invalid OpenAPI spec: %w", err)
+		}
 	}
 
 	return spec, nil

@@ -267,6 +267,7 @@ curl http://localhost:8081/health
 
 ### Getting Started
 - [Quick Start Guide](docs/getting-started/quick-start-guide.md)
+- [Environment Variables Reference](docs/ENVIRONMENT_VARIABLES.md)
 - [Agent Registration Guide](docs/guides/agent-registration-guide.md)
 - [Task Routing Algorithms](docs/guides/task-routing-algorithms.md)
 

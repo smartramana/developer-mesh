@@ -60,13 +60,18 @@ CREATE TABLE IF NOT EXISTS mcp.tool_configurations (
     status VARCHAR(20) NOT NULL DEFAULT 'active',
     is_active BOOLEAN NOT NULL DEFAULT true,
     last_health_check TIMESTAMP WITH TIME ZONE,
-    health_status VARCHAR(20),
+    health_status JSONB,
     health_message TEXT,
     
     -- Metadata
     description TEXT,
     tags TEXT[],
     metadata JSONB DEFAULT '{}',
+    
+    -- Provider and integration fields
+    provider VARCHAR(255),
+    passthrough_config JSONB,
+    webhook_config JSONB,
     
     -- Audit fields
     created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -77,9 +82,9 @@ CREATE TABLE IF NOT EXISTS mcp.tool_configurations (
     -- Constraints
     CONSTRAINT uk_tool_configurations_tenant_name UNIQUE(tenant_id, tool_name),
     CONSTRAINT chk_tool_type CHECK (tool_type IN ('rest', 'graphql', 'grpc', 'webhook', 'custom')),
-    CONSTRAINT chk_health_status CHECK (health_status IS NULL OR health_status IN ('healthy', 'degraded', 'unhealthy', 'unknown')),
+    -- Health status is now JSONB, no check constraint needed
     CONSTRAINT chk_base_url_format CHECK (base_url ~ '^https?://.*'),
-    CONSTRAINT chk_name_format CHECK (tool_name ~ '^[a-zA-Z0-9][a-zA-Z0-9-_]*$')
+    CONSTRAINT chk_name_format CHECK (tool_name ~ '^[a-zA-Z0-9][a-zA-Z0-9_-]*$')
 );
 
 -- Tool discovery sessions table
@@ -541,7 +546,7 @@ CREATE OR REPLACE FUNCTION mcp.get_tool_by_name(
     tool_type VARCHAR(50),
     base_url TEXT,
     is_active BOOLEAN,
-    health_status VARCHAR(20)
+    health_status JSONB
 ) AS $$
 BEGIN
     RETURN QUERY

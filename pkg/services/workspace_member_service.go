@@ -493,7 +493,7 @@ func (s *workspaceMemberService) getMemberInTx(ctx context.Context, tx database.
 
 func (s *workspaceMemberService) getOwnerCountInTx(ctx context.Context, tx database.Transaction, workspaceID uuid.UUID) (int, error) {
 	query := `
-		SELECT COUNT(*) FROM workspace_members 
+		SELECT COUNT(*) FROM mcp.workspace_members 
 		WHERE workspace_id = $1 AND role = 'owner'
 	`
 

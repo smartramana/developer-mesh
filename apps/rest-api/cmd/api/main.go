@@ -50,8 +50,16 @@ func main() {
 	// Handle health check flag
 	if *healthCheck {
 		// Perform actual health check by calling the health endpoint
+		// Use the PORT env variable or default to 8080 (internal container port)
+		port := os.Getenv("PORT")
+		if port == "" {
+			port = os.Getenv("API_PORT")
+			if port == "" {
+				port = "8080"
+			}
+		}
 		client := &http.Client{Timeout: 5 * time.Second}
-		resp, err := client.Get("http://localhost:8081/health")
+		resp, err := client.Get(fmt.Sprintf("http://localhost:%s/health", port))
 		if err != nil {
 			log.Printf("Health check failed: %v", err)
 			os.Exit(1)
@@ -148,9 +156,19 @@ func main() {
 		dbConfig.RDSTokenExpiration = cfg.Database.TokenExpiration
 	}
 
+	// Track migration status globally for health checks
+	if dbConfig.AutoMigrate {
+		api.GlobalMigrationStatus.SetInProgress()
+		logger.Info("Starting database migrations", nil)
+	}
+
 	// Initialize database with retry logic
 	db, err = connHelper.ConnectToDatabase(ctx, dbConfig)
 	if err != nil {
+		// Mark migrations as failed if they were expected to run
+		if dbConfig.AutoMigrate {
+			api.GlobalMigrationStatus.SetFailed(err)
+		}
 		log.Fatalf("Failed to initialize database: %v", err)
 	}
 	defer func() {
@@ -158,6 +176,15 @@ func main() {
 			log.Printf("Failed to close database connection: %v", err)
 		}
 	}()
+
+	// Mark migrations as completed if they ran successfully
+	if dbConfig.AutoMigrate {
+		api.GlobalMigrationStatus.SetCompleted("latest")
+		logger.Info("Database migrations completed successfully", nil)
+	} else {
+		// If we skipped migrations, mark as ready anyway
+		api.GlobalMigrationStatus.SetCompleted("skipped")
+	}
 
 	// Prepare cache config with AWS integration if needed
 	var cacheClient cache.Cache

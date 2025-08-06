@@ -2,8 +2,10 @@ package api
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/developer-mesh/developer-mesh/apps/rest-api/internal/services"
@@ -183,6 +185,16 @@ func (api *DynamicToolsAPI) CreateTool(c *gin.Context) {
 	tenantID := c.GetString("tenant_id")
 	_ = c.GetString("user_id")
 
+	// Debug logging to understand the issue
+	if tenantIDRaw, exists := c.Get("tenant_id"); exists {
+		api.logger.Info("Debug: tenant_id from context", map[string]interface{}{
+			"raw_type":     fmt.Sprintf("%T", tenantIDRaw),
+			"raw_value":    fmt.Sprintf("%v", tenantIDRaw),
+			"string_value": tenantID,
+			"exists":       exists,
+		})
+	}
+
 	var req CreateToolRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
@@ -192,6 +204,16 @@ func (api *DynamicToolsAPI) CreateTool(c *gin.Context) {
 	// Validate request
 	if req.Name == "" || req.BaseURL == "" {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "name and base_url are required"})
+		return
+	}
+
+	// Check tenant_id
+	if tenantID == "" {
+		api.logger.Error("tenant_id is empty", map[string]interface{}{
+			"path":   c.Request.URL.Path,
+			"method": c.Request.Method,
+		})
+		c.JSON(http.StatusBadRequest, gin.H{"error": "tenant_id required"})
 		return
 	}
 
@@ -224,6 +246,16 @@ func (api *DynamicToolsAPI) CreateTool(c *gin.Context) {
 			"tool_name": req.Name,
 			"error":     err.Error(),
 		})
+
+		// Check if it's a duplicate tool error
+		if strings.Contains(err.Error(), "already exists") {
+			c.JSON(http.StatusConflict, gin.H{
+				"error":      err.Error(),
+				"suggestion": "A tool with this name already exists. Please use a different name or delete the existing tool first.",
+			})
+			return
+		}
+
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
@@ -814,47 +846,51 @@ func (api *DynamicToolsAPI) GetWebhookConfig(c *gin.Context) {
 		"enabled":     false,
 	}
 
-	if tool.WebhookConfig != nil {
-		response["enabled"] = tool.WebhookConfig.Enabled
-		response["auth_type"] = tool.WebhookConfig.AuthType
+	if tool.WebhookConfig != nil && len(*tool.WebhookConfig) > 0 {
+		// Unmarshal the webhook config
+		var webhookConfig models.ToolWebhookConfig
+		if err := json.Unmarshal(*tool.WebhookConfig, &webhookConfig); err == nil {
+			response["enabled"] = webhookConfig.Enabled
+			response["auth_type"] = webhookConfig.AuthType
 
-		if tool.WebhookConfig.SignatureHeader != "" {
-			response["signature_header"] = tool.WebhookConfig.SignatureHeader
-		}
+			if webhookConfig.SignatureHeader != "" {
+				response["signature_header"] = webhookConfig.SignatureHeader
+			}
 
-		if tool.WebhookConfig.SignatureAlgorithm != "" {
-			response["signature_algorithm"] = tool.WebhookConfig.SignatureAlgorithm
-		}
+			if webhookConfig.SignatureAlgorithm != "" {
+				response["signature_algorithm"] = webhookConfig.SignatureAlgorithm
+			}
 
-		if len(tool.WebhookConfig.Events) > 0 {
-			events := make([]string, 0, len(tool.WebhookConfig.Events))
-			for _, e := range tool.WebhookConfig.Events {
-				events = append(events, e.EventType)
+			if len(webhookConfig.Events) > 0 {
+				events := make([]string, 0, len(webhookConfig.Events))
+				for _, e := range webhookConfig.Events {
+					events = append(events, e.EventType)
+				}
+				response["supported_events"] = events
 			}
-			response["supported_events"] = events
-		}
 
-		// Add setup instructions
-		switch tool.WebhookConfig.AuthType {
-		case "hmac":
-			response["setup_instructions"] = []string{
-				fmt.Sprintf("1. Configure your %s to send webhooks to: %s/api/webhooks/tools/%s", tool.ToolName, baseURL, toolID),
-				"2. Set up HMAC signing with the provided secret",
-				fmt.Sprintf("3. Include the signature in the '%s' header", tool.WebhookConfig.SignatureHeader),
-			}
-		case "bearer":
-			response["setup_instructions"] = []string{
-				fmt.Sprintf("1. Configure your %s to send webhooks to: %s/api/webhooks/tools/%s", tool.ToolName, baseURL, toolID),
-				"2. Include the authentication token in the Authorization header as 'Bearer <token>'",
-			}
-		case "basic":
-			response["setup_instructions"] = []string{
-				fmt.Sprintf("1. Configure your %s to send webhooks to: %s/api/webhooks/tools/%s", tool.ToolName, baseURL, toolID),
-				"2. Use HTTP Basic Authentication with the provided credentials",
-			}
-		default:
-			response["setup_instructions"] = []string{
-				fmt.Sprintf("1. Configure your %s to send webhooks to: %s/api/webhooks/tools/%s", tool.ToolName, baseURL, toolID),
+			// Add setup instructions
+			switch webhookConfig.AuthType {
+			case "hmac":
+				response["setup_instructions"] = []string{
+					fmt.Sprintf("1. Configure your %s to send webhooks to: %s/api/webhooks/tools/%s", tool.ToolName, baseURL, toolID),
+					"2. Set up HMAC signing with the provided secret",
+					fmt.Sprintf("3. Include the signature in the '%s' header", webhookConfig.SignatureHeader),
+				}
+			case "bearer":
+				response["setup_instructions"] = []string{
+					fmt.Sprintf("1. Configure your %s to send webhooks to: %s/api/webhooks/tools/%s", tool.ToolName, baseURL, toolID),
+					"2. Include the authentication token in the Authorization header as 'Bearer <token>'",
+				}
+			case "basic":
+				response["setup_instructions"] = []string{
+					fmt.Sprintf("1. Configure your %s to send webhooks to: %s/api/webhooks/tools/%s", tool.ToolName, baseURL, toolID),
+					"2. Use HTTP Basic Authentication with the provided credentials",
+				}
+			default:
+				response["setup_instructions"] = []string{
+					fmt.Sprintf("1. Configure your %s to send webhooks to: %s/api/webhooks/tools/%s", tool.ToolName, baseURL, toolID),
+				}
 			}
 		}
 	}

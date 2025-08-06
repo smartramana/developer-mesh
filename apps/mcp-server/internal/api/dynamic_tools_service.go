@@ -51,7 +51,7 @@ func (s *DynamicToolService) ListTools(ctx context.Context, tenantID string, sta
 			config, auth_type, retry_policy, status, 
 			health_status, last_health_check,
 			created_at, updated_at, provider, passthrough_config
-		FROM tool_configurations
+		FROM mcp.tool_configurations
 		WHERE tenant_id = $1
 	`
 	args := []interface{}{tenantID}
@@ -103,7 +103,7 @@ func (s *DynamicToolService) GetTool(ctx context.Context, tenantID, toolID strin
 			retry_policy, status, health_status, 
 			last_health_check, created_at, updated_at,
 			provider, passthrough_config
-		FROM tool_configurations
+		FROM mcp.tool_configurations
 		WHERE tenant_id = $1 AND id = $2
 	`
 
@@ -171,7 +171,7 @@ func (s *DynamicToolService) CreateTool(ctx context.Context, config tools.ToolCo
 
 	// Insert tool
 	query := `
-		INSERT INTO tool_configurations (
+		INSERT INTO mcp.tool_configurations (
 			id, tenant_id, tool_name, display_name,
 			config, credentials_encrypted, auth_type,
 			retry_policy, status, created_by, provider, passthrough_config
@@ -185,7 +185,7 @@ func (s *DynamicToolService) CreateTool(ctx context.Context, config tools.ToolCo
 		ctx, query,
 		config.ID, config.TenantID, config.Name, config.Name,
 		configJSON, credentialsEncrypted, authType,
-		retryPolicyJSON, "active", "api", config.Provider, passthroughConfigJSON,
+		retryPolicyJSON, "active", nil, config.Provider, passthroughConfigJSON,
 	).Scan(&createdAt, &updatedAt)
 
 	if err != nil {
@@ -260,7 +260,7 @@ func (s *DynamicToolService) UpdateTool(ctx context.Context, config tools.ToolCo
 
 	// Update tool
 	query := `
-		UPDATE tool_configurations
+		UPDATE mcp.tool_configurations
 		SET 
 			tool_name = $3,
 			display_name = $4,
@@ -301,7 +301,7 @@ func (s *DynamicToolService) UpdateTool(ctx context.Context, config tools.ToolCo
 // DeleteTool deletes a tool
 func (s *DynamicToolService) DeleteTool(ctx context.Context, tenantID, toolID string) error {
 	query := `
-		DELETE FROM tool_configurations
+		DELETE FROM mcp.tool_configurations
 		WHERE tenant_id = $1 AND id = $2
 	`
 
@@ -332,7 +332,7 @@ func (s *DynamicToolService) StartDiscovery(ctx context.Context, config tools.To
 
 	// Create discovery session
 	query := `
-		INSERT INTO tool_discovery_sessions (
+		INSERT INTO mcp.tool_discovery_sessions (
 			id, tenant_id, session_id, base_url,
 			status, discovery_metadata
 		) VALUES (
@@ -372,7 +372,7 @@ func (s *DynamicToolService) GetDiscoverySession(ctx context.Context, sessionID 
 			status, discovered_urls, selected_url,
 			discovery_metadata, error_message,
 			created_at, expires_at
-		FROM tool_discovery_sessions
+		FROM mcp.tool_discovery_sessions
 		WHERE session_id = $1
 	`
 
@@ -413,7 +413,7 @@ func (s *DynamicToolService) GetDiscoverySession(ctx context.Context, sessionID 
 // UpdateDiscoverySession updates a discovery session
 func (s *DynamicToolService) UpdateDiscoverySession(ctx context.Context, sessionID string, status tools.DiscoveryStatus, result *tools.DiscoveryResult, err error) error {
 	query := `
-		UPDATE tool_discovery_sessions
+		UPDATE mcp.tool_discovery_sessions
 		SET 
 			status = $2,
 			discovered_urls = $3,
@@ -491,7 +491,7 @@ func (s *DynamicToolService) CreateToolFromDiscovery(ctx context.Context, sessio
 
 	// Mark session as confirmed
 	if _, err := s.db.ExecContext(ctx, `
-		UPDATE tool_discovery_sessions
+		UPDATE mcp.tool_discovery_sessions
 		SET status = 'confirmed', selected_url = $2
 		WHERE session_id = $1
 	`, session.SessionID, req.SelectedURL); err != nil {
@@ -511,7 +511,7 @@ func (s *DynamicToolService) UpdateHealthStatus(ctx context.Context, tenantID, t
 	}
 
 	query := `
-		UPDATE tool_configurations
+		UPDATE mcp.tool_configurations
 		SET 
 			health_status = $3,
 			last_health_check = $4

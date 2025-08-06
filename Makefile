@@ -272,13 +272,17 @@ security-check: ## Run security checks
 # ==============================================================================
 
 .PHONY: docker-up
-docker-up: ## Start all services with Docker Compose (internal use)
-	@echo "Starting services with Docker Compose..."
-	$(DOCKER_COMPOSE) up -d
+docker-up: ## Start all services with Docker Compose (rebuilds images)
+	@echo "Building and starting services with Docker Compose..."
+	$(DOCKER_COMPOSE) up -d --build
 
 .PHONY: down
 down: ## Stop all Docker services
 	$(DOCKER_COMPOSE) down
+
+.PHONY: down-volumes
+down-volumes: ## Stop all Docker services and remove volumes
+	$(DOCKER_COMPOSE) down -v
 
 .PHONY: logs
 logs: ## View Docker logs (service=<name> to filter)
@@ -739,7 +743,7 @@ tunnel-kill: ## Kill all SSH tunnels
 #   - Test tenants (00000000-0000-0000-0000-000000000001, -000002)
 #   - Test agents (code-agent, security-agent, devops-agent)
 #   - Test models (claude-3-opus, gpt-4)
-#   - Test tool configurations (GitHub API, Test Tool)
+#   - No tool configurations (tools should be added dynamically)
 # ==============================================================================
 
 .PHONY: seed-test-data

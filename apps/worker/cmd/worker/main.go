@@ -155,6 +155,7 @@ func runWorker(ctx context.Context) error {
 	}
 
 	dbConfig := database.Config{
+		Driver:     "postgres",
 		Host:       os.Getenv("DATABASE_HOST"),
 		Port:       dbPort,
 		Database:   os.Getenv("DATABASE_NAME"),
@@ -174,10 +175,73 @@ func runWorker(ctx context.Context) error {
 		dbConfig.SearchPath = "mcp,public"
 	}
 
-	db, err := database.NewDatabase(ctx, dbConfig)
-	if err != nil {
-		return fmt.Errorf("failed to connect to database: %w", err)
+	// Connect to database with retry logic
+	var db *database.Database
+	maxRetries := 10
+	baseDelay := 1 * time.Second
+
+	logger.Info("Connecting to database with retry logic", map[string]interface{}{
+		"host":     dbConfig.Host,
+		"database": dbConfig.Database,
+	})
+
+	for i := 0; i < maxRetries; i++ {
+		db, err = database.NewDatabase(ctx, dbConfig)
+		if err == nil {
+			// Test connection
+			if pingErr := db.Ping(); pingErr == nil {
+				break // Success!
+			} else {
+				// Close failed connection
+				if closeErr := db.Close(); closeErr != nil {
+					logger.Warn("Failed to close database connection", map[string]interface{}{"error": closeErr.Error()})
+				}
+				err = fmt.Errorf("failed to ping database: %w", pingErr)
+			}
+		}
+
+		if i < maxRetries-1 {
+			delay := baseDelay * (1 << uint(i)) // Exponential backoff
+			if delay > 30*time.Second {
+				delay = 30 * time.Second
+			}
+			logger.Info("Database connection failed, retrying...", map[string]interface{}{
+				"attempt":      i + 1,
+				"max_attempts": maxRetries,
+				"delay":        delay.String(),
+				"error":        err.Error(),
+			})
+
+			select {
+			case <-time.After(delay):
+				continue
+			case <-ctx.Done():
+				return ctx.Err()
+			}
+		}
 	}
+
+	if err != nil {
+		return fmt.Errorf("failed to connect to database after %d attempts: %w", maxRetries, err)
+	}
+
+	logger.Info("Database connection established, waiting for tables...", nil)
+
+	// Wait for tables to be ready
+	readinessChecker := database.NewReadinessChecker(db.GetDB())
+	readinessChecker.SetLogger(func(format string, args ...interface{}) {
+		logger.Info(fmt.Sprintf(format, args...), nil)
+	})
+
+	if err := readinessChecker.WaitForTablesWithBackoff(ctx); err != nil {
+		if closeErr := db.Close(); closeErr != nil {
+			logger.Warn("Failed to close database connection", map[string]interface{}{"error": closeErr.Error()})
+		}
+		return fmt.Errorf("database tables not ready: %w", err)
+	}
+
+	logger.Info("Database fully initialized with all required tables", nil)
+
 	defer func() {
 		if err := db.Close(); err != nil {
 			logger.Error("Failed to close database connection", map[string]interface{}{

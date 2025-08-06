@@ -5,8 +5,10 @@ import (
 	"context"
 	"database/sql"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"testing"
 	"time"
 
@@ -18,7 +20,8 @@ import (
 	"github.com/developer-mesh/developer-mesh/pkg/tools"
 	"github.com/getkin/kin-openapi/openapi3"
 	"github.com/gin-gonic/gin"
-	_ "github.com/mattn/go-sqlite3"
+	"github.com/google/uuid"
+	_ "github.com/lib/pq"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -88,10 +91,28 @@ func TestDynamicToolsPassthrough(t *testing.T) {
 	defer toolServer.Close()
 
 	// Create dependencies
-	// Setup test database
-	db, err := sql.Open("sqlite3", ":memory:")
-	require.NoError(t, err)
+	// Setup test database - use PostgreSQL from docker-compose.test.yml
+	// Default to localhost:5433 (test postgres port) if not set
+	dbHost := os.Getenv("TEST_DB_HOST")
+	if dbHost == "" {
+		dbHost = "localhost"
+	}
+	dbPort := os.Getenv("TEST_DB_PORT")
+	if dbPort == "" {
+		dbPort = "5433"
+	}
+
+	dsn := fmt.Sprintf("host=%s port=%s user=test password=test dbname=test sslmode=disable", dbHost, dbPort)
+	db, err := sql.Open("postgres", dsn)
+	if err != nil {
+		t.Skip("Skipping test: PostgreSQL test database not available")
+	}
 	defer func() { _ = db.Close() }()
+
+	// Test connection
+	if err := db.Ping(); err != nil {
+		t.Skip("Skipping test: Cannot connect to PostgreSQL test database")
+	}
 
 	// Run migrations
 	err = runTestMigrations(db)
@@ -115,12 +136,16 @@ func TestDynamicToolsPassthrough(t *testing.T) {
 	// Create API
 	api := NewDynamicToolsAPI(toolService, logger, metricsClient, encryptionSvc, healthCheckMgr, auditLogger)
 
+	// Generate valid UUIDs for test
+	testTenantID := uuid.New().String()
+	testUserID := uuid.New().String()
+
 	// Setup router with mock auth middleware that adds tenant_id
 	router := gin.New()
 	router.Use(func(c *gin.Context) {
 		// Mock auth middleware - set tenant_id for all requests
-		c.Set("tenant_id", "test-tenant")
-		c.Set("user_id", "test-user")
+		c.Set("tenant_id", testTenantID)
+		c.Set("user_id", testUserID)
 
 		// Handle passthrough headers if present
 		if userToken := c.GetHeader("X-User-Token"); userToken != "" {
@@ -319,29 +344,44 @@ func TestDynamicToolsPassthrough(t *testing.T) {
 
 // runTestMigrations runs basic table creation for tests
 func runTestMigrations(db *sql.DB) error {
-	// Create tool_configurations table
-	_, err := db.Exec(`
-		CREATE TABLE IF NOT EXISTS tool_configurations (
-			id TEXT PRIMARY KEY,
-			tenant_id TEXT NOT NULL,
-			tool_name TEXT NOT NULL,
-			display_name TEXT,
+	// Clean up any existing test data
+	_, _ = db.Exec(`DROP SCHEMA IF EXISTS mcp CASCADE`)
+
+	// Create mcp schema
+	_, err := db.Exec(`CREATE SCHEMA mcp`)
+	if err != nil {
+		return fmt.Errorf("failed to create mcp schema: %w", err)
+	}
+
+	// Set search path to include mcp
+	_, err = db.Exec(`SET search_path TO mcp, public`)
+	if err != nil {
+		return fmt.Errorf("failed to set search path: %w", err)
+	}
+
+	// Create tool_configurations table in mcp schema
+	_, err = db.Exec(`
+		CREATE TABLE IF NOT EXISTS mcp.tool_configurations (
+			id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+			tenant_id UUID NOT NULL,
+			tool_name VARCHAR(255) NOT NULL,
+			display_name VARCHAR(255),
 			base_url TEXT,
 			documentation_url TEXT,
 			openapi_url TEXT,
-			auth_type TEXT NOT NULL,
-			credentials_encrypted TEXT,
-			config TEXT,
-			retry_policy TEXT,
-			health_config TEXT,
-			health_status TEXT,
-			last_health_check TIMESTAMP,
-			status TEXT DEFAULT 'active',
-			created_by TEXT,
-			provider TEXT,
-			passthrough_config TEXT DEFAULT '{"mode": "optional", "fallback_to_service": true}',
-			created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-			updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+			auth_type VARCHAR(50) NOT NULL,
+			credentials_encrypted BYTEA,
+			config JSONB,
+			retry_policy JSONB,
+			health_config JSONB,
+			health_status JSONB,
+			last_health_check TIMESTAMP WITH TIME ZONE,
+			status VARCHAR(20) DEFAULT 'active',
+			created_by UUID,
+			provider VARCHAR(255),
+			passthrough_config JSONB DEFAULT '{"mode": "optional", "fallback_to_service": true}'::jsonb,
+			created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+			updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 		)
 	`)
 	if err != nil {
@@ -350,12 +390,12 @@ func runTestMigrations(db *sql.DB) error {
 
 	// Create users table for auth service
 	_, err = db.Exec(`
-		CREATE TABLE IF NOT EXISTS users (
-			id TEXT PRIMARY KEY,
-			tenant_id TEXT NOT NULL,
-			email TEXT NOT NULL,
-			metadata TEXT,
-			created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+		CREATE TABLE IF NOT EXISTS mcp.users (
+			id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+			tenant_id UUID NOT NULL,
+			email VARCHAR(255) NOT NULL,
+			metadata JSONB,
+			created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 		)
 	`)
 	if err != nil {
@@ -364,21 +404,21 @@ func runTestMigrations(db *sql.DB) error {
 
 	// Create tool_executions table
 	_, err = db.Exec(`
-		CREATE TABLE IF NOT EXISTS tool_executions (
-			id TEXT PRIMARY KEY,
-			tool_config_id TEXT NOT NULL,
-			tenant_id TEXT NOT NULL,
-			action TEXT NOT NULL,
-			parameters TEXT,
-			status TEXT NOT NULL,
-			result TEXT,
+		CREATE TABLE IF NOT EXISTS mcp.tool_executions (
+			id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+			tool_config_id UUID NOT NULL,
+			tenant_id UUID NOT NULL,
+			action VARCHAR(255) NOT NULL,
+			parameters JSONB,
+			status VARCHAR(50) NOT NULL,
+			result JSONB,
 			error_message TEXT,
 			retry_count INTEGER DEFAULT 0,
 			response_time_ms INTEGER,
-			executed_by TEXT,
-			correlation_id TEXT,
-			executed_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-			completed_at TIMESTAMP
+			executed_by UUID,
+			correlation_id UUID,
+			executed_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+			completed_at TIMESTAMP WITH TIME ZONE
 		)
 	`)
 	return err

@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
+	"github.com/google/uuid"
 	"golang.org/x/time/rate"
 )
 
@@ -413,10 +414,26 @@ func NoAuthMiddleware() gin.HandlerFunc {
 func ExtractTenantContext() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		// The auth middleware sets the User under auth.UserContextKey
-		// but also sets tenant_id directly
+		// but also sets tenant_id directly (as UUID)
 		if tenantID, exists := c.Get("tenant_id"); exists {
-			if tid, ok := tenantID.(string); ok && tid != "" {
-				c.Header("X-Tenant-ID", tid)
+			var tidStr string
+
+			// Handle both string and UUID types
+			switch v := tenantID.(type) {
+			case string:
+				tidStr = v
+			case uuid.UUID:
+				tidStr = v.String()
+			case fmt.Stringer: // This covers other types that implement Stringer
+				tidStr = v.String()
+			default:
+				// Log unexpected type for debugging
+				log.Printf("ExtractTenantContext: unexpected tenant_id type: %T, value: %v", v, v)
+			}
+
+			if tidStr != "" {
+				c.Set("tenant_id", tidStr) // Always store as string
+				c.Header("X-Tenant-ID", tidStr)
 				c.Next()
 				return
 			}
@@ -425,9 +442,25 @@ func ExtractTenantContext() gin.HandlerFunc {
 		// Try to get from user context (backward compatibility)
 		if userVal, userExists := c.Get("user"); userExists {
 			if userMap, ok := userVal.(map[string]interface{}); ok {
-				if tenantID, hasTenant := userMap["tenant_id"].(string); hasTenant {
-					c.Set("tenant_id", tenantID)
-					c.Header("X-Tenant-ID", tenantID)
+				// tenant_id in the map could be either string or UUID
+				if tenantIDRaw, hasTenant := userMap["tenant_id"]; hasTenant {
+					var tidStr string
+					switch v := tenantIDRaw.(type) {
+					case string:
+						tidStr = v
+					case uuid.UUID:
+						tidStr = v.String()
+					case fmt.Stringer: // This covers other types that implement Stringer
+						tidStr = v.String()
+					default:
+						// Log unexpected type for debugging
+						log.Printf("ExtractTenantContext: unexpected user.tenant_id type: %T, value: %v", v, v)
+					}
+
+					if tidStr != "" {
+						c.Set("tenant_id", tidStr)
+						c.Header("X-Tenant-ID", tidStr)
+					}
 				}
 			}
 		}

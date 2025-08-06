@@ -5,6 +5,8 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
+	"regexp"
+	"strings"
 	"sync"
 	"time"
 
@@ -116,7 +118,7 @@ func (s *DynamicToolsService) ListTools(ctx context.Context, tenantID string, st
 			config, auth_type, retry_policy, status, 
 			health_status, last_health_check,
 			created_at, updated_at, provider, passthrough_config
-		FROM tool_configurations
+		FROM mcp.tool_configurations
 		WHERE tenant_id = $1
 	`
 	args := []interface{}{tenantID}
@@ -173,7 +175,7 @@ func (s *DynamicToolsService) GetTool(ctx context.Context, tenantID, toolID stri
 			health_status, last_health_check,
 			created_at, updated_at, provider, passthrough_config,
 			webhook_config, credentials_encrypted
-		FROM tool_configurations
+		FROM mcp.tool_configurations
 		WHERE tenant_id = $1 AND id = $2
 	`
 
@@ -202,8 +204,22 @@ func (s *DynamicToolsService) CreateTool(ctx context.Context, tenantID string, c
 		return nil, fmt.Errorf("failed to discover tool: %w", err)
 	}
 
-	if result.Status != tools.DiscoveryStatusSuccess {
+	// Allow partial discovery if we at least found the OpenAPI spec URL
+	if result.Status != tools.DiscoveryStatusSuccess && result.Status != tools.DiscoveryStatusPartial {
 		return nil, fmt.Errorf("discovery failed with status: %s", result.Status)
+	}
+
+	// For partial discovery, ensure we have minimum required information
+	if result.Status == tools.DiscoveryStatusPartial {
+		if result.SpecURL == "" && config.OpenAPIURL == "" {
+			return nil, fmt.Errorf("partial discovery without OpenAPI spec URL")
+		}
+		// Log warning about partial discovery
+		s.logger.Warn("Creating tool with partial discovery results", map[string]interface{}{
+			"tool_name":  config.Name,
+			"status":     result.Status,
+			"urls_found": len(result.DiscoveredURLs),
+		})
 	}
 
 	// Extract tool information from discovery result
@@ -244,50 +260,134 @@ func (s *DynamicToolsService) CreateTool(ctx context.Context, tenantID string, c
 	}
 
 	// Marshal webhook config if present
-	var webhookConfigJSON []byte
+	var webhookConfigPtr *json.RawMessage
 	if webhookConfig != nil {
-		webhookConfigJSON, err = json.Marshal(webhookConfig)
+		wcJSON, err := json.Marshal(webhookConfig)
 		if err != nil {
 			return nil, fmt.Errorf("failed to marshal webhook config: %w", err)
 		}
+		webhookConfigJSON := json.RawMessage(wcJSON)
+		webhookConfigPtr = &webhookConfigJSON
 	}
 
 	// Insert tool into database
 	query := `
-		INSERT INTO tool_configurations (
-			id, tenant_id, tool_name, display_name, base_url, config,
+		INSERT INTO mcp.tool_configurations (
+			id, tenant_id, tool_name, tool_type, display_name, base_url, config,
 			auth_type, credentials_encrypted, retry_policy, status,
 			health_status, last_health_check, created_at, updated_at,
-			provider, passthrough_config, webhook_config
+			provider, passthrough_config, webhook_config,
+			documentation_url, openapi_url, openapi_spec_url, description, health_message
 		) VALUES (
-			$1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17
-		) RETURNING *
+			$1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23
+		)
 	`
+
+	// Sanitize tool name to comply with database constraint
+	// Convert to lowercase, replace spaces and special chars with hyphens
+	sanitizedName := sanitizeToolName(config.Name)
+
+	// Check if a tool with this name already exists for the tenant
+	existingQuery := `
+		SELECT id FROM mcp.tool_configurations 
+		WHERE tenant_id = $1 AND tool_name = $2
+		LIMIT 1
+	`
+	var existingID string
+	err = s.db.GetContext(ctx, &existingID, existingQuery, tenantID, sanitizedName)
+	if err == nil {
+		// Tool already exists
+		return nil, fmt.Errorf("tool with name '%s' already exists for this tenant", sanitizedName)
+	} else if err != sql.ErrNoRows {
+		// Actual database error
+		return nil, fmt.Errorf("failed to check for existing tool: %w", err)
+	}
+
+	// Determine tool type - default to "rest" for API tools
+	toolType := "rest"
+	if config.Provider == "graphql" {
+		toolType = "graphql"
+	}
+
+	// Convert passthrough config to JSON if provided
+	var passthroughConfigPtr *json.RawMessage
+	if config.PassthroughConfig != nil {
+		pcJSON, err := json.Marshal(config.PassthroughConfig)
+		if err != nil {
+			return nil, fmt.Errorf("failed to marshal passthrough config: %w", err)
+		}
+		passthroughConfigJSON := json.RawMessage(pcJSON)
+		passthroughConfigPtr = &passthroughConfigJSON
+	}
+
+	// Handle nullable string fields
+	var documentationURL *string
+	if config.DocumentationURL != "" {
+		documentationURL = &config.DocumentationURL
+	}
+
+	var openAPIURL *string
+	if config.OpenAPIURL != "" {
+		openAPIURL = &config.OpenAPIURL
+	}
+
+	// Extract OpenAPI spec URL from discovery result if available
+	var openAPISpecURL *string
+	if result != nil && result.SpecURL != "" {
+		openAPISpecURL = &result.SpecURL
+	}
 
 	tool := &models.DynamicTool{
 		ID:                   toolID,
 		TenantID:             tenantID,
-		ToolName:             config.Name,
-		DisplayName:          config.Name,
+		ToolName:             sanitizedName,
+		ToolType:             toolType,
+		DisplayName:          config.Name, // Keep original name for display
 		BaseURL:              config.BaseURL,
+		DocumentationURL:     documentationURL,
+		OpenAPIURL:           openAPIURL,
+		OpenAPISpecURL:       openAPISpecURL,
 		Config:               config.Config,
 		AuthType:             "bearer", // Default, should be extracted from discovery
 		CredentialsEncrypted: encryptedCreds,
 		Status:               "active",
-		HealthStatus:         json.RawMessage(`{"status": "unknown"}`),
+		IsActive:             true, // New tools are active by default
+		HealthStatus:         nil,  // Will be set after first health check
 		LastHealthCheck:      &now,
 		CreatedAt:            now,
 		UpdatedAt:            now,
 		Provider:             config.Provider,
-		PassthroughConfig:    (*models.PassthroughConfig)(config.PassthroughConfig),
-		WebhookConfig:        webhookConfig,
+		WebhookConfig:        webhookConfigPtr,
+		PassthroughConfig:    passthroughConfigPtr,
+		Description:          nil, // Can be set later
+		HealthMessage:        nil, // Will be set after health check
 	}
 
-	err = s.db.GetContext(ctx, tool, query,
-		toolID, tenantID, config.Name, config.Name, config.BaseURL, configJSON,
+	// Convert empty webhook config to nil for proper JSONB handling
+	var webhookConfigParam interface{} = nil
+	if webhookConfigPtr != nil {
+		webhookConfigParam = webhookConfigPtr
+	}
+
+	// Convert empty passthrough config to nil for proper JSONB handling
+	var passthroughConfigParam interface{} = nil
+	if passthroughConfigPtr != nil {
+		passthroughConfigParam = passthroughConfigPtr
+	}
+
+	// Handle health_status - pass nil interface{} for NULL in JSONB column
+	var healthStatusParam interface{} = nil
+	if tool.HealthStatus != nil {
+		healthStatusParam = tool.HealthStatus
+	}
+
+	// Execute the insert
+	_, err = s.db.ExecContext(ctx, query,
+		toolID, tenantID, sanitizedName, toolType, config.Name, config.BaseURL, configJSON,
 		tool.AuthType, encryptedCreds, nil, tool.Status,
-		tool.HealthStatus, tool.LastHealthCheck, tool.CreatedAt, tool.UpdatedAt,
-		tool.Provider, nil, webhookConfigJSON,
+		healthStatusParam, tool.LastHealthCheck, tool.CreatedAt, tool.UpdatedAt,
+		tool.Provider, passthroughConfigParam, webhookConfigParam,
+		documentationURL, openAPIURL, openAPISpecURL, nil, nil, // documentation_url, openapi_url, openapi_spec_url, description, health_message
 	)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create tool: %w", err)
@@ -312,7 +412,7 @@ func (s *DynamicToolsService) UpdateTool(ctx context.Context, tenantID, toolID s
 // DeleteTool deletes a tool
 func (s *DynamicToolsService) DeleteTool(ctx context.Context, tenantID, toolID string) error {
 	query := `
-		DELETE FROM tool_configurations
+		DELETE FROM mcp.tool_configurations
 		WHERE tenant_id = $1 AND id = $2
 	`
 
@@ -806,7 +906,10 @@ func (s *DynamicToolsService) scanTool(rows *sql.Rows) (*models.DynamicTool, err
 		return nil, fmt.Errorf("failed to unmarshal config: %w", err)
 	}
 
-	tool.HealthStatus = healthStatusJSON
+	if len(healthStatusJSON) > 0 {
+		rawMsg := json.RawMessage(healthStatusJSON)
+		tool.HealthStatus = &rawMsg
+	}
 
 	if retryPolicyJSON.Valid {
 		if err := json.Unmarshal([]byte(retryPolicyJSON.String), &tool.RetryPolicy); err != nil {
@@ -918,4 +1021,30 @@ func (s *DynamicToolsService) CreateToolsFromMultipleAPIs(ctx context.Context, t
 	}
 
 	return createdTools, nil
+}
+
+// sanitizeToolName converts a display name to a valid tool_name
+// that matches the database constraint: ^[a-zA-Z0-9][a-zA-Z0-9_-]*$
+func sanitizeToolName(name string) string {
+	// Convert to lowercase
+	name = strings.ToLower(name)
+
+	// Replace spaces and special characters with hyphens
+	re := regexp.MustCompile(`[^a-zA-Z0-9_-]+`)
+	name = re.ReplaceAllString(name, "-")
+
+	// Remove leading/trailing hyphens
+	name = strings.Trim(name, "-")
+
+	// Ensure it starts with alphanumeric
+	if len(name) > 0 && !regexp.MustCompile(`^[a-zA-Z0-9]`).MatchString(name) {
+		name = "tool-" + name
+	}
+
+	// If empty, generate a default name
+	if name == "" {
+		name = "tool-" + uuid.New().String()[:8]
+	}
+
+	return name
 }

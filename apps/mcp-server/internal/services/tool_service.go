@@ -87,7 +87,7 @@ func (s *ToolService) CreateTool(ctx context.Context, tenantID string, config *t
 
 	// Insert into database
 	query := `
-		INSERT INTO tool_configurations (
+		INSERT INTO mcp.tool_configurations (
 			id, tenant_id, tool_type, tool_name, display_name,
 			config, credentials_encrypted, auth_type, retry_policy,
 			status, health_status, created_by
@@ -127,7 +127,7 @@ func (s *ToolService) GetTool(ctx context.Context, tenantID, toolName string) (*
 		       config, credentials_encrypted, auth_type, retry_policy,
 		       status, health_status, last_health_check,
 		       created_at, updated_at, created_by
-		FROM tool_configurations
+		FROM mcp.tool_configurations
 		WHERE tenant_id = $1 AND tool_name = $2 AND status = 'active'`
 
 	err := s.db.GetContext(ctx, &dbConfig, query, tenantID, toolName)
@@ -150,7 +150,7 @@ func (s *ToolService) GetToolByType(ctx context.Context, tenantID, toolType stri
 		       config, credentials_encrypted, auth_type, retry_policy,
 		       status, health_status, last_health_check,
 		       created_at, updated_at, created_by
-		FROM tool_configurations
+		FROM mcp.tool_configurations
 		WHERE tenant_id = $1 AND tool_type = $2 AND status = 'active'
 		ORDER BY created_at ASC
 		LIMIT 1`
@@ -175,7 +175,7 @@ func (s *ToolService) ListTools(ctx context.Context, tenantID string) ([]*tool.T
 		       config, credentials_encrypted, auth_type, retry_policy,
 		       status, health_status, last_health_check,
 		       created_at, updated_at, created_by
-		FROM tool_configurations
+		FROM mcp.tool_configurations
 		WHERE tenant_id = $1 AND status = 'active'
 		ORDER BY tool_name`
 
@@ -233,7 +233,7 @@ func (s *ToolService) UpdateTool(ctx context.Context, tenantID, toolName string,
 		}
 
 		_, err = tx.ExecContext(ctx,
-			"UPDATE tool_configurations SET credentials_encrypted = $1, auth_type = $2 WHERE id = $3",
+			"UPDATE mcp.tool_configurations SET credentials_encrypted = $1, auth_type = $2 WHERE id = $3",
 			encryptedCreds, creds.Type, existing.ID,
 		)
 		if err != nil {
@@ -248,7 +248,7 @@ func (s *ToolService) UpdateTool(ctx context.Context, tenantID, toolName string,
 	}
 
 	_, err = tx.ExecContext(ctx,
-		"UPDATE tool_configurations SET config = $1, display_name = $2 WHERE id = $3",
+		"UPDATE mcp.tool_configurations SET config = $1, display_name = $2 WHERE id = $3",
 		configJSON,
 		sql.NullString{String: existing.DisplayName, Valid: existing.DisplayName != ""},
 		existing.ID,
@@ -263,7 +263,7 @@ func (s *ToolService) UpdateTool(ctx context.Context, tenantID, toolName string,
 // DeleteTool marks a tool as deleted
 func (s *ToolService) DeleteTool(ctx context.Context, tenantID, toolName string) error {
 	result, err := s.db.ExecContext(ctx,
-		"UPDATE tool_configurations SET status = 'deleted' WHERE tenant_id = $1 AND tool_name = $2 AND status = 'active'",
+		"UPDATE mcp.tool_configurations SET status = 'deleted' WHERE tenant_id = $1 AND tool_name = $2 AND status = 'active'",
 		tenantID, toolName,
 	)
 	if err != nil {
@@ -295,7 +295,7 @@ func (s *ToolService) UpdateHealthStatus(ctx context.Context, toolID string, sta
 	}
 
 	_, err := s.db.ExecContext(ctx,
-		"UPDATE tool_configurations SET health_status = $1, last_health_check = $2 WHERE id = $3",
+		"UPDATE mcp.tool_configurations SET health_status = $1, last_health_check = $2 WHERE id = $3",
 		healthStatus, status.LastChecked, toolID,
 	)
 
@@ -310,7 +310,7 @@ func (s *ToolService) UpdateHealthStatus(ctx context.Context, toolID string, sta
 func (s *ToolService) toolExists(ctx context.Context, tenantID, toolName string) (bool, error) {
 	var count int
 	err := s.db.GetContext(ctx, &count,
-		"SELECT COUNT(*) FROM tool_configurations WHERE tenant_id = $1 AND tool_name = $2 AND status = 'active'",
+		"SELECT COUNT(*) FROM mcp.tool_configurations WHERE tenant_id = $1 AND tool_name = $2 AND status = 'active'",
 		tenantID, toolName,
 	)
 	return count > 0, err

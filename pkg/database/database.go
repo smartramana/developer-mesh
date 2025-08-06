@@ -5,11 +5,16 @@ import (
 	"errors"
 	"fmt"
 	"log"
+	"strings"
+	"time"
 
 	"github.com/developer-mesh/developer-mesh/pkg/common/aws"
 	"github.com/developer-mesh/developer-mesh/pkg/database/migration"
 	"github.com/developer-mesh/developer-mesh/pkg/models"
 	"github.com/jmoiron/sqlx"
+
+	// Import PostgreSQL driver
+	_ "github.com/lib/pq"
 )
 
 // Common errors
@@ -76,6 +81,15 @@ func NewDatabase(ctx context.Context, cfg Config) (*Database, error) {
 		// Use provided DSN (fallback method)
 		log.Println("Warning: Using explicit DSN for database connection instead of IAM authentication")
 		dsn = cfg.DSN
+
+		// Ensure search_path is included in DSN if not already present
+		if !strings.Contains(dsn, "search_path") && cfg.SearchPath == "" {
+			if strings.Contains(dsn, "?") {
+				dsn = dsn + "&search_path=mcp,public"
+			} else {
+				dsn = dsn + "?search_path=mcp,public"
+			}
+		}
 		log.Printf("Using DSN: %s", dsn)
 	} else {
 		// Build DSN from individual components (least recommended option)
@@ -91,7 +105,7 @@ func NewDatabase(ctx context.Context, cfg Config) (*Database, error) {
 			return nil, fmt.Errorf("password is required when not using IAM authentication")
 		}
 
-		dsn = fmt.Sprintf("host=%s port=%d user=%s password=%s dbname=%s sslmode=%s",
+		dsn = fmt.Sprintf("host=%s port=%d user=%s password=%s dbname=%s sslmode=%s search_path=mcp,public",
 			cfg.Host, cfg.Port, cfg.Username, cfg.Password, cfg.Database, sslMode)
 	}
 
@@ -114,27 +128,15 @@ func NewDatabase(ctx context.Context, cfg Config) (*Database, error) {
 		rdsClient:  rdsClient,
 	}
 
-	// Set search_path if configured
-	log.Printf("Database config SearchPath: '%s'", cfg.SearchPath)
-	if cfg.SearchPath != "" {
-		if _, err := db.ExecContext(ctx, fmt.Sprintf("SET search_path TO %s", cfg.SearchPath)); err != nil {
-			log.Printf("Warning: Failed to set search_path to %s: %v", cfg.SearchPath, err)
-		} else {
-			log.Printf("Set search_path to: %s", cfg.SearchPath)
-		}
-	} else {
-		// Default search path
-		if _, err := db.ExecContext(ctx, "SET search_path TO mcp,public"); err != nil {
-			log.Printf("Warning: Failed to set default search_path: %v", err)
-		} else {
-			log.Printf("Set default search_path to: mcp,public")
-		}
-	}
-
-	// Check current search_path
+	// Verify search_path is correctly set
 	var searchPath string
 	if err := db.QueryRowContext(ctx, "SHOW search_path").Scan(&searchPath); err == nil {
-		log.Printf("Current search_path: %s", searchPath)
+		log.Printf("Database search_path: %s", searchPath)
+		// If search_path doesn't include mcp, warn about it
+		if !strings.Contains(searchPath, "mcp") {
+			log.Printf("WARNING: search_path does not include 'mcp' schema: %s", searchPath)
+			log.Printf("This may cause table lookup failures. Ensure DSN includes search_path parameter.")
+		}
 	}
 
 	// Skip preparing statements here - they'll be prepared after migrations run
@@ -169,12 +171,50 @@ func NewDatabase(ctx context.Context, cfg Config) (*Database, error) {
 	}
 
 	// Prepare statements after migrations have run
-	if err := database.prepareStatements(ctx); err != nil {
-		log.Printf("Warning: Failed to prepare statements: %v", err)
+	// Use exponential backoff in case tables are still being created
+	if err := database.prepareStatementsWithRetry(ctx); err != nil {
+		log.Printf("Warning: Failed to prepare statements after retries: %v", err)
 		// Don't fail initialization - statements can be prepared on demand
 	}
 
 	return database, nil
+}
+
+// prepareStatementsWithRetry prepares statements with exponential backoff
+func (d *Database) prepareStatementsWithRetry(ctx context.Context) error {
+	maxRetries := 5
+	baseDelay := 100 * time.Millisecond
+
+	for i := 0; i < maxRetries; i++ {
+		err := d.prepareStatements(ctx)
+		if err == nil {
+			return nil // Success!
+		}
+
+		// Check if error is due to missing tables
+		if strings.Contains(err.Error(), "does not exist") {
+			if i < maxRetries-1 {
+				delay := baseDelay * (1 << uint(i)) // Exponential backoff
+				if delay > 2*time.Second {
+					delay = 2 * time.Second
+				}
+				log.Printf("Failed to prepare statements (attempt %d/%d), retrying in %v: %v",
+					i+1, maxRetries, delay, err)
+
+				select {
+				case <-time.After(delay):
+					continue
+				case <-ctx.Done():
+					return ctx.Err()
+				}
+			}
+		} else {
+			// Non-retryable error
+			return err
+		}
+	}
+
+	return fmt.Errorf("failed to prepare statements after %d attempts", maxRetries)
 }
 
 // prepareStatements prepares common SQL statements for reuse

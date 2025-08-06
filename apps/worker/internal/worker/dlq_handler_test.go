@@ -73,7 +73,7 @@ func TestDLQHandler_SendToDLQ(t *testing.T) {
 
 	// Set up expectations
 	metadataJSON, _ := json.Marshal(event.Metadata)
-	sqlMock.ExpectQuery(`INSERT INTO webhook_dlq`).
+	sqlMock.ExpectQuery(`INSERT INTO mcp\.webhook_dlq`).
 		WithArgs(
 			event.EventID,
 			event.EventType,
@@ -127,11 +127,11 @@ func TestDLQHandler_ProcessDLQ(t *testing.T) {
 		1, nil, time.Now(), "pending", json.RawMessage(`{}`),
 	)
 
-	sqlMock.ExpectQuery(`SELECT .* FROM webhook_dlq WHERE status = 'pending'`).
+	sqlMock.ExpectQuery(`SELECT .* FROM mcp\.webhook_dlq WHERE status = 'pending'`).
 		WillReturnRows(rows)
 
 	// Expect update to retrying status
-	sqlMock.ExpectExec(`UPDATE webhook_dlq SET status = 'retrying'`).
+	sqlMock.ExpectExec(`UPDATE mcp\.webhook_dlq SET status = 'retrying'`).
 		WithArgs("dlq-123").
 		WillReturnResult(sqlmock.NewResult(0, 1))
 
@@ -139,7 +139,7 @@ func TestDLQHandler_ProcessDLQ(t *testing.T) {
 	mockQueue.On("EnqueueEvent", ctx, mock.Anything).Return(nil)
 
 	// Expect update to resolved status
-	sqlMock.ExpectExec(`UPDATE webhook_dlq SET status = \$2 WHERE id = \$1`).
+	sqlMock.ExpectExec(`UPDATE mcp\.webhook_dlq SET status = \$2 WHERE id = \$1`).
 		WithArgs("dlq-123", "resolved").
 		WillReturnResult(sqlmock.NewResult(0, 1))
 
@@ -186,12 +186,12 @@ func TestDLQHandler_RetryFromDLQ(t *testing.T) {
 		1, nil, time.Now(), "pending", json.RawMessage(`{"tool_id": "tool-123"}`),
 	)
 
-	sqlMock.ExpectQuery(`SELECT .* FROM webhook_dlq WHERE event_id = \$1`).
+	sqlMock.ExpectQuery(`SELECT .* FROM mcp\.webhook_dlq WHERE event_id = \$1`).
 		WithArgs(eventID).
 		WillReturnRows(rows)
 
 	// Expect update to retrying status
-	sqlMock.ExpectExec(`UPDATE webhook_dlq SET status = 'retrying'`).
+	sqlMock.ExpectExec(`UPDATE mcp\.webhook_dlq SET status = 'retrying'`).
 		WithArgs("dlq-123").
 		WillReturnResult(sqlmock.NewResult(0, 1))
 
@@ -199,7 +199,7 @@ func TestDLQHandler_RetryFromDLQ(t *testing.T) {
 	mockQueue.On("EnqueueEvent", ctx, mock.Anything).Return(nil)
 
 	// Expect update to resolved status
-	sqlMock.ExpectExec(`UPDATE webhook_dlq SET status = \$2 WHERE id = \$1`).
+	sqlMock.ExpectExec(`UPDATE mcp\.webhook_dlq SET status = \$2 WHERE id = \$1`).
 		WithArgs("dlq-123", "resolved").
 		WillReturnResult(sqlmock.NewResult(0, 1))
 

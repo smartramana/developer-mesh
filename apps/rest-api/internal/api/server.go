@@ -323,6 +323,14 @@ func (s *Server) setupRoutes(ctx context.Context) {
 	s.router.GET("/healthz", s.healthChecker.LivenessHandler) // Kubernetes liveness probe
 	s.router.GET("/readyz", s.healthChecker.ReadinessHandler) // Kubernetes readiness probe
 
+	// Migration status endpoint (admin)
+	s.router.GET("/admin/migration-status", func(c *gin.Context) {
+		c.JSON(http.StatusOK, gin.H{
+			"status":    GlobalMigrationStatus.GetStatus(),
+			"timestamp": time.Now().UTC(),
+		})
+	})
+
 	// Swagger API documentation
 	if s.config.EnableSwagger {
 		s.router.GET("/swagger/*any", ginSwagger.WrapHandler(swaggerFiles.Handler))

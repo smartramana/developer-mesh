@@ -137,7 +137,8 @@ func (r *dynamicToolRepository) GetByID(ctx context.Context, id string) (*models
 		}
 	}
 	if healthStatusJSON != nil {
-		tool.HealthStatus = healthStatusJSON
+		rawMsg := json.RawMessage(healthStatusJSON)
+		tool.HealthStatus = &rawMsg
 	}
 
 	return &tool, nil
@@ -193,7 +194,8 @@ func (r *dynamicToolRepository) GetByToolName(ctx context.Context, tenantID, too
 		}
 	}
 	if healthStatusJSON != nil {
-		tool.HealthStatus = healthStatusJSON
+		rawMsg := json.RawMessage(healthStatusJSON)
+		tool.HealthStatus = &rawMsg
 	}
 
 	return &tool, nil
@@ -265,7 +267,8 @@ func (r *dynamicToolRepository) List(ctx context.Context, tenantID string, statu
 			}
 		}
 		if healthStatusJSON != nil {
-			tool.HealthStatus = healthStatusJSON
+			rawMsg := json.RawMessage(healthStatusJSON)
+			tool.HealthStatus = &rawMsg
 		}
 
 		tools = append(tools, &tool)

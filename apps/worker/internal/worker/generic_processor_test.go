@@ -59,10 +59,15 @@ func TestGenericWebhookProcessor_ProcessEvent_Success(t *testing.T) {
 		ToolName: "test-tool",
 		Provider: "github",
 		Status:   "active",
-		WebhookConfig: &models.ToolWebhookConfig{
-			Enabled:               true,
-			DefaultProcessingMode: "store_only",
-		},
+		WebhookConfig: func() *json.RawMessage {
+			wc := &models.ToolWebhookConfig{
+				Enabled:               true,
+				DefaultProcessingMode: "store_only",
+			}
+			data, _ := json.Marshal(wc)
+			rawMsg := json.RawMessage(data)
+			return &rawMsg
+		}(),
 	}
 
 	// Create mocks
@@ -229,14 +234,19 @@ func TestGenericWebhookProcessor_GetProcessingMode(t *testing.T) {
 		{
 			name: "event-specific mode",
 			tool: &models.DynamicTool{
-				WebhookConfig: &models.ToolWebhookConfig{
-					Events: []models.WebhookEventConfig{
-						{
-							EventType:      "push",
-							ProcessingMode: "store_and_forward",
+				WebhookConfig: func() *json.RawMessage {
+					wc := &models.ToolWebhookConfig{
+						Events: []models.WebhookEventConfig{
+							{
+								EventType:      "push",
+								ProcessingMode: "store_and_forward",
+							},
 						},
-					},
-				},
+					}
+					data, _ := json.Marshal(wc)
+					rawMsg := json.RawMessage(data)
+					return &rawMsg
+				}(),
 			},
 			eventType: "push",
 			want:      ModeStoreAndForward,
@@ -244,9 +254,14 @@ func TestGenericWebhookProcessor_GetProcessingMode(t *testing.T) {
 		{
 			name: "default mode",
 			tool: &models.DynamicTool{
-				WebhookConfig: &models.ToolWebhookConfig{
-					DefaultProcessingMode: "transform_and_store",
-				},
+				WebhookConfig: func() *json.RawMessage {
+					wc := &models.ToolWebhookConfig{
+						DefaultProcessingMode: "transform_and_store",
+					}
+					data, _ := json.Marshal(wc)
+					rawMsg := json.RawMessage(data)
+					return &rawMsg
+				}(),
 			},
 			eventType: "pull_request",
 			want:      ModeTransformAndStore,
@@ -254,15 +269,20 @@ func TestGenericWebhookProcessor_GetProcessingMode(t *testing.T) {
 		{
 			name: "event mode overrides default",
 			tool: &models.DynamicTool{
-				WebhookConfig: &models.ToolWebhookConfig{
-					DefaultProcessingMode: "store_only",
-					Events: []models.WebhookEventConfig{
-						{
-							EventType:      "push",
-							ProcessingMode: "store_and_forward",
+				WebhookConfig: func() *json.RawMessage {
+					wc := &models.ToolWebhookConfig{
+						DefaultProcessingMode: "store_only",
+						Events: []models.WebhookEventConfig{
+							{
+								EventType:      "push",
+								ProcessingMode: "store_and_forward",
+							},
 						},
-					},
-				},
+					}
+					data, _ := json.Marshal(wc)
+					rawMsg := json.RawMessage(data)
+					return &rawMsg
+				}(),
 			},
 			eventType: "push",
 			want:      ModeStoreAndForward,

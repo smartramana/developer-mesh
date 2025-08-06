@@ -387,6 +387,9 @@ func TestCircuitBreaker_HalfOpenMaxRequests(t *testing.T) {
 	var wg sync.WaitGroup
 	results := make([]error, 5)
 
+	// Add a small delay to ensure we're in half-open state
+	time.Sleep(10 * time.Millisecond)
+
 	for i := 0; i < 5; i++ {
 		wg.Add(1)
 		go func(idx int) {
@@ -397,6 +400,8 @@ func TestCircuitBreaker_HalfOpenMaxRequests(t *testing.T) {
 			})
 			results[idx] = err
 		}(i)
+		// Small stagger to improve test reliability
+		time.Sleep(5 * time.Millisecond)
 	}
 
 	wg.Wait()
@@ -417,10 +422,10 @@ func TestCircuitBreaker_HalfOpenMaxRequests(t *testing.T) {
 		}
 	}
 
-	// Should allow max 2 requests in half-open state, but timing can vary
-	// So we just verify that some were rejected
-	assert.Greater(t, allowed, 0, "Expected some requests to be allowed")
-	assert.Greater(t, rejected, 0, "Expected some requests to be rejected")
+	// Should allow max 2 requests in half-open state
+	// We check that at least one was rejected (timing may allow 2-4 through)
+	assert.GreaterOrEqual(t, allowed, 1, "Expected at least one request to be allowed")
+	assert.GreaterOrEqual(t, rejected, 1, "Expected at least one request to be rejected")
 	assert.Equal(t, 5, allowed+rejected+timedOut, "All requests should be accounted for")
 }
 

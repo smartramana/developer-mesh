@@ -15,6 +15,14 @@ import (
 	"github.com/developer-mesh/developer-mesh/pkg/rules"
 )
 
+// Define context key types to avoid collisions
+type contextKey string
+
+const (
+	systemOperationKey contextKey = "system_operation"
+	operationTypeKey   contextKey = "operation_type"
+)
+
 // ProgressTracker tracks task progress
 type ProgressTracker struct {
 	service *taskService
@@ -258,7 +266,11 @@ func (r *TaskRebalancer) Stop() {
 }
 
 func (r *TaskRebalancer) rebalance() {
-	ctx := context.Background()
+	// Create a system context for background operations
+	// This bypasses authorization checks since it's an internal system operation
+	ctx := context.WithValue(context.Background(), systemOperationKey, true)
+	ctx = context.WithValue(ctx, operationTypeKey, "task_rebalancing")
+
 	if err := r.service.RebalanceTasks(ctx); err != nil {
 		r.service.config.Logger.Error("Task rebalancing failed", map[string]interface{}{
 			"error": err.Error(),

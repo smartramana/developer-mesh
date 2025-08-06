@@ -47,8 +47,9 @@ func NewEnhancedDiscoveryService(
 	hintRepo *storage.DiscoveryHintRepository,
 ) DiscoveryServiceInterface {
 	// Create HTTP client with proper timeouts
+	// Increased timeout to 60s to handle large OpenAPI specs like GitHub
 	httpClient := &http.Client{
-		Timeout: 30 * time.Second,
+		Timeout: 60 * time.Second,
 		CheckRedirect: func(req *http.Request, via []*http.Request) error {
 			if len(via) >= 5 {
 				return fmt.Errorf("too many redirects")

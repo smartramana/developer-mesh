@@ -89,6 +89,9 @@ services:
       - RATE_LIMIT_REQUESTS=100
       - RATE_LIMIT_PERIOD=1m
       - CREDENTIAL_ENCRYPTION_KEY=${CREDENTIAL_ENCRYPTION_KEY:-docker-encryption-key-32-chars-ok!}
+      - ENCRYPTION_KEY=${ENCRYPTION_KEY:-dev_encryption_key_32_chars_long}
+      - ENCRYPTION_MASTER_KEY=${ENCRYPTION_MASTER_KEY:-dev_master_key_32_chars_long123}
+      - DEVMESH_ENCRYPTION_KEY=${DEVMESH_ENCRYPTION_KEY:-dev_mesh_key_32_chars_long123456}
       # Feature Flags
       - FEATURE_WEBHOOKS_ENABLED=true
       - FEATURE_VECTOR_SEARCH_ENABLED=true
@@ -98,6 +101,8 @@ services:
       - ./apps/mcp-server/configs:/app/server-configs:ro
       - ./apps/rest-api/migrations:/app/migrations:ro
     depends_on:
+      rest-api:
+        condition: service_healthy
       database:
         condition: service_healthy
       redis:
@@ -114,6 +119,12 @@ services:
       dockerfile: ./apps/rest-api/Dockerfile
     ports:
       - "8081:8080"
+    healthcheck:
+      test: ["CMD", "/app/rest-api", "--health-check"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+      start_period: 30s
     environment:
       # Core settings
       - ENVIRONMENT=docker
@@ -121,6 +132,7 @@ services:
       - USE_MOCK_CONTEXT_MANAGER=false
       - API_HOST=0.0.0.0
       - API_PORT=8080
+      - PORT=8080
       - MCP_SERVER_URL=http://mcp-server:8080
       # Authentication
       - JWT_SECRET=${JWT_SECRET:-docker-jwt-secret-change-in-production}
@@ -192,6 +204,9 @@ services:
       - CORS_ALLOWED_ORIGINS=http://localhost:3000,http://localhost:8080
       - RATE_LIMIT_ENABLED=true
       - CREDENTIAL_ENCRYPTION_KEY=${CREDENTIAL_ENCRYPTION_KEY:-docker-encryption-key-32-chars-ok!}
+      - ENCRYPTION_KEY=${ENCRYPTION_KEY:-dev_encryption_key_32_chars_long}
+      - ENCRYPTION_MASTER_KEY=${ENCRYPTION_MASTER_KEY:-dev_master_key_32_chars_long123}
+      - DEVMESH_ENCRYPTION_KEY=${DEVMESH_ENCRYPTION_KEY:-dev_mesh_key_32_chars_long123456}
       # Feature Flags
       - FEATURE_WEBHOOKS_ENABLED=true
       - FEATURE_VECTOR_SEARCH_ENABLED=true
@@ -251,6 +266,8 @@ services:
       # Optional: Enable mock mode if LocalStack isn't available
       # - WORKER_MOCK_MODE=true
     depends_on:
+      rest-api:
+        condition: service_healthy
       redis:
         condition: service_healthy
       database:
@@ -307,7 +324,7 @@ services:
       - "6379:6379"
     volumes:
       - redis-data:/data
-    command: ["redis-server", "--requirepass", "", "--protected-mode", "no"]
+    command: ["redis-server", "--requirepass", "", "--protected-mode", "no", "--save", "", "--stop-writes-on-bgsave-error", "no"]
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: 10s

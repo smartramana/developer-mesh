@@ -2025,8 +2025,9 @@ func (s *taskService) RebalanceTasks(ctx context.Context) error {
 	ctx, span := s.config.Tracer(ctx, "TaskService.RebalanceTasks")
 	defer span.End()
 
-	// Check authorization
-	if s.config.Authorizer != nil && !s.config.Authorizer.CheckPermission(ctx, "task", "rebalance") {
+	// Check authorization - skip for system operations
+	isSystemOp, _ := ctx.Value("system_operation").(bool)
+	if !isSystemOp && s.config.Authorizer != nil && !s.config.Authorizer.CheckPermission(ctx, "task", "rebalance") {
 		return errors.New("unauthorized to rebalance tasks")
 	}
 

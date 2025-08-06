@@ -500,7 +500,7 @@ func TestDiscoveryService_fetchContent(t *testing.T) {
 
 	t.Run("Content size limit", func(t *testing.T) {
 		// Create large content
-		largeContent := strings.Repeat("a", 20*1024*1024) // 20MB
+		largeContent := strings.Repeat("a", 25*1024*1024) // 25MB
 		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			w.Write([]byte(largeContent))
 		}))
@@ -508,8 +508,8 @@ func TestDiscoveryService_fetchContent(t *testing.T) {
 
 		content, err := service.fetchContent(context.Background(), server.URL, nil)
 		require.NoError(t, err)
-		// Should be limited to 10MB
-		assert.LessOrEqual(t, len(content), 10*1024*1024)
+		// Should be limited to 20MB
+		assert.LessOrEqual(t, len(content), 20*1024*1024)
 	})
 
 	t.Run("Content streaming", func(t *testing.T) {

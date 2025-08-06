@@ -327,7 +327,7 @@ func logAWSConfiguration(logger observability.Logger) {
 	}
 }
 
-// initializeDatabase creates and configures the database connection
+// initializeDatabase creates and configures the database connection with retry logic
 func initializeDatabase(ctx context.Context, cfg *commonconfig.Config, logger observability.Logger) (*database.Database, error) {
 	// Build connection string
 	connStr := buildDatabaseURL(cfg)
@@ -359,21 +359,69 @@ func initializeDatabase(ctx context.Context, cfg *commonconfig.Config, logger ob
 		AutoMigrate:     false, // MCP server should never run migrations
 	}
 
-	// Create database instance
-	db, err := database.NewDatabase(ctx, dbConfig)
-	if err != nil {
-		return nil, fmt.Errorf("failed to create database instance: %w", err)
+	// Try to connect with exponential backoff
+	var db *database.Database
+	var err error
+	maxRetries := 10
+	baseDelay := 1 * time.Second
+
+	for i := 0; i < maxRetries; i++ {
+		// Create database instance
+		db, err = database.NewDatabase(ctx, dbConfig)
+		if err == nil {
+			// Test connection
+			if pingErr := db.Ping(); pingErr == nil {
+				break // Success!
+			} else {
+				// Close failed connection
+				if closeErr := db.Close(); closeErr != nil {
+					logger.Warn("Failed to close database connection", map[string]interface{}{"error": closeErr})
+				}
+				err = fmt.Errorf("failed to ping database: %w", pingErr)
+			}
+		}
+
+		if i < maxRetries-1 {
+			delay := baseDelay * (1 << uint(i)) // Exponential backoff
+			if delay > 30*time.Second {
+				delay = 30 * time.Second // Cap at 30 seconds
+			}
+			logger.Info("Database connection failed, retrying...", map[string]interface{}{
+				"attempt":      i + 1,
+				"max_attempts": maxRetries,
+				"delay":        delay.String(),
+				"error":        err.Error(),
+			})
+
+			select {
+			case <-time.After(delay):
+				continue
+			case <-ctx.Done():
+				return nil, ctx.Err()
+			}
+		}
 	}
 
-	// Test connection - Ping doesn't take context
-	if err := db.Ping(); err != nil {
+	if err != nil {
+		return nil, fmt.Errorf("failed to connect to database after %d attempts: %w", maxRetries, err)
+	}
+
+	logger.Info("Database connection established, waiting for tables...", nil)
+
+	// Wait for tables to be ready (migrations from REST API)
+	readinessChecker := database.NewReadinessChecker(db.GetDB())
+	readinessChecker.SetLogger(func(format string, args ...interface{}) {
+		logger.Info(fmt.Sprintf(format, args...), nil)
+	})
+
+	if err := readinessChecker.WaitForTablesWithBackoff(ctx); err != nil {
 		if closeErr := db.Close(); closeErr != nil {
 			logger.Warn("Failed to close database connection", map[string]interface{}{"error": closeErr})
 		}
-		return nil, fmt.Errorf("failed to connect to database: %w", err)
+		return nil, fmt.Errorf("database tables not ready: %w", err)
 	}
 
-	logger.Info("Database connection established", nil)
+	logger.Info("Database fully initialized with all required tables", nil)
 	return db, nil
 }
 

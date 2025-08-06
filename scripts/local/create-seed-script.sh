@@ -29,11 +29,8 @@ INSERT INTO models (id, tenant_id, name, provider, type, is_active, created_at, 
     ('00000000-0000-0000-0000-000000000203', '00000000-0000-0000-0000-000000000001', 'text-embedding-3-small', 'openai', 'embedding', true, NOW(), NOW())
 ON CONFLICT (id) DO UPDATE SET updated_at = NOW();
 
--- Insert test tool configurations
-INSERT INTO tool_configurations (id, tenant_id, name, type, base_url, auth_config, health_check_url, created_at, updated_at) VALUES
-    ('00000000-0000-0000-0000-000000000301', '00000000-0000-0000-0000-000000000001', 'GitHub API', 'github', 'https://api.github.com', '{"type": "bearer", "token": "test-token"}', 'https://api.github.com/rate_limit', NOW(), NOW()),
-    ('00000000-0000-0000-0000-000000000302', '00000000-0000-0000-0000-000000000001', 'Test Tool', 'custom', 'http://localhost:8082', '{"type": "api_key", "key": "test-key"}', 'http://localhost:8082/health', NOW(), NOW())
-ON CONFLICT (id) DO UPDATE SET updated_at = NOW();
+-- No tool configurations are seeded - tools should be added dynamically
+-- Previously seeded: GitHub API and Test Tool (removed per request)
 
 -- Insert test API keys (using the development key)
 -- Note: In production, these would be properly hashed
@@ -54,7 +51,7 @@ BEGIN
     RAISE NOTICE '  - 2 test tenants';
     RAISE NOTICE '  - 3 test agents';
     RAISE NOTICE '  - 3 test models';
-    RAISE NOTICE '  - 2 test tool configurations';
+    RAISE NOTICE '  - 0 tool configurations (tools should be added dynamically)';
     RAISE NOTICE '  - 1 test API key';
 END\$\$;
 EOF

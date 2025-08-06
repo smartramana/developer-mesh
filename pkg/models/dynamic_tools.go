@@ -10,20 +10,40 @@ type DynamicTool struct {
 	ID                   string                 `json:"id" db:"id"`
 	TenantID             string                 `json:"tenant_id" db:"tenant_id"`
 	ToolName             string                 `json:"tool_name" db:"tool_name"`
+	ToolType             string                 `json:"tool_type" db:"tool_type"`
 	DisplayName          string                 `json:"display_name" db:"display_name"`
 	BaseURL              string                 `json:"base_url" db:"base_url"`
+	DocumentationURL     *string                `json:"documentation_url,omitempty" db:"documentation_url"`
+	OpenAPIURL           *string                `json:"openapi_url,omitempty" db:"openapi_url"`
+	OpenAPISpecURL       *string                `json:"openapi_spec_url,omitempty" db:"openapi_spec_url"`
+	OpenAPISpec          *json.RawMessage       `json:"openapi_spec,omitempty" db:"openapi_spec"`
 	Config               map[string]interface{} `json:"config" db:"config"`
 	AuthType             string                 `json:"auth_type" db:"auth_type"`
+	AuthConfig           map[string]interface{} `json:"auth_config,omitempty" db:"auth_config"`
+	CredentialConfig     *json.RawMessage       `json:"credential_config,omitempty" db:"credential_config"`
 	CredentialsEncrypted []byte                 `json:"-" db:"credentials_encrypted"`
+	EncryptedCredentials string                 `json:"-" db:"encrypted_credentials"`
+	Headers              *json.RawMessage       `json:"headers,omitempty" db:"headers"`
+	APISpec              *json.RawMessage       `json:"api_spec,omitempty" db:"api_spec"`
+	DiscoveredEndpoints  *json.RawMessage       `json:"discovered_endpoints,omitempty" db:"discovered_endpoints"`
+	HealthCheckConfig    *json.RawMessage       `json:"health_check_config,omitempty" db:"health_check_config"`
+	RetryPolicy          *json.RawMessage       `json:"retry_policy,omitempty" db:"retry_policy"`
+	HealthConfig         *json.RawMessage       `json:"health_config,omitempty" db:"health_config"`
 	Status               string                 `json:"status" db:"status"`
-	HealthStatus         json.RawMessage        `json:"health_status" db:"health_status"`
+	IsActive             bool                   `json:"is_active" db:"is_active"`
 	LastHealthCheck      *time.Time             `json:"last_health_check,omitempty" db:"last_health_check"`
+	HealthStatus         *json.RawMessage       `json:"health_status,omitempty" db:"health_status"`
+	HealthMessage        *string                `json:"health_message,omitempty" db:"health_message"`
+	Description          *string                `json:"description,omitempty" db:"description"`
+	Tags                 []string               `json:"tags,omitempty" db:"tags"`
+	Metadata             *json.RawMessage       `json:"metadata,omitempty" db:"metadata"`
+	Provider             string                 `json:"provider,omitempty" db:"provider"`
+	PassthroughConfig    *json.RawMessage       `json:"passthrough_config,omitempty" db:"passthrough_config"`
+	WebhookConfig        *json.RawMessage       `json:"webhook_config,omitempty" db:"webhook_config"`
 	CreatedAt            time.Time              `json:"created_at" db:"created_at"`
 	UpdatedAt            time.Time              `json:"updated_at" db:"updated_at"`
-	Provider             string                 `json:"provider,omitempty" db:"provider"`
-	RetryPolicy          *ToolRetryPolicy       `json:"retry_policy,omitempty" db:"retry_policy"`
-	PassthroughConfig    *PassthroughConfig     `json:"passthrough_config,omitempty" db:"passthrough_config"`
-	WebhookConfig        *ToolWebhookConfig     `json:"webhook_config,omitempty" db:"webhook_config"`
+	CreatedBy            *string                `json:"created_by,omitempty" db:"created_by"`
+	UpdatedBy            *string                `json:"updated_by,omitempty" db:"updated_by"`
 }
 
 // DiscoverySession represents an active discovery session

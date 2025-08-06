@@ -33,7 +33,7 @@ func (h *HealthCheckDBImpl) GetActiveToolsForHealthCheck(ctx context.Context) ([
 			id, tenant_id, tool_name, base_url, documentation_url, 
 			openapi_url, auth_type, encrypted_credentials, config, 
 			retry_policy, health_config, created_at, updated_at
-		FROM tool_configurations
+		FROM mcp.tool_configurations
 		WHERE status = 'active'
 		AND health_config IS NOT NULL
 		AND health_config->>'mode' != 'disabled'
@@ -155,7 +155,7 @@ func (h *HealthCheckDBImpl) UpdateToolHealthStatus(ctx context.Context, tenantID
 	}
 
 	query := `
-		UPDATE tool_configurations
+		UPDATE mcp.tool_configurations
 		SET 
 			health_status = $1,
 			last_health_check = $2,

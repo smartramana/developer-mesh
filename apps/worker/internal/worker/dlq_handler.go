@@ -105,7 +105,7 @@ func (d *DLQHandlerImpl) SendToDLQ(ctx context.Context, event queue.Event, err e
 	}
 
 	query := `
-		INSERT INTO webhook_dlq (
+		INSERT INTO mcp.webhook_dlq (
 			event_id, event_type, payload, error_message, 
 			retry_count, created_at, status, metadata
 		) VALUES (
@@ -167,7 +167,7 @@ func (d *DLQHandlerImpl) ProcessDLQ(ctx context.Context) error {
 	query := `
 		SELECT id, event_id, event_type, payload, error_message, 
 		       retry_count, last_retry_at, created_at, status, metadata
-		FROM webhook_dlq
+		FROM mcp.webhook_dlq
 		WHERE status = 'pending' 
 		  AND created_at < NOW() - INTERVAL '5 minutes'
 		  AND retry_count < 3
@@ -203,7 +203,7 @@ func (d *DLQHandlerImpl) RetryFromDLQ(ctx context.Context, eventID string) error
 	query := `
 		SELECT id, event_id, event_type, payload, error_message, 
 		       retry_count, last_retry_at, created_at, status, metadata
-		FROM webhook_dlq
+		FROM mcp.webhook_dlq
 		WHERE event_id = $1
 		ORDER BY created_at DESC
 		LIMIT 1
@@ -222,7 +222,7 @@ func (d *DLQHandlerImpl) RetryFromDLQ(ctx context.Context, eventID string) error
 func (d *DLQHandlerImpl) retryDLQEntry(ctx context.Context, entry *DLQEntry) error {
 	// Update status to retrying
 	updateQuery := `
-		UPDATE webhook_dlq 
+		UPDATE mcp.webhook_dlq 
 		SET status = 'retrying', 
 		    last_retry_at = NOW(),
 		    retry_count = retry_count + 1
@@ -281,7 +281,7 @@ func (d *DLQHandlerImpl) retryDLQEntry(ctx context.Context, entry *DLQEntry) err
 
 // updateDLQStatus updates the status of a DLQ entry
 func (d *DLQHandlerImpl) updateDLQStatus(ctx context.Context, id string, status string) {
-	query := `UPDATE webhook_dlq SET status = $2 WHERE id = $1`
+	query := `UPDATE mcp.webhook_dlq SET status = $2 WHERE id = $1`
 	if _, err := d.db.ExecContext(ctx, query, id, status); err != nil {
 		d.logger.Error("Failed to update DLQ status", map[string]interface{}{
 			"dlq_id": id,

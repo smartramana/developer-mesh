@@ -622,26 +622,57 @@ func (s *Server) healthHandler(c *gin.Context) {
 		health["rest_api_client"] = "unavailable"
 	}
 
+	// Check database tables if detailed health check is requested
+	includeDetails := c.Query("details") == "true"
+	var tableHealth *DatabaseHealthResult
+
+	if includeDetails && s.db != nil {
+		tableChecker := NewTableHealthChecker(s.db)
+		ctx := c.Request.Context()
+
+		// Check database connectivity first
+		if err := tableChecker.CheckDatabaseConnectivity(ctx); err != nil {
+			health["database_tables"] = "unreachable"
+		} else {
+			// Check required tables
+			var err error
+			tableHealth, err = tableChecker.CheckRequiredTables(ctx)
+			if err != nil {
+				health["database_tables"] = fmt.Sprintf("error: %v", err)
+			} else if tableHealth.Healthy {
+				health["database_tables"] = "healthy"
+			} else {
+				health["database_tables"] = fmt.Sprintf("unhealthy: %d tables missing", tableHealth.MissingTables)
+			}
+		}
+	}
+
 	// Check if any component is unhealthy
 	allHealthy := true
 	for _, status := range health {
 		// Consider "healthy" or any status starting with "healthy" (like "healthy (mock)") as healthy
-		if status != "healthy" && len(status) < 7 || (len(status) >= 7 && status[:7] != "healthy") {
+		statusStr := fmt.Sprintf("%v", status)
+		if statusStr != "healthy" && (len(statusStr) < 7 || statusStr[:7] != "healthy") {
 			allHealthy = false
 			break
 		}
 	}
 
+	response := gin.H{
+		"status":     "healthy",
+		"components": health,
+	}
+
+	// Include detailed table health if requested
+	if includeDetails && tableHealth != nil {
+		response["database_health"] = tableHealth
+	}
+
 	if allHealthy {
-		c.JSON(http.StatusOK, gin.H{
-			"status":     "healthy",
-			"components": health,
-		})
+		c.JSON(http.StatusOK, response)
 	} else {
-		c.JSON(http.StatusServiceUnavailable, gin.H{
-			"status":     "unhealthy",
-			"components": health,
-		})
+		response["status"] = "unhealthy"
+		c.JSON(http.StatusServiceUnavailable, response)
 	}
 }
 

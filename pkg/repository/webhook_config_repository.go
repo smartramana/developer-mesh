@@ -7,6 +7,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/jmoiron/sqlx"
+	"github.com/lib/pq"
 	"github.com/pkg/errors"
 
 	"github.com/developer-mesh/developer-mesh/pkg/models"
@@ -45,14 +46,28 @@ func NewWebhookConfigRepository(db *sqlx.DB) WebhookConfigRepository {
 
 // GetByOrganization retrieves a webhook configuration by organization name
 func (r *webhookConfigRepository) GetByOrganization(ctx context.Context, orgName string) (*models.WebhookConfig, error) {
-	var config models.WebhookConfig
+	// Use a struct that maps to the actual database schema
+	type dbWebhookConfig struct {
+		ID               uuid.UUID      `db:"id"`
+		TenantID         uuid.UUID      `db:"tenant_id"`
+		OrganizationName string         `db:"organization_name"`
+		URL              string         `db:"url"`
+		WebhookSecret    string         `db:"webhook_secret"`
+		Enabled          bool           `db:"enabled"`
+		AllowedEvents    pq.StringArray `db:"allowed_events"`
+		Metadata         models.JSONMap `db:"metadata"`
+		CreatedAt        sql.NullTime   `db:"created_at"`
+		UpdatedAt        sql.NullTime   `db:"updated_at"`
+	}
+
+	var dbConfig dbWebhookConfig
 	query := `
-		SELECT id, organization_name, webhook_secret, enabled, allowed_events, metadata, created_at, updated_at
+		SELECT id, tenant_id, organization_name, url, webhook_secret, enabled, allowed_events, metadata, created_at, updated_at
 		FROM mcp.webhook_configs
 		WHERE organization_name = $1
 	`
 
-	err := r.db.GetContext(ctx, &config, query, orgName)
+	err := r.db.GetContext(ctx, &dbConfig, query, orgName)
 	if err != nil {
 		if err == sql.ErrNoRows {
 			return nil, errors.Wrap(err, "webhook configuration not found")
@@ -60,7 +75,24 @@ func (r *webhookConfigRepository) GetByOrganization(ctx context.Context, orgName
 		return nil, errors.Wrap(err, "failed to get webhook configuration")
 	}
 
-	return &config, nil
+	// Convert to the model struct
+	config := &models.WebhookConfig{
+		ID:               dbConfig.ID,
+		OrganizationName: dbConfig.OrganizationName,
+		WebhookSecret:    dbConfig.WebhookSecret,
+		Enabled:          dbConfig.Enabled,
+		AllowedEvents:    dbConfig.AllowedEvents,
+		Metadata:         dbConfig.Metadata,
+	}
+
+	if dbConfig.CreatedAt.Valid {
+		config.CreatedAt = dbConfig.CreatedAt.Time
+	}
+	if dbConfig.UpdatedAt.Valid {
+		config.UpdatedAt = dbConfig.UpdatedAt.Time
+	}
+
+	return config, nil
 }
 
 // GetWebhookSecret retrieves just the webhook secret for an organization
@@ -103,14 +135,43 @@ func (r *webhookConfigRepository) Create(ctx context.Context, config *models.Web
 		return nil, errors.Wrap(err, "validation failed")
 	}
 
+	// Use a default tenant ID for now - this should be passed from context in a real multi-tenant system
+	defaultTenantID := uuid.MustParse("00000000-0000-0000-0000-000000000001")
+
+	// Construct webhook URL based on organization name
+	webhookURL := fmt.Sprintf("/api/webhooks/github/%s", config.OrganizationName)
+
+	// Prepare the data with required fields for the actual schema
+	type dbWebhookConfig struct {
+		ID               uuid.UUID      `db:"id"`
+		TenantID         uuid.UUID      `db:"tenant_id"`
+		OrganizationName string         `db:"organization_name"`
+		URL              string         `db:"url"`
+		WebhookSecret    string         `db:"webhook_secret"`
+		Enabled          bool           `db:"enabled"`
+		AllowedEvents    pq.StringArray `db:"allowed_events"`
+		Metadata         models.JSONMap `db:"metadata"`
+	}
+
+	dbConfig := dbWebhookConfig{
+		ID:               newConfig.ID,
+		TenantID:         defaultTenantID,
+		OrganizationName: newConfig.OrganizationName,
+		URL:              webhookURL,
+		WebhookSecret:    newConfig.WebhookSecret,
+		Enabled:          newConfig.Enabled,
+		AllowedEvents:    newConfig.AllowedEvents,
+		Metadata:         newConfig.Metadata,
+	}
+
 	query := `
 		INSERT INTO mcp.webhook_configs 
-		(id, organization_name, webhook_secret, enabled, allowed_events, metadata)
-		VALUES (:id, :organization_name, :webhook_secret, :enabled, :allowed_events, :metadata)
+		(id, tenant_id, organization_name, url, webhook_secret, enabled, allowed_events, metadata)
+		VALUES (:id, :tenant_id, :organization_name, :url, :webhook_secret, :enabled, :allowed_events, :metadata)
 		RETURNING created_at, updated_at
 	`
 
-	rows, err := r.db.NamedQueryContext(ctx, query, newConfig)
+	rows, err := r.db.NamedQueryContext(ctx, query, dbConfig)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to create webhook configuration")
 	}
