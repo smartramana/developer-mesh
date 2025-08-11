@@ -3,7 +3,7 @@ package cache
 import (
 	"time"
 
-	"github.com/go-redis/redis/v8"
+	"github.com/redis/go-redis/v9"
 )
 
 // RedisPoolConfig contains Redis connection pool configuration
@@ -72,18 +72,16 @@ func LowLatencyRedisPoolConfig() *RedisPoolConfig {
 // ToRedisOptions converts pool config to redis.Options
 func (c *RedisPoolConfig) ToRedisOptions(addr string, db int) *redis.Options {
 	return &redis.Options{
-		Addr:               addr,
-		DB:                 db,
-		PoolSize:           c.PoolSize,
-		MinIdleConns:       c.MinIdleConns,
-		MaxRetries:         c.MaxRetries,
-		DialTimeout:        c.DialTimeout,
-		ReadTimeout:        c.ReadTimeout,
-		WriteTimeout:       c.WriteTimeout,
-		PoolTimeout:        c.PoolTimeout,
-		IdleTimeout:        c.IdleTimeout,
-		IdleCheckFrequency: c.IdleCheckFreq,
-		MaxConnAge:         c.MaxConnAge,
+		Addr:            addr,
+		DB:              db,
+		PoolSize:        c.PoolSize,
+		MinIdleConns:    c.MinIdleConns,
+		MaxRetries:      c.MaxRetries,
+		DialTimeout:     c.DialTimeout,
+		ReadTimeout:     c.ReadTimeout,
+		WriteTimeout:    c.WriteTimeout,
+		PoolTimeout:     c.PoolTimeout,
+		ConnMaxIdleTime: c.IdleTimeout,
 	}
 }
 
