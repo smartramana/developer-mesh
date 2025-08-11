@@ -1,3 +1,9 @@
+<!-- SOURCE VERIFICATION
+Last Verified: 2025-08-11 14:29:40
+Verification Script: update-docs-parallel.sh
+Batch: ab
+-->
+
 # AI Agent Integration
 
 This guide demonstrates how to integrate AI agents (LLMs, assistants, copilots) with the Developer Mesh platform to enable intelligent DevOps automation.

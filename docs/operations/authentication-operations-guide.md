@@ -1,3 +1,9 @@
+<!-- SOURCE VERIFICATION
+Last Verified: 2025-08-11 14:27:27
+Verification Script: update-docs-parallel.sh
+Batch: ad
+-->
+
 # Authentication Operations Guide
 
 ## Table of Contents
@@ -720,4 +726,3 @@ tar czf - backups/ | \
 3. **Regular Drills**
    - Monthly failover tests
    - Quarterly disaster recovery drills
-   - Annual security incident simulations

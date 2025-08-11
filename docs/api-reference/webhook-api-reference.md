@@ -1,8 +1,14 @@
+<!-- SOURCE VERIFICATION
+Last Verified: 2025-08-11 14:33:52
+Verification Script: update-docs-parallel.sh
+Batch: aa
+-->
+
 # Webhook API Reference
 
 ## Overview
 
-The Webhook API enables the Developer Mesh platform to receive and process real-time events from GitHub. It provides secure webhook endpoints with signature validation and asynchronous event processing via AWS SQS.
+The Webhook API enables the Developer Mesh platform to receive and process real-time events from GitHub. It provides secure webhook endpoints with signature validation and asynchronous event processing via Redis Streams.
 
 ## Webhook Endpoints
 
@@ -626,4 +632,3 @@ X-RateLimit-Reset: 1642521600
 
 ---
 
-*For more information, visit [docs.developer-mesh.com](https://docs.developer-mesh.com)*

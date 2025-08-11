@@ -1,3 +1,9 @@
+<!-- SOURCE VERIFICATION
+Last Verified: 2025-08-11 14:29:52
+Verification Script: update-docs-parallel.sh
+Batch: ac
+-->
+
 # Authentication Audit Logging Guide
 
 > **Status**: Implementation Guide
@@ -1019,4 +1025,3 @@ groups:
 
 - [NIST SP 800-92](https://csrc.nist.gov/publications/detail/sp/800-92/final) - Guide to Security Log Management
 - [OWASP Logging Guide](https://cheatsheetseries.owasp.org/cheatsheets/Logging_Vocabulary_Cheat_Sheet.html)
-- [PCI DSS Logging Requirements](https://www.pcisecuritystandards.org/)

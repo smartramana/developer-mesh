@@ -1,3 +1,9 @@
+<!-- SOURCE VERIFICATION
+Last Verified: 2025-08-11 14:27:32
+Verification Script: update-docs-parallel.sh
+Batch: ab
+-->
+
 # Dynamic Tools API Documentation
 
 ## Overview
@@ -485,4 +491,3 @@ If you're migrating from the old hardcoded tool system:
 3. **Set Appropriate Timeouts**: Configure timeouts based on tool response times
 4. **Monitor Usage**: Use the audit logs to monitor tool usage
 5. **Rotate Credentials**: Regularly update tool credentials for security
-6. **Test First**: Use the discovery API to test integration before saving

@@ -1,3 +1,9 @@
+<!-- SOURCE VERIFICATION
+Last Verified: 2025-08-11 14:39:45
+Verification Script: update-docs-parallel.sh
+Batch: ad
+-->
+
 # GitHub App Setup for Integration Testing
 
 ## Finding Your GitHub App Installation ID
@@ -58,4 +64,3 @@ You can test your GitHub App authentication with:
 # Or directly
 cd test/github-live
 go test -v -tags=github_live -run TestGitHubLiveAPI
-```

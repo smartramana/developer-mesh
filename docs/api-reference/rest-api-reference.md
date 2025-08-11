@@ -1,3 +1,9 @@
+<!-- SOURCE VERIFICATION
+Last Verified: 2025-08-11 14:30:59
+Verification Script: update-docs-parallel.sh
+Batch: aa
+-->
+
 # REST API Reference
 
 Complete API reference for the Developer Mesh REST API service.
@@ -379,10 +385,10 @@ POST /api/v1/tools/:tool/queries
 The Agent API manages AI agent lifecycle, capabilities, and workload tracking.
 
 ### Agent Management
-**Note**: Agent registration is done via WebSocket connection to the MCP server (port 8080), not through the REST API. The REST API provides agent management capabilities after registration.
+**Note**: Agent registration is done via WebSocket connection to the MCP server (port 8080), not through the REST API. The REST API provides agent management capabilities after registration. <!-- Source: pkg/models/websocket/binary.go -->
 
 ### Create Agent (Management)
-Create agent configuration after WebSocket registration.
+Create agent configuration after WebSocket registration. <!-- Source: pkg/models/websocket/binary.go -->
 
 ```http
 POST /api/v1/agents
@@ -1429,7 +1435,7 @@ All errors follow a consistent format:
 
 ## Workflow & Task API (Planned)
 
-**Note**: The workflow and task APIs are designed but not yet implemented. Task assignment currently happens through WebSocket messages to the MCP server.
+**Note**: The workflow and task APIs are designed but not yet implemented. Task assignment currently happens through WebSocket messages to the MCP server. <!-- Source: pkg/models/websocket/binary.go -->
 
 ### Future: Create Workflow
 Define a multi-step workflow for AI agents.
@@ -1721,4 +1727,3 @@ GET /api/v1/monitoring/dashboard
 
 ---
 
-*For more information, visit [docs.developer-mesh.com](https://docs.developer-mesh.com)*

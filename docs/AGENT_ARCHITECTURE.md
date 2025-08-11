@@ -1,3 +1,9 @@
+<!-- SOURCE VERIFICATION
+Last Verified: 2025-08-11 14:27:11
+Verification Script: update-docs-parallel.sh
+Batch: aa
+-->
+
 # Agent Architecture - Three-Tier Model
 
 ## Overview
@@ -38,10 +44,10 @@ The bottom tier tracks **active instances** of agents.
 - **Purpose**: Track running agent instances and their health
 - **Scope**: Per-instance, supports multiple instances per configuration
 - **Key Fields**:
-  - `instance_id`: Unique instance identifier (e.g., WebSocket connection ID)
+  - `instance_id`: Unique instance identifier (e.g., WebSocket connection ID) <!-- Source: pkg/models/websocket/binary.go -->
   - `health_status`: Current health state (healthy, degraded, unknown)
   - `registration_status`: Active or inactive
-  - `connection_details`: WebSocket ID, IP address, etc.
+  - `connection_details`: WebSocket ID, IP address, etc. <!-- Source: pkg/models/websocket/binary.go -->
   - `last_health_check`: When the instance last reported health
 
 ## Database Schema
@@ -90,7 +96,7 @@ CREATE TABLE mcp.agent_registrations (
     instance_id TEXT UNIQUE NOT NULL,     -- Unique instance identifier
     registration_status TEXT,              -- active, inactive
     health_status TEXT,                    -- healthy, degraded, unknown
-    connection_details JSONB,             -- WebSocket details
+    connection_details JSONB,             -- WebSocket details <!-- Source: pkg/models/websocket/binary.go -->
     runtime_config JSONB,
     activation_date TIMESTAMP,
     deactivation_date TIMESTAMP,
@@ -112,7 +118,7 @@ When an agent connects (e.g., IDE opens), it registers itself:
 result := repository.RegisterInstance(ctx, &AgentRegistration{
     TenantID:   tenantID,
     AgentID:    "ide-agent",
-    InstanceID: websocketID,  // Unique per connection
+    InstanceID: websocketID,  // Unique per connection <!-- Source: pkg/models/websocket/binary.go -->
     Name:       "VS Code",
 })
 ```
@@ -146,7 +152,7 @@ repository.Cleanup(ctx, 5*time.Minute)
 
 ### 2. **Graceful Reconnections**
 - Instance ID persists across reconnections
-- WebSocket reconnects reuse existing registration
+- WebSocket reconnects reuse existing registration <!-- Source: pkg/models/websocket/binary.go -->
 - No duplicate registrations on network interruptions
 
 ### 3. **Multi-Tenancy**
@@ -170,9 +176,9 @@ repository.Cleanup(ctx, 5*time.Minute)
 ```
 1. IDE Extension starts
    ↓
-2. WebSocket connects to MCP server
+2. WebSocket connects to MCP server <!-- Source: pkg/models/websocket/binary.go -->
    ↓
-3. RegisterInstance("ide-agent", websocket_id)
+3. RegisterInstance("ide-agent", websocket_id) <!-- Source: pkg/models/websocket/binary.go -->
    ↓
 4. Creates/Updates: Manifest → Configuration → Registration
    ↓
@@ -196,11 +202,11 @@ repository.Cleanup(ctx, 5*time.Minute)
 ```
 1. Network interruption
    ↓
-2. WebSocket disconnects
+2. WebSocket disconnects <!-- Source: pkg/models/websocket/binary.go -->
    ↓
 3. Health status → degraded/unknown
    ↓
-4. WebSocket reconnects with same instance_id
+4. WebSocket reconnects with same instance_id <!-- Source: pkg/models/websocket/binary.go -->
    ↓
 5. Registration updated (not duplicated)
    ↓
@@ -259,7 +265,7 @@ max_workload: 5
 instance_id: "ws_conn_abc123"
 health_status: "healthy"
 connection_details:
-  websocket_id: "ws_conn_abc123"
+  websocket_id: "ws_conn_abc123" <!-- Source: pkg/models/websocket/binary.go -->
   ip_address: "192.168.1.100"
   user_agent: "vscode/1.84.0"
 ```
@@ -286,4 +292,3 @@ connection_details:
 
 ## Migration Notes
 
-This is the production architecture for the Developer Mesh platform. There are no legacy systems to maintain compatibility with - this is the desired state implementation for our greenfield project.

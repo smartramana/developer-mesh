@@ -1,3 +1,9 @@
+<!-- SOURCE VERIFICATION
+Last Verified: 2025-08-11 14:39:40
+Verification Script: update-docs-parallel.sh
+Batch: aa
+-->
+
 # Developer Mesh Deployment Configuration
 
 ## Service Ports
@@ -9,10 +15,10 @@
 
 ### 1. REST API Port Configuration
 - Created separate config file: configs/config.rest-api.yaml
-- Set api.listen_address to :8081
+- Set api.listen_address to :8081 (REST API)
 - Added environment variables in docker-compose.yml:
   - PORT=8081
-  - API_LISTEN_ADDRESS=:8081
+  - API_LISTEN_ADDRESS=:8081 (REST API)
 
 ### 2. Docker Compose Configuration
 - REST API mounts its own config file
@@ -24,8 +30,8 @@
 - t2.micro (1GB RAM) is insufficient for all 3 containers
 
 ## To Deploy Again:
-1. Ensure configs/config.yaml has api.listen_address: ":8080"
-2. Create configs/config.rest-api.yaml with api.listen_address: ":8081"
+1. Ensure configs/config.yaml has api.listen_address: ":8080 (MCP Server)"
+2. Create configs/config.rest-api.yaml with api.listen_address: ":8081 (REST API)"
 3. Use the docker-compose.yml that mounts the correct config for each service
 4. Ensure all AWS resources (RDS, Redis, SQS) are accessible from the instance
 
@@ -33,8 +39,8 @@
 - MCP Server: https://mcp.dev-mesh.io/health (SSL/TLS enabled)
 - REST API: https://api.dev-mesh.io/health (SSL/TLS enabled)
 - Direct access (bypassing Nginx):
-  - http://<instance-ip>:8080/health (MCP Server)
-  - http://<instance-ip>:8081/health (REST API)
+  - http://<instance-ip>:8080 (MCP Server)/health (MCP Server)
+  - http://<instance-ip>:8081 (REST API)/health (REST API)
 
 ## Current Status
 - MCP Server: ✅ Healthy
@@ -66,8 +72,8 @@ The worker had a bug in `/apps/worker/cmd/worker/main.go` where it reused a 5-se
 ### Nginx Reverse Proxy
 1. Installed Nginx as reverse proxy
 2. Configured:
-   - `mcp.dev-mesh.io` → localhost:8080 (MCP Server)
-   - `api.dev-mesh.io` → localhost:8081 (REST API)
+   - `mcp.dev-mesh.io` → localhost:8080 (MCP Server) (MCP Server)
+   - `api.dev-mesh.io` → localhost:8081 (REST API) (REST API)
 
 ### SSL Certificates
 1. Installed Certbot with nginx plugin
@@ -107,4 +113,3 @@ gh run list --workflow=deploy-production-v2.yml
 
 # View CI/CD pipeline status
 gh run list --workflow=ci.yml
-```

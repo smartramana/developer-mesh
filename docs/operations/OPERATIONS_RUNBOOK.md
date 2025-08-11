@@ -1,3 +1,9 @@
+<!-- SOURCE VERIFICATION
+Last Verified: 2025-08-11 14:33:07
+Verification Script: update-docs-parallel.sh
+Batch: ad
+-->
+
 # Operations Runbook
 
 ## Overview
@@ -148,9 +154,9 @@ Developer Mesh is deployed using Docker Compose on EC2 instances. The deployment
 
 #### Available Images
 
-- `ghcr.io/{github-username}/developer-mesh-mcp-server` - MCP protocol server
-- `ghcr.io/{github-username}/developer-mesh-rest-api` - REST API service  
-- `ghcr.io/{github-username}/developer-mesh-worker` - Event processing worker
+- `developer-mesh-mcp-server` - MCP protocol server (built locally)
+- `developer-mesh-rest-api` - REST API service (built locally)
+- `developer-mesh-worker` - Event processing worker (built locally)
 
 All images:
 - Support multiple architectures (amd64, arm64)
@@ -1262,4 +1268,3 @@ This runbook should be reviewed and updated:
 Last Updated: 2024-01-23
 Version: 2.0.0
 
-**Important**: This runbook contains both current procedures (Docker Compose on EC2) and future aspirations (Kubernetes, automated backups, etc.). Sections marked as "FUTURE" or "Not Implemented" represent planned functionality.

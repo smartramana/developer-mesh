@@ -1,3 +1,9 @@
+<!-- SOURCE VERIFICATION
+Last Verified: 2025-08-11 14:37:11
+Verification Script: update-docs-parallel.sh
+Batch: ab
+-->
+
 # IDE Integration with Developer Mesh
 
 This guide demonstrates how modern IDEs like Windsurf and Cursor can integrate with the Developer Mesh platform to enhance developer productivity by providing seamless access to DevOps tools directly from the coding environment.

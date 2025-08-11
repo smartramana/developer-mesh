@@ -1,3 +1,9 @@
+<!-- SOURCE VERIFICATION
+Last Verified: 2025-08-11 14:28:37
+Verification Script: update-docs-parallel.sh
+Batch: aa
+-->
+
 # Embedding API Reference
 
 The multi-agent embedding system provides sophisticated embedding generation and search capabilities with provider failover, cost optimization, and cross-model compatibility.
@@ -13,6 +19,7 @@ Each AI agent can have customized embedding configurations including:
 ## API Endpoints
 
 ### Generate Embedding
+<!-- WARNING: Endpoint not found in code: POST /api/embeddings` -->
 `POST /api/embeddings`
 
 Generate an embedding using agent-specific configuration.
@@ -58,6 +65,7 @@ Generate an embedding using agent-specific configuration.
 
 Generate embeddings for multiple texts in a single request.
 
+<!-- WARNING: Endpoint not found in code: POST /embeddings/batch` -->
 **Endpoint:** `POST /embeddings/batch`
 
 **Request Body:**
@@ -115,6 +123,7 @@ Generate embeddings for multiple texts in a single request.
 
 Search for similar embeddings using vector similarity.
 
+<!-- WARNING: Endpoint not found in code: POST /embeddings/search` -->
 **Endpoint:** `POST /embeddings/search`
 
 **Request Body:**
@@ -147,6 +156,7 @@ Search for similar embeddings using vector similarity.
 
 Search across embeddings created by different models.
 
+<!-- WARNING: Endpoint not found in code: POST /embeddings/search/cross-model` -->
 **Endpoint:** `POST /embeddings/search/cross-model`
 
 **Request Body:**
@@ -179,6 +189,7 @@ Search across embeddings created by different models.
 
 Check the health status of all configured embedding providers.
 
+<!-- WARNING: Endpoint not found in code: GET /embeddings/providers/health` -->
 **Endpoint:** `GET /embeddings/providers/health`
 
 **Response:**
@@ -209,6 +220,7 @@ Check the health status of all configured embedding providers.
 
 Create a new embedding configuration for an agent.
 
+<!-- WARNING: Endpoint not found in code: POST /embeddings/agents` -->
 **Endpoint:** `POST /embeddings/agents`
 
 **Request Body:**
@@ -270,6 +282,7 @@ Create a new embedding configuration for an agent.
 
 Retrieve the current configuration for an agent.
 
+<!-- WARNING: Endpoint not found in code: GET /embeddings/agents/{agentId}` -->
 **Endpoint:** `GET /embeddings/agents/{agentId}`
 
 **Response:**
@@ -301,6 +314,7 @@ Retrieve the current configuration for an agent.
 
 Update an agent's embedding configuration.
 
+<!-- WARNING: Endpoint not found in code: PUT /embeddings/agents/{agentId}` -->
 **Endpoint:** `PUT /embeddings/agents/{agentId}`
 
 **Request Body:**
@@ -349,6 +363,7 @@ Update an agent's embedding configuration.
 
 Get the models assigned to an agent for a specific task type.
 
+<!-- WARNING: Endpoint not found in code: GET /embeddings/agents/{agentId}/models?task_type=general_qa` -->
 **Endpoint:** `GET /embeddings/agents/{agentId}/models?task_type=general_qa`
 
 **Response:**
@@ -371,6 +386,7 @@ Get the models assigned to an agent for a specific task type.
 
 Get cost metrics for an agent.
 
+<!-- WARNING: Endpoint not found in code: GET /embeddings/agents/{agentId}/costs?period_days=30` -->
 **Endpoint:** `GET /embeddings/agents/{agentId}/costs?period_days=30`
 
 **Response:**
@@ -444,4 +460,3 @@ Rate limit headers:
 4. **Error Handling**
    - Implement exponential backoff for retries
    - Handle provider failures gracefully
-   - Monitor circuit breaker states

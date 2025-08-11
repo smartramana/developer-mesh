@@ -1,3 +1,9 @@
+<!-- SOURCE VERIFICATION
+Last Verified: 2025-08-11 14:34:47
+Verification Script: update-docs-parallel.sh
+Batch: ab
+-->
+
 # Multi-Agent Embedding System Examples
 
 This document provides practical examples of using the Multi-Agent Embedding System in various scenarios.
@@ -943,4 +949,3 @@ async def main():
     print(f"Throughput: {results['requests_per_second']:.1f} req/s")
 
 # asyncio.run(main())
-```

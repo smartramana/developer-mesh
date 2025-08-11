@@ -1,3 +1,9 @@
+<!-- SOURCE VERIFICATION
+Last Verified: 2025-08-11 14:27:11
+Verification Script: update-docs-parallel.sh
+Batch: ab
+-->
+
 # Docker Registry Publishing Guide
 
 This document describes how Docker images are built and published to GitHub Container Registry (ghcr.io) for the Developer Mesh project.
@@ -9,14 +15,14 @@ The project automatically builds and publishes Docker images to GitHub Container
 ## Registry Information
 
 - **Registry**: `ghcr.io` (GitHub Container Registry)
-- **Image Namespace**: `ghcr.io/{github-username}/developer-mesh-{service}`
+- **Image Namespace**: `developer-mesh-{service}` (local build)
 - **Services**: `mcp-server`, `rest-api`, `worker`, `mockserver`
 
 ## Image Naming Convention
 
 Images follow this naming pattern:
 ```
-ghcr.io/{github-username}/developer-mesh-{service}:{tag}
+developer-mesh-{service}:{tag}
 ```
 
 Example:
@@ -47,17 +53,19 @@ The CI/CD pipeline automatically generates the following tags:
 
 ### Latest Stable Version
 ```bash
-docker pull ghcr.io/{github-username}/developer-mesh-mcp-server:latest
-docker pull ghcr.io/{github-username}/developer-mesh-rest-api:latest
-docker pull ghcr.io/{github-username}/developer-mesh-worker:latest
-docker pull ghcr.io/{github-username}/developer-mesh-mockserver:latest
+# Note: Images are built locally in development
+# For production, replace 'developer-mesh' with your registry
+docker pull developer-mesh-mcp-server:latest
+docker pull developer-mesh-rest-api:latest
+docker pull developer-mesh-worker:latest
+docker pull developer-mesh-mockserver:latest
 ```
 
 ### Specific Version
 ```bash
-docker pull ghcr.io/{github-username}/developer-mesh-mcp-server:v1.2.3
-docker pull ghcr.io/{github-username}/developer-mesh-rest-api:v1.2.3
-docker pull ghcr.io/{github-username}/developer-mesh-worker:v1.2.3
+docker pull developer-mesh-mcp-server:v1.2.3
+docker pull developer-mesh-rest-api:v1.2.3
+docker pull developer-mesh-worker:v1.2.3
 ```
 
 ### For ARM64 Architecture
@@ -68,7 +76,7 @@ All images support multi-architecture (amd64 and arm64). Docker will automatical
 Public images can be pulled without authentication. For private repositories:
 
 ```bash
-echo $GITHUB_TOKEN | docker login ghcr.io -u {github-username} --password-stdin
+echo $GITHUB_TOKEN | docker login ghcr.io -u $GITHUB_USERNAME --password-stdin
 ```
 
 ## Using Images in Docker Compose
@@ -78,15 +86,15 @@ Update your `docker-compose.yml` to use the published images:
 ```yaml
 services:
   mcp-server:
-    image: ghcr.io/{github-username}/developer-mesh-mcp-server:latest
+    image: developer-mesh-mcp-server:latest
     # ... rest of configuration
 
   rest-api:
-    image: ghcr.io/{github-username}/developer-mesh-rest-api:latest
+    image: developer-mesh-rest-api:latest
     # ... rest of configuration
 
   worker:
-    image: ghcr.io/{github-username}/developer-mesh-worker:latest
+    image: developer-mesh-worker:latest
     # ... rest of configuration
 ```
 
@@ -101,7 +109,7 @@ All images include the following metadata:
 
 To inspect image metadata:
 ```bash
-docker inspect ghcr.io/{github-username}/developer-mesh-mcp-server:latest
+docker inspect developer-mesh-mcp-server:latest
 ```
 
 ## Security Features
@@ -111,7 +119,7 @@ Image signing with Sigstore Cosign is temporarily disabled while we resolve GitH
 
 <!-- When re-enabled, verify signatures with:
 ```bash
-cosign verify ghcr.io/{github-username}/developer-mesh-mcp-server:latest
+cosign verify developer-mesh-mcp-server:latest
 ```
 -->
 
@@ -151,13 +159,13 @@ If you get permission denied when pulling images, ensure:
 ### Wrong Architecture
 Docker should automatically select the correct architecture. To force a specific architecture:
 ```bash
-docker pull --platform linux/amd64 ghcr.io/{github-username}/developer-mesh-mcp-server:latest
+docker pull --platform linux/amd64 developer-mesh-mcp-server:latest
 ```
 
 ### Old Image Versions
 To ensure you have the latest version:
 ```bash
-docker pull ghcr.io/{github-username}/developer-mesh-mcp-server:latest
+docker pull developer-mesh-mcp-server:latest
 docker images | grep developer-mesh
 ```
 
@@ -199,4 +207,3 @@ docker build \
 - [GitHub Container Registry Documentation](https://docs.github.com/en/packages/working-with-a-github-packages-registry/working-with-the-container-registry)
 - [OCI Image Specification](https://github.com/opencontainers/image-spec)
 - [Docker Best Practices](https://docs.docker.com/develop/dev-best-practices/)
-- [Sigstore Cosign](https://docs.sigstore.dev/cosign/overview/)

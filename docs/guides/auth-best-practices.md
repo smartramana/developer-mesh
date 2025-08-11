@@ -1,3 +1,9 @@
+<!-- SOURCE VERIFICATION
+Last Verified: 2025-08-11 14:31:08
+Verification Script: update-docs-parallel.sh
+Batch: ac
+-->
+
 # Authentication & Authorization Best Practices
 
 > **Purpose**: Security patterns and implementation guidelines for Developer Mesh
@@ -827,4 +833,3 @@ func (s *UserService) ExportUserData(ctx context.Context, userID uuid.UUID) ([]b
 - [OWASP Session Management Cheat Sheet](https://cheatsheetseries.owasp.org/cheatsheets/Session_Management_Cheat_Sheet.html)
 - [NIST Digital Identity Guidelines](https://pages.nist.gov/800-63-3/)
 - [OAuth 2.0 Security Best Practices](https://datatracker.ietf.org/doc/html/draft-ietf-oauth-security-topics)
-- [JWT Best Practices](https://datatracker.ietf.org/doc/html/rfc8725)

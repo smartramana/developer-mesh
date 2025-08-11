@@ -1,3 +1,9 @@
+<!-- SOURCE VERIFICATION
+Last Verified: 2025-08-11 14:28:14
+Verification Script: update-docs-parallel.sh
+Batch: ab
+-->
+
 # Dynamic Tools Passthrough Authentication
 
 ## Overview
@@ -315,4 +321,3 @@ Use these metrics to:
 - Track adoption of user tokens
 - Identify tools still using service accounts
 - Monitor authentication failures
-- Plan migration strategies

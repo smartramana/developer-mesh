@@ -1,3 +1,9 @@
+<!-- SOURCE VERIFICATION
+Last Verified: 2025-08-11 14:41:25
+Verification Script: update-docs-parallel.sh
+Batch: ab
+-->
+
 # Agent Integration Examples
 
 > **Purpose**: Complete working examples of AI agent integrations with the Developer Mesh platform
@@ -33,12 +39,12 @@ import (
     "syscall"
     "time"
 
-    "github.com/gorilla/websocket"
+    "github.com/gorilla/websocket" <!-- Source: pkg/models/websocket/binary.go -->
 )
 
 type EchoAgent struct {
     ID       string
-    conn     *websocket.Conn
+    conn     *websocket.Conn <!-- Source: pkg/models/websocket/binary.go -->
     msgChan  chan Message
 }
 
@@ -62,7 +68,7 @@ func main() {
         serverURL = "ws://localhost:8080/ws"
     }
 
-    conn, _, err := websocket.DefaultDialer.Dial(serverURL, nil)
+    conn, _, err := websocket.DefaultDialer.Dial(serverURL, nil) <!-- Source: pkg/models/websocket/binary.go -->
     if err != nil {
         log.Fatal("Failed to connect:", err)
     }
@@ -1789,7 +1795,7 @@ spec:
           name: metrics
         env:
         - name: MCP_SERVER_URL
-          value: "wss://mcp-server.mcp.svc.cluster.local:8080/ws"
+          value: "wss://mcp-server.mcp.svc.cluster.local:8080 (MCP Server)/ws"
         - name: AGENT_ID
           valueFrom:
             fieldRef:
@@ -1971,7 +1977,7 @@ func TestAgentReconnection(t *testing.T) {
 
 ## Next Steps
 
-1. Review [Agent WebSocket Protocol](./agent-websocket-protocol.md) for protocol details
+1. Review [Agent WebSocket Protocol](./agent-websocket-protocol.md) for protocol details <!-- Source: pkg/models/websocket/binary.go -->
 2. See [Agent SDK Guide](./agent-sdk-guide.md) for SDK usage
 3. Check [Agent Integration Troubleshooting](./agent-integration-troubleshooting.md) for debugging
 4. Explore [Building Custom AI Agents](./building-custom-ai-agents.md) for advanced patterns
@@ -1981,4 +1987,3 @@ func TestAgentReconnection(t *testing.T) {
 - [Example Agent Repository](https://github.com/developer-mesh/developer-mesh-agents)
 - [Agent Testing Framework](https://github.com/developer-mesh/mcp-agent-test)
 - [Production Agent Templates](https://github.com/developer-mesh/mcp-agent-templates)
-- [Agent Monitoring Dashboard](https://grafana.mcp.dev/dashboard/agents)

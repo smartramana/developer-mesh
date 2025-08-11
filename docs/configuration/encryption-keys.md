@@ -1,3 +1,9 @@
+<!-- SOURCE VERIFICATION
+Last Verified: 2025-08-11 14:38:33
+Verification Script: update-docs-parallel.sh
+Batch: aa
+-->
+
 # Encryption Key Configuration
 
 ## Overview
@@ -115,4 +121,3 @@ This means the encryption key environment variable is not set. Set the appropria
 If you cannot decrypt previously encrypted data:
 - Ensure you're using the same encryption key that was used to encrypt the data
 - Check that the key hasn't been accidentally modified or truncated
-- Verify the environment variable is being passed correctly to the container/process

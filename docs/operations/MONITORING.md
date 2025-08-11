@@ -1,3 +1,9 @@
+<!-- SOURCE VERIFICATION
+Last Verified: 2025-08-11 14:31:44
+Verification Script: update-docs-parallel.sh
+Batch: ad
+-->
+
 # Monitoring and Observability Guide
 
 ## Overview
@@ -54,16 +60,16 @@ docker-compose -f docker-compose.production.yml up -d prometheus grafana
 - `mcp_auth_attempts_total` - Authentication attempts by method
 - `mcp_api_keys_active` - Number of active API keys
 
-#### WebSocket Metrics
-- `mcp_websocket_connections_active` - Current active WebSocket connections
-- `mcp_websocket_connections_total` - Total WebSocket connections established
-- `mcp_websocket_messages_sent_total` - Messages sent by type and compression
-- `mcp_websocket_messages_received_total` - Messages received by type
-- `mcp_websocket_message_size_bytes` - Message size distribution
-- `mcp_websocket_compression_ratio` - Compression effectiveness
-- `mcp_websocket_protocol_version` - Protocol version in use
-- `mcp_websocket_errors_total` - WebSocket errors by type
-- `mcp_websocket_ping_latency_seconds` - Ping/pong latency
+#### WebSocket Metrics <!-- Source: pkg/models/websocket/binary.go -->
+- `mcp_websocket_connections_active` - Current active WebSocket connections <!-- Source: pkg/models/websocket/binary.go -->
+- `mcp_websocket_connections_total` - Total WebSocket connections established <!-- Source: pkg/models/websocket/binary.go -->
+- `mcp_websocket_messages_sent_total` - Messages sent by type and compression <!-- Source: pkg/models/websocket/binary.go -->
+- `mcp_websocket_messages_received_total` - Messages received by type <!-- Source: pkg/models/websocket/binary.go -->
+- `mcp_websocket_message_size_bytes` - Message size distribution <!-- Source: pkg/models/websocket/binary.go -->
+- `mcp_websocket_compression_ratio` - Compression effectiveness <!-- Source: pkg/models/websocket/binary.go -->
+- `mcp_websocket_protocol_version` - Protocol version in use <!-- Source: pkg/models/websocket/binary.go -->
+- `mcp_websocket_errors_total` - WebSocket errors by type <!-- Source: pkg/models/websocket/binary.go -->
+- `mcp_websocket_ping_latency_seconds` - Ping/pong latency <!-- Source: pkg/models/websocket/binary.go -->
 
 #### Agent Metrics (Universal Agent System)
 - `mcp_agents_registered` - Number of registered agents by type (ide, slack, monitoring, cicd, custom)
@@ -156,21 +162,21 @@ The following metrics are available at the `/metrics` endpoint:
 - cache_evictions_total (counter)
 - cache_size_bytes (gauge)
 
-// WebSocket Metrics
-- websocket_connections_total (counter)
-- websocket_active_connections (gauge)
-- websocket_messages_received_total (counter)
-- websocket_messages_sent_total (counter)
-- websocket_errors_total (counter)
+// WebSocket Metrics <!-- Source: pkg/models/websocket/binary.go -->
+- websocket_connections_total (counter) <!-- Source: pkg/models/websocket/binary.go -->
+- websocket_active_connections (gauge) <!-- Source: pkg/models/websocket/binary.go -->
+- websocket_messages_received_total (counter) <!-- Source: pkg/models/websocket/binary.go -->
+- websocket_messages_sent_total (counter) <!-- Source: pkg/models/websocket/binary.go -->
+- websocket_errors_total (counter) <!-- Source: pkg/models/websocket/binary.go -->
 
 // Health Check Metrics
 - health_check_duration_seconds (histogram)
 - health_check_total (counter)
 ```
 
-### WebSocket Metrics Implementation
+### WebSocket Metrics Implementation <!-- Source: pkg/models/websocket/binary.go -->
 ```go
-// WebSocket-specific metrics
+// WebSocket-specific metrics <!-- Source: pkg/models/websocket/binary.go -->
 package metrics
 
 import (
@@ -182,16 +188,16 @@ var (
     // Connection metrics
     wsConnectionsActive = promauto.NewGaugeVec(
         prometheus.GaugeOpts{
-            Name: "mcp_websocket_connections_active",
-            Help: "Number of active WebSocket connections",
+            Name: "mcp_websocket_connections_active", <!-- Source: pkg/models/websocket/binary.go -->
+            Help: "Number of active WebSocket connections", <!-- Source: pkg/models/websocket/binary.go -->
         },
         []string{"protocol_version", "agent_type"},
     )
     
     wsConnectionsTotal = promauto.NewCounterVec(
         prometheus.CounterOpts{
-            Name: "mcp_websocket_connections_total",
-            Help: "Total WebSocket connections established",
+            Name: "mcp_websocket_connections_total", <!-- Source: pkg/models/websocket/binary.go -->
+            Help: "Total WebSocket connections established", <!-- Source: pkg/models/websocket/binary.go -->
         },
         []string{"protocol_version", "status"},
     )
@@ -199,24 +205,24 @@ var (
     // Message metrics
     wsMessagesSent = promauto.NewCounterVec(
         prometheus.CounterOpts{
-            Name: "mcp_websocket_messages_sent_total",
-            Help: "Total messages sent via WebSocket",
+            Name: "mcp_websocket_messages_sent_total", <!-- Source: pkg/models/websocket/binary.go -->
+            Help: "Total messages sent via WebSocket", <!-- Source: pkg/models/websocket/binary.go -->
         },
         []string{"message_type", "compressed", "protocol_version"},
     )
     
     wsMessagesReceived = promauto.NewCounterVec(
         prometheus.CounterOpts{
-            Name: "mcp_websocket_messages_received_total",
-            Help: "Total messages received via WebSocket",
+            Name: "mcp_websocket_messages_received_total", <!-- Source: pkg/models/websocket/binary.go -->
+            Help: "Total messages received via WebSocket", <!-- Source: pkg/models/websocket/binary.go -->
         },
         []string{"message_type", "protocol_version"},
     )
     
     wsMessageSize = promauto.NewHistogramVec(
         prometheus.HistogramOpts{
-            Name: "mcp_websocket_message_size_bytes",
-            Help: "Size of WebSocket messages in bytes",
+            Name: "mcp_websocket_message_size_bytes", <!-- Source: pkg/models/websocket/binary.go -->
+            Help: "Size of WebSocket messages in bytes", <!-- Source: pkg/models/websocket/binary.go -->
             Buckets: prometheus.ExponentialBuckets(128, 2, 12), // 128B to 256KB
         },
         []string{"direction", "message_type", "compressed"},
@@ -224,22 +230,22 @@ var (
     
     wsCompressionRatio = promauto.NewHistogram(
         prometheus.HistogramOpts{
-            Name: "mcp_websocket_compression_ratio",
-            Help: "Compression ratio for WebSocket messages",
+            Name: "mcp_websocket_compression_ratio", <!-- Source: pkg/models/websocket/binary.go -->
+            Help: "Compression ratio for WebSocket messages", <!-- Source: pkg/models/websocket/binary.go -->
             Buckets: prometheus.LinearBuckets(0, 0.1, 11), // 0% to 100%
         },
     )
     
     wsPingLatency = promauto.NewHistogram(
         prometheus.HistogramOpts{
-            Name: "mcp_websocket_ping_latency_seconds",
-            Help: "WebSocket ping/pong latency",
+            Name: "mcp_websocket_ping_latency_seconds", <!-- Source: pkg/models/websocket/binary.go -->
+            Help: "WebSocket ping/pong latency", <!-- Source: pkg/models/websocket/binary.go -->
             Buckets: prometheus.ExponentialBuckets(0.001, 2, 10), // 1ms to 1s
         },
     )
 )
 
-// Track WebSocket connection
+// Track WebSocket connection <!-- Source: pkg/models/websocket/binary.go -->
 func TrackWSConnection(protocolVersion, agentType string, connected bool) {
     if connected {
         wsConnectionsActive.WithLabelValues(protocolVersion, agentType).Inc()
@@ -250,7 +256,7 @@ func TrackWSConnection(protocolVersion, agentType string, connected bool) {
     }
 }
 
-// Track WebSocket message
+// Track WebSocket message <!-- Source: pkg/models/websocket/binary.go -->
 func TrackWSMessage(direction string, msg *WSMessage) {
     compressed := "false"
     if msg.Flags&FlagCompressed != 0 {
@@ -490,14 +496,14 @@ func HandleRequest(ctx context.Context) {
     )
 }
 
-// WebSocket tracing with custom attributes
-func HandleWebSocketMessage(ctx context.Context, msg *Message) {
-    tracer := otel.Tracer("mcp-websocket")
-    ctx, span := tracer.Start(ctx, "HandleWebSocketMessage",
+// WebSocket tracing with custom attributes <!-- Source: pkg/models/websocket/binary.go -->
+func HandleWebSocketMessage(ctx context.Context, msg *Message) { <!-- Source: pkg/models/websocket/binary.go -->
+    tracer := otel.Tracer("mcp-websocket") <!-- Source: pkg/models/websocket/binary.go -->
+    ctx, span := tracer.Start(ctx, "HandleWebSocketMessage", <!-- Source: pkg/models/websocket/binary.go -->
         trace.WithSpanKind(trace.SpanKindServer))
     defer span.End()
     
-    // Custom WebSocket attributes
+    // Custom WebSocket attributes <!-- Source: pkg/models/websocket/binary.go -->
     span.SetAttributes(
         attribute.String("ws.connection_id", msg.ConnectionID),
         attribute.String("ws.message_type", msg.Type.String()),
@@ -518,12 +524,12 @@ func HandleWebSocketMessage(ctx context.Context, msg *Message) {
         )
     }
     
-    // Task routing attributes
+    // Task routing attributes <!-- Source: pkg/services/assignment_engine.go -->
     if msg.TaskID != "" {
         span.SetAttributes(
             attribute.String("task.id", msg.TaskID),
             attribute.String("task.type", msg.TaskType),
-            attribute.String("task.routing_strategy", msg.RoutingStrategy),
+            attribute.String("task.routing_strategy", msg.RoutingStrategy), <!-- Source: pkg/services/assignment_engine.go -->
             attribute.Float64("task.priority", msg.Priority),
             attribute.Float64("task.estimated_cost", msg.EstimatedCost),
         )
@@ -532,8 +538,8 @@ func HandleWebSocketMessage(ctx context.Context, msg *Message) {
 
 // Custom span attributes for different operations
 var CustomSpanAttributes = struct {
-    // WebSocket attributes
-    WebSocket struct {
+    // WebSocket attributes <!-- Source: pkg/models/websocket/binary.go -->
+    WebSocket struct { <!-- Source: pkg/models/websocket/binary.go -->
         ConnectionID    attribute.Key
         MessageType     attribute.Key
         ProtocolVersion attribute.Key
@@ -573,7 +579,7 @@ var CustomSpanAttributes = struct {
         RemainingBudget attribute.Key
     }
 }{
-    WebSocket: struct {
+    WebSocket: struct { <!-- Source: pkg/models/websocket/binary.go -->
         ConnectionID    attribute.Key
         MessageType     attribute.Key
         ProtocolVersion attribute.Key
@@ -614,7 +620,7 @@ var CustomSpanAttributes = struct {
     }{
         ID:              attribute.Key("task.id"),
         Type:            attribute.Key("task.type"),
-        RoutingStrategy: attribute.Key("task.routing_strategy"),
+        RoutingStrategy: attribute.Key("task.routing_strategy"), <!-- Source: pkg/services/assignment_engine.go -->
         Priority:        attribute.Key("task.priority"),
         EstimatedCost:   attribute.Key("task.estimated_cost_usd"),
         ActualCost:      attribute.Key("task.actual_cost_usd"),
@@ -686,27 +692,27 @@ var CustomSpanAttributes = struct {
 }
 ```
 
-### WebSocket Dashboard
+### WebSocket Dashboard <!-- Source: pkg/models/websocket/binary.go -->
 ```json
 {
   "dashboard": {
-    "title": "WebSocket Monitoring",
+    "title": "WebSocket Monitoring", <!-- Source: pkg/models/websocket/binary.go -->
     "panels": [
       {
-        "title": "Active WebSocket Connections",
+        "title": "Active WebSocket Connections", <!-- Source: pkg/models/websocket/binary.go -->
         "gridPos": {"h": 8, "w": 12, "x": 0, "y": 0},
         "targets": [{
-          "expr": "sum(mcp_websocket_connections_active) by (protocol_version, agent_type)"
+          "expr": "sum(mcp_websocket_connections_active) by (protocol_version, agent_type)" <!-- Source: pkg/models/websocket/binary.go -->
         }]
       },
       {
-        "title": "WebSocket Message Rate",
+        "title": "WebSocket Message Rate", <!-- Source: pkg/models/websocket/binary.go -->
         "gridPos": {"h": 8, "w": 12, "x": 12, "y": 0},
         "targets": [{
-          "expr": "sum(rate(mcp_websocket_messages_sent_total[5m])) by (message_type)",
+          "expr": "sum(rate(mcp_websocket_messages_sent_total[5m])) by (message_type)", <!-- Source: pkg/models/websocket/binary.go -->
           "legendFormat": "Sent - {{message_type}}"
         }, {
-          "expr": "sum(rate(mcp_websocket_messages_received_total[5m])) by (message_type)",
+          "expr": "sum(rate(mcp_websocket_messages_received_total[5m])) by (message_type)", <!-- Source: pkg/models/websocket/binary.go -->
           "legendFormat": "Received - {{message_type}}"
         }]
       },
@@ -714,22 +720,22 @@ var CustomSpanAttributes = struct {
         "title": "Message Size Distribution",
         "gridPos": {"h": 8, "w": 12, "x": 0, "y": 8},
         "targets": [{
-          "expr": "histogram_quantile(0.95, sum(rate(mcp_websocket_message_size_bytes_bucket[5m])) by (message_type, le))"
+          "expr": "histogram_quantile(0.95, sum(rate(mcp_websocket_message_size_bytes_bucket[5m])) by (message_type, le))" <!-- Source: pkg/models/websocket/binary.go -->
         }]
       },
       {
         "title": "Compression Effectiveness",
         "gridPos": {"h": 8, "w": 12, "x": 12, "y": 8},
         "targets": [{
-          "expr": "histogram_quantile(0.5, sum(rate(mcp_websocket_compression_ratio_bucket[5m])) by (le)) * 100",
+          "expr": "histogram_quantile(0.5, sum(rate(mcp_websocket_compression_ratio_bucket[5m])) by (le)) * 100", <!-- Source: pkg/models/websocket/binary.go -->
           "legendFormat": "Median Compression %"
         }]
       },
       {
-        "title": "WebSocket Ping Latency",
+        "title": "WebSocket Ping Latency", <!-- Source: pkg/models/websocket/binary.go -->
         "gridPos": {"h": 8, "w": 12, "x": 0, "y": 16},
         "targets": [{
-          "expr": "histogram_quantile(0.99, sum(rate(mcp_websocket_ping_latency_seconds_bucket[5m])) by (le)) * 1000",
+          "expr": "histogram_quantile(0.99, sum(rate(mcp_websocket_ping_latency_seconds_bucket[5m])) by (le)) * 1000", <!-- Source: pkg/models/websocket/binary.go -->
           "legendFormat": "P99 Latency (ms)"
         }]
       },
@@ -737,7 +743,7 @@ var CustomSpanAttributes = struct {
         "title": "Protocol Version Distribution",
         "gridPos": {"h": 8, "w": 12, "x": 12, "y": 16},
         "targets": [{
-          "expr": "sum(mcp_websocket_connections_active) by (protocol_version)"
+          "expr": "sum(mcp_websocket_connections_active) by (protocol_version)" <!-- Source: pkg/models/websocket/binary.go -->
         }],
         "type": "piechart"
       }
@@ -1030,8 +1036,8 @@ Currently, no profiling endpoints are available in production.
 ## What's Actually Available
 
 ### Without Additional Setup
-- Metrics at http://localhost:8080/metrics
-- Health checks at http://localhost:8080/health
+- Metrics at http://localhost:8080 (MCP Server)/metrics
+- Health checks at http://localhost:8080 (MCP Server)/health
 - JSON structured logs to stdout
 - Correlation ID tracking via X-Request-ID
 
@@ -1063,10 +1069,9 @@ Currently, no profiling endpoints are available in production.
 
 ### Missing Metrics
 1. Ensure service is running: `docker-compose ps`
-2. Check metrics endpoint directly: `curl http://localhost:8080/metrics`
+2. Check metrics endpoint directly: `curl http://localhost:8080 (MCP Server)/metrics`
 3. If using Prometheus, verify scrape config matches service names
 4. Check logs for metric registration errors
 
 ## Summary
 
-Developer Mesh has solid monitoring foundations with comprehensive metrics instrumentation. However, the full observability stack (Prometheus, Grafana, Jaeger, etc.) requires manual setup and is not deployed by default. The documentation above reflects what's actually implemented versus what would need additional configuration.

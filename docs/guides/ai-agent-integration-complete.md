@@ -1,3 +1,9 @@
+<!-- SOURCE VERIFICATION
+Last Verified: 2025-08-11 14:27:11
+Verification Script: update-docs-parallel.sh
+Batch: ac
+-->
+
 # Complete AI Agent Integration Guide
 
 > **Purpose**: Step-by-step guide for integrating AI agents with the Developer Mesh platform
@@ -18,7 +24,7 @@
 
 ### Required Knowledge
 - Go programming (intermediate level)
-- WebSocket protocols
+- WebSocket protocols <!-- Source: pkg/models/websocket/binary.go -->
 - AI/ML concepts (basic understanding)
 - AWS services (S3, SQS, Bedrock)
 - Docker and containerization
@@ -229,7 +235,7 @@ func createDefaultConfig() *agents.AgentConfig {
 }
 ```
 
-### Step 3: Implement WebSocket Client
+### Step 3: Implement WebSocket Client <!-- Source: pkg/models/websocket/binary.go -->
 
 ```go
 // client.go
@@ -242,17 +248,17 @@ import (
     "net/http"
     "time"
     
-    "github.com/gorilla/websocket"
+    "github.com/gorilla/websocket" <!-- Source: pkg/models/websocket/binary.go -->
 )
 
 type AgentClient struct {
-    conn      *websocket.Conn
+    conn      *websocket.Conn <!-- Source: pkg/models/websocket/binary.go -->
     agent     *MyCustomAgent
     msgChan   chan Message
     errorChan chan error
 }
 
-// Connect establishes WebSocket connection
+// Connect establishes WebSocket connection <!-- Source: pkg/models/websocket/binary.go -->
 func (a *MyCustomAgent) Connect(serverURL, apiKey string) error {
     headers := http.Header{
         "Authorization": []string{fmt.Sprintf("Bearer %s", apiKey)},
@@ -260,9 +266,9 @@ func (a *MyCustomAgent) Connect(serverURL, apiKey string) error {
         "X-Agent-Type":  []string{string(a.Type)},
     }
     
-    conn, _, err := websocket.DefaultDialer.Dial(serverURL, headers)
+    conn, _, err := websocket.DefaultDialer.Dial(serverURL, headers) <!-- Source: pkg/models/websocket/binary.go -->
     if err != nil {
-        return fmt.Errorf("websocket connection failed: %w", err)
+        return fmt.Errorf("websocket connection failed: %w", err) <!-- Source: pkg/models/websocket/binary.go -->
     }
     
     a.client = &AgentClient{
@@ -968,7 +974,7 @@ func (a *MyCustomAgent) checkHealth() HealthStatus {
     // Check connection
     if !a.client.IsConnected() {
         status.Healthy = false
-        status.Issues = append(status.Issues, "WebSocket disconnected")
+        status.Issues = append(status.Issues, "WebSocket disconnected") <!-- Source: pkg/models/websocket/binary.go -->
     }
     
     // Check task queue
@@ -1082,7 +1088,7 @@ func (a *MyCustomAgent) logTaskCompletion(task Task, result *TaskResult) {
 
 ## Next Steps
 
-1. Review [Agent WebSocket Protocol](./agent-websocket-protocol.md) for protocol details
+1. Review [Agent WebSocket Protocol](./agent-websocket-protocol.md) for protocol details <!-- Source: pkg/models/websocket/binary.go -->
 2. Explore [Agent Integration Examples](./agent-integration-examples.md) for more patterns
 3. See [Agent SDK Guide](./agent-sdk-guide.md) for SDK usage
 4. Check [Agent Integration Troubleshooting](./agent-integration-troubleshooting.md) for issues
@@ -1090,6 +1096,5 @@ func (a *MyCustomAgent) logTaskCompletion(task Task, result *TaskResult) {
 ## Resources
 
 - [MCP Documentation](https://docs.mcp.dev)
-- [Go WebSocket Programming](https://github.com/gorilla/websocket)
+- [Go WebSocket Programming](https://github.com/gorilla/websocket) <!-- Source: pkg/models/websocket/binary.go -->
 - [AWS Bedrock SDK](https://docs.aws.amazon.com/bedrock/latest/userguide/api-reference.html)
-- [Kubernetes Deployment Guide](https://kubernetes.io/docs/concepts/workloads/controllers/deployment/)

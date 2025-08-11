@@ -1,3 +1,9 @@
+<!-- SOURCE VERIFICATION
+Last Verified: 2025-08-11 14:42:27
+Verification Script: update-docs-parallel.sh
+Batch: aa
+-->
+
 # Testing Guide
 
 > **Purpose**: Comprehensive testing strategies and patterns for the Developer Mesh platform
@@ -6,7 +12,7 @@
 
 ## Overview
 
-This guide covers testing strategies, tools, and best practices for Developer Mesh with emphasis on testing against real AWS services (S3, SQS, Bedrock, ElastiCache). Note that many advanced testing tools mentioned (Cypress, Playwright, Gatling, Pact) are not currently implemented but shown as examples of potential testing approaches.
+This guide covers testing strategies, tools, and best practices for Developer Mesh with emphasis on testing against real AWS services (S3, Bedrock, ElastiCache) and Redis Streams. Note that many advanced testing tools mentioned (Cypress, Playwright, Gatling, Pact) are not currently implemented but shown as examples of potential testing approaches.
 
 ## Testing Pyramid
 
@@ -355,7 +361,7 @@ func (s *RepositoryTestSuite) SetupSuite() {
     dsn := os.Getenv("TEST_DATABASE_URL")
     if dsn == "" {
         // Use local PostgreSQL for testing
-        dsn = "postgres://postgres:postgres@localhost:5432/devops_mcp_test?sslmode=disable"
+        dsn = "postgres://postgres:postgres@localhost:5432 (PostgreSQL)/devops_mcp_test?sslmode=disable"
     }
     
     db, err := sql.Open("postgres", dsn)
@@ -427,12 +433,12 @@ func TestAPIWithAWSIntegration(t *testing.T) {
     }
     
     // Start ElastiCache tunnel
-    require.Equal(t, "127.0.0.1:6379", os.Getenv("REDIS_ADDR"), "ElastiCache tunnel must be running")
+    require.Equal(t, "127.0.0.1:6379 (Redis)", os.Getenv("REDIS_ADDR"), "ElastiCache tunnel must be running")
     
     // Configure with real AWS services
     testConfig := &config.Config{
         DatabaseURL: os.Getenv("DATABASE_URL"),
-        RedisAddr:   "127.0.0.1:6379", // Via SSH tunnel
+        RedisAddr:   "127.0.0.1:6379 (Redis)", // Via SSH tunnel
         S3Bucket:    "sean-mcp-dev-contexts",
         SQSQueueURL: "https://sqs.us-east-1.amazonaws.com/594992249511/sean-mcp-test",
         BedrockEnabled: true,
@@ -501,15 +507,15 @@ func TestAPIWithAWSIntegration(t *testing.T) {
         assert.Equal(t, http.StatusNoContent, resp.StatusCode)
     })
     
-    t.Run("WebSocket agent registration", func(t *testing.T) {
+    t.Run("WebSocket agent registration", func(t *testing.T) { <!-- Source: pkg/models/websocket/binary.go -->
         wsURL := strings.Replace(server.URL, "http", "ws", 1) + "/ws"
         
-        // Connect WebSocket
+        // Connect WebSocket <!-- Source: pkg/models/websocket/binary.go -->
         headers := http.Header{
             "X-Agent-ID": []string{"test-agent-" + uuid.New().String()},
         }
         
-        conn, _, err := websocket.DefaultDialer.Dial(wsURL, headers)
+        conn, _, err := websocket.DefaultDialer.Dial(wsURL, headers) <!-- Source: pkg/models/websocket/binary.go -->
         require.NoError(t, err)
         defer conn.Close()
         
@@ -590,7 +596,7 @@ test.describe('API E2E Tests', () => {
 
   test.beforeAll(async ({ playwright }) => {
     apiContext = await playwright.request.newContext({
-      baseURL: process.env.API_URL || 'http://localhost:8080',
+      baseURL: process.env.API_URL || 'http://localhost:8080 (MCP Server)',
     });
     
     // Authenticate
@@ -669,7 +675,7 @@ func TestRedisIntegration(t *testing.T) {
     // For CI: May use local Redis container
     redisAddr := os.Getenv("REDIS_ADDR")
     if redisAddr == "" {
-        redisAddr = "localhost:6379" // Default for CI
+        redisAddr = "localhost:6379 (Redis)" // Default for CI
     }
     
     // Connect to Redis via tunnel
@@ -751,7 +757,7 @@ export let options = {
   },
 };
 
-const API_BASE = __ENV.API_URL || 'http://localhost:8080';
+const API_BASE = __ENV.API_URL || 'http://localhost:8080 (MCP Server)';
 const API_KEY = __ENV.API_KEY;
 
 // Cost tracking for load tests
@@ -828,7 +834,7 @@ import scala.concurrent.duration._
 
 class BasicSimulation extends Simulation {
   val httpProtocol = http
-    .baseUrl("http://localhost:8080")
+    .baseUrl("http://localhost:8080 (MCP Server)")
     .acceptHeader("application/json")
     .header("X-API-Key", System.getenv("API_KEY"))
 
@@ -909,7 +915,7 @@ spec:
         "name": "api-health-check",
         "provider": {
           "type": "http",
-          "url": "http://localhost:8080/health",
+          "url": "http://localhost:8080 (MCP Server)/health",
           "timeout": 5
         }
       }
@@ -1124,14 +1130,14 @@ make test-integration
 # Start PostgreSQL with pgvector
 docker run -d \
   --name postgres-test \
-  -p 5432:5432 \
+  -p 5432:5432 (PostgreSQL) \
   -e POSTGRES_USER=postgres \
   -e POSTGRES_PASSWORD=postgres \
   -e POSTGRES_DB=devops_mcp_test \
   ankane/pgvector:v0.5.1
 
 # Run migrations
-migrate -path migrations -database "postgresql://postgres:postgres@localhost:5432/devops_mcp_test?sslmode=disable" up
+migrate -path migrations -database "postgresql://postgres:postgres@localhost:5432 (PostgreSQL)/devops_mcp_test?sslmode=disable" up
 ```
 
 ## CI/CD Test Pipeline
@@ -1190,7 +1196,7 @@ jobs:
           --health-timeout 5s
           --health-retries 5
         ports:
-          - 5432:5432
+          - 5432:5432 (PostgreSQL)
       
       redis:
         image: redis:7-alpine
@@ -1200,7 +1206,7 @@ jobs:
           --health-timeout 5s
           --health-retries 5
         ports:
-          - 6379:6379
+          - 6379:6379 (Redis)
     
     steps:
       - uses: actions/checkout@v3
@@ -1222,13 +1228,13 @@ jobs:
       
       - name: Run migrations
         run: |
-          migrate -path migrations -database "postgresql://postgres:test@localhost:5432/devops_mcp_test?sslmode=disable" up
+          migrate -path migrations -database "postgresql://postgres:test@localhost:5432 (PostgreSQL)/devops_mcp_test?sslmode=disable" up
       
       - name: Run integration tests
         env:
           RUN_AWS_INTEGRATION_TESTS: true
-          TEST_DATABASE_URL: postgres://postgres:test@localhost:5432/devops_mcp_test?sslmode=disable
-          REDIS_ADDR: localhost:6379
+          TEST_DATABASE_URL: postgres://postgres:test@localhost:5432 (PostgreSQL)/devops_mcp_test?sslmode=disable
+          REDIS_ADDR: localhost:6379 (Redis)
         run: |
           # Test AWS connectivity first
           ./scripts/aws/test-aws-services.sh || echo "AWS tests will be limited"
@@ -1246,7 +1252,7 @@ jobs:
       
       - name: Wait for services
         run: |
-          timeout 300 bash -c 'until curl -f http://localhost:8080/health; do sleep 5; done'
+          timeout 300 bash -c 'until curl -f http://localhost:8080 (MCP Server)/health; do sleep 5; done'
       
       - name: Run E2E tests
         run: |
@@ -1483,7 +1489,7 @@ func TestWithCostTracking(t *testing.T) {
 - [ ] Unit tests cover >85% of business logic
 - [ ] Integration tests verify AWS service interactions
 - [ ] Database tests include pgvector operations
-- [ ] WebSocket tests cover binary protocol
+- [ ] WebSocket tests cover binary protocol <!-- Source: pkg/models/websocket/binary.go -->
 - [ ] E2E tests validate critical paths
 - [ ] Load tests respect cost limits
 
@@ -1537,4 +1543,3 @@ go test -bench=. -benchmem ./pkg/...
 ```
 
 Last Updated: 2024-01-10
-Version: 2.0.0

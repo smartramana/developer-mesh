@@ -1,3 +1,9 @@
+<!-- SOURCE VERIFICATION
+Last Verified: 2025-08-11 14:41:13
+Verification Script: update-docs-parallel.sh
+Batch: ab
+-->
+
 # GitHub Organization Webhook Setup Guide
 
 ## Overview
@@ -138,4 +144,3 @@ The following environment variables are configured in production:
 ## Related Documentation
 
 - [Webhook API Reference](/docs/api-reference/webhook-api-reference.md)
-- [Production Deployment Guide](/docs/guides/production-deployment.md)

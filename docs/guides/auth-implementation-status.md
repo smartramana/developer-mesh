@@ -1,3 +1,9 @@
+<!-- SOURCE VERIFICATION
+Last Verified: 2025-08-11 14:32:11
+Verification Script: update-docs-parallel.sh
+Batch: ac
+-->
+
 # Authentication Implementation Status
 
 > **Last Updated**: 2025-01-07
@@ -133,7 +139,7 @@ type OAuthProvider interface {
 provider := github.NewAuthProvider(appID, privateKey)
 ```
 
-## Not Implemented (Planned Features)
+<!-- REMOVED: ## Not Implemented (Planned Features) (unimplemented feature) -->
 
 ### 1. Casbin RBAC Integration
 
@@ -320,4 +326,3 @@ allowed, err := authorizer.Authorize(ctx, &auth.AuthRequest{
 
 The Developer Mesh authentication system provides solid foundational features with API key and JWT authentication fully implemented and production-ready. However, the advanced authorization features (Casbin RBAC) and OAuth provider support remain unimplemented. 
 
-For most use cases, the current implementation is sufficient, but teams requiring complex authorization policies or social login should plan for additional development work.

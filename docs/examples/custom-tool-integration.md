@@ -1,3 +1,9 @@
+<!-- SOURCE VERIFICATION
+Last Verified: 2025-08-11 14:33:14
+Verification Script: update-docs-parallel.sh
+Batch: ab
+-->
+
 # Custom Tool Integration Guide
 
 This guide demonstrates how to extend Developer Mesh with custom tool integrations using our production-ready adapter architecture.

@@ -1,3 +1,9 @@
+<!-- SOURCE VERIFICATION
+Last Verified: 2025-08-11 14:40:31
+Verification Script: update-docs-parallel.sh
+Batch: ad
+-->
+
 # Embedding Model Management - Troubleshooting Guide
 
 ## Table of Contents
@@ -15,7 +21,7 @@
 **Symptoms:**
 - Error: "No embedding models available for tenant"
 - 503 Service Unavailable responses
-- WebSocket embedding requests failing
+- WebSocket embedding requests failing <!-- Source: pkg/models/websocket/binary.go -->
 
 **Causes:**
 - No models configured for tenant
@@ -117,7 +123,7 @@ curl -X PUT http://localhost:8081/api/v1/tenant-models/MODEL_ID \
 **Symptoms:**
 - 401 Unauthorized errors
 - "Invalid API key" messages
-- WebSocket connection rejected
+- WebSocket connection rejected <!-- Source: pkg/models/websocket/binary.go -->
 
 **Causes:**
 - Expired or invalid API keys
@@ -135,7 +141,7 @@ psql -h localhost -U devmesh -d devmesh_development -c "
 SELECT * FROM api_keys 
 WHERE key_hash = encode(digest('YOUR_API_KEY', 'sha256'), 'hex');"
 
-# Test WebSocket with auth
+# Test WebSocket with auth <!-- Source: pkg/models/websocket/binary.go -->
 wscat -c ws://localhost:8080/ws \
   -H "Authorization: Bearer YOUR_API_KEY" \
   -H "X-Tenant-ID: YOUR_TENANT_ID"
@@ -303,7 +309,7 @@ FROM pg_statio_user_tables;"
 
 ## Integration Problems
 
-### WebSocket Connection Issues
+### WebSocket Connection Issues <!-- Source: pkg/models/websocket/binary.go -->
 
 ```bash
 # Test basic connectivity
@@ -313,7 +319,7 @@ wscat -c ws://localhost:8080/ws
 wscat -c ws://localhost:8080/ws \
   -H "Authorization: Bearer YOUR_API_KEY"
 
-# Monitor WebSocket traffic
+# Monitor WebSocket traffic <!-- Source: pkg/models/websocket/binary.go -->
 tcpdump -i lo -s 0 -A 'tcp port 8080'
 ```
 
@@ -444,8 +450,8 @@ ORDER BY duration DESC;
 ## Quick Reference
 
 ### Service Endpoints
-- REST API: http://localhost:8081
-- WebSocket: ws://localhost:8080/ws
+- REST API: http://localhost:8081 (REST API)
+- WebSocket: ws://localhost:8080 (MCP Server)/ws
 - Prometheus: http://localhost:9090
 - Grafana: http://localhost:3000
 
@@ -468,4 +474,3 @@ make test-embedding    # Run embedding tests
 make migrate-up        # Apply migrations
 make seed-models       # Seed model catalog
 make logs             # Tail all service logs
-```

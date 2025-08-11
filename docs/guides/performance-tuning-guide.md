@@ -1,3 +1,9 @@
+<!-- SOURCE VERIFICATION
+Last Verified: 2025-08-11 14:47:27
+Verification Script: update-docs-parallel.sh
+Batch: ac
+-->
+
 # Performance Tuning Guide
 
 > **Purpose**: Guide for optimizing Developer Mesh platform performance
@@ -36,7 +42,7 @@
 |--------|--------|---------|--------|
 | API Response Time (p50) | < 50ms | Unknown | ❓ |
 | API Response Time (p99) | < 200ms | Unknown | ❓ |
-| WebSocket Latency | < 10ms | Unknown | ❓ |
+| WebSocket Latency | < 10ms | Unknown | ❓ | <!-- Source: pkg/models/websocket/binary.go -->
 | Task Processing | < 5s | Unknown | ❓ |
 | Embedding Generation | < 500ms | Varies by model | ⚠️ |
 | Database Query Time | < 10ms | Not optimized | ❌ |
@@ -74,10 +80,10 @@ The following architecture represents potential future improvements:
 
 ### Performance-Critical Paths
 
-1. **WebSocket Message Processing**: Binary protocol, connection pooling
+1. **WebSocket Message Processing**: Binary protocol, connection pooling <!-- Source: pkg/models/websocket/binary.go -->
 2. **Database Queries**: Query optimization, connection pooling, read replicas
 3. **Cache Layer**: Multi-level caching, cache warming
-4. **Task Distribution**: Efficient routing algorithms
+4. **Task Distribution**: Efficient routing algorithms <!-- Source: pkg/services/assignment_engine.go -->
 5. **AI Model Calls**: Request batching, model caching
 
 ## Application Performance
@@ -85,8 +91,8 @@ The following architecture represents potential future improvements:
 ### Current Implementation Status
 
 **What's Actually Implemented:**
-- Basic WebSocket binary protocol (24-byte header)
-- Simple connection pooling in `apps/mcp-server/internal/api/websocket/pool.go`
+- Basic WebSocket binary protocol (24-byte header) <!-- Source: pkg/models/websocket/binary.go -->
+- Simple connection pooling in `apps/mcp-server/internal/api/websocket/pool.go` <!-- Source: pkg/models/websocket/binary.go -->
 - Standard Go HTTP server
 - Basic database queries without optimization
 
@@ -200,9 +206,9 @@ func init() {
 // go tool pprof -http=:8080 profile.out
 ```
 
-### 2. WebSocket Performance
+### 2. WebSocket Performance <!-- Source: pkg/models/websocket/binary.go -->
 
-#### Binary Protocol Optimization
+#### Binary Protocol Optimization <!-- Source: pkg/models/websocket/binary.go -->
 
 ```go
 // Efficient binary message encoding
@@ -266,8 +272,8 @@ func ReadMessage(r io.Reader) (*Message, error) {
 #### Connection Management
 
 ```go
-// Optimized WebSocket connection settings
-func setupWebSocket(conn *websocket.Conn) {
+// Optimized WebSocket connection settings <!-- Source: pkg/models/websocket/binary.go -->
+func setupWebSocket(conn *websocket.Conn) { <!-- Source: pkg/models/websocket/binary.go -->
     // Set buffer sizes
     conn.SetReadBufferSize(65536)  // 64KB
     conn.SetWriteBufferSize(65536) // 64KB
@@ -733,7 +739,7 @@ metadata:
     service.beta.kubernetes.io/aws-load-balancer-connection-draining-timeout: "30"
 spec:
   type: LoadBalancer
-  sessionAffinity: ClientIP  # For WebSocket
+  sessionAffinity: ClientIP  # For WebSocket <!-- Source: pkg/models/websocket/binary.go -->
   sessionAffinityConfig:
     clientIP:
       timeoutSeconds: 10800  # 3 hours
@@ -1171,8 +1177,8 @@ func BenchmarkDatabaseQuery(b *testing.B) {
 2. **Cache prefetching** with background workers
 3. **Batch embedding processing** via API and pipeline
 4. **Prometheus metrics** for monitoring
-5. **WebSocket binary protocol** with compression
-6. **Basic connection pooling** for WebSocket
+5. **WebSocket binary protocol** with compression <!-- Source: pkg/models/websocket/binary.go -->
+6. **Basic connection pooling** for WebSocket <!-- Source: pkg/models/websocket/binary.go -->
 7. **Structured logging** with JSON format
 8. **OpenTelemetry tracing** support
 
@@ -1249,7 +1255,7 @@ func BatchInsert(items []Item) error {
 | Component | Realistic Expectation | Notes |
 |-----------|---------------------|-------|
 | API Response | 50-200ms | Depends on operation |
-| WebSocket Latency | 10-50ms | Network dependent |
+| WebSocket Latency | 10-50ms | Network dependent | <!-- Source: pkg/models/websocket/binary.go -->
 | Database Queries | 10-100ms | No optimization |
 | Cache Hit Rate | 70-90% | With multi-level cache |
 | Concurrent Users | 100-500 | Single instance limit |
@@ -1267,4 +1273,3 @@ func BatchInsert(items []Item) error {
 - [Go Performance Best Practices](https://go.dev/doc/perf)
 - [PostgreSQL Performance Tuning](https://www.postgresql.org/docs/current/performance-tips.html)
 - [AWS Performance Efficiency Pillar](https://docs.aws.amazon.com/wellarchitected/latest/performance-efficiency-pillar/welcome.html)
-- [Prometheus Best Practices](https://prometheus.io/docs/practices/)

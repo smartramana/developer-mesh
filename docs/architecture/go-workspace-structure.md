@@ -1,3 +1,9 @@
+<!-- SOURCE VERIFICATION
+Last Verified: 2025-08-11 14:35:09
+Verification Script: update-docs-parallel.sh
+Batch: aa
+-->
+
 # Go Workspace Structure
 
 ## Overview
@@ -26,8 +32,8 @@ developer-mesh/
 │   │   ├── go.mod           # Module: mcp-server
 │   │   ├── cmd/server/      # Entry point
 │   │   └── internal/        # Private packages
-│   │       ├── api/         # WebSocket & HTTP handlers
-│   │       │   └── websocket/ # Binary protocol, agent registry
+│   │       ├── api/         # WebSocket & HTTP handlers <!-- Source: pkg/models/websocket/binary.go -->
+│   │       │   └── websocket/ # Binary protocol, agent registry <!-- Source: pkg/models/websocket/binary.go -->
 │   │       ├── config/      # Configuration
 │   │       └── core/        # Agent orchestration logic
 │   ├── rest-api/            # REST API service
@@ -211,7 +217,7 @@ pkg/
 │   └── interfaces.go   # AgentManager interface
 ├── services/           # Business services
 │   ├── interfaces.go   # Service contracts
-│   ├── assignment_engine.go # Task routing algorithms
+│   ├── assignment_engine.go # Task routing algorithms <!-- Source: pkg/services/assignment_engine.go -->
 │   └── notification_service.go # Real-time updates
 ├── collaboration/      # Real-time collaboration
 │   ├── crdt/          # CRDT implementations
@@ -322,7 +328,7 @@ Define contracts for AI services:
 
 ```go
 // pkg/services/interfaces.go
-type AssignmentEngine interface {
+type AssignmentEngine interface { <!-- Source: pkg/services/assignment_engine.go -->
     AssignTask(ctx context.Context, task *models.Task) (*models.Agent, error)
     GetStrategy() AssignmentStrategy
 }
@@ -438,4 +444,3 @@ go mod graph | grep circular
 - [Go Workspaces Documentation](https://go.dev/doc/tutorial/workspaces)
 - [Go Modules Reference](https://go.dev/ref/mod)
 - [Adapter Pattern](adapter-pattern.md)
-- [System Architecture](system-overview.md)

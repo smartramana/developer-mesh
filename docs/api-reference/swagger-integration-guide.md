@@ -1,3 +1,9 @@
+<!-- SOURCE VERIFICATION
+Last Verified: 2025-08-11 14:33:14
+Verification Script: update-docs-parallel.sh
+Batch: aa
+-->
+
 # Swagger/OpenAPI Integration Guide
 
 This guide explains how the Developer Mesh Platform uses Swagger/OpenAPI for API documentation and how to maintain and extend it as new tools are integrated.
@@ -461,4 +467,3 @@ $ref: './tools/github/api.yaml#/paths/~1tools~1github~1{tool_name}'
 - [Swagger Editor](https://editor.swagger.io/)
 - [swaggo Documentation](https://github.com/swaggo/swag)
 - [OpenAPI Generator](https://openapi-generator.tech/)
-- [Spectral Linter](https://stoplight.io/open-source/spectral)

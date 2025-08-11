@@ -1,10 +1,16 @@
-# Binary WebSocket Protocol Examples
+<!-- SOURCE VERIFICATION
+Last Verified: 2025-08-11 14:31:20
+Verification Script: update-docs-parallel.sh
+Batch: ab
+-->
 
-This guide demonstrates how to work with Developer Mesh's high-performance binary WebSocket protocol.
+# Binary WebSocket Protocol Examples <!-- Source: pkg/models/websocket/binary.go -->
+
+This guide demonstrates how to work with Developer Mesh's high-performance binary WebSocket protocol. <!-- Source: pkg/models/websocket/binary.go -->
 
 ## Overview
 
-The binary WebSocket protocol provides:
+The binary WebSocket protocol provides: <!-- Source: pkg/models/websocket/binary.go -->
 - **⚡ 70% bandwidth reduction** compared to JSON
 - **🗜️ Automatic compression** for messages >1KB
 - **🔄 Mixed text/binary support** in the same connection
@@ -21,9 +27,9 @@ The binary WebSocket protocol provides:
 +-----------------------------------+
 ```
 
-## Enabling Binary Protocol
+## Enabling Binary Protocol <!-- Source: pkg/models/websocket/binary.go -->
 
-To enable binary protocol on your WebSocket connection, use the `protocol.set_binary` method:
+To enable binary protocol on your WebSocket connection, use the `protocol.set_binary` method: <!-- Source: pkg/models/websocket/binary.go -->
 
 ```json
 {
@@ -40,7 +46,7 @@ To enable binary protocol on your WebSocket connection, use the `protocol.set_bi
 }
 ```
 
-**Important**: The correct method name is `protocol.set_binary`, not `set_binary_protocol`.
+**Important**: The correct method name is `protocol.set_binary`, not `set_binary_protocol`. <!-- Source: pkg/models/websocket/binary.go -->
 
 ## Client Implementation Examples
 
@@ -49,7 +55,7 @@ To enable binary protocol on your WebSocket connection, use the `protocol.set_bi
 ```typescript
 import { MCPBinaryClient } from '@developer-mesh/client';
 
-class BinaryWebSocketExample {
+class BinaryWebSocketExample { <!-- Source: pkg/models/websocket/binary.go -->
   private client: MCPBinaryClient;
   
   constructor(url: string, apiKey: string) {
@@ -68,7 +74,7 @@ class BinaryWebSocketExample {
   async connect() {
     await this.client.connect();
     
-    // Enable binary protocol after connection
+    // Enable binary protocol after connection <!-- Source: pkg/models/websocket/binary.go -->
     await this.client.send({
       jsonrpc: "2.0",
       method: "protocol.set_binary",
@@ -241,7 +247,7 @@ class BinaryWebSocketExample {
 
 // Usage example
 async function main() {
-  const client = new BinaryWebSocketExample(
+  const client = new BinaryWebSocketExample( <!-- Source: pkg/models/websocket/binary.go -->
     'wss://api.developer-mesh.com/ws',
     'your-api-key'
   );
@@ -278,12 +284,12 @@ import (
     "encoding/binary"
     "encoding/json"
     "fmt"
-    "github.com/gorilla/websocket"
+    "github.com/gorilla/websocket" <!-- Source: pkg/models/websocket/binary.go -->
     "github.com/klauspost/compress/zstd"
 )
 
 type BinaryClient struct {
-    conn       *websocket.Conn
+    conn       *websocket.Conn <!-- Source: pkg/models/websocket/binary.go -->
     compressor *zstd.Encoder
 }
 
@@ -309,7 +315,7 @@ type Header struct {
 }
 
 func NewBinaryClient(url string) (*BinaryClient, error) {
-    conn, _, err := websocket.DefaultDialer.Dial(url, nil)
+    conn, _, err := websocket.DefaultDialer.Dial(url, nil) <!-- Source: pkg/models/websocket/binary.go -->
     if err != nil {
         return nil, err
     }
@@ -370,7 +376,7 @@ func (c *BinaryClient) SendEmbedding(
     }
     
     // Send binary message
-    return c.conn.WriteMessage(websocket.BinaryMessage, data)
+    return c.conn.WriteMessage(websocket.BinaryMessage, data) <!-- Source: pkg/models/websocket/binary.go -->
 }
 
 // Efficient batch operations
@@ -399,7 +405,7 @@ func (c *BinaryClient) SendBatch(operations []Operation) error {
     binary.Write(finalBuf, binary.LittleEndian, header)
     finalBuf.Write(compressed)
     
-    return c.conn.WriteMessage(websocket.BinaryMessage, finalBuf.Bytes())
+    return c.conn.WriteMessage(websocket.BinaryMessage, finalBuf.Bytes()) <!-- Source: pkg/models/websocket/binary.go -->
 }
 
 // High-frequency metrics streaming
@@ -454,7 +460,7 @@ func (c *BinaryClient) sendMetricsBatch(metrics []Metric) error {
         binary.Write(buf, binary.LittleEndian, m.Flags)
     }
     
-    return c.conn.WriteMessage(websocket.BinaryMessage, buf.Bytes())
+    return c.conn.WriteMessage(websocket.BinaryMessage, buf.Bytes()) <!-- Source: pkg/models/websocket/binary.go -->
 }
 ```
 
@@ -463,7 +469,7 @@ func (c *BinaryClient) sendMetricsBatch(metrics []Metric) error {
 ```python
 import struct
 import asyncio
-import websockets
+import websockets <!-- Source: pkg/models/websocket/binary.go -->
 import zstandard as zstd
 import numpy as np
 from typing import Dict, Any, List
@@ -496,7 +502,7 @@ class Header:
         version, msg_type, flags, length = struct.unpack('<BBBB', data[:4])
         return cls(version, MessageType(msg_type), flags, length)
 
-class BinaryWebSocketClient:
+class BinaryWebSocketClient: <!-- Source: pkg/models/websocket/binary.go -->
     def __init__(self, url: str, api_key: str):
         self.url = url
         self.api_key = api_key
@@ -506,7 +512,7 @@ class BinaryWebSocketClient:
     
     async def connect(self):
         headers = {"Authorization": f"Bearer {self.api_key}"}
-        self.ws = await websockets.connect(self.url, extra_headers=headers)
+        self.ws = await websockets.connect(self.url, extra_headers=headers) <!-- Source: pkg/models/websocket/binary.go -->
         
         # Start message handler
         asyncio.create_task(self._handle_messages())
@@ -642,7 +648,7 @@ class BinaryWebSocketClient:
 
 # Example usage
 async def example_usage():
-    client = BinaryWebSocketClient(
+    client = BinaryWebSocketClient( <!-- Source: pkg/models/websocket/binary.go -->
         "wss://api.developer-mesh.com/ws",
         "your-api-key"
     )
@@ -734,11 +740,11 @@ func shouldCompress(data []byte) bool {
 class BinaryConnectionPool:
     def __init__(self, url: str, pool_size: int = 5):
         self.connections = [
-            BinaryWebSocketClient(url) for _ in range(pool_size)
+            BinaryWebSocketClient(url) for _ in range(pool_size) <!-- Source: pkg/models/websocket/binary.go -->
         ]
         self.current = 0
     
-    def get_connection(self) -> BinaryWebSocketClient:
+    def get_connection(self) -> BinaryWebSocketClient: <!-- Source: pkg/models/websocket/binary.go -->
         conn = self.connections[self.current]
         self.current = (self.current + 1) % len(self.connections)
         return conn
@@ -758,25 +764,25 @@ client.on('error', (error) => {
 });
 ```
 
-## Monitoring Binary Protocol
+## Monitoring Binary Protocol <!-- Source: pkg/models/websocket/binary.go -->
 
 ```go
 // Metrics to track
 var (
     messagesCompressed = prometheus.NewCounter(
         prometheus.CounterOpts{
-            Name: "websocket_messages_compressed_total",
+            Name: "websocket_messages_compressed_total", <!-- Source: pkg/models/websocket/binary.go -->
         },
     )
     compressionRatio = prometheus.NewHistogram(
         prometheus.HistogramOpts{
-            Name: "websocket_compression_ratio",
+            Name: "websocket_compression_ratio", <!-- Source: pkg/models/websocket/binary.go -->
             Buckets: []float64{0.1, 0.3, 0.5, 0.7, 0.9},
         },
     )
     messageSizeBytes = prometheus.NewHistogram(
         prometheus.HistogramOpts{
-            Name: "websocket_message_size_bytes",
+            Name: "websocket_message_size_bytes", <!-- Source: pkg/models/websocket/binary.go -->
             Buckets: prometheus.ExponentialBuckets(100, 2, 10),
         },
     )
@@ -786,9 +792,8 @@ var (
 ## Next Steps
 
 1. **Explore CRDT Collaboration**: See [crdt-collaboration-examples.md](crdt-collaboration-examples.md)
-2. **WebSocket API Reference**: Check [agent-websocket-protocol.md](../guides/agent-websocket-protocol.md)
+2. **WebSocket API Reference**: Check [agent-websocket-protocol.md](../guides/agent-websocket-protocol.md) <!-- Source: pkg/models/websocket/binary.go -->
 3. **Performance Tuning**: Read [performance-tuning-guide.md](../guides/performance-tuning-guide.md)
 
 ---
 
-*For more examples and support, visit our [GitHub repository](https://github.com/developer-mesh/developer-mesh)*

@@ -1,3 +1,9 @@
+<!-- SOURCE VERIFICATION
+Last Verified: 2025-08-11 14:45:46
+Verification Script: update-docs-parallel.sh
+Batch: ac
+-->
+
 # Observability Best Practices
 
 > **Purpose**: Guidelines for implementing effective observability in the Developer Mesh platform
@@ -373,8 +379,8 @@ var (
 var (
     activeConnections = promauto.NewGaugeVec(
         prometheus.GaugeOpts{
-            Name: "mcp_websocket_connections_active",
-            Help: "Number of active WebSocket connections",
+            Name: "mcp_websocket_connections_active", <!-- Source: pkg/models/websocket/binary.go -->
+            Help: "Number of active WebSocket connections", <!-- Source: pkg/models/websocket/binary.go -->
         },
         []string{"protocol_version"},
     )
@@ -432,7 +438,7 @@ var (
 // Good examples:
 "mcp_api_requests_total"
 "mcp_api_request_duration_seconds"
-"mcp_websocket_connections_active"
+"mcp_websocket_connections_active" <!-- Source: pkg/models/websocket/binary.go -->
 "mcp_embedding_tokens_processed_total"
 "mcp_cache_hit_ratio"
 "mcp_cost_by_service_usd"
@@ -1132,4 +1138,3 @@ Effective observability requires thoughtful instrumentation that balances visibi
 ---
 
 Last Updated: 2024-01-10
-Version: 1.0.0

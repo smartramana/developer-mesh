@@ -1,3 +1,9 @@
+<!-- SOURCE VERIFICATION
+Last Verified: 2025-08-11 14:42:09
+Verification Script: update-docs-parallel.sh
+Batch: ac
+-->
+
 # Multi-Agent Collaboration Guide
 
 > **Purpose**: Conceptual guide for multi-agent coordination patterns
@@ -13,7 +19,7 @@
 
 The Developer Mesh platform currently implements:
 - Basic agent registration and management
-- Simple assignment strategies in `/pkg/services/assignment_engine.go`
+- Simple assignment strategies in `/pkg/services/assignment_engine.go` <!-- Source: pkg/services/assignment_engine.go -->
 - CRDT for document collaboration (not agent coordination)
 - No complex multi-agent patterns like MapReduce or consensus voting
 
@@ -39,7 +45,7 @@ This guide presents theoretical patterns and architectures for multi-agent colla
 ├─────────────────────────────────────────────────────────────┤
 │                    Communication Layer                        │
 │  ┌─────────────────────────────────────────────────────┐   │
-│  │         WebSocket Binary Protocol + CRDT            │   │
+│  │         WebSocket Binary Protocol + CRDT            │   │ <!-- Source: pkg/models/websocket/binary.go -->
 │  └─────────────────────────────────────────────────────┘   │
 ├─────────────────────────────────────────────────────────────┤
 │  ┌─────────┐  ┌─────────┐  ┌─────────┐  ┌─────────┐      │
@@ -611,9 +617,9 @@ func PathOptimizationSwarm(graph *Graph, start, end Node) *Path {
 
 ## Communication Protocols (Theoretical Designs)
 
-### 1. Binary Message Protocol (Partially Implemented)
+### 1. Binary Message Protocol (Partially Implemented) <!-- Source: pkg/models/websocket/binary.go -->
 
-**Status**: Basic binary protocol exists for WebSocket, but not for agent-to-agent communication
+**Status**: Basic binary protocol exists for WebSocket, but not for agent-to-agent communication <!-- Source: pkg/models/websocket/binary.go -->
 
 The theoretical design for efficient agent-to-agent communication:
 
@@ -1063,7 +1069,7 @@ func TraceCollaboration(ctx context.Context, task CollaborativeTask) {
 
 ### What Actually Exists
 
-1. **Assignment Engine** (`/pkg/services/assignment_engine.go`):
+1. **Assignment Engine** (`/pkg/services/assignment_engine.go`): <!-- Source: pkg/services/assignment_engine.go -->
    - Round-robin assignment
    - Least-loaded assignment
    - Capability matching
@@ -1071,7 +1077,7 @@ func TraceCollaboration(ctx context.Context, task CollaborativeTask) {
    - Cost-optimized assignment
 
 2. **Basic Agent Management**:
-   - Agent registration via WebSocket
+   - Agent registration via WebSocket <!-- Source: pkg/models/websocket/binary.go -->
    - Simple task assignment
    - Workload tracking
    - No complex coordination patterns
@@ -1105,8 +1111,8 @@ type EfficientMessaging struct {
     // Use channels for local communication
     localChannels map[string]chan Message
     
-    // Use WebSocket for remote communication
-    remoteConnections map[string]*websocket.Conn
+    // Use WebSocket for remote communication <!-- Source: pkg/models/websocket/binary.go -->
+    remoteConnections map[string]*websocket.Conn <!-- Source: pkg/models/websocket/binary.go -->
     
     // Message deduplication
     messageCache *LRUCache
@@ -1170,7 +1176,7 @@ func (d *DistributedState) ManageState() {
 
 If these patterns were to be implemented:
 
-1. **Phase 1**: Enhance current assignment engine
+1. **Phase 1**: Enhance current assignment engine <!-- Source: pkg/services/assignment_engine.go -->
    - Add task decomposition capability
    - Implement result aggregation
    - Basic workflow support
@@ -1193,9 +1199,9 @@ If these patterns were to be implemented:
 ## Current Alternative
 
 For actual multi-agent features in Developer Mesh:
-- Use the assignment engine strategies
+- Use the assignment engine strategies <!-- Source: pkg/services/assignment_engine.go -->
 - Implement custom logic in task handlers
-- Use WebSocket for agent communication
+- Use WebSocket for agent communication <!-- Source: pkg/models/websocket/binary.go -->
 - Leverage existing CRDT for shared state
 
 ### Common Issues
@@ -1222,9 +1228,9 @@ For actual multi-agent features in Developer Mesh:
 
 ## Next Steps
 
-1. Review actual implementation in `/pkg/services/assignment_engine.go`
+1. Review actual implementation in `/pkg/services/assignment_engine.go` <!-- Source: pkg/services/assignment_engine.go -->
 2. Check [Agent Registration Guide](./agent-registration-guide.md) for current features
-3. See [WebSocket API Reference](../api-reference/mcp-server-reference.md) for protocol
+3. See [WebSocket API Reference](../api-reference/mcp-server-reference.md) for protocol <!-- Source: pkg/models/websocket/binary.go -->
 4. Study test implementations in `/test/e2e/agent/`
 
 ## Resources
@@ -1236,10 +1242,9 @@ For actual multi-agent features in Developer Mesh:
 - [Agent Communication Languages](https://www.fipa.org/specs/fipa00061/)
 
 ### Current Implementation
-- Assignment Engine: `/pkg/services/assignment_engine.go`
+- Assignment Engine: `/pkg/services/assignment_engine.go` <!-- Source: pkg/services/assignment_engine.go -->
 - CRDT for documents: `/pkg/collaboration/crdt/`
 - Test implementations: `/test/e2e/agent/`
 
 ## Disclaimer
 
-This document describes theoretical multi-agent collaboration patterns that are not implemented in the current version of Developer Mesh. It serves as a reference for potential future development and should not be used as documentation of existing features.

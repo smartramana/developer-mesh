@@ -1,3 +1,9 @@
+<!-- SOURCE VERIFICATION
+Last Verified: 2025-08-11 14:46:29
+Verification Script: update-docs-parallel.sh
+Batch: ab
+-->
+
 # Agent Specialization Patterns Guide
 
 > **Purpose**: Design patterns for creating specialized AI agents with focused capabilities
@@ -1039,7 +1045,7 @@ func (e *EvolutionManager) ManageEvolution(ctx context.Context) {
 
 1. Review [AI Agent Integration Guide](./ai-agent-integration-complete.md)
 2. Explore [Building Custom AI Agents](./building-custom-ai-agents.md)
-3. See [Agent WebSocket Protocol](./agent-websocket-protocol.md)
+3. See [Agent WebSocket Protocol](./agent-websocket-protocol.md) <!-- Source: pkg/models/websocket/binary.go -->
 4. Check [Agent Integration Examples](./agent-integration-examples.md)
 
 ## Resources
@@ -1047,4 +1053,3 @@ func (e *EvolutionManager) ManageEvolution(ctx context.Context) {
 - [Capability-Based Systems](https://en.wikipedia.org/wiki/Capability-based_security)
 - [Multi-Agent Specialization](https://www.sciencedirect.com/topics/computer-science/agent-specialization)
 - [Knowledge Transfer in AI](https://arxiv.org/abs/1911.09915)
-- [Agent Architecture Patterns](https://www.oreilly.com/library/view/developing-multi-agent/9780470519462/)

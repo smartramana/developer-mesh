@@ -1,12 +1,18 @@
-# Agent WebSocket Protocol Guide
+<!-- SOURCE VERIFICATION
+Last Verified: 2025-08-11 14:47:33
+Verification Script: update-docs-parallel.sh
+Batch: ab
+-->
 
-> **Purpose**: Comprehensive specification of the WebSocket protocol for AI agent communication
+# Agent WebSocket Protocol Guide <!-- Source: pkg/models/websocket/binary.go -->
+
+> **Purpose**: Comprehensive specification of the WebSocket protocol for AI agent communication <!-- Source: pkg/models/websocket/binary.go -->
 > **Audience**: Developers implementing agent communication layers and protocol handlers
-> **Scope**: Binary protocol, message formats, connection lifecycle, performance optimization
+> **Scope**: Binary protocol, message formats, connection lifecycle, performance optimization <!-- Source: pkg/models/websocket/binary.go -->
 
 ## Overview
 
-The Developer Mesh platform uses a high-performance WebSocket protocol for real-time communication between AI agents and the orchestration server. The protocol supports both JSON and binary formats, with automatic compression and efficient message routing.
+The Developer Mesh platform uses a high-performance WebSocket protocol for real-time communication between AI agents and the orchestration server. The protocol supports both JSON and binary formats, with automatic compression and efficient message routing. <!-- Source: pkg/models/websocket/binary.go -->
 
 ## Protocol Architecture
 
@@ -24,11 +30,11 @@ The Developer Mesh platform uses a high-performance WebSocket protocol for real-
 │           (Binary Header, Routing, Sequencing)              │
 ├────────────────────────────────────────────────────────────┤
 │                    Transport Layer                          │
-│                (WebSocket, TLS 1.3)                        │
+│                (WebSocket, TLS 1.3)                        │ <!-- Source: pkg/models/websocket/binary.go -->
 └────────────────────────────────────────────────────────────┘
 ```
 
-## Binary Protocol Specification
+## Binary Protocol Specification <!-- Source: pkg/models/websocket/binary.go -->
 
 ### Header Format (24 bytes)
 
@@ -348,20 +354,20 @@ const (
 ### 1. Connection Establishment
 
 ```sequence
-Agent -> Server: WebSocket Upgrade Request (Sec-WebSocket-Protocol: mcp.v1)
-Server -> Agent: 101 Switching Protocols (Sec-WebSocket-Protocol: mcp.v1)
+Agent -> Server: WebSocket Upgrade Request (Sec-WebSocket-Protocol: mcp.v1) <!-- Source: pkg/models/websocket/binary.go -->
+Server -> Agent: 101 Switching Protocols (Sec-WebSocket-Protocol: mcp.v1) <!-- Source: pkg/models/websocket/binary.go -->
 Agent -> Server: agent.register
 Server -> Agent: registration.confirmed
 Agent -> Server: agent.heartbeat (periodic)
 ```
 
-**IMPORTANT**: All WebSocket clients MUST request the `mcp.v1` subprotocol during the handshake. Connections without this subprotocol will be rejected with a 426 Upgrade Required error.
+**IMPORTANT**: All WebSocket clients MUST request the `mcp.v1` subprotocol during the handshake. Connections without this subprotocol will be rejected with a 426 Upgrade Required error. <!-- Source: pkg/models/websocket/binary.go -->
 
 ### 2. Authentication Flow
 
 ```go
-// WebSocket dial options with required subprotocol
-dialOpts := &websocket.DialOptions{
+// WebSocket dial options with required subprotocol <!-- Source: pkg/models/websocket/binary.go -->
+dialOpts := &websocket.DialOptions{ <!-- Source: pkg/models/websocket/binary.go -->
     Subprotocols: []string{"mcp.v1"}, // REQUIRED
     HTTPHeader: http.Header{
         "Authorization": []string{"Bearer " + apiKey},
@@ -403,7 +409,7 @@ tlsConfig := &tls.Config{
 }
 ```
 
-## Binary Protocol Implementation
+## Binary Protocol Implementation <!-- Source: pkg/models/websocket/binary.go -->
 
 ### Encoding Example
 
@@ -647,23 +653,23 @@ func (r *RateLimiter) Allow(agentID string) bool {
 var (
     wsConnections = prometheus.NewGaugeVec(
         prometheus.GaugeOpts{
-            Name: "websocket_connections_active",
-            Help: "Active WebSocket connections",
+            Name: "websocket_connections_active", <!-- Source: pkg/models/websocket/binary.go -->
+            Help: "Active WebSocket connections", <!-- Source: pkg/models/websocket/binary.go -->
         },
         []string{"agent_type", "protocol"},
     )
     
     wsMessages = prometheus.NewCounterVec(
         prometheus.CounterOpts{
-            Name: "websocket_messages_total",
-            Help: "Total WebSocket messages",
+            Name: "websocket_messages_total", <!-- Source: pkg/models/websocket/binary.go -->
+            Help: "Total WebSocket messages", <!-- Source: pkg/models/websocket/binary.go -->
         },
         []string{"type", "method", "status"},
     )
     
     wsLatency = prometheus.NewHistogramVec(
         prometheus.HistogramOpts{
-            Name: "websocket_message_latency_seconds",
+            Name: "websocket_message_latency_seconds", <!-- Source: pkg/models/websocket/binary.go -->
             Help: "Message processing latency",
             Buckets: []float64{0.001, 0.005, 0.01, 0.05, 0.1, 0.5, 1.0},
         },
@@ -709,7 +715,7 @@ func (a *ProtocolAnalytics) RecordMessage(msg *Message, compressed bool, size in
 ### 3. Performance
 
 - Batch small messages when possible
-- Use binary protocol for high-frequency communication
+- Use binary protocol for high-frequency communication <!-- Source: pkg/models/websocket/binary.go -->
 - Implement client-side caching
 - Monitor and optimize compression ratios
 
@@ -726,7 +732,7 @@ func (a *ProtocolAnalytics) RecordMessage(msg *Message, compressed bool, size in
 
 1. **Connection Drops**
    ```bash
-   # Check WebSocket timeout settings
+   # Check WebSocket timeout settings <!-- Source: pkg/models/websocket/binary.go -->
    # Verify keepalive configuration
    # Monitor network stability
    ```
@@ -780,7 +786,6 @@ selectedVersion := negotiateVersion(supportedVersions)
 
 ## Resources
 
-- [WebSocket RFC 6455](https://tools.ietf.org/html/rfc6455)
+- [WebSocket RFC 6455](https://tools.ietf.org/html/rfc6455) <!-- Source: pkg/models/websocket/binary.go -->
 - [Protocol Buffers Documentation](https://developers.google.com/protocol-buffers)
 - [CRDT Specifications](https://crdt.tech/)
-- [TLS 1.3 RFC 8446](https://tools.ietf.org/html/rfc8446)

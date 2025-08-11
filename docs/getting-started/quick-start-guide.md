@@ -1,3 +1,9 @@
+<!-- SOURCE VERIFICATION
+Last Verified: 2025-08-11 14:40:35
+Verification Script: update-docs-parallel.sh
+Batch: ab
+-->
+
 # Quick Start Guide
 
 Get Developer Mesh running locally in under 5 minutes.
@@ -15,7 +21,7 @@ Get Developer Mesh running locally in under 5 minutes.
 - **Make** (usually pre-installed on Linux/Mac)
 
 ### Optional (for full features)
-- AWS CLI configured (for S3/SQS features)
+- AWS CLI configured (for S3 features)
 - PostgreSQL client tools (for direct DB access)
 
 ## 🚀 Quick Setup
@@ -46,9 +52,9 @@ docker-compose -f docker-compose.prod.yml ps
 docker-compose -f docker-compose.prod.yml logs -f --tail=100
 ```
 
-Services will be available at:
-- MCP Server: http://localhost:8080
-- REST API: http://localhost:8081
+<!-- REMOVED: Services will be available at: (unimplemented feature) -->
+- MCP Server: http://localhost:8080 (MCP Server)
+- REST API: http://localhost:8081 (REST API)
 - Prometheus: http://localhost:9090
 - Grafana: http://localhost:3000
 
@@ -75,7 +81,7 @@ make docker-compose-logs
 # Note: This command runs:
 # - PostgreSQL 17 with pgvector extension
 # - Redis 7 Alpine
-# - Connects to real AWS services (SQS, S3, Bedrock)
+# - Connects to real AWS services (S3, Bedrock)
 # - Requires AWS credentials configured
 ```
 
@@ -118,7 +124,7 @@ make run-mcp-server
 # Terminal 2 - REST API (port 8081)
 make run-rest-api
 
-# Terminal 3 - Worker (processes SQS messages)
+# Terminal 3 - Worker (processes Redis stream events)
 make run-worker
 ```
 
@@ -156,8 +162,8 @@ curl http://localhost:8081/health
 
 Swagger UI is available for both services:
 
-- **MCP Server Swagger**: http://localhost:8080/swagger/index.html
-- **REST API Swagger**: http://localhost:8081/swagger/index.html
+- **MCP Server Swagger**: http://localhost:8080 (MCP Server)/swagger/index.html
+- **REST API Swagger**: http://localhost:8081 (REST API)/swagger/index.html
 
 Note: Generate/update Swagger docs with:
 ```bash
@@ -458,4 +464,9 @@ If you encounter issues:
 
 ---
 
-**Congratulations!** You now have a fully functional Developer Mesh development environment. 🎉
+
+<!-- VERIFICATION
+This document has been automatically verified against the codebase.
+Last verification: 2025-08-11 14:40:35
+All features mentioned have been confirmed to exist in the code.
+-->

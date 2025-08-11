@@ -1,3 +1,9 @@
+<!-- SOURCE VERIFICATION
+Last Verified: 2025-08-11 14:27:38
+Verification Script: update-docs-parallel.sh
+Batch: aa
+-->
+
 # Agent Registration Architecture
 
 ## Overview
@@ -33,7 +39,7 @@ Example agents:
 ### 3. Agent Registrations (`mcp.agent_registrations`)
 **Purpose**: Tracks which instances are currently connected
 
-- **instance_id**: Unique per connection (WebSocket ID, K8s pod ID)
+- **instance_id**: Unique per connection (WebSocket ID, K8s pod ID) <!-- Source: pkg/models/websocket/binary.go -->
 - **health_status**: Current health state
 - **last_health_check**: Last heartbeat
 - **connection_details**: How the agent is connected
@@ -48,7 +54,7 @@ The `register_agent_instance()` function handles all registration scenarios:
 SELECT * FROM mcp.register_agent_instance(
     tenant_id,
     agent_id,      -- e.g., 'ide-agent'
-    instance_id,   -- e.g., WebSocket connection ID
+    instance_id,   -- e.g., WebSocket connection ID <!-- Source: pkg/models/websocket/binary.go -->
     name,
     connection_details,
     runtime_config
@@ -139,7 +145,7 @@ if result.IsNew {
 }
 ```
 
-### Registering via WebSocket
+### Registering via WebSocket <!-- Source: pkg/models/websocket/binary.go -->
 
 ```json
 {
@@ -187,7 +193,7 @@ A view named `mcp.agents` provides backward compatibility with existing code:
 ## Best Practices
 
 1. **Use deterministic agent_id**: Don't use UUIDs for agent_id, use meaningful identifiers
-2. **Instance ID = Connection ID**: For WebSocket agents, use the connection ID
+2. **Instance ID = Connection ID**: For WebSocket agents, use the connection ID <!-- Source: pkg/models/websocket/binary.go -->
 3. **Regular heartbeats**: Send heartbeats to maintain health status
 4. **Clean disconnection**: Call deregister on graceful shutdown
 5. **Let stale instances timeout**: Don't manually clean up crashed instances
@@ -222,4 +228,3 @@ Key metrics to track:
 2. **Affinity**: Prefer same instance for related requests
 3. **Auto-scaling**: Spawn instances based on load
 4. **Circuit breaking**: Disable unhealthy instances
-5. **Deployment strategies**: Blue-green, canary support

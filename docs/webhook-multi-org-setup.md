@@ -1,3 +1,9 @@
+<!-- SOURCE VERIFICATION
+Last Verified: 2025-08-11 14:42:48
+Verification Script: update-docs-parallel.sh
+Batch: ad
+-->
+
 # Multi-Organization Webhook Setup Guide
 
 ## Overview
@@ -191,4 +197,3 @@ CREATE TABLE webhook_configs (
 - Secret rotation with grace period
 - Per-organization rate limiting
 - Webhook event history and analytics
-- Support for other webhook sources (GitLab, Bitbucket, etc.)

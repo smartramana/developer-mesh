@@ -1,3 +1,9 @@
+<!-- SOURCE VERIFICATION
+Last Verified: 2025-08-11 14:27:57
+Verification Script: update-docs-parallel.sh
+Batch: aa
+-->
+
 # Authentication API Reference
 
 ## Overview
@@ -447,4 +453,3 @@ func (m *MetricsCollector) RecordRateLimitExceeded(
    - Use environment variables for secrets
    - Enable caching for performance
    - Configure appropriate timeouts
-   - Implement IP whitelisting for admin endpoints

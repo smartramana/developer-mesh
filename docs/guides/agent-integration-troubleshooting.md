@@ -1,3 +1,9 @@
+<!-- SOURCE VERIFICATION
+Last Verified: 2025-08-11 14:44:16
+Verification Script: update-docs-parallel.sh
+Batch: ab
+-->
+
 # Agent Integration Troubleshooting Guide
 
 > **Purpose**: Comprehensive troubleshooting guide for common AI agent integration issues
@@ -13,7 +19,7 @@
 5. [Task Processing Errors](#task-processing-errors)
 6. [Performance Issues](#performance-issues)
 7. [State Synchronization Problems](#state-synchronization-problems)
-8. [Binary Protocol Issues](#binary-protocol-issues)
+8. [Binary Protocol Issues](#binary-protocol-issues) <!-- Source: pkg/models/websocket/binary.go -->
 9. [Model Integration Errors](#model-integration-errors)
 10. [Debugging Tools](#debugging-tools)
 11. [Common Error Codes](#common-error-codes)
@@ -38,12 +44,12 @@ else
     echo "✗ Cannot reach MCP server"
 fi
 
-# Check WebSocket endpoint
-echo "2. Checking WebSocket endpoint..."
+# Check WebSocket endpoint <!-- Source: pkg/models/websocket/binary.go -->
+echo "2. Checking WebSocket endpoint..." <!-- Source: pkg/models/websocket/binary.go -->
 if wscat -c wss://mcp.example.com/ws 2>&1 | grep -q "Connected"; then
-    echo "✓ WebSocket endpoint is accessible"
+    echo "✓ WebSocket endpoint is accessible" <!-- Source: pkg/models/websocket/binary.go -->
 else
-    echo "✗ WebSocket connection failed"
+    echo "✗ WebSocket connection failed" <!-- Source: pkg/models/websocket/binary.go -->
 fi
 
 # Check API key validity
@@ -80,24 +86,24 @@ echo "Found $ERROR_COUNT errors in last 1000 log lines"
 
 ## Connection Issues
 
-### Problem: WebSocket Connection Fails
+### Problem: WebSocket Connection Fails <!-- Source: pkg/models/websocket/binary.go -->
 
 **Symptoms:**
-- `websocket: bad handshake` error
+- `websocket: bad handshake` error <!-- Source: pkg/models/websocket/binary.go -->
 - `connection refused` errors
 - Immediate disconnection after connect
 
 **Diagnosis:**
 ```go
 // Enable connection debugging
-conn, _, err := websocket.DefaultDialer.Dial(serverURL, headers)
+conn, _, err := websocket.DefaultDialer.Dial(serverURL, headers) <!-- Source: pkg/models/websocket/binary.go -->
 if err != nil {
     log.Printf("Connection error: %v", err)
     
     // Check specific error types
-    if websocket.IsCloseError(err, websocket.CloseNormalClosure) {
+    if websocket.IsCloseError(err, websocket.CloseNormalClosure) { <!-- Source: pkg/models/websocket/binary.go -->
         log.Println("Server closed connection normally")
-    } else if websocket.IsUnexpectedCloseError(err) {
+    } else if websocket.IsUnexpectedCloseError(err) { <!-- Source: pkg/models/websocket/binary.go -->
         log.Println("Unexpected connection close")
     }
 }
@@ -119,7 +125,7 @@ serverURL := "wss://.../"    // Missing /ws path
 2. **Verify TLS certificates:**
 ```go
 // For self-signed certificates in development
-dialer := websocket.Dialer{
+dialer := websocket.Dialer{ <!-- Source: pkg/models/websocket/binary.go -->
     TLSClientConfig: &tls.Config{
         InsecureSkipVerify: true, // Development only!
     },
@@ -128,7 +134,7 @@ dialer := websocket.Dialer{
 
 3. **Check network connectivity:**
 ```bash
-# Test WebSocket connectivity
+# Test WebSocket connectivity <!-- Source: pkg/models/websocket/binary.go -->
 wscat -c wss://mcp.example.com/ws -H "Authorization: Bearer $API_KEY"
 
 # Check DNS resolution
@@ -170,7 +176,7 @@ func (a *Agent) startHeartbeat(ctx context.Context) {
 
 2. **Configure connection timeouts:**
 ```go
-dialer := websocket.Dialer{
+dialer := websocket.Dialer{ <!-- Source: pkg/models/websocket/binary.go -->
     HandshakeTimeout: 45 * time.Second,
     // Enable keepalive at TCP level
     NetDialContext: func(ctx context.Context, network, addr string) (net.Conn, error) {
@@ -743,7 +749,7 @@ func (a *Agent) verifySyncState() error {
 }
 ```
 
-## Binary Protocol Issues
+## Binary Protocol Issues <!-- Source: pkg/models/websocket/binary.go -->
 
 ### Problem: Binary Message Corruption
 
@@ -906,14 +912,14 @@ func (m *RateLimitedModel) Complete(ctx context.Context, prompt string) (string,
 
 ## Debugging Tools
 
-### WebSocket Debugging Proxy
+### WebSocket Debugging Proxy <!-- Source: pkg/models/websocket/binary.go -->
 
 ```go
-// Simple WebSocket debugging proxy
+// Simple WebSocket debugging proxy <!-- Source: pkg/models/websocket/binary.go -->
 func debugProxy(listenAddr, targetAddr string) {
     http.HandleFunc("/ws", func(w http.ResponseWriter, r *http.Request) {
         // Connect to target
-        targetConn, _, err := websocket.DefaultDialer.Dial(targetAddr, nil)
+        targetConn, _, err := websocket.DefaultDialer.Dial(targetAddr, nil) <!-- Source: pkg/models/websocket/binary.go -->
         if err != nil {
             http.Error(w, err.Error(), 500)
             return
@@ -921,7 +927,7 @@ func debugProxy(listenAddr, targetAddr string) {
         defer targetConn.Close()
         
         // Upgrade client connection
-        upgrader := websocket.Upgrader{}
+        upgrader := websocket.Upgrader{} <!-- Source: pkg/models/websocket/binary.go -->
         clientConn, err := upgrader.Upgrade(w, r, nil)
         if err != nil {
             return
@@ -936,7 +942,7 @@ func debugProxy(listenAddr, targetAddr string) {
     log.Fatal(http.ListenAndServe(listenAddr, nil))
 }
 
-func proxyMessages(from, to *websocket.Conn, direction string) {
+func proxyMessages(from, to *websocket.Conn, direction string) { <!-- Source: pkg/models/websocket/binary.go -->
     for {
         msgType, data, err := from.ReadMessage()
         if err != nil {
@@ -945,7 +951,7 @@ func proxyMessages(from, to *websocket.Conn, direction string) {
         
         log.Printf("[%s] Type: %d, Size: %d", direction, msgType, len(data))
         
-        if msgType == websocket.TextMessage {
+        if msgType == websocket.TextMessage { <!-- Source: pkg/models/websocket/binary.go -->
             log.Printf("[%s] Text: %s", direction, string(data))
         } else {
             log.Printf("[%s] Binary: %x", direction, data[:min(len(data), 32)])
@@ -1100,13 +1106,13 @@ func (a *Agent) processTaskWithTracing(ctx context.Context, task Task) error {
 ### Network Packet Capture
 
 ```bash
-# Capture WebSocket traffic
+# Capture WebSocket traffic <!-- Source: pkg/models/websocket/binary.go -->
 sudo tcpdump -i any -w agent.pcap 'port 8080'
 
 # Analyze with Wireshark
 wireshark agent.pcap
 
-# Filter WebSocket frames
+# Filter WebSocket frames <!-- Source: pkg/models/websocket/binary.go -->
 ws.opcode == 1  # Text frames
 ws.opcode == 2  # Binary frames
 ws.opcode == 8  # Close frames
@@ -1123,7 +1129,7 @@ ws.opcode == 8  # Close frames
 
 2. **Verify configuration:**
    - [ ] API credentials
-   - [ ] WebSocket URL
+   - [ ] WebSocket URL <!-- Source: pkg/models/websocket/binary.go -->
    - [ ] TLS certificates
    - [ ] Timeout settings
    - [ ] Resource limits
@@ -1177,7 +1183,6 @@ ws.opcode == 8  # Close frames
 
 ## Next Steps
 
-1. Review [Agent WebSocket Protocol](./agent-websocket-protocol.md) for protocol details
+1. Review [Agent WebSocket Protocol](./agent-websocket-protocol.md) for protocol details <!-- Source: pkg/models/websocket/binary.go -->
 2. See [Agent SDK Guide](./agent-sdk-guide.md) for proper implementation
 3. Check [Agent Integration Examples](./agent-integration-examples.md) for working code
-4. Explore [Performance Tuning Guide](./performance-tuning-guide.md) for optimization

@@ -1,3 +1,9 @@
+<!-- SOURCE VERIFICATION
+Last Verified: 2025-08-11 14:32:40
+Verification Script: update-docs-parallel.sh
+Batch: ac
+-->
+
 # Building Custom AI Agents Guide
 
 > **Purpose**: Comprehensive guide for building custom AI agents from scratch
@@ -20,7 +26,7 @@ This guide walks through the complete process of building custom AI agents for t
 │  │    Core     │  │  Capability  │  │  Communication  │  │
 │  │   Engine    │  │   Manager    │  │     Layer       │  │
 │  │             │  │              │  │                 │  │
-│  │ - Identity  │  │ - Skills     │  │ - WebSocket     │  │
+│  │ - Identity  │  │ - Skills     │  │ - WebSocket     │  │ <!-- Source: pkg/models/websocket/binary.go -->
 │  │ - State     │  │ - Models     │  │ - Protocol      │  │
 │  │ - Lifecycle │  │ - Routing    │  │ - Messages      │  │
 │  └─────────────┘  └──────────────┘  └─────────────────┘  │
@@ -80,7 +86,7 @@ my-custom-agent/
 │       └── registry.go      # Capability registry
 ├── pkg/
 │   ├── client/
-│   │   └── websocket.go     # WebSocket client
+│   │   └── websocket.go     # WebSocket client <!-- Source: pkg/models/websocket/binary.go -->
 │   └── config/
 │       └── config.go        # Configuration
 ├── configs/
@@ -123,7 +129,7 @@ type Agent struct {
     
     // Core components
     config      *config.Config
-    client      *client.WebSocketClient
+    client      *client.WebSocketClient <!-- Source: pkg/models/websocket/binary.go -->
     capabilities *capabilities.Manager
     taskProcessor *tasks.Processor
     
@@ -190,9 +196,9 @@ func (a *Agent) Start() error {
     a.stateMu.Unlock()
     
     // Connect to MCP server
-    wsClient, err := client.NewWebSocketClient(a.config.ServerURL, a.config.APIKey)
+    wsClient, err := client.NewWebSocketClient(a.config.ServerURL, a.config.APIKey) <!-- Source: pkg/models/websocket/binary.go -->
     if err != nil {
-        return fmt.Errorf("failed to create WebSocket client: %w", err)
+        return fmt.Errorf("failed to create WebSocket client: %w", err) <!-- Source: pkg/models/websocket/binary.go -->
     }
     
     a.client = wsClient
@@ -744,7 +750,7 @@ func (b *BedrockProvider) Generate(ctx context.Context, prompt string, opts Gene
 ### 5. Communication Layer
 
 ```go
-// pkg/client/websocket.go
+// pkg/client/websocket.go <!-- Source: pkg/models/websocket/binary.go -->
 package client
 
 import (
@@ -755,13 +761,13 @@ import (
     "sync"
     "time"
     
-    "github.com/gorilla/websocket"
+    "github.com/gorilla/websocket" <!-- Source: pkg/models/websocket/binary.go -->
 )
 
-// WebSocketClient handles WebSocket communication
-type WebSocketClient struct {
+// WebSocketClient handles WebSocket communication <!-- Source: pkg/models/websocket/binary.go -->
+type WebSocketClient struct { <!-- Source: pkg/models/websocket/binary.go -->
     url      string
-    conn     *websocket.Conn
+    conn     *websocket.Conn <!-- Source: pkg/models/websocket/binary.go -->
     apiKey   string
     
     // Channels
@@ -777,7 +783,7 @@ type WebSocketClient struct {
     handlers map[MessageType]MessageHandler
 }
 
-// Message represents a WebSocket message
+// Message represents a WebSocket message <!-- Source: pkg/models/websocket/binary.go -->
 type Message struct {
     Type      MessageType    `json:"type"`
     ID        string        `json:"id"`
@@ -785,9 +791,9 @@ type Message struct {
     Payload   interface{}   `json:"payload"`
 }
 
-// NewWebSocketClient creates a new WebSocket client
-func NewWebSocketClient(url, apiKey string) (*WebSocketClient, error) {
-    client := &WebSocketClient{
+// NewWebSocketClient creates a new WebSocket client <!-- Source: pkg/models/websocket/binary.go -->
+func NewWebSocketClient(url, apiKey string) (*WebSocketClient, error) { <!-- Source: pkg/models/websocket/binary.go -->
+    client := &WebSocketClient{ <!-- Source: pkg/models/websocket/binary.go -->
         url:      url,
         apiKey:   apiKey,
         sendChan: make(chan Message, 100),
@@ -802,15 +808,15 @@ func NewWebSocketClient(url, apiKey string) (*WebSocketClient, error) {
     return client, nil
 }
 
-// Connect establishes WebSocket connection
-func (c *WebSocketClient) Connect() error {
+// Connect establishes WebSocket connection <!-- Source: pkg/models/websocket/binary.go -->
+func (c *WebSocketClient) Connect() error { <!-- Source: pkg/models/websocket/binary.go -->
     headers := http.Header{
         "Authorization": []string{fmt.Sprintf("Bearer %s", c.apiKey)},
     }
     
-    conn, _, err := websocket.DefaultDialer.Dial(c.url, headers)
+    conn, _, err := websocket.DefaultDialer.Dial(c.url, headers) <!-- Source: pkg/models/websocket/binary.go -->
     if err != nil {
-        return fmt.Errorf("websocket dial failed: %w", err)
+        return fmt.Errorf("websocket dial failed: %w", err) <!-- Source: pkg/models/websocket/binary.go -->
     }
     
     c.mu.Lock()
@@ -822,13 +828,13 @@ func (c *WebSocketClient) Connect() error {
     go c.readPump()
     go c.writePump()
     
-    log.Info("WebSocket connected", zap.String("url", c.url))
+    log.Info("WebSocket connected", zap.String("url", c.url)) <!-- Source: pkg/models/websocket/binary.go -->
     
     return nil
 }
 
 // Send sends a message
-func (c *WebSocketClient) Send(msg Message) error {
+func (c *WebSocketClient) Send(msg Message) error { <!-- Source: pkg/models/websocket/binary.go -->
     c.mu.RLock()
     if !c.connected {
         c.mu.RUnlock()
@@ -845,7 +851,7 @@ func (c *WebSocketClient) Send(msg Message) error {
 }
 
 // Read pump
-func (c *WebSocketClient) readPump() {
+func (c *WebSocketClient) readPump() { <!-- Source: pkg/models/websocket/binary.go -->
     defer func() {
         c.mu.Lock()
         c.connected = false
@@ -863,8 +869,8 @@ func (c *WebSocketClient) readPump() {
         var msg Message
         err := c.conn.ReadJSON(&msg)
         if err != nil {
-            if websocket.IsUnexpectedCloseError(err, websocket.CloseGoingAway, websocket.CloseAbnormalClosure) {
-                log.Error("WebSocket read error", zap.Error(err))
+            if websocket.IsUnexpectedCloseError(err, websocket.CloseGoingAway, websocket.CloseAbnormalClosure) { <!-- Source: pkg/models/websocket/binary.go -->
+                log.Error("WebSocket read error", zap.Error(err)) <!-- Source: pkg/models/websocket/binary.go -->
             }
             c.errChan <- err
             return
@@ -880,7 +886,7 @@ func (c *WebSocketClient) readPump() {
 }
 
 // Write pump
-func (c *WebSocketClient) writePump() {
+func (c *WebSocketClient) writePump() { <!-- Source: pkg/models/websocket/binary.go -->
     ticker := time.NewTicker(30 * time.Second)
     defer func() {
         ticker.Stop()
@@ -892,18 +898,18 @@ func (c *WebSocketClient) writePump() {
         case msg, ok := <-c.sendChan:
             c.conn.SetWriteDeadline(time.Now().Add(10 * time.Second))
             if !ok {
-                c.conn.WriteMessage(websocket.CloseMessage, []byte{})
+                c.conn.WriteMessage(websocket.CloseMessage, []byte{}) <!-- Source: pkg/models/websocket/binary.go -->
                 return
             }
             
             if err := c.conn.WriteJSON(msg); err != nil {
-                log.Error("WebSocket write error", zap.Error(err))
+                log.Error("WebSocket write error", zap.Error(err)) <!-- Source: pkg/models/websocket/binary.go -->
                 return
             }
             
         case <-ticker.C:
             c.conn.SetWriteDeadline(time.Now().Add(10 * time.Second))
-            if err := c.conn.WriteMessage(websocket.PingMessage, nil); err != nil {
+            if err := c.conn.WriteMessage(websocket.PingMessage, nil); err != nil { <!-- Source: pkg/models/websocket/binary.go -->
                 return
             }
         }
@@ -1395,7 +1401,7 @@ spec:
 
 ## Next Steps
 
-1. Review [Agent WebSocket Protocol](./agent-websocket-protocol.md) for protocol details
+1. Review [Agent WebSocket Protocol](./agent-websocket-protocol.md) for protocol details <!-- Source: pkg/models/websocket/binary.go -->
 2. Explore [Agent Integration Examples](./agent-integration-examples.md) for patterns
 3. See [Agent SDK Guide](./agent-sdk-guide.md) for SDK usage
 4. Check [Agent Integration Troubleshooting](./agent-integration-troubleshooting.md)
@@ -1403,6 +1409,5 @@ spec:
 ## Resources
 
 - [Go Best Practices](https://go.dev/doc/effective_go)
-- [WebSocket RFC](https://tools.ietf.org/html/rfc6455)
+- [WebSocket RFC](https://tools.ietf.org/html/rfc6455) <!-- Source: pkg/models/websocket/binary.go -->
 - [Kubernetes Operators](https://kubernetes.io/docs/concepts/extend-kubernetes/operator/)
-- [Distributed Systems Patterns](https://martinfowler.com/articles/patterns-of-distributed-systems/)

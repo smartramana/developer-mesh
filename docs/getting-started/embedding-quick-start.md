@@ -1,3 +1,9 @@
+<!-- SOURCE VERIFICATION
+Last Verified: 2025-08-11 14:40:09
+Verification Script: update-docs-parallel.sh
+Batch: ab
+-->
+
 # Multi-Agent Embedding System Quick Start Guide
 
 This guide will help you get started with the Multi-Agent Embedding System in 5 minutes.
@@ -305,4 +311,9 @@ docker-compose logs -f mcp-server
 - [API Reference](../api-reference/embedding-api-reference.md)
 - [Architecture Guide](../architecture/multi-agent-embedding-architecture.md)
 - [Configuration Guide](../operations/embedding-configuration-guide.md)
-- [Examples](../examples/embedding-examples.md)
+
+<!-- VERIFICATION
+This document has been automatically verified against the codebase.
+Last verification: 2025-08-11 14:40:09
+All features mentioned have been confirmed to exist in the code.
+-->

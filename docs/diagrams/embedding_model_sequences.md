@@ -1,3 +1,9 @@
+<!-- SOURCE VERIFICATION
+Last Verified: 2025-08-11 14:44:57
+Verification Script: update-docs-parallel.sh
+Batch: aa
+-->
+
 # Embedding Model Management - Sequence Diagrams
 
 ## 1. Model Selection Flow
@@ -5,7 +11,7 @@
 ```mermaid
 sequenceDiagram
     participant Client as Client/Agent
-    participant WS as WebSocket Server
+    participant WS as WebSocket Server <!-- Source: pkg/models/websocket/binary.go -->
     participant API as REST API
     participant MS as Model Service
     participant Cache as Redis Cache
@@ -268,7 +274,7 @@ sequenceDiagram
 sequenceDiagram
     participant Agent1 as Agent 1
     participant Agent2 as Agent 2
-    participant WS as WebSocket Server
+    participant WS as WebSocket Server <!-- Source: pkg/models/websocket/binary.go -->
     participant API as REST API
     participant MS as Model Service
     participant Pool as Connection Pool
@@ -347,12 +353,12 @@ stateDiagram-v2
 graph TB
     subgraph "Client Layer"
         A[AI Agents]
-        B[WebSocket Clients]
+        B[WebSocket Clients] <!-- Source: pkg/models/websocket/binary.go -->
         C[REST Clients]
     end
     
     subgraph "API Layer"
-        D[WebSocket Server]
+        D[WebSocket Server] <!-- Source: pkg/models/websocket/binary.go -->
         E[REST API]
         F[Auth Service]
     end
@@ -445,4 +451,3 @@ sequenceDiagram
     API-->>Client: Response 3
     
     Note over Client,DB: Reduced API calls<br/>Better throughput<br/>Lower costs
-```

@@ -1,3 +1,9 @@
+<!-- SOURCE VERIFICATION
+Last Verified: 2025-08-11 14:38:15
+Verification Script: update-docs-parallel.sh
+Batch: aa
+-->
+
 # Authentication Documentation Index
 
 This index provides a comprehensive overview of all authentication-related documentation in the Developer Mesh platform.
@@ -172,4 +178,3 @@ Documentation improvements are welcome! Please:
 
 Last Updated: January 2024
 Documentation Version: 1.0.0
-Compatible with: Developer Mesh v1.0+

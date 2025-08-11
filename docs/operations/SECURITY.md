@@ -1,3 +1,9 @@
+<!-- SOURCE VERIFICATION
+Last Verified: 2025-08-11 14:34:45
+Verification Script: update-docs-parallel.sh
+Batch: ad
+-->
+
 # Security Guide
 
 ## Overview
@@ -788,7 +794,7 @@ docker-compose up -d mcp-server
    # Should get rate limited after threshold
    ```
 
-2. **WebSocket Security**:
+2. **WebSocket Security**: <!-- Source: pkg/models/websocket/binary.go -->
    ```bash
    # Test without auth
    wscat -c ws://localhost:8080/ws -s mcp.v1
@@ -863,4 +869,3 @@ docker-compose up -d mcp-server
 7. Document incident response
 8. Review security configuration
 9. Perform security testing
-10. Plan for regular updates

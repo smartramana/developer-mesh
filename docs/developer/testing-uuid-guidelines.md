@@ -1,3 +1,9 @@
+<!-- SOURCE VERIFICATION
+Last Verified: 2025-08-11 14:44:39
+Verification Script: update-docs-parallel.sh
+Batch: aa
+-->
+
 # UUID Testing Guidelines
 
 ## Overview
@@ -224,4 +230,3 @@ Never use:
 Always use:
 - Proper UUID format for all entity IDs
 - Type `uuid.UUID` for ID fields in structs
-- String representation when needed for JSON/DB

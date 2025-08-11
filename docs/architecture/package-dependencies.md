@@ -1,3 +1,9 @@
+<!-- SOURCE VERIFICATION
+Last Verified: 2025-08-11 14:36:17
+Verification Script: update-docs-parallel.sh
+Batch: aa
+-->
+
 # Package Dependencies
 
 ## Overview
@@ -86,7 +92,7 @@ graph TD
 
 | Package | Direct Dependencies | Purpose |
 |---------|-------------------|----------|
-| **mcp-server** | api, auth, services, websocket, observability | WebSocket server for AI agents |
+| **mcp-server** | api, auth, services, websocket, observability | WebSocket server for AI agents | <!-- Source: pkg/models/websocket/binary.go -->
 | **rest-api** | api, auth, repository, services, observability | REST API gateway |
 | **worker** | queue, services, events, observability | Async task processing |
 | **mockserver** | common | Testing mock server |
@@ -132,7 +138,7 @@ graph TD
 
 ### 1. AI Agent Registration Path
 ```
-mcp-server → api/websocket → services → agents → repository → database
+mcp-server → api/websocket → services → agents → repository → database <!-- Source: pkg/models/websocket/binary.go -->
                                      ↓
                                   models
 ```
@@ -164,7 +170,7 @@ services  events
 
 ```go
 // pkg/services/
-- AssignmentStrategy (in assignment_engine.go)
+- AssignmentStrategy (in assignment_engine.go) <!-- Source: pkg/services/assignment_engine.go -->
 - NotificationService (in notification_service.go)
 - AgentService (in task_service.go)
 - WorkflowService (in workflow_service.go)
@@ -269,4 +275,3 @@ go list -f '{{.ImportPath}} {{len .Imports}}' ./pkg/... | sort -k2 -n
 
 - [Go Workspace Structure](go-workspace-structure.md)
 - [System Architecture](system-overview.md)
-- [Adapter Pattern](adapter-pattern.md)

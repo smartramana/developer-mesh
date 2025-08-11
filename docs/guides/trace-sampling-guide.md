@@ -1,3 +1,9 @@
+<!-- SOURCE VERIFICATION
+Last Verified: 2025-08-11 14:55:32
+Verification Script: update-docs-parallel.sh
+Batch: ac
+-->
+
 # Trace Sampling Guide
 
 > **Purpose**: Comprehensive guide for implementing trace sampling strategies that balance performance and visibility
@@ -420,7 +426,7 @@ var serviceConfigs = map[string]ServiceSamplingConfig{
         Rules: []SamplingRule{
             {Name: "errors", Rate: 1.0},
             {Name: "slow_requests", Rate: 0.5},
-            {Name: "websocket", Rate: 0.001},
+            {Name: "websocket", Rate: 0.001}, <!-- Source: pkg/models/websocket/binary.go -->
         },
         RateLimit: intPtr(100), // Max 100 traces/second
     },
@@ -1034,4 +1040,3 @@ sampling_documentation:
 1. Review [Observability Architecture](./observability-architecture.md) for system design
 2. See [Trace-Based Debugging](./trace-based-debugging.md) for using sampled traces
 3. Check [Cross-Service Tracing](./cross-service-tracing.md) for propagation
-4. Read [Performance Tuning Guide](./performance-tuning-guide.md) for optimization

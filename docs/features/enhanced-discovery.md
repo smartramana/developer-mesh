@@ -1,3 +1,9 @@
+<!-- SOURCE VERIFICATION
+Last Verified: 2025-08-11 14:39:05
+Verification Script: update-docs-parallel.sh
+Batch: ab
+-->
+
 # Enhanced Dynamic Tool Discovery
 
 The Developer Mesh platform features an intelligent discovery system that can automatically find, understand, and integrate any API-based tool without requiring custom code or adapters.
@@ -21,8 +27,8 @@ The system automatically detects various API documentation formats:
 - **Swagger/OpenAPI 2.0**
 - **Custom JSON** formats (e.g., SonarQube's webservices)
 - **RAML** (detection only)
-- **Postman Collections** (coming soon)
-- **GraphQL** schemas (coming soon)
+<!-- REMOVED: - **Postman Collections** (coming soon) (unimplemented feature) -->
+<!-- REMOVED: - **GraphQL** schemas (coming soon) (unimplemented feature) -->
 
 ### 🔄 Format Conversion
 
@@ -270,4 +276,3 @@ For unsupported formats:
 
 ## API Reference
 
-See the [Dynamic Tools API documentation](/api/v1/tools) for complete API details.

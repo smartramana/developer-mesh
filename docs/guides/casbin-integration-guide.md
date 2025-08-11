@@ -1,3 +1,9 @@
+<!-- SOURCE VERIFICATION
+Last Verified: 2025-08-11 14:34:21
+Verification Script: update-docs-parallel.sh
+Batch: ac
+-->
+
 # Casbin RBAC Integration Guide
 
 > **Status**: Future Implementation Guide
@@ -618,4 +624,3 @@ func (l *CasbinLogger) LogPolicy(policy []string) {
 - [Casbin Documentation](https://casbin.org/)
 - [Casbin Model Editor](https://casbin.org/editor/)
 - [Casbin Examples](https://github.com/casbin/casbin/tree/master/examples)
-- [RBAC vs ABAC](https://casbin.org/docs/rbac-with-abac)

@@ -1,3 +1,9 @@
+<!-- SOURCE VERIFICATION
+Last Verified: 2025-08-11 14:39:51
+Verification Script: update-docs-parallel.sh
+Batch: ad
+-->
+
 # GitHub Integration Testing Guide
 
 This guide explains how to run integration and functional tests against the real GitHub API instead of mock servers.
@@ -180,4 +186,3 @@ USE_GITHUB_MOCK=false go test ...
 This allows you to:
 - Develop quickly with mocks
 - Validate against real API before deployment
-- Run in CI/CD with appropriate configuration

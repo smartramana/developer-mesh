@@ -1,3 +1,9 @@
+<!-- SOURCE VERIFICATION
+Last Verified: 2025-08-11 14:39:31
+Verification Script: update-docs-parallel.sh
+Batch: aa
+-->
+
 # Production Deployment Fixes Required
 
 ## Current Issues
@@ -88,6 +94,5 @@ healthcheck:
 After applying fixes, verify:
 1. All containers start successfully
 2. Health endpoints respond (https://mcp.dev-mesh.io/health, https://api.dev-mesh.io/health)
-3. WebSocket connections work
+3. WebSocket connections work <!-- Source: pkg/models/websocket/binary.go -->
 4. Deployment fails properly when containers don't start
-5. Smoke tests accurately reflect service status

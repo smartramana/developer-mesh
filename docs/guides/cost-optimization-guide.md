@@ -1,3 +1,9 @@
+<!-- SOURCE VERIFICATION
+Last Verified: 2025-08-11 14:37:36
+Verification Script: update-docs-parallel.sh
+Batch: ac
+-->
+
 # Cost Optimization Guide
 
 > **Purpose**: Practical strategies for reducing costs while maintaining performance in the Developer Mesh platform
@@ -1185,4 +1191,3 @@ Remember: **Track costs first, optimize second, and only re-architect when the R
 - [AWS Cost Optimization Hub](https://aws.amazon.com/aws-cost-management/cost-optimization/)
 - [FinOps Foundation](https://www.finops.org/)
 - [Cloud Cost Handbook](https://handbook.cloudcosthub.com/)
-- [Cost Optimization Whitepaper](https://docs.aws.amazon.com/whitepapers/latest/cost-optimization-laying-the-foundation/welcome.html)

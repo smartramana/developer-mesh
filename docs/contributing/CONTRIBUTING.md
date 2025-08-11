@@ -1,3 +1,9 @@
+<!-- SOURCE VERIFICATION
+Last Verified: 2025-08-11 14:38:56
+Verification Script: update-docs-parallel.sh
+Batch: aa
+-->
+
 # Contributing to Developer Mesh
 
 Thank you for your interest in contributing to Developer Mesh! This document provides guidelines for contributing to the project.
@@ -378,4 +384,3 @@ See our [project board](https://github.com/developer-mesh/developer-mesh/project
 
 Your contributions make Developer Mesh better for everyone. We appreciate your time and effort!
 
-For any questions not covered here, please open an issue or start a discussion.

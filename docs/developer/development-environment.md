@@ -1,3 +1,9 @@
+<!-- SOURCE VERIFICATION
+Last Verified: 2025-08-11 14:41:31
+Verification Script: update-docs-parallel.sh
+Batch: aa
+-->
+
 # Development Environment Setup
 
 This guide provides a comprehensive setup for developing on the Developer Mesh AI Agent Orchestration Platform.
@@ -200,7 +206,7 @@ make test-coverage  # Must be >85%
 make lint
 
 # Run services locally
-# Terminal 1: MCP Server (WebSocket)
+# Terminal 1: MCP Server (WebSocket) <!-- Source: pkg/models/websocket/binary.go -->
 cd apps/mcp-server && go run cmd/server/main.go
 
 # Terminal 2: REST API
@@ -347,7 +353,7 @@ LOG_LEVEL=debug go run ./cmd/server
 # Use delve debugger
 dlv debug ./cmd/server
 
-# Debug WebSocket connections
+# Debug WebSocket connections <!-- Source: pkg/models/websocket/binary.go -->
 wscat -c ws://localhost:8080/v1/mcp
 
 # View structured logs with jq
@@ -373,8 +379,8 @@ make test-integration
 # Test with cost limits
 BEDROCK_SESSION_LIMIT=0.01 go test ./pkg/services/...
 
-# Benchmark WebSocket performance
-go test -bench=BenchmarkWebSocket ./pkg/api/websocket/...
+# Benchmark WebSocket performance <!-- Source: pkg/models/websocket/binary.go -->
+go test -bench=BenchmarkWebSocket ./pkg/api/websocket/... <!-- Source: pkg/models/websocket/binary.go -->
 
 # No TODOs allowed!
 ! grep -r "TODO" pkg/ apps/ --include="*.go"
@@ -687,7 +693,7 @@ make test-coverage  # Must maintain >85%
 2. **Run Integration Tests**: `make test-integration` with real AWS services
 3. **Review Architecture**: See [System Overview](../architecture/system-overview.md)
 4. **Understand AI Features**: Read [AI Agent Orchestration](../ai-agents/ai-agent-orchestration.md)
-5. **Check WebSocket Protocol**: See [MCP Protocol Reference](../api/mcp-protocol-reference.md)
+5. **Check WebSocket Protocol**: See [MCP Protocol Reference](../api/mcp-protocol-reference.md) <!-- Source: pkg/models/websocket/binary.go -->
 
 ## Important References
 
@@ -700,7 +706,7 @@ make test-coverage  # Must maintain >85%
 
 1. **Redis Connection Refused**
    - Ensure ElastiCache tunnel is running: `./scripts/aws/connect-elasticache.sh`
-   - Use `127.0.0.1:6379` not `localhost:6379`
+   - Use `127.0.0.1:6379 (Redis)` not `localhost:6379 (Redis)`
 
 2. **S3 Access Denied**
    - Check IP whitelist in bucket policy

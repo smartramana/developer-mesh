@@ -1,3 +1,9 @@
+<!-- SOURCE VERIFICATION
+Last Verified: 2025-08-11 14:51:44
+Verification Script: update-docs-parallel.sh
+Batch: ac
+-->
+
 # RAG Implementation Patterns
 
 > **Purpose**: Common patterns and best practices for RAG implementations with MCP
@@ -384,7 +390,7 @@ type MetricsAgent struct {
 
 func (a *AgentRAG) Process(ctx context.Context, query Query) (*Response, error) {
     // 1. Route to specialized agents
-    tasks := a.router.CreateTasks(query)
+    tasks := a.router.CreateTasks(query) <!-- Source: pkg/services/assignment_engine.go -->
     
     // 2. Execute in parallel
     results := make(chan AgentResult, len(tasks))
@@ -863,4 +869,3 @@ Remember to monitor quality, optimize costs, and continuously improve based on u
 - [MCP RAG Architecture](./rag-mcp-architecture.md)
 - [RAG Integration Guide](./rag-integration-guide.md)
 - [AI Agent Orchestration](./ai-agent-orchestration.md)
-- [Performance Tuning Guide](./performance-tuning-guide.md)

@@ -1,3 +1,9 @@
+<!-- SOURCE VERIFICATION
+Last Verified: 2025-08-11 14:36:17
+Verification Script: update-docs-parallel.sh
+Batch: ad
+-->
+
 # Package Structure Guidelines
 
 ## Top-level directories

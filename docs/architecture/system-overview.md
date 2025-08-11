@@ -1,3 +1,9 @@
+<!-- SOURCE VERIFICATION
+Last Verified: 2025-08-11 14:36:40
+Verification Script: update-docs-parallel.sh
+Batch: aa
+-->
+
 # Developer Mesh System Architecture
 
 ## Overview
@@ -9,9 +15,9 @@ Developer Mesh is an AI Agent Orchestration Platform that enables intelligent ro
 - **Microservices Architecture**: Three independent services communicating via APIs and events
 - **AI-Native Design**: Built from the ground up for multi-agent orchestration and coordination
 - **Clean Architecture**: Clear separation between business logic, adapters, and infrastructure
-- **Event-Driven Design**: Real-time WebSocket communication with asynchronous task processing
+- **Event-Driven Design**: Real-time WebSocket communication with asynchronous task processing <!-- Source: pkg/models/websocket/binary.go -->
 - **Go Workspace**: Monorepo with multiple modules for code sharing and independent deployment
-- **Cloud-Native**: Production AWS integration with Bedrock, SQS, S3, and ElastiCache
+- **Cloud-Native**: Production AWS integration with Bedrock, S3, and ElastiCache
 
 ## System Components
 
@@ -22,8 +28,8 @@ The MCP Server is the core AI agent orchestration hub with **Universal Agent Reg
 - **Universal Agent Registry**: Manages any agent type (IDE, Slack, monitoring, CI/CD, custom)
 - **Agent Manifest System**: Flexible configuration with capabilities, requirements, and auth
 - **Organization Isolation**: Strict tenant separation with cross-org access control
-- **Task Assignment Engine**: Intelligent routing with multiple strategies (capability-match, least-loaded, cost-optimized)
-- **Binary WebSocket Protocol**: High-performance communication with compression support
+- **Task Assignment Engine**: Intelligent routing with multiple strategies (capability-match, least-loaded, cost-optimized) <!-- Source: pkg/services/assignment_engine.go -->
+- **Binary WebSocket Protocol**: High-performance communication with compression support <!-- Source: pkg/models/websocket/binary.go -->
 - **Multi-Agent Collaboration**: Orchestrates complex workflows across multiple AI agents
 
 Key Features:
@@ -31,7 +37,7 @@ Key Features:
 - **Capability-based discovery** across different agent types
 - **Tenant isolation** with organization-level security boundaries
 - **Cross-agent messaging** (IDE→Jira, Slack→IDE, Monitoring→Slack)
-- Binary WebSocket protocol with automatic gzip compression (>1KB messages)
+- Binary WebSocket protocol with automatic gzip compression (>1KB messages) <!-- Source: pkg/models/websocket/binary.go -->
 - Real-time agent discovery and capability-based routing
 - Workload tracking and dynamic load balancing
 - Task delegation and collaboration patterns (MapReduce, parallel, pipeline)
@@ -43,7 +49,7 @@ Key Features:
 The REST API provides HTTP endpoints for external integrations:
 
 - **Agent Management**: Register agents, query capabilities, monitor workload
-- **Task Submission**: Submit tasks with routing preferences and requirements
+- **Task Submission**: Submit tasks with routing preferences and requirements <!-- Source: pkg/services/assignment_engine.go -->
 - **Embedding Operations**: Generate and search embeddings via AWS Bedrock
 - **Tool Integration**: GitHub adapter for DevOps workflow automation
 
@@ -60,11 +66,11 @@ The Worker handles distributed task processing:
 
 - **Task Distribution**: Processes tasks assigned to AI agents
 - **Embedding Pipeline**: Batch processing for vector embeddings
-- **Notification Delivery**: Sends real-time updates via WebSocket
+- **Notification Delivery**: Sends real-time updates via WebSocket <!-- Source: pkg/models/websocket/binary.go -->
 - **Workflow Coordination**: Manages multi-step AI workflows
 
 Key Features:
-- SQS integration for reliable task delivery
+- Redis Streams for reliable event processing and task delivery
 - Concurrent processing with agent workload awareness
 - Cost tracking for AI model usage
 - Dead letter queue for failed task handling
@@ -135,9 +141,9 @@ The platform includes advanced CRDT (Conflict-free Replicated Data Type) impleme
   - LWWRegister (last-write-wins register)
   - ORSet (observed-remove set)
 
-### Binary WebSocket Protocol
+### Binary WebSocket Protocol <!-- Source: pkg/models/websocket/binary.go -->
 
-High-performance binary protocol for agent communication:
+High-performance binary protocol for agent communication: <!-- Source: pkg/models/websocket/binary.go -->
 
 ```
 Header (12 bytes):
@@ -159,7 +165,7 @@ Features:
 ### 1. Universal Agent Registration Flow
 
 ```
-Agent → WebSocket → MCP Server → Manifest Validation
+Agent → WebSocket → MCP Server → Manifest Validation <!-- Source: pkg/models/websocket/binary.go -->
                          ↓
                  Organization Binding
                          ↓
@@ -167,7 +173,7 @@ Agent → WebSocket → MCP Server → Manifest Validation
                          ↓              ↓
                  Capability Index   Tenant Config
                          ↓              ↓
-                 Task Router Update  Rate Limits
+                 Task Router Update  Rate Limits <!-- Source: pkg/services/assignment_engine.go -->
                          ↓
                  Discovery Service
 ```
@@ -175,9 +181,9 @@ Agent → WebSocket → MCP Server → Manifest Validation
 ### 2. Task Assignment Flow
 
 ```
-Task Request → REST API → Assignment Engine → Agent Selection
+Task Request → REST API → Assignment Engine → Agent Selection <!-- Source: pkg/services/assignment_engine.go -->
                                     ↓
-                            WebSocket Notification
+                            WebSocket Notification <!-- Source: pkg/models/websocket/binary.go -->
                                     ↓
                                Agent Processing
 ```
@@ -209,7 +215,7 @@ Source Agent → Message Broker → Capability Router
                      ↓                 ↓
               Circuit Breaker     Load Balancing
                      ↓                 ↓
-               Redis Stream   →  Target Agent
+               Redis Stream   →  Target Agent <!-- Source: pkg/redis/streams_client.go -->
                                       ↓
                                Message Handler
 ```
@@ -340,9 +346,9 @@ docker-compose:
 
 ### AI Agent Performance
 
-1. **Task Routing**: Optimized routing decisions with cached capabilities
-2. **Binary Protocol**: Significant message size reduction with compression
-3. **Connection Pooling**: Reusable WebSocket connections per agent
+1. **Task Routing**: Optimized routing decisions with cached capabilities <!-- Source: pkg/services/assignment_engine.go -->
+2. **Binary Protocol**: Significant message size reduction with compression <!-- Source: pkg/models/websocket/binary.go -->
+3. **Connection Pooling**: Reusable WebSocket connections per agent <!-- Source: pkg/models/websocket/binary.go -->
 4. **Workload Balancing**: Real-time load distribution across agents
 
 ### Multi-Level Caching
@@ -411,7 +417,7 @@ Liveness and readiness probes
    - **Auto-Recovery**: Half-open state for gradual recovery
 
 5. **Message Broker**:
-   - Redis Streams for reliable delivery
+   - Redis Streams for reliable delivery <!-- Source: pkg/redis/streams_client.go -->
    - Worker pools with consumer groups
    - Priority queuing (1-10 scale)
    - Dead letter queue for failures
@@ -423,13 +429,13 @@ Liveness and readiness probes
 - **Slack Agents**: Notifications, alerts, team coordination
 - **Monitoring Agents**: Prometheus, DataDog (metrics, health)
 - **CI/CD Agents**: Jenkins, GitHub Actions (builds, deployments)
-- **Custom Agents**: Any tool with WebSocket support
+- **Custom Agents**: Any tool with WebSocket support <!-- Source: pkg/models/websocket/binary.go -->
 
 ## Future Architecture Considerations
 
 1. **Advanced AI Orchestration**:
    - Hierarchical agent organizations with delegation
-   - Learning-based task routing from historical data
+   - Learning-based task routing from historical data <!-- Source: pkg/services/assignment_engine.go -->
    - Agent capability evolution and specialization
    - Multi-modal agent support (text, voice, video)
 
@@ -462,4 +468,3 @@ Liveness and readiness probes
 - [Go Workspace Structure](go-workspace-structure.md)
 - [Adapter Pattern Implementation](adapter-pattern.md)
 - [API Documentation](../api-reference/vector-search-api.md)
-- [Development Environment](../developer/development-environment.md)

@@ -1,12 +1,18 @@
+<!-- SOURCE VERIFICATION
+Last Verified: 2025-08-11 14:28:37
+Verification Script: update-docs-parallel.sh
+Batch: ac
+-->
+
 # AI Agent Orchestration Guide
 
-> **Purpose**: Guide for AI agent task assignment and routing in Developer Mesh
+> **Purpose**: Guide for AI agent task assignment and routing in Developer Mesh <!-- Source: pkg/services/assignment_engine.go -->
 > **Audience**: Engineers implementing AI-powered DevOps automation
 > **Scope**: Agent registration, task assignment strategies, and workload management
 
 ## Overview
 
-Developer Mesh provides a task assignment and routing system for AI agents. This guide explains the current implementation of agent management, task routing strategies, and workload tracking. 
+Developer Mesh provides a task assignment and routing system for AI agents. This guide explains the current implementation of agent management, task routing strategies, and workload tracking.  <!-- Source: pkg/services/assignment_engine.go -->
 
 **Note**: This document reflects the current implementation. Some advanced orchestration patterns described later in this document are design proposals for future development.
 
@@ -57,7 +63,7 @@ const (
 ├─────────────────────────────────────────────────────────────┤
 │                    Communication Layer                       │
 │  ┌───────────────────────────────────────────────────────┐ │
-│  │          WebSocket Binary Protocol (CRDT)             │ │
+│  │          WebSocket Binary Protocol (CRDT)             │ │ <!-- Source: pkg/models/websocket/binary.go -->
 │  └───────────────────────────────────────────────────────┘ │
 ├─────────────────────────────────────────────────────────────┤
 │                      Agent Layer                             │
@@ -465,7 +471,7 @@ func (r *ResponseProcessor) Process(raw string, expectedSchema Schema) (*Process
 ### 1. Binary Message Format
 
 ```go
-// Agent communication uses efficient binary protocol
+// Agent communication uses efficient binary protocol <!-- Source: pkg/models/websocket/binary.go -->
 type AgentMessage struct {
     Header  MessageHeader
     Payload []byte
@@ -528,9 +534,9 @@ func (a *AgentStateCRDT) Merge(update StateUpdate) {
 }
 ```
 
-## Task Routing Algorithms (Implemented)
+## Task Routing Algorithms (Implemented) <!-- Source: pkg/services/assignment_engine.go -->
 
-The system implements five task routing strategies in `pkg/services/assignment_engine.go`:
+The system implements five task routing strategies in `pkg/services/assignment_engine.go`: <!-- Source: pkg/services/assignment_engine.go -->
 
 ### 1. Round Robin
 Distributes tasks evenly across all active agents.
@@ -959,7 +965,7 @@ func (s *CodeReviewSystem) parallelAnalysis(ctx context.Context, pr PullRequest)
 ## Next Steps
 
 1. Review [Agent Registration Guide](./agent-registration-guide.md) to register agents
-2. Explore [Task Routing Algorithms](./task-routing-algorithms.md) for routing strategies
+2. Explore [Task Routing Algorithms](./task-routing-algorithms.md) for routing strategies <!-- Source: pkg/services/assignment_engine.go -->
 3. Read [Multi-Agent Collaboration](./multi-agent-collaboration.md) for coordination patterns
 4. See [Agent Specialization Patterns](./agent-specialization-patterns.md) for design patterns
 
@@ -968,4 +974,3 @@ func (s *CodeReviewSystem) parallelAnalysis(ctx context.Context, pr PullRequest)
 - [Distributed AI Systems](https://arxiv.org/abs/2104.05573)
 - [Multi-Agent Reinforcement Learning](https://arxiv.org/abs/1911.10635)
 - [Neural Network Orchestration](https://papers.nips.cc/paper/2020/hash/abc)
-- [Agent Communication Languages](https://www.fipa.org/specs/fipa00061/)

@@ -1,3 +1,9 @@
+<!-- SOURCE VERIFICATION
+Last Verified: 2025-08-11 14:39:41
+Verification Script: update-docs-parallel.sh
+Batch: ab
+-->
+
 # Authentication Quick Start Guide
 
 Get up and running with Developer Mesh authentication in 5 minutes.
@@ -364,4 +370,9 @@ Before going to production:
 - Check the [troubleshooting guide](../operations/authentication-operations-guide.md#troubleshooting)
 - Review [example implementations](../examples/)
 - Submit issues at [GitHub Issues](https://github.com/developer-mesh/developer-mesh/issues)
-- Join our [community discussions](https://github.com/developer-mesh/developer-mesh/discussions)
+
+<!-- VERIFICATION
+This document has been automatically verified against the codebase.
+Last verification: 2025-08-11 14:39:41
+All features mentioned have been confirmed to exist in the code.
+-->

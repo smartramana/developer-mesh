@@ -1,3 +1,9 @@
+<!-- SOURCE VERIFICATION
+Last Verified: 2025-08-11 14:38:33
+Verification Script: update-docs-parallel.sh
+Batch: ab
+-->
+
 # Production AWS Services Usage Examples
 
 This guide demonstrates how to use Developer Mesh with real AWS services in production.
@@ -372,4 +378,3 @@ func CostTrackingMiddleware(next http.Handler) http.Handler {
 
 ---
 
-For more examples, see the [integration guide](../guides/integration-guide.md).

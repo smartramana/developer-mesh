@@ -1,3 +1,9 @@
+<!-- SOURCE VERIFICATION
+Last Verified: 2025-08-11 14:43:43
+Verification Script: update-docs-parallel.sh
+Batch: ac
+-->
+
 # OAuth Providers Implementation Guide
 
 > **Status**: Implementation Guide
@@ -821,4 +827,3 @@ func TestOAuthFlow(t *testing.T) {
 - [OpenID Connect](https://openid.net/connect/)
 - [Google OAuth 2.0](https://developers.google.com/identity/protocols/oauth2)
 - [GitHub OAuth](https://docs.github.com/en/developers/apps/building-oauth-apps)
-- [Microsoft Identity Platform](https://docs.microsoft.com/en-us/azure/active-directory/develop/)

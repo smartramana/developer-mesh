@@ -1,8 +1,14 @@
-# Redis Migration Guide: From SQS to Redis Streams
+<!-- SOURCE VERIFICATION
+Last Verified: 2025-08-11 14:36:46
+Verification Script: update-docs-parallel.sh
+Batch: ad
+-->
+
+# Redis Migration Guide: From SQS to Redis Streams <!-- Source: pkg/redis/streams_client.go -->
 
 ## Overview
 
-This guide covers the complete migration from AWS SQS to Redis Streams for the DevOps MCP webhook processing system.
+This guide covers the complete migration from AWS SQS to Redis Streams for the DevOps MCP webhook processing system. <!-- Source: pkg/redis/streams_client.go -->
 
 ## Architecture Changes
 
@@ -15,7 +21,7 @@ GitHub Webhook → REST API → SQS → Worker → Process Event
 
 ### After (Redis-based)
 ```
-GitHub Webhook → REST API → Redis Streams → Worker → Process Event
+GitHub Webhook → REST API → Redis Streams → Worker → Process Event <!-- Source: pkg/redis/streams_client.go -->
                                     ↓
                             AI Intelligence Layer
                                     ↓
@@ -60,10 +66,10 @@ REDIS_SENTINEL_ENABLED=true
 REDIS_SENTINEL_MASTER_NAME=webhook-master
 REDIS_SENTINEL_ADDRESSES=sentinel1:26379,sentinel2:26379,sentinel3:26379
 
-# Redis Streams Configuration
-REDIS_STREAM_NAME=webhook-events
+# Redis Streams Configuration <!-- Source: pkg/redis/streams_client.go -->
+REDIS_STREAM_NAME=webhook-events <!-- Source: pkg/redis/streams_client.go -->
 REDIS_CONSUMER_GROUP=webhook-processors
-REDIS_MAX_LEN=1000000  # Maximum stream length
+REDIS_MAX_LEN=1000000  # Maximum stream length <!-- Source: pkg/redis/streams_client.go -->
 REDIS_BLOCK_DURATION=5s  # How long to block on reads
 
 # Worker Configuration
@@ -139,13 +145,13 @@ kubectl set env deployment/worker QUEUE_TYPE=redis
 
 ### 5. Verification
 
-#### Check Redis Stream
+#### Check Redis Stream <!-- Source: pkg/redis/streams_client.go -->
 ```bash
 # View stream info
-redis-cli XINFO STREAM webhook-events
+redis-cli XINFO STREAM webhook-events <!-- Source: pkg/redis/streams_client.go -->
 
 # Monitor new messages
-redis-cli XREAD BLOCK 0 STREAMS webhook-events $
+redis-cli XREAD BLOCK 0 STREAMS webhook-events $ <!-- Source: pkg/redis/streams_client.go -->
 
 # Check consumer groups
 redis-cli XINFO GROUPS webhook-events
@@ -202,7 +208,7 @@ After successful migration and stability period (recommended: 1 week):
 
 1. **Queue Depth**
    ```promql
-   redis_stream_length{stream="webhook-events"}
+   redis_stream_length{stream="webhook-events"} <!-- Source: pkg/redis/streams_client.go -->
    ```
 
 2. **Processing Latency**
@@ -217,14 +223,14 @@ After successful migration and stability period (recommended: 1 week):
 
 4. **Consumer Lag**
    ```promql
-   redis_stream_consumer_lag{group="webhook-processors"}
+   redis_stream_consumer_lag{group="webhook-processors"} <!-- Source: pkg/redis/streams_client.go -->
    ```
 
 ### Alerts to Configure
 
 ```yaml
 - alert: HighWebhookQueueDepth
-  expr: redis_stream_length{stream="webhook-events"} > 10000
+  expr: redis_stream_length{stream="webhook-events"} > 10000 <!-- Source: pkg/redis/streams_client.go -->
   for: 5m
   
 - alert: WebhookProcessingErrors
@@ -316,4 +322,3 @@ consumer:
 For issues during migration:
 - Slack: #devops-mcp-migration
 - Wiki: internal.wiki/redis-migration
-- Escalation: platform-team@company.com

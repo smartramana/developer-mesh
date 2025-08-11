@@ -1,3 +1,9 @@
+<!-- SOURCE VERIFICATION
+Last Verified: 2025-08-11 14:50:43
+Verification Script: update-docs-parallel.sh
+Batch: ac
+-->
+
 # RAG-MCP Architecture: Enhancing Retrieval-Augmented Generation with Model Context Protocol
 
 > **Purpose**: Explain how MCP enhances traditional RAG systems with distributed AI orchestration
@@ -166,12 +172,12 @@ func (ms *ModelSelector) SelectModel(task Task) AIModel {
 }
 ```
 
-### 4. WebSocket-Based Real-Time Coordination
+### 4. WebSocket-Based Real-Time Coordination <!-- Source: pkg/models/websocket/binary.go -->
 
-Agents coordinate via WebSocket connections:
+Agents coordinate via WebSocket connections: <!-- Source: pkg/models/websocket/binary.go -->
 
 ```go
-// Binary protocol for efficient communication
+// Binary protocol for efficient communication <!-- Source: pkg/models/websocket/binary.go -->
 type AgentMessage struct {
     Type      MessageType
     AgentID   string
@@ -516,4 +522,3 @@ MCP transforms traditional RAG systems into intelligent, distributed AI orchestr
 - [Vector Databases and pgvector](https://github.com/pgvector/pgvector)
 - [Embedding Model Comparison](https://platform.openai.com/docs/guides/embeddings)
 - [RAG Best Practices](https://www.pinecone.io/learn/retrieval-augmented-generation/)
-- [Multi-Agent Systems](https://arxiv.org/abs/2308.08155)

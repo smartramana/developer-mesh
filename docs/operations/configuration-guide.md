@@ -1,3 +1,9 @@
+<!-- SOURCE VERIFICATION
+Last Verified: 2025-08-11 14:28:26
+Verification Script: update-docs-parallel.sh
+Batch: ad
+-->
+
 # Configuration Guide
 
 This guide explains the Developer Mesh configuration system and best practices for managing configurations across different environments.
@@ -724,7 +730,7 @@ limits:
     
   # Concurrent operations
   concurrency:
-    max_websocket_connections: 10000
+    max_websocket_connections: 10000 <!-- Source: pkg/models/websocket/binary.go -->
     max_db_connections: 500
     max_parallel_tasks: 100
 ```
@@ -1033,4 +1039,3 @@ cost_monitoring:
 12. **Set resource limits** - Prevent runaway costs and resource exhaustion
 13. **Enable monitoring** - Track the impact of configuration changes
 14. **Use caching strategically** - Reduce costs and improve performance
-15. **Schedule resource scaling** - Match capacity to demand

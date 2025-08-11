@@ -1,3 +1,9 @@
+<!-- SOURCE VERIFICATION
+Last Verified: 2025-08-11 14:29:11
+Verification Script: update-docs-parallel.sh
+Batch: ab
+-->
+
 # Environment Variables Reference
 
 This document provides a comprehensive reference for all environment variables used in the DevOps MCP platform.
@@ -23,8 +29,8 @@ This document provides a comprehensive reference for all environment variables u
 ### Service Addresses
 | Variable | Description | Default | Required | Services |
 |----------|-------------|---------|----------|----------|
-| `MCP_SERVER_URL` | MCP Server endpoint | `http://localhost:8080` | Yes | REST API, Worker |
-| `REST_API_URL` | REST API endpoint | `http://localhost:8081` | Yes | MCP Server, Worker |
+| `MCP_SERVER_URL` | MCP Server endpoint | `http://localhost:8080 (MCP Server)` | Yes | REST API, Worker |
+| `REST_API_URL` | REST API endpoint | `http://localhost:8081 (REST API)` | Yes | MCP Server, Worker |
 | `API_HOST` | API bind address | `0.0.0.0` | No | All APIs |
 | `API_PORT` | API port | `8080` | No | All APIs |
 
@@ -63,7 +69,7 @@ These variables are aliases for the above and work identically:
 ### Redis Connection
 | Variable | Description | Default | Required | Services |
 |----------|-------------|---------|----------|----------|
-| `REDIS_ADDR` | Redis address (host:port) | `localhost:6379` | Yes | All |
+| `REDIS_ADDR` | Redis address (host:port) | `localhost:6379 (Redis)` | Yes | All |
 | `REDIS_HOST` | Redis hostname | `localhost` | No | All |
 | `REDIS_PORT` | Redis port | `6379` | No | All |
 | `REDIS_PASSWORD` | Redis password | - | No | All |
@@ -149,8 +155,8 @@ These variables are aliases for the above and work identically:
 | Variable | Description | Default | Required | Services |
 |----------|-------------|---------|----------|----------|
 | `MCP_WEBHOOK_ENABLED` | Enable webhook endpoints | `true` | No | MCP Server |
-| `WS_MAX_CONNECTIONS` | Max WebSocket connections | `10000` | No | MCP Server |
-| `WS_ALLOWED_ORIGINS` | WebSocket allowed origins | `*` | No | MCP Server |
+| `WS_MAX_CONNECTIONS` | Max WebSocket connections | `10000` | No | MCP Server | <!-- Source: pkg/models/websocket/binary.go -->
+| `WS_ALLOWED_ORIGINS` | WebSocket allowed origins | `*` | No | MCP Server | <!-- Source: pkg/models/websocket/binary.go -->
 
 ### REST API
 | Variable | Description | Default | Required | Services |
@@ -310,4 +316,3 @@ S3_BUCKET_NAME → S3_BUCKET
 1. Extract all hardcoded values to environment variables
 2. Update configuration files to reference variables
 3. Document new variables in this guide
-4. Update deployment scripts

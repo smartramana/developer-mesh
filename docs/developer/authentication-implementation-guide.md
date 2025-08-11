@@ -1,3 +1,9 @@
+<!-- SOURCE VERIFICATION
+Last Verified: 2025-08-11 14:39:50
+Verification Script: update-docs-parallel.sh
+Batch: aa
+-->
+
 # Authentication Implementation Guide
 
 This guide provides comprehensive documentation for implementing authentication in the Developer Mesh platform, covering all authentication methods, rate limiting, metrics, and testing patterns.
@@ -602,4 +608,3 @@ authService = auth.NewService(config, db, cache, logger)
 
 This guide documents the current authentication implementation in Developer Mesh. While the foundation is solid with API key and JWT support, several advanced features (OAuth, Casbin RBAC, external IdPs) remain unimplemented. Always verify feature availability in the actual codebase before relying on documentation.
 
-For the most accurate implementation status, see `docs/guides/auth-implementation-status.md`.

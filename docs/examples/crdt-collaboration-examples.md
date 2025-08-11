@@ -1,3 +1,9 @@
+<!-- SOURCE VERIFICATION
+Last Verified: 2025-08-11 14:32:18
+Verification Script: update-docs-parallel.sh
+Batch: ab
+-->
+
 # CRDT Collaboration Examples
 
 This guide demonstrates how to implement real-time collaboration using Conflict-free Replicated Data Types (CRDTs) in Developer Mesh.
@@ -751,10 +757,9 @@ class CRDTDebugger {
 
 ## Next Steps
 
-1. **Binary Protocol Integration**: See [binary-websocket-protocol.md](binary-websocket-protocol.md)
+1. **Binary Protocol Integration**: See [binary-websocket-protocol.md](binary-websocket-protocol.md) <!-- Source: pkg/models/websocket/binary.go -->
 2. **Multi-Agent Patterns**: Check [multi-agent-collaboration.md](../guides/multi-agent-collaboration.md)
 3. **Production Deployment**: Read [production-deployment.md](../deployment/production-deployment.md)
 
 ---
 
-*For more advanced CRDT patterns and support, visit our [GitHub repository](https://github.com/developer-mesh/developer-mesh)*

@@ -1,3 +1,9 @@
+<!-- SOURCE VERIFICATION
+Last Verified: 2025-08-11 14:29:51
+Verification Script: update-docs-parallel.sh
+Batch: ad
+-->
+
 # AWS ElastiCache Secure Access Guide for Local Development
 
 > **Last Updated**: December 2024
@@ -734,4 +740,3 @@ For platform-specific issues, check:
 - [VPC Security Best Practices](https://docs.aws.amazon.com/vpc/latest/userguide/vpc-security-best-practices.html)
 - [Redis Security Guide](https://redis.io/topics/security)
 - [AWS Well-Architected Framework - Security Pillar](https://docs.aws.amazon.com/wellarchitected/latest/security-pillar/welcome.html)
-- [Developer Mesh Production Deployment Guide](./production-deployment.md)

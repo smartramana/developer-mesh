@@ -1,3 +1,9 @@
+<!-- SOURCE VERIFICATION
+Last Verified: 2025-08-11 14:28:43
+Verification Script: update-docs-parallel.sh
+Batch: ab
+-->
+
 # Environment Switching Guide
 
 Developer Mesh supports multiple environment configurations to accommodate different development scenarios. This guide explains how to switch between environments effectively.
@@ -326,4 +332,3 @@ make health
 
 # View logs
 make logs
-```

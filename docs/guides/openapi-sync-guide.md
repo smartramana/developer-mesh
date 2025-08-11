@@ -1,3 +1,9 @@
+<!-- SOURCE VERIFICATION
+Last Verified: 2025-08-11 14:46:56
+Verification Script: update-docs-parallel.sh
+Batch: ac
+-->
+
 # OpenAPI Sync Guide
 
 ## Overview
@@ -459,4 +465,3 @@ When releasing new API versions:
 
 ---
 
-*For more information, visit [docs.developer-mesh.com](https://docs.developer-mesh.com)*

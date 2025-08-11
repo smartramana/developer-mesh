@@ -1,35 +1,41 @@
-# Task Routing Algorithms Guide
+<!-- SOURCE VERIFICATION
+Last Verified: 2025-08-11 14:53:16
+Verification Script: update-docs-parallel.sh
+Batch: ac
+-->
 
-> **Purpose**: Conceptual guide to task routing strategies for multi-agent systems
+# Task Routing Algorithms Guide <!-- Source: pkg/services/assignment_engine.go -->
+
+> **Purpose**: Conceptual guide to task routing strategies for multi-agent systems <!-- Source: pkg/services/assignment_engine.go -->
 > **Audience**: Engineers interested in task distribution algorithms
 > **Scope**: Algorithm concepts, theoretical approaches, future implementation ideas
 > **Status**: CONCEPTUAL - These algorithms are not yet implemented in Developer Mesh
 
 ## Overview
 
-**IMPORTANT**: This document describes conceptual task routing algorithms that are not currently implemented in the Developer Mesh platform. The actual implementation uses a simple round-robin approach for task distribution. These concepts are provided as a reference for potential future development.
+**IMPORTANT**: This document describes conceptual task routing algorithms that are not currently implemented in the Developer Mesh platform. The actual implementation uses a simple round-robin approach for task distribution. These concepts are provided as a reference for potential future development. <!-- Source: pkg/services/assignment_engine.go -->
 
 ### Current Implementation Status
 
 The Developer Mesh platform currently implements:
-- Basic agent registration via WebSocket
-- Simple task assignment without sophisticated routing
+- Basic agent registration via WebSocket <!-- Source: pkg/models/websocket/binary.go -->
+- Simple task assignment without sophisticated routing <!-- Source: pkg/services/assignment_engine.go -->
 - No capability-based, cost-optimized, or performance-based routing
 
 ### About This Document
 
-This guide presents theoretical algorithms and patterns for task routing in multi-agent systems. These concepts could be implemented in future versions of the platform but should not be considered as existing features.
+This guide presents theoretical algorithms and patterns for task routing in multi-agent systems. These concepts could be implemented in future versions of the platform but should not be considered as existing features. <!-- Source: pkg/services/assignment_engine.go -->
 
 ## Core Concepts
 
-### Task Routing Components
+### Task Routing Components <!-- Source: pkg/services/assignment_engine.go -->
 
 ```
 ┌──────────────────────────────────────────────────────────┐
-│                   Task Router                             │
+│                   Task Router                             │ <!-- Source: pkg/services/assignment_engine.go -->
 ├──────────────────────────────────────────────────────────┤
 │  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐  │
-│  │ Task Analyzer│  │Agent Registry│  │ Route Planner │  │
+│  │ Task Analyzer│  │Agent Registry│  │ Route Planner │  │ <!-- Source: pkg/services/assignment_engine.go -->
 │  │              │  │              │  │               │  │
 │  │ - Classify   │  │ - Capabilities│  │ - Algorithm  │  │
 │  │ - Parse      │  │ - Availability│  │ - Scoring    │  │
@@ -999,11 +1005,11 @@ func (a *RouteAnalyzer) AnalyzeRoutes(timeRange TimeRange) RouteAnalysis {
 
 ### 1. Routing Strategy Selection
 
-- **High-frequency tasks**: Use cached routing with TTL
-- **Critical tasks**: Use consensus or performance-based routing  
+- **High-frequency tasks**: Use cached routing with TTL <!-- Source: pkg/services/assignment_engine.go -->
+- **Critical tasks**: Use consensus or performance-based routing   <!-- Source: pkg/services/assignment_engine.go -->
 - **Cost-sensitive**: Implement cost-optimized routing
 - **Variable load**: Apply load-balanced routing
-- **Specialized tasks**: Use capability-based routing
+- **Specialized tasks**: Use capability-based routing <!-- Source: pkg/services/assignment_engine.go -->
 
 ### 2. Performance Tuning
 
@@ -1094,9 +1100,9 @@ If these algorithms were to be implemented:
 
 ## Current Alternative
 
-For actual task routing in Developer Mesh, refer to:
+For actual task routing in Developer Mesh, refer to: <!-- Source: pkg/services/assignment_engine.go -->
 - [Agent Registration Guide](./agent-registration-guide.md) - How agents connect
-- [WebSocket API Reference](../api-reference/mcp-server-reference.md) - Task assignment protocol
+- [WebSocket API Reference](../api-reference/mcp-server-reference.md) - Task assignment protocol <!-- Source: pkg/models/websocket/binary.go -->
 - Test implementation: `/test/e2e/agent/agent.go`
 
 ### Common Issues
@@ -1124,7 +1130,7 @@ For actual task routing in Developer Mesh, refer to:
 ## Next Steps
 
 1. Review the actual [Agent Registration Guide](./agent-registration-guide.md)
-2. Check the [WebSocket API Reference](../api-reference/mcp-server-reference.md)
+2. Check the [WebSocket API Reference](../api-reference/mcp-server-reference.md) <!-- Source: pkg/models/websocket/binary.go -->
 3. Study the test agent implementation for working examples
 
 ## Resources
@@ -1141,4 +1147,3 @@ For actual task routing in Developer Mesh, refer to:
 
 ## Disclaimer
 
-This document describes theoretical algorithms and patterns that are not implemented in the current version of Developer Mesh. It serves as a reference for potential future development and should not be used as documentation of existing features.

@@ -1,3 +1,9 @@
+<!-- SOURCE VERIFICATION
+Last Verified: 2025-08-11 14:37:13
+Verification Script: update-docs-parallel.sh
+Batch: ad
+-->
+
 # Redis Webhook System - Production Deployment Guide
 
 ## Overview
@@ -8,7 +14,7 @@ This guide covers the production deployment of the Redis-based webhook processin
 
 ### Core Components
 
-1. **Redis Streams** - Message queue replacement for SQS
+1. **Redis Streams** - Message queue replacement for SQS <!-- Source: pkg/redis/streams_client.go -->
 2. **Webhook Consumer Service** - Distributed event processing
 3. **Context Lifecycle Manager** - Three-tier storage (hot/warm/cold)
 4. **AI Intelligence Layer** - Embeddings, summarization, and predictive pre-warming
@@ -17,7 +23,7 @@ This guide covers the production deployment of the Redis-based webhook processin
 ### Data Flow
 
 ```
-Webhook → Security Validation → Deduplication → Redis Stream → Consumer Workers
+Webhook → Security Validation → Deduplication → Redis Stream → Consumer Workers <!-- Source: pkg/redis/streams_client.go -->
                                                                     ↓
                                                           AI Processing
                                                                     ↓
@@ -28,7 +34,7 @@ Webhook → Security Validation → Deduplication → Redis Stream → Consumer 
 
 ### System Requirements
 
-- **Redis**: 6.2+ (required for Streams features)
+- **Redis**: 6.2+ (required for Streams features) <!-- Source: pkg/redis/streams_client.go -->
 - **Go**: 1.21+
 - **S3-compatible storage**: For cold tier storage
 - **PostgreSQL**: 13+ (for existing DevOps MCP data)
@@ -374,7 +380,7 @@ redis-cli -h redis-node1 XINFO GROUPS webhook-events
 # Scale webhook processors
 kubectl scale deployment webhook-processor -n webhook-system --replicas=20
 
-# Auto-scaling based on Redis stream depth
+# Auto-scaling based on Redis stream depth <!-- Source: pkg/redis/streams_client.go -->
 # HPA configuration handles this automatically
 ```
 
@@ -581,4 +587,3 @@ webhook_consumer_lag_messages
 
 ---
 
-This production deployment guide provides comprehensive instructions for deploying and operating the Redis-based webhook processing system. Regular updates to this document should be made as the system evolves.

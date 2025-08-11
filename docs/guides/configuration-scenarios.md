@@ -1,3 +1,9 @@
+<!-- SOURCE VERIFICATION
+Last Verified: 2025-08-11 14:35:08
+Verification Script: update-docs-parallel.sh
+Batch: ac
+-->
+
 # Configuration Scenarios Guide
 
 > **Purpose**: Practical configuration examples for different Developer Mesh deployment scenarios
@@ -512,7 +518,7 @@ TASK_PREFETCH_COUNT=50
 TASK_PROCESSING_TIMEOUT=30s
 ENABLE_TASK_PRIORITIES=true
 
-# WebSocket Performance
+# WebSocket Performance <!-- Source: pkg/models/websocket/binary.go -->
 WS_BUFFER_SIZE=65536
 WS_COMPRESSION_LEVEL=6
 WS_MAX_CONNECTIONS=50000
@@ -900,7 +906,7 @@ MODEL_CACHE_LOCAL=true
 # Bandwidth Optimization
 COMPRESS_ALL_TRAFFIC=true
 DELTA_SYNC_ENABLED=true
-BINARY_PROTOCOL_ONLY=true
+BINARY_PROTOCOL_ONLY=true <!-- Source: pkg/models/websocket/binary.go -->
 ```
 
 ## Migration Scenarios
@@ -1027,4 +1033,3 @@ CREATE TABLE config_audit (
 - [Configuration Guide](./configuration-guide.md) - Detailed configuration reference
 - [Performance Tuning Guide](./performance-tuning-guide.md) - Performance optimization
 - [Cost Optimization Guide](./cost-optimization-guide.md) - Cost reduction strategies
-- [Security Best Practices](./security-best-practices.md) - Security configuration

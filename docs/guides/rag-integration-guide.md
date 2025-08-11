@@ -1,3 +1,9 @@
+<!-- SOURCE VERIFICATION
+Last Verified: 2025-08-11 14:49:49
+Verification Script: update-docs-parallel.sh
+Batch: ac
+-->
+
 # RAG + MCP Integration Guide
 
 > **Purpose**: Guide for understanding embedding capabilities for potential RAG implementation
@@ -200,7 +206,7 @@ func QueryWithMCPSearch(ctx context.Context, vectorRepo vector.Repository, query
 // Example: Agent that could be extended for RAG
 type RAGCapableAgent struct {
     // Standard MCP agent fields
-    conn         *websocket.Conn
+    conn         *websocket.Conn <!-- Source: pkg/models/websocket/binary.go -->
     agentID      string
     capabilities []string
     
@@ -218,7 +224,7 @@ func (a *RAGCapableAgent) Register(ctx context.Context) error {
         "name":         "rag-agent",
         "capabilities": []string{"document_search", "code_analysis"},
     }
-    // Send via WebSocket...
+    // Send via WebSocket... <!-- Source: pkg/models/websocket/binary.go -->
     return nil
 }
 ```
@@ -458,9 +464,9 @@ func CachedEmbeddingGeneration(ctx context.Context, cache cache.Cache, provider 
 }
 ```
 
-## Integrating with MCP's WebSocket
+## Integrating with MCP's WebSocket <!-- Source: pkg/models/websocket/binary.go -->
 
-### 1. Handling RAG Tasks via WebSocket
+### 1. Handling RAG Tasks via WebSocket <!-- Source: pkg/models/websocket/binary.go -->
 
 ```go
 // Example: Extending your agent to handle RAG tasks
@@ -814,10 +820,10 @@ func BuildRAGContext(results []*models.EmbeddingVector, maxLength int) string {
    - Use appropriate models (Titan is cheaper than Cohere)
    - Implement Redis caching yourself
 
-4. **WebSocket Agent Issues**
+4. **WebSocket Agent Issues** <!-- Source: pkg/models/websocket/binary.go -->
    - Must include `mcp.v1` subprotocol
    - Implement reconnection (see test agent)
-   - Handle binary protocol transitions
+   - Handle binary protocol transitions <!-- Source: pkg/models/websocket/binary.go -->
 
 5. **No Vector Similarity Search**
    - Current `SearchEmbeddings` just returns embeddings by ID order
@@ -867,4 +873,3 @@ Developer Mesh provides basic building blocks for RAG (embeddings, vector storag
 - SearchEmbeddings does NOT perform vector similarity search
 - No RAGPipeline, RAGSystem, or any RAG-specific types exist
 - You must implement pgvector similarity queries yourself
-- All RAG logic must be built from scratch using MCP's basic components

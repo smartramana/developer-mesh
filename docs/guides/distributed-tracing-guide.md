@@ -1,3 +1,9 @@
+<!-- SOURCE VERIFICATION
+Last Verified: 2025-08-11 14:40:30
+Verification Script: update-docs-parallel.sh
+Batch: ac
+-->
+
 # Distributed Tracing Guide
 
 > **Purpose**: Complete guide for implementing and using distributed tracing in the Developer Mesh platform
@@ -98,7 +104,7 @@ Client Request
     ▼
 MCP Server (Parent Span)
     │
-    ├─ WebSocket: Embed trace in binary protocol
+    ├─ WebSocket: Embed trace in binary protocol <!-- Source: pkg/models/websocket/binary.go -->
     ├─ HTTP: W3C Trace Context headers
     ├─ SQS: Message attributes
     └─ gRPC: Metadata
@@ -422,10 +428,10 @@ func TracingMiddleware(tracer trace.Tracer) gin.HandlerFunc {
 }
 ```
 
-### WebSocket Instrumentation
+### WebSocket Instrumentation <!-- Source: pkg/models/websocket/binary.go -->
 
 ```go
-// pkg/api/websocket/instrumented_handler.go
+// pkg/api/websocket/instrumented_handler.go <!-- Source: pkg/models/websocket/binary.go -->
 func (h *Handler) HandleConnection(w http.ResponseWriter, r *http.Request) {
     // Extract trace context from HTTP upgrade request
     ctx := otel.GetTextMapPropagator().Extract(
@@ -434,11 +440,11 @@ func (h *Handler) HandleConnection(w http.ResponseWriter, r *http.Request) {
     )
     
     // Start connection span
-    ctx, connSpan := h.tracer.Start(ctx, "websocket.connection",
+    ctx, connSpan := h.tracer.Start(ctx, "websocket.connection", <!-- Source: pkg/models/websocket/binary.go -->
         trace.WithSpanKind(trace.SpanKindServer),
         trace.WithAttributes(
             attribute.String("ws.agent_id", r.Header.Get("X-Agent-ID")),
-            attribute.String("ws.protocol_version", r.Header.Get("Sec-WebSocket-Protocol")),
+            attribute.String("ws.protocol_version", r.Header.Get("Sec-WebSocket-Protocol")), <!-- Source: pkg/models/websocket/binary.go -->
         ),
     )
     
@@ -475,7 +481,7 @@ func (h *Handler) handleMessages(connCtx *ConnectionContext) {
         }
         
         // Start message span with link to connection
-        msgCtx, msgSpan := h.tracer.Start(connCtx.Context, "websocket.message",
+        msgCtx, msgSpan := h.tracer.Start(connCtx.Context, "websocket.message", <!-- Source: pkg/models/websocket/binary.go -->
             trace.WithLinks(trace.Link{
                 SpanContext: connCtx.ConnSpan.SpanContext(),
             }),
@@ -496,7 +502,7 @@ func (h *Handler) handleMessages(connCtx *ConnectionContext) {
 }
 
 // Embed trace context in binary messages
-func (h *Handler) sendMessage(ctx context.Context, conn *websocket.Conn, msg *Message) error {
+func (h *Handler) sendMessage(ctx context.Context, conn *websocket.Conn, msg *Message) error { <!-- Source: pkg/models/websocket/binary.go -->
     span := trace.SpanFromContext(ctx)
     
     // Add trace context to message
@@ -513,7 +519,7 @@ func (h *Handler) sendMessage(ctx context.Context, conn *websocket.Conn, msg *Me
         return err
     }
     
-    return conn.WriteMessage(websocket.BinaryMessage, data)
+    return conn.WriteMessage(websocket.BinaryMessage, data) <!-- Source: pkg/models/websocket/binary.go -->
 }
 ```
 
@@ -1313,4 +1319,3 @@ span.SetAttributes(
 ---
 
 Last Updated: 2024-01-10
-Version: 1.0.0

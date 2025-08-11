@@ -1,3 +1,9 @@
+<!-- SOURCE VERIFICATION
+Last Verified: 2025-08-11 14:36:25
+Verification Script: update-docs-parallel.sh
+Batch: ac
+-->
+
 # Cost Management Guide
 
 > **Purpose**: Comprehensive guide for managing and controlling costs in the Developer Mesh platform
@@ -931,4 +937,3 @@ var optimizationRules = []OptimizationRule{
 - [AWS Pricing Calculator](https://calculator.aws/)
 - [Bedrock Pricing](https://aws.amazon.com/bedrock/pricing/)
 - [ECS Fargate Pricing](https://aws.amazon.com/fargate/pricing/)
-- [Cost Optimization Whitepaper](https://d1.awsstatic.com/whitepapers/aws-cost-optimization.pdf)

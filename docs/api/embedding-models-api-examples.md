@@ -1,3 +1,9 @@
+<!-- SOURCE VERIFICATION
+Last Verified: 2025-08-11 14:34:41
+Verification Script: update-docs-parallel.sh
+Batch: aa
+-->
+
 # Embedding Models API Examples
 
 ## Authentication
@@ -357,4 +363,3 @@ For testing, you can use the following tenant IDs that have pre-configured model
 4. **Cache model catalog** locally to reduce API calls
 5. **Set up webhooks** for quota alerts and model changes
 6. **Use batch operations** when configuring multiple models
-7. **Implement exponential backoff** for retries on 5xx errors

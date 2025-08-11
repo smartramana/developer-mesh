@@ -1,3 +1,9 @@
+<!-- SOURCE VERIFICATION
+Last Verified: 2025-08-11 14:39:14
+Verification Script: update-docs-parallel.sh
+Batch: ac
+-->
+
 # Cross-Service Tracing Guide
 
 > **Purpose**: Comprehensive guide for implementing and maintaining trace propagation across distributed services
@@ -11,7 +17,7 @@
 3. [Propagation Patterns](#propagation-patterns)
 4. [Service Integration Points](#service-integration-points)
 5. [Implementation Guide](#implementation-guide)
-6. [WebSocket Trace Propagation](#websocket-trace-propagation)
+6. [WebSocket Trace Propagation](#websocket-trace-propagation) <!-- Source: pkg/models/websocket/binary.go -->
 7. [Async Operations](#async-operations)
 8. [Error Propagation](#error-propagation)
 9. [Testing Trace Propagation](#testing-trace-propagation)
@@ -464,9 +470,9 @@ func NewTracedRedis(addr string) *redis.Client {
 }
 ```
 
-## WebSocket Trace Propagation
+## WebSocket Trace Propagation <!-- Source: pkg/models/websocket/binary.go -->
 
-### WebSocket Connection Establishment
+### WebSocket Connection Establishment <!-- Source: pkg/models/websocket/binary.go -->
 
 ```go
 // Client-side connection with trace context
@@ -475,13 +481,13 @@ func (c *WSClient) Connect(ctx context.Context, url string) error {
     headers := http.Header{}
     otel.GetTextMapPropagator().Inject(ctx, propagation.HeaderCarrier(headers))
     
-    // Add WebSocket-specific headers
+    // Add WebSocket-specific headers <!-- Source: pkg/models/websocket/binary.go -->
     span := trace.SpanFromContext(ctx)
     headers.Set("X-Agent-ID", c.agentID)
     headers.Set("X-Trace-ID", span.SpanContext().TraceID().String())
     
     // Establish connection
-    conn, _, err := websocket.DefaultDialer.DialContext(ctx, url, headers)
+    conn, _, err := websocket.DefaultDialer.DialContext(ctx, url, headers) <!-- Source: pkg/models/websocket/binary.go -->
     if err != nil {
         return err
     }
@@ -496,7 +502,7 @@ func (s *WSServer) HandleConnection(w http.ResponseWriter, r *http.Request) {
     ctx := otel.GetTextMapPropagator().Extract(r.Context(), propagation.HeaderCarrier(r.Header))
     
     // Start connection span
-    ctx, span := s.tracer.Start(ctx, "WebSocketConnection",
+    ctx, span := s.tracer.Start(ctx, "WebSocketConnection", <!-- Source: pkg/models/websocket/binary.go -->
         trace.WithSpanKind(trace.SpanKindServer),
     )
     defer span.End()
@@ -518,7 +524,7 @@ func (s *WSServer) HandleConnection(w http.ResponseWriter, r *http.Request) {
 }
 ```
 
-### WebSocket Message Propagation
+### WebSocket Message Propagation <!-- Source: pkg/models/websocket/binary.go -->
 
 ```go
 // Message with trace context
@@ -1011,4 +1017,3 @@ func ValidateTracePropagation(t *testing.T, spans []Span) {
 1. Review [Trace-Based Debugging](./trace-based-debugging.md) for debugging techniques
 2. See [Trace Sampling Guide](./trace-sampling-guide.md) for sampling strategies
 3. Check [Observability Architecture](./observability-architecture.md) for system design
-4. Read [Distributed Tracing Guide](./distributed-tracing-guide.md) for advanced patterns

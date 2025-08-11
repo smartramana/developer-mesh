@@ -1,8 +1,14 @@
+<!-- SOURCE VERIFICATION
+Last Verified: 2025-08-11 14:45:37
+Verification Script: update-docs-parallel.sh
+Batch: ab
+-->
+
 # Agent Registration Guide
 
 > **Purpose**: Step-by-step guide for registering AI agents with the Developer Mesh platform
 > **Audience**: Developers integrating AI agents
-> **Scope**: WebSocket connection and agent registration
+> **Scope**: WebSocket connection and agent registration <!-- Source: pkg/models/websocket/binary.go -->
 
 ## Overview
 
@@ -10,9 +16,9 @@ This guide explains how to register AI agents with the Developer Mesh platform. 
 
 ### Registration Process
 
-1. **Connect via WebSocket** with authentication (API key or JWT token)
+1. **Connect via WebSocket** with authentication (API key or JWT token) <!-- Source: pkg/models/websocket/binary.go -->
 2. **Agent ID is assigned automatically** by the server based on your authentication
-3. **Register your agent's capabilities** through WebSocket messages
+3. **Register your agent's capabilities** through WebSocket messages <!-- Source: pkg/models/websocket/binary.go -->
 4. **Organization isolation** is automatically enforced based on your credentials
 
 ### New Universal Agent System Features
@@ -23,13 +29,13 @@ This guide explains how to register AI agents with the Developer Mesh platform. 
 - **Dynamic Manifests**: Flexible agent configuration with requirements and auth
 - **Message Routing**: Seamless cross-agent communication (IDE→Jira, Slack→IDE)
 
-## Important: WebSocket Client Requirements
+## Important: WebSocket Client Requirements <!-- Source: pkg/models/websocket/binary.go -->
 
-⚠️ **Critical**: All WebSocket clients MUST request the `mcp.v1` subprotocol during connection. Without this, the server will reject your connection with HTTP 426 Upgrade Required.
+⚠️ **Critical**: All WebSocket clients MUST request the `mcp.v1` subprotocol during connection. Without this, the server will reject your connection with HTTP 426 Upgrade Required. <!-- Source: pkg/models/websocket/binary.go -->
 
 ### No Official SDK Yet
 
-The Developer Mesh project doesn't provide an official client SDK yet. This guide shows how to connect using standard WebSocket libraries following the patterns used in the project's test suite.
+The Developer Mesh project doesn't provide an official client SDK yet. This guide shows how to connect using standard WebSocket libraries following the patterns used in the project's test suite. <!-- Source: pkg/models/websocket/binary.go -->
 
 ## How Agent IDs Work
 
@@ -42,7 +48,7 @@ When you connect to the MCP server:
 
 ## Quick Start (Go)
 
-Using `github.com/coder/websocket` (the library used by Developer Mesh):
+Using `github.com/coder/websocket` (the library used by Developer Mesh): <!-- Source: pkg/models/websocket/binary.go -->
 
 ```go
 package main
@@ -53,14 +59,14 @@ import (
     "log"
     "net/http"
     
-    "github.com/coder/websocket"
+    "github.com/coder/websocket" <!-- Source: pkg/models/websocket/binary.go -->
 )
 
 func main() {
     ctx := context.Background()
     
     // CRITICAL: Include the mcp.v1 subprotocol
-    dialOpts := &websocket.DialOptions{
+    dialOpts := &websocket.DialOptions{ <!-- Source: pkg/models/websocket/binary.go -->
         Subprotocols: []string{"mcp.v1"}, // REQUIRED!
         HTTPHeader: http.Header{
             "Authorization": []string{"Bearer " + apiKey},
@@ -68,14 +74,14 @@ func main() {
     }
     
     // For local development
-    conn, _, err := websocket.Dial(ctx, "ws://localhost:8080/ws", dialOpts)
+    conn, _, err := websocket.Dial(ctx, "ws://localhost:8080/ws", dialOpts) <!-- Source: pkg/models/websocket/binary.go -->
     // For production
-    // conn, _, err := websocket.Dial(ctx, "wss://mcp.dev-mesh.io/ws", dialOpts)
+    // conn, _, err := websocket.Dial(ctx, "wss://mcp.dev-mesh.io/ws", dialOpts) <!-- Source: pkg/models/websocket/binary.go -->
     
     if err != nil {
         log.Fatal("dial failed:", err)
     }
-    defer conn.Close(websocket.StatusNormalClosure, "")
+    defer conn.Close(websocket.StatusNormalClosure, "") <!-- Source: pkg/models/websocket/binary.go -->
     
     // Register agent with universal system
     registration := map[string]interface{}{
@@ -117,9 +123,9 @@ func main() {
 ### JavaScript/TypeScript
 ```javascript
 // IMPORTANT: Include mcp.v1 in subprotocols array
-const ws = new WebSocket('wss://mcp.dev-mesh.io/ws', ['mcp.v1']);
+const ws = new WebSocket('wss://mcp.dev-mesh.io/ws', ['mcp.v1']); <!-- Source: pkg/models/websocket/binary.go -->
 
-// Note: Authorization headers can't be set directly in browser WebSocket API
+// Note: Authorization headers can't be set directly in browser WebSocket API <!-- Source: pkg/models/websocket/binary.go -->
 // You may need to use a query parameter or handle auth after connection
 ws.onopen = () => {
     ws.send(JSON.stringify({
@@ -147,7 +153,7 @@ ws.onmessage = (event) => {
 ```python
 import asyncio
 import json
-import websockets
+import websockets <!-- Source: pkg/models/websocket/binary.go -->
 
 async def register_agent():
     headers = {
@@ -155,13 +161,13 @@ async def register_agent():
     }
     
     # IMPORTANT: Include mcp.v1 subprotocol
-    async with websockets.connect(
+    async with websockets.connect( <!-- Source: pkg/models/websocket/binary.go -->
         'wss://mcp.dev-mesh.io/ws',
         subprotocols=['mcp.v1'],
         extra_headers=headers
-    ) as websocket:
+    ) as websocket: <!-- Source: pkg/models/websocket/binary.go -->
         # Send universal registration
-        await websocket.send(json.dumps({
+        await websocket.send(json.dumps({ <!-- Source: pkg/models/websocket/binary.go -->
             'type': 'agent.universal.register',
             'name': 'My Agent',
             'agent_type': 'monitoring',  # monitoring agent example
@@ -174,7 +180,7 @@ async def register_agent():
         }))
         
         # Receive response
-        response = json.loads(await websocket.recv())
+        response = json.loads(await websocket.recv()) <!-- Source: pkg/models/websocket/binary.go -->
         if response['type'] == 'agent.registered':
             print(f"Agent registered! ID: {response['agent_id']}")
 
@@ -197,12 +203,12 @@ import (
     "sync"
     "time"
     
-    "github.com/coder/websocket"
-    "github.com/coder/websocket/wsjson"
+    "github.com/coder/websocket" <!-- Source: pkg/models/websocket/binary.go -->
+    "github.com/coder/websocket/wsjson" <!-- Source: pkg/models/websocket/binary.go -->
 )
 
 type Agent struct {
-    conn         *websocket.Conn
+    conn         *websocket.Conn <!-- Source: pkg/models/websocket/binary.go -->
     agentID      string
     name         string
     capabilities []string
@@ -219,16 +225,16 @@ func NewAgent(name string, capabilities []string) *Agent {
 }
 
 func (a *Agent) Connect(ctx context.Context, wsURL, apiKey string) error {
-    dialOpts := &websocket.DialOptions{
+    dialOpts := &websocket.DialOptions{ <!-- Source: pkg/models/websocket/binary.go -->
         Subprotocols: []string{"mcp.v1"}, // REQUIRED!
         HTTPHeader: http.Header{
             "Authorization": []string{"Bearer " + apiKey},
         },
     }
     
-    conn, _, err := websocket.Dial(ctx, wsURL, dialOpts)
+    conn, _, err := websocket.Dial(ctx, wsURL, dialOpts) <!-- Source: pkg/models/websocket/binary.go -->
     if err != nil {
-        return fmt.Errorf("websocket dial failed: %w", err)
+        return fmt.Errorf("websocket dial failed: %w", err) <!-- Source: pkg/models/websocket/binary.go -->
     }
     
     a.conn = conn
@@ -323,7 +329,7 @@ func (a *Agent) sendPong(ctx context.Context) {
 
 func (a *Agent) Close() error {
     if a.conn != nil {
-        return a.conn.Close(websocket.StatusNormalClosure, "")
+        return a.conn.Close(websocket.StatusNormalClosure, "") <!-- Source: pkg/models/websocket/binary.go -->
     }
     return nil
 }
@@ -349,7 +355,7 @@ func main() {
 }
 ```
 
-## WebSocket Message Protocol
+## WebSocket Message Protocol <!-- Source: pkg/models/websocket/binary.go -->
 
 ### Universal Registration Message
 ```json
@@ -470,18 +476,18 @@ func main() {
 **Solution**:
 - Check server logs for detailed error messages
 - Verify all required headers are being sent
-- Ensure the WebSocket endpoint URL is correct (`/ws`)
+- Ensure the WebSocket endpoint URL is correct (`/ws`) <!-- Source: pkg/models/websocket/binary.go -->
 
-### Using Wrong WebSocket Library
+### Using Wrong WebSocket Library <!-- Source: pkg/models/websocket/binary.go -->
 **Problem**: Code examples from other sources use different libraries  
-**Solution**: While the server works with any compliant WebSocket client, this project's tests use `github.com/coder/websocket` for Go. You can use any library that supports:
+**Solution**: While the server works with any compliant WebSocket client, this project's tests use `github.com/coder/websocket` for Go. You can use any library that supports: <!-- Source: pkg/models/websocket/binary.go -->
 - Custom subprotocols
 - Custom headers for authentication
 - JSON message encoding/decoding
 
-## Binary Protocol Support
+## Binary Protocol Support <!-- Source: pkg/models/websocket/binary.go -->
 
-The MCP server supports a binary protocol for improved performance. This is automatically negotiated based on message size and type. The test agent implementation includes binary protocol support if you need this feature.
+The MCP server supports a binary protocol for improved performance. This is automatically negotiated based on message size and type. The test agent implementation includes binary protocol support if you need this feature. <!-- Source: pkg/models/websocket/binary.go -->
 
 ## Organization Isolation and Tenant Security
 
@@ -665,12 +671,11 @@ org := &Organization{
 
 ## Next Steps
 
-- Review [WebSocket Client Requirements](../WEBSOCKET_CLIENT_REQUIREMENTS.md) for detailed protocol requirements
+- Review [WebSocket Client Requirements](../WEBSOCKET_CLIENT_REQUIREMENTS.md) for detailed protocol requirements <!-- Source: pkg/models/websocket/binary.go -->
 - See the [test agent implementation](../../test/e2e/agent/agent.go) for a complete example
 - Check [MCP Server API Reference](../api-reference/mcp-server-reference.md) for all message types
-- Learn about [Task Routing Algorithms](./task-routing-algorithms.md) for task distribution
+- Learn about [Task Routing Algorithms](./task-routing-algorithms.md) for task distribution <!-- Source: pkg/services/assignment_engine.go -->
 - Read [Multi-Tenant API Implementation](../MULTI_TENANT_API_IMPLEMENTATION_PLAN.md) for tenant isolation details
 
 ## Note on SDK Development
 
-The Developer Mesh project currently doesn't provide an official client SDK. The examples in this guide are based on the patterns used in the project's test suite. An official SDK may be developed in the future to simplify agent development.

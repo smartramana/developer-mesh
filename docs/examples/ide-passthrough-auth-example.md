@@ -1,3 +1,9 @@
+<!-- SOURCE VERIFICATION
+Last Verified: 2025-08-11 14:38:04
+Verification Script: update-docs-parallel.sh
+Batch: ab
+-->
+
 # IDE Pass-Through Authentication Example
 
 This example demonstrates how IDE plugins can use the pass-through authentication feature to allow users to provide their own Personal Access Tokens (PATs) for backend tools.
@@ -319,4 +325,3 @@ const client = new MCPClient({
 });
 ```
 
-This pass-through authentication model ensures that IDE users can securely use their own credentials while benefiting from the MCP platform's unified interface and additional features.

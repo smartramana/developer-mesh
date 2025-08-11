@@ -1,3 +1,9 @@
+<!-- SOURCE VERIFICATION
+Last Verified: 2025-08-11 14:56:49
+Verification Script: update-docs-parallel.sh
+Batch: ac
+-->
+
 # Local Development Guide
 
 ## Quick Start
@@ -109,10 +115,10 @@ curl -H "X-API-Key: dev-admin-key-1234567890" http://localhost:8081/api/v1/tools
 
 | Service | Port | Health Check | Purpose |
 |---------|------|--------------|---------|
-| MCP Server | 8080 | http://localhost:8080/health | WebSocket & API |
-| REST API | 8081 | http://localhost:8081/health | REST endpoints |
+| MCP Server | 8080 | http://localhost:8080 (MCP Server)/health | WebSocket & API |
+| REST API | 8081 | http://localhost:8081 (REST API)/health | REST endpoints |
 | Database | 5432 | `pg_isready -h localhost -p 5432` | PostgreSQL |
-| Redis | 6379 | `redis-cli ping` | Cache & Streams |
+| Redis | 6379 | `redis-cli ping` | Cache & Streams | <!-- Source: pkg/redis/streams_client.go -->
 | MockServer | 8082 | http://localhost:8082/health | Testing |
 
 ## Database Access
@@ -271,4 +277,3 @@ LOG_LEVEL=debug
 - Check logs first: `docker-compose -f docker-compose.local.yml logs`
 - Run diagnostics: `./scripts/local/quick-check.sh`
 - Verify migrations: `./scripts/local/verify-migrations.sh`
-- Reset everything: `./scripts/local/reset-db.sh`

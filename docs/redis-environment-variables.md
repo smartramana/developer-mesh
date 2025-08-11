@@ -1,8 +1,14 @@
+<!-- SOURCE VERIFICATION
+Last Verified: 2025-08-11 14:36:34
+Verification Script: update-docs-parallel.sh
+Batch: ad
+-->
+
 # Redis Queue Environment Variables
 
 ## Required Environment Variables
 
-The DevOps MCP now uses Redis Streams for all queue operations. Configure these environment variables:
+The DevOps MCP now uses Redis Streams for all queue operations. Configure these environment variables: <!-- Source: pkg/redis/streams_client.go -->
 
 ### Redis Connection
 ```bash
@@ -42,10 +48,10 @@ REDIS_SENTINEL_ADDRESSES=sentinel1:26379,sentinel2:26379,sentinel3:26379
 REDIS_SENTINEL_MASTER_NAME=webhook-master
 ```
 
-### Redis Streams Configuration
+### Redis Streams Configuration <!-- Source: pkg/redis/streams_client.go -->
 ```bash
 # Stream name for webhook events
-REDIS_STREAM_NAME=webhook-events
+REDIS_STREAM_NAME=webhook-events <!-- Source: pkg/redis/streams_client.go -->
 
 # Consumer group name
 REDIS_CONSUMER_GROUP=webhook-processors
@@ -76,7 +82,7 @@ WORKER_IDEMPOTENCY_TTL=24
 
 The following AWS SQS-related variables are no longer needed:
 
-- ~~`SQS_QUEUE_URL`~~ - Replaced by Redis Streams
+- ~~`SQS_QUEUE_URL`~~ - Replaced by Redis Streams <!-- Source: pkg/redis/streams_client.go -->
 - ~~`AWS_REGION`~~ - Not needed for Redis
 - ~~`AWS_ACCESS_KEY_ID`~~ - Not needed for Redis
 - ~~`AWS_SECRET_ACCESS_KEY`~~ - Not needed for Redis
@@ -88,7 +94,7 @@ The following AWS SQS-related variables are no longer needed:
 ### Development
 ```bash
 export REDIS_ADDRESS=localhost:6379
-export REDIS_STREAM_NAME=webhook-events-dev
+export REDIS_STREAM_NAME=webhook-events-dev <!-- Source: pkg/redis/streams_client.go -->
 export WORKER_COUNT=2
 ```
 
@@ -102,7 +108,7 @@ export REDIS_TLS_KEY_FILE=/etc/redis/certs/client.key
 export REDIS_TLS_CA_FILE=/etc/redis/certs/ca.crt
 export REDIS_SENTINEL_ENABLED=true
 export REDIS_SENTINEL_ADDRESSES=redis-sentinel1:26379,redis-sentinel2:26379,redis-sentinel3:26379
-export REDIS_STREAM_NAME=webhook-events
+export REDIS_STREAM_NAME=webhook-events <!-- Source: pkg/redis/streams_client.go -->
 export REDIS_CONSUMER_GROUP=webhook-processors
 export WORKER_COUNT=20
 export WORKER_BATCH_SIZE=100
@@ -117,7 +123,7 @@ services:
     image: devops-mcp/webhook-handler:latest
     environment:
       - REDIS_ADDRESS=redis:6379
-      - REDIS_STREAM_NAME=webhook-events
+      - REDIS_STREAM_NAME=webhook-events <!-- Source: pkg/redis/streams_client.go -->
       - REDIS_CONSUMER_GROUP=webhook-processors
     depends_on:
       - redis
@@ -126,7 +132,7 @@ services:
     image: devops-mcp/worker:latest
     environment:
       - REDIS_ADDRESS=redis:6379
-      - REDIS_STREAM_NAME=webhook-events
+      - REDIS_STREAM_NAME=webhook-events <!-- Source: pkg/redis/streams_client.go -->
       - REDIS_CONSUMER_GROUP=webhook-processors
       - WORKER_COUNT=5
     depends_on:
@@ -152,9 +158,8 @@ metadata:
   namespace: devops-mcp
 data:
   REDIS_ADDRESS: "redis-service.devops-mcp.svc.cluster.local:6379"
-  REDIS_STREAM_NAME: "webhook-events"
+  REDIS_STREAM_NAME: "webhook-events" <!-- Source: pkg/redis/streams_client.go -->
   REDIS_CONSUMER_GROUP: "webhook-processors"
   REDIS_TLS_ENABLED: "true"
   WORKER_COUNT: "10"
   WORKER_BATCH_SIZE: "100"
-```

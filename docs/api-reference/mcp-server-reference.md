@@ -1,3 +1,9 @@
+<!-- SOURCE VERIFICATION
+Last Verified: 2025-08-11 14:29:14
+Verification Script: update-docs-parallel.sh
+Batch: aa
+-->
+
 # MCP Server API Reference
 
 This document provides comprehensive reference documentation for the MCP (Model Context Protocol) Server API. The MCP Server implements the Model Context Protocol specification and provides additional functionality for DevOps tool integration.
@@ -19,7 +25,7 @@ This document provides comprehensive reference documentation for the MCP (Model 
   - [GitHub Tools (MCP Protocol)](#github-tools-mcp-protocol)
   - [Webhooks](#webhooks)
   - [Relationship Management](#relationship-management)
-- [WebSocket Support](#websocket-support)
+- [WebSocket Support](#websocket-support) <!-- Source: pkg/models/websocket/binary.go -->
 - [SDK Support](#sdk-support)
 
 ## Overview
@@ -32,10 +38,10 @@ The MCP Server API implements the Model Context Protocol specification, providin
 - **Context Management**: Advanced context storage and retrieval with conversation history
 - **Tool Integration**: Unified interface for GitHub, Harness, SonarQube, Artifactory, and Xray
 - **Multi-Agent Embeddings**: Agent-specific embedding generation with intelligent provider routing
-- **Real-time Updates**: WebSocket support for streaming responses
+- **Real-time Updates**: WebSocket support for streaming responses <!-- Source: pkg/models/websocket/binary.go -->
 - **Multi-tenancy**: Built-in tenant isolation for enterprise deployments
-- **Binary Protocol**: High-performance WebSocket communication with automatic compression
-- **AI Agent Orchestration**: Support for multiple concurrent AI agents with task routing
+- **Binary Protocol**: High-performance WebSocket communication with automatic compression <!-- Source: pkg/models/websocket/binary.go -->
+- **AI Agent Orchestration**: Support for multiple concurrent AI agents with task routing <!-- Source: pkg/services/assignment_engine.go -->
 
 ## Base URL and Versioning
 
@@ -1006,14 +1012,14 @@ POST /api/v1/relationships
 }
 ```
 
-## WebSocket Support
+## WebSocket Support <!-- Source: pkg/models/websocket/binary.go -->
 
-The MCP Server provides WebSocket connections for real-time AI agent communication with an optimized binary protocol for high-performance message exchange.
+The MCP Server provides WebSocket connections for real-time AI agent communication with an optimized binary protocol for high-performance message exchange. <!-- Source: pkg/models/websocket/binary.go -->
 
 ### Connection Establishment
 
 ```javascript
-const ws = new WebSocket('wss://api.mcp-server.example.com/ws');
+const ws = new WebSocket('wss://api.mcp-server.example.com/ws'); <!-- Source: pkg/models/websocket/binary.go -->
 
 ws.on('open', () => {
   // Send MCP initialization
@@ -1037,9 +1043,9 @@ ws.on('open', () => {
 });
 ```
 
-### Binary Protocol (High Performance)
+### Binary Protocol (High Performance) <!-- Source: pkg/models/websocket/binary.go -->
 
-For messages larger than 1KB, the MCP Server automatically uses a binary protocol for improved performance:
+For messages larger than 1KB, the MCP Server automatically uses a binary protocol for improved performance: <!-- Source: pkg/models/websocket/binary.go -->
 
 #### Binary Message Format
 
@@ -1093,7 +1099,7 @@ const (
 4. **Message Batching**: Multiple operations in single message
 5. **Zero-Copy Parsing**: Direct memory access for performance
 
-### WebSocket Message Flow
+### WebSocket Message Flow <!-- Source: pkg/models/websocket/binary.go -->
 
 ```javascript
 // Client sends binary message for large payloads
@@ -1168,7 +1174,7 @@ ws.on('message', (data) => {
 ```javascript
 // Heartbeat for connection health
 setInterval(() => {
-  if (ws.readyState === WebSocket.OPEN) {
+  if (ws.readyState === WebSocket.OPEN) { <!-- Source: pkg/models/websocket/binary.go -->
     ws.send(new Uint8Array([
       0x4D, 0x43, 0x50, 0x57, // Magic "MCPW"
       0x01,                   // Version
@@ -1184,12 +1190,12 @@ setInterval(() => {
 
 // Handle connection errors
 ws.on('error', (error) => {
-  console.error('WebSocket error:', error);
+  console.error('WebSocket error:', error); <!-- Source: pkg/models/websocket/binary.go -->
   // Implement exponential backoff reconnection
 });
 ```
 
-### WebSocket Message Types
+### WebSocket Message Types <!-- Source: pkg/models/websocket/binary.go -->
 
 #### MCP Protocol Messages
 - `initialize`: Initialize MCP session
@@ -1286,4 +1292,3 @@ result = client.tools.execute(
 - [MCP Protocol Specification](https://github.com/anthropics/mcp)
 - [API Playground](https://api.mcp-server.example.com/swagger)
 - [Integration Examples](https://github.com/developer-mesh/developer-mesh/examples)
-- [Support Portal](https://support.mcp-server.example.com)

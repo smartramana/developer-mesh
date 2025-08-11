@@ -1,3 +1,9 @@
+<!-- SOURCE VERIFICATION
+Last Verified: 2025-08-11 14:38:41
+Verification Script: update-docs-parallel.sh
+Batch: ad
+-->
+
 # Service Initialization Pattern
 
 ## Overview
@@ -189,8 +195,8 @@ postgres://user:pass@host:5432/db?sslmode=disable&search_path=mcp,public
    - Check /admin/migration-status endpoint
 
 2. **Services stuck waiting**
-   - Check REST API health: `curl http://localhost:8081/readyz`
-   - Check migration status: `curl http://localhost:8081/admin/migration-status`
+   - Check REST API health: `curl http://localhost:8081 (REST API)/readyz`
+   - Check migration status: `curl http://localhost:8081 (REST API)/admin/migration-status`
    - Look for migration errors in REST API logs
 
 3. **Migrations not running**
@@ -305,4 +311,3 @@ This initialization pattern ensures:
 - ✅ Resilient to temporary failures
 - ✅ Observable through health endpoints
 - ✅ Works in all environments (local, Docker, Kubernetes)
-- ✅ No dependency on external migration tools

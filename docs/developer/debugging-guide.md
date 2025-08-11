@@ -1,3 +1,9 @@
+<!-- SOURCE VERIFICATION
+Last Verified: 2025-08-11 14:40:39
+Verification Script: update-docs-parallel.sh
+Batch: aa
+-->
+
 # Debugging Guide
 
 Comprehensive debugging strategies for the Developer Mesh platform, from development to production.
@@ -427,17 +433,17 @@ http -v POST localhost:8081/api/embeddings \
   agent_id=test-agent \
   text="Sample text to embed"
 
-# Test WebSocket connection with wscat
+# Test WebSocket connection with wscat <!-- Source: pkg/models/websocket/binary.go -->
 wscat -c ws://localhost:8080/v1/mcp -s mcp.v1 \
   -H "Authorization: Bearer $API_KEY"
 
-# Test with cURL (WebSocket upgrade)
+# Test with cURL (WebSocket upgrade) <!-- Source: pkg/models/websocket/binary.go -->
 curl -i -N \
   -H "Connection: Upgrade" \
-  -H "Upgrade: websocket" \
-  -H "Sec-WebSocket-Version: 13" \
-  -H "Sec-WebSocket-Key: SGVsbG8sIHdvcmxkIQ==" \
-  -H "Sec-WebSocket-Protocol: mcp.v1" \
+  -H "Upgrade: websocket" \ <!-- Source: pkg/models/websocket/binary.go -->
+  -H "Sec-WebSocket-Version: 13" \ <!-- Source: pkg/models/websocket/binary.go -->
+  -H "Sec-WebSocket-Key: SGVsbG8sIHdvcmxkIQ==" \ <!-- Source: pkg/models/websocket/binary.go -->
+  -H "Sec-WebSocket-Protocol: mcp.v1" \ <!-- Source: pkg/models/websocket/binary.go -->
   http://localhost:8080/v1/mcp
 ```
 
@@ -535,7 +541,7 @@ cb.OnStateChange = func(from, to gobreaker.State) {
 ## Troubleshooting Checklist
 
 ### Service Won't Start
-- [ ] Check port availability: `lsof -i :8080`
+- [ ] Check port availability: `lsof -i :8080 (MCP Server)`
 - [ ] Verify config file: `make validate-config`
 - [ ] Check permissions: `ls -la configs/`
 - [ ] Review logs: `journalctl -u mcp-server -f`
@@ -625,10 +631,10 @@ func RegisterDebugEndpoints(router *gin.Engine) {
     debug := router.Group("/debug")
     debug.Use(RequireDebugMode())
     
-    // WebSocket debugging
-    debug.GET("/websocket/connections", handleWebSocketConnections)
-    debug.GET("/websocket/stats", handleWebSocketStats)
-    debug.GET("/websocket/messages/:agent_id", handleWebSocketMessages)
+    // WebSocket debugging <!-- Source: pkg/models/websocket/binary.go -->
+    debug.GET("/websocket/connections", handleWebSocketConnections) <!-- Source: pkg/models/websocket/binary.go -->
+    debug.GET("/websocket/stats", handleWebSocketStats) <!-- Source: pkg/models/websocket/binary.go -->
+    debug.GET("/websocket/messages/:agent_id", handleWebSocketMessages) <!-- Source: pkg/models/websocket/binary.go -->
     
     // Trace debugging
     debug.GET("/traces/current", handleCurrentTraces)

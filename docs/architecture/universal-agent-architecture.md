@@ -1,3 +1,9 @@
+<!-- SOURCE VERIFICATION
+Last Verified: 2025-08-11 14:37:21
+Verification Script: update-docs-parallel.sh
+Batch: aa
+-->
+
 # Universal Agent Registration Architecture
 
 ## Overview
@@ -29,7 +35,7 @@ CREATE TABLE mcp.agent_manifests (
 
 ```mermaid
 graph TD
-    A[Agent Connect] --> B[WebSocket Handshake]
+    A[Agent Connect] --> B[WebSocket Handshake] <!-- Source: pkg/models/websocket/binary.go -->
     B --> C[Authentication]
     C --> D[Organization Binding]
     D --> E[Manifest Creation/Update]
@@ -326,11 +332,11 @@ CREATE INDEX idx_channels_manifest ON mcp.agent_channels(manifest_id);
    - `agent_circuit_breaker.go` - Failure protection
 
 5. **Message Routing**:
-   - `agent_message_broker.go` - Redis Streams broker
+   - `agent_message_broker.go` - Redis Streams broker <!-- Source: pkg/redis/streams_client.go -->
    - `agent_message_handlers.go` - Type-specific handlers
 
-6. **WebSocket Integration**:
-   - `universal_agent_handlers_extended.go` - WebSocket handlers
+6. **WebSocket Integration**: <!-- Source: pkg/models/websocket/binary.go -->
+   - `universal_agent_handlers_extended.go` - WebSocket handlers <!-- Source: pkg/models/websocket/binary.go -->
    - `server_extensions.go` - Extended server structure
    - `handlers_extended.go` - Handler registration
 
@@ -432,4 +438,3 @@ Create Grafana dashboards for:
 2. **Capability Evolution**: Learning and adaptation
 3. **Dynamic Routing**: ML-based optimal routing
 4. **Federation**: Cross-platform agent communication
-5. **Agent Marketplace**: Discover and share agents

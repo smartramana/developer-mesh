@@ -1,3 +1,9 @@
+<!-- SOURCE VERIFICATION
+Last Verified: 2025-08-11 14:30:51
+Verification Script: update-docs-parallel.sh
+Batch: ad
+-->
+
 # Multi-Agent Embedding System Operations Guide
 
 This guide covers operational aspects of running the Multi-Agent Embedding System in production.
@@ -670,4 +676,3 @@ WHERE created_at > NOW() - INTERVAL '1 hour'
 GROUP BY user_id, endpoint
 HAVING COUNT(*) > 1000
    OR SUM(cost_usd) > 100;
-```

@@ -1,3 +1,9 @@
+<!-- SOURCE VERIFICATION
+Last Verified: 2025-08-11 14:35:45
+Verification Script: update-docs-parallel.sh
+Batch: aa
+-->
+
 # Multi-Agent Embedding System Architecture
 
 ## Overview
@@ -376,4 +382,3 @@ MAX_BATCH_SIZE=100
 3. **Analytics**
    - Usage analytics dashboard
    - Cost optimization recommendations
-   - Performance insights

@@ -1,3 +1,9 @@
+<!-- SOURCE VERIFICATION
+Last Verified: 2025-08-11 14:42:35
+Verification Script: update-docs-parallel.sh
+Batch: ad
+-->
+
 # Webhook Lifecycle and Context Storage Alignment
 
 ## Current State Analysis
@@ -148,4 +154,3 @@ func (w *WebhookArchiver) ArchiveExpiring(ctx context.Context) {
         }
     }
 }
-```

@@ -1,3 +1,9 @@
+<!-- SOURCE VERIFICATION
+Last Verified: 2025-08-11 14:27:11
+Verification Script: update-docs-parallel.sh
+Batch: ad
+-->
+
 # API Key Management Guide
 
 This guide explains how to create, manage, and configure API keys for the Developer Mesh platform.
@@ -89,10 +95,10 @@ curl -H "Authorization: Bearer YOUR_API_KEY" https://api.dev-mesh.io/api/v1/...
 curl -H "X-API-Key: YOUR_API_KEY" https://api.dev-mesh.io/api/v1/...
 ```
 
-### In WebSocket Connections
+### In WebSocket Connections <!-- Source: pkg/models/websocket/binary.go -->
 
 ```javascript
-const ws = new WebSocket('wss://mcp.dev-mesh.io/ws', {
+const ws = new WebSocket('wss://mcp.dev-mesh.io/ws', { <!-- Source: pkg/models/websocket/binary.go -->
   headers: {
     'Authorization': 'Bearer YOUR_API_KEY'
   }
@@ -156,4 +162,3 @@ WHERE key_prefix = 'YOUR_KEY_PREFIX';
 3. Implement key rotation every 90 days
 4. Monitor key usage for anomalies
 5. Use different keys for different environments
-6. Implement IP whitelisting for sensitive keys

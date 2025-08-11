@@ -1,3 +1,9 @@
+<!-- SOURCE VERIFICATION
+Last Verified: 2025-08-11 14:44:40
+Verification Script: update-docs-parallel.sh
+Batch: ac
+-->
+
 # Observability Architecture Guide
 
 > **Purpose**: Comprehensive guide to the Developer Mesh observability architecture
@@ -48,7 +54,7 @@ Metrics provide quantitative data about system behavior:
 - Latency percentiles (p50, p95, p99)
 - Resource utilization (CPU, memory, disk)
 - Business metrics (tasks processed, costs)
-- WebSocket connections and message rates
+- WebSocket connections and message rates <!-- Source: pkg/models/websocket/binary.go -->
 
 ### Logs (Why It Happened)
 
@@ -1002,4 +1008,3 @@ dashboards:
 - [OpenTelemetry Documentation](https://opentelemetry.io/docs/)
 - [Prometheus Best Practices](https://prometheus.io/docs/practices/)
 - [Grafana Dashboard Guide](https://grafana.com/docs/grafana/latest/dashboards/)
-- [Distributed Tracing Explained](https://opentracing.io/docs/overview/)

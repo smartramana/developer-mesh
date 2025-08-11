@@ -1,3 +1,9 @@
+<!-- SOURCE VERIFICATION
+Last Verified: 2025-08-11 14:54:37
+Verification Script: update-docs-parallel.sh
+Batch: ac
+-->
+
 # Trace-Based Debugging Guide
 
 > **Purpose**: Practical guide for using distributed traces to debug complex issues in production
@@ -93,7 +99,7 @@ Trace
 │   ├── Span 3: AuthorizeUser
 │   ├── Span 4: CreateTask (database)
 │   ├── Span 5: PublishToQueue (SQS)
-│   └── Span 6: NotifyAgents (WebSocket)
+│   └── Span 6: NotifyAgents (WebSocket) <!-- Source: pkg/models/websocket/binary.go -->
 │       ├── Span 7: SelectAgent
 │       └── Span 8: SendMessage
 └── Span 9: ProcessTask (worker)
@@ -173,16 +179,16 @@ ON tasks USING ivfflat (embedding_vector vector_cosine_ops)
 WHERE embedding_vector IS NOT NULL;
 ```
 
-### Scenario 2: WebSocket Message Loss
+### Scenario 2: WebSocket Message Loss <!-- Source: pkg/models/websocket/binary.go -->
 
 **Symptom**: Agents intermittently miss task assignments
 
 **Investigation Steps**:
 
-1. **Search for WebSocket traces**:
+1. **Search for WebSocket traces**: <!-- Source: pkg/models/websocket/binary.go -->
 ```
 Service: mcp-server
-Operation: HandleWebSocketMessage
+Operation: HandleWebSocketMessage <!-- Source: pkg/models/websocket/binary.go -->
 Tags: ws.message_type=TaskAssignment
 ```
 
@@ -190,7 +196,7 @@ Tags: ws.message_type=TaskAssignment
 
 **Successful Trace**:
 ```
-HandleWebSocketMessage (120ms)
+HandleWebSocketMessage (120ms) <!-- Source: pkg/models/websocket/binary.go -->
 ├── ParseMessage (5ms) ✓
 ├── ValidateAgent (10ms) ✓
 ├── RouteTask (50ms) ✓
@@ -203,7 +209,7 @@ HandleWebSocketMessage (120ms)
 
 **Failed Trace**:
 ```
-HandleWebSocketMessage (75ms)
+HandleWebSocketMessage (75ms) <!-- Source: pkg/models/websocket/binary.go -->
 ├── ParseMessage (5ms) ✓
 ├── ValidateAgent (10ms) ✓
 ├── RouteTask (50ms) ✓
@@ -221,7 +227,7 @@ Tags: ws.connection_id=conn-abc123
 **Solution**:
 ```go
 // Add connection health check before send
-func (h *WebSocketHandler) SendMessage(ctx context.Context, conn *websocket.Conn, msg *Message) error {
+func (h *WebSocketHandler) SendMessage(ctx context.Context, conn *websocket.Conn, msg *Message) error { <!-- Source: pkg/models/websocket/binary.go -->
     span := trace.SpanFromContext(ctx)
     
     // Check connection state
@@ -864,4 +870,3 @@ span.SetAttributes(
 - [Jaeger Documentation](https://www.jaegertracing.io/docs/)
 - [OpenTelemetry Debugging](https://opentelemetry.io/docs/reference/specification/trace/sdk/)
 - [Trace Analysis Tools](https://github.com/jaegertracing/jaeger-analytics-java)
-- [Grafana Trace Viewer](https://grafana.com/docs/grafana/latest/datasources/jaeger/)
