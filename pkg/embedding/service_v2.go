@@ -2,12 +2,15 @@ package embedding
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"strings"
 	"sync"
 	"time"
 
+	"github.com/cenkalti/backoff/v4"
 	"github.com/developer-mesh/developer-mesh/pkg/agents"
 	"github.com/developer-mesh/developer-mesh/pkg/embedding/providers"
 	"github.com/google/uuid"
@@ -30,18 +33,20 @@ type ServiceV2 struct {
 	router           *SmartRouter
 	dimensionAdapter *DimensionAdapter
 	cache            EmbeddingCache
+	modelSelector    ModelSelector
 	progressFunc     func(float64) // Progress callback for batch operations
 	mu               sync.RWMutex
 }
 
 // ServiceV2Config contains configuration for the service
 type ServiceV2Config struct {
-	Providers    map[string]providers.Provider
-	AgentService AgentService
-	Repository   *Repository
-	MetricsRepo  MetricsRepository
-	Cache        EmbeddingCache
-	RouterConfig *RouterConfig
+	Providers     map[string]providers.Provider
+	AgentService  AgentService
+	Repository    *Repository
+	MetricsRepo   MetricsRepository
+	Cache         EmbeddingCache
+	ModelSelector ModelSelector
+	RouterConfig  *RouterConfig
 }
 
 // EmbeddingCache defines the interface for caching embeddings
@@ -93,11 +98,12 @@ type EmbeddingMetric struct {
 type GenerateEmbeddingRequest struct {
 	AgentID   string                 `json:"agent_id" validate:"required"`
 	Text      string                 `json:"text" validate:"required,max=50000"`
+	Model     string                 `json:"model"` // Optional model specification (e.g., "bedrock:amazon.titan-embed-text-v2:0")
 	TaskType  agents.TaskType        `json:"task_type"`
 	Metadata  map[string]interface{} `json:"metadata"`
 	RequestID string                 `json:"request_id"`
 	TenantID  uuid.UUID              `json:"tenant_id"`
-	ContextID uuid.UUID              `json:"context_id"`
+	ContextID *uuid.UUID             `json:"context_id,omitempty"` // Optional context reference
 }
 
 // GenerateEmbeddingResponse represents the response from generating an embedding
@@ -130,11 +136,17 @@ func NewServiceV2(config ServiceV2Config) (*ServiceV2, error) {
 	}
 
 	s := &ServiceV2{
-		providers:    config.Providers,
-		agentService: config.AgentService,
-		repository:   config.Repository,
-		metricsRepo:  config.MetricsRepo,
-		cache:        config.Cache,
+		providers:     config.Providers,
+		agentService:  config.AgentService,
+		repository:    config.Repository,
+		metricsRepo:   config.MetricsRepo,
+		cache:         config.Cache,
+		modelSelector: config.ModelSelector,
+	}
+
+	// Use default model selector if none provided
+	if s.modelSelector == nil {
+		s.modelSelector = NewDefaultModelSelector()
 	}
 
 	// Initialize router
@@ -147,6 +159,32 @@ func NewServiceV2(config ServiceV2Config) (*ServiceV2, error) {
 	s.dimensionAdapter = NewDimensionAdapter()
 
 	return s, nil
+}
+
+// parseModelString parses a model string like "bedrock:amazon.titan-embed-text-v2:0" into provider and model
+func (s *ServiceV2) parseModelString(modelStr string) (provider, model string) {
+	if modelStr == "" {
+		return "", ""
+	}
+
+	parts := strings.SplitN(modelStr, ":", 2)
+	if len(parts) == 2 {
+		return parts[0], parts[1]
+	}
+
+	// If no provider specified, try to infer from model name
+	if strings.Contains(modelStr, "titan") {
+		return "bedrock", modelStr
+	}
+	if strings.Contains(modelStr, "ada") || strings.Contains(modelStr, "embedding") {
+		return "openai", modelStr
+	}
+	if strings.Contains(modelStr, "gemini") || strings.Contains(modelStr, "gecko") {
+		return "google", modelStr
+	}
+
+	// Default to bedrock
+	return "bedrock", modelStr
 }
 
 // GenerateEmbedding generates an embedding for the given request
@@ -162,10 +200,11 @@ func (s *ServiceV2) GenerateEmbedding(ctx context.Context, req GenerateEmbedding
 		requestID = uuid.New().String()
 	}
 
-	// Get agent configuration
-	agentConfig, err := s.agentService.GetConfig(ctx, req.AgentID)
-	if err != nil {
-		return nil, fmt.Errorf("failed to get agent config: %w", err)
+	// Try to get agent configuration, but don't fail if not found
+	var agentConfig *agents.AgentConfig
+	if req.AgentID != "" {
+		agentConfig, _ = s.agentService.GetConfig(ctx, req.AgentID)
+		// Note: agent config not found, will use defaults
 	}
 
 	// Determine task type
@@ -174,7 +213,46 @@ func (s *ServiceV2) GenerateEmbedding(ctx context.Context, req GenerateEmbedding
 		taskType = agents.TaskTypeGeneralQA
 	}
 
-	// Check cache if enabled
+	// First check if we already have this embedding in the database
+	// This is more efficient than generating and then hitting a duplicate key error
+	contentHash := calculateContentHash(req.Text)
+
+	// Determine which model we'll use (needed for deduplication check)
+	modelName := "amazon.titan-embed-text-v2:0" // Default
+	if req.Model != "" {
+		_, model := s.parseModelString(req.Model)
+		if model != "" {
+			modelName = model
+		}
+	}
+
+	// Check for existing embedding
+	existingEmbeddingID, checkErr := s.repository.GetExistingEmbedding(ctx, contentHash, modelName, req.TenantID)
+	if checkErr != nil {
+		// Log warning but continue with generation
+		// Continue with generation even if check fails
+	} else if existingEmbeddingID != nil {
+		// We found an existing embedding - return it immediately
+
+		return &GenerateEmbeddingResponse{
+			EmbeddingID:          *existingEmbeddingID,
+			RequestID:            requestID,
+			ModelUsed:            modelName,
+			Provider:             "cached", // Indicates this was retrieved, not generated
+			Dimensions:           1024,     // Default dimensions for Titan v2
+			NormalizedDimensions: StandardDimension,
+			Cached:               true,
+			Metadata: map[string]interface{}{
+				"deduplicated": true,
+				"content_hash": contentHash,
+			},
+			GenerationTimeMs: time.Since(start).Milliseconds(),
+			CostUSD:          0, // No cost for deduplicated embeddings
+			TokensUsed:       0, // No tokens used
+		}, nil
+	}
+
+	// Check cache if enabled (for in-memory caching)
 	if s.cache != nil {
 		cacheKey := s.generateCacheKey(req)
 		if cached, err := s.cache.Get(ctx, cacheKey); err == nil && cached != nil {
@@ -192,17 +270,84 @@ func (s *ServiceV2) GenerateEmbedding(ctx context.Context, req GenerateEmbedding
 		}
 	}
 
-	// Select model and provider using router
-	routingDecision, err := s.router.SelectProvider(ctx, &RoutingRequest{
-		AgentConfig: agentConfig,
-		TaskType:    taskType,
-		RequestID:   requestID,
-	})
-	if err != nil {
-		return nil, fmt.Errorf("failed to select provider: %w", err)
+	// Select model and provider using router or use defaults from request
+	var routingDecision *RoutingDecision
+	var modelSelection *ModelSelectionResult // Store for usage tracking
+	var err error
+
+	if agentConfig != nil {
+		// Use agent config if available
+		routingDecision, err = s.router.SelectProvider(ctx, &RoutingRequest{
+			AgentConfig: agentConfig,
+			TaskType:    taskType,
+			RequestID:   requestID,
+		})
+		if err != nil {
+			return nil, fmt.Errorf("failed to select provider: %w", err)
+		}
+	} else {
+		// Use model selector for intelligent model selection
+		var agentID *uuid.UUID
+		if req.AgentID != "" {
+			id, err := uuid.Parse(req.AgentID)
+			if err != nil {
+				// Invalid agent ID format, continue without agent context
+				// This allows non-UUID agent identifiers to be used without failing
+				agentID = nil
+			} else {
+				agentID = &id
+			}
+		}
+
+		taskTypeStr := string(taskType)
+		modelSelection, err = s.modelSelector.SelectModel(ctx, ModelSelectionRequest{
+			TenantID:       req.TenantID,
+			AgentID:        agentID,
+			TaskType:       &taskTypeStr,
+			RequestedModel: &req.Model,
+			TokenEstimate:  len(req.Text) / 4, // Rough estimate: 1 token per 4 chars
+		})
+
+		if err != nil {
+			// Fall back to defaults if model selection fails
+			provider := "bedrock"
+			model := "amazon.titan-embed-text-v2:0"
+
+			// Optional: Allow override only if it's a valid embedding model
+			if req.Model != "" && strings.Contains(req.Model, "embed") {
+				reqProvider, reqModel := s.parseModelString(req.Model)
+				if reqProvider != "" {
+					provider = reqProvider
+				}
+				if reqModel != "" {
+					model = reqModel
+				}
+			}
+
+			routingDecision = &RoutingDecision{
+				Strategy: "fallback",
+				Candidates: []ProviderCandidate{
+					{
+						Provider: provider,
+						Model:    model,
+					},
+				},
+			}
+		} else {
+			// Use the selected model
+			routingDecision = &RoutingDecision{
+				Strategy: "model_selector",
+				Candidates: []ProviderCandidate{
+					{
+						Provider: modelSelection.Provider,
+						Model:    modelSelection.ModelIdentifier,
+					},
+				},
+			}
+		}
 	}
 
-	// Generate embedding with selected provider
+	// Generate embedding with selected provider using exponential backoff
 	var embeddingResp *providers.EmbeddingResponse
 	var lastErr error
 	retryCount := 0
@@ -213,16 +358,37 @@ func (s *ServiceV2) GenerateEmbedding(ctx context.Context, req GenerateEmbedding
 			continue
 		}
 
-		providerStart := time.Now()
-		embeddingResp, lastErr = provider.GenerateEmbedding(ctx, providers.GenerateEmbeddingRequest{
-			Text:      req.Text,
-			Model:     candidate.Model,
-			Metadata:  req.Metadata,
-			RequestID: requestID,
-		})
-		providerLatency := time.Since(providerStart)
+		// Create exponential backoff strategy
+		b := backoff.NewExponentialBackOff()
+		b.InitialInterval = 500 * time.Millisecond
+		b.RandomizationFactor = 0.5
+		b.Multiplier = 1.5
+		b.MaxInterval = 5 * time.Second
+		b.MaxElapsedTime = 30 * time.Second
+		b.Reset()
 
-		if lastErr == nil {
+		// Wrap provider call in retry logic
+		operation := func() error {
+			providerStart := time.Now()
+			resp, err := provider.GenerateEmbedding(ctx, providers.GenerateEmbeddingRequest{
+				Text:      req.Text,
+				Model:     candidate.Model,
+				Metadata:  req.Metadata,
+				RequestID: requestID,
+			})
+			providerLatency := time.Since(providerStart)
+
+			if err != nil {
+				// Check if error is retryable
+				if isRetryableError(err) {
+					return err
+				}
+				// Non-retryable error, return as permanent
+				return backoff.Permanent(err)
+			}
+
+			embeddingResp = resp
+
 			// Success - record metrics
 			s.recordMetric(ctx, &EmbeddingMetric{
 				ID:                uuid.New(),
@@ -241,10 +407,18 @@ func (s *ServiceV2) GenerateEmbedding(ctx context.Context, req GenerateEmbedding
 				TenantID:          req.TenantID,
 				Timestamp:         time.Now(),
 			})
+			return nil
+		}
+
+		// Execute with backoff
+		lastErr = backoff.Retry(operation, b)
+
+		if lastErr == nil {
+			// Success with this provider
 			break
 		}
 
-		// Failure - record and try next
+		// Failure - record and try next provider
 		s.recordMetric(ctx, &EmbeddingMetric{
 			ID:            uuid.New(),
 			AgentID:       req.AgentID,
@@ -263,6 +437,30 @@ func (s *ServiceV2) GenerateEmbedding(ctx context.Context, req GenerateEmbedding
 
 	if lastErr != nil {
 		return nil, fmt.Errorf("all providers failed: %w", lastErr)
+	}
+
+	// Track usage asynchronously if we have a model selector and model selection
+	if s.modelSelector != nil && embeddingResp != nil && modelSelection != nil {
+		go func() {
+			var agentID *uuid.UUID
+			if req.AgentID != "" {
+				id, err := uuid.Parse(req.AgentID)
+				if err == nil {
+					agentID = &id
+				}
+				// If not a valid UUID, agentID remains nil (anonymous usage)
+			}
+			taskTypeStr := string(taskType)
+			s.modelSelector.TrackUsage(
+				context.Background(),
+				req.TenantID,
+				modelSelection.ModelID,
+				agentID,
+				embeddingResp.TokensUsed,
+				int(time.Since(start).Milliseconds()),
+				&taskTypeStr,
+			)
+		}()
 	}
 
 	// Normalize embedding to standard dimension
@@ -287,13 +485,13 @@ func (s *ServiceV2) GenerateEmbedding(ctx context.Context, req GenerateEmbedding
 	metadata["generation_time_ms"] = time.Since(start).Milliseconds()
 
 	insertReq := InsertRequest{
-		ContextID:            req.ContextID,
+		ContextID:            req.ContextID, // Now properly nullable
 		Content:              req.Text,
 		Embedding:            embeddingResp.Embedding,
 		ModelName:            embeddingResp.Model,
 		TenantID:             req.TenantID,
 		Metadata:             json.RawMessage(mustMarshalJSON(metadata)),
-		ConfiguredDimensions: &embeddingResp.Dimensions,
+		ConfiguredDimensions: nil, // Only set when actually using dimension reduction
 	}
 
 	embeddingID, err := s.repository.InsertEmbedding(ctx, insertReq)
@@ -800,6 +998,11 @@ func hashString(s string) string {
 	return fmt.Sprintf("%x", s[:min(len(s), 32)])
 }
 
+func calculateContentHash(content string) string {
+	hash := sha256.Sum256([]byte(content))
+	return hex.EncodeToString(hash[:])
+}
+
 func min(a, b int) int {
 	if a < b {
 		return a
@@ -812,6 +1015,45 @@ func max(a, b int) int {
 		return a
 	}
 	return b
+}
+
+// isRetryableError determines if an error should trigger a retry
+func isRetryableError(err error) bool {
+	if err == nil {
+		return false
+	}
+
+	// Check for common retryable error patterns
+	errStr := strings.ToLower(err.Error())
+	retryablePatterns := []string{
+		"timeout",
+		"connection",
+		"temporary",
+		"unavailable",
+		"throttled",
+		"rate limit",
+		"too many requests",
+		"429",
+		"502",
+		"503",
+		"504",
+	}
+
+	for _, pattern := range retryablePatterns {
+		if strings.Contains(errStr, pattern) {
+			return true
+		}
+	}
+
+	// Check if error implements a Temporary() method
+	type temporary interface {
+		Temporary() bool
+	}
+	if te, ok := err.(temporary); ok {
+		return te.Temporary()
+	}
+
+	return false
 }
 
 // Types for health and metrics

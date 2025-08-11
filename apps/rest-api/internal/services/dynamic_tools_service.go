@@ -5,6 +5,8 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
+	"io"
+	"net/http"
 	"regexp"
 	"strings"
 	"sync"
@@ -18,6 +20,7 @@ import (
 	"github.com/developer-mesh/developer-mesh/pkg/security"
 	"github.com/developer-mesh/developer-mesh/pkg/tools"
 	"github.com/developer-mesh/developer-mesh/pkg/tools/adapters"
+	"github.com/getkin/kin-openapi/openapi3"
 	"github.com/google/uuid"
 	"github.com/jmoiron/sqlx"
 )
@@ -42,6 +45,7 @@ type DynamicToolsServiceInterface interface {
 	// Action operations
 	ListToolActions(ctx context.Context, tenantID, toolID string) ([]models.ToolAction, error)
 	ExecuteToolAction(ctx context.Context, tenantID, toolID, action string, params map[string]interface{}) (interface{}, error)
+	ExecuteToolActionWithPassthrough(ctx context.Context, tenantID, toolID, action string, params map[string]interface{}, passthroughAuth *models.PassthroughAuthBundle) (interface{}, error)
 
 	// Credential operations
 	UpdateToolCredentials(ctx context.Context, tenantID, toolID string, creds *models.TokenCredential) error
@@ -168,32 +172,23 @@ func (s *DynamicToolsService) GetTool(ctx context.Context, tenantID, toolID stri
 	}
 	s.toolCacheMu.RUnlock()
 
-	query := `
-		SELECT 
-			id, tenant_id, tool_name, display_name, base_url,
-			config, auth_type, retry_policy, status, 
-			health_status, last_health_check,
-			created_at, updated_at, provider, passthrough_config,
-			webhook_config, credentials_encrypted
-		FROM mcp.tool_configurations
-		WHERE tenant_id = $1 AND id = $2
-	`
-
-	var tool models.DynamicTool
-	err := s.db.GetContext(ctx, &tool, query, tenantID, toolID)
+	// Use repository to get the tool (handles JSONB unmarshaling properly)
+	tool, err := s.dynamicToolRepo.GetByID(ctx, toolID)
 	if err != nil {
-		if err == sql.ErrNoRows {
-			return nil, fmt.Errorf("tool not found")
-		}
 		return nil, fmt.Errorf("failed to get tool: %w", err)
+	}
+
+	// Verify tenant ownership
+	if tool.TenantID != tenantID {
+		return nil, fmt.Errorf("tool not found")
 	}
 
 	// Cache the result with write lock
 	s.toolCacheMu.Lock()
-	s.toolCache[cacheKey] = &tool
+	s.toolCache[cacheKey] = tool
 	s.toolCacheMu.Unlock()
 
-	return &tool, nil
+	return tool, nil
 }
 
 // CreateTool creates a new tool with discovery
@@ -257,6 +252,36 @@ func (s *DynamicToolsService) CreateTool(ctx context.Context, tenantID string, c
 			return nil, fmt.Errorf("failed to encrypt credentials: %w", err)
 		}
 		encryptedCreds = []byte(encryptedJSON)
+	}
+
+	// Pre-cache the OpenAPI spec if available
+	if specURL, ok := config.Config["spec_url"].(string); ok && specURL != "" {
+		s.logger.Info("Pre-caching OpenAPI spec for tool", map[string]interface{}{
+			"tool_name": config.Name,
+			"spec_url":  specURL,
+		})
+
+		// Create cache repository
+		cacheRepo := pkgrepository.NewOpenAPICacheRepository(s.db)
+
+		// Attempt to fetch and cache the spec
+		go func() {
+			ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
+			defer cancel()
+
+			if err := s.preCacheOpenAPISpec(ctx, specURL, cacheRepo); err != nil {
+				s.logger.Error("Failed to pre-cache OpenAPI spec", map[string]interface{}{
+					"tool_name": config.Name,
+					"spec_url":  specURL,
+					"error":     err.Error(),
+				})
+			} else {
+				s.logger.Info("Successfully pre-cached OpenAPI spec", map[string]interface{}{
+					"tool_name": config.Name,
+					"spec_url":  specURL,
+				})
+			}
+		}()
 	}
 
 	// Marshal webhook config if present
@@ -702,9 +727,9 @@ func (s *DynamicToolsService) ExecuteToolAction(ctx context.Context, tenantID, t
 	// Log execution to database
 	executionID := uuid.New().String()
 	query := `
-		INSERT INTO tool_executions (
-			id, tool_config_id, tenant_id, action, parameters,
-			status, result, response_time_ms, executed_at, completed_at
+		INSERT INTO mcp.tool_executions (
+			id, tool_id, tenant_id, action, input_data,
+			status, output_data, duration_ms, executed_at, completed_at
 		) VALUES (
 			$1, $2, $3, $4, $5, $6, $7, $8, $9, $10
 		)
@@ -712,7 +737,7 @@ func (s *DynamicToolsService) ExecuteToolAction(ctx context.Context, tenantID, t
 
 	paramsJSON, _ := json.Marshal(params)
 	resultJSON, _ := json.Marshal(result)
-	status := "success"
+	status := "completed"
 	if !result.Success {
 		status = "failed"
 	}
@@ -739,6 +764,128 @@ func (s *DynamicToolsService) ExecuteToolAction(ctx context.Context, tenantID, t
 	}
 
 	return result, nil
+}
+
+// ExecuteToolActionWithPassthrough executes a tool action with passthrough authentication
+func (s *DynamicToolsService) ExecuteToolActionWithPassthrough(
+	ctx context.Context,
+	tenantID, toolID, action string,
+	params map[string]interface{},
+	passthroughAuth *models.PassthroughAuthBundle,
+) (interface{}, error) {
+	start := time.Now()
+
+	// Get the tool
+	tool, err := s.GetTool(ctx, tenantID, toolID)
+	if err != nil {
+		return nil, err
+	}
+
+	// Check if tool is active
+	if tool.Status != "active" {
+		return nil, fmt.Errorf("tool is not active: %s", tool.Status)
+	}
+
+	// Parse passthrough config
+	var passthroughConfig *models.EnhancedPassthroughConfig
+	if tool.PassthroughConfig != nil {
+		passthroughConfig = &models.EnhancedPassthroughConfig{}
+		if err := json.Unmarshal(*tool.PassthroughConfig, passthroughConfig); err != nil {
+			s.logger.Warn("Failed to parse passthrough config", map[string]interface{}{
+				"tool_id": toolID,
+				"error":   err.Error(),
+			})
+		}
+	}
+
+	// Check if passthrough is allowed
+	if passthroughConfig != nil && passthroughConfig.Mode == "disabled" {
+		return nil, fmt.Errorf("passthrough authentication is disabled for this tool")
+	}
+
+	// If passthrough is required but not provided
+	if passthroughConfig != nil && passthroughConfig.Mode == "required" && passthroughAuth == nil {
+		return nil, fmt.Errorf("passthrough authentication is required for this tool")
+	}
+
+	// Create OpenAPI cache repository
+	cacheRepo := pkgrepository.NewOpenAPICacheRepository(s.db)
+
+	// Create adapter for the tool
+	adapter, err := adapters.NewDynamicToolAdapter(tool, cacheRepo, s.encryptionSvc, s.logger)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create tool adapter: %w", err)
+	}
+
+	// Execute the action with passthrough auth
+	execResult, err := adapter.ExecuteWithPassthrough(ctx, action, params, passthroughAuth, passthroughConfig)
+	if err != nil {
+		s.logger.Error("Failed to execute tool action with passthrough", map[string]interface{}{
+			"tenant_id":       tenantID,
+			"tool_id":         toolID,
+			"action":          action,
+			"has_passthrough": passthroughAuth != nil,
+			"error":           err.Error(),
+		})
+		// Record failure metric
+		if s.metricsClient != nil {
+			s.metricsClient.IncrementCounterWithLabels("tools.actions.execute.passthrough.error", 1, map[string]string{
+				"tenant_id": tenantID,
+				"tool_id":   toolID,
+				"action":    action,
+			})
+		}
+		return nil, err
+	}
+
+	// Log execution to database with passthrough flag
+	executionID := uuid.New().String()
+	status := "completed"
+
+	// Check if there was an error in the execution
+	if execResult.Error != "" {
+		status = "failed"
+	}
+
+	// Determine auth method used
+	authMethod := "stored"
+	if passthroughAuth != nil {
+		authMethod = "passthrough"
+	}
+
+	query := `
+		INSERT INTO mcp.tool_executions (
+			id, tool_id, tenant_id, action, input_data,
+			output_data, status, duration_ms, executed_at, completed_at
+		) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+	`
+
+	responseJSON, _ := json.Marshal(execResult)
+	paramsJSON, _ := json.Marshal(params)
+
+	_, dbErr := s.db.ExecContext(ctx, query,
+		executionID, toolID, tenantID, action, paramsJSON,
+		responseJSON, status, time.Since(start).Milliseconds(),
+		time.Now(), time.Now(),
+	)
+	if dbErr != nil {
+		s.logger.Warn("Failed to log tool execution", map[string]interface{}{
+			"error": dbErr.Error(),
+		})
+	}
+
+	// Record success metrics
+	if s.metricsClient != nil {
+		s.metricsClient.RecordHistogram("tools.actions.execute.passthrough.duration", float64(time.Since(start).Milliseconds()), map[string]string{
+			"tenant_id":   tenantID,
+			"tool_id":     toolID,
+			"action":      action,
+			"status":      status,
+			"auth_method": authMethod,
+		})
+	}
+
+	return execResult, nil
 }
 
 // UpdateToolCredentials updates tool credentials
@@ -1021,6 +1168,82 @@ func (s *DynamicToolsService) CreateToolsFromMultipleAPIs(ctx context.Context, t
 	}
 
 	return createdTools, nil
+}
+
+// preCacheOpenAPISpec fetches and caches an OpenAPI spec
+func (s *DynamicToolsService) preCacheOpenAPISpec(ctx context.Context, specURL string, cacheRepo pkgrepository.OpenAPICacheRepository) error {
+	// Create HTTP client with timeout
+	client := &http.Client{
+		Timeout: 30 * time.Second,
+	}
+
+	// Fetch the spec
+	req, err := http.NewRequestWithContext(ctx, "GET", specURL, nil)
+	if err != nil {
+		return fmt.Errorf("failed to create request: %w", err)
+	}
+
+	resp, err := client.Do(req)
+	if err != nil {
+		return fmt.Errorf("failed to fetch spec: %w", err)
+	}
+	defer func() {
+		if err := resp.Body.Close(); err != nil {
+			s.logger.Warn("Failed to close response body", map[string]interface{}{
+				"error": err.Error(),
+			})
+		}
+	}()
+
+	if resp.StatusCode != http.StatusOK {
+		return fmt.Errorf("failed to fetch spec: HTTP %d", resp.StatusCode)
+	}
+
+	// Read the response body
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return fmt.Errorf("failed to read spec body: %w", err)
+	}
+
+	// Parse the OpenAPI spec
+	loader := openapi3.NewLoader()
+	loader.IsExternalRefsAllowed = true
+
+	// Use LoadFromData to parse the spec
+	spec, err := loader.LoadFromData(body)
+	if err != nil {
+		s.logger.Warn("Failed to parse full OpenAPI spec, attempting minimal parse", map[string]interface{}{
+			"spec_url": specURL,
+			"error":    err.Error(),
+		})
+		// Even if full parsing fails, we can still cache the raw spec
+		// The adapter will handle parsing errors gracefully
+	}
+
+	// Cache the spec with 24 hour TTL
+	if spec != nil {
+		if err := cacheRepo.Set(ctx, specURL, spec, 24*time.Hour); err != nil {
+			return fmt.Errorf("failed to cache spec: %w", err)
+		}
+
+		// Log success with operation count
+		operationCount := 0
+		if spec.Paths != nil {
+			for _, pathItem := range spec.Paths.Map() {
+				operationCount += len(pathItem.Operations())
+			}
+		}
+
+		s.logger.Info("Cached OpenAPI spec", map[string]interface{}{
+			"spec_url":   specURL,
+			"paths":      len(spec.Paths.Map()),
+			"operations": operationCount,
+			"title":      spec.Info.Title,
+			"version":    spec.Info.Version,
+		})
+	}
+
+	return nil
 }
 
 // sanitizeToolName converts a display name to a valid tool_name

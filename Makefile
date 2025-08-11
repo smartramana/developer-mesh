@@ -174,11 +174,11 @@ clean: ## Clean build artifacts
 .PHONY: test
 test: ## Run all unit tests (excludes integration tests and Redis-dependent tests)
 	@echo "Running unit tests..."
-	@$(GOTEST) -v -short \
-		./apps/mcp-server/... \
-		./apps/rest-api/... \
-		./apps/worker/... \
-		$$(go list ./pkg/... | grep -v pkg/embedding/cache)
+	@cd apps/mcp-server && $(GOTEST) -v -short ./... && cd ../.. && \
+	cd apps/rest-api && $(GOTEST) -v -short ./... && cd ../.. && \
+	cd apps/worker && $(GOTEST) -v -short ./... && cd ../.. && \
+	cd apps/mockserver && $(GOTEST) -v -short ./... && cd ../.. && \
+	cd pkg && $(GOTEST) -v -short $$(go list ./... | grep -v embedding/cache) && cd ..
 
 .PHONY: test-with-services
 test-with-services: start-test-env ## Run unit tests that require Redis/PostgreSQL
@@ -194,6 +194,19 @@ test-coverage: ## Run tests with coverage report
 .PHONY: test-coverage-html
 test-coverage-html: test-coverage ## Generate HTML coverage report
 	$(GOCMD) tool cover -html=coverage.out
+
+# Integration and E2E tests are defined later in the file with Docker support
+
+.PHONY: test-all
+test-all: test test-integration test-e2e ## Run all tests (unit, integration, and E2E)
+
+.PHONY: test-embedding
+test-embedding: ## Run embedding-specific tests
+	@echo "Running embedding system tests..."
+	@$(GOTEST) -v ./pkg/repository/model_catalog/... \
+		./pkg/repository/tenant_models/... \
+		./pkg/repository/embedding_usage/... \
+		./apps/rest-api/internal/services/*model*.go
 
 .PHONY: start-test-env
 start-test-env: ## Start test environment (Redis + PostgreSQL in Docker)
@@ -935,4 +948,23 @@ fix-multiagent: ## Test the multi-agent workflow fix
 .PHONY: reset-all
 reset-all: docker-clean reset-test-data ## Reset everything (Docker + test data)
 	@echo "✅ Complete reset done"
+
+# ==============================================================================
+# IDE Agent Testing
+# ==============================================================================
+
+.PHONY: test-agent-mcp
+test-agent-mcp: ## Test agent GitHub operations via MCP (read-only, with embeddings)
+	@echo "Testing agent MCP integration with GitHub..."
+	@bash ./scripts/test-agent-github-mcp.sh
+
+.PHONY: test-ide-github
+test-ide-github: ## Test local MCP client to DevMesh connection (simulates IDE integration)
+	@echo "Testing local MCP client connection to DevMesh server..."
+	@./scripts/test-ide-github-integration.sh
+
+.PHONY: demo-ide-agent
+demo-ide-agent: ## Run IDE agent demo with GitHub
+	@echo "Running IDE agent demo..."
+	@go run examples/ide_agent_github_demo.go
 

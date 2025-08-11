@@ -4,6 +4,8 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"regexp"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -26,6 +28,38 @@ const (
 	contextKeyConnectionID contextKey = "connection_id"
 	contextKeyAgentID      contextKey = "agent_id"
 )
+
+// isUUID checks if a string is a valid UUID format
+func isUUID(s string) bool {
+	// UUID regex pattern: 8-4-4-4-12 hexadecimal digits
+	uuidPattern := regexp.MustCompile(`^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$`)
+	return uuidPattern.MatchString(strings.ToLower(s))
+}
+
+// TODO: Uncomment when HTTP error mapping is needed
+// mapHTTPErrorToWebSocket maps HTTP error codes to WebSocket error codes
+// func mapHTTPErrorToWebSocket(httpError string) (int, string) {
+// 	switch {
+// 	case strings.Contains(httpError, "HTTP 400"):
+// 		return ws.ErrCodeInvalidParams, "Invalid request parameters"
+// 	case strings.Contains(httpError, "HTTP 401"):
+// 		return ws.ErrCodeAuthFailed, "Authentication required"
+// 	case strings.Contains(httpError, "HTTP 403"):
+// 		return ws.ErrCodeAuthFailed, "Permission denied"
+// 	case strings.Contains(httpError, "HTTP 404"):
+// 		return ws.ErrCodeMethodNotFound, "Resource not found"
+// 	case strings.Contains(httpError, "HTTP 429"):
+// 		return ws.ErrCodeRateLimited, "Rate limit exceeded"
+// 	case strings.Contains(httpError, "HTTP 500"), strings.Contains(httpError, "HTTP 502"), strings.Contains(httpError, "HTTP 503"):
+// 		return ws.ErrCodeServerError, "Service temporarily unavailable"
+// 	case strings.Contains(httpError, "circuit breaker"):
+// 		return ws.ErrCodeServerError, "Service circuit breaker activated"
+// 	case strings.Contains(httpError, "timeout"):
+// 		return ws.ErrCodeServerError, "Request timeout"
+// 	default:
+// 		return ws.ErrCodeServerError, "Internal error"
+// 	}
+// }
 
 // PostActionConfig defines how a post-response action should be executed
 type PostActionConfig struct {
@@ -57,6 +91,9 @@ func (s *Server) RegisterHandlers() {
 		"tool.list":    s.handleToolList,
 		"tool.execute": s.handleToolExecute,
 		"tool.cancel":  s.handleToolCancel,
+
+		// Embedding operations
+		"embedding.generate": s.handleEmbeddingGenerate,
 
 		// Context management
 		"context.create":     s.handleContextCreate,
@@ -105,8 +142,9 @@ func (s *Server) RegisterHandlers() {
 		"workflow.resume":                s.handleWorkflowResume,
 		"workflow.complete_task":         s.handleWorkflowCompleteTask,
 
-		// Agent management
-		"agent.register":      s.handleAgentRegister,
+		// Agent management - using new idempotent registration
+		"agent.register":      s.handleAgentRegisterIdempotent,
+		"agent.heartbeat":     s.handleAgentHeartbeatProper,
 		"agent.discover":      s.handleAgentDiscover,
 		"agent.delegate":      s.handleAgentDelegate,
 		"agent.collaborate":   s.handleAgentCollaborate,
@@ -171,7 +209,25 @@ func (s *Server) RegisterHandlers() {
 
 // processMessage handles incoming WebSocket messages
 func (s *Server) processMessage(ctx context.Context, conn *Connection, msg *ws.Message) ([]byte, *PostActionConfig, error) {
-	// Validate message
+	// Handle special message types first
+	if msg.Type == ws.MessageTypePing {
+		// Handle ping messages directly
+		pongMsg := &ws.Message{
+			Type: ws.MessageTypePong,
+			ID:   msg.ID,
+			Result: map[string]interface{}{
+				"pong":      true,
+				"timestamp": time.Now().Unix(),
+			},
+		}
+		pongBytes, err := json.Marshal(pongMsg)
+		if err != nil {
+			return nil, nil, fmt.Errorf("failed to marshal pong: %w", err)
+		}
+		return pongBytes, nil, nil
+	}
+
+	// Validate message for request type
 	if msg.Type != ws.MessageTypeRequest {
 		return nil, nil, fmt.Errorf("invalid message type: %d", msg.Type)
 	}
@@ -426,6 +482,123 @@ func (s *Server) handlePing(ctx context.Context, conn *Connection, params json.R
 	}, nil
 }
 
+// handleEmbeddingGenerate handles embedding generation requests with multi-tenant model selection
+// The model parameter supports dynamic model selection based on tenant configuration:
+// - If specified, uses the requested model (if tenant has access)
+// - If empty, uses tenant's default model
+// - Model selection considers quotas, costs, and availability
+func (s *Server) handleEmbeddingGenerate(ctx context.Context, conn *Connection, params json.RawMessage) (interface{}, error) {
+	var embedParams struct {
+		Text     string `json:"text"`
+		Model    string `json:"model"`     // Optional: specific model to use
+		TaskType string `json:"task_type"` // Optional: task type for optimization
+		AgentID  string `json:"agent_id"`  // Optional: override connection agent ID
+	}
+
+	if err := json.Unmarshal(params, &embedParams); err != nil {
+		return nil, fmt.Errorf("invalid embedding parameters: %w", err)
+	}
+
+	// Use agent ID from params or connection
+	agentID := embedParams.AgentID
+	if agentID == "" {
+		agentID = conn.AgentID
+	}
+
+	// Default task type if not specified
+	if embedParams.TaskType == "" {
+		embedParams.TaskType = "general_qa"
+	}
+
+	// Log the request
+	logFields := map[string]interface{}{
+		"agent_id":    agentID,
+		"tenant_id":   conn.TenantID,
+		"model":       embedParams.Model,
+		"task_type":   embedParams.TaskType,
+		"text_length": len(embedParams.Text),
+	}
+	s.logger.Info("Embedding generation request", logFields)
+
+	// Check if REST API client is available
+	if s.restAPIClient != nil {
+		startTime := time.Now()
+
+		// Call REST API to generate embedding
+		result, err := s.restAPIClient.GenerateEmbedding(
+			ctx,
+			conn.TenantID,
+			agentID,
+			embedParams.Text,
+			embedParams.Model,
+			embedParams.TaskType,
+		)
+
+		duration := time.Since(startTime)
+		logFields["duration_ms"] = duration.Milliseconds()
+
+		if err != nil {
+			logFields["error"] = err.Error()
+			s.logger.Error("REST API embedding generation failed", logFields)
+			return nil, fmt.Errorf("failed to generate embedding: %w", err)
+		}
+
+		logFields["embedding_id"] = result.EmbeddingID
+		logFields["dimensions"] = result.Dimensions
+		logFields["provider"] = result.Provider
+		s.logger.Info("REST API embedding generation successful", logFields)
+
+		// Convert REST API response to MCP format with comprehensive model metadata
+		response := map[string]interface{}{
+			"embedding_id": result.EmbeddingID,
+			"success":      result.Success,
+			"model":        result.Model,
+			"provider":     result.Provider,
+			"dimensions":   result.Dimensions,
+			"task_type":    result.TaskType,
+			"created_at":   result.CreatedAt.Format(time.RFC3339),
+			// Enhanced model metadata for multi-tenant model management
+			"model_metadata": map[string]interface{}{
+				"model_id":   result.Model,
+				"provider":   result.Provider,
+				"dimensions": result.Dimensions,
+				"task_type":  result.TaskType,
+				"tenant_id":  conn.TenantID,
+				"agent_id":   agentID,
+			},
+		}
+
+		// Include usage metadata if available
+		if result.Metadata != nil {
+			if usage, ok := result.Metadata["usage"]; ok {
+				response["usage"] = usage
+			}
+			if cost, ok := result.Metadata["cost"]; ok {
+				response["cost"] = cost
+			}
+		}
+
+		// Include vector if requested (usually omitted for size)
+		if len(result.Vector) > 0 {
+			response["vector_size"] = len(result.Vector)
+			// Optionally include first few values for verification
+			if len(result.Vector) > 3 {
+				response["vector_sample"] = result.Vector[:3]
+			}
+		}
+
+		if result.Error != "" {
+			response["error"] = result.Error
+		}
+
+		return response, nil
+	}
+
+	// Fallback if no REST API client
+	s.logger.Warn("No REST API client available for embedding generation", logFields)
+	return nil, fmt.Errorf("embedding service not available")
+}
+
 // handleBenchmark performs a benchmark test
 func (s *Server) handleBenchmark(ctx context.Context, conn *Connection, params json.RawMessage) (interface{}, error) {
 	var benchParams struct {
@@ -548,20 +721,88 @@ func (s *Server) handleInitialize(ctx context.Context, conn *Connection, params 
 
 // handleToolList handles the tool.list method
 func (s *Server) handleToolList(ctx context.Context, conn *Connection, params json.RawMessage) (interface{}, error) {
+	// Extract correlation ID from context
+	correlationID := ctx.Value(contextKeyRequestID)
+	if correlationID == nil {
+		correlationID = uuid.New().String()
+	}
+
+	logFields := map[string]interface{}{
+		"correlation_id": correlationID,
+		"tenant_id":      conn.TenantID,
+		"agent_id":       conn.AgentID,
+		"connection_id":  conn.ID,
+		"method":         "tool.list",
+	}
+
+	// First priority: Use REST API client if available
+	if s.restAPIClient != nil {
+		s.logger.Debug("Proxying tool.list to REST API", logFields)
+
+		startTime := time.Now()
+		tools, err := s.restAPIClient.ListTools(ctx, conn.TenantID)
+		duration := time.Since(startTime)
+
+		logFields["duration_ms"] = duration.Milliseconds()
+
+		if err != nil {
+			logFields["error"] = err.Error()
+			s.logger.Error("REST API tool.list failed", logFields)
+
+			// Check if circuit breaker is open
+			if strings.Contains(err.Error(), "circuit breaker") {
+				return nil, fmt.Errorf("service temporarily unavailable: %w", err)
+			}
+			return nil, fmt.Errorf("failed to list tools: %w", err)
+		}
+
+		logFields["tool_count"] = len(tools)
+		s.logger.Info("REST API tool.list successful", logFields)
+
+		// Convert tools to MCP response format
+		toolList := make([]map[string]interface{}, 0)
+		for _, tool := range tools {
+			toolEntry := map[string]interface{}{
+				"id":          tool.ID,
+				"name":        tool.ToolName,
+				"description": tool.Description,
+			}
+
+			// Add inputSchema if available
+			if tool.Config != nil {
+				if schema, ok := tool.Config["input_schema"]; ok {
+					toolEntry["inputSchema"] = schema
+				} else if params, ok := tool.Config["parameters"]; ok {
+					toolEntry["inputSchema"] = params
+				}
+			}
+
+			toolList = append(toolList, toolEntry)
+		}
+
+		return map[string]interface{}{
+			"tools": toolList,
+		}, nil
+	}
+
+	// Fallback: Use tool registry if available (deprecated path)
 	if s.toolRegistry != nil {
+		s.logger.Warn("Using deprecated tool registry fallback", logFields)
 		tools, err := s.toolRegistry.GetToolsForAgent(conn.AgentID)
 		if err != nil {
+			logFields["error"] = err.Error()
+			s.logger.Error("Tool registry fallback failed", logFields)
 			return nil, err
 		}
 
 		// Convert tools to response format
-		toolList := make([]map[string]interface{}, 0) // Initialize as empty array, not nil
+		toolList := make([]map[string]interface{}, 0)
 		for _, tool := range tools {
 			toolList = append(toolList, map[string]interface{}{
 				"id":          tool.ID,
 				"name":        tool.Name,
 				"description": tool.Description,
-				"inputSchema": tool.Parameters, // E2E tests expect "inputSchema" field
+				"inputSchema": tool.Parameters,
 			})
 		}
 
@@ -570,155 +811,169 @@ func (s *Server) handleToolList(ctx context.Context, conn *Connection, params js
 		}, nil
 	}
 
-	// Mock response when tool registry not available
+	// No tools available
+	logFields["has_rest_client"] = s.restAPIClient != nil
+	logFields["has_tool_registry"] = s.toolRegistry != nil
+	s.logger.Warn("No tool sources available", logFields)
+
 	return map[string]interface{}{
-		"tools": []map[string]interface{}{
-			{
-				"id":          "github.list_repos",
-				"name":        "List GitHub Repositories",
-				"description": "Lists repositories for a GitHub organization",
-				"parameters": map[string]interface{}{
-					"org": map[string]string{
-						"type":        "string",
-						"description": "GitHub organization name",
-						"required":    "true",
-					},
-				},
-			},
-		},
+		"tools": []map[string]interface{}{},
 	}, nil
 }
 
 // handleToolExecute handles the tool.execute method
 func (s *Server) handleToolExecute(ctx context.Context, conn *Connection, params json.RawMessage) (interface{}, error) {
+	// Extract correlation ID from context
+	correlationID := ctx.Value(contextKeyRequestID)
+	if correlationID == nil {
+		correlationID = uuid.New().String()
+	}
+
 	var execParams struct {
-		Tool      string                 `json:"tool"`
-		Name      string                 `json:"name"` // Alternative parameter name
-		Args      map[string]interface{} `json:"args"`
-		Arguments map[string]interface{} `json:"arguments"` // Alternative parameter name
+		ToolID     string                 `json:"tool_id"`
+		Action     string                 `json:"action"`
+		Parameters map[string]interface{} `json:"parameters"`
 	}
 
 	if err := json.Unmarshal(params, &execParams); err != nil {
-		return nil, err
+		s.logger.Error("Failed to unmarshal tool.execute params", map[string]interface{}{
+			"correlation_id": correlationID,
+			"error":          err.Error(),
+		})
+		return nil, fmt.Errorf("invalid parameters: %w", err)
 	}
 
-	// Handle alternative parameter names
-	toolID := execParams.Tool
+	// Validate required fields
+	toolID := execParams.ToolID
 	if toolID == "" {
-		toolID = execParams.Name
+		return nil, fmt.Errorf("tool_id is required")
 	}
 
-	args := execParams.Args
+	action := execParams.Action
+	if action == "" {
+		return nil, fmt.Errorf("action is required")
+	}
+
+	args := execParams.Parameters
 	if args == nil {
-		args = execParams.Arguments
+		args = make(map[string]interface{})
 	}
 
-	if s.toolRegistry != nil {
-		result, err := s.toolRegistry.ExecuteTool(ctx, conn.AgentID, toolID, args)
+	logFields := map[string]interface{}{
+		"correlation_id": correlationID,
+		"tenant_id":      conn.TenantID,
+		"agent_id":       conn.AgentID,
+		"connection_id":  conn.ID,
+		"method":         "tool.execute",
+		"tool_id":        toolID,
+		"action":         action,
+	}
+
+	// First priority: Use REST API client if available
+	if s.restAPIClient != nil {
+		s.logger.Debug("Proxying tool.execute to REST API", logFields)
+
+		// Resolve tool name to UUID if needed
+		// Check if toolID is a name (not a UUID format)
+		var actualToolID string
+		if !isUUID(toolID) {
+			// Need to look up the tool UUID by name
+			tools, err := s.restAPIClient.ListTools(ctx, conn.TenantID)
+			if err != nil {
+				s.logger.Error("Failed to list tools for name resolution", map[string]interface{}{
+					"error":     err.Error(),
+					"tool_name": toolID,
+				})
+				return nil, fmt.Errorf("failed to resolve tool name: %w", err)
+			}
+
+			// Find tool by name
+			found := false
+			for _, tool := range tools {
+				if tool.ToolName == toolID {
+					actualToolID = tool.ID
+					found = true
+					break
+				}
+			}
+
+			if !found {
+				return nil, fmt.Errorf("tool not found: %s", toolID)
+			}
+
+			s.logger.Debug("Resolved tool name to UUID", map[string]interface{}{
+				"tool_name": toolID,
+				"tool_uuid": actualToolID,
+			})
+		} else {
+			actualToolID = toolID
+		}
+
+		startTime := time.Now()
+		result, err := s.restAPIClient.ExecuteTool(ctx, conn.TenantID, actualToolID, action, args)
+		duration := time.Since(startTime)
+
+		logFields["duration_ms"] = duration.Milliseconds()
+
 		if err != nil {
+			logFields["error"] = err.Error()
+			s.logger.Error("REST API tool.execute failed", logFields)
+
+			// Check if circuit breaker is open
+			if strings.Contains(err.Error(), "circuit breaker") {
+				return nil, fmt.Errorf("service temporarily unavailable: %w", err)
+			}
+			// Check for specific HTTP errors
+			if strings.Contains(err.Error(), "HTTP 404") {
+				return nil, fmt.Errorf("tool not found: %s", toolID)
+			}
+			if strings.Contains(err.Error(), "HTTP 403") {
+				return nil, fmt.Errorf("permission denied for tool: %s", toolID)
+			}
+			return nil, fmt.Errorf("failed to execute tool: %w", err)
+		}
+
+		logFields["success"] = result != nil && result.Success
+		if result != nil {
+			logFields["status_code"] = result.StatusCode
+		}
+		s.logger.Info("REST API tool.execute completed", logFields)
+
+		// Convert REST API response to MCP format
+		response := map[string]interface{}{
+			"tool":   toolID,
+			"status": "completed",
+		}
+
+		if result != nil {
+			if result.Success {
+				response["result"] = result.Body
+			} else {
+				response["status"] = "failed"
+				response["error"] = result.Error
+			}
+		}
+
+		return response, nil
+	}
+
+	// Fallback: Use tool registry if available (deprecated path)
+	if s.toolRegistry != nil {
+		s.logger.Warn("Using deprecated tool registry for execution", logFields)
+
+		startTime := time.Now()
+		result, err := s.toolRegistry.ExecuteTool(ctx, conn.AgentID, toolID, args)
+		duration := time.Since(startTime)
+
+		logFields["duration_ms"] = duration.Milliseconds()
+
+		if err != nil {
+			logFields["error"] = err.Error()
+			s.logger.Error("Tool registry execution failed", logFields)
 			return nil, err
 		}
 
-		return map[string]interface{}{
-			"tool":   toolID,
-			"status": "completed",
-			"result": result,
-		}, nil
-	}
-
-	// Send tool.started notification
-	if s.notificationManager != nil {
-		s.notificationManager.BroadcastNotification(ctx, "tool.events", "subscription.event", map[string]interface{}{
-			"subscription_id": "", // Will be filled by the notification manager
-			"event": map[string]interface{}{
-				"type":      "tool.started",
-				"tool":      toolID,
-				"args":      args,
-				"agent_id":  conn.AgentID,
-				"timestamp": time.Now().Unix(),
-			},
-		})
-	}
-
-	// Mock response when tool registry not available
-	// Handle specific test tools
-	switch toolID {
-	case "test_runner":
-		// Mock test runner tool for functional tests
-		testSuite := "unit"
-		if suite, ok := args["test_suite"].(string); ok {
-			testSuite = suite
-		}
-
-		// Simulate test execution
-		time.Sleep(100 * time.Millisecond)
-
-		result := map[string]interface{}{
-			"suite":    testSuite,
-			"tests":    10,
-			"passed":   10,
-			"failed":   0,
-			"duration": "100ms",
-		}
-
-		// Send tool.completed notification
-		if s.notificationManager != nil {
-			s.notificationManager.BroadcastNotification(ctx, "tool.events", "subscription.event", map[string]interface{}{
-				"subscription_id": "", // Will be filled by the notification manager
-				"event": map[string]interface{}{
-					"type":      "tool.completed",
-					"tool":      toolID,
-					"result":    result,
-					"agent_id":  conn.AgentID,
-					"timestamp": time.Now().Unix(),
-				},
-			})
-		}
-
-		return map[string]interface{}{
-			"tool":   toolID,
-			"status": "completed",
-			"result": result,
-		}, nil
-
-	case "echo_context":
-		// Get active session context
-		sessionContext := "Default context"
-		if s.conversationManager != nil {
-			activeSessionID := conn.GetActiveSession()
-			if activeSessionID != "" {
-				session, err := s.conversationManager.GetSession(ctx, activeSessionID)
-				if err == nil && session.State != nil {
-					if ctx, ok := session.State["context"]; ok {
-						sessionContext = fmt.Sprintf("%v", ctx)
-					}
-				}
-			}
-		}
-		return map[string]interface{}{
-			"context": sessionContext,
-		}, nil
-
-	default:
-		// Generic tool execution
-		result := map[string]interface{}{
-			"message": "Tool executed successfully",
-			"args":    args,
-		}
-
-		// Send tool.completed notification
-		if s.notificationManager != nil {
-			s.notificationManager.BroadcastNotification(ctx, "tool.events", "subscription.event", map[string]interface{}{
-				"subscription_id": "", // Will be filled by the notification manager
-				"event": map[string]interface{}{
-					"type":      "tool.completed",
-					"tool":      toolID,
-					"result":    result,
-					"agent_id":  conn.AgentID,
-					"timestamp": time.Now().Unix(),
-				},
-			})
-		}
+		s.logger.Info("Tool registry execution completed", logFields)
 
 		return map[string]interface{}{
 			"tool":   toolID,
@@ -726,6 +981,13 @@ func (s *Server) handleToolExecute(ctx context.Context, conn *Connection, params
 			"result": result,
 		}, nil
 	}
+
+	// No tool execution sources available
+	logFields["has_rest_client"] = s.restAPIClient != nil
+	logFields["has_tool_registry"] = s.toolRegistry != nil
+	s.logger.Error("No tool execution sources available", logFields)
+
+	return nil, fmt.Errorf("tool execution not available: tool '%s' cannot be executed without REST API or tool registry", toolID)
 }
 
 // handleContextCreate handles the context.create method
