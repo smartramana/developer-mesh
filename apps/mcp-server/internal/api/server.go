@@ -54,6 +54,7 @@ type Server struct {
 	authService       *auth.Service
 	authMiddleware    *auth.AuthMiddleware // Enhanced auth with rate limiting, metrics, and audit
 	cache             cache.Cache
+	restAPIBaseURL    string               // REST API base URL from MCPServer config
 	// API proxies that delegate to REST API
 	vectorAPIProxy  repository.VectorAPIRepository // Proxy for vector operations
 	agentAPIProxy   agent.Repository               // Proxy for agent operations
@@ -198,11 +199,22 @@ func NewServer(engine *core.Engine, cfg Config, db *sqlx.DB, cacheClient cache.C
 	var agentProxy agent.Repository
 	var modelProxy repository.ModelRepository
 
-	if cfg.RestAPI.Enabled {
+	// Use MCPServer config if available, otherwise fall back to default RestAPI config
+	restAPIBaseURL := cfg.RestAPI.BaseURL
+	restAPIKey := cfg.RestAPI.APIKey
+	restAPIEnabled := cfg.RestAPI.Enabled
+	
+	if config != nil && config.MCPServer != nil && config.MCPServer.RestAPI.Enabled {
+		restAPIBaseURL = config.MCPServer.RestAPI.BaseURL
+		restAPIKey = config.MCPServer.RestAPI.APIKey
+		restAPIEnabled = config.MCPServer.RestAPI.Enabled
+	}
+	
+	if restAPIEnabled {
 		// Create the REST client factory
 		restClientFactory = rest.NewFactory(
-			cfg.RestAPI.BaseURL,
-			cfg.RestAPI.APIKey,
+			restAPIBaseURL,
+			restAPIKey,
 			observability.DefaultLogger,
 		)
 
@@ -212,7 +224,7 @@ func NewServer(engine *core.Engine, cfg Config, db *sqlx.DB, cacheClient cache.C
 		modelProxy = proxies.NewModelAPIProxy(restClientFactory, observability.DefaultLogger)
 
 		observability.DefaultLogger.Info("REST API client initialized", map[string]interface{}{
-			"base_url": cfg.RestAPI.BaseURL,
+			"base_url": restAPIBaseURL,
 			"timeout":  cfg.RestAPI.Timeout,
 		})
 	} else {
@@ -239,6 +251,7 @@ func NewServer(engine *core.Engine, cfg Config, db *sqlx.DB, cacheClient cache.C
 		restClientFactory: restClientFactory,
 		authService:       authService,
 		authMiddleware:    authMiddleware,
+		restAPIBaseURL:    restAPIBaseURL, // Store the REST API URL
 		// Store the proxies
 		vectorAPIProxy: vectorProxy,
 		agentAPIProxy:  agentProxy,
@@ -246,10 +259,10 @@ func NewServer(engine *core.Engine, cfg Config, db *sqlx.DB, cacheClient cache.C
 	}
 
 	// Initialize MCP protocol handler if REST API is enabled
-	if cfg.RestAPI.Enabled && restClientFactory != nil {
+	if restAPIEnabled && restClientFactory != nil {
 		restAPIClient := clients.NewRESTAPIClient(clients.RESTClientConfig{
-			BaseURL: cfg.RestAPI.BaseURL,
-			APIKey:  cfg.RestAPI.APIKey,
+			BaseURL: restAPIBaseURL,
+			APIKey:  restAPIKey,
 			Logger:  observability.DefaultLogger,
 		})
 		s.mcpProtocolHandler = NewMCPProtocolHandler(restAPIClient, observability.DefaultLogger)
@@ -431,7 +444,7 @@ func (s *Server) Initialize(ctx context.Context) error {
 	}
 
 	// Initialize API proxies
-	if s.config.RestAPI.Enabled {
+	if s.restAPIBaseURL != "" {
 		// Context repository initialization
 		if s.contextAPIProxy == nil {
 			// Create a database-backed context repository
@@ -607,11 +620,11 @@ func (s *Server) setupRoutes() {
 	}
 
 	// Register Embedding Proxy routes
-	if s.config.RestAPI.Enabled && s.config.RestAPI.BaseURL != "" {
-		embeddingProxy := proxies.NewEmbeddingProxy(s.config.RestAPI.BaseURL, s.logger)
+	if s.restAPIBaseURL != "" {
+		embeddingProxy := proxies.NewEmbeddingProxy(s.restAPIBaseURL, s.logger)
 		embeddingProxy.RegisterRoutes(v1)
 		s.logger.Info("Embedding proxy routes registered", map[string]any{
-			"rest_api_url": s.config.RestAPI.BaseURL,
+			"rest_api_url": s.restAPIBaseURL,
 		})
 	} else {
 		s.logger.Warn("Embedding proxy not available - REST API not configured", nil)
@@ -632,7 +645,7 @@ func (s *Server) setupRoutes() {
 	}
 
 	// Log API availability via proxies
-	if s.config.RestAPI.Enabled {
+	if s.restAPIBaseURL != "" {
 		if s.agentAPIProxy != nil {
 			s.logger.Info("Agent API available via REST API proxy", nil)
 		} else {

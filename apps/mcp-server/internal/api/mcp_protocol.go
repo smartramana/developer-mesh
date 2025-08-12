@@ -271,25 +271,20 @@ func (h *MCPProtocolHandler) handleToolsList(conn *websocket.Conn, connID, tenan
 		}
 	}
 
-	// Get custom protocol tools from adapter
-	adapterTools := h.protocolAdapter.GetTools()
-
-	// Use existing dynamic tool discovery
+	// Skip legacy adapter tools - we've fully migrated to MCP
+	// Only use dynamic tools from REST API
 	tools, err := h.restAPIClient.ListTools(ctx, tenantID)
 	if err != nil {
 		h.logger.Error("Failed to list tools", map[string]interface{}{
 			"error":     err.Error(),
 			"tenant_id": tenantID,
 		})
-		// Don't fail completely - just use adapter tools
+		// Don't fail completely - continue with DevMesh tools
 		tools = nil
 	}
 
-	// Combine adapter tools and dynamic tools
-	mcpTools := make([]map[string]interface{}, 0, len(tools)+len(adapterTools)+10)
-
-	// Add adapter tools first (custom protocol tools as MCP tools)
-	mcpTools = append(mcpTools, adapterTools...)
+	// Create tools list with just DevMesh tools and dynamic tools
+	mcpTools := make([]map[string]interface{}, 0, len(tools)+10)
 
 	// Add DevMesh-specific tools as standard MCP tools
 	devMeshTools := []map[string]interface{}{
@@ -571,50 +566,8 @@ func (h *MCPProtocolHandler) handleToolCall(conn *websocket.Conn, connID, tenant
 		return h.handleDevMeshTool(conn, connID, tenantID, msg, params.Name, params.Arguments)
 	}
 
-	// Check if this is a custom protocol tool handled by the adapter
-	if strings.HasPrefix(params.Name, "agent.") ||
-		strings.HasPrefix(params.Name, "workflow.") ||
-		strings.HasPrefix(params.Name, "task.") ||
-		strings.HasPrefix(params.Name, "context.") {
-
-		// Get circuit breaker for this tool
-		breaker := h.circuitBreakers.GetBreaker(params.Name)
-
-		// Execute via protocol adapter with circuit breaker protection
-		resultInterface, err := breaker.Call(ctx, params.Name, func() (interface{}, error) {
-			return h.protocolAdapter.ExecuteTool(ctx, params.Name, params.Arguments)
-		})
-
-		if err != nil {
-			h.logger.Error("Adapter tool execution failed", map[string]interface{}{
-				"tool":      params.Name,
-				"error":     err.Error(),
-				"tenant_id": tenantID,
-			})
-			h.recordTelemetry(fmt.Sprintf("tools_call.%s", params.Name), time.Since(startTime), false)
-			return h.sendError(conn, msg.ID, MCPErrorInternalError, fmt.Sprintf("Tool execution failed: %v", err))
-		}
-
-		result := resultInterface
-
-		// Convert result to MCP format
-		var responseText string
-		if resultStr, ok := result.(string); ok {
-			responseText = resultStr
-		} else {
-			resultBytes, _ := json.Marshal(result)
-			responseText = string(resultBytes)
-		}
-
-		return h.sendResult(conn, msg.ID, map[string]interface{}{
-			"content": []interface{}{
-				map[string]interface{}{
-					"type": "text",
-					"text": responseText,
-				},
-			},
-		})
-	}
+	// Legacy adapter tools are deprecated - we've fully migrated to MCP
+	// All tools should use either the devmesh. namespace or be dynamic tools
 
 	// Otherwise use dynamic tools via REST API
 	// Extract tool ID and action from the name
