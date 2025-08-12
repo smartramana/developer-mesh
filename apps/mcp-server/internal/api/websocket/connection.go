@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"strings"
 	"sync"
 	"time"
 
@@ -13,6 +14,30 @@ import (
 	"github.com/developer-mesh/developer-mesh/pkg/auth"
 	ws "github.com/developer-mesh/developer-mesh/pkg/models/websocket"
 )
+
+// ConnectionMode represents the type of connection
+type ConnectionMode int
+
+const (
+	ModeStandardMCP ConnectionMode = iota
+	ModeClaudeCode
+	ModeAgent
+	ModeIDE
+)
+
+// String returns the string representation of ConnectionMode
+func (m ConnectionMode) String() string {
+	switch m {
+	case ModeClaudeCode:
+		return "claude-code"
+	case ModeAgent:
+		return "agent"
+	case ModeIDE:
+		return "ide"
+	default:
+		return "standard-mcp"
+	}
+}
 
 // ConnectionState tracks additional connection state
 type ConnectionState struct {
@@ -25,7 +50,8 @@ type ConnectionState struct {
 	SystemPromptTokens   int
 	ConversationTokens   int
 	ToolTokens           int
-	Claims               *auth.Claims // Authentication claims
+	Claims               *auth.Claims   // Authentication claims
+	ConnectionMode       ConnectionMode // Type of connection
 }
 
 // RateLimiter implements token bucket algorithm
@@ -101,33 +127,53 @@ func (c *Connection) readPump() {
 			return
 		}
 
-		// Always read the raw message first to handle protocol transitions
+		// Read MCP protocol message (only protocol supported)
 		msgType, data, readErr := conn.Read(ctx)
 		if readErr == nil {
-			// Determine how to parse based on message type
-			switch msgType {
-			case websocket.MessageBinary:
-				// Binary message - decode it
-				encoder := NewBinaryEncoder(1024)
-				decodedMsg, decodeErr := encoder.Decode(data)
-				if decodeErr != nil {
-					readErr = decodeErr
+			// Only handle MCP protocol messages (text format)
+			if msgType != websocket.MessageText {
+				readErr = fmt.Errorf("unsupported message type: expected text, got %v", msgType)
+			} else if !strings.Contains(string(data), `"jsonrpc":"2.0"`) && !strings.Contains(string(data), `"jsonrpc": "2.0"`) {
+				readErr = fmt.Errorf("invalid protocol: only MCP (JSON-RPC 2.0) messages are supported")
+			} else {
+				// Handle MCP protocol message
+				if c.hub != nil && c.hub.mcpHandler != nil {
+					// Use reflection to call HandleMessage on the MCP handler
+					// This avoids circular import issues
+					if handler, ok := c.hub.mcpHandler.(interface {
+						HandleMessage(*websocket.Conn, string, string, []byte) error
+					}); ok {
+						// Route to MCP handler
+						if err := handler.HandleMessage(conn, c.ID, c.TenantID, data); err != nil {
+							c.hub.logger.Error("MCP handler error", map[string]interface{}{
+								"error":         err.Error(),
+								"connection_id": c.ID,
+							})
+						}
+						// MCP messages are handled, continue to next message
+						continue
+					}
 				} else {
-					*msg = *decodedMsg
-					PutMessage(decodedMsg)
+					readErr = fmt.Errorf("MCP handler not configured")
 				}
-			case websocket.MessageText:
-				// Text message - parse as JSON
-				readErr = json.Unmarshal(data, msg)
-			default:
-				// Unsupported message type
-				readErr = fmt.Errorf("unsupported message type: %v", msgType)
 			}
 		}
 		if readErr != nil {
+			// Check for normal closure or EOF (expected for short-lived connections)
 			if websocket.CloseStatus(readErr) == websocket.StatusNormalClosure {
 				return
 			}
+			// Check for EOF which is expected for request-response pattern connections
+			if strings.Contains(readErr.Error(), "EOF") || strings.Contains(readErr.Error(), "failed to read frame header: EOF") {
+				// Log as debug instead of error for expected disconnections
+				if c.hub != nil && c.hub.logger != nil && c.Connection != nil {
+					c.hub.logger.Debug("Connection closed (expected for request-response pattern)", map[string]interface{}{
+						"connection_id": c.ID,
+					})
+				}
+				return
+			}
+			// Log actual errors
 			if c.hub != nil && c.hub.logger != nil && c.Connection != nil {
 				c.hub.logger.Error("Read error", map[string]interface{}{
 					"error":         readErr.Error(),
@@ -140,69 +186,14 @@ func (c *Connection) readPump() {
 		// Update last activity
 		c.LastPing = time.Now()
 
-		// Rate limiting
+		// Rate limiting is handled within the MCP handler
 		if !rateLimiter.Allow() {
 			if c.hub != nil && c.hub.metricsCollector != nil {
 				c.hub.metricsCollector.RecordError("rate_limit")
 			}
-			c.sendError(msg.ID, ws.ErrCodeRateLimited, "Rate limit exceeded", nil)
+			// Send rate limit error as MCP error response
+			// The MCP handler will handle this appropriately
 			continue
-		}
-
-		// Process message
-		start := time.Now()
-		var response []byte
-		var postAction *PostActionConfig
-		var err error
-		if c.hub != nil {
-			response, postAction, err = c.hub.processMessage(ctx, c, msg)
-		} else {
-			err = ws.NewError(ws.ErrCodeServerError, "Server not available", nil)
-		}
-		latency := time.Since(start)
-
-		// Record message metrics
-		if c.hub != nil && c.hub.metricsCollector != nil && c.Connection != nil {
-			c.hub.metricsCollector.RecordMessage("received", msg.Method, c.TenantID, latency)
-		}
-
-		if err != nil {
-			c.sendError(msg.ID, ws.ErrCodeServerError, err.Error(), nil)
-			continue
-		}
-
-		// Send response if any
-		if response != nil {
-			c.send <- response
-
-			// Queue post-action if any
-			if postAction != nil && postAction.Action != nil {
-				select {
-				case c.afterSend <- postAction:
-					// Successfully queued
-				default:
-					// Channel full, execute immediately
-					if postAction.Synchronous {
-						// For synchronous actions, execute immediately (blocking)
-						postAction.Action()
-					} else {
-						// For async actions, execute in goroutine to avoid blocking
-						go func() {
-							defer func() {
-								if r := recover(); r != nil {
-									if c.hub != nil && c.hub.logger != nil {
-										c.hub.logger.Error("Post-action panic", map[string]interface{}{
-											"error":         fmt.Sprintf("%v", r),
-											"connection_id": c.ID,
-										})
-									}
-								}
-							}()
-							postAction.Action()
-						}()
-					}
-				}
-			}
 		}
 	}
 }

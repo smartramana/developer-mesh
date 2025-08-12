@@ -70,6 +70,9 @@ type Server struct {
 
 	// Server start time
 	startTime time.Time
+
+	// MCP Protocol handler
+	mcpHandler interface{} // Will be set to *api.MCPProtocolHandler to avoid circular import
 }
 
 type Config struct {
@@ -304,6 +307,18 @@ func (s *Server) HandleWebSocket(w http.ResponseWriter, r *http.Request) {
 	}
 	connection.state.Claims = claims
 
+	// Detect connection mode based on headers and user agent
+	connectionMode := s.detectConnectionMode(r)
+	connection.state.ConnectionMode = connectionMode
+
+	// Log connection mode
+	s.logger.Info("Connection mode detected", map[string]interface{}{
+		"connection_id": connection.ID,
+		"mode":          connectionMode.String(),
+		"tenant_id":     connection.TenantID,
+		"user_agent":    r.Header.Get("User-Agent"),
+	})
+
 	// Register connection
 	s.addConnection(connection)
 
@@ -333,6 +348,62 @@ func (s *Server) HandleWebSocket(w http.ResponseWriter, r *http.Request) {
 
 	// Record connection metrics
 	s.metricsCollector.RecordConnection(connection.TenantID)
+}
+
+// detectConnectionMode detects the type of connection based on headers
+func (s *Server) detectConnectionMode(r *http.Request) ConnectionMode {
+	userAgent := r.Header.Get("User-Agent")
+
+	// Check for Claude Code
+	if strings.Contains(userAgent, "Claude-Code") ||
+		r.Header.Get("X-Claude-Code-Version") != "" ||
+		r.Header.Get("X-Client-Name") == "claude-code" {
+		s.logger.Info("Claude Code connection detected", map[string]interface{}{
+			"user_agent": userAgent,
+			"version":    r.Header.Get("X-Claude-Code-Version"),
+		})
+		return ModeClaudeCode
+	}
+
+	// Check for IDE connection (Cursor, VS Code, etc.)
+	if strings.Contains(userAgent, "Cursor") ||
+		strings.Contains(userAgent, "VSCode") ||
+		strings.Contains(userAgent, "Visual-Studio-Code") ||
+		r.Header.Get("X-IDE-Name") != "" {
+		s.logger.Info("IDE connection detected", map[string]interface{}{
+			"user_agent": userAgent,
+			"ide_name":   r.Header.Get("X-IDE-Name"),
+		})
+		return ModeIDE
+	}
+
+	// Check for agent connection
+	if r.Header.Get("X-Agent-ID") != "" ||
+		r.Header.Get("X-Agent-Type") != "" ||
+		strings.Contains(userAgent, "DevMesh-Agent") {
+		s.logger.Info("Agent connection detected", map[string]interface{}{
+			"user_agent": userAgent,
+			"agent_id":   r.Header.Get("X-Agent-ID"),
+			"agent_type": r.Header.Get("X-Agent-Type"),
+		})
+		return ModeAgent
+	}
+
+	// Check for MCP client in user agent
+	if strings.Contains(strings.ToLower(userAgent), "mcp") ||
+		r.Header.Get("X-MCP-Version") != "" {
+		s.logger.Info("Standard MCP connection detected", map[string]interface{}{
+			"user_agent":  userAgent,
+			"mcp_version": r.Header.Get("X-MCP-Version"),
+		})
+		return ModeStandardMCP
+	}
+
+	// Default to standard MCP
+	s.logger.Debug("Defaulting to standard MCP connection", map[string]interface{}{
+		"user_agent": userAgent,
+	})
+	return ModeStandardMCP
 }
 
 // ConnectionCount returns the current number of active connections
@@ -455,6 +526,12 @@ func (s *Server) SetRESTClient(client clients.RESTAPIClient) {
 		s.restAPIClient = client
 		s.logger.Info("REST API client configured for WebSocket server", nil)
 	}
+}
+
+// SetMCPHandler sets the MCP protocol handler
+func (s *Server) SetMCPHandler(handler interface{}) {
+	s.mcpHandler = handler
+	s.logger.Info("MCP protocol handler configured for WebSocket server", nil)
 }
 
 // SetContextManager sets the context manager for the server
