@@ -59,9 +59,11 @@ type MCPProtocolHandler struct {
 	protocolAdapter  *mcp.ProtocolAdapter
 	resourceProvider *resources.ResourceProvider
 	// Performance optimizations
-	toolsCache *ToolsCache
-	metrics    observability.MetricsClient
-	telemetry  *MCPTelemetry
+	toolsCache      *ToolsCache
+	toolNameCache   map[string]map[string]string // tenant_id -> tool_name -> tool_id
+	toolNameCacheMu sync.RWMutex
+	metrics         observability.MetricsClient
+	telemetry       *MCPTelemetry
 	// Resilience
 	circuitBreakers *ToolCircuitBreakerManager
 }
@@ -78,6 +80,7 @@ func NewMCPProtocolHandler(
 		protocolAdapter:  mcp.NewProtocolAdapter(logger),
 		resourceProvider: resources.NewResourceProvider(logger),
 		toolsCache:       NewToolsCache(5 * time.Minute), // 5 minute TTL
+		toolNameCache:    make(map[string]map[string]string),
 		telemetry:        NewMCPTelemetry(logger),
 		circuitBreakers:  NewToolCircuitBreakerManager(logger),
 	}
@@ -89,6 +92,78 @@ func (h *MCPProtocolHandler) SetMetricsClient(metrics observability.MetricsClien
 	if h.telemetry != nil {
 		h.telemetry.SetMetricsClient(metrics)
 	}
+}
+
+// resolveToolNameToID resolves a tool display name to its UUID for a specific tenant
+// This ensures tenant isolation - a tenant can only access their own tools
+func (h *MCPProtocolHandler) resolveToolNameToID(ctx context.Context, tenantID, toolName string) (string, error) {
+	// Check cache first
+	h.toolNameCacheMu.RLock()
+	if tenantCache, exists := h.toolNameCache[tenantID]; exists {
+		if toolID, found := tenantCache[toolName]; found {
+			h.toolNameCacheMu.RUnlock()
+			h.logger.Debug("Tool name resolved from cache", map[string]interface{}{
+				"tenant_id": tenantID,
+				"tool_name": toolName,
+				"tool_id":   toolID,
+			})
+			return toolID, nil
+		}
+	}
+	h.toolNameCacheMu.RUnlock()
+
+	// Not in cache, fetch all tools for this tenant
+	tools, err := h.restAPIClient.ListTools(ctx, tenantID)
+	if err != nil {
+		return "", fmt.Errorf("failed to list tools for tenant: %w", err)
+	}
+
+	// Build the cache for this tenant
+	h.toolNameCacheMu.Lock()
+	if h.toolNameCache[tenantID] == nil {
+		h.toolNameCache[tenantID] = make(map[string]string)
+	}
+	
+	var foundID string
+	for _, tool := range tools {
+		// Use display name if available, otherwise tool name
+		name := tool.DisplayName
+		if name == "" {
+			name = tool.ToolName
+		}
+		h.toolNameCache[tenantID][name] = tool.ID
+		
+		// Check if this is the tool we're looking for
+		if name == toolName {
+			foundID = tool.ID
+		}
+	}
+	h.toolNameCacheMu.Unlock()
+
+	if foundID == "" {
+		return "", fmt.Errorf("tool '%s' not found for tenant '%s'", toolName, tenantID)
+	}
+
+	h.logger.Info("Tool name resolved and cached", map[string]interface{}{
+		"tenant_id": tenantID,
+		"tool_name": toolName,
+		"tool_id":   foundID,
+		"total_tools_cached": len(tools),
+	})
+
+	return foundID, nil
+}
+
+// invalidateToolNameCache invalidates the tool name cache for a specific tenant
+// This should be called when tools are added, updated, or deleted
+func (h *MCPProtocolHandler) invalidateToolNameCache(tenantID string) {
+	h.toolNameCacheMu.Lock()
+	delete(h.toolNameCache, tenantID)
+	h.toolNameCacheMu.Unlock()
+	
+	h.logger.Debug("Tool name cache invalidated", map[string]interface{}{
+		"tenant_id": tenantID,
+	})
 }
 
 // HandleMessage processes an MCP protocol message
@@ -570,13 +645,25 @@ func (h *MCPProtocolHandler) handleToolCall(conn *websocket.Conn, connID, tenant
 	// All tools should use either the devmesh. namespace or be dynamic tools
 
 	// Otherwise use dynamic tools via REST API
-	// Extract tool ID and action from the name
+	// Extract tool name and action from the params
 	// Format could be "toolName" or "toolName.action"
-	toolID := params.Name
+	toolName := params.Name
 	action := "execute" // default action
 	if idx := strings.LastIndex(params.Name, "."); idx != -1 && !strings.HasPrefix(params.Name, "devmesh.") {
-		toolID = params.Name[:idx]
+		toolName = params.Name[:idx]
 		action = params.Name[idx+1:]
+	}
+
+	// Resolve tool name to UUID with tenant isolation
+	toolID, err := h.resolveToolNameToID(ctx, tenantID, toolName)
+	if err != nil {
+		h.logger.Error("Failed to resolve tool name", map[string]interface{}{
+			"tool_name": toolName,
+			"tenant_id": tenantID,
+			"error":     err.Error(),
+		})
+		h.recordTelemetry(fmt.Sprintf("tools_call.%s", params.Name), time.Since(startTime), false)
+		return h.sendError(conn, msg.ID, MCPErrorInvalidParams, fmt.Sprintf("Tool '%s' not found", toolName))
 	}
 
 	// Get circuit breaker for this tool
