@@ -5,6 +5,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"os"
+	"strings"
 	"sync"
 	"time"
 
@@ -15,6 +17,7 @@ import (
 	"github.com/developer-mesh/developer-mesh/apps/edge-mcp/internal/core"
 	"github.com/developer-mesh/developer-mesh/apps/edge-mcp/internal/platform"
 	"github.com/developer-mesh/developer-mesh/apps/edge-mcp/internal/tools"
+	"github.com/developer-mesh/developer-mesh/pkg/models"
 	"github.com/developer-mesh/developer-mesh/pkg/observability"
 	"github.com/google/uuid"
 )
@@ -53,14 +56,15 @@ type Handler struct {
 
 // Session represents an MCP session
 type Session struct {
-	ID           string
-	ConnectionID string
-	Initialized  bool
-	TenantID     string
-	EdgeMCPID    string
-	CoreSession  string // Core Platform session ID for context sync
-	CreatedAt    time.Time
-	LastActivity time.Time
+	ID              string
+	ConnectionID    string
+	Initialized     bool
+	TenantID        string
+	EdgeMCPID       string
+	CoreSession     string // Core Platform session ID for context sync
+	CreatedAt       time.Time
+	LastActivity    time.Time
+	PassthroughAuth *models.PassthroughAuthBundle // User-specific credentials for pass-through
 }
 
 // NewHandler creates a new MCP handler
@@ -85,11 +89,16 @@ func NewHandler(
 // HandleConnection handles a WebSocket connection
 func (h *Handler) HandleConnection(conn *websocket.Conn, r *http.Request) {
 	sessionID := uuid.New().String()
+
+	// Extract passthrough authentication from headers
+	passthroughAuth := h.extractPassthroughAuth(r)
+
 	session := &Session{
-		ID:           sessionID,
-		ConnectionID: uuid.New().String(),
-		CreatedAt:    time.Now(),
-		LastActivity: time.Now(),
+		ID:              sessionID,
+		ConnectionID:    uuid.New().String(),
+		CreatedAt:       time.Now(),
+		LastActivity:    time.Now(),
+		PassthroughAuth: passthroughAuth,
 	}
 
 	h.sessionsMu.Lock()
@@ -347,13 +356,29 @@ func (h *Handler) handleToolCall(sessionID string, msg *MCPMessage) (*MCPMessage
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel() // Ensure cancel is always called to prevent context leak
 
+	// Add passthrough auth to context if available
+	h.sessionsMu.RLock()
+	session := h.sessions[sessionID]
+	var passthroughAuth *models.PassthroughAuthBundle
+	if session != nil && session.PassthroughAuth != nil {
+		passthroughAuth = session.PassthroughAuth
+		// Add passthrough auth to context for remote tool execution
+		ctx = context.WithValue(ctx, core.PassthroughAuthKey, passthroughAuth)
+		h.logger.Debug("Added passthrough auth to tool execution context", map[string]interface{}{
+			"tool":             params.Name,
+			"has_passthrough":  true,
+			"credential_count": len(passthroughAuth.Credentials),
+		})
+	}
+	h.sessionsMu.RUnlock()
+
 	// Track the request for potential cancellation (only if ID is present)
 	if msg.ID != nil {
 		h.trackRequest(msg.ID, cancel)
 		defer h.untrackRequest(msg.ID)
 	}
 
-	// Execute tool with cancellable context
+	// Execute tool with cancellable context (includes passthrough auth if available)
 	result, err := h.tools.Execute(ctx, params.Name, params.Arguments)
 	if err != nil {
 		return nil, fmt.Errorf("tool execution failed: %w", err)
@@ -361,13 +386,10 @@ func (h *Handler) handleToolCall(sessionID string, msg *MCPMessage) (*MCPMessage
 
 	// Record execution with Core Platform if connected
 	if h.coreClient != nil {
-		h.sessionsMu.RLock()
-		session := h.sessions[sessionID]
 		coreSessionID := ""
 		if session != nil {
 			coreSessionID = session.CoreSession
 		}
-		h.sessionsMu.RUnlock()
 
 		if coreSessionID != "" {
 			_ = h.coreClient.RecordToolExecution(
@@ -691,4 +713,159 @@ func (h *Handler) untrackRequest(id interface{}) {
 	h.requestsMu.Lock()
 	delete(h.activeRequests, id)
 	h.requestsMu.Unlock()
+}
+
+// extractPassthroughAuth extracts user-specific credentials from request headers and environment
+func (h *Handler) extractPassthroughAuth(r *http.Request) *models.PassthroughAuthBundle {
+	bundle := &models.PassthroughAuthBundle{
+		Credentials:   make(map[string]*models.PassthroughCredential),
+		CustomHeaders: make(map[string]string),
+	}
+
+	// Extract GitHub Personal Access Token (from header or environment)
+	token := r.Header.Get("X-GitHub-Token")
+	if token == "" {
+		token = os.Getenv("GITHUB_TOKEN")
+		if token == "" {
+			token = os.Getenv("GITHUB_PAT") // Alternative env var
+		}
+	}
+	if token != "" {
+		bundle.Credentials["github"] = &models.PassthroughCredential{
+			Type:  "bearer",
+			Token: token,
+		}
+		h.logger.Debug("Found GitHub passthrough token", nil)
+	}
+
+	// Extract generic user token (can be used for any service)
+	userToken := r.Header.Get("X-User-Token")
+	if userToken == "" {
+		userToken = os.Getenv("USER_TOKEN")
+	}
+	if userToken != "" {
+		bundle.Credentials["*"] = &models.PassthroughCredential{
+			Type:  "bearer",
+			Token: userToken,
+		}
+		h.logger.Debug("Found generic user passthrough token", nil)
+	}
+
+	// Extract AWS credentials (from headers or environment)
+	accessKey := r.Header.Get("X-AWS-Access-Key")
+	if accessKey == "" {
+		accessKey = os.Getenv("AWS_ACCESS_KEY_ID")
+	}
+
+	if accessKey != "" {
+		awsCred := &models.PassthroughCredential{
+			Type:       "aws_signature",
+			Properties: make(map[string]string),
+		}
+		awsCred.Properties["access_key"] = accessKey
+
+		secretKey := r.Header.Get("X-AWS-Secret-Key")
+		if secretKey == "" {
+			secretKey = os.Getenv("AWS_SECRET_ACCESS_KEY")
+		}
+		if secretKey != "" {
+			awsCred.Properties["secret_key"] = secretKey
+		}
+
+		sessionToken := r.Header.Get("X-AWS-Session-Token")
+		if sessionToken == "" {
+			sessionToken = os.Getenv("AWS_SESSION_TOKEN")
+		}
+		if sessionToken != "" {
+			awsCred.Properties["session_token"] = sessionToken
+		}
+
+		region := r.Header.Get("X-AWS-Region")
+		if region == "" {
+			region = os.Getenv("AWS_REGION")
+			if region == "" {
+				region = os.Getenv("AWS_DEFAULT_REGION")
+			}
+		}
+		if region != "" {
+			awsCred.Properties["region"] = region
+		}
+
+		bundle.Credentials["aws"] = awsCred
+		h.logger.Debug("Found AWS passthrough credentials", nil)
+	}
+
+	// Extract service-specific tokens (pattern: X-Service-{ServiceName}-Token)
+	for key, values := range r.Header {
+		if strings.HasPrefix(key, "X-Service-") && strings.HasSuffix(key, "-Token") && len(values) > 0 {
+			// Extract service name from header
+			// e.g., "X-Service-Slack-Token" -> "slack"
+			serviceName := strings.ToLower(
+				strings.TrimSuffix(
+					strings.TrimPrefix(key, "X-Service-"),
+					"-Token",
+				),
+			)
+			bundle.Credentials[serviceName] = &models.PassthroughCredential{
+				Type:  "bearer",
+				Token: values[0],
+			}
+			h.logger.Debug("Found service-specific passthrough token", map[string]interface{}{
+				"service": serviceName,
+			})
+		}
+	}
+
+	// Extract custom headers for advanced use cases
+	for key, values := range r.Header {
+		if strings.HasPrefix(key, "X-Custom-Auth-") && len(values) > 0 {
+			customKey := strings.TrimPrefix(key, "X-Custom-Auth-")
+			bundle.CustomHeaders[customKey] = values[0]
+		}
+	}
+
+	// Check for common service tokens in environment variables
+	commonServices := map[string][]string{
+		"slack":     {"SLACK_TOKEN", "SLACK_API_TOKEN"},
+		"jira":      {"JIRA_TOKEN", "JIRA_API_TOKEN", "ATLASSIAN_TOKEN"},
+		"gitlab":    {"GITLAB_TOKEN", "GITLAB_PAT"},
+		"bitbucket": {"BITBUCKET_TOKEN", "BITBUCKET_APP_PASSWORD"},
+		"discord":   {"DISCORD_TOKEN", "DISCORD_BOT_TOKEN"},
+		"openai":    {"OPENAI_API_KEY", "OPENAI_TOKEN"},
+		"anthropic": {"ANTHROPIC_API_KEY", "CLAUDE_API_KEY"},
+	}
+
+	for service, envVars := range commonServices {
+		// Skip if we already have a credential for this service
+		if _, exists := bundle.Credentials[service]; exists {
+			continue
+		}
+
+		// Check each possible environment variable
+		for _, envVar := range envVars {
+			if token := os.Getenv(envVar); token != "" {
+				bundle.Credentials[service] = &models.PassthroughCredential{
+					Type:  "bearer",
+					Token: token,
+				}
+				h.logger.Debug("Found service token from environment", map[string]interface{}{
+					"service": service,
+					"env_var": envVar,
+				})
+				break
+			}
+		}
+	}
+
+	// If no passthrough credentials were found, return nil
+	if len(bundle.Credentials) == 0 && len(bundle.CustomHeaders) == 0 {
+		return nil
+	}
+
+	h.logger.Info("Extracted passthrough authentication", map[string]interface{}{
+		"credentials_count": len(bundle.Credentials),
+		"custom_headers":    len(bundle.CustomHeaders),
+	})
+
+	return bundle
 }

@@ -1,12 +1,27 @@
 # Cursor Configuration
 
-## Setup Instructions
+## Prerequisites
 
-1. Create a `.cursor` directory in your project root
-2. Create `mcp.json` file with the configuration below
-3. Restart Cursor to apply changes
+1. DevMesh account with API key and tenant ID
+2. Edge MCP installed and in PATH
 
-## Example Configuration
+## Setup
+
+Cursor requires Edge MCP to be running separately.
+
+### Step 1: Start Edge MCP
+
+```bash
+# Set DevMesh credentials
+export CORE_PLATFORM_URL="https://api.devmesh.ai"
+export CORE_PLATFORM_API_KEY="your-api-key"    # From DevMesh dashboard
+export TENANT_ID="your-tenant-id"              # From DevMesh dashboard
+
+# Start Edge MCP
+edge-mcp --port 8082
+```
+
+### Step 2: Configure Cursor
 
 Create `.cursor/mcp.json` in your project root:
 
@@ -15,63 +30,76 @@ Create `.cursor/mcp.json` in your project root:
   "mcp": {
     "servers": [
       {
-        "name": "edge-mcp",
+        "name": "devmesh",
         "type": "websocket",
-        "url": "ws://localhost:8082/ws",
-        "apiKey": "${CURSOR_MCP_API_KEY}",
-        "description": "Edge MCP - Secure local tool execution",
-        "capabilities": {
-          "tools": true,
-          "resources": true,
-          "prompts": false
-        },
-        "tools": [
-          "git.status",
-          "git.diff",
-          "git.log",
-          "git.branch",
-          "docker.build",
-          "docker.ps",
-          "shell.execute",
-          "filesystem.read",
-          "filesystem.write",
-          "filesystem.list"
-        ]
+        "url": "ws://localhost:8082/ws"
       }
-    ],
-    "defaultServer": "edge-mcp",
-    "autoConnect": true
+    ]
   }
 }
 ```
 
-## Environment Variables
+### Step 3: Restart Cursor
 
-Set these before starting Cursor:
+Restart Cursor for the configuration to take effect.
 
-```bash
-export CURSOR_MCP_API_KEY="your-api-key"
+## Verification
+
+1. Check Edge MCP is running: `ps aux | grep edge-mcp`
+2. Look for the MCP indicator in Cursor's status bar
+3. Tools should appear automatically in Cursor's command palette
+
+## Available Tools
+
+Tools are dynamically discovered from your DevMesh tenant. Common tools include:
+
+- **GitHub**: Full API access for repos, PRs, issues, workflows
+- **AWS**: S3, Lambda, EC2, CloudWatch, Bedrock
+- **Slack**: Messaging and channel management
+- **Jira**: Issue tracking and project management
+- Plus any custom tools configured in your tenant
+
+## Advanced: Auto-start Edge MCP
+
+To have Cursor automatically start Edge MCP, create a task:
+
+`.vscode/tasks.json`:
+```json
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "Start Edge MCP",
+      "type": "shell",
+      "command": "edge-mcp",
+      "args": ["--port", "8082"],
+      "options": {
+        "env": {
+          "CORE_PLATFORM_URL": "https://api.devmesh.ai",
+          "CORE_PLATFORM_API_KEY": "your-api-key",
+          "TENANT_ID": "your-tenant-id"
+        }
+      },
+      "isBackground": true,
+      "problemMatcher": []
+    }
+  ]
+}
 ```
 
-## Starting Edge MCP
+## Troubleshooting
 
-Before using in Cursor, start Edge MCP:
+### Connection failed
+- Ensure Edge MCP is running: `edge-mcp --port 8082`
+- Check port 8082 is not in use: `lsof -i :8082`
+- Verify WebSocket URL in configuration
 
-```bash
-./apps/edge-mcp/bin/edge-mcp --port 8082
-```
+### Authentication errors
+- Check environment variables are set correctly
+- Verify API key and tenant ID match DevMesh dashboard
+- Look at Edge MCP logs for detailed error messages
 
-## Features Available
-
-- **Git Integration**: Full git operations with parsed output
-- **Docker Support**: Build and manage containers
-- **Shell Commands**: Execute allowed commands securely
-- **File Operations**: Read/write files with validation
-
-## Security Notes
-
-Edge MCP enforces strict security:
-- Commands like `rm`, `sudo`, `chmod` are blocked
-- Path traversal is prevented
-- Environment variables are filtered
-- All operations have timeouts
+### Tools not available
+- Restart Cursor after configuration changes
+- Check your DevMesh tenant has tools configured
+- Verify service credentials in DevMesh dashboard

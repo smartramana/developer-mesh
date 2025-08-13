@@ -11,8 +11,15 @@ import (
 	"time"
 
 	"github.com/developer-mesh/developer-mesh/apps/edge-mcp/internal/tools"
+	"github.com/developer-mesh/developer-mesh/pkg/models"
 	"github.com/developer-mesh/developer-mesh/pkg/observability"
 )
+
+// contextKey is a type for context keys to avoid collisions
+type contextKey string
+
+// PassthroughAuthKey is the context key for passthrough authentication
+const PassthroughAuthKey contextKey = "passthrough-auth"
 
 // Client connects Edge MCP to Core Platform for state synchronization
 // Edge MCP maintains only in-memory state and syncs through this API client
@@ -201,6 +208,7 @@ func (c *Client) FetchRemoteTools(ctx context.Context) ([]tools.ToolDefinition, 
 			Description: t.Description,
 			InputSchema: t.Schema,
 			// Handler will be a proxy handler that calls Core Platform
+			// Note: Passthrough auth will be injected at execution time
 			Handler: c.createProxyHandler(t.Name),
 		})
 	}
@@ -219,10 +227,26 @@ func (c *Client) createProxyHandler(toolName string) tools.ToolHandler {
 			return nil, fmt.Errorf("not connected to Core Platform")
 		}
 
-		// Execute tool via Core Platform
+		// Extract passthrough auth from context if available
+		var passthroughAuth *models.PassthroughAuthBundle
+		if auth := ctx.Value(PassthroughAuthKey); auth != nil {
+			passthroughAuth, _ = auth.(*models.PassthroughAuthBundle)
+		}
+
+		// Build request payload
 		payload := map[string]interface{}{
 			"tool":      toolName,
 			"arguments": args,
+		}
+
+		// Include passthrough auth if available
+		if passthroughAuth != nil {
+			payload["passthrough_auth"] = passthroughAuth
+			c.logger.Debug("Including passthrough auth in tool execution", map[string]interface{}{
+				"tool":             toolName,
+				"has_passthrough":  true,
+				"credential_count": len(passthroughAuth.Credentials),
+			})
 		}
 
 		resp, err := c.doRequest(ctx, "POST", "/api/v1/tools/execute", payload)

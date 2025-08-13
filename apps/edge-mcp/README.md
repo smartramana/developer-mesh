@@ -1,85 +1,23 @@
-# Edge MCP - Lightweight Model Context Protocol Server
+# Edge MCP - Gateway to DevMesh Platform
 
-Edge MCP is a secure, lightweight, standalone MCP server that runs on developer machines without requiring PostgreSQL, Redis, or other infrastructure dependencies. It provides local tool execution with enterprise-grade security controls.
+Edge MCP is a lightweight MCP server that connects your IDE to the DevMesh Platform, providing secure access to GitHub, AWS, Slack, Jira, and other tools without managing credentials locally.
 
 ## Features
 
-- ✅ **Zero Infrastructure** - No Redis, PostgreSQL, or external dependencies
-- ✅ **Full MCP 2025-06-18 Protocol** - Complete protocol implementation
-- ✅ **Secure Local Tools** - Sandboxed execution of git, docker, and shell commands
-- ✅ **Multi-Layer Security** - Command allowlisting, path validation, process isolation
-- ✅ **Optional Core Platform** - Connect to DevMesh for advanced features
+- ✅ **Zero Infrastructure** - No local Redis, PostgreSQL, or databases needed
+- ✅ **Full MCP 2025-06-18 Protocol** - Industry-standard protocol implementation
+- ✅ **Pass-Through Authentication** - Secure credential management via DevMesh Platform
+- ✅ **Dynamic Tool Discovery** - Automatically discovers available tools from your tenant
+- ✅ **Multi-Tenant Support** - Isolated workspaces with per-tenant tool configurations
 - ✅ **IDE Compatible** - Works with Claude Code, Cursor, Windsurf, and any MCP client
-- ✅ **Offline Mode** - Full functionality without network connection
-- ✅ **Circuit Breaker** - Resilient Core Platform integration
+- ✅ **Enterprise Security** - Centralized credential management, audit logging, usage tracking
+- ✅ **Circuit Breaker** - Resilient connection handling with automatic retries
 
 ## Installation
 
-### Quick Install (Recommended)
+> ⚠️ **Note**: Binary releases are not available yet as the project hasn't created any release tags. You can either build from source or use nightly builds.
 
-#### Unix/Linux/macOS
-```bash
-curl -sSL https://raw.githubusercontent.com/developer-mesh/developer-mesh/main/apps/edge-mcp/install.sh | bash
-```
-
-#### Windows (PowerShell as Administrator)
-```powershell
-iwr -useb https://raw.githubusercontent.com/developer-mesh/developer-mesh/main/apps/edge-mcp/install.ps1 | iex
-```
-
-### Download Pre-built Binaries
-
-Download the latest release for your platform from the [releases page](https://github.com/developer-mesh/developer-mesh/releases?q=edge-mcp&expanded=true).
-
-| Platform | Architecture | Download |
-|----------|-------------|----------|
-| macOS | Apple Silicon (M1/M2/M3) | [edge-mcp-darwin-arm64.tar.gz](https://github.com/developer-mesh/developer-mesh/releases/latest/download/edge-mcp-darwin-arm64.tar.gz) |
-| macOS | Intel | [edge-mcp-darwin-amd64.tar.gz](https://github.com/developer-mesh/developer-mesh/releases/latest/download/edge-mcp-darwin-amd64.tar.gz) |
-| Linux | x64 | [edge-mcp-linux-amd64.tar.gz](https://github.com/developer-mesh/developer-mesh/releases/latest/download/edge-mcp-linux-amd64.tar.gz) |
-| Linux | ARM64 | [edge-mcp-linux-arm64.tar.gz](https://github.com/developer-mesh/developer-mesh/releases/latest/download/edge-mcp-linux-arm64.tar.gz) |
-| Windows | x64 | [edge-mcp-windows-amd64.exe.zip](https://github.com/developer-mesh/developer-mesh/releases/latest/download/edge-mcp-windows-amd64.exe.zip) |
-| Windows | ARM64 | [edge-mcp-windows-arm64.exe.zip](https://github.com/developer-mesh/developer-mesh/releases/latest/download/edge-mcp-windows-arm64.exe.zip) |
-
-### Manual Installation
-
-#### macOS/Linux
-```bash
-# Download for your platform (example: macOS Apple Silicon)
-curl -L https://github.com/developer-mesh/developer-mesh/releases/latest/download/edge-mcp-darwin-arm64.tar.gz -o edge-mcp.tar.gz
-
-# Extract
-tar -xzf edge-mcp.tar.gz
-
-# Make executable
-chmod +x edge-mcp-darwin-arm64
-
-# Move to PATH (optional)
-sudo mv edge-mcp-darwin-arm64 /usr/local/bin/edge-mcp
-
-# Verify installation
-edge-mcp --version
-```
-
-#### Windows
-```powershell
-# Download (example: Windows x64)
-Invoke-WebRequest -Uri "https://github.com/developer-mesh/developer-mesh/releases/latest/download/edge-mcp-windows-amd64.exe.zip" -OutFile "edge-mcp.zip"
-
-# Extract
-Expand-Archive -Path "edge-mcp.zip" -DestinationPath .
-
-# Move to Program Files (optional)
-New-Item -ItemType Directory -Path "$env:ProgramFiles\edge-mcp" -Force
-Move-Item edge-mcp-windows-amd64.exe "$env:ProgramFiles\edge-mcp\edge-mcp.exe"
-
-# Add to PATH (optional, requires admin)
-[Environment]::SetEnvironmentVariable("Path", $env:Path + ";$env:ProgramFiles\edge-mcp", [EnvironmentVariableTarget]::Machine)
-
-# Verify installation (restart terminal first if you added to PATH)
-edge-mcp --version
-```
-
-### Build from Source
+### Option 1: Build from Source (Recommended)
 
 ```bash
 # Clone repository
@@ -92,6 +30,38 @@ go build -o edge-mcp ./cmd/server
 # Run
 ./edge-mcp --port 8082
 ```
+
+### Option 2: Download Nightly Builds
+
+Nightly builds are created automatically from the main branch. These are development builds and may be unstable.
+
+1. Go to [GitHub Actions](https://github.com/developer-mesh/developer-mesh/actions/workflows/edge-mcp-ci.yml)
+2. Click on the latest successful workflow run
+3. Download the artifact for your platform from the "Artifacts" section
+4. Extract and run the binary
+
+### Option 3: Future Binary Releases
+
+Once release tags are created, you'll be able to:
+
+#### Quick Install Scripts (Coming Soon)
+```bash
+# Unix/Linux/macOS
+curl -sSL https://raw.githubusercontent.com/developer-mesh/developer-mesh/main/apps/edge-mcp/install.sh | bash
+
+# Windows (PowerShell as Administrator)
+iwr -useb https://raw.githubusercontent.com/developer-mesh/developer-mesh/main/apps/edge-mcp/install.ps1 | iex
+```
+
+#### Direct Downloads (Coming Soon)
+Binary releases will be available at:
+- macOS Apple Silicon: `edge-mcp-darwin-arm64.tar.gz`
+- macOS Intel: `edge-mcp-darwin-amd64.tar.gz`
+- Linux x64: `edge-mcp-linux-amd64.tar.gz`
+- Linux ARM64: `edge-mcp-linux-arm64.tar.gz`
+- Windows x64: `edge-mcp-windows-amd64.exe.zip`
+- Windows ARM64: `edge-mcp-windows-arm64.exe.zip`
+
 
 ## Uninstallation
 
@@ -117,30 +87,51 @@ $newPath = ($path.Split(';') | Where-Object { $_ -ne "$env:ProgramFiles\edge-mcp
 
 ## Quick Start
 
-### Run Standalone
+### 1. Get Your DevMesh Credentials
+
+Sign up at [devmesh.ai](https://devmesh.ai) to get:
+- Your Core Platform API Key
+- Your Tenant ID
+
+### 2. Configure and Run
 
 ```bash
-# Run with default settings
-edge-mcp
-
-# Run on specific port
-edge-mcp --port 8082
-
-# Run with debug logging
-edge-mcp --log-level debug
-```
-
-### Run with Core Platform Integration
-
-```bash
-# Set environment variables
+# Set your DevMesh credentials
 export CORE_PLATFORM_URL=https://api.devmesh.ai
-export CORE_PLATFORM_API_KEY=your-api-key
-export TENANT_ID=your-tenant-id
+export CORE_PLATFORM_API_KEY=your-api-key     # From DevMesh dashboard
+export TENANT_ID=your-tenant-id               # From DevMesh dashboard
 
-# Run with Core Platform connection
-edge-mcp --core-url $CORE_PLATFORM_URL
+# Run Edge MCP
+edge-mcp --port 8082
 ```
+
+### 3. Configure Your IDE
+
+See [IDE Setup Guide](#ide-integration) below.
+
+## How It Works
+
+Edge MCP acts as a secure gateway between your IDE and the DevMesh Platform:
+
+```
+┌─────────┐      MCP       ┌──────────┐      HTTPS      ┌─────────────┐
+│   IDE   │ ◄──────────► │ Edge MCP │ ◄─────────────► │  DevMesh    │
+│(Claude, │   WebSocket   │          │   Authenticated │  Platform   │
+│ Cursor) │               │          │                 │             │
+└─────────┘               └──────────┘                 └─────────────┘
+                                                              │
+                                                              ▼
+                                                    ┌──────────────────┐
+                                                    │ GitHub, AWS,     │
+                                                    │ Slack, Jira, etc │
+                                                    └──────────────────┘
+```
+
+**Key Points:**
+- Your IDE connects to Edge MCP via WebSocket (MCP protocol)
+- Edge MCP authenticates with DevMesh Platform using your API key
+- DevMesh Platform stores and manages all actual service credentials (GitHub tokens, AWS keys, etc.)
+- When you call a tool, Edge MCP proxies the request to DevMesh, which executes it with the appropriate credentials
 
 ## IDE Integration
 
@@ -168,69 +159,152 @@ For complete configuration with all options, see the [IDE setup guides](./docs/i
 
 ## Available Tools
 
-### 🔧 Local Tools (Always Available)
+Edge MCP dynamically discovers tools from your DevMesh tenant. The exact tools available depend on your tenant configuration.
 
-#### Git Operations
-- **`git.status`** - Get repository status with parsed output
-  - Returns: branch, modified files, staged files, untracked files
-- **`git.diff`** - Show changes with optional staging
-  - Parameters: `path`, `staged` (boolean)
-- **`git.log`** - View commit history
-  - Parameters: `limit`, `format`, `since`, `until`
-- **`git.branch`** - Manage branches
-  - Parameters: `list`, `create`, `delete`, `switch`
+### Common Tool Categories
 
-#### Docker Operations
-- **`docker.build`** - Build Docker images securely
-  - Parameters: `context`, `tag`, `dockerfile`, `buildArgs`, `noCache`
-  - Security: Path validation on build context
-- **`docker.ps`** - List containers with JSON output
-  - Parameters: `all` (boolean)
-  - Returns: Structured container information
+#### 📦 Source Control
+- **GitHub** - Manage repos, PRs, issues, workflows
+- **GitLab** - Similar capabilities for GitLab
+- **Bitbucket** - Atlassian integration
 
-#### Shell Execution (Highly Secured)
-- **`shell.execute`** - Execute allowed shell commands
-  - Parameters: `command`, `args`, `cwd`, `env`
-  - Security Features:
-    - ❌ Blocked: `rm`, `sudo`, `chmod`, `chown`, `kill`, `shutdown`
-    - ✅ Allowed: `ls`, `cat`, `grep`, `find`, `echo`, `pwd`, `go`, `make`, `npm`
-    - No shell interpretation (prevents injection)
-    - Path sandboxing
-    - Environment variable filtering
-    - Argument validation
+#### ☁️ Cloud Platforms
+- **AWS** - S3, Lambda, EC2, CloudWatch, Bedrock
+- **Google Cloud** - GCP services
+- **Azure** - Microsoft cloud services
 
-#### File System Operations
-- **`filesystem.read`** - Read file contents
-- **`filesystem.write`** - Write file contents  
-- **`filesystem.list`** - List directory contents
-- **`filesystem.delete`** - Delete files (with validation)
-
-### 🌐 Remote Tools (With Core Platform)
-
-When connected to Core Platform, Edge MCP becomes a gateway to ALL DevMesh tools:
-
-- **GitHub** - Full GitHub API (repos, PRs, issues, actions)
-- **AWS** - S3, Lambda, CloudWatch, Bedrock
+#### 💬 Communication
 - **Slack** - Send messages, manage channels
-- **Jira** - Create/update issues, manage sprints
-- **Custom Tools** - Any tool configured in your tenant
+- **Discord** - Bot operations
+- **Email** - Send notifications
 
-Edge MCP automatically discovers and proxies these tools from Core Platform, providing:
-- Unified authentication
-- Centralized configuration
-- Usage tracking and limits
-- Audit logging
+#### 📋 Project Management
+- **Jira** - Issues, sprints, projects
+- **Linear** - Modern issue tracking
+- **Notion** - Documentation and wikis
 
-**How it works**: Edge MCP fetches available tools from Core Platform and creates local proxy handlers. When you call a remote tool, Edge MCP forwards the request to Core Platform, which executes it with proper credentials and returns the result.
+#### 🔧 DevOps
+- **Docker Hub** - Image management
+- **Kubernetes** - Cluster operations
+- **Terraform** - Infrastructure as code
 
-## Configuration
+#### 🤖 AI/ML
+- **OpenAI** - GPT models
+- **Anthropic** - Claude models
+- **AWS Bedrock** - Multiple AI models
 
-Environment variables:
-- `EDGE_MCP_API_KEY` - API key for client authentication
-- `CORE_PLATFORM_URL` - Core Platform URL (optional)
-- `CORE_PLATFORM_API_KEY` - Core Platform API key
-- `TENANT_ID` - Your tenant ID
-- `EDGE_MCP_ID` - Edge MCP identifier (auto-generated if not set)
+### Tool Discovery
+
+Tools are discovered automatically when Edge MCP connects to DevMesh:
+
+```bash
+# View available tools in your tenant
+curl -H "X-API-Key: your-api-key" \
+  https://api.devmesh.ai/api/v1/tools?tenant_id=your-tenant-id
+```
+
+Your IDE will automatically see all available tools through MCP protocol discovery - no configuration needed!
+
+## Pass-Through Authentication
+
+### Overview
+
+Pass-through authentication allows you to provide your personal access tokens (GitHub PAT, AWS credentials, etc.) to Edge MCP, which forwards them to DevMesh Platform. This enables actions to be performed as YOU, with your identity and permissions, rather than using shared service credentials.
+
+### How to Provide Your Tokens
+
+Edge MCP automatically detects personal access tokens from environment variables:
+
+```bash
+# Set your personal tokens before starting your IDE
+export GITHUB_TOKEN="ghp_your_personal_access_token"
+export AWS_ACCESS_KEY_ID="AKIAIOSFODNN7EXAMPLE"
+export AWS_SECRET_ACCESS_KEY="wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY"
+export SLACK_TOKEN="xoxb-your-slack-token"
+export JIRA_TOKEN="your-jira-api-token"
+```
+
+### Supported Services
+
+Edge MCP automatically detects tokens for these services:
+
+| Service | Environment Variables | Token Type |
+|---------|----------------------|------------|
+| GitHub | `GITHUB_TOKEN`, `GITHUB_PAT` | Personal Access Token |
+| AWS | `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, `AWS_SESSION_TOKEN` | IAM Credentials |
+| Slack | `SLACK_TOKEN`, `SLACK_API_TOKEN` | Bot/User Token |
+| Jira | `JIRA_TOKEN`, `JIRA_API_TOKEN`, `ATLASSIAN_TOKEN` | API Token |
+| GitLab | `GITLAB_TOKEN`, `GITLAB_PAT` | Personal Access Token |
+| Bitbucket | `BITBUCKET_TOKEN`, `BITBUCKET_APP_PASSWORD` | App Password |
+| Discord | `DISCORD_TOKEN`, `DISCORD_BOT_TOKEN` | Bot Token |
+
+### How Credentials Work
+
+Edge MCP uses a **three-tier authentication model**:
+
+1. **IDE → Edge MCP**: Optional authentication using `EDGE_MCP_API_KEY`
+2. **Edge MCP → DevMesh**: Required authentication using `CORE_PLATFORM_API_KEY`
+3. **DevMesh → Services**: DevMesh uses stored credentials for each service
+
+```
+┌──────────┐                    ┌──────────┐                    ┌──────────┐
+│   IDE    │                    │ Edge MCP │                    │ DevMesh  │
+│          │◄──────────────────►│          │◄──────────────────►│ Platform │
+└──────────┘  Optional API Key  └──────────┘  Required API Key  └──────────┘
+                                                                       │
+                                                          Stored Service Credentials
+                                                                       ▼
+                                                              ┌────────────────┐
+                                                              │ GitHub: token  │
+                                                              │ AWS: key/secret│
+                                                              │ Slack: token   │
+                                                              └────────────────┘
+```
+
+### Benefits of Pass-Through Authentication
+
+#### With Personal Tokens (Recommended)
+- **Personal Attribution**: Actions show as performed by YOU
+- **Respect Personal Limits**: Uses your personal rate limits and quotas
+- **Audit Compliance**: Full traceability to individual users
+- **Permission Scoping**: Limited to what YOU can access
+- **Contribution Credit**: GitHub commits count toward your profile
+
+#### Without Personal Tokens (Fallback)
+- **Service Account**: Actions performed by DevMesh service account
+- **Shared Limits**: Uses shared rate limits
+- **Generic Attribution**: Shows as "DevMesh Bot" or similar
+- **Broader Permissions**: May have access you don't personally have
+
+### Security Benefits
+
+- **No Local Credential Storage**: Tokens only in environment variables
+- **Session-Only**: Tokens held in memory only during active session
+- **Encrypted Transport**: All credentials sent over TLS/HTTPS
+- **No Logging**: Tokens are never written to logs
+- **Rotation Support**: Update tokens anytime without config changes
+
+### Setting Up Credentials
+
+1. **In DevMesh Dashboard**:
+   - Add service credentials (GitHub tokens, AWS keys, etc.)
+   - Configure which tools are available to your tenant
+   - Set usage limits and permissions
+
+2. **In Edge MCP**:
+   - Only provide DevMesh API key and tenant ID
+   - Edge MCP automatically discovers available tools
+   - No service credentials needed locally
+
+### Environment Variables
+
+| Variable | Required | Description |
+|----------|----------|-------------|
+| `CORE_PLATFORM_URL` | Yes | DevMesh Platform endpoint (usually `https://api.devmesh.ai`) |
+| `CORE_PLATFORM_API_KEY` | Yes | Your DevMesh API key from dashboard |
+| `TENANT_ID` | Yes | Your DevMesh tenant ID |
+| `EDGE_MCP_API_KEY` | No | Optional API key to secure IDE→Edge connection |
+| `EDGE_MCP_ID` | No | Unique identifier for this Edge instance (auto-generated) |
 
 ## Testing
 
