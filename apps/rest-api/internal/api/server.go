@@ -341,6 +341,21 @@ func (s *Server) setupRoutes(ctx context.Context) {
 	// Metrics endpoint - public (no authentication required)
 	s.router.GET("/metrics", s.metricsHandler)
 
+	// Initialize registration services BEFORE setting up authenticated routes
+	// Create email service (placeholder for now)
+	var emailService services.EmailService = nil // TODO: implement email service
+
+	// Create organization and user services
+	orgService := services.NewOrganizationService(s.db, s.authMiddleware.GetAuthService(), emailService, s.logger)
+	userService := services.NewUserAuthService(s.db, s.authMiddleware.GetAuthService(), emailService, s.logger)
+
+	// Create registration API
+	registrationAPI := NewRegistrationAPI(orgService, userService, s.authMiddleware.GetAuthService(), s.logger)
+	
+	// Register PUBLIC auth routes (no authentication required)
+	publicV1 := s.router.Group("/api/v1")
+	registrationAPI.RegisterPublicRoutes(publicV1)
+
 	// API v1 routes - require authentication
 	v1 := s.router.Group("/api/v1")
 
@@ -350,18 +365,9 @@ func (s *Server) setupRoutes(ctx context.Context) {
 
 	// Add tenant context extraction middleware AFTER authentication
 	v1.Use(ExtractTenantContext())
-
-	// Initialize and register organization/user registration endpoints
-	// Create email service (placeholder for now)
-	var emailService services.EmailService = nil // TODO: implement email service
-
-	// Create organization and user services
-	orgService := services.NewOrganizationService(s.db, s.authMiddleware.GetAuthService(), emailService, s.logger)
-	userService := services.NewUserAuthService(s.db, s.authMiddleware.GetAuthService(), emailService, s.logger)
-
-	// Create and register registration API
-	registrationAPI := NewRegistrationAPI(orgService, userService, s.authMiddleware.GetAuthService(), s.logger)
-	registrationAPI.RegisterRoutes(v1)
+	
+	// Register PROTECTED routes (authentication required)
+	registrationAPI.RegisterProtectedRoutes(v1)
 
 	// Root endpoint to provide API entry points (HATEOAS)
 	v1.GET("/", func(c *gin.Context) {

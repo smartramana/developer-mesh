@@ -33,8 +33,8 @@ func NewRegistrationAPI(
 	}
 }
 
-// RegisterRoutes registers all registration and auth routes
-func (api *RegistrationAPI) RegisterRoutes(router *gin.RouterGroup) {
+// RegisterPublicRoutes registers public auth routes (no authentication required)
+func (api *RegistrationAPI) RegisterPublicRoutes(router *gin.RouterGroup) {
 	// Public routes (no authentication required)
 	public := router.Group("/auth")
 	{
@@ -61,27 +61,25 @@ func (api *RegistrationAPI) RegisterRoutes(router *gin.RouterGroup) {
 		public.GET("/invitation/:token", api.GetInvitationDetails)
 		public.POST("/invitation/accept", api.AcceptInvitation)
 	}
+}
 
-	// Protected routes (authentication required)
-	protected := router.Group("/")
-	protected.Use(api.authMiddleware())
-	{
-		// User management (admin only)
-		protected.POST("/users/invite", api.InviteUser)
-		protected.GET("/users", api.ListOrganizationUsers)
-		protected.PUT("/users/:id/role", api.UpdateUserRole)
-		protected.DELETE("/users/:id", api.RemoveUser)
+// RegisterProtectedRoutes registers protected routes (authentication required)
+func (api *RegistrationAPI) RegisterProtectedRoutes(router *gin.RouterGroup) {
+	// User management (admin only)
+	router.POST("/users/invite", api.InviteUser)
+	router.GET("/users", api.ListOrganizationUsers)
+	router.PUT("/users/:id/role", api.UpdateUserRole)
+	router.DELETE("/users/:id", api.RemoveUser)
 
-		// Organization management
-		protected.GET("/organization", api.GetOrganization)
-		protected.PUT("/organization", api.UpdateOrganization)
-		protected.GET("/organization/usage", api.GetOrganizationUsage)
+	// Organization management
+	router.GET("/organization", api.GetOrganization)
+	router.PUT("/organization", api.UpdateOrganization)
+	router.GET("/organization/usage", api.GetOrganizationUsage)
 
-		// User profile
-		protected.GET("/profile", api.GetProfile)
-		protected.PUT("/profile", api.UpdateProfile)
-		protected.POST("/profile/password", api.ChangePassword)
-	}
+	// User profile
+	router.GET("/profile", api.GetProfile)
+	router.PUT("/profile", api.UpdateProfile)
+	router.POST("/profile/password", api.ChangePassword)
 }
 
 // RegisterOrganization handles new organization registration
@@ -407,13 +405,4 @@ func (api *RegistrationAPI) UpdateProfile(c *gin.Context) {
 
 func (api *RegistrationAPI) ChangePassword(c *gin.Context) {
 	c.JSON(http.StatusNotImplemented, gin.H{"error": "Not implemented yet"})
-}
-
-// authMiddleware creates the authentication middleware
-func (api *RegistrationAPI) authMiddleware() gin.HandlerFunc {
-	return func(c *gin.Context) {
-		// This would use the existing auth middleware from pkg/auth
-		// For now, just a placeholder
-		c.Next()
-	}
 }
