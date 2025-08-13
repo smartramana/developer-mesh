@@ -2,8 +2,9 @@
 
 ## Prerequisites
 
-1. DevMesh account with API key and tenant ID
+1. DevMesh account with organization API key (obtained during registration)
 2. Edge MCP installed and in PATH
+3. Your personal access tokens for services you want to use (GitHub, AWS, etc.) - optional
 
 ## Configuration
 
@@ -18,9 +19,13 @@ Create `.windsurf/mcp-config.json` in your project root:
       "executable": "edge-mcp",
       "arguments": ["--port=8082"],
       "environment": {
-        "CORE_PLATFORM_URL": "https://api.devmesh.ai",
-        "CORE_PLATFORM_API_KEY": "your-api-key",
-        "TENANT_ID": "your-tenant-id"
+        "CORE_PLATFORM_URL": "https://api.devmesh.io",
+        "CORE_PLATFORM_API_KEY": "devmesh_xxx...",
+        
+        // Optional: Personal access tokens for pass-through auth
+        "GITHUB_TOKEN": "ghp_your_personal_access_token",
+        "AWS_ACCESS_KEY_ID": "AKIAIOSFODNN7EXAMPLE",
+        "AWS_SECRET_ACCESS_KEY": "wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY"
       }
     }
   },
@@ -28,7 +33,9 @@ Create `.windsurf/mcp-config.json` in your project root:
 }
 ```
 
-Replace `your-api-key` and `your-tenant-id` with values from your DevMesh dashboard.
+**Note**: Your organization's tenant ID is automatically determined from your API key. You no longer need to provide it separately.
+
+Replace `devmesh_xxx...` with your actual API key obtained during organization registration.
 
 ## Verification
 
@@ -71,8 +78,7 @@ If you prefer not to hardcode credentials, use environment variables:
       "arguments": ["--port=8082"],
       "environment": {
         "CORE_PLATFORM_URL": "${env:CORE_PLATFORM_URL}",
-        "CORE_PLATFORM_API_KEY": "${env:CORE_PLATFORM_API_KEY}",
-        "TENANT_ID": "${env:TENANT_ID}"
+        "CORE_PLATFORM_API_KEY": "${env:CORE_PLATFORM_API_KEY}"
       }
     }
   },
@@ -84,8 +90,7 @@ Then set environment variables before starting Windsurf:
 
 ```bash
 export CORE_PLATFORM_URL="https://api.devmesh.ai"
-export CORE_PLATFORM_API_KEY="your-api-key"
-export TENANT_ID="your-tenant-id"
+export CORE_PLATFORM_API_KEY="devmesh_xxx..."  # Your API key from registration
 ```
 
 ## Troubleshooting
@@ -95,7 +100,7 @@ export TENANT_ID="your-tenant-id"
 - Or use full path in configuration: `"executable": "/usr/local/bin/edge-mcp"`
 
 ### Authentication failed
-- Verify API key and tenant ID from DevMesh dashboard
+- Verify API key from DevMesh dashboard (should start with `devmesh_`)
 - Check Core Platform URL is correct
 - Look at Windsurf's output panel for detailed errors
 

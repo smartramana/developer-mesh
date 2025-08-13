@@ -7,6 +7,8 @@ Welcome to the Developer Mesh documentation. This guide provides comprehensive i
 ### [Getting Started](getting-started/)
 Start here if you're new to Developer Mesh
 - [Quick Start Guide](getting-started/quick-start-guide.md) - Get up and running in minutes
+- [Organization Setup](getting-started/organization-setup.md) - Register your organization and invite users
+- [Authentication Quick Start](getting-started/authentication-quick-start.md) - Authentication setup
 - Installation & Configuration guides
 
 ### [Architecture](architecture/)
@@ -19,10 +21,11 @@ Understanding the system design
 ### [API Reference](api-reference/)
 Complete API documentation
 - [REST API Reference](api-reference/rest-api-reference.md) - REST endpoints
+- [Organization & Auth API](api-reference/organization-auth-api.md) - Organization registration and user management
 - [MCP Server Reference](api-reference/mcp-server-reference.md) - WebSocket protocol
 - [Embedding API](api-reference/embedding-api-reference.md) - Multi-agent embedding endpoints
 - [Webhook API](api-reference/webhook-api-reference.md) - Webhook processing
-- [Authentication API](api-reference/authentication-api-reference.md) - Auth endpoints
+- [Authentication API](api-reference/authentication-api-reference.md) - Auth middleware and tokens
 
 ### [Developer Guide](developer/)
 For contributors and developers
@@ -42,6 +45,7 @@ Real-world integration examples
 
 ### For Users
 - [Quick Start Guide](getting-started/quick-start-guide.md)
+- [Organization Setup](getting-started/organization-setup.md)
 - [Local Development](LOCAL_DEVELOPMENT.md)
 - [Examples](examples/README.md)
 

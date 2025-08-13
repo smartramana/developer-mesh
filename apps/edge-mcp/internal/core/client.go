@@ -26,7 +26,7 @@ const PassthroughAuthKey contextKey = "passthrough-auth"
 // No direct Redis or database connections are used
 type Client struct {
 	baseURL    string
-	tenantID   string
+	tenantID   string // Retrieved from Core Platform after authentication
 	edgeMCPID  string
 	apiKey     string
 	httpClient *http.Client
@@ -46,11 +46,10 @@ type Client struct {
 }
 
 // NewClient creates a new Core Platform client
-func NewClient(baseURL, apiKey, tenantID, edgeMCPID string, logger observability.Logger) *Client {
+func NewClient(baseURL, apiKey, edgeMCPID string, logger observability.Logger) *Client {
 	return &Client{
 		baseURL:   baseURL,
 		apiKey:    apiKey,
-		tenantID:  tenantID,
 		edgeMCPID: edgeMCPID,
 		httpClient: &http.Client{
 			Timeout: 30 * time.Second,
@@ -65,14 +64,15 @@ func NewClient(baseURL, apiKey, tenantID, edgeMCPID string, logger observability
 type AuthRequest struct {
 	EdgeMCPID string `json:"edge_mcp_id"`
 	APIKey    string `json:"api_key"`
-	TenantID  string `json:"tenant_id"`
+	// TenantID not needed - Core Platform extracts it from APIKey
 }
 
 // AuthResponse represents authentication response
 type AuthResponse struct {
-	Success bool   `json:"success"`
-	Token   string `json:"token,omitempty"`
-	Message string `json:"message,omitempty"`
+	Success  bool   `json:"success"`
+	Token    string `json:"token,omitempty"`
+	Message  string `json:"message,omitempty"`
+	TenantID string `json:"tenant_id,omitempty"` // Core Platform returns the tenant_id
 }
 
 // AuthenticateWithCore authenticates with the Core Platform
@@ -96,7 +96,6 @@ func (c *Client) AuthenticateWithCore(ctx context.Context) error {
 	authReq := AuthRequest{
 		EdgeMCPID: c.edgeMCPID,
 		APIKey:    c.apiKey,
-		TenantID:  c.tenantID,
 	}
 
 	// Make authentication request
@@ -134,7 +133,11 @@ func (c *Client) AuthenticateWithCore(ctx context.Context) error {
 		return err
 	}
 
-	// Authentication successful
+	// Authentication successful - store the tenant_id from response
+	if authResp.TenantID != "" {
+		c.tenantID = authResp.TenantID
+	}
+	
 	c.connected = true
 	c.lastError = nil
 	c.failureCount = 0

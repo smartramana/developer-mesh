@@ -2,8 +2,9 @@
 
 ## Prerequisites
 
-1. DevMesh account with API key and tenant ID
+1. DevMesh account with organization API key (obtained during registration)
 2. Edge MCP installed and in PATH
+3. Your personal access tokens for services you want to use (GitHub, AWS, etc.) - optional
 
 ## Setup
 
@@ -13,13 +14,19 @@ Cursor requires Edge MCP to be running separately.
 
 ```bash
 # Set DevMesh credentials
-export CORE_PLATFORM_URL="https://api.devmesh.ai"
-export CORE_PLATFORM_API_KEY="your-api-key"    # From DevMesh dashboard
-export TENANT_ID="your-tenant-id"              # From DevMesh dashboard
+export CORE_PLATFORM_URL="https://api.devmesh.io"
+export CORE_PLATFORM_API_KEY="devmesh_xxx..."  # Your API key from organization registration
+
+# Optional: Set personal access tokens for pass-through auth
+export GITHUB_TOKEN="ghp_your_personal_access_token"
+export AWS_ACCESS_KEY_ID="AKIAIOSFODNN7EXAMPLE"
+export AWS_SECRET_ACCESS_KEY="wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY"
 
 # Start Edge MCP
 edge-mcp --port 8082
 ```
+
+**Note**: Your organization's tenant ID is automatically determined from your API key. You no longer need to provide it separately.
 
 ### Step 2: Configure Cursor
 

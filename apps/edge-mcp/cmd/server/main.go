@@ -101,7 +101,6 @@ func main() {
 		coreClient = core.NewClient(
 			cfg.Core.URL,
 			cfg.Core.APIKey,
-			cfg.Core.TenantID,
 			cfg.Core.EdgeMCPID,
 			logger,
 		)

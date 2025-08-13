@@ -26,8 +26,8 @@ type AuthConfig struct {
 type CoreConfig struct {
 	URL       string `yaml:"url"`
 	APIKey    string `yaml:"api_key"`
-	TenantID  string `yaml:"tenant_id"`
 	EdgeMCPID string `yaml:"edge_mcp_id"`
+	// TenantID is determined from the API key, not needed as separate config
 }
 
 // Load loads configuration from file or environment
@@ -49,7 +49,6 @@ func Default() *Config {
 		Core: CoreConfig{
 			URL:       getEnv("CORE_PLATFORM_URL", ""),
 			APIKey:    getEnv("CORE_PLATFORM_API_KEY", ""),
-			TenantID:  getEnv("TENANT_ID", ""),
 			EdgeMCPID: getEnv("EDGE_MCP_ID", generateEdgeMCPID()),
 		},
 	}

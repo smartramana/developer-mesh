@@ -2,7 +2,7 @@
 
 ## Prerequisites
 
-1. DevMesh account with API key and tenant ID
+1. DevMesh account with organization API key (obtained during registration)
 2. Edge MCP installed and in PATH
 3. Your personal access tokens for services you want to use (GitHub, AWS, etc.)
 
@@ -20,7 +20,6 @@ Create `.claude/mcp.json` in your project root:
         // Required: DevMesh Platform credentials
         "CORE_PLATFORM_URL": "${CORE_PLATFORM_URL}",
         "CORE_PLATFORM_API_KEY": "${CORE_PLATFORM_API_KEY}",
-        "TENANT_ID": "${TENANT_ID}",
         
         // Optional: Your personal access tokens for pass-through auth
         "GITHUB_TOKEN": "${GITHUB_TOKEN}",
@@ -40,10 +39,11 @@ Set these environment variables before starting Claude Code:
 
 ### Required: DevMesh Platform Credentials
 ```bash
-export CORE_PLATFORM_URL="https://api.devmesh.ai"
-export CORE_PLATFORM_API_KEY="your-devmesh-api-key"  # From DevMesh dashboard
-export TENANT_ID="your-tenant-id"                    # From DevMesh dashboard
+export CORE_PLATFORM_URL="https://api.devmesh.io"
+export CORE_PLATFORM_API_KEY="devmesh_xxx..."  # Your API key from organization registration
 ```
+
+**Note**: Your organization's tenant ID is automatically determined from your API key. You no longer need to provide it separately.
 
 ### Optional but Recommended: Personal Access Tokens
 
@@ -63,6 +63,27 @@ export SLACK_TOKEN="xoxb-your-slack-token"
 export JIRA_TOKEN="your-jira-api-token"
 export GITLAB_TOKEN="glpat-your-gitlab-token"
 ```
+
+## Getting Your API Key
+
+If you haven't registered your organization yet:
+
+1. Register your organization:
+```bash
+curl -X POST https://api.devmesh.io/api/v1/auth/register/organization \
+  -H "Content-Type: application/json" \
+  -d '{
+    "organization_name": "Your Company",
+    "organization_slug": "your-company",
+    "admin_email": "admin@company.com",
+    "admin_name": "Your Name",
+    "admin_password": "SecurePass123"
+  }'
+```
+
+2. Save the `api_key` from the response - this is your `CORE_PLATFORM_API_KEY`
+
+If you already have an account, you can find your API key in the DevMesh dashboard or contact your organization admin.
 
 ## How Pass-Through Authentication Works
 
@@ -87,20 +108,21 @@ After restarting Claude Code:
 
 ## Security Notes
 
-- Tokens are only held in memory during your session
+- Your API key identifies your organization and provides access to your tenant's resources
+- Personal tokens are only held in memory during your session
 - Tokens are never logged or stored persistently
 - Tokens are only sent to DevMesh Platform over TLS
 - Each action is logged with full attribution
 
 ## Available Tools
 
-Tools are dynamically discovered from your DevMesh tenant. With pass-through auth, you can use:
+Tools are dynamically discovered from your organization's DevMesh configuration. With pass-through auth, you can use:
 
 - **GitHub**: Create PRs, issues, and releases as yourself
 - **AWS**: Manage resources in your personal or work AWS account
 - **Slack**: Send messages as yourself (not as a bot)
 - **Jira**: Create and update issues with your identity
-- Plus any custom tools configured in your tenant
+- Plus any custom tools configured in your organization
 
 ## Troubleshooting
 
@@ -109,10 +131,11 @@ Tools are dynamically discovered from your DevMesh tenant. With pass-through aut
 - Check Edge MCP logs for "Found GitHub passthrough token"
 - Ensure token has required scopes (repo, write, etc.)
 
-### "Authentication failed"
-- Verify personal token is valid and not expired
-- Check token permissions match the action you're trying
-- Some organizations may restrict personal tokens
+### "Authentication failed with Core Platform"
+- Verify your API key is correct: `echo $CORE_PLATFORM_API_KEY`
+- Ensure your API key starts with `devmesh_`
+- Check that your organization account is active
+- Your API key automatically identifies your organization - no tenant ID needed
 
 ### "Tool execution failed"
 - Check if your personal account has access to the resource
@@ -121,11 +144,17 @@ Tools are dynamically discovered from your DevMesh tenant. With pass-through aut
 
 ## Token Management Best Practices
 
-1. **Use minimal scopes**: Only grant permissions you need
-2. **Rotate regularly**: Update tokens every 30-90 days
-3. **Use separate tokens**: Don't reuse tokens across services
-4. **Store securely**: Use a password manager or secure keychain
-5. **Monitor usage**: Check your GitHub/AWS audit logs regularly
+1. **API Key Security**: 
+   - Never share your DevMesh API key
+   - Store it securely (use environment variables or secret manager)
+   - Each team member should have their own user account
+
+2. **Personal Tokens**:
+   - Use minimal scopes - only grant permissions you need
+   - Rotate regularly - update tokens every 30-90 days
+   - Use separate tokens - don't reuse tokens across services
+   - Store securely - use a password manager or secure keychain
+   - Monitor usage - check your GitHub/AWS audit logs regularly
 
 ## Example: Creating a PR as Yourself
 
@@ -146,3 +175,12 @@ Tools are dynamically discovered from your DevMesh tenant. With pass-through aut
 // - Your profile picture
 // - Counts toward your contribution graph
 ```
+
+## Backward Compatibility Note
+
+If you're using an older version of Edge MCP that still requires `TENANT_ID`, you can leave it empty:
+```bash
+export TENANT_ID=""  # Not needed with organization API keys
+```
+
+The tenant ID is now automatically determined from your API key when Edge MCP authenticates with the Core Platform.

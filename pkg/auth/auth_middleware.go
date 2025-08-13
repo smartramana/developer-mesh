@@ -35,6 +35,11 @@ func NewAuthMiddleware(service *Service, rateLimiter *RateLimiter, metrics *Metr
 	}
 }
 
+// GetAuthService returns the underlying auth service
+func (m *AuthMiddleware) GetAuthService() *Service {
+	return m.service
+}
+
 // ValidateAPIKeyWithMetrics validates an API key with rate limiting and metrics
 func (m *AuthMiddleware) ValidateAPIKeyWithMetrics(ctx context.Context, apiKey string) (*User, error) {
 	start := time.Now()

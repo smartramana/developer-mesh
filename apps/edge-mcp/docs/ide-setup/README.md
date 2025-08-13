@@ -4,10 +4,8 @@ Connect your IDE to DevMesh Platform through Edge MCP for access to GitHub, AWS,
 
 ## Prerequisites
 
-1. **DevMesh Account**: Sign up at [devmesh.ai](https://devmesh.ai)
-2. **Credentials from DevMesh Dashboard**:
-   - Core Platform API Key
-   - Tenant ID
+1. **DevMesh Account**: Register your organization and get an API key
+2. **Organization API Key**: Obtained during organization registration (`devmesh_xxx...`)
 
 ## Quick Start
 
@@ -21,16 +19,32 @@ go build -o edge-mcp ./cmd/server
 sudo mv edge-mcp /usr/local/bin/  # Add to PATH
 ```
 
-### Step 2: Set DevMesh Credentials
+### Step 2: Register Your Organization (if not done already)
+
+```bash
+curl -X POST https://api.devmesh.io/api/v1/auth/register/organization \
+  -H "Content-Type: application/json" \
+  -d '{
+    "organization_name": "Your Company",
+    "organization_slug": "your-company",
+    "admin_email": "admin@company.com",
+    "admin_name": "Your Name",
+    "admin_password": "SecurePass123"
+  }'
+# Save the api_key from the response!
+```
+
+### Step 3: Set DevMesh Credentials
 
 ```bash
 # Add to your shell profile (~/.bashrc, ~/.zshrc, etc.)
-export CORE_PLATFORM_URL="https://api.devmesh.ai"
-export CORE_PLATFORM_API_KEY="your-api-key"    # From DevMesh dashboard
-export TENANT_ID="your-tenant-id"              # From DevMesh dashboard
+export CORE_PLATFORM_URL="https://api.devmesh.io"
+export CORE_PLATFORM_API_KEY="devmesh_xxx..."  # Your API key from registration
+
+# Note: Tenant ID is no longer needed - it's automatically determined from your API key
 ```
 
-### Step 3: Configure Your IDE
+### Step 4: Configure Your IDE
 
 Choose your IDE:
 - [Claude Code](./claude-code.md) - `.claude/mcp.json`
@@ -62,8 +76,7 @@ Your IDE → Edge MCP → DevMesh Platform → GitHub/AWS/Slack
       "args": ["--port", "8082"],
       "env": {
         "CORE_PLATFORM_URL": "${CORE_PLATFORM_URL}",
-        "CORE_PLATFORM_API_KEY": "${CORE_PLATFORM_API_KEY}",
-        "TENANT_ID": "${TENANT_ID}"
+        "CORE_PLATFORM_API_KEY": "${CORE_PLATFORM_API_KEY}"
       }
     }
   }
@@ -98,9 +111,8 @@ edge-mcp --port 8082
       "executable": "edge-mcp",
       "arguments": ["--port=8082"],
       "environment": {
-        "CORE_PLATFORM_URL": "https://api.devmesh.ai",
-        "CORE_PLATFORM_API_KEY": "your-api-key",
-        "TENANT_ID": "your-tenant-id"
+        "CORE_PLATFORM_URL": "https://api.devmesh.io",
+        "CORE_PLATFORM_API_KEY": "devmesh_xxx..."
       }
     }
   }
@@ -167,9 +179,10 @@ curl -i -N -H "Connection: Upgrade" -H "Upgrade: websocket" http://localhost:808
 ## Common Issues
 
 ### "Authentication failed"
-- Verify your DevMesh API key is correct
-- Check that TENANT_ID matches your dashboard
-- Ensure environment variables are exported
+- Verify your DevMesh API key is correct (should start with `devmesh_`)
+- Ensure your organization account is active
+- Check environment variables are exported: `echo $CORE_PLATFORM_API_KEY`
+- Note: Tenant ID is automatically determined from your API key
 
 ### "No tools available"
 - Check your tenant has tools configured in DevMesh

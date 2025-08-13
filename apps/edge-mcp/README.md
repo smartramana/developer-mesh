@@ -87,19 +87,31 @@ $newPath = ($path.Split(';') | Where-Object { $_ -ne "$env:ProgramFiles\edge-mcp
 
 ## Quick Start
 
-### 1. Get Your DevMesh Credentials
+### 1. Register Your Organization
 
-Sign up at [devmesh.ai](https://devmesh.ai) to get:
-- Your Core Platform API Key
-- Your Tenant ID
+Register at DevMesh to get your API key:
+
+```bash
+curl -X POST https://api.devmesh.io/api/v1/auth/register/organization \
+  -H "Content-Type: application/json" \
+  -d '{
+    "organization_name": "Your Company",
+    "organization_slug": "your-company",
+    "admin_email": "admin@company.com",
+    "admin_name": "Your Name",
+    "admin_password": "SecurePass123"
+  }'
+```
+
+Save the `api_key` from the response - this is your authentication credential.
 
 ### 2. Configure and Run
 
 ```bash
 # Set your DevMesh credentials
-export CORE_PLATFORM_URL=https://api.devmesh.ai
-export CORE_PLATFORM_API_KEY=your-api-key     # From DevMesh dashboard
-export TENANT_ID=your-tenant-id               # From DevMesh dashboard
+export CORE_PLATFORM_URL=https://api.devmesh.io
+export CORE_PLATFORM_API_KEY=devmesh_xxx...   # Your API key from registration
+# Note: Tenant ID is automatically determined from your API key
 
 # Run Edge MCP
 edge-mcp --port 8082
@@ -301,8 +313,7 @@ Edge MCP uses a **three-tier authentication model**:
 | Variable | Required | Description |
 |----------|----------|-------------|
 | `CORE_PLATFORM_URL` | Yes | DevMesh Platform endpoint (usually `https://api.devmesh.ai`) |
-| `CORE_PLATFORM_API_KEY` | Yes | Your DevMesh API key from dashboard |
-| `TENANT_ID` | Yes | Your DevMesh tenant ID |
+| `CORE_PLATFORM_API_KEY` | Yes | Your DevMesh API key from dashboard (contains tenant information) |
 | `EDGE_MCP_API_KEY` | No | Optional API key to secure IDE→Edge connection |
 | `EDGE_MCP_ID` | No | Unique identifier for this Edge instance (auto-generated) |
 
