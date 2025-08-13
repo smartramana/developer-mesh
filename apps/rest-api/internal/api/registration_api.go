@@ -45,7 +45,7 @@ func (api *RegistrationAPI) RegisterRoutes(router *gin.RouterGroup) {
 		public.POST("/login", api.Login)
 		public.POST("/refresh", api.RefreshToken)
 		public.POST("/logout", api.Logout)
-		
+
 		// Edge MCP authentication
 		public.POST("/edge-mcp", api.AuthenticateEdgeMCP)
 

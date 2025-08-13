@@ -350,15 +350,15 @@ func (s *Server) setupRoutes(ctx context.Context) {
 
 	// Add tenant context extraction middleware AFTER authentication
 	v1.Use(ExtractTenantContext())
-	
+
 	// Initialize and register organization/user registration endpoints
 	// Create email service (placeholder for now)
 	var emailService services.EmailService = nil // TODO: implement email service
-	
+
 	// Create organization and user services
 	orgService := services.NewOrganizationService(s.db, s.authMiddleware.GetAuthService(), emailService, s.logger)
 	userService := services.NewUserAuthService(s.db, s.authMiddleware.GetAuthService(), emailService, s.logger)
-	
+
 	// Create and register registration API
 	registrationAPI := NewRegistrationAPI(orgService, userService, s.authMiddleware.GetAuthService(), s.logger)
 	registrationAPI.RegisterRoutes(v1)

@@ -137,7 +137,7 @@ func (c *Client) AuthenticateWithCore(ctx context.Context) error {
 	if authResp.TenantID != "" {
 		c.tenantID = authResp.TenantID
 	}
-	
+
 	c.connected = true
 	c.lastError = nil
 	c.failureCount = 0
