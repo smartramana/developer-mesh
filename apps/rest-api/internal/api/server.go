@@ -345,16 +345,51 @@ func (s *Server) setupRoutes(ctx context.Context) {
 	// Create email service (placeholder for now)
 	var emailService services.EmailService = nil // TODO: implement email service
 
+	// Check if authMiddleware is properly initialized
+	if s.authMiddleware == nil {
+		s.logger.Error("authMiddleware is nil, cannot create registration services", nil)
+		return
+	}
+
+	authService := s.authMiddleware.GetAuthService()
+	if authService == nil {
+		s.logger.Error("authService is nil from authMiddleware", nil)
+		return
+	}
+
 	// Create organization and user services
-	orgService := services.NewOrganizationService(s.db, s.authMiddleware.GetAuthService(), emailService, s.logger)
-	userService := services.NewUserAuthService(s.db, s.authMiddleware.GetAuthService(), emailService, s.logger)
+	s.logger.Info("Creating organization and user services", nil)
+	orgService := services.NewOrganizationService(s.db, authService, emailService, s.logger)
+	userService := services.NewUserAuthService(s.db, authService, emailService, s.logger)
 
 	// Create registration API
-	registrationAPI := NewRegistrationAPI(orgService, userService, s.authMiddleware.GetAuthService(), s.logger)
-	
-	// Register PUBLIC auth routes (no authentication required)
-	publicV1 := s.router.Group("/api/v1")
-	registrationAPI.RegisterPublicRoutes(publicV1)
+	s.logger.Info("Creating registration API handler", nil)
+	registrationAPI := NewRegistrationAPI(orgService, userService, authService, s.logger)
+
+	// Register PUBLIC auth routes DIRECTLY on router (no authentication required)
+	// We must register these BEFORE the authenticated v1 group to avoid middleware conflicts
+	s.logger.Info("Registering public auth routes directly on router", nil)
+	authGroup := s.router.Group("/api/v1/auth")
+	{
+		authGroup.POST("/register/organization", registrationAPI.RegisterOrganization)
+		authGroup.POST("/login", registrationAPI.Login)
+		authGroup.POST("/logout", registrationAPI.Logout)
+		authGroup.POST("/refresh", registrationAPI.RefreshToken)
+		authGroup.POST("/edge-mcp", registrationAPI.AuthenticateEdgeMCP)
+		authGroup.POST("/password/reset", registrationAPI.RequestPasswordReset)
+		authGroup.POST("/password/reset/confirm", registrationAPI.ConfirmPasswordReset)
+		authGroup.POST("/email/verify", registrationAPI.VerifyEmail)
+		authGroup.POST("/email/resend", registrationAPI.ResendVerificationEmail)
+		authGroup.GET("/invitation/:token", registrationAPI.GetInvitationDetails)
+		authGroup.POST("/invitation/accept", registrationAPI.AcceptInvitation)
+	}
+	s.logger.Info("Public auth routes registered", map[string]interface{}{
+		"endpoints": []string{
+			"/api/v1/auth/register/organization",
+			"/api/v1/auth/login",
+			"/api/v1/auth/edge-mcp",
+		},
+	})
 
 	// API v1 routes - require authentication
 	v1 := s.router.Group("/api/v1")
@@ -365,9 +400,18 @@ func (s *Server) setupRoutes(ctx context.Context) {
 
 	// Add tenant context extraction middleware AFTER authentication
 	v1.Use(ExtractTenantContext())
-	
+
 	// Register PROTECTED routes (authentication required)
-	registrationAPI.RegisterProtectedRoutes(v1)
+	v1.POST("/users/invite", registrationAPI.InviteUser)
+	v1.GET("/users", registrationAPI.ListOrganizationUsers)
+	v1.PUT("/users/:id/role", registrationAPI.UpdateUserRole)
+	v1.DELETE("/users/:id", registrationAPI.RemoveUser)
+	v1.GET("/organization", registrationAPI.GetOrganization)
+	v1.PUT("/organization", registrationAPI.UpdateOrganization)
+	v1.GET("/organization/usage", registrationAPI.GetOrganizationUsage)
+	v1.GET("/profile", registrationAPI.GetProfile)
+	v1.PUT("/profile", registrationAPI.UpdateProfile)
+	v1.POST("/profile/password", registrationAPI.ChangePassword)
 
 	// Root endpoint to provide API entry points (HATEOAS)
 	v1.GET("/", func(c *gin.Context) {
