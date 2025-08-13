@@ -35,9 +35,14 @@ DevMesh now includes a complete organization and user registration system with m
 POST /api/v1/auth/register/organization  - Register new organization
 POST /api/v1/auth/login                  - User login
 POST /api/v1/auth/refresh                - Refresh access token
+POST /api/v1/auth/logout                 - User logout
+POST /api/v1/auth/edge-mcp               - Edge MCP authentication
 POST /api/v1/auth/invitation/accept      - Accept invitation
 POST /api/v1/auth/password/reset         - Request password reset
+POST /api/v1/auth/password/reset/confirm - Confirm password reset
 POST /api/v1/auth/email/verify           - Verify email address
+POST /api/v1/auth/email/resend           - Resend verification email
+GET  /api/v1/auth/invitation/:token      - Get invitation details
 ```
 
 ### Protected Endpoints (Auth Required)
