@@ -96,7 +96,7 @@ The Multi-Agent Embedding System is a sophisticated, production-ready solution d
 
 #### 3. Provider Layer
 - **OpenAI Provider**: 
-  - Models: text-embedding-3-large, text-embedding-3-small, ada-002
+  - Models: text-embedding-3-large, text-embedding-3-small, text-embedding-ada-002
   - Best for: General purpose, high quality
   
 - **AWS Bedrock Provider**:
@@ -104,8 +104,12 @@ The Multi-Agent Embedding System is a sophisticated, production-ready solution d
   - Best for: AWS-native deployments, compliance
   
 - **Google AI Provider**:
-  - Models: text-embedding-004, gecko
-  - Best for: Multilingual content
+  - Models: Vertex AI embedding models
+  - Best for: Google Cloud deployments
+  
+- **Voyage AI Provider**:
+  - Models: voyage-2, voyage-lite-02-instruct
+  - Best for: Specialized use cases
 
 #### 4. Storage Layer
 - **PostgreSQL + pgvector**: 

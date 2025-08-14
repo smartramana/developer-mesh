@@ -120,7 +120,7 @@ graph TD
 | **aws** | config, observability | AWS service clients |
 | **database** | config, observability | Database connections |
 | **common/cache** | config, observability | Caching implementations |
-| **queue** | aws, models, observability | SQS integration |
+| **queue** | redis, models, observability | Redis Streams event processing |
 | **embedding** | aws, cache, models, resilience | Vector embeddings |
 | **collaboration** | models, observability | CRDT implementations |
 
@@ -159,7 +159,7 @@ rest-api → services → embedding → aws (Bedrock)
 
 ### 4. Async Processing Path
 ```
-worker → queue → aws (SQS)
+worker → queue → redis (Streams)
     ↓       ↓
 services  events
 ```

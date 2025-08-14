@@ -8,7 +8,7 @@ Batch: aa
 
 ## Overview
 
-Developer Mesh uses Go 1.24.4's workspace feature to organize the codebase as a monorepo with multiple modules. This architecture provides strong module boundaries while enabling code sharing, making it ideal for the AI agent orchestration platform's microservices architecture.
+Developer Mesh uses Go 1.24's workspace feature to organize the codebase as a monorepo with multiple modules. This architecture provides strong module boundaries while enabling code sharing, making it ideal for the AI agent orchestration platform's microservices architecture.
 
 ## Why Go Workspaces?
 
@@ -64,7 +64,7 @@ developer-mesh/
     ├── events/              # Event-driven architecture
     ├── models/              # Domain models
     ├── observability/       # Logging, metrics, tracing
-    ├── queue/               # SQS integration
+    ├── queue/               # Redis Streams for event processing
     ├── repository/          # Data access patterns
     ├── resilience/          # Circuit breakers, retries
     ├── services/            # Business services
@@ -76,9 +76,10 @@ developer-mesh/
 ### go.work File
 
 ```go
-go 1.24.4
+go 1.24
 
 use (
+    ./apps/edge-mcp
     ./apps/mcp-server
     ./apps/mockserver
     ./apps/rest-api
@@ -238,8 +239,7 @@ pkg/
 pkg/
 ├── aws/               # AWS service clients
 │   ├── bedrock.go    # Bedrock AI models
-│   ├── s3.go         # Context storage
-│   └── sqs.go        # Task queuing
+│   └── s3.go         # Context storage
 ├── common/
 │   └── cache/        # Multi-level caching
 │       ├── memory.go # In-memory cache

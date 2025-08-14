@@ -120,11 +120,12 @@ pkg/
 
 ### Message Queue
 
-**AWS SQS**
-- Event distribution
-- Task queuing
-- Dead letter queues
-- FIFO support
+**Redis Streams** <!-- Source: pkg/redis/streams_client.go -->
+- Event distribution via streams
+- Task queuing with consumer groups
+- Dead letter queue handling
+- Reliable message delivery
+- Webhook event processing
 
 ## Collaboration Features
 
@@ -269,7 +270,7 @@ type Repository[T any] interface {
 
 - **JWT Tokens**: Stateless authentication (implemented)
 - **API Keys**: Multi-type keys (admin, gateway, agent, user) with different privileges
-- **OAuth 2.0**: Third-party integrations (interface defined, providers pending)
+- **OAuth 2.0**: Third-party integrations (interface defined, no provider implementations yet)
 - **RBAC**: Role-based access control (Casbin planned, not yet implemented)
 - **Organization Isolation**: Automatic tenant separation at all levels
 
@@ -318,7 +319,6 @@ type Repository[T any] interface {
 docker-compose:
   - postgres (with pgvector)
   - redis
-  - AWS SQS (production)
   - Services (hot reload)
 ```
 
@@ -331,7 +331,7 @@ docker-compose:
                            │                     
                            ▼                     
                     ┌─────────────┐     ┌─────────────┐
-                    │     SQS     │     │ ElastiCache │
+                    │Redis Streams│     │ ElastiCache │
                     └─────────────┘     └─────────────┘
 ```
 
@@ -370,7 +370,7 @@ docker-compose:
 1. **Agent Scaling**: Designed for high concurrency with multiple AI agents
 2. **Task Parallelization**: MapReduce patterns for large workloads
 3. **Circuit Breakers**: Prevent cascade failures
-4. **Queue Sharding**: Distribute load across SQS queues
+4. **Stream Partitioning**: Distribute load across Redis consumer groups
 
 ## Resilience Patterns
 
@@ -446,8 +446,8 @@ Liveness and readiness probes
    - Agent consensus mechanisms
 
 3. **Enterprise Features**:
-   - Casbin RBAC implementation (planned)
-   - OAuth provider integrations (pending implementation)
+   - Casbin RBAC implementation (planned, not yet implemented)
+   - OAuth provider integrations (interface defined, no implementations yet)
    - Advanced audit logging
    - Multi-tenant agent isolation
 
