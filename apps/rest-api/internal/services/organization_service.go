@@ -118,6 +118,10 @@ func (s *OrganizationService) RegisterOrganization(ctx context.Context, req *Org
 	var exists bool
 	checkOrgQuery := `SELECT EXISTS(SELECT 1 FROM mcp.organizations WHERE slug = $1)`
 	if err := tx.Get(&exists, checkOrgQuery, req.OrganizationSlug); err != nil {
+		s.logger.Error("Failed to check organization existence", map[string]interface{}{
+			"error": err.Error(),
+			"slug":  req.OrganizationSlug,
+		})
 		return nil, nil, "", fmt.Errorf("failed to check organization existence: %w", err)
 	}
 	if exists {
@@ -127,6 +131,10 @@ func (s *OrganizationService) RegisterOrganization(ctx context.Context, req *Org
 	// Check if email already exists
 	checkEmailQuery := `SELECT EXISTS(SELECT 1 FROM mcp.users WHERE email = $1)`
 	if err := tx.Get(&exists, checkEmailQuery, req.AdminEmail); err != nil {
+		s.logger.Error("Failed to check email existence", map[string]interface{}{
+			"error": err.Error(),
+			"email": req.AdminEmail,
+		})
 		return nil, nil, "", fmt.Errorf("failed to check email existence: %w", err)
 	}
 	if exists {
@@ -160,6 +168,11 @@ func (s *OrganizationService) RegisterOrganization(ctx context.Context, req *Org
 		org.ID, org.Name, org.Slug, org.SubscriptionTier,
 		org.MaxUsers, org.MaxAgents, org.BillingEmail,
 		org.Settings, org.CreatedAt, org.UpdatedAt); err != nil {
+		s.logger.Error("Failed to create organization", map[string]interface{}{
+			"error": err.Error(),
+			"org_id": org.ID,
+			"org_name": org.Name,
+		})
 		return nil, nil, "", fmt.Errorf("failed to create organization: %w", err)
 	}
 
@@ -171,6 +184,11 @@ func (s *OrganizationService) RegisterOrganization(ctx context.Context, req *Org
 
 	if _, err := tx.Exec(insertTenantQuery,
 		orgID, tenantID, org.Name, "standard", time.Now()); err != nil {
+		s.logger.Error("Failed to create tenant mapping", map[string]interface{}{
+			"error": err.Error(),
+			"org_id": orgID,
+			"tenant_id": tenantID,
+		})
 		return nil, nil, "", fmt.Errorf("failed to create tenant mapping: %w", err)
 	}
 
@@ -209,12 +227,23 @@ func (s *OrganizationService) RegisterOrganization(ctx context.Context, req *Org
 		user.ID, user.OrganizationID, user.TenantID, user.Email, user.Name,
 		user.PasswordHash, user.Role, user.Status, user.EmailVerified,
 		user.PasswordChangedAt, user.CreatedAt, user.UpdatedAt); err != nil {
+		s.logger.Error("Failed to create user", map[string]interface{}{
+			"error": err.Error(),
+			"user_id": user.ID,
+			"email": user.Email,
+			"role": user.Role,
+		})
 		return nil, nil, "", fmt.Errorf("failed to create user: %w", err)
 	}
 
 	// Update organization with owner
 	updateOrgQuery := `UPDATE mcp.organizations SET owner_user_id = $1 WHERE id = $2`
 	if _, err := tx.Exec(updateOrgQuery, userID, orgID); err != nil {
+		s.logger.Error("Failed to set organization owner", map[string]interface{}{
+			"error": err.Error(),
+			"user_id": userID,
+			"org_id": orgID,
+		})
 		return nil, nil, "", fmt.Errorf("failed to set organization owner: %w", err)
 	}
 	org.OwnerUserID = &userID
@@ -230,6 +259,10 @@ func (s *OrganizationService) RegisterOrganization(ctx context.Context, req *Org
 		) VALUES ($1, $2, $3, $4)`
 
 	if _, err := tx.Exec(insertTokenQuery, userID, tokenHash, expiresAt, time.Now()); err != nil {
+		s.logger.Error("Failed to create verification token", map[string]interface{}{
+			"error": err.Error(),
+			"user_id": userID,
+		})
 		return nil, nil, "", fmt.Errorf("failed to create verification token: %w", err)
 	}
 
@@ -290,14 +323,22 @@ func (s *OrganizationService) createInitialAPIKey(ctx context.Context, tx *sqlx.
 
 	scopes := []string{"read", "write", "admin"}
 
+	keyID := uuid.New()
 	_, err := tx.Exec(insertKeyQuery,
-		uuid.New(), keyHash, keyPrefix, tenantID, userID,
+		keyID, keyHash, keyPrefix, tenantID, userID,
 		fmt.Sprintf("%s Initial API Key", orgName),
 		"admin", "admin", pq.Array(scopes),
 		true, time.Now())
 
 	if err != nil {
-		return "", err
+		s.logger.Error("Failed to create API key", map[string]interface{}{
+			"error":      err.Error(),
+			"key_id":     keyID,
+			"tenant_id":  tenantID,
+			"user_id":    userID,
+			"key_prefix": keyPrefix,
+		})
+		return "", fmt.Errorf("failed to insert API key: %w", err)
 	}
 
 	return apiKey, nil
