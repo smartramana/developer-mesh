@@ -5,6 +5,7 @@ import (
 	"crypto/rand"
 	"database/sql"
 	"encoding/hex"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"regexp"
@@ -351,13 +352,22 @@ func (s *OrganizationService) logAuditEvent(ctx context.Context, tx *sqlx.Tx, us
 			user_id, organization_id, event_type, event_details, success, created_at
 		) VALUES ($1, $2, $3, $4, $5, $6)`
 
-	detailsJSON := "{}"
+	// Convert details to JSON
+	var detailsJSON []byte
+	var err error
 	if details != nil {
-		// Convert to JSON string - in production, use proper JSON marshaling
-		detailsJSON = fmt.Sprintf("%v", details)
+		detailsJSON, err = json.Marshal(details)
+		if err != nil {
+			s.logger.Warn("Failed to marshal audit details to JSON", map[string]interface{}{
+				"error": err.Error(),
+			})
+			detailsJSON = []byte("{}")
+		}
+	} else {
+		detailsJSON = []byte("{}")
 	}
 
-	if _, err := tx.Exec(query, userID, orgID, eventType, detailsJSON, success, time.Now()); err != nil {
+	if _, err := tx.Exec(query, userID, orgID, eventType, string(detailsJSON), success, time.Now()); err != nil {
 		s.logger.Warn("Failed to log audit event", map[string]interface{}{
 			"error":      err.Error(),
 			"event_type": eventType,
