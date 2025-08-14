@@ -6,14 +6,18 @@ Batch: ac
 
 # Casbin RBAC Integration Guide
 
-> **Status**: Future Implementation Guide
+> **Status**: NOT IMPLEMENTED - Future Feature
 > **Complexity**: Medium
 > **Estimated Effort**: 2-3 weeks
 > **Dependencies**: Casbin v2, Database migrations
 
+## ⚠️ Important Note
+
+**Casbin RBAC is not currently implemented in Developer Mesh.** The platform currently uses a simple role-based system with Owner, Admin, Member, and ReadOnly roles. This document serves as a future implementation guide if more complex authorization is needed.
+
 ## Overview
 
-This guide provides a comprehensive roadmap for integrating Casbin RBAC (Role-Based Access Control) into the Developer Mesh platform. Casbin is a powerful authorization library that supports various access control models including ACL, RBAC, ABAC, and more.
+This guide provides a roadmap for potentially integrating Casbin RBAC (Role-Based Access Control) into the Developer Mesh platform in the future.
 
 ## Why Casbin?
 

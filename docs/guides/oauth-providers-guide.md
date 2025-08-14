@@ -6,14 +6,18 @@ Batch: ac
 
 # OAuth Providers Implementation Guide
 
-> **Status**: Implementation Guide
+> **Status**: NOT IMPLEMENTED - Future Feature
 > **Complexity**: Medium
 > **Estimated Effort**: 1-2 weeks per provider
 > **Dependencies**: OAuth2 libraries, session management
 
+## ⚠️ Important Note
+
+**OAuth authentication is not currently implemented in Developer Mesh.** This document serves as a future implementation guide when OAuth support is added to the platform.
+
 ## Overview
 
-This guide provides comprehensive instructions for implementing OAuth providers in the Developer Mesh platform. Currently, only the OAuth interface exists without concrete implementations. This guide covers implementing popular OAuth providers like Google, GitHub, Microsoft, and generic OIDC.
+This guide provides instructions for potentially implementing OAuth providers in the Developer Mesh platform in the future. Currently, only the OAuth interface exists without concrete implementations.
 
 ## Current State
 

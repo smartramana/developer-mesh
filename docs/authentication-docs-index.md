@@ -64,40 +64,44 @@ This index provides a comprehensive overview of all authentication-related docum
 
 ## Key Features Documentation
 
-### Core Authentication
-- API Key authentication with database storage
-- JWT token generation and validation
-- OAuth2/OIDC provider support
-- GitHub App authentication
+### Implemented Features ✅
+- Organization registration with admin user
+- API Key authentication (generated on registration)
+- JWT token generation via login
+- User invitation system
+- Role-based access (Owner, Admin, Member, ReadOnly)
 - Multi-tenant support
-- Scope-based authorization
+- Edge MCP authentication
 
-### Enhanced Features
-- **Rate Limiting**
-  - Token bucket algorithm
-  - Per-tenant and per-endpoint limits
-  - Distributed rate limiting with Redis
-  - Configurable lockout periods
+### Planned/Unimplemented Features ⏳
+- OAuth2/OIDC provider support (interface only)
+- GitHub App authentication (not implemented)
+- Token refresh endpoints
+- Email verification
+- Password reset
+- User profile management
 
-- **Metrics Collection**
-  - Prometheus integration
-  - Authentication attempt tracking
-  - Rate limit metrics
-  - Performance metrics
+### Security Features ✅
+- Password strength validation (8+ chars, uppercase, lowercase, numbers)
+- Bcrypt password hashing
+- Organization slug validation
+- JWT token signing (HS256)
+- API key format: `devmesh_` prefix + 64 hex chars
+- Audit logging for registration events
+- Failed login attempt tracking
+- Account lockout support
 
-- **Audit Logging**
-  - Structured JSON logs
-  - Security event tracking
-  - Compliance-ready formatting
-  - PII protection
+## Quick Links
 
-### Security Features
-- Minimum 16-character API keys
-- Configurable failed attempt limits
-- IP-based and user-based lockouts
-- Webhook signature verification
-- Constant-time comparison
-- Key rotation support
+### For New Users
+1. [Organization Setup Guide](guides/organization-setup-guide.md) - Start here!
+2. [Quick Start Guide](getting-started/quick-start-guide.md)
+3. [Authentication API Reference](api-reference/authentication-api-reference.md)
+
+### For Developers
+1. [Registration & Auth System](REGISTRATION_AUTH.md)
+2. [Implementation Status](guides/auth-implementation-status.md)
+3. [Authentication Patterns](examples/authentication-patterns.md)
 
 ## Quick Links by Use Case
 

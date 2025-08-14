@@ -6,25 +6,30 @@ Batch: ac
 
 # Authentication Implementation Status
 
-> **Last Updated**: 2025-01-07
-> **Status**: Production Ready (with limitations)
-> **Version**: 1.0.0
+> **Last Updated**: 2025-01-14
+> **Status**: Production Ready for Core Features
+> **Version**: 1.1.0
 
 ## Overview
 
-This document provides a comprehensive comparison between the planned authentication/authorization features and what's actually implemented in the Developer Mesh platform. It serves as a reference for developers to understand current capabilities and limitations.
+This document provides the current implementation status of authentication features in Developer Mesh.
 
 ## Implementation Status Summary
 
 | Feature | Status | Production Ready | Notes |
 |---------|--------|------------------|-------|
-| API Key Authentication | ✅ Fully Implemented | Yes | Complete with hashing, caching, expiration |
+| Organization Registration | ✅ Fully Implemented | Yes | Multi-tenant with admin user |
+| User Login (Email/Password) | ✅ Fully Implemented | Yes | JWT token generation |
+| API Key Authentication | ✅ Fully Implemented | Yes | Generated on org registration |
 | JWT Authentication | ✅ Fully Implemented | Yes | HS256 signing, standard claims |
-| Basic RBAC | ✅ Implemented | Yes | In-memory policies, not Casbin |
-| Middleware Support | ✅ Fully Implemented | Yes | Gin and standard HTTP |
+| User Invitations | ✅ Fully Implemented | Yes | Email-based invitations |
+| Role-Based Access | ✅ Implemented | Yes | Owner, Admin, Member, ReadOnly |
+| Edge MCP Authentication | ✅ Fully Implemented | Yes | For Edge MCP instances |
+| Password Reset | ⏳ Placeholder | No | Returns 501 Not Implemented |
+| Email Verification | ⏳ Placeholder | No | Returns 501 Not Implemented |
+| Token Refresh | ⏳ Placeholder | No | Returns 501 Not Implemented |
 | OAuth Providers | ⚠️ Interface Only | No | No concrete implementations |
-| Casbin RBAC | ❌ Not Implemented | No | Planned but not built |
-| Session Management | ❌ Not Implemented | No | No refresh tokens or revocation |
+| User Profile Management | ⏳ Placeholder | No | Returns 501 Not Implemented |
 
 ## Fully Implemented Features
 

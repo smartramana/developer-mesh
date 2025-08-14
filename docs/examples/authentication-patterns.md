@@ -7,7 +7,7 @@ Batch: ab
 # Authentication Patterns and Best Practices
 
 ## Overview
-This guide demonstrates common authentication patterns using the Developer Mesh enhanced authentication system.
+This guide demonstrates authentication patterns implemented in Developer Mesh.
 
 ## Authentication Methods
 
@@ -15,21 +15,22 @@ This guide demonstrates common authentication patterns using the Developer Mesh 
 Best for: Service-to-service communication, CI/CD pipelines, long-lived integrations
 
 ```bash
-# Generate an API key
-curl -X POST http://localhost:8081/api/v1/auth/keys \
-  -H "Authorization: Bearer $ADMIN_JWT" \
+# API keys are generated during organization registration
+# You receive an API key when registering:
+curl -X POST http://localhost:8081/api/v1/auth/register/organization \
   -H "Content-Type: application/json" \
   -d '{
-    "name": "ci-pipeline",
-    "scopes": ["contexts:read", "tools:execute"],
-    "tenant_id": "ci-tenant",
-    "expires_at": "2026-01-01T00:00:00Z"
+    "organization_name": "My Company",
+    "organization_slug": "my-company",
+    "admin_email": "admin@company.com",
+    "admin_name": "Admin",
+    "admin_password": "SecurePass123!"
   }'
+# Response includes: "api_key": "devmesh_xxxxx"
 
 # Use the API key
-curl -X GET http://localhost:8081/api/v1/contexts \
-  -H "X-API-Key: mcp_k_..." \
-  -H "X-Tenant-ID: ci-tenant"
+curl -X GET http://localhost:8081/api/v1/tools \
+  -H "Authorization: Bearer devmesh_xxxxx"
 ```
 
 ### 2. JWT Token Authentication
@@ -37,13 +38,13 @@ Best for: User sessions, web applications, mobile apps
 
 ```javascript
 // Example: Browser-based authentication
-async function login(username, password) {
+async function login(email, password) {
   const response = await fetch('http://localhost:8081/api/v1/auth/login', {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
     },
-    body: JSON.stringify({ username, password }),
+    body: JSON.stringify({ email, password }),  // Note: uses email, not username
   });
   
   const data = await response.json();
@@ -56,47 +57,38 @@ async function login(username, password) {
   axios.defaults.headers.common['Authorization'] = `Bearer ${data.access_token}`;
 }
 
-// Refresh token when expired
-async function refreshToken() {
-  const refreshToken = localStorage.getItem('refresh_token');
-  const response = await fetch('http://localhost:8081/api/v1/auth/refresh', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({ refresh_token: refreshToken }),
-  });
-  
-  const data = await response.json();
-  localStorage.setItem('access_token', data.access_token);
-  return data.access_token;
-}
+// Note: Token refresh endpoint is not yet implemented
+// The /api/v1/auth/refresh endpoint returns 501 Not Implemented
+// For now, users must login again when token expires
 ```
 
-### 3. OAuth2 Integration
-Best for: Third-party integrations, social login
+### 3. Organization User Invitations
+Best for: Adding team members to your organization
 
 ```python
-# Example: Python OAuth2 client
+# Example: Invite users to organization
 import requests
-from urllib.parse import urlencode
 
-class MCPOAuth2Client:
-    def __init__(self, client_id, client_secret, redirect_uri):
-        self.client_id = client_id
-        self.client_secret = client_secret
-        self.redirect_uri = redirect_uri
+class OrganizationManager:
+    def __init__(self, api_key):
+        self.api_key = api_key
         self.base_url = "http://localhost:8081"
     
-    def get_authorization_url(self, state):
-        params = {
-            'client_id': self.client_id,
-            'redirect_uri': self.redirect_uri,
-            'response_type': 'code',
-            'scope': 'contexts:read contexts:write',
-            'state': state
-        }
-        return f"{self.base_url}/oauth/authorize?{urlencode(params)}"
+    def invite_user(self, email, name, role='member'):
+        """Invite a user to the organization"""
+        response = requests.post(
+            f"{self.base_url}/api/v1/auth/users/invite",
+            headers={
+                'Authorization': f'Bearer {self.api_key}',
+                'Content-Type': 'application/json'
+            },
+            json={
+                'email': email,
+                'name': name,
+                'role': role  # 'admin', 'member', or 'readonly'
+            }
+        )
+        return response.json()
     
     def exchange_code_for_token(self, code):
         response = requests.post(f"{self.base_url}/oauth/token", data={

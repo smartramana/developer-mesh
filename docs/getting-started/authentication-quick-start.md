@@ -93,7 +93,7 @@ curl -H "Authorization: Bearer test-key-1234567890" \
 
 ## Enhanced Authentication Setup
 
-**Note**: The authentication system is middleware-based. There are no dedicated auth endpoints like `/auth/login` or `/auth/token` in the current implementation. Authentication happens through API key or JWT validation on each request.
+Developer Mesh provides both API key and JWT token authentication with dedicated endpoints for user management.
 
 ### 1. Full Configuration
 
@@ -201,11 +201,14 @@ curl -i -H "Authorization: Bearer prod-key-minimum-16-chars" \
 # X-RateLimit-Remaining: 0
 # Retry-After: 900
 
-# JWT tokens must be generated programmatically
-# as there is no token generation endpoint.
-# Once you have a JWT token, use it like this:
-curl -H "Authorization: Bearer <your-jwt-token>" \
-     http://localhost:8080/api/v1/profile
+# Login to get JWT tokens
+curl -X POST http://localhost:8081/api/v1/auth/login \
+  -H "Content-Type: application/json" \
+  -d '{"email": "admin@company.com", "password": "SecurePass123!"}'
+
+# Use the JWT token from the response
+curl -H "Authorization: Bearer eyJhbGciOiJIUzI1NiIs..." \
+     http://localhost:8081/api/v1/profile
 ```
 
 ## Common Integration Patterns

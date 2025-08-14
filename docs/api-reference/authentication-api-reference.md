@@ -8,96 +8,270 @@ Batch: aa
 
 ## Overview
 
-The Developer Mesh uses middleware-based authentication for API access. Authentication is handled through API keys and JWT tokens validated on each request, with basic rate limiting support.
+Developer Mesh provides a complete authentication and authorization system with organization registration, user management, and multi-tenant support.
 
 ## Table of Contents
 
 1. [Authentication Endpoints](#authentication-endpoints)
-2. [Configuration API](#configuration-api)
-3. [Types and Models](#types-and-models)
-4. [Middleware Functions](#middleware-functions)
-5. [Rate Limiting API](#rate-limiting-api)
-6. [Metrics API](#metrics-api)
-7. [Error Codes](#error-codes)
+2. [Organization Management](#organization-management)
+3. [User Management](#user-management)
+4. [Authentication Methods](#authentication-methods)
+5. [Error Codes](#error-codes)
+
+## Authentication Endpoints
+
+### Public Endpoints (No Authentication Required)
+
+These endpoints are accessible without authentication:
+
+#### POST /api/v1/auth/register/organization
+
+Register a new organization with an admin user.
+
+**Request Body:**
+```json
+{
+  "organization_name": "string",  // Required, 3-100 chars
+  "organization_slug": "string",  // Required, 3-50 chars, lowercase + hyphens
+  "admin_email": "string",        // Required, valid email
+  "admin_name": "string",         // Required, 2-100 chars
+  "admin_password": "string",     // Required, min 8 chars, uppercase + lowercase + number
+  "company_size": "string",       // Optional
+  "industry": "string",           // Optional
+  "use_case": "string"            // Optional
+}
+```
+
+**Success Response (201 Created):**
+```json
+{
+  "organization": {
+    "id": "uuid",
+    "name": "string",
+    "slug": "string",
+    "subscription_tier": "free",
+    "max_users": 5,
+    "max_agents": 10
+  },
+  "user": {
+    "id": "uuid",
+    "email": "string",
+    "name": "string",
+    "role": "owner",
+    "email_verified": false
+  },
+  "api_key": "devmesh_xxxxx",
+  "message": "Organization registered successfully. Please check your email to verify your account."
+}
+```
+
+**Error Responses:**
+- `400 Bad Request`: Invalid slug format or password validation failed
+- `409 Conflict`: Organization slug or email already exists
+
+#### POST /api/v1/auth/login
+
+Authenticate user with email and password.
+
+**Request Body:**
+```json
+{
+  "email": "string",
+  "password": "string"
+}
+```
+
+**Success Response (200 OK):**
+```json
+{
+  "access_token": "string",
+  "refresh_token": "string",
+  "token_type": "Bearer",
+  "expires_in": 86400,
+  "user": {
+    "id": "uuid",
+    "email": "string",
+    "name": "string",
+    "role": "string",
+    "organization_id": "uuid"
+  }
+}
+```
+
+**Error Response (401 Unauthorized):**
+```json
+{
+  "error": "Invalid email or password"
+}
+```
+
+#### POST /api/v1/auth/invitation/accept
+
+Accept an invitation and create user account.
+
+**Request Body:**
+```json
+{
+  "token": "string",      // Invitation token from email
+  "password": "string"    // New user's password
+}
+```
+
+**Success Response (201 Created):**
+```json
+{
+  "access_token": "string",
+  "refresh_token": "string",
+  "token_type": "Bearer",
+  "expires_in": 86400,
+  "user": {
+    "id": "uuid",
+    "email": "string",
+    "name": "string",
+    "role": "string"
+  }
+}
+```
+
+#### POST /api/v1/auth/edge-mcp
+
+Authenticate Edge MCP instances.
+
+**Request Body:**
+```json
+{
+  "edge_mcp_id": "string",
+  "api_key": "string"
+}
+```
+
+**Success Response (200 OK):**
+```json
+{
+  "success": true,
+  "token": "string",
+  "tenant_id": "uuid"
+}
+```
+
+### Protected Endpoints (Authentication Required)
+
+#### POST /api/v1/auth/users/invite
+
+Invite a new user to your organization. Requires `admin` or `owner` role.
+
+**Request Body:**
+```json
+{
+  "email": "string",
+  "name": "string",
+  "role": "admin|member|readonly"  // Cannot invite as owner
+}
+```
+
+**Success Response (200 OK):**
+```json
+{
+  "message": "Invitation sent successfully",
+  "email": "string"
+}
+```
+
+**Error Responses:**
+- `403 Forbidden`: Insufficient permissions
+- `409 Conflict`: User already exists or invitation already sent
 
 ## Authentication Methods
 
-Authentication is handled through middleware on all protected endpoints. There are no dedicated authentication endpoints.
-
 ### API Key Authentication
 
-API keys can be provided in two ways:
+API keys are generated during organization registration and can be used for authentication:
 
 **Authorization Header:**
 ```
-Authorization: Bearer <api-key>
+Authorization: Bearer devmesh_xxxxxxxxxxxxx
 ```
 
 **X-API-Key Header:**
 ```
-X-API-Key: <api-key>
+X-API-Key: devmesh_xxxxxxxxxxxxx
 ```
 
 ### JWT Token Authentication
 
-JWT tokens are validated when provided:
+JWT tokens are obtained through the login endpoint:
 
 ```
-Authorization: Bearer <jwt-token>
+Authorization: Bearer eyJhbGciOiJIUzI1NiIs...
 ```
 
-**Note**: The system validates JWT tokens but does not provide endpoints to generate them. JWT tokens must be obtained through external means.
+### User Roles and Permissions
 
-### Rate Limiting
+| Role | Description | Permissions |
+|------|-------------|-------------|
+| `owner` | Organization owner | Full control, can delete organization |
+| `admin` | Administrator | Manage users, settings, API keys |
+| `member` | Standard user | Access resources, create/modify own items |
+| `readonly` | Read-only user | View resources only |
 
-When rate limited, the following headers are returned:
+## Organization Management
 
-```
-X-RateLimit-Remaining: 0
-Retry-After: <seconds>
-```
+### Organization Tiers
 
-**Status Code**: 429 Too Many Requests
+| Tier | Max Users | Max Agents | Description |
+|------|-----------|------------|-------------|
+| `free` | 5 | 10 | Default tier for new organizations |
+| `starter` | 25 | 50 | Small teams |
+| `pro` | 100 | 200 | Growing organizations |
+| `enterprise` | Unlimited | Unlimited | Large enterprises |
+
+## Error Codes
 
 ### Authentication Errors
 
-**Missing Authentication (401):**
-```json
-{
-  "error": "unauthorized"
-}
-```
+| Status Code | Error | Description |
+|-------------|-------|-------------|
+| 401 | `unauthorized` | Missing or invalid authentication |
+| 401 | `Invalid email or password` | Login credentials incorrect |
+| 403 | `insufficient permissions` | User lacks required role/scope |
+| 409 | `organization slug already exists` | Slug taken during registration |
+| 409 | `email already registered` | Email already in use |
+| 429 | `Too many authentication attempts` | Rate limit exceeded |
 
-**Invalid API Key (401):**
-```json
-{
-  "error": "Invalid API key"
-}
-```
+### Password Validation Rules
 
-**Rate Limited (429):**
-```json
-{
-  "token": "string",
-  "token_type": "api_key|jwt"
-}
-```
+- Minimum 8 characters
+- Must contain at least one uppercase letter (A-Z)
+- Must contain at least one lowercase letter (a-z)
+- Must contain at least one number (0-9)
 
-**Response:**
-```json
-{
-  "revoked": true,
-  "revoked_at": "2024-01-01T00:00:00Z"
-}
-```
+### Organization Slug Rules
 
-## Configuration API
+- 3-50 characters
+- Lowercase letters, numbers, and hyphens only
+- Must start with a letter or number
+- Format: `^[a-z0-9][a-z0-9-]{2,49}$`
 
-### SetupAuthenticationWithConfig
-Initialize authentication system with custom configuration.
+## Placeholder Endpoints (Not Yet Implemented)
 
-```go
-func SetupAuthenticationWithConfig(
+The following endpoints return "Not implemented yet" (501):
+
+- `POST /api/v1/auth/refresh` - Refresh JWT token
+- `POST /api/v1/auth/logout` - Logout user
+- `POST /api/v1/auth/password/reset` - Request password reset
+- `POST /api/v1/auth/password/reset/confirm` - Confirm password reset
+- `POST /api/v1/auth/email/verify` - Verify email address
+- `POST /api/v1/auth/email/resend` - Resend verification email
+- `GET /api/v1/auth/invitation/:token` - Get invitation details
+- `GET /api/v1/auth/users` - List organization users
+- `PUT /api/v1/auth/users/:id/role` - Update user role
+- `DELETE /api/v1/auth/users/:id` - Remove user from organization
+- `GET /api/v1/auth/organization` - Get organization details
+- `PUT /api/v1/auth/organization` - Update organization
+- `GET /api/v1/auth/organization/usage` - Get usage statistics
+- `GET /api/v1/auth/profile` - Get user profile
+- `PUT /api/v1/auth/profile` - Update user profile
+- `POST /api/v1/auth/profile/password` - Change password
     config *AuthSystemConfig,
     db *sqlx.DB,
     cache cache.Cache,

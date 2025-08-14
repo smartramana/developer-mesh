@@ -8,141 +8,95 @@ Batch: ab
 
 Get Developer Mesh running locally in under 5 minutes.
 
+## What You'll Learn
+
+- How to run Developer Mesh locally
+- Register your first organization
+- Authenticate and make API calls
+- Connect your first AI agent via MCP protocol
+- Add users to your organization
+
 ## Prerequisites
 
-### Option A: Using Pre-built Images (Recommended)
-- **[Docker](https://www.docker.com/get-started)** and Docker Compose
-- **[Git](https://git-scm.com/downloads)** (to clone configuration files)
-
-### Option B: Building from Source
-- **[Go](https://golang.org/doc/install)** 1.24 or later
+### Required
 - **[Docker](https://www.docker.com/get-started)** and Docker Compose
 - **[Git](https://git-scm.com/downloads)**
+- **[Go](https://golang.org/doc/install)** 1.24+ (for building from source)
 - **Make** (usually pre-installed on Linux/Mac)
 
-### Optional (for full features)
-- AWS CLI configured (for S3 features)
-- PostgreSQL client tools (for direct DB access)
+### Optional
+- AWS CLI configured (for AWS Bedrock embedding features)
+- PostgreSQL client tools (for direct database access)
+- `wscat` or `websocat` (for testing WebSocket connections)
 
 ## 🚀 Quick Setup
 
-Choose one of the following options:
-
-### Option A: Using Pre-built Images (Recommended) 🐳
-
-This is the fastest way to get started with Developer Mesh.
-
-```bash
-# Clone the repository for configuration files
-git clone https://github.com/developer-mesh/developer-mesh.git
-cd developer-mesh
-
-# Create environment file
-cp .env.example .env
-# Edit .env with your settings (API tokens, passwords, etc.)
-
-# Pull the latest images (replace 'your-github-username' with the repo owner)
-GITHUB_USERNAME=your-github-username ./scripts/pull-images.sh
-
-# Start all services using production docker-compose
-docker-compose -f docker-compose.prod.yml up -d
-
-# Check service health
-docker-compose -f docker-compose.prod.yml ps
-docker-compose -f docker-compose.prod.yml logs -f --tail=100
-```
-
-<!-- REMOVED: Services will be available at: (unimplemented feature) -->
-- MCP Server: http://localhost:8080 (MCP Server)
-- REST API: http://localhost:8081 (REST API)
-- Prometheus: http://localhost:9090
-- Grafana: http://localhost:3000
-
-### Option B: Building from Source 🔨
-
-For development or customization:
+### Step 1: Clone and Setup Environment
 
 ```bash
 # Clone the repository
 git clone https://github.com/developer-mesh/developer-mesh.git
 cd developer-mesh
 
-# Copy configuration template
-cp config.yaml.example config.yaml
-# Edit config.yaml with your settings (especially API tokens)
-
-# Start infrastructure services
-make dev-setup
-
-# Wait for services to be ready (usually ~10 seconds)
-# Check logs if needed
-make docker-compose-logs
-
-# Note: This command runs:
-# - PostgreSQL 17 with pgvector extension
-# - Redis 7 Alpine
-# - Connects to real AWS services (S3, Bedrock)
-# - Requires AWS credentials configured
+# Setup environment variables
+cp .env.example .env
+# Edit .env with your settings (optional: add AWS credentials for embedding features)
 ```
 
-Then continue with the appropriate steps:
-
-#### For Pre-built Images (Option A):
-
-The database is automatically initialized when using `docker-compose.prod.yml`. 
-Skip to the [Verify Installation](#verify-installation) section below.
-
-#### For Building from Source (Option B):
-
-### 3. Initialize Database
+### Step 2: Start Infrastructure Services
 
 ```bash
-# Install golang-migrate if not already installed
-# macOS: brew install golang-migrate
-# Linux: see https://github.com/golang-migrate/migrate
+# Start PostgreSQL and Redis using Docker Compose
+make dev-setup
 
+# This starts:
+# - PostgreSQL 14+ with pgvector extension
+# - Redis 7+ for caching and streams
+
+# Wait for services to be ready (~10 seconds)
+docker-compose -f docker-compose.local.yml ps
+```
+
+### Step 3: Initialize Database
+
+```bash
 # Run database migrations
 make migrate-up
 
-# This creates tables and indexes including pgvector
-# Migrations are located in apps/rest-api/migrations/sql/
+# This creates all necessary tables including:
+# - Organizations and users
+# - API keys and authentication
+# - Agent configurations
+# - Embedding models
 ```
 
-### 4. Build and Run Services
+### Step 4: Start Developer Mesh Services
 
-**Option A: Run All Services (Recommended)**
-
-```bash
-# First build all services
-make build
-
-# Then in separate terminal windows:
-
-# Terminal 1 - MCP Server (port 8080)
-make run-mcp-server
-
-# Terminal 2 - REST API (port 8081)
-make run-rest-api
-
-# Terminal 3 - Worker (processes Redis stream events)
-make run-worker
-```
-
-**Option B: Run with Docker Compose**
+**Option A: Using Docker Compose (Recommended)**
 
 ```bash
-# Build and run all services
+# Build and start all services
 make dev
 
-# This automatically:
-# - Builds all service containers
-# - Starts PostgreSQL, Redis
-# - Creates SQS queues
-# - Runs all three services
-# - Exposes ports 8080 (MCP) and 8081 (REST API)
+# This starts:
+# - MCP Server on port 8080
+# - REST API on port 8081
+# - Worker service for async processing
 ```
 
-### 5. Verify Installation
+**Option B: Run Services Individually**
+
+```bash
+# Build services first
+make build
+
+# Then in separate terminals:
+make run-mcp-server   # Terminal 1: MCP Server (port 8080)
+make run-rest-api     # Terminal 2: REST API (port 8081)
+make run-worker       # Terminal 3: Worker service
+```
+
+### Step 5: Verify Installation
 
 ```bash
 # Check MCP Server health
@@ -158,37 +112,176 @@ curl http://localhost:8081/health
 # {"status":"healthy","components":{"database":"up","redis":"up"}}
 ```
 
-### 6. API Documentation
+## 🎯 Register Your First Organization
 
-Swagger UI is available for both services:
+Developer Mesh uses a multi-tenant architecture. You need to register an organization to get started.
 
-- **MCP Server Swagger**: http://localhost:8080 (MCP Server)/swagger/index.html
-- **REST API Swagger**: http://localhost:8081 (REST API)/swagger/index.html
+### Register Organization
 
-Note: Generate/update Swagger docs with:
 ```bash
-make swagger
+# Register a new organization with admin user
+curl -X POST http://localhost:8081/api/v1/auth/register/organization \
+  -H "Content-Type: application/json" \
+  -d '{
+    "organization_name": "My Company",
+    "organization_slug": "my-company",
+    "admin_email": "admin@mycompany.com",
+    "admin_name": "Admin User",
+    "admin_password": "SecurePass123!"
+  }'
 ```
 
-## 🎯 First API Call
+**Response:**
+```json
+{
+  "organization": {
+    "id": "uuid-here",
+    "name": "My Company",
+    "slug": "my-company",
+    "subscription_tier": "free",
+    "max_users": 5,
+    "max_agents": 10
+  },
+  "user": {
+    "id": "user-uuid",
+    "email": "admin@mycompany.com",
+    "name": "Admin User",
+    "role": "owner"
+  },
+  "api_key": "devmesh_xxxxxxxxxxxxx",
+  "message": "Organization registered successfully. Please check your email to verify your account."
+}
+```
 
-Create your first context:
+**Important:** Save the `api_key` returned in the response. This is your initial API key for accessing the system.
+
+### Password Requirements
+- Minimum 8 characters
+- At least one uppercase letter
+- At least one lowercase letter
+- At least one number
+
+## 🔐 Authentication
+
+### Using Your API Key
+
+Use the API key from registration to authenticate requests:
 
 ```bash
-# Create a context
-curl -X POST http://localhost:8081/api/v1/contexts \
+# Test authentication
+curl -H "Authorization: Bearer devmesh_xxxxxxxxxxxxx" \
+  http://localhost:8081/api/v1/auth/profile
+```
+
+### Login with Email/Password
+
+```bash
+# Login to get a JWT token
+curl -X POST http://localhost:8081/api/v1/auth/login \
   -H "Content-Type: application/json" \
-  -H "X-API-Key: change-this-admin-key" \
   -d '{
-    "name": "My First Context",
-    "type": "conversation",
+    "email": "admin@mycompany.com",
+    "password": "SecurePass123!"
+  }'
+```
+
+**Response:**
+```json
+{
+  "access_token": "eyJhbGciOiJIUzI1NiIs...",
+  "refresh_token": "eyJhbGciOiJIUzI1NiIs...",
+  "token_type": "Bearer",
+  "expires_in": 86400
+}
+```
+
+## 👥 User Management
+
+### Invite Users to Your Organization
+
+Only organization owners and admins can invite new users:
+
+```bash
+# Invite a new user
+curl -X POST http://localhost:8081/api/v1/auth/users/invite \
+  -H "Authorization: Bearer devmesh_xxxxxxxxxxxxx" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "email": "developer@mycompany.com",
+    "name": "Developer Name",
+    "role": "member"
+  }'
+```
+
+**Available Roles:**
+- `owner`: Full organization control (only one per org)
+- `admin`: Can manage users and settings
+- `member`: Standard user access
+- `readonly`: Read-only access
+
+### Accept Invitation
+
+Users receive an invitation email with a token. To accept:
+
+```bash
+# Accept invitation and create account
+curl -X POST http://localhost:8081/api/v1/auth/invitation/accept \
+  -H "Content-Type: application/json" \
+  -d '{
+    "token": "invitation_token_from_email",
+    "password": "NewUserPass123!"
+  }'
+```
+
+## 🤖 Connect Your First AI Agent
+
+### MCP Protocol Connection
+
+Developer Mesh implements the Model Context Protocol (MCP) for AI agent communication.
+
+#### Connect with websocat
+
+```bash
+# Install websocat if needed
+# macOS: brew install websocat
+# Linux: Download from https://github.com/vi/websocat
+
+# Connect to MCP server
+websocat --header="Authorization: Bearer devmesh_xxxxxxxxxxxxx" \
+  ws://localhost:8080/ws
+```
+
+#### Initialize MCP Session
+
+Send these messages after connecting:
+
+```json
+// 1. Initialize
+{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-06-18","clientInfo":{"name":"my-agent","version":"1.0.0"}}}
+
+// 2. Confirm initialization
+{"jsonrpc":"2.0","id":2,"method":"initialized","params":{}}
+
+// 3. List available tools
+{"jsonrpc":"2.0","id":3,"method":"tools/list"}
+```
+
+### Create and Assign Tasks
+
+```bash
+# Create a task via REST API
+curl -X POST http://localhost:8081/api/v1/tasks \
+  -H "Authorization: Bearer devmesh_xxxxxxxxxxxxx" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "title": "Review pull request #123",
+    "type": "code_review",
+    "priority": "high",
     "metadata": {
-      "description": "Testing Developer Mesh"
+      "repository": "my-repo",
+      "pr_number": 123
     }
   }'
-
-# Response includes the created context with ID
-# Note: Update the API key to match your config.yaml
 ```
 
 ## 🛠️ Common Operations

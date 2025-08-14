@@ -29,20 +29,40 @@ DevMesh now includes a complete organization and user registration system with m
 
 ## API Endpoints
 
-### Public Endpoints (No Auth Required)
+### Implemented Endpoints
+
+**Public Endpoints (No Auth Required):**
+```
+POST /api/v1/auth/register/organization  - Register new organization ✅
+POST /api/v1/auth/login                  - User login ✅
+POST /api/v1/auth/edge-mcp               - Edge MCP authentication ✅
+POST /api/v1/auth/invitation/accept      - Accept invitation ✅
+```
+
+**Protected Endpoints (Auth Required):**
+```
+POST /api/v1/auth/users/invite           - Invite user to organization ✅
+```
+
+### Not Yet Implemented (Return 501)
 
 ```
-POST /api/v1/auth/register/organization  - Register new organization
-POST /api/v1/auth/login                  - User login
-POST /api/v1/auth/refresh                - Refresh access token
-POST /api/v1/auth/logout                 - User logout
-POST /api/v1/auth/edge-mcp               - Edge MCP authentication
-POST /api/v1/auth/invitation/accept      - Accept invitation
-POST /api/v1/auth/password/reset         - Request password reset
-POST /api/v1/auth/password/reset/confirm - Confirm password reset
-POST /api/v1/auth/email/verify           - Verify email address
-POST /api/v1/auth/email/resend           - Resend verification email
-GET  /api/v1/auth/invitation/:token      - Get invitation details
+POST /api/v1/auth/refresh                - Refresh access token ⏳
+POST /api/v1/auth/logout                 - User logout ⏳
+POST /api/v1/auth/password/reset         - Request password reset ⏳
+POST /api/v1/auth/password/reset/confirm - Confirm password reset ⏳
+POST /api/v1/auth/email/verify           - Verify email address ⏳
+POST /api/v1/auth/email/resend           - Resend verification email ⏳
+GET  /api/v1/auth/invitation/:token      - Get invitation details ⏳
+GET  /api/v1/auth/users                  - List organization users ⏳
+PUT  /api/v1/auth/users/:id/role         - Update user role ⏳
+DELETE /api/v1/auth/users/:id            - Remove user ⏳
+GET  /api/v1/auth/organization           - Get organization details ⏳
+PUT  /api/v1/auth/organization           - Update organization ⏳
+GET  /api/v1/auth/organization/usage     - Get usage statistics ⏳
+GET  /api/v1/auth/profile                - Get user profile ⏳
+PUT  /api/v1/auth/profile                - Update profile ⏳
+POST /api/v1/auth/profile/password       - Change password ⏳
 ```
 
 ### Protected Endpoints (Auth Required)
