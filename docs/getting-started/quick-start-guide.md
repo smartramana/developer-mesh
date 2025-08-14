@@ -21,7 +21,7 @@ Get Developer Mesh running locally in under 5 minutes.
 ### Required
 - **[Docker](https://www.docker.com/get-started)** and Docker Compose
 - **[Git](https://git-scm.com/downloads)**
-- **[Go](https://golang.org/doc/install)** 1.24+ (for building from source)
+- **[Go](https://golang.org/doc/install)** 1.24 (for building from source)
 - **Make** (usually pre-installed on Linux/Mac)
 
 ### Optional
@@ -419,29 +419,27 @@ cache:
 # Check worker logs for processing
 ```
 
-### 2. Vector Search Test
+### 2. Dynamic Tool Discovery Test
 
 ```bash
-# Create embedding
-curl -X POST http://localhost:8081/api/embeddings \
+# Discover and create a tool from an API
+curl -X POST http://localhost:8081/api/v1/tools \
+  -H "Authorization: Bearer devmesh_xxxxxxxxxxxxx" \
   -H "Content-Type: application/json" \
-  -H "X-API-Key: change-this-admin-key" \
   -d '{
-    "agent_id": "my-agent",
-    "text": "DevOps automation with AI",
-    "context_id": "your-context-id"
+    "name": "github",
+    "base_url": "https://api.github.com",
+    "discovery_hints": {
+      "openapi_url": "https://api.github.com/swagger.json"
+    }
   }'
 
-# Search embeddings
-curl -X POST http://localhost:8081/api/embeddings/search \
-  -H "Content-Type: application/json" \
-  -H "X-API-Key: change-this-reader-key" \
-  -d '{
-    "agent_id": "my-agent",
-    "query": "AI-powered DevOps tools",
-    "limit": 5
-  }'
+# List available tools
+curl -H "Authorization: Bearer devmesh_xxxxxxxxxxxxx" \
+  http://localhost:8081/api/v1/tools
 ```
+
+**Note**: The embedding API endpoints (`/api/embeddings`) shown in some documentation are not currently registered in the REST API server.
 
 ### 3. Useful Helper Scripts
 
@@ -510,25 +508,28 @@ chmod +x scripts/*.sh
 ### Go Version Issues
 
 ```bash
-# Check Go version (must be 1.24+)
+# Check Go version (must be 1.24)
 go version
 
-# If using older version, update Go:
-# macOS: brew upgrade go
+# If using wrong version, install Go 1.24:
+# macOS: brew install go@1.24
 # Linux: Follow https://golang.org/doc/install
 ```
 
-### AWS SQS Issues
+### Redis Streams Issues
 
 ```bash
-# Check SQS connectivity (real AWS)
-aws sqs list-queues --region us-east-1
+# Check Redis connectivity
+redis-cli ping
 
-# Verify queue exists
-aws sqs get-queue-attributes \
-  --queue-url https://sqs.us-east-1.amazonaws.com/594992249511/sean-mcp-test \
-  --attribute-names All
+# Check stream info
+redis-cli xinfo stream webhook_events
+
+# Check consumer groups
+redis-cli xinfo groups webhook_events
 ```
+
+**Note**: Developer Mesh uses Redis Streams for event processing, not AWS SQS.
 
 ## 📚 Next Steps
 

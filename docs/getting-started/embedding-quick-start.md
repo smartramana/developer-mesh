@@ -1,12 +1,17 @@
-<!-- SOURCE VERIFICATION
-Last Verified: 2025-08-11 14:40:09
-Verification Script: update-docs-parallel.sh
-Batch: ab
--->
+# Multi-Agent Embedding System Quick Start Guide (NOT FUNCTIONAL)
 
-# Multi-Agent Embedding System Quick Start Guide
+**⚠️ THIS GUIDE DESCRIBES NON-FUNCTIONAL FEATURES ⚠️**
 
-This guide will help you get started with the Multi-Agent Embedding System in 5 minutes.
+The embedding API endpoints shown in this guide (`/api/v1/embeddings/*`) are **NOT currently registered** in the REST API server. While the underlying infrastructure for embeddings exists (database schema, adapters, services), the API endpoints are not functional. 
+
+**Current Status:**
+- ❌ API endpoints NOT registered
+- ✅ Database schema exists
+- ✅ Service layer code exists
+- ✅ Adapters for OpenAI/Bedrock/Google exist
+- ❌ Cannot be used via REST API
+
+This guide represents the intended design but is not currently operational. For working features, see the [Dynamic Tools API](../api-reference/dynamic-tools-api.md) instead.
 
 ## Prerequisites
 
