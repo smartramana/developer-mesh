@@ -3,6 +3,7 @@ package services
 import (
 	"context"
 	"crypto/rand"
+	"crypto/sha256"
 	"database/sql"
 	"encoding/hex"
 	"encoding/json"
@@ -310,7 +311,10 @@ func (s *OrganizationService) createInitialAPIKey(ctx context.Context, tx *sqlx.
 	}
 
 	apiKey := "devmesh_" + hex.EncodeToString(apiKeyBytes)
-	keyHash := hashToken(apiKey)
+	// Use SHA-256 to hash the API key (must match auth/api_keys.go hashAPIKey method)
+	hasher := sha256.New()
+	hasher.Write([]byte(apiKey))
+	keyHash := hex.EncodeToString(hasher.Sum(nil))
 	// key_prefix column is VARCHAR(10) in database, but we use 8 chars for consistency
 	keyPrefix := apiKey[:8] // "devmesh_" is exactly 8 characters
 
