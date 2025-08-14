@@ -8,13 +8,13 @@ import (
 	"errors"
 	"fmt"
 	"regexp"
-	"strings"
 	"time"
 
 	"github.com/developer-mesh/developer-mesh/pkg/auth"
 	"github.com/developer-mesh/developer-mesh/pkg/observability"
 	"github.com/google/uuid"
 	"github.com/jmoiron/sqlx"
+	"github.com/lib/pq"
 	"golang.org/x/crypto/bcrypt"
 )
 
@@ -277,7 +277,8 @@ func (s *OrganizationService) createInitialAPIKey(ctx context.Context, tx *sqlx.
 
 	apiKey := "devmesh_" + hex.EncodeToString(apiKeyBytes)
 	keyHash := hashToken(apiKey)
-	keyPrefix := apiKey[:15]
+	// key_prefix column is VARCHAR(10) in database, but we use 8 chars for consistency
+	keyPrefix := apiKey[:8] // "devmesh_" is exactly 8 characters
 
 	insertKeyQuery := `
 		INSERT INTO mcp.api_keys (
@@ -292,7 +293,7 @@ func (s *OrganizationService) createInitialAPIKey(ctx context.Context, tx *sqlx.
 	_, err := tx.Exec(insertKeyQuery,
 		uuid.New(), keyHash, keyPrefix, tenantID, userID,
 		fmt.Sprintf("%s Initial API Key", orgName),
-		"admin", "admin", fmt.Sprintf("{%s}", strings.Join(scopes, ",")),
+		"admin", "admin", pq.Array(scopes),
 		true, time.Now())
 
 	if err != nil {

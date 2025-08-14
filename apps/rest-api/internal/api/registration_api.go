@@ -116,7 +116,8 @@ func (api *RegistrationAPI) RegisterOrganization(c *gin.Context) {
 		}
 
 		c.JSON(statusCode, gin.H{
-			"error": message,
+			"error":   message,
+			"details": err.Error(), // Temporarily add actual error for debugging
 		})
 		return
 	}
