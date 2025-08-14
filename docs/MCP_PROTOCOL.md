@@ -14,12 +14,14 @@ DevMesh implements the Model Context Protocol (MCP) version 2025-06-18, providin
 
 ### Connection Flow
 
+**IMPORTANT**: All WebSocket clients MUST request the `mcp.v1` subprotocol. Without this, the server will reject the connection with HTTP 426 Upgrade Required.
+
 ```mermaid
 sequenceDiagram
     participant Client
     participant Server
     
-    Client->>Server: WebSocket Connect
+    Client->>Server: WebSocket Connect (subprotocol: mcp.v1)
     Client->>Server: initialize
     Server->>Client: initialize result (capabilities)
     Client->>Server: initialized
@@ -30,6 +32,30 @@ sequenceDiagram
     Client->>Server: shutdown
     Server->>Client: shutdown confirmation
     Server-->>Client: Close WebSocket
+```
+
+#### WebSocket Connection Requirements
+
+**Go (using coder/websocket):**
+```go
+dialOpts := &websocket.DialOptions{
+    Subprotocols: []string{"mcp.v1"},  // REQUIRED
+    HTTPHeader: http.Header{
+        "Authorization": []string{"Bearer " + apiKey},
+    },
+}
+conn, _, err := websocket.Dial(ctx, wsURL, dialOpts)
+```
+
+**JavaScript:**
+```javascript
+const ws = new WebSocket('ws://localhost:8080/ws', ['mcp.v1']);
+```
+
+**Python:**
+```python
+import websockets
+await websockets.connect('ws://localhost:8080/ws', subprotocols=['mcp.v1'])
 ```
 
 ## Core Methods

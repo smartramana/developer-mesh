@@ -4,17 +4,19 @@ This package provides a clean, standardized way to integrate with external servi
 
 ## Architecture
 
-### Clean Structure
+### Package Structure
 ```
 pkg/adapters/
-├── go.mod              # Single module for all adapters
-├── interfaces.go       # Common interfaces and types
+├── adapter.go         # Base adapter implementation
+├── interfaces.go      # Common interfaces and types
 ├── factory.go         # Factory pattern for creating adapters
-├── setup.go           # Manager for adapter lifecycle
+├── manager.go         # High-level adapter management
+├── setup.go           # Adapter registration
 ├── github/            # GitHub adapter implementation
-│   ├── adapter_clean.go
-│   ├── config.go
-│   └── register.go
+├── aws/               # AWS service adapters
+├── mcp/               # Model Context Protocol adapters
+├── events/            # Event handling
+├── resilience/        # Circuit breakers and retry logic
 └── example_test.go    # Usage examples
 ```
 
@@ -69,30 +71,22 @@ repos, err := adapter.ListRepositories(ctx, "owner")
 4. **Factory Pattern** - Clean separation between creation and usage
 5. **Provider Independence** - Each provider is self-contained
 
+## Current Providers
+
+- **GitHub** (`github/`) - Full implementation with repository, PR, and issue operations
+- **AWS** (`aws/`) - AWS service integrations
+- **MCP** (`mcp/`) - Model Context Protocol adapters
+
 ## Adding New Providers
 
-1. Create a new directory (e.g., `gitlab/`)
+To add a new provider (e.g., GitLab):
+
+1. Create a new directory for the provider
 2. Implement the `SourceControlAdapter` interface
 3. Create a registration function
 4. Register in `setup.go`
 
-Example:
-```go
-// gitlab/adapter.go
-type GitLabAdapter struct {
-    adapters.BaseAdapter
-    // ... fields
-}
-
-func New(ctx context.Context, config adapters.Config, logger observability.Logger) (adapters.SourceControlAdapter, error) {
-    // Implementation
-}
-
-// gitlab/register.go
-func Register(factory *adapters.Factory) error {
-    return factory.RegisterProvider("gitlab", New)
-}
-```
+The pattern follows the existing GitHub implementation.
 
 ## Benefits
 

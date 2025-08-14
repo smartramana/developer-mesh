@@ -46,7 +46,6 @@ Real-world integration examples
 ### For Users
 - [Quick Start Guide](getting-started/quick-start-guide.md)
 - [Organization Setup](getting-started/organization-setup.md)
-- [Local Development](LOCAL_DEVELOPMENT.md)
 - [Examples](examples/README.md)
 
 ### For Developers
@@ -103,7 +102,7 @@ docs/
 - [Embedding API Reference](api-reference/embedding-api-reference.md)
 
 **Troubleshooting**
-- [Troubleshooting Guide](TROUBLESHOOTING.md)
+- [Troubleshooting Guide](troubleshooting/TROUBLESHOOTING.md)
 - [Debugging Guide](developer/debugging-guide.md)
 
 ## 📝 Documentation Standards

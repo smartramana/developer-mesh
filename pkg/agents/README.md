@@ -192,22 +192,23 @@ go test -tags=integration ./pkg/agents/...
 
 ```
 pkg/agents/
-├── repository_three_tier.go    # Three-tier repository implementation
-├── types_three_tier.go         # Type definitions for three-tier model
-├── service.go                  # Business logic layer
-├── README.md                   # This file
-└── tests/                      # Test files
+├── repository_three_tier.go       # Three-tier repository implementation
+├── repository_enhanced.go         # Enhanced repository with additional features
+├── repository.go                  # PostgreSQL repository implementation
+├── types_three_tier.go           # Type definitions for three-tier model
+├── types.go                      # Core agent types
+├── service.go                    # Business logic layer
+├── service_enhanced.go           # Enhanced service with event processing
+├── config.go                     # Agent configuration types
+├── repository_three_tier_test.go # Tests for three-tier repository
+├── service_test.go               # Service layer tests
+└── README.md                     # This file
 ```
 
 ## Related Documentation
 
 - [Agent Architecture](../../docs/AGENT_ARCHITECTURE.md) - Detailed architecture documentation
-- [API Documentation](../../apps/rest-api/README.md) - REST API endpoints
-- [MCP Server](../../apps/mcp-server/README.md) - WebSocket server for agents
 
----
+## Implementation Notes
 
-Package Version: 2.0.0
-Last Updated: 2025-08-10
-
-**Note**: This is the production three-tier architecture for Developer Mesh. There is no legacy system - this is the desired state implementation.
+The package includes both the three-tier architecture and an enhanced version with additional features like event processing. The three-tier model is the primary architecture used throughout the system.

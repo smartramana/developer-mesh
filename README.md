@@ -6,7 +6,7 @@ Batch: ad
 
 # Developer Mesh - AI Agent Orchestration Platform
 
-![Version](https://img.shields.io/badge/version-1.0.0-blue.svg)
+![Version](https://img.shields.io/badge/version-0.0.1-blue.svg)
 ![Go](https://img.shields.io/badge/go-1.24+-00ADD8.svg)
 ![License](https://img.shields.io/badge/license-MIT-green.svg)
 [![Go Report Card](https://goreportcard.com/badge/github.com/developer-mesh/developer-mesh)](https://goreportcard.com/report/github.com/developer-mesh/developer-mesh)
@@ -34,7 +34,7 @@ DevOps teams struggle to integrate AI effectively - managing multiple models, co
 - **Connection Modes**: Optimized for Claude Code, IDEs, and custom agents
 - **Capability-Based Discovery**: Agents advertise their strengths (code analysis, security, documentation)
 - **Dynamic Load Balancing**: Routes tasks to least-loaded agents in real-time
-- **Collaboration Strategies**: MapReduce, parallel execution, consensus building
+- **Collaboration Support**: Framework for agent coordination
 - **Workload Management**: Track and optimize agent utilization
 
 ### Intelligent Task Assignment
@@ -86,7 +86,7 @@ DevOps teams struggle to integrate AI effectively - managing multiple models, co
   - **User-Guided Discovery**: Accept hints to speed up discovery for non-standard APIs
 - **Universal Authentication**: OAuth2, API keys, bearer tokens, basic auth, custom headers
 - **Health Monitoring**: Automatic health checks with configurable intervals
-- **Supported Tools**: ANY tool with an API - tested with GitHub, GitLab, Harness, SonarQube, JFrog, Nexus, and hundreds more
+- **Supported Tools**: Any tool with an OpenAPI/Swagger specification can be integrated
 
 ## 📊 Use Cases
 
@@ -229,8 +229,9 @@ graph LR
 ### Prerequisites
 - Go 1.24+ (workspace support)
 - Docker & Docker Compose
-- AWS Account (for production features)
-- PostgreSQL 14+ with pgvector
+- PostgreSQL 14+ with pgvector extension
+- Redis 6.2+ (for streams support)
+- AWS Account (optional - for Bedrock embeddings)
 
 ### Option 1: Docker (Recommended)
 <!-- Source: docker-compose.local.yml, Makefile:dev target -->
@@ -296,7 +297,7 @@ wscat -c ws://localhost:8080/ws
 > {"jsonrpc":"2.0","id":2,"method":"tools/list"}
 
 # Execute a DevMesh tool
-> {"jsonrpc":"2.0","id":3,"method":"tools/call","params":{"name":"devmesh.workflow.list","arguments":{}}}
+> {"jsonrpc":"2.0","id":3,"method":"tools/call","params":{"name":"devmesh.task.create","arguments":{"title":"Test task"}}}
 ```
 
 #### Claude Code Connection
@@ -425,24 +426,24 @@ curl http://localhost:8081/metrics  # REST API metrics
 
 ### Available MCP Tools
 
-All DevMesh functionality is exposed as MCP tools:
-- `devmesh.workflow.create` - Create workflows
-- `devmesh.workflow.execute` - Execute workflows
-- `devmesh.workflow.list` - List workflows
+Core DevMesh functionality exposed as MCP tools:
 - `devmesh.task.create` - Create tasks
 - `devmesh.task.assign` - Assign tasks to agents
-- `devmesh.task.complete` - Mark tasks complete
+- `devmesh.task.status` - Get task status
+- `devmesh.agent.assign` - Assign work to agents
 - `devmesh.context.update` - Update session context
 - `devmesh.context.get` - Get current context
+- `devmesh.search.semantic` - Semantic search
+- Dynamic tool execution via registered tools
 
 ### Available MCP Resources
 
 Monitor system state via MCP resources:
 - `devmesh://system/health` - System health status
-- `devmesh://workflow/*` - Workflow information
-- `devmesh://task/*` - Task details
-- `devmesh://agent/*` - Agent status
-- `devmesh://context/*` - Session context
+- `devmesh://agents/{tenant_id}` - List of registered agents
+- `devmesh://tasks/{tenant_id}` - Active tasks
+- `devmesh://context/{session_id}` - Session context
+- `devmesh://tools/{tenant_id}` - Available tools
 
 ## 📈 Performance Features
 
@@ -454,13 +455,13 @@ Monitor system state via MCP resources:
 
 ## 🛠️ Technology Stack
 
-- **Language**: Go 1.24 with workspace support
-- **Databases**: PostgreSQL 14+ with pgvector extension, Redis 7+
-- **AI/ML**: AWS Bedrock, OpenAI, Google AI, Anthropic
-- **Message Queue**: Redis Streams <!-- Source: pkg/redis/streams_client.go -->
-- **Storage**: AWS S3 (optional)
-- **Protocol**: WebSocket with binary encoding support <!-- Source: pkg/models/websocket/binary.go -->
-- **Observability**: OpenTelemetry, Prometheus, Grafana
+- **Language**: Go 1.24+ with workspace support
+- **Databases**: PostgreSQL 14+ with pgvector extension, Redis 6.2+
+- **AI/ML**: AWS Bedrock (primary), OpenAI, Google AI, Anthropic (via adapters)
+- **Message Queue**: Redis Streams for webhook processing
+- **Storage**: AWS S3 for context storage (optional)
+- **Protocol**: MCP 2025-06-18 over WebSocket (JSON-RPC 2.0)
+- **Observability**: Structured logging, Prometheus metrics
 
 ## 📚 Documentation
 <!-- All links verified against actual files in docs/ directory -->
