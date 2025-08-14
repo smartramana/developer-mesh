@@ -6,10 +6,10 @@ Batch: ab
 
 # Multi-API Discovery Enhancement
 
-## Problem Statement
-When given a documentation portal like `https://apidocs.harness.io/`, the system should be able to discover and create tools for multiple APIs, not just one.
+## Overview
+The system can discover and create tools for multiple APIs from a single documentation portal. When given a documentation portal like `https://apidocs.harness.io/`, it discovers and creates tools for all available APIs.
 
-## Proposed Enhancement
+## Implementation
 
 ### 1. Enhanced Discovery Service
 
@@ -158,13 +158,17 @@ When a user provides `https://apidocs.harness.io/`:
                     $ref: '#/components/schemas/Tool'
 ```
 
-## Implementation Steps
+## Current Implementation Status
 
-1. **Enhance HTML parsing** to recognize API portal patterns
-2. **Add category detection** to group related APIs
-3. **Implement bulk tool creation** with proper error handling
-4. **Add UI support** for reviewing discovered APIs before creation
-5. **Store portal patterns** in the learning system
+✅ **Implemented Features:**
+1. **Enhanced HTML parsing** to recognize API portal patterns
+2. **Category detection** to group related APIs
+3. **Bulk tool creation** with proper error handling
+4. **Portal patterns storage** in the learning system
+5. **API endpoints** at `/api/v1/tools/discover-multiple` and `/api/v1/tools/discover-multiple/create`
+
+⚠️ **Not Yet Implemented:**
+- **UI support** for reviewing discovered APIs before creation (API-only currently)
 
 ## Benefits
 

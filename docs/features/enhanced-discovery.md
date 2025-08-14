@@ -27,8 +27,6 @@ The system automatically detects various API documentation formats:
 - **Swagger/OpenAPI 2.0**
 - **Custom JSON** formats (e.g., SonarQube's webservices)
 - **RAML** (detection only)
-<!-- REMOVED: - **Postman Collections** (coming soon) (unimplemented feature) -->
-<!-- REMOVED: - **GraphQL** schemas (coming soon) (unimplemented feature) -->
 
 ### 🔄 Format Conversion
 
