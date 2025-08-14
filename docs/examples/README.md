@@ -6,7 +6,6 @@ This directory contains practical examples demonstrating how to use the Develope
 
 ### Core Features
 - [AI Agent Integration](ai-agent-integration.md) - Integrate an AI agent with Developer Mesh
-- [Vector Search Implementation](vector-search-implementation.md) - Implement semantic search capabilities
 - [GitHub Integration](github-integration.md) - Use Developer Mesh to interact with GitHub
 - [Custom Tool Integration](custom-tool-integration.md) - Add your own tool integrations
 

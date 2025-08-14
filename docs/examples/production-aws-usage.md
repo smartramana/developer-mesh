@@ -25,15 +25,14 @@ export AWS_REGION=us-east-1
 export AWS_ACCESS_KEY_ID=your-access-key
 export AWS_SECRET_ACCESS_KEY=your-secret-key
 
-# S3 Configuration
-export S3_BUCKET=sean-mcp-dev-contexts
+# S3 Configuration (optional, for context storage)
+export S3_BUCKET=mcp-contexts
 
-# SQS Configuration
-export SQS_QUEUE_URL=https://sqs.us-east-1.amazonaws.com/594992249511/sean-mcp-test
-
-# ElastiCache Redis (via SSH tunnel)
-export REDIS_ADDR=127.0.0.1:6379
-export USE_SSH_TUNNEL_FOR_REDIS=true
+# Redis Configuration (required for event processing)
+# For production ElastiCache:
+export REDIS_ADDR=your-elasticache-endpoint:6379
+# For local development:
+# export REDIS_ADDR=localhost:6379
 
 # Bedrock Configuration
 export BEDROCK_ENABLED=true
@@ -91,9 +90,11 @@ func ExampleS3Storage() {
 }
 ```
 
-## SQS Task Queue
+## Redis Streams Event Queue
 
-### Publishing Tasks to SQS
+### Publishing Events to Redis Streams
+
+**Note**: Developer Mesh uses Redis Streams for event processing, not AWS SQS.
 
 ```go
 package main

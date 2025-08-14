@@ -6,7 +6,7 @@ Batch: ab
 
 # Multi-Agent Embedding System Examples
 
-This document provides practical examples of using the Multi-Agent Embedding System in various scenarios.
+**IMPORTANT NOTE**: The embedding API endpoints shown in these examples (`/api/v1/embeddings/*`) are NOT currently registered in the REST API server. While the underlying embedding infrastructure exists (adapters, services, database schema), the API endpoints are not functional. These examples represent the intended design but are not currently operational.
 
 ## Table of Contents
 

@@ -90,15 +90,17 @@ class OrganizationManager:
         )
         return response.json()
     
-    def exchange_code_for_token(self, code):
-        response = requests.post(f"{self.base_url}/oauth/token", data={
-            'grant_type': 'authorization_code',
-            'code': code,
-            'redirect_uri': self.redirect_uri,
-            'client_id': self.client_id,
-            'client_secret': self.client_secret
-        })
-        return response.json()
+    # Note: OAuth endpoints are not implemented
+    # The following is planned but not functional:
+    # def exchange_code_for_token(self, code):
+    #     response = requests.post(f"{self.base_url}/oauth/token", data={
+    #         'grant_type': 'authorization_code',
+    #         'code': code,
+    #         'redirect_uri': self.redirect_uri,
+    #         'client_id': self.client_id,
+    #         'client_secret': self.client_secret
+    #     })
+    #     return response.json()
 ```
 
 ### 4. Multi-Tenant Authentication
