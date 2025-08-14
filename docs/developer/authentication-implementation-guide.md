@@ -22,13 +22,13 @@ This guide provides comprehensive documentation for implementing authentication 
 
 The Developer Mesh platform uses a centralized authentication service (`pkg/auth`) that provides:
 
-- Two authentication methods (API keys, JWT)
-- OAuth interfaces (not implemented)
+- Two working authentication methods (API keys, JWT)
+- OAuth interfaces defined but no concrete implementations
 - Middleware for both Gin and standard HTTP handlers
 - Rate limiting integration
 - Metrics collection
 - Caching for performance
-- Basic tenant-based access control (not Casbin RBAC)
+- Basic tenant-based access control (Casbin RBAC planned but not implemented)
 
 ### Key Components
 

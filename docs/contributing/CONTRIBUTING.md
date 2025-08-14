@@ -34,12 +34,13 @@ Harassment, offensive behavior, or discrimination of any kind will not be tolera
 
 ### Prerequisites
 
-- Go 1.24 or higher
+- Go 1.24
 - Docker and Docker Compose
 - PostgreSQL 14+ with pgvector extension
-- Redis 6.2+
+- Redis 7.0+ (for Redis Streams)
 - Make
 - Git
+- golang-migrate (for database migrations)
 
 ### Development Environment Setup
 
@@ -62,18 +63,21 @@ Harassment, offensive behavior, or discrimination of any kind will not be tolera
 
 3. **Set Up Local Environment**
    ```bash
-   # Copy configuration template
-   cp config.yaml.example config.yaml
-   # Edit config.yaml with your settings
+   # Copy environment template
+   cp .env.example .env
+   # Edit .env with your settings
    
-   # Start infrastructure services
+   # Set up development environment
    make dev-setup
    
    # Install dependencies (handled by Go workspace)
    go work sync
    
+   # Start Docker services (PostgreSQL, Redis, etc.)
+   make dev
+   
    # Run database migrations
-   make migrate-local
+   make migrate-up-docker
    ```
 
 4. **Build and Run**
@@ -132,23 +136,31 @@ Closes #123
 ### 3. Testing Your Changes
 
 ```bash
-# Run unit tests
+# Run unit tests (excludes integration and Redis-dependent tests)
 make test
+
+# Run tests with Docker services (Redis/PostgreSQL)
+make test-with-services
 
 # Run specific package tests
 go test ./pkg/adapters/...
 
-# Run integration tests
-make test-integration
+# Run E2E tests against local services
+make test-e2e-local
 
 # Check test coverage
 make test-coverage
+
+# Generate HTML coverage report
+make test-coverage-html
 ```
 
 ## 🔄 Pull Request Process
 
 1. **Before Submitting**
-   - Ensure all tests pass
+   - Ensure all tests pass: `make test`
+   - Run pre-commit checks: `make pre-commit`
+   - Format code: `make fmt`
    - Run linters: `make lint`
    - Update documentation if needed
    - Rebase on latest `main` branch
@@ -173,14 +185,14 @@ make test-coverage
 We follow standard Go conventions and use automated tooling:
 
 ```bash
-# Format code
-gofmt -w .
+# Format code (excludes .claude templates which are not valid Go)
+make fmt
 
 # Run linters
 make lint
 
-# Run with auto-fix
-golangci-lint run --fix
+# Install development tools
+make install-tools
 ```
 
 ### Key Guidelines
@@ -229,19 +241,26 @@ golangci-lint run --fix
 ### Project Structure
 
 ```
-developer-mesh/
+devops-mcp/
 ├── apps/                    # Application modules (Go workspace)
-│   ├── mcp-server/         # MCP protocol server
+│   ├── mcp-server/         # MCP protocol WebSocket server
 │   │   ├── cmd/            # Entry points
 │   │   └── internal/       # Private packages
 │   ├── rest-api/           # REST API service
-│   └── worker/             # Event processor
+│   ├── worker/             # Redis Streams event processor
+│   ├── edge-mcp/           # Edge MCP binary
+│   └── mockserver/         # Mock server for testing
 ├── pkg/                    # Shared packages (public API)
-│   ├── adapters/           # External adapters
+│   ├── adapters/           # External adapters (AWS, MCP, etc.)
 │   ├── models/             # Data models
+│   ├── redis/              # Redis Streams client
+│   ├── services/           # Business logic services
 │   └── ...
+├── configs/                # Configuration files
+├── migrations/             # Database migrations
 ├── docs/                   # Documentation
 ├── scripts/                # Utility scripts
+├── test/                   # E2E and integration tests
 └── go.work                 # Go workspace file
 ```
 
@@ -297,8 +316,8 @@ func TestContextManager_CreateContext(t *testing.T) {
 # Generate mocks for interfaces
 go generate ./...
 
-# Or manually with mockgen
-mockgen -source=pkg/adapters/interfaces.go -destination=pkg/adapters/mocks/mock_adapter.go
+# Most mocks are defined in test files directly using testify/mock
+# Example: see pkg/adapters/aws/aws_adapter_test.go
 ```
 
 ## 📚 Documentation
@@ -378,7 +397,12 @@ Check issues labeled `enhancement` for feature ideas:
 
 ### Current Priorities
 
-See our [project board](https://github.com/developer-mesh/developer-mesh/projects) for current priorities and roadmap.
+- Redis Streams integration (completed)
+- Dynamic tools implementation
+- MCP (Model Context Protocol) compliance
+- Multi-agent orchestration
+- Security hardening
+- Test coverage expansion (target: 85%)
 
 ## 🙏 Thank You!
 

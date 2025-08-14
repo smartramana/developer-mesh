@@ -11,25 +11,22 @@ This guide provides a comprehensive setup for developing on the Developer Mesh A
 ## Prerequisites
 
 ### Required Tools
-- **Go 1.24+** - Required for workspace support (uses toolchain 1.24.2)
-- **Docker 24+** & **Docker Compose v2** - For local services
-- **Git 2.40+** - For version control
+- **Go 1.24** - Required for workspace support
+- **Docker** & **Docker Compose** - For local services
+- **Git** - For version control
 - **Make** - For build automation
-- **AWS CLI v2** - For real AWS services
-- **PostgreSQL client** - For database access
+- **golang-migrate** - For database migrations (install with `brew install golang-migrate`)
+- **PostgreSQL client** - For database access (optional)
 
 ### Recommended Tools
 - **VS Code** or **GoLand** - IDE with Go support
-- **golangci-lint 1.61+** - For code quality
-- **ripgrep (rg)** - For fast searching
-- **jq** - For JSON processing
-- **direnv** - For environment management (optional)
-- **k9s** - For Kubernetes development (optional, not used in current deployment)
-- **air** - For hot reload during development (optional)
+- **golangci-lint** - For code quality (install with `make install-tools`)
+- **jq** - For JSON processing (optional)
+- **websocat** or **wscat** - For WebSocket testing (optional)
 
 ## Quick Start (5 minutes)
 
-### Option 1: Local Development with Real AWS
+### Option 1: Docker Development (Recommended)
 
 ```bash
 # Clone the repository
@@ -38,32 +35,42 @@ cd developer-mesh
 
 # Setup environment
 cp .env.example .env
-# Edit .env with your AWS credentials and settings
+# Edit .env if needed (defaults work for local development)
 
-# One-command setup (starts PostgreSQL, Redis, runs migrations)
-make dev-native
+# Start all services with Docker
+make dev  # Starts PostgreSQL, Redis, LocalStack, and all services
 
-# Start ElastiCache tunnel (required for Redis)
-./scripts/aws/connect-elasticache.sh  # Keep running in separate terminal
+# Verify services
+curl http://localhost:8080/health  # MCP Server
+curl http://localhost:8081/health  # REST API
 
-# Verify everything works
-make health
+# Run tests
+make test  # Unit tests
 make test-coverage  # Should be >85%
 ```
 
-### Option 2: Docker Development
+### Option 2: Local Development (Native)
 
 ```bash
 # Clone and setup
 git clone https://github.com/developer-mesh/developer-mesh.git
 cd developer-mesh
 
-# Setup with Docker
-make dev  # Starts all services in Docker
+# Setup environment
+cp .env.example .env
+make dev-setup
 
-# Verify services
-curl http://localhost:8080/health  # MCP Server
-curl http://localhost:8081/health  # REST API
+# Start required services in Docker
+docker-compose -f docker-compose.local.yml up -d postgres redis
+
+# Run database migrations
+make migrate-up-docker
+
+# Build and run services locally
+make build
+make run-mcp-server   # Terminal 1
+make run-rest-api     # Terminal 2
+make run-worker       # Terminal 3
 ```
 
 ## Detailed Setup
@@ -141,35 +148,23 @@ go work edit -json | jq .
 make b  # Short alias for build
 ```
 
-### 4. AWS Services Setup
+### 4. Optional: AWS Services Setup
+
+If you need to test with real AWS services (S3, Bedrock):
 
 ```bash
 # Configure AWS credentials
 aws configure
-# Enter your AWS Access Key ID, Secret Access Key, and region (us-east-1)
+# Enter your AWS Access Key ID, Secret Access Key, and region
 
-# Test AWS connectivity
+# Test AWS connectivity (if using real AWS)
 ./scripts/aws/test-aws-services.sh
 
-# Start ElastiCache tunnel (REQUIRED for Redis)
-# Keep this running in a separate terminal!
+# For production ElastiCache Redis (not needed for local development)
 ./scripts/aws/connect-elasticache.sh
-
-# Verify S3 access (IP-restricted bucket)
-aws s3 ls s3://sean-mcp-dev-contexts/
-
-# Verify SQS access
-aws sqs get-queue-attributes --queue-url https://sqs.us-east-1.amazonaws.com/594992249511/sean-mcp-test --attribute-names All
-
-# Start local PostgreSQL
-docker run -d \
-  --name postgres \
-  -p 5432:5432 \
-  -e POSTGRES_USER=postgres \
-  -e POSTGRES_PASSWORD=postgres \
-  -e POSTGRES_DB=devops_mcp \
-  postgres:15-alpine
 ```
+
+For local development, LocalStack provides AWS service emulation.
 
 ### 5. Database Setup
 
@@ -302,23 +297,18 @@ go work use ./apps/new-service
 
 ## Development Workflow
 
-### 1. Essential Commands (from CLAUDE.md)
+### 1. Essential Commands
 
 ```bash
-# Pre-session setup (REQUIRED)
-./scripts/aws/connect-elasticache.sh      # Keep running in separate terminal
-./scripts/aws/test-aws-services.sh        # Verify AWS connectivity
-
 # Development workflow
-make b                   # Build all services
-make t                   # Run tests (must pass)
+make build               # Build all services
+make test                # Run tests (must pass)
 make test-coverage       # Test coverage (must be >85%)
 make lint                # Must show 0 errors
 make pre-commit          # Run before EVERY commit
 
 # Quick checks
-grep -r "TODO" pkg/ apps/ --include="*.go"  # Must return NOTHING
-make health              # Check service health
+make health-check        # Check service health (if services running)
 ```
 
 ### 2. Feature Development
@@ -466,25 +456,22 @@ func TestAdapter_Execute(t *testing.T) {
 
 ## Local Development Tips
 
-### Critical Requirements (NO EXCEPTIONS)
+### Development Best Practices
 
 ```bash
-# 1. ALWAYS use real AWS services in production
-# LocalStack exists for local testing but production requires real S3, SQS, Bedrock
-
-# 2. ElastiCache tunnel MUST be running
-./scripts/aws/connect-elasticache.sh  # Keep open!
-
-# 3. Use 127.0.0.1 for Redis, NOT localhost
-REDIS_ADDR=127.0.0.1:6379  # Correct
-REDIS_ADDR=localhost:6379   # WRONG!
-
-# 4. No TODOs in code
-grep -r "TODO" pkg/ apps/ --include="*.go"  # Must be empty
-
-# 5. No nil services
+# Use proper service initialization
 # Bad:  authorizer := nil
-# Good: authorizer := auth.NewProductionAuthorizer(config)
+# Good: authorizer := auth.NewAuthorizer(config)
+
+# Redis connection
+# For Docker: redis:6379
+# For local: localhost:6379 or 127.0.0.1:6379
+
+# Code quality checks before commit
+make fmt          # Format code
+make lint         # Check for issues
+make test         # Run tests
+make pre-commit   # All checks
 ```
 
 ### Hot Reload (Optional)

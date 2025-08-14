@@ -13,17 +13,18 @@ This directory contains guidelines and resources for contributing to the Develop
 
 ## Quick Links
 
-- [Development Environment Setup](../developer/development-environment.md)
-- [Debugging Guide](../developer/debugging-guide.md)
+- [Development Setup](../developer-mesh-notes/step-by-step-guide.md)
+- [Environment Switching](../ENVIRONMENT_SWITCHING.md)
 - [Architecture Overview](../architecture/system-overview.md)
 - [API Documentation](../api-reference/)
+- [Configuration Guide](../configuration/)
 
 ## Getting Started
 
 1. Read the [Contributing Guide](CONTRIBUTING.md)
-2. Set up your [development environment](../developer/development-environment.md)
-3. Check the [issue tracker](https://github.com/developer-mesh/developer-mesh/issues) for tasks
-4. Join our community discussions (coming soon)
+2. Set up your development environment: `make dev-setup && make dev`
+3. Run tests to verify setup: `make test`
+4. Check the issue tracker for tasks to work on
 
 ## Need Help?
 

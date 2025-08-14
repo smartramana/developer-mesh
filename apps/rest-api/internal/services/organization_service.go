@@ -170,8 +170,8 @@ func (s *OrganizationService) RegisterOrganization(ctx context.Context, req *Org
 		org.MaxUsers, org.MaxAgents, org.BillingEmail,
 		org.Settings, org.CreatedAt, org.UpdatedAt); err != nil {
 		s.logger.Error("Failed to create organization", map[string]interface{}{
-			"error": err.Error(),
-			"org_id": org.ID,
+			"error":    err.Error(),
+			"org_id":   org.ID,
 			"org_name": org.Name,
 		})
 		return nil, nil, "", fmt.Errorf("failed to create organization: %w", err)
@@ -186,8 +186,8 @@ func (s *OrganizationService) RegisterOrganization(ctx context.Context, req *Org
 	if _, err := tx.Exec(insertTenantQuery,
 		orgID, tenantID, org.Name, "standard", time.Now()); err != nil {
 		s.logger.Error("Failed to create tenant mapping", map[string]interface{}{
-			"error": err.Error(),
-			"org_id": orgID,
+			"error":     err.Error(),
+			"org_id":    orgID,
 			"tenant_id": tenantID,
 		})
 		return nil, nil, "", fmt.Errorf("failed to create tenant mapping: %w", err)
@@ -229,10 +229,10 @@ func (s *OrganizationService) RegisterOrganization(ctx context.Context, req *Org
 		user.PasswordHash, user.Role, user.Status, user.EmailVerified,
 		user.PasswordChangedAt, user.CreatedAt, user.UpdatedAt); err != nil {
 		s.logger.Error("Failed to create user", map[string]interface{}{
-			"error": err.Error(),
+			"error":   err.Error(),
 			"user_id": user.ID,
-			"email": user.Email,
-			"role": user.Role,
+			"email":   user.Email,
+			"role":    user.Role,
 		})
 		return nil, nil, "", fmt.Errorf("failed to create user: %w", err)
 	}
@@ -241,9 +241,9 @@ func (s *OrganizationService) RegisterOrganization(ctx context.Context, req *Org
 	updateOrgQuery := `UPDATE mcp.organizations SET owner_user_id = $1 WHERE id = $2`
 	if _, err := tx.Exec(updateOrgQuery, userID, orgID); err != nil {
 		s.logger.Error("Failed to set organization owner", map[string]interface{}{
-			"error": err.Error(),
+			"error":   err.Error(),
 			"user_id": userID,
-			"org_id": orgID,
+			"org_id":  orgID,
 		})
 		return nil, nil, "", fmt.Errorf("failed to set organization owner: %w", err)
 	}
@@ -261,7 +261,7 @@ func (s *OrganizationService) RegisterOrganization(ctx context.Context, req *Org
 
 	if _, err := tx.Exec(insertTokenQuery, userID, tokenHash, expiresAt, time.Now()); err != nil {
 		s.logger.Error("Failed to create verification token", map[string]interface{}{
-			"error": err.Error(),
+			"error":   err.Error(),
 			"user_id": userID,
 		})
 		return nil, nil, "", fmt.Errorf("failed to create verification token: %w", err)

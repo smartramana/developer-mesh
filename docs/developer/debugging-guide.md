@@ -44,21 +44,12 @@ debugging:
 
 ### 2. Observability Stack
 
-```bash
-# Start observability tools
-docker-compose -f docker-compose.observability.yml up -d
-
-# Access tools
-open http://localhost:3000    # Grafana
-open http://localhost:9090    # Prometheus
-open http://localhost:16686   # Jaeger
-open http://localhost:5601    # Kibana
-```
+Note: Full observability stack (Grafana, Prometheus, Jaeger) is not currently configured in the project. For production monitoring, these tools would need to be set up separately.
 
 ### 3. Debug Containers
 
 ```dockerfile
-# Dockerfile.debug
+# Dockerfile.debug (example, not currently in project)
 FROM golang:1.24-alpine AS debug
 RUN go install github.com/go-delve/delve/cmd/dlv@latest
 WORKDIR /app
