@@ -6,6 +6,8 @@ Batch: aa
 
 # Embedding Model Management - Sequence Diagrams
 
+**NOTE**: The embedding model catalog and management features shown in these diagrams are partially implemented. The database schema, repositories, and service layer exist, but the REST API endpoints are NOT registered in the server. These diagrams represent the designed architecture that is only partially functional.
+
 ## 1. Model Selection Flow
 
 ```mermaid
@@ -411,6 +413,33 @@ graph TB
     Q --> R
     Q --> S
 ```
+
+## What's Actually Implemented vs Planned
+
+### Currently Implemented ✅
+- Database schema for embedding models (tables exist)
+- Repository layer (ModelCatalogRepository, TenantModelsRepository, EmbeddingUsageRepository)
+- Model Management Service (`apps/rest-api/internal/services/model_management_service.go`)
+- Embedding adapters for OpenAI, Bedrock, Google
+- Basic embedding generation (but NOT via the model catalog system)
+- WebSocket server for agent communication
+- Redis caching infrastructure
+- PostgreSQL with pgvector for embeddings
+
+### NOT Implemented ❌
+- REST API endpoints for model catalog (`/api/v1/embedding-models/*` not registered)
+- Automatic model failover
+- Quota management and enforcement
+- Model discovery and catalog updates
+- Cost tracking and optimization
+- Multi-agent model coordination via preferences
+- Circuit breaker for embedding providers
+- Batch processing optimization
+- Alert system integration
+
+### Partially Implemented ⚠️
+- Prometheus metrics (configs exist but not all metrics implemented)
+- Grafana dashboards (configs exist but limited integration)
 
 ## Performance Optimization Flow
 
