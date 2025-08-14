@@ -6,18 +6,41 @@ Batch: aa
 
 # Embedding Models API Examples
 
-## Authentication
-All API endpoints require authentication via API key in the header:
+> ⚠️ **IMPORTANT**: The Model Catalog API endpoints documented here are NOT currently active. The code exists but is not registered in the server. Only the basic embedding endpoints at `/api/v1/embeddings` are functional.
+
+## Status: NOT IMPLEMENTED IN SERVER
+
+While the Model Catalog API code exists in `internal/api/model_catalog_api.go`, it is not registered in the server's route configuration. Therefore, all endpoints documented below will return 404 Not Found.
+
+## Actually Working Endpoints
+
+The only embedding-related endpoints that work are:
+- `POST /api/v1/embeddings` - Generate embeddings
+- `POST /api/v1/embeddings/search` - Search embeddings
+- `GET /api/v1/embeddings/models` - List available models
+- `GET /api/v1/embeddings/providers` - List providers
+
+See the [Embedding API Reference](../api-reference/embedding-api-reference.md) for working endpoints.
+
+---
+
+## Future Implementation (Currently Non-Functional)
+
+The following documentation describes endpoints that exist in code but are NOT accessible:
+
+### Authentication
+All API endpoints would require authentication via API key in the header:
 ```bash
 export API_KEY="your-api-key-here"
 export BASE_URL="http://localhost:8081"
 ```
 
-## Model Catalog Management
+### Model Catalog Management (NOT WORKING)
 
-### List Available Models
+### List Available Models (404 - NOT IMPLEMENTED)
 ```bash
-# List all available models with pagination
+# This endpoint will return 404 - Not Found
+# The ModelCatalogAPI is not registered in the server
 curl -X GET "$BASE_URL/api/v1/embedding-models/catalog?page=1&limit=20" \
   -H "X-API-Key: $API_KEY" \
   -H "Content-Type: application/json"
@@ -88,11 +111,12 @@ curl -X GET "$BASE_URL/api/v1/embedding-models/providers" \
   -H "Content-Type: application/json"
 ```
 
-## Tenant Model Management
+## Tenant Model Management (NOT WORKING)
 
-### List Tenant Models
+### List Tenant Models (404 - NOT IMPLEMENTED)
 ```bash
-# List all models for current tenant
+# This endpoint will return 404 - Not Found
+# The tenant-models routes are not registered
 curl -X GET "$BASE_URL/api/v1/tenant-models" \
   -H "X-API-Key: $API_KEY" \
   -H "Content-Type: application/json"
@@ -145,11 +169,11 @@ curl -X DELETE "$BASE_URL/api/v1/tenant-models/550e8400-e29b-41d4-a716-446655440
   -H "X-API-Key: $API_KEY"
 ```
 
-## Usage and Quotas
+## Usage and Quotas (NOT WORKING)
 
-### Get Usage Statistics
+### Get Usage Statistics (404 - NOT IMPLEMENTED)
 ```bash
-# Get monthly usage
+# This endpoint will return 404 - Not Found
 curl -X GET "$BASE_URL/api/v1/tenant-models/usage?period=month" \
   -H "X-API-Key: $API_KEY" \
   -H "Content-Type: application/json"
@@ -167,10 +191,11 @@ curl -X GET "$BASE_URL/api/v1/tenant-models/quotas" \
   -H "Content-Type: application/json"
 ```
 
-## Model Selection
+## Model Selection (NOT WORKING)
 
-### Select Best Model for Request
+### Select Best Model for Request (404 - NOT IMPLEMENTED)
 ```bash
+# This endpoint will return 404 - Not Found
 curl -X POST "$BASE_URL/api/v1/embedding-models/select" \
   -H "X-API-Key: $API_KEY" \
   -H "Content-Type: application/json" \
@@ -349,17 +374,28 @@ The API can send webhook events for model changes:
 }
 ```
 
-## Testing with Mock Data
-For testing, you can use the following tenant IDs that have pre-configured models:
-- `11111111-1111-1111-1111-111111111111` - TechCorp with OpenAI models
-- `22222222-2222-2222-2222-222222222222` - DataSystems with Bedrock models
-- `33333333-3333-3333-3333-333333333333` - Analytics Inc with mixed models
+## Implementation Status
 
-## Best Practices
+### What's Actually Implemented:
+- ✅ Basic embedding generation (`POST /api/v1/embeddings`)
+- ✅ Embedding search (`POST /api/v1/embeddings/search`)
+- ✅ List embedding models (`GET /api/v1/embeddings/models`)
+- ✅ List providers (`GET /api/v1/embeddings/providers`)
 
-1. **Always specify token estimates** when selecting models to get accurate cost predictions
-2. **Monitor usage regularly** to avoid hitting quota limits
-3. **Use model selection endpoint** instead of hardcoding model IDs
-4. **Cache model catalog** locally to reduce API calls
-5. **Set up webhooks** for quota alerts and model changes
-6. **Use batch operations** when configuring multiple models
+### What's NOT Implemented (Despite Code Existing):
+- ❌ Model Catalog API (all `/api/v1/embedding-models/catalog` endpoints)
+- ❌ Tenant Models API (all `/api/v1/tenant-models` endpoints)
+- ❌ Model Selection API (`/api/v1/embedding-models/select`)
+- ❌ Usage and Quota tracking endpoints
+- ❌ Webhook events for model changes
+
+## Why These Endpoints Don't Work
+
+The `ModelCatalogAPI` struct and all its methods exist in `/apps/rest-api/internal/api/model_catalog_api.go`, but the API is never initialized or registered in the server's route configuration (`/apps/rest-api/internal/api/server.go`).
+
+To make these endpoints work, the following would need to be added to `server.go`:
+1. Initialize the ModelManagementService
+2. Create the ModelCatalogAPI instance
+3. Register its routes with the router
+
+Until this is done, all model catalog and tenant model endpoints will return 404.

@@ -8,7 +8,9 @@ Batch: aa
 
 ## Overview
 
-The Webhook API enables the Developer Mesh platform to receive and process real-time events from GitHub. It provides secure webhook endpoints with signature validation and asynchronous event processing via Redis Streams.
+The Webhook API enables the Developer Mesh platform to receive and process real-time events from dynamically registered tools. It provides secure webhook endpoints with multiple authentication methods and asynchronous event processing via Redis Streams.
+
+**IMPORTANT**: GitHub-specific webhook endpoint (`/api/webhooks/github`) has been REMOVED. All webhooks now use the dynamic tool webhook handler.
 
 ## Webhook Endpoints
 
@@ -18,242 +20,112 @@ Production: https://api.dev-mesh.io/api/webhooks
 Local:      http://localhost:8081/api/webhooks
 ```
 
-## GitHub Webhooks
+## Dynamic Tool Webhooks
 
-### Receive GitHub Events
+### Receive Tool Events
 
-Process incoming GitHub webhook events.
+Process incoming webhook events for dynamically registered tools.
 
 ```http
-POST /api/webhooks/github
+POST /api/webhooks/tools/:toolId
 ```
 
 #### Headers
 
-| Header | Required | Description |
-|--------|----------|-------------|
-| `X-GitHub-Event` | Yes | The type of GitHub event |
-| `X-Hub-Signature-256` | Yes | HMAC signature for validation |
-| `X-GitHub-Delivery` | Yes | Unique delivery ID |
-| `Content-Type` | Yes | Must be `application/json` |
+Headers depend on the tool's webhook configuration. Common patterns:
 
-#### Supported Events
+| Header | Description | Example |
+|--------|-------------|---------|
+| `Authorization` | Bearer token or API key | `Bearer abc123` |
+| `X-Webhook-Signature` | HMAC signature for validation | `sha256=...` |
+| `X-Event-Type` | Event type identifier | `issue.created` |
+| `Content-Type` | Request content type | `application/json` |
 
-- **Issues**: GitHub issue events
-- **Issue Comment**: Comments on issues
-- **Pull Requests**: Pull request events
-- **Push**: Code pushes to branches
-- **Release**: Release events
+#### Authentication Methods
 
-**Note**: The webhook handler is configured to accept only these event types. Other GitHub events will be rejected.
+The webhook handler supports multiple authentication methods configured per tool:
 
-#### Request Body Examples
+- **HMAC**: Validates signature using shared secret (SHA1 or SHA256)
+- **Bearer**: Validates Bearer token in Authorization header
+- **Basic**: Validates Basic authentication credentials
+- **Signature**: Custom signature validation schemes
+- **None**: No authentication (not recommended)
 
-##### Issue Event
+#### Request Body
+
+The webhook accepts any JSON payload. The structure depends on the tool sending the webhook. Common patterns:
+
 ```json
 {
-  "action": "opened",
-  "issue": {
-    "id": 1234567890,
-    "node_id": "I_kwDOABCDEF5ABCDEF",
-    "number": 42,
-    "title": "Bug: Authentication fails with special characters",
-    "body": "## Description\nUsers cannot login when password contains...",
-    "state": "open",
-    "labels": [
-      {
-        "id": 208045946,
-        "name": "bug",
-        "color": "d73a4a"
-      },
-      {
-        "id": 208045947,
-        "name": "high-priority",
-        "color": "ff0000"
-      }
-    ],
-    "assignees": [],
-    "user": {
-      "login": "octocat",
-      "id": 1234567
-    },
-    "created_at": "2024-01-20T10:30:00Z",
-    "updated_at": "2024-01-20T10:30:00Z"
-  },
-  "repository": {
-    "id": 987654321,
-    "node_id": "R_kgDOABCDEF",
-    "name": "hello-world",
-    "full_name": "octocat/hello-world",
-    "owner": {
-      "login": "octocat",
-      "id": 1234567
-    },
-    "private": false,
-    "default_branch": "main"
-  },
-  "sender": {
-    "login": "octocat",
-    "id": 1234567
+  "event_type": "resource.created",
+  "timestamp": "2024-01-20T10:30:00Z",
+  "data": {
+    // Tool-specific payload
   }
 }
 ```
 
-##### Pull Request Event
-```json
-{
-  "action": "opened",
-  "number": 123,
-  "pull_request": {
-    "id": 987654321,
-    "number": 123,
-    "state": "open",
-    "title": "Add OAuth 2.0 support",
-    "body": "This PR implements OAuth 2.0...",
-    "created_at": "2024-01-20T10:30:00Z",
-    "updated_at": "2024-01-20T10:30:00Z",
-    "head": {
-      "ref": "feature/oauth",
-      "sha": "abc123def456"
-    },
-    "base": {
-      "ref": "main",
-      "sha": "789ghi012jkl"
-    },
-    "user": {
-      "login": "contributor",
-      "id": 2345678
-    },
-    "draft": false,
-    "merged": false,
-    "mergeable": true,
-    "additions": 450,
-    "deletions": 120,
-    "changed_files": 15
-  },
-  "repository": {
-    "id": 987654321,
-    "name": "hello-world",
-    "full_name": "octocat/hello-world"
-  }
-}
-```
+#### Event Type Extraction
 
-##### Push Event
-```json
-{
-  "ref": "refs/heads/main",
-  "before": "abc123def456",
-  "after": "789ghi012jkl",
-  "created": false,
-  "deleted": false,
-  "forced": false,
-  "base_ref": null,
-  "compare": "https://github.com/octocat/hello-world/compare/abc123def456...789ghi012jkl",
-  "commits": [
-    {
-      "id": "789ghi012jkl",
-      "message": "Fix authentication bug",
-      "timestamp": "2024-01-20T10:30:00Z",
-      "author": {
-        "name": "Octocat",
-        "email": "octocat@github.com"
-      },
-      "added": ["src/auth.js"],
-      "removed": [],
-      "modified": ["src/login.js", "tests/auth.test.js"]
-    }
-  ],
-  "repository": {
-    "id": 987654321,
-    "name": "hello-world",
-    "full_name": "octocat/hello-world"
-  },
-  "pusher": {
-    "name": "octocat",
-    "email": "octocat@github.com"
-  }
-}
-```
+The handler attempts to extract the event type from:
+1. Configured event type header
+2. Common JSON paths: `event_type`, `eventType`, `type`, `action`, `event`
+3. Tool-specific payload paths (configured per tool)
+4. Falls back to "unknown" if not found
 
 #### Response
 
 **Success (200 OK):**
-```
-Webhook received successfully
-```
-
-**Note**: The webhook handler returns a simple text response and queues the event for asynchronous processing via AWS SQS.
-
-**Validation Error (400 Bad Request):**
 ```json
 {
-  "error": {
-    "code": "INVALID_SIGNATURE",
-    "message": "Webhook signature validation failed",
-    "details": {
-      "expected_signature": "sha256=...",
-      "received_signature": "sha256=..."
-    }
+  "event_id": "evt-550e8400-e29b-41d4-a716-446655440000",
+  "status": "accepted",
+  "message": "Webhook event queued for processing"
+}
+```
+
+**Note**: The webhook handler queues the event for asynchronous processing via Redis Streams.
+
+**Error Responses:**
+
+| Status Code | Description |
+|-------------|-------------|
+| 400 | Bad request (invalid body) |
+| 401 | Unauthorized (signature validation failed) |
+| 403 | Forbidden (webhooks not enabled for tool) |
+| 404 | Tool not found |
+| 500 | Internal server error |
+
+### Tool Webhook Configuration
+
+Webhook configuration is managed through the Dynamic Tools API. When creating or updating a tool, include webhook configuration:
+
+```json
+{
+  "tool_name": "GitHub Integration",
+  "webhook_config": {
+    "enabled": true,
+    "auth_type": "hmac",
+    "signature_header": "X-Hub-Signature-256",
+    "signature_algorithm": "hmac-sha256",
+    "auth_config": {
+      "secret": "your-webhook-secret"
+    },
+    "events": [
+      {
+        "name": "issue.created",
+        "payload_path": "action"
+      }
+    ]
   }
 }
 ```
 
-### Configure GitHub Webhook (Not Implemented)
-
-**Note**: Webhook configuration endpoints are planned but not yet implemented. Webhook processing options are currently configured via environment variables.
-
-#### Request Body
-```json
-{
-  "repository": "octocat/hello-world",
-  "events": [
-    "issues",
-    "pull_request",
-    "push",
-    "release"
-  ],
-  "processing_options": {
-    "auto_embed": true,
-    "extract_relationships": true,
-    "notify_agents": true,
-    "store_in_s3": true,
-    "generate_summary": true
-  },
-  "filters": {
-    "branch_pattern": "^(main|develop|release/.*)$",
-    "label_include": ["bug", "feature", "enhancement"],
-    "label_exclude": ["wontfix", "duplicate"],
-    "author_exclude": ["dependabot[bot]"]
-  },
-  "agent_routing": {
-    "issues": ["issue-analyzer", "bug-triager"],
-    "pull_request": ["code-reviewer", "security-scanner"],
-    "push": ["ci-runner"]
-  }
-}
-```
-
-#### Response
-```json
-{
-  "repository": "octocat/hello-world",
-  "webhook_url": "https://api.dev-mesh.io/api/webhooks/github",
-  "secret": "webhook-secret-123",
-  "config": {
-    "events": ["issues", "pull_request", "push", "release"],
-    "processing_options": {...},
-    "filters": {...},
-    "agent_routing": {...}
-  },
-  "created_at": "2024-01-20T10:30:00Z",
-  "updated_at": "2024-01-20T10:30:00Z"
-}
-```
+**Note**: See the Dynamic Tools API documentation for complete webhook configuration options.
 
 ## Webhook Event Management (Not Implemented)
 
-**Note**: Webhook event management endpoints are planned but not yet implemented. Events are currently processed asynchronously via SQS without a query interface.
+**Note**: Webhook event management endpoints are planned but not yet implemented. Events are currently processed asynchronously via Redis Streams without a query interface.
 
 #### Query Parameters
 
@@ -393,19 +265,22 @@ POST /api/v1/webhooks/events/:id/retry
 
 ### Signature Validation
 
-All webhooks must include valid signatures for security:
+The webhook handler supports multiple authentication methods. Here's how to implement HMAC signature validation:
 
 ```javascript
-// Example signature validation (Node.js)
+// Example HMAC signature validation (Node.js)
 const crypto = require('crypto');
 
-function validateGitHubSignature(payload, signature, secret) {
+function validateHMACSignature(payload, signature, secret) {
   const hmac = crypto.createHmac('sha256', secret);
-  const digest = 'sha256=' + hmac.update(payload).digest('hex');
+  const digest = hmac.update(payload).digest('hex');
+  
+  // Remove any prefix (e.g., "sha256=")
+  const cleanSignature = signature.replace(/^sha256=/, '');
   
   return crypto.timingSafeEqual(
-    Buffer.from(signature),
-    Buffer.from(digest)
+    Buffer.from(cleanSignature, 'hex'),
+    Buffer.from(digest, 'hex')
   );
 }
 ```
@@ -447,35 +322,40 @@ import express from 'express';
 
 const app = express();
 
-// Middleware to validate GitHub webhooks
-function validateGitHubWebhook(req, res, next) {
-  const signature = req.headers['x-hub-signature-256'];
-  const payload = JSON.stringify(req.body);
-  const secret = process.env.GITHUB_WEBHOOK_SECRET;
-  
-  if (!validateSignature(payload, signature, secret)) {
-    return res.status(401).json({ error: 'Invalid signature' });
-  }
-  
-  next();
+// Middleware to validate webhook signatures
+function validateWebhookSignature(secret: string) {
+  return (req, res, next) => {
+    const signature = req.headers['x-webhook-signature'];
+    const payload = JSON.stringify(req.body);
+    
+    const hmac = crypto.createHmac('sha256', secret);
+    const expectedSignature = 'sha256=' + hmac.update(payload).digest('hex');
+    
+    if (!crypto.timingSafeEqual(
+      Buffer.from(signature || ''),
+      Buffer.from(expectedSignature)
+    )) {
+      return res.status(401).json({ error: 'Invalid signature' });
+    }
+    
+    next();
+  };
 }
 
-// Handle GitHub webhooks
-app.post('/webhooks/github', 
+// Handle tool webhooks
+app.post('/webhooks/:toolId', 
   express.json(),
-  validateGitHubWebhook,
+  validateWebhookSignature(process.env.WEBHOOK_SECRET),
   async (req, res) => {
-    const event = req.headers['x-github-event'];
+    const toolId = req.params.toolId;
     const payload = req.body;
     
     // Forward to Developer Mesh
-    const response = await fetch('https://api.developer-mesh.com/api/v1/webhooks/github', {
+    const response = await fetch(`https://api.developer-mesh.com/api/webhooks/tools/${toolId}`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'X-GitHub-Event': event,
-        'X-Hub-Signature-256': req.headers['x-hub-signature-256'],
-        'X-GitHub-Delivery': req.headers['x-github-delivery']
+        'X-Webhook-Signature': req.headers['x-webhook-signature']
       },
       body: JSON.stringify(payload)
     });
@@ -496,8 +376,8 @@ import requests
 
 app = Flask(__name__)
 
-def validate_github_signature(payload, signature, secret):
-    """Validate GitHub webhook signature"""
+def validate_webhook_signature(payload, signature, secret):
+    """Validate webhook HMAC signature"""
     expected = 'sha256=' + hmac.new(
         secret.encode(),
         payload,
@@ -506,25 +386,23 @@ def validate_github_signature(payload, signature, secret):
     
     return hmac.compare_digest(expected, signature)
 
-@app.route('/webhooks/github', methods=['POST'])
-def handle_github_webhook():
+@app.route('/webhooks/<tool_id>', methods=['POST'])
+def handle_tool_webhook(tool_id):
     # Validate signature
-    signature = request.headers.get('X-Hub-Signature-256')
-    if not validate_github_signature(
+    signature = request.headers.get('X-Webhook-Signature')
+    if not validate_webhook_signature(
         request.data,
         signature,
-        app.config['GITHUB_WEBHOOK_SECRET']
+        app.config['WEBHOOK_SECRET']
     ):
         return jsonify({'error': 'Invalid signature'}), 401
     
     # Forward to Developer Mesh
     response = requests.post(
-        'https://api.developer-mesh.com/api/v1/webhooks/github',
+        f'https://api.developer-mesh.com/api/webhooks/tools/{tool_id}',
         headers={
             'Content-Type': 'application/json',
-            'X-GitHub-Event': request.headers.get('X-GitHub-Event'),
-            'X-Hub-Signature-256': signature,
-            'X-GitHub-Delivery': request.headers.get('X-GitHub-Delivery')
+            'X-Webhook-Signature': signature
         },
         data=request.data
     )
@@ -532,42 +410,46 @@ def handle_github_webhook():
     return jsonify(response.json())
 ```
 
-### Setting Up GitHub Webhooks
+### Setting Up Tool Webhooks
 
-1. **In GitHub Repository Settings:**
-   - Go to Settings → Webhooks → Add webhook
-   - Payload URL: `https://api.developer-mesh.com/api/v1/webhooks/github`
-   - Content type: `application/json`
-   - Secret: Use a strong, random secret
-   - Events: Select individual events or "Send me everything"
-
-2. **Configure in Developer Mesh:**
+1. **Register the tool in Developer Mesh:**
    ```bash
-   curl -X PUT https://api.developer-mesh.com/api/v1/webhooks/github/config \
+   curl -X POST https://api.developer-mesh.com/api/v1/tools \
      -H "Authorization: Bearer your-api-key" \
      -H "Content-Type: application/json" \
      -d '{
-       "repository": "octocat/hello-world",
-       "events": ["issues", "pull_request"],
-       "processing_options": {
-         "auto_embed": true,
-         "notify_agents": true
+       "tool_name": "My Integration",
+       "provider": "custom",
+       "webhook_config": {
+         "enabled": true,
+         "auth_type": "hmac",
+         "signature_header": "X-Webhook-Signature",
+         "signature_algorithm": "hmac-sha256",
+         "auth_config": {
+           "secret": "your-secret-key"
+         }
        }
      }'
    ```
+
+2. **Configure webhook in your tool:**
+   - Webhook URL: `https://api.developer-mesh.com/api/webhooks/tools/{toolId}`
+   - Authentication: As configured (HMAC, Bearer, etc.)
+   - Content type: `application/json`
+   - Events: Select events to send
 
 ## Webhook Processing Pipeline
 
 When a webhook is received, the following processing occurs:
 
-1. **Validation**: Signature and payload validation
-2. **Storage**: Raw event stored in database
-3. **Content Extraction**: Extract relevant content (issue text, PR description, etc.)
-4. **Embedding Generation**: Generate embeddings for searchability
-5. **Relationship Extraction**: Find references to other issues, PRs, commits
-6. **Agent Notification**: Notify relevant AI agents based on routing rules
-7. **Task Creation**: Create tasks for agents if configured
-8. **Event Publishing**: Publish to internal event bus
+1. **Tool Validation**: Verify tool exists and webhooks are enabled
+2. **Authentication**: Validate signature/token based on configured auth type
+3. **Event Extraction**: Extract event type from headers or payload
+4. **Storage**: Store raw event in database with metadata
+5. **Queue**: Add event to Redis Stream for async processing
+6. **Worker Processing**: Worker consumes event from stream
+7. **Agent Routing**: Route to appropriate agents based on configuration
+8. **Response**: Return event ID for tracking
 
 ## Error Handling
 

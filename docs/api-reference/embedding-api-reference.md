@@ -19,8 +19,8 @@ Each AI agent can have customized embedding configurations including:
 ## API Endpoints
 
 ### Generate Embedding
-<!-- WARNING: Endpoint not found in code: POST /api/embeddings` -->
-`POST /api/embeddings`
+
+`POST /api/v1/embeddings`
 
 Generate an embedding using agent-specific configuration.
 
@@ -65,8 +65,7 @@ Generate an embedding using agent-specific configuration.
 
 Generate embeddings for multiple texts in a single request.
 
-<!-- WARNING: Endpoint not found in code: POST /embeddings/batch` -->
-**Endpoint:** `POST /embeddings/batch`
+**Endpoint:** `POST /api/v1/embeddings/batch`
 
 **Request Body:**
 ```json
@@ -123,8 +122,7 @@ Generate embeddings for multiple texts in a single request.
 
 Search for similar embeddings using vector similarity.
 
-<!-- WARNING: Endpoint not found in code: POST /embeddings/search` -->
-**Endpoint:** `POST /embeddings/search`
+**Endpoint:** `POST /api/v1/embeddings/search`
 
 **Request Body:**
 ```json
@@ -156,8 +154,7 @@ Search for similar embeddings using vector similarity.
 
 Search across embeddings created by different models.
 
-<!-- WARNING: Endpoint not found in code: POST /embeddings/search/cross-model` -->
-**Endpoint:** `POST /embeddings/search/cross-model`
+**Endpoint:** `POST /api/v1/embeddings/search/cross-model`
 
 **Request Body:**
 ```json
@@ -189,8 +186,7 @@ Search across embeddings created by different models.
 
 Check the health status of all configured embedding providers.
 
-<!-- WARNING: Endpoint not found in code: GET /embeddings/providers/health` -->
-**Endpoint:** `GET /embeddings/providers/health`
+**Endpoint:** `GET /api/v1/embeddings/providers/health`
 
 **Response:**
 ```json
@@ -220,8 +216,7 @@ Check the health status of all configured embedding providers.
 
 Create a new embedding configuration for an agent.
 
-<!-- WARNING: Endpoint not found in code: POST /embeddings/agents` -->
-**Endpoint:** `POST /embeddings/agents`
+**Endpoint:** `POST /api/v1/embeddings/agents`
 
 **Request Body:**
 ```json
@@ -282,8 +277,7 @@ Create a new embedding configuration for an agent.
 
 Retrieve the current configuration for an agent.
 
-<!-- WARNING: Endpoint not found in code: GET /embeddings/agents/{agentId}` -->
-**Endpoint:** `GET /embeddings/agents/{agentId}`
+**Endpoint:** `GET /api/v1/embeddings/agents/{agentId}`
 
 **Response:**
 ```json
@@ -314,8 +308,7 @@ Retrieve the current configuration for an agent.
 
 Update an agent's embedding configuration.
 
-<!-- WARNING: Endpoint not found in code: PUT /embeddings/agents/{agentId}` -->
-**Endpoint:** `PUT /embeddings/agents/{agentId}`
+**Endpoint:** `PUT /api/v1/embeddings/agents/{agentId}`
 
 **Request Body:**
 ```json
@@ -363,8 +356,7 @@ Update an agent's embedding configuration.
 
 Get the models assigned to an agent for a specific task type.
 
-<!-- WARNING: Endpoint not found in code: GET /embeddings/agents/{agentId}/models?task_type=general_qa` -->
-**Endpoint:** `GET /embeddings/agents/{agentId}/models?task_type=general_qa`
+**Endpoint:** `GET /api/v1/embeddings/agents/{agentId}/models`
 
 **Response:**
 ```json
@@ -386,8 +378,7 @@ Get the models assigned to an agent for a specific task type.
 
 Get cost metrics for an agent.
 
-<!-- WARNING: Endpoint not found in code: GET /embeddings/agents/{agentId}/costs?period_days=30` -->
-**Endpoint:** `GET /embeddings/agents/{agentId}/costs?period_days=30`
+**Endpoint:** `GET /api/v1/embeddings/agents/{agentId}/costs`
 
 **Response:**
 ```json
