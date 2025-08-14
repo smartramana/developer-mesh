@@ -1,39 +1,38 @@
 # OpenAPI/Swagger Documentation
 
-This directory contains the comprehensive OpenAPI 3.0 specification for the Developer Mesh Platform API. The documentation is structured to support scalability as new tools and integrations are added.
+⚠️ **IMPORTANT**: This documentation has been updated (2025-08-14) to reflect the ACTUAL implementation. Many features previously documented are NOT implemented and have been marked or removed.
 
 ## Structure
 
 ```
 docs/swagger/
-├── openapi.yaml              # Main OpenAPI specification with references
+├── openapi.yaml              # Main OpenAPI specification
 ├── common/                   # Shared components
 │   ├── schemas.yaml         # Common data models
 │   ├── parameters.yaml      # Reusable parameters
 │   └── responses.yaml       # Standard HTTP responses
 ├── core/                    # Core API specifications
-│   ├── agents.yaml         # Agent management endpoints
-│   ├── auth.yaml           # Authentication endpoints
-│   ├── collaborations.yaml # Collaboration features
-│   ├── contexts.yaml       # Context management
-│   ├── embeddings_v2.yaml  # Embedding operations
-│   ├── health.yaml         # Health and monitoring
-│   ├── metrics.yaml        # Metrics endpoints
-│   ├── models.yaml         # Model configuration
-│   ├── monitoring.yaml     # Monitoring endpoints
-│   ├── relationships.yaml  # Entity relationships
-│   ├── search.yaml         # Semantic search
-│   ├── tasks.yaml          # Task management
-│   ├── tools.yaml          # Generic tool endpoints
-│   ├── vectors.yaml        # Vector operations
-│   ├── webhooks.yaml       # Webhook endpoints
-│   └── workflows.yaml      # Workflow orchestration
+│   ├── agents.yaml         # ✅ Agent management (IMPLEMENTED)
+│   ├── auth.yaml           # ✅ Authentication & user management (IMPLEMENTED)
+│   ├── collaborations.yaml # ❌ NOT IMPLEMENTED
+│   ├── contexts.yaml       # ✅ Context management (IMPLEMENTED)
+│   ├── dynamic_tools.yaml  # ✅ Dynamic tools API (IMPLEMENTED)
+│   ├── embeddings_v2.yaml  # ⚠️ CONDITIONAL - only if service initializes
+│   ├── embedding_models.yaml # ❌ NOT IMPLEMENTED
+│   ├── health.yaml         # ✅ Health checks (IMPLEMENTED)
+│   ├── metrics.yaml        # ✅ Prometheus metrics (IMPLEMENTED)
+│   ├── models.yaml         # ✅ Model management (IMPLEMENTED)
+│   ├── monitoring.yaml     # ❌ NOT IMPLEMENTED
+│   ├── relationships.yaml  # ❌ NOT IMPLEMENTED (code exists but not registered)
+│   ├── search.yaml         # ❌ NOT IMPLEMENTED (code exists but not registered)
+│   ├── tasks.yaml          # ❌ NOT IMPLEMENTED
+│   ├── vectors.yaml        # ❌ NOT IMPLEMENTED
+│   ├── webhooks.yaml       # ✅ Dynamic webhooks (IMPLEMENTED)
+│   └── workflows.yaml      # ❌ NOT IMPLEMENTED
 └── tools/                   # Tool-specific specifications
     └── github/             # GitHub integration
-        └── api.yaml       # GitHub endpoints (ORPHANED - not implemented)
+        └── api.yaml       # ❌ ORPHANED - not implemented
 ```
-
-**Note**: GitHub, Harness, and SonarQube tools are implemented through the generic tool endpoints (`/api/v1/tools/{tool}/actions/{action}`). The tool-specific endpoints documented in `tools/github/api.yaml` are not implemented.
 
 ## Design Principles
 
@@ -57,23 +56,50 @@ docs/swagger/
 - Tool execution returns MCP-compliant responses
 - Error handling matches MCP protocol requirements
 
-## How Tools Work
+## Actually Implemented APIs
 
-Tools in the Developer Mesh Platform are accessed through generic endpoints:
+### ✅ IMPLEMENTED and REGISTERED:
 
-- `GET /api/v1/tools` - List all available tools
-- `GET /api/v1/tools/{tool}` - Get tool details (e.g., `/api/v1/tools/github`)
-- `GET /api/v1/tools/{tool}/actions` - List available actions for a tool
-- `GET /api/v1/tools/{tool}/actions/{action}` - Get action details
-- `POST /api/v1/tools/{tool}/actions/{action}` - Execute a tool action
-- `POST /api/v1/tools/{tool}/queries` - Query tool data
+1. **Authentication** (`/api/v1/auth/*`, `/api/v1/users/*`, `/api/v1/organization/*`, `/api/v1/profile/*`)
+   - Organization registration, user login/logout, JWT refresh
+   - User invitation and management
+   - Organization and profile management
 
-Currently implemented tools:
-- **github**: Repository management, issues, pull requests
-- **harness**: CI/CD pipeline operations
-- **sonarqube**: Code quality and security scanning
+2. **Dynamic Tools** (`/api/v1/tools/*`)
+   - Full CRUD operations
+   - Tool discovery (single and multiple)
+   - Health checking and action execution
+   - Credential and webhook management
 
-Tool-specific endpoint patterns (like `/tools/github/{tool_name}`) are not implemented.
+3. **Enhanced Agents** (`/api/v1/agents/*`)
+   - Agent registration and lifecycle management
+   - State transitions, health monitoring, event tracking
+
+4. **Contexts** (`/api/v1/contexts/*`)
+   - Context CRUD operations
+   - Search and summarization
+
+5. **Models** (`/api/v1/models/*`)
+   - Model configuration and search
+
+6. **Embeddings** (`/api/v1/embeddings/*`) - **CONDITIONAL**
+   - Only available if embedding service initializes
+   - Requires configured providers
+
+7. **Health & Admin**
+   - `/health`, `/healthz`, `/readyz`
+   - `/metrics` (Prometheus)
+   - `/admin/migration-status`
+
+8. **Webhooks** (`/api/webhooks/tools/{toolId}`)
+   - Dynamic webhook handling
+
+### ❌ NOT IMPLEMENTED (but documented):
+- MCP API (code exists but not registered)
+- Resources API (code exists but not registered)  
+- Search handlers (code exists but not registered)
+- Relationship management (code exists but not registered)
+- Workflows, Tasks, Vectors, Collaborations (no implementation)
 
 ## Viewing Documentation
 
@@ -167,20 +193,25 @@ openapi-generator generate -i docs/swagger/openapi.yaml -g python -o sdk/python
 - Include artifact metadata schemas
 - Document search query formats
 
-## Current State
+## Current State (2025-08-14)
 
-As of the latest review:
-- All core API endpoints are properly documented
-- Authentication is handled through API keys and JWT tokens (no OAuth2 login endpoint)
-- Context endpoints use `/contexts` path (not `/mcp/context`)
-- Tools are accessed through generic endpoints, not tool-specific paths
-- The `tools/github/api.yaml` file documents endpoints that are not implemented
+**ACTUAL IMPLEMENTATION STATUS**:
+- ✅ Authentication endpoints are at `/api/v1/auth/*` (NOT `/auth/token`)
+- ✅ Dynamic tools use `/api/v1/tools` endpoints
+- ✅ Enhanced Agent API is used (not the basic Agent API)
+- ✅ Context endpoints use `/api/v1/contexts` path
+- ⚠️ Embedding API may not be available if providers aren't configured
+- ❌ Many documented APIs are NOT registered in server.go
+- ❌ The `tools/github/api.yaml` file is orphaned
+- ❌ Search, Relationships, Workflows, Tasks, Vectors are NOT implemented
 
 ## Maintenance
 
-1. **Keep specs in sync**: Update OpenAPI specs when implementing changes
-2. **Version control**: Track all changes in Git
-3. **Review process**: Include API documentation in code reviews
-4. **Breaking changes**: Document in CHANGELOG and migration guides
-5. **Deprecation**: Use OpenAPI deprecation markers with sunset dates
-6. **Regular audits**: Periodically verify that documentation matches implementation
+1. **CRITICAL**: Always verify implementation in `apps/rest-api/internal/api/server.go` before documenting
+2. **Keep specs in sync**: Update OpenAPI specs ONLY for actually implemented endpoints
+3. **Version control**: Track all changes in Git
+4. **Review process**: Include API documentation in code reviews
+5. **Breaking changes**: Document in CHANGELOG and migration guides
+6. **Deprecation**: Use OpenAPI deprecation markers with sunset dates
+7. **Regular audits**: Periodically verify that documentation matches implementation
+8. **Remove orphaned docs**: Delete documentation for unimplemented features

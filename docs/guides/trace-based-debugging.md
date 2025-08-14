@@ -9,6 +9,17 @@ Batch: ac
 > **Purpose**: Practical guide for using distributed traces to debug complex issues in production
 > **Audience**: Developers, SREs, and support engineers debugging the Developer Mesh platform
 > **Scope**: Real-world debugging scenarios using traces with Jaeger and OpenTelemetry
+> **Implementation Status**: NOT AVAILABLE - No trace backend deployed
+
+## ⚠️ Important Note
+
+**This guide describes aspirational functionality that is NOT currently available:**
+- ❌ NO Jaeger UI or collector deployed
+- ❌ NO trace storage or retrieval
+- ❌ NO trace visualization tools
+- ✅ Only OpenTelemetry SDK partially integrated
+
+Currently, you cannot perform trace-based debugging as described in this guide. Use structured logging instead.
 
 ## Table of Contents
 

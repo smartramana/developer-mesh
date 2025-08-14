@@ -538,6 +538,5 @@ redis-cli xclaim webhook_events webhook_workers consumer-1 60000 message-id
 ## Related Documentation
 
 - [Environment Variables Reference](../ENVIRONMENT_VARIABLES.md)
-- [Redis Migration Guide](../redis-migration-guide.md)
 - [Configuration Overview](configuration-overview.md)
 - [Production Deployment](../guides/production-deployment.md)

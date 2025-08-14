@@ -351,5 +351,5 @@ export LOG_LEVEL=debug
 
 - [Environment Variables Reference](../ENVIRONMENT_VARIABLES.md)
 - [Encryption Key Configuration](encryption-keys.md)
-- [Redis Configuration](../redis-environment-variables.md)
+- [Redis Configuration](redis-configuration.md)
 - [Production Deployment Guide](../guides/production-deployment.md)

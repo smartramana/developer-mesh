@@ -216,7 +216,6 @@ The following authentication methods are supported:
 
 Dynamic tools support user token passthrough, allowing users to authenticate with their own credentials instead of service accounts. This ensures that actions are performed with the user's permissions and are properly attributed.
 
-For detailed information about passthrough authentication, see [Dynamic Tools Passthrough Authentication](dynamic_tools_passthrough.md).
 
 #### Configuration
 

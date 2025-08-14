@@ -17,12 +17,15 @@ info:
     - **Webhook Processing**: Real-time event processing from external services
     
     ## Authentication
-    All API requests to /api/v1/* endpoints require authentication via headers:
+    Most API requests to /api/v1/* endpoints require authentication via headers:
     - **API Key**: Pass in `Authorization` header as `Bearer <key>` or in `X-API-Key` header
     - **JWT Bearer Token**: Pass as `Bearer <token>` in `Authorization` header
     
-    Note: There are no dedicated authentication endpoints. Authentication is handled via middleware
-    that validates credentials passed in request headers.
+    Public endpoints (no authentication required):
+    - `/api/v1/auth/*` - Registration, login, and password reset
+    - `/health`, `/healthz`, `/readyz` - Health checks
+    - `/metrics` - Prometheus metrics
+    - `/api/webhooks/*` - Webhook endpoints
     
     ### Enhanced Security Features
     - Minimum 16-character API keys
@@ -71,7 +74,7 @@ components:
 
 tags:
   - name: Authentication
-    description: Authentication and authorization endpoints
+    description: Organization registration, user authentication and management
   - name: Health
     description: Health check and monitoring endpoints
   - name: Contexts
@@ -79,27 +82,15 @@ tags:
   - name: Dynamic Tools
     description: Dynamic tool registration and management endpoints
   - name: Agents
-    description: AI agent management and orchestration
+    description: AI agent management with enhanced lifecycle support
   - name: Models
-    description: AI model configuration and comparison
+    description: AI model configuration and management
   - name: Embeddings
-    description: Multi-agent embedding generation and search operations
-  - name: Vectors
-    description: Vector storage and similarity search
-  - name: Search
-    description: Semantic and hybrid search endpoints
+    description: Multi-agent embedding generation (conditional - only if service initializes)
   - name: Webhooks
     description: Webhook endpoints for external integrations
-  - name: Relationships
-    description: Entity relationship management
-  - name: Workflows
-    description: Multi-step workflow orchestration
-  - name: Tasks
-    description: Task creation and assignment
-  - name: Collaboration
-    description: Multi-agent collaboration features
-  - name: Monitoring
-    description: System monitoring and metrics
+  - name: Metrics
+    description: Prometheus metrics endpoint
 
 paths:
   # Health endpoints
@@ -153,17 +144,84 @@ paths:
   /tools/{toolId}/actions:
     $ref: './core/dynamic_tools.yaml#/paths/~1tools~1{toolId}~1actions'
   
+  /tools/{toolId}/execute:
+    $ref: './core/dynamic_tools.yaml#/paths/~1tools~1{toolId}~1execute'
+  
   /tools/{toolId}/execute/{action}:
     $ref: './core/dynamic_tools.yaml#/paths/~1tools~1{toolId}~1execute~1{action}'
   
   /tools/{toolId}/credentials:
     $ref: './core/dynamic_tools.yaml#/paths/~1tools~1{toolId}~1credentials'
   
+  /tools/{toolId}/webhook:
+    $ref: './core/dynamic_tools.yaml#/paths/~1tools~1{toolId}~1webhook'
+  
   /tools/discover-multiple:
     $ref: './core/dynamic_tools.yaml#/paths/~1tools~1discover-multiple'
   
   /tools/discover-multiple/create:
     $ref: './core/dynamic_tools.yaml#/paths/~1tools~1discover-multiple~1create'
+  
+  # Authentication Operations (Public - no auth required)  
+  /auth/register/organization:
+    $ref: './core/auth.yaml#/paths/~1auth~1register~1organization'
+  
+  /auth/login:
+    $ref: './core/auth.yaml#/paths/~1auth~1login'
+  
+  /auth/logout:
+    $ref: './core/auth.yaml#/paths/~1auth~1logout'
+  
+  /auth/refresh:
+    $ref: './core/auth.yaml#/paths/~1auth~1refresh'
+  
+  /auth/edge-mcp:
+    $ref: './core/auth.yaml#/paths/~1auth~1edge-mcp'
+  
+  /auth/password/reset:
+    $ref: './core/auth.yaml#/paths/~1auth~1password~1reset'
+  
+  /auth/password/reset/confirm:
+    $ref: './core/auth.yaml#/paths/~1auth~1password~1reset~1confirm'
+  
+  /auth/email/verify:
+    $ref: './core/auth.yaml#/paths/~1auth~1email~1verify'
+  
+  /auth/email/resend:
+    $ref: './core/auth.yaml#/paths/~1auth~1email~1resend'
+  
+  /auth/invitation/{token}:
+    $ref: './core/auth.yaml#/paths/~1auth~1invitation~1{token}'
+  
+  /auth/invitation/accept:
+    $ref: './core/auth.yaml#/paths/~1auth~1invitation~1accept'
+  
+  # User Management Operations (Protected - auth required)
+  /users/invite:
+    $ref: './core/auth.yaml#/paths/~1users~1invite'
+  
+  /users:
+    $ref: './core/auth.yaml#/paths/~1users'
+  
+  /users/{id}/role:
+    $ref: './core/auth.yaml#/paths/~1users~1{id}~1role'
+  
+  /users/{id}:
+    $ref: './core/auth.yaml#/paths/~1users~1{id}'
+  
+  # Organization Management (Protected)
+  /organization:
+    $ref: './core/auth.yaml#/paths/~1organization'
+  
+  /organization/usage:
+    $ref: './core/auth.yaml#/paths/~1organization~1usage'
+  
+  # User Profile (Protected)
+  /profile:
+    $ref: './core/auth.yaml#/paths/~1profile'
+  
+  /profile/password:
+    $ref: './core/auth.yaml#/paths/~1profile~1password'
   
   # Agent Management
   /agents:
@@ -179,7 +237,8 @@ paths:
   /models/{id}:
     $ref: './core/models.yaml#/paths/~1models~1{id}'
   
-  # Embedding Operations
+  # Embedding Operations (CONDITIONAL - only available if embedding service initializes)
+  # NOTE: These endpoints may not be available if embedding providers are not configured
   /embeddings:
     $ref: './core/embeddings_v2.yaml#/paths/~1embeddings'
   
@@ -207,43 +266,43 @@ paths:
   /embeddings/agents/{agentId}/costs:
     $ref: './core/embeddings_v2.yaml#/paths/~1embeddings~1agents~1{agentId}~1costs'
   
-  # Search Operations
-  /search:
-    $ref: './core/search.yaml#/paths/~1search'
+  # NOTE: Search, Relationships, Workflows, Tasks, Vectors, and Collaborations 
+  # are NOT IMPLEMENTED. These APIs exist in code but are NOT registered in server.go
   
-  /search/vector:
-    $ref: './core/search.yaml#/paths/~1search~1vector'
-  
-  /search/similar:
-    $ref: './core/search.yaml#/paths/~1search~1similar'
-  
-  
-  # Webhook Operations
-  /api/webhooks/github:
-    $ref: './core/webhooks.yaml#/paths/~1api~1webhooks~1github'
-  
-  
-  # Relationship Operations
-  /relationships:
-    $ref: './core/relationships.yaml#/paths/~1relationships'
-  
-  /relationships/{id}:
-    $ref: './core/relationships.yaml#/paths/~1relationships~1{id}'
-  
-  /entities/{type}/{owner}/{repo}/{id}/relationships:
-    $ref: './core/relationships.yaml#/paths/~1entities~1{type}~1{owner}~1{repo}~1{id}~1relationships'
-  
-  /entities/{type}/{owner}/{repo}/{id}/graph:
-    $ref: './core/relationships.yaml#/paths/~1entities~1{type}~1{owner}~1{repo}~1{id}~1graph'
-  
-  
+  # Webhook Operations (Public - no auth required for webhooks)
+  /api/webhooks/tools/{toolId}:
+    $ref: './core/webhooks.yaml#/paths/~1api~1webhooks~1tools~1{toolId}'
   
   # Model Extended Operations
   /models/search:
     $ref: './core/models.yaml#/paths/~1models~1search'
   
-  # Embedding Extended Operations
+  /models/test:
+    $ref: './core/models.yaml#/paths/~1models~1test'
+  
+  # Agent State Management (Enhanced Agent API)
+  /agents/{id}/activate:
+    $ref: './core/agents.yaml#/paths/~1agents~1{id}~1activate'
+  
+  /agents/{id}/suspend:
+    $ref: './core/agents.yaml#/paths/~1agents~1{id}~1suspend'
+  
+  /agents/{id}/terminate:
+    $ref: './core/agents.yaml#/paths/~1agents~1{id}~1terminate'
+  
+  /agents/{id}/transition:
+    $ref: './core/agents.yaml#/paths/~1agents~1{id}~1transition'
+  
+  /agents/{id}/health:
+    $ref: './core/agents.yaml#/paths/~1agents~1{id}~1health'
+  
+  /agents/{id}/events:
+    $ref: './core/agents.yaml#/paths/~1agents~1{id}~1events'
   
   # Metrics
   /metrics:
     $ref: './core/metrics.yaml#/paths/~1metrics'
+  
+  # Admin Operations
+  /admin/migration-status:
+    $ref: './core/health.yaml#/paths/~1admin~1migration-status'

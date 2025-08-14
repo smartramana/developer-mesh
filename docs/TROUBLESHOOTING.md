@@ -1,9 +1,3 @@
-<!-- SOURCE VERIFICATION
-Last Verified: 2025-08-11 14:41:10
-Verification Script: update-docs-parallel.sh
-Batch: ad
--->
-
 # Troubleshooting Guide
 
 ## Overview
@@ -33,44 +27,45 @@ This guide provides solutions for common issues, debugging procedures, and error
 
 **Diagnosis:**
 ```bash
-# Check pod status
-kubectl describe pod <pod-name> -n mcp-prod
+# Check container status
+docker-compose ps
 
 # Check logs
-kubectl logs <pod-name> -n mcp-prod --previous
+docker-compose logs -f <service-name> --tail=100
 
-# Check events
-kubectl get events -n mcp-prod --sort-by='.lastTimestamp'
+# Check specific service
+docker inspect <container-name>
 ```
 
 **Common Causes & Solutions:**
 
 1. **Configuration Error**
    ```bash
-   # Validate configuration
-   kubectl get configmap mcp-config -n mcp-prod -o yaml
+   # Check configuration
+   cat configs/config.development.yaml
    
-   # Test configuration locally
-   ./mcp-server --config=config.yaml --validate
+   # Validate configuration locally
+   ./mcp-server --config=configs/config.development.yaml --validate
    ```
 
 2. **Database Connection Failed**
    ```bash
    # Test database connectivity
-   kubectl run -it --rm psql-test --image=postgres:14 --restart=Never -- \
-     psql -h postgres-service -U mcp_user -d mcp -c "SELECT 1"
+   docker-compose exec mcp-server \
+     psql -h postgres -U devmesh -d devmesh_development -c "SELECT 1"
    
-   # Check database credentials
-   kubectl get secret db-credentials -n mcp-prod -o jsonpath='{.data.password}' | base64 -d
+   # Check database credentials in environment
+   docker-compose config | grep DATABASE_URL
    ```
 
 3. **Missing Environment Variables**
    ```bash
    # List all env vars
-   kubectl set env deployment/mcp-server --list -n mcp-prod
+   docker-compose exec mcp-server env | sort
    
-   # Add missing vars
-   kubectl set env deployment/mcp-server NEW_VAR=value -n mcp-prod
+   # Add missing vars in docker-compose.yml or .env file
+   echo "NEW_VAR=value" >> .env.development
+   docker-compose up -d
    ```
 
 ### High Memory Usage
@@ -83,10 +78,10 @@ kubectl get events -n mcp-prod --sort-by='.lastTimestamp'
 **Diagnosis:**
 ```bash
 # Check memory usage
-kubectl top pods -n mcp-prod
+docker stats --no-stream
 
 # Get memory profile
-kubectl exec -it <pod-name> -n mcp-prod -- \
+docker-compose exec mcp-server \
   curl http://localhost:6060/debug/pprof/heap > heap.prof
 
 # Analyze profile
@@ -97,11 +92,11 @@ go tool pprof -http=:8080 heap.prof
 
 1. **Increase Memory Limits**
    ```yaml
-   resources:
-     limits:
-       memory: "2Gi"
-     requests:
-       memory: "1Gi"
+   # In docker-compose.yml
+   services:
+     mcp-server:
+       mem_limit: 2g
+       mem_reservation: 1g
    ```
 
 2. **Fix Memory Leaks**
@@ -116,7 +111,11 @@ go tool pprof -http=:8080 heap.prof
 
 3. **Tune Garbage Collection**
    ```bash
-   kubectl set env deployment/mcp-server GOGC=50 -n mcp-prod
+   # In docker-compose.yml or .env file
+   environment:
+     - GOGC=50
+   # Then restart
+   docker-compose restart mcp-server
    ```
 
 ### API Timeout Errors
@@ -171,10 +170,10 @@ psql -h localhost -U mcp_user -d mcp -c "
 
 ### MCP Server Issues
 
-#### WebSocket Connection Drops <!-- Source: pkg/models/websocket/binary.go -->
+#### WebSocket Connection Drops
 
 **Symptoms:**
-- "WebSocket connection closed" errors <!-- Source: pkg/models/websocket/binary.go -->
+- "WebSocket connection closed" errors
 - Intermittent disconnections
 - Reconnection loops
 
@@ -182,7 +181,7 @@ psql -h localhost -U mcp_user -d mcp -c "
 
 1. **Increase Keepalive Settings**
    ```yaml
-   websocket: <!-- Source: pkg/models/websocket/binary.go -->
+   websocket:
      ping_interval: 30s
      pong_timeout: 10s
      write_timeout: 10s
@@ -304,7 +303,7 @@ kubectl get configmap tool-config -n mcp-prod -o yaml
 # Check Redis stream depth
 redis-cli xlen webhook_events
 
-# Check consumer group lag
+# Check consumer group info
 redis-cli xinfo groups webhook_events
 
 # Check worker metrics
@@ -315,7 +314,8 @@ curl http://localhost:8082/metrics | grep worker_
 
 1. **Scale Workers**
    ```bash
-   kubectl scale deployment worker --replicas=10 -n mcp-prod
+   # In docker-compose.yml, add more worker replicas
+   docker-compose up -d --scale worker=10
    ```
 
 2. **Optimize Processing**
@@ -714,81 +714,75 @@ go tool pprof -base heap1.prof heap2.prof
 **Diagnosis:**
 ```bash
 # Check DNS resolution
-kubectl exec -it <pod-name> -n mcp-prod -- nslookup postgres-service
-kubectl exec -it <pod-name> -n mcp-prod -- nslookup kubernetes.default
+docker-compose exec mcp-server nslookup postgres
+docker-compose exec mcp-server nslookup redis
 
-# Check CoreDNS
-kubectl logs -n kube-system deployment/coredns
+# Check Docker network
+docker network ls
+docker network inspect devops-mcp_default
 ```
 
 **Solutions:**
 
-1. **Fix DNS Configuration**
-   ```yaml
-   # Add DNS policy
-   spec:
-     dnsPolicy: ClusterFirst
-     dnsConfig:
-       options:
-         - name: ndots
-           value: "2"
-         - name: timeout
-           value: "2"
+1. **Fix Docker Network**
+   ```bash
+   # Recreate network if needed
+   docker-compose down
+   docker network prune
+   docker-compose up -d
    ```
 
-2. **Use FQDN**
+2. **Use Container Names**
    ```yaml
-   # Use fully qualified domain names
+   # In configuration, use service names from docker-compose.yml
    database:
-     host: postgres-service.mcp-prod.svc.cluster.local
+     host: postgres  # Service name from docker-compose
+   redis:
+     addr: redis:6379
    ```
 
-### Load Balancer Issues
+### Load Balancer Issues (Production with Nginx)
 
 **Symptoms:**
 - Uneven traffic distribution
-- Some pods not receiving traffic
+- Some containers not receiving traffic
 - Connection refused errors
 
 **Diagnosis:**
 ```bash
-# Check service endpoints
-kubectl get endpoints -n mcp-prod
+# Check container health
+docker-compose ps
 
-# Check service configuration
-kubectl describe service mcp-server-service -n mcp-prod
+# Check nginx configuration (if using)
+cat deployments/nginx/mcp.conf
 
 # Test load balancing
 for i in {1..20}; do
-  curl -s http://service-url/health | jq -r '.instance'
+  curl -s http://localhost:8080/health | jq -r '.instance'
 done | sort | uniq -c
 ```
 
 **Solutions:**
 
-1. **Fix Service Selector**
-   ```yaml
-   apiVersion: v1
-   kind: Service
-   metadata:
-     name: mcp-server-service
-   spec:
-     selector:
-       app: mcp-server
-       version: stable  # Ensure this matches pod labels
-     ports:
-       - protocol: TCP
-         port: 80
-         targetPort: 8080
+1. **Fix Nginx Configuration**
+   ```nginx
+   # In nginx.conf
+   upstream mcp_backend {
+       server mcp-server:8080;
+       keepalive 32;
+   }
+   
+   location / {
+       proxy_pass http://mcp_backend;
+       proxy_http_version 1.1;
+       proxy_set_header Connection "";
+   }
    ```
 
-2. **Session Affinity**
-   ```yaml
-   spec:
-     sessionAffinity: ClientIP
-     sessionAffinityConfig:
-       clientIP:
-         timeoutSeconds: 10800
+2. **Scale Services**
+   ```bash
+   # Scale up services
+   docker-compose up -d --scale mcp-server=3
    ```
 
 ## Integration Issues
@@ -856,28 +850,30 @@ curl -H "Authorization: token $GITHUB_TOKEN" \
 
 **Symptoms:**
 - S3 access denied
-- Redis stream processing failures
+- Bedrock API failures
 - IAM permission errors
 
 **Solutions:**
 
-1. **Fix IAM Role**
-   ```yaml
-   # Service account annotation
-   metadata:
-     annotations:
-       eks.amazonaws.com/role-arn: arn:aws:iam::123456789012:role/mcp-service-role
+1. **Check AWS Credentials**
+   ```bash
+   # Verify AWS credentials are set
+   docker-compose exec mcp-server env | grep AWS
+   
+   # Test AWS access
+   docker-compose exec mcp-server \
+     aws s3 ls --debug
    ```
 
-2. **Debug Permissions**
+2. **Fix Environment Variables**
    ```bash
-   # Test S3 access
-   kubectl exec -it <pod-name> -n mcp-prod -- \
-     aws s3 ls s3://mcp-bucket/ --debug
+   # Add to .env file
+   AWS_ACCESS_KEY_ID=your-key
+   AWS_SECRET_ACCESS_KEY=your-secret
+   AWS_REGION=us-east-1
    
-   # Check assumed role
-   kubectl exec -it <pod-name> -n mcp-prod -- \
-     aws sts get-caller-identity
+   # Restart services
+   docker-compose restart
    ```
 
 ## Debugging Tools & Techniques
@@ -894,10 +890,13 @@ curl -X PUT http://localhost:8080/admin/log-level \
 kubectl set env deployment/mcp-server LOG_LEVEL=debug -n mcp-prod
 ```
 
-### Distributed Tracing
+### Distributed Tracing (If Configured)
 
 ```bash
-# Find slow traces
+# NOTE: Jaeger is not deployed by default
+# If you have enabled OpenTelemetry tracing:
+
+# Find slow traces (requires Jaeger)
 curl "http://localhost:16686/api/traces?service=mcp-server&minDuration=1s&limit=20"
 
 # Get specific trace
@@ -978,16 +977,16 @@ func TracingMiddleware() gin.HandlerFunc {
 | MCP-007 | Context not found | Verify context ID and tenant access |
 | MCP-008 | Webhook validation failed | Check webhook secret configuration |
 | MCP-009 | Vector embedding failed | Verify embedding service is available |
-| MCP-010 | Queue processing error | Check Redis Streams connectivity and consumer groups |
+| MCP-010 | Queue processing error | Check Redis Streams and worker connectivity |
 
 ### Error Message Patterns
 
 ```bash
 # Search for specific errors in logs
-kubectl logs -n mcp-prod deployment/mcp-server | grep -E "ERROR|FATAL|panic"
+docker-compose logs mcp-server | grep -E "ERROR|FATAL|panic"
 
 # Count error types
-kubectl logs -n mcp-prod deployment/mcp-server --since=1h | \
+docker-compose logs --since=1h mcp-server | \
   grep ERROR | \
   awk -F'"error":"' '{print $2}' | \
   awk -F'"' '{print $1}' | \
@@ -1040,3 +1039,4 @@ If you can't resolve an issue using this guide:
 Remember to sanitize any sensitive information before sharing logs or configuration files.
 
 Last Updated: $(date)
+Version: 1.0.0

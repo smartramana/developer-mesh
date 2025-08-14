@@ -1,12 +1,18 @@
 <!-- SOURCE VERIFICATION
-Last Verified: 2025-08-11 14:39:51
-Verification Script: update-docs-parallel.sh
-Batch: ad
+Last Verified: 2025-08-14
+Manual Review: Verified against actual test files
+Notes:
+- test/github-live/github_live_test.go exists with github_live build tag
+- test/github-live/verify_installation_test.go exists
+- scripts/test-github-integration.sh exists and works
+- Integration tests use GitHub App authentication
 -->
 
 # GitHub Integration Testing Guide
 
-This guide explains how to run integration and functional tests against the real GitHub API instead of mock servers.
+✅ **VERIFIED**: These tests and scripts actually exist and work as documented.
+
+This guide explains how to run integration tests against the real GitHub API.
 
 ## Prerequisites
 
@@ -65,25 +71,22 @@ export USE_GITHUB_MOCK=false
 
 ## Running Tests
 
-### Integration Tests
+### Actual Test Files
 
-1. **Run all integration tests with real GitHub:**
+1. **GitHub Live Tests** (`test/github-live/`):
    ```bash
+   # These require the github_live build tag
+   USE_GITHUB_MOCK=false go test -tags=github_live ./test/github-live -v
+   
    # Using the provided script
    ./scripts/test-github-integration.sh
-   
-   # Or manually
-   USE_GITHUB_MOCK=false go test -v -tags=integration ./pkg/tests/integration -run TestGitHub
    ```
 
-2. **Run specific GitHub tests:**
-   ```bash
-   # Real API tests only
-   go test -v -tags="integration,github_real" ./test/integration -run TestGitHubRealAPI
-   
-   # Enhanced tests (work with both mock and real)
-   USE_GITHUB_MOCK=false go test -v -tags=integration ./pkg/tests/integration -run TestGitHubIntegrationEnhanced
-   ```
+2. **Available Test Files**:
+   - `test/github-live/github_live_test.go` - Main GitHub API tests
+   - `test/github-live/verify_installation_test.go` - Installation verification
+   - `test/integration/github_real_test.go` - Real API integration tests
+   - `test/integration/ide_agent_github_test.go` - IDE agent GitHub tests
 
 ### Functional Tests
 
@@ -100,22 +103,34 @@ export USE_GITHUB_MOCK=false
    USE_GITHUB_MOCK=false go test -v ./...
    ```
 
-3. **Or use the all-in-one script:**
+3. **Additional GitHub Test Scripts**:
    ```bash
-   ./scripts/test-github-integration.sh --with-functional
+   # Main integration test script
+   ./scripts/test-github-integration.sh
+   
+   # GitHub webhook testing
+   ./scripts/test-github-webhook.sh
+   
+   # IDE GitHub integration
+   ./scripts/test-ide-github-integration.sh
+   
+   # Agent GitHub MCP testing
+   ./scripts/test-agent-github-mcp.sh
    ```
 
-## Test Coverage
+## Actual Test Coverage
 
-The integration tests cover:
+Based on `test/github-live/github_live_test.go`, the tests actually cover:
 
-- **Authentication**: Token and GitHub App authentication
-- **Repository Operations**: List, get, create, update repositories
-- **Pull Requests**: List, get, create, review pull requests
-- **Issues**: List, get, create, update issues
-- **Webhooks**: Signature validation and event processing
-- **Rate Limiting**: Ensures proper rate limit handling
-- **Error Handling**: API errors and edge cases
+- **Authentication**: GitHub App authentication (NOT token auth)
+- **Adapter Info**: Basic adapter functionality checks
+- **Repository Operations**: Get repository info
+- **Pull Requests**: List and get PR operations
+- **Issues**: List and get issue operations  
+- **Installation Verification**: App installation checks
+- **Health Checks**: Adapter health verification
+
+**Note**: Tests use GitHub App authentication, not Personal Access Tokens
 
 ## Troubleshooting
 
@@ -171,18 +186,20 @@ go test -v -tags=integration ./... 2>&1 | tee test.log
    - Use environment variables or secret managers
    - Rotate tokens regularly
 
-## Switching Between Mock and Real API
+## Test Implementation Details
 
-The test suite supports both modes:
+### Required Build Tags
+- `github_live` - For live GitHub API tests
+- `integration` - For integration tests
 
+### Environment Control
 ```bash
-# Use mock server (default)
+# Skip real API tests (default)
 USE_GITHUB_MOCK=true go test ...
 
-# Use real GitHub API
-USE_GITHUB_MOCK=false go test ...
+# Enable real API tests
+USE_GITHUB_MOCK=false go test -tags=github_live ...
 ```
 
-This allows you to:
-- Develop quickly with mocks
-- Validate against real API before deployment
+### Test Adapters
+Tests use the `github.com/developer-mesh/developer-mesh/pkg/adapters/github` package for GitHub operations, not direct API calls.

@@ -1,7 +1,12 @@
 <!-- SOURCE VERIFICATION
-Last Verified: 2025-08-11 14:38:03
-Verification Script: update-docs-parallel.sh
-Batch: ad
+Last Verified: 2025-08-14
+Manual Review: Verified against actual implementation
+Notes:
+- EncryptionService in pkg/security/encryption.go is fully implemented
+- Table is mcp.tenant_tool_credentials (not tool_credentials)
+- Column is encrypted_value (not encrypted_data)  
+- Organization uses IsolationMode field (not StrictlyIsolated boolean)
+- Credential API endpoints are NOT registered in REST API server
 -->
 
 # Per-Tenant Credential Encryption Documentation
@@ -73,19 +78,45 @@ Encrypted credentials are stored as:
 ### Database Schema
 
 ```sql
-CREATE TABLE tool_credentials (
+-- Actual table structure from migration 000026_tenant_tool_credentials.up.sql
+CREATE TABLE mcp.tenant_tool_credentials (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    tenant_id VARCHAR(255) NOT NULL,
-    tool_id UUID NOT NULL REFERENCES dynamic_tools(id) ON DELETE CASCADE,
-    encrypted_data BYTEA NOT NULL,
-    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    CONSTRAINT fk_tool_credentials_tool 
-        FOREIGN KEY (tool_id) REFERENCES dynamic_tools(id) ON DELETE CASCADE
+    tenant_id UUID NOT NULL,
+    tool_id UUID REFERENCES mcp.tool_configurations(id) ON DELETE CASCADE,
+    
+    -- Credential details
+    credential_name VARCHAR(255) NOT NULL,
+    credential_type VARCHAR(50) NOT NULL,
+    encrypted_value TEXT NOT NULL,  -- Base64 encoded encrypted data
+    
+    -- OAuth specific fields (optional)
+    oauth_client_id VARCHAR(255),
+    oauth_client_secret_encrypted TEXT,
+    oauth_refresh_token_encrypted TEXT,
+    oauth_token_expiry TIMESTAMP WITH TIME ZONE,
+    
+    -- Metadata
+    description TEXT,
+    tags TEXT[],
+    is_active BOOLEAN NOT NULL DEFAULT true,
+    last_used_at TIMESTAMP WITH TIME ZONE,
+    
+    -- Edge MCP associations
+    edge_mcp_id VARCHAR(255),
+    allowed_edge_mcps TEXT[],
+    
+    -- Audit fields
+    created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    expires_at TIMESTAMP WITH TIME ZONE,
+    
+    -- Constraints
+    CONSTRAINT uk_tenant_tool_credential UNIQUE(tenant_id, tool_id, credential_name),
+    CONSTRAINT chk_credential_type CHECK (credential_type IN ('api_key', 'oauth2', 'basic', 'custom'))
 );
 
-CREATE INDEX idx_tool_credentials_tenant_tool 
-    ON tool_credentials(tenant_id, tool_id);
+CREATE INDEX idx_tenant_tool_credentials_lookup 
+    ON mcp.tenant_tool_credentials(tenant_id, tool_id, is_active);
 ```
 
 ## Security Features
@@ -107,9 +138,25 @@ The platform extends tenant isolation to the universal agent registration system
 **Strict Isolation Mode:**
 ```go
 type Organization struct {
-    ID               uuid.UUID
-    Name             string
-    StrictlyIsolated bool  // When true, NO cross-org access allowed
+    ID            uuid.UUID `json:"id" db:"id"`
+    Name          string    `json:"name" db:"name"`
+    Slug          string    `json:"slug" db:"slug"`
+    IsolationMode string    `json:"isolation_mode" db:"isolation_mode"`  // "strict", "relaxed", or "open"
+    Settings      JSONMap   `json:"settings" db:"settings"`
+    CreatedAt     time.Time `json:"created_at" db:"created_at"`
+    UpdatedAt     time.Time `json:"updated_at" db:"updated_at"`
+}
+
+// IsolationMode constants
+const (
+    IsolationModeStrict  = "strict"  // No cross-tenant access
+    IsolationModeRelaxed = "relaxed" // Allow configured cross-tenant access
+    IsolationModeOpen    = "open"    // Allow all cross-tenant access within org
+)
+
+// IsStrictlyIsolated checks if the organization enforces strict tenant isolation
+func (o *Organization) IsStrictlyIsolated() bool {
+    return o.IsolationMode == IsolationModeStrict
 }
 ```
 
@@ -146,7 +193,10 @@ WHERE organization_id = $1  -- User's org
 
 ### Creating a Tool with Credentials
 
+**⚠️ Note**: The credential management API endpoints are NOT currently registered in the REST API server. The encryption code exists but is not exposed via API. The examples below show the intended API design.
+
 ```bash
+# Example API call (NOT YET IMPLEMENTED IN REST API)
 curl -X POST https://api.example.com/api/v1/tools \
   -H "Authorization: Bearer $TOKEN" \
   -H "X-Tenant-ID: tenant-123" \
@@ -154,25 +204,26 @@ curl -X POST https://api.example.com/api/v1/tools \
   -d '{
     "name": "github-api",
     "base_url": "https://api.github.com",
-    "credential": {
-      "type": "bearer",
-      "token": "ghp_xxxxxxxxxxxx"  # Plaintext - will be encrypted
-    }
+    "credential_name": "github-token",
+    "credential_type": "api_key",
+    "credential_value": "ghp_xxxxxxxxxxxx"  # Will be encrypted using EncryptionService
   }'
 ```
 
 ### Updating Credentials
 
+**⚠️ Note**: Credential update endpoints are NOT YET IMPLEMENTED.
+
 ```bash
+# Example API call (PLANNED BUT NOT IMPLEMENTED)
 curl -X PUT https://api.example.com/api/v1/tools/{toolId}/credentials \
   -H "Authorization: Bearer $TOKEN" \
   -H "X-Tenant-ID: tenant-123" \
   -H "Content-Type: application/json" \
   -d '{
-    "credential": {
-      "type": "bearer",
-      "token": "ghp_yyyyyyyyyyyy"  # New token - will be encrypted
-    }
+    "credential_name": "github-token",
+    "credential_type": "api_key",
+    "credential_value": "ghp_yyyyyyyyyyyy"  # New token - will be encrypted
   }'
 ```
 
@@ -363,23 +414,24 @@ func TestPerTenantEncryption(t *testing.T) {
 
 ## Migration Guide
 
-### From Plaintext to Encrypted
+**Note**: The tenant_tool_credentials table was created in migration 000026 with encryption support from the start. No migration from plaintext is needed as the system was designed with encryption built-in.
+
+### Edge MCP Support
+
+The system also supports Edge MCP registrations with encrypted API keys:
 
 ```sql
--- Migration script example
-BEGIN;
-
--- Add encrypted_data column
-ALTER TABLE tool_credentials ADD COLUMN encrypted_data BYTEA;
-
--- Migrate existing data (run this in application)
--- SELECT id, tenant_id, plaintext_token FROM tool_credentials;
--- For each row: encrypt and update encrypted_data
-
--- Drop old column
-ALTER TABLE tool_credentials DROP COLUMN plaintext_token;
-
-COMMIT;
+CREATE TABLE mcp.edge_mcp_registrations (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    tenant_id UUID NOT NULL,
+    edge_mcp_id VARCHAR(255) NOT NULL,
+    display_name VARCHAR(255) NOT NULL,
+    api_key_hash VARCHAR(255) NOT NULL,  -- Hashed API key for authentication
+    allowed_tools TEXT[],
+    status VARCHAR(50) NOT NULL DEFAULT 'active',
+    last_heartbeat TIMESTAMP WITH TIME ZONE,
+    CONSTRAINT uk_edge_mcp_registration UNIQUE(tenant_id, edge_mcp_id)
+);
 ```
 
 ## Security Checklist

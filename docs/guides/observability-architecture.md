@@ -9,6 +9,20 @@ Batch: ac
 > **Purpose**: Comprehensive guide to the Developer Mesh observability architecture
 > **Audience**: Platform engineers, SREs, and developers implementing monitoring
 > **Scope**: Metrics, logs, traces integration and best practices
+> **Implementation Status**: PARTIAL - Many features described are aspirational
+
+## ⚠️ Important Implementation Status
+
+**Current Reality:**
+- ✅ Structured JSON logging implemented
+- ✅ Basic OpenTelemetry tracing in some services
+- ✅ Prometheus/Grafana in production docker-compose only
+- ❌ NO Jaeger tracing backend
+- ❌ NO Loki log aggregation
+- ❌ NO AlertManager or PagerDuty
+- ❌ NO dedicated time-series databases
+
+This guide describes both implemented features and future architecture goals.
 
 ## Table of Contents
 
@@ -39,11 +53,11 @@ The Developer Mesh platform implements a comprehensive observability architectur
 
 ### Technology Stack
 
-- **Metrics**: Prometheus + Grafana
-- **Logging**: Structured JSON + Loki
-- **Tracing**: OpenTelemetry + Jaeger
-- **Alerting**: AlertManager + PagerDuty
-- **Storage**: Time-series databases + S3
+- **Metrics**: Prometheus + Grafana (production config only)
+- **Logging**: Structured JSON (no Loki implementation)
+- **Tracing**: OpenTelemetry SDK (partial, no Jaeger backend)
+- **Alerting**: Not implemented (no AlertManager/PagerDuty)
+- **Storage**: PostgreSQL + Redis (no dedicated time-series DB)
 
 ## Observability Pillars
 

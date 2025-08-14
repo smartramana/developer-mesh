@@ -9,6 +9,17 @@ Batch: ac
 > **Purpose**: Comprehensive guide for implementing and maintaining trace propagation across distributed services
 > **Audience**: Backend developers and platform engineers working with the Developer Mesh microservices
 > **Scope**: Trace context propagation, service boundaries, and distributed debugging patterns
+> **Implementation Status**: PARTIAL - OpenTelemetry SDK only, no backend storage
+
+## ⚠️ Important Note
+
+**Current Implementation:**
+- ✅ OpenTelemetry SDK partially integrated
+- ✅ Basic trace context propagation in some services
+- ❌ NO Jaeger or other trace collection backend
+- ❌ NO trace visualization or storage
+
+Traces are created and propagated but not collected or viewable anywhere.
 
 ## Table of Contents
 

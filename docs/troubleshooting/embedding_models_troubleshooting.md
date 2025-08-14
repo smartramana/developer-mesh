@@ -34,11 +34,16 @@ Batch: ad
 # Check tenant model configuration
 psql -h localhost -U devmesh -d devmesh_development -c "
 SELECT tem.*, emc.model_name, emc.is_available 
-FROM tenant_embedding_models tem
-JOIN embedding_model_catalog emc ON tem.model_id = emc.id
+FROM mcp.tenant_embedding_models tem
+JOIN mcp.embedding_model_catalog emc ON tem.model_id = emc.id
 WHERE tem.tenant_id = 'YOUR_TENANT_ID';"
 
-# Enable a model for tenant
+# NOTE: The embedding API is conditionally registered in REST API
+# Check if embedding endpoints are available first:
+curl -H "Authorization: Bearer YOUR_API_KEY" \
+  http://localhost:8081/api/v1/embedding-models/catalog
+
+# If available, enable a model for tenant
 curl -X POST http://localhost:8081/api/v1/tenant-models \
   -H "Authorization: Bearer YOUR_API_KEY" \
   -H "Content-Type: application/json" \
@@ -107,8 +112,8 @@ redis-cli del "model:selection:tenant:YOUR_TENANT_ID"
 
 # Check model priorities
 psql -h localhost -U devmesh -d devmesh_development -c "
-SELECT model_id, priority, enabled, is_default 
-FROM tenant_embedding_models 
+SELECT model_id, priority, is_enabled, is_default 
+FROM mcp.tenant_embedding_models 
 WHERE tenant_id = 'YOUR_TENANT_ID'
 ORDER BY priority ASC;"
 
@@ -132,9 +137,10 @@ curl -X PUT http://localhost:8081/api/v1/tenant-models/MODEL_ID \
 
 **Solutions:**
 ```bash
-# Verify API key
+# Verify API key and check if embedding API is registered
 curl http://localhost:8081/api/v1/embedding-models/catalog \
   -H "Authorization: Bearer YOUR_API_KEY" -v
+# NOTE: May return 404 if embedding API is not initialized
 
 # Check tenant association
 psql -h localhost -U devmesh -d devmesh_development -c "
@@ -155,13 +161,13 @@ wscat -c ws://localhost:8080/ws \
 -- Check model catalog health
 SELECT provider, COUNT(*) as models, 
        SUM(CASE WHEN is_available THEN 1 ELSE 0 END) as available
-FROM embedding_model_catalog
+FROM mcp.embedding_model_catalog
 GROUP BY provider;
 
 -- View recent usage
 SELECT date_trunc('hour', created_at) as hour,
        model_id, COUNT(*) as requests, SUM(token_count) as tokens
-FROM embedding_usage_tracking
+FROM mcp.embedding_usage_tracking
 WHERE tenant_id = 'YOUR_TENANT_ID'
   AND created_at > NOW() - INTERVAL '24 hours'
 GROUP BY hour, model_id
@@ -171,16 +177,16 @@ ORDER BY hour DESC;
 SELECT tem.*, 
        COALESCE(daily.tokens, 0) as daily_used,
        COALESCE(monthly.tokens, 0) as monthly_used
-FROM tenant_embedding_models tem
+FROM mcp.tenant_embedding_models tem
 LEFT JOIN (
     SELECT tenant_id, model_id, SUM(token_count) as tokens
-    FROM embedding_usage_tracking
+    FROM mcp.embedding_usage_tracking
     WHERE created_at > CURRENT_DATE
     GROUP BY tenant_id, model_id
 ) daily ON tem.tenant_id = daily.tenant_id AND tem.model_id = daily.model_id
 LEFT JOIN (
     SELECT tenant_id, model_id, SUM(token_count) as tokens
-    FROM embedding_usage_tracking
+    FROM mcp.embedding_usage_tracking
     WHERE created_at > DATE_TRUNC('month', CURRENT_DATE)
     GROUP BY tenant_id, model_id
 ) monthly ON tem.tenant_id = monthly.tenant_id AND tem.model_id = monthly.model_id
@@ -468,9 +474,16 @@ OPENAI_API_KEY=sk-...
 AWS_REGION=us-east-1
 ```
 
-### Useful Make Commands
+### Useful Commands
 ```bash
-make test-embedding    # Run embedding tests
-make migrate-up        # Apply migrations
-make seed-models       # Seed model catalog
-make logs             # Tail all service logs
+# Run embedding tests
+cd apps/rest-api && go test ./... -tags=embedding
+
+# Apply migrations
+make migrate-up
+
+# Seed model catalog
+psql -h localhost -U devmesh -d devmesh_development < scripts/db/seed-embedding-models.sql
+
+# Tail service logs
+docker-compose logs -f rest-api mcp-server

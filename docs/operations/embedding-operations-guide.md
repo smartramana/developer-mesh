@@ -8,6 +8,11 @@ Batch: ad
 
 This guide covers operational aspects of running the Multi-Agent Embedding System in production.
 
+**⚠️ IMPORTANT NOTE**: 
+- The embedding API endpoints (`/api/v1/embeddings/*`) are NOT currently registered in the REST API server
+- The embedding system code exists but is not wired up to the API routes
+- Kubernetes deployment shown below is theoretical - actual deployment uses Docker Compose on EC2
+
 ## Table of Contents
 
 1. [Deployment](#deployment)

@@ -1,10 +1,15 @@
 <!-- SOURCE VERIFICATION
-Last Verified: 2025-08-11 14:39:45
-Verification Script: update-docs-parallel.sh
-Batch: ad
+Last Verified: 2025-08-14
+Manual Review: Verified against test implementation
+Notes:
+- GitHub tests use App authentication, not PAT
+- Installation ID is required for the tests
+- test/github-live/verify_installation_test.go helps verify setup
 -->
 
 # GitHub App Setup for Integration Testing
+
+✅ **VERIFIED**: This setup is required for the actual GitHub integration tests in `test/github-live/`.
 
 ## Finding Your GitHub App Installation ID
 
@@ -33,10 +38,20 @@ gh api /app/installations --jq '.[].id'
 
 ## Update Your .env.test
 
-Once you have the installation ID, add it to your `.env.test`:
+Once you have the installation ID, update your `.env.test` with all required values:
 
 ```bash
+# GitHub App Configuration (REQUIRED for tests)
+GITHUB_APP_ID=123456
+GITHUB_APP_PRIVATE_KEY_PATH=/path/to/private-key.pem
 GITHUB_APP_INSTALLATION_ID=12345678
+
+# Test Repository (REQUIRED)
+GITHUB_TEST_ORG=your-org-or-username
+GITHUB_TEST_REPO=test-repo
+
+# Disable mocking
+USE_GITHUB_MOCK=false
 ```
 
 ## Common Issues
@@ -55,12 +70,19 @@ This error typically means:
 4. Confirm the installation ID is correct
 
 ## Testing Authentication
-You can test your GitHub App authentication with:
 
+### Verify Your Setup
+There's a dedicated test to verify your GitHub App installation:
+
+```bash
+# Run installation verification
+USE_GITHUB_MOCK=false go test -v -tags=github_live ./test/github-live -run TestVerifyGitHubAppInstallation
+```
+
+### Run Full Test Suite
 ```bash
 # Using the test script
 ./scripts/test-github-integration.sh
 
-# Or directly
-cd test/github-live
-go test -v -tags=github_live -run TestGitHubLiveAPI
+# Or directly with proper build tag
+USE_GITHUB_MOCK=false go test -v -tags=github_live ./test/github-live

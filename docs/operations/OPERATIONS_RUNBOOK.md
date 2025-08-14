@@ -10,7 +10,10 @@ Batch: ad
 
 This runbook provides operational procedures for managing Developer Mesh in production. It covers daily operations, incident response, maintenance tasks, and emergency procedures.
 
-**Note**: Developer Mesh currently runs on Docker Compose on EC2 instances, not Kubernetes. Many procedures in this document represent future goals rather than current implementation.
+**⚠️ IMPORTANT**: Developer Mesh currently runs on **Docker Compose on EC2 instances**, NOT Kubernetes. 
+- All `kubectl` commands in this document are theoretical/future state
+- Use `docker-compose` commands for actual operations
+- The actual deployment method is: `docker-compose -f docker-compose.production.yml`
 
 ## Table of Contents
 
@@ -312,12 +315,12 @@ docker service update \
     --update-delay 30s \
     mcp_${SERVICE}
 
-# For Kubernetes
-kubectl set image deployment/${SERVICE} \
-    ${SERVICE}=ghcr.io/${GITHUB_USERNAME}/developer-mesh-${SERVICE}:${VERSION} \
-    -n mcp-prod
+# For Docker Compose (actual deployment method)
+docker-compose -f docker-compose.production.yml pull ${SERVICE}
+docker-compose -f docker-compose.production.yml up -d ${SERVICE}
 
-kubectl rollout status deployment/${SERVICE} -n mcp-prod
+# Check rollout status
+docker-compose -f docker-compose.production.yml ps ${SERVICE}
 ```
 
 ## Backup and Restore
@@ -431,7 +434,7 @@ aws s3 cp s3://mcp-backups-prod/${BACKUP_DATE}/ /tmp/restore/ --recursive
 
 # 2. Stop services
 echo "Stopping services..."
-kubectl scale deployment mcp-server rest-api worker --replicas=0 -n mcp-prod
+docker-compose -f docker-compose.production.yml stop
 
 # 3. Restore PostgreSQL
 echo "Restoring PostgreSQL..."
@@ -450,7 +453,7 @@ tar -xzf /tmp/restore/configs.tar.gz -C /
 
 # 6. Restart services
 echo "Restarting services..."
-kubectl scale deployment mcp-server rest-api worker --replicas=3 -n mcp-prod
+docker-compose -f docker-compose.production.yml up -d
 
 # 7. Verify restore
 echo "Verifying restore..."

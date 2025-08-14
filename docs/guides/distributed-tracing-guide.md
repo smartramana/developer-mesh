@@ -9,6 +9,18 @@ Batch: ac
 > **Purpose**: Complete guide for implementing and using distributed tracing in the Developer Mesh platform
 > **Audience**: Developers and SREs implementing observability and debugging distributed systems
 > **Scope**: OpenTelemetry setup, trace analysis, debugging patterns, and production best practices
+> **Implementation Status**: PARTIAL - OpenTelemetry SDK only, no Jaeger backend
+
+## ⚠️ Important Note
+
+**Current Implementation:**
+- ✅ OpenTelemetry SDK is partially integrated in some services
+- ✅ Basic span creation and context propagation
+- ❌ NO Jaeger collector or UI deployed
+- ❌ NO Cassandra storage backend
+- ❌ NO trace visualization or analysis tools
+
+This guide describes the intended architecture. Currently, traces are created but not collected or stored anywhere.
 
 ## Table of Contents
 
