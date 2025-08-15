@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
 	"os"
 	"strings"
@@ -175,6 +176,139 @@ func (h *Handler) HandleConnection(conn *websocket.Conn, r *http.Request) {
 	}
 }
 
+// HandleStdio handles MCP protocol over stdin/stdout for Claude Code integration
+func (h *Handler) HandleStdio() {
+	sessionID := uuid.New().String()
+
+	// Extract passthrough authentication from environment variables
+	passthroughAuth := h.extractPassthroughAuthFromEnv()
+
+	session := &Session{
+		ID:              sessionID,
+		ConnectionID:    uuid.New().String(),
+		CreatedAt:       time.Now(),
+		LastActivity:    time.Now(),
+		PassthroughAuth: passthroughAuth,
+	}
+
+	h.sessionsMu.Lock()
+	h.sessions[sessionID] = session
+	h.sessionsMu.Unlock()
+
+	defer func() {
+		h.sessionsMu.Lock()
+		delete(h.sessions, sessionID)
+		h.sessionsMu.Unlock()
+	}()
+
+	// Create JSON encoder/decoder for stdio
+	decoder := json.NewDecoder(os.Stdin)
+	encoder := json.NewEncoder(os.Stdout)
+
+	// Message handling loop
+	for {
+		var msg MCPMessage
+		if err := decoder.Decode(&msg); err != nil {
+			// EOF is expected when stdin is closed
+			if err == io.EOF || strings.Contains(err.Error(), "file already closed") {
+				h.logger.Debug("Stdio connection closed", nil)
+				break
+			}
+			h.logger.Error("Failed to decode message from stdin", map[string]interface{}{
+				"error": err.Error(),
+			})
+			// Send error response
+			errorResponse := &MCPMessage{
+				JSONRPC: "2.0",
+				ID:      nil,
+				Error: &MCPError{
+					Code:    -32700,
+					Message: "Parse error",
+					Data:    err.Error(),
+				},
+			}
+			_ = encoder.Encode(errorResponse)
+			continue
+		}
+
+		// Update activity
+		h.sessionsMu.Lock()
+		if s, exists := h.sessions[sessionID]; exists {
+			s.LastActivity = time.Now()
+		}
+		h.sessionsMu.Unlock()
+
+		// Handle message
+		response, err := h.handleMessage(sessionID, &msg)
+		if err != nil {
+			response = &MCPMessage{
+				JSONRPC: "2.0",
+				ID:      msg.ID,
+				Error: &MCPError{
+					Code:    -32603,
+					Message: err.Error(),
+				},
+			}
+		}
+
+		// Check for shutdown
+		if msg.Method == "shutdown" {
+			if response != nil {
+				_ = encoder.Encode(response)
+			}
+			h.logger.Info("Received shutdown request, exiting stdio mode", nil)
+			break
+		}
+
+		if response != nil {
+			if err := encoder.Encode(response); err != nil {
+				h.logger.Error("Failed to write response to stdout", map[string]interface{}{
+					"error": err.Error(),
+				})
+				break
+			}
+		}
+	}
+}
+
+// extractPassthroughAuthFromEnv extracts passthrough auth from environment variables
+func (h *Handler) extractPassthroughAuthFromEnv() *models.PassthroughAuthBundle {
+	bundle := &models.PassthroughAuthBundle{
+		Credentials: make(map[string]*models.PassthroughCredential),
+	}
+
+	// Check for common service tokens in environment
+	if token := os.Getenv("GITHUB_TOKEN"); token != "" {
+		bundle.Credentials["github"] = &models.PassthroughCredential{
+			Type:  "bearer",
+			Token: token,
+		}
+		h.logger.Debug("Found GitHub passthrough token in environment", nil)
+	}
+
+	if accessKey := os.Getenv("AWS_ACCESS_KEY_ID"); accessKey != "" {
+		if secretKey := os.Getenv("AWS_SECRET_ACCESS_KEY"); secretKey != "" {
+			bundle.Credentials["aws"] = &models.PassthroughCredential{
+				Type: "aws_signature",
+				Properties: map[string]string{
+					"access_key_id":     accessKey,
+					"secret_access_key": secretKey,
+				},
+			}
+			if region := os.Getenv("AWS_REGION"); region != "" {
+				bundle.Credentials["aws"].Properties["region"] = region
+			}
+			h.logger.Debug("Found AWS passthrough credentials in environment", nil)
+		}
+	}
+
+	if len(bundle.Credentials) == 0 {
+		return nil
+	}
+
+	return bundle
+}
+
 // handleMessage processes an MCP message
 func (h *Handler) handleMessage(sessionID string, msg *MCPMessage) (*MCPMessage, error) {
 	switch msg.Method {
@@ -220,9 +354,21 @@ func (h *Handler) handleInitialize(sessionID string, msg *MCPMessage) (*MCPMessa
 		return nil, fmt.Errorf("invalid initialize params: %w", err)
 	}
 
-	// Verify protocol version
-	if params.ProtocolVersion != "2025-06-18" {
-		return nil, fmt.Errorf("unsupported protocol version: %s", params.ProtocolVersion)
+	// Verify protocol version - accept all known MCP protocol versions
+	supportedVersions := []string{
+		"2024-11-05", // Original Claude Code version
+		"2025-03-26", // March 2025 release with OAuth improvements
+		"2025-06-18", // Latest version with structured outputs
+	}
+	versionSupported := false
+	for _, v := range supportedVersions {
+		if params.ProtocolVersion == v {
+			versionSupported = true
+			break
+		}
+	}
+	if !versionSupported {
+		return nil, fmt.Errorf("unsupported protocol version: %s (supported: %v)", params.ProtocolVersion, supportedVersions)
 	}
 
 	// Update session
@@ -252,7 +398,7 @@ func (h *Handler) handleInitialize(sessionID string, msg *MCPMessage) (*MCPMessa
 		JSONRPC: "2.0",
 		ID:      msg.ID,
 		Result: map[string]interface{}{
-			"protocolVersion": "2025-06-18",
+			"protocolVersion": params.ProtocolVersion,
 			"serverInfo": map[string]interface{}{
 				"name":    "edge-mcp",
 				"version": "1.0.0",

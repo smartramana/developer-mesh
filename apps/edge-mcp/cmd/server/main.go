@@ -31,12 +31,13 @@ var (
 func main() {
 	var (
 		configFile  = flag.String("config", "configs/config.yaml", "Path to configuration file")
-		port        = flag.Int("port", 8082, "Port to listen on")
+		port        = flag.Int("port", 0, "Port to listen on (0 for stdio mode)")
 		apiKey      = flag.String("api-key", "", "API key for authentication")
 		coreURL     = flag.String("core-url", "", "Core Platform URL for advanced features")
 		showVersion = flag.Bool("version", false, "Show version information")
 		logLevel    = flag.String("log-level", "info", "Log level (debug, info, warn, error)")
 		workDir     = flag.String("work-dir", "", "Working directory for command execution")
+		stdioMode   = flag.Bool("stdio", false, "Run in stdio mode for Claude Code")
 	)
 	flag.Parse()
 
@@ -45,31 +46,43 @@ func main() {
 		os.Exit(0)
 	}
 
-	// Initialize logger
+	// Check if we're in stdio mode early to suppress logs
+	isStdioMode := *stdioMode || *port == 0
+	
+	// Initialize logger with appropriate level for mode
 	logger := observability.NewStandardLogger("edge-mcp")
-
-	// Log platform information at startup
-	platformInfo := platform.GetInfo()
-	logger.Info("Edge MCP starting", map[string]interface{}{
-		"version":      version,
-		"platform":     platformInfo.OS,
-		"architecture": platformInfo.Architecture,
-		"go_version":   platformInfo.Version,
-		"hostname":     platformInfo.Hostname,
-		"capabilities": platformInfo.Capabilities,
-	})
-
-	// Set log level based on flag
+	
+	// Set log level based on flag or mode
 	levelMap := map[string]observability.LogLevel{
 		"debug": observability.LogLevelDebug,
 		"info":  observability.LogLevelInfo,
 		"warn":  observability.LogLevelWarn,
 		"error": observability.LogLevelError,
 	}
-	if level, ok := levelMap[*logLevel]; ok {
+	
+	// In stdio mode, only log errors by default unless explicitly set
+	if isStdioMode && *logLevel == "info" {
+		// Suppress most logs in stdio mode
+		if stdLogger, ok := logger.(*observability.StandardLogger); ok {
+			logger = stdLogger.WithLevel(observability.LogLevelError)
+		}
+	} else if level, ok := levelMap[*logLevel]; ok {
 		if stdLogger, ok := logger.(*observability.StandardLogger); ok {
 			logger = stdLogger.WithLevel(level)
 		}
+	}
+	
+	// Only log platform info if not in stdio mode or if debug level
+	if !isStdioMode || *logLevel == "debug" {
+		platformInfo := platform.GetInfo()
+		logger.Info("Edge MCP starting", map[string]interface{}{
+			"version":      version,
+			"platform":     platformInfo.OS,
+			"architecture": platformInfo.Architecture,
+			"go_version":   platformInfo.Version,
+			"hostname":     platformInfo.Hostname,
+			"capabilities": platformInfo.Capabilities,
+		})
 	}
 
 	// Load configuration
@@ -88,8 +101,12 @@ func main() {
 	if *coreURL != "" {
 		cfg.Core.URL = *coreURL
 	}
+	// Set port from flag or use default for WebSocket mode
 	if *port != 0 {
 		cfg.Server.Port = *port
+	} else if !*stdioMode {
+		// If port is 0 and stdio mode not explicitly set, use default port for backward compatibility
+		cfg.Server.Port = 8082
 	}
 
 	// Initialize in-memory cache (no Redis/DB dependencies)
@@ -158,7 +175,29 @@ func main() {
 		logger,
 	)
 
-	// Setup HTTP server with Gin
+	// Check if we should run in stdio mode
+	if isStdioMode {
+		// Run in stdio mode for Claude Code integration
+		// Only log if debug mode
+		if *logLevel == "debug" {
+			logger.Info("Edge MCP starting in stdio mode", map[string]interface{}{
+				"version": version,
+			})
+			if coreClient != nil {
+				logger.Info("Connected to Core Platform", map[string]interface{}{
+					"url": cfg.Core.URL,
+				})
+			} else {
+				logger.Info("Running in standalone mode (no Core Platform connection)", nil)
+			}
+		}
+
+		// Handle stdio communication
+		mcpHandler.HandleStdio()
+		return
+	}
+
+	// Setup HTTP server with Gin for WebSocket mode
 	gin.SetMode(gin.ReleaseMode)
 	router := gin.New()
 	router.Use(gin.Recovery())

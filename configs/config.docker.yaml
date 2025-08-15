@@ -40,6 +40,7 @@ api:
   # Authentication - Relaxed for local development
   auth:
     require_auth: false  # Can be overridden by env var
+    jwt_secret: "${JWT_SECRET}"  # From environment variable
 
 # Authentication Configuration for Docker
 auth:

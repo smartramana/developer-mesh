@@ -15,7 +15,7 @@ Create `.claude/mcp.json` in your project root:
   "mcpServers": {
     "devmesh": {
       "command": "edge-mcp",
-      "args": ["--port", "8082"],
+      "args": ["--stdio"],
       "env": {
         // Required: DevMesh Platform credentials
         "CORE_PLATFORM_URL": "${CORE_PLATFORM_URL}",
@@ -32,6 +32,10 @@ Create `.claude/mcp.json` in your project root:
   }
 }
 ```
+
+**Note**: Edge MCP now supports two modes:
+- **Stdio mode** (default for Claude Code): Use `--stdio` flag or omit the port
+- **WebSocket mode**: Use `--port 8082` for WebSocket server on specified port
 
 ## Environment Setup
 

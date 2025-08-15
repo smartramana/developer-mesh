@@ -16,13 +16,17 @@ import (
 type StandardLogger struct {
 	prefix string
 	level  LogLevel
+	logger *log.Logger
 }
 
 // NewStandardLogger creates a new StandardLogger with the given prefix
 func NewStandardLogger(prefix string) Logger {
+	// Create a logger that writes to stderr instead of stdout
+	// This is crucial for MCP servers using stdio transport
 	return &StandardLogger{
 		prefix: prefix,
 		level:  LogLevelInfo, // Default to INFO level
+		logger: log.New(os.Stderr, "", 0),
 	}
 }
 
@@ -31,6 +35,7 @@ func (l *StandardLogger) WithLevel(level LogLevel) *StandardLogger {
 	return &StandardLogger{
 		prefix: l.prefix,
 		level:  level,
+		logger: l.logger,
 	}
 }
 
@@ -71,6 +76,7 @@ func (l *StandardLogger) WithPrefix(prefix string) Logger {
 	return &StandardLogger{
 		prefix: prefix,
 		level:  l.level,
+		logger: l.logger,
 	}
 }
 
@@ -82,6 +88,7 @@ func (l *StandardLogger) With(fields map[string]interface{}) Logger {
 	return &StandardLogger{
 		prefix: l.prefix,
 		level:  l.level,
+		logger: l.logger,
 	}
 }
 
@@ -125,8 +132,8 @@ func (l *StandardLogger) log(level LogLevel, msg string, fields map[string]inter
 	// Format the fields
 	fieldsStr := l.formatFields(fields)
 
-	// Log the message
-	log.Printf("%s %s%s", logPrefix, msg, fieldsStr)
+	// Log the message using the logger instance (writes to stderr)
+	l.logger.Printf("%s %s%s", logPrefix, msg, fieldsStr)
 
 	// Exit if fatal
 	if level == LogLevelFatal {
