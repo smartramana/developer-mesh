@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"strings"
 	"sync"
 	"time"
 
@@ -20,6 +21,46 @@ type contextKey string
 
 // PassthroughAuthKey is the context key for passthrough authentication
 const PassthroughAuthKey contextKey = "passthrough-auth"
+
+// normalizeClientType maps various client type inputs to allowed database values
+func normalizeClientType(clientName, clientType string) string {
+	// Database accepts: 'claude-code', 'ide', 'agent', 'cli'
+	
+	// Check client name first (Claude Code specific detection)
+	nameLower := strings.ToLower(clientName)
+	if strings.Contains(nameLower, "claude") && strings.Contains(nameLower, "code") {
+		return "claude-code"
+	}
+	if strings.Contains(nameLower, "claude-code") {
+		return "claude-code"
+	}
+	
+	// Normalize client type
+	typeLower := strings.ToLower(clientType)
+	switch typeLower {
+	case "claude-code", "claude_code", "claudecode":
+		return "claude-code"
+	case "ide", "editor", "vscode", "cursor":
+		return "ide"
+	case "agent", "ai", "bot":
+		return "agent"
+	case "cli", "terminal", "command-line", "commandline":
+		return "cli"
+	case "":
+		// Empty type - try to infer from name
+		if strings.Contains(nameLower, "ide") || strings.Contains(nameLower, "editor") {
+			return "ide"
+		}
+		if strings.Contains(nameLower, "agent") || strings.Contains(nameLower, "bot") {
+			return "agent"
+		}
+		// Default to CLI for empty type
+		return "cli"
+	default:
+		// Unknown type - default to CLI
+		return "cli"
+	}
+}
 
 // Client connects Edge MCP to Core Platform for state synchronization
 // Edge MCP maintains only in-memory state and syncs through this API client
@@ -306,13 +347,17 @@ func (c *Client) CreateSession(ctx context.Context, clientName, clientType strin
 		return sessionID, nil // Work offline
 	}
 
+	// Normalize client_type to match database constraints
+	// Database accepts: 'claude-code', 'ide', 'agent', 'cli'
+	normalizedType := normalizeClientType(clientName, clientType)
+
 	// Register session with Core Platform
 	payload := map[string]interface{}{
 		"session_id":  sessionID,
 		"edge_mcp_id": c.edgeMCPID,
 		"tenant_id":   c.tenantID,
 		"client_name": clientName,
-		"client_type": clientType,
+		"client_type": normalizedType,
 	}
 
 	resp, err := c.doRequest(ctx, "POST", "/api/v1/sessions", payload)

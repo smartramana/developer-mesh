@@ -101,6 +101,7 @@ func (api *DynamicToolsAPI) ListTools(c *gin.Context) {
 	// Query parameters
 	status := c.Query("status")
 	includeHealth := c.Query("include_health") == "true"
+	isEdgeMCP := c.Query("edge_mcp") == "true"
 
 	tools, err := api.toolService.ListTools(c.Request.Context(), tenantID, status)
 	if err != nil {
@@ -131,6 +132,43 @@ func (api *DynamicToolsAPI) ListTools(c *gin.Context) {
 			// This would trigger health checks in parallel
 			// For now, we'll use cached health status
 		}
+	}
+
+	// For edge-mcp, return a lightweight response without schemas or specs
+	if isEdgeMCP {
+		lightweightTools := make([]map[string]interface{}, 0, len(tools))
+		for _, tool := range tools {
+			// Create minimal tool representation - NO SCHEMAS AT ALL
+			lightTool := map[string]interface{}{
+				"tool_name":    tool.ToolName,
+				"display_name": tool.DisplayName,
+				"description":  tool.DisplayName + " integration",
+			}
+
+			// NO schema field - edge-mcp doesn't need it for listing
+
+			// Add absolutely minimal config - just metadata, no schemas
+			if tool.Config != nil {
+				minimalConfig := make(map[string]interface{})
+				for k, v := range tool.Config {
+					// Only include basic metadata fields
+					if k == "group_name" || k == "parent_api" || k == "spec_url" {
+						minimalConfig[k] = v
+					}
+				}
+				if len(minimalConfig) > 0 {
+					lightTool["config"] = minimalConfig
+				}
+			}
+
+			lightweightTools = append(lightweightTools, lightTool)
+		}
+
+		c.JSON(http.StatusOK, gin.H{
+			"tools": lightweightTools,
+			"count": len(lightweightTools),
+		})
+		return
 	}
 
 	c.JSON(http.StatusOK, gin.H{

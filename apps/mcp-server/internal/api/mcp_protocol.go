@@ -559,12 +559,21 @@ func (h *MCPProtocolHandler) handleToolsList(conn *websocket.Conn, connID, tenan
 
 	// Transform dynamic tools to MCP format
 	for _, tool := range tools {
-		// Use the OpenAPI spec or API spec as input schema if available
-		var inputSchema interface{}
-		if tool.APISpec != nil {
-			inputSchema = tool.APISpec
-		} else if tool.OpenAPISpec != nil {
-			inputSchema = tool.OpenAPISpec
+		// Create a minimal input schema instead of sending the entire OpenAPI spec
+		// This prevents context bloat when tools are listed
+		inputSchema := map[string]interface{}{
+			"type": "object",
+			"properties": map[string]interface{}{
+				"action": map[string]interface{}{
+					"type":        "string",
+					"description": "The action to perform",
+				},
+				"parameters": map[string]interface{}{
+					"type":                 "object",
+					"description":          "Parameters for the action",
+					"additionalProperties": true,
+				},
+			},
 		}
 
 		// Use display name or tool name
@@ -573,9 +582,17 @@ func (h *MCPProtocolHandler) handleToolsList(conn *websocket.Conn, connID, tenan
 			name = tool.ToolName
 		}
 
+		// Get tool description if available
+		description := fmt.Sprintf("%s integration", name)
+		if tool.Config != nil {
+			if desc, ok := tool.Config["description"].(string); ok && desc != "" {
+				description = desc
+			}
+		}
+
 		mcpTools = append(mcpTools, map[string]interface{}{
 			"name":        name,
-			"description": fmt.Sprintf("%s tool", name),
+			"description": description,
 			"inputSchema": inputSchema,
 		})
 	}
