@@ -125,26 +125,26 @@ All DevMesh features are exposed as standard MCP tools. Use `tools/list` to disc
 #### Core DevMesh Tools
 | Tool Name | Description | Key Parameters |
 |-----------|-------------|----------------|
-| `devmesh.agent.assign` | Assign task to specialized AI agent | `agent_type`, `task`, `priority` |
-| `devmesh.context.update` | Update session context | `context`, `merge` |
-| `devmesh.context.get` | Retrieve current context | `keys` (optional) |
-| `devmesh.search.semantic` | Semantic search across codebase | `query`, `limit`, `filters` |
-| `devmesh.workflow.execute` | Execute predefined workflow | `workflow_id`, `parameters` |
-| `devmesh.workflow.list` | List available workflows | `category`, `tags` |
-| `devmesh.task.create` | Create new task | `title`, `type`, `priority` |
-| `devmesh.task.status` | Get/update task status | `task_id`, `status` |
+| `devmesh_agent_assign` | Assign task to specialized AI agent | `agent_type`, `task`, `priority` |
+| `devmesh_context_update` | Update session context | `context`, `merge` |
+| `devmesh_context_get` | Retrieve current context | `keys` (optional) |
+| `devmesh_search_semantic` | Semantic search across codebase | `query`, `limit`, `filters` |
+| `devmesh_workflow_execute` | Execute predefined workflow | `workflow_id`, `parameters` |
+| `devmesh_workflow_list` | List available workflows | `category`, `tags` |
+| `devmesh_task_create` | Create new task | `title`, `type`, `priority` |
+| `devmesh_task_status` | Get/update task status | `task_id`, `status` |
 
 #### Legacy Protocol Tools (Still Available)
 | Tool Name | Description |
 |-----------|-------------|
-| `agent.heartbeat` | Send agent heartbeat |
-| `agent.status` | Get agent status |
-| `workflow.create` | Create new workflow |
-| `workflow.cancel` | Cancel workflow execution |
-| `task.assign` | Assign task to agent |
-| `task.complete` | Mark task as complete |
-| `context.update` | Update context |
-| `context.append` | Append to context |
+| `agent_heartbeat` | Send agent heartbeat |
+| `agent_status` | Get agent status |
+| `workflow_create` | Create new workflow |
+| `workflow_cancel` | Cancel workflow execution |
+| `task_assign` | Assign task to agent |
+| `task_complete` | Mark task as complete |
+| `context_update` | Update context |
+| `context_append` | Append to context |
 
 ### MCP Resources
 
@@ -191,7 +191,7 @@ DevMesh exposes system state through MCP resources. Use `resources/list` to disc
   "result": {
     "tools": [
       {
-        "name": "devmesh.agent.assign",
+        "name": "devmesh_agent_assign",
         "description": "Assign task to specialized AI agent",
         "inputSchema": {...}
       },
@@ -209,7 +209,7 @@ DevMesh exposes system state through MCP resources. Use `resources/list` to disc
   "id": "task-1",
   "method": "tools/call",
   "params": {
-    "name": "devmesh.task.create",
+    "name": "devmesh_task_create",
     "arguments": {
       "title": "Review PR #123",
       "type": "code_review",
@@ -333,6 +333,36 @@ DevMesh fully implements the MCP 2025-06-18 specification:
 - **Auth**: Universal authentication support
 - **Health**: Automatic health monitoring
 - **Testing**: Use mockserver for tool testing
+
+## Edge MCP Session Management
+- **Session Lifecycle**: Create, refresh, validate, terminate sessions
+- **Authentication**: JWT + refresh tokens with passthrough auth encryption
+- **Storage**: PostgreSQL persistence with automatic expiry
+- **Caching**: Redis L1 cache for performance
+- **Tool Tracking**: Complete audit trail of tool executions per session
+- **Multi-tenant**: Per-tenant session limits and isolation
+- **Database Tables**:
+  - `mcp.edge_mcp_sessions`: Session storage with metadata
+  - `mcp.session_tool_executions`: Tool execution audit trail
+- **REST API Endpoints**:
+  - `POST /api/v1/sessions` - Create new session
+  - `GET /api/v1/sessions/:id` - Get session details
+  - `POST /api/v1/sessions/:id/refresh` - Refresh session TTL
+  - `DELETE /api/v1/sessions/:id` - Terminate session
+  - `POST /api/v1/sessions/:id/validate` - Validate session status
+  - `GET /api/v1/sessions` - List sessions with filtering
+  - `GET /api/v1/sessions/active` - List active sessions
+  - `GET /api/v1/sessions/metrics` - Session metrics
+  - `POST /api/v1/sessions/:id/tools/execute` - Record tool execution
+  - `GET /api/v1/sessions/:id/tools/executions` - Get execution history
+- **Key Services**:
+  - `SessionService`: Business logic and orchestration
+  - `SessionRepository`: Database operations
+  - `SessionHandler`: REST API handlers
+- **Configuration**:
+  - Default TTL: 24 hours (configurable)
+  - Max sessions per tenant: 100 (configurable)
+  - Idle timeout: 30 minutes (configurable)
 
 ## Multi-Tenant Embedding Model Management
 - **Model Catalog**: Global registry of all available embedding models

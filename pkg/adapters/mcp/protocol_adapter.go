@@ -59,7 +59,7 @@ func NewProtocolAdapter(logger observability.Logger) *ProtocolAdapter {
 func (a *ProtocolAdapter) registerCustomTools() {
 	// Agent management tools
 	a.RegisterTool(&ToolDefinition{
-		Name:        "agent.heartbeat",
+		Name:        "agent_heartbeat",
 		Description: "Send agent heartbeat",
 		InputSchema: map[string]interface{}{
 			"type": "object",
@@ -73,7 +73,7 @@ func (a *ProtocolAdapter) registerCustomTools() {
 	})
 
 	a.RegisterTool(&ToolDefinition{
-		Name:        "agent.status",
+		Name:        "agent_status",
 		Description: "Get agent status",
 		InputSchema: map[string]interface{}{
 			"type": "object",
@@ -87,7 +87,7 @@ func (a *ProtocolAdapter) registerCustomTools() {
 
 	// Workflow management tools
 	a.RegisterTool(&ToolDefinition{
-		Name:        "workflow.create",
+		Name:        "workflow_create",
 		Description: "Create a new workflow",
 		InputSchema: map[string]interface{}{
 			"type": "object",
@@ -102,7 +102,7 @@ func (a *ProtocolAdapter) registerCustomTools() {
 	})
 
 	a.RegisterTool(&ToolDefinition{
-		Name:        "workflow.execute",
+		Name:        "workflow_execute",
 		Description: "Execute a workflow",
 		InputSchema: map[string]interface{}{
 			"type": "object",
@@ -116,7 +116,7 @@ func (a *ProtocolAdapter) registerCustomTools() {
 	})
 
 	a.RegisterTool(&ToolDefinition{
-		Name:        "workflow.cancel",
+		Name:        "workflow_cancel",
 		Description: "Cancel a workflow execution",
 		InputSchema: map[string]interface{}{
 			"type": "object",
@@ -131,7 +131,7 @@ func (a *ProtocolAdapter) registerCustomTools() {
 
 	// Task management tools
 	a.RegisterTool(&ToolDefinition{
-		Name:        "task.create",
+		Name:        "task_create",
 		Description: "Create a new task",
 		InputSchema: map[string]interface{}{
 			"type": "object",
@@ -147,7 +147,7 @@ func (a *ProtocolAdapter) registerCustomTools() {
 	})
 
 	a.RegisterTool(&ToolDefinition{
-		Name:        "task.assign",
+		Name:        "task_assign",
 		Description: "Assign a task to an agent",
 		InputSchema: map[string]interface{}{
 			"type": "object",
@@ -161,7 +161,7 @@ func (a *ProtocolAdapter) registerCustomTools() {
 	})
 
 	a.RegisterTool(&ToolDefinition{
-		Name:        "task.complete",
+		Name:        "task_complete",
 		Description: "Mark a task as complete",
 		InputSchema: map[string]interface{}{
 			"type": "object",
@@ -176,7 +176,7 @@ func (a *ProtocolAdapter) registerCustomTools() {
 
 	// Context management tools
 	a.RegisterTool(&ToolDefinition{
-		Name:        "context.update",
+		Name:        "context_update",
 		Description: "Update context for a session",
 		InputSchema: map[string]interface{}{
 			"type": "object",
@@ -191,7 +191,7 @@ func (a *ProtocolAdapter) registerCustomTools() {
 	})
 
 	a.RegisterTool(&ToolDefinition{
-		Name:        "context.append",
+		Name:        "context_append",
 		Description: "Append to context",
 		InputSchema: map[string]interface{}{
 			"type": "object",

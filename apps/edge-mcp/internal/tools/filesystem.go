@@ -68,7 +68,7 @@ func (t *FileSystemTool) isPathSafe(path string) bool {
 func (t *FileSystemTool) GetDefinitions() []ToolDefinition {
 	return []ToolDefinition{
 		{
-			Name:        "fs.read_file",
+			Name:        "fs_read_file",
 			Description: "Read the contents of a file",
 			InputSchema: map[string]interface{}{
 				"type": "object",
@@ -83,7 +83,7 @@ func (t *FileSystemTool) GetDefinitions() []ToolDefinition {
 			Handler: t.handleReadFile,
 		},
 		{
-			Name:        "fs.write_file",
+			Name:        "fs_write_file",
 			Description: "Write content to a file",
 			InputSchema: map[string]interface{}{
 				"type": "object",
@@ -102,7 +102,7 @@ func (t *FileSystemTool) GetDefinitions() []ToolDefinition {
 			Handler: t.handleWriteFile,
 		},
 		{
-			Name:        "fs.list_directory",
+			Name:        "fs_list_directory",
 			Description: "List contents of a directory",
 			InputSchema: map[string]interface{}{
 				"type": "object",

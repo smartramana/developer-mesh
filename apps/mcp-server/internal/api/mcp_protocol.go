@@ -352,7 +352,7 @@ func (h *MCPProtocolHandler) handleToolsList(conn *websocket.Conn, connID, tenan
 	// Add DevMesh-specific tools as standard MCP tools
 	devMeshTools := []map[string]interface{}{
 		{
-			"name":        "devmesh.agent.assign",
+			"name":        "devmesh_agent_assign",
 			"description": "Assign a task to a specialized AI agent",
 			"inputSchema": map[string]interface{}{
 				"type": "object",
@@ -381,7 +381,7 @@ func (h *MCPProtocolHandler) handleToolsList(conn *websocket.Conn, connID, tenan
 			},
 		},
 		{
-			"name":        "devmesh.context.update",
+			"name":        "devmesh_context_update",
 			"description": "Update session context with new information",
 			"inputSchema": map[string]interface{}{
 				"type": "object",
@@ -401,7 +401,7 @@ func (h *MCPProtocolHandler) handleToolsList(conn *websocket.Conn, connID, tenan
 			},
 		},
 		{
-			"name":        "devmesh.context.get",
+			"name":        "devmesh_context_get",
 			"description": "Retrieve current session context",
 			"inputSchema": map[string]interface{}{
 				"type": "object",
@@ -415,7 +415,7 @@ func (h *MCPProtocolHandler) handleToolsList(conn *websocket.Conn, connID, tenan
 			},
 		},
 		{
-			"name":        "devmesh.search.semantic",
+			"name":        "devmesh_search_semantic",
 			"description": "Semantic search across codebase and documentation",
 			"inputSchema": map[string]interface{}{
 				"type": "object",
@@ -456,7 +456,7 @@ func (h *MCPProtocolHandler) handleToolsList(conn *websocket.Conn, connID, tenan
 			},
 		},
 		{
-			"name":        "devmesh.workflow.execute",
+			"name":        "devmesh_workflow_execute",
 			"description": "Execute a predefined workflow",
 			"inputSchema": map[string]interface{}{
 				"type": "object",
@@ -480,7 +480,7 @@ func (h *MCPProtocolHandler) handleToolsList(conn *websocket.Conn, connID, tenan
 			},
 		},
 		{
-			"name":        "devmesh.workflow.list",
+			"name":        "devmesh_workflow_list",
 			"description": "List available workflows",
 			"inputSchema": map[string]interface{}{
 				"type": "object",
@@ -498,7 +498,7 @@ func (h *MCPProtocolHandler) handleToolsList(conn *websocket.Conn, connID, tenan
 			},
 		},
 		{
-			"name":        "devmesh.task.create",
+			"name":        "devmesh_task_create",
 			"description": "Create a new task",
 			"inputSchema": map[string]interface{}{
 				"type": "object",
@@ -530,7 +530,7 @@ func (h *MCPProtocolHandler) handleToolsList(conn *websocket.Conn, connID, tenan
 			},
 		},
 		{
-			"name":        "devmesh.task.status",
+			"name":        "devmesh_task_status",
 			"description": "Get or update task status",
 			"inputSchema": map[string]interface{}{
 				"type": "object",
@@ -713,21 +713,21 @@ func (h *MCPProtocolHandler) handleToolCall(conn *websocket.Conn, connID, tenant
 // handleDevMeshTool routes and executes DevMesh namespace tools
 func (h *MCPProtocolHandler) handleDevMeshTool(conn *websocket.Conn, connID, tenantID string, msg MCPMessage, toolName string, args map[string]interface{}) error {
 	switch toolName {
-	case "devmesh.agent.assign":
+	case "devmesh_agent_assign":
 		return h.executeAgentAssign(conn, connID, tenantID, msg, args)
-	case "devmesh.context.update":
+	case "devmesh_context_update":
 		return h.executeContextUpdate(conn, connID, tenantID, msg, args)
-	case "devmesh.context.get":
+	case "devmesh_context_get":
 		return h.executeContextGet(conn, connID, tenantID, msg, args)
-	case "devmesh.search.semantic":
+	case "devmesh_search_semantic":
 		return h.executeSemanticSearch(conn, connID, tenantID, msg, args)
-	case "devmesh.workflow.execute":
+	case "devmesh_workflow_execute":
 		return h.executeWorkflowExecute(conn, connID, tenantID, msg, args)
-	case "devmesh.workflow.list":
+	case "devmesh_workflow_list":
 		return h.executeWorkflowList(conn, connID, tenantID, msg, args)
-	case "devmesh.task.create":
+	case "devmesh_task_create":
 		return h.executeTaskCreate(conn, connID, tenantID, msg, args)
-	case "devmesh.task.status":
+	case "devmesh_task_status":
 		return h.executeTaskStatus(conn, connID, tenantID, msg, args)
 	default:
 		return h.sendError(conn, msg.ID, MCPErrorMethodNotFound, fmt.Sprintf("Unknown DevMesh tool: %s", toolName))

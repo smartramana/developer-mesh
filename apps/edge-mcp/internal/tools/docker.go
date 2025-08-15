@@ -40,7 +40,7 @@ type DockerContainer struct {
 func (t *DockerTool) GetDefinitions() []ToolDefinition {
 	return []ToolDefinition{
 		{
-			Name:        "docker.build",
+			Name:        "docker_build",
 			Description: "Build a Docker image",
 			InputSchema: map[string]interface{}{
 				"type": "object",
@@ -59,7 +59,7 @@ func (t *DockerTool) GetDefinitions() []ToolDefinition {
 			Handler: t.handleBuild,
 		},
 		{
-			Name:        "docker.ps",
+			Name:        "docker_ps",
 			Description: "List Docker containers",
 			InputSchema: map[string]interface{}{
 				"type": "object",

@@ -59,7 +59,7 @@ func NewShellTool(exec *executor.CommandExecutor, logger observability.Logger) *
 func (t *ShellTool) GetDefinitions() []ToolDefinition {
 	return []ToolDefinition{
 		{
-			Name:        "shell.execute",
+			Name:        "shell_execute",
 			Description: "Execute a shell command",
 			InputSchema: map[string]interface{}{
 				"type": "object",

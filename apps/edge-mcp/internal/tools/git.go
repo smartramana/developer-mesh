@@ -39,7 +39,7 @@ type GitStatus struct {
 func (t *GitTool) GetDefinitions() []ToolDefinition {
 	return []ToolDefinition{
 		{
-			Name:        "git.status",
+			Name:        "git_status",
 			Description: "Get Git repository status",
 			InputSchema: map[string]interface{}{
 				"type": "object",
@@ -53,7 +53,7 @@ func (t *GitTool) GetDefinitions() []ToolDefinition {
 			Handler: t.handleStatus,
 		},
 		{
-			Name:        "git.diff",
+			Name:        "git_diff",
 			Description: "Show Git diff",
 			InputSchema: map[string]interface{}{
 				"type": "object",
