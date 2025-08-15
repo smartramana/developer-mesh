@@ -618,18 +618,6 @@ func (g *SchemaGenerator) extractGroupOperationIDs(group *OperationGroup) []stri
 	return ids
 }
 
-// extractGroupOperationSchemas extracts operation schemas for a group
-func (g *SchemaGenerator) extractGroupOperationSchemas(group *OperationGroup) map[string]map[string]interface{} {
-	schemas := make(map[string]map[string]interface{})
-
-	for opID, op := range group.Operations {
-		opSchema := g.generateOperationSchema(op.Operation, op.Method, op.Path)
-		schemas[opID] = opSchema
-	}
-
-	return schemas
-}
-
 // extractGroupOperationMetadata extracts metadata for operations in a group
 func (g *SchemaGenerator) extractGroupOperationMetadata(group *OperationGroup) map[string]interface{} {
 	metadata := make(map[string]interface{})
