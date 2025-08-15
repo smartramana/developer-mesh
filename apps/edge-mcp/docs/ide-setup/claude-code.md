@@ -8,34 +8,70 @@
 
 ## Configuration
 
-Create `.claude/mcp.json` in your project root:
+### Method 1: Using Claude Code CLI (Recommended)
+
+The easiest way to add the DevMesh MCP server is using the Claude Code CLI:
+
+```bash
+# Remove any existing devmesh configuration
+claude mcp remove devmesh
+
+# Add the DevMesh MCP server with your credentials
+claude mcp add devmesh \
+  --env CORE_PLATFORM_URL=http://localhost:8081 \
+  --env CORE_PLATFORM_API_KEY=devmesh_YOUR_API_KEY_HERE \
+  --env GITHUB_TOKEN=ghp_YOUR_GITHUB_TOKEN_HERE \
+  -- edge-mcp --stdio
+```
+
+Replace the placeholders:
+- `YOUR_API_KEY_HERE`: Your DevMesh organization API key (starts with `devmesh_`)
+- `YOUR_GITHUB_TOKEN_HERE`: Your GitHub personal access token (optional)
+
+For production environments, use:
+- `CORE_PLATFORM_URL=https://api.devmesh.io`
+
+### Method 2: Manual Configuration (Alternative)
+
+If you prefer manual configuration, the Claude Code CLI command above will create the following configuration in your project's `.claude.json` file:
 
 ```json
 {
   "mcpServers": {
     "devmesh": {
+      "type": "stdio",
       "command": "edge-mcp",
       "args": ["--stdio"],
       "env": {
-        // Required: DevMesh Platform credentials
-        "CORE_PLATFORM_URL": "${CORE_PLATFORM_URL}",
-        "CORE_PLATFORM_API_KEY": "${CORE_PLATFORM_API_KEY}",
-        
-        // Optional: Your personal access tokens for pass-through auth
-        "GITHUB_TOKEN": "${GITHUB_TOKEN}",
-        "AWS_ACCESS_KEY_ID": "${AWS_ACCESS_KEY_ID}",
-        "AWS_SECRET_ACCESS_KEY": "${AWS_SECRET_ACCESS_KEY}",
-        "SLACK_TOKEN": "${SLACK_TOKEN}",
-        "JIRA_TOKEN": "${JIRA_TOKEN}"
+        "CORE_PLATFORM_URL": "http://localhost:8081",
+        "CORE_PLATFORM_API_KEY": "devmesh_YOUR_API_KEY_HERE",
+        "GITHUB_TOKEN": "ghp_YOUR_GITHUB_TOKEN_HERE"
       }
     }
   }
 }
 ```
 
-**Note**: Edge MCP now supports two modes:
-- **Stdio mode** (default for Claude Code): Use `--stdio` flag or omit the port
+**Note**: Edge MCP supports two modes:
+- **Stdio mode** (default for Claude Code): Use `--stdio` flag
 - **WebSocket mode**: Use `--port 8082` for WebSocket server on specified port
+
+## Verifying the Connection
+
+After adding the server, verify it's connected:
+
+```bash
+# List all MCP servers and their status
+claude mcp list
+
+# You should see:
+# devmesh: edge-mcp --stdio - ✓ Connected
+```
+
+If you see "✗ Failed to connect", check:
+1. Edge MCP is installed: `which edge-mcp`
+2. DevMesh services are running: `docker-compose -f docker-compose.local.yml ps`
+3. API endpoint is accessible: `curl http://localhost:8081/health`
 
 ## Environment Setup
 
