@@ -17,6 +17,7 @@ import (
 	"github.com/developer-mesh/developer-mesh/apps/rest-api/internal/storage"
 
 	pkgrepository "github.com/developer-mesh/developer-mesh/pkg/repository"
+	pkgservices "github.com/developer-mesh/developer-mesh/pkg/services"
 
 	"github.com/developer-mesh/developer-mesh/pkg/agents"
 	"github.com/developer-mesh/developer-mesh/pkg/auth"
@@ -522,6 +523,32 @@ func (s *Server) setupRoutes(ctx context.Context) {
 		auth.NewAuditLogger(s.logger),
 	)
 	dynamicToolsAPI.RegisterRoutes(v1)
+
+	// Session Management API - Edge MCP session handling
+	sessionRepo := pkgrepository.NewSessionRepository(s.db, s.logger)
+	sessionServiceConfig := pkgservices.SessionServiceConfig{
+		Repository:  sessionRepo,
+		Cache:       redisClient,
+		Encryption:  encryptionService,
+		Logger:      s.logger,
+		Metrics:     s.metrics,
+		DefaultTTL:  24 * time.Hour,
+		MaxSessions: 100,
+		IdleTimeout: 30 * time.Minute,
+	}
+	sessionService := pkgservices.NewSessionService(sessionServiceConfig)
+	sessionHandler := NewSessionHandler(
+		sessionService,
+		s.logger,
+		s.metrics,
+		auth.NewAuditLogger(s.logger),
+	)
+	sessionHandler.RegisterRoutes(v1)
+	s.logger.Info("Session Management API initialized", map[string]interface{}{
+		"default_ttl":  "24h",
+		"max_sessions": 100,
+		"idle_timeout": "30m",
+	})
 
 	// Agent and Model APIs - create repositories first as they're needed by context API
 	// Use the enhanced agent system for full lifecycle management

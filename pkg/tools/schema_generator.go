@@ -14,7 +14,7 @@ type SchemaGenerator struct {
 	MaxOperationsPerTool int
 	GroupByTag           bool
 	IncludeDeprecated    bool
-	
+
 	// Operation grouper for multi-tool generation
 	grouper *OperationGrouper
 }
@@ -367,6 +367,41 @@ func (g *SchemaGenerator) parameterToSchema(param *openapi3.Parameter) map[strin
 
 // schemaToMCPSchema converts an OpenAPI schema to MCP schema
 func (g *SchemaGenerator) schemaToMCPSchema(schema *openapi3.Schema) map[string]interface{} {
+	// Handle composition schemas (oneOf, allOf, anyOf) by simplifying them
+	// Claude's API doesn't support these at the top level
+	if len(schema.OneOf) > 0 {
+		// For oneOf, use the first schema as a fallback
+		if schema.OneOf[0].Value != nil {
+			return g.schemaToMCPSchema(schema.OneOf[0].Value)
+		}
+	}
+	if len(schema.AllOf) > 0 {
+		// For allOf, merge all schemas
+		merged := map[string]interface{}{
+			"type":        "object",
+			"description": schema.Description,
+			"properties":  make(map[string]interface{}),
+		}
+		for _, subSchema := range schema.AllOf {
+			if subSchema.Value != nil {
+				subMCP := g.schemaToMCPSchema(subSchema.Value)
+				if props, ok := subMCP["properties"].(map[string]interface{}); ok {
+					mergedProps := merged["properties"].(map[string]interface{})
+					for k, v := range props {
+						mergedProps[k] = v
+					}
+				}
+			}
+		}
+		return merged
+	}
+	if len(schema.AnyOf) > 0 {
+		// For anyOf, use the first schema as a fallback
+		if schema.AnyOf[0].Value != nil {
+			return g.schemaToMCPSchema(schema.AnyOf[0].Value)
+		}
+	}
+
 	mcpSchema := map[string]interface{}{
 		"type":        g.getSchemaType(schema),
 		"description": schema.Description,
@@ -475,16 +510,16 @@ func (g *SchemaGenerator) GenerateGroupedSchemas(spec *openapi3.T) (map[string]G
 	if spec == nil {
 		return nil, fmt.Errorf("OpenAPI spec is nil")
 	}
-	
+
 	// Group operations using the grouper
 	groups, err := g.grouper.GroupOperations(spec)
 	if err != nil {
 		return nil, fmt.Errorf("failed to group operations: %w", err)
 	}
-	
+
 	// Generate schemas for each group
 	schemas := make(map[string]GroupedToolSchema)
-	
+
 	for groupName, group := range groups {
 		schema := g.generateGroupSchema(group)
 		schemas[groupName] = GroupedToolSchema{
@@ -496,7 +531,7 @@ func (g *SchemaGenerator) GenerateGroupedSchemas(spec *openapi3.T) (map[string]G
 			Priority:    group.Priority,
 		}
 	}
-	
+
 	return schemas, nil
 }
 
@@ -521,6 +556,30 @@ type OperationInfo struct {
 
 // generateGroupSchema generates a schema for an operation group
 func (g *SchemaGenerator) generateGroupSchema(group *OperationGroup) map[string]interface{} {
+	// Collect all unique parameters from all operations in the group
+	allParameters := make(map[string]interface{})
+	operationParams := make(map[string][]string) // Track which params belong to which operation
+
+	// Extract parameters from each operation
+	for opID, op := range group.Operations {
+		opSchema := g.generateOperationSchema(op.Operation, op.Method, op.Path)
+		if props, ok := opSchema["properties"].(map[string]interface{}); ok {
+			operationParams[opID] = make([]string, 0)
+			for paramName, paramSchema := range props {
+				// Add operation info to parameter description
+				if paramDesc, ok := paramSchema.(map[string]interface{}); ok {
+					if desc, hasDesc := paramDesc["description"].(string); hasDesc {
+						paramDesc["description"] = fmt.Sprintf("[%s] %s", opID, desc)
+					} else {
+						paramDesc["description"] = fmt.Sprintf("Parameter for %s operation", opID)
+					}
+				}
+				allParameters[paramName] = paramSchema
+				operationParams[opID] = append(operationParams[opID], paramName)
+			}
+		}
+	}
+
 	// Build the MCP tool schema for this group
 	schema := map[string]interface{}{
 		"type": "object",
@@ -531,42 +590,20 @@ func (g *SchemaGenerator) generateGroupSchema(group *OperationGroup) map[string]
 				"enum":        g.extractGroupOperationIDs(group),
 			},
 			"parameters": map[string]interface{}{
-				"type":        "object",
-				"description": "Parameters for the selected operation",
-				"properties":  map[string]interface{}{},
+				"type":                 "object",
+				"description":          "Parameters for the selected operation",
+				"properties":           allParameters,
+				"additionalProperties": false,
 			},
 		},
 		"required":             []string{"operation"},
 		"additionalProperties": false,
 	}
-	
-	// Add operation-specific parameter schemas
-	operationSchemas := g.extractGroupOperationSchemas(group)
-	if len(operationSchemas) > 0 {
-		// Build conditional schemas for each operation
-		allOf := make([]interface{}, 0)
-		for opID, opSchema := range operationSchemas {
-			allOf = append(allOf, map[string]interface{}{
-				"if": map[string]interface{}{
-					"properties": map[string]interface{}{
-						"operation": map[string]interface{}{
-							"const": opID,
-						},
-					},
-				},
-				"then": map[string]interface{}{
-					"properties": map[string]interface{}{
-						"parameters": opSchema,
-					},
-				},
-			})
-		}
-		schema["allOf"] = allOf
-	}
-	
-	// Add metadata about operations in this group
+
+	// Add metadata about operations and their parameters
 	schema["x-operations"] = g.extractGroupOperationMetadata(group)
-	
+	schema["x-operation-params"] = operationParams
+
 	return schema
 }
 
@@ -584,19 +621,19 @@ func (g *SchemaGenerator) extractGroupOperationIDs(group *OperationGroup) []stri
 // extractGroupOperationSchemas extracts operation schemas for a group
 func (g *SchemaGenerator) extractGroupOperationSchemas(group *OperationGroup) map[string]map[string]interface{} {
 	schemas := make(map[string]map[string]interface{})
-	
+
 	for opID, op := range group.Operations {
 		opSchema := g.generateOperationSchema(op.Operation, op.Method, op.Path)
 		schemas[opID] = opSchema
 	}
-	
+
 	return schemas
 }
 
 // extractGroupOperationMetadata extracts metadata for operations in a group
 func (g *SchemaGenerator) extractGroupOperationMetadata(group *OperationGroup) map[string]interface{} {
 	metadata := make(map[string]interface{})
-	
+
 	for opID, op := range group.Operations {
 		metadata[opID] = map[string]interface{}{
 			"method":      op.Method,
@@ -607,14 +644,14 @@ func (g *SchemaGenerator) extractGroupOperationMetadata(group *OperationGroup) m
 			"deprecated":  op.Operation.Deprecated,
 		}
 	}
-	
+
 	return metadata
 }
 
 // extractGroupOperationInfo extracts operation information for documentation
 func (g *SchemaGenerator) extractGroupOperationInfo(group *OperationGroup) []OperationInfo {
 	info := make([]OperationInfo, 0, len(group.Operations))
-	
+
 	for opID, op := range group.Operations {
 		info = append(info, OperationInfo{
 			ID:          opID,
@@ -624,12 +661,12 @@ func (g *SchemaGenerator) extractGroupOperationInfo(group *OperationGroup) []Ope
 			Description: op.Operation.Description,
 		})
 	}
-	
+
 	// Sort by operation ID for consistency
 	sort.Slice(info, func(i, j int) bool {
 		return info[i].ID < info[j].ID
 	})
-	
+
 	return info
 }
 

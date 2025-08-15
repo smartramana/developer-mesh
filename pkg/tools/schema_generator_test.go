@@ -41,16 +41,16 @@ func TestSchemaGenerator_GenerateMCPSchema(t *testing.T) {
 			check: func(t *testing.T, schema map[string]interface{}) {
 				assert.NotNil(t, schema)
 				assert.Equal(t, "object", schema["type"])
-				
+
 				// Check that properties exist
 				props, ok := schema["properties"].(map[string]interface{})
 				require.True(t, ok, "properties should be a map")
-				
+
 				// Check operation field
 				opField, ok := props["operation"].(map[string]interface{})
 				require.True(t, ok, "operation field should exist")
 				assert.Equal(t, "string", opField["type"])
-				
+
 				// Check that operation enum contains our operation
 				enum, ok := opField["enum"].([]string)
 				if ok && len(enum) > 0 {
@@ -92,7 +92,7 @@ func TestSchemaGenerator_GenerateMCPSchema(t *testing.T) {
 			wantErr: false,
 			check: func(t *testing.T, schema map[string]interface{}) {
 				assert.NotNil(t, schema)
-				
+
 				// Check x-operations metadata
 				if xOps, ok := schema["x-operations"].(map[string]interface{}); ok {
 					if getUserOp, ok := xOps["getUser"].(map[string]interface{}); ok {
@@ -108,12 +108,12 @@ func TestSchemaGenerator_GenerateMCPSchema(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			g := NewSchemaGenerator()
 			schema, err := g.GenerateMCPSchema(tt.spec)
-			
+
 			if tt.wantErr {
 				assert.Error(t, err)
 				return
 			}
-			
+
 			assert.NoError(t, err)
 			if tt.check != nil {
 				tt.check(t, schema)
@@ -172,17 +172,17 @@ func TestSchemaGenerator_GenerateOperationSchemas(t *testing.T) {
 
 	g := NewSchemaGenerator()
 	schemas, err := g.GenerateOperationSchemas(spec)
-	
+
 	assert.NoError(t, err)
 	assert.NotNil(t, schemas)
 	assert.Len(t, schemas, 2)
-	
+
 	// Check listUsers schema
 	if listSchema, ok := schemas["listUsers"].(map[string]interface{}); ok {
 		assert.Equal(t, "object", listSchema["type"])
 		assert.Contains(t, listSchema["description"], "List all users")
 	}
-	
+
 	// Check createUser schema
 	if createSchema, ok := schemas["createUser"].(map[string]interface{}); ok {
 		assert.Equal(t, "object", createSchema["type"])

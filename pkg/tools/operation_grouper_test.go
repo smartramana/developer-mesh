@@ -110,18 +110,18 @@ func TestOperationGrouper_GroupOperations(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			grouper := NewOperationGrouper()
 			grouper.GroupingStrategy = tt.strategy
-			
+
 			groups, err := grouper.GroupOperations(tt.spec)
-			
+
 			assert.NoError(t, err)
 			assert.GreaterOrEqual(t, len(groups), tt.minGroups)
-			
+
 			// Check expected groups exist
 			for _, expectedGroup := range tt.expectedGroups {
 				_, exists := groups[expectedGroup]
 				assert.True(t, exists, "Expected group %s not found", expectedGroup)
 			}
-			
+
 			// Verify each group has operations
 			for name, group := range groups {
 				assert.NotEmpty(t, group.Operations, "Group %s has no operations", name)
@@ -142,7 +142,7 @@ func TestOperationGrouper_HandleLargeSpec(t *testing.T) {
 		},
 		Paths: openapi3.NewPaths(),
 	}
-	
+
 	// Add many operations with different tags
 	tags := []string{"users", "repos", "issues", "pulls", "actions", "packages"}
 	for _, tag := range tags {
@@ -157,15 +157,15 @@ func TestOperationGrouper_HandleLargeSpec(t *testing.T) {
 			})
 		}
 	}
-	
+
 	grouper := NewOperationGrouper()
 	grouper.MaxOperationsPerGroup = 50
-	
+
 	groups, err := grouper.GroupOperations(spec)
-	
+
 	require.NoError(t, err)
 	assert.Len(t, groups, len(tags))
-	
+
 	// Verify each group respects the max operations limit
 	for name, group := range groups {
 		assert.LessOrEqual(t, len(group.Operations), grouper.MaxOperationsPerGroup,
@@ -201,17 +201,17 @@ func TestOperationGrouper_PriorityOrdering(t *testing.T) {
 			}),
 		),
 	}
-	
+
 	grouper := NewOperationGrouper()
 	_, err := grouper.GroupOperations(spec)
-	
+
 	require.NoError(t, err)
-	
+
 	// Get sorted groups
 	sortedGroups := grouper.GetSortedGroups()
-	
+
 	assert.NotEmpty(t, sortedGroups)
-	
+
 	// Authentication should have higher priority (lower number)
 	var authPriority, miscPriority int
 	for _, group := range sortedGroups {
@@ -222,7 +222,7 @@ func TestOperationGrouper_PriorityOrdering(t *testing.T) {
 			miscPriority = group.Priority
 		}
 	}
-	
+
 	assert.Less(t, authPriority, miscPriority,
 		"Authentication should have higher priority than miscellaneous")
 }
@@ -236,10 +236,10 @@ func TestOperationGrouper_NoOperations(t *testing.T) {
 		},
 		Paths: openapi3.NewPaths(),
 	}
-	
+
 	grouper := NewOperationGrouper()
 	groups, err := grouper.GroupOperations(spec)
-	
+
 	assert.NoError(t, err)
 	assert.Empty(t, groups)
 }
@@ -260,15 +260,15 @@ func TestOperationGrouper_GeneralGroup(t *testing.T) {
 			}),
 		),
 	}
-	
+
 	grouper := NewOperationGrouper()
 	grouper.GroupingStrategy = GroupByHybrid
-	
+
 	groups, err := grouper.GroupOperations(spec)
-	
+
 	assert.NoError(t, err)
 	assert.NotEmpty(t, groups)
-	
+
 	// Should have a general group for unassigned operations
 	generalGroup, exists := groups["general"]
 	assert.True(t, exists, "General group should exist")
