@@ -60,6 +60,7 @@ type ToolConfig struct {
 	HealthConfig      *HealthCheckConfig      `json:"health_config,omitempty"`
 	Provider          string                  `json:"provider,omitempty"`
 	PassthroughConfig *PassthroughConfig      `json:"passthrough_config,omitempty"`
+	GroupOperations   bool                    `json:"group_operations,omitempty"` // Create multiple tools grouped by functionality
 }
 
 // PassthroughConfig defines how user token passthrough should be handled

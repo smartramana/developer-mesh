@@ -230,6 +230,7 @@ func (api *DynamicToolsAPI) CreateTool(c *gin.Context) {
 		Credential:        req.Credential,
 		Provider:          req.Provider,
 		PassthroughConfig: (*tools.PassthroughConfig)(req.PassthroughConfig),
+		GroupOperations:   req.GroupOperations,
 	}
 
 	// Add discovery hints if provided
@@ -863,6 +864,7 @@ type CreateToolRequest struct {
 	Provider          string                    `json:"provider,omitempty"`
 	PassthroughConfig *models.PassthroughConfig `json:"passthrough_config,omitempty"`
 	DiscoveryHints    map[string]interface{}    `json:"discovery_hints,omitempty"`
+	GroupOperations   bool                      `json:"group_operations,omitempty"`
 }
 
 type UpdateToolRequest struct {

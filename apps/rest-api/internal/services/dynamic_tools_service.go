@@ -233,6 +233,33 @@ func (s *DynamicToolsService) CreateTool(ctx context.Context, tenantID string, c
 	config.Config["spec_url"] = result.SpecURL
 	config.Config["discovered_urls"] = result.DiscoveredURLs
 
+	// Check if we should create multiple grouped tools
+	if result.OpenAPISpec != nil && config.GroupOperations {
+		// Create multiple tools grouped by functionality
+		return s.createGroupedTools(ctx, tenantID, config, result)
+	}
+	
+	// Generate MCP-compatible schema from OpenAPI spec if available (single tool mode)
+	if result.OpenAPISpec != nil {
+		schemaGen := tools.NewSchemaGenerator()
+		mcpSchema, err := schemaGen.GenerateMCPSchema(result.OpenAPISpec)
+		if err != nil {
+			s.logger.Warn("Failed to generate MCP schema from OpenAPI spec", map[string]interface{}{
+				"tool_name": config.Name,
+				"error":     err.Error(),
+			})
+			// Don't fail the entire operation, just log the warning
+		} else {
+			// Store the generated schema in the config
+			config.Config["schema"] = mcpSchema
+			s.logger.Info("Generated MCP schema from OpenAPI spec", map[string]interface{}{
+				"tool_name":        config.Name,
+				"operations":       len(result.OpenAPISpec.Paths.Map()),
+				"schema_generated": true,
+			})
+		}
+	}
+
 	configJSON, err := json.Marshal(config.Config)
 	if err != nil {
 		return nil, fmt.Errorf("failed to marshal config: %w", err)
@@ -1291,6 +1318,161 @@ func (s *DynamicToolsService) preCacheOpenAPISpec(ctx context.Context, specURL s
 	}
 
 	return nil
+}
+
+// createGroupedTools creates multiple tools from grouped operations
+func (s *DynamicToolsService) createGroupedTools(ctx context.Context, tenantID string, config tools.ToolConfig, result *tools.DiscoveryResult) (*models.DynamicTool, error) {
+	// Generate grouped schemas from the OpenAPI spec
+	schemaGen := tools.NewSchemaGenerator()
+	groupedSchemas, err := schemaGen.GenerateGroupedSchemas(result.OpenAPISpec)
+	if err != nil {
+		return nil, fmt.Errorf("failed to generate grouped schemas: %w", err)
+	}
+	
+	s.logger.Info("Creating grouped tools from OpenAPI spec", map[string]interface{}{
+		"base_name":    config.Name,
+		"groups_count": len(groupedSchemas),
+		"tenant_id":    tenantID,
+	})
+	
+	createdTools := make([]*models.DynamicTool, 0, len(groupedSchemas))
+	var primaryTool *models.DynamicTool
+	
+	// Create a tool for each group
+	for groupName, groupSchema := range groupedSchemas {
+		// Create a new config for this group
+		groupConfig := config
+		groupConfig.Name = fmt.Sprintf("%s_%s", config.Name, groupName)
+		groupConfig.ID = uuid.New().String()
+		
+		// Store the schema for this group
+		if groupConfig.Config == nil {
+			groupConfig.Config = make(map[string]interface{})
+		}
+		groupConfig.Config["schema"] = groupSchema.Schema
+		groupConfig.Config["group_name"] = groupName
+		groupConfig.Config["operations"] = groupSchema.Operations
+		groupConfig.Config["parent_api"] = config.Name
+		
+		// Create the tool in the database
+		tool, err := s.createSingleTool(ctx, tenantID, groupConfig, result)
+		if err != nil {
+			// Log error but continue with other tools
+			s.logger.Error("Failed to create grouped tool", map[string]interface{}{
+				"group_name": groupName,
+				"error":      err.Error(),
+			})
+			continue
+		}
+		
+		createdTools = append(createdTools, tool)
+		
+		// Set the first tool as primary
+		if primaryTool == nil {
+			primaryTool = tool
+		}
+	}
+	
+	if len(createdTools) == 0 {
+		return nil, fmt.Errorf("failed to create any grouped tools")
+	}
+	
+	s.logger.Info("Successfully created grouped tools", map[string]interface{}{
+		"tools_created": len(createdTools),
+		"tenant_id":     tenantID,
+	})
+	
+	// Return the primary tool (others are accessible via listing)
+	return primaryTool, nil
+}
+
+// createSingleTool creates a single tool in the database
+func (s *DynamicToolsService) createSingleTool(ctx context.Context, tenantID string, config tools.ToolConfig, result *tools.DiscoveryResult) (*models.DynamicTool, error) {
+	toolID := config.ID
+	if toolID == "" {
+		toolID = uuid.New().String()
+	}
+	now := time.Now()
+	
+	configJSON, err := json.Marshal(config.Config)
+	if err != nil {
+		return nil, fmt.Errorf("failed to marshal config: %w", err)
+	}
+	
+	// Encrypt credentials if provided
+	var encryptedCreds []byte
+	if config.Credential != nil {
+		encryptedJSON, err := s.encryptionSvc.EncryptJSON(config.Credential, tenantID)
+		if err != nil {
+			return nil, fmt.Errorf("failed to encrypt credentials: %w", err)
+		}
+		encryptedCreds = []byte(encryptedJSON)
+	}
+	
+	// Sanitize tool name
+	sanitizedName := sanitizeToolName(config.Name)
+	
+	// Check if tool already exists
+	existingQuery := `
+		SELECT id FROM mcp.tool_configurations 
+		WHERE tenant_id = $1 AND tool_name = $2
+		LIMIT 1
+	`
+	var existingID string
+	err = s.db.GetContext(ctx, &existingID, existingQuery, tenantID, sanitizedName)
+	if err == nil {
+		return nil, fmt.Errorf("tool with name '%s' already exists for this tenant", sanitizedName)
+	} else if err != sql.ErrNoRows {
+		return nil, fmt.Errorf("failed to check for existing tool: %w", err)
+	}
+	
+	// Determine tool type
+	toolType := "rest"
+	if config.Provider == "graphql" {
+		toolType = "graphql"
+	}
+	
+	// Insert tool into database
+	query := `
+		INSERT INTO mcp.tool_configurations (
+			id, tenant_id, tool_name, tool_type, display_name, base_url, config,
+			auth_type, credentials_encrypted, status,
+			created_at, updated_at, provider
+		) VALUES (
+			$1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13
+		)
+	`
+	
+	_, err = s.db.ExecContext(ctx, query,
+		toolID, tenantID, sanitizedName, toolType, config.Name, config.BaseURL,
+		configJSON, "bearer", encryptedCreds, "active",
+		now, now, config.Provider,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("failed to insert tool: %w", err)
+	}
+	
+	tool := &models.DynamicTool{
+		ID:                   toolID,
+		TenantID:             tenantID,
+		ToolName:             sanitizedName,
+		ToolType:             toolType,
+		DisplayName:          config.Name,
+		BaseURL:              config.BaseURL,
+		Config:               config.Config,
+		Status:               "active",
+		IsActive:             true,
+		Provider:             config.Provider,
+		CreatedAt:            now,
+		UpdatedAt:            now,
+	}
+	
+	// Cache the tool
+	s.toolCacheMu.Lock()
+	s.toolCache[toolID] = tool
+	s.toolCacheMu.Unlock()
+	
+	return tool, nil
 }
 
 // sanitizeToolName converts a display name to a valid tool_name

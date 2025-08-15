@@ -48,10 +48,10 @@ func main() {
 
 	// Check if we're in stdio mode early to suppress logs
 	isStdioMode := *stdioMode || *port == 0
-	
+
 	// Initialize logger with appropriate level for mode
 	logger := observability.NewStandardLogger("edge-mcp")
-	
+
 	// Set log level based on flag or mode
 	levelMap := map[string]observability.LogLevel{
 		"debug": observability.LogLevelDebug,
@@ -59,7 +59,7 @@ func main() {
 		"warn":  observability.LogLevelWarn,
 		"error": observability.LogLevelError,
 	}
-	
+
 	// In stdio mode, only log errors by default unless explicitly set
 	if isStdioMode && *logLevel == "info" {
 		// Suppress most logs in stdio mode
@@ -71,7 +71,7 @@ func main() {
 			logger = stdLogger.WithLevel(level)
 		}
 	}
-	
+
 	// Only log platform info if not in stdio mode or if debug level
 	if !isStdioMode || *logLevel == "debug" {
 		platformInfo := platform.GetInfo()

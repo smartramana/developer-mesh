@@ -194,9 +194,11 @@ func (c *Client) FetchRemoteTools(ctx context.Context) ([]tools.ToolDefinition, 
 	// Parse response
 	var toolsResp struct {
 		Tools []struct {
-			Name        string                 `json:"name"`
+			Name        string                 `json:"tool_name"`
+			DisplayName string                 `json:"display_name"`
 			Description string                 `json:"description"`
-			Schema      map[string]interface{} `json:"schema"`
+			Config      map[string]interface{} `json:"config"`
+			Schema      map[string]interface{} `json:"schema"` // Direct schema field (if present)
 		} `json:"tools"`
 	}
 	if err := json.NewDecoder(resp.Body).Decode(&toolsResp); err != nil {
@@ -206,10 +208,27 @@ func (c *Client) FetchRemoteTools(ctx context.Context) ([]tools.ToolDefinition, 
 	// Convert to ToolDefinition
 	definitions := make([]tools.ToolDefinition, 0, len(toolsResp.Tools))
 	for _, t := range toolsResp.Tools {
+		description := t.Description
+		if description == "" && t.DisplayName != "" {
+			description = t.DisplayName + " integration"
+		}
+
+		// Try to get schema from config first (where we store generated schemas)
+		// then fall back to direct schema field
+		var inputSchema map[string]interface{}
+		if t.Config != nil {
+			if configSchema, ok := t.Config["schema"].(map[string]interface{}); ok {
+				inputSchema = configSchema
+			}
+		}
+		if inputSchema == nil && t.Schema != nil {
+			inputSchema = t.Schema
+		}
+
 		definitions = append(definitions, tools.ToolDefinition{
 			Name:        t.Name,
-			Description: t.Description,
-			InputSchema: t.Schema,
+			Description: description,
+			InputSchema: inputSchema,
 			// Handler will be a proxy handler that calls Core Platform
 			// Note: Passthrough auth will be injected at execution time
 			Handler: c.createProxyHandler(t.Name),
