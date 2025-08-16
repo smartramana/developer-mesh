@@ -415,7 +415,8 @@ func (a *DynamicToolAdapter) getOpenAPISpec(ctx context.Context) (*openapi3.T, e
 		}
 
 		// Read response body with size limit for large specs
-		limitedReader := io.LimitReader(resp.Body, 10*1024*1024) // 10MB limit
+		// Increased to 50MB to handle large OpenAPI specs like GitHub's (11.45MB)
+		limitedReader := io.LimitReader(resp.Body, 50*1024*1024) // 50MB limit
 		bodyData, err := io.ReadAll(limitedReader)
 		if err != nil {
 			lastErr = fmt.Errorf("failed to read spec: %w", err)

@@ -275,7 +275,7 @@ func (c *Client) FetchRemoteTools(ctx context.Context) ([]tools.ToolDefinition, 
 		c.mu.Lock()
 		c.toolIDMap[t.Name] = t.ID
 		c.mu.Unlock()
-		
+
 		c.logger.Debug("Registering tool with ID mapping", map[string]interface{}{
 			"tool_name": t.Name,
 			"tool_id":   t.ID,
@@ -311,10 +311,37 @@ func (c *Client) createProxyHandler(toolName string, toolID string) tools.ToolHa
 			passthroughAuth, _ = auth.(*models.PassthroughAuthBundle)
 		}
 
-		// Build request payload
-		payload := map[string]interface{}{
-			"tool":      toolName,
-			"arguments": args,
+		// Parse arguments to extract action if present
+		var payload map[string]interface{}
+		var parsedArgs map[string]interface{}
+
+		if err := json.Unmarshal(args, &parsedArgs); err == nil {
+			// Check if action is in the arguments
+			if action, ok := parsedArgs["action"].(string); ok {
+				// Remove action from arguments and add it to payload
+				delete(parsedArgs, "action")
+				payload = map[string]interface{}{
+					"tool":       toolName,
+					"action":     action,
+					"parameters": parsedArgs,
+				}
+				c.logger.Debug("Executing tool with action", map[string]interface{}{
+					"tool":   toolName,
+					"action": action,
+				})
+			} else {
+				// No action in arguments, use original format
+				payload = map[string]interface{}{
+					"tool":      toolName,
+					"arguments": args,
+				}
+			}
+		} else {
+			// Failed to parse arguments, use original format
+			payload = map[string]interface{}{
+				"tool":      toolName,
+				"arguments": args,
+			}
 		}
 
 		// Include passthrough auth if available

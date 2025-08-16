@@ -535,7 +535,8 @@ func (s *MultiAPIDiscoveryService) tryDiscoverAPI(ctx context.Context, specURL s
 	}
 
 	// Read content
-	content, err := io.ReadAll(io.LimitReader(resp.Body, 10*1024*1024)) // 10MB limit
+	// Increased to 50MB to handle large OpenAPI specs like GitHub's (11.45MB)
+	content, err := io.ReadAll(io.LimitReader(resp.Body, 50*1024*1024)) // 50MB limit
 	if err != nil {
 		return
 	}
