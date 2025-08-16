@@ -10,8 +10,6 @@ import (
 
 	"github.com/coder/websocket"
 
-	mcptools "github.com/developer-mesh/developer-mesh/apps/mcp-server/internal/api/tools"
-
 	"github.com/developer-mesh/developer-mesh/pkg/adapters/mcp"
 	"github.com/developer-mesh/developer-mesh/pkg/adapters/mcp/resources"
 	"github.com/developer-mesh/developer-mesh/pkg/clients"
@@ -559,42 +557,19 @@ func (h *MCPProtocolHandler) handleToolsList(conn *websocket.Conn, connID, tenan
 	// Add DevMesh tools to the list
 	mcpTools = append(mcpTools, devMeshTools...)
 
-	// Add native GitHub tools
-	githubTool := mcptools.NewGitHubNativeTool()
-	githubTools := githubTool.GetToolDefinitions()
-	mcpTools = append(mcpTools, githubTools...)
-
 	// Transform dynamic tools to MCP format
 	for _, tool := range tools {
-		// Create a minimal input schema instead of sending the entire OpenAPI spec
-		// This prevents context bloat when tools are listed
-		inputSchema := map[string]interface{}{
-			"type": "object",
-			"properties": map[string]interface{}{
-				"action": map[string]interface{}{
-					"type":        "string",
-					"description": "The action to perform",
-				},
-				"parameters": map[string]interface{}{
-					"type":                 "object",
-					"description":          "Parameters for the action",
-					"additionalProperties": true,
-				},
-			},
-		}
+		// Generate minimal inputSchema to reduce context usage
+		// This creates tool-specific schemas based on naming patterns
+		inputSchema := h.generateMinimalInputSchema(tool.ToolName)
 
-		// Use display name or tool name
-		name := tool.DisplayName
-		if name == "" {
-			name = tool.ToolName
-		}
+		// Use tool name for consistency
+		name := tool.ToolName
 
-		// Get tool description if available
-		description := fmt.Sprintf("%s integration", name)
-		if tool.Config != nil {
-			if desc, ok := tool.Config["description"].(string); ok && desc != "" {
-				description = desc
-			}
+		// Get tool description
+		description := tool.DisplayName
+		if description == "" {
+			description = fmt.Sprintf("%s integration", name)
 		}
 
 		mcpTools = append(mcpTools, map[string]interface{}{
@@ -651,11 +626,6 @@ func (h *MCPProtocolHandler) handleToolCall(conn *websocket.Conn, connID, tenant
 	if strings.HasPrefix(params.Name, "devmesh.") {
 		// Handle DevMesh namespace tools
 		return h.handleDevMeshTool(conn, connID, tenantID, msg, params.Name, params.Arguments)
-	}
-
-	// Handle native GitHub tools
-	if strings.HasPrefix(params.Name, "github_") {
-		return h.handleGitHubTool(conn, connID, tenantID, msg, params.Name, params.Arguments)
 	}
 
 	// Legacy adapter tools are deprecated - we've fully migrated to MCP
@@ -763,32 +733,88 @@ func (h *MCPProtocolHandler) handleDevMeshTool(conn *websocket.Conn, connID, ten
 	}
 }
 
-// handleGitHubTool routes and executes GitHub tools
-func (h *MCPProtocolHandler) handleGitHubTool(conn *websocket.Conn, connID, tenantID string, msg MCPMessage, toolName string, args map[string]interface{}) error {
-	ctx := context.Background()
-
-	// Create GitHub tool instance
-	githubTool := mcptools.NewGitHubNativeTool()
-
-	// Execute the tool
-	result, err := githubTool.ExecuteTool(ctx, toolName, args)
-	if err != nil {
-		h.logger.Error("GitHub tool execution failed", map[string]interface{}{
-			"tool":  toolName,
-			"error": err.Error(),
-		})
-		return h.sendError(conn, msg.ID, MCPErrorInternalError, fmt.Sprintf("GitHub tool execution failed: %v", err))
+// generateMinimalInputSchema creates a minimal inputSchema for MCP compatibility
+// This analyzes the tool name and creates a generic schema with common parameters
+func (h *MCPProtocolHandler) generateMinimalInputSchema(toolName string) map[string]interface{} {
+	// Create base schema structure
+	schema := map[string]interface{}{
+		"type":       "object",
+		"properties": map[string]interface{}{},
+		"required":   []string{},
 	}
 
-	// Return successful result
-	return h.sendResult(conn, msg.ID, map[string]interface{}{
-		"content": []map[string]interface{}{
-			{
-				"type": "text",
-				"text": fmt.Sprintf("%v", result),
-			},
-		},
-	})
+	properties := schema["properties"].(map[string]interface{})
+	
+	// Parse tool name to determine resource type and operation
+	// Examples: github_repos, github_issues, gitlab_merge_requests
+	parts := strings.Split(toolName, "_")
+	
+	// Common parameters for most operations
+	if len(parts) >= 2 {
+		provider := parts[0] // e.g., "github", "gitlab", "bitbucket"
+		
+		// Add common repository parameters for source control tools
+		if provider == "github" || provider == "gitlab" || provider == "bitbucket" {
+			properties["owner"] = map[string]interface{}{
+				"type":        "string",
+				"description": "Repository owner or organization",
+			}
+			properties["repo"] = map[string]interface{}{
+				"type":        "string",
+				"description": "Repository name",
+			}
+			
+			// Check for specific resource types
+			if len(parts) > 1 {
+				resource := parts[len(parts)-1]
+				
+				switch resource {
+				case "issues", "issue":
+					properties["issue_number"] = map[string]interface{}{
+						"type":        "integer",
+						"description": "Issue number",
+					}
+				case "pulls", "pull", "pr", "merge":
+					properties["pull_number"] = map[string]interface{}{
+						"type":        "integer",
+						"description": "Pull request number",
+					}
+				case "branches", "branch":
+					properties["branch"] = map[string]interface{}{
+						"type":        "string",
+						"description": "Branch name",
+					}
+				}
+			}
+		}
+		
+		// Add action parameter for all tools
+		properties["action"] = map[string]interface{}{
+			"type":        "string",
+			"description": "Action to perform",
+			"enum":        []string{"list", "get", "create", "update", "delete"},
+		}
+		
+		// Add generic parameters object for additional tool-specific params
+		properties["parameters"] = map[string]interface{}{
+			"type":                 "object",
+			"description":          "Additional parameters specific to the action",
+			"additionalProperties": true,
+		}
+	} else {
+		// For unrecognized tool patterns, provide a completely generic schema
+		properties["action"] = map[string]interface{}{
+			"type":        "string",
+			"description": "Action to perform",
+		}
+		properties["parameters"] = map[string]interface{}{
+			"type":                 "object",
+			"description":          "Parameters for the action",
+			"additionalProperties": true,
+		}
+	}
+	
+	return schema
 }
 
 // DevMesh tool execution implementations

@@ -25,7 +25,7 @@ const PassthroughAuthKey contextKey = "passthrough-auth"
 // normalizeClientType maps various client type inputs to allowed database values
 func normalizeClientType(clientName, clientType string) string {
 	// Database accepts: 'claude-code', 'ide', 'agent', 'cli'
-	
+
 	// Check client name first (Claude Code specific detection)
 	nameLower := strings.ToLower(clientName)
 	if strings.Contains(nameLower, "claude") && strings.Contains(nameLower, "code") {
@@ -34,7 +34,7 @@ func normalizeClientType(clientName, clientType string) string {
 	if strings.Contains(nameLower, "claude-code") {
 		return "claude-code"
 	}
-	
+
 	// Normalize client type
 	typeLower := strings.ToLower(clientType)
 	switch typeLower {
