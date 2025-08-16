@@ -138,14 +138,19 @@ func (api *DynamicToolsAPI) ListTools(c *gin.Context) {
 	if isEdgeMCP {
 		lightweightTools := make([]map[string]interface{}, 0, len(tools))
 		for _, tool := range tools {
-			// Create minimal tool representation - NO SCHEMAS AT ALL
+			// Create minimal tool representation with basic inputSchema
 			lightTool := map[string]interface{}{
 				"tool_name":    tool.ToolName,
 				"display_name": tool.DisplayName,
 				"description":  tool.DisplayName + " integration",
 			}
 
-			// NO schema field - edge-mcp doesn't need it for listing
+			// Add minimal inputSchema for MCP compatibility
+			// This is a generic schema that works for most GitHub operations
+			inputSchema := api.generateMinimalInputSchema(tool.ToolName)
+			if inputSchema != nil {
+				lightTool["schema"] = inputSchema
+			}
 
 			// Add absolutely minimal config - just metadata, no schemas
 			if tool.Config != nil {
@@ -1032,6 +1037,94 @@ func (api *DynamicToolsAPI) GetWebhookConfig(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, response)
+}
+
+// generateMinimalInputSchema creates a minimal inputSchema for MCP compatibility
+// This analyzes the tool name and creates a generic schema with common parameters
+func (api *DynamicToolsAPI) generateMinimalInputSchema(toolName string) map[string]interface{} {
+	// Create base schema structure
+	schema := map[string]interface{}{
+		"type":       "object",
+		"properties": map[string]interface{}{},
+		"required":   []string{},
+	}
+
+	properties := schema["properties"].(map[string]interface{})
+	required := []string{}
+
+	// Parse tool name to determine resource type and operation
+	// Examples: github_repos, github_issues, github_pull_requests
+	parts := strings.Split(toolName, "_")
+
+	// Common parameters for most operations
+	if len(parts) >= 2 {
+		provider := parts[0] // e.g., "github", "gitlab", etc.
+
+		// Add common repository parameters for source control tools
+		if provider == "github" || provider == "gitlab" || provider == "bitbucket" {
+			properties["owner"] = map[string]interface{}{
+				"type":        "string",
+				"description": "Repository owner or organization",
+			}
+			properties["repo"] = map[string]interface{}{
+				"type":        "string",
+				"description": "Repository name",
+			}
+
+			// Check for specific resource types
+			if len(parts) > 1 {
+				resource := parts[len(parts)-1]
+
+				switch resource {
+				case "issues", "issue":
+					properties["issue_number"] = map[string]interface{}{
+						"type":        "integer",
+						"description": "Issue number",
+					}
+				case "pulls", "pull_requests", "pr":
+					properties["pull_number"] = map[string]interface{}{
+						"type":        "integer",
+						"description": "Pull request number",
+					}
+				case "branches", "branch":
+					properties["branch"] = map[string]interface{}{
+						"type":        "string",
+						"description": "Branch name",
+					}
+				}
+			}
+		}
+
+		// Add action parameter for all tools
+		properties["action"] = map[string]interface{}{
+			"type":        "string",
+			"description": "Action to perform",
+			"enum":        []string{"list", "get", "create", "update", "delete"},
+		}
+
+		// Add generic parameters object for additional tool-specific params
+		properties["parameters"] = map[string]interface{}{
+			"type":                 "object",
+			"description":          "Additional parameters specific to the action",
+			"additionalProperties": true,
+		}
+	} else {
+		// For unrecognized tool patterns, provide a completely generic schema
+		properties["action"] = map[string]interface{}{
+			"type":        "string",
+			"description": "Action to perform",
+		}
+		properties["parameters"] = map[string]interface{}{
+			"type":                 "object",
+			"description":          "Parameters for the action",
+			"additionalProperties": true,
+		}
+	}
+
+	// Keep required array minimal - most params should be optional
+	schema["required"] = required
+
+	return schema
 }
 
 // WebhookConfigResponse represents the webhook configuration response
