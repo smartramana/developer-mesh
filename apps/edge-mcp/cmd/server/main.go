@@ -15,7 +15,6 @@ import (
 	"github.com/developer-mesh/developer-mesh/apps/edge-mcp/internal/cache"
 	"github.com/developer-mesh/developer-mesh/apps/edge-mcp/internal/config"
 	"github.com/developer-mesh/developer-mesh/apps/edge-mcp/internal/core"
-	"github.com/developer-mesh/developer-mesh/apps/edge-mcp/internal/executor"
 	"github.com/developer-mesh/developer-mesh/apps/edge-mcp/internal/mcp"
 	"github.com/developer-mesh/developer-mesh/apps/edge-mcp/internal/platform"
 	"github.com/developer-mesh/developer-mesh/apps/edge-mcp/internal/tools"
@@ -36,7 +35,6 @@ func main() {
 		coreURL     = flag.String("core-url", "", "Core Platform URL for advanced features")
 		showVersion = flag.Bool("version", false, "Show version information")
 		logLevel    = flag.String("log-level", "info", "Log level (debug, info, warn, error)")
-		workDir     = flag.String("work-dir", "", "Working directory for command execution")
 		stdioMode   = flag.Bool("stdio", false, "Run in stdio mode for Claude Code")
 	)
 	flag.Parse()
@@ -137,17 +135,12 @@ func main() {
 	// Initialize tool registry
 	toolRegistry := tools.NewRegistry()
 
-	// Create command executor for tools
-	if *workDir == "" {
-		*workDir, _ = os.Getwd()
-	}
-	cmdExecutor := executor.NewCommandExecutor(logger, *workDir, 30*time.Second)
+	// Command executor no longer needed since we're not using local tools
+	// All execution happens via remote tools through the Core Platform
 
-	// Register local tools with proper initialization
-	toolRegistry.Register(tools.NewFileSystemTool(*workDir, logger))
-	toolRegistry.Register(tools.NewGitTool(cmdExecutor, logger))
-	toolRegistry.Register(tools.NewDockerTool(cmdExecutor, logger))
-	toolRegistry.Register(tools.NewShellTool(cmdExecutor, logger))
+	// No longer registering local tools - only use dynamic tools from Core Platform
+	// This ensures all tools come from the REST API for consistency
+	// Removed: FileSystemTool, GitTool, DockerTool, ShellTool
 
 	// Fetch and register remote tools from Core Platform
 	if coreClient != nil {
