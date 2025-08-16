@@ -744,15 +744,15 @@ func (h *MCPProtocolHandler) generateMinimalInputSchema(toolName string) map[str
 	}
 
 	properties := schema["properties"].(map[string]interface{})
-	
+
 	// Parse tool name to determine resource type and operation
 	// Examples: github_repos, github_issues, gitlab_merge_requests
 	parts := strings.Split(toolName, "_")
-	
+
 	// Common parameters for most operations
 	if len(parts) >= 2 {
 		provider := parts[0] // e.g., "github", "gitlab", "bitbucket"
-		
+
 		// Add common repository parameters for source control tools
 		if provider == "github" || provider == "gitlab" || provider == "bitbucket" {
 			properties["owner"] = map[string]interface{}{
@@ -763,11 +763,11 @@ func (h *MCPProtocolHandler) generateMinimalInputSchema(toolName string) map[str
 				"type":        "string",
 				"description": "Repository name",
 			}
-			
+
 			// Check for specific resource types
 			if len(parts) > 1 {
 				resource := parts[len(parts)-1]
-				
+
 				switch resource {
 				case "issues", "issue":
 					properties["issue_number"] = map[string]interface{}{
@@ -787,14 +787,14 @@ func (h *MCPProtocolHandler) generateMinimalInputSchema(toolName string) map[str
 				}
 			}
 		}
-		
+
 		// Add action parameter for all tools
 		properties["action"] = map[string]interface{}{
 			"type":        "string",
 			"description": "Action to perform",
 			"enum":        []string{"list", "get", "create", "update", "delete"},
 		}
-		
+
 		// Add generic parameters object for additional tool-specific params
 		properties["parameters"] = map[string]interface{}{
 			"type":                 "object",
@@ -813,7 +813,7 @@ func (h *MCPProtocolHandler) generateMinimalInputSchema(toolName string) map[str
 			"additionalProperties": true,
 		}
 	}
-	
+
 	return schema
 }
 

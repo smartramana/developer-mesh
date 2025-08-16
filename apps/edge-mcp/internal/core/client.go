@@ -84,6 +84,9 @@ type Client struct {
 	backoffTime   time.Duration
 	nextRetryTime time.Time
 	mu            sync.RWMutex
+
+	// Tool ID mapping for execution
+	toolIDMap map[string]string // Maps tool name to tool ID
 }
 
 // NewClient creates a new Core Platform client
@@ -98,6 +101,7 @@ func NewClient(baseURL, apiKey, edgeMCPID string, logger observability.Logger) *
 		logger:      logger,
 		maxFailures: 3,
 		backoffTime: 5 * time.Second,
+		toolIDMap:   make(map[string]string),
 	}
 }
 
@@ -235,6 +239,7 @@ func (c *Client) FetchRemoteTools(ctx context.Context) ([]tools.ToolDefinition, 
 	// Parse response
 	var toolsResp struct {
 		Tools []struct {
+			ID          string                 `json:"id"` // Tool ID for execution
 			Name        string                 `json:"tool_name"`
 			DisplayName string                 `json:"display_name"`
 			Description string                 `json:"description"`
@@ -266,13 +271,23 @@ func (c *Client) FetchRemoteTools(ctx context.Context) ([]tools.ToolDefinition, 
 			inputSchema = t.Schema
 		}
 
+		// Store the tool ID mapping for execution
+		c.mu.Lock()
+		c.toolIDMap[t.Name] = t.ID
+		c.mu.Unlock()
+		
+		c.logger.Debug("Registering tool with ID mapping", map[string]interface{}{
+			"tool_name": t.Name,
+			"tool_id":   t.ID,
+		})
+
 		definitions = append(definitions, tools.ToolDefinition{
 			Name:        t.Name,
 			Description: description,
 			InputSchema: inputSchema,
 			// Handler will be a proxy handler that calls Core Platform
 			// Note: Passthrough auth will be injected at execution time
-			Handler: c.createProxyHandler(t.Name),
+			Handler: c.createProxyHandler(t.Name, t.ID),
 		})
 	}
 
@@ -284,7 +299,7 @@ func (c *Client) FetchRemoteTools(ctx context.Context) ([]tools.ToolDefinition, 
 }
 
 // createProxyHandler creates a handler that proxies to Core Platform
-func (c *Client) createProxyHandler(toolName string) tools.ToolHandler {
+func (c *Client) createProxyHandler(toolName string, toolID string) tools.ToolHandler {
 	return func(ctx context.Context, args json.RawMessage) (interface{}, error) {
 		if !c.connected {
 			return nil, fmt.Errorf("not connected to Core Platform")
@@ -312,7 +327,14 @@ func (c *Client) createProxyHandler(toolName string) tools.ToolHandler {
 			})
 		}
 
-		resp, err := c.doRequest(ctx, "POST", "/api/v1/tools/execute", payload)
+		// Use the correct endpoint with tool ID
+		endpoint := fmt.Sprintf("/api/v1/tools/%s/execute", toolID)
+		c.logger.Debug("Executing tool via REST API", map[string]interface{}{
+			"tool_name": toolName,
+			"tool_id":   toolID,
+			"endpoint":  endpoint,
+		})
+		resp, err := c.doRequest(ctx, "POST", endpoint, payload)
 		if err != nil {
 			return nil, fmt.Errorf("failed to execute remote tool: %w", err)
 		}

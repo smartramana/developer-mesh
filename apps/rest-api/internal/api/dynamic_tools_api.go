@@ -140,6 +140,7 @@ func (api *DynamicToolsAPI) ListTools(c *gin.Context) {
 		for _, tool := range tools {
 			// Create minimal tool representation with basic inputSchema
 			lightTool := map[string]interface{}{
+				"id":           tool.ID, // Include ID for execution
 				"tool_name":    tool.ToolName,
 				"display_name": tool.DisplayName,
 				"description":  tool.DisplayName + " integration",
