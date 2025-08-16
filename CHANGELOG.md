@@ -5,119 +5,131 @@ All notable changes to Developer Mesh will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [0.0.1] - 2025-01-14
+## [0.0.1] - 2025-01-16
 
-### Added
+### Active Functionality
 
-#### Core Platform
-- **MCP Protocol Implementation**: Full Model Context Protocol (MCP) 2025-06-18 support over WebSocket with JSON-RPC 2.0
-  - Standard MCP methods: initialize, tools/list, tools/call, resources/list, resources/read
-  - DevMesh tools exposed as MCP tools (devmesh.* namespace)
-  - Resource subscriptions with devmesh:// URI scheme
-  - Connection mode detection for Claude Code, IDE, and Agent clients
+#### Core Platform - Production Ready
+- **MCP Protocol Server**: Full Model Context Protocol (MCP) 2025-06-18 implementation
+  - WebSocket server on port 8080 with JSON-RPC 2.0
+  - Standard MCP methods working: initialize, initialized, tools/list, tools/call
+  - Connection mode detection for Claude Code, Cursor, Windsurf
+  - Minimal inputSchema generation reducing context by 98.6% (2MB → 30KB)
+  - Generic tool execution without any tool-specific code
+
+- **Edge MCP Client**: Lightweight gateway for AI coding assistants  
+  - Pure proxy architecture - no built-in tools (removed filesystem, git, docker, shell)
+  - Fetches and exposes 41+ GitHub tools from REST API dynamically
+  - Pass-through authentication with encrypted credential forwarding
+  - Stdio mode for Claude Code integration
+  - Zero infrastructure requirements (no database, no Redis)
+
+- **Dynamic Tools System**: Working tool discovery and execution
+  - Automatic OpenAPI specification discovery
+  - 41 GitHub API tools successfully registered and executable
+  - Universal authentication support (API key, OAuth2, bearer token)
+  - Tool health monitoring and status tracking
+  - Circuit breaker pattern for resilient execution
+  - Learning patterns stored for improved discovery
+
+- **REST API Server**: Data management and tool orchestration
+  - Full CRUD operations for tools on port 8081
+  - Tool discovery sessions with progress tracking
+  - Health check endpoints for all tools
+  - Minimal inputSchema generation for MCP compatibility
+  - Multiple tool discovery in single request
+
+#### Infrastructure - Active Components
+- **PostgreSQL Database**: 
+  - Tool configurations and discovery patterns
+  - Agent and model definitions (structure only, not actively used)
+  - Session management for Edge MCP
+  - pgvector extension installed but NOT used
+
+- **Redis Streams**: 
+  - Webhook event queue processing
+  - Consumer groups with DLQ support
+  - Cache for tool specifications
+
+- **Docker Compose**: Full local development environment
+
+### Planned but NOT Implemented
+
+#### Features Built but Inactive
+- **Vector Database / Semantic Search**:
+  - pgvector tables and indexes created but empty
+  - Embedding API endpoints return empty results
+  - No actual embeddings being generated or stored
+  - Semantic search is TODO in code
+  - ~30% of codebase dedicated to unused vector features
+
+- **Multi-Agent Orchestration**:
+  - Agent tables exist but not populated
+  - Task delegation logic not implemented
+  - Workflow execution not connected
+
+- **Embedding Models**:
+  - Model catalog structure exists
+  - Provider integrations coded but not used
+  - Cost tracking tables empty
+  - No actual embedding generation occurring
+
+- **Authentication System** (tables exist, not fully implemented):
+  - Organization and user tables created
+  - JWT token structure defined
+  - Session management tables present
+
+- **Webhook Processing** (partially working):
+  - Redis streams configured and working
+  - GitHub webhooks can be received
+  - Processing logic incomplete
+
+### Working Authentication
+- **Simple API Key Auth**: 
+  - Static API keys in configuration working
+  - Bearer token validation for REST API
+  - Basic auth for tool credentials
+
+### Infrastructure Requirements
+- **Required for Operation**:
+  - PostgreSQL 14+ (for tool configs)
+  - Redis 7+ (for queues and caching)
+  - Go 1.21+ for building
   
-- **Three-Tier Agent Architecture**:
-  - Agent Manifests for defining agent types and capabilities
-  - Agent Configurations for tenant-specific settings
-  - Agent Registrations for tracking running instances
-  - Support for multiple instances of the same agent type
-  - Workload management and assignment strategies
+- **Optional/Unused**:
+  - AWS Bedrock (embedding models not used)
+  - S3 (context storage not implemented)
+  - pgvector extension (installed but not utilized)
 
-- **Dynamic Tools API**:
-  - Zero-code tool integration via OpenAPI discovery
-  - Automatic discovery of tool capabilities from OpenAPI specs
-  - Universal authentication support (OAuth2, API key, bearer token, basic auth)
-  - Per-tool health monitoring with configurable intervals
-  - Tool execution with caching and circuit breakers
-  - User token passthrough for personalized authentication
-  - Learning system that improves discovery over time
+### Testing Coverage
+- REST API endpoints have basic tests
+- MCP protocol has test scripts
+- Dynamic tools have integration tests
+- Edge MCP tested with Claude Code
 
-- **Multi-Tenant Embedding System**:
-  - Global embedding model catalog with 15+ models
-  - Per-tenant model configuration and access control
-  - Support for OpenAI, AWS Bedrock, Google, and Anthropic providers
-  - Cost tracking and usage quotas (monthly/daily limits)
-  - Agent-level model preferences
-  - Automatic quota enforcement and failover
+### Known Issues & Limitations
+- Semantic search returns empty results (TODO in code)
+- Multi-agent orchestration not connected
+- Email service not implemented
+- Context storage to S3 not working
+- Embedding generation disabled
+- Vector database tables empty
+- Organization registration flow incomplete
 
-#### Authentication & Security
-- **Organization Registration System**:
-  - Complete organization signup flow
-  - User registration with email verification
-  - Password management with reset tokens
-  - JWT authentication with refresh tokens
-  - Session management and tracking
-  - User invitation system with role-based access
-  - Auth audit logging for security events
+### What Actually Works
+1. **Tool Discovery**: Point at any OpenAPI spec, it discovers and registers tools
+2. **Tool Execution**: Execute any registered tool via MCP or REST API
+3. **Claude Code Integration**: Edge MCP works seamlessly with Claude Code
+4. **GitHub Tools**: All 41 GitHub API endpoints working through dynamic tools
+5. **Health Monitoring**: Automatic health checks for all registered tools
+6. **Minimal Context**: InputSchema generation keeps token usage low
 
-- **Security Features**:
-  - Per-tenant credential encryption (AES-256-GCM)
-  - API key validation with regex patterns
-  - SQL injection prevention via parameterized queries
-  - Rate limiting per tenant and API endpoint
-  - Webhook signature validation
-
-#### Event Processing
-- **Redis Streams Integration**:
-  - Webhook event processing with consumer groups
-  - Dead letter queue (DLQ) for failed messages
-  - Idempotency support with deduplication
-  - At-least-once delivery guarantee
-  - Automatic retry with exponential backoff
-
-- **Webhook Processing**:
-  - Dynamic webhook handler for all tool types
-  - GitHub webhook support
-  - Generic webhook ingestion
-  - Event persistence and replay capability
-
-#### Infrastructure
-- **Database Schema**:
-  - PostgreSQL with pgvector extension for semantic search
-  - MCP schema namespace for all tables
-  - 27 migration scripts for complete database setup
-  - Support for vector embeddings and similarity search
-
-- **Service Architecture**:
-  - MCP Server (WebSocket, port 8080)
-  - REST API Server (HTTP, port 8081)
-  - Worker Service (Redis Streams consumer)
-  - Go workspace support with shared packages
-
-- **Observability**:
-  - Structured logging with context
-  - Prometheus metrics endpoints
-  - Health check endpoints for all services
-  - Request tracing and correlation IDs
-
-#### Developer Experience
-- **Local Development**:
-  - Docker Compose setup for all services
-  - Make targets for common tasks
-  - Environment-based configuration system
-  - Development auth keys for testing
-
-- **API Documentation**:
-  - Swagger/OpenAPI documentation
-  - MCP protocol reference implementation
-  - REST API endpoints documentation
-
-### Configuration
-- Hierarchical configuration system (base + environment overrides)
-- Environment variable support for all settings
-- Separate configurations for development, staging, and production
-- Redis configuration with Sentinel and Cluster support
-- AWS service configuration (S3, Bedrock)
-
-### Testing
-- Unit tests for core components
-- Integration tests for API endpoints
-- MCP protocol test scripts
-- Mock implementations for development
-
-### Known Limitations
-- Email service not yet implemented (placeholders in code)
-- Some monitoring components are optional
+### What Doesn't Work
+1. **Semantic Search**: Code exists but always returns empty
+2. **Embeddings**: Full infrastructure built but never generates vectors
+3. **Multi-Agent**: Tables exist but no orchestration logic
+4. **Workflows**: Schema defined but execution not implemented
+5. **Context Storage**: S3 integration not connected
 - Embedding API conditionally registered based on provider availability
 
 ## Notes
