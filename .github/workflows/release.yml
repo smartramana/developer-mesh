@@ -67,10 +67,7 @@ jobs:
           
           # If no changelog found, create a generic one
           if [ -z "$CHANGELOG" ]; then
-            CHANGELOG="Release ${VERSION}
-
-Changes in this release:
-- See commit history for details"
+            CHANGELOG="Release ${VERSION}"$'\n'$'\n'"Changes in this release:"$'\n'"- See commit history for details"
           fi
           
           # Save to file for multi-line handling
@@ -168,22 +165,22 @@ Changes in this release:
           fi
           
           # Create a temporary file with the new entry
-          cat > new_entry.md << EOF
-          ## [${VERSION}] - ${DATE}
-          
-          ### Added
-          - New features and improvements
-          
-          ### Changed
-          - Updates and modifications
-          
-          ### Fixed
-          - Bug fixes and corrections
-          
-          ### Security
-          - Security updates if any
-          
-          EOF
+          cat > new_entry.md <<ENTRY_EOF
+## [${VERSION}] - ${DATE}
+
+### Added
+- New features and improvements
+
+### Changed
+- Updates and modifications
+
+### Fixed
+- Bug fixes and corrections
+
+### Security
+- Security updates if any
+
+ENTRY_EOF
           
           # Insert the new entry after the [Unreleased] section
           awk '/^## \[Unreleased\]/ {print; getline; print; print ""; while ((getline line < "new_entry.md") > 0) print line; close("new_entry.md")} {print}' CHANGELOG.md > CHANGELOG.tmp
