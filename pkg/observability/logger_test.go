@@ -18,7 +18,7 @@ func captureOutput(f func()) string {
 	f()
 
 	// Close the writer and restore stderr
-	w.Close()
+	_ = w.Close()
 	os.Stderr = oldStderr
 
 	// Read the captured output
