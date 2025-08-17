@@ -622,13 +622,26 @@ func (a *DynamicToolAdapter) buildRequest(
 			}
 		}
 
-		// Special handling for GitHub-style tools that have a "parameters" map
-		// containing the actual request body parameters
-		if parametersMap, exists := params["parameters"]; exists {
-			if paramsAsMap, ok := parametersMap.(map[string]interface{}); ok {
-				// Use the contents of the "parameters" map as the request body
-				bodyParams = paramsAsMap
-				processedParams["parameters"] = true
+		// Special handling for GitHub-style tools from Edge MCP that have a nested "parameters" map
+		// Only unwrap if we have specific GitHub tool indicators
+		shouldUnwrapParameters := false
+		if a.tool != nil && a.tool.ToolName != "" {
+			// Check if this is a GitHub tool that uses the nested parameters pattern
+			if strings.HasPrefix(a.tool.ToolName, "github_") || strings.Contains(a.tool.ToolName, "_github_") {
+				// Check if we have a "parameters" field that needs unwrapping
+				if _, hasParameters := params["parameters"]; hasParameters {
+					shouldUnwrapParameters = true
+				}
+			}
+		}
+		
+		if shouldUnwrapParameters {
+			if parametersMap, exists := params["parameters"]; exists {
+				if paramsAsMap, ok := parametersMap.(map[string]interface{}); ok {
+					// Use the contents of the "parameters" map as the request body
+					bodyParams = paramsAsMap
+					processedParams["parameters"] = true
+				}
 			}
 		} else {
 			// Check if there's a "body" parameter that represents the entire request body
