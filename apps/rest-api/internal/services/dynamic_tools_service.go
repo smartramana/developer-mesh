@@ -840,6 +840,15 @@ func (s *DynamicToolsService) executeToolActionInternal(ctx context.Context, ten
 	return result, nil
 }
 
+// getKeys returns the keys of a map as a slice
+func getKeys(m map[string]interface{}) []string {
+	keys := make([]string, 0, len(m))
+	for k := range m {
+		keys = append(keys, k)
+	}
+	return keys
+}
+
 // ExecuteToolActionWithPassthrough executes a tool action with passthrough authentication
 func (s *DynamicToolsService) ExecuteToolActionWithPassthrough(
 	ctx context.Context,
@@ -890,6 +899,14 @@ func (s *DynamicToolsService) ExecuteToolActionWithPassthrough(
 	if err != nil {
 		return nil, fmt.Errorf("failed to create tool adapter: %w", err)
 	}
+
+	// Log parameters being passed
+	s.logger.Info("Executing tool action with passthrough", map[string]interface{}{
+		"tool_id":    toolID,
+		"action":     action,
+		"params":     params,
+		"param_keys": getKeys(params),
+	})
 
 	// Execute the action with passthrough auth
 	execResult, err := adapter.ExecuteWithPassthrough(ctx, action, params, passthroughAuth, passthroughConfig)

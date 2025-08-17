@@ -314,7 +314,8 @@ security-check: ## Run security checks
 .PHONY: docker-up
 docker-up: ## Start all services with Docker Compose (rebuilds images)
 	@echo "Building and starting services with Docker Compose..."
-	$(DOCKER_COMPOSE) up -d --build
+	@echo "Using Docker BuildKit for fast parallel builds..."
+	DOCKER_BUILDKIT=1 COMPOSE_DOCKER_CLI_BUILD=1 $(DOCKER_COMPOSE) up -d --build
 
 .PHONY: down
 down: ## Stop all Docker services

@@ -610,13 +610,70 @@ func (a *DynamicToolAdapter) buildRequest(
 
 	// Handle request body
 	var body io.Reader
-	if operation.RequestBody != nil && params["body"] != nil {
-		bodyData, err := json.Marshal(params["body"])
-		if err != nil {
-			return nil, fmt.Errorf("failed to marshal request body: %w", err)
+	if operation.RequestBody != nil {
+		// Collect all parameters that aren't path, query, or header parameters
+		bodyParams := make(map[string]interface{})
+		processedParams := make(map[string]bool)
+
+		// Mark path, query, and header parameters as processed
+		for _, paramRef := range operation.Parameters {
+			if paramRef.Value != nil {
+				processedParams[paramRef.Value.Name] = true
+			}
 		}
-		body = bytes.NewReader(bodyData)
-		headers.Set("Content-Type", "application/json")
+
+		// Special handling for GitHub-style tools that have a "parameters" map
+		// containing the actual request body parameters
+		if parametersMap, exists := params["parameters"]; exists {
+			if paramsAsMap, ok := parametersMap.(map[string]interface{}); ok {
+				// Use the contents of the "parameters" map as the request body
+				bodyParams = paramsAsMap
+				processedParams["parameters"] = true
+			}
+		} else {
+			// Check if there's a "body" parameter that represents the entire request body
+			if bodyParam, exists := params["body"]; exists {
+				// If "body" exists and is a map, it might be the entire request body
+				if bodyMap, ok := bodyParam.(map[string]interface{}); ok {
+					// Use it as the base for bodyParams
+					bodyParams = bodyMap
+					processedParams["body"] = true
+				}
+			}
+
+			// Add all unprocessed parameters to the request body
+			// This handles both the case where "body" is a field in the request body
+			// and the case where parameters should be collected into the request body
+			for key, value := range params {
+				if !processedParams[key] {
+					bodyParams[key] = value
+				}
+			}
+		}
+
+		// Log the parameters being sent in the request body
+		a.logger.Info("Building request body", map[string]interface{}{
+			"method":         method,
+			"path":           path,
+			"params":         params,
+			"bodyParams":     bodyParams,
+			"processedCount": len(bodyParams),
+		})
+
+		// Only create body if we have parameters
+		if len(bodyParams) > 0 {
+			bodyData, err := json.Marshal(bodyParams)
+			if err != nil {
+				return nil, fmt.Errorf("failed to marshal request body: %w", err)
+			}
+			body = bytes.NewReader(bodyData)
+			headers.Set("Content-Type", "application/json")
+
+			// Log the JSON being sent
+			a.logger.Info("Request body JSON", map[string]interface{}{
+				"json": string(bodyData),
+			})
+		}
 	}
 
 	// Create request
