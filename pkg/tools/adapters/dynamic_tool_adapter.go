@@ -634,7 +634,7 @@ func (a *DynamicToolAdapter) buildRequest(
 				}
 			}
 		}
-		
+
 		if shouldUnwrapParameters {
 			if parametersMap, exists := params["parameters"]; exists {
 				if paramsAsMap, ok := parametersMap.(map[string]interface{}); ok {
