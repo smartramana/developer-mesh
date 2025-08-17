@@ -52,41 +52,97 @@ jobs:
           echo "version=${VERSION}" >> $GITHUB_OUTPUT
           echo "Release version: ${VERSION}"
 
-      - name: Extract changelog
-        id: changelog
+      - name: Generate release notes
+        id: release-notes
         run: |
           VERSION="${{ steps.version.outputs.version }}"
           
-          # Extract the changelog section for this version
+          # Create comprehensive release notes
+          cat > release-notes.md << 'EOF'
+          ## 🚀 Developer Mesh v${{ steps.version.outputs.version }}
+          
+          ### 📦 Docker Images
+          
+          All images are available on GitHub Container Registry:
+          
+          ```bash
+          # MCP Server
+          docker pull ghcr.io/${{ github.repository_owner }}/developer-mesh-mcp-server:${{ steps.version.outputs.version }}
+          
+          # REST API
+          docker pull ghcr.io/${{ github.repository_owner }}/developer-mesh-rest-api:${{ steps.version.outputs.version }}
+          
+          # Worker
+          docker pull ghcr.io/${{ github.repository_owner }}/developer-mesh-worker:${{ steps.version.outputs.version }}
+          ```
+          
+          ### 🐳 Quick Start with Docker Compose
+          
+          ```bash
+          # Clone the repository
+          git clone https://github.com/${{ github.repository }}.git
+          cd developer-mesh
+          
+          # Start all services
+          docker-compose -f docker-compose.local.yml up -d
+          ```
+          
+          ### ✨ Key Features
+          
+          - **MCP Server**: WebSocket server for AI agent communication via Model Context Protocol
+          - **REST API**: Dynamic tools integration and management 
+          - **Worker**: Redis-based webhook and event processing
+          - **Edge MCP**: Lightweight gateway for Claude Code integration
+          - **Multi-tenant**: Complete tenant isolation and session management
+          - **Security**: JWT authentication, encrypted credentials, rate limiting
+          
+          ### 🔧 Configuration
+          
+          Default endpoints:
+          - MCP WebSocket: `ws://localhost:8080/ws`
+          - REST API: `http://localhost:8081`
+          - Health checks: `/health` on each service
+          
+          ### 📚 Documentation
+          
+          - [Getting Started](https://github.com/${{ github.repository }}/blob/main/README.md)
+          - [API Documentation](https://github.com/${{ github.repository }}/blob/main/docs/API.md)
+          - [MCP Protocol Guide](https://github.com/${{ github.repository }}/blob/main/docs/MCP.md)
+          
+          ### 🔄 What's Changed
+          
+          EOF
+          
+          # Try to extract changelog for this version
           CHANGELOG=$(awk -v ver="## \\[${VERSION}\\]" '
             BEGIN { found = 0 }
             $0 ~ ver { found = 1; next }
             found && /^## \[/ { exit }
             found { print }
-          ' CHANGELOG.md)
+          ' CHANGELOG.md 2>/dev/null || echo "")
           
-          # If no changelog found, create a generic one
-          if [ -z "$CHANGELOG" ]; then
-            CHANGELOG="Release ${VERSION}"$'\n'$'\n'"Changes in this release:"$'\n'"- See commit history for details"
+          if [ -n "$CHANGELOG" ]; then
+            echo "$CHANGELOG" >> release-notes.md
+          else
+            # Generate from recent commits if no changelog
+            echo "### Recent Changes" >> release-notes.md
+            echo "" >> release-notes.md
+            git log --pretty=format:"- %s" -10 >> release-notes.md || echo "- See commit history for details" >> release-notes.md
           fi
           
-          # Save to file for multi-line handling
-          echo "$CHANGELOG" > changelog_body.md
-          
-          # Set output
-          echo "changelog<<EOF" >> $GITHUB_OUTPUT
-          echo "$CHANGELOG" >> $GITHUB_OUTPUT
-          echo "EOF" >> $GITHUB_OUTPUT
+          echo "" >> release-notes.md
+          echo "### 📝 Full Changelog" >> release-notes.md
+          echo "https://github.com/${{ github.repository }}/compare/...v${{ steps.version.outputs.version }}" >> release-notes.md
 
       - name: Create Release
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ steps.version.outputs.version }}
-          name: Release ${{ steps.version.outputs.version }}
-          body_path: changelog_body.md
+          name: Release v${{ steps.version.outputs.version }}
+          body_path: release-notes.md
           draft: false
           prerelease: ${{ contains(steps.version.outputs.version, '-') }}
-          generate_release_notes: true
+          generate_release_notes: false
 
   build-and-push:
     name: Build and Push Docker Images
