@@ -67,13 +67,10 @@ jobs:
           
           # If no changelog found, create a generic one
           if [ -z "$CHANGELOG" ]; then
-            CHANGELOG=$(cat <<EOF
-Release ${VERSION}
+            CHANGELOG="Release ${VERSION}
 
 Changes in this release:
-- See commit history for details
-EOF
-            )
+- See commit history for details"
           fi
           
           # Save to file for multi-line handling
