@@ -13,7 +13,6 @@ on:
         description: 'Release version (e.g., 1.0.0)'
         required: true
         type: string
-        pattern: '^[0-9]+\.[0-9]+\.[0-9]+(-[a-zA-Z0-9\.\-]+)?$'
 
 env:
   GO_VERSION: '1.24.4'
@@ -68,7 +67,7 @@ jobs:
           
           # If no changelog found, create a generic one
           if [ -z "$CHANGELOG" ]; then
-            CHANGELOG=$(cat <<'EOF'
+            CHANGELOG=$(cat <<EOF
 Release ${VERSION}
 
 Changes in this release:
