@@ -165,22 +165,22 @@ jobs:
           fi
           
           # Create a temporary file with the new entry
-          cat > new_entry.md <<ENTRY_EOF
-## [${VERSION}] - ${DATE}
-
-### Added
-- New features and improvements
-
-### Changed
-- Updates and modifications
-
-### Fixed
-- Bug fixes and corrections
-
-### Security
-- Security updates if any
-
-ENTRY_EOF
+          {
+            echo "## [${VERSION}] - ${DATE}"
+            echo ""
+            echo "### Added"
+            echo "- New features and improvements"
+            echo ""
+            echo "### Changed"
+            echo "- Updates and modifications"
+            echo ""
+            echo "### Fixed"
+            echo "- Bug fixes and corrections"
+            echo ""
+            echo "### Security"
+            echo "- Security updates if any"
+            echo ""
+          } > new_entry.md
           
           # Insert the new entry after the [Unreleased] section
           awk '/^## \[Unreleased\]/ {print; getline; print; print ""; while ((getline line < "new_entry.md") > 0) print line; close("new_entry.md")} {print}' CHANGELOG.md > CHANGELOG.tmp
