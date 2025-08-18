@@ -263,8 +263,39 @@ func (r *OperationResolver) scoreOperation(info *ResolvedOperation, context map[
 
 	// Check if path contains parameter names from context
 	for param := range context {
+		// Skip internal parameters
+		if strings.HasPrefix(param, "__") {
+			continue
+		}
+		
+		// Check for nested parameters (e.g., parameters.ref)
+		if paramsMap, ok := context["parameters"].(map[string]interface{}); ok {
+			for nestedParam := range paramsMap {
+				// CRITICAL: For Git operations, strongly prefer operations that match the parameter type
+				// If we have "ref" parameter, we want create-ref, not create-commit or create-blob
+				if nestedParam == "ref" && strings.Contains(strings.ToLower(info.OperationID), "ref") {
+					score += 100 // Very high score for ref parameter matching ref operation
+					r.logger.Debug("Boosting score for ref parameter match", map[string]interface{}{
+						"operation_id": info.OperationID,
+						"boost": 100,
+					})
+				}
+				if nestedParam == "tree" && strings.Contains(strings.ToLower(info.OperationID), "tree") {
+					score += 100
+				}
+				if nestedParam == "content" && strings.Contains(strings.ToLower(info.OperationID), "blob") {
+					score += 100
+				}
+			}
+		}
+		
+		// Direct parameter matching
+		if param == "ref" && strings.Contains(strings.ToLower(info.OperationID), "ref") {
+			score += 100 // Very high score for ref parameter matching ref operation
+		}
+		
 		if strings.Contains(info.Path, "{"+param+"}") {
-			score += 10 // High score for exact parameter match
+			score += 10 // High score for exact parameter match in path
 		}
 		if strings.Contains(strings.ToLower(info.OperationID), param) {
 			score += 5 // Medium score for operation ID containing param
@@ -280,6 +311,9 @@ func (r *OperationResolver) scoreOperation(info *ResolvedOperation, context map[
 	}
 	if strings.Contains(info.Path, "/pulls/") && context["pull_number"] != nil {
 		score += 8
+	}
+	if strings.Contains(info.Path, "/git/refs") && context["ref"] != nil {
+		score += 50 // High score for git refs endpoint when ref parameter present
 	}
 
 	return score
