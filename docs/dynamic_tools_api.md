@@ -171,7 +171,18 @@ Lists all available actions for a tool (generated from OpenAPI operations).
 POST /api/v1/tools/{toolId}/execute/{action}
 ```
 
-Executes a tool action.
+Executes a tool action. The system intelligently resolves action names to OpenAPI operation IDs.
+
+**Action Resolution**: The system can handle various action name formats:
+- Simple action names: `"get"`, `"list"`, `"create"`
+- Full operation IDs: `"repos/get"`, `"issues/list"`
+- Alternative formats: `"repos-get"`, `"repos_get"`
+
+The action resolver uses multiple strategies:
+1. **Direct matching** - Exact operation ID matches
+2. **Contextual resolution** - Uses parameters to infer the resource type
+3. **Simple verb extraction** - Matches common action verbs
+4. **Fuzzy matching** - Handles format variations (slash/hyphen/underscore)
 
 Request Headers (optional for passthrough authentication):
 - `X-User-Token`: User's personal access token for the tool
@@ -188,6 +199,8 @@ Request Body:
   }
 }
 ```
+
+The parameters help the system determine the correct operation when multiple matches exist. For example, if you call action `"get"` with `"repo"` parameter, it resolves to `"repos/get"`.
 
 ### Credentials
 
@@ -470,6 +483,27 @@ If you're migrating from the old hardcoded tool system:
 - Check if authentication is required to access the spec
 - Try providing hints for discovery paths
 - Verify network connectivity to the tool
+
+### Action Execution Errors
+
+#### "Operation not found" errors
+The system now includes intelligent operation resolution that handles:
+- Simple action names (`get`, `list`, `create`)
+- Full operation IDs (`repos/get`, `issues/list`)
+- Various formats (`repos-get`, `repos_get`, `repos/get`)
+
+If you still get "operation not found":
+1. Check available actions: `GET /api/v1/tools/{toolId}/actions`
+2. Verify the OpenAPI spec includes operation IDs
+3. Ensure parameters match the operation requirements
+4. Try using the full operation ID from the OpenAPI spec
+
+#### Parameter-based resolution
+The system uses parameters to disambiguate actions:
+- `owner`/`repo` parameters → repository operations
+- `issue_number` parameter → issue operations
+- `pull_number` parameter → pull request operations
+- `user`/`username` parameters → user operations
 
 ### Authentication Errors
 - Verify credentials are correct

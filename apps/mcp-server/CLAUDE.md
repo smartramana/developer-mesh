@@ -213,6 +213,10 @@ wscat -c ws://localhost:8080/ws
 - Check tool health status
 - Verify credentials are valid
 - Check network connectivity
+- **Operation not found**: System intelligently resolves action names
+  - Simple verbs (`get`) → Full operation IDs (`repos/get`)
+  - Uses parameters for context (e.g., `repo` → repository operations)
+  - Supports multiple formats: `repos/get`, `repos-get`, `repos_get`
 
 ## Security Considerations
 - All WebSocket connections require authentication

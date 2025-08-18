@@ -333,6 +333,11 @@ DevMesh fully implements the MCP 2025-06-18 specification:
 - **Auth**: Universal authentication support
 - **Health**: Automatic health monitoring
 - **Testing**: Use mockserver for tool testing
+- **Operation Resolution**: Intelligent mapping of action names to OpenAPI operations
+  - Handles simple verbs (`get`, `list`, `create`) and full operation IDs
+  - Context-aware resolution using provided parameters
+  - Supports multiple naming conventions (slash/hyphen/underscore)
+  - Automatic disambiguation when multiple operations match
 
 ## Edge MCP Session Management
 - **Session Lifecycle**: Create, refresh, validate, terminate sessions
@@ -512,4 +517,34 @@ redis-cli XGROUP CREATE webhook_events webhook_workers 0
 
 # Kill stuck processes
 pkill -f "mcp-server|rest-api|worker"
+```
+
+## 🔧 Technical Implementation Details
+
+### Operation Resolver (`pkg/tools/operation_resolver.go`)
+The OperationResolver provides intelligent mapping between simple action names and OpenAPI operation IDs:
+
+**Resolution Strategies** (applied in order):
+1. **Direct Lookup** - Exact match for operation ID
+2. **Contextual Resolution** - Uses parameters to infer resource type:
+   - `owner`/`repo` → `repos/*` operations
+   - `issue_number` → `issues/*` operations
+   - `pull_number` → `pulls/*` operations
+3. **Simple Name Mapping** - Extracts action verbs (`get`, `list`, `create`)
+4. **Fuzzy Matching** - Handles format variations (`/`, `-`, `_`)
+5. **Disambiguation Scoring** - Selects best match when multiple candidates exist
+
+**Integration Points**:
+- `DynamicToolAdapter`: Builds mappings when OpenAPI spec is loaded
+- `findOperationWithContext`: Passes parameters as context for resolution
+- `ExecuteAction`: Uses resolved operation for API calls
+
+**Example Resolution Flow**:
+```
+Input: action="get", params={"owner": "org", "repo": "myrepo"}
+↓ Context detection: has "repo" parameter
+↓ Resource inference: "repos"
+↓ Candidate generation: ["repos/get", "repos-get", "repos_get"]
+↓ Operation lookup: found "repos/get"
+Output: OpenAPI operation for GET /repos/{owner}/{repo}
 ```

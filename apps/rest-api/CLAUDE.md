@@ -105,6 +105,15 @@ go test ./internal/services/...
 - Check discovery patterns table
 - Review auth configuration
 
+### Tool Action Execution
+- **"Operation not found"**: System now intelligently resolves action names
+  - Simple verbs (`get`, `list`) are mapped to full operation IDs
+  - Uses parameters to determine correct operation (e.g., `repo` → `repos/get`)
+  - Supports multiple formats: `repos/get`, `repos-get`, `repos_get`
+- **Parameter mapping**: For GitHub tools, parameters may be nested under `"parameters"`
+  - System automatically unwraps based on tool provider
+  - Check logs for parameter structure being sent
+
 ### Webhook Processing
 - Monitor Redis stream lag
 - Check consumer group status

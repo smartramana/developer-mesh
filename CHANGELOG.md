@@ -5,6 +5,20 @@ All notable changes to Developer Mesh will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+- **Intelligent Operation Resolution**: New OperationResolver for mapping simple action names to OpenAPI operation IDs
+  - Handles simple verbs (`get`, `list`, `create`) automatically
+  - Context-aware resolution using provided parameters
+  - Supports multiple naming conventions (slash/hyphen/underscore)
+  - Disambiguation scoring when multiple operations match
+  - Comprehensive test coverage for edge cases
+
+### Fixed
+- Fixed "operation not found" errors when executing dynamic tools via MCP
+- Improved parameter mapping for GitHub and other OpenAPI-based tools
+
 ## [0.0.1] - 2025-01-16
 
 ### Active Functionality
