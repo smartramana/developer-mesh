@@ -566,11 +566,22 @@ func (a *DynamicToolAdapter) findOperation(spec *openapi3.T, actionID string, co
 
 		// Try to resolve the operation
 		resolvedOp, err := a.operationResolver.ResolveOperation(actionID, context)
-		a.logger.Info("OperationResolver result", map[string]interface{}{
-			"action_id":    actionID,
-			"resolved":     resolvedOp != nil,
-			"error":        err,
-		})
+		if resolvedOp != nil {
+			a.logger.Info("OperationResolver result", map[string]interface{}{
+				"action_id":     actionID,
+				"resolved":      true,
+				"operation_id":  resolvedOp.OperationID,
+				"path":          resolvedOp.Path,
+				"method":        resolvedOp.Method,
+				"error":         err,
+			})
+		} else {
+			a.logger.Info("OperationResolver result", map[string]interface{}{
+				"action_id":    actionID,
+				"resolved":     false,
+				"error":        err,
+			})
+		}
 		if err == nil && resolvedOp != nil {
 			// Find the actual operation in the spec
 			if spec.Paths != nil {
