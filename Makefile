@@ -101,8 +101,12 @@ dev-native: dev-setup ## Setup for running services locally (without Docker)
 	@echo "Run: brew services start postgresql redis"
 	@echo "Then run each service: make run-mcp-server, run-rest-api, run-worker"
 
+.PHONY: mcp-check
+mcp-check: ## Reminder to use MCP tools instead of CLI
+	@./scripts/mcp-validation-check.sh
+
 .PHONY: pre-commit
-pre-commit: fmt lint test-coverage security-check ## Run all pre-commit checks
+pre-commit: mcp-check fmt lint test-coverage security-check ## Run all pre-commit checks
 	@echo "Checking test coverage..."
 	@coverage=$$(go tool cover -func=coverage.out | grep total | awk '{print $$3}' | sed 's/%//'); \
 	if [ $$(echo "$$coverage < 85" | bc) -eq 1 ]; then \

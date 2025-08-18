@@ -1,5 +1,37 @@
 # Developer Mesh - AI Agent Orchestration Platform
 
+## 🚨 CRITICAL: MCP-First Tool Usage
+
+### MANDATORY Tool Selection Rules
+1. **CHECK MCP TOOLS FIRST**: Before ANY operation, check available MCP tools
+2. **USE MCP WHEN AVAILABLE**: If an MCP tool exists, you MUST use it
+3. **NO CLI BYPASSING**: Do NOT use `git`, `gh`, `curl`, or other CLI tools if MCP equivalent exists
+
+### MCP Tool Mapping (ALWAYS USE THESE)
+| Operation | MCP Tool | NOT This |
+|-----------|----------|----------|
+| GitHub tags/commits | `mcp__devmesh__github_git` | `git tag`, `git commit` |
+| GitHub releases | `mcp__devmesh__github_repos` | `gh release create` |
+| GitHub issues | `mcp__devmesh__github_issues` | `gh issue` |
+| GitHub PRs | `mcp__devmesh__github_pulls` | `gh pr` |
+| GitHub actions | `mcp__devmesh__github_actions` | `gh workflow` |
+| Any GitHub operation | `mcp__devmesh__github_*` | `gh` CLI |
+| API calls | MCP API tools | `curl`, `WebFetch` |
+| Database operations | MCP database tools | `psql` via Bash |
+
+### Pre-Operation Checklist
+Before EVERY operation:
+- [ ] Have I checked `tools/list` for available MCP tools?
+- [ ] Is there an `mcp__devmesh__*` tool for this?
+- [ ] Am I defaulting to CLI out of habit?
+- [ ] Have I justified why I'm NOT using an MCP tool (if applicable)?
+
+### Session Start Protocol
+1. Run `tools/list` immediately
+2. Note all `mcp__devmesh__*` tools available
+3. Refresh tool list every 10 operations
+4. After any reconnect, check tools again
+
 ## Project Overview
 Developer Mesh is a production-ready platform for orchestrating multiple AI agents in DevOps workflows. It consists of:
 - **MCP Server**: WebSocket server for real-time agent communication
