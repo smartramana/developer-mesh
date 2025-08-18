@@ -23,13 +23,14 @@ import (
 
 // DynamicToolAdapter handles execution of dynamically discovered tools
 type DynamicToolAdapter struct {
-	tool          *models.DynamicTool
-	specCache     repository.OpenAPICacheRepository
-	httpClient    *http.Client
-	authenticator *tools.DynamicAuthenticator
-	encryptionSvc *security.EncryptionService
-	logger        observability.Logger
-	router        routers.Router
+	tool              *models.DynamicTool
+	specCache         repository.OpenAPICacheRepository
+	httpClient        *http.Client
+	authenticator     *tools.DynamicAuthenticator
+	encryptionSvc     *security.EncryptionService
+	logger            observability.Logger
+	router            routers.Router
+	operationResolver *tools.OperationResolver
 }
 
 // NewDynamicToolAdapter creates a new adapter for a dynamic tool
@@ -50,12 +51,13 @@ func NewDynamicToolAdapter(
 	// }
 
 	return &DynamicToolAdapter{
-		tool:          tool,
-		specCache:     specCache,
-		httpClient:    httpClient,
-		authenticator: tools.NewDynamicAuthenticator(),
-		encryptionSvc: encryptionSvc,
-		logger:        logger,
+		tool:              tool,
+		specCache:         specCache,
+		httpClient:        httpClient,
+		authenticator:     tools.NewDynamicAuthenticator(),
+		encryptionSvc:     encryptionSvc,
+		logger:            logger,
+		operationResolver: tools.NewOperationResolver(logger),
 	}, nil
 }
 
@@ -149,8 +151,8 @@ func (a *DynamicToolAdapter) ExecuteAction(ctx context.Context, actionID string,
 		return nil, fmt.Errorf("failed to get OpenAPI spec: %w", err)
 	}
 
-	// Find the operation
-	operation, path, method, err := a.findOperation(spec, actionID)
+	// Find the operation with parameter context for better resolution
+	operation, path, method, err := a.findOperationWithContext(spec, actionID, params)
 	if err != nil {
 		return nil, err
 	}
@@ -228,8 +230,8 @@ func (a *DynamicToolAdapter) ExecuteWithPassthrough(
 		return nil, fmt.Errorf("failed to get OpenAPI spec: %w", err)
 	}
 
-	// Find the operation
-	operation, path, method, err := a.findOperation(spec, actionID)
+	// Find the operation with parameter context for better resolution
+	operation, path, method, err := a.findOperationWithContext(spec, actionID, params)
 	if err != nil {
 		return nil, err
 	}
@@ -453,6 +455,15 @@ func (a *DynamicToolAdapter) getOpenAPISpec(ctx context.Context) (*openapi3.T, e
 			"paths_count": len(spec.Paths.Map()),
 		})
 
+		// Build operation mappings for intelligent resolution
+		if a.operationResolver != nil {
+			if err := a.operationResolver.BuildOperationMappings(spec, a.tool.ToolName); err != nil {
+				a.logger.Warn("Failed to build operation mappings", map[string]interface{}{
+					"error": err.Error(),
+				})
+			}
+		}
+
 		// Create router for operation lookup
 		router, err := gorillamux.NewRouter(spec)
 		if err == nil {
@@ -473,14 +484,48 @@ func (a *DynamicToolAdapter) getOpenAPISpec(ctx context.Context) (*openapi3.T, e
 	return nil, fmt.Errorf("failed to fetch OpenAPI spec after %d attempts: %w", maxRetries, lastErr)
 }
 
+// findOperationWithContext finds an operation by ID or path/method with parameter context
+func (a *DynamicToolAdapter) findOperationWithContext(spec *openapi3.T, actionID string, params map[string]interface{}) (*openapi3.Operation, string, string, error) {
+	return a.findOperation(spec, actionID, params)
+}
+
 // findOperation finds an operation by ID or path/method
-func (a *DynamicToolAdapter) findOperation(spec *openapi3.T, actionID string) (*openapi3.Operation, string, string, error) {
+func (a *DynamicToolAdapter) findOperation(spec *openapi3.T, actionID string, context map[string]interface{}) (*openapi3.Operation, string, string, error) {
 	// Log the search attempt
 	a.logger.Debug("Searching for operation", map[string]interface{}{
 		"action_id": actionID,
 		"tool_name": a.tool.ToolName,
 	})
 
+	// Use the OperationResolver for intelligent operation resolution
+	if a.operationResolver != nil {
+		// Use the provided context (parameters) for better resolution
+		// This helps the resolver understand what operation is being requested
+		// based on the parameters provided (e.g., "owner", "repo" suggests GitHub operations)
+
+		// Try to resolve the operation
+		resolvedOp, err := a.operationResolver.ResolveOperation(actionID, context)
+		if err == nil && resolvedOp != nil {
+			// Find the actual operation in the spec
+			if spec.Paths != nil {
+				for path, pathItem := range spec.Paths.Map() {
+					for method, operation := range pathItem.Operations() {
+						if operation != nil && operation.OperationID == resolvedOp.OperationID {
+							a.logger.Debug("Found operation via resolver", map[string]interface{}{
+								"action_id":    actionID,
+								"operation_id": resolvedOp.OperationID,
+								"path":         path,
+								"method":       method,
+							})
+							return operation, path, method, nil
+						}
+					}
+				}
+			}
+		}
+	}
+
+	// Fallback to basic matching for backward compatibility
 	// Normalize action ID - handle both slash and hyphen formats
 	// e.g., "repos/get-content" or "repos-get-content"
 	normalizedID := strings.ReplaceAll(actionID, "/", "-")
