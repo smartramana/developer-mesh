@@ -24,13 +24,13 @@ func TestOperationResolver(t *testing.T) {
 		Summary:     "Get a repository",
 		Tags:        []string{"repos"},
 	}
-	
+
 	issuesListOp := &openapi3.Operation{
 		OperationID: "issues/list",
 		Summary:     "List issues",
 		Tags:        []string{"issues"},
 	}
-	
+
 	pullsCreateOp := &openapi3.Operation{
 		OperationID: "pulls/create",
 		Summary:     "Create a pull request",
@@ -41,11 +41,11 @@ func TestOperationResolver(t *testing.T) {
 	spec.Paths.Set("/repos/{owner}/{repo}", &openapi3.PathItem{
 		Get: reposGetOp,
 	})
-	
+
 	spec.Paths.Set("/repos/{owner}/{repo}/issues", &openapi3.PathItem{
 		Get: issuesListOp,
 	})
-	
+
 	spec.Paths.Set("/repos/{owner}/{repo}/pulls", &openapi3.PathItem{
 		Post: pullsCreateOp,
 	})
@@ -60,7 +60,7 @@ func TestOperationResolver(t *testing.T) {
 			"owner": "octocat",
 			"repo":  "hello-world",
 		}
-		
+
 		resolved, err := resolver.ResolveOperation("get", context)
 		assert.NoError(t, err)
 		assert.NotNil(t, resolved)
@@ -75,7 +75,7 @@ func TestOperationResolver(t *testing.T) {
 			"repo":         "hello-world",
 			"issue_number": 123,
 		}
-		
+
 		resolved, err := resolver.ResolveOperation("list", context)
 		assert.NoError(t, err)
 		assert.NotNil(t, resolved)
@@ -106,7 +106,7 @@ func TestOperationResolver(t *testing.T) {
 			"repo":        "hello-world",
 			"pull_number": 456,
 		}
-		
+
 		resolved, err := resolver.ResolveOperation("create", context)
 		assert.NoError(t, err)
 		assert.NotNil(t, resolved)
@@ -128,11 +128,11 @@ func TestOperationResolver(t *testing.T) {
 			Summary:     "Get a user",
 			Tags:        []string{"users"},
 		}
-		
+
 		spec.Paths.Set("/users/{username}", &openapi3.PathItem{
 			Get: usersGetOp,
 		})
-		
+
 		// Rebuild mappings
 		err := resolver.BuildOperationMappings(spec, "github")
 		require.NoError(t, err)
@@ -142,7 +142,7 @@ func TestOperationResolver(t *testing.T) {
 			"owner": "octocat",
 			"repo":  "hello-world",
 		}
-		
+
 		resolved, err := resolver.ResolveOperation("get", context)
 		assert.NoError(t, err)
 		assert.NotNil(t, resolved)
@@ -152,7 +152,7 @@ func TestOperationResolver(t *testing.T) {
 		userContext := map[string]interface{}{
 			"username": "octocat",
 		}
-		
+
 		resolved, err = resolver.ResolveOperation("get", userContext)
 		assert.NoError(t, err)
 		assert.NotNil(t, resolved)
@@ -184,10 +184,10 @@ func TestOperationResolverEdgeCases(t *testing.T) {
 		spec := &openapi3.T{
 			Paths: openapi3.NewPaths(),
 		}
-		
+
 		err := resolver.BuildOperationMappings(spec, "test")
 		assert.NoError(t, err)
-		
+
 		resolved, err := resolver.ResolveOperation("get", nil)
 		assert.Error(t, err)
 		assert.Nil(t, resolved)
@@ -203,17 +203,17 @@ func TestOperationResolverEdgeCases(t *testing.T) {
 		spec := &openapi3.T{
 			Paths: openapi3.NewPaths(),
 		}
-		
+
 		// Add operation without ID
 		spec.Paths.Set("/test", &openapi3.PathItem{
 			Get: &openapi3.Operation{
 				Summary: "Test operation",
 			},
 		})
-		
+
 		err := resolver.BuildOperationMappings(spec, "test")
 		assert.NoError(t, err)
-		
+
 		// The resolver can still work with operations without IDs
 		// It will create a synthetic ID based on method and path
 		resolved, err := resolver.ResolveOperation("get_test", nil)

@@ -208,9 +208,35 @@ func (r *OperationResolver) disambiguateWithContext(candidates []string, context
 	bestScore := 0
 	var bestMatch *ResolvedOperation
 
+	// Extract resource type from context if available
+	resourceType := ""
+	if rt, ok := context["__resource_type"].(string); ok {
+		resourceType = rt
+	}
+
 	for _, candidate := range candidates {
 		if info, ok := r.operationCache[candidate]; ok {
 			score := r.scoreOperation(info, context)
+
+			// CRITICAL: Prioritize operations that start with the primary resource type
+			// This prevents "repos/list-pull-requests-associated-with-commit" from being chosen
+			// over "pulls/list-for-repo" when tool is "github_pulls"
+			if resourceType != "" {
+				// Check if the operation ID starts with the resource type
+				if strings.HasPrefix(strings.ToLower(candidate), resourceType+"/") ||
+					strings.HasPrefix(strings.ToLower(candidate), resourceType+"-") {
+					score += 1000 // Very heavy weight for matching resource type
+					r.logger.Debug("Boosting score for resource type match", map[string]interface{}{
+						"candidate":     candidate,
+						"resource_type": resourceType,
+						"boost":         1000,
+					})
+				} else if strings.Contains(strings.ToLower(candidate), "/"+resourceType+"/") {
+					// Secondary match - operation contains resource in path
+					score += 50
+				}
+			}
+
 			if score > bestScore {
 				bestScore = score
 				bestMatch = info
@@ -220,9 +246,10 @@ func (r *OperationResolver) disambiguateWithContext(candidates []string, context
 
 	if bestMatch != nil && bestScore > 0 {
 		r.logger.Debug("Disambiguated operation with context", map[string]interface{}{
-			"candidates": candidates,
-			"selected":   bestMatch.OperationID,
-			"score":      bestScore,
+			"candidates":    candidates,
+			"selected":      bestMatch.OperationID,
+			"score":         bestScore,
+			"resource_type": resourceType,
 		})
 		return bestMatch
 	}
@@ -341,6 +368,7 @@ func (r *OperationResolver) extractSimpleName(operationID string) string {
 
 	// Handle different formats
 	// "repos/get" -> "get"
+	// "pulls/list-for-repo" -> "list"
 	// "get-repos" -> "get"
 	// "getRepos" -> "get"
 	// "repos-get-content" -> "get-content"

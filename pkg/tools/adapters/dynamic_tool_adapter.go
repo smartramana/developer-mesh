@@ -32,7 +32,9 @@ type DynamicToolAdapter struct {
 	router               routers.Router
 	operationResolver    *tools.OperationResolver
 	permissionDiscoverer *tools.PermissionDiscoverer
-	allowedOperations    map[string]bool // Cache of allowed operations based on permissions
+	resourceResolver     *tools.ResourceScopeResolver
+	allowedOperations    map[string]bool      // Cache of allowed operations based on permissions
+	resourceScope        *tools.ResourceScope // Resource scope for this tool
 }
 
 // NewDynamicToolAdapter creates a new adapter for a dynamic tool
@@ -52,6 +54,12 @@ func NewDynamicToolAdapter(
 	//     Wrap client with retry logic
 	// }
 
+	// Create resource scope resolver
+	resourceResolver := tools.NewResourceScopeResolver(logger)
+
+	// Extract resource scope from tool name
+	resourceScope := resourceResolver.ExtractResourceScopeFromToolName(tool.ToolName)
+
 	return &DynamicToolAdapter{
 		tool:                 tool,
 		specCache:            specCache,
@@ -61,7 +69,9 @@ func NewDynamicToolAdapter(
 		logger:               logger,
 		operationResolver:    tools.NewOperationResolver(logger),
 		permissionDiscoverer: tools.NewPermissionDiscoverer(logger),
+		resourceResolver:     resourceResolver,
 		allowedOperations:    make(map[string]bool),
+		resourceScope:        resourceScope,
 	}, nil
 }
 
@@ -73,87 +83,106 @@ func (a *DynamicToolAdapter) ListActions(ctx context.Context) ([]models.ToolActi
 		return nil, fmt.Errorf("failed to get OpenAPI spec: %w", err)
 	}
 
+	// STEP 1: Apply resource scope filtering FIRST
+	// This ensures each tool only sees operations relevant to its resource type
+	var operationsToConsider map[string]*openapi3.Operation
+	if a.resourceResolver != nil && a.resourceScope != nil {
+		operationsToConsider = a.resourceResolver.FilterOperationsByScope(spec, a.resourceScope)
+		a.logger.Info("Applied resource scope filtering", map[string]interface{}{
+			"tool_name":      a.tool.ToolName,
+			"resource_type":  a.resourceScope.ResourceType,
+			"filtered_count": len(operationsToConsider),
+		})
+	} else {
+		// No resource scope, get all operations
+		operationsToConsider = a.getAllOperationsFromSpec(spec)
+	}
+
 	var actions []models.ToolAction
 
-	// Iterate through all paths and operations
-	if spec.Paths != nil {
-		for path, pathItem := range spec.Paths.Map() {
-			for method, operation := range pathItem.Operations() {
-				if operation == nil {
-					continue
-				}
+	// Iterate through resource-scoped operations
+	for opID, operation := range operationsToConsider {
+		// Find the path and method for this operation
+		path, method := a.findPathAndMethod(spec, operation)
+		if path == "" || method == "" {
+			continue
+		}
 
-				// Create action ID
-				actionID := operation.OperationID
-				if actionID == "" {
-					actionID = fmt.Sprintf("%s_%s", strings.ToLower(method), strings.ReplaceAll(path, "/", "_"))
-				}
+		// Create action ID - use simplified name if resource scope is defined
+		actionID := opID
+		if a.resourceScope != nil && a.resourceResolver != nil {
+			// Use simplified action name for better AI agent usability
+			actionID = a.resourceResolver.GetSimplifiedActionName(operation, a.resourceScope.ResourceType)
+		}
 
-				// Check if this operation is allowed based on discovered permissions
-				// If we have permission info, filter. Otherwise, include all.
-				if len(a.allowedOperations) > 0 {
-					allowed, exists := a.allowedOperations[actionID]
-					if exists && !allowed {
-						a.logger.Debug("Filtering out operation due to permissions", map[string]interface{}{
-							"operation_id": actionID,
-							"path":         path,
-							"method":       method,
-						})
-						continue
-					}
-				}
-
-				// Extract parameters
-				var parameters []models.ActionParameter
-
-				// Path parameters
-				for _, param := range pathItem.Parameters {
-					if param.Value != nil {
-						parameters = append(parameters, a.convertParameter(param.Value))
-					}
-				}
-
-				// Operation parameters
-				for _, param := range operation.Parameters {
-					if param.Value != nil {
-						parameters = append(parameters, a.convertParameter(param.Value))
-					}
-				}
-
-				// Request body as parameter
-				if operation.RequestBody != nil && operation.RequestBody.Value != nil {
-					if content, ok := operation.RequestBody.Value.Content["application/json"]; ok {
-						param := models.ActionParameter{
-							Name:        "body",
-							In:          "body",
-							Required:    operation.RequestBody.Value.Required,
-							Description: operation.RequestBody.Value.Description,
-							Type:        "object",
-						}
-						if content.Schema != nil && content.Schema.Value != nil {
-							param.Description = content.Schema.Value.Description
-						}
-						parameters = append(parameters, param)
-					}
-				}
-
-				// Create action
-				action := models.ToolAction{
-					ID:          actionID,
-					Name:        operation.Summary,
-					Description: operation.Description,
-					Method:      method,
-					Path:        path,
-					Parameters:  parameters,
-				}
-
-				if action.Name == "" {
-					action.Name = actionID
-				}
-
-				actions = append(actions, action)
+		// STEP 2: Check if this operation is allowed based on discovered permissions
+		// If we have permission info, filter. Otherwise, include all.
+		if len(a.allowedOperations) > 0 {
+			allowed, exists := a.allowedOperations[opID]
+			if exists && !allowed {
+				a.logger.Debug("Filtering out operation due to permissions", map[string]interface{}{
+					"operation_id": opID,
+					"action_id":    actionID,
+					"path":         path,
+					"method":       method,
+				})
+				continue
 			}
 		}
+
+		// Extract parameters
+		var parameters []models.ActionParameter
+
+		// Get pathItem for parameter extraction
+		pathItem := spec.Paths.Find(path)
+		if pathItem != nil {
+			// Path parameters
+			for _, param := range pathItem.Parameters {
+				if param.Value != nil {
+					parameters = append(parameters, a.convertParameter(param.Value))
+				}
+			}
+		}
+
+		// Operation parameters
+		for _, param := range operation.Parameters {
+			if param.Value != nil {
+				parameters = append(parameters, a.convertParameter(param.Value))
+			}
+		}
+
+		// Request body as parameter
+		if operation.RequestBody != nil && operation.RequestBody.Value != nil {
+			if content, ok := operation.RequestBody.Value.Content["application/json"]; ok {
+				param := models.ActionParameter{
+					Name:        "body",
+					In:          "body",
+					Required:    operation.RequestBody.Value.Required,
+					Description: operation.RequestBody.Value.Description,
+					Type:        "object",
+				}
+				if content.Schema != nil && content.Schema.Value != nil {
+					param.Description = content.Schema.Value.Description
+				}
+				parameters = append(parameters, param)
+			}
+		}
+
+		// Create action
+		action := models.ToolAction{
+			ID:          actionID,
+			Name:        operation.Summary,
+			Description: operation.Description,
+			Method:      method,
+			Path:        path,
+			Parameters:  parameters,
+		}
+
+		if action.Name == "" {
+			action.Name = actionID
+		}
+
+		actions = append(actions, action)
 	}
 
 	return actions, nil
@@ -241,7 +270,7 @@ func (a *DynamicToolAdapter) ExecuteWithPassthrough(
 	passthroughConfig *models.EnhancedPassthroughConfig,
 ) (*models.ToolExecutionResponse, error) {
 	startTime := time.Now()
-	
+
 	// If we're using passthrough auth, we should also discover permissions with it
 	if a.permissionDiscoverer != nil && passthroughAuth != nil {
 		a.discoverPassthroughPermissions(ctx, passthroughAuth, passthroughConfig)
@@ -385,13 +414,38 @@ func (a *DynamicToolAdapter) getOpenAPISpec(ctx context.Context) (*openapi3.T, e
 			"tool_name": a.tool.ToolName,
 			"spec_url":  specURL,
 		})
-		
+
 		// Build operation mappings for intelligent resolution (even for cached specs)
+		// IMPORTANT: Only build mappings for resource-scoped operations
 		if a.operationResolver != nil {
 			a.logger.Info("Building operation mappings from cached spec", map[string]interface{}{
 				"tool_name": a.tool.ToolName,
 			})
-			if err := a.operationResolver.BuildOperationMappings(spec, a.tool.ToolName); err != nil {
+
+			// If we have a resource scope, only build mappings for those operations
+			if a.resourceResolver != nil && a.resourceScope != nil {
+				scopedOps := a.resourceResolver.FilterOperationsByScope(spec, a.resourceScope)
+				// Build a temporary spec with only scoped operations
+				scopedSpec := &openapi3.T{
+					Paths: openapi3.NewPaths(),
+				}
+				for _, operation := range scopedOps {
+					path, method := a.findPathAndMethod(spec, operation)
+					if path != "" && method != "" {
+						pathItem := scopedSpec.Paths.Find(path)
+						if pathItem == nil {
+							pathItem = &openapi3.PathItem{}
+							scopedSpec.Paths.Set(path, pathItem)
+						}
+						pathItem.SetOperation(method, operation)
+					}
+				}
+				err = a.operationResolver.BuildOperationMappings(scopedSpec, a.tool.ToolName)
+			} else {
+				err = a.operationResolver.BuildOperationMappings(spec, a.tool.ToolName)
+			}
+
+			if err != nil {
 				a.logger.Warn("Failed to build operation mappings from cached spec", map[string]interface{}{
 					"error": err.Error(),
 				})
@@ -405,16 +459,16 @@ func (a *DynamicToolAdapter) getOpenAPISpec(ctx context.Context) (*openapi3.T, e
 				"tool_name": a.tool.ToolName,
 			})
 		}
-		
+
 		// Create router for operation lookup (even for cached specs)
 		router, err := gorillamux.NewRouter(spec)
 		if err == nil {
 			a.router = router
 		}
-		
+
 		// Discover and cache permissions for filtering (if credentials are available)
 		a.discoverAndCachePermissions(ctx, spec)
-		
+
 		return spec, nil
 	}
 
@@ -509,8 +563,32 @@ func (a *DynamicToolAdapter) getOpenAPISpec(ctx context.Context) (*openapi3.T, e
 		})
 
 		// Build operation mappings for intelligent resolution
+		// IMPORTANT: Only build mappings for resource-scoped operations
 		if a.operationResolver != nil {
-			if err := a.operationResolver.BuildOperationMappings(spec, a.tool.ToolName); err != nil {
+			// If we have a resource scope, only build mappings for those operations
+			if a.resourceResolver != nil && a.resourceScope != nil {
+				scopedOps := a.resourceResolver.FilterOperationsByScope(spec, a.resourceScope)
+				// Build a temporary spec with only scoped operations
+				scopedSpec := &openapi3.T{
+					Paths: openapi3.NewPaths(),
+				}
+				for _, operation := range scopedOps {
+					path, method := a.findPathAndMethod(spec, operation)
+					if path != "" && method != "" {
+						pathItem := scopedSpec.Paths.Find(path)
+						if pathItem == nil {
+							pathItem = &openapi3.PathItem{}
+							scopedSpec.Paths.Set(path, pathItem)
+						}
+						pathItem.SetOperation(method, operation)
+					}
+				}
+				err = a.operationResolver.BuildOperationMappings(scopedSpec, a.tool.ToolName)
+			} else {
+				err = a.operationResolver.BuildOperationMappings(spec, a.tool.ToolName)
+			}
+
+			if err != nil {
 				a.logger.Warn("Failed to build operation mappings", map[string]interface{}{
 					"error": err.Error(),
 				})
@@ -522,7 +600,7 @@ func (a *DynamicToolAdapter) getOpenAPISpec(ctx context.Context) (*openapi3.T, e
 		if err == nil {
 			a.router = router
 		}
-		
+
 		// Discover and cache permissions for filtering (if credentials are available)
 		a.discoverAndCachePermissions(ctx, spec)
 
@@ -555,11 +633,20 @@ func (a *DynamicToolAdapter) findOperation(spec *openapi3.T, actionID string, co
 
 	// Use the OperationResolver for intelligent operation resolution
 	if a.operationResolver != nil {
+		// Add resource type to context if we have it
+		// This helps the resolver prioritize operations from the correct resource
+		if a.resourceScope != nil && a.resourceScope.ResourceType != "" {
+			if context == nil {
+				context = make(map[string]interface{})
+			}
+			context["__resource_type"] = a.resourceScope.ResourceType
+		}
+
 		a.logger.Info("Using OperationResolver", map[string]interface{}{
 			"action_id": actionID,
 			"context":   context,
 		})
-		
+
 		// Use the provided context (parameters) for better resolution
 		// This helps the resolver understand what operation is being requested
 		// based on the parameters provided (e.g., "owner", "repo" suggests GitHub operations)
@@ -568,18 +655,18 @@ func (a *DynamicToolAdapter) findOperation(spec *openapi3.T, actionID string, co
 		resolvedOp, err := a.operationResolver.ResolveOperation(actionID, context)
 		if resolvedOp != nil {
 			a.logger.Info("OperationResolver result", map[string]interface{}{
-				"action_id":     actionID,
-				"resolved":      true,
-				"operation_id":  resolvedOp.OperationID,
-				"path":          resolvedOp.Path,
-				"method":        resolvedOp.Method,
-				"error":         err,
+				"action_id":    actionID,
+				"resolved":     true,
+				"operation_id": resolvedOp.OperationID,
+				"path":         resolvedOp.Path,
+				"method":       resolvedOp.Method,
+				"error":        err,
 			})
 		} else {
 			a.logger.Info("OperationResolver result", map[string]interface{}{
-				"action_id":    actionID,
-				"resolved":     false,
-				"error":        err,
+				"action_id": actionID,
+				"resolved":  false,
+				"error":     err,
 			})
 		}
 		if err == nil && resolvedOp != nil {
@@ -871,6 +958,41 @@ func (a *DynamicToolAdapter) convertParameter(param *openapi3.Parameter) models.
 	return actionParam
 }
 
+// getAllOperationsFromSpec extracts all operations from the OpenAPI spec
+func (a *DynamicToolAdapter) getAllOperationsFromSpec(spec *openapi3.T) map[string]*openapi3.Operation {
+	operations := make(map[string]*openapi3.Operation)
+
+	if spec.Paths != nil {
+		for path, pathItem := range spec.Paths.Map() {
+			for method, operation := range pathItem.Operations() {
+				if operation != nil {
+					opID := operation.OperationID
+					if opID == "" {
+						opID = fmt.Sprintf("%s_%s", strings.ToLower(method), strings.ReplaceAll(path, "/", "_"))
+					}
+					operations[opID] = operation
+				}
+			}
+		}
+	}
+
+	return operations
+}
+
+// findPathAndMethod finds the path and method for a given operation
+func (a *DynamicToolAdapter) findPathAndMethod(spec *openapi3.T, targetOp *openapi3.Operation) (string, string) {
+	if spec.Paths != nil {
+		for path, pathItem := range spec.Paths.Map() {
+			for method, operation := range pathItem.Operations() {
+				if operation == targetOp {
+					return path, method
+				}
+			}
+		}
+	}
+	return "", ""
+}
+
 // discoverAndCachePermissions discovers permissions for the current token and caches allowed operations
 func (a *DynamicToolAdapter) discoverAndCachePermissions(ctx context.Context, spec *openapi3.T) {
 	if a.permissionDiscoverer == nil {
@@ -987,7 +1109,7 @@ func (a *DynamicToolAdapter) discoverPassthroughPermissions(
 	// Extract token from passthrough bundle
 	token := ""
 	authType := "bearer"
-	
+
 	// Check for tool-specific credential
 	if cred := passthroughAuth.GetCredentialForTool(a.tool.ToolName); cred != nil {
 		token = cred.Token

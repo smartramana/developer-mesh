@@ -23,17 +23,17 @@ type PermissionDiscoverer struct {
 type DiscoveredPermissions struct {
 	// Scopes are the actual permissions the token has (if discoverable)
 	Scopes []string `json:"scopes,omitempty"`
-	
+
 	// AcceptedScopes are what scopes would be accepted for the current endpoint
 	AcceptedScopes []string `json:"accepted_scopes,omitempty"`
-	
+
 	// RawHeaders contains any permission-related headers from the API
 	// Different APIs use different headers (X-OAuth-Scopes, X-Accepted-OAuth-Scopes, etc)
 	RawHeaders map[string]string `json:"raw_headers,omitempty"`
-	
+
 	// UserInfo contains user/token metadata if available
 	UserInfo map[string]interface{} `json:"user_info,omitempty"`
-	
+
 	// Limitations detected from API responses
 	Limitations []string `json:"limitations,omitempty"`
 }
@@ -120,7 +120,7 @@ func (d *PermissionDiscoverer) tryEndpoint(ctx context.Context, url string, toke
 	// Extract permission-related headers (tool-agnostic)
 	permissionHeaders := []string{
 		"X-OAuth-Scopes",
-		"X-Accepted-OAuth-Scopes", 
+		"X-Accepted-OAuth-Scopes",
 		"X-Scopes",
 		"X-Permissions",
 		"X-User-Permissions",
@@ -163,10 +163,10 @@ func (d *PermissionDiscoverer) tryEndpoint(ctx context.Context, url string, toke
 // extractScopesFromBody looks for scope/permission info in response body
 func (d *PermissionDiscoverer) extractScopesFromBody(body map[string]interface{}) []string {
 	var scopes []string
-	
+
 	// Common field names for scopes/permissions across different APIs
 	scopeFields := []string{
-		"scopes", "scope", "permissions", "authorities", 
+		"scopes", "scope", "permissions", "authorities",
 		"roles", "grants", "privileges", "access", "capabilities",
 	}
 
@@ -219,13 +219,13 @@ func (d *PermissionDiscoverer) extractFromHeaders(ctx context.Context, baseURL s
 	// Extract all potentially relevant headers
 	for key, values := range resp.Header {
 		lowerKey := strings.ToLower(key)
-		if strings.Contains(lowerKey, "scope") || 
-		   strings.Contains(lowerKey, "permission") ||
-		   strings.Contains(lowerKey, "role") ||
-		   strings.Contains(lowerKey, "grant") {
+		if strings.Contains(lowerKey, "scope") ||
+			strings.Contains(lowerKey, "permission") ||
+			strings.Contains(lowerKey, "role") ||
+			strings.Contains(lowerKey, "grant") {
 			value := strings.Join(values, ", ")
 			perms.RawHeaders[key] = value
-			
+
 			// Try to parse as scopes
 			if strings.Contains(lowerKey, "scope") {
 				for _, scope := range strings.Split(value, ",") {
@@ -382,7 +382,7 @@ func (d *PermissionDiscoverer) FilterOperationsByPermissions(
 			// Store result
 			if operation.OperationID != "" {
 				allowedOps[operation.OperationID] = allowed
-				
+
 				if allowed {
 					d.logger.Debug("Operation allowed", map[string]interface{}{
 						"operation_id": operation.OperationID,
@@ -469,12 +469,12 @@ func (d *PermissionDiscoverer) hasRequiredScopes(required []string, available []
 	// Check each required scope
 	for _, req := range required {
 		found := false
-		
+
 		// Direct match
 		if availableMap[req] {
 			found = true
 		}
-		
+
 		// Check for parent scope (e.g., "admin" covers "admin:org")
 		if !found && strings.Contains(req, ":") {
 			parts := strings.Split(req, ":")
@@ -482,7 +482,7 @@ func (d *PermissionDiscoverer) hasRequiredScopes(required []string, available []
 				found = true
 			}
 		}
-		
+
 		// Check for wildcard in available (e.g., "repo:*" covers "repo:status")
 		if !found {
 			for avail := range availableMap {
@@ -492,7 +492,7 @@ func (d *PermissionDiscoverer) hasRequiredScopes(required []string, available []
 				}
 			}
 		}
-		
+
 		if !found {
 			return false
 		}
