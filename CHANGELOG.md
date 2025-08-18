@@ -9,6 +9,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **SSRF Vulnerabilities in Discovery Service** (2025-09-10): Fixed CodeQL security alerts
+  - Resolved 5 "Uncontrolled data used in network request" (SSRF) alerts
+  - Changed URL validation approach from conditional to always validate
+  - Configure validator with AllowLocalhost=true for test mode compatibility
+  - Affected files: discovery_service.go (3 alerts), discovery_hints.go (2 alerts)
+  - Result: All SSRF alerts resolved while maintaining test functionality
+
 - **Code Quality and Linting Issues** (2025-09-08): Resolved all golangci-lint errors across the codebase
   - Fixed 8 errcheck errors: Added proper error handling for JSON encode/decode operations and HTTP writes
   - Fixed 7 staticcheck issues: Removed unnecessary nil checks, applied De Morgan's law, removed embedded field selectors
