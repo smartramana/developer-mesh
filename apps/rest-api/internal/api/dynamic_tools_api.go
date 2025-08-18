@@ -588,6 +588,19 @@ func (api *DynamicToolsAPI) ExecuteAction(c *gin.Context) {
 	if req.Action == "" {
 		req.Action = action
 	}
+	
+	// Log what we received
+	paramKeys := make([]string, 0, len(req.Parameters))
+	for k := range req.Parameters {
+		paramKeys = append(paramKeys, k)
+	}
+	api.logger.Info("Executing tool action with passthrough", map[string]interface{}{
+		"tenant_id":    tenantID,
+		"tool_id":      toolID,
+		"action":       req.Action,
+		"params":       req.Parameters,
+		"param_keys":   paramKeys,
+	})
 
 	// Extract passthrough authentication from headers if not in body
 	if req.PassthroughAuth == nil {

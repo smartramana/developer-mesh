@@ -23,14 +23,16 @@ import (
 
 // DynamicToolAdapter handles execution of dynamically discovered tools
 type DynamicToolAdapter struct {
-	tool              *models.DynamicTool
-	specCache         repository.OpenAPICacheRepository
-	httpClient        *http.Client
-	authenticator     *tools.DynamicAuthenticator
-	encryptionSvc     *security.EncryptionService
-	logger            observability.Logger
-	router            routers.Router
-	operationResolver *tools.OperationResolver
+	tool                 *models.DynamicTool
+	specCache            repository.OpenAPICacheRepository
+	httpClient           *http.Client
+	authenticator        *tools.DynamicAuthenticator
+	encryptionSvc        *security.EncryptionService
+	logger               observability.Logger
+	router               routers.Router
+	operationResolver    *tools.OperationResolver
+	permissionDiscoverer *tools.PermissionDiscoverer
+	allowedOperations    map[string]bool // Cache of allowed operations based on permissions
 }
 
 // NewDynamicToolAdapter creates a new adapter for a dynamic tool
@@ -51,13 +53,15 @@ func NewDynamicToolAdapter(
 	// }
 
 	return &DynamicToolAdapter{
-		tool:              tool,
-		specCache:         specCache,
-		httpClient:        httpClient,
-		authenticator:     tools.NewDynamicAuthenticator(),
-		encryptionSvc:     encryptionSvc,
-		logger:            logger,
-		operationResolver: tools.NewOperationResolver(logger),
+		tool:                 tool,
+		specCache:            specCache,
+		httpClient:           httpClient,
+		authenticator:        tools.NewDynamicAuthenticator(),
+		encryptionSvc:        encryptionSvc,
+		logger:               logger,
+		operationResolver:    tools.NewOperationResolver(logger),
+		permissionDiscoverer: tools.NewPermissionDiscoverer(logger),
+		allowedOperations:    make(map[string]bool),
 	}, nil
 }
 
@@ -83,6 +87,20 @@ func (a *DynamicToolAdapter) ListActions(ctx context.Context) ([]models.ToolActi
 				actionID := operation.OperationID
 				if actionID == "" {
 					actionID = fmt.Sprintf("%s_%s", strings.ToLower(method), strings.ReplaceAll(path, "/", "_"))
+				}
+
+				// Check if this operation is allowed based on discovered permissions
+				// If we have permission info, filter. Otherwise, include all.
+				if len(a.allowedOperations) > 0 {
+					allowed, exists := a.allowedOperations[actionID]
+					if exists && !allowed {
+						a.logger.Debug("Filtering out operation due to permissions", map[string]interface{}{
+							"operation_id": actionID,
+							"path":         path,
+							"method":       method,
+						})
+						continue
+					}
 				}
 
 				// Extract parameters
@@ -223,6 +241,11 @@ func (a *DynamicToolAdapter) ExecuteWithPassthrough(
 	passthroughConfig *models.EnhancedPassthroughConfig,
 ) (*models.ToolExecutionResponse, error) {
 	startTime := time.Now()
+	
+	// If we're using passthrough auth, we should also discover permissions with it
+	if a.permissionDiscoverer != nil && passthroughAuth != nil {
+		a.discoverPassthroughPermissions(ctx, passthroughAuth, passthroughConfig)
+	}
 
 	// Get the OpenAPI spec
 	spec, err := a.getOpenAPISpec(ctx)
@@ -362,6 +385,36 @@ func (a *DynamicToolAdapter) getOpenAPISpec(ctx context.Context) (*openapi3.T, e
 			"tool_name": a.tool.ToolName,
 			"spec_url":  specURL,
 		})
+		
+		// Build operation mappings for intelligent resolution (even for cached specs)
+		if a.operationResolver != nil {
+			a.logger.Info("Building operation mappings from cached spec", map[string]interface{}{
+				"tool_name": a.tool.ToolName,
+			})
+			if err := a.operationResolver.BuildOperationMappings(spec, a.tool.ToolName); err != nil {
+				a.logger.Warn("Failed to build operation mappings from cached spec", map[string]interface{}{
+					"error": err.Error(),
+				})
+			} else {
+				a.logger.Info("Successfully built operation mappings from cached spec", map[string]interface{}{
+					"tool_name": a.tool.ToolName,
+				})
+			}
+		} else {
+			a.logger.Warn("OperationResolver is nil", map[string]interface{}{
+				"tool_name": a.tool.ToolName,
+			})
+		}
+		
+		// Create router for operation lookup (even for cached specs)
+		router, err := gorillamux.NewRouter(spec)
+		if err == nil {
+			a.router = router
+		}
+		
+		// Discover and cache permissions for filtering (if credentials are available)
+		a.discoverAndCachePermissions(ctx, spec)
+		
 		return spec, nil
 	}
 
@@ -469,6 +522,9 @@ func (a *DynamicToolAdapter) getOpenAPISpec(ctx context.Context) (*openapi3.T, e
 		if err == nil {
 			a.router = router
 		}
+		
+		// Discover and cache permissions for filtering (if credentials are available)
+		a.discoverAndCachePermissions(ctx, spec)
 
 		return spec, nil
 	}
@@ -499,12 +555,22 @@ func (a *DynamicToolAdapter) findOperation(spec *openapi3.T, actionID string, co
 
 	// Use the OperationResolver for intelligent operation resolution
 	if a.operationResolver != nil {
+		a.logger.Info("Using OperationResolver", map[string]interface{}{
+			"action_id": actionID,
+			"context":   context,
+		})
+		
 		// Use the provided context (parameters) for better resolution
 		// This helps the resolver understand what operation is being requested
 		// based on the parameters provided (e.g., "owner", "repo" suggests GitHub operations)
 
 		// Try to resolve the operation
 		resolvedOp, err := a.operationResolver.ResolveOperation(actionID, context)
+		a.logger.Info("OperationResolver result", map[string]interface{}{
+			"action_id":    actionID,
+			"resolved":     resolvedOp != nil,
+			"error":        err,
+		})
 		if err == nil && resolvedOp != nil {
 			// Find the actual operation in the spec
 			if spec.Paths != nil {
@@ -792,4 +858,173 @@ func (a *DynamicToolAdapter) convertParameter(param *openapi3.Parameter) models.
 	}
 
 	return actionParam
+}
+
+// discoverAndCachePermissions discovers permissions for the current token and caches allowed operations
+func (a *DynamicToolAdapter) discoverAndCachePermissions(ctx context.Context, spec *openapi3.T) {
+	if a.permissionDiscoverer == nil {
+		a.logger.Debug("Permission discoverer not initialized", map[string]interface{}{})
+		return
+	}
+
+	// Only discover permissions if we have credentials
+	if a.tool.CredentialsEncrypted == nil || len(a.tool.CredentialsEncrypted) == 0 {
+		a.logger.Debug("No credentials available for permission discovery", map[string]interface{}{})
+		return
+	}
+
+	// Decrypt credentials to get the token
+	creds := &models.TokenCredential{}
+	err := a.encryptionSvc.DecryptJSON(string(a.tool.CredentialsEncrypted), a.tool.TenantID, creds)
+	if err != nil {
+		a.logger.Warn("Failed to decrypt credentials for permission discovery", map[string]interface{}{
+			"error": err.Error(),
+		})
+		return
+	}
+
+	// Get the token and auth type
+	token := ""
+	authType := "bearer" // default
+	if creds.Token != "" {
+		token = creds.Token
+		authType = creds.Type
+	} else if creds.Password != "" {
+		// Some APIs use password field for API keys
+		token = creds.Password
+		authType = "api_key"
+	}
+
+	if token == "" {
+		a.logger.Debug("No token available for permission discovery", map[string]interface{}{})
+		return
+	}
+
+	// Discover permissions
+	a.logger.Info("Discovering permissions for dynamic tool", map[string]interface{}{
+		"tool_name": a.tool.ToolName,
+		"base_url":  a.tool.BaseURL,
+		"auth_type": authType,
+	})
+
+	discoveredPerms, err := a.permissionDiscoverer.DiscoverPermissions(ctx, a.tool.BaseURL, token, authType)
+	if err != nil {
+		a.logger.Warn("Failed to discover permissions", map[string]interface{}{
+			"error": err.Error(),
+		})
+		// Don't filter if discovery fails - allow all operations
+		return
+	}
+
+	// Log discovered permissions
+	a.logger.Info("Discovered permissions", map[string]interface{}{
+		"tool_name":    a.tool.ToolName,
+		"scopes_count": len(discoveredPerms.Scopes),
+		"scopes":       discoveredPerms.Scopes,
+		"headers":      discoveredPerms.RawHeaders,
+	})
+
+	// Filter operations based on discovered permissions
+	a.allowedOperations = a.permissionDiscoverer.FilterOperationsByPermissions(spec, discoveredPerms)
+
+	// Log filtering results
+	allowedCount := 0
+	for _, allowed := range a.allowedOperations {
+		if allowed {
+			allowedCount++
+		}
+	}
+
+	a.logger.Info("Permission-based filtering applied", map[string]interface{}{
+		"tool_name":        a.tool.ToolName,
+		"total_operations": len(a.allowedOperations),
+		"allowed_count":    allowedCount,
+	})
+}
+
+// DiscoverAndUpdatePermissions allows external callers to trigger permission discovery
+// This is useful when credentials change or for testing
+func (a *DynamicToolAdapter) DiscoverAndUpdatePermissions(ctx context.Context) error {
+	spec, err := a.getOpenAPISpec(ctx)
+	if err != nil {
+		return fmt.Errorf("failed to get OpenAPI spec: %w", err)
+	}
+
+	a.discoverAndCachePermissions(ctx, spec)
+	return nil
+}
+
+// discoverPassthroughPermissions discovers permissions using passthrough credentials
+func (a *DynamicToolAdapter) discoverPassthroughPermissions(
+	ctx context.Context,
+	passthroughAuth *models.PassthroughAuthBundle,
+	passthroughConfig *models.EnhancedPassthroughConfig,
+) {
+	if a.permissionDiscoverer == nil {
+		return
+	}
+
+	// Get the spec first
+	spec, err := a.getOpenAPISpec(ctx)
+	if err != nil {
+		a.logger.Warn("Failed to get spec for passthrough permission discovery", map[string]interface{}{
+			"error": err.Error(),
+		})
+		return
+	}
+
+	// Extract token from passthrough bundle
+	token := ""
+	authType := "bearer"
+	
+	// Check for tool-specific credential
+	if cred := passthroughAuth.GetCredentialForTool(a.tool.ToolName); cred != nil {
+		token = cred.Token
+		if token == "" {
+			token = cred.KeyValue
+		}
+		authType = cred.Type
+	} else if oauthToken := passthroughAuth.GetOAuthTokenForTool(a.tool.ToolName); oauthToken != nil {
+		token = oauthToken.AccessToken
+		authType = "oauth2"
+	} else if sessionToken, ok := passthroughAuth.SessionTokens[a.tool.ToolName]; ok {
+		token = sessionToken
+		authType = "session"
+	}
+
+	if token == "" {
+		a.logger.Debug("No passthrough token available for permission discovery", map[string]interface{}{})
+		return
+	}
+
+	// Discover permissions with passthrough token
+	a.logger.Info("Discovering permissions with passthrough auth", map[string]interface{}{
+		"tool_name": a.tool.ToolName,
+		"auth_type": authType,
+	})
+
+	discoveredPerms, err := a.permissionDiscoverer.DiscoverPermissions(ctx, a.tool.BaseURL, token, authType)
+	if err != nil {
+		a.logger.Warn("Failed to discover passthrough permissions", map[string]interface{}{
+			"error": err.Error(),
+		})
+		return
+	}
+
+	// Update allowed operations
+	a.allowedOperations = a.permissionDiscoverer.FilterOperationsByPermissions(spec, discoveredPerms)
+
+	allowedCount := 0
+	for _, allowed := range a.allowedOperations {
+		if allowed {
+			allowedCount++
+		}
+	}
+
+	a.logger.Info("Passthrough permission filtering applied", map[string]interface{}{
+		"tool_name":        a.tool.ToolName,
+		"total_operations": len(a.allowedOperations),
+		"allowed_count":    allowedCount,
+		"scopes":           discoveredPerms.Scopes,
+	})
 }

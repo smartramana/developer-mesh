@@ -42,13 +42,14 @@ type MCPError struct {
 
 // Handler manages MCP protocol connections
 type Handler struct {
-	tools         *tools.Registry
-	cache         cache.Cache
-	coreClient    *core.Client
-	authenticator auth.Authenticator
-	sessions      map[string]*Session
-	sessionsMu    sync.RWMutex
-	logger        observability.Logger
+	tools          *tools.Registry
+	cache          cache.Cache
+	coreClient     *core.Client
+	authenticator  auth.Authenticator
+	sessions       map[string]*Session
+	sessionsMu     sync.RWMutex
+	logger         observability.Logger
+	refreshManager *tools.RefreshManager
 
 	// Request tracking for cancellation
 	activeRequests map[interface{}]context.CancelFunc
@@ -76,7 +77,7 @@ func NewHandler(
 	authenticator auth.Authenticator,
 	logger observability.Logger,
 ) *Handler {
-	return &Handler{
+	h := &Handler{
 		tools:          toolRegistry,
 		cache:          cache,
 		coreClient:     coreClient,
@@ -85,6 +86,23 @@ func NewHandler(
 		logger:         logger,
 		activeRequests: make(map[interface{}]context.CancelFunc),
 	}
+
+	// Setup refresh manager if core client is available
+	if coreClient != nil {
+		refreshConfig := tools.DefaultRefreshConfig()
+		h.refreshManager = tools.NewRefreshManager(
+			toolRegistry,
+			refreshConfig,
+			logger,
+			func(ctx context.Context) ([]tools.ToolDefinition, error) {
+				return coreClient.FetchRemoteTools(ctx)
+			},
+		)
+		// Start automatic refresh
+		h.refreshManager.Start(context.Background())
+	}
+
+	return h
 }
 
 // HandleConnection handles a WebSocket connection
@@ -389,6 +407,16 @@ func (h *Handler) handleInitialize(sessionID string, msg *MCPMessage) (*MCPMessa
 				})
 			} else {
 				session.CoreSession = coreSessionID
+			}
+
+			// Trigger tool refresh on new connection
+			if h.refreshManager != nil {
+				go func() {
+					h.logger.Debug("Refreshing tools on new connection", map[string]interface{}{
+						"client": params.ClientInfo.Name,
+					})
+					h.refreshManager.OnReconnect(context.Background())
+				}()
 			}
 		}
 	}
