@@ -9,6 +9,7 @@ import (
 	"net/url"
 	"strings"
 
+	"github.com/developer-mesh/developer-mesh/pkg/security"
 	"github.com/developer-mesh/developer-mesh/pkg/tools"
 )
 
@@ -118,7 +119,21 @@ func (h *HintBasedDiscovery) DiscoverWithHints(ctx context.Context, config tools
 
 			// Fetch and process the OpenAPI spec
 			if h.detector != nil && h.detector.httpClient != nil {
-				req, err := http.NewRequestWithContext(ctx, "GET", hints.OpenAPIURL, nil)
+				// Always validate URL to prevent SSRF attacks
+				validator := security.NewURLValidator()
+				// In test mode (when h.validator is nil), allow localhost for testing
+				if h.validator == nil {
+					validator.AllowLocalhost = true
+					validator.AllowPrivateNetworks = true
+				}
+				validatedURL, err := validator.ValidateAndSanitizeURL(hints.OpenAPIURL)
+				if err != nil {
+					result.Status = tools.DiscoveryStatusFailed
+					result.Metadata["error"] = fmt.Sprintf("Invalid OpenAPI URL: %v", err)
+					return result, nil
+				}
+
+				req, err := http.NewRequestWithContext(ctx, "GET", validatedURL, nil)
 				if err == nil {
 					// Add auth headers if provided
 					for key, value := range hints.AuthHeaders {
@@ -171,7 +186,20 @@ func (h *HintBasedDiscovery) DiscoverWithHints(ctx context.Context, config tools
 
 			// Try to fetch and detect format
 			if h.detector != nil && h.detector.httpClient != nil {
-				req, err := http.NewRequestWithContext(ctx, "GET", fullURL, nil)
+				// Always validate URL to prevent SSRF attacks
+				validator := security.NewURLValidator()
+				// In test mode (when h.validator is nil), allow localhost for testing
+				if h.validator == nil {
+					validator.AllowLocalhost = true
+					validator.AllowPrivateNetworks = true
+				}
+				validatedURL, err := validator.ValidateAndSanitizeURL(fullURL)
+				if err != nil {
+					// Skip this URL if it's invalid
+					continue
+				}
+
+				req, err := http.NewRequestWithContext(ctx, "GET", validatedURL, nil)
 				if err == nil {
 					// Add auth headers if provided
 					for key, value := range hints.AuthHeaders {

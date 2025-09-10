@@ -22,6 +22,15 @@ type contextKey string
 // PassthroughAuthKey is the context key for passthrough authentication
 const PassthroughAuthKey contextKey = "passthrough-auth"
 
+// getMapKeys returns the keys of a string map as a slice
+func getMapKeys(m map[string]interface{}) []string {
+	keys := make([]string, 0, len(m))
+	for k := range m {
+		keys = append(keys, k)
+	}
+	return keys
+}
+
 // normalizeClientType maps various client type inputs to allowed database values
 func normalizeClientType(clientName, clientType string) string {
 	// Database accepts: 'claude-code', 'ide', 'agent', 'cli'
@@ -311,47 +320,105 @@ func (c *Client) createProxyHandler(toolName string, toolID string) tools.ToolHa
 			passthroughAuth, _ = auth.(*models.PassthroughAuthBundle)
 		}
 
-		// Parse arguments to extract action if present
-		var payload map[string]interface{}
+		// Parse arguments to extract action and parameters
 		var parsedArgs map[string]interface{}
+		if err := json.Unmarshal(args, &parsedArgs); err != nil {
+			c.logger.Warn("Failed to parse arguments, using empty parameters", map[string]interface{}{
+				"error": err.Error(),
+			})
+			parsedArgs = make(map[string]interface{})
+		}
 
-		if err := json.Unmarshal(args, &parsedArgs); err == nil {
-			// Check if action is in the arguments
-			if action, ok := parsedArgs["action"].(string); ok {
-				// Remove action from arguments and add it to payload
+		// For organization tools, the action might be derived from the tool name
+		// Tool names are in format: github-devmesh_repos_list or github-devmesh-repos-list
+		var action string
+		var parameters map[string]interface{}
+
+		// First, try to extract operation from expanded tool name
+		if strings.Contains(toolName, "_") || strings.Contains(toolName, "-") {
+			// Try to extract the operation part from the tool name
+			// Look for common operation prefixes
+			operationPrefixes := []string{"repos_", "issues_", "pulls_", "actions_", "releases_", "repos-", "issues-", "pulls-", "actions-", "releases-"}
+			for _, prefix := range operationPrefixes {
+				if idx := strings.LastIndex(toolName, prefix); idx != -1 {
+					action = toolName[idx:]
+					// For GitHub Actions operations, preserve the full action with prefix
+					// The provider will handle the normalization
+					if strings.HasPrefix(action, "actions-") || strings.HasPrefix(action, "actions_") {
+						// Keep the full action including the "actions-" prefix
+						// Just normalize underscores to hyphens if present
+						if strings.HasPrefix(action, "actions_") {
+							action = strings.Replace(action, "actions_", "actions-", 1)
+						}
+						// Keep action as-is: "actions-list-workflows" or "actions-trigger-workflow"
+					} else {
+						// For other operations, convert to slash format
+						// e.g., "repos-list" -> "repos/list"
+						action = strings.Replace(action, "-", "/", 1)
+						action = strings.Replace(action, "_", "/", 1)
+					}
+					break
+				}
+			}
+		}
+
+		// If action wasn't extracted from tool name, check arguments
+		if action == "" {
+			if actionArg, ok := parsedArgs["action"].(string); ok {
+				action = actionArg
 				delete(parsedArgs, "action")
-				payload = map[string]interface{}{
-					"tool":       toolName,
-					"action":     action,
-					"parameters": parsedArgs,
-				}
-				c.logger.Debug("Executing tool with action", map[string]interface{}{
-					"tool":   toolName,
-					"action": action,
-				})
-			} else {
-				// No action in arguments, use original format
-				payload = map[string]interface{}{
-					"tool":      toolName,
-					"arguments": args,
-				}
 			}
+		}
+
+		// Handle parameters
+		if params, ok := parsedArgs["parameters"].(map[string]interface{}); ok {
+			parameters = params
 		} else {
-			// Failed to parse arguments, use original format
-			payload = map[string]interface{}{
-				"tool":      toolName,
-				"arguments": args,
-			}
+			// Use all arguments as parameters (action was already removed if present)
+			parameters = parsedArgs
+		}
+
+		// Build the payload
+		payload := map[string]interface{}{
+			"parameters": parameters,
+		}
+
+		// Only add action if we have one
+		if action != "" {
+			payload["action"] = action
+			c.logger.Debug("Executing tool with extracted action", map[string]interface{}{
+				"tool":       toolName,
+				"tool_id":    toolID,
+				"action":     action,
+				"param_keys": getMapKeys(parameters),
+			})
+		} else {
+			c.logger.Debug("Executing tool without explicit action", map[string]interface{}{
+				"tool":       toolName,
+				"tool_id":    toolID,
+				"param_keys": getMapKeys(parameters),
+			})
 		}
 
 		// Include passthrough auth if available
 		if passthroughAuth != nil {
 			payload["passthrough_auth"] = passthroughAuth
-			c.logger.Debug("Including passthrough auth in tool execution", map[string]interface{}{
+
+			// Log detailed passthrough auth info
+			authInfo := map[string]interface{}{
 				"tool":             toolName,
 				"has_passthrough":  true,
 				"credential_count": len(passthroughAuth.Credentials),
-			})
+			}
+
+			// Log each credential provider and token length (without exposing tokens)
+			for provider, cred := range passthroughAuth.Credentials {
+				if cred != nil {
+					authInfo[provider+"_token_len"] = len(cred.Token)
+				}
+			}
+
+			c.logger.Info("Including passthrough auth in tool execution", authInfo)
 		}
 
 		// Use the correct endpoint with tool ID

@@ -631,6 +631,38 @@ func (a *DynamicToolAdapter) findOperation(spec *openapi3.T, actionID string, co
 		"tool_name": a.tool.ToolName,
 	})
 
+	// Check direct mapping first for known problematic cases
+	// This bypasses the OperationResolver's transformations
+	// Now all operations come with consistent hyphen formatting
+	directMap := map[string]string{
+		"actions-list-repo-workflows":      "actions/list-repo-workflows",
+		"actions-create-workflow-dispatch": "actions/create-workflow-dispatch",
+	}
+
+	a.logger.Info("Checking direct mapping", map[string]interface{}{
+		"action_id": actionID,
+		"has_match": directMap[actionID] != "",
+	})
+
+	if mapped, ok := directMap[actionID]; ok {
+		// Try the mapped operation ID
+		if spec.Paths != nil {
+			for path, pathItem := range spec.Paths.Map() {
+				for method, operation := range pathItem.Operations() {
+					if operation != nil && operation.OperationID == mapped {
+						a.logger.Debug("Found operation by direct mapping", map[string]interface{}{
+							"original": actionID,
+							"mapped":   mapped,
+							"path":     path,
+							"method":   method,
+						})
+						return operation, path, method, nil
+					}
+				}
+			}
+		}
+	}
+
 	// Use the OperationResolver for intelligent operation resolution
 	if a.operationResolver != nil {
 		// Add resource type to context if we have it
@@ -689,13 +721,7 @@ func (a *DynamicToolAdapter) findOperation(spec *openapi3.T, actionID string, co
 		}
 	}
 
-	// Fallback to basic matching for backward compatibility
-	// Normalize action ID - handle both slash and hyphen formats
-	// e.g., "repos/get-content" or "repos-get-content"
-	normalizedID := strings.ReplaceAll(actionID, "/", "-")
-	alternativeID := strings.ReplaceAll(actionID, "-", "/")
-
-	// First try by operation ID (exact match and normalized variants)
+	// Try exact match first
 	if spec.Paths != nil {
 		for path, pathItem := range spec.Paths.Map() {
 			for method, operation := range pathItem.Operations() {
@@ -703,15 +729,6 @@ func (a *DynamicToolAdapter) findOperation(spec *openapi3.T, actionID string, co
 					// Try exact match
 					if operation.OperationID == actionID {
 						a.logger.Debug("Found operation by exact ID", map[string]interface{}{
-							"operation_id": operation.OperationID,
-							"path":         path,
-							"method":       method,
-						})
-						return operation, path, method, nil
-					}
-					// Try normalized match
-					if operation.OperationID == normalizedID || operation.OperationID == alternativeID {
-						a.logger.Debug("Found operation by normalized ID", map[string]interface{}{
 							"operation_id": operation.OperationID,
 							"path":         path,
 							"method":       method,
@@ -794,7 +811,16 @@ func (a *DynamicToolAdapter) buildRequest(
 		}
 		param := paramRef.Value
 
+		// Try to find the parameter value
+		// First check direct params, then check nested in "parameters" map
 		value, exists := params[param.Name]
+		if !exists {
+			// Check if parameter is nested in "parameters" map (common for MCP tools)
+			if paramsMap, ok := params["parameters"].(map[string]interface{}); ok {
+				value, exists = paramsMap[param.Name]
+			}
+		}
+
 		if !exists && param.Required {
 			return nil, fmt.Errorf("required parameter missing: %s", param.Name)
 		}
@@ -802,7 +828,14 @@ func (a *DynamicToolAdapter) buildRequest(
 		if exists {
 			switch param.In {
 			case "path":
-				urlPath = strings.ReplaceAll(urlPath, "{"+param.Name+"}", fmt.Sprintf("%v", value))
+				// For path parameters like {ref}, handle special encoding for Git refs
+				pathValue := fmt.Sprintf("%v", value)
+				// For Git refs, we need to URL encode but preserve the forward slashes
+				if param.Name == "ref" && strings.HasPrefix(pathValue, "refs/") {
+					// Remove "refs/" prefix for the path parameter
+					pathValue = strings.TrimPrefix(pathValue, "refs/")
+				}
+				urlPath = strings.ReplaceAll(urlPath, "{"+param.Name+"}", pathValue)
 			case "query":
 				queryParams.Set(param.Name, fmt.Sprintf("%v", value))
 			case "header":
@@ -1001,7 +1034,7 @@ func (a *DynamicToolAdapter) discoverAndCachePermissions(ctx context.Context, sp
 	}
 
 	// Only discover permissions if we have credentials
-	if a.tool.CredentialsEncrypted == nil || len(a.tool.CredentialsEncrypted) == 0 {
+	if len(a.tool.CredentialsEncrypted) == 0 {
 		a.logger.Debug("No credentials available for permission discovery", map[string]interface{}{})
 		return
 	}

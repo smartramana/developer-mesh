@@ -37,6 +37,13 @@ DevOps teams struggle to integrate AI effectively - managing multiple models, co
 - **Collaboration Support**: Framework for agent coordination
 - **Workload Management**: Track and optimize agent utilization
 
+### Security & Data Protection
+- **Per-Tenant Encryption**: AES-256-GCM with unique keys per tenant (PBKDF2 key derivation)
+- **Credential Protection**: All API keys and secrets encrypted at rest
+- **Forward Secrecy**: Unique salt/nonce per encryption operation
+- **Authenticated Encryption**: GCM mode prevents tampering and ensures data integrity
+- **Tenant Isolation**: Cryptographic isolation prevents cross-tenant data access
+
 ### Intelligent Task Assignment
 <!-- Source: pkg/services/assignment_engine.go -->
 - **Multiple Assignment Strategies**:
@@ -76,6 +83,18 @@ DevOps teams struggle to integrate AI effectively - managing multiple models, co
 - **Resource Subscriptions**: Real-time updates for workflows and tasks
 - **Binary Protocol Support**: Optional compressed messages for efficiency <!-- Source: pkg/models/websocket/binary.go -->
 - **Heartbeat Monitoring**: Automatic reconnection handling
+
+### Standard Industry Tools Integration
+- **Pre-Built Provider Templates**: GitHub, GitLab, Jira, Confluence, Harness.io ready to use
+- **Organization-Level Configuration**: Each organization configures their own tool instances
+- **Tool Expansion for AI**: Single provider expands into multiple granular MCP tools
+- **Production Resilience Patterns**:
+  - **Circuit Breaker**: Prevents cascading failures with automatic recovery
+  - **Bulkhead Pattern**: Isolates failures to prevent system-wide impact
+  - **Request Coalescing**: Deduplicates concurrent identical requests
+  - **Two-Tier Caching**: L1 in-memory + L2 Redis for <10ms response times
+- **Permission-Based Filtering**: Only expose operations the user's token can execute
+- **Comprehensive Metrics**: Track execution time, cache hits, circuit breaker states
 
 ### Dynamic Tool Integration with Advanced Operation Resolution
 - **Zero-Code Tool Addition**: Add any DevOps tool without writing adapters
@@ -250,6 +269,7 @@ cd developer-mesh
 # Configure environment
 cp .env.example .env
 # Edit .env with your settings (AWS credentials optional for local dev)
+# Note: Default encryption keys are provided for local dev only
 
 # Start all services
 docker-compose -f docker-compose.local.yml up -d

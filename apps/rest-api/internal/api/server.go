@@ -27,6 +27,7 @@ import (
 	"github.com/developer-mesh/developer-mesh/pkg/database"
 	"github.com/developer-mesh/developer-mesh/pkg/observability"
 	"github.com/developer-mesh/developer-mesh/pkg/security"
+	"github.com/developer-mesh/developer-mesh/pkg/tools"
 	"github.com/gin-gonic/gin"
 	"github.com/jmoiron/sqlx"
 	"github.com/redis/go-redis/v9"
@@ -442,7 +443,14 @@ func (s *Server) setupRoutes(ctx context.Context) {
 	// Dynamic Tools API - Enhanced discovery and management
 	patternRepo := storage.NewDiscoveryPatternRepository(s.db.DB)
 	// Create encryption service with a secure key from environment or config
-	encryptionKey := os.Getenv("DEVMESH_ENCRYPTION_KEY")
+	encryptionKey := os.Getenv("ENCRYPTION_MASTER_KEY")
+	if encryptionKey == "" {
+		// Fall back to legacy DEVMESH_ENCRYPTION_KEY for backward compatibility
+		encryptionKey = os.Getenv("DEVMESH_ENCRYPTION_KEY")
+		if encryptionKey != "" {
+			s.logger.Warn("Using deprecated DEVMESH_ENCRYPTION_KEY - please migrate to ENCRYPTION_MASTER_KEY", nil)
+		}
+	}
 	if encryptionKey == "" {
 		// Generate a random key if not provided, but log a warning
 		randomKey, err := security.GenerateSecureToken(32)
@@ -456,8 +464,8 @@ func (s *Server) setupRoutes(ctx context.Context) {
 			panic("Failed to generate encryption key")
 		}
 		encryptionKey = randomKey
-		s.logger.Warn("DEVMESH_ENCRYPTION_KEY not set - using randomly generated key. This is not suitable for production!", map[string]interface{}{
-			"recommendation": "Set DEVMESH_ENCRYPTION_KEY environment variable with a secure 32+ character key",
+		s.logger.Warn("ENCRYPTION_MASTER_KEY not set - using randomly generated key. This is not suitable for production!", map[string]interface{}{
+			"recommendation": "Set ENCRYPTION_MASTER_KEY environment variable with a secure 32+ character key",
 		})
 	}
 	encryptionService := security.NewEncryptionService(encryptionKey)
@@ -516,13 +524,57 @@ func (s *Server) setupRoutes(ctx context.Context) {
 		c.Next()
 	})
 	webhooks.POST("/tools/:toolId", dynamicWebhookHandler.HandleDynamicWebhook)
+
+	// Enhanced Tools API - Template-based tools with backward compatibility
+	// Create operation cache for enhanced tools
+	operationCache := tools.NewOperationCache(redisClient, s.logger)
+
+	// Create enhanced tool registry
+	enhancedToolRegistry := pkgservices.NewEnhancedToolRegistry(
+		s.db,
+		encryptionService,
+		operationCache,
+		s.logger,
+	)
+
+	// Initialize standard providers
+	if err := InitializeStandardProviders(enhancedToolRegistry, s.logger); err != nil {
+		s.logger.Warn("Failed to initialize some standard providers", map[string]interface{}{
+			"error": err.Error(),
+		})
+		// Continue anyway - providers can be registered later
+	}
+
+	// Create template repository for API access
+	templateRepo := pkgrepository.NewToolTemplateRepository(s.db)
+
+	// Create dynamic tools API with template repository
 	dynamicToolsAPI := NewDynamicToolsAPI(
 		dynamicToolsService,
 		s.logger,
 		s.metrics,
 		auth.NewAuditLogger(s.logger),
+		templateRepo,
 	)
 	dynamicToolsAPI.RegisterRoutes(v1)
+
+	// Create enhanced tools API
+	enhancedToolsAPI := NewEnhancedToolsAPI(
+		dynamicToolsAPI,
+		enhancedToolRegistry,
+		templateRepo,
+		s.db,
+		s.logger,
+		s.metrics,
+		auth.NewAuditLogger(s.logger),
+	)
+	enhancedToolsAPI.RegisterRoutes(v1)
+
+	// Wire the enhanced tools API back to dynamic tools API for unified listing
+	dynamicToolsAPI.SetEnhancedToolsAPI(enhancedToolsAPI)
+	s.logger.Info("Enhanced Tools API initialized with template support", map[string]interface{}{
+		"features": []string{"template-based tools", "backward compatibility", "AI optimization"},
+	})
 
 	// Session Management API - Edge MCP session handling
 	sessionRepo := pkgrepository.NewSessionRepository(s.db, s.logger)
