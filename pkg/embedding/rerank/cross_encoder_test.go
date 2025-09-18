@@ -84,7 +84,8 @@ func TestCrossEncoderReranker_Rerank(t *testing.T) {
 
 	t.Run("successful reranking", func(t *testing.T) {
 		mockProvider := new(providers.MockRerankProvider)
-		logger := observability.NewLogger("test")
+		// Use a no-op logger to avoid test output issues in CI
+		logger := observability.NewNoopLogger()
 		metrics := observability.NewMetricsClient()
 
 		config := &CrossEncoderConfig{
@@ -162,7 +163,8 @@ func TestCrossEncoderReranker_Rerank(t *testing.T) {
 
 	t.Run("batch failure with graceful degradation", func(t *testing.T) {
 		mockProvider := new(providers.MockRerankProvider)
-		logger := observability.NewLogger("test")
+		// Use a no-op logger to avoid test output issues in CI
+		logger := observability.NewNoopLogger()
 		metrics := observability.NewMetricsClient()
 
 		config := &CrossEncoderConfig{
