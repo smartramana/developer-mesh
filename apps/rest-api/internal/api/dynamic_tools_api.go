@@ -15,6 +15,7 @@ import (
 	"github.com/developer-mesh/developer-mesh/pkg/observability"
 	pkgrepository "github.com/developer-mesh/developer-mesh/pkg/repository"
 	"github.com/developer-mesh/developer-mesh/pkg/tools"
+	githubprovider "github.com/developer-mesh/developer-mesh/pkg/tools/providers/github"
 	"github.com/gin-gonic/gin"
 )
 
@@ -681,25 +682,66 @@ func (api *DynamicToolsAPI) ExecuteAction(c *gin.Context) {
 		req.Action = action
 	}
 
-	// Add pagination defaults for list operations to prevent large responses
+	// Add pagination defaults for operations that can return large responses
+	needsPagination := false
+	defaultPerPage := 30 // Reasonable default to prevent token limit issues
+
+	// Check if this is a list, search, or get-multiple operation
 	if strings.Contains(req.Action, "list") || strings.Contains(req.Action, "_list") ||
-		strings.Contains(req.Action, "-list") || strings.HasSuffix(req.Action, "list") {
+		strings.Contains(req.Action, "search") || strings.Contains(req.Action, "_search") ||
+		strings.Contains(req.Action, "get_all") || strings.Contains(req.Action, "fetch_all") {
+		needsPagination = true
+	}
+
+	// Special cases for specific GitHub operations that return arrays
+	paginatedOps := []string{
+		"get_issue_comments", "get_issue_events", "get_pull_request_files",
+		"get_pull_request_reviews", "get_pull_request_review_comments",
+		"list_workflow_runs", "list_workflow_jobs", "list_artifacts",
+		"list_commits", "list_branches", "list_tags", "list_releases",
+		"list_notifications", "list_gists", "get_team_members",
+		"discussion_comments_get", "get_issue_timeline",
+	}
+
+	for _, op := range paginatedOps {
+		if strings.Contains(req.Action, op) {
+			needsPagination = true
+			break
+		}
+	}
+
+	if needsPagination {
 		if req.Parameters == nil {
 			req.Parameters = make(map[string]interface{})
 		}
 
 		// Set reasonable defaults for MCP clients to prevent token limit issues
 		if _, hasPerPage := req.Parameters["per_page"]; !hasPerPage {
-			req.Parameters["per_page"] = 30 // GitHub API default that works well
+			// Use smaller page size for operations that typically have larger payloads
+			if strings.Contains(req.Action, "diff") || strings.Contains(req.Action, "files") {
+				req.Parameters["per_page"] = 20
+				defaultPerPage = 20
+			} else if strings.Contains(req.Action, "search") {
+				req.Parameters["per_page"] = 25 // Search results are often larger
+				defaultPerPage = 25
+			} else {
+				req.Parameters["per_page"] = defaultPerPage
+			}
 		}
 		if _, hasPage := req.Parameters["page"]; !hasPage {
 			req.Parameters["page"] = 1
 		}
 
-		api.logger.Info("Added pagination defaults for list operation", map[string]interface{}{
+		// Add limit parameter for operations that use it instead of per_page
+		if _, hasLimit := req.Parameters["limit"]; !hasLimit {
+			req.Parameters["limit"] = defaultPerPage
+		}
+
+		api.logger.Debug("Added pagination defaults", map[string]interface{}{
 			"action":   req.Action,
 			"per_page": req.Parameters["per_page"],
 			"page":     req.Parameters["page"],
+			"limit":    req.Parameters["limit"],
 		})
 	}
 
@@ -753,10 +795,60 @@ func (api *DynamicToolsAPI) ExecuteAction(c *gin.Context) {
 	// Check if this is an organization tool (expanded or not)
 	// Use the original tool ID for detection since we may have modified toolID
 	isOrganizationTool := false
-	if strings.Contains(originalToolID, "_") {
-		// This is an expanded organization tool
-		isOrganizationTool = true
-	} else if api.enhancedToolsAPI != nil {
+	var parentToolID string
+	var operationName string
+
+	// First check if this looks like an expanded tool (provider_operation format)
+	if api.enhancedToolsAPI != nil && (strings.HasPrefix(originalToolID, "github_") || strings.HasPrefix(originalToolID, "harness_")) {
+		api.logger.Info("Checking for expanded organization tool", map[string]interface{}{
+			"tool_id":   originalToolID,
+			"tenant_id": tenantID,
+		})
+		// This might be an expanded organization tool
+		// Try to find it in our expanded tools list
+		orgTools, getErr := api.enhancedToolsAPI.GetToolsForTenant(c.Request.Context(), tenantID)
+		if getErr == nil && len(orgTools) > 0 {
+			api.logger.Info("Got organization tools for tenant", map[string]interface{}{
+				"count":     len(orgTools),
+				"tenant_id": tenantID,
+			})
+			// Check each org tool and its potential expansions
+			for _, orgTool := range orgTools {
+				if ot, ok := orgTool.(*models.OrganizationTool); ok && api.shouldExpandTool(ot) {
+					// Get the expanded tools for this org tool
+					expandedTools := api.expandOrganizationTool(c.Request.Context(), ot)
+					for _, expTool := range expandedTools {
+						if expTool.ID == originalToolID {
+							// Found it! Extract the parent tool ID and operation
+							if expTool.Config != nil {
+								if pid, ok := expTool.Config["parent_tool_id"].(string); ok {
+									parentToolID = pid
+								}
+								if op, ok := expTool.Config["operation"].(string); ok {
+									operationName = op
+								}
+							}
+							isOrganizationTool = true
+							toolID = parentToolID // Use the parent tool ID for execution
+							extractedOperation = operationName
+							api.logger.Info("Found expanded organization tool", map[string]interface{}{
+								"tool_id":        originalToolID,
+								"parent_tool_id": parentToolID,
+								"operation":      operationName,
+							})
+							break
+						}
+					}
+					if isOrganizationTool {
+						break
+					}
+				}
+			}
+		}
+	}
+
+	// If not found as expanded tool, check if it's a direct organization tool
+	if !isOrganizationTool && api.enhancedToolsAPI != nil {
 		// Check if this is a non-expanded organization tool
 		// Try to get it from the enhanced registry first
 		tools, getErr := api.enhancedToolsAPI.GetToolsForTenant(c.Request.Context(), tenantID)
@@ -1394,28 +1486,30 @@ func (api *DynamicToolsAPI) expandOrganizationTool(ctx context.Context, ot *mode
 		category    string
 	})
 
-	// Parse AI definitions to get descriptive info for each operation
+	// Parse AI definitions to get descriptive info and schemas for each operation
+	var aiDefMap map[string]map[string]interface{}
 	if template.AIDefinitions != nil {
-		var aiDefs struct {
-			Tools []struct {
-				Name        string `json:"name"`
-				Description string `json:"description"`
-				Category    string `json:"category"`
-			} `json:"tools"`
-		}
+		// Parse as array of AI tool definitions
+		var aiDefs []map[string]interface{}
 		if err := json.Unmarshal(*template.AIDefinitions, &aiDefs); err == nil {
-			// Map operation names to their definitions
-			for _, tool := range aiDefs.Tools {
-				// Convert tool name to operation format (e.g., "harness_ci_pipelines" -> "ci/pipelines")
-				// This is a heuristic - we'll need to match based on the operation mappings
-				toolDefs[tool.Name] = struct {
-					displayName string
-					description string
-					category    string
-				}{
-					displayName: tool.Name,
-					description: tool.Description,
-					category:    tool.Category,
+			aiDefMap = make(map[string]map[string]interface{})
+			for _, def := range aiDefs {
+				if name, ok := def["name"].(string); ok {
+					aiDefMap[name] = def
+					// Also populate the legacy toolDefs map
+					if desc, ok := def["description"].(string); ok {
+						if cat, ok := def["category"].(string); ok {
+							toolDefs[name] = struct {
+								displayName string
+								description string
+								category    string
+							}{
+								displayName: name,
+								description: desc,
+								category:    cat,
+							}
+						}
+					}
 				}
 			}
 		}
@@ -1428,6 +1522,18 @@ func (api *DynamicToolsAPI) expandOrganizationTool(ctx context.Context, ot *mode
 		description := fmt.Sprintf("Execute %s operation", operationName)
 		category := "general"
 
+		// Try to get better description from AI definitions
+		if aiDefMap != nil {
+			if aiDef, ok := aiDefMap[operationName]; ok {
+				if desc, ok := aiDef["description"].(string); ok && desc != "" {
+					description = desc
+				}
+				if cat, ok := aiDef["category"].(string); ok && cat != "" {
+					category = cat
+				}
+			}
+		}
+
 		// Try to extract better names from operation groups
 		for _, group := range template.OperationGroups {
 			for _, op := range group.Operations {
@@ -1439,25 +1545,69 @@ func (api *DynamicToolsAPI) expandOrganizationTool(ctx context.Context, ot *mode
 		}
 
 		// Format the operation name for tool naming
-		// Convert slashes to hyphens for consistency (e.g., "ci/pipelines/list" -> "ci-pipelines-list")
-		operationNameForTool := strings.ReplaceAll(operationName, "/", "-")
-		operationNameForTool = strings.ReplaceAll(operationNameForTool, "_", "-")
+		// Keep snake_case and use underscores for consistency (e.g., "ci/pipelines/list" -> "ci_pipelines_list")
+		operationNameForTool := strings.ReplaceAll(operationName, "/", "_")
+		operationNameForTool = strings.ReplaceAll(operationNameForTool, "-", "_")
 
-		// Create tool name with instance prefix
-		toolName := fmt.Sprintf("%s-%s", ot.InstanceName, operationNameForTool)
+		// Create tool name with provider prefix (e.g., "github_list_repositories")
+		// Use the template provider name for consistency
+		toolName := fmt.Sprintf("%s_%s", template.ProviderName, operationNameForTool)
 
 		// Create display name
 		if ot.DisplayName != "" {
 			displayName = fmt.Sprintf("%s - %s", ot.DisplayName, operationName)
 		}
 
+		// Try to get the input schema from AI definitions
+		var inputSchema map[string]interface{}
+		if aiDefMap != nil {
+			if aiDef, ok := aiDefMap[operationName]; ok {
+				if schema, ok := aiDef["inputSchema"].(map[string]interface{}); ok {
+					inputSchema = schema
+				}
+			}
+		}
+
+		// If no schema from AI definitions, build basic schema from operation parameters
+		if inputSchema == nil && (len(mapping.RequiredParams) > 0 || len(mapping.OptionalParams) > 0) {
+			properties := make(map[string]interface{})
+			for _, param := range mapping.RequiredParams {
+				properties[param] = map[string]interface{}{
+					"type":        "string",
+					"description": fmt.Sprintf("Required parameter: %s", param),
+				}
+			}
+			for _, param := range mapping.OptionalParams {
+				properties[param] = map[string]interface{}{
+					"type":        "string",
+					"description": fmt.Sprintf("Optional parameter: %s", param),
+				}
+			}
+			inputSchema = map[string]interface{}{
+				"type":       "object",
+				"properties": properties,
+				"required":   mapping.RequiredParams,
+			}
+		}
+
+		// Get operation metadata if provider is GitHub
+		var metadata *json.RawMessage
+		if template.ProviderName == "github" {
+			// Import the github provider package to get metadata
+			if metadataFunc := api.getGitHubOperationMetadata(operationName); metadataFunc != nil {
+				metadataBytes, _ := json.Marshal(metadataFunc)
+				metadata = (*json.RawMessage)(&metadataBytes)
+			}
+		}
+
 		// Create the dynamic tool
 		tool := &models.DynamicTool{
-			ID:          fmt.Sprintf("%s-%s", ot.ID, operationNameForTool),
+			ID:          fmt.Sprintf("%s_%s", template.ProviderName, operationNameForTool),
 			TenantID:    ot.TenantID,
 			ToolName:    toolName,
 			DisplayName: displayName,
 			BaseURL:     baseURL,
+			InputSchema: inputSchema,
 			Status:      ot.Status,
 			ToolType:    "organization_tool_operation",
 			Config: map[string]interface{}{
@@ -1473,6 +1623,7 @@ func (api *DynamicToolsAPI) expandOrganizationTool(ctx context.Context, ot *mode
 			},
 			IsActive:    ot.IsActive,
 			Description: &description,
+			Metadata:    metadata,
 		}
 
 		// Add encrypted credentials if present
@@ -1519,4 +1670,16 @@ func (api *DynamicToolsAPI) createSingleToolFromOrgTool(ot *models.OrganizationT
 	}
 
 	return tool
+}
+
+// getGitHubOperationMetadata retrieves metadata for a GitHub operation
+func (api *DynamicToolsAPI) getGitHubOperationMetadata(operationName string) map[string]interface{} {
+	metadata := githubprovider.GetOperationMetadata(operationName)
+
+	// Add response example to metadata
+	if example := githubprovider.GetOperationResponseExample(operationName); example != nil {
+		metadata["response_example"] = example
+	}
+
+	return metadata
 }

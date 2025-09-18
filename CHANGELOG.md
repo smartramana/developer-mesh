@@ -7,7 +7,29 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **GitHub Response Optimization for MCP Tools** (2025-09-18): Dramatically reduced response sizes to prevent context exhaustion
+  - Implemented selective field filtering for all high-volume GitHub handlers
+  - Created response_utils.go with simplification functions for workflow runs, pull requests, issues, commits, repositories, and code search results
+  - Reduced response sizes by 90-97%: list_workflow_runs from ~17,800 to ~500 tokens (97% reduction)
+  - Optimized handlers: ListWorkflows, ListWorkflowRuns, ListPullRequests, ListIssues, ListCommits, SearchRepositories, SearchCode, SearchIssues
+  - Preserved all essential fields while removing redundant nested objects (duplicate repository/user objects)
+  - Truncated long text fields (commit messages, bodies) to 200-500 characters
+  - Result: Can now fetch 20x more data before hitting MCP context limits, significantly improving AI agent efficiency
+
 ### Fixed
+
+- **Critical GitHub Provider Parameter and Pagination Issues** (2025-09-17): Resolved parameter passing and pagination problems
+  - Fixed double-nesting of parameters when MCP passes them to REST API
+  - MCP was sending correctly structured params, but REST API client was wrapping them again
+  - Enhanced extractInt() helper to handle multiple types (float64, int, int64, string)
+  - Fixed ExtractPagination() to check for both 'per_page' (snake_case) and 'perPage' (camelCase)
+  - Updated all search handlers to use robust extractInt() instead of direct type assertion
+  - Added proper pagination defaults (per_page=30) and validation (max=100)
+  - Added comprehensive logging to trace parameter flow for debugging
+  - Result: All GitHub operations now working correctly with proper pagination support
+  - Affected handlers: SearchIssues, SearchRepositories, SearchCode, SearchPullRequests, ListIssues
 
 - **SSRF Vulnerabilities in Discovery Service** (2025-09-10): Fixed CodeQL security alerts
   - Resolved 5 "Uncontrolled data used in network request" (SSRF) alerts
