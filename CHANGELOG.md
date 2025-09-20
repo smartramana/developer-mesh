@@ -9,6 +9,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Edge MCP Built-in Tools with Anthropic Patterns** (2025-09-20): Implemented 23 core MCP tools for agent orchestration
+  - Added 5 providers: AgentProvider, WorkflowProvider, TaskProvider, ContextProvider, TemplateProvider
+  - Implemented all 8 Anthropic-recommended patterns:
+    - Tool chaining with context-aware next tool suggestions
+    - Idempotency support with TTL-based caching
+    - Rate limiting using token bucket algorithm
+    - Standardized responses with metadata wrapper
+    - Capability boundaries and documented limits
+    - Progressive complexity through workflow templates
+    - Tool composition with variable substitution
+    - Context preservation across sessions
+  - Agent Management Tools (3): agent_heartbeat, agent_list, agent_status
+  - Workflow Tools (7): workflow_create, workflow_execute, workflow_list, workflow_get, workflow_execution_list, workflow_execution_get, workflow_cancel
+  - Task Tools (6): task_create, task_assign, task_complete, task_list, task_get, task_get_batch
+  - Context Tools (4): context_update, context_append, context_get, context_list
+  - Template Tools (3): template_list, template_get, template_instantiate
+  - Thread-safe operations with sync.RWMutex throughout
+  - Pagination and sorting support for all list operations
+  - Response metadata includes request IDs, timestamps, and rate limit status
+  - Result: Complete built-in toolset for multi-agent orchestration without external dependencies
+
 - **Edge MCP Docker Container Support** (2025-09-19): Added full Docker containerization for Edge MCP
   - Created Dockerfile for Edge MCP following workspace pattern
   - Added Edge MCP service to docker-compose.local.yml on port 8085
