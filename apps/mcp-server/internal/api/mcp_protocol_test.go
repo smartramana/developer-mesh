@@ -3,6 +3,7 @@ package api
 import (
 	"context"
 	"encoding/json"
+	"os"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -36,6 +37,14 @@ func (m *MockRESTAPIClient) GetTool(ctx context.Context, tenantID, toolID string
 
 func (m *MockRESTAPIClient) ExecuteTool(ctx context.Context, tenantID, toolID, action string, params map[string]interface{}) (*models.ToolExecutionResponse, error) {
 	args := m.Called(ctx, tenantID, toolID, action, params)
+	if resp := args.Get(0); resp != nil {
+		return resp.(*models.ToolExecutionResponse), args.Error(1)
+	}
+	return nil, args.Error(1)
+}
+
+func (m *MockRESTAPIClient) ExecuteToolWithAuth(ctx context.Context, tenantID, toolID, action string, params map[string]interface{}, passthroughAuth *models.PassthroughAuthBundle) (*models.ToolExecutionResponse, error) {
+	args := m.Called(ctx, tenantID, toolID, action, params, passthroughAuth)
 	if resp := args.Get(0); resp != nil {
 		return resp.(*models.ToolExecutionResponse), args.Error(1)
 	}
@@ -110,6 +119,11 @@ func TestIsMCPMessage(t *testing.T) {
 }
 
 func TestMCPProtocolHandler_HandleInitialize(t *testing.T) {
+	// Disable tool refresh for tests to avoid background goroutine issues
+	oldEnv := os.Getenv("DISABLE_TOOL_REFRESH")
+	_ = os.Setenv("DISABLE_TOOL_REFRESH", "true")
+	defer func() { _ = os.Setenv("DISABLE_TOOL_REFRESH", oldEnv) }()
+
 	// Create mock REST client
 	mockClient := new(MockRESTAPIClient)
 	logger := observability.NewStandardLogger("test")
@@ -145,6 +159,11 @@ func TestMCPProtocolHandler_HandleInitialize(t *testing.T) {
 }
 
 func TestMCPProtocolHandler_HandleToolsList(t *testing.T) {
+	// Disable tool refresh for tests to avoid background goroutine issues
+	oldEnv := os.Getenv("DISABLE_TOOL_REFRESH")
+	_ = os.Setenv("DISABLE_TOOL_REFRESH", "true")
+	defer func() { _ = os.Setenv("DISABLE_TOOL_REFRESH", oldEnv) }()
+
 	// Create mock REST client
 	mockClient := new(MockRESTAPIClient)
 	logger := observability.NewStandardLogger("test")
@@ -182,6 +201,11 @@ func TestMCPProtocolHandler_HandleToolsList(t *testing.T) {
 }
 
 func TestMCPProtocolHandler_HandleToolCall(t *testing.T) {
+	// Disable tool refresh for tests to avoid background goroutine issues
+	oldEnv := os.Getenv("DISABLE_TOOL_REFRESH")
+	_ = os.Setenv("DISABLE_TOOL_REFRESH", "true")
+	defer func() { _ = os.Setenv("DISABLE_TOOL_REFRESH", oldEnv) }()
+
 	// Create mock REST client
 	mockClient := new(MockRESTAPIClient)
 	logger := observability.NewStandardLogger("test")
@@ -217,6 +241,11 @@ func TestMCPProtocolHandler_HandleToolCall(t *testing.T) {
 }
 
 func TestMCPProtocolHandler_SessionManagement(t *testing.T) {
+	// Disable tool refresh for tests to avoid background goroutine issues
+	oldEnv := os.Getenv("DISABLE_TOOL_REFRESH")
+	_ = os.Setenv("DISABLE_TOOL_REFRESH", "true")
+	defer func() { _ = os.Setenv("DISABLE_TOOL_REFRESH", oldEnv) }()
+
 	mockClient := new(MockRESTAPIClient)
 	logger := observability.NewStandardLogger("test")
 
