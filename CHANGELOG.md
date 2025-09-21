@@ -5,9 +5,30 @@ All notable changes to Developer Mesh will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [0.0.3] - 2025-09-20
+
+### Security
+
+- **Critical Security Vulnerabilities Fixed** (2025-09-20): Addressed multiple high and medium severity issues
+  - Fixed SSRF vulnerability in mockserver by adding port validation (apps/mockserver/cmd/main.go)
+  - Fixed credential logging in database.go by implementing sanitizeDSN function to mask passwords
+  - Fixed integer overflow vulnerabilities in GitHub provider by implementing extractInt32 with bounds checking
+  - Updated Docker dependency from v28.2.2 to v28.3.3 to fix CVE-2025-54388 (firewalld reload vulnerability)
+  - Added proper int32 conversion with bounds validation in 4 locations across GraphQL handlers
+  - Result: Eliminated all high-severity security vulnerabilities identified by CodeQL and Snyk
 
 ### Added
+
+- **Legacy MCP-Server Removal and Edge-MCP Migration** (2025-09-20): Completed full migration to edge-mcp
+  - Removed legacy apps/mcp-server directory completely
+  - Updated all GitHub Actions workflows (CI and Release) to build edge-mcp Docker images
+  - Modified all docker-compose files to use edge-mcp service on port 8085
+  - Updated Makefile targets replacing mcp-server with edge-mcp
+  - Updated go.work to remove mcp-server module reference
+  - Updated all test scripts to use edge-mcp
+  - Updated documentation references across README and developer guides
+  - Fixed orphan container warning by removing old mcp-server containers
+  - Result: Edge-MCP is now the sole MCP implementation with all functionality preserved
 
 - **Edge MCP Built-in Tools with Anthropic Patterns** (2025-09-20): Implemented 23 core MCP tools for agent orchestration
   - Added 5 providers: AgentProvider, WorkflowProvider, TaskProvider, ContextProvider, TemplateProvider
