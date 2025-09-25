@@ -49,7 +49,7 @@ func TestNewConfluenceProvider(t *testing.T) {
 	assert.Equal(t, "confluence", provider.GetProviderName())
 	assert.Contains(t, provider.GetSupportedVersions(), "v2")
 	assert.Equal(t, "test-domain", provider.domain)
-	assert.Equal(t, "https://test-domain.atlassian.net/wiki/rest/api", provider.BaseProvider.GetDefaultConfiguration().BaseURL)
+	assert.Equal(t, "https://test-domain.atlassian.net/wiki/api/v2", provider.BaseProvider.GetDefaultConfiguration().BaseURL)
 }
 
 func TestGetToolDefinitions(t *testing.T) {
@@ -120,7 +120,7 @@ func TestGetAIOptimizedDefinitions(t *testing.T) {
 	}
 
 	require.NotNil(t, contentDef)
-	assert.Equal(t, "Confluence Content Management", contentDef.DisplayName)
+	assert.Equal(t, "Confluence Content Operations", contentDef.DisplayName)
 	assert.NotEmpty(t, contentDef.UsageExamples)
 	assert.NotEmpty(t, contentDef.SemanticTags)
 	assert.NotEmpty(t, contentDef.CommonPhrases)
@@ -164,7 +164,7 @@ func TestValidateCredentials(t *testing.T) {
 			setupServer: func(server *httptest.Server) {
 			},
 			wantErr:     true,
-			errContains: "missing required credentials",
+			errContains: "no authentication credentials found",
 		},
 		{
 			name: "username and password (legacy)",
@@ -389,7 +389,7 @@ func TestGetDefaultConfiguration(t *testing.T) {
 
 	config := provider.GetDefaultConfiguration()
 
-	assert.Equal(t, "https://test-domain.atlassian.net/wiki/rest/api", config.BaseURL)
+	assert.Equal(t, "https://test-domain.atlassian.net/wiki/api/v2", config.BaseURL)
 	assert.Equal(t, "basic", config.AuthType)
 	assert.Contains(t, config.RequiredScopes, "read:confluence-content.all")
 	assert.Contains(t, config.RequiredScopes, "write:confluence-content.all")
