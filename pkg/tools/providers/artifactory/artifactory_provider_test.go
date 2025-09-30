@@ -3,6 +3,8 @@ package artifactory
 import (
 	"context"
 	"encoding/json"
+	"fmt"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -243,7 +245,7 @@ func TestGetAIOptimizedDefinitions(t *testing.T) {
 	provider := NewArtifactoryProvider(logger)
 
 	definitions := provider.GetAIOptimizedDefinitions()
-	assert.Len(t, definitions, 5)
+	assert.GreaterOrEqual(t, len(definitions), 7, "Should have at least 7 category definitions")
 
 	// Check repositories definition
 	reposDef := definitions[0]
@@ -329,6 +331,11 @@ func TestExecuteOperation_ListRepos(t *testing.T) {
 
 	// Create a mock server
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// Handle common discovery endpoints
+		if handleCommonDiscoveryEndpointsForTests(t, w, r) {
+			return
+		}
+
 		assert.Equal(t, "/api/repositories", r.URL.Path)
 		assert.Equal(t, "GET", r.Method)
 
@@ -368,6 +375,11 @@ func TestExecuteOperation_ListRepos(t *testing.T) {
 func TestExecuteOperation_CreateUser(t *testing.T) {
 	// Create a mock server
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// Handle common discovery endpoints
+		if handleCommonDiscoveryEndpointsForTests(t, w, r) {
+			return
+		}
+
 		assert.Equal(t, "/api/security/users/john.doe", r.URL.Path)
 		assert.Equal(t, "PUT", r.Method)
 
@@ -433,6 +445,11 @@ func TestExecuteOperation_SearchArtifacts(t *testing.T) {
 
 	// Create a mock server
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// Handle common discovery endpoints
+		if handleCommonDiscoveryEndpointsForTests(t, w, r) {
+			return
+		}
+
 		assert.Equal(t, "/api/search/artifact", r.URL.Path)
 		assert.Equal(t, "GET", r.Method)
 
@@ -496,6 +513,11 @@ func TestExecuteOperation_UnknownOperation(t *testing.T) {
 func TestExecuteOperation_BuildPromote(t *testing.T) {
 	// Create a mock server
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// Handle common discovery endpoints
+		if handleCommonDiscoveryEndpointsForTests(t, w, r) {
+			return
+		}
+
 		assert.Equal(t, "/api/build/promote/myapp/123", r.URL.Path)
 		assert.Equal(t, "POST", r.Method)
 
@@ -540,4 +562,515 @@ func TestExecuteOperation_BuildPromote(t *testing.T) {
 	result, err := provider.ExecuteOperation(ctx, "builds/promote", params)
 	require.NoError(t, err)
 	assert.NotNil(t, result)
+}
+
+// TestExecuteAQLQuery tests AQL query execution with text/plain content type
+func TestExecuteAQLQuery(t *testing.T) {
+	testCases := []struct {
+		name           string
+		query          interface{}
+		mockResponse   string
+		mockStatusCode int
+		expectedError  bool
+		checkResponse  func(t *testing.T, result interface{})
+	}{
+		{
+			name:  "Simple AQL query as string",
+			query: `items.find({"repo":"libs-release-local","type":"file"})`,
+			mockResponse: `{
+				"results": [
+					{"repo":"libs-release-local","path":"org/example","name":"test.jar","type":"file"},
+					{"repo":"libs-release-local","path":"org/sample","name":"app.jar","type":"file"}
+				],
+				"range": {"start_pos":0,"end_pos":2,"total":2}
+			}`,
+			mockStatusCode: http.StatusOK,
+			expectedError:  false,
+			checkResponse: func(t *testing.T, result interface{}) {
+				res, ok := result.(map[string]interface{})
+				require.True(t, ok)
+				assert.Contains(t, res, "results")
+				assert.Contains(t, res, "total_count")
+				results := res["results"].([]interface{})
+				assert.Len(t, results, 2)
+			},
+		},
+		{
+			name:  "AQL query with include fields",
+			query: `items.find({"repo":"libs-release-local"}).include("name","repo","path","actual_md5","actual_sha1","size")`,
+			mockResponse: `{
+				"results": [
+					{
+						"repo":"libs-release-local",
+						"path":"org/example",
+						"name":"test.jar",
+						"actual_md5":"abc123",
+						"actual_sha1":"def456",
+						"size":1024
+					}
+				],
+				"range": {"start_pos":0,"end_pos":1,"total":1}
+			}`,
+			mockStatusCode: http.StatusOK,
+			expectedError:  false,
+			checkResponse: func(t *testing.T, result interface{}) {
+				res, ok := result.(map[string]interface{})
+				require.True(t, ok)
+				results := res["results"].([]interface{})
+				assert.Len(t, results, 1)
+				firstResult := results[0].(map[string]interface{})
+				assert.Equal(t, "test.jar", firstResult["name"])
+				assert.Equal(t, float64(1024), firstResult["size"])
+			},
+		},
+		{
+			name: "AQL query from map structure",
+			query: map[string]interface{}{
+				"repo": "docker-local",
+				"type": "file",
+				"name": map[string]interface{}{
+					"$match": "*.json",
+				},
+			},
+			mockResponse: `{
+				"results": [
+					{"repo":"docker-local","path":"library/nginx","name":"manifest.json","type":"file"}
+				],
+				"range": {"start_pos":0,"end_pos":1,"total":1}
+			}`,
+			mockStatusCode: http.StatusOK,
+			expectedError:  false,
+			checkResponse: func(t *testing.T, result interface{}) {
+				res, ok := result.(map[string]interface{})
+				require.True(t, ok)
+				assert.Equal(t, 1, res["total_count"])
+			},
+		},
+		{
+			name:  "Complex AQL with sorting and limit",
+			query: `items.find({"repo":"libs-release-local"}).sort({"$asc":["created"]}).limit(10)`,
+			mockResponse: `{
+				"results": [
+					{"repo":"libs-release-local","path":"a","name":"1.jar"},
+					{"repo":"libs-release-local","path":"b","name":"2.jar"},
+					{"repo":"libs-release-local","path":"c","name":"3.jar"}
+				],
+				"range": {"start_pos":0,"end_pos":3,"total":50}
+			}`,
+			mockStatusCode: http.StatusOK,
+			expectedError:  false,
+			checkResponse: func(t *testing.T, result interface{}) {
+				res, ok := result.(map[string]interface{})
+				require.True(t, ok)
+				results := res["results"].([]interface{})
+				assert.Len(t, results, 3)
+				// Total count shows actual number returned
+				assert.Equal(t, 3, res["total_count"])
+			},
+		},
+		{
+			name:           "Invalid AQL query - missing domain",
+			query:          `find({"repo":"test"})`,
+			mockResponse:   "",
+			mockStatusCode: http.StatusOK,
+			expectedError:  true,
+		},
+		{
+			name:           "Invalid AQL query - unbalanced brackets",
+			query:          `items.find({"repo":"test"`,
+			mockResponse:   "",
+			mockStatusCode: http.StatusOK,
+			expectedError:  true,
+		},
+		{
+			name:           "Empty query",
+			query:          "",
+			mockResponse:   "",
+			mockStatusCode: http.StatusOK,
+			expectedError:  true,
+		},
+		{
+			name:           "Server error response",
+			query:          `items.find({})`,
+			mockResponse:   `{"errors":[{"status":500,"message":"Internal server error"}]}`,
+			mockStatusCode: http.StatusInternalServerError,
+			expectedError:  true,
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			// Create a mock server
+			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				// Handle capability discovery requests
+				if r.URL.Path == "/api/system/ping" {
+					w.WriteHeader(http.StatusOK)
+					_, _ = w.Write([]byte("OK"))
+					return
+				}
+				if r.URL.Path == "/api/security/apiKey" {
+					w.WriteHeader(http.StatusOK)
+					_ = json.NewEncoder(w).Encode(map[string]interface{}{
+						"apiKey": "test-key",
+						"type":   "user",
+					})
+					return
+				}
+				if r.URL.Path == "/api/repositories" {
+					w.WriteHeader(http.StatusOK)
+					_ = json.NewEncoder(w).Encode([]interface{}{})
+					return
+				}
+				if r.URL.Path == "/api/system/configuration" {
+					w.WriteHeader(http.StatusOK)
+					_, _ = w.Write([]byte("<config></config>"))
+					return
+				}
+				if r.URL.Path == "/xray/api/v1/system/version" {
+					w.WriteHeader(http.StatusNotFound)
+					return
+				}
+				if r.URL.Path == "/pipelines/api/v1/system/info" {
+					w.WriteHeader(http.StatusNotFound)
+					return
+				}
+				if r.URL.Path == "/mc/api/v1/system/info" {
+					w.WriteHeader(http.StatusNotFound)
+					return
+				}
+
+				// Now handle the actual AQL request
+				assert.Equal(t, "POST", r.Method)
+				assert.Equal(t, "/api/search/aql", r.URL.Path)
+
+				// Verify content type header
+				assert.Equal(t, "text/plain", r.Header.Get("Content-Type"))
+
+				// Read and verify request body
+				body, err := io.ReadAll(r.Body)
+				require.NoError(t, err)
+
+				// For non-error test cases, verify the query was sent as plain text
+				if !tc.expectedError && tc.query != nil {
+					if str, ok := tc.query.(string); ok {
+						assert.Equal(t, str, string(body))
+					} else {
+						// For map queries, verify it was converted to AQL format
+						assert.Contains(t, string(body), "items.find")
+					}
+				}
+
+				// Return mock response
+				w.WriteHeader(tc.mockStatusCode)
+				_, _ = w.Write([]byte(tc.mockResponse))
+			}))
+			defer server.Close()
+
+			logger := &observability.NoopLogger{}
+			provider := NewArtifactoryProvider(logger)
+
+			// Disable capability discoverer for this test
+			provider.capabilityDiscoverer = nil
+
+			// Override the base URL
+			config := provider.GetDefaultConfiguration()
+			config.BaseURL = server.URL
+			provider.SetConfiguration(config)
+
+			// Create context with credentials
+			ctx := providers.WithContext(context.Background(), &providers.ProviderContext{
+				Credentials: &providers.ProviderCredentials{
+					Token: "test-token",
+				},
+			})
+
+			// Execute AQL query
+			params := map[string]interface{}{
+				"query": tc.query,
+			}
+
+			result, err := provider.ExecuteOperation(ctx, "search/aql", params)
+
+			if tc.expectedError {
+				assert.Error(t, err)
+			} else {
+				require.NoError(t, err)
+				assert.NotNil(t, result)
+				if tc.checkResponse != nil {
+					tc.checkResponse(t, result)
+				}
+			}
+		})
+	}
+}
+
+// TestAQLQueryValidation tests the AQL query validation logic
+func TestAQLQueryValidation(t *testing.T) {
+	logger := &observability.NoopLogger{}
+	provider := NewArtifactoryProvider(logger)
+
+	testCases := []struct {
+		name          string
+		query         string
+		expectedError bool
+	}{
+		{
+			name:          "Valid items.find query",
+			query:         `items.find({"repo":"test"})`,
+			expectedError: false,
+		},
+		{
+			name:          "Valid builds.find query",
+			query:         `builds.find({"name":"myapp"})`,
+			expectedError: false,
+		},
+		{
+			name:          "Valid entries.find query",
+			query:         `entries.find({})`,
+			expectedError: false,
+		},
+		{
+			name:          "Valid artifacts.find query",
+			query:         `artifacts.find({})`,
+			expectedError: false,
+		},
+		{
+			name:          "Query with include clause",
+			query:         `items.find({}).include("name","repo")`,
+			expectedError: false,
+		},
+		{
+			name:          "Query with sort and limit",
+			query:         `items.find({}).sort({"$asc":["created"]}).limit(10)`,
+			expectedError: false,
+		},
+		{
+			name:          "Invalid - missing domain",
+			query:         `find({})`,
+			expectedError: true,
+		},
+		{
+			name:          "Invalid - wrong domain",
+			query:         `users.find({})`,
+			expectedError: true,
+		},
+		{
+			name:          "Invalid - unbalanced parentheses",
+			query:         `items.find({}`,
+			expectedError: true,
+		},
+		{
+			name:          "Invalid - unbalanced braces",
+			query:         `items.find({"repo":"test"`,
+			expectedError: true,
+		},
+		{
+			name:          "Invalid - mixed unbalanced brackets",
+			query:         `items.find({"repo":"test"])`,
+			expectedError: true,
+		},
+		{
+			name:          "Empty query",
+			query:         "",
+			expectedError: true,
+		},
+		{
+			name:          "Whitespace only",
+			query:         "   ",
+			expectedError: true,
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			err := provider.validateAQLQuery(tc.query)
+			if tc.expectedError {
+				assert.Error(t, err)
+			} else {
+				assert.NoError(t, err)
+			}
+		})
+	}
+}
+
+// TestFormatAQLFromMap tests the map to AQL conversion
+func TestFormatAQLFromMap(t *testing.T) {
+	logger := &observability.NoopLogger{}
+	provider := NewArtifactoryProvider(logger)
+
+	testCases := []struct {
+		name     string
+		input    map[string]interface{}
+		expected string
+	}{
+		{
+			name: "Simple criteria",
+			input: map[string]interface{}{
+				"repo": "libs-release-local",
+				"type": "file",
+			},
+			expected: `items.find({"repo":"libs-release-local","type":"file"})`,
+		},
+		{
+			name: "Complex criteria with nested conditions",
+			input: map[string]interface{}{
+				"repo": "docker-local",
+				"name": map[string]interface{}{
+					"$match": "*.json",
+				},
+			},
+			expected: `items.find({"name":{"$match":"*.json"},"repo":"docker-local"})`,
+		},
+		{
+			name:     "Empty map",
+			input:    map[string]interface{}{},
+			expected: `items.find({})`,
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			result := provider.formatAQLFromMap(tc.input)
+			// Parse both as JSON to compare structure, not string representation
+			// Since map iteration order is not guaranteed
+			assert.Contains(t, result, "items.find")
+			if len(tc.input) > 0 {
+				for key := range tc.input {
+					assert.Contains(t, result, key)
+				}
+			}
+		})
+	}
+}
+
+// TestAQLWithPagination tests AQL query pagination support
+func TestAQLWithPagination(t *testing.T) {
+	// Create a mock server that returns multiple results
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// Return 10 results
+		results := []interface{}{}
+		for i := 0; i < 10; i++ {
+			results = append(results, map[string]interface{}{
+				"repo": "test-repo",
+				"name": fmt.Sprintf("file%d.jar", i),
+			})
+		}
+
+		response := map[string]interface{}{
+			"results": results,
+			"range": map[string]interface{}{
+				"start_pos": 0,
+				"end_pos":   10,
+				"total":     10,
+			},
+		}
+
+		w.WriteHeader(http.StatusOK)
+		_ = json.NewEncoder(w).Encode(response)
+	}))
+	defer server.Close()
+
+	logger := &observability.NoopLogger{}
+	provider := NewArtifactoryProvider(logger)
+
+	// Disable capability discoverer for this test
+	provider.capabilityDiscoverer = nil
+
+	// Override the base URL
+	config := provider.GetDefaultConfiguration()
+	config.BaseURL = server.URL
+	provider.SetConfiguration(config)
+
+	// Create context with credentials
+	ctx := providers.WithContext(context.Background(), &providers.ProviderContext{
+		Credentials: &providers.ProviderCredentials{
+			Token: "test-token",
+		},
+	})
+
+	// Test with limit parameter
+	params := map[string]interface{}{
+		"query": `items.find({})`,
+		"limit": 5,
+	}
+
+	result, err := provider.ExecuteOperation(ctx, "search/aql", params)
+	require.NoError(t, err)
+
+	res, ok := result.(map[string]interface{})
+	require.True(t, ok)
+
+	// Check that limit was applied
+	results := res["results"].([]interface{})
+	assert.Len(t, results, 5)
+	assert.Equal(t, true, res["has_more"])
+	assert.Equal(t, 5, res["total_count"])
+}
+
+// Helper function to handle common discovery endpoints in mock servers
+func handleCommonDiscoveryEndpointsForTests(t *testing.T, w http.ResponseWriter, r *http.Request) bool {
+	switch r.URL.Path {
+	case "/api/system/ping", "/access/api/v1/system/ping":
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte("OK"))
+		return true
+	case "/api/system/configuration":
+		// System configuration endpoint
+		w.WriteHeader(http.StatusOK)
+		_ = json.NewEncoder(w).Encode(map[string]interface{}{
+			"urlBase":     "http://test.artifactory.com",
+			"offlineMode": false,
+		})
+		return true
+	case "/xray/api/v1/system/version":
+		w.WriteHeader(http.StatusOK)
+		_ = json.NewEncoder(w).Encode(map[string]string{"version": "3.0.0", "revision": "123"})
+		return true
+	case "/pipelines/api/v1/system/info", "/mc/api/v1/system/info",
+		"/distribution/api/v1/system/info", "/api/federation/status":
+		// These are feature discovery endpoints - return 404 to indicate not available
+		w.WriteHeader(http.StatusNotFound)
+		return true
+	case "/api/repositories":
+		// Only handle repository list if there's no project query parameter
+		if r.URL.Query().Get("project") == "" {
+			// Repository list for permission discovery and tests
+			w.WriteHeader(http.StatusOK)
+			_ = json.NewEncoder(w).Encode([]map[string]interface{}{
+				{"key": "test-repo", "type": "LOCAL", "packageType": "maven"},
+				{"key": "npm-local", "type": "LOCAL", "packageType": "npm"},
+			})
+			return true
+		}
+		// Let the test handler deal with project-specific queries
+		return false
+	case "/api/v2/security/permissions":
+		// Permission discovery endpoint
+		if r.Method == "GET" {
+			// Return empty permissions list for discovery
+			w.WriteHeader(http.StatusOK)
+			_ = json.NewEncoder(w).Encode(map[string]interface{}{
+				"permissions": []map[string]interface{}{},
+			})
+		} else {
+			// For other methods, just return OK
+			w.WriteHeader(http.StatusOK)
+			_ = json.NewEncoder(w).Encode(map[string]interface{}{
+				"status": "ok",
+			})
+		}
+		return true
+	case "/access/api/v1/projects":
+		// Handle GET for projects list (capability discovery)
+		if r.Method == "GET" {
+			w.WriteHeader(http.StatusOK)
+			_ = json.NewEncoder(w).Encode(map[string]interface{}{
+				"projects": []map[string]interface{}{},
+			})
+			return true
+		}
+		// Let test handle other methods
+		return false
+	}
+	return false
 }

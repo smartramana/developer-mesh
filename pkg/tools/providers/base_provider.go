@@ -117,6 +117,11 @@ func (p *BaseProvider) Execute(ctx context.Context, operation string, params map
 		return nil, fmt.Errorf("operation %s not found", operation)
 	}
 
+	// Handle INTERNAL method type with handler
+	if mapping.Method == "INTERNAL" && mapping.Handler != nil {
+		return mapping.Handler(ctx, params)
+	}
+
 	// Build path with parameters
 	path := mapping.PathTemplate
 	queryParams := make(map[string]string)
@@ -327,11 +332,17 @@ func (p *BaseProvider) ExecuteHTTPRequest(ctx context.Context, method, path stri
 
 	var bodyReader io.Reader
 	if body != nil {
-		jsonBody, err := json.Marshal(body)
-		if err != nil {
-			return nil, fmt.Errorf("failed to marshal request body: %w", err)
+		// Check if body is already a string (for plain text requests like AQL)
+		if strBody, ok := body.(string); ok {
+			bodyReader = strings.NewReader(strBody)
+		} else {
+			// Default: marshal as JSON
+			jsonBody, err := json.Marshal(body)
+			if err != nil {
+				return nil, fmt.Errorf("failed to marshal request body: %w", err)
+			}
+			bodyReader = bytes.NewReader(jsonBody)
 		}
-		bodyReader = bytes.NewReader(jsonBody)
 	}
 
 	req, err := http.NewRequestWithContext(ctx, method, url, bodyReader)
@@ -339,7 +350,7 @@ func (p *BaseProvider) ExecuteHTTPRequest(ctx context.Context, method, path stri
 		return nil, fmt.Errorf("failed to create request: %w", err)
 	}
 
-	// Set default headers
+	// Set default headers (can be overridden by headers parameter)
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("Accept", "application/json")
 
@@ -401,6 +412,46 @@ func (p *BaseProvider) applyAuthentication(ctx context.Context, req *http.Reques
 		})
 	}
 
+	// Special handling for JFrog providers (Artifactory, Xray)
+	if p.name == "artifactory" || p.name == "xray" {
+		// Detect and use appropriate JFrog authentication method
+		authMethod := p.detectJFrogAuthType(pctx.Credentials)
+
+		switch authMethod {
+		case "artifactory_api_key":
+			// Use X-JFrog-Art-Api header for API keys
+			req.Header.Set("X-JFrog-Art-Api", pctx.Credentials.APIKey)
+			if p.logger != nil {
+				p.logger.Debug("Applied JFrog API key authentication", map[string]interface{}{
+					"provider": p.name,
+					"header":   "X-JFrog-Art-Api",
+					"key_len":  len(pctx.Credentials.APIKey),
+					"url":      req.URL.String(),
+				})
+			}
+			return nil
+		case "access_token":
+			// Use Bearer token for access tokens
+			req.Header.Set("Authorization", "Bearer "+pctx.Credentials.Token)
+			if p.logger != nil {
+				p.logger.Debug("Applied JFrog access token authentication", map[string]interface{}{
+					"provider":  p.name,
+					"header":    "Authorization",
+					"token_len": len(pctx.Credentials.Token),
+					"url":       req.URL.String(),
+				})
+			}
+			return nil
+		default:
+			// Fall through to standard authentication if detection fails
+			if p.logger != nil {
+				p.logger.Debug("JFrog auth type detection inconclusive, using standard auth", map[string]interface{}{
+					"provider": p.name,
+				})
+			}
+		}
+	}
+
 	switch p.config.AuthType {
 	case "bearer":
 		if pctx.Credentials.Token != "" {
@@ -422,12 +473,23 @@ func (p *BaseProvider) applyAuthentication(ctx context.Context, req *http.Reques
 				})
 			}
 		} else if pctx.Credentials.APIKey != "" {
-			req.Header.Set("Authorization", "Bearer "+pctx.Credentials.APIKey)
-			if p.logger != nil {
-				p.logger.Debug("Applied bearer API key auth", map[string]interface{}{
-					"key_len": len(pctx.Credentials.APIKey),
-					"url":     req.URL.String(),
-				})
+			// For JFrog providers, prefer X-JFrog-Art-Api header
+			if p.name == "artifactory" || p.name == "xray" {
+				req.Header.Set("X-JFrog-Art-Api", pctx.Credentials.APIKey)
+				if p.logger != nil {
+					p.logger.Debug("Applied JFrog API key auth (fallback)", map[string]interface{}{
+						"key_len": len(pctx.Credentials.APIKey),
+						"url":     req.URL.String(),
+					})
+				}
+			} else {
+				req.Header.Set("Authorization", "Bearer "+pctx.Credentials.APIKey)
+				if p.logger != nil {
+					p.logger.Debug("Applied bearer API key auth", map[string]interface{}{
+						"key_len": len(pctx.Credentials.APIKey),
+						"url":     req.URL.String(),
+					})
+				}
 			}
 		} else {
 			return fmt.Errorf("bearer token required but not provided")
@@ -442,6 +504,16 @@ func (p *BaseProvider) applyAuthentication(ctx context.Context, req *http.Reques
 			case "nexus":
 				// Nexus uses NX-APIKEY
 				req.Header.Set("Authorization", "NX-APIKEY "+pctx.Credentials.APIKey)
+			case "artifactory", "xray":
+				// JFrog providers use X-JFrog-Art-Api header for API keys
+				req.Header.Set("X-JFrog-Art-Api", pctx.Credentials.APIKey)
+				if p.logger != nil {
+					p.logger.Debug("Applied JFrog API key auth", map[string]interface{}{
+						"provider": p.name,
+						"key_len":  len(pctx.Credentials.APIKey),
+						"url":      req.URL.String(),
+					})
+				}
 			default:
 				req.Header.Set("X-API-Key", pctx.Credentials.APIKey)
 			}
@@ -466,6 +538,44 @@ func (p *BaseProvider) applyAuthentication(ctx context.Context, req *http.Reques
 	}
 
 	return nil
+}
+
+// detectJFrogAuthType detects the authentication type for JFrog providers
+func (p *BaseProvider) detectJFrogAuthType(credentials *ProviderCredentials) string {
+	if credentials == nil {
+		return "unknown"
+	}
+
+	// Check for API key patterns
+	if credentials.APIKey != "" {
+		// Check if it's a JWT token (starts with "ey" and contains dots)
+		if strings.HasPrefix(credentials.APIKey, "ey") && strings.Contains(credentials.APIKey, ".") {
+			// JWT tokens should be treated as access tokens
+			// Store in Token field for Bearer authentication
+			credentials.Token = credentials.APIKey
+			return "access_token"
+		}
+
+		// JFrog API keys often start with certain patterns
+		if strings.HasPrefix(credentials.APIKey, "AKC") ||
+			strings.HasPrefix(credentials.APIKey, "cmVm") {
+			return "artifactory_api_key"
+		}
+		// If it's a non-empty API key for JFrog, assume it's an API key
+		return "artifactory_api_key"
+	}
+
+	// Check for access tokens (JWT format)
+	if credentials.Token != "" {
+		// Access tokens typically contain dots and are longer
+		if strings.Contains(credentials.Token, ".") && len(credentials.Token) > 50 {
+			return "access_token"
+		}
+		// If it's a non-empty token, assume it's an access token
+		return "access_token"
+	}
+
+	return "unknown"
 }
 
 // executeWithRetry executes a request with retry logic

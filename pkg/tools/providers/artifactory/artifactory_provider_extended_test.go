@@ -113,7 +113,7 @@ func TestHealthCheck_Failure(t *testing.T) {
 				provider.SetConfiguration(config)
 			}
 
-			ctx := providers.WithContext(context.Background(), &providers.ProviderContext{
+			ctx := providers.WithContext(createExtendedTestContext(), &providers.ProviderContext{
 				Credentials: &providers.ProviderCredentials{
 					Token: "test-token",
 				},
@@ -143,7 +143,7 @@ func TestHealthCheck_ContextCancellation(t *testing.T) {
 	provider.SetConfiguration(config)
 
 	// Create a context that will be cancelled
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(createExtendedTestContext())
 	ctx = providers.WithContext(ctx, &providers.ProviderContext{
 		Credentials: &providers.ProviderCredentials{
 			Token: "test-token",
@@ -205,7 +205,11 @@ func TestExecuteOperation_InvalidParameters(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			var requestMade bool
 			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-				// Track if a request was made
+				// Handle common discovery endpoints
+				if handleCommonDiscoveryEndpointsExtended(t, w, r) {
+					return
+				}
+				// Track if a real operation request was made
 				requestMade = true
 				// Return an error response to ensure the test fails if request is made
 				w.WriteHeader(http.StatusBadRequest)
@@ -220,7 +224,7 @@ func TestExecuteOperation_InvalidParameters(t *testing.T) {
 			config.BaseURL = server.URL
 			provider.SetConfiguration(config)
 
-			ctx := providers.WithContext(context.Background(), &providers.ProviderContext{
+			ctx := providers.WithContext(createExtendedTestContext(), &providers.ProviderContext{
 				Credentials: &providers.ProviderCredentials{
 					Token: "test-token",
 				},
@@ -333,7 +337,7 @@ func TestExecuteOperation_LargePayload(t *testing.T) {
 	config.BaseURL = server.URL
 	provider.SetConfiguration(config)
 
-	ctx := providers.WithContext(context.Background(), &providers.ProviderContext{
+	ctx := providers.WithContext(createExtendedTestContext(), &providers.ProviderContext{
 		Credentials: &providers.ProviderCredentials{
 			Token: "test-token",
 		},
@@ -361,7 +365,7 @@ func TestExecuteOperation_Timeout(t *testing.T) {
 	config.Timeout = 100 * time.Millisecond // Very short timeout
 	provider.SetConfiguration(config)
 
-	ctx := providers.WithContext(context.Background(), &providers.ProviderContext{
+	ctx := providers.WithContext(createExtendedTestContext(), &providers.ProviderContext{
 		Credentials: &providers.ProviderCredentials{
 			Token: "test-token",
 		},
@@ -375,13 +379,25 @@ func TestExecuteOperation_Timeout(t *testing.T) {
 func TestExecuteOperation_RetryLogic(t *testing.T) {
 	attemptCount := 0
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		attemptCount++
-		if attemptCount < 3 {
-			w.WriteHeader(http.StatusServiceUnavailable)
+		// Handle common discovery endpoints except the test endpoint
+		if r.URL.Path != "/api/storage/test-repo/test.jar" && handleCommonDiscoveryEndpointsExtended(t, w, r) {
 			return
 		}
-		w.WriteHeader(http.StatusOK)
-		_, _ = w.Write([]byte(`{"result": "success"}`))
+
+		// For the test endpoint, implement retry logic
+		if r.URL.Path == "/api/storage/test-repo/test.jar" {
+			attemptCount++
+			if attemptCount < 3 {
+				w.WriteHeader(http.StatusServiceUnavailable)
+				return
+			}
+			w.WriteHeader(http.StatusOK)
+			_, _ = w.Write([]byte(`{"repo": "test-repo", "path": "/test.jar", "created": "2023-01-01T00:00:00.000Z", "size": 1024}`))
+			return
+		}
+
+		// Default handler for unexpected paths
+		w.WriteHeader(http.StatusNotFound)
 	}))
 	defer server.Close()
 
@@ -393,13 +409,17 @@ func TestExecuteOperation_RetryLogic(t *testing.T) {
 	// Retry policy is already set in default config
 	provider.SetConfiguration(config)
 
-	ctx := providers.WithContext(context.Background(), &providers.ProviderContext{
+	ctx := providers.WithContext(createExtendedTestContext(), &providers.ProviderContext{
 		Credentials: &providers.ProviderCredentials{
 			Token: "test-token",
 		},
 	})
 
-	result, err := provider.ExecuteOperation(ctx, "repos/list", nil)
+	// Use artifacts/info operation which is a valid operation
+	result, err := provider.ExecuteOperation(ctx, "artifacts/info", map[string]interface{}{
+		"repoKey":  "test-repo",
+		"itemPath": "test.jar",
+	})
 	assert.NoError(t, err)
 	assert.NotNil(t, result)
 	assert.Equal(t, 3, attemptCount) // Should have retried
@@ -420,9 +440,11 @@ func TestExecuteOperation_RateLimiting(t *testing.T) {
 
 	config := provider.GetDefaultConfiguration()
 	config.BaseURL = server.URL
+	// Disable retries for this test to avoid infinite retry loop
+	config.RetryPolicy.MaxRetries = 0
 	provider.SetConfiguration(config)
 
-	ctx := providers.WithContext(context.Background(), &providers.ProviderContext{
+	ctx := providers.WithContext(createExtendedTestContext(), &providers.ProviderContext{
 		Credentials: &providers.ProviderCredentials{
 			Token: "test-token",
 		},
@@ -430,7 +452,7 @@ func TestExecuteOperation_RateLimiting(t *testing.T) {
 
 	_, err := provider.ExecuteOperation(ctx, "repos/list", nil)
 	assert.Error(t, err)
-	// The retry logic should handle 429 if RetryOnRateLimit is true
+	assert.Contains(t, err.Error(), "429", "Error should indicate rate limiting")
 }
 
 // TestExecuteOperation_ContentTypeHandling tests different content types
@@ -483,7 +505,7 @@ func TestExecuteOperation_ContentTypeHandling(t *testing.T) {
 			config.BaseURL = server.URL
 			provider.SetConfiguration(config)
 
-			ctx := providers.WithContext(context.Background(), &providers.ProviderContext{
+			ctx := providers.WithContext(createExtendedTestContext(), &providers.ProviderContext{
 				Credentials: &providers.ProviderCredentials{
 					Token: "test-token",
 				},
@@ -518,7 +540,7 @@ func TestConcurrentOperations(t *testing.T) {
 	config.BaseURL = server.URL
 	provider.SetConfiguration(config)
 
-	ctx := providers.WithContext(context.Background(), &providers.ProviderContext{
+	ctx := providers.WithContext(createExtendedTestContext(), &providers.ProviderContext{
 		Credentials: &providers.ProviderCredentials{
 			Token: "test-token",
 		},
@@ -564,7 +586,7 @@ func TestSecurityHeaders(t *testing.T) {
 	config.BaseURL = server.URL
 	provider.SetConfiguration(config)
 
-	ctx := providers.WithContext(context.Background(), &providers.ProviderContext{
+	ctx := providers.WithContext(createExtendedTestContext(), &providers.ProviderContext{
 		Credentials: &providers.ProviderCredentials{
 			Token: "test-secure-token",
 		},
@@ -611,7 +633,7 @@ func BenchmarkExecuteOperation(b *testing.B) {
 	config.BaseURL = server.URL
 	provider.SetConfiguration(config)
 
-	ctx := providers.WithContext(context.Background(), &providers.ProviderContext{
+	ctx := providers.WithContext(createExtendedTestContext(), &providers.ProviderContext{
 		Credentials: &providers.ProviderCredentials{
 			Token: "test-token",
 		},
@@ -621,4 +643,74 @@ func BenchmarkExecuteOperation(b *testing.B) {
 	for i := 0; i < b.N; i++ {
 		_, _ = provider.ExecuteOperation(ctx, "repos/list", nil)
 	}
+}
+
+// Helper function for creating test context with credentials
+func createExtendedTestContext() context.Context {
+	return providers.WithContext(context.Background(), &providers.ProviderContext{
+		Credentials: &providers.ProviderCredentials{
+			APIKey: "test-api-key-12345",
+		},
+	})
+}
+
+// Helper function to handle common discovery endpoints in extended mock servers
+func handleCommonDiscoveryEndpointsExtended(t *testing.T, w http.ResponseWriter, r *http.Request) bool {
+	switch r.URL.Path {
+	case "/api/system/ping", "/access/api/v1/system/ping":
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte("OK"))
+		return true
+	case "/api/system/configuration":
+		// System configuration endpoint
+		w.WriteHeader(http.StatusOK)
+		_ = json.NewEncoder(w).Encode(map[string]interface{}{
+			"urlBase":     "http://test.artifactory.com",
+			"offlineMode": false,
+		})
+		return true
+	case "/xray/api/v1/system/version":
+		w.WriteHeader(http.StatusOK)
+		_ = json.NewEncoder(w).Encode(map[string]string{"version": "3.0.0", "revision": "123"})
+		return true
+	case "/pipelines/api/v1/system/info", "/mc/api/v1/system/info",
+		"/distribution/api/v1/system/info", "/api/federation/status":
+		// These are feature discovery endpoints - return 404 to indicate not available
+		w.WriteHeader(http.StatusNotFound)
+		return true
+	case "/api/repositories":
+		// Repository list for permission discovery
+		w.WriteHeader(http.StatusOK)
+		_ = json.NewEncoder(w).Encode([]map[string]string{
+			{"key": "test-repo", "type": "LOCAL"},
+		})
+		return true
+	case "/api/v2/security/permissions":
+		// Permission discovery endpoint
+		if r.Method == "GET" {
+			// Return empty permissions list for discovery
+			w.WriteHeader(http.StatusOK)
+			_ = json.NewEncoder(w).Encode(map[string]interface{}{
+				"permissions": []map[string]interface{}{},
+			})
+		} else {
+			// For other methods, just return OK
+			w.WriteHeader(http.StatusOK)
+			_ = json.NewEncoder(w).Encode(map[string]interface{}{
+				"status": "ok",
+			})
+		}
+		return true
+	case "/access/api/v1/projects":
+		// Handle GET for projects list (capability discovery)
+		if r.Method == "GET" {
+			w.WriteHeader(http.StatusOK)
+			_ = json.NewEncoder(w).Encode(map[string]interface{}{
+				"projects": []map[string]interface{}{},
+			})
+			return true
+		}
+		return false
+	}
+	return false
 }
