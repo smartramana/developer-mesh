@@ -3,6 +3,7 @@ package mcp
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -16,13 +17,19 @@ import (
 	"github.com/developer-mesh/developer-mesh/apps/edge-mcp/internal/auth"
 	"github.com/developer-mesh/developer-mesh/apps/edge-mcp/internal/cache"
 	"github.com/developer-mesh/developer-mesh/apps/edge-mcp/internal/core"
+	"github.com/developer-mesh/developer-mesh/apps/edge-mcp/internal/metrics"
+	"github.com/developer-mesh/developer-mesh/apps/edge-mcp/internal/middleware"
 	"github.com/developer-mesh/developer-mesh/apps/edge-mcp/internal/platform"
 	"github.com/developer-mesh/developer-mesh/apps/edge-mcp/internal/tools"
+	"github.com/developer-mesh/developer-mesh/apps/edge-mcp/internal/tracing"
+	"github.com/developer-mesh/developer-mesh/apps/edge-mcp/internal/validation"
 	"github.com/developer-mesh/developer-mesh/pkg/models"
 	"github.com/developer-mesh/developer-mesh/pkg/observability"
 	"github.com/developer-mesh/developer-mesh/pkg/tools/providers/harness"
 	"github.com/developer-mesh/developer-mesh/pkg/utils"
 	"github.com/google/uuid"
+	"go.opentelemetry.io/otel/codes"
+	"go.opentelemetry.io/otel/trace"
 )
 
 // MCPMessage represents a JSON-RPC message in the MCP protocol
@@ -52,10 +59,19 @@ type Handler struct {
 	sessionsMu     sync.RWMutex
 	logger         observability.Logger
 	refreshManager *tools.RefreshManager
+	metrics        *metrics.Metrics
+	spanHelper     *tracing.SpanHelper
+	streamManager  *StreamManager          // Stream manager for response streaming
+	batchExecutor  *BatchExecutor          // Batch executor for batching tool calls
+	rateLimiter    *middleware.RateLimiter // Rate limiter for request throttling
+	validator      *validation.Validator   // Input validator for security and validation
 
 	// Request tracking for cancellation
 	activeRequests map[interface{}]context.CancelFunc
 	requestsMu     sync.RWMutex
+
+	// Goroutine tracking for cleanup
+	activeRefreshes sync.WaitGroup
 }
 
 // Session represents an MCP session
@@ -78,7 +94,30 @@ func NewHandler(
 	coreClient *core.Client,
 	authenticator auth.Authenticator,
 	logger observability.Logger,
+	metricsCollector *metrics.Metrics,
+	tracerProvider *tracing.TracerProvider,
 ) *Handler {
+	var spanHelper *tracing.SpanHelper
+	if tracerProvider != nil {
+		spanHelper = tracing.NewSpanHelper(tracerProvider)
+	}
+
+	// Create stream manager with default config
+	streamConfig := DefaultStreamConfig()
+	streamManager := NewStreamManager(logger, streamConfig)
+
+	// Create batch executor with default config
+	batchConfig := DefaultBatchConfig()
+	batchExecutor := NewBatchExecutor(toolRegistry, batchConfig, logger)
+
+	// Create rate limiter with default config
+	rateLimitConfig := middleware.DefaultRateLimitConfig()
+	rateLimiter := middleware.NewRateLimiter(rateLimitConfig, logger, metricsCollector)
+
+	// Create input validator with default config
+	validatorConfig := validation.DefaultConfig()
+	validator := validation.NewValidator(validatorConfig, logger)
+
 	h := &Handler{
 		tools:          toolRegistry,
 		cache:          cache,
@@ -86,6 +125,12 @@ func NewHandler(
 		authenticator:  authenticator,
 		sessions:       make(map[string]*Session),
 		logger:         logger,
+		metrics:        metricsCollector,
+		spanHelper:     spanHelper,
+		streamManager:  streamManager,
+		batchExecutor:  batchExecutor,
+		rateLimiter:    rateLimiter,
+		validator:      validator,
 		activeRequests: make(map[interface{}]context.CancelFunc),
 	}
 
@@ -126,32 +171,30 @@ func (h *Handler) HandleConnection(conn *websocket.Conn, r *http.Request) {
 	h.sessions[sessionID] = session
 	h.sessionsMu.Unlock()
 
+	// Create connection context with session tracking
+	ctx, cancel := context.WithCancel(context.Background())
+	ctx = observability.WithSessionID(ctx, sessionID)
+	defer cancel() // Ensure context is cancelled
+
 	defer func() {
+		// Clean up session
 		h.sessionsMu.Lock()
 		delete(h.sessions, sessionID)
 		h.sessionsMu.Unlock()
+
+		// Cancel context to stop all goroutines
+		cancel()
+
+		// Close connection
 		_ = conn.Close(websocket.StatusNormalClosure, "")
 	}()
 
-	// Create a context for this connection
-	// Use background context, not request context which gets cancelled after upgrade
-	ctx := context.Background()
-
-	// Start ping ticker to keep connection alive
-	ticker := time.NewTicker(30 * time.Second)
-	defer ticker.Stop()
-
-	go func() {
-		for {
-			select {
-			case <-ticker.C:
-				if err := conn.Ping(ctx); err != nil {
-					return
-				}
-			case <-ctx.Done():
-				return
-			}
-		}
+	// Start ping ticker with proper cleanup
+	pingDone := make(chan struct{})
+	go h.pingLoop(ctx, conn, pingDone)
+	defer func() {
+		cancel()   // Signal ping loop to stop
+		<-pingDone // Wait for ping loop to finish
 	}()
 
 	// Message handling loop
@@ -160,11 +203,24 @@ func (h *Handler) HandleConnection(conn *websocket.Conn, r *http.Request) {
 		if err := wsjson.Read(ctx, conn, &msg); err != nil {
 			if websocket.CloseStatus(err) != websocket.StatusNormalClosure {
 				h.logger.Error("WebSocket error", map[string]interface{}{
-					"error": err.Error(),
+					"error":      err.Error(),
+					"session_id": sessionID,
 				})
 			}
 			break
 		}
+
+		// Generate unique request ID for this message
+		requestID := observability.GenerateRequestID()
+		msgCtx := observability.WithRequestID(ctx, requestID)
+
+		// Add tenant ID to context if available
+		if session.TenantID != "" {
+			msgCtx = observability.WithTenantID(msgCtx, session.TenantID)
+		}
+
+		// Create request-scoped logger with context fields
+		reqLogger := observability.LoggerFromContext(msgCtx, h.logger)
 
 		// Update activity
 		h.sessionsMu.Lock()
@@ -176,25 +232,165 @@ func (h *Handler) HandleConnection(conn *websocket.Conn, r *http.Request) {
 		// Handle message
 		response, err := h.handleMessage(sessionID, &msg)
 		if err != nil {
-			response = &MCPMessage{
-				JSONRPC: "2.0",
-				ID:      msg.ID,
-				Error: &MCPError{
-					Code:    -32603,
-					Message: err.Error(),
-				},
+			var errResp *models.ErrorResponse
+			if errors.As(err, &errResp) {
+				response = &MCPMessage{
+					JSONRPC: "2.0",
+					ID:      msg.ID,
+					Error:   ToMCPError(errResp),
+				}
+			} else {
+				// Fallback for non-structured errors - convert to semantic error
+				response = &MCPMessage{
+					JSONRPC: "2.0",
+					ID:      msg.ID,
+					Error: ToMCPError(
+						errorTemplates.InternalError("unknown", err),
+					),
+				}
 			}
 		}
 
 		if response != nil {
-			if err := wsjson.Write(ctx, conn, response); err != nil {
-				h.logger.Error("Failed to write response", map[string]interface{}{
-					"error": err.Error(),
+			// Check if response should be streamed based on size
+			shouldStream := false
+			var responseBytes []byte
+
+			// Try to marshal the response to check size
+			if responseBytes, err := json.Marshal(response); err == nil {
+				shouldStream = ShouldStream(responseBytes, StreamThreshold)
+			}
+
+			if shouldStream && msg.ID != nil {
+				// Use streaming for large responses
+				reqLogger.Info("Streaming large response", map[string]interface{}{
+					"request_id":    msg.ID,
+					"response_size": len(responseBytes),
 				})
-				break
+
+				// Create stream for this request
+				stream, err := h.streamManager.CreateStream(msg.ID, conn)
+				if err != nil {
+					reqLogger.Error("Failed to create stream", map[string]interface{}{
+						"error": err.Error(),
+					})
+					// Fallback to non-streaming
+					if err := wsjson.Write(msgCtx, conn, response); err != nil {
+						reqLogger.Error("Failed to write response", map[string]interface{}{
+							"error": err.Error(),
+						})
+						break
+					}
+				} else {
+					// Stream the chunked content
+					if err := stream.SendChunkedContent(msg.ID, responseBytes, "application/json"); err != nil {
+						reqLogger.Error("Failed to stream content", map[string]interface{}{
+							"error": err.Error(),
+						})
+					}
+
+					// Send final response confirmation
+					finalResponse := &MCPMessage{
+						JSONRPC: "2.0",
+						ID:      msg.ID,
+						Result: map[string]interface{}{
+							"streamed":        true,
+							"chunks_complete": true,
+						},
+					}
+					if err := stream.SendFinalResponse(msg.ID, finalResponse.Result); err != nil {
+						reqLogger.Error("Failed to send final response", map[string]interface{}{
+							"error": err.Error(),
+						})
+					}
+
+					// Close the stream
+					_ = h.streamManager.CloseStream(msg.ID)
+				}
+			} else {
+				// Regular non-streaming response
+				if err := wsjson.Write(msgCtx, conn, response); err != nil {
+					reqLogger.Error("Failed to write response", map[string]interface{}{
+						"error": err.Error(),
+					})
+					break
+				}
 			}
 		}
 	}
+}
+
+// pingLoop handles WebSocket ping/pong with proper cleanup
+func (h *Handler) pingLoop(ctx context.Context, conn *websocket.Conn, done chan struct{}) {
+	defer close(done) // Signal completion when exiting
+
+	ticker := time.NewTicker(30 * time.Second)
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-ticker.C:
+			// Set deadline for ping
+			pingCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
+			err := conn.Ping(pingCtx)
+			cancel()
+
+			if err != nil {
+				h.logger.Debug("Ping failed, closing connection", map[string]interface{}{
+					"error": err.Error(),
+				})
+				return
+			}
+		case <-ctx.Done():
+			h.logger.Debug("Ping loop stopped due to context cancellation", nil)
+			return
+		}
+	}
+}
+
+// Shutdown gracefully shuts down the MCP handler
+func (h *Handler) Shutdown(ctx context.Context) error {
+	h.logger.Info("Shutting down MCP handler", nil)
+
+	// Cancel all active requests
+	h.requestsMu.Lock()
+	for _, cancel := range h.activeRequests {
+		cancel()
+	}
+	h.requestsMu.Unlock()
+
+	// Close all active streams
+	if h.streamManager != nil {
+		h.streamManager.CloseAll()
+	}
+
+	// Close rate limiter
+	if h.rateLimiter != nil {
+		h.rateLimiter.Close()
+	}
+
+	// Wait for active refreshes with timeout
+	done := make(chan struct{})
+	go func() {
+		h.activeRefreshes.Wait()
+		close(done)
+	}()
+
+	select {
+	case <-done:
+		h.logger.Info("All refresh operations completed", nil)
+	case <-ctx.Done():
+		h.logger.Warn("Shutdown timeout, some operations may be incomplete", nil)
+	}
+
+	// Close all sessions
+	h.sessionsMu.Lock()
+	for id := range h.sessions {
+		delete(h.sessions, id)
+	}
+	h.sessionsMu.Unlock()
+
+	return nil
 }
 
 // HandleStdio handles MCP protocol over stdin/stdout for Claude Code integration
@@ -281,13 +477,22 @@ func (h *Handler) HandleStdio() {
 		// Handle message
 		response, err := h.handleMessage(sessionID, &msg)
 		if err != nil {
-			response = &MCPMessage{
-				JSONRPC: "2.0",
-				ID:      msg.ID,
-				Error: &MCPError{
-					Code:    -32603,
-					Message: err.Error(),
-				},
+			var errResp *models.ErrorResponse
+			if errors.As(err, &errResp) {
+				response = &MCPMessage{
+					JSONRPC: "2.0",
+					ID:      msg.ID,
+					Error:   ToMCPError(errResp),
+				}
+			} else {
+				// Fallback for non-structured errors - convert to semantic error
+				response = &MCPMessage{
+					JSONRPC: "2.0",
+					ID:      msg.ID,
+					Error: ToMCPError(
+						errorTemplates.InternalError("unknown", err),
+					),
+				}
 			}
 		}
 
@@ -408,6 +613,45 @@ func (h *Handler) extractPassthroughAuthFromEnv() *models.PassthroughAuthBundle 
 
 // handleMessage processes an MCP message
 func (h *Handler) handleMessage(sessionID string, msg *MCPMessage) (*MCPMessage, error) {
+	// Get session for rate limiting
+	h.sessionsMu.RLock()
+	session, exists := h.sessions[sessionID]
+	h.sessionsMu.RUnlock()
+
+	if !exists {
+		return nil, NewProtocolError(msg.Method, "Session not found",
+			"The session does not exist or has expired")
+	}
+
+	// Extract tool name for per-tool rate limiting
+	var toolName string
+	if msg.Method == "tools/call" {
+		var params struct {
+			Name string `json:"name"`
+		}
+		if err := json.Unmarshal(msg.Params, &params); err == nil {
+			toolName = params.Name
+		}
+	}
+
+	// Check rate limits (skip for initialize and ping methods)
+	if h.rateLimiter != nil && msg.Method != "initialize" && msg.Method != "initialized" && msg.Method != "ping" {
+		result := h.rateLimiter.CheckRateLimit(context.Background(), session.TenantID, toolName)
+		if !result.Allowed {
+			// Rate limit exceeded - return error with rate limit info
+			errorData := h.rateLimiter.CreateRateLimitError(result)
+			return &MCPMessage{
+				JSONRPC: "2.0",
+				ID:      msg.ID,
+				Error: &MCPError{
+					Code:    429, // Too Many Requests
+					Message: fmt.Sprintf("Rate limit exceeded: %s", result.LimitType),
+					Data:    errorData,
+				},
+			}, nil
+		}
+	}
+
 	switch msg.Method {
 	case "initialize":
 		return h.handleInitialize(sessionID, msg)
@@ -421,6 +665,8 @@ func (h *Handler) handleMessage(sessionID string, msg *MCPMessage) (*MCPMessage,
 		return h.handleToolsList(sessionID, msg)
 	case "tools/call":
 		return h.handleToolCall(sessionID, msg)
+	case "tools/batch":
+		return h.handleBatchToolCall(sessionID, msg)
 	case "resources/list":
 		return h.handleResourcesList(sessionID, msg)
 	case "resources/read":
@@ -432,7 +678,8 @@ func (h *Handler) handleMessage(sessionID string, msg *MCPMessage) (*MCPMessage,
 	case "$/cancelRequest":
 		return h.handleCancelRequest(sessionID, msg)
 	default:
-		return nil, fmt.Errorf("method not found: %s", msg.Method)
+		return nil, NewProtocolError(msg.Method, "Method not found",
+			fmt.Sprintf("The method '%s' is not supported by this server", msg.Method))
 	}
 }
 
@@ -445,33 +692,57 @@ func (h *Handler) handleInitialize(sessionID string, msg *MCPMessage) (*MCPMessa
 			Version string `json:"version"`
 			Type    string `json:"type,omitempty"`
 		} `json:"clientInfo"`
+		Credentials *models.PassthroughAuthBundle `json:"credentials,omitempty"`
 	}
 
 	if err := json.Unmarshal(msg.Params, &params); err != nil {
-		return nil, fmt.Errorf("invalid initialize params: %w", err)
+		return nil, NewProtocolError("initialize", "Invalid initialize params",
+			fmt.Sprintf("Failed to parse initialize parameters: %v", err))
 	}
 
-	// Verify protocol version - accept all known MCP protocol versions
-	supportedVersions := []string{
-		"2024-11-05", // Original Claude Code version
-		"2025-03-26", // March 2025 release with OAuth improvements
-		"2025-06-18", // Latest version with structured outputs
+	// Validate protocol version
+	if err := h.validator.ValidateMCPProtocolVersion(params.ProtocolVersion); err != nil {
+		h.validator.LogValidationFailure(context.Background(), err, map[string]interface{}{
+			"method":     "initialize",
+			"version":    params.ProtocolVersion,
+			"session":    sessionID,
+			"message_id": msg.ID,
+		})
+		errResp := h.validator.ToErrorResponse(err, "initialize")
+		return nil, errResp
 	}
-	versionSupported := false
-	for _, v := range supportedVersions {
-		if params.ProtocolVersion == v {
-			versionSupported = true
-			break
-		}
+
+	// Validate client info
+	clientInfoMap := map[string]interface{}{
+		"name":    params.ClientInfo.Name,
+		"version": params.ClientInfo.Version,
 	}
-	if !versionSupported {
-		return nil, fmt.Errorf("unsupported protocol version: %s (supported: %v)", params.ProtocolVersion, supportedVersions)
+	if params.ClientInfo.Type != "" {
+		clientInfoMap["type"] = params.ClientInfo.Type
+	}
+	if err := h.validator.ValidateClientInfo(clientInfoMap); err != nil {
+		h.validator.LogValidationFailure(context.Background(), err, map[string]interface{}{
+			"method":     "initialize",
+			"session":    sessionID,
+			"message_id": msg.ID,
+		})
+		errResp := h.validator.ToErrorResponse(err, "initialize")
+		return nil, errResp
 	}
 
 	// Update session
 	h.sessionsMu.Lock()
 	if session, exists := h.sessions[sessionID]; exists {
 		session.Initialized = true
+
+		// Store credentials in session if provided
+		if params.Credentials != nil {
+			session.PassthroughAuth = params.Credentials
+			h.logger.Debug("Stored passthrough credentials in session", map[string]interface{}{
+				"session_id":      sessionID,
+				"num_credentials": len(params.Credentials.Credentials),
+			})
+		}
 
 		// If connected to Core Platform, create a linked session
 		if h.coreClient != nil {
@@ -490,11 +761,21 @@ func (h *Handler) handleInitialize(sessionID string, msg *MCPMessage) (*MCPMessa
 
 			// Trigger tool refresh on new connection
 			if h.refreshManager != nil {
+				// Create a context with timeout for refresh
+				refreshCtx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+
+				// Track the goroutine
+				h.activeRefreshes.Add(1)
+
 				go func() {
+					defer h.activeRefreshes.Done()
+					defer cancel()
+
 					h.logger.Debug("Refreshing tools on new connection", map[string]interface{}{
 						"client": params.ClientInfo.Name,
 					})
-					h.refreshManager.OnReconnect(context.Background())
+
+					h.refreshManager.OnReconnect(refreshCtx)
 				}()
 			}
 		}
@@ -763,7 +1044,23 @@ func (h *Handler) handleToolCall(sessionID string, msg *MCPMessage) (*MCPMessage
 	}
 
 	if err := json.Unmarshal(msg.Params, &params); err != nil {
-		return nil, fmt.Errorf("invalid tool call params: %w", err)
+		return nil, NewValidationError("params", fmt.Sprintf("Invalid tool call parameters: %v", err)).
+			WithOperation("tools/call").
+			WithRequestID(fmt.Sprintf("%v", msg.ID))
+	}
+
+	// Validate tool name format
+	if err := h.validator.ValidateToolName(params.Name); err != nil {
+		// Log validation failure
+		h.validator.LogValidationFailure(context.Background(), err, map[string]interface{}{
+			"method":     "tools/call",
+			"tool":       params.Name,
+			"session":    sessionID,
+			"message_id": msg.ID,
+		})
+		// Convert to error response
+		errResp := h.validator.ToErrorResponse(err, "tools/call")
+		return nil, errResp
 	}
 
 	// CRITICAL: Handle context operations specially for sync with Core Platform
@@ -775,21 +1072,41 @@ func (h *Handler) handleToolCall(sessionID string, msg *MCPMessage) (*MCPMessage
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel() // Ensure cancel is always called to prevent context leak
 
+	// Generate request ID for this tool execution and add to context
+	requestID := observability.GenerateRequestID()
+	ctx = observability.WithRequestID(ctx, requestID)
+
+	// Add session tracking to context
+	ctx = observability.WithSessionID(ctx, sessionID)
+	ctx = observability.WithOperation(ctx, fmt.Sprintf("tools/call:%s", params.Name))
+
 	// Add passthrough auth to context if available
 	h.sessionsMu.RLock()
 	session := h.sessions[sessionID]
 	var passthroughAuth *models.PassthroughAuthBundle
-	if session != nil && session.PassthroughAuth != nil {
-		passthroughAuth = session.PassthroughAuth
-		// Add passthrough auth to context for remote tool execution
-		ctx = context.WithValue(ctx, core.PassthroughAuthKey, passthroughAuth)
-		h.logger.Debug("Added passthrough auth to tool execution context", map[string]interface{}{
-			"tool":             params.Name,
-			"has_passthrough":  true,
-			"credential_count": len(passthroughAuth.Credentials),
-		})
+	var tenantID string
+	if session != nil {
+		tenantID = session.TenantID
+		if tenantID != "" {
+			ctx = observability.WithTenantID(ctx, tenantID)
+		}
+		if session.PassthroughAuth != nil {
+			passthroughAuth = session.PassthroughAuth
+			// Add passthrough auth to context for remote tool execution
+			ctx = context.WithValue(ctx, core.PassthroughAuthKey, passthroughAuth)
+		}
 	}
 	h.sessionsMu.RUnlock()
+
+	// Create request-scoped logger with context fields
+	reqLogger := observability.LoggerFromContext(ctx, h.logger)
+
+	// Start distributed tracing span for tool execution
+	var span trace.Span
+	if h.spanHelper != nil {
+		ctx, span = h.spanHelper.StartToolExecutionSpan(ctx, params.Name, sessionID, tenantID)
+		defer span.End()
+	}
 
 	// Track the request for potential cancellation (only if ID is present)
 	if msg.ID != nil {
@@ -797,10 +1114,80 @@ func (h *Handler) handleToolCall(sessionID string, msg *MCPMessage) (*MCPMessage
 		defer h.untrackRequest(msg.ID)
 	}
 
+	// Tool execution audit log - START
+	startTime := time.Now()
+	reqLogger.Info("Tool execution started", map[string]interface{}{
+		"tool":       params.Name,
+		"session_id": sessionID,
+	})
+
 	// Execute tool with cancellable context (includes passthrough auth if available)
 	result, err := h.tools.Execute(ctx, params.Name, params.Arguments)
+
+	// Tool execution audit log - END
+	duration := time.Since(startTime)
 	if err != nil {
-		return nil, fmt.Errorf("tool execution failed: %w", err)
+		// Record error in span
+		if span != nil {
+			span.RecordError(err)
+			span.SetStatus(codes.Error, err.Error())
+		}
+
+		reqLogger.Error("Tool execution failed", map[string]interface{}{
+			"tool":        params.Name,
+			"session_id":  sessionID,
+			"duration_ms": duration.Milliseconds(),
+			"error":       err.Error(),
+		})
+	} else {
+		// Set success status on span
+		if span != nil {
+			span.SetStatus(codes.Ok, "Tool execution completed successfully")
+		}
+
+		reqLogger.Info("Tool execution completed", map[string]interface{}{
+			"tool":        params.Name,
+			"session_id":  sessionID,
+			"duration_ms": duration.Milliseconds(),
+		})
+	}
+	if err != nil {
+		// Check for special error types and enhance with AI-friendly information
+		var toolNotFoundErr *tools.ToolNotFoundError
+		var toolConfigErr *tools.ToolConfigError
+
+		if errors.As(err, &toolNotFoundErr) {
+			// Get available categories for suggestions
+			allTools := h.tools.ListAll()
+			categories := make([]string, 0)
+			categoryMap := make(map[string]bool)
+			for _, t := range allTools {
+				if t.Category != "" && !categoryMap[t.Category] {
+					categoryMap[t.Category] = true
+					categories = append(categories, t.Category)
+				}
+			}
+
+			return nil, errorTemplates.ToolNotFound(params.Name, categories).
+				WithOperation(fmt.Sprintf("tools/call:%s", params.Name)).
+				WithRequestID(fmt.Sprintf("%v", msg.ID)).
+				WithMetadata("available_tools_count", len(allTools))
+
+		} else if errors.As(err, &toolConfigErr) {
+			return nil, errorTemplates.InternalError(
+				fmt.Sprintf("tools/call:%s", params.Name),
+				err,
+			).WithRequestID(fmt.Sprintf("%v", msg.ID))
+		}
+
+		// Default tool execution error with possible alternatives
+		var alternatives []string
+		if tool, exists := h.tools.Get(params.Name); exists {
+			alternatives = tool.Alternatives
+		}
+
+		return nil, NewToolExecutionErrorWithAlternatives(params.Name, err, alternatives).
+			WithRequestID(fmt.Sprintf("%v", msg.ID))
 	}
 
 	// Record execution with Core Platform if connected
@@ -845,11 +1232,172 @@ func (h *Handler) handleToolCall(sessionID string, msg *MCPMessage) (*MCPMessage
 	}, nil
 }
 
+// handleBatchToolCall handles tools/batch requests
+func (h *Handler) handleBatchToolCall(sessionID string, msg *MCPMessage) (*MCPMessage, error) {
+	var batchRequest BatchRequest
+
+	if err := json.Unmarshal(msg.Params, &batchRequest); err != nil {
+		return nil, NewValidationError("params", fmt.Sprintf("Invalid batch tool call parameters: %v", err)).
+			WithOperation("tools/batch").
+			WithRequestID(fmt.Sprintf("%v", msg.ID))
+	}
+
+	// Validate batch request
+	if err := h.batchExecutor.ValidateBatchRequest(&batchRequest); err != nil {
+		return nil, NewValidationError("batch", err.Error()).
+			WithOperation("tools/batch").
+			WithRequestID(fmt.Sprintf("%v", msg.ID))
+	}
+
+	// Create cancellable context for batch execution
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel() // Ensure cancel is always called to prevent context leak
+
+	// Generate request ID for this batch execution and add to context
+	requestID := observability.GenerateRequestID()
+	ctx = observability.WithRequestID(ctx, requestID)
+
+	// Add session tracking to context
+	ctx = observability.WithSessionID(ctx, sessionID)
+	ctx = observability.WithOperation(ctx, "tools/batch")
+
+	// Add passthrough auth to context if available
+	h.sessionsMu.RLock()
+	session := h.sessions[sessionID]
+	var tenantID string
+	if session != nil {
+		tenantID = session.TenantID
+		if tenantID != "" {
+			ctx = observability.WithTenantID(ctx, tenantID)
+		}
+		if session.PassthroughAuth != nil {
+			// Add passthrough auth to context for remote tool execution
+			ctx = context.WithValue(ctx, core.PassthroughAuthKey, session.PassthroughAuth)
+		}
+	}
+	h.sessionsMu.RUnlock()
+
+	// Create request-scoped logger with context fields
+	reqLogger := observability.LoggerFromContext(ctx, h.logger)
+
+	// Start distributed tracing span for batch execution
+	var span trace.Span
+	if h.spanHelper != nil {
+		ctx, span = h.spanHelper.StartToolExecutionSpan(ctx, "batch", sessionID, tenantID)
+		defer span.End()
+	}
+
+	// Track the request for potential cancellation (only if ID is present)
+	if msg.ID != nil {
+		h.trackRequest(msg.ID, cancel)
+		defer h.untrackRequest(msg.ID)
+	}
+
+	// Batch execution audit log - START
+	startTime := time.Now()
+	reqLogger.Info("Batch execution started", map[string]interface{}{
+		"batch_size": len(batchRequest.Tools),
+		"session_id": sessionID,
+		"parallel":   batchRequest.Parallel,
+	})
+
+	// Execute batch
+	batchResponse, err := h.batchExecutor.Execute(ctx, &batchRequest)
+
+	// Batch execution audit log - END
+	duration := time.Since(startTime)
+	if err != nil {
+		// Record error in span
+		if span != nil {
+			span.RecordError(err)
+			span.SetStatus(codes.Error, err.Error())
+		}
+
+		reqLogger.Error("Batch execution failed", map[string]interface{}{
+			"batch_size":  len(batchRequest.Tools),
+			"session_id":  sessionID,
+			"duration_ms": duration.Milliseconds(),
+			"error":       err.Error(),
+		})
+
+		return nil, errorTemplates.InternalError("tools/batch", err).
+			WithRequestID(fmt.Sprintf("%v", msg.ID)).
+			WithMetadata("batch_size", len(batchRequest.Tools))
+	}
+
+	// Set success status on span
+	if span != nil {
+		span.SetStatus(codes.Ok, "Batch execution completed")
+	}
+
+	reqLogger.Info("Batch execution completed", map[string]interface{}{
+		"batch_size":    len(batchRequest.Tools),
+		"session_id":    sessionID,
+		"duration_ms":   duration.Milliseconds(),
+		"success_count": batchResponse.SuccessCount,
+		"error_count":   batchResponse.ErrorCount,
+		"parallel":      batchResponse.Parallel,
+	})
+
+	// Record execution with Core Platform if connected
+	if h.coreClient != nil {
+		coreSessionID := ""
+		if session != nil {
+			coreSessionID = session.CoreSession
+		}
+
+		if coreSessionID != "" {
+			// Record batch execution summary
+			batchSummary := map[string]interface{}{
+				"type":          "batch",
+				"tools":         batchRequest.Tools,
+				"success_count": batchResponse.SuccessCount,
+				"error_count":   batchResponse.ErrorCount,
+				"duration_ms":   batchResponse.TotalDuration.Milliseconds(),
+			}
+			_ = h.coreClient.RecordToolExecution(
+				context.Background(),
+				coreSessionID,
+				"tools/batch",
+				nil,
+				batchSummary,
+			)
+		}
+	}
+
+	// Format batch response as MCP content
+	// Convert results to a more readable format
+	contentText := fmt.Sprintf("Batch execution completed: %d/%d tools succeeded",
+		batchResponse.SuccessCount, len(batchRequest.Tools))
+
+	content := []map[string]interface{}{
+		{
+			"type": "text",
+			"text": contentText,
+		},
+	}
+
+	// Return structured batch response
+	return &MCPMessage{
+		JSONRPC: "2.0",
+		ID:      msg.ID,
+		Result: map[string]interface{}{
+			"content":        content,
+			"batch_results":  batchResponse.Results,
+			"success_count":  batchResponse.SuccessCount,
+			"error_count":    batchResponse.ErrorCount,
+			"total_duration": batchResponse.TotalDuration.Milliseconds(),
+			"parallel":       batchResponse.Parallel,
+		},
+	}, nil
+}
+
 // handleContextOperation handles context sync with Core Platform
 func (h *Handler) handleContextOperation(sessionID string, msgID interface{}, operation string, args json.RawMessage) (*MCPMessage, error) {
 	// If not connected to Core Platform, return error
 	if h.coreClient == nil {
-		return nil, fmt.Errorf("context operations require Core Platform connection")
+		return nil, NewProtocolError(operation, "Core Platform required",
+			"Context operations require connection to Core Platform")
 	}
 
 	h.sessionsMu.RLock()
@@ -861,7 +1409,8 @@ func (h *Handler) handleContextOperation(sessionID string, msgID interface{}, op
 	h.sessionsMu.RUnlock()
 
 	if coreContextID == "" {
-		return nil, fmt.Errorf("no active Core Platform session")
+		return nil, errorTemplates.UninitializedSession().
+			WithDetails("Core Platform session must be established before context operations")
 	}
 
 	var result interface{}
@@ -871,7 +1420,8 @@ func (h *Handler) handleContextOperation(sessionID string, msgID interface{}, op
 	case "context.update":
 		var contextUpdate map[string]interface{}
 		if err := json.Unmarshal(args, &contextUpdate); err != nil {
-			return nil, fmt.Errorf("invalid context update: %w", err)
+			return nil, NewValidationError("arguments", fmt.Sprintf("Invalid context update data: %v", err)).
+				WithOperation("context.update")
 		}
 
 		err = h.coreClient.UpdateContext(context.Background(), coreContextID, contextUpdate)
@@ -898,7 +1448,8 @@ func (h *Handler) handleContextOperation(sessionID string, msgID interface{}, op
 	case "context.append":
 		var appendData map[string]interface{}
 		if err := json.Unmarshal(args, &appendData); err != nil {
-			return nil, fmt.Errorf("invalid append data: %w", err)
+			return nil, NewValidationError("arguments", fmt.Sprintf("Invalid append data: %v", err)).
+				WithOperation("context.append")
 		}
 
 		err = h.coreClient.AppendContext(context.Background(), coreContextID, appendData)
@@ -908,7 +1459,8 @@ func (h *Handler) handleContextOperation(sessionID string, msgID interface{}, op
 	}
 
 	if err != nil {
-		return nil, fmt.Errorf("context operation failed: %w", err)
+		return nil, errorTemplates.InternalError(operation, err).
+			WithSuggestion("Retry the operation or check Core Platform connectivity")
 	}
 
 	return &MCPMessage{
@@ -974,7 +1526,8 @@ func (h *Handler) handleResourceRead(sessionID string, msg *MCPMessage) (*MCPMes
 	}
 
 	if err := json.Unmarshal(msg.Params, &params); err != nil {
-		return nil, fmt.Errorf("invalid resource read params: %w", err)
+		return nil, NewValidationError("params", fmt.Sprintf("Invalid resource read parameters: %v", err)).
+			WithOperation("resources/read")
 	}
 
 	var content interface{}
@@ -1010,7 +1563,8 @@ func (h *Handler) handleResourceRead(sessionID string, msg *MCPMessage) (*MCPMes
 		}
 
 	default:
-		return nil, fmt.Errorf("resource not found: %s", params.URI)
+		return nil, errorTemplates.ResourceNotFound("resource", params.URI, []string{"resources/list"}).
+			WithOperation("resources/read")
 	}
 
 	contentJSON, _ := json.Marshal(content)
@@ -1049,7 +1603,8 @@ func (h *Handler) handleLoggingSetLevel(sessionID string, msg *MCPMessage) (*MCP
 	}
 
 	if err := json.Unmarshal(msg.Params, &params); err != nil {
-		return nil, fmt.Errorf("invalid logging params: %w", err)
+		return nil, NewValidationError("params", fmt.Sprintf("Invalid logging parameters: %v", err)).
+			WithOperation("logging/setLevel")
 	}
 
 	// Map MCP log levels to observability log levels
@@ -1063,7 +1618,9 @@ func (h *Handler) handleLoggingSetLevel(sessionID string, msg *MCPMessage) (*MCP
 
 	newLevel, ok := levelMap[params.Level]
 	if !ok {
-		return nil, fmt.Errorf("invalid log level: %s", params.Level)
+		validLevels := []string{"debug", "info", "warning", "warn", "error"}
+		return nil, NewValidationError("level", fmt.Sprintf("Invalid log level '%s'. Valid levels: %v", params.Level, validLevels)).
+			WithOperation("logging/setLevel")
 	}
 
 	// Create a new logger with the specified level if StandardLogger
@@ -1088,7 +1645,8 @@ func (h *Handler) handleCancelRequest(sessionID string, msg *MCPMessage) (*MCPMe
 	}
 
 	if err := json.Unmarshal(msg.Params, &params); err != nil {
-		return nil, fmt.Errorf("invalid cancel params: %w", err)
+		return nil, NewValidationError("params", fmt.Sprintf("Invalid cancel request parameters: %v", err)).
+			WithOperation("$/cancelRequest")
 	}
 
 	// Look up and cancel the request

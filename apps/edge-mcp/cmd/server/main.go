@@ -11,16 +11,20 @@ import (
 	"time"
 
 	"github.com/coder/websocket"
+	"github.com/developer-mesh/developer-mesh/apps/edge-mcp/internal/api"
 	"github.com/developer-mesh/developer-mesh/apps/edge-mcp/internal/auth"
 	"github.com/developer-mesh/developer-mesh/apps/edge-mcp/internal/cache"
 	"github.com/developer-mesh/developer-mesh/apps/edge-mcp/internal/config"
 	"github.com/developer-mesh/developer-mesh/apps/edge-mcp/internal/core"
 	"github.com/developer-mesh/developer-mesh/apps/edge-mcp/internal/mcp"
+	"github.com/developer-mesh/developer-mesh/apps/edge-mcp/internal/metrics"
 	"github.com/developer-mesh/developer-mesh/apps/edge-mcp/internal/platform"
 	"github.com/developer-mesh/developer-mesh/apps/edge-mcp/internal/tools"
 	"github.com/developer-mesh/developer-mesh/apps/edge-mcp/internal/tools/builtin"
+	"github.com/developer-mesh/developer-mesh/apps/edge-mcp/internal/tracing"
 	"github.com/developer-mesh/developer-mesh/pkg/observability"
 	"github.com/gin-gonic/gin"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 )
 
 var (
@@ -108,8 +112,40 @@ func main() {
 		cfg.Server.Port = 8082
 	}
 
+	// Initialize distributed tracing (optional)
+	// Tracing is disabled by default - enable via environment variables
+	tracingConfig := &tracing.Config{
+		Enabled:        os.Getenv("TRACING_ENABLED") == "true",
+		ServiceName:    "edge-mcp",
+		ServiceVersion: version,
+		Environment:    getEnv("ENVIRONMENT", "development"),
+		OTLPEndpoint:   getEnv("OTLP_ENDPOINT", "localhost:4317"),
+		OTLPInsecure:   getEnv("OTLP_INSECURE", "true") == "true",
+		ZipkinEndpoint: os.Getenv("ZIPKIN_ENDPOINT"),
+		SamplingRate:   getSamplingRate(),
+	}
+	tracerProvider, err := tracing.NewTracerProvider(tracingConfig)
+	if err != nil {
+		logger.Warn("Could not initialize tracing", map[string]interface{}{
+			"error": err.Error(),
+		})
+		tracerProvider = nil
+	} else if tracingConfig.Enabled {
+		logger.Info("Initialized distributed tracing", map[string]interface{}{
+			"service":       tracingConfig.ServiceName,
+			"version":       tracingConfig.ServiceVersion,
+			"sampling_rate": tracingConfig.SamplingRate,
+		})
+	}
+
 	// Initialize in-memory cache (no Redis/DB dependencies)
 	memCache := cache.NewMemoryCache(1000, 5*time.Minute)
+
+	// Wrap cache with tracing if tracer is available
+	if tracerProvider != nil && tracingConfig.Enabled {
+		spanHelper := tracing.NewSpanHelper(tracerProvider)
+		memCache = cache.NewTracedCache(memCache, spanHelper)
+	}
 
 	// Initialize Core Platform client (optional)
 	var coreClient *core.Client
@@ -119,6 +155,7 @@ func main() {
 			cfg.Core.APIKey,
 			cfg.Core.EdgeMCPID,
 			logger,
+			tracerProvider,
 		)
 
 		// Authenticate with Core Platform
@@ -132,6 +169,10 @@ func main() {
 
 	// Initialize authentication
 	authenticator := auth.NewEdgeAuthenticator(cfg.Auth.APIKey)
+
+	// Initialize Prometheus metrics
+	metricsCollector := metrics.New()
+	logger.Info("Initialized Prometheus metrics", nil)
 
 	// Initialize tool registry
 	toolRegistry := tools.NewRegistry()
@@ -184,6 +225,8 @@ func main() {
 		coreClient,
 		authenticator,
 		logger,
+		metricsCollector,
+		tracerProvider,
 	)
 
 	// Check if we should run in stdio mode
@@ -213,7 +256,24 @@ func main() {
 	router := gin.New()
 	router.Use(gin.Recovery())
 
-	// Health check endpoint
+	// Initialize health checker
+	healthChecker := api.NewHealthChecker(
+		toolRegistry,
+		memCache,
+		coreClient,
+		mcpHandler,
+		logger,
+		version,
+	)
+
+	// Set config and authenticator for startup validation
+	healthChecker.SetConfig(cfg)
+	healthChecker.SetAuthenticator(authenticator)
+
+	// Register health check endpoints
+	healthChecker.RegisterRoutes(router)
+
+	// Legacy health check endpoint for backward compatibility
 	router.GET("/health", func(c *gin.Context) {
 		c.JSON(http.StatusOK, gin.H{
 			"status":         "healthy",
@@ -221,6 +281,9 @@ func main() {
 			"core_connected": coreClient != nil,
 		})
 	})
+
+	// Prometheus metrics endpoint
+	router.GET("/metrics", gin.WrapH(promhttp.Handler()))
 
 	// MCP WebSocket endpoint
 	router.GET("/ws", func(c *gin.Context) {
@@ -255,27 +318,93 @@ func main() {
 
 	// Start server
 	srv := &http.Server{
-		Addr:    fmt.Sprintf(":%d", cfg.Server.Port),
-		Handler: router,
+		Addr:              fmt.Sprintf(":%d", cfg.Server.Port),
+		Handler:           router,
+		ReadHeaderTimeout: 10 * time.Second, // Prevent Slowloris attacks
+		ReadTimeout:       30 * time.Second,
+		WriteTimeout:      30 * time.Second,
+		IdleTimeout:       60 * time.Second,
 	}
 
 	// Graceful shutdown
+	shutdownChan := make(chan struct{})
 	go func() {
 		sigChan := make(chan os.Signal, 1)
 		signal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM)
-		<-sigChan
+		sig := <-sigChan
 
-		logger.Info("Shutting down Edge MCP", nil)
+		logger.Info("Received shutdown signal", map[string]interface{}{
+			"signal": sig.String(),
+		})
 
-		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-		defer cancel()
+		// Total shutdown timeout: 30 seconds
+		shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), 30*time.Second)
+		defer shutdownCancel()
 
-		if err := srv.Shutdown(ctx); err != nil {
+		// Step 1: Drain active MCP connections and complete in-flight requests (15s timeout)
+		logger.Info("Draining active connections", nil)
+		handlerCtx, handlerCancel := context.WithTimeout(shutdownCtx, 15*time.Second)
+		if err := mcpHandler.Shutdown(handlerCtx); err != nil {
+			logger.Error("Handler shutdown error", map[string]interface{}{
+				"error": err.Error(),
+			})
+		}
+		handlerCancel()
+
+		// Step 2: Stop accepting new HTTP connections and wait for active requests (10s timeout)
+		logger.Info("Shutting down HTTP server", nil)
+		serverCtx, serverCancel := context.WithTimeout(shutdownCtx, 10*time.Second)
+		if err := srv.Shutdown(serverCtx); err != nil {
 			logger.Error("Server shutdown error", map[string]interface{}{
 				"error": err.Error(),
 			})
 		}
+		serverCancel()
+
+		// Step 3: Close cache if it implements io.Closer
+		logger.Info("Closing cache", nil)
+		if closer, ok := memCache.(interface{ Close() error }); ok {
+			if err := closer.Close(); err != nil {
+				logger.Warn("Cache close error", map[string]interface{}{
+					"error": err.Error(),
+				})
+			}
+		}
+
+		// Step 4: Flush metrics and shutdown tracing (5s timeout)
+		if tracerProvider != nil && tracingConfig.Enabled {
+			logger.Info("Flushing traces", nil)
+			tracerCtx, tracerCancel := context.WithTimeout(shutdownCtx, 5*time.Second)
+			if err := tracerProvider.Shutdown(tracerCtx); err != nil {
+				logger.Warn("Tracer shutdown error", map[string]interface{}{
+					"error": err.Error(),
+				})
+			}
+			tracerCancel()
+		}
+
+		logger.Info("Shutdown complete", nil)
+		close(shutdownChan)
 	}()
+
+	// Mark startup as complete with metrics
+	builtinToolCount := toolRegistry.Count()
+	remoteToolCount := 0
+	if coreClient != nil {
+		// Remote tools were already registered, get the count
+		remoteTools, _ := coreClient.FetchRemoteTools(context.Background())
+		remoteToolCount = len(remoteTools)
+	}
+
+	healthChecker.MarkStartupComplete(map[string]interface{}{
+		"builtin_tools":   builtinToolCount - remoteToolCount,
+		"remote_tools":    remoteToolCount,
+		"total_tools":     builtinToolCount,
+		"core_connected":  coreClient != nil,
+		"cache_ready":     true,
+		"auth_configured": true,
+		"version":         version,
+	})
 
 	logger.Info("Edge MCP starting", map[string]interface{}{
 		"version": version,
@@ -289,9 +418,46 @@ func main() {
 		logger.Info("Running in standalone mode (no Core Platform connection)", nil)
 	}
 
-	if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+	// Start server in goroutine so we can wait for shutdown
+	errChan := make(chan error, 1)
+	go func() {
+		if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+			errChan <- err
+		}
+	}()
+
+	// Wait for either server error or shutdown completion
+	select {
+	case err := <-errChan:
 		logger.Fatal("Server failed to start", map[string]interface{}{
 			"error": err.Error(),
 		})
+	case <-shutdownChan:
+		// Graceful shutdown completed
 	}
+}
+
+// getEnv returns environment variable value or default
+func getEnv(key, defaultValue string) string {
+	if value := os.Getenv(key); value != "" {
+		return value
+	}
+	return defaultValue
+}
+
+// getSamplingRate returns sampling rate from environment or default
+func getSamplingRate() float64 {
+	if rate := os.Getenv("TRACING_SAMPLING_RATE"); rate != "" {
+		if parsed, err := parseFloat(rate); err == nil {
+			return parsed
+		}
+	}
+	return 1.0 // Default to sampling all traces
+}
+
+// parseFloat parses a float64 from string
+func parseFloat(s string) (float64, error) {
+	var f float64
+	_, err := fmt.Sscanf(s, "%f", &f)
+	return f, err
 }
