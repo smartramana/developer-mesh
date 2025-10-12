@@ -111,7 +111,7 @@ services:
       - OPENAI_ENABLED=${OPENAI_ENABLED:-false}
       - OPENAI_API_KEY=${OPENAI_API_KEY:-}
       # AWS Bedrock Provider
-      - BEDROCK_ENABLED=${BEDROCK_ENABLED:-true}
+      - BEDROCK_ENABLED=true
       - BEDROCK_REGION=${AWS_REGION:-us-east-1}
       - BEDROCK_ENDPOINT=${BEDROCK_ENDPOINT:-}
       - BEDROCK_ROLE_ARN=${BEDROCK_ROLE_ARN:-}
@@ -162,6 +162,7 @@ services:
       # Core settings
       - ENVIRONMENT=docker
       - APP_ENV=development
+      - MCP_CONFIG_FILE=configs/config.docker.yaml
       # Database (using service names)
       - DATABASE_HOST=database
       - DB_HOST=database
@@ -180,20 +181,36 @@ services:
       - REDIS_PORT=6379
       - REDIS_ADDR=redis:6379
       - REDIS_ADDRESS=redis:6379
-      # AWS/LocalStack configuration
-      - USE_LOCALSTACK=true
-      - AWS_ENDPOINT_URL=http://localstack:4566
+      # AWS Configuration
+      # Use real AWS for Bedrock and other services, LocalStack only for S3
       - AWS_REGION=${AWS_REGION:-us-east-1}
-      - AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID:-test}
-      - AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY:-test}
-      # SQS configuration
-      - SQS_QUEUE_NAME=tasks
-      - SQS_QUEUE_URL=http://sqs.us-east-1.localhost.localstack.cloud:4566/000000000000/tasks
+      - AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID}
+      - AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY}
+      # S3 Configuration - Use LocalStack for local development
+      - S3_ENDPOINT=http://localstack:4566
+      - S3_USE_PATH_STYLE=true
+      # Note: AWS_ENDPOINT_URL is NOT set globally, so Bedrock uses real AWS
+      # Only S3 operations use LocalStack via S3_ENDPOINT
       # Worker configuration
-      - WORKER_QUEUE_TYPE=${WORKER_QUEUE_TYPE:-sqs}
+      - WORKER_QUEUE_TYPE=redis  # Use Redis Streams for local development
       - WORKER_CONCURRENCY=${WORKER_CONCURRENCY:-5}
       # Optional: Enable mock mode if LocalStack isn't available
       # - WORKER_MOCK_MODE=true
+      # Embedding Configuration (Context Processing)
+      # AWS Bedrock Provider - Primary embedding service for context items
+      - MCP_EMBEDDING_PROVIDERS_BEDROCK_ENABLED=true
+      - MCP_EMBEDDING_PROVIDERS_BEDROCK_REGION=us-east-1
+      - MCP_EMBEDDING_PROVIDERS_BEDROCK_ENDPOINT=
+      # OpenAI Provider (optional - requires API key)
+      - MCP_EMBEDDING_PROVIDERS_OPENAI_ENABLED=${OPENAI_ENABLED:-false}
+      - MCP_EMBEDDING_PROVIDERS_OPENAI_API_KEY=${OPENAI_API_KEY:-}
+      # Google AI Provider (optional - requires API key)
+      - MCP_EMBEDDING_PROVIDERS_GOOGLE_ENABLED=${GOOGLE_AI_ENABLED:-false}
+      - MCP_EMBEDDING_PROVIDERS_GOOGLE_API_KEY=${GOOGLE_AI_API_KEY:-}
+      # Embedding Processing Options
+      - DEFAULT_EMBEDDING_MODEL=${DEFAULT_EMBEDDING_MODEL:-amazon.titan-embed-text-v2:0}
+      - CONTEXT_CHUNK_SIZE=${CONTEXT_CHUNK_SIZE:-1000}
+      - EMBEDDING_BATCH_SIZE=${EMBEDDING_BATCH_SIZE:-10}
     depends_on:
       rest-api:
         condition: service_healthy

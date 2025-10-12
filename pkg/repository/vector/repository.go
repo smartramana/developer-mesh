@@ -31,7 +31,7 @@ func (r *RepositoryImpl) Get(ctx context.Context, id string) (*Embedding, error)
 		return nil, errors.New("id cannot be empty")
 	}
 
-	query := `SELECT id, context_id, content_index, text, embedding, model_id, created_at, metadata
+	query := `SELECT id, context_id, content_index, content, embedding, model_id, created_at, metadata
               FROM embeddings WHERE id = $1`
 
 	var embedding Embedding
@@ -45,7 +45,7 @@ func (r *RepositoryImpl) Get(ctx context.Context, id string) (*Embedding, error)
 
 // List retrieves embeddings matching the provided filter (standardized Repository method)
 func (r *RepositoryImpl) List(ctx context.Context, filter Filter) ([]*Embedding, error) {
-	query := `SELECT id, context_id, content_index, text, embedding, model_id, created_at, metadata FROM embeddings`
+	query := `SELECT id, context_id, content_index, content, embedding, model_id, created_at, metadata FROM embeddings`
 
 	// Apply filters
 	var whereClause string
@@ -106,10 +106,10 @@ func (r *RepositoryImpl) StoreEmbedding(ctx context.Context, embedding *Embeddin
 		embedding.CreatedAt = time.Now()
 	}
 
-	query := `INSERT INTO embeddings (id, context_id, content_index, text, embedding, model_id, created_at, metadata)
+	query := `INSERT INTO embeddings (id, context_id, content_index, content, embedding, model_id, created_at, metadata)
               VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
               ON CONFLICT (id) DO UPDATE SET
-              context_id = $2, content_index = $3, text = $4, embedding = $5, model_id = $6, metadata = $8`
+              context_id = $2, content_index = $3, content = $4, embedding = $5, model_id = $6, metadata = $8`
 
 	_, err := r.db.ExecContext(ctx, query,
 		embedding.ID,
@@ -147,7 +147,7 @@ func (r *RepositoryImpl) SearchEmbeddings(
 	}
 
 	// Build query based on parameters
-	query := `SELECT id, context_id, content_index, text, embedding, model_id, created_at, metadata FROM embeddings`
+	query := `SELECT id, context_id, content_index, content, embedding, model_id, created_at, metadata FROM embeddings`
 
 	whereClause := ""
 	var args []any
@@ -287,6 +287,135 @@ func (r *RepositoryImpl) DeleteModelEmbeddings(ctx context.Context, contextID st
 	_, err := r.db.ExecContext(ctx, query, contextID, modelID)
 	if err != nil {
 		return fmt.Errorf("failed to delete model embeddings: %w", err)
+	}
+
+	return nil
+}
+
+// Story 2.1: Context-Specific Embedding Methods
+
+// StoreContextEmbedding stores an embedding and links it to a context with metadata
+func (r *RepositoryImpl) StoreContextEmbedding(
+	ctx context.Context,
+	contextID string,
+	embedding *Embedding,
+	sequence int,
+	importance float64,
+) (string, error) {
+	if embedding == nil {
+		return "", errors.New("embedding cannot be nil")
+	}
+
+	if contextID == "" {
+		return "", errors.New("context ID cannot be empty")
+	}
+
+	// First store the embedding using existing method
+	if err := r.StoreEmbedding(ctx, embedding); err != nil {
+		return "", fmt.Errorf("failed to store embedding: %w", err)
+	}
+
+	// Then create the link in context_embeddings table
+	// Use DELETE+INSERT approach instead of ON CONFLICT to avoid constraint matching issues
+	// Start a transaction for atomic DELETE+INSERT
+	tx, err := r.db.BeginTxx(ctx, nil)
+	if err != nil {
+		return "", fmt.Errorf("failed to begin transaction: %w", err)
+	}
+	defer func() {
+		if err != nil {
+			_ = tx.Rollback()
+		}
+	}()
+
+	// Delete any existing entry for this context_id and chunk_sequence
+	deleteQuery := `DELETE FROM mcp.context_embeddings WHERE context_id = $1 AND chunk_sequence = $2`
+	_, err = tx.ExecContext(ctx, deleteQuery, contextID, sequence)
+	if err != nil {
+		return "", fmt.Errorf("failed to delete existing link: %w", err)
+	}
+
+	// Insert the new link
+	insertQuery := `
+		INSERT INTO mcp.context_embeddings
+		(context_id, embedding_id, chunk_sequence, importance_score, created_at, updated_at)
+		VALUES ($1, $2, $3, $4, NOW(), NOW())
+	`
+	_, err = tx.ExecContext(ctx, insertQuery, contextID, embedding.ID, sequence, importance)
+	if err != nil {
+		return "", fmt.Errorf("failed to insert link: %w", err)
+	}
+
+	// Commit the transaction
+	if err = tx.Commit(); err != nil {
+		return "", fmt.Errorf("failed to commit transaction: %w", err)
+	}
+
+	return embedding.ID, nil
+}
+
+// GetContextEmbeddingsBySequence retrieves embeddings for a context within a sequence range
+func (r *RepositoryImpl) GetContextEmbeddingsBySequence(
+	ctx context.Context,
+	contextID string,
+	startSeq int,
+	endSeq int,
+) ([]*Embedding, error) {
+	if contextID == "" {
+		return nil, errors.New("context ID cannot be empty")
+	}
+
+	query := `
+		SELECT e.id, e.context_id, e.content_index, e.content, e.embedding, e.model_id, e.created_at, e.metadata
+		FROM embeddings e
+		JOIN mcp.context_embeddings ce ON e.id = ce.embedding_id
+		WHERE ce.context_id = $1
+		AND ce.chunk_sequence BETWEEN $2 AND $3
+		ORDER BY ce.chunk_sequence
+	`
+
+	var embeddings []*Embedding
+	err := r.db.SelectContext(ctx, &embeddings, query, contextID, startSeq, endSeq)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get context embeddings by sequence: %w", err)
+	}
+
+	return embeddings, nil
+}
+
+// UpdateEmbeddingImportance updates the importance score for an embedding
+func (r *RepositoryImpl) UpdateEmbeddingImportance(
+	ctx context.Context,
+	embeddingID string,
+	importance float64,
+) error {
+	if embeddingID == "" {
+		return errors.New("embedding ID cannot be empty")
+	}
+
+	if importance < 0 || importance > 1 {
+		return errors.New("importance must be between 0 and 1")
+	}
+
+	query := `
+		UPDATE mcp.context_embeddings
+		SET importance_score = $1, updated_at = NOW()
+		WHERE embedding_id = $2
+	`
+
+	result, err := r.db.ExecContext(ctx, query, importance, embeddingID)
+	if err != nil {
+		return fmt.Errorf("failed to update importance: %w", err)
+	}
+
+	// Check if any rows were affected
+	rowsAffected, err := result.RowsAffected()
+	if err != nil {
+		return fmt.Errorf("failed to get rows affected: %w", err)
+	}
+
+	if rowsAffected == 0 {
+		return fmt.Errorf("no context embedding found with embedding_id: %s", embeddingID)
 	}
 
 	return nil

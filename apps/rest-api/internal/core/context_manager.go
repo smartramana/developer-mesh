@@ -11,6 +11,8 @@ import (
 
 	"github.com/developer-mesh/developer-mesh/pkg/models"
 	"github.com/developer-mesh/developer-mesh/pkg/observability"
+	"github.com/developer-mesh/developer-mesh/pkg/queue"
+	"github.com/google/uuid"
 	"github.com/jmoiron/sqlx"
 )
 
@@ -34,25 +36,31 @@ type ContextManagerInterface interface {
 // ContextManager provides a production-ready implementation of ContextManagerInterface
 // It handles persistence, caching, and error handling for context operations
 type ContextManager struct {
-	db      *sqlx.DB
-	cache   map[string]*models.Context
-	mutex   sync.RWMutex
-	logger  observability.Logger
-	metrics observability.MetricsClient
+	db          *sqlx.DB
+	cache       map[string]*models.Context
+	mutex       sync.RWMutex
+	logger      observability.Logger
+	metrics     observability.MetricsClient
+	queueClient *queue.Client
 }
 
 // NewContextManager creates a new context manager with database persistence
-func NewContextManager(db *sqlx.DB, logger observability.Logger, metrics observability.MetricsClient) ContextManagerInterface {
+func NewContextManager(db *sqlx.DB, logger observability.Logger, metrics observability.MetricsClient, queueClient *queue.Client) ContextManagerInterface {
 	if db == nil {
 		logger.Warn("Database connection is nil, context manager will operate in memory-only mode", nil)
 	}
 
+	if queueClient == nil {
+		logger.Warn("Queue client is nil, context embedding events will be disabled", nil)
+	}
+
 	return &ContextManager{
-		db:      db,
-		logger:  logger,
-		cache:   make(map[string]*models.Context),
-		mutex:   sync.RWMutex{},
-		metrics: metrics,
+		db:          db,
+		logger:      logger,
+		cache:       make(map[string]*models.Context),
+		mutex:       sync.RWMutex{},
+		metrics:     metrics,
+		queueClient: queueClient,
 	}
 }
 
@@ -100,25 +108,35 @@ func (cm *ContextManager) CreateContext(ctx context.Context, context *models.Con
 			metadataJSON = []byte("{}")
 		}
 
-		// Create insert query for context
-		q := `INSERT INTO mcp.contexts (id, tenant_id, name, description, agent_id, model_id, session_id, current_tokens, max_tokens, metadata, created_at, updated_at, expires_at) 
-		      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)`
+		// Create insert query for context (match actual schema: no name/description/session_id)
+		q := `INSERT INTO mcp.contexts (id, tenant_id, type, agent_id, model_id, token_count, max_tokens, metadata, created_at, updated_at, expires_at)
+		      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)`
+
+		// Convert empty strings to nil for UUID fields
+		var agentID, modelID, expiresAt interface{}
+		if context.AgentID != "" {
+			agentID = context.AgentID
+		}
+		if context.ModelID != "" {
+			modelID = context.ModelID
+		}
+		if !context.ExpiresAt.IsZero() {
+			expiresAt = context.ExpiresAt
+		}
 
 		// Use standard Exec with explicit parameters
 		_, err := cm.db.ExecContext(ctx, q,
 			context.ID,
 			context.TenantID,
-			context.Name,
-			context.Description,
-			context.AgentID,
-			context.ModelID,
-			context.SessionID,
-			context.CurrentTokens,
+			context.Type,
+			agentID,
+			modelID,
+			context.CurrentTokens, // Maps to token_count in schema
 			context.MaxTokens,
 			metadataJSON,
 			context.CreatedAt,
 			context.UpdatedAt,
-			context.ExpiresAt)
+			expiresAt)
 		if err != nil {
 			cm.logger.Error("Failed to store context in database", map[string]any{
 				"error":      err.Error(),
@@ -162,23 +180,22 @@ func (cm *ContextManager) GetContext(ctx context.Context, contextID string) (*mo
 
 	// Not in cache, try database
 	if cm.db != nil {
-		// Create a temporary struct to handle JSON metadata
+		// Create a temporary struct to handle JSON metadata (match actual schema)
 		var dbContext struct {
-			ID            string          `db:"id"`
-			Name          string          `db:"name"`
-			Description   string          `db:"description"`
-			AgentID       string          `db:"agent_id"`
-			ModelID       string          `db:"model_id"`
-			SessionID     string          `db:"session_id"`
-			CurrentTokens int             `db:"current_tokens"`
-			MaxTokens     int             `db:"max_tokens"`
-			Metadata      json.RawMessage `db:"metadata"`
-			CreatedAt     time.Time       `db:"created_at"`
-			UpdatedAt     time.Time       `db:"updated_at"`
-			ExpiresAt     time.Time       `db:"expires_at"`
+			ID         string          `db:"id"`
+			Type       string          `db:"type"`
+			TenantID   string          `db:"tenant_id"`
+			AgentID    *string         `db:"agent_id"` // Nullable
+			ModelID    *string         `db:"model_id"` // Nullable
+			TokenCount int             `db:"token_count"`
+			MaxTokens  int             `db:"max_tokens"`
+			Metadata   json.RawMessage `db:"metadata"`
+			CreatedAt  time.Time       `db:"created_at"`
+			UpdatedAt  time.Time       `db:"updated_at"`
+			ExpiresAt  *time.Time      `db:"expires_at"` // Nullable
 		}
 
-		q := `SELECT id, name, description, agent_id, model_id, session_id, current_tokens, max_tokens, metadata, created_at, updated_at, expires_at FROM mcp.contexts WHERE id = $1 LIMIT 1`
+		q := `SELECT id, type, tenant_id, agent_id, model_id, token_count, max_tokens, metadata, created_at, updated_at, expires_at FROM mcp.contexts WHERE id = $1 LIMIT 1`
 
 		// Use QueryRowxContext to fetch a single row
 		err := cm.db.QueryRowxContext(ctx, q, contextID).StructScan(&dbContext)
@@ -194,16 +211,23 @@ func (cm *ContextManager) GetContext(ctx context.Context, contextID string) (*mo
 		// Convert to models.Context
 		context := models.Context{
 			ID:            dbContext.ID,
-			Name:          dbContext.Name,
-			Description:   dbContext.Description,
-			AgentID:       dbContext.AgentID,
-			ModelID:       dbContext.ModelID,
-			SessionID:     dbContext.SessionID,
-			CurrentTokens: dbContext.CurrentTokens,
+			Type:          dbContext.Type,
+			TenantID:      dbContext.TenantID,
+			CurrentTokens: dbContext.TokenCount,
 			MaxTokens:     dbContext.MaxTokens,
 			CreatedAt:     dbContext.CreatedAt,
 			UpdatedAt:     dbContext.UpdatedAt,
-			ExpiresAt:     dbContext.ExpiresAt,
+		}
+
+		// Handle nullable fields
+		if dbContext.AgentID != nil {
+			context.AgentID = *dbContext.AgentID
+		}
+		if dbContext.ModelID != nil {
+			context.ModelID = *dbContext.ModelID
+		}
+		if dbContext.ExpiresAt != nil {
+			context.ExpiresAt = *dbContext.ExpiresAt
 		}
 
 		// Unmarshal metadata if present
@@ -218,7 +242,7 @@ func (cm *ContextManager) GetContext(ctx context.Context, contextID string) (*mo
 		}
 
 		// Load context items
-		itemsQuery := `SELECT id, context_id, role, content, tokens, timestamp, metadata FROM mcp.context_items WHERE context_id = $1 ORDER BY timestamp`
+		itemsQuery := `SELECT id, context_id, type, role, content, token_count, sequence_number, metadata, created_at FROM mcp.context_items WHERE context_id = $1 ORDER BY sequence_number`
 		rows, err := cm.db.QueryxContext(ctx, itemsQuery, contextID)
 		if err != nil {
 			cm.logger.Warn("Failed to load context items", map[string]any{
@@ -234,15 +258,17 @@ func (cm *ContextManager) GetContext(ctx context.Context, contextID string) (*mo
 			}()
 			var items []models.ContextItem
 			for rows.Next() {
-				// Create a temporary struct to handle JSON metadata
+				// Create a temporary struct to handle JSON metadata (match actual schema)
 				var dbItem struct {
-					ID        string          `db:"id"`
-					ContextID string          `db:"context_id"`
-					Role      string          `db:"role"`
-					Content   string          `db:"content"`
-					Tokens    int             `db:"tokens"`
-					Timestamp time.Time       `db:"timestamp"`
-					Metadata  json.RawMessage `db:"metadata"`
+					ID             string          `db:"id"`
+					ContextID      string          `db:"context_id"`
+					Type           string          `db:"type"`
+					Role           string          `db:"role"`
+					Content        string          `db:"content"`
+					TokenCount     int             `db:"token_count"`
+					SequenceNumber int             `db:"sequence_number"`
+					Metadata       json.RawMessage `db:"metadata"`
+					CreatedAt      time.Time       `db:"created_at"`
 				}
 
 				if err := rows.StructScan(&dbItem); err != nil {
@@ -258,8 +284,8 @@ func (cm *ContextManager) GetContext(ctx context.Context, contextID string) (*mo
 					ContextID: dbItem.ContextID,
 					Role:      dbItem.Role,
 					Content:   dbItem.Content,
-					Tokens:    dbItem.Tokens,
-					Timestamp: dbItem.Timestamp,
+					Tokens:    dbItem.TokenCount,
+					Timestamp: dbItem.CreatedAt,
 				}
 
 				// Unmarshal metadata if present
@@ -325,7 +351,8 @@ func (cm *ContextManager) UpdateContext(ctx context.Context, contextID string, u
 	// Only update the fields that were provided in the update request
 	result := &models.Context{
 		ID:            existingContext.ID,
-		Name:          updatedContext.Name, // Use updated name if provided
+		TenantID:      existingContext.TenantID, // Preserve tenant_id from existing context
+		Name:          updatedContext.Name,      // Use updated name if provided
 		Description:   existingContext.Description,
 		AgentID:       existingContext.AgentID,
 		ModelID:       existingContext.ModelID,
@@ -359,14 +386,12 @@ func (cm *ContextManager) UpdateContext(ctx context.Context, contextID string, u
 			return nil, fmt.Errorf("failed to start transaction: %w", err)
 		}
 
-		// Update context metadata
-		q := `UPDATE mcp.contexts SET 
-		       name = :name,
-		       description = :description,
-		       updated_at = :updated_at 
-		     WHERE id = :id`
+		// Update context metadata (only updated_at since name/description don't exist in schema)
+		q := `UPDATE mcp.contexts SET
+		       updated_at = $1
+		     WHERE id = $2`
 
-		_, err = tx.NamedExecContext(ctx, q, result)
+		_, err = tx.ExecContext(ctx, q, result.UpdatedAt, result.ID)
 		if err != nil {
 			_ = tx.Rollback()
 			cm.logger.Error("Failed to update context in database", map[string]any{
@@ -390,8 +415,8 @@ func (cm *ContextManager) UpdateContext(ctx context.Context, contextID string, u
 
 		// Insert new context items if any
 		if len(result.Content) > 0 {
-			itemsQuery := `INSERT INTO mcp.context_items (id, context_id, role, content, tokens, timestamp, metadata) 
-			              VALUES ($1, $2, $3, $4, $5, $6, $7)`
+			itemsQuery := `INSERT INTO mcp.context_items (id, context_id, type, role, content, token_count, sequence_number, metadata, created_at)
+			              VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`
 
 			for i, item := range result.Content {
 				// Ensure each item has an ID and context ID
@@ -421,14 +446,18 @@ func (cm *ContextManager) UpdateContext(ctx context.Context, contextID string, u
 					itemMetadataJSON = []byte("{}")
 				}
 
+				// Use "message" as default type, sequence_number is the index
+				itemType := "message"
 				_, err = tx.ExecContext(ctx, itemsQuery,
 					item.ID,
 					item.ContextID,
+					itemType,
 					item.Role,
 					item.Content,
 					item.Tokens,
-					item.Timestamp,
-					itemMetadataJSON)
+					i, // sequence_number
+					itemMetadataJSON,
+					item.Timestamp)
 				if err != nil {
 					_ = tx.Rollback()
 					cm.logger.Error("Failed to insert context item", map[string]any{
@@ -449,6 +478,105 @@ func (cm *ContextManager) UpdateContext(ctx context.Context, contextID string, u
 			})
 			cm.metrics.IncrementCounterWithLabels(MetricContextOperationsTotal, float64(1), map[string]string{"operation": "update", "status": "error"})
 			return nil, fmt.Errorf("failed to commit transaction: %w", err)
+		}
+
+		// Publish event for async embedding generation (after successful commit)
+		cm.logger.Info("Checking embedding event conditions", map[string]interface{}{
+			"has_queue_client": cm.queueClient != nil,
+			"content_length":   len(result.Content),
+		})
+		if cm.queueClient != nil && len(result.Content) > 0 {
+			// Filter items to only include user and assistant messages
+			var embeddableItems []models.ContextItem
+			for _, item := range result.Content {
+				if item.Role == "user" || item.Role == "assistant" {
+					embeddableItems = append(embeddableItems, item)
+				}
+			}
+			cm.logger.Info("Filtered embeddable items", map[string]interface{}{
+				"embeddable_count": len(embeddableItems),
+			})
+
+			if len(embeddableItems) > 0 {
+				cm.logger.Info("DEBUG: Inside embeddableItems > 0 block!", map[string]interface{}{
+					"count": len(embeddableItems),
+				})
+				// Extract agent_id from metadata if it's a virtual agent
+				agentID := result.AgentID
+
+				// Debug: Log metadata inspection
+				metadataKeys := []string{}
+				if result.Metadata != nil {
+					for k := range result.Metadata {
+						metadataKeys = append(metadataKeys, k)
+					}
+				}
+
+				cm.logger.Info("Extracting agent_id for event", map[string]interface{}{
+					"result.AgentID":       result.AgentID,
+					"metadata_exists":      result.Metadata != nil,
+					"metadata_keys":        metadataKeys,
+					"virtual_agent_id_raw": result.Metadata["virtual_agent_id"],
+				})
+
+				if agentID == "" && result.Metadata != nil {
+					if virtualAgentID, ok := result.Metadata["virtual_agent_id"].(string); ok && virtualAgentID != "" {
+						agentID = virtualAgentID
+						cm.logger.Info("Extracted virtual agent ID from metadata", map[string]interface{}{
+							"virtual_agent_id": virtualAgentID,
+						})
+					} else {
+						cm.logger.Warn("Failed to extract virtual agent ID from metadata", map[string]interface{}{
+							"type_assertion_ok": ok,
+							"metadata":          result.Metadata,
+						})
+					}
+				}
+
+				cm.logger.Info("Final agent_id for event", map[string]interface{}{
+					"agent_id": agentID,
+				})
+
+				eventPayload := map[string]interface{}{
+					"context_id": contextID,
+					"tenant_id":  result.TenantID,
+					"agent_id":   agentID, // Use virtual agent ID if available
+					"items":      embeddableItems,
+				}
+
+				payloadJSON, err := json.Marshal(eventPayload)
+				if err != nil {
+					cm.logger.Warn("Failed to marshal context event payload", map[string]interface{}{
+						"error":      err.Error(),
+						"context_id": contextID,
+					})
+				} else {
+					event := queue.Event{
+						EventID:   uuid.New().String(),
+						EventType: "context.items.created",
+						Payload:   json.RawMessage(payloadJSON),
+						Timestamp: time.Now(),
+						Metadata: map[string]interface{}{
+							"source":     "context_manager",
+							"action":     "update_context",
+							"item_count": len(embeddableItems),
+						},
+					}
+
+					if err := cm.queueClient.EnqueueEvent(ctx, event); err != nil {
+						cm.logger.Warn("Failed to publish context event", map[string]interface{}{
+							"error":      err.Error(),
+							"context_id": contextID,
+						})
+						// Don't fail the operation if event publishing fails
+					} else {
+						cm.logger.Info("Published context embedding event", map[string]interface{}{
+							"context_id": contextID,
+							"item_count": len(embeddableItems),
+						})
+					}
+				}
+			}
 		}
 	} else {
 		cm.logger.Warn("Database not available, updating context in memory only", map[string]any{
@@ -723,5 +851,5 @@ func (cm *ContextManager) SummarizeContext(ctx context.Context, contextID string
 
 // Helper function to generate a unique ID
 func generateUniqueID() string {
-	return fmt.Sprintf("ctx_%d", time.Now().UnixNano())
+	return uuid.New().String()
 }

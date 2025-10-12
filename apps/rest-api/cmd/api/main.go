@@ -278,12 +278,9 @@ func main() {
 	if strings.ToLower(useMock) == "true" {
 		logger.Info("Using mock context manager as specified by environment", nil)
 		engine.SetContextManager(core.NewMockContextManager())
-	} else {
-		logger.Info("Using production context manager", nil)
-		// Create metrics client for context manager
-		ctxMetrics := observability.NewMetricsClient()
-		engine.SetContextManager(core.NewContextManager(db.GetDB(), logger, ctxMetrics))
 	}
+	// Note: Production context manager will be initialized in server.Initialize()
+	// with the properly configured queue client
 
 	// Convert configuration to api.Config
 	apiConfig := api.Config{

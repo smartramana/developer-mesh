@@ -16,8 +16,14 @@ import (
 	"github.com/developer-mesh/developer-mesh/apps/rest-api/internal/services"
 	"github.com/developer-mesh/developer-mesh/apps/rest-api/internal/storage"
 
+	pkgcore "github.com/developer-mesh/developer-mesh/pkg/core"
+	"github.com/developer-mesh/developer-mesh/pkg/queue"
 	pkgrepository "github.com/developer-mesh/developer-mesh/pkg/repository"
+	"github.com/developer-mesh/developer-mesh/pkg/repository/embedding_usage"
+	"github.com/developer-mesh/developer-mesh/pkg/repository/model_catalog"
+	"github.com/developer-mesh/developer-mesh/pkg/repository/tenant_models"
 	pkgservices "github.com/developer-mesh/developer-mesh/pkg/services"
+	"github.com/developer-mesh/developer-mesh/pkg/webhook"
 
 	"github.com/developer-mesh/developer-mesh/pkg/agents"
 	"github.com/developer-mesh/developer-mesh/pkg/auth"
@@ -25,6 +31,7 @@ import (
 	"github.com/developer-mesh/developer-mesh/pkg/common/cache"
 	"github.com/developer-mesh/developer-mesh/pkg/common/config"
 	"github.com/developer-mesh/developer-mesh/pkg/database"
+	"github.com/developer-mesh/developer-mesh/pkg/embedding"
 	"github.com/developer-mesh/developer-mesh/pkg/observability"
 	"github.com/developer-mesh/developer-mesh/pkg/security"
 	"github.com/developer-mesh/developer-mesh/pkg/tools"
@@ -70,6 +77,7 @@ type Server struct {
 	healthChecker  *HealthChecker
 	cache          cache.Cache
 	webhookRepo    pkgrepository.WebhookConfigRepository
+	queueClient    *queue.Client // Queue client for event publishing (will be initialized in Initialize)
 }
 
 // NewServer creates a new API server
@@ -251,59 +259,45 @@ func NewServer(engine *core.Engine, cfg Config, db *sqlx.DB, metrics observabili
 // Initialize initializes all components and routes
 func (s *Server) Initialize(ctx context.Context) error {
 
+	// Initialize queue client for event publishing
+	s.logger.Info("Initializing queue client for context events", nil)
+	queueClient, err := queue.NewClient(ctx, &queue.Config{
+		Logger: s.logger,
+	})
+	if err != nil {
+		s.logger.Warn("Failed to create queue client, context embedding events will be disabled", map[string]interface{}{
+			"error": err.Error(),
+		})
+		// Graceful degradation - continue without queue client
+		s.queueClient = nil
+	} else {
+		s.queueClient = queueClient
+		s.logger.Info("Queue client initialized successfully", nil)
+	}
+
 	// Ensure we have a valid context manager
 	if s.engine != nil {
-		// Always create a context manager as follows:
-		// 1. First check if one is already set
-		// 2. If not, check the environment to determine if we should use a mock
-		// 3. Create and set either a real or mock context manager
-		// 4. Verify that it was correctly set before proceeding
+		// Check environment variable to determine whether to use mock or real
+		useMock := os.Getenv("USE_MOCK_CONTEXT_MANAGER")
 
-		// Get current context manager (if any)
-		ctxManager := s.engine.GetContextManager()
-
-		// Set a new context manager if none exists
-		if ctxManager == nil {
-			// Check environment variable to determine whether to use mock or real
-			useMock := os.Getenv("USE_MOCK_CONTEXT_MANAGER")
-
-			s.logger.Info("Context manager not found, initializing new one", map[string]any{
-				"use_mock": useMock,
-			})
-
-			if strings.ToLower(useMock) == "true" {
-				// Create mock context manager for development/testing
-				s.logger.Info("Using mock context manager as specified by environment", nil)
-				ctxManager = core.NewMockContextManager()
-			} else {
-				// Use our production-ready context manager implementation
-				s.logger.Info("Initializing production-ready context manager", nil)
-
-				// Pass existing components to the context manager
-				s.logger.Info("Creating production context manager", nil)
-
-				// Create the production context manager with available components
-				// We're using an updated version of NewContextManager that accepts *sqlx.DB directly
-				ctxManager = core.NewContextManager(s.db, s.logger, s.metrics)
-				s.logger.Info("Production context manager initialized", nil)
-			}
-
-			// Set the context manager on the engine
-			s.engine.SetContextManager(ctxManager)
-
-			// Log the change
-			s.logger.Info("Context manager set on engine", nil)
+		var ctxManager core.ContextManagerInterface
+		if strings.ToLower(useMock) == "true" {
+			// Create mock context manager for development/testing
+			s.logger.Info("Using mock context manager as specified by environment", nil)
+			ctxManager = core.NewMockContextManager()
 		} else {
-			s.logger.Info("Using existing context manager", nil)
+			// Use our production-ready context manager implementation
+			s.logger.Info("Initializing production-ready context manager", nil)
+
+			// Create the production context manager with available components
+			// This includes the queue client for async embedding generation
+			ctxManager = core.NewContextManager(s.db, s.logger, s.metrics, s.queueClient)
+			s.logger.Info("Production context manager initialized with queue client", nil)
 		}
 
-		// Explicitly verify that a context manager is set before continuing
-		if verifyCtx := s.engine.GetContextManager(); verifyCtx == nil {
-			s.logger.Error("Context manager initialization failed - still nil after setting", nil)
-			return fmt.Errorf("failed to initialize context manager, engine reports nil after setting")
-		} else {
-			s.logger.Info("Context manager initialization confirmed successful", nil)
-		}
+		// Set the context manager on the engine
+		s.engine.SetContextManager(ctxManager)
+		s.logger.Info("Context manager set on engine successfully", nil)
 	} else {
 		s.logger.Error("Engine is nil, cannot initialize context manager", nil)
 		return fmt.Errorf("engine is nil, cannot initialize context manager")
@@ -594,17 +588,38 @@ func (s *Server) setupRoutes(ctx context.Context) {
 		IdleTimeout: 30 * time.Minute,
 	}
 	sessionService := pkgservices.NewSessionService(sessionServiceConfig)
+
+	// Session-Context Orchestrator - Coordinates session and context creation
+	// Following Option C (industry best practice orchestration pattern)
+	orchestrator := services.NewSessionContextOrchestrator(services.SessionContextOrchestratorConfig{
+		SessionService: sessionService,
+		ContextManager: s.engine.GetContextManager(),
+		SessionRepo:    sessionRepo,
+		Logger:         s.logger,
+		Metrics:        s.metrics,
+	})
+	s.logger.Info("Session-Context Orchestrator initialized", map[string]interface{}{
+		"pattern": "option_c_orchestration",
+		"features": []string{
+			"atomic session-context creation",
+			"rollback on failure",
+			"single responsibility principle",
+		},
+	})
+
 	sessionHandler := NewSessionHandler(
 		sessionService,
+		orchestrator,
 		s.logger,
 		s.metrics,
 		auth.NewAuditLogger(s.logger),
 	)
 	sessionHandler.RegisterRoutes(v1)
 	s.logger.Info("Session Management API initialized", map[string]interface{}{
-		"default_ttl":  "24h",
-		"max_sessions": 100,
-		"idle_timeout": "30m",
+		"default_ttl":          "24h",
+		"max_sessions":         100,
+		"idle_timeout":         "30m",
+		"orchestrator_enabled": true,
 	})
 
 	// Agent and Model APIs - create repositories first as they're needed by context API
@@ -634,7 +649,7 @@ func (s *Server) setupRoutes(ctx context.Context) {
 
 	// Embedding API v2 - Multi-agent embedding system
 	// Initialize the embedding service with all configured providers
-	embeddingService, embeddingErr := adapters.CreateEmbeddingService(s.cfg, *database.NewDatabaseWithConnection(s.db), s.cache)
+	embeddingService, embeddingErr := embedding.CreateEmbeddingServiceV2(s.cfg, *database.NewDatabaseWithConnection(s.db), s.cache)
 	if embeddingErr != nil {
 		s.logger.Error("Failed to create embedding service", map[string]any{
 			"error": embeddingErr.Error(),
@@ -651,6 +666,85 @@ func (s *Server) setupRoutes(ctx context.Context) {
 		embeddingAPI.RegisterRoutes(v1)
 
 		s.logger.Info("Embedding API v2 initialized successfully", nil)
+
+		// Story 6.3: Initialize Semantic Context Manager
+		// This enables automatic embedding generation and semantic context operations
+		s.logger.Info("Initializing Semantic Context Manager", nil)
+
+		// Create repositories required for semantic context manager
+		contextRepo := pkgrepository.NewPostgresContextRepository(s.db)
+		embeddingRepo := pkgrepository.NewEmbeddingRepository(s.db)
+
+		// Create embedding client adapter that wraps ServiceV2
+		embeddingClient := adapters.NewEmbeddingServiceAdapter(embeddingService)
+
+		// Create lifecycle manager (can be nil for now - will be added when needed)
+		var lifecycleManager *webhook.ContextLifecycleManager = nil
+
+		// Create semantic context manager with queue client for async embedding generation
+		semanticContextMgr := pkgcore.NewSemanticContextManager(
+			contextRepo,
+			embeddingRepo,
+			embeddingClient,
+			s.queueClient, // Pass queue client for async embedding generation
+			lifecycleManager,
+			s.logger,
+			encryptionService,
+		)
+
+		// Create and register MCP API with semantic context manager
+		mcpAPI := NewMCPAPI(s.engine.GetContextManager())
+		mcpAPI.SetSemanticContextManager(semanticContextMgr)
+		mcpAPI.RegisterRoutes(v1)
+
+		s.logger.Info("Semantic Context Manager initialized successfully", map[string]any{
+			"features": []string{
+				"automatic embedding generation",
+				"semantic search",
+				"context compaction",
+				"intelligent retrieval",
+			},
+			"endpoints": []string{
+				"/api/v1/mcp/context",
+				"/api/v1/mcp/context/:id/compact",
+				"/api/v1/mcp/context/:id/search",
+			},
+		})
+	}
+
+	// Model Catalog API - Multi-tenant embedding model management
+	// Create repositories for model catalog, tenant models, and usage tracking
+	catalogRepo := model_catalog.NewModelCatalogRepository(s.db)
+	tenantModelsRepo := tenant_models.NewTenantModelsRepository(s.db)
+	usageRepo := embedding_usage.NewEmbeddingUsageRepository(s.db)
+
+	// Create model management service
+	modelManagementService, modelErr := services.NewModelManagementService(
+		s.db,
+		redisClient,
+		catalogRepo,
+		tenantModelsRepo,
+		usageRepo,
+	)
+	if modelErr != nil {
+		s.logger.Error("Failed to create model management service", map[string]any{
+			"error": modelErr.Error(),
+		})
+		s.logger.Warn("Model Catalog API initialization failed, model management endpoints will not be available", nil)
+	} else {
+		// Get auth service from middleware
+		authService := s.authMiddleware.GetAuthService()
+
+		// Create and register Model Catalog API
+		modelCatalogAPI := NewModelCatalogAPI(modelManagementService, authService, s.metrics)
+		modelCatalogAPI.RegisterRoutes(v1)
+
+		s.logger.Info("Model Catalog API initialized successfully", map[string]any{
+			"endpoints": []string{
+				"/api/v1/embedding-models/catalog",
+				"/api/v1/tenant-models",
+			},
+		})
 	}
 }
 

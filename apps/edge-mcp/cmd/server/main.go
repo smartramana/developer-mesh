@@ -179,11 +179,19 @@ func main() {
 
 	// Register built-in MCP tools for agent orchestration
 	// These tools provide core functionality for DevMesh operations
+	// Context provider gets Core Platform client for delegation (if available)
+	var contextProvider interface{ GetDefinitions() []tools.ToolDefinition }
+	if coreClient != nil {
+		contextProvider = builtin.NewContextProviderWithClient(coreClient)
+	} else {
+		contextProvider = builtin.NewContextProvider()
+	}
+
 	builtinProviders := []interface{ GetDefinitions() []tools.ToolDefinition }{
 		builtin.NewAgentProvider(),
 		builtin.NewWorkflowProvider(),
 		builtin.NewTaskProvider(),
-		builtin.NewContextProvider(),
+		contextProvider,               // Context provider with optional Core Platform delegation
 		builtin.NewTemplateProvider(), // Workflow templates for common patterns
 	}
 
@@ -191,7 +199,8 @@ func main() {
 		toolRegistry.Register(provider)
 	}
 	logger.Info("Registered built-in tools", map[string]interface{}{
-		"count": toolRegistry.Count(),
+		"count":        toolRegistry.Count(),
+		"context_mode": map[bool]string{true: "core_platform", false: "standalone"}[coreClient != nil],
 	})
 
 	// Command executor no longer needed since we're not using local tools
@@ -219,6 +228,9 @@ func main() {
 	}
 
 	// Initialize MCP handler
+	// Story 6.3: Edge-MCP delegates semantic context operations to Core Platform (REST API)
+	// which has the full semantic context manager with database and embedding services.
+	// This keeps Edge-MCP lightweight without database dependencies.
 	mcpHandler := mcp.NewHandler(
 		toolRegistry,
 		memCache,
@@ -227,6 +239,7 @@ func main() {
 		logger,
 		metricsCollector,
 		tracerProvider,
+		nil, // semanticContextMgr - Edge-MCP delegates to Core Platform instead
 	)
 
 	// Check if we should run in stdio mode

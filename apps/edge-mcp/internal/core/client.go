@@ -103,6 +103,10 @@ type Client struct {
 
 	// Tool ID mapping for execution
 	toolIDMap map[string]string // Maps tool name to tool ID
+
+	// Session and context tracking
+	currentSessionID string // Current session ID
+	currentContextID string // Current context ID (linked to session)
 }
 
 // NewClient creates a new Core Platform client
@@ -578,11 +582,46 @@ func (c *Client) CreateSession(ctx context.Context, clientName, clientType strin
 		}
 	}()
 
-	if resp.StatusCode == http.StatusOK {
+	// Parse response to extract context_id
+	if resp.StatusCode == http.StatusCreated || resp.StatusCode == http.StatusOK {
+		var sessionResp struct {
+			SessionID string  `json:"session_id"`
+			ContextID *string `json:"context_id"` // UUID from server, can be null
+		}
+
+		if err := json.NewDecoder(resp.Body).Decode(&sessionResp); err != nil {
+			c.logger.Warn("Failed to parse session response", map[string]interface{}{
+				"error": err.Error(),
+			})
+			return sessionID, nil
+		}
+
+		// Store session and context IDs
+		c.mu.Lock()
+		c.currentSessionID = sessionResp.SessionID
+		if sessionResp.ContextID != nil {
+			c.currentContextID = *sessionResp.ContextID
+		}
+		c.mu.Unlock()
+
+		contextID := ""
+		if sessionResp.ContextID != nil {
+			contextID = *sessionResp.ContextID
+		}
+
 		c.logger.Info("Session registered with Core Platform", map[string]interface{}{
-			"session_id": sessionID,
+			"session_id": sessionResp.SessionID,
+			"context_id": contextID,
+			"linked":     contextID != "",
 		})
+
+		// Return the session_id from server (should match what we generated)
+		return sessionResp.SessionID, nil
 	}
+
+	c.logger.Warn("Unexpected status code from session creation", map[string]interface{}{
+		"status_code": resp.StatusCode,
+	})
 
 	return sessionID, nil
 }
@@ -642,16 +681,38 @@ func (c *Client) RecordToolExecution(ctx context.Context, sessionID, toolName st
 }
 
 // UpdateContext updates context on Core Platform
-func (c *Client) UpdateContext(ctx context.Context, sessionID string, contextData map[string]interface{}) error {
+func (c *Client) UpdateContext(ctx context.Context, contextID string, contextData map[string]interface{}) error {
 	if !c.connected {
 		return nil // Skip in offline mode
 	}
 
-	payload := map[string]interface{}{
-		"context": contextData,
+	// Transform contextData to match REST API expected format
+	// API expects: {"content": [{"role": "...", "content": "...", "type": "text"}]}
+	var payload map[string]interface{}
+
+	// Check if contextData has "content" and "role" fields (from context_provider)
+	if content, hasContent := contextData["content"].(string); hasContent {
+		role := "user" // Default role
+		if r, hasRole := contextData["role"].(string); hasRole {
+			role = r
+		}
+
+		// Build proper ContextItem structure
+		contextItem := map[string]interface{}{
+			"role":    role,
+			"content": content,
+			"type":    "text",
+		}
+
+		payload = map[string]interface{}{
+			"content": []interface{}{contextItem},
+		}
+	} else {
+		// If not in expected format, wrap as-is
+		payload = contextData
 	}
 
-	resp, err := c.doRequest(ctx, "PUT", fmt.Sprintf("/api/v1/context/%s", sessionID), payload)
+	resp, err := c.doRequest(ctx, "PUT", fmt.Sprintf("/api/v1/contexts/%s", contextID), payload)
 	if err != nil {
 		return fmt.Errorf("failed to update context: %w", err)
 	}
@@ -662,6 +723,11 @@ func (c *Client) UpdateContext(ctx context.Context, sessionID string, contextDat
 			})
 		}
 	}()
+
+	if resp.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(resp.Body)
+		return fmt.Errorf("context update failed, status %d: %s", resp.StatusCode, string(body))
+	}
 
 	return nil
 }
@@ -717,13 +783,61 @@ func (c *Client) AppendContext(ctx context.Context, sessionID string, appendData
 	return nil
 }
 
+// SearchContext performs semantic search within a context
+func (c *Client) SearchContext(ctx context.Context, contextID string, query string, limit int) ([]interface{}, error) {
+	if !c.connected {
+		return nil, fmt.Errorf("not connected to Core Platform")
+	}
+
+	payload := map[string]interface{}{
+		"query": query,
+	}
+
+	if limit > 0 {
+		payload["limit"] = limit
+	}
+
+	resp, err := c.doRequest(ctx, "POST", fmt.Sprintf("/api/v1/contexts/%s/search", contextID), payload)
+	if err != nil {
+		return nil, fmt.Errorf("failed to search context: %w", err)
+	}
+	defer func() {
+		if err := resp.Body.Close(); err != nil {
+			c.logger.Warn("Failed to close response body", map[string]interface{}{
+				"error": err.Error(),
+			})
+		}
+	}()
+
+	if resp.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(resp.Body)
+		return nil, fmt.Errorf("context search failed, status %d: %s", resp.StatusCode, string(body))
+	}
+
+	var searchResp struct {
+		ContextID string        `json:"context_id"`
+		Query     string        `json:"query"`
+		Results   []interface{} `json:"results"`
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&searchResp); err != nil {
+		return nil, fmt.Errorf("failed to decode search results: %w", err)
+	}
+
+	return searchResp.Results, nil
+}
+
 // GetStatus returns the connection status
 func (c *Client) GetStatus() map[string]interface{} {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+
 	return map[string]interface{}{
 		"connected":   c.connected,
 		"base_url":    c.baseURL,
 		"tenant_id":   c.tenantID,
 		"edge_mcp_id": c.edgeMCPID,
+		"session_id":  c.currentSessionID,
+		"context_id":  c.currentContextID,
 		"last_error": func() string {
 			if c.lastError != nil {
 				return c.lastError.Error()
@@ -731,6 +845,13 @@ func (c *Client) GetStatus() map[string]interface{} {
 			return ""
 		}(),
 	}
+}
+
+// GetCurrentContextID returns the current context ID (linked to the session)
+func (c *Client) GetCurrentContextID() string {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	return c.currentContextID
 }
 
 // doRequest performs an authenticated HTTP request
