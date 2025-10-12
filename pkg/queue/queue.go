@@ -10,6 +10,7 @@ import (
 
 	"github.com/developer-mesh/developer-mesh/pkg/observability"
 	"github.com/developer-mesh/developer-mesh/pkg/redis"
+	goredis "github.com/redis/go-redis/v9"
 )
 
 // Event represents a webhook event in the queue
@@ -180,10 +181,6 @@ func (c *Client) ReceiveEvents(ctx context.Context, maxMessages int32, waitSecon
 	// Pass only stream names - ReadFromConsumerGroup will add the ">" for new messages
 	streams := []string{c.streamName}
 
-	// DEBUG: Log the parameters before calling ReadFromConsumerGroup
-	fmt.Printf("[QUEUE DEBUG] Calling ReadFromConsumerGroup: stream=%s, group=%s, consumer=%s, streams=%v\n",
-		c.streamName, c.consumerGroup, consumerName, streams)
-
 	results, err := c.streamsClient.ReadFromConsumerGroup(
 		ctx,
 		c.consumerGroup,
@@ -194,10 +191,12 @@ func (c *Client) ReceiveEvents(ctx context.Context, maxMessages int32, waitSecon
 		false,
 	)
 	if err != nil {
-		fmt.Printf("[QUEUE DEBUG] ReadFromConsumerGroup error: %v\n", err)
+		// redis.Nil is returned when no messages are available - this is normal, not an error
+		if errors.Is(err, goredis.Nil) {
+			return []Event{}, []string{}, nil
+		}
 		return nil, nil, fmt.Errorf("failed to read from stream: %w", err)
 	}
-	fmt.Printf("[QUEUE DEBUG] ReadFromConsumerGroup success: %d results\n", len(results))
 
 	var events []Event
 	var receipts []string
