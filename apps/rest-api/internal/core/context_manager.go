@@ -12,6 +12,7 @@ import (
 	"github.com/developer-mesh/developer-mesh/pkg/models"
 	"github.com/developer-mesh/developer-mesh/pkg/observability"
 	"github.com/developer-mesh/developer-mesh/pkg/queue"
+	pkgrepository "github.com/developer-mesh/developer-mesh/pkg/repository"
 	"github.com/google/uuid"
 	"github.com/jmoiron/sqlx"
 )
@@ -33,15 +34,21 @@ type ContextManagerInterface interface {
 	SummarizeContext(ctx context.Context, contextID string) (string, error)
 }
 
+// SemanticSearchCapability defines the interface for semantic search operations
+type SemanticSearchCapability interface {
+	SearchContext(ctx context.Context, query string, contextID string, limit int) ([]*pkgrepository.ContextItem, error)
+}
+
 // ContextManager provides a production-ready implementation of ContextManagerInterface
 // It handles persistence, caching, and error handling for context operations
 type ContextManager struct {
-	db          *sqlx.DB
-	cache       map[string]*models.Context
-	mutex       sync.RWMutex
-	logger      observability.Logger
-	metrics     observability.MetricsClient
-	queueClient *queue.Client
+	db             *sqlx.DB
+	cache          map[string]*models.Context
+	mutex          sync.RWMutex
+	logger         observability.Logger
+	metrics        observability.MetricsClient
+	queueClient    *queue.Client
+	semanticSearch SemanticSearchCapability // Optional: enables semantic search
 }
 
 // NewContextManager creates a new context manager with database persistence
@@ -62,6 +69,12 @@ func NewContextManager(db *sqlx.DB, logger observability.Logger, metrics observa
 		metrics:     metrics,
 		queueClient: queueClient,
 	}
+}
+
+// SetSemanticSearch sets the semantic search capability (optional)
+func (cm *ContextManager) SetSemanticSearch(semanticSearch SemanticSearchCapability) {
+	cm.semanticSearch = semanticSearch
+	cm.logger.Info("Semantic search capability enabled for ContextManager", nil)
 }
 
 // CreateContext creates a new context with database persistence
@@ -770,10 +783,58 @@ func (cm *ContextManager) SearchInContext(ctx context.Context, contextID, query 
 
 	var results []models.ContextItem
 
-	// Perform search in database if available
+	// Use semantic search if available
+	if cm.semanticSearch != nil {
+		cm.logger.Info("Using semantic search for context query", map[string]any{
+			"context_id": contextID,
+			"query":      query,
+		})
+
+		// Call semantic search with limit of 10 results
+		semanticResults, err := cm.semanticSearch.SearchContext(ctx, query, contextID, 10)
+		if err != nil {
+			cm.logger.Warn("Semantic search failed, falling back to text search", map[string]any{
+				"error":      err.Error(),
+				"context_id": contextID,
+			})
+			// Fall through to text search below
+		} else {
+			// Convert semantic search results (pkg/repository.ContextItem) to models.ContextItem
+			for _, item := range semanticResults {
+				contextItem := models.ContextItem{
+					ID:        item.ID,
+					ContextID: item.ContextID,
+					Content:   item.Content,
+					Metadata:  item.Metadata,
+					// Note: repository.ContextItem doesn't have Timestamp, Role, or Tokens fields
+					// Set reasonable defaults
+					Timestamp: time.Now(),
+					Role:      "assistant", // Default role for semantic search results
+					Tokens:    0,           // Could calculate if needed
+				}
+				results = append(results, contextItem)
+			}
+
+			cm.logger.Info("Semantic search completed successfully", map[string]any{
+				"context_id":    contextID,
+				"results_count": len(results),
+			})
+			cm.metrics.IncrementCounterWithLabels(MetricContextOperationsTotal, float64(1), map[string]string{"operation": "search", "status": "success", "method": "semantic"})
+			return results, nil
+		}
+	}
+
+	// Fall back to text search if semantic search is not available or failed
 	if cm.db != nil {
-		// Create query to search in context items
-		q := `SELECT * FROM mcp.context_items WHERE context_id = $1 AND content LIKE $2`
+		cm.logger.Info("Using text search for context query", map[string]any{
+			"context_id": contextID,
+			"query":      query,
+		})
+
+		// Create query to search in context items (select specific columns, not *)
+		q := `SELECT id, context_id, type, role, content, token_count, sequence_number, metadata, created_at
+		      FROM mcp.context_items
+		      WHERE context_id = $1 AND content LIKE $2`
 
 		// Execute query with parameters
 		rows, err := cm.db.QueryxContext(ctx, q, contextID, "%"+query+"%")
@@ -794,13 +855,47 @@ func (cm *ContextManager) SearchInContext(ctx context.Context, contextID, query 
 
 		// Iterate through results
 		for rows.Next() {
-			var item models.ContextItem
-			if err := rows.StructScan(&item); err != nil {
+			// Create a temporary struct to handle JSON metadata (match actual schema)
+			var dbItem struct {
+				ID             string          `db:"id"`
+				ContextID      string          `db:"context_id"`
+				Type           string          `db:"type"`
+				Role           string          `db:"role"`
+				Content        string          `db:"content"`
+				TokenCount     int             `db:"token_count"`
+				SequenceNumber int             `db:"sequence_number"`
+				Metadata       json.RawMessage `db:"metadata"`
+				CreatedAt      time.Time       `db:"created_at"`
+			}
+
+			if err := rows.StructScan(&dbItem); err != nil {
 				cm.logger.Error("Failed to scan context item from database", map[string]any{
 					"error": err.Error(),
 				})
 				continue
 			}
+
+			// Convert to models.ContextItem
+			item := models.ContextItem{
+				ID:        dbItem.ID,
+				ContextID: dbItem.ContextID,
+				Role:      dbItem.Role,
+				Content:   dbItem.Content,
+				Tokens:    dbItem.TokenCount,
+				Timestamp: dbItem.CreatedAt,
+			}
+
+			// Unmarshal metadata if present
+			if len(dbItem.Metadata) > 0 && string(dbItem.Metadata) != "null" {
+				if err := json.Unmarshal(dbItem.Metadata, &item.Metadata); err != nil {
+					cm.logger.Warn("Failed to unmarshal item metadata", map[string]any{
+						"error":   err.Error(),
+						"item_id": dbItem.ID,
+					})
+					// Continue without metadata - item is still valid
+				}
+			}
+
 			results = append(results, item)
 		}
 
@@ -813,13 +908,18 @@ func (cm *ContextManager) SearchInContext(ctx context.Context, contextID, query 
 			// Return partial results with error
 			return results, fmt.Errorf("error during context item iteration: %w", err)
 		}
+
+		cm.logger.Info("Text search completed successfully", map[string]any{
+			"context_id":    contextID,
+			"results_count": len(results),
+		})
+		cm.metrics.IncrementCounterWithLabels(MetricContextOperationsTotal, float64(1), map[string]string{"operation": "search", "status": "success", "method": "text"})
 	} else {
 		cm.logger.Warn("Database not available for context search, returning empty results", map[string]any{
 			"context_id": contextID,
 		})
 	}
 
-	cm.metrics.IncrementCounterWithLabels(MetricContextOperationsTotal, float64(1), map[string]string{"operation": "search", "status": "success"})
 	return results, nil
 }
 
