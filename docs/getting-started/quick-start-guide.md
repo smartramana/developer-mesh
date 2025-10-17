@@ -79,7 +79,7 @@ make migrate-up
 make dev
 
 # This starts:
-# - MCP Server on port 8080
+# - Edge MCP Server on port 8085
 # - REST API on port 8081
 # - Worker service for async processing
 ```
@@ -91,7 +91,7 @@ make dev
 make build
 
 # Then in separate terminals:
-make run-mcp-server   # Terminal 1: MCP Server (port 8080)
+make run-edge-mcp     # Terminal 1: Edge MCP Server (port 8080)
 make run-rest-api     # Terminal 2: REST API (port 8081)
 make run-worker       # Terminal 3: Worker service
 ```
@@ -99,8 +99,8 @@ make run-worker       # Terminal 3: Worker service
 ### Step 5: Verify Installation
 
 ```bash
-# Check MCP Server health
-curl http://localhost:8080/health
+# Check Edge MCP Server health (Docker uses port 8085)
+curl http://localhost:8085/health
 
 # Expected response:
 # {"status":"healthy","version":"1.0.0"}
@@ -203,7 +203,7 @@ Only organization owners and admins can invite new users:
 
 ```bash
 # Invite a new user
-curl -X POST http://localhost:8081/api/v1/auth/users/invite \
+curl -X POST http://localhost:8081/api/v1/users/invite \
   -H "Authorization: Bearer devmesh_xxxxxxxxxxxxx" \
   -H "Content-Type: application/json" \
   -d '{
@@ -246,9 +246,9 @@ Developer Mesh implements the Model Context Protocol (MCP) for AI agent communic
 # macOS: brew install websocat
 # Linux: Download from https://github.com/vi/websocat
 
-# Connect to MCP server
+# Connect to MCP server (use port 8085 for Docker, 8080 for local)
 websocat --header="Authorization: Bearer devmesh_xxxxxxxxxxxxx" \
-  ws://localhost:8080/ws
+  ws://localhost:8085/ws
 ```
 
 #### Initialize MCP Session
@@ -266,23 +266,9 @@ Send these messages after connecting:
 {"jsonrpc":"2.0","id":3,"method":"tools/list"}
 ```
 
-### Create and Assign Tasks
+### Next Steps
 
-```bash
-# Create a task via REST API
-curl -X POST http://localhost:8081/api/v1/tasks \
-  -H "Authorization: Bearer devmesh_xxxxxxxxxxxxx" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "title": "Review pull request #123",
-    "type": "code_review",
-    "priority": "high",
-    "metadata": {
-      "repository": "my-repo",
-      "pr_number": 123
-    }
-  }'
-```
+After connecting your agent via MCP, you can use the available tools to interact with your DevOps workflows. Use the `tools/list` method to discover all available tools.
 
 ## 🛠️ Common Operations
 
@@ -293,7 +279,7 @@ curl -X POST http://localhost:8081/api/v1/tasks \
 make docker-compose-logs
 
 # Specific service
-docker-compose -f docker-compose.local.yml logs mcp-server -f
+docker-compose -f docker-compose.local.yml logs edge-mcp -f
 ```
 
 ### Run Tests
@@ -302,10 +288,10 @@ docker-compose -f docker-compose.local.yml logs mcp-server -f
 # Unit tests (fast)
 make test
 
-# Test specific module
-make test-mcp-server
-make test-rest-api
-make test-worker
+# Test specific module (cd into the app directory first)
+cd apps/edge-mcp && go test ./...
+cd apps/rest-api && go test ./...
+cd apps/worker && go test ./...
 
 # Integration tests (requires Docker)
 make test-integration
@@ -354,9 +340,11 @@ docker-compose -f docker-compose.prod.yml up -d
 ```
 developer-mesh/
 ├── apps/               # Microservices (Go workspace modules)
-│   ├── mcp-server/     # MCP protocol implementation
-│   ├── rest-api/       # REST API endpoints  
-│   └── worker/         # Async job processor
+│   ├── edge-mcp/       # MCP protocol implementation (WebSocket server)
+│   ├── rest-api/       # REST API endpoints
+│   ├── worker/         # Async job processor
+│   ├── rag-loader/     # RAG document loader
+│   └── mockserver/     # Mock API server for testing
 ├── pkg/                # Shared libraries
 ├── configs/            # Configuration files
 ├── docs/               # Documentation
@@ -463,14 +451,16 @@ curl -H "Authorization: Bearer devmesh_xxxxxxxxxxxxx" \
 
 ```bash
 # Find process using port
-lsof -i :8080  # MCP Server
+lsof -i :8085  # Edge MCP Server (Docker)
+lsof -i :8080  # Edge MCP Server (local dev)
 lsof -i :8081  # REST API
 
 # Kill process
 kill -9 <PID>
 
 # Or kill by port
-kill -9 $(lsof -t -i:8080)
+kill -9 $(lsof -t -i:8085)  # For Docker
+kill -9 $(lsof -t -i:8080)  # For local dev
 ```
 
 ### Database Connection Failed
@@ -492,9 +482,10 @@ go work sync
 make build
 
 # If module errors occur:
-cd apps/mcp-server && go mod tidy
+cd apps/edge-mcp && go mod tidy
 cd apps/rest-api && go mod tidy
 cd apps/worker && go mod tidy
+cd apps/rag-loader && go mod tidy
 go work sync
 ```
 
