@@ -61,8 +61,8 @@ func (s *Service) CreateAPIKeyWithType(ctx context.Context, req CreateAPIKeyRequ
 		return nil, fmt.Errorf("failed to generate random key: %w", err)
 	}
 
-	// Create key string: prefix + base64(random)
-	keyString := fmt.Sprintf("%s_%s", generatePrefix(req.KeyType), base64.URLEncoding.EncodeToString(keyBytes))
+	// Create key string: prefix + base64(random) without padding to avoid header parsing issues
+	keyString := fmt.Sprintf("%s_%s", generatePrefix(req.KeyType), base64.RawURLEncoding.EncodeToString(keyBytes))
 	keyHash := s.hashAPIKey(keyString)
 	keyPrefix := keyString[:8]
 
@@ -212,4 +212,109 @@ func getKeyPrefix(apiKey string) string {
 		return apiKey[:8]
 	}
 	return apiKey
+}
+
+// APIKeyInfo represents API key information (without the actual key)
+type APIKeyInfo struct {
+	ID          string     `json:"id" db:"id"`
+	KeyPrefix   string     `json:"key_prefix" db:"key_prefix"`
+	Name        string     `json:"name" db:"name"`
+	KeyType     KeyType    `json:"key_type" db:"key_type"`
+	Scopes      []string   `json:"scopes" db:"scopes"`
+	IsActive    bool       `json:"is_active" db:"is_active"`
+	CreatedAt   time.Time  `json:"created_at" db:"created_at"`
+	LastUsedAt  *time.Time `json:"last_used_at" db:"last_used_at"`
+	ExpiresAt   *time.Time `json:"expires_at" db:"expires_at"`
+	UsageCount  int64      `json:"usage_count" db:"usage_count"`
+	RateLimit   int        `json:"rate_limit" db:"rate_limit"`
+	RateWindow  string     `json:"rate_window" db:"rate_window"`
+}
+
+// ListUserAPIKeys returns all API keys for a user (without the actual key values)
+func (s *Service) ListUserAPIKeys(ctx context.Context, tenantID, userID string) ([]APIKeyInfo, error) {
+	if s.db == nil {
+		return nil, fmt.Errorf("database connection not available")
+	}
+
+	query := `
+		SELECT
+			id, key_prefix, name, key_type, scopes, is_active,
+			created_at, last_used_at, expires_at, usage_count,
+			rate_limit, rate_window
+		FROM mcp.api_keys
+		WHERE tenant_id = $1 AND user_id = $2
+		ORDER BY created_at DESC
+	`
+
+	rows, err := s.db.QueryContext(ctx, query, tenantID, userID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to query API keys: %w", err)
+	}
+	defer rows.Close()
+
+	var keys []APIKeyInfo
+	for rows.Next() {
+		var key APIKeyInfo
+		var scopes pq.StringArray
+
+		err := rows.Scan(
+			&key.ID, &key.KeyPrefix, &key.Name, &key.KeyType, &scopes, &key.IsActive,
+			&key.CreatedAt, &key.LastUsedAt, &key.ExpiresAt, &key.UsageCount,
+			&key.RateLimit, &key.RateWindow,
+		)
+		if err != nil {
+			return nil, fmt.Errorf("failed to scan API key: %w", err)
+		}
+
+		key.Scopes = scopes
+		keys = append(keys, key)
+	}
+
+	if err = rows.Err(); err != nil {
+		return nil, fmt.Errorf("error iterating API keys: %w", err)
+	}
+
+	s.logger.Debug("Listed user API keys", map[string]interface{}{
+		"tenant_id": tenantID,
+		"user_id":   userID,
+		"count":     len(keys),
+	})
+
+	return keys, nil
+}
+
+// RevokeAPIKeyByID revokes an API key by its ID
+func (s *Service) RevokeAPIKeyByID(ctx context.Context, tenantID, userID, keyID string) error {
+	if s.db == nil {
+		return fmt.Errorf("database connection not available")
+	}
+
+	// Update the key to inactive
+	query := `
+		UPDATE mcp.api_keys
+		SET is_active = false, updated_at = NOW()
+		WHERE id = $1 AND tenant_id = $2 AND user_id = $3
+	`
+
+	result, err := s.db.ExecContext(ctx, query, keyID, tenantID, userID)
+	if err != nil {
+		return fmt.Errorf("failed to revoke API key: %w", err)
+	}
+
+	rowsAffected, err := result.RowsAffected()
+	if err != nil {
+		return fmt.Errorf("failed to get rows affected: %w", err)
+	}
+
+	if rowsAffected == 0 {
+		return fmt.Errorf("API key not found or not authorized")
+	}
+
+	s.logger.Info("API key revoked", map[string]interface{}{
+		"key_id":    keyID,
+		"tenant_id": tenantID,
+		"user_id":   userID,
+	})
+
+	return nil
 }

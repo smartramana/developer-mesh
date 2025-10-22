@@ -60,14 +60,26 @@ func (p *PassthroughProvider) IsValid() bool {
 }
 
 // GetAuthProviderFromContext creates an auth provider from context if passthrough token exists
+// Priority: 1) User credentials from database, 2) Passthrough token, 3) Service account fallback
 func GetAuthProviderFromContext(ctx context.Context, fallback AuthProvider, logger observability.Logger) AuthProvider {
-	// Check if there's a passthrough token in the context
-	passthroughToken, ok := auth.GetPassthroughToken(ctx)
-	if !ok || passthroughToken.Provider != "github" {
-		// No GitHub passthrough token, use fallback
-		return fallback
+	// PRIORITY 1: Check for user credentials from database (loaded by middleware)
+	if toolCreds, ok := auth.GetToolCredentials(ctx); ok {
+		if githubCred := toolCreds.GetCredentialFor("github"); githubCred != nil {
+			logger.Debug("Using user GitHub credential from database", map[string]interface{}{
+				"has_token": githubCred.Token != "",
+			})
+			return NewPassthroughProvider(githubCred.Token, logger)
+		}
 	}
 
-	// Create a passthrough provider with the token
-	return NewPassthroughProvider(passthroughToken.Token, logger)
+	// PRIORITY 2: Check if there's a passthrough token in the context
+	passthroughToken, ok := auth.GetPassthroughToken(ctx)
+	if ok && passthroughToken.Provider == "github" {
+		logger.Debug("Using GitHub passthrough token", nil)
+		return NewPassthroughProvider(passthroughToken.Token, logger)
+	}
+
+	// PRIORITY 3: Use service account fallback
+	logger.Debug("Using GitHub service account fallback", nil)
+	return fallback
 }

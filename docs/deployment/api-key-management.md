@@ -21,7 +21,45 @@ API keys in Developer Mesh are stored in the PostgreSQL database in the `mcp.api
 
 ## Creating API Keys
 
-### Method 1: Using the Management Script (Requires psql)
+### Method 1: Using the REST API (Recommended)
+
+**For authenticated users to create their own API keys:**
+
+```bash
+# Create a new API key via REST API
+curl -X POST http://localhost:8081/api/v1/api-keys \
+  -H "Authorization: Bearer YOUR_EXISTING_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "name": "My Development Key",
+    "key_type": "user",
+    "scopes": ["read", "write"]
+  }'
+```
+
+**Response:**
+```json
+{
+  "message": "API key created successfully. Save this key - it will not be shown again!",
+  "api_key": "usr_AbCdEf123456789...",
+  "info": {
+    "key_prefix": "usr_AbCd",
+    "name": "My Development Key",
+    "key_type": "user",
+    "scopes": ["read", "write"],
+    "created_at": "2025-10-22T10:00:00Z"
+  }
+}
+```
+
+**Important:** The full API key is only shown once. Save it immediately.
+
+**Available key types:**
+- `user` - Standard user access (default)
+- `admin` - Administrative privileges (requires admin role)
+- `agent` - AI agent authentication
+
+### Method 2: Using the Management Script (Requires psql)
 
 ```bash
 ./scripts/manage-api-keys.sh create \
@@ -31,7 +69,7 @@ API keys in Developer Mesh are stored in the PostgreSQL database in the `mcp.api
   -d  # Use database mode
 ```
 
-### Method 2: Using the Key Generator
+### Method 3: Using the Key Generator
 
 1. Generate a new API key:
 ```bash
@@ -45,7 +83,7 @@ go run scripts/generate-api-key/main.go admin
 
 3. Execute the SQL statement in your PostgreSQL database
 
-### Method 3: Direct Database Insert
+### Method 4: Direct Database Insert
 
 ```sql
 -- Generate a new admin API key
@@ -54,18 +92,18 @@ INSERT INTO mcp.api_keys (
     scopes, is_active, rate_limit_requests, rate_limit_window_seconds,
     created_at, updated_at
 ) VALUES (
-    uuid_generate_v4(), 
-    'YOUR_KEY_HASH_HERE', 
-    'YOUR_KEY_PREFIX_HERE', 
-    'your-tenant-id', 
-    NULL, 
-    'Your Key Name', 
+    uuid_generate_v4(),
+    'YOUR_KEY_HASH_HERE',
+    'YOUR_KEY_PREFIX_HERE',
+    'your-tenant-id',
+    NULL,
+    'Your Key Name',
     'admin',
-    ARRAY['read', 'write', 'admin'], 
-    true, 
-    1000, 
+    ARRAY['read', 'write', 'admin'],
+    true,
+    1000,
     60,
-    CURRENT_TIMESTAMP, 
+    CURRENT_TIMESTAMP,
     CURRENT_TIMESTAMP
 );
 ```
@@ -74,7 +112,101 @@ INSERT INTO mcp.api_keys (
 
 API keys follow this format: `{prefix}_{base64_encoded_random_bytes}`
 
-Example: `adm_dHg84VsfXagE4sd9jY-F5ePfOrgZnLXaBfRpxb_TW-0=`
+Example: `adm_R6C5UUYphnIWjhr6hMdbn2J-hgwCdIvXq1cox12UdjY`
+
+**Note:** API keys use base64 URL-safe encoding without padding to avoid HTTP header parsing issues.
+
+## Managing API Keys via REST API
+
+### List Your API Keys
+
+View all API keys associated with your user account:
+
+```bash
+curl http://localhost:8081/api/v1/api-keys \
+  -H "Authorization: Bearer YOUR_API_KEY"
+```
+
+**Response:**
+```json
+{
+  "api_keys": [
+    {
+      "id": "550e8400-e29b-41d4-a716-446655440000",
+      "key_prefix": "usr_AbCd",
+      "name": "My Development Key",
+      "key_type": "user",
+      "scopes": ["read", "write"],
+      "is_active": true,
+      "created_at": "2025-10-22T10:00:00Z",
+      "last_used_at": "2025-10-22T11:30:00Z",
+      "usage_count": 145,
+      "rate_limit": 100,
+      "rate_window": "60 seconds"
+    },
+    {
+      "id": "660e8400-e29b-41d4-a716-446655440001",
+      "key_prefix": "adm_XyZa",
+      "name": "Production Admin Key",
+      "key_type": "admin",
+      "scopes": ["read", "write", "admin"],
+      "is_active": true,
+      "created_at": "2025-10-20T08:00:00Z",
+      "last_used_at": "2025-10-22T13:15:00Z",
+      "usage_count": 1247,
+      "rate_limit": 1000,
+      "rate_window": "60 seconds"
+    }
+  ],
+  "count": 2
+}
+```
+
+**Note:** The actual API key value is never returned for security reasons. Only metadata is displayed.
+
+### Revoke an API Key
+
+When you no longer need an API key, revoke it to prevent further use:
+
+```bash
+curl -X DELETE http://localhost:8081/api/v1/api-keys/{key-id} \
+  -H "Authorization: Bearer YOUR_API_KEY"
+```
+
+**Example:**
+```bash
+curl -X DELETE http://localhost:8081/api/v1/api-keys/550e8400-e29b-41d4-a716-446655440000 \
+  -H "Authorization: Bearer adm_XyZaAbCdEfGh123456789"
+```
+
+**Response:**
+```json
+{
+  "message": "API key revoked successfully",
+  "key_id": "550e8400-e29b-41d4-a716-446655440000"
+}
+```
+
+**Important Notes:**
+- Revoked keys cannot be reactivated
+- You cannot revoke your own currently-used API key
+- Users can only revoke their own keys
+- Admins cannot revoke other users' keys via this endpoint
+
+### API Key Metadata
+
+Each API key tracks:
+- **key_prefix**: First 8 characters for identification (e.g., `usr_AbCd`)
+- **name**: Human-readable name for the key
+- **key_type**: admin, gateway, agent, or user
+- **scopes**: Array of permission scopes
+- **is_active**: Whether the key is currently active
+- **created_at**: When the key was created
+- **last_used_at**: Most recent usage timestamp
+- **expires_at**: Optional expiration date (null = no expiration)
+- **usage_count**: Number of times the key has been used
+- **rate_limit**: Maximum requests per time window
+- **rate_window**: Time window for rate limiting (typically 60 seconds)
 
 ## Security Considerations
 

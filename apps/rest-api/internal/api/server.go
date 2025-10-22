@@ -12,6 +12,7 @@ import (
 	contextAPI "github.com/developer-mesh/developer-mesh/apps/rest-api/internal/api/context"
 	webhooksAPI "github.com/developer-mesh/developer-mesh/apps/rest-api/internal/api/webhooks"
 	"github.com/developer-mesh/developer-mesh/apps/rest-api/internal/core"
+	"github.com/developer-mesh/developer-mesh/apps/rest-api/internal/middleware"
 	"github.com/developer-mesh/developer-mesh/apps/rest-api/internal/repository"
 	"github.com/developer-mesh/developer-mesh/apps/rest-api/internal/services"
 	"github.com/developer-mesh/developer-mesh/apps/rest-api/internal/storage"
@@ -19,6 +20,7 @@ import (
 	pkgcore "github.com/developer-mesh/developer-mesh/pkg/core"
 	"github.com/developer-mesh/developer-mesh/pkg/queue"
 	pkgrepository "github.com/developer-mesh/developer-mesh/pkg/repository"
+	"github.com/developer-mesh/developer-mesh/pkg/repository/credential"
 	"github.com/developer-mesh/developer-mesh/pkg/repository/embedding_usage"
 	"github.com/developer-mesh/developer-mesh/pkg/repository/model_catalog"
 	"github.com/developer-mesh/developer-mesh/pkg/repository/tenant_models"
@@ -621,6 +623,45 @@ func (s *Server) setupRoutes(ctx context.Context) {
 		"max_sessions":         100,
 		"idle_timeout":         "30m",
 		"orchestrator_enabled": true,
+	})
+
+	// Credential Management API - Encrypted credential storage
+	credentialRepo := credential.NewPostgresRepository(s.db)
+	credentialService := pkgservices.NewCredentialService(
+		credentialRepo,
+		encryptionService,
+		s.logger,
+	)
+
+	// Add user credential loading middleware - loads user's stored credentials for tool access
+	// This middleware should be added after authentication and tenant extraction
+	v1.Use(middleware.UserCredentialMiddleware(credentialService, s.logger))
+	s.logger.Info("User credential middleware registered - user credentials will be loaded for tool access", nil)
+
+	credentialHandler := NewCredentialHandler(
+		credentialService,
+		s.logger,
+		s.metrics,
+		auth.NewAuditLogger(s.logger),
+	)
+	credentialHandler.RegisterRoutes(v1)
+	s.logger.Info("Credential Management API initialized", map[string]interface{}{
+		"features": []string{"encrypted storage", "multi-service support", "audit trail", "auto-loading for tools"},
+	})
+
+	// API Key Management - Create, list, and revoke API keys
+	apiKeyHandler := NewAPIKeyHandler(
+		s.authMiddleware.GetAuthService(),
+		s.logger,
+		auth.NewAuditLogger(s.logger),
+	)
+	apiKeyHandler.RegisterRoutes(v1)
+	s.logger.Info("API Key Management API initialized", map[string]interface{}{
+		"endpoints": []string{
+			"POST /api/v1/api-keys",
+			"GET /api/v1/api-keys",
+			"DELETE /api/v1/api-keys/:id",
+		},
 	})
 
 	// Agent and Model APIs - create repositories first as they're needed by context API

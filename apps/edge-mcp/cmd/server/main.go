@@ -104,6 +104,31 @@ func main() {
 	if *coreURL != "" {
 		cfg.Core.URL = *coreURL
 	}
+
+	// Use DEV_MESH_URL environment variable if Core.URL not set
+	if cfg.Core.URL == "" {
+		if devMeshURL := os.Getenv("DEV_MESH_URL"); devMeshURL != "" {
+			cfg.Core.URL = devMeshURL
+		}
+	}
+
+	// Use DEV_MESH_API_KEY environment variable if Core.APIKey not set
+	if cfg.Core.APIKey == "" {
+		if devMeshAPIKey := os.Getenv("DEV_MESH_API_KEY"); devMeshAPIKey != "" {
+			cfg.Core.APIKey = devMeshAPIKey
+		}
+	}
+
+	// Use DEV_MESH_EDGE_ID or EDGE_MCP_ID environment variable if Core.EdgeMCPID not set
+	if cfg.Core.EdgeMCPID == "" {
+		if edgeMCPID := os.Getenv("DEV_MESH_EDGE_ID"); edgeMCPID != "" {
+			cfg.Core.EdgeMCPID = edgeMCPID
+		} else if edgeMCPID := os.Getenv("EDGE_MCP_ID"); edgeMCPID != "" {
+			cfg.Core.EdgeMCPID = edgeMCPID
+		} else {
+			cfg.Core.EdgeMCPID = "edge-local-dev" // Default
+		}
+	}
 	// Set port from flag or use default for WebSocket mode
 	if *port != 0 {
 		cfg.Server.Port = *port
@@ -167,8 +192,13 @@ func main() {
 		}
 	}
 
-	// Initialize authentication
-	authenticator := auth.NewEdgeAuthenticator(cfg.Auth.APIKey)
+	// Initialize authentication with REST API validation
+	// If DEV_MESH_URL is not set, default to localhost
+	restAPIURL := cfg.Core.URL
+	if restAPIURL == "" {
+		restAPIURL = "http://localhost:8081"
+	}
+	authenticator := auth.NewEdgeAuthenticator(restAPIURL, cfg.Core.EdgeMCPID)
 
 	// Initialize Prometheus metrics
 	metricsCollector := metrics.New()

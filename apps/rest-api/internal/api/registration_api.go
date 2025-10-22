@@ -283,6 +283,7 @@ type EdgeMCPAuthResponse struct {
 	Token    string `json:"token,omitempty"`
 	Message  string `json:"message,omitempty"`
 	TenantID string `json:"tenant_id,omitempty"`
+	UserID   string `json:"user_id,omitempty"`
 }
 
 // AuthenticateEdgeMCP handles Edge MCP authentication requests
@@ -334,11 +335,12 @@ func (api *RegistrationAPI) AuthenticateEdgeMCP(c *gin.Context) {
 		"tenant_id":   user.TenantID.String(),
 	})
 
-	// Send success response with tenant_id
+	// Send success response with tenant_id and user_id
 	c.JSON(http.StatusOK, EdgeMCPAuthResponse{
 		Success:  true,
 		Token:    token,
 		TenantID: user.TenantID.String(),
+		UserID:   user.ID.String(),
 	})
 }
 

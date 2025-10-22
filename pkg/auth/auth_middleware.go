@@ -223,8 +223,8 @@ func (m *AuthMiddleware) GinMiddleware() gin.HandlerFunc {
 			"auth_type": string(user.AuthType),
 		})
 
-		c.Set("user_id", user.ID)
-		c.Set("tenant_id", user.TenantID)
+		c.Set("user_id", user.ID.String())
+		c.Set("tenant_id", user.TenantID.String())
 
 		c.Next()
 

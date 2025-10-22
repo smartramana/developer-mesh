@@ -195,6 +195,279 @@ curl -X POST http://localhost:8081/api/v1/auth/login \
 }
 ```
 
+## 🔑 User API Key Management
+
+### Create Additional API Keys for Your User
+
+After initial registration, you can create additional API keys for different purposes:
+
+```bash
+# Create a new API key for your user
+curl -X POST http://localhost:8081/api/v1/api-keys \
+  -H "Authorization: Bearer devmesh_xxxxxxxxxxxxx" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "name": "My Development Key",
+    "key_type": "user",
+    "scopes": ["read", "write"]
+  }'
+```
+
+**Response:**
+```json
+{
+  "message": "API key created successfully. Save this key - it will not be shown again!",
+  "api_key": "usr_AbCdEf123456789...",
+  "info": {
+    "key_prefix": "usr_AbCd",
+    "name": "My Development Key",
+    "key_type": "user",
+    "scopes": ["read", "write"],
+    "created_at": "2025-10-22T10:00:00Z"
+  }
+}
+```
+
+**Important:** Save the `api_key` value immediately. This is the only time it will be displayed.
+
+**Key Types:**
+- `user`: Standard user access (default)
+- `admin`: Administrative privileges (requires admin role)
+- `agent`: For AI agent authentication
+
+### List Your API Keys
+
+View all API keys associated with your user account:
+
+```bash
+curl http://localhost:8081/api/v1/api-keys \
+  -H "Authorization: Bearer devmesh_xxxxxxxxxxxxx"
+```
+
+**Response:**
+```json
+{
+  "api_keys": [
+    {
+      "id": "uuid-1",
+      "key_prefix": "usr_AbCd",
+      "name": "My Development Key",
+      "key_type": "user",
+      "scopes": ["read", "write"],
+      "is_active": true,
+      "created_at": "2025-10-22T10:00:00Z",
+      "last_used_at": "2025-10-22T11:30:00Z"
+    }
+  ],
+  "count": 1
+}
+```
+
+### Revoke an API Key
+
+When you no longer need an API key, revoke it:
+
+```bash
+curl -X DELETE http://localhost:8081/api/v1/api-keys/uuid-1 \
+  -H "Authorization: Bearer devmesh_xxxxxxxxxxxxx"
+```
+
+**Response:**
+```json
+{
+  "message": "API key revoked successfully",
+  "key_id": "uuid-1"
+}
+```
+
+## 🎫 Personal Access Token Registration
+
+### Why Register Your Tokens?
+
+Developer Mesh can automatically use your personal access tokens when making tool calls to external services (GitHub, Harness, Jira, etc.). This provides:
+
+- **Personal Attribution**: Actions are performed under your identity
+- **Your Permissions**: Uses your specific access levels
+- **Secure Storage**: Tokens are encrypted using AES-256-GCM
+- **Automatic Usage**: No need to provide tokens with each request
+
+### Register a GitHub Token
+
+```bash
+curl -X POST http://localhost:8081/api/v1/credentials \
+  -H "Authorization: Bearer devmesh_xxxxxxxxxxxxx" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "service_type": "github",
+    "credentials": {
+      "token": "ghp_your_github_personal_access_token"
+    },
+    "scopes": [
+      "repo",
+      "read:org",
+      "read:user",
+      "workflow",
+      "admin:org"
+    ],
+    "metadata": {
+      "description": "My GitHub PAT for DevMesh",
+      "username": "your-github-username"
+    }
+  }'
+```
+
+**Response:**
+```json
+{
+  "id": "credential-uuid",
+  "service_type": "github",
+  "is_active": true,
+  "has_credentials": true,
+  "metadata": {
+    "description": "My GitHub PAT for DevMesh",
+    "username": "your-github-username"
+  },
+  "created_at": "2025-10-22T10:00:00Z"
+}
+```
+
+### Register a Harness Token
+
+```bash
+curl -X POST http://localhost:8081/api/v1/credentials \
+  -H "Authorization: Bearer devmesh_xxxxxxxxxxxxx" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "service_type": "harness",
+    "credentials": {
+      "token": "pat.Qn7GW44bQcm65PEEowLdaA.xxx",
+      "account_id": "your-account-id"
+    },
+    "scopes": [
+      "pipeline:view",
+      "pipeline:edit",
+      "pipeline:execute",
+      "service:view",
+      "environment:view"
+    ],
+    "metadata": {
+      "description": "Harness PAT for pipeline management"
+    }
+  }'
+```
+
+### Supported Services
+
+Register credentials for any of these services:
+
+| Service | service_type | Credential Fields |
+|---------|--------------|-------------------|
+| **GitHub** | `github` | `token` |
+| **Harness** | `harness` | `token`, `account_id` |
+| **Jira** | `jira` | `email`, `api_token`, `base_url` |
+| **GitLab** | `gitlab` | `token` |
+| **Bitbucket** | `bitbucket` | `username`, `app_password` |
+| **Jenkins** | `jenkins` | `username`, `api_token`, `base_url` |
+| **SonarQube** | `sonarqube` | `token`, `base_url` |
+| **Artifactory** | `artifactory` | `api_key` or `token` |
+| **Confluence** | `confluence` | `email`, `api_token`, `base_url` |
+| **AWS** | `aws` | `access_key`, `secret_key`, `region` |
+| **Snyk** | `snyk` | `token` |
+
+### List Your Registered Credentials
+
+```bash
+curl http://localhost:8081/api/v1/credentials \
+  -H "Authorization: Bearer devmesh_xxxxxxxxxxxxx"
+```
+
+**Response:**
+```json
+{
+  "credentials": [
+    {
+      "id": "uuid-1",
+      "service_type": "github",
+      "is_active": true,
+      "has_credentials": true,
+      "created_at": "2025-10-22T10:00:00Z",
+      "last_used_at": "2025-10-22T11:30:00Z"
+    },
+    {
+      "id": "uuid-2",
+      "service_type": "harness",
+      "is_active": true,
+      "has_credentials": true,
+      "created_at": "2025-10-22T10:05:00Z"
+    }
+  ],
+  "count": 2
+}
+```
+
+**Note:** Actual credential values are never returned for security reasons. Only metadata is displayed.
+
+### Validate Your Credentials
+
+Test if your stored credentials are working:
+
+```bash
+curl -X POST http://localhost:8081/api/v1/credentials/github/validate \
+  -H "Authorization: Bearer devmesh_xxxxxxxxxxxxx"
+```
+
+**Response:**
+```json
+{
+  "valid": true,
+  "service_type": "github",
+  "message": "Credentials validated successfully"
+}
+```
+
+### Delete Credentials
+
+Remove credentials you no longer need:
+
+```bash
+curl -X DELETE http://localhost:8081/api/v1/credentials/github \
+  -H "Authorization: Bearer devmesh_xxxxxxxxxxxxx"
+```
+
+**Response:** `204 No Content`
+
+### How Tool Calls Use Your Credentials
+
+Once registered, your credentials are automatically used when making MCP tool calls:
+
+```json
+// MCP Protocol via WebSocket
+{
+  "jsonrpc": "2.0",
+  "id": 1,
+  "method": "tools/call",
+  "params": {
+    "name": "github.create_issue",
+    "arguments": {
+      "owner": "my-org",
+      "repo": "my-repo",
+      "title": "New feature request"
+    }
+  }
+}
+```
+
+**The system automatically:**
+1. Validates your API key
+2. Loads your stored GitHub credentials
+3. Uses your GitHub token to create the issue
+4. Returns the result attributed to you
+
+**Credential Priority:**
+1. **User Database Credentials** (highest) - Your registered tokens
+2. **Passthrough Tokens** (medium) - Tokens in the request
+3. **Service Account** (fallback) - Organization-wide credentials
+
 ## 👥 User Management
 
 ### Invite Users to Your Organization
