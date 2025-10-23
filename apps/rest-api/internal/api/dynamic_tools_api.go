@@ -14,6 +14,7 @@ import (
 	"github.com/developer-mesh/developer-mesh/pkg/models"
 	"github.com/developer-mesh/developer-mesh/pkg/observability"
 	pkgrepository "github.com/developer-mesh/developer-mesh/pkg/repository"
+	"github.com/developer-mesh/developer-mesh/pkg/repository/credential"
 	"github.com/developer-mesh/developer-mesh/pkg/security"
 	"github.com/developer-mesh/developer-mesh/pkg/tools"
 	githubprovider "github.com/developer-mesh/developer-mesh/pkg/tools/providers/github"
@@ -31,6 +32,7 @@ type DynamicToolsAPI struct {
 	templateRepo      pkgrepository.ToolTemplateRepository     // For expanding organization tools
 	orgToolRepo       pkgrepository.OrganizationToolRepository // For updating org tools with permissions
 	encryptionService *security.EncryptionService              // For decrypting credentials
+	credentialRepo    credential.Repository                    // For accessing user credentials
 }
 
 // NewDynamicToolsAPI creates a new dynamic tools API handler
@@ -42,6 +44,7 @@ func NewDynamicToolsAPI(
 	templateRepo pkgrepository.ToolTemplateRepository,
 	orgToolRepo pkgrepository.OrganizationToolRepository,
 	encryptionService *security.EncryptionService,
+	credentialRepo credential.Repository,
 ) *DynamicToolsAPI {
 	return &DynamicToolsAPI{
 		toolService:       toolService,
@@ -51,6 +54,7 @@ func NewDynamicToolsAPI(
 		templateRepo:      templateRepo,
 		orgToolRepo:       orgToolRepo,
 		encryptionService: encryptionService,
+		credentialRepo:    credentialRepo,
 	}
 }
 
@@ -165,24 +169,28 @@ func (api *DynamicToolsAPI) ListTools(c *gin.Context) {
 						"has_config":    ot.InstanceConfig != nil,
 					})
 
-					// Discover permissions for Harness tools if not already done
-					if api.shouldDiscoverPermissions(ot) {
-						api.logger.Info("Tool needs permission discovery", map[string]interface{}{
+					// Discover permissions for tools if not already done (for authenticated user)
+					userID := c.GetString("user_id")
+					if userID != "" && api.shouldDiscoverPermissions(c.Request.Context(), tenantID, userID, ot) {
+						api.logger.Info("Tool needs permission discovery for user", map[string]interface{}{
 							"tool_id":       ot.ID,
 							"instance_name": ot.InstanceName,
+							"user_id":       userID,
 						})
-						api.discoverAndStorePermissions(c.Request.Context(), ot)
+						api.discoverAndStorePermissions(c.Request.Context(), tenantID, userID, ot)
 					} else {
 						api.logger.Debug("Tool does not need permission discovery", map[string]interface{}{
 							"tool_id":       ot.ID,
 							"instance_name": ot.InstanceName,
+							"user_id":       userID,
 						})
 					}
 
 					// Check if we should expand this tool based on its template
 					if api.shouldExpandTool(ot) {
 						// Expand the organization tool into multiple operation-specific tools
-						expandedTools := api.expandOrganizationTool(c.Request.Context(), ot)
+						// Pass userID for permission filtering
+						expandedTools := api.expandOrganizationTool(c.Request.Context(), ot, userID)
 						if len(expandedTools) > 0 {
 							tools = append(tools, expandedTools...)
 							api.logger.Info("Expanded organization tool into operations", map[string]interface{}{
@@ -656,6 +664,7 @@ func (api *DynamicToolsAPI) ListActions(c *gin.Context) {
 // ExecuteAction executes a tool action
 func (api *DynamicToolsAPI) ExecuteAction(c *gin.Context) {
 	tenantID := c.GetString("tenant_id")
+	userID := c.GetString("user_id")
 	toolID := c.Param("toolId")
 	encodedAction := c.Param("action")
 
@@ -845,8 +854,8 @@ func (api *DynamicToolsAPI) ExecuteAction(c *gin.Context) {
 			// Check each org tool and its potential expansions
 			for _, orgTool := range orgTools {
 				if ot, ok := orgTool.(*models.OrganizationTool); ok && api.shouldExpandTool(ot) {
-					// Get the expanded tools for this org tool
-					expandedTools := api.expandOrganizationTool(c.Request.Context(), ot)
+					// Get the expanded tools for this org tool (with user permission filtering)
+					expandedTools := api.expandOrganizationTool(c.Request.Context(), ot, userID)
 					for _, expTool := range expandedTools {
 						if expTool.ID == originalToolID {
 							// Found it! Extract the parent tool ID and operation
@@ -1478,7 +1487,8 @@ func (api *DynamicToolsAPI) shouldExpandTool(ot *models.OrganizationTool) bool {
 }
 
 // expandOrganizationTool expands an organization tool into multiple operation-specific tools
-func (api *DynamicToolsAPI) expandOrganizationTool(ctx context.Context, ot *models.OrganizationTool) []*models.DynamicTool {
+// userID is optional - if provided, operations will be filtered based on user's permissions
+func (api *DynamicToolsAPI) expandOrganizationTool(ctx context.Context, ot *models.OrganizationTool, userID string) []*models.DynamicTool {
 	var expandedTools []*models.DynamicTool
 
 	api.logger.Info("Starting organization tool expansion", map[string]interface{}{
@@ -1486,6 +1496,7 @@ func (api *DynamicToolsAPI) expandOrganizationTool(ctx context.Context, ot *mode
 		"template_id":   ot.TemplateID,
 		"instance_name": ot.InstanceName,
 		"has_config":    ot.InstanceConfig != nil,
+		"user_id":       userID,
 	})
 
 	// Skip if no template ID
@@ -1560,22 +1571,57 @@ func (api *DynamicToolsAPI) expandOrganizationTool(ctx context.Context, ot *mode
 		}
 	}
 
-	// Extract discovered permissions for Harness provider
+	// Retrieve user permissions if userID is provided
 	var discoveredPermissions map[string]interface{}
-	if template.ProviderName == "harness" && ot.InstanceConfig != nil {
-		// Check for permissions field (the one we set)
-		if perms, ok := ot.InstanceConfig["permissions"].(map[string]interface{}); ok {
-			discoveredPermissions = perms
-			api.logger.Info("Found permissions for Harness tool", map[string]interface{}{
-				"tool_id":           ot.ID,
-				"permissions_count": len(perms),
-				"permissions":       perms,
-			})
-		} else {
-			api.logger.Warn("No permissions found for Harness tool", map[string]interface{}{
-				"tool_id":         ot.ID,
-				"instance_config": ot.InstanceConfig,
-			})
+	if userID != "" {
+		// Map provider name to service type
+		var serviceType models.ServiceType
+		switch template.ProviderName {
+		case "github":
+			serviceType = models.ServiceTypeGitHub
+		case "harness":
+			serviceType = models.ServiceTypeHarness
+		case "gitlab":
+			serviceType = models.ServiceTypeGitLab
+		case "bitbucket":
+			serviceType = models.ServiceTypeBitbucket
+		case "jira":
+			serviceType = models.ServiceTypeJira
+		case "slack":
+			serviceType = models.ServiceTypeSlack
+		default:
+			// Unknown provider, no filtering
+			serviceType = ""
+		}
+
+		// Get user credentials if service type is supported
+		if serviceType != "" {
+			userCred, err := api.credentialRepo.Get(ctx, ot.TenantID, userID, serviceType)
+			if err == nil && userCred != nil && userCred.Metadata != nil {
+				// Extract permissions from user credential metadata
+				if perms, ok := userCred.Metadata["permissions"].(map[string]interface{}); ok {
+					discoveredPermissions = perms
+					api.logger.Info("Found user permissions for tool filtering", map[string]interface{}{
+						"tool_id":           ot.ID,
+						"user_id":           userID,
+						"provider":          template.ProviderName,
+						"permissions_count": len(perms),
+					})
+				} else {
+					api.logger.Debug("No permissions found in user credentials", map[string]interface{}{
+						"tool_id":  ot.ID,
+						"user_id":  userID,
+						"provider": template.ProviderName,
+					})
+				}
+			} else if err != nil {
+				api.logger.Debug("Could not retrieve user credentials for filtering", map[string]interface{}{
+					"tool_id":  ot.ID,
+					"user_id":  userID,
+					"provider": template.ProviderName,
+					"error":    err.Error(),
+				})
+			}
 		}
 	}
 
@@ -1584,12 +1630,14 @@ func (api *DynamicToolsAPI) expandOrganizationTool(ctx context.Context, ot *mode
 
 	// Create a tool for each operation in the template
 	for operationName, mapping := range template.OperationMappings {
-		// Filter operations based on permissions for Harness provider
-		if template.ProviderName == "harness" && discoveredPermissions != nil {
-			if !api.isOperationAllowed(operationName, discoveredPermissions) {
-				api.logger.Debug("Skipping operation due to insufficient permissions", map[string]interface{}{
+		// Filter operations based on user permissions if available
+		if discoveredPermissions != nil {
+			if !api.isOperationAllowed(template.ProviderName, operationName, discoveredPermissions) {
+				api.logger.Debug("Skipping operation due to insufficient user permissions", map[string]interface{}{
 					"operation": operationName,
 					"tool_id":   ot.ID,
+					"user_id":   userID,
+					"provider":  template.ProviderName,
 				})
 				skippedCount++
 				continue
@@ -1774,50 +1822,117 @@ func (api *DynamicToolsAPI) getGitHubOperationMetadata(operationName string) map
 	return metadata
 }
 
-// shouldDiscoverPermissions checks if we should discover permissions for a tool
-func (api *DynamicToolsAPI) shouldDiscoverPermissions(ot *models.OrganizationTool) bool {
-	// Only discover permissions for Harness tools with credentials but no permissions yet
+// shouldDiscoverPermissions checks if we should discover permissions for a user's credentials
+func (api *DynamicToolsAPI) shouldDiscoverPermissions(ctx context.Context, tenantID, userID string, ot *models.OrganizationTool) bool {
+	// Only discover permissions for tools with templates
 	if ot.TemplateID == "" {
 		return false
 	}
 
-	// Check if template is for Harness (we need to fetch it to check)
-	template, err := api.templateRepo.GetByID(context.Background(), ot.TemplateID)
+	// Check if template exists and get provider name
+	template, err := api.templateRepo.GetByID(ctx, ot.TemplateID)
 	if err != nil || template == nil {
 		return false
 	}
 
-	if template.ProviderName != "harness" {
+	// Map provider name to service type
+	var serviceType models.ServiceType
+	switch template.ProviderName {
+	case "github":
+		serviceType = models.ServiceTypeGitHub
+	case "harness":
+		serviceType = models.ServiceTypeHarness
+	case "gitlab":
+		serviceType = models.ServiceTypeGitLab
+	case "bitbucket":
+		serviceType = models.ServiceTypeBitbucket
+	case "jira":
+		serviceType = models.ServiceTypeJira
+	case "slack":
+		serviceType = models.ServiceTypeSlack
+	default:
+		// Unknown provider, skip discovery
 		return false
 	}
 
-	// Check if we have credentials
-	if len(ot.CredentialsEncrypted) == 0 {
-		return false
+	// Check if user has credentials for this provider
+	userCred, err := api.credentialRepo.Get(ctx, tenantID, userID, serviceType)
+	if err != nil || userCred == nil {
+		return false // User doesn't have credentials for this provider
 	}
 
-	// Check if we already have permissions
-	if ot.InstanceConfig != nil {
-		if _, hasPerms := ot.InstanceConfig["permissions"]; hasPerms {
-			return false // Already have permissions
+	// Check if we already have recent permissions in user's credential metadata
+	if userCred.Metadata != nil {
+		if perms, ok := userCred.Metadata["permissions"]; ok && perms != nil {
+			// Check if permissions are recent (within 24 hours)
+			if discoveredAt, ok := userCred.Metadata["permissions_discovered_at"].(string); ok {
+				if parsed, err := time.Parse(time.RFC3339, discoveredAt); err == nil {
+					if time.Since(parsed) < 24*time.Hour {
+						return false // Have recent permissions
+					}
+				}
+			}
 		}
 	}
 
 	return true
 }
 
-// discoverAndStorePermissions discovers and stores permissions for an organization tool
-func (api *DynamicToolsAPI) discoverAndStorePermissions(ctx context.Context, ot *models.OrganizationTool) {
-	api.logger.Info("Starting permission discovery for Harness tool", map[string]interface{}{
-		"tool_id":   ot.ID,
-		"tool_name": ot.InstanceName,
+// discoverAndStorePermissions discovers and stores permissions for a user's credentials
+func (api *DynamicToolsAPI) discoverAndStorePermissions(ctx context.Context, tenantID, userID string, ot *models.OrganizationTool) {
+	// Get template to determine provider
+	template, err := api.templateRepo.GetByID(ctx, ot.TemplateID)
+	if err != nil || template == nil {
+		api.logger.Error("Failed to fetch template for permission discovery", map[string]interface{}{
+			"tool_id":     ot.ID,
+			"template_id": ot.TemplateID,
+			"error":       err,
+		})
+		return
+	}
+
+	// Map provider name to service type
+	var serviceType models.ServiceType
+	switch template.ProviderName {
+	case "github":
+		serviceType = models.ServiceTypeGitHub
+	case "harness":
+		serviceType = models.ServiceTypeHarness
+	case "gitlab":
+		serviceType = models.ServiceTypeGitLab
+	case "bitbucket":
+		serviceType = models.ServiceTypeBitbucket
+	default:
+		api.logger.Warn("Unsupported provider for permission discovery", map[string]interface{}{
+			"provider": template.ProviderName,
+		})
+		return
+	}
+
+	api.logger.Info("Starting permission discovery for user", map[string]interface{}{
+		"tool_id":      ot.ID,
+		"tool_name":    ot.InstanceName,
+		"provider":     template.ProviderName,
+		"user_id":      userID,
+		"service_type": serviceType,
 	})
 
-	// Decrypt credentials
-	decrypted, err := api.encryptionService.DecryptCredential(ot.CredentialsEncrypted, ot.TenantID)
+	// Get user's credentials
+	userCred, err := api.credentialRepo.Get(ctx, tenantID, userID, serviceType)
 	if err != nil {
-		api.logger.Error("Failed to decrypt credentials for permission discovery", map[string]interface{}{
-			"tool_id": ot.ID,
+		api.logger.Error("Failed to get user credentials for permission discovery", map[string]interface{}{
+			"user_id":      userID,
+			"service_type": serviceType,
+			"error":        err.Error(),
+		})
+		return
+	}
+
+	// Decrypt user credentials
+	decrypted, err := api.encryptionService.DecryptCredential(userCred.EncryptedCredentials, tenantID)
+	if err != nil {
+		api.logger.Error("Failed to decrypt user credentials for permission discovery", map[string]interface{}{
+			"user_id": userID,
 			"error":   err.Error(),
 		})
 		return
@@ -1833,73 +1948,126 @@ func (api *DynamicToolsAPI) discoverAndStorePermissions(ctx context.Context, ot 
 		}
 	}
 
-	// Extract API key
-	apiKey := ""
-	if key, ok := credentials["api_key"]; ok {
-		apiKey = key
-	} else if key, ok := credentials["token"]; ok {
-		apiKey = key
+	// Extract token/API key
+	token := ""
+	if key, ok := credentials["token"]; ok {
+		token = key
+	} else if key, ok := credentials["api_key"]; ok {
+		token = key
 	} else if key, ok := credentials["personal_access_token"]; ok {
-		apiKey = key
+		token = key
 	}
 
-	if apiKey == "" {
-		api.logger.Warn("No API key found in credentials", map[string]interface{}{
-			"tool_id": ot.ID,
+	if token == "" {
+		api.logger.Warn("No token found in user credentials", map[string]interface{}{
+			"user_id": userID,
 		})
 		return
 	}
 
-	// Create Harness permission discoverer
-	discoverer := harness.NewHarnessPermissionDiscoverer(api.logger)
-	permissions, err := discoverer.DiscoverPermissions(ctx, apiKey)
-	if err != nil {
-		api.logger.Error("Failed to discover Harness permissions", map[string]interface{}{
-			"tool_id": ot.ID,
-			"error":   err.Error(),
+	// Discover permissions based on provider
+	var permissionsMap map[string]interface{}
+
+	switch template.ProviderName {
+	case "harness":
+		// Use Harness-specific discoverer
+		discoverer := harness.NewHarnessPermissionDiscoverer(api.logger)
+		permissions, err := discoverer.DiscoverPermissions(ctx, token)
+		if err != nil {
+			api.logger.Error("Failed to discover Harness permissions", map[string]interface{}{
+				"user_id": userID,
+				"error":   err.Error(),
+			})
+			return
+		}
+
+		api.logger.Info("Discovered Harness permissions", map[string]interface{}{
+			"user_id":         userID,
+			"enabled_modules": permissions.EnabledModules,
+			"scope_count":     len(permissions.Scopes),
+			"resource_access": len(permissions.ResourceAccess),
+		})
+
+		permissionsMap = map[string]interface{}{
+			"enabled_modules": permissions.EnabledModules,
+			"resource_access": permissions.ResourceAccess,
+			"project_access":  permissions.ProjectAccess,
+			"org_access":      permissions.OrgAccess,
+			"scopes":          permissions.Scopes,
+		}
+
+	case "github":
+		// Use generic discoverer for GitHub
+		genericDiscoverer := tools.NewPermissionDiscoverer(api.logger)
+		permissions, err := genericDiscoverer.DiscoverPermissions(ctx, "https://api.github.com", token, "bearer")
+		if err != nil {
+			api.logger.Error("Failed to discover GitHub permissions", map[string]interface{}{
+				"user_id": userID,
+				"error":   err.Error(),
+			})
+			return
+		}
+
+		api.logger.Info("Discovered GitHub permissions", map[string]interface{}{
+			"user_id":     userID,
+			"scopes":      permissions.Scopes,
+			"scope_count": len(permissions.Scopes),
+		})
+
+		permissionsMap = map[string]interface{}{
+			"scopes":     permissions.Scopes,
+			"user_info":  permissions.UserInfo,
+			"raw_headers": permissions.RawHeaders,
+		}
+
+	default:
+		api.logger.Warn("No permission discoverer for provider", map[string]interface{}{
+			"provider": template.ProviderName,
 		})
 		return
 	}
 
-	api.logger.Info("Discovered Harness permissions", map[string]interface{}{
-		"tool_id":         ot.ID,
-		"enabled_modules": permissions.EnabledModules,
-		"scope_count":     len(permissions.Scopes),
-		"resource_access": len(permissions.ResourceAccess),
-	})
-
-	// Store permissions in InstanceConfig
-	if ot.InstanceConfig == nil {
-		ot.InstanceConfig = make(map[string]interface{})
+	// Store permissions in user credential metadata
+	if userCred.Metadata == nil {
+		userCred.Metadata = make(map[string]interface{})
 	}
 
-	// Convert permissions to map for storage
-	permissionsMap := map[string]interface{}{
-		"enabled_modules": permissions.EnabledModules,
-		"resource_access": permissions.ResourceAccess,
-		"project_access":  permissions.ProjectAccess,
-		"org_access":      permissions.OrgAccess,
-		"scopes":          permissions.Scopes,
-		"discovered_at":   time.Now().UTC().Format(time.RFC3339),
-	}
+	userCred.Metadata["permissions"] = permissionsMap
+	userCred.Metadata["permissions_discovered_at"] = time.Now().UTC().Format(time.RFC3339)
+	userCred.Metadata["provider"] = template.ProviderName
 
-	ot.InstanceConfig["permissions"] = permissionsMap
-
-	// Update the tool in the database to persist permissions
-	if err := api.orgToolRepo.Update(ctx, ot); err != nil {
-		api.logger.Error("Failed to update tool with discovered permissions", map[string]interface{}{
-			"tool_id": ot.ID,
+	// Update user credentials in database
+	if err := api.credentialRepo.Update(ctx, userCred); err != nil {
+		api.logger.Error("Failed to update user credentials with permissions", map[string]interface{}{
+			"user_id": userID,
 			"error":   err.Error(),
 		})
 	} else {
-		api.logger.Info("Successfully stored discovered permissions", map[string]interface{}{
-			"tool_id": ot.ID,
+		api.logger.Info("Successfully stored discovered permissions for user", map[string]interface{}{
+			"user_id":      userID,
+			"provider":     template.ProviderName,
+			"service_type": serviceType,
 		})
 	}
 }
 
-// isOperationAllowed checks if a Harness operation is allowed based on discovered permissions
-func (api *DynamicToolsAPI) isOperationAllowed(operationName string, permissions map[string]interface{}) bool {
+// isOperationAllowed checks if an operation is allowed based on discovered permissions
+// Handles different providers (harness, github, etc.)
+func (api *DynamicToolsAPI) isOperationAllowed(provider string, operationName string, permissions map[string]interface{}) bool {
+	// Handle different providers
+	switch provider {
+	case "harness":
+		return api.isHarnessOperationAllowed(operationName, permissions)
+	case "github":
+		return api.isGitHubOperationAllowed(operationName, permissions)
+	default:
+		// For unknown providers, allow by default (no filtering)
+		return true
+	}
+}
+
+// isHarnessOperationAllowed checks if a Harness operation is allowed based on discovered permissions
+func (api *DynamicToolsAPI) isHarnessOperationAllowed(operationName string, permissions map[string]interface{}) bool {
 	// Extract enabled modules from permissions
 	enabledModules, ok := permissions["enabled_modules"].(map[string]interface{})
 	if !ok || enabledModules == nil {
@@ -2043,6 +2211,113 @@ func (api *DynamicToolsAPI) isOperationAllowed(operationName string, permissions
 				}
 			}
 		}
+	}
+
+	return true
+}
+
+// isGitHubOperationAllowed checks if a GitHub operation is allowed based on discovered scopes
+func (api *DynamicToolsAPI) isGitHubOperationAllowed(operationName string, permissions map[string]interface{}) bool {
+	// Extract scopes from permissions
+	scopes, ok := permissions["scopes"].([]interface{})
+	if !ok || scopes == nil {
+		// If no scopes info, allow by default (backward compatibility)
+		return true
+	}
+
+	// Convert scopes to string array for easier checking
+	scopeSet := make(map[string]bool)
+	for _, scope := range scopes {
+		if scopeStr, ok := scope.(string); ok {
+			scopeSet[scopeStr] = true
+		}
+	}
+
+	// Parse operation name to determine required scope
+	// GitHub operations follow patterns like: repos/get, issues/create, pulls/list
+	parts := strings.Split(operationName, "/")
+	if len(parts) < 2 {
+		// If we can't parse, allow by default
+		return true
+	}
+
+	resource := parts[0]
+	operation := parts[1]
+
+	// Map GitHub resources and operations to required scopes
+	requiredScope := ""
+	switch resource {
+	case "repos", "repository":
+		// Repository operations require repo scope
+		if operation == "create" || operation == "update" || operation == "delete" {
+			requiredScope = "repo"
+		} else {
+			// Read operations might work with public_repo or repo
+			if scopeSet["repo"] || scopeSet["public_repo"] {
+				return true
+			}
+		}
+	case "issues":
+		// Issues typically need repo scope
+		requiredScope = "repo"
+	case "pulls", "pull_request", "pull_requests":
+		// Pull requests need repo scope
+		requiredScope = "repo"
+	case "actions", "workflow", "workflows":
+		// GitHub Actions need workflow or repo scope
+		if scopeSet["workflow"] || scopeSet["repo"] {
+			return true
+		}
+	case "gists", "gist":
+		// Gists need gist scope
+		requiredScope = "gist"
+	case "user", "users":
+		// User operations might need user scope for writes
+		if operation == "update" {
+			requiredScope = "user"
+		} else {
+			// Read operations typically work without special scope
+			return true
+		}
+	case "orgs", "organization", "organizations":
+		// Org operations need various scopes
+		if operation == "update" || operation == "create" {
+			requiredScope = "admin:org"
+		} else {
+			// Read operations typically work with read:org or admin:org
+			if scopeSet["read:org"] || scopeSet["admin:org"] {
+				return true
+			}
+		}
+	case "teams", "team":
+		// Team operations need read:org or admin:org
+		if operation == "create" || operation == "update" || operation == "delete" {
+			requiredScope = "admin:org"
+		} else {
+			if scopeSet["read:org"] || scopeSet["admin:org"] {
+				return true
+			}
+		}
+	default:
+		// For unknown resources, check if user has general repo access
+		if scopeSet["repo"] {
+			return true
+		}
+		// Allow by default if we don't recognize the resource
+		return true
+	}
+
+	// Check if required scope is present
+	if requiredScope != "" {
+		if scopeSet[requiredScope] {
+			return true
+		}
+		api.logger.Debug("Insufficient GitHub scopes for operation", map[string]interface{}{
+			"operation":        operationName,
+			"required_scope":   requiredScope,
+			"available_scopes": scopes,
+		})
+		return false
 	}
 
 	return true

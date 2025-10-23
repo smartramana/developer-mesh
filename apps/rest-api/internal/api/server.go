@@ -548,7 +548,10 @@ func (s *Server) setupRoutes(ctx context.Context) {
 	// Create organization tool repository for permission updates
 	orgToolRepo := pkgrepository.NewOrganizationToolRepository(s.db)
 
-	// Create dynamic tools API with template repository
+	// Create credential repository for permission discovery (needed by dynamic tools API)
+	credentialRepo := credential.NewPostgresRepository(s.db)
+
+	// Create dynamic tools API with template repository and credential repo for permission discovery
 	dynamicToolsAPI := NewDynamicToolsAPI(
 		dynamicToolsService,
 		s.logger,
@@ -557,6 +560,7 @@ func (s *Server) setupRoutes(ctx context.Context) {
 		templateRepo,
 		orgToolRepo,
 		encryptionService,
+		credentialRepo,
 	)
 	dynamicToolsAPI.RegisterRoutes(v1)
 
@@ -625,8 +629,7 @@ func (s *Server) setupRoutes(ctx context.Context) {
 		"orchestrator_enabled": true,
 	})
 
-	// Credential Management API - Encrypted credential storage
-	credentialRepo := credential.NewPostgresRepository(s.db)
+	// Credential Management API - Encrypted credential storage (using credentialRepo created earlier)
 	credentialService := pkgservices.NewCredentialService(
 		credentialRepo,
 		encryptionService,
@@ -643,6 +646,8 @@ func (s *Server) setupRoutes(ctx context.Context) {
 		s.logger,
 		s.metrics,
 		auth.NewAuditLogger(s.logger),
+		templateRepo,
+		orgToolRepo,
 	)
 	credentialHandler.RegisterRoutes(v1)
 	s.logger.Info("Credential Management API initialized", map[string]interface{}{
