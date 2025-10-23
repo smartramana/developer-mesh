@@ -190,7 +190,7 @@ func TestExpandOrganizationTool(t *testing.T) {
 		mockRepo.On("GetByID", ctx, templateID).Return(template, nil).Once()
 
 		// Execute
-		expandedTools := api.expandOrganizationTool(ctx, orgTool)
+		expandedTools := api.expandOrganizationTool(ctx, orgTool, "")
 
 		// Assert
 		assert.Len(t, expandedTools, 4, "Should create 4 tools from 4 operations")
@@ -263,7 +263,7 @@ func TestExpandOrganizationTool(t *testing.T) {
 		}
 
 		// Execute
-		expandedTools := api.expandOrganizationTool(ctx, orgToolNoTemplate)
+		expandedTools := api.expandOrganizationTool(ctx, orgToolNoTemplate, "")
 
 		// Assert
 		assert.Empty(t, expandedTools, "Should return empty list when no template ID")
@@ -281,7 +281,7 @@ func TestExpandOrganizationTool(t *testing.T) {
 		}
 
 		// Execute
-		expandedTools := api.expandOrganizationTool(ctx, orgToolError)
+		expandedTools := api.expandOrganizationTool(ctx, orgToolError, "")
 
 		// Assert
 		assert.Empty(t, expandedTools, "Should return empty list on template fetch error")
@@ -319,7 +319,7 @@ func TestExpandOrganizationTool(t *testing.T) {
 		mockRepo.On("GetByID", ctx, "test-template").Return(templateWithDefault, nil).Once()
 
 		// Execute
-		expandedTools := api.expandOrganizationTool(ctx, orgToolCustomURL)
+		expandedTools := api.expandOrganizationTool(ctx, orgToolCustomURL, "")
 
 		// Assert
 		assert.Len(t, expandedTools, 1)
@@ -355,7 +355,7 @@ func TestExpandOrganizationTool(t *testing.T) {
 		mockRepo.On("GetByID", ctx, "cred-template").Return(simpleTemplate, nil).Once()
 
 		// Execute
-		expandedTools := api.expandOrganizationTool(ctx, orgToolWithCreds)
+		expandedTools := api.expandOrganizationTool(ctx, orgToolWithCreds, "")
 
 		// Assert
 		assert.Len(t, expandedTools, 1)
@@ -404,7 +404,7 @@ func TestExpandOrganizationTool(t *testing.T) {
 		mockRepo.On("GetByID", ctx, "github-template").Return(githubTemplate, nil).Once()
 
 		// Execute
-		expandedTools := api.expandOrganizationTool(ctx, githubOrgTool)
+		expandedTools := api.expandOrganizationTool(ctx, githubOrgTool, "")
 
 		// Assert
 		assert.Len(t, expandedTools, 3, "Should expand GitHub operations")
@@ -460,7 +460,7 @@ func TestExpandOrganizationTool(t *testing.T) {
 		mockRepo.On("GetByID", ctx, "ai-template").Return(templateWithAI, nil).Once()
 
 		// Execute
-		expandedTools := api.expandOrganizationTool(ctx, orgToolAI)
+		expandedTools := api.expandOrganizationTool(ctx, orgToolAI, "")
 
 		// Assert
 		assert.Len(t, expandedTools, 1)

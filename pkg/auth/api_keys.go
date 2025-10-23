@@ -250,7 +250,13 @@ func (s *Service) ListUserAPIKeys(ctx context.Context, tenantID, userID string) 
 	if err != nil {
 		return nil, fmt.Errorf("failed to query API keys: %w", err)
 	}
-	defer rows.Close()
+	defer func() {
+		if closeErr := rows.Close(); closeErr != nil {
+			s.logger.Warn("Failed to close rows", map[string]interface{}{
+				"error": closeErr.Error(),
+			})
+		}
+	}()
 
 	var keys []APIKeyInfo
 	for rows.Next() {

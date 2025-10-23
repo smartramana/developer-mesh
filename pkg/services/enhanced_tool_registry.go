@@ -302,6 +302,50 @@ func (r *EnhancedToolRegistry) GetToolsForTenant(ctx context.Context, tenantID s
 	return tools, nil
 }
 
+// convertAISchemaToMCP converts AI parameter schema to MCP JSON schema format
+// nolint:unused // Reserved for future use
+func (r *EnhancedToolRegistry) convertAISchemaToMCP(aiSchema providers.AIParameterSchema) map[string]interface{} {
+	schema := map[string]interface{}{
+		"type":       "object",
+		"properties": make(map[string]interface{}),
+	}
+
+	if len(aiSchema.Required) > 0 {
+		schema["required"] = aiSchema.Required
+	}
+
+	for paramName, param := range aiSchema.Properties {
+		paramSchema := map[string]interface{}{
+			"type":        param.Type,
+			"description": param.Description,
+		}
+
+		if len(param.Examples) > 0 {
+			paramSchema["examples"] = param.Examples
+		}
+
+		if param.SmartDefault != "" {
+			paramSchema["default"] = param.SmartDefault
+		}
+
+		// Handle nested properties
+		if len(param.Properties) > 0 {
+			nestedProps := make(map[string]interface{})
+			for nestedName, nestedParam := range param.Properties {
+				nestedProps[nestedName] = map[string]interface{}{
+					"type":        nestedParam.Type,
+					"description": nestedParam.Description,
+				}
+			}
+			paramSchema["properties"] = nestedProps
+		}
+
+		schema["properties"].(map[string]interface{})[paramName] = paramSchema
+	}
+
+	return schema
+}
+
 // ExecuteTool executes a tool operation
 func (r *EnhancedToolRegistry) ExecuteTool(
 	ctx context.Context,

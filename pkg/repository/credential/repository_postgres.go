@@ -181,9 +181,7 @@ func (r *PostgresRepository) List(ctx context.Context, tenantID, userID string) 
 		return nil, fmt.Errorf("failed to list credentials: %w", err)
 	}
 	defer func() {
-		if closeErr := rows.Close(); closeErr != nil {
-			// Log error but don't override return error
-		}
+		_ = rows.Close() // Error intentionally ignored to not override return error
 	}()
 
 	var credentials []*models.UserCredential
@@ -349,9 +347,7 @@ func (r *PostgresRepository) ListByTenant(ctx context.Context, tenantID string) 
 		return nil, fmt.Errorf("failed to list tenant credentials: %w", err)
 	}
 	defer func() {
-		if closeErr := rows.Close(); closeErr != nil {
-			// Log error but don't override return error
-		}
+		_ = rows.Close() // Error intentionally ignored to not override return error
 	}()
 
 	var credentials []*models.UserCredential
@@ -455,9 +451,7 @@ func (r *PostgresRepository) GetAuditHistory(ctx context.Context, credentialID s
 		return nil, fmt.Errorf("failed to get audit history: %w", err)
 	}
 	defer func() {
-		if closeErr := rows.Close(); closeErr != nil {
-			// Log error but don't override return error
-		}
+		_ = rows.Close() // Error intentionally ignored to not override return error
 	}()
 
 	var audits []*models.UserCredentialAudit

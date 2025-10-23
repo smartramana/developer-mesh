@@ -45,7 +45,7 @@ func (s *CredentialService) StoreCredentials(
 	if tenantID == "" || userID == "" {
 		return nil, fmt.Errorf("tenant_id and user_id are required")
 	}
-	if payload.Credentials == nil || len(payload.Credentials) == 0 {
+	if len(payload.Credentials) == 0 {
 		return nil, fmt.Errorf("credentials are required")
 	}
 
