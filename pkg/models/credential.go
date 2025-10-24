@@ -28,39 +28,39 @@ const (
 
 // UserCredential represents stored credentials for a third-party service
 type UserCredential struct {
-	ID                    string          `json:"id" db:"id"`
-	TenantID              string          `json:"tenant_id" db:"tenant_id"`
-	UserID                string          `json:"user_id" db:"user_id"`
-	ServiceType           ServiceType     `json:"service_type" db:"service_type"`
-	EncryptedCredentials  []byte          `json:"-" db:"encrypted_credentials"` // Never expose in JSON
-	EncryptionKeyVersion  int             `json:"encryption_key_version" db:"encryption_key_version"`
-	IsActive              bool            `json:"is_active" db:"is_active"`
-	Metadata              map[string]interface{} `json:"metadata" db:"metadata"`
-	CreatedAt             time.Time       `json:"created_at" db:"created_at"`
-	UpdatedAt             time.Time       `json:"updated_at" db:"updated_at"`
-	LastUsedAt            *time.Time      `json:"last_used_at,omitempty" db:"last_used_at"`
-	ExpiresAt             *time.Time      `json:"expires_at,omitempty" db:"expires_at"`
+	ID                   string                 `json:"id" db:"id"`
+	TenantID             string                 `json:"tenant_id" db:"tenant_id"`
+	UserID               string                 `json:"user_id" db:"user_id"`
+	ServiceType          ServiceType            `json:"service_type" db:"service_type"`
+	EncryptedCredentials []byte                 `json:"-" db:"encrypted_credentials"` // Never expose in JSON
+	EncryptionKeyVersion int                    `json:"encryption_key_version" db:"encryption_key_version"`
+	IsActive             bool                   `json:"is_active" db:"is_active"`
+	Metadata             map[string]interface{} `json:"metadata" db:"metadata"`
+	CreatedAt            time.Time              `json:"created_at" db:"created_at"`
+	UpdatedAt            time.Time              `json:"updated_at" db:"updated_at"`
+	LastUsedAt           *time.Time             `json:"last_used_at,omitempty" db:"last_used_at"`
+	ExpiresAt            *time.Time             `json:"expires_at,omitempty" db:"expires_at"`
 }
 
 // CredentialPayload is the incoming request for storing credentials
 type CredentialPayload struct {
-	ServiceType ServiceType       `json:"service_type" binding:"required"`
-	Credentials map[string]string `json:"credentials" binding:"required"` // Will be encrypted before storage
+	ServiceType ServiceType            `json:"service_type" binding:"required"`
+	Credentials map[string]string      `json:"credentials" binding:"required"` // Will be encrypted before storage
 	Metadata    map[string]interface{} `json:"metadata,omitempty"`
-	ExpiresAt   *time.Time        `json:"expires_at,omitempty"`
+	ExpiresAt   *time.Time             `json:"expires_at,omitempty"`
 }
 
 // CredentialResponse is returned to the client (without sensitive data)
 type CredentialResponse struct {
-	ID             string             `json:"id"`
-	ServiceType    ServiceType        `json:"service_type"`
-	IsActive       bool               `json:"is_active"`
-	HasCredentials bool               `json:"has_credentials"` // Indicates if credentials are configured
+	ID             string                 `json:"id"`
+	ServiceType    ServiceType            `json:"service_type"`
+	IsActive       bool                   `json:"is_active"`
+	HasCredentials bool                   `json:"has_credentials"` // Indicates if credentials are configured
 	Metadata       map[string]interface{} `json:"metadata,omitempty"`
-	CreatedAt      time.Time          `json:"created_at"`
-	UpdatedAt      time.Time          `json:"updated_at"`
-	LastUsedAt     *time.Time         `json:"last_used_at,omitempty"`
-	ExpiresAt      *time.Time         `json:"expires_at,omitempty"`
+	CreatedAt      time.Time              `json:"created_at"`
+	UpdatedAt      time.Time              `json:"updated_at"`
+	LastUsedAt     *time.Time             `json:"last_used_at,omitempty"`
+	ExpiresAt      *time.Time             `json:"expires_at,omitempty"`
 }
 
 // ToResponse converts UserCredential to CredentialResponse (safe for API)
@@ -97,8 +97,8 @@ type UserCredentialAudit struct {
 // DecryptedCredentials represents the structure after decryption
 // This should never be serialized to JSON or logged
 type DecryptedCredentials struct {
-	ServiceType ServiceType       `json:"service_type"`
-	Credentials map[string]string `json:"credentials"` // e.g., {"token": "ghp_...", "region": "us-east-1"}
+	ServiceType ServiceType            `json:"service_type"`
+	Credentials map[string]string      `json:"credentials"` // e.g., {"token": "ghp_...", "region": "us-east-1"}
 	Metadata    map[string]interface{} `json:"metadata,omitempty"`
 }
 

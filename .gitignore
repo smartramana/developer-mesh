@@ -100,3 +100,4 @@ test/e2e/.env
 scripts/ssh-to-ec2.sh
 build/
 apps/rag-loader/loader
+apps/rest-api/cmd/api/api

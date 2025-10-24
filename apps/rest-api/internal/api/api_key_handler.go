@@ -36,9 +36,9 @@ func (h *APIKeyHandler) RegisterRoutes(router *gin.RouterGroup) {
 
 // CreateAPIKeyRequest represents the request to create an API key
 type CreateAPIKeyRequest struct {
-	Name    string        `json:"name" binding:"required"`
-	KeyType auth.KeyType  `json:"key_type" binding:"required"`
-	Scopes  []string      `json:"scopes,omitempty"`
+	Name    string       `json:"name" binding:"required"`
+	KeyType auth.KeyType `json:"key_type" binding:"required"`
+	Scopes  []string     `json:"scopes,omitempty"`
 }
 
 // CreateAPIKey creates a new API key for the authenticated user

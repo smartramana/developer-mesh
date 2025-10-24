@@ -30,10 +30,10 @@ type EdgeAuthenticator struct {
 
 // CachedAuth holds cached authentication results
 type CachedAuth struct {
-	Valid      bool
-	TenantID   string
-	Token      string
-	ExpiresAt  time.Time
+	Valid     bool
+	TenantID  string
+	Token     string
+	ExpiresAt time.Time
 }
 
 // EdgeMCPAuthRequest matches the REST API request structure

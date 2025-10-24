@@ -29,7 +29,7 @@ func main() {
 
 	// Create key string with RawURLEncoding (no padding =)
 	keyString := fmt.Sprintf("%s_%s", prefix, base64.RawURLEncoding.EncodeToString(keyBytes))
-	
+
 	// Also remove any remaining = padding just to be safe
 	keyString = strings.TrimRight(keyString, "=")
 

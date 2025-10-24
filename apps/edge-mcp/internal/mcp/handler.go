@@ -1136,9 +1136,9 @@ func (h *Handler) handleToolsList(sessionID string, msg *MCPMessage) (*MCPMessag
 			}
 
 			h.logger.Debug("Merged tenant tools with built-in tools", map[string]interface{}{
-				"tenant_id":     session.TenantID,
-				"tenant_tools":  len(tenantTools),
-				"total_tools":   len(allTools),
+				"tenant_id":    session.TenantID,
+				"tenant_tools": len(tenantTools),
+				"total_tools":  len(allTools),
 			})
 		}
 	}

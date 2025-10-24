@@ -216,18 +216,18 @@ func getKeyPrefix(apiKey string) string {
 
 // APIKeyInfo represents API key information (without the actual key)
 type APIKeyInfo struct {
-	ID          string     `json:"id" db:"id"`
-	KeyPrefix   string     `json:"key_prefix" db:"key_prefix"`
-	Name        string     `json:"name" db:"name"`
-	KeyType     KeyType    `json:"key_type" db:"key_type"`
-	Scopes      []string   `json:"scopes" db:"scopes"`
-	IsActive    bool       `json:"is_active" db:"is_active"`
-	CreatedAt   time.Time  `json:"created_at" db:"created_at"`
-	LastUsedAt  *time.Time `json:"last_used_at" db:"last_used_at"`
-	ExpiresAt   *time.Time `json:"expires_at" db:"expires_at"`
-	UsageCount  int64      `json:"usage_count" db:"usage_count"`
-	RateLimit   int        `json:"rate_limit" db:"rate_limit"`
-	RateWindow  string     `json:"rate_window" db:"rate_window"`
+	ID         string     `json:"id" db:"id"`
+	KeyPrefix  string     `json:"key_prefix" db:"key_prefix"`
+	Name       string     `json:"name" db:"name"`
+	KeyType    KeyType    `json:"key_type" db:"key_type"`
+	Scopes     []string   `json:"scopes" db:"scopes"`
+	IsActive   bool       `json:"is_active" db:"is_active"`
+	CreatedAt  time.Time  `json:"created_at" db:"created_at"`
+	LastUsedAt *time.Time `json:"last_used_at" db:"last_used_at"`
+	ExpiresAt  *time.Time `json:"expires_at" db:"expires_at"`
+	UsageCount int64      `json:"usage_count" db:"usage_count"`
+	RateLimit  int        `json:"rate_limit" db:"rate_limit"`
+	RateWindow string     `json:"rate_window" db:"rate_window"`
 }
 
 // ListUserAPIKeys returns all API keys for a user (without the actual key values)

@@ -2015,8 +2015,8 @@ func (api *DynamicToolsAPI) discoverAndStorePermissions(ctx context.Context, ten
 		})
 
 		permissionsMap = map[string]interface{}{
-			"scopes":     permissions.Scopes,
-			"user_info":  permissions.UserInfo,
+			"scopes":      permissions.Scopes,
+			"user_info":   permissions.UserInfo,
 			"raw_headers": permissions.RawHeaders,
 		}
 

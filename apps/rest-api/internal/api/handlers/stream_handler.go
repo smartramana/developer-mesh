@@ -6,9 +6,9 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/gin-gonic/gin"
 	"github.com/developer-mesh/developer-mesh/pkg/observability"
 	redisClient "github.com/developer-mesh/developer-mesh/pkg/redis"
+	"github.com/gin-gonic/gin"
 )
 
 const (
@@ -117,9 +117,9 @@ func (h *StreamHandler) StreamTasks(c *gin.Context) {
 	defer heartbeatTicker.Stop()
 
 	h.logger.Info("SSE client connected", map[string]interface{}{
-		"tenant_id":            tenantID,
-		"user_id":              userID,
-		"consumer_id":          consumerID,
+		"tenant_id":             tenantID,
+		"user_id":               userID,
+		"consumer_id":           consumerID,
 		"redis_streams_enabled": h.redisClient != nil,
 	})
 
@@ -174,8 +174,8 @@ func (h *StreamHandler) StreamTasks(c *gin.Context) {
 				SSEConsumerGroup,
 				consumerID,
 				[]string{TaskEventsStream},
-				10,  // Read up to 10 messages
-				0,   // Don't block
+				10,    // Read up to 10 messages
+				0,     // Don't block
 				false, // Don't auto-ack
 			)
 
