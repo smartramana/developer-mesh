@@ -9,7 +9,59 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **User API Key Management** (commit 2fb6b4de)
+  - REST API endpoints for API key CRUD operations
+    - `POST /api/v1/api-keys` - Create additional API keys after registration
+    - `GET /api/v1/api-keys` - List all keys with usage statistics (usage_count, last_used_at, rate_limit)
+    - `DELETE /api/v1/api-keys/:id` - Revoke keys when compromised or no longer needed
+  - Fix base64 encoding issue: use RawURLEncoding to remove padding characters
+  - Complete audit trail for all credential operations
+
+- **Personal Access Token Storage** (commit 2fb6b4de)
+  - Secure credential storage for 11+ external services (GitHub, Harness, Jira, GitLab, Bitbucket, Jenkins, SonarQube, Artifactory, etc.)
+  - User credential middleware for automatic token loading during MCP tool calls
+  - AES-256-GCM encryption with per-tenant keys
+  - Three-tier credential priority system: user DB → passthrough → service account
+  - Credential validation endpoints with metadata and scope support
+  - Row-level security with tenant isolation
+
+- **Database Migrations**
+  - Migration 000035: `user_credentials` table schema for secure credential storage
+  - Migration 000036: Extended service types (SonarQube, Artifactory, Jenkins, etc.)
+
+- **User-Based Permission Filtering** (commit dd90c6c8)
+  - Permission discovery and filtering system restricting tool visibility based on individual user API token permissions
+  - Multi-user support where different users see different tools based on their credentials
+  - Provider-specific permission logic:
+    - **GitHub**: Scope-based filtering (repo, admin:org, workflow, gist, etc.)
+    - **Harness**: Module-based filtering (pipeline, gitops, ccm, sto, etc.)
+    - **GitLab, Bitbucket, Jira, Slack**: Provider-specific permission discovery
+  - Operations filtered based on discovered permissions with 24-hour cache
+  - Permissions stored in `user_credentials.metadata` per user rather than organization-wide
+  - Architecture change: Permission discovery uses user credentials from `mcp.user_credentials` instead of organization tool credentials
+
+- **Documentation Updates**
+  - `docs/getting-started/quick-start-guide.md` - Added API key and credential management sections (273 new lines)
+  - `docs/deployment/api-key-management.md` - Updated with REST API methods (160+ lines)
+  - `docs/USER_CREDENTIAL_AUTH_FLOW.md` - Technical implementation details (531 lines)
+  - `docs/guides/authentication/user-authentication-guide.md` - Comprehensive user authentication guide (608 lines)
+
 ### Fixed
+
+- **Test Compilation and Linting Issues** (commit abe0f627)
+  - Updated `auth.NewEdgeAuthenticator` calls in edge-mcp tests with `edgeMCPID` parameter
+    - `goroutine_leak_test.go` - Added edgeMCPID parameter
+    - `handler_test.go` - Added edgeMCPID parameter
+  - Updated `expandOrganizationTool` calls in rest-api tests with `userID` parameter
+    - `dynamic_tools_api_test.go` - Added userID parameter
+  - Fixed `rows.Close()` error handling in `api_keys.go` (errcheck)
+  - Fixed `repository_postgres.go` with intentional error ignore comments (SA9003)
+  - Removed redundant nil checks in `credential_service.go` (S1009) and `enhanced_tool_registry.go`
+  - All tests now passing: edge-mcp (13 packages), rest-api (7 packages), pkg (43 packages)
+
+- **Credential Field Mapping**
+  - Fixed Harness credential field name (use 'token' not 'api_token')
+  - API key header parsing issue resolved (base64 padding removed with RawURLEncoding)
 
 ## [0.0.7] - 2025-10-18
 
