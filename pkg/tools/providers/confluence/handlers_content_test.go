@@ -255,6 +255,7 @@ func TestCreatePageHandler_Execute(t *testing.T) {
 				}
 				if result == nil {
 					t.Fatal("Expected result but got nil")
+					return
 				}
 				if !result.Success {
 					t.Fatalf("Expected success but got error: %s", result.Error)
@@ -579,6 +580,7 @@ func TestUpdatePageHandler_Execute(t *testing.T) {
 				}
 				if result == nil {
 					t.Fatal("Expected result but got nil")
+					return
 				}
 				if !result.Success {
 					t.Fatalf("Expected success but got error: %s", result.Error)
@@ -835,6 +837,7 @@ func TestListSpacesHandler_Execute(t *testing.T) {
 				}
 				if result == nil {
 					t.Fatal("Expected result but got nil")
+					return
 				}
 				if !result.Success {
 					t.Fatalf("Expected success but got error: %s", result.Error)
@@ -1129,6 +1132,7 @@ func TestGetAttachmentsHandler_Execute(t *testing.T) {
 				}
 				if result == nil {
 					t.Fatal("Expected result but got nil")
+					return
 				}
 				if !result.Success {
 					t.Fatalf("Expected success but got error: %s", result.Error)

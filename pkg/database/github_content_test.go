@@ -371,6 +371,7 @@ func TestGetGitHubContentByChecksum(t *testing.T) {
 	// Verify the result
 	if metadata == nil {
 		t.Fatal("Expected metadata, got nil")
+		return
 	}
 	if metadata.Checksum != checksum {
 		t.Errorf("Expected checksum %s, got %s", checksum, metadata.Checksum)

@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"net/http"
 	"time"
 
 	"github.com/developer-mesh/developer-mesh/pkg/observability"
@@ -94,7 +95,7 @@ func (h *StreamHandler) StreamTasks(c *gin.Context) {
 	defer cancel()
 
 	// Create flusher for SSE
-	flusher, ok := c.Writer.(gin.ResponseWriter)
+	flusher, ok := c.Writer.(http.Flusher)
 	if !ok {
 		c.SSEvent("error", "Streaming not supported")
 		return
@@ -264,7 +265,7 @@ func (h *StreamHandler) StreamAgent(c *gin.Context) {
 	defer cancel()
 
 	// Create flusher for SSE
-	flusher, ok := c.Writer.(gin.ResponseWriter)
+	flusher, ok := c.Writer.(http.Flusher)
 	if !ok {
 		c.SSEvent("error", "Streaming not supported")
 		return
@@ -324,7 +325,7 @@ func (h *StreamHandler) StreamWorkflow(c *gin.Context) {
 	defer cancel()
 
 	// Create flusher for SSE
-	flusher, ok := c.Writer.(gin.ResponseWriter)
+	flusher, ok := c.Writer.(http.Flusher)
 	if !ok {
 		c.SSEvent("error", "Streaming not supported")
 		return

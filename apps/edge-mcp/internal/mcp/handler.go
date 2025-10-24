@@ -2233,7 +2233,7 @@ func (h *Handler) authenticateAPI(ctx context.Context, apiKey, restAPIURL string
 	if err != nil {
 		return nil, fmt.Errorf("failed to call auth API: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	var authResp EdgeMCPAuthResponse
 	if err := json.NewDecoder(resp.Body).Decode(&authResp); err != nil {
@@ -2278,7 +2278,7 @@ func (h *Handler) fetchStoredCredentials(ctx context.Context, apiKey string) *mo
 		})
 		return nil
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != http.StatusOK {
 		h.logger.Debug("Credentials API returned non-200 status", map[string]interface{}{
@@ -2336,7 +2336,7 @@ func (h *Handler) fetchStoredCredentials(ctx context.Context, apiKey string) *mo
 		}
 
 		if serviceResp.StatusCode != http.StatusOK {
-			serviceResp.Body.Close()
+			_ = serviceResp.Body.Close()
 			h.logger.Debug("Credential fetch returned non-200 status", map[string]interface{}{
 				"status":       serviceResp.StatusCode,
 				"service_type": cred.ServiceType,
@@ -2350,14 +2350,14 @@ func (h *Handler) fetchStoredCredentials(ctx context.Context, apiKey string) *mo
 			} `json:"credential"`
 		}
 		if err := json.NewDecoder(serviceResp.Body).Decode(&credData); err != nil {
-			serviceResp.Body.Close()
+			_ = serviceResp.Body.Close()
 			h.logger.Warn("Failed to decode credential", map[string]interface{}{
 				"error":        err.Error(),
 				"service_type": cred.ServiceType,
 			})
 			continue
 		}
-		serviceResp.Body.Close()
+		_ = serviceResp.Body.Close()
 
 		bundle.Credentials[cred.ServiceType] = &models.PassthroughCredential{
 			Type:  "bearer",

@@ -29,18 +29,18 @@ func TestEdgeAuthenticator_ValidAPIKey(t *testing.T) {
 
 		// Parse request body
 		var req EdgeMCPAuthRequest
-		json.NewDecoder(r.Body).Decode(&req)
+		_ = json.NewDecoder(r.Body).Decode(&req)
 
 		// Respond based on API key
 		if req.APIKey == "valid-key-123" {
-			json.NewEncoder(w).Encode(EdgeMCPAuthResponse{
+			_ = json.NewEncoder(w).Encode(EdgeMCPAuthResponse{
 				Success:  true,
 				Token:    "jwt-token-xyz",
 				TenantID: "tenant-abc",
 			})
 		} else {
 			w.WriteHeader(http.StatusUnauthorized)
-			json.NewEncoder(w).Encode(EdgeMCPAuthResponse{
+			_ = json.NewEncoder(w).Encode(EdgeMCPAuthResponse{
 				Success: false,
 				Message: "Invalid API key",
 			})
@@ -103,7 +103,7 @@ func TestEdgeAuthenticator_Caching(t *testing.T) {
 	callCount := 0
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		callCount++
-		json.NewEncoder(w).Encode(EdgeMCPAuthResponse{
+		_ = json.NewEncoder(w).Encode(EdgeMCPAuthResponse{
 			Success:  true,
 			Token:    "jwt-token",
 			TenantID: "tenant-123",

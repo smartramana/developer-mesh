@@ -155,6 +155,7 @@ func BenchmarkCache_GetWithEncryption(b *testing.B) {
 			}
 			if entry == nil {
 				b.Fatal("expected cache hit")
+				return
 			}
 			// Verify decryption occurred
 			if _, ok := entry.Metadata["decrypted_data"]; !ok {

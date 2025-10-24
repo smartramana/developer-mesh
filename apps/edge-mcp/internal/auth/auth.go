@@ -159,7 +159,7 @@ func (a *EdgeAuthenticator) validateWithAPI(ctx context.Context, apiKey string) 
 	if err != nil {
 		return false, "", ""
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	// Parse response
 	var authResp EdgeMCPAuthResponse
