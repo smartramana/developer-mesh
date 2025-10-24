@@ -9,6 +9,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+### Fixed
+
+## [0.0.8] - 2025-10-24
+
+### Added - User Authentication & Permission Management
+
+This release delivers comprehensive user authentication and credential management capabilities with secure personal access token storage and user-based permission filtering for multi-user environments.
+
 - **User API Key Management** (commit 2fb6b4de)
   - REST API endpoints for API key CRUD operations
     - `POST /api/v1/api-keys` - Create additional API keys after registration

@@ -9,9 +9,9 @@ services:
       - "8085:8082"  # Edge MCP runs on 8082 internally, map to 8085 externally
     environment:
       # Edge MCP configuration
-      - EDGE_MCP_API_KEY=devmesh_ab80cbb2438dbb43339c0e3317ab2fc6dd0e046f3b50360df06abb5bae31a210
+      - EDGE_MCP_API_KEY=adm_FoOnztJiTtcoq1BUJSNpxL7rjZheDY5xLFn83VhnKaQ
       - DEV_MESH_URL=http://rest-api:8080
-      - DEV_MESH_API_KEY=devmesh_ab80cbb2438dbb43339c0e3317ab2fc6dd0e046f3b50360df06abb5bae31a210
+      - DEV_MESH_API_KEY=adm_FoOnztJiTtcoq1BUJSNpxL7rjZheDY5xLFn83VhnKaQ
       - EDGE_MCP_ID=edge-docker-001
       - LOG_LEVEL=${LOG_LEVEL:-info}
       # Database (if Edge MCP needs direct access)

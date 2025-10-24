@@ -3,8 +3,10 @@ name: Edge MCP Release
 on:
   push:
     tags:
-      - 'edge-mcp-[0-9]+.[0-9]+.[0-9]+'
-      - 'edge-mcp-[0-9]+.[0-9]+.[0-9]+-*'
+      - 'v[0-9]+.[0-9]+.[0-9]+'
+      - '[0-9]+.[0-9]+.[0-9]+'
+      - 'v[0-9]+.[0-9]+.[0-9]+-*'
+      - '[0-9]+.[0-9]+.[0-9]+-*'
   workflow_dispatch:
     inputs:
       version:
@@ -35,21 +37,21 @@ jobs:
         run: |
           if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
             VERSION="${{ github.event.inputs.version }}"
-            TAG="edge-mcp-v${VERSION}"
           else
-            TAG="${GITHUB_REF#refs/tags/}"
-            VERSION="${TAG#edge-mcp-v}"
+            VERSION="${GITHUB_REF#refs/tags/}"
+            # Remove 'v' prefix if present
+            VERSION="${VERSION#v}"
           fi
-          
+
           # Validate semantic version format
           if ! [[ "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+(-[a-zA-Z0-9\.\-]+)?$ ]]; then
             echo "Error: Version '$VERSION' does not follow semantic versioning"
             exit 1
           fi
-          
+
           echo "version=${VERSION}" >> $GITHUB_OUTPUT
-          echo "tag=${TAG}" >> $GITHUB_OUTPUT
-          echo "Release version: ${VERSION} (tag: ${TAG})"
+          echo "tag=${VERSION}" >> $GITHUB_OUTPUT
+          echo "Release version: ${VERSION}"
 
   build-binaries:
     name: Build Edge MCP Binaries
@@ -194,7 +196,7 @@ jobs:
         run: |
           VERSION="${{ needs.prepare-release.outputs.version }}"
           cat > release-notes.md << 'EOF'
-          ## Edge MCP v${{ needs.prepare-release.outputs.version }}
+          ## Edge MCP ${{ needs.prepare-release.outputs.version }}
 
           ### 📦 Installation
 
@@ -208,28 +210,28 @@ jobs:
 
           **macOS (Apple Silicon)**
           ```bash
-          curl -L https://github.com/${{ github.repository }}/releases/download/${{ needs.prepare-release.outputs.tag }}/edge-mcp-darwin-arm64.tar.gz | tar xz
+          curl -L https://github.com/${{ github.repository }}/releases/download/${{ needs.prepare-release.outputs.version }}/edge-mcp-darwin-arm64.tar.gz | tar xz
           chmod +x edge-mcp-darwin-arm64
           sudo mv edge-mcp-darwin-arm64 /usr/local/bin/edge-mcp
           ```
 
           **macOS (Intel)**
           ```bash
-          curl -L https://github.com/${{ github.repository }}/releases/download/${{ needs.prepare-release.outputs.tag }}/edge-mcp-darwin-amd64.tar.gz | tar xz
+          curl -L https://github.com/${{ github.repository }}/releases/download/${{ needs.prepare-release.outputs.version }}/edge-mcp-darwin-amd64.tar.gz | tar xz
           chmod +x edge-mcp-darwin-amd64
           sudo mv edge-mcp-darwin-amd64 /usr/local/bin/edge-mcp
           ```
 
           **Linux (x64)**
           ```bash
-          curl -L https://github.com/${{ github.repository }}/releases/download/${{ needs.prepare-release.outputs.tag }}/edge-mcp-linux-amd64.tar.gz | tar xz
+          curl -L https://github.com/${{ github.repository }}/releases/download/${{ needs.prepare-release.outputs.version }}/edge-mcp-linux-amd64.tar.gz | tar xz
           chmod +x edge-mcp-linux-amd64
           sudo mv edge-mcp-linux-amd64 /usr/local/bin/edge-mcp
           ```
 
           **Linux (ARM64)**
           ```bash
-          curl -L https://github.com/${{ github.repository }}/releases/download/${{ needs.prepare-release.outputs.tag }}/edge-mcp-linux-arm64.tar.gz | tar xz
+          curl -L https://github.com/${{ github.repository }}/releases/download/${{ needs.prepare-release.outputs.version }}/edge-mcp-linux-arm64.tar.gz | tar xz
           chmod +x edge-mcp-linux-arm64
           sudo mv edge-mcp-linux-arm64 /usr/local/bin/edge-mcp
           ```
@@ -237,7 +239,7 @@ jobs:
           **Windows (PowerShell as Administrator)**
           ```powershell
           # Download and extract
-          Invoke-WebRequest -Uri "https://github.com/${{ github.repository }}/releases/download/${{ needs.prepare-release.outputs.tag }}/edge-mcp-windows-amd64.exe.zip" -OutFile "edge-mcp.zip"
+          Invoke-WebRequest -Uri "https://github.com/${{ github.repository }}/releases/download/${{ needs.prepare-release.outputs.version }}/edge-mcp-windows-amd64.exe.zip" -OutFile "edge-mcp.zip"
           Expand-Archive -Path "edge-mcp.zip" -DestinationPath .
 
           # Add to PATH (optional)
@@ -325,7 +327,7 @@ jobs:
           echo "" >> release-notes.md
           echo '```bash' >> release-notes.md
           echo "# Download checksum file" >> release-notes.md
-          echo "curl -L https://github.com/${{ github.repository }}/releases/download/${{ needs.prepare-release.outputs.tag }}/checksums.txt -o checksums.txt" >> release-notes.md
+          echo "curl -L https://github.com/${{ github.repository }}/releases/download/${{ needs.prepare-release.outputs.version }}/checksums.txt -o checksums.txt" >> release-notes.md
           echo "" >> release-notes.md
           echo "# Verify your binary (example for Linux x64)" >> release-notes.md
           echo "sha256sum -c checksums.txt --ignore-missing" >> release-notes.md
@@ -337,12 +339,13 @@ jobs:
           echo "- [IDE Setup Guides](https://github.com/${{ github.repository }}/tree/main/apps/edge-mcp/docs/ide-setup)" >> release-notes.md
           echo "- [API Reference](https://github.com/${{ github.repository }}/tree/main/apps/edge-mcp/docs/api)" >> release-notes.md
 
-      - name: Create GitHub Release
+      - name: Update GitHub Release with Edge MCP Binaries
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: ${{ needs.prepare-release.outputs.tag }}
-          name: Edge MCP v${{ needs.prepare-release.outputs.version }}
+          tag_name: ${{ needs.prepare-release.outputs.version }}
+          name: Release ${{ needs.prepare-release.outputs.version }}
           body_path: release-notes.md
+          append_body: true
           draft: false
           prerelease: ${{ contains(needs.prepare-release.outputs.version, '-') }}
           files: |

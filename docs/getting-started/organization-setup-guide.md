@@ -38,6 +38,10 @@ Every user in Developer Mesh belongs to an organization. The first step is regis
 
 ### Register Your Organization
 
+**Endpoint:** `POST /api/v1/auth/register/organization`
+
+**Request:**
+
 ```bash
 curl -X POST http://localhost:8081/api/v1/auth/register/organization \
   -H "Content-Type: application/json" \
@@ -53,9 +57,35 @@ curl -X POST http://localhost:8081/api/v1/auth/register/organization \
   }'
 ```
 
+**Field Requirements:**
+
+| Field | Required | Format | Description |
+|-------|----------|--------|-------------|
+| `organization_name` | Yes | 3-100 chars | Your organization's display name |
+| `organization_slug` | Yes | 3-50 chars, lowercase, alphanumeric + hyphens | URL-friendly identifier |
+| `admin_email` | Yes | Valid email | Admin user's email (must be unique) |
+| `admin_name` | Yes | 2-100 chars | Admin user's full name |
+| `admin_password` | Yes | 8+ chars, uppercase, lowercase, numbers | Secure password |
+| `company_size` | No | String | Optional metadata |
+| `industry` | No | String | Optional metadata |
+| `use_case` | No | String | Optional metadata |
+
+**Slug Validation Rules:**
+- Must match regex: `^[a-z0-9][a-z0-9-]{2,49}$`
+- Must start with letter or number
+- Can contain lowercase letters, numbers, and hyphens
+- Cannot end with hyphen
+- Examples: ✅ `acme-corp`, `startup2024` | ❌ `Acme-Corp`, `my_company`, `-company`
+
+**Password Requirements:**
+- Minimum 8 characters
+- At least one uppercase letter (A-Z)
+- At least one lowercase letter (a-z)
+- At least one number (0-9)
+
 ### Understanding the Response
 
-The registration response contains three critical pieces of information:
+**Success Response (HTTP 201):**
 
 ```json
 {
@@ -65,7 +95,8 @@ The registration response contains three critical pieces of information:
     "slug": "acme-corp",
     "subscription_tier": "free",
     "max_users": 5,
-    "max_agents": 10
+    "max_agents": 10,
+    "billing_email": "admin@acme.com"
   },
   "user": {
     "id": "6ba7b810-9dad-11d1-80b4-00c04fd430c8",
@@ -74,12 +105,59 @@ The registration response contains three critical pieces of information:
     "role": "owner",
     "email_verified": false
   },
-  "api_key": "devmesh_a1b2c3d4e5f6g7h8i9j0k1l2m3n4o5p6q7r8s9t0",
+  "api_key": "devmesh_a1b2c3d4e5f6g7h8i9j0k1l2m3n4o5p6q7r8s9t0u1v2w3x4y5z6a7b8",
   "message": "Organization registered successfully. Please check your email to verify your account."
 }
 ```
 
+**What Happens During Registration:**
+
+1. ✅ **Validates** slug format and uniqueness
+2. ✅ **Creates** organization record with UUID
+3. ✅ **Creates** tenant for multi-tenant isolation
+4. ✅ **Hashes** password using bcrypt
+5. ✅ **Creates** admin user with "owner" role
+6. ✅ **Links** user to organization
+7. ✅ **Generates** email verification token
+8. ✅ **Creates** initial admin API key (shown once)
+9. ✅ **Logs** audit event
+10. ✅ **Sends** welcome and verification emails (async)
+
 **Important:** Save the `api_key` immediately. This is your master API key and won't be shown again.
+
+### Error Responses
+
+**Duplicate Slug (HTTP 409):**
+```json
+{
+  "error": "Organization slug already taken",
+  "details": "organization slug already exists"
+}
+```
+
+**Duplicate Email (HTTP 409):**
+```json
+{
+  "error": "Email already registered",
+  "details": "email already registered"
+}
+```
+
+**Invalid Slug Format (HTTP 400):**
+```json
+{
+  "error": "Invalid organization slug format (use lowercase letters, numbers, and hyphens)",
+  "details": "invalid organization slug format"
+}
+```
+
+**Weak Password (HTTP 400):**
+```json
+{
+  "error": "Invalid request",
+  "details": "password must contain uppercase, lowercase, and numbers"
+}
+```
 
 ### Organization Limits
 
@@ -94,56 +172,159 @@ Each subscription tier has limits:
 
 ## Authentication
 
-Developer Mesh supports two authentication methods:
+Developer Mesh supports two authentication methods for API access.
 
-### Method 1: API Key Authentication
+### Method 1: API Key Authentication (Recommended for Services)
 
-Use the API key from registration:
+Use the API key from registration for service-to-service authentication.
+
+**Using Authorization Header (Recommended):**
 
 ```bash
-# Using Authorization header
 curl -H "Authorization: Bearer devmesh_a1b2c3d4e5f6g7h8i9j0k1l2m3n4o5p6q7r8s9t0" \
-  http://localhost:8081/api/v1/some-endpoint
-
-# Using X-API-Key header
-curl -H "X-API-Key: devmesh_a1b2c3d4e5f6g7h8i9j0k1l2m3n4o5p6q7r8s9t0" \
-  http://localhost:8081/api/v1/some-endpoint
+  http://localhost:8081/api/v1/tools
 ```
 
-### Method 2: JWT Token Authentication
-
-Login with email/password to get a JWT token:
+**Using X-API-Key Header:**
 
 ```bash
-# Login
+curl -H "X-API-Key: devmesh_a1b2c3d4e5f6g7h8i9j0k1l2m3n4o5p6q7r8s9t0" \
+  http://localhost:8081/api/v1/agents
+```
+
+**API Key Properties:**
+- ✅ Never expires (until manually revoked)
+- ✅ Admin-level permissions
+- ✅ Scopes: `["read", "write", "admin"]`
+- ✅ Tied to organization tenant
+- ⚠️ Store securely (treat like a password)
+
+### Method 2: JWT Token Authentication (Recommended for Users)
+
+Login with email/password to get short-lived JWT tokens for user sessions.
+
+**Endpoint:** `POST /api/v1/auth/login`
+
+**Request:**
+
+```bash
 curl -X POST http://localhost:8081/api/v1/auth/login \
   -H "Content-Type: application/json" \
   -d '{
     "email": "admin@acme.com",
     "password": "SecurePass123!"
   }'
+```
 
-# Response includes JWT token
+**Success Response (HTTP 200):**
+
+```json
 {
-  "access_token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
-  "refresh_token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
-  "token_type": "Bearer",
+  "user": {
+    "id": "6ba7b810-9dad-11d1-80b4-00c04fd430c8",
+    "email": "admin@acme.com",
+    "name": "John Doe",
+    "role": "owner",
+    "status": "active",
+    "email_verified": true
+  },
+  "organization": {
+    "id": "550e8400-e29b-41d4-a716-446655440000",
+    "name": "Acme Corporation",
+    "slug": "acme-corp",
+    "subscription_tier": "free",
+    "max_users": 5,
+    "max_agents": 10
+  },
+  "access_token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiI2YmE3YjgxMCIsInRlbmFudF9pZCI6IjU1MGU4NDAwIiwiZW1haWwiOiJhZG1pbkBhY21lLmNvbSIsInNjb3BlcyI6WyJyZWFkIiwid3JpdGUiLCJhZG1pbiIsImJpbGxpbmciXSwiZXhwIjoxNzMwMDAwMDAwfQ.xyz...",
+  "refresh_token": "a1b2c3d4e5f6g7h8i9j0k1l2m3n4o5p6q7r8s9t0u1v2w3x4y5z6",
   "expires_in": 86400
 }
-
-# Use the JWT token
-curl -H "Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..." \
-  http://localhost:8081/api/v1/some-endpoint
 ```
+
+**What Happens During Login:**
+
+1. ✅ **Validates** email and password
+2. ✅ **Checks** account status (active, locked, suspended)
+3. ✅ **Verifies** password hash with bcrypt
+4. ✅ **Resets** failed login attempt counter
+5. ✅ **Updates** last_login_at timestamp
+6. ✅ **Generates** JWT access token (24h expiry)
+7. ✅ **Generates** refresh token (30 days expiry)
+8. ✅ **Creates** session record
+9. ✅ **Logs** successful login audit event
+
+**Using the JWT Token:**
+
+```bash
+curl -H "Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..." \
+  http://localhost:8081/api/v1/profile
+```
+
+**JWT Token Properties:**
+- ✅ Expires after 24 hours
+- ✅ Scopes based on user role (owner, admin, member, readonly)
+- ✅ Includes user_id, tenant_id, email
+- ✅ Can be refreshed using refresh token
+
+### Login Error Responses
+
+**Invalid Credentials (HTTP 401):**
+```json
+{
+  "error": "Invalid email or password"
+}
+```
+
+**Account Locked (HTTP 401):**
+```json
+{
+  "error": "account locked until 2025-01-24T15:30:00Z"
+}
+```
+*Note: Accounts lock after 5 failed login attempts for 15 minutes*
+
+**Account Suspended (HTTP 401):**
+```json
+{
+  "error": "account is suspended"
+}
+```
+
+### Security Features
+
+**Failed Login Protection:**
+- After 5 failed attempts: Account locks for 15 minutes
+- Each failed attempt is logged
+- Successful login resets counter
+- Locked until time shown in error message
+
+**Session Management:**
+- Access tokens: 24 hour expiry
+- Refresh tokens: 30 day expiry
+- Each login creates new session
+- Sessions stored in database for revocation
+
+**Audit Trail:**
+- All login attempts logged to `mcp.auth_audit_log`
+- Includes: user_id, email, timestamp, success/failure, reason
 
 ## User Management
 
 ### Inviting Users
 
-Only organization owners and admins can invite new users:
+Only organization **owners** and **admins** can invite new users.
+
+**Endpoint:** `POST /api/v1/users/invite`
+
+**Requirements:**
+- Must be authenticated (API key or JWT token)
+- User role must be `owner` or `admin`
+- Organization must not exceed max_users limit
+
+**Request Example:**
 
 ```bash
-# Invite a developer
 curl -X POST http://localhost:8081/api/v1/users/invite \
   -H "Authorization: Bearer devmesh_YOUR_API_KEY" \
   -H "Content-Type: application/json" \
@@ -152,42 +333,205 @@ curl -X POST http://localhost:8081/api/v1/users/invite \
     "name": "Jane Smith",
     "role": "member"
   }'
-
-# Invite an admin
-curl -X POST http://localhost:8081/api/v1/users/invite \
-  -H "Authorization: Bearer devmesh_YOUR_API_KEY" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "email": "lead@acme.com",
-    "name": "Bob Johnson",
-    "role": "admin"
-  }'
 ```
 
-### User Roles
+**Field Requirements:**
 
-| Role | Can Invite Users | Can Manage Settings | Can Delete Org | Typical Use |
-|------|-----------------|--------------------|--------------| ------------|
-| `owner` | ✅ | ✅ | ✅ | Organization founder |
-| `admin` | ✅ | ✅ | ❌ | Team leads, managers |
-| `member` | ❌ | ❌ | ❌ | Developers, users |
-| `readonly` | ❌ | ❌ | ❌ | Auditors, viewers |
+| Field | Required | Format | Description |
+|-------|----------|--------|-------------|
+| `email` | Yes | Valid email | Must not be already registered |
+| `name` | Yes | 2-100 chars | Invited user's full name |
+| `role` | Yes | `admin`, `member`, or `readonly` | User's access level |
+
+**Success Response (HTTP 200):**
+
+```json
+{
+  "message": "Invitation sent successfully",
+  "email": "developer@acme.com"
+}
+```
+
+**What Happens During Invitation:**
+
+1. ✅ **Validates** inviter has permission (owner or admin)
+2. ✅ **Checks** organization user limit
+3. ✅ **Verifies** email not already registered
+4. ✅ **Checks** no pending invitation exists
+5. ✅ **Generates** secure invitation token (64 chars)
+6. ✅ **Stores** invitation (valid for 7 days)
+7. ✅ **Sends** invitation email with token link
+8. ✅ **Logs** invitation event
+
+**Invitation Email Contains:**
+- Inviter's name
+- Organization name
+- Unique invitation token
+- Link to accept invitation
+- Token expires in 7 days
+
+### User Roles & Permissions
+
+| Role | Scopes | Can Invite Users | Can Manage Settings | Can Delete Org | Typical Use |
+|------|--------|-----------------|--------------------|--------------| ------------|
+| `owner` | `read`, `write`, `admin`, `billing` | ✅ | ✅ | ✅ | Organization founder |
+| `admin` | `read`, `write`, `admin` | ✅ | ✅ | ❌ | Team leads, managers |
+| `member` | `read`, `write` | ❌ | ❌ | ❌ | Developers, users |
+| `readonly` | `read` | ❌ | ❌ | ❌ | Auditors, viewers |
+
+### Invitation Error Responses
+
+**Insufficient Permissions (HTTP 403):**
+```json
+{
+  "error": "You don't have permission to invite users"
+}
+```
+
+**User Already Exists (HTTP 409):**
+```json
+{
+  "error": "User with this email already exists"
+}
+```
+
+**Invitation Already Sent (HTTP 409):**
+```json
+{
+  "error": "Invitation already sent to this email"
+}
+```
+
+**User Limit Reached (HTTP 400):**
+```json
+{
+  "error": "organization has reached maximum user limit (5)"
+}
+```
 
 ### Accepting Invitations
 
-When a user is invited, they receive an email with an invitation token. To accept:
+When a user receives an invitation email, they use the token to create their account.
+
+**Endpoint:** `POST /api/v1/auth/invitation/accept`
+
+**Request:**
 
 ```bash
-# Accept invitation and set password
 curl -X POST http://localhost:8081/api/v1/auth/invitation/accept \
   -H "Content-Type: application/json" \
   -d '{
-    "token": "inv_a1b2c3d4e5f6g7h8",
+    "token": "a1b2c3d4e5f6g7h8i9j0k1l2m3n4o5p6q7r8s9t0u1v2w3x4y5z6a7b8c9d0e1f2",
     "password": "MySecurePass456!"
   }'
 ```
 
-The response includes login tokens for immediate access.
+**Field Requirements:**
+
+| Field | Required | Format | Description |
+|-------|----------|--------|-------------|
+| `token` | Yes | 64 hex chars | Token from invitation email |
+| `password` | Yes | 8+ chars, uppercase, lowercase, numbers | New user's password |
+
+**Success Response (HTTP 201 - Auto Login):**
+
+```json
+{
+  "user": {
+    "id": "770e8400-e29b-41d4-a716-446655440002",
+    "email": "developer@acme.com",
+    "name": "developer@acme.com",
+    "role": "member",
+    "status": "active",
+    "email_verified": true
+  },
+  "organization": {
+    "id": "550e8400-e29b-41d4-a716-446655440000",
+    "name": "Acme Corporation",
+    "slug": "acme-corp",
+    "subscription_tier": "free",
+    "max_users": 5,
+    "max_agents": 10
+  },
+  "access_token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+  "refresh_token": "xyz789abc...",
+  "expires_in": 86400
+}
+```
+
+**What Happens During Acceptance:**
+
+1. ✅ **Validates** password strength
+2. ✅ **Finds** invitation by token
+3. ✅ **Checks** invitation not already accepted
+4. ✅ **Checks** invitation not expired (7 days)
+5. ✅ **Gets** organization's tenant_id
+6. ✅ **Hashes** password with bcrypt
+7. ✅ **Creates** user account with assigned role
+8. ✅ **Marks** email_verified = true (verified via invitation)
+9. ✅ **Updates** invitation accepted_at timestamp
+10. ✅ **Auto-logins** user with JWT tokens
+11. ✅ **Logs** acceptance audit event
+
+**Important Notes:**
+- Email is automatically verified (no separate verification needed)
+- User is immediately logged in after acceptance
+- Default name is email (can be updated later)
+- invitation token becomes invalid after use
+
+### Acceptance Error Responses
+
+**Invalid or Expired Token (HTTP 400):**
+```json
+{
+  "error": "invalid or expired invitation"
+}
+```
+
+**Invitation Already Accepted (HTTP 400):**
+```json
+{
+  "error": "invitation already accepted"
+}
+```
+
+**Weak Password (HTTP 400):**
+```json
+{
+  "error": "password validation failed: password must contain uppercase, lowercase, and numbers"
+}
+```
+
+### Complete Invitation Flow Example
+
+```bash
+# Step 1: Owner invites a developer
+curl -X POST http://localhost:8081/api/v1/users/invite \
+  -H "Authorization: Bearer devmesh_owner_api_key_here" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "email": "dev@company.com",
+    "name": "Alice Developer",
+    "role": "member"
+  }'
+
+# Response:
+# {"message": "Invitation sent successfully", "email": "dev@company.com"}
+
+# Step 2: Alice receives email with token and accepts
+curl -X POST http://localhost:8081/api/v1/auth/invitation/accept \
+  -H "Content-Type: application/json" \
+  -d '{
+    "token": "abc123...def456",
+    "password": "AliceSecure2024!"
+  }'
+
+# Response includes access_token - Alice is now logged in!
+
+# Step 3: Alice uses the access token
+curl -H "Authorization: Bearer eyJhbGciOiJIUzI1NiIs..." \
+  http://localhost:8081/api/v1/tools
+```
 
 ## API Key Management
 

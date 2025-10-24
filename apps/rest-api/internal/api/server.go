@@ -10,6 +10,7 @@ import (
 
 	"github.com/developer-mesh/developer-mesh/apps/rest-api/internal/adapters"
 	contextAPI "github.com/developer-mesh/developer-mesh/apps/rest-api/internal/api/context"
+	"github.com/developer-mesh/developer-mesh/apps/rest-api/internal/api/handlers"
 	webhooksAPI "github.com/developer-mesh/developer-mesh/apps/rest-api/internal/api/webhooks"
 	"github.com/developer-mesh/developer-mesh/apps/rest-api/internal/core"
 	"github.com/developer-mesh/developer-mesh/apps/rest-api/internal/middleware"
@@ -35,6 +36,7 @@ import (
 	"github.com/developer-mesh/developer-mesh/pkg/database"
 	"github.com/developer-mesh/developer-mesh/pkg/embedding"
 	"github.com/developer-mesh/developer-mesh/pkg/observability"
+	pkgredis "github.com/developer-mesh/developer-mesh/pkg/redis"
 	"github.com/developer-mesh/developer-mesh/pkg/search"
 	"github.com/developer-mesh/developer-mesh/pkg/security"
 	"github.com/developer-mesh/developer-mesh/pkg/tools"
@@ -482,12 +484,34 @@ func (s *Server) setupRoutes(ctx context.Context) {
 	})
 
 	// Test Redis connection
+	var streamsClient *pkgredis.StreamsClient
 	if err := redisClient.Ping(ctx).Err(); err != nil {
 		s.logger.Warn("Redis not available, cache will be PostgreSQL-only", map[string]interface{}{
 			"error": err.Error(),
 		})
 		// Set redisClient to nil to indicate Redis is not available
 		redisClient = nil
+	} else {
+		// Create Redis Streams client for SSE
+		streamsConfig := &pkgredis.StreamsConfig{
+			Addresses:    []string{redisAddr},
+			Password:     redisPassword,
+			DB:           0,
+			PoolSize:     10,
+			MinIdleConns: 5,
+		}
+		var err error
+		streamsClient, err = pkgredis.NewStreamsClient(streamsConfig, s.logger)
+		if err != nil {
+			s.logger.Warn("Failed to create Redis Streams client, SSE will use heartbeat only", map[string]interface{}{
+				"error": err.Error(),
+			})
+			streamsClient = nil
+		} else {
+			s.logger.Info("Redis Streams client initialized for SSE", map[string]interface{}{
+				"address": redisAddr,
+			})
+		}
 	}
 
 	// Create cache service for tool execution results
@@ -830,6 +854,28 @@ func (s *Server) setupRoutes(ctx context.Context) {
 			},
 		})
 	}
+
+	// Stream Handler - Server-Sent Events for real-time updates
+	streamHandler := handlers.NewStreamHandler(streamsClient, s.logger)
+
+	// Initialize stream handler (create consumer groups)
+	if streamsClient != nil {
+		if err := streamHandler.Initialize(ctx); err != nil {
+			s.logger.Error("Failed to initialize stream handler", map[string]interface{}{
+				"error": err.Error(),
+			})
+		}
+	}
+
+	streamHandler.RegisterRoutes(s.router)
+	s.logger.Info("SSE Stream API initialized", map[string]interface{}{
+		"endpoints": []string{
+			"GET /api/v1/stream/tasks",
+			"GET /api/v1/stream/agents/:agent_id",
+			"GET /api/v1/stream/workflows/:workflow_id",
+		},
+		"redis_streams_enabled": streamsClient != nil,
+	})
 }
 
 // Start starts the API server without TLS

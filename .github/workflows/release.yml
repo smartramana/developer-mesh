@@ -59,7 +59,7 @@ jobs:
 
           # Create comprehensive release notes
           cat > release-notes.md << 'EOF'
-          ## 🚀 Developer Mesh v${{ steps.version.outputs.version }}
+          ## 🚀 Developer Mesh ${{ steps.version.outputs.version }}
 
           ### 📦 Docker Images
 
@@ -157,13 +157,13 @@ jobs:
 
           echo "" >> release-notes.md
           echo "### 📝 Full Changelog" >> release-notes.md
-          echo "https://github.com/${{ github.repository }}/compare/...v${{ steps.version.outputs.version }}" >> release-notes.md
+          echo "https://github.com/${{ github.repository }}/compare/...${{ steps.version.outputs.version }}" >> release-notes.md
 
       - name: Create Release
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ steps.version.outputs.version }}
-          name: Release v${{ steps.version.outputs.version }}
+          name: Release ${{ steps.version.outputs.version }}
           body_path: release-notes.md
           draft: false
           prerelease: ${{ contains(steps.version.outputs.version, '-') }}

@@ -196,9 +196,38 @@ func (h *Handler) HandleConnection(conn *websocket.Conn, r *http.Request) {
 		}
 	}
 
+	// Extract API key and get tenant ID from authenticator
+	var tenantID string
+	if h.authenticator != nil {
+		// Extract API key from request (supports Authorization header, X-API-Key header, or token query param)
+		apiKey := r.Header.Get("Authorization")
+		if apiKey == "" {
+			apiKey = r.Header.Get("X-API-Key")
+		}
+		if apiKey == "" {
+			apiKey = r.URL.Query().Get("token")
+		}
+
+		// Remove "Bearer " prefix if present
+		apiKey = strings.TrimPrefix(apiKey, "Bearer ")
+
+		if apiKey != "" {
+			// Get tenant ID from authenticator (will use cached auth)
+			if tid, err := h.authenticator.GetTenantID(apiKey); err == nil {
+				tenantID = tid
+			} else {
+				h.logger.Warn("Failed to get tenant ID from API key", map[string]interface{}{
+					"error":      err.Error(),
+					"session_id": sessionID,
+				})
+			}
+		}
+	}
+
 	session := &Session{
 		ID:              sessionID,
 		ConnectionID:    uuid.New().String(),
+		TenantID:        tenantID, // Set tenant ID from authenticated API key
 		CreatedAt:       time.Now(),
 		LastActivity:    time.Now(),
 		PassthroughAuth: passthroughAuth,
@@ -207,6 +236,11 @@ func (h *Handler) HandleConnection(conn *websocket.Conn, r *http.Request) {
 	h.sessionsMu.Lock()
 	h.sessions[sessionID] = session
 	h.sessionsMu.Unlock()
+
+	h.logger.Info("Session created with tenant ID", map[string]interface{}{
+		"session_id": sessionID,
+		"tenant_id":  tenantID,
+	})
 
 	// Create connection context with session tracking
 	ctx, cancel := context.WithCancel(context.Background())
@@ -292,9 +326,11 @@ func (h *Handler) HandleConnection(conn *websocket.Conn, r *http.Request) {
 			// Check if response should be streamed based on size
 			shouldStream := false
 			var responseBytes []byte
+			var err error
 
 			// Try to marshal the response to check size
-			if responseBytes, err := json.Marshal(response); err == nil {
+			responseBytes, err = json.Marshal(response)
+			if err == nil {
 				shouldStream = ShouldStream(responseBytes, StreamThreshold)
 			}
 
@@ -1057,13 +1093,55 @@ func (h *Handler) handleShutdown(sessionID string, msg *MCPMessage) (*MCPMessage
 
 // handleToolsList handles tools/list requests
 func (h *Handler) handleToolsList(sessionID string, msg *MCPMessage) (*MCPMessage, error) {
-	// Get all tools from registry
-	allTools := h.tools.ListAll()
-
-	// Get session to check for Harness permissions
+	// Get session to check for tenant ID and permissions
 	h.sessionsMu.RLock()
 	session := h.sessions[sessionID]
 	h.sessionsMu.RUnlock()
+
+	// Start with built-in tools from registry
+	allTools := h.tools.ListAll()
+
+	// Fetch tenant-specific tools if we have a core client and tenant ID
+	if h.coreClient != nil && session != nil && session.TenantID != "" {
+		ctx := context.Background()
+
+		// Fetch tools for this specific tenant
+		tenantTools, err := h.coreClient.FetchToolsForTenant(ctx, session.TenantID)
+		if err != nil {
+			h.logger.Warn("Failed to fetch tenant-specific tools", map[string]interface{}{
+				"error":      err.Error(),
+				"session_id": sessionID,
+				"tenant_id":  session.TenantID,
+			})
+			// Continue with built-in tools only on error
+		} else {
+			// Merge tenant-specific tools with built-in tools
+			// Create a map to avoid duplicates (tenant tools take precedence)
+			toolMap := make(map[string]tools.ToolDefinition)
+
+			// Add built-in tools first
+			for _, tool := range allTools {
+				toolMap[tool.Name] = tool
+			}
+
+			// Add/override with tenant-specific tools
+			for _, tool := range tenantTools {
+				toolMap[tool.Name] = tool
+			}
+
+			// Convert map back to slice
+			allTools = make([]tools.ToolDefinition, 0, len(toolMap))
+			for _, tool := range toolMap {
+				allTools = append(allTools, tool)
+			}
+
+			h.logger.Debug("Merged tenant tools with built-in tools", map[string]interface{}{
+				"tenant_id":     session.TenantID,
+				"tenant_tools":  len(tenantTools),
+				"total_tools":   len(allTools),
+			})
+		}
+	}
 
 	// Filter tools based on session permissions
 	filteredTools := h.filterToolsByPermissions(allTools, session)
@@ -1079,6 +1157,7 @@ func (h *Handler) handleToolsList(sessionID string, msg *MCPMessage) (*MCPMessag
 
 	h.logger.Info("Listed tools for session", map[string]interface{}{
 		"session_id":     sessionID,
+		"tenant_id":      session.TenantID,
 		"total_tools":    len(allTools),
 		"filtered_tools": len(filteredTools),
 	})
