@@ -74,6 +74,9 @@ jobs:
 
           # Worker
           docker pull ghcr.io/${{ github.repository_owner }}/developer-mesh-worker:${{ steps.version.outputs.version }}
+
+          # RAG Loader
+          docker pull ghcr.io/${{ github.repository_owner }}/developer-mesh-rag-loader:${{ steps.version.outputs.version }}
           ```
 
           ### 🐳 Quick Start with Docker Compose
@@ -92,7 +95,7 @@ jobs:
           - **Edge MCP**: WebSocket server for AI agent communication via Model Context Protocol with built-in tools
           - **REST API**: Dynamic tools integration and management
           - **Worker**: Redis-based webhook and event processing
-          - **Edge MCP**: Lightweight gateway for Claude Code integration
+          - **RAG Loader**: Semantic code indexing with pgvector embeddings
           - **Multi-tenant**: Complete tenant isolation and session management
           - **Security**: JWT authentication, encrypted credentials, rate limiting
 
@@ -178,7 +181,7 @@ jobs:
       packages: write
     strategy:
       matrix:
-        app: [edge-mcp, rest-api, worker]
+        app: [edge-mcp, rest-api, worker, rag-loader]
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4
