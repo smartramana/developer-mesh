@@ -40,7 +40,14 @@ cd developer-mesh
 
 # Setup environment variables
 cp .env.example .env
+
+# Generate required encryption keys
+# RAG_MASTER_KEY - Required for rag-loader service (base64-encoded 32-byte value)
+echo "RAG_MASTER_KEY=$(openssl rand -base64 32)" >> .env
+
 # Edit .env with your settings (optional: add AWS credentials for embedding features)
+# Note: Other encryption keys (ENCRYPTION_KEY, ENCRYPTION_MASTER_KEY, etc.) can be
+# plain text for local development, but RAG_MASTER_KEY must be base64-encoded.
 ```
 
 ### Step 2: Start Infrastructure Services
@@ -794,6 +801,31 @@ redis-cli xinfo groups webhook_events
 ```
 
 **Note**: Developer Mesh uses Redis Streams for event processing, not AWS SQS.
+
+### RAG Loader Crashes
+
+If the rag-loader service fails to start with "Failed to decode RAG_MASTER_KEY: illegal base64 data":
+
+```bash
+# Check current RAG_MASTER_KEY value
+grep RAG_MASTER_KEY .env
+
+# If it's not base64-encoded, regenerate it
+sed -i.bak '/RAG_MASTER_KEY=/d' .env
+echo "RAG_MASTER_KEY=$(openssl rand -base64 32)" >> .env
+
+# Restart the rag-loader service
+docker-compose -f docker-compose.local.yml restart rag-loader
+
+# Verify it's running
+docker-compose -f docker-compose.local.yml ps rag-loader
+docker-compose -f docker-compose.local.yml logs rag-loader --tail=20
+```
+
+**Common causes:**
+- RAG_MASTER_KEY is plain text instead of base64-encoded
+- RAG_MASTER_KEY contains special characters that break base64 decoding
+- RAG_MASTER_KEY was copied incorrectly from another source
 
 ## 📚 Next Steps
 
