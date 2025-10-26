@@ -11,11 +11,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
-## [0.0.8] - 2025-10-24
+## [0.0.8] - 2025-10-26
 
 ### Added - User Authentication & Permission Management
 
-This release delivers comprehensive user authentication and credential management capabilities with secure personal access token storage and user-based permission filtering for multi-user environments.
+This release delivers comprehensive user authentication and credential management capabilities with secure personal access token storage and user-based permission filtering for multi-user environments. Additionally, it includes complete Kubernetes Helm charts for production deployments.
 
 - **User API Key Management** (commit 2fb6b4de)
   - REST API endpoints for API key CRUD operations
@@ -54,6 +54,29 @@ This release delivers comprehensive user authentication and credential managemen
   - `docs/USER_CREDENTIAL_AUTH_FLOW.md` - Technical implementation details (531 lines)
   - `docs/guides/authentication/user-authentication-guide.md` - Comprehensive user authentication guide (608 lines)
 
+- **Production Kubernetes Helm Charts** (commit d1572d29)
+  - Complete Helm subcharts for rag-loader and worker services enabling production-grade Kubernetes deployments
+  - **RAG Loader Subchart** (10 template files)
+    - Dual-port service (8084 API, 9094 metrics) with ClusterIP exposure
+    - HorizontalPodAutoscaler (2-6 replicas based on 70% CPU/80% memory)
+    - PodDisruptionBudget ensuring minAvailable: 1 for high availability
+    - ServiceMonitor for Prometheus metrics scraping on port 9094
+    - Secret management for RAG_MASTER_KEY with validation
+    - ServiceAccount with IAM/RBAC integration
+    - Optional Ingress for external access
+    - Security context with UID 1000, read-only root filesystem, no privilege escalation
+    - Init containers for database and Redis readiness checks
+    - Rolling update strategy with zero downtime (maxSurge: 1, maxUnavailable: 0)
+  - **Worker Subchart** (6 template files)
+    - Background processing deployment for async webhook and event processing
+    - HorizontalPodAutoscaler (2-8 replicas) for workload-based scaling
+    - ConfigMap for worker configuration (concurrency, queue type, embedding settings)
+    - PodDisruptionBudget for service continuity
+    - Security context with UID 65532 (distroless nonroot)
+    - Init containers ensuring Redis and database availability
+  - Both subcharts integrate with umbrella chart via shared global helpers for database, Redis, and AWS configuration
+  - Production-ready with comprehensive autoscaling, monitoring, and high availability features
+
 ### Fixed
 
 - **Test Compilation and Linting Issues** (commit abe0f627)
@@ -70,6 +93,19 @@ This release delivers comprehensive user authentication and credential managemen
 - **Credential Field Mapping**
   - Fixed Harness credential field name (use 'token' not 'api_token')
   - API key header parsing issue resolved (base64 padding removed with RawURLEncoding)
+
+- **RAG Loader Crash on Startup** (commit 2ecceeb1)
+  - Fixed rag-loader service crash due to invalid RAG_MASTER_KEY encoding
+  - Root cause: RAG_MASTER_KEY must be base64-encoded 32-byte value for AES-256-GCM encryption
+  - Updated `.env.example` with RAG configuration section and generation instructions (`openssl rand -base64 32`)
+  - Added RAG_MASTER_KEY documentation to quick-start guide with automatic key generation in setup steps
+  - Added troubleshooting section for rag-loader crashes with diagnosis and fix commands
+  - Service now validates base64 encoding on startup and provides clear error messages
+
+- **Release Pipeline** (commit 54f780b3)
+  - Added rag-loader to `.github/workflows/release.yaml` build matrix
+  - Ensures rag-loader Docker images are built and pushed during releases
+  - Completes service coverage: edge-mcp, rest-api, worker, rag-loader
 
 ## [0.0.7] - 2025-10-18
 
