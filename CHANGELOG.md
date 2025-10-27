@@ -7,6 +7,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+
+## [1.0.0] - 2025-10-27
+
+### Added
+- New features and improvements
+
+### Changed
+- Updates and modifications
+
+### Fixed
+- Bug fixes and corrections
+
+### Security
+- Security updates if any
+
+
 ### Added
 
 ### Fixed
@@ -1769,3 +1785,4 @@ This release represents a comprehensive AI Agent Readiness initiative aimed at m
 ## Notes
 
 This is the initial release of Developer Mesh, providing a production-ready platform for orchestrating AI agents in DevOps workflows. The platform implements the industry-standard Model Context Protocol (MCP) and provides comprehensive multi-tenant support with enterprise-grade security features.
+[1.0.0]: https://github.com/smartramana/developer-mesh/compare/...1.0.0
