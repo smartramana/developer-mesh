@@ -11,6 +11,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+### Fixed
+
+## [0.0.9] - 2025-10-29
+
+### Changed
+
 - **GitHub MCP Tools Optimization**
   - Removed 17 redundant tools (15% reduction) to improve AI agent tool selection accuracy
   - Removed GraphQL toolset (7 tools) - duplicates REST API functionality
@@ -28,6 +34,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - **Breaking Change**: GraphQL tools (github_*_graphql) no longer available - use REST equivalents
 
 ### Fixed
+
+- **Test Failures and Code Quality** (2025-10-29)
+  - Fixed 5 failing Harness provider tests after context optimization changes
+    - Updated `TestNewHarnessProvider` to verify 5 enabled modules instead of 20+
+    - Fixed `TestHarnessProvider_SetEnabledModules` initial state assertions
+    - Updated `TestHarnessProvider_GetEnabledModules` to check correct modules
+    - Fixed `TestHarnessProvider_GetAIOptimizedDefinitions` category assertions
+    - Updated `TestHarnessProvider_GetAIOptimizedDefinitions_WithDisabledModules`
+  - Fixed go fmt formatting issues across 10 files
+    - Aligned map literals in REST API dynamic tools execution
+    - Fixed whitespace in tool filter service
+    - Corrected formatting in provider implementations (Artifactory, GitHub, GitLab, Nexus)
+  - Removed unused authentication functions from Edge MCP handler (167 lines)
+    - Deleted `authenticateAPI()` - replaced by new credential storage system
+    - Deleted `fetchStoredCredentials()` - replaced by REST API credential fetch
+    - Removed unused `"bytes"` import
+  - All tests passing, zero lint issues, CI pipeline unblocked
 
 ## [0.0.8] - 2025-10-26
 
