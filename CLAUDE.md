@@ -482,6 +482,7 @@ DevMesh fully implements the MCP 2025-06-18 specification:
 - Commits: Clear, concise messages
 - PRs: Detailed description with test plan
 - Reviews: Required before merge to main
+- Release tags: Use format `0.0.X` (NO `v` prefix) - e.g., `git tag -a 0.0.9 -m "Release 0.0.9: description"`
 
 ## Environment Variables
 - Development: `.env.development`
