@@ -33,6 +33,7 @@ type DynamicToolsAPI struct {
 	orgToolRepo       pkgrepository.OrganizationToolRepository // For updating org tools with permissions
 	encryptionService *security.EncryptionService              // For decrypting credentials
 	credentialRepo    credential.Repository                    // For accessing user credentials
+	toolFilterService *services.ToolFilterService              // For filtering tools based on configuration
 }
 
 // NewDynamicToolsAPI creates a new dynamic tools API handler
@@ -45,6 +46,7 @@ func NewDynamicToolsAPI(
 	orgToolRepo pkgrepository.OrganizationToolRepository,
 	encryptionService *security.EncryptionService,
 	credentialRepo credential.Repository,
+	toolFilterService *services.ToolFilterService,
 ) *DynamicToolsAPI {
 	return &DynamicToolsAPI{
 		toolService:       toolService,
@@ -55,6 +57,7 @@ func NewDynamicToolsAPI(
 		orgToolRepo:       orgToolRepo,
 		encryptionService: encryptionService,
 		credentialRepo:    credentialRepo,
+		toolFilterService: toolFilterService,
 	}
 }
 
@@ -218,6 +221,43 @@ func (api *DynamicToolsAPI) ListTools(c *gin.Context) {
 				}
 			}
 		}
+	}
+
+	// Apply tool filtering for Edge MCP clients if filter service is available
+	if isEdgeMCP && api.toolFilterService != nil {
+		// Extract tool names for filtering
+		toolNames := make([]string, len(tools))
+		for i, tool := range tools {
+			toolNames[i] = tool.ToolName
+		}
+
+		// Apply filtering
+		filteredNames := api.toolFilterService.FilterTools(toolNames)
+
+		// Create a set of filtered names for O(1) lookup
+		filteredSet := make(map[string]bool)
+		for _, name := range filteredNames {
+			filteredSet[name] = true
+		}
+
+		// Filter the tools array
+		filteredTools := make([]*models.DynamicTool, 0, len(filteredNames))
+		for _, tool := range tools {
+			if filteredSet[tool.ToolName] {
+				filteredTools = append(filteredTools, tool)
+			}
+		}
+
+		// Replace tools with filtered list
+		originalCount := len(tools)
+		tools = filteredTools
+
+		api.logger.Info("Applied tool filtering for Edge MCP", map[string]interface{}{
+			"tenant_id":      tenantID,
+			"original_count": originalCount,
+			"filtered_count": len(tools),
+			"reduction":      originalCount - len(tools),
+		})
 	}
 
 	// Record success metric
@@ -838,7 +878,25 @@ func (api *DynamicToolsAPI) ExecuteAction(c *gin.Context) {
 	var operationName string
 
 	// First check if this looks like an expanded tool (provider_operation format)
-	if api.enhancedToolsAPI != nil && (strings.HasPrefix(originalToolID, "github_") || strings.HasPrefix(originalToolID, "harness_")) {
+	// Check if tool ID starts with any known provider prefix
+	looksLikeProviderTool := false
+	if api.enhancedToolsAPI != nil && strings.Contains(originalToolID, "_") {
+		// Extract potential provider name
+		parts := strings.SplitN(originalToolID, "_", 2)
+		if len(parts) > 0 {
+			providerName := parts[0]
+			// Check against known providers
+			knownProviders := []string{"github", "harness", "gitlab", "bitbucket", "jira", "slack", "aws", "azure", "gcp", "snyk", "sonarqube", "artifactory", "jenkins", "confluence"}
+			for _, known := range knownProviders {
+				if providerName == known {
+					looksLikeProviderTool = true
+					break
+				}
+			}
+		}
+	}
+
+	if looksLikeProviderTool {
 		api.logger.Info("Checking for expanded organization tool", map[string]interface{}{
 			"tool_id":   originalToolID,
 			"tenant_id": tenantID,
@@ -897,6 +955,92 @@ func (api *DynamicToolsAPI) ExecuteAction(c *gin.Context) {
 					isOrganizationTool = true
 					break
 				}
+			}
+		}
+	}
+
+	// Always attempt to load user credentials for any tool that might need authentication
+	// All authentication is now tied to the user's DevMesh API key
+	// Extract provider from tool ID pattern: {provider}_{operation}
+	if userID != "" {
+		// Map of valid service types for quick lookup and validation
+		validServiceTypes := map[string]models.ServiceType{
+			"github":      models.ServiceTypeGitHub,
+			"harness":     models.ServiceTypeHarness,
+			"gitlab":      models.ServiceTypeGitLab,
+			"bitbucket":   models.ServiceTypeBitbucket,
+			"jira":        models.ServiceTypeJira,
+			"slack":       models.ServiceTypeSlack,
+			"aws":         models.ServiceTypeAWS,
+			"azure":       models.ServiceTypeAzure,
+			"gcp":         models.ServiceTypeGCP,
+			"snyk":        models.ServiceTypeSnyk,
+			"sonarqube":   models.ServiceTypeSonarQube,
+			"artifactory": models.ServiceTypeArtifactory,
+			"jenkins":     models.ServiceTypeJenkins,
+			"confluence":  models.ServiceTypeConfluence,
+		}
+
+		// Extract potential provider name from tool ID
+		// Pattern: "github_create_pull_request" -> "github"
+		// Pattern: "harness_pipelines_list" -> "harness"
+		parts := strings.SplitN(originalToolID, "_", 2)
+		if len(parts) > 0 {
+			providerName := parts[0]
+
+			// Check if this is a valid service type we support
+			if serviceType, isValid := validServiceTypes[providerName]; isValid {
+				// Attempt to load user credentials for this provider
+				userCred, credErr := api.credentialRepo.Get(c.Request.Context(), tenantID, userID, serviceType)
+				if credErr == nil && userCred != nil {
+					// Decrypt credentials
+					decryptedCreds, decryptErr := api.encryptionService.DecryptCredential(userCred.EncryptedCredentials, tenantID)
+					if decryptErr == nil {
+						// Create passthrough auth bundle with user credentials
+						req.PassthroughAuth = &models.PassthroughAuthBundle{
+							Credentials: make(map[string]*models.PassthroughCredential),
+						}
+
+						// Parse decrypted credentials (they're JSON)
+						var credMap map[string]interface{}
+						if jsonErr := json.Unmarshal([]byte(decryptedCreds), &credMap); jsonErr == nil {
+							// Extract token from credentials (supports multiple formats)
+							var token string
+							if t, ok := credMap["token"].(string); ok {
+								token = t
+							} else if t, ok := credMap["access_token"].(string); ok {
+								token = t
+							} else if t, ok := credMap["api_key"].(string); ok {
+								token = t
+							}
+
+							if token != "" {
+								req.PassthroughAuth.Credentials[providerName] = &models.PassthroughCredential{
+									Token: token,
+									Type:  "bearer",
+								}
+
+								api.logger.Info("Loaded user credentials for tool execution", map[string]interface{}{
+									"provider":     providerName,
+									"service_type": string(serviceType),
+									"user_id":      userID,
+									"tool_id":      originalToolID,
+									"has_token":    token != "",
+									"token_len":    len(token),
+								})
+							}
+						}
+					} else {
+						api.logger.Warn("Failed to decrypt user credentials", map[string]interface{}{
+							"provider": providerName,
+							"user_id":  userID,
+							"tool_id":  originalToolID,
+							"error":    decryptErr.Error(),
+						})
+					}
+				}
+				// If credentials not found, continue without them
+				// The tool execution will fail later if auth is required
 			}
 		}
 	}

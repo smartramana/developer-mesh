@@ -192,8 +192,8 @@ func NewJiraProvider(logger observability.Logger, domain string) *JiraProvider {
 			{
 				Name:        "projects",
 				DisplayName: "Project Management",
-				Description: "Operations for managing Jira projects",
-				Operations:  []string{"projects/list", "projects/get", "projects/create", "projects/update"},
+				Description: "Operations for viewing Jira projects",
+				Operations:  []string{"projects/list", "projects/get"},
 			},
 			{
 				Name:        "boards",
@@ -204,8 +204,8 @@ func NewJiraProvider(logger observability.Logger, domain string) *JiraProvider {
 			{
 				Name:        "users",
 				DisplayName: "User Management",
-				Description: "Operations for managing users and permissions",
-				Operations:  []string{"users/search", "users/get", "users/groups"},
+				Description: "Operations for viewing and searching users",
+				Operations:  []string{"users/search", "users/get", "users/current"},
 			},
 			{
 				Name:        "workflows",
@@ -496,24 +496,6 @@ func (p *JiraProvider) GetOperationMappings() map[string]providers.OperationMapp
 			RequiredParams: []string{"projectIdOrKey"},
 			OptionalParams: []string{"expand"},
 		},
-		"projects/create": {
-			OperationID:    "createProject",
-			Method:         "POST",
-			PathTemplate:   "/rest/api/3/project",
-			RequiredParams: []string{"key", "name", "leadAccountId", "projectTypeKey"},
-		},
-		"projects/update": {
-			OperationID:    "updateProject",
-			Method:         "PUT",
-			PathTemplate:   "/rest/api/3/project/{projectIdOrKey}",
-			RequiredParams: []string{"projectIdOrKey"},
-		},
-		"projects/delete": {
-			OperationID:    "deleteProject",
-			Method:         "DELETE",
-			PathTemplate:   "/rest/api/3/project/{projectIdOrKey}",
-			RequiredParams: []string{"projectIdOrKey"},
-		},
 		"projects/versions": {
 			OperationID:    "getProjectVersions",
 			Method:         "GET",
@@ -541,12 +523,6 @@ func (p *JiraProvider) GetOperationMappings() map[string]providers.OperationMapp
 			PathTemplate:   "/rest/api/3/user",
 			RequiredParams: []string{"accountId"},
 			OptionalParams: []string{"expand"},
-		},
-		"users/groups": {
-			OperationID:    "getUserGroups",
-			Method:         "GET",
-			PathTemplate:   "/rest/api/3/user/groups",
-			RequiredParams: []string{"accountId"},
 		},
 		"users/current": {
 			OperationID:  "getCurrentUser",
@@ -597,18 +573,6 @@ func (p *JiraProvider) GetOperationMappings() map[string]providers.OperationMapp
 			PathTemplate:   "/rest/agile/1.0/sprint/{sprintId}",
 			RequiredParams: []string{"sprintId"},
 		},
-		"sprints/create": {
-			OperationID:    "createSprint",
-			Method:         "POST",
-			PathTemplate:   "/rest/agile/1.0/sprint",
-			RequiredParams: []string{"name", "startDate", "endDate", "originBoardId"},
-		},
-		"sprints/update": {
-			OperationID:    "updateSprint",
-			Method:         "POST",
-			PathTemplate:   "/rest/agile/1.0/sprint/{sprintId}",
-			RequiredParams: []string{"sprintId"},
-		},
 		"sprints/issues": {
 			OperationID:    "getSprintIssues",
 			Method:         "GET",
@@ -637,12 +601,6 @@ func (p *JiraProvider) GetOperationMappings() map[string]providers.OperationMapp
 			OperationID:  "listFields",
 			Method:       "GET",
 			PathTemplate: "/rest/api/3/field",
-		},
-		"fields/custom/create": {
-			OperationID:    "createCustomField",
-			Method:         "POST",
-			PathTemplate:   "/rest/api/3/field",
-			RequiredParams: []string{"name", "fieldType"},
 		},
 
 		// Filter operations (JQL)
@@ -705,8 +663,8 @@ func (p *JiraProvider) GetDefaultConfiguration() providers.ProviderConfig {
 			{
 				Name:        "projects",
 				DisplayName: "Project Management",
-				Description: "Operations for managing Jira projects",
-				Operations:  []string{"projects/list", "projects/get", "projects/create", "projects/update"},
+				Description: "Operations for viewing Jira projects",
+				Operations:  []string{"projects/list", "projects/get"},
 			},
 			{
 				Name:        "boards",
@@ -717,8 +675,8 @@ func (p *JiraProvider) GetDefaultConfiguration() providers.ProviderConfig {
 			{
 				Name:        "users",
 				DisplayName: "User Management",
-				Description: "Operations for managing users and permissions",
-				Operations:  []string{"users/search", "users/get", "users/groups"},
+				Description: "Operations for viewing and searching users",
+				Operations:  []string{"users/search", "users/get", "users/current"},
 			},
 			{
 				Name:        "workflows",
