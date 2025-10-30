@@ -15,11 +15,8 @@ import (
 // XrayProvider implements the StandardToolProvider interface for JFrog Xray
 type XrayProvider struct {
 	*providers.BaseProvider
-	specCache            repository.OpenAPICacheRepository // For caching the OpenAPI spec
-	httpClient           *http.Client
-	permissionDiscoverer *XrayPermissionDiscoverer             // Permission discovery integration
-	filteredOperations   map[string]providers.OperationMapping // Filtered operations based on permissions
-	allOperations        map[string]providers.OperationMapping // Cache of all operations
+	specCache  repository.OpenAPICacheRepository // For caching the OpenAPI spec
+	httpClient *http.Client
 }
 
 // NewXrayProvider creates a new Xray provider instance
@@ -38,15 +35,10 @@ func NewXrayProvider(logger observability.Logger) *XrayProvider {
 		httpClient: &http.Client{
 			Timeout: 60 * time.Second, // Longer timeout for scan operations
 		},
-		permissionDiscoverer: NewXrayPermissionDiscoverer(logger, base.GetDefaultConfiguration().BaseURL),
-		allOperations:        nil, // Will be initialized when first accessed
 	}
 
-	// Store all operations for later filtering
-	provider.allOperations = provider.getAllOperationMappings()
-
-	// Set operation mappings in base provider (initially all operations)
-	provider.SetOperationMappings(provider.allOperations)
+	// Set operation mappings in base provider
+	provider.SetOperationMappings(provider.GetOperationMappings())
 
 	// Set configuration to ensure auth type is configured
 	provider.SetConfiguration(provider.GetDefaultConfiguration())
@@ -177,18 +169,7 @@ func (p *XrayProvider) ExecuteOperation(ctx context.Context, op string, params m
 }
 
 // GetOperationMappings returns the operation ID to API endpoint mappings
-// This method is overridden to return filtered operations if available
 func (p *XrayProvider) GetOperationMappings() map[string]providers.OperationMapping {
-	// Return filtered operations if available
-	if p.filteredOperations != nil {
-		return p.filteredOperations
-	}
-	// Otherwise return all operations (backward compatibility)
-	return p.allOperations
-}
-
-// getAllOperationMappings returns all Xray operation mappings
-func (p *XrayProvider) getAllOperationMappings() map[string]providers.OperationMapping {
 	operations := map[string]providers.OperationMapping{
 		// System operations
 		"system/ping": {
@@ -284,24 +265,6 @@ func (p *XrayProvider) getAllOperationMappings() map[string]providers.OperationM
 			PathTemplate:   "/api/v2/watches/{name}",
 			RequiredParams: []string{"name"},
 		},
-		"watches/create": {
-			OperationID:    "CreateWatch",
-			Method:         "POST",
-			PathTemplate:   "/api/v2/watches",
-			RequiredParams: []string{"name", "description"},
-		},
-		"watches/update": {
-			OperationID:    "UpdateWatch",
-			Method:         "PUT",
-			PathTemplate:   "/api/v2/watches/{name}",
-			RequiredParams: []string{"name"},
-		},
-		"watches/delete": {
-			OperationID:    "DeleteWatch",
-			Method:         "DELETE",
-			PathTemplate:   "/api/v2/watches/{name}",
-			RequiredParams: []string{"name"},
-		},
 
 		// Policy operations
 		"policies/list": {
@@ -315,43 +278,12 @@ func (p *XrayProvider) getAllOperationMappings() map[string]providers.OperationM
 			PathTemplate:   "/api/v2/policies/{name}",
 			RequiredParams: []string{"name"},
 		},
-		"policies/create": {
-			OperationID:    "CreatePolicy",
-			Method:         "POST",
-			PathTemplate:   "/api/v2/policies",
-			RequiredParams: []string{"name", "type", "rules"},
-		},
-		"policies/update": {
-			OperationID:    "UpdatePolicy",
-			Method:         "PUT",
-			PathTemplate:   "/api/v2/policies/{name}",
-			RequiredParams: []string{"name"},
-		},
-		"policies/delete": {
-			OperationID:    "DeletePolicy",
-			Method:         "DELETE",
-			PathTemplate:   "/api/v2/policies/{name}",
-			RequiredParams: []string{"name"},
-		},
 
 		// Ignore rules operations
 		"ignore-rules/list": {
 			OperationID:  "ListIgnoreRules",
 			Method:       "GET",
 			PathTemplate: "/api/v1/ignore_rules",
-		},
-		"ignore-rules/create": {
-			OperationID:    "CreateIgnoreRule",
-			Method:         "POST",
-			PathTemplate:   "/api/v1/ignore_rules",
-			RequiredParams: []string{"vulnerability", "component"},
-			OptionalParams: []string{"expiry_date", "reason"},
-		},
-		"ignore-rules/delete": {
-			OperationID:    "DeleteIgnoreRule",
-			Method:         "DELETE",
-			PathTemplate:   "/api/v1/ignore_rules/{id}",
-			RequiredParams: []string{"id"},
 		},
 	}
 
@@ -397,14 +329,14 @@ func (p *XrayProvider) GetDefaultConfiguration() providers.ProviderConfig {
 			{
 				Name:        "watches",
 				DisplayName: "Watch Management",
-				Description: "Configure watches for continuous monitoring",
-				Operations:  []string{"watches/list", "watches/get", "watches/create", "watches/update", "watches/delete"},
+				Description: "View watches for continuous monitoring",
+				Operations:  []string{"watches/list", "watches/get"},
 			},
 			{
 				Name:        "policies",
 				DisplayName: "Policy Management",
-				Description: "Define and manage security policies",
-				Operations:  []string{"policies/list", "policies/get", "policies/create", "policies/update", "policies/delete"},
+				Description: "View security policies",
+				Operations:  []string{"policies/list", "policies/get"},
 			},
 			{
 				Name:        "components",
@@ -419,8 +351,7 @@ func (p *XrayProvider) GetDefaultConfiguration() providers.ProviderConfig {
 				Operations: []string{
 					"reports/vulnerability", "reports/license", "reports/operational_risk",
 					"reports/sbom", "reports/compliance", "reports/status", "reports/download",
-					"reports/list", "reports/get", "reports/delete", "reports/schedule",
-					"reports/schedule/list", "reports/schedule/delete",
+					"reports/list", "reports/get",
 					"reports/export/violations", "reports/export/inventory",
 				},
 			},
@@ -530,28 +461,6 @@ func (p *XrayProvider) HealthCheck(ctx context.Context) error {
 // Close cleans up any resources
 func (p *XrayProvider) Close() error {
 	// No persistent connections to close
-	return nil
-}
-
-// InitializeWithPermissions initializes the provider with permission-based filtering
-func (p *XrayProvider) InitializeWithPermissions(ctx context.Context, apiKey string) error {
-	permissions, err := p.permissionDiscoverer.DiscoverPermissions(ctx, apiKey)
-	if err != nil {
-		return fmt.Errorf("failed to discover permissions: %w", err)
-	}
-
-	// Filter operations based on permissions
-	p.filteredOperations = p.permissionDiscoverer.FilterOperationsByPermissions(
-		p.allOperations,
-		permissions,
-	)
-
-	if p.BaseProvider != nil && p.GetLogger() != nil {
-		p.GetLogger().Info("Initialized Xray provider with filtered operations", map[string]interface{}{
-			"total_operations":   len(p.allOperations),
-			"allowed_operations": len(p.filteredOperations),
-		})
-	}
 	return nil
 }
 

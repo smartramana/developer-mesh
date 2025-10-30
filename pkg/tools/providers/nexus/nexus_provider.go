@@ -409,12 +409,6 @@ func (p *NexusProvider) GetOperationMappings() map[string]providers.OperationMap
 			PathTemplate:   "/v1/repositories/{repositoryName}",
 			RequiredParams: []string{"repositoryName"},
 		},
-		"repositories/delete": {
-			OperationID:    "deleteRepository",
-			Method:         "DELETE",
-			PathTemplate:   "/v1/repositories/{repositoryName}",
-			RequiredParams: []string{"repositoryName"},
-		},
 
 		// Component operations
 		"components/list": {
@@ -436,12 +430,6 @@ func (p *NexusProvider) GetOperationMappings() map[string]providers.OperationMap
 			PathTemplate:   "/v1/components",
 			RequiredParams: []string{"repository"},
 		},
-		"components/delete": {
-			OperationID:    "deleteComponent",
-			Method:         "DELETE",
-			PathTemplate:   "/v1/components/{id}",
-			RequiredParams: []string{"id"},
-		},
 
 		// Asset operations
 		"assets/list": {
@@ -454,12 +442,6 @@ func (p *NexusProvider) GetOperationMappings() map[string]providers.OperationMap
 		"assets/get": {
 			OperationID:    "getAssetById",
 			Method:         "GET",
-			PathTemplate:   "/v1/assets/{id}",
-			RequiredParams: []string{"id"},
-		},
-		"assets/delete": {
-			OperationID:    "deleteAsset",
-			Method:         "DELETE",
 			PathTemplate:   "/v1/assets/{id}",
 			RequiredParams: []string{"id"},
 		},
@@ -488,24 +470,6 @@ func (p *NexusProvider) GetOperationMappings() map[string]providers.OperationMap
 			RequiredParams: []string{},
 			OptionalParams: []string{"userId", "source"},
 		},
-		"users/create": {
-			OperationID:    "createUser",
-			Method:         "POST",
-			PathTemplate:   "/v1/security/users",
-			RequiredParams: []string{},
-		},
-		"users/update": {
-			OperationID:    "updateUser",
-			Method:         "PUT",
-			PathTemplate:   "/v1/security/users/{userId}",
-			RequiredParams: []string{"userId"},
-		},
-		"users/delete": {
-			OperationID:    "deleteUser",
-			Method:         "DELETE",
-			PathTemplate:   "/v1/security/users/{userId}",
-			RequiredParams: []string{"userId"},
-		},
 
 		// Security: Role operations
 		"roles/list": {
@@ -518,24 +482,6 @@ func (p *NexusProvider) GetOperationMappings() map[string]providers.OperationMap
 		"roles/get": {
 			OperationID:    "getRole",
 			Method:         "GET",
-			PathTemplate:   "/v1/security/roles/{id}",
-			RequiredParams: []string{"id"},
-		},
-		"roles/create": {
-			OperationID:    "create",
-			Method:         "POST",
-			PathTemplate:   "/v1/security/roles",
-			RequiredParams: []string{},
-		},
-		"roles/update": {
-			OperationID:    "update",
-			Method:         "PUT",
-			PathTemplate:   "/v1/security/roles/{id}",
-			RequiredParams: []string{"id"},
-		},
-		"roles/delete": {
-			OperationID:    "delete",
-			Method:         "DELETE",
 			PathTemplate:   "/v1/security/roles/{id}",
 			RequiredParams: []string{"id"},
 		},
@@ -553,12 +499,6 @@ func (p *NexusProvider) GetOperationMappings() map[string]providers.OperationMap
 			PathTemplate:   "/v1/security/privileges/{privilegeName}",
 			RequiredParams: []string{"privilegeName"},
 		},
-		"privileges/delete": {
-			OperationID:    "deletePrivilege",
-			Method:         "DELETE",
-			PathTemplate:   "/v1/security/privileges/{privilegeName}",
-			RequiredParams: []string{"privilegeName"},
-		},
 
 		// Blob store operations
 		"blobstores/list": {
@@ -570,12 +510,6 @@ func (p *NexusProvider) GetOperationMappings() map[string]providers.OperationMap
 		"blobstores/get": {
 			OperationID:    "getBlobStore",
 			Method:         "GET",
-			PathTemplate:   "/v1/blobstores/{name}",
-			RequiredParams: []string{"name"},
-		},
-		"blobstores/delete": {
-			OperationID:    "deleteBlobStore",
-			Method:         "DELETE",
 			PathTemplate:   "/v1/blobstores/{name}",
 			RequiredParams: []string{"name"},
 		},
@@ -617,24 +551,6 @@ func (p *NexusProvider) GetOperationMappings() map[string]providers.OperationMap
 		"cleanup/get": {
 			OperationID:    "get",
 			Method:         "GET",
-			PathTemplate:   "/v1/cleanup-policies/{policyName}",
-			RequiredParams: []string{"policyName"},
-		},
-		"cleanup/create": {
-			OperationID:    "create_5",
-			Method:         "POST",
-			PathTemplate:   "/v1/cleanup-policies",
-			RequiredParams: []string{},
-		},
-		"cleanup/update": {
-			OperationID:    "update_5",
-			Method:         "PUT",
-			PathTemplate:   "/v1/cleanup-policies/{policyName}",
-			RequiredParams: []string{"policyName"},
-		},
-		"cleanup/delete": {
-			OperationID:    "delete_6",
-			Method:         "DELETE",
 			PathTemplate:   "/v1/cleanup-policies/{policyName}",
 			RequiredParams: []string{"policyName"},
 		},
@@ -684,20 +600,20 @@ func (p *NexusProvider) GetDefaultConfiguration() providers.ProviderConfig {
 			{
 				Name:        "repositories",
 				DisplayName: "Repository Management",
-				Description: "Operations for managing repositories",
-				Operations:  []string{"repositories/list", "repositories/get", "repositories/delete"},
+				Description: "View repositories",
+				Operations:  []string{"repositories/list", "repositories/get"},
 			},
 			{
 				Name:        "components",
 				DisplayName: "Component Management",
-				Description: "Operations for managing components",
-				Operations:  []string{"components/list", "components/get", "components/upload", "components/delete"},
+				Description: "View and upload components",
+				Operations:  []string{"components/list", "components/get", "components/upload"},
 			},
 			{
 				Name:        "assets",
 				DisplayName: "Asset Management",
-				Description: "Operations for managing assets",
-				Operations:  []string{"assets/list", "assets/get", "assets/delete"},
+				Description: "View assets",
+				Operations:  []string{"assets/list", "assets/get"},
 			},
 			{
 				Name:        "search",
@@ -708,14 +624,14 @@ func (p *NexusProvider) GetDefaultConfiguration() providers.ProviderConfig {
 			{
 				Name:        "security",
 				DisplayName: "Security Management",
-				Description: "User, role, and privilege management",
-				Operations:  []string{"users/list", "users/create", "roles/list", "roles/create", "privileges/list"},
+				Description: "View users, roles, and privileges",
+				Operations:  []string{"users/list", "roles/list", "roles/get", "privileges/list", "privileges/get"},
 			},
 			{
 				Name:        "administration",
 				DisplayName: "Administration",
-				Description: "System administration tasks",
-				Operations:  []string{"tasks/list", "tasks/run", "blobstores/list", "cleanup/list"},
+				Description: "View and run system tasks",
+				Operations:  []string{"tasks/list", "tasks/get", "tasks/run", "tasks/stop", "blobstores/list", "blobstores/get", "cleanup/list", "cleanup/get"},
 			},
 		},
 	}
@@ -1105,74 +1021,4 @@ func (p *NexusProvider) HealthCheck(ctx context.Context) error {
 func (p *NexusProvider) Close() error {
 	// Currently no resources to clean up
 	return nil
-}
-
-// FilterOperationsByPermissions filters operations based on user permissions
-func (p *NexusProvider) FilterOperationsByPermissions(operations []string, permissions map[string]interface{}) []string {
-	// Extract user privileges from permissions
-	privileges, ok := permissions["privileges"].([]string)
-	if !ok {
-		// No privileges info, return all operations
-		return operations
-	}
-
-	// Map Nexus privileges to allowed operations
-	allowedOps := make(map[string]bool)
-
-	for _, priv := range privileges {
-		switch {
-		case strings.Contains(priv, "repository-view"):
-			// Read access to repositories
-			allowedOps["repositories/list"] = true
-			allowedOps["repositories/get"] = true
-			allowedOps["components/list"] = true
-			allowedOps["components/get"] = true
-			allowedOps["assets/list"] = true
-			allowedOps["assets/get"] = true
-			allowedOps["search/components"] = true
-			allowedOps["search/assets"] = true
-
-		case strings.Contains(priv, "repository-admin"):
-			// Full repository management
-			allowedOps["repositories/list"] = true
-			allowedOps["repositories/get"] = true
-			allowedOps["repositories/create"] = true
-			allowedOps["repositories/delete"] = true
-			allowedOps["components/list"] = true
-			allowedOps["components/get"] = true
-			allowedOps["components/upload"] = true
-			allowedOps["components/delete"] = true
-			allowedOps["assets/list"] = true
-			allowedOps["assets/get"] = true
-			allowedOps["assets/delete"] = true
-
-		case strings.Contains(priv, "security-admin"):
-			// Security administration
-			allowedOps["users/list"] = true
-			allowedOps["users/create"] = true
-			allowedOps["users/update"] = true
-			allowedOps["users/delete"] = true
-			allowedOps["roles/list"] = true
-			allowedOps["roles/create"] = true
-			allowedOps["roles/update"] = true
-			allowedOps["roles/delete"] = true
-			allowedOps["privileges/list"] = true
-			allowedOps["privileges/get"] = true
-
-		case strings.Contains(priv, "nexus:*"):
-			// Admin - all operations
-			return operations
-		}
-	}
-
-	// Filter operations based on allowed set
-	filtered := []string{}
-	for _, op := range operations {
-		normalized := p.normalizeOperationName(op)
-		if allowedOps[normalized] {
-			filtered = append(filtered, op)
-		}
-	}
-
-	return filtered
 }
