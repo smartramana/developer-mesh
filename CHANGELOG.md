@@ -13,6 +13,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+## [0.0.10] - 2025-11-04
+
+### Fixed
+
+- **Docker TLS Certificate Verification** (#86)
+  - Added CA certificates to all distroless Docker images
+  - Fixes TLS verification errors when connecting to AWS services (RDS, ElastiCache)
+  - Set SSL_CERT_DIR and SSL_CERT_FILE environment variables for Go's crypto/x509 package
+  - Converted rag-loader from Alpine to distroless for consistency
+  - All services now use distroless base images with proper certificate chains
+  - Maintains minimal attack surface while enabling secure cloud connectivity
+  - Image sizes remain optimized (23MB - 66MB range)
+
 ## [0.0.9] - 2025-10-29
 
 ### Changed
