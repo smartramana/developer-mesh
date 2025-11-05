@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+### Changed
+
+### Fixed
+
+### Documentation
+
+## [0.0.11] - 2025-11-05
+
 ### Changed
 
 - **Redis Environment Variable Consolidation**
@@ -44,10 +54,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Added examples for local development, Docker, and AWS ElastiCache scenarios
   - Updated `docs/reference/configuration/environment-variables.md` with format details
   - Updated `docs/deployment/kubernetes-elasticache.md` with correct variable names
-
-### Added
-
-### Fixed
 
 ## [0.0.10] - 2025-11-04
 
