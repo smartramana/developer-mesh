@@ -88,13 +88,12 @@ func NewClient(_ context.Context, config *Config) (*Client, error) {
 		consumerGroup = g
 	}
 
-	// Create Redis Streams client
-	streamsClient, err := redis.NewStreamsClient(&redis.StreamsConfig{
-		Addresses:  addresses,
-		Password:   password,
-		PoolSize:   10,
-		MaxRetries: 3,
-	}, logger)
+	// Create Redis Streams client with proper timeout configurations
+	streamsConfig := redis.DefaultConfig()
+	streamsConfig.Addresses = addresses
+	streamsConfig.Password = password
+
+	streamsClient, err := redis.NewStreamsClient(streamsConfig, logger)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create Redis Streams client: %w", err)
 	}
