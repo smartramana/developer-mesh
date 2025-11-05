@@ -14,9 +14,9 @@ type CacheConfig struct {
 
 	// L2 Redis Cache (optional)
 	RedisEnabled        bool          `yaml:"redis_enabled" json:"redis_enabled"`
-	RedisAddr           string        `yaml:"redis_addr" json:"redis_addr"`           // host:port format (e.g., localhost:6379)
-	RedisPassword       string        `yaml:"redis_password" json:"redis_password"`   // Optional password
-	RedisDB             int           `yaml:"redis_db" json:"redis_db"`               // Database number (default: 0)
+	RedisAddr           string        `yaml:"redis_addr" json:"redis_addr"`         // host:port format (e.g., localhost:6379)
+	RedisPassword       string        `yaml:"redis_password" json:"redis_password"` // Optional password
+	RedisDB             int           `yaml:"redis_db" json:"redis_db"`             // Database number (default: 0)
 	RedisConnectTimeout time.Duration `yaml:"redis_connect_timeout" json:"redis_connect_timeout"`
 	RedisFallbackMode   bool          `yaml:"redis_fallback_mode" json:"redis_fallback_mode"`
 	L2TTL               time.Duration `yaml:"l2_ttl" json:"l2_ttl"`
