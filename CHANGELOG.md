@@ -15,6 +15,29 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Documentation
 
+## [0.0.12] - 2025-11-05
+
+### Fixed
+
+- **ElastiCache I/O Timeout Error**
+  - Fixed "failed to ping Redis: i/o timeout" error when worker connects to AWS ElastiCache
+  - Root cause: Network latency (5-50ms+) and TLS handshake overhead (100-500ms) exceeded implicit go-redis default timeouts (~3-5s)
+  - Added explicit timeout configurations to `pkg/redis/streams_client.go`:
+    - `DialTimeout`: 15 seconds (generous timeout for cross-network connections)
+    - `ReadTimeout`: 10 seconds (read operations timeout)
+    - `WriteTimeout`: 10 seconds (write operations timeout)
+  - Applied timeouts to all client creation modes (single instance, cluster, sentinel)
+  - Updated connection test timeout to use combined dial+read timeout for initial handshake
+  - Updated `pkg/queue/queue.go` to use `DefaultConfig()` for consistent timeout configurations
+  - Fix works for localhost (low latency) and ElastiCache (higher latency) deployments
+  - Handles worst-case network conditions: cross-VPC routing, DNS resolution, security group processing
+
+### Documentation
+
+- **Redis Timeout Configuration**
+  - Documented timeout configuration rationale in code comments
+  - Explained network latency differences between localhost and ElastiCache
+
 ## [0.0.11] - 2025-11-05
 
 ### Changed
