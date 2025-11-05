@@ -7,9 +7,45 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-### Added
-
 ### Changed
+
+- **Redis Environment Variable Consolidation**
+  - Standardized all services to use `REDIS_ADDR` exclusively (format: `host:port`)
+  - Removed `REDIS_ADDRESS` variable from worker and queue initialization
+  - Unified Edge MCP Redis configuration to use standard `REDIS_ADDR` instead of `EDGE_MCP_REDIS_URL`
+  - Changed Edge MCP from URL format (`redis://host:port`) to simple address format (`host:port`)
+  - Updated cache initialization to use `redis.Options` instead of `redis.ParseURL()`
+  - **Breaking Change**: `REDIS_ADDRESS` is no longer supported - use `REDIS_ADDR` instead
+  - **Breaking Change**: `EDGE_MCP_REDIS_URL` is no longer supported - use `REDIS_ADDR` instead
+  - Updated all Helm charts and docker-compose configurations to use `REDIS_ADDR`
+  - Updated all configuration files (edge-mcp, rest-api, worker, rag-loader)
+  - Format: `REDIS_ADDR` uses simple `host:port` (e.g., `localhost:6379`, `elasticache.amazonaws.com:6379`)
+  - Do NOT include protocol (`redis://` or `rediss://`), authentication (`user:pass@`), or database number (`/0`)
+  - Authentication and TLS configured via separate environment variables:
+    - `REDIS_PASSWORD` - AUTH token
+    - `REDIS_USERNAME` - Redis 6.0+ ACL users
+    - `REDIS_TLS_ENABLED` - Enable TLS
+    - `REDIS_TLS_SKIP_VERIFY` - Skip TLS verification (dev only)
+
+### Fixed
+
+- **Kubernetes ElastiCache Connection Error**
+  - Fixed "dial tcp [::]:6379: connect: connection refused" error in K8s deployments
+  - Root cause: Worker service expected `REDIS_ADDRESS` but Helm charts only set `REDIS_ADDR`
+  - Consolidated all services to use `REDIS_ADDR` consistently
+  - Updated `pkg/queue/queue.go` to use `REDIS_ADDR` environment variable
+  - Updated worker, rest-api, edge-mcp, and rag-loader configurations
+
+### Documentation
+
+- **Updated Redis Configuration Documentation**
+  - Added migration warning for `REDIS_ADDRESS` → `REDIS_ADDR` change
+  - Clarified `REDIS_ADDR` format requirements (simple `host:port`, no protocol/auth)
+  - Added examples for local development, Docker, and AWS ElastiCache scenarios
+  - Updated `docs/reference/configuration/environment-variables.md` with format details
+  - Updated `docs/deployment/kubernetes-elasticache.md` with correct variable names
+
+### Added
 
 ### Fixed
 

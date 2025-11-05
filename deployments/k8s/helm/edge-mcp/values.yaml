@@ -238,6 +238,22 @@ redis:
       maxmemory 256mb
       maxmemory-policy allkeys-lru
 
+# External Redis/ElastiCache configuration
+# Use this when redis.enabled is false
+externalRedis:
+  # Connection string for external Redis
+  # For ElastiCache: redis://your-cluster.cache.amazonaws.com:6379
+  # For ElastiCache with TLS: rediss://your-cluster.cache.amazonaws.com:6379
+  host: "localhost"
+  port: 6379
+  password: ""
+  database: 0
+  # TLS configuration for ElastiCache
+  tls:
+    enabled: false
+    # Skip TLS verification (not recommended for production)
+    skipVerify: false
+
 # Service Account
 serviceAccount:
   create: true

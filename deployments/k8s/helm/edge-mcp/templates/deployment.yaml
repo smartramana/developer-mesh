@@ -71,9 +71,31 @@ spec:
               fieldPath: metadata.name
         - name: EDGE_MCP_REDIS_ENABLED
           value: {{ .Values.edgeMcp.cache.redis.enabled | quote }}
-        {{- if .Values.edgeMcp.cache.redis.enabled }}
-        - name: EDGE_MCP_REDIS_URL
-          value: "redis://{{ .Release.Name }}-redis-master:6379/0"
+        {{- if .Values.redis.enabled }}
+        # Internal Redis configuration
+        - name: REDIS_ADDR
+          value: "{{ .Release.Name }}-redis-master:6379"
+        - name: EDGE_MCP_REDIS_DB
+          value: "0"
+        {{- else if not .Values.redis.enabled }}
+        # External Redis/ElastiCache configuration
+        - name: REDIS_ADDR
+          value: "{{ .Values.externalRedis.host }}:{{ .Values.externalRedis.port }}"
+        - name: EDGE_MCP_REDIS_DB
+          value: {{ .Values.externalRedis.database | quote }}
+        {{- if .Values.externalRedis.password }}
+        - name: REDIS_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: {{ include "edge-mcp.fullname" . }}-redis-secret
+              key: password
+        {{- end }}
+        {{- if .Values.externalRedis.tls.enabled }}
+        - name: REDIS_TLS_ENABLED
+          value: "true"
+        - name: REDIS_TLS_SKIP_VERIFY
+          value: {{ .Values.externalRedis.tls.skipVerify | quote }}
+        {{- end }}
         {{- end }}
         - name: EDGE_MCP_REDIS_FALLBACK_MODE
           value: "true"

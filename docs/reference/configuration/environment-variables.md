@@ -8,6 +8,8 @@ Batch: ab
 
 This document provides a comprehensive reference for all environment variables used in the DevOps MCP platform.
 
+> **⚠️ Important Migration Note**: As of version 0.0.11, the `REDIS_ADDRESS` environment variable has been **deprecated and removed**. All services now use `REDIS_ADDR` exclusively for Redis connectivity. If you're upgrading from an earlier version, please update your configuration files, Docker Compose, and Kubernetes deployments to use `REDIS_ADDR` instead of `REDIS_ADDRESS`.
+
 ## Table of Contents
 - [Core Configuration](#core-configuration)
 - [Database Configuration](#database-configuration)
@@ -66,14 +68,21 @@ These variables are aliases for the above and work identically:
 
 ## Redis Configuration
 
+> **Note**: Only `REDIS_ADDR` is supported for Redis connectivity. The deprecated `REDIS_ADDRESS` variable has been removed.
+
 ### Redis Connection
+
+**Format**: `REDIS_ADDR` uses simple `host:port` format (e.g., `localhost:6379`, `elasticache.amazonaws.com:6379`). Do **NOT** include protocol (`redis://` or `rediss://`) or authentication (`user:pass@`) in this variable.
+
 | Variable | Description | Default | Required | Services |
 |----------|-------------|---------|----------|----------|
-| `REDIS_ADDR` | Redis address (host:port) | `localhost:6379 (Redis)` | Yes | All |
+| `REDIS_ADDR` | Redis address (host:port format only) | `localhost:6379` | Yes | All |
 | `REDIS_HOST` | Redis hostname | `localhost` | No | All |
 | `REDIS_PORT` | Redis port | `6379` | No | All |
-| `REDIS_PASSWORD` | Redis password | - | No | All |
-| `REDIS_ADDRESS` | Alias for REDIS_ADDR | - | No | All |
+| `REDIS_PASSWORD` | Redis password (set separately) | - | No | All |
+| `REDIS_USERNAME` | Redis username (Redis 6.0+ ACL) | - | No | All |
+| `REDIS_TLS_ENABLED` | Enable TLS connection | `false` | No | All |
+| `REDIS_TLS_SKIP_VERIFY` | Skip TLS cert verification (dev only) | `false` | No | All |
 
 ### ElastiCache (AWS)
 | Variable | Description | Default | Required | Services |
@@ -278,6 +287,37 @@ echo "test" | openssl enc -aes-256-cbc -base64 -pass pass:$ENCRYPTION_KEY
 ```
 
 ## Examples
+
+### Redis Connection Examples
+
+#### Local Redis (Development)
+```bash
+export REDIS_ADDR=localhost:6379
+# No password or TLS needed for local development
+```
+
+#### AWS ElastiCache (without TLS)
+```bash
+export REDIS_ADDR=my-cluster.abc123.cache.amazonaws.com:6379
+export REDIS_PASSWORD=my-auth-token  # If AUTH is enabled
+```
+
+#### AWS ElastiCache (with TLS)
+```bash
+export REDIS_ADDR=my-cluster.abc123.cache.amazonaws.com:6379
+export REDIS_PASSWORD=my-auth-token
+export REDIS_TLS_ENABLED=true
+export REDIS_TLS_SKIP_VERIFY=false  # Always false in production
+```
+
+#### Redis 6.0+ with ACL Users
+```bash
+export REDIS_ADDR=redis.example.com:6379
+export REDIS_USERNAME=myapp
+export REDIS_PASSWORD=user-specific-password
+```
+
+**Important**: The `REDIS_ADDR` variable is **ONLY** the `host:port`. Authentication and TLS settings are configured separately. Never use URL format like `redis://user:pass@host:port` for `REDIS_ADDR`.
 
 ### Minimal Development Setup
 ```bash

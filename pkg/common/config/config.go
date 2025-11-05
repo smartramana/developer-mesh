@@ -158,7 +158,6 @@ func Load() (*Config, error) {
 	// Bind specific environment variables that don't follow the MCP_ prefix
 	// These are commonly used in Docker environments
 	_ = v.BindEnv("cache.address", "REDIS_ADDR")    // Best effort - viper handles errors internally
-	_ = v.BindEnv("cache.address", "REDIS_ADDRESS") // Best effort - viper handles errors internally
 	_ = v.BindEnv("cache.address", "CACHE_ADDRESS") // Best effort - viper handles errors internally
 
 	// Bind database environment variables used by Docker

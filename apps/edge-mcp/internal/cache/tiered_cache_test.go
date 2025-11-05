@@ -35,11 +35,11 @@ func TestNewTieredCache_WithRedis(t *testing.T) {
 	}
 
 	// Try to connect to local Redis
-	redisURL := "redis://localhost:6379/15" // Use DB 15 for testing
 
 	config := &TieredCacheConfig{
 		RedisEnabled:        true,
-		RedisURL:            redisURL,
+		RedisAddr:           "localhost:6379",
+		RedisDB:             15, // Use DB 15 for testing
 		RedisFallbackMode:   true,
 		RedisConnectTimeout: 2 * time.Second,
 		Logger:              observability.NewNoopLogger(),
@@ -55,11 +55,11 @@ func TestNewTieredCache_WithRedis(t *testing.T) {
 	assert.NotNil(t, cache.l1)
 }
 
-// TestNewTieredCache_InvalidRedisURL tests handling of invalid Redis URL
-func TestNewTieredCache_InvalidRedisURL(t *testing.T) {
+// TestNewTieredCache_InvalidRedisAddr tests handling of invalid Redis address
+func TestNewTieredCache_InvalidRedisAddr(t *testing.T) {
 	config := &TieredCacheConfig{
 		RedisEnabled:      true,
-		RedisURL:          "invalid://url",
+		RedisAddr:         "invalid:address:port", // Invalid format
 		RedisFallbackMode: true,
 		Logger:            observability.NewNoopLogger(),
 	}
@@ -508,7 +508,6 @@ func TestTieredCache_WithRedis_Integration(t *testing.T) {
 	}
 
 	// Try to connect to local Redis
-	redisURL := "redis://localhost:6379/15" // Use DB 15 for testing
 	client := redis.NewClient(&redis.Options{
 		Addr: "localhost:6379",
 		DB:   15,
@@ -526,7 +525,8 @@ func TestTieredCache_WithRedis_Integration(t *testing.T) {
 	// Create cache with Redis enabled
 	cache, err := NewTieredCache(&TieredCacheConfig{
 		RedisEnabled:        true,
-		RedisURL:            redisURL,
+		RedisAddr:           "localhost:6379",
+		RedisDB:             15, // Use DB 15 for testing
 		RedisFallbackMode:   false,
 		RedisConnectTimeout: 5 * time.Second,
 		L1TTL:               100 * time.Millisecond,

@@ -22,8 +22,9 @@ services:
       - DATABASE_PASSWORD=devmesh
       - DATABASE_SSL_MODE=disable
       # Redis (for caching)
-      - REDIS_HOST=redis
-      - REDIS_PORT=6379
+      - REDIS_ADDR=redis:6379
+      - EDGE_MCP_REDIS_ENABLED=true
+      - EDGE_MCP_REDIS_DB=0
     volumes:
       - ./apps/edge-mcp/configs:/app/configs:ro
     depends_on:
@@ -84,7 +85,6 @@ services:
       - REDIS_HOST=redis
       - REDIS_PORT=6379
       - REDIS_ADDR=redis:6379
-      - REDIS_ADDRESS=redis:6379
       - CACHE_TYPE=redis
       # ElastiCache configuration for functional tests
       - ELASTICACHE_ENDPOINT=redis
@@ -180,7 +180,6 @@ services:
       - REDIS_HOST=redis
       - REDIS_PORT=6379
       - REDIS_ADDR=redis:6379
-      - REDIS_ADDRESS=redis:6379
       # AWS Configuration
       # Use real AWS for Bedrock and other services, LocalStack only for S3
       - AWS_REGION=${AWS_REGION:-us-east-1}

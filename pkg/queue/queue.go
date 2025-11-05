@@ -72,7 +72,7 @@ func NewClient(_ context.Context, config *Config) (*Client, error) {
 
 	// Get Redis configuration from environment
 	addresses := []string{"localhost:6379"}
-	if redisAddr := os.Getenv("REDIS_ADDRESS"); redisAddr != "" {
+	if redisAddr := os.Getenv("REDIS_ADDR"); redisAddr != "" {
 		addresses = []string{redisAddr}
 	}
 
