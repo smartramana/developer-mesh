@@ -2,6 +2,7 @@ package queue
 
 import (
 	"context"
+	"crypto/tls"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -92,6 +93,27 @@ func NewClient(_ context.Context, config *Config) (*Client, error) {
 	streamsConfig := redis.DefaultConfig()
 	streamsConfig.Addresses = addresses
 	streamsConfig.Password = password
+
+	// Configure TLS if enabled (required for AWS ElastiCache with encryption in-transit)
+	if os.Getenv("REDIS_TLS_ENABLED") == "true" {
+		streamsConfig.TLSEnabled = true
+		streamsConfig.TLSConfig = &tls.Config{
+			MinVersion: tls.VersionTLS12,
+		}
+
+		// Allow skipping TLS verification in development/testing (NOT for production!)
+		if os.Getenv("REDIS_TLS_SKIP_VERIFY") == "true" {
+			streamsConfig.TLSConfig.InsecureSkipVerify = true
+			logger.Warn("TLS certificate verification disabled - only use in development!", map[string]interface{}{
+				"env": "REDIS_TLS_SKIP_VERIFY=true",
+			})
+		}
+
+		logger.Info("TLS enabled for Redis connection", map[string]interface{}{
+			"addresses":       addresses,
+			"tls_skip_verify": streamsConfig.TLSConfig.InsecureSkipVerify,
+		})
+	}
 
 	streamsClient, err := redis.NewStreamsClient(streamsConfig, logger)
 	if err != nil {

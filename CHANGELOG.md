@@ -15,6 +15,36 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Documentation
 
+## [0.0.13] - 2025-11-05
+
+### Fixed
+
+- **Critical: Worker TLS Configuration for ElastiCache**
+  - Fixed worker failing to connect to AWS ElastiCache with TLS encryption enabled
+  - Root cause: `pkg/queue/queue.go` never read `REDIS_TLS_ENABLED` environment variable
+  - Worker was attempting plaintext connections to TLS-enabled ElastiCache causing I/O timeout
+  - Protocol mismatch: ElastiCache expected TLS handshake, client sent plaintext Redis commands
+  - Added TLS configuration support to `pkg/queue/queue.go`:
+    - Now reads `REDIS_TLS_ENABLED` environment variable
+    - Configures `tls.Config` with MinVersion TLS 1.2 when enabled
+    - Supports `REDIS_TLS_SKIP_VERIFY=true` for development (with warning log)
+    - Adds informational logging when TLS is enabled
+  - **Architectural Note**: Worker had inconsistent Redis initialization
+    - Idempotency Redis client in `apps/worker/main.go` already had TLS support (lines 167-173)
+    - Queue/Streams Redis client in `pkg/queue/queue.go` was missing TLS support (now fixed)
+    - REST API and RAG Loader use `pkg/common/cache` with built-in TLS support via YAML config
+    - Edge MCP uses in-memory cache only (no Redis connection)
+  - **Why it worked locally**: Local Redis container runs without TLS (accepts plaintext)
+  - **Why it failed with ElastiCache**: AWS requires encryption-in-transit (TLS mandatory)
+
+### Documentation
+
+- **Redis TLS Configuration Across Applications**
+  - Documented three different Redis initialization patterns in codebase
+  - Explained why Worker had two Redis clients with different TLS support
+  - Clarified that REST API/RAG Loader already support TLS via YAML config
+  - Added deployment guidance for ElastiCache TLS configuration
+
 ## [0.0.12] - 2025-11-05
 
 ### Fixed
