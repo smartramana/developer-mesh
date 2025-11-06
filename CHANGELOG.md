@@ -50,6 +50,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Clarified that ElastiCache Redis does NOT support IAM authentication
   - Explained username/password authentication flow for all applications
   - Added guidance for configuring REDIS_USERNAME and REDIS_PASSWORD environment variables
+  - Updated `docs/reference/configuration/redis-configuration.md`:
+    - Added REDIS_USERNAME to environment variables section
+    - Enhanced ElastiCache configuration section with ACL auth details
+    - Added environment variables for authentication examples
+    - Updated TLS environment variables with ElastiCache-specific guidance
+
+### Configuration
+
+- **Deployment Configuration Updates**
+  - Updated Helm charts for ElastiCache deployments:
+    - `deployments/k8s/helm/worker/values.elasticache.yaml`: Added username field with documentation
+    - `deployments/k8s/helm/edge-mcp/values.elasticache.yaml`: Added username field with documentation
+  - Updated `.env.example`:
+    - Added REDIS_USERNAME with usage documentation
+    - Added REDIS_PASSWORD with security notes
+    - Added REDIS_TLS_ENABLED flag for ElastiCache
+    - Added REDIS_TLS_SKIP_VERIFY flag with development-only warning
 
 ## [0.0.13] - 2025-11-05
 
