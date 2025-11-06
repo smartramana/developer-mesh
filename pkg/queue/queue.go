@@ -77,6 +77,7 @@ func NewClient(_ context.Context, config *Config) (*Client, error) {
 		addresses = []string{redisAddr}
 	}
 
+	username := os.Getenv("REDIS_USERNAME")
 	password := os.Getenv("REDIS_PASSWORD")
 
 	streamName := "webhook-events"
@@ -92,6 +93,7 @@ func NewClient(_ context.Context, config *Config) (*Client, error) {
 	// Create Redis Streams client with proper timeout configurations
 	streamsConfig := redis.DefaultConfig()
 	streamsConfig.Addresses = addresses
+	streamsConfig.Username = username
 	streamsConfig.Password = password
 
 	// Configure TLS if enabled (required for AWS ElastiCache with encryption in-transit)

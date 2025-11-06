@@ -15,6 +15,42 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Documentation
 
+## [0.0.14] - 2025-11-06
+
+### Fixed
+
+- **Critical: Redis ACL Authentication for ElastiCache**
+  - Fixed worker failing to authenticate with AWS ElastiCache using Redis 6.0+ ACL authentication
+  - Root cause: `StreamsConfig` and worker clients missing username support for ACL authentication
+  - Error: "WRONGPASS invalid username-password pair or user is disabled"
+  - **Authentication Method**: ElastiCache uses Redis 6.0+ ACL requiring `AUTH username password` (not IAM)
+  - Added Redis ACL username support across all applications:
+    - Added `Username` field to `StreamsConfig` struct in `pkg/redis/streams_client.go`
+    - Updated all three client modes (single, cluster, sentinel) to pass username to go-redis
+    - Modified `pkg/queue/queue.go` to read `REDIS_USERNAME` environment variable
+    - Modified worker idempotency client in `apps/worker/main.go` to read username/password
+    - Added explicit Viper bindings in `pkg/common/config/config.go` for REST API consistency
+  - **Environment Variables**: All apps now consistently support:
+    - `REDIS_USERNAME` - Redis 6.0+ ACL username
+    - `REDIS_PASSWORD` - Redis password
+    - `REDIS_TLS_ENABLED` - Enable TLS for encryption-in-transit
+  - **Cross-App Consistency**: Fixed environment variable binding gaps
+    - REST API/RAG Loader: Added explicit `REDIS_USERNAME` and `REDIS_PASSWORD` bindings to Viper
+    - Worker queue client: Now reads `REDIS_USERNAME` and passes to StreamsConfig
+    - Worker idempotency client: Now reads `REDIS_USERNAME` and `REDIS_PASSWORD`
+  - **Architectural Note**: Three apps use different Redis initialization patterns
+    - REST API/RAG Loader: Viper YAML config via `pkg/common/cache` (now has username binding)
+    - Worker queue: Environment variables via `pkg/queue/queue.go` (now has username support)
+    - Worker idempotency: Direct environment variables in `apps/worker/main.go` (now consistent)
+
+### Documentation
+
+- **Redis ACL Authentication Across Applications**
+  - Documented Redis 6.0+ ACL authentication requirements for ElastiCache
+  - Clarified that ElastiCache Redis does NOT support IAM authentication
+  - Explained username/password authentication flow for all applications
+  - Added guidance for configuring REDIS_USERNAME and REDIS_PASSWORD environment variables
+
 ## [0.0.13] - 2025-11-05
 
 ### Fixed

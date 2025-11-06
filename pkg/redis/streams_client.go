@@ -15,6 +15,7 @@ import (
 type StreamsConfig struct {
 	// Connection settings
 	Addresses    []string      `yaml:"addresses" json:"addresses"`
+	Username     string        `yaml:"username" json:"username"` // Redis 6.0+ ACL username
 	Password     string        `yaml:"password" json:"password"`
 	DB           int           `yaml:"db" json:"db"`
 	MaxRetries   int           `yaml:"max_retries" json:"max_retries"`
@@ -117,6 +118,7 @@ func (c *StreamsClient) connect() error {
 			MasterName:       c.config.MasterName,
 			SentinelAddrs:    c.config.SentinelAddrs,
 			SentinelPassword: c.config.SentinelPassword,
+			Username:         c.config.Username,
 			Password:         c.config.Password,
 			DB:               c.config.DB,
 			MaxRetries:       c.config.MaxRetries,
@@ -134,6 +136,7 @@ func (c *StreamsClient) connect() error {
 		// Cluster mode for horizontal scaling
 		client = redis.NewClusterClient(&redis.ClusterOptions{
 			Addrs:           c.config.Addresses,
+			Username:        c.config.Username,
 			Password:        c.config.Password,
 			MaxRetries:      c.config.MaxRetries,
 			MinRetryBackoff: c.config.RetryBackoff,
@@ -156,6 +159,7 @@ func (c *StreamsClient) connect() error {
 
 		client = redis.NewClient(&redis.Options{
 			Addr:            c.config.Addresses[0],
+			Username:        c.config.Username,
 			Password:        c.config.Password,
 			DB:              c.config.DB,
 			MaxRetries:      c.config.MaxRetries,

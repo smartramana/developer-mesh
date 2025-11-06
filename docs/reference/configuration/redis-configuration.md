@@ -23,12 +23,17 @@ Developer Mesh uses Redis for multiple purposes:
 ```bash
 # Basic connection
 REDIS_ADDR=localhost:6379        # Redis address (host:port)
-REDIS_PASSWORD=your_password     # Redis password (optional)
+REDIS_USERNAME=                  # Redis 6.0+ ACL username (optional, default is "default")
+REDIS_PASSWORD=your_password     # Redis password (required for production)
 REDIS_DB=0                       # Database number (0-15)
 
 # Alternative format
 REDIS_HOST=localhost             # Host only
 REDIS_PORT=6379                 # Port only
+
+# TLS/SSL configuration
+REDIS_TLS_ENABLED=false          # Enable TLS (required for AWS ElastiCache)
+REDIS_TLS_SKIP_VERIFY=false      # Skip TLS verification (ONLY for development)
 
 # Connection pool settings
 REDIS_POOL_SIZE=50              # Maximum connections
@@ -222,10 +227,15 @@ redis:
 ### Environment Variables for TLS
 
 ```bash
+# Required for AWS ElastiCache with encryption-in-transit
 REDIS_TLS_ENABLED=true
+
+# Optional certificate files (usually not needed for ElastiCache)
 REDIS_TLS_CERT_FILE=/path/to/client.crt
 REDIS_TLS_KEY_FILE=/path/to/client.key
 REDIS_TLS_CA_FILE=/path/to/ca.crt
+
+# Skip verification (ONLY for development - never in production)
 REDIS_TLS_SKIP_VERIFY=false
 ```
 
@@ -366,10 +376,12 @@ cat dump.rdb | redis-cli --pipe
 
 ```yaml
 redis:
-  # Password authentication
-  password: ${REDIS_PASSWORD}
-  
+  # Redis 6.0+ ACL authentication (username + password)
+  username: ${REDIS_USERNAME:-default}  # ACL username
+  password: ${REDIS_PASSWORD}           # ACL password
+
   # ACL configuration (Redis 6+)
+  # Note: For ElastiCache, username is typically "default"
   acl:
     enabled: true
     users:
@@ -377,11 +389,22 @@ redis:
         password: ${APP_PASSWORD}
         commands: ["+@all", "-flushdb", "-flushall", "-config"]
         keys: ["*"]
-        
+
       - name: readonly_user
         password: ${READONLY_PASSWORD}
         commands: ["+@read"]
         keys: ["*"]
+```
+
+### Environment Variables for Authentication
+
+```bash
+# Redis 6.0+ ACL authentication
+REDIS_USERNAME=default          # ACL username (required for ElastiCache)
+REDIS_PASSWORD=your_password    # ACL password (required)
+
+# Legacy Redis (< 6.0) - password only
+REDIS_PASSWORD=your_password    # No username field
 ```
 
 ### Network Security
@@ -449,23 +472,46 @@ redis:
 
 ### ElastiCache Settings
 
+AWS ElastiCache for Redis uses Redis 6.0+ ACL authentication (username + password). **IAM authentication is NOT supported** for ElastiCache Redis.
+
 ```yaml
 redis:
   elasticache:
     enabled: true
     endpoint: ${ELASTICACHE_ENDPOINT}
     port: 6379
-    auth_token: ${ELASTICACHE_AUTH_TOKEN}
-    
+
+    # Redis 6.0+ ACL authentication (required)
+    username: ${REDIS_USERNAME:-default}  # ACL username (usually "default")
+    password: ${REDIS_PASSWORD}           # ACL password (required)
+
     # Cluster mode
     cluster_mode:
       enabled: true
       configuration_endpoint: ${ELASTICACHE_CONFIG_ENDPOINT}
-    
-    # Encryption
+
+    # Encryption (TLS required for in-transit)
     encryption:
       at_rest: true
-      in_transit: true
+      in_transit: true      # Requires REDIS_TLS_ENABLED=true
+```
+
+### Environment Variables for ElastiCache
+
+```bash
+# Connection
+REDIS_ADDR=your-cluster.cache.amazonaws.com:6379
+
+# ACL Authentication (Redis 6.0+)
+REDIS_USERNAME=default              # Usually "default" for ElastiCache
+REDIS_PASSWORD=your_password        # Set in ElastiCache parameter group
+
+# TLS Configuration (required for encryption-in-transit)
+REDIS_TLS_ENABLED=true             # MUST be true for ElastiCache
+REDIS_TLS_SKIP_VERIFY=false        # MUST be false in production
+
+# Note: IAM authentication is NOT supported for ElastiCache Redis
+# You must use username/password authentication
 ```
 
 ### ElastiCache Parameter Group

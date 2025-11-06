@@ -11,9 +11,11 @@ externalRedis:
   # Example: my-cluster.abc123.cache.amazonaws.com
   host: "your-elasticache-cluster.cache.amazonaws.com"
   port: 6379
-  # If using ElastiCache with auth token
-  password: ""  # Or use a secret reference
-  # TLS configuration for ElastiCache
+  # ElastiCache uses Redis 6.0+ ACL authentication (username + password)
+  # IAM authentication is NOT supported for ElastiCache Redis
+  username: "default"  # Redis 6.0+ ACL username (default is "default")
+  password: ""         # Redis password (use a secret reference in production)
+  # TLS configuration for ElastiCache (encryption-in-transit required by AWS)
   tls:
     enabled: true
     # Set to false in production with proper certificates
