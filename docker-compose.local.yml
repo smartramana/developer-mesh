@@ -17,13 +17,14 @@ services:
       # Database (if Edge MCP needs direct access)
       - DATABASE_HOST=database
       - DATABASE_PORT=5432
-      - DATABASE_NAME=devmesh_development
-      - DATABASE_USER=devmesh
-      - DATABASE_PASSWORD=devmesh
+      - DATABASE_NAME=${DATABASE_NAME:-devmesh_development}
+      - DATABASE_USER=${DATABASE_USER:-devmesh}
+      - DATABASE_PASSWORD=${DATABASE_PASSWORD:-devmesh}
       - DATABASE_SSL_MODE=disable
       # Redis (for caching)
-      - REDIS_HOST=redis
-      - REDIS_PORT=6379
+      - REDIS_ADDR=redis:6379
+      - EDGE_MCP_REDIS_ENABLED=true
+      - EDGE_MCP_REDIS_DB=0
     volumes:
       - ./apps/edge-mcp/configs:/app/configs:ro
     depends_on:
@@ -70,21 +71,20 @@ services:
       - DB_HOST=database
       - DATABASE_PORT=5432
       - DB_PORT=5432
-      - DATABASE_NAME=devmesh_development
-      - DB_NAME=devmesh_development
-      - DATABASE_USER=devmesh
-      - DB_USER=devmesh
-      - DATABASE_PASSWORD=devmesh
-      - DB_PASSWORD=devmesh
+      - DATABASE_NAME=${DATABASE_NAME:-devmesh_development}
+      - DB_NAME=${DATABASE_NAME:-devmesh_development}
+      - DATABASE_USER=${DATABASE_USER:-devmesh}
+      - DB_USER=${DATABASE_USER:-devmesh}
+      - DATABASE_PASSWORD=${DATABASE_PASSWORD:-devmesh}
+      - DB_PASSWORD=${DATABASE_PASSWORD:-devmesh}
       - DATABASE_SSL_MODE=disable
       - DB_SSLMODE=disable
-      - DATABASE_DSN=postgres://devmesh:devmesh@database:5432/devmesh_development?sslmode=disable&search_path=mcp,public
+      - DATABASE_DSN=postgres://${DATABASE_USER:-devmesh}:${DATABASE_PASSWORD:-devmesh}@database:5432/${DATABASE_NAME:-devmesh_development}?sslmode=disable&search_path=mcp,public
       - MIGRATIONS_FAIL_FAST=true
       # Redis (using service names)
       - REDIS_HOST=redis
       - REDIS_PORT=6379
       - REDIS_ADDR=redis:6379
-      - REDIS_ADDRESS=redis:6379
       - CACHE_TYPE=redis
       # ElastiCache configuration for functional tests
       - ELASTICACHE_ENDPOINT=redis
@@ -168,19 +168,18 @@ services:
       - DB_HOST=database
       - DATABASE_PORT=5432
       - DB_PORT=5432
-      - DATABASE_NAME=devmesh_development
-      - DB_NAME=devmesh_development
-      - DATABASE_USER=devmesh
-      - DB_USER=devmesh
-      - DATABASE_PASSWORD=devmesh
-      - DB_PASSWORD=devmesh
-      - DATABASE_DSN=postgresql://devmesh:devmesh@database:5432/devmesh_development?sslmode=disable&search_path=mcp,public
+      - DATABASE_NAME=${DATABASE_NAME:-devmesh_development}
+      - DB_NAME=${DATABASE_NAME:-devmesh_development}
+      - DATABASE_USER=${DATABASE_USER:-devmesh}
+      - DB_USER=${DATABASE_USER:-devmesh}
+      - DATABASE_PASSWORD=${DATABASE_PASSWORD:-devmesh}
+      - DB_PASSWORD=${DATABASE_PASSWORD:-devmesh}
+      - DATABASE_DSN=postgresql://${DATABASE_USER:-devmesh}:${DATABASE_PASSWORD:-devmesh}@database:5432/${DATABASE_NAME:-devmesh_development}?sslmode=disable&search_path=mcp,public
       - DATABASE_SEARCH_PATH=mcp,public
       # Redis (using service names)
       - REDIS_HOST=redis
       - REDIS_PORT=6379
       - REDIS_ADDR=redis:6379
-      - REDIS_ADDRESS=redis:6379
       # AWS Configuration
       # Use real AWS for Bedrock and other services, LocalStack only for S3
       - AWS_REGION=${AWS_REGION:-us-east-1}
@@ -248,9 +247,9 @@ services:
       # Database (using service names)
       - DATABASE_HOST=database
       - DATABASE_PORT=5432
-      - DATABASE_NAME=devmesh_development
-      - DATABASE_USER=devmesh
-      - DATABASE_PASSWORD=devmesh
+      - DATABASE_NAME=${DATABASE_NAME:-devmesh_development}
+      - DATABASE_USER=${DATABASE_USER:-devmesh}
+      - DATABASE_PASSWORD=${DATABASE_PASSWORD:-devmesh}
       - DATABASE_SSL_MODE=disable
       - DATABASE_SEARCH_PATH=rag,mcp,public
       # Redis (using service names)
@@ -305,9 +304,9 @@ services:
   database:
     image: pgvector/pgvector:pg17
     environment:
-      - POSTGRES_USER=devmesh
-      - POSTGRES_PASSWORD=devmesh
-      - POSTGRES_DB=devmesh_development
+      - POSTGRES_USER=${DATABASE_USER:-devmesh}
+      - POSTGRES_PASSWORD=${DATABASE_PASSWORD:-devmesh}
+      - POSTGRES_DB=${DATABASE_NAME:-devmesh_development}
     volumes:
       - postgres-data:/var/lib/postgresql/data
       # Database initialization script for direct schema setup
@@ -315,7 +314,7 @@ services:
     ports:
       - "5432:5432"
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U devmesh -d devmesh_development"]
+      test: ["CMD-SHELL", "pg_isready -U ${DATABASE_USER:-devmesh} -d ${DATABASE_NAME:-devmesh_development}"]
       interval: 10s
       timeout: 5s
       retries: 3

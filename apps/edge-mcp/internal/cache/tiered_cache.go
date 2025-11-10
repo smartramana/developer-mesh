@@ -43,7 +43,9 @@ type TieredCacheConfig struct {
 
 	// L2 Redis Cache (optional)
 	RedisEnabled        bool
-	RedisURL            string
+	RedisAddr           string // host:port format (e.g., localhost:6379)
+	RedisPassword       string // Optional password
+	RedisDB             int    // Database number (default: 0)
 	RedisConnectTimeout time.Duration
 	RedisFallbackMode   bool // Continue without Redis if unavailable
 	L2TTL               time.Duration
@@ -133,7 +135,7 @@ func NewTieredCache(config *TieredCacheConfig) (*TieredCache, error) {
 	}
 
 	// Initialize Redis if enabled
-	if config.RedisEnabled && config.RedisURL != "" {
+	if config.RedisEnabled && config.RedisAddr != "" {
 		if err := tc.initRedis(); err != nil {
 			if config.RedisFallbackMode {
 				tc.logger.Warn("Redis initialization failed, falling back to memory-only mode", map[string]interface{}{
@@ -154,7 +156,9 @@ func DefaultTieredCacheConfig() *TieredCacheConfig {
 		L1MaxItems:           DefaultL1MaxItems,
 		L1TTL:                DefaultL1TTL,
 		RedisEnabled:         false,
-		RedisURL:             "",
+		RedisAddr:            "",
+		RedisPassword:        "",
+		RedisDB:              0,
 		RedisConnectTimeout:  RedisConnectTimeout,
 		RedisFallbackMode:    true,
 		L2TTL:                DefaultL2TTL,
@@ -166,15 +170,15 @@ func DefaultTieredCacheConfig() *TieredCacheConfig {
 
 // initRedis initializes Redis connection with timeout
 func (tc *TieredCache) initRedis() error {
-	opt, err := redis.ParseURL(tc.config.RedisURL)
-	if err != nil {
-		return fmt.Errorf("invalid Redis URL: %w", err)
+	// Create Redis options (matching other services' approach)
+	opt := &redis.Options{
+		Addr:         tc.config.RedisAddr,
+		Password:     tc.config.RedisPassword,
+		DB:           tc.config.RedisDB,
+		DialTimeout:  tc.config.RedisConnectTimeout,
+		ReadTimeout:  RedisOperationTimeout,
+		WriteTimeout: RedisOperationTimeout,
 	}
-
-	// Set timeouts
-	opt.DialTimeout = tc.config.RedisConnectTimeout
-	opt.ReadTimeout = RedisOperationTimeout
-	opt.WriteTimeout = RedisOperationTimeout
 
 	// Create client
 	tc.redis = redis.NewClient(opt)
@@ -194,7 +198,8 @@ func (tc *TieredCache) initRedis() error {
 	tc.lastHealthCheck = time.Now()
 
 	tc.logger.Info("Redis cache initialized successfully", map[string]interface{}{
-		"url": tc.config.RedisURL,
+		"addr": tc.config.RedisAddr,
+		"db":   tc.config.RedisDB,
 	})
 
 	return nil

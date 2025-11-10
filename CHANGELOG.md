@@ -29,6 +29,167 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+### Documentation
+
+## [0.0.14] - 2025-11-06
+
+### Fixed
+
+- **Critical: Redis ACL Authentication for ElastiCache**
+  - Fixed worker failing to authenticate with AWS ElastiCache using Redis 6.0+ ACL authentication
+  - Root cause: `StreamsConfig` and worker clients missing username support for ACL authentication
+  - Error: "WRONGPASS invalid username-password pair or user is disabled"
+  - **Authentication Method**: ElastiCache uses Redis 6.0+ ACL requiring `AUTH username password` (not IAM)
+  - Added Redis ACL username support across all applications:
+    - Added `Username` field to `StreamsConfig` struct in `pkg/redis/streams_client.go`
+    - Updated all three client modes (single, cluster, sentinel) to pass username to go-redis
+    - Modified `pkg/queue/queue.go` to read `REDIS_USERNAME` environment variable
+    - Modified worker idempotency client in `apps/worker/main.go` to read username/password
+    - Added explicit Viper bindings in `pkg/common/config/config.go` for REST API consistency
+  - **Environment Variables**: All apps now consistently support:
+    - `REDIS_USERNAME` - Redis 6.0+ ACL username
+    - `REDIS_PASSWORD` - Redis password
+    - `REDIS_TLS_ENABLED` - Enable TLS for encryption-in-transit
+  - **Cross-App Consistency**: Fixed environment variable binding gaps
+    - REST API/RAG Loader: Added explicit `REDIS_USERNAME` and `REDIS_PASSWORD` bindings to Viper
+    - Worker queue client: Now reads `REDIS_USERNAME` and passes to StreamsConfig
+    - Worker idempotency client: Now reads `REDIS_USERNAME` and `REDIS_PASSWORD`
+  - **Architectural Note**: Three apps use different Redis initialization patterns
+    - REST API/RAG Loader: Viper YAML config via `pkg/common/cache` (now has username binding)
+    - Worker queue: Environment variables via `pkg/queue/queue.go` (now has username support)
+    - Worker idempotency: Direct environment variables in `apps/worker/main.go` (now consistent)
+
+### Documentation
+
+- **Redis ACL Authentication Across Applications**
+  - Documented Redis 6.0+ ACL authentication requirements for ElastiCache
+  - Clarified that ElastiCache Redis does NOT support IAM authentication
+  - Explained username/password authentication flow for all applications
+  - Added guidance for configuring REDIS_USERNAME and REDIS_PASSWORD environment variables
+  - Updated `docs/reference/configuration/redis-configuration.md`:
+    - Added REDIS_USERNAME to environment variables section
+    - Enhanced ElastiCache configuration section with ACL auth details
+    - Added environment variables for authentication examples
+    - Updated TLS environment variables with ElastiCache-specific guidance
+
+### Configuration
+
+- **Deployment Configuration Updates**
+  - Updated Helm charts for ElastiCache deployments:
+    - `deployments/k8s/helm/worker/values.elasticache.yaml`: Added username field with documentation
+    - `deployments/k8s/helm/edge-mcp/values.elasticache.yaml`: Added username field with documentation
+  - Updated `.env.example`:
+    - Added REDIS_USERNAME with usage documentation
+    - Added REDIS_PASSWORD with security notes
+    - Added REDIS_TLS_ENABLED flag for ElastiCache
+    - Added REDIS_TLS_SKIP_VERIFY flag with development-only warning
+
+## [0.0.13] - 2025-11-05
+
+### Fixed
+
+- **Critical: Worker TLS Configuration for ElastiCache**
+  - Fixed worker failing to connect to AWS ElastiCache with TLS encryption enabled
+  - Root cause: `pkg/queue/queue.go` never read `REDIS_TLS_ENABLED` environment variable
+  - Worker was attempting plaintext connections to TLS-enabled ElastiCache causing I/O timeout
+  - Protocol mismatch: ElastiCache expected TLS handshake, client sent plaintext Redis commands
+  - Added TLS configuration support to `pkg/queue/queue.go`:
+    - Now reads `REDIS_TLS_ENABLED` environment variable
+    - Configures `tls.Config` with MinVersion TLS 1.2 when enabled
+    - Supports `REDIS_TLS_SKIP_VERIFY=true` for development (with warning log)
+    - Adds informational logging when TLS is enabled
+  - **Architectural Note**: Worker had inconsistent Redis initialization
+    - Idempotency Redis client in `apps/worker/main.go` already had TLS support (lines 167-173)
+    - Queue/Streams Redis client in `pkg/queue/queue.go` was missing TLS support (now fixed)
+    - REST API and RAG Loader use `pkg/common/cache` with built-in TLS support via YAML config
+    - Edge MCP uses in-memory cache only (no Redis connection)
+  - **Why it worked locally**: Local Redis container runs without TLS (accepts plaintext)
+  - **Why it failed with ElastiCache**: AWS requires encryption-in-transit (TLS mandatory)
+
+### Documentation
+
+- **Redis TLS Configuration Across Applications**
+  - Documented three different Redis initialization patterns in codebase
+  - Explained why Worker had two Redis clients with different TLS support
+  - Clarified that REST API/RAG Loader already support TLS via YAML config
+  - Added deployment guidance for ElastiCache TLS configuration
+
+## [0.0.12] - 2025-11-05
+
+### Fixed
+
+- **ElastiCache I/O Timeout Error**
+  - Fixed "failed to ping Redis: i/o timeout" error when worker connects to AWS ElastiCache
+  - Root cause: Network latency (5-50ms+) and TLS handshake overhead (100-500ms) exceeded implicit go-redis default timeouts (~3-5s)
+  - Added explicit timeout configurations to `pkg/redis/streams_client.go`:
+    - `DialTimeout`: 15 seconds (generous timeout for cross-network connections)
+    - `ReadTimeout`: 10 seconds (read operations timeout)
+    - `WriteTimeout`: 10 seconds (write operations timeout)
+  - Applied timeouts to all client creation modes (single instance, cluster, sentinel)
+  - Updated connection test timeout to use combined dial+read timeout for initial handshake
+  - Updated `pkg/queue/queue.go` to use `DefaultConfig()` for consistent timeout configurations
+  - Fix works for localhost (low latency) and ElastiCache (higher latency) deployments
+  - Handles worst-case network conditions: cross-VPC routing, DNS resolution, security group processing
+
+### Documentation
+
+- **Redis Timeout Configuration**
+  - Documented timeout configuration rationale in code comments
+  - Explained network latency differences between localhost and ElastiCache
+
+## [0.0.11] - 2025-11-05
+
+### Changed
+
+- **Redis Environment Variable Consolidation**
+  - Standardized all services to use `REDIS_ADDR` exclusively (format: `host:port`)
+  - Removed `REDIS_ADDRESS` variable from worker and queue initialization
+  - Unified Edge MCP Redis configuration to use standard `REDIS_ADDR` instead of `EDGE_MCP_REDIS_URL`
+  - Changed Edge MCP from URL format (`redis://host:port`) to simple address format (`host:port`)
+  - Updated cache initialization to use `redis.Options` instead of `redis.ParseURL()`
+  - **Breaking Change**: `REDIS_ADDRESS` is no longer supported - use `REDIS_ADDR` instead
+  - **Breaking Change**: `EDGE_MCP_REDIS_URL` is no longer supported - use `REDIS_ADDR` instead
+  - Updated all Helm charts and docker-compose configurations to use `REDIS_ADDR`
+  - Updated all configuration files (edge-mcp, rest-api, worker, rag-loader)
+  - Format: `REDIS_ADDR` uses simple `host:port` (e.g., `localhost:6379`, `elasticache.amazonaws.com:6379`)
+  - Do NOT include protocol (`redis://` or `rediss://`), authentication (`user:pass@`), or database number (`/0`)
+  - Authentication and TLS configured via separate environment variables:
+    - `REDIS_PASSWORD` - AUTH token
+    - `REDIS_USERNAME` - Redis 6.0+ ACL users
+    - `REDIS_TLS_ENABLED` - Enable TLS
+    - `REDIS_TLS_SKIP_VERIFY` - Skip TLS verification (dev only)
+
+### Fixed
+
+- **Kubernetes ElastiCache Connection Error**
+  - Fixed "dial tcp [::]:6379: connect: connection refused" error in K8s deployments
+  - Root cause: Worker service expected `REDIS_ADDRESS` but Helm charts only set `REDIS_ADDR`
+  - Consolidated all services to use `REDIS_ADDR` consistently
+  - Updated `pkg/queue/queue.go` to use `REDIS_ADDR` environment variable
+  - Updated worker, rest-api, edge-mcp, and rag-loader configurations
+
+### Documentation
+
+- **Updated Redis Configuration Documentation**
+  - Added migration warning for `REDIS_ADDRESS` → `REDIS_ADDR` change
+  - Clarified `REDIS_ADDR` format requirements (simple `host:port`, no protocol/auth)
+  - Added examples for local development, Docker, and AWS ElastiCache scenarios
+  - Updated `docs/reference/configuration/environment-variables.md` with format details
+  - Updated `docs/deployment/kubernetes-elasticache.md` with correct variable names
+
+## [0.0.10] - 2025-11-04
+
+### Fixed
+
+- **Docker TLS Certificate Verification** (#86)
+  - Added CA certificates to all distroless Docker images
+  - Fixes TLS verification errors when connecting to AWS services (RDS, ElastiCache)
+  - Set SSL_CERT_DIR and SSL_CERT_FILE environment variables for Go's crypto/x509 package
+  - Converted rag-loader from Alpine to distroless for consistency
+  - All services now use distroless base images with proper certificate chains
+  - Maintains minimal attack surface while enabling secure cloud connectivity
+  - Image sizes remain optimized (23MB - 66MB range)
+
 ## [0.0.9] - 2025-10-29
 
 ### Changed

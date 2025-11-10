@@ -158,9 +158,11 @@ func runWorker(ctx context.Context) error {
 	}
 	log.Printf("Connecting to Redis at %s", redisAddr)
 
-	// Configure Redis options with TLS support
+	// Configure Redis options with TLS support and ACL authentication
 	redisOptions := &redis.Options{
-		Addr: redisAddr,
+		Addr:     redisAddr,
+		Username: os.Getenv("REDIS_USERNAME"), // Redis 6.0+ ACL username
+		Password: os.Getenv("REDIS_PASSWORD"), // Redis password
 	}
 
 	// Check if TLS is enabled

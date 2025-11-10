@@ -15,10 +15,16 @@ import (
 type StreamsConfig struct {
 	// Connection settings
 	Addresses    []string      `yaml:"addresses" json:"addresses"`
+	Username     string        `yaml:"username" json:"username"` // Redis 6.0+ ACL username
 	Password     string        `yaml:"password" json:"password"`
 	DB           int           `yaml:"db" json:"db"`
 	MaxRetries   int           `yaml:"max_retries" json:"max_retries"`
 	RetryBackoff time.Duration `yaml:"retry_backoff" json:"retry_backoff"`
+
+	// Timeout settings for network operations
+	DialTimeout  time.Duration `yaml:"dial_timeout" json:"dial_timeout"`
+	ReadTimeout  time.Duration `yaml:"read_timeout" json:"read_timeout"`
+	WriteTimeout time.Duration `yaml:"write_timeout" json:"write_timeout"`
 
 	// TLS settings
 	TLSEnabled bool        `yaml:"tls_enabled" json:"tls_enabled"`
@@ -49,6 +55,9 @@ func DefaultConfig() *StreamsConfig {
 		Addresses:      []string{"localhost:6379"},
 		MaxRetries:     3,
 		RetryBackoff:   100 * time.Millisecond,
+		DialTimeout:    15 * time.Second, // Generous timeout for ElastiCache across networks
+		ReadTimeout:    10 * time.Second, // Read timeout for operations
+		WriteTimeout:   10 * time.Second, // Write timeout for operations
 		PoolSize:       10,
 		MinIdleConns:   5,
 		MaxConnAge:     30 * time.Minute,
@@ -109,10 +118,14 @@ func (c *StreamsClient) connect() error {
 			MasterName:       c.config.MasterName,
 			SentinelAddrs:    c.config.SentinelAddrs,
 			SentinelPassword: c.config.SentinelPassword,
+			Username:         c.config.Username,
 			Password:         c.config.Password,
 			DB:               c.config.DB,
 			MaxRetries:       c.config.MaxRetries,
 			MinRetryBackoff:  c.config.RetryBackoff,
+			DialTimeout:      c.config.DialTimeout,
+			ReadTimeout:      c.config.ReadTimeout,
+			WriteTimeout:     c.config.WriteTimeout,
 			PoolSize:         c.config.PoolSize,
 			MinIdleConns:     c.config.MinIdleConns,
 			PoolTimeout:      c.config.PoolTimeout,
@@ -123,9 +136,13 @@ func (c *StreamsClient) connect() error {
 		// Cluster mode for horizontal scaling
 		client = redis.NewClusterClient(&redis.ClusterOptions{
 			Addrs:           c.config.Addresses,
+			Username:        c.config.Username,
 			Password:        c.config.Password,
 			MaxRetries:      c.config.MaxRetries,
 			MinRetryBackoff: c.config.RetryBackoff,
+			DialTimeout:     c.config.DialTimeout,
+			ReadTimeout:     c.config.ReadTimeout,
+			WriteTimeout:    c.config.WriteTimeout,
 			PoolSize:        c.config.PoolSize,
 			MinIdleConns:    c.config.MinIdleConns,
 			PoolTimeout:     c.config.PoolTimeout,
@@ -142,10 +159,14 @@ func (c *StreamsClient) connect() error {
 
 		client = redis.NewClient(&redis.Options{
 			Addr:            c.config.Addresses[0],
+			Username:        c.config.Username,
 			Password:        c.config.Password,
 			DB:              c.config.DB,
 			MaxRetries:      c.config.MaxRetries,
 			MinRetryBackoff: c.config.RetryBackoff,
+			DialTimeout:     c.config.DialTimeout,
+			ReadTimeout:     c.config.ReadTimeout,
+			WriteTimeout:    c.config.WriteTimeout,
 			PoolSize:        c.config.PoolSize,
 			MinIdleConns:    c.config.MinIdleConns,
 			PoolTimeout:     c.config.PoolTimeout,
@@ -154,8 +175,13 @@ func (c *StreamsClient) connect() error {
 		})
 	}
 
-	// Test connection
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	// Test connection - use longer timeout for initial connection
+	// This allows time for dial + TLS handshake + AUTH command
+	testTimeout := c.config.DialTimeout + c.config.ReadTimeout
+	if testTimeout == 0 {
+		testTimeout = 20 * time.Second // Fallback for zero values
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), testTimeout)
 	defer cancel()
 
 	if err := client.Ping(ctx).Err(); err != nil {

@@ -2,6 +2,7 @@ package queue
 
 import (
 	"context"
+	"crypto/tls"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -72,10 +73,11 @@ func NewClient(_ context.Context, config *Config) (*Client, error) {
 
 	// Get Redis configuration from environment
 	addresses := []string{"localhost:6379"}
-	if redisAddr := os.Getenv("REDIS_ADDRESS"); redisAddr != "" {
+	if redisAddr := os.Getenv("REDIS_ADDR"); redisAddr != "" {
 		addresses = []string{redisAddr}
 	}
 
+	username := os.Getenv("REDIS_USERNAME")
 	password := os.Getenv("REDIS_PASSWORD")
 
 	streamName := "webhook-events"
@@ -88,13 +90,34 @@ func NewClient(_ context.Context, config *Config) (*Client, error) {
 		consumerGroup = g
 	}
 
-	// Create Redis Streams client
-	streamsClient, err := redis.NewStreamsClient(&redis.StreamsConfig{
-		Addresses:  addresses,
-		Password:   password,
-		PoolSize:   10,
-		MaxRetries: 3,
-	}, logger)
+	// Create Redis Streams client with proper timeout configurations
+	streamsConfig := redis.DefaultConfig()
+	streamsConfig.Addresses = addresses
+	streamsConfig.Username = username
+	streamsConfig.Password = password
+
+	// Configure TLS if enabled (required for AWS ElastiCache with encryption in-transit)
+	if os.Getenv("REDIS_TLS_ENABLED") == "true" {
+		streamsConfig.TLSEnabled = true
+		streamsConfig.TLSConfig = &tls.Config{
+			MinVersion: tls.VersionTLS12,
+		}
+
+		// Allow skipping TLS verification in development/testing (NOT for production!)
+		if os.Getenv("REDIS_TLS_SKIP_VERIFY") == "true" {
+			streamsConfig.TLSConfig.InsecureSkipVerify = true
+			logger.Warn("TLS certificate verification disabled - only use in development!", map[string]interface{}{
+				"env": "REDIS_TLS_SKIP_VERIFY=true",
+			})
+		}
+
+		logger.Info("TLS enabled for Redis connection", map[string]interface{}{
+			"addresses":       addresses,
+			"tls_skip_verify": streamsConfig.TLSConfig.InsecureSkipVerify,
+		})
+	}
+
+	streamsClient, err := redis.NewStreamsClient(streamsConfig, logger)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create Redis Streams client: %w", err)
 	}

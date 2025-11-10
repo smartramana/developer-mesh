@@ -157,20 +157,43 @@ build: build-edge-mcp build-rest-api build-worker ## Build all applications
 .PHONY: build-edge-mcp
 build-edge-mcp: ## Build Edge MCP binary
 	@echo "Building Edge MCP..."
-	@cd apps/edge-mcp && go build -o ../../bin/edge-mcp ./cmd/server
+	@VERSION=$$(git describe --tags --always --dirty 2>/dev/null || echo "dev"); \
+	COMMIT=$$(git rev-parse --short HEAD 2>/dev/null || echo "unknown"); \
+	BUILD_TIME=$$(date -u '+%Y-%m-%d_%H:%M:%S'); \
+	cd apps/edge-mcp && go build \
+		-ldflags="-s -w \
+			-X 'main.version=$${VERSION}' \
+			-X 'main.commit=$${COMMIT}' \
+			-X 'main.buildTime=$${BUILD_TIME}'" \
+		-o ../../bin/edge-mcp ./cmd/server
 	@echo "✅ Edge MCP built: bin/edge-mcp"
 
 .PHONY: build-edge-mcp-all
 build-edge-mcp-all: ## Build Edge MCP for all platforms
 	@echo "Building Edge MCP for all platforms..."
 	@mkdir -p dist
-	@cd apps/edge-mcp && \
-		GOOS=darwin GOARCH=amd64 go build -o ../../dist/edge-mcp-darwin-amd64 ./cmd/server && \
-		GOOS=darwin GOARCH=arm64 go build -o ../../dist/edge-mcp-darwin-arm64 ./cmd/server && \
-		GOOS=linux GOARCH=amd64 go build -o ../../dist/edge-mcp-linux-amd64 ./cmd/server && \
-		GOOS=linux GOARCH=arm64 go build -o ../../dist/edge-mcp-linux-arm64 ./cmd/server && \
-		GOOS=windows GOARCH=amd64 go build -o ../../dist/edge-mcp-windows-amd64.exe ./cmd/server && \
-		GOOS=windows GOARCH=arm64 go build -o ../../dist/edge-mcp-windows-arm64.exe ./cmd/server
+	@VERSION=$$(git describe --tags --always --dirty 2>/dev/null || echo "dev"); \
+	COMMIT=$$(git rev-parse --short HEAD 2>/dev/null || echo "unknown"); \
+	BUILD_TIME=$$(date -u '+%Y-%m-%d_%H:%M:%S'); \
+	cd apps/edge-mcp && \
+		GOOS=darwin GOARCH=amd64 go build \
+			-ldflags="-s -w -X 'main.version=$${VERSION}' -X 'main.commit=$${COMMIT}' -X 'main.buildTime=$${BUILD_TIME}'" \
+			-o ../../dist/edge-mcp-darwin-amd64 ./cmd/server && \
+		GOOS=darwin GOARCH=arm64 go build \
+			-ldflags="-s -w -X 'main.version=$${VERSION}' -X 'main.commit=$${COMMIT}' -X 'main.buildTime=$${BUILD_TIME}'" \
+			-o ../../dist/edge-mcp-darwin-arm64 ./cmd/server && \
+		GOOS=linux GOARCH=amd64 go build \
+			-ldflags="-s -w -X 'main.version=$${VERSION}' -X 'main.commit=$${COMMIT}' -X 'main.buildTime=$${BUILD_TIME}'" \
+			-o ../../dist/edge-mcp-linux-amd64 ./cmd/server && \
+		GOOS=linux GOARCH=arm64 go build \
+			-ldflags="-s -w -X 'main.version=$${VERSION}' -X 'main.commit=$${COMMIT}' -X 'main.buildTime=$${BUILD_TIME}'" \
+			-o ../../dist/edge-mcp-linux-arm64 ./cmd/server && \
+		GOOS=windows GOARCH=amd64 go build \
+			-ldflags="-s -w -X 'main.version=$${VERSION}' -X 'main.commit=$${COMMIT}' -X 'main.buildTime=$${BUILD_TIME}'" \
+			-o ../../dist/edge-mcp-windows-amd64.exe ./cmd/server && \
+		GOOS=windows GOARCH=arm64 go build \
+			-ldflags="-s -w -X 'main.version=$${VERSION}' -X 'main.commit=$${COMMIT}' -X 'main.buildTime=$${BUILD_TIME}'" \
+			-o ../../dist/edge-mcp-windows-arm64.exe ./cmd/server
 	@echo "✅ Built Edge MCP for all platforms in dist/"
 
 .PHONY: install-edge-mcp
@@ -201,17 +224,17 @@ clean: ## Clean build artifacts
 .PHONY: test
 test: ## Run all unit tests (excludes integration tests and Redis-dependent tests)
 	@echo "Running unit tests..."
-	@cd apps/edge-mcp && $(GOTEST) -v -short -timeout=60s ./... && cd ../.. && \
-	cd apps/rest-api && $(GOTEST) -v -short -timeout=60s ./... && cd ../.. && \
-	cd apps/worker && $(GOTEST) -v -short -timeout=60s ./... && cd ../.. && \
-	cd apps/mockserver && $(GOTEST) -v -short -timeout=60s ./... && cd ../.. && \
-	cd apps/rag-loader && $(GOTEST) -v -short -timeout=60s ./... && cd ../.. && \
+	@cd apps/edge-mcp && $(GOTEST) -v -timeout=60s ./... && cd ../.. && \
+	cd apps/rest-api && $(GOTEST) -v -timeout=60s ./... && cd ../.. && \
+	cd apps/worker && $(GOTEST) -v -timeout=60s ./... && cd ../.. && \
+	cd apps/mockserver && $(GOTEST) -v -timeout=60s ./... && cd ../.. && \
+	cd apps/rag-loader && $(GOTEST) -v -timeout=60s ./... && cd ../.. && \
 	cd pkg && $(GOTEST) -v -short -timeout=60s $$(go list ./... | grep -v embedding/cache) && cd ..
 
 .PHONY: test-with-services
 test-with-services: start-test-env ## Run unit tests that require Redis/PostgreSQL
 	@echo "Running unit tests with Docker services..."
-	@TEST_REDIS_ADDR=127.0.0.1:6379 $(GOTEST) -v -short ./apps/edge-mcp/... ./apps/rest-api/... ./apps/worker/... ./apps/rag-loader/... ./pkg/... || (make stop-test-env && exit 1)
+	@TEST_REDIS_ADDR=127.0.0.1:6379 $(GOTEST) -v  ./apps/edge-mcp/... ./apps/rest-api/... ./apps/worker/... ./apps/rag-loader/... ./pkg/... || (make stop-test-env && exit 1)
 	@make stop-test-env
 
 .PHONY: test-coverage
@@ -238,23 +261,42 @@ test-embedding: ## Run embedding-specific tests
 
 .PHONY: start-test-env
 start-test-env: ## Start test environment (Redis + PostgreSQL in Docker)
-	@echo "Starting test environment..."
-	@docker-compose -f docker-compose.test.yml up -d
-	@echo "Waiting for services to be ready..."
-	@sleep 3
-	@docker-compose -f docker-compose.test.yml ps
+	@echo "Starting test environment using docker-compose.local.yml..."
+	@$(DOCKER_COMPOSE) up -d database redis
+	@echo "Waiting for services to be healthy..."
+	@for i in 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24 25 26 27 28 29 30; do \
+		if $(DOCKER_COMPOSE) ps database | grep -q "healthy" && $(DOCKER_COMPOSE) ps redis | grep -q "healthy"; then \
+			echo "Test services are ready"; \
+			$(DOCKER_COMPOSE) ps database redis; \
+			exit 0; \
+		fi; \
+		echo "Waiting for services (attempt $$i/30)..."; \
+		sleep 1; \
+	done; \
+	echo "Services failed to become healthy after 30 seconds"; \
+	$(DOCKER_COMPOSE) ps database redis; \
+	exit 1
+	@echo "Running database migrations..."
+	@which migrate > /dev/null || (echo "Error: golang-migrate not installed. Run: brew install golang-migrate" && exit 1)
+	@migrate -database "postgresql://devmesh:devmesh@localhost:5432/devmesh_development?sslmode=disable" -path apps/rest-api/migrations/sql up || echo "Migrations already applied or completed with warnings"
+	@echo "Migrations completed"
 
 .PHONY: stop-test-env
 stop-test-env: ## Stop test environment
 	@echo "Stopping test environment..."
-	@docker-compose -f docker-compose.test.yml down -v
+	@$(DOCKER_COMPOSE) stop database redis
 
 .PHONY: test-integration test-int
 test-integration test-int: start-test-env ## Run integration tests
 	@echo "Running integration tests with Docker services..."
 	@export ENABLE_INTEGRATION_TESTS=true && \
 	export TEST_REDIS_ADDR=127.0.0.1:6379 && \
-	export TEST_DATABASE_URL="postgres://test:test@127.0.0.1:5433/test?sslmode=disable" && \
+	export TEST_DATABASE_URL="postgres://devmesh:devmesh@127.0.0.1:5432/devmesh_development?sslmode=disable" && \
+	export POSTGRES_HOST=localhost && \
+	export POSTGRES_PORT=5432 && \
+	export POSTGRES_USER=devmesh && \
+	export POSTGRES_PASSWORD=devmesh && \
+	export POSTGRES_DB=devmesh_development && \
 	echo "Running integration tests for each module..." && \
 	(cd apps/edge-mcp && $(GOTEST) -tags=integration -v ./... || exit 1) && \
 	(cd apps/rest-api && $(GOTEST) -tags=integration -v ./... || exit 1) && \

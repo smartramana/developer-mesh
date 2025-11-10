@@ -14,7 +14,9 @@ type CacheConfig struct {
 
 	// L2 Redis Cache (optional)
 	RedisEnabled        bool          `yaml:"redis_enabled" json:"redis_enabled"`
-	RedisURL            string        `yaml:"redis_url" json:"redis_url"`
+	RedisAddr           string        `yaml:"redis_addr" json:"redis_addr"`         // host:port format (e.g., localhost:6379)
+	RedisPassword       string        `yaml:"redis_password" json:"redis_password"` // Optional password
+	RedisDB             int           `yaml:"redis_db" json:"redis_db"`             // Database number (default: 0)
 	RedisConnectTimeout time.Duration `yaml:"redis_connect_timeout" json:"redis_connect_timeout"`
 	RedisFallbackMode   bool          `yaml:"redis_fallback_mode" json:"redis_fallback_mode"`
 	L2TTL               time.Duration `yaml:"l2_ttl" json:"l2_ttl"`
@@ -26,14 +28,16 @@ type CacheConfig struct {
 
 // LoadCacheConfig loads cache configuration from environment variables
 func LoadCacheConfig() *CacheConfig {
-	config := &CacheConfig{
+	return &CacheConfig{
 		// L1 defaults
 		L1MaxItems: getEnvInt("EDGE_MCP_L1_MAX_ITEMS", 10000),
 		L1TTL:      getEnvDuration("EDGE_MCP_L1_TTL", 5*time.Minute),
 
-		// L2 defaults
+		// L2 defaults - Using standard Redis env vars like all other services
 		RedisEnabled:        getEnvBool("EDGE_MCP_REDIS_ENABLED", false),
-		RedisURL:            getEnvString("EDGE_MCP_REDIS_URL", "redis://localhost:6379/0"),
+		RedisAddr:           getEnvString("REDIS_ADDR", "localhost:6379"),
+		RedisPassword:       getEnvString("REDIS_PASSWORD", ""),
+		RedisDB:             getEnvInt("EDGE_MCP_REDIS_DB", 0),
 		RedisConnectTimeout: getEnvDuration("EDGE_MCP_REDIS_CONNECT_TIMEOUT", 5*time.Second),
 		RedisFallbackMode:   getEnvBool("EDGE_MCP_REDIS_FALLBACK_MODE", true),
 		L2TTL:               getEnvDuration("EDGE_MCP_L2_TTL", 1*time.Hour),
@@ -42,8 +46,6 @@ func LoadCacheConfig() *CacheConfig {
 		EnableCompression:    getEnvBool("EDGE_MCP_ENABLE_COMPRESSION", true),
 		CompressionThreshold: getEnvInt("EDGE_MCP_COMPRESSION_THRESHOLD", 1024),
 	}
-
-	return config
 }
 
 // DefaultCacheConfig returns default cache configuration
@@ -52,7 +54,9 @@ func DefaultCacheConfig() *CacheConfig {
 		L1MaxItems:           10000,
 		L1TTL:                5 * time.Minute,
 		RedisEnabled:         false,
-		RedisURL:             "redis://localhost:6379/0",
+		RedisAddr:            "localhost:6379",
+		RedisPassword:        "",
+		RedisDB:              0,
 		RedisConnectTimeout:  5 * time.Second,
 		RedisFallbackMode:    true,
 		L2TTL:                1 * time.Hour,
@@ -81,6 +85,14 @@ func getEnvInt(key string, defaultValue int) int {
 
 func getEnvBool(key string, defaultValue bool) bool {
 	if value := os.Getenv(key); value != "" {
+		// Handle common yes/no strings explicitly
+		switch value {
+		case "yes", "Yes", "YES", "y", "Y":
+			return true
+		case "no", "No", "NO", "n", "N":
+			return false
+		}
+		// Fall back to ParseBool for standard boolean strings (true, false, 1, 0, etc.)
 		if boolVal, err := strconv.ParseBool(value); err == nil {
 			return boolVal
 		}
